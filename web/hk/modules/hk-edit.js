@@ -93,6 +93,7 @@
   var EDGE = 72;                // within this of the window's top or bottom, a carried pill scrolls the page
   var SPEED = 22;               // px a frame at the very edge
   var SETTLE = '.26s';          // a pill gliding to its place
+  var BAR_GAP = 12;             // the bar under a tab bar at the top (its own 12 px from the edge), and the page under the bar
 
   function win() { return global.window || global; }
   function doc() { return global.document; }
@@ -896,8 +897,11 @@
   function barCss() {
     var C = cards(), B = (C && C.BLUR && C.BLUR.heavy) || 'blur(34px) saturate(1.9)';
     // (over the page, not a docked menu: --hk-page-left / -right, hk-menu.js)
+    // (under a tab bar at the top, --hk-tabbar-below from hk-tabbar.js: as
+    // far below it as it is below the window's edge, BAR_GAP)
     return '#hk-edit{position:fixed;left:var(--hk-page-left,0px);right:var(--hk-page-right,0px);top:0;z-index:10;display:flex;justify-content:center;' +
-      'box-sizing:border-box;padding:calc(var(--hk-safe-top, env(safe-area-inset-top, 0px)) + 10px) 16px 0;pointer-events:none}' +
+      'box-sizing:border-box;padding:max(calc(var(--hk-safe-top, env(safe-area-inset-top, 0px)) + 10px), ' +
+      'calc(var(--hk-tabbar-below, -100px) + ' + BAR_GAP + 'px)) 16px 0;pointer-events:none}' +
       '#hk-edit .bar{pointer-events:auto;box-sizing:border-box;width:100%;max-width:640px;min-height:52px;' +
       'display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;column-gap:8px;' +
       'padding:3px 5px;border-radius:26px;border:' + v('glass-border', '1px solid rgba(255,255,255,0.13)') + ';' +
@@ -966,6 +970,34 @@
     n.hidden = !note;
     m.hidden = true;
     paintExtra(s);
+    makeRoom(s);
+  }
+  // THE PAGE MAKES ROOM: the bar is pinned over the top of the page, so while
+  // editing the view goes down by what the bar would cover of it (and
+  // BAR_GAP) -- the page's title, a room's back button, the first row of
+  // pills are never under the bar (or under a tab bar at the top and the bar
+  // below it). Measured once the bar is drawn; a page scrolled past its top
+  // is measured from its top all the same.
+  function makeRoom(s) {
+    var v = s.viewEl, B = s.bar;
+    if (!v || !v.style || !B || !B.bar || typeof B.bar.getBoundingClientRect !== 'function' ||
+        typeof v.getBoundingClientRect !== 'function') return;
+    var room = 0;
+    try {
+      var bb = B.bar.getBoundingClientRect(), vr = v.getBoundingClientRect(), pad = 0;
+      try { pad = parseFloat(global.getComputedStyle(v).paddingTop) || 0; } catch (e) { pad = 0; }
+      var top = vr.top + (global.scrollY || global.pageYOffset || 0) + pad;
+      room = Math.max(0, Math.min(bb.bottom + BAR_GAP, Math.round(bb.bottom + BAR_GAP - top)));
+    } catch (e) { room = 0; }
+    if (!room) return;
+    s.room = { el: v, was: v.style.getPropertyValue('margin-top'), prio: v.style.getPropertyPriority ? v.style.getPropertyPriority('margin-top') : '' };
+    v.style.setProperty('margin-top', 'calc(' + (s.room.was || '0px') + ' + ' + room + 'px)');
+  }
+  function unroom(s) {
+    var R = s.room;
+    if (!R) return;
+    if (R.was) R.el.style.setProperty('margin-top', R.was, R.prio || ''); else R.el.style.removeProperty('margin-top');
+    s.room = null;
   }
   function paintExtra(s) {
     var B = s.bar;
@@ -982,6 +1014,7 @@
     });
   }
   function unmountBar(s) {
+    unroom(s);
     if (s.bar && s.bar.host && s.bar.host.parentNode) s.bar.host.parentNode.removeChild(s.bar.host);
     s.bar = null;
   }

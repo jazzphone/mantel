@@ -226,6 +226,26 @@ viewHost.onView((el, view, config, info) => {
 });
 await viewHost.start();
 mark('rendered');
+
+// A SETTINGS CHANGE THE STRATEGY SAYS NEEDS A NEW BUILD (hk-strategy.js refresh(): `config-refresh` from the
+// panel, which is this page's body): the dashboard is generated again and the page shown drawn again from it,
+// in place -- as HK Frontend's panel does (hk-ha-panel.js). A save made here (Edit mode's Done, a sheet's gear)
+// shows at once; another device's waits until nobody is using the page (the strategy decides when). Changes
+// close together are built once, the last one last.
+{
+  let building = null, again = false;
+  const rebuild = () => {
+    if (building) { again = true; return; }
+    building = (async () => {
+      const next = await window.hkStrategy.generate({}, host.client);
+      await viewHost.reconfigure(next);
+    })().catch((e) => console.error('[home] could not build the screen again', e)).then(() => {
+      building = null;
+      if (again) { again = false; rebuild(); }
+    });
+  };
+  document.addEventListener('config-refresh', (ev) => { ev.stopPropagation(); rebuild(); });
+}
 health.drawn();                 // the first screen is on the glass: its time goes to Mantel's Performance page
 
 // the house's changes reach the view host as client updates (hkHostClient.current()); the smoke and

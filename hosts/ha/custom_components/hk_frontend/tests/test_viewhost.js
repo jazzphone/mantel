@@ -344,6 +344,22 @@ settle().then(function () {
   return settle();
 }).then(function () {
   ok('...and the router follows it', vh.current().path === 'lights');
+  // A NEW CONFIG (Mantel's page: a settings change the strategy built again, config-refresh): the view shown
+  // made again from it, in place, at the same address and scroll; the views left are made again when shown
+  var oldLights = vh.current().element, scrolls = scrolled, toldN = told.length;
+  var cfg2 = { views: cfg.views.map(function (v) {
+    return v.path === 'lights' ? Object.assign({}, v, { cards: [{ type: 'custom:t-card', n: 'l2' }] }) : v; }) };
+  return vh.reconfigure(cfg2).then(function (el) {
+    var cur = vh.current();
+    ok('reconfigure(): the view shown made again from the new config', cur.path === 'lights' && el === cur.element &&
+       el !== oldLights && cur.cards.length === 1 && cur.cards[0].config.n === 'l2' && cur.cards[0].got === vh.client());
+    ok('...in the same slot, the old one gone, not scrolled', el.parentNode === slot && slot.childNodes.length === 1 &&
+       oldLights.parentNode === null && scrolled === scrolls);
+    ok('...the shell knows the new config and the new view', vh.shellParts().dashboardConfig() === cfg2 && vh.shellParts().view() === el &&
+       told.length === toldN + 1 && told[told.length - 1].path === 'lights');
+    ok('...the other views are made again when shown (none kept)', vh.cached().join() === 'lights', vh.cached());
+  });
+}).then(function () {
   vh.stop();
   window.hkShell.navigate('/dashboard-test/home');
   return settle();

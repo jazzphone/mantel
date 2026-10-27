@@ -21,7 +21,9 @@
 //     button (popstate) swap the view in the same container, so the sky, the
 //     menu and the tab bar stay mounted,
 //   * tell the host shell where the view is (shellParts / onView), so the sky,
-//     menu and tab bar find it through hkShell as they do in HA.
+//     menu and tab bar find it through hkShell as they do in HA,
+//   * take a new config (reconfigure: the strategy built again after a
+//     settings change) and draw the view shown again from it, in place.
 //
 // The host gives it the dashboard config (the strategy's `generate` output),
 // the client, and the element the views go in. Mantel's page is web/home.js;
@@ -1207,6 +1209,7 @@
     var client = opts.client || null;
     var cache = {};                // view index -> { el, cards, view, index, path, fed }
     var cur = null;
+    var stale = null;              // the view shown before reconfigure(): replaced in place by the next show()
     var turn = 0;                  // the newest show() wins
     var target = -1;               // the view it asked for
     var listeners = [];
@@ -1286,7 +1289,8 @@
         if (!entry || my !== turn) return null;
         if (entry.fed !== client) feedEntry(entry, client);
         if (cur === entry) return entry.el;
-        var old = cur;
+        var old = cur || stale, again = !cur && !!stale;
+        stale = null;
         cur = entry;
         // the shell learns the new view BEFORE it is attached: the view says
         // it is up (hk-view-ready) as it attaches, and the tab bar and the sky
@@ -1294,9 +1298,22 @@
         tell(entry, first);
         if (old && old.el.parentNode === slot) slot.removeChild(old.el);
         slot.appendChild(entry.el);
-        if (old && typeof win().scrollTo === 'function') { try { win().scrollTo(0, 0); } catch (e) { /* */ } }
+        if (old && !again && typeof win().scrollTo === 'function') { try { win().scrollTo(0, 0); } catch (e) { /* */ } }
         return entry.el;
       });
+    }
+
+    // A NEW CONFIG (the host built the strategy again: a settings change,
+    // hk-strategy.js refresh() -> config-refresh): the view shown is made
+    // again from it in place -- the same address, the page left where it was
+    // scrolled -- and the views left are made again when next shown.
+    function reconfigure(cfg) {
+      config = cfg || { views: [] };
+      if (cur) stale = cur;
+      cur = null;
+      cache = {};
+      target = -1;
+      return show(viewPathOf(global.location.pathname).view);
     }
 
     // Each new client: to the view shown and its cards. `force`: again with
@@ -1392,6 +1409,7 @@
       navigate: navigate,
       setClient: setClient,
       refresh: refresh,
+      reconfigure: reconfigure,
       client: function () { return client; },
       current: function () {
         return cur ? { path: cur.path, index: cur.index, view: cur.view, element: cur.el, cards: cur.cards.slice() } : null;

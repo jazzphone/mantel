@@ -30,6 +30,22 @@ def test_quick_is_part_of_full_and_full_adds_the_rest():
     assert {"ha-build", "hk-frontend-py", "hk-frontend-js", "caddy-image"} <= set(full)
     assert [n for n in full if n.startswith("headless-")] == [f"headless-{n}" for n in ci.HEADLESS]
     assert full.index("ha-build") < full.index("hk-frontend-py") < full.index("hk-frontend-js")
+    assert "edit-mode-check" in full and "edit-mode-check" not in quick
+
+
+def test_edit_mode_check_skips_saying_why_without_playwright(monkeypatch, tmp_path):
+    step = next(s for s in ci.steps() if s.name == "edit-mode-check")
+    assert step.tier == "full" and step.cmd[-1] == "tools/headless/edit_mode_check.py"
+    monkeypatch.delenv("PLAYWRIGHT_PATH", raising=False)
+    monkeypatch.delenv("NODE", raising=False)
+    assert "PLAYWRIGHT_PATH" in step.skip()
+    monkeypatch.setenv("PLAYWRIGHT_PATH", str(tmp_path))
+    assert "NODE" in step.skip()
+    monkeypatch.setenv("NODE", sys.executable)              # any file that exists
+    monkeypatch.setattr(ci, "chrome", lambda: None)
+    assert "Chrome" in step.skip()
+    monkeypatch.setattr(ci, "chrome", lambda: "/a/chrome")
+    assert step.skip() is None
 
 
 def test_only_narrows_and_brings_the_build_hk_frontend_needs():

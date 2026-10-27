@@ -3,7 +3,8 @@
 checks"). One runner, one table, one record:
 
     tools/ci.py quick            # the main suite and the release checks: what the pre-push hook runs (~4 min)
-    tools/ci.py full             # also the HA build, HK Frontend's suites, the headless checks, the Caddy image
+    tools/ci.py full             # also the HA build, HK Frontend's suites, the headless checks, Edit mode's
+                                 # browser check (PLAYWRIGHT_PATH and NODE), the Caddy image
     tools/ci.py full --only js   # only the steps whose name contains "js"
     tools/ci.py --list           # the steps of each tier
     tools/ci.py --install-hooks  # pre-commit: private words; pre-push: quick
@@ -92,6 +93,16 @@ def chrome() -> str | None:
                  if (p := shutil.which(n))), None)
 
 
+def playwright_missing() -> str | None:
+    """Why the Playwright checks (Edit mode's, in Chromium and WebKit) can't run here, or None."""
+    pw, node = os.environ.get("PLAYWRIGHT_PATH"), os.environ.get("NODE")
+    if not pw or not Path(pw).exists():
+        return "set PLAYWRIGHT_PATH to an installed playwright-core (and NODE to a Node.js binary)"
+    if not node or not Path(node).exists():
+        return "set NODE to a Node.js binary (PLAYWRIGHT_PATH is set)"
+    return None if chrome() else "no Chrome or Chromium (set CHROME)"
+
+
 def docker_down() -> str | None:
     if not shutil.which("docker"):
         return "Docker is not installed"
@@ -142,6 +153,10 @@ def steps(build: Build | None = None) -> list[Step]:
     out += [Step(f"headless-{n}", [py, f"tools/headless/{n}.py"], tier="full", timeout=600,
                  skip=lambda: None if chrome() else "no Chrome or Chromium (set CHROME)")
             for n in HEADLESS]     # one at a time: each uses a fixed DevTools port
+    # Edit mode in Chromium (a finger) and WebKit (a mouse), at a tablet's and a phone's size (Playwright's own
+    # browsers, no fixed port)
+    out.append(Step("edit-mode-check", [py, "tools/headless/edit_mode_check.py"], tier="full", timeout=1200,
+                    skip=playwright_missing))
     out.append(Step("caddy-image", ["sh", "-c",
                     f"docker build -q -f packaging/docker/caddy.Dockerfile -t {CADDY_IMAGE} packaging/docker && "
                     f'"{py}" -m pytest -q -p no:cacheprovider tests/test_packaging.py -k caddy_image'],

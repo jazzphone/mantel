@@ -21,6 +21,7 @@ Optional tools that some checks use:
 |---|---|
 | Node.js (`node` on `PATH`) | a few tests in the main suite that run the page's JavaScript; they are skipped without it |
 | Chrome or Chromium | the headless checks and the screenshot gallery |
+| Playwright (`playwright-core`, with its WebKit) and Node.js | Edit mode's browser check (`PLAYWRIGHT_PATH`, `NODE`) and the other `.cjs` checks |
 | Python 3.14 | Home Assistant's test harness, for the HA package's Python suites |
 | macOS | the HA package's JavaScript suites (they run on JavaScriptCore) |
 
@@ -39,9 +40,10 @@ prints one table:
 - **quick** is the main suite, `check_links`, `check_version`, `package_check --release`, and the private words
   in what is committed and in the commit messages `origin/main` hasn't got.
 - **full** adds the HA build, HK Frontend's Python and JavaScript suites in it, the headless checks one at a time,
-  and the Caddy image test (it builds `mantel-caddy:ci`) when Docker is running.
+  Edit mode's browser check (`edit-mode-check`, when `PLAYWRIGHT_PATH` and `NODE` are set), and the Caddy image
+  test (it builds `mantel-caddy:ci`) when Docker is running.
 - Each step ends **passed**, **failed** or **skipped**, and a skip says why (no Docker, no Chrome, no private
-  words, no `~/.venvs/hk-ha-test`). A skip is never counted as a pass.
+  words, no `~/.venvs/hk-ha-test`, no `PLAYWRIGHT_PATH` or `NODE`). A skip is never counted as a pass.
 - The result is written to `.ci/last-run.json` with the commit it ran on and any uncommitted files; a failed
   step's output goes to `.ci/<step>.log`. The exit status is 0 only when no step failed.
 - It uses `$MANTEL_PY`, else `~/.venvs/mantel`, else `.venv`. The private words come from `HK_PRIVATE`,
@@ -153,6 +155,34 @@ page exception, fails the check.
   two at once.
 
 The screenshot gallery uses the same driver; see [Screenshots](Screenshots.md).
+
+### Edit mode in Chromium and WebKit
+
+`tools/headless/edit_mode_check.py` (with its `.cjs`) checks Edit mode on the gallery's fictional house against a
+real Mantel Server, with Playwright: Chromium with a finger (CDP touch events: a hold of about 300 ms picks a pill
+up, a quick swipe scrolls the page and picks nothing up) and WebKit with a mouse, each at a tablet's size
+(1180 × 820) and a phone's (390 × 844).
+
+```bash
+export PLAYWRIGHT_PATH=/path/to/node_modules/playwright-core NODE=$(command -v node)
+~/.venvs/mantel/bin/python tools/headless/edit_mode_check.py                     # both engines, both sizes (~2 min)
+~/.venvs/mantel/bin/python tools/headless/edit_mode_check.py --engine webkit --size 390x844 --only bar --shots /tmp/edit-shots
+```
+
+- **who**: Edit Page is in the menu and in the tab bar's More for an Owner; never for a Member, for the Owner at a
+  wall tablet (a device session), or on a Home Grid screen's Home.
+- **room**: a pill carried and one made Tall on a room page; after Done the Tile Order and the size are saved and
+  the page is drawn again from them.
+- **pages**: one move each on Lights, Security, Home's Favorites and its scenes row, saved.
+- **menu**: a category moved and one hidden in the side menu, the Room Order sheet's Move Up, a tab dropped on
+  More; after Done and a reload the menu, the tab bar and More agree.
+- **cancel**: Cancel puts the page back and saves nothing.
+- **conflict**: a change made in another window between Edit and Done shows Reload / Save Anyway (each tried).
+- **bar**: the Edit bar beside a tab bar at the top (below it, evenly spaced), at the bottom and on a rail; the
+  page moves down so its title is never under the bar. `--shots` keeps the screenshots.
+
+Any page error or console error fails it, except the 404s of what each home supplies itself (SF Pro, the glyphs).
+Without `PLAYWRIGHT_PATH` or `NODE` it prints why and exits 0; `tools/ci.py full` runs it as `edit-mode-check`.
 
 ## A scratch Home Assistant
 

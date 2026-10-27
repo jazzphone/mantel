@@ -1181,6 +1181,14 @@
         if (top) de.style.setProperty('--hk-tabbar-top', top);
         else de.style.removeProperty('--hk-tabbar-top');
       }
+      // A BAR AT THE TOP (--hk-tabbar-below: its bottom edge from the
+      // window's top, while it shows): what is pinned along the top goes
+      // under it -- Edit mode's bar (hk-edit.js), never over the tabs
+      var below = pos === 'top' ? 'calc(' + barH(undefined, sizeNow()) + 'px + ' + TOP_CSS + ')' : '';
+      if (de.style.getPropertyValue('--hk-tabbar-below') !== below) {
+        if (below) de.style.setProperty('--hk-tabbar-below', below);
+        else de.style.removeProperty('--hk-tabbar-below');
+      }
       foldPub(on);
       var b = M.board() || {};
       if (pos && room(pos, scrollOf(b), b.tab_bar_adjust, isGrid(SH.view(viewEl()))) !== 'pad') pos = null;
