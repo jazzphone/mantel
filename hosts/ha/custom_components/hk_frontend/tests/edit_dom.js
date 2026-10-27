@@ -1,5 +1,5 @@
-// THE SMALL MODEL OF THE DOM that Edit mode's page suites draw into (from
-// test_edit.js, which keeps its own copy with its own page builder):
+// THE SMALL MODEL OF THE DOM that Edit mode's page suites draw into
+// (test_edit.js and test_edit_pages.js share this one copy):
 // elements with listeners, a 4-column grid's layout, a tile with a shadow
 // root, and pointer events as they reach a grid's root. Each suite builds its
 // page itself. Loaded after card_harness.js.
