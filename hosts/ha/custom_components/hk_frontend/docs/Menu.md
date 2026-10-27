@@ -116,6 +116,12 @@ always under **Rooms**.
 **Rooms in the menu** are A to Z, or in the screen’s room order (**Rooms in
 Menu**).
 
+**Arranging it on the page.** In Edit mode ([Arrange a page](Accessories.md#the-menu-the-tab-bar-and-the-room-order))
+the menu's pages and rooms have handles: drag a page within the top of the
+menu or Categories, or between them, and use its switch to take it out of the
+menu or bring it back. **Rooms** in the Edit bar opens the room order. The
+tab bar and More follow, and **Done** saves it all.
+
 **The Home Assistant section.** **Home Assistant Section** adds Home
 Assistant’s own pages to the menu, above Categories: Integrations,
 Automations and Settings, Notifications, **More** (which folds out the rest

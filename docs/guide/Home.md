@@ -61,3 +61,13 @@ Owners and Admins can arrange a room page, or Home’s room sections, in place, 
 4. Press **Done** to save, or **Cancel** (or Escape) to put everything back.
 
 The order is the room’s own, so a room page and that room’s section on Home share it, on every screen. While you edit, tiles sit in plain reading order; after Done the page packs them as usual, so a Tall tile’s gap may fill. If someone else changes the same page meanwhile, Done says so and offers **Reload** or **Save Anyway**. Leaving the page with unsaved changes asks first. Home Grid screens keep their own [editor](Home-Grid.md).
+
+### The menu, the tab bar and the room order
+
+While a page is in Edit mode, the menu, the tab bar and its **More** sheet can be arranged too. All three show the same lists, so a change in one shows in the others straight away:
+
+- **The menu:** drag a page by its handle (or touch and hold it) within the pages at the top or under **Categories**, or from one to the other. A page's switch takes it out of the menu; it is then listed under **Not in Menu**, where the switch brings it back. Drag a room by its handle to reorder **Rooms**.
+- **The tab bar:** drag a tab along the bar (up and down on a side rail). Drop a tab on **More** to move it past the tabs that fit; open **More** and drag a page onto the bar to bring it forward. More's pages and rooms can be dragged too. How many tabs fit is still the screen's tab bar setting.
+- **Rooms** in the Edit bar opens **Room Order**: every room on this screen with a handle, **Move Up** and **Move Down** buttons, and **A to Z**. A note says where the order is used: the menu's and the tab bar's rooms, Home's room sections when Home follows the room order, and the room sections on Lights, Climate and Water when they do. Closing the sheet shows the new order at once.
+
+**Done** saves it with the rest of the page: the screen's page order, its top-of-menu pages and Categories, and the room order, with the menu's rooms switched to the room order (it starts from A to Z). A screen whose Rooms are **Same as All Screens** changes All Screens' room order, which every such screen follows.

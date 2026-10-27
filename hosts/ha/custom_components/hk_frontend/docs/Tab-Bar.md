@@ -13,6 +13,11 @@ the one in iOS apps. It is a second way around a screen, next to the
   By default the rooms are a section of More, under its pages. A phone
   shows five, as Apple Music does: Home, three more tabs and More.
 
+**To change the order,** use Edit mode ([Arrange a page](Accessories.md#the-menu-the-tab-bar-and-the-room-order)):
+drag a tab along the bar, drop a tab on **More** to move it past the tabs
+that fit, or drag a page from More onto the bar. The menu follows, since it
+is the same list.
+
 With the screen's **Home Assistant Section** on, More has it too, after the pages and above Rooms:
 Integrations, Automations and Settings (for admins), Notifications, **Show
 Menu** (Home Assistant's own sidebar, over the page) and Profile. Its **Placement** (Menu settings) decides where in More it sits.
