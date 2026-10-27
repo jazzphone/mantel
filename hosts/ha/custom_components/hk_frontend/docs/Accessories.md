@@ -118,6 +118,33 @@ What each page saves:
   scene near either end and the row scrolls by itself. A finger that moves
   first still scrolls it.
 
+### The menu, the tab bar and the room order
+
+In Edit mode the [menu](Menu.md), the [tab bar](Tab-Bar.md) and its
+**More** sheet arrange the same lists, so a change in one shows in all three
+at once:
+
+- **The menu:** each page has a handle and a switch. Drag a page (by its
+  handle, or touch and hold it) within the top of the menu or **Categories**,
+  or between them. The switch takes a page out of the menu (the screen's
+  **Not in Menu**); it is listed under **Not in Menu**, where it can be
+  switched back. Rooms have handles too.
+- **The tab bar:** drag a tab along the bar, or up and down a rail. A tab
+  dropped on **More** moves past the tabs that fit; a page dragged from More
+  onto the bar comes forward. More's pages and rooms drag too. The number of
+  tabs is still the screen's **Tabs in Bar** setting.
+- **Room Order:** **Rooms** in the Edit bar opens every room on this screen
+  with a handle, **Move Up** / **Move Down** and **A to Z**, and a note on
+  where the order is used: the menu's and the tab bar's rooms, Home's room
+  sections when **Home** follows the room order, and the room sections on
+  Lights, Climate and Water when **Rooms on Pages** is **Room Order**.
+
+**Done** saves these with the page, in one change to the screen: its page
+order (**Pages**), the top of its menu and its Categories, and the room order
+with **Rooms in Menu** set to **Room Order** (starting from A to Z). A screen
+whose Rooms are **Same as All Screens** changes All Screens' room order
+instead, which every such screen follows. **Cancel** puts it all back.
+
 ## What it says
 
 For switches and input booleans: what its states are called, **When on** and

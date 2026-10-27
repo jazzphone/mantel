@@ -72,7 +72,11 @@
                  // only assigns its global (hkEdit, hkDrag) until asked.
                  // hk-edit-pages.js: its category pages, Favorites and
                  // scenes rows (it registers them once hkEdit is there).
-                 'hk-edit.js', 'hk-edit-pages.js', 'hk-drag.js'];
+                 'hk-edit.js', 'hk-edit-pages.js',
+                 // ...Edit mode's menu, tab bar and Room Order (phase G):
+                 // registers with hkEdit once both are in
+                 'hk-edit-menu.js',
+                 'hk-drag.js'];
 
   // NO GRID-LAYOUT PATCH MODULE. An inline box containing block content makes
   // every section creep 6px per tap in Safari; hk-grid-card and hk-grid-view

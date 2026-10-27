@@ -917,7 +917,10 @@
       '#hk-edit .n,#hk-edit .m{font-size:13px;font-weight:500;line-height:17px;color:' + v('ink-2', 'rgba(255,255,255,0.68)') + '}' +
       '#hk-edit .m.err{color:' + v('fail', '#ff453a') + '}' +
       '#hk-edit [hidden]{display:none!important}' +
-      '@media (max-width:640px){#hk-edit button{padding:11px 12px}}';
+      '@media (max-width:640px){#hk-edit button{padding:11px 12px}' +
+      // (a phone with a bar button of a surface's -- Rooms: the title gives
+      // way, never runs under the buttons)
+      '#hk-edit .bar{grid-template-columns:auto minmax(0,1fr) auto}#hk-edit button.more{padding:11px 8px}}';
   }
   function el(tag, cls, text) {
     var e = doc().createElement(tag);

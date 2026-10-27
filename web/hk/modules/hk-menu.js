@@ -190,6 +190,10 @@
       else out.categories.push(item);
     }
     out.categories.sort(function (x, y) { return x.rank - y.rank; });
+    // ...and the top pages too, when a page order is set (a generated
+    // screen's views already stand in it; Edit mode arranges the top by it).
+    // None set: as the dashboard lists them, as before.
+    if (po.length) out.top.sort(function (x, y) { return x.rank - y.rank; });
     // ROOM ORDER (the dashboard item's "Rooms in the menu"): A to Z, or
     // `order` -- the item's Room order, a list of AREAS (drag-ordered in the
     // form), a room placed by the first of its areas that is listed; rooms
@@ -702,6 +706,33 @@
       ' stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
       '<path d="M5 9 L12 16 L19 9"/></svg>';
 
+    // EDIT MODE'S ROWS (hk-edit-menu.js): a page's Hide switch and a handle,
+    // a room's handle; the row lifted while it is carried
+    var GRIP = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"' +
+      ' stroke-linecap="round" aria-hidden="true"><path d="M5 8h14M5 12h14M5 16h14"/></svg>';
+    var EDIT_CSS = [
+      '.row.ed{cursor:default;gap:12px;padding-right:4px;touch-action:pan-y;user-select:none;-webkit-user-select:none}',
+      '.row.ed.home{padding-right:14px}',
+      '.row.ed.off hk-icon,.row.ed.off span{opacity:.45}',
+      '.row.ed.lifted{z-index:2;background:rgba(255,255,255,0.14);box-shadow:0 8px 24px rgba(0,0,0,0.35);transition:none!important}',
+      '.list.hk-carrying .row.ed:not(.lifted){pointer-events:none}',
+      '.row.ed .sw{flex:none;position:relative;width:44px;height:26px;border-radius:13px;border:0;padding:0;margin:0;',
+      '  background:rgba(120,120,128,0.36);cursor:pointer;transition:background-color .2s ease;-webkit-tap-highlight-color:transparent}',
+      '.row.ed .sw::after{content:"";position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;',
+      '  box-shadow:0 2px 4px rgba(0,0,0,0.25);transition:transform .2s ease}',
+      '.row.ed .sw[aria-checked="true"]{background:#34c759}',
+      '.row.ed .sw[aria-checked="true"]::after{transform:translateX(18px)}',
+      '.row.ed .grip{flex:none;width:36px;height:40px;display:flex;align-items:center;justify-content:center;border:0;padding:0;margin:0;',
+      '  background:none;color:rgba(235,235,245,0.6);cursor:grab;touch-action:none;border-radius:12px}',
+      '.row.ed .grip:focus-visible,.row.ed .sw:focus-visible{outline:2px solid rgba(255,255,255,0.7);outline-offset:1px}',
+      '.row.ed .gap{flex:none;width:36px}',
+      '.sh.ed{cursor:default}',
+      // the Edit bar lies over the page's top, an open menu's too: its list starts below it
+      '.root:not(.docked) .panel:not(.has-now) .list.arranging{padding-top:calc(var(--safe, 0px) + 62px)}',
+      '.ednote{margin:14px 14px 6px;font-size:13px;line-height:1.35;color:' + window.hkCards.v('ink-2') + '}',
+      '@media (prefers-reduced-motion:reduce){.row.ed,.row.ed .sw,.row.ed .sw::after{transition:none!important}}'
+    ].join('\n');
+
     // ------------------------------------------------------------- state
     var S = { host: null, root: null, open: false, dash: null, idle: null, shut: {}, built: '' };
     try { S.shut = JSON.parse(localStorage.getItem('hk-menu-shut') || '{}') || {}; } catch (e) { S.shut = {}; }
@@ -720,7 +751,7 @@
       var sr = S.host.attachShadow({ mode: 'open' });
       window.hkCards.flatSurface(S.host, 'menu');
       // (and the list's edges, the sheet's shadows: hk-base.js edgeCss)
-      sr.innerHTML = '<style>' + CSS + window.hkCards.flatCss() + (window.hkCards.edgeCss ? window.hkCards.edgeCss() : '') +
+      sr.innerHTML = '<style>' + CSS + EDIT_CSS + window.hkCards.flatCss() + (window.hkCards.edgeCss ? window.hkCards.edgeCss() : '') +
         ':host([hk-flat]) .mat{background:var(--hk-flat-menu)!important;border-color:var(--hk-line)}' +
         ':host([hk-flat]) .panel::before{box-shadow:var(--hk-flat-elevated-shadow)!important}' +
         ':host([hk-flat]) .tab,:host([hk-flat]) .fab{background:var(--hk-flat-elevated)!important;color:var(--hk-ink)}' +
@@ -1167,8 +1198,9 @@
               !!S.shut.ha_more, JSON.stringify(S.haPrefs || null), !!(h && h.user && h.user.is_admin),
               side && side.panels ? Object.keys(side.panels).join(',') : '', haKey(),
               hostItems().map(function (x) { return x.title + x.href; }).join(','),
-              // Edit Page: offered on this page or not (hkEdit.offerKey)
-              editKey(h),
+              // Edit Page: offered on this page or not (hkEdit.offerKey);
+              // Edit mode's rows (hk-edit-menu.js)
+              editKey(h), arranging() ? 'ed' : '',
               cfg ? (cfg.views || []).length : 0,
               JSON.stringify(h && h.areas ? Object.keys(h.areas).map(function (k) {
                 return k + ':' + h.areas[k].name + ':' + (h.areas[k].icon || '');
@@ -1207,6 +1239,10 @@
         return '<button class="sh' + (shut ? ' shut' : '') + '" data-sec="' + key + '" aria-expanded="' +
           (!shut) + '">' + esc(title) + CHEV_D + '</button>' + (shut ? '' : items.map(row).join(''));
       }
+      if (arranging()) {
+        buildEdit(m);
+        return;
+      }
       if (m.home) html += row(m.home);
       S.haOn = m.ha;
       haCounts(m.ha);
@@ -1231,10 +1267,54 @@
       html += section('host', hostRows.length ? hostRows[0].section || 'More' : '', hostRows);
       var keep = S.list.scrollTop;
       S.list.innerHTML = html;
+      S.list.classList.remove('arranging');
       S.list.scrollTop = keep;
       if (window.hkCards.edges) window.hkCards.edges(S.list.parentNode);
       S.built = listKey();
       paintBadges();
+    }
+
+    // IN EDIT MODE (hk-edit-menu.js): the pages with a handle and a Hide
+    // switch -- the top pages, then Categories (one list: a page drags
+    // between the two), then the pages not in the menu, then the rooms with a
+    // handle. No Home Assistant or host rows: a tap goes nowhere while editing.
+    function arranging() { return !!(window.hkEditMenu && window.hkEditMenu.on()); }
+    function viewPath(it) { var p = it.paths || []; return String(p[1] != null ? p[1] : p[0]); }
+    function buildEdit(m) {
+      var ED = window.hkEditMenu, html = '';
+      var edRow = function (it, sec, o) {
+        S.items.push(it);
+        var p = sec === 'rooms' ? it.path : (it.hidden ? it.path : viewPath(it));
+        var move = o.grip && ED.movable(it);
+        return '<div class="row ed' + (o.hidden ? ' off' : '') + (o.home ? ' home' : '') + '" data-i="' + (S.items.length - 1) +
+          '" data-sec="' + sec + '" data-p="' + esc(p) + '"' + (move ? ' data-move' : '') + (o.hidden ? ' data-hidden' : '') +
+          '><hk-icon icon="' + esc(glyph(it.icon)) + '"></hk-icon><span>' + esc(it.title) + '</span>' +
+          (o.sw ? '<button class="sw" type="button" role="switch" aria-checked="' + !o.hidden + '" aria-label="Show ' +
+                  esc(it.title) + ' in the Menu"></button>' : '') +
+          (move ? '<button class="grip" type="button" aria-label="Move ' + esc(it.title) +
+                  '" aria-description="Drag, or use the up and down arrow keys">' + GRIP + '</button>' : o.home ? '' : '<span class="gap"></span>') +
+          '</div>';
+      };
+      var head = function (sec, title) { return '<div class="sh ed" data-sec="' + sec + '" role="heading" aria-level="2">' + esc(title) + '</div>'; };
+      if (m.home) html += edRow(m.home, 'home', { home: true });
+      html += m.top.map(function (it) { return edRow(it, 'top', { sw: true, grip: true }); }).join('');
+      html += head('categories', 'Categories');
+      html += m.categories.map(function (it) { return edRow(it, 'categories', { sw: true, grip: true }); }).join('');
+      var hid = ED.hidden();
+      if (hid.length) html += head('hidden', 'Not in Menu') + hid.map(function (it) { return edRow(it, 'hidden', { sw: true, hidden: true }); }).join('');
+      if (m.rooms.length) {
+        html += head('rooms', 'Rooms');
+        html += m.rooms.map(function (it) { return edRow(it, 'rooms', { grip: m.rooms.length > 1 }); }).join('');
+      }
+      html += '<p class="ednote">Drag a page by its handle, or hold it, to move it; the tab bar and More follow. ' +
+        'Saved when you tap Done.</p>';
+      var keep = S.list.scrollTop;
+      S.list.innerHTML = html;
+      S.list.classList.add('arranging');
+      S.list.scrollTop = keep;
+      if (window.hkCards.edges) window.hkCards.edges(S.list.parentNode);
+      S.built = listKey();
+      ED.wireList(S.list, {});
     }
 
     // THE COUNTS, as Home Assistant's own sidebar keeps them: waiting
@@ -1350,6 +1430,8 @@
     }
 
     function onList(e) {
+      // Edit mode: a row is arranged, never followed (hk-edit-menu.js)
+      if (e.target.closest && e.target.closest('.row.ed,.sh.ed')) return;
       var sh = e.target.closest && e.target.closest('.sh');
       if (sh) {
         var k = sh.getAttribute('data-sec');
@@ -1561,7 +1643,8 @@
     function toggle(byKey) { if (S.open) close(false, byKey); else open(); }
     function armIdle() {
       clearTimeout(S.idle);
-      if (S.open) S.idle = setTimeout(function () { close(true); }, IDLE_MS);
+      // (not while it is being arranged: Edit mode has its own Done)
+      if (S.open && !arranging()) S.idle = setTimeout(function () { close(true); }, IDLE_MS);
     }
 
     // SWIPE IT AWAY, the iPad gesture: a drag that starts on the panel and
@@ -1869,7 +1952,8 @@
     // the host's Home Assistant rows changed (hkShell.haNav: it learned where the page is)
     window.addEventListener('hk-ha-nav-changed', function () { S.built = ''; sync(); });
     // Edit mode begun or ended (hk-edit.js): the Edit Page row goes or comes back
-    window.addEventListener('hk-edit', function () { S.built = ''; sync(); });
+    // (an open menu draws again too: its rows are Edit mode's or not)
+    window.addEventListener('hk-edit', function () { S.built = ''; sync(); if (S.open && S.list && listKey() !== S.built) { build(); markHere(); } });
     // the Now Playing pane coming, going or changing sides (hk-popup.js)
     window.addEventListener('hk-pane', function () { sync(); });
     window.addEventListener('hk-menu-date', function () { place(); });
@@ -1909,6 +1993,8 @@
     window.hkMenu.close = close;
     window.hkMenu.toggle = toggle;
     window.hkMenu.isOpen = function () { return S.open; };
+    // draw the list again now (Edit mode's preview, hk-edit-menu.js)
+    window.hkMenu.rebuild = function () { if (S.list) { build(); markHere(); } };
     window.hkMenu.sync = sync;
     window.hkMenu.openHaSidebar = openHaSidebar;
     window.hkMenu._.state = function () { return S; };
