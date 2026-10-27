@@ -793,12 +793,29 @@
         ':host([size]) .np .tb{width:48px;height:48px;margin:0;align-self:center;justify-self:center}',
         ':host([size]) .np .tb hk-icon{width:28px;height:28px;--mdc-icon-size:28px}',
         ':host([size]) .np .play hk-icon{width:36px;height:36px;--mdc-icon-size:36px}',
+        // SPEAKERS AND BROWSE (2026-10-27): either side of the transport, as on
+        // the screensaver's pane; each turns the card over (_turn). W: five
+        // 46 px tracks with no gap between them (the gap is in the art's
+        // track) -- 110 + 12 + 230 of a 358 px block
+        ':host([size]) .np .spk,:host([size]) .np .brw{display:flex;grid-area:spk;color:rgba(255,255,255,.86)}',
+        ':host([size]) .np .brw{grid-area:brw}',
+        ':host([size]) .np .spk hk-icon{width:24px;height:24px;--mdc-icon-size:24px;color:rgba(255,255,255,.86)}',
+        ':host([size]) .np .brw svg{width:23px;height:23px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.55))}',
+        // (nothing plays: no rooms to move -- Browse still starts something)
+        ':host([size]) .np .spk.dis{opacity:.35;pointer-events:none}',
         ':host([size=W]) hk-plate.np{--np-art:calc(100cqh - 40px);',
-        '  --hk-np-cols:var(--np-art) 48px 48px 48px minmax(0,1fr);',
-        '  --hk-np-areas:"art . . . ." "art title title title title" "art artist artist artist artist" "art prev play next .";',
+        '  --hk-np-cols:calc(var(--np-art) + 12px) 46px 46px 46px 46px 46px minmax(0,1fr);',
+        '  --hk-np-areas:"art . . . . . ." "art title title title title title title" "art artist artist artist artist artist artist" "art spk prev play next brw .";',
         '  --hk-np-rows:minmax(0,1fr) min-content min-content 52px}',
-        ':host([size=W]) .np .tb{justify-self:start}',
-        ':host([size=T]) hk-plate.np{--np-art:min(100cqw - 44px, 100cqh - 190px);',
+        ':host([size=W]) .np .grid{column-gap:0}',
+        ':host([size=W]) .np .tb{width:46px}',
+        // T: in the card's top corners, beside the cover (narrowed to clear them)
+        ':host([size=T]) .np .spk,:host([size=T]) .np .brw{grid-area:auto;position:absolute;top:4px;width:32px;height:32px;z-index:3}',
+        ':host([size=T]) .np .spk{left:4px}:host([size=T]) .np .brw{right:4px}',
+        ':host([size=T]) .np .spk::before,:host([size=T]) .np .brw::before{content:"";position:absolute;inset:-6px}',
+        ':host([size=T]) .np .spk hk-icon{width:21px;height:21px;--mdc-icon-size:21px}',
+        ':host([size=T]) .np .brw svg{width:20px;height:20px}',
+        ':host([size=T]) hk-plate.np{--np-art:min(100cqw - 76px, 100cqh - 190px);',
         '  --hk-np-cols:repeat(3,minmax(0,1fr));',
         '  --hk-np-areas:"art art art" "title title title" "artist artist artist" ". . ." "sub sub sub" "prev play next";',
         '  --hk-np-rows:var(--np-art) min-content min-content minmax(0,1fr) min-content 52px}',
@@ -808,7 +825,7 @@
         // spans the first two, so it is as wide as the gap beside them allows)
         ':host([size=L]) hk-plate.np{--np-art:min(100cqh - 40px - 166px, (100cqw - 44px - 248px) / 2 + 78px);',
         '  --hk-np-cols:minmax(0,1fr) 64px 64px 64px minmax(0,1fr);',
-        '  --hk-np-areas:"art art . . ." "art art title title title" "art art artist artist artist" "art art player player player" "art art . . ." "sub sub sub sub sub" ". prev play next ." "meta meta meta meta meta";',
+        '  --hk-np-areas:"art art . . ." "art art title title title" "art art artist artist artist" "art art player player player" "art art . . ." "sub sub sub sub sub" "spk prev play next brw" "meta meta meta meta meta";',
         '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content minmax(0,1fr) min-content 56px min-content}',
         // (the volume a 44 px target: its slider as tall as its row)
         ':host([size=L]) .np .meta{display:block;padding:0;--hk-range-h:44px}',
@@ -816,14 +833,15 @@
         ':host([size=L]) .np .title{' + window.hkCards.typeCss('title') + ';line-height:27px}',
         ':host([size=L]) .np .player{display:block;' + window.hkCards.typeCss('label-small') + ';padding-top:6px}',
         ':host([size=L]) .np .tb{width:56px;height:56px}',
+        ':host([size=L]) .np .spk,:host([size=L]) .np .brw{width:48px}',
         ':host([size=L]) .np .tb hk-icon{width:32px;height:32px;--mdc-icon-size:32px}',
         ':host([size=L]) .np .play hk-icon{width:44px;height:44px;--mdc-icon-size:44px}',
         ':host([size][data-grid-pager]) hk-plate.np{--hk-np-pad:20px 22px 44px}',
         ':host([size=W][data-grid-pager]) hk-plate.np{--np-art:calc(100cqh - 64px);',
-        '  --hk-np-areas:"art title title title title" "art prev play next .";--hk-np-rows:minmax(0,1fr) 46px}',
+        '  --hk-np-areas:"art title title title title title title" "art spk prev play next brw .";--hk-np-rows:minmax(0,1fr) 46px}',
         ':host([size=W][data-grid-pager]) .np .artist{display:none}',
         ':host([size=W][data-grid-pager]) .np .tb{width:44px;height:44px}',
-        ':host([size=T][data-grid-pager]) hk-plate.np{--np-art:min(100cqw - 44px,100cqh - 174px)}'
+        ':host([size=T][data-grid-pager]) hk-plate.np{--np-art:min(100cqw - 76px,100cqh - 174px)}'
       ].join('');
     }
 
@@ -853,7 +871,8 @@
       var me = this._spk;
       if (me && Date.now() - me.ticked > 400) {
         me.ticked = Date.now();
-        if (!this._musicCtx()) this._closeSpk(); else me.p.update();
+        // (the Home Grid's back stays: Browse is how something starts)
+        if (!this._musicCtx() && !me.turn) this._closeSpk(); else me.p.update();
       }
     }
     // the bar on the Music page (.onmusic): no Browse, no Close
@@ -940,10 +959,150 @@
       this._spk = null;
       clearTimeout(me.doneT);
       window.removeEventListener('keydown', me.key);
+      if (me.turn) {
+        window.removeEventListener('resize', me.place);
+        // (a field focused on a tablet: its keyboard goes with it)
+        try { var fa = me.host.shadowRoot.activeElement; if (fa && fa.blur) fa.blur(); } catch (x) { /* ignore */ }
+        me.scrim.classList.remove('on');
+        var fin = function () { me.p.destroy(); me.host.remove(); me.turn.style.visibility = ''; };
+        if (me.turn.isConnected) this._turnAnim(me, false, fin); else { if (me.anim) me.anim.cancel(); fin(); }
+        return;
+      }
       var btn = this._root && this._root.querySelector('.spk');
       if (btn) btn.classList.remove('lit');
       me.p.el.classList.remove('in'); me.scrim.classList.remove('on');
       setTimeout(function () { me.p.destroy(); me.host.remove(); }, 320);
+    }
+    // THE HOME GRID'S TURN-OVER (2026-10-27): Speakers and Browse turn the
+    // card over, as the screensaver's pane turns (hk-saver.js turnPanel), and
+    // its back grows out of the block into the screensaver's panel --
+    // Speakers / Volume / Queue / Browse, what plays at its foot -- over the
+    // page, dimmed a little behind it. On <body> under a shadow root of its
+    // own, as the bar's: the block's cell clips. It closes on a tap outside,
+    // its X, Escape, a moment after a request has landed (a pick played: the
+    // card turns back to it), and with the page.
+    _turn(tab) {
+      var P = window.hkSaverPanel, self = this, HC = window.hkCards, me = this._spk;
+      if (me) { if (me.p.tab() !== tab) me.p.show(tab); else this._closeSpk(); return; }
+      var plate = this._root && this._root.querySelector('hk-plate.np');
+      if (!P || !plate || !this.client) return;
+      var host = document.createElement('div');
+      host.style.cssText = 'position:fixed;inset:0;z-index:12;' + (HC.FONT_ROOT || '');
+      var sr = host.attachShadow({ mode: 'open' });
+      var st = document.createElement('style');
+      st.textContent = P.CSS + (HC.shadeCss ? HC.shadeCss('.mpanel') : '') +
+        '.scrim{position:fixed;inset:0;background:rgba(0,0,0,0);transition:background .3s}.scrim.on{background:rgba(0,0,0,.34)}' +
+        '.mpanel.turn{position:fixed;border-radius:' + HC.M.radius + ';background:rgb(24,25,29);' +
+        'box-shadow:0 26px 70px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.12)}' +
+        // (a phone's width: four tabs and the X on one row)
+        '.mpanel.turn.narrow .mptabs div{padding:0 6px}' +
+        '@media (prefers-reduced-motion:reduce){.scrim{transition:none}}';
+      sr.appendChild(st);
+      var scrim = document.createElement('div'); scrim.className = 'scrim';
+      sr.appendChild(scrim);
+      me = { host: host, scrim: scrim, turn: plate, doneT: null, ticked: 0, anim: null };
+      me.p = P.create({
+        tabs: ['speakers', 'volume', 'queue', 'browse'],
+        client: function () { return self.client; },
+        ctx: function () { return self._musicCtx(); },
+        // the cover, blurred behind the panel as on the screensaver
+        art: function () {
+          var i = self._e && self._e.art && self._e.art.querySelector('img');
+          return i && i.complete && i.naturalWidth ? i : null;
+        },
+        stop: true,
+        follow: function (key) { var Mu = window.hkMusic; if (key && Mu && Mu.known(key)) Mu.setFocus(key); },
+        done: function (ms) {
+          if (self._spk !== me) return;
+          clearTimeout(me.doneT);
+          me.doneT = setTimeout(function () { if (self._spk === me) self._closeSpk(); }, ms || 0);
+        },
+        wide: function () { return !!me.wide; },
+        // what plays, at its foot: the front is turned away
+        mini: function () { return true; },
+        now: function () { return self._nowFor(); },
+        transport: function (k) { self._svc(k === 'pp' ? 'play_pause' : 'next'); }
+      });
+      var el = me.p.el;
+      el.classList.add('up', 'turn');
+      sr.appendChild(el);
+      me.place = function () {
+        // (the block where it stands now: hidden, it is still laid out)
+        if (me.hidRect && !me.anim) { var rr = plate.getBoundingClientRect(); me.hidRect = { left: rr.left, top: rr.top, width: rr.width, height: rr.height }; }
+        var b = self._turnBox(me);
+        me.box = b; me.wide = b.w >= 500;
+        el.classList.toggle('narrow', b.w < 420);
+        el.style.cssText = 'left:' + b.x + 'px;top:' + b.y + 'px;width:' + b.w + 'px;height:' + b.h + 'px';
+        me.p.size(b.w, b.h, 1);
+      };
+      me.place();
+      me.p.show(tab);
+      scrim.addEventListener('click', function () { self._closeSpk(); });
+      me.key = function (ev) { if (ev.key === 'Escape') self._closeSpk(); };
+      window.addEventListener('keydown', me.key);
+      window.addEventListener('resize', me.place);
+      document.body.appendChild(host);
+      this._spk = me;
+      requestAnimationFrame(function () { scrim.classList.add('on'); });
+      this._turnAnim(me, true);
+    }
+    // ITS BOX: bigger than the block -- 520 x 640 on a tablet, the width of
+    // a phone -- centred on it, kept on the screen
+    _turnBox(me) {
+      var vw = window.innerWidth, vh = window.innerHeight, r = me.hidRect || me.turn.getBoundingClientRect();
+      var phone = vw <= window.hkCards.BP.phone;
+      var w = Math.round(phone ? vw - 24 : Math.min(vw - 32, Math.max(r.width, 520)));
+      var h = Math.round(Math.min(vh - (phone ? 48 : 40), Math.max(r.height, 640)));
+      var clamp = function (v, lo, hi) { return hi < lo ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, v)); };
+      var x = clamp(r.left + r.width / 2 - w / 2, 12, vw - w - 12), y = clamp(r.top + r.height / 2 - h / 2, 20, vh - h - 20);
+      return { x: Math.round(x), y: Math.round(y), w: w, h: h };
+    }
+    // THE TURN: the card to edge-on where it stands, then the panel from
+    // edge-on, growing from the block's size to its own; back the same way.
+    // Transforms only.
+    _turnAnim(me, opening, done) {
+      var el = me.p.el, src = me.turn, B = me.box, self = this, EASE = window.hkCards.EASE;
+      var reduce = (window.hkSettings && window.hkSettings.rendering && !window.hkSettings.rendering().motion) ||
+                   (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      if (opening) { var rr = src.getBoundingClientRect(); me.hidRect = { left: rr.left, top: rr.top, width: rr.width, height: rr.height }; }
+      var R = me.hidRect, per = 1500;
+      var edge = 'perspective(' + per + 'px) rotateY(90deg)';
+      // the panel, at the block's place and size, turned -90
+      var small = 'perspective(' + per + 'px) translate(' + Math.round(R.left + R.width / 2 - (B.x + B.w / 2)) + 'px,' +
+                  Math.round(R.top + R.height / 2 - (B.y + B.h / 2)) + 'px) rotateY(-90deg) scale(' +
+                  (R.width / B.w).toFixed(3) + ',' + (R.height / B.h).toFixed(3) + ')';
+      var can = !reduce && typeof el.animate === 'function' && typeof src.animate === 'function';
+      if (me.anim) { try { me.anim.cancel(); } catch (x) { /* done */ } me.anim = null; }
+      if (opening) {
+        if (!can) { src.style.visibility = 'hidden'; return; }
+        el.style.visibility = 'hidden';
+        var a = me.anim = src.animate([{ transform: 'none' }, { transform: edge }], { duration: 240, easing: EASE.exit, fill: 'forwards' });
+        a.onfinish = function () {
+          src.style.visibility = 'hidden'; a.cancel();
+          if (self._spk !== me) { src.style.visibility = ''; return; }
+          el.style.visibility = '';
+          var b = me.anim = el.animate([{ transform: small }, { transform: 'none' }], { duration: 440, easing: EASE.standard });
+          b.onfinish = function () { if (me.anim === b) me.anim = null; };
+        };
+      } else {
+        if (!can) { done(); return; }
+        var c1 = me.anim = el.animate([{ transform: 'none' }, { transform: small }], { duration: 300, easing: EASE.exit, fill: 'forwards' });
+        c1.onfinish = function () {
+          el.style.visibility = 'hidden';
+          src.style.visibility = '';
+          var c2 = me.anim = src.animate([{ transform: edge }, { transform: 'none' }], { duration: 280, easing: EASE.standard });
+          c2.onfinish = function () { me.anim = null; done(); };
+        };
+      }
+    }
+    // what plays, for the panel's foot (hk-saver-panel.js drawMini)
+    _nowFor() {
+      var p = this._player(), Mu = window.hkMusic, c = this._musicCtx();
+      if (!p) return null;
+      var a = p.attributes || {};
+      return { idle: !(p.state === 'playing' || p.state === 'paused'), playing: p.state === 'playing',
+               title: this._title(p), artist: a.media_artist || '', pic: this._art(p),
+               room: c && Mu && Mu.label ? Mu.label(c) : '' };
     }
     // the screen's bottom safe-area inset (an iPhone's home indicator), as
     // CSS has it: env() is not readable from script but through a box
@@ -1277,7 +1436,7 @@
         var q = this._root.querySelector.bind(this._root);
         this._e = { bg: q('.bg'), art: q('.art'), title: q('.title'),
                     artist: q('.artist'), player: q('.player'), meta: q('.meta'),
-                    sub: q('.sub'), play: q('.play') };
+                    sub: q('.sub'), play: q('.play'), spk: q('.spk') };
         var self = this;
         q('.prev').addEventListener('click', function () { self._svc('previous'); });
         q('.play').addEventListener('click', function () { self._svc('play_pause'); });
@@ -1330,6 +1489,10 @@
             self._closeSpk();
             window.hkShell.navigate('/' + String(location.pathname).split('/')[1] + '/music-browse');
           });
+        } else {
+          // ON A HOME GRID (a block of its own, `size`): the card turns over
+          q('.spk').addEventListener('click', function () { if (self.hasAttribute('size')) self._turn('speakers'); });
+          q('.brw').addEventListener('click', function () { if (self.hasAttribute('size')) self._turn('browse'); });
         }
         q('.close').addEventListener('click', function () { self._putAway(); });
         if (cfg.bar) this._swipe(q('hk-plate'));
@@ -1454,6 +1617,7 @@
       // 42px in the bar). The guard keeps it to one write per real change --
       // this block runs on every position tick.
       this._paintPlayButton(p);
+      if (e.spk) e.spk.classList.toggle('dis', !this._musicCtx());
 
       var t = this._title(p);
       if (e.title.textContent !== t) e.title.textContent = t;

@@ -446,7 +446,7 @@ DESIGN.md's measurable rules. Every plate is `hkCards.plate('card')` at 23.5 wit
 | `accessory` | S, W | the tall tile's layout (glyph at the top, name and state at the foot), filling the block |
 | `scene` | S, W | the same, the scene's bare glyph and two-line name |
 | `scenes` | W, L, XL | a scene tile per cell: W two, L four, XL six; no heading |
-| `now_playing` | W, T, L | W the cover beside the song and transport; T the cover on top; L the cover beside the song and its speaker, a larger transport along the foot. No progress or volume (the sheet has them); 48 / 64 px buttons |
+| `now_playing` | W, T, L | W the cover beside the song and transport; T the cover on top; L the cover beside the song and its speaker, a larger transport along the foot. No progress or volume (the sheet has them); 48 / 64 px buttons. Speakers and Browse either side of the transport (T: the top corners) turn the card over into the screensaver's panel (`hk-saver-panel.js`: Speakers / Volume / Queue / Browse), grown to 520 × 640 over the page (`_turn`, 2026-10-27) |
 | `thermostat` | T, L | the dial (`hk-control-card`, in place of the climate tile), as large as the block leaves it, the setpoint at the figure role on one line; L has the mode row, T doesn't (below) |
 | `camera` | W, L, XL | the camera mosaic sized from the block: W and XL one camera filling it, L two stacked |
 | `security` | S, W | a plate with the Security page's items one per 44 px line (two columns at W), as many as the block's height holds, alerts first |

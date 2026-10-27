@@ -36,7 +36,7 @@ HA_PY = HOME / ".venvs/hk-ha-test/bin/python"
 JSC = Path("/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc")
 MAC_CHROME = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
 HEADLESS = ("client_smoke", "gateway_page_check", "admin_page_check", "settings_viewports", "ingress_smoke",
-            "grid_blocks_check")
+            "grid_blocks_check", "grid_music_turn_check")
 CADDY_IMAGE = "mantel-caddy:ci"
 
 
