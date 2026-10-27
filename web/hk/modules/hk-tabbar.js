@@ -363,7 +363,9 @@
       // on, the one under the pointer) never touch
       '.pill{position:relative;display:flex;align-items:stretch;gap:var(--g);height:var(--bh);padding:calc(var(--g) - 1px);',
       '  border-radius:calc(var(--bh) / 2);width:var(--pill-w,auto);max-width:100%;overflow:hidden;',
-      '  transition:width .34s ' + EASE + '}',
+      // a swipe on the bar is not the page's: it scrolled the page under it,
+      // and Safari on an iPad then hid its own toolbar (2026-10-27)
+      '  touch-action:none;transition:width .34s ' + EASE + '}',
       '.tab{position:relative;z-index:0;flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;',
       // 10 px in from each side: the capsule's round ends curve ~9 px in at
       // the label's foot, so a long name's ellipsis stays inside it

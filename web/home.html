@@ -28,7 +28,10 @@
   /* clear of the status bar and the Dynamic Island (the iPhone app and a Home Screen web app draw edge to
      edge): Home Assistant's header, or hk-kiosk.js's --safe-area-inset-top, does this there. Zero on a wall
      tablet or a desktop browser; a tab bar at the top sets its own padding-top inline (hk-tabbar.js). */
-  hk-view-container { display: block; position: relative; isolation: isolate; min-height: 100vh;
+  /* 100dvh, the window as it shows now: on an iPad in Safari 100vh is the window with its toolbars hidden, so a
+     Home Grid that fits the window (100dvh) still scrolled by the toolbars' height beside the docked menu, where
+     no tab bar's rule (hk-tabbar.js barRoomCss) stands in for this one (2026-10-27) */
+  hk-view-container { display: block; position: relative; isolation: isolate; min-height: 100vh; min-height: 100dvh;
                       box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); }
   /* the Music page's Now Playing sheet on a phone (hk-music.js, `hk-music-sheet` while it is up): its z-index
      cannot leave this isolated container, so the tab bar (6) and the playing bar (7) in #hk-shell-root drew over
