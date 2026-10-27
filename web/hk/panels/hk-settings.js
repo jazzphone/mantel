@@ -2499,6 +2499,7 @@
         if (M.phoneTab(v)) I('Edge Tab Size', M.choiceLabel(M.TAB_SIZES, v.tab_size_phone || 'standard'), 'tab_size_phone');
         if (pm === 'tabbar') {
           I('While Scrolling', M.choiceLabel(M.TAB_BAR_SCROLLS, v.tab_bar_scroll_phone || 'shrink'), 'tab_bar_scroll_phone');
+          I('Tabs in Bar', String(v.tab_bar_tabs_phone || 3), 'tab_bar_tabs_phone');
           I('More Style', M.choiceLabel(M.TAB_BAR_MORE, v.tab_bar_more_phone || 'list'), 'tab_bar_more_phone');
           I('Rooms', M.choiceLabel(M.TAB_BAR_ROOMS, M.roomsPlace(v.tab_bar_rooms_phone)), 'tab_bar_rooms_phone');
         }
@@ -2601,9 +2602,13 @@
       }
       if (o.house || pm === 'tabbar') {
         c.appendChild(K.group({ header: 'Tab Bar', footer: (o.house ? 'For a screen whose Phones menu is the tab bar. ' : '') +
-            'On a phone the bar shows up to three pages besides Home and More, and stays at the bottom when its position is Left or Right.' }, [
+            'On a phone the bar stays at the bottom when its position is Left or Right. A narrow phone shows fewer tabs than ' +
+            'Tabs in Bar when they don’t fit; the rest are in More.' }, [
           K.seg({ label: 'While Scrolling', sk: sk('tab_bar_scroll_phone'), value: v.tab_bar_scroll_phone || 'shrink', stack: !wide,
-                  options: M.TAB_BAR_SCROLLS, onChange: function (x) { set({ tab_bar_scroll_phone: x }); } })]));
+                  options: M.TAB_BAR_SCROLLS, onChange: function (x) { set({ tab_bar_scroll_phone: x }); } }),
+          K.select({ label: 'Tabs in Bar', sub: 'Pages in the bar, besides Home and More.',
+                     sk: sk('tab_bar_tabs_phone'), value: String(v.tab_bar_tabs_phone || 3), options: M.TAB_BAR_TABS_PHONE.map(function (t) { return [String(t[0]), t[1]]; }),
+                     onChange: function (x) { set({ tab_bar_tabs_phone: Number(x) }); } })]));
         this.moreRows(c, v, set, sk, 'phones');
       }
     }
@@ -5551,7 +5556,27 @@
       this.glassChoices(c, look.flat === true ? 'flat' : look.glass || 'clear', 'blur', function (v) {
         self.setH(v === 'flat' ? { 'look.flat': true } : { 'look.flat': false, 'look.glass': v });
       }, 'hglass:');
-      c.appendChild(K.group({ footer: 'Each screen can choose its own under its Appearance.' }, []));
+      c.appendChild(K.group({ footer: this.ownLooks(look) }, []));
+    }
+    // UNDER ALL SCREENS' STYLE: one line naming the screens that keep their
+    // own look -- a change here doesn't reach them (2026-10-27: Home stayed
+    // Flat under a Blur saved for All Screens) -- each a way to its own
+    ownLooks(look) {
+      var self = this, bd = this.data.boards || {}, own = [];
+      Object.keys(bd).forEach(function (p) {
+        var b = bd[p], g = b ? M.glassOf(b, look) : null, d = self.dash(p);
+        if (g && g.own) own.push({ path: p, title: d ? d.title : p, label: M.glassLabel(g.value) });
+      });
+      if (!own.length) return 'Each screen can choose its own under its Appearance.';
+      var parts = [];
+      own.forEach(function (o, i) {
+        if (i) parts.push(document.createTextNode(i === own.length - 1 ? (own.length > 2 ? ', and ' : ' and ') : ', '));
+        parts.push(h('a', { href: '#/screens/' + encodeURIComponent(o.path) + '/glass', text: o.title }));
+        parts.push(document.createTextNode(' (' + o.label + ')'));
+      });
+      parts.push(document.createTextNode(own.length > 1 ? ' keep their own look, so this doesn’t change them.'
+                                                         : ' keeps its own look, so this doesn’t change it.'));
+      return parts;
     }
     h_sky(c) {
       var self = this, sky = this.data.settings.sky, look = this.data.settings.look;

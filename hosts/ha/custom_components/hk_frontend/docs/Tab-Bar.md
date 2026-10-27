@@ -82,8 +82,10 @@ Settings) puts the bar:
 **Tabs in Bar** (along the bottom or the top) and **Tabs in Rail** (down
 the left or the right) set how many pages get a tab of their own: 2 to 8,
 6 unless you choose. Home and More always have theirs and aren't counted.
-A phone shows Home, 3 pages and More at most, and a short window fits
-fewer down a rail. The bar is only as big as its tabs; opening More grows
+A phone has its own **Tabs in Bar** (Menu → Phones): 2 to 4 pages, 3
+unless you choose. Four fit an iPhone 390 px or wider, with longer names
+shortened; a narrower phone shows what fits and puts the rest in More. A
+short window fits fewer down a rail. The bar is only as big as its tabs; opening More grows
 it into More's size in the same motion (a rail stretches to the screen's
 height), and closing shrinks it back.
 

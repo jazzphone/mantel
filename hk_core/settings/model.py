@@ -1137,6 +1137,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
              "bar_scroll_phone": "shrink", "button_phone": "chip", "bar_rooms_phone": "more",
              # Tabs in Bar / Tabs in Rail (TAB_BAR_TABS)
              "bar_tabs": 6, "bar_tabs_rail": 6, "bar_size": "medium",
+             # Phones' Tabs in Bar (TAB_BAR_TABS_PHONE): Home, three pages and More, as before it was a setting
+             "bar_tabs_phone": 3,
              # Labels: the tabs' names, or icons only (TAB_BAR_LABELS)
              "bar_labels": "show"},
     # The room pages: whether room headings on Home open them, and what the
@@ -1733,18 +1735,20 @@ TAB_BAR_LABELS = ("show", "icons")
 # most, Home and More not counted (6: eight tabs in all) -- a phone never
 # more than 3, what fits its width
 TAB_BAR_TABS = (2, 8)
+# a phone's: at most six tabs on a 402 px iPhone, Home and More among them (hk-tabbar.js fit)
+TAB_BAR_TABS_PHONE = (2, 4)
 
 
-def tab_count(v: Any, default: int = 6) -> int:
-    """A Tabs setting as stored: a whole number in TAB_BAR_TABS, else the
-    default."""
+def tab_count(v: Any, default: int = 6, span: tuple[int, int] = TAB_BAR_TABS) -> int:
+    """A Tabs setting as stored: a whole number in `span` (TAB_BAR_TABS, a
+    phone's TAB_BAR_TABS_PHONE), else the default."""
     if isinstance(v, bool):
         return default
     try:
         n = int(v)
     except (TypeError, ValueError):
         return default
-    return n if TAB_BAR_TABS[0] <= n <= TAB_BAR_TABS[1] else default
+    return n if span[0] <= n <= span[1] else default
 
 
 def tab_bar_glass(v: Any) -> str:
@@ -1798,6 +1802,7 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # Phones' While Scrolling (each its own since entry 1.12)
     "tab_bar_scroll_phone": "shrink",
     "tab_bar_tabs": 6, "tab_bar_tabs_rail": 6, "tab_bar_size": "medium", "tab_bar_labels": "show",
+    "tab_bar_tabs_phone": 3,
     # PHONES' OWN (BOARD_PHONE_MENUS): the menu, the screen's own as `menu`
     # is (None: as before phones had their own, phone_menu()); the button's
     # style and More's rooms, menu settings (MENU_KEYS)
@@ -2025,6 +2030,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["tab_bar_size"] = pick("tab_bar_size", TAB_BAR_SIZES)
     out["tab_bar_labels"] = pick("tab_bar_labels", TAB_BAR_LABELS)
     out["tab_bar_tabs_rail"] = tab_count(d.get("tab_bar_tabs_rail"))
+    out["tab_bar_tabs_phone"] = tab_count(d.get("tab_bar_tabs_phone"), 3, TAB_BAR_TABS_PHONE)
     out["tab_bar_scroll_phone"] = pick("tab_bar_scroll_phone", TAB_BAR_SCROLLS)
     out["menu_phone"] = d.get("menu_phone") if d.get("menu_phone") in BOARD_PHONE_MENUS else None
     out["button_phone"] = pick("button_phone", BOARD_BUTTON_PHONE)
@@ -2376,6 +2382,7 @@ MENU_KEYS = {"page_header": "page_header", "menu": "style", "tab_position": "tab
              "tab_bar_fold": "bar_fold", "tab_bar_start": "bar_start", "tab_bar_adjust": "bar_adjust",
              "tab_bar_scroll_phone": "bar_scroll_phone", "tab_bar_tabs": "bar_tabs",
              "tab_bar_tabs_rail": "bar_tabs_rail", "tab_bar_size": "bar_size", "tab_bar_labels": "bar_labels",
+             "tab_bar_tabs_phone": "bar_tabs_phone",
              "button_phone": "button_phone", "tab_bar_rooms_phone": "bar_rooms_phone"}
 # a menu BUTTON's styles: not off, always open or the tab bar
 MENU_STYLES = tuple(m for m in BOARD_MENUS if m not in ("off", "open", "tabbar"))
@@ -2439,6 +2446,7 @@ def house_menu(menu: Mapping[str, Any] | None) -> dict[str, Any]:
             "tab_bar_adjust": m.get("bar_adjust") is not False,
             "tab_bar_scroll_phone": pick("bar_scroll_phone", TAB_BAR_SCROLLS, d["tab_bar_scroll_phone"]),
             "tab_bar_tabs": tab_count(m.get("bar_tabs")), "tab_bar_tabs_rail": tab_count(m.get("bar_tabs_rail")),
+            "tab_bar_tabs_phone": tab_count(m.get("bar_tabs_phone"), 3, TAB_BAR_TABS_PHONE),
             "tab_bar_size": pick("bar_size", TAB_BAR_SIZES, d["tab_bar_size"]),
             "tab_bar_labels": pick("bar_labels", TAB_BAR_LABELS, d["tab_bar_labels"]),
             "button_phone": pick("button_phone", BOARD_BUTTON_PHONE, d["button_phone"]),

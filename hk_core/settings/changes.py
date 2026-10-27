@@ -746,6 +746,7 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "menu.bar_size": _choice(S.TAB_BAR_SIZES),
     "menu.bar_labels": _choice(S.TAB_BAR_LABELS),
     "menu.bar_tabs_rail": lambda v: _tabs(v),
+    "menu.bar_tabs_phone": lambda v: _tabs(v, S.TAB_BAR_TABS_PHONE),
     # ...and Phones' own (None: as before phones had their own)
     "menu.button_phone": _choice(S.BOARD_BUTTON_PHONE),
     "menu.bar_rooms_phone": lambda v: _rooms_place(v),
@@ -920,15 +921,15 @@ def apply_house(options: Mapping[str, Any], changes: Mapping[str, Any],
 
 
 # ------------------------------------------------------------ one screen
-def _tabs(v: Any) -> int:
-    """Tabs in Bar / Rail: pages, a whole number from 2 to 8."""
+def _tabs(v: Any, span: tuple[int, int] = S.TAB_BAR_TABS) -> int:
+    """Tabs in Bar / Rail: pages, a whole number from 2 to 8 (a phone's: `span`, TAB_BAR_TABS_PHONE)."""
     if isinstance(v, bool) or not isinstance(v, (int, float, str)):
         raise Invalid("choice")
     try:
         n = int(v)
     except ValueError as err:
         raise Invalid("choice") from err
-    if n != float(v) or not S.TAB_BAR_TABS[0] <= n <= S.TAB_BAR_TABS[1]:
+    if n != float(v) or not span[0] <= n <= span[1]:
         raise Invalid("choice")
     return n
 
@@ -1111,6 +1112,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "tab_bar_size": _choice(S.TAB_BAR_SIZES),
     "tab_bar_labels": _choice(S.TAB_BAR_LABELS),
     "tab_bar_tabs_rail": _tabs,
+    "tab_bar_tabs_phone": lambda v: _tabs(v, S.TAB_BAR_TABS_PHONE),
     "menu_phone": _choice(S.BOARD_PHONE_MENUS, none=True),
     "button_phone": _choice(S.BOARD_BUTTON_PHONE),
     "tab_bar_rooms_phone": lambda v: _rooms_place(v),

@@ -38,6 +38,13 @@ ok('a 402 px iPhone with a Rooms button: Home, two categories and More',
 ok('...the pill fills what is left beside the Rooms button', f.width === 402 - 2 * T.SIZES.GUTTER - (T.barH(402) + T.SIZES.GAP), String(f.width));
 ok('without the Rooms button there is room for one more tab', fit(9, 3, 402, false).shown === 4);
 ok('a 320 px phone still gets Home, one more and More', fit(9, 3, 320, true).shown === 2);
+// Tabs in Bar on Phones (2026-10-27): pages besides Home and More, 3 unless chosen, 4 at most
+ok('a phone choosing two pages: Home, two and More', fit(9, 3, 402, false, false, 6, 'medium', true, 2).shown === 3);
+ok('...four: Home, four and More (six in all, the most a 402 px iPhone holds)', fit(9, 3, 402, false, false, 6, 'medium', true, 4).shown === 5);
+ok('...four on a 390 px iPhone too (tabs 2 px narrower)', fit(9, 3, 390, false, false, 6, 'medium', true, 4).shown === 5);
+ok('...but three on it keep the usual width', fit(9, 3, 390, false, false, 6, 'medium', true, 3).shown === 4);
+ok('...never more than four, whatever is asked', fit(9, 3, 402, false, false, 8, 'medium', true, 8).shown === 5);
+ok('...and a narrow phone still shows only what fits', fit(9, 3, 320, false, false, 6, 'medium', true, 4).shown < 5);
 ok('an iPad upright (820): seven tabs and More -- never more than eight in all',
    fit(9, 3, 820, true).shown === 7 && fit(9, 3, 820, true).more);
 ok('a wall tablet (1280): the same eight', fit(9, 3, 1280, true).shown === 7);

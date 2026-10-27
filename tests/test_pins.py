@@ -3,6 +3,7 @@ decision 25 (Avery 2026-10-18) nothing asks for it or accepts it: a wall tablet 
 unlock with no PIN at all, a PIN sent with a command is refused, and the alarm keypad's lockout
 (``Pins.keypad``) counts only the house Alarm PIN's wrong codes (tests/test_alarm_pin.py)."""
 import json
+import re
 
 import pytest
 
@@ -136,7 +137,8 @@ async def test_a_pin_sent_with_a_command_is_refused_never_used(gw):
     assert reply["error"]["code"] == "invalid_command" and gw.fake.sent == []
     row = gw.audit(id=reply["audit_id"])[0]
     assert (row["actor"], row["reason"], row["result"]) == (None, "invalid_step_up", "not_sent")
-    assert ADULT_PIN not in json.dumps(gw.audit())
+    # the PIN as a value of its own: the audit's random hex ids can hold its digits by chance
+    assert not re.search(r"(?<![0-9a-f])" + ADULT_PIN + r"(?![0-9a-f])", json.dumps(gw.audit()))
     await ws.close()
 
 

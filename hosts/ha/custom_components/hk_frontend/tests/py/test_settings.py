@@ -1095,6 +1095,21 @@ def test_the_tab_bars_tab_counts():
     assert apply_board({}, {"tab_bar_tabs": 9, "tab_bar_tabs_rail": 2.5})[1] == {"tab_bar_tabs": "choice", "tab_bar_tabs_rail": "choice"}
 
 
+def test_the_phones_tab_count():
+    """Tabs in Bar on Phones: pages besides Home and More, 2 to 4, 3 unless chosen; All Screens' or the screen's own."""
+    from custom_components.hk_frontend import settings as S
+    from custom_components.hk_frontend.settings_api import apply_board, apply_house
+    assert S.board({})["tab_bar_tabs_phone"] == 3
+    assert [S.board({"tab_bar_tabs_phone": v})["tab_bar_tabs_phone"] for v in (2, 4, 1, 5, "4", True, None)] == [2, 4, 3, 3, 4, 3, 3]
+    opts, err = apply_house({}, {"menu.bar_tabs_phone": 4})
+    assert err == {} and S.resolved(S.board({}), opts)["tab_bar_tabs_phone"] == 4
+    assert apply_house({}, {"menu.bar_tabs_phone": 5})[1] == {"menu.bar_tabs_phone": "choice"}
+    data, err = apply_board({}, {"menu_custom": True, "tab_bar_tabs_phone": 2})
+    assert err == {} and data["tab_bar_tabs_phone"] == 2
+    assert S.resolved(S.board(data), opts)["tab_bar_tabs_phone"] == 2
+    assert apply_board({}, {"tab_bar_tabs_phone": 6})[1] == {"tab_bar_tabs_phone": "choice"}
+
+
 def test_the_tab_bars_size():
     """Small, Medium (today's) or Large -- a menu setting."""
     from custom_components.hk_frontend import settings as S

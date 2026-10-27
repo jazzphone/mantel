@@ -56,10 +56,14 @@
   // Tabs in Bar / in Rail count PAGES -- Home and More come on top (6 pages:
   // eight tabs in all)
   var PAGES_DEFAULT = 6;
-  // A PHONE (under PHONE_W, hk-base.js MENU_NARROW) gets five at most, More
-  // included, as Apple Music has: Home and three more were the comfortable
-  // fit, four were cramped (2026-10-05)
-  var PHONE_W = 640, PHONE_TABS = 5;
+  // A PHONE (under PHONE_W, hk-base.js MENU_NARROW) gets five unless its
+  // Tabs in Bar on Phones says otherwise, More included, as Apple Music has:
+  // Home and three more were the comfortable fit, four cramped (2026-10-05)
+  // -- so three pages by default, four at most (PHONE_PAGES_MAX, 2026-10-27)
+  var PHONE_W = 640, PHONE_PAGES = 3, PHONE_PAGES_MAX = 4;
+  // ...and four, chosen, may be 2 px narrower each: six tabs then fit a
+  // 390-393 px iPhone (53 px each) as well as a 402 px one
+  var PHONE_SNUG = 2;
   // GUTTER: Apple Music's tab bar sits 21 pt in from each side of a 402 pt
   // iPhone (measured from a screenshot, 2026-10-05)
   // BAR_H and WIDEN after Apple Music on a 402 pt iPhone (screenshot,
@@ -131,17 +135,18 @@
   // something of its own to hold either way (the rooms, In More). Pure, for
   // the tests.
   // `most`: the screen's Tabs in Bar (Home and More included), 8 if unset;
-  // a phone never more than PHONE_TABS
+  // `phoneMost`: a phone's (Phones' Tabs in Bar), PHONE_PAGES if unset
   // `size`: Tab Bar Size -- a tab's least and most width move with it
   // `phone`: a phone's fit (five at most, a phone's bar), even held
   // sideways; unset, a width under PHONE_W is one
-  function fit(n, top, width, button, extra, most, size, phone) {
+  function fit(n, top, width, button, extra, most, size, phone, phoneMost) {
     var ph = phone !== undefined ? !!phone : width < PHONE_W;
     var gs = gapsOf(barH(width, size, ph)), pad = gs.pad, tg = gs.tab;
     var avail = Math.max(0, width - 2 * GUTTER - (button ? barH(width, size, ph) + GAP : 0) - 2 * pad);
-    var minW = TAB_MIN_W + step(size) * 3 / 4, maxW = TAB_MAX_W + step(size);
+    var snug = ph && phoneMost > PHONE_PAGES ? PHONE_SNUG : 0;
+    var minW = TAB_MIN_W - snug + step(size) * 3 / 4, maxW = TAB_MAX_W + step(size);
     var cap = Math.min(MAX_TABS, (most || PAGES_DEFAULT) + 2);
-    most = ph ? Math.min(PHONE_TABS, cap) : cap;
+    most = ph ? Math.min(Math.min(PHONE_PAGES_MAX, phoneMost || PHONE_PAGES) + 2, cap) : cap;
     var slots = Math.max(1, Math.min(most, Math.floor((avail + tg) / (minW + tg))));
     var more = top > 0 || n > slots || !!extra;
     var shown = more ? Math.max(0, Math.min(n, slots - 1)) : n;
@@ -680,7 +685,7 @@
     }
     function listKey(width) {
       var h = C.client(), side = H.sidebarSource(), b = M.board();
-      return [M.dash(), cfgId(M.config()), width, railH(), b.ha_place, b.tab_bar_pos, b.tab_bar_rooms, b.tab_bar_rooms_phone, phoneAt(), phoneSet(), b.tab_bar_more, b.tab_bar_more_phone, b.tab_bar_size, b.tab_bar_labels, b.tab_bar_tabs, b.tab_bar_tabs_rail, b.ha_row, JSON.stringify(S.haPrefs || null),
+      return [M.dash(), cfgId(M.config()), width, railH(), b.ha_place, b.tab_bar_pos, b.tab_bar_rooms, b.tab_bar_rooms_phone, phoneAt(), phoneSet(), b.tab_bar_more, b.tab_bar_more_phone, b.tab_bar_size, b.tab_bar_labels, b.tab_bar_tabs, b.tab_bar_tabs_rail, b.tab_bar_tabs_phone, b.ha_row, JSON.stringify(S.haPrefs || null),
               h && h.user && h.user.is_admin, H.hostItems().map(function (x) { return x.title + x.href; }).join(','),
               H.editKey ? H.editKey(h) : '', arranging() ? 'ed' : '', !!(window.hkEdit && window.hkEdit.editAny && window.hkEdit.editAny(h)), side && side.panels ? Object.keys(side.panels).join(',') : '', H.haKey ? H.haKey() : '', b.menu_rooms, JSON.stringify(b.room_order),
               JSON.stringify(b.categories), JSON.stringify(b.menu_top || []), JSON.stringify(b.pages || []),
@@ -721,7 +726,7 @@
       var sz = b.tab_bar_size;
       var more0 = rm === 'more' || S.ha.length > 0 || S.hostRows.length > 0 || mayEdit;
       var f = rail ? railFit(tabs.length, m.top.length, railH(), more0, b.tab_bar_tabs_rail, sz)
-                   : fit(tabs.length, m.top.length, width, roomsOn, more0, b.tab_bar_tabs, sz, ph);
+                   : fit(tabs.length, m.top.length, width, roomsOn, more0, b.tab_bar_tabs, sz, ph, b.tab_bar_tabs_phone);
       S.pos = pos;
       if (S.posWas !== pos && S.mode !== 'full') setMode('full');
       S.posWas = pos;

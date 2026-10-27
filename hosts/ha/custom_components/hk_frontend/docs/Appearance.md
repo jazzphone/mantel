@@ -6,7 +6,8 @@ Assistant’s header and sidebar show.
 ## Every screen
 
 **All Screens → Appearance.** How the glass looks on every screen that doesn’t
-choose its own.
+choose its own. Under Appearance Style, one line names the screens that have
+their own look (each a link to it), since a change here doesn’t reach them.
 
 ![The Appearance page in HK Settings](images/settings-appearance.png)
 
