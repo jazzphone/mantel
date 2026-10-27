@@ -47,6 +47,25 @@ Results and screenshots go to `<scratch>/shots/` (`results.json`, `*.png`): neve
 state change still reaching a tile, and no errors since the swap. This is the case of a tablet nobody
 may reload. Results: `<scratch>/shots-restart/restart.json`.
 
+## Edit mode, as an admin and as a plain user
+
+`edit_check.py` (with its `.cjs`, Playwright: `PLAYWRIGHT_PATH` and `NODE`, as
+`tools/headless/edit_mode_check.py`) drives Edit mode on `/hk-scratch` in Chromium (a finger) and
+WebKit (a mouse): Edit Page in HK's menu for the admin, the Office's two lights carried and one
+resized, a category moved in the menu and a room in the Room Order sheet, Done. It then reads
+`hk_frontend/panel/get` over the page's WebSocket: the Office's Tile Order, the size, the screen's
+page order and All Screens' room order saved, every save sent with its `expect_version` and taken;
+the page drawn again and the same after a reload; the bar under Home Assistant's own header. A
+second user who is not an admin (`Edit Check Member`, made once, signed in through the scratch
+HA's `trusted_networks`, no password) is offered no Edit. Screenshots: `<scratch>/shots/edit-*.png`.
+
+```
+PLAYWRIGHT_PATH=... NODE=... .venv/bin/python tools/testha/edit_check.py [--engine webkit]
+```
+
+It keeps what it saved (each run moves the last light first and flips the size), so it can run
+again on the same scratch HA.
+
 ## Configuration (environment)
 
 | Variable | Default | Meaning |

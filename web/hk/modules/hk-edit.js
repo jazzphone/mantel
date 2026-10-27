@@ -898,10 +898,11 @@
     var C = cards(), B = (C && C.BLUR && C.BLUR.heavy) || 'blur(34px) saturate(1.9)';
     // (over the page, not a docked menu: --hk-page-left / -right, hk-menu.js)
     // (under a tab bar at the top, --hk-tabbar-below from hk-tabbar.js: as
-    // far below it as it is below the window's edge, BAR_GAP)
+    // far below it as it is below the window's edge, BAR_GAP; under the
+    // host's own toolbar when it shows one, --hk-edit-under: mountBar)
     return '#hk-edit{position:fixed;left:var(--hk-page-left,0px);right:var(--hk-page-right,0px);top:0;z-index:10;display:flex;justify-content:center;' +
       'box-sizing:border-box;padding:max(calc(var(--hk-safe-top, env(safe-area-inset-top, 0px)) + 10px), ' +
-      'calc(var(--hk-tabbar-below, -100px) + ' + BAR_GAP + 'px)) 16px 0;pointer-events:none}' +
+      'calc(var(--hk-tabbar-below, -100px) + ' + BAR_GAP + 'px), calc(var(--hk-edit-under, -100px) + 10px)) 16px 0;pointer-events:none}' +
       '#hk-edit .bar{pointer-events:auto;box-sizing:border-box;width:100%;max-width:640px;min-height:52px;' +
       'display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;column-gap:8px;' +
       'padding:3px 5px;border-radius:26px;border:' + v('glass-border', '1px solid rgba(255,255,255,0.13)') + ';' +
@@ -960,6 +961,15 @@
     try { root = SH && SH.dialogRoot ? SH.dialogRoot() : null; } catch (e) { root = null; }
     root = root || d.body;
     if (!root) return;
+    // THE HOST'S OWN TOOLBAR, when it shows one (Home Assistant's dashboard
+    // header, unless kiosk mode hides it): the bar goes under it, never over
+    // its buttons
+    var under = 0;
+    try {
+      var tb = SH && SH.toolbar ? SH.toolbar() : null, tr = tb && tb.getBoundingClientRect ? tb.getBoundingClientRect() : null;
+      if (tr && tr.height > 0 && tr.bottom > 0 && tr.top < 80) under = Math.round(tr.bottom);
+    } catch (e) { under = 0; }
+    if (under && host.style && host.style.setProperty) host.style.setProperty('--hk-edit-under', under + 'px');
     root.appendChild(host);
     var C = cards();
     if (C && C.flatSurface) { try { C.flatSurface(bar, 'bar'); } catch (e) { /* the Glass looks */ } }

@@ -312,6 +312,34 @@ function () {
   lights._e.style.setProperty('grid-auto-flow', flowWas || 'dense');
 },
 function () {
+  H.section('the bar: under a tab bar at the top or the host\'s toolbar, and the page makes room under it');
+  var h = who(true), v = viewOf(KITCHEN);
+  // the host's toolbar (Home Assistant's dashboard header) 56 px tall, and the bar's own box
+  window.hkShell.use({ toolbar: function () { return { getBoundingClientRect: function () { return { top: 0, bottom: 56, height: 56 }; } }; } });
+  var proto = Object.getPrototypeOf(document.createElement('div')), had = proto.getBoundingClientRect;
+  proto.getBoundingClientRect = function () {
+    return /(^| )bar( |$)/.test(this.className || '') ? { top: 66, bottom: 118, height: 52, left: 0, right: 0, width: 0 }
+      : { top: 0, bottom: 0, height: 0, left: 0, right: 0, width: 0 };
+  };
+  v.style.setProperty('margin-top', '4px');
+  try {
+    eq('enter', E.enter(h, { viewEl: v }), true);
+    h.reads[0].res({ versions: {} });
+    var css = bar().children.filter(isStyle)[0].textContent;
+    ok('the bar goes under a tab bar at the top (--hk-tabbar-below, hk-tabbar.js) or the host\'s toolbar',
+       /var\(--hk-tabbar-below, -100px\) \+ 12px/.test(css) && /var\(--hk-edit-under, -100px\) \+ 10px/.test(css), css.slice(0, 400));
+    eq('...the toolbar\'s bottom, measured as it mounts', bar().style.getPropertyValue('--hk-edit-under'), '56px');
+    eq('the page goes down under the bar (its bottom and 12 px, less where the page starts)', v.style.getPropertyValue('margin-top'),
+       'calc(4px + 130px)');
+    E.cancel();
+    eq('Cancel: the page back where it was', v.style.getPropertyValue('margin-top'), '4px');
+  } finally {
+    if (had) proto.getBoundingClientRect = had; else delete proto.getBoundingClientRect;
+    window.hkShell.use(window.hkHAShell);
+    v.style.removeProperty('margin-top');
+  }
+},
+function () {
   H.section('while editing, a pill is no control: taps, holds, right-clicks and keys are eaten');
   var h = who(true), v = viewOf(KITCHEN), lights = groupNamed(v, 'Lights');
   E.enter(h, { viewEl: v });

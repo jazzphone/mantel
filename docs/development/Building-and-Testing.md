@@ -209,6 +209,9 @@ export TESTHA_DIR=$HOME/testha-scratch TESTHA_VENV=$HOME/testha-venv
 .venv/bin/python tools/testha/testha.py down         # stop it (always do this)
 ```
 
+Edit mode in the scratch HA, as an admin and as a plain user, is `tools/testha/edit_check.py` (Playwright, with
+`PLAYWRIGHT_PATH` and `NODE` as above; run it between `up` and `down`).
+
 `tools/testha/run.sh` does all three in one go; tell it which Python to use with `TESTHA_PY`:
 
 ```bash
