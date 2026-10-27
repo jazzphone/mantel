@@ -72,6 +72,19 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.80 - 2026-10-26
+
+- **Edit pages in place.** Owners and Admins can arrange a page from the page itself. Edit mode is not offered at a wall tablet.
+  - **Opening it:** **Edit Page** in the side menu or the tab bar's More, or **Edit This Page** in a detail sheet's gear.
+  - **In Edit mode:** pills wiggle (or get an outline with Reduce Motion on). Hold a pill briefly to pick it up and drag it within its group; a plain swipe still scrolls. Tap a pill's size badge to make it **Tall** or **Regular**.
+  - **Where it works:** room pages, Home's room sections, Favorites and scenes row, a room's scenes row, and the Lights, Climate, Water, Security and Vacuums pages. Lights, Climate and Water follow each room's order, so the bar says when a move there reorders the room too.
+  - **The menus:** the side menu, the tab bar and its More sheet can be reordered as well: drag a page between Top and Categories, hide one, or drop a tab on More.
+  - **Room Order sheet:** the **Rooms** button in the Edit bar opens a list of the screen's rooms to drag, with Move Up / Move Down and an A to Z reset.
+  - **Saving:** nothing is saved until **Done**, and **Cancel** puts everything back. If someone else changed the same layout meanwhile, Done says so and offers Reload or Save Anyway.
+- **Pages redraw after a settings change.** A Mantel page used to show a save only after a reload. Now it redraws at once for your own save, and for another device's once nobody has touched the page for 30 seconds.
+- **Versions for every layout save.** The accessory saves (`accessory/order`, `page_order`, `room_scenes`, `set`) and `settings/set` take an optional `expect_version`. An older version is refused as `conflict` and nothing is written. `panel/get` returns `versions["accessories"]` and `versions["house"]`. A linked HK Frontend now receives Mantel's version numbers in each settings frame, so its saves are checked against Mantel's.
+- `/api/me` reports `at_tablet`.
+
 ## 0.1.79 - 2026-10-26
 
 - **Mantel Link can pair again by a code inside Home Assistant.** On a Mantel run as a Home Assistant App whose Mantel Link brought its own credential, a second pairing at the App's own address (`http://<App>:8099`) would have been refused by 0.1.78's address check. The App's address now always counts as Mantel's own.
