@@ -72,6 +72,11 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.81 - 2026-10-27
+
+- **Edit mode with Reduce Motion:** each pill's dotted frame now sits evenly around the pill. A room's pill is drawn 8px wider than its own element, so the outline used to cut across its right edge.
+- **Turning Flat off reaches the scenes row at once.** On a page with nothing changing, the scenes row's pills kept Flat's dark plates after the screen was switched to another look.
+
 ## 0.1.80 - 2026-10-26
 
 - **Edit pages in place.** Owners and Admins can arrange a page from the page itself. Edit mode is not offered at a wall tablet.
