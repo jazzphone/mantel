@@ -72,6 +72,11 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.82 - 2026-10-27
+
+- **Tabs in Bar on phones.** A screen's Menu → Phones → Tab Bar (and Mantel Settings → Menu → Phones for the house) now chooses how many pages a phone's tab bar shows besides Home and More: 2, 3 (the default, as before) or 4.
+- **All Screens → Appearance Style names the screens that keep their own look.** The line under it says, for example, "Home (Flat) keeps its own look, so this doesn't change it", and each name opens that screen's Appearance.
+
 ## 0.1.81 - 2026-10-27
 
 - **Edit mode with Reduce Motion:** each pill's dotted frame now sits evenly around the pill. A room's pill is drawn 8px wider than its own element, so the outline used to cut across its right edge.
