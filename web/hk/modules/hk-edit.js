@@ -98,6 +98,11 @@
   function win() { return global.window || global; }
   function doc() { return global.document; }
   function cards() { return global.hkCards || null; }
+  // a pill moved by transform: the shared frost behind it (hk-glass.js)
+  // follows it every frame for `ms`
+  function frost(el, ms) { var G = global.hkGlass; if (G && G.moving) G.moving(el, ms); }
+  // ...and the carried one blurs behind itself while it is held
+  function frostCarry(el, on) { var G = global.hkGlass; if (G && G.carry) G.carry(el, on); }
   function shell() { return global.hkShell || null; }
   function v(name, fb) { var C = cards(); return C && C.v ? C.v(name) : fb; }
   function raf(fn) { var r = global.requestAnimationFrame; return r ? r(fn) : setTimeout(fn, 16); }
@@ -375,6 +380,7 @@
       dropBadge(t);
       dropFrame(t);
       t.removeAttribute('data-hk-edit');
+      if (t.classList.contains('hk-carried')) frostCarry(t, false);
       t.classList.remove('hk-carried');
       t.style.removeProperty('--hk-edit-i');
       t.style.transform = ''; t.style.transition = '';
@@ -562,7 +568,7 @@
     if (moving.length) {
       void g.root.offsetWidth;                         // that start, drawn
       raf(function () {
-        moving.forEach(function (t) { t.style.transition = 'transform ' + SETTLE + ' ' + ease(); t.style.transform = ''; });
+        moving.forEach(function (t) { t.style.transition = 'transform ' + SETTLE + ' ' + ease(); t.style.transform = ''; frost(t, 400); });
       });
     }
     if (carry && carry.g === g) { carry.homes = last; follow(carry.last); }
@@ -575,6 +581,7 @@
     carry = { g: g, tile: tile, offX: ev.clientX - r.left, offY: ev.clientY - r.top, last: ev, homes: homes(g), raf: 0, skip: null };
     tile.style.transition = 'none';
     tile.classList.add('hk-carried');
+    frostCarry(tile, true);
     g.root.classList.add('hk-carrying');
     if (tile.__hkBadge) tile.__hkBadge.btn.style.opacity = '0';
     carry.move = function (e) { carryMove(e); };
@@ -657,6 +664,10 @@
     if (t.__hkBadge) t.__hkBadge.btn.style.opacity = '';
     t.style.transition = 'transform ' + SETTLE + ' ' + ease();
     raf(function () { t.style.transform = ''; });
+    // its own blur until it has glided home, then the shared layer's again
+    // (a pill lifted again meanwhile keeps it)
+    var settle = parseFloat(SETTLE) * 1000 + 60;
+    (global.setTimeout || setTimeout)(function () { if (!t.classList.contains('hk-carried')) frostCarry(t, false); }, settle);
     changed();
   }
 

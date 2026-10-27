@@ -470,11 +470,64 @@ async function still() {
   await close(t);
   pass('still: with Reduce Motion no wiggle, and ' + n + ' pills framed evenly round what they paint');
 }
+// FROSTED (look.glass = blur): the frost is one shared layer cut to the pills' shapes (hk-glass.js). A carried pill
+// moves by transform, and on an iPad a cut-out re-cut every frame still trailed it; so while carried it leaves the
+// layer and its plate blurs behind itself (hkGlass.carry), and after the drop it is back in the layer
+async function frost() {
+  const t = await open('/em-frost/room-living-room', OWNER());
+  const p = t.page;
+  await p.waitForFunction(() => hkGlass.stats().active && hkGlass.stats().rects > 3, null, { timeout: 10000 });
+  await enterFromMenu(t);
+  await p.evaluate(() => {
+    // the frost's cut-outs on screen, from each layer's path (rrect: M x+r,y H x+w-r A r,r 0 0 1 x+w,y+r V ... )
+    window.cutouts = () => deep(document, '[data-hk-glass-layer]').flatMap(L => {
+      const b = L.getBoundingClientRect(), d = L.getAttribute('data-path') || '';
+      return (d.match(/M[^Z]*Z/g) || []).map(sp => {
+        const n = sp.match(/-?[\d.]+/g).map(Number);
+        return { l: b.left + n[0] - n[3], t: b.top + n[1], r: b.left + n[8], b: b.top + n[17] };
+      });
+    });
+    window.plateOf = el => [...el.shadowRoot.querySelectorAll('*')].find(x => getComputedStyle(x).getPropertyValue('--hk-glass-surface').trim() === '1');
+    window.ownBlur = el => { const s = getComputedStyle(plateOf(el)); return (s.backdropFilter || s.webkitBackdropFilter || 'none') !== 'none'; };
+    window.offBy = el => {
+      const r = plateOf(el).getBoundingClientRect();
+      return Math.min(...cutouts().map(c => Math.max(Math.abs(c.l - r.left), Math.abs(c.t - r.top), Math.abs(c.r - r.right), Math.abs(c.b - r.bottom))));
+    };
+  });
+  // an OFF light: an on pill's plate is opaque white, with no blur of its own to show
+  const id = await p.evaluate(() => order('light.living_room_lamps').find(x => x.startsWith('light.') && (tileIn(x).hass.states[x] || {}).state === 'off'));
+  assert(id, 'an off light in the Living Room');
+  const a = await p.evaluate(id => mid(tileIn(id)), id);
+  assert(await p.evaluate(id => offBy(tileIn(id)), id) < 1.5, 'the frost under the pill before it is carried');
+  assert(!(await p.evaluate(id => ownBlur(tileIn(id)), id)), 'no blur of its own before it is carried');
+  const b = { x: a.x + 60, y: a.y + 90 }, steps = 8;
+  if (FINGER) { await touch(t, 'touchStart', a.x, a.y); await p.waitForTimeout(320); }
+  else { await p.mouse.move(a.x, a.y); await p.mouse.down(); }
+  const off = [];
+  for (let i = 1; i <= steps; i++) {
+    const x = a.x + (b.x - a.x) * i / steps, y = a.y + (b.y - a.y) * i / steps;
+    if (FINGER) await touch(t, 'touchMove', x, y); else await p.mouse.move(x, y);
+    await p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    off.push(await p.evaluate(id => ({ own: ownBlur(tileIn(id)), cut: offBy(tileIn(id)) }), id));
+    if (i === steps - 2) await shot(t, 'frost-carried');
+  }
+  assert.equal(await p.evaluate(() => deep(document, '.hk-carried').length), 1, 'a pill carried');
+  if (FINGER) await touch(t, 'touchEnd'); else await p.mouse.up();
+  await p.waitForTimeout(700);
+  const after = await p.evaluate(() => deep(document, '[data-hk-edit]').filter(e => e.getBoundingClientRect().height > 0 && plateOf(e))
+    .map(e => ({ own: ownBlur(e), cut: offBy(e) })));
+  // (no cut-out within 1.5 px of where the carried pill is: the layer has none left behind for it either)
+  assert(off.every(o => o.own && o.cut > 1.5), 'the carried pill blurs behind itself, out of the shared layer: ' + JSON.stringify(off));
+  assert(after.every(o => !o.own && o.cut < 1.5), 'after the drop every pill is on its cut-out again: ' + JSON.stringify(after));
+  await p.evaluate(() => hkEdit.cancel());
+  await close(t);
+  pass('frost: on a Frosted screen a carried pill blurs behind itself (' + steps + ' moves) and every pill is on the shared frost after the drop');
+}
 
 (async () => {
   browser = await pw[input.engine].launch({ headless: true, ...(input.engine === 'chromium' ? { executablePath: input.chrome } : {}) });
   try {
-    for (const [name, fn] of [['who', who], ['bar', bar], ['room', room], ['pages', pages], ['menu', menu], ['cancel', cancelled], ['conflict', conflict], ['still', still]]) {
+    for (const [name, fn] of [['who', who], ['bar', bar], ['room', room], ['pages', pages], ['menu', menu], ['cancel', cancelled], ['conflict', conflict], ['still', still], ['frost', frost]]) {
       if (only.has(name)) await fn();
     }
   } finally { await browser.close(); }

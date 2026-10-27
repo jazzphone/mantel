@@ -1138,6 +1138,7 @@
     todo.forEach(function (cp) { cp[1].forEach(function (p) { if (p.sideways) promote(p); }); });
     todo.forEach(function (cp) {
       var card = cp[0], ps = cp[1];
+      if (carried.has(card)) return;            // its own blur while carried (carry)
       ps.forEach(function (p) {
         var m = measure(p);
         if (!m) return;
@@ -1174,6 +1175,7 @@
     var t0 = performance.now(), touched = new Set();
     scaleMemo = new Map();
     list.forEach(function (card) {
+      if (carried.has(card)) return;            // its own blur while carried (carry)
       var ps = card.isConnected && plates.get(card);
       if (ps && ps.length && ps.some(gone)) ps = recollect(card);   // rebuilt by the tap
       if (!ps || !ps.length) { list.delete(card); return; }
@@ -1253,6 +1255,55 @@
     if (!pointers.delete(e.pointerId)) return;
     if (!pointers.size) pressUntil = performance.now() + PRESS_TAIL_MS;
   }
+  // The glass cards `el` is or holds (a grid's wrapper round its pill).
+  function cardsIn(el) {
+    if (cards.has(el)) return [el];
+    var out = [];
+    cards.forEach(function (c) {
+      for (var n = flatParent(c); n && n.nodeType === 1; n = flatParent(n)) if (n === el) { out.push(c); return; }
+    });
+    return out;
+  }
+  // MOVED BY TRANSFORM (Edit mode's pills gliding aside): the same
+  // per-frame re-cut as a press, for `ms` from now.
+  function moving(el, ms) {
+    if (!active || !el) return;
+    var cs = cardsIn(el);
+    if (!cs.length) return;
+    cs.forEach(function (c) { pressed.add(c); });
+    pressUntil = Math.max(pressUntil, performance.now() + (ms || 0));
+    if (pressTicking) return;
+    pressTicking = true;
+    requestAnimationFrame(pressTick);
+  }
+
+  // CARRIED (Edit mode's pill under the finger): out of the shared layer,
+  // and its plate blurs what is behind it itself, as under "Blur each card".
+  // A cut-out re-cut every frame stayed behind the pill on an iPad (Safari,
+  // 2026-10-27: the frost a pill's length off while it was carried), though
+  // in step in every headless engine; a plate's own blur moves with it on
+  // the compositor. One more blur surface, for one pill, while it is held.
+  var carried = new Map();       // card -> its own --hk-glass-backdrop before
+  function carry(el, on) {
+    if (!el || on && !active) return;           // no shared layer (another look): nothing to stand in for
+    (on ? cardsIn(el) : Array.from(carried.keys()).filter(function (c) { return c === el || cardsIn(el).indexOf(c) >= 0; }))
+      .forEach(function (c) {
+        if (on) {
+          if (carried.has(c)) return;
+          carried.set(c, c.style.getPropertyValue('--hk-glass-backdrop'));
+          c.style.setProperty('--hk-glass-backdrop', 'var(--hk-blur-filter,' + MAT + ')');
+        } else {
+          var was = carried.get(c);
+          carried.delete(c);
+          if (was) c.style.setProperty('--hk-glass-backdrop', was); else c.style.removeProperty('--hk-glass-backdrop');
+        }
+        if (active && lastGroups) {
+          lastGroups.forEach(function (g) { g.shapes = g.shapes.filter(function (sh) { return sh.card !== c; }); });
+          if (on) { var dpr = window.devicePixelRatio || 1; lastGroups.forEach(function (g, A) { if (A.isConnected !== false) place(A, g, dpr); }); }
+        }
+        if (!on) { dirty.add(c); schedule(false); }
+      });
+  }
 
   function start() {
     if (active) return;
@@ -1311,6 +1362,8 @@
     document.removeEventListener('pointerup', onUp, true);
     document.removeEventListener('pointercancel', onUp, true);
     pressed.clear(); pointers.clear();
+    carried.forEach(function (was, c) { if (was) c.style.setProperty('--hk-glass-backdrop', was); else c.style.removeProperty('--hk-glass-backdrop'); });
+    carried.clear();
     if (ro) { ro.disconnect(); ro = null; }
     Array.from(layers.keys()).forEach(dropLayer);
     plates = new Map(); dirty.clear(); lastGroups = null;
@@ -1366,6 +1419,13 @@
     // on the next frame only if its plates were replaced or its tree changed
     // size (a plate drawn late), as update() would have found -- every
     // other draw costs a count of its elements.
+    // hk-edit.js calls this as it moves a card by transform (no observer
+    // hears one): its frost follows it every frame for `ms`.
+    moving: moving,
+    // ...and as it carries one: `on`, the card blurs behind itself and is
+    // out of the shared layer; off, back in it.
+    carry: carry,
+    carrying: function (card) { return carried.has(card); },
     rendered: function (card) {
       if (!active || !card || !card.isConnected) return;
       var ps = plates.get(card);

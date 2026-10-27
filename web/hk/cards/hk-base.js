@@ -1863,7 +1863,11 @@
     // inherits into child cards' shadow roots).
     if (card.style) {
       if (off) card.style.setProperty('--hk-glass-backdrop', 'none');
-      else if (card.style.getPropertyValue('--hk-glass-backdrop')) card.style.removeProperty('--hk-glass-backdrop');
+      // (not a pill Edit mode is carrying: that blur is its own while it is
+      // held, and moving it among its group re-joins it -- hkGlass.carry)
+      else if (card.style.getPropertyValue('--hk-glass-backdrop') && !(window.hkGlass && window.hkGlass.carrying && window.hkGlass.carrying(card))) {
+        card.style.removeProperty('--hk-glass-backdrop');
+      }
     }
     var join = on && !off;
     if (join === GLASS.has(card)) return;

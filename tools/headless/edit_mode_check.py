@@ -20,6 +20,8 @@ What it checks (edit_mode_check.cjs says each one):
            (screenshots with --shots)
   still    with Reduce Motion: no wiggle; every pill framed evenly round what it paints (a room's pill is wider
            than its element), a Tall one too; Cancel takes the frames away
+  frost    on a Frosted screen (one shared blur cut to the pills' shapes): a carried pill blurs behind itself, out
+           of the shared layer, on every move; after the drop every pill is on its cut-out again
 No page errors and no console errors anywhere. Skips (exit 0, saying why) without PLAYWRIGHT_PATH or NODE.
 """
 from __future__ import annotations
@@ -37,7 +39,7 @@ sys.path[:0] = [str(ROOT / p) for p in ('tools/headless', 'tools', 'hosts/server
 
 ENGINES = ('chromium', 'webkit')
 SIZES = ('1180x820', '390x844')
-SECTIONS = ('who', 'room', 'pages', 'menu', 'cancel', 'conflict', 'bar', 'still')
+SECTIONS = ('who', 'room', 'pages', 'menu', 'cancel', 'conflict', 'bar', 'still', 'frost')
 MAC_CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
 
@@ -70,6 +72,7 @@ def house(gallery) -> None:
     b['em-tabs'] = {**base, 'menu': 'tabbar', 'menu_phone': 'tabbar'}
     b['em-top'] = {**base, 'menu': 'tabbar', 'menu_phone': 'tabbar', 'tab_bar_pos': 'top'}
     b['em-rail'] = {**base, 'menu': 'tabbar', 'menu_phone': 'tabbar', 'tab_bar_pos': 'left'}
+    b['em-frost'] = {**home, 'glass': 'blur'}
     b['em-grid'] = {**base, 'menu': 'open', 'home_style': 'grid', 'home_grid': {
         'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': False, 'items': [
             {'id': 'lamps', 'card': 'accessory', 'size': 'S', 'at': [0, 0], 'opts': {'entity': 'light.living_room_lamps'}}]}}

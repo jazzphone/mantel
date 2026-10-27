@@ -54,6 +54,11 @@
   function raf(fn) { var r = global.requestAnimationFrame; return r ? r(fn) : setTimeout(fn, 16); }
   function unraf(id) { var c = global.cancelAnimationFrame; if (c) c(id); else clearTimeout(id); }
   function cards() { return global.hkCards || null; }
+  // a pill moved by transform: the shared frost behind it (hk-glass.js)
+  // follows it every frame for `ms`
+  function frost(el, ms) { var G = global.hkGlass; if (G && G.moving) G.moving(el, ms); }
+  // ...and the carried one blurs behind itself while it is held
+  function frostCarry(el, on) { var G = global.hkGlass; if (G && G.carry) G.carry(el, on); }
   function v(name, fb) { var C = cards(); return C && C.v ? C.v(name) : fb; }
   function ease() { var C = cards(); return (C && C.EASE && C.EASE.standard) || 'cubic-bezier(.32,.72,0,1)'; }
   function setting(path, fb) {
@@ -365,6 +370,7 @@
     if (this.x0 != null) c.x0 = this.x0;
     tile.style.transition = 'none';
     tile.classList.add('hk-carried');
+    frostCarry(tile, true);
     this.row.classList.add('hk-carrying');
     items.forEach(function (it) { if (it.el !== tile) it.el.style.transition = 'transform ' + SETTLE + ' ' + ease(); });
     c.move = function (e) { self.move(e); };
@@ -389,7 +395,9 @@
     items.forEach(function (it, k2) {
       if (k2 === i) return;
       var shift = (i < k2 && k2 <= to) ? -c.step : (to <= k2 && k2 < i) ? c.step : 0;
+      var was = it.el.style.transform;
       it.el.style.transform = shift ? 'translateX(' + shift + 'px)' : '';
+      if (it.el.style.transform !== was) frost(it.el, 400);
     });
   };
   Row.prototype.speed = function (x) {
@@ -441,6 +449,8 @@
     t.style.transform = 'translateX(' + (from - now) + 'px)';
     void row.offsetWidth;
     raf(function () { t.style.transition = 'transform ' + SETTLE + ' ' + ease(); t.style.transform = ''; });
+    // its own blur until it has glided home (hk-edit.js drop())
+    (global.setTimeout || setTimeout)(function () { if (!t.classList.contains('hk-carried')) frostCarry(t, false); }, parseFloat(SETTLE) * 1000 + 60);
   };
   Row.prototype.restore = function () {
     var row = this.row;
@@ -461,6 +471,7 @@
     this.members.forEach(function (t) {
       if (H && H.dropFrame) H.dropFrame(t);
       t.removeAttribute('data-hk-edit');
+      if (t.classList.contains('hk-carried')) frostCarry(t, false);
       t.classList.remove('hk-carried');
       t.style.removeProperty('--hk-edit-i');
       t.style.transform = ''; t.style.transition = '';
