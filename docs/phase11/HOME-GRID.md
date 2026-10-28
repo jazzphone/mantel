@@ -709,7 +709,7 @@ its Python mirror.
 - Both hosts have `hk_frontend/grid/starter`, an admin/configure-only read. It delegates to the bounded `hk_core.settings.home_grid.starter_request()` and the existing Python starter. No starter layout is duplicated in JS. The JS catalog now exposes the existing Python option kinds for the old cards too; calendar blocks now consume their stored calendar selection.
 - Mantel's settings host supplies the history read through `gridHistory`, keeping its transport out of shared code. History includes the actor's display name, version and date. Selecting a version restores **only the layout into the draft**; Save applies it through the existing checked/audited write. Copy Layout confirms and saves only layout/style to the selected screen, preserving other settings and relative `tablet_room` options.
 - The shared Screens page offers Home Style and Arrange Home Grid for generated screens. Both hosts load the editor after the catalog. The HA settings-panel cache stamp includes the new module.
-- Guides: `docs/guide/Home-Grid.md`, HK Frontend's `docs/Home-Grid.md`, wiki sidebar, guide index and CHANGELOG. `docs/images/home-grid.png` is 1280 × 800; `home-grid-editor.png` shows the desktop editor. Fictional data, Arial, no shipped Apple font/glyph files; the demo camera has no live image.
+- Guides: `docs/guide/Home-Grid.md`, HK Frontend's `docs/Home-Grid.md`, wiki sidebar, guide index and CHANGELOG. `docs/images/home-grid.webp` is 1280 × 800; `home-grid-editor.webp` shows the desktop editor. Fictional data, Arial, no shipped Apple font/glyph files; the demo camera has no live image.
 
 **Validation:**
 
@@ -1205,7 +1205,7 @@ In the editor, the starters are a gallery (Start With, or Start Over With inside
 has a small map of the blocks that starter would put on this screen. The map comes from the same read-only
 `hk_frontend/grid/starter` request, made once per starter, with each block in its palette group's color and glyph.
 Choosing a starter uses the layout already fetched. The editor smoke checks all eight rows and their maps, then picks
-Room Focus and Tap Weight. The guide shows the gallery (`home-grid-starters.png`).
+Room Focus and Tap Weight. The guide shows the gallery (`home-grid-starters.webp`).
 
 ### House App 0.1.67 deployed (2026-10-24)
 

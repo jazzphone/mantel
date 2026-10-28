@@ -1,6 +1,6 @@
 # Home Grid
 
-![Home Grid at 1280 × 800, with fictional devices and Arial](../images/home-grid.png)
+![Home Grid at 1280 × 800, with fictional devices and Arial](../images/home-grid.webp)
 
 Home Grid is a tablet Home page arranged in fixed blocks. It fits the screen without scrolling, keeping the same tile proportions at every resolution. Each screen keeps its own layout; the other pages and the menu keep working as usual.
 
@@ -10,7 +10,7 @@ Home Grid is a mode on an existing generated dashboard. You do not need a new da
 
 ## The editor
 
-![The desktop Home Grid editor](../images/home-grid-editor.png)
+![The desktop Home Grid editor](../images/home-grid-editor.webp)
 
 The editor has three parts: the cards on the left, the screen in the middle, and settings on the right.
 
@@ -27,7 +27,7 @@ For a new layout, pick a starter. Each shows a small map of the blocks it would 
 
 Everything stays a draft until you press **Save**. Once a layout exists, the starters are under **Preview Size and Starters**; choosing one replaces the draft.
 
-![The starter layouts, each with a map of its blocks](../images/home-grid-starters.png)
+![The starter layouts, each with a map of its blocks](../images/home-grid-starters.webp)
 
 - **Add a card:** drag it from the left onto the grid. While you drag, its outline shows where it will land, red where there's no room. Each card shows its sizes (Small, Wide, Tall, Large, X-Large, Full); pick one before you drag. Click a card instead to see a live preview with sample readings, then **Add** places it in the first free space. On a touch screen, swiping up or down scrolls the card list; drag a card sideways towards the grid, or press and hold it, to pick it up.
 - **Move a block:** drag it. Blocks of the same size swap places. A move that overlaps another size or leaves the grid is refused. Or select a block and use the arrow keys.
@@ -36,7 +36,7 @@ Everything stays a draft until you press **Save**. Once a layout exists, the sta
 
 The card controls inside the preview are disabled, so arranging a block can't toggle a light or run a scene.
 
-![The card list with a live preview](../images/home-grid-picker.png)
+![The card list with a live preview](../images/home-grid-picker.webp)
 
 ## What a block shows
 
@@ -48,6 +48,11 @@ The card controls inside the preview are disabled, so arranging a block can't to
 - **Choose Each Page**, on any card, repeats the card with different choices per page. A choice left on **Same as the Block** uses the block's. Pages can be moved up or removed, and **Add Page** adds another.
 
 **Now Playing** blocks have **Speakers** and **Browse** buttons either side of play and pause; on a Tall block they're in its top corners. Either one flips the card over, and its back grows out of the block into the screensaver's music panel: **Speakers** (tick the rooms it plays in, then **Update**), **Volume** for each room, the **Queue**, and **Browse** (playlists, search and the library). What's playing stays at its foot. Tap outside it, press its X or Escape to flip it back; it also flips back on its own shortly after something you picked starts playing. With nothing playing, **Speakers** is dimmed and **Browse** still works.
+
+<p align="center">
+<img src="../images/home-grid-speakers.webp" width="49%" alt="A Now Playing block turned over to Speakers: the rooms it plays in, with Update">
+<img src="../images/home-grid-browse.webp" width="49%" alt="A Now Playing block turned over to Browse: playlists, search and the library">
+</p>
 
 Room blocks have a surrounding tile containing accessories and the speaker, without status chips. Wide uses regular pills; Large uses a 2 × 2 arrangement of taller tiles, Extra Large has two rows of three, and Full Width has two rows of six. Empty cells stay reserved, so a lone accessory never stretches into another row. **Accessories → Scroll All**, where a new room block starts, scrolls vertically through the room's supported controls, including locks, covers and climate controls, at the same tile sizes. **Summary** shows a compact selection of lights, fans and one speaker instead, with **+N more** opening the room; room blocks saved before 0.1.66 stay on Summary until you change them. The room title and page dots stay outside the scroll area. Hidden entities and the room's visibility settings still apply; diagnostic sensors are not added automatically.
 
@@ -78,7 +83,7 @@ Weather comes in Wide (conditions), Large (also readings, six hours and three da
 
 **Appearance → Custom Group Background** (Room, Scenes and Accessory Group blocks) chooses the group's color, opacity and blur (Follow Screen, None, Light, Medium or Heavy). Only the group's own background changes; its tiles keep the screen's look.
 
-![Background controls for a group](../images/home-grid-background.png)
+![Background controls for a group](../images/home-grid-background.webp)
 
 **Show When** switches a block's card in place. A block shows its own card by default; **Add Rule** adds up to four rules, each with up to three conditions (all must hold) and the card to show while they do. The first rule that holds wins, so **Move Rule Up** sets priority. Conditions: music playing, a timer running, the alarm armed or disarmed, someone at the door, after sunset, a time of day (a window from one time to another, which can run past midnight), or an accessory's state. For example: the calendar by default; Now Playing while music plays; the alarm keypad from 6:00 to 9:00 while the alarm is armed. Every card fills exactly the same space. **Preview** shows Live, the default or any rule's card without changing what is saved. Doorbell events hold their card for one minute. Blocks saved with the earlier **Otherwise Show** keep working and open as one rule.
 
