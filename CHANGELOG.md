@@ -72,6 +72,10 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.84 - 2026-10-28
+
+- **Speakers and Browse on a Home Grid's Now Playing block.** Either side of play and pause (a Tall block's top corners), each turns the card over: its back grows out of the block into the screensaver's music panel -- Speakers, Volume, Queue and Browse, with what plays at its foot. A tap outside, Escape or its X turns it back; it turns back by itself a moment after a pick starts playing.
+
 ## 0.1.83 - 2026-10-27
 
 - **Edit mode on a blurred screen:** the pill you carry takes its blur with it. On an iPad the blur behind a carried pill used to trail it; now the pill blurs what is behind it itself while held, and rejoins the page's shared blur once it has settled.
