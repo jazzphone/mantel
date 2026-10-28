@@ -5,6 +5,13 @@ Home Assistant's side of <b>Mantel</b>: your wall tablets, screens and actions, 
 Installed from HACS on every Home Assistant (OS, Supervised, Container, Core).
 </p>
 
+<p align="center">
+<a href="https://github.com/jazzphone/mantel-link/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/jazzphone/mantel-link?style=flat-square&label=release&color=0a84ff"></a>
+<a href="https://hacs.xyz"><img alt="HACS custom repository" src="https://img.shields.io/badge/HACS-custom-41BDF5?style=flat-square"></a>
+<img alt="Home Assistant 2026.9 or newer" src="https://img.shields.io/badge/Home%20Assistant-2026.9%2B-18BCF2?style=flat-square">
+<a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/jazzphone/mantel-link?style=flat-square&color=8e8e93"></a>
+</p>
+
 **Mantel** draws your home's screens (the wall tablets, the phones, the sidebar) and runs their features: the Sleep
 Screen, pop-ups, notifications, music, Clean Areas. It runs as a Home Assistant App, or in Docker or an LXC next to
 Home Assistant. **Mantel Link** is everything Home Assistant needs of it, and nothing of its own:
