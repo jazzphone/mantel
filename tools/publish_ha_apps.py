@@ -10,7 +10,7 @@ a release raises config.yaml's version. OUT becomes that branch's whole tree:
 
     repository.yaml        name, url, maintainer (what the store lists the repository as)
     README.md              what the branch is, for someone who opens it on GitHub
-    mantel/                the Mantel App: config.yaml, DOCS.md, README.md, CHANGELOG.md, icon.png, translations/
+    mantel/                the Mantel App: config.yaml, DOCS.md, README.md, CHANGELOG.md, icon.png, logo.png, translations/
     mantel-connect/        the Mantel Connect App, the same files
 
 Each config.yaml is packaging/<app>/config.yaml with an `image:` key added (ghcr.io/jazzphone/mantel-app-{arch}:
@@ -68,8 +68,11 @@ class App(NamedTuple):
 
 
 ARCHES = ("amd64", "aarch64")
-ICON = "packaging/ha-app/icon.png"   # both Apps use the Mantel App's icon (stage_connect_app.py does too)
-LOGO = "packaging/ha-app/logo.png"   # optional: the store shows it on the App's page when there is one
+# An App's own icon.png and logo.png (250x100, tools/make_brand_logos.py) come first; the Mantel App's is the
+# fallback for an App with none (stage_connect_app.py does the same). The logo is optional: the store shows it on
+# the App's page when there is one.
+ICON = "packaging/ha-app/icon.png"
+LOGO = "packaging/ha-app/logo.png"
 APPS = (
     App("mantel", "packaging/ha-app", f"{REGISTRY}/mantel-app-{{arch}}", "docs/guide/Install.md", "check_ha_app"),
     App("mantel-connect", "packaging/connect-app", f"{REGISTRY}/mantel-connect-app-{{arch}}",
@@ -136,9 +139,10 @@ def plan(version: str, notes: str, root: Path = ROOT) -> dict[str, bytes | Path]
         files[f"{app.folder}/DOCS.md"] = src / "DOCS.md"
         files[f"{app.folder}/README.md"] = _readme(app, doc, version).encode()
         files[f"{app.folder}/CHANGELOG.md"] = f"# Changelog\n\n## {version}\n\n{notes}".encode()
-        files[f"{app.folder}/icon.png"] = root / ICON
-        if (root / LOGO).is_file():
-            files[f"{app.folder}/logo.png"] = root / LOGO
+        files[f"{app.folder}/icon.png"] = src / "icon.png" if (src / "icon.png").is_file() else root / ICON
+        logo = src / "logo.png" if (src / "logo.png").is_file() else root / LOGO
+        if logo.is_file():
+            files[f"{app.folder}/logo.png"] = logo
         for t in sorted((src / "translations").glob("*.yaml")):
             files[f"{app.folder}/translations/{t.name}"] = t
     return files

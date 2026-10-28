@@ -6,7 +6,7 @@
     python tools/stage_connect_app.py TARGET --replace       # replace a folder this tool staged before
 
 The folder is what HA's Supervisor builds: packaging/connect-app/ (config.yaml, Dockerfile, DOCS.md,
-README.md, requirements.txt, translations/) plus icon.png (the Mantel App's) and app/mantel_connect/: the
+README.md, requirements.txt, icon.png, logo.png, translations/) plus app/mantel_connect/: the
 Connect App's code and the pairing protocol it shares with Mantel Server. Nothing of Mantel Server itself.
 
 The same rules as tools/stage_ha_app.py, whose scan it reuses: before anything is written the whole plan is
@@ -28,8 +28,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_SRC = ROOT / "packaging/connect-app"
-APP_FILES = ("config.yaml", "Dockerfile", "DOCS.md", "README.md", "requirements.txt", "translations/en.yaml")
-ICON = ROOT / "packaging/ha-app/icon.png"
+APP_FILES = ("config.yaml", "Dockerfile", "DOCS.md", "README.md", "requirements.txt", "icon.png", "logo.png",
+             "translations/en.yaml")
 CODE = ROOT / "hosts/server/mantel_connect"
 CODE_FILES = ("__init__.py", "__main__.py", "app.py", "pairing.py", "pki.py", "protocol.py")
 TOOL = "tools/stage_connect_app.py"
@@ -49,7 +49,6 @@ MARKER = base.MARKER
 def plan() -> list[tuple[Path, str]]:
     """(source file, path inside the App folder) for every copied file."""
     pairs = [(APP_SRC / name, name) for name in APP_FILES]
-    pairs.append((ICON, "icon.png"))
     pairs += [(CODE / name, f"app/mantel_connect/{name}") for name in CODE_FILES]
     return pairs
 
