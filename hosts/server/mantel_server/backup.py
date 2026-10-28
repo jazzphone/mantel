@@ -58,6 +58,7 @@ small tmpfs /tmp), in a hidden folder it removes again.
 from __future__ import annotations
 
 import argparse
+import base64
 import asyncio
 import contextlib
 import gzip
@@ -69,6 +70,7 @@ import logging
 import os
 import re
 import shutil
+import signal
 import sqlite3
 import struct
 import sys
@@ -107,6 +109,15 @@ PHOTOS_DIR = "photos"               # photos.py: <data_dir>/photos (the rows are
 CONNECT_DIR = "connect"             # connect_pairing.py: <data_dir>/connect, the Connect CA (private keys)
 KEYS_DIR = "keys"                   # app_crypto.KEYS_DIR: the push key and the apps' identity key
 DEFAULT_TIME = "03:15"
+# MANTEL SETTINGS -> BACKUPS (2026-10-28): Back Up Now, the list to download, the keys, and Restore, on every
+# install. With no folder set (the Home Assistant App, whose own backups already hold /data; Docker before one is
+# given) Back Up Now writes here, under the data folder, and nothing runs nightly. The App's config.yaml leaves
+# this folder out of Home Assistant's backups (backup_exclude), so they don't each carry the last few.
+LOCAL_DIR = "backups"
+# a checked upload waiting for the next start (apply_pending): the .mbk, the keys it came with, what to do
+PENDING_DIR = ".pending-restore"
+RESTORED = "restored.json"          # <data_dir>/.pending-restore/restored.json: what the last start put in place
+KEYS_FORMAT = "mantel-keys"
 
 
 class BackupError(Exception):
@@ -705,7 +716,15 @@ class Backups:
 
     @property
     def enabled(self) -> bool:
+        """The nightly backup: only with a folder set (--backup-target)."""
         return self.cfg.backup_target is not None
+
+    @property
+    def folder(self) -> Path:
+        """Where Back Up Now writes and what the list shows: the folder set, else LOCAL_DIR under the data."""
+        if self.cfg.backup_target is not None:
+            return Path(self.cfg.backup_target).expanduser()
+        return Path(self.cfg.data_dir).expanduser() / LOCAL_DIR
 
     @property
     def key_file(self) -> Path:
@@ -715,14 +734,17 @@ class Backups:
         return datetime.fromtimestamp(self.clock(), tz=zone(self.tz() or self.cfg.house_tz or "UTC"))
 
     def list(self) -> list[BackupInfo]:
-        return list_backups(self.cfg.backup_target) if self.enabled else []
+        return list_backups(self.folder)
 
     def run_blocking(self) -> Path:
         key, created = load_key(self.key_file, create=True)
         if created:
             log.warning("created a new backup key at %s: copy it somewhere that is not this machine; "
                         "without it the backups cannot be restored", self.key_file)
-        return create_backup(Path(self.cfg.data_dir), Path(self.cfg.backup_target), key, now=self.now(),
+        folder = self.folder
+        if not self.enabled:                       # the local folder is Mantel's own to make (a NAS mount is not)
+            folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+        return create_backup(Path(self.cfg.data_dir), folder, key, now=self.now(),
                              include_files=self.cfg.backup_include_files, keep_daily=self.cfg.backup_keep_daily,
                              keep_weekly=self.cfg.backup_keep_weekly)
 
@@ -774,11 +796,12 @@ class Backups:
 async def api_status(request: web.Request) -> web.Response:
     from .sessions import ok
     b: Backups = request.app["backups"]
-    if not b.enabled:
-        return ok({"enabled": False})
-    return ok({"enabled": True, "target": str(b.cfg.backup_target), "time": b.cfg.backup_time,
+    return ok({"enabled": b.enabled, "nightly": b.enabled, "local": not b.enabled,
+               "ha_app": bool(os.environ.get("SUPERVISOR_TOKEN")),
+               "target": str(b.folder), "time": b.cfg.backup_time,
                "keep_daily": b.cfg.backup_keep_daily, "keep_weekly": b.cfg.backup_keep_weekly,
-               "key_present": b.key_file.exists(), "status": b.status, "backups": [x.as_dict() for x in b.list()]})
+               "key_present": b.key_file.exists(), "status": b.status, "backups": [x.as_dict() for x in b.list()],
+               "pending": pending_report(Path(b.cfg.data_dir)), "restored": request.app.get("backup_restored")})
 
 
 @guard("owner", no_audit="makes a backup file, changing no setting; the run writes its result row "
@@ -786,10 +809,219 @@ async def api_status(request: web.Request) -> web.Response:
 async def api_run(request: web.Request) -> web.Response:
     from .sessions import error, ok
     b: Backups = request.app["backups"]
-    if not b.enabled:
-        return error(409, "backup_not_configured")
     result = await b.run_once()
     return ok(result) if result["ok"] else error(500, "backup_failed", message=result["error"])
+
+
+def _named(b: "Backups", name: str) -> Path | None:
+    """A backup in the folder by its file name, or None (only mantel-YYYYmmdd-HHMMSS.mbk names)."""
+    if _stamp(name) is None:
+        return None
+    p = b.folder / name
+    return p if p.is_file() and not p.is_symlink() else None
+
+
+@guard("owner")
+async def api_download(request: web.Request) -> web.StreamResponse:
+    """A backup file, to keep somewhere else. It is sealed with backup.key, which it never holds."""
+    from .sessions import error
+    p = _named(request.app["backups"], request.match_info["name"])
+    if p is None:
+        return error(404, "not_found")
+    return web.FileResponse(p, headers={"Content-Disposition": f'attachment; filename="{p.name}"',
+                                        "Content-Type": "application/octet-stream", "Cache-Control": "no-store"})
+
+
+@guard("owner", audit="backup.delete")
+async def api_delete(request: web.Request) -> web.Response:
+    from . import audit
+    from .guards import ident as guarded
+    from .sessions import error, ok
+    p = _named(request.app["backups"], request.match_info["name"])
+    if p is None:
+        return error(404, "not_found")
+    audit.config(request, guarded(request), "backup.delete", {"file": p.name})
+    p.unlink()
+    return ok()
+
+
+@guard("owner", fresh="always", audit="backup.keys")
+async def api_keys(request: web.Request) -> web.Response:
+    """Both keys, as one small file to keep apart from the backups (a password manager): backup.key opens a
+    backup, at_rest.key the values sealed inside it. Confirm It Is You first; the audit log says who asked."""
+    from . import audit
+    from .guards import ident as guarded
+    from .sessions import ok
+    b: Backups = request.app["backups"]
+    key, _ = load_key(b.key_file, create=True)
+    at_rest = atrest.load_or_create_key(Path(b.cfg.secrets_dir).expanduser() / atrest.KEY_FILE)
+    audit.config(request, guarded(request), "backup.keys", {})
+    return ok({"format": KEYS_FORMAT, "made": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+               "backup_key": base64.urlsafe_b64encode(key).decode(), "at_rest_key": base64.urlsafe_b64encode(at_rest).decode()})
+
+
+def parse_keys(text: str | bytes) -> dict[str, bytes]:
+    """A keys file (api_keys) -> {"backup_key", "at_rest_key"} as bytes; BackupError keys_invalid otherwise."""
+    try:
+        d = json.loads(text)
+        if not isinstance(d, dict) or d.get("format") != KEYS_FORMAT:
+            raise ValueError("not a keys file")
+        out = {}
+        for k in ("backup_key", "at_rest_key"):
+            raw = base64.urlsafe_b64decode(str(d[k]).encode() + b"=" * (-len(str(d[k])) % 4))
+            if len(raw) != 32:
+                raise ValueError(k)
+            out[k] = raw
+        return out
+    except (ValueError, KeyError, TypeError) as exc:
+        raise BackupError("keys_invalid", "that is not a Mantel keys file") from exc
+
+
+def pending_report(data_dir: Path) -> dict | None:
+    """The upload waiting to be restored (its check), or None."""
+    p = Path(data_dir).expanduser() / PENDING_DIR / "check.json"
+    try:
+        return json.loads(p.read_text())
+    except (OSError, ValueError):
+        return None
+
+
+@guard("owner", fresh="always", audit="backup.restore_upload")
+async def api_upload(request: web.Request) -> web.Response:
+    """Restore, step one: the .mbk (and, from another Mantel, its keys file) uploaded and checked -- opened,
+    its database checked and migrated to this build in a staging folder -- changing nothing. Its report is
+    kept with it until Restore and Restart, or Cancel."""
+    from . import audit
+    from .guards import ident as guarded
+    from .sessions import error, ok
+    b: Backups = request.app["backups"]
+    data_dir = Path(b.cfg.data_dir).expanduser()
+    pend = data_dir / PENDING_DIR
+    shutil.rmtree(pend, ignore_errors=True)
+    pend.mkdir(mode=0o700, parents=True)
+    upload, keys = pend / "upload.mbk", None
+    try:
+        reader = await request.multipart()
+        while True:
+            part = await reader.next()
+            if part is None:
+                break
+            if part.name == "file":
+                with open(upload, "wb") as f:
+                    os.chmod(upload, 0o600)
+                    while chunk := await part.read_chunk(1 << 20):
+                        f.write(chunk)
+            elif part.name == "keys":
+                keys = parse_keys(await part.read(decode=False))
+        if not upload.is_file() or upload.stat().st_size == 0:
+            raise BackupError("no_file", "choose a backup file (.mbk)")
+        key = keys["backup_key"] if keys else load_key(b.key_file, create=False)[0]
+        report = await asyncio.get_running_loop().run_in_executor(
+            None, lambda: restore(upload, key, data_dir, verify_only=True))
+    except BackupError as exc:
+        shutil.rmtree(pend, ignore_errors=True)
+        msg = ("This backup was made by another Mantel, or with another key: add that Mantel's keys file."
+               if exc.code in ("wrong_key", "key_missing") else str(exc))
+        return error(400, exc.code, message=msg)
+    except Exception:
+        shutil.rmtree(pend, ignore_errors=True)
+        raise
+    if keys:
+        kf = pend / "keys.json"
+        kf.write_text(json.dumps({k: base64.urlsafe_b64encode(v).decode() for k, v in keys.items()}))
+        os.chmod(kf, 0o600)
+    check = {"created": report.created, "schema": report.schema, "tables": len(report.tables),
+             "rows": sum(report.tables.values()), "files": report.files, "migrated": report.migrated,
+             "other_keys": bool(keys), "size": upload.stat().st_size}
+    (pend / "check.json").write_text(json.dumps(check))
+    audit.config(request, guarded(request), "backup.restore_upload", {"created": report.created, "other_keys": bool(keys)})
+    return ok(check)
+
+
+@guard("owner", fresh="always", audit="backup.restore")
+async def api_restore(request: web.Request) -> web.Response:
+    """Restore, step two: put the checked upload in place at the next start, and restart now. What is here now
+    is moved aside (*.before-restore-<time>), never deleted."""
+    from . import audit
+    from .guards import ident as guarded
+    from .sessions import error, ok
+    b: Backups = request.app["backups"]
+    pend = Path(b.cfg.data_dir).expanduser() / PENDING_DIR
+    if pending_report(Path(b.cfg.data_dir)) is None:
+        return error(409, "nothing_to_restore")
+    audit.config(request, guarded(request), "backup.restore", pending_report(Path(b.cfg.data_dir)))
+    (pend / "go").write_text("1")
+    restart_soon(request.app)
+    return ok({"restarting": True})
+
+
+@guard("owner", audit="backup.restore_cancel")
+async def api_cancel(request: web.Request) -> web.Response:
+    from . import audit
+    from .guards import ident as guarded
+    from .sessions import ok
+    b: Backups = request.app["backups"]
+    audit.config(request, guarded(request), "backup.restore_cancel", {})
+    shutil.rmtree(Path(b.cfg.data_dir).expanduser() / PENDING_DIR, ignore_errors=True)
+    return ok()
+
+
+def restart_soon(app: web.Application, delay: float = 1.0) -> None:
+    """Start Mantel again: the Home Assistant App asks the Supervisor; otherwise the process ends and its
+    restart policy (Docker's and the LXC's unless-stopped) starts it again."""
+    async def go() -> None:
+        await asyncio.sleep(delay)
+        token = os.environ.get("SUPERVISOR_TOKEN")
+        if token:
+            try:
+                import aiohttp
+                async with aiohttp.ClientSession() as s:
+                    async with s.post("http://supervisor/addons/self/restart",
+                                      headers={"Authorization": f"Bearer {token}"}) as r:
+                        if r.status < 300:
+                            return
+                        log.error("the Supervisor would not restart Mantel (%s); stopping instead", r.status)
+            except Exception:  # noqa: BLE001 -- then the plain way
+                log.exception("could not ask the Supervisor to restart Mantel; stopping instead")
+        os.kill(os.getpid(), signal.SIGTERM)
+    app["backup_restart"] = asyncio.get_running_loop().create_task(go())
+
+
+def apply_pending(cfg) -> dict | None:
+    """At start, before the database opens: a restore asked for (api_restore) is put in place. Returns what
+    happened (kept for Settings, written to the audit log once the server is up), or None."""
+    data_dir = Path(cfg.data_dir).expanduser()
+    pend = data_dir / PENDING_DIR
+    if not (pend / "go").is_file():
+        if pend.is_dir() and not (pend / "check.json").is_file():
+            shutil.rmtree(pend, ignore_errors=True)          # a half-written upload from a stop mid-way
+        return None
+    check = pending_report(data_dir) or {}
+    result: dict = {"created": check.get("created"), "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    try:
+        keys = None
+        if (pend / "keys.json").is_file():
+            keys = {k: base64.urlsafe_b64decode(v.encode()) for k, v in json.loads((pend / "keys.json").read_text()).items()}
+        key_file = Path(cfg.backup_key_file or (Path(cfg.secrets_dir) / KEY_FILE)).expanduser()
+        key = keys["backup_key"] if keys else load_key(key_file, create=False)[0]
+        report = restore(pend / "upload.mbk", key, data_dir, replace=True)
+        if keys:
+            # the restored database's sealed values were sealed with the other Mantel's at-rest key
+            ar = Path(cfg.secrets_dir).expanduser() / atrest.KEY_FILE
+            if ar.exists():
+                os.replace(ar, ar.with_name(ar.name + ".before-restore-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")))
+            ar.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            fd = os.open(ar, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as f:
+                f.write(base64.urlsafe_b64encode(keys["at_rest_key"]).decode())
+        result.update(ok=True, replaced=report.replaced, migrated=report.migrated)
+        log.warning("restored the backup of %s; the data it replaced is at %s", check.get("created"), report.replaced)
+    except (BackupError, OSError, sqlite3.Error, ValueError, KeyError) as exc:
+        result.update(ok=False, error=str(exc)[:300])
+        log.error("the restore asked for could not be done; Mantel starts with its data as it was: %s", exc)
+    finally:
+        shutil.rmtree(pend, ignore_errors=True)
+    return result
 
 
 def register(app: web.Application, hub=None) -> None:
@@ -804,8 +1036,17 @@ def register(app: web.Application, hub=None) -> None:
     backups = Backups(cfg, clock=lambda: app["clock"](), audit=audit.config_event if audit is not None else None,
                       tz=house_zone)
     app["backups"] = backups
+    done = app.get("backup_restored")
+    if done is not None and audit is not None:
+        backups._record("backup.restored" if done.get("ok") else "backup.restore_failed", done)
     app.router.add_get("/api/backup", api_status)
     app.router.add_post("/api/backup/run", api_run)
+    app.router.add_get("/api/backup/files/{name}", api_download)
+    app.router.add_delete("/api/backup/files/{name}", api_delete)
+    app.router.add_get("/api/backup/keys", api_keys)
+    app.router.add_post("/api/backup/restore/upload", api_upload)
+    app.router.add_post("/api/backup/restore", api_restore)
+    app.router.add_delete("/api/backup/restore", api_cancel)
     if not backups.enabled:
         return
 

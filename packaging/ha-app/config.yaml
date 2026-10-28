@@ -38,6 +38,11 @@ watchdog: "http://[HOST]:[PORT:8099]/healthz"
 # backup. A backup_pre snapshot would keep it running but needs a restore-time step to put the snapshot in
 # place; cold needs nothing and cannot go wrong.
 backup: cold
+# Mantel Settings -> Backups' own files (Back Up Now, /data/backups): kept out of Home Assistant's backups, which
+# already hold everything they do; and a restore waiting for the next start
+backup_exclude:
+  - "backups/*"
+  - ".pending-restore/*"
 # Direct access (decision 26, DOCS.md "Direct access"): Mantel's own address for tablets and devices at
 # home. Off unless the option `access` is proxy (plain HTTP here, for your own proxy) or https (Mantel serves
 # HTTPS here with its own certificate), AND a host port is set for it in the App's Network section (null:

@@ -24,6 +24,7 @@ import { pPeople } from './settings/people.js';
 import { drawTabletMantel, drawTabletsMantel, pDevices } from './settings/devices.js';
 import { pRoles } from './settings/roles.js';
 import { pFiles, photoTools } from './settings/files.js';
+import { pBackups } from './settings/backups.js';
 import { pService } from './settings/service.js';
 import { pConnect } from './settings/connect.js';
 import { pConnections } from './settings/connections.js';
@@ -44,6 +45,7 @@ const PAGES = [
   ['general', 'General', 'mdi:cog', C.gray, 'end', 'Mantel'],
   ['connections', 'Connections', 'mdi:lan', C.green, 'end', 'Mantel'],
   ['files', 'Your Files', 'mdi:folder', C.purple, 'end', 'Mantel'],
+  ['backups', 'Backups', 'mdi:safe', C.blue, 'end', 'Mantel'],
   ['setup', 'Set Up Mantel', 'mdi:clipboard-check', C.green, 'end', 'Mantel'],
   ['about', 'About', 'mdi:information-outline', C.gray, 'end', 'Mantel'],
   ['service', 'Service Accounts', 'mdi:key-variant', C.brown, 'end', 'Advanced'],
@@ -62,7 +64,7 @@ const NOTES = {
 };
 
 let lastPage = null;
-const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, service: pService, about: pAbout, general: pGeneral,
+const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, backups: pBackups, service: pService, about: pAbout, general: pGeneral,
                 connect: pConnect, connections: pConnections, audit: pAudit, setup: pSetup };
 
 export const host = {

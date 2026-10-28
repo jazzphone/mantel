@@ -2,6 +2,8 @@
 snapshots, wrong key / corrupted / truncated files fail clearly, rotation, the restore's gates (integrity,
 schema version, fresh data dir), the CLI, the nightly job and its REST status."""
 import asyncio
+import base64
+import json
 import os
 import re
 import shutil
@@ -861,3 +863,121 @@ def test_a_written_backup_is_read_back_before_it_counts(tmp_path, monkeypatch):
     monkeypatch.setattr(bk, "seal_stream", real)
     ok = bk.create_backup(data, target, key, now=datetime(2026, 10, 3, 3, 0, tzinfo=timezone.utc))
     assert ok.is_file() and bk.open_stream(ok, io.BytesIO(), key)["schema"] == LATEST
+
+
+# -- Mantel Settings -> Backups (2026-10-28) ---------------------------------------------------------------
+@pytest.fixture
+async def app_local(tmp_path, monkeypatch):
+    """No folder set (the Home Assistant App): Back Up Now writes under the data folder."""
+    from mantel_server.config import Config
+    from mantel_server.ha_client import HaClient
+    from mantel_server.readproxy import ReadProxy
+    from mantel_server.server import build_app
+    from mantel_server.store import Store
+
+    async def forbidden(*args, **kwargs):
+        pytest.fail("backup tests attempted upstream access")
+
+    monkeypatch.setattr(HaClient, "run", forbidden)
+    monkeypatch.setattr(HaClient, "_send", forbidden)
+    monkeypatch.setattr(ReadProxy, "request", forbidden)
+    restarts: list = []
+    monkeypatch.setattr(bk, "restart_soon", lambda app, delay=1.0: restarts.append(app))
+    cfg = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "secrets", port=0)
+    store = Store(cfg.data_dir / "mantel.db")
+    now = [1_000_000.0]
+    app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False, clock=lambda: now[0])
+    app["accounts"].hasher = PasswordHasher(time_cost=1, memory_cost=8, parallelism=1)
+    bk.register(app, app["hub"])
+    async with TestClient(TestServer(app)) as client:
+        origin = str(client.make_url("")).rstrip("/")
+        client.session.headers["Origin"] = origin
+        yield Mantel(app, client, store, now, origin), cfg, restarts
+    store.db.close()
+
+
+def _upload(m, data: bytes, keys: bytes | None = None):
+    from aiohttp import FormData
+    fd = FormData()
+    fd.add_field("file", data, filename="backup.mbk", content_type="application/octet-stream")
+    if keys is not None:
+        fd.add_field("keys", keys, filename="mantel-keys.json", content_type="application/json")
+    return m.client.post("/api/backup/restore/upload", data=fd, headers=m.headers())
+
+
+async def test_back_up_now_download_and_delete_without_a_folder(app_local):
+    m, cfg, _ = app_local
+    m.app["backups"]._lock = None
+    await m.user("avery", "owner")
+    await m.sign_in("avery")
+    body = await (await m.client.get("/api/backup")).json()
+    assert not body["nightly"] and body["local"] and body["target"] == str(cfg.data_dir / "backups") and body["backups"] == []
+    r = await m.post("/api/backup/run")
+    assert r.status == 200, await r.text()
+    name = (await r.json())["file"]
+    assert (cfg.data_dir / "backups" / name).is_file() and oct((cfg.data_dir / "backups").stat().st_mode)[-3:] == "700"
+    got = await m.client.get(f"/api/backup/files/{name}")
+    assert got.status == 200 and "attachment" in got.headers["Content-Disposition"]
+    assert await got.read() == (cfg.data_dir / "backups" / name).read_bytes()
+    assert (await m.client.get("/api/backup/files/..%2Fmantel.db")).status == 404
+    assert (await m.client.get("/api/backup/files/mantel.db")).status == 404
+    r = await m.client.delete(f"/api/backup/files/{name}", headers=m.headers())
+    assert r.status == 200 and not (cfg.data_dir / "backups" / name).exists()
+
+
+async def test_the_keys_file_and_a_restore_at_the_next_start(app_local, tmp_path):
+    m, cfg, restarts = app_local
+    m.app["backups"]._lock = None
+    await m.user("avery", "owner")
+    await m.user("alex", "admin")
+    await m.sign_in("alex")
+    assert (await m.client.get("/api/backup/keys")).status == 403              # the Owner's only
+    await m.sign_in("avery")
+    keys = await (await m.client.get("/api/backup/keys")).json()
+    parsed = bk.parse_keys(json.dumps(keys))
+    assert parsed["backup_key"] == bk.load_key(Path(cfg.secrets_dir) / "backup.key")[0]
+    name = (await (await m.post("/api/backup/run")).json())["file"]
+    data = (cfg.data_dir / "backups" / name).read_bytes()
+    # a user made after the backup is gone again once it is restored
+    await m.user("riley", "adult")
+    r = await _upload(m, data)
+    check = await r.json()
+    assert r.status == 200 and check["tables"] > 5 and not check["other_keys"], check
+    assert (await (await m.client.get("/api/backup")).json())["pending"]["created"] == check["created"]
+    r = await m.post("/api/backup/restore")
+    assert r.status == 200 and restarts, "Mantel restarts to put it in place"
+    done = bk.apply_pending(cfg)
+    assert done["ok"] and done["replaced"], done
+    import sqlite3 as sq
+    names = {r[0] for r in sq.connect(cfg.data_dir / "mantel.db").execute("SELECT username FROM users")}
+    assert "riley" not in names and {"avery", "alex"} <= names
+    assert not (cfg.data_dir / bk.PENDING_DIR).exists() and bk.apply_pending(cfg) is None
+
+
+async def test_a_backup_from_another_mantel_needs_its_keys(app_local, tmp_path):
+    m, cfg, _ = app_local
+    await m.user("avery", "owner")
+    await m.sign_in("avery")
+    # the other Mantel: its own data, keys and backup
+    other = tmp_path / "other"
+    odb = dbmod.Database(other / "data" / "mantel.db")
+    odb.close() if hasattr(odb, "close") else None
+    okey = bk.atrest.load_or_create_key(other / "backup.key")
+    oat = bk.atrest.load_or_create_key(other / "at_rest.key")
+    (other / "nas").mkdir()
+    path = bk.create_backup(other / "data", other / "nas", okey)
+    r = await _upload(m, path.read_bytes())
+    assert r.status == 400 and (await r.json())["error"] in ("wrong_key", "key_missing")      # this one has none yet
+    assert (await (await m.client.get("/api/backup")).json())["pending"] is None
+    assert (await _upload(m, path.read_bytes(), b"{}")).status == 400               # not a keys file
+    keys = json.dumps({"format": "mantel-keys", "backup_key": base64.urlsafe_b64encode(okey).decode(),
+                       "at_rest_key": base64.urlsafe_b64encode(oat).decode()}).encode()
+    r = await _upload(m, path.read_bytes(), keys)
+    assert r.status == 200 and (await r.json())["other_keys"]
+    assert (await m.post("/api/backup/restore")).status == 200
+    before = (Path(cfg.secrets_dir) / "at_rest.key").read_text() if (Path(cfg.secrets_dir) / "at_rest.key").exists() else None
+    done = bk.apply_pending(cfg)
+    assert done["ok"], done
+    assert base64.urlsafe_b64decode((Path(cfg.secrets_dir) / "at_rest.key").read_text().strip()) == oat
+    if before is not None:
+        assert list(Path(cfg.secrets_dir).glob("at_rest.key.before-restore-*")), "the old key is kept aside"

@@ -541,6 +541,8 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app["live"] = live.Live(lambda: app.get("authz"))
     security_headers.register(app)    # Mantel's own CSP/HSTS/nosniff/..., behind any proxy or none
     hub = Hub(cfg)
+    # a restore asked for in Mantel Settings -> Backups: put in place before the database opens (backup.py)
+    app["backup_restored"] = backup.apply_pending(cfg) if store is None else None
     app["store"] = store or Store(cfg.data_dir / "mantel.db")
     # Mantel's own settings that were start-up options (server_settings.py): copied once, then the stored ones win;
     # applied to cfg before anything below reads them

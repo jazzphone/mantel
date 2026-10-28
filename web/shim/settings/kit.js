@@ -64,6 +64,10 @@ const STYLE = [
   '.cell.mxsecret{display:block;padding:12px 16px}',
   '.cell.mxqr{display:flex;justify-content:center;padding:16px}.cell.mxqr img{width:min(280px,70vw);height:auto;border-radius:8px;background:#fff}',
   '.mxfile{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}',
+  // a backup's row (backups.js): Download and Delete at its end
+  '.mxbk{display:flex;gap:18px;margin-left:auto;flex:none}',
+  '.mxlink{border:0;background:none;padding:6px 0;font:inherit;font-size:17px;color:var(--hk-tint);cursor:pointer}',
+  '.mxlink.red{color:var(--hk-red)}',
   '.mxdlg .mxin{display:block;box-sizing:border-box;width:calc(100% - 32px);height:36px;margin:0 16px 16px;padding:0 10px;border:0;',
   '  border-radius:8px;background:var(--hk-fill);color:var(--hk-label);font:inherit;font-size:17px;text-align:center;letter-spacing:.2em;outline:none}',
   '.mxdlg .mxin:focus{box-shadow:0 0 0 2px var(--hk-tint)}',

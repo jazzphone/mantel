@@ -23,7 +23,7 @@ ASSET_LEFT = re.compile(r"""(["'`(])/(hk|web|static/mdi)/""")
 URL_ROOT = re.compile(r"""(["'`(])(?!""" + re.escape(PREFIX) + r""")/(api|hk|web|static|ws|auth|login|logout|dev|"""
                       r"""local|hacsfiles|frontend|hk-settings|dashboard)\b""")
 MANTEL_OWN = {"home.js", "shim/settings-page.js", "shim/mantel-settings.js", "shim/settings/core.js", "shim/settings/kit.js", "shim/settings/me.js",
-              "shim/settings/people.js", "shim/settings/devices.js", "shim/settings/roles.js", "shim/settings/files.js",
+              "shim/settings/people.js", "shim/settings/devices.js", "shim/settings/roles.js", "shim/settings/files.js", "shim/settings/backups.js",
               "shim/settings/service.js", "shim/settings/connect.js", "shim/settings/connections.js", "shim/settings/tablets.js",
               "shim/settings/ha-screens.js", "shim/settings/link.js", "shim/settings/proxy.js", "shim/settings/audit.js",
               "shim/settings/setup.js", "shim/settings/general.js", "shim/settings/about.js", "shim/settings/performance.js", "shim/base.js", "shim/hub.js", "shim/mantel-client.js", "shim/mantel-host.js",
