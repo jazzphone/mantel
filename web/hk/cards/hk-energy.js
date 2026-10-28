@@ -3528,7 +3528,10 @@
       var charging = carW > 5;
       if (carsOn) {
         svg += img('charger');
-        if (carsHome.length) svg += img('car') + img('cable');
+        // the cable only while a car at home is plugged in (its cable
+        // sensor; without one, at home is plugged in) or charging: a car
+        // parked unplugged is drawn without it (2026-10-28)
+        if (carsHome.length) svg += img('car') + (charging || carsHome.some(function (k) { return k.plugged; }) ? img('cable') : '');
         var car = A.cars && A.cars.a;
         if (charging && car && car.cable) {
           var col = FLOW[S.main] || FLOW.grid;

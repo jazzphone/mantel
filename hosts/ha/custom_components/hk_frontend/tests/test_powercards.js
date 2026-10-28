@@ -179,6 +179,11 @@ H.run('power cards', [
     H.ok('a tap on a chip opens its sensor', html.indexOf('data-more="sensor.main_power"') > 0 && html.indexOf('data-more="sensor.battery_level"') > 0 && html.indexOf('data-more="sensor.car_level"') > 0);
     H.ok('the car home, not charging: its row, its name and its level; its cable not lit',
       html.indexOf('<div class="crow" data-more="sensor.car_level"><b>Blue Car</b><span>52<u>%</u></span>') > 0 && html.indexOf('>Car</div>') > 0 && html.indexOf('class="portdot"') < 0);
+    H.ok('...plugged in (its cable sensor on): the cable drawn', html.indexOf('cable.trim.webp') > 0);
+    card.hass = house.set('binary_sensor.car_cable', 'off');
+    html = drawn(card);
+    H.ok('home, unplugged and not charging: the car drawn, no cable (2026-10-28)', html.indexOf('car.trim.webp') > 0 && html.indexOf('cable.trim.webp') < 0);
+    card.hass = house.set('binary_sensor.car_cable', 'on');
     card.hass = house.set('sensor.car_power', '7.7');
     html = drawn(card);
     H.ok('charging 7.7 kW: the cable lit, the port breathing, the chip shows the watts', html.indexOf('class="portdot"') > 0 && (html.match(/class="flowdot"/g) || []).length === 2 && html.indexOf('7.70<u>kW</u>') > 0);
