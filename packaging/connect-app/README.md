@@ -13,7 +13,8 @@ certificate transfer; start at `packaging/mantel-connect/README.md` and `docs/ph
 | `DOCS.md` | What HA shows on the App's Documentation tab. |
 | `translations/en.yaml` | Option names and descriptions. |
 
-The icon is `packaging/ha-app/icon.png` (staged as `icon.png`).
+`icon.png` is the Mantel icon with a link badge, `logo.png` (250x100) its name for the store; both are drawn by
+`tools/make_brand_logos.py`.
 
 ```bash
 .venv/bin/python tools/stage_connect_app.py --dry-run         # list + private-content scan, writes nothing

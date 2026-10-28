@@ -27,11 +27,16 @@ def test_the_layout(published):
     assert set(files) == {
         "repository.yaml", "README.md",
         *(f"{folder}/{name}" for folder in ("mantel", "mantel-connect")
-          for name in ("config.yaml", "DOCS.md", "README.md", "CHANGELOG.md", "icon.png", "translations/en.yaml")),
+          for name in ("config.yaml", "DOCS.md", "README.md", "CHANGELOG.md", "icon.png", "logo.png",
+                     "translations/en.yaml")),
     }
     repo = pub.pc.parse_yaml((out / "repository.yaml").read_text())
     assert repo == {"name": "Mantel", "url": "https://github.com/jazzphone/mantel", "maintainer": "jazzphone"}
     assert (out / "mantel/icon.png").read_bytes() == (ROOT / "packaging/ha-app/icon.png").read_bytes()
+    assert (out / "mantel/logo.png").read_bytes() == (ROOT / "packaging/ha-app/logo.png").read_bytes()
+    # Mantel Connect is another App: its own icon and logo, not the Mantel App's
+    assert (out / "mantel-connect/icon.png").read_bytes() == (ROOT / "packaging/connect-app/icon.png").read_bytes()
+    assert (out / "mantel-connect/logo.png").read_bytes() == (ROOT / "packaging/connect-app/logo.png").read_bytes()
     assert (out / "mantel/DOCS.md").read_text() == (ROOT / "packaging/ha-app/DOCS.md").read_text()
     assert (out / "mantel-connect/DOCS.md").read_text() == (ROOT / "packaging/connect-app/DOCS.md").read_text()
     assert "https://github.com/jazzphone/mantel#ha-apps" in (out / "README.md").read_text()
@@ -79,6 +84,7 @@ def _repo_copy(tmp_path) -> Path:
     """The files publish() reads, copied, so a test can plant something in them."""
     root = tmp_path / "repo"
     for name in ("CHANGELOG.md", *pub.cv.FILES, "packaging/ha-app/DOCS.md", "packaging/ha-app/icon.png",
+                 "packaging/ha-app/logo.png", "packaging/connect-app/icon.png", "packaging/connect-app/logo.png",
                  "packaging/ha-app/translations/en.yaml", "packaging/connect-app/DOCS.md",
                  "packaging/connect-app/translations/en.yaml"):
         (root / name).parent.mkdir(parents=True, exist_ok=True)

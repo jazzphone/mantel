@@ -16,9 +16,14 @@ docs/ into WIKI_DIR (a clone of the Wiki's repository), scanned the same way,
 and committed with the same message. Then both test suites run IN the built repository, so the layout is
 proven, and -- only with --commit -- it is committed (and pushed with --push).
 
-    python3 tools/publish/publish.py REPO_DIR [--commit "message"] [--push] [--no-tests] [--wiki WIKI_DIR]
+    python3 tools/publish/publish.py REPO_DIR [--commit "message"] [--push [--release]] [--no-tests] [--wiki WIKI_DIR]
 
     python3 tools/publish/publish.py --scan          only report what would be refused
+
+HACS offers a repository's versions from its GitHub releases, so a version nobody released is one nobody can pick.
+With --release (after --commit and --push; never by default) the manifest's version is tagged v<version> and
+released with `gh release create`, its notes the CHANGELOG.md section of that version (tools/publish/root/). It
+refuses, before anything is committed or pushed, when there is no such section or the tag exists, here or on origin.
 """
 from __future__ import annotations
 
@@ -29,6 +34,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -253,15 +259,83 @@ def run(cmd, cwd) -> int:
     return subprocess.call(cmd, cwd=cwd)
 
 
+# ---- the GitHub release (--release). The changelog's headings are "## 1.14.2 - 2026-10-28" (or "## [1.14.2]"):
+# a version's notes are what follows its heading, up to the next "## ".
+HEADING = re.compile(r"^## \[?(\d+\.\d+\.\d+)\]?(?:[ \t]+-[ \t]+.*)?[ \t]*$", re.M)
+
+
+def release_notes(changelog: str, version: str) -> str:
+    """The notes of `version` in a changelog; ValueError when it has no section or the section is empty."""
+    for m in HEADING.finditer(changelog):
+        if m.group(1) == version:
+            stop = changelog.find("\n## ", m.end())
+            notes = changelog[m.end():stop if stop >= 0 else len(changelog)].strip()
+            if not notes:
+                raise ValueError(f"CHANGELOG.md's section for {version} is empty")
+            return notes
+    raise ValueError(f"CHANGELOG.md has no section '## {version}'")
+
+
+def manifest_version(component: str) -> str:
+    with open(os.path.join(component, "manifest.json"), encoding="utf-8") as f:
+        return json.load(f)["version"]
+
+
+def tag_taken(repo: str, tag: str) -> str | None:
+    """Why `tag` cannot be made (it exists in the repository or on origin), else None."""
+    if subprocess.run(["git", "tag", "-l", tag], cwd=repo, capture_output=True, text=True).stdout.strip():
+        return f"the tag {tag} exists here"
+    remote = subprocess.run(["git", "ls-remote", "--tags", "origin", f"refs/tags/{tag}"], cwd=repo,
+                            capture_output=True, text=True)
+    if remote.returncode != 0:
+        return f"origin cannot be asked for its tags: {remote.stderr.strip()[:200]}"
+    if remote.stdout.strip():
+        return f"the tag {tag} exists on origin"
+    return None
+
+
+def check_release(repo: str, component: str) -> tuple[str, str, str]:
+    """(version, tag, notes) for a release of this built repository, or SystemExit saying why not."""
+    version = manifest_version(component)
+    tag = f"v{version}"
+    try:
+        with open(os.path.join(repo, "CHANGELOG.md"), encoding="utf-8") as f:
+            notes = release_notes(f.read(), version)
+    except (OSError, ValueError) as e:
+        raise SystemExit(f"no release: {e}")
+    if why := tag_taken(repo, tag):
+        raise SystemExit(f"no release: {why}")
+    return version, tag, notes
+
+
+def github_release(repo: str, name: str, version: str, tag: str, notes: str) -> int:
+    """Tag HEAD, push the tag and release it, with the notes."""
+    if run(["git", *AS_PUBLISHER, "tag", "-a", tag, "-m", f"{name} {version}"], repo) != 0:
+        return 1
+    if run(["git", "push", "origin", tag], repo) != 0:
+        return 1
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "notes.md")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(notes + "\n")
+        return run(["gh", "release", "create", tag, "--title", f"{name} {version}", "--notes-file", path,
+                    "--verify-tag"], repo)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("repo", nargs="?")
     ap.add_argument("--scan", action="store_true")
     ap.add_argument("--commit")
     ap.add_argument("--push", action="store_true")
+    ap.add_argument("--release", action="store_true",
+                    help="after --push: tag v<manifest version> and make a GitHub release of it (gh), with the "
+                         "CHANGELOG.md section's notes")
     ap.add_argument("--no-tests", action="store_true")
     ap.add_argument("--wiki")
     a = ap.parse_args()
+    if a.release and not (a.commit and a.push):
+        ap.error("--release needs --commit and --push")
     pairs = plan()
     pages = wiki_pages()
     hits = scan(pairs) + scan_texts(pages)
@@ -297,9 +371,12 @@ def main() -> int:
         if not os.path.isdir(os.path.join(a.repo, ".git")):
             run(["git", "init", "-b", "main"], a.repo)
         stage(a.repo)
+        release = check_release(a.repo, COMPONENT) if a.release else None     # before anything is committed or pushed
         if run(["git", *AS_PUBLISHER, "commit", "-q", "-m", a.commit], a.repo) != 0:
             return 1
         if a.push and run(["git", "push", "-u", "origin", "main", "--tags"], a.repo) != 0:
+            return 1
+        if release and github_release(a.repo, "HK Frontend", *release) != 0:
             return 1
     return 0
 

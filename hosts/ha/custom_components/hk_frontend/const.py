@@ -31,3 +31,13 @@ CONF_MANTEL_LINK = "mantel_link"
 # [tablet ids Mantel owns]}, kept so a restart without Mantel keeps it. Absent:
 # every tablet (and the rest of the entry) is Home Assistant's.
 CONF_MANTEL_OWNERS = "mantel_owners"
+# The addresses the "Linked to Mantel" step's texts show. They are placeholders,
+# not words in translations/en.json: hassfest refuses a URL in a translation
+# string ("please use description placeholders instead"), and the scheme
+# alone ("https://") is as much of a URL as the page can show. The step passes
+# them as description_placeholders, which the errors of that form use too.
+LINKED_URL_PLACEHOLDERS = {
+    "https": "https://", "http": "http://", "ws": "ws://", "wss": "wss://",
+    "example_url": "https://mantel.example.lan",
+    "app_url": "http://local-mantel:8099",     # the Mantel App on this machine (linked_mode.APP_ADDRESS)
+}

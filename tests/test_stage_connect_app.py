@@ -21,7 +21,8 @@ spec.loader.exec_module(stage)
 def test_the_plan_holds_the_app_and_only_the_connect_code():
     pairs = stage.plan()
     dests = {d for _, d in pairs}
-    assert {"config.yaml", "Dockerfile", "DOCS.md", "README.md", "requirements.txt", "icon.png", "translations/en.yaml",
+    assert {"config.yaml", "Dockerfile", "DOCS.md", "README.md", "requirements.txt", "icon.png", "logo.png",
+            "translations/en.yaml",
             "app/mantel_connect/__main__.py", "app/mantel_connect/app.py", "app/mantel_connect/pairing.py",
             "app/mantel_connect/pki.py", "app/mantel_connect/protocol.py", "app/mantel_connect/__init__.py"} == dests
     assert len(dests) == len(pairs) and all(src.is_file() for src, _ in pairs)
@@ -59,7 +60,7 @@ def test_write_stages_a_marked_folder_and_replace_is_guarded(tmp_path, capsys):
     target = tmp_path / "mantel_connect"
     assert stage.main([str(target)]) == 0
     marker = json.loads((target / stage.MARKER).read_text())
-    assert marker["tool"] == "tools/stage_connect_app.py" and marker["files"] == 13
+    assert marker["tool"] == "tools/stage_connect_app.py" and marker["files"] == 14
     assert (target / "app/mantel_connect/protocol.py").read_text() == (ROOT / "hosts/server/mantel_connect/protocol.py").read_text()
     assert stage.main([str(target)]) == 2                                            # exists: needs --replace
     assert "pass --replace" in capsys.readouterr().err

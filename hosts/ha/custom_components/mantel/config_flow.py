@@ -32,7 +32,7 @@ from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import CONF_TOKEN, CONF_URL, DOMAIN, NAME, PROTOCOL
+from .const import CONF_TOKEN, CONF_URL, DOMAIN, NAME, PROTOCOL, URL_PLACEHOLDERS
 from .mantel_link import LinkError, plain_target, probe, ws_url
 from .pairing import PairingFailed, pair, pair_url
 
@@ -129,7 +129,7 @@ class MantelFlow(ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_URL, default=(user_input or {}).get(CONF_URL, "")): str,
             vol.Optional(CONF_CODE): str,
             vol.Optional(CONF_TOKEN): str,
-        }), errors=errors)
+        }), errors=errors, description_placeholders=URL_PLACEHOLDERS)
 
     async def _create(self, url: str, token: str, hello: dict[str, Any] | None) -> ConfigFlowResult:
         instance = (hello or {}).get("instance")
@@ -168,7 +168,7 @@ class MantelFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(title="Mantel", data={CONF_URL: self._found[CONF_URL],
                                                                      CONF_TOKEN: self._found[CONF_TOKEN]})
         return self.async_show_form(step_id="hassio_confirm", errors=errors,
-                                    description_placeholders={"addon": self._found.get("name", "Mantel")})
+                                    description_placeholders={"addon": self._found.get("name", "Mantel"), **URL_PLACEHOLDERS})
 
     # ---- discovered on the network (zeroconf: no credential, a pairing code confirms it)
     async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
@@ -204,7 +204,7 @@ class MantelFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(title="Mantel", data={CONF_URL: url, CONF_TOKEN: token})
         return self.async_show_form(step_id="zeroconf_confirm", errors=errors,
                                     data_schema=vol.Schema({vol.Required(CONF_CODE): str}),
-                                    description_placeholders={"url": url})
+                                    description_placeholders={"url": url, **URL_PLACEHOLDERS})
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         entry = self._get_reconfigure_entry()
@@ -224,4 +224,4 @@ class MantelFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="reconfigure", data_schema=vol.Schema({
             vol.Required(CONF_URL, default=entry.data.get(CONF_URL, "")): str,
             vol.Optional(CONF_TOKEN): str,
-        }), errors=errors)
+        }), errors=errors, description_placeholders=URL_PLACEHOLDERS)

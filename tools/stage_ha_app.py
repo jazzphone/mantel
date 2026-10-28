@@ -6,7 +6,7 @@
     python tools/stage_ha_app.py TARGET --replace       # replace a folder this tool staged before
 
 The folder is what HA's Supervisor builds: packaging/ha-app/ (config.yaml, Dockerfile, DOCS.md,
-README.md, requirements.txt, translations/, icon.png) plus app/: packaging/docker/entrypoint.py,
+README.md, requirements.txt, translations/, icon.png, logo.png) plus app/: packaging/docker/entrypoint.py,
 hosts/server/mantel_server, hk_core, and web/ stamped with its build id by tools/build_static.py.
 
 Nothing private goes in. Before writing anything the whole plan is scanned and staging stops on any
@@ -35,7 +35,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 APP_SRC = ROOT / "packaging/ha-app"
 APP_FILES = ("config.yaml", "Dockerfile", "DOCS.md", "README.md", "requirements.txt", "icon.png",
-             "translations/en.yaml")
+             "logo.png", "translations/en.yaml")
 MARKER = ".mantel-stage.json"
 
 TEXT_SUFFIXES = {".py", ".js", ".mjs", ".json", ".yaml", ".yml", ".md", ".css", ".html", ".txt", ".sh", ".sql", ""}

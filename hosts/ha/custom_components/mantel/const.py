@@ -20,5 +20,16 @@ CONF_TOKEN = "token"      # a Mantel Service credential (scope `linked`); never 
 # "bridge": "hk_frontend"|"mantel"}; kept so a restart without Mantel keeps it
 CONF_OWNERS = "owners"
 
+# The addresses the config flow's texts show. They are placeholders, not words in
+# strings.json / translations/en.json: hassfest refuses a URL in a translation
+# string ("please use description placeholders instead"), and the scheme alone
+# ("https://") is as much of a URL as the page can show. Every form passes them
+# as description_placeholders, which its errors use too.
+URL_PLACEHOLDERS = {
+    "https": "https://", "http": "http://",
+    "example_url": "https://mantel.example.com",
+    "app_url": "http://local-mantel:8099",     # the Mantel App on this machine
+}
+
 # the actions Mantel Link forwards to Mantel (and nothing else)
 SERVICES = ("set_black_screen", "show_popup", "close_popup", "notify")

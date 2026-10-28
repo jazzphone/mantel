@@ -37,7 +37,8 @@ from . import features as F
 from . import files
 from . import lovelace_boards
 from . import settings as S
-from .const import CONF_FILES_FOLDER, CONF_MANTEL_LINK, CONF_MANTEL_OWNERS, DEFAULT_FILES_FOLDER, DOMAIN
+from .const import (CONF_FILES_FOLDER, CONF_MANTEL_LINK, CONF_MANTEL_OWNERS, DEFAULT_FILES_FOLDER, DOMAIN,
+                    LINKED_URL_PLACEHOLDERS)
 from .features import alarm_pin, clean_areas, energy, live_tv, music, notifications
 from .features.music.const import SUB_PLAYLIST, SUB_PRESET
 from .features.music.flows import PlaylistFlow, PresetFlow
@@ -692,7 +693,7 @@ class HkOptionsFlow(OptionsFlow):
             vol.Optional("url", default=(now or {}).get("url") or await linked_mode.suggested_url(self.hass)): str,
             vol.Optional("token", default=""): sel.TextSelector(
                 sel.TextSelectorConfig(type=sel.TextSelectorType.PASSWORD, autocomplete="off")),
-        }), description_placeholders={"state": linked_mode.describe(entry)})
+        }), description_placeholders={"state": linked_mode.describe(entry), **LINKED_URL_PLACEHOLDERS})
 
     async def async_step_files(self, user_input: dict[str, Any] | None = None
                                ) -> ConfigFlowResult:
