@@ -16,6 +16,7 @@ from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from conftest import COMPONENT
+from custom_components.mantel.const import URL_PLACEHOLDERS
 from mantel_fake import INSTANCE, TOKEN, until
 
 OTHER = "f" * 32
@@ -94,7 +95,7 @@ async def test_discovered_on_the_network_confirmed_with_a_code(hass, monkeypatch
     r = await hass.config_entries.flow.async_init("mantel", context={"source": config_entries.SOURCE_ZEROCONF},
                                                   data=zeroconf())
     assert r["type"] is FlowResultType.FORM and r["step_id"] == "zeroconf_confirm"
-    assert r["description_placeholders"] == {"url": "https://mantel.example.com"}
+    assert r["description_placeholders"] == {"url": "https://mantel.example.com", **URL_PLACEHOLDERS}
     r = await hass.config_entries.flow.async_configure(r["flow_id"], {"code": "WRONG"})
     assert r["errors"] == {"base": "invalid_code"}
     from custom_components.mantel import bridge as B

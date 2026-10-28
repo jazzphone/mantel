@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Mantel Link",
-        "description": "Link Home Assistant to Mantel. Mantel's address is https://, or http:// only for the Mantel App on this machine (http://local-mantel:8099). Then a pairing code from Mantel Settings, Connections, Mantel in Home Assistant, or a Mantel Service credential (Mantel Settings, Service Accounts).",
+        "description": "Link Home Assistant to Mantel. Mantel's address is {https}, or {http} only for the Mantel App on this machine ({app_url}). Then a pairing code from Mantel Settings, Connections, Mantel in Home Assistant, or a Mantel Service credential (Mantel Settings, Service Accounts).",
         "data": {
           "url": "Mantel's address",
           "code": "Pairing code",
@@ -31,9 +31,9 @@
       }
     },
     "error": {
-      "url_invalid": "Enter an address like https://mantel.example.com",
-      "url_insecure": "Use https://. Plain http:// is only for Mantel on this machine (the Mantel App).",
-      "url_not_internal": "That name doesn't lead to this machine's App network, so http:// isn't allowed. Use https://.",
+      "url_invalid": "Enter an address like {example_url}",
+      "url_insecure": "Use {https}. Plain {http} is only for Mantel on this machine (the Mantel App).",
+      "url_not_internal": "That name doesn't lead to this machine's App network, so {http} isn't allowed. Use {https}.",
       "invalid_auth": "Mantel refused that credential.",
       "cannot_connect": "Couldn't reach Mantel at that address.",
       "mantel_too_old": "That Mantel is older than Mantel Link. Update Mantel first.",

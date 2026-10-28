@@ -54,7 +54,7 @@
         },
         "data_description": {
           "enabled": "Off is the default, and how every house that has not moved runs.",
-          "url": "For example https://mantel.example.lan, or http://local-mantel:8099 for the Mantel App on this machine.",
+          "url": "For example {example_url}, or {app_url} for the Mantel App on this machine.",
           "token": "Paste it once; it is never shown again. Leave empty to keep the one already saved."
         }
       },
@@ -77,10 +77,10 @@
       "folder_outside_config": "The folder must be inside /config.",
       "folder_is_config": "Choose a folder inside /config, not /config itself.",
       "folder_not_dedicated": "That folder holds Home Assistant's own files. Everything in it would be readable without signing in; choose a dedicated folder.",
-      "mantel_url_invalid": "Enter Mantel's address, starting with https:// (or http://, ws://, wss://), with no user name or query.",
+      "mantel_url_invalid": "Enter Mantel's address, starting with {https} (or {http}, {ws}, {wss}), with no user name or query.",
       "mantel_token_required": "Paste the Service credential Mantel gave you.",
-      "mantel_url_insecure": "Use https:// (or wss://) for an address on the network: over plain http the credential would cross it in clear. Plain http is accepted only for this machine (127.0.0.1) or an App on Home Assistant's internal network (http://local-mantel:8099).",
-      "mantel_url_not_internal": "That App name does not resolve to Home Assistant's internal App network (172.30.32.0/23), so plain http is refused: the credential would leave this machine in clear. Check the App's hostname, or use https://.",
+      "mantel_url_insecure": "Use {https} (or {wss}) for an address on the network: over plain http the credential would cross it in clear. Plain http is accepted only for this machine (127.0.0.1) or an App on Home Assistant's internal network ({app_url}).",
+      "mantel_url_not_internal": "That App name does not resolve to Home Assistant's internal App network (172.30.32.0/23), so plain http is refused: the credential would leave this machine in clear. Check the App's hostname, or use {https}.",
       "mantel_token_invalid": "That isn't a Mantel Service credential (they start with msvc_). If your browser filled a saved password in here, clear the box: left empty, the credential already saved is kept."
     }
   },
