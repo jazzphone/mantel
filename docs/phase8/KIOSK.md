@@ -243,7 +243,7 @@ The house:
   facts, answered **HTTP 200 in 0.04 s**: "Kitchen Kiosk", a Google Pixel Tablet on Android 17, Kiosk Satellite
   **2026.10.6**, on Wi-Fi, over plain HTTP. It reported the screen on and brightness 0.0 (a 0–1 fraction here),
   which looks like HK's black was up.
-- **That request came from Avery's Mac on `192.168.2.x`, through the router**, not from the App. So it shows that
+- **That request came from Avery's Mac on `192.168.1.x`, through the router**, not from the App. So it shows that
   the tablet's API answers and that the house's firewall lets the Mac's network reach the tablets. It does not yet
   show the App's own path.
 - **Still to check: the App's own path** (the HA host's NAT onto its own `192.0.2.x` network, so it should be

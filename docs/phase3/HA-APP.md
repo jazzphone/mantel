@@ -584,7 +584,7 @@ boot manual, watchdog off.
       "You are Mantel's Owner"; log `HA administrator Avery Lane (...) is now Mantel's first Owner`.
 - [x] `/api/session` in the sidebar frame: Avery Lane, `owner`, door `ha`.
 - [x] The dashboard (`dashboard-kitchen/home`) draws live in the sidebar (Chrome as Avery, and Avery's Safari via
-      `hasslocal`); all ~88 requests are under `/api/hassio_ingress/…`, except camera stills, which go to HA's own
+      `ha-home`); all ~88 requests are under `/api/hassio_ingress/…`, except camera stills, which go to HA's own
       `/api/camera_proxy/…?token=` with HA's entity-picture tokens (works because the frame is on HA's origin; the
       camera connector routing is the known page-side gap). Closed in the repo since (not yet on the house):
       states reach the page with Mantel's own `<prefix>/api/camera/<entity>/still` and no HA token
@@ -601,7 +601,7 @@ boot manual, watchdog off.
 - [ ] Not tapped on purpose: a light (the house rule is no service calls at all; refusal with commands off
       is covered by `tools/e2e/gateway_e2e.py` against the scratch HA).
 - [ ] Companion app over cellular; non-admin user (needs `panel_admin: false`); the App in HA's next backup.
-- Avery's Safari via `hasslocal` got `401` on its first loads (10:34–10:42) before the Owner existed and works
+- Avery's Safari via `ha-home` got `401` on its first loads (10:34–10:42) before the Owner existed and works
   since; not reproduced, noted.
 
 ### 0.1.2 on the house (2026-10-18 11:19, commit `53e037b`)
@@ -672,7 +672,7 @@ Updated in place through the Home Assistant connector (store `check_updates`, th
 kept, options unchanged, commands off). Brings the Energy merge (`89c8ab2`), Mantel settings in More, and the
 admin page's CSRF retry.
 - [!] **Connections Save still refused in Avery's own Chrome and Safari** ("The page lost its session token"), while
-      it worked in Claude's browser pane on the same addresses (`homeassistant.local`, `hasslocal`, inside the
+      it worked in Claude's browser pane on the same addresses (`homeassistant.local`, `ha-home`, inside the
       sidebar frame). A read-only console check (`tools/diagnose_session_snippet.js`) showed **no Mantel cookies at
       all** in his frame (only HA's `ingress_session`) and no CSRF token from the server; his HAR showed why: **HA's
       frontend service worker fetches the frame's pages itself**, so they arrive as `Sec-Fetch-Dest: empty`,
@@ -688,7 +688,7 @@ without the fix); the admin page's one retry sends the token the server just gav
 723 HA Python, 2,355 Mantel, smoke ok.
 - [x] Running 0.1.8; the Music Assistant connection survived the update (saved, live connected).
 - [x] Avery's own Chrome after a reload: Connections Test works (reported by Avery).
-- [x] Kitchen dashboard at 1366x900 (Claude's pane, `hasslocal`): More shows a **Mantel** section with **Mantel
+- [x] Kitchen dashboard at 1366x900 (Claude's pane, `ha-home`): More shows a **Mantel** section with **Mantel
       settings**, which opens `<prefix>/admin`.
 - [x] Energy: 37 cards draw; at the bottom of the scroll the last row (Charging) ends a gutter above the tab bar
       (102 px below the last card), no overscroll; shadows fade under the bar (Chromium; Safari by eye still open).
@@ -782,7 +782,7 @@ HA backup `de1c24f9` first. Carries:
 
 Validation 130 JS, 723 HA Python, 2,502 Mantel, smoke ok.
 - [x] Updated and running (build `00ae61e215dabb2f`), HA connected; options kept (`access: proxy`, NPM
-      192.0.2.254, sign-in at hassiot, commands on, port 8100).
+      192.0.2.254, sign-in at ha-away, commands on, port 8100).
 - [x] `https://mantel.example.com/` answers through NPM (sign-in page with Sign in with Home Assistant).
 - [x] Mantel Settings through HA's sidebar (pane): 7 screens, 162 accessories, Setup Check Ready; People & Access,
       Connections (HA and MA connected), Your Files; HTTPS and Your Proxy shows Rotate Door Key (not pressed:
@@ -860,20 +860,20 @@ Validation 130 JS, 724 HA Python, 2,627 Mantel, smoke ok.
 - [x] Updated and running (build `c7f117c2bac3df23`), HA connected. In Mantel Settings (pane, sidebar) the Loft
       screen's page has Show in Home Assistant (address `https://mantel.example.com/dashboard-loft/home`), no
       "HK Frontend" anywhere on it, and the preview's Pin button. Not switched on (Avery's call). For a dashboard opened
-      at `hasslocal`, the App option `ha_frame_origins` needs `https://hasslocal.example.com` (only `hassiot`,
+      at `ha-home`, the App option `ha_frame_origins` needs `https://ha-home.example.com` (only `ha-away`,
       the sign-in address, is allowed now); the HTTPS page says so.
 
 ### 0.1.26 (2026-10-19)
 
-The Kitchen screen added to HA (Show in Home Assistant) was a white page: HA was open at `hasslocal`, and only
-`ha_sign_in_url`'s `hassiot` might frame Mantel (console: "Framing … violates … frame-ancestors"). Avery: nothing may be
+The Kitchen screen added to HA (Show in Home Assistant) was a white page: HA was open at `ha-home`, and only
+`ha_sign_in_url`'s `ha-away` might frame Mantel (console: "Framing … violates … frame-ancestors"). Avery: nothing may be
 specific to one setup. Now (`frame_origins.py`) the allowed addresses are HA's own internal and external URL (read from
 HA), the operator's (`ha_sign_in_url`, `ha_frame_origins`), and the ones an Owner allows in Mantel Settings →
 Connections → HTTPS and Your Proxy → Home Assistant's Frame (Allow / Remove, audited, no restart), or by turning on
 Show in Home Assistant while HA is open at that address.
-- [x] On the house (build `bfccdcf00ff21444`): frame-ancestors now `hassiot` (option) and `hass.example.com`
+- [x] On the house (build `bfccdcf00ff21444`): frame-ancestors now `ha-away` (option) and `hass.example.com`
       (HA's own external URL, learned from HA); Home Assistant's Frame lists both with their sources and offers Allow an
-      Address (pane). `hasslocal` is not one of HA's own URLs, so it waits for Avery's Allow (the Kitchen dashboard
+      Address (pane). `ha-home` is not one of HA's own URLs, so it waits for Avery's Allow (the Kitchen dashboard
       `mantel-kitchen` exists).
 
 ### 0.1.27 (2026-10-19)

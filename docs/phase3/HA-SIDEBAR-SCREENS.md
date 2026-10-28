@@ -22,7 +22,7 @@ so the page read the dashboard's URL and stopped with "Invalid redirect URI" (HA
 internals: if a later HA changes it, *Sign in with HA* in the frame breaks again (password still works).
 
 Why (b): HA sends `X-Frame-Options: SAMEORIGIN`, so its sign-in page loads in the frame only from the address
-the dashboard was opened at. With hasslocal at home and hassiot away, a fixed `ha_sign_in_url` would work in
+the dashboard was opened at. With ha-home at home and ha-away away, a fixed `ha_sign_in_url` would work in
 one of them only. Firefox has no `ancestorOrigins`: there the configured address is used.
 
 Why (c): HA's Webpage iframe is `sandbox="allow-forms allow-popups allow-pointer-lock allow-same-origin
@@ -35,7 +35,7 @@ the frame → *Sign in with Home Assistant* (`via` sent) → HA's page in the fr
 reloads and dashboard switches stay signed in. Before the fixes: bare 401 text, then "Invalid redirect URI".
 
 Cookies and Safari: Mantel's cookies are `SameSite=Strict`. A frame whose top page is same-site
-(`hassiot.example.com` around `mantel.example.com`) gets them, and WebKit's tracking prevention
+(`ha-away.example.com` around `mantel.example.com`) gets them, and WebKit's tracking prevention
 blocks cross-site cookies only (registrable domain), so Safari and the Companion app's WKWebView behave like
 Chrome here. **Not tested on real Safari/iOS**; the scratch test was same-site cross-origin (two ports of
 127.0.0.1) in Chromium. The rule that follows: open HA by a `example.com` name everywhere, Companion
@@ -136,7 +136,7 @@ Decisions made while building:
   on the next visit (or a reload).
 - The HTTPS check cannot see a refused frame: HA sends `Referrer-Policy: no-referrer` and the browser refuses
   the frame after Mantel answered, so Mantel never learns which HA address tried. Hence HA's own URLs, the
-  page's own frame and a typed address. On the house that means hasslocal shows as Fix only if it is HA's
+  page's own frame and a typed address. On the house that means ha-home shows as Fix only if it is HA's
   internal URL, or typed in.
 - Not built: the Owner's "start page for everyone" button (`frontend/set_system_data`), optional in the design.
 
@@ -165,7 +165,7 @@ mode as the route to retire HK-in-HA, not as this feature.
 ## To ship (needs Avery's OK)
 
 1. ~~Merge `ha-frame-origins`~~ (in 0.1.18). Merge `ha-dashboards`; bump the App and stage it.
-2. House App options: `ha_frame_origins: https://hasslocal.example.com` (hassiot comes from
+2. House App options: `ha_frame_origins: https://ha-home.example.com` (ha-away comes from
    `ha_sign_in_url`); HTTPS and Your Proxy → Home Assistant's Frame then shows both OK. Companion app: internal
    and external URL both `example.com` names.
 3. In Mantel Settings → the Loft's page → Show in Home Assistant (or by hand in HA: Settings → Dashboards →

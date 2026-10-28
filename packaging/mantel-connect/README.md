@@ -84,7 +84,7 @@ after making a tar archive with top-level directory `mantel-receiver-proof3`:
 
 ```bash
 # On the Mac; substitute the actual archive path:
-scp /path/to/mantel-receiver-proof3.tar.gz root@10.0.0.27:/root/
+scp /path/to/mantel-receiver-proof3.tar.gz root@192.0.2.27:/root/
 ```
 
 ```bash
@@ -149,7 +149,7 @@ channel key in the source/build directory, options form or chat.
 ## Live result and acceptance evidence still needed
 
 Avery confirmed the installed App displays his name and role `owner`. The receiver is
-running in LXC 103 at `https://192.168.2.113:8766`. Avery subsequently confirmed the Companion app page also works over cellular through
+running in LXC 103 at `https://192.0.2.113:8766`. Avery subsequently confirmed the Companion app page also works over cellular through
 the existing HA remote connection. This completes the Phase 0 identity proof.
 
 The installer that replaces these manual transfers (guided pairing, automatic credentials and certificate
