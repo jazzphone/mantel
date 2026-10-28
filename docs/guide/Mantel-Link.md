@@ -123,8 +123,12 @@ revokes it in **Mantel Settings → Service Accounts** (under Advanced).
 
 ## Linked mode and the bridge
 
-While a home moves from HK Frontend, both integrations can be installed.
-Exactly one of them shows Mantel's entities at a time; this is **the bridge**.
+HK Frontend and Mantel Link can be installed together, to run both products
+([HK Frontend and Mantel](HK-Frontend-and-Mantel.md)) or while a home moves
+from one to the other. Exactly one of them shows Mantel's entities at a time;
+this is **the bridge**.
+
+![Mantel Settings: Connections → Home Assistant, the connection and how people sign in through Home Assistant](../images/settings-connections-ha.webp)
 
 - **HK Frontend holds it** to begin with. HK Frontend in **linked mode**
   (**Configure → Linked to Mantel**) forwards its actions to Mantel and shows
@@ -142,11 +146,11 @@ is lost.
 
 ## Per-tablet ownership
 
-During a move, each wall tablet is run by **Home Assistant** (HK Frontend's
-own engines, as before) or by **Mantel**, and so is the rest of the house
+With both installed, each wall tablet is run by **HK Frontend** (its own engines
+in Home Assistant, as before) or by **Mantel**, and so is the rest of the house
 (Seasonal decorations, the Alarm PIN panel, Live TV).
 
-| | Run by Home Assistant | Run by Mantel |
+| | Run by HK Frontend | Run by Mantel |
 |---|---|---|
 | Its four entities | HK Frontend's own | Mantel's, shown by whoever holds the bridge |
 | Its Sleep Screen and black screen | HK Frontend's engine | Mantel's |
@@ -188,8 +192,8 @@ What goes away with HK Frontend: its own dashboards inside Home Assistant, the
 **HK Settings** panel (it is Mantel Settings now) and its engines in Home
 Assistant (Mantel has its own).
 
-Once HK Frontend is removed, Mantel refuses to move a tablet back to Home
-Assistant, because nothing in Home Assistant would run it. Reinstall HK
+Once HK Frontend is removed, Mantel refuses to move a tablet back to HK
+Frontend, because nothing in Home Assistant would run it. Reinstall HK
 Frontend's last release and link it first.
 
 ## Diagnostics
@@ -200,4 +204,4 @@ credential.
 
 **Mantel Settings → Connections → Home Assistant** shows the same from Mantel's
 side: under **Mantel in Home Assistant**, what is linked; under **Moving from HK
-Frontend**, who holds the bridge and who runs each tablet.
+Frontend**, who runs each tablet, and in its **Advanced**, who holds the bridge.

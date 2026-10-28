@@ -133,7 +133,7 @@ The message and the audit row say why, for example `no_grant` (the role doesn't 
 
 ### The alarm keypad says "try again in N min"
 
-After 5 wrong Alarm PINs in a row, that tablet or browser is locked out of the keypad for 15 minutes, even with the right PIN. It survives a restart. Wait for it to pass. **Alarm PIN not set** means nobody has set the house Alarm PIN yet: set it in HK's settings inside **Mantel Settings** → **Alarm PIN**.
+After 5 wrong Alarm PINs in a row, that tablet or browser is locked out of the keypad for 15 minutes, even with the right PIN. It survives a restart. Wait for it to pass. **Alarm PIN not set** means nobody has set the house Alarm PIN yet: set it in **Mantel Settings** → **Security** (under **Pages**) → **Change PIN**.
 
 ## Music and Live TV
 

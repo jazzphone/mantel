@@ -252,8 +252,14 @@ def _list(lines: list[str], i: int, seen: dict[str, int], out: list[str]) -> int
     return i
 
 
+# an HTML comment that starts a line (a note to whoever edits the page, or a generated block's markers): the wiki
+# hides it, and so does this page
+COMMENT = re.compile(r"(?ms)^ {0,3}<!--.*?-->[ \t]*\n?")
+
+
 def render(markdown: str) -> str:
-    return blocks(markdown.replace("\r\n", "\n").replace("\t", "    ").split("\n"), {})
+    markdown = COMMENT.sub("", markdown.replace("\r\n", "\n"))
+    return blocks(markdown.replace("\t", "    ").split("\n"), {})
 
 
 # ------------------------------------------------------------------------------------- the pages

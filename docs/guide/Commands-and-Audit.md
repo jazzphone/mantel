@@ -14,6 +14,8 @@ Saving settings works either way: Mantel keeps its own settings, so an Owner or 
 
 Only the Owner can turn commands on. Open **Mantel Settings** → **General** and turn on **Allow Control of the House**. Mantel asks the Owner to confirm it is them, with a fresh sign-in, every time they turn it on. It applies at once, with no restart, and it works the same on the Mantel App, Docker and Proxmox LXC. To turn it off again, turn it off there. Every change is in the audit log.
 
+![Mantel Settings: General, with Allow Control of the House, the House Default Screen and how long sign-ins from away last](../images/settings-general.webp)
+
 ### The read-only kill switch
 
 Whoever runs the server can keep the house read-only whatever Mantel Settings says:

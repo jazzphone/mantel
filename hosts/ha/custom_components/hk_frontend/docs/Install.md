@@ -4,6 +4,11 @@ Install HK Frontend from HACS and add the integration. It takes about five
 minutes; then [Your First Screen](Your-First-Screen.md) makes a screen from
 your rooms and devices.
 
+Want the same screens with people and roles, wall tablets that sign
+themselves in and an audit log, on a server of their own? That is
+[Mantel](https://github.com/jazzphone/mantel/wiki/Install), HK Frontend's
+sibling; the two can run together: [HK Frontend and Mantel](HK-Frontend-and-Mantel.md).
+
 ## Before you start
 
 You need:

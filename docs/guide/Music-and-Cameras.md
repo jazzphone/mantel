@@ -25,8 +25,10 @@ passes through Mantel when a screen shows a camera.
 
 Only an Owner can change a connection.
 
-1. Open **Mantel Settings → Connections**.
-2. Under **Music Assistant**, enter its address, for example
+![Mantel Settings: Connections → Music Assistant](../images/settings-connections-ma.webp)
+
+1. Open **Mantel Settings → Connections → Music Assistant**.
+2. Under **Address**, enter its address, for example
    `http://192.0.2.20:8095`. If Mantel runs as the Home Assistant App and
    Music Assistant is an App too, the box is filled in for you ("Found Music
    Assistant's App: press Test").
@@ -38,7 +40,7 @@ Only an Owner can change a connection.
 Nothing restarts. Open screens switch to Mantel's music at once. Music
 Assistant's tokens last a year; the page shows when this one ends.
 
-To stop, select **Disconnect**. The Music page goes back to Home Assistant's
+To stop, select **Disconnect…**. The Music page goes back to Home Assistant's
 music, as before.
 
 > Prefer a file? An installation can also give Mantel Music Assistant's

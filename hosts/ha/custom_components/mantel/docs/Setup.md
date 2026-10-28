@@ -2,9 +2,13 @@
 
 Mantel Link connects to one Mantel. There are three ways in; all end with the same link.
 
+Install Mantel first: the Mantel App on Home Assistant OS or Supervised, or Mantel with Docker or in a Proxmox LXC
+([Install](https://github.com/jazzphone/mantel/wiki/Install) in Mantel's guide). Mantel Link has no screens of its
+own and does nothing without it.
+
 ## Discovered from the Mantel App (Home Assistant OS and Supervised)
 
-When the Mantel App starts, it tells Home Assistant where it is, with a credential made for Mantel Link.
+When the Mantel App ([Install the Home Assistant App](https://github.com/jazzphone/mantel/wiki/Install#install-the-home-assistant-app)) starts, it tells Home Assistant where it is, with a credential made for Mantel Link.
 
 1. Settings → Devices & Services. Under **Discovered**, **Mantel** → **Add**.
 2. Confirm. Done: Mantel Link is linked.
@@ -32,11 +36,23 @@ Settings → Devices & Services → **Add Integration** → **Mantel Link**:
 - **Mantel's address**: its `https://` address. `http://` only for the Mantel App on the same machine
   (`http://local-mantel:8099`); any other plain address is refused, so the credential never crosses the network in
   clear.
-- **Pairing code**: from Mantel Settings, as above. Or **a Service credential**: Mantel Settings → Service Accounts →
-  Add, with the `linked` endpoint.
+- **Pairing code**: from Mantel Settings, as above. Or leave it empty and fill in **Or a Service credential**, from Mantel
+  Settings → Service Accounts → **New Service Account…**, with `linked` ticked under **What It May Reach**, then **Create Service Account**.
 
-The address and credential are tested before they are saved. To change them later: Mantel Link → ⋮ → Reconfigure (an
-empty credential keeps the saved one).
+The address and credential are tested before they are saved. To change them later: Mantel Link → ⋮ → Reconfigure:
+**Mantel's address** and **Service credential** (empty keeps the saved one). Reconfigure takes no pairing code, and
+refuses an address that is a different Mantel.
+
+## If it is refused
+
+- **"Mantel says that isn't its address"**: Home Assistant reached Mantel by a name Mantel doesn't know as its
+  own, or something else answered for it. Enter Mantel's own address, as Mantel Settings shows it. The code isn't
+  spent.
+- **"That Mantel is older than Mantel Link. Update Mantel first."**: update Mantel, then make a new code.
+- **"Mantel did not accept that pairing code"**: it was mistyped, used, withdrawn or older than ten minutes. Make a
+  new one.
+- **"Use https://"**: plain `http://` is only for the Mantel App on the same machine.
+- **"Too many tries"**: wait a few minutes.
 
 ## One Mantel
 

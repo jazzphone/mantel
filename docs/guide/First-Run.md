@@ -16,7 +16,10 @@ Once you are the Owner, Mantel Settings opens on **Set Up Mantel**: a checklist 
 | **The Household** | Link people's Home Assistant users, or add Mantel accounts, each with a role. |
 | **Protect the Owner** | A passkey and an authenticator app (Docker and the LXC; in the App, Home Assistant signs you in). |
 | **Alarm PIN** | Only if the house has an alarm panel. |
-| **House Commands** | How to turn them on where your Mantel runs, once the roles look right. |
+| **Move the House to Mantel** | Only while HK Frontend is in Home Assistant: the last step of [Moving from HK Frontend](Moving-from-HK-Frontend.md#7-move-the-rest-of-the-house). |
+| **House Commands** | Turn them on in **General**, once the roles look right. |
+
+![Mantel Settings: Set Up Mantel, the checklist of what Mantel still needs](../images/settings-setup.webp)
 
 Wall tablets, Music Assistant, Mantel Link and Apple's font and glyphs are optional steps. Choose **Later** for any step you want to leave for now. Select **Close the Guide** when you're done: the checklist stays under **Mantel Settings** → **Set Up Mantel**.
 
@@ -72,10 +75,12 @@ Mantel signs you in and opens **Mantel Settings** → **Connections**.
 
 Mantel acts in Home Assistant as one Home Assistant user. Use a dedicated administrator for it, not a person's own account: in Home Assistant, **Settings** → **People** → **Add person**, for example `mantel-server`, with *Can log in* and *Administrator* on. Mantel needs an administrator to read HK's settings and Home Assistant's list of users.
 
+![Mantel Settings: Connections, with Home Assistant and Music Assistant connected](../images/settings-connections.webp)
+
 1. On **Connections**, open **Home Assistant**.
 2. Type Home Assistant's address as Mantel's server reaches it, for example `http://homeassistant.local:8123`.
 3. Select **Connect to Home Assistant**. Home Assistant's sign-in page opens: sign in **as the user Mantel should act as** (`mantel-server`).
-4. Back in Mantel you see which user Mantel would act as, Home Assistant's version and how many entities it has. Select **Save this connection**.
+4. Back in Mantel you see which user Mantel would act as, Home Assistant's version and how many entities it has. Select **Save This Connection**.
 
 Mantel makes a long-lived token for that user (it shows as **Mantel Server (date)** in that user's Home Assistant profile) and keeps it sealed in its own data. You don't restart anything: Mantel connects at once.
 
@@ -87,7 +92,7 @@ On **Connections** → **Music Assistant**: its address (for example `http://mus
 
 ### Bring your screens in
 
-If your Home Assistant runs HK Frontend, Mantel's screens come from its settings, copied once. As the Owner, on **Connections**, select **Import HK's Settings from Home Assistant** (under **Import from HK Frontend**). It uses the Home Assistant connection you just made, writes nothing to Home Assistant, and running it again changes nothing. You can also run `docker compose exec mantel-server mantel import-settings`. See [Moving from HK Frontend](Moving-from-HK-Frontend.md) for what comes across.
+If your Home Assistant runs HK Frontend, Mantel's screens come from its settings, copied once. As the Owner, open **Set Up Mantel** → **Screens** and select **Import HK's Settings from Home Assistant** (under **Import from HK Frontend**; it is also under **Connections** → **Home Assistant** → **Moving from HK Frontend**). It uses the Home Assistant connection you just made, writes nothing to Home Assistant, and running it again changes nothing. You can also run `docker compose exec mantel-server mantel import-settings`. See [Moving from HK Frontend](Moving-from-HK-Frontend.md) for what comes across.
 
 Without HK Frontend there is nothing to import: Mantel starts with a generated **Home** screen that builds itself from your Home Assistant areas and devices. If you import later, the import replaces that Home screen with HK Frontend's screens, as long as you haven't changed it.
 
@@ -101,14 +106,14 @@ Your Owner account can do everything, so give it more than a password. On **Mant
 
 ## What you see first
 
-Mantel opens on your **home screen**: the first screen it found, or the one set as the **Default screen**. Each person can pick their own, and each wall tablet opens on its own room's screen.
+Mantel opens on your **home screen**: the first screen it found, or the one set as the **House Default Screen** (**Mantel Settings** → **General**). Each person can pick their own, and each wall tablet opens on its own room's screen.
 
 ![The home screen in a browser](../images/home-desktop.webp)
 
 Things to know on your first visit:
 
 - **Mantel is read-only.** Every state is live, but a tap on a light says **Commands are disabled in Mantel (read-only)** and nothing changes in Home Assistant. That's expected until you turn commands on: [Install → Turn on house commands](Install.md#turn-on-house-commands).
-- **Mantel Settings** is in the screen's menu, for everyone. Everyone sees their own page (**Me**). Owners and Admins also see **People**, **Connections**, **Your Files** and the **Audit Log**, and each wall tablet's page in **All Screens** → **Wall Tablets**; Owners also see **Roles & Grants** and **Service Accounts**.
+- **Mantel Settings** is in the screen's menu, for everyone. Everyone sees their own page (**Me**). Owners and Admins also see **People**, **General**, **Connections**, **Your Files** and the **Audit Log**, and each wall tablet's page in **All Screens** → **Wall Tablets**; Owners also see **Roles & Grants** and **Service Accounts**.
 - **Setup Check** (in Mantel Settings, **Overview** → **Setup Check**) lists what is ready: Home Assistant, Music Assistant, Apple's font and glyphs, house commands, and how many screens Mantel has.
 - **Fonts and icons** look plain until you add Apple's SF Pro and SF Symbols glyphs in **Mantel Settings** → **Your Files**. Mantel ships neither; each home supplies its own.
 

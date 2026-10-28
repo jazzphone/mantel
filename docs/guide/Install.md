@@ -17,6 +17,8 @@ Mantel Server runs beside your Home Assistant and serves HK's home screens from 
 | **Backups** | Inside Home Assistant's backups | Mantel's own nightly encrypted backups | The same as Docker |
 | **Install guide** | [below](#install-the-home-assistant-app) | [Install with Docker](Install-Docker.md) | [Install in a Proxmox LXC](Install-Proxmox-LXC.md) |
 
+Only want HK's screens on Home Assistant's own dashboards, for people who already sign in to Home Assistant? That is [HK Frontend](https://github.com/jazzphone/hk-frontend/wiki/Install), from HACS; [HK Frontend and Mantel](HK-Frontend-and-Mantel.md) compares the two and explains running both.
+
 Running Mantel outside Home Assistant and still want it in Home Assistant's sidebar? That is [Mantel Connect](Mantel-Connect.md). Whichever way you choose, [Mantel Link](Mantel-Link.md) is Home Assistant's side of Mantel: it puts Mantel's wall tablets, actions and notifications in Home Assistant.
 
 ## Before you start
@@ -154,7 +156,7 @@ Either way:
 2. On the **Network** tab, give `8100/tcp` a host port, for example `8100` for a proxy, or `443` (or `8443`) for `https`.
 3. Point the name at your proxy (`proxy`) or at your Home Assistant machine (`https`) in your DNS. A local DNS record is enough.
 4. Restart the App.
-5. With `proxy`: open **Mantel** in the sidebar as the Owner, then **Mantel Settings** → **Connections** → **HTTPS and Your Proxy**, select **Rotate door key**, and put the key in your proxy. **Test my proxy** there shows a ready-made Nginx Proxy Manager block with the key filled in. Without the key, Mantel treats everything from your proxy as remote.
+5. With `proxy`: open **Mantel** in the sidebar as the Owner, then **Mantel Settings** → **Connections** → **HTTPS and Your Proxy**, select **Rotate Door Key…**, and put the key in your proxy. **Test My Proxy** there shows a ready-made Nginx Proxy Manager block with the key filled in. Without the key, Mantel treats everything from your proxy as remote.
 6. Open `https://mantel.example.com/proxy-check` as the Owner. It says whether the request came through your proxy, which door Mantel sees, and what to fix.
 
 Keep direct access on your home network:
@@ -187,7 +189,7 @@ Mantel starts read-only. It shows every state, saves settings and records the au
 Before you turn them on:
 
 - Link everyone to the right role, and check what each role allows ([People and Roles](People-and-Roles.md)). A Child or Guest sees only the rooms they are given.
-- Set the house **Alarm PIN** (HK's settings inside **Mantel Settings** → **Alarm PIN**). It is the only code Mantel asks for, and only for the alarm.
+- Set the house **Alarm PIN** (**Mantel Settings** → **Security**, under **Pages**). It is the only code Mantel asks for, and only for the alarm.
 - Know where the [audit log](Commands-and-Audit.md) is.
 
 Then, as the Owner, open **Mantel Settings** → **General** and turn on **Allow Control of the House**. Mantel asks you to confirm it is you, with a fresh sign-in. It applies at once, with no restart. It works the same on the App, Docker and the LXC. To turn it off again, turn it off there. Every change is in the [Audit Log](Commands-and-Audit.md).
