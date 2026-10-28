@@ -160,3 +160,43 @@ def test_commits_name_their_files_and_never_take_everything():
     source = (ROOT / "tools/release_house.py").read_text()
     assert not re.search(r'"commit",\s*"-q?a', source)
     assert source.count("commit_only(") >= 4
+
+
+# ---- --github-release: tag v<version> and a GitHub release of a component, only when asked
+
+def _ls_remote(monkeypatch, out: str, code: int = 0):
+    real = rh.subprocess.run
+
+    def fake(cmd, *a, **kw):
+        if cmd[:2] == ["git", "ls-remote"]:
+            return rh.subprocess.CompletedProcess(cmd, code, out, "no route" if code else "")
+        return real(cmd, *a, **kw)
+    monkeypatch.setattr(rh.subprocess, "run", fake)
+
+
+def _manifest_version(product):
+    return json.loads((ROOT / rh.COMPONENTS[product]["dir"] / "manifest.json").read_text())["version"]
+
+
+@pytest.mark.parametrize("product", ["hk-frontend", "mantel-link"])
+def test_a_github_release_needs_the_versions_notes_and_a_free_tag(monkeypatch, product):
+    _ls_remote(monkeypatch, "")
+    rh.check_github_release(product, _manifest_version(product))               # the notes are in the changelog
+    with pytest.raises(rh.Refused, match="no GitHub release: CHANGELOG.md has no section '## 99.0.0'"):
+        rh.check_github_release(product, "99.0.0")
+    version = _manifest_version(product)
+    _ls_remote(monkeypatch, f"abc\trefs/tags/v{version}\n")
+    with pytest.raises(rh.Refused, match=f"has the tag v{version} already"):
+        rh.check_github_release(product, version)
+    _ls_remote(monkeypatch, "", code=128)
+    with pytest.raises(rh.Refused, match="cannot ask"):
+        rh.check_github_release(product, version)
+
+
+def test_the_github_release_is_opt_in_and_not_for_mantel_itself(capsys):
+    source = (ROOT / "tools/release_house.py").read_text()
+    assert 'ap.add_argument("--github-release", action="store_true"' in source, "a flag, default off"
+    assert "def release_component(product: str, version: str, dry: bool, github_release: bool = False)" in source
+    assert source.count('"--release"') == 1 and '*(["--release"] if github_release else [])' in source
+    assert rh.main(["mantel", "0.1.99", "--github-release"]) == 2
+    assert "--github-release is for hk-frontend and mantel-link" in capsys.readouterr().err

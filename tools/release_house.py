@@ -5,6 +5,7 @@
     tools/release_house.py hk-frontend 1.12.0                  # HK Frontend, copied into HA's config
     tools/release_house.py mantel-link 0.1.6                   # Mantel Link, likewise
     ... --dry-run                                              # every check, nothing written or sent
+    tools/release_house.py hk-frontend 1.12.0 --github-release # also tag it and make its GitHub release (off by default)
 
 Every product starts the same way: tools/ci.py's last run must be a green `full` run of HEAD (with nothing
 uncommitted but LOCAL_ONLY), on main, not behind origin/main. Then:
@@ -18,6 +19,12 @@ uncommitted but LOCAL_ONLY), on main, not behind origin/main. Then:
   and copy the component into the config share with rsync --inplace, never --delete (HA's Samba share half-fails
   without --inplace); check the copy with diff; restart Home Assistant and wait until it serves the new files.
   HK Frontend is then published to jazzphone/hk-frontend's main from a fresh clone (publish.py --commit --push).
+
+With --github-release (hk-frontend and mantel-link only; never by default) the component's public repository
+(jazzphone/hk-frontend, jazzphone/mantel-link: a fresh clone, publish.py --commit --push --release) also gets the tag
+v<version> and a GitHub release, which HACS needs to offer the version: the notes are the version's section of
+tools/publish/root/CHANGELOG.md in the component, which must already be committed, and the tag must not exist yet;
+both are checked before anything is changed. mantel-link is otherwise not published by this tool at all.
 
 Each release ends with a record in docs/development/House-releases.md, committed and pushed.
 
@@ -53,9 +60,9 @@ LOCAL_ONLY = ("apple/Mantel.xcodeproj/project.pbxproj",)    # the signing team: 
 APP_SLUG = "local_mantel"
 COMPONENTS = {
     "hk-frontend": {"dir": "hosts/ha/custom_components/hk_frontend", "domain": "hk_frontend",
-                    "served": "/hk/panels/hk-settings.js"},
+                    "served": "/hk/panels/hk-settings.js", "public": "jazzphone/hk-frontend"},
     "mantel-link": {"dir": "hosts/ha/custom_components/mantel", "domain": "mantel",
-                    "served": "/mantel_link/mantel-link.js?v={version}"},
+                    "served": "/mantel_link/mantel-link.js?v={version}", "public": "jazzphone/mantel-link"},
 }
 COPY_EXCLUDES = ("tests", "docs", "tools", "README.md", "__pycache__")
 VERSION = re.compile(r"^\d+\.\d+\.\d+$")
@@ -332,7 +339,34 @@ def release_mantel(version: str, notes: str, dry: bool) -> list[str]:
             "No \"Traceback\" or \"ERROR\" in the App's log."]
 
 
-def release_component(product: str, version: str, dry: bool) -> list[str]:
+def check_github_release(product: str, version: str) -> None:
+    """--github-release: the version has notes in the component's changelog, and its tag is free on GitHub."""
+    spec = COMPONENTS[product]
+    src = ROOT / spec["dir"]
+    pub = _load_path(f"publish_{spec['domain']}", src / "tools/publish/publish.py")
+    hk = pub if product == "hk-frontend" else _load_path(
+        "publish_hk_frontend", ROOT / COMPONENTS["hk-frontend"]["dir"] / "tools/publish/publish.py")
+    try:
+        hk.release_notes((src / "tools/publish/root/CHANGELOG.md").read_text(encoding="utf-8"), version)
+    except (OSError, ValueError) as e:
+        raise Refused(f"no GitHub release: {e} (add and commit it first)") from None
+    tag = f"v{version}"
+    r = subprocess.run(["git", "ls-remote", "--tags", f"https://github.com/{spec['public']}.git", f"refs/tags/{tag}"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        raise Refused(f"cannot ask {spec['public']} for its tags: {r.stderr.strip()[:200]}")
+    if r.stdout.strip():
+        raise Refused(f"no GitHub release: {spec['public']} has the tag {tag} already")
+
+
+def _load_path(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def release_component(product: str, version: str, dry: bool, github_release: bool = False) -> list[str]:
     today = datetime.date.today()
     spec = COMPONENTS[product]
     head = preflight()
@@ -343,8 +377,11 @@ def release_component(product: str, version: str, dry: bool) -> list[str]:
     if not dest.parent.is_dir():
         raise Refused(f"{dest.parent} is not mounted")
     print(f"{product} {version} from {head[:9]} into {dest}")
+    if github_release:
+        check_github_release(product, version)
     if dry:
-        print("dry run: would set the manifest version, commit, push, build, copy, diff, restart and verify")
+        print("dry run: would set the manifest version, commit, push, build, copy, diff, restart and verify"
+              + (f", then publish to {spec['public']} and release v{version}" if github_release else ""))
         return []
     set_manifest_version(src / "manifest.json", version)
     commit_only(f"{product} {version} to the house", f"{spec['dir']}/manifest.json")
@@ -371,13 +408,15 @@ def release_component(product: str, version: str, dry: bool) -> list[str]:
         asyncio.run(go())
         lines = [f"{product} {version}, commit `{commit[:7]}`, copied with rsync --inplace; diff -rq shows no "
                  "difference.", f"Home Assistant restarted and serves `{spec['served'].format(version=version)}`."]
-        if product == "hk-frontend":
-            clone = Path(tmp) / "hk-frontend"
-            run("git", "clone", "-q", "https://github.com/jazzphone/hk-frontend.git", str(clone))
+        if product == "hk-frontend" or github_release:
+            name = "HK Frontend" if product == "hk-frontend" else "Mantel Link"
+            clone = Path(tmp) / "public"
+            run("git", "clone", "-q", f"https://github.com/{spec['public']}.git", str(clone))
             run(sys.executable, str(src / "tools/publish/publish.py"), str(clone),
-                "--commit", f"HK Frontend {version} (from mantel {commit[:7]})", "--push", env={"HK_PRIVATE": regex})
-            lines.append(f"Published to jazzphone/hk-frontend main as `{git_in(clone, 'rev-parse', '--short', 'HEAD')}`, "
-                         "untagged.")
+                "--commit", f"{name} {version} (from mantel {commit[:7]})", "--push",
+                *(["--release"] if github_release else []), env={"HK_PRIVATE": regex})
+            lines.append(f"Published to {spec['public']} main as `{git_in(clone, 'rev-parse', '--short', 'HEAD')}`, "
+                         + (f"tagged `v{version}` and released on GitHub." if github_release else "untagged."))
     return lines
 
 
@@ -404,9 +443,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("version")
     ap.add_argument("--notes", type=Path, help="mantel: the release notes (Markdown bullets) for CHANGELOG.md")
     ap.add_argument("--dry-run", action="store_true", help="make every check; write and send nothing")
+    ap.add_argument("--github-release", action="store_true",
+                    help="hk-frontend, mantel-link: also publish the public repository, tag v<version> and make its "
+                         "GitHub release (needs the version's section in the component's CHANGELOG.md); off by default")
     args = ap.parse_args(argv)
     if not VERSION.match(args.version):
         print("the version is X.Y.Z", file=sys.stderr)
+        return 2
+    if args.github_release and args.product == "mantel":
+        print("--github-release is for hk-frontend and mantel-link (Mantel's own release is the release workflow's)",
+              file=sys.stderr)
         return 2
     try:
         if args.product == "mantel":
@@ -416,7 +462,7 @@ def main(argv: list[str] | None = None) -> int:
             lines = release_mantel(args.version, notes, args.dry_run)
             title = f"Mantel {args.version}"
         else:
-            lines = release_component(args.product, args.version, args.dry_run)
+            lines = release_component(args.product, args.version, args.dry_run, args.github_release)
             title = f"{'HK Frontend' if args.product == 'hk-frontend' else 'Mantel Link'} {args.version}"
         if not args.dry_run:
             record(title, lines)
