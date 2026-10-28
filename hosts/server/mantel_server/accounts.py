@@ -43,7 +43,7 @@ from .atrest import KEY_FILE, SecretBox
 from .guards import guard
 from .guards import ident as guarded
 from .sessions import (Identity, Issued, SessionManager, client_ip, door_of, error, identity, ok,
-                       set_session_cookies, token_hash)
+                       set_session_cookies, sign_in_args, token_hash)
 from .store import ROLES
 
 log = logging.getLogger("mantel.accounts")
@@ -663,8 +663,7 @@ def passkey_origin(request: web.Request, acc: Accounts) -> str:
 def signed_in(request: web.Request, user_row, method: str) -> web.Response:
     """Start a session for ``user_row`` on this request's door and answer with its cookies."""
     mgr: SessionManager = request.app["sessions"]
-    issued: Issued = mgr.create(user_row["id"], door_of(request), method,
-                                user_agent=request.headers.get("User-Agent"), source_ip=client_ip(request))
+    issued: Issued = mgr.create(user_row["id"], door_of(request), method, **sign_in_args(request))
     acc = accounts_of(request)
     resp = ok({"user": acc.describe(acc.get_user(user_row["id"])), "csrf": issued.csrf,
                "session": {"id": issued.session_id, "door": issued.door, "expires": issued.expires}})

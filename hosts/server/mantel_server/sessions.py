@@ -38,6 +38,10 @@ log = logging.getLogger("mantel.sessions")
 ACCESS_COOKIE = "mantel_session"     # the Phase 0 cookie name; it now holds an access token
 REFRESH_COOKIE = "mantel_refresh"
 CSRF_COOKIE = "mantel_csrf"
+# one random id per browser (and cookie path), kept long after its sessions: a new sign-in there ends the last
+# (SessionManager.create ``browser``), so My Sessions holds one row per browser, not one per sign-in
+BROWSER_COOKIE = "mantel_browser"
+BROWSER_TTL = 400 * 86400
 CSRF_HEADER = "X-CSRF-Token"
 ACCESS_TTL = 15 * 60
 REFRESH_REUSE_GRACE = 30.0           # a refresh token seen again this soon is a parallel request, not theft
@@ -182,9 +186,13 @@ class SessionManager:
 
     def create(self, user_id: str, door: str, method: str, *, now: float | None = None,
                ttl: float | None = None, refresh: bool = True, fresh: bool = True,
-               user_agent: str | None = None, source_ip: str | None = None, parent: str | None = None) -> Issued:
+               user_agent: str | None = None, source_ip: str | None = None, parent: str | None = None,
+               browser: str | None = None, replaces: str | None = None) -> Issued:
         """Start a session. ``ttl`` overrides the door's lifetime (the CLI's fixed-length cookies). ``parent``: the
-        session this one was handed out by (the Mantel app's web view, app_auth.web_session); it ends with it."""
+        session this one was handed out by (the Mantel app's web view, app_auth.web_session); it ends with it.
+        ``browser``: the browser's id (browser_of): this user's earlier sessions there end. ``replaces``: the
+        session whose refresh cookie the browser still sent (one from before browser ids), ended too if it is
+        this user's."""
         if door not in DOORS:
             raise ValueError(f"unknown door {door!r}")
         now = self._now(now)
@@ -204,13 +212,24 @@ class SessionManager:
             self.db.execute("DELETE FROM access_tokens WHERE expires < ?", (now,))
             self.db.execute(
                 "INSERT INTO sessions (id, user_id, door, method, csrf, created, expires, last_seen, "
-                "fresh_factor_at, fresh_factor, user_agent, source_ip, parent_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "fresh_factor_at, fresh_factor, user_agent, source_ip, parent_id, browser) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (sid, user_id, door, method, csrf, now, expires, now, now if fresh else None,
-                 method if fresh else None, (user_agent or "")[:200] or None, source_ip, parent))
+                 method if fresh else None, (user_agent or "")[:200] or None, source_ip, parent, browser))
             self.db.execute("INSERT INTO access_tokens VALUES (?,?,?)", (token_hash(access), sid, access_expires))
             if refresh_token:
                 self.db.execute("INSERT INTO refresh_tokens (hash, session_id, created) VALUES (?,?,?)",
                                 (token_hash(refresh_token), sid, now))
+        old = []
+        if browser:
+            old = [r["id"] for r in self.db.execute(
+                "SELECT id FROM sessions WHERE user_id = ? AND browser = ? AND id != ? AND revoked IS NULL "
+                "AND parent_id IS NULL", (user_id, browser, sid))]
+        if replaces and replaces != sid:
+            r = self.db.execute("SELECT user_id FROM sessions WHERE id = ? AND revoked IS NULL", (replaces,)).fetchone()
+            if r is not None and r["user_id"] == user_id and replaces not in old:
+                old.append(replaces)
+        for o in old:
+            self.revoke(o, "replaced", now)
         return Issued(sid, access, access_expires, refresh_token, csrf, expires, door)
 
     _ROW = ("SELECT s.*, u.name AS user_name, u.role AS user_role, u.kind AS user_kind, u.username, "
@@ -310,6 +329,13 @@ class SessionManager:
             "SELECT id FROM sessions WHERE user_id = ? AND revoked IS NULL", (user_id,)) if r["id"] != keep]
         return sum(self.revoke(i, reason, now) for i in ids)
 
+    def by_refresh(self, refresh_token: str | None) -> str | None:
+        """The session a refresh token belongs to (live or not), or None."""
+        if not refresh_token:
+            return None
+        r = self.db.execute("SELECT session_id FROM refresh_tokens WHERE hash = ?", (token_hash(refresh_token),)).fetchone()
+        return r["session_id"] if r is not None else None
+
     def list(self, user_id: str, now: float | None = None) -> list[dict]:
         now = self._now(now)
         rows = self.db.execute(
@@ -373,6 +399,26 @@ async def _apply_cookie_queue(request: web.Request, response: web.StreamResponse
         if name in taken:  # the handler set it itself (a sign-in or sign-out): that wins
             continue
         response.headers.add(hdrs.SET_COOKIE, _morsel(name, value, opts))
+
+
+def browser_of(request: web.Request) -> str:
+    """This browser's id: its mantel_browser cookie's, or a new one, set on whatever response this request ends
+    with. Random and opaque: it names a browser to its own sessions, nothing more."""
+    v = request.cookies.get(BROWSER_COOKIE) or ""
+    if len(v) == 32 and all(c in "0123456789abcdef" for c in v):
+        return v
+    v = request.get(BROWSER_COOKIE)
+    if not v:
+        v = request[BROWSER_COOKIE] = secrets.token_hex(16)
+        queue_cookie(request, BROWSER_COOKIE, v, **_cookie_opts(request, BROWSER_TTL))
+    return v
+
+
+def sign_in_args(request: web.Request) -> dict:
+    """What a sign-in in a browser passes to SessionManager.create: its id, the session it still has a refresh
+    cookie for, what it is and where from."""
+    return {"browser": browser_of(request), "replaces": request.app["sessions"].by_refresh(request.cookies.get(REFRESH_COOKIE)),
+            "user_agent": request.headers.get("User-Agent"), "source_ip": client_ip(request)}
 
 
 def _queue_issued(request: web.Request, issued: Issued) -> None:
@@ -596,6 +642,20 @@ async def revoke_session(request: web.Request) -> web.Response:
     return resp
 
 
+@guard("person", device_ok=True, audit="session.revoke_others")
+async def revoke_others(request: web.Request) -> web.Response:
+    """Me → My Sessions → Sign Out Everywhere Else: every browser session of yours but this one (the Mantel
+    apps keep theirs: Me → Mantel App)."""
+    from . import audit
+    ident = guarded(request)
+    mgr: SessionManager = request.app["sessions"]
+    ids = [r["id"] for r in mgr.list(ident.user.id, request.app["clock"]())
+           if r["id"] != ident.session_id and r["method"] != APP_METHOD and r["parent_id"] is None]
+    audit.config(request, ident, "session.revoke_others", {"user": ident.user.id, "count": len(ids)})
+    ended = sum(mgr.revoke(i, "revoked_by_user") for i in ids)
+    return ok({"ended": ended})
+
+
 def register(app: web.Application, hub=None) -> None:
     cfg = app["cfg"]
     app["sessions"] = SessionManager(app["store"].db, lambda: app["clock"](),
@@ -607,4 +667,5 @@ def register(app: web.Application, hub=None) -> None:
     app.router.add_post("/api/session/refresh", refresh)
     app.router.add_post("/api/session/logout", logout)
     app.router.add_get("/api/sessions", list_sessions)
+    app.router.add_post("/api/sessions/revoke-others", revoke_others)
     app.router.add_delete("/api/sessions/{id}", revoke_session)

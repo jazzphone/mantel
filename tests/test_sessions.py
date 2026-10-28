@@ -108,6 +108,48 @@ async def test_list_and_revoke_sessions(mantel):
     assert (await mantel.get(f"/api/sessions?user_id={victim}")).status == 403
 
 
+async def test_a_browser_signing_in_again_replaces_its_last_session(mantel):
+    """One row per browser in My Sessions (2026-10-28): its id cookie, or a refresh cookie it still has."""
+    await mantel.user("jordan", "adult")
+    r, _ = await mantel.sign_in("jordan")
+    bid = r.cookies["mantel_browser"].value
+    assert len(bid) == 32 and r.cookies["mantel_browser"]["httponly"]
+    await mantel.sign_in("jordan")                                          # the same browser, again
+    listed = (await (await mantel.get("/api/sessions")).json())["sessions"]
+    assert len(listed) == 1 and listed[0]["current"]
+    # cookies lost but its id kept (a sign-in page that cleared the session): still one
+    mantel.forget_cookies()
+    mantel.set_cookies(mantel_browser=bid)
+    await mantel.sign_in("jordan")
+    assert len((await (await mantel.get("/api/sessions")).json())["sessions"]) == 1
+    # a session from before browser ids: replaced through the refresh cookie the browser still sends
+    uid = mantel.store.db.execute("SELECT id FROM users WHERE username = 'jordan'").fetchone()[0]
+    old = mgr(mantel).create(uid, "lan", "password")
+    mantel.forget_cookies()
+    mantel.set_cookies(mantel_refresh=old.refresh)
+    await mantel.sign_in("jordan")
+    row = mantel.store.db.execute("SELECT revoked_reason FROM sessions WHERE id = ?", (old.session_id,)).fetchone()
+    assert row["revoked_reason"] == "replaced"
+    # another browser (no id) is a session of its own
+    mantel.forget_cookies()
+    await mantel.sign_in("jordan")
+    assert len((await (await mantel.get("/api/sessions")).json())["sessions"]) == 3
+
+
+async def test_sign_out_everywhere_else(mantel):
+    uid = await mantel.user("jordan", "adult")
+    a = mgr(mantel).create(uid, "lan", "password", user_agent="Fictional Phone")
+    b = mgr(mantel).create(uid, "tunnel", "password", user_agent="Fictional Laptop")
+    app = mgr(mantel).create(uid, "tunnel", "app", user_agent="Mantel for iPhone", refresh=False)
+    await mantel.sign_in("jordan")
+    r = await mantel.post("/api/sessions/revoke-others")
+    assert r.status == 200 and (await r.json())["ended"] == 2
+    assert mgr(mantel).from_access(a.access) is None and mgr(mantel).from_access(b.access) is None
+    assert mgr(mantel).get(app.session_id) is not None                      # the app keeps its own
+    listed = (await (await mantel.get("/api/sessions")).json())["sessions"]
+    assert len(listed) == 1 and listed[0]["current"]
+
+
 async def test_tunnel_sessions_are_short_and_bound_to_their_door(mantel):
     uid = await mantel.user("jordan", "adult")
     lan = mgr(mantel).create(uid, "lan", "password")

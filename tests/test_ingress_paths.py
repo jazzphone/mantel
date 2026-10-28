@@ -38,7 +38,6 @@ NOT_MANTEL_URLS = [
     ("hk/panels/hk-settings.js", "DOMAIN + '/dashboard/titled'", "a WebSocket message type, not a path"),
     ("hk/panels/hk-settings-model.js", "'/dashboard-kitchen/0?hk_", "example text in a help string"),
     ("hk/cards/hk-detail.js", 'href="/hk-settings#', "a link: shim/base.js moves a clicked link under the prefix"),
-    ("shim/settings/me.js", "if (BASE) location.reload(); else location.assign('/login')", "only without a prefix (BASE: '')"),
     ("shim/settings/kit.js", "if (BASE) location.reload(); else location.assign('/login')", "only without a prefix (BASE: '')"),
     ("shim/settings/core.js", "location.assign('/login?next='", "only without a prefix (signedOut: under Ingress Home Assistant signs people in)"),
     ("shim/mantel-client.js", "indexOf('/api/') === 0", "HA API paths for the action port (hub.command), never fetched"),

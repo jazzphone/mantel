@@ -237,8 +237,7 @@ async def callback(request: web.Request) -> web.StreamResponse:
         return done(page("Account disabled", "<p>Ask an Owner.</p>", 403))
     if user.get("name"):
         store.set_name(user["id"], user["name"])
-    issued = app["sessions"].create(link["user_id"], sessions.door_of(request), "ha",
-                                    user_agent=request.headers.get("User-Agent"), source_ip=sessions.client_ip(request))
+    issued = app["sessions"].create(link["user_id"], sessions.door_of(request), "ha", **sessions.sign_in_args(request))
     # A page, not a redirect: SameSite=Strict cookies set during a navigation that started on HA's
     # site are not sent on a redirect in the same chain, so the next hop must start here.
     dest = html.escape(next_path, quote=True)          # safe_next: a same-origin path, never a URL

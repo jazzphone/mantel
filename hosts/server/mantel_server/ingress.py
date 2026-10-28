@@ -236,8 +236,7 @@ def resolve(request: web.Request) -> Identity | None:
             elif status == "grace":
                 srow = value
     if srow is None and wants_page(request):
-        issued = mgr.create(user.id, "tunnel", INGRESS_METHOD, fresh=False,
-                            user_agent=request.headers.get("User-Agent"), source_ip=sessions.client_ip(request))
+        issued = mgr.create(user.id, "tunnel", INGRESS_METHOD, fresh=False, **sessions.sign_in_args(request))
         sessions._queue_issued(request, issued)
         srow = mgr.get(issued.session_id, now)
         log.info("Ingress: started a session for %s (HA user %s)", user.name or user.id, person["id"])

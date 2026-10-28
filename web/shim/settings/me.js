@@ -1,7 +1,7 @@
 // settings/me.js -- Mantel Settings, Me: sign-in, passkeys, authenticator, PIN, password, notifications, apps, sessions.
 import { mantelUrl, base as BASE } from '../base.js';
 import {
-  act, ago, api, ask, ERRORS, fmt, hh, K, load, me, panel, redraw, refreshMe, roleLabel, ROUTE, shortUA,
+  act, ago, api, ask, ERRORS, fmt, forget, hh, K, load, me, panel, redraw, refreshMe, roleLabel, ROUTE, shortUA,
   shown, ui
 } from './core.js';
 import {
@@ -17,6 +17,7 @@ export function pMe(sub) {
   if (sub[0] === 'pin') return pMyPin();
   if (sub[0] === 'password' && hasMantelPassword(u)) return pMyPassword();
   if (sub[0] === 'enroll') return pEnroll(['Me', '#/' + ROUTE + '/me']);
+  if (sub[0] === 'sessions' && sub[1]) return pSessions(decodeURIComponent(sub[1]));
   return { title: u.name || u.username || 'Me', top: true, scope: roleLabel(u.role) + ' · ' +
     (u.kind === 'ha_linked' ? 'Signed in with Home Assistant' : 'Mantel account') + (u.username ? ' · ' + u.username : ''),
   body(c) {
@@ -38,19 +39,7 @@ export function pMe(sub) {
     }
     const ss = load('sessions', () => api('GET', '/api/sessions'));
     if (!ss) pending(c); else if (ss.err) failed(c, ss.err);
-    else {
-      const rows = ss.data.sessions.map((s) => K().info({ label: shortUA(s.user_agent) + (s.current ? ' (This Browser)' : ''),
-        sub: `${s.door === 'lan' ? 'Home network' : 'Remote'} · ${s.method} sign-in · ${s.source_ip || 'unknown address'} · last seen ${ago(s.last_seen)} · ends ${fmt(s.expires)}` }));
-      const acts = ss.data.sessions.map((s) => button(s.current ? 'Sign Out Here' : 'Revoke ' + shortUA(s.user_agent), async () => {
-        if (!(await ask({ title: s.current ? 'Sign out of this browser?' : 'Revoke this session?', message: s.current ? 'You will be signed out here.' : 'That browser will be signed out at once.',
-          ok: s.current ? 'Sign Out' : 'Revoke', destructive: true }))) return;
-        if (await act('me', () => api('DELETE', '/api/sessions/' + encodeURIComponent(s.id)), 'Session revoked.', 'sessions') && s.current) {
-          if (BASE) location.reload(); else location.assign('/login');
-        }
-      }, { destructive: true, fk: 'mx:revoke-session:' + s.id }));
-      c.appendChild(group({ header: 'My Sessions', footer: 'Every browser signed in as you. The Mantel app is under Mantel App, below.' }, rows.length ? rows : [info('No active sessions')]));
-      if (acts.length) c.appendChild(group({}, acts));
-    }
+    else drawSessions(c, ss.data.sessions);
     if (u.role === 'wall_tablet') {
       // a Wall Tablet account sees only this page, and may make its own tablet (devices.enroll): the way in for a
       // tablet that cannot use Sign in with Home Assistant (trusted_networks signs it in as itself; 2026-10-19)
@@ -65,6 +54,78 @@ export function pMe(sub) {
     c.appendChild(group({ footer: 'Optional, and not used for now: the only PIN is the house Alarm PIN, for the alarm.' }, [nav('My PIN', 'me/pin')]));
     // through Home Assistant's Ingress Home Assistant holds the sign-in: nothing to sign out of here
     if (!BASE) c.appendChild(group({ footer: 'Ends this browser’s session.' }, [button('Sign Out', signOut, { destructive: true, center: true, fk: 'mx:signout' })]));
+  } };
+}
+// MY SESSIONS (2026-10-28): one row per kind of browser -- "Safari on Mac", on the home network or from outside --
+// not one per sign-in, with how many and when one was last used; a row opens its sessions, each with its own Sign
+// Out. A browser signing in again now ends its last session (sessions.py browser_of), so the repeats are the ones
+// from before that, or other devices of the same kind. Sign Out Everywhere Else ends all but this one.
+const sessKey = (s) => shortUA(s.user_agent) + '|' + s.door;
+const sessWhere = (s) => (s.door === 'lan' ? 'Home network' : 'Remote');
+const HOW = { ha: 'Signed in with Home Assistant', ingress: 'Home Assistant’s sidebar', password: 'Signed in with a password',
+              'password+totp': 'Password and authenticator', passkey: 'Signed in with a passkey', bootstrap: 'First sign-in',
+              legacy: 'Earlier sign-in', 'app-web': 'The Mantel app' };
+const sessHow = (s) => HOW[s.method] || s.method + ' sign-in';
+function sessGroups(list) {
+  const by = new Map();
+  for (const s of list) {
+    if (s.current) continue;
+    const k = sessKey(s);
+    if (!by.has(k)) by.set(k, []);
+    by.get(k).push(s);
+  }
+  return [...by.entries()].map(([k, l]) => ({ key: k, list: l.sort((a, b) => b.last_seen - a.last_seen) }))
+    .sort((a, b) => b.list[0].last_seen - a.list[0].last_seen);
+}
+function drawSessions(c, list) {
+  const cur = list.find((s) => s.current);
+  const rows = [];
+  if (cur) rows.push(info(shortUA(cur.user_agent) + ' (This Browser)', `${sessWhere(cur)} · ${sessHow(cur)} · ends ${fmt(cur.expires)}`));
+  const groups = sessGroups(list);
+  for (const g of groups) {
+    const s = g.list[0];
+    rows.push(nav(shortUA(s.user_agent), 'me/sessions/' + encodeURIComponent(g.key),
+      { sub: `${sessWhere(s)} · last seen ${ago(s.last_seen)}`, value: g.list.length > 1 ? String(g.list.length) : undefined }));
+  }
+  const others = groups.reduce((n, g) => n + g.list.length, 0);
+  c.appendChild(group({ header: 'My Sessions', footer: 'Every browser signed in as you, by kind. A browser that signs in again replaces its last session. The Mantel app is under Mantel App, below.' },
+    rows.length ? rows : [info('No active sessions')]));
+  if (others) {
+    c.appendChild(group({ footer: 'Signs out every other browser (' + others + ' session' + (others > 1 ? 's' : '') + '). This one stays signed in, and so does the Mantel app.' },
+      [button('Sign Out Everywhere Else', async () => {
+        if (!(await ask({ title: 'Sign out everywhere else?', message: 'Every other browser signed in as you is signed out at once.', ok: 'Sign Out', destructive: true }))) return;
+        await act('me', () => api('POST', '/api/sessions/revoke-others'), 'Signed out everywhere else.', 'sessions');
+      }, { destructive: true, center: true, fk: 'mx:revoke-others' })]));
+  }
+}
+// one kind of browser's sessions, each with its details and its own Sign Out
+function pSessions(key) {
+  const ss = load('sessions', () => api('GET', '/api/sessions'));
+  const g = ss && ss.data ? sessGroups(ss.data.sessions).find((x) => x.key === key) : null;
+  const title = key.split('|')[0];
+  return { title, back: ['Me', '#/' + ROUTE + '/me'], scope: g ? sessWhere(g.list[0]) + ' · ' + g.list.length + ' session' + (g.list.length > 1 ? 's' : '') : '',
+  body(c) {
+    result(c, 'me');
+    if (!ss) return pending(c);
+    if (ss.err) return failed(c, ss.err);
+    if (!g) { c.appendChild(group({}, [info('No sessions left', 'They were signed out.')])); return; }
+    for (const s of g.list) {
+      c.appendChild(group({}, [info('Last seen ' + ago(s.last_seen), `${sessHow(s)} · ${s.source_ip || 'unknown address'} · since ${fmt(s.created)} · ends ${fmt(s.expires)}`),
+        button('Sign Out', async () => {
+          if (!(await ask({ title: 'Sign out this session?', message: 'That browser is signed out at once.', ok: 'Sign Out', destructive: true }))) return;
+          await act('me', () => api('DELETE', '/api/sessions/' + encodeURIComponent(s.id)), 'Signed out.', 'sessions');
+        }, { destructive: true, fk: 'mx:revoke-session:' + s.id })]));
+    }
+    if (g.list.length > 1) {
+      c.appendChild(group({}, [button('Sign Out All ' + g.list.length, async () => {
+        if (!(await ask({ title: 'Sign out all ' + g.list.length + '?', message: 'Each of these browsers is signed out at once.', ok: 'Sign Out', destructive: true }))) return;
+        let n = 0;
+        for (const s of g.list) { try { await api('DELETE', '/api/sessions/' + encodeURIComponent(s.id)); n++; } catch (e) { /* gone already */ } }
+        forget('sessions');
+        ui.flash = { key: 'me', text: n + ' session' + (n > 1 ? 's' : '') + ' signed out.' };
+        location.hash = '#/' + ROUTE + '/me';
+      }, { destructive: true, center: true, fk: 'mx:revoke-group' })]));
+    }
   } };
 }
 // NOTIFICATIONS (push.py; docs/phase10/APPLE-APPS.md slice 10.0): this browser's Web Push, and every device that gets
