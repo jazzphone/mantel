@@ -4,50 +4,53 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
-The first public release.
+The first public release of **Mantel**: HK Frontend's screens, inspired by Apple's Home app, served from a server of their own beside Home Assistant. It ships with **Mantel Link** 0.1.6 (Home Assistant's side of Mantel, from HACS) and alongside **HK Frontend** 1.14 (HK inside Home Assistant), built from the same code. The [user guide](docs/guide/Home.md) covers all of it; [HK Frontend and Mantel](docs/guide/HK-Frontend-and-Mantel.md) compares the products.
 
-- Standalone Home Grid accessories and scenes use the room-page tile builders for saved glyphs, colors and state-specific appearance, while preserving grid sizes and caption choices.
+**Running it**
+- **Three ways to run it:** the Home Assistant App (Home Assistant OS or Supervised; in Home Assistant's sidebar, optionally at its own address too), Docker Compose with Caddy or your own reverse proxy, or a Proxmox LXC made by a script. All three run the same server.
+- **Set Up Mantel:** a first-run checklist in Mantel Settings, each step worked out from the house (Home Assistant, your home, screens, the household, the Owner's sign-in, the Alarm PIN, moving the house from HK Frontend, house commands), each opening the page that does it.
+- **Backups:** inside Home Assistant's backups for the App; nightly encrypted backups, checked before a restore, with Docker and the LXC.
+- **Updating** through Home Assistant, `./update.sh` or `mantel-update`.
 
-- Home Grid swipe cards support mouse dragging and horizontal wheel/trackpad paging without returning to the opening page on state updates. Header chips align to the right and remain scrollable on overflow.
-- Group controls appear in Lights and accessory type lists independently of status counts, so groups remain available without automatically double-counting their members.
-- Ignore Announcements recognizes HA service calls in Mantel, including native/MA speaker counterparts, with bounded display-only markers and disconnect cleanup.
+**People and access**
+- **People and roles:** Owner, Admin, Adult, Child and Guest, with grants per room and feature, and Wall Tablet for a tablet.
+- **Sign-in:** passkeys, passwords with authenticator codes, or Sign in with Home Assistant; stricter rules from away than at home; a fresh sign-in to confirm it is you before anything sensitive.
+- **Commands and the audit log:** commands stay off until the Owner turns on **Allow Control of the House**; each one is checked against the person's and the device's role and written to the audit log before it reaches the house. The alarm asks for its PIN.
 
-- Home Grid shared blur reaches cards inside swipe blocks, including thermostats. Page-control pills size to the page count and keep all dots inside narrow cards.
+**Wall tablets**
+- A browser enrolled as a wall tablet keeps its own credential and role, whoever walks up to it. Enrolling into a room with no HK tablet adds that tablet too. Each tablet has one page in Mantel Settings: its screen, kiosk app, When Idle, Sleep Screen, the browser signed in as it, and Reload and Clear Cache from Mantel.
+- The screensaver, return to Home and Sleep Screen are HK's, with **Mantel Photos**: albums for the screensaver, with Keep in View cropping around faces found on the server (where, never who).
 
-- Home Grid keeps starter layouts inside Screen Settings while editing cards. Room controls distinguish one room from swiping between rooms, with a starting-room choice that matches the preview and idle return.
+**Screens**
+- HK's pages drawn with HK's own code, without Lovelace: Home, a page per room, Lights, Climate, Security, Cameras, Music, Energy and the **Power** page (the grid, the sun, a house battery and the cars right now), Weather, Live TV and more, over the live sky.
+- **Home Grid:** a tablet's Home page laid out in fixed blocks in a desktop editor, with starter layouts, pages, conditional blocks, layout history and copying to another screen. A **Now Playing** block turns over to **Speakers** or **Browse**.
+- **Edit mode** (**Edit Page**): arrange a page in place: drag tiles, make them Tall, and reorder the menu, the tab bar and the rooms.
+- A phone has its own **Tabs in Bar** (2 to 4).
+- **Notifications** on the screens, in the Mantel app, in a browser, or through Home Assistant's Companion app.
 
-- Home Grid keeps fixed tall-tile proportions with uniform fit and a per-screen scale control. Room and scene groups support six columns by two rows; sparse room groups retain empty rows. Home Assistant person portraits load through Mantel and fall back to initials.
+**Mantel Settings**
+- HK's settings for every screen, with a live preview, plus People, Roles & Grants, wall tablets, Connections (Home Assistant, Music Assistant, HTTPS and your proxy, notifications to the app), General, the Audit Log, Service Accounts and your files, each thing in one place. Settings keep their history.
 
-- **Home Grid follow-up:** camera selections stay on one camera; screen settings collapse, with independent header clock/weather switches. Room groups use taller filling tiles, thermostats share the card plate, and centred page dots have a pill. Picker icons and illustrative data are complete. Larger weather cards show more readings and forecast detail, with an optional Sky weather background.
+**Home Assistant**
+- **Mantel Link:** found by itself (from the App, or on the network with a pairing code); each tablet's black screen, screensaver and Sleep Screen as entities; Mantel's actions, also under their HK Frontend names; Mantel's screens in Home Assistant's sidebar; notifications on Companion-app phones; the doorbell's talk-back.
+- **Mantel Connect:** Mantel in Home Assistant's sidebar when it runs in Docker or the LXC.
+- **HK Frontend linked to Mantel:** the two run together. Each wall tablet is run by one of them, The House by one of them, and while Mantel runs the house HK Frontend's dashboards use Mantel's settings, saved as the person linked to each Home Assistant user. Moving everything to Mantel is a choice, one step at a time.
 
-- **Home Grid editor (in development)**: desktop draft editing with drag and snap, equal-size swaps, keyboard moves, card options, pages, starter layouts and Save/Cancel. Mantel adds layout history and copying to another screen. The compact header, clock and thermostat layouts are refined, and swipe-page cards align with their neighbors. Review refinements add a searchable gallery with live previews, framed room and scene groups, a forecast widget, single-camera selection, security and timer controls, conditional blocks with fixed-size fallbacks, and consistent glass plates. Room and scene groups support individual background color, opacity and blur; scene pills fill their framed rows and music artwork aligns with track information.
+**Music, cameras and apps**
+- Music Assistant and cameras through Mantel (live view, stills, Live TV from an HDHomeRun), each checked against the person's role.
+- **iPhone, iPad and Mac apps** (built from source for now): the screens and Mantel Settings, notifications, a music Live Activity, widgets, Control Center and Siri on iPhone; the menu bar on the Mac.
 
-- **Mantel Server**: serves HK Frontend's screens without Lovelace, from your Home Assistant's rooms and devices.
-- **People and roles**: Mantel accounts with passwords, passkeys and authenticator codes, or sign-in with Home Assistant; Owner, Admin, Adult, Child and Guest roles, with grants per room and feature.
-- **Wall tablets**: a browser enrolled as a tablet keeps its own credential and role, whoever is signed in.
-- **Commands and audit**: commands are off until the operator turns them on; each one is checked against the person's and the device's role and written to the audit log before it is sent.
-- **Music Assistant and cameras** through Mantel, **Mantel Photos** for the screensaver, and **backups**.
-- **Mantel Link**: the Home Assistant integration that links Home Assistant to Mantel.
-- **Three ways to run it**: the Home Assistant App, Docker Compose, or a Proxmox LXC.
-- **Set Up Mantel**: a first-run checklist in Mantel Settings, each step worked out from the house (Home Assistant, screens, the household, the Owner's sign-in, the Alarm PIN, house commands) and opening the page that does it.
-- **One step for a new wall tablet**: enrolling into a room with no HK tablet adds that HK tablet too.
-- Importing HK's settings from a Home Assistant without HK Frontend says there is nothing to import; Setup Check says how house commands are turned on where Mantel runs.
-- **Mantel Settings, each thing in one place**:
-  - A wall tablet is one page (All Screens, Wall Tablets): its screen and kiosk app, and now the browser signed in to Mantel as it, its Home Assistant user and Sign Out. The separate Devices page is gone, and so is HK's Tablet User there.
-  - Connections → Home Assistant has what Home Assistant has of Mantel: Mantel Link (a pairing code), HK Frontend (its credential, made right there) and the sidebar (Mantel Connect). Who runs each tablet and the bridge are under Moving from HK Frontend. Connections → Music Assistant has the Browse Music page's sign-in.
-  - Service Accounts is under Advanced, and says which credentials Mantel made and what uses them.
-  - Revoked tablets, Service accounts and Connect pairings leave their lists after 30 days, or at once with Clear List; the Audit Log keeps them. The Home Assistant App no longer leaves a revoked "App discovery" credential behind at every restart, and makes none when Mantel Link was set up by hand.
-  - People: the Home Assistant user picker offers each person once and never a Wall Tablet account. Home Assistant users linked to Wall Tablet accounts (from before tablets were enrolled) move to their tablets in one step, and the accounts go.
-  - Audit Log: From and To say Any Time, Now or the last hour, day, week or month, with a date only when you choose one.
+### Late changes before release
 
-- **Doorbell talk is live through Mantel again**: Mantel connects to Home Assistant for the doorbell while the tablet opens its own connection, and the card waits up to 4 s for the doorbell to listen (1.5 s was too short for Mantel's extra steps, so every press fell back to a recorded message). How long each press waited is in Mantel's log.
-
-- **Keep in View for Mantel Photos**: Mantel finds where the faces are in each photo (only where, never who; on the server, nothing leaves the house), and the Photo and Mosaic screensavers crop and zoom around them. Photos already in Mantel are checked in the background. An Owner or Admin can set what stays in view by hand from a photo's preview (Keep in View), or put it back to Automatic. The Mosaic also picks layouts that fit the photos' shapes. Adds onnxruntime and numpy (about 140 MB installed).
-
-- **Page health in Mantel's log**: each screen's page says how the page before it ended and how big it is each minute, to find why wall tablets reload every 15 minutes.
-
-- **The House, when it matters**: with no HK Frontend in Home Assistant, Mantel takes the house by itself (Live TV through Mantel Link needed it switched on). While HK Frontend is still there, Set Up Mantel lists Move the House to Mantel, and Connections → Home Assistant says when it's time.
-
+- Home Grid: swipe cards page with a mouse, a wheel or a trackpad; shared blur reaches cards inside swipe blocks; starter layouts stay inside Screen Settings while editing; fixed tall-tile proportions with a per-screen scale; six-by-two room and scene groups; person portraits load through Mantel and fall back to initials; room and scene groups take their own background color, opacity and blur.
+- Group controls show in the Lights and accessory lists without double-counting their members.
+- Ignore Announcements recognises Home Assistant service calls in Mantel, Music Assistant speakers included.
+- Importing HK's settings from a Home Assistant without HK Frontend says there is nothing to import.
+- Revoked tablets, Service accounts and Connect pairings leave their lists after 30 days, or at once with Clear List; the Audit Log keeps them. The App no longer leaves a revoked "App discovery" credential behind at every restart, and makes none when Mantel Link was set up by hand.
+- The Audit Log's From and To say Any Time, Now or the last hour, day, week or month.
+- Doorbell talk is live through Mantel again: the card waits up to 4 s for the doorbell to listen.
+- Page health in Mantel's log: each screen's page says how the page before it ended and how big it is each minute.
+- With no HK Frontend in Home Assistant, Mantel takes The House by itself.
 - **My Sessions, one row per browser**: every launch of the Mantel app left a 30-day "Browser on iPhone" session behind. The app's pages now keep one session, listed with the app under Mantel App, and signing the app out ends it.
 
 ### Fixed before release (engineering audit, October 2026)
