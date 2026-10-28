@@ -220,6 +220,12 @@ phone’s Music page the bar is the page’s mini player, even on a screen
 without On Every Page: it has no Browse, and its Speakers opens the page’s
 own panel.
 
+**On a Home Grid** a Now Playing block has the same **Speakers** and
+**Browse**, but either one turns the block over: its back grows into the
+screensaver’s panel, Speakers, Volume, Queue and Browse together, with what
+is playing at its foot. A tap outside, its X or Escape turns it back. See
+[Home Grid](Home-Grid.md).
+
 Quick timers need HK Frontend’s optional timer helpers; see
 [Your First Screen](Your-First-Screen.md#what-next).
 

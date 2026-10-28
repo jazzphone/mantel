@@ -151,7 +151,8 @@ on a backdrop of its own.
   its cabinet and a car in the driveway glowing while it charges, each
   figure floating over its part of the house. Only what the house has is
   drawn: no panels without solar, no cabinet without a battery, no car
-  unless one is home. Tap a figure for its sheet. Prefer lines? **Picture →
+  unless one is home, and no charging cable unless a car at home is
+  plugged in (by its cable sensor, if it has one) or charging. Tap a figure for its sheet. Prefer lines? **Picture →
   A Flow Chart** shows the grid, the house and the battery as a flow chart
   instead.
 - **The status** in sentences beside **the house battery**, then **The

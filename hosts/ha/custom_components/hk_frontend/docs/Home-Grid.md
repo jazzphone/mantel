@@ -10,7 +10,7 @@ Select a block for its **Size**, **Change Card…**, **Content**, **Appearance**
 
 Home Grid is a mode on an existing generated dashboard. You do not need a new dashboard: open its editor, choose a starter, arrange the blocks, and Save. Create a separate screen first only if you want a separate layout. The tab bar keeps your navigation settings: **Rooms** can be its own button or a section inside **More**.
 
-Room blocks have a surrounding tile containing regular accessory pills and the speaker, without status chips. Extra accessories appear behind **+N more**, which opens the room. Scene groups also have a surrounding tile, keeping page dots with the scenes that swipe together. Camera blocks show **One Camera** (choose it under **Camera**) or **Swipe All Cameras**.
+Room blocks have a surrounding tile containing regular accessory pills and the speaker, without status chips. **Accessories → Scroll All** scrolls through every control the room has; **Summary** shows a few, with the rest behind **+N more**, which opens the room. An **Accessory Group** block holds accessories from any rooms, in the order you add them (**Add Accessory**). Scene groups also have a surrounding tile, keeping page dots with the scenes that swipe together. Camera blocks show **One Camera** (choose it under **Camera**) or **Swipe All Cameras**.
 
 Select a Room or Scenes block and enable **Custom Group Background** to choose its color, opacity and blur (Follow Screen, None, Light, Medium or Heavy). Opacity changes the background tint, not the pills or labels. Turn the custom background off to restore the screen’s appearance. These settings also work on paged groups and conditional fallbacks.
 
@@ -20,7 +20,11 @@ Weather comes in Wide (conditions), Large (also six hours), and Extra Large (als
 
 **Screen Type** (Screen → Grid) sets columns, rows, band and preview size for Phone Portrait (2 × 5, no band), Phone Landscape (3 × 2, no band; put the tab bar on the side), Tablet Portrait (3 × 6), Tablet Landscape (6 × 4), Large Tablet (6 × 5) or Car (6 × 3), re-packing the blocks in reading order and asking before any that can't fit leave the draft. Phone Landscape offers nightstand starters. The **Clock** block comes in every size, as HK's digital clock or a screensaver face (Analog, Classic, Big Serif, Flip, Retro LCD, Neon, Nixie Tubes, Dot Matrix, Minimal Arc), with or without its box (**Hide Box**).
 
+**Now Playing** blocks have **Speakers** and **Browse** either side of play and pause (on a Tall block, in its top corners). Either one turns the card over, and its back grows out of the block into the screensaver's music panel: **Speakers** (tick the rooms, then **Update**), **Volume**, the **Queue** and **Browse**, with what's playing at its foot. A tap outside, its X or Escape turns it back, and so does something you picked starting to play. With nothing playing, Browse still works. See [Music](Music.md#the-now-playing-bar) for the same panel on the bar.
+
 Page panels are blocks too, read live from the page's settings: **Power** (Wide: the status; Large and Extra Large: the house picture or flow chart), **Music** (the speaker picker), **Doors & Locks** (the Security page's house with its ways in), **Live TV** (the channels) and **Water** (the day; Extra Large adds the main supply). An Extra Large **Thermostat** is the dial with its readings, modes and fan beside it.
+
+**Screen → Views** gives a screen up to four whole layouts, a swipe apart, as StandBy has. **Screen → Night → Night Mode** turns the screen one dim red on black, At Night or Always. **Screen → Grid → Show Boxes** off draws every block without its box (**Appearance → Hide Box** does it for one block), and **Fill the Screen** lets the grid grow on a screen larger than it. Calendar has a **Month View** and Weather a **Big Temperature** block.
 
 A **Calendar** block has **Days** (1 to 7, Today and Tomorrow by default); its events scroll inside the block and open their details on a tap. Room blocks leave out Hidden Accessories, as the room's page does.
 

@@ -29,20 +29,51 @@ Home Assistant. **Mantel Link** is everything Home Assistant needs of it, and no
   helper-sensor read Mantel's Energy page needs, the Lights page's "Tonight" list, and **Live TV's transcode**
   (the channel cameras Home Assistant's go2rtc plays, where Mantel runs as the Home Assistant App).
 
-Mantel Link replaces **HK Frontend**. Moving from it keeps every entity id and its history:
-[Moving from HK Frontend](docs/Moving-from-HK-Frontend.md).
+Mantel Link answers HK Frontend's action names too, so a house that moves from **HK Frontend** keeps its automations,
+and every entity keeps its id and history: [Moving from HK Frontend](docs/Moving-from-HK-Frontend.md).
 
-## Mantel Link and HK Frontend
+## Mantel, HK Frontend and Mantel Link
 
 [HK Frontend](https://github.com/jazzphone/hk-frontend) is HK inside Home Assistant, a product of its own built from
 the same code as Mantel. Mantel Link and HK Frontend can be installed together: one of them shows Mantel's entities
-(Mantel Settings → Connections → Mantel in Home Assistant → The Bridge), each wall tablet is run by Mantel or by HK
-Frontend, and while Mantel runs the house HK Frontend’s dashboards use Mantel’s settings. You don't need HK Frontend to use Mantel, and moving everything to
-Mantel is a choice ([Moving from HK Frontend](docs/Moving-from-HK-Frontend.md)).
+(Mantel Settings → Connections → Home Assistant → Moving from HK Frontend → Advanced → The Bridge), each wall tablet
+is run by Mantel or by HK Frontend, and while Mantel runs the house HK Frontend’s dashboards use Mantel’s settings.
+You don't need HK Frontend to use Mantel, and moving everything to Mantel is a choice
+([Moving from HK Frontend](docs/Moving-from-HK-Frontend.md);
+[HK Frontend and Mantel](https://github.com/jazzphone/mantel/wiki/HK-Frontend-and-Mantel) in Mantel's guide).
+
+<!-- products-table: copied from tools/products_table.md in Mantel by tools/products_table.py; edit it there -->
+| | **Mantel App** (Home Assistant App) | **Mantel with Docker or the LXC** | **HK Frontend alone** | **HK Frontend linked to Mantel** | **Mantel Link** |
+|---|---|---|---|---|---|
+| **Use this when** | You run Home Assistant OS and want people, roles and wall tablets with nothing extra to look after | Mantel should run on its own machine, at its own address | You want HK on Home Assistant's own dashboards, for people who already use Home Assistant | You want both, with one copy of the settings | You run Mantel and want its tablets, actions and notifications in Home Assistant |
+| **Where the screens are** | **Mantel** in Home Assistant's sidebar and the Companion app; its own address too, if you turn on direct access | Its own `https://` address; in Home Assistant's sidebar with Mantel Connect | Home Assistant's own dashboards | Mantel's pages, and HK Frontend's dashboards in Home Assistant | No screens of its own; puts a Mantel screen in Home Assistant's sidebar as a dashboard |
+| **HK's cards on dashboards you build** | No | No | Yes | Yes, HK Frontend's | — |
+| **Wall tablets (kiosk)** | Enrolled tablets with their own credential and role, in Fully Kiosk, Kiosk Satellite or any browser | The same | A full-screen look inside Home Assistant's page; tablets sign in as Home Assistant users | Each tablet is run by Mantel or by HK Frontend, never both | Each tablet's black screen, screensaver and Sleep Screen as entities |
+| **Screensaver and Sleep Screen** | Yes | Yes | Yes | Yes, from whichever runs the tablet | Their switches, for automations |
+| **People, roles, passkeys** | Mantel's roles; Home Assistant signs people in to the sidebar; passkeys and passwords at its own address | Mantel's own sign-in: passkeys, passwords, authenticator codes, or Home Assistant | Home Assistant's users | Mantel's people; a change made on HK Frontend's dashboards is saved as the person linked to your Home Assistant user | — |
+| **Every command checked and in the audit log** | Yes | Yes | No | On Mantel's screens, and for saves from Home Assistant | — |
+| **Remote access** | Home Assistant's own, for the sidebar; a Cloudflare Tunnel for its own address | A Cloudflare Tunnel or your own reverse proxy, with stricter rules away from home | Home Assistant's own | Each one's own | — |
+| **Mantel Photos** (albums for the screensaver) | Yes | Yes | No; the screensaver shows a folder of Home Assistant's media | On Mantel's screens | — |
+| **iPhone, iPad and Mac apps** | Yes, at its own `https://` address | Yes | No; Home Assistant's Companion app | Yes, with Mantel | Sends Mantel's notifications to Companion-app phones |
+| **Music** | Music Assistant, through Mantel | The same | Music Assistant, as an HK Frontend feature | Mantel's; HK Frontend's music actions are run by Mantel | Music actions for your automations |
+| **Settings** | **Mantel Settings**: HK's settings, plus people, tablets, connections and the audit log | The same | **HK Settings** in Home Assistant's sidebar | **Mantel Settings**; HK Settings steps aside while Mantel runs the house | None; set up in **Devices & services** |
+| **Backups** | Inside Home Assistant's backups | Mantel's own nightly encrypted backups | Inside Home Assistant's backups | Each one's own | Inside Home Assistant's backups |
+| **Who runs the house** (Seasonal Decorations, the Alarm PIN keypad, Live TV) | Mantel | Mantel | HK Frontend | Mantel or HK Frontend: **The House**, in Mantel Settings | Holds the house's entities when Mantel runs it |
+| **Needs Home Assistant** | Yes: Home Assistant OS or Supervised, 2026.8 or newer | Yes: any Home Assistant 2026.8 or newer it can reach | Yes: 2026.8 or newer | Yes | Yes: any install type, 2026.9 or newer |
+| **Installed from** | Home Assistant's App store, with Mantel's repository | Docker Compose, or a script that makes a Proxmox LXC | HACS (custom repository) | HACS, plus Mantel | HACS (custom repository) |
+
+**Why you would use each.** **HK Frontend** is the simplest: install it from HACS and HK's screens appear on Home Assistant's own dashboards, for everyone who already signs in to Home Assistant. **Mantel** is for a household: people who shouldn't need a Home Assistant account, roles per room, wall tablets that sign themselves in, an audit log of every command, and screens that Home Assistant's updates can't disturb. Run it as the **Mantel App** if you have Home Assistant OS, or with **Docker or the LXC** to keep it on a machine of its own. **Mantel Link** goes with Mantel: it is how Home Assistant's automations, entities and Companion-app notifications reach Mantel. And you can **link HK Frontend to Mantel** to keep HK on Home Assistant's dashboards while Mantel runs the tablets and keeps one copy of the settings.
+
+[Mantel](https://github.com/jazzphone/mantel) ([guide](https://github.com/jazzphone/mantel/wiki)) ·
+[HK Frontend](https://github.com/jazzphone/hk-frontend) ([guide](https://github.com/jazzphone/hk-frontend/wiki)) ·
+[Mantel Link](https://github.com/jazzphone/mantel-link) ·
+[Running them together](https://github.com/jazzphone/mantel/wiki/HK-Frontend-and-Mantel)
+<!-- /products-table -->
 
 ## Install
 
-1. Mantel itself first: the Mantel App (Home Assistant OS or Supervised), or Mantel in Docker or the LXC.
+1. Mantel itself first: the Mantel App (Home Assistant OS or Supervised), or Mantel in Docker or the LXC
+   ([Install](https://github.com/jazzphone/mantel/wiki/Install) in Mantel's guide).
 2. HACS → ⋮ → Custom repositories → this repository, category Integration → download **Mantel Link** → restart
    Home Assistant.
 3. Settings → Devices & Services: **Discovered: Mantel** → Add. [Setup](docs/Setup.md) has every way.
@@ -55,6 +86,9 @@ Home Assistant 2026.9 or newer.
 - [Actions](docs/Actions.md): every action, its fields and what it answers.
 - [Moving from HK Frontend](docs/Moving-from-HK-Frontend.md): one house, step by step, reversible.
 - [How it works](docs/How-It-Works.md): the link, what it mirrors, the hand-over, security.
+- [Mantel's guide](https://github.com/jazzphone/mantel/wiki): installing and running Mantel itself, and
+  [Mantel Link](https://github.com/jazzphone/mantel/wiki/Mantel-Link) from Mantel's side.
+- [HK Frontend's wiki](https://github.com/jazzphone/hk-frontend/wiki): the screens, which Mantel and HK Frontend share.
 
 ## Privacy and security
 

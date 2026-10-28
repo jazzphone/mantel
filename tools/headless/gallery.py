@@ -16,9 +16,11 @@ import json
 import sys
 import tempfile
 import time
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "hosts/server"))
 sys.path.insert(0, str(ROOT / "tests"))
 sys.path.insert(0, str(Path(__file__).parent))
@@ -30,6 +32,8 @@ from cdp import Browser  # noqa: E402
 from client_smoke import FictionalLibrary, OfflineReads, stand_in_cameras, stand_in_hk_feeds  # noqa: E402
 
 SCREEN = "dashboard-home"
+GRID_SCREEN = "dashboard-wall"          # the second screen: Home Grid, as a wall display uses it
+OWNER = "Avery Rivera"                  # the fictional Owner every shot is signed in as
 NOW = time.time()
 
 FLOORS = [{"floor_id": "main", "name": "Main Floor", "level": 0}, {"floor_id": "upstairs", "name": "Upstairs", "level": 1},
@@ -112,6 +116,86 @@ HOUSE = {
                                              "humidity": 52, "wind_speed": 6, "wind_speed_unit": "mph"})),
 }
 
+
+def _watts(name, value):
+    return str(value), {"friendly_name": name, "unit_of_measurement": "W", "device_class": "power",
+                        "state_class": "measurement"}
+
+
+# the Power page's house: a sunny afternoon, the battery filling, the car charging, a little going back to the grid
+# (4200 W of sun = 1800 for the house + 1400 for the car + 500 for the battery + 500 to the grid)
+HOUSE.update({eid: (None, state) for eid, state in {
+    "sensor.home_power": _watts("Home Power", 1800),
+    "sensor.grid_power": _watts("Grid Power", 0),
+    "sensor.grid_export_power": _watts("Grid Export", 500),
+    "sensor.solar_power": _watts("Solar Power", 4200),
+    "sensor.battery_charge_power": _watts("Battery Charging", 500),
+    "sensor.battery_discharge_power": _watts("Battery Discharging", 0),
+    "sensor.battery_level": ("78", {"friendly_name": "Battery", "unit_of_measurement": "%", "device_class": "battery",
+                                    "state_class": "measurement"}),
+    "sensor.car_level": ("64", {"friendly_name": "Family Car Battery", "unit_of_measurement": "%",
+                                "device_class": "battery", "state_class": "measurement"}),
+    "sensor.car_charge_power": _watts("Family Car Charging", 1400),
+    "binary_sensor.grid_status": ("on", {"friendly_name": "Grid", "device_class": "power"}),
+    "binary_sensor.car_cable": ("on", {"friendly_name": "Family Car Cable", "device_class": "plug"}),
+    "device_tracker.family_car": ("home", {"friendly_name": "Family Car", "source_type": "gps"}),
+    "switch.car_charging": ("on", {"friendly_name": "Family Car Charging"}),
+    "sensor.upstairs_ac_power": _watts("Upstairs AC", 780),
+    "sensor.kitchen_power": _watts("Kitchen", 240),
+    "sensor.refrigerator_power": _watts("Refrigerator", 110),
+    "sensor.office_power": _watts("Office", 160),
+    "sensor.network_rack_power": _watts("Network Rack", 90),
+}.items()})
+
+
+def _device(key, name, icon, color, power, backed):
+    return {"key": key, "kind": "device", "name": name, "icon": icon, "color": color, "power": power, "stat": None,
+            "control": None, "backed": backed}
+
+
+# the Energy feature's plan as Mantel's settings feed carries it (hk_core.energy.plan.build): its Power page
+POWER_PLAN = {
+    "title": "Energy", "total": {"power": "sensor.home_power", "stat": None}, "top": [], "usages": [], "sections": [],
+    "detail": False, "devices": {}, "names": {}, "sources": {},
+    "power": {
+        "title": "Power", "path": "power", "picture": True, "art": "/hk/power-house/", "home": "sensor.home_power",
+        "grid": "sensor.grid_power", "grid_export": "sensor.grid_export_power", "grid_status": "binary_sensor.grid_status",
+        "solar": "sensor.solar_power", "backs_up": "some", "groups": "type",
+        "battery": {"level": "sensor.battery_level", "charge": "sensor.battery_charge_power",
+                    "discharge": "sensor.battery_discharge_power"},
+        "cars": [{"name": "Family Car", "level": "sensor.car_level", "power": "sensor.car_charge_power",
+                  "home": "device_tracker.family_car", "plugged": "binary_sensor.car_cable",
+                  "charge": "switch.car_charging", "charger": "sensor.car_charge_power"}],
+        "sections": [
+            {"id": "hvac", "name": "Heating & Cooling", "items": [
+                _device("hvac.upstairs", "Upstairs AC", "hk:air-conditioner", "blue", "sensor.upstairs_ac_power", False)]},
+            {"id": "rooms", "name": "Rooms", "items": [
+                _device("rooms.kitchen", "Kitchen", "hk:silverware-fork-knife", "orange", "sensor.kitchen_power", True),
+                _device("rooms.office", "Office", "hk:desk", "purple", "sensor.office_power", True)]},
+            {"id": "appliances", "name": "Appliances", "items": [
+                _device("app.fridge", "Refrigerator", "hk:fridge-outline", "mint", "sensor.refrigerator_power", True),
+                _device("app.rack", "Network Rack", "hk:server-network", "yellow", "sensor.network_rack_power", True)]}],
+    },
+}
+
+
+class FictionalFeatures:
+    """What Mantel's feature host tells the screens (the settings feed's `added` and `energy`): the Energy
+    feature is added and has a Power page. There is no Home Assistant here to work an Energy plan out of."""
+
+    def client_part(self, identity):
+        return {"added": ["energy"], "energy": json.loads(json.dumps(POWER_PLAN))}
+
+    def house_part(self):
+        return self.client_part(None)
+
+    def panel_features(self):
+        from mantel_server.features.settings import COMPANIONS
+        return {fid: {"name": name, "kind": kind, "installed": True,
+                      "entries": [{"entry_id": "gallery_energy", "title": name, "state": "loaded"}] if kind == "energy" else []}
+                for fid, kind, name in COMPANIONS}
+
+
 SETTINGS = {
     "entry_id": "gallery-entry", "setup_done": True,
     "settings": {"sky": {}, "look": {}, "generated": {"include_entities": []}, "weather": {"place": "Riverside"},
@@ -123,14 +207,83 @@ SETTINGS = {
     "presets": [], "suggest": {}, "integration": {}, "scene_pages": [], "shelves": {},
 }
 
+
+
+def wall_display() -> dict:
+    """A second screen that uses the Home Grid layout (Starter A, Tap Weight), filled from the invented house."""
+    from hk_core.settings import home_grid
+    grid = home_grid.starter(
+        "A", scenes=[e for e in HOUSE if e.startswith("scene.")], rooms=[a for a, _, _ in ROOMS],
+        cameras=[e for e in HOUSE if e.startswith("camera.")], climate=[e for e in HOUSE if e.startswith("climate.")])
+    return {"title": "Wall Display", "pages": [], "headers": {"home": True}, "menu_custom": True, "menu": "tabbar",
+            "home_style": "grid", "home_grid": grid}
+
+
+
 DESKTOP, TABLET, PHONE = (1440, 900), (1180, 820), (390, 844)
+EDITOR = (1600, 1000)                     # the Home Grid editor wants room for its preview
+GRID_DESKTOP = (1280, 800)                # the grid's own frame
 # a wall tablet's page from its Setup down: HK's Setup, then Mantel's group (who is signed in as it)
 SCROLL_TO_SETUP = """(() => { const find = (root) => { for (const el of root.querySelectorAll('*')) {
   if (el.shadowRoot) { const got = find(el.shadowRoot); if (got) return got; }
   if (el.tagName === 'H2' && el.textContent.trim().toUpperCase() === 'SETUP') return el; } return null; };
   const h = find(document); if (h) h.scrollIntoView({ block: 'start' }); })()"""
 
+# a script for a shot: async JS that may wait for the page (until) and look inside shadow roots (deep)
+JS_HELPERS = """const deep = (r, s) => [...r.querySelectorAll('*')].flatMap(e => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+const until = async (f, ms = 30000) => { const end = Date.now() + ms;
+  while (Date.now() < end) { try { const v = f(); if (v) return v; } catch (e) { /* not there yet */ } await pause(200); }
+  throw new Error('gallery: timed out waiting for ' + f); };
+"""
+
+
+def script(body: str) -> str:
+    return "(async () => {" + JS_HELPERS + body + "})()"
+
+
+# Home Grid's Now Playing block turned over (its Speakers or Browse button): the panel it turns into
+TURN_OVER = """const card = await until(() => deep(document, 'hk-now-playing-card').find((c) => c.shadowRoot && c.shadowRoot.querySelector('.%s')));
+await pause(800);
+card.shadowRoot.querySelector('.%s').click();
+await until(() => [...document.body.children].some((h) => h.shadowRoot && h.shadowRoot.querySelector('.mpanel.turn')));
+await pause(2500);"""
+# Edit mode: the page's tiles wiggle, the Edit bar says Done and Cancel
+EDIT_MODE = """await until(() => window.hkEdit && window.hkCards && hkCards.client && hkCards.client());
+hkEdit.enter(hkCards.client());
+await until(() => hkEdit.active());
+await pause(1000);"""
+# the live previews in Settings are windows in front: their cameras play
+PREVIEWS_PLAY = """await pause(3000);
+deep(document, 'iframe').forEach((f) => { try { f.contentWindow.focus(); } catch (e) { /* another origin */ } });
+await pause(9000);"""
+# the Home Grid editor (Settings -> a screen -> Arrange Home Grid)
+GRID_EDITOR = """const panel = await until(() => document.querySelector('hk-settings-panel'));
+const ed = await until(() => { const e = panel.shadowRoot.querySelector('hk-grid-editor'); return e && e.ui && e.shadowRoot.querySelector('.tools') && e; });
+window.ed = ed;
+"""
+GRID_PREVIEW = """await until(() => ed.previewView && ed.previewView.isConnected, 60000);
+ed.iframe.contentWindow.focus();           // the preview is a window in front: its cameras play
+await pause(5000);"""
+GRID_STARTERS = "await until(() => ed.starterGrids && ed.sidebar.querySelectorAll('.starter').length === 8);"
+GRID_PICKER = """ed.remove('a7');          // the Timers block, so there is room to add
+await until(() => ed.previewView && ed.previewView.isConnected, 60000);
+ed.message.textContent = '';
+ed.select(null); ed.pickerCard = 'accessory'; ed.drawPalette();
+await until(() => { const f = ed.palette.querySelector('[data-preview-card] iframe'); return f && f.contentWindow.galleryCard && f.contentWindow.galleryCard._config; }, 60000);
+await pause(1000);
+ed.palette.querySelector('.pal-detail').scrollIntoView({ block: 'center' });"""
+GRID_BACKGROUND = """ed.select('a2');
+await pause(500);
+[...ed.sidebar.querySelectorAll('.cell')].find((row) => row.textContent.includes('Custom Group Background')).querySelector('button').click();
+await pause(500);
+const opacity = ed.sidebar.querySelector('input[type=range]'); opacity.value = '42';
+opacity.dispatchEvent(new Event('input')); opacity.dispatchEvent(new Event('change'));
+await pause(800);"""
+
 # name -> (path, viewport, signed in, script to run before the shot)
+# The path is one of Mantel's own pages: a screen (SCREEN's, or GRID_SCREEN's, which lays Home out as a Home Grid),
+# /settings... or /login.
 SHOTS = {
     "home-desktop": (f"/{SCREEN}/home", DESKTOP, True, None),
     "home-tablet": (f"/{SCREEN}/home", TABLET, True, None),
@@ -140,12 +293,29 @@ SHOTS = {
     "security-desktop": (f"/{SCREEN}/security", DESKTOP, True, None),
     "cameras-desktop": (f"/{SCREEN}/cameras", DESKTOP, True, None),
     "room-desktop": (f"/{SCREEN}/room-living-room", DESKTOP, True, None),
+    "power-desktop": (f"/{SCREEN}/power", DESKTOP, True, None),
     "music-phone": (f"/{SCREEN}/playmusic", PHONE, True, None),
+    "edit-mode-desktop": (f"/{SCREEN}/room-living-room", DESKTOP, True, script(EDIT_MODE)),
+    "home-grid": (f"/{GRID_SCREEN}/home", GRID_DESKTOP, True, None),
+    "home-grid-speakers": (f"/{GRID_SCREEN}/home", GRID_DESKTOP, True, script(TURN_OVER % ("spk", "spk"))),
+    "home-grid-browse": (f"/{GRID_SCREEN}/home", GRID_DESKTOP, True, script(TURN_OVER % ("brw", "brw"))),
+    "home-grid-editor": (f"/settings#/screens/{GRID_SCREEN}/home-grid", EDITOR, True, script(GRID_EDITOR + GRID_PREVIEW)),
+    "home-grid-starters": (f"/settings#/screens/{SCREEN}/home-grid", EDITOR, True, script(GRID_EDITOR + GRID_STARTERS)),
+    "home-grid-picker": (f"/settings#/screens/{GRID_SCREEN}/home-grid", EDITOR, True,
+                         script(GRID_EDITOR + GRID_PREVIEW + GRID_PICKER)),
+    "home-grid-background": (f"/settings#/screens/{GRID_SCREEN}/home-grid", EDITOR, True,
+                             script(GRID_EDITOR + GRID_PREVIEW + GRID_BACKGROUND)),
     "settings-me": ("/settings#/mantel/me", DESKTOP, True, None),
     "settings-people": ("/settings#/mantel/people", DESKTOP, True, None),
     "settings-wall-tablet": ("/settings#/house/tablets/kitchen", DESKTOP, True, SCROLL_TO_SETUP),
     "settings-roles": ("/settings#/mantel/roles", DESKTOP, True, None),
     "settings-audit": ("/settings#/mantel/audit", DESKTOP, True, None),
+    "settings-connections": ("/settings#/mantel/connections", DESKTOP, True, None),
+    "settings-general": ("/settings#/mantel/general", DESKTOP, True, None),
+    "settings-setup": ("/settings#/mantel/setup", DESKTOP, True, None),
+    "settings-screen": (f"/settings#/screens/{SCREEN}", DESKTOP, True, script(PREVIEWS_PLAY)),
+    "settings-connections-ma": ("/settings#/mantel/connections/ma", DESKTOP, True, None),
+    "settings-connections-ha": ("/settings#/mantel/connections/ha", DESKTOP, True, None),
     "settings-phone": ("/settings", PHONE, True, None),
     "login": ("/login", DESKTOP, False, None),
     "login-phone": ("/login", PHONE, False, None),
@@ -153,7 +323,15 @@ SHOTS = {
 
 
 class GalleryLibrary(FictionalLibrary):
-    """Music Assistant's library with made-up but plausible names."""
+    """Music Assistant's library with made-up but plausible names, and Music Assistant's own account of itself."""
+    server_info = {"server_version": "2.7.1"}
+    user = {"user_id": "gallery-ma", "username": "mantel", "display_name": "Mantel", "role": "user"}
+
+    def __init__(self):
+        super().__init__()
+        self.connected = asyncio.Event()
+        self.connected.set()
+
     NAMES = {"track": ["Blue in Green", "Late Train Home", "Paper Lanterns", "Saturday Coffee", "Northern Lights",
                        "Slow Tide", "Back Porch", "City at Dusk"],
              "playlist": ["Dinner Party", "Sunday Morning", "Focus", "Road Trip", "Kids' Favorites", "Rainy Day"],
@@ -172,6 +350,60 @@ class GalleryLibrary(FictionalLibrary):
         return items
 
 
+# when each light was on today, in hours from midnight (None: still on)
+LIGHT_HOURS = {"light.living_room_lamps": [(17.5, None)], "light.kitchen_pendants": [(6.5, 8.0), (17.0, None)],
+               "light.kitchen_cabinets": [(6.5, 8.0), (17.5, None)], "light.office_desk": [(9.0, None)],
+               "light.porch": [(17.75, None)], "light.backyard_string": [(18.0, None)],
+               "light.bedroom_lamps": [(6.0, 7.0)]}
+# hours (from midnight) the upstairs, then the main floor, cooled today
+COOLING_HOURS = {"climate.upstairs": range(13, 18), "climate.main_floor": range(15, 17)}
+
+
+class GalleryReads(OfflineReads):
+    """The offline reads, and made-up days: the lights' and thermostats' history and the weather's forecast."""
+
+    async def request(self, msg):
+        if msg["type"] != "history/history_during_period":
+            return await super().request(msg)
+        start = datetime.fromisoformat(msg["start_time"].replace("Z", "+00:00")).timestamp()
+        out = {}
+        for eid in msg.get("entity_ids") or []:
+            if eid in LIGHT_HOURS:
+                rows = [{"s": "off", "lu": start}]
+                for a, b in LIGHT_HOURS[eid]:
+                    rows.append({"s": "on", "lu": start + a * 3600})
+                    if b is not None:
+                        rows.append({"s": "off", "lu": start + b * 3600})
+                out[eid] = rows
+            elif eid in COOLING_HOURS:
+                _area, (_state, attrs) = HOUSE[eid]
+                out[eid] = [{"s": "heat_cool", "lu": start + hour * 3600,
+                             "a": {**attrs, "hvac_action": "cooling" if hour in COOLING_HOURS[eid] else "idle",
+                                   "current_temperature": attrs["current_temperature"] - 1 + (hour % 3) * 0.7}}
+                            for hour in range(24)]
+            elif eid.startswith("weather."):
+                out[eid] = [{"s": "partlycloudy", "lu": start + hour * 3600,
+                             "a": {"temperature": round(52 + 14 * max(0.0, 1 - abs(hour - 15) / 9))}} for hour in range(24)]
+            else:
+                out[eid] = []
+        return out
+
+    async def subscribe(self, msg, callback):
+        if msg["type"] != "weather/subscribe_forecast":
+            return await super().subscribe(msg, callback)
+        self.serial += 1
+        hourly = msg.get("forecast_type") == "hourly"
+        step, count = (3600, 12) if hourly else (86400, 5)
+        conditions = ["partlycloudy", "partlycloudy", "sunny", "sunny", "cloudy", "rainy", "partlycloudy"]
+        base = int(NOW // step * step)
+        forecast = [{"datetime": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(base + (n + 1) * step)),
+                     "condition": conditions[n % len(conditions)],
+                     "temperature": 63 - n // 3 if hourly else (64, 66, 63, 60, 62)[n], "templow": 48 + n % 4,
+                     "precipitation_probability": 10 + 15 * (n % 3)} for n in range(count)]
+        asyncio.get_running_loop().call_soon(callback, {"type": msg.get("forecast_type"), "forecast": forecast})
+        return self.serial
+
+
 def stand_in_stills() -> None:
     """Each camera's still is one of HK's own landscapes (a picture of somewhere, not of anyone's home)."""
     from aiohttp import web
@@ -184,7 +416,24 @@ def stand_in_stills() -> None:
     camera_still.proxy_image = still
 
 
-async def build(base: Path):
+def stand_in_connections(app, store) -> None:
+    """The Connections page's two connections, as if set up: Home Assistant and Music Assistant at invented
+    addresses. Nothing is saved or applied, so nothing ever tries to connect."""
+    from mantel_server.connections import Record
+    link = store.get_link("gallery-owner")["user_id"]
+    ha = Record(kind="ha", url="http://homeassistant.local:8123", token="fictional", method="oauth", since=NOW - 9 * 86400,
+                user={"id": "gallery-ha", "name": "Mantel", "is_admin": True}, by=link, by_name=OWNER, version="2026.10.2")
+    ma = Record(kind="ma", url="http://music.local:8095", token="fictional", method="login", since=NOW - 9 * 86400,
+                user={"id": "gallery-ma", "name": "Mantel", "is_admin": False}, by=link, by_name=OWNER, version="2.7.1")
+    app["connections"].own.update({"ha": ha, "ma": ma})
+    ha_client = app["hub"].ha                         # never started here: only what it would say about itself
+    ha_client.connected_since, ha_client.ha_version = NOW - 3 * 3600, "2026.10.2"
+
+
+async def build(base: Path, showcase: bool = False):
+    """The invented house and a real Mantel Server over it. `showcase` (the docs' shots): also a day's history, a
+    forecast, the Energy feature with its Power page, and Home Assistant and Music Assistant as connected. The
+    other headless checks that build on this house leave it off, and get the plainer house they were written for."""
     from mantel_server import settings_store
     from mantel_server.config import Config
     from mantel_server.server import build_app
@@ -194,21 +443,28 @@ async def build(base: Path):
     cfg = Config(data_dir=base / "data", fixtures=base / "fixtures", hk_files=base / "user-files", default_screen=SCREEN,
                  commands_enabled=True)
     store = Store(cfg.data_dir / "gallery.db")
-    store.link("gallery-owner", "owner", "Sam Rivera")
+    store.link("gallery-owner", "owner", OWNER)
     cookie = store.create_session("gallery-owner", 3600)
     app = build_app(cfg, "unused-gallery-token", store=store, connect_ha=False)
     hub = app["hub"]
     app["ma"] = GalleryLibrary()
+    if showcase:
+        stand_in_connections(app, store)
     from app_dev_server import FictionalCommander
     app["gateway"].commander = FictionalCommander(hub, app["gateway"].writes)     # changes the fictional states only
-    owner = Identity(User(store.get_link("gallery-owner")["user_id"], "Sam Rivera", "owner", "ha_linked"), None, "lan")
+    owner = Identity(User(store.get_link("gallery-owner")["user_id"], OWNER, "owner", "ha_linked"), None, "lan")
     settings = settings_store.register(app, hub, settings_store.SettingsHooks(
         may_configure=settings_store.rbac_may_configure()), model=settings_store.ThinModel())
+    if showcase:
+        settings.features = FictionalFeatures()      # the Energy feature is added, with its Power page
 
     async def fictional_ha():
-        return json.loads(json.dumps(SETTINGS))
+        data = json.loads(json.dumps(SETTINGS))
+        if showcase:
+            data["boards"][GRID_SCREEN] = wall_display()         # beside Home: a screen that uses the Home Grid layout
+        return data
     await settings_store.import_settings(settings.store, fictional_ha, actor=settings_store.Actor(label="gallery"))
-    hub.readproxy = OfflineReads(app, owner)
+    hub.readproxy = (GalleryReads if showcase else OfflineReads)(app, owner)
     stand_in_hk_feeds(app, hub.readproxy)
     stand_in_cameras(app)
     stand_in_stills()
@@ -261,13 +517,13 @@ async def seed_people(app, owner_id: str) -> None:
     app["user_data"].set(f"u:{owner_id}", "hk_music_focus", {"key": "media_player.living_room"})
     audit = app["audit"]
     clock = audit.clock
-    rows = [(95, owner_id, "Sam Rivera", "owner", "light.turn_on", ["light.living_room_lamps"], "allowed", "ok"),
+    rows = [(95, owner_id, OWNER, "owner", "light.turn_on", ["light.living_room_lamps"], "allowed", "ok"),
             (80, people["alex"], "Alex Rivera", "adult", "lock.unlock", ["lock.front_door"], "allowed", "ok"),
             (64, people["alex"], "Alex Rivera", "adult", "lock.lock", ["lock.front_door"], "allowed", "ok"),
             (41, people["riley"], "Riley Rivera", "child", "lock.unlock", ["lock.back_door"], "denied", None),
-            (30, owner_id, "Sam Rivera", "owner", "climate.set_temperature", ["climate.upstairs"], "allowed", "ok"),
+            (30, owner_id, OWNER, "owner", "climate.set_temperature", ["climate.upstairs"], "allowed", "ok"),
             (12, people["riley"], "Riley Rivera", "child", "light.turn_off", ["light.guest_room"], "allowed", "ok"),
-            (5, owner_id, "Sam Rivera", "owner", "scene.turn_on", ["scene.movie_night"], "allowed", "ok")]
+            (5, owner_id, OWNER, "owner", "scene.turn_on", ["scene.movie_night"], "allowed", "ok")]
     try:
         for minutes, uid, name, role, action, targets, decision, result in rows:
             audit.clock = lambda m=minutes: NOW - m * 60
@@ -278,10 +534,32 @@ async def seed_people(app, owner_id: str) -> None:
         audit.clock = clock
 
 
-async def shoot(out: Path, only: list[str] | None) -> list[Path]:
+# Apple's SF Pro never appears in the repository (Rules): every shot is set in Arial, in every shadow root and frame
+ARIAL = """(() => { const visit = (root) => { if (!root.querySelector('style[data-gallery-font]')) {
+    const s = document.createElement('style'); s.dataset.galleryFont = '';
+    s.textContent = '*{font-family:Arial,Helvetica,sans-serif!important}'; (root.head || root).appendChild(s); }
+  for (const e of root.querySelectorAll('*')) { if (e.shadowRoot) visit(e.shadowRoot);
+    if (e.localName === 'iframe') { try { visit(e.contentDocument); } catch (x) { /* another origin */ } } } };
+  visit(document); })()"""
+
+
+# the test server's own address (a different port every run) is written as an address a home would have
+ADDRESSES = r"""(() => { const fix = (t) => t.replace(/http:\/\/127\.0\.0\.1:\d+/g, 'http://mantel.local:8080').replace(/127\.0\.0\.1/g, '192.0.2.10');
+  const visit = (root) => { const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n;
+    while ((n = walk.nextNode())) { const t = fix(n.nodeValue); if (t !== n.nodeValue) n.nodeValue = t; }
+    for (const e of root.querySelectorAll('*')) { if (e.shadowRoot) visit(e.shadowRoot);
+      if (e.localName === 'iframe') { try { visit(e.contentDocument); } catch (x) { /* another origin */ } } } };
+  visit(document); })()"""
+
+
+def is_screen(path: str) -> bool:
+    return not path.startswith(("/settings", "/login"))
+
+
+async def shoot(out: Path, only: list[str] | None, system_font: bool = False) -> list[Path]:
     written = []
     with tempfile.TemporaryDirectory(prefix="mantel-gallery-") as folder:
-        app, cookie = await build(Path(folder))
+        app, cookie = await build(Path(folder), showcase=True)
         async with TestServer(app) as server:
             origin = str(server.make_url("")).rstrip("/")
             for name, (path, (w, h), signed_in, script) in SHOTS.items():
@@ -289,8 +567,9 @@ async def shoot(out: Path, only: list[str] | None) -> list[Path]:
                     continue
                 async with Browser(width=w, height=h, port=9381) as b:
                     await b.restrict_origin(origin)
+                    await b.send("Emulation.setFocusEmulationEnabled", enabled=True)    # a window in front: cameras play, the sky moves
                     await b.open(origin + path, cookie if signed_in else None)
-                    if path.startswith(f"/{SCREEN}/"):
+                    if is_screen(path):
                         await b.wait("window.__mantelReady === true", 25)
                     else:
                         await b.wait("document.readyState === 'complete'", 25)
@@ -298,6 +577,10 @@ async def shoot(out: Path, only: list[str] | None) -> list[Path]:
                     if script:
                         await b.eval(script)
                         await asyncio.sleep(1.5)
+                    await b.eval(ADDRESSES)
+                    if not system_font:
+                        await b.eval(ARIAL)
+                        await asyncio.sleep(0.8)
                     shot = Path(folder) / f"{name}.png"
                     await b.screenshot(shot)
                     target = out / f"{name}.webp"
@@ -313,12 +596,13 @@ def main(argv=None) -> int:
     ap.add_argument("--out", type=Path, default=ROOT / "docs/images")
     ap.add_argument("--only", nargs="*")
     ap.add_argument("--list", action="store_true")
+    ap.add_argument("--system-font", action="store_true", help="leave the machine's own font (never for the docs)")
     a = ap.parse_args(argv)
     if a.list:
         print("\n".join(SHOTS))
         return 0
     a.out.mkdir(parents=True, exist_ok=True)
-    asyncio.run(shoot(a.out, a.only))
+    asyncio.run(shoot(a.out, a.only, a.system_font))
     return 0
 
 

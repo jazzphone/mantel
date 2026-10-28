@@ -33,6 +33,12 @@ def test_the_wikis_own_img_tag_is_rebuilt_from_its_attributes():
     assert out == '<p><img src="images/phone.jpg" alt="A phone" width="260" loading="lazy"></p>'
 
 
+def test_html_comments_are_hidden_as_the_wiki_hides_them():
+    out = D.render("# A\n\n<!-- a note for editors -->\ntext\n\n<!-- two\nlines -->\n\nmore `<!-- kept -->`")
+    assert "note" not in out and "two" not in out and "<p>text</p>" in out
+    assert "&lt;!-- kept --&gt;" in out
+
+
 def test_headings_get_githubs_anchors():
     out = D.render("# A tablet’s page\n## The rules, in order\n## The rules, in order\n### `code` [link](X.md)")
     assert 'id="a-tablets-page"' in out and 'id="the-rules-in-order"' in out and 'id="the-rules-in-order-1"' in out

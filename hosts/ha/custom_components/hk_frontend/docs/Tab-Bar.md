@@ -11,7 +11,8 @@ the one in iOS apps. It is a second way around a screen, next to the
   screen shows up to eight tabs.
 - **Rooms:** every room, in the menu's room order, as icons like the pages.
   By default the rooms are a section of More, under its pages. A phone
-  shows five, as Apple Music does: Home, three more tabs and More.
+  shows five, as Apple Music does: Home, three more tabs and More (2 to 4
+  with the phone's own **Tabs in Bar**, [below](#position)).
 
 **To change the order,** use Edit mode ([Arrange a page](Accessories.md#the-menu-the-tab-bar-and-the-room-order)):
 drag a tab along the bar, drop a tab on **More** to move it past the tabs

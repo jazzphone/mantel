@@ -68,7 +68,8 @@ menu’s settings: **Tablets & Computers**
 holds the tablet menu’s own settings (Button Style, Keep Open Down To, Time &
 Weather in Menu, the tablet’s edge tab size, its tab bar and More), and
 **Phones** the phone’s (its Button Style, its edge tab size, how its tab bar
-behaves while scrolling, and More’s style and rooms). Every Phones setting is
+behaves while scrolling and how many tabs it has, **Tabs in Bar**, and More’s
+style and rooms). Every Phones setting is
 its own value; none copies the tablets’. A screen that follows All Screens
 shows the values it takes from them in place, under **From All Screens**,
 with one way to change them. What both share

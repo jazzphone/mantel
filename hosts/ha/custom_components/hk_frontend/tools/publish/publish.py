@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import posixpath
 import re
 import shutil
 import subprocess
@@ -183,12 +184,24 @@ def scan(pairs) -> list[str]:
 # work in the repository. For the Wiki: the first heading goes (the Wiki shows
 # the page name), Page.md links lose the .md, images point at docs/images on
 # main, and links out of docs/ point at the repository.
+#
+# wiki_from() works for any folder of pages: Mantel's own guide is built into
+# Mantel's Wiki with it (tools/build_wiki.py in Mantel), with its repository
+# and the folder's place in it.
 REPO_URL = "https://github.com/jazzphone/hk-frontend"
 RAW = "https://raw.githubusercontent.com/jazzphone/hk-frontend/main/docs/"
+IMAGE = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg")
+# a Markdown link's target, an <img src="...">, or the old href=(...) form
+WIKI_TARGET = re.compile(r'(\]\(|\bhref=\(|\bsrc=")([^)"\s]+)')
+SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:|#|//")
 
 
-def wiki_pages() -> list[tuple[str, str]]:
-    docs = os.path.join(COMPONENT, "docs")
+def wiki_from(docs: str, repo_url: str, docs_path: str = "docs", label: str = "docs") -> list[tuple[str, str]]:
+    """(file name, text) of each Wiki page made from the .md files in `docs`, the folder at `docs_path` in the
+    repository at `repo_url` (https://github.com/OWNER/NAME). Page links lose their .md; images point at the
+    repository's raw files on main; any other relative link points at the file on GitHub. A link to a page
+    that doesn't exist, out of the repository, or to an image that isn't there stops the build."""
+    raw = repo_url.replace("https://github.com/", "https://raw.githubusercontent.com/", 1) + "/main/"
     names = {f for f in os.listdir(docs) if f.endswith(".md")}
     out = []
     for f in sorted(names):
@@ -196,20 +209,30 @@ def wiki_pages() -> list[tuple[str, str]]:
         if not f.startswith("_") and text.startswith("# "):
             text = text.split("\n", 1)[1].lstrip("\n")
 
-        def link(m):
-            target, anchor = m.group(2), m.group(3) or ""
-            if target in names:
-                return f"{m.group(1)}({target[:-3]}{anchor})"
-            raise SystemExit(f"docs/{f}: link to a page that doesn't exist: {target}")
-        text = re.sub(r"(\]|\bhref=)\(([A-Za-z_-]+\.md)(#[^)\s]*)?\)", link, text)
-        text = re.sub(r"\]\(images/", "](" + RAW + "images/", text)
-        text = re.sub(r'src="images/', 'src="' + RAW + "images/", text)
-        text = re.sub(r"\]\(\.\./([^)]*)\)", lambda m: f"]({REPO_URL}/blob/main/{m.group(1)})", text)
-        for img in re.findall(re.escape(RAW) + r"(images/[^)\s\"]+)", text):
-            if not os.path.exists(os.path.join(docs, img)):
-                raise SystemExit(f"docs/{f}: image not in docs/: {img}")
-        out.append((f, text))
+        def target(m, f=f):
+            lead, link = m.group(1), m.group(2)
+            if SCHEME.match(link):
+                return m.group(0)
+            base, hash_, anchor = link.partition("#")
+            if re.fullmatch(r"[A-Za-z_-]+\.md", base):
+                if base in names:
+                    return f"{lead}{base[:-3]}{hash_}{anchor}"
+                raise SystemExit(f"{label}/{f}: link to a page that doesn't exist: {base}")
+            path = posixpath.normpath(posixpath.join(docs_path, base))
+            if path == ".." or path.startswith("../"):
+                raise SystemExit(f"{label}/{f}: link out of the repository: {link}")
+            if base.lower().endswith(IMAGE):
+                if not os.path.exists(os.path.join(docs, base)):
+                    raise SystemExit(f"{label}/{f}: image not in the repository: {base}")
+                return f"{lead}{raw}{path}{hash_}{anchor}"
+            kind, slash = ("tree", "/") if base.endswith("/") else ("blob", "")
+            return f"{lead}{repo_url}/{kind}/main/{path}{slash}{hash_}{anchor}"
+        out.append((f, WIKI_TARGET.sub(target, text)))
     return out
+
+
+def wiki_pages() -> list[tuple[str, str]]:
+    return wiki_from(os.path.join(COMPONENT, "docs"), REPO_URL)
 
 
 def scan_texts(items) -> list[str]:

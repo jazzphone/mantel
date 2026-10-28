@@ -7,6 +7,12 @@ your automations keep calling the same `hk_frontend.*` actions. Every step but
 the last can be undone, and HK Frontend keeps working until you move each
 part.
 
+Moving is a choice: [HK Frontend](https://github.com/jazzphone/hk-frontend)
+stays a product of its own, and the two can run together
+([HK Frontend and Mantel](HK-Frontend-and-Mantel.md)). Mantel Link's own
+repository has the same steps from Home Assistant's side:
+[Moving from HK Frontend](https://github.com/jazzphone/mantel-link/blob/main/docs/Moving-from-HK-Frontend.md).
+
 ## Before you start
 
 - **Make a Home Assistant backup** before each step that changes Home
@@ -36,15 +42,14 @@ part.
 2. **Create the first Owner and connect Home Assistant**
    ([First Run](First-Run.md)). Mantel's Home Assistant user must be an
    administrator: the import reads HK Frontend's settings as that user.
-3. **Import HK's settings, once**, as the Owner:
-   - In the Mantel App: open **Mantel** in Home Assistant's sidebar, go to its
-     **People** page, and select **Import HK's settings from Home Assistant
-     (once)**.
-   - In Docker or the LXC: open **Mantel Settings** → **Connections** and
-     select **Import HK's Settings from Home Assistant**, or run
-     `docker compose exec mantel-server mantel import-settings`. Both use
-     the Home Assistant connection Mantel already has, whether you made it
-     on the Connections page or in the `ha_token` secret file.
+3. **Import HK's settings, once**, as the Owner: in **Mantel Settings** →
+   **Set Up Mantel** → **Screens** (or **Connections** → **Home Assistant** →
+   **Moving from HK Frontend**), under **Import from HK Frontend**, select
+   **Import HK's Settings from Home Assistant**. In Docker or the LXC you can
+   also run `docker compose exec mantel-server mantel import-settings`. Both
+   use the Home Assistant connection Mantel already has: the App's own, or
+   the one you made on the Connections page or in the `ha_token` secret
+   file.
 
    Your looks, rooms, screens, tablets, pop-ups, custom pages, chips and
    accessories come across, along with the settings of HK's features
@@ -156,7 +161,8 @@ Mantel's. (If you remove HK Frontend instead, Mantel takes the house by itself.)
 1. Make a Home Assistant backup.
 2. **Mantel Settings → Connections → Home Assistant → Moving from HK Frontend →
    Advanced**: move the rest of the house to Mantel. Each entity moves with its entity id and history.
-3. **Set the Alarm PIN again**: **Mantel Settings → Features → Alarm PIN → Change PIN**.
+3. **Set the Alarm PIN again**: **Mantel Settings → Security** (under
+   **Pages**) **→ Change PIN**.
    Home Assistant never gives its PIN out, so the PIN HK Frontend kept can't
    come across. From now on the PIN is kept only in Mantel, and the Alarm PIN
    panel in Home Assistant checks Mantel's.
@@ -192,6 +198,6 @@ nothing in Home Assistant would run it. Your settings are still in Mantel.
 |---|---|
 | A tablet shows Mantel's sign-in page | Sign it in as a wall tablet again ([Wall Tablets](Wall-Tablets.md)) |
 | Buttons do nothing, the console says `commands_disabled` | House commands are off (step 3) |
-| An automation's `hk_frontend.set_black_screen` doesn't reach a tablet | Check who runs that tablet and who holds the bridge (**Connections → Home Assistant → Moving from HK Frontend**) |
+| An automation's `hk_frontend.set_black_screen` doesn't reach a tablet | Check who runs that tablet (**Connections → Home Assistant → Moving from HK Frontend**) and who holds the bridge (its **Advanced**) |
 | Entities are unavailable | The link to Mantel is down; Mantel Link's diagnostics say why |
 | Anything else | Roll that step back, then see [Troubleshooting](Troubleshooting.md) |

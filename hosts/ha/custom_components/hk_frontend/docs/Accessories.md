@@ -134,7 +134,7 @@ at once:
   onto the bar comes forward. More's pages and rooms drag too. The number of
   tabs is still the screen's **Tabs in Bar** setting.
 - **Room Order:** **Rooms** in the Edit bar opens every room on this screen
-  with a handle, **Move Up** / **Move Down** and **A to Z**, and a note on
+  with a handle and up and down arrows, **A to Z** and **Done**, and a note on
   where the order is used: the menu's and the tab bar's rooms, Home's room
   sections when **Home** follows the room order, and the room sections on
   Lights, Climate and Water when **Rooms on Pages** is **Room Order**.
