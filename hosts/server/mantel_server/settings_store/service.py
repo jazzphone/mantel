@@ -132,10 +132,15 @@ class SettingsService:
 
     def house_feed(self) -> dict:
         """The feed with no person's own values over the house's: what a linked HK Frontend's dashboards get
-        (HA's feed was always the same for every user; linked_settings.py). No `kinds` (they are a subject's,
-        filtered by what it may view): HA's screens find them themselves, as from a server without them. The
-        Energy page's plan is in it (features.house_part), as HK Frontend's own feed always had it."""
+        (HA's feed was always the same for every user; linked_settings.py). `kinds` the house's, unfiltered
+        (Home Assistant's own screens show what its users may see): a linked HK Frontend hands this feed to its
+        screens as it is, so without them they counted every door and lock, What Counts' choices made in Mantel
+        never reaching them (the house, 2026-10-28). None before Mantel has the house's states. The Energy
+        page's plan is in it (features.house_part), as HK Frontend's own feed always had it."""
         payload = self._personalise(self._base_feed(), {})
+        found = self.kind_lists()
+        if found:
+            payload = self._put_kinds(payload, {k: list(v) for k, v in found.items()})
         part = getattr(self.features, "house_part", None)
         if part is None:
             return self._with_features(payload, None)
@@ -193,8 +198,11 @@ class SettingsService:
         ok = self._visible(identity, (e for v in found.values() for e in v))
         if ok is None:
             return payload
+        return self._put_kinds(payload, {k: [e for e in v if e in ok] for k, v in found.items()})
+
+    @staticmethod
+    def _put_kinds(payload: dict, kinds: dict[str, list[str]]) -> dict:
         from hk_core.settings.kinds import LEGACY
-        kinds = {k: [e for e in v if e in ok] for k, v in found.items()}
         payload["kinds"] = kinds
         for kind, (section, key) in LEGACY.items():
             if isinstance(payload.get(section), dict) and kind in kinds:

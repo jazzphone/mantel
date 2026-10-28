@@ -364,6 +364,19 @@ async def test_the_panels_counts_are_what_each_kind_counts_for_what_the_person_m
     assert "light.widened" not in json.dumps(admin)
 
 
+def test_a_linked_hk_frontends_feed_carries_the_houses_kinds(env):
+    """HK Frontend linked hands Mantel's house feed to its screens as it is: What Counts' choices made in
+    Mantel reach them through `kinds` (a door left out of Security stayed on its status row, 2026-10-28)."""
+    env.service.store.write([("house", "settings", {**SETTINGS, "generated": {}}),
+                             ("house", "accessories", {"entities": {}, "rooms": {}})], actor=S.Actor(label="test"))
+    assert "kinds" not in env.service.house_feed() or env.service.house_feed()["kinds"] == {}, "before the states: none"
+    _ready(env)
+    feed = env.service.house_feed()
+    assert feed["kinds"]["thermostats"] == ["climate.downstairs"], "What Counts' Leave Out: the water heater"
+    assert feed["kinds"]["lights"] == ["light.lamp", "light.primary"], "the house's, not filtered by a person"
+    assert feed["features"]["thermostats"] == ["climate.downstairs"], "the older list is the kind's (LEGACY)"
+
+
 def test_the_feed_sends_each_kind_only_what_the_screen_may_view(env):
     got: list = []
     env.service.store.write([("house", "settings", {**SETTINGS, "generated": {}, "features": {"thermostats": ["x.old"]}}),
