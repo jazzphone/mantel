@@ -29,7 +29,11 @@ only WEB FILES are ever answered from it (`WEB_TYPES`): an extensionless
 """
 from __future__ import annotations
 
+import gzip
+import hashlib
+import threading
 import time
+from collections import OrderedDict
 from pathlib import Path
 
 from homeassistant.core import HomeAssistant
@@ -147,6 +151,88 @@ def resolve(hass: HomeAssistant, filename: str) -> Path | None:
         if target.is_file():
             return target
     return None
+
+
+# GZIP, MADE HERE AND KEPT (2026-10-29). /hk is served from this component's own folder, which carries no
+# .gz copies (the HACS repository would double in size), so the text files went to a tablet at full size on
+# every first load. They are now gzipped once, in memory, for a browser that accepts it: the cache is keyed by
+# path, mtime and size (an edited file is a new key; the old one ages out), bounded in bytes, and the work is
+# done by the caller in the executor -- a 300 KB module takes ~15 ms to compress, which Home Assistant's event
+# loop must not wait for. Images, fonts and the like are already compressed; they go as they are.
+GZIP_TYPES = frozenset({".js", ".mjs", ".css", ".json", ".html", ".svg"})
+GZIP_MIN = 1024                      # smaller is not worth the header
+GZIP_MAX = 8 * 1024 * 1024           # larger is streamed plain, not held in memory
+GZIP_CACHE_LIMIT = 24 * 1024 * 1024  # all the gzipped bodies together
+_GZIPPED: "OrderedDict[tuple, tuple[bytes, str]]" = OrderedDict()
+_GZIPPED_SIZE = [0]
+_GZIP_LOCK = threading.Lock()
+
+
+def accepts_gzip(header: str | None) -> bool:
+    """An Accept-Encoding header that names gzip (or *) and does not give it q=0."""
+    for part in (header or "").lower().split(","):
+        name, _, params = part.partition(";")
+        if name.strip() in ("gzip", "x-gzip", "*"):
+            q = params.replace(" ", "")
+            try:
+                return not (q.startswith("q=") and float(q[2:]) == 0)
+            except ValueError:
+                return True
+    return False
+
+
+def _keep(key: tuple, body: bytes, etag: str) -> None:
+    with _GZIP_LOCK:
+        if key in _GZIPPED:
+            return
+        _GZIPPED[key] = (body, etag)
+        _GZIPPED_SIZE[0] += len(body)
+        while _GZIPPED_SIZE[0] > GZIP_CACHE_LIMIT and len(_GZIPPED) > 1:
+            _, (old, _) = _GZIPPED.popitem(last=False)
+            _GZIPPED_SIZE[0] -= len(old)
+
+
+def _kept(key: tuple) -> tuple[bytes, str] | None:
+    with _GZIP_LOCK:
+        hit = _GZIPPED.get(key)
+        if hit is not None:
+            _GZIPPED.move_to_end(key)
+        return hit
+
+
+def gzipped(target: Path) -> tuple[bytes, str] | None:
+    """(the file gzipped, its ETag) for a text file over GZIP_MIN, or None when it is to be sent as it is (not a
+    text type, small, very large, or gzip would not shrink it). Blocking: called in the executor."""
+    if target.suffix.lower() not in GZIP_TYPES:
+        return None
+    try:
+        st = target.stat()
+        if st.st_size < GZIP_MIN or st.st_size > GZIP_MAX:
+            return None
+        key = (str(target), st.st_mtime_ns, st.st_size)
+        hit = _kept(key)
+        if hit is None:
+            packed = gzip.compress(target.read_bytes(), compresslevel=6, mtime=0)
+            if len(packed) >= st.st_size:
+                return None
+            hit = (packed, f'"{st.st_mtime_ns:x}-{st.st_size:x}-gz"')
+            _keep(key, *hit)
+        return hit
+    except OSError:
+        return None
+
+
+def gzipped_text(name: str, text: str) -> tuple[bytes, str]:
+    """The same for text made on the spot (the ordered boot file, rebuilt on each request): kept by its own
+    digest, so an unchanged boot file is compressed once. Blocking: called in the executor."""
+    raw = text.encode("utf-8")
+    digest = hashlib.sha256(raw).hexdigest()[:32]
+    key = (name, digest, len(raw))
+    hit = _kept(key)
+    if hit is None:
+        hit = (gzip.compress(raw, compresslevel=6, mtime=0), f'"{digest}-gz"')
+        _keep(key, *hit)
+    return hit
 
 
 def status(hass: HomeAssistant) -> dict[str, object]:

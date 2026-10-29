@@ -609,6 +609,63 @@ async def test_hk_files_are_served_for_the_prefix(mk):
     assert f'href="{PREFIX}/hk/css/hk-responsive.css"' in page and f'src="{PREFIX}/web/home.js"' in page
 
 
+async def test_rewritten_files_are_gzipped_once_for_a_browser_that_takes_gzip(mk):
+    """2026-10-29: through Ingress a rewritten file goes as gzip when the browser accepts it, made once and kept
+    beside the plain body; the two encodings have their own ETags, and a 304 still works for each."""
+    import gzip
+    m = await mk()
+    m.store.link(OWNER_HA, "owner")
+    await m.page()
+    big = ("var A = '/hk/modules/hk-x.js'; // " + "a line of HK's code, repeated\n" * 400)
+    (m.app["cfg"].web / "hk/modules/hk-big.js").write_text(big)
+    gz = {**m.ha(), "Accept-Encoding": "gzip"}
+    plain = {**m.ha(), "Accept-Encoding": "identity"}
+    r = await m.request("GET", "/hk/modules/hk-big.js", gz)
+    assert r.status == 200 and r.headers["Content-Encoding"] == "gzip" and "Accept-Encoding" in r.headers["Vary"]
+    raw = await r.read()                                   # (the client undoes the gzip: the text is the rewritten file)
+    assert f"'{PREFIX}/hk/modules/hk-x.js'" in raw.decode()
+    gz_etag = r.headers["ETag"]
+    assert gz_etag.endswith('-gz"')
+    r = await m.request("GET", "/hk/modules/hk-big.js", plain)
+    assert r.status == 200 and "Content-Encoding" not in r.headers and "Accept-Encoding" in r.headers["Vary"]
+    assert (await r.read()) == raw
+    assert r.headers["ETag"] != gz_etag and not r.headers["ETag"].endswith('-gz"')
+    # 304: each ETag answers for its own encoding only
+    assert (await m.request("GET", "/hk/modules/hk-big.js", {**gz, "If-None-Match": gz_etag})).status == 304
+    assert (await m.request("GET", "/hk/modules/hk-big.js", {**plain, "If-None-Match": r.headers["ETag"]})).status == 304
+    assert (await m.request("GET", "/hk/modules/hk-big.js", {**plain, "If-None-Match": gz_etag})).status == 200
+    assert (await m.request("GET", "/hk/modules/hk-big.js", {**gz, "If-None-Match": r.headers["ETag"]})).status == 200
+    # gzip refused (q=0) is the plain body
+    r = await m.request("GET", "/hk/modules/hk-big.js", {**m.ha(), "Accept-Encoding": "gzip;q=0, deflate"})
+    assert "Content-Encoding" not in r.headers
+    # kept once, both bodies counted
+    held = [v for k, v in ingress._CACHE.items() if k[0].endswith("hk-big.js")]
+    assert len(held) == 1 and held[0][2] is not None and gzip.decompress(held[0][2]) == held[0][0]
+    assert ingress._CACHE_SIZE[0] >= len(held[0][0]) + len(held[0][2])
+
+
+async def test_the_gzipped_body_counts_toward_the_cache_limit(mk, monkeypatch):
+    m = await mk()
+    m.store.link(OWNER_HA, "owner")
+    await m.page()
+    ingress._CACHE.clear()
+    ingress._CACHE_SIZE[0] = 0
+    web_dir = m.app["cfg"].web / "hk/modules"
+    for i in range(3):
+        (web_dir / f"hk-n{i}.js").write_text(f"var A{i} = '/hk/x.js'; // " + f"line {i} of the code\n" * 300)
+    await m.request("GET", "/hk/modules/hk-n0.js", m.ha())
+    (_, (body, _, packed)), = ingress._CACHE.items()
+    one = len(body) + len(packed)
+    assert ingress._CACHE_SIZE[0] == one
+    monkeypatch.setattr(ingress, "CACHE_LIMIT", one * 2 + 10)       # room for two, bodies and gzips together
+    for i in (1, 2):
+        await m.request("GET", f"/hk/modules/hk-n{i}.js", m.ha())
+    assert [k[0].rsplit("/", 1)[1] for k in ingress._CACHE] == ["hk-n1.js", "hk-n2.js"]
+    assert ingress._CACHE_SIZE[0] <= ingress.CACHE_LIMIT
+    ingress._CACHE.clear()
+    ingress._CACHE_SIZE[0] = 0
+
+
 async def test_uploaded_licensed_assets_are_served_for_the_prefix_with_etags(mk):
     """The fonts and the glyph file come from Your files at the URLs the (rewritten) CSS and JS ask for."""
     from mantel_server import user_files as uf

@@ -104,6 +104,7 @@ of it runs.
 
 import asyncio
 import logging
+import mimetypes
 from typing import Any
 
 import voluptuous as vol
@@ -168,6 +169,15 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     from homeassistant.components.http import HomeAssistantView
 
+    def _gzipped(request, packed, content_type):
+        """The gzipped body, with its own ETag (a 304 for the one a browser holds)."""
+        body, etag = packed
+        headers = {"Cache-Control": "no-cache", "Vary": "Accept-Encoding", "ETag": etag}
+        if etag in [t.strip() for t in request.headers.get("If-None-Match", "").split(",")]:
+            return web.Response(status=304, headers=headers)
+        headers["Content-Encoding"] = "gzip"
+        return web.Response(body=body, headers=headers, content_type=content_type.split(";")[0])
+
     class HkFrontendView(HomeAssistantView):
         """Serve your files, then custom_components/hk_frontend/frontend, at /hk/."""
 
@@ -176,19 +186,33 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         requires_auth = False   # see EXPOSURE in the module docstring
 
         async def get(self, request, filename):
+            # GZIP (files.gzipped): for a browser that accepts it, the text files
+            # go gzipped, made once and kept (in the executor, never on the loop)
+            gz = files.accepts_gzip(request.headers.get("Accept-Encoding"))
             # THE ORDERED BOOT (boot.py): HK's bootstrap modules as one file,
             # made from the files this view serves, on every request.
             if filename == boot.BOOT:
-                text = await hass.async_add_executor_job(_boot_text, hass)
+                def made():
+                    text = _boot_text(hass)
+                    return text, (files.gzipped_text(boot.BOOT, text) if gz else None)
+                text, packed = await hass.async_add_executor_job(made)
+                if packed is not None:
+                    return _gzipped(request, packed, "application/javascript")
                 return web.Response(text=text, content_type="application/javascript",
-                                    headers={"Cache-Control": "no-cache"})
+                                    headers={"Cache-Control": "no-cache", "Vary": "Accept-Encoding"})
+
             # resolve() stats the path (two Path.resolve + is_file): off the
             # event loop, as aiohttp's own static handler does.
-            target = await hass.async_add_executor_job(files.resolve, hass, filename)
+            def find():
+                target = files.resolve(hass, filename)
+                return target, (files.gzipped(target) if gz and target is not None else None)
+            target, packed = await hass.async_add_executor_job(find)
             if target is None:
                 return web.Response(status=404)
+            if packed is not None:
+                return _gzipped(request, packed, mimetypes.guess_type(target.name)[0] or "application/octet-stream")
             return web.FileResponse(
-                target, headers={"Cache-Control": "no-cache"}
+                target, headers={"Cache-Control": "no-cache", "Vary": "Accept-Encoding"}
             )
 
     # YOUR FILES FROM THE FIRST REQUEST. The entry's options are already loaded

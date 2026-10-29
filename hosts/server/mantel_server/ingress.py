@@ -42,6 +42,7 @@ prefix (``X-Ingress-Path: /api/hassio_ingress/<token>``). This module turns that
 from __future__ import annotations
 
 import asyncio
+import gzip
 import hashlib
 import hmac
 import html
@@ -933,8 +934,28 @@ async def import_features_post(request: web.Request) -> web.Response:
 
 
 # -- serving files under the prefix -----------------------------------------------------------------
-_CACHE: "OrderedDict[tuple, tuple[bytes, str]]" = OrderedDict()
+# key -> (the rewritten body, its ETag, the same gzipped or None when gzip would not make it smaller). The
+# gzipped body is made once, beside the plain one (2026-10-29: a rewritten file went through Ingress at its
+# full size on a tablet's slow link); both count toward CACHE_LIMIT.
+_CACHE: "OrderedDict[tuple, tuple[bytes, str, bytes | None]]" = OrderedDict()
 _CACHE_SIZE = [0]
+
+
+def accepts_gzip(request: web.Request) -> bool:
+    """Whether the browser takes a gzipped body: gzip (or *) named in Accept-Encoding and not given q=0."""
+    for part in request.headers.get("Accept-Encoding", "").lower().split(","):
+        name, _, params = part.partition(";")
+        if name.strip() in ("gzip", "x-gzip", "*"):
+            q = params.replace(" ", "")
+            return not (q.startswith("q=") and _q_is_zero(q[2:]))
+    return False
+
+
+def _q_is_zero(q: str) -> bool:
+    try:
+        return float(q) == 0
+    except ValueError:
+        return False
 
 
 def rewrite(text: str, base: str) -> str:
@@ -989,20 +1010,29 @@ def file_response(request: web.Request, path: Path, headers: dict | None = None,
         if page:
             text = inject_base(text, base, kiosk)
         body = rewrite(text, base).encode("utf-8", "surrogateescape")
-        hit = (body, '"' + hashlib.sha256(body).hexdigest()[:32] + '"')
+        packed = gzip.compress(body, compresslevel=6, mtime=0)
+        hit = (body, '"' + hashlib.sha256(body).hexdigest()[:32] + '"', packed if len(packed) < len(body) else None)
         _CACHE[key] = hit
-        _CACHE_SIZE[0] += len(body)
+        _CACHE_SIZE[0] += len(body) + len(hit[2] or b"")
         while _CACHE_SIZE[0] > CACHE_LIMIT and _CACHE:
-            _, (old, _) = _CACHE.popitem(last=False)
-            _CACHE_SIZE[0] -= len(old)
+            _, (old, _, old_gz) = _CACHE.popitem(last=False)
+            _CACHE_SIZE[0] -= len(old) + len(old_gz or b"")
     else:
         _CACHE.move_to_end(key)
-    body, etag = hit
+    body, etag, packed = hit
     out = dict(headers or {})
+    # the two encodings are two representations: each has its own ETag, and a cache is told they vary
+    out["Vary"] = ", ".join(filter(None, [out.get("Vary"), "Accept-Encoding"]))
+    zipped = packed is not None and accepts_gzip(request)
+    if zipped:
+        etag = etag[:-1] + '-gz"'
     out["ETag"] = etag
     if request.headers.get("If-None-Match") == etag:
         return web.Response(status=304, headers=out)
     ctype = CONTENT_TYPES.get(suffix) or mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    if zipped:
+        out["Content-Encoding"] = "gzip"
+        return web.Response(body=packed, headers=out, content_type=ctype, charset="utf-8")
     return web.Response(body=body, headers=out, content_type=ctype, charset="utf-8")
 
 
