@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import logging
 import copy
+import hashlib
 import inspect
+import json
 import re
 from typing import Any, Callable, Iterable, Mapping
 
@@ -32,6 +34,9 @@ class SettingsService:
         self.hooks = SettingsHooks.coerce(hooks)
         self.model = model or load_model()
         self._feeds: dict[int, tuple[Any, Callable[[dict], None]]] = {}
+        # the digest of the last frame each person's subscriber was sent (publish sends only what changed for
+        # that subscriber, as music.py and page_headers.py do); gone with the subscription
+        self._sent: dict[int, str] = {}
         self._next = 0
         # the feature host (features.register sets it): the feed's `added` / `energy` per subject
         # (``client_part(identity)``) and panel/get's `features` (``panel_features()``), as HA adds them
@@ -307,19 +312,49 @@ class SettingsService:
                 "accessories": self._acc_version(), "house": self._house_version()}
 
     # -- the feed -------------------------------------------------------------------------------
+    @staticmethod
+    def _digest(payload: dict) -> str | None:
+        """A digest of a frame as it is sent (None if it can't be serialized: it is then always sent)."""
+        try:
+            return hashlib.sha1(json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode()
+                                ).hexdigest()
+        except (TypeError, ValueError):
+            return None
+
     def subscribe_feed(self, identity: Any, on_event: Callable[[dict], None]) -> Callable[[], None]:
         self._next += 1
         sid = self._next
         self._feeds[sid] = (identity, on_event)
-        on_event(self.feed_payload(identity))                 # now, as HA's feed does
-        return lambda: self._feeds.pop(sid, None) and None
+        first = self.feed_payload(identity)
+        self._remember(sid, identity, first)
+        on_event(first)                                       # now, as HA's feed does (always: a first frame)
+
+        def end() -> None:
+            self._feeds.pop(sid, None)
+            self._sent.pop(sid, None)
+        return end
+
+    def _remember(self, sid: int, identity: Any, payload: dict) -> None:
+        """Note what a person's subscriber holds. In-process listeners (identity None: linked_house, the feature
+        host) are told every publish -- they re-read the store for more than the frame holds -- so keep no digest."""
+        if identity is None:
+            return
+        d = self._digest(payload)
+        if d is None:
+            self._sent.pop(sid, None)
+        else:
+            self._sent[sid] = d
 
     def publish(self, user_only: str | None = None) -> int:
-        """Send the feed again to every subscriber (or only to one person's, after a personal save)."""
+        """Send the feed again to every subscriber (or only to one person's, after a personal save). A subscriber
+        whose frame would be the same as the one it holds is sent nothing (2026-10-29: a save of one person's look
+        rebuilt and re-sent every tablet's feed, and each page redrew from an identical one). The count is the
+        frames sent."""
         base = None
         found: Any = ()
         sent = 0
-        for identity, cb in list(self._feeds.values()):
+        mine: dict[Any, dict] = {}                           # each person's own document, read once per publish
+        for sid, (identity, cb) in list(self._feeds.items()):
             uid = _sides(identity)[0]
             if user_only is not None and uid != user_only:
                 continue
@@ -333,8 +368,17 @@ class SettingsService:
                 found = self.kind_lists()            # once per publish, not per screen
                 self.kinds_sent = found
             try:
-                cb(self._with_kinds(self._with_features(self._personalise(base, self.personal(identity)), identity),
-                                    identity, found))
+                if uid not in mine:
+                    mine[uid] = self.personal(identity)
+                payload = self._with_kinds(self._with_features(self._personalise(base, mine[uid]), identity),
+                                           identity, found)
+                if identity is not None:
+                    d = self._digest(payload)
+                    if d is not None and self._sent.get(sid) == d:
+                        continue
+                cb(payload)
+                if identity is not None:
+                    self._remember(sid, identity, payload)   # (after it went: a listener that failed gets it again)
                 sent += 1
             except Exception:  # noqa: BLE001 -- one bad listener never stops the others
                 log.exception("settings feed listener failed")
