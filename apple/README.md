@@ -83,8 +83,10 @@ player is gone.
 
 - **The web view is never rebuilt for a size.** A fold, a turn or a resized window resizes it in place; the page lays
   itself out by its width and keeps its scroll and state. It is transparent, so the app's own ground (the page's
-  `#05070e`) shows while a new size draws, never white. The page pads itself by `env(safe-area-inset-*)` (camera
-  cutouts on both Duo displays, Stage Manager's window chrome).
+  `#05070e`) shows while a new size draws, never white. It runs under the status bar and the home indicator (the
+  page pads itself by `env(safe-area-inset-top/-bottom)`), but not under a camera at the side: HK's pages don't pad
+  their sides, and the Duo's outer display keeps its camera and status bar in an 84 pt strip down its right edge (a
+  phone turned has its Dynamic Island there too). The strip shows the app's ground; the page is 382 pt wide there.
 - **The music player follows the page's width, decided at the tap.** `window.hkHostPlayer` (the page's way to ask
   for the app's player) only answers while the page is narrower than the Music page's two columns (760 pt, hk-music.js
   `COLS2`): an iPhone, the Duo folded or open in portrait, a narrow iPad window. Wider, the player is the page's own
@@ -100,9 +102,12 @@ player is gone.
 
 Verified in the Simulator (iOS 27.0, 2026-10-29), paired with the fictional house: iPhone 18 Pro (the app's player,
 page 402 pt wide, safe area 62/34), iPad Pro 11-inch and 13-inch (M5) in portrait (the page's player, 834 and 1032 pt;
-the app's player as a form sheet), Setup on all three. Not verified: the iPhone Duo (its device type needs the iOS
-27.1 Simulator runtime, not installed here), turning or resizing a window live (no way to drive the Simulator's
-window from a script here), widgets placed on a Home Screen, the pointer and the keyboard shortcuts.
+the app's player as a form sheet), Setup on all three. The iPhone Duo (iOS 27.1) folded, on its outer display
+(466×678 pt): Setup, Home (the app's player), the player, Can't Reach Mantel and App Settings, all clear of the
+camera strip. Not verified: the Duo open (the inner display, 669×951 pt), as nothing found from the command line
+folds it (`simctl io <dev> screenConfig --display=N power off|on` only blanks a display, and toggling them crashed
+SpringBoard once; the fold is the Simulator window's own control); turning or resizing a window live; widgets
+placed on a Home Screen; the pointer and the keyboard shortcuts.
 
 ### The Mac app
 

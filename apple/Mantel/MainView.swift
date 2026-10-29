@@ -43,7 +43,9 @@ struct MainView: View {
 
     var body: some View {
         ZStack {
-            Color(red: 0.02, green: 0.03, blue: 0.055).ignoresSafeArea()      // the page's own ground (#05070e)
+            // the page's own ground (#05070e; a light page's, light): also the bands beside a page kept clear of a
+            // camera at the side
+            (lightPage ? Color(uiColor: .systemBackground) : Color(red: 0.02, green: 0.03, blue: 0.055)).ignoresSafeArea()
             if !ready {
                 // the still only where it fits: one taken on the Duo's other display, or an iPad turned or in another
                 // window size since, would show the wrong page's layout
@@ -54,13 +56,16 @@ struct MainView: View {
                         ProgressView().tint(.white).controlSize(.large).frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
-                .ignoresSafeArea()
+                .ignoresSafeArea(edges: .vertical)
             }
             if let start {
                 HouseWebView(start: start, house: model.house!, onSessionEnded: { next in
                     Task { await load(next) }       // the web session ended: hand the web view a new one
                 }, onEvent: handle)
-                .ignoresSafeArea()
+                // under the status bar and the home indicator (the page pads itself by env(safe-area-inset-top and
+                // -bottom)), but not under a camera at the side: the Duo's outer display has it at its right edge,
+                // a phone turned has its Dynamic Island there, and HK's pages do not pad their sides
+                .ignoresSafeArea(edges: .vertical)
                 .id(start)
                 .opacity(ready ? 1 : 0)
             }
