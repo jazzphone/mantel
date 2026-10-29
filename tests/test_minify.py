@@ -35,7 +35,7 @@ STATIC = re.compile(r"""^\s*(?:import\b[^;'"(]*?|export\b[^;'"]*?\bfrom\s*)(["']
 @pytest.fixture(scope="module")
 def built(tmp_path_factory):
     out = tmp_path_factory.mktemp("min") / "out"
-    bs.build(ROOT / "web", out)
+    bs.build(ROOT / "web", out, stamped=False)      # (minified only: the ?v= stamps, tests/test_cache_versions.py)
     return out / "web"
 
 
