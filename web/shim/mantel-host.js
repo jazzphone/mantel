@@ -66,6 +66,7 @@ export const USER_DATA_KEYS = new Set(['hk_music_focus', 'favorites']);
 // a camera the person may see (/api/notify/snap/<id>, no HA token), and the page's prefix goes in front
 // here, as it does for every address Mantel gives a page (HA App mode serves Mantel under Ingress).
 export const SNAP_SIGN = 'hk_notify/snap/sign';
+const DIFF_FALLBACK_MS = 250;      // a hidden page draws no frames: the hub's diffs are applied by this timer then
 export const ART_SIGN = 'hk_frontend/art/sign';
 // ALBUM ART SCALED BY MANTEL (2026-10-29; connectors/media_art.py, hk_core/art): a remote cover (Apple's CDN,
 // Music Assistant's image proxy) is fetched by the server and scaled to the tile's size bucket, so a tablet
@@ -295,6 +296,10 @@ export class Host {
         reported: (tid, black) => this._setScreen(screenEntity(tid, 'black'), black),
       });
     }
+    this._diffs = [];                       // the hub's diffs waiting for the next frame (applyDiff)
+    this._armed = 0;
+    this._gen = 0;
+    this._diffTimer = 0;
     this.access = new Map();                // hass field -> times read (only with ?trace=1)
     this.trace = new URLSearchParams(location.search).get('trace') === '1';
     this._wrapStates();
@@ -340,14 +345,47 @@ export class Host {
 
   // -- state feed (from the hub) ----------------------------------------------------------------
   applySnapshot(entities) {
+    // a snapshot is the whole house as of now: a diff still waiting for its frame is older than it, and would undo it
+    this._diffs.length = 0;
+    this._disarm();
     const next = {};
     for (const [id, s] of Object.entries(entities)) next[id] = stateObj(id, s);
     this._states = next;
     this._publish();
   }
 
+  // UPDATES BATCHED PER FRAME (2026-10-29). Each diff from the hub used to be applied and published at once: a house
+  // with a power meter and a few busy sensors sends several a second, and every one rebuilt the states object and
+  // told every card, so a wall tablet repainted for each. Diffs now wait for the next animation frame and are applied
+  // together, in the order they came, in ONE new states object and one publish. A hidden page draws no frames, so
+  // a timer is set beside the frame request and whichever comes first applies them: the state of a tablet whose
+  // screen is off (or a tab in the background) does not stall, and is not left to pile up. applySnapshot drops what
+  // waits (it is older), and flushDiffs() applies it now (tests, and anything that must read the newest).
   applyDiff(m) {
+    this._diffs.push(m);
+    if (this._armed) return;
+    const gen = this._armed = ++this._gen;
+    const go = () => { if (this._armed === gen) this.flushDiffs(); };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(go);
+    this._diffTimer = setTimeout(go, typeof requestAnimationFrame === 'function' ? DIFF_FALLBACK_MS : 0);
+  }
+
+  _disarm() {
+    this._armed = 0;
+    if (this._diffTimer) clearTimeout(this._diffTimer);
+    this._diffTimer = 0;
+  }
+
+  flushDiffs() {
+    this._disarm();
+    if (!this._diffs.length) return;
     const next = Object.assign({}, this._states);
+    for (const m of this._diffs.splice(0)) this._applyOne(next, m);
+    this._states = next;
+    this._publish();
+  }
+
+  _applyOne(next, m) {
     for (const [id, s] of Object.entries(m.added || {})) next[id] = stateObj(id, s);
     for (const id of m.removed || []) delete next[id];
     for (const [id, ch] of Object.entries(m.changes || {})) {
@@ -362,8 +400,6 @@ export class Host {
         last_updated: p.lu != null ? iso(p.lu) : cur.last_updated, context: cur.context,
       };
     }
-    this._states = next;
-    this._publish();
   }
 
   // the registries changed in Home Assistant (registry-sync.js): HK reads them from the new hass

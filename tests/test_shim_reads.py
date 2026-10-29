@@ -85,6 +85,18 @@ def test_artwork_signing_is_answered_on_the_page_never_refused(observed):
     assert observed["artSent"] == 0 and observed["artRefused"] == 0
 
 
+def test_the_hubs_diffs_are_applied_once_per_frame_in_order(observed):
+    """Updates batched per frame (2026-10-29): three diffs in one frame are one publish, applied in the order they
+    came; a page that draws no frames (hidden) is served by a timer; a snapshot is newer than any diff still waiting."""
+    b = observed["batch"]
+    assert b["beforeFrame"] == {"published": 0, "w": "1", "frames": 1, "timers": 1}        # nothing yet; one frame asked for
+    assert b["afterFrame"] == {"published": 1, "w": "3", "light": "off", "n": 2, "added": True, "timers": 0}
+    assert b["late"] == 1                                                                   # a late second frame: nothing more
+    assert b["hidden"] == {"timer": 250, "still": "3"} and b["hiddenAfter"] == "4" and b["hiddenPublished"] == 2
+    assert b["snapshot"] == "fresh"
+    assert b["flushed"] == "now"
+
+
 def test_the_music_queue_is_a_read(observed):
     frames = [m for m in observed["sent"] if m["type"] == "read" and m["msg"]["type"].startswith("hk_music/")]
     assert [f["msg"] for f in frames] == [{"type": "hk_music/queue", "entity_id": "media_player.kitchen", "limit": 40}]

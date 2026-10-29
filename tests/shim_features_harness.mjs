@@ -292,7 +292,7 @@ async function run(label, commandsOn) {
 
 await run('off', false);
 reply({ type: 'capabilities', commands: true, step_up_window: 300, door: 'lan' });
-host.applyDiff({ changes: {} });          // a new snapshot: a new client made with the gateway on
+host.applyDiff({ changes: {} }); host.flushDiffs();          // a new snapshot: a new client made with the gateway on
 await run('on', true);
 
 unsubEvents();
