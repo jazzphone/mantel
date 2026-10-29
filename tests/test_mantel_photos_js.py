@@ -558,16 +558,21 @@ def test_the_shell_gives_a_screen_its_album_and_lists_it_under_the_prefix():
     r = got["root"]
     assert r["first"] is None and r["after"] == "mantel-photos://a1a1a1a1a1a1a1a1" and r["told"] == 1
     assert r["folder"] is None                                      # a Home Assistant folder is HK's to walk
-    assert r["list"][0] == {"id": "p1", "title": "One", "url": "/api/photos/" + "1" * 32 + "/screen"}
+    def sizes(n):                    # the 1280 px copy (made on first ask) and the 2560 px one, for the saver to choose
+        return [[1280, "/api/photos/" + n * 32 + "/mid"], [2560, "/api/photos/" + n * 32 + "/screen"]]
+    assert r["list"][0] == {"id": "p1", "title": "One", "url": "/api/photos/" + "1" * 32 + "/screen",
+                            "variants": sizes("1")}
     assert [p["id"] for p in r["list"]] == ["p1", "p3", "p4"]                                          # never another host
     # Keep in View: a sound focus and faces passed on, unsound ones dropped (the photo itself still shown)
     assert r["list"][1] == {"id": "p3", "title": "Kept", "url": "/api/photos/" + "3" * 32 + "/screen",
-                            "focus": [0.25, 0.4], "faces": [[0.1, 0.2, 0.3, 0.3]]}
-    assert r["list"][2] == {"id": "p4", "title": "Junk", "url": "/api/photos/" + "4" * 32 + "/screen"}
+                            "variants": sizes("3"), "focus": [0.25, 0.4], "faces": [[0.1, 0.2, 0.3, 0.3]]}
+    assert r["list"][2] == {"id": "p4", "title": "Junk", "url": "/api/photos/" + "4" * 32 + "/screen",
+                            "variants": sizes("4")}
     assert r["cleared"] is None and r["toldAgain"] == 2
     ing = got["/api/hassio_ingress/Fict1onal"]
     assert ing["after"] == "mantel-photos://a1a1a1a1a1a1a1a1"       # the screen read without the prefix
     assert ing["list"][0]["url"] == "/api/hassio_ingress/Fict1onal/api/photos/" + "1" * 32 + "/screen"
+    assert ing["list"][0]["variants"][0] == [1280, "/api/hassio_ingress/Fict1onal/api/photos/" + "1" * 32 + "/mid"]
     assert ing["asked"][0] == "/api/hassio_ingress/Fict1onal/api/photos/screens"
 
 

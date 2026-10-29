@@ -12,6 +12,9 @@ keeps its own library beside that, so a home can put its photos in Mantel and ch
   their bytes, the orientation is applied, every bit of metadata (EXIF, GPS location, XMP) is dropped, wide-gamut
   colour goes to sRGB, and three files are written -- the original (full size up to 8192 px on the long side,
   JPEG), the screen-sized one the screensavers show (2560 px, JPEG) and a thumbnail (480 px, WebP).
+  A fourth, ``mid`` (1280 px, JPEG), is made the first time a screen asks for it (2026-10-29): the screensaver
+  of a wall tablet asks for the size closest to its screen, so a 1280 px tablet no longer decodes 2560 px photos.
+  It sits in ``mid/`` beside the others, is not in the quota, and goes with the photo.
 * **Limits.** One upload at most ``file_mb`` (default 40 MB) and 64 megapixels; all photos together at most
   ``quota_mb`` (default 4 GB). Both are an Owner's to change.
 * **Duplicates.** The SHA-256 of the bytes as they came in: the same picture again in the same album is skipped.
@@ -56,7 +59,8 @@ from aiohttp import web
 from . import audit, imaging
 from . import faces as face_finder
 # the picture work itself (image_work.py) runs in imaging.py's worker process; these names stay photos.py's
-from .image_work import ORIGINAL_EDGE, PIXELS_MAX, SCREEN_EDGE, THUMB_EDGE, PhotoError, Processed, process, sniff  # noqa: F401
+from .image_work import (MID_EDGE, ORIGINAL_EDGE, PIXELS_MAX, SCREEN_EDGE, THUMB_EDGE, PhotoError, Processed,  # noqa: F401
+                         make_variant, process, sniff)
 from .imaging import IMAGE_JOBS, image_slot, run as run_image_job  # noqa: F401
 from .guards import guard
 from .guards import ident as guarded
@@ -74,6 +78,7 @@ FILE_NAME_MAX = 120
 # folder, file extension, content type -- per size
 SIZES = {"original": ("originals", ".jpg", "image/jpeg"),
          "screen": ("screen", ".jpg", "image/jpeg"),
+         "mid": ("mid", ".jpg", "image/jpeg"),                  # made on first ask (PhotoLibrary.mid_path)
          "thumb": ("thumbs", ".webp", "image/webp")}
 LIMITS = {"quota_mb": (100, 1_048_576, 4096), "file_mb": (1, 200, 40)}      # (lowest, highest, default)
 ALBUM_MAX = 200
@@ -87,6 +92,12 @@ MANAGERS = ("owner", "admin")
 # removed), so a browser keeps them; the lists are asked again each time
 IMMUTABLE = {"Cache-Control": "private, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff"}
 NO_STORE = {"Cache-Control": "no-store"}
+# the 1280 px copy is made when a screen first asks (2026-10-29): at most this many at once, each waited for at most
+# MID_WAIT seconds -- after that, or with all the places taken, the 2560 px photo is sent for this one request
+MID_JOBS_MAX = 3
+MID_WAIT = 4.0
+# what is sent while the copy is made: not immutable, since the same address will answer with the smaller file
+MID_PENDING = {"Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff"}
 
 
 def clean_name(raw: object, limit: int = NAME_MAX, *, what: str = "album") -> str:
@@ -139,6 +150,7 @@ class PhotoLibrary:
         self.db = db
         self.clock = clock
         self.lock = asyncio.Lock()                  # a quota check and the write it allows are one step
+        self._mids: dict[str, asyncio.Task] = {}    # the 1280 px copies being made, by photo id (mid_path)
 
     # -- folders and files ------------------------------------------------------------------------
     def ensure(self) -> None:
@@ -153,6 +165,48 @@ class PhotoLibrary:
         folder, ext, _ = SIZES[size]
         p = self.root / folder / f"{photo_id}{ext}"
         return p if p.is_file() and not p.is_symlink() else None
+
+    def _make_mid(self, photo_id: str, src: Path) -> Path | None:
+        """The 1280 px copy of a photo's screen-sized file, written beside the others (in a thread)."""
+        dest = self.root / SIZES["mid"][0] / f"{photo_id}{SIZES['mid'][1]}"
+        self.ensure()
+        data = make_variant(src, MID_EDGE)
+        _write(dest, data)
+        if not src.is_file():                       # the photo was deleted while the copy was made: no orphan
+            with contextlib.suppress(OSError):
+                dest.unlink()
+            return None
+        return dest
+
+    async def mid_path(self, photo_id: str) -> Path | None:
+        """The 1280 px copy of a photo, made on the first ask and kept (immutable like the other sizes). None: not
+        there yet -- the caller sends the screen-sized file meanwhile. It is made in a THREAD (a resize of the 2560 px
+        file: a few tens of ms), never in the image worker, so an upload that takes a minute cannot hold a tablet's
+        next photo; several tablets asking for the same photo share one job, and a cancelled request does not stop it."""
+        have = self.path(photo_id, "mid")
+        if have is not None:
+            return have
+        src = self.path(photo_id, "screen")
+        if src is None:
+            return None
+        job = self._mids.get(photo_id)
+        if job is None:
+            if len(self._mids) >= MID_JOBS_MAX:
+                return None
+
+            async def make() -> Path | None:
+                try:
+                    return await asyncio.to_thread(self._make_mid, photo_id, src)
+                except Exception as exc:  # noqa: BLE001 -- no copy: the screen size is sent, and asked again next time
+                    log.warning("couldn't make the 1280 px copy of photo %s: %s: %s", photo_id[:8], type(exc).__name__, exc)
+                    return None
+
+            job = self._mids[photo_id] = asyncio.ensure_future(make())
+            job.add_done_callback(lambda t, pid=photo_id: self._mids.get(pid) is t and self._mids.pop(pid, None))
+        try:
+            return await asyncio.wait_for(asyncio.shield(job), MID_WAIT)
+        except asyncio.TimeoutError:
+            return None
 
     def _write_files(self, photo_id: str, got: Processed) -> None:
         self.ensure()
@@ -1032,10 +1086,16 @@ async def serve(request: web.Request) -> web.StreamResponse:
         allowed = ident.user is not None and ident.device is None and ident.user.role in MANAGERS
     else:
         allowed = may_view(request)
-    path = _lib(request).path(pid, size) if allowed else None
+    headers = IMMUTABLE
+    if allowed and size == "mid":
+        path = await _lib(request).mid_path(pid)
+        if path is None:                            # being made (or no place free to make it): the 2560 px photo now
+            path, headers = _lib(request).path(pid, "screen"), MID_PENDING
+    else:
+        path = _lib(request).path(pid, size) if allowed else None
     if path is None:
         return _nothing()
-    resp = web.FileResponse(path, headers=IMMUTABLE)
+    resp = web.FileResponse(path, headers=headers)
     resp.content_type = SIZES[size][2]
     return resp
 
@@ -1065,7 +1125,7 @@ def register(app: web.Application, hub=None) -> None:
     r.add_delete("/api/photos/import", api_import_cancel)
     r.add_get("/api/photos/faces", api_faces)
     r.add_put(r"/api/photos/{photo:[0-9a-f]{32}}/focus", api_focus)
-    r.add_get(r"/api/photos/{photo:[0-9a-f]{32}}/{size:original|screen|thumb}", serve)
+    r.add_get(r"/api/photos/{photo:[0-9a-f]{32}}/{size:original|screen|mid|thumb}", serve)
     app["photos_faces"] = FaceBackfill(app)
 
     async def begin(_app: web.Application) -> None:

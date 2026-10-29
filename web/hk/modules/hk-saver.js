@@ -364,6 +364,35 @@
     }
     return out;
   }
+  // PHOTOS SIZED TO THE SCREEN (2026-10-29): a host may list a photo in more
+  // than one size (`variants`: [[long edge in px, address], ...] -- Mantel
+  // Photos has a 1280 and a 2560 px copy). cleanVariants: what of a list
+  // item's variants is sound, smallest first. photoUrl: the address to load
+  // -- the smallest copy that is about as big as the screen's long edge is in
+  // device pixels (the pixel ratio capped at 2, as the mosaic's cells are), or
+  // the largest there is -- else the item's own `url`. A wall tablet of
+  // 1280 x 800 no longer decodes (and holds) a 2560 px photo it shows at half
+  // that. Keep in View is not touched: faces and the focus are fractions of
+  // the photo, and a smaller copy has the same shape.
+  var VARIANTS_MAX = 4, VARIANT_SLACK = 0.9;
+  function cleanVariants(p) {
+    var out = [];
+    if (p && Array.isArray(p.variants)) {
+      p.variants.slice(0, VARIANTS_MAX).forEach(function (v) {
+        if (Array.isArray(v) && v.length === 2 && typeof v[0] === 'number' && isFinite(v[0]) && v[0] > 0 && typeof v[1] === 'string' && v[1]) out.push([v[0], v[1]]);
+      });
+      out.sort(function (a, b) { return a[0] - b[0]; });
+    }
+    return out;
+  }
+  function photoUrl(item, edge, dpr) {
+    var vs = item && item.variants;
+    if (!vs || !vs.length) return item && item.url;
+    var want = Math.max(1, edge || 0) * Math.max(1, Math.min(2, dpr || 1)) * VARIANT_SLACK;
+    for (var i = 0; i < vs.length; i++) if (vs[i][0] >= want) return vs[i][1];
+    return vs[vs.length - 1][1];
+  }
+  function screenEdge() { return Math.max(window.innerWidth || 0, window.innerHeight || 0) || 1280; }
   // a face's box with room for the head around it: hair above, chin below
   function headOf(f) {
     return { x1: f[0] - f[2] * 0.2, y1: f[1] - f[3] * 0.35, x2: f[0] + f[2] * 1.2, y2: f[1] + f[3] * 1.15 };
@@ -1718,7 +1747,8 @@
       : hostList ? hostList.then(function (items) {
           (Array.isArray(items) ? items : []).forEach(function (p) {
             if (out.length < LIST_MAX && p && typeof p.id === 'string' && typeof p.url === 'string' && p.url) {
-              var it = { id: 'host/' + p.id, title: typeof p.title === 'string' ? p.title : '', url: p.url }, fc = cleanFocus(p);
+              var it = { id: 'host/' + p.id, title: typeof p.title === 'string' ? p.title : '', url: p.url }, fc = cleanFocus(p), vs = cleanVariants(p);
+              if (vs.length) it.variants = vs;
               if (fc.focus) it.focus = fc.focus;
               if (fc.faces) it.faces = fc.faces;
               out.push(it);
@@ -1742,7 +1772,7 @@
   }
   function load(item) {
     // (a landscape is a plain address; a photo of yours is resolved first)
-    return (item.url ? Promise.resolve({ url: item.url }) : callWS({ type: 'media_source/resolve_media', media_content_id: item.id })).then(function (r) {
+    return (item.url ? Promise.resolve({ url: photoUrl(item, screenEdge(), window.devicePixelRatio) }) : callWS({ type: 'media_source/resolve_media', media_content_id: item.id })).then(function (r) {
       var url = r && r.url;
       if (!url) throw new Error('no url');
       return new Promise(function (ok, fail) {
@@ -1756,6 +1786,19 @@
         im.src = url;
       });
     });
+  }
+  // THE DECODED PHOTO LET GO (2026-10-29): load() holds the picture in an
+  // Image of its own (to know its size and to draw the backdrop or a mosaic
+  // cell from), and the layer's <img> decodes it again. Once what is drawn
+  // from it has been drawn, that Image's source is dropped, so a tablet that
+  // shows photos all day holds one decoded photo, not two plus the last. The
+  // preview keeps its photo (relayout draws from it again); ph.w and ph.h stay.
+  function releasePh(ph) {
+    var im = ph && ph.img;
+    if (!im || (previewOn && ph === lastPh)) return;
+    im.onload = im.onerror = null;
+    try { im.removeAttribute('src'); } catch (e) { /* not an element */ }
+    ph.img = null;
   }
   var busy = false, queued = null;
   // HK SETTINGS' PREVIEW of Portrait or Landscape Photos (2026-10-13): a
@@ -1971,6 +2014,7 @@
     if (mus.paneNext !== null) { var pn = mus.paneNext; mus.paneNext = null; setPane(pn); }
     setAttr(next, 'pw', paneUp);
     if (fit.backdrop || paneUp || ckPhotos()) { drawBackdrop(bg, ph.img, lay.small); bg.hidden = false; } else { bg.hidden = true; clearCanvas(bg); }
+    releasePh(ph);
     if (cfg.zoom) {
       next.style.setProperty('--zd', (cfg.each_photo * 1000 + CROSSFADE_MS) + 'ms');
       void next.offsetWidth;               // restart the zoom from 1
@@ -2035,6 +2079,7 @@
       for (var i = 0; i < cells.length; i++) if (i !== moState.lastCell) choices.push(i);
       var ci = choices[Math.floor(Math.random() * choices.length)], cell = cells[ci];
       var old = cell.querySelector('canvas'), cv = moDraw(cell, m.mosaicOne);
+      releasePh(m.mosaicOne);
       cv.style.opacity = '0';
       cell.appendChild(cv);
       void cv.offsetWidth;
@@ -2076,6 +2121,7 @@
       var ph = m.mosaic[pick[i]];
       if (ph) cell.appendChild(moDraw(cell, ph));
     });
+    m.mosaic.forEach(releasePh);            // (drawn into the cells: the full photos are let go)
     if (cfg.zoom) {
       next.style.setProperty('--zd', (cfg.each_photo * 1000 + CROSSFADE_MS) + 'ms');
       void next.offsetWidth;
@@ -4626,7 +4672,7 @@
          readCfg: readCfg, gate: gate, wake: WAKE, zoneOf: zoneOf, fitOf: fitOf, layoutOf: layoutOf, backdropSmall: backdropSmall, nightNow: nightNow,
          ckFx: ckFx, MOSAIC_COLORS: MOSAIC_COLORS,
          mosaicPlan: mosaicPlan, mosaicAssign: mosaicAssign, coverRect: coverRect, MOSAICS: MOSAICS,
-         cleanFocus: cleanFocus, faceWindow: faceWindow, faceOrigin: faceOrigin, alignOf: alignOf, shuffle: shuffle, Deck: Deck, isImage: isImage,
+         cleanFocus: cleanFocus, cleanVariants: cleanVariants, photoUrl: photoUrl, releasePh: releasePh, faceWindow: faceWindow, faceOrigin: faceOrigin, alignOf: alignOf, shuffle: shuffle, Deck: Deck, isImage: isImage,
          // tests: the slide without real photos to count
          slide: { show: showForecastSlide, hide: hideForecastSlide, since: function (n) { sinceFc = n; }, schedule: function () { schedule(); } },
          paneOf: paneOf, slideOf: slideOf, turnOf: turnOf, extrasOf: extrasOf, mmss: mmss,

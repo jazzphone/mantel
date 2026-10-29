@@ -1159,6 +1159,64 @@ print('\n=== a host with photos of its own: photoSource and listPhotos ===');
   ok('without it: the house\'s folder again', S.config() && S.config().photos === 'media-source://media_source/local/photos', S.config());
 })();
 
+// 2026-10-29: photos sized to the screen, and the decoded photo let go
+print('\n=== a host that lists a photo in more than one size ===');
+(function () {
+  var I = window.hkSaver && window.hkSaver._ || null;
+  if (!I || !I.photoUrl) { ok('photoUrl is exposed for tests', false); return; }
+  var vs = I.cleanVariants({ variants: [[2560, '/p/screen'], [1280, '/p/mid'], ['x', '/bad'], [640], [900, ''], null] });
+  ok('cleanVariants keeps the sound ones, smallest first', JSON.stringify(vs) === '[[1280,"/p/mid"],[2560,"/p/screen"]]', vs);
+  ok('...none for an item without them', I.cleanVariants({}).length === 0 && I.cleanVariants(null).length === 0 && I.cleanVariants({ variants: 'x' }).length === 0);
+  var it = { url: '/p/own', variants: vs };
+  ok('a 1280 px tablet at ratio 1: the 1280 px copy', I.photoUrl(it, 1280, 1) === '/p/mid');
+  ok('a 1024 px iPad at ratio 2: the 2560 px copy', I.photoUrl(it, 1024, 2) === '/p/screen');
+  ok('a phone at ratio 3 (capped at 2): the 2560 px copy', I.photoUrl(it, 844, 3) === '/p/screen' && I.photoUrl(it, 844, 2) === '/p/screen');
+  ok('a small window at ratio 1: the smallest copy', I.photoUrl(it, 800, 1) === '/p/mid');
+  ok('a 4K screen: the largest there is', I.photoUrl(it, 3840, 2) === '/p/screen');
+  ok('a little under the copy still takes it (a 1366 px laptop)', I.photoUrl(it, 1366, 1) === '/p/mid');
+  ok('without variants: the item\'s own address', I.photoUrl({ url: '/p/own' }, 1280, 1) === '/p/own');
+  // Keep in View is the same on a smaller copy: faces and the focus are fractions of a photo of the same shape
+  var item = { faces: [[0.6, 0.2, 0.1, 0.15]] };
+  var a = I.faceWindow(item, 2560, 1440, 1280, 800, 1), b = I.faceWindow(item, 1280, 720, 1280, 800, 1);
+  ok('...the face window is the same at either size', a && b && Math.abs(a.fx - b.fx) < 1e-9 && Math.abs(a.fy - b.fy) < 1e-9, [a, b]);
+  // the saver loads the copy closest to its screen
+  var SH = window.hkShell, PS = SH.photoSource, LP = SH.listPhotos, W0 = window.innerWidth, H0 = window.innerHeight, R0 = window.devicePixelRatio;
+  var made = [], RealImage = globalThis.Image;
+  globalThis.Image = function () { var im = RealImage(); made.push(im); return im; };
+  SH.photoSource = function () { return 'host-album://sized'; };
+  SH.listPhotos = function (src) {
+    return src === 'host-album://sized' ? Promise.resolve([{ id: 's1', title: 'Sized', url: '/photos/s1/screen', variants: [[1280, '/photos/s1/mid'], [2560, '/photos/s1/screen']] }]) : null;
+  };
+  LOVELACE.config.hk_screensaver = Object.assign({}, LOVELACE.config.hk_screensaver, { show: 'photos', zoom: false, mosaic: false });
+  lovelacePanel.lovelace = { config: { views: [], hk_screensaver: LOVELACE.config.hk_screensaver } };
+  var hp = hassOwn('off');
+  hp.callWS = function (m) { ws.push(m); return Promise.resolve({ children: [] }); };
+  function shownWith(w, h, r) {
+    window.innerWidth = w; window.innerHeight = h; window.devicePixelRatio = r;
+    made = []; ws = [];
+    push(hp); S.photosChanged(); dispatchEvent({ type: 'location-changed' }); __runTimers();
+    S.start(); drainMicrotasks(); drainMicrotasks(); drainMicrotasks(); __runTimersUnder(1);
+    var fg = topPhotos()[0] && topPhotos()[0].querySelector('img.fg');
+    return { fg: fg && fg.src, loaded: made.length && made[0] };
+  }
+  var tab = shownWith(1280, 800, 1);
+  ok('a wall tablet (1280 x 800): the layer shows the 1280 px copy', tab.fg === '/photos/s1/mid', tab.fg);
+  ok('...and the Image that sized it let go once it was drawn', tab.loaded && !tab.loaded.attrs.src && tab.loaded.onload === null, tab.loaded && tab.loaded.attrs);
+  S.stop(); woke();
+  var pad = shownWith(1194, 834, 2);
+  ok('an iPad at ratio 2: the 2560 px copy', pad.fg === '/photos/s1/screen', pad.fg);
+  S.stop(); woke();
+  var rel = { img: new Fake('img'), w: 10, h: 10 }; rel.img.src = '/x.jpg';
+  I.releasePh(rel);
+  ok('releasePh drops the source and the reference, not the size', rel.img === null && rel.w === 10);
+  I.releasePh(rel); I.releasePh(null);
+  ok('...and is safe to call again, or with nothing', true);
+  window.innerWidth = W0; window.innerHeight = H0; window.devicePixelRatio = R0;
+  globalThis.Image = RealImage;
+  SH.photoSource = PS; SH.listPhotos = LP;
+  S.photosChanged(); push(hassOwn('off')); dispatchEvent({ type: 'location-changed' }); __runTimers();
+})();
+
 // 2026-10-13: the clock's text over photos, and the mosaic's line colors
 (function () {
   var I = window.hkSaver && window.hkSaver._ || null;

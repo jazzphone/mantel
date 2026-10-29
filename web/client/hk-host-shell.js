@@ -123,7 +123,10 @@
     // house's `source` (a host may give a screen a photo album of its own),
     // or null to keep it. listPhotos(source): a promise of [{ id, title,
     // url }] for a source the host serves itself, or null for one it does
-    // not (HK then walks it as a media folder). Home Assistant: null, both.
+    // not (HK then walks it as a media folder). An item may add `variants`:
+    // [[long edge in px, address], ...] -- the same photo in other sizes; the
+    // saver loads the one closest to the screen's (2026-10-29). Home
+    // Assistant: null, both.
     photoSource: nil,
     listPhotos: nil,
     // THE HOST'S OWN CAMERAS THAT ARE NOT THE HOUSE'S: the integration
