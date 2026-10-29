@@ -39,7 +39,7 @@ with it. **Accessories → Smoke & CO** ([Types](Accessories.md#types)) lists
 the alarms that set it off: hide a camera that only hears the alarm from
 **Smoke & CO**, or count a gas detector with its **Also Count As**.
 
-![A screen’s Status Chips page in HK Settings](images/settings-chips.png)
+![A screen’s Status Chips page in HK Settings](images/settings-chips.webp)
 
 **Only when there’s something to report.** Some chips are *quiet*: they appear
 only while something is on, open, running or wet, so the row carries news
@@ -77,7 +77,7 @@ add it to any screen:
    **More**. **All Screens → Status Chips** then sets it Always or When Active,
    screen by screen.
 
-![The Custom Chips page in HK Settings](images/settings-custom-chips.png)
+![The Custom Chips page in HK Settings](images/settings-custom-chips.webp)
 
 A custom chip’s minus on a screen takes it off that screen only. **Delete
 Chip** in the Library removes it everywhere.
@@ -94,7 +94,7 @@ Chips**:
   on 1"). A chip's page sets **Always** or **When Active** for every screen
   at once, lists the screens that don't show it, and what it counts.
 
-![All Screens → Status Chips: each screen’s chip row, then each chip with where it shows](images/settings-status-chips.png)
+![All Screens → Status Chips: each screen’s chip row, then each chip with where it shows](images/settings-status-chips.webp)
 *All Screens → Status Chips: every screen’s chips side by side.*
 
 **Custom Chips** are listed there too, set the same way for each screen.

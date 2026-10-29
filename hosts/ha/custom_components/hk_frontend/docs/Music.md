@@ -4,7 +4,7 @@ Whole-home music through Music Assistant. Choose one or more rooms on a
 screen, tap a playlist, and it plays there, grouped and in step. Music can be
 moved to other rooms, added to more rooms, or stopped everywhere.
 
-![The Music page on a wall tablet: what is playing on the left, Browse on the right](images/tablet-music.png)
+![The Music page on a wall tablet: what is playing on the left, Browse on the right](images/tablet-music.webp)
 *The Music page on a wall tablet: what plays and where on the left, Browse on the right.*
 
 ## What you need
@@ -123,13 +123,13 @@ speaker:
 - The **Speakers** status chip, and the optional **Now Playing bar** docked
   along the bottom of a screen ([below](#the-now-playing-bar)).
 
-![The Music page on a phone: Browse, with what is playing in the bar at the foot](images/phone-music.png)
+![The Music page on a phone: Browse, with what is playing in the bar at the foot](images/phone-music.webp)
 *On a phone the Music page is Browse; what is playing is the bar at the foot, and a tap on it opens Now Playing.*
 
-![The Music page on a wall tablet with Plays on open: the Speakers panel dropped down under it, a third room ticked for the next pick, with Reset and Update](images/tablet-music-plays-on.png)
+![The Music page on a wall tablet with Plays on open: the Speakers panel dropped down under it, a third room ticked for the next pick, with Reset and Update](images/tablet-music-plays-on.webp)
 *Plays on: what's ticked is where the next pick plays, and Update moves what is playing there. The line above the buttons says what each will do.*
 
-![The Music page on a wide desk screen: what is playing, Browse, and the Speakers column with its Speakers and Volume tabs](images/desk-music.png)
+![The Music page on a wide desk screen: what is playing, Browse, and the Speakers column with its Speakers and Volume tabs](images/desk-music.webp)
 *On a wide desk screen the Speakers column is always up, so there is no Plays on button.*
 
 ## Settings
@@ -161,7 +161,7 @@ under **Settings → Devices & services → HK Frontend** has the first three, a
 the others. Deleting a preset leaves the group in Music Assistant; deleting a
 playlist pill leaves the playlists in your library.
 
-![The Music settings on the HK Settings page](images/settings-music.png)
+![The Music settings on the HK Settings page](images/settings-music.webp)
 
 ## The Now Playing bar
 
@@ -171,7 +171,7 @@ screen’s whole width, square and opaque, with a hairline on top; a docked
 menu and a tab bar rail end above it, and a tab bar along the bottom rides
 over it. The page gets room below so its last row scrolls clear of it.
 
-![Home on a wall tablet with the Now Playing bar docked along the bottom and the Timer Bar row above the player](images/tablet-home-media-bar.png)
+![Home on a wall tablet with the Now Playing bar docked along the bottom and the Timer Bar row above the player](images/tablet-home-media-bar.webp)
 *Home on a wall tablet: the Timer Bar’s row over the docked Now Playing bar.*
 
 Three switches under the screen’s **Behavior** ([Screens](Screens.md#behavior))
@@ -199,7 +199,7 @@ shape it:
   the screen is showing, and stays for 20 seconds after it stops. Pausing
   music the screen is following keeps it there.
 
-![The Now Playing bar's Speakers panel open above its button: Speakers, Volume and Queue](images/media-bar-speakers.png)
+![The Now Playing bar's Speakers panel open above its button: Speakers, Volume and Queue](images/media-bar-speakers.webp)
 *The bar’s Speakers panel: tick rooms, then Update or Stop.*
 
 **Putting it away.** The bar has no close button: **swipe it down**. Only a

@@ -915,27 +915,58 @@
     else if (P) paint();
     // the glass needs the face laid out to know where it is
     requestAnimationFrame(function () { if (ctx.glass && cv) ctx.glass(cv); });
-    var tT = null, tStart = null;
-    if (flat && style === 'classic') tStart = setTimeout(function () { now(); tT = setInterval(now,60000); }, 60000 - Date.now() % 60000);
-    else tT = setInterval(now,1000);
-    var bT = null;
-    if (!P) { /* nothing behind */ }
-    else if (how === 'live' && speed) {
-      var loop = function (ts) {
-        if (dead) return;
-        raf = requestAnimationFrame(loop);
-        if (ts - lastDraw < 32) return;          // at most ~30 a second
-        lastDraw = ts;
-        paint();
-      };
+    // NOTHING DRAWS FOR A SCREEN NOBODY SEES (2026-10-29). The 30-a-second
+    // loop, the face's second and the morph's frame all went on under the
+    // kiosk's black and in a hidden page, drawing a canvas for no one: the
+    // black is hk-saver.js's (hkSaver.black(), and 'hk-black' when it
+    // changes), the hidden page the browser's. Held, nothing is scheduled at
+    // all; the change that ends it starts them again (below).
+    var tT = null, tStart = null, bT = null, rested = false;
+    var held = function () {
+      if (document.hidden) return true;
+      var S = window.hkSaver;
+      try { return !!(S && typeof S.black === 'function' && S.black()); } catch (e) { return false; }
+    };
+    var loop = function (ts) {
+      if (dead) return;
+      if (held()) { rest(); return; }            // resumes at wake()
       raf = requestAnimationFrame(loop);
-    } else if (how === 'morph' && cv2) {
-      bT = setInterval(function () { if (dead) return; swap(); paint(); }, MORPH);
-    } else {
-      // still (Black, Speed 0) or Low Poly's facets: again once a minute --
-      // the sky's colors, the part of the day
-      bT = setInterval(paint, 60000);
-    }
+      if (ts - lastDraw < 32) return;          // at most ~30 a second
+      lastDraw = ts;
+      paint();
+    };
+    var run = function () {
+      if (flat && style === 'classic') tStart = setTimeout(function () { now(); tT = setInterval(now,60000); }, 60000 - Date.now() % 60000);
+      else tT = setInterval(now,1000);
+      if (!P) { /* nothing behind */ }
+      else if (how === 'live' && speed) {
+        raf = requestAnimationFrame(loop);
+      } else if (how === 'morph' && cv2) {
+        bT = setInterval(function () { if (dead) return; swap(); paint(); }, MORPH);
+      } else {
+        // still (Black, Speed 0) or Low Poly's facets: again once a minute --
+        // the sky's colors, the part of the day
+        bT = setInterval(paint, 60000);
+      }
+    };
+    var rest = function () {
+      if (rested) return;
+      rested = true;
+      clearInterval(tT); clearTimeout(tStart); if (bT) clearInterval(bT);
+      tT = tStart = bT = null;
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    };
+    var wake = function () {
+      if (dead || !rested) return;
+      rested = false;
+      tLast = Date.now();                      // the time asleep is not motion
+      now();
+      run();
+    };
+    var recheck = function () { if (dead) return; if (held()) rest(); else wake(); };
+    document.addEventListener('visibilitychange', recheck);
+    window.addEventListener('hk-black', recheck);
+    if (held()) { rested = true; } else run();
     // BURN-IN: a few percent somewhere else every five minutes
     var dT = opts.drift === false ? null : setInterval(function () {
       face.style.transform = 'translate(' + ((Math.random() - 0.5) * 4).toFixed(2) + '%,' + ((Math.random() - 0.5) * 4).toFixed(2) + '%)';
@@ -949,6 +980,8 @@
         dead = true;
         clearInterval(tT); clearTimeout(tStart); if (bT) clearInterval(bT); if (dT) clearInterval(dT);
         if (raf) cancelAnimationFrame(raf);
+        document.removeEventListener('visibilitychange', recheck);
+        window.removeEventListener('hk-black', recheck);
         if (cv) { cv.width = 0; cv.height = 0; }
         if (cv2) { cv2.width = 0; cv2.height = 0; }
         if (root.parentNode) root.parentNode.removeChild(root);

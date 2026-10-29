@@ -7,7 +7,7 @@ A generated screen has a page for each kind of thing your home has, a page for
 every room, and any custom pages you add. The status chips, the scene pills and
 the menu open them; a back button returns to Home.
 
-![The Lights page, room by room](images/tablet-lights.png)
+![The Lights page, room by room](images/tablet-lights.webp)
 
 ## Category pages
 
@@ -38,9 +38,9 @@ doors are on Security.
 
 | | | |
 |---|---|---|
-| ![The Weather page](images/tablet-weather.png) | ![The Security page: the alarm keypad with the locks and garage door beside it](images/tablet-security.png) | ![The Climate page](images/tablet-climate.jpg) |
+| ![The Weather page](images/tablet-weather.webp) | ![The Security page: the alarm keypad with the locks and garage door beside it](images/tablet-security.webp) | ![The Climate page](images/tablet-climate.webp) |
 | Weather | Security | Climate |
-| ![The Doors & Windows page](images/tablet-doors-windows.png) | ![The Water page](images/tablet-water.png) | ![The Timers page](images/tablet-timers.png) |
+| ![The Doors & Windows page](images/tablet-doors-windows.webp) | ![The Water page](images/tablet-water.webp) | ![The Timers page](images/tablet-timers.webp) |
 | Doors & Windows | Water | Timers |
 
 Every page, on a tablet and a phone: [Gallery](Gallery.md).
@@ -72,7 +72,7 @@ show: a page for your garden, say. It belongs to HK Frontend, not to any one das
 5. On each screen that should show it, open **Pages** and add it from
    **More**.
 
-![The Custom Pages page in HK Settings](images/settings-pages.png)
+![The Custom Pages page in HK Settings](images/settings-pages.webp)
 
 A chip whose page has the same address opens it: the Energy chip opens a
 custom page at `energy`.

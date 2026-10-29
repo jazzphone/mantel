@@ -825,6 +825,17 @@ def test_build_static_is_deterministic_and_content_derived(tmp_path):
     assert build_static.build(src, tmp_path / "out3") != id1
 
 
+def test_build_static_leaves_the_developer_pages_out(tmp_path):
+    src = tmp_path / "web"
+    _tree(src, {"home.html": "<p>", "hk/modules/hk-sky.js": "x", "hk/modules/hk-skylab.js": "x", "hk/pages/skylab.html": "x",
+                "hk/pages/skyprobe.html": "x", "hk/pages/seasonal-scenery-review.html": "x", "hk/pages/other.html": "x"})
+    build_static.build(src, tmp_path / "out")
+    assert sorted(json.loads((tmp_path / "out/static-manifest.json").read_text())["files"]) == [
+        "hk/modules/hk-sky.js", "hk/pages/other.html", "home.html"]
+    real = {p.relative_to(ROOT / "web").as_posix() for p in (ROOT / "web").rglob("*") if build_static._wanted(p, ROOT / "web")}
+    assert not real & build_static.DEV_ONLY and all((ROOT / "web" / n).is_file() for n in build_static.DEV_ONLY)   # still in the repo
+
+
 def test_build_static_refuses_an_existing_output(tmp_path):
     src = tmp_path / "web"
     _tree(src, {"a.js": "x"})

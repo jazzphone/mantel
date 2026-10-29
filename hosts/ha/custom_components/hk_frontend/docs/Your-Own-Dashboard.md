@@ -18,12 +18,12 @@ Everything on this page is also in HK Settings, under **Advanced → Your Own
 Dashboards → YAML Reference**, ready to copy, and a dashboard of your own has
 a link to it at the bottom of its page in HK Settings.
 
-![HK Settings → Advanced → Your Own Dashboards](images/settings-yaml-reference.png)
+![HK Settings → Advanced → Your Own Dashboards](images/settings-yaml-reference.webp)
 
 Each snippet opens on a page of its own, filled in from your home (your
 weather, a tablet user of yours), with **Copy**:
 
-![A snippet in HK Settings, with Copy](images/settings-yaml-snippet.png)
+![A snippet in HK Settings, with Copy](images/settings-yaml-snippet.webp)
 
 **Where the YAML goes.** For a dashboard made in Home Assistant’s editor:
 open it, then **Edit dashboard → ⋮ → Raw configuration editor**. A dashboard

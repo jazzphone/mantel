@@ -8,7 +8,7 @@ If you’d rather have something still, choose a **Color**, a **Photo** of
 your own or HK Frontend’s own **Landscapes** as the
 [Background](#the-background) instead.
 
-![The live sky on a clear day, behind the Home page](images/sky-clear-day.png)
+![The live sky on a clear day, behind the Home page](images/sky-clear-day.webp)
 
 ## The Background
 
@@ -23,7 +23,7 @@ without a color of its own show behind the cards.
 | **Photo** | A photo of your own, sharp and still, edge to edge. No sun, moon, stars, weather or decorations. A bright photo is dimmed a little so the cards stay readable. |
 | **Landscapes** | Fifty landscape photos that come with HK Frontend, the same ones the screensaver’s clock can show: a new one each time the screen wakes, on a schedule, or the same one. Still, like a Photo. [Landscapes](#landscapes), below. |
 
-![All Screens → Sky / Background in HK Settings: the Background, Live Sky, Color, Photo or Landscapes](images/settings-sky.png)
+![All Screens → Sky / Background in HK Settings: the Background, Live Sky, Color, Photo or Landscapes](images/settings-sky.webp)
 *All Screens → Sky / Background starts with the Background.*
 
 Before, the closest thing to a plain color was a Backdrop, which only
@@ -43,7 +43,7 @@ photo’s address, without signing in, as it does a person’s picture. The
 address is long and random, so it can’t be guessed, but anyone it reaches can
 open it: choose a photo you wouldn’t mind a visitor seeing.
 
-![Home on a wall tablet with a Photo as its Background](images/tablet-background-photo.png)
+![Home on a wall tablet with a Photo as its Background](images/tablet-background-photo.webp)
 
 Under the photo, **Look** softens or colors it: **Blur** (0–100%), **Dim**
 (0–80%), **Saturation** (100% as taken, 0% black and white, up to 200%) and
@@ -90,11 +90,11 @@ above still applies on top: a blur or a dim works with either. A set of your own
 [your files](Your-Files.md), as for the
 [screensaver’s clock](Screensaver-and-Idle.md#landscapes).
 
-![Home on a wall tablet with Landscapes as its Background](images/tablet-background-landscapes.png)
+![Home on a wall tablet with Landscapes as its Background](images/tablet-background-landscapes.webp)
 
-![Sky / Background on Landscapes: the one showing now, and when it changes](images/settings-sky-landscapes.png)
+![Sky / Background on Landscapes: the one showing now, and when it changes](images/settings-sky-landscapes.webp)
 
-![Choose a Landscape: all fifty, the one in use ticked](images/settings-landscape-pick.png)
+![Choose a Landscape: all fifty, the one in use ticked](images/settings-landscape-pick.webp)
 
 ### Reset to Defaults
 
@@ -138,11 +138,11 @@ or its own color ([Page backgrounds](#page-backgrounds)).
 Glass tiles and white text on top of the sky stay readable, even at noon:
 when the sky gets bright, a soft shade comes in behind the cards.
 
-![The live sky at night](images/sky-night.png)
+![The live sky at night](images/sky-night.webp)
 
-![Rain on the live sky](images/sky-rain.png)
+![Rain on the live sky](images/sky-rain.webp)
 
-![Snow on the live sky](images/sky-snow.png)
+![Snow on the live sky](images/sky-snow.webp)
 
 It reads:
 
@@ -237,7 +237,7 @@ Each screen can choose its own under **Appearance → Sky / Background**:
 | **Daytime Sky** | How bright the midday blue runs. **Natural** (the default) is a real midday sky. **Deep** is the darker, dusky blue the sky had before; **Balanced** is in between. The shade behind the cards rises with it, so all three stay readable. Sunrise, sunset, dusk and night look the same in all three. A screen can choose its own. |
 | **Sky Colors** | The live sky’s own colors, with its weather and decorations over them (it was called Backdrop). Live Sky follows the sun's colors. Dusk, Midnight, Fjord, Dune, Graphite, Plum, Ember and Mist use curated day/night gradients, and Black is plain black. Custom provides two sets of four colors, top to horizon. Day applies above the horizon, Night at or below it. |
 
-![Sky / Background in HK Settings: Animations, Pause When Not in Focus, Moving Things with Behind the Cards and In Front of the Cards, Weather and Rain & Snow](images/settings-moving-things.png)
+![Sky / Background in HK Settings: Animations, Pause When Not in Focus, Moving Things with Behind the Cards and In Front of the Cards, Weather and Rain & Snow](images/settings-moving-things.webp)
 *All Screens → Sky / Background: Moving Things, Behind the Cards or In Front of the Cards.*
 
 After these come **Seasonal Decorations** and **Liveliness**
@@ -277,25 +277,25 @@ condition and cloud cover; the lighting from the sun.
 
 | | |
 |---|---|
-| ![Realistic clouds, sunny: a few small cumulus in a clear blue sky](images/clouds-sunny.jpg) | ![Realistic clouds, partly cloudy: cumulus near and far](images/clouds-partly-cloudy.jpg) |
+| ![Realistic clouds, sunny: a few small cumulus in a clear blue sky](images/clouds-sunny.webp) | ![Realistic clouds, partly cloudy: cumulus near and far](images/clouds-partly-cloudy.webp) |
 | **Sunny** — a few far cumulus, low on the horizon | **Partly cloudy** — cumulus near and far, now and then a high wisp |
-| ![Realistic clouds, mostly cloudy: big cumulus and broken sheets](images/clouds-mostly-cloudy.jpg) | ![Realistic clouds, overcast: a photographic deck across the sky](images/clouds-overcast.jpg) |
+| ![Realistic clouds, mostly cloudy: big cumulus and broken sheets](images/clouds-mostly-cloudy.webp) | ![Realistic clouds, overcast: a photographic deck across the sky](images/clouds-overcast.webp) |
 | **Mostly cloudy** — big cumulus, broken sheets and a haze along the horizon | **Overcast** (85% cover or more) — one photographic deck, drifting to and fro |
-| ![Realistic clouds in the rain](images/clouds-rain.jpg) | ![Realistic clouds, a thunderstorm: the gray storm deck](images/clouds-thunderstorm.jpg) |
+| ![Realistic clouds in the rain](images/clouds-rain.webp) | ![Realistic clouds, a thunderstorm: the gray storm deck](images/clouds-thunderstorm.webp) |
 | **Rain** — the gray deck, with the rain falling in front | **Thunderstorm** — the gray storm deck, whatever cover is reported, lightning flashing in it |
-| ![Realistic clouds in the snow](images/clouds-snow.jpg) | ![Classic clouds on the same partly cloudy sky](images/clouds-classic.jpg) |
+| ![Realistic clouds in the snow](images/clouds-snow.webp) | ![Classic clouds on the same partly cloudy sky](images/clouds-classic.webp) |
 | **Snow** — the gray deck, with the snow falling | **Classic**, the same partly cloudy sky, for comparison |
 
 The same partly cloudy sky through the day's lightings:
 
 | | | |
 |---|---|---|
-| ![Realistic clouds lit gold near sunset](images/clouds-golden.jpg) | ![Realistic clouds at dusk](images/clouds-dusk.jpg) | ![Realistic clouds at night, moonlit](images/clouds-night.jpg) |
+| ![Realistic clouds lit gold near sunset](images/clouds-golden.webp) | ![Realistic clouds at dusk](images/clouds-dusk.webp) | ![Realistic clouds at night, moonlit](images/clouds-night.webp) |
 | **Golden hour** (the sun under 10°) | **Dusk** (just below the horizon) | **Night** |
 
 On a dashboard:
 
-![Realistic clouds behind the Home page on a wall tablet](images/sky-realistic-clouds.jpg)
+![Realistic clouds behind the Home page on a wall tablet](images/sky-realistic-clouds.webp)
 
 ### Page backgrounds
 

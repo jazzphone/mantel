@@ -31,7 +31,7 @@ highlighted.
 
 | | |
 |---|---|
-| ![The Home screen on a phone, with the tab bar along the bottom: Home, three pages and More](images/phone-home.png) | ![The More sheet on a phone, as a list: the pages that didn't fit, then Home Assistant and every room](images/phone-tabbar-more.png) |
+| ![The Home screen on a phone, with the tab bar along the bottom: Home, three pages and More](images/phone-home.webp) | ![The More sheet on a phone, as a list: the pages that didn't fit, then Home Assistant and every room](images/phone-tabbar-more.webp) |
 | The tab bar | More |
 
 The tab for the page you are on is highlighted in the menu's
@@ -77,7 +77,7 @@ Settings) puts the bar:
 
 | | |
 |---|---|
-| ![A tablet with the tab bar as a rail down the right side, More open beside it as a list](images/tablet-tabbar-rail.png) | ![A tablet with the tab bar along the top, the page starting below it](images/tablet-tabbar-top.png) |
+| ![A tablet with the tab bar as a rail down the right side, More open beside it as a list](images/tablet-tabbar-rail.webp) | ![A tablet with the tab bar along the top, the page starting below it](images/tablet-tabbar-top.webp) |
 | Right, More open as a list | Top |
 
 **Tabs in Bar** (along the bottom or the top) and **Tabs in Rail** (down
@@ -105,7 +105,7 @@ width), its icons and its names together.
 | Icons | 22 px | 24 px | 26 px |
 | Names | 10 px | 10.5 px | 11.5 px (10.5 on a phone) |
 
-![The tab bar on a tablet at each size: Small, Medium and Large, top to bottom](images/tablet-tabbar-sizes.png)
+![The tab bar on a tablet at each size: Small, Medium and Large, top to bottom](images/tablet-tabbar-sizes.webp)
 
 A phone's names stay Medium's at Large: its bar already spans the screen,
 so bigger names would only be cut shorter.

@@ -3,7 +3,7 @@
 An HDHomeRun tuner’s channels, live with sound on your screens, with an
 optional guide.
 
-![The Live TV page on a wall tablet: a guide of channels with what is on now](images/tablet-live-tv.png)
+![The Live TV page on a wall tablet: a guide of channels with what is on now](images/tablet-live-tv.webp)
 
 An HDHomeRun sends MPEG-2 video with AC-3 audio, which no browser can play,
 and the tuner cannot convert it. So each channel you pick becomes a camera
@@ -70,7 +70,7 @@ the gear does not:
 | Tuner & Guide → Tuner Address | Set when the feature was added | The HDHomeRun’s address, if it moves. The new address is checked before it is saved. |
 | Tuner & Guide → Guide Address | None | An XMLTV file (`http://` or `https://`), or empty for no guide. With a guide, each channel shows what’s on and uses the network’s name. |
 
-![The Live TV settings on the HK Settings page](images/settings-live-tv.png)
+![The Live TV settings on the HK Settings page](images/settings-live-tv.webp)
 
 Saving restarts the feature, the way its gear does. A channel you take off the
 list takes its camera and “now” sensor with it.

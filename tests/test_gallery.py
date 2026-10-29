@@ -56,3 +56,14 @@ def test_the_house_is_invented():
 def test_the_docs_images_are_the_gallery_s():
     images = {p.stem for p in (ROOT / "docs/images").glob("*.webp")}
     assert set(gallery.SHOTS) <= images
+
+
+def test_hk_frontend_s_help_screenshots_are_small_webp():
+    """2026-10-29: 157 PNG and JPG files (79 MB) became WebP of at most 1440 px, as the guide's own are. A new
+    screenshot goes in the same way (docs/development/Screenshots.md), not as a PNG that ships in every image."""
+    from PIL import Image
+    folder = ROOT / "hosts/ha/custom_components/hk_frontend/docs/images"
+    assert [p.name for p in folder.iterdir() if p.suffix.lower() != ".webp"] == []
+    for p in folder.glob("*.webp"):
+        with Image.open(p) as im:
+            assert max(im.size) <= 1440, p.name

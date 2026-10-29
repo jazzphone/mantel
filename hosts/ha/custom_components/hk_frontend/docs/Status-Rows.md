@@ -16,7 +16,7 @@ Pages → the page → Status Row**, and for the room pages **All Screens → Ro
 
 | | |
 |---|---|
-| ![The Doors & Windows page, its status row under the title](images/tablet-doors-windows.png) | ![HK Settings → Pages → the page → Status Row](images/settings-status-rows.png) |
+| ![The Doors & Windows page, its status row under the title](images/tablet-doors-windows.webp) | ![HK Settings → Pages → the page → Status Row](images/settings-status-rows.webp) |
 | The Doors & Windows page’s row | **Pages → the page → Status Row** |
 
 ## A room page’s row

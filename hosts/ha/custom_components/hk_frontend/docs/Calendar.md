@@ -10,11 +10,11 @@ CalDAV, a holiday or school feed. Events can be added, changed and deleted
 wherever the calendar itself allows it (a Local Calendar does); a read-only
 feed is shown, never edited.
 
-![The Calendar page: the month, and the chosen day’s events beside it](images/tablet-calendar.png)
+![The Calendar page: the month, and the chosen day’s events beside it](images/tablet-calendar.webp)
 
 ## All Screens → Calendar
 
-![All Screens → Calendar in HK Settings](images/settings-calendar.png)
+![All Screens → Calendar in HK Settings](images/settings-calendar.webp)
 
 | Setting | Default | What it does |
 |---|---|---|
@@ -58,10 +58,10 @@ gets it once **Calendar** is added there.
 
 | | |
 |---|---|
-| ![The week](images/tablet-calendar-week.png) | ![The day](images/tablet-calendar-day.png) |
+| ![The week](images/tablet-calendar-week.webp) | ![The day](images/tablet-calendar-day.webp) |
 | The week | The day, with the chosen event |
 
-![The event sheet: a new event](images/tablet-calendar-new-event.png)
+![The event sheet: a new event](images/tablet-calendar-new-event.webp)
 
 On a phone the page stands up: the month with a dot under each day that has
 events and the chosen day below it, the week as a list day by day, and the
@@ -75,7 +75,7 @@ every five minutes, and straight away after any change made from a screen.
 **Screensaver Options → Side Pane → Calendar**: today’s events and the coming days’
 down the right of the screensaver, the photos (or the forecast) beside it.
 
-![The photo screensaver with the calendar pane](images/tablet-screensaver-calendar.png)
+![The photo screensaver with the calendar pane](images/tablet-screensaver-calendar.webp)
 
 See [Screensaver and Idle](Screensaver-and-Idle.md#the-side-pane-calendar-and-music).
 

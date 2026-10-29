@@ -5,7 +5,7 @@ settings for: the dashboard on a wall tablet, on your phone, on your computer,
 in your car. This page is what a screen is and how to make one; the pages
 under **Screens** in the sidebar take each part in turn.
 
-![A wall tablet’s Home page: the header, the status chips, the camera strip, scenes and favorites](images/tablet-home.png)
+![A wall tablet’s Home page: the header, the status chips, the camera strip, scenes and favorites](images/tablet-home.webp)
 
 ## Two kinds of screen
 
@@ -165,7 +165,7 @@ Its settings come in groups, each explained on its own page:
 
 ### Behavior
 
-![A screen's Behavior in HK Settings: Allow Pop-ups, Now Playing Bar, Timer Bar and On Every Page](images/settings-screen-behavior.png)
+![A screen's Behavior in HK Settings: Allow Pop-ups, Now Playing Bar, Timer Bar and On Every Page](images/settings-screen-behavior.webp)
 *A screen’s Behavior: the docked bar’s three switches under Allow Pop-ups.*
 
 | Setting | Default | What it does |
@@ -198,7 +198,7 @@ Returning to Home when idle, and Sleep Screen, are each wall tablet’s own:
 
 #### Screensaver Options
 
-![Screensaver Options](images/settings-screensaver.png)
+![Screensaver Options](images/settings-screensaver.webp)
 
 | Setting | Default | What it does |
 |---|---|---|

@@ -12,7 +12,8 @@ OUTPUT (all tileable, all written to custom_components/hk_frontend/frontend/sky/
   clouds-c.png   grey+alpha, high frequency  near detail / parallax
                (then cloud_webp.py re-encodes the three cloud PNGs as lossless
                clouds-{a,b,c}.webp -- alpha bit-identical -- which is what
-               hk-sky.js loads; the PNGs stay as the canonical pixels)
+               hk-sky.js loads; the PNGs are the canonical pixels, written here but
+               no longer committed)
   stars.png      RGBA                        night star field
   flakes.png     RGBA                        snow
   rain.png       RGBA                        rain streaks, near and far

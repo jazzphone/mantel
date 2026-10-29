@@ -65,15 +65,15 @@ off. Once you scroll, the tabs float at the top of the page on a strip of
 their own (in the [Tinted](Appearance.md#tinted) look a near-solid one, with no
 blur); on a phone the strip is just the tabs.
 
-![The Energy page on a wall tablet, on Now: the whole home's power and its last three hours, Where it's going, the house battery and the tiles](images/tablet-energy.png)
+![The Energy page on a wall tablet, on Now: the whole home's power and its last three hours, Where it's going, the house battery and the tiles](images/tablet-energy.webp)
 *The Energy page on Now: power right now, with the tabs at the top.*
 
-![This Month on the Energy page: the rings against a usual month, and Your Month as a calendar, each day colored from well below usual to well above](images/tablet-energy-month.png)
+![This Month on the Energy page: the rings against a usual month, and Your Month as a calendar, each day colored from well below usual to well above](images/tablet-energy-month.webp)
 *This Month: the rings, and Your Month as a calendar. Tap a day for that day's use.*
 
 | | |
 |---|---|
-| <img src="images/phone-energy.jpg" width="260" alt="The Energy page on a phone"> | ![HK Settings → Pages → Energy](images/settings-energy.png) |
+| <img src="images/phone-energy.webp" width="260" alt="The Energy page on a phone"> | ![HK Settings → Pages → Energy](images/settings-energy.webp) |
 | On a phone | **HK Settings → Pages → Energy** |
 
 ## What it starts from
@@ -169,7 +169,7 @@ on a backdrop of its own.
   a switch has its power button. A car's tile has a button that starts or
   stops charging (it asks before stopping).
 
-![The Power page on a wall tablet: the house, with the grid, the battery and the cars over it](images/tablet-power.png)
+![The Power page on a wall tablet: the house, with the grid, the battery and the cars over it](images/tablet-power.webp)
 *The Power page: right now, and the battery's controls.*
 
 **The house** comes with HK Frontend: a made-up house, drawn in layers so
@@ -214,7 +214,7 @@ lists a custom page at that address shows the Power page in its place.
 | Battery Levels | None | **Add…** a number the battery takes; each is a slider on the page. Tap one to remove it. |
 | (each car) | Automatic | **Name** (blank: its integration's) and **Charging Power**: Automatic (the wall chargers), any power reading (a wall charger, or the circuit a charger without a network is on), or **The Car's Own Reading**. Cars are the ones the Energy page finds, with their parts found on each car's own device. |
 
-![HK Settings → Energy → Power Page](images/settings-power.png)
+![HK Settings → Energy → Power Page](images/settings-power.webp)
 
 ## Set it up
 

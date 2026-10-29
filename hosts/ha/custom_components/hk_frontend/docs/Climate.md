@@ -4,7 +4,7 @@ Open **Climate** from the menu or the Home page’s Climate chip. The status row
 sits directly below the Climate heading, above the room accessories and
 thermostats.
 
-![The Climate page with its summary row and two thermostats side by side](images/desktop-climate.jpg)
+![The Climate page with its summary row and two thermostats side by side](images/desktop-climate.webp)
 
 These screenshots use fictional rooms, devices and readings.
 
@@ -30,7 +30,7 @@ Tap any summary to open a sheet of accessory pills. Each pill carries its room
 and current reading or state. Even a summary with only one source opens this
 list.
 
-![Temperature sources shown as room-labeled pills](images/sheet-climate-temperature.jpg)
+![Temperature sources shown as room-labeled pills](images/sheet-climate-temperature.webp)
 
 Tap a pill to open that accessory’s controls or sensor details. **Back to
 Temperature** (or the category you opened), closing the accessory sheet, or
@@ -42,7 +42,7 @@ The summary and its open list update as readings and membership change. An
 unavailable reading stays in the list, labeled **Unavailable**, and does not
 affect the range. If every reading is unavailable, the summary says so.
 
-<img src="images/phone-climate-temperature.jpg" width="300" alt="The Temperature list on a phone, using fictional readings">
+<img src="images/phone-climate-temperature.webp" width="300" alt="The Temperature list on a phone, using fictional readings">
 
 ## Choose the sources
 
@@ -89,7 +89,7 @@ thermostat catches up, and a reading that arrives in the meantime doesn't
 snap it back. The same dial is on the thermostat's detail sheet, and on a
 water heater's.
 
-![A thermostat's detail sheet: the dial with its target, the modes, and the last 24 hours](images/sheet-thermostat.png)
+![A thermostat's detail sheet: the dial with its target, the modes, and the last 24 hours](images/sheet-thermostat.webp)
 *A thermostat's sheet: drag the dot to set the target.*
 
 A water heater on the page has the same dial with its own controls, as on its
@@ -108,7 +108,7 @@ accessories and thermostat section also stack, with no horizontal page
 overflow. The Thermostats heading stays aligned with the first dial at every
 width.
 
-![The Climate page at tablet width, with stacked thermostats](images/tablet-climate.jpg)
+![The Climate page at tablet width, with stacked thermostats](images/tablet-climate.webp)
 
 After updating HK Frontend, restart Home Assistant and reload each dashboard
 to load the new source discovery and frontend files.

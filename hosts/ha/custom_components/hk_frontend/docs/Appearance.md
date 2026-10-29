@@ -9,7 +9,7 @@ Assistant’s header and sidebar show.
 choose its own. Under Appearance Style, one line names the screens that have
 their own look (each a link to it), since a change here doesn’t reach them.
 
-![The Appearance page in HK Settings](images/settings-appearance.png)
+![The Appearance page in HK Settings](images/settings-appearance.webp)
 
 | Setting | Default | What it does |
 |---|---|---|
@@ -22,7 +22,7 @@ their own look (each a link to it), since a change here doesn’t reach them.
 | Icon Circles | Dark | Shown when the Glass Style is Tinted. **Dark**, as the Home app draws the circle behind an off accessory’s icon, or **Light**, which keeps its shape over dark scenery. |
 | Page Pills | Default | Every page pill: the pills in a screen’s Scenes row that open a page. Tap one to set its name, icon and color, the same on every screen ([Home Page](Home-Page.md#scenes-and-page-pills)). |
 
-![The Glass Style page: Glass, Frosted, Tinted and Blur, with Blur Mode's three choices under it](images/settings-glass-style.png)
+![The Glass Style page: Glass, Frosted, Tinted and Blur, with Blur Mode's three choices under it](images/settings-glass-style.webp)
 *All Screens → Appearance → Glass Style: the four styles, and with Blur chosen, its Blur Mode below.*
 
 The four styles side by side:
@@ -65,7 +65,7 @@ out, now uses Pre-rendered.
 
 ### Tinted
 
-![Home on a wall tablet in the Tinted look: flat dark plates over a sharp sky, the lit accessories white](images/tablet-home-tinted.png)
+![Home on a wall tablet in the Tinted look: flat dark plates over a sharp sky, the lit accessories white](images/tablet-home-tinted.webp)
 *Home in the Tinted look.*
 
 **Tinted** draws every card the way the Home app does: a flat, dark,
@@ -107,7 +107,7 @@ Home Assistant’s own header and sidebar show around the screen. The row reads
 **Off**, **Both Hidden**, **Header Hidden**, **Sidebar Hidden** or **Kiosk
 Mode Plugin**.
 
-![A screen's Header & Sidebar page in HK Settings](images/settings-header-sidebar.png)
+![A screen's Header & Sidebar page in HK Settings](images/settings-header-sidebar.webp)
 
 | Setting | Default | What it does |
 |---|---|---|

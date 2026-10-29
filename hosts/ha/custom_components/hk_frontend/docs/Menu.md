@@ -139,7 +139,7 @@ its ☰) is the way back. Leave it off on a wall tablet everyone uses.
 Categories**, **Above Rooms** (the default) or last (**Bottom**). It applies
 in the menu and in the tab bar's More alike.
 
-![The menu's Home Assistant section, with More folded out](images/desktop-menu-ha.png)
+![The menu's Home Assistant section, with More folded out](images/desktop-menu-ha.webp)
 
 The menu closes itself when you choose a row, tap outside it, press Escape,
 leave it untouched for a minute, or when the page changes any other way.
@@ -233,7 +233,7 @@ both follow them. The page ends with whether each screen
 follows these. The menu’s rooms (A to Z or in the room order) are in
 [Rooms](Rooms.md), linked from **In the Menu**.
 
-![All Screens → Menu → Tablets & Computers: every screen’s menu on that device, then its settings](images/settings-menu-tablets.png)
+![All Screens → Menu → Tablets & Computers: every screen’s menu on that device, then its settings](images/settings-menu-tablets.webp)
 
 <a id="menu--rooms-settings"></a>
 
@@ -252,7 +252,7 @@ follows these. The menu’s rooms (A to Z or in the room order) are in
 | Edge Tab Size (Phones) | Standard | *Phones: the edge tab.* The same three sizes for a phone. On a phone even the standard tab lies over the first column of tiles, so a bigger one covers more of it. |
 | Home Assistant Section | Off | Adds a **Home Assistant** section to the menu, above Categories: Integrations, Automations, Settings (with its updates-and-repairs count), Notifications (with its count), **More** (the rest of that person’s Home Assistant sidebar, in their order), **Show Menu** (Home Assistant’s own sidebar, even where it is hidden) and Profile. Each person sees only what they may open. Leave it off on a shared wall tablet. |
 
-![All Screens → Menu: the highlight, the button and the Tab Bar group, its Size among them](images/settings-menu.png)
+![All Screens → Menu: the highlight, the button and the Tab Bar group, its Size among them](images/settings-menu.webp)
 
 ### A screen’s menu settings
 
@@ -262,7 +262,7 @@ follows these. The menu’s rooms (A to Z or in the room order) are in
 |---|---|---|
 | Same as All Screens | On | The screen’s menu is All Screens’. The page shows what it takes from them, under **From All Screens**, and a way to All Screens → Menu. |
 
-![A screen’s Menu Settings, following All Screens](images/settings-screen-menu.png)
+![A screen’s Menu Settings, following All Screens](images/settings-screen-menu.webp)
 
 Turn **Same as All Screens** off to give the screen its own: they start as
 they are, then change on their own: the highlight, the icon, the clock tap,
@@ -272,7 +272,7 @@ tab and the Home Assistant section.
 Turn it back on to follow All Screens again. Whether the screen has a menu at
 all stays its own either way.
 
-![The edge tab at its three sizes on a wall tablet: Standard, Large (the default) and Extra Large](images/menu-tab-sizes.png)
+![The edge tab at its three sizes on a wall tablet: Standard, Large (the default) and Extra Large](images/menu-tab-sizes.webp)
 
 
 ## Coming from 1.5

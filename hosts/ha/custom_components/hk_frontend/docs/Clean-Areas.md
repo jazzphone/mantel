@@ -7,7 +7,7 @@ One action,
 Assistant’s own room maps. The Vacuums page’s area picker uses it, and so can
 your automations and voice sentences.
 
-![The Vacuums page on a wall tablet: the vacuums on the left, the rooms to clean on the right](images/tablet-vacuums.png)
+![The Vacuums page on a wall tablet: the vacuums on the left, the rooms to clean on the right](images/tablet-vacuums.webp)
 
 ## How vacuums are chosen
 
@@ -56,7 +56,7 @@ detail:
 - **Check → Show What Would Be Cleaned**: a dry run of every room the picker
   shows. Nothing moves.
 
-![The Clean Areas settings on the HK Settings page](images/settings-clean-areas.png)
+![The Clean Areas settings on the HK Settings page](images/settings-clean-areas.webp)
 
 An offline robot still counts by its room map, so its rooms do not vanish from
 the picker while it charges off the network.

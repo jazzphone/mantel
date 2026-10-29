@@ -4,7 +4,7 @@ A banner at the top of your screens when something happens at home, like an
 iPhone’s: a door opens, someone arrives, the doorbell rings, a camera sees a
 person. A camera’s snapshot, taken the moment it happened, can come with it.
 
-![A notification banner at the top of a wall tablet, with a camera's snapshot](images/notification-banner.png)
+![A notification banner at the top of a wall tablet, with a camera's snapshot](images/notification-banner.webp)
 *A banner on a wall tablet: the accessory, what it did, and the camera’s snapshot.*
 
 Add it with **Add feature → Notifications** ([Features](Features.md)). There
@@ -18,7 +18,7 @@ any dashboard of your own added under **Screens → Add Screen → Existing
 Dashboards**. A dashboard that isn't added never shows them (nor do Home
 Assistant's own pages, such as Settings).
 
-![All Screens → Notifications in HK Settings: Categories, One Accessory, Where They Show and Banner](images/settings-notifications.png)
+![All Screens → Notifications in HK Settings: Categories, One Accessory, Where They Show and Banner](images/settings-notifications.webp)
 *All Screens → Notifications in HK Settings.*
 
 ## Categories
@@ -45,7 +45,7 @@ listed. Each row says **Off**, or how many of its accessories notify
   pick for all of them.
 - **Send Test** shows it for one of its accessories, as if it just went off.
 
-![A category's page: Notify, its Accessories, and the same settings as one notification](images/settings-notifications-categories.png)
+![A category's page: Notify, its Accessories, and the same settings as one notification](images/settings-notifications-categories.webp)
 *A category in HK Settings: one switch, its accessories, and one set of settings for all of them.*
 
 They start sensibly:
@@ -77,7 +77,7 @@ with Home Assistant’s own calendar events, and sends each event once.
 10 AM — “Today · All Day” — or Off. A tap on the banner opens the event’s
 sheet, with **Go To** the Calendar at that day.
 
-![The Calendars category in HK Settings: Notify, the calendars that take part, Goes Off When and All-Day Events](images/settings-notifications-calendars.png)
+![The Calendars category in HK Settings: Notify, the calendars that take part, Goes Off When and All-Day Events](images/settings-notifications-calendars.webp)
 *The Calendars category: tick the calendars, then choose when.*
 
 ### Cameras
@@ -107,7 +107,7 @@ keypad *(the alarm) with a PIN · made by HK’s Alarm PIN*, the alarm *Opens
 once, and a tap on the banner opens the PIN keypad, not the alarm’s own Arm /
 Disarm, which needs no PIN.
 
-![The Alarm category in HK Settings: an alarm beside its PIN keypad, each saying what it is](images/settings-notifications-alarms.png)
+![The Alarm category in HK Settings: an alarm beside its PIN keypad, each saying what it is](images/settings-notifications-alarms.webp)
 *The Alarm category: the alarm and its PIN keypad, one alarm.*
 
 ## A notification
@@ -157,7 +157,7 @@ it went off, marked *Test*. **Delete Notification…** removes it.
   A calendar’s event opens the event; a person’s, their sheet (where they
   are). Tap Opens can make it a page, the live camera, or nothing instead.
 
-![A notification opened on a wall tablet: the notification on the left, the door's own sheet on the right](images/notification-sheet.png)
+![A notification opened on a wall tablet: the notification on the left, the door's own sheet on the right](images/notification-sheet.webp)
 *On a wall tablet the sheet opens in its two-column size: the notification on the left, the door’s sheet as its tile opens it on the right. On a phone the notification is a card at the top of the sheet. Every sheet keeps its size.*
 
 - **Mute 1 Hour** quiets that notification for an hour on every screen — for

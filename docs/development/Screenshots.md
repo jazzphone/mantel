@@ -67,6 +67,12 @@ The gallery uses a fixed DevTools port (9381), so don't run it alongside a headl
 
 4. Commit the new `.webp` with the code change, and reference it from the docs with a relative link.
 
+HK Frontend's help screenshots (`hosts/ha/custom_components/hk_frontend/docs/images/`, which become its Wiki) follow
+the same rule: **WebP, no more than 1440 px on the longer side, quality about 82**. A tool or a hand-made screenshot
+that writes a PNG or JPG converts it before it is committed (Pillow: `im.thumbnail((1440, 1440))`, then
+`im.save("name.webp", "WEBP", quality=82, method=6)`), and the docs link to the `.webp`. `tests/test_gallery.py`
+fails on any other kind of file in that folder or an image wider than that.
+
 `tests/test_gallery.py` checks that every shot is one of Mantel's own pages, that the Home Grid screen's layout is
 valid, that the Power page reads only the invented house, that the house's entities belong to its rooms, and that
 every shot in `SHOTS` has an image in `docs/images/`.

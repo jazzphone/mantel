@@ -68,5 +68,23 @@ ok('nothing playing: no calls', U.volumeCalls(null, presets, 0.5).length === 0);
   ok('...and the page\'s client is that object\'s client', card.client === window.hkHostClient.from(host));
 })();
 
+// THE SECOND'S TICK RESTS UNDER THE SCREENSAVER AND THE BLACK (2026-10-29)
+(function () {
+  var card = new (customElements.get('hk-music-card'))(), saver = { up: false, dark: false };
+  card.isConnected = true;
+  card._pos = { playing: true, pos: 5, dur: 100, at: Date.now() };
+  window.hkSaver = { running: function () { return saver.up; }, black: function () { return saver.dark; } };
+  card._tickOn();
+  ok('playing on a lit page: the tick runs', !!card._tick);
+  saver.up = true; card._tickOn();
+  ok('...the screensaver up: it rests', !card._tick);
+  saver.up = false; saver.dark = true; card._tickOn();
+  ok('...the kiosk\'s black: it rests', !card._tick);
+  saver.dark = false; card._tickOn();
+  ok('...both ended: it runs again', !!card._tick);
+  card.disconnectedCallback();
+  delete window.hkSaver;
+})();
+
 print('\n' + (fail ? fail + ' FAILED, ' : 'ALL ') + pass + ' MUSIC PAGE TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

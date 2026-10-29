@@ -23,11 +23,13 @@ the file -- apply to both.)
 
 RUN IT AFTER gen_sky.py, then run the suites.
 
-THE PNGS ARE KEPT ALONGSIDE, NOT DELETED, for the rollout: /hk/ is served
-no-cache, so an already-loaded page REVALIDATES the .png it fetched, and a
-file that has vanished is a 404 -- and a missing mask-image is not "no
-clouds", it is a solid tinted slab over the whole sky. Remove the PNGs in a
-LATER change, once every page has reloaded on the .webp URLs.
+THE PNGS ARE NO LONGER COMMITTED (2026-10-29). They were kept alongside for the
+rollout (/hk/ is served no-cache, so a page already loaded revalidated the
+.png it had fetched, and a vanished file was a 404 -- a missing mask-image is
+a solid tinted slab over the sky). Every page has loaded the .webp URLs since,
+and nothing refers to the PNGs, so the repository and every package carry only
+the WebP. gen_sky.py still writes the PNGs (the canonical pixels) for this tool
+to convert and to check against; they are not added to git.
 """
 import os, sys
 
@@ -45,16 +47,16 @@ MASKS = ("clouds-a", "clouds-b", "clouds-c")
 
 
 def check():
-    """Every committed webp must be the same mask as its png. Problems list."""
+    """Every committed webp must be the same mask as its png (when gen_sky.py has made one here). Problems list."""
     problems = []
     for stem in MASKS:
         png = os.path.join(OUT, stem + ".png")
         webp = os.path.join(OUT, stem + ".webp")
-        if not os.path.exists(png):
-            problems.append("%s: no %s -- run gen_sky.py" % (stem, stem + ".png"))
-            continue
         if not os.path.exists(webp):
-            problems.append("%s: no %s -- run cloud_webp.py" % (stem, stem + ".webp"))
+            problems.append("%s: no %s -- run gen_sky.py, then cloud_webp.py" % (stem, stem + ".webp"))
+            continue
+        if not os.path.exists(png):
+            print("  %-14s no png here (not committed): nothing to compare with" % (stem + ".webp"))
             continue
         a = Image.open(png).convert("RGBA")
         b = Image.open(webp).convert("RGBA")

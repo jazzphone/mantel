@@ -9,7 +9,7 @@ Each topic’s settings are on that topic’s page (the menu’s on [Menu](Menu.
 the weather’s on [Weather](Weather.md), and so on). This page is how HK Settings
 itself works.
 
-![HK Settings: the list of screens and settings on the left, the Overview page on the right](images/settings-overview.png)
+![HK Settings: the list of screens and settings on the left, the Overview page on the right](images/settings-overview.webp)
 
 ## Open it
 
@@ -36,7 +36,7 @@ bookmarks work.
 | **Library** | **[Accessories](Accessories.md#accessories-settings)** (by [type](Accessories.md#types), then by room, with [Hidden Accessories](Accessories.md#hidden-accessories) and [Added Accessories](Accessories.md#added-accessories)), **Pop-ups**, **Custom Pages**, **Custom Chips** | Every screen that uses them |
 | **System** | **Advanced**, **Setup Check** | — |
 
-![The Screens list in HK Settings](images/settings-screen.png)
+![The Screens list in HK Settings](images/settings-screen.webp)
 
 A screen’s page shows a live preview of that screen beside its settings (above
 them on a narrower window). Changes show in the preview within seconds.
@@ -49,7 +49,7 @@ used at, and remembers your last choice for each screen in that browser.
 When the preview column is too narrow for the full names, the two tablet
 sizes read **Portrait** and **Landscape**.
 
-![A screen’s preview at phone size](images/settings-preview-phone.png)
+![A screen’s preview at phone size](images/settings-preview-phone.webp)
 **Open Screen** opens the screen itself in a new tab.
 
 ## How the controls behave
