@@ -75,6 +75,12 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.86 - 2026-10-29
+
+- **Performance shows each screen's startup and device.** About -> Performance lists how much each screen downloaded before its first screen, how many files, the time to first draw, its frame rate (5 seconds, measured while nobody is touching it and the screen is lit) and the device: memory, cores and screen. A tablet's latest summary is kept through a restart.
+- **Performance shows Mantel's own work:** how long the once-a-minute check of who may see what takes, and how large the settings history is.
+- **Fewer settings frames:** a change to the settings now reaches only the screens whose settings it changes, and the house's device list is serialized once.
+
 ## 0.1.85 - 2026-10-28
 
 - **Backups in Mantel Settings.** A Backups page for the Owner: when the last one was made, Back Up Now (on the App only when you ask; nightly with Docker and the LXC), each saved backup to download or delete, Save Keys (both keys as one small file), and Restore -- an upload checked first, then put in place when Mantel restarts, with what was there moved aside, not deleted. A backup from another Mantel restores with that Mantel's keys file.
