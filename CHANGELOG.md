@@ -52,6 +52,7 @@ The first public release of **Mantel**: HK Frontend's screens, inspired by Apple
 - Doorbell talk is live through Mantel again: the card waits up to 4 s for the doorbell to listen.
 - Page health in Mantel's log: each screen's page says how the page before it ended and how big it is each minute.
 - With no HK Frontend in Home Assistant, Mantel takes The House by itself.
+- **Less to load, kept longer:** a screen loads only the card code its pages use (the rest the first time it is needed); the images ship the web app without comments or indentation (about 45% less JavaScript); and a browser keeps each file of a release instead of asking for it again at every start. The realistic clouds the sky never draws are left out.
 - **My Sessions, one row per browser**: every launch of the Mantel app left a 30-day "Browser on iPhone" session behind. The app's pages now keep one session, listed with the app under Mantel App, and signing the app out ends it.
 
 ### Fixed before release (engineering audit, October 2026)
