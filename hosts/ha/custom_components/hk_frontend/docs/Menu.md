@@ -210,7 +210,7 @@ Every card’s options: [Card Library](Card-Library.md).
 |---|---|---|
 | Tablets & Computers | Button (a YAML screen added as *Something Else*: Off) | **Off**: no menu. **Button**: the menu is hidden until you open it. **Always Open**: the menu stays beside the page, like the sidebar of the Home app on a Mac. **Tab Bar**: [the tab bar](Tab-Bar.md). The screen’s [preset](Screens.md#add-screen) sets this first. Always the screen’s own. |
 | Phones | As the screen showed on phones before | **Off**, **Button** or **Tab Bar**, on a [phone](#phones-and-tablets). Always the screen’s own, and separate from Tablets & Computers: changing one never changes the other. |
-| Menu Settings | Same as All Screens | The kinds of menu this screen uses, each [All Screens’ settings](#menu-settings-for-all-screens) one at a time, or [this screen’s own](#a-screens-menu-settings). Says how many are its own. |
+| Menu Settings | Same as All Screens | The navigation this screen uses (Side Menu, Edge Tab, Tab Bar), each [All Screens’ settings](#menu-settings-for-all-screens) one at a time, or [this screen’s own](#a-screens-menu-settings). Says how many are its own. |
 | Pages in Menu | Automatic | *YAML screens.* For each page: **Top of Menu** (right under Home), **Categories**, or **Not in Menu**. A generated screen sets this on its [Pages](Pages.md) instead. **Use the Automatic Menu** clears your choices. |
 
 ## Menu settings for all screens
@@ -221,9 +221,9 @@ set its own:
 - **Menu on Each Screen**: every screen and its menu on each device, such as
   **Tab Bar · Button** (tablets and computers, then phones). Each opens that
   screen’s page, where the choice is made.
-- **Kinds of Menu**: **Side Menu**, **Edge Tab** and **Tab Bar**, each saying
+- **Navigation**: **Side Menu**, **Edge Tab** and **Tab Bar**, each saying
   which screens use it, or **Not used on any screen**. Each is a page of
-  everything about that kind.
+  everything about it.
 - **Rooms in the Menu**: which rooms the side menu and the tab bar’s More
   list show, and in what order, in [Rooms](Rooms.md).
 - **Back Button & Title** (Page Header before): the header on every page
@@ -246,7 +246,7 @@ set its own:
 | Edge Tab | Size: Phones | Standard | The same three sizes for a phone. On a phone even the standard tab lies over the first column of tiles. |
 | Tab Bar | Everything else | | Position, Size, Labels, While Scrolling, Tabs and More: see [the tab bar](Tab-Bar.md). Its glass is under **Appearance → Tab Bar Look**. |
 
-![All Screens → Menu: each screen’s menu, the kinds of menu and who uses them](images/settings-menu.webp)
+![All Screens → Menu: each screen’s menu, its navigation and who uses each](images/settings-menu.webp)
 
 ### A screen’s menu settings
 

@@ -414,7 +414,7 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   // All Screens -> Menu
   var mp = text(draw(go('#/house/menu')).box);
   ok('Menu on Each Screen: its two choices as the value', /Tab Bar · Button/.test(mp) && /Off · Off/.test(mp), true);
-  ok('Kinds of Menu: who uses each', /Side Menu/.test(mp) && /Edge Tab/.test(mp) && /Tab Bar/.test(mp) && /Kitchen/.test(mp), true);
+  ok('Navigation: who uses each', /Side Menu/.test(mp) && /Edge Tab/.test(mp) && /Tab Bar/.test(mp) && /Kitchen/.test(mp), true);
   ok('...and the rooms’ one home, and Back Button & Title', /Rooms in the Menu/.test(mp) && /Back Button & Title/.test(mp), true);
   ok('a kind no screen uses says so', /Not used on any screen/.test(text(draw(go('#/house/menu/side')).box)) === false &&
      /Used by Kitchen/.test(text(draw(go('#/house/menu/edge-tab')).box)), true);

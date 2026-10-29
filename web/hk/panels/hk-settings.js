@@ -2343,7 +2343,7 @@
           K.nav({ label: x.title, href: base, fk: 'menu:screen' })]));
         return;
       }
-      c.appendChild(K.group({ header: 'Kinds of Menu', footer: 'The kinds this screen uses. Each setting follows All Screens until you change it here.' },
+      c.appendChild(K.group({ header: 'Navigation', footer: 'The ones this screen uses. Each setting follows All Screens until you change it here.' },
         kinds.map(function (k) {
           return K.nav({ label: k[1], value: M.menuSummary(b, M.KIND_KEYS[k[0]]), href: base + '/menu/' + k[0], sk: 'b:menu:' + k[0] });
         })));
@@ -7259,7 +7259,7 @@
         c.appendChild(K.group({ header: 'Menu on Each Screen', sk: 'menu:screens',
           footer: 'On tablets and computers, then on phones. Each screen chooses its own, on its page.' }, rows));
       }
-      c.appendChild(K.group({ header: 'Kinds of Menu', footer: 'Everything about each kind, for every screen that uses it.' },
+      c.appendChild(K.group({ header: 'Navigation', footer: 'Everything about each, for every screen that uses it.' },
         M.MENU_KINDS.map(function (k) {
           return K.nav({ label: k[1], value: M.usedBy(M.kindUsers(k[0], bd, titleOf)), href: '#/house/menu/' + k[0], sk: 'menu:' + k[0] });
         })));
