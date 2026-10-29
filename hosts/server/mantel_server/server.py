@@ -37,7 +37,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
-from . import app_shell, cf_access, guards, live, page_health, performance, server_settings, setup_guide
+from . import app_shell, cf_access, guards, hk_cards, live, page_health, performance, server_settings, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -532,9 +532,9 @@ async def api_fixtures(request: web.Request) -> web.Response:
 
 @guards.guard("signed_in")
 async def api_hk_cards(request: web.Request) -> web.Response:
-    folder = request.app["cfg"].hk_frontend / "cards"
-    names = sorted(p.name for p in folder.glob("*.js") if p.name != "hk-strategy.js") if folder.is_dir() else []
-    return web.json_response(names)
+    # the card files loaded at the start and the ones that wait to be used (hk_cards.py)
+    app = request.app
+    return web.json_response(hk_cards.card_list(app["cfg"].hk_frontend / "cards", lambda rel: hk_path(app, rel)))
 
 
 def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: bool = True,

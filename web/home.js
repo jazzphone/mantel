@@ -62,7 +62,9 @@ try {
   await startAgain(RETRY_KEY, e);                 // this start goes no further
 }
 started(RETRY_KEY);
-const [{ registry, digest: registryDigest }, user, fixtures, cards, , services] = boot;
+const [{ registry, digest: registryDigest }, user, fixtures, cardList, , services] = boot;
+// {core, lazy} (mantel_server/hk_cards.py): the core files are imported below, the lazy ones on first use
+const cards = cardList.core || [];
 const health = pageHealth(hub, 'home', marks);
 window.hkMantelShell.setServices(services);
 window.hkMantelShell.setRole(user.role);
@@ -126,6 +128,9 @@ mark('states');
 const imp = (u) => import(u).catch((e) => console.error('[mantel] could not load', u, e));
 for (const m of ['modules/hk-settings.js', 'iconset/hk-icons.js', 'modules/tesla-viewport.js', 'modules/hk-tap.js',
                  'modules/hk-header.js', 'modules/hk-loader.js', 'cards/hk-strategy.js']) await imp('/hk/' + m);
+// ONLY THE CARDS A SCREEN USES (2026-10-29): the other card files are hk-loader.js's to import, the first time
+// one of their cards is asked for
+if (window.hkNeed) window.hkNeed.arm(cardList.lazy || {});
 await Promise.all(cards.map((c) => imp('/hk/cards/' + c)));
 mark('code');
 // shown inside Home Assistant (a Webpage dashboard): its header and sidebar as the screen says, and the way back
@@ -155,6 +160,13 @@ if (!(window.hkCards && window.hkCards.TILE)) {
 
 const cfg = await window.hkStrategy.generate({}, host.client);
 mark('strategy');
+// the page about to be drawn: every card file it names asked for now, nested cards' too, together (the view host
+// would ask for each as it makes its card, and a container's children only once the container has drawn)
+{
+  const views = cfg.views || [], at = location.pathname.split('/')[2] || '';
+  const first = views.find((v) => v && v.path === at) || views[0];
+  if (first && window.hkNeed) window.hkNeed.config(first);
+}
 
 // NARROWING: after a page is first drawn, note which states the screen really reads and narrow the hub
 // subscription to those (with the pages seen before: a cached page keeps its cards and catches up when
@@ -175,9 +187,16 @@ async function widen() {
   hub.subscribe([], [], true);
   await got;
 }
-function narrowSoon() {
+// (`view`: the page's config. Its cards whose code a page loads on first use (hk-loader.js hkNeed) are waited for
+// first: a card not defined yet reads nothing in the recorded pass, and the page narrowed to none of its states
+// (2026-10-29, a Cameras page opened straight away)
+let narrowRun = 0;
+async function narrowSoon(view) {
   if (!narrowing) return;
   clearTimeout(narrowTimer);
+  const run = ++narrowRun;
+  if (window.hkNeed && view) await window.hkNeed.config(view).catch(() => {});
+  if (run !== narrowRun) return;
   narrowTimer = setTimeout(() => requestAnimationFrame(() => {
     host.reads.clear();
     host.recording = true;
@@ -223,7 +242,7 @@ window.__mantelViewHost = viewHost;
 window.hkMantelShell.attach(viewHost);
 viewHost.onView((el, view, config, info) => {
   window.__mantelView = view;
-  if (info.first) narrowSoon();
+  if (info.first) narrowSoon(view);
 });
 await viewHost.start();
 mark('rendered');
@@ -248,6 +267,15 @@ mark('rendered');
   document.addEventListener('config-refresh', (ev) => { ev.stopPropagation(); rebuild(); });
 }
 health.drawn();                 // the first screen is on the glass: its time goes to Mantel's Performance page
+// THE HOUSE'S POP-UPS' CARDS, once the first screen is up: they open over any page at any moment (a doorbell's
+// camera, live: hk-sheet-security.js makes an hk-doorbell-card) and should not wait for their code then
+setTimeout(() => {
+  const S = window.hkSettings, N = window.hkNeed;
+  if (!S || !N) return;
+  const popups = S.get('popups', null) || [];
+  N.config(popups);
+  if (popups.some((p) => p && p.kind === 'camera')) N('hk-doorbell-card');
+}, 4000);
 
 // the house's changes reach the view host as client updates (hkHostClient.current()); the smoke and
 // /dev tools hook here to see each new snapshot

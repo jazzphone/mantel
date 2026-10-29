@@ -2189,6 +2189,14 @@
       // for an alarm automation that opens it by URL, and it hands straight
       // back here (opts.direct).
       var tag = PANELS[kind];
+      // ITS PANEL'S CODE NOT LOADED YET (Mantel, 2026-10-29: the weather's, an
+      // event's, an automation's and a timer's live in card files a page loads
+      // on first use, hk-loader.js hkNeed): opened once it has come
+      var N = window.hkNeed;
+      if (tag && N && N.has && N.has(tag)) {
+        N(tag).then(function () { if (customElements.get(tag)) open(id, src, opts); });
+        return true;
+      }
       if ((!tag || !customElements.get(tag)) && opts.generic && !opts.group && !opts.cards) { kind = 'generic'; tag = PANELS.generic; }
       if (!tag || !customElements.get(tag)) return false;
       // the generic sheet is about a state: nothing to show for none

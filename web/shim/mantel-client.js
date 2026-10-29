@@ -380,6 +380,24 @@
   // A client this adapter did not make is handed over as itself, read-only.
   function bridge(element, client) {
     if (!element || !client) return;
+    // A CHILD WHOSE CODE HAS NOT ARRIVED (2026-10-29: Mantel loads some card files on first use,
+    // hk-loader.js hkNeed): `hass` set on an element before it is upgraded stays the element's own
+    // property and hides its class's setter for good -- the card never got a client, read nothing and
+    // drew nothing (a Cameras page opened straight away). Handed over once it is defined, the last one.
+    var name = element.localName || '', ce = global.customElements;
+    if (name.indexOf('-') > 0 && ce && ce.get && !ce.get(name) && ce.whenDefined) {
+      var first = !element.__hkLate;
+      element.__hkLate = client;
+      if (first) {
+        ce.whenDefined(name).then(function () {
+          var c = element.__hkLate;
+          delete element.__hkLate;
+          if (ce.upgrade) { try { ce.upgrade(element); } catch (e) { /* upgraded already */ } }
+          bridge(element, c);
+        });
+      }
+      return;
+    }
     var host = hosts.get(client);
     if (host) element.hass = host; else element.client = client;
   }

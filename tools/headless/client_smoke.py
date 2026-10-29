@@ -1157,6 +1157,9 @@ async def smoke(shot=None, shots=None):
                     where_js = """(() => { const c = window.__deep(document).find(e => e.id === 'proof-where'), r = c && c.shadowRoot;
                       return r ? { title: (r.querySelector('.ttl') || {}).textContent, chips: [...r.querySelectorAll('.chip')].map(e => e.textContent),
                                    bar: [...r.querySelectorAll('.bar i')].map(e => e.title) } : null; })()"""
+                    # (hk-energy.js loads on first use, 2026-10-29: the card asked for it)
+                    assert await browser.wait("!!window.hkEnergyPage && !!customElements.get('hk-energy-where-card')", 10), \
+                        "hk-energy.js did not load for its card"
                     await browser.eval("window.hkEnergyPage.setPeriod('now')")
                     await asyncio.sleep(3)
                     now_where = await browser.eval(where_js)

@@ -108,6 +108,81 @@
     }));
   }
 
+  // ------------------------------------------------- cards on first use
+  // ONLY THE CARDS A SCREEN USES (2026-10-29, Mantel). Mantel's page loads at
+  // the start only the card files other code needs by name; the others
+  // (GET /api/hk-cards `lazy`: {file: [its elements]}, mantel_server/hk_cards.py)
+  // wait until one of their cards is asked for. web/home.js arms this with
+  // that list; on HK Frontend nothing arms it (every card file is a Lovelace
+  // resource there) and every call below only says "ready".
+  //
+  // WHERE A CARD IS ASKED FOR: HK makes a card whose code has not arrived and
+  // waits for it with customElements.whenDefined -- the view host (a page's
+  // cards and a container's children), hkCards.create (a card inside a card),
+  // the screensaver's -- so, once armed, a whenDefined of one of these tags
+  // also imports its file. Code that needs a file without making one of its
+  // elements asks for it by name: hkNeed.file() (the screensaver's energy, the
+  // menu's weather); a sheet whose panel is in one of them waits for it
+  // (hk-detail.js open). hkNeed.config(cfg) asks for every card a config names
+  // (the page about to be drawn, nested ones too), so they come in together.
+  var CE = window.customElements;
+  var LAZY = null;                     // tag -> its card file, once armed
+  var FILES = {};                      // file -> true: a lazy file
+  var importing = {};                  // file -> its import
+  function needFile(name) {
+    if (!LAZY || !FILES[name]) return Promise.resolve();
+    if (!importing[name]) {
+      importing[name] = import(window.hkV ? window.hkV('/hk/cards/' + name) : '/hk/cards/' + name)
+        .catch(function (err) {
+          delete importing[name];      // the next ask tries again
+          console.error('[hk-loader] could not load /hk/cards/' + name, err);
+        });
+    }
+    return importing[name];
+  }
+  function bare(tag) { return String(tag || '').replace(/^custom:/, ''); }
+  function has(tag) {
+    tag = bare(tag);
+    return !!(LAZY && LAZY[tag] && CE && !CE.get(tag));
+  }
+  function hkNeed(tag) {
+    tag = bare(tag);
+    if (!has(tag)) return Promise.resolve();
+    return needFile(LAZY[tag]).then(function () { return whenDefined(tag); });
+  }
+  var whenDefined = function (tag) { return CE.whenDefined(tag); };
+  hkNeed.has = has;
+  hkNeed.file = needFile;
+  // every `custom:` type a config names, at any depth (a grid's cards, a
+  // stack's, a pop-up's), asked for at once
+  hkNeed.config = function (cfg) {
+    var asked = [];
+    (function walk(v, depth) {
+      if (depth > 40 || v == null) return;
+      if (typeof v === 'string') { if (v.indexOf('custom:hk-') === 0 && has(v)) asked.push(hkNeed(v)); return; }
+      if (typeof v !== 'object') return;
+      if (Array.isArray(v)) { for (var i = 0; i < v.length; i++) walk(v[i], depth + 1); return; }
+      for (var k in v) if (Object.prototype.hasOwnProperty.call(v, k)) walk(v[k], depth + 1);
+    })(cfg, 0);
+    return Promise.all(asked);
+  };
+  hkNeed.arm = function (lazy) {
+    if (LAZY || !CE || !CE.whenDefined) return;
+    LAZY = {};
+    Object.keys(lazy || {}).forEach(function (file) {
+      FILES[file] = true;
+      (lazy[file] || []).forEach(function (tag) { LAZY[tag] = file; });
+    });
+    var original = CE.whenDefined;
+    whenDefined = function (tag) { return original.call(CE, tag); };
+    CE.whenDefined = function (tag) {
+      try { if (has(tag)) needFile(LAZY[bare(tag)]); } catch (e) { /* never in the way of the wait itself */ }
+      return original.call(CE, tag);
+    };
+  };
+  // (a second run of this file -- hkReload's -- keeps the armed one)
+  if (!window.hkNeed) window.hkNeed = hkNeed;
+
   // Exposed for the browser console during development: hkReload() re-imports
   // every module with a fresh stamp, so an edit can be picked up without even
   // a page refresh. The stamp is needed HERE and only here -- a module already
