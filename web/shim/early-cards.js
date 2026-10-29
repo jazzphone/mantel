@@ -8,7 +8,10 @@
 // DOWNLOADS: nothing runs until home.js imports the card, in the same order as before (the hk-boot docstring in
 // hosts/ha/custom_components/hk_frontend/boot.py is why that order matters). Failing here changes nothing:
 // home.js asks again itself.
-import { mantelUrl } from './base.js';
+//
+// ONLY THE CARDS A SCREEN USES (2026-10-29): the answer is {core, lazy} (mantel_server/hk_cards.py). Only the
+// core files are preloaded; the lazy ones wait until a card of theirs is asked for (hk-loader.js hkNeed).
+import { mantelUrl, hkV } from './base.js';
 
 const list = fetch(mantelUrl('/api/hk-cards')).then((r) => {
   if (!r.ok) throw new Error('hk-cards ' + r.status);
@@ -16,10 +19,10 @@ const list = fetch(mantelUrl('/api/hk-cards')).then((r) => {
 });
 window.__mantelCardList = list;
 list.then((cards) => {
-  for (const c of cards) {
+  for (const c of cards.core || []) {
     const link = document.createElement('link');
     link.rel = 'modulepreload';
-    link.href = '/hk/cards/' + c;
+    link.href = hkV('/hk/cards/' + c);       // the address home.js imports it at (the build's ?v=, base.js)
     document.head.appendChild(link);
   }
 }).catch(() => { /* home.js asks for the list again, and says what went wrong */ });

@@ -13,6 +13,7 @@ Thanks for helping. Bug reports, fixes, docs and screenshots are all welcome.
 ```bash
 python3.12 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
+npm ci --prefix tools          # esbuild, pinned: the builds minify the web app with it (Node.js 18 or later)
 .venv/bin/python -m pytest -q
 ```
 

@@ -166,6 +166,8 @@
   var energyWait = null;
   function energyReady() {
     if (E() && E().summary) return Promise.resolve(E());
+    // (Mantel loads hk-energy.js on first use, 2026-10-29: asked for here, on a screen with no Energy card)
+    if (window.hkNeed) window.hkNeed.file('hk-energy.js');
     if (!energyWait) {
       energyWait = new Promise(function (res) {
         window.addEventListener('hk-energy-ready', function () { res(E()); }, { once: true });

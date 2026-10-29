@@ -10,7 +10,7 @@
 //   * the first run, before Home Assistant is connected: Mantel's pages only, opening on Connections.
 // /hk-settings and /admin send browsers here (server.py), their fragments kept (#/screens/..., #connections).
 // first: the page's address prefix (HA App mode, Ingress; '' everywhere else) -- shim/base.js
-import { mantelUrl } from './base.js';
+import { mantelUrl, hkV } from './base.js';
 import '../client/hk-client.js';
 import '../client/hk-card-state.js';
 import '../client/hk-host-shell.js';
@@ -112,7 +112,7 @@ try {
   window.__mantel = host;
 
   // the dashboards' modules HK Settings draws with (the panel loads the rest itself)
-  const imp = (u) => import(u).catch((e) => console.error('[mantel] could not load', u, e));
+  const imp = (u) => import(hkV(u)).catch((e) => console.error('[mantel] could not load', u, e));   // (hkV: base.js)
   for (const m of ['modules/hk-settings.js', 'iconset/hk-icons.js']) await imp('/hk/' + m);
   for (const f of ['hk-settings-model', 'hk-settings-kit', 'hk-settings-features', 'hk-settings']) await imp('/hk/panels/' + f + '.js');
 

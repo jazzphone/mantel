@@ -55,3 +55,5 @@ apple/**/project.xcworkspace/
 
 # tools/testflight.py --out build/testflight: archives and exported builds
 /build/
+# build tools (tools/package.json: npm ci --prefix tools)
+tools/node_modules/

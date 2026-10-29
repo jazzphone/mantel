@@ -730,7 +730,8 @@
   var KIT_URL = '/hk/panels/hk-settings-kit.js';
   function kit() {
     if (global.hkSettingsKit) return Promise.resolve(global.hkSettingsKit);
-    return import(KIT_URL).then(function () { return global.hkSettingsKit; });
+    // (hkV: Mantel's build's ?v= on the kit's address, web/shim/base.js)
+    return import(global.hkV ? global.hkV(KIT_URL) : KIT_URL).then(function () { return global.hkSettingsKit; });
   }
   var UP = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>';
   var DOWN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';

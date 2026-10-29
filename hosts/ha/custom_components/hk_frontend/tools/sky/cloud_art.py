@@ -52,6 +52,12 @@ VARIANTS = ("day", "grey", "golden", "dusk", "night")
 # for nothing on a tablet: no filter, and less to hold.
 SOFT_SETS = ("cumulus-near", "cumulus-large", "cumulus-mid", "cumulus-small", "cumulus-far",
              "stratocumulus", "cumulus-fractus", "cumulus-row", "overcast-patch")
+# NOT SHIPPED (2026-10-29, Phase 5): what hk-sky.js never draws. Its plan (rcPlan, rcDepth) never asks for an
+# overcast patch or a cumulonimbus -- the overcast is the deck, a storm the grey lid -- and an overcast deck under a
+# grey sky is drawn from its DAY art (rcSrc). 132 files, 2.5 MB, that no screen ever asked for. Their sources stay;
+# a set the sky starts drawing comes out of this list.
+NOT_DRAWN = ("overcast-patch", "cumulonimbus")
+NOT_DRAWN_LIGHT = {"overcast-deck": ("grey",)}
 SOFT_WIDTHS = (480, 240, 120, 64, 32)
 SOFT_BLUR = 0.5
 
@@ -141,6 +147,8 @@ def build(write):
         os.makedirs(OUT, exist_ok=True)
     out, problems, total = [], [], 0
     for c in man["clouds"]:
+        if c["set"] in NOT_DRAWN:
+            continue
         arrays = feather({v: shipped(c, v) for v in VARIANTS}, FEATHER.get(c["set"], 0))
         if c["set"] == "cumulus-row":
             arrays = fade_base(arrays, c)
@@ -159,6 +167,8 @@ def build(write):
                     else:
                         total += os.path.getsize(path)
         for v in VARIANTS:
+            if v in NOT_DRAWN_LIGHT.get(c["set"], ()):
+                continue
             path = os.path.join(OUT, "%s-%s.webp" % (c["id"], v))
             if write:
                 Image.fromarray(arrays[v]).save(path, "WEBP", quality=QUALITY, alpha_quality=100,
@@ -180,7 +190,7 @@ def build(write):
             f.write("\n")
     elif not os.path.exists(mpath) or json.load(open(mpath)) != manifest:
         problems.append("manifest.json is stale -- run cloud_art.py")
-    files = sum(len(VARIANTS) * (1 + len(c.get("soft", []))) for c in out)
+    files = sum(len(VARIANTS) * (1 + len(c.get("soft", []))) - len(NOT_DRAWN_LIGHT.get(c["set"], ())) for c in out)
     print("  %d clouds, %d files, %.1f MB shipped" % (len(out), files, total / 1e6))
     return problems
 

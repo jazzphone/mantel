@@ -135,6 +135,11 @@ def steps(build: Build | None = None) -> list[Step]:
     build = build or Build()
     py = python()
     out = [
+        # esbuild, pinned (tools/package.json): the image and HK Frontend builds minify with it, and the suite
+        # checks what it makes (2026-10-29)
+        Step("build-tools", ["npm", "ci", "--prefix", "tools", "--ignore-scripts", "--no-audit", "--no-fund",
+                             "--loglevel=error"], skip=lambda: None if shutil.which("npm") else "no npm (Node.js)",
+             timeout=300),
         Step("main-suite", [py, "-m", "pytest", "-q", "-p", "no:cacheprovider"], env=private_env()),
         Step("check-links", [py, "tools/check_links.py"], timeout=300),
         Step("check-version", [py, "tools/check_version.py"], timeout=300),

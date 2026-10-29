@@ -25,6 +25,7 @@ import logging
 import secrets
 import time
 from importlib.resources import files
+from pathlib import Path
 from urllib.parse import urlparse
 
 import aiohttp
@@ -37,7 +38,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
-from . import app_shell, cf_access, guards, live, page_health, performance, server_settings, setup_guide
+from . import app_shell, cf_access, guards, hk_cards, live, page_health, performance, server_settings, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -364,6 +365,13 @@ async def api_stats(request: web.Request) -> web.Response:
 WEB_TYPES = frozenset({".woff2", ".woff", ".ttf", ".otf", ".css", ".js", ".mjs", ".map", ".html", ".json", ".svg",
                        ".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".avif", ".webm", ".mp4", ".txt"})
 NO_CACHE = {"Cache-Control": "no-cache"}
+# CACHE THAT LASTS (2026-10-29, Phase 5): an image's web app is stamped with its build id (tools/build_static.py:
+# ?v=<id> on every import of its own code and on the pages' script and stylesheet links), so a file asked for with
+# THIS build's id never changes: the browser keeps it a year and does not ask again (a new build is a new id, so
+# new addresses). Private: these files are behind the sign-in, and no shared cache (a CDN in front) keeps them.
+# Anything else -- no ?v=, another build's id, a checkout (no BUILD_ID), a developer's files folder -- stays
+# no-cache, revalidated on every load as before. The pages themselves (home.html) are always no-cache.
+IMMUTABLE = {"Cache-Control": "private, max-age=31536000, immutable"}
 FIXTURE_FILES = {  # message type -> file under cfg.fixtures (written by tools/capture_fixtures.py)
     "hk_frontend/settings/subscribe": "settings.json",
     "hk_frontend/page_headers/subscribe": "page_headers.json",
@@ -400,6 +408,33 @@ def hk_path(app: web.Application, rel: str):
     return safe_file(cfg.hk_frontend, rel)
 
 
+_BUILDS: dict[str, str | None] = {}       # web folder -> the build id beside it (read once)
+
+
+def static_build(app: web.Application) -> str | None:
+    """The build id the served web app was stamped with (BUILD_ID beside it, as the images have it), or None."""
+    web_dir = str(app["cfg"].web)
+    if web_dir not in _BUILDS:
+        try:
+            text = (Path(web_dir).parent / "BUILD_ID").read_text().strip()
+        except OSError:
+            text = ""
+        _BUILDS[web_dir] = text if text.isascii() and text.isalnum() and 8 <= len(text) <= 64 else None
+    return _BUILDS[web_dir]
+
+
+def cache_headers(request: web.Request, path) -> dict:
+    """IMMUTABLE for a file of this build asked for with its id, NO_CACHE for everything else (see IMMUTABLE)."""
+    build = static_build(request.app)
+    if not build or request.query.get("v") != build:
+        return NO_CACHE
+    try:
+        path.relative_to(request.app["cfg"].hk_files.resolve())
+        return NO_CACHE                       # a developer's files folder (--hk-files): changes under the same id
+    except ValueError:
+        return IMMUTABLE
+
+
 async def hk_file(request: web.Request) -> web.StreamResponse:
     """/hk/<path>: "Your files" first, HK's bundled frontend otherwise (backend/files.py's rule)."""
     # (ingress.file_response: a plain FileResponse, except through HA's Ingress, where HK's code is
@@ -407,14 +442,14 @@ async def hk_file(request: web.Request) -> web.StreamResponse:
     path = hk_path(request.app, request.match_info["path"])
     if not path:
         raise web.HTTPNotFound()
-    return ingress.file_response(request, path, NO_CACHE)
+    return ingress.file_response(request, path, cache_headers(request, path))
 
 
 async def web_file(request: web.Request) -> web.StreamResponse:
     path = safe_file(request.app["cfg"].web, request.match_info["path"])
     if not path:
         raise web.HTTPNotFound()
-    return ingress.file_response(request, path, NO_CACHE)
+    return ingress.file_response(request, path, cache_headers(request, path))
 
 
 async def mdi_file(request: web.Request) -> web.StreamResponse:
@@ -532,9 +567,9 @@ async def api_fixtures(request: web.Request) -> web.Response:
 
 @guards.guard("signed_in")
 async def api_hk_cards(request: web.Request) -> web.Response:
-    folder = request.app["cfg"].hk_frontend / "cards"
-    names = sorted(p.name for p in folder.glob("*.js") if p.name != "hk-strategy.js") if folder.is_dir() else []
-    return web.json_response(names)
+    # the card files loaded at the start and the ones that wait to be used (hk_cards.py)
+    app = request.app
+    return web.json_response(hk_cards.card_list(app["cfg"].hk_frontend / "cards", lambda rel: hk_path(app, rel)))
 
 
 def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: bool = True,

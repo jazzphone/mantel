@@ -34,7 +34,7 @@ async def test_current_canonical_and_shared_modules_are_served(current):
     assert await response.read() == (cfg.hk_frontend / "cards/hk-base.js").read_bytes()
     assert (await client.get("/hk/modules/hk-ha-client.js")).status == 404
     cards = await (await client.get("/api/hk-cards")).json()
-    assert "hk-stat.js" in cards and "hk-base.js" in cards
+    assert "hk-base.js" in cards["core"] and "hk-stat-card" in cards["lazy"]["hk-stat.js"]
 
 
 async def test_user_override_still_wins(current):

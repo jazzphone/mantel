@@ -49,7 +49,18 @@ AFTER = (
     "cards/hk-strategy.js",
 )
 
-_MODULE_SYNTAX = re.compile(r"^\s*(import|export)\s|\bimport\(", re.M)
+# A statement on a line of its own (the source), and -- since the files /hk sends are minified (2026-10-29,
+# files.py frontend_min) -- the same statements as esbuild prints them, with no space and not at a line's start:
+# import{a}from"x", import*as m from"x", import d from"x", import"x";, export{a}, ;export function f(){...}.
+# Each form needs the punctuation code has and prose does not, so a comment in a plain script never matches.
+_MODULE_SYNTAX = re.compile(
+    r"^\s*(import|export)\s"
+    r"|\bimport\s*[{*]"
+    r"|\bimport\s*[\"'][^\"'\n]+[\"']\s*;"
+    r"|\bimport\s+[\w$]+\s*(?:,\s*[{*][^;]*?)?\s*from\s*[\"']"
+    r"|\bexport\s*[{*]"
+    r"|(?:^|[;})])\s*export\s+(?:default|const|let|var|function|class|async)\b"
+    r"|\bimport\(", re.M)
 
 
 def is_plain(text: str) -> bool:

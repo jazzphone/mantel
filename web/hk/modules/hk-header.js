@@ -882,6 +882,10 @@
     var sid = S() ? S().get('weather.forecast_daily', null) : null, fc = null;
     if (sid) {
       fc = ((states[sid] || {}).attributes || {}).forecast;
+    } else if (wid && port && !window.hkWxForecast && window.hkNeed) {
+      // (Mantel loads hk-weather.js on first use, 2026-10-29: asked for here, on a screen with no weather card;
+      // the menu's next draw has the high and low)
+      window.hkNeed.file('hk-weather.js');
     } else if (wid && port && window.hkWxForecast) {
       if (dayW && (dayW.conn !== port || dayW.wid !== wid)) { dayW.release(); dayW = null; }
       if (!dayW) { dayW = window.hkWxForecast.watch(port, 'daily', wid, function () {}); dayW.wid = wid; }

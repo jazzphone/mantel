@@ -1,0 +1,9 @@
+{
+  "name": "mantel-build-tools",
+  "private": true,
+  "description": "Build-time tools only (tools/minify.py): esbuild strips comments and indentation from the web app's files. Nothing here is served or shipped.",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

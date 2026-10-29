@@ -3,6 +3,7 @@ core files in order, then the rest imported. HA imports extra modules in paralle
 order, so the old list of fifteen raced (docs/phase1/TESTHA.md)."""
 from __future__ import annotations
 
+import re
 from unittest.mock import patch
 
 from conftest import DOMAIN
@@ -28,7 +29,9 @@ async def test_one_ordered_boot_module_is_registered_and_served(hass, base):
     marks = [text.index(f"/* ---- /hk/{p} ---- */") for p in boot.CORE]
     assert marks == sorted(marks), "the core runs in dependency order"
     assert "imported separately" not in text
-    assert "global.hkClient = {" in text and "global.hkHAClient = {" in text, "the files' own text, not copies"
+    # (the files' text as /hk sends it: minified where the published component has frontend_min/, files.py)
+    assert re.search(r"global\.hkClient\s*=\s*\{", text) and re.search(r"global\.hkHAClient\s*=\s*\{", text), \
+        "the files' own text, not copies"
     tail = text[text.rindex(";(function () {"):]
     assert all(f'"/hk/{p}"' in tail for p in boot.AFTER)
     # every other /hk file is still served from disk

@@ -266,6 +266,35 @@ def build(repo: str, pairs) -> None:
         # external disk that reports 700 on every file), so they are set here
         with open(target, "rb") as f:
             os.chmod(target, 0o755 if f.read(2) == b"#!" else 0o644)
+    minified(repo)
+
+
+# COMMENTS AND INDENTATION STRIPPED (2026-10-29). Beside the component's frontend/ (the readable source, which the
+# tests read), frontend_min/ holds its .js and .css files through esbuild's whitespace minifier -- Mantel's
+# tools/build_static.py, the same step its own images take: no comments or indentation, nothing renamed or
+# bundled. /hk sends that copy (files.py MINIFIED). Made from what was just written, so it always matches.
+MINIFIED = ("custom_components", "hk_frontend", "frontend_min")
+
+
+def minified(repo: str) -> None:
+    front = Path(repo, "custom_components", "hk_frontend", "frontend")
+    tool = Path(COMPONENT).parents[3] / "tools" / "build_static.py"
+    if not front.is_dir() or not tool.is_file():
+        print("frontend_min/ not made: no frontend/ here, or not run from Mantel (tools/build_static.py)")
+        return
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("mantel_build_static", tool)
+    bs = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bs)
+    out = Path(repo, *MINIFIED)
+    rels = sorted(p.relative_to(front).as_posix() for p in front.rglob("*")
+                  if p.is_file() and p.suffix.lower() in bs.MINIFIED)
+    for rel in rels:
+        (out / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(front / rel, out / rel)
+    bs.minify(out, rels)
+    for rel in rels:
+        os.chmod(out / rel, 0o644)
 
 
 def stage(cwd) -> int:
