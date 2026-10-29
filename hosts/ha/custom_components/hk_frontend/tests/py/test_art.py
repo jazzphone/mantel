@@ -24,6 +24,16 @@ def addresses(monkeypatch):
     monkeypatch.setattr(art, "_addresses", fake)
 
 
+def test_the_scaling_and_the_rules_are_the_shared_core():
+    """hk_core/art (vendored here as hk_core by the build, imported as hk_core by Mantel) is the one copy: this
+    module only adds HA's name lookup, executor, session, signing and view (2026-10-29)."""
+    from custom_components.hk_frontend.hk_core.art import fetch, resize
+    assert art.render is resize.render and art.Cache is resize.Cache and art.Refused is resize.Refused
+    assert art.snap is resize.snap and art.SIZES is resize.SIZES and art.RASTER is resize.RASTER
+    assert art.enc is fetch.enc and art.dec is fetch.dec and art.is_remote is fetch.is_remote
+    assert art.read_limited is fetch.read_limited and art.MAX_BYTES == fetch.MAX_BYTES
+
+
 def test_sizes_snap_up_to_the_next_allowed_one():
     assert art.snap(0) == 0 and art.snap(None) == 0
     assert art.snap(120) == 150 and art.snap(300) == 300 and art.snap(301) == 600

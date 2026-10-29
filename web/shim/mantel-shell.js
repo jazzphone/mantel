@@ -77,6 +77,17 @@
   function sizesOf(url, base) {
     return { variants: SIZE_EDGES.map(([name, edge]) => [edge, base + url.replace(/\/screen$/, '/' + name)]) };
   }
+  // ALBUM ART AT THE TILE'S SIZE (2026-10-29): a player's artwork is Mantel's own route, and takes a size bucket
+  // (media_art.py; the same buckets as hk_core/art/resize.py SIZES) -- asked for the size the tile draws
+  const ART_LOCAL = /^(?:[^?#]*)\/api\/media\/media_player\.[a-z0-9_]+\/art(?:\?[^#]*)?$/;
+  const ART_BUCKETS = [150, 300, 600, 1000];
+  function artSized(url, size) {
+    if (typeof url !== 'string' || !ART_LOCAL.test(url) || /[?&]s=/.test(url)) return url;
+    const n = Math.floor(Number(size));
+    if (!Number.isFinite(n) || n <= 0) return url;
+    const s = ART_BUCKETS.find((b) => b >= n) || ART_BUCKETS[ART_BUCKETS.length - 1];
+    return url + (url.indexOf('?') < 0 ? '?' : '&') + 's=' + s;
+  }
   function listPhotos(source) {
     const m = ALBUM.exec(String(source || ''));
     if (!m || typeof global.fetch !== 'function') return null;
@@ -192,6 +203,7 @@
     serviceUrl,
     photoSource,
     listPhotos,
+    artSized,
     // HK's screens and settings say Mantel where they speak of themselves; HK Frontend stays the name of
     // the integration in Home Assistant, whose settings are Home Assistant's (haPlace)
     productName: () => 'Mantel',

@@ -1056,6 +1056,14 @@
   // 0 until the first reconnect: a card can skip the question entirely
   window.hkCards.staleEpoch = function () { return staleEpoch; };
   function artForget(url, size) { artSigned.delete(size + ' ' + url); }
+  // A PICTURE ON THIS PAGE'S OWN ORIGIN (a player's artwork, which Mantel serves itself): the host may ask for it at
+  // the tile's size (hkShell.artSized, 2026-10-29), so a cover of several megabytes is not downloaded to draw 150
+  // px. A host with nothing to say (or one that throws) leaves the address as it is.
+  function artLocal(url, size) {
+    var S = window.hkShell, got = null;
+    try { got = S && typeof S.artSized === 'function' ? S.artSized(url, size) : null; } catch (e) { got = null; }
+    return typeof got === 'string' && got ? got : url;
+  }
   function artSign(source, url, size, cb) {
     var client = asClient(source);
     artWatch(client);
@@ -2338,7 +2346,7 @@
       });
       img.alt = '';
       if (artRemote(url)) artSign(this.client, url, sz, put);
-      else img.src = url;
+      else img.src = artLocal(url, sz);
       box.appendChild(img);
       return img;
     }
@@ -3068,13 +3076,14 @@
     }
   };
   window.hkCards._artRemote = artRemote;       // tests
+  window.hkCards._artLocal = artLocal;
   window.hkCards._artSign = artSign;
   // ARTWORK FOR A SURFACE THAT IS NO CARD (the screensaver's music): a remote
   // URL through the same signed proxy as _artImage, so the offline wall
   // tablets get it from their own origin; anything else as it is. `fresh`
   // forgets a kept signature first (an <img> that errored on it). cb(src)
   window.hkCards.artUrl = function (url, size, cb, fresh) {
-    if (!artRemote(url)) { cb(url); return; }
+    if (!artRemote(url)) { cb(artLocal(url, size)); return; }
     if (fresh) artForget(url, size);
     artSign(window.hkCards.client(), url, size, cb);
   };

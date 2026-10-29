@@ -67,6 +67,31 @@ export const USER_DATA_KEYS = new Set(['hk_music_focus', 'favorites']);
 // here, as it does for every address Mantel gives a page (HA App mode serves Mantel under Ingress).
 export const SNAP_SIGN = 'hk_notify/snap/sign';
 export const ART_SIGN = 'hk_frontend/art/sign';
+// ALBUM ART SCALED BY MANTEL (2026-10-29; connectors/media_art.py, hk_core/art): a remote cover (Apple's CDN,
+// Music Assistant's image proxy) is fetched by the server and scaled to the tile's size bucket, so a tablet
+// without internet shows it and no tile downloads a multi-megabyte cover to draw 150 px. The page makes the
+// address itself -- the session authorises the fetch, nothing is signed: the base64url of the cover's address,
+// the next bucket up (hk_core/art/resize.py SIZES), under the page's prefix.
+export const ART_SIZES = [150, 300, 600, 1000];
+export function artBucket(size) {
+  const n = Math.floor(Number(size));
+  if (!Number.isFinite(n) || n <= 0) return 300;
+  return ART_SIZES.find((s) => s >= n) || ART_SIZES[ART_SIZES.length - 1];
+}
+export function artPath(url, size, base = '') {
+  const bytes = new TextEncoder().encode(url);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  const e = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `${base || ''}/api/media/art?e=${e}&s=${artBucket(size)}`;
+}
+export function artSigned(urls, size, base = '') {
+  const signed = {};
+  for (const u of Array.isArray(urls) ? urls.slice(0, 200) : []) {
+    if (typeof u === 'string' && u.length < 2048 && /^https?:\/\//i.test(u)) signed[u] = artPath(u, size, base);
+  }
+  return { signed };
+}
 const SNAP_PATH = /^\/api\/notify\/snap\/[0-9a-f]{32}$/;     // notify_snaps.PATH, nothing else
 // THE SCREENSAVER'S PHOTOS (hk-saver.js load): media_source/resolve_media is answered by Mantel itself
 // (connectors/media_photos.py) with its own short-lived photo route, never HA's signed address; the page's
@@ -390,10 +415,14 @@ export class Host {
       return this.hub.read(msg).then((r) => prefixPhoto(r, base));
     }
     // ARTWORK SIGNING (hk-base.js artSign): in HA, HK asks for a signed proxy path for remote now-playing art.
-    // Mantel has no such proxy for it: answered "nothing signed", so HK uses the art's own address (what it
-    // already fell back to) -- a read, never refused as a write for the "sign" in its name ("Commands are
-    // disabled" on the Music page with commands on or off: the house, 2026-10-18).
-    if (msg.type === ART_SIGN) return Promise.resolve({ signed: {} });
+    // Answered here, on the page, and never refused as a write for the "sign" in its name ("Commands are
+    // disabled" on the Music page with commands on or off: the house, 2026-10-18). Until 2026-10-29 it was
+    // "nothing signed" (HK used the art's own address, which a tablet without internet can't reach); now each
+    // address is Mantel's own art route with the size bucket, and the server fetches and scales it.
+    if (msg.type === ART_SIGN) {
+      const base = (typeof window !== 'undefined' && window.__mantelBase) || '';
+      return Promise.resolve(artSigned(msg.urls, msg.size, base));
+    }
     if (WRITE_WORDS.test(msg.type)) return this._refuse(msg.type);
     if (this.fixtures[msg.type] !== undefined) return Promise.resolve(this.fixtures[msg.type]);
     return this.hub.read(msg);

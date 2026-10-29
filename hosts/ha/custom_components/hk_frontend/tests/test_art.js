@@ -18,6 +18,27 @@ ok('Music Assistant\'s own http proxy too (mixed content on https)', C._artRemot
 ok('a relative path does not', !C._artRemote('/api/media_player_proxy/x'));
 ok('the page\'s own origin does not', !C._artRemote('https://ha.example.com/local/a.jpg'));
 
+print('\n=== a picture on the page\'s own origin: the host may ask for it at the tile\'s size ===');
+(function () {
+  var LOCAL = '/api/media/media_player.kitchen/art?v=ab', prev = window.hkShell, asked = [];
+  window.hkShell = { artSized: function (u, s) { asked.push([u, s]); return u + '&s=' + s; } };
+  ok('the host\'s answer is the address to load', C._artLocal(LOCAL, 300) === LOCAL + '&s=300' && asked[0][1] === 300);
+  var box = document.createElement('div');
+  var img = C.HkBase.prototype._artImage.call({ client: null }, LOCAL, box, '<hk-icon></hk-icon>', 150);
+  ok('...for a tile\'s artwork on this origin, at the size the tile draws', img.src === LOCAL + '&s=150', img.src);
+  var seen = null;
+  C.artUrl(LOCAL, 600, function (p) { seen = p; });
+  ok('...and for the screensaver\'s music', seen === LOCAL + '&s=600', seen);
+  window.hkShell = { artSized: function () { return null; } };
+  ok('a host with nothing to say (null) leaves the address as it is', C._artLocal(LOCAL, 300) === LOCAL);
+  window.hkShell = { artSized: function () { throw new Error('x'); } };
+  ok('...nor does a host that throws spoil the tile', C._artLocal(LOCAL, 300) === LOCAL);
+  window.hkShell = {};
+  ok('no hook at all: as it is', C._artLocal(LOCAL, 300) === LOCAL);
+  window.hkShell = prev;
+  if (prev === undefined) delete window.hkShell;
+})();
+
 print('\n=== one websocket call per paint, and a fallback ===');
 var calls = [];
 var hass = { callWS: function (m) { calls.push(m); var s = {}; m.urls.forEach(function (u) { s[u] = '/api/hk_frontend/art?u=' + encodeURIComponent(u) + '&s=' + m.size + '&authSig=X'; }); return Promise.resolve({ signed: s }); } };

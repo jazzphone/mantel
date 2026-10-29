@@ -17,7 +17,7 @@ class FakeSocket {
 }
 globalThis.WebSocket = FakeSocket;
 
-const { Host, calendarPath, historyRequest } = await import('./mantel-host.mjs');
+const { Host, calendarPath, historyRequest, artPath, artBucket } = await import('./mantel-host.mjs');
 const { Hub } = await import('./hub.mjs');
 
 const hub = new Hub();
@@ -65,9 +65,15 @@ out.historyParse = [historyRequest('GET', 'history/period/' + encodeURIComponent
                     historyRequest('GET', 'history/period/' + encodeURIComponent(start) + '?filter_entity_id=a.b&other=1'),
                     historyRequest('POST', 'history/period/' + encodeURIComponent(start) + '?filter_entity_id=a.b')];
 
-// now-playing artwork signing: answered on the page as "nothing signed" (no refusal, nothing sent)
+// now-playing artwork signing: answered on the page with Mantel's own art route and the size bucket (no refusal,
+// nothing sent): the server fetches and scales the cover
 const sentBeforeArt = sent.length, refusedBeforeArt = host.refused.length;
-out.results.artSign = await host.hass.callWS({ type: 'hk_frontend/art/sign', urls: ['https://example.test/a.jpg'], size: 300 });
+globalThis.__mantelBase = '/api/hassio_ingress/Fict1onal';
+out.results.artSign = await host.hass.callWS({ type: 'hk_frontend/art/sign',
+  urls: ['https://example.test/a.jpg?x=é&y=1', 'http://192.0.2.53:8095/imageproxy/ab', '/api/media/x/art', 'file:///etc/passwd', 42], size: 250 });
+out.artBuckets = [artBucket(1), artBucket(150), artBucket(151), artBucket(300), artBucket(999), artBucket(5000), artBucket(0), artBucket('x'), artBucket(null)];
+out.artBare = artPath('https://example.test/a.jpg', 300);
+delete globalThis.__mantelBase;
 out.artSent = sent.length - sentBeforeArt;
 out.artRefused = host.refused.length - refusedBeforeArt;
 

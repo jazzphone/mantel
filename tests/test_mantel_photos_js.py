@@ -543,6 +543,11 @@ const out = {};
     await new Promise((ok) => setTimeout(ok, 0)); await new Promise((ok) => setTimeout(ok, 0));
     r.cleared = hkShell.photoSource('x');
     r.toldAgain = told;
+    const A = base + '/api/media/media_player.kitchen/art?v=ab';
+    r.art = [hkShell.artSized(A, 120), hkShell.artSized(A, 300), hkShell.artSized(A, 301), hkShell.artSized(A, 9999),
+             hkShell.artSized(A + '&s=150', 600), hkShell.artSized(A, 0), hkShell.artSized(A, 'x'),
+             hkShell.artSized(base + '/api/media/media_player.kitchen/art', 300), hkShell.artSized('/local/a.jpg', 300),
+             hkShell.artSized(base + '/api/camera/camera.d/still?v=1', 300), hkShell.artSized(null, 300)];
     r.asked = asked;
     out[base || 'root'] = r;
   }
@@ -569,6 +574,11 @@ def test_the_shell_gives_a_screen_its_album_and_lists_it_under_the_prefix():
     assert r["list"][2] == {"id": "p4", "title": "Junk", "url": "/api/photos/" + "4" * 32 + "/screen",
                             "variants": sizes("4")}
     assert r["cleared"] is None and r["toldAgain"] == 2
+    # album art at the tile's size: a player's artwork on Mantel's route takes the next size bucket up; nothing else does
+    a = "/api/media/media_player.kitchen/art"
+    assert r["art"] == [a + "?v=ab&s=150", a + "?v=ab&s=300", a + "?v=ab&s=600", a + "?v=ab&s=1000",
+                        a + "?v=ab&s=150", a + "?v=ab", a + "?v=ab", a + "?s=300", "/local/a.jpg",
+                        "/api/camera/camera.d/still?v=1", None]
     ing = got["/api/hassio_ingress/Fict1onal"]
     assert ing["after"] == "mantel-photos://a1a1a1a1a1a1a1a1"       # the screen read without the prefix
     assert ing["list"][0]["url"] == "/api/hassio_ingress/Fict1onal/api/photos/" + "1" * 32 + "/screen"
