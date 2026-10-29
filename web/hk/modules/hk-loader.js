@@ -85,6 +85,12 @@
   // module whose ramp only settles once it has patched something would also
   // spin through every tick on every navigation, finding nothing.
 
+  // THE BUILD'S ?v= (2026-10-29, Mantel's images): an address put together
+  // here gets the version the build stamped on every literal import, so it is
+  // the same address -- fetched once, run once, and kept by the browser
+  // (web/shim/base.js hkV). Without hkV (HK Frontend, a checkout) as it is.
+  function V(u) { return window.hkV ? window.hkV(u) : u; }
+
   function load(stamp) {
     return Promise.all(MODULES.map(function (m) {
       // Import order is not significant: hk-charts.js reaches for
@@ -94,7 +100,7 @@
       // `stamp` is only used by hkReload() below. A normal page load passes
       // nothing, so the URL is stable and the browser can serve the module
       // from cache after a 304 -- which is the whole point of /hk/.
-      var url = '/hk/modules/' + m + (stamp ? '?t=' + stamp : '');
+      var url = stamp ? '/hk/modules/' + m + '?t=' + stamp : V('/hk/modules/' + m);
       // A FAILED IMPORT IS SAID, AND NEVER BLOCKS THE OTHERS. There is no
       // <script> retry any more (2026-09-28): every browser these screens run
       // (Android WebView, iOS Safari, the car's Chromium) has import(), so a
@@ -132,7 +138,7 @@
   function needFile(name) {
     if (!LAZY || !FILES[name]) return Promise.resolve();
     if (!importing[name]) {
-      importing[name] = import(window.hkV ? window.hkV('/hk/cards/' + name) : '/hk/cards/' + name)
+      importing[name] = import(V('/hk/cards/' + name))
         .catch(function (err) {
           delete importing[name];      // the next ask tries again
           console.error('[hk-loader] could not load /hk/cards/' + name, err);

@@ -46,4 +46,4 @@ def test_the_card_list_is_asked_for_early_and_taken_by_home_js():
     assert html.index("shim/early-cards.js") < html.index("/web/home.js")
     assert "window.__mantelCardList" in (WEB / "home.js").read_text()
     served = ingress.rewrite(early, PREFIX)
-    assert f"link.href = '{PREFIX}/hk/cards/' + c" in served                       # under Ingress too
+    assert f"link.href = hkV('{PREFIX}/hk/cards/' + c)" in served                  # under Ingress too (hkV: the ?v=)

@@ -15,7 +15,8 @@ What this does NOT do yet is rename files to ``name.<hash>.ext``: HK's modules l
 absolute ``/hk/...`` paths and by paths assembled at run time, so a blind rename would break them.
 docs/phase3/PACKAGING.md describes the safe route. Until then the server sends ``no-cache`` with an
 ETag for every asset (a conditional request, answered 304 when nothing changed) and the build id
-tells open screens to reload.
+tells open screens to reload. Since Phase 5 the build also stamps ``?v=<build id>`` on its own imports and
+the pages' links, which the server lets a browser keep (``stamp()`` below).
 
 COMMENTS AND INDENTATION STRIPPED (2026-10-29, Phase 5): every .js and .css file of the copy goes through
 esbuild's whitespace minifier (``minify()`` below): comments and indentation gone, nothing renamed, nothing
@@ -30,6 +31,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -98,8 +100,47 @@ def minify(root: Path, rels: list[str]) -> None:
             raise SystemExit("esbuild failed:\n" + (r.stderr or r.stdout)[-4000:])
 
 
-def build(src: Path, out: Path, minified: bool = True) -> str:
-    """Copy src to out/web (minified unless told not to), write the manifest and BUILD_ID, return the build id."""
+# -- ?v=<build id> ------------------------------------------------------------------------------------------
+# CACHE THAT LASTS (2026-10-29, Phase 5). Every screen asked again for each of its ~120 files at every start (no-cache:
+# a conditional request, a 304). Now the build stamps ?v=<build id> on the addresses of HK's and Mantel's own code
+# where they are written down -- each import's specifier and each page's script and stylesheet link -- and the server
+# lets a browser keep a file asked for with the build's id for a year (server.py: immutable). A new build is a new id,
+# so a new address. What is stamped, and only that:
+#   * a module specifier: `from "x"`, `import "x"`, `import("x")` with a string literal, where x is one of this
+#     app's own scripts -- relative (./, ../) or under /hk/ or /web/ -- with no query of its own;
+#   * in a page, a <script src> or <link href> under /hk/ or /web/ (a .js or .css).
+# An address put together at run time ('/hk/sheets/' + file) gets the same ?v= from web/shim/base.js's hkV(), which
+# reads it off its own address. Everything else (pictures, fonts, the API) is left as it was.
+_OWN = r"(?:\.{1,2}/|/hk/|/web/)[^\"'`?#\s]*\.m?js"
+JS_SPECIFIER = re.compile(r"(\bfrom\s*|\bimport\s*\(\s*|\bimport\s*)([\"'])(" + _OWN + r")\2")
+HTML_LINK = re.compile(r"(<(?:script|link)\b[^>]*?\b(?:src|href)=)([\"'])(/(?:hk|web)/[^\"'?#\s]+\.(?:m?js|css))\2", re.I)
+STAMPED = (".js", ".mjs", ".html")
+
+
+def stamp_text(text: str, version: str, html: bool = False) -> str:
+    """The text with ?v=<version> on every own script address it names (see above)."""
+    pat = HTML_LINK if html else JS_SPECIFIER
+    return pat.sub(lambda m: f"{m.group(1)}{m.group(2)}{m.group(3)}?v={version}{m.group(2)}", text)
+
+
+def stamp(root: Path, rels: list[str], version: str) -> int:
+    """Stamp the .js and .html files among `rels` under root in place; how many addresses were stamped."""
+    n = 0
+    for rel in rels:
+        if not rel.endswith(STAMPED):
+            continue
+        path = root / rel
+        text = path.read_text(encoding="utf-8")
+        new = stamp_text(text, version, html=rel.endswith(".html"))
+        if new != text:
+            n += new.count("?v=" + version) - text.count("?v=" + version)
+            path.write_text(new, encoding="utf-8")
+    return n
+
+
+def build(src: Path, out: Path, minified: bool = True, stamped: bool = True) -> str:
+    """Copy src to out/web (minified, then stamped with its build id, unless told not to), write the manifest and
+    BUILD_ID, return the build id."""
     if out.exists():
         raise SystemExit(f"{out} already exists; choose a new directory")
     if not src.is_dir():
@@ -113,13 +154,13 @@ def build(src: Path, out: Path, minified: bool = True) -> str:
     rels = [p.relative_to(src).as_posix() for p in files]
     if minified:
         minify(web, rels)
-    manifest: dict[str, dict] = {}
     overall = hashlib.sha256()
     for rel in rels:
-        digest = file_digest(web / rel)
-        manifest[rel] = {"sha256": digest, "size": (web / rel).stat().st_size}
-        overall.update(rel.encode() + b"\0" + digest.encode() + b"\n")
-    build_id = overall.hexdigest()[:16]
+        overall.update(rel.encode() + b"\0" + file_digest(web / rel).encode() + b"\n")
+    build_id = overall.hexdigest()[:16]          # (of what ships, before the id itself is stamped in)
+    if stamped:
+        stamp(web, rels, build_id)
+    manifest = {rel: {"sha256": file_digest(web / rel), "size": (web / rel).stat().st_size} for rel in rels}
     (out / "static-manifest.json").write_text(json.dumps({"build": build_id, "files": manifest}, indent=1, sort_keys=True))
     (out / "BUILD_ID").write_text(build_id + "\n")
     return build_id
@@ -130,8 +171,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("out", type=Path)
     p.add_argument("--src", type=Path, default=ROOT / "web")
     p.add_argument("--no-minify", action="store_true", help="copy the files as they are (no esbuild)")
+    p.add_argument("--no-stamp", action="store_true", help="leave the imports without ?v=<build id>")
     a = p.parse_args(argv)
-    build_id = build(a.src, a.out, minified=not a.no_minify)
+    build_id = build(a.src, a.out, minified=not a.no_minify, stamped=not a.no_stamp)
     print(f"build {build_id}: {a.out}")
     return 0
 

@@ -2529,7 +2529,8 @@
     function radarModule() {
       if (window.hkRadar) return Promise.resolve(window.hkRadar);
       if (!radarLoad) {
-        radarLoad = import(RADAR_URL).then(function () { return window.hkRadar; }, function (e) {
+        // (hkV: Mantel's build's ?v= on the module's address, web/shim/base.js)
+        radarLoad = import(window.hkV ? window.hkV(RADAR_URL) : RADAR_URL).then(function () { return window.hkRadar; }, function (e) {
           radarLoad = null;
           throw e;
         });

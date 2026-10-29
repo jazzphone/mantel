@@ -17,6 +17,18 @@ window.__mantelBase = base;
 
 // a Mantel URL path ('/api/session') under the prefix
 export const mantelUrl = (path) => base + path;
+
+// CACHE THAT LASTS (2026-10-29): an image's build (tools/build_static.py) stamps ?v=<build id> on every import of
+// HK's and Mantel's own code and on the pages' script and stylesheet links, and the server lets a browser keep a
+// file asked for with the build's id for a year without asking again (server.py). An import whose address is put
+// together while the page runs ('/hk/sheets/' + file) cannot be stamped by the build: it goes through hkV(), which
+// gives it the same ?v= this file was loaded with -- the same address as the build's own imports of that file, so
+// it is fetched once and runs once. Run from a checkout (nothing stamped) it changes nothing. HK Frontend has no
+// hkV: its callers use the address as it is.
+const BUILD = new URL(import.meta.url).searchParams.get('v');
+export const hkV = (u) => (BUILD && typeof u === 'string' && u.indexOf('?') < 0 && /\.(m?js|css)$/.test(u)
+  ? u + '?v=' + BUILD : u);
+window.hkV = hkV;
 export const wsUrl = (path) => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${base}${path}`;
 
 // an absolute address of this site that is not under the prefix yet

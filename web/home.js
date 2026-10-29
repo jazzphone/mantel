@@ -10,7 +10,7 @@
 // navigation. This file only connects Mantel's pieces: the hub, the host snapshot and its client,
 // the host shell, and the narrowing of the hub subscription to what the pages seen so far read.
 // first: the page's address prefix (HA App mode, Ingress; '' everywhere else) -- shim/base.js
-import { mantelUrl } from './shim/base.js';
+import { mantelUrl, hkV } from './shim/base.js';
 import './client/hk-client.js';
 import './client/hk-card-state.js';
 import './client/hk-host-shell.js';
@@ -125,7 +125,8 @@ await first;
 mark('states');
 
 // HA's frontend keeps /<dashboard>/<view>; so does this page (HK reads the first segment).
-const imp = (u) => import(u).catch((e) => console.error('[mantel] could not load', u, e));
+// (hkV: the build's ?v= on an address put together here, shim/base.js)
+const imp = (u) => import(hkV(u)).catch((e) => console.error('[mantel] could not load', u, e));
 for (const m of ['modules/hk-settings.js', 'iconset/hk-icons.js', 'modules/tesla-viewport.js', 'modules/hk-tap.js',
                  'modules/hk-header.js', 'modules/hk-loader.js', 'cards/hk-strategy.js']) await imp('/hk/' + m);
 // ONLY THE CARDS A SCREEN USES (2026-10-29): the other card files are hk-loader.js's to import, the first time

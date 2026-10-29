@@ -2606,7 +2606,8 @@
       var have = window.hkSheets || {};
       var missing = SHEETS.filter(function (file) { return !have[sheetKey(file)]; });
       if (!missing.length) { runSheets(); return; }
-      Promise.all(missing.map(function (file) { return import('/hk/sheets/' + file); }))
+      // (window.hkV: Mantel's build's ?v= on an address put together here, web/shim/base.js)
+      Promise.all(missing.map(function (file) { var u = '/hk/sheets/' + file; return import(window.hkV ? window.hkV(u) : u); }))
         .then(runSheets)
         .catch(function (err) { console.error('[hk-detail] the sheets did not start', err); });
     }

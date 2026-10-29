@@ -609,6 +609,20 @@ async def test_hk_files_are_served_for_the_prefix(mk):
     assert f'href="{PREFIX}/hk/css/hk-responsive.css"' in page and f'src="{PREFIX}/web/home.js"' in page
 
 
+async def test_a_stamped_file_of_this_build_is_kept_through_ingress_too(mk):
+    """Cache that lasts (2026-10-29): a file asked for with the build's ?v= (tools/build_static.py) is kept by the
+    browser through Ingress as well, rewritten for the prefix like the rest; unstamped it is asked for again."""
+    m = await mk()
+    m.store.link(OWNER_HA, "owner")
+    await m.page()
+    (m.app["cfg"].web.parent / "BUILD_ID").write_text("fict1onalbu1ld00\n")
+    r = await m.request("GET", "/hk/modules/hk-probe.js?v=fict1onalbu1ld00", m.ha())
+    assert r.status == 200 and r.headers["Cache-Control"] == "private, max-age=31536000, immutable"
+    assert f"import('{PREFIX}/hk/cards/y.js')" in await r.text()
+    r = await m.request("GET", "/hk/modules/hk-probe.js", m.ha())
+    assert r.headers["Cache-Control"] == "no-cache"
+
+
 async def test_rewritten_files_are_gzipped_once_for_a_browser_that_takes_gzip(mk):
     """2026-10-29: through Ingress a rewritten file goes as gzip when the browser accepts it, made once and kept
     beside the plain body; the two encodings have their own ETags, and a 304 still works for each."""
