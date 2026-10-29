@@ -133,6 +133,16 @@ page lists any pictures that could not be copied, and why.
 Nothing in Home Assistant is changed or deleted. Only Home Assistant's own
 media folders are read; cameras and other sources are skipped.
 
+**Recommended on All Screens → Screensaver.** While every screen's
+**Screensaver Photos** is a Home Assistant folder, an Owner sees a
+recommendation under it: *Import these into Mantel Photos: tablets get
+screen-sized copies, and faces stay in view.* **Import into a New Album**
+asks for the album's name (the folder's, to start with), makes it and runs
+this same import from that folder, its progress shown right there. When the
+import is done, every screen shows the new album. One that is stopped or
+fails changes nothing. You can leave the page while it copies; the switch
+happens the next time you open All Screens → Screensaver in that browser.
+
 ## Who may do what
 
 | | Owner | Admin | Adult, Child | Wall tablet | Guest |

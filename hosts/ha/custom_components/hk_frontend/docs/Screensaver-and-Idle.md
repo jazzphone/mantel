@@ -39,6 +39,13 @@ changes: the tablet, its switch and its photos are left alone.
 empty or can’t be read, or when a screen has the Photo Screensaver on but no
 tablet runs it.
 
+With [Mantel](HK-Frontend-and-Mantel.md), All Screens → Screensaver
+recommends importing a Home Assistant folder into Mantel Photos, under
+Screensaver Photos: tablets then get screen-sized copies, and faces stay in
+view. **Import into a New Album** (an Owner’s) makes the album, copies the
+folder into it and, once the import is done, shows it on every screen.
+Nothing changes until you tap it.
+
 ### How it behaves
 
 - It starts once the screen has been left alone for **Starts After** (3

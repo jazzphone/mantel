@@ -18,11 +18,17 @@ BASELINE (2026-10-29, docs/development/Performance-baseline.md): the ``load`` fr
 by its first screen (``dl_bytes``, ``dl_files``), and a new ``fps`` frame (about 20 seconds after load, then hourly)
 the frame rate over 5 idle seconds. A tablet's latest device, frame rate, download and first draw are also kept in the
 ``tablet_health`` table (migration 0026, TABLETS below) so they outlive a restart: written when a value changes, at
-most every 10 minutes per tablet."""
+most every 10 minutes per tablet.
+
+RECOMMENDATIONS (2026-10-29): an ``fps`` frame also says the ``screen`` (a dashboard's path) and the ``style`` it was
+drawn with (``flat``, ``clear``, ``frosted``, ``tinted`` or a blur); a tablet's latest are kept beside its number
+(``fps_screen``, ``fps_style``, ``fps_at``), for HK Settings' "a lighter look for a slow tablet"
+(GET /api/performance/tablets, performance.py)."""
 from __future__ import annotations
 
 import json
 import logging
+import re
 import sqlite3
 import time
 from collections import deque
@@ -41,6 +47,8 @@ KEEP = 24 * 3600.0       # how long a sample is kept
 PER_SCREEN = 1600        # samples a screen keeps: a beat a minute for 24 hours is 1440, and the loads and draws
 SCREENS = 200            # screens kept (the one heard from longest ago goes first)
 WRITE_EVERY = 600.0      # a tablet's stored summary is written at most this often
+SCREEN = re.compile(r"^[A-Za-z0-9_-]{1,100}$")      # the screen an fps frame was drawn on (a dashboard's path)
+STYLES = ("flat", "clear", "frosted", "tinted", "blur", "blur_pre", "blur_each")      # ...and its style
 
 
 def _num(v: Any) -> float | None:
@@ -55,6 +63,14 @@ def _fps(v: Any) -> float | None:
     return round(float(v), 1) if isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= 1000 else None
 
 
+def _screen(v: Any) -> str:
+    return v if isinstance(v, str) and SCREEN.match(v) else ""
+
+
+def _style(v: Any) -> str:
+    return v if v in STYLES else ""
+
+
 def _device(msg: dict) -> dict | None:
     """What a ``load`` frame says the device is; None when it says nothing usable."""
     platform = msg.get("platform")
@@ -62,6 +78,12 @@ def _device(msg: dict) -> dict | None:
         return None
     return {"platform": platform, "memory_gb": _num(msg.get("memory_gb")), "cores": _count(msg.get("cores")),
             "screen_w": _count(msg.get("sw")), "screen_h": _count(msg.get("sh")), "dpr": _num(msg.get("dpr"))}
+
+
+def _compared(kept: dict) -> str:
+    """What a stored summary is compared by: every value but when the frame rate was taken (a number the same as
+    before is no change)."""
+    return json.dumps({k: v for k, v in kept.items() if k != "fps_at"}, sort_keys=True, separators=(",", ":"))
 
 
 class TabletHealth:
@@ -86,7 +108,7 @@ class TabletHealth:
         for row in conn.execute("SELECT device_id, updated, json FROM tablet_health"):
             try:
                 self.latest[row[0]] = json.loads(row[2])
-                self._saved[row[0]] = (float(row[1]), row[2])
+                self._saved[row[0]] = (float(row[1]), _compared(self.latest[row[0]]))
             except ValueError:
                 continue
 
@@ -102,16 +124,16 @@ class TabletHealth:
                 cur[k] = v
         if self.conn is None:
             return
-        text = json.dumps(cur, sort_keys=True, separators=(",", ":"))
+        text, same = json.dumps(cur, sort_keys=True, separators=(",", ":")), _compared(cur)
         at, was = self._saved.get(device_id, (None, None))
-        if text == was or (at is not None and now - at < WRITE_EVERY):
+        if same == was or (at is not None and now - at < WRITE_EVERY):
             return
         try:
             with self.conn:
                 self.conn.execute("INSERT INTO tablet_health (device_id, updated, json) VALUES (?,?,?) "
                                   "ON CONFLICT(device_id) DO UPDATE SET updated=excluded.updated, json=excluded.json",
                                   (device_id, now, text))
-            self._saved[device_id] = (now, text)
+            self._saved[device_id] = (now, same)
         except sqlite3.Error:
             log.exception("page health: could not keep %s's summary", name)
 
@@ -164,8 +186,12 @@ class Ring:
         self._prune(e, now)
         if kind == "tablet" and msg.get("page") in (None, "home") and any(
                 s[f] is not None for f in ("fps", "dl_bytes", "device", "first_draw")):
+            # with a frame rate, where and how it was drawn (said again each time, "" for not said, so an older one's
+            # screen is never left beside a newer number)
+            where = {"fps_at": now, "fps_screen": _screen(msg.get("screen")), "fps_style": _style(msg.get("style"))} \
+                if s["fps"] is not None else {}
             TABLETS.note(key.split(":", 1)[1], name, now, device=s["device"], fps=s["fps"], first_draw_ms=s["first_draw"],
-                         download_bytes=s["dl_bytes"], download_files=s["dl_files"])
+                         download_bytes=s["dl_bytes"], download_files=s["dl_files"], **where)
 
     @staticmethod
     def _prune(e: dict, now: float) -> None:

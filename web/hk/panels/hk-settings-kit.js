@@ -528,6 +528,17 @@
                          'aria-disabled': o.disabled ? 'true' : null, onclick: o.onClick },
       [o.icon ? icon(o.icon, 'ic') : null, h('span', { class: 'lbl' }, h('span', { class: 't', text: o.label }))]);
   }
+  // A RECOMMENDATION (2026-10-29): a group of its own -- o.title, o.says (why,
+  // in a sentence or two: the footer) and o.actions, each a button that
+  // applies the suggestion ({label, onClick, sk}) or a row that opens where
+  // it is ({label, href, sub, value, sk}). Nothing changes until one is
+  // tapped; the caller draws it only while the setting differs.
+  function recommend(o) {
+    return group({ header: o.title || 'Recommended', footer: o.says, sk: o.sk, cls: 'rec' }, (o.actions || []).map(function (a) {
+      return a.href ? nav({ label: a.label, href: a.href, sub: a.sub, value: a.value, sk: a.sk, fk: a.fk })
+        : button({ label: a.label, onClick: a.onClick, sk: a.sk, fk: a.fk, disabled: a.disabled });
+    }));
+  }
 
   // ------------------------------------------------------ the list editor
   // o = {
@@ -1331,9 +1342,9 @@
   }
 
   root.hkSettingsKit = {
-    version: '2.1.0', CSS: CSS, h: h, esc: esc, icon: icon, svg: svg, id: id,
+    version: '2.2.0', CSS: CSS, h: h, esc: esc, icon: icon, svg: svg, id: id,
     CHEV: CHEV, CHECK: CHECK, group: group, nav: nav, toggle: toggle, seg: seg, select: select, slider: slider,
-    text: text, info: info, check: check, button: button, listEditor: listEditor, confirm: confirm, label: label, popup: popup,
+    text: text, info: info, check: check, button: button, recommend: recommend, listEditor: listEditor, confirm: confirm, label: label, popup: popup,
     moveVal: moveVal, yaml: yaml, yamlParse: yamlParse, yamlDump: yamlDump, YamlError: YamlError
   };
 })();

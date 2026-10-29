@@ -10,6 +10,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 - **A screen's menu follows All Screens one setting at a time**, as its Appearance does: each row says Same as All Screens or Just This Screen, with Reset to All Screens. On the first start after updating (entry 1.17), a screen with its own menu keeps only the settings that differ from All Screens'; nothing any screen shows changes.
 - **Page Header is Back Button & Title**, in a screen's Header. A screen's menu is set only on its page; its Menu Settings list only the navigation it uses (Side Menu, Edge Tab, Tab Bar).
 - A screen's Highlight Color link no longer leads nowhere while its menu follows All Screens. Every moved settings address opens the new page.
+- **Recommended: a lighter look for a slow tablet.** A tablet measures how many frames a second it draws (5 idle seconds, lit, about 20 seconds after loading and then hourly). Opened on a tablet that draws under 45 with Blur, Frosted or Tinted, HK Settings says so under This Device on that screen's page, with **Use Glass on This Screen** and **Use Flat**. Nothing changes until you tap one.
 
 ## 1.14.3 - 2026-10-28
 

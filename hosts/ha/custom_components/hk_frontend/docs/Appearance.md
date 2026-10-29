@@ -103,6 +103,25 @@ A card can stay out of the shared blur with `glass: false`. Whether tapping an
 accessory opens an HK detail sheet is **HK Detail Sheets**, under
 [Library → Accessories](Accessories.md#accessories-settings).
 
+## Recommended: a lighter look for a slow tablet
+
+When a wall tablet draws fewer than 45 frames a second on a screen with
+**Blur**, **Frosted** or **Tinted**, HK Settings suggests a lighter look on
+that screen’s **Appearance**, under its Style. For example: *“Kitchen Tablet
+draws 38 frames a second with Blur. Glass looks almost the same and is
+lighter.”* **Use Glass on This Screen** or **Use Flat** gives that screen its
+own style; All Screens’ is never changed. Nothing changes until you tap one,
+and the suggestion goes once the screen wears Glass or Flat. All Screens →
+Appearance lists each such screen, linked to its page.
+
+The tablet measures itself: 5 seconds of drawing, about 20 seconds after the
+screen loads and then hourly, only while nobody is touching it and the screen
+is lit. In Home Assistant the tablets report to nobody, so the suggestion
+shows when HK Settings is opened **on that tablet**, under **This Device** on
+the page of the screen it measured (*Recommended for This Device*). With
+[Mantel](HK-Frontend-and-Mantel.md), every tablet’s number reaches HK
+Settings wherever it is opened.
+
 ## One screen
 
 **Screens → (a screen) → Appearance**, one row on the screen’s page with its

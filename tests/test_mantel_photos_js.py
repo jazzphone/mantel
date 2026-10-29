@@ -31,7 +31,8 @@ PAGE_SCRIPT = r"""
 import { readFileSync } from 'node:fs';
 globalThis.window = globalThis;
 const stored = {};
-globalThis.localStorage = { setItem(k, v) { stored[k] = v; } };
+globalThis.localStorage = { setItem(k, v) { stored[k] = v; }, getItem(k) { return k in stored ? stored[k] : null; },
+                            removeItem(k) { delete stored[k]; } };
 globalThis.location = { hash: '#/mantel/files/photos', pathname: '/settings' };
 globalThis.document = { addEventListener() {}, querySelector: () => null, cookie: '' };
 class El {
@@ -68,6 +69,9 @@ window.hkSettingsKit = {
   group: (o, rows) => new El('group', { header: o.header || null, footer: typeof o.footer === 'string' ? o.footer : null }, rows),
   info: row('info'), toggle: row('toggle'), text: row('text'), select: row('select'), nav: row('nav'), check: row('check'),
   button: (o) => new El('button', Object.assign({}, o, { 'data-fk': o.fk })),
+  // the kit's recommendation: a group, its reason the footer, a button per action
+  recommend: (o) => new El('group', { header: o.title || 'Recommended', footer: o.says },
+    (o.actions || []).map((a) => new El('button', Object.assign({}, a, { 'data-fk': a.fk })))),
   confirm: () => Promise.resolve(true),
 };
 const reads = JSON.parse(readFileSync(process.argv[3], 'utf8'));
@@ -213,6 +217,40 @@ set.length = 0;
 s.c.find((e) => e.attrs['data-fk'] === 'mx:house-album').attrs.onChange('new');
 await nameIt(s.panel, 'Porch');
 out.houseNew = { sent: sent.splice(0), set: set.slice() };
+// -- IMPORT THEM INSTEAD (2026-10-29): All Screens' photos a Home Assistant folder -- an Owner's recommendation
+const HA = 'media-source://media_source/local/photos';
+set.length = 0;
+const houseCtx = { photos: HA, set: (v) => { set.push(v); return Promise.resolve(); } };
+s = await draw(owner, null, 'house-saver', houseCtx);
+out.importRec = groups(s.c);
+reads['/api/photos'] = Object.assign({}, ownerRead, { owner: false });
+out.importRecAdmin = groups((await draw(admin, null, 'house-saver', houseCtx)).c);
+reads['/api/photos'] = ownerRead;
+out.importRecAlbum = groups((await draw(owner, null, 'house-saver', { photos: 'mantel-photos://' + AID, set: houseCtx.set })).c);
+s = await draw(owner, null, 'house-saver', houseCtx);
+s.c.find((e) => e.attrs['data-fk'] === 'mx:house-import').click();
+await tick();
+{
+  const dlg = s.panel.shadowRoot.find((e) => e.cls.has('mxdlg'));
+  out.importName = dlg.find((e) => e.tag === 'input').value;
+  dlg.find((e) => e.tag === 'button' && e.text === 'Import').on.click();
+  for (let i = 0; i < 6; i++) await tick();
+}
+out.importSent = sent.splice(0);
+out.importSwitch = stored['mantel-photos-switch'] || null;
+const job = (state, extra) => Object.assign({ source: HA, album: 'c3c3c3c3c3c3c3c3', album_name: 'Photos', state, found: 10, done: 4,
+                                              imported: 4, skipped: 0, failed: 0, errors: [], message: '' }, extra || {});
+reads['/api/photos/import'] = { ok: true, importing: null };
+reads['/api/photos'] = Object.assign({}, ownerRead, { importing: job('copying') });
+out.importRunning = { groups: groups((await draw(owner, null, 'house-saver', houseCtx)).c), set: set.slice() };
+reads['/api/photos'] = Object.assign({}, ownerRead, { importing: job('done', { done: 10, imported: 10 }) });
+out.importDone = { groups: groups((await draw(owner, null, 'house-saver', houseCtx)).c), set: set.splice(0),
+                   left: stored['mantel-photos-switch'] || null };
+stored['mantel-photos-switch'] = 'c3c3c3c3c3c3c3c3';
+reads['/api/photos'] = Object.assign({}, ownerRead, { importing: job('cancelled', { message: 'Stopped.' }) });
+await draw(owner, null, 'house-saver', houseCtx);
+out.importStopped = { set: set.splice(0), left: stored['mantel-photos-switch'] || null };
+reads['/api/photos'] = ownerRead;
 // a cancelled name makes nothing
 s = await draw(owner, null, 'saver', { screen: 'dashboard-kitchen', title: 'Kitchen' });
 s.c.find((e) => e.attrs['data-fk'] === 'mx:saver-album').attrs.onChange('new');
@@ -481,6 +519,32 @@ def test_new_album_from_all_screens_makes_it_and_sets_every_screens_photos():
     assert len(house) == 1                                          # no album picked: nothing to add photos to
     assert out["houseNew"]["sent"] == [{"method": "POST", "path": "/api/photos/albums", "body": {"name": "Porch"}}]
     assert out["houseNew"]["set"] == ["mantel-photos://c3c3c3c3c3c3c3c3"]
+
+
+def test_a_home_assistant_folder_is_recommended_into_a_new_album_an_owners_only():
+    out = run_page()
+    rec = by_header(out["importRec"], "Recommended")
+    assert out["importRec"][-1] is rec and out["importRec"][0]["rows"][0]["fk"] == "mx:house-album", \
+        "after the album picker, which stays right under Screensaver Photos"
+    assert rec["footer"] == "Import these into Mantel Photos: tablets get screen-sized copies, and faces stay in view."
+    assert [(r["label"], r["fk"]) for r in rec["rows"]] == [("Import into a New Album", "mx:house-import")]
+    assert all(g["header"] != "Recommended" for g in out["importRecAdmin"]), "the import is an Owner's"
+    assert all(g["header"] != "Recommended" for g in out["importRecAlbum"]), "already an album: nothing to recommend"
+
+
+def test_import_into_a_new_album_makes_it_imports_the_folder_and_switches_only_when_done():
+    out = run_page()
+    ha = "media-source://media_source/local/photos"
+    assert out["importName"] == "Photos"                            # the folder's name, to change if wanted
+    assert out["importSent"] == [{"method": "POST", "path": "/api/photos/albums", "body": {"name": "Photos"}},
+                                 {"method": "POST", "path": "/api/photos/import",
+                                  "body": {"source": ha, "album": "c3c3c3c3c3c3c3c3"}}]
+    assert out["importSwitch"] == "c3c3c3c3c3c3c3c3"                # kept: the page may be left while it copies
+    running = out["importRunning"]
+    assert running["set"] == [] and by_header(running["groups"], "Importing")["rows"][0]["fk"] == "mx:house-import-progress"
+    assert all(g["header"] != "Recommended" for g in running["groups"])
+    assert out["importDone"]["set"] == ["mantel-photos://c3c3c3c3c3c3c3c3"] and out["importDone"]["left"] is None
+    assert out["importStopped"] == {"set": [], "left": None}, "a stopped import switches nothing"
 
 
 def test_add_photos_on_a_screens_picker_uploads_into_its_album_and_shows_progress_there():

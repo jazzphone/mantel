@@ -263,11 +263,13 @@ function housePhotos() {
   } catch (e) { /* no settings here */ }
   return 'media-source://media_source/local/photos';
 }
-function pollImport() {
+// asked again every 1.5 s while the page that shows it (`at`, an address: Photos, or All Screens → Screensaver) is up
+function pollImport(at) {
   if (importTimer) return;
+  const here = at || home();
   importTimer = setTimeout(async () => {
     importTimer = null;
-    if (!String(location.hash).startsWith(home())) return;     // left the page: stop asking
+    if (!String(location.hash).startsWith(here)) return;     // left the page: stop asking
     try { importJob = (await T.api('GET', '/api/photos/import')).importing; } catch (e) { /* asked again below */ }
     if (importJob && !['listing', 'copying'].includes(importJob.state)) { T.forget('photos'); changed(); }
     T.redraw();
@@ -790,7 +792,9 @@ export function extend(where, c, ctx, tools) {
     if (named(cur)) drawUploads(c, cur);
     return;
   }
-  const m = /^mantel-photos:\/\/([0-9a-f]{16})$/.exec(String(ctx.photos || ''));
+  if (importJob === undefined) importJob = d.importing;
+  const switched = settleImport(ctx, key);
+  const m =/^mantel-photos:\/\/([0-9a-f]{16})$/.exec(String(ctx.photos || ''));
   const cur = m ? m[1] : '';
   const opts = [['', 'The Home Assistant Folder (Above)']].concat(d.albums.map((a) => [a.id, a.name]));
   if (m && !named(m[1])) opts.push([m[1], 'An Album That Was Deleted']);
@@ -805,6 +809,70 @@ export function extend(where, c, ctx, tools) {
   if (add) g.appendChild(add.input);
   c.appendChild(g);
   if (named(cur)) drawUploads(c, cur);
+  if (!switched) drawImportHere(c, ctx, d, key);
+}
+// IMPORT THEM INSTEAD (2026-10-29): while All Screens' photos are a Home Assistant folder, a recommendation (an
+// Owner's, as the import is): a new album, the folder copied into it by the import above (its progress shown here),
+// and once it is done every screen switched to the album. Nothing changes until it is tapped, and the switch waits for
+// the import: one stopped or failed, or that found no photos, switches nothing. The album to switch to is kept in this
+// browser, so a page left while it copies switches when it is opened again.
+const SWITCH_KEY = 'mantel-photos-switch';
+function switchTo(id) {
+  try {
+    if (id === undefined) return window.localStorage.getItem(SWITCH_KEY) || '';
+    if (id) window.localStorage.setItem(SWITCH_KEY, id); else window.localStorage.removeItem(SWITCH_KEY);
+  } catch (e) { /* private mode: only this page's own */ }
+  return '';
+}
+const folderName = (src) => {
+  const last = decodeURIComponent(String(src).replace(/\/+$/, '').split('/').pop() || '');
+  return last && !/^media_source$|^local$/.test(last) ? last.charAt(0).toUpperCase() + last.slice(1).replace(/[_-]+/g, ' ') : 'Screensaver Photos';
+};
+const haFolder = (ctx) => String(ctx.photos || '').startsWith('media-source://media_source/');
+// the import started here has ended: every screen switched to its album when it brought photos in (before the
+// page's result line is drawn, which says so). True when it switched.
+function settleImport(ctx, key) {
+  const j = importJob, want = switchTo();
+  if (!want || !j || j.album !== want || ['listing', 'copying'].includes(j.state)) return false;
+  switchTo('');
+  if (j.state === 'done' && j.imported + j.skipped > 0 && haFolder(ctx)) {
+    ctx.set('mantel-photos://' + want);
+    changed();
+    T.setFlash(key, plural(j.imported + j.skipped, 'photo') + ' imported into “' + j.album_name + '”. Every screen shows it now.');
+    return true;
+  }
+  T.setFlash(key, 'The import into “' + j.album_name + '” didn’t finish, so the screens still show the Home Assistant folder.' +
+             (j.message ? ' ' + j.message : ''), true);
+  return false;
+}
+function drawImportHere(c, ctx, d, key) {
+  const src = String(ctx.photos || ''), j = importJob, want = switchTo();
+  const running = !!j && ['listing', 'copying'].includes(j.state);
+  if (!haFolder(ctx) || !d.owner) return;
+  if (running) {
+    pollImport(String(location.hash).split('?')[0]);
+    const pct = j.found ? Math.min(100, (j.done / j.found) * 100) : 0;
+    c.appendChild(T.group({ header: 'Importing', footer: 'Copying from ' + j.source + ' into ' + j.album_name + '. ' +
+        (j.album === want ? 'When it’s done, every screen shows the album. ' : '') + 'You can leave this page; it carries on.' }, [
+      hh('div', { class: 'cell mxuse', 'data-fk': 'mx:house-import-progress' }, [
+        hh('span', { class: 'lbl' }, [hh('span', { class: 't', text: j.state === 'listing' ? 'Looking for photos…' : 'Copying ' + j.done.toLocaleString() + ' of ' + j.found.toLocaleString() }),
+          hh('small', { text: j.state === 'listing' ? plural(j.found, 'photo') + ' found so far' : jobLine(j) })]),
+        hh('div', { class: 'mxbar', role: 'progressbar', 'aria-label': 'Import progress', 'aria-valuemin': 0, 'aria-valuemax': 100,
+                    'aria-valuenow': Math.round(pct) }, hh('i', { style: 'width:' + pct.toFixed(1) + '%' }))])]));
+    return;
+  }
+  c.appendChild(K().recommend({ title: 'Recommended', sk: 'mx:house-import-rec',
+    says: 'Import these into Mantel Photos: tablets get screen-sized copies, and faces stay in view.', actions: [
+      { label: 'Import into a New Album', fk: 'mx:house-import', onClick: async () => {
+        const name = await askName({ title: 'Import into a New Album', ok: 'Import', value: folderName(src),
+          message: 'The photos in ' + src + ' are copied into it. Nothing in Home Assistant is changed. When the import is done, every screen shows the album.' });
+        if (!name) return;
+        await T.act(key, async () => {
+          const album = (await T.api('POST', '/api/photos/albums', { name })).album;
+          switchTo(album.id);
+          try { importJob = (await T.api('POST', '/api/photos/import', { source: src, album: album.id })).importing; } catch (e) { switchTo(''); throw e; }
+        }, null, 'photos');
+      } }] }));
 }
 export function _reset() {
   selecting = false; selected.clear(); selAlbum = null; uploads.length = 0; active = 0; importJob = undefined;

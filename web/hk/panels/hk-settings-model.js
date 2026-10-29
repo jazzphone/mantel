@@ -1024,6 +1024,35 @@
     if (style === 'tinted') t += ' Darkness: how much of the background shows through, 50% is 75% dark. Icon Circles: Dark as the Home app’s, or Light to keep their shape over dark scenery.';
     return t;
   }
+  // A LIGHTER LOOK FOR A SLOW TABLET (2026-10-29): offered on a screen's
+  // Appearance, never applied by itself. `style`: the screen's effective
+  // style; `tablets`: [{name, screens, fps, fps_screen, fps_style, fps_at}]
+  // -- each tablet's latest frame rate (5 idle seconds, page-health.js /
+  // hk-fps.js), the screen and style it was measured on when it says, else
+  // the screens it shows. A tablet counts for this screen when it measured
+  // it (or, saying nothing of where, shows it), with this style, under
+  // SLOW_FPS, in the last FPS_FRESH. The slowest one speaks. null: nothing to
+  // recommend (a light style already, no numbers, or all fast enough).
+  var SLOW_FPS = 45, FPS_FRESH = 14 * 86400;
+  var HEAVY_LOOKS = { blur: 1, frosted: 1, tinted: 1 };
+  function blurRecommend(path, style, tablets, now) {
+    var kind = glassStyle(style);
+    if (style === 'flat' || !HEAVY_LOOKS[kind]) return null;
+    var slow = null;
+    (tablets || []).forEach(function (t) {
+      if (!t || typeof t.fps !== 'number' || !(t.fps < SLOW_FPS)) return;
+      var where = t.fps_screen ? t.fps_screen === path : (t.screens || []).indexOf(path) >= 0;
+      if (!where || (t.fps_style && (t.fps_style === 'flat' || glassStyle(t.fps_style) !== kind))) return;
+      if (now && typeof t.fps_at === 'number' && now - t.fps_at > FPS_FRESH) return;
+      if (!slow || t.fps < slow.fps) slow = t;
+    });
+    if (!slow) return null;
+    var label = (GLASS_STYLES.filter(function (s) { return s[0] === kind; })[0] || [0, kind])[1];
+    var fps = Math.round(slow.fps);
+    return { name: slow.name, fps: fps, style: kind, label: label,
+             says: (slow.name || 'A tablet') + ' draws ' + fps + ' frames a second with ' + label + '. ' +
+               (kind === 'blur' ? 'Glass looks almost the same and is lighter.' : 'Flat is the lightest look: no blur, animations or moving sky.') };
+  }
 
   // ------------------------------------------------------------ the lists
   // Each list model: { auto, rows: [{value, label?, kind, ...}], more: [...] }
@@ -2318,7 +2347,7 @@
     menuOwn: menuOwn, ownsMenu: ownsMenu, menuOwnSet: menuOwnSet, menuOwnReset: menuOwnReset, menuSummary: menuSummary,
     MENU_KINDS: MENU_KINDS, menuKind: menuKind, kindUsers: kindUsers, usedBy: usedBy, menuWord: menuWord, KIND_KEYS: KIND_KEYS, usesSide: usesSide, PAGE_HEADER_SAYS: PAGE_HEADER_SAYS,
     accentColorOf: accentColorOf, accentChanges: accentChanges, GLASS: GLASS,
-    GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, TINT_WELLS: TINT_WELLS, isBlur: isBlur, glassStyle: glassStyle, PRESETS: PRESETS, STATUS_LABELS: STATUS_LABELS,
+    GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, TINT_WELLS: TINT_WELLS, isBlur: isBlur, glassStyle: glassStyle, SLOW_FPS: SLOW_FPS, blurRecommend: blurRecommend, PRESETS: PRESETS, STATUS_LABELS: STATUS_LABELS,
     STATUS_SAYS: STATUS_SAYS, STATUS_ROWS: STATUS_ROWS, STATUS_SOURCE: STATUS_SOURCE, PAGES: PAGES, pageOf: pageOf, PAGE_TYPES: PAGE_TYPES,
     PAGE_FEATURES: PAGE_FEATURES, pagesListed: pagesListed, pageOfRoute: pageOfRoute, routeForward: routeForward, screenShows: screenShows, headerOffOn: headerOffOn, statusSummary: statusSummary, HEADER_PAGES: HEADER_PAGES,
     WOODLAND: WOODLAND, woodlandSummary: woodlandSummary, CLOUD_STYLES: CLOUD_STYLES, SKY_MOVING: SKY_MOVING, DAYTIME_SKIES: DAYTIME_SKIES,

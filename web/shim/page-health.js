@@ -16,6 +16,10 @@
 // no transferSize, so its encoded size stands for it). And an `fps` frame, ~20 s after load and hourly, says how
 // many frames a second the page drew over 5 seconds -- taken only while the page is visible, nobody has touched it
 // for 5 seconds and the screensaver / black screen is not up (a dark page draws nothing worth measuring).
+//
+// RECOMMENDATIONS (2026-10-29): the sampling is HK's own (/hk/modules/hk-fps.js, the same rules), so a dashboard runs
+// one sampler, not two; its `fps` frame also says the screen and the style it was drawn with (`screen`, `style`), which
+// HK Settings' "a lighter look for a slow tablet" reads (GET /api/performance/tablets).
 const COUNT = '__mantelRegistryRefreshes';
 
 // the page read the registry again (bump this where it does)
@@ -60,37 +64,21 @@ export function pageHealth(hub, page = 'home', marks = null) {
   beat();
   const timer = setInterval(() => { const h = beat(); hub.tell('page_health', { event: 'beat', up: up(), ...h, ...counts() }); }, 60000);
   window.addEventListener('pagehide', () => keep({ ...heap(), up: up(), closed: true }));
-  // THE FRAME RATE: 5 s of requestAnimationFrame, only when the page is idle and lit
-  const SAMPLE = 5000, IDLE = 5000, RETRY = 30000, HOUR = 3600000;
-  let lastInput = performance.now(), fpsTimer = null;
-  const touched = () => { lastInput = performance.now(); };
-  for (const t of ['pointerdown', 'pointermove', 'touchstart', 'keydown', 'wheel']) window.addEventListener(t, touched, { passive: true, capture: true });
-  // is the screen dark? true / false; null when this page cannot tell (the dashboard loads the saver a moment after the page)
-  const dark = () => {
-    if (window.__hkAsleep) return true;
-    const s = window.hkSaver;
-    if (s && typeof s.black === 'function') return !!s.black();
-    return page === 'home' ? null : false;
+  // THE FRAME RATE: HK's one sampler (/hk/modules/hk-fps.js: 5 s of requestAnimationFrame, only when the page is idle
+  // and lit). The dashboard's is the one hk-loader starts -- each sample is told, with the screen and the style it was
+  // drawn with (HK Settings' recommendation reads them); another page (settings) runs one of its own, never dark.
+  let fpsWatch = null, stopped = false;
+  const tellFps = (s) => {
+    if (stopped || !s || typeof s.fps !== 'number') return;
+    hub.tell('page_health', { event: 'fps', fps: s.fps, ...(page === 'home' ? { screen: s.screen || null, style: s.style || null } : {}), ...counts() });
   };
-  const calm = () => (typeof document === 'undefined' || document.visibilityState === 'visible') && performance.now() - lastInput >= IDLE && dark() === false;
-  const later = (ms, tries) => { fpsTimer = setTimeout(() => attempt(tries), ms); };
-  const attempt = (tries) => {
-    if (!calm()) { later(tries < 20 ? RETRY : HOUR, tries + 1); return; }      // ten minutes of trying, then the next hour
-    let first = null, last = null, frames = 0;
-    const frame = (t) => {
-      if (!calm() || (last !== null && t - last > 1500)) { later(RETRY, tries + 1); return; }     // somebody came, it went dark, or the page was paused
-      if (first === null) first = t;
-      last = t;
-      if (frames++ && t - first >= SAMPLE) {
-        hub.tell('page_health', { event: 'fps', fps: Math.round((frames - 1) / ((t - first) / 1000) * 10) / 10, ...counts() });
-        later(HOUR, 0);
-        return;
-      }
-      requestAnimationFrame(frame);
-    };
-    requestAnimationFrame(frame);
-  };
-  if (typeof requestAnimationFrame === 'function') later(20000, 0);
+  const onFps = (e) => tellFps(e && e.detail);
+  if (page === 'home') window.addEventListener('hk-fps', onFps);
+  else {
+    const own = (F) => { if (F && F.watch && !stopped) fpsWatch = F.watch({ dark: () => !!window.__hkAsleep, onSample: (fps) => tellFps({ fps }) }); };
+    if (window.hkFps) own(window.hkFps);
+    else import('/hk/modules/hk-fps.js').then(() => own(window.hkFps)).catch(() => { /* no sampler: no frame rate */ });
+  }
   let told = false;
   return {
     // the first screen is drawn: from the navigation's start (the dashboard's marks are ms after its module began)
@@ -101,6 +89,6 @@ export function pageHealth(hub, page = 'home', marks = null) {
         ? marks.module_start + marks.rendered : performance.now();
       hub.tell('page_health', { event: 'draw', first_draw: Math.round(ms), ...download(), ...counts() });
     },
-    stop() { clearInterval(timer); clearTimeout(fpsTimer); },
+    stop() { stopped = true; clearInterval(timer); if (fpsWatch) fpsWatch.stop(); if (window.removeEventListener) window.removeEventListener('hk-fps', onFps); },
   };
 }

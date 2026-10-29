@@ -16,6 +16,11 @@
     (``last_ms`` and ``max_ms`` over the last 24 hours, ``samples``); ``settings_history``: its ``rows`` and ``bytes``
     (body and diff), worked out at most every 10 minutes, with ``at`` saying when.
 
+``GET /api/performance/tablets`` (2026-10-29; the same people) answers ``{tablets}``: each enrolled wall tablet's
+``name``, the ``screens`` it shows (where its frame rate was drawn, then where it opens), its latest ``fps`` with
+``fps_screen``, ``fps_style`` and ``fps_at``, and its ``platform``, ``memory_gb`` and ``cores``: what HK Settings
+recommends a lighter look from (a screen's Appearance; mantel-settings.js ``tabletHealth``).
+
 Numbers only, in memory only, nothing audited (a read)."""
 from __future__ import annotations
 
@@ -30,6 +35,7 @@ from . import page_health
 from .guards import guard
 
 PATH = "/api/performance"
+TABLETS_PATH = "/api/performance/tablets"
 FANOUT_MAX = 2000        # fan-out samples kept (an hour of a busy house is fewer)
 FANOUT_KEEP = 3600.0     # p50 and p95 cover this long
 EVENT_WINDOW = 300.0     # the HA event rate covers this long
@@ -125,5 +131,35 @@ async def api_performance(request: web.Request) -> web.Response:
     }, headers={"Cache-Control": "no-store"})
 
 
+def tablets(app: web.Application) -> list[dict]:
+    """Each enrolled wall tablet's latest frame rate and device (page_health.TABLETS, which outlives a restart): the
+    screens it shows (the one its frame rate was drawn on, then the one it opens on) and the style it was drawn with.
+    A revoked or forgotten tablet is left out."""
+    from . import default_screens
+    from .sessions import Device
+    mgr = app.get("devices")
+    out = []
+    for device_id, kept in sorted(page_health.TABLETS.latest.items()):
+        row = mgr.get(device_id) if mgr is not None else None
+        if row is None or row["revoked"] is not None:
+            continue
+        try:
+            start = default_screens.tablet_screen(app, Device(row["id"], row["name"], row["role"], row["room"]))
+        except Exception:  # noqa: BLE001 -- no settings to read: the screen its frame rate names still is
+            start = None
+        dev = kept.get("device") or {}
+        out.append({"name": row["name"], "screens": list(dict.fromkeys(s for s in (kept.get("fps_screen"), start) if s)),
+                    "fps": kept.get("fps"), "fps_screen": kept.get("fps_screen") or None,
+                    "fps_style": kept.get("fps_style") or None, "fps_at": kept.get("fps_at"),
+                    "platform": dev.get("platform"), "memory_gb": dev.get("memory_gb"), "cores": dev.get("cores")})
+    return out
+
+
+@guard("manager")
+async def api_tablets(request: web.Request) -> web.Response:
+    return web.json_response({"tablets": tablets(request.app)}, headers={"Cache-Control": "no-store"})
+
+
 def register(app: web.Application) -> None:
     app.router.add_get(PATH, api_performance)
+    app.router.add_get(TABLETS_PATH, api_tablets)

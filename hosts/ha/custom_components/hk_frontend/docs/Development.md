@@ -92,7 +92,8 @@ lives, not by a rule.
    (the picture of the sky Pre-rendered blurs), `hk-glass`, `hk-frosttint`,
    `hk-timers`, `hk-saver` (the photo screensaver), `hk-saver-panel` (the
    Speakers / Volume / Browse panel the screensaver and the Now Playing bar
-   share), `hk-campost`, `hk-menu`, `hk-tabbar` and `hk-notify`
+   share), `hk-fps` (the frame rate a lit, idle screen draws, for HK
+   Settings' recommendations), `hk-campost`, `hk-menu`, `hk-tabbar` and `hk-notify`
    (Notifications’ banners). Adding
    one to its list is live on the next page load. Each module sets its
    `window.hk…` global and fires `hk-module-ready`, which redraws the cards
