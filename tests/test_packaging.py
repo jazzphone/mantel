@@ -831,7 +831,8 @@ def test_build_static_leaves_the_developer_pages_out(tmp_path):
                 "hk/pages/skyprobe.html": "x", "hk/pages/seasonal-scenery-review.html": "x", "hk/pages/other.html": "x"})
     build_static.build(src, tmp_path / "out")
     assert sorted(json.loads((tmp_path / "out/static-manifest.json").read_text())["files"]) == [
-        "hk/modules/hk-sky.js", "hk/pages/other.html", "home.html"]
+        "hk/modules/hk-sky.js", "hk/modules/hk-skylab.js", "hk/pages/other.html", "hk/pages/skylab.html",
+        "hk/pages/skyprobe.html", "home.html"]                         # Sky Lab and the probe ship: the guide offers them
     real = {p.relative_to(ROOT / "web").as_posix() for p in (ROOT / "web").rglob("*") if build_static._wanted(p, ROOT / "web")}
     assert not real & build_static.DEV_ONLY and all((ROOT / "web" / n).is_file() for n in build_static.DEV_ONLY)   # still in the repo
 

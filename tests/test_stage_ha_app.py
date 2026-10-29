@@ -29,10 +29,9 @@ def test_the_plan_holds_the_app_and_its_code(pairs):
     assert any(d.startswith("app/hk_core/") and d.endswith(".py") for d in dests)
     assert len(dests) == len(pairs)                                     # no destination twice
     # the developer pages stay in the repository (2026-10-29)
-    for name in ("app/hosts/server/mantel_server/static/dev.html", "app/web/hk/pages/skylab.html",
-                 "app/web/hk/pages/skyprobe.html", "app/web/hk/pages/seasonal-scenery-review.html",
-                 "app/web/hk/modules/hk-skylab.js"):
+    for name in ("app/hosts/server/mantel_server/static/dev.html", "app/web/hk/pages/seasonal-scenery-review.html"):
         assert name not in dests, name
+    assert "app/web/hk/pages/skylab.html" in dests and "app/web/hk/modules/hk-skylab.js" in dests   # the guide offers Sky Lab
     assert "app/web/hk/modules/hk-sky.js" in dests and "app/hosts/server/mantel_server/static/admin/index.html" in dests
     assert not [d for d in dests if "__pycache__" in d or d.endswith(".pyc")]
     assert not [d for d in dests if d.startswith(("app/tests", "app/docs", "app/spikes", "app/hosts/ha"))]
