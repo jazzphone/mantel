@@ -158,7 +158,8 @@ mark('strategy');
 
 // NARROWING: after a page is first drawn, note which states the screen really reads and narrow the hub
 // subscription to those (with the pages seen before: a cached page keeps its cards and catches up when
-// shown again). The strategy needed the whole house to decide what to draw, the cards do not. A page
+// shown again; a page let go after the last four (hk-view-host.js) is made again from what the screen has
+// read -- it counts as seen: `needed` keeps every state any page read, and a miss adds it). The strategy needed the whole house to decide what to draw, the cards do not. A page
 // not seen yet widens the subscription again first, so it is drawn with the whole house.
 const narrowing = new URLSearchParams(location.search).get('narrow') !== '0';
 let narrowTimer = 0;
@@ -212,7 +213,7 @@ window.__mantelViewHost = viewHost;
   let latest = 0;
   S.navigate = function (path, init, opts) {
     const parts = String(path || '').split(/[?#]/)[0].split('/');
-    const unseen = narrowed && parts[1] === seg && viewHost.cached().indexOf(parts[2] || '') < 0;
+    const unseen = narrowed && parts[1] === seg && viewHost.seen().indexOf(parts[2] || '') < 0;
     const mine = ++latest;
     if (!unseen) return go.call(S, path, init, opts);
     widen().then(() => { if (mine === latest) go.call(S, path, init, opts); });
