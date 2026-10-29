@@ -87,3 +87,11 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - Strict health ok; Home Assistant connected; Mantel Link and the linked HK Frontend reconnected.
 - No "Traceback" or "ERROR" in the App's log; the Kitchen, Loft and Master Bedroom tablets reloaded at once.
 - HK Frontend 1.14.3 and Mantel Link 0.1.7 unchanged.
+
+## Mantel 0.1.87, HK Frontend 1.15.0 and Mantel Link 0.1.8 (2026-10-29)
+
+- Mantel 0.1.87, commit `5f77b2e`, build `f49c31cb0b18c0c4`, by hand through Home Assistant; strict health ok; the settings move ran (10 screens' menus now follow All Screens one setting at a time).
+- HK Frontend 1.15.0 and Mantel Link 0.1.8 copied with rsync --inplace; diff -rq clean against their builds; Home Assistant restarted; no errors from either; /hk serves the minified code compressed.
+- All five tablets reloaded (Reload Page) and drew their first screen in 2.1 to 2.9 s; no ERROR or Traceback in the App's log.
+- GitHub: jazzphone/hk-frontend v1.15.0 (Latest) with its Wiki, jazzphone/mantel-link v0.1.8 (Latest); main pushed.
+- TestFlight: Mantel Smart Home 0.1.86 (846) uploaded; 0.1.87 (860) archived, its upload waiting on Xcode's account.
