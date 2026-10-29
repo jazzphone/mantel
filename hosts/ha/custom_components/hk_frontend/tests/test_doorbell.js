@@ -312,8 +312,46 @@ print('\n=== the camera strip: a failed credential is not used again ===');
   r[slot.cam.entity] = { state: 'unavailable', attributes: { restored: true, entity_picture: '/api/camera_proxy/x?token=Z' } };
   m.hass = { states: r };
   ok('a `restored` placeholder (not set up yet) is never fetched', m._srcFor(slot.cam, slot) === null);
+  // every caller passes a size (2026-10-29): a slot not laid out yet used to ask for the camera's full frame
+  m.hass = { states: states('NEW') };
+  ok('a slot that is not measured yet asks for 480x270', /&width=480&height=270$/.test(m._srcFor(slot.cam, {})) &&
+     /&width=480&height=270$/.test(m._srcFor(slot.cam, null)), m._srcFor(slot.cam, {}));
+  m.setConfig({ selector: 'input_select.cameras', cameras: cams, snapshot_cap: '960x540' });
+  ok('...or the strip\'s own cap', /&width=960&height=540$/.test(m._srcFor(slot.cam, null)), m._srcFor(slot.cam, null));
   m.disconnectedCallback();
   document.createElement = orig;
+})();
+
+// THE LIVE CARD'S POSTER has a size too (2026-10-29): it was the camera's address, bare -- the full frame
+print('\n=== the live card: its poster is asked for at the box\'s size ===');
+(function () {
+  var D = customElements.get('hk-doorbell-card'), pic = '/mantel/api/camera/camera.front/still?v=aaaa';
+  function card(rect, entity, picture) {
+    var d = new D();
+    d.getBoundingClientRect = function () { return rect; };
+    d.setConfig({ entity: entity || 'camera.front', sound: false });
+    d.isConnected = true;
+    d.hass = { states: { 'camera.front': { entity_id: 'camera.front', state: 'idle', attributes: { entity_picture: picture || pic } },
+                         'media_player.tv': { entity_id: 'media_player.tv', state: 'on', attributes: { entity_picture: '/art/tv?x=1' } } } };
+    try { d._render(); } catch (e) { return { err: e, d: d }; }
+    return { d: d, src: d._poster && d._poster.getAttribute('src') };
+  }
+  var w = window.devicePixelRatio; window.devicePixelRatio = 2;
+  var a = card({ width: 400, height: 225 });
+  ok('the poster: the box in device pixels', a.src === pic + '&width=800&height=450', a.err ? String(a.err) : a.src);
+  var b = card({ width: 0, height: 0 });
+  ok('...not measured yet: 480x270', b.src === pic + '&width=480&height=270', b.src);
+  var c = card({ width: 4000, height: 3000 });
+  ok('...at most 1920 a side', c.src === pic + '&width=1920&height=1920', c.src);
+  a.d.getBoundingClientRect = function () { return { width: 200, height: 100 }; };
+  a.d._render();
+  ok('...the same picture is not fetched again when the box changes', a.d._poster.getAttribute('src') === pic + '&width=800&height=450');
+  a.d.hass = { states: { 'camera.front': { entity_id: 'camera.front', state: 'idle', attributes: { entity_picture: pic.replace('aaaa', 'bbbb') } } } };
+  a.d._render();
+  ok('...a new address (HA rotated the token) is', /v=bbbb&width=400&height=200$/.test(a.d._poster.getAttribute('src')), a.d._poster.getAttribute('src'));
+  var tv = card({ width: 400, height: 225 }, 'media_player.tv');
+  ok('a channel\'s art (not a camera) is left as it is', tv.src === '/art/tv?x=1', tv.src);
+  window.devicePixelRatio = w;
 })();
 
 

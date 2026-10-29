@@ -553,8 +553,8 @@ if (fullSlot) {
      parseInt(uf.match(/height=(\d+)/)[1],10) > parseInt(u.match(/height=(\d+)/)[1],10),
      uf);
 } else { ok('a full-height tile asks for a taller image', true, '(none in this plan)'); }
-ok('no slot -> no size params (never request the full 4K frame by accident)',
-   !/width=/.test(sz._srcFor(sz._snaps[0].cam)));
+ok('no slot -> the strip\'s own 480x270 (never request the full 4K frame by accident; until 2026-10-29 it asked for no size)',
+   /&width=480&height=270$/.test(sz._srcFor(sz._snaps[0].cam)));
 
 
 // ===========================================================================

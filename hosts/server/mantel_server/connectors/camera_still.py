@@ -18,9 +18,15 @@ camera rules. So:
   ``tunnel_cameras`` switch, apply as they do to live view), then streams HA's
   ``/api/camera_proxy/<entity>`` with Mantel's own HA credential. The credential never leaves the
   server, is never logged, and the browser never learns HA's address.
+* **One fetch for several tablets** (2026-10-29). The answer for one ``(camera, width, height)`` is kept in
+  memory for ``STILL_SHARE`` (2) seconds and shared, and requests that arrive while it is being fetched wait for
+  that one fetch: five wall tablets showing the same camera cost Home Assistant one request every few seconds,
+  not five. Each request is still decided by the policy first (the copy is never a way round it), and the
+  browser still gets ``Cache-Control: no-store``.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import logging
@@ -42,6 +48,8 @@ SECRET_ATTRS = frozenset({"access_token"})       # HA's camera token, as a state
 MAX_SIDE = 3840                                  # width/height a page may ask for (HA scales to cover)
 MAX_BYTES = 20 * 1024 * 1024                     # one still, at most (a 4K JPEG is ~2 MB)
 TIMEOUT = 15.0
+STILL_SHARE = 2.0                                # seconds one fetched still is shared between requests
+SHARE_ENTRIES = 48                               # (camera, width, height) copies kept at most
 _SALT = secrets.token_bytes(32)                  # per process: versions are opaque and unlinkable
 
 
@@ -149,11 +157,88 @@ async def proxy_image(request: web.Request, url: str, params: dict, token: str |
             await http.close()
 
 
+class StillRefused(Exception):
+    """HA could not give the picture: the answer to send (status, error code)."""
+
+    def __init__(self, status: int, code: str) -> None:
+        super().__init__(code)
+        self.status, self.code = status, code
+
+
+async def read_image(app: web.Application, url: str, params: dict, token: str | None, what: str) -> tuple[bytes, str]:
+    """One image from HA, whole, with Mantel's credential (``proxy_image``'s rules: an image answer of at most
+    MAX_BYTES, else StillRefused). (body, content type)."""
+    http = app.get("http")
+    own = http is None
+    if own:
+        http = aiohttp.ClientSession()
+    try:
+        async with http.get(url, params=params, headers={"Authorization": f"Bearer {token}"} if token else {},
+                            timeout=aiohttp.ClientTimeout(total=TIMEOUT), allow_redirects=False) as r:
+            if r.status == 404:
+                raise StillRefused(404, "unknown_camera")
+            ctype = r.headers.get("Content-Type", "").split(";")[0].strip().lower()
+            if r.status != 200 or not ctype.startswith("image/"):
+                log.info("%s: HA answered %s", what, r.status)
+                raise StillRefused(502, "camera_unavailable")
+            if r.content_length is not None and r.content_length > MAX_BYTES:
+                raise StillRefused(502, "camera_unavailable")
+            body = bytearray()
+            async for chunk in r.content.iter_chunked(64 * 1024):
+                body += chunk
+                if len(body) > MAX_BYTES:
+                    raise StillRefused(502, "camera_unavailable")
+            return bytes(body), ctype
+    except (aiohttp.ClientError, TimeoutError) as exc:
+        log.info("%s: %s", what, type(exc).__name__)
+        raise StillRefused(502, "camera_unavailable") from exc
+    finally:
+        if own:
+            await http.close()
+
+
+class SharedStills:
+    """The stills just fetched, by ``(camera, width, height)``: kept ``STILL_SHARE`` seconds and shared, and one
+    fetch in flight at a time per key -- a request that arrives meanwhile waits for it. A failure is shared with
+    those who waited but never kept. ``now`` is a clock in seconds (tests replace it)."""
+
+    def __init__(self, now: Callable[[], float] = time.monotonic, ttl: float = STILL_SHARE) -> None:
+        self.now, self.ttl = now, ttl
+        self._done: dict[tuple, tuple[float, bytes, str]] = {}
+        self._flying: dict[tuple, asyncio.Future] = {}
+        self.fetches = 0
+
+    async def get(self, key: tuple, make: Callable[[], Any]) -> tuple[bytes, str]:
+        hit = self._done.get(key)
+        if hit is not None and hit[0] > self.now():
+            return hit[1], hit[2]
+        job = self._flying.get(key)
+        if job is None:
+            job = self._flying[key] = asyncio.ensure_future(self._fetch(key, make))
+            job.add_done_callback(lambda t: t.cancelled() or t.exception())      # (nobody left to ask: not "never retrieved")
+        return await asyncio.shield(job)        # a request that goes away does not stop the fetch the others wait for
+
+    async def _fetch(self, key: tuple, make: Callable[[], Any]) -> tuple[bytes, str]:
+        try:
+            self.fetches += 1
+            body, ctype = await make()
+            t = self.now()
+            for k in [k for k, v in self._done.items() if v[0] <= t]:
+                del self._done[k]
+            while len(self._done) >= SHARE_ENTRIES:
+                del self._done[min(self._done, key=lambda k: self._done[k][0])]
+            self._done[key] = (t + self.ttl, body, ctype)
+            return body, ctype
+        finally:
+            self._flying.pop(key, None)
+
+
 def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str] | str) -> None:
     """``GET /api/camera/<entity>/still``. ``authz.may_still(principal, entity_id)`` decides; ``token``
     (Mantel's HA credential, or a callable returning it) is used for HA's camera_proxy only."""
     get_token = token if callable(token) else (lambda: token)
     app["camera_stills"] = {"served": 0, "refused": 0}
+    app["camera_still_share"] = shared = SharedStills()
 
     @guard("signed_in")          # any session; the roles decide each camera (authz.may_still)
     async def still(request: web.Request) -> web.StreamResponse:
@@ -179,10 +264,15 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
             params = {"width": str(width), "height": str(height)}
         cfg = request.app["cfg"]
         url = f"{cfg.ha_url.rstrip('/')}/api/camera_proxy/{entity_id}"
-        resp = await proxy_image(request, url, params, get_token(), f"camera still for {entity_id}", "camera_unavailable",
-                                 not_found="unknown_camera")
-        if resp.status == 200:
-            stats["served"] += 1
-        return resp
+        # (the policy above decided for THIS request; what is shared is only the picture HA gave a moment ago)
+        what = f"camera still for {entity_id}"
+        try:
+            body, ctype = await shared.get((entity_id, params.get("width"), params.get("height")),
+                                           lambda: read_image(request.app, url, params, get_token(), what))
+        except StillRefused as exc:
+            return _error(exc.status, exc.code)
+        stats["served"] += 1
+        return web.Response(body=body, headers={"Content-Type": ctype, "Cache-Control": "no-store",
+                                                "X-Content-Type-Options": "nosniff"})
 
     app.router.add_get(PATH, still)

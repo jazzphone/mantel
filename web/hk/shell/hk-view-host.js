@@ -835,8 +835,9 @@
         var i = this._front < 0 ? 0 : (this._front + 1) % 2, im = this._imgs[i], other = this._imgs[1 - i];
         var r = this.getBoundingClientRect ? this.getBoundingClientRect() : null;
         var dpr = Math.min(win().devicePixelRatio || 1, 2);
-        var w = r && r.width > 0 ? Math.min(1920, Math.round(r.width * dpr)) : 0;
-        var h = r && r.height > 0 ? Math.min(1920, Math.round(r.height * dpr)) : 0;
+        // (not measured yet: the strip's 480x270 -- a picture is never asked for at the camera's full frame)
+        var w = r && r.width > 0 ? Math.min(1920, Math.round(r.width * dpr)) : 480;
+        var h = r && r.height > 0 ? Math.min(1920, Math.round(r.height * dpr)) : 270;
         var self = this, url = stillUrl(pic, w, h);
         this._loading = true;
         im.onload = function () {

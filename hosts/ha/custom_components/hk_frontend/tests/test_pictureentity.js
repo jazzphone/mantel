@@ -198,6 +198,17 @@ ok('...and the shown one stays on until it has loaded: no black between frames',
 loaded(stills[1]);
 ok('...then the two swap at once', stills[1].className === 'on' && stills[0].className === '');
 
+// a size even before the tile is measured (2026-10-29): never the camera's full frame
+(function () {
+  var un = V.createCardElement(cfg, c1);
+  un.getBoundingClientRect = function () { return { width: 0, height: 0 }; };
+  var unBox = un.shadowRoot.childNodes.filter(function (n) { return n.id === 'box'; })[0];
+  document.body.appendChild(un);
+  var s0 = unBox.childNodes.filter(function (n) { return n.localName === 'img'; })[0].src;
+  ok('...a tile not laid out yet asks for 480x270, not the full frame', /&width=480&height=270$/.test(s0), s0);
+  document.body.removeChild(un);
+})();
+
 intersect(el, false);
 var before = stills[0].src;
 runIntervals();
