@@ -52,11 +52,27 @@ background the Simulator shows Apple's generic "Mantel / New notification": that
 
 Debug builds take a few launch arguments for scripts that drive several Simulators with no finger for a dialog:
 `-MantelPair '<mantel://pair link>'` (pair without `openurl`'s "Open in Mantel?"; only while unpaired),
-`-MantelNoPush YES` (never ask for notifications), `-MantelOpenPlayer YES` (open the music player),
+`-MantelNoPush YES` (never ask for notifications), `-MantelOpen player|settings` (open the music player or App Settings),
 `-MantelStartPage /x` and `-MantelDebugJS '<script>'`. Launch arguments are read as old-style plist values: a script
 with spaces or parentheses must be passed in double quotes inside the argument, or the whole argument domain is lost.
 Build with signing on (as above, not `CODE_SIGNING_ALLOWED=NO`): an unsigned build has no Keychain group, and pairing
 "works" but the credential is never kept.
+
+### When the page doesn't come
+
+The app's own settings (App Settings: Mantel Settings, favorites, Face ID, notifications, Clear Cache, Sign Out,
+Forget This Mantel) never depend on the page. While a page has not drawn, the ⋯ button comes 3 s in. A load that
+fails (no answer, an HTTP 404 or 5xx on the main frame, a page process that ended) is tried again once, quietly; then
+"Can't Reach Mantel" shows over the last page's still: the house's address, the reason in one line, **Try Again** and
+**App Settings**. 15 s without a page says so too. The app keeps trying (2, 4, 8, 16, 30 s…, and at once when it comes
+back to the front) and the page takes the message's place as soon as it draws. App Settings is also the Home Screen's
+quick action (`UIApplicationShortcutItems` in `Config/Mantel-Info.plist`, `app.mantel.settings`), and `mantel://settings`.
+With the house out of reach, the rows that need it (Mantel Settings, Favorites) say so in their footers.
+
+Seen in the Simulator (2026-10-29) with the fictional house stopped ("Nothing answered at its address.", iPhone 18 Pro
+and iPad Pro 11-inch), with a port that accepts and never answers (the ⋯ button at 3 s, then "It took too long to
+answer."), App Settings over it, and the house started again (the page came back by itself). Not tried: the quick
+action itself (it needs a long press), an HTTP error page, a page process ending.
 
 ### iPad and iPhone Duo
 

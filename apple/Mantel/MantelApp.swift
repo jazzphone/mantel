@@ -20,6 +20,7 @@ struct MantelApp: App {
                 .onOpenURL { url in
                     if let link = PairingLink(url: url) { Task { await model.pair(link) } }
                     else if url.scheme == "mantel", url.host == "player" { NotificationRouter.shared.player = true }
+                    else if url.scheme == "mantel", url.host == "settings" { NotificationRouter.shared.menu = true }
                 }
                 #if DEBUG
                 // -MantelPair '<mantel://pair link>': pair a Debug build without `simctl openurl`'s "Open in Mantel?"
@@ -53,6 +54,20 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         center.setNotificationCategories([UNNotificationCategory(identifier: "MANTEL_ACCESSORY", actions: [open, mute],
                                                                  intentIdentifiers: [], options: [])])
         return true
+    }
+
+    /// The Home Screen's quick action (Config/Mantel-Info.plist UIApplicationShortcutItems): App Settings, even when
+    /// the page cannot load. Cold, it comes with the scene; warm, to the scene's delegate.
+    static let settingsShortcut = "app.mantel.settings"
+
+    func application(_ application: UIApplication, configurationForConnecting session: UISceneSession,
+                     options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        if options.shortcutItem?.type == Self.settingsShortcut {
+            Task { @MainActor in NotificationRouter.shared.menu = true }
+        }
+        let config = UISceneConfiguration(name: nil, sessionRole: session.role)
+        config.delegateClass = SceneDelegate.self
+        return config
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
@@ -90,6 +105,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         if let url = info["mantel_url"] as? String {
             await MainActor.run { NotificationRouter.shared.open = url }
         }
+    }
+}
+
+/// Only for the quick action with the app already running (SwiftUI keeps the window; the rest is SwiftUI's).
+final class SceneDelegate: NSObject, UIWindowSceneDelegate {
+    func windowScene(_ windowScene: UIWindowScene, performActionFor shortcutItem: UIApplicationShortcutItem,
+                     completionHandler: @escaping (Bool) -> Void) {
+        let ours = shortcutItem.type == AppDelegate.settingsShortcut
+        if ours { Task { @MainActor in NotificationRouter.shared.menu = true } }
+        completionHandler(ours)
     }
 }
 

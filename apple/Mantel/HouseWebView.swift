@@ -30,6 +30,24 @@ struct HouseWebView: UIViewRepresentable {
         case menu(String)          // a row of the app's in the page's menu ("app": its settings)
         case player                // the music's Now Playing: the app's own player
         case tone(light: Bool)     // the page's ground: dark status-bar ink on a light page
+        case failed(String)        // the page did not come (no answer, an HTTP error): the reason, in one plain line
+        case lost                  // the page's process ended (memory): it is loading again, not drawn
+    }
+
+    /// One plain line for why a page or a request did not come.
+    static func reason(_ error: Error) -> String {
+        guard let e = error as? URLError else { return error.localizedDescription }
+        switch e.code {
+        case .notConnectedToInternet, .dataNotAllowed, .internationalRoamingOff: return "This device is offline."
+        case .cannotFindHost, .dnsLookupFailed: return "Its address can’t be found from this network."
+        case .cannotConnectToHost: return "Nothing answered at its address."
+        case .timedOut: return "It took too long to answer."
+        case .networkConnectionLost: return "The connection dropped."
+        case .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate,
+             .serverCertificateNotYetValid, .serverCertificateHasUnknownRoot, .clientCertificateRejected:
+            return "Its secure connection couldn’t be checked."
+        default: return e.localizedDescription
+        }
     }
 
     /// The web view on screen, for its still (`saveStill`).
@@ -148,14 +166,55 @@ struct HouseWebView: UIViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
         let parent: HouseWebView
         private var drawn = false
+        /// The main frame answered with an error page: it finishes loading, but it is not the house's page.
+        private var errorPage = false
         init(_ parent: HouseWebView) { self.parent = parent }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             webView.scrollView.pinchGestureRecognizer?.isEnabled = false
+            if errorPage { errorPage = false; return }
             guard !drawn else { return }
             drawn = true
             // (a frame for the page's first paint after its load)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { self.parent.onEvent(.ready) }
+        }
+
+        // A PAGE THAT DOES NOT COME (MainView shows why, with the way to the app's settings). Only before the first
+        // page has drawn: once it has, the page is up and handles its own requests. Cancelled loads (a newer one, the
+        // app's own `.cancel`s: /login, outside links) are not failures.
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            report(error)
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            report(error)
+        }
+
+        private func report(_ error: Error) {
+            let e = error as NSError
+            if drawn || (e.domain == NSURLErrorDomain && e.code == NSURLErrorCancelled)
+                || (e.domain == "WebKitErrorDomain" && e.code == 102) { return }     // 102: frame load interrupted
+            parent.onEvent(.failed(HouseWebView.reason(error)))
+        }
+
+        func webView(_ webView: WKWebView, decidePolicyFor response: WKNavigationResponse) async -> WKNavigationResponsePolicy {
+            guard response.isForMainFrame, let http = response.response as? HTTPURLResponse,
+                  http.statusCode == 404 || http.statusCode >= 500 else { return .allow }
+            let code = http.statusCode
+            await MainActor.run {
+                guard !drawn else { return }
+                errorPage = true
+                parent.onEvent(.failed(code >= 500 ? "Mantel answered, but couldn’t open its page (error \(code))."
+                                                   : "Mantel doesn’t have that page."))
+            }
+            return .allow
+        }
+
+        /// The page's process ended (iOS took its memory back): load it again, and say it is not drawn until then.
+        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            drawn = false
+            parent.onEvent(.lost)
+            webView.reload()
         }
 
         private func isHouse(_ url: URL) -> Bool {

@@ -57,7 +57,7 @@ struct FavoritesEditor: View {
                 async let a = client.entities()
                 async let f = client.favorites()
                 (all, chosen) = try await (a, f)
-            } catch { self.error = error.localizedDescription }
+            } catch { self.error = Self.say(error) }
         }
         .task(id: query) {
             // The house sends at most 500 of the list unsearched, so a search asks it, not just what came
@@ -69,13 +69,19 @@ struct FavoritesEditor: View {
         }
     }
 
+    /// Mantel keeps the list: with Mantel out of reach, say that, not the network's own words.
+    private static func say(_ error: Error) -> String {
+        error is URLError ? "Mantel can’t be reached right now. Your favorites are kept on Mantel: try again once it answers."
+                          : error.localizedDescription
+    }
+
     private func save() {
         let ids = chosen
         Task {
             do {
                 try await model.client?.setFavorites(ids)
                 await model.refresh()
-            } catch { self.error = error.localizedDescription }
+            } catch { self.error = Self.say(error) }
         }
     }
 }
