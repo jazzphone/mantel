@@ -52,3 +52,6 @@ apple/**/project.xcworkspace/
 
 # local check results (tools/ci.py)
 .ci/
+
+# tools/testflight.py --out build/testflight: archives and exported builds
+/build/

@@ -509,7 +509,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Mantel;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.86;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jazzphone.mantel.mac;
 				PRODUCT_NAME = Mantel;
 				SDKROOT = macosx;
@@ -548,7 +548,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Mantel Widgets";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.86;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jazzphone.mantel.ios.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -580,7 +580,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Mantel;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.86;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jazzphone.mantel.mac;
 				PRODUCT_NAME = Mantel;
@@ -610,7 +610,8 @@
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				MARKETING_VERSION = 0.1.0;
+				MANTEL_APS_ENVIRONMENT = production;
+				MARKETING_VERSION = 0.1.86;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jazzphone.mantel.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -638,7 +639,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Mantel;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.86;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jazzphone.mantel.ios.notifications;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -672,7 +673,8 @@
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				MARKETING_VERSION = 0.1.0;
+				MANTEL_APS_ENVIRONMENT = development;
+				MARKETING_VERSION = 0.1.86;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jazzphone.mantel.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -702,7 +704,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Mantel Widgets";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.86;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jazzphone.mantel.ios.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -731,7 +733,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Mantel;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.86;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jazzphone.mantel.ios.notifications;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;

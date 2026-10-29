@@ -13,10 +13,21 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "Mantel.xcodeproj" / "project.pbxproj"
+VERSION_SOURCE = HERE.parent / "packaging" / "ha-app" / "config.yaml"
+
+
+def mantel_version() -> str:
+    """Mantel's one version (tools/check_version.py: the HA App's config.yaml is the source of truth); the apps ship
+    it as MARKETING_VERSION. tools/testflight.py reads it again at archive time, so a bump needs no regeneration."""
+    m = re.search(r'(?m)^version:\s*"?(\d+\.\d+\.\d+)"?', VERSION_SOURCE.read_text(encoding="utf-8"))
+    if m is None:
+        raise SystemExit(f"no version in {VERSION_SOURCE}")
+    return m.group(1)
 
 
 def oid(*parts: str) -> str:
@@ -41,7 +52,7 @@ def value(v, ind=3) -> str:
 
 
 COMMON = {
-    "SWIFT_VERSION": "5.0", "CURRENT_PROJECT_VERSION": "1", "MARKETING_VERSION": "0.1.0", "GENERATE_INFOPLIST_FILE": "YES",
+    "SWIFT_VERSION": "5.0", "CURRENT_PROJECT_VERSION": "1", "MARKETING_VERSION": mantel_version(), "GENERATE_INFOPLIST_FILE": "YES",
     "CODE_SIGN_STYLE": "Automatic", "ENABLE_USER_SCRIPT_SANDBOXING": "YES",
     "DEVELOPMENT_TEAM": os.environ.get("MANTEL_TEAM_ID", ""),   # your Apple team id (not a secret)
     "SWIFT_EMIT_LOC_STRINGS": "YES", "INFOPLIST_KEY_CFBundleDisplayName": "Mantel",
@@ -64,7 +75,11 @@ TARGETS = [
                   "CODE_SIGN_ENTITLEMENTS": "Config/Mantel.entitlements", "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
                   "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME": "AccentColor",
                   "LD_RUNPATH_SEARCH_PATHS": "$(inherited) @executable_path/Frameworks",
-                  "INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents": "YES", "ENABLE_PREVIEWS": "YES"}},
+                  "INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents": "YES", "ENABLE_PREVIEWS": "YES"},
+     # Config/Mantel.entitlements says aps-environment = $(MANTEL_APS_ENVIRONMENT): the sandbox for a Debug build on your
+     # own iPhone, production for Release (TestFlight and the App Store; tools/testflight.py archives Release).
+     "config_settings": {"Debug": {"MANTEL_APS_ENVIRONMENT": "development"},
+                         "Release": {"MANTEL_APS_ENVIRONMENT": "production"}}},
     {"name": "MantelWidgets", "type": "com.apple.product-type.app-extension", "product": "MantelWidgets.appex",
      "folders": ["MantelWidgets", "Shared"],
      "settings": {**IOS, **EXT, "PRODUCT_BUNDLE_IDENTIFIER": f"{PREFIX}.ios.widgets",
@@ -123,10 +138,10 @@ def build() -> str:
                                                          "children": [group_ids[f] for f in folders if f != "Config"]
                                                          + [config_group, products_group], "sourceTree": "<group>"})
 
-    def config_list(owner: str, settings: dict, name: str) -> str:
+    def config_list(owner: str, settings: dict, name: str, per_config: dict | None = None) -> str:
         ids = []
         for cfg in ("Debug", "Release"):
-            s = dict(settings)
+            s = {**settings, **(per_config or {}).get(cfg, {})}
             if cfg == "Debug":
                 s.setdefault("SWIFT_ACTIVE_COMPILATION_CONDITIONS", "DEBUG $(inherited)")
                 s.setdefault("SWIFT_OPTIMIZATION_LEVEL", "-Onone")
@@ -173,7 +188,7 @@ def build() -> str:
         if t.get("assets"):
             settings["ASSETCATALOG_COMPILER_APPICON_NAME"] = "AppIcon"
         add("PBXNativeTarget", target_ids[n], {
-            "isa": "PBXNativeTarget", "buildConfigurationList": config_list(n, settings, n), "buildPhases": phases,
+            "isa": "PBXNativeTarget", "buildConfigurationList": config_list(n, settings, n, t.get("config_settings")), "buildPhases": phases,
             "buildRules": [], "dependencies": deps, "fileSystemSynchronizedGroups": [group_ids[f] for f in t["folders"]],
             "name": n, "packageProductDependencies": [dep], "productName": n, "productReference": product_ids[n],
             "productType": t["type"]})
