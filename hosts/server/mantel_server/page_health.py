@@ -23,7 +23,13 @@ most every 10 minutes per tablet.
 RECOMMENDATIONS (2026-10-29): an ``fps`` frame also says the ``screen`` (a dashboard's path) and the ``style`` it was
 drawn with (``flat``, ``clear``, ``frosted``, ``tinted`` or a blur); a tablet's latest are kept beside its number
 (``fps_screen``, ``fps_style``, ``fps_at``), for HK Settings' "a lighter look for a slow tablet"
-(GET /api/performance/tablets, performance.py)."""
+(GET /api/performance/tablets, performance.py).
+
+THE LADDER (2026-10-29): the suggestion is one step at a time (the style, then the sky's rain and snow, its moving
+things, its animations, a camera playing live), and a number only counts for the settings it was drawn with. So an
+``fps`` frame also says its ``sig``, a short word for them (``blur:a1w1r1f0c1``: the style, then 1 or 0 for animations,
+weather, rain and snow, moving things in front, a live camera), kept as ``fps_sig``. A summary kept before this has none
+(and HK Settings then uses it for the first step only, by its style)."""
 from __future__ import annotations
 
 import json
@@ -49,6 +55,7 @@ SCREENS = 200            # screens kept (the one heard from longest ago goes fir
 WRITE_EVERY = 600.0      # a tablet's stored summary is written at most this often
 SCREEN = re.compile(r"^[A-Za-z0-9_-]{1,100}$")      # the screen an fps frame was drawn on (a dashboard's path)
 STYLES = ("flat", "clear", "frosted", "tinted", "blur", "blur_pre", "blur_each")      # ...and its style
+SIG = re.compile(r"^(?:flat|clear|frosted|tinted|blur|blur_pre|blur_each):[a-z0-9]{1,24}$")      # ...and what else was on it
 
 
 def _num(v: Any) -> float | None:
@@ -69,6 +76,10 @@ def _screen(v: Any) -> str:
 
 def _style(v: Any) -> str:
     return v if v in STYLES else ""
+
+
+def _sig(v: Any) -> str:
+    return v if isinstance(v, str) and SIG.match(v) else ""
 
 
 def _device(msg: dict) -> dict | None:
@@ -188,8 +199,8 @@ class Ring:
                 s[f] is not None for f in ("fps", "dl_bytes", "device", "first_draw")):
             # with a frame rate, where and how it was drawn (said again each time, "" for not said, so an older one's
             # screen is never left beside a newer number)
-            where = {"fps_at": now, "fps_screen": _screen(msg.get("screen")), "fps_style": _style(msg.get("style"))} \
-                if s["fps"] is not None else {}
+            where = {"fps_at": now, "fps_screen": _screen(msg.get("screen")), "fps_style": _style(msg.get("style")),
+                     "fps_sig": _sig(msg.get("sig"))} if s["fps"] is not None else {}
             TABLETS.note(key.split(":", 1)[1], name, now, device=s["device"], fps=s["fps"], first_draw_ms=s["first_draw"],
                          download_bytes=s["dl_bytes"], download_files=s["dl_files"], **where)
 

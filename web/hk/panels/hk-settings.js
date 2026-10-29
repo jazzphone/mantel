@@ -57,8 +57,9 @@
 //                 absent on a host without layout history
 //     tabletHealth(panel) a promise for each wall tablet's latest frame
 //                 rate: [{name, screens, fps, fps_screen, fps_style,
-//                 fps_at}] (a screen's Appearance recommends a lighter look
-//                 from it); absent where tablets report to nobody
+//                 fps_sig, fps_at}] (a screen's Appearance recommends one
+//                 lighter setting at a time from it); absent where tablets
+//                 report to nobody
 //     press(ids, panel)  a tablet's own parts that are the host's, not HA
 //                 buttons (Reload, Clear Cache: tablets[].parts), pressed:
 //                 a promise (rejected with a message to show), or null to
@@ -5425,39 +5426,62 @@
                           onChange: function (x) { set({ tab_bar_glass: x }); } });
       }, function (x) { return M.choiceLabel(M.TAB_BAR_GLASS, x || 'house'); });
     }
-    // RECOMMENDED (2026-10-29): after the Style, a lighter look where a wall
-    // tablet showing the screen draws under 45 frames a second with a Blur,
-    // Frosted or Tinted style (M.blurRecommend) -- on a screen's Appearance
-    // its own, with a button for each look; on All Screens' (x null) a row
-    // per such screen, to its page. Nothing changes until one is tapped, and
-    // it goes once the screen wears Glass or Flat. The numbers are the
-    // host's (tabletHealth); a host without them (Home Assistant) shows the
-    // one this device measured itself, under This Device (deviceRecommend).
+    // RECOMMENDED (2026-10-29): after the Style, ONE change that should help
+    // where a wall tablet showing the screen draws under 45 frames a second
+    // (M.slowRecommend: the style first, then the sky's Rain & Snow, its
+    // Moving Things in front, its Animations, a live camera) -- on a screen's
+    // Appearance its own, with a button for the change and, on most steps,
+    // Use Flat; on All Screens' (x null) a row per such screen, to its page.
+    // Nothing changes until one is tapped. A number only counts for the
+    // settings it was drawn with, so after a step the next one waits for the
+    // tablet's next sample. The numbers are the host's (tabletHealth); a host
+    // without them (Home Assistant) shows the one this device measured itself,
+    // under This Device (deviceRecommend).
     recommendGroups(c, x, b) {
-      var look = this.data.settings.look, list = this.tabletHealth(), now = Date.now() / 1000;
+      var self = this, list = this.tabletHealth(), now = Date.now() / 1000;
       if (!list) return;
+      var cams = this.camerasIn(list);
       if (x) {
-        var rec = M.blurRecommend(x.path, M.glassOf(b, look).effective, list, now);
-        if (rec) c.appendChild(this.blurRecGroup(x.path, rec));
+        var rec = M.slowRecommend(x.path, this.slowFacts(x.path, b, cams), list, now);
+        if (rec) c.appendChild(this.slowRecGroup(x.path, rec));
         return;
       }
       var boards = this.data.boards || {};
       var rows = (this.data.dashboards || []).map(function (d) {
-        var bd = boards[d.path], r = bd && M.blurRecommend(d.path, M.glassOf(bd, look).effective, list, now);
+        var bd = boards[d.path], r = bd && M.slowRecommend(d.path, self.slowFacts(d.path, bd, cams), list, now);
         return r ? { label: d.title || d.path, sub: r.name + ': ' + r.fps + ' frames a second', value: r.label,
-                     href: '#/screens/' + encodeURIComponent(d.path) + '/appearance', fk: 'rec:blur:' + d.path } : null;
+                     href: '#/screens/' + encodeURIComponent(d.path) + '/appearance', fk: 'rec:slow:' + d.path } : null;
       }).filter(Boolean);
       if (!rows.length) return;
       c.appendChild(K.recommend({ title: 'Recommended', actions: rows,
         says: (rows.length === 1 ? 'A wall tablet showing this screen draws' : 'Wall tablets showing these screens draw') +
-          ' under ' + M.SLOW_FPS + ' frames a second. Its Appearance suggests a lighter look; nothing changes until you choose one.' }));
+          ' under ' + M.SLOW_FPS + ' frames a second. Its Appearance suggests one change that should help; nothing changes until you choose it.' }));
     }
-    // a screen's own: Glass or Flat on this screen (never All Screens')
-    blurRecGroup(path, rec, title) {
+    // a screen's settings as the ladder reads them (M.ladderFacts); `cams`:
+    // whether the house has a camera, asked once (camerasIn)
+    slowFacts(path, b, cams) {
+      var s = this.data.settings, d = this.dash(path);
+      var strip = !!(d && d.generated && b.camera_strip !== false && ((b.cameras || []).length || cams));
+      return M.ladderFacts(b, s.look, s.sky, { strip: strip, live: (s.cameras || {}).live });
+    }
+    // does the house have a camera for a strip to show? Asked only while some
+    // tablet is slow -- the one place the answer is read
+    camerasIn(list) {
       var self = this;
-      return K.recommend({ title: title || 'Recommended', says: rec.says, actions: [
-        { label: 'Use Glass on This Screen', sk: 'rec:glass', onClick: function () { self.setB(path, { flat: false, glass: 'clear' }); } },
-        { label: 'Use Flat', sk: 'rec:flat', onClick: function () { self.setB(path, { flat: true }); } }] });
+      if (!list.some(function (t) { return t && typeof t.fps === 'number' && t.fps < M.SLOW_FPS; })) return false;
+      try {
+        return this.entityIds({ domains: ['camera'], shown: true }).some(function (id) { return !self.notHouseCamera(id); });
+      } catch (e) { return false; }
+    }
+    // a screen's own, on this screen only (never All Screens'): the change
+    // that helps, and Use Flat where it goes with it. The footer says why,
+    // and that a still slow screen gets the next suggestion in an hour
+    slowRecGroup(path, rec, title) {
+      var self = this;
+      var actions = [{ label: rec.button, sk: 'rec:' + rec.step,
+                       onClick: function () { self.setB(path, rec.change); } }];
+      if (rec.flat) actions.push({ label: 'Use Flat', sk: 'rec:flat', onClick: function () { self.setB(path, { flat: true }); } });
+      return K.recommend({ title: title || 'Recommended', says: rec.says + (rec.then ? ' ' + rec.then : ''), actions: actions });
     }
     // EACH WALL TABLET'S LATEST FRAME RATE, from the host (what its tablets
     // report): read when a page first asks and again after five minutes,
@@ -5476,15 +5500,17 @@
     }
     // THIS DEVICE'S OWN (Home Assistant, where tablets report to nobody): the
     // frame rate hk-fps.js measured on this browser, for the screen it
-    // measured -- a group under This Device on that screen's page
+    // measured and the settings it measured them with -- a group under This
+    // Device on that screen's page
     deviceRecommend(path, b) {
       if (this.tabletHealth()) return null;
       var own = null;
       try { own = window.hkFps && window.hkFps.latest ? window.hkFps.latest() : JSON.parse(localStorage.getItem('hk-fps') || 'null'); } catch (e) { own = null; }
       if (!own || own.screen !== path || typeof own.fps !== 'number') return null;
-      var rec = M.blurRecommend(path, M.glassOf(b, this.data.settings.look).effective,
-        [{ name: 'This device', fps: own.fps, fps_screen: own.screen, fps_style: own.style || null, fps_at: own.at ? own.at / 1000 : null }], Date.now() / 1000);
-      return rec ? this.blurRecGroup(path, rec, 'Recommended for This Device') : null;
+      var list = [{ name: 'This device', fps: own.fps, fps_screen: own.screen, fps_style: own.style || null, fps_sig: own.sig || null,
+                    fps_at: own.at ? own.at / 1000 : null }];
+      var rec = M.slowRecommend(path, this.slowFacts(path, b, this.camerasIn(list)), list, Date.now() / 1000);
+      return rec ? this.slowRecGroup(path, rec, 'Recommended for This Device') : null;
     }
     // A SCREEN'S APPEARANCE (2026-10-29): laid out as All Screens' -- its
     // Style, Colors, Background and Tab Bar Look, each Same as All Screens

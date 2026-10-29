@@ -2,8 +2,10 @@
 //
 // WHY THIS EXISTS
 // HK Settings recommends a lighter look for a screen whose wall tablet draws
-// under 45 frames a second with Blur, Frosted or Tinted (a screen's
-// Appearance; M.blurRecommend). Mantel hears each tablet's number from its
+// under 45 frames a second, one step at a time: Blur, Frosted or Tinted first,
+// then the sky's rain and snow, its moving things in front of the cards, its
+// animations, a camera playing live (a screen's Appearance;
+// M.slowRecommend). Mantel hears each tablet's number from its
 // page (web/shim/page-health.js tells it this sampler's); HK Frontend in
 // Home Assistant has nobody to tell, so the last sample is kept in this
 // browser (localStorage `hk-fps`) and HK Settings, opened on the same device,
@@ -20,8 +22,12 @@
 //
 // A dashboard's sample is {fps, at (ms), screen (the dashboard's path),
 // style (hkSettings.glass(): flat, clear, frosted, tinted, blur, blur_pre,
-// blur_each)}: kept, handed to every listen(fn), and announced as the
-// `hk-fps` window event. Numbers and names only.
+// blur_each), sig (hkSettings.ladderSignature(): the style and the sky and
+// camera settings it was drawn with, "blur:a1w1r1f0c1")}: kept, handed to
+// every listen(fn), and announced as the `hk-fps` window event. A step of
+// the ladder uses a number only while the screen's settings still read as
+// its sig; the next sample, up to an hour later, says what the change did.
+// Numbers and names only.
 (function () {
   'use strict';
   if (window.hkFps) return;           // hk-loader may import this more than once
@@ -38,6 +44,9 @@
   }
   function styleNow() {
     try { return window.hkSettings && window.hkSettings.glass ? window.hkSettings.glass() : null; } catch (e) { return null; }
+  }
+  function sigNow() {
+    try { return window.hkSettings && window.hkSettings.ladderSignature ? window.hkSettings.ladderSignature() : null; } catch (e) { return null; }
   }
   // a dashboard's dark: true / false, null when it cannot tell yet (the saver
   // loads a moment after the page)
@@ -98,7 +107,7 @@
 
   // THE DASHBOARD'S: kept, handed to each listener, announced
   function told(fps) {
-    latest = { fps: fps, at: Date.now(), screen: screenNow(), style: styleNow() };
+    latest = { fps: fps, at: Date.now(), screen: screenNow(), style: styleNow(), sig: sigNow() };
     try { localStorage.setItem(KEY, JSON.stringify(latest)); } catch (e) { /* no storage */ }
     listeners.slice().forEach(function (fn) { try { fn(latest); } catch (e) { console.error('[hk-fps]', e); } });
     try { window.dispatchEvent(new CustomEvent('hk-fps', { detail: latest })); } catch (e) { /* no window events */ }

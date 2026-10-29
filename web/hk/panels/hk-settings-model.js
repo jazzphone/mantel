@@ -1024,34 +1024,115 @@
     if (style === 'tinted') t += ' Darkness: how much of the background shows through, 50% is 75% dark. Icon Circles: Dark as the Home app’s, or Light to keep their shape over dark scenery.';
     return t;
   }
-  // A LIGHTER LOOK FOR A SLOW TABLET (2026-10-29): offered on a screen's
-  // Appearance, never applied by itself. `style`: the screen's effective
-  // style; `tablets`: [{name, screens, fps, fps_screen, fps_style, fps_at}]
-  // -- each tablet's latest frame rate (5 idle seconds, page-health.js /
-  // hk-fps.js), the screen and style it was measured on when it says, else
-  // the screens it shows. A tablet counts for this screen when it measured
-  // it (or, saying nothing of where, shows it), with this style, under
-  // SLOW_FPS, in the last FPS_FRESH. The slowest one speaks. null: nothing to
-  // recommend (a light style already, no numbers, or all fast enough).
+  // A LIGHTER SCREEN FOR A SLOW TABLET (2026-10-29): offered on a screen's
+  // Appearance, never applied by itself, ONE suggestion at a time -- a ladder
+  // of the settings that cost a weak tablet the most frames, the dearest
+  // first (Flat turns off the same things: blur, motion, the live sky and
+  // autoplay). The screen's first step that still applies is the one offered:
+  //   glass   Blur, Frosted or Tinted -> Glass (hk-glass.js measured 22 blur
+  //           surfaces halving the frame rate of a Samsung SM-X230)
+  //   rain    the sky's falling Rain & Snow off (the clouds and fog stay)
+  //   front   Moving Things in front of the cards -> behind them
+  //   anim    Animations off: the sky holds still
+  //   camera  Live First Camera off: the first tile is a snapshot
+  // Use Flat is the second button on every step but Moving Things.
+  //
+  // WHAT A NUMBER MEANS. A sample says what was on the screen when it was
+  // drawn (its `fps_sig`, hkSettings.ladderSignature(): ladderSignature
+  // below); it counts only while the screen's settings still read the same.
+  // So after a step is taken nothing more is offered until the tablet has
+  // drawn again (hourly) and is still under SLOW_FPS -- then the next step
+  // is. A sample from before the ladder has no signature: it speaks for the
+  // first step alone, by its style, as it did.
+  //
+  // `facts`: ladderFacts(); `tablets`: [{name, screens, fps, fps_screen,
+  // fps_style, fps_sig, fps_at}] -- each tablet's latest frame rate (5 idle
+  // seconds, page-health.js / hk-fps.js), where it was measured when it says,
+  // else the screens it shows. A tablet counts for this screen when it
+  // measured it (or, saying nothing of where, shows it), with these
+  // settings, under SLOW_FPS, in the last FPS_FRESH. The slowest one speaks.
+  // null: nothing to recommend (a light screen already, no numbers that
+  // match, or all fast enough).
   var SLOW_FPS = 45, FPS_FRESH = 14 * 86400;
   var HEAVY_LOOKS = { blur: 1, frosted: 1, tinted: 1 };
-  function blurRecommend(path, style, tablets, now) {
-    var kind = glassStyle(style);
-    if (style === 'flat' || !HEAVY_LOOKS[kind]) return null;
-    var slow = null;
+  // the settings the ladder reads, as a screen has them: {style, anim
+  // (the sky animates), weather, rain, front (moving things over the cards),
+  // camera (the first tile plays live), cams (the screen has a camera strip
+  // at all)}. `sky`: All Screens' sky.*; `cams`: {strip, live} -- whether the
+  // screen shows a camera strip, and All Screens' Live First Camera. A flag
+  // is on only while it costs: nothing under Flat, no sky motion over a still
+  // background (hk-settings.js ladderSignature works the same out)
+  function ladderFacts(b, look, sky, cams) {
+    b = b || {}; sky = sky || {}; cams = cams || {};
+    var style = glassOf(b, look).effective, flat = style === 'flat';
+    var own = function (bk, hk, dflt) { return b[bk] != null ? b[bk] : (sky[hk] == null ? dflt : sky[hk]); };
+    var live = !flat && b.sky !== false && (b.sky_background || sky.background || 'live') === 'live';
+    var anim = live && own('sky_animations', 'animations', true) !== false;
+    var weather = live && own('sky_weather', 'weather', true) !== false;
+    return { style: style, anim: anim, weather: weather,
+             rain: anim && weather && own('sky_precipitation', 'precipitation', true) !== false,
+             front: anim && own('sky_moving', 'moving', 'behind') === 'front',
+             camera: !flat && (typeof b.camera_live_video === 'boolean' ? b.camera_live_video : cams.live !== false),
+             cams: !!cams.strip };
+  }
+  // the word the sampler sends (hkSettings.ladderSignature): "blur:a1w1r1f0c1"
+  function ladderSignature(f) {
+    var n = function (v) { return v ? '1' : '0'; };
+    return f.style + ':a' + n(f.anim) + 'w' + n(f.weather) + 'r' + n(f.rain) + 'f' + n(f.front) + 'c' + n(f.camera);
+  }
+  // each step: when it applies, its short name (the row on All Screens'
+  // Appearance), the button and the change it makes (this screen's own, never
+  // All Screens'), what the facts are after it, whether Use Flat goes with it,
+  // what the tablet drew with (`drew`) and what the change gives (`why`)
+  var LADDER = [
+    { id: 'glass', applies: function (f) { return !!HEAVY_LOOKS[glassStyle(f.style)]; },
+      button: 'Use Glass on This Screen', change: { flat: false, glass: 'clear' }, flat: true,
+      after: function (f) { return Object.assign({}, f, { style: 'clear' }); } },
+    { id: 'rain', applies: function (f) { return f.rain; }, label: 'Rain & Snow',
+      drew: 'Rain & Snow on', why: 'Without them the clouds and fog still drift, and it is lighter.',
+      button: 'Turn Off Rain & Snow on This Screen', change: { sky_precipitation: false }, flat: true,
+      after: function (f) { return Object.assign({}, f, { rain: false }); } },
+    { id: 'front', applies: function (f) { return f.front; }, label: 'Moving Things',
+      drew: 'Moving Things in front of the cards', why: 'Behind them, they cost less.',
+      button: 'Put Moving Things Behind on This Screen', change: { sky_moving: 'behind' }, flat: false,
+      after: function (f) { return Object.assign({}, f, { front: false }); } },
+    { id: 'anim', applies: function (f) { return f.anim; }, label: 'Animations',
+      drew: 'Animations on', why: 'Off, the sky holds still: no drifting clouds, rain or snow, or little moving things.',
+      button: 'Turn Off Animations on This Screen', change: { sky_animations: false }, flat: true,
+      after: function (f) { return Object.assign({}, f, { anim: false, rain: false, front: false }); } },
+    { id: 'camera', applies: function (f) { return f.camera && f.cams; }, label: 'Live Camera',
+      drew: 'a camera playing live', why: 'Off, its first tile is a snapshot: no video to decode.',
+      button: 'Turn Off Live First Camera on This Screen', change: { camera_live_video: false }, flat: true,
+      after: function (f) { return Object.assign({}, f, { camera: false }); } }
+  ];
+  var LADDER_THEN = 'If it’s still slow an hour from now, the next suggestion appears here.';
+  function slowRecommend(path, facts, tablets, now) {
+    if (!facts || facts.style === 'flat') return null;
+    var step = LADDER.filter(function (st) { return st.applies(facts); })[0];
+    if (!step) return null;
+    var sig = ladderSignature(facts), kind = glassStyle(facts.style), slow = null;
     (tablets || []).forEach(function (t) {
       if (!t || typeof t.fps !== 'number' || !(t.fps < SLOW_FPS)) return;
       var where = t.fps_screen ? t.fps_screen === path : (t.screens || []).indexOf(path) >= 0;
-      if (!where || (t.fps_style && (t.fps_style === 'flat' || glassStyle(t.fps_style) !== kind))) return;
+      if (!where) return;
+      if (t.fps_sig) { if (t.fps_sig !== sig) return; }
+      else if (step.id !== 'glass' || (t.fps_style && (t.fps_style === 'flat' || glassStyle(t.fps_style) !== kind))) return;
       if (now && typeof t.fps_at === 'number' && now - t.fps_at > FPS_FRESH) return;
       if (!slow || t.fps < slow.fps) slow = t;
     });
     if (!slow) return null;
-    var label = (GLASS_STYLES.filter(function (s) { return s[0] === kind; })[0] || [0, kind])[1];
-    var fps = Math.round(slow.fps);
-    return { name: slow.name, fps: fps, style: kind, label: label,
-             says: (slow.name || 'A tablet') + ' draws ' + fps + ' frames a second with ' + label + '. ' +
-               (kind === 'blur' ? 'Glass looks almost the same and is lighter.' : 'Flat is the lightest look: no blur, animations or moving sky.') };
+    var fps = Math.round(slow.fps), who = (slow.name || 'A tablet') + ' draws ' + fps + ' frames a second with ';
+    var label = step.label, says, then = null;
+    if (step.id === 'glass') {
+      label = (GLASS_STYLES.filter(function (g) { return g[0] === kind; })[0] || [0, kind])[1];
+      says = who + label + '. ' + (kind === 'blur' ? 'Glass looks almost the same and is lighter.'
+        : 'Flat is the lightest look: no blur, animations or moving sky.');
+    } else says = who + step.drew + '. ' + step.why;
+    // the next step, if one would still apply once this one is taken
+    var next = step.after(facts);
+    if (LADDER.some(function (st) { return st.applies(next); })) then = LADDER_THEN;
+    return { name: slow.name, fps: fps, step: step.id, style: kind, label: label, says: says, then: then,
+             button: step.button, change: step.change, flat: step.flat };
   }
 
   // ------------------------------------------------------------ the lists
@@ -2347,7 +2428,7 @@
     menuOwn: menuOwn, ownsMenu: ownsMenu, menuOwnSet: menuOwnSet, menuOwnReset: menuOwnReset, menuSummary: menuSummary,
     MENU_KINDS: MENU_KINDS, menuKind: menuKind, kindUsers: kindUsers, usedBy: usedBy, menuWord: menuWord, KIND_KEYS: KIND_KEYS, usesSide: usesSide, PAGE_HEADER_SAYS: PAGE_HEADER_SAYS,
     accentColorOf: accentColorOf, accentChanges: accentChanges, GLASS: GLASS,
-    GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, TINT_WELLS: TINT_WELLS, isBlur: isBlur, glassStyle: glassStyle, SLOW_FPS: SLOW_FPS, blurRecommend: blurRecommend, PRESETS: PRESETS, STATUS_LABELS: STATUS_LABELS,
+    GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, TINT_WELLS: TINT_WELLS, isBlur: isBlur, glassStyle: glassStyle, SLOW_FPS: SLOW_FPS, LADDER: LADDER, ladderFacts: ladderFacts, ladderSignature: ladderSignature, slowRecommend: slowRecommend, PRESETS: PRESETS, STATUS_LABELS: STATUS_LABELS,
     STATUS_SAYS: STATUS_SAYS, STATUS_ROWS: STATUS_ROWS, STATUS_SOURCE: STATUS_SOURCE, PAGES: PAGES, pageOf: pageOf, PAGE_TYPES: PAGE_TYPES,
     PAGE_FEATURES: PAGE_FEATURES, pagesListed: pagesListed, pageOfRoute: pageOfRoute, routeForward: routeForward, screenShows: screenShows, headerOffOn: headerOffOn, statusSummary: statusSummary, HEADER_PAGES: HEADER_PAGES,
     WOODLAND: WOODLAND, woodlandSummary: woodlandSummary, CLOUD_STYLES: CLOUD_STYLES, SKY_MOVING: SKY_MOVING, DAYTIME_SKIES: DAYTIME_SKIES,

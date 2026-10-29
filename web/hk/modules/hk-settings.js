@@ -17,6 +17,8 @@
 //                                             weather, precipitation, focusPause,
 //                                             decorations, decorationStyle, backdrop
 //   hkSettings.skyPalettes()                  the fixed backdrops, by id
+//   hkSettings.ladderSignature()              what this screen shows that costs frames, as one word
+//                                             ("blur:a1w1r1f0c1"); the frame-rate sampler sends it
 //   hkSettings.onChange(fn)                   called after a change; returns unsubscribe
 //
 // WHERE THE VALUES COME FROM, in order:
@@ -579,6 +581,24 @@
         room: (b && b.idle_room) || ''
       }
     };
+  }
+  // WHAT WAS ON SCREEN when the frame rate was sampled (hk-fps.js; 2026-10-29):
+  // the settings HK Settings' slow-tablet ladder (hk-settings-model.js LADDER)
+  // changes, as THIS screen has them, in a short word -- "blur:a1w1r1f0c1" is
+  // the style, then 1 or 0 for a live sky that animates (a), has weather (w),
+  // drops rain and snow (r), draws its moving things in front of the cards
+  // (f) and a camera that plays live (c). A flag is 1 only while it costs
+  // something: nothing under Flat, no sky motion with a still background.
+  // The settings panel works the same word out for the screen it shows
+  // (M.ladderSignature), so a number is only ever used for the settings it
+  // was drawn with.
+  function ladderSignature() {
+    var style = glass(), flat = style === 'flat', b = boardHere(), sk = skyLook();
+    var live = !flat && !(b && b.sky === false) && !!sk.background && sk.background.mode === 'live';
+    var a = live && sk.animations, w = live && sk.weather, r = a && w && sk.precipitation, f = a && sk.moving === 'front';
+    var cam = b && typeof b.camera_live_video === 'boolean' ? b.camera_live_video : get('cameras.live', true) !== false;
+    var n = function (v) { return v ? '1' : '0'; };
+    return style + ':a' + n(a) + 'w' + n(w) + 'r' + n(r) + 'f' + n(f) + 'c' + n(!flat && cam);
   }
   // A PAGE'S BACKGROUND (Sky / Background -> Pages): this screen's choice
   // for the page, else All Screens', else null (Automatic: a page with a
@@ -1441,6 +1461,7 @@
     // screen's Frost amount (hk-frosttint.js)
     frostPlate: function (wash) { return frost(amount('frost'), wash); },
     skyLook: skyLook,
+    ladderSignature: ladderSignature,
     pageSky: pageSky,
     flatBackground: flatBackground,
     flatColors: flatColors, resolveFlatColors: resolveFlatColors, viewKeys: function () { return viewKeys().keys; },

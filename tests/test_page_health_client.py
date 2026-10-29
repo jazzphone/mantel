@@ -3,7 +3,8 @@ the heap and how the page before it ended, a frame says its page kind, the time 
 again since the page loaded (hub.js counts them) and the registry refreshes (a counter later phases bump, 0 now).
 The baseline (2026-10-29) adds the device on `load`, the startup download on `draw`, and an `fps` frame sampled only
 while the page is visible, idle and not dark -- by HK's one sampler (web/hk/modules/hk-fps.js, 2026-10-29), whose
-dashboard frame also names the screen and the style, kept in the browser for HK Frontend's This Device. Run in node with a recording hub and a fake clock, timers and frames."""
+dashboard frame also names the screen, the style and the sky and camera settings it was drawn with (the ladder of
+HK Settings' recommendations, one step at a time), kept in the browser for HK Frontend's This Device. Run in node with a recording hub and a fake clock, timers and frames."""
 from __future__ import annotations
 
 import json
@@ -76,7 +77,7 @@ const fps = async (mut) => {
 // the dashboard's sampler is HK's (hk-fps.js, loaded by hk-loader): one, told to Mantel with its screen and style
 globalThis.location = { pathname: '/dashboard-kitchen/home' };
 globalThis.dispatchEvent = (e) => { if (listeners[e.type]) listeners[e.type](e); };
-window.hkSettings = { glass: () => 'blur' };
+window.hkSettings = { glass: () => 'blur', ladderSignature: () => 'blur:a1w1r1f0c1' };
 window.__hkAsleep = false;
 window.hkSaver = { black: () => false, running: () => false };
 timers.length = 0;
@@ -153,6 +154,13 @@ def test_the_dashboard_has_one_sampler_hks_told_with_its_screen_and_style(got):
     assert fps["screen"] == "dashboard-kitchen" and fps["style"] == "blur"
     kept = got["kept"]                                     # HK Frontend's This Device reads it back
     assert kept["screen"] == "dashboard-kitchen" and kept["style"] == "blur" and kept["fps"] == fps["fps"] and kept["at"] > 0
+
+
+def test_the_sample_says_what_was_on_screen_for_the_ladder(got):
+    [fps] = got["first"]["told"]
+    assert fps["sig"] == "blur:a1w1r1f0c1", "the style and the sky and camera settings it was drawn with"
+    assert got["kept"]["sig"] == "blur:a1w1r1f0c1", "kept in the browser too, for HK Frontend's This Device"
+    assert "sig" not in got["settingsFps"][0], "the settings page's sample names no screen, so no settings"
 
 
 def test_a_touched_dark_or_unsure_page_is_not_sampled_but_tried_again(got):

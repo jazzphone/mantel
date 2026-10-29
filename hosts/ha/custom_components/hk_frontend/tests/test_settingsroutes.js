@@ -438,7 +438,7 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   ok('a screen’s Appearance: laid out as All Screens’', ['Style', 'Colors', 'Background', 'Accent Color', 'Teal', 'Just This Screen', 'Tab Bar Glass'].every(function (w) { return sa.indexOf(w) >= 0; }), true);
   ok('...a screen with no tab bar has no Tab Bar Look', /Tab Bar Look/.test(text(draw(go('#/screens/dashboard-c/appearance')).box)), false);
 
-  // RECOMMENDED (2026-10-29): a lighter look where a tablet draws under 45 frames a second with a blur
+  // RECOMMENDED (2026-10-29): one change that should help where a tablet draws under 45 frames a second (a sample from before the ladder speaks for the style)
   ok('no recommendation on a host without tablet reports', /Recommended/.test(text(draw(go('#/screens/dashboard-k/appearance')).box)), false);
   var asked = 0;
   var reports = [{ name: 'Kitchen Tablet', screens: ['dashboard-k'], fps: 38.2, fps_screen: 'dashboard-k', fps_style: 'blur', fps_at: Date.now() / 1000 - 60 }];
@@ -456,18 +456,63 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   tap(byFk(rp, 'rec:flat'));
   ok('Use Flat too', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { flat: true }]));
   var hr = draw(go('#/house/appearance')).box;
-  ok('All Screens’ Appearance: a row for the screen, to its Appearance', !!byFk(hr, 'rec:blur:dashboard-k') &&
-     byFk(hr, 'rec:blur:dashboard-k').attrs.href === '#/screens/dashboard-k/appearance' && /Kitchen Tablet: 38 frames a second/.test(text(hr)), true);
-  ok('...and only for it (no report from the other screen)', !byFk(hr, 'rec:blur:dashboard-c'), true);
+  ok('All Screens’ Appearance: a row for the screen, to its Appearance', !!byFk(hr, 'rec:slow:dashboard-k') &&
+     byFk(hr, 'rec:slow:dashboard-k').attrs.href === '#/screens/dashboard-k/appearance' && /Kitchen Tablet: 38 frames a second/.test(text(hr)), true);
+  ok('...and only for it (no report from the other screen)', !byFk(hr, 'rec:slow:dashboard-c'), true);
   ok('...without buttons of its own', !byFk(hr, 'rec:glass') && !byFk(hr, 'rec:flat'), true);
   boards['dashboard-k'].glass = 'clear';
   ok('gone once the screen wears Glass', /Recommended/.test(text(draw(go('#/screens/dashboard-k/appearance')).box)) ||
-     !!byFk(draw(go('#/house/appearance')).box, 'rec:blur:dashboard-k'), false);
+     !!byFk(draw(go('#/house/appearance')).box, 'rec:slow:dashboard-k'), false);
   boards['dashboard-k'].glass = 'house';
   reports[0].fps = 52;
   ok('...and while the tablet draws 45 or more', /Recommended/.test(text(draw(go('#/screens/dashboard-k/appearance')).box)), false);
   reports[0].fps = 38.2;
   ok('a host with reports shows none under This Device', /for This Device/.test(text(draw(go('#/screens/dashboard-k')).box)), false);
+  // THE LADDER, one step at a time: a sample speaks only for what was on the screen when it was drawn
+  var Mo = window.hkSettingsModel, kb = boards['dashboard-k'], sample = function (fps, cams) {
+    return { name: 'Kitchen Tablet', screens: ['dashboard-k'], fps: fps, fps_screen: 'dashboard-k', fps_style: 'x', fps_at: Date.now() / 1000 - 60,
+             fps_sig: Mo.ladderSignature(Mo.ladderFacts(kb, look, pg.data.settings.sky, cams || { strip: false })) };
+  };
+  reports[0] = sample(38.2);
+  var l1 = draw(go('#/screens/dashboard-k/appearance')).box;
+  ok('a sample with its signature: step 1, the style', !!byFk(l1, 'rec:glass') && !!byFk(l1, 'rec:flat') && !byFk(l1, 'rec:rain'), true);
+  ok('...its footer says when the next one comes', /Glass looks almost the same and is lighter\. If it’s still slow an hour from now, the next suggestion appears here\./.test(text(l1)), true);
+  tap(byFk(l1, 'rec:glass'));
+  Object.assign(kb, writes.pop()[2]);
+  ok('the style taken: nothing more from the same sample', /Recommended/.test(text(draw(go('#/screens/dashboard-k/appearance')).box)) ||
+     !!byFk(draw(go('#/house/appearance')).box, 'rec:slow:dashboard-k'), false);
+  reports[0] = sample(52);
+  ok('...nor from a new one that is fast', /Recommended/.test(text(draw(go('#/screens/dashboard-k/appearance')).box)), false);
+  reports[0] = sample(40.4);
+  var l2 = draw(go('#/screens/dashboard-k/appearance')).box;
+  ok('a new one that is still slow: step 2, Rain & Snow', /Kitchen Tablet draws 40 frames a second with Rain & Snow on\./.test(text(l2)) &&
+     !byFk(l2, 'rec:glass') && /Turn Off Rain & Snow on This Screen/.test(text(l2)) && !!byFk(l2, 'rec:flat'), true);
+  var hr2 = draw(go('#/house/appearance')).box;
+  ok('...All Screens’ Appearance names the change in the screen’s row', /Rain & Snow/.test(text(byFk(hr2, 'rec:slow:dashboard-k'))), true);
+  ok('...opening them wrote nothing', writes.length, 0);
+  tap(byFk(l2, 'rec:rain'));
+  ok('Turn Off Rain & Snow is this screen’s own', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { sky_precipitation: false }]));
+  kb.sky_precipitation = false;
+  reports[0] = sample(41);
+  var l3 = draw(go('#/screens/dashboard-k/appearance')).box;
+  ok('step 3 is Animations (Moving Things are behind the cards here)', /with Animations on\. Off, the sky holds still/.test(text(l3)) && !!byFk(l3, 'rec:anim'), true);
+  tap(byFk(l3, 'rec:anim'));
+  ok('...Animations off, this screen only', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { sky_animations: false }]));
+  kb.sky_animations = false;
+  reports[0] = sample(41);
+  ok('...no camera in the house: the ladder ends', /Recommended/.test(text(draw(go('#/screens/dashboard-k/appearance')).box)), false);
+  // a house with a camera: the last step, Live First Camera
+  pg.client.states['camera.front'] = { state: 'idle', attributes: {} };
+  reports[0] = sample(41, { strip: true });
+  var l4 = draw(go('#/screens/dashboard-k/appearance')).box;
+  ok('a camera on the screen: Live First Camera off, the last step (no next one to promise)', !!byFk(l4, 'rec:camera') && /with a camera playing live/.test(text(l4)) &&
+     !/the next suggestion appears here/.test(text(l4)), true);
+  tap(byFk(l4, 'rec:camera'));
+  ok('...this screen’s own', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { camera_live_video: false }]));
+  delete pg.client.states['camera.front'];
+  delete kb.sky_precipitation; delete kb.sky_animations;
+  reports[0] = { name: 'Kitchen Tablet', screens: ['dashboard-k'], fps: 38.2, fps_screen: 'dashboard-k', fps_style: 'blur', fps_at: Date.now() / 1000 - 60 };
+  kb.glass = 'house'; kb.flat = undefined;
   // HOME ASSISTANT: no reports; this device's own sample, under This Device on the screen it measured
   pg._host = null; pg._health = undefined;
   localStorage.setItem('hk-fps', JSON.stringify({ fps: 31.6, at: Date.now() - 60000, screen: 'dashboard-k', style: 'blur' }));
@@ -479,6 +524,20 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   ok('...nor on the Appearance page (its home is This Device)', /Recommended/.test(text(draw(go('#/screens/dashboard-k/appearance')).box)), false);
   localStorage.removeItem('hk-fps');
   ok('...and nothing without a sample', /for This Device/.test(text(draw(go('#/screens/dashboard-k')).box)), false);
+  // ...the ladder too: the next step from a new sample, none from one drawn with something else on
+  var mine = function (b2, fps) {
+    return JSON.stringify({ fps: fps, at: Date.now() - 60000, screen: 'dashboard-k', style: 'clear',
+                            sig: Mo.ladderSignature(Mo.ladderFacts(b2, look, pg.data.settings.sky, { strip: false })) });
+  };
+  kb.glass = 'clear';
+  localStorage.setItem('hk-fps', mine(kb, 33));
+  var dr = draw(go('#/screens/dashboard-k')).box;
+  ok('This Device: once the style is Glass, the next step from a sample drawn with it', /Recommended for This Device/.test(text(dr)) &&
+     /This device draws 33 frames a second with Rain & Snow on\./.test(text(dr)) && !!byFk(dr, 'rec:rain'), true);
+  localStorage.setItem('hk-fps', mine(Object.assign({}, kb, { glass: 'blur' }), 33));
+  ok('...but nothing from one drawn with Blur still on', /for This Device/.test(text(draw(go('#/screens/dashboard-k')).box)), false);
+  localStorage.removeItem('hk-fps');
+  kb.glass = 'house';
   ok('opening every one of them wrote nothing', writes.length, 0);
 })();
 
