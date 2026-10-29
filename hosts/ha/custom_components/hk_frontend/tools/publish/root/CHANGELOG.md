@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.14.3 - 2026-10-28
+
 - Hassfest accepts the translations: the addresses in the Linked to Mantel texts are description placeholders.
 - The Power page draws a car parked at home, unplugged, without its cable.
 - Logos for Home Assistant's own brand folder (`logo.png`, `dark_logo.png` and their `@2x` files).

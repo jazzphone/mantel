@@ -5,6 +5,8 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 0.1.7 - 2026-10-28
+
 - Hassfest accepts the translations: the addresses in the setup texts are description placeholders.
 - Logos for Home Assistant's own brand folder (`logo.png`, `dark_logo.png` and their `@2x` files).
 

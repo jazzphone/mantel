@@ -4,7 +4,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
-The first public release of **Mantel**: HK Frontend's screens, inspired by Apple's Home app, served from a server of their own beside Home Assistant. It ships with **Mantel Link** 0.1.6 (Home Assistant's side of Mantel, from HACS) and alongside **HK Frontend** 1.14 (HK inside Home Assistant), built from the same code. The [user guide](docs/guide/Home.md) covers all of it; [HK Frontend and Mantel](docs/guide/HK-Frontend-and-Mantel.md) compares the products.
+The first public release of **Mantel**: HK Frontend's screens, inspired by Apple's Home app, served from a server of their own beside Home Assistant. It ships with **Mantel Link** 0.1.7 (Home Assistant's side of Mantel, from HACS) and alongside **HK Frontend** 1.14 (HK inside Home Assistant), built from the same code. The [user guide](docs/guide/Home.md) covers all of it; [HK Frontend and Mantel](docs/guide/HK-Frontend-and-Mantel.md) compares the products.
 
 **Running it**
 - **Three ways to run it:** the Home Assistant App (Home Assistant OS or Supervised; in Home Assistant's sidebar, optionally at its own address too), Docker Compose with Caddy or your own reverse proxy, or a Proxmox LXC made by a script. All three run the same server.
@@ -74,6 +74,14 @@ Reliability:
 - Docker and LXC: browser notifications and pairing the iPhone, iPad and Mac apps work (their keys live in the data folder, and in backups).
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
+
+## 0.1.85 - 2026-10-28
+
+- **Backups in Mantel Settings.** A Backups page for the Owner: when the last one was made, Back Up Now (on the App only when you ask; nightly with Docker and the LXC), each saved backup to download or delete, Save Keys (both keys as one small file), and Restore -- an upload checked first, then put in place when Mantel restarts, with what was there moved aside, not deleted. A backup from another Mantel restores with that Mantel's keys file.
+- **My Sessions, one row per kind of browser.** A browser that signs in again replaces its own session instead of adding one; each row opens to that browser's sessions, and Sign Out Everywhere Else clears the rest at once (the Mantel app stays signed in).
+- **A linked HK Frontend's status rows follow What Counts.** Its dashboards in Home Assistant now leave out what each type's What Counts leaves out, as Mantel's own screens do (the pantry door off the Security page).
+- **Power page:** a car parked at home and not plugged in is drawn without its cable.
+- Ready for the public repositories: logos for both integrations and the App, translations Home Assistant's hassfest accepts, the guide as Mantel's wiki, and one table comparing Mantel, HK Frontend and Mantel Link.
 
 ## 0.1.84 - 2026-10-28
 
