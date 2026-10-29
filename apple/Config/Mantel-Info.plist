@@ -26,6 +26,8 @@
 	<string>Scan the pairing code Mantel Settings shows.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID opens Mantel.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIBackgroundModes</key>

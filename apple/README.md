@@ -137,7 +137,69 @@ opens the push on the phone ("Front Door / Unlocked by Ann").
   Notification Service Extension runs for real, and the Live Activity can be updated by push.
 - **Sign in with Apple**: the capability, and the server's verification (§3; not built yet).
 - **TestFlight** (M10-1): a team, the publisher's bundle prefix (`PREFIX` in `make_project.py`), distribution signing.
+  The build is ready and scripted: see "TestFlight" below.
 - **The shared Keychain group and App Group on a device.** The Mac app is team-signed; its App Group is the
   team-prefixed one (`<TEAM>.com.jazzphone.mantel`), as the team's wildcard Mac
   profile cannot carry `group.com.jazzphone.mantel` (APPLE-APPS.md §12).
 - **Critical alerts** need Apple's separate entitlement; not used.
+
+## TestFlight
+
+`tools/testflight.py` archives the iPhone/iPad app (the `Mantel` scheme: the app, `MantelWidgets` and
+`MantelNotificationService`) and exports or uploads it:
+
+```bash
+python3 tools/testflight.py --dry-run --team ABCDE12345   # archive + a signed .ipa on disk; nothing leaves the Mac
+python3 tools/testflight.py --team ABCDE12345             # the same, then upload to App Store Connect (TestFlight)
+```
+
+The team id is `--team`, else `MANTEL_TEAM_ID` / `DEVELOPMENT_TEAM`, else the one your own local project file has; the
+committed project has none and never should. The script reads no credentials and prints none: Xcode signs and uploads as the
+account signed in at Xcode > Settings > Apple Accounts. That account must be able to create certificates and App IDs (the
+team's Account Holder or Admin) for the first run, which registers the App IDs, the App Group, push and the Apple
+Distribution certificate through `-allowProvisioningUpdates`.
+
+What it does:
+
+1. **Version and build.** `MARKETING_VERSION` is Mantel's version from `packaging/ha-app/config.yaml` (the generator
+   writes it into the project, and the script passes it again, so a version bump needs no regeneration). The build number
+   is the commit count (`git rev-list --count HEAD`), which only goes up; `--build N` overrides it. Both go on the
+   `xcodebuild` command line, so the app and both extensions carry the same pair. App Store Connect refuses a build number
+   it already has for a version.
+2. **Archive** (Release, `generic/platform=iOS`, automatic signing, `-allowProvisioningUpdates`).
+3. **Export** with a generated `ExportOptions.plist`: method `app-store-connect`, destination `export` for `--dry-run`
+   (the signed `.ipa` lands under the output directory) or `upload` otherwise, automatic signing, your team, symbols
+   uploaded, and `manageAppVersionAndBuildNumber` off so Xcode keeps the build number above.
+4. **Look inside** the `.ipa` and print each bundle's id, version, build, `aps-environment`, App Group and privacy manifest.
+
+Output goes under the system temp directory (`mantel-testflight/<version>-<build>/`, with the `xcodebuild` logs); `--out`
+chooses another place (the repository ignores `/build/`). The repository sits on a network share on this Mac, which is why
+the default is local.
+
+What the generator (`make_project.py`) and the Config files put in the build for App Store review:
+
+- `ITSAppUsesNonExemptEncryption = NO` in the app's Info.plist. Mantel uses HTTPS (URLSession, WKWebView) and Apple's
+  CryptoKit and Security frameworks only (P-256 keys in the Secure Enclave, ECDH + HKDF + AES-GCM for sealed
+  notifications, SHA-256); it has no encryption library of its own.
+- A `PrivacyInfo.xcprivacy` in the app and in each extension. No tracking. Required-reason API: UserDefaults
+  (`CA92.1` for the app's own defaults, `1C8F.1` for the App Group's, which the widgets and the notification service
+  read through `SharedStore`); the code uses no file timestamp, boot time, disk space or active keyboard API. The app
+  declares one collected type: **Device ID**, for app functionality, not linked to a person, not for tracking. That is the
+  push token Mantel registers with the push relay (`packaging/push-relay/`), which stores it. Everything else the app
+  sends (the device's name and model, sign-in, the house's data) goes to the person's own Mantel server.
+- `aps-environment` is `$(MANTEL_APS_ENVIRONMENT)` in `Config/Mantel.entitlements`: `development` for Debug,
+  `production` for Release. A build signed for distribution carries production from the App Store profile either way.
+- The AppIcon set has the 1024-pixel marketing icon (`tools/make_app_icons.py` draws it; no alpha channel).
+
+What App Store Connect needs before the first upload (the account holder does these; nothing here can):
+
+- The **Apple Developer Program** membership in good standing, and every agreement accepted (App Store Connect >
+  Business, and the developer account's license agreement: an unaccepted one blocks uploads).
+- An **app record**: App Store Connect > Apps > + New App, platform iOS, bundle ID `com.jazzphone.mantel.ios` (it is
+  listed once the first signed build has registered it, or register it under Certificates, Identifiers & Profiles), a
+  name, a language and a SKU. The widgets and notification extensions need no record of their own.
+- **TestFlight internal testers**: App Store Connect users of the team (up to 100), added under Users and Access and then
+  to the app's TestFlight > Internal Testing group; they install from the TestFlight app once a build has finished
+  processing, with no review. External testers need a Beta App Review and the app's test information.
+- For external testing or the store: the **App Privacy** answers (the push token above is all Mantel itself receives), a
+  privacy policy URL and a support URL. The export-compliance question is answered by the Info.plist key above.
