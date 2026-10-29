@@ -49,7 +49,7 @@ to make room. A favorite keeps the favorites’ one height.
 
 ## Arrange
 
-![Arrange in a light’s settings: Move Left and Move Right over a small copy of the room’s lights](images/sheet-arrange.png)
+![Arrange in a light’s settings: Move Left and Move Right over a small copy of the room’s lights](images/sheet-arrange.webp)
 
 *Opened from a tile on a generated screen.* **Move Left** and **Move Right**
 move the tile one place among the tiles it sits with, under a small copy of
@@ -159,7 +159,7 @@ is: Apple’s Home glyphs for that kind of accessory (a ceiling fan, a desk fan
 and an air purifier for a fan; curtains, a Roman shade and a skylight for a
 shade). A door or window sensor’s glyph comes as an open and a shut pair.
 
-![Search all icons: Apple’s glyphs first, then Home Assistant’s Material ones](images/sheet-icon-search.png)
+![Search all icons: Apple’s glyphs first, then Home Assistant’s Material ones](images/sheet-icon-search.webp)
 
 **Search all icons** finds any glyph by name, then any of Home Assistant’s
 Material Design icons by name or keyword (“burger” finds the hamburger). A
@@ -178,7 +178,7 @@ settings (the gear on its sheet), not with the fan’s own controls.
 
 ## Where it shows
 
-![A coffee maker’s Where it shows and Also Count As: shown on Home and its room’s page, and counted as a light](images/settings-accessory-where.png)
+![A coffee maker’s Where it shows and Also Count As: shown on Home and its room’s page, and counted as a light](images/settings-accessory-where.webp)
 
 - **Show in HK Frontend**: off, it is hidden everywhere: every generated
   screen, page and chip. It stays in Home Assistant and its automations.
@@ -289,7 +289,7 @@ its old links open the type’s page:
   once ([Status Chips settings](Status-Chips.md#status-chips-settings)). Smoke
   & CO says it leads every screen’s row when an alarm goes off.
 
-![A type’s page in Accessories: the lights room by room, then Added, Chips and Hidden](images/settings-accessories-type.png)
+![A type’s page in Accessories: the lights room by room, then Added, Chips and Hidden](images/settings-accessories-type.webp)
 *Accessories → Lights: what the Lights page and chip count, room by room.*
 
 **Add…** (and **Hide Accessories…**) use the picker every page shares: search
@@ -333,7 +333,7 @@ is the other way.
 everything kept off your screens, and where. Each one stays in Home Assistant,
 and in its automations.
 
-![Hidden Accessories: Hide Accessories…, Show All, Everywhere or Some Places, and the whole devices hidden everywhere](images/settings-hidden.png)
+![Hidden Accessories: Hide Accessories…, Show All, Everywhere or Some Places, and the whole devices hidden everywhere](images/settings-hidden.webp)
 
 - **Accessories**: each hidden accessory, with its room and entity ID, and on
   the right where it is hidden: *Everywhere*, or the places, such as
@@ -365,7 +365,7 @@ To hide something:
 
 A row’s **Hide From** is the same page; each switch saves as you change it.
 
-![Hide From for a water heater: not everywhere, only from Climate](images/settings-hide-from.png)
+![Hide From for a water heater: not everywhere, only from Climate](images/settings-hide-from.webp)
 
 The same switches are on the accessory itself, under
 [Where it shows](#where-it-shows).
@@ -402,7 +402,7 @@ Also Count As off instead.
 name, room, icon and where it appears. Home Assistant’s own names and icons
 are untouched.
 
-![Accessories in HK Settings: Types, Sensors, Rooms, then Hidden & Added](images/settings-accessories.png)
+![Accessories in HK Settings: Types, Sensors, Rooms, then Hidden & Added](images/settings-accessories.webp)
 
 | Setting | Default | What it does |
 |---|---|---|

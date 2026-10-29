@@ -6,7 +6,7 @@ to finish: its own user, its screen, the tablet itself, the kiosk app, a
 photo screensaver, and returning to Home when nobody is using it. It works the
 same for one tablet or ten, of any brand.
 
-![A wall tablet showing the Home page](images/tablet-home.png)
+![A wall tablet showing the Home page](images/tablet-home.webp)
 
 ## Tablets and screens
 
@@ -300,7 +300,7 @@ Next: [5. Add the photo screensaver](Screensaver-and-Idle.md#5-add-the-photo-scr
 
 **All Screens → Wall Tablets → (a tablet).** Everything about one tablet.
 
-![A tablet's page in HK Settings: Now, When It’s Left Alone, When Idle, Setup and Actions](images/settings-tablet.png)
+![A tablet's page in HK Settings: Now, When It’s Left Alone, When Idle, Setup and Actions](images/settings-tablet.webp)
 
 ### Now
 
@@ -377,7 +377,7 @@ settings and its own entities. Its screen and its kiosk app stay.
 
 **All Screens → Wall Tablets.**
 
-![Wall Tablets in HK Settings: each tablet with its screen and its state, then All Tablets, Alerts and Upkeep](images/settings-wall-tablets.png)
+![Wall Tablets in HK Settings: each tablet with its screen and its state, then All Tablets, Alerts and Upkeep](images/settings-wall-tablets.webp)
 
 - **Tablets**: each tablet, with its screen, its kiosk app, and its state and
   battery live (Dark, Screensaver, Awake or Offline). **Add Tablet…** at the

@@ -10,7 +10,7 @@ Your cameras appear in three places:
 Tap any camera to open it full size, live, with sound, and hold-to-talk if
 it has a speaker (talking needs Home Assistant over https).
 
-![The Cameras page](images/tablet-cameras.png)
+![The Cameras page](images/tablet-cameras.webp)
 
 ## Which cameras, in what order
 
@@ -25,7 +25,7 @@ this order.
   Screens**, off, and that screen keeps its own list (it starts from All
   Screens’). Turn it on again to follow All Screens.
 
-![All Screens → Cameras](images/settings-cameras.png)
+![All Screens → Cameras](images/settings-cameras.webp)
 
 Before 1.6.0 every screen kept its own list. Upgrading moves the list most
 screens shared to All Screens, and every screen with that list (or none)
@@ -52,7 +52,7 @@ taking turns.
   pop-ups, each screen's strip, the Cameras page's background and the cameras
   hidden from every screen.
 
-![A screen’s Cameras: the strip, Live Camera Follows, and Same as All Screens](images/settings-screen-cameras.png)
+![A screen’s Cameras: the strip, Live Camera Follows, and Same as All Screens](images/settings-screen-cameras.webp)
 
 ## The Cameras page
 
@@ -86,7 +86,7 @@ room. A room with a single camera shows one wide 16:9 snapshot. Each shows how
 old its picture is, and tapping one opens it live. The order is the camera
 list’s (above).
 
-![A room’s cameras](images/tablet-room-cameras.png)
+![A room’s cameras](images/tablet-room-cameras.webp)
 
 ## Live Camera Follows
 

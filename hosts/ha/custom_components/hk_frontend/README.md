@@ -32,8 +32,8 @@ Built from your own rooms and devices, and set up entirely in the UI.
 Add a screen and HK Frontend builds it from your floors, areas and devices: the clock and weather, status chips, cameras, scenes, favorites, a section for every room, a page for each room and each kind of device, and a [calendar](https://github.com/jazzphone/hk-frontend/wiki/Calendar) of the month, week or day. A new light shows up on its own. The same screen works on a wall tablet, a computer, an iPad and a phone.
 
 <p align="center">
-<img src="docs/images/tablet-lights.png" width="49%" alt="The Lights page">
-<img src="docs/images/tablet-climate.jpg" width="49%" alt="The Climate page">
+<img src="docs/images/tablet-lights.webp" width="49%" alt="The Lights page">
+<img src="docs/images/tablet-climate.webp" width="49%" alt="The Climate page">
 </p>
 
 ## Get around your way
@@ -48,8 +48,8 @@ Every screen chooses how you move between its pages and rooms.
   - **More** holds the rest: the other pages, every room, and Home Assistant's own Settings, Integrations and Notifications, as icons or as a list. ([Tab Bar](https://github.com/jazzphone/hk-frontend/wiki/Tab-Bar))
 
 <p align="center">
-<img src="docs/images/tablet-menu.png" width="49%" alt="A wall tablet with the side menu open: Home, the pages and every room">
-<img src="docs/images/tablet-tabbar-rail.png" width="49%" alt="The tab bar as a rail down the right side, More open beside it as a list">
+<img src="docs/images/tablet-menu.webp" width="49%" alt="A wall tablet with the side menu open: Home, the pages and every room">
+<img src="docs/images/tablet-tabbar-rail.webp" width="49%" alt="The tab bar as a rail down the right side, More open beside it as a list">
 </p>
 
 ## Tap for the controls
@@ -57,8 +57,8 @@ Every screen chooses how you move between its pages and rooms.
 Tap a light, thermostat, lock, garage door, speaker or vacuum and a sheet opens with the controls it needs. Each room and category page has a [status row](https://github.com/jazzphone/hk-frontend/wiki/Status-Rows) like the Home app's: *Motion · Emma’s Room*, *Valve · Running*. Pop-ups show the doorbell camera or the alarm keypad, and an automation can open one on chosen screens. Tiles have the Home app’s own size and spacing, in Apple’s font wherever it is there. Every accessory can have its own name, icon (any of Apple’s Home glyphs, or Home Assistant’s), tile size and place among its neighbors. Touch a graph for its value, drag a thermostat’s dial and watch it follow your finger.
 
 <p align="center">
-<img src="docs/images/sheet-light.png" width="49%" alt="A light’s detail sheet with a brightness slider">
-<img src="docs/images/sheet-thermostat.png" width="49%" alt="A thermostat’s detail sheet">
+<img src="docs/images/sheet-light.webp" width="49%" alt="A light’s detail sheet with a brightness slider">
+<img src="docs/images/sheet-thermostat.webp" width="49%" alt="A thermostat’s detail sheet">
 </p>
 
 ## A live sky
@@ -66,13 +66,13 @@ Tap a light, thermostat, lock, garage door, speaker or vacuum and a sheet opens 
 Behind every page, a sky that follows the weather and the time of day: clear and starry, golden at sunset, gray and flashing in a thunderstorm, with rain or snow when it falls. Choose **[Realistic clouds](https://github.com/jazzphone/hk-frontend/wiki/Live-Sky#choose-its-look)** — photographic clouds picked from the weather and lit by the sun — and **[New Decorations](https://github.com/jazzphone/hk-frontend/wiki/Seasonal-Decorations)**, woodland scenery that comes alive for autumn, Halloween, Christmas, birthdays and the rest of the year. Or set the Background to a still **Color**, a **Photo** of your own, or **[Landscapes](https://github.com/jazzphone/hk-frontend/wiki/Live-Sky#landscapes)** — fifty photos that come with it, a new one each time the screen wakes or on a schedule — softened with its own blur, dim and tint, for every screen, one screen, a page or a room. **Liveliness** sets how much moves in it — the bats, leaves and fireflies, and how often something crosses the moon — for each occasion and each screen, calming down when nobody is around.
 
 <p align="center">
-<img src="docs/images/sky-new-halloween.jpg" width="49%" alt="New Decorations: Halloween night, jack-o'-lanterns in the trees under a full moon">
-<img src="docs/images/sky-realistic-golden.jpg" width="49%" alt="Realistic clouds lit gold near sunset">
+<img src="docs/images/sky-new-halloween.webp" width="49%" alt="New Decorations: Halloween night, jack-o'-lanterns in the trees under a full moon">
+<img src="docs/images/sky-realistic-golden.webp" width="49%" alt="Realistic clouds lit gold near sunset">
 </p>
 
 <p align="center">
-<img src="docs/images/tablet-background-photo.png" width="49%" alt="Home on a wall tablet over a photo of an autumn lake">
-<img src="docs/images/tablet-background-landscapes.png" width="49%" alt="Home on a wall tablet over one of HK Frontend's Landscapes">
+<img src="docs/images/tablet-background-photo.webp" width="49%" alt="Home on a wall tablet over a photo of an autumn lake">
+<img src="docs/images/tablet-background-landscapes.webp" width="49%" alt="Home on a wall tablet over one of HK Frontend's Landscapes">
 </p>
 
 ## Made for the wall
@@ -84,21 +84,21 @@ When nobody is using it, it shows your photos (one at a time, or a mosaic of up 
 **[Sleep Screen](https://github.com/jazzphone/hk-frontend/wiki/Sleep-Screen)** keeps each tablet dark when nobody needs it and awake the moment somebody does. HK Frontend decides from the room’s presence sensors, quiet hours, the doorbell, smoke and away mode, sets the brightness for day and night, and fades in from black without a flicker — or your own automations decide, with one action.
 
 <p align="center">
-<img src="docs/images/tablet-forecast-halloween.png" width="49%" alt="The forecast screensaver on Halloween night: lanterns in the trees, jack-o’-lanterns, a big moon">
-<img src="docs/images/tablet-forecast-christmas.png" width="49%" alt="The forecast screensaver on Christmas night: lit trees, a snowman and Santa’s sleigh across the moon">
+<img src="docs/images/tablet-forecast-halloween.webp" width="49%" alt="The forecast screensaver on Halloween night: lanterns in the trees, jack-o’-lanterns, a big moon">
+<img src="docs/images/tablet-forecast-christmas.webp" width="49%" alt="The forecast screensaver on Christmas night: lit trees, a snowman and Santa’s sleigh across the moon">
 </p>
 
 <p align="center">
-<img src="docs/images/saver-clock-faces.png" width="100%" alt="Six of the screensaver's fifteen clock styles">
+<img src="docs/images/saver-clock-faces.webp" width="100%" alt="Six of the screensaver's fifteen clock styles">
 </p>
 
 <p align="center">
-<img src="docs/images/saver-home-energy.png" width="70%" alt="Home Energy on the screensaver: today's energy, cost and water against a usual day">
+<img src="docs/images/saver-home-energy.webp" width="70%" alt="Home Energy on the screensaver: today's energy, cost and water against a usual day">
 </p>
 
 <p align="center">
-<img src="docs/images/settings-wall-tablets.png" width="49%" alt="All Screens → Wall Tablets in HK Settings: each tablet, awake, on the screensaver or dark">
-<img src="docs/images/settings-tablet.png" width="49%" alt="One wall tablet's page: what it is doing now, when it is left alone, its Sleep Screen">
+<img src="docs/images/settings-wall-tablets.webp" width="49%" alt="All Screens → Wall Tablets in HK Settings: each tablet, awake, on the screensaver or dark">
+<img src="docs/images/settings-tablet.webp" width="49%" alt="One wall tablet's page: what it is doing now, when it is left alone, its Sleep Screen">
 </p>
 
 ## Energy at a glance
@@ -106,8 +106,8 @@ When nobody is using it, it shows your photos (one at a time, or a mosaic of up 
 The **[Energy](https://github.com/jazzphone/hk-frontend/wiki/Energy)** feature builds an Energy page from Home Assistant’s own Energy settings, with four tabs: **Now** (the whole home live, what is drawing the most, the house battery and the cars), and **Today**, **This Week** and **This Month** (rings against a usual day, where the energy went, the month as a calendar, and the meters you track). Every circuit, room, appliance and outlet has a tile, with a power button where there is a switch. Beside it, a **[Power](https://github.com/jazzphone/hk-frontend/wiki/Energy#the-power-page)** page for right now and the controls: the grid, the sun, a house battery with its mode and levels, the cars charging, and every device marked when the battery backs it up. A screen can show only some pages — a wall panel that is just the Energy page, say.
 
 <p align="center">
-<img src="docs/images/tablet-energy.png" width="49%" alt="The Energy page on a wall tablet">
-<img src="docs/images/tablet-power.png" width="49%" alt="The Power page on a wall tablet: the grid, the house and the battery right now">
+<img src="docs/images/tablet-energy.webp" width="49%" alt="The Energy page on a wall tablet">
+<img src="docs/images/tablet-power.webp" width="49%" alt="The Power page on a wall tablet: the grid, the house and the battery right now">
 </p>
 
 ## Set up in the UI
@@ -115,7 +115,7 @@ The **[Energy](https://github.com/jazzphone/hk-frontend/wiki/Energy)** feature b
 **HK Settings** in the sidebar holds everything, with a live preview of each screen as a phone, an iPad, a wall tablet, a desktop or a car. Choose the glass: see-through, frosted, blurred, or **Tinted**, the Home app’s flat dark plate. A Setup Assistant makes your first screen, and Setup Check says what is missing. There is nothing to add to `configuration.yaml`.
 
 <p align="center">
-<img src="docs/images/settings-screen.png" width="100%" alt="A screen’s settings in HK Settings, beside a live preview of it at wall-tablet size">
+<img src="docs/images/settings-screen.webp" width="100%" alt="A screen’s settings in HK Settings, beside a live preview of it at wall-tablet size">
 </p>
 
 ## Install

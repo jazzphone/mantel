@@ -15,7 +15,7 @@ Home Assistant’s own dialog instead, turn off
 [HK Detail Sheets](Accessories.md#accessories-settings) (**Library →
 Accessories**).
 
-![A light’s detail sheet](images/sheet-light.png)
+![A light’s detail sheet](images/sheet-light.webp)
 
 **An alarm’s sheet.** An alarm that takes a code shows its keypad. One that
 takes none — arming and disarming with a tap — shows its state and, like a
@@ -24,7 +24,7 @@ Vacation, Custom) and Off; the mode it is in is filled.
 
 | | | |
 |---|---|---|
-| ![A thermostat’s detail sheet](images/sheet-thermostat.png) | ![A lock’s detail sheet](images/sheet-lock.png) | ![A garage door’s detail sheet](images/sheet-garage.png) |
+| ![A thermostat’s detail sheet](images/sheet-thermostat.webp) | ![A lock’s detail sheet](images/sheet-lock.webp) | ![A garage door’s detail sheet](images/sheet-garage.webp) |
 | Thermostat | Lock | Garage door |
 
 **A person’s sheet.** Tapping a person opens where they are: their picture,
@@ -56,7 +56,7 @@ mouse away and it goes. A vertical swipe still scrolls the sheet. It works on
 every graph in a sheet: a sensor’s, an energy device’s bars, and the
 thermostat’s and water heater’s 24 hours.
 
-![A circuit's detail sheet: a finger on its graph, a line at that point and its watts and time above it](images/sheet-graph-hover.png)
+![A circuit's detail sheet: a finger on its graph, a line at that point and its watts and time above it](images/sheet-graph-hover.webp)
 *A finger on a sheet's graph: the line, the dot and the value at the top.*
 
 **The dial.** A thermostat's or water heater's dial follows your finger or the
@@ -89,13 +89,13 @@ Tap a pill for its details; the Back button, closing the accessory sheet or
 browser Back returns to the category list. The list and its summary follow
 live readings and membership changes.
 
-![The Climate Temperature list](images/sheet-climate-temperature.jpg)
+![The Climate Temperature list](images/sheet-climate-temperature.webp)
 
 **Pop-ups** are sheets that an automation opens on a screen: the doorbell when
 someone rings, the alarm keypad when the alarm needs a code. Each pop-up has an
 address (a hash, such as `#front-door`) that any screen answers.
 
-![The alarm keypad pop-up](images/popup-alarm.png)
+![The alarm keypad pop-up](images/popup-alarm.webp)
 
 | Type | Shows |
 |---|---|
@@ -104,7 +104,7 @@ address (a hash, such as `#front-door`) that any screen answers.
 | Accessories | Several accessories on one sheet, in the order you pick |
 | Custom | Your own cards, written in YAML: any Home Assistant card or custom card, on a narrow or wide sheet |
 
-![The doorbell pop-up](images/popup-doorbell.png)
+![The doorbell pop-up](images/popup-doorbell.webp)
 
 ## Add a doorbell pop-up
 
@@ -117,7 +117,7 @@ address (a hash, such as `#front-door`) that any screen answers.
 On the pop-up’s page you can then set how long it stays open (**Close After**),
 and which screens answer it. Every setting: [Pop-ups](#pop-ups-settings).
 
-![The Pop-ups page in HK Settings](images/settings-popups.png)
+![The Pop-ups page in HK Settings](images/settings-popups.webp)
 
 For a **Custom** pop-up, its cards are the next step: a YAML list, for example
 

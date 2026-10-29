@@ -4,7 +4,7 @@ What a generated screen’s Home page shows, and how to change each part. The
 [status chips](Status-Chips.md) and the [camera strip](Cameras.md) have pages
 of their own.
 
-![The Home page on a computer](images/desktop-home.png)
+![The Home page on a computer](images/desktop-home.webp)
 
 A generated screen’s Home page shows, from the top:
 
@@ -26,9 +26,9 @@ every page: they are switches in the screen’s
 [Behavior](Screens.md#behavior), and what the bar does is under
 [Music → The Now Playing bar](Music.md#the-now-playing-bar).
 
-![The Home page on an iPad](images/ipad-home.png)
+![The Home page on an iPad](images/ipad-home.webp)
 
-![The Home page on a phone: two columns of tiles](images/phone-home.png)
+![The Home page on a phone: two columns of tiles](images/phone-home.webp)
 
 **On a phone** the tiles reflow to two columns. The screen’s **Header on Phones**
 setting (its Header group) picks what sits at the top on a phone held upright
@@ -112,7 +112,7 @@ A favorite’s name, room line and icon as a favorite are in its
 
 ## Rooms
 
-![A room page: the status row, the room’s scenes and its accessories by group](images/tablet-room.png)
+![A room page: the status row, the room’s scenes and its accessories by group](images/tablet-room.webp)
 
 A generated screen has a section on Home for every area with something in it,
 floor by floor (in your floors’ order), then A to Z. Only things that are in an

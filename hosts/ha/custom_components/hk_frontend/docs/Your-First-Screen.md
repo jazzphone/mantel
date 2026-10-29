@@ -7,7 +7,7 @@ questions about your home and makes your first screen. About ten minutes.
 
 Open **HK Settings** in the sidebar. The first time you open it — before any screen has HK Frontend settings — the **Setup Assistant** starts by itself. You can run it again at any time from **Overview** → **Setup Assistant**.
 
-![The Setup Assistant’s first page in HK Settings](images/settings-setup.png)
+![The Setup Assistant’s first page in HK Settings](images/settings-setup.webp)
 
 It asks a few questions about your home, then makes your first screen. Every control saves as you change it, and everything can be changed later from the list in HK Settings. Where a step links to another page (for example the radar map’s options), **Back** returns you to the step.
 
@@ -54,7 +54,7 @@ That line asks HK Frontend to build the screen every time it opens, from your fl
 
 **What you should see:** open the screen (from the Setup Assistant’s last step, or from the sidebar). The Home page shows the time and weather (in the header, or in the menu on a wall tablet), a row of status chips, and a section of tiles for each room, ordered by floor and then by name. Tapping a chip opens its page — Lights, Climate, Doors & Windows and so on — and tapping a room’s heading opens that room’s page.
 
-![The Home page of a generated screen on a wall tablet](images/tablet-home.png)
+![The Home page of a generated screen on a wall tablet](images/tablet-home.webp)
 
 ### An existing dashboard
 
@@ -68,7 +68,7 @@ Setup Check reads your Home Assistant and lists what is ready and what to fix. I
 
 Open **HK Settings** → **Overview** → **Setup Check** (it is also under **System** in the list). Lines are grouped into **Needs Doing**, **Ready** and **Notes**. Fix everything under *Needs Doing*; the *Notes* are optional. Select **Check Again** after fixing something.
 
-![The Overview page of HK Settings, with Setup Check and the Setup Assistant under Setup](images/settings-overview.png)
+![The Overview page of HK Settings, with Setup Check and the Setup Assistant under Setup](images/settings-overview.webp)
 
 What each line means, and how to fix it: [Troubleshooting](Troubleshooting.md#setup-check).
 

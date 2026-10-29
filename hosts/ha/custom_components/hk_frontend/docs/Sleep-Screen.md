@@ -19,7 +19,7 @@ differently. It answers two questions:
    room, what should wake it, what should keep it dark and when quiet hours
    are, and it does the rest.
 
-![The Sleep Screen page for a kitchen tablet, decided by HK Frontend](images/settings-sleep-screen.png)
+![The Sleep Screen page for a kitchen tablet, decided by HK Frontend](images/settings-sleep-screen.webp)
 
 - [What you need](#what-you-need)
 - [The four things a tablet can show](#the-four-things-a-tablet-can-show)
@@ -336,7 +336,7 @@ In this order, all before who is in the room:
   armed away, a "Vacation" `input_boolean`. The three above still win, so the
   smoke alarm and the doorbell wake it even when you are away.
 
-![A list: Wake For, each with its Also in Quiet Hours tick](images/settings-sleep-wake-for.png)
+![A list: Wake For, each with its Also in Quiet Hours tick](images/settings-sleep-wake-for.webp)
 
 ### Brightness: Day and Night
 
@@ -358,7 +358,7 @@ Frontend’s black the backlight stays at its lowest until the wake.
 
 Turn the tablet’s own adaptive brightness **off**, or the two will fight.
 
-![A bedroom: quiet hours on a schedule and while the nap timer runs, the display off in quiet hours](images/settings-sleep-screen-bedroom.png)
+![A bedroom: quiet hours on a schedule and while the nap timer runs, the display off in quiet hours](images/settings-sleep-screen-bedroom.webp)
 
 ### What HK Frontend takes care of for you
 

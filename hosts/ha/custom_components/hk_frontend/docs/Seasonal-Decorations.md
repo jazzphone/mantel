@@ -11,7 +11,7 @@ change your lights or anything else in the house.
 start at the menu's edge instead of behind it. The sky itself still runs under
 the menu, blurred by its glass.
 
-![A spooky Halloween night: a big moon, bare branches, fog and bats](images/sky-halloween.png)
+![A spooky Halloween night: a big moon, bare branches, fog and bats](images/sky-halloween.webp)
 
 **Turning them all off:** the **Seasonal decorations** switch,
 `switch.hk_frontend_seasonal_decorations`, on the HK Frontend device. The same
@@ -35,9 +35,9 @@ screen can choose its own style or follow All Screens.
 
 | | |
 |---|---|
-| ![New Decorations: Halloween night, jack-o'-lanterns in the trees under a full moon](images/sky-new-halloween.jpg) | ![New Decorations: Christmas night, snowy trees strung with lights](images/sky-new-christmas.jpg) |
+| ![New Decorations: Halloween night, jack-o'-lanterns in the trees under a full moon](images/sky-new-halloween.webp) | ![New Decorations: Christmas night, snowy trees strung with lights](images/sky-new-christmas.webp) |
 | Halloween | Christmas |
-| ![New Decorations: the autumn woodland between occasions](images/sky-new-autumn.jpg) | ![New Decorations: a birthday, a pennant banner from tree to tree and balloons](images/sky-new-birthday.jpg) |
+| ![New Decorations: the autumn woodland between occasions](images/sky-new-autumn.webp) | ![New Decorations: a birthday, a pennant banner from tree to tree and balloons](images/sky-new-birthday.webp) |
 | Autumn, between occasions | A birthday |
 
 New Decorations' scenes come alive with small touches, through the whole scene
@@ -121,11 +121,11 @@ or the **Seasonal decorations** switch, turns it off here too.
 
 | | |
 |---|---|
-| ![Halloween night on the forecast screensaver: carved lanterns hanging in the trees, jack-o’-lanterns at their feet, a big moon and bats](images/tablet-forecast-halloween.png) | ![Halloween by day on the forecast screensaver: the lanterns and jack-o’-lanterns in the autumn trees](images/tablet-forecast-halloween-day.png) |
+| ![Halloween night on the forecast screensaver: carved lanterns hanging in the trees, jack-o’-lanterns at their feet, a big moon and bats](images/tablet-forecast-halloween.webp) | ![Halloween by day on the forecast screensaver: the lanterns and jack-o’-lanterns in the autumn trees](images/tablet-forecast-halloween-day.webp) |
 | Halloween night | Halloween by day |
-| ![Christmas night on the forecast screensaver: strings of bulbs through both trees, a snowman and presents at the right tree, Santa’s sleigh crossing a big moon](images/tablet-forecast-christmas.png) | ![The Fourth of July at night on the forecast screensaver: bunting, the flag, café lights and hydrangeas under the trees, fireworks over the hills](images/tablet-forecast-july4.png) |
+| ![Christmas night on the forecast screensaver: strings of bulbs through both trees, a snowman and presents at the right tree, Santa’s sleigh crossing a big moon](images/tablet-forecast-christmas.webp) | ![The Fourth of July at night on the forecast screensaver: bunting, the flag, café lights and hydrangeas under the trees, fireworks over the hills](images/tablet-forecast-july4.webp) |
 | Christmas | The Fourth of July |
-| ![A birthday on the forecast screensaver: café lights, presents and balloons over the summer land](images/tablet-forecast-birthday.png) | |
+| ![A birthday on the forecast screensaver: café lights, presents and balloons over the summer land](images/tablet-forecast-birthday.webp) | |
 | A birthday | |
 
 | Decoration | On the forecast screensaver |
@@ -197,7 +197,7 @@ choice, and **Show Me Now** sends the next crossing across at once.
 
 ## Sky settings
 
-![The Sky / Background page in HK Settings, starting with the Background: Live Sky, Color, Photo or Landscapes](images/settings-sky.png)
+![The Sky / Background page in HK Settings, starting with the Background: Live Sky, Color, Photo or Landscapes](images/settings-sky.webp)
 
 Beside the Sky / Background page, a live preview shows your Home screen’s sky right now.
 Open a decoration and the preview shows it on your Home screen -- whatever
@@ -205,7 +205,7 @@ today’s date, even while it is turned off -- with **Day**, **Night** and, for
 Fall & Halloween, **Spooky Night** to switch between. Only the preview
 changes; your screens keep today’s sky.
 
-![A decoration’s page with its preview](images/settings-sky-theme.png)
+![A decoration’s page with its preview](images/settings-sky-theme.webp)
 
 | Setting | Default | What it does |
 |---|---|---|

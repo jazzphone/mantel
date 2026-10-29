@@ -8,13 +8,13 @@ room’s own settings.
 A screen follows these unless you give it rooms of its own (see
 [A screen’s rooms](#a-screens-rooms)).
 
-![A room page: the status row, the room’s scenes and its accessories by group](images/tablet-room.png)
+![A room page: the status row, the room’s scenes and its accessories by group](images/tablet-room.webp)
 
 ## Rooms settings
 
 **All Screens → Rooms.**
 
-![Rooms in HK Settings: the order, the menu’s and the pages’, the room pages, and every room](images/settings-rooms.png)
+![Rooms in HK Settings: the order, the menu’s and the pages’, the room pages, and every room](images/settings-rooms.webp)
 
 | Setting | Default | What it does |
 |---|---|---|
@@ -34,7 +34,7 @@ are **Same as All Screens**. The page says which screens set their own.
 opens here from the Rooms list, and from any room order: tap a room in All
 Screens’ Room Order or in a screen’s own list, and Back returns you there.
 
-![A room’s own settings: shown on screens and on Home, part of another room, its scenes and tile order](images/settings-room.png)
+![A room’s own settings: shown on screens and on Home, part of another room, its scenes and tile order](images/settings-room.webp)
 
 | Setting | Default | What it does |
 |---|---|---|
@@ -53,7 +53,7 @@ once and select **Add**.
 
 **Screens → (the screen) → Home Page → Rooms.**
 
-![A screen’s Rooms, following All Screens](images/settings-screen-rooms.png)
+![A screen’s Rooms, following All Screens](images/settings-screen-rooms.webp)
 
 | Setting | Default | What it does |
 |---|---|---|
