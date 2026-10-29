@@ -19,6 +19,18 @@ extension EnvironmentValues {
     }
 }
 
+extension View {
+    /// The iPad's pointer over one of the player's own buttons: the system's highlight, shaped as the button. The Mac
+    /// draws its own hover states (`onHover`).
+    @ViewBuilder func pointerHover() -> some View {
+        #if os(iOS)
+        hoverEffect(.highlight)
+        #else
+        self
+        #endif
+    }
+}
+
 /// What the player's row of buttons opens: where it plays, what comes next, something else to play.
 enum PlayerPane: String, CaseIterable, Identifiable {
     case speakers, upNext, browse
@@ -152,6 +164,7 @@ struct NowPlayingView: View {
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(current == p ? .white : .white.opacity(0.6))
+                        .pointerHover()
                         .help(p.title)
                     }
                 }
@@ -178,8 +191,10 @@ struct RouteButton: View {
             }
             .padding(.horizontal, 10).padding(.vertical, 5)
             .background(.white.opacity(0.16), in: Capsule())
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .pointerHover()
         .frame(maxWidth: 170, alignment: .trailing)
         .help("Choose Speakers")
     }
@@ -200,6 +215,7 @@ struct TransportButton: View {
                 .contentShape(Circle())
         }
         .buttonStyle(PressScale())
+        .pointerHover()
         .onHover { hover = $0 }
     }
 }
@@ -303,6 +319,7 @@ struct PaneTabs: View {
                     .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
+                .pointerHover()
             }
         }
         .padding(3)
@@ -321,8 +338,10 @@ struct PaneHeader: View {
                 Button(action: back) {
                     Image(systemName: "chevron.left").font(.system(size: 14, weight: .semibold))
                         .frame(width: 28, height: 28).background(.white.opacity(0.14), in: Circle())
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .pointerHover()
                 .help("Back to Now Playing")
             }
             Text(title).font(.system(size: 17, weight: .bold))

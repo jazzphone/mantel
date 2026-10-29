@@ -43,6 +43,10 @@ struct SummaryProvider: TimelineProvider {
                 if signedIn, let fresh = try? await client.summary() {
                     summary = fresh
                     store.setSummary(fresh, for: house)
+                    // the large Now Playing shows the cover: kept in the App Group once per cover, as the Live Activity's
+                    if context.family == .systemLarge, let ref = fresh.now_playing?.art {
+                        _ = await ArtCache.store(ref, using: client)
+                    }
                 }
             }
             completion(Timeline(entries: [SummaryEntry(date: .now, summary: summary, signedIn: signedIn)],
@@ -60,7 +64,8 @@ struct FavoritesWidget: Widget {
         }
         .configurationDisplayName("Favorites")
         .description("Your favorite accessories, one tap away.")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        // Extra Large is the iPad's (and the open Duo's, where the system offers it): four columns
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
     }
 }
 
@@ -68,8 +73,19 @@ struct FavoritesView: View {
     let entry: SummaryEntry
     @Environment(\.widgetFamily) private var family
 
+    /// Tiles across, and how many in all: 1×2, 2×2, 2×4, 4×4.
+    private var columns: Int { family == .systemSmall ? 1 : family == .systemExtraLarge ? 4 : 2 }
+    private var count: Int {
+        switch family {
+        case .systemSmall: 2
+        case .systemMedium: 4
+        case .systemExtraLarge: 16
+        default: 8
+        }
+    }
+
     var body: some View {
-        let items = Array((entry.summary?.favorites ?? []).prefix(family == .systemSmall ? 2 : family == .systemMedium ? 4 : 8))
+        let items = Array((entry.summary?.favorites ?? []).prefix(count))
         if items.isEmpty {
             VStack(spacing: 6) {
                 Image(systemName: "star").font(.title2)
@@ -77,11 +93,13 @@ struct FavoritesView: View {
                     .font(.caption).multilineTextAlignment(.center)
             }.foregroundStyle(.secondary)
         } else {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: family == .systemSmall ? 1 : 2), spacing: 8) {
+            // from the top, as Home's own widgets fill: a large widget with few favorites is not a centred island
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: columns), spacing: 8) {
                 ForEach(items) { e in
                     Button(intent: ToggleAccessoryIntent(e.entity_id)) { Tile(e: e) }.buttonStyle(.plain)
                 }
             }
+            .frame(maxHeight: .infinity, alignment: family == .systemSmall || family == .systemMedium ? .center : .top)
         }
     }
 }
@@ -130,28 +148,33 @@ struct NowPlayingWidget: Widget {
         }
         .configurationDisplayName("Now Playing")
         .description("What plays on your Mantel speaker.")
-        .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular])
+        // Large: the cover over the song (an iPad's Home Screen, the open Duo's)
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .accessoryRectangular])
     }
 }
 
 struct NowPlayingView: View {
     let entry: SummaryEntry
+    @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        if let p = entry.summary?.now_playing {
+        if let p = entry.summary?.now_playing, family == .systemLarge {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(p.name, systemImage: "hifispeaker.fill").font(.caption).foregroundStyle(.secondary)
+                WidgetCover(ref: p.art).frame(maxWidth: .infinity, maxHeight: .infinity)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(p.attributes?.media_title ?? "Nothing playing").font(.title3.bold()).lineLimit(1)
+                    Text(p.attributes?.media_artist ?? "").font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                }
+                transport(p).font(.title2).frame(maxWidth: .infinity)
+            }
+        } else if let p = entry.summary?.now_playing {
             VStack(alignment: .leading, spacing: 4) {
                 Label(p.name, systemImage: "hifispeaker.fill").font(.caption2).foregroundStyle(.secondary)
                 Text(p.attributes?.media_title ?? "Nothing playing").font(.headline).lineLimit(2)
                 Text(p.attributes?.media_artist ?? "").font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 Spacer(minLength: 0)
-                HStack(spacing: 18) {
-                    Button(intent: MusicControlIntent(.previous, speaker: p.entity_id)) { Image(systemName: "backward.fill") }
-                    Button(intent: MusicControlIntent(.playPause, speaker: p.entity_id)) {
-                        Image(systemName: p.state == "playing" ? "pause.fill" : "play.fill")
-                    }
-                    Button(intent: MusicControlIntent(.next, speaker: p.entity_id)) { Image(systemName: "forward.fill") }
-                }
-                .buttonStyle(.plain).font(.title3)
+                transport(p).font(.title3)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {
@@ -159,6 +182,42 @@ struct NowPlayingView: View {
                 Image(systemName: "music.note").font(.title2)
                 Text("Pick a speaker on Mantel’s Music page.").font(.caption).multilineTextAlignment(.center)
             }.foregroundStyle(.secondary)
+        }
+    }
+
+    private func transport(_ p: EntityState) -> some View {
+        HStack(spacing: family == .systemLarge ? 44 : 18) {
+            Button(intent: MusicControlIntent(.previous, speaker: p.entity_id)) { Image(systemName: "backward.fill") }
+            Button(intent: MusicControlIntent(.playPause, speaker: p.entity_id)) {
+                Image(systemName: p.state == "playing" ? "pause.fill" : "play.fill")
+            }
+            Button(intent: MusicControlIntent(.next, speaker: p.entity_id)) { Image(systemName: "forward.fill") }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// The cover the app or this widget kept in the App Group (ArtCache), square and as large as the widget allows; a
+/// quiet stand-in until there is one.
+struct WidgetCover: View {
+    let ref: String?
+
+    var body: some View {
+        GeometryReader { g in
+            let side = min(g.size.width, g.size.height)
+            Group {
+                if let ref, let url = ArtCache.url(ArtCache.name(for: ref)), let img = UIImage(contentsOfFile: url.path) {
+                    Image(uiImage: img).resizable().scaledToFill()
+                } else {
+                    ZStack {
+                        Color.primary.opacity(0.08)
+                        Image(systemName: "music.note").font(.system(size: side * 0.3, weight: .semibold)).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .frame(width: side, height: side)
+            .clipShape(RoundedRectangle(cornerRadius: side * 0.06, style: .continuous))
+            .frame(width: g.size.width, height: g.size.height)
         }
     }
 }

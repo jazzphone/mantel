@@ -28,11 +28,16 @@ struct MainView: View {
         ZStack {
             Color(red: 0.02, green: 0.03, blue: 0.055).ignoresSafeArea()      // the page's own ground (#05070e)
             if !ready {
-                if let still {
-                    Image(uiImage: still).resizable().scaledToFill().ignoresSafeArea()
-                } else {
-                    ProgressView().tint(.white).controlSize(.large)
+                // the still only where it fits: one taken on the Duo's other display, or an iPad turned or in another
+                // window size since, would show the wrong page's layout
+                GeometryReader { g in
+                    if let still, Self.fits(still, g.size) {
+                        Image(uiImage: still).resizable().scaledToFill().frame(width: g.size.width, height: g.size.height).clipped()
+                    } else {
+                        ProgressView().tint(.white).controlSize(.large).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 }
+                .ignoresSafeArea()
             }
             if let start {
                 HouseWebView(start: start, house: model.house!, onSessionEnded: { next in
@@ -49,14 +54,19 @@ struct MainView: View {
                     Image(systemName: "ellipsis.circle.fill").font(.title2).symbolRenderingMode(.hierarchical)
                 }
                 .accessibilityLabel("Mantel App Settings")
+                .hoverEffect(.highlight)
                 .padding(.trailing, 12).padding(.top, 4)
             }
         }
         .preferredColorScheme(lightPage ? .light : .dark)
-        .sheet(isPresented: $showMenu) { AppMenu() }
-        .sheet(isPresented: $showPlayer) { NowPlayingSheet() }
+        // a form sheet in a regular-width window (iPad, the open Duo turned), a full-height sheet on a phone's width
+        .sheet(isPresented: $showMenu) { AppMenu().presentationSizing(.form) }
+        .sheet(isPresented: $showPlayer) { NowPlayingSheet().presentationSizing(.form) }
         .task {
             if router.player { router.player = false; openPlayer() }       // opened by the Live Activity, cold
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "MantelOpenPlayer") { openPlayer() }     // -MantelOpenPlayer YES
+            #endif
             await load(Self.firstPage)
         }
         .onChange(of: model.door) { _, door in
@@ -67,6 +77,9 @@ struct MainView: View {
         }
         .onChange(of: router.player) { _, on in
             if on { router.player = false; openPlayer() }
+        }
+        .onChange(of: router.menu) { _, on in
+            if on { router.menu = false; if ready, !showPlayer { showMenu = true } }      // ⌘, (MantelApp's commands)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background, ready { HouseWebView.saveStill() }
@@ -90,6 +103,13 @@ struct MainView: View {
     private func openPlayer() {
         music.attach(model)
         showPlayer = true
+    }
+
+    /// The still was taken in a window of about this shape (within 10%).
+    private static func fits(_ image: UIImage, _ size: CGSize) -> Bool {
+        guard image.size.height > 0, size.height > 0 else { return false }
+        let a = image.size.width / image.size.height, b = size.width / size.height
+        return abs(a - b) / b < 0.1
     }
 
     /// Debug builds may start on another page: `simctl launch booted com.jazzphone.mantel.ios -MantelStartPage /x`.

@@ -15,6 +15,9 @@ import WebKit
 ///   drawn (`onEvent(.ready)`), and a still of the last page is kept for the next open.
 /// * Only the house's own addresses load inside; any other link opens in Safari.
 /// * A page that falls back to `/login` (its session ended) is caught: the app hands it a new session.
+/// * One web view for any window: an iPhone, an iPad in any Split View or Stage Manager size, the iPhone Duo folded
+///   or open. It is never rebuilt for a new size (the page lays itself out by its width; its scroll and state stay),
+///   and nothing here asks which device it is on: the app's own player is decided by the page's width (`playerScript`).
 struct HouseWebView: UIViewRepresentable {
     let start: URL
     let house: House
@@ -59,7 +62,6 @@ struct HouseWebView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
-        let phone = UIDevice.current.userInterfaceIdiom == .phone      // the iPad keeps the Music page's own player
         let store = HouseWebView.stores[house.id] ?? WKWebsiteDataStore.nonPersistent()
         HouseWebView.stores[house.id] = store
         config.websiteDataStore = store
@@ -72,7 +74,7 @@ struct HouseWebView: UIViewRepresentable {
           share: (url, title) => window.webkit.messageHandlers.mantel.postMessage({ type: 'share', url: String(url), title: String(title || '') }),
           menu: (id) => window.webkit.messageHandlers.mantel.postMessage({ type: 'menu', id: String(id || '') }),
           tone: (light) => window.webkit.messageHandlers.mantel.postMessage({ type: 'tone', light: !!light }),
-        \(phone ? "  player: () => window.webkit.messageHandlers.mantel.postMessage({ type: 'player' })," : "")
+          player: () => window.webkit.messageHandlers.mantel.postMessage({ type: 'player' }),
         });
         """
         // NOT A WEBSITE: no callout or selection on the screens (fields keep theirs), no double-tap or pinch zoom
@@ -91,6 +93,7 @@ struct HouseWebView: UIViewRepresentable {
         """
         config.userContentController.addUserScript(WKUserScript(source: native, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         config.userContentController.addUserScript(WKUserScript(source: bridge, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        config.userContentController.addUserScript(WKUserScript(source: Self.playerScript, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         #if DEBUG
         // -MantelDebugJS '<script>': run on every page of a Debug build; it may report with mantelDebug(...) to the
         // device log ("[web]" lines: xcrun simctl launch --console-pty ...)
@@ -108,7 +111,9 @@ struct HouseWebView: UIViewRepresentable {
         view.allowsLinkPreview = false
         view.scrollView.contentInsetAdjustmentBehavior = .never     // the page pads itself by env(safe-area-inset-*)
         view.isOpaque = false
-        view.backgroundColor = .black
+        // the app's ground shows through wherever the page has not drawn yet (a fold, a turn, a resized window)
+        view.backgroundColor = .clear
+        view.scrollView.backgroundColor = .clear
         view.customUserAgent = nil
         #if DEBUG
         view.isInspectable = true
@@ -119,6 +124,26 @@ struct HouseWebView: UIViewRepresentable {
     }
 
     func updateUIView(_ view: WKWebView, context: Context) {}
+
+    /// THE APP'S PLAYER OR THE PAGE'S, BY THE PAGE'S WIDTH, AT THE TAP. The page asks for a host's player through
+    /// `window.hkHostPlayer` (web/shim/mantel-native.js sets it once; hk-music.js and hk-media.js read it on a tap).
+    /// It is only there while the page is narrower than the Music page's two columns (hk-music.js COLS2): an iPhone,
+    /// the Duo folded or open in portrait, an iPad in a narrow Split View or Stage Manager window. Wider, the player
+    /// is the page's own column (NATIVE-FEEL.md item 7: the iPad keeps the two-column Music page) and the playing bar
+    /// opens the Music page. Read at the tap, so a fold, a turn or a resized window needs nothing from the app.
+    static let playerScript = """
+    (function () {
+      var own;
+      Object.defineProperty(window, 'hkHostPlayer', { configurable: true,
+        get: function () { return window.innerWidth < \(twoPlayerColumns) ? own : undefined; },
+        set: function (f) { own = f; } });
+    })();
+    """
+    /// The Music page's two-column width, in points (hk-music.js COLS2).
+    static let twoPlayerColumns = 760
+
+    /// ⌘R: the page again, where it is (its web session stays; a spent handover gets a new one through `/login`).
+    @MainActor static func reloadLive() { live?.reload() }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
         let parent: HouseWebView
@@ -182,9 +207,17 @@ struct HouseWebView: UIViewRepresentable {
                 parent.onEvent(.player)
             case "tone": parent.onEvent(.tone(light: body["light"] as? Bool ?? false))
             case "share":
-                guard let s = body["url"] as? String, let url = URL(string: s) else { return }
+                guard let s = body["url"] as? String, let url = URL(string: s), let web = message.webView,
+                      var top = web.window?.rootViewController else { return }
+                while let next = top.presentedViewController { top = next }
                 let vc = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-                message.webView?.window?.rootViewController?.present(vc, animated: true)
+                // a regular-width window shows it as a popover, which needs a place to point at: the page's top
+                if let pop = vc.popoverPresentationController {
+                    pop.sourceView = web
+                    pop.sourceRect = CGRect(x: web.bounds.midX, y: web.safeAreaInsets.top + 8, width: 1, height: 1)
+                    pop.permittedArrowDirections = [.up]
+                }
+                top.present(vc, animated: true)
             #if DEBUG
             case "log": print("[web]", body["text"] as? String ?? "")
             #endif

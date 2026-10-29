@@ -21,6 +21,23 @@ struct MantelApp: App {
                     if let link = PairingLink(url: url) { Task { await model.pair(link) } }
                     else if url.scheme == "mantel", url.host == "player" { NotificationRouter.shared.player = true }
                 }
+                #if DEBUG
+                // -MantelPair '<mantel://pair link>': pair a Debug build without `simctl openurl`'s "Open in Mantel?"
+                // (a script driving several Simulators); only while it is not paired yet
+                .task {
+                    if model.house == nil, let s = UserDefaults.standard.string(forKey: "MantelPair"),
+                       let url = URL(string: s), let link = PairingLink(url: url) { await model.pair(link) }
+                }
+                #endif
+        }
+        // a hardware keyboard (iPad, a keyboard on the Duo): hold ⌘ to see them
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Mantel App Settings…") { NotificationRouter.shared.menu = true }.keyboardShortcut(",")
+            }
+            CommandGroup(after: .toolbar) {
+                Button("Reload Page") { HouseWebView.reloadLive() }.keyboardShortcut("r")
+            }
         }
     }
 }
@@ -83,6 +100,8 @@ final class NotificationRouter: ObservableObject {
     @Published var open: String?
     /// The app's own music player, asked for from outside the page (the Live Activity, a widget).
     @Published var player = false
+    /// The app's own settings (⌘,).
+    @Published var menu = false
 }
 
 struct MantelShortcuts: AppShortcutsProvider {

@@ -50,6 +50,44 @@ xcrun simctl push booted com.jazzphone.mantel.ios /tmp/mantel-app-dev/push.apns
 notification itself when it arrives while the app is open (`AppDelegate.willPresent`). With the app in the
 background the Simulator shows Apple's generic "Mantel / New notification": that is the extension's job on a phone.
 
+Debug builds take a few launch arguments for scripts that drive several Simulators with no finger for a dialog:
+`-MantelPair '<mantel://pair link>'` (pair without `openurl`'s "Open in Mantel?"; only while unpaired),
+`-MantelNoPush YES` (never ask for notifications), `-MantelOpenPlayer YES` (open the music player),
+`-MantelStartPage /x` and `-MantelDebugJS '<script>'`. Launch arguments are read as old-style plist values: a script
+with spaces or parentheses must be passed in double quotes inside the argument, or the whole argument domain is lost.
+Build with signing on (as above, not `CODE_SIGNING_ALLOWED=NO`): an unsigned build has no Keychain group, and pairing
+"works" but the credential is never kept.
+
+### iPad and iPhone Duo
+
+One app for every window: iPhone, iPad (any orientation, Split View, Stage Manager) and the iPhone Duo, folded (the
+5.4" outer display, 466×678 pt) or open (the 7.6" inner one, 669×951 pt in the Simulator's profile), which moves the
+app between displays as it folds. Nothing decides by device: the idiom check that kept the iPad on the Music page's own
+player is gone.
+
+- **The web view is never rebuilt for a size.** A fold, a turn or a resized window resizes it in place; the page lays
+  itself out by its width and keeps its scroll and state. It is transparent, so the app's own ground (the page's
+  `#05070e`) shows while a new size draws, never white. The page pads itself by `env(safe-area-inset-*)` (camera
+  cutouts on both Duo displays, Stage Manager's window chrome).
+- **The music player follows the page's width, decided at the tap.** `window.hkHostPlayer` (the page's way to ask
+  for the app's player) only answers while the page is narrower than the Music page's two columns (760 pt, hk-music.js
+  `COLS2`): an iPhone, the Duo folded or open in portrait, a narrow iPad window. Wider, the player is the page's own
+  column (NATIVE-FEEL.md item 7). `HouseWebView.playerScript`.
+- **Sheets:** the app's player and App Settings are form sheets in a regular-width window, full-height sheets on a
+  phone. The share sheet is a popover from the page's top on an iPad.
+- **Setup** is one centred column on a wide window.
+- **Pointer and keyboard:** the player's buttons and the ⋯ button light under the iPad's pointer (the page's own
+  hover is WebKit's); ⌘R reloads the page, ⌘, opens App Settings.
+- **Widgets:** Favorites in Small, Medium, Large and Extra Large (the iPad's, 4×4 tiles); Now Playing in Small,
+  Medium, Large (the cover over the song; kept in the App Group as the Live Activity's) and the Lock Screen's
+  rectangle. Their layouts are flexible, so the Duo's larger Home Screen draws them at its own sizes.
+
+Verified in the Simulator (iOS 27.0, 2026-10-29), paired with the fictional house: iPhone 18 Pro (the app's player,
+page 402 pt wide, safe area 62/34), iPad Pro 11-inch and 13-inch (M5) in portrait (the page's player, 834 and 1032 pt;
+the app's player as a form sheet), Setup on all three. Not verified: the iPhone Duo (its device type needs the iOS
+27.1 Simulator runtime, not installed here), turning or resizing a window live (no way to drive the Simulator's
+window from a script here), widgets placed on a Home Screen, the pointer and the keyboard shortcuts.
+
 ### The Mac app
 
 Team-signed (this Mac is registered to the team), so `-allowProvisioningUpdates`:

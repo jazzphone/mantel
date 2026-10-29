@@ -131,6 +131,7 @@ struct RoomRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .pointerHover()
             if inMusic && ticked {
                 VolumeSlider(value: music.volume(of: room.entity), set: { music.setVolume($0, entities: [room.entity]) },
                              glyphs: false)
