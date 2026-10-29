@@ -17,7 +17,7 @@ class FakeSocket {
 }
 globalThis.WebSocket = FakeSocket;
 
-const { Host, calendarPath, historyRequest } = await import('./mantel-host.mjs');
+const { Host, calendarPath, historyRequest, artPath, artBucket } = await import('./mantel-host.mjs');
 const { Hub } = await import('./hub.mjs');
 
 const hub = new Hub();
@@ -65,9 +65,15 @@ out.historyParse = [historyRequest('GET', 'history/period/' + encodeURIComponent
                     historyRequest('GET', 'history/period/' + encodeURIComponent(start) + '?filter_entity_id=a.b&other=1'),
                     historyRequest('POST', 'history/period/' + encodeURIComponent(start) + '?filter_entity_id=a.b')];
 
-// now-playing artwork signing: answered on the page as "nothing signed" (no refusal, nothing sent)
+// now-playing artwork signing: answered on the page with Mantel's own art route and the size bucket (no refusal,
+// nothing sent): the server fetches and scales the cover
 const sentBeforeArt = sent.length, refusedBeforeArt = host.refused.length;
-out.results.artSign = await host.hass.callWS({ type: 'hk_frontend/art/sign', urls: ['https://example.test/a.jpg'], size: 300 });
+globalThis.__mantelBase = '/api/hassio_ingress/Fict1onal';
+out.results.artSign = await host.hass.callWS({ type: 'hk_frontend/art/sign',
+  urls: ['https://example.test/a.jpg?x=é&y=1', 'http://192.0.2.53:8095/imageproxy/ab', '/api/media/x/art', 'file:///etc/passwd', 42], size: 250 });
+out.artBuckets = [artBucket(1), artBucket(150), artBucket(151), artBucket(300), artBucket(999), artBucket(5000), artBucket(0), artBucket('x'), artBucket(null)];
+out.artBare = artPath('https://example.test/a.jpg', 300);
+delete globalThis.__mantelBase;
 out.artSent = sent.length - sentBeforeArt;
 out.artRefused = host.refused.length - refusedBeforeArt;
 
@@ -105,6 +111,50 @@ const st = host.hass.states;
 void st['light.kitchen']; void st['vacuum.downstairs']; void st['toJSON'];
 host.recording = true; void st['vacuum.upstairs']; host.recording = false;
 out.misses = misses;
+
+// UPDATES BATCHED PER FRAME (2026-10-29): the hub's diffs wait for the next animation frame and are applied together,
+// in order, in one publish; a hidden page (no frames) is served by a timer; a snapshot drops what waits.
+{
+  const frames = []; let published = 0;
+  globalThis.requestAnimationFrame = (f) => { frames.push(f); return frames.length; };
+  const timers = [];
+  const realSet = globalThis.setTimeout, realClear = globalThis.clearTimeout;
+  globalThis.setTimeout = (f, ms) => { timers.push({ f, ms, live: true }); return timers.length; };
+  globalThis.clearTimeout = (id) => { if (timers[id - 1]) timers[id - 1].live = false; };
+  host.listeners = [() => { published++; }];
+  const ids = () => host.hass.states['light.kitchen'];
+  host.applySnapshot({ 'light.kitchen': { s: 'on', a: { n: 1 }, lc: 1, lu: 1 }, 'sensor.w': { s: '1', a: {}, lc: 1, lu: 1 } });
+  const b = { published: published };
+  host.applyDiff({ changes: { 'sensor.w': { '+': { s: '2' } } } });
+  host.applyDiff({ changes: { 'sensor.w': { '+': { s: '3' } }, 'light.kitchen': { '+': { s: 'off', a: { n: 2 } } } } });
+  host.applyDiff({ added: { 'sensor.new': { s: '9', a: {}, lc: 1, lu: 1 } }, removed: ['sensor.gone'], changes: {} });
+  b.beforeFrame = { published: published - b.published, w: host.hass.states['sensor.w'].state, frames: frames.length, timers: timers.filter((t) => t.live).length };
+  frames.shift()();
+  b.afterFrame = { published: published - b.published, w: host.hass.states['sensor.w'].state, light: ids().state, n: ids().attributes.n,
+                   added: !!host.hass.states['sensor.new'], timers: timers.filter((t) => t.live).length };
+  frames.splice(0).forEach((f) => f());                                  // (a frame that was already asked for, late: nothing)
+  b.late = published - b.published;
+  // a hidden page: the frame never comes, the timer does
+  host.applyDiff({ changes: { 'sensor.w': { '+': { s: '4' } } } });
+  const t = timers.filter((x) => x.live);
+  b.hidden = { timer: t.length === 1 && t[0].ms, still: host.hass.states['sensor.w'].state };
+  t[0].f();
+  b.hiddenAfter = host.hass.states['sensor.w'].state;
+  frames.splice(0).forEach((f) => f());                                  // the frame, once the page shows again: nothing more
+  b.hiddenPublished = published - b.published;
+  // a snapshot is newer than any diff waiting: the diff does not undo it
+  host.applyDiff({ changes: { 'sensor.w': { '+': { s: 'old' } } } });
+  host.applySnapshot({ 'sensor.w': { s: 'fresh', a: {}, lc: 2, lu: 2 } });
+  frames.splice(0).forEach((f) => f()); timers.filter((x) => x.live).forEach((x) => x.f());
+  b.snapshot = host.hass.states['sensor.w'].state;
+  // flushDiffs() applies what waits now
+  host.applyDiff({ changes: { 'sensor.w': { '+': { s: 'now' } } } });
+  host.flushDiffs();
+  b.flushed = host.hass.states['sensor.w'].state;
+  host.listeners = null;
+  globalThis.setTimeout = realSet; globalThis.clearTimeout = realClear; delete globalThis.requestAnimationFrame;
+  out.batch = b;
+}
 out.sent = sent;
 console.log(JSON.stringify(out));
 process.exit(0);

@@ -115,7 +115,7 @@ async def test_an_upload_is_re_encoded_upright_without_its_location(mantel):
         assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
         assert stat.S_IMODE(os.stat(path.parent).st_mode) == 0o700
     assert stat.S_IMODE(os.stat(lib.root).st_mode) == 0o700
-    assert p["bytes"] == sum(lib.path(p["id"], s).stat().st_size for s in photos.SIZES)
+    assert p["bytes"] == sum(lib.path(p["id"], s).stat().st_size for s in ("original", "screen", "thumb"))
 
 
 async def test_png_webp_and_heic_are_accepted_and_a_big_one_is_made_smaller(mantel):
@@ -234,6 +234,96 @@ async def test_a_screen_shows_an_album_and_the_saver_reads_it(mantel):
     await send(mantel, "DELETE", f"/api/photos/albums/{aid}")
     assert (await send(mantel, "GET", "/api/photos/screens"))[1] == {"screens": {}}
     assert ("photos.screen", {"screen": "dashboard-kitchen", "album": aid}) in audits(mantel)
+
+
+# -- the middle size (2026-10-29) ---------------------------------------------------------------------------------
+async def test_a_1280_px_copy_is_made_on_the_first_ask_and_kept(mantel):
+    """A wall tablet's screen is 1280 px wide: the screensaver asks for the size closest to it. The copy is made the
+    first time it is asked for, from the 2560 px file, and is kept (immutable) beside the others."""
+    await owner(mantel)
+    aid = await album(mantel)
+    pid = (await upload(mantel, aid, picture(size=(3200, 1800))))[1]["photo"]["id"]
+    lib = mantel.app["photos"]
+    assert Image.open(lib.path(pid, "screen")).size == (2560, 1440)
+    assert lib.path(pid, "mid") is None                                      # not made at upload
+    r = await mantel.client.get(f"/api/photos/{pid}/mid")
+    assert r.status == 200 and r.content_type == "image/jpeg" and "immutable" in r.headers["Cache-Control"]
+    assert Image.open(io.BytesIO(await r.read())).size == (1280, 720)
+    path = lib.path(pid, "mid")
+    assert path is not None and stat.S_IMODE(os.stat(path).st_mode) == 0o600
+    before = path.stat().st_mtime_ns
+    r = await mantel.client.get(f"/api/photos/{pid}/mid")
+    assert r.status == 200 and path.stat().st_mtime_ns == before             # kept, not made again
+    # it is not in the quota (the row counts the three stored at upload), and it goes with the photo
+    row = lib.db.execute("SELECT bytes FROM photos WHERE id=?", (pid,)).fetchone()
+    assert row["bytes"] == sum(lib.path(pid, s).stat().st_size for s in ("original", "screen", "thumb"))
+    await send(mantel, "POST", "/api/photos/delete", {"ids": [pid]})
+    assert all(lib.path(pid, s) is None for s in photos.SIZES)
+
+
+async def test_a_small_photo_is_not_made_larger_for_the_middle_size(mantel):
+    await owner(mantel)
+    aid = await album(mantel)
+    pid = (await upload(mantel, aid, picture(size=(800, 600))))[1]["photo"]["id"]
+    r = await mantel.client.get(f"/api/photos/{pid}/mid")
+    assert r.status == 200 and Image.open(io.BytesIO(await r.read())).size == (800, 600)
+
+
+async def test_the_middle_size_is_for_whoever_is_signed_in_and_a_missing_photo_is_not_found(mantel):
+    await owner(mantel)
+    aid = await album(mantel)
+    pid = (await upload(mantel, aid, picture()))[1]["photo"]["id"]
+    assert (await mantel.client.get(f"/api/photos/{'0' * 32}/mid")).status == 404
+    mantel.client.session.cookie_jar.clear()
+    r = await mantel.client.get(f"/api/photos/{pid}/mid")
+    assert r.status in (401, 403, 404) and "image" not in r.content_type
+
+
+async def test_while_the_middle_size_is_made_the_screen_size_is_sent(mantel, monkeypatch):
+    """Several tablets ask for one photo at once: one job. A slow job (or no free place) sends the 2560 px photo for
+    that request, and not as immutable -- the same address will answer with the smaller file. The job does not use
+    the image slot, so a long upload cannot hold it."""
+    await owner(mantel)
+    aid = await album(mantel)
+    pid = (await upload(mantel, aid, picture(size=(3200, 1800))))[1]["photo"]["id"]
+    monkeypatch.setattr(photos, "MID_WAIT", 0.05)
+    release, calls = threading.Event(), []
+    real = photos.make_variant
+
+    def slow(src, edge):
+        calls.append(src)
+        release.wait(5)
+        return real(src, edge)
+    monkeypatch.setattr(photos, "make_variant", slow)
+    asks = await asyncio.gather(*(mantel.client.get(f"/api/photos/{pid}/mid") for _ in range(3)))
+    for r in asks:
+        assert r.status == 200 and Image.open(io.BytesIO(await r.read())).size == (2560, 1440)
+        assert "immutable" not in r.headers["Cache-Control"]
+    assert len(calls) == 1                                                   # one job for the three
+    async with photos.image_slot():                                          # an upload holds the slot meanwhile
+        release.set()
+        for _ in range(150):
+            if mantel.app["photos"].path(pid, "mid") is not None:
+                break
+            await asyncio.sleep(0.02)
+    r = await mantel.client.get(f"/api/photos/{pid}/mid")
+    assert Image.open(io.BytesIO(await r.read())).size == (1280, 720) and "immutable" in r.headers["Cache-Control"]
+
+
+async def test_a_photo_deleted_while_its_middle_copy_is_made_leaves_no_file(mantel, monkeypatch):
+    await owner(mantel)
+    aid = await album(mantel)
+    pid = (await upload(mantel, aid, picture(size=(3200, 1800))))[1]["photo"]["id"]
+    lib = mantel.app["photos"]
+    real = photos.make_variant
+
+    def deleting(src, edge):
+        data = real(src, edge)
+        lib._remove_files(pid)                  # the photo goes while the copy is being written
+        return data
+    monkeypatch.setattr(photos, "make_variant", deleting)
+    await mantel.client.get(f"/api/photos/{pid}/mid")
+    assert lib.path(pid, "mid") is None
 
 
 # -- who --------------------------------------------------------------------------------------------------------

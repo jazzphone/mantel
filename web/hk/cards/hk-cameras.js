@@ -640,6 +640,11 @@
           w = Math.min(w, cap.w); h = Math.min(h, cap.h);
         }
         q += '&width=' + w + '&height=' + h;
+      } else {
+        // A SIZE EVEN BEFORE THE TILE IS MEASURED (2026-10-29): a slot not laid out yet asked for the camera's
+        // full frame. The cap (the tile's tier, 480x270 unless configured) is the least that is sharp enough.
+        var fb = this._snapCap() || { w: 960, h: 540 };
+        q += '&width=' + fb.w + '&height=' + fb.h;
       }
       return q;
     }
@@ -2423,15 +2428,32 @@
       if (!this._built) this._build();
       var st = h.states[c.entity];
       var pic = st && st.attributes && !C.stale(st) && st.attributes.entity_picture;
-      if (pic && !this._playing && this._poster.getAttribute('src') !== pic) {
-        this._poster.setAttribute('src', pic);
+      // A SIZE FOR THE POSTER TOO (2026-10-29): it was the camera's own
+      // address, bare -- the full frame (a 4K still is ~1.8 MB) for a box of a
+      // few hundred pixels. The address it was set from is kept, so a resize
+      // or a pixel-ratio change never fetches it again.
+      if (pic && !this._playing && this._posterPic !== pic) {
+        this._posterPic = pic;
+        this._poster.setAttribute('src', /^camera\./.test(c.entity) ? this._posterUrl(pic) : pic);
       }
       if (this.isConnected && !this._pc && !this._retryT && !this._rested) this._start();
+    }
+
+    // the poster's address with the box's size in device pixels (pixel ratio
+    // capped at 2, at most 1920), else the strip's 480x270: the proxy needs
+    // both sides or it ignores them (see _srcFor)
+    _posterUrl(pic) {
+      var r = this.getBoundingClientRect ? this.getBoundingClientRect() : null;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var w = r && r.width > 0 ? Math.min(1920, Math.round(r.width * dpr)) : 480;
+      var h = r && r.height > 0 ? Math.min(1920, Math.round(r.height * dpr)) : 270;
+      return pic + (pic.indexOf('?') < 0 ? '?' : '&') + 'width=' + w + '&height=' + h;
     }
 
     _build() {
       var c = this._config, self = this;
       this._stop();
+      this._posterPic = null;
       this._built = true;
       this._root.innerHTML = '';
       var db = document.createElement('div');

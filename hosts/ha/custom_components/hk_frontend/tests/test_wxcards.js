@@ -103,6 +103,21 @@ H.run('WEATHER CARDS', [
     // same words, into a new box -- drawn, not skipped as unchanged
     c.setConfig({});
     H.ok('set the same again, it still draws', drawn.length === n + 2, drawn.length - n);
+    // A CHEAP SIGNATURE (2026-10-29): the header's HTML is built only when what it is made of moved -- not on every
+    // push of the house, to be compared and thrown away
+    var calls = 0, items = ['Front Door Open'], realStatus = window.hkHeader.status;
+    window.hkHeader.security = function (st, o) { calls++; return '<div>' + items.join() + ' ' + o.line1Size + '</div>'; };
+    window.hkHeader.status = function () { return { secured: false, items: items.slice() }; };
+    var d = H.make('hk-screensaver-status-card');
+    d.setConfig({});
+    d.hass = wxHouse().hass();
+    var c0 = calls;
+    for (var i = 0; i < 5; i++) d.hass = wxHouse().hass();                    // pushes that change nothing it shows
+    H.ok('pushes of the house that change nothing it shows build no header', calls === c0, calls - c0);
+    items = ['Front Door Open', '1 Lock Unlocked'];
+    d.hass = wxHouse().hass();
+    H.ok('...a change in what the line says builds it, and it is drawn', calls === c0 + 1 && /1 Lock Unlocked/.test(drawn[drawn.length - 1]), [calls - c0, drawn[drawn.length - 1]]);
+    window.hkHeader.status = realStatus;
     window.hkHeader.security = real; window.hkCards.morph = realMorph;
   },
 

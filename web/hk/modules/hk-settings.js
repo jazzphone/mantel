@@ -538,6 +538,15 @@
   // sky_gradient / sky_custom. brightness: the daytime sky (settings.py
   // DAYTIME_SKIES) as hk-sky.js paints it, 0 (deep) .. 1 (natural).
   var DAYTIME = { natural: 1, balanced: 0.5, deep: 0 };
+  // REDUCE MOTION (2026-10-29). A device that asks for it (prefers-reduced-motion: Samsung's Remove animations, an
+  // iPad's Reduce Motion) gets the sky and everything that keys on skyLook().animations at rest -- the same as a
+  // screen whose Animations are off: no falling rain or snow, no drifting decks, the cards' own animations held
+  // (the sky's CSS already stopped the keyframes; the fall was left hanging as a still texture, and the JS and the
+  // cards went on as if motion were allowed). It is the device's word, so it is not a saved setting: the screen's
+  // Animations switch is unchanged underneath and applies again when the device stops asking.
+  function reducedMotion() {
+    try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; }
+  }
   function skyLook() {
     var b = boardHere();
     var own = function (bk, hk, dflt) {
@@ -546,7 +555,7 @@
     };
     var flat = rendering().flat;
     return {
-      animations: !flat && own('sky_animations', 'sky.animations', true) !== false,
+      animations: !flat && !reducedMotion() && own('sky_animations', 'sky.animations', true) !== false,
       weather: !flat && own('sky_weather', 'sky.weather', true) !== false,
       // Rain & Snow: the falling weather alone (2026-10-10); and Pause When
       // Not in Focus -- on a computer, the sky and the cards hold while
@@ -1462,6 +1471,7 @@
     frostPlate: function (wash) { return frost(amount('frost'), wash); },
     skyLook: skyLook,
     ladderSignature: ladderSignature,
+    reducedMotion: reducedMotion,
     pageSky: pageSky,
     flatBackground: flatBackground,
     flatColors: flatColors, resolveFlatColors: resolveFlatColors, viewKeys: function () { return viewKeys().keys; },

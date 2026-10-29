@@ -34,6 +34,7 @@ class FakeHaRest:
     def __init__(self):
         self.asked: list[dict] = []
         self.cameras = {"camera.doorbell"}
+        self.delay = 0.0
 
     def app(self):
         app = web.Application()
@@ -43,6 +44,8 @@ class FakeHaRest:
     async def proxy(self, request):
         self.asked.append({"eid": request.match_info["eid"], "auth": request.headers.get("Authorization"),
                            "query": dict(request.query)})
+        if self.delay:
+            await asyncio.sleep(self.delay)
         if request.match_info["eid"] not in self.cameras:
             return web.Response(status=404)
         return web.Response(body=JPEG, content_type="image/jpeg")
@@ -175,6 +178,83 @@ async def test_an_allowed_role_gets_the_still_with_mantels_credential(env):
     r = await still(env, query="?width=480")
     assert r.status == 200 and env.fha.asked[-1]["query"] == {}
     assert env.app["camera_stills"]["served"] == 2
+
+
+# -- one fetch for several tablets (2026-10-29) ---------------------------------------------------------------------
+@pytest.fixture
+def clock(env):
+    t = [100.0]
+    env.app["camera_still_share"].now = lambda: t[0]
+    return t
+
+
+async def test_tablets_asking_for_one_still_within_two_seconds_cost_ha_one_fetch(env, clock):
+    await login(env, "avery", "owner")
+    q = "?v=abc&_hk=1&width=480&height=270"
+    first = await still(env, query=q)
+    assert first.status == 200 and await first.read() == JPEG
+    clock[0] += 1.9
+    again = await still(env, query="?v=abc&_hk=2&width=480&height=270")     # another tablet, another cache-buster
+    assert again.status == 200 and await again.read() == JPEG
+    assert len(env.fha.asked) == 1
+    for r in (first, again):                                                  # the browser is still told not to keep it
+        assert r.headers["Cache-Control"] == "no-store" and r.headers["Content-Type"] == "image/jpeg"
+        assert r.headers["X-Content-Type-Options"] == "nosniff"
+    assert env.app["camera_stills"]["served"] == 2
+    clock[0] += 0.2                                                           # two seconds on: HA is asked again
+    assert (await still(env, query=q)).status == 200
+    assert len(env.fha.asked) == 2
+
+
+async def test_each_size_and_camera_has_its_own_copy(env, clock):
+    await login(env, "avery", "owner")
+    env.fha.cameras.add("camera.attic")
+    for eid, q in (("camera.doorbell", "?width=480&height=270"), ("camera.doorbell", "?width=960&height=540"),
+                   ("camera.doorbell", ""), ("camera.attic", "?width=480&height=270")):
+        assert (await still(env, eid, q)).status == 200
+    assert len(env.fha.asked) == 4
+    assert (await still(env, "camera.doorbell", "?width=480")).status == 200       # one side alone: the same as none
+    assert len(env.fha.asked) == 4
+
+
+async def test_tablets_asking_while_it_is_fetched_share_that_fetch(env, clock):
+    await login(env, "avery", "owner")
+    env.fha.delay = 0.15
+    rs = await asyncio.gather(*(still(env, query=f"?width=480&height=270&_hk={i}") for i in range(5)))
+    assert [r.status for r in rs] == [200] * 5 and [await r.read() for r in rs] == [JPEG] * 5
+    assert len(env.fha.asked) == 1
+
+
+async def test_the_shared_copy_is_never_a_way_round_the_roles(env, clock):
+    await login(env, "avery", "owner")
+    assert (await still(env, query="?width=480&height=270")).status == 200
+    await login(env, "cody", "child")
+    assert (await still(env, query="?width=480&height=270")).status == 403
+    env.forget_cookies()
+    assert (await still(env, query="?width=480&height=270")).status == 401
+    assert len(env.fha.asked) == 1
+
+
+async def test_a_failed_fetch_is_not_kept(env, clock):
+    await login(env, "avery", "owner")
+    env.fha.cameras.clear()
+    assert (await still(env, query="?width=480&height=270")).status == 404
+    env.fha.cameras.add("camera.doorbell")
+    r = await still(env, query="?width=480&height=270")                          # the next ask goes to HA at once
+    assert r.status == 200 and len(env.fha.asked) == 2
+
+
+async def test_a_still_nobody_waits_for_any_more_still_finishes(env, clock):
+    """A tablet that goes away mid-fetch does not cancel the fetch the others share."""
+    await login(env, "avery", "owner")
+    env.fha.delay = 0.15
+    first = asyncio.ensure_future(still(env, query="?width=480&height=270"))
+    await asyncio.sleep(0.03)
+    second = asyncio.ensure_future(still(env, query="?width=480&height=270&_hk=2"))
+    await asyncio.sleep(0.03)
+    first.cancel()
+    r = await second
+    assert r.status == 200 and await r.read() == JPEG and len(env.fha.asked) == 1
 
 
 async def test_a_refused_role_gets_nothing_and_ha_is_not_asked(env):

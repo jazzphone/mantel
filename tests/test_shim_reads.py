@@ -68,9 +68,33 @@ def test_a_detail_sheets_hour_and_day_history_is_the_websocket_read(observed):
 def test_artwork_signing_is_answered_on_the_page_never_refused(observed):
     """hk_frontend/art/sign (now-playing art) carries "sign" in its name, so it was refused as a write and the
     Music page said "Commands are disabled" even with commands on (the house, 2026-10-18). It is answered on
-    the page as nothing signed: HK then uses the art's own address, as it already fell back to."""
-    assert observed["results"]["artSign"] == {"signed": {}}
+    the page. Until 2026-10-29 as nothing signed (HK used the art's own address, which a tablet with no internet
+    can't reach); now each remote cover is Mantel's own art route -- the address encoded, the size bucket, the
+    page's prefix -- and the server fetches and scales it (media_art.py, hk_core/art)."""
+    import base64
+    signed = observed["results"]["artSign"]["signed"]
+    assert set(signed) == {"https://example.test/a.jpg?x=\u00e9&y=1", "http://192.0.2.53:8095/imageproxy/ab"}   # remote only
+    for url, path in signed.items():
+        pre = "/api/hassio_ingress/Fict1onal/api/media/art?e="
+        assert path.startswith(pre) and path.endswith("&s=300")                      # 250 -> the 300 bucket
+        e = path[len(pre):].split("&")[0]
+        assert "://" not in path and "=" not in e and "+" not in e and "/" not in e
+        assert base64.urlsafe_b64decode(e + "=" * (-len(e) % 4)).decode() == url     # what art_fetch.dec reads
+    assert observed["artBare"] == "/api/media/art?e=" + base64.urlsafe_b64encode(b"https://example.test/a.jpg").decode().rstrip("=") + "&s=300"
+    assert observed["artBuckets"] == [150, 150, 300, 300, 1000, 1000, 300, 300, 300]
     assert observed["artSent"] == 0 and observed["artRefused"] == 0
+
+
+def test_the_hubs_diffs_are_applied_once_per_frame_in_order(observed):
+    """Updates batched per frame (2026-10-29): three diffs in one frame are one publish, applied in the order they
+    came; a page that draws no frames (hidden) is served by a timer; a snapshot is newer than any diff still waiting."""
+    b = observed["batch"]
+    assert b["beforeFrame"] == {"published": 0, "w": "1", "frames": 1, "timers": 1}        # nothing yet; one frame asked for
+    assert b["afterFrame"] == {"published": 1, "w": "3", "light": "off", "n": 2, "added": True, "timers": 0}
+    assert b["late"] == 1                                                                   # a late second frame: nothing more
+    assert b["hidden"] == {"timer": 250, "still": "3"} and b["hiddenAfter"] == "4" and b["hiddenPublished"] == 2
+    assert b["snapshot"] == "fresh"
+    assert b["flushed"] == "now"
 
 
 def test_the_music_queue_is_a_read(observed):

@@ -123,9 +123,19 @@
     // house's `source` (a host may give a screen a photo album of its own),
     // or null to keep it. listPhotos(source): a promise of [{ id, title,
     // url }] for a source the host serves itself, or null for one it does
-    // not (HK then walks it as a media folder). Home Assistant: null, both.
+    // not (HK then walks it as a media folder). An item may add `variants`:
+    // [[long edge in px, address], ...] -- the same photo in other sizes; the
+    // saver loads the one closest to the screen's (2026-10-29). Home
+    // Assistant: null, both.
     photoSource: nil,
     listPhotos: nil,
+    // ALBUM ART OF THE HOST'S OWN (hk-base.js): artSized(url, size) is the
+    // address to load for an image the host serves itself on this page's
+    // origin (a player's artwork), at the size in px the tile draws -- the
+    // host may add the size to it, and gives back what it was handed when it
+    // has nothing to say (2026-10-29). Remote covers go through the host's
+    // art/sign command instead. Home Assistant: as it was handed.
+    artSized: function (url) { return url; },
     // THE HOST'S OWN CAMERAS THAT ARE NOT THE HOUSE'S: the integration
     // platforms whose cameras HK's Cameras page and settings leave out, as
     // they do a wall tablet's and Live TV's channels (hk-strategy.js
@@ -213,7 +223,7 @@
   ['root', 'overlayRoot', 'main', 'mainRoot', 'drawer', 'sidebar', 'resolver', 'panel', 'dashboard',
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
    'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'haNav', 'haNavigate', 'openHaMenu', 'hostMenu', 'settingsHost', 'holdWrites', 'menuButton',
-   'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'photoSource', 'listPhotos', 'productName', 'haPlace',
+   'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'photoSource', 'listPhotos', 'artSized', 'productName', 'haPlace',
    'haName', 'docsUrl', 'notHouseCameraPlatforms', 'tabletRoom', 'atTablet'].forEach(function (name) {
     shell[name] = function () {
       try { return get(name).apply(shell, arguments); } catch (e) {

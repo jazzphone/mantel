@@ -65,7 +65,7 @@ async def read_limited(stream, limit: int) -> bytes | None:
     Not `stream.read(limit)`: aiohttp's StreamReader.read(n) returns what has
     ARRIVED, up to n -- the first network chunk -- not the whole body: a
     cover would be served as its first ~1.4 KB, and a hold-to-talk clip
-    longer than a chunk cut the same way. art.py uses this too."""
+    longer than a chunk cut the same way. hk_core/art/fetch.py has the same (art; Mantel Link vendors only link/)."""
     data = bytearray()
     async for chunk in stream.iter_chunked(65536):
         data += chunk

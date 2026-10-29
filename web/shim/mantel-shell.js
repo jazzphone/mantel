@@ -71,6 +71,23 @@
     }
     return out;
   }
+  // PHOTOS SIZED TO THE SCREEN (2026-10-29): a photo is kept at 2560 px (`/screen`) and, made the first time it is
+  // asked for, at 1280 px (`/mid`): the saver loads the one closest to its screen. [long edge, address], any order.
+  const SIZE_EDGES = [['mid', 1280], ['screen', 2560]];
+  function sizesOf(url, base) {
+    return { variants: SIZE_EDGES.map(([name, edge]) => [edge, base + url.replace(/\/screen$/, '/' + name)]) };
+  }
+  // ALBUM ART AT THE TILE'S SIZE (2026-10-29): a player's artwork is Mantel's own route, and takes a size bucket
+  // (media_art.py; the same buckets as hk_core/art/resize.py SIZES) -- asked for the size the tile draws
+  const ART_LOCAL = /^(?:[^?#]*)\/api\/media\/media_player\.[a-z0-9_]+\/art(?:\?[^#]*)?$/;
+  const ART_BUCKETS = [150, 300, 600, 1000];
+  function artSized(url, size) {
+    if (typeof url !== 'string' || !ART_LOCAL.test(url) || /[?&]s=/.test(url)) return url;
+    const n = Math.floor(Number(size));
+    if (!Number.isFinite(n) || n <= 0) return url;
+    const s = ART_BUCKETS.find((b) => b >= n) || ART_BUCKETS[ART_BUCKETS.length - 1];
+    return url + (url.indexOf('?') < 0 ? '?' : '&') + 's=' + s;
+  }
   function listPhotos(source) {
     const m = ALBUM.exec(String(source || ''));
     if (!m || typeof global.fetch !== 'function') return null;
@@ -79,7 +96,7 @@
       .then((r) => { if (!r.ok) throw new Error('album ' + r.status); return r.json(); })
       .then((j) => ((j && j.photos) || []).filter((p) => p && typeof p.url === 'string' && PHOTO_URL.test(p.url))
         .map((p) => Object.assign({ id: String(p.id), title: typeof p.title === 'string' ? p.title : '', url: base + p.url },
-                                  focusOf(p))));
+                                  sizesOf(p.url, base), focusOf(p))));
   }
   if (global.addEventListener) {
     global.addEventListener('storage', (e) => {
@@ -186,6 +203,7 @@
     serviceUrl,
     photoSource,
     listPhotos,
+    artSized,
     // HK's screens and settings say Mantel where they speak of themselves; HK Frontend stays the name of
     // the integration in Home Assistant, whose settings are Home Assistant's (haPlace)
     productName: () => 'Mantel',

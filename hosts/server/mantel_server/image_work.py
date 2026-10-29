@@ -34,6 +34,7 @@ IN_WORKER = False           # True in imaging.py's worker process (start_worker)
 PIXELS_MAX = 64_000_000     # a decode costs 8-10 bytes a pixel: 64 MP peaks near 0.65 GB (100 MP: 0.9 GB)
 ORIGINAL_EDGE = 8192
 SCREEN_EDGE = 2560
+MID_EDGE = 1280         # the middle size, made on the first ask (photos.py PhotoLibrary.mid_path), not at upload
 THUMB_EDGE = 480
 # Your Files (user_files.py)
 PHOTO_PIXELS_MAX = 60_000_000
@@ -263,6 +264,27 @@ def _process(data: bytes) -> Processed:
     except Image.DecompressionBombError as exc:
         raise PhotoError("photo_too_large", "That picture has too many pixels (64 megapixels at most).", 413) from exc
     except Exception as exc:  # noqa: BLE001 -- any decoder failure is "not a usable picture"
+        raise PhotoError("photo_invalid", "That picture couldn’t be read.", 415) from exc
+
+
+def make_variant(src: str | Path, edge: int = MID_EDGE) -> bytes:
+    """A smaller copy of a stored screen-sized photo (JPEG, ``edge`` px on its long side), for the middle size
+    (2026-10-29: a wall tablet's screen is 1280 px wide, and showed the 2560 px file, decoded, for every photo).
+    The source is the 2560 px file, already upright and sRGB, so this is a resize and nothing else: libjpeg decodes
+    it at half size (``draft``) and the copy is made in a few tens of ms. It runs in a THREAD of the server, not in
+    the image worker -- a long upload must never keep a tablet waiting for the next photo -- so the JPEG is baseline
+    (the GIL; see ``_jpeg_options``). PhotoError when the source can't be read."""
+    from PIL import Image
+    try:
+        with Image.open(src) as im:
+            im.draft("RGB", (edge, edge))        # a JPEG decodes at 1/2, 1/4 or 1/8 while that is >= the edge
+            im.load()
+            img = im.convert("RGB") if im.mode != "RGB" else im
+            img.thumbnail((edge, edge), Image.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, "JPEG", quality=85, **_jpeg_options())
+            return buf.getvalue()
+    except Exception as exc:  # noqa: BLE001 -- an unreadable source is "no copy", and the screen size is served
         raise PhotoError("photo_invalid", "That picture couldn’t be read.", 415) from exc
 
 

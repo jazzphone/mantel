@@ -371,6 +371,47 @@ settle().then(function () {
     ok('...a custom card made by it, configured', el instanceof TCard && el.config.n === 'helper');
   });
 }).then(function () {
+  // PAGES VISITED LONG AGO ARE LET GO (2026-10-29): Home and the last four pages are kept, the rest made again
+  var cfg3 = { views: [0, 1, 2, 3, 4, 5, 6, 7].map(function (n) {
+    return { path: n ? 'p' + n : 'home', type: 'custom:t-view', cards: [{ type: 'custom:t-card', n: 'c' + n }] };
+  }) };
+  var els = {}, order = [];
+  function visit(p) { return vh.show(p).then(function (el) { els[p] = els[p] || el; order.push(p); return el; }); }
+  willShow.length = 0;
+  return vh.reconfigure(cfg3).then(function (el) { els.home = el; return visit('p1'); }).then(function () { return visit('p2'); })
+    .then(function () { return visit('p3'); }).then(function () { return visit('p4'); }).then(function () {
+      ok('four pages after Home: all are kept (and Home)', vh.cached().slice().sort().join() === 'home,p1,p2,p3,p4', vh.cached());
+      return visit('p5');
+    }).then(function () {
+      ok('a fifth: the one visited longest ago is let go; Home and the last four stay',
+         vh.cached().slice().sort().join() === 'home,p2,p3,p4,p5', vh.cached());
+      ok('...Home is kept however long ago it was shown', vh.cached().indexOf('home') >= 0);
+      ok('...the pages seen are remembered (so the host does not widen for them again)',
+         vh.seen().slice().sort().join() === 'home,p1,p2,p3,p4,p5', vh.seen());
+      return visit('p6');
+    }).then(function () { return visit('p7'); }).then(function () {
+      ok('the oldest go as the newest come', vh.cached().slice().sort().join() === 'home,p4,p5,p6,p7', vh.cached());
+      var gone = els.p1;
+      ok('...a page let go holds no cards and is not in the document', gone.parentNode === null && gone.cards.length === 0);
+      willShow.length = 0;
+      return vh.show('p1').then(function (again) {
+        ok('a page let go is made again when shown: a new element, from the config, fed the client',
+           again !== gone && again.parentNode === slot && vh.current().cards[0].config.n === 'c1' && vh.current().cards[0].got === vh.client());
+        ok('...not a first visit (willShow is told so: Mantel does not widen its subscription for it)', willShow.join() === 'p1:false', willShow);
+        ok('...and the shell was told it was not first', told[told.length - 1].path === 'p1' && told[told.length - 1].first === false);
+        ok('...the oldest of the others is let go for it', vh.cached().slice().sort().join() === 'home,p1,p5,p6,p7', vh.cached());
+        return vh.show('home');
+      });
+    }).then(function (home) {
+      ok('Home, shown again, is the same element it was', home === els.home && home.parentNode === slot);
+      ok('...and kept pages come back as they were (the same element, not made again)', (function () {
+        var p6 = els.p6; return vh.cached().indexOf('p6') >= 0 && p6.parentNode === null;
+      })());
+      return vh.show('p6');
+    }).then(function (p6) {
+      ok('...p6 comes back as the same element', p6 === els.p6);
+    });
+}).then(function () {
   var host = made.filter(function (t) { return /^(hui-|ha-)/.test(t); });
   ok('not one host element made (no hui-*, no ha-*)', host.length === 0, host);
   var threw = false;

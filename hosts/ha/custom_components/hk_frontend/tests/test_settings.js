@@ -153,6 +153,29 @@ HS._apply({sky:{moving:'front'},boards:{'dashboard-sky':{sky_moving:'behind'}}})
 ok('...a screen can keep them behind', HS.skyLook().moving === 'behind');
 HS._apply({sky:{moving:'behind'},boards:{'dashboard-sky':{sky_moving:'front'}}});
 ok('...or bring them in front on its own', HS.skyLook().moving === 'front');
+print('=== Reduce Motion (2026-10-29) ===');
+(function () {
+  var realMM = globalThis.matchMedia, reduce = false;
+  globalThis.matchMedia = function (q) { return { matches: /prefers-reduced-motion/.test(q) && reduce }; };
+  HS._apply({ sky: {} });
+  ok('animations are on unless something turns them off', HS.skyLook().animations === true && HS.reducedMotion() === false);
+  reduce = true;
+  ok('a device that asks for reduced motion: the sky is at rest (skyLook().animations false)',
+     HS.skyLook().animations === false && HS.reducedMotion() === true);
+  ok('...the other looks are untouched', HS.skyLook().weather === true && HS.skyLook().precipitation === true && HS.skyLook().decorations === true);
+  reduce = false;
+  HS._apply({ sky: { animations: false } });
+  ok('a screen whose Animations are off is at rest, as before', HS.skyLook().animations === false);
+  reduce = true;
+  HS._apply({ sky: { animations: true } });
+  ok('...and the device\'s word is not saved: the setting underneath is as it was', HS.get('sky.animations') === true && HS.skyLook().animations === false);
+  reduce = false;
+  ok('...and applies again when the device stops asking', HS.skyLook().animations === true);
+  globalThis.matchMedia = function () { throw new Error('no media'); };
+  ok('a browser that cannot answer: motion stays', HS.skyLook().animations === true && HS.reducedMotion() === false);
+  globalThis.matchMedia = realMM;
+  HS._apply({ sky: {} });
+})();
 print('=== Daytime Sky ===');
 HS._apply({ sky: {} });
 ok('the daytime sky is Natural by default (full brightness)', HS.skyLook().brightness === 1);

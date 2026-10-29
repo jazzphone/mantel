@@ -835,8 +835,9 @@
         var i = this._front < 0 ? 0 : (this._front + 1) % 2, im = this._imgs[i], other = this._imgs[1 - i];
         var r = this.getBoundingClientRect ? this.getBoundingClientRect() : null;
         var dpr = Math.min(win().devicePixelRatio || 1, 2);
-        var w = r && r.width > 0 ? Math.min(1920, Math.round(r.width * dpr)) : 0;
-        var h = r && r.height > 0 ? Math.min(1920, Math.round(r.height * dpr)) : 0;
+        // (not measured yet: the strip's 480x270 -- a picture is never asked for at the camera's full frame)
+        var w = r && r.width > 0 ? Math.min(1920, Math.round(r.width * dpr)) : 480;
+        var h = r && r.height > 0 ? Math.min(1920, Math.round(r.height * dpr)) : 270;
         var self = this, url = stillUrl(pic, w, h);
         this._loading = true;
         im.onload = function () {
@@ -1187,6 +1188,16 @@
   }
 
   // ------------------------------------------------------------ the host
+  // PAGES VISITED LONG AGO ARE LET GO (2026-10-29). A view left is kept, as hui-root keeps its views, so going back
+  // is instant and a page catches up with the client it missed -- but every page ever opened stayed in memory for
+  // the life of the screen, cards and all: on a wall tablet that is up for weeks, a visitor who tapped through
+  // twenty pages left twenty built. Now Home (the first view, the page a screen comes back to) and the last
+  // KEEP_RECENT pages shown are kept; the rest are dropped and made again when next shown, from the config, as on a
+  // first visit: its cameras start afresh and it opens at the top. `seen` remembers which pages were built once,
+  // so the host's "first visit" (Mantel widens its state subscription for a page it has not seen) means the first
+  // time ever, not "not cached".
+  var KEEP_RECENT = 4;
+
   // opts:
   //   container  the element that holds the view (the sky mounts in it)
   //   slot       where the view element goes (default: the container)
@@ -1208,6 +1219,8 @@
     var base = opts.base || ('/' + (global.location.pathname.split('/')[1] || ''));
     var client = opts.client || null;
     var cache = {};                // view index -> { el, cards, view, index, path, fed }
+    var seen = {};                 // view index -> true once built (kept when the page is let go)
+    var recent = [];               // the pages shown last (not Home), the newest at the end
     var cur = null;
     var stale = null;              // the view shown before reconfigure(): replaced in place by the next show()
     var turn = 0;                  // the newest show() wins
@@ -1278,13 +1291,13 @@
       var my = ++turn, i = find(path);
       target = i;
       if (i < 0) return Promise.resolve(null);
-      var first = !cache[i];
+      var first = !seen[i];
       var wait = opts.willShow ? Promise.resolve().then(function () { return opts.willShow(views()[i], first); })
                                      .catch(function (e) { try { console.error('[hk-view-host] willShow', e); } catch (x) { /* */ } })
                                : Promise.resolve();
       return wait.then(function () {
         if (my !== turn) return null;
-        return cache[i] ? cache[i] : build(i).then(function (entry) { cache[i] = cache[i] || entry; return cache[i]; });
+        return cache[i] ? cache[i] : build(i).then(function (entry) { cache[i] = cache[i] || entry; seen[i] = true; return cache[i]; });
       }).then(function (entry) {
         if (!entry || my !== turn) return null;
         if (entry.fed !== client) feedEntry(entry, client);
@@ -1299,7 +1312,29 @@
         if (old && old.el.parentNode === slot) slot.removeChild(old.el);
         slot.appendChild(entry.el);
         if (old && !again && typeof win().scrollTo === 'function') { try { win().scrollTo(0, 0); } catch (e) { /* */ } }
+        letGo(entry.index);
         return entry.el;
+      });
+    }
+
+    // The page just shown is now the newest; Home and the last KEEP_RECENT stay, the others are dropped. A dropped
+    // page was taken out of the document when it was left, so its cards' timers and streams have already stopped
+    // (disconnectedCallback); what is done here is to let go of the elements, so nothing holds them.
+    function letGo(shown) {
+      if (shown !== 0) {
+        var at = recent.indexOf(shown);
+        if (at >= 0) recent.splice(at, 1);
+        recent.push(shown);
+        if (recent.length > KEEP_RECENT) recent.splice(0, recent.length - KEEP_RECENT);
+      }
+      Object.keys(cache).forEach(function (k) {
+        var i = Number(k), entry = cache[k];
+        if (i === 0 || recent.indexOf(i) >= 0 || entry === cur) return;
+        delete cache[k];
+        if (entry.el && entry.el.parentNode) entry.el.parentNode.removeChild(entry.el);      // (it never is: left views are out)
+        entry.cards.length = 0;
+        try { entry.el.cards = []; } catch (e) { /* a view without them */ }
+        entry.fed = null;
       });
     }
 
@@ -1312,6 +1347,8 @@
       if (cur) stale = cur;
       cur = null;
       cache = {};
+      seen = {};
+      recent = [];
       target = -1;
       return show(viewPathOf(global.location.pathname).view);
     }
@@ -1415,6 +1452,10 @@
         return cur ? { path: cur.path, index: cur.index, view: cur.view, element: cur.el, cards: cur.cards.slice() } : null;
       },
       cached: function () { return Object.keys(cache).map(function (k) { return cache[k].path; }); },
+      // the pages built at least once since the config was made (cached() are the ones still held)
+      seen: function () {
+        return Object.keys(seen).map(function (k) { return pathOf(views()[Number(k)], Number(k)); });
+      },
       shellParts: shellParts,
       onView: onView
     };

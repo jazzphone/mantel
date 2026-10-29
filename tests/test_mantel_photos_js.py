@@ -607,6 +607,11 @@ const out = {};
     await new Promise((ok) => setTimeout(ok, 0)); await new Promise((ok) => setTimeout(ok, 0));
     r.cleared = hkShell.photoSource('x');
     r.toldAgain = told;
+    const A = base + '/api/media/media_player.kitchen/art?v=ab';
+    r.art = [hkShell.artSized(A, 120), hkShell.artSized(A, 300), hkShell.artSized(A, 301), hkShell.artSized(A, 9999),
+             hkShell.artSized(A + '&s=150', 600), hkShell.artSized(A, 0), hkShell.artSized(A, 'x'),
+             hkShell.artSized(base + '/api/media/media_player.kitchen/art', 300), hkShell.artSized('/local/a.jpg', 300),
+             hkShell.artSized(base + '/api/camera/camera.d/still?v=1', 300), hkShell.artSized(null, 300)];
     r.asked = asked;
     out[base || 'root'] = r;
   }
@@ -622,16 +627,26 @@ def test_the_shell_gives_a_screen_its_album_and_lists_it_under_the_prefix():
     r = got["root"]
     assert r["first"] is None and r["after"] == "mantel-photos://a1a1a1a1a1a1a1a1" and r["told"] == 1
     assert r["folder"] is None                                      # a Home Assistant folder is HK's to walk
-    assert r["list"][0] == {"id": "p1", "title": "One", "url": "/api/photos/" + "1" * 32 + "/screen"}
+    def sizes(n):                    # the 1280 px copy (made on first ask) and the 2560 px one, for the saver to choose
+        return [[1280, "/api/photos/" + n * 32 + "/mid"], [2560, "/api/photos/" + n * 32 + "/screen"]]
+    assert r["list"][0] == {"id": "p1", "title": "One", "url": "/api/photos/" + "1" * 32 + "/screen",
+                            "variants": sizes("1")}
     assert [p["id"] for p in r["list"]] == ["p1", "p3", "p4"]                                          # never another host
     # Keep in View: a sound focus and faces passed on, unsound ones dropped (the photo itself still shown)
     assert r["list"][1] == {"id": "p3", "title": "Kept", "url": "/api/photos/" + "3" * 32 + "/screen",
-                            "focus": [0.25, 0.4], "faces": [[0.1, 0.2, 0.3, 0.3]]}
-    assert r["list"][2] == {"id": "p4", "title": "Junk", "url": "/api/photos/" + "4" * 32 + "/screen"}
+                            "variants": sizes("3"), "focus": [0.25, 0.4], "faces": [[0.1, 0.2, 0.3, 0.3]]}
+    assert r["list"][2] == {"id": "p4", "title": "Junk", "url": "/api/photos/" + "4" * 32 + "/screen",
+                            "variants": sizes("4")}
     assert r["cleared"] is None and r["toldAgain"] == 2
+    # album art at the tile's size: a player's artwork on Mantel's route takes the next size bucket up; nothing else does
+    a = "/api/media/media_player.kitchen/art"
+    assert r["art"] == [a + "?v=ab&s=150", a + "?v=ab&s=300", a + "?v=ab&s=600", a + "?v=ab&s=1000",
+                        a + "?v=ab&s=150", a + "?v=ab", a + "?v=ab", a + "?s=300", "/local/a.jpg",
+                        "/api/camera/camera.d/still?v=1", None]
     ing = got["/api/hassio_ingress/Fict1onal"]
     assert ing["after"] == "mantel-photos://a1a1a1a1a1a1a1a1"       # the screen read without the prefix
     assert ing["list"][0]["url"] == "/api/hassio_ingress/Fict1onal/api/photos/" + "1" * 32 + "/screen"
+    assert ing["list"][0]["variants"][0] == [1280, "/api/hassio_ingress/Fict1onal/api/photos/" + "1" * 32 + "/mid"]
     assert ing["asked"][0] == "/api/hassio_ingress/Fict1onal/api/photos/screens"
 
 
