@@ -5,6 +5,10 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 0.1.8 - 2026-10-29
+
+- The code Mantel Link shares with HK Frontend (the link to Mantel, the doorbell's talk-back, page headers) is one copy, kept in step with HK Frontend's.
+
 ## 0.1.7 - 2026-10-28
 
 - Hassfest accepts the translations: the addresses in the setup texts are description placeholders.

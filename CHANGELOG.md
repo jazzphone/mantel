@@ -4,7 +4,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
-The first public release of **Mantel**: HK Frontend's screens, inspired by Apple's Home app, served from a server of their own beside Home Assistant. It ships with **Mantel Link** 0.1.7 (Home Assistant's side of Mantel, from HACS) and alongside **HK Frontend** 1.14 (HK inside Home Assistant), built from the same code. The [user guide](docs/guide/Home.md) covers all of it; [HK Frontend and Mantel](docs/guide/HK-Frontend-and-Mantel.md) compares the products.
+The first public release of **Mantel**: HK Frontend's screens, inspired by Apple's Home app, served from a server of their own beside Home Assistant. It ships with **Mantel Link** 0.1.8 (Home Assistant's side of Mantel, from HACS) and alongside **HK Frontend** 1.15 (HK inside Home Assistant), built from the same code. The [user guide](docs/guide/Home.md) covers all of it; [HK Frontend and Mantel](docs/guide/HK-Frontend-and-Mantel.md) compares the products.
 
 **Running it**
 - **Three ways to run it:** the Home Assistant App (Home Assistant OS or Supervised; in Home Assistant's sidebar, optionally at its own address too), Docker Compose with Caddy or your own reverse proxy, or a Proxmox LXC made by a script. All three run the same server.
@@ -77,6 +77,15 @@ Reliability:
 - Docker and LXC: browser notifications and pairing the iPhone, iPad and Mac apps work (their keys live in the data folder, and in backups).
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
+
+## 0.1.87 - 2026-10-29
+
+- **Appearance and Menu settings, reorganized** for All Screens and each screen: one Accent Color; Side Menu, Edge Tab and Tab Bar under Navigation, each a page of everything about it; a screen's menu follows All Screens one setting at a time. Old addresses open the new pages, and nothing on any screen changes.
+- **Recommendations, never automatic changes:** a screen whose tablet draws under 45 frames a second suggests one lighter setting at a time; a screensaver showing a Home Assistant folder suggests importing it into Mantel Photos.
+- **Less to load:** a screen loads only the card code it uses, without comments or indentation, and a browser keeps each file of a release instead of asking again at every start. Through Home Assistant's sidebar too, files go out compressed.
+- **Lighter all day:** nothing runs under a tablet's black screen; updates are applied once a frame; old pages are let go; photos, album art and camera stills are sized for the screen, and tablets showing the same camera share one fetch; Reduce Motion stills the sky and the screensaver.
+- **The log says once an hour** how long the minute check of who may see what takes, and how large the settings history is.
+- The help's screenshots are WebP (79 MB smaller), and the developer-only scenery page is left out of the images.
 
 ## 0.1.86 - 2026-10-29
 
