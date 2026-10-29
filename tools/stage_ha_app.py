@@ -95,7 +95,9 @@ def plan() -> list[tuple[Path, str]]:
     # mantel_server.connect_pairing imports the pairing protocol (Mantel Connect, for a Mantel outside HA);
     # the code is imported by every server, so it ships in every image, switched off
     pairs += _tree(ROOT / "hosts/server/mantel_connect", "app/hosts/server/mantel_connect")
-    pairs += _tree(ROOT / "hk_core", "app/hk_core", keep=lambda p: p.suffix in (".py", ".md", ".json"))
+    # hk_core/link is Home Assistant's side (Mantel Link and HK Frontend vendor it); a server never imports it
+    pairs += _tree(ROOT / "hk_core", "app/hk_core",
+                   keep=lambda p: p.suffix in (".py", ".md", ".json") and (ROOT / "hk_core/link") not in p.parents)
     # /docs (docs_pages.py): HK's pages and Mantel's own, where config.py looks for them
     pairs += _tree(ROOT / "hosts/ha/custom_components/hk_frontend/docs", "app/help/hk")
     pairs.append((ROOT / "packaging/ha-app/DOCS.md", "app/help/Mantel.md"))

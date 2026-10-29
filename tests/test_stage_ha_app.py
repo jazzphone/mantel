@@ -27,6 +27,7 @@ def test_the_plan_holds_the_app_and_its_code(pairs):
                  "app/web/home.html", "app/web/shim/base.js", "app/web/hk/shell/hk-view-host.js", "app/web/mdi/icons.json"):
         assert name in dests, name
     assert any(d.startswith("app/hk_core/") and d.endswith(".py") for d in dests)
+    assert not [d for d in dests if d.startswith("app/hk_core/link/")]       # Home Assistant's side, vendored by the integrations
     assert len(dests) == len(pairs)                                     # no destination twice
     # the developer pages stay in the repository (2026-10-29)
     for name in ("app/hosts/server/mantel_server/static/dev.html", "app/web/hk/pages/seasonal-scenery-review.html"):

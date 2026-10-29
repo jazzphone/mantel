@@ -36,6 +36,7 @@ mantel-server = "mantel_server.__main__:main"
 [tool.setuptools.packages.find]
 where = ["hosts/server", "."]
 include = ["mantel_server*", "mantel_connect*", "hk_core*"]
+exclude = ["hk_core.link*"]     # Home Assistant's side: the integrations vendor it
 
 [tool.setuptools.package-data]
 mantel_server = ["static/*", "static/admin/*", "static/login/*", "static/proxy-check/*", "migrations/*.sql", "hk_writes.json", "models/*"]

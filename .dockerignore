@@ -36,3 +36,6 @@ hosts/ha
 # ...except HK Frontend's guide pages, which Mantel serves at /docs (the Dockerfile copies them to /app/help/hk)
 !hosts/ha/custom_components/hk_frontend/docs
 hosts/server/tools
+
+# Home Assistant's side of hk_core (Mantel Link and HK Frontend vendor it); no server imports it
+hk_core/link
