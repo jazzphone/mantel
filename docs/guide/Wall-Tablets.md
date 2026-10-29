@@ -133,6 +133,8 @@ An Owner or Admin can see how each tablet's page is doing: **Mantel Settings** â
 
 The top of the page has Mantel's own numbers: how long it takes to build and send one screen's changes (the middle one, and the slowest 5 in 100, over the last hour), how many state changes Home Assistant sends a minute, and how many screens are connected now. Nothing is stored beyond a day, and nothing outlives a Mantel restart. Wall tablets themselves, and members, can't open this page.
 
+**A lighter look for a slow tablet.** Each tablet also measures how many frames a second it draws (5 seconds, while nobody is touching it and the screen is lit). When one draws fewer than 45 on a screen with **Blur**, **Frosted** or **Tinted**, that screen's **Appearance** recommends a lighter look, for example *"Kitchen Tablet draws 38 frames a second with Blur. Glass looks almost the same and is lighter."* **Use Glass on This Screen** or **Use Flat** changes that screen only. **All Screens** â†’ **Appearance** lists each such screen. Nothing changes until you tap one.
+
 ## Reload and Clear Cache from Mantel
 
 An Owner can let Mantel reach a tablet's kiosk app directly (Kiosk Satellite, or Fully Kiosk Browser with its Remote Administration on):

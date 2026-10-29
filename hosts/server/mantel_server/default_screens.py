@@ -93,6 +93,14 @@ def _tablet(app: web.Application, device: Device) -> str | None:
     return start
 
 
+def tablet_screen(app: web.Application, device: Device) -> str | None:
+    """The screen a wall tablet opens on, by its path (its own, else its HK tablet's, else the house's)."""
+    start = _tablet(app, device)
+    if start:
+        return start.split("?", 1)[0].strip("/").split("/")[0] or None
+    return house(app)
+
+
 def start_for(app: web.Application, ident: Identity | None) -> str | None:
     """Where ``/`` and ``/home`` open for ``ident`` (a path under the page's prefix), or None: the house's."""
     if ident is None:

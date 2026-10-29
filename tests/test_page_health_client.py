@@ -2,7 +2,8 @@
 the heap and how the page before it ended, a frame says its page kind, the time to first draw, the sockets opened
 again since the page loaded (hub.js counts them) and the registry refreshes (a counter later phases bump, 0 now).
 The baseline (2026-10-29) adds the device on `load`, the startup download on `draw`, and an `fps` frame sampled only
-while the page is visible, idle and not dark. Run in node with a recording hub and a fake clock, timers and frames."""
+while the page is visible, idle and not dark -- by HK's one sampler (web/hk/modules/hk-fps.js, 2026-10-29), whose
+dashboard frame also names the screen and the style, kept in the browser for HK Frontend's This Device. Run in node with a recording hub and a fake clock, timers and frames."""
 from __future__ import annotations
 
 import json
@@ -72,31 +73,41 @@ const fps = async (mut) => {
   for (let i = 0; i < 400 && frame; i++) { const f = frame; frame = null; at += 1000 / 60; clock += 1000 / 60; f(at); }
   return { delay: t.ms, told: sent.slice(sentBefore), next: timers.map((x) => x.ms) };
 };
+// the dashboard's sampler is HK's (hk-fps.js, loaded by hk-loader): one, told to Mantel with its screen and style
+globalThis.location = { pathname: '/dashboard-kitchen/home' };
+globalThis.dispatchEvent = (e) => { if (listeners[e.type]) listeners[e.type](e); };
+window.hkSettings = { glass: () => 'blur' };
 window.__hkAsleep = false;
-window.hkSaver = { black: () => false };
+window.hkSaver = { black: () => false, running: () => false };
 timers.length = 0;
 const h = m.pageHealth(hub, 'home');
+out.ownTimers = timers.length;                             // the dashboard's page-health samples nothing itself
+await import(process.argv[3]);
 out.timer = timers.map((t) => t.ms);
 sent.length = 0;
 clock += 21000;                                            // 21 s since the page loaded; untouched
 out.first = await fps();
+out.kept = JSON.parse(store['hk-fps']);
 out.next = timers.map((t) => t.ms);
 // somebody touched it: waits half a minute and tries again
 listeners.pointerdown();
 out.touched = await fps();
 clock += 6000;
-// the screensaver is up: no sample
-window.hkSaver = { black: () => true };
+// the black screen is up: no sample
+window.hkSaver = { black: () => true, running: () => false };
 out.dark = await fps();
+// ...nor while the screensaver shows
+window.hkSaver = { black: () => false, running: () => true };
+out.saver = await fps();
 // the dashboard cannot tell yet (no saver loaded): no sample
 window.hkSaver = undefined;
 out.unsure = await fps();
-// a settings page has no saver and does not need one
+// a settings page has no saver and does not need one: the same sampler, its own
 timers.length = 0; frame = null;
 const st = m.pageHealth(hub, 'settings');
 clock += 21000;
 out.settingsFps = (await fps()).told;
-h.stop(); st.stop();
+h.stop(); st.stop(); window.hkFps.stop();
 out.platforms = [m.platformOf('Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)', 5), m.platformOf('Macintosh', 0), m.platformOf('Macintosh', 5),
   m.platformOf('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)'), m.platformOf('Linux; Android 13'), m.platformOf('Windows NT 10.0'), m.platformOf('X11; Linux x86_64'), m.platformOf('')];
 process.stdout.write(JSON.stringify(out));
@@ -109,8 +120,10 @@ def got(tmp_path_factory):
         pytest.skip("node not installed")
     d = tmp_path_factory.mktemp("page-health-client")
     shutil.copy(ROOT / "web/shim/page-health.js", d / "page-health.mjs")
+    shutil.copy(ROOT / "web/hk/modules/hk-fps.js", d / "hk-fps.mjs")
     (d / "script.mjs").write_text(SCRIPT)
-    run = subprocess.run(["node", str(d / "script.mjs"), str(d / "page-health.mjs")], capture_output=True, text=True, timeout=60)
+    run = subprocess.run(["node", str(d / "script.mjs"), str(d / "page-health.mjs"), str(d / "hk-fps.mjs")],
+                         capture_output=True, text=True, timeout=60)
     assert run.returncode == 0, run.stderr
     return json.loads(run.stdout)
 
@@ -134,8 +147,16 @@ def test_a_frame_rate_is_sampled_once_the_page_has_been_calm_for_a_while(got):
     assert got["next"] == [3600000], "then hourly"
 
 
+def test_the_dashboard_has_one_sampler_hks_told_with_its_screen_and_style(got):
+    assert got["ownTimers"] == 0, "page-health.js samples nothing itself on the dashboard"
+    [fps] = got["first"]["told"]
+    assert fps["screen"] == "dashboard-kitchen" and fps["style"] == "blur"
+    kept = got["kept"]                                     # HK Frontend's This Device reads it back
+    assert kept["screen"] == "dashboard-kitchen" and kept["style"] == "blur" and kept["fps"] == fps["fps"] and kept["at"] > 0
+
+
 def test_a_touched_dark_or_unsure_page_is_not_sampled_but_tried_again(got):
-    for name in ("touched", "dark", "unsure"):
+    for name in ("touched", "dark", "saver", "unsure"):
         assert got[name]["told"] == [], name
         assert got[name]["next"] == [30000], name              # half a minute later
 

@@ -227,6 +227,11 @@ times each flush and send into `performance.STATS`, with the HA event rate; `GET
 (`@guard("manager")`, so never a tablet's session) summarises both for **About** → **Performance** (the `performance`
 section of `/api/admin/overview`, `web/shim/settings/performance.js`).
 
+The frame rate is sampled by HK's own `web/hk/modules/hk-fps.js` (the dashboard's one sampler, which HK Frontend uses
+too); its `fps` frame names the screen and the style it was drawn with. Each wall tablet's latest is kept in
+`page_health.TABLETS`, and `GET /api/performance/tablets` (managers) hands it to HK Settings (the host's
+`tabletHealth`), which recommends a lighter look on a screen whose tablet draws under 45 frames a second with a blur.
+
 ## Long-lived connections
 
 A route is checked once, when it is called. A connection that stays open is checked again for as long as it is

@@ -320,3 +320,63 @@ def test_the_settings_history_is_counted_at_most_every_ten_minutes():
     assert s.history_size(c, now=P.HISTORY_EVERY - 1)["rows"] == 1               # not counted again yet
     assert s.history_size(c, now=P.HISTORY_EVERY + 1) == {"rows": 2, "bytes": 9 + 4, "at": P.HISTORY_EVERY + 1}
     assert P.Stats().history_size(None, now=0) == {"rows": None, "bytes": None, "at": None}
+
+
+# -- recommendations (2026-10-29): where each tablet's frame rate was drawn, for HK Settings ----------------------
+def test_an_fps_frame_keeps_the_screen_and_style_it_was_drawn_with():
+    c = tablet()
+    PH.RING.add(c, {"event": "fps", "page": "home", "fps": 38.2, "screen": "dashboard-kitchen", "style": "blur_pre"}, now=50.0)
+    kept = PH.TABLETS.get("d1")
+    assert (kept["fps"], kept["fps_screen"], kept["fps_style"], kept["fps_at"]) == (38.2, "dashboard-kitchen", "blur_pre", 50.0)
+    # junk is not kept, and a newer number never keeps an older one's screen
+    PH.RING.add(c, {"event": "fps", "page": "home", "fps": 51, "screen": "../admin", "style": "<b>"}, now=60.0)
+    kept = PH.TABLETS.get("d1")
+    assert (kept["fps"], kept["fps_screen"], kept["fps_style"]) == (51.0, "", "")
+    # a frame without a frame rate leaves them as they are
+    PH.RING.add(c, {"event": "draw", "page": "home", "first_draw": 900}, now=70.0)
+    assert PH.TABLETS.get("d1")["fps_at"] == 60.0
+
+
+async def test_the_tablets_route_names_each_tablet_its_screens_and_its_latest_frame_rate(mantel):
+    from test_default_screens import boards
+    m = mantel
+    boards(m, "dashboard-kitchen", "dashboard-loft")
+    await m.user("jo", "owner")
+    await m.sign_in("jo")
+    r = await m.post("/api/devices/enroll", {"name": "Kitchen Tablet", "room": "kitchen"})
+    device_id = (await r.json())["device"]["id"]
+    m.forget_cookies()
+    await m.sign_in("jo")
+    c = tablet("Kitchen Tablet", device_id)
+    PH.RING.add(c, IPAD, now=1.0)
+    PH.RING.add(c, {"event": "fps", "page": "home", "fps": 38.0, "screen": "dashboard-loft", "style": "blur"}, now=2.0)
+    PH.RING.add(tablet("Gone", "nobody"), {"event": "fps", "fps": 20.0}, now=3.0)        # not an enrolled tablet
+    r = await m.get("/api/performance/tablets")
+    assert r.status == 200 and r.headers["Cache-Control"] == "no-store"
+    [row] = (await r.json())["tablets"]
+    assert row["name"] == "Kitchen Tablet" and row["fps"] == 38.0
+    assert (row["fps_screen"], row["fps_style"], row["fps_at"]) == ("dashboard-loft", "blur", 2.0)
+    assert row["screens"] == ["dashboard-loft", "dashboard-kitchen"], "where it was drawn, then where it opens (the house's)"
+    assert (row["platform"], row["memory_gb"], row["cores"]) == ("iPad", 4.0, 6)
+
+
+async def test_a_revoked_tablet_is_left_out(mantel):
+    m = mantel
+    await m.user("jo", "owner")
+    await m.sign_in("jo")
+    device_id = (await (await m.post("/api/devices/enroll", {"name": "Hall", "room": "hall"})).json())["device"]["id"]
+    m.forget_cookies()
+    await m.sign_in("jo")
+    PH.RING.add(tablet("Hall", device_id), {"event": "fps", "fps": 30.0, "screen": "dashboard-hall"}, now=1.0)
+    assert len((await (await m.get("/api/performance/tablets")).json())["tablets"]) == 1
+    m.app["devices"].revoke(device_id, "test")
+    assert (await (await m.get("/api/performance/tablets")).json())["tablets"] == []
+
+
+@pytest.mark.parametrize("role", ["adult", "child", "guest"])
+async def test_the_tablets_route_is_a_managers_only(mantel, role):
+    await mantel.user("cody", role)
+    await mantel.sign_in("cody")
+    assert (await mantel.get("/api/performance/tablets")).status == 403
+    spec = P.api_tablets.__guard__
+    assert spec.who == "manager" and spec.device_ok is False

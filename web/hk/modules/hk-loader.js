@@ -1,6 +1,6 @@
 // hk-loader.js - imports the order-independent dashboard modules (MODULES
 // below: kiosk, stats, charts, sky, idle, glass, skyshot, timers, saver,
-// saver-panel, campost, menu, tabbar, notify, edit, edit-pages, drag).
+// saver-panel, fps, campost, menu, tabbar, notify, edit, edit-pages, drag).
 //
 // WHY THIS EXISTS
 // The bootstrap list -- the files every page loads before any card renders --
@@ -51,6 +51,10 @@
                  // ...its music's Speakers / Volume / Browse panel
                  // (hk-saver-panel.js), drawn only when one is opened.
                  'hk-saver-panel.js',
+                 // The frame rate, sampled now and then on a lit, idle
+                 // screen (hk-fps.js): for HK Settings' recommendations, and
+                 // for Mantel's Performance page (page-health.js tells it)
+                 'hk-fps.js',
                  // Hands the cameras page the strip's cached thumbnail as its
                  // video poster. Measured: HA's own poster loses the race to
                  // the live stream on most cameras, so the page is dark from

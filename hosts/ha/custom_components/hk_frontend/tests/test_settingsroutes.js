@@ -437,6 +437,60 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   var sa = text(draw(go('#/screens/dashboard-k/appearance')).box);
   ok('a screen’s Appearance: laid out as All Screens’', ['Style', 'Colors', 'Background', 'Accent Color', 'Teal', 'Just This Screen', 'Tab Bar Glass'].every(function (w) { return sa.indexOf(w) >= 0; }), true);
   ok('...a screen with no tab bar has no Tab Bar Look', /Tab Bar Look/.test(text(draw(go('#/screens/dashboard-c/appearance')).box)), false);
+
+  // RECOMMENDED (2026-10-29): a lighter look where a tablet draws under 45 frames a second with a blur
+  ok('no recommendation on a host without tablet reports', /Recommended/.test(text(draw(go('#/screens/dashboard-k/appearance')).box)), false);
+  var asked = 0;
+  var reports = [{ name: 'Kitchen Tablet', screens: ['dashboard-k'], fps: 38.2, fps_screen: 'dashboard-k', fps_style: 'blur', fps_at: Date.now() / 1000 - 60 }];
+  pg._host = { tabletHealth: function () { asked++; return Promise.resolve(reports); } };
+  draw(go('#/screens/dashboard-k/appearance'));
+  drainMicrotasks();
+  var rp = draw(go('#/screens/dashboard-k/appearance')).box, rt = text(rp);
+  ok('the host is asked once for its tablets’ numbers', asked, 1);
+  ok('a screen’s Appearance: why, after the Style', /Kitchen Tablet draws 38 frames a second with Blur\. Glass looks almost the same and is lighter\./.test(rt) &&
+     rt.indexOf('Recommended') > rt.indexOf('Appearance Style') && rt.indexOf('Recommended') < rt.indexOf('Accent Color'), true);
+  ok('...Use Glass on This Screen and Use Flat', !!byFk(rp, 'rec:glass') && !!byFk(rp, 'rec:flat'), true);
+  ok('...opening it wrote nothing', writes.length, 0);
+  tap(byFk(rp, 'rec:glass'));
+  ok('Use Glass sets this screen’s own style, never All Screens’', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { flat: false, glass: 'clear' }]));
+  tap(byFk(rp, 'rec:flat'));
+  ok('Use Flat too', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { flat: true }]));
+  var hr = draw(go('#/house/appearance')).box;
+  ok('All Screens’ Appearance: a row for the screen, to its Appearance', !!byFk(hr, 'rec:blur:dashboard-k') &&
+     byFk(hr, 'rec:blur:dashboard-k').attrs.href === '#/screens/dashboard-k/appearance' && /Kitchen Tablet: 38 frames a second/.test(text(hr)), true);
+  ok('...and only for it (no report from the other screen)', !byFk(hr, 'rec:blur:dashboard-c'), true);
+  ok('...without buttons of its own', !byFk(hr, 'rec:glass') && !byFk(hr, 'rec:flat'), true);
+  boards['dashboard-k'].glass = 'clear';
+  ok('gone once the screen wears Glass', /Recommended/.test(text(draw(go('#/screens/dashboard-k/appearance')).box)) ||
+     !!byFk(draw(go('#/house/appearance')).box, 'rec:blur:dashboard-k'), false);
+  boards['dashboard-k'].glass = 'house';
+  reports[0].fps = 52;
+  ok('...and while the tablet draws 45 or more', /Recommended/.test(text(draw(go('#/screens/dashboard-k/appearance')).box)), false);
+  reports[0].fps = 38.2;
+  ok('a host with reports shows none under This Device', /for This Device/.test(text(draw(go('#/screens/dashboard-k')).box)), false);
+  // HOME ASSISTANT: no reports; this device's own sample, under This Device on the screen it measured
+  pg._host = null; pg._health = undefined;
+  localStorage.setItem('hk-fps', JSON.stringify({ fps: 31.6, at: Date.now() - 60000, screen: 'dashboard-k', style: 'blur' }));
+  var dp = draw(go('#/screens/dashboard-k')).box, dt = text(dp);
+  ok('This Device: this device’s own number, on the screen it measured', /Recommended for This Device/.test(dt) &&
+     /This device draws 32 frames a second with Blur/.test(dt) && dt.indexOf('Recommended for This Device') > dt.indexOf('Car Browser'), true);
+  ok('...with the same two buttons', !!byFk(dp, 'rec:glass') && !!byFk(dp, 'rec:flat'), true);
+  ok('...not on another screen’s page', /for This Device/.test(text(draw(go('#/screens/dashboard-c')).box)), false);
+  ok('...nor on the Appearance page (its home is This Device)', /Recommended/.test(text(draw(go('#/screens/dashboard-k/appearance')).box)), false);
+  localStorage.removeItem('hk-fps');
+  ok('...and nothing without a sample', /for This Device/.test(text(draw(go('#/screens/dashboard-k')).box)), false);
+  ok('opening every one of them wrote nothing', writes.length, 0);
+})();
+
+print('\n=== the clock recommendation on the kit’s recommend (2026-10-29) ===');
+(function () {
+  var g = window.hkSettingsKit.recommend({ title: 'Recommended for Kitchen', says: 'Why it is.', actions: [{ label: 'Use It', sk: 'saver:clock_rec', onClick: function () {} }] });
+  var kids = g.children, said = function (el) {
+    return (el._text || el.textContent || '') + (el.children || []).map(function (k) { return typeof k === 'object' ? said(k) : String(k); }).join('');
+  };
+  ok('a group with its title, its button and its reason', [kids.length, said(kids[0]), said(kids[2])].join(' | '), '3 | Recommended for Kitchen | Why it is.');
+  ok('...the button keeps its key', kids[1].children[0].attrs['data-fk'], 'saver:clock_rec');
+  ok('the saver’s clock page draws it through the kit', /K\.recommend\(\{ title: room \? 'Recommended for ' \+ room/.test(read(HK_ROOT + '/frontend/panels/hk-settings.js')), true);
 })();
 
 print(fail ? 'FAIL ' + fail + ' SETTINGS ROUTE TESTS' : 'ALL ' + pass + ' SETTINGS ROUTE TESTS PASS');

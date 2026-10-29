@@ -55,6 +55,10 @@
 //                 Photos; ctx { photos, set(source) })
 //     gridHistory(path, panel) a promise for this screen’s layout history,
 //                 absent on a host without layout history
+//     tabletHealth(panel) a promise for each wall tablet's latest frame
+//                 rate: [{name, screens, fps, fps_screen, fps_style,
+//                 fps_at}] (a screen's Appearance recommends a lighter look
+//                 from it); absent where tablets report to nobody
 //     press(ids, panel)  a tablet's own parts that are the host's, not HA
 //                 buttons (Reload, Clear Cache: tablets[].parts), pressed:
 //                 a promise (rejected with a message to show), or null to
@@ -2204,6 +2208,8 @@
           'Custom takes a width of your own (Standard is ' + M.CAR_WIDTH.toLocaleString(window.hkLocale.numTag()) + ' px).';
       }
       c.appendChild(K.group({ header: 'This Device', footer: carFoot }, carRows));
+      var devRec = this.deviceRecommend(path, b);
+      if (devRec) c.appendChild(devRec);
 
       // THE HOST'S OWN, for this screen (extend, above): nothing in Home Assistant
       var hx = this.host();
@@ -3940,9 +3946,9 @@
       if (!recNow && self.saverKnown('clock_night')) {
         var rName = (M.CLOCK_STYLES.filter(function (st) { return st[0] === recSet.clock_style; })[0] || [0, ''])[1];
         var bName = (M.CLOCK_BGS.filter(function (b2) { return b2[0] === recSet.clock_bg; })[0] || [0, ''])[1];
-        c.appendChild(K.group({ header: room ? 'Recommended for ' + room : 'Recommended', footer: rec.says + '. You can change any of it after.' }, [
-          K.button({ label: 'Use ' + rName + ' on ' + bName + (recSet.clock_night === 'night' ? ', Red at Night' : ''), sk: 'saver:clock_rec',
-                     onClick: function () { put(Object.assign({}, recSet)); } })]));
+        c.appendChild(K.recommend({ title: room ? 'Recommended for ' + room : 'Recommended', says: rec.says + '. You can change any of it after.', actions: [
+          { label: 'Use ' + rName + ' on ' + bName + (recSet.clock_night === 'night' ? ', Red at Night' : ''), sk: 'saver:clock_rec',
+            onClick: function () { put(Object.assign({}, recSet)); } }] }));
       }
       c.appendChild(K.group({ header: 'Clock', footer: (cur.clock_style === 'today' ? 'Today shows the weather and what\u2019s playing itself: the corners\u2019 Weather and Now Playing step aside. ' : '') +
           'Every style shows the date. On a screen left on all night, the clock drifts a little every few minutes, so nothing burns in.' }, [
@@ -5419,11 +5425,67 @@
                           onChange: function (x) { set({ tab_bar_glass: x }); } });
       }, function (x) { return M.choiceLabel(M.TAB_BAR_GLASS, x || 'house'); });
     }
-    // RECOMMENDED (Phase 4): a group of suggestions for this look, each one
-    // button, shown only while the setting differs. None yet: this is where
-    // they go, after the Style, on All Screens' Appearance (b null) and a
-    // screen's alike.
-    recommendGroups(c, x, b) { /* Phase 4 */ }
+    // RECOMMENDED (2026-10-29): after the Style, a lighter look where a wall
+    // tablet showing the screen draws under 45 frames a second with a Blur,
+    // Frosted or Tinted style (M.blurRecommend) -- on a screen's Appearance
+    // its own, with a button for each look; on All Screens' (x null) a row
+    // per such screen, to its page. Nothing changes until one is tapped, and
+    // it goes once the screen wears Glass or Flat. The numbers are the
+    // host's (tabletHealth); a host without them (Home Assistant) shows the
+    // one this device measured itself, under This Device (deviceRecommend).
+    recommendGroups(c, x, b) {
+      var look = this.data.settings.look, list = this.tabletHealth(), now = Date.now() / 1000;
+      if (!list) return;
+      if (x) {
+        var rec = M.blurRecommend(x.path, M.glassOf(b, look).effective, list, now);
+        if (rec) c.appendChild(this.blurRecGroup(x.path, rec));
+        return;
+      }
+      var boards = this.data.boards || {};
+      var rows = (this.data.dashboards || []).map(function (d) {
+        var bd = boards[d.path], r = bd && M.blurRecommend(d.path, M.glassOf(bd, look).effective, list, now);
+        return r ? { label: d.title || d.path, sub: r.name + ': ' + r.fps + ' frames a second', value: r.label,
+                     href: '#/screens/' + encodeURIComponent(d.path) + '/appearance', fk: 'rec:blur:' + d.path } : null;
+      }).filter(Boolean);
+      if (!rows.length) return;
+      c.appendChild(K.recommend({ title: 'Recommended', actions: rows,
+        says: (rows.length === 1 ? 'A wall tablet showing this screen draws' : 'Wall tablets showing these screens draw') +
+          ' under ' + M.SLOW_FPS + ' frames a second. Its Appearance suggests a lighter look; nothing changes until you choose one.' }));
+    }
+    // a screen's own: Glass or Flat on this screen (never All Screens')
+    blurRecGroup(path, rec, title) {
+      var self = this;
+      return K.recommend({ title: title || 'Recommended', says: rec.says, actions: [
+        { label: 'Use Glass on This Screen', sk: 'rec:glass', onClick: function () { self.setB(path, { flat: false, glass: 'clear' }); } },
+        { label: 'Use Flat', sk: 'rec:flat', onClick: function () { self.setB(path, { flat: true }); } }] });
+    }
+    // EACH WALL TABLET'S LATEST FRAME RATE, from the host (what its tablets
+    // report): read when a page first asks and again after five minutes,
+    // the page redrawn when it comes. null on a host without them.
+    tabletHealth() {
+      var hx = this.host(), self = this, now = Date.now();
+      if (!hx || typeof hx.tabletHealth !== 'function') return null;
+      if (!this._health || now - this._health.at > 300000) {
+        var slot = this._health = { at: now, list: this._health ? this._health.list : [] };
+        Promise.resolve().then(function () { return hx.tabletHealth(self); }).then(function (got) {
+          slot.list = Array.isArray(got) ? got : [];
+          if (self._health === slot && self.isConnected) self.render(true);
+        }).catch(function () { /* none to show: asked again later */ });
+      }
+      return this._health.list;
+    }
+    // THIS DEVICE'S OWN (Home Assistant, where tablets report to nobody): the
+    // frame rate hk-fps.js measured on this browser, for the screen it
+    // measured -- a group under This Device on that screen's page
+    deviceRecommend(path, b) {
+      if (this.tabletHealth()) return null;
+      var own = null;
+      try { own = window.hkFps && window.hkFps.latest ? window.hkFps.latest() : JSON.parse(localStorage.getItem('hk-fps') || 'null'); } catch (e) { own = null; }
+      if (!own || own.screen !== path || typeof own.fps !== 'number') return null;
+      var rec = M.blurRecommend(path, M.glassOf(b, this.data.settings.look).effective,
+        [{ name: 'This device', fps: own.fps, fps_screen: own.screen, fps_style: own.style || null, fps_at: own.at ? own.at / 1000 : null }], Date.now() / 1000);
+      return rec ? this.blurRecGroup(path, rec, 'Recommended for This Device') : null;
+    }
     // A SCREEN'S APPEARANCE (2026-10-29): laid out as All Screens' -- its
     // Style, Colors, Background and Tab Bar Look, each Same as All Screens
     // until it chooses its own

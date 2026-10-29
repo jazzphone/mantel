@@ -584,5 +584,30 @@ ok('...every mode says what it costs', M.BLUR_MODES.every(function (m) { return 
   ok('the screensaver summary on Show: Clock', /^Music, Then Clock · /.test(M.saverSummary({ show: 'clock', music_first: true })) &&
      /^Clock · /.test(M.saverSummary({ show: 'clock' })), M.saverSummary({ show: 'clock' }));
 })();
+// ------------------------------------- a lighter look for a slow tablet (2026-10-29)
+(function () {
+  var NOW = 1000000;
+  var kitchen = { name: 'Kitchen Tablet', screens: ['dashboard-kitchen'], fps: 38.4, fps_screen: 'dashboard-kitchen', fps_style: 'blur', fps_at: NOW - 60 };
+  var r = M.blurRecommend('dashboard-kitchen', 'blur', [kitchen], NOW);
+  ok('a tablet drawing 38 frames a second with Blur: Glass is offered', !!r && r.says === 'Kitchen Tablet draws 38 frames a second with Blur. Glass looks almost the same and is lighter.', r);
+  ok('...whichever blur mode the screen uses', !!M.blurRecommend('dashboard-kitchen', 'blur_pre', [kitchen], NOW));
+  ok('...Frosted and Tinted too, measured with them: Flat is the lighter look',
+     /with Frosted\. Flat is the lightest look/.test((M.blurRecommend('dashboard-kitchen', 'frosted', [Object.assign({}, kitchen, { fps_style: 'frosted' })], NOW) || {}).says) &&
+     /with Tinted\./.test((M.blurRecommend('dashboard-kitchen', 'tinted', [Object.assign({}, kitchen, { fps_style: 'tinted' })], NOW) || {}).says));
+  ok('nothing once the screen wears Glass or Flat', M.blurRecommend('dashboard-kitchen', 'clear', [kitchen], NOW) === null &&
+     M.blurRecommend('dashboard-kitchen', 'flat', [kitchen], NOW) === null);
+  ok('nothing at 45 frames a second or more', M.blurRecommend('dashboard-kitchen', 'blur', [Object.assign({}, kitchen, { fps: 45 })], NOW) === null);
+  ok('nothing without numbers', M.blurRecommend('dashboard-kitchen', 'blur', [], NOW) === null &&
+     M.blurRecommend('dashboard-kitchen', 'blur', [{ name: 'Loft', screens: ['dashboard-kitchen'], fps: null }], NOW) === null &&
+     M.blurRecommend('dashboard-kitchen', 'blur', null, NOW) === null);
+  ok('nothing for another screen: the one it measured counts', M.blurRecommend('dashboard-loft', 'blur', [Object.assign({}, kitchen, { screens: ['dashboard-kitchen', 'dashboard-loft'] })], NOW) === null);
+  ok('...a tablet that says nothing of where: the screens it shows',
+     !!M.blurRecommend('dashboard-loft', 'blur', [{ name: 'Loft', screens: ['dashboard-loft'], fps: 30 }], NOW));
+  ok('nothing from a number drawn with another style (it was Glass then)', M.blurRecommend('dashboard-kitchen', 'blur', [Object.assign({}, kitchen, { fps_style: 'clear' })], NOW) === null &&
+     M.blurRecommend('dashboard-kitchen', 'frosted', [kitchen], NOW) === null);
+  ok('nothing from a number weeks old', M.blurRecommend('dashboard-kitchen', 'blur', [Object.assign({}, kitchen, { fps_at: NOW - 30 * 86400 })], NOW) === null);
+  var two = M.blurRecommend('dashboard-kitchen', 'blur', [kitchen, { name: 'Pantry Tablet', screens: ['dashboard-kitchen'], fps: 22, fps_screen: 'dashboard-kitchen' }], NOW);
+  ok('two slow tablets: the slowest speaks', !!two && two.name === 'Pantry Tablet' && two.fps === 22 && two.label === 'Blur', two);
+})();
 print(fail ? '  ' + fail + ' SETTINGS MODEL TESTS FAILED' : '  ALL ' + pass + ' SETTINGS MODEL TESTS PASS');
 if (fail) throw new Error(fail + ' failed');
