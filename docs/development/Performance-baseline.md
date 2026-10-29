@@ -37,14 +37,36 @@ the reload you read them from, and say which you took.
 
 ## Baseline
 
-Mantel version: _to be filled_. Taken on: _to be filled_. Cache: _cold or warm_.
+The tablets never reloaded onto 0.1.86 by themselves (each reloads at a quiet moment, and none came in the hours between
+the two releases), so there is no "before" from the house itself. The before and after below are the fictional house
+in the headless check (a cold Home, gzipped as the images ship it), then the house's own tablets after 0.1.87.
 
-| Tablet | Device | Download | Files | First draw | FPS | Memory |
-|---|---|---|---|---|---|---|
-| | | | | | | |
-| | | | | | | |
-| | | | | | | |
-| | | | | | | |
-| | | | | | | |
+| Home, cold, fictional house | 0.1.86 | 0.1.87 |
+|---|---|---|
+| Files | 111 | 103 |
+| Bytes over the wire | 3.13 MB | 2.16 MB |
+| JavaScript over the wire | 1.58 MB | 0.62 MB |
+| JavaScript unpacked | 4.89 MB | 1.87 MB |
+| Second load: files asked for again | 97 | 12 (pictures only) |
 
-Server, same day: minute tick last _ ms, longest _ ms; settings history _ versions, _ MB.
+## After 0.1.87, the house (2026-10-29)
+
+From the App's log, each tablet's first load of the new build, right after the release (11:52, before the files were in
+its cache). Device, FPS and memory are on About, Performance; the log does not carry them.
+
+| Tablet | Download | Files | First draw |
+|---|---|---|---|
+| Kitchen | 1.35 MB | 77 | 2486 ms |
+| Living Room | 1.37 MB | 83 | 2147 ms |
+| Loft | 0.48 MB | 52 | 2920 ms |
+| Master Bedroom | 0.43 MB | 51 | 2194 ms |
+| Master Bathroom | 1.37 MB | 83 | 2073 ms |
+
+Download counts a file out of the cache by its encoded size, so a warm load still shows bytes.
+
+Server, 12:50 the same day: minute tick 18.65 ms, longest 271.65 ms in the first hour (the tablets reloading); settings
+history 133 versions, 1.1 MB.
+
+**Decisions (Phase 7):** the minute tick is well under the 50 ms the plan set, so it was not rewritten; the settings
+history is 1.1 MB, so it is not trimmed (Restore and Layout History keep every version). Look again if the tick's
+usual time passes 50 ms or the history passes about 50 MB.
