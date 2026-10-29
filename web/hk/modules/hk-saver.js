@@ -1238,7 +1238,7 @@
     ':host([pcal]) .pm .mnl{font-size:calc(10px * var(--z))}',
     ':host([pcal]) .pm .mnt{font-size:calc(14px * var(--z))}',
     ':host([pcal]) .pm[idle] .mctl{grid-column:1 / -1}',
-    '@media (prefers-reduced-motion:reduce){.ph,.phscrim,.fcscrim,.mu,.mfr,.mbgf{transition:none}.ph.zoom img.fg{animation:none}}'
+    '@media (prefers-reduced-motion:reduce){.ph,.phscrim,.fcscrim,.mu,.mfr,.mbgf{transition:none}.ph.zoom img.fg,.ph.mo.zoom .mocell canvas{animation:none}}'
   ].join('\n');
 
   function build() {
@@ -1393,7 +1393,7 @@
     if (host && (host.hasAttribute('blocking') || host.hasAttribute('released') || builtFor !== cfgKey())) teardown();
     if (!host) { build(); builtFor = cfgKey(); }
     host.style.setProperty('--fade', FADE_IN_MS + 'ms');
-    if (cfg.zoom) host.setAttribute('zoom', ''); else host.removeAttribute('zoom');
+    if (cfg.zoom && !reducedMotion()) host.setAttribute('zoom', ''); else host.removeAttribute('zoom');
     host.removeAttribute('blocking');
     host.removeAttribute('waking');       // started again while waking
     host.removeAttribute('dark');
@@ -1991,6 +1991,18 @@
     ctx.drawImage(t, 0, 0, c.width, c.height);
   }
   function clearCanvas(c) { if (c && c.width) { c.width = 0; c.height = 0; } }
+  // REDUCE MOTION (2026-10-29): a device that asks for it (prefers-reduced-motion), or a Flat look, gets still
+  // photos -- no Slow Zoom (its CSS animation was neutralised for a single photo already, but the mosaic's cells
+  // still crept and every photo still held a composited layer for it), and nothing else that moves. The static
+  // frames stay: the crossfade is a transition the same query switches off. The sky's own rule is the same word
+  // (hkSettings.skyLook().animations).
+  function reducedMotion() {
+    var HS = window.hkSettings;
+    try {
+      return !!((HS && HS.rendering && !HS.rendering().motion) ||
+                (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches));
+    } catch (e) { return false; }
+  }
   function paint(ph, first) {
     if (!root) return;
     if (fadeDone) fadeDone();
@@ -2015,7 +2027,7 @@
     setAttr(next, 'pw', paneUp);
     if (fit.backdrop || paneUp || ckPhotos()) { drawBackdrop(bg, ph.img, lay.small); bg.hidden = false; } else { bg.hidden = true; clearCanvas(bg); }
     releasePh(ph);
-    if (cfg.zoom) {
+    if (cfg.zoom && !reducedMotion()) {
       next.style.setProperty('--zd', (cfg.each_photo * 1000 + CROSSFADE_MS) + 'ms');
       void next.offsetWidth;               // restart the zoom from 1
       next.classList.add('zoom');
@@ -2122,7 +2134,7 @@
       if (ph) cell.appendChild(moDraw(cell, ph));
     });
     m.mosaic.forEach(releasePh);            // (drawn into the cells: the full photos are let go)
-    if (cfg.zoom) {
+    if (cfg.zoom && !reducedMotion()) {
       next.style.setProperty('--zd', (cfg.each_photo * 1000 + CROSSFADE_MS) + 'ms');
       void next.offsetWidth;
       next.classList.add('zoom');
@@ -3305,7 +3317,7 @@
   function turnPanel(opening, done, rec) {
     var me = rec || pnl, el = me.p.el, src = me.src, B = me.box;
     if (!src || !B) { if (done) done(); return; }
-    var reduce = ((window.hkSettings && window.hkSettings.rendering && !window.hkSettings.rendering().motion) || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches));
+    var reduce = reducedMotion();
     var r = src.getBoundingClientRect(), R = { x: r.left, y: r.top, w: r.width, h: r.height };
     if (!opening && me.hidRect) R = me.hidRect;
     var Mid = { x: (R.x + B.x) / 2, y: (R.y + B.y) / 2, w: (R.w + B.w) / 2, h: (R.h + B.h) / 2 };
@@ -4672,6 +4684,7 @@
          readCfg: readCfg, gate: gate, wake: WAKE, zoneOf: zoneOf, fitOf: fitOf, layoutOf: layoutOf, backdropSmall: backdropSmall, nightNow: nightNow,
          ckFx: ckFx, MOSAIC_COLORS: MOSAIC_COLORS,
          mosaicPlan: mosaicPlan, mosaicAssign: mosaicAssign, coverRect: coverRect, MOSAICS: MOSAICS,
+         reducedMotion: reducedMotion,
          cleanFocus: cleanFocus, cleanVariants: cleanVariants, photoUrl: photoUrl, releasePh: releasePh, faceWindow: faceWindow, faceOrigin: faceOrigin, alignOf: alignOf, shuffle: shuffle, Deck: Deck, isImage: isImage,
          // tests: the slide without real photos to count
          slide: { show: showForecastSlide, hide: hideForecastSlide, since: function (n) { sinceFc = n; }, schedule: function () { schedule(); } },

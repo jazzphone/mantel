@@ -1206,6 +1206,27 @@ print('\n=== a host that lists a photo in more than one size ===');
   var pad = shownWith(1194, 834, 2);
   ok('an iPad at ratio 2: the 2560 px copy', pad.fg === '/photos/s1/screen', pad.fg);
   S.stop(); woke();
+  // REDUCE MOTION (2026-10-29): Slow Zoom is the one motion a photo has; a device that asks for reduced motion gets
+  // the still frame (the crossfade is a transition the same query switches off in CSS)
+  LOVELACE.config.hk_screensaver = Object.assign({}, LOVELACE.config.hk_screensaver, { zoom: true });
+  lovelacePanel.lovelace = { config: { views: [], hk_screensaver: LOVELACE.config.hk_screensaver } };
+  var realMM = globalThis.matchMedia, reduce = false;
+  globalThis.matchMedia = function (q) { return { matches: /prefers-reduced-motion/.test(q) && reduce }; };
+  ok('reducedMotion: not asked for', I.reducedMotion() === false);
+  var zoomed = shownWith(1280, 800, 1) && topPhotos()[0];
+  ok('Slow Zoom on, motion allowed: the photo zooms (and the host says so)', zoomed && zoomed.classList.contains('zoom') && saverEl().attrs.zoom !== undefined, zoomed && zoomed.className);
+  S.stop(); __resetTimers();
+  reduce = true;
+  ok('reducedMotion: the device asks', I.reducedMotion() === true);
+  var still = shownWith(1280, 800, 1) && topPhotos()[0];
+  ok('...asked to reduce motion: the same photo does not zoom, and the host holds no layer for it',
+     still && !still.classList.contains('zoom') && saverEl().attrs.zoom === undefined, still && still.className);
+  ok('...the static frame stays', !!(still && still.querySelector('img.fg') && still.querySelector('img.fg').src));
+  S.stop(); __resetTimers();
+  reduce = false;
+  globalThis.matchMedia = realMM;
+  LOVELACE.config.hk_screensaver = Object.assign({}, LOVELACE.config.hk_screensaver, { zoom: false });
+  lovelacePanel.lovelace = { config: { views: [], hk_screensaver: LOVELACE.config.hk_screensaver } };
   var rel = { img: new Fake('img'), w: 10, h: 10 }; rel.img.src = '/x.jpg';
   I.releasePh(rel);
   ok('releasePh drops the source and the reference, not the size', rel.img === null && rel.w === 10);
