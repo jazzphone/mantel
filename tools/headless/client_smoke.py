@@ -234,6 +234,11 @@ def stand_in_cameras(app):
         asked.append({"url": url.rsplit("/", 1)[-1], **params})
         return web.Response(body=picture, content_type="image/png")
     camera_still.proxy_image = fictional_still
+
+    async def fictional_read(app, url, params, token, what):        # (the still route reads the whole picture, 2026-10-29)
+        asked.append({"url": url.rsplit("/", 1)[-1], **params})
+        return picture, "image/png"
+    camera_still.read_image = fictional_read
     signaling = FictionalSignaling()
     app["camera_signaling"]._get = lambda: signaling
     return asked, signaling
@@ -375,7 +380,11 @@ async def smoke(shot=None, shots=None):
                     assert music_write, "a refused focus write jammed the music model"
                     art = await browser.eval("""new Promise(r => window.hkCards.artUrl(
                       'https://art.invalid/cover.jpg', 300, r))""")
-                    assert art == "https://art.invalid/cover.jpg", art  # signing refused offline: unsigned, unloaded
+                    # a remote cover is Mantel's own art route (2026-10-29): the address encoded (base64url), the size bucket
+                    # (the server fetches and scales it; a tablet with no internet never reaches the CDN)
+                    assert art == "/api/media/art?e=aHR0cHM6Ly9hcnQuaW52YWxpZC9jb3Zlci5qcGc&s=300", art
+                    art_local = await browser.eval("""window.hkShell.artSized('/api/media/media_player.x/art?v=ab', 120)""")
+                    assert art_local == "/api/media/media_player.x/art?v=ab&s=150", art_local   # a player's own art, at the tile's size
                     assert await browser.eval("window.hkCards.staleEpoch() === 0")
                     # Slice 6: one action port. The read path refuses a write before the host; the
                     # action port refuses every command with commands_disabled and sends nothing.

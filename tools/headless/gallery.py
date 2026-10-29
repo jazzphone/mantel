@@ -415,6 +415,11 @@ def stand_in_stills() -> None:
         return web.Response(body=(ROOT / "web/hk/landscapes" / name).read_bytes(), content_type="image/webp")
     camera_still.proxy_image = still
 
+    async def read(app, url, params, token, what):        # the shared-still route reads the whole picture (2026-10-29)
+        name = next((v for k, v in pictures.items() if k in url), "01.webp")
+        return (ROOT / "web/hk/landscapes" / name).read_bytes(), "image/webp"
+    camera_still.read_image = read
+
 
 def stand_in_connections(app, store) -> None:
     """The Connections page's two connections, as if set up: Home Assistant and Music Assistant at invented
