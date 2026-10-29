@@ -1010,7 +1010,18 @@
         return H.security(st, { line1Size: c.line1_size || '36px', lineSize: c.line_size || '24px',
                                 pad: '0px', minHeight: '0px', align: c.align });
       }
-      _sigOf() { return this.client ? this._html() : null; }
+      // A CHEAP SIGNATURE (2026-10-29). It was the whole header's HTML, built on every push of the house (about a dozen a
+      // second on a wall tablet) just to learn whether it differed from the last: the string was thrown away unless it
+      // did. Now it is what the line is made of -- the status the header computes (the same one the HTML is made from,
+      // hkHeader.status: the alarm, the counts of what is open or unknown) and the card's own sizes -- and the HTML is
+      // built only when that moved (_render still compares what it draws).
+      _sigOf() {
+        var H = window.hkHeader, st = this.client && this.client.states;
+        if (!st) return null;
+        if (!H || typeof H.status !== 'function') return this._html();
+        var s = H.status(st), c = this._config || {};
+        return (s.secured ? 1 : 0) + '|' + s.items.join('|') + '|' + [c.line1_size, c.line_size, c.align].join('|');
+      }
       _render() {
         if (!this._built) {
           this._root.innerHTML = '<hk-plate class="ssstat" data-hk-role="card"><div class="sscorner"></div></hk-plate>';

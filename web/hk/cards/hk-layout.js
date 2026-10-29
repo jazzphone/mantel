@@ -1586,6 +1586,13 @@
   // It owns ONE mounted child; switching never changes its cell. A rule with
   // a time window looks again every half minute; a doorbell ring counts for
   // a minute. `force` (the editor's Preview): -1 the default, else a rule.
+  var cfgIds = new WeakMap(), cfgCount = 0;
+  function cfgId(c) {
+    if (!c || typeof c !== 'object') return 'x';
+    var n = cfgIds.get(c);
+    if (!n) cfgIds.set(c, n = ++cfgCount);
+    return n;
+  }
   class HkGridConditionalCard extends HkBase {
     static get CSS() { return ':host{display:block;height:100%}.variant,.variant>*{display:block;height:100%;width:100%}'; }
     static get observedAttributes() { return ['size']; }
@@ -1598,7 +1605,11 @@
       return G.choose(cfg.item, this.client && this.client.states, this._ringing || false,
         window.hkSettings && window.hkSettings.get('security.alarm', null));
     }
-    _sigOf() { return JSON.stringify([this._shown(), this._config]); }
+    // A CHEAP SIGNATURE (2026-10-29): the rule shown and WHICH config this is. It was JSON.stringify of the whole block
+    // (its rules, the context) on every push of the house, to compare with the last; a config is set whole and never
+    // changed in place (the catalog makes a new one each time), so the object's identity says it, and _render still
+    // compares the choice and the saved block before it builds anything.
+    _sigOf() { return this._shown() + '|' + cfgId(this._config); }
     _receiveClient() {
       super._receiveClient();
       if (this._child) window.hkHostClient.bridge(this._child, this.client);

@@ -155,4 +155,41 @@ function editorFields(tag) {
   check('hk-info-card: cool_below and warm_above, as numbers',
         !!i.cool_below && !!i.cool_below.selector.number && !!i.warm_above && !!i.warm_above.selector.number);
 })();
+// A BLOCK WITH RULES: its gate is a cheap comparison (2026-10-29) -- the rule shown and which config this is, not
+// JSON.stringify of the whole block on every push of the house
+(function () {
+  var Cond = customElements.get('hk-grid-conditional-card');
+  var oldCat = window.hkGridCatalog, oldCreate = window.hkCards.createCard, shown = -1, chose = 0, built = 0;
+  var item = { size: 'small', rules: [{ type: 'a', when: {} }, { type: 'b', when: {} }], base: { type: 'base' } };
+  window.hkGridCatalog = {
+    rulesOf: function () { return { rules: item.rules, base: item.base }; },
+    choose: function () { chose++; return shown; },
+    config: function (c) { return c; }
+  };
+  window.hkCards.createCard = function () { built++; var el = document.createElement('div'); el.setAttribute = function () {}; return el; };
+  var stringified = 0, real = JSON.stringify;
+  var cfg = { item: item, ctx: { big: new Array(500).join('x') } };
+  var c = new Cond();
+  if (c._root && !c._root.replaceChildren) c._root.replaceChildren = function () {};
+  c.setConfig(cfg);
+  if (c._root && !c._root.replaceChildren) c._root.replaceChildren = function () {};
+  c.isConnected = true;
+  c.hass = { states: {} };
+  var s0 = c._sigOf();
+  check('the conditional block: its signature is the rule shown and the config\'s identity', typeof s0 === 'string' && /^-1\|\d+$/.test(s0), s0);
+  check('...the same on another push of the house', c._sigOf() === s0);
+  JSON.stringify = function () { stringified++; return real.apply(JSON, arguments); };
+  for (var i = 0; i < 50; i++) c._sigOf();
+  JSON.stringify = real;
+  check('...and it builds no JSON of the block to learn that', stringified === 0, stringified);
+  shown = 1;
+  check('...another rule shown: another signature', c._sigOf() !== s0 && /^1\|/.test(c._sigOf()));
+  shown = -1;
+  var b0 = built;
+  c.setConfig(Object.assign({}, cfg));
+  check('...a new config (set whole): another signature', c._sigOf() !== s0);
+  c.hass = { states: { a: 1 } };
+  check('a push that changes neither draws nothing more', built - b0 <= 1 && c._sigOf() === c._sigOf());
+  window.hkGridCatalog = oldCat; window.hkCards.createCard = oldCreate;
+})();
 print(fail ? 'FAIL ' + fail + ' LAYOUT TESTS' : 'ALL ' + pass + ' LAYOUT TESTS PASS');
