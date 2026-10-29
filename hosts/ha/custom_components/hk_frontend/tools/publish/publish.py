@@ -73,7 +73,7 @@ SKIP_ART = re.compile(r"(^|/)tools/sky/src/[^/]+/(work/|contact-[^/]*\.png$|diff
 # in review, untracked and not in any release -- none of it is published. Nor is
 # New Decorations' review page, a mock dashboard for judging the art by hand.
 SKIP_UNRELEASED = re.compile(r"(^|/)((tools/sky/src/decor[^/]*|frontend/sky/scenes)/"
-                             r"|frontend/pages/seasonal-scenery-review\.html$)")
+                             r"|(frontend/)?pages/seasonal-scenery-review\.html$)")
 
 
 # WHAT GIT IGNORES IS NEVER PUBLISHED: an art delivery's sources stay beside

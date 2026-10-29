@@ -295,14 +295,22 @@ async def ws_handler(request: web.Request) -> web.StreamResponse:
     return ws
 
 
+def _dev_html():
+    """static/dev.html, the developer's landing page: in a checkout and the pip package, not in the HA App (the
+    stager leaves it out: tools/stage_ha_app.py)."""
+    return files("mantel_server").joinpath("static/dev.html")
+
+
 @guards.guard("signed_in")
 async def root(request: web.Request) -> web.Response:
-    raise web.HTTPFound("/home" if direct.is_direct(request) else "/dev")
+    raise web.HTTPFound("/home" if direct.is_direct(request) or not _dev_html().is_file() else "/dev")
 
 
 @guards.guard("signed_in")
 async def dev_page(request: web.Request) -> web.Response:
-    html = files("mantel_server").joinpath("static/dev.html").read_text()
+    if not _dev_html().is_file():
+        raise web.HTTPNotFound()
+    html = _dev_html().read_text()
     return web.Response(text=html, content_type="text/html", headers={"Cache-Control": "no-store"})
 
 

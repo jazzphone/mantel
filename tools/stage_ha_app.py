@@ -88,7 +88,10 @@ def plan() -> list[tuple[Path, str]]:
     """(source file, path inside the App folder) for every copied file (the build stamp comes after)."""
     pairs = [(APP_SRC / name, name) for name in APP_FILES]
     pairs.append((ROOT / "packaging/docker/entrypoint.py", "app/entrypoint.py"))
-    pairs += _tree(ROOT / "hosts/server/mantel_server", "app/hosts/server/mantel_server")
+    # (static/dev.html is the developer's landing page, /dev, for a checkout: the App's web app is /home;
+    # server.root and dev_page answer without it)
+    pairs += _tree(ROOT / "hosts/server/mantel_server", "app/hosts/server/mantel_server",
+                   keep=lambda p: p.name != "dev.html")
     # mantel_server.connect_pairing imports the pairing protocol (Mantel Connect, for a Mantel outside HA);
     # the code is imported by every server, so it ships in every image, switched off
     pairs += _tree(ROOT / "hosts/server/mantel_connect", "app/hosts/server/mantel_connect")

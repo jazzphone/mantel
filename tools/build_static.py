@@ -29,11 +29,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SKIP_DIRS = {"node_modules", "__pycache__", ".git"}
 SKIP_SUFFIXES = {".map", ".pyc"}
+# DEVELOPER PAGES STAY IN THE REPOSITORY (2026-10-29): the sky's workbench pages and their script, and the scenery
+# review page, are for someone working on the sky with a checkout (the dev server, the tests); the Docker image
+# and the HA App (tools/stage_ha_app.py plans its web/ through _wanted) do not carry them. Paths under web/.
+DEV_ONLY = frozenset({"hk/pages/skylab.html", "hk/pages/skyprobe.html", "hk/pages/seasonal-scenery-review.html",
+                      "hk/modules/hk-skylab.js"})
 
 
 def _wanted(path: Path, base: Path) -> bool:
     rel = path.relative_to(base)
-    if any(part in SKIP_DIRS or part.startswith(".") for part in rel.parts):
+    if any(part in SKIP_DIRS or part.startswith(".") for part in rel.parts) or rel.as_posix() in DEV_ONLY:
         return False
     return path.is_file() and path.suffix not in SKIP_SUFFIXES
 
