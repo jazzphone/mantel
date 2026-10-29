@@ -53,7 +53,8 @@ let boot;
 try {
   boot = await Promise.all([
     loadRegistry(mantelUrl('/api/registry')), json(mantelUrl('/api/me')), json(mantelUrl('/api/fixtures')),
-    json(mantelUrl('/api/hk-cards')), hub.connect(),
+    // the card list asked for with the page (shim/early-cards.js); asked for again here if that did not answer
+    (window.__mantelCardList || Promise.reject()).catch(() => json(mantelUrl('/api/hk-cards'))), hub.connect(),
     // Music Assistant / go2rtc under Mantel's own address, when this server serves them (media_proxy.py)
     json(mantelUrl('/api/services')).catch(() => ({})),
   ]);
