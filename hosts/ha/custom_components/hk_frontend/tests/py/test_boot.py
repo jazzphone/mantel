@@ -20,7 +20,8 @@ async def test_one_ordered_boot_module_is_registered_and_served(hass, base):
 
     view = next(c.args[0] for c in hass.http.register_view.call_args_list
                 if getattr(c.args[0], "name", "") == "hk_frontend:file")
-    r = await view.get(None, boot.BOOT)
+    from aiohttp.test_utils import make_mocked_request
+    r = await view.get(make_mocked_request("GET", "/hk/" + boot.BOOT), boot.BOOT)   # (a request: the view reads Accept-Encoding)
     assert r.status == 200 and r.content_type == "application/javascript"
     assert r.headers["Cache-Control"] == "no-cache"
     text = r.text
@@ -31,5 +32,5 @@ async def test_one_ordered_boot_module_is_registered_and_served(hass, base):
     tail = text[text.rindex(";(function () {"):]
     assert all(f'"/hk/{p}"' in tail for p in boot.AFTER)
     # every other /hk file is still served from disk
-    other = await view.get(None, "modules/hk-client.js")
+    other = await view.get(make_mocked_request("GET", "/hk/modules/hk-client.js"), "modules/hk-client.js")
     assert other.status == 200
