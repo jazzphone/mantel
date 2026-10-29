@@ -117,7 +117,10 @@ window.addEventListener('hk-house-event', (e) => {
 const nextSnapshot = () => new Promise((res) => snapshotWaiters.push(res));
 hub.onSnapshot = (m) => { if (!narrowed) for (const id of Object.keys(m.entities || {})) houseIds.add(id); host.applySnapshot(m.entities); const w = snapshotWaiters; snapshotWaiters = []; w.forEach((f) => f()); };
 const first = nextSnapshot();
-hub.onDiff = (m) => host.applyDiff(m);
+// ...and every entity that joins the house while the whole house is subscribed (a diff's `added`): it is the
+// house's as much as a snapshot's, and a card that reads it after the page narrowed must be able to ask again
+// (2026-10-29: sensors added after the last snapshot were never kept, and their cards stayed at nothing)
+hub.onDiff = (m) => { if (!narrowed) for (const id of Object.keys(m.added || {})) houseIds.add(id); host.applyDiff(m); };
 hub.subscribe([], [], true);
 await first;
 mark('states');
@@ -182,7 +185,10 @@ function narrowSoon() {
   narrowTimer = setTimeout(() => requestAnimationFrame(() => {
     host.reads.clear();
     host.recording = true;
-    viewHost.refresh();                          // one more pass over every card on the page, recorded
+    viewHost.refresh();                          // one more pass over every card on the page, recorded:
+    // ...drawn, not only offered the client: a card's gate passes on an unchanged client, and one whose signature
+    // reads no state (Energy's) then read nothing here, so its sensors were left out (hk-base.js redrawAll)
+    if (window.hkCards && window.hkCards.redrawAll) window.hkCards.redrawAll();
     narrowTimer = setTimeout(() => {
       host.recording = false;
       for (const k of host.reads) if (host._states[k]) needed.add(k);

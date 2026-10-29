@@ -1153,6 +1153,11 @@ async def smoke(shot=None, shots=None):
                                 out[sid] = [{"start": day0, "end": day0 + 3600e3, "change": today_kwh[sid]}]
                         return out
                     hub.readproxy.stat_rows = stat_rows
+                    # the card below is handed the page's client once and never fed again (it is not one of the view
+                    # host's cards), so that client must already hold the sensors: the hub's diff waits for a frame
+                    # (2026-10-29), and a card made before it landed drew 0 W for good, about 2 runs in 3
+                    assert await browser.wait("(window.__mantel.flushDiffs(), ['sensor.proof_office_watts', 'sensor.proof_dryer_kw']"
+                                              ".every(id => !!window.__mantel.client.states[id]))", 10), "the energy sensors never reached the page"
                     await browser.eval("window.hkShell.navigate('/dashboard-proof/lights')")
                     assert await browser.wait("window.__mantelViewHost.current().path === 'lights'", 10)
                     await browser.eval("""((plan) => {
@@ -1166,11 +1171,13 @@ async def smoke(shot=None, shots=None):
                     where_js = """(() => { const c = window.__deep(document).find(e => e.id === 'proof-where'), r = c && c.shadowRoot;
                       return r ? { title: (r.querySelector('.ttl') || {}).textContent, chips: [...r.querySelectorAll('.chip')].map(e => e.textContent),
                                    bar: [...r.querySelectorAll('.bar i')].map(e => e.title) } : null; })()"""
+                    # waits for the card's numbers rather than a fixed 3 s: updates are applied once a frame (2026-10-29),
+                    # and a busy Mac drew the card at 0 W first
                     await browser.eval("window.hkEnergyPage.setPeriod('now')")
-                    await asyncio.sleep(3)
+                    await browser.wait("(w => !!w && /1\\.80 kW$/.test(w.title || ''))(%s)" % where_js, 15)
                     now_where = await browser.eval(where_js)
                     await browser.eval("window.hkEnergyPage.setPeriod('day')")
-                    await asyncio.sleep(3)
+                    await browser.wait("(w => !!w && /5\\.0 kWh today$/.test(w.title || ''))(%s)" % where_js, 15)
                     day_where = await browser.eval(where_js)
                     # Now: 300 W + 1.5 kW = 1.80 kW, 17% / 83%; Today: 5.0 kWh in, 3.0 + 1.0 on devices (60% / 20%, 20% not)
                     assert now_where and now_where["title"].endswith("1.80 kW"), now_where

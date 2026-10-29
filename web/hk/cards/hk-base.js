@@ -1809,7 +1809,7 @@
     el._hkTracked = true;
     LIVE.push(new WeakRef(el));
   }
-  window.addEventListener('hk-module-ready', function () {
+  function redrawAll() {
     GEN.n++;
     LIVE = LIVE.filter(function (r) { return !!r.deref(); });
     LIVE.forEach(function (r) {
@@ -1818,7 +1818,13 @@
         try { el.requestUpdate(); } catch (e) { console.error('[hk-cards] wake', e); }
       }
     });
-  });
+  }
+  window.addEventListener('hk-module-ready', redrawAll);
+  // EVERY CARD ON THE PAGE DRAWN AGAIN, past its gate: for a host that must see what each card reads
+  // (Mantel's narrowing pass, web/home.js). A gate whose signature reads no state -- the Energy page's
+  // tab and five-second clock -- would otherwise skip the pass, and its sensors went unrecorded
+  // (2026-10-29: the where-card's power sensors were left out of the narrowed subscription).
+  window.hkCards.redrawAll = redrawAll;
 
   // THE SHARED BLUR'S MEMBERS (look.glass = blur; modules/hk-glass.js). A card
   // joins while it is on the page, unless its config says `glass: false`.
