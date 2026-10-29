@@ -4,15 +4,15 @@ hello). The script itself is tested in node (test_frontend_js.py)."""
 from __future__ import annotations
 
 import json
-from pathlib import Path
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant.setup import async_setup_component
 
-from conftest import linked
+from conftest import COMPONENT, linked
 from mantel_fake import until
 
-VERSION = json.loads((Path(__file__).resolve().parents[2] / "manifest.json").read_text())["version"]
+VERSION = json.load(open(os.path.join(COMPONENT, "manifest.json")))["version"]
 
 
 async def test_the_script_is_served_and_added_to_ha_s_pages(hass):
