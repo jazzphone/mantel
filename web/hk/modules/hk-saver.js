@@ -1846,11 +1846,22 @@
       schedule();
     });
   }
+  // NOTHING TURNS UNDER A BLACK (2026-10-29). The photos' timer also held
+  // while the kiosk's black (or HK's own) was up, and woke every few seconds
+  // to find it still was: a screen nobody can see, a timer, and (on a tablet
+  // that keeps the page running) the next photo downloaded and decoded for
+  // nobody. Now it is not armed at all while black() -- slideHeld notes that
+  // it was wanted -- and litNow() arms it again once the black has ended.
+  var slideHeld = false;
   function schedule() {
     if (slideT) clearTimeout(slideT);
+    slideT = null;
+    if (black()) { slideHeld = true; return; }
+    slideHeld = false;
     slideT = setTimeout(function () {
       slideT = null;
       if (!on || !cfg) return;             // stopped (its config gone) meanwhile
+      if (black()) { slideHeld = true; return; }    // the black went up while it waited
       // a hidden page (a backgrounded tab) does not turn photos, nor one
       // with the music's panel open
       if (document.hidden || pnl) { schedule(); return; }
@@ -4347,6 +4358,8 @@
     litAt = clock.now();
     lastInput = Date.now();
     armIdle();
+    // the photos' timer, held under the black (schedule()), runs again
+    if (slideHeld) { slideHeld = false; if (on && cfg && mode === 'photos' && !busy) schedule(); }
     setTimeout(function () { var h = clientNow(); if (h && !on) onUpdate(h); }, LIT_GRACE + 50);
   }
   function lightSoon() {

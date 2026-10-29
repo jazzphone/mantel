@@ -80,5 +80,56 @@ ok('an unknown style is Classic', (function () { var l = document.createElement(
 ok('12-hour', U.hm(new Date(2026, 9, 13, 13, 5), false).h + ':' + U.hm(new Date(2026, 9, 13, 13, 5), false).m, '1:05');
 ok('24-hour', U.hm(new Date(2026, 9, 13, 13, 5), true).h, '13');
 
+print('=== nothing runs under the black (2026-10-29) ===');
+(function () {
+  // the stub's timers are by hand: count what is armed, run what a frame would
+  var rafs = 0, raf0 = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = function (f) { rafs++; __timers.push({ fn: f, ms: 0 }); return __timers.length; };
+  var caf0 = globalThis.cancelAnimationFrame;
+  globalThis.cancelAnimationFrame = function (id) { clearInterval(id); };
+  var blackNow = false;
+  window.hkSaver = { black: function () { return blackNow; } };
+  var live = function () { return __timers.filter(function (t) { return t && t.ms > 0; }).length; };   // (the frame requests are counted apart)
+  var tell = function (on) { blackNow = on; window.dispatchEvent(new CustomEvent('hk-black', { detail: { on: on } })); };
+
+  // CONSTELLATION: the 30-a-second loop, plus the face's second
+  __resetTimers(); rafs = 0;
+  var c = C.mount(document.createElement('div'), { style: 'classic', bg: 'constellation', drift: false, speed: 35 });
+  var armed = live(), r0 = rafs;
+  ok('a lit screen arms the loop and the second', armed >= 1 && r0 >= 2, true);
+  tell(true);
+  ok('the black takes down the face’s second', __timers.filter(function (t) { return t && t.ms === 1000; }).length, 0);
+  var r1 = rafs; __runTimers();                        // a frame arriving after it
+  ok('...and the loop asks for no further frame', rafs, r1);
+  tell(false);
+  ok('the black ending starts the second again', __timers.filter(function (t) { return t && t.ms === 1000; }).length, 1);
+  ok('...and the loop', rafs > r1, true);
+  document.hidden = true; __fireVisibility(true);
+  ok('a hidden page takes the second down too', __timers.filter(function (t) { return t && t.ms === 1000; }).length, 0);
+  __fireVisibility(false);
+  ok('...a shown one starts it again', __timers.filter(function (t) { return t && t.ms === 1000; }).length, 1);
+  c.destroy();
+  ok('destroyed, a black or a shown page starts nothing', (function () { var n = rafs; tell(true); tell(false); return rafs === n && !__timers.filter(function (t) { return t && t.ms === 1000; }).length; })(), true);
+
+  // MORPH: its frame once a second or so
+  blackNow = false; __resetTimers();
+  c = C.mount(document.createElement('div'), { style: 'classic', bg: 'aurora', drift: false, speed: 35 });
+  var n1 = live();
+  tell(true);
+  ok('a soft background’s timers go under the black', live(), 0);
+  tell(false);
+  ok('...and come back', live(), n1);
+  c.destroy();
+
+  // MOUNTED UNDER A BLACK: nothing armed until it ends
+  tell(true); __resetTimers(); rafs = 0;
+  c = C.mount(document.createElement('div'), { style: 'classic', bg: 'constellation', drift: false, speed: 35 });
+  ok('mounted under the black, nothing is armed', live() === 0 && rafs <= 1, true);
+  tell(false);
+  ok('...the end of it arms them', live() >= 1 && rafs >= 2, true);
+  c.destroy();
+  globalThis.requestAnimationFrame = raf0; globalThis.cancelAnimationFrame = caf0; delete window.hkSaver;
+})();
+
 print(fail ? 'FAIL ' + fail + ' SAVER CLOCK TESTS' : 'ALL ' + pass + ' SAVER CLOCK TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

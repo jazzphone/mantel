@@ -473,6 +473,15 @@
         // the panel's module arriving after this card (the desk's rooms column)
         window.addEventListener('hk-saver-panel', this._onWin);
       }
+      // THE SECOND'S TICK RESTS UNDER THE SCREENSAVER AND THE BLACK (2026-10-29)
+      // -- the progress bar behind them is seen by no one -- and starts again
+      // when either ends, or the page shows again
+      if (!this._onSaver) {
+        this._onSaver = function () { self._tickOn(); };
+        window.addEventListener('hk-saver', this._onSaver);
+        window.addEventListener('hk-black', this._onSaver);
+        document.addEventListener('visibilitychange', this._onSaver);
+      }
       this._tickOn();
     }
     disconnectedCallback() {
@@ -485,6 +494,10 @@
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._onWin) { window.removeEventListener('resize', this._onWin); window.removeEventListener('hk-saver-panel', this._onWin); this._onWin = null; }
       if (this._tick) { clearInterval(this._tick); this._tick = null; }
+      if (this._onSaver) {
+        window.removeEventListener('hk-saver', this._onSaver); window.removeEventListener('hk-black', this._onSaver);
+        document.removeEventListener('visibilitychange', this._onSaver); this._onSaver = null;
+      }
       this._closePanel(false);
       this._miniFlag(false);
       this._flagSaid = false;
@@ -1013,7 +1026,9 @@
       e.t0.textContent = mmss(t); e.t1.textContent = mmss(p.dur);
     }
     _tickOn() {
-      var self = this, want = this.isConnected && this._pos && this._pos.playing && !document.hidden;
+      var self = this, S = window.hkSaver, up = false;
+      try { up = !!(S && ((S.running && S.running()) || (S.black && S.black()))); } catch (e) { /* no saver */ }
+      var want = this.isConnected && this._pos && this._pos.playing && !document.hidden && !up;
       if (want && !this._tick) this._tick = setInterval(function () { self._progress(); self._tickOn(); }, TICK);
       else if (!want && this._tick) { clearInterval(this._tick); this._tick = null; }
     }

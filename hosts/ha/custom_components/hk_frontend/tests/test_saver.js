@@ -786,6 +786,23 @@ ok('photos up for a while, then the black: the screensaver taken down at once (t
 ok('...the dashboard shown again, not left hidden', visibilityStyle.value !== 'hidden', visibilityStyle);
 dispatchEvent({ type: 'kiosksatellite:screensaverstop' }); woke(); __timers.length = 0;
 U.darkUnderBlack(true);
+// NOTHING TURNS UNDER A BLACK (2026-10-29): kept up (dark) under the black,
+// the photos' timer is not armed -- no next photo for a screen nobody sees --
+// and arms again when the black ends
+woke(); __timers.length = 0;
+photosUp(); T0 += 5000; U.beat();
+dispatchEvent({ type: 'kiosksatellite:screensaverstart' });
+(function () {
+  var n0 = S.stats().shown;
+  ok('kept up under the black: dark, still on', S.running() && saverEl().hasAttribute('dark'), saverEl() && saverEl().attrs);
+  U.slide.schedule();                                  // asked for, as a photo ending would
+  for (var i = 0; i < 4; i++) { __runTimers(); drainMicrotasks(); drainMicrotasks(); drainMicrotasks(); }
+  ok('...no photo is turned under the black', S.stats().shown === n0, [n0, S.stats().shown]);
+  dispatchEvent({ type: 'kiosksatellite:screensaverstop' });
+  for (var j = 0; j < 4; j++) { __runTimers(); drainMicrotasks(); drainMicrotasks(); drainMicrotasks(); }
+  ok('...and the black ending runs the photos again', S.stats().shown > n0, [n0, S.stats().shown]);
+})();
+woke(); __timers.length = 0;
 // OUR OWN CURTAIN: black over the page while the kiosk's black is up, and
 // away only once the page has drawn as it comes down
 woke(); __timers.length = 0;
