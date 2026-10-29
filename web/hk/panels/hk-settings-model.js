@@ -419,8 +419,19 @@
         out = !p[2] ? 'page/climate' : p[2] === 'rooms' ? 'house/rooms/status' : pageOf(p[2]) ? 'page/' + p[2] + '/status' : 'page/climate';
       }
       else if (p[1] === 'menu' && p[2] === 'status') out = 'house/rooms/status';
+      // APPEARANCE AND MENU, REORGANIZED (2026-10-29): Sky / Background
+      // under Appearance; one Accent Color there; each kind of menu a page
+      else if (p[1] === 'sky' && !(p[2] === 'page' && pageOf(p[3]))) out = ['house', 'appearance', 'sky'].concat(p.slice(2)).join('/');
+      else if (p[1] === 'appearance' && p[2] === 'sky' && p[3] === 'page' && pageOf(p[4])) out = 'page/' + p[4] + '/background';
+      else if (p[1] === 'menu' && p[2] === 'accent') out = 'house/appearance/accent';
+      else if (p[1] === 'appearance' && p[2] === 'flat-colors' && p[3] === 'accent') out = 'house/appearance/accent';
+      else if (p[1] === 'menu' && (p[2] === 'tablets' || p[2] === 'phones')) out = p[3] === 'style' ? 'house/menu/side/' + p[2] : 'house/menu';
       else if (p[1] === 'appearance' && p[2] === 'pill' && pageOf(p[3])) out = 'page/' + p[3] + '/pill';
       else if (p[1] === 'sky' && p[2] === 'page' && pageOf(p[3])) out = 'page/' + p[3] + '/background';
+    } else if (p[0] === 'screens' && p[1] && (p[2] === 'menu' || p[2] === 'flat-colors') && p[3] === 'accent' && !p[4]) {
+      out = 'screens/' + p[1] + '/accent';
+    } else if (p[0] === 'screens' && p[1] && p[2] === 'menu' && (p[3] === 'tablets' || p[3] === 'phones')) {
+      out = 'screens/' + p[1] + '/menu' + (p[4] === 'style' ? '/side/' + p[3] : '');
     } else if (p[0] === 'features' && p.length === 2 && FEATURE_PAGES[p[1]]) {
       out = 'page/' + FEATURE_PAGES[p[1]];
     } else if (p[0] === 'accessories' && p[1] === 'page' && (p[2] === 'vacuums' || p[2] === 'security')) {
@@ -737,6 +748,43 @@
     for (var i = 0; i < ACCENTS.length; i++) if (ACCENTS[i][0] === v) return { name: ACCENTS[i][1], hex: ACCENTS[i][2], custom: false };
     return /^#[0-9a-f]{6}$/.test(v) ? { name: 'Custom', hex: v, custom: true } : { name: 'Orange', hex: '#ff9f0a', custom: false };
   }
+  // ACCENT COLOR (2026-10-29, Phase 3): one choice for the menu's highlight
+  // and Flat's accent -- Automatic (in Flat, Flat's own; elsewhere each
+  // page's color), the eleven colors, or your own. Saved as the menu's
+  // accent (menu.accent, a screen's `accent`) and the same value as Flat's
+  // (flat_colors.accent), so the two never part again. An accent Flat kept
+  // apart before stays as it was saved: shown here while Flat is in use, and
+  // a Flat screen's own as Just This Screen.
+  // -> {value, name, hex (null: Automatic), own, house: the same for All
+  // Screens}. `look`: settings.look; `menu`: settings.menu; `b`: a screen
+  // (as read) or null for All Screens; `flat`: Flat in use there.
+  function accentColorOf(look, menu, b, flat, houseFlat) {
+    look = look || {};
+    var said = function (v) { return { value: v, name: v === 'auto' ? 'Automatic' : flatColorName(v), hex: flatColorHex(v) }; };
+    var hfa = ((look.flat_colors || {}).accent) || 'auto';
+    var hv = houseFlat && hfa !== 'auto' ? hfa : String((menu || {}).accent || 'orange').toLowerCase();
+    var house = said(hv);
+    if (!b) return Object.assign(house, { own: false, house: house });
+    var fown = (b.flat_colors || {}).accent;
+    var own = ownsMenu(b, 'accent') || fown != null;
+    var fa = fown != null ? fown : hfa;
+    var v = flat && fa !== 'auto' ? fa : String(b.accent || 'orange').toLowerCase();
+    return Object.assign(said(v), { own: own, house: house });
+  }
+  // CHOOSING IT: both, in one write -- {house: setH's changes} or {screen:
+  // setB's}; in Flat, Off Pill Tint left Automatic follows a chosen color
+  // (flatAccentChange). `v` null: back to All Screens' (a screen).
+  function accentChanges(v, b, tintAuto) {
+    if (!b) {
+      var h = { 'menu.accent': v, 'look.flat_colors.accent': v };
+      if (v !== 'auto' && tintAuto) h['look.flat_colors.off_tint'] = 'accent';
+      return h;
+    }
+    if (v == null) return Object.assign(menuOwnReset(b, 'accent'), { 'flat_colors.accent': null });
+    var s = Object.assign(menuOwnSet(b, { accent: v }), { 'flat_colors.accent': v });
+    if (v !== 'auto' && tintAuto) s['flat_colors.off_tint'] = 'accent';
+    return s;
+  }
   // FLAT COLORS (2026-10-17; settings.py flat_colors, hk-settings.js
   // resolveFlatColors): Accent Color's presets -- hk-base.js FLAT_ACCENTS,
   // the same list (tests/test_flatcolors.js)
@@ -824,7 +872,10 @@
   }
   // ALL SCREENS' MENU (settings `menu`) as a screen's keys, and back
   // (settings.py MENU_KEYS): the same rows serve both
+  // BACK BUTTON & TITLE (Page Header before 2026-10-29): beside a screen's
+  // other header settings
   var PAGE_HEADERS = [['current', 'Back & Title'], ['smart', 'Context When Needed'], ['none', 'No Header']];
+  var PAGE_HEADER_SAYS = 'With the side menu open or a tab bar, Context When Needed drops a repeated title and keeps a short label; No Header removes both. The full header returns when the menu folds into a button.';
   var MENU_KEYS = { page_header: 'page_header', menu: 'style', tab_position: 'tab_at', tab_size: 'tab_size',
                     tab_size_phone: 'tab_size_phone', dock_min: 'open_min', time_weather: 'time_weather_at',
                     ha_row: 'ha_row', ha_place: 'ha_at', accent: 'accent', glyph: 'glyph', clock: 'clock', swipe: 'swipe',
@@ -862,18 +913,69 @@
     Object.keys(ch).forEach(function (k) { if (MENU_KEYS[k]) out['menu.' + MENU_KEYS[k]] = ch[k]; });
     return out;
   }
-  // A SCREEN TAKING ITS MENU AS ITS OWN: what it shows now, written as its
-  // own, so nothing moves; its `menu` (off, a button, always open) is its
-  // own already
-  function menuOwnChanges(b) {
-    var out = { menu_custom: true };
-    Object.keys(MENU_KEYS).forEach(function (k) { if (k !== 'menu' && b[k] !== undefined) out[k] = b[k]; });
-    // a button's style (All Screens', as it shows now) becomes its own too
-    if (menuMode(b) === 'button') out.menu = b.menu;
+  // A SCREEN'S MENU, ONE SETTING AT A TIME (2026-10-29, settings.py
+  // menu_own), as Appearance follows All Screens: which of its menu
+  // settings are its own -- the rest are All Screens'. A screen still read
+  // with menu_custom (not moved yet) owns them all, as it did.
+  function menuOwn(b) {
+    if (!b) return [];
+    var keys = Object.keys(MENU_KEYS);
+    if (Array.isArray(b.menu_own)) return keys.filter(function (k) { return b.menu_own.indexOf(k) >= 0; });
+    return b.menu_custom === true ? keys : [];
+  }
+  function ownsMenu(b, k) { return menuOwn(b).indexOf(k) >= 0; }
+  // a change to a screen's menu settings: each becomes its own (Just This
+  // Screen); `menu` itself only as a button's style
+  function menuOwnSet(b, ch) {
+    var own = menuOwn(b), out = Object.assign({}, ch);
+    Object.keys(ch).forEach(function (k) { if (MENU_KEYS[k] && own.indexOf(k) < 0) own.push(k); });
+    out.menu_own = Object.keys(MENU_KEYS).filter(function (k) { return own.indexOf(k) >= 0; });
     return out;
   }
-  // one line for a screen's Menu Settings row
-  function menuSummary(b) { return b.menu_custom ? 'Just This Screen' : 'Same as All Screens'; }
+  // ...and back to All Screens' (Reset to All Screens)
+  function menuOwnReset(b, keys) {
+    keys = [].concat(keys);
+    return { menu_own: menuOwn(b).filter(function (k) { return keys.indexOf(k) < 0; }) };
+  }
+  // one line for a row that opens some of a screen's menu settings (`keys`:
+  // those; all of them when left out)
+  function menuSummary(b, keys) {
+    var own = menuOwn(b).filter(function (k) { return !keys || keys.indexOf(k) >= 0; });
+    return !own.length ? 'Same as All Screens' : own.length === 1 ? '1 Own Setting' : own.length + ' Own Settings';
+  }
+  // THE KINDS OF MENU (All Screens -> Menu, 2026-10-29): the side menu (a
+  // button or always open, on either device), the edge tab, the tab bar --
+  // each a page of everything about it. A screen (as read) uses a kind on
+  // either device.
+  function usesSide(b) { var m = menuMode(b); return m === 'button' || m === 'open' || phoneMenu(b) === 'button'; }
+  var MENU_KINDS = [['side', 'Side Menu', usesSide], ['edge-tab', 'Edge Tab', function (b) { return showsTab(b); }],
+                    ['tab-bar', 'Tab Bar', function (b) { return hasTabBar(b); }]];
+  function menuKind(id) { return MENU_KINDS.filter(function (k) { return k[0] === id; })[0] || null; }
+  // the screens that use a kind ([{path, title}] -> their titles)
+  function kindUsers(id, boards, titleOf) {
+    var k = menuKind(id);
+    return !k ? [] : Object.keys(boards || {}).filter(function (p) { return boards[p] && k[2](boards[p]); })
+      .map(function (p) { return titleOf ? titleOf(p) : p; });
+  }
+  // ...as a row's value: who uses it
+  function usedBy(names) {
+    if (!names.length) return 'Not used on any screen';
+    return names.length <= 2 ? names.join(', ') : names.length + ' Screens';
+  }
+  // A SCREEN'S MENU ON EACH DEVICE in a word each: "Tab Bar · Button"
+  function menuWord(b) {
+    var m = menuMode(b), p = phoneMenu(b);
+    var t = m === 'off' ? 'Off' : m === 'open' ? 'Always Open' : m === 'tabbar' ? 'Tab Bar' : 'Button';
+    return t + ' · ' + (p === 'off' ? 'Off' : p === 'tabbar' ? 'Tab Bar' : 'Button');
+  }
+  // which menu settings each kind's page holds (a screen's Reset there)
+  var KIND_KEYS = {
+    side: ['menu', 'button_phone', 'glyph', 'dock_min', 'time_weather', 'swipe', 'clock', 'ha_row', 'ha_place'],
+    'edge-tab': ['tab_position', 'tab_size', 'tab_size_phone'],
+    'tab-bar': ['tab_bar_pos', 'tab_bar_size', 'tab_bar_labels', 'tab_bar_scroll', 'tab_bar_scroll_phone', 'tab_bar_fold',
+                'tab_bar_start', 'tab_bar_adjust', 'tab_bar_tabs', 'tab_bar_tabs_phone', 'tab_bar_tabs_rail', 'tab_bar_more',
+                'tab_bar_more_phone', 'tab_bar_rooms', 'tab_bar_rooms_phone', 'ha_row', 'ha_place']
+  };
   // THE EDGE TAB, on each device: a tablet's button or folded menu, a
   // phone's button
   function tabletTab(b) {
@@ -1511,12 +1613,15 @@
   // `screen: true` rows are on every screen's page.
   var SEARCH = [
     ['Menu', 'screen', 'menu', 'sidebar drawer navigation off button always open docked', true],
-    ['Page Header', 'house/menu', 'menu.page_header', 'back title context navigation compact hide'],
-    ['Page Header', 'screen/menu', 'page_header', 'back title context navigation compact hide', true],
-    ['Menu Settings', 'screen/menu', 'menu_custom', 'same as all screens own menu this screen', true],
+    ['Back Button & Title', 'house/menu/header', 'menu.page_header', 'page header back title context navigation compact hide'],
+    ['Back Button & Title', 'screen', 'page_header', 'page header back title context navigation compact hide', true],
+    ['Menu Settings', 'screen/menu', 'menu_own', 'same as all screens own menu this screen side menu edge tab tab bar', true],
+    ['Menu on Each Screen', 'house/menu', 'menu:screens', 'menu each screen tablets phones which kind button tab bar always open'],
+    ['Side Menu', 'house/menu/side', 'menu:side', 'side menu drawer button always open docked used by'],
+    ['Edge Tab', 'house/menu/edge-tab', 'menu:edge-tab', 'edge tab position size used by'],
     ['Pages in Menu', 'screen/menu-pages', 'categories', 'categories menu list', true],
     ['Page Headers', 'screen/page-headers', 'headers', 'page header off this screen hide header water valve timers quick start', true],
-    ['Tab Bar', 'house/menu', 'menu.bar_pos', 'tab bar bottom bar floating ios navigation dock tabs more rooms position size glass'],
+    ['Tab Bar', 'house/menu/tab-bar', 'menu:tab-bar', 'tab bar bottom bar floating ios navigation dock tabs more rooms position size used by'],
     ['Home Page', 'screen/pages', 'home_page', 'only these pages standalone energy panel security cameras climate no home', true],
     ['Home', 'screen/pages', 'home_view', 'home page custom first page car generated', true],
     ['Rooms in Menu', 'screen/rooms', 'menu_rooms', 'a to z order', true],
@@ -1600,60 +1705,60 @@
     ['Icon Circles', 'house/appearance', 'look.well', 'tinted icon circle well dark light'],
     ['HK Detail Sheets', 'accessories', 'look.details', 'more info dialog sheet tap accessory'],
     ['Page Pills', 'house/appearance/pills', 'look.page_pills', 'page pill scenes row name icon color colour play music cameras calendar live tv'],
-    ['Sky Switch', 'house/sky', 'look.sky_switch', 'live sky helper'],
-    ['Animations', 'house/sky', 'sky.animations', 'sky moving clouds seasons'],
-    ['Weather', 'house/sky', 'sky.weather', 'sky clouds rain snow fog'],
-    ['Rain & Snow', 'house/sky', 'sky.precipitation', 'sky rain snow falling precipitation weather performance'],
-    ['Pause When Not in Focus', 'house/sky', 'sky.focus_pause', 'pause idle focus background window computer animations performance cpu'],
+    ['Sky Switch', 'house/appearance/sky', 'look.sky_switch', 'live sky helper'],
+    ['Animations', 'house/appearance/sky', 'sky.animations', 'sky moving clouds seasons'],
+    ['Weather', 'house/appearance/sky', 'sky.weather', 'sky clouds rain snow fog'],
+    ['Rain & Snow', 'house/appearance/sky', 'sky.precipitation', 'sky rain snow falling precipitation weather performance'],
+    ['Pause When Not in Focus', 'house/appearance/sky', 'sky.focus_pause', 'pause idle focus background window computer animations performance cpu'],
     ['Live First Camera', 'page/cameras', 'cameras.live', 'camera strip live video snapshot first tile performance'],
-    ['Page Backgrounds', 'house/sky', 'sky.pages', 'page color background backdrop energy climate lights still live sky'],
-    ['Background', 'house/sky', 'sky.background', 'background live sky color solid gradient photo picture wallpaper image upload still no stars plain black'],
-    ['Landscapes', 'house/sky', 'sky.background', 'landscapes landscape photos mountains lakes coasts forests nature scenery background scenic wake interval change'],
-    ['Background Photo', 'house/sky', 'sky.photo', 'photo picture wallpaper image upload background blur dim darken saturation tint color cast'],
-    ['Sky Colors', 'house/sky/backdrop', 'sky.gradient', 'backdrop palette gradient live sky colors tint dusk midnight fjord dune graphite plum ember mist black custom'],
-    ['Seasonal Decorations', 'house/sky', 'sky.decorations', 'holiday halloween christmas old new woodland style'],
-    ['Decoration Style', 'house/sky', 'sky.decoration_style', 'old new seasons holidays birthdays woodland'],
-    ['Moving Things', 'house/sky', 'sky.moving', 'front behind over cards rain snow leaves bats birds flyby confetti sky layer'],
-    ['Clouds', 'house/sky', 'sky.cloud_style', 'clouds classic realistic photographic weather sky'],
-    ['Daytime Sky', 'house/sky', 'sky.daytime', 'brightness bright dark deep natural balanced blue midday day sky'],
-    ['Night Sky', 'house/sky', 'sky.liveliness:night', 'stars shooting stars meteors twinkling screensaver night liveliness'],
-    ['Liveliness', 'house/sky', 'sky.liveliness_all', 'liveliness lively busy calm bats geese leaves petals fireflies snow sleigh witch owl how many how often subtle classic festive party custom each occasion'],
-    ['Woodland Between Occasions', 'house/sky/woodland', 'sky.woodland', 'spring summer autumn fall winter woodland seasons scenery new decorations'],
-    ['Birthdays', 'house/sky/birthday', 'sky.birthdays', 'balloons'],
-    ['Hemisphere', 'house/sky/advanced', 'sky.hemisphere', 'southern northern'],
-    ['Moon Phase Sensor', 'house/sky/advanced', 'sky.moon', ''],
-    ['Holiday Season Sensor', 'house/sky/advanced', 'sky.holidays', 'calendar'],
-    ['Menu Button Icon', 'house/menu', 'menu.glyph', 'glyph sidebar lines hamburger'],
-    ['Tap Clock to Open Menu', 'house/menu', 'menu.clock', ''],
-    ['Swipe from Left Edge', 'house/menu', 'menu.swipe', 'menu gesture swipe drag edge open no button'],
-    ['Highlight Color', 'house/menu/accent', 'menu.accent', 'menu color colour accent tint orange icons selected page highlight'],
-    ['Tablets & Computers', 'house/menu', 'menu:tablets', 'menu tablet ipad computer wall device'],
-    ['Phones', 'house/menu', 'menu:phones', 'menu phone iphone android device sideways'],
-    ['Button Style', 'house/menu/tablets/style', 'menu.style', 'menu chip tab edge pinned tablet'],
-    ['Button Style on Phones', 'house/menu/phones/style', 'menu.button_phone', 'menu chip tab edge phone iphone android'],
-    ['Tab Position', 'house/menu', 'menu.tab_at', 'edge tab height level with date from top'],
-    ['Tab Size', 'house/menu/tablets', 'menu.tab_size', 'edge tab menu bigger larger touch target tablet'],
-    ['Tab Size on Phones', 'house/menu/phones', 'menu.tab_size_phone', 'edge tab menu bigger larger touch target phone iphone'],
-    ['Keep Open Down To', 'house/menu/tablets', 'menu.open_min', 'menu fold width docked always open'],
-    ['Time & Weather in Menu', 'house/menu/tablets', 'menu.time_weather_at', 'clock header always open'],
-    ['While Scrolling', 'house/menu/tablets', 'menu.bar_scroll', 'tab bar shrink hide stay scroll auto hide tablet'],
-    ['Rooms in Tab Bar', 'house/menu/tablets', 'menu.bar_rooms', 'tab bar rooms more button sheet round tablet'],
-    ['Rooms in Tab Bar on Phones', 'house/menu/phones', 'menu.bar_rooms_phone', 'tab bar rooms more button sheet round phone iphone'],
-    ['More Style', 'house/menu/tablets', 'menu.bar_more', 'tab bar more icons list grid sheet tablet'],
-    ['While Scrolling on Phones', 'house/menu/phones', 'menu.bar_scroll_phone', 'tab bar phone shrink hide stay always shown scroll'],
-    ['Adjust Content', 'house/menu', 'menu.bar_adjust', 'tab bar adjust content make room move page float over overlap padding'],
-    ['Start Small', 'house/menu', 'menu.bar_start', 'tab bar start small shrunk folded rest collapsed button'],
-    ['Shrinks To', 'house/menu', 'menu.bar_fold', 'tab bar shrink fold small button corner left right top bottom side'],
-    ['Tab Bar Size', 'house/menu', 'menu.bar_size', 'tab bar size small medium large bigger thicker icons text'],
-    ['Tab Bar Labels', 'house/menu', 'menu.bar_labels', 'tab bar labels names icons only text slim'],
-    ['Tabs in Bar', 'house/menu/tablets', 'menu.bar_tabs', 'tab bar how many tabs number count favorites bottom top'],
-    ['Tabs in Rail', 'house/menu/tablets', 'menu.bar_tabs_rail', 'tab bar rail how many tabs number count favorites left right side'],
-    ['Tabs in Bar on Phones', 'house/menu/phones', 'menu.bar_tabs_phone', 'tab bar phone iphone how many tabs number count favorites bottom'],
-    ['Tab Bar Position', 'house/menu', 'menu.bar_pos', 'tab bar position top bottom left right rail side placement'],
-    ['More Style on Phones', 'house/menu/phones', 'menu.bar_more_phone', 'tab bar more icons list grid sheet phone iphone'],
-    ['Tab Bar Glass', 'house/menu', 'menu.bar_glass', 'tab bar blur frosted tinted clear transparency look'],
-    ['Home Assistant Section Placement', 'house/menu', 'menu.ha_at', 'home assistant section where top categories rooms bottom order position place'],
-    ['Home Assistant Section', 'house/menu', 'menu.ha_row', 'sidebar settings access integrations automations notifications profile show menu'],
+    ['Page Backgrounds', 'house/appearance/sky', 'sky.pages', 'page color background backdrop energy climate lights still live sky'],
+    ['Background', 'house/appearance/sky', 'sky.background', 'background live sky color solid gradient photo picture wallpaper image upload still no stars plain black'],
+    ['Landscapes', 'house/appearance/sky', 'sky.background', 'landscapes landscape photos mountains lakes coasts forests nature scenery background scenic wake interval change'],
+    ['Background Photo', 'house/appearance/sky', 'sky.photo', 'photo picture wallpaper image upload background blur dim darken saturation tint color cast'],
+    ['Sky Colors', 'house/appearance/sky/backdrop', 'sky.gradient', 'backdrop palette gradient live sky colors tint dusk midnight fjord dune graphite plum ember mist black custom'],
+    ['Seasonal Decorations', 'house/appearance/sky', 'sky.decorations', 'holiday halloween christmas old new woodland style'],
+    ['Decoration Style', 'house/appearance/sky', 'sky.decoration_style', 'old new seasons holidays birthdays woodland'],
+    ['Moving Things', 'house/appearance/sky', 'sky.moving', 'front behind over cards rain snow leaves bats birds flyby confetti sky layer'],
+    ['Clouds', 'house/appearance/sky', 'sky.cloud_style', 'clouds classic realistic photographic weather sky'],
+    ['Daytime Sky', 'house/appearance/sky', 'sky.daytime', 'brightness bright dark deep natural balanced blue midday day sky'],
+    ['Night Sky', 'house/appearance/sky', 'sky.liveliness:night', 'stars shooting stars meteors twinkling screensaver night liveliness'],
+    ['Liveliness', 'house/appearance/sky', 'sky.liveliness_all', 'liveliness lively busy calm bats geese leaves petals fireflies snow sleigh witch owl how many how often subtle classic festive party custom each occasion'],
+    ['Woodland Between Occasions', 'house/appearance/sky/woodland', 'sky.woodland', 'spring summer autumn fall winter woodland seasons scenery new decorations'],
+    ['Birthdays', 'house/appearance/sky/birthday', 'sky.birthdays', 'balloons'],
+    ['Hemisphere', 'house/appearance/sky/advanced', 'sky.hemisphere', 'southern northern'],
+    ['Moon Phase Sensor', 'house/appearance/sky/advanced', 'sky.moon', ''],
+    ['Holiday Season Sensor', 'house/appearance/sky/advanced', 'sky.holidays', 'calendar'],
+    ['Menu Button Icon', 'house/menu/side', 'menu.glyph', 'glyph sidebar lines hamburger side menu'],
+    ['Tap Clock to Open Menu', 'house/menu/side', 'menu.clock', 'side menu'],
+    ['Swipe from Left Edge', 'house/menu/side', 'menu.swipe', 'menu gesture swipe drag edge open no button side menu'],
+    ['Accent Color', 'house/appearance/accent', 'menu.accent', 'highlight color colour accent tint orange icons selected page menu flat'],
+    ['Highlight Color', 'house/appearance/accent', 'menu.accent', 'menu color colour accent tint orange icons selected page highlight'],
+    ['Button Style', 'house/menu/side/tablets', 'menu.style', 'menu chip tab edge pinned tablet side menu'],
+    ['Button Style on Phones', 'house/menu/side/phones', 'menu.button_phone', 'menu chip tab edge phone iphone android side menu'],
+    ['Tab Position', 'house/menu/edge-tab', 'menu.tab_at', 'edge tab height level with date from top'],
+    ['Tab Size', 'house/menu/edge-tab', 'menu.tab_size', 'edge tab menu bigger larger touch target tablet'],
+    ['Tab Size on Phones', 'house/menu/edge-tab', 'menu.tab_size_phone', 'edge tab menu bigger larger touch target phone iphone'],
+    ['Keep Open Down To', 'house/menu/side', 'menu.open_min', 'menu fold width docked always open side menu'],
+    ['Time & Weather in Menu', 'house/menu/side', 'menu.time_weather_at', 'clock header always open side menu'],
+    ['While Scrolling', 'house/menu/tab-bar', 'menu.bar_scroll', 'tab bar shrink hide stay scroll auto hide tablet'],
+    ['Rooms in Tab Bar', 'house/menu/tab-bar', 'menu.bar_rooms', 'tab bar rooms more button sheet round tablet'],
+    ['Rooms in Tab Bar on Phones', 'house/menu/tab-bar', 'menu.bar_rooms_phone', 'tab bar rooms more button sheet round phone iphone'],
+    ['More Style', 'house/menu/tab-bar', 'menu.bar_more', 'tab bar more icons list grid sheet tablet'],
+    ['While Scrolling on Phones', 'house/menu/tab-bar', 'menu.bar_scroll_phone', 'tab bar phone shrink hide stay always shown scroll'],
+    ['Adjust Content', 'house/menu/tab-bar', 'menu.bar_adjust', 'tab bar adjust content make room move page float over overlap padding'],
+    ['Start Small', 'house/menu/tab-bar', 'menu.bar_start', 'tab bar start small shrunk folded rest collapsed button'],
+    ['Shrinks To', 'house/menu/tab-bar', 'menu.bar_fold', 'tab bar shrink fold small button corner left right top bottom side'],
+    ['Tab Bar Size', 'house/menu/tab-bar', 'menu.bar_size', 'tab bar size small medium large bigger thicker icons text'],
+    ['Tab Bar Labels', 'house/menu/tab-bar', 'menu.bar_labels', 'tab bar labels names icons only text slim'],
+    ['Tabs in Bar', 'house/menu/tab-bar', 'menu.bar_tabs', 'tab bar how many tabs number count favorites bottom top'],
+    ['Tabs in Rail', 'house/menu/tab-bar', 'menu.bar_tabs_rail', 'tab bar rail how many tabs number count favorites left right side'],
+    ['Tabs in Bar on Phones', 'house/menu/tab-bar', 'menu.bar_tabs_phone', 'tab bar phone iphone how many tabs number count favorites bottom'],
+    ['Tab Bar Position', 'house/menu/tab-bar', 'menu.bar_pos', 'tab bar position top bottom left right rail side placement'],
+    ['More Style on Phones', 'house/menu/tab-bar', 'menu.bar_more_phone', 'tab bar more icons list grid sheet phone iphone'],
+    ['Tab Bar Glass', 'house/appearance', 'menu.bar_glass', 'tab bar blur frosted tinted clear transparency look appearance'],
+    ['Home Assistant Section Placement', 'house/menu/side', 'menu.ha_at', 'home assistant section where top categories rooms bottom order position place'],
+    ['Home Assistant Section', 'house/menu/side', 'menu.ha_row', 'sidebar settings access integrations automations notifications profile show menu'],
+    ['Rooms in the Menu', 'house/rooms', 'rooms.menu', 'rooms in the menu order which rooms a to z side menu tab bar more'],
     ['Rooms', 'house/rooms', 'rooms.order', 'rooms all screens settings scenes'],
     ['Cameras', 'page/cameras', 'cameras.order', 'camera order which cameras strip cameras page room pages all screens'],
     ['Pause Cameras When Not in Focus', 'page/cameras', 'cameras.focus_pause', 'pause cameras focus background window computer live video performance cpu'],
@@ -1706,11 +1811,11 @@
   // ...and the rows search could not find by name (2026-10-09 audit): each
   // occasion and woodland season by its name, the screen's device rows
   SKY_THEMES.forEach(function (t) {
-    SEARCH.push([t.label, 'house/sky/' + t.id, 'sky.themes:' + t.id,
+    SEARCH.push([t.label, 'house/appearance/sky/' + t.id, 'sky.themes:' + t.id,
                  'seasonal decorations occasion holiday show dates starts ends days liveliness ' + t.label.toLowerCase()]);
   });
   WOODLAND.forEach(function (w) {
-    SEARCH.push([w[1] + ' Woodland', 'house/sky/woodland/' + w[0], 'lively:' + w[0],
+    SEARCH.push([w[1] + ' Woodland', 'house/appearance/sky/woodland/' + w[0], 'lively:' + w[0],
                  'woodland season new decorations liveliness ' + w[1].toLowerCase() + (w[0] === 'fall' ? ' fall' : '')]);
   });
   SEARCH.push(
@@ -1719,7 +1824,7 @@
     ['Car Layout', 'screen', 'car_layout', 'car tesla home layout full compact rooms', true],
     ['Car Scale', 'screen', 'car_width', 'car tesla scale zoom size width bigger smaller custom', true],
     ['Header on Phones', 'screen', 'phone_header', 'phone weather strip clock header', true],
-    ['Decorations Also Need', 'house/sky/advanced', 'sky.seasonal', 'decorations need season sensor holidays also needs'],
+    ['Decorations Also Need', 'house/appearance/sky/advanced', 'sky.seasonal', 'decorations need season sensor holidays also needs'],
     ['Fade Back (Screensaver)', 'screen/screensaver', 'saver:fade_back', 'screensaver fade back dashboard touch switch', true],
     ['Fill the Screen (Screensaver)', 'screen/screensaver', 'saver:fill', 'screensaver photos crop fill whole photo landscape', true],
     ['Portrait Photos (Screensaver)', 'screen/screensaver', 'saver:portrait_fill', 'screensaver portrait landscape photos zoom focus crop top center bottom blur dim whole fill', true],
@@ -1728,10 +1833,12 @@
     ['Wind Sensor', 'house/weather/sensors', 'weather.wind', 'weather wind speed sensor'],
     ['Daily Forecast', 'house/weather/sensors', 'weather.forecast_daily', 'weather forecast daily days'],
     ['Hourly Forecast', 'house/weather/sensors', 'weather.forecast_hourly', 'weather forecast hourly hours'],
-    ['Menu on Tablets & Computers', 'screen/menu/tablets', 'menu', 'menu tablet ipad computer off button always open tab bar', true],
-    ['Menu on Phones', 'screen/menu/phones', 'menu_phone', 'menu phone iphone android off button tab bar folded upright ipad', true],
-    ['Highlight Color', 'screen/menu', 'accent', 'menu color colour accent highlight', true],
-    ['Keep Open Down To', 'screen/menu/tablets', 'dock_min', 'menu fold width docked always open', true],
+    ['Menu on Tablets & Computers', 'screen', 'menu', 'menu tablet ipad computer off button always open tab bar', true],
+    ['Menu on Phones', 'screen', 'menu_phone', 'menu phone iphone android off button tab bar folded upright ipad', true],
+    ['Accent Color', 'screen/accent', 'accent', 'menu color colour accent highlight flat', true],
+    ['Highlight Color', 'screen/accent', 'accent', 'menu color colour accent highlight', true],
+    ['Appearance', 'screen', 'appearance', 'appearance style glass flat look sky background accent', true],
+    ['Keep Open Down To', 'screen/menu/side', 'dock_min', 'menu fold width docked always open', true],
     ['Mosaic Lines (Screensaver)', 'house/screensaver', 'saver:mosaic_line', 'screensaver mosaic line thickness color spacing divider border'],
     ['Up To (Mosaic)', 'house/screensaver', 'saver:mosaic_random', 'screensaver mosaic random number photos up to change'],
     ['Clock Text Shadow and Outline', 'house/screensaver', 'saver:clock_text_shadow', 'screensaver clock photos shadow outline stand out text readable'],
@@ -1811,8 +1918,8 @@
   var COPY_GROUPS = [
     // the groups as the screen's page has them (2026-10-09): Menu, Home
     // Page, Header, Pages, Appearance, Behavior, When Idle, This Device
-    // a screen's menu: All Screens' or its own (menu_custom)
-    ['menu', 'Menu', ['menu', 'menu_custom', 'page_header', 'dock_min', 'time_weather', 'ha_row', 'ha_place', 'tab_position', 'tab_size',
+    // a screen's menu: All Screens', or its own one setting at a time (menu_own)
+    ['menu', 'Menu', ['menu', 'menu_own', 'page_header', 'dock_min', 'time_weather', 'ha_row', 'ha_place', 'tab_position', 'tab_size',
                       'tab_size_phone', 'accent', 'glyph', 'clock', 'swipe',
                       'tab_bar_scroll', 'tab_bar_rooms', 'tab_bar_glass', 'tab_bar_more', 'tab_bar_more_phone', 'tab_bar_pos', 'tab_bar_fold', 'tab_bar_start', 'tab_bar_adjust', 'tab_bar_scroll_phone', 'tab_bar_tabs',
                       'tab_bar_tabs_rail', 'tab_bar_tabs_phone', 'tab_bar_size', 'tab_bar_labels', 'menu_phone', 'button_phone', 'tab_bar_rooms_phone'], true],
@@ -2208,7 +2315,9 @@
     flatSourceLabel: flatSourceLabel, flatTintLabel: flatTintLabel, flatFieldSays: flatFieldSays, flatAccentChange: flatAccentChange, PAGE_ACCENTS: PAGE_ACCENTS, pageAccentOf: pageAccentOf, tabPosParts: tabPosParts, tabPosJoin: tabPosJoin, tabPosLabel: tabPosLabel,
     PAGE_HEADERS: PAGE_HEADERS, MENU_KEYS: MENU_KEYS, houseMenuAsBoard: houseMenuAsBoard, houseMenuSave: houseMenuSave,
     TAB_BAR_SCROLLS: TAB_BAR_SCROLLS, TAB_BAR_GLASS: TAB_BAR_GLASS, TAB_BAR_ROOMS: TAB_BAR_ROOMS, roomsPlace: roomsPlace, TAB_BAR_MORE: TAB_BAR_MORE, TAB_BAR_POS: TAB_BAR_POS, TAB_BAR_SIZES: TAB_BAR_SIZES, TAB_BAR_LABELS: TAB_BAR_LABELS, HA_PLACES: HA_PLACES, TAB_BAR_TABS: TAB_BAR_TABS, TAB_BAR_TABS_PHONE: TAB_BAR_TABS_PHONE, foldOptions: foldOptions, hasTabBar: hasTabBar, choiceLabel: choiceLabel,
-    menuOwnChanges: menuOwnChanges, menuSummary: menuSummary, GLASS: GLASS,
+    menuOwn: menuOwn, ownsMenu: ownsMenu, menuOwnSet: menuOwnSet, menuOwnReset: menuOwnReset, menuSummary: menuSummary,
+    MENU_KINDS: MENU_KINDS, menuKind: menuKind, kindUsers: kindUsers, usedBy: usedBy, menuWord: menuWord, KIND_KEYS: KIND_KEYS, usesSide: usesSide, PAGE_HEADER_SAYS: PAGE_HEADER_SAYS,
+    accentColorOf: accentColorOf, accentChanges: accentChanges, GLASS: GLASS,
     GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, TINT_WELLS: TINT_WELLS, isBlur: isBlur, glassStyle: glassStyle, PRESETS: PRESETS, STATUS_LABELS: STATUS_LABELS,
     STATUS_SAYS: STATUS_SAYS, STATUS_ROWS: STATUS_ROWS, STATUS_SOURCE: STATUS_SOURCE, PAGES: PAGES, pageOf: pageOf, PAGE_TYPES: PAGE_TYPES,
     PAGE_FEATURES: PAGE_FEATURES, pagesListed: pagesListed, pageOfRoute: pageOfRoute, routeForward: routeForward, screenShows: screenShows, headerOffOn: headerOffOn, statusSummary: statusSummary, HEADER_PAGES: HEADER_PAGES,
