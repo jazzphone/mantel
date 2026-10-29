@@ -417,3 +417,18 @@ async def test_the_tablets_route_is_a_managers_only(mantel, role):
     assert (await mantel.get("/api/performance/tablets")).status == 403
     spec = P.api_tablets.__guard__
     assert spec.who == "manager" and spec.device_ok is False
+
+
+def test_the_hourly_log_line_says_the_tick_and_the_history(caplog):
+    import logging
+    import sqlite3
+    from mantel_server import performance
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE settings_history (body TEXT, diff TEXT)")
+    conn.execute("INSERT INTO settings_history VALUES (?, ?)", ("x" * 1000, "y" * 500))
+    performance.STATS.reset()
+    performance.STATS.tick(12.5)
+    store = type("S", (), {"db": conn})()
+    with caplog.at_level(logging.INFO, logger="mantel.performance"):
+        performance.log_summary({"store": store})
+    assert "minute tick 12.5 ms" in caplog.text and "settings history 1 versions" in caplog.text

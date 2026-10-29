@@ -989,6 +989,7 @@ def restart_house_tz(app: web.Application, hub: Hub) -> None:
 async def policy_tick(app: web.Application, hub: Hub, every: float = POLICY_TICK) -> None:
     """Once a minute: schedules and guest windows open or close, roles change, sessions and devices
     are revoked. Each socket's principal is re-read; a socket whose session is gone is closed."""
+    n = 0
     while True:
         await asyncio.sleep(every)
         t0 = time.perf_counter()
@@ -998,6 +999,9 @@ async def policy_tick(app: web.Application, hub: Hub, every: float = POLICY_TICK
             log.exception("policy tick failed")
         # how long the minute's work took (Mantel Settings -> About -> Performance); a failed one counts too
         performance.STATS.tick((time.perf_counter() - t0) * 1000.0)
+        n += 1
+        if n % 60 == 1:      # and once an hour in the log, for whoever reads it there (the App's log, 2026-10-29)
+            performance.log_summary(app)
 
 
 async def tick_once(app: web.Application, hub: Hub) -> None:

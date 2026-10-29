@@ -25,6 +25,7 @@ what HK Settings recommends a lighter look from (a screen's Appearance; mantel-s
 Numbers only, in memory only, nothing audited (a read)."""
 from __future__ import annotations
 
+import logging
 import math
 import time
 from collections import deque
@@ -34,6 +35,8 @@ from aiohttp import web
 
 from . import page_health
 from .guards import guard
+
+log = logging.getLogger("mantel.performance")
 
 PATH = "/api/performance"
 TABLETS_PATH = "/api/performance/tablets"
@@ -130,6 +133,15 @@ async def api_performance(request: web.Request) -> web.Response:
         "server": {"fan_out": STATS.fan_out(now), "ha_events_per_min": STATS.event_rate(now), "connected_screens": screens,
                    "tick": STATS.tick_times(now), "settings_history": STATS.history_size(getattr(request.app.get("store"), "db", None), now)},
     }, headers={"Cache-Control": "no-store"})
+
+
+def log_summary(app) -> None:
+    """One line for the log: the minute tick's last and longest time, and the settings history's size."""
+    tick = STATS.tick_times()
+    hist = STATS.history_size(getattr(app.get("store"), "db", None))
+    mb = None if hist.get("bytes") is None else round(hist["bytes"] / 1e6, 1)
+    log.info("performance: minute tick %s ms (longest %s ms in 24 h); settings history %s versions, %s MB",
+             tick["last_ms"], tick["max_ms"], hist.get("rows"), mb)
 
 
 def tablets(app: web.Application) -> list[dict]:
