@@ -574,7 +574,7 @@
       if (!rooms.length) rooms = Object.keys(client.areas || {});
       rooms = rooms.slice(0, 512);
       var tablet = Object.values(this.panel.data.tablets || {}).find((t) => t.screen === this.o.path && t.room);
-      var menu = board.menu_custom ? board.menu : (this.panel.data.settings.menu || {}).menu;
+      var menu = board.menu;            // as read: a button's style All Screens' unless the screen owns it (settings.py resolved())
       return { concept: concept, scenes: board.scenes && board.scenes.length ? board.scenes.filter((id) => id.indexOf('scene.') === 0) : ids('scene'), rooms: rooms,
         cameras: board.cameras && board.cameras.length ? board.cameras : ids('camera'), climate: ids('climate'),
         tablet_room: tablet ? tablet.room : null, tab_bar: menu === 'tabbar' || menu === 'auto' || !menu };

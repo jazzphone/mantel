@@ -803,7 +803,7 @@ More help: [Troubleshooting](Troubleshooting.md).
 
 ## Screensaver settings
 
-**All Screens → Screensaver** (right after Sky / Background). What every
+**All Screens → Screensaver** (right after Appearance). What every
 screen’s screensaver shows, unless the screen has its own. When a tablet goes
 dark is its own [Sleep Screen](Sleep-Screen.md)’s, and when it returns to Home
 its own (both in [Wall Tablets](Wall-Tablets.md#wall-tablets-settings)).

@@ -1092,7 +1092,10 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "home_rooms": _choice(S.BOARD_HOME_ROOMS),
     "rooms_custom": _bool,
     "cameras_custom": _bool,
+    # (before entry 1.17: all of the menu or none; an older page's write is
+    # read as all or none of menu_own -- apply_board)
     "menu_custom": _bool,
+    "menu_own": lambda v: _menu_own(v),
     "page_header": _choice(S.PAGE_HEADERS),
     "accent": _accent,
     "glyph": _choice(S.MENU_GLYPHS),
@@ -1299,6 +1302,13 @@ IMAGE_BOARD = re.compile(r"^(sky_flat_image_look|sky_image_look)\.patch$|^sky_fl
 FLAT_BOARD = re.compile(r"^flat_colors\.(accent|off_tint|pages)$|^flat_page_colors\.([a-z0-9][a-z0-9_-]{0,39})$")
 
 
+def _menu_own(v: Any) -> list[str]:
+    """Which menu settings a screen owns (settings.MENU_KEYS), in their order."""
+    if not isinstance(v, list) or not all(isinstance(k, str) and k in S.MENU_KEYS for k in v):
+        raise Invalid("choice")
+    return [k for k in S.MENU_KEYS if k in v]
+
+
 def apply_board(data: Mapping[str, Any], changes: Mapping[str, Any]
                 ) -> tuple[dict[str, Any], dict[str, str]]:
     """One screen's settings with `changes` made (then settings.board(), as
@@ -1330,6 +1340,9 @@ def apply_board(data: Mapping[str, Any], changes: Mapping[str, Any]
             errors[key] = err.code
     if errors:
         return S.board(data), errors
+    if "menu_custom" in clean:
+        # an older page's Same as All Screens switch: every menu setting, or none
+        clean.setdefault("menu_own", list(S.MENU_KEYS) if clean.pop("menu_custom") else [])
     out = S.board({**dict(data), **clean})
     if "home_grid" not in clean and "home_grid" in data:
         # a save that doesn't touch the grid keeps it as stored: board() reads it the tolerant way (a block or

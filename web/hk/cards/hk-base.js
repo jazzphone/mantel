@@ -3805,8 +3805,8 @@
                 page_rooms: 'floor', rooms_custom: false,
                 // the cameras: All Screens' unless cameras_custom (settings.py resolved())
                 cameras_custom: false,
-                // the menu: All Screens' unless menu_custom (settings.py resolved())
-                menu_custom: false, page_header: 'current', accent: 'orange', glyph: 'sidebar', clock: true,
+                // the menu: All Screens' but for the settings in menu_own (settings.py resolved())
+                menu_own: [], page_header: 'current', accent: 'orange', glyph: 'sidebar', clock: true,
                 // 1.7: Home, Pages, Screen (settings.py BOARD_DEFAULTS). chips_quiet
                 // null = the chip row's own default (hk-chip.js QUIET_DEFAULT).
                 chips_row: true, chips: [], chips_quiet: null, chips_extra: [], camera_strip: true, cameras: [],

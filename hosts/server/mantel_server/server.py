@@ -760,6 +760,8 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
         may_configure=settings_store.rbac_may_configure(rbac_store=store, clock=lambda: app["clock"]())))
     # SET-2: house/settings stored merged (before 0.1.78) becomes the stored differences, once, as a version
     settings_store.normalise_house(app["settings"].store)
+    # Phase 3 (0.1.86): each screen's menu follows All Screens one setting at a time (menu_custom retired), once
+    settings_store.menus_per_setting(app["settings"].store)
     # no screens and no import yet (a Home Assistant without HK Frontend): a generated Home screen, which the
     # import replaces while it is untouched
     settings_store.seed_home_screen(app["settings"].store)

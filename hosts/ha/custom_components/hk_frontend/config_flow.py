@@ -151,7 +151,9 @@ class HkFrontendConfigFlow(ConfigFlow, domain=DOMAIN):
     # settings.cameras_lifted.
     # 14 (2026-10-13): each wall tablet an item of its own (type "tablet"),
     # apart from the screen it runs -- settings.tablets_lifted.
-    MINOR_VERSION = 16
+    # 17 (2026-10-29): the menu follows All Screens one setting at a time
+    # (menu_own); menu_custom retired -- settings.menu_per_setting.
+    MINOR_VERSION = 17
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None
                               ) -> ConfigFlowResult:

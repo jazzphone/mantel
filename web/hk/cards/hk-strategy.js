@@ -3006,7 +3006,7 @@
                     // accent picked for the house no longer rebuilds every
                     // screen (closing its sheets, reconnecting its cameras)
                     accent: 1, swipe: 1, glyph: 1, clock: 1, tab_size: 1, tab_size_phone: 1,
-                    menu_custom: 1, menu_house: 1, page_header: 1,
+                    menu_own: 1, menu_custom: 1, menu_house: 1, page_header: 1,
                     // ...and the tab bar's and the Home Assistant section's
                     // (hk-tabbar.js / hk-menu.js read them live). Every key
                     // of settings.py MENU_KEYS but `menu` belongs here:

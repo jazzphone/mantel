@@ -1117,7 +1117,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
              # ALL SCREENS' MENU (entry 1.9, 2026-10-02): every screen's menu
              # settings but whether it has one (its `menu`: off, a button,
              # always open), for each screen that doesn't set its own
-             # (menu_custom). MENU_KEYS maps them onto a screen's keys. (The
+             # (menu_own: since entry 1.17 one setting at a time). MENU_KEYS
+             # maps them onto a screen's keys. (The
              # house-wide lists before 1.9 -- dashboards, docked, ... -- went
              # in entry 1.12, settings_tidied.)
              "style": "auto", "tab_at": "", "tab_size": "large",
@@ -1697,7 +1698,7 @@ BOARD_TAB_SIZES = ("standard", "large", "xl")
 # always open) on wide screens and the bar where that menu would fold. The
 # two never show together. How the bar behaves while the page scrolls, its
 # Rooms button and its glass are menu settings (MENU_KEYS): All Screens'
-# unless the screen sets its own menu (menu_custom).
+# unless the screen sets its own (menu_own, one setting at a time).
 # shrink: folds into a small round button while scrolling down; hide: slides
 # away; stay: never moves. Both come back on any scroll up, at the page's
 # ends and on a page change.
@@ -1787,10 +1788,13 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # cameras_custom: `cameras` is this screen's own; off, it is All Screens'
     # (settings `cameras`, filled in by resolved())
     "cameras_custom": False,
-    # menu_custom: the menu settings in MENU_KEYS are this screen's own; off,
-    # they are All Screens' (settings `menu`, filled in by resolved()) -- all
-    # but `menu` itself, whose button style alone follows
-    "menu_custom": False, "page_header": "current", "accent": "orange", "glyph": "sidebar", "clock": True,
+    # menu_own (entry 1.17, 2026-10-29): which of the menu settings in
+    # MENU_KEYS are this screen's own, one by one -- the rest are All
+    # Screens' (settings `menu`, filled in by resolved()), as Appearance
+    # follows them. `menu` itself is the screen's own whenever it is off,
+    # always open or the tab bar; listed, a button's style is its own too.
+    # (menu_custom, all or nothing, before 1.17: menu_per_setting.)
+    "menu_own": [], "page_header": "current", "accent": "orange", "glyph": "sidebar", "clock": True,
     # swipe: a drag right from the left edge opens the menu, at every width,
     # beside whatever button there is (hk-menu.js wireEdge)
     "swipe": False,
@@ -2011,7 +2015,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["ha_place"] = pick("ha_place", HA_PLACES)
     out["rooms_custom"] = bool(d.get("rooms_custom", False))
     out["cameras_custom"] = bool(d.get("cameras_custom", False))
-    out["menu_custom"] = bool(d.get("menu_custom", False))
+    out["menu_own"] = menu_own(d)
     out["page_header"] = pick("page_header", PAGE_HEADERS)
     out["accent"] = accent(d.get("accent")) or out["accent"]
     out["glyph"] = pick("glyph", MENU_GLYPHS)
@@ -2495,25 +2499,77 @@ def resolved(b: Mapping[str, Any], options: Mapping[str, Any] | None,
     out["cameras_house"] = not b.get("cameras_custom")
     if out["cameras_house"]:
         out["cameras"] = house_cameras(merged(options)["cameras"]["order"] if cameras is None else cameras)
-    out["menu_house"] = not b.get("menu_custom")
-    if out["menu_house"]:
-        hm = house_menu(merged(options)["menu"] if menu is None else menu)
-        style = hm.pop("menu")
-        out.update(hm)
-        if out.get("menu") in MENU_STYLES:
-            out["menu"] = style
+    # THE MENU, ONE SETTING AT A TIME (entry 1.17): each key the screen
+    # doesn't list in menu_own is All Screens'; menu_house says it follows
+    # All Screens in everything
+    own = set(menu_own(b))
+    out["menu_house"] = not own
+    hm = house_menu(merged(options)["menu"] if menu is None else menu)
+    style = hm.pop("menu")
+    out.update({k: v for k, v in hm.items() if k not in own})
+    if "menu" not in own and out.get("menu") in MENU_STYLES:
+        out["menu"] = style
+    return out
+
+
+def menu_own(d: Mapping[str, Any] | None) -> list[str]:
+    """Which of a screen's menu settings are its own (MENU_KEYS order), as
+    stored: its menu_own; a screen still stored with menu_custom (before
+    entry 1.17, not moved yet -- menu_per_setting) owns them all, as it
+    did."""
+    d = d or {}
+    v = d.get("menu_own")
+    if isinstance(v, list):
+        return [k for k in MENU_KEYS if k in v]
+    return list(MENU_KEYS) if d.get("menu_custom") is True else []
+
+
+def menu_per_setting(options: Mapping[str, Any] | None, items: Mapping[str, Mapping[str, Any]]
+                     ) -> dict[str, dict[str, Any]]:
+    """THE MENU FOLLOWS ALL SCREENS ONE SETTING AT A TIME (entry 1.17,
+    2026-10-29), as Appearance does. A screen that had its own menu
+    (menu_custom) keeps as its own only the settings that differ from All
+    Screens'; those equal to All Screens' follow them again. A screen that
+    followed keeps following. A menu setting a screen doesn't own isn't
+    kept (HA's resolved answer baked All Screens' into them), and
+    menu_custom goes. Nothing any screen shows changes. -> {path: new item
+    data}."""
+    house = house_menu(merged(options)["menu"])
+    out = {}
+    for p, d in items.items():
+        data = dict(d)
+        custom = data.pop("menu_custom", None) is True
+        listed = d.get("menu_own") if isinstance(d.get("menu_own"), list) else None
+        if listed is not None and set(listed) != set(MENU_KEYS):
+            own = [k for k in MENU_KEYS if k in listed]
+        elif custom or listed is not None:
+            # (every one listed: menu_custom as an older entry's 1.15 trim
+            # wrote it down -- compared the same way)
+            b = board(data)
+            own = [k for k in MENU_KEYS
+                   if (b[k] in MENU_STYLES and b[k] != house[k] if k == "menu"
+                       else json.dumps(b[k]) != json.dumps(house[k]))]
+        else:
+            own = []
+        for k in MENU_KEYS:
+            if k != "menu" and k not in own:
+                data.pop(k, None)
+        data.pop("menu_own", None)
+        if own:
+            data["menu_own"] = own
+        out[p] = data
     return out
 
 
 def preset_menu(data: Mapping[str, Any], preset: Mapping[str, Any],
                 options: Mapping[str, Any] | None) -> dict[str, Any]:
     """A new screen from a preset (SCREEN_PRESETS): it follows All Screens'
-    menu unless the preset chooses a menu setting All Screens' differs on
-    (a wall tablet's time and weather in the menu), when it starts with its
-    own (menu_custom). Whether it has a menu is its own either way."""
+    menu, but each menu setting the preset chooses that All Screens' differs
+    on (a wall tablet's time and weather in the menu) starts as its own
+    (menu_own). Whether it has a menu is its own either way."""
     house = house_menu(merged(options)["menu"])
-    keys = [k for k in preset if k in MENU_KEYS and k != "menu"]
-    return {**data, "menu_custom": any(json.dumps(data[k]) != json.dumps(house[k]) for k in keys)}
+    keys = [k for k in MENU_KEYS if k in preset and k != "menu" and json.dumps(data[k]) != json.dumps(house[k])]
+    return {**data, "menu_own": keys}
 
 
 def new_board(kind: str, options: Mapping[str, Any] | None) -> dict[str, Any]:

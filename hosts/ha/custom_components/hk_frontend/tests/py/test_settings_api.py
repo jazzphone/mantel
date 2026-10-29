@@ -31,7 +31,8 @@ async def _admin(hass):
 def test_every_screen_setting_can_be_written():
     from custom_components.hk_frontend import settings as S, settings_api as A
     # (a screen's where and title are the host's to set: Mantel's screens, never a screen's page)
-    want = set(S.BOARD_DEFAULTS) - set(S.BOARD_OWN)
+    # (menu_custom: an older page's write, read as all or none of menu_own -- changes.apply_board)
+    want = (set(S.BOARD_DEFAULTS) - set(S.BOARD_OWN)) | {"menu_custom"}
     assert set(A.BOARD) == want, set(A.BOARD) ^ want
 
 

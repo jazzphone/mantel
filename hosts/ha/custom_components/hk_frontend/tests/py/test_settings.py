@@ -657,7 +657,7 @@ async def test_an_entry_from_1_12_moves_its_cameras(hass, base):
     old.add_to_hass(hass)
     assert await hass.config_entries.async_setup(old.entry_id)
     await hass.async_block_till_done()
-    assert old.minor_version == 16
+    assert old.minor_version == 17
     assert S.merged(old.options)["cameras"]["order"] == cams
     got = S.boards(old)
     assert got["dashboard-a"]["cameras_house"] and got["dashboard-b"]["cameras_house"]
@@ -675,7 +675,7 @@ async def test_an_entry_from_1_7_moves_its_rooms(hass, base):
     old.add_to_hass(hass)
     assert await hass.config_entries.async_setup(old.entry_id)
     await hass.async_block_till_done()
-    assert old.minor_version == 16
+    assert old.minor_version == 17
     assert S.merged(old.options)["rooms"]["order"] == ORDER
     got = S.boards(old)
     assert all(got[p]["rooms_house"] and got[p]["room_order"] == ORDER and got[p]["menu_rooms"] == "order"
@@ -757,10 +757,34 @@ def test_menu_accent_is_a_name_or_a_hex():
 def test_a_preset_keeps_its_own_menu_only_where_all_screens_differ():
     from custom_components.hk_frontend import settings as S
     wall = S.SCREEN_PRESETS["wall_tablet"]
-    assert S.preset_menu(S.board(wall), wall, {})["menu_custom"] is True
-    assert S.preset_menu(S.board(wall), wall, {"dashboard": {"menu": {"time_weather_at": "menu"}}})["menu_custom"] is False
+    assert S.preset_menu(S.board(wall), wall, {})["menu_own"] == ["time_weather"]
+    assert S.preset_menu(S.board(wall), wall, {"dashboard": {"menu": {"time_weather_at": "menu"}}})["menu_own"] == []
     phone = S.SCREEN_PRESETS["personal"]
-    assert S.preset_menu(S.board(phone), phone, {})["menu_custom"] is False
+    assert S.preset_menu(S.board(phone), phone, {})["menu_own"] == []
+
+
+async def test_an_entry_from_1_16_has_each_menu_setting_follow_on_its_own(hass, base):
+    """Phase 3 (entry 1.17): a screen with its own menu (menu_custom) keeps as its own only the settings that differ
+    from All Screens'; the equal ones follow All Screens again. Nothing a screen shows changes."""
+    from conftest import house_entry
+    from custom_components.hk_frontend import settings as S
+    old = house_entry({"subentry_type": "dashboard", "unique_id": "dashboard-a", "title": "A",
+                       "data": {"menu": "tab", "menu_custom": True, "accent": "blue", "tab_size": "xl"}},
+                      {"subentry_type": "dashboard", "unique_id": "dashboard-b", "title": "B",
+                       "data": {"menu": "open", "accent": "red"}},
+                      options={"dashboard": {"menu": {"accent": "blue", "style": "chip"}}}, minor_version=16)
+    old.add_to_hass(hass)
+    before = {p: S.resolved(S.board(s.data), old.options) for p, s in
+              ((s.unique_id, s) for s in old.subentries.values())}
+    assert await hass.config_entries.async_setup(old.entry_id)
+    await hass.async_block_till_done()
+    assert old.minor_version == 17
+    data = {s.unique_id: dict(s.data) for s in old.subentries.values() if s.subentry_type == "dashboard"}
+    assert data["dashboard-a"] == {"menu": "tab", "tab_size": "xl", "menu_own": ["menu", "tab_size"]}
+    assert data["dashboard-b"] == {"menu": "open"}, "a follower's stored menu values were never read: they go"
+    got = S.boards(old)
+    for p in ("dashboard-a", "dashboard-b"):
+        assert all(got[p][k] == before[p][k] for k in S.MENU_KEYS), p
 
 
 async def test_an_entry_from_1_8_moves_its_menu(hass, base):
@@ -776,7 +800,7 @@ async def test_an_entry_from_1_8_moves_its_menu(hass, base):
     old.add_to_hass(hass)
     assert await hass.config_entries.async_setup(old.entry_id)
     await hass.async_block_till_done()
-    assert old.minor_version == 16
+    assert old.minor_version == 17
     assert (S.merged(old.options)["menu"]["style"], S.merged(old.options)["menu"]["tab_size"]) == ("tab", "xl")
     got = S.boards(old)
     assert got["dashboard-a"]["menu_house"] and got["dashboard-c"]["menu_house"]
@@ -850,7 +874,7 @@ async def test_an_entry_from_1_10_writes_down_its_phones(hass, base):
     old.add_to_hass(hass)
     assert await hass.config_entries.async_setup(old.entry_id)
     await hass.async_block_till_done()
-    assert old.minor_version == 16
+    assert old.minor_version == 17
     got = S.boards(old)
     assert got["dashboard-a"]["menu_phone"] == "tabbar" and got["dashboard-a"]["button_phone"] == "chip"
     assert got["dashboard-b"]["menu_phone"] == "button" and got["dashboard-b"]["button_phone"] == "tab"
@@ -908,7 +932,7 @@ async def test_an_entry_from_1_11_tidies_its_menu(hass, base):
     old.add_to_hass(hass)
     assert await hass.config_entries.async_setup(old.entry_id)
     await hass.async_block_till_done()
-    assert old.minor_version == 16
+    assert old.minor_version == 17
     assert "narrow" not in old.options["dashboard"]["menu"] and "dashboards" not in old.options["dashboard"]["menu"]
     got = S.boards(old)["dashboard-a"]
     assert (got["menu_phone"], got["button_phone"], got["tab_bar_scroll_phone"]) == ("tabbar", "chip_scroll", "hide")

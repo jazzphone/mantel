@@ -199,10 +199,10 @@ var keyOf = function (q, label) {
 };
 ok('search: a screen page\'s row is lit by its b: label', keyOf('menu', 'Menu') === 'b:menu');
 ok('...and so is one on a page under the screen (Menu Settings, Hide Header)',
-   keyOf('menu settings', 'Menu Settings') === 'b:menu_custom' && keyOf('hide header', 'Hide Header') === 'b:kiosk_header');
+   keyOf('menu settings', 'Menu Settings') === 'b:menu_own' && keyOf('hide header', 'Hide Header') === 'b:kiosk_header');
 ok('...while a key with its own prefix stays as it is',
    keyOf('forecast no photos', 'Forecast When There Are No Photos') === 'saver:fallback');
-ok('...and a house setting keeps its own key', M.search('backdrop', []).filter(function (y) { return y.route === 'house/sky/backdrop'; })
+ok('...and a house setting keeps its own key', M.search('backdrop', []).filter(function (y) { return y.route === 'house/appearance/sky/backdrop'; })
    .every(function (y) { return !/^b:/.test(y.key); }));
 ok('errors: a refusal map is read from the message', eq(M.refusals({ message: '{"look.glass":"choice"}' }), { 'look.glass': 'choice' }) &&
    M.refusals({ message: 'Unknown command' }) === null && /isn’t one of/.test(M.errorText('choice')));
@@ -361,13 +361,69 @@ ok('rooms summary', M.roomsSummary(hb) === '2 on Home' && M.roomsSummary({ room_
   var sv = M.houseMenuSave({ menu: 'chip', tab_position: '', accent: 'red', glyph: 'lines' });
   ok('...and back', sv['menu.style'] === 'chip' && sv['menu.tab_at'] === '' && sv['menu.accent'] === 'red' && sv['menu.glyph'] === 'lines' &&
      Object.keys(sv).length === 4, sv);
-  var own = M.menuOwnChanges({ menu: 'chip_scroll', accent: 'teal', tab_size: 'xl', button_phone: 'tab', dock_min: 1000 });
-  ok('taking its own: what it shows now, the button\'s style too', own.menu_custom === true && own.menu === 'chip_scroll' &&
-     own.accent === 'teal' && own.tab_size === 'xl', own);
-  ok('...but never off or always open', !('menu' in M.menuOwnChanges({ menu: 'open' })));
-  ok('a screen\'s row says whose they are', M.menuSummary({ menu_custom: true }) === 'Just This Screen' &&
-     M.menuSummary({}) === 'Same as All Screens');
-  ok('search finds the highlight on All Screens\' Menu', M.search('highlight color', []).some(function (r) { return r.route === 'house/menu/accent'; }));
+  // ONE SETTING AT A TIME (2026-10-29, settings.py menu_own)
+  var b = { menu: 'chip', menu_own: ['accent'], accent: 'teal', tab_size: 'xl' };
+  ok('a screen owns the settings menu_own lists', M.ownsMenu(b, 'accent') && !M.ownsMenu(b, 'tab_size'));
+  ok('...a screen not moved yet (menu_custom) owns them all, as it did', M.menuOwn({ menu_custom: true }).length === Object.keys(M.MENU_KEYS).length &&
+     M.menuOwn({}).length === 0 && M.menuOwn(null).length === 0);
+  var set = M.menuOwnSet(b, { tab_size: 'standard' });
+  ok('changing one makes it its own, the rest as they were', set.tab_size === 'standard' && eq(set.menu_own, ['tab_size', 'accent']), set);
+  ok('...in MENU_KEYS order, once', eq(M.menuOwnSet(b, { accent: 'red', menu: 'tab' }).menu_own, ['menu', 'accent']));
+  ok('...a key that isn\'t a menu setting stays out of menu_own', eq(M.menuOwnSet({}, { menu_phone: 'tabbar' }).menu_own, []));
+  ok('Reset to All Screens takes it out again', eq(M.menuOwnReset(set, 'tab_size'), { menu_own: ['accent'] }) &&
+     eq(M.menuOwnReset(set, ['tab_size', 'accent']), { menu_own: [] }));
+  ok('a row says whose they are', M.menuSummary({}) === 'Same as All Screens' && M.menuSummary(b) === '1 Own Setting' &&
+     M.menuSummary(set) === '2 Own Settings' && M.menuSummary(set, M.KIND_KEYS['edge-tab']) === '1 Own Setting' &&
+     M.menuSummary(set, M.KIND_KEYS['tab-bar']) === 'Same as All Screens');
+  // THE KINDS OF MENU, and who uses each
+  var boards = { a: { menu: 'tabbar', menu_phone: 'button', button_phone: 'chip' }, b: { menu: 'tab', menu_phone: 'off' },
+                 c: { menu: 'off', menu_phone: 'off' }, d: { menu: 'open', menu_phone: 'tabbar' } };
+  var T = { a: 'Kitchen', b: 'Den', c: 'Car', d: 'Hall' }, title = function (p) { return T[p]; };
+  ok('side menu: a button or always open, on either device', eq(M.kindUsers('side', boards, title), ['Kitchen', 'Den', 'Hall']));
+  ok('edge tab: a style that shows it', eq(M.kindUsers('edge-tab', boards, title), ['Den']));
+  ok('tab bar: on either device', eq(M.kindUsers('tab-bar', boards, title), ['Kitchen', 'Hall']));
+  ok('"used by" as a row says it', M.usedBy([]) === 'Not used on any screen' && M.usedBy(['Den']) === 'Den' &&
+     M.usedBy(['Kitchen', 'Hall']) === 'Kitchen, Hall' && M.usedBy(['Kitchen', 'Den', 'Hall']) === '3 Screens');
+  ok('a screen\'s menu on each device in a word each', M.menuWord(boards.a) === 'Tab Bar · Button' && M.menuWord(boards.c) === 'Off · Off' &&
+     M.menuWord(boards.d) === 'Always Open · Tab Bar' && M.menuWord({ menu: 'auto' }) === 'Button · Button');
+  // ACCENT COLOR: the menu's highlight and Flat's accent, one choice
+  var look = { flat_colors: { accent: 'auto' } };
+  ok('All Screens\' Accent Color is the menu\'s accent', M.accentColorOf(look, { accent: 'teal' }, null, false, false).name === 'Teal' &&
+     M.accentColorOf(look, {}, null, false, false).name === 'Orange');
+  ok('...in Flat, a Flat accent saved apart before is what shows', M.accentColorOf({ flat_colors: { accent: '#7e9b83' } }, { accent: 'teal' }, null, true, true).name === 'Sage' &&
+     M.accentColorOf({ flat_colors: { accent: '#7e9b83' } }, { accent: 'teal' }, null, false, false).name === 'Teal');
+  var flatOwn = M.accentColorOf(look, { accent: 'teal' }, { accent: 'teal', flat_colors: { accent: '#c17d91' } }, true, false);
+  ok('a Flat screen\'s own Flat accent stays its own: Just This Screen', flatOwn.own && flatOwn.name === 'Rose' && flatOwn.house.name === 'Teal');
+  var follows = M.accentColorOf(look, { accent: 'teal' }, { accent: 'teal', menu_own: [] }, false, false);
+  ok('a screen that follows says so', !follows.own && follows.name === 'Teal');
+  ok('choosing it on All Screens writes both, the same value', eq(M.accentChanges('blue', null, false), { 'menu.accent': 'blue', 'look.flat_colors.accent': 'blue' }) &&
+     M.accentChanges('blue', null, true)['look.flat_colors.off_tint'] === 'accent' && !('look.flat_colors.off_tint' in M.accentChanges('auto', null, true)));
+  var sc = M.accentChanges('#123456', { menu_own: ['tab_size'] }, false);
+  ok('...on a screen: its own, both', sc.accent === '#123456' && sc['flat_colors.accent'] === '#123456' && eq(sc.menu_own, ['tab_size', 'accent']), sc);
+  ok('...and back to All Screens\'', eq(M.accentChanges(null, { menu_own: ['accent'] }), { menu_own: [], 'flat_colors.accent': null }));
+  ok('search finds the Accent Color on All Screens\' Appearance', M.search('highlight color', []).some(function (r) { return r.route === 'house/appearance/accent'; }) &&
+     M.search('accent color', []).some(function (r) { return r.route === 'house/appearance/accent'; }));
+  ok('search finds each kind of menu', ['side', 'edge-tab', 'tab-bar'].every(function (k) {
+    return M.SEARCH.some(function (s) { return s[1] === 'house/menu/' + k && s[2] === 'menu:' + k; }); }));
+  ok('...and Back Button & Title', M.search('page header', []).some(function (r) { return r.route === 'house/menu/header'; }));
+  var moved = function (s) { return /^(house\/(menu|appearance|sky)|screen)/.test(s[1]) && M.routeForward(s[1].replace(/^screen/, 'screens/x')); };
+  ok('no Appearance, Sky or Menu search row points at a moved address', !M.SEARCH.some(moved),
+     M.SEARCH.filter(moved).map(function (s) { return s[1]; }));
+  // EVERY MOVED ADDRESS FORWARDS
+  var F = M.routeForward;
+  ok('Sky / Background is under Appearance', F('house/sky') === 'house/appearance/sky' && F('house/sky/woodland/fall') === 'house/appearance/sky/woodland/fall' &&
+     F('house/sky/page/rooms') === 'house/appearance/sky/page/rooms');
+  ok('...a page\'s background still goes to its page', F('house/sky/page/climate') === 'page/climate/background' &&
+     F('house/appearance/sky/page/climate') === 'page/climate/background');
+  ok('the Highlight Color is the Accent Color', F('house/menu/accent') === 'house/appearance/accent' &&
+     F('house/appearance/flat-colors/accent') === 'house/appearance/accent' && F('screens/den/menu/accent') === 'screens/den/accent' &&
+     F('screens/den/flat-colors/accent') === 'screens/den/accent');
+  ok('...a page\'s own Flat accent stays where it is', F('house/appearance/flat-colors/page/climate/accent') === null &&
+     F('screens/den/flat-colors/page/climate/accent') === null);
+  ok('the device pages: to Menu, a button style to the Side Menu\'s', F('house/menu/tablets') === 'house/menu' && F('house/menu/phones/style') === 'house/menu/side/phones' &&
+     F('screens/den/menu/tablets') === 'screens/den/menu' && F('screens/den/menu/tablets/style') === 'screens/den/menu/side/tablets');
+  ok('...the new addresses never forward', F('house/appearance/sky') === null && F('house/menu/side') === null && F('screens/den/menu/tab-bar') === null &&
+     F('house/appearance/accent') === null && F('screens/den/appearance') === null);
 })();
 
 
@@ -378,8 +434,8 @@ ok('sky summary: absent and null settings follow All Screens', M.skySummary({}) 
 ok('sky summary: all off and an own backdrop', M.skySummary({ sky_animations: false, sky_weather: false, sky_decorations: false, sky_gradient: 'live' }) === 'No Animation, No Weather, No Decorations, Own Backdrop');
 ok('sky summary: true is an own setting too', M.skySummary({ sky_animations: true }) === 'Own Settings');
 ok('sky summary: stored own colors count', M.skySummary({ sky_custom: {} }) === 'Own Settings');
-ok('search includes the backdrop picker (Sky Colors, 2026-10-13)', M.search('backdrop', [{path:'dashboard-test',title:'Test'}]).some(function(r) { return r.label === 'Sky Colors' && r.route === 'house/sky/backdrop'; }));
-ok('search finds the Background\u2019s photo', M.search('photo', [{path:'dashboard-test',title:'Test'}]).some(function(r) { return r.route === 'house/sky'; }));
+ok('search includes the backdrop picker (Sky Colors, 2026-10-13)', M.search('backdrop', [{path:'dashboard-test',title:'Test'}]).some(function(r) { return r.label === 'Sky Colors' && r.route === 'house/appearance/sky/backdrop'; }));
+ok('search finds the Background\u2019s photo', M.search('photo', [{path:'dashboard-test',title:'Test'}]).some(function(r) { return r.route === 'house/appearance/sky'; }));
 
 // No Button: offered only with the swipe on (or when it is the choice), and
 // turning the swipe off takes it back to the default

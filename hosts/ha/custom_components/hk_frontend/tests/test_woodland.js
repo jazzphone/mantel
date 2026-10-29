@@ -14,6 +14,6 @@ ok('every season (or never set): All Seasons', M.woodlandSummary(['spring', 'sum
    M.woodlandSummary(undefined) === 'All Seasons');
 ok('some: named in the year\'s order', M.woodlandSummary(['winter', 'summer']) === 'Summer, Winter', M.woodlandSummary(['winter', 'summer']));
 ok('none: None', M.woodlandSummary([]) === 'None');
-ok('search finds it by season', M.SEARCH.some(function (e) { return e[1] === 'house/sky/woodland' && /autumn/.test(e[3]); }));
+ok('search finds it by season', M.SEARCH.some(function (e) { return e[1] === 'house/appearance/sky/woodland' && /autumn/.test(e[3]); }));
 print('\n' + (fail ? 'FAIL ' + fail + ' WOODLAND TESTS' : 'ALL ' + pass + ' WOODLAND TESTS PASS'));
 if (fail) throw new Error('woodland tests failed');

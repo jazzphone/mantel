@@ -315,7 +315,7 @@ async def test_settings_handed_back_are_taken_in_once(hass, base, hass_storage):
     assert S.merged(e.options)["clock"]["time"] == "sensor.fictional_time"
     assert (e.options[S.CONF_DASHBOARD].get("browse") or {}).get("discover") == ["recent"], "Discover rows back to keys"
     den = S.boards(e)["dashboard-den"]
-    assert den["accent"] == "blue" and den["menu_custom"] is True
+    assert den["accent"] == "blue" and den["menu_house"] is False, "an older menu_custom: all its own, as it was"
     assert "tablets" not in dict(next(s for s in e.subentries.values() if s.unique_id == "dashboard-den").data)
     assert S.tablets(e)["den"]["name"] == "Den Tablet"
     assert next(p for p in S.popups(e) if p["hash"] == "door")["name"] == "Front Door"
