@@ -71,7 +71,8 @@ It is decoded and re-encoded:
 * **original**: full size up to 8192 px on the long side, progressive JPEG q90 (a re-encode, so no location
   survives; the uploaded bytes are not kept);
 * **screen**: 2560 px, progressive JPEG q85 (what the screensavers show);
-* **thumbnail**: 480 px, WebP (the grid).
+* **thumbnail**: 480 px, WebP (the grid);
+* **mid**: 1280 px, JPEG q85, made the first time a screen asks for it (from the screen-sized file, in a thread, never behind an upload), kept beside the others and not counted in the quota. The screensaver asks for the size closest to its screen (long edge x pixel ratio, capped at 2); while the copy is made the 2560 px photo is sent, not cached.
 
 The SHA-256 of the bytes as they came in is kept: the same picture twice in one album is skipped
 (`duplicate: true`), also when two uploads of it race.
