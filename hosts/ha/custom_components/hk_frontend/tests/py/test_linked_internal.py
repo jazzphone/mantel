@@ -27,7 +27,7 @@ def resolve(monkeypatch):
         if host not in names:
             raise OSError("unknown host")
         return list(names[host])
-    monkeypatch.setattr("custom_components.hk_frontend.mantel_link.system_resolver", resolver)
+    monkeypatch.setattr("custom_components.hk_frontend.hk_core.link.mantel_link.system_resolver", resolver)
     return names
 
 

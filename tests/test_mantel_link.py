@@ -1,6 +1,7 @@
 """Mantel Link (hosts/ha/custom_components/mantel, decision 28, docs/phase9/MANTEL-LINK.md): its whole
 pytest suite on Home Assistant's test harness, run from Mantel's own suite so the full validation
-covers it, with both neighbours present:
+covers it, IN the published layout (tools/publish/publish.py builds it: custom_components/mantel/ with the few
+hk_core modules it imports vendored inside, tests/py beside), with both neighbours present:
 
 * ``MANTEL_ROOT`` (this checkout): the end-to-end tests against the real ``mantel_server/linked.py``;
 * ``HK_FRONTEND_COMPONENT``: HK Frontend's Python staged the way ``tools/build_ha.py`` builds it
@@ -18,16 +19,28 @@ import pytest
 
 from test_linked_e2e import HA_PYTEST, ROOT, stage
 
-SUITE = ROOT / "hosts/ha/custom_components/mantel/tests/py"
+PUBLISH = ROOT / "hosts/ha/custom_components/mantel/tools/publish/publish.py"
+
+
+def publisher():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ml_publish", PUBLISH)
+    pub = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pub)
+    return pub
 
 
 @pytest.mark.skipif(not HA_PYTEST.exists(), reason="Home Assistant's test venv (~/.venvs/hk-ha-test) is not here")
 def test_mantel_link_suite(tmp_path):
     stage(tmp_path / "ha")
     hk = tmp_path / "ha" / "custom_components" / "hk_frontend"
+    pub = publisher()
+    repo = tmp_path / "repo"
+    pub.hk_publisher().build(str(repo), pub.plan())
+    suite = repo / "tests" / "py"
     env = {**os.environ, "MANTEL_ROOT": str(ROOT), "HK_FRONTEND_COMPONENT": str(hk)}
     env.pop("PYTHONPATH", None)
-    run = subprocess.run([str(HA_PYTEST), "-q", "-p", "no:cacheprovider"], cwd=SUITE, env=env,
+    run = subprocess.run([str(HA_PYTEST), "-q", "-p", "no:cacheprovider"], cwd=suite, env=env,
                          capture_output=True, text=True, timeout=900)
     tail = (run.stdout + run.stderr)[-6000:]
     assert run.returncode == 0, tail
@@ -38,12 +51,8 @@ def test_mantel_link_suite(tmp_path):
 def test_mantel_link_s_public_repository_builds_clean(tmp_path):
     """tools/publish/publish.py (local only): the published layout, scanned for private data, nothing of Mantel's
     tests or tools inside what HACS installs, no HK Frontend name in its dependencies (hassfest knows core only)."""
-    import importlib.util
     import json
-    path = ROOT / "hosts/ha/custom_components/mantel/tools/publish/publish.py"
-    spec = importlib.util.spec_from_file_location("ml_publish", path)
-    pub = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(pub)
+    pub = publisher()
     pairs = pub.plan()
     assert pub.hk_publisher().scan(pairs) == [], "nothing private"
     dests = {d for _s, d in pairs}
@@ -52,6 +61,16 @@ def test_mantel_link_s_public_repository_builds_clean(tmp_path):
             "custom_components/mantel/brand/icon.png"} <= dests
     assert not [d for d in dests if d.startswith("custom_components/mantel/") and
                 d.split("/")[2] in ("tests", "tools", "docs")]
+    # the shared code is vendored INSIDE the component (hassfest: no top-level package beside it): only the link
+    # package, imported relatively, and nothing of hk_core that needs more than that
+    core = sorted(d for d in dests if "/hk_core/" in d)
+    assert core == sorted(f"custom_components/mantel/hk_core/{n}" for n in (
+        "__init__.py", "link/__init__.py", "link/mantel_link.py", "link/page_headers.py", "link/talk.py",
+        "link/talk_live.py"))
+    import re
+    absolute = re.compile(r"^\s*(?:from|import)\s+(?:hk_core|custom_components)\b", re.M)
+    assert not [d for s, d in pairs if d.startswith("custom_components/") and d.endswith(".py")
+                and absolute.search(open(s).read())], "relative imports only"
     assert not [d for d in dests if d.startswith("tools/")], "the builder stays in Mantel"
     manifest = json.loads((ROOT / "hosts/ha/custom_components/mantel/manifest.json").read_text())
     assert manifest["domain"] == "mantel" and manifest["name"] == "Mantel Link"
