@@ -36,11 +36,26 @@
 ARG PYTHON_IMAGE=python:3.12-slim-trixie@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
 ARG DEBIAN_IMAGE=debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f
 ARG GO2RTC_IMAGE=alexxit/go2rtc:1.9.9@sha256:7d31dcb73633310e80497c431f4534c81ed55ec0708db3262bc56918e654bba5
+ARG NODE_IMAGE=node:22.21.1-alpine3.22@sha256:b2358485e3e33bc3a33114d2b1bdb18cdbe4df01bd2b257198eb51beb1f026c5
 
 
-# ---- static: the web app, stamped with a build id --------------------------------------------------
+# ---- esbuild: the minifier the static stage runs (2026-10-29) ---------------------------------------
+# The version tools/package.json pins, installed from its lock file (npm checks every package's hash). Only
+# esbuild's own binary leaves this stage: a static Go program, so the Python stage below runs it without Node.
+FROM ${NODE_IMAGE} AS esbuild
+WORKDIR /tools
+COPY tools/package.json tools/package-lock.json ./
+RUN npm ci --ignore-scripts --no-audit --no-fund \
+ && cp node_modules/@esbuild/linux-*/bin/esbuild /esbuild \
+ && /esbuild --version
+
+
+# ---- static: the web app, minified and stamped with a build id -------------------------------------
+# COMMENTS AND INDENTATION STRIPPED (2026-10-29): build_static.py runs every .js and .css file through esbuild's
+# whitespace minifier (nothing renamed or bundled); the repository's source is untouched.
 FROM ${PYTHON_IMAGE} AS static
 WORKDIR /src
+COPY --from=esbuild /esbuild /usr/local/bin/esbuild
 COPY tools/build_static.py tools/build_static.py
 COPY web web
 RUN python tools/build_static.py /out

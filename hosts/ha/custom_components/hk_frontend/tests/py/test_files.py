@@ -70,8 +70,8 @@ async def test_your_file_wins_over_the_bundled_one_at_the_same_url(hass, config_
     files.set_folder(hass, "mine")
     got = files.resolve(hass, "fonts/sf-pro.css")
     assert got.read_text() == "mine"
-    # not in the folder -> the bundle's
-    assert files.resolve(hass, "cards/hk-base.js") == (files.BUNDLE / "cards" / "hk-base.js").resolve()
+    # not in the folder -> the bundle's (its minified copy where the published component has one)
+    assert files.resolve(hass, "cards/hk-base.js") == files._minified((files.BUNDLE / "cards" / "hk-base.js").resolve())
     # never outside either root
     assert files.resolve(hass, "../__init__.py") is None
     assert files.resolve(hass, "../../mine/fonts/sf-pro.css") is None
@@ -83,11 +83,33 @@ async def test_a_folder_made_after_start_is_found_without_a_restart(hass, config
     looked for again, at most every RECHECK_S seconds, while missing)."""
     from custom_components.hk_frontend import files
     files.set_folder(hass, "hk_later")
-    assert files.resolve(hass, "fonts/sf-pro.css") == files.BUNDLE.resolve() / "fonts" / "sf-pro.css"
+    assert files.resolve(hass, "fonts/sf-pro.css") == files._minified(files.BUNDLE.resolve() / "fonts" / "sf-pro.css")
     _write(config_dir / "hk_later" / "fonts" / "sf-pro.css", "mine")
     assert files.resolve(hass, "fonts/sf-pro.css").read_text() != "mine", "not before the next look"
     monkeypatch.setattr(files, "RECHECK_S", 0.0)
     assert files.resolve(hass, "fonts/sf-pro.css").read_text() == "mine"
+
+
+# COMMENTS AND INDENTATION STRIPPED (2026-10-29): the published component carries frontend_min/, its .js and .css
+# minified (publish.py); /hk sends that copy, unless the readable file is newer (edited in place on a house).
+async def test_the_minified_copy_is_sent_unless_the_source_is_newer(hass, config_dir, monkeypatch, tmp_path):
+    from custom_components.hk_frontend import files
+    bundle, small = tmp_path / "frontend", tmp_path / "frontend_min"
+    _write(bundle / "cards" / "hk-x.js", "// readable\nvar x = 1;\n")
+    _write(bundle / "sky" / "a.webp", "img")
+    _write(bundle / "cards" / "hk-y.js", "var y = 1;\n")
+    _write(small / "cards" / "hk-x.js", "var x=1;\n")
+    monkeypatch.setattr(files, "BUNDLE_ROOT", bundle.resolve())
+    monkeypatch.setattr(files, "MINIFIED_ROOT", small.resolve())
+    files.set_folder(hass, None)
+    old = (bundle / "cards" / "hk-x.js").stat().st_mtime - 10
+    os.utime(bundle / "cards" / "hk-x.js", (old, old))
+    assert files.resolve(hass, "cards/hk-x.js").read_text() == "var x=1;\n"
+    assert files.resolve(hass, "cards/hk-y.js") == (bundle / "cards" / "hk-y.js").resolve()     # no copy: the file
+    assert files.resolve(hass, "sky/a.webp") == (bundle / "sky" / "a.webp").resolve()          # never an image
+    newer = (small / "cards" / "hk-x.js").stat().st_mtime + 10
+    os.utime(bundle / "cards" / "hk-x.js", (newer, newer))
+    assert "readable" in files.resolve(hass, "cards/hk-x.js").read_text(), "edited in place: the edit is sent"
 
 
 async def test_a_symlink_out_of_the_folder_is_not_followed(hass, config_dir):

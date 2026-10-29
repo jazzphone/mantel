@@ -49,6 +49,14 @@ FONT = ("fonts/SF-Pro.woff2", "fonts/SF-Pro.ttf")
 GLYPHS = ("iconset/hk-glyphs.js",)
 BUNDLE = Path(__file__).parent / "frontend"
 BUNDLE_ROOT = BUNDLE.resolve()
+# COMMENTS AND INDENTATION STRIPPED (2026-10-29): the published component carries, beside frontend/, frontend_min/ --
+# frontend/'s .js and .css files as esbuild's whitespace minifier left them (Mantel's tools/build_static.py, run by
+# tools/publish/publish.py): no comments, no indentation, nothing renamed, about 45% smaller. /hk sends that copy
+# of a file; frontend/ keeps the readable source (the tests read it, and so can anyone). A file in frontend/ newer
+# than its copy (edited in place on a house) is sent itself.
+MINIFIED = Path(__file__).parent / "frontend_min"
+MINIFIED_ROOT = MINIFIED.resolve()
+MINIFIED_TYPES = frozenset({".js", ".css"})
 
 _FORBIDDEN = ("secrets.yaml", ".storage", "configuration.yaml")
 # Home Assistant's own folders under /config: never a files folder, nor
@@ -149,8 +157,21 @@ def resolve(hass: HomeAssistant, filename: str) -> Path | None:
         if root is not BUNDLE_ROOT and target.suffix.lower() not in WEB_TYPES:
             continue                          # yours: web files only (EXPOSURE)
         if target.is_file():
-            return target
+            return _minified(target) if root is BUNDLE_ROOT else target
     return None
+
+
+def _minified(target: Path) -> Path:
+    """The bundle's file, or its minified copy (MINIFIED) when there is one at least as new."""
+    if target.suffix.lower() not in MINIFIED_TYPES:
+        return target
+    try:
+        copy = MINIFIED_ROOT / target.relative_to(BUNDLE_ROOT)
+        if copy.stat().st_mtime >= target.stat().st_mtime:
+            return copy
+    except (ValueError, OSError):
+        pass
+    return target
 
 
 # GZIP, MADE HERE AND KEPT (2026-10-29). /hk is served from this component's own folder, which carries no

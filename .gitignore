@@ -52,3 +52,6 @@ apple/**/project.xcworkspace/
 
 # local check results (tools/ci.py)
 .ci/
+
+# build tools (tools/package.json: npm ci --prefix tools)
+tools/node_modules/

@@ -16,13 +16,22 @@ absolute ``/hk/...`` paths and by paths assembled at run time, so a blind rename
 docs/phase3/PACKAGING.md describes the safe route. Until then the server sends ``no-cache`` with an
 ETag for every asset (a conditional request, answered 304 when nothing changed) and the build id
 tells open screens to reload.
+
+COMMENTS AND INDENTATION STRIPPED (2026-10-29, Phase 5): every .js and .css file of the copy goes through
+esbuild's whitespace minifier (``minify()`` below): comments and indentation gone, nothing renamed, nothing
+bundled, every file still the same file at the same path with the same imports. The repository's source is
+untouched. esbuild is pinned in tools/package.json (``npm ci --prefix tools``; the Docker build takes the same
+version's binary from a Node stage). ``--no-minify`` copies the files as they are (a developer's check).
+The build id is taken from what ships: the minified files.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -51,25 +60,66 @@ def file_digest(path: Path) -> str:
     return h.hexdigest()
 
 
-def build(src: Path, out: Path) -> str:
-    """Copy src to out/web, write the manifest and BUILD_ID, return the build id."""
+# -- esbuild ------------------------------------------------------------------------------------------------
+ESBUILD_VERSION = "0.28.2"          # tools/package.json pins the same; the Docker build's Node stage installs it
+MINIFIED = (".js", ".css")
+
+
+def esbuild() -> str | None:
+    """The pinned esbuild binary: $ESBUILD, else the one `npm ci --prefix tools` installed (its platform package's
+    own binary, so Node is not needed to run it), else one on PATH; None when there is none of that version."""
+    found = [os.environ.get("ESBUILD")]
+    found += [str(p) for p in sorted((ROOT / "tools/node_modules/@esbuild").glob("*/bin/esbuild"))]
+    found.append(shutil.which("esbuild"))
+    for exe in filter(None, found):
+        try:
+            got = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=30).stdout.strip()
+        except OSError:
+            continue
+        if got == ESBUILD_VERSION:
+            return exe
+    return None
+
+
+def minify(root: Path, rels: list[str]) -> None:
+    """Strip comments and indentation from the .js/.css files among `rels` under root, in place: esbuild's
+    whitespace minifier and nothing else -- no renaming, no syntax rewrites, no bundling, legal comments dropped
+    too, text kept as UTF-8. Template literals, import() and every specifier come out as they went in."""
+    exe = esbuild()
+    if exe is None:
+        raise SystemExit(f"esbuild {ESBUILD_VERSION} not found: run `npm ci --prefix tools` (or set ESBUILD), "
+                         "or pass --no-minify")
+    files = [r for r in rels if r.endswith(MINIFIED)]
+    for i in range(0, len(files), 200):            # (a command line of a sane length)
+        r = subprocess.run([exe, "--minify-whitespace", "--legal-comments=none", "--charset=utf8", "--log-level=error",
+                            "--allow-overwrite", f"--outdir={root}", f"--outbase={root}",
+                            *[str(root / f) for f in files[i:i + 200]]], capture_output=True, text=True)
+        if r.returncode != 0:
+            raise SystemExit("esbuild failed:\n" + (r.stderr or r.stdout)[-4000:])
+
+
+def build(src: Path, out: Path, minified: bool = True) -> str:
+    """Copy src to out/web (minified unless told not to), write the manifest and BUILD_ID, return the build id."""
     if out.exists():
         raise SystemExit(f"{out} already exists; choose a new directory")
     if not src.is_dir():
         raise SystemExit(f"{src} is not a directory")
     files = sorted(p for p in src.rglob("*") if _wanted(p, src))
-    manifest: dict[str, dict] = {}
-    overall = hashlib.sha256()
+    web = out / "web"
     for p in files:
-        rel = p.relative_to(src).as_posix()
-        digest = file_digest(p)
-        manifest[rel] = {"sha256": digest, "size": p.stat().st_size}
-        overall.update(rel.encode() + b"\0" + digest.encode() + b"\n")
-    build_id = overall.hexdigest()[:16]
-    for p in files:
-        dest = out / "web" / p.relative_to(src)
+        dest = web / p.relative_to(src)
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(p, dest)
+    rels = [p.relative_to(src).as_posix() for p in files]
+    if minified:
+        minify(web, rels)
+    manifest: dict[str, dict] = {}
+    overall = hashlib.sha256()
+    for rel in rels:
+        digest = file_digest(web / rel)
+        manifest[rel] = {"sha256": digest, "size": (web / rel).stat().st_size}
+        overall.update(rel.encode() + b"\0" + digest.encode() + b"\n")
+    build_id = overall.hexdigest()[:16]
     (out / "static-manifest.json").write_text(json.dumps({"build": build_id, "files": manifest}, indent=1, sort_keys=True))
     (out / "BUILD_ID").write_text(build_id + "\n")
     return build_id
@@ -79,8 +129,9 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("out", type=Path)
     p.add_argument("--src", type=Path, default=ROOT / "web")
+    p.add_argument("--no-minify", action="store_true", help="copy the files as they are (no esbuild)")
     a = p.parse_args(argv)
-    build_id = build(a.src, a.out)
+    build_id = build(a.src, a.out, minified=not a.no_minify)
     print(f"build {build_id}: {a.out}")
     return 0
 

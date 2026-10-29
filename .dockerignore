@@ -36,3 +36,5 @@ hosts/ha
 # ...except HK Frontend's guide pages, which Mantel serves at /docs (the Dockerfile copies them to /app/help/hk)
 !hosts/ha/custom_components/hk_frontend/docs
 hosts/server/tools
+# the build tools tools/package.json installs on a Mac (the image installs its own: the Dockerfile's esbuild stage)
+tools/node_modules
