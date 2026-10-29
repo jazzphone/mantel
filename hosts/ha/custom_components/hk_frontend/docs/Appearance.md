@@ -103,16 +103,33 @@ A card can stay out of the shared blur with `glass: false`. Whether tapping an
 accessory opens an HK detail sheet is **HK Detail Sheets**, under
 [Library → Accessories](Accessories.md#accessories-settings).
 
-## Recommended: a lighter look for a slow tablet
+## Recommended: a lighter screen for a slow tablet
 
-When a wall tablet draws fewer than 45 frames a second on a screen with
-**Blur**, **Frosted** or **Tinted**, HK Settings suggests a lighter look on
-that screen’s **Appearance**, under its Style. For example: *“Kitchen Tablet
-draws 38 frames a second with Blur. Glass looks almost the same and is
-lighter.”* **Use Glass on This Screen** or **Use Flat** gives that screen its
-own style; All Screens’ is never changed. Nothing changes until you tap one,
-and the suggestion goes once the screen wears Glass or Flat. All Screens →
-Appearance lists each such screen, linked to its page.
+When a wall tablet draws fewer than 45 frames a second on a screen, HK
+Settings suggests ONE change on that screen’s **Appearance**, under its Style,
+and never more than one at a time. For example: *“Kitchen Tablet draws 38
+frames a second with Blur. Glass looks almost the same and is lighter.”* The
+button changes that screen only (All Screens’ is never changed), and **Use
+Flat** is beside it. Nothing changes until you tap one. All Screens →
+Appearance lists each screen with a suggestion, linked to its page.
+
+The suggestions go in order of what costs a weak tablet the most, and a screen
+that doesn’t use one skips it:
+
+| | The suggestion | The button |
+|---|---|---|
+| 1 | The style: **Blur**, **Frosted** or **Tinted** | **Use Glass on This Screen** |
+| 2 | The sky’s **Rain & Snow** | **Turn Off Rain & Snow on This Screen** (the clouds and fog stay) |
+| 3 | **Moving Things** in front of the cards | **Put Moving Things Behind on This Screen** |
+| 4 | The sky’s **Animations** | **Turn Off Animations on This Screen** (the sky holds still) |
+| 5 | A camera playing live (**Live First Camera**) | **Turn Off Live First Camera on This Screen** (the first tile is a snapshot) |
+
+**Use Flat** goes with every step but the third. When you take a step, nothing
+more is suggested until the tablet has measured again, up to an hour later; if
+the screen is still under 45 frames a second, the next step appears (the
+suggestion says so). Each measurement also records what the screen looked
+like when it was drawn (its style, its sky and its camera), and a measurement
+is only used while the screen still looks that way.
 
 The tablet measures itself: 5 seconds of drawing, about 20 seconds after the
 screen loads and then hourly, only while nobody is touching it and the screen

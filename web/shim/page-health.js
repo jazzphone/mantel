@@ -18,8 +18,9 @@
 // for 5 seconds and the screensaver / black screen is not up (a dark page draws nothing worth measuring).
 //
 // RECOMMENDATIONS (2026-10-29): the sampling is HK's own (/hk/modules/hk-fps.js, the same rules), so a dashboard runs
-// one sampler, not two; its `fps` frame also says the screen and the style it was drawn with (`screen`, `style`), which
-// HK Settings' "a lighter look for a slow tablet" reads (GET /api/performance/tablets).
+// one sampler, not two; its `fps` frame also says the screen and the style it was drawn with (`screen`, `style`) and the
+// sky and camera settings on it (`sig`, "blur:a1w1r1f0c1"), which HK Settings' "a lighter look for a slow tablet" -- one
+// step at a time -- reads (GET /api/performance/tablets).
 const COUNT = '__mantelRegistryRefreshes';
 
 // the page read the registry again (bump this where it does)
@@ -70,7 +71,7 @@ export function pageHealth(hub, page = 'home', marks = null) {
   let fpsWatch = null, stopped = false;
   const tellFps = (s) => {
     if (stopped || !s || typeof s.fps !== 'number') return;
-    hub.tell('page_health', { event: 'fps', fps: s.fps, ...(page === 'home' ? { screen: s.screen || null, style: s.style || null } : {}), ...counts() });
+    hub.tell('page_health', { event: 'fps', fps: s.fps, ...(page === 'home' ? { screen: s.screen || null, style: s.style || null, sig: s.sig || null } : {}), ...counts() });
   };
   const onFps = (e) => tellFps(e && e.detail);
   if (page === 'home') window.addEventListener('hk-fps', onFps);

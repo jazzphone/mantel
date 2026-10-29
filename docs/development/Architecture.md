@@ -228,9 +228,12 @@ times each flush and send into `performance.STATS`, with the HA event rate; `GET
 section of `/api/admin/overview`, `web/shim/settings/performance.js`).
 
 The frame rate is sampled by HK's own `web/hk/modules/hk-fps.js` (the dashboard's one sampler, which HK Frontend uses
-too); its `fps` frame names the screen and the style it was drawn with. Each wall tablet's latest is kept in
+too); its `fps` frame names the screen, the style and a short signature of the settings the ladder below changes
+(`hkSettings.ladderSignature()`, e.g. `blur:a1w1r1f0c1`). Each wall tablet's latest is kept in
 `page_health.TABLETS`, and `GET /api/performance/tablets` (managers) hands it to HK Settings (the host's
-`tabletHealth`), which recommends a lighter look on a screen whose tablet draws under 45 frames a second with a blur.
+`tabletHealth`), which recommends ONE change on a screen whose tablet draws under 45 frames a second: the settings panel's
+ladder (`M.slowRecommend`, `M.LADDER`) goes style, Rain & Snow, Moving Things in front, Animations, a live camera, and
+a sample counts only while the screen's settings still read as its signature, so each step waits for the next sample.
 
 ## Long-lived connections
 

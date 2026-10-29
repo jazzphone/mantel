@@ -18,8 +18,9 @@
 
 ``GET /api/performance/tablets`` (2026-10-29; the same people) answers ``{tablets}``: each enrolled wall tablet's
 ``name``, the ``screens`` it shows (where its frame rate was drawn, then where it opens), its latest ``fps`` with
-``fps_screen``, ``fps_style`` and ``fps_at``, and its ``platform``, ``memory_gb`` and ``cores``: what HK Settings
-recommends a lighter look from (a screen's Appearance; mantel-settings.js ``tabletHealth``).
+``fps_screen``, ``fps_style``, ``fps_sig`` (the style and the sky and camera settings it was drawn with, a short
+word; null from a sample taken before the ladder) and ``fps_at``, and its ``platform``, ``memory_gb`` and ``cores``:
+what HK Settings recommends a lighter look from (a screen's Appearance; mantel-settings.js ``tabletHealth``).
 
 Numbers only, in memory only, nothing audited (a read)."""
 from __future__ import annotations
@@ -150,7 +151,7 @@ def tablets(app: web.Application) -> list[dict]:
         dev = kept.get("device") or {}
         out.append({"name": row["name"], "screens": list(dict.fromkeys(s for s in (kept.get("fps_screen"), start) if s)),
                     "fps": kept.get("fps"), "fps_screen": kept.get("fps_screen") or None,
-                    "fps_style": kept.get("fps_style") or None, "fps_at": kept.get("fps_at"),
+                    "fps_style": kept.get("fps_style") or None, "fps_sig": kept.get("fps_sig") or None, "fps_at": kept.get("fps_at"),
                     "platform": dev.get("platform"), "memory_gb": dev.get("memory_gb"), "cores": dev.get("cores")})
     return out
 

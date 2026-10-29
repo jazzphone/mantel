@@ -337,6 +337,41 @@ def test_an_fps_frame_keeps_the_screen_and_style_it_was_drawn_with():
     assert PH.TABLETS.get("d1")["fps_at"] == 60.0
 
 
+def test_an_fps_frame_keeps_what_else_was_on_screen_for_the_ladder():
+    c = tablet()
+    PH.RING.add(c, {"event": "fps", "page": "home", "fps": 38.2, "screen": "dashboard-kitchen", "style": "blur",
+                    "sig": "blur:a1w1r1f0c1"}, now=50.0)
+    assert PH.TABLETS.get("d1")["fps_sig"] == "blur:a1w1r1f0c1"
+    # a newer number never keeps an older one's settings: said again each time, "" when it names none or junk
+    PH.RING.add(c, {"event": "fps", "page": "home", "fps": 41, "screen": "dashboard-kitchen", "style": "clear"}, now=60.0)
+    assert PH.TABLETS.get("d1")["fps_sig"] == ""
+    for junk in ("clear", "clear:", "clear:A1", "nope:a1", "blur:a1w1r1f0c1 ", "blur:" + "a" * 25, "<b>:a1", 7, ["blur:a1"], {"x": 1}):
+        PH.RING.add(c, {"event": "fps", "page": "home", "fps": 40, "screen": "dashboard-kitchen", "sig": junk}, now=70.0)
+        assert PH.TABLETS.get("d1")["fps_sig"] == "", junk
+    for word in ("flat:a0w0r0f0c0", "frosted:a1w0r0f1c0", "blur_pre:a1w1r1f0c1", "tinted:a"):
+        PH.RING.add(c, {"event": "fps", "page": "home", "fps": 40, "sig": word}, now=80.0)
+        assert PH.TABLETS.get("d1")["fps_sig"] == word, word
+
+
+def test_a_new_signature_is_a_change_worth_keeping_but_the_time_alone_is_not(conn):
+    PH.TABLETS.bind(conn)
+    c = tablet()
+
+    def stored():
+        return json.loads(conn.execute("SELECT json FROM tablet_health").fetchone()[0])
+    frame = {"event": "fps", "page": "home", "fps": 38.0, "screen": "dashboard-kitchen", "style": "blur", "sig": "blur:a1w1r1f0c1"}
+    PH.RING.add(c, frame, now=100.0)
+    PH.RING.add(c, frame, now=100.0 + PH.WRITE_EVERY + 1)
+    assert stored()["fps_at"] == 100.0, "the same number with the same settings is no change: not written again"
+    PH.RING.add(c, {**frame, "style": "clear", "sig": "clear:a1w1r1f0c1"}, now=100.0 + 2 * PH.WRITE_EVERY + 2)
+    assert stored()["fps_sig"] == "clear:a1w1r1f0c1", "other settings are"
+    # a summary kept before the ladder has no signature, and is still read
+    conn.execute("UPDATE tablet_health SET json=?", (json.dumps({"fps": 33.0, "fps_screen": "dashboard-a", "fps_style": "blur", "fps_at": 5.0}),))
+    PH.RING.reset()
+    PH.TABLETS.bind(conn)
+    assert PH.TABLETS.get("d1")["fps"] == 33.0 and "fps_sig" not in PH.TABLETS.get("d1")
+
+
 async def test_the_tablets_route_names_each_tablet_its_screens_and_its_latest_frame_rate(mantel):
     from test_default_screens import boards
     m = mantel
@@ -349,13 +384,14 @@ async def test_the_tablets_route_names_each_tablet_its_screens_and_its_latest_fr
     await m.sign_in("jo")
     c = tablet("Kitchen Tablet", device_id)
     PH.RING.add(c, IPAD, now=1.0)
-    PH.RING.add(c, {"event": "fps", "page": "home", "fps": 38.0, "screen": "dashboard-loft", "style": "blur"}, now=2.0)
+    PH.RING.add(c, {"event": "fps", "page": "home", "fps": 38.0, "screen": "dashboard-loft", "style": "blur", "sig": "blur:a1w1r1f0c1"}, now=2.0)
     PH.RING.add(tablet("Gone", "nobody"), {"event": "fps", "fps": 20.0}, now=3.0)        # not an enrolled tablet
     r = await m.get("/api/performance/tablets")
     assert r.status == 200 and r.headers["Cache-Control"] == "no-store"
     [row] = (await r.json())["tablets"]
     assert row["name"] == "Kitchen Tablet" and row["fps"] == 38.0
     assert (row["fps_screen"], row["fps_style"], row["fps_at"]) == ("dashboard-loft", "blur", 2.0)
+    assert row["fps_sig"] == "blur:a1w1r1f0c1", "what else was on the screen, for the ladder"
     assert row["screens"] == ["dashboard-loft", "dashboard-kitchen"], "where it was drawn, then where it opens (the house's)"
     assert (row["platform"], row["memory_gb"], row["cores"]) == ("iPad", 4.0, 6)
 
@@ -368,7 +404,8 @@ async def test_a_revoked_tablet_is_left_out(mantel):
     m.forget_cookies()
     await m.sign_in("jo")
     PH.RING.add(tablet("Hall", device_id), {"event": "fps", "fps": 30.0, "screen": "dashboard-hall"}, now=1.0)
-    assert len((await (await m.get("/api/performance/tablets")).json())["tablets"]) == 1
+    [row] = (await (await m.get("/api/performance/tablets")).json())["tablets"]
+    assert row["fps_sig"] is None, "a sample that names no settings (from before the ladder) says none"
     m.app["devices"].revoke(device_id, "test")
     assert (await (await m.get("/api/performance/tablets")).json())["tablets"] == []
 
