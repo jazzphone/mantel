@@ -20,7 +20,25 @@ struct MantelApp: App {
                 .onOpenURL { url in
                     if let link = PairingLink(url: url) { Task { await model.pair(link) } }
                     else if url.scheme == "mantel", url.host == "player" { NotificationRouter.shared.player = true }
+                    else if url.scheme == "mantel", url.host == "settings" { NotificationRouter.shared.menu = true }
                 }
+                #if DEBUG
+                // -MantelPair '<mantel://pair link>': pair a Debug build without `simctl openurl`'s "Open in Mantel?"
+                // (a script driving several Simulators); only while it is not paired yet
+                .task {
+                    if model.house == nil, let s = UserDefaults.standard.string(forKey: "MantelPair"),
+                       let url = URL(string: s), let link = PairingLink(url: url) { await model.pair(link) }
+                }
+                #endif
+        }
+        // a hardware keyboard (iPad, a keyboard on the Duo): hold ⌘ to see them
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Mantel App Settings…") { NotificationRouter.shared.menu = true }.keyboardShortcut(",")
+            }
+            CommandGroup(after: .toolbar) {
+                Button("Reload Page") { HouseWebView.reloadLive() }.keyboardShortcut("r")
+            }
         }
     }
 }
@@ -36,6 +54,20 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         center.setNotificationCategories([UNNotificationCategory(identifier: "MANTEL_ACCESSORY", actions: [open, mute],
                                                                  intentIdentifiers: [], options: [])])
         return true
+    }
+
+    /// The Home Screen's quick action (Config/Mantel-Info.plist UIApplicationShortcutItems): App Settings, even when
+    /// the page cannot load. Cold, it comes with the scene; warm, to the scene's delegate.
+    static let settingsShortcut = "app.mantel.settings"
+
+    func application(_ application: UIApplication, configurationForConnecting session: UISceneSession,
+                     options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        if options.shortcutItem?.type == Self.settingsShortcut {
+            Task { @MainActor in NotificationRouter.shared.menu = true }
+        }
+        let config = UISceneConfiguration(name: nil, sessionRole: session.role)
+        config.delegateClass = SceneDelegate.self
+        return config
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
@@ -76,6 +108,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
 }
 
+/// Only for the quick action with the app already running (SwiftUI keeps the window; the rest is SwiftUI's).
+final class SceneDelegate: NSObject, UIWindowSceneDelegate {
+    func windowScene(_ windowScene: UIWindowScene, performActionFor shortcutItem: UIApplicationShortcutItem,
+                     completionHandler: @escaping (Bool) -> Void) {
+        let ours = shortcutItem.type == AppDelegate.settingsShortcut
+        if ours { Task { @MainActor in NotificationRouter.shared.menu = true } }
+        completionHandler(ours)
+    }
+}
+
 /// Where a tapped notification asks the web view to go.
 @MainActor
 final class NotificationRouter: ObservableObject {
@@ -83,6 +125,8 @@ final class NotificationRouter: ObservableObject {
     @Published var open: String?
     /// The app's own music player, asked for from outside the page (the Live Activity, a widget).
     @Published var player = false
+    /// The app's own settings (⌘,).
+    @Published var menu = false
 }
 
 struct MantelShortcuts: AppShortcutsProvider {

@@ -32,6 +32,17 @@
 	<true/>
 	<key>UIBackgroundModes</key>
 	<array><string>remote-notification</string></array>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>app.mantel.settings</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>App Settings</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>gearshape</string>
+		</dict>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict><key>UIColorName</key><string>LaunchBackground</string></dict>
 	<key>UISupportedInterfaceOrientations</key>

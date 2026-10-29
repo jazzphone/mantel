@@ -21,6 +21,10 @@ final class PushRegistrar {
 
     func requestAndRegister(resume: Bool = false) async {
         if resume { self.resume = true }
+        #if DEBUG
+        // -MantelNoPush YES: never ask (a script driving Simulators has no finger for the system's prompt)
+        if !resume, UserDefaults.standard.bool(forKey: "MantelNoPush") { return }
+        #endif
         let ok = (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])) ?? false
         print("Mantel push: notifications allowed: \(ok)")
         guard ok else { return }

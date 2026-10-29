@@ -10,7 +10,10 @@ struct SetupView: View {
     @State private var address = ""
     @State private var scanning = false
     @State private var pasted = ""
+    @State private var width: CGFloat = 0
     private let browser = HouseBrowser()
+
+    private var wide: Bool { width > 760 }
 
     var body: some View {
         NavigationStack {
@@ -48,7 +51,11 @@ struct SetupView: View {
                 } header: { Text("Type Its Address") }
                 if let p = model.problem { Section { Text(p).foregroundStyle(.red) } }
             }
+            // a wide window (iPad, the open Duo turned): one centred column of a form's width, its title above it
+            .readableColumn(wide ? width : nil)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
             .navigationTitle("Set Up")
+            .navigationBarTitleDisplayMode(wide ? .inline : .automatic)
             .sheet(isPresented: $scanning) {
                 ScannerSheet { text in
                     scanning = false
@@ -73,6 +80,13 @@ struct SetupView: View {
             return
         }
         Task { await model.pair(link) }
+    }
+}
+
+extension View {
+    /// A form at most 640 points wide, centred in a window `width` wide; nil keeps the system's own margins (a phone's).
+    @ViewBuilder func readableColumn(_ width: CGFloat?) -> some View {
+        if let width { contentMargins(.horizontal, max(20, (width - 640) / 2), for: .scrollContent) } else { self }
     }
 }
 
