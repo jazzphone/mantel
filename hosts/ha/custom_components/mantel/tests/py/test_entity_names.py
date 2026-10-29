@@ -8,9 +8,10 @@ import os
 
 import pytest
 
-from conftest import COMPONENT
+from conftest import COMPONENT, HK
 
-HK_EN = os.path.join(os.path.dirname(COMPONENT), "hk_frontend", "translations", "en.json")
+# HK Frontend beside: the staged one (HK_FRONTEND_COMPONENT), else the Mantel repository's own
+HK_EN = os.path.join(HK or os.path.join(os.path.dirname(COMPONENT), "hk_frontend"), "translations", "en.json")
 KEYS = {"switch": ("black_screen", "photo_screensaver", "seasonal_decorations"),
         "binary_sensor": ("screen_in_use",), "sensor": ("sleep_screen",)}
 

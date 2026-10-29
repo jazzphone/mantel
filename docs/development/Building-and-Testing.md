@@ -110,7 +110,8 @@ Then, on the same `$build`:
 `$build/ha/tests/py/run` does the same, and creates the venv on first use if it is missing (unpinned).
 
 Once `~/.venvs/hk-ha-test` exists, the main suite also runs Mantel Link's suite
-(`hosts/ha/custom_components/mantel/tests/py`, through `tests/test_mantel_link.py`) and the linked-mode end-to-end
+(`hosts/ha/custom_components/mantel/tests/py`, through `tests/test_mantel_link.py`, which builds the published layout
+with the few `hk_core` modules Mantel Link vendors, and runs it there) and the linked-mode end-to-end
 tests (`tests/test_linked_e2e.py`); without it they are skipped.
 
 ### JavaScript suites (macOS only, today)

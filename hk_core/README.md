@@ -1,11 +1,21 @@
 # hk_core/
 
 HK's feature logic, written once for every host (PLAN.md §4; plan review, §0). Plain Python with
-no `homeassistant` imports, and only relative imports of itself. It talks to the house through
+no `homeassistant` imports (but for three files of `link/`, below), and only relative imports of itself. It talks to the house through
 the `House` port (`house.py`). Both rules are enforced by `tests/test_boundaries.py`.
 
 The HACS build vendors this folder as `custom_components/hk_frontend/hk_core/` (see
-`publish.py`'s plan). Mantel Server imports it as `hk_core`.
+`publish.py`'s plan). Mantel Server imports it as `hk_core`. Mantel Link vendors only what it uses
+(`__init__.py` and `link/`, its `publish.py`'s `CORE_PARTS`) as `custom_components/mantel/hk_core/`.
+
+`link/` is the one part that is not host-neutral: what HK Frontend and Mantel Link, the two Home
+Assistant integrations, had as copies of each other, written once. `mantel_link.py` is the client of
+Mantel Server's linked endpoint (aiohttp only); `talk.py`, `talk_live.py` and `page_headers.py`
+import Home Assistant (`tests/test_boundaries.py` names these three) and Mantel Server never
+imports `link`. Each integration keeps thin modules of the same names that give them their own
+address, domain and delivery: `talk.URL` (`/api/hk_frontend/talk`, `/api/mantel/talk`), the
+`<domain>/talk/live` command, and `page_headers`' subscription (HK Frontend) or `get` (Mantel Link).
+Both integrations' tests run against the shared copy through those modules.
 
 ## Moved so far (feature by feature, as each one moves)
 

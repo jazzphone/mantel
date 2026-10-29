@@ -51,6 +51,8 @@ from homeassistant.components import websocket_api
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant, callback
 
+from .hk_core.link.talk import read_limited     # ALL of a body, not the first chunk (shared with talk.py)
+
 _LOGGER = logging.getLogger(__name__)
 
 URL = "/api/hk_frontend/art"
@@ -89,21 +91,6 @@ def snap(size) -> int:
     if size <= 0:
         return 0
     return next((s for s in SIZES[1:] if s >= size), SIZES[-1])
-
-
-async def read_limited(stream, limit: int) -> bytes | None:
-    """ALL of a body, or None past `limit` bytes.
-
-    Not `stream.read(limit)`: aiohttp's StreamReader.read(n) returns what has
-    ARRIVED, up to n -- the first network chunk -- not the whole body: a
-    cover would be served as its first ~1.4 KB, and a hold-to-talk clip
-    longer than a chunk cut the same way. talk.py uses this too."""
-    data = bytearray()
-    async for chunk in stream.iter_chunked(65536):
-        data += chunk
-        if len(data) > limit:
-            return None
-    return bytes(data)
 
 
 def is_remote(url) -> bool:

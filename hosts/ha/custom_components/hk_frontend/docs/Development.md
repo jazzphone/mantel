@@ -34,7 +34,7 @@ custom_components/hk_frontend/     the integration HACS installs
 ├─ themes.py            adds the HK Kiosk themes to the frontend's, and again after a reload
 ├─ thirdparty.py        whether optional third-party cards, WallPanel or Kiosk Mode are ready (Weather uses native radar)
 ├─ art.py               album artwork fetched and served by Home Assistant
-├─ talk.py, talk_live.py  hold-to-talk on a camera sheet
+├─ talk.py, talk_live.py  hold-to-talk on a camera sheet (hk_core/link's, given this integration's address)
 ├─ switch.py, entity.py the Seasonal decorations switch
 ├─ rename.py            follows entity renames into the settings
 ├─ diagnostics.py, const.py, manifest.json, services.yaml

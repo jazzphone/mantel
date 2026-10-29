@@ -74,7 +74,7 @@ def test_letting_go_plays_out_what_is_left_without_counting_underruns():
 
 # The real encoder and muxer to a UDP port (test_a_live_stream_is_steady_rtp_opus_at_real_time) is HK Frontend's
 # suite's: it needs PyAV, which Home Assistant ships and this test venv doesn't, and Mantel Link's suite runs with no
-# skips. The code under it (LiveTalk, Pacer) is the same file, line for line.
+# skips. The code under it (LiveTalk, Pacer) is the same file: hk_core/link/talk_live.py.
 
 
 async def test_only_a_unifi_protect_speaker_is_a_target(hass):

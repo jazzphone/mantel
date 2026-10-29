@@ -13,9 +13,25 @@ def _files(folder: str, suffixes: tuple[str, ...]):
     return [p for p in base.rglob("*") if p.is_file() and p.suffix in suffixes and "node_modules" not in p.parts]
 
 
+# hk_core/link/ is what the two Home Assistant integrations (HK Frontend, Mantel Link) share: these three run inside
+# Home Assistant, so they are the only hk_core files that may import it. Mantel Server never imports the package.
+HA_SIDE = ("hk_core/link/talk.py", "hk_core/link/talk_live.py", "hk_core/link/page_headers.py")
+
+
 def test_hk_core_does_not_import_homeassistant():
-    bad = [str(p.relative_to(ROOT)) for p in _files("hk_core", (".py",)) if HA_IMPORT.search(p.read_text())]
+    bad = [str(p.relative_to(ROOT)) for p in _files("hk_core", (".py",))
+           if str(p.relative_to(ROOT)) not in HA_SIDE and HA_IMPORT.search(p.read_text())]
     assert not bad, f"hk_core must not import homeassistant: {bad}"
+
+
+def test_only_the_home_assistant_integrations_use_the_link_package():
+    # the three Home Assistant files stay in hk_core/link/, and nothing of Mantel Server (or the rest of hk_core)
+    # reaches them
+    assert all((ROOT / f).is_file() for f in HA_SIDE), "HA_SIDE names a file that is gone"
+    users = re.compile(r"^\s*(from|import)\s+(hk_core\.link|\.link|\.+hk_core\.link)\b", re.M)
+    bad = [str(p.relative_to(ROOT)) for folder in ("hosts/server", "hk_core") for p in _files(folder, (".py",))
+           if not str(p.relative_to(ROOT)).startswith("hk_core/link/") and users.search(p.read_text())]
+    assert not bad, f"hk_core/link is the Home Assistant integrations' alone: {bad}"
 
 
 def test_hk_core_imports_only_relatively():

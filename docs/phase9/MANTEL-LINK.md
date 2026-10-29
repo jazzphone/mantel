@@ -233,9 +233,12 @@ From docs/phase4/FEATURE-PARITY.md, checked per house; anything unchecked keeps 
   and whenever HK Frontend's entry changes. Mantel keeps it on the client (Mantel Settings shows it; the
   hand-over reads it). A protocol 1 client sending it gets `bad_request`.
 - Refusals name the action as the caller knows it (`mantel.x` / `hk_frontend.x`: `CallCtx.domain`).
-- **One link client, two integrations.** `mantel_link.py` is the same file in `hk_frontend/` and `mantel/`
-  (domain, protocol, features and extra frame types are arguments; the log names the package). Mantel Link's
-  `test_link_shared.py` fails if the copies differ. It gained `probe()` (connect once, read hello) for setup forms.
+- **One link client, two integrations.** The client is `hk_core/link/mantel_link.py`, written once and vendored into
+  `hk_frontend/hk_core/` and `mantel/hk_core/`; each integration's own `mantel_link.py` only re-exports it (domain,
+  protocol, features and extra frame types are arguments; the log names the domain). Mantel Link's
+  `test_link_shared.py` fails if its vendored copy or HK Frontend's differs from hk_core's. It gained `probe()`
+  (connect once, read hello) for setup forms. The talk-back (`talk.py`, `talk_live.py`) and the Tonight list's
+  reading (`page_headers.py`) are shared the same way; each integration keeps its address and its delivery.
 
 ### 9.1 Mantel Link skeleton: done
 
@@ -244,8 +247,8 @@ From docs/phase4/FEATURE-PARITY.md, checked per house; anything unchecked keeps 
 Service credential, tested with `probe` before saving; the address rules are linked mode's: https anywhere, plain
 http only to loopback or the App network by resolution), reconfigure (an empty credential keeps the saved one; a
 different Mantel is refused), diagnostics (no credential). Its own suite: `tests/py/` (run with `tests/py/run`;
-Mantel's `tests/test_mantel_link.py` runs it inside the full validation with `MANTEL_ROOT` and a staged HK
-Frontend). `test_e2e_mantel.py` links it to the real `mantel_server/linked.py`.
+Mantel's `tests/test_mantel_link.py` runs it inside the full validation, in the published layout (the shared
+`hk_core/link/` vendored inside the component), with `MANTEL_ROOT` and a staged HK Frontend). `test_e2e_mantel.py` links it to the real `mantel_server/linked.py`.
 
 ### 9.2 Mirroring and actions: done
 

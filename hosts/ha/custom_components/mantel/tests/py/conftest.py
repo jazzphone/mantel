@@ -1,6 +1,7 @@
 """Fixtures for Mantel Link (custom_components/mantel).
 
-Run with tests/py/run. Two optional neighbours:
+Run with tests/py/run, in the Mantel repository (this folder, with hk_core/ made up beside the component's files)
+or in the published repository (custom_components/mantel/ with hk_core/ vendored in). Two optional neighbours:
   * HK_FRONTEND_COMPONENT: a built custom_components/hk_frontend (tools/build_ha.py
     stages one): the hand-over tests run against the real HK Frontend, else they
     are not collected (the published repository has no HK Frontend);
@@ -27,7 +28,18 @@ if HK and not os.path.isfile(os.path.join(HK, "manifest.json")):
 _ROOT = tempfile.mkdtemp(prefix="mantel-cc-")
 os.makedirs(os.path.join(_ROOT, "custom_components"))
 open(os.path.join(_ROOT, "custom_components", "__init__.py"), "w").close()
-os.symlink(COMPONENT, os.path.join(_ROOT, "custom_components", "mantel"))
+# the Mantel repository keeps the shared code in its own hk_core/, which the published component vendors inside
+# itself (its publish.py: CORE_PARTS); made up here the same way, so `.hk_core.link` imports work in both layouts
+_CORE = os.path.join(COMPONENT, "..", "..", "..", "..", "hk_core")
+if os.path.isdir(_CORE) and not os.path.isdir(os.path.join(COMPONENT, "hk_core")):
+    _made = os.path.join(_ROOT, "custom_components", "mantel")
+    os.makedirs(os.path.join(_made, "hk_core"))
+    for _name in os.listdir(COMPONENT):
+        os.symlink(os.path.join(COMPONENT, _name), os.path.join(_made, _name))
+    for _name in ("__init__.py", "link"):
+        os.symlink(os.path.join(os.path.abspath(_CORE), _name), os.path.join(_made, "hk_core", _name))
+else:
+    os.symlink(COMPONENT, os.path.join(_ROOT, "custom_components", "mantel"))
 if HK:
     os.symlink(HK, os.path.join(_ROOT, "custom_components", "hk_frontend"))
 sys.path.insert(0, _ROOT)

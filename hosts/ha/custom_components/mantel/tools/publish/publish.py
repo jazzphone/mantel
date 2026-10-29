@@ -3,7 +3,10 @@ Mantel repository the way HK Frontend's is). It writes a folder; with --commit i
 it pushes to the repository's origin -- creating jazzphone/mantel-link on GitHub and cloning it is the maintainer's
 step (docs/phase9/MANTEL-LINK.md 9.9).
 
-    custom_components/mantel/   what HACS installs (no tests, tools, docs)
+    custom_components/mantel/   what HACS installs (no tests, tools, docs), with hk_core/ (the few shared modules
+                                it needs: hk_core/link/, the link client and the talk and page-header code HK
+                                Frontend also uses) vendored inside, imported relatively (hassfest: nothing
+                                top-level beside the component)
     tests/  docs/               beside it
     README.md                   the component's README
     LICENSE  hacs.json  CHANGELOG.md  .gitignore  .github/   tools/publish/root/ (this builder itself is not published)
@@ -34,6 +37,11 @@ COMPONENT = os.path.dirname(os.path.dirname(HERE))
 BESIDE = ("tests", "docs")
 SKIP = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".DS_Store"}
 HK_PUBLISHER = os.path.join(os.path.dirname(COMPONENT), "hk_frontend", "tools", "publish", "publish.py")
+# the shared code (hk_core/ in the Mantel repository) this component imports: only these, vendored as
+# custom_components/mantel/hk_core/ (HK Frontend vendors all of hk_core the same way)
+MANTEL = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(COMPONENT))))
+CORE = os.path.join(MANTEL, "hk_core")
+CORE_PARTS = ("__init__.py", "link")
 
 
 def hk_publisher():
@@ -64,6 +72,18 @@ def plan() -> list[tuple[str, str]]:
                 out.append((src, "README.md"))
             else:
                 out.append((src, os.path.join("custom_components", "mantel", rel)))
+    for part in CORE_PARTS:
+        path = os.path.join(CORE, part)
+        if os.path.isfile(path):
+            out.append((path, os.path.join("custom_components", "mantel", "hk_core", part)))
+            continue
+        for d, dirs, files in os.walk(path):
+            dirs[:] = sorted(x for x in dirs if x not in SKIP)
+            for f in sorted(files):
+                if f.endswith(".py"):
+                    src = os.path.join(d, f)
+                    out.append((src, os.path.join("custom_components", "mantel", "hk_core",
+                                                  os.path.relpath(src, CORE))))
     return out
 
 
