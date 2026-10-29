@@ -606,7 +606,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Every entry is version 1.16; one from a later major version is refused
+    """Every entry is version 1.17; one from a later major version is refused
     rather than guessed at. An older minor version is marked 7 (the versions
     that made such entries already moved their data), then 7 -> 8 moves the
     screens' room settings to All Screens (settings.rooms_lifted), 8 -> 9
@@ -617,8 +617,10 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     12 -> 13 moves the screens' camera lists to All Screens
     (settings.cameras_lifted), 13 -> 14 makes each wall tablet an item of
     its own (settings.tablets_lifted), 14 -> 15 keeps stored only what
-    differs from the defaults (settings.settings_trimmed), and 15 -> 16 moves
-    the Weather page to HK's own radar (settings.radar_lifted)."""
+    differs from the defaults (settings.settings_trimmed), 15 -> 16 moves
+    the Weather page to HK's own radar (settings.radar_lifted), and 16 -> 17
+    has each screen's menu follow All Screens one setting at a time
+    (settings.menu_per_setting)."""
     if entry.version > 1:
         return False
     if entry.minor_version < 7:
@@ -744,6 +746,17 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if options is not None:
                 hass.config_entries.async_update_entry(entry, options=options)
         hass.config_entries.async_update_entry(entry, minor_version=16)
+    if entry.minor_version < 17:
+        # each screen's menu follows All Screens one setting at a time: what
+        # equals All Screens' follows again (settings.menu_per_setting)
+        if F.kind_of(entry) == F.FRONTEND:
+            subs = {s.unique_id: s for s in entry.subentries.values()
+                    if s.subentry_type == dash_settings.SUBENTRY_DASHBOARD and s.unique_id}
+            items = dash_settings.menu_per_setting(entry.options, {p: dict(s.data) for p, s in subs.items()})
+            for p, data in items.items():
+                if data != dict(subs[p].data):
+                    hass.config_entries.async_update_subentry(entry, subs[p], data=data)
+        hass.config_entries.async_update_entry(entry, minor_version=17)
     return True
 
 

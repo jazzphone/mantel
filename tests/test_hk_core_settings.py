@@ -209,5 +209,45 @@ def test_a_new_screen_starts_from_its_preset_and_all_screens_menu():
     assert phone["menu"] == "auto" and phone["time_weather"] == "page" and phone["pages"] == [] and phone["home_page"] is True
     assert phone == M.preset_menu(M.board(M.SCREEN_PRESETS["personal"]), M.SCREEN_PRESETS["personal"], None)
     assert M.new_board("nonsense", None) == M.board({})
-    assert M.new_board("wall_tablet", {})["menu_custom"] is True
-    assert M.new_board("wall_tablet", {"dashboard": {"menu": {"time_weather_at": "menu"}}})["menu_custom"] is False
+    # the preset's menu settings All Screens' differs on start as its own, one at a time (menu_own)
+    assert M.new_board("wall_tablet", {})["menu_own"] == ["time_weather"]
+    assert M.new_board("wall_tablet", {"dashboard": {"menu": {"time_weather_at": "menu"}}})["menu_own"] == []
+
+
+def test_the_menu_follows_all_screens_one_setting_at_a_time():
+    """Phase 3 (entry 1.17): menu_own lists a screen's own menu settings; the rest are All Screens', each on its
+    own. menu_per_setting moves a menu_custom screen over: what equals All Screens' follows again."""
+    opts = {"dashboard": {"menu": {"accent": "blue", "tab_size": "xl", "bar_pos": "top", "style": "chip"}}}
+    b = M.resolved(M.board({"menu": "tab", "menu_own": ["tab_size"], "tab_size": "standard", "accent": "red"}), opts)
+    assert (b["tab_size"], b["accent"], b["tab_bar_pos"], b["menu"]) == ("standard", "blue", "top", "chip")
+    assert b["menu_house"] is False and b["menu_own"] == ["tab_size"]
+    own_style = M.resolved(M.board({"menu": "tab", "menu_own": ["menu"]}), opts)
+    assert own_style["menu"] == "tab" and own_style["accent"] == "blue", "a button's style of its own, the rest followed"
+    assert M.resolved(M.board({"menu": "tabbar"}), opts)["menu"] == "tabbar", "the tab bar is always the screen's own"
+    # a screen not moved yet (menu_custom) owns them all, as before
+    legacy = M.resolved(M.board({"menu": "tab", "menu_custom": True, "accent": "red"}), opts)
+    assert (legacy["menu"], legacy["accent"], legacy["tab_size"], legacy["menu_house"]) == ("tab", "red", "large", False)
+    items = {
+        "same": {"menu": "chip", "menu_custom": True, "accent": "blue", "tab_size": "xl", "tab_bar_pos": "top"},
+        "differs": {"menu": "tab", "menu_custom": True, "accent": "red", "tab_size": "xl", "tab_bar_pos": "top",
+                    "pages": ["weather"]},
+        "follows": {"menu": "open", "menu_custom": False, "accent": "green", "dock_min": 900},
+        "moved": {"menu": "chip", "menu_own": ["accent"], "accent": "pink", "tab_size": "standard"},
+    }
+    got = M.menu_per_setting(opts, items)
+    assert got["same"] == {"menu": "chip"}, "every value equal to All Screens': it follows again"
+    assert got["differs"] == {"menu": "tab", "accent": "red", "pages": ["weather"], "menu_own": ["menu", "accent"]}
+    assert got["follows"] == {"menu": "open"}, "a follower's baked-in menu values go; its menu stays its own"
+    assert got["moved"] == {"menu": "chip", "menu_own": ["accent"], "accent": "pink"}, "already moved: as it is"
+    # nothing any screen shows changes
+    for p, d in items.items():
+        before, after = M.resolved(M.board(d), opts), M.resolved(M.board(got[p]), opts)
+        for k in M.MENU_KEYS:
+            assert before[k] == after[k], (p, k)
+    assert M.menu_per_setting(opts, got) == got, "a second run changes nothing"
+    # an older page's switch is read as all or none
+    from hk_core.settings import changes as C
+    own, err = C.apply_board({}, {"menu_custom": True, "page_header": "none"})
+    assert not err and own["menu_own"] == list(M.MENU_KEYS) and "menu_custom" not in own
+    assert C.apply_board(own, {"menu_custom": False})[0]["menu_own"] == []
+    assert C.apply_board({}, {"menu_own": ["bogus"]})[1] == {"menu_own": "choice"}

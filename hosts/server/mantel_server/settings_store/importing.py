@@ -113,6 +113,25 @@ def normalise_house(store: "SettingsStore") -> bool:
     return bool(got)
 
 
+MENUS_PER_SETTING = "each screen's menu follows All Screens one setting at a time"
+
+
+def menus_per_setting(store: "SettingsStore") -> bool:
+    """Once, at start-up: each screen stored with menu_custom (before 0.1.86; HK Frontend's entry 1.17) rewritten
+    with its own menu settings one at a time (hk_core ``menu_per_setting``: what equals All Screens' follows
+    again), as a version of its own. Idempotent: a screen without menu_custom is left alone. True if written."""
+    docs = {k: d for k, d in store.docs("board").items() if "menu_custom" in d.body}
+    if not docs:
+        return False
+    house = {SM.CONF_DASHBOARD: store.body("house", "settings") or {}}
+    moved = SM.menu_per_setting(house, {k: d.body for k, d in docs.items()})
+    got = store.write([("board", k, body) for k, body in moved.items()], actor=Actor(label="mantel"),
+                      message=MENUS_PER_SETTING, expect={("board", k): d.version for k, d in docs.items()})
+    if got:
+        log.info("%d screens' menus now follow All Screens one setting at a time", len(got))
+    return bool(got)
+
+
 def stored_of(store: "SettingsStore") -> SM.Stored:
     """Mantel's settings documents as hk_core's model reads HA's entry (SM.Stored), for SM.boards / SM.tablets:
     the screens and tablets AS READ, which is what HA's feed and panel/get hand a screen and HK Settings."""
@@ -141,9 +160,12 @@ def docs_from_panel(payload: Any) -> list[tuple[str, str, dict]]:
     catalog = {k: payload[k] for k in CATALOG_KEYS if k in payload}
     if catalog:
         out.append(("house", "catalog", catalog))
-    for path, board in sorted((payload.get("boards") or {}).items()):
-        if isinstance(board, dict) and KEY_RE["board"].match(str(path)):
-            out.append(("board", str(path), as_stored("board", board)))
+    boards = {str(path): as_stored("board", board) for path, board in sorted((payload.get("boards") or {}).items())
+              if isinstance(board, dict) and KEY_RE["board"].match(str(path))}
+    # each screen's menu one setting at a time (hk_core menu_per_setting): an older HK Frontend answers menu_custom,
+    # and every answer bakes All Screens' menu into the screens that follow it
+    for path, body in SM.menu_per_setting({SM.CONF_DASHBOARD: out[0][2]}, boards).items():
+        out.append(("board", path, body))
     for tid, tablet in sorted((payload.get("tablets") or {}).items()):
         if isinstance(tablet, dict) and KEY_RE["tablet"].match(str(tid)):
             out.append(("tablet", str(tid), as_stored("tablet", {k: v for k, v in tablet.items() if k != "parts"})))

@@ -183,3 +183,28 @@ async def test_a_person_s_values_are_checked_against_the_whole_house(svc, store,
     await save(svc, {"look.glass": "blur"})
     got = await svc.save(OWNER, {"type": "mantel/settings/user/set", "changes": {"look.frost": 30}})
     assert got["settings"] == {"look": {"frost": 30}}
+
+
+def test_each_screen_s_menu_moves_to_one_setting_at_a_time_once(store):
+    """Phase 3 (0.1.86): a screen stored with menu_custom keeps as its own only the menu settings that differ from
+    All Screens' (hk_core menu_per_setting), as a version of its own; a second start writes nothing."""
+    store.write([("house", "settings", {"menu": {"accent": "blue", "style": "chip"}}),
+                 ("board", "dashboard-den", {"menu": "tab", "menu_custom": True, "accent": "blue", "tab_size": "xl"}),
+                 ("board", "dashboard-hall", {"menu": "open", "pages": ["weather"]})], actor=S.Actor(label="t"))
+    assert S.menus_per_setting(store) is True
+    assert store.body("board", "dashboard-den") == {"menu": "tab", "tab_size": "xl", "menu_own": ["menu", "tab_size"]}
+    assert store.body("board", "dashboard-hall") == {"menu": "open", "pages": ["weather"]}, "left alone"
+    assert len(store.history("board", "dashboard-den")) == 2
+    assert S.menus_per_setting(store) is False
+
+
+def test_an_import_moves_each_screen_s_menu_too():
+    """HA's panel/get answers each screen resolved (All Screens' menu baked in) and, from an older HK Frontend,
+    with menu_custom: the imported screens follow All Screens one setting at a time."""
+    docs = S.docs_from_panel({"settings": {"menu": {"accent": "blue"}},
+                              "boards": {"dashboard-den": {"menu": "open", "menu_custom": True, "accent": "red",
+                                                           "menu_house": False},
+                                         "dashboard-hall": {"menu": "open", "accent": "blue", "menu_house": True}}})
+    boards = {k: b for scope, k, b in docs if scope == "board"}
+    assert boards == {"dashboard-den": {"menu": "open", "accent": "red", "menu_own": ["accent"]},
+                      "dashboard-hall": {"menu": "open"}}

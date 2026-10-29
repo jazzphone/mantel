@@ -69,7 +69,7 @@ from .hooks import (  # noqa: F401
 from .importing import (  # noqa: F401
     IMPORT_READ, _READ_ONLY_BOARD, as_stored, stored_of, docs_from_panel, HOME_SCREEN, GENERATED,
     NO_HK_FRONTEND, seed_home_screen, _untouched_seed, import_settings, import_cli,
-    NORMALISED, merged_house, looks_merged, stored_house, normalise_house,
+    NORMALISED, merged_house, looks_merged, stored_house, normalise_house, MENUS_PER_SETTING, menus_per_setting,
 )
 from .service import (  # noqa: F401
     _slug, SettingsService,

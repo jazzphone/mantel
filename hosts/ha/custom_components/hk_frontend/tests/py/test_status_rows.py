@@ -87,6 +87,6 @@ async def test_an_entry_from_1_9_gets_its_status_rows(hass, base, saved):
     old.add_to_hass(hass)
     assert await hass.config_entries.async_setup(old.entry_id)
     await hass.async_block_till_done()
-    assert old.minor_version == 16
+    assert old.minor_version == 17
     rows = S.merged(old.options)["status_rows"]
     assert rows["climate"]["status"] == (["humidity"] if saved else ["temperature", "humidity", "blinds", "fans"])

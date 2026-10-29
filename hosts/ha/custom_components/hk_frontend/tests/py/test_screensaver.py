@@ -455,7 +455,7 @@ async def test_a_tablet_lifted_off_its_screen_keeps_its_entities(hass, base, cap
                             suggested_object_id="hall_black_screen")
     assert await hass.config_entries.async_setup(old.entry_id)
     await hass.async_block_till_done(wait_background_tasks=True)
-    assert old.minor_version == 16
+    assert old.minor_version == 17
     tabs = S.tablets(old)
     assert list(tabs) == ["hall"]
     t = tabs["hall"]
