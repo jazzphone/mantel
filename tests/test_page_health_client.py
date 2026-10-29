@@ -1,7 +1,8 @@
 """PAGE HEALTH, the page's side (web/shim/page-health.js, used by web/home.js and web/shim/settings-page.js): besides
 the heap and how the page before it ended, a frame says its page kind, the time to first draw, the sockets opened
 again since the page loaded (hub.js counts them) and the registry refreshes (a counter later phases bump, 0 now).
-Run in node with a recording hub."""
+The baseline (2026-10-29) adds the device on `load`, the startup download on `draw`, and an `fps` frame sampled only
+while the page is visible, idle and not dark. Run in node with a recording hub and a fake clock, timers and frames."""
 from __future__ import annotations
 
 import json
@@ -23,6 +24,23 @@ globalThis.localStorage = { getItem: (k) => (k in store ? store[k] : null), setI
 let tick = null;
 globalThis.setInterval = (fn) => { tick = fn; return 1; };
 globalThis.clearInterval = () => {};
+// a clock, timers and animation frames the script drives by hand
+let clock = 100000;
+const timers = [];
+globalThis.setTimeout = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
+globalThis.clearTimeout = () => {};
+let frame = null;
+globalThis.requestAnimationFrame = (fn) => { frame = fn; return 1; };
+Object.defineProperty(globalThis, 'performance', { configurable: true, value: {
+  now: () => clock, memory: { usedJSHeapSize: 50 * 1048576, jsHeapSizeLimit: 4096 * 1048576 },
+  getEntriesByType: (t) => (t === 'navigation' ? [{ transferSize: 9000, encodedBodySize: 9000 }]
+    : [{ transferSize: 1000, encodedBodySize: 5000 }, { transferSize: 0, encodedBodySize: 2000 }, { transferSize: 0, encodedBodySize: 0 }]) } });
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: {
+  userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15',
+  maxTouchPoints: 5, hardwareConcurrency: 6, deviceMemory: 4 } });
+globalThis.screen = { width: 1180, height: 820 };
+globalThis.devicePixelRatio = 2;
+globalThis.document = { visibilityState: 'visible' };
 const m = await import(process.argv[2]);
 const sent = [];
 const hub = { reconnects: 0, tell: (type, body) => sent.push({ type, ...body }) };
@@ -42,6 +60,45 @@ const s = m.pageHealth(hub, 'settings');
 s.drawn();
 out.settings = sent.splice(0);
 out.keys = Object.keys(store);
+
+// the frame rate: ~20 s after load, then hourly; waits for a calm, lit page
+const fps = async (mut) => {
+  // runs the next timer, then 5 s of frames at 60 per second, leaving `mut` to change the world first
+  const t = timers.shift();
+  if (mut) mut();
+  t.fn();
+  const sentBefore = sent.length;
+  let at = 0;
+  for (let i = 0; i < 400 && frame; i++) { const f = frame; frame = null; at += 1000 / 60; clock += 1000 / 60; f(at); }
+  return { delay: t.ms, told: sent.slice(sentBefore), next: timers.map((x) => x.ms) };
+};
+window.__hkAsleep = false;
+window.hkSaver = { black: () => false };
+timers.length = 0;
+const h = m.pageHealth(hub, 'home');
+out.timer = timers.map((t) => t.ms);
+sent.length = 0;
+clock += 21000;                                            // 21 s since the page loaded; untouched
+out.first = await fps();
+out.next = timers.map((t) => t.ms);
+// somebody touched it: waits half a minute and tries again
+listeners.pointerdown();
+out.touched = await fps();
+clock += 6000;
+// the screensaver is up: no sample
+window.hkSaver = { black: () => true };
+out.dark = await fps();
+// the dashboard cannot tell yet (no saver loaded): no sample
+window.hkSaver = undefined;
+out.unsure = await fps();
+// a settings page has no saver and does not need one
+timers.length = 0; frame = null;
+const st = m.pageHealth(hub, 'settings');
+clock += 21000;
+out.settingsFps = (await fps()).told;
+h.stop(); st.stop();
+out.platforms = [m.platformOf('Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)', 5), m.platformOf('Macintosh', 0), m.platformOf('Macintosh', 5),
+  m.platformOf('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)'), m.platformOf('Linux; Android 13'), m.platformOf('Windows NT 10.0'), m.platformOf('X11; Linux x86_64'), m.platformOf('')];
 process.stdout.write(JSON.stringify(out));
 """
 
@@ -56,6 +113,35 @@ def got(tmp_path_factory):
     run = subprocess.run(["node", str(d / "script.mjs"), str(d / "page-health.mjs")], capture_output=True, text=True, timeout=60)
     assert run.returncode == 0, run.stderr
     return json.loads(run.stdout)
+
+
+def test_the_load_frame_says_what_device_it_is(got):
+    load = got["home"][0]
+    assert load["platform"] == "iPad"                      # iPad Safari says Macintosh; the touch points give it away
+    assert (load["memory_gb"], load["cores"], load["sw"], load["sh"], load["dpr"]) == (4, 6, 1180, 820, 2)
+    assert got["platforms"] == ["iPad", "Mac", "iPad", "iPhone", "Android", "Windows", "Linux", "Other"]
+
+
+def test_the_draw_frame_sums_the_startup_download_with_the_encoded_size_for_cached_files(got):
+    draw = next(f for f in got["home"] if f["event"] == "draw")
+    assert draw["dl_files"] == 4 and draw["dl_bytes"] == 9000 + 1000 + 2000       # the document, then each file
+
+
+def test_a_frame_rate_is_sampled_once_the_page_has_been_calm_for_a_while(got):
+    assert got["timer"] == [20000]
+    [fps] = got["first"]["told"]
+    assert fps["event"] == "fps" and fps["page"] == "home" and 59 <= fps["fps"] <= 61
+    assert got["next"] == [3600000], "then hourly"
+
+
+def test_a_touched_dark_or_unsure_page_is_not_sampled_but_tried_again(got):
+    for name in ("touched", "dark", "unsure"):
+        assert got[name]["told"] == [], name
+        assert got[name]["next"] == [30000], name              # half a minute later
+
+
+def test_the_settings_page_needs_no_screensaver_to_be_sampled(got):
+    assert [f["event"] for f in got["settingsFps"]] == ["fps"] and got["settingsFps"][0]["page"] == "settings"
 
 
 def test_the_load_frame_names_its_page_and_counts_from_zero(got):

@@ -9,6 +9,18 @@ const span = (now, t) => {
   const s = Math.max(0, now - t);
   return s < 90 ? 'under 2 min' : s < 5400 ? Math.round(s / 60) + ' min' : s < 129600 ? Math.round(s / 3600) + ' h' : Math.round(s / 86400) + ' days';
 };
+const size = (n) => (n < 1024 ? n + ' B' : n < 1048576 ? Math.round(n / 1024) + ' KB' : (n / 1048576).toFixed(1) + ' MB');
+// "Download 3.4 MB in 62 files · First draw 2.3 s · 58 fps · 4 GB memory · 4 cores · 1180 × 820 @2×": only what the page told
+export function startSub(r) {
+  const bits = [], d = r.device || {};
+  if (r.download_bytes) bits.push('Download ' + size(r.download_bytes) + (r.download_files ? ' in ' + r.download_files + ' files' : ''));
+  if (r.first_draw_ms != null) bits.push('First draw ' + secs(r.first_draw_ms));
+  if (r.fps != null) bits.push(r.fps + ' fps');
+  if (d.memory_gb) bits.push(d.memory_gb + ' GB memory');
+  if (d.cores) bits.push(d.cores + ' cores');
+  if (d.screen_w && d.screen_h) bits.push(d.screen_w + ' × ' + d.screen_h + (d.dpr ? ' @' + d.dpr + '×' : ''));
+  return bits.join(' · ');
+}
 // "Memory 77 MB · 2 reconnects · Slowest start 2.3 s": only what the page told
 export function screenSub(r, now) {
   const bits = [];
@@ -23,20 +35,27 @@ export function screenSub(r, now) {
 
 export function pPerformance() {
   return { title: 'Performance', back: ['About', '#/' + ROUTE + '/about'],
-           scope: 'How each screen’s page is doing over the last 24 hours, and how fast Mantel passes the house’s changes on. Numbers only; nothing is stored beyond a day.', body(c) {
+           scope: 'How each screen’s page is doing over the last 24 hours, and how fast Mantel passes the house’s changes on. Numbers only; a screen’s are kept for a day, and each tablet’s latest summary until its next.', body(c) {
     const got = load('performance', () => api('GET', '/api/performance'));
     if (!got) { pending(c); return; }
     if (got.err) { failed(c, got.err); return; }
     const d = got.data, s = d.server || {}, f = s.fan_out || {};
-    c.appendChild(group({ header: 'Mantel', footer: 'Fan-out is the time to build and send one screen’s changes, over the last hour.' }, [
+    const t = s.tick || {}, h = s.settings_history || {};
+    c.appendChild(group({ header: 'Mantel', footer: 'Fan-out is the time to build and send one screen’s changes, over the last hour. The tick is Mantel’s once-a-minute check of schedules, sessions and devices.' }, [
       info('Fan-Out Time', f.samples ? f.samples + ' sends in the last hour' : 'Nothing sent in the last hour', f.samples ? 'p50 ' + secs(f.p50_ms) + ' · p95 ' + secs(f.p95_ms) : '—'),
       info('Home Assistant Events', 'State changes, over the last five minutes', (s.ha_events_per_min == null ? '—' : s.ha_events_per_min + ' a minute')),
+      info('Minute Tick', t.samples ? 'Time taken, over the last 24 hours' : 'Not run yet', t.samples ? 'Last ' + secs(t.last_ms) + ' · Longest ' + secs(t.max_ms) : '—'),
+      info('Settings History', h.rows == null ? null : 'Every saved version of the settings', h.rows == null ? '—' : h.rows.toLocaleString('en-US') + (h.rows === 1 ? ' version · ' : ' versions · ') + size(h.bytes)),
       info('Connected Screens', null, String(s.connected_screens == null ? '—' : s.connected_screens)),
     ]));
     const row = (r) => info(r.name, screenSub(r, d.now), r.up_since ? 'Up ' + span(d.now, r.up_since) : '—');
     const tablets = (d.screens || []).filter((r) => r.kind === 'tablet'), people = (d.screens || []).filter((r) => r.kind !== 'tablet');
     c.appendChild(group({ header: 'Wall Tablets', footer: tablets.length ? 'Up is how long the page has been open; a tablet that reloads often shows a short time here.' : 'No wall tablet has reported in the last 24 hours.' }, tablets.map(row)));
     if (people.length) c.appendChild(group({ header: 'Browsers' }, people.map(row)));
+    // what each screen downloaded to start, how fast it drew and what it runs on (page-health.js, the baseline)
+    const start = (d.screens || []).filter((r) => startSub(r));
+    if (start.length) c.appendChild(group({ header: 'Startup & Device', footer: 'Download counts the page and every file it fetched by its first screen. The frame rate is taken over 5 quiet seconds, never under the screensaver.' },
+      start.map((r) => info(r.name, startSub(r), (r.device && r.device.platform) || '—'))));
     c.appendChild(group({}, [button('Refresh', () => { forget('performance'); redraw(); }, { center: true, fk: 'mx:performance-refresh' })]));
   } };
 }

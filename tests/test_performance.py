@@ -3,10 +3,14 @@
 (Mantel Settings -> About -> Performance). Fictional house."""
 from __future__ import annotations
 
+import asyncio
+import json
+import sqlite3
 from types import SimpleNamespace
 
 import pytest
 
+from mantel_server import db as dbmod
 from mantel_server import page_health as PH
 from mantel_server import performance as P
 from mantel_server.connectors import Ctx
@@ -134,11 +138,28 @@ async def test_a_manager_reads_the_performance_page(mantel):
     assert set(got) == {"now", "screens", "server"}
     [row] = got["screens"]
     assert set(row) >= {"name", "kind", "page", "up_since", "memory_mb", "reconnects", "registry_refreshes",
-                        "slowest_start_ms", "last_seen"}
+                        "slowest_start_ms", "last_seen", "first_draw_ms", "download_bytes", "download_files", "fps",
+                        "device"}
     assert row["name"] == "Master Bathroom" and row["memory_mb"] == 77 and row["reconnects"] == 2
     srv = got["server"]
-    assert set(srv) == {"fan_out", "ha_events_per_min", "connected_screens"}
+    assert set(srv) == {"fan_out", "ha_events_per_min", "connected_screens", "tick", "settings_history"}
     assert srv["fan_out"]["samples"] == 2 and srv["connected_screens"] == 0 and srv["ha_events_per_min"] == 0.0
+    assert srv["tick"] == {"samples": 0, "last_ms": None, "max_ms": None}
+
+
+async def test_the_page_reports_the_ticks_time_and_the_settings_histories_size(mantel):
+    m = mantel
+    await m.user("ada", "owner")
+    await m.sign_in("ada")
+    P.STATS.tick(12.0)
+    P.STATS.tick(3.5)
+    P.STATS.tick(40.25)
+    P.STATS.tick(6.0)
+    srv = (await (await m.get("/api/performance")).json())["server"]
+    assert srv["tick"] == {"samples": 4, "last_ms": 6.0, "max_ms": 40.25}
+    rows, size = m.store.db.execute("SELECT COUNT(*), SUM(LENGTH(CAST(body AS BLOB)) + LENGTH(CAST(diff AS BLOB))) "
+                                    "FROM settings_history").fetchone()
+    assert srv["settings_history"]["rows"] == rows and srv["settings_history"]["bytes"] == (size or 0)
 
 
 async def test_an_admin_reads_it_too(mantel):
@@ -171,3 +192,131 @@ async def test_a_session_at_a_wall_tablet_is_refused_even_an_owners(mantel):
 def test_the_route_declares_its_guard():
     spec = P.api_performance.__guard__
     assert spec.who == "manager" and spec.device_ok is False
+
+
+# -- the baseline (2026-10-29): the device, the download, the frame rate ----------------------------------------
+IPAD = {"event": "load", "page": "home", "heap": 40, "platform": "iPad", "memory_gb": 4, "cores": 6, "sw": 1180, "sh": 820,
+        "dpr": 2}
+
+
+def test_a_tablets_device_download_and_frame_rate_come_from_its_frames():
+    c = tablet()
+    PH.RING.add(c, IPAD, now=1.0)
+    PH.RING.add(c, {"event": "draw", "page": "home", "first_draw": 2300, "dl_bytes": 3_400_000, "dl_files": 62}, now=2.0)
+    PH.RING.add(c, {"event": "fps", "page": "home", "fps": 58.46}, now=30.0)
+    [row] = PH.RING.summary(now=60.0)
+    assert row["device"] == {"platform": "iPad", "memory_gb": 4.0, "cores": 6, "screen_w": 1180, "screen_h": 820, "dpr": 2.0}
+    assert (row["download_bytes"], row["download_files"], row["first_draw_ms"], row["fps"]) == (3_400_000, 62, 2300, 58.5)
+
+
+def test_junk_in_the_new_fields_is_dropped():
+    PH.RING.add(tablet(), {"event": "load", "platform": "<script>", "cores": -1}, now=1.0)
+    PH.RING.add(tablet(), {"event": "fps", "fps": 5000}, now=2.0)
+    PH.RING.add(tablet(), {"event": "draw", "dl_bytes": "lots", "dl_files": True}, now=3.0)
+    [row] = PH.RING.summary(now=4.0)
+    assert (row["device"], row["fps"], row["download_bytes"], row["download_files"]) == (None, None, None, None)
+
+
+async def test_an_fps_frame_is_kept_once_in_a_while_not_every_time():
+    c = tablet()
+    await PH.page_health(c, {"event": "fps", "fps": 59, "page": "home"})
+    await PH.page_health(c, {"event": "fps", "fps": 20, "page": "home"})         # straight after: ignored
+    assert PH.RING.summary()[0]["fps"] == 59.0
+
+
+@pytest.fixture
+def conn(tmp_path):
+    d = dbmod.Database(tmp_path / "t.db")
+    yield d.conn
+    d.close()
+
+
+def test_migration_0026_makes_the_tablet_health_table(conn):
+    assert [r[1] for r in conn.execute("PRAGMA table_info(tablet_health)")] == ["device_id", "updated", "json"]
+    assert conn.execute("SELECT name FROM schema_version WHERE version=26").fetchone()[0] == "tablet_health"
+
+
+def test_a_tablets_summary_is_stored_and_survives_a_restart(conn):
+    PH.TABLETS.bind(conn)
+    PH.RING.add(tablet(), IPAD, now=1000.0)
+    PH.RING.add(tablet(), {"event": "draw", "first_draw": 2300, "dl_bytes": 3_400_000, "dl_files": 62}, now=1001.0)
+    PH.RING.add(tablet(), {"event": "fps", "fps": 58.0}, now=1002.0)
+    [(device_id, updated, text)] = conn.execute("SELECT * FROM tablet_health").fetchall()
+    assert device_id == "d1" and updated == 1000.0               # only the first write: the rest are within 10 minutes
+    assert json.loads(text)["device"]["platform"] == "iPad" and "fps" not in json.loads(text)
+    # a restart: the ring is empty, the table is read again, and the next frame (a beat) shows what was kept
+    PH.RING.add(tablet(), {"event": "fps", "fps": 58.0}, now=1000.0 + PH.WRITE_EVERY + 1)
+    PH.RING.reset()
+    PH.TABLETS.bind(conn)
+    PH.RING.add(tablet(), {"event": "beat", "heap": 33}, now=5000.0)
+    [row] = PH.RING.summary(now=5001.0)
+    assert row["fps"] == 58.0 and row["download_bytes"] == 3_400_000 and row["device"]["cores"] == 6
+    assert row["first_draw_ms"] == 2300
+
+
+def test_writes_are_rare_only_changes_and_at_most_every_ten_minutes(conn):
+    PH.TABLETS.bind(conn)
+    writes = []
+    conn.set_trace_callback(lambda q: writes.append(q) if q.startswith("INSERT INTO tablet_health") else None)
+    for i, fps in enumerate((60, 59, 58, 57)):                      # four samples in 3 minutes
+        PH.RING.add(tablet(), {"event": "fps", "fps": fps}, now=100.0 + i * 60)
+    assert len(writes) == 1
+    PH.RING.add(tablet(), {"event": "fps", "fps": 57}, now=100.0 + PH.WRITE_EVERY + 5)      # due, but the value is the same
+    assert len(writes) == 2                                          # 60 -> 57 changed the stored 60
+    PH.RING.add(tablet(), {"event": "fps", "fps": 57}, now=100.0 + 3 * PH.WRITE_EVERY)       # due and unchanged
+    assert len(writes) == 2
+    conn.set_trace_callback(None)
+
+
+def test_a_person_s_browser_is_not_stored(conn):
+    PH.TABLETS.bind(conn)
+    PH.RING.add(person(), {"event": "fps", "fps": 30, "page": "settings"}, now=1.0)
+    assert conn.execute("SELECT COUNT(*) FROM tablet_health").fetchone()[0] == 0
+
+
+# -- the minute tick, and the settings history's size ------------------------------------------------------------
+def test_the_ticks_last_and_longest_cover_24_hours():
+    s = P.Stats()
+    s.tick(900.0, now=0)                                 # more than a day ago: left out
+    s.tick(10.0, now=2 * DAY)
+    s.tick(25.0, now=2 * DAY + 60)
+    s.tick(5.0, now=2 * DAY + 120)
+    assert s.tick_times(now=2 * DAY + 130) == {"samples": 3, "last_ms": 5.0, "max_ms": 25.0}
+    assert s.tick_times(now=10 * DAY) == {"samples": 0, "last_ms": None, "max_ms": None}
+
+
+def test_the_tick_ring_holds_a_day_of_minutes():
+    s = P.Stats()
+    for i in range(P.TICK_MAX * 2):
+        s.tick(1.0, now=float(i))
+    assert s.tick_times(now=float(P.TICK_MAX * 2))["samples"] == P.TICK_MAX
+
+
+async def test_policy_tick_times_each_round(monkeypatch):
+    from mantel_server import server
+
+    async def fake(app, hub):
+        fake.n += 1
+        if fake.n == 2:
+            raise RuntimeError("one failed round still counts")
+    fake.n = 0
+    monkeypatch.setattr(server, "tick_once", fake)
+    task = asyncio.create_task(server.policy_tick({}, None, every=0.001))
+    for _ in range(200):
+        await asyncio.sleep(0.005)
+        if P.STATS.tick_times()["samples"] >= 3:
+            break
+    task.cancel()
+    assert P.STATS.tick_times()["samples"] >= 3 and P.STATS.tick_times()["last_ms"] >= 0
+
+
+def test_the_settings_history_is_counted_at_most_every_ten_minutes():
+    c = sqlite3.connect(":memory:")
+    c.execute("CREATE TABLE settings_history (id INTEGER PRIMARY KEY, body TEXT, diff TEXT)")
+    c.execute("INSERT INTO settings_history (body, diff) VALUES ('{\"a\":1}', '{}')")
+    s = P.Stats()
+    assert s.history_size(c, now=0) == {"rows": 1, "bytes": 7 + 2, "at": 0}
+    c.execute("INSERT INTO settings_history (body, diff) VALUES ('\u00e9', '{}')")      # 2 bytes in UTF-8
+    assert s.history_size(c, now=P.HISTORY_EVERY - 1)["rows"] == 1               # not counted again yet
+    assert s.history_size(c, now=P.HISTORY_EVERY + 1) == {"rows": 2, "bytes": 9 + 4, "at": P.HISTORY_EVERY + 1}
+    assert P.Stats().history_size(None, now=0) == {"rows": None, "bytes": None, "at": None}

@@ -73,12 +73,16 @@ ABOUT = {"product": "Mantel", "version": "1.2.3", "commit": "dev", "build": "x",
          "music_assistant": {"version": None, "configured": False}, "linked": [], "commands": False, "docs": "/docs"}
 PERF = {"now": 1_700_000_000.0, "screens": [
     {"name": "Kitchen", "kind": "tablet", "page": "home", "up_since": 1_700_000_000.0 - 3 * 3600, "memory_mb": 77,
-     "reconnects": 2, "registry_refreshes": 0, "slowest_start_ms": 2300, "last_seen": 1_700_000_000.0 - 30},
+     "reconnects": 2, "registry_refreshes": 0, "slowest_start_ms": 2300, "last_seen": 1_700_000_000.0 - 30,
+     "first_draw_ms": 2300, "download_bytes": 3_565_158, "download_files": 62, "fps": 58.5,
+     "device": {"platform": "iPad", "memory_gb": 4, "cores": 6, "screen_w": 1180, "screen_h": 820, "dpr": 2}},
     {"name": "Hall", "kind": "tablet", "page": "home", "up_since": None, "memory_mb": None, "reconnects": None,
      "registry_refreshes": None, "slowest_start_ms": None, "last_seen": 1_700_000_000.0 - 30},
     {"name": "Avery", "kind": "person", "page": "settings", "up_since": 1_700_000_000.0 - 600, "memory_mb": 31,
      "reconnects": 0, "registry_refreshes": 0, "slowest_start_ms": 840, "last_seen": 1_700_000_000.0 - 30}],
-    "server": {"fan_out": {"samples": 120, "p50_ms": 3.5, "p95_ms": 11.25}, "ha_events_per_min": 42.0, "connected_screens": 3}}
+    "server": {"fan_out": {"samples": 120, "p50_ms": 3.5, "p95_ms": 11.25}, "ha_events_per_min": 42.0, "connected_screens": 3,
+               "tick": {"samples": 90, "last_ms": 2.5, "max_ms": 41.0},
+               "settings_history": {"rows": 1234, "bytes": 5_452_595, "at": 1_700_000_000.0 - 60}}}
 
 
 @pytest.fixture(scope="module")
@@ -129,3 +133,20 @@ def test_everyone_else_gets_no_row_and_no_page(got):
     assert not any(r["label"] == "Performance" for r in rows(adult["about"]["groups"]))
     assert adult["perf"]["title"] == "About"
     assert got["asked"].count("/api/performance") == 1, "only the manager's page asks the server"
+
+
+def test_the_server_group_shows_the_ticks_time_and_the_settings_histories_size(got):
+    server = next(g for g in got["owner"]["perf"]["groups"] if g["header"] == "Mantel")
+    by = {r["label"]: r for r in server["rows"]}
+    assert by["Minute Tick"]["value"] == "Last 2.5 ms · Longest 41 ms"
+    assert by["Settings History"]["value"] == "1,234 versions · 5.2 MB"
+
+
+def test_each_screen_shows_its_download_first_draw_frame_rate_and_device(got):
+    page = got["owner"]["perf"]
+    start = next(g for g in page["groups"] if g["header"] == "Startup & Device")
+    assert [r["label"] for r in start["rows"]] == ["Kitchen"], "a screen that told nothing of this has no row"
+    kitchen = start["rows"][0]
+    assert kitchen["value"] == "iPad"
+    for part in ("Download 3.4 MB in 62 files", "First draw 2.3 s", "58.5 fps", "4 GB memory", "6 cores", "1180 × 820 @2×"):
+        assert part in kitchen["sub"]

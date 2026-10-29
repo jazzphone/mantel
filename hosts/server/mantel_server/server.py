@@ -946,10 +946,13 @@ async def policy_tick(app: web.Application, hub: Hub, every: float = POLICY_TICK
     are revoked. Each socket's principal is re-read; a socket whose session is gone is closed."""
     while True:
         await asyncio.sleep(every)
+        t0 = time.perf_counter()
         try:
             await tick_once(app, hub)
         except Exception:  # noqa: BLE001 -- the next tick tries again
             log.exception("policy tick failed")
+        # how long the minute's work took (Mantel Settings -> About -> Performance); a failed one counts too
+        performance.STATS.tick((time.perf_counter() - t0) * 1000.0)
 
 
 async def tick_once(app: web.Application, hub: Hub) -> None:
