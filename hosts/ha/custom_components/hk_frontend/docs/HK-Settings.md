@@ -32,7 +32,7 @@ bookmarks work.
 | **Overview** | Where settings live, the Setup Check status, and counts of your screens, customized accessories, pop-ups and custom pages | — |
 | **Screens** | One page per screen, then **Add Screen** | That screen only |
 | **Pages** | One page per page the house has, in the menu’s order: **Climate**, **Lights**, **Security**, **Water**, **[Energy](Energy.md)**, **[Power](Energy.md#the-power-page)**, **Timers**, **Vacuums**, **Music**, **[Cameras](Cameras.md)**, **Calendar**, **Weather**, **Live TV** (**Doors & Windows** too, in a home with no alarm). See [Pages](#pages). | Every screen that shows the page |
-| **All Screens** | **Appearance**, **[Sky / Background](Live-Sky.md)**, **[Screensaver](Screensaver-and-Idle.md#screensaver-settings)**, **Now Playing**, **[Notifications](Notifications.md)**, **Menu**, **[Rooms](Rooms.md)** (with the room pages’ [status row](Status-Rows.md)), **[Status Chips](Status-Chips.md)**, **[Wall Tablets](Wall-Tablets.md#wall-tablets-settings)** (each tablet its own page, then **Add Tablet…**) | Every screen |
+| **All Screens** | **Appearance** (with **[Sky / Background](Live-Sky.md)** under it), **[Screensaver](Screensaver-and-Idle.md#screensaver-settings)**, **Now Playing**, **[Notifications](Notifications.md)**, **Menu**, **[Rooms](Rooms.md)** (with the room pages’ [status row](Status-Rows.md)), **[Status Chips](Status-Chips.md)**, **[Wall Tablets](Wall-Tablets.md#wall-tablets-settings)** (each tablet its own page, then **Add Tablet…**) | Every screen |
 | **Library** | **[Accessories](Accessories.md#accessories-settings)** (by [type](Accessories.md#types), then by room, with [Hidden Accessories](Accessories.md#hidden-accessories) and [Added Accessories](Accessories.md#added-accessories)), **Pop-ups**, **Custom Pages**, **Custom Chips** | Every screen that uses them |
 | **System** | **Advanced**, **Setup Check** | — |
 
@@ -67,8 +67,9 @@ sizes read **Portrait** and **Landscape**.
   (*Blur*), until you choose one for that screen, and
   its amount sliders are marked *Same as All Screens* until you move them.
   Once it has its own, it reads *Just This Screen*, and a **Reset to All
-  Screens (50%)** button follows All Screens again. A screen that follows All
-  Screens’ Menu Settings, Rooms or Cameras lists the values it takes, in place, under
+  Screens (50%)** button follows All Screens again. The menu’s settings work
+  the same way, one at a time. A screen that follows All
+  Screens’ Rooms or Cameras lists the values it takes, in place, under
   **From All Screens**, ending with a link to that All Screens page.
 - **Lists work the same way everywhere** (status chips, cameras, scenes,
   favorites, rooms, pages, Discover rows, a room’s tile order):
@@ -240,7 +241,7 @@ optional, and each has a fallback.
 
 ## Sky / Background
 
-**All Screens → Sky / Background** starts with the **Background**: **Live
+**All Screens → Appearance → Sky / Background** starts with the **Background**: **Live
 Sky** (the moving sky), **Color** (a still color, by day and by night),
 **Photo** (a photo of your own) or **Landscapes** (HK Frontend’s own photos:
 a new one each time the screen wakes, on a schedule, or the same one, with

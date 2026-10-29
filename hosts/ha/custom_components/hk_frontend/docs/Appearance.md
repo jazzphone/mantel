@@ -5,9 +5,25 @@ Assistant’s header and sidebar show.
 
 ## Every screen
 
-**All Screens → Appearance.** How the glass looks on every screen that doesn’t
-choose its own. Under Appearance Style, one line names the screens that have
-their own look (each a link to it), since a change here doesn’t reach them.
+**All Screens → Appearance.** How every screen that doesn’t choose its own
+looks, on one page:
+
+- **Style**: the Appearance Style, then only that style’s own settings. Its
+  footer names the screens that keep their own look (each a link to it),
+  since a change here doesn’t reach them.
+- **Colors**: the **Accent Color**, and **Flat Colors** while any screen
+  wears Flat.
+- **Background**: **[Sky / Background](Live-Sky.md)** (its own sidebar
+  entry before; the old address opens it here).
+- **Tab Bar Look**: the [tab bar’s](Tab-Bar.md) **Tab Bar Glass**.
+
+**The Accent Color** is one choice for the menu’s highlight (its icons and
+the page you’re on, the tab bar’s too) and Flat’s accent: **Automatic** (in
+Flat, Flat’s own; elsewhere each page’s color, Home and the rooms orange),
+Apple’s eleven system colors, or **Your Own Color**. In Flat it also shades
+an Automatic background. It was the **Highlight Color** (under Menu) and
+Flat’s Accent Color before; both keep what you saved, and a Flat screen that
+had an accent of its own keeps it, as *Just This Screen*.
 
 ![The Appearance page in HK Settings](images/settings-appearance.png)
 
@@ -89,7 +105,11 @@ accessory opens an HK detail sheet is **HK Detail Sheets**, under
 
 ## One screen
 
-**Screens → (a screen) → Appearance.**
+**Screens → (a screen) → Appearance**, one row on the screen’s page with its
+style and whether it is its own. Its page is laid out as All Screens’: the
+Style, the Colors (its **Accent Color**, *Same as All Screens* until it
+chooses one), the Background and, for a screen with the tab bar, its
+**Tab Bar Glass**.
 
 | Setting | Default | What it does |
 |---|---|---|

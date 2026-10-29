@@ -62,20 +62,12 @@ screen can be always open on a wall tablet and a computer, and show the tab
 bar on a phone — and on an iPad held upright, where the open menu has no
 room.
 
-Each device has its own page under Menu Settings. It starts with that
-device’s **Menu** (the same choice as on the screen’s page), then that
-menu’s settings: **Tablets & Computers**
-holds the tablet menu’s own settings (Button Style, Keep Open Down To, Time &
-Weather in Menu, the tablet’s edge tab size, its tab bar and More), and
-**Phones** the phone’s (its Button Style, its edge tab size, how its tab bar
-behaves while scrolling and how many tabs it has, **Tabs in Bar**, and More’s
-style and rooms). Every Phones setting is
-its own value; none copies the tablets’. A screen that follows All Screens
-shows the values it takes from them in place, under **From All Screens**,
-with one way to change them. What both share
-(the highlight, the icon, the swipe, where the edge tab sits, the tab bar’s
-position, size and glass, the Home Assistant section) stays on Menu Settings
-itself.
+The menu on each device is set in one place: the screen’s page, under
+**Menu**. Everything else is on the page of the kind of menu it belongs to,
+**Side Menu**, **Edge Tab** or **Tab Bar**, split by device only where each
+device has its own value (a Button Style for Tablets & Computers and one for
+Phones, an edge tab size for each, While Scrolling, Tabs in Bar and More for
+each). Every Phones setting is its own value; none copies the tablets’.
 
 **Other ways to open it.** These work alongside the button, each switched on
 or off by itself:
@@ -104,8 +96,9 @@ Style can be No Button. If the swipe is turned off, a No Button screen goes
 back to Automatic (and Phones’ to the chip), so it always keeps a way in.
 
 **The highlight** (the menu’s icons and the page you’re on) is Apple’s orange
-unless you choose another **Highlight Color**: one of Apple’s system colors
-or a color of your own. Over a pale one the page’s name turns dark.
+unless you choose another **Accent Color**, under **Appearance**: one of
+Apple’s system colors or a color of your own. Over a pale one the page’s
+name turns dark. In Flat the same color also shades the background.
 
 **Top of Menu and Categories.** On a generated screen, Weather, Cameras and
 Live TV sit at the top of the menu, right under Home, and every other page is
@@ -217,63 +210,67 @@ Every card’s options: [Card Library](Card-Library.md).
 |---|---|---|
 | Tablets & Computers | Button (a YAML screen added as *Something Else*: Off) | **Off**: no menu. **Button**: the menu is hidden until you open it. **Always Open**: the menu stays beside the page, like the sidebar of the Home app on a Mac. **Tab Bar**: [the tab bar](Tab-Bar.md). The screen’s [preset](Screens.md#add-screen) sets this first. Always the screen’s own. |
 | Phones | As the screen showed on phones before | **Off**, **Button** or **Tab Bar**, on a [phone](#phones-and-tablets). Always the screen’s own, and separate from Tablets & Computers: changing one never changes the other. |
-| Menu Settings | Same as All Screens | Everything below: [All Screens’](#menu-settings-for-all-screens), or [this screen’s own](#a-screens-menu-settings). |
+| Menu Settings | Same as All Screens | The kinds of menu this screen uses, each [All Screens’ settings](#menu-settings-for-all-screens) one at a time, or [this screen’s own](#a-screens-menu-settings). Says how many are its own. |
 | Pages in Menu | Automatic | *YAML screens.* For each page: **Top of Menu** (right under Home), **Categories**, or **Not in Menu**. A generated screen sets this on its [Pages](Pages.md) instead. **Use the Automatic Menu** clears your choices. |
 
 ## Menu settings for all screens
 
-**All Screens → Menu.** Every screen with a menu follows these, unless it sets
-its own. The page starts with **Tablets & Computers** and **Phones**, each a
-page of that device’s settings; below them is what every device shares. Each
-device’s page begins with **Menu on Each Screen**: every screen and its menu
-on that device, each opening that screen’s page to change it. The
-settings for a menu button apply to the screens with a button, those for an
-always-open menu to the screens with one, so a wall tablet and a phone can
-both follow them. The page ends with whether each screen
-follows these. The menu’s rooms (A to Z or in the room order) are in
-[Rooms](Rooms.md), linked from **In the Menu**.
+**All Screens → Menu.** How people get around, for every screen that doesn’t
+set its own:
 
-![All Screens → Menu → Tablets & Computers: every screen’s menu on that device, then its settings](images/settings-menu-tablets.png)
+- **Menu on Each Screen**: every screen and its menu on each device, such as
+  **Tab Bar · Button** (tablets and computers, then phones). Each opens that
+  screen’s page, where the choice is made.
+- **Kinds of Menu**: **Side Menu**, **Edge Tab** and **Tab Bar**, each saying
+  which screens use it, or **Not used on any screen**. Each is a page of
+  everything about that kind.
+- **Rooms in the Menu**: which rooms the side menu and the tab bar’s More
+  list, and their order, in [Rooms](Rooms.md).
+- **Back Button & Title** (Page Header before): the header on every page
+  but Home. A screen sets its own under its **Header**.
 
 <a id="menu--rooms-settings"></a>
 
-| Setting | Default | What it does |
-|---|---|---|
-| Highlight Color | Orange | The menu’s icons and the page you’re on: **Orange**, **Yellow**, **Green**, **Mint**, **Teal**, **Cyan**, **Blue**, **Indigo**, **Purple**, **Pink** or **Red** (Apple’s system colors), or **Your Own Color**. Over a pale color the page’s name turns dark. |
-| Button Icon | Sidebar | The menu button’s picture: **Sidebar** or **Three Lines**. |
-| Button Style | Automatic | *Tablets & Computers: a menu button.* **Automatic**: a round chip at the start of the status chips when the Home page has a menu button, otherwise the edge tab. **Chip**: the round chip. **Chip, Then Tab**: the chip, and a slim tab slides in from the left edge while the chip is scrolled out of sight. **Chip on Home, Tab Elsewhere**: the chip on Home, the edge tab on every other page. **Edge Tab**: a slim tab on the left edge, level with the date. **No Button**: nothing on the page; the swipe opens it (only with Swipe from Left Edge on). |
-| Button Style (Phones) | Chip | *Phones: a menu button* — on a phone, and on a tablet whose own menu doesn’t fit. **Chip**, **Chip, Then Tab**, **Edge Tab** or **No Button** (only with Swipe from Left Edge on). |
-| Swipe from Left Edge | Off | *Other ways to open.* Drag right from the screen’s left edge to pull the menu out, at any width, alongside the button. Lets Button Style be **No Button**. In the Home Assistant Companion app, set the app’s own Swipe Right gesture to None. |
-| Tap Clock to Open Menu | On | *Other ways to open.* Tapping the header’s clock opens the menu. The weather beside it still opens the Weather page. |
-| Keep Open Down To | 1,000 px | *Tablets & Computers: always open.* Narrower than this (700 to 3,000 px), the menu folds away and the screen shows its Phones menu. 1,000 keeps it open on a computer and an iPad held sideways and folds it on an iPad held upright. |
-| Time & Weather in Menu | Off | *Tablets & Computers: always open.* The time, date and weather sit at the top of the menu instead of in the Home page’s header, and the status chips move up into the space. When the menu folds away, the header comes back. A Wall Tablet screen turns it on for itself when All Screens has it off. |
-| Edge Tab Position | Level with Date | *The edge tab, on every device.* **Level with Date**: the tab’s middle lines up with the date under the clock. **Custom**: a **Distance from Top**, **Measured In** **Pixels** or **% of Screen Height**. |
-| Edge Tab Size | Large | *Tablets & Computers: the edge tab.* How big it is on a tablet, an iPad or a computer: **Standard** (the slim tab that fits the margin), **Large** or **Extra Large**. A bigger tab lies over the page’s edge and stays on top of it, and its touch area reaches a little past it. |
-| Edge Tab Size (Phones) | Standard | *Phones: the edge tab.* The same three sizes for a phone. On a phone even the standard tab lies over the first column of tiles, so a bigger one covers more of it. |
-| Home Assistant Section | Off | Adds a **Home Assistant** section to the menu, above Categories: Integrations, Automations, Settings (with its updates-and-repairs count), Notifications (with its count), **More** (the rest of that person’s Home Assistant sidebar, in their order), **Show Menu** (Home Assistant’s own sidebar, even where it is hidden) and Profile. Each person sees only what they may open. Leave it off on a shared wall tablet. |
+| Page | Setting | Default | What it does |
+|---|---|---|---|
+| Side Menu | Button Style: Tablets & Computers | Automatic | **Automatic**: a round chip at the start of the status chips when the Home page has a menu button, otherwise the edge tab. **Chip**: the round chip. **Chip, Then Tab**: the chip, and a slim tab slides in from the left edge while the chip is scrolled out of sight. **Chip on Home, Tab Elsewhere**: the chip on Home, the edge tab on every other page. **Edge Tab**: a slim tab on the left edge, level with the date. **No Button**: nothing on the page; the swipe opens it (only with Swipe from Left Edge on). |
+| Side Menu | Button Style: Phones | Chip | On a phone, and on a tablet whose own menu doesn’t fit: **Chip**, **Chip, Then Tab**, **Edge Tab** or **No Button** (only with Swipe from Left Edge on). |
+| Side Menu | Button Icon | Sidebar | The menu button’s picture: **Sidebar** or **Three Lines**. |
+| Side Menu | Keep Open Down To | 1,000 px | *Always open.* Narrower than this (700 to 3,000 px), the menu folds away and the screen shows its Phones menu. 1,000 keeps it open on a computer and an iPad held sideways and folds it on an iPad held upright. |
+| Side Menu | Time & Weather in Menu | Off | *Always open.* The time, date and weather sit at the top of the menu instead of in the Home page’s header, and the status chips move up into the space. When the menu folds away, the header comes back. A Wall Tablet screen turns it on for itself when All Screens has it off. |
+| Side Menu | Swipe from Left Edge | Off | Drag right from the screen’s left edge to pull the menu out, at any width, alongside the button. Lets Button Style be **No Button**. In the Home Assistant Companion app, set the app’s own Swipe Right gesture to None. |
+| Side Menu | Tap Clock to Open Menu | On | Tapping the header’s clock opens the menu. The weather beside it still opens the Weather page. |
+| Side Menu | Home Assistant Section | Off | Adds a **Home Assistant** section to the menu and to the tab bar’s More: Integrations, Automations, Settings (with its updates-and-repairs count), Notifications (with its count), **More** (the rest of that person’s Home Assistant sidebar, in their order), **Show Menu** (Home Assistant’s own sidebar, even where it is hidden) and Profile. **Placement**: Top, Above Categories, Above Rooms or Bottom. Each person sees only what they may open. Leave it off on a shared wall tablet. |
+| Edge Tab | Position | Level with Date | **Level with Date**: the tab’s middle lines up with the date under the clock. **Custom**: a **Distance from Top**, **Measured In** **Pixels** or **% of Screen Height**. |
+| Edge Tab | Size: Tablets & Computers | Large | **Standard** (the slim tab that fits the margin), **Large** or **Extra Large**. A bigger tab lies over the page’s edge and stays on top of it, and its touch area reaches a little past it. |
+| Edge Tab | Size: Phones | Standard | The same three sizes for a phone. On a phone even the standard tab lies over the first column of tiles. |
+| Tab Bar | Everything else | | Position, Size, Labels, While Scrolling, Tabs and More: see [the tab bar](Tab-Bar.md). Its glass is under **Appearance → Tab Bar Look**. |
 
-![All Screens → Menu: the highlight, the button and the Tab Bar group, its Size among them](images/settings-menu.png)
+![All Screens → Menu: each screen’s menu, the kinds of menu and who uses them](images/settings-menu.png)
 
 ### A screen’s menu settings
 
-**Screens → (the screen) → Menu → Menu Settings.**
+**Screens → (the screen) → Menu → Menu Settings** lists only the kinds of
+menu the screen uses, each the same page as All Screens’. Every setting there
+says **Same as All Screens** until you change it; then it says **Just This
+Screen**, with **Reset to All Screens** under it. One setting of its own
+leaves the rest following All Screens. **Reset All to All Screens** takes
+every one of them back. Whether the screen has a menu, and which, is its own
+either way, set on the screen’s page.
 
-| Setting | Default | What it does |
-|---|---|---|
-| Same as All Screens | On | The screen’s menu is All Screens’. The page shows what it takes from them, under **From All Screens**, and a way to All Screens → Menu. |
-
-![A screen’s Menu Settings, following All Screens](images/settings-screen-menu.png)
-
-Turn **Same as All Screens** off to give the screen its own: they start as
-they are, then change on their own: the highlight, the icon, the clock tap,
-each device’s page (**Tablets & Computers**: the button, or Keep Open Down
-To and Time & Weather; **Phones**: the phone’s button or tab bar), the edge
-tab and the Home Assistant section.
-Turn it back on to follow All Screens again. Whether the screen has a menu at
-all stays its own either way.
+![A screen’s Menu Settings: the kinds it uses](images/settings-screen-menu.png)
 
 ![The edge tab at its three sizes on a wall tablet: Standard, Large (the default) and Extra Large](images/menu-tab-sizes.png)
 
+
+## Coming from 1.14
+
+Before, a screen’s menu followed All Screens all or nothing: **Same as All
+Screens** on, or every menu setting its own. Now each setting follows on its
+own. On the first start after updating, a screen with its own menu keeps as
+its own only the settings that differ from All Screens’; the rest follow All
+Screens again. The **Highlight Color** and Flat’s **Accent Color** are one
+**Accent Color**, under Appearance. Nothing any screen shows changes.
 
 ## Coming from 1.5
 

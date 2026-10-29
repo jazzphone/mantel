@@ -34,8 +34,8 @@ highlighted.
 | ![The Home screen on a phone, with the tab bar along the bottom: Home, three pages and More](images/phone-home.png) | ![The More sheet on a phone, as a list: the pages that didn't fit, then Home Assistant and every room](images/phone-tabbar-more.png) |
 | The tab bar | More |
 
-The tab for the page you are on is highlighted in the menu's
-**Highlight Color**. Choosing another page slides the highlight over to it, as
+The tab for the page you are on is highlighted in the
+[**Accent Color**](Appearance.md). Choosing another page slides the highlight over to it, as
 iOS does: along the bar, or down the rail (not with the system's Reduce
 Motion on). Choosing a page, tapping outside a sheet or pressing Escape closes
 the sheet.
@@ -157,9 +157,9 @@ end (or start) keeps its room, and a rail floats over the page's side.
   the side for a rail.
 - **Stay:** the bar never moves.
 
-**While Scrolling** is each device's own: under **Menu Settings → Tablets &
-Computers** and **Menu Settings → Phones**. Each is its own: Shrink unless you
-pick Hide or Stay.
+**While Scrolling** is each device's own: **Tablets & Computers** and
+**Phones**, under **Menu → Tab Bar → While Scrolling**. Each is its own:
+Shrink unless you pick Hide or Stay.
 
 With Shrink or Hide, the full bar comes back when you:
 
@@ -179,7 +179,7 @@ A page too short to scroll keeps the bar.
     There, each room's icon sits in a round plate.
   - **Off:** the rooms are left out of the tab bar.
 
-  Each device has its own (Menu Settings → Phones → More → Rooms for phones).
+  Each device has its own (**Rooms on Phones** for phones).
 - **More Style**, each device's own (Tablets & Computers, and Phones), each
   **Icons**, a grid that uses a tablet's width, or **List**, rows like the
   side menu's, about a phone's width. Out of the box a phone gets the list
@@ -196,8 +196,11 @@ A page too short to scroll keeps the bar.
   The bar is never see-through, because a clear bar can't be read over the
   tiles.
 
-These are menu settings, under **All Screens → Menu → Tab Bar**. A screen
-that sets its own **Menu Settings** has its own copy of them.
+These are menu settings, under **All Screens → Menu → Tab Bar**, except the
+glass, which is how the bar looks: **All Screens → Appearance → Tab Bar
+Look**. A screen follows each of them on its own until you change it under
+its **Menu Settings → Tab Bar** (or its **Appearance**, for the glass); then
+it says **Just This Screen**, with **Reset to All Screens**.
 
 ## Around it
 

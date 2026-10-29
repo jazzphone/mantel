@@ -15,7 +15,7 @@ the menu, blurred by its glass.
 
 **Turning them all off:** the **Seasonal decorations** switch,
 `switch.hk_frontend_seasonal_decorations`, on the HK Frontend device. The same
-switch is **HK Settings → All Screens → Sky / Background → Seasonal Decorations**, and an
+switch is **HK Settings → All Screens → Appearance → Sky / Background → Seasonal Decorations**, and an
 automation can flip it like any switch. A screen whose own **Sky / Background →
 Decorations** is set to On keeps its decorations while the switch is off; set it
 back to **Same as All Screens** for the switch to reach it.
@@ -151,7 +151,7 @@ How many of the little moving things there are -- bats, geese, falling
 leaves, petals, fireflies, snow sparkles -- and how often the ones that cross
 come by: the witch, Santa’s sleigh, a flyby, a shooting star, a firework.
 
-**All Screens → Sky / Background → Liveliness** sets one choice for every
+**All Screens → Appearance → Sky / Background → Liveliness** sets one choice for every
 decoration, woodland season and the Night Sky: **Subtle**, **Classic** (the
 default), **Festive** or **Party**. Choose **Custom** to set each one its own:
 **Each Occasion** then lists them all, and each one’s page (a decoration’s

@@ -12,7 +12,7 @@ your own or HK Frontend’s own **Landscapes** as the
 
 ## The Background
 
-**HK Settings → All Screens → Sky / Background** starts with one choice, the
+**HK Settings → All Screens → Appearance → Sky / Background** starts with one choice, the
 **Background**: what Home, the room pages, Weather, Calendar and every page
 without a color of its own show behind the cards.
 
@@ -23,8 +23,8 @@ without a color of its own show behind the cards.
 | **Photo** | A photo of your own, sharp and still, edge to edge. No sun, moon, stars, weather or decorations. A bright photo is dimmed a little so the cards stay readable. |
 | **Landscapes** | Fifty landscape photos that come with HK Frontend, the same ones the screensaver’s clock can show: a new one each time the screen wakes, on a schedule, or the same one. Still, like a Photo. [Landscapes](#landscapes), below. |
 
-![All Screens → Sky / Background in HK Settings: the Background, Live Sky, Color, Photo or Landscapes](images/settings-sky.png)
-*All Screens → Sky / Background starts with the Background.*
+![All Screens → Appearance → Sky / Background in HK Settings: the Background, Live Sky, Color, Photo or Landscapes](images/settings-sky.png)
+*All Screens → Appearance → Sky / Background starts with the Background.*
 
 Before, the closest thing to a plain color was a Backdrop, which only
 recolored the live sky, so the stars still showed through. Color and Photo
@@ -222,7 +222,7 @@ moving everywhere else, check those settings and restart the tablet. More in
 ## Choose its look
 
 While the [Background](#the-background) is **Live Sky**, its settings are
-below it. **HK Settings → All Screens → Sky / Background** sets the defaults.
+below it. **HK Settings → All Screens → Appearance → Sky / Background** sets the defaults.
 Each screen can choose its own under **Appearance → Sky / Background**:
 
 | Setting | What it changes |
@@ -238,7 +238,7 @@ Each screen can choose its own under **Appearance → Sky / Background**:
 | **Sky Colors** | The live sky’s own colors, with its weather and decorations over them (it was called Backdrop). Live Sky follows the sun's colors. Dusk, Midnight, Fjord, Dune, Graphite, Plum, Ember and Mist use curated day/night gradients, and Black is plain black. Custom provides two sets of four colors, top to horizon. Day applies above the horizon, Night at or below it. |
 
 ![Sky / Background in HK Settings: Animations, Pause When Not in Focus, Moving Things with Behind the Cards and In Front of the Cards, Weather and Rain & Snow](images/settings-moving-things.png)
-*All Screens → Sky / Background: Moving Things, Behind the Cards or In Front of the Cards.*
+*All Screens → Appearance → Sky / Background: Moving Things, Behind the Cards or In Front of the Cards.*
 
 After these come **Seasonal Decorations** and **Liveliness**
 ([Seasonal Decorations](Seasonal-Decorations.md#liveliness)), the **Sky
