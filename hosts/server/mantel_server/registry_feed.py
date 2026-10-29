@@ -61,9 +61,14 @@ class RegistryBodies:
         got = self._bodies.get(digest) if digest is not None else None
         if got is None:
             body = shapes if ids is None else filter_registry(shapes, _Visible(ids))
-            raw = json.dumps(body, separators=(",", ":")).encode()
+            if all(len(body[k]) == len(shapes[k]) for k in shapes):
+                # all of it (no gate, or one that sees everything): the registry's own bytes and digest, already
+                # made for its key -- a filter only ever drops, so as many of each is all of each
+                raw, digest = registry.raw_shapes(), registry.digest
+            else:
+                raw = json.dumps(body, separators=(",", ":")).encode()
+                digest = hashlib.sha256(raw).hexdigest()[:32]
             self.serialized += 1
-            digest = hashlib.sha256(raw).hexdigest()[:32]
             got = self._bodies.get(digest) or {"raw": raw, "gzip": None}
             self._bodies[digest] = got
         self._digests[key] = digest

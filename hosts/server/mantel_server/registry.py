@@ -20,6 +20,7 @@ class Registry:
         self.loads = 0  # +1 at every load: what an index built from these lists keys on (house.py)
         self._shapes: dict | None = None    # frontend_shapes(), built once per load
         self._digest: str | None = None     # its digest, the same
+        self._raw: bytes | None = None      # its serialization (the digest's, and an unfiltered body's), the same
 
     def update(self, areas: list[dict] | None = None, devices: list[dict] | None = None,
                entities: list[dict] | None = None, floors: list[dict] | None = None) -> None:
@@ -33,7 +34,7 @@ class Registry:
              floors: list[dict] | None = None) -> None:
         self._areas, self._devices, self._entities = areas, devices, entities
         self.loads += 1
-        self._shapes = self._digest = None
+        self._shapes = self._digest = self._raw = None
         self._floors = floors or []
         self.areas = {a["area_id"]: a.get("name") or a["area_id"] for a in areas}
         self.area_floor = {a["area_id"]: a.get("floor_id") for a in areas}
@@ -99,11 +100,20 @@ class Registry:
     @property
     def digest(self) -> str:
         """Which registry this is: a digest of `frontend_shapes()`, made once per load (registry_feed.py: the
-        snapshot frame and the `registry` frame carry a page's filtered one; a load of the same lists keeps it)."""
+        snapshot frame and the `registry` frame carry a page's filtered one; a load of the same lists keeps it).
+        It is the digest of `raw_shapes()`, the bytes an unfiltered page is sent, so those are serialized once
+        (2026-10-29: this and registry_feed each serialized the whole registry). It is only a key held in memory,
+        never compared across restarts or with a page: the page's digest is the one of the body it is sent."""
         if self._digest is None:
-            text = json.dumps(self.frontend_shapes(), sort_keys=True, separators=(",", ":"), default=str)
-            self._digest = hashlib.sha256(text.encode()).hexdigest()[:32]
+            self._digest = hashlib.sha256(self.raw_shapes()).hexdigest()[:32]
         return self._digest
+
+    def raw_shapes(self) -> bytes:
+        """`frontend_shapes()` serialized, once per load (compact; the body of /api/registry for a subject that
+        sees everything)."""
+        if self._raw is None:
+            self._raw = json.dumps(self.frontend_shapes(), separators=(",", ":"), default=str).encode()
+        return self._raw
 
     def frontend_shapes(self) -> dict:
         """The four registries as Home Assistant's frontend holds them (hass.entities / devices /

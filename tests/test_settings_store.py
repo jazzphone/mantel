@@ -476,6 +476,53 @@ async def test_feed_payload_and_events_after_a_save(svc):
     assert [len(f.events) for f in feeds.values()] == [2, 3, 2]
 
 
+async def test_publish_sends_only_to_subscribers_whose_frame_changed(svc):
+    """2026-10-29: a publish rebuilt and re-sent every subscriber's frame, identical or not. Now a subscriber is
+    sent nothing when its frame is the one it holds; a first subscribe always sends; a change sends."""
+    owner, adult = Feed(), Feed()
+    ends = [svc.subscribe_feed(OWNER, owner), svc.subscribe_feed(ADULT, adult)]
+    assert (len(owner.events), len(adult.events)) == (1, 1)                  # a first frame, always
+    assert svc.publish() == 0 and (len(owner.events), len(adult.events)) == (1, 1)     # nothing changed: nothing sent
+    await svc.save(ADULT, {"type": "mantel/settings/user/set", "changes": {"look.glass": "clear"}})
+    assert (len(owner.events), len(adult.events)) == (1, 2)                  # only the person whose frame changed
+    assert svc.publish() == 0 and len(adult.events) == 2
+    await svc.save(OWNER, {"type": "hk_frontend/settings/set", "changes": {"weather.place": "Saved Town"}})
+    assert (len(owner.events), len(adult.events)) == (2, 3)                  # a house change reaches everyone
+    # a subscriber that comes back (the same person, a new subscription) is sent a first frame again
+    ends[1]()
+    again = Feed()
+    ends.append(svc.subscribe_feed(ADULT, again))
+    assert len(again.events) == 1 and again.events[0] == adult.events[-1]
+    assert svc.publish() == 0 and len(again.events) == 1
+    for end in ends:
+        end()
+
+
+async def test_publish_always_tells_an_in_process_listener(svc):
+    """linked_house and the feature host subscribe with no identity and re-read the store on every publish: they
+    keep being told, even when the frame they were given is the same."""
+    heard = Feed()
+    end = svc.subscribe_feed(None, heard)
+    assert len(heard.events) == 1
+    assert svc.publish() == 1 and svc.publish() == 1 and len(heard.events) == 3
+    end()
+
+
+async def test_a_listener_that_failed_is_sent_the_frame_again(svc):
+    calls = []
+
+    def flaky(payload):
+        calls.append(payload)
+        if len(calls) == 2:
+            raise RuntimeError("lost")
+    end = svc.subscribe_feed(OWNER, flaky)
+    await svc.save(OWNER, {"type": "hk_frontend/settings/set", "changes": {"weather.place": "Saved Town"}})
+    assert len(calls) == 2                                                   # (it raised; the others go on)
+    assert svc.publish() == 1 and len(calls) == 3                            # the failed frame is not remembered as held
+    assert svc.publish() == 0
+    end()
+
+
 async def test_the_feed_sends_discover_rows_as_queries_not_keys(svc):
     """Browse Music's Discover rows are stored as keys but go to a screen as the queries (HA's as_client:
     discover_rows), which hk-library.js runs as music_assistant.get_library. Sent as keys, every shelf asked

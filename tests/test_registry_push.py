@@ -125,6 +125,19 @@ async def test_a_second_request_serializes_nothing(off, monkeypatch):
     assert len(seen) == m
 
 
+async def test_the_whole_registry_is_serialized_once(off, monkeypatch):
+    """2026-10-29: Registry.digest and the body for a subject who sees everything were each a serialization of
+    the same registry. One serialization is the digest's and the body's (the page's digest is of that body)."""
+    import hashlib
+    await off.login("avery", "owner")
+    seen = count_registry_dumps(monkeypatch)
+    r = await off.m.client.get("/api/registry")
+    assert r.status == 200
+    assert len(seen) == 1, "serialized once for the digest and the body"
+    raw = await r.read()
+    assert r.headers["ETag"].strip('W/"') == hashlib.sha256(raw).hexdigest()[:32]
+
+
 async def test_each_person_gets_their_own_body(off):
     ws, _ = await page(off, "cody", "child", ["cody_room"])
     child_tag, child = await etag(off)
