@@ -34,6 +34,10 @@ is mostly the look:
 | 8 | What a swipe moves through | **The tab bar's pages only** |
 | 9 | More When Near | **Through the Sleep Screen and the screensaver**, not a new grid feature: a sensor that sees the space in front of the tablet ends the screensaver; the tablet's camera is never used (it costs the tablet too much) |
 | 10 | The 6 × 4 square starter | **Kept, listed after Home with Pane**, its description saying the text is smaller |
+| 11 | The gap on square cells | **HomeView's: 13 px** (6.7 % of a cell); 196 × 150 tiles keep 10 |
+| 12 | Corners | **34 px on every square-cell block; the concentric 72 px at the screen's corners on the Square type only** ("hopefully not a huge uplift": it is a radius token and four corner classes) |
+| 13 | To-do in the pane | **Yes**, reading Home Assistant's to-do lists |
+| 14 | Photo, Time Behind | **Yes**: the cut-out made on the server, on import and by a backfill |
 
 ## Rules for every phase
 
@@ -62,17 +66,21 @@ row grows from 150 to 196. The canvas still scales as a whole, so the cell's siz
 screen. Measured for a 1180 × 820 landscape tablet, a 72 px tab bar with its margins (84 px of room) and the
 27.2 px page gutter:
 
-| Layout | Logical canvas | Scale | Cell on screen | Tile text |
-|---|---|---|---|---|
-| Today: 6 × 4 tiles, top band on | 1280 × 754 | 0.92 | 181 × 138 | 13.8 px |
-| 6 × 4 square, band off, tab bar at the bottom | 1280 × 868 | 0.85 | **166** | 12.7 px |
-| 6 × 4 square, band off, no tab bar | 1280 × 868 | 0.92 | **181** | 13.8 px |
-| **Home with Pane:** 3 × 3 square, Fill the Screen, tab bar under the grid | 662 × 662 | 1.11 | **218** | 16.7 px |
-| Home with Pane, no tab bar | 662 × 662 | 1.24 | 243 | 18.6 px |
-| Square screen, 3 × 3, 800 × 800, no tab bar | 662 × 662 | 1.21 | 237 | 18.1 px |
+Square cells also take **HomeView's gap: 13 px**, 6.7 % of a cell, as measured (the owner, 2026-10-30); 196 × 150
+tiles keep HK's 10.
 
-So the full 6 × 4 of square cells is about 166–181 px a cell, and its text is smaller than today's. Home with
-Pane's 218 px cells are the HomeView proportion, which is why it is the recommended landscape starter.
+| Layout | Logical canvas | Scale | Cell on screen | Centred name (21) / Home-style text (15) |
+|---|---|---|---|---|
+| Today: 6 × 4 tiles, top band on | 1280 × 754 | 0.92 | 181 × 138 | — / 13.8 px |
+| 6 × 4 square, band off, tab bar at the bottom | 1295 × 877 | 0.84 | **164** | 17.6 / 12.6 px |
+| 6 × 4 square, band off, no tab bar | 1295 × 877 | 0.91 | **179** | 19.1 / 13.7 px |
+| **Home with Pane:** 3 × 3 square, Fill the Screen, tab bar under the grid | 668 × 668 | 1.10 | **216** | 23.1 / 16.5 px |
+| Home with Pane, no tab bar | 668 × 668 | 1.23 | 240 | 25.8 / 18.4 px |
+| Square screen, 3 × 3, 800 × 800 (its 14 px edge), no tab bar | 642 × 642 | 1.25 | 244 | 26.2 / 18.7 px |
+
+So the full 6 × 4 of square cells is about 164–179 px a cell. With Centred tiles its names are larger than today's
+tile text; in the Home style they are a little smaller. Home with Pane's 216 px cells are the HomeView proportion,
+which is why it is the recommended landscape starter.
 
 ## Phase 0. Swipe Between Pages (Phase 1 of the work)
 
@@ -167,7 +175,9 @@ change shape, not position).
 half a pixel), on corners away from the display's edge: **one radius for every block**, 21 px on a 120 px tile and
 on the 248 px 2 × 2 alike, so **34 px** in a 196 cell (today's tiles: 23.5). On the **Square** screen type a block's
 outer corner at the screen's corner is concentric with the display's own: 45 px on the screenshot, **72 px** here.
-196 × 150 tiles keep 23.5. `hkCards.R` gains `square` (34) and `square-screen` (72).
+196 × 150 tiles keep 23.5. `hkCards.R` gains `square` (34) and `square-screen` (72). The uplift is small: the grid
+already marks each cell (`.cell`), so a square grid sets one radius variable for its blocks' plates, and on the
+Square type the four corner cells get one class each for their outer corner.
 
 **Starters** (hand-written like `NIGHTSTAND`, hk-grid-editor.js ~131, filled from the house: the screen's room's
 thermostat, the front door lock, the house's scenes):
@@ -185,7 +195,7 @@ thermostat, the front door lock, the house's scenes):
 - `home_grid.py` `_shape`: accept `cell` in `("tile", "square")`, stored only when `square`. `rows` stays 2–6.
 - `hk-grid-catalog.js`: nothing per card; `hk-base.js` `HOME_GRID` gains `square: 196` (the test reading its size
   string gains it too).
-- `HkHomeGridView._place`: rows are `repeat(rows, 196px)` for square; `_measure` uses 196 in its height;
+- `HkHomeGridView._place`: rows are `repeat(rows, 196px)` and the gap 13 for square; `_measure` uses 196 and 13;
   `--hk-cell-h` becomes 196. The editor's `scaleAt()` (hk-grid-editor.js ~154), which hard-codes 150, reads the
   same table.
 
@@ -202,8 +212,8 @@ need a square case (`hk-grid-cards.js`, `hk-tile.js`), `tests/test_hk_core_home_
 keeps positions), `tests/test_hk_core_home_grid.py` (`cell`), `grid_blocks_check.py` at square heights for every
 card and size, `home_grid_visual_check.py` for each new starter in Chrome and WebKit at iPad and phone sizes.
 
-**Risks.** A 6 × 4 of square cells draws text at 12.7 px on a landscape tablet (the table above): legible at arm's
-length, small across a room. The starters say so in their description, and Home with Pane is the one offered first.
+**Risks.** A 6 × 4 of square cells in the Home style draws text at 12.6 px on a landscape tablet (the table above);
+Centred tiles' names are 17.6 px. The starter uses Centred tiles, and Home with Pane is the one offered first.
 
 ## Phase A2. The Side Pane (Phase 2)
 
@@ -220,7 +230,7 @@ and in the screensaver. It takes over three panes that exist today, each with it
 
 ### What you see
 
-**Home with Pane** on a wide tablet: a 3 × 3 grid of 218 px square tiles beside a full-height pane. **Pane Side**
+**Home with Pane** on a wide tablet: a 3 × 3 grid of 216 px square tiles beside a full-height pane. **Pane Side**
 puts it on the left or the right, everywhere it shows. On **Every Page**, each page is narrowed by the pane's width
 (as the Now Playing pane narrows it today).
 
@@ -243,11 +253,18 @@ puts it on the left or the right, everywhere it shows. On **Every Page**, each p
 | Energy | use now · solar | use, solar, battery | + today's totals | + solar by the hour | the Energy feature |
 | Climate | a room · its state | two rooms | four rooms | every room and outside | the climate entities |
 | Who's Home | home · away counts | avatars | + where the away are | a row each, with travel time | `person.*` |
-| To-do | the list · item count | two items | four items | six items | `todo.*` (new to HK) |
+| To-do | the list · item count | two items | four items | six items, and Add | `todo.*` (new to HK, below) |
 | Notifications | the latest | the latest with its time | three | five | `hk_core/notifications` |
 
 All of them live in `hk-sidepane.js` and read the same data as the pages, so the Dashboard's pane and the
 screensaver's draw the same thing.
+
+**To-do (decided 2026-10-30).** A to-do list's items aren't in its entity's state (that is only a count), so HK
+reads them through Home Assistant's `todo.get_items` (and follows changes by the list's state). It goes through the
+`House` port (`hk_core`, Rule 2), so both hosts get it: Home Assistant's own call in HK Frontend, the gateway in
+Mantel. A tap on an item's circle checks it off (`todo.update_item`, status completed); that is a house command,
+classified and audited as every command is (Rule 3), and the list's section shows it struck through until the list
+updates. The section's options: which list (`entity`), and Show Completed (off).
 
 - **Always, or When There's Something.** Each section is either always shown or only while it has something: music
   playing (or paused within Hide After a Pause), a timer running, the alarm armed, an open door, a notification. A
@@ -627,11 +644,37 @@ Pane:
 **Not copied.** Apple's Snoopy faces are Peanuts characters under licence; the Day face uses HK's own occasion art
 instead. Every face is drawn for HK; no Apple artwork.
 
-**Photo, Time Behind** needs a cut-out of each photo's subject. It is made **once per photo, on the server** (Mantel
-Server, or the HK Frontend's Home Assistant host) when the photo is added, and stored beside it; the tablet only
-layers the photo, the time and the cut-out (no model, no camera, no per-frame cost). A photo with no clear subject
-shows the time in front, as today. Which segmentation model runs on the server, and on what hardware, is its own
-small project (open question 4).
+**Photo, Time Behind (decided 2026-10-30)** needs a cut-out of each photo's subject. Mantel already has the place
+for it: Mantel Photos processes each upload in its own image worker, and that worker already runs an ONNX model on
+the CPU (YuNet, the face finder behind Keep in View; `faces.py`, `image_work.py`, docs/phase4/PHOTOS.md), with a
+backfill for photos stored before. The cut-out is a second model in that same worker.
+
+- **When.** On import, right after the faces, on the screen-sized copy; and a backfill (as `FaceBackfill` does) for
+  the photos already in the library: one at a time, newest first, resting between, waiting while an import runs, and
+  carrying on after a restart. A photo that changes is looked at again; a later, better model can redo them all
+  (stored with the model's name, as `faces_by` is).
+- **The model.** A salient-object model in ONNX, vendored with its licence and SHA-256 like YuNet: U²-Net's small
+  form (`u2netp`, about 5 MB, Apache-2.0) to start, or ISNet's general model (about 170 MB, Apache-2.0) if the small
+  one's edges aren't good enough. Run on the CPU, one thread, so it never starves the server. MODNet is left out (a
+  non-commercial licence).
+- **What is stored.** The cut-out as an 8-bit mask the size of the screen copy (a PNG of roughly 20–80 KB), its
+  confidence, and where the time goes (`depth_box`), in new columns beside `faces`. It counts against the photo
+  quota; nothing leaves the house.
+- **Reliability: only where it works.** It works well on a clear subject (a portrait, a pet, a person against the
+  sky, a plant on a plain wall) and badly on group shots spread across the frame, busy scenes and landscapes with no
+  subject. So each photo is checked once and marked **usable** only when: the subject covers 8–60 % of the frame, the
+  mask is confident (few half-sure pixels), and the subject overlaps the time's place by 10–40 % (enough to look
+  behind it, never enough to hide it). The photo's faces, already known, help: a subject with a face is placed with
+  the time behind the head. A photo that fails shows the time in front, as today, so the face never looks broken. In
+  Photos, a "Time Behind" badge shows which photos qualify, and the album can be set to show only those.
+- **Resources (to measure on the house's machine before release).** The worker already exists, so the new cost is
+  the model: memory of tens of MB (u2netp) to a few hundred (ISNet) while the worker is up, and it stops after 5
+  idle minutes as now. Time per photo, roughly: a fraction of a second (u2netp) to a few seconds (ISNet) on a modern
+  x86 core, several times that on an ARM board. A library of 2,000 photos is minutes to an hour on x86, a night at
+  worst on ARM: in the background, never on a tablet. Setup Check says if the model can't run on the platform, as it
+  does for faces.
+- **HK Frontend inside Home Assistant** has no image worker, so the face is offered only where the photos come from
+  Mantel Photos.
 
 **Settings.** `SAVER_SHOWS` gains `glance`, `month`, `day`; the Forecast gains a Layout (Classic, Big); photos gain
 Time Behind (off, on) and Titles (off, on); `CLOCK_FACES` and `hk-saverclock.js` `FACES` gain `liquid`, `giant`,
@@ -652,7 +695,7 @@ Reduce Motion and Flat hold it still. The other faces repaint once a minute.
 | | Landscape tablet 1180 × 820 | Portrait tablet 820 × 1180 | Phone 390 × 844 | iPad (11", 13") | iPhone Duo |
 |---|---|---|---|---|---|
 | 0 Swipe | on with the bar; 24 px edges | the same | the bar's 5 tabs; More's pages by More | as a tablet; Safari's edge swipes kept | folded: as a phone, edges measured from the page (the 84 pt strip is not the page's); open: as a tablet |
-| A Square cells | 166–181 px (6 × 4) | 3 × 5 square: 200 px | 2 × 4 square: about 150 px | 6 × 4: 169 / 196 px | folded 2 × 4: about 130 px; open 3 × 4: 196 px |
+| A Square cells | 164–179 px (6 × 4) | 3 × 5 square: 198 px | 2 × 4 square: about 152 px | 6 × 4: 168 / 196 px | folded 2 × 4: about 133 px; open 3 × 4: 194 px |
 | A2 Side Pane | full height, 444 px beside the 3 × 3 (its Width on other pages) | band under, 276 px | never | as the landscape tablet; portrait a band | folded never; open a 198 px band |
 | B Centred | yes | yes | yes | yes | yes |
 | C Big Number | T and L | T and L | T (2 × 2 cells are L) | T and L | as a phone / tablet |
@@ -684,17 +727,8 @@ Each work phase:
 
 ## Open questions for the owner
 
-Answered on 2026-10-30: the pane (decision 7), the swipe's pages (8), More When Near (9), the 6 × 4 starter (10).
-Still open:
-
-1. **The gap.** HomeView's gap between tiles is 6.7 % of a tile; HK's 10 px is 5 %. Square cells keep 10 (the
-   Square screen's edge is narrowed to 14). Match HomeView (about 13 px on square cells), or keep 10?
-2. **Corners on wide tablets.** The measured 34 px corner is on every square-cell grid; the concentric 72 px at the
-   screen's corners only on the Square type (a wall tablet's own corners vary). Right split?
-3. **To-do in the pane** needs Home Assistant to-do lists, which HK doesn't read yet. Include it, or leave it for
-   later?
-4. **Time Behind photos** need a subject cut-out made on the server. Build that (a model on the server), or leave the
-   face for later?
+All answered on 2026-10-30 (decisions 7–14). Left to measure while building: the Time Behind model's speed and edges
+on the house's machine, and the share of the house's photos that qualify.
 
 ## Proposed changes to the house DESIGN.md
 
@@ -709,7 +743,7 @@ To apply to `hk_house/docs/DESIGN.md` only with the owner's yes. Shown as text t
 **The scales → Spacing**, in the tiles tier: "a Home Grid's square cell 196 × 196 (`HOME_GRID.square`); a centred
 tile, measured off HomeView: the glyph's 66 px box (40 in a 64 px well, lit) centred at 33 %, the name 21 / 600 and
 the room 20 / 400 on 27 px lines from 57.7 % (in a 150 tall cell: 50 px at 31 %, 17 / 16 on 22 px from 55 %); the
-Square screen type's edge 14 px".
+Square screen type's edge 14 px; square cells' gap 13 (HomeView's 6.7 %), 196 × 150 tiles keep 10".
 
 **The scales → Corners**, two rows:
 
