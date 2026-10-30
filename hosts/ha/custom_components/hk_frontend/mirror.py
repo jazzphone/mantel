@@ -36,7 +36,8 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 # what a screen's feed carries that is worked out, not stored (Mantel's settings_store _READ_ONLY_BOARD)
-READ_ONLY_BOARD = ("screensaver_house", "rooms_house", "cameras_house", "menu_house", "tablets", "idle_room")
+READ_ONLY_BOARD = ("screensaver_house", "rooms_house", "cameras_house", "menu_house", "tablets", "idle_room",
+                   "side_pane_read")
 TABLET_FIELDS = ("name", "screen", "room", "user", "app", "idle_return", "idle_time", "black_screen")
 
 

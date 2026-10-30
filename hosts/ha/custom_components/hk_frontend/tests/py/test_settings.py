@@ -657,7 +657,7 @@ async def test_an_entry_from_1_12_moves_its_cameras(hass, base):
     old.add_to_hass(hass)
     assert await hass.config_entries.async_setup(old.entry_id)
     await hass.async_block_till_done()
-    assert old.minor_version == 17
+    assert old.minor_version == 18
     assert S.merged(old.options)["cameras"]["order"] == cams
     got = S.boards(old)
     assert got["dashboard-a"]["cameras_house"] and got["dashboard-b"]["cameras_house"]
@@ -675,7 +675,7 @@ async def test_an_entry_from_1_7_moves_its_rooms(hass, base):
     old.add_to_hass(hass)
     assert await hass.config_entries.async_setup(old.entry_id)
     await hass.async_block_till_done()
-    assert old.minor_version == 17
+    assert old.minor_version == 18
     assert S.merged(old.options)["rooms"]["order"] == ORDER
     got = S.boards(old)
     assert all(got[p]["rooms_house"] and got[p]["room_order"] == ORDER and got[p]["menu_rooms"] == "order"
@@ -778,7 +778,7 @@ async def test_an_entry_from_1_16_has_each_menu_setting_follow_on_its_own(hass, 
               ((s.unique_id, s) for s in old.subentries.values())}
     assert await hass.config_entries.async_setup(old.entry_id)
     await hass.async_block_till_done()
-    assert old.minor_version == 17
+    assert old.minor_version == 18
     data = {s.unique_id: dict(s.data) for s in old.subentries.values() if s.subentry_type == "dashboard"}
     assert data["dashboard-a"] == {"menu": "tab", "tab_size": "xl", "menu_own": ["menu", "tab_size"]}
     assert data["dashboard-b"] == {"menu": "open"}, "a follower's stored menu values were never read: they go"
@@ -800,7 +800,7 @@ async def test_an_entry_from_1_8_moves_its_menu(hass, base):
     old.add_to_hass(hass)
     assert await hass.config_entries.async_setup(old.entry_id)
     await hass.async_block_till_done()
-    assert old.minor_version == 17
+    assert old.minor_version == 18
     assert (S.merged(old.options)["menu"]["style"], S.merged(old.options)["menu"]["tab_size"]) == ("tab", "xl")
     got = S.boards(old)
     assert got["dashboard-a"]["menu_house"] and got["dashboard-c"]["menu_house"]
@@ -874,7 +874,7 @@ async def test_an_entry_from_1_10_writes_down_its_phones(hass, base):
     old.add_to_hass(hass)
     assert await hass.config_entries.async_setup(old.entry_id)
     await hass.async_block_till_done()
-    assert old.minor_version == 17
+    assert old.minor_version == 18
     got = S.boards(old)
     assert got["dashboard-a"]["menu_phone"] == "tabbar" and got["dashboard-a"]["button_phone"] == "chip"
     assert got["dashboard-b"]["menu_phone"] == "button" and got["dashboard-b"]["button_phone"] == "tab"
@@ -932,7 +932,7 @@ async def test_an_entry_from_1_11_tidies_its_menu(hass, base):
     old.add_to_hass(hass)
     assert await hass.config_entries.async_setup(old.entry_id)
     await hass.async_block_till_done()
-    assert old.minor_version == 17
+    assert old.minor_version == 18
     assert "narrow" not in old.options["dashboard"]["menu"] and "dashboards" not in old.options["dashboard"]["menu"]
     got = S.boards(old)["dashboard-a"]
     assert (got["menu_phone"], got["button_phone"], got["tab_bar_scroll_phone"]) == ("tabbar", "chip_scroll", "hide")

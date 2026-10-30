@@ -828,6 +828,18 @@ HOUSE.update({
     "tablets.restart_times": lambda v: _restart_times(v),
     "tablets.dismissed": lambda v: _keys(v),
 })
+# THE SIDE PANE (settings.side_pane): All Screens' groups, each whole -- a
+# Dashboard or Screensaver group is what it shows and its sections together
+def _pane_group(name: str) -> Callable[[Any], Any]:
+    def check(v: Any) -> Any:
+        got = S.pane_group(name, v, strict=True)
+        if got is None:
+            raise Invalid("choice" if name in ("side", "width") else "bool" if name == "doorbell" else "side_pane")
+        return got
+    return check
+
+
+HOUSE.update({f"side_pane.{g}": _pane_group(g) for g in S.PANE_GROUPS})
 # (a patch of Flat's image look, the Glass looks' (image_look), or one page's Flat image look)
 IMAGE_HOUSE = re.compile(r"^sky\.(flat_image_look|image_look)\.patch$|^sky\.flat_page_image_looks\.([a-z0-9][a-z0-9_-]{0,39})$")
 FLAT_HOUSE = re.compile(r"^look\.flat_colors\.(accent|off_tint|pages)$|^look\.flat_page_colors\.([a-z0-9][a-z0-9_-]{0,39})$")
@@ -1212,6 +1224,18 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "screensaver_options": lambda v: None if v is None else _saver_options(v),
     "screensaver_engine": _saver_engine,
 }
+
+
+# A SCREEN'S SIDE PANE: its own groups, whole (settings.side_pane_own); null,
+# or an object setting none, is Same as All Screens in everything
+def _side_pane_own(v: Any) -> dict[str, Any] | None:
+    try:
+        return S.side_pane_own(v, strict=True)
+    except ValueError:
+        raise Invalid("side_pane") from None
+
+
+BOARD["side_pane"] = _side_pane_own
 
 
 # ------------------------------------------------------------ a wall tablet

@@ -17,7 +17,7 @@ CATALOG_KEYS = ("choices", "presets", "chip_kinds", "page_kinds", "scene_pages",
 # The house settings' sections (settings.py DEFAULTS, the HA component, 2026-10-18).
 HOUSE_SECTIONS = ("status_rows", "headers", "security", "clock", "weather", "sky", "idle", "tablets", "car",
                   "generated", "counts", "features", "menu", "rooms", "cameras", "look", "calendar",
-                  "now_playing", "browse")
+                  "now_playing", "browse", "side_pane")
 # What a person may set for themselves (PLAN §5: an Adult has "no settings beyond their own"). Their
 # values lie over the house's in their own settings feed. Appearance only, for now.
 USER_SECTIONS = ("look", "sky")

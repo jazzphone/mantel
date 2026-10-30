@@ -153,7 +153,9 @@ class HkFrontendConfigFlow(ConfigFlow, domain=DOMAIN):
     # apart from the screen it runs -- settings.tablets_lifted.
     # 17 (2026-10-29): the menu follows All Screens one setting at a time
     # (menu_own); menu_custom retired -- settings.menu_per_setting.
-    MINOR_VERSION = 17
+    # 18 (2026-10-30): the screensaver's pane and Now Playing's become the
+    # Side Pane's groups -- settings.side_pane_lifted.
+    MINOR_VERSION = 18
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None
                               ) -> ConfigFlowResult:

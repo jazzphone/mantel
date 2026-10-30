@@ -24,7 +24,8 @@ IMPORT_READ = "hk_frontend/panel/get"
 # rooms and cameras filled in; All Tablets' Idle settings filled in, the own ones beside them), and the import
 # copies that answer. Kept that way, a screen that followed All Screens' screensaver held a frozen copy of it
 # (and a tablet All Tablets' Idle). As stored, it follows again: what the screen or tablet says itself.
-_READ_ONLY_BOARD = ("screensaver_house", "rooms_house", "cameras_house", "menu_house", "tablets", "idle_room")
+_READ_ONLY_BOARD = ("screensaver_house", "rooms_house", "cameras_house", "menu_house", "tablets", "idle_room",
+                    "side_pane_read")
 
 
 def as_stored(scope: str, body: Mapping[str, Any]) -> dict:
@@ -129,6 +130,31 @@ def menus_per_setting(store: "SettingsStore") -> bool:
                       message=MENUS_PER_SETTING, expect={("board", k): d.version for k, d in docs.items()})
     if got:
         log.info("%d screens' menus now follow All Screens one setting at a time", len(got))
+    return bool(got)
+
+
+SIDE_PANES = "the screensaver's pane and Now Playing's moved into the Side Pane"
+
+
+def side_panes_lifted(store: "SettingsStore") -> bool:
+    """Once, at start-up: the screensaver's Calendar / Music pane and Now Playing's Show As: Side Pane (before
+    the Side Pane; HK Frontend's entry 1.18) written as the house's and each screen's Side Pane groups (hk_core
+    ``side_pane_lifted``), as a version of its own. Mantel's page and server are one release, so the older keys
+    are set back as they are moved (``clear``): a second start finds nothing to move. True if written."""
+    house = store.get("house", "settings")
+    hbody = dict(house.body) if house is not None else {}
+    docs = store.docs("board")
+    options, items = SM.side_pane_lifted({SM.CONF_DASHBOARD: hbody}, {k: d.body for k, d in docs.items()}, clear=True)
+    changes = [("board", k, body) for k, body in items.items() if body != docs[k].body]
+    expect = {("board", k): docs[k].version for _, k, _ in changes}
+    if options is not None and options[SM.CONF_DASHBOARD] != hbody:
+        changes.append(("house", "settings", options[SM.CONF_DASHBOARD]))
+        expect[("house", "settings")] = house.version if house is not None else 0
+    if not changes:
+        return False
+    got = store.write(changes, actor=Actor(label="mantel"), message=SIDE_PANES, expect=expect)
+    if got:
+        log.info("the Side Pane took over the screensaver's and Now Playing's panes (%d documents)", len(got))
     return bool(got)
 
 

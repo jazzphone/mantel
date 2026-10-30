@@ -797,6 +797,8 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     settings_store.normalise_house(app["settings"].store)
     # Phase 3 (0.1.86): each screen's menu follows All Screens one setting at a time (menu_custom retired), once
     settings_store.menus_per_setting(app["settings"].store)
+    # the Side Pane (2026-10-30): the screensaver's pane and Now Playing's become its groups, once
+    settings_store.side_panes_lifted(app["settings"].store)
     # no screens and no import yet (a Home Assistant without HK Frontend): a generated Home screen, which the
     # import replaces while it is untouched
     settings_store.seed_home_screen(app["settings"].store)
