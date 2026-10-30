@@ -205,6 +205,13 @@
     '.landgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px}',
     '.landgrid button{position:relative;display:block;border:0;padding:0;border-radius:10px;overflow:hidden;cursor:pointer;background:#05070e;aspect-ratio:16/10}',
     '.landgrid img{display:block;width:100%;height:100%;object-fit:cover}',
+    // THE WALLPAPERS (2026-10-30): a grid in the group's own cell, each named
+    '.cell.wallgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:12px 10px;padding-top:12px;padding-bottom:12px}',
+    '.wallgrid button{display:flex;flex-direction:column;gap:6px;border:0;padding:0;margin:0;background:none;cursor:pointer;font:inherit;color:inherit;text-align:center}',
+    '.wallgrid img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px;background:#05070e}',
+    '.wallgrid span{font-size:13px;line-height:16px;color:var(--hk-label2)}',
+    '.wallgrid button.on img{box-shadow:0 0 0 3px var(--hk-tint)}',
+    '.wallgrid button.on span{color:var(--hk-tint);font-weight:600}',
     '.landgrid button.on{box-shadow:0 0 0 3px var(--hk-tint)}',
     '.landgrid button.on::after{content:"\\2713";position:absolute;right:6px;top:6px;width:22px;height:22px;border-radius:50%;background:var(--hk-tint);color:#fff;font-size:14px;font-weight:700;line-height:22px;text-align:center}',
     '.pickbar .pcount{flex:1;color:var(--hk-label2);font-size:15px;padding-left:4px;white-space:nowrap}',
@@ -653,6 +660,8 @@
         await Promise.all([import('/hk/panels/hk-settings-model.js?v=' + v), import('/hk/panels/hk-settings-kit.js?v=' + v),
                            import('/hk/panels/hk-settings-features.js?v=' + v), import('/hk/modules/hk-settings.js?v=' + v),
                            import('/hk/modules/hk-flat-image.js?v=' + v), import('/hk/modules/hk-drag.js?v=' + v),
+                           // (the Wallpaper picker's previews, 2026-10-30)
+                           import('/hk/modules/hk-wallpapers.js?v=' + v),
                            // (the grid editor's palette presses go through hk-drag.js)
                            import('/hk/cards/hk-grid-catalog.js?v=' + v).then(function () { return import('/hk/panels/hk-grid-editor.js?v=' + v); })]);
       } catch (e) {
@@ -3515,13 +3524,15 @@
       var style = cur ? M.glassStyle(cur) : null;
       c.appendChild(K.group({ header: header || 'Style' }, M.GLASS_STYLES.map(function (g) {
         return K.check({ label: g[1], sub: g[2], on: style === g[0], fk: fk + g[0], onClick: function () {
-          // Blur keeps the mode already chosen
-          pick(g[0] === 'blur' ? (M.isBlur(cur) ? cur : fallback) : g[0]);
+          // Blur and Bright Glass keep the mode already chosen
+          pick(M.styleValue(g[0], cur, fallback));
         } });
       })));
-      if (style !== 'blur') return;
+      // (Bright Glass has Blur's three modes, 2026-10-30)
+      var modes = M.modesFor(style);
+      if (!modes) return;
       c.appendChild(K.group({ header: 'Blur Mode', footer: 'Shared Layer and Each Card blur live; Pre-rendered blurs a picture of the sky once. ' +
-          'On a wall tablet, anything but Each Card. Pop-up sheets blur live in Shared Layer and Pre-rendered.' }, M.BLUR_MODES.map(function (m) {
+          'On a wall tablet, anything but Each Card. Pop-up sheets blur live in Shared Layer and Pre-rendered.' }, modes.map(function (m) {
         return K.check({ label: m[1], sub: m[2], on: cur === m[0], fk: fk + 'mode:' + m[0], onClick: function () { pick(m[0]); } });
       })));
     }
@@ -3535,7 +3546,7 @@
         K.check({ label: 'Same as All Screens', sub: 'Now ' + M.glassLabel(gl.house), on: follows, fk: 'glass:house',
                   onClick: function () { pick('house'); } })]));
       // Blur here starts from All Screens' mode when theirs is a blur too
-      this.glassChoices(c, follows ? null : gl.value, M.isBlur(look.glass) ? look.glass : 'blur', pick, 'glass:', 'Just This Screen');
+      this.glassChoices(c, follows ? null : gl.value, M.isBlur(look.glass) || M.isBright(look.glass) ? look.glass : 'blur', pick, 'glass:', 'Just This Screen');
     }
 
     // AN OPTIONS PAGE: OPTION_PAGES' controls over the options mapping, then
@@ -5402,6 +5413,7 @@
         frost: { value: look.frost, onChange: function (v) { self.setH({ 'look.frost': v }); } },
         tint: { on: !!look.frost_tint, onChange: function (on) { self.setH({ 'look.frost_tint': on }); } },
         blur: { value: look.blur, onChange: function (v) { self.setH({ 'look.blur': v }); } },
+        bright: { value: typeof look.bright === 'number' ? look.bright : 50, onChange: function (v) { self.setH({ 'look.bright': v }); } },
         dark: { value: typeof look.tint === 'number' ? look.tint : 50, onChange: function (v) { self.setH({ 'look.tint': v }); } },
         well: { value: look.well || 'dark', onChange: function (v) { self.setH({ 'look.well': v }); } }
       }, 'look.'));
@@ -5540,7 +5552,7 @@
       var tOwn = typeof b.frost_tint === 'boolean', tHouse = !!look.frost_tint;
       var wOwn = b.well === 'dark' || b.well === 'light', wHouse = look.well || 'dark';
       app = app.concat(this.glassRows(gl.effective, {
-        frost: amt('frost'), blur: amt('blur'), dark: amt('tint'),
+        frost: amt('frost'), blur: amt('blur'), dark: amt('tint'), bright: amt('bright'),
         well: { value: wOwn ? b.well : wHouse, own: wOwn, house: wHouse,
                 onChange: function (v) { set({ well: v }); }, reset: function () { set({ well: null }); } },
         tint: { on: tOwn ? b.frost_tint : tHouse, own: tOwn, house: tHouse,
@@ -5656,6 +5668,9 @@
           onClick: t.reset }));
       }
       if (uses.blur) amount('blur', 'Blur');
+      // BRIGHT GLASS's Strength (2026-10-30), held back by itself over a light
+      // background (hkSettings.brightCap)
+      if (uses.bright && v.bright) amount('bright', 'Strength');
       if (uses.tint && v.dark) {
         amount('dark', 'Darkness', 'tint');
         var w = v.well;
@@ -5756,6 +5771,16 @@
         this.skyResetGroup(c, null, null);
         return;
       }
+      // A WALLPAPER (2026-10-30): our own art -- which one, and when its night
+      // version shows
+      if (mode === 'wallpaper') {
+        this.wallpaperGroup(c, { value: sky.wallpaper || 'ribbons_rose', night: sky.wallpaper_night || 'auto', fk: 'hwall', sk: 'sky.wallpaper',
+          footer: 'Shown on Home, the room pages, and every page without a color of its own. Each screen can choose its own.',
+          onSet: function (v) { self.setH({ 'sky.wallpaper': v }); }, onNight: function (v) { self.setH({ 'sky.wallpaper_night': v }); } });
+        this.skyPagesGroup(c, null, null);
+        this.skyResetGroup(c, null, null);
+        return;
+      }
       // RAIN & SNOW only while there is weather to fall; PAUSE WHEN NOT IN
       // FOCUS only while anything moves (2026-10-10)
       var bg = [
@@ -5840,7 +5865,8 @@
             var ch = { sky: true, sky_liveliness_occ: {}, sky_liveliness_custom: {}, sky_calm_empty: false };
             ['sky_background', 'sky_color', 'sky_landscape', 'sky_photo_look', 'sky_landscape_look', 'sky_animations', 'sky_focus_pause',
              'sky_moving', 'sky_weather', 'sky_precipitation', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_decorations',
-             'sky_decoration_style', 'sky_liveliness', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light', 'sky_flat_image_look', 'sky_image_look'].forEach(function (k) { ch[k] = null; });
+             'sky_decoration_style', 'sky_liveliness', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light', 'sky_flat_image_look', 'sky_image_look',
+             'sky_wallpaper', 'sky_wallpaper_night'].forEach(function (k) { ch[k] = null; });
             self.setB(x.path, ch);
           });
         } })]));
@@ -5896,6 +5922,38 @@
       rows.push(K.nav({ label: 'Choose a Landscape', href: o.href, sk: o.sk }));
       c.appendChild(this.withError(K.group({ header: 'Landscape', footer: (o.footer ? o.footer + ' ' : '') +
         'Fifty photos that come with ' + PN() + ', all public domain or CC0, from Wikimedia Commons.' }, rows), o.sk));
+    }
+    // A WALLPAPER (2026-10-30, hk-wallpapers.js): the twelve, each drawn by the
+    // builder the screen draws it with, the one in use ticked; and its Night
+    // Version. On a screen: Same as All Screens (`house`, `nightHouse`) until
+    // it picks its own.
+    //   o = { value (own, or null), house, night (own, or null), nightHouse,
+    //         onSet(id | null), onNight(v | null), fk, sk, footer }
+    wallpaperGroup(c, o) {
+      var W = window.hkWallpapers, eff = o.value || o.house, rows = [];
+      if (!W) { c.appendChild(K.group({ header: 'Wallpaper' }, [K.info({ label: 'Loading…', value: '' })])); return; }
+      var list = W.list(), name = function (id) { return (list.filter(function (w) { return w.id === id; })[0] || {}).name || id; };
+      if (o.house !== undefined) {
+        rows.push(K.check({ label: 'Same as All Screens', sub: 'Now ' + name(o.house), on: !o.value, fk: o.fk + ':follow',
+                            onClick: function () { o.onSet(null); } }));
+      }
+      var grid = h('div', { class: 'cell wallgrid' }, list.map(function (w) {
+        var on = eff === w.id;
+        var bt = h('button', { class: on ? 'on' : '', type: 'button', title: w.name, 'aria-label': w.name,
+                               'aria-pressed': on ? 'true' : 'false', 'data-fk': o.fk + ':' + w.id },
+                   [h('img', { src: W.url(w.id, false), alt: '' }), h('span', { text: w.name })]);
+        bt.addEventListener('click', function () { o.onSet(w.id); });
+        return bt;
+      }));
+      rows.push(grid);
+      c.appendChild(this.withError(K.group({ header: 'Wallpaper', footer: (o.footer ? o.footer + ' ' : '') +
+        'Our own art, drawn for ' + PN() + '. The cards take its colors — Bright Glass shows them best.' }, rows), o.sk));
+      var nOwn = o.nightHouse !== undefined && !!o.night, nEff = o.night || o.nightHouse || 'auto';
+      var nRows = [K.seg({ label: 'Night Version', sub: o.nightHouse === undefined ? null : (nOwn ? 'Just This Screen' : 'Same as All Screens'),
+        sk: o.sk.replace('wallpaper', 'wallpaper_night'), value: nEff, options: M.WALLPAPER_NIGHT, onChange: function (v) { o.onNight(v); } })];
+      if (nOwn) nRows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.WALLPAPER_NIGHT, o.nightHouse) + ')',
+        sk: o.sk.replace('wallpaper', 'wallpaper_night') + ':reset', onClick: function () { o.onNight(null); } }));
+      c.appendChild(K.group({ footer: 'Each wallpaper has a darker version for the night. After Sunset: it fades in as the sun goes down.' }, nRows));
     }
     // CHOOSE A LANDSCAPE: every one, small, the one it stays on ticked; a
     // tap picks it, and it stays (Stay the Same).
@@ -6317,6 +6375,16 @@
           this.skyResetGroup(c, x, b);
           return;
         }
+        if (mode === 'wallpaper') {
+          this.wallpaperGroup(c, { value: b.sky_wallpaper || null, house: sky.wallpaper || 'ribbons_rose', night: b.sky_wallpaper_night || null,
+            nightHouse: sky.wallpaper_night || 'auto', fk: 'bwall', sk: 'b:sky_wallpaper',
+            footer: 'Shown on Home, the room pages, and every page without a color of its own.',
+            onSet: function (v) { self.setB(x.path, { sky_wallpaper: v, sky: true }); },
+            onNight: function (v) { self.setB(x.path, { sky_wallpaper_night: v }); } });
+          this.skyPagesGroup(c, x, b);
+          this.skyResetGroup(c, x, b);
+          return;
+        }
       }
       if (pageScreen) {
         var now = pk.rows.map(function (r) { return { r: r, n: self.skyPageNow(r, b) }; });
@@ -6459,7 +6527,7 @@
       var photos = b ? (b.sky_page_photos || {}) : (sky.page_photos || {});
       var custom = b ? (b.sky_custom || sky.gradient_custom) : sky.gradient_custom;
       var cur = mine[r.key] || '';
-      var isColor = cur && cur !== 'own' && cur !== 'live' && cur !== 'photo' && cur !== 'landscapes';
+      var isColor = cur && cur !== 'own' && cur !== 'live' && cur !== 'photo' && cur !== 'landscapes' && cur !== 'wallpaper';
       var put = function (ch) {
         if (b) { ch.sky = true; return self.setB(x.path, ch); }
         var hc = {};
@@ -6492,8 +6560,13 @@
                           tile: ['mdi:image', C.orange], onClick: function () { pick('photo'); } }));
       rows.push(K.check({ label: 'Landscapes', sub: PN() + '’s own photos, as ' + (b ? 'the screen' : 'All Screens') + ' has them', on: cur === 'landscapes',
                           fk: 'pbd:' + r.key + ':landscapes', tile: ['mdi:image-filter-hdr', C.teal], onClick: function () { pick('landscapes'); } }));
+      // (2026-10-30) the screen's Wallpaper
+      var wn = window.hkWallpapers, wid = (b && b.sky_wallpaper) || sky.wallpaper || 'ribbons_rose';
+      rows.push(K.check({ label: 'Wallpaper', sub: 'Our own art, as ' + (b ? 'the screen' : 'All Screens') + ' has it', on: cur === 'wallpaper',
+                          fk: 'pbd:' + r.key + ':wallpaper', tile: ['mdi:wallpaper', wn ? 'center / cover url("' + wn.url(wid, false) + '")' : C.purple],
+                          onClick: function () { pick('wallpaper'); } }));
       c.appendChild(K.group({ header: alone === false ? r.label : null, footer: (alone ? r.label + ' is this screen’s only page, so its background is the screen’s. ' : '') +
-        'Page Color, Color, Photo and Landscapes are still: no sun, moon, stars, weather or decorations.' }, rows));
+        'Page Color, Color, Photo, Landscapes and Wallpaper are still: no sun, moon, stars, weather or decorations.' }, rows));
       if (isColor) {
         this.colorGroup(c, { id: cur, custom: custom, fk: 'pbd:' + r.key + ':',
           onPick: function (id) { pick(id); },
