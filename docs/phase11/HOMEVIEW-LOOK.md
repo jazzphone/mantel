@@ -1091,3 +1091,16 @@ marked **Decision**.
     accent deepened; a long room name has three lines. `bright_glass_check` opens the Rooms sheet at each size and
     checks the contrast. **For the house DESIGN.md:** its Bright Glass line "its sheets take blur(34px) saturate(2)"
     is now this sheet plate (not edited: the house docs are the owner's).
+
+**14. The album art behind the whole Side Pane (2026-10-30, on 0.1.90).** At More and Full, Now Playing held the
+music pane with its own blurred-art backdrop in a 540 px box: a dark rectangle in the middle of the pane. The owner:
+"if something is playing, the whole pane should have the album art blur". Now, while Now Playing is one of the pane's
+sections and has a song, the pane's own ground is the song's art: drawn 10 px, then 20 px, then 64 px with a 2–3 px
+blur and darkened by 0.38, as a small PNG on a plain layer (a scaled-up canvas was left unpainted by WebKit at
+1440 × 900), under a shade for its words, edge to edge. The next song's art cross-fades over the last; stopped (Now
+Playing stepping aside after Hide After a Pause), it fades back to the screen's glass. The music card in the pane
+(`nobg`) draws no backdrop or box of its own. Where the look has no blur (Flat, Tinted, Frosted, Glass —
+Performance's), a flat tint from the art's mean colour at 42 %. The screensaver's pane does the same. No live filter
+anywhere; a picture that can't be read (another origin) falls back to itself under a CSS blur rasterised once.
+`side_pane_check` plays a bright cover and checks the pane takes it on both sides and at 1180 × 820 and 1440 × 900,
+white words at 4.5:1 or better over its lightest part, the tint in Tinted, and the glass again once it stops.

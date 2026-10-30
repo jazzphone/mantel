@@ -3970,7 +3970,11 @@
         r.innerHTML = '<style>' + css + '\n' + DASH_CSS + window.hkCards.flatCss() +
           ':host([hk-flat]) .pm{background:#24252A!important;color:#F5F4F0;--hk-ink:#F5F4F0;--hk-ink-2:#C3C3C6;--hk-ink-3:#A3A4A9;--hk-glyph:#F5F4F0;--hk-key:#3A3B40;--hk-line:#48494F;--hk-line-strong:#62636A}' +
           ':host([hk-flat]) .mbgf,:host([hk-flat]) .mshade{display:none}' +
-          ':host([hk-flat]) .pane,:host([hk-flat]) .mpanel{box-shadow:var(--hk-flat-elevated-shadow)!important;background:#24252A}' + '</style><div class="pane"></div>';
+          ':host([hk-flat]) .pane,:host([hk-flat]) .mpanel{box-shadow:var(--hk-flat-elevated-shadow)!important;background:#24252A}' +
+          // IN THE SIDE PANE (nobg, hk-sidepane.js): on the pane's own album-art
+          // backdrop -- none of its own, no box (2026-10-30)
+          ':host([nobg]) .mbgf,:host([nobg]) .mshade{display:none!important}' +
+          ':host([nobg]) .pane,:host([nobg]) .pm,:host([nobg]) .mu{background:none!important;box-shadow:none!important;border:0!important}' + '</style><div class="pane"></div>';
         this.addEventListener('pointerdown', function () { self._usedAt = Date.now(); }, true);
         // the screensaver's pane, as its host's attributes draw it
         ['panecfg', 'pane', 'pm'].forEach(function (a) { self.setAttribute(a, ''); });

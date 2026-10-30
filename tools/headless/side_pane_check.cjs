@@ -70,6 +70,53 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         await shot(page, tag + '-look-' + g);
       }
     }
+    // WHILE A SONG PLAYS THE WHOLE PANE IS ITS ART (2026-10-30): the pane's own ground the art blurred, the music card
+    // with no backdrop or box of its own, white words over its lightest part at 4.5:1; a flat tint where the look has
+    // no blur; stopped, the screen's glass again
+    if (!phone && !upright) {
+      for (const [g, tinted, side] of [['blur', false, 'right'], ['tinted', true, 'right'], ['blur', false, 'left']]) {
+        cur = 'pane-home-' + side + '?hkglass=' + g;
+        await page.goto(input.origin + '/pane-home-' + side + '/home?hkglass=' + g);
+        await page.waitForFunction(() => window.__mantelReady === true);
+        await page.waitForTimeout(3500);
+        const a = await page.evaluate(async () => {
+          const p = document.querySelector('hk-side-pane[mode="dash"]'), sr = p && p.shadowRoot;
+          if (!sr) return null;
+          const card = sr.querySelector('hk-music-pane-card'), on = sr.querySelector('.artbg b.on');
+          const own = card && card.shadowRoot ? [...card.shadowRoot.querySelectorAll('.mbgf,.mshade')].filter((e) => getComputedStyle(e).display !== 'none').length : -1;
+          let worst = null;
+          // the drawn art's lightest pixel (a small PNG), under the shade's lighter top
+          const url = on && /url\("(data:[^"]+)"\)/.exec(on.style.backgroundImage);
+          if (url) {
+            const im = new Image(); im.src = url[1];
+            await im.decode().catch(() => {});
+            const cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height;
+            const x = cv.getContext('2d'); x.drawImage(im, 0, 0);
+            const d = x.getImageData(0, 0, cv.width, cv.height).data; let hi = 0;
+            for (let i = 0; i < d.length; i += 4) hi = Math.max(hi, 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]);
+            const v = (hi * 0.66 + 8 * 0.34) / 255, lum = v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+            worst = +((1.05) / (lum + 0.05)).toFixed(2);
+          }
+          return { arted: p.hasAttribute('arted'), tint: p.hasAttribute('arttint'), tintColor: p.style.getPropertyValue('--art-tint'), nobg: !!(card && card.hasAttribute('nobg')), own, worst };
+        });
+        want('playing in ' + g + ' on the ' + side + ': the whole pane takes the album art', a, a && a.arted && a.nobg && a.own === 0 &&
+             (tinted ? a.tint && /^rgb\(/.test(a.tintColor) : !a.tint && a.worst >= 4.5));
+        await shot(page, tag + '-playing-' + g + '-' + side);
+        // STOPPED: paused through the house, past Hide After a Pause (made 0 here), Now Playing steps aside -- and
+        // with it the art, back to the screen's glass
+        await page.evaluate(() => {
+          window.hkCards.menu.npGrace = () => 0;
+          return window.hkCards.client().actions.callService('media_player', 'media_play_pause', {}, { entity_id: 'media_player.living_room' });
+        });
+        await page.waitForTimeout(3500);
+        const stopped = await page.evaluate(() => document.querySelector('hk-side-pane[mode="dash"]').hasAttribute('arted'));
+        want('...stopped, the screen\'s glass again', stopped, stopped === false);
+        // (and playing again, for the next screen's)
+        await page.evaluate(() => window.hkCards.client().actions.callService('media_player', 'media_play_pause', {}, { entity_id: 'media_player.living_room' }));
+        await page.waitForTimeout(500);
+        if (g === 'blur') await shot(page, tag + '-stopped-' + side);
+      }
+    }
     await open('pane-every-page');
     let l = await look(page);
     want('every page: Home', l, phone ? !l.on : l.on && !l.scrolls);

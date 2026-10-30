@@ -69,6 +69,9 @@ async def main():
     from aiohttp.test_utils import TestServer
     gallery.SETTINGS['boards'].update(json.loads(json.dumps(SCREENS)))
     gallery.HOUSE['todo.groceries'] = (None, ('3', {'friendly_name': 'Groceries'}))
+    # the song's cover (a bright picture: the album art behind the pane, and its words' contrast over it)
+    mp = gallery.HOUSE['media_player.living_room']
+    gallery.HOUSE['media_player.living_room'] = (mp[0], (mp[1][0], dict(mp[1][1], entity_picture='/hk/landscapes/01.webp')))
     gallery.HOUSE['sensor.house_power'] = (None, ('1400', {'unit_of_measurement': 'W', 'device_class': 'power'}))
     gallery.HOUSE['alarm_control_panel.home'] = (None, ('armed_home', {'friendly_name': 'Home Alarm', 'changed_by': 'Sam'}))
     gallery.SETTINGS['settings']['features'] = {'power': 'sensor.house_power'}

@@ -538,6 +538,43 @@
     return 'Today ' + Number(sum.used).toFixed(1) + ' kWh used' + (sum.solar != null ? ' · ' + Number(sum.solar).toFixed(1) + ' made' : '');
   }
 
+  // THE ART'S BLUR (hk-saver.js drawBlur's pane look): `img` drawn ART px
+  // square (64, a tall pane's), blurred and darkened by 0.38, as a small PNG
+  // (a plain picture layer: WebKit left a scaled-up canvas unpainted at some
+  // sizes) -- {url, rgb: its mean colour}; url null where the picture can't
+  // be read
+  var ART = 64;
+  function artDraw(img) {
+    var c = document.createElement('canvas'); c.width = ART; c.height = ART;
+    var ctx = c.getContext && c.getContext('2d'), out = { url: null, rgb: null };
+    var t = document.createElement('canvas'); t.width = 10; t.height = 10;
+    var tc = t.getContext && t.getContext('2d');
+    if (!ctx || !tc) return out;
+    tc.drawImage(img, 0, 0, 10, 10);
+    try {
+      var d = tc.getImageData(0, 0, 10, 10).data, sum = [0, 0, 0];
+      for (var i = 0; i < d.length; i += 4) { sum[0] += d[i]; sum[1] += d[i + 1]; sum[2] += d[i + 2]; }
+      out.rgb = sum.map(function (v) { return v / 100; });
+    } catch (e) { return out; }
+    // (through a middle step: a tall pane stretches it far more than the
+    // music pane's square, and one jump from 10 px streaks where the canvas
+    // has no filter, as WebKit's)
+    var m = document.createElement('canvas'); m.width = 20; m.height = 20;
+    var mc = m.getContext('2d');
+    if (mc) { mc.imageSmoothingQuality = 'high'; mc.drawImage(t, -2, -2, 24, 24); }
+    // (opaque underneath: a blur's edge would let the page show through)
+    ctx.fillStyle = 'rgb(' + out.rgb.map(Math.round).join(',') + ')';
+    ctx.fillRect(0, 0, ART, ART);
+    ctx.imageSmoothingQuality = 'high';
+    try { ctx.filter = 'blur(3px)'; } catch (e) { /* the upscale alone */ }
+    ctx.drawImage(mc ? m : t, -6, -6, ART + 12, ART + 12);
+    try { ctx.filter = 'none'; } catch (e) { /* ignore */ }
+    ctx.fillStyle = 'rgba(0,0,0,0.38)';
+    ctx.fillRect(0, 0, ART, ART);
+    try { out.url = c.toDataURL('image/png'); } catch (e) { out.url = null; }
+    return out;
+  }
+
   // ------------------------------------------------------------ the CSS
   // Built on first use: never hkCards while this file loads (DESIGN.md
   // Rules 1). Logical sizes (a 400 px pane), scaled whole by the pane.
@@ -577,6 +614,17 @@
       ':host([side="band"]) .pane{border-top:1px solid ' + v('line') + ';box-shadow:0 -18px 44px rgba(0,0,0,.30)}',
       // IN THE SCREENSAVER: on its pane's own background, under Home Status
       ':host([mode="saver"]) .pane{background:none;-webkit-backdrop-filter:none;backdrop-filter:none;border:0;box-shadow:none}',
+      // THE ALBUM ART behind the whole pane while a song plays (_artBg): two
+      // canvases cross-fading, a shade for the words; a flat tint where the
+      // look has no blur
+      '.artbg{position:absolute;inset:0;opacity:0;transition:opacity 1.2s ease;pointer-events:none;overflow:hidden;background:#141418}',
+      ':host([arted]) .artbg{opacity:1}',
+      '.artbg b{position:absolute;left:-8%;top:-8%;width:116%;height:116%;display:block;opacity:0;transition:opacity 1.2s ease;background-size:100% 100%}',
+      '.artbg b.on{opacity:1}',
+      '.artbg b.raw{background-size:cover;background-position:center;filter:blur(40px) brightness(.62)}',
+      '.artbg i{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(6,10,18,.34),rgba(6,10,18,.46))}',
+      ':host([arttint]) .artbg{background:var(--art-tint,#1c1c22)}:host([arttint]) .artbg b,:host([arttint]) .artbg i{display:none}',
+      '@media (prefers-reduced-motion:reduce){.artbg,.artbg b{transition:none}}',
       '.pin{position:absolute;left:0;top:0;transform-origin:0 0;box-sizing:border-box;display:flex;flex-direction:column;padding:30px 28px 26px}',
       ':host([side="band"]) .pin{padding:20px 24px}',
       ':host([mode="saver"]) .pin{padding:4px 28px 22px}',
@@ -597,6 +645,8 @@
       ':host(:not([mode="widget"]):not([side="band"])) .sec.cmp:not(.cam2){padding:11px 0}',
       ':host(:not([mode="widget"]):not([side="band"])) .sec+.sec{border-top:1px solid ' + v('line') + '}',
       ':host(:not([mode="widget"]):not([side="band"])) .sec.cam2{margin:14px 0}',
+      // (the music pane on the pane's ground, not a box: its line above straight)
+      ':host(:not([mode="widget"]):not([side="band"])) .sec.mp{border-radius:0}',
       '.sec>.ev:last-child{border-bottom:0}',
       '.h2{display:flex;align-items:center;gap:6px;font:600 13px/1 var(--hk-font-body,inherit);letter-spacing:.3px;text-transform:uppercase;color:' + v('ink-2') + '}',
       '.h2 hk-icon{--mdc-icon-size:15px;width:15px;height:15px}',
@@ -708,7 +758,7 @@
     _draw(again) {
       var o = this._o, c = clientNow();
       if (!this._built) {
-        this._root.innerHTML = '<style>' + css() + '</style><div class="pane"><div class="pin"><div class="secs"></div></div></div>';
+        this._root.innerHTML = '<style>' + css() + '</style><div class="pane"><div class="artbg" aria-hidden="true"><b></b><b></b><i></i></div><div class="pin"><div class="secs"></div></div></div>';
         this._pin = this._root.querySelector('.pin');
         this._secs = this._root.querySelector('.secs');
         this._built = true;
@@ -732,6 +782,7 @@
         if (n < list.length) html += '<div class="more2">+' + (list.length - n) + ' more</div>';
         return html;
       };
+      this._artBg(list, c);
       var sig = JSON.stringify([list, W, H, o.side, band, o.doorbell]) + '|' + this._dataSig(c);
       if (!again && sig === this._sig) return;
       this._sig = sig;
@@ -746,6 +797,40 @@
       this._secs.innerHTML = render(got.sizes, got.n);
       this._fill();
       this._fit = got;
+    }
+    // THE ALBUM ART BEHIND THE WHOLE PANE (2026-10-30, the owner: "if something
+    // is playing, the whole pane should have the album art blur"): while Now
+    // Playing is one of its sections and has a song, the pane's ground is the
+    // song's art blurred -- the music pane's own way (hk-saver.js drawBlur):
+    // drawn 10 px, then 32 px with a 2 px blur and darkened, and the CSS
+    // scales it up; no live filter -- under a shade for its words, edge to
+    // edge. The next song's fades in over the last; stopped, it fades back to
+    // the screen's glass. Where the look has no blur (Flat, Tinted, Frosted,
+    // Glass -- Performance's), a flat tint from the art instead.
+    _artBg(list, c) {
+      var want = list.some(function (s) { return s.kind === 'now_playing'; }) ? musicOf(c) : null;
+      var pic = want && want.pic ? want.pic : null, self = this;
+      var g = document.documentElement.getAttribute('data-hk-glass') || 'blur';
+      var tint = document.documentElement.hasAttribute('data-hk-flat') || ['flat', 'tinted', 'frosted', 'clear'].indexOf(g) >= 0;
+      this.toggleAttribute('arttint', tint);
+      if (pic === this._artPic) return;
+      this._artPic = pic;
+      if (!pic) { this.removeAttribute('arted'); return; }
+      var img = new Image();
+      img.onload = function () {
+        if (self._artPic !== pic) return;
+        var ly = self._root.querySelectorAll('.artbg b'), n = self._artFlip ? 0 : 1;
+        self._artFlip = !self._artFlip;
+        var got = artDraw(img);
+        if (got.rgb) self.style.setProperty('--art-tint', 'rgb(' + got.rgb.map(function (v) { return Math.round(v * 0.42); }).join(',') + ')');
+        // (a picture that can't be read here: itself, under a blur drawn once)
+        ly[n].classList.toggle('raw', !got.url);
+        ly[n].style.backgroundImage = 'url("' + (got.url || pic).replace(/"/g, '%22') + '")';
+        ly[n].classList.add('on'); ly[1 - n].classList.remove('on');
+        self.setAttribute('arted', '');
+      };
+      img.onerror = function () { if (self._artPic === pic) self.removeAttribute('arted'); };
+      img.src = pic;
     }
     _tallest() {
       var t = 0;
@@ -801,6 +886,9 @@
           return;
         }
         slot.parentNode.replaceChild(el, slot);
+        // (the music pane on the pane's own album-art backdrop: none of its
+        // own and no box -- the owner, 2026-10-30)
+        if (key === 'np' && !el.hasAttribute('nobg')) el.setAttribute('nobg', '');
         if (key === 'np' && el.active) el.active(true);
       });
     }
