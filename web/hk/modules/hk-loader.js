@@ -1,6 +1,7 @@
 // hk-loader.js - imports the order-independent dashboard modules (MODULES
 // below: kiosk, stats, charts, sky, idle, glass, skyshot, timers, saver,
-// saver-panel, fps, campost, menu, tabbar, notify, edit, edit-pages, drag).
+// saver-panel, fps, campost, menu, tabbar, notify, edit, edit-pages, drag,
+// pageswipe).
 //
 // WHY THIS EXISTS
 // The bootstrap list -- the files every page loads before any card renders --
@@ -80,7 +81,11 @@
                  // ...Edit mode's menu, tab bar and Room Order (phase G):
                  // registers with hkEdit once both are in
                  'hk-edit-menu.js',
-                 'hk-drag.js'];
+                 'hk-drag.js',
+                 // Swipe Between Pages (hk-pageswipe.js): listens for a
+                 // sideways swipe on the page; reads the tab bar's list
+                 // and the drag classifier when one comes
+                 'hk-pageswipe.js'];
 
   // NO GRID-LAYOUT PATCH MODULE. An inline box containing block content makes
   // every section creep 6px per tap in Safari; hk-grid-card and hk-grid-view

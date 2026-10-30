@@ -3882,6 +3882,9 @@
                 tab_bar_tabs_phone: 3,
                 // the rail in a phone's side strip (hk-tabbar.js stripSide, 2026-10-30)
                 tab_bar_strip: true,
+                // Swipe Between Pages (hk-pageswipe.js, 2026-10-30): null,
+                // Same as All Screens (hkSettings.swipePages)
+                swipe_pages: null,
                 // PHONES' OWN (phoneForm): the menu (null: as before there
                 // was one -- phoneMenu), the button's style, More's rooms
                 menu_phone: null, button_phone: 'chip', tab_bar_rooms_phone: 'more' };
@@ -4373,6 +4376,21 @@
   window.hkCards.FONT_ROOT = FONT_ROOT;
   window.hkCards.SAFE = SAFE;
   window.hkCards.safeArea = safeArea;
+  // A SCROLLER THAT FITS TAKES NO SIDEWAYS PAN (2026-10-30, Swipe Between
+  // Pages, hk-pageswipe.js): a scroll container takes every sideways pan for
+  // itself, scrollable or not, so the browser cancelled the page's swipe over
+  // a row with nothing to scroll (the favorites, a room's status row on a
+  // tablet). One that fits says touch-action pan-y; one that scrolls keeps
+  // its own. Measured in the next frame, once however often it is asked.
+  window.hkCards.fitPan = function (el) {
+    if (!el || el.__hkFitPan) return;
+    var later = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : function (f) { return setTimeout(f, 16); };
+    el.__hkFitPan = later(function () {
+      el.__hkFitPan = 0;
+      if (el.scrollWidth <= el.clientWidth + 1) el.style.setProperty('touch-action', 'pan-y pinch-zoom');
+      else el.style.removeProperty('touch-action');
+    });
+  };
   window.hkCards.SP = SP;
   window.hkCards.TILE = TILE;
   window.hkCards.CHIP = CHIP;
