@@ -54,8 +54,9 @@ PER_SCREEN = 1600        # samples a screen keeps: a beat a minute for 24 hours 
 SCREENS = 200            # screens kept (the one heard from longest ago goes first)
 WRITE_EVERY = 600.0      # a tablet's stored summary is written at most this often
 SCREEN = re.compile(r"^[A-Za-z0-9_-]{1,100}$")      # the screen an fps frame was drawn on (a dashboard's path)
-STYLES = ("flat", "clear", "frosted", "tinted", "blur", "blur_pre", "blur_each")      # ...and its style
-SIG = re.compile(r"^(?:flat|clear|frosted|tinted|blur|blur_pre|blur_each):[a-z0-9]{1,24}$")      # ...and what else was on it
+STYLES = ("flat", "clear", "frosted", "tinted", "blur", "blur_pre", "blur_each",      # ...and its style
+          "bright", "bright_pre", "bright_each")                                         # (Bright Glass, 2026-10-30)
+SIG = re.compile(r"^(?:flat|clear|frosted|tinted|blur|blur_pre|blur_each|bright|bright_pre|bright_each):[a-z0-9]{1,24}$")      # ...and what else was on it
 
 
 def _num(v: Any) -> float | None:

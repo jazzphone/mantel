@@ -165,9 +165,10 @@ var a = M.amountOf({ frost: null }, { frost: 30 }, 'frost');
 ok('amounts: null follows All Screens’', !a.own && a.value === 30);
 a = M.amountOf({ blur: 0 }, { blur: 50 }, 'blur');
 ok('amounts: 0 is a value of its own, not "follow"', a.own && a.value === 0);
-ok('amounts: only the one the glass uses is shown', eq(M.amountsFor('frosted'), { frost: true, blur: false, tint: false }) &&
-   eq(M.amountsFor('blur_each'), { frost: false, blur: true, tint: false }) && eq(M.amountsFor('clear'), { frost: false, blur: false, tint: false }) &&
-   eq(M.amountsFor('tinted'), { frost: false, blur: false, tint: true }));
+ok('amounts: only the one the glass uses is shown', eq(M.amountsFor('frosted'), { frost: true, blur: false, tint: false, bright: false }) &&
+   eq(M.amountsFor('blur_each'), { frost: false, blur: true, tint: false, bright: false }) && eq(M.amountsFor('clear'), { frost: false, blur: false, tint: false, bright: false }) &&
+   eq(M.amountsFor('tinted'), { frost: false, blur: false, tint: true, bright: false }) &&
+   eq(M.amountsFor('bright_pre'), { frost: false, blur: false, tint: false, bright: true }));
 
 // ------------------------------------------------------------ sky
 var BI = { halloween: { north: ['09-22', '10-31'], south: ['09-22', '10-31'] }, spring: { north: ['03-20', '06-20'], south: ['09-22', '12-20'] } };
@@ -532,10 +533,31 @@ ok('...on the Tab Bar page, its own setting one at a time', M.KIND_KEYS['tab-bar
 ok('...found by search, on the Tab Bar page', M.SEARCH.some(function (r) {
   return r[0] === 'Use the Side Strip' && r[1] === 'house/menu/tab-bar' && r[2] === 'menu.bar_strip' && /duo/.test(r[3]); }));
 // THE GLASS (2026-10-10): Glass, Frosted, Tinted (2026-10-12), Blur -- and Blur's three modes
-ok('glass: five styles, Blur\'s three modes, one stored value each',
-   eq(M.GLASS_STYLES.map(function (g) { return g[0]; }), ['flat', 'clear', 'frosted', 'tinted', 'blur']) &&
+ok('glass: six styles, Blur\'s three modes and Bright Glass\'s, one stored value each',
+   eq(M.GLASS_STYLES.map(function (g) { return g[0]; }), ['flat', 'clear', 'frosted', 'tinted', 'blur', 'bright']) &&
    eq(M.BLUR_MODES.map(function (g) { return g[0]; }), ['blur', 'blur_pre', 'blur_each']) &&
-   eq(M.GLASS.map(function (g) { return g[0]; }), ['flat', 'clear', 'frosted', 'tinted', 'blur', 'blur_pre', 'blur_each']));
+   eq(M.BRIGHT_MODES.map(function (g) { return g[0]; }), ['bright', 'bright_pre', 'bright_each']) &&
+   eq(M.GLASS.map(function (g) { return g[0]; }), ['flat', 'clear', 'frosted', 'tinted', 'blur', 'blur_pre', 'blur_each', 'bright', 'bright_pre', 'bright_each']));
+// BRIGHT GLASS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase D)
+ok('Bright Glass: the approved words, its own style, Blur\'s modes by its own values',
+   eq(M.GLASS_STYLES[5], ['bright', 'Bright Glass', 'A light, clear glass that brings out the colours behind it. Best over a wallpaper.']) &&
+   M.glassStyle('bright_pre') === 'bright' && M.glassStyle('bright_each') === 'bright' && M.isBright('bright') && !M.isBlur('bright') &&
+   M.glassLabel('bright') === 'Bright Glass · Shared Layer' && M.glassLabel('bright_each') === 'Bright Glass · Each Card' &&
+   M.modesFor('bright') === M.BRIGHT_MODES && M.modesFor('blur') === M.BLUR_MODES && M.modesFor('tinted') === null);
+ok('...picking a style keeps the Blur Mode already chosen, either\'s',
+   M.styleValue('bright', 'blur_pre', 'blur') === 'bright_pre' && M.styleValue('blur', 'bright_each', 'blur') === 'blur_each' &&
+   M.styleValue('bright', 'frosted', 'blur') === 'bright' && M.styleValue('bright', null, 'blur_pre') === 'bright_pre' &&
+   M.styleValue('frosted', 'blur_pre', 'blur') === 'frosted');
+ok('...its Strength shows with it, and says it holds back by itself', /Strength/.test(M.glassFooter('bright')) && /holds back/.test(M.glassFooter('bright_pre')) &&
+   M.COPY_GROUPS.filter(function (g) { return g[0] === 'look'; })[0][2].indexOf('bright') >= 0);
+ok('...the tab bar can wear it on its own', M.TAB_BAR_GLASS.some(function (g) { return g[0] === 'bright' && g[1] === 'Bright Glass'; }));
+// WALLPAPERS (2026-10-30, Phase E)
+ok('Wallpaper: a Background, said, with its Night Version, and copied with the screen\'s look',
+   M.SKY_BACKGROUNDS.some(function (g) { return g[0] === 'wallpaper'; }) && M.BG_LABELS.wallpaper === 'Wallpaper' && /night/.test(M.BG_SAYS.wallpaper) &&
+   eq(M.WALLPAPER_NIGHT.map(function (g) { return g[0]; }), ['auto', 'day', 'night']) && M.skyModeLabel('wallpaper', []) === 'Wallpaper' &&
+   ['sky_wallpaper', 'sky_wallpaper_night'].every(function (k) { return M.COPY_GROUPS.filter(function (g) { return g[0] === 'look'; })[0][2].indexOf(k) >= 0; }));
+ok('...a screen with its own Wallpaper says so', M.skySummary({ sky_background: 'wallpaper', sky_wallpaper: 'shards_blue' }) === 'Wallpaper' &&
+   M.skySummary({ sky_wallpaper: 'shards_blue' }) !== 'Same as All Screens');
 ok('...Tinted is a style of its own, named, with its Darkness and Icon Circles',
    M.glassStyle('tinted') === 'tinted' && M.glassLabel('tinted') === 'Tinted' && !M.isBlur('tinted') &&
    /Darkness/.test(M.glassFooter('tinted')) && /Icon Circles/.test(M.glassFooter('tinted')) &&
@@ -548,7 +570,7 @@ ok('...named as you would say them', M.glassLabel('clear') === 'Glass' && M.glas
 ok('...each value\'s style', M.glassStyle('blur_pre') === 'blur' && M.glassStyle('blur_each') === 'blur' && M.glassStyle('blur') === 'blur' &&
    M.glassStyle('frosted') === 'frosted' && M.glassStyle('clear') === 'clear' && M.glassStyle(undefined) === 'clear' &&
    M.isBlur('blur_pre') && !M.isBlur('frosted'));
-ok('...Pre-rendered has the Blur amount, and says so', eq(M.amountsFor('blur_pre'), { frost: false, blur: true, tint: false }) && /Blur: how strong/.test(M.glassFooter('blur_pre')));
+ok('...Pre-rendered has the Blur amount, and says so', eq(M.amountsFor('blur_pre'), { frost: false, blur: true, tint: false, bright: false }) && /Blur: how strong/.test(M.glassFooter('blur_pre')));
 ok('...every mode says what it costs', M.BLUR_MODES.every(function (m) { return m[2].length > 60; }) &&
    /lightest/i.test(M.BLUR_MODES[1][2]) && /heaviest/i.test(M.BLUR_MODES[2][2]) &&
    /every frame/.test(M.BLUR_MODES[0][2]) && M.glassLabel('blur_pre') === 'Blur · Pre-rendered (Experimental)' && M.isBlur('blur_pre') && !M.isBlur('blur_baked'));

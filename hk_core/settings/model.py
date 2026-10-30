@@ -224,13 +224,24 @@ SKY_BACKDROP_IDS = tuple(p["id"] for p in SKY_BACKDROPS)
 # LANDSCAPES (2026-10-14): HK Frontend's own photos (frontend/landscapes, the
 # screensaver clock's), still, as a Photo is -- a new one each day or hour,
 # or one picked (SKY_LANDSCAPE).
-SKY_BACKGROUNDS = ("live", "color", "photo", "landscapes")
+SKY_BACKGROUNDS = ("live", "color", "photo", "landscapes", "wallpaper")
+# WALLPAPERS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase E): our own art,
+# drawn by hk-wallpapers.js -- four shapes (ribbons, petals, shards, pinwheel)
+# in six colour families, each with a darker night version. A wallpaper is a
+# still, as a Color is, and publishes its four stops as the sky's, so Frosted's
+# Tint from Background, the Flat image tint and Bright Glass read them. Which
+# version shows (WALLPAPER_NIGHT): "auto" the night one after sunset, or always
+# "day" / "night".
+WALLPAPERS = ("ribbons_rose", "petals_rose", "petals_violet", "shards_violet", "shards_blue", "ribbons_blue",
+              "pinwheel_teal", "ribbons_teal", "pinwheel_amber", "petals_amber", "shards_graphite",
+              "pinwheel_graphite")
+WALLPAPER_NIGHT = ("auto", "day", "night")
 SKY_COLOR_IDS = tuple(i for i in SKY_BACKDROP_IDS if i != "live")
 # A PAGE'S BACKGROUND (Sky / Background -> Pages): its own color, any
 # backdrop -- "live" among them, the live sky -- "photo" (its own photo,
-# sky.page_photos, else the screen's) or "landscapes" (the screen's
-# Landscape)
-SKY_PAGE_MODES = ("own",) + SKY_BACKDROP_IDS + ("photo", "landscapes")
+# sky.page_photos, else the screen's), "landscapes" (the screen's
+# Landscape) or "wallpaper" (the screen's Wallpaper, 2026-10-30)
+SKY_PAGE_MODES = ("own",) + SKY_BACKDROP_IDS + ("photo", "landscapes", "wallpaper")
 # A PHOTO'S ADDRESS: one uploaded to Home Assistant (image_upload, served
 # without sign-in from this origin, so the sky can measure it), or a file in
 # www (/local/...) or HK's own files folder (/hk/...)
@@ -497,11 +508,11 @@ def sky_photo(v: Any) -> str | None:
 # photo and custom colors you made (photo, gradient_custom: kept for next
 # time), or Advanced's dates, hemisphere and sources. A screen's reset is
 # SKY_RESET_BOARD to None: Same as All Screens.
-SKY_RESET = ("background", "color", "landscape", "photo_look", "landscape_look", "image_look", "flat_background", "flat_color", "flat_image_look", "flat_fade", "flat_tint", "flat_tint_amount", "flat_tint_light",
+SKY_RESET = ("background", "color", "landscape", "wallpaper", "wallpaper_night", "photo_look", "landscape_look", "image_look", "flat_background", "flat_color", "flat_image_look", "flat_fade", "flat_tint", "flat_tint_amount", "flat_tint_light",
              "animations", "focus_pause", "moving", "weather", "precipitation",
              "cloud_style", "daytime", "gradient", "decorations", "decoration_style",
              "woodland", "themes", "liveliness_all", "liveliness", "liveliness_custom")
-SKY_RESET_BOARD = ("sky_background", "sky_color", "sky_landscape", "sky_photo_look", "sky_landscape_look", "sky_image_look",
+SKY_RESET_BOARD = ("sky_background", "sky_color", "sky_landscape", "sky_wallpaper", "sky_wallpaper_night", "sky_photo_look", "sky_landscape_look", "sky_image_look",
                    "sky_flat_background", "sky_flat_color", "sky_flat_image_look", "sky_flat_fade", "sky_flat_tint", "sky_flat_tint_amount", "sky_flat_tint_light",
                    "sky_animations", "sky_focus_pause", "sky_moving", "sky_weather", "sky_precipitation",
                    "sky_cloud_style", "sky_daytime", "sky_gradient", "sky_decorations", "sky_decoration_style",
@@ -1022,6 +1033,10 @@ DEFAULTS: dict[str, dict[str, Any]] = {
             # look, as a photo's; a screen's sky_landscape /
             # sky_landscape_look are its own
             "landscape": "every:1440", "landscape_look": dict(PHOTO_LOOK_DEFAULTS),
+            # WALLPAPER (2026-10-30): which one (WALLPAPERS) and when its night
+            # version shows (WALLPAPER_NIGHT); a screen's sky_wallpaper /
+            # sky_wallpaper_night are its own
+            "wallpaper": "ribbons_rose", "wallpaper_night": "auto",
             # EACH PAGE'S BACKGROUND (sky_pages below): page kind or custom
             # page address -> "own" (its own color), "live" (the live sky,
             # with this look), a backdrop id (a still color) or "photo"
@@ -1183,6 +1198,10 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     # (hk-frosttint.js), held at one darkness so white text reads the same.
     # docs/ (each setting on its topic's page).
     "look": {"flat": False, "flat_theme": "dark", "glass": "clear", "frost": 50, "blur": 50, "tint": 50, "well": "dark", "frost_tint": False,
+             # BRIGHT GLASS (2026-10-30): bright -- its Strength, how much of
+             # the white wash and the lift (50 as designed), capped where
+             # white text would fall under 4.5:1 (hk-settings.js brightCap)
+             "bright": 50,
              # The detail sheets (hk-detail.js), after the Home app's, in
              # place of HA's more-info dialog on the dashboards, and the view
              # a speaker's sheet opens with "Browse Music" (a view path on the
@@ -1226,6 +1245,12 @@ DEFAULTS: dict[str, dict[str, Any]] = {
                                         "recently_added", "favourite_radio"]},
 }
 GLASS = ("clear", "frosted", "tinted", "blur", "blur_pre", "blur_each")
+# BRIGHT GLASS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase D): the sixth
+# look -- clear glass, a light blur and a bright rim, for vivid backgrounds --
+# in the Blur look's three Blur Modes, one stored value each as Blur's are:
+# bright (Shared Layer), bright_pre (Pre-rendered), bright_each (Each Card)
+BRIGHT_GLASS = ("bright", "bright_pre", "bright_each")
+GLASS = GLASS + BRIGHT_GLASS
 # Tinted's icon circles (look.well, a screen's well): Apple's dark, or light
 WELLS = ("dark", "light")
 # Looks that were tried and taken out, read as the one that replaced them:
@@ -1233,7 +1258,7 @@ WELLS = ("dark", "light")
 # than it saved and went on 2026-10-10 -- Pre-rendered is the same picture.
 RETIRED_GLASS = {"blur_baked": "blur_pre"}
 BLACK_SCREENS = ("kiosk", "hk")    # a screen's Black Screen (BOARD_DEFAULTS)
-AMOUNT = (0, 100)                  # look.frost, look.blur and look.tint, in %; 50 is the default
+AMOUNT = (0, 100)                  # look.frost, look.blur, look.tint and look.bright, in %; 50 is the default
 
 # Music Assistant's own categories on Browse Music's first page, by the id
 # browse_media gives each (media_content_id), in MA's order.
@@ -1327,6 +1352,12 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     sk["flat_image_look"] = flat_image_look(sk.get("flat_image_look")) or {}
     sk["image_look"] = flat_image_look(sk.get("image_look")) or {}
     sk["flat_page_image_looks"] = flat_page_image_looks(sk.get("flat_page_image_looks")) or {}
+    if sk.get("wallpaper") not in WALLPAPERS:
+        sk["wallpaper"] = DEFAULTS["sky"]["wallpaper"]
+    if sk.get("wallpaper_night") not in WALLPAPER_NIGHT:
+        sk["wallpaper_night"] = "auto"
+    br = amount_or_none(out["look"].get("bright"))
+    out["look"]["bright"] = DEFAULTS["look"]["bright"] if br is None else br
     # each over its own defaults: a partly stored object is still whole, and
     # a stored false stays false
     wx = out["weather"]
@@ -1672,6 +1703,7 @@ PAGE_BROWSE = "browse"
 PAGE_ORDER = (PAGE_KINDS[:PAGE_KINDS.index("music") + 1] + (PAGE_BROWSE,)
               + PAGE_KINDS[PAGE_KINDS.index("music") + 1:])
 BOARD_GLASS = ("house", "clear", "frosted", "tinted", "blur", "blur_pre", "blur_each")   # house: the shared look
+BOARD_GLASS = BOARD_GLASS + BRIGHT_GLASS
 # ON NARROW SCREENS: the button under 1,024 px and while an
 # always-open menu is folded -- the chip, the chip then the edge tab once
 # scrolled past, the edge tab, or none (the swipe alone; the chip without
@@ -1715,6 +1747,9 @@ HA_PLACES = ("top", "categories", "rooms", "bottom")
 # tint -- a see-through bar cannot be read over the tiles (measured
 # 2026-10-05); stored as "clear" before entry 1.12 (tab_bar_glass)
 TAB_BAR_GLASS = ("house", "tinted", "frosted", "blur")
+# ...and Bright Glass's bar (2026-10-30): its light blur and rim, the page
+# you're on a white pill
+TAB_BAR_GLASS = TAB_BAR_GLASS + ("bright",)
 # the rooms: a section of More (under its pages), a round button of their own
 # beside the tabs, or not in the bar at all
 TAB_BAR_ROOMS = ("more", "button", "off")
@@ -1845,6 +1880,8 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # All Screens.
     "flat": None, "flat_theme": None,
     "glass": "house", "frost": None, "blur": None, "tint": None, "well": None, "frost_tint": None, "sky": True, "car": False,
+    # Bright Glass's Strength, this screen's own (None: All Screens')
+    "bright": None,
     # ...and in a car's browser (car on): car_layout, which Home the screen
     # generates there -- "home" the whole Home every screen has, "car" the
     # car's own (CAR_LAYOUTS); car_width, the layout width the car's window
@@ -1865,6 +1902,8 @@ BOARD_DEFAULTS: dict[str, Any] = {
     "sky_background": None, "sky_color": None, "sky_photo": None, "sky_photo_look": None,
     # ...and its own Landscape and its look (None: All Screens')
     "sky_landscape": None, "sky_landscape_look": None,
+    # ...and its own Wallpaper and Night Version (None: All Screens')
+    "sky_wallpaper": None, "sky_wallpaper_night": None,
     # Liveliness, this screen's own, as All Screens' is: one preset for every
     # occasion or "custom" (None: Same as All Screens), then each occasion's
     # preset and Custom knobs; calm_empty -- Calm When Nobody's Around (the
@@ -2085,6 +2124,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
         out[k] = amount_or_none(d.get(k))
     out["well"] = d.get("well") if d.get("well") in WELLS else None
     out["frost_tint"] = d.get("frost_tint") if isinstance(d.get("frost_tint"), bool) else None
+    out["bright"] = amount_or_none(d.get("bright"))
     # The screen's own Sky / Background: each flag stored as anything but a
     # boolean is not set (follow All Screens), as a backdrop id not in
     # SKY_BACKDROPS and stops that do not parse are (sky_stops()).
@@ -2105,6 +2145,8 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["sky_photo_look"] = photo_look(d.get("sky_photo_look")) if d.get("sky_photo_look") is not None else None
     out["sky_landscape"] = sky_landscape(d.get("sky_landscape"))
     out["sky_landscape_look"] = photo_look(d.get("sky_landscape_look")) if d.get("sky_landscape_look") is not None else None
+    out["sky_wallpaper"] = d.get("sky_wallpaper") if d.get("sky_wallpaper") in WALLPAPERS else None
+    out["sky_wallpaper_night"] = d.get("sky_wallpaper_night") if d.get("sky_wallpaper_night") in WALLPAPER_NIGHT else None
     out["sky_page_photos"] = sky_page_photos(d.get("sky_page_photos")) or {}
     out["sky_page_looks"] = page_looks(d.get("sky_page_looks")) or {}
     out["sky_flat_background"] = d.get("sky_flat_background") if d.get("sky_flat_background") in FLAT_BACKGROUNDS else None
