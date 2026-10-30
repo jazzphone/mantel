@@ -142,6 +142,51 @@
   window.hkWxForecast = { watch: watch, active: active };
 })();
 
+// ============================================================ THE READINGS
+// THE WEATHER NOW, IN NUMBERS (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md,
+// Phase I): what the screensaver's Glance and Big Weather show -- read the
+// way the page reads them: Configure -> Weather's sensors where it names
+// them, else the weather entity's own attributes; today's high and low from
+// the daily forecast it is handed (hkWxForecast, or a forecast sensor); the
+// sunset from the sun; the air quality from a sensor that says it is one.
+//
+//   hkWxReadings.read(client, { entity, daily }) -> { entity, temp, unit,
+//     cond, says, hi, lo, sunset (a Date), wind, windUnit, humidity, aqi,
+//     place } or null (no weather)
+(function () {
+  'use strict';
+  if (window.hkWxReadings) return;
+  var SAYS = { sunny: 'Sunny', 'clear-night': 'Clear', cloudy: 'Cloudy', partlycloudy: 'Partly Cloudy', rainy: 'Rain',
+               pouring: 'Heavy Rain', snowy: 'Snow', 'snowy-rainy': 'Sleet', hail: 'Hail', lightning: 'Thunder',
+               'lightning-rainy': 'Thunderstorms', fog: 'Fog', windy: 'Windy', 'windy-variant': 'Windy', exceptional: 'Unusual' };
+  function num(v) { var n = Number(v); return v !== null && v !== '' && isFinite(n) ? n : null; }
+  function read(client, o) {
+    o = o || {};
+    var st = (client && client.states) || {}, HS = window.hkSettings;
+    var g = function (k) { return HS && HS.get ? HS.get('weather.' + k, null) : null; };
+    var wid = o.entity && st[o.entity] ? o.entity : (HS && HS.weatherId ? HS.weatherId(st) : null);
+    if (!wid || !st[wid]) wid = Object.keys(st).filter(function (k) { return k.indexOf('weather.') === 0; })[0];
+    var w = wid && st[wid];
+    if (!w) return null;
+    var a = w.attributes || {}, sensor = function (k) { var id = g(k); return id && st[id] ? num(st[id].state) : null; };
+    var daily = Array.isArray(o.daily) ? o.daily : [];
+    if (!daily.length && g('forecast_daily') && st[g('forecast_daily')]) daily = (st[g('forecast_daily')].attributes || {}).forecast || [];
+    var today = daily[0] || {}, sun = st['sun.sun'], set = sun && sun.attributes && sun.attributes.next_setting;
+    var aqi = Object.keys(st).filter(function (k) { return k.indexOf('sensor.') === 0 && (st[k].attributes || {}).device_class === 'aqi' && num(st[k].state) !== null; })[0];
+    var place = g('place') || (client && client.config && client.config.location_name) || 'Home';
+    var wind = sensor('wind');
+    return {
+      entity: wid, temp: num(a.temperature), unit: String(a.temperature_unit || '').replace(/[^CF]/g, ''),
+      cond: w.state, says: SAYS[w.state] || '', hi: num(today.temperature), lo: num(today.templow),
+      sunset: set && !isNaN(new Date(set)) ? new Date(set) : null,
+      wind: wind !== null ? wind : num(a.wind_speed), windUnit: (wind !== null && st[g('wind')].attributes.unit_of_measurement) || a.wind_speed_unit || '',
+      humidity: sensor('humidity') !== null ? sensor('humidity') : num(a.humidity), aqi: aqi ? Math.round(num(st[aqi].state)) : null,
+      place: String(place)
+    };
+  }
+  window.hkWxReadings = { read: read, SAYS: SAYS };
+})();
+
 (function () {
   'use strict';
 
