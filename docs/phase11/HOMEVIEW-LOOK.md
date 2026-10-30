@@ -1022,3 +1022,72 @@ shows a pane (`paneForStarter`, tested).
 0.16 s: a plain wall with one subject qualifies (16 % cover, 0.90 confidence, 26 % overlap, a 14 KB mask), a landscape
 with no subject doesn't (size), so it keeps the time in front. The two tests of the unavailable path now make the
 model absent themselves; the vendored-file checksum test runs instead of skipping.
+
+### The owner's feedback on 0.1.89 / 1.17.0 (2026-10-30)
+
+Thirteen items, the owner's go-ahead for all of them ("do all the proposed changes"); the decisions left to us are
+marked **Decision**.
+
+1. **The Side Pane wasn't blurred.** It was a near-solid navy plate (.92–.97 alpha) with its blur hidden under it,
+   by design when it was built; the Now Playing pane it replaced had been a frosted sheet. It now wears the docked
+   side menu's material in the screen's look (`hk-sidepane.js`, the host's `look`): one live blur (34 px) under
+   `rgba(28,28,32,.52)` in Blur, the white wash and light blur in Bright Glass, its slice of the sky's picture in
+   Pre-rendered (`hkGlass.pin`), near-solid with no blur in Frosted, Tinted and Flat. A MutationObserver on
+   `data-hk-glass` follows the slow-tablet ladder too. `side_pane_check` asserts the material per look.
+2. **Words cut by the corners** ("ff" for Off, "ood Morning"): a Square screen's 72 px outer corner, not the 34 px
+   one. A corner block's padding grows by ⌈(72 − 34) × (1 − 1/√2)⌉ + 1 = 13 px on the two sides that meet at the
+   outer corner (`cellInset`, `--hk-in-t/-r/-b/-l`, read by the tile). `home_grid_visual_check --homeview` now runs
+   every starter in the Home Tile Style too and fails any line of text whose ends fall outside its plate's corner
+   circle (it caught "Movie Night" before the fix).
+3. and 11. **Tiles not HomeView's / the format should follow Square.** **Decision:** Tile Style **Automatic**, the
+   new default: Centred on a Home Grid of square cells, Home on 196 × 150 tiles and the room pages; Home and
+   Centred stay as overrides, and a block's own choice still wins (`hk-strategy.js`, settings `tile_style`
+   `auto`). A screen that saved Home outright keeps Home.
+4. and 4b. **Looks.** **Decision:** eight, in `hk_core/settings/looks.py` (the JS copy compared by a jsc test):
+   HomeView, Flat, Performance, Holiday Whimsy, Active Weather, Calming Backgrounds, Night & Bedside, Photo Frame.
+   Each sets the style and colours (accent, tab bar glass, flat theme), the background and sky (wallpaper and its
+   Motion, weather, animations, decorations, liveliness), Tile Style, the Side Pane, Swipe Between Pages and the
+   screensaver (a patch over the screen's options), and names its layout: the editor's starters it prefers per
+   screen type (square starters for HomeView and Calming, the house's tile starters for the others, the
+   nightstand's for Night), so a phone, an upright tablet and a Square screen each get their own. Two places: a
+   screen's **Looks** page (the settings; its layout stays), each Look's page listing what it changes (was →
+   becomes, only what differs); and **Layout + Look** in the editor's starters (the layout too, in one Save).
+   Undo: the screen's own values before are stored as `look_undo` (each checked as the setting itself), and
+   Looks → Undo puts them back. `looks_check` (ci full) applies each, draws Home at three sizes, undoes it, and
+   saves Layout + Look from the editor.
+5. **Missing icons.** Mantel serves a subset of Material Design Icons (`web/mdi/icons.json`, 660, built from an old
+   snapshot); seven names the HomeView work used weren't in it, so they drew blank in Mantel only (Home Assistant
+   ships them all). Swapped for names the subset has (`dock-left`, `clock`, `account`, `clipboard-check`, `card`,
+   `home-thermometer`); `test_every_glyph_hks_own_frontend_names_is_served` now fails on any name HK's frontend uses
+   that Mantel doesn't serve. **Open:** regenerating the subset from `@mdi/js` (a download, waiting for the owner's
+   OK in that session) would bring back `dock-right`, `account-multiple` and `format-list-checks` themselves.
+6. **A preview on the Side Pane page:** the screen's live preview at the top at every width (a screen that follows
+   All Screens on All Screens' page).
+7. **Headings in the pane.** **Decision:** none; the sections sit straight on the pane's glass with a hairline
+   between them (a to-do list keeps its own name: which list is content). Pages-screen widgets keep their plate.
+8. **The shared blur layer's shape.** `hk-glass.js` read only the top-left radius, in the plate's unscaled px, while
+   a Home Grid's canvas scales its blocks: the cut came out tighter than the plate's own curve, and a Square screen's
+   four corners were one. It now reads all four, at the size the plate is drawn (`rrect` takes four radii). The grid
+   check fails a layer not cut at its plate's drawn corner (caught when the fix is taken out).
+9. **Big Number.** A dot under the picked target instead of the underline; the dash between the targets a drawn bar
+   about half an en dash; the foot's arrows out to 4 % with 12 px gaps, and the name on up to two lines before it is
+   cut.
+10. **Columns for square cells.** **Decision:** a segmented 6 / 5 / 4 / 3 / 2 (`home_grid.COLS` adds 4 and 5). On
+    square cells the rows follow the screen's shape (`rowsFor`: the frame, less the Side Pane's ~400 px beside it on
+    a screen on its side) and the blocks flow onto the new grid in reading order; tile grids change columns only
+    when every block still fits, as before.
+12. **Animated wallpapers.** **Decision:** Wallpaper **Motion** Off / Slow / Medium / Fast (90 / 45 / 20 s each way),
+    **Off by default** (wall tablets run all day); the Looks turn it on (HomeView, Calming: Slow) or off
+    (Performance). Each shape moves its own way (ribbons sway, petals breathe, shards drift, pinwheels turn): a
+    transform on the pre-drawn layer, 10 % past each edge, no repaint and no filter. It stops where the sky stops
+    (hidden, held under the black screen), with Animations off and for Reduce Motion, and counts as animation on
+    the slow-tablet ladder (`ladderFacts`, `hkSettings.ladderSignature`). `bright_glass_check` measures it moving by
+    transform alone at 50+ fps in WebKit at 1180 × 820, and still under Reduce Motion. The shared live blur follows
+    it frame by frame; Pre-rendered's picture does not (as with the clouds).
+13. **The Rooms pop-up in Bright Glass.** Bright Glass's sheets were white .22 over a blur that brightened
+    (saturate 2): over the blue wallpaper, a bright clear blue. Now a deep tint under a white sheen over the blur held
+    down (`BRIGHT.sheet`, `sheetBlur: blur(34px) saturate(1.5) brightness(0.86)`), keeping white text at 4.5:1 over
+    each wallpaper's lightest stop; the page dims behind an open sheet; the Rooms icons sit in white circles in the
+    accent deepened; a long room name has three lines. `bright_glass_check` opens the Rooms sheet at each size and
+    checks the contrast. **For the house DESIGN.md:** its Bright Glass line "its sheets take blur(34px) saturate(2)"
+    is now this sheet plate (not edited: the house docs are the owner's).

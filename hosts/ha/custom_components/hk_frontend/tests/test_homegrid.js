@@ -123,7 +123,7 @@ window.addEventListener('hk-view-ready', function (e) { ready.push(e.detail.view
   ok('...XL fills its width', kids[0].style.gridColumn === '1 / span 3' && kids[0].style.gridRow === '1 / span 2');
   ok('...a W block on the last row', kids[1].style.gridColumn === '2 / span 2' && kids[1].style.gridRow === '5 / span 1');
   var w = new View();
-  w.setConfig({ grid: { cols: 4, rows: 9 }, cards: [] });
+  w.setConfig({ grid: { cols: 7, rows: 9 }, cards: [] });
   ok('a grid it can\'t draw gets the defaults (6 x 4, band on)', w._root.style['--g-cols'] === '6' &&
      w._root.style.gridTemplateRows === '60px repeat(4, 150px)');
 })();

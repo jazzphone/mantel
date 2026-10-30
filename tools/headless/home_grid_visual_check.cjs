@@ -277,7 +277,7 @@ async function homeview(input){
   const browser=await pw[input.engine].launch({headless:true,timeout:15000,...(input.browser?{executablePath:input.browser}:{})});
   let bad=0;
   try{
-    for(const {screen,sizes} of input.screens){
+    for(const {screen,sizes,homeTiles} of input.screens){
       for(const size of sizes){
         const [W,H]=size.split('x').map(Number);
         const context=await browser.newContext({viewport:{width:W,height:H},deviceScaleFactor:1});
@@ -289,7 +289,7 @@ async function homeview(input){
         await page.goto(input.origin+'/'+screen+'/home');
         await page.waitForFunction(()=>window.__mantelReady===true);
         await page.waitForTimeout(2500);
-        const report=await page.evaluate(()=>{
+        const report=await page.evaluate((homeTiles)=>{
           const all=(root,sel)=>[...root.querySelectorAll('*')].flatMap(e=>[...(e.matches(sel)?[e]:[]),...(e.shadowRoot?all(e.shadowRoot,sel):[])]);
           const view=all(document,'hk-home-grid-view')[0],issues=[],seen={},inside=(c,sel)=>all(c.shadowRoot||c,sel);
           if(!view)return {issues:['no grid']};
@@ -305,8 +305,31 @@ async function homeview(input){
             const want=cell.style.getPropertyValue('--hk-block-radius').trim();
             if(plate&&!cell.hasAttribute('data-bare')){const cs=getComputedStyle(plate.p),got=[cs.borderTopLeftRadius,cs.borderTopRightRadius,cs.borderBottomRightRadius,cs.borderBottomLeftRadius].join(' ');
               const w=want.split(' ');const exp=(w.length===1?[w[0],w[0],w[0],w[0]]:w).join(' ');if(got!==exp)issues.push(id+': corners '+got+', not '+exp);}
+            // THE SHARED LAYER'S CUT IS THE PLATE'S SHAPE (the owner's Good Morning, 2026-10-30): its arcs at the radius
+            // the plate is drawn with, scaled with the canvas
+            if(plate&&!cell.hasAttribute('data-bare')&&getComputedStyle(plate.p).getPropertyValue('--hk-glass-surface').trim()==='1'){
+              const cs=getComputedStyle(plate.p),k=plate.b.width/plate.p.offsetWidth||1,want=Math.round(parseFloat(cs.borderBottomRightRadius)*k*10)/10;
+              const paths=all(document,'[data-hk-glass-layer]').map(L=>L.getAttribute('data-path')||'').join(' ');
+              if(paths&&want>0&&!new RegExp('A'+want+','+want+' ').test(paths)&&!new RegExp('A'+(want-0.1).toFixed(1)+',|A'+(want+0.1).toFixed(1)+',').test(paths))issues.push(id+': the shared layer is not cut at the plate\'s '+want+' px corner');}
+            // NO WORD CUT BY A CORNER (the owner's "ff" for "Off", 2026-10-30): each line of text inside its
+            // block's rounded plate -- the line box's ends, less its descender room, inside the corner's circle
+            if(plate&&!cell.hasAttribute('data-bare')){const cs=getComputedStyle(plate.p),b=plate.b,k=b.width/plate.p.offsetWidth||1;
+              const rad=[cs.borderTopLeftRadius,cs.borderTopRightRadius,cs.borderBottomRightRadius,cs.borderBottomLeftRadius].map(x=>parseFloat(x)*k);
+              const out=(x,y)=>{const c=[[b.left+rad[0],b.top+rad[0],rad[0],x<b.left+rad[0]&&y<b.top+rad[0]],[b.right-rad[1],b.top+rad[1],rad[1],x>b.right-rad[1]&&y<b.top+rad[1]],
+                [b.right-rad[2],b.bottom-rad[2],rad[2],x>b.right-rad[2]&&y>b.bottom-rad[2]],[b.left+rad[3],b.bottom-rad[3],rad[3],x<b.left+rad[3]&&y>b.bottom-rad[3]]].find(q=>q[3]);
+                return c?Math.hypot(x-c[0],y-c[1])>c[2]+1:false;};
+              const texts=[];const walk=n=>{for(const ch of n.childNodes){if(ch.nodeType===3&&ch.textContent.trim())texts.push(ch);else if(ch.nodeType===1){if(ch.shadowRoot)walk(ch.shadowRoot);if(ch.localName!=='style'&&ch.localName!=='svg')walk(ch);}}};
+              walk(card.shadowRoot||card);
+              for(const t of texts){const rg=document.createRange();rg.selectNodeContents(t);for(const q of rg.getClientRects()){if(!q.width||q.width<2)continue;
+                const el=t.parentNode.nodeType===1?t.parentNode:t.parentNode.host;if(el&&getComputedStyle(el).visibility==='hidden')continue;
+                // (words not in the plate's box at all -- a pager's other page, a label kept for screen readers -- are not
+                // a corner's to cut)
+                if(q.left<b.left-1||q.right>b.right+1||q.top<b.top-1||q.bottom>b.bottom+1)continue;
+                if(el&&el.getBoundingClientRect().width<=1)continue;
+                const top=q.top+q.height*.18,bot=q.bottom-q.height*.22;
+                if([[q.left+1,top],[q.right-1,top],[q.left+1,bot],[q.right-1,bot]].some(p=>out(p[0],p[1]))){issues.push(id+': "'+t.textContent.trim().slice(0,20)+'" cut by the corner');break;}}}}
             const tile=card.localName==='hk-grid-entity-card'?card._child:null;
-            if(tile){
+            if(tile&&!homeTiles){
               if(tile.getAttribute('tile')!=='centred')issues.push(id+': its tile is not centred');
               const icon=tile.shadowRoot.querySelector('.icon').getBoundingClientRect(),name=tile.shadowRoot.querySelector('.name'),nr=document.createRange();nr.selectNodeContents(name);const n=nr.getBoundingClientRect();
               const cx=(r.left+r.right)/2;
@@ -326,7 +349,7 @@ async function homeview(input){
               const d=f.querySelector('svg').getBoundingClientRect();if(d.width<r.width*.9||d.width>r.width*1.06)issues.push(id+': the face does not fill its block ('+Math.round(d.width)+' of '+Math.round(r.width)+')');seen.clock=1;}}
           }
           return {issues,scale:+s.toFixed(3),cell:Math.round(sq.w*s),seen};
-        });
+        },!!homeTiles);
         report.errors=errors;
         if(input.shots){
           await page.evaluate(()=>{function visit(root){const style=document.createElement('style');style.textContent='*{font-family:Arial,sans-serif!important}';(root.head||root).appendChild(style);for(const e of root.querySelectorAll('*'))if(e.shadowRoot)visit(e.shadowRoot);}visit(document);});

@@ -37,6 +37,20 @@ async def homeview():
             HG.check(grid)                          # (a starter saves as it is)
             gallery.SETTINGS['boards'][name]={'home_style':'grid','home_grid':grid,'menu_custom':True,'menu':'auto' if kind=='square' else 'tabbar','glass':'blur'}
             screens.append({'screen':name,'sizes':HV_SIZES+(['800x800'] if kind=='square' else [])})
+            # ...and each in the Home Tile Style (the default; the owner's own screen, 2026-10-30): every block's words
+            # clear of its corners, a Square screen's 72 px outer ones too
+            home=json.loads(json.dumps(grid))
+            for it in home.get('items',[]): it['tile']='home'      # (chosen outright: Automatic is Centred on square cells)
+            HG.check(home)
+            gallery.SETTINGS['boards'][name+'-home']=dict(gallery.SETTINGS['boards'][name],home_grid=home)
+            screens.append({'screen':name+'-home','sizes':HV_SIZES+(['800x800'] if kind=='square' else []),'homeTiles':True})
+            # ...and Home with Pane at 4 columns (2026-10-30, the owner's "I could easily do 4"), the pane beside it
+            if key=='sq_pane':
+                four=json.loads(json.dumps(grid)); four['cols']=4; four['rows']=4
+                HG.check(four)
+                gallery.SETTINGS['boards'][name+'-4']=dict(gallery.SETTINGS['boards'][name],home_grid=four,
+                    side_pane={'side':'right','dashboard':{'show':'home','sections':[{'kind':'weather'},{'kind':'calendar'}]}})
+                screens.append({'screen':name+'-4','sizes':HV_SIZES})
     with tempfile.TemporaryDirectory() as td:
         app,cookie=await gallery.build(Path(td))
         async with TestServer(app) as server:

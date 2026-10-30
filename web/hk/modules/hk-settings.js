@@ -119,7 +119,7 @@
            // WALLPAPER (2026-10-30): which one (hk-wallpapers.js) and when its
            // night version shows -- 'auto' after sunset, 'day', 'night'
            // (settings.py sky.wallpaper)
-           wallpaper: 'ribbons_rose', wallpaper_night: 'auto',
+           wallpaper: 'ribbons_rose', wallpaper_night: 'auto', wallpaper_motion: 'off',
            // each page's background: {page: 'own' | 'live' | backdrop id |
            // 'photo'} -- a page missing is Automatic (settings.py sky.pages);
            // a page's own photo, for 'photo': page_photos
@@ -181,7 +181,7 @@
     // live cameras rest while another window has the focus (hk-cameras.js
     // CAM_FOCUS) -- behind the screensaver they always rest
     cameras: { order: [], live: true, focus_pause: true },
-    look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, bright: 50, well: 'dark', frost_tint: false, tile_style: 'home', details: true, browse_view: 'music-browse', sky_switch: null,
+    look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, bright: 50, well: 'dark', frost_tint: false, tile_style: 'auto', details: true, browse_view: 'music-browse', sky_switch: null,
             photos: 'media-source://media_source/local/photos', page_pills: {}, page_accents: {},
             // FLAT COLORS (settings.py flat_colors; resolveFlatColors)
             flat_colors: { accent: 'auto', off_tint: 'auto', pages: 'accent' }, flat_page_colors: {},
@@ -449,10 +449,12 @@
   // TILE STYLE, for this screen (2026-10-30): its own when it sets one (not
   // null), else All Screens' -- 'home' (the Home app's layout) or 'centred'
   // (HomeView's): the Home Grid's tiles and the room pages' Tall pills
+  // ...or 'auto' (Automatic, the default: Centred on square cells -- the Home
+  // Grid's own to say -- and Home elsewhere)
   function tileStyle() {
-    var b = boardHere();
-    if (b && (b.tile_style === 'home' || b.tile_style === 'centred')) return b.tile_style;
-    return get('look.tile_style') === 'centred' ? 'centred' : 'home';
+    var b = boardHere(), ok = function (v) { return v === 'auto' || v === 'home' || v === 'centred'; };
+    if (b && ok(b.tile_style)) return b.tile_style;
+    return ok(get('look.tile_style')) ? get('look.tile_style') : 'auto';
   }
   // Over a blur: the plate the status chips always had over their own.
   var OVER_BLUR = 'linear-gradient(145deg, rgba(255,255,255,0.16), rgba(255,255,255,0.07))';
@@ -534,9 +536,14 @@
     rim: 'inset 0 0 0 1.5px rgba(255,255,255,0.22), inset 0 1.5px 0 rgba(255,255,255,0.30)',
     glow: 'inset 0 0 24px rgba(255,255,255,0.06)', shadow: '0 6px 20px rgba(40,0,60,0.10)',
     well: 'rgba(255,255,255,0.16)', glyph: 'rgba(255,255,255,0.94)', textShadow: '0 1px 2px rgba(0,0,0,0.18)',
-    // a sheet or a pop-up: white .22 over its heavier blur, the rim; a
-    // control set into it .14
-    sheet: 'rgba(255,255,255,0.22)', sheetBlur: 'blur(34px) saturate(2)', setIn: 'rgba(255,255,255,0.14)',
+    // a sheet or a pop-up: a deep tint under a white sheen, over its heavier
+    // blur held down a little, the rim; a control set into it .14. It was
+    // white .22 over blur(34px) saturate(2): over the blue wallpaper the
+    // Rooms sheet came out a bright, clear blue that white names and pale
+    // icon circles were hard to read on (the owner, 2026-10-30). The tint
+    // keeps white text over 4.5:1 above the lightest wallpaper stop.
+    sheet: 'linear-gradient(160deg, rgba(255,255,255,0.14), rgba(255,255,255,0.04) 55%), rgba(14,20,38,0.55)',
+    sheetBlur: 'blur(34px) saturate(1.5) brightness(0.86)', setIn: 'rgba(255,255,255,0.14)',
     sheetShadow: '0 26px 64px rgba(0,0,0,0.30)',
     // a bar (the tab bar's, the Edit mode bar)
     bar: 'linear-gradient(150deg, rgba(255,255,255,0.30), rgba(255,255,255,0.14))', barShadow: '0 10px 30px rgba(0,0,0,0.18)'
@@ -747,7 +754,10 @@
   function ladderSignature() {
     var style = glass(), flat = style === 'flat', b = boardHere(), sk = skyLook();
     var live = !flat && !(b && b.sky === false) && !!sk.background && sk.background.mode === 'live';
-    var a = live && sk.animations, w = live && sk.weather, r = a && w && sk.precipitation, f = a && sk.moving === 'front';
+    // (a Wallpaper with Motion on moves too, while Animations are on)
+    var moving = !flat && !(b && b.sky === false) && !!sk.background && sk.background.mode === 'wallpaper' &&
+      !!sk.background.wallpaper && sk.background.wallpaper.motion !== 'off';
+    var a = (live || moving) && sk.animations, w = live && sk.weather, r = live && a && w && sk.precipitation, f = live && a && sk.moving === 'front';
     var cam = b && typeof b.camera_live_video === 'boolean' ? b.camera_live_video : get('cameras.live', true) !== false;
     var n = function (v) { return v ? '1' : '0'; };
     return style + ':a' + n(a) + 'w' + n(w) + 'r' + n(r) + 'f' + n(f) + 'c' + n(!flat && cam);
@@ -816,8 +826,10 @@
     var W = window.hkWallpapers;
     var id = (b && b.sky_wallpaper) || get('sky.wallpaper', 'ribbons_rose') || 'ribbons_rose';
     var night = (b && b.sky_wallpaper_night) || get('sky.wallpaper_night', 'auto') || 'auto';
+    var motion = (b && b.sky_wallpaper_motion) || get('sky.wallpaper_motion', 'off') || 'off';
     if (W && !W.has(id)) id = W.DEFAULT;
-    return { id: id, night: night === 'day' || night === 'night' ? night : 'auto', stops: W ? W.stops(id) : BLACK };
+    return { id: id, night: night === 'day' || night === 'night' ? night : 'auto', stops: W ? W.stops(id) : BLACK,
+             motion: ['slow', 'medium', 'fast'].indexOf(motion) >= 0 ? motion : 'off' };
   }
   // A PHOTO'S LOOK (2026-10-13): this screen's own, else All Screens' --
   // {blur px, dim 0..1 (brightness = 1 - dim), saturate 0..2, tint: {day,

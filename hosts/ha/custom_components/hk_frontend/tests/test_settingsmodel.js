@@ -626,6 +626,23 @@ ok('...every mode says what it costs', M.BLUR_MODES.every(function (m) { return 
   var NOW = 1000000, KITCHEN = 'dashboard-kitchen';
   // a screen's facts (M.ladderFacts): b its board, look All Screens' look, sky its sky.*, cams {strip, live}
   var F = function (b, look, sky, cams) { return M.ladderFacts(b || {}, look || {}, sky || {}, cams); };
+  // LOOKS (2026-10-30): what one changes on a screen, its Undo, and only what differs
+  var hv = M.lookOf('homeview'), saver = M.saverOptions({});
+  var lc = M.lookChanges(hv, { glass: 'house', accent: 'orange', tile_style: null, side_pane: null, screensaver_options: null }, saver, null);
+  ok('a Look sends its settings, its screensaver options over the screen\'s, and its Undo', lc.changes.glass === 'bright' &&
+     lc.changes.screensaver_options.clock_style === 'numbers' && lc.changes.screensaver_options.each_photo === saver.each_photo &&
+     lc.changes.look_undo.look === 'homeview' && lc.changes.look_undo.was.glass === 'house' && lc.changes.look_undo.was.side_pane === null, lc.changes);
+  ok('...the sheet lists what differs (the accent is orange already)', lc.rows.some(function (r) { return r[0] === 'Style'; }) &&
+     !lc.rows.some(function (r) { return r[0] === 'Accent Color'; }), lc.rows);
+  var un = M.lookUndo({ look_undo: lc.changes.look_undo });
+  ok('...and Undo puts the screen\'s own values back, the Undo spent', un.glass === 'house' && un.side_pane === null && un.look_undo === null, un);
+  ok('...nothing to undo without one', M.lookUndo({}) === null);
+  ok('eight Looks', M.LOOKS.map(function (l) { return l.id; }).join() === 'homeview,flat,performance,holiday,weather,calm,night,photos');
+  // a Wallpaper with Motion counts as animation (2026-10-30): the Animations step stops it
+  var wm = F({ sky_background: 'wallpaper', sky_wallpaper_motion: 'slow' }, {}, {});
+  ok('a moving wallpaper is animation, not rain or moving things', wm.anim === true && wm.rain === false && wm.front === false, wm);
+  ok('...a still one is not', F({ sky_background: 'wallpaper' }, {}, {}).anim === false);
+  ok('...nor with Animations off', F({ sky_background: 'wallpaper', sky_wallpaper_motion: 'fast', sky_animations: false }, {}, {}).anim === false);
   // a tablet's report of drawing `fps` with these facts on (the sampler's word for them)
   var T = function (facts, fps, more) {
     return Object.assign({ name: 'Kitchen Tablet', screens: [KITCHEN], fps: fps, fps_screen: KITCHEN, fps_style: facts.style,

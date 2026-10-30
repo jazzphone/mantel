@@ -110,8 +110,8 @@ ok('the rim, the glow and the shadow as inset shadows; no edge', lv('--hk-look-s
 ok('off glyphs white .94, the second line white .78 lifted by the light, a light text shadow',
    lv('--hk-look-glyph-off') === 'rgba(255,255,255,0.94)' && lv('--hk-look-sub') === 'rgba(255, 255, 255, 0.846)' &&
    lv('--hk-look-text-shadow') === '0 1px 2px rgba(0,0,0,0.18)', [lv('--hk-look-glyph-off'), lv('--hk-look-sub')]);
-ok('its sheets: white .22 over blur(34px) saturate(2) with the rim; a control set into one .14',
-   lv('--hk-sheet-plate') === 'rgba(255,255,255,0.22)' && lv('--hk-sheet-backdrop') === 'blur(34px) saturate(2)' &&
+ok('its sheets: a deep tint under a sheen over blur(34px) saturate(1.5) brightness(0.86) with the rim; a control set into one .14',
+   /rgba\(14,20,38,0\.55\)$/.test(lv('--hk-sheet-plate')) && lv('--hk-sheet-backdrop') === 'blur(34px) saturate(1.5) brightness(0.86)' &&
    /^inset 0 0 0 1\.5px/.test(lv('--hk-sheet-shadow')) && lv('--hk-glass-plate-sheet') === 'rgba(255,255,255,0.14)');
 ok('the Edit mode bar wears the tab bar\'s plate', /^linear-gradient\(150deg, rgba\(255,255,255,0\.30\)/.test(lv('--hk-bar-plate')) &&
    lv('--hk-bar-backdrop') === lv('--hk-blur-filter'));
@@ -260,6 +260,10 @@ load(HK_ROOT + '/frontend/modules/hk-glass.js');
 var r = window.hkGlass._rrect(92, 328.3, 192, 70, 23.5);
 ok('a pill is its own rounded rectangle', r.indexOf('M115.5,328.3H260.5A23.5,23.5 0 0 1 284,351.8') === 0, r);
 ok('a radius larger than the shape is capped at half its height', window.hkGlass._rrect(0, 0, 100, 20, 50).indexOf('M10,0') === 0);
+// a Square screen's corner block: four corners, each its own (hk-layout.js cellRadius)
+var r4 = window.hkGlass._rrect(0, 0, 200, 200, [72, 34, 34, 34]);
+ok('four corners: the top-left 72, the rest 34', r4 === 'M72,0H166A34,34 0 0 1 200,34V166A34,34 0 0 1 166,200H34A34,34 0 0 1 0,166V72A72,72 0 0 1 72,0Z', r4);
+ok('one radius draws as it did', window.hkGlass._rrect(0, 0, 100, 50, 10) === window.hkGlass._rrect(0, 0, 100, 50, [10, 10, 10, 10]));
 
 print('\n=== big layers are cut into bands (GPU max texture) ===');
 var B = window.hkGlass._bands;

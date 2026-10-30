@@ -31,6 +31,7 @@ from typing import Any
 
 from ..sleep import rules as SR
 from . import home_grid as HG
+from . import looks as LOOKS
 from . import kinds as K
 from . import model as S
 
@@ -800,6 +801,7 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "sky.landscape_look": _photo_look(False),
     "sky.wallpaper": _choice(S.WALLPAPERS),
     "sky.wallpaper_night": _choice(S.WALLPAPER_NIGHT),
+    "sky.wallpaper_motion": _choice(S.WALLPAPER_MOTION),
     "sky.page_looks": _page_looks,
     "sky.flat_background": _choice(S.FLAT_BACKGROUNDS),
     "sky.flat_color": _flat_color(False),
@@ -1193,6 +1195,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "sky_landscape_look": _photo_look(True),
     "sky_wallpaper": _choice(S.WALLPAPERS, none=True),
     "sky_wallpaper_night": _choice(S.WALLPAPER_NIGHT, none=True),
+    "sky_wallpaper_motion": _choice(S.WALLPAPER_MOTION, none=True),
     "sky_flat_background": _choice(S.FLAT_BACKGROUNDS, none=True),
     "sky_flat_color": _flat_color(True),
     "sky_flat_fade": _amount_or_none,
@@ -1272,6 +1275,26 @@ def _side_pane_own(v: Any) -> dict[str, Any] | None:
 
 
 BOARD["side_pane"] = _side_pane_own
+
+
+# A LOOK'S UNDO (looks.py, 2026-10-30): the Look last applied to this screen and the screen's own values before it
+# ({look, was: {key: value}}), each value checked as the setting itself is; null once undone
+def _look_undo(v: Any) -> dict[str, Any] | None:
+    if v is None:
+        return None
+    if not isinstance(v, dict) or set(v) - {"look", "was"} or not LOOKS.look(v.get("look")) or not isinstance(v.get("was"), dict):
+        raise Invalid("look_undo")
+    was = {}
+    for k, x in v["was"].items():
+        if k not in LOOKS.UNDO_KEYS:
+            raise Invalid("look_undo")
+        was[k] = None if x is None and k in NONE_OK else BOARD[k](x)
+    return {"look": v["look"], "was": was}
+
+
+# (the keys whose own value may be null: Same as All Screens, or none yet)
+NONE_OK = frozenset(k for k in LOOKS.UNDO_KEYS if S.BOARD_DEFAULTS.get(k) is None)
+BOARD["look_undo"] = _look_undo
 
 
 # ------------------------------------------------------------ a wall tablet

@@ -89,7 +89,9 @@ Object.defineProperty(E.prototype, 'scrollHeight', { get: function () {
   return m;
 } });
 Object.defineProperty(E.prototype, 'clientWidth', { get: function () { return this._rect ? this.getBoundingClientRect().width : 0; } });
-Object.defineProperty(E.prototype, 'offsetWidth', { get: function () { return this._rect ? Math.round(this.getBoundingClientRect().width) : 0; } });
+// (a browser's offsetWidth is the LAYOUT width, before any transform: `_ow` where a test's box is drawn scaled)
+Object.defineProperty(E.prototype, 'offsetWidth', { get: function () { return this._ow != null ? this._ow : this._rect ? this.getBoundingClientRect().width : 0; } });
+Object.defineProperty(E.prototype, 'offsetHeight', { get: function () { return this._rect ? this.getBoundingClientRect().height : 0; } });
 var computed = 0;                                // getComputedStyle calls (collect()'s cost)
 function getComputedStyle(el) {
   computed++;
@@ -97,6 +99,7 @@ function getComputedStyle(el) {
   return {
     position: c.position || 'static', overflowX: c.overflowX || 'visible', overflowY: c.overflowY || 'visible',
     transform: c.transform || 'none', borderTopLeftRadius: c.radius || '0px',
+    borderTopRightRadius: c.radius || '0px', borderBottomRightRadius: c.radius || '0px', borderBottomLeftRadius: c.radius || '0px',
     getPropertyValue: function (k) { return k === '--hk-glass-surface' ? (c.glass ? ' 1' : ' 0') : ((c.vars || {})[k] || ''); }
   };
 }
@@ -365,6 +368,7 @@ var dbody = new E('DIV', { position: 'relative', overflowX: 'auto', overflowY: '
                   { x: 429, y: 142.8, w: 431, h: 588 });
 BODY.appendChild(dfx); dfx.appendChild(dsheet); dsheet.appendChild(dbody);
 var dt = add(dbody, card({ x: 429 + 204 * 0.98, y: 142.8 + 2 * 0.98, w: 192 * 0.98, h: 70 * 0.98 }));
+dt._plate._ow = 192;                             // laid out 192 wide, drawn at 98 %
 advance(100);
 ok('the frost is cut in the sheet\'s own layout: 204 px in, 192 wide, as the tile will be',
    /^path\('M227\.5,2H372\.5A23\.5/.test(pathOfLayer(dbody)), pathOfLayer(dbody).slice(0, 40));

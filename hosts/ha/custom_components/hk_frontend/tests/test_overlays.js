@@ -17,6 +17,8 @@ var ALLOWED = [of(O.overlay), of(O.solid), of(O.float)];
 var EXCEPT = {
   // a backdrop dimming the page under a pop-up or a bare sheet (Bubble's)
   '17,17,17,0.8': 'pop-up backdrop',
+  // Bright Glass's sheets: a deep tint under a sheen (hk-settings.js BRIGHT.sheet, 2026-10-30)
+  '14,20,38,0.55': 'Bright Glass sheet',
   // the Frosted look's own plates
   '34,38,56,0.95': 'Frosted menu', '58,60,68,0.55': 'Frosted edge tab',
   // the choose and confirm dialogs: Apple's alert gray, no blur

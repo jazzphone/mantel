@@ -18,7 +18,8 @@ from typing import Any, Mapping
 
 HOME_STYLES = ("generated", "grid")
 VERSION = 1
-COLS = (6, 3, 2)
+# (4 and 5 since 2026-10-30, the owner: "I could easily do 4" -- square cells beside the Side Pane, mostly)
+COLS = (6, 5, 4, 3, 2)
 ROWS = (2, 6)                      # the fewest and the most
 ROWS_DEFAULT = 4
 # The frame is the editor's preview viewport. Fixed 196 x 150 tile units fit

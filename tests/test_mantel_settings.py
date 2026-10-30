@@ -151,6 +151,20 @@ def test_every_glyph_mantels_pages_draw_is_served():
     assert used and used <= names, sorted(used - names)
 
 
+def test_every_glyph_hks_own_frontend_names_is_served():
+    # Mantel serves a subset of Material Design Icons (web/mdi/icons.json); a name HK's frontend uses that is not in
+    # it draws blank in Mantel only -- HA ships them all (the owner's Side Pane icon and three of its sections,
+    # 2026-10-30). A name built by joining ('mdi:weather-' + its condition) is not a name.
+    names = set(json.loads((WEB / "mdi/icons.json").read_text()))
+    used = {}
+    for p in (WEB / "hk").rglob("*.js"):
+        for m in re.finditer(r"mdi:([a-z0-9]+(?:-[a-z0-9]+)*)(-?['\"]\s*\+)?", p.read_text(encoding="utf-8", errors="ignore")):
+            if not m.group(2):
+                used.setdefault(m.group(1), p.name)
+    missing = {k: v for k, v in used.items() if k not in names}
+    assert not missing, missing
+
+
 def test_the_ha_build_ships_nothing_of_mantel_settings():
     spec = importlib.util.spec_from_file_location("build_ha", ROOT / "tools/build_ha.py")
     builder = importlib.util.module_from_spec(spec)

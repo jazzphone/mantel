@@ -36,6 +36,7 @@ from ..house import House
 from ..notifications.dnd import DND_MAX, hhmm, notify_dnd  # noqa: F401
 from ..sleep import rules as SR
 from . import home_grid as HG
+from .looks import IDS as LOOK_IDS
 from . import kinds
 
 CONF_DASHBOARD = "dashboard"
@@ -236,6 +237,9 @@ WALLPAPERS = ("ribbons_rose", "petals_rose", "petals_violet", "shards_violet", "
               "pinwheel_teal", "ribbons_teal", "pinwheel_amber", "petals_amber", "shards_graphite",
               "pinwheel_graphite")
 WALLPAPER_NIGHT = ("auto", "day", "night")
+# A WALLPAPER'S MOTION (2026-10-30, the owner: "animated slowly with a speed setting... an option to turn the
+# animation off or on"): off, or a slow drift at one of three speeds -- transform only, on the drawn picture
+WALLPAPER_MOTION = ("off", "slow", "medium", "fast")
 SKY_COLOR_IDS = tuple(i for i in SKY_BACKDROP_IDS if i != "live")
 # A PAGE'S BACKGROUND (Sky / Background -> Pages): its own color, any
 # backdrop -- "live" among them, the live sky -- "photo" (its own photo,
@@ -508,11 +512,11 @@ def sky_photo(v: Any) -> str | None:
 # photo and custom colors you made (photo, gradient_custom: kept for next
 # time), or Advanced's dates, hemisphere and sources. A screen's reset is
 # SKY_RESET_BOARD to None: Same as All Screens.
-SKY_RESET = ("background", "color", "landscape", "wallpaper", "wallpaper_night", "photo_look", "landscape_look", "image_look", "flat_background", "flat_color", "flat_image_look", "flat_fade", "flat_tint", "flat_tint_amount", "flat_tint_light",
+SKY_RESET = ("background", "color", "landscape", "wallpaper", "wallpaper_night", "wallpaper_motion", "photo_look", "landscape_look", "image_look", "flat_background", "flat_color", "flat_image_look", "flat_fade", "flat_tint", "flat_tint_amount", "flat_tint_light",
              "animations", "focus_pause", "moving", "weather", "precipitation",
              "cloud_style", "daytime", "gradient", "decorations", "decoration_style",
              "woodland", "themes", "liveliness_all", "liveliness", "liveliness_custom")
-SKY_RESET_BOARD = ("sky_background", "sky_color", "sky_landscape", "sky_wallpaper", "sky_wallpaper_night", "sky_photo_look", "sky_landscape_look", "sky_image_look",
+SKY_RESET_BOARD = ("sky_background", "sky_color", "sky_landscape", "sky_wallpaper", "sky_wallpaper_night", "sky_wallpaper_motion", "sky_photo_look", "sky_landscape_look", "sky_image_look",
                    "sky_flat_background", "sky_flat_color", "sky_flat_image_look", "sky_flat_fade", "sky_flat_tint", "sky_flat_tint_amount", "sky_flat_tint_light",
                    "sky_animations", "sky_focus_pause", "sky_moving", "sky_weather", "sky_precipitation",
                    "sky_cloud_style", "sky_daytime", "sky_gradient", "sky_decorations", "sky_decoration_style",
@@ -1036,7 +1040,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
             # WALLPAPER (2026-10-30): which one (WALLPAPERS) and when its night
             # version shows (WALLPAPER_NIGHT); a screen's sky_wallpaper /
             # sky_wallpaper_night are its own
-            "wallpaper": "ribbons_rose", "wallpaper_night": "auto",
+            "wallpaper": "ribbons_rose", "wallpaper_night": "auto", "wallpaper_motion": "off",
             # EACH PAGE'S BACKGROUND (sky_pages below): page kind or custom
             # page address -> "own" (its own color), "live" (the live sky,
             # with this look), a backdrop id (a still color) or "photo"
@@ -1227,7 +1231,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
              "flat_colors": dict(FLAT_COLORS_DEFAULT), "flat_page_colors": {},
              # TILE STYLE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase B): the Home Grid's tiles and the room
              # pages' Tall pills in the Home app's layout, or Centred (the glyph above the name and room, HomeView's)
-             "tile_style": "home"},
+             "tile_style": "auto"},
     # THE CALENDAR (the Calendar page, hk-calendar.js, and the screensaver's
     # calendar pane): the calendar entities shown, in order (empty: every
     # calendar the house has), and each one's colour -- entity -> a page pill
@@ -1259,8 +1263,10 @@ BRIGHT_GLASS = ("bright", "bright_pre", "bright_each")
 GLASS = GLASS + BRIGHT_GLASS
 # Tinted's icon circles (look.well, a screen's well): Apple's dark, or light
 WELLS = ("dark", "light")
-# Tile Style (look.tile_style, a screen's tile_style; a Home Grid block's `tile`, home_grid.TILE_STYLES)
-TILE_STYLES = HG.TILE_STYLES
+# Tile Style (look.tile_style, a screen's tile_style; a Home Grid block's `tile`, home_grid.TILE_STYLES).
+# Automatic (2026-10-30, the default; the owner: "maybe it could be linked to the Square Setting?"): Centred on a
+# Home Grid of square cells, Home on 196 x 150 tiles and the room pages -- Home and Centred stay to choose outright.
+TILE_STYLES = ("auto",) + HG.TILE_STYLES
 # Looks that were tried and taken out, read as the one that replaced them:
 # Baked (blur_baked, each surface its own slice of the picture) cost more
 # than it saved and went on 2026-10-10 -- Pre-rendered is the same picture.
@@ -1459,6 +1465,8 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
         sk["wallpaper"] = DEFAULTS["sky"]["wallpaper"]
     if sk.get("wallpaper_night") not in WALLPAPER_NIGHT:
         sk["wallpaper_night"] = "auto"
+    if sk.get("wallpaper_motion") not in WALLPAPER_MOTION:
+        sk["wallpaper_motion"] = "off"
     br = amount_or_none(out["look"].get("bright"))
     out["look"]["bright"] = DEFAULTS["look"]["bright"] if br is None else br
     # each over its own defaults: a partly stored object is still whole, and
@@ -2324,7 +2332,7 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # ...and its own Landscape and its look (None: All Screens')
     "sky_landscape": None, "sky_landscape_look": None,
     # ...and its own Wallpaper and Night Version (None: All Screens')
-    "sky_wallpaper": None, "sky_wallpaper_night": None,
+    "sky_wallpaper": None, "sky_wallpaper_night": None, "sky_wallpaper_motion": None,
     # Liveliness, this screen's own, as All Screens' is: one preset for every
     # occasion or "custom" (None: Same as All Screens), then each occasion's
     # preset and Custom knobs; calm_empty -- Calm When Nobody's Around (the
@@ -2403,6 +2411,8 @@ BOARD_DEFAULTS["pages_screen"] = None
 # Screens in everything -- settings `side_pane`, each group filled in by
 # resolved())
 BOARD_DEFAULTS["side_pane"] = None
+# A LOOK'S UNDO (looks.py): the Look last applied here and this screen's own values before it; None: nothing to undo
+BOARD_DEFAULTS["look_undo"] = None
 # A CAR'S BROWSER (a screen's car_layout / car_width): which Home it
 # generates there -- the whole one, or the car's own (the weather and the
 # house's status in a line, the chips, Scenes, Security and Favorites: no clock, the car
@@ -2576,6 +2586,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["sky_landscape_look"] = photo_look(d.get("sky_landscape_look")) if d.get("sky_landscape_look") is not None else None
     out["sky_wallpaper"] = d.get("sky_wallpaper") if d.get("sky_wallpaper") in WALLPAPERS else None
     out["sky_wallpaper_night"] = d.get("sky_wallpaper_night") if d.get("sky_wallpaper_night") in WALLPAPER_NIGHT else None
+    out["sky_wallpaper_motion"] = d.get("sky_wallpaper_motion") if d.get("sky_wallpaper_motion") in WALLPAPER_MOTION else None
     out["sky_page_photos"] = sky_page_photos(d.get("sky_page_photos")) or {}
     out["sky_page_looks"] = page_looks(d.get("sky_page_looks")) or {}
     out["sky_flat_background"] = d.get("sky_flat_background") if d.get("sky_flat_background") in FLAT_BACKGROUNDS else None
@@ -2627,6 +2638,8 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     # THE PAGES SCREEN, this screen's own fields (pages_screen_own); none: Same as All Screens
     out["pages_screen"] = pages_screen_own(d.get("pages_screen")) or None
     out["side_pane"] = side_pane_own(d.get("side_pane"))
+    lu = d.get("look_undo")
+    out["look_undo"] = lu if (isinstance(lu, dict) and lu.get("look") in LOOK_IDS and isinstance(lu.get("was"), dict)) else None
     return out
 
 

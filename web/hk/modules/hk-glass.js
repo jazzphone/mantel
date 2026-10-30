@@ -309,14 +309,17 @@
     return out;
   }
 
+  // r: one radius, or four [top-left, top-right, bottom-right, bottom-left]
+  // (a Square screen's corner block: hk-layout.js cellRadius)
   function rrect(x, y, w, h, r) {
-    r = Math.max(0, Math.min(r, w / 2, h / 2));
+    var q = (Array.isArray(r) ? r : [r, r, r, r]).map(function (v) { return Math.max(0, Math.min(v || 0, w / 2, h / 2)); });
     var f = function (v) { return Math.round(v * 10) / 10; };
-    return 'M' + f(x + r) + ',' + f(y) + 'H' + f(x + w - r) +
-      'A' + f(r) + ',' + f(r) + ' 0 0 1 ' + f(x + w) + ',' + f(y + r) + 'V' + f(y + h - r) +
-      'A' + f(r) + ',' + f(r) + ' 0 0 1 ' + f(x + w - r) + ',' + f(y + h) + 'H' + f(x + r) +
-      'A' + f(r) + ',' + f(r) + ' 0 0 1 ' + f(x) + ',' + f(y + h - r) + 'V' + f(y + r) +
-      'A' + f(r) + ',' + f(r) + ' 0 0 1 ' + f(x + r) + ',' + f(y) + 'Z';
+    var a = function (v, X, Y) { return 'A' + f(v) + ',' + f(v) + ' 0 0 1 ' + f(X) + ',' + f(Y); };
+    return 'M' + f(x + q[0]) + ',' + f(y) + 'H' + f(x + w - q[1]) +
+      a(q[1], x + w, y + q[1]) + 'V' + f(y + h - q[2]) +
+      a(q[2], x + w - q[2], y + h) + 'H' + f(x + q[3]) +
+      a(q[3], x, y + h - q[3]) + 'V' + f(y + q[0]) +
+      a(q[0], x + q[0], y) + 'Z';
   }
 
   // BANDS, NOT ONE LAYER PER CONTAINER. A backdrop surface larger than the
@@ -1022,7 +1025,16 @@
       lx = function (v) { return (v - b.left) / kx - A.clientLeft + sx; };
       ly = function (v) { return (v - b.top) / ky - A.clientTop + sy; };
     }
-    var rad = parseFloat(getComputedStyle(p.el).borderTopLeftRadius) || 0;
+    // THE PLATE'S OWN CORNERS, all four, at the size it is DRAWN: a computed
+    // radius is in the plate's layout px, and a Home Grid's canvas scales
+    // its blocks whole (hk-layout.js _measure) -- read unscaled, the cut came
+    // out tighter than the plate and its rim, a darker patch past the
+    // tile's own curve (the owner, 2026-10-30: Good Morning's lower right)
+    var cs = getComputedStyle(p.el), ow = p.el.offsetWidth;
+    var z = (ow ? r.width / ow : 1) / (A === DOC ? k : (kx || 1));
+    var rad = [cs.borderTopLeftRadius, cs.borderTopRightRadius, cs.borderBottomRightRadius, cs.borderBottomLeftRadius]
+      .map(function (v) { var n = parseFloat(v) || 0; return (/%$/.test(v) ? n / 100 * Math.min(ow, p.el.offsetHeight) : n) * z; });
+    if (rad[0] === rad[1] && rad[1] === rad[2] && rad[2] === rad[3]) rad = rad[0];
     var X0 = lx(x0), Y0 = ly(y0);
     return { A: A, shape: { x: X0, y: Y0, w: lx(x1) - X0, h: ly(y1) - Y0, r: rad } };
   }

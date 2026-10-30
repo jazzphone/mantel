@@ -44,7 +44,7 @@ def test_reading_drops_what_no_longer_checks_and_keeps_the_rest():
              block("a3", "timers", "S", [1, 1]),          # over a1
              block("a4", "timers", "S", [5, 3]))
     assert [i["id"] for i in M.board({"home_grid": g})["home_grid"]["items"]] == ["a1", "a4"]
-    assert M.board({"home_grid": {"cols": 5}})["home_grid"] is None
+    assert M.board({"home_grid": {"cols": 7}})["home_grid"] is None
     assert M.board({"home_grid": "nonsense"})["home_grid"] is None
     assert M.board({"home_style": "masonry"})["home_style"] == "generated"
 
@@ -59,14 +59,14 @@ def write(g):
     return C.apply_board({}, {"home_style": "grid", "home_grid": g})
 
 
-@pytest.mark.parametrize("cols", [6, 3, 2])
-def test_six_three_and_two_columns(cols):
+@pytest.mark.parametrize("cols", [6, 5, 4, 3, 2])
+def test_six_to_two_columns(cols):
     b, errors = write(grid(block("a1", "scene", "W", [cols - 2, 0]), cols=cols))
     assert errors == {} and b["home_grid"]["cols"] == cols
 
 
 @pytest.mark.parametrize("g,code", [
-    (grid(cols=4), "grid_cols"),
+    (grid(cols=7), "grid_cols"),
     (grid(cols=True), "grid_cols"),
     (grid(rows=1), "grid_rows"),
     (grid(rows=7), "grid_rows"),
@@ -504,7 +504,7 @@ def test_a_blocks_tile_style():
     for bad in ("centered", "", True):
         with pytest.raises(HG.GridInvalid):
             HG.check(grid(block("a", "accessory", "S", [0, 0], tile=bad)))
-    assert HG.TILE_STYLES == M.TILE_STYLES == ("home", "centred")
+    assert HG.TILE_STYLES == ("home", "centred") and M.TILE_STYLES == ("auto", "home", "centred")
 
 
 @pytest.mark.skipif(not JSC.exists(), reason="JavaScriptCore's jsc is macOS's")

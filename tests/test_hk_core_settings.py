@@ -308,8 +308,9 @@ def test_bright_glass_and_the_wallpapers_are_options_absent_until_chosen():
 
 # ------------------------------------------------------------ Tile Style (2026-10-30, HOMEVIEW-LOOK.md Phase B)
 def test_tile_style_for_all_screens_and_for_a_screen():
-    assert M.merged({})["look"]["tile_style"] == "home"                        # today's look until it is chosen
-    assert M.merged({"dashboard": {"look": {"tile_style": "sideways"}}})["look"]["tile_style"] == "home"
+    assert M.merged({})["look"]["tile_style"] == "auto"                        # Automatic: Centred on square cells
+    assert M.merged({"dashboard": {"look": {"tile_style": "sideways"}}})["look"]["tile_style"] == "auto"
+    assert M.merged({"dashboard": {"look": {"tile_style": "home"}}})["look"]["tile_style"] == "home"   # chosen outright
     new, err = C.apply_house({}, {"look.tile_style": "centred"})
     assert err == {} and M.merged(new)["look"]["tile_style"] == "centred"
     assert C.apply_house({}, {"look.tile_style": "centered"})[1] == {"look.tile_style": "choice"}
@@ -325,3 +326,17 @@ def test_tile_style_for_all_screens_and_for_a_screen():
 def test_analog_numbers_is_a_screensaver_clock_style():
     assert M.SAVER_CLOCK_STYLES.index("numbers") == M.SAVER_CLOCK_STYLES.index("analog") + 1
     assert M.saver_options({"clock_style": "numbers"})["clock_style"] == "numbers"
+
+
+def test_a_wallpapers_motion_for_all_screens_and_for_a_screen():
+    # Off by default (wall tablets run all day); slow, medium or fast; a screen's own or Same as All Screens
+    assert M.merged({})["sky"]["wallpaper_motion"] == "off"
+    assert M.merged({"dashboard": {"sky": {"wallpaper_motion": "warp"}}})["sky"]["wallpaper_motion"] == "off"
+    new, err = C.apply_house({}, {"sky.wallpaper_motion": "slow"})
+    assert err == {} and M.merged(new)["sky"]["wallpaper_motion"] == "slow"
+    assert C.apply_house({}, {"sky.wallpaper_motion": "warp"})[1] == {"sky.wallpaper_motion": "choice"}
+    b, err = C.apply_board({}, {"sky_wallpaper_motion": "fast"})
+    assert err == {} and M.board(b)["sky_wallpaper_motion"] == "fast"
+    b, err = C.apply_board(b, {"sky_wallpaper_motion": None})
+    assert err == {} and M.board(b)["sky_wallpaper_motion"] is None
+    assert "wallpaper_motion" in M.SKY_RESET and "sky_wallpaper_motion" in M.SKY_RESET_BOARD

@@ -514,10 +514,18 @@ class HkControlCard extends HTMLElement {
       .big.range .bn{font-size:min(28cqh,24cqw)}
       :host([size=T]) .big.range .bn{font-size:min(14cqh,27cqw)}
       .big.idle .bn{font-size:min(24cqh,30cqw)}
-      .big .pk{all:unset;cursor:pointer;border-bottom:4px solid transparent;padding:0 .04em}
-      .big .pk.sel{border-bottom-color:${window.hkCards.v('ink')}}
+      /* THE PICKED TARGET in heat and cool: a dot under its digits, not a rule
+         (the owner, 2026-10-30: "not a fan of the line under 66"); the dash
+         between the two half an en dash, drawn, not the font's */
+      .big .pk{all:unset;cursor:pointer;padding:0 .04em}
+      .big .pk.sel::before{content:"";position:absolute;left:50%;bottom:-.06em;width:.075em;height:.075em;min-width:8px;min-height:8px;
+        transform:translateX(-50%);border-radius:50%;background:${window.hkCards.v('ink')}}
+      .big .ds{display:inline-block;width:.26em;height:.065em;min-height:4px;border-radius:calc(.065em / 2);background:currentColor;vertical-align:.3em;margin:0 .07em}
       .big .pk:focus-visible,.big .ar:focus-visible,.big .nm:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
-      .big .ft{position:absolute;left:7%;right:7%;top:86%;transform:translateY(-50%);display:grid;grid-template-columns:58px minmax(0,1fr) 58px;align-items:center}
+      /* THE FOOT: the arrows out toward the corners and a gap each side, so a
+         long name has room between them ("Downstairs Ecobee Thermostat"),
+         on two lines before it is cut */
+      .big .ft{position:absolute;left:4%;right:4%;top:86%;transform:translateY(-50%);display:grid;grid-template-columns:58px minmax(0,1fr) 58px;column-gap:12px;align-items:center}
       .big .ar{all:unset;box-sizing:border-box;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;color:${window.hkCards.v('ink')};
         cursor:pointer;-webkit-tap-highlight-color:transparent}
       .big .ar:active{background:${window.hkCards.v('key')}}
@@ -530,9 +538,10 @@ class HkControlCard extends HTMLElement {
       .big .ar svg{width:58px;height:58px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
       .big .nm{all:unset;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
       .big .nm b,.big .nm i{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .big .nm b{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}
       .big .nm b{font-size:${window.hkCards.TILE.centred.square.name}px;font-weight:600;line-height:${window.hkCards.TILE.centred.square.line}px;letter-spacing:-.3px;color:${window.hkCards.v('ink')}}
       .big .nm i{font-style:normal;font-size:${window.hkCards.TILE.centred.square.sub}px;font-weight:400;line-height:${window.hkCards.TILE.centred.square.line}px;color:${window.hkCards.v('ink-2')}}
-      :host([size=T]) .big .ft{grid-template-columns:38px minmax(0,1fr) 38px;left:2px;right:2px;top:88%}
+      :host([size=T]) .big .ft{grid-template-columns:38px minmax(0,1fr) 38px;column-gap:4px;left:2px;right:2px;top:88%}
       :host([size=T]) .big .ar{width:38px;height:48px;border-radius:24px}
       :host([size=T]) .big .ar svg{width:38px;height:38px;stroke-width:2.2}
       :host([size=T]) .big .nm b{font-size:${window.hkCards.TILE.centred.tall.name}px;line-height:${window.hkCards.TILE.centred.tall.line}px}
@@ -709,7 +718,7 @@ class HkControlCard extends HTMLElement {
     const idle = mode === "off" || (!range && !Number.isFinite(single));
     const pick = this._bigPick === "high" ? "high" : "low", t = v => this._esc(this._bigText(v, a));
     const pk = (which, v, verb) => `<button class="pk${pick === which ? " sel" : ""}" type="button" data-big-pick="${which}" aria-pressed="${pick === which}" aria-label="${verb} ${t(v)} degrees">${t(v)}</button>`;
-    const bn = mode === "off" ? "Off" : idle ? "\u2014" : range ? pk("low", lo, "Heat to") + "\u2013" + pk("high", hi, "Cool to") : t(single);
+    const bn = mode === "off" ? "Off" : idle ? "\u2014" : range ? pk("low", lo, "Heat to") + '<span class="ds" aria-hidden="true"></span>' + pk("high", hi, "Cool to") : t(single);
     const ORDER = ["off", "heat", "cool", "heat_cool"];
     const has = Array.isArray(a.hvac_modes) && a.hvac_modes.length ? a.hvac_modes : ORDER;
     const modes = ORDER.filter(m => has.includes(m)).concat(has.filter(m => !ORDER.includes(m)));

@@ -166,7 +166,7 @@ check('an entity that lists none gets the classic four', none.join() === 'off,he
   check('...a half shows its half', /data-big-num[^>]*>21\.5</.test(m.html()), m.html().slice(0, 200));
 
   var r = big('heat_cool', { target_temp_low: 67, target_temp_high: 73, hvac_modes: ['heat_cool', 'off'] });
-  check('heat and cool: both targets, the low one picked (underlined)', /class="pk sel"[^>]*data-big-pick="low"[^>]*>67<\/button>\u2013<button class="pk"[^>]*data-big-pick="high"[^>]*>73</.test(r.html()) &&
+  check('heat and cool: both targets, the low one picked (its dot), a drawn dash between', /class="pk sel"[^>]*data-big-pick="low"[^>]*>67<\/button><span class="ds" aria-hidden="true"><\/span><button class="pk"[^>]*data-big-pick="high"[^>]*>73</.test(r.html()) &&
         /surface big range/.test(r.html()), r.html().slice(0, 400));
   r._bigNudge(1, function () {});
   check('...the arrows step the picked one', r._hold.lo === 68 && r._hold.hi === 73, r._hold);
@@ -183,8 +183,8 @@ check('an entity that lists none gets the classic four', none.join() === 'off,he
   var t = big('heat', { temperature: 68 }, 'T');
   check('Tall: the same parts (its sizes are the stylesheet\'s)', /surface big/.test(t.html()) && /data-big-step/.test(t.html()));
   var css = c._extraCss();
-  check('the measured numbers: the number min(44cqh,44cqw) at 42.7 %, the foot at 86 % 7 % in, 58 px arrows',
-        /\.big \.bn\{[^}]*top:42\.7%[^}]*font-size:min\(44cqh,44cqw\)/.test(css) && /\.big \.ft\{[^}]*left:7%;right:7%;top:86%/.test(css) &&
+  check('the measured numbers: the number min(44cqh,44cqw) at 42.7 %, the foot at 86 % 4 % in with 12 px gaps (room for the name), 58 px arrows',
+        /\.big \.bn\{[^}]*top:42\.7%[^}]*font-size:min\(44cqh,44cqw\)/.test(css) && /\.big \.ft\{[^}]*left:4%;right:4%;top:86%[^}]*column-gap:12px/.test(css) &&
         /\.big \.ar\{[^}]*width:58px;height:58px/.test(css));
   check('...Tall: min(25cqh,50cqw) at 40 %, 38 px arrows, 17 / 16 text, the foot at 88 %',
         /:host\(\[size=T\]\) \.big \.bn\{font-size:min\(25cqh,50cqw\);top:40%\}/.test(css) && /:host\(\[size=T\]\) \.big \.ft\{[^}]*top:88%/.test(css) &&

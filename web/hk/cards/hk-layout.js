@@ -1721,6 +1721,19 @@
     if (!((l || rt) && (t || b))) return r;
     return [l && t ? o : r, rt && t ? o : r, rt && b ? o : r, l && b ? o : r].join(' ');
   }
+  // ...and the room a block's words keep from such an outer corner: the
+  // corner's circle comes 0.29 of its radius in along the diagonal, so a line
+  // at the tile's own padding (12.8, cleared by the 34 corner) is cut by the
+  // 72 one -- the owner's "ff" for "Off" and "ood Morning", 2026-10-30. The
+  // two sides that meet at an outer corner give (72 - 34) x 0.29, rounded
+  // up, more; read by each block's padding as --hk-in-t / -r / -b / -l.
+  function cellInset(g, at, span) {
+    if (g.cell !== 'square' || g.screen !== 'square') return null;
+    var r = (C.R && C.R.square || 34), o = (C.R && C.R['square-screen'] || 72), e = Math.ceil((o - r) * (1 - Math.SQRT1_2)) + 1;
+    var l = at[0] === 0, rt = at[0] + span[0] === g.cols, t = at[1] === 0, b = at[1] + span[1] === g.rows;
+    if (!((l || rt) && (t || b))) return null;
+    return { t: t ? e : 0, r: rt ? e : 0, b: b ? e : 0, l: l ? e : 0 };
+  }
   // A NIGHT (the grid's `night`): "always", or now between from and to (across midnight)
   function gridNightNow(n, d) {
     if (!n || n.mode === 'off') return false;
@@ -1953,7 +1966,7 @@
     // hand gets the defaults)
     _grid() {
       var g = (this._config && this._config.grid) || {};
-      var cols = [6, 3, 2].indexOf(g.cols) >= 0 ? g.cols : 6;
+      var cols = [6, 5, 4, 3, 2].indexOf(g.cols) >= 0 ? g.cols : 6;
       var rows = (g.rows >= 2 && g.rows <= 6 && g.rows === Math.floor(g.rows)) ? g.rows : 4;
       return { cols: cols, rows: rows, band: g.band !== false, scale: Number.isInteger(g.scale) && g.scale >= 50 && g.scale <= 100 ? g.scale : 100,
                grow: g.grow === true, night: g.night && (g.night.mode === 'night' || g.night.mode === 'always') ? g.night : null,
@@ -2007,6 +2020,8 @@
           // (square cells: the block's corners, read by its plate -- hkCards.plate)
           var rad = cellRadius(g, cell.at, sz);
           if (rad) slot.style.setProperty('--hk-block-radius', rad);
+          var ins = cellInset(g, cell.at, sz);
+          if (ins) ['t', 'r', 'b', 'l'].forEach(function (k) { if (ins[k]) slot.style.setProperty('--hk-in-' + k, ins[k] + 'px'); });
           if (el && el.setAttribute) el.setAttribute('size', cell.size);
           // TILE STYLE (2026-10-30): Centred on the block's card, which its tiles
           // read (hk-tile.js, hk-grid-cards.js KEY_CSS); Home is no attribute

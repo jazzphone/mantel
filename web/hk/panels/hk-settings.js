@@ -210,6 +210,11 @@
     '.wallgrid button{display:flex;flex-direction:column;gap:6px;border:0;padding:0;margin:0;background:none;cursor:pointer;font:inherit;color:inherit;text-align:center}',
     '.wallgrid img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px;background:#05070e}',
     '.wallgrid span{font-size:13px;line-height:16px;color:var(--hk-label2)}',
+    // THE LOOKS (2026-10-30): each a row with its picture -- its colours or its wallpaper, its accent a dot
+    '.cell.look{display:flex;align-items:center;gap:12px;padding-top:10px;padding-bottom:10px;text-decoration:none;color:inherit;cursor:pointer}',
+    '.cell.look .st{display:grid;gap:2px;min-width:0}.cell.look .st b{font-weight:600}.cell.look .st small{font-size:13px;line-height:1.3;color:var(--hk-label2)}',
+    '.lookart{flex:none;width:64px;height:44px;border-radius:9px;position:relative;background-size:cover;background-position:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}',
+    '.lookart i{position:absolute;right:6px;bottom:6px;width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 1.5px rgba(255,255,255,.8)}',
     '.wallgrid button.on img{box-shadow:0 0 0 3px var(--hk-tint)}',
     '.wallgrid button.on span{color:var(--hk-tint);font-weight:600}',
     '.landgrid button.on{box-shadow:0 0 0 3px var(--hk-tint)}',
@@ -431,7 +436,7 @@
     ['nowplaying', 'Now Playing', 'mdi:music', C.red],
     // THE SIDE PANE (2026-10-30): one pane per screen beside the page and in
     // the screensaver, of the sections each picks
-    ['sidepane', 'Side Pane', 'mdi:dock-right', C.teal],
+    ['sidepane', 'Side Pane', 'mdi:dock-left', C.teal],
     // NOTIFICATIONS (the feature's, 2026-10-16): about every screen, so here
     // rather than under Pages -- its pages keep #/features/notify/...
     ['notify', 'Notifications', 'mdi:bell-badge', C.red, null, 'features/notify'],
@@ -1893,6 +1898,10 @@
       var ab = ['Appearance', base + '/appearance'];
       if (s === 'appearance') return mk('Appearance', function (c) { self.s_appearance(c, x, b); });
       if (s === 'sidepane') return this.p_sidePane(path, sub.slice(1), [x.title, base]);
+      // LOOKS (2026-10-30, hk_core looks.py): a whole look in one step, and its Undo
+      var lb = ['Looks', base + '/looks'];
+      if (s === 'looks' && sub[1] && M.lookOf(sub[1])) return mk(M.lookOf(sub[1]).name, function (c) { self.lookPage(c, x, b, M.lookOf(sub[1]), base); }, lb);
+      if (s === 'looks') return mk('Looks', function (c) { self.looksPage(c, x, b, base); });
       if (s === 'accent') return mk('Accent Color', function (c) { self.accentPage(c, x, b); }, ab);
       if (s === 'menu-pages' && x.generated) s = 'pages';
       if (s === 'menu-pages') return mk('Pages in Menu', function (c) { self.s_menuPages(c, x, b); });
@@ -2098,8 +2107,12 @@
       // Appearance -- the style, colors, background and the tab bar's look
       c.appendChild(K.group({}, [
         K.nav({ label: 'Appearance', value: M.glassLabel(M.glassOf(b, this.data.settings.look).effective), sub: this.appearanceSays(b), href: base + '/appearance', sk: 'b:appearance', icon: 'mdi:palette' })]));
+      // LOOKS (2026-10-30): a whole themed setup in one step
+      var lu = b.look_undo && M.lookOf(b.look_undo.look);
+      c.appendChild(K.group({}, [K.nav({ label: 'Looks', value: lu ? lu.name : '', sub: 'HomeView, Flat, Performance, Holiday Whimsy and more, in one step',
+        href: base + '/looks', sk: 'b:looks', icon: 'mdi:view-dashboard-variant' })]));
       // THE SIDE PANE (2026-10-30): one row, its page as All Screens'
-      c.appendChild(K.group({}, [K.nav({ label: 'Side Pane', value: M.paneSummary(this.paneNow(x.path)), href: base + '/sidepane', sk: 'b:side_pane', icon: 'mdi:dock-right' })]));
+      c.appendChild(K.group({}, [K.nav({ label: 'Side Pane', value: M.paneSummary(this.paneNow(x.path)), href: base + '/sidepane', sk: 'b:side_pane', icon: 'mdi:dock-left' })]));
 
       // BEHAVIOR
       var beh = [K.toggle({ label: 'Allow Pop-ups', sk: 'b:popups', on: b.popups, onChange: function (on) { set({ popups: on }); } })];
@@ -5472,15 +5485,69 @@
     p_sidePane(path, sub, back) {
       var self = this, x = path ? this.dash(path) : null, b = path ? (this.data.boards || {})[path] : null;
       var base = path ? '#/screens/' + encodeURIComponent(path) + '/sidepane' : '#/house/sidepane';
-      var top = { title: 'Side Pane', back: back, preview: path || undefined };
+      // THE PREVIEW at the top of the page at every width, the pane in it as
+      // you change it (the owner, 2026-10-30: "it may be good to include a
+      // preview for the side pane"): this screen, or on All Screens' page a
+      // screen that follows it
+      var pv = path || this.paneFollower();
+      var top = { title: 'Side Pane', back: back, preview: pv || undefined, previewTop: !!pv };
       if (sub[0] === 'section' && (sub[1] === 'dashboard' || sub[1] === 'saver')) {
         var i = Number(sub[2]), p0 = this.paneNow(path), s0 = ((p0[sub[1]] || {}).sections || [])[i];
         if (!s0) return Object.assign(top, { body: function (c) { self.paneBody(c, path, x, base); } });
-        return { title: (M.paneKind(s0.kind) || [0, s0.kind])[1], back: ['Side Pane', base], preview: path || undefined,
+        return { title: (M.paneKind(s0.kind) || [0, s0.kind])[1], back: ['Side Pane', base], preview: pv || undefined, previewTop: !!pv,
                  body: function (c) { self.paneSection(c, path, sub[1], i); } };
       }
       return Object.assign(top, { top: !path, scope: path ? null : 'Applies to every screen that doesn’t choose its own.',
                                   body: function (c) { self.paneBody(c, path, x, base); void b; } });
+    }
+    // a screen whose Side Pane is All Screens' throughout (none of its groups
+    // its own), else none
+    paneFollower() {
+      var bd = this.data.boards || {};
+      return Object.keys(bd).filter(function (p) {
+        var r = bd[p] && bd[p].side_pane_read;
+        return !(r && r.own && r.own.length);
+      })[0] || null;
+    }
+    // THE LOOKS (2026-10-30, hk_core looks.py; M.LOOKS): each with its
+    // picture and what it is; the one applied last can be undone here
+    looksPage(c, x, b, base) {
+      var self = this, u = b.look_undo && M.lookOf(b.look_undo.look);
+      if (u) {
+        c.appendChild(K.group({ footer: 'Puts back what this screen had before ' + u.name + ': its look, its settings and, from the Home Grid editor, its layout.' }, [
+          K.button({ label: 'Undo ' + u.name, fk: 'looks:undo', onClick: function () {
+            K.confirm(self.shadowRoot, { title: 'Undo ' + u.name + '?', message: 'This screen goes back to how it was before.', ok: 'Undo' }).then(function (ok) {
+              if (ok) self.setB(x.path, M.lookUndo(b));
+            });
+          } })]));
+      }
+      var art = function (l) {
+        var W = window.hkWallpapers, wall = l.settings.sky_background === 'wallpaper' && W && W.url(l.settings.sky_wallpaper, false);
+        var el = h('span', { class: 'lookart', 'aria-hidden': 'true' }, [h('i', {})]);
+        el.style.backgroundImage = wall ? 'url("' + wall + '")' : 'linear-gradient(160deg,' + l.art[0] + ',' + l.art[1] + ' 55%,' + l.art[2] + ')';
+        el.firstChild.style.background = l.art[3];
+        return el;
+      };
+      c.appendChild(K.group({ header: 'Looks', footer: 'Each sets this screen’s style and colors, its background, its tiles, the Side Pane, swiping and the ' +
+        'screensaver -- its layout stays. To start from a Look’s layout too, use Layout + Look in the Home Grid editor.' },
+        M.LOOKS.map(function (l) {
+          var row = h('a', { class: 'cell look', href: base + '/looks/' + l.id, 'data-fk': 'look:' + l.id }, [art(l),
+            h('span', { class: 'st' }, [h('b', { text: l.name }), h('small', { text: l.about })])]);
+          return row;
+        })));
+    }
+    // ONE LOOK: what it changes on this screen (only what differs), and Apply
+    lookPage(c, x, b, l, base) {
+      var self = this, saver = M.saverOptions(b.screensaver_options || this.hs('look.saver'));
+      var r = M.lookChanges(l, b, saver, null);
+      c.appendChild(K.group({ footer: l.about }, [K.info({ label: l.name, value: '' })]));
+      c.appendChild(K.group({ header: 'What Changes', footer: r.rows.length ? 'On this screen only. Its layout stays.' : 'This screen already looks this way.' },
+        r.rows.map(function (row) { return K.info({ label: row[0], value: row[1] + ' → ' + row[2] }); })));
+      if (r.rows.length) {
+        c.appendChild(K.group({ footer: 'Looks → Undo puts it all back.' }, [K.button({ label: 'Use ' + l.name, fk: 'look:apply', onClick: function () {
+          self.setB(x.path, r.changes).then(function () { self.back(base + '/looks'); });
+        } })]));
+      }
     }
     paneNow(path) {
       var b = path ? (this.data.boards || {})[path] : null;
@@ -5552,7 +5619,7 @@
         shownFooter: 'Size: Tiny is one line; Less, the gist; More, the whole section; Full takes the room the pane has left. When There’s Something: only while it has something, such as music playing. The pane never scrolls: when the sections don’t fit, the last ones get smaller, then are left out.',
         emptyText: 'No sections',
         rows: grp.sections.map(function (s, i) {
-          var k = M.paneKind(s.kind) || [s.kind, s.kind, 'mdi:card-outline'];
+          var k = M.paneKind(s.kind) || [s.kind, s.kind, 'mdi:card'];
           return { value: keys[i], label: name(s) + (ent(s) ? ' (' + ent(s) + ')' : ''), icon: k[2], value2: M.secSays(s),
                    href: base + '/section/' + g + '/' + i };
         }),
@@ -6101,14 +6168,16 @@
     // Centred, HomeView's -- All Screens', or a screen's own (b, path) with
     // Same as All Screens / Just This Screen and its Reset
     tileStyleGroup(b, path) {
-      var self = this, house = (this.data.settings.look || {}).tile_style === 'centred' ? 'centred' : 'home';
-      var own = !!b && (b.tile_style === 'home' || b.tile_style === 'centred');
+      var known = function (v) { return M.TILE_STYLES.some(function (o) { return o[0] === v; }); };
+      var self = this, house = known((this.data.settings.look || {}).tile_style) ? this.data.settings.look.tile_style : 'auto';
+      var own = !!b && known(b.tile_style);
       var rows = [K.seg({ label: 'Tile Style', sk: b ? 'b:tile_style' : 'look.tile_style', value: own ? b.tile_style : house, options: M.TILE_STYLES,
         sub: b ? (own ? 'Just This Screen' : 'Same as All Screens') : null,
         onChange: function (v) { if (b) self.setB(path, { tile_style: v }); else self.setH({ 'look.tile_style': v }); } })];
       if (own) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.TILE_STYLES, house) + ')', sk: 'b:tile_style:reset',
         onClick: function () { self.setB(path, { tile_style: null }); } }));
       return K.group({ header: 'Tiles', footer: 'Centred puts each icon above its name and room, as on a HomeView: a Home Grid’s tiles and the room pages’ tall tiles. ' +
+        'Automatic is Centred on a Home Grid of square cells and Home everywhere else. ' +
         'A Home Grid block can choose its own in the editor.' }, rows);
     }
     // THE ROWS UNDER GLASS STYLE, the same on All Screens' Appearance and a
@@ -6244,6 +6313,7 @@
       if (mode === 'wallpaper') {
         this.wallpaperGroup(c, { value: sky.wallpaper || 'ribbons_rose', night: sky.wallpaper_night || 'auto', fk: 'hwall', sk: 'sky.wallpaper',
           footer: 'Shown on Home, the room pages, and every page without a color of its own. Each screen can choose its own.',
+          motion: sky.wallpaper_motion || 'off', onMotion: function (v) { self.setH({ 'sky.wallpaper_motion': v }); },
           onSet: function (v) { self.setH({ 'sky.wallpaper': v }); }, onNight: function (v) { self.setH({ 'sky.wallpaper_night': v }); } });
         this.skyPagesGroup(c, null, null);
         this.skyResetGroup(c, null, null);
@@ -6334,7 +6404,7 @@
             ['sky_background', 'sky_color', 'sky_landscape', 'sky_photo_look', 'sky_landscape_look', 'sky_animations', 'sky_focus_pause',
              'sky_moving', 'sky_weather', 'sky_precipitation', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_decorations',
              'sky_decoration_style', 'sky_liveliness', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light', 'sky_flat_image_look', 'sky_image_look',
-             'sky_wallpaper', 'sky_wallpaper_night'].forEach(function (k) { ch[k] = null; });
+             'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion'].forEach(function (k) { ch[k] = null; });
             self.setB(x.path, ch);
           });
         } })]));
@@ -6422,6 +6492,14 @@
       if (nOwn) nRows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.WALLPAPER_NIGHT, o.nightHouse) + ')',
         sk: o.sk.replace('wallpaper', 'wallpaper_night') + ':reset', onClick: function () { o.onNight(null); } }));
       c.appendChild(K.group({ footer: 'Each wallpaper has a darker version for the night. After Sunset: it fades in as the sun goes down.' }, nRows));
+      // MOTION (2026-10-30): a slow drift of the picture, at a speed
+      var mOwn = o.motionHouse !== undefined && !!o.motion, mEff = o.motion || o.motionHouse || 'off';
+      var mRows = [K.seg({ label: 'Motion', sub: o.motionHouse === undefined ? null : (mOwn ? 'Just This Screen' : 'Same as All Screens'),
+        sk: o.sk.replace('wallpaper', 'wallpaper_motion'), value: mEff, options: M.WALLPAPER_MOTION, onChange: function (v) { o.onMotion(v); } })];
+      if (mOwn) mRows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.WALLPAPER_MOTION, o.motionHouse) + ')',
+        sk: o.sk.replace('wallpaper', 'wallpaper_motion') + ':reset', onClick: function () { o.onMotion(null); } }));
+      c.appendChild(K.group({ footer: 'The picture drifts, sways or turns slowly, so there is always a little motion. It stops while the screen is dark or hidden, ' +
+        'when Animations are off, and for Reduce Motion.' }, mRows));
     }
     // CHOOSE A LANDSCAPE: every one, small, the one it stays on ticked; a
     // tap picks it, and it stays (Stay the Same).
@@ -6846,6 +6924,8 @@
         if (mode === 'wallpaper') {
           this.wallpaperGroup(c, { value: b.sky_wallpaper || null, house: sky.wallpaper || 'ribbons_rose', night: b.sky_wallpaper_night || null,
             nightHouse: sky.wallpaper_night || 'auto', fk: 'bwall', sk: 'b:sky_wallpaper',
+            motion: b.sky_wallpaper_motion || null, motionHouse: sky.wallpaper_motion || 'off',
+            onMotion: function (v) { self.setB(x.path, { sky_wallpaper_motion: v }); },
             footer: 'Shown on Home, the room pages, and every page without a color of its own.',
             onSet: function (v) { self.setB(x.path, { sky_wallpaper: v, sky: true }); },
             onNight: function (v) { self.setB(x.path, { sky_wallpaper_night: v }); } });
