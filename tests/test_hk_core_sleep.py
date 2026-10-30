@@ -442,3 +442,150 @@ def test_what_the_sensor_reports(house, clock):
     assert a["kiosk"] == K["screen"] and a["last_saver_touch"] == T0.isoformat()
     assert a["last_action"] == "sleep at 2026-10-18T16:00:00+00:00" and a["target_brightness"] is None
     assert s.attributes()["last_action"] is None
+
+
+# ------------------------------------------------------------------ more when near (rule 9a)
+RADAR, DISTANCE = "binary_sensor.hall_radar_zone", "sensor.hall_distance"
+
+
+def near_screen(house, clock, **sleep):
+    house.set(MOTION, "on")
+    house.set(RADAR, "off")
+    return screen(house, clock, near=[RADAR], **sleep)
+
+
+def test_near_is_9a_between_in_use_and_somebody_in_the_room():
+    f = {"present": True, "in_use": False, "lit": True, "prev": "photos"}
+    assert R.decide({**f, "near": True}) == ("dashboard", "somebody is near the screen")
+    assert R.decide({**f, "near": True, "in_use": True}) == ("dashboard", "somebody is at the tablet"), "9 first"
+    assert R.decide({**f, "near": True, "saver_use": True}) == ("photos", "somebody is using the screensaver"), \
+        "near never takes the photos from under a finger on their own controls"
+    assert R.decide({**f, "near": True, "quiet": True})[0] == "dark", "quiet hours still come first"
+    assert R.decide({**f, "near": True, "dark": ["Away"]})[0] == "dark"
+    assert R.decide({**f, "near": True, "lit": False})[0] == "dark", "a passive wake: only while lit"
+    assert R.decide({**f, "near": True, "slept": True})[0] == "dark", "not after Good Night"
+    assert R.decide({**f, "near": True, "present": False})[0] == "dashboard", "near needs no presence sensor"
+    assert R.decide({**f, "near": False}) == ("photos", R.NOBODY_NEAR)
+    assert R.decide({**f, "near": None}) == ("photos", "somebody is in the room"), "no sensor: as before"
+    assert R.decide({**f, "near": False, "present": False}) == ("dark", "nobody here")
+
+
+def test_near_settings_are_absent_until_chosen_and_bounded():
+    d = R.sleep_options(None)
+    assert (d["near"], d["near_cm"], d["near_linger"]) == ([], 120, 30)
+    got = R.sleep_options({"near": [RADAR, DISTANCE], "near_cm": 80, "near_linger": 10})
+    assert got["near"] == [RADAR, DISTANCE] and got["near_cm"] == 80 and got["near_linger"] == 10
+    for bad in ({"near_cm": 29}, {"near_cm": 301}, {"near_cm": 100.5}, {"near_cm": True},
+                {"near_linger": 9}, {"near_linger": 301}, {"near": ["not an id"]}):
+        assert R.sleep_options(bad) is None, bad
+    assert RADAR in R.inputs(got) and DISTANCE in R.inputs(got)
+
+
+def test_a_distance_under_and_over():
+    def st(v, unit="cm"):
+        return State(DISTANCE, v, {"unit_of_measurement": unit} if unit else {}, T0)
+    assert R.near(st("85"), 120) and not R.near(st("130"), 120)
+    assert not R.near(st("120"), 120), "under, not at"
+    assert R.near(st("0.9", "m"), 120) and not R.near(st("1.5", "m"), 120)
+    assert R.near(st("700", "mm"), 120) and R.near(st("40", "in"), 120) and not R.near(st("5", "ft"), 120)
+    assert R.near(st("85", None), 120), "no unit: cm"
+    assert not R.near(st("0"), 120), "0: the radar sees nobody"
+    assert not R.near(st("85", "lx"), 120), "not a distance"
+    assert not R.near(st("unavailable"), 120) and not R.near(st("seen"), 120) and not R.near(None, 120)
+    assert R.near(State(RADAR, "on", {}, T0), 120) and not R.near(State(RADAR, "off", {}, T0), 120)
+
+
+def test_a_distance_sensor_brings_the_dashboard_and_its_distance_is_the_settings(house, clock):
+    house.set(MOTION, "on")
+    house.set(DISTANCE, "180", {"unit_of_measurement": "cm"})
+    s = screen(house, clock, near=[DISTANCE], near_cm=150)
+    s.decide(clock())
+    assert (s.want, s.reason) == ("photos", R.NOBODY_NEAR) and s.facts_now["near"] is False
+    house.set(DISTANCE, "140", {"unit_of_measurement": "cm"})
+    s.decide(clock.tick(seconds=1))
+    assert (s.want, s.reason) == ("dashboard", "somebody is near the screen")
+    assert s.attributes()["near"] is True
+
+
+def test_near_lingers_then_the_screensaver_comes_back_sooner(house, clock):
+    s = near_screen(house, clock, near_linger=30)
+    house.set(RADAR, "on")
+    s.decide(clock())
+    assert (s.want, s.reason) == ("dashboard", "somebody is near the screen") and s.action() is None
+    house.set(RADAR, "off")
+    gone = clock.tick(seconds=2)
+    nxt = s.decide(gone)
+    assert s.want == "dashboard", "lingering"
+    assert nxt == gone + timedelta(seconds=30, milliseconds=200)
+    s.decide(clock.tick(seconds=30))
+    assert (s.want, s.reason) == ("photos", R.NOBODY_NEAR)
+    assert s.back_to_saver() and s.action() == "wake" and s.wakes_to_photos(), \
+        "the photos now, not after Starts After (180 s)"
+    house.set(OWN["photos"], "on")
+    s.decide(clock.tick(seconds=1))
+    assert s.actual == "photos" and s.action() is None and not s.back_to_saver()
+
+
+def test_a_flickering_sensor_is_held_by_the_linger(house, clock):
+    s = near_screen(house, clock, near_linger=10)
+    for i in range(12):
+        house.set(RADAR, "on" if i % 2 == 0 else "off")
+        s.decide(clock.tick(seconds=4))
+        assert s.want == "dashboard" and s.action() is None, i
+    s.decide(clock.tick(seconds=11))
+    assert s.want == "photos" and s.back_to_saver()
+
+
+def test_a_touch_counts_as_near(house, clock):
+    s = near_screen(house, clock, near_linger=30)
+    s.page = clock()
+    house.set(OWN["in_use"], "on")                 # the host's In Use, on its Starts After window
+    nxt = s.decide(clock())
+    assert (s.want, s.reason) == ("dashboard", "somebody is at the tablet")
+    assert nxt == s.page + timedelta(seconds=30, milliseconds=200), "Back to the Screensaver, not the 120 s window"
+    s.decide(clock.tick(seconds=31))
+    assert not s.facts_now["in_use"] and (s.want, s.reason) == ("photos", R.NOBODY_NEAR) and s.back_to_saver()
+    # a longer Back to the Screensaver never holds a touch past the window
+    s = near_screen(house, clock, near_linger=300)
+    s.page = clock()
+    assert s.decide(clock()) == s.page + timedelta(seconds=120, milliseconds=200)
+
+
+def test_the_screensaver_leaves_when_somebody_comes_near(house, clock):
+    s = near_screen(house, clock)
+    house.set(OWN["photos"], "on")
+    s.decide(clock())
+    assert (s.want, s.actual) == ("photos", "photos") and s.action() is None
+    house.set(RADAR, "on")
+    s.decide(clock.tick(seconds=1))
+    assert (s.want, s.actual) == ("dashboard", "photos")
+    assert s.action() == "wake" and not s.wakes_to_photos(), "a wake to the dashboard: the photos switch off"
+
+
+def test_near_wakes_a_dark_screen_and_never_brings_photos_it_has_not_got(house, clock):
+    house.set(MOTION, "off")
+    house.set(RADAR, "off")
+    s = screen(house, clock, near=[RADAR])
+    house.set(OWN["black"], "on", {"black_screen": "hk"})
+    s.decide(clock())
+    assert (s.want, s.actual) == ("dark", "dark")
+    house.set(RADAR, "on")
+    s.decide(clock.tick(seconds=1))
+    assert s.want == "dashboard" and s.action() == "wake"
+    # a screen without its own photos waits for Starts After as ever
+    house.set(MOTION, "on")
+    house.set(RADAR, "off")
+    house.set(OWN["black"], "off")
+    s.own.pop("photos")
+    s.decide(clock.tick(seconds=1))
+    s.decide(clock.tick(seconds=31))
+    assert s.want == "photos" and s.reason == R.NOBODY_NEAR and not s.back_to_saver() and s.action() is None
+
+
+def test_an_unavailable_near_sensor_sees_nobody_and_holds_nothing(house, clock):
+    house.set(MOTION, "on")
+    house.set(RADAR, "unavailable")
+    s = screen(house, clock, near=[RADAR])
+    s.decide(clock())
+    assert (s.want, s.reason) == ("photos", R.NOBODY_NEAR)
+    assert s.listens() == sorted({MOTION, RADAR, *K.values(), *OWN.values()})

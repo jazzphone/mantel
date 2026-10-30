@@ -147,6 +147,39 @@ print('\n=== Screensaver and Wall Tablets (2026-10-13) ===');
   ok('a tablet that isn\'t there is Wall Tablets', go('#/house/tablets/nope').title, 'Wall Tablets');
 })();
 
+print('\n=== Sleep Screen: Near the Screen (2026-10-30) ===');
+(function () {
+  var pg = Object.create(P), writes = [];
+  var sl = { decided_by: 'hk', near: ['binary_sensor.hall_radar_zone', 'sensor.hall_distance'], near_cm: 80 };
+  pg.p_overview = function () { return 'overview'; };
+  pg.hs = function () { return null; };
+  pg.hasAttribute = function () { return true; };
+  pg.setT = function (tid, ch) { writes.push(ch); return Promise.resolve(true); };
+  pg.pickers = {}; pg.errors = {}; pg.announce = function () {};
+  pg.data = { settings: { tablets: {} }, boards: {}, choices: {}, tablets: { hall: { name: 'Hall', screen: 'dashboard-hall', sleep: sl } } };
+  var go = function (hash) { return P.resolve.call(pg, hash.replace(/^#\/?/, '').split('/')); };
+  var draw = function (pgx) { var box = document.createElement('div'), err = null; try { pgx.body(box); } catch (e) { err = String(e) + ' ' + (e.stack || '').split('\n')[0]; } return { box: box, err: err }; };
+  var all = function (el, out) { out = out || []; out.push(el); (el.children || []).forEach(function (c) { if (c && typeof c === 'object') all(c, out); }); return out; };
+  var text = function (box) { return all(box).map(function (e) { return e._text || e.textContent || ''; }).join(' | '); };
+  var d = draw(go('#/house/tablets/hall/sleep'));
+  ok('the Sleep Screen page draws', d.err, null);
+  var t = text(d.box);
+  ok('...with Near the Screen, its two sensors', /Near the Screen/.test(t) && /2 Entities/.test(t), true);
+  ok('...Closer Than, for its distance sensor', /Closer Than/.test(t), true);
+  ok('...and Back to the Screensaver', /Back to the Screensaver/.test(t), true);
+  ok('its list page', go('#/house/tablets/hall/sleep/near').title, 'Near the Screen');
+  sl.near = ['binary_sensor.hall_radar_zone'];
+  t = text(draw(go('#/house/tablets/hall/sleep')).box);
+  ok('a zone sensor alone: no Closer Than', /Closer Than/.test(t) || !/Back to the Screensaver/.test(t), false);
+  sl.near = [];
+  t = text(draw(go('#/house/tablets/hall/sleep')).box);
+  ok('none chosen: the row and what it is for, nothing more', /Near the Screen/.test(t) && !/Back to the Screensaver/.test(t), true);
+  sl.decided_by = 'automation';
+  t = text(draw(go('#/house/tablets/hall/sleep')).box);
+  ok('an automation deciding: the page says Near the Screen needs it decided here', /needs Decided By/.test(t), true);
+  ok('opening it wrote nothing', writes.length, 0);
+})();
+
 print('\n=== Pages (2026-10-16) ===');
 (function () {
   var M = window.hkSettingsModel;
