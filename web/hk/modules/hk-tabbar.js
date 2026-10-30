@@ -533,7 +533,13 @@
       // the More sheet: the overlay surface (hkCards.OVER), under a heavier blur than the bar
       '.blur .sheet.g{background:linear-gradient(145deg,rgba(255,255,255,0.10),rgba(255,255,255,0.03)),rgba(28,28,32,0.52);',
       '  -webkit-backdrop-filter:blur(34px) saturate(1.9);backdrop-filter:blur(34px) saturate(1.9)}',  // hkCards.BLUR.heavy
-      '.bright .sheet.g{background:rgba(255,255,255,0.22);-webkit-backdrop-filter:blur(34px) saturate(2);backdrop-filter:blur(34px) saturate(2)}',
+      // (Bright Glass's sheet plate, hk-settings.js BRIGHT.sheet: a deep tint under a sheen, so white names
+      // and the icons' circles read over a bright wallpaper; and the page behind dimmed while one is open)
+      '.bright .sheet.g{background:var(--hk-sheet-plate,rgba(14,20,38,0.55));-webkit-backdrop-filter:var(--hk-sheet-backdrop,blur(34px) saturate(1.5) brightness(0.86));',
+      '  backdrop-filter:var(--hk-sheet-backdrop,blur(34px) saturate(1.5) brightness(0.86))}',
+      '.root.bright.sheeted .scrim{background:rgba(6,10,22,0.22)}',
+      '.bright [data-sheet="rooms"] .roomgrid .it hk-icon{background:rgba(255,255,255,0.90);color:color-mix(in srgb,var(--hk-accent-base,' + window.hkCards.v('accent') + ') 78%,#000)}',
+      '.bright .it span{text-shadow:0 1px 2px rgba(0,0,0,0.25)}',
       '.sheet h2{flex:none;margin:0 6px 12px;font-size:17px;font-weight:700;letter-spacing:-0.41px;color:' + window.hkCards.v('ink') + '}',
       // THE BIG GRID (2026-10-06): cells at least 84 px -- three across on a
       // phone, six on a computer -- big icons, and names on up to two lines
@@ -563,6 +569,8 @@
       '[data-sheet="rooms"] .roomgrid .it hk-icon{--mdc-icon-size:28px;width:58px;height:58px;border-radius:50%;',
       '  align-items:center;justify-content:center;background:rgba(255,255,255,0.12);transition:background-color .15s ease}',
       '[data-sheet="rooms"] .roomgrid .it.here hk-icon{background:' + window.hkCards.v('accent') + ';color:var(--hk-on-accent,#fff)}',
+      // a long room name ("Master Bedroom Closet") on up to three lines, not cut on its second
+      '[data-sheet="rooms"] .roomgrid .it span{-webkit-line-clamp:3}',
       // THE LIST (More Style: List): rows like the side menu's -- the icon
       // beside the whole name, the page you are on in the highlight colour --
       // and about a phone's width on every screen

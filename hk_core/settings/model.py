@@ -1227,7 +1227,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
              "flat_colors": dict(FLAT_COLORS_DEFAULT), "flat_page_colors": {},
              # TILE STYLE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase B): the Home Grid's tiles and the room
              # pages' Tall pills in the Home app's layout, or Centred (the glyph above the name and room, HomeView's)
-             "tile_style": "home"},
+             "tile_style": "auto"},
     # THE CALENDAR (the Calendar page, hk-calendar.js, and the screensaver's
     # calendar pane): the calendar entities shown, in order (empty: every
     # calendar the house has), and each one's colour -- entity -> a page pill
@@ -1259,8 +1259,10 @@ BRIGHT_GLASS = ("bright", "bright_pre", "bright_each")
 GLASS = GLASS + BRIGHT_GLASS
 # Tinted's icon circles (look.well, a screen's well): Apple's dark, or light
 WELLS = ("dark", "light")
-# Tile Style (look.tile_style, a screen's tile_style; a Home Grid block's `tile`, home_grid.TILE_STYLES)
-TILE_STYLES = HG.TILE_STYLES
+# Tile Style (look.tile_style, a screen's tile_style; a Home Grid block's `tile`, home_grid.TILE_STYLES).
+# Automatic (2026-10-30, the default; the owner: "maybe it could be linked to the Square Setting?"): Centred on a
+# Home Grid of square cells, Home on 196 x 150 tiles and the room pages -- Home and Centred stay to choose outright.
+TILE_STYLES = ("auto",) + HG.TILE_STYLES
 # Looks that were tried and taken out, read as the one that replaced them:
 # Baked (blur_baked, each surface its own slice of the picture) cost more
 # than it saved and went on 2026-10-10 -- Pre-rendered is the same picture.

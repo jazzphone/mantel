@@ -6115,14 +6115,16 @@
     // Centred, HomeView's -- All Screens', or a screen's own (b, path) with
     // Same as All Screens / Just This Screen and its Reset
     tileStyleGroup(b, path) {
-      var self = this, house = (this.data.settings.look || {}).tile_style === 'centred' ? 'centred' : 'home';
-      var own = !!b && (b.tile_style === 'home' || b.tile_style === 'centred');
+      var known = function (v) { return M.TILE_STYLES.some(function (o) { return o[0] === v; }); };
+      var self = this, house = known((this.data.settings.look || {}).tile_style) ? this.data.settings.look.tile_style : 'auto';
+      var own = !!b && known(b.tile_style);
       var rows = [K.seg({ label: 'Tile Style', sk: b ? 'b:tile_style' : 'look.tile_style', value: own ? b.tile_style : house, options: M.TILE_STYLES,
         sub: b ? (own ? 'Just This Screen' : 'Same as All Screens') : null,
         onChange: function (v) { if (b) self.setB(path, { tile_style: v }); else self.setH({ 'look.tile_style': v }); } })];
       if (own) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.TILE_STYLES, house) + ')', sk: 'b:tile_style:reset',
         onClick: function () { self.setB(path, { tile_style: null }); } }));
       return K.group({ header: 'Tiles', footer: 'Centred puts each icon above its name and room, as on a HomeView: a Home Grid’s tiles and the room pages’ tall tiles. ' +
+        'Automatic is Centred on a Home Grid of square cells and Home everywhere else. ' +
         'A Home Grid block can choose its own in the editor.' }, rows);
     }
     // THE ROWS UNDER GLASS STYLE, the same on All Screens' Appearance and a

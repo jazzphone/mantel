@@ -520,7 +520,7 @@ class HkControlCard extends HTMLElement {
       .big .pk{all:unset;cursor:pointer;padding:0 .04em}
       .big .pk.sel::before{content:"";position:absolute;left:50%;bottom:-.06em;width:.075em;height:.075em;min-width:8px;min-height:8px;
         transform:translateX(-50%);border-radius:50%;background:${window.hkCards.v('ink')}}
-      .big .ds{display:inline-block;width:.26em;height:.065em;min-height:4px;border-radius:.04em;background:currentColor;vertical-align:.3em;margin:0 .07em}
+      .big .ds{display:inline-block;width:.26em;height:.065em;min-height:4px;border-radius:calc(.065em / 2);background:currentColor;vertical-align:.3em;margin:0 .07em}
       .big .pk:focus-visible,.big .ar:focus-visible,.big .nm:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
       /* THE FOOT: the arrows out toward the corners and a gap each side, so a
          long name has room between them ("Downstairs Ecobee Thermostat"),

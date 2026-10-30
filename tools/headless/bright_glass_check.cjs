@@ -15,12 +15,33 @@ function wears() {
            sk3: sky && sky.style.getPropertyValue('--sk3'), plate: getComputedStyle(document.documentElement).getPropertyValue('--hk-glass-plate'),
            bar: root ? root.className : null };
 }
-function standIn() {
+// the look's sheet plate (--hk-sheet-plate: layers ending in a colour) over the wallpaper's middle stops, held down
+// as its blur's brightness(0.86) does
+function sheetStandIn() {
   const sky = window.hkSky && window.hkSky.element && window.hkSky.element();
   const mid = sky && sky.style.getPropertyValue('--sk1'), low = sky && sky.style.getPropertyValue('--sk2');
+  const plate = getComputedStyle(document.documentElement).getPropertyValue('--hk-sheet-plate').trim()
+    .replace(/,\s*(rgba?\([^()]*\))\s*$/, ', linear-gradient($1, $1)');
+  return plate + ', linear-gradient(rgba(0,0,0,.14),rgba(0,0,0,.14)), linear-gradient(' + mid + ',' + low + ')';
+}
+function standIn(plate) {
   const css = new CSSStyleSheet();
-  css.replaceSync('.hkd .sheet{background:linear-gradient(rgba(255,255,255,.22),rgba(255,255,255,.22)),linear-gradient(' + mid + ',' + low + ')!important}');
+  css.replaceSync('.hkd .sheet{background:' + plate + '!important}');
   document.adoptedStyleSheets = [...document.adoptedStyleSheets, css];
+}
+// WHITE NAMES OVER A SHEET at the wallpaper's LIGHTEST stop (the owner's Rooms sheet, 2026-10-30): the stop held down
+// by the blur's brightness, under the plate's tint and the top of its sheen; WCAG contrast of white .94 on that
+function sheetContrast() {
+  const sky = window.hkSky && window.hkSky.element && window.hkSky.element();
+  const rgb = (s) => (/rgba?\(([^)]+)\)/.exec(s) || /#(..)(..)(..)/.exec(s) || [])[1] ? (s.startsWith('#') ? [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16)) : /rgba?\(([^)]+)\)/.exec(s)[1].split(',').slice(0, 3).map(Number)) : null;
+  const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+  const stops = [0, 1, 2, 3].map((i) => rgb(sky.style.getPropertyValue('--sk' + i).trim())).filter(Boolean);
+  const light = stops.sort((a, b) => lum(b) - lum(a))[0].map((v) => v * 0.86);
+  const plate = getComputedStyle(document.documentElement).getPropertyValue('--hk-sheet-plate');
+  const tint = /rgba?\(([^)]+)\)\s*$/.exec(plate.trim())[1].split(',').map(Number), sheen = +(/rgba\(255,\s*255,\s*255,\s*([\d.]+)\)/.exec(plate) || [0, 0])[1];
+  const over = (top, a, under) => under.map((v, i) => top[i] * a + v * (1 - a));
+  const bg = over([255, 255, 255], sheen, over(tint.slice(0, 3), tint[3], light)), fg = over([255, 255, 255], 0.94, bg);
+  return (lum(fg) + 0.05) / (lum(bg) + 0.05);
 }
 
 (async () => {
@@ -51,10 +72,33 @@ function standIn() {
       await shot('home');
       await go('/' + input.screen + '/room-living-room');
       await shot('room');
-      await page.evaluate(standIn);
+      await page.evaluate(standIn, await page.evaluate(sheetStandIn));
       await page.evaluate(() => window.hkDetail.open('light.living_room_lamps'));
       await page.waitForTimeout(1400);
       await shot('sheet');
+      // THE ROOMS SHEET (the button beside the tab bar), stood in as the sheets are, and its names' contrast
+      await go('/' + input.screen + '/home');
+      const cr = await page.evaluate(sheetContrast);
+      say(cr >= 4.5, size + ' white names over a sheet keep 4.5:1 at the lightest stop', +cr.toFixed(2));
+      const opened = await page.evaluate((plate) => {
+        const bar = document.getElementById('hk-tabbar'), sr = bar && bar.shadowRoot, btn = sr && sr.querySelector('.roomsbtn');
+        if (!btn) return false;
+        btn.click();
+        const st = document.createElement('style');
+        st.textContent = '.bright .sheet.g{background:' + plate + '!important}';
+        sr.appendChild(st);
+        return true;
+      }, await page.evaluate(sheetStandIn));
+      say(opened, size + ' the Rooms button opens its sheet', opened);
+      await page.waitForTimeout(1500);
+      const lines = await page.evaluate(() => {
+        const sr = document.getElementById('hk-tabbar').shadowRoot;
+        return [...sr.querySelectorAll('[data-sheet="rooms"] .roomgrid .it span')].filter((s) => s.scrollHeight > s.clientHeight + 1).map((s) => s.textContent);
+      });
+      const count = await page.evaluate(() => document.getElementById('hk-tabbar').shadowRoot.querySelectorAll('[data-sheet="rooms"] .roomgrid .it').length);
+      say(count >= 4, size + ' the Rooms sheet lists the rooms', count);
+      say(!lines.length, size + ' no room name cut short', lines);
+      await shot('rooms');
       await go('/' + input.menu + '/home');
       await page.evaluate(() => {
         if (window.hkMenu && !(window.hkMenu.docked && window.hkMenu.docked())) window.hkMenu.open();

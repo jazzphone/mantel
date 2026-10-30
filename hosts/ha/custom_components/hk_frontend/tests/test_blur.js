@@ -28,9 +28,9 @@ var EXCEPT = {
   'hk-notify.js blur(18px)saturate(1.6)': 'banner controls',
   // the Person sheet's label over its map
   'hk-person.js blur(20px)saturate(1.5)': 'map label',
-  // Bright Glass's sheets (DESIGN.md: "its sheets take blur(34px) saturate(2)"):
-  // the tab bar's More and Rooms
-  'hk-tabbar.js blur(34px)saturate(2)': 'Bright Glass sheets',
+  // Bright Glass's sheets (hk-settings.js BRIGHT.sheetBlur, 2026-10-30: held
+  // down a little under a deep tint, so their names read): the tab bar's More and Rooms
+  'hk-tabbar.js blur(34px)saturate(1.5)brightness(0.86)': 'Bright Glass sheets',
   // ...and its side menu open over the page (a sheet, there)
   'hk-menu.js blur(34px)saturate(2)': 'Bright Glass menu over the page'
 };

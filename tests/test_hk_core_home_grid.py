@@ -504,7 +504,7 @@ def test_a_blocks_tile_style():
     for bad in ("centered", "", True):
         with pytest.raises(HG.GridInvalid):
             HG.check(grid(block("a", "accessory", "S", [0, 0], tile=bad)))
-    assert HG.TILE_STYLES == M.TILE_STYLES == ("home", "centred")
+    assert HG.TILE_STYLES == ("home", "centred") and M.TILE_STYLES == ("auto", "home", "centred")
 
 
 @pytest.mark.skipif(not JSC.exists(), reason="JavaScriptCore's jsc is macOS's")

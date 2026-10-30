@@ -308,8 +308,9 @@ def test_bright_glass_and_the_wallpapers_are_options_absent_until_chosen():
 
 # ------------------------------------------------------------ Tile Style (2026-10-30, HOMEVIEW-LOOK.md Phase B)
 def test_tile_style_for_all_screens_and_for_a_screen():
-    assert M.merged({})["look"]["tile_style"] == "home"                        # today's look until it is chosen
-    assert M.merged({"dashboard": {"look": {"tile_style": "sideways"}}})["look"]["tile_style"] == "home"
+    assert M.merged({})["look"]["tile_style"] == "auto"                        # Automatic: Centred on square cells
+    assert M.merged({"dashboard": {"look": {"tile_style": "sideways"}}})["look"]["tile_style"] == "auto"
+    assert M.merged({"dashboard": {"look": {"tile_style": "home"}}})["look"]["tile_style"] == "home"   # chosen outright
     new, err = C.apply_house({}, {"look.tile_style": "centred"})
     assert err == {} and M.merged(new)["look"]["tile_style"] == "centred"
     assert C.apply_house({}, {"look.tile_style": "centered"})[1] == {"look.tile_style": "choice"}

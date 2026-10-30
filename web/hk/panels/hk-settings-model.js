@@ -313,7 +313,8 @@
   var TINT_WELLS = [['dark', 'Dark'], ['light', 'Light']];
   // TILE STYLE (look.tile_style, a screen's tile_style; 2026-10-30): the Home
   // Grid's tiles and the room pages' Tall pills (settings.py TILE_STYLES)
-  var TILE_STYLES = [['home', 'Home'], ['centred', 'Centred']];
+  // Automatic (the default): Centred on square cells, Home on tiles and the room pages
+  var TILE_STYLES = [['auto', 'Automatic'], ['home', 'Home'], ['centred', 'Centred']];
   var PRESETS = {
     wall_tablet: ['Wall Tablet', 'Menu always open with the time and weather, back to Home when idle, no Home Assistant header.'],
     personal: ['Phone or iPad', 'Menu behind a button, time and weather in the header.'],
