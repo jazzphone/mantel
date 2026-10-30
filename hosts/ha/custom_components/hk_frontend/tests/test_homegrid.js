@@ -22,6 +22,8 @@ window.customCards = [];
 window.loadCardHelpers = function () { return new Promise(function () {}); };
 load(HK_ROOT + '/frontend/cards/hk-base.js');
 load(HK_ROOT + '/frontend/cards/hk-layout.js');
+// the views' swipe asks the one list of what keeps its own (hk-drag.js sideways)
+load(HK_ROOT + '/frontend/modules/hk-drag.js');
 load(HK_ROOT + '/frontend/cards/hk-grid-catalog.js');
 load(HK_ROOT + '/frontend/cards/hk-strategy.js');
 
@@ -105,6 +107,46 @@ window.addEventListener('hk-view-ready', function (e) { ready.push(e.detail.view
   w.setConfig({ grid: { cols: 4, rows: 9 }, cards: [] });
   ok('a grid it can\'t draw gets the defaults (6 x 4, band on)', w._root.style['--g-cols'] === '6' &&
      w._root.style.gridTemplateRows === '60px repeat(4, 150px)');
+})();
+
+// ---- views, and a swipe past the last one (Swipe Between Pages, HOMEVIEW-LOOK.md Phase 0)
+(function () {
+  var v = new View(), told = [];
+  v.setConfig({ grid: { cols: 6, rows: 4, band: false, views: 3 }, cards: [] });
+  v.dispatchEvent = function (e) { told.push(e); return true; };
+  v.setPointerCapture = function () {};
+  var cell = { nodeType: 1, localName: 'div', matches: function () { return false; } };
+  function e(x, y) { return { clientX: x, clientY: y, pointerId: 5, pointerType: 'touch', button: 0, composedPath: function () { return [cell, v]; } }; }
+  function fire(t, ev) { ev.type = t; (v._listeners[t] || []).forEach(function (f) { f(ev); }); }
+  var takes = null;
+  window.hkPageSwipe = { takes: function (dir, grid) { takes = [dir, grid === v]; return true; } };
+  v._showView(0);
+  fire('pointerdown', e(600, 300)); fire('pointermove', e(560, 300));
+  ok('on its first view a swipe left turns the views, the page swipe not asked', !takes && v._root.classList.contains('dragging') && !told.length);
+  fire('pointerup', e(300, 300));
+  ok('...to the next view', v._view === 1);
+  v._showView(2);
+  fire('pointerdown', e(600, 300)); fire('pointermove', e(560, 300));
+  ok('past the last view: the page swipe is asked, for the next page', JSON.stringify(takes) === '[1,true]');
+  ok('...and handed it (hk-swipe-past, with the travel so far): the grid lets go', told.length === 1 && told[0].type === 'hk-swipe-past' &&
+     told[0].detail.dir === 1 && told[0].detail.dx === -40 && told[0].detail.pointerId === 5 && !v._root.classList.contains('dragging'));
+  fire('pointerup', e(300, 300));
+  ok('...the views stay on the last', v._view === 2);
+  takes = null; told = [];
+  window.hkPageSwipe = { takes: function () { return false; } };
+  fire('pointerdown', e(600, 300)); fire('pointermove', e(560, 300));
+  ok('with no page that way (or the swipe off): it gives a little, as before', !told.length && v._root.classList.contains('dragging'));
+  fire('pointercancel', e(560, 300));
+  window.hkPageSwipe = undefined;
+  v.swipeEnter(-1);
+  ok('arriving back from the next page: its last view', v._view === 2);
+  v.swipeEnter(1);
+  ok('...arriving forward: its first', v._view === 0);
+  var sl = { nodeType: 1, localName: 'div', matches: function (s) { return s.indexOf('[role="slider"]') >= 0; } };
+  told = [];
+  fire('pointerdown', { clientX: 600, clientY: 300, pointerId: 6, pointerType: 'touch', button: 0, composedPath: function () { return [sl, v]; } });
+  fire('pointermove', { clientX: 540, clientY: 300, pointerId: 6, pointerType: 'touch', composedPath: function () { return [sl, v]; } });
+  ok('a swipe on a slider (hkDrag.sideways) is the slider\'s', !v._root.classList.contains('dragging'));
 })();
 
 // ---- the strategy

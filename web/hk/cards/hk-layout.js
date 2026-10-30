@@ -1815,17 +1815,17 @@
     // the grid takes the views with it, unless it began on something that
     // moves sideways itself -- a block that swipes its own pages, a slider, a
     // dial; past a fifth of the width, or quickly, it lands on the next. The
-    // first and the last view give a little, and come back.
+    // first and the last view give a little, and come back -- unless Swipe
+    // Between Pages is on here: a swipe past the last view (or back past the
+    // first) is handed to the page swipe (hk-pageswipe.js), as the event
+    // hk-swipe-past with the travel so far, and goes on to the next page.
+    // What moves sideways itself is one list, hkDrag.sideways (hk-drag.js).
     _swipeViews() {
       var self = this, d = null;
-      var OWN = 'hk-pager-card,[role="slider"],.ring,.vs,input,select,textarea';
       var mine = function (e) {
-        var path = e.composedPath ? e.composedPath() : [];
-        return !path.some(function (n) {
-          if (!n || !n.matches) return false;
-          if (n.localName === 'hk-pager-card') return (n._pages || []).length > 1;
-          return n.matches(OWN);
-        });
+        var D = window.hkDrag;
+        // (without the shared list, nothing here is known to be the grid's)
+        return !!(D && D.sideways) && !D.sideways(e.composedPath ? e.composedPath() : [], self);
       };
       this.addEventListener('pointerdown', function (e) {
         if (self._views() < 2 || (e.button !== undefined && e.button !== 0) || !mine(e)) return;
@@ -1836,6 +1836,16 @@
         var dx = e.clientX - d.x, dy = e.clientY - d.y;
         if (!d.on) {
           if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.4) { if (Math.abs(dy) > 14) d = null; return; }
+          // PAST THE END, ON TO THE NEXT PAGE: the page swipe takes it from here
+          var end = dx < 0 ? (self._view || 0) >= self._views() - 1 : (self._view || 0) <= 0;
+          var PS = window.hkPageSwipe;
+          if (end && PS && PS.takes && PS.takes(dx < 0 ? 1 : -1, self)) {
+            d = null;
+            self.dispatchEvent(new CustomEvent('hk-swipe-past', { bubbles: true, composed: true,
+              detail: { dir: dx < 0 ? 1 : -1, dx: dx, dy: dy, x: e.clientX, y: e.clientY, pointerId: e.pointerId,
+                        pointerType: e.pointerType, target: e.composedPath ? e.composedPath()[0] : e.target } }));
+            return;
+          }
           d.on = true;
           try { self.setPointerCapture(e.pointerId); } catch (x) { /* a test page */ }
           self._root.classList.add('dragging');
@@ -1865,6 +1875,17 @@
       }, true);
     }
     _views() { return this._config ? this._grid().views : 1; }
+    // ARRIVING BY A PAGE SWIPE (hk-pageswipe.js): forward, its first view;
+    // back from the next page, its last -- so the swipe reads as one strip
+    swipeEnter(dir) {
+      var n = this._views();
+      if (n < 2) return;
+      var root = this._root;
+      // (no slide: it is already where it lands)
+      if (root) root.classList.add('dragging');
+      this._showView(dir < 0 ? n - 1 : 0);
+      if (root) { void root.offsetWidth; root.classList.remove('dragging'); }
+    }
     // the view to show (the swipe, a dot, the editor's View)
     _showView(i) {
       var n = this._views();
