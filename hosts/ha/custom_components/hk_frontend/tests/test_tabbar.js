@@ -301,9 +301,57 @@ window.screen = undefined;
 // phone held sideways drew it at a phone's 60 while railFit counted a
 // tablet's 72, so its tabs fell short of it, 43 px of rail above Home and below More
 var tbSrc = readFile(HK_ROOT + '/frontend/modules/hk-tabbar.js');
-ok('a rail\'s --bh is railW, a bar\'s barH',
-   /setProperty\('--bh', \(railed \? railW\(size\) : barH\(undefined, size\)\) \+ 'px'\)/.test(tbSrc) &&
+ok('a rail\'s --bh is railW, a bar\'s barH (a rail in the side strip its own width)',
+   /setProperty\('--bh', \(S\.strip \? S\.strip\.width : railed \? railW\(size\) : barH\(undefined, size\)\) \+ 'px'\)/.test(tbSrc) &&
    /railFit[\s\S]{0,200}gapsOf\(railW\(size\)\)/.test(tbSrc));
+
+// THE SIDE STRIP (2026-10-30, the iPhone Duo): a side safe area of 60 px or
+// more on one side only; the rail stands on the strip's foot and never
+// reaches into the reserve above it, where the system's items are
+print('=== the side strip ===');
+var SS = T.SIZES, side = T.stripSide, sfit = T.stripFit;
+ok('a strip: 60 px or more on one side only -- the Duo\'s 84 at its right', side(0, 84) === 'right' && side(84, 0) === 'left' &&
+   side(0, 60) === 'right' && side(0, 59) === null && side(0, 0) === null);
+ok('...a phone turned (its Dynamic Island\'s 59-62 px at both sides) has none', side(62, 62) === null && side(59, 59) === null &&
+   side(47, 62) === null);
+ok('...nonsense reads as none', side('x', undefined) === null && side(-90, NaN) === null);
+// the Duo folded: its outer display, 466 x 678 pt, the strip 84 at its right
+var OUTER = { inset: 84, width: 466, height: 678, bottom: 0 };
+var so = sfit(6, 1, OUTER, true, 5);
+ok('the Duo folded: Home, three pages and More -- the five a phone\'s bar shows', so && so.shown === 4 && so.more, JSON.stringify(so));
+ok('...a rail 72 wide, 6 in from each side of the strip, its tabs 60 tall', so.width === 72 && so.x === 6 && so.tab === 60);
+ok('...standing on the strip\'s foot (16 px over it)', so.foot === SS.STRIP_FOOT && Math.abs(so.top + so.height + so.foot - 678) < 1e-9);
+ok('...and never into the top 45 % of a strip held upright, where its system items are',
+   so.top >= 678 * SS.STRIP_RESERVE.portrait && so.reserve === Math.ceil(678 * 0.45), so.top + ' / ' + so.reserve);
+// the Duo open, held sideways: the inner display, about 1000 x 703, the strip 84 at its right
+var INNER = { inset: 84, width: 1000, height: 703, bottom: 20 };
+var si = sfit(9, 3, INNER, true, 8);
+ok('the Duo open sideways: more fit (the top 35 % kept), not all eight -- the rest in More',
+   si && si.shown === 5 && si.more && si.top >= 703 * SS.STRIP_RESERVE.landscape, JSON.stringify(si));
+ok('...never more than the bar would show', sfit(9, 3, INNER, true, 4).shown === 3 && sfit(2, 0, INNER, false, 8).shown === 2 &&
+   !sfit(2, 0, INNER, false, 8).more);
+ok('...a strip held upright keeps more of its top than one held sideways',
+   sfit(9, 3, { inset: 84, width: 703, height: 1000 }, true, 8).top > 1000 * 0.45 &&
+   sfit(9, 3, { inset: 84, width: 1000, height: 703 }, true, 8).top < 703 * 0.45);
+ok('what doesn\'t fit goes to More: a shorter strip, fewer tabs', sfit(9, 3, { inset: 84, width: 466, height: 520 }, true, 8).shown <
+   sfit(9, 3, OUTER, true, 8).shown);
+ok('...too short for Home and More: no rail (the bar where it was)', sfit(9, 3, { inset: 84, width: 466, height: 200 }, true, 8) === null);
+ok('...a screen with only Home needs one tab', !!sfit(1, 0, { inset: 84, width: 466, height: 240 }, false, 8) &&
+   sfit(1, 0, { inset: 84, width: 466, height: 240 }, false, 8).shown === 1);
+ok('too narrow a strip for a rail: none', sfit(9, 3, { inset: 50, width: 466, height: 678 }, true, 8) === null);
+ok('a wider strip: the rail no wider than Tab Bar Size\'s', sfit(9, 3, { inset: 120, width: 466, height: 678 }, true, 5).width === T.railW() &&
+   sfit(9, 3, { inset: 120, width: 466, height: 678 }, true, 5, 'small').width === T.railW('small'));
+ok('the home indicator\'s safe area lifts it (less 12, as the bar\'s lift)', sfit(6, 1, { inset: 84, width: 466, height: 678, bottom: 34 }, true, 5).foot === 22);
+ok('...and the docked now-playing bar: it stands 10 px over it', sfit(6, 1, { inset: 84, width: 466, height: 678, dock: 96 }, true, 5).foot === 106);
+var tall = sfit(12, 3, { inset: 84, width: 466, height: 900, bottom: 34 }, true, 10);
+ok('every fit keeps the reserve, every size', ['small', 'medium', 'large'].every(function (z) {
+  return [OUTER, INNER, { inset: 84, width: 466, height: 900, bottom: 34 }].every(function (st) {
+    var f = sfit(12, 3, st, true, 10, z);
+    return !f || f.top >= Math.ceil(st.height * (st.width > st.height ? 0.35 : 0.45)) - 1e-9;
+  });
+}) && tall.shown >= 4);
+ok('the strip in the page\'s own code: Use the Side Strip off, no strip', /tab_bar_strip === false\) return null/.test(tbSrc) &&
+   /stripSide\(sa\.left, sa\.right\)/.test(tbSrc));
 
 print('\n' + (fail ? fail + ' FAILED, ' + pass + ' passed' : 'ALL ' + pass + ' TAB BAR TESTS PASS'));
 if (fail) throw new Error(fail + ' failed');

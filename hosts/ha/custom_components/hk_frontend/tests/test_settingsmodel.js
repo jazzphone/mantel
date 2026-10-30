@@ -521,6 +521,16 @@ ok('All Screens\' phone keys read as a screen\'s, and save back', hb.button_phon
    M.houseMenuAsBoard({}).button_phone === 'chip' && M.houseMenuAsBoard({}).tab_bar_rooms_phone === 'more' &&
    M.houseMenuAsBoard({ bar_glass: 'clear' }).tab_bar_glass === 'tinted' && !('narrow' in M.houseMenuAsBoard({})) &&
    eq(M.houseMenuSave({ button_phone: 'chip', tab_bar_rooms_phone: null }), { 'menu.button_phone': 'chip', 'menu.bar_rooms_phone': null }));
+// USE THE SIDE STRIP (2026-10-30, the iPhone Duo's strip): a tab bar setting, on unless turned off, All
+// Screens' or a screen's own one at a time, on the Tab Bar page and found by search
+ok('Use the Side Strip: All Screens\' bar_strip, on unless off, saved back', M.MENU_KEYS.tab_bar_strip === 'bar_strip' &&
+   M.houseMenuAsBoard({}).tab_bar_strip === true && M.houseMenuAsBoard({ bar_strip: false }).tab_bar_strip === false &&
+   eq(M.houseMenuSave({ tab_bar_strip: false }), { 'menu.bar_strip': false }));
+ok('...on the Tab Bar page, its own setting one at a time', M.KIND_KEYS['tab-bar'].indexOf('tab_bar_strip') >= 0 &&
+   eq(M.menuOwnSet({ menu_own: [] }, { tab_bar_strip: false }).menu_own, ['tab_bar_strip']) &&
+   eq(M.menuOwnReset({ menu_own: ['tab_bar_strip', 'accent'] }, 'tab_bar_strip').menu_own, ['accent']));
+ok('...found by search, on the Tab Bar page', M.SEARCH.some(function (r) {
+  return r[0] === 'Use the Side Strip' && r[1] === 'house/menu/tab-bar' && r[2] === 'menu.bar_strip' && /duo/.test(r[3]); }));
 // THE GLASS (2026-10-10): Glass, Frosted, Tinted (2026-10-12), Blur -- and Blur's three modes
 ok('glass: five styles, Blur\'s three modes, one stored value each',
    eq(M.GLASS_STYLES.map(function (g) { return g[0]; }), ['flat', 'clear', 'frosted', 'tinted', 'blur']) &&

@@ -109,10 +109,13 @@ ok('a short one is left alone', _.downsample(pts.slice(0, 10), 300).length === 1
 print('\n=== the sheet ===');
 ok('the X is the size of the well, so it sits as far from the top as the right',
    /\.hkd \.well\{width:44px;height:44px/.test(src) && /\.hkd \.x\{width:44px;height:44px/.test(src));
-ok('on a phone the sheet is the screen less 16 px a side', /\.hkd \.sheet\{width:calc\(var\(--hk-vw, 100vw\) - 32px\)/.test(src) &&
-   /max-width:calc\(var\(--hk-vw, 100vw\) - var\(--hk-content-left, 0px\) - 32px\)/.test(src));
-ok('...and elsewhere it centers on the dashboard, past Home Assistant\'s sidebar',
-   /padding-left:var\(--hk-content-left,0px\)/.test(src));
+// (and clear of a side safe area -- the iPhone Duo's strip, a phone turned: hk-base.js SAFE, 2026-10-30)
+var SAFE_L = 'var\\(--hk-safe-left,env\\(safe-area-inset-left,0px\\)\\)', SAFE_R = 'var\\(--hk-safe-right,env\\(safe-area-inset-right,0px\\)\\)';
+ok('on a phone the sheet is the screen less 16 px a side, and less a side safe area',
+   new RegExp('\\.hkd \\.sheet\\{width:calc\\(var\\(--hk-vw, 100vw\\) - ' + SAFE_L + ' - ' + SAFE_R + ' - 32px\\)').test(src) &&
+   new RegExp('max-width:calc\\(var\\(--hk-vw, 100vw\\) - max\\(var\\(--hk-content-left, 0px\\), ' + SAFE_L + '\\) - ' + SAFE_R + ' - 32px\\)').test(src));
+ok('...and elsewhere it centers on the dashboard, past Home Assistant\'s sidebar and clear of a side safe area',
+   new RegExp('padding-left:max\\(var\\(--hk-content-left,0px\\), ' + SAFE_L + '\\);padding-right:' + SAFE_R).test(src));
 ok('the caps follow a car browser\'s zoomed layout px (--hk-vw/--hk-vh), else the viewport units',
    /max-height:calc\(var\(--hk-vh, 100dvh\) - 32px\)/.test(src) && !/calc\(100dvh - 32px\)/.test(src));
 ok('the back button closes it (one history entry, same URL, carrying this sheet\'s token -- not a hash)',

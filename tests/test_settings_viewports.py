@@ -25,7 +25,9 @@ def test_two_columns_from_700_px_when_there_is_height():
 
 
 def test_the_panel_keeps_clear_of_the_safe_areas():
-    assert "padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)" in PANEL
+    # (the sides through --hk-safe-right / -left first, which a check can stand in: hk-base.js SAFE, 2026-10-30)
+    assert ("padding:env(safe-area-inset-top,0px) var(--hk-safe-right,env(safe-area-inset-right,0px)) 0 "
+            "var(--hk-safe-left,env(safe-area-inset-left,0px))") in PANEL
     assert PANEL.count("env(safe-area-inset-bottom,0px)") >= 4      # the list's and the page's ends, both layouts
 
 

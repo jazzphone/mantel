@@ -884,7 +884,7 @@
                     tab_bar_pos: 'bar_pos', tab_bar_fold: 'bar_fold', tab_bar_start: 'bar_start',
                     tab_bar_adjust: 'bar_adjust', tab_bar_scroll_phone: 'bar_scroll_phone',
                     tab_bar_tabs: 'bar_tabs', tab_bar_tabs_rail: 'bar_tabs_rail', tab_bar_size: 'bar_size', tab_bar_labels: 'bar_labels',
-                    tab_bar_tabs_phone: 'bar_tabs_phone',
+                    tab_bar_tabs_phone: 'bar_tabs_phone', tab_bar_strip: 'bar_strip',
                     button_phone: 'button_phone', tab_bar_rooms_phone: 'bar_rooms_phone' };
   var MENU_DEFAULTS = { page_header: 'current', menu: 'auto', tab_position: '', tab_size: 'large', tab_size_phone: 'standard',
                         dock_min: 1000, time_weather: 'page', ha_row: false, ha_place: 'rooms', accent: 'orange', glyph: 'sidebar', clock: true,
@@ -892,7 +892,7 @@
                         tab_bar_more: 'icons', tab_bar_more_phone: 'list', tab_bar_pos: 'bottom',
                         tab_bar_fold: 'start', tab_bar_start: 'full', tab_bar_adjust: true,
                         tab_bar_scroll_phone: 'shrink', tab_bar_tabs: 6, tab_bar_tabs_rail: 6, tab_bar_tabs_phone: 3,
-                        tab_bar_size: 'medium', tab_bar_labels: 'show', button_phone: 'chip', tab_bar_rooms_phone: 'more' };
+                        tab_bar_size: 'medium', tab_bar_labels: 'show', tab_bar_strip: true, button_phone: 'chip', tab_bar_rooms_phone: 'more' };
   function houseMenuAsBoard(m) {
     m = m || {};
     var out = {};
@@ -904,6 +904,7 @@
     out.swipe = out.swipe === true;
     out.tab_bar_rooms = roomsPlace(out.tab_bar_rooms);
     out.tab_bar_adjust = out.tab_bar_adjust !== false;
+    out.tab_bar_strip = out.tab_bar_strip !== false;
     out.tab_bar_rooms_phone = roomsPlace(out.tab_bar_rooms_phone);
     if (out.tab_bar_glass === 'clear') out.tab_bar_glass = 'tinted';
     return out;
@@ -972,7 +973,7 @@
   var KIND_KEYS = {
     side: ['menu', 'button_phone', 'glyph', 'dock_min', 'time_weather', 'swipe', 'clock', 'ha_row', 'ha_place'],
     'edge-tab': ['tab_position', 'tab_size', 'tab_size_phone'],
-    'tab-bar': ['tab_bar_pos', 'tab_bar_size', 'tab_bar_labels', 'tab_bar_scroll', 'tab_bar_scroll_phone', 'tab_bar_fold',
+    'tab-bar': ['tab_bar_pos', 'tab_bar_size', 'tab_bar_labels', 'tab_bar_strip', 'tab_bar_scroll', 'tab_bar_scroll_phone', 'tab_bar_fold',
                 'tab_bar_start', 'tab_bar_adjust', 'tab_bar_tabs', 'tab_bar_tabs_phone', 'tab_bar_tabs_rail', 'tab_bar_more',
                 'tab_bar_more_phone', 'tab_bar_rooms', 'tab_bar_rooms_phone', 'ha_row', 'ha_place']
   };
@@ -1860,6 +1861,7 @@
     ['Shrinks To', 'house/menu/tab-bar', 'menu.bar_fold', 'tab bar shrink fold small button corner left right top bottom side'],
     ['Tab Bar Size', 'house/menu/tab-bar', 'menu.bar_size', 'tab bar size small medium large bigger thicker icons text'],
     ['Tab Bar Labels', 'house/menu/tab-bar', 'menu.bar_labels', 'tab bar labels names icons only text slim'],
+    ['Use the Side Strip', 'house/menu/tab-bar', 'menu.bar_strip', 'tab bar side strip iphone duo camera status bar rail edge safe area'],
     ['Tabs in Bar', 'house/menu/tab-bar', 'menu.bar_tabs', 'tab bar how many tabs number count favorites bottom top'],
     ['Tabs in Rail', 'house/menu/tab-bar', 'menu.bar_tabs_rail', 'tab bar rail how many tabs number count favorites left right side'],
     ['Tabs in Bar on Phones', 'house/menu/tab-bar', 'menu.bar_tabs_phone', 'tab bar phone iphone how many tabs number count favorites bottom'],
@@ -2032,7 +2034,7 @@
     ['menu', 'Menu', ['menu', 'menu_own', 'page_header', 'dock_min', 'time_weather', 'ha_row', 'ha_place', 'tab_position', 'tab_size',
                       'tab_size_phone', 'accent', 'glyph', 'clock', 'swipe',
                       'tab_bar_scroll', 'tab_bar_rooms', 'tab_bar_glass', 'tab_bar_more', 'tab_bar_more_phone', 'tab_bar_pos', 'tab_bar_fold', 'tab_bar_start', 'tab_bar_adjust', 'tab_bar_scroll_phone', 'tab_bar_tabs',
-                      'tab_bar_tabs_rail', 'tab_bar_tabs_phone', 'tab_bar_size', 'tab_bar_labels', 'menu_phone', 'button_phone', 'tab_bar_rooms_phone'], true],
+                      'tab_bar_tabs_rail', 'tab_bar_tabs_phone', 'tab_bar_size', 'tab_bar_labels', 'tab_bar_strip', 'menu_phone', 'button_phone', 'tab_bar_rooms_phone'], true],
     ['home', 'Home Page', ['chips_row', 'chips', 'chips_quiet', 'chips_extra', 'chips_custom', 'chips_custom_show'], true],
     // a screen's rooms: All Screens' or its own (rooms_custom)
     ['rooms', 'Rooms', ['rooms_custom', 'room_order', 'home_rooms', 'menu_rooms', 'page_rooms'], true],

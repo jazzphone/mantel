@@ -1141,7 +1141,11 @@ DEFAULTS: dict[str, dict[str, Any]] = {
              # Phones' Tabs in Bar (TAB_BAR_TABS_PHONE): Home, three pages and More, as before it was a setting
              "bar_tabs_phone": 3,
              # Labels: the tabs' names, or icons only (TAB_BAR_LABELS)
-             "bar_labels": "show"},
+             "bar_labels": "show",
+             # Use the Side Strip (2026-10-30): on a phone with a strip of
+             # system controls down one side (iPhone Duo), the tab bar is a
+             # rail in the strip's empty part (hk-tabbar.js stripSide)
+             "bar_strip": True},
     # The room pages: whether room headings on Home open them, and what the
     # status row shows.
     # ROOMS, for every screen that doesn't set its own (a screen's
@@ -1807,6 +1811,9 @@ BOARD_DEFAULTS: dict[str, Any] = {
     "tab_bar_scroll_phone": "shrink",
     "tab_bar_tabs": 6, "tab_bar_tabs_rail": 6, "tab_bar_size": "medium", "tab_bar_labels": "show",
     "tab_bar_tabs_phone": 3,
+    # Use the Side Strip (2026-10-30): the tab bar as a rail in a phone's
+    # side strip of system controls, where it has one (iPhone Duo)
+    "tab_bar_strip": True,
     # PHONES' OWN (BOARD_PHONE_MENUS): the menu, the screen's own as `menu`
     # is (None: as before phones had their own, phone_menu()); the button's
     # style and More's rooms, menu settings (MENU_KEYS)
@@ -2033,6 +2040,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["tab_bar_tabs"] = tab_count(d.get("tab_bar_tabs"))
     out["tab_bar_size"] = pick("tab_bar_size", TAB_BAR_SIZES)
     out["tab_bar_labels"] = pick("tab_bar_labels", TAB_BAR_LABELS)
+    out["tab_bar_strip"] = d.get("tab_bar_strip") is not False
     out["tab_bar_tabs_rail"] = tab_count(d.get("tab_bar_tabs_rail"))
     out["tab_bar_tabs_phone"] = tab_count(d.get("tab_bar_tabs_phone"), 3, TAB_BAR_TABS_PHONE)
     out["tab_bar_scroll_phone"] = pick("tab_bar_scroll_phone", TAB_BAR_SCROLLS)
@@ -2386,7 +2394,7 @@ MENU_KEYS = {"page_header": "page_header", "menu": "style", "tab_position": "tab
              "tab_bar_fold": "bar_fold", "tab_bar_start": "bar_start", "tab_bar_adjust": "bar_adjust",
              "tab_bar_scroll_phone": "bar_scroll_phone", "tab_bar_tabs": "bar_tabs",
              "tab_bar_tabs_rail": "bar_tabs_rail", "tab_bar_size": "bar_size", "tab_bar_labels": "bar_labels",
-             "tab_bar_tabs_phone": "bar_tabs_phone",
+             "tab_bar_tabs_phone": "bar_tabs_phone", "tab_bar_strip": "bar_strip",
              "button_phone": "button_phone", "tab_bar_rooms_phone": "bar_rooms_phone"}
 # a menu BUTTON's styles: not off, always open or the tab bar
 MENU_STYLES = tuple(m for m in BOARD_MENUS if m not in ("off", "open", "tabbar"))
@@ -2453,6 +2461,7 @@ def house_menu(menu: Mapping[str, Any] | None) -> dict[str, Any]:
             "tab_bar_tabs_phone": tab_count(m.get("bar_tabs_phone"), 3, TAB_BAR_TABS_PHONE),
             "tab_bar_size": pick("bar_size", TAB_BAR_SIZES, d["tab_bar_size"]),
             "tab_bar_labels": pick("bar_labels", TAB_BAR_LABELS, d["tab_bar_labels"]),
+            "tab_bar_strip": m.get("bar_strip") is not False,
             "button_phone": pick("button_phone", BOARD_BUTTON_PHONE, d["button_phone"]),
             "tab_bar_rooms_phone": tab_bar_rooms(m.get("bar_rooms_phone"))}
 AREA_ID = re.compile(r"^[a-z0-9_]+$")

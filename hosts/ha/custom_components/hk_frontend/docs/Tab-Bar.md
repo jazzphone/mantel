@@ -127,6 +127,22 @@ or is hidden, the grid takes the whole width and centres on the screen; the rail
 thinner (a rail 10 px narrower, its tabs 10 px shorter) at every size, with the icons 2 px larger. Each tab keeps its
 name for screen readers. On a phone on its side (a nightstand Home Grid), an icon-only rail leaves the most room.
 
+## Side Strip
+
+Some phones keep a strip of system controls down one side: the iPhone Duo has its camera, a Live Activity, the time
+and Wi-Fi at the top of an 84 pt strip down its right edge, folded and open, and nothing below them. There the
+page runs under the strip as a native app's does (the sky, a Flat ground and the screensaver fill the whole
+display), keeps its content clear of it, and **Use the Side Strip** (on by default) puts the tab bar in the strip's
+empty part: a rail as wide as the strip allows, standing on its foot, each icon over a small name. Home comes first,
+then the tabs the bar would show and More, as many as fit below the strip's own items — the rail never reaches
+above 55 % of the strip's height from the foot (65 % on a display held sideways). The rest are in More, which opens
+beside the strip. The page needs no room for the bar at its foot, and the rail never shrinks or hides while
+scrolling: it lies over nothing.
+
+A strip is a side safe area of at least 60 px on one side only. A phone turned, with its Dynamic Island at the side,
+has a safe area at both sides and keeps the bar it has; its page still stays clear of the island. Turned off, or
+where Home and More don't both fit, the bar sits where Position puts it, inside the strip's edge.
+
 ## Adjust Content
 
 A bar along the **bottom** always leaves room at the very end of the page,

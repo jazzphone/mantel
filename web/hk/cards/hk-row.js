@@ -57,6 +57,10 @@
   if (window.hkRow) return;
   window.hkRow = { version: '1.3.0' };
 
+  // THE ROOM THE VIEW KEEPS BESIDE A SIDE SAFE AREA (hk-base.js SAFE.padL /
+  // padR, 2026-10-30), both sides: out of the page's width for the gutter
+  var SAFE_PADS = 'max(0px,var(--hk-safe-left,env(safe-area-inset-left,0px)) - var(--hk-page-left,0px)) - ' +
+                  'max(0px,var(--hk-safe-right,env(safe-area-inset-right,0px)) - var(--hk-page-right,0px))';
   var CSS = [
     ':host{display:block;position:relative}',
     // The scroller. `gap` rather than per-child margins so the last child has
@@ -163,8 +167,8 @@
     // margin. 2vw is the window's, and with the menu docked at 1,010 px the
     // chips would bleed 4 px past the screen edge and the page scroll sideways.
     '  :host(.hk-bleed){',
-    '    --hk-bleed-lc:min(var(--hk-bleed-l,0px),var(--hk-gutter,calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px)) * var(--hk-side,0.02) + 4px)));',
-    '    --hk-bleed-rc:min(var(--hk-bleed-r,0px),var(--hk-gutter,calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px)) * var(--hk-side,0.02) + 4px)));',
+    '    --hk-bleed-lc:min(var(--hk-bleed-l,0px),var(--hk-gutter,calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px) - ' + SAFE_PADS + ') * var(--hk-side,0.02) + 4px)));',
+    '    --hk-bleed-rc:min(var(--hk-bleed-r,0px),var(--hk-gutter,calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px) - ' + SAFE_PADS + ') * var(--hk-side,0.02) + 4px)));',
     '    margin-left:calc(-1 * var(--hk-bleed-lc)) !important;',
     '    margin-right:calc(-1 * var(--hk-bleed-rc)) !important}',
     '  .row{',

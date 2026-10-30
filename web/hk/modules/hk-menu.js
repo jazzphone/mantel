@@ -549,7 +549,7 @@
       '  -webkit-overflow-scrolling:touch;scrollbar-width:none;box-sizing:border-box;',
       '  --safe:var(--hk-safe-top,env(safe-area-inset-top,0px));',
       '  padding:calc(22px + var(--safe)) 14px calc(28px + env(safe-area-inset-bottom,0px))',
-      '    calc(14px + env(safe-area-inset-left,0px))}',
+      '    calc(14px + var(--hk-safe-left,env(safe-area-inset-left,0px)))}',
       '.list::-webkit-scrollbar{display:none}',
       // THE NOW-PLAYING BAR LIES OVER A DOCKED MENU'S FOOT (it runs the
       // dashboard's full width, hk-popup.js), and says how much of the
@@ -573,7 +573,8 @@
       '  column-gap:12px;row-gap:5px;align-items:end;box-sizing:border-box;color:' + window.hkCards.v('ink') + ';',
       // Match the page inset, then lift the block 6px for the 44px clock's
       // extra space above its visible digits compared with the status labels.
-      '  padding:calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px)) * var(--hk-side,0.02) - 2px + var(--hk-safe-top,env(safe-area-inset-top,0px))) ' + NOW_PAD + 'px 20px ' + NOW_PAD + 'px}',
+      // (and clear of a side safe area at the left: a phone turned, its Dynamic Island there -- hk-base.js SAFE)
+      '  padding:calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px)) * var(--hk-side,0.02) - 2px + var(--hk-safe-top,env(safe-area-inset-top,0px))) ' + NOW_PAD + 'px 20px calc(' + NOW_PAD + 'px + var(--hk-safe-left,env(safe-area-inset-left,0px)))}',
       '.now[hidden],.rule[hidden]{display:none}',
       '.now .tm{display:flex;align-items:baseline;gap:4px;min-width:0;white-space:nowrap}',
       '.now .t{font-size:44px;font-weight:600;line-height:1;letter-spacing:0}',
@@ -663,6 +664,10 @@
       '.root.tabscroll.tabbed .tab{transform:none;visibility:visible;',
       '  transition:transform .22s ease,visibility 0s,filter .12s ease}',
       '.root.docked .tab{display:none}',
+      // CLOSED, the tab stands clear of a side safe area at the left (a phone
+      // turned, its Dynamic Island there: hk-base.js SAFE); open, it is the
+      // panel's handle again
+      '.root:not(.open) .tab{margin-left:var(--hk-safe-left,env(safe-area-inset-left,0px))}',
       // the finger's target is bigger than the glass: above, below and out
       // over the page (the tab is on top of the page, so it may)
       '.tab::before{content:"";position:absolute;top:-16px;bottom:-16px;left:-4px;right:-14px}',
@@ -674,7 +679,8 @@
       // A PHONE'S HOME WITH NO CHIP to hold the menu button: a round one of
       // its own, top left. The last resort; every other page has its back
       // button, which carries the menu button on a phone.
-      '.fab{position:fixed;left:calc(var(--l,0px) + 12px);',
+      // (clear of a side safe area at the left, 2026-10-30: hk-base.js SAFE)
+      '.fab{position:fixed;left:calc(max(var(--l,0px), var(--hk-safe-left,env(safe-area-inset-left,0px))) + 12px);',
       '  top:calc(var(--t,0px) + 12px + var(--hk-safe-top,env(safe-area-inset-top,0px)));width:40px;height:40px;',
       '  border-radius:50%;border:1px solid rgba(255,255,255,0.14);display:none;align-items:center;',
       '  justify-content:center;padding:0;color:rgba(255,255,255,0.92);cursor:pointer;',
@@ -892,7 +898,9 @@
       // "wide" from 860 px of page: a tablet with the menu open (980), an
       // iPad held sideways -- room for the tablet's own arrangement where the
       // iPad's was a squeeze (hk-responsive.css, [data-hk-band="wide"]).
-      var pw = (window.innerWidth || 0) - pageLeft - ps.r;
+      // (less the room the view keeps beside a side safe area: hk-base.js SAFE)
+      var sa = window.hkCards && window.hkCards.safeArea ? window.hkCards.safeArea() : { left: 0, right: 0 };
+      var pw = (window.innerWidth || 0) - pageLeft - ps.r - Math.max(0, sa.left - pageLeft) - Math.max(0, sa.right - ps.r);
       var band = pw > M.NARROW && pw < M.TAB_MIN ? (pw >= BAND_WIDE ? 'wide' : 'narrow') : null;
       if (band !== de.getAttribute('data-hk-band')) {
         if (band) de.setAttribute('data-hk-band', band); else de.removeAttribute('data-hk-band');
