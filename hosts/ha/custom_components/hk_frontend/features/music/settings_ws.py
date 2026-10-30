@@ -38,13 +38,14 @@ from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from ...hk_core.music import settings as S
 from ...hk_core.music.settings import MSG, TEXT_MAX  # noqa: F401 -- names callers read here
 from .. import MUSIC, Feature, async_update, entries
 from .const import (
     CONF_GROUP, CONF_HOMES, CONF_KEEP_READY, CONF_IGNORE_ANNOUNCEMENTS, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME,
-    DEFAULT_VOLUME, SUB_PLAYLIST, SUB_PRESET,
+    DEFAULT_VOLUME, SIGNAL_CONFIG, SUB_PLAYLIST, SUB_PRESET,
 )
 from .flows import library, playlist_errors, preset_errors, speakers_errors  # noqa: F401
 from .music import MusicConfig
@@ -86,6 +87,9 @@ async def page(hass: HomeAssistant) -> dict[str, Any]:
     entry = _entry(hass)
     if entry is None:
         return {"configured": False}
+    mgr = getattr(entry, "runtime_data", None)
+    if mgr is not None and hasattr(mgr, "refresh_groups") and await mgr.refresh_groups():
+        async_dispatcher_send(hass, SIGNAL_CONFIG)      # Music Assistant's groups, read fresh for the page
     cfg = MusicConfig.from_entry(hass, entry)
     floor = {r.entity: r.floor for r in cfg.rooms}
     room = {r.entity: r.name for r in cfg.rooms}
@@ -99,10 +103,12 @@ async def page(hass: HomeAssistant) -> dict[str, Any]:
         "homes": dict(entry.options.get(CONF_HOMES) or {}),
         "users": await _users(hass),
         "presets": [{"id": p.key, "name": p.name, "group": p.group, "group_name": _name(hass, p.group),
-                     "members": p.members} for p in cfg.presets],
+                     "members": p.members, **S.preset_extra(cfg, p)} for p in cfg.presets],
         "playlists": [{"id": p.key, "name": p.name, "icon": p.icon, "items": p.items,
                        "chooser": p.chooser, "order": p.order} for p in cfg.playlists],
         "players": [{"entity": e, "name": _name(hass, e)} for e in _players(hass, entry)],
+        # Music Assistant's groups: the pairs among the speakers, each group's rooms and problems
+        **S.groups_page(cfg, _players(hass, entry)),
         "library_ready": cfg.library_entry is not None,
         "ignore_announcements": entry.options.get(CONF_IGNORE_ANNOUNCEMENTS, True),
         "keep_ready": bool(entry.options.get(CONF_KEEP_READY)),

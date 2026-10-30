@@ -378,4 +378,27 @@ var gh = house(group([e('office'), e('loft')], { title: 'Music' }));
 ok('suppressed group leader is not reintroduced via member', M.contexts(gh)[0].key, e('loft'));
 M._configure(HK_HOUSE);
 
+print('\n=== a pair room counts in a playing preset (hk_core/music/groups.py) ===');
+// The Office is a STEREO PAIR: a Music Assistant group picked as one speaker.
+// It plays in Everywhere by its own two players, which no screen sees, while
+// its group player sits idle.
+M._configure(Object.assign({}, HK_HOUSE, { speakers: HK_HOUSE.speakers.map(function (s) {
+  return s.entity === e('office') ? Object.assign({}, s, { pair: ['Office Left', 'Office Right'] }) : s;
+}) }));
+var everyOn = { 'media_player.homepods_2': { gm: null, title: 'F' } };
+ROOMS.forEach(function (r) { if (r !== e('office')) everyOn[r] = { gm: [] }; });
+var ph = house(everyOn);
+ph.states[EVERY].attributes.media_content_id = 'library://playlist/1';
+cx = M.contexts(ph);
+ok('the preset holds the idle pair', cx.map(function (c) { return c.kind + ':' + c.key + ':' + c.members.length; }).join(','),
+   'preset:' + EVERY + ':9');
+ph.states[e('office')].state = 'paused';
+ok('  ...and a stale pause on its group player', M.contexts(ph)[0].kind, 'preset');
+ph.states[e('office')].state = 'playing';
+ph.states[e('office')].attributes.media_content_id = 'library://playlist/9';
+ok('the pair playing something else is not in it', M.contexts(ph).some(function (c) { return c.kind === 'preset'; }), false);
+M._configure(HK_HOUSE);
+ph.states[e('office')].state = 'idle';
+ok('a room that is no pair still has to be active', M.contexts(ph).some(function (c) { return c.kind === 'preset'; }), false);
+
 print('\n' + (fail ? 'FAILURES: ' + fail : 'ALL ' + pass + ' MUSIC MODEL TESTS PASS'));

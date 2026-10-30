@@ -67,6 +67,29 @@ def test_contexts_group_the_house_as_the_screens_do():
     assert app_music.contexts(cfg, states) == []
 
 
+def test_a_pair_counts_in_a_playing_preset_unless_it_plays_something_else():
+    """A pair room (hk_core/music/groups.py) is in a preset by its own players: its group player sits idle."""
+    K, C, G = "media_player.kitchen_ma", "media_player.cody_ma", "media_player.downstairs_ma"
+    cfg = {"speakers": [{"name": "Downstairs", "entity": G, "members": [K, C]},
+                        {"name": "Kitchen", "entity": K}, {"name": "Cody's Room", "entity": C, "pair": ["L", "R"]}]}
+
+    def st(s, **a):
+        return {"s": s, "a": a, "lc": 5.0}
+    states = {G: st("playing", media_content_id="library://playlist/1"), K: st("playing"), C: st("idle")}
+    got = app_music.contexts(cfg, states)
+    assert [(c["key"], c["kind"], c["members"]) for c in got] == [(G, "preset", [K, C])]
+    # a stale pause on the pair's own group player does not hide it either
+    states[C] = st("paused", media_content_id="library://playlist/7")
+    assert [c["kind"] for c in app_music.contexts(cfg, states)] == ["preset"]
+    # the pair PLAYING something else is not in the preset: two things play
+    states[C] = st("playing", media_content_id="library://playlist/7")
+    assert [(c["key"], c["kind"]) for c in app_music.contexts(cfg, states)] == [(K, "room"), (C, "room")]
+    # a room that is no pair still has to be active itself
+    cfg["speakers"][2].pop("pair")
+    states[C] = st("idle")
+    assert [(c["key"], c["kind"]) for c in app_music.contexts(cfg, states)] == [(K, "room")]
+
+
 # ------------------------------------------------------------------------------------------- the routes
 async def test_the_app_reads_the_music_and_sets_its_speaker(house):
     m = house

@@ -11,6 +11,8 @@ from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 from .checks import playlist_errors, preset_errors, speakers_errors
+from .config import MusicConfig, Preset
+from .groups import kind, problem_text
 from .const import (
     CONF_CHOOSER, CONF_GROUP, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS, CONF_KEEP_READY,
     CONF_MEMBERS, CONF_NAME, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME,
@@ -104,6 +106,33 @@ def apply(options: Mapping[str, Any], changes: Mapping[str, Any], players: set[s
                     homes.pop(str(user), None)
             opts[CONF_HOMES] = homes
     return opts, errors
+
+
+# ------------------------------------------------------------- Music Assistant's groups
+def groups_page(cfg: MusicConfig, players: Iterable[str]) -> dict[str, Any]:
+    """What the page says about Music Assistant's groups (groups.py): ``ma_groups`` (the player list
+    was read), ``pairs`` {speaker: {parts: [names], kind}} and, for each of ``players`` that is a
+    group (a preset's choices), ``groups`` {entity: {rooms, problems: [words]}}."""
+    g = cfg.groups
+    if g is None:
+        return {"ma_groups": False, "pairs": {}, "groups": {}}
+    order = [r.entity for r in sorted(cfg.rooms, key=lambda r: r.index)]
+    groups = {}
+    for e in players:
+        got = g.rooms_of(e, order) if e not in cfg.pairs else None
+        if got is not None:
+            groups[e] = {"rooms": got.rooms, "problems": problems(cfg, got.problems)}
+    return {"ma_groups": True, "groups": groups,
+            "pairs": {r: {"parts": names, "kind": kind(names)} for r, names in cfg.pairs.items()}}
+
+
+def problems(cfg: MusicConfig, found: Iterable[Mapping[str, Any]]) -> list[str]:
+    return [problem_text(p, cfg.name_of(str(p.get("room") or ""))) for p in found]
+
+
+def preset_extra(cfg: MusicConfig, p: Preset) -> dict[str, Any]:
+    """A preset's line on the page, beyond its name, group and rooms."""
+    return {"from_ma": p.from_ma, "problems": problems(cfg, p.problems)}
 
 
 # ------------------------------------------------------------- a preset

@@ -132,6 +132,8 @@ class HouseMa(FakeMa):
         self.react = True
         # (provider, item id) of playlists whose songs MA cannot read: the streaming service refused its sign-in
         self.signed_out: set[tuple[str, str]] = set()
+        # players/all's answer, when a test gives one (hk_core/music/groups.py: pairs, the presets' rooms)
+        self.players: list | None = None
 
     def sent(self, *, commands_only: bool = True) -> list[tuple[str, dict]]:
         out = []
@@ -158,6 +160,8 @@ class HouseMa(FakeMa):
         async def ok(result):
             await ws.send_json({"message_id": mid, "result": result, "partial": False})
 
+        if cmd == "players/all" and self.players is not None:
+            return await ok(self.players)
         if cmd.startswith("music/") and cmd.endswith("/library_items"):
             return await ok(library_answer(cmd, args))
         if cmd == "player_queues/get_active_queue":

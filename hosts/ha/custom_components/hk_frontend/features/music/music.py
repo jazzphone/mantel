@@ -50,13 +50,16 @@ from typing import Any
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import Context, Event, HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_state_change_event
 
 from ...hk_core.music import config as C, engine as E
+from ...hk_core.music.groups import Groups, signature
 from ...hk_core.music.config import Item, Playlist, Preset, Room  # noqa: F401 -- names callers import here
 from ...hk_core.music.engine import ACTIVE, GONE, STOPPED, SUPERSEDED  # noqa: F401
 from ...house import HaHouse
 from .. import Feature
+from .warm import mass_client
 
 # The context of the hk_frontend.music_* action being served: set by its
 # handler (features/music/__init__.py), read by MusicManager._call, and
@@ -93,12 +96,21 @@ def _items(entry: Feature) -> list[Item]:
     return [Item(s.subentry_type, s.subentry_id, s.title, s.data) for s in entry.subentries.values()]
 
 
+def ma_pids(hass: HomeAssistant) -> dict[str, str]:
+    """{media_player entity: its Music Assistant player id}: the music_assistant entities' unique ids."""
+    return {e.entity_id: e.unique_id for e in er.async_get(hass).entities.values()
+            if e.platform == "music_assistant" and e.domain == "media_player"}
+
+
 class MusicConfig(C.MusicConfig):
-    """The shared configuration model (hk_core.music.config), read from the HA feature."""
+    """The shared configuration model (hk_core.music.config), read from the HA feature, with Music
+    Assistant's groups (hk_core/music/groups.py) as the running engine last read them."""
 
     @classmethod
     def from_entry(cls, hass: HomeAssistant, entry: Feature) -> MusicConfig:
-        return cls.build(HaHouse(hass), entry.options, _items(entry), _library_entry(hass))
+        raw = getattr(getattr(entry, "runtime_data", None), "ma_players", None)
+        groups = Groups.read(raw, ma_pids(hass)) if raw is not None else None
+        return cls.build(HaHouse(hass), entry.options, _items(entry), _library_entry(hass), groups)
 
 
 # =========================================================== the engine
@@ -120,10 +132,30 @@ class MusicManager:
         self._stopped: set[asyncio.Task[Any]] = set()
         # Tests shorten the one real sleep; nothing else touches this.
         self.settle = JOIN_SETTLE
+        # MUSIC ASSISTANT'S PLAYER LIST (hk_core/music/groups.py: pairs, and the presets' rooms), as
+        # refresh_groups last read it; None until it could be.
+        self.ma_players: list[Any] | None = None
 
     @property
     def config(self) -> MusicConfig:
         return MusicConfig.from_entry(self.hass, self.entry)
+
+    async def refresh_groups(self) -> bool:
+        """Music Assistant's player list, read again through the client its Home Assistant integration
+        holds (warm.py's mass_client: not a public contract, so a failure keeps the last list). True when
+        the groups in it changed -- the screens' configuration is then re-sent."""
+        mass = mass_client(self.hass)
+        if mass is None:
+            return False
+        try:
+            raw = await mass.send_command("players/all")
+        except Exception as err:  # noqa: BLE001 -- the last list stays
+            _LOGGER.debug("music: Music Assistant's players could not be read: %s", err)
+            return False
+        if not isinstance(raw, list):
+            return False
+        old, self.ma_players = self.ma_players, raw
+        return old is None or signature(old) != signature(raw)
 
     # ---------------------------------------------------------- state helpers
     def _state(self, entity: str) -> str | None:

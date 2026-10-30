@@ -76,8 +76,10 @@ from hk_core.music.const import (
     CONF_KEEP_READY, CONF_MEMBERS, CONF_NAME, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME, DEFAULT_VOLUME, NOTE_GROUP,
     NOTE_PARTIAL, NOTE_PLAY, NOTE_PRESET, NOTE_STOP, NOTE_TRANSFER, SERVICE_PLAY, SERVICE_PLAY_MEDIA, SERVICE_STOP,
     SERVICE_TRANSFER, SERVICE_TRANSPORT, SUB_PLAYLIST, SUB_PRESET, WARM_FIRST, WARM_RETRY, WARM_SOON,
+    GROUPS_EVERY,
 )
 from hk_core.music.engine import ACTIVE, STOPPED, SUPERSEDED
+from hk_core.music.groups import Groups, signature
 from hk_core.music.queue import QUEUE_MAX
 from hk_core.music.warm import Warmer
 
@@ -1042,6 +1044,8 @@ def _principal_ok(identity: Any) -> bool:
 class MusicHost:
     """``app["music"]``: the engine, its reads, its settings and the switch (``active``)."""
 
+    ma_players: list[Any] | None = None     # Music Assistant's player list (refresh_groups)
+
     def __init__(self, app: Any, hub: Any, hooks: Any) -> None:
         self.app, self.hub, self.hooks = app, hub, hooks
         authz = app.get("authz")
@@ -1055,6 +1059,10 @@ class MusicHost:
         self._sid = itertools.count(1)
         self._sent: dict[int, Any] = {}
         self.started = False
+        # MUSIC ASSISTANT'S PLAYER LIST (hk_core/music/groups.py: pairs, and the presets' rooms), as
+        # refresh_groups last read it; None until it could be. Read every GROUPS_EVERY while running.
+        self.ma_players = None
+        self._groups_task: asyncio.Task | None = None
 
     # -- what it runs on ----------------------------------------------------------------------------------
     @property
@@ -1088,7 +1096,32 @@ class MusicHost:
     def config(self) -> MusicConfig:
         d = self.doc() or empty_doc()
         items = [Item(i["kind"], i["key"], i["title"], i["data"]) for i in d["items"]]
-        return MusicConfig.build(self.house, d["options"], items, library_entry(self.hub.registry))
+        groups = Groups.read(self.ma_players, ma_players(self.hub.registry)) if self.ma_players is not None else None
+        return MusicConfig.build(self.house, d["options"], items, library_entry(self.hub.registry), groups)
+
+    async def refresh_groups(self) -> bool:
+        """Music Assistant's player list, read again (a read: no gate, no audit). A failure keeps the last list.
+        True when the groups in it changed -- the screens' feed is then re-sent."""
+        client = self.ma
+        if client is None or not client.connected.is_set():
+            return False
+        try:
+            raw = await client.players()
+        except Exception as err:  # noqa: BLE001 -- the last list stays
+            log.debug("music: Music Assistant's players could not be read: %s", type(err).__name__)
+            return False
+        if not isinstance(raw, list):
+            return False
+        old, self.ma_players = self.ma_players, raw
+        changed = old is None or signature(old) != signature(raw)
+        if changed and self._subs:
+            self.push()
+        return changed
+
+    async def _groups_loop(self) -> None:
+        while True:
+            await self.refresh_groups()
+            await asyncio.sleep(GROUPS_EVERY)
 
     def pid(self, entity: str) -> str:
         got = ma_players(self.hub.registry).get(entity)
@@ -1305,10 +1338,12 @@ class MusicHost:
             "users": sorted(({"id": p["id"], "name": p.get("name") or p.get("username") or p["id"]} for p in people),
                             key=lambda u: str(u["name"]).casefold()),
             "presets": [{"id": p.key, "name": p.name, "group": p.group, "group_name": self._name(p.group),
-                         "members": p.members} for p in cfg.presets],
+                         "members": p.members, **S.preset_extra(cfg, p)} for p in cfg.presets],
             "playlists": [{"id": p.key, "name": p.name, "icon": p.icon, "items": p.items, "chooser": p.chooser,
                            "order": p.order} for p in cfg.playlists],
             "players": [{"entity": e, "name": self._name(e)} for e in self._players(doc)],
+            # Music Assistant's groups: the pairs among the speakers, each group's rooms and problems
+            **S.groups_page(cfg, self._players(doc)),
             "library_ready": self.ma is not None and self.ma.connected.is_set(),
             "ignore_announcements": opts[CONF_IGNORE_ANNOUNCEMENTS],
             "keep_ready": bool(opts[CONF_KEEP_READY]),
@@ -1524,15 +1559,20 @@ class MusicHost:
         # started only at start() and on a settings save, so one connected later never warmed anything
         if self.started:
             self.warmer.follow(WARM_SOON)
+            asyncio.get_running_loop().create_task(self.refresh_groups())
 
     async def start(self) -> None:
         self.started = True
         self.warmer.follow()
+        self._groups_task = asyncio.get_running_loop().create_task(self._groups_loop())
 
     async def stop(self) -> None:
         self.started = False
         self.warmer.stop()
         self.announcements.reset()
+        if self._groups_task is not None:
+            self._groups_task.cancel()
+            self._groups_task = None
 
 
 # ------------------------------------------------------------------------------------------- register

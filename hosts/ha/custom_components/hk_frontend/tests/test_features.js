@@ -86,6 +86,17 @@ ok('a room is named by its speaker’s area, else the player’s name, else its 
 ok('a playlist’s line: its chooser and how many it plays',
    F._.playlistSub({ items: ['a'], chooser: 'Decades' }) === 'In Decades · 1 playlist' && F._.playlistSub({ items: ['a', 'b'] }) === '2 playlists');
 
+// A STEREO PAIR (hk_core/music/groups.py): a Music Assistant group picked as one room's speaker
+var pd = Object.assign({}, md, { pairs: { 'media_player.o': { parts: ['Office Left', 'Office Right'], kind: 'stereo pair' } } });
+var PL = F._.speakerLists(pd);
+ok('a pair says so under its name, with its two speakers',
+   PL.rows[1].sub === 'Stereo pair: Office Left + Office Right' && PL.rows[0].sub === 'Main · Kitchen HomePod', PL.rows);
+ok('...and once under the list, in words',
+   F._.pairNote(pd) === 'Office is a stereo pair in Music Assistant (Office Left + Office Right), so it’s one room here. ' +
+   'It plays on its own through its group, and with other rooms through a preset whose Music Assistant group holds all of it.',
+   F._.pairNote(pd));
+ok('no pairs, no note', F._.pairNote(md) === '' && F._.pairNote({}) === '');
+
 // ------------------------------------------------------------ search
 var s = F.search(feats);
 ok('search finds an installed feature’s settings', s.some(function (e) { return e.label === 'Channels' && e.route === 'features/tv/channels' && e.where === 'Live TV'; }));

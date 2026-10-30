@@ -1008,3 +1008,53 @@ async def test_observed_announcements_reach_the_feed_without_sending_audio(off):
             break
     assert [c for c in off.ma.commands() if c != "auth"] == []
     await ws.close()
+
+
+# ------------------------------------------------------------------------------------------- pairs (groups.py)
+CODY_PAIR = [{"player_id": "ma-kitchen", "display_name": "Kitchen", "type": "player", "group_members": []},
+             {"player_id": "ma-den", "display_name": "Den", "type": "player", "group_members": []},
+             # Cody's Room is a STEREO PAIR: a Music Assistant group of two players the house never sees
+             {"player_id": "ma-cody", "display_name": "Cody Pair", "type": "group", "group_members": ["ma-cl", "ma-cr"]},
+             {"player_id": "ma-cl", "display_name": "Cody Left", "type": "player", "group_members": []},
+             {"player_id": "ma-cr", "display_name": "Cody Right", "type": "player", "group_members": []},
+             # the preset's group holds the pair's two players, not its group (a group can't hold a group)
+             {"player_id": "ma-downstairs", "display_name": "Downstairs", "type": "group",
+              "group_members": ["ma-den", "ma-cl", "ma-kitchen", "ma-cr"]}]
+
+
+async def test_a_pair_comes_from_music_assistant_to_the_page_the_feed_and_the_engine(on):
+    K, D, C = "media_player.kitchen_ma", "media_player.den_ma", "media_player.cody_ma"
+    on.ma.players = CODY_PAIR
+    await on.connected()
+    await on.login("owner1", "owner")
+    ws = await on.socket()
+    page = (await on.read(ws, {"type": "hk_music/settings/get"}))["result"]
+    assert page["ma_groups"] is True
+    assert page["pairs"] == {C: {"parts": ["Cody Left", "Cody Right"], "kind": "stereo pair"}}
+    # the preset's rooms are its group's, read from Music Assistant -- not the two it was saved with
+    assert page["presets"][0]["members"] == [K, D, C] and page["presets"][0]["from_ma"] is True
+    assert page["presets"][0]["problems"] == []
+    assert page["groups"]["media_player.downstairs_ma"] == {"rooms": [K, D, C], "problems": []}
+    _r, ev = await on.subscribe(ws, {"type": "hk_music/subscribe"})
+    by = {s["entity"]: s for s in ev["speakers"]}
+    assert by[C]["pair"] == ["Cody Left", "Cody Right"] and by["media_player.downstairs_ma"]["members"] == [K, D, C]
+    # the pair with another room, outside a preset: refused before anything is sent
+    reply = await on.command(ws, **play([K, C]))
+    assert reply["result"]["response"] == {"ok": False, "message":
+        "Cody's Room is a stereo pair, so it plays with other rooms only through a preset: Downstairs."}, reply
+    assert on.ma.sent() == []
+    # the three rooms are the preset: played through its group
+    reply = await on.command(ws, id=2, **play([K, D, C]))
+    assert reply["result"]["response"]["leader"] == "media_player.downstairs_ma", reply
+    await ws.close()
+
+
+async def test_music_assistants_groups_are_read_again_and_the_feed_follows(on):
+    host = on.app["music"]
+    await on.connected()
+    assert await host.refresh_groups() is True and host.config().pairs == {}       # the fake's one player
+    assert await host.refresh_groups() is False                                    # nothing changed
+    on.ma.players = CODY_PAIR
+    assert await host.refresh_groups() is True and "media_player.cody_ma" in host.config().pairs
+    on.ma.players = "not a list"
+    assert await host.refresh_groups() is False and "media_player.cody_ma" in host.config().pairs   # the last stays

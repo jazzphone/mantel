@@ -26,6 +26,7 @@ from typing import Any
 from ..house import House
 from .config import MusicConfig, Playlist, Preset
 from .const import VOLUME_STEP
+from .groups import kind
 
 ACTIVE = ("playing", "paused")
 GONE = ("unavailable", "unknown")
@@ -168,6 +169,21 @@ def check_play(house: House, cfg: MusicConfig, rooms: list[str],
     return None, pl
 
 
+def pair_alone(cfg: MusicConfig, rooms: list[str], preset: Preset | None) -> dict[str, Any] | None:
+    """A PAIR PLAYS ON ITS OWN OR THROUGH A PRESET (groups.py). Music Assistant cannot join its group
+    to other players, and its own players are hidden from the house, so rooms that hold a pair and are
+    not exactly a preset's are refused here -- before anything is sent -- rather than failing to join."""
+    if preset is not None or len(rooms) < 2:
+        return None
+    pair = next((r for r in rooms if r in cfg.pairs), None)
+    if pair is None:
+        return None
+    via = [p.name for p in cfg.presets_with(pair)]
+    how = (f"with other rooms only through a preset: {', '.join(via)}" if via else
+           "on its own, or with other rooms through a preset whose Music Assistant group holds all of it")
+    return {"ok": False, "message": f"{cfg.name_of(pair)} is a {kind(cfg.pairs[pair])}, so it plays {how}."}
+
+
 def library_links(items: Iterable[str]) -> list[str]:
     """The links a library check can answer: `library://playlist/` ones, the shape every pill uses."""
     return [i for i in items if i.startswith(LIBRARY_PLAYLIST)]
@@ -195,7 +211,7 @@ def play_rooms(house: House, cfg: MusicConfig, rooms: list[str]
         if not available(house, preset.group):
             return {"ok": False, "message": f"{preset.name} is unavailable right now."}, preset, preset.members
         return None, preset, preset.members
-    return None, None, rooms
+    return pair_alone(cfg, rooms, None), None, rooms
 
 
 def play_target(house: House, cfg: MusicConfig, rooms: list[str], preset: Preset | None,
@@ -241,7 +257,7 @@ def check_transfer(house: House, cfg: MusicConfig, rooms: list[str],
     alone = not [m for m in members(house, source) if m != source and m in cfg.room_ids]
     if preset is None and source in rooms and len(rooms) == 1 and alone:
         return {"ok": False, "message": "The music is already there."}, preset
-    return None, preset
+    return pair_alone(cfg, rooms, preset), preset
 
 
 def transfer_rooms(house: House, cfg: MusicConfig, rooms: list[str], source: str) -> set[str]:

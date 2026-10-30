@@ -90,9 +90,22 @@ def _active(eid: str, states: dict, cfg: dict) -> bool:
     return st is not None and not _ignored(dict(st, entity_id=eid), cfg) and st.get("s") in ("playing", "paused")
 
 
+def _elsewhere(pair: str, group: dict | None, states: dict) -> bool:
+    """hkMusic.elsewhere: a pair room (hk_core/music/groups.py) is in a playing preset's group by its own players,
+    while its own group player sits idle -- so it is out of the preset only when that player is PLAYING something
+    else (a stale `paused` must not hide it)."""
+    st = states.get(pair) or {}
+    if st.get("s") != "playing":
+        return False
+    mine = (st.get("a") or {}).get("media_content_id")
+    theirs = ((group or {}).get("a") or {}).get("media_content_id")
+    return bool(mine and theirs and mine != theirs)
+
+
 def contexts(cfg: dict, states: dict) -> list[dict[str, Any]]:
     """EVERY SEPARATE THING THE HOUSE IS PLAYING, as hkMusic.contexts (hk-base.js) derives it: a preset (a sync group
-    active with ALL its rooms active), an ad-hoc group keyed by its leader (group_members[0]), or one room."""
+    active with ALL its rooms active -- a pair room counts unless it plays something else), an ad-hoc group keyed by
+    its leader (group_members[0]), or one room."""
     speakers = cfg.get("speakers") or []
     presets = [s for s in speakers if s.get("members")]
     rooms = [s for s in speakers if not s.get("members")]
@@ -106,11 +119,13 @@ def contexts(cfg: dict, states: dict) -> list[dict[str, Any]]:
         return {"key": key, "kind": kind, "leader": members[0], "members": members,
                 "playing": st.get("s") == "playing", "state": st.get("s") or "unknown",
                 "title": a.get("media_title") or "", "artist": a.get("media_artist") or "", "since": st.get("lc") or 0}
+    pairs = {s["entity"] for s in rooms if s.get("pair")}
     for g in presets:
         st = states.get(g["entity"])
         if not _active(g["entity"], states, cfg):
             continue
-        if any(m in seen or not _active(m, states, cfg) for m in g["members"]):
+        if any(m in seen or (_elsewhere(m, st, states) if m in pairs else not _active(m, states, cfg))
+               for m in g["members"]):
             continue
         seen.update(g["members"])
         out.append(ctx(g["entity"], "preset", list(g["members"]), st))

@@ -89,3 +89,7 @@ WARM_TIMEOUT = 120        # one playlist, at most (MA's retries span ~2 min)
 WARM_PAGE = 100           # songs per page, Music Assistant's
 WARM_RECENT = 10          # recently played playlists kept ready too...
 WARM_RECENT_DAYS = 7      # ...played within this many days
+
+# MUSIC ASSISTANT'S GROUPS (groups.py): how often a host reads its player list again (and at once
+# when the settings page opens). A group changed in Music Assistant shows within this long.
+GROUPS_EVERY = 30

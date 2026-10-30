@@ -3537,8 +3537,22 @@
       });
     }
 
+    // A PAIR ROOM (a stereo pair: a Music Assistant group picked as one
+    // speaker, hk_core/music/groups.py) plays in a preset through its own
+    // players, which no screen sees; its group player sits idle meanwhile.
+    // So it is out of a playing preset only when that player is PLAYING
+    // something else (a stale `paused` must not hide it).
+    function isPair(e) { return !!(byEntity[e] && byEntity[e].pair); }
+    function elsewhere(e, groupSt, states) {
+      var st = states[e];
+      if (!st || st.state !== 'playing') return false;
+      var mine = (st.attributes || {}).media_content_id, theirs = ((groupSt && groupSt.attributes) || {}).media_content_id;
+      return !!(mine && theirs && mine !== theirs);
+    }
+
     // EVERY SEPARATE THING THE HOUSE IS PLAYING, derived fresh each call.
     //   preset  an MA sync group that is active with ALL of its rooms active
+    //           (a pair room counts unless it plays something else)
     //   group   an ad-hoc join, keyed by its LEADER (group_members[0])
     //   room    one room on its own
     // A sync group is recognised by its OWN state, not by a room list that
@@ -3565,7 +3579,7 @@
       presets().forEach(function (g) {
         var st = states[g.entity];
         if (!active(st)) return;
-        if (g.members.some(function (m) { return seen[m] || !active(states[m]); })) return;
+        if (g.members.some(function (m) { return seen[m] || (isPair(m) ? elsewhere(m, st, states) : !active(states[m])); })) return;
         g.members.forEach(function (m) { seen[m] = 1; });
         out.push(ctx(g.entity, 'preset', g.members.slice(), st));
       });

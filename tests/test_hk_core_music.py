@@ -451,3 +451,110 @@ def test_which_calls_are_announcements_and_what_they_hide(cfg):
     assert A.hidden(cfg, "tts.piper", {K}) is None
     assert A.content(State(K, "playing", {"media_title": "Song"})) == (None, "Song", None)
     assert A.content(State(K, "idle", {"media_title": "Song"})) is None
+
+
+# ------------------------------------------------------------- Music Assistant's groups: pairs
+# The Office is a STEREO PAIR (2026-10-30): a Music Assistant group of two HomePods hidden from the
+# house, picked as one speaker. The presets' groups hold its two players themselves.
+from hk_core.music import groups as G  # noqa: E402
+
+PIDS = {K: "ap_k", LR: "ap_lr", OFF: "sg_office", LOFT: "ap_loft", EXTRA: "ap_x",
+        DOWNG: "sg_down", EVERY: "sg_every", "media_player.half": "sg_half"}
+
+
+def ma(*players):
+    return [{"player_id": pid, "display_name": name, "type": kind, "group_members": list(members)}
+            for pid, name, kind, members in players]
+
+
+MA_PLAYERS = ma(
+    ("ap_k", "Kitchen HomePod", "player", []), ("ap_lr", "Living Room HomePod", "player", []),
+    ("ap_loft", "Loft HomePod", "player", []), ("ap_x", "Extra HomePod", "player", []),
+    ("ap_l", "Office Left HomePod", "player", []), ("ap_r", "Office Right HomePod", "player", []),
+    ("ap_deck", "Deck Speaker", "player", []),
+    ("sg_office", "Office HomePods", "group", ["ap_l", "ap_r"]),
+    ("sg_down", "Downstairs", "group", ["ap_k", "ap_lr"]),
+    # Everywhere holds the Office's two players, not its group (a group can't hold a group)
+    ("sg_every", "HomePods", "group", ["ap_k", "ap_lr", "ap_r", "ap_l", "ap_loft", "ap_x"]),
+    ("sg_half", "Half", "group", ["ap_l", "ap_loft", "ap_deck"]))
+
+
+@pytest.fixture
+def pcfg(house):
+    """The house with Music Assistant's groups read: the presets' chosen rooms are stale on purpose."""
+    opts = {CONF_SPEAKERS: list(ROOMS), CONF_VOLUME: 0.35, CONF_HOMES: {}}
+    items = [preset("p_down", "Downstairs", DOWNG, [K]), preset("p_every", "Everywhere", EVERY, [K, LR]),
+             preset("p_half", "Half", "media_player.half", [LOFT])]
+    return MusicConfig.build(house, opts, items, library_entry="ma1", groups=G.Groups.read(MA_PLAYERS, PIDS))
+
+
+def test_music_assistants_players_are_read_whatever_comes():
+    got = G.read_players(MA_PLAYERS + [None, {"player_id": 5}, {"player_id": "x", "group_childs": ["a"], "type": "group"}])
+    assert got["sg_office"].group and got["sg_office"].members == ("ap_l", "ap_r")
+    assert got["x"].members == ("a",) and got["x"].name == "x"           # an older server's key, no name
+    assert G.Groups.read(None, PIDS) is None and G.Groups.read({"no": 1}, PIDS) is None
+    assert G.signature(MA_PLAYERS) == G.signature(list(reversed(MA_PLAYERS)))
+    assert G.signature(MA_PLAYERS) != G.signature(MA_PLAYERS[:-1]) and G.signature(None) == ()
+
+
+def test_a_speaker_that_is_a_group_is_a_pair(pcfg):
+    assert pcfg.pairs == {OFF: ["Office Left HomePod", "Office Right HomePod"]}
+    office = [s for s in pcfg.as_client(None)["speakers"] if s["entity"] == OFF][0]
+    assert office["pair"] == ["Office Left HomePod", "Office Right HomePod"] and "members" not in office
+    assert all("pair" not in s for s in pcfg.as_client(None)["speakers"] if s["entity"] != OFF)
+    assert G.kind(["a", "b"]) == "stereo pair" and G.kind(["a", "b", "c"]) == "speaker group"
+
+
+def test_a_presets_rooms_are_its_groups_with_the_pair_folded_back(pcfg):
+    by = {p.key: p for p in pcfg.presets}
+    # in the speakers' order, the Office's two players counted once, as the Office
+    assert by["p_every"].members == [K, LR, OFF, LOFT, EXTRA] and by["p_every"].from_ma
+    assert by["p_down"].members == [K, LR] and not by["p_down"].problems
+    assert pcfg.preset_for_rooms([LOFT, OFF, K, LR, EXTRA]).key == "p_every"
+    # half of the pair, and a player that is no speaker: said, and the rest still counted
+    half = by["p_half"]
+    assert half.members == [LOFT] and half.from_ma
+    assert half.problems == [{"code": "part", "room": OFF, "in": ["Office Left HomePod"], "out": ["Office Right HomePod"]},
+                             {"code": "not_a_speaker", "player": "Deck Speaker"}]
+    words = S.preset_extra(pcfg, half)["problems"]
+    assert words[0].startswith("Office Left HomePod is in this group without Office Right HomePod, so Study")
+    assert "Deck Speaker is in this group but isn’t one of Music’s speakers" in words[1]
+
+
+def test_without_music_assistants_groups_the_chosen_rooms_stand(house, cfg):
+    assert cfg.pairs == {} and cfg.groups is None
+    assert [p.members for p in cfg.presets] == [ROOMS, DOWN] and not any(p.from_ma for p in cfg.presets)
+    # a group Music Assistant knows nothing of keeps its chosen rooms too
+    g = G.Groups.read(ma(("ap_k", "Kitchen", "player", [])), {K: "ap_k"})
+    built = MusicConfig.build(house, {CONF_SPEAKERS: list(ROOMS)}, ITEMS, groups=g)
+    assert [p.members for p in built.presets] == [ROOMS, DOWN]
+
+
+def test_a_pair_plays_alone_or_through_a_preset(house, pcfg):
+    fail, preset_, rooms = E.play_rooms(house, pcfg, [K, OFF])
+    assert preset_ is None and fail == {"ok": False, "message":
+        "Study is a stereo pair, so it plays with other rooms only through a preset: Everywhere."}
+    assert E.play_rooms(house, pcfg, [OFF]) == (None, None, [OFF])
+    assert E.play_rooms(house, pcfg, [K, LR, OFF, LOFT, EXTRA])[0] is None
+    assert E.play_rooms(house, pcfg, [K, LR]) [0] is None
+    # moving music onto the pair and another room: the same refusal, before anything is sent
+    house.set(K, "playing")
+    fail, _ = E.check_transfer(house, pcfg, [OFF, LOFT], K)
+    assert "Study is a stereo pair" in fail["message"]
+    assert E.check_transfer(house, pcfg, [OFF], K) == (None, None)
+    # a pair no preset holds all of
+    lone = MusicConfig.build(house, {CONF_SPEAKERS: list(ROOMS)}, [], groups=G.Groups.read(MA_PLAYERS, PIDS))
+    assert E.play_rooms(house, lone, [OFF, K])[0]["message"] == (
+        "Study is a stereo pair, so it plays on its own, or with other rooms through a preset whose "
+        "Music Assistant group holds all of it.")
+
+
+def test_the_settings_page_says_what_music_assistant_has(pcfg):
+    page = S.groups_page(pcfg, [DOWNG, EVERY, "media_player.half", OFF, K])
+    assert page["ma_groups"] is True
+    assert page["pairs"] == {OFF: {"parts": ["Office Left HomePod", "Office Right HomePod"], "kind": "stereo pair"}}
+    # every group a preset could use, never the pair itself, never a single player
+    assert set(page["groups"]) == {DOWNG, EVERY, "media_player.half"}
+    assert page["groups"][EVERY] == {"rooms": [K, LR, OFF, LOFT, EXTRA], "problems": []}
+    assert len(page["groups"]["media_player.half"]["problems"]) == 2
+    assert S.groups_page(MusicConfig(), [EVERY]) == {"ma_groups": False, "pairs": {}, "groups": {}}

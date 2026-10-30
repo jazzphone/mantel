@@ -87,7 +87,10 @@ An Owner can narrow any of these with an ordinary deny grant, for example to
 keep a Child off the Music page.
 
 **Presets** (Music Assistant sync groups) are offered when the person may see
-the group, or every room in it. Up Next for a speaker you may not see answers
+the group, or every room in it. A preset's rooms are read from its group in
+Music Assistant, and a **stereo pair** (a Music Assistant group of two
+speakers, picked as one room's speaker) counts as one room in them; see
+HK Frontend's [Music](https://github.com/jazzphone/hk-frontend/wiki/Music#stereo-pairs). Up Next for a speaker you may not see answers
 as if it did not exist.
 
 ### Playing needs house commands on

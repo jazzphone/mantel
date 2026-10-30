@@ -124,19 +124,34 @@
     return n + ' of ' + (d.areas || []).length;
   }
   // MUSIC: the Speakers list. Shown: the speakers in their order (each named
-  // by its area, the player's own name under it when different); More: the
-  // other Music Assistant players, but never a preset's sync group.
+  // by its area, the player's own name under it when different, and a pair's
+  // speakers); More: the other Music Assistant players, but never a preset's
+  // sync group.
   function speakerLists(d) {
     var groups = (d.presets || []).map(function (p) { return p.group; });
     var have = (d.speakers || []).map(function (x) { return x.entity; });
     return {
       rows: (d.speakers || []).map(function (x) {
+        var pair = (d.pairs || {})[x.entity];
         return { value: x.entity, label: x.name,
-                 sub: [x.floor, x.player && x.player !== x.name ? x.player : null].filter(Boolean).join(' · ') || null };
+                 sub: [x.floor, x.player && x.player !== x.name ? x.player : null,
+                       pair ? cap(pair.kind) + ': ' + pair.parts.join(' + ') : null].filter(Boolean).join(' · ') || null };
       }),
       more: (d.players || []).filter(function (p) { return have.indexOf(p.entity) < 0 && groups.indexOf(p.entity) < 0; })
         .map(function (p) { return { value: p.entity, label: p.name, sub: p.entity }; })
     };
+  }
+  function cap(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+  // A PAIR (hk_core/music/groups.py): a Music Assistant group picked as one
+  // speaker, its own speakers hidden from the house. What that means, once.
+  function pairNote(d) {
+    var ids = Object.keys(d.pairs || {});
+    if (!ids.length) return '';
+    return ids.map(function (e) {
+      var p = d.pairs[e];
+      return speakerName(d, e) + ' is a ' + p.kind + ' in Music Assistant (' + p.parts.join(' + ') + '), so it’s one room here. ' +
+             'It plays on its own through its group, and with other rooms through a preset whose Music Assistant group holds all of it.';
+    }).join(' ');
   }
   function speakerName(d, id) {
     var x = (d.speakers || []).filter(function (s) { return s.entity === id; })[0];
@@ -505,7 +520,8 @@
   function musicSpeakers(P, c, d) {
     var L = speakerLists(d), err = P.err('f:hk_music:speakers');
     c.appendChild(K.listEditor({ fk: 'spk', minRows: 1, announce: P.announce.bind(P), moreHeader: 'Other Music Assistant Players',
-      shownFooter: (err ? err + ' ' : '') + 'Each is named by its area and grouped by its floor on the screens; within a floor, in this order.',
+      shownFooter: (err ? err + ' ' : '') + 'Each is named by its area and grouped by its floor on the screens; within a floor, in this order.' +
+                   (pairNote(d) ? ' ' + pairNote(d) : ''),
       emptyText: 'Music Assistant has no other players.',
       rows: L.rows, more: L.more, onChange: function (v) { P.featSet('hk_music', { speakers: v }); } }));
   }
@@ -519,9 +535,12 @@
       })));
   }
   function musicPresets(P, c, d) {
-    c.appendChild(K.group({ footer: 'A Music Assistant sync group and the rooms it plays in. Choosing exactly those rooms on a screen plays through the group, in step.' },
+    var odd = (d.presets || []).filter(function (p) { return (p.problems || []).length; });
+    c.appendChild(K.group({ footer: 'A Music Assistant sync group and the rooms it plays in. Choosing exactly those rooms on a screen plays through the group, in step.' +
+        (odd.length ? ' ' + odd.map(function (p) { return p.name; }).join(', ') + ' ' + (odd.length === 1 ? 'needs' : 'need') + ' a look.' : '') },
       (d.presets || []).map(function (p) {
         return K.nav({ label: p.name, sub: (p.members || []).map(function (m) { return speakerName(d, m); }).join(', '),
+                       badge: (p.problems || []).length ? 'Check' : null,
                        href: '#/features/music/presets/' + encodeURIComponent(p.id), fk: 'music:preset:' + p.id });
       }).concat([K.nav({ label: 'Add Preset', href: '#/features/music/presets/new', icon: 'mdi:plus-circle-outline', fk: 'music:preset:new' })])));
   }
@@ -541,17 +560,34 @@
       K.select({ label: 'Sync Group', sk: 'f:hk_music:group', value: f.group, placeholder: 'Choose',
                  options: groups.map(function (x) { return [x.entity, x.name]; }), onChange: function (v) { f.group = v; P.render(); } })]));
     if (P.err('f:hk_music:group')) c.appendChild(K.group({ footer: P.err('f:hk_music:group') }, []));
-    c.appendChild(K.group({ header: 'Rooms', footer: (P.err('f:hk_music:members') ? P.err('f:hk_music:members') + ' ' : '') +
-        'The rooms the sync group plays in. Home Assistant can’t read them from Music Assistant, so they’re chosen here.' },
-      (d.speakers || []).map(function (x) {
-        var on = f.members.indexOf(x.entity) >= 0;
-        return K.check({ label: x.name, sub: x.floor || null, multi: true, on: on, fk: 'music:member:' + x.entity, onClick: function () {
-          f.members = on ? f.members.filter(function (m) { return m !== x.entity; }) : f.members.concat(x.entity);
-          P.render();
-        } });
-      })));
+    // ITS ROOMS ARE ITS GROUP'S (hk_core/music/groups.py): read from Music
+    // Assistant, a pair's speakers counted as the pair. Chosen here only when
+    // Music Assistant's groups can't be read.
+    var ma = f.group && d.groups ? d.groups[f.group] : null;
+    var memErr = P.err('f:hk_music:members') ? P.err('f:hk_music:members') + ' ' : '';
+    if (ma) {
+      var said = memErr + (ma.rooms.length ? 'The rooms in Music Assistant’s ' + speakerName(d, f.group) + ' group. Change the group there; this follows it.'
+                                           : 'None of the speakers in Music Assistant’s ' + speakerName(d, f.group) + ' group are Music’s speakers.');
+      c.appendChild(K.group({ header: 'Rooms', footer: [said].concat(ma.problems).join(' ') },
+        ma.rooms.map(function (e) {
+          var x = (d.speakers || []).filter(function (s) { return s.entity === e; })[0] || { name: e };
+          var pair = (d.pairs || {})[e];
+          return K.info({ label: x.name, sub: [x.floor, pair ? cap(pair.kind) : null].filter(Boolean).join(' · ') || null });
+        })));
+    } else {
+      c.appendChild(K.group({ header: 'Rooms', footer: memErr + (d.ma_groups
+          ? (f.group ? 'Music Assistant doesn’t list that player as a group, so its rooms are chosen here.' : 'Choose the sync group: its rooms come from Music Assistant.')
+          : 'Music Assistant’s groups can’t be read right now, so the rooms are chosen here.') },
+        (d.speakers || []).map(function (x) {
+          var on = f.members.indexOf(x.entity) >= 0;
+          return K.check({ label: x.name, sub: x.floor || null, multi: true, on: on, fk: 'music:member:' + x.entity, onClick: function () {
+            f.members = on ? f.members.filter(function (m) { return m !== x.entity; }) : f.members.concat(x.entity);
+            P.render();
+          } });
+        })));
+    }
     var save = K.button({ label: p ? 'Save Preset' : 'Add Preset', fk: 'music:preset:save', onClick: function () {
-      P.featCall('hk_music', Object.assign({ type: 'hk_music/preset/save', name: f.name, group: f.group, members: f.members },
+      P.featCall('hk_music', Object.assign({ type: 'hk_music/preset/save', name: f.name, group: f.group, members: ma ? ma.rooms : f.members },
                                            p ? { item: p.id } : {}), ['name', 'group', 'members'])
         .then(function (ok) { if (ok) { delete st.forms['preset:' + id]; P.back('#/features/music/presets'); } });
     } });
@@ -1861,7 +1897,7 @@
   root.hkSettingsFeatures = {
     LIST: LIST, listed: listed, stateOf: stateOf, page: page, use: use, addHref: addHref, search: search, musicTop: musicTop,
     integrationHref: integrationHref, SCOPE: SCOPE, WHAT: WHAT, dndRows: dndRows, dndSummary: dndSummary,
-    _: { tvLists: tvLists, tvCount: tvCount, speakerLists: speakerLists, speakerName: speakerName, playlistSub: playlistSub, vacuumSub: vacuumSub, vacuumsAfter: vacuumsAfter,
+    _: { tvLists: tvLists, tvCount: tvCount, speakerLists: speakerLists, speakerName: speakerName, pairNote: pairNote, playlistSub: playlistSub, vacuumSub: vacuumSub, vacuumsAfter: vacuumsAfter,
          roomLists: roomLists, roomCount: roomCount, energyFound: energyFound, sectionsAfter: sectionsAfter,
          batteriesStored: batteriesStored, stayLabel: stayLabel, notifySummary: notifySummary, whenControl: whenControl,
          cooldownLabel: cooldownLabel, wakesOf: wakesOf, trigWord: trigWord }

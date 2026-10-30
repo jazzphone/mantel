@@ -29,6 +29,7 @@ every call to Music Assistant's integration.
 """
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 
 import voluptuous as vol
@@ -43,6 +44,7 @@ from homeassistant.helpers import area_registry as ar, floor_registry as fr
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers import selector as sel
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
+from homeassistant.helpers.event import async_track_time_interval
 
 from ...const import DOMAIN
 from ...hk_core.music import queue
@@ -53,7 +55,7 @@ from .const import (
     ATTR_COMMAND, ATTR_LEVEL, ATTR_PLAYER, ATTR_PLAYLIST, ATTR_ROOMS, ATTR_SOURCE, COMMANDS,
     CONF_GROUP, CONF_HOMES, CONF_MEMBERS, CONF_SPEAKERS, CONF_VOLUME, DEFAULT_VOLUME, SERVICE_PLAY,
     SERVICE_PLAY_MEDIA, SERVICE_STOP, SERVICE_TRANSFER, SERVICE_TRANSPORT, SIGNAL_CONFIG,
-    SUB_PLAYLIST, SUB_PRESET, WARM_SOON,
+    GROUPS_EVERY, SUB_PLAYLIST, SUB_PRESET, WARM_SOON,
 )
 from .flows import PlaylistFlow, PresetFlow, name_of, speakers_errors, speakers_schema
 from .music import CALLER, MusicConfig, MusicManager
@@ -209,6 +211,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: Feature) -> bool:
     def changed(*_args: Any) -> None:
         async_dispatcher_send(hass, SIGNAL_CONFIG)
 
+    # MUSIC ASSISTANT'S GROUPS (hk_core/music/groups.py): its player list read now and every
+    # GROUPS_EVERY, the screens told when a pair or a preset's rooms changed there.
+    async def groups(*_args: Any) -> None:
+        if await mgr.refresh_groups():
+            changed()
+
+    hass.async_create_background_task(groups(), "hk_music groups")
+    entry.async_on_unload(async_track_time_interval(hass, groups, timedelta(seconds=GROUPS_EVERY)))
     # A renamed area renames its pill; a moved area moves floors.
     entry.async_on_unload(hass.bus.async_listen(ar.EVENT_AREA_REGISTRY_UPDATED, changed))
     entry.async_on_unload(hass.bus.async_listen(fr.EVENT_FLOOR_REGISTRY_UPDATED, changed))

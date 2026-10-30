@@ -21,7 +21,9 @@ moved to other rooms, added to more rooms, or stopped everywhere.
 1. Add the feature: **HK Frontend → Add feature → Music**. It asks nothing.
 2. Select the gear on the new **Music** item:
    - **Speakers (rooms)**: the Music Assistant players, one per room. Leave
-     sync groups out here; they are presets (next step).
+     sync groups out here; they are presets (next step). The one exception is
+     a **stereo pair** (see below): pick its Music Assistant group as the
+     room's speaker.
    - **House playlist volume**: the volume every room is set to when a
      playlist starts (default 35%).
    - Then **Each tablet’s room**: one dropdown per person who signs in. A wall
@@ -30,8 +32,9 @@ moved to other rooms, added to more rooms, or stopped everywhere.
 3. Optional: select **Add music preset** at the top of HK Frontend’s page for
    each sync group.
    Give it a name, pick the Music Assistant sync group player, and tick the
-   rooms it plays in. Home Assistant cannot read a sync group’s rooms from
-   Music Assistant, so you pick them here.
+   rooms it plays in. Once Music Assistant answers, the rooms are read from the
+   group there instead, and change when the group does; the ticks count only
+   while it can’t be reached. (HK Settings shows the group’s own rooms.)
 4. Select **Add music playlist** for each pill you want under Your Playlists on the Music page:
    - **Name** and **Icon** (default `mdi:playlist-music`).
    - **Playlists**: one or more playlists from your Music Assistant library.
@@ -42,6 +45,21 @@ moved to other rooms, added to more rooms, or stopped everywhere.
    - **Order**: lower comes first.
 
 Every change reaches open screens right away, with no reload.
+
+### Stereo pairs
+
+Two speakers in one room, such as a pair of HomePods each panned left or
+right with Music Assistant’s DSP, are a Music Assistant sync group of their
+own. Pick that group as the room’s speaker. HK reads its two speakers from
+Music Assistant (they can stay hidden from Home Assistant), shows it as one
+room, and says so under **Speakers** in HK Settings.
+
+Music Assistant can’t put a group inside another group, so a preset’s group
+holds the pair’s two speakers themselves. Put **both** in it; HK counts them
+as the one room, and the preset shows **Check** when a group holds only one.
+A pair plays on its own through its group, and with other rooms through a
+preset. Other rooms with a pair, outside a preset, are refused with a
+message saying which presets hold it.
 
 ## What you see
 
@@ -136,10 +154,10 @@ speaker:
 
 | Setting | Default | What it does |
 |---|---|---|
-| Speakers | None | The rooms music plays in: Music Assistant players, one per room. Each is named by its area and grouped by floor; within a floor, in the order you drag them. A preset’s sync group can’t also be a room. |
+| Speakers | None | The rooms music plays in: Music Assistant players, one per room. Each is named by its area and grouped by floor; within a floor, in the order you drag them. A preset’s sync group can’t also be a room. A stereo pair’s group can, and says so. |
 | Home Rooms | None | For each Home Assistant user, the room they start in when they play music. A wall tablet signs in as its own user, so this is where each tablet hangs. |
 | House Volume | 35% | The volume every room is set to when a playlist starts. |
-| Presets & Playlists → Presets | None | A Music Assistant sync group and the rooms it plays in (**Name**, **Sync Group**, **Rooms**). Choosing exactly those rooms on a screen plays through the group, in step. |
+| Presets & Playlists → Presets | None | A Music Assistant sync group and the rooms it plays in (**Name**, **Sync Group**, **Rooms**, read from the group in Music Assistant). Choosing exactly those rooms on a screen plays through the group, in step. **Check** marks a group holding half a stereo pair, or a speaker that isn’t one of Music’s. |
 | Presets & Playlists → Playlists | None | The pills under Your Playlists on the Music page, in order (**Name**, **Icon**, **Chooser**, and the library playlists it **Plays**, as one queue). Pills with the same Chooser become one pill that asks which. |
 | Keep Playlists Ready | Off | Refreshes Music Assistant’s copy of your playlists’ songs in the background, so they open and start at once: the playlists your pills play, plus the ones played in the last week (not Music Assistant’s own). Every 2½ hours, one playlist at a time, never while someone is using Music, and later when the streaming service is refusing requests. Under the switch: when it last ran and how many are ready. |
 | Browse → Categories | All shown | Music Assistant’s categories under **Library** on the Music page’s Browse side: Artists, Albums, Songs, Playlists, Radio, Podcasts, Audiobooks. Untick the ones nobody opens. |

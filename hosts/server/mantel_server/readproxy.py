@@ -450,6 +450,8 @@ def music_config(payload: Any, ok: set[str]) -> dict:
         one = {"name": s.get("name"), "entity": s["entity"]}
         if isinstance(s.get("members"), list):                 # a preset (a group of speakers)
             one["members"] = [m for m in s["members"] if m in ok]
+        if isinstance(s.get("pair"), list):                    # a pair room: its players' names
+            one["pair"] = [str(n) for n in s["pair"]]
         speakers.append(one)
     floors = []
     for f in payload.get("floors") or []:

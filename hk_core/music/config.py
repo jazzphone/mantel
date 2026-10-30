@@ -3,6 +3,8 @@
 Built from the feature's options (speakers, volume, each user's home room) and its items
 (presets, playlists). Room names and floors come from the house (each speaker's area and that
 area's floor), so there is nothing to type for them and renaming an area renames its pill.
+With Music Assistant's player list (groups.py), a speaker that is a group is a pair and a
+preset's rooms are its group's own.
 """
 from __future__ import annotations
 
@@ -11,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, NamedTuple
 
 from ..house import House, area_of
+from .groups import Groups
 from .const import (
     CONF_CHOOSER, CONF_GROUP, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS, CONF_MEMBERS,
     CONF_NAME, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME, DEFAULT_VOLUME, SUB_PLAYLIST, SUB_PRESET,
@@ -34,6 +37,8 @@ class Preset:
     name: str
     group: str
     members: list[str]
+    from_ma: bool = False       # its rooms are its group's, read from Music Assistant
+    problems: list[dict[str, Any]] = field(default_factory=list)    # groups.GroupRooms.problems
 
 
 @dataclass
@@ -63,6 +68,8 @@ class MusicConfig:
     homes: dict[str, str] = field(default_factory=dict)
     library_entry: str | None = None
     ignore_announcements: bool = True
+    pairs: dict[str, list[str]] = field(default_factory=dict)     # a pair room -> its players' names
+    groups: Groups | None = None
 
     @property
     def room_ids(self) -> list[str]:
@@ -94,12 +101,17 @@ class MusicConfig:
     def playlist(self, key: str | None) -> Playlist | None:
         return next((p for p in self.playlists if p.key == key), None)
 
+    def presets_with(self, room: str) -> list[Preset]:
+        return [p for p in self.presets if room in p.members]
+
     @classmethod
     def build(cls, house: House, options: Mapping[str, Any], items: Iterable[Item],
-              library_entry: str | None = None) -> MusicConfig:
+              library_entry: str | None = None, groups: Groups | None = None) -> MusicConfig:
         """The configuration from the feature's options and items, named and floored from the
         house. `library_entry`: where the host's library answers from (HA: Music Assistant's
-        loaded config entry), or None."""
+        loaded config entry), or None. `groups`: Music Assistant's players (groups.Groups), or
+        None when they cannot be read -- then no speaker is a pair and every preset keeps the
+        rooms chosen for it."""
         opts = options
         cfg = cls(ignore_announcements=opts.get(CONF_IGNORE_ANNOUNCEMENTS, True),
                   volume=float(opts.get(CONF_VOLUME, DEFAULT_VOLUME)),
@@ -118,11 +130,25 @@ class MusicConfig:
         # floor -- the pill grid reads top to bottom, downstairs first.
         rooms.sort(key=lambda r: (r.level, r.index))
         cfg.rooms = rooms
+        cfg.groups = groups
+        speakers = list(opts.get(CONF_SPEAKERS) or [])
+        if groups is not None:
+            for r in speakers:
+                parts = groups.parts(r)
+                if parts:
+                    cfg.pairs[r] = [groups.name(x) for x in parts]
         for item in items:
             d = item.data
             if item.kind == SUB_PRESET:
-                cfg.presets.append(Preset(item.key, d.get(CONF_NAME) or item.title,
-                                          d[CONF_GROUP], list(d.get(CONF_MEMBERS) or [])))
+                p = Preset(item.key, d.get(CONF_NAME) or item.title, d[CONF_GROUP], list(d.get(CONF_MEMBERS) or []))
+                # ITS ROOMS ARE ITS GROUP'S: Music Assistant's members, a pair's players folded
+                # back into the pair -- the rooms chosen for it only while those cannot be read
+                got = groups.rooms_of(p.group, speakers) if groups is not None else None
+                if got is not None:
+                    p.problems = got.problems
+                    if got.rooms:
+                        p.members, p.from_ma = got.rooms, True
+                cfg.presets.append(p)
             elif item.kind == SUB_PLAYLIST:
                 cfg.playlists.append(Playlist(
                     item.key, d.get(CONF_NAME) or item.title,
@@ -161,9 +187,13 @@ class MusicConfig:
             # read at runtime so a re-added MA cannot strand the page.
             "library_entry": self.library_entry,
             "configured": True,
+            # a pair room says so (its players' names): a preset playing through
+            # its group holds it even while the pair's own group player is idle
             "speakers": [{"name": p.name, "entity": p.group, "members": p.members}
                          for p in self.presets]
-                        + [{"name": r.name, "entity": r.entity} for r in self.rooms],
+                        + [dict({"name": r.name, "entity": r.entity},
+                                **({"pair": self.pairs[r.entity]} if r.entity in self.pairs else {}))
+                           for r in self.rooms],
             "floors": floors,
             "playlists": pills,
             "home": home if home in self.room_ids else None,

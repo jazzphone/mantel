@@ -186,3 +186,48 @@ def test_a_playlist_order_is_a_finite_number():
     for bad in ("nan", "inf", "-inf", float("nan"), 1e9):
         with pytest.raises(vol.Invalid):
             schema({**base, "order": bad})
+
+
+async def test_a_pair_and_the_presets_rooms_come_from_music_assistant(hass, music):
+    """The Office is a STEREO PAIR (hk_core/music/groups.py): a Music Assistant group picked as one speaker,
+    its two players hidden from Home Assistant. Read through the client HA's integration holds."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    from custom_components.hk_frontend.features.music import music as MM
+    pids = {r: "ap_" + r.split(".")[1] for r in ROOMS}
+    pids.update({OFF: "sg_office", EVERY: "sg_every", DOWNG: "sg_down"})
+    players = [{"player_id": pids[r], "display_name": r, "type": "player"} for r in ROOMS if r != OFF] + [
+        {"player_id": "ap_l", "display_name": "Office Left", "type": "player"},
+        {"player_id": "ap_r", "display_name": "Office Right", "type": "player"},
+        {"player_id": "sg_office", "display_name": "Office HomePods", "type": "group", "group_members": ["ap_l", "ap_r"]},
+        {"player_id": "sg_every", "display_name": "HomePods", "type": "group",
+         "group_members": [pids[r] for r in ROOMS if r != OFF] + ["ap_l", "ap_r"]},
+        # Downstairs took the Office's left speaker only
+        {"player_id": "sg_down", "display_name": "Downstairs", "type": "group",
+         "group_members": [pids[r] for r in ROOMS[:5]] + ["ap_l"]}]
+
+    class Mass:
+        asked: list = []
+
+        async def send_command(self, command, **kw):
+            self.asked.append(command)
+            return players
+
+    ma = MockConfigEntry(domain="music_assistant")
+    ma.add_to_hass(hass)
+    ma.runtime_data = type("Data", (), {})()
+    ma.runtime_data.mass = Mass()
+    with patch.object(MM, "ma_pids", lambda _hass: pids):
+        p = (await _call(hass, await _admin(hass), "get"))["result"]
+        mgr = entry(hass).runtime_data
+        assert await mgr.refresh_groups() is False, "nothing changed since the page read it"
+        assert mgr.config.pairs == {OFF: ["Office Left", "Office Right"]}
+        # a pair with another room, outside a preset: refused before anything is sent
+        got = await mgr.play([K, OFF], mgr.config.playlists[0].key)
+    assert Mass.asked[:1] == ["players/all"]
+    assert p["ma_groups"] is True and p["pairs"] == {OFF: {"parts": ["Office Left", "Office Right"], "kind": "stereo pair"}}
+    by = {x["name"]: x for x in p["presets"]}
+    assert by["Everywhere"]["members"] == ROOMS and by["Everywhere"]["from_ma"] is True
+    assert by["Downstairs"]["members"] == ROOMS[:5] and len(by["Downstairs"]["problems"]) == 1
+    assert by["Downstairs"]["problems"][0].startswith("Office Left is in this group without Office Right")
+    assert got["ok"] is False and "is a stereo pair, so it plays with other rooms only through a preset: Everywhere" in got["message"]

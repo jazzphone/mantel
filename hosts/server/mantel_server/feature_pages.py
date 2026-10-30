@@ -236,6 +236,7 @@ class FeaturePages:
             return {"configured": False}
         if music.doc() is None:
             await self._import_music(music)
+        await music.refresh_groups()        # Music Assistant's groups, read fresh for the page
         return music.page(start=music.ma is not None)
 
     async def _import_music(self, music: Any) -> None:
