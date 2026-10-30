@@ -196,6 +196,15 @@ that the sky fills the screen, the page's content stays clear of the insets, and
 foot below its reserve (or, without a strip, the bar inside the insets); `--shots DIR` keeps the screenshots.
 `tools/ci.py full` runs it as `side-strip-check`, skipped without `PLAYWRIGHT_PATH` or `NODE`.
 
+### The screensaver's faces in WebKit
+
+`tools/headless/saver_faces_check.py` (with its `.cjs`) draws the screensaver's HomeView-style faces
+([HOMEVIEW-LOOK.md](../phase11/HOMEVIEW-LOOK.md), Phase I) in WebKit at 1180 × 820, 820 × 1180 and 390 × 844: Glance,
+Month, Day (light and dark), Big Weather, Liquid, Giant and Scattered Numerals (also in each size of the Clock block),
+and a generated photo with Titles and Time Behind through hk-saver.js's own layers and CSS (its cut-out judged by
+`cutout.py`; no model, no real photo). `--shots DIR` keeps the screenshots; `--mock PATH` adds the mock-up's faces
+section beside them. `tools/ci.py full` runs it as `saver-faces-check`, skipped without `PLAYWRIGHT_PATH` or `NODE`.
+
 ## A scratch Home Assistant
 
 `tools/testha/` starts a throwaway Home Assistant on `127.0.0.1:8124` with only the `demo` integration's invented
