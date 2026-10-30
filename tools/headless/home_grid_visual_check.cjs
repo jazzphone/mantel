@@ -2,6 +2,7 @@ const fs = require('fs');
 const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
 (async()=>{
   const input=JSON.parse(fs.readFileSync(0,'utf8'));
+  if(input.homeview) return homeview(input);
   const browser=await pw[input.engine].launch({headless:true,timeout:15000,...(input.browser?{executablePath:input.browser}:{})});
   const context=await browser.newContext({viewport:{width:1280,height:800}});
   await context.addCookies([{name:'mantel_session',value:input.cookie,url:input.origin}]);
@@ -268,3 +269,75 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
   if(errors.length){console.log(JSON.stringify({errors}));process.exitCode=1;}
   await browser.close();
 })().catch(e=>{console.error(e.message);process.exit(1)});
+
+// THE HOMEVIEW-STYLE STARTERS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase A; --homeview): each at each size,
+// square cells kept square, the Centred tiles centred, the thermostat in Big Number, the Analog Numbers clock, the
+// corners (34; a Square screen's corner blocks 72 on the outside), nothing past the screen, no page error.
+async function homeview(input){
+  const browser=await pw[input.engine].launch({headless:true,timeout:15000,...(input.browser?{executablePath:input.browser}:{})});
+  let bad=0;
+  try{
+    for(const {screen,sizes} of input.screens){
+      for(const size of sizes){
+        const [W,H]=size.split('x').map(Number);
+        const context=await browser.newContext({viewport:{width:W,height:H},deviceScaleFactor:1});
+        await context.addCookies([{name:'mantel_session',value:input.cookie,url:input.origin}]);
+        await context.route('**/*',route=>new URL(route.request().url()).origin===input.origin?route.continue():route.abort());
+        const page=await context.newPage(),errors=[];
+        page.on('pageerror',e=>errors.push(e.message));
+        page.setDefaultTimeout(20000);
+        await page.goto(input.origin+'/'+screen+'/home');
+        await page.waitForFunction(()=>window.__mantelReady===true);
+        await page.waitForTimeout(2500);
+        const report=await page.evaluate(()=>{
+          const all=(root,sel)=>[...root.querySelectorAll('*')].flatMap(e=>[...(e.matches(sel)?[e]:[]),...(e.shadowRoot?all(e.shadowRoot,sel):[])]);
+          const view=all(document,'hk-home-grid-view')[0],issues=[],seen={},inside=(c,sel)=>all(c.shadowRoot||c,sel);
+          if(!view)return {issues:['no grid']};
+          const s=view._gridScale,sq=window.hkCards.HOME_GRID.square,g=view._grid(),bounds=view.getBoundingClientRect(),root=view._root.getBoundingClientRect();
+          if(g.cell!=='square')issues.push('cells are not square');
+          if(root.left<bounds.left-1||root.right>bounds.right+1||root.top<bounds.top-1||root.bottom>bounds.bottom+1)issues.push('canvas past the screen');
+          const se=document.scrollingElement;if(se.scrollHeight>innerHeight+1||se.scrollWidth>innerWidth+1)issues.push('page scroll');
+          for(const cell of view.shadowRoot.querySelectorAll('.cell')){
+            const id=cell.dataset.id,dims=window.hkCards.HOME_GRID.sizes[cell.getAttribute('size')],r=cell.getBoundingClientRect(),card=cell.firstElementChild;
+            if(Math.abs(r.width/s-(sq.w*dims[0]+sq.gap*(dims[0]-1)))>1||Math.abs(r.height/s-(sq.h*dims[1]+sq.gap*(dims[1]-1)))>1)issues.push(id+': not square cells '+Math.round(r.width/s)+'x'+Math.round(r.height/s));
+            // the corners the plates are drawn with
+            const plate=inside(card,'hk-plate,.ck,.plate').map(p=>({p,b:p.getBoundingClientRect()})).filter(x=>x.b.width>r.width*.9&&x.b.height>r.height*.9)[0];
+            const want=cell.style.getPropertyValue('--hk-block-radius').trim();
+            if(plate&&!cell.hasAttribute('data-bare')){const cs=getComputedStyle(plate.p),got=[cs.borderTopLeftRadius,cs.borderTopRightRadius,cs.borderBottomRightRadius,cs.borderBottomLeftRadius].join(' ');
+              const w=want.split(' ');const exp=(w.length===1?[w[0],w[0],w[0],w[0]]:w).join(' ');if(got!==exp)issues.push(id+': corners '+got+', not '+exp);}
+            const tile=card.localName==='hk-grid-entity-card'?card._child:null;
+            if(tile){
+              if(tile.getAttribute('tile')!=='centred')issues.push(id+': its tile is not centred');
+              const icon=tile.shadowRoot.querySelector('.icon').getBoundingClientRect(),name=tile.shadowRoot.querySelector('.name'),nr=document.createRange();nr.selectNodeContents(name);const n=nr.getBoundingClientRect();
+              const cx=(r.left+r.right)/2;
+              if(Math.abs((icon.left+icon.right)/2-cx)>1.5)issues.push(id+': glyph off centre');
+              if(Math.abs((n.left+n.right)/2-cx)>1.5)issues.push(id+': name off centre');
+              if(Math.abs(((icon.top+icon.bottom)/2-r.top)/r.height-.33)>.02)issues.push(id+': glyph not at 33 %');
+              if(n.bottom>r.bottom+1)issues.push(id+': name below the tile');
+              seen.centred=(seen.centred||0)+1;
+            }
+            if(card.localName==='hk-control-card'||inside(card,'hk-control-card').length){const c=card.localName==='hk-control-card'?card:inside(card,'hk-control-card')[0];
+              const big=c.shadowRoot.querySelector('.surface.big');if(!big)issues.push(id+': thermostat is not Big Number');else{
+                const bn=big.querySelector('.bn').getBoundingClientRect(),ft=big.querySelector('.ft').getBoundingClientRect();
+                if(bn.bottom>ft.top+2)issues.push(id+': the number runs into the foot');
+                if(ft.left<r.left||ft.right>r.right)issues.push(id+': the foot is past the block');
+                seen.big=(seen.big||0)+1;}}
+            if(card.localName==='hk-grid-clock-card'){const f=inside(card,'.f-numbers')[0];if(!f)issues.push(id+': no Analog Numbers face');else{
+              const d=f.querySelector('svg').getBoundingClientRect();if(d.width<r.width*.9||d.width>r.width*1.06)issues.push(id+': the face does not fill its block ('+Math.round(d.width)+' of '+Math.round(r.width)+')');seen.clock=1;}}
+          }
+          return {issues,scale:+s.toFixed(3),cell:Math.round(sq.w*s),seen};
+        });
+        report.errors=errors;
+        if(input.shots){
+          await page.evaluate(()=>{function visit(root){const style=document.createElement('style');style.textContent='*{font-family:Arial,sans-serif!important}';(root.head||root).appendChild(style);for(const e of root.querySelectorAll('*'))if(e.shadowRoot)visit(e.shadowRoot);}visit(document);});
+          await page.waitForTimeout(300);
+          await page.screenshot({path:input.shots+'/'+screen+'-'+size+'-'+input.engine+'.png'});
+        }
+        const fail=report.issues.length||errors.length;bad+=fail?1:0;
+        console.log((fail?'FAIL ':'ok   ')+input.engine+' '+screen+' '+size+' '+JSON.stringify(report));
+        await context.close();
+      }
+    }
+  }finally{await browser.close();}
+  process.exitCode=bad?1:0;
+}

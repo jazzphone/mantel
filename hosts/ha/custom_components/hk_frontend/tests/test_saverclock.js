@@ -24,13 +24,13 @@ if (!document.createTextNode) document.createTextNode = function (t) { var e = d
     return e;
   };
 })();
-var SVG_MARKUP = { analog: 1, arc: 1, ring: 1 };
+var SVG_MARKUP = { analog: 1, numbers: 1, arc: 1, ring: 1 };
 load(HK_ROOT + '/frontend/modules/hk-saverclock.js');
 load(HK_ROOT + '/frontend/panels/hk-settings-model.js');
 var C = window.hkSaverClock, U = C._, M = window.hkSettingsModel;
 
 print('=== the styles ===');
-ok('fifteen styles (Today, the flagship, first)', C.STYLES.length === 15 && C.STYLES[0][0] === 'today', true);
+ok('sixteen styles (Today, the flagship, first)', C.STYLES.length === 16 && C.STYLES[0][0] === 'today', true);
 ok('...the same as HK Settings lists, in order', C.STYLES.map(function (s) { return s[0]; }).join(), M.CLOCK_STYLES.map(function (s) { return s[0]; }).join());
 ok('the generated backgrounds are HK Settings’ less Forecast and Photos',
    C.BGS.map(function (b) { return b[0]; }).join(), M.CLOCK_BGS.filter(function (b) { return b[0] !== 'forecast' && b[0] !== 'skyonly' && b[0] !== 'photos' && b[0] !== 'landscapes'; }).map(function (b) { return b[0]; }).join());
@@ -56,6 +56,21 @@ ok('Today mounts with a weather service and music playing', (function () {
   var l = document.createElement('div'), hass = { states: { 'weather.home': { state: 'sunny', attributes: { temperature: 71.6, temperature_unit: '\u00b0F' } },
     'media_player.k': { state: 'playing', last_changed: '2026-10-13T10:00:00Z', attributes: { media_title: 'Golden Hour', media_artist: 'The Stand-Ins' } } } };
   var c = C.mount(l, { style: 'today', drift: false, client: window.hkHAClient.from(hass), weather: 'weather.home' }); c.destroy(); return c.style; })(), 'today');
+
+print('=== Analog Numbers (2026-10-30, HOMEVIEW-LOOK.md Phase F) ===');
+(function () {
+  var svg = U.numbersSvg(), texts = svg.match(/<text [^>]*>(\d+)<\/text>/g) || [];
+  ok('after Analog, as HK Settings and the Home Grid list it', C.STYLES.map(function (s) { return s[0]; }).indexOf('numbers'), C.STYLES.map(function (s) { return s[0]; }).indexOf('analog') + 1);
+  ok('twelve numerals, 1 to 12, SF Pro 500 at 23 units', texts.length === 12 && /font-size="23" font-weight="500"/.test(texts[0]) && />12</.test(texts[11]), true);
+  ok('...at 71 % of the radius (12 on top, 3 at the right)', /x="0.00" y="-62.80"[^>]*>12</.test(svg) && /x="71.00" y="8.20"[^>]*>3</.test(svg), true);
+  ok('60 ticks: 12 hours (86-95.5, 2, white .9) and 48 minutes (90.5-95.5, 1.3, .62)',
+     [(svg.match(/rgba\(255,255,255,\.9\)" stroke-width="2"/g) || []).length, (svg.match(/rgba\(255,255,255,\.62\)" stroke-width="1.3"/g) || []).length].join(), '12,48');
+  ok('the faint disc and its rim fill the face', /<circle r="98" fill="rgba\(20,0,40,\.18\)" stroke="rgba\(255,255,255,\.28\)"/.test(svg), true);
+  ok('hands: hour 52 x 6.4, minute 89 x 5.6, on a neck', /y2="-52" style="stroke:var\(--ckm,#fff\)" stroke-width="6.4"/.test(svg) && /y2="-89" style="stroke:var\(--ckm,#fff\)" stroke-width="5.6"/.test(svg) && /y2="-13"/.test(svg), true);
+  ok('a slim white second hand with a tail, coloured by --ckh', /y1="14" y2="-96" style="stroke:var\(--ckh,#fff\)" stroke-width="1.2"/.test(svg), true);
+  ok('no date', /class="dl/.test(svg), false);
+  ok('its colours colour the second hand (White its own)', C.COLORS.numbers[0][0] + ':' + C.COLORS.numbers.slice(1).every(function (c) { return !!c[2]['--ckh']; }), 'white:true');
+})();
 
 print('=== the word clock ===');
 var w = function (h, m) { return U.wordsAt(new Date(2026, 9, 13, h, m, 0)).join(' '); };

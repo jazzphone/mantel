@@ -24,6 +24,11 @@
   // view; offered for `cameras` alone
   var SIZES = { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2], F: [0, 0] };
   function span(size, cols, rows) { var z = SIZES[size]; return z ? [z[0] || cols, z[1] || rows] : null; }
+  // A CELL'S SHAPE (the grid's `cell`; 2026-10-30, docs/phase11/HOMEVIEW-LOOK.md):
+  // a tile, 196 x 150 with a 10 px gap, or a square, 196 x 196 with HomeView's
+  // 13; a Square screen's canvas edge 14 px (hkCards.HOME_GRID.square is the
+  // same table, for the page; this one is the editor's)
+  var CELLS = { tile: { w: 196, h: 150, gap: 10 }, square: { w: 196, h: 196, gap: 13, edge: 14 } };
   var TABLET_ROOM = 'tablet_room';
 
   // a block whose card isn't drawn yet (G3), or with nothing in the house to show
@@ -33,7 +38,12 @@
   // the ones that read at a block's size (Poster fills its screen edge to
   // edge and Glass draws a pane of its own: neither sits in a block)
   var CLOCK_FACES = [['', 'Digital'], ['analog', 'Analog'], ['classic', 'Classic'], ['serif', 'Big Serif'], ['flip', 'Flip'],
-    ['lcd', 'Retro LCD'], ['neon', 'Neon'], ['nixie', 'Nixie Tubes'], ['dots', 'Dot Matrix'], ['arc', 'Minimal Arc']];
+    ['lcd', 'Retro LCD'], ['neon', 'Neon'], ['nixie', 'Nixie Tubes'], ['dots', 'Dot Matrix'], ['arc', 'Minimal Arc'],
+    // (2026-10-30) numerals round a quiet dial, HomeView's kind of face
+    ['numbers', 'Analog Numbers']];
+  // A THERMOSTAT BLOCK'S STYLE (2026-10-30): the dial, or Big Number -- the
+  // target large, the arrows at its foot (Tall and Large; Extra Large is the sheet)
+  var THERMOSTAT_STYLES = [['dial', 'Dial'], ['big', 'Big Number']];
   function panel(kind, more) { return Object.assign({ type: 'custom:hk-grid-panel-card', panel: kind }, more || {}); }
 
   // key -> its sizes, the page sources it has besides `list`, and
@@ -61,11 +71,12 @@
                 : s === 'T' ? { sub_card: ctl(['progress']) } : {};
       return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, sp ? { entity: sp } : {}, extra); } },
     // Extra Large: the thermostat's full controls, its sheet (2026-10-24)
-    thermostat: { sizes: ['T', 'L', 'XL'], sources: ['thermostats'], opts: { entity: 'climate' }, card: function (s, o, ctx) {
+    thermostat: { sizes: ['T', 'L', 'XL'], sources: ['thermostats'], opts: { entity: 'climate', style: 'thermostat_style' }, card: function (s, o, ctx) {
       var id = own(o.entity) || (ctx.climate || [])[0];
       if (s === 'XL') return panel('climate', id ? { entity: id } : {});
-      // the dial (hk-control.js), sized to the block (G2)
-      return id ? { type: 'custom:hk-control-card', entity: id } : stand('Thermostat', 'hk:thermostat'); } },
+      // the dial (hk-control.js), sized to the block (G2) -- or its Big Number
+      return id ? Object.assign({ type: 'custom:hk-control-card', entity: id }, o.style === 'big' ? { style: 'big' } : {})
+                : stand('Thermostat', 'hk:thermostat'); } },
     camera: { sizes: ['W', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera', follow: 'camera_follow', follow_select: 'select' }, card: function (s, o, ctx) {
       var ids = o.entity ? [o.entity] : (ctx.cameras || []).slice(0, 1);
       return ids.length ? { type: 'custom:hk-camera-mosaic-card', own_cameras: true, height: 195, seam: 2, snapshot_cap: '480x270',
@@ -282,8 +293,8 @@
     return out;
   }
 
-  window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, span: span, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
-                           PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, CLOCK_FACES: CLOCK_FACES,
+  window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, span: span, CELLS: CELLS, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
+                           PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES,
                            CONDITIONS: CONDITIONS, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
 })();

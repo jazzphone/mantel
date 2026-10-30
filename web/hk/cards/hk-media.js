@@ -772,7 +772,7 @@
         //   T  the cover on top, the song, the progress, the transport
         //   L  the cover beside the song and its speaker, then the progress,
         //      the transport and the volume across, as Apple Music has them
-        ':host([size]) hk-plate.np{--hk-np-height:100%;--hk-np-pad:' + window.hkCards.CARD.pad + ';border-radius:' + window.hkCards.M.radius + ';',
+        ':host([size]) hk-plate.np{--hk-np-height:100%;--hk-np-pad:' + window.hkCards.CARD.pad + ';border-radius:var(--hk-block-radius, ' + window.hkCards.M.radius + ');',
         // the shadow its neighbours have (the look's), not the page player's
         // 0 22px 60px, which spilt 80 px over the blocks round it
         '  box-shadow:inset 0 1px 0 rgba(255,255,255,.2),var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-lg') + ')}',
@@ -803,7 +803,9 @@
         ':host([size]) .np .brw svg{width:23px;height:23px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.55))}',
         // (nothing plays: no rooms to move -- Browse still starts something)
         ':host([size]) .np .spk.dis{opacity:.35;pointer-events:none}',
-        ':host([size=W]) hk-plate.np{--np-art:calc(100cqh - 40px);',
+        // (the cover as tall as the block, but never wider than the room the
+        // transport leaves it: a square cell's 196 would push it off the side)
+        ':host([size=W]) hk-plate.np{--np-art:min(100cqh - 40px, 100cqw - 44px - 242px);',
         '  --hk-np-cols:calc(var(--np-art) + 12px) 46px 46px 46px 46px 46px minmax(0,1fr);',
         '  --hk-np-areas:"art . . . . . ." "art title title title title title title" "art artist artist artist artist artist artist" "art spk prev play next brw .";',
         '  --hk-np-rows:minmax(0,1fr) min-content min-content 52px}',

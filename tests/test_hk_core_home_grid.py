@@ -468,3 +468,58 @@ def test_an_entity_id_has_a_length_limit():
     with pytest.raises(HG.GridInvalid):
         HG.check(grid(block("a1", "accessory", "S", [0, 0], opts={"entity": "light." + "a" * 300})))
     assert HG.check(grid(block("a1", "accessory", "S", [0, 0], opts={"entity": "light." + "a" * 200})))
+
+
+# ------------------------------------------------------------ square cells, the Square screen (2026-10-30, HOMEVIEW-LOOK.md A)
+def test_square_cells_are_an_option_and_tile_is_no_key():
+    out = HG.check({**grid(block("t", "thermostat", "L", [0, 0])), "cell": "square"})
+    assert out["cell"] == "square" and out["items"][0]["at"] == [0, 0]
+    assert "cell" not in HG.check({**grid(), "cell": "tile"})                   # the default stores nothing
+    assert "cell" not in HG.check(grid()) and "screen" not in HG.check(grid())  # a layout saved before reads as it did
+    for bad in ("round", True, 1, None):
+        with pytest.raises(HG.GridInvalid):
+            HG.check({**grid(), "cell": bad})
+    # a stored grid with a cell shape a newer HK wrote is no layout, never a crash
+    assert HG.layout({**grid(), "cell": "hexagon"}) is None
+
+
+def test_the_square_screen():
+    sq = {"v": 1, "cols": 3, "rows": 3, "frame": [800, 800], "band": False, "cell": "square", "screen": "square", "grow": True,
+          "items": [block("t", "thermostat", "L", [0, 0], opts={"style": "big"}),
+                    block("c", "clock", "S", [2, 0], opts={"clock_style": "numbers"}, bare=True)]}
+    out = HG.check(sq)
+    assert (out["cols"], out["rows"], out["cell"], out["screen"], out["grow"]) == (3, 3, "square", "square", True)
+    b, errors = C.apply_board({}, {"home_style": "grid", "home_grid": sq})
+    assert errors == {} and M.board(b)["home_grid"] == out
+    for bad in ("round", "square ", True):
+        with pytest.raises(HG.GridInvalid):
+            HG.check({**sq, "screen": bad})
+
+
+def test_a_blocks_tile_style():
+    out = HG.check(grid(block("a", "accessory", "S", [0, 0], opts={"entity": "light.porch"}, tile="centred"),
+                        block("s", "scene", "S", [1, 0], opts={"scene": "scene.dinner"}, tile="home"),
+                        block("x", "action", "S", [2, 0])))
+    assert [i.get("tile") for i in out["items"]] == ["centred", "home", None]    # absent: Same as Screen
+    for bad in ("centered", "", True):
+        with pytest.raises(HG.GridInvalid):
+            HG.check(grid(block("a", "accessory", "S", [0, 0], tile=bad)))
+    assert HG.TILE_STYLES == M.TILE_STYLES == ("home", "centred")
+
+
+@pytest.mark.skipif(not JSC.exists(), reason="JavaScriptCore's jsc is macOS's")
+def test_the_cells_faces_and_styles_are_the_mirrors(tmp_path):
+    prelude = tmp_path / "prelude.js"
+    prelude.write_text("var window = this; function CustomEvent() {} window.dispatchEvent = function () {};\n"
+                       f"load({json.dumps(str(ROOT / 'web/hk/cards/hk-grid-catalog.js'))});\n"
+                       "var G = window.hkGridCatalog;\n"
+                       "print(JSON.stringify({cells: G.CELLS, faces: G.CLOCK_FACES, styles: G.THERMOSTAT_STYLES}));\n")
+    out = json.loads(subprocess.run([str(JSC), str(prelude)], capture_output=True, text=True, check=True,
+                                    timeout=30).stdout)
+    assert sorted(out["cells"]) == sorted(HG.CELLS)
+    assert out["cells"]["square"] == {"w": 196, "h": 196, "gap": 13, "edge": 14} and out["cells"]["tile"] == {"w": 196, "h": 150, "gap": 10}
+    assert [f[0] for f in out["faces"] if f[0]] == list(HG.CLOCK_FACES)          # "" is HK's own, stored as no option
+    assert [s[0] for s in out["styles"]] == list(HG.THERMOSTAT_STYLES)
+    # ...and hk-base.js's square cell is the same
+    base = (ROOT / "web/hk/cards/hk-base.js").read_text()
+    assert "HOME_GRID.square = { w: TILE.w, h: 196, gap: 13, edge: 14 };" in base

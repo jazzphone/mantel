@@ -189,3 +189,29 @@ def test_room_accessory_display_is_saved_for_each_page(mode):
 def test_invalid_room_accessory_display_is_refused():
     _, errors = write({"id": "room", "card": "room", "size": "L", "at": [0, 0], "opts": {"accessory_display": "everything"}})
     assert errors == {"home_grid": "grid_option"}
+
+
+# ------------------------------------------------------------ Big Number, Analog Numbers (2026-10-30, HOMEVIEW-LOOK.md C, F)
+@pytest.mark.parametrize("size", ["T", "L"])
+@pytest.mark.parametrize("style", ["dial", "big"])
+def test_a_thermostats_style(size, style):
+    b, errors = write({"id": "t", "card": "thermostat", "size": size, "at": [0, 0], "opts": {"entity": "climate.hall", "style": style}})
+    assert errors == {} and b["home_grid"]["items"][0]["opts"]["style"] == style
+
+
+@pytest.mark.parametrize("style", ["number", "Big", True, None])
+def test_a_thermostat_style_that_is_not_one_is_refused(style):
+    _, errors = write({"id": "t", "card": "thermostat", "size": "L", "at": [0, 0], "opts": {"style": style}})
+    assert errors == {"home_grid": "grid_option"}
+
+
+def test_every_thermostat_page_takes_the_blocks_style():
+    b, errors = write({"id": "t", "card": "thermostat", "size": "L", "at": [0, 0], "opts": {"style": "big"},
+                       "pages": {"source": "thermostats", "start": "tablet_room"}})
+    assert errors == {} and b["home_grid"]["items"][0]["opts"] == {"style": "big"}
+
+
+def test_the_analog_numbers_clock():
+    b, errors = write({"id": "c", "card": "clock", "size": "S", "at": [0, 0], "opts": {"clock_style": "numbers"}, "bare": True})
+    assert errors == {} and b["home_grid"]["items"][0] == {"id": "c", "card": "clock", "size": "S", "at": [0, 0],
+                                                          "opts": {"clock_style": "numbers"}, "bare": True}

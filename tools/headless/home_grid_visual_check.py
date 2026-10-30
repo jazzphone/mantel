@@ -13,12 +13,41 @@ parser.add_argument('--engine',choices=['chromium','webkit'],default='chromium')
 parser.add_argument('--node',default=shutil.which('node'))
 parser.add_argument('--browser',help='optional browser executable')
 parser.add_argument('--shots',type=Path)
+parser.add_argument('--homeview',action='store_true',help='the HomeView-style starters (square cells, Centred tiles) at tablet and phone sizes')
 args=parser.parse_args()
 if not args.node: parser.error('Node is required; provide --node')
 import gallery
 from hk_core.settings import home_grid as HG
 from aiohttp.test_utils import TestServer
+# THE HOMEVIEW-STYLE STARTERS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase A): made by the editor's own code
+# (homeview_starters.cjs) from this fictional house, each at a landscape and an upright tablet's size and a phone's;
+# the Square screen's also at its own 800 x 800
+HV_SIZES=['1180x820','820x1180','390x844']
+async def homeview():
+    import subprocess
+    states={k:{'state':v[1][0],'attributes':v[1][1]} for k,v in gallery.HOUSE.items()}
+    house={'states':states,'entities':{k:{'area_id':v[0]} for k,v in gallery.HOUSE.items() if v[0]},
+           'areas':{r[0]:{'name':r[1]} for r in gallery.ROOMS}}
+    got=json.loads(subprocess.run([args.node,str(ROOT/'tools/headless/homeview_starters.cjs')],input=json.dumps({'house':house,'tablet_room':'living_room'}),
+                                  capture_output=True,text=True,check=True).stdout)
+    screens=[]
+    for kind,starters in got.items():
+        for key,grid in starters.items():
+            name='hv-'+key.replace('_','-')
+            HG.check(grid)                          # (a starter saves as it is)
+            gallery.SETTINGS['boards'][name]={'home_style':'grid','home_grid':grid,'menu_custom':True,'menu':'auto' if kind=='square' else 'tabbar','glass':'blur'}
+            screens.append({'screen':name,'sizes':HV_SIZES+(['800x800'] if kind=='square' else [])})
+    with tempfile.TemporaryDirectory() as td:
+        app,cookie=await gallery.build(Path(td))
+        async with TestServer(app) as server:
+            if args.shots: args.shots.mkdir(parents=True,exist_ok=True)
+            proc=await asyncio.create_subprocess_exec(args.node,str(Path(__file__).with_suffix('.cjs')),stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE,env=os.environ)
+            out,err=await proc.communicate(json.dumps({'homeview':True,'origin':str(server.make_url('')).rstrip('/'),'cookie':cookie,'screens':screens,
+                                                       'shots':str(args.shots) if args.shots else None,'engine':args.engine,'browser':args.browser}).encode())
+            print(out.decode());print(err.decode())
+            return proc.returncode
 async def main():
+    if args.homeview: return await homeview()
     screens=[]
     gallery.HOUSE['sensor.time']=(None,('11:59',{'friendly_name':'Time'}))
     gallery.HOUSE['climate.bedroom']=('bedroom',('heat_cool',dict(gallery.HOUSE['climate.main_floor'][1][1],friendly_name='Bedroom')))

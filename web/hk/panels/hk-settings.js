@@ -5456,6 +5456,7 @@
       var own = this.ownLooks(look);
       c.appendChild(K.group({ header: 'Style', footer: typeof own === 'string' ? M.glassFooter(style)
         : [document.createTextNode(M.glassFooter(style) + ' ')].concat(own) }, rows));
+      c.appendChild(this.tileStyleGroup(null, null));
       this.recommendGroups(c, null);
       // COLORS: the one Accent Color, then Flat's own while any screen wears Flat
       var colors = [this.accentNav(null, null, '#/house/appearance/accent')];
@@ -5593,6 +5594,7 @@
       }, 'b:'));
       if (gl.effective === 'flat') app = app.concat(this.flatThemeRows(b, look, path));
       c.appendChild(K.group({ header: 'Style', footer: M.glassFooter(gl.effective) }, app));
+      c.appendChild(this.tileStyleGroup(b, path));
       this.recommendGroups(c, x, b);
       var colors = [this.accentNav(x, b, base + '/accent')];
       if (gl.effective === 'flat') {
@@ -5675,6 +5677,21 @@
           return K.nav({ label: own.name || d[0], sub: own.name ? d[0] : null, icon: own.icon || d[1],
                          value: Object.keys(own).length ? 'Customized' : '', href: '#/page/' + k + '/pill', fk: 'pill:' + k });
         })));
+    }
+    // TILE STYLE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase B): the Home
+    // Grid's tiles and the room pages' Tall pills in the Home app's layout or
+    // Centred, HomeView's -- All Screens', or a screen's own (b, path) with
+    // Same as All Screens / Just This Screen and its Reset
+    tileStyleGroup(b, path) {
+      var self = this, house = (this.data.settings.look || {}).tile_style === 'centred' ? 'centred' : 'home';
+      var own = !!b && (b.tile_style === 'home' || b.tile_style === 'centred');
+      var rows = [K.seg({ label: 'Tile Style', sk: b ? 'b:tile_style' : 'look.tile_style', value: own ? b.tile_style : house, options: M.TILE_STYLES,
+        sub: b ? (own ? 'Just This Screen' : 'Same as All Screens') : null,
+        onChange: function (v) { if (b) self.setB(path, { tile_style: v }); else self.setH({ 'look.tile_style': v }); } })];
+      if (own) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.TILE_STYLES, house) + ')', sk: 'b:tile_style:reset',
+        onClick: function () { self.setB(path, { tile_style: null }); } }));
+      return K.group({ header: 'Tiles', footer: 'Centred puts each icon above its name and room, as on a HomeView: a Home Grid’s tiles and the room pages’ tall tiles. ' +
+        'A Home Grid block can choose its own in the editor.' }, rows);
     }
     // THE ROWS UNDER GLASS STYLE, the same on All Screens' Appearance and a
     // screen's page: the amount of the style in use, with Frosted its Tint

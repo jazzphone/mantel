@@ -279,15 +279,22 @@
   // SCREEN TYPES (2026-10-24, the owner): the grid that suits a kind of
   // screen, from the grid's own fit (196 x 150 px tiles, the whole grid
   // scaled to the screen, never enlarged; docs/phase11/HOME-GRID.md, "Screen
-  // types"). [key, name, columns, rows, top band, preview size]
+  // types"). [key, name, columns, rows, top band, preview size, cell shape]
+  // SQUARE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase A): a screen that
+  // really is square -- 3 x 3 square cells, no band, filling the screen, its
+  // canvas 14 px from the glass and its corner blocks rounded with it
+  // (`screen: square` on the grid).
   var SCREEN_TYPES = [
-    ['phone_portrait', 'Phone, Portrait', 2, 5, false, [390, 844]],
-    ['phone_landscape', 'Phone, Landscape', 3, 2, false, [844, 390]],
-    ['tablet_portrait', 'Tablet, Portrait', 3, 6, true, [820, 1180]],
-    ['tablet_landscape', 'Tablet, Landscape', 6, 4, true, [1180, 820]],
-    ['large_tablet', 'Large Tablet', 6, 5, true, [1376, 1032]],
-    ['car', 'Car', 6, 3, true, [1280, 720]]
+    ['phone_portrait', 'Phone, Portrait', 2, 5, false, [390, 844], 'tile'],
+    ['phone_landscape', 'Phone, Landscape', 3, 2, false, [844, 390], 'tile'],
+    ['tablet_portrait', 'Tablet, Portrait', 3, 6, true, [820, 1180], 'tile'],
+    ['tablet_landscape', 'Tablet, Landscape', 6, 4, true, [1180, 820], 'tile'],
+    ['large_tablet', 'Large Tablet', 6, 5, true, [1376, 1032], 'tile'],
+    ['car', 'Car', 6, 3, true, [1280, 720], 'tile'],
+    ['square', 'Square', 3, 3, false, [800, 800], 'square']
   ];
+  // a grid's cells: their size, gap and (a Square screen's) edge -- hk-grid-catalog.js CELLS
+  function cellOf(grid) { return G.CELLS[grid && grid.cell === 'square' ? 'square' : 'tile']; }
   // A NIGHTSTAND (Phone, Landscape: a phone on its side by the bed, as
   // StandBy has it): starters of its own, a big clock on the wallpaper first
   var NIGHTSTAND = [
@@ -302,8 +309,71 @@
     ['n_analog', 'Analog and Weather', 'A watch face beside the forecast',
       [{ id: 'n1', card: 'clock', size: 'T', at: [0, 0], opts: { clock_style: 'analog' }, bare: true }, { id: 'n2', card: 'weather', size: 'L', at: [1, 0], opts: { big: true }, bare: true }]]
   ];
+  // (any cell shape on a type's grid is that type -- square cells on a wide
+  // tablet are still a wide tablet's -- but Square is a square screen's own)
+  // HOMEVIEW-STYLE STARTERS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md
+  // Phase A): square cells and Centred tiles, hand-written as the
+  // nightstand's are and filled from the house (squareHouse below) -- its
+  // room's thermostat in Big Number, the Analog Numbers clock on the
+  // wallpaper, then its scenes, the front door's lock and the room's lights.
+  // A block the house has nothing for is left out. By screen type: [key,
+  // name, what it is, the grid's shape, its blocks as [what, size, at]].
+  // (HOME WITH PANE, the recommended landscape starter, is the Side Pane's,
+  // Phase A2: it goes first in tablet_landscape, before Square, 6 x 4.)
+  var SQUARE_STARTERS = {
+    tablet_landscape: [
+      ['sq_6x4', 'Square, 6 × 4', 'Square cells with centred tiles, as on a HomeView. The text is smaller than today’s.',
+        { cols: 6, rows: 4, band: false },
+        [['thermostat', 'L', [0, 0]], ['clock', 'S', [2, 0]], ['weather', 'W', [3, 0]], ['lock', 'S', [5, 0]],
+         ['scene', 'S', [2, 1]], ['camera', 'L', [3, 1]], ['light', 'S', [5, 1]],
+         ['scene', 'S', [0, 2]], ['fan', 'S', [1, 2]], ['more', 'S', [2, 2]], ['more', 'S', [5, 2]],
+         ['more', 'S', [0, 3]], ['more', 'S', [1, 3]], ['more', 'S', [2, 3]], ['more', 'S', [3, 3]], ['more', 'S', [4, 3]], ['more', 'S', [5, 3]]]]],
+    tablet_portrait: [
+      ['sq_3x5', 'Square, 3 × 5', 'Square cells with centred tiles, as on a HomeView',
+        { cols: 3, rows: 5, band: false },
+        [['thermostat', 'L', [0, 0]], ['clock', 'S', [2, 0]], ['scene', 'S', [2, 1]], ['weather', 'W', [0, 2]], ['lock', 'S', [2, 2]],
+         ['camera', 'L', [0, 3]], ['light', 'S', [2, 3]], ['fan', 'S', [2, 4]]]]],
+    phone_portrait: [
+      ['sq_2x4', 'Square, 2 × 4', 'Square cells with centred tiles, as on a HomeView',
+        { cols: 2, rows: 4, band: false, grow: true },
+        [['thermostat', 'T', [0, 0]], ['clock', 'S', [1, 0]], ['lock', 'S', [1, 1]], ['light', 'S', [0, 2]], ['scene', 'S', [1, 2]],
+         ['scene', 'S', [0, 3]], ['fan', 'S', [1, 3]]]]],
+    square: [
+      ['sq_homeview', 'HomeView-style', 'The thermostat large, the clock, then scenes, the lock and the lights',
+        { cols: 3, rows: 3, band: false, screen: 'square', grow: true, frame: [800, 800] },
+        [['thermostat', 'L', [0, 0]], ['clock', 'S', [2, 0]], ['scene', 'S', [2, 1]], ['scene', 'S', [0, 2]], ['lock', 'S', [1, 2]], ['light', 'S', [2, 2]]]]]
+  };
+  // the blocks drawn as tiles, which take a Tile Style of their own
+  var TILE_CARDS = ['accessory', 'scene', 'action'];
+  // ONE SQUARE STARTER on `grid` (the screen's: its frame), from `house`
+  // ({ climate, scenes, lock, light, fan, more, weather, camera }: what is
+  // left to place, each taken once)
+  function squareStarter(c, grid, house) {
+    var h = copy(house), items = [];
+    var take = function (k) { return (h[k] || []).shift() || null; };
+    c[4].forEach(function (b) {
+      var what = b[0], size = b[1], at = b[2].slice(), it = null, id;
+      if (what === 'thermostat' && h.climate) it = { card: 'thermostat', opts: { entity: h.climate, style: 'big' } };
+      else if (what === 'clock') it = { card: 'clock', opts: { clock_style: 'numbers' }, bare: true };
+      else if (what === 'weather' && h.weather) it = { card: 'weather' };
+      else if (what === 'camera' && h.camera) it = { card: 'camera', pages: { source: 'cameras' } };
+      else if (what === 'scene' && (id = take('scenes'))) it = { card: 'scene', opts: { scene: id }, tile: 'centred' };
+      else if (what === 'lock' && h.lock) it = { card: 'accessory', opts: { entity: h.lock }, tile: 'centred' };
+      else if ((what === 'light' || what === 'fan' || what === 'more') && (id = take(what) || (what !== 'more' ? null : take('light')))) {
+        it = { card: 'accessory', opts: { entity: id }, tile: 'centred' };
+      }
+      if (it) items.push(Object.assign({ id: 'h' + (items.length + 1), size: size, at: at }, it));
+    });
+    // (the screen's grid otherwise as it is: its header, its night, its scale)
+    var out = Object.assign(copy(grid || EMPTY), copy(c[3]), { cell: 'square', items: items });
+    delete out.views;
+    if (!c[3].screen) delete out.screen;
+    return out;
+  }
   function screenTypeOf(grid) {
-    var t = grid && SCREEN_TYPES.find(function (x) { return x[2] === grid.cols && x[3] === grid.rows && x[4] === !!grid.band; });
+    var t = grid && SCREEN_TYPES.find(function (x) {
+      return x[2] === grid.cols && x[3] === grid.rows && x[4] === !!grid.band && (x[0] === 'square') === (grid.screen === 'square');
+    });
     return t ? t[0] : 'custom';
   }
   // A LAYOUT ON ANOTHER GRID: its blocks in reading order, each at the first
@@ -321,9 +391,11 @@
     return { grid: out, left: left };
   }
   // how large a block shows on a screen of `frame` (its share of full size)
+  // (the grid's own cells: hk-grid-catalog.js CELLS, as hk-home-grid-view measures them)
   function scaleAt(grid, frame) {
-    var pad = 1280 * 0.015 + 8, w = grid.cols * 196 + (grid.cols - 1) * 10 + 2 * pad;
-    var h = grid.rows * 150 + (grid.rows - 1) * 10 + 2 * pad + (grid.band ? 70 : 0);
+    var c = cellOf(grid), pad = grid.screen === 'square' && c.edge ? c.edge : 1280 * 0.015 + 8;
+    var w = grid.cols * c.w + (grid.cols - 1) * c.gap + 2 * pad;
+    var h = grid.rows * c.h + (grid.rows - 1) * c.gap + 2 * pad + (grid.band ? 60 + c.gap : 0);
     return Math.min(1, frame[0] / w, frame[1] / h);
   }
   function snap(x, y, rect, cols, rows) {
@@ -745,14 +817,14 @@
         [].find.call(view.shadowRoot.querySelectorAll((this.grid.views || 1) > 1 ? '.cell[data-view="' + VIEW + '"]' : '.cell'), (c) => !c.style.translate);
       if (cell) {
         var r = cell.getBoundingClientRect(), it = view._config.cards.find((x) => x.hk_cell && x.hk_cell.id === cell.dataset.id).hk_cell;
-        var gap = 10 * (view._gridScale || 1); this.cellGap = gap; this.overlay.style.gap = gap + 'px';
+        var gap = cellOf(this.grid).gap * (view._gridScale || 1); this.cellGap = gap; this.overlay.style.gap = gap + 'px';
         var z = SIZES[it.size], cw = (r.width - (z[0] - 1) * gap) / z[0], ch = (r.height - (z[1] - 1) * gap) / z[1];
         Object.assign(this.overlay.style, { left: r.left - it.at[0] * (cw + gap) + 'px', top: r.top - it.at[1] * (ch + gap) + 'px',
           width: (cw + gap) * this.grid.cols - gap + 'px', height: (ch + gap) * this.grid.rows - gap + 'px' });
       } else if (view && view._root && view._gridScale) {
         var bounds = view._root.getBoundingClientRect(), factor = view._gridScale;
-        var pad = parseFloat(w.getComputedStyle(view._root).paddingTop) * factor, band = this.grid.band ? 70 * factor : 0;
-        this.cellGap = 10 * factor; this.overlay.style.gap = this.cellGap + 'px';
+        var pad = parseFloat(w.getComputedStyle(view._root).paddingTop) * factor, band = this.grid.band ? (60 + cellOf(this.grid).gap) * factor : 0;
+        this.cellGap = cellOf(this.grid).gap * factor; this.overlay.style.gap = this.cellGap + 'px';
         Object.assign(this.overlay.style, { left: bounds.left + pad + 'px', top: bounds.top + pad + band + 'px',
           width: bounds.width - 2 * pad + 'px', height: bounds.height - 2 * pad - band + 'px' });
       } else {
@@ -799,8 +871,17 @@
       r.grid.band = t[4]; r.grid.frame = t[5].slice();
       // (a phone fills itself: its grid is smaller than its screen on its side)
       if (/^phone/.test(t[0])) r.grid.grow = true;
+      // ...the type's cells; Square: a square screen's, filled to its edge (its blocks keep their places)
+      if (t[6] === 'square') r.grid.cell = 'square'; else delete r.grid.cell;
+      if (t[0] === 'square') { r.grid.screen = 'square'; r.grid.grow = true; } else delete r.grid.screen;
       if (r.grid.items.every((it) => it.id !== this.selected)) this.selected = null;
       this.change(r.grid);
+    }
+    // CELL SHAPE (2026-10-30): Tile or Square, every block where it was
+    cellShape(v) {
+      var next = copy(this.grid);
+      if (v === 'square') next.cell = 'square'; else delete next.cell;
+      this.change(next);
     }
     // a starter (or Start Empty) on this screen's grid, when the screen has
     // one other than the starters' own 6 x 4
@@ -809,12 +890,17 @@
       if (!g || !grid || (g.cols === grid.cols && g.rows === grid.rows)) return grid;
       var out = reflow(grid, g.cols, g.rows).grid;
       out.band = g.band; out.frame = g.frame.slice();
+      // (the screen's cells, and a Square screen stays one)
+      if (g.cell) out.cell = g.cell; else delete out.cell;
+      if (g.screen) out.screen = g.screen; else delete out.screen;
       return out;
     }
     async starter(concept) {
       if (this.busy) return;
       if (this.grid && !await this.K.confirm(this.shadowRoot, { title: 'Use a Starter Layout?', message: 'This replaces your draft. Nothing is saved yet.', ok: 'Use Starter' })) return;
       if (concept === 'empty') { this.selected = null; this.change(this.asScreen(copy(EMPTY))); return; }
+      var sq = this.squareStarters().find((c) => c[0] === concept);
+      if (sq) { VIEW = 0; this.selected = null; this.change(squareStarter(sq, this.grid, this.squareHouse())); return; }
       var own = NIGHTSTAND.find((c) => c[0] === concept);
       if (own && this.grid) {
         var g2 = Object.assign(copy(this.grid), { items: copy(own[3]) });
@@ -843,6 +929,26 @@
       return { concept: concept, scenes: board.scenes && board.scenes.length ? board.scenes.filter((id) => id.indexOf('scene.') === 0) : ids('scene'), rooms: rooms,
         cameras: board.cameras && board.cameras.length ? board.cameras : ids('camera'), climate: ids('climate'),
         tablet_room: tablet ? tablet.room : null, tab_bar: menu === 'tabbar' || menu === 'auto' || !menu };
+    }
+    // this screen type's HomeView-style starters (SQUARE_STARTERS)
+    squareStarters() { return SQUARE_STARTERS[screenTypeOf(this.grid)] || []; }
+    // WHAT A SQUARE STARTER IS FILLED FROM: this screen's (starterOptions:
+    // its scenes, rooms, cameras, thermostats and its tablet's room), and of
+    // the house's accessories those in the tablet's room first -- its
+    // thermostat, the front door's lock (else the first), its lights and
+    // fan, then the house's others (lights, fans, covers, switches)
+    squareHouse() {
+      var client = this.panel.client, states = client.states || {}, ents = client.entities || {}, devs = client.devices || {};
+      var o = this.starterOptions('A'), room = o.tablet_room || o.rooms[0] || null;
+      var areaOf = (id) => { var e = ents[id] || {}; return e.area_id || (devs[e.device_id] || {}).area_id || null; };
+      var shown = (id) => !(ents[id] && (ents[id].hidden || ents[id].entity_category));
+      var name = (id) => String(((states[id] || {}).attributes || {}).friendly_name || id);
+      var ids = (d) => Object.keys(states).filter((id) => id.indexOf(d + '.') === 0 && shown(id)).sort((a, b) => name(a).localeCompare(name(b)));
+      var near = (list) => list.filter((id) => areaOf(id) === room).concat(list.filter((id) => areaOf(id) !== room));
+      var locks = ids('lock'), lights = near(ids('light')), fans = near(ids('fan'));
+      return { climate: near(o.climate)[0] || null, scenes: o.scenes.slice(0, 24), lock: locks.find((id) => /front/i.test(id + ' ' + name(id))) || locks[0] || null,
+        light: lights.slice(0, 1), fan: fans.slice(0, 1), more: lights.slice(1).concat(fans.slice(1), near(ids('cover')), near(ids('switch'))),
+        weather: ids('weather').length > 0, camera: o.cameras.length > 0 };
     }
     // EVERY STARTER, as it would be for this screen (read-only requests, once):
     // the maps beside their names
@@ -879,12 +985,16 @@
     starterGallery() {
       var h = this.h, K = this.K, waiting = !this.starterGrids;
       this.loadStarters();
-      var night = screenTypeOf(this.grid) === 'phone_landscape';
-      var rows = (night ? NIGHTSTAND.concat([STARTERS[STARTERS.length - 1]]) : STARTERS).map((c) => {
-        var grid = this.asScreen(c[0] === 'empty' ? EMPTY : c[3] ? Object.assign(copy(this.grid), { items: copy(c[3]) }) : this.starterGrids && this.starterGrids[c[0]]);
+      var kind = screenTypeOf(this.grid), night = kind === 'phone_landscape', square = this.squareStarters(), house = square.length ? this.squareHouse() : null;
+      // (a Square screen: its own and Start Empty, as a nightstand; the others' HomeView-style ones first)
+      var list = night ? NIGHTSTAND.concat([STARTERS[STARTERS.length - 1]]) : kind === 'square' ? square.concat([STARTERS[STARTERS.length - 1]]) : square.concat(STARTERS);
+      var rows = list.map((c) => {
+        var own = square.indexOf(c) >= 0;
+        var grid = own ? squareStarter(c, this.grid, house)
+          : this.asScreen(c[0] === 'empty' ? EMPTY : c[3] ? Object.assign(copy(this.grid), { items: copy(c[3]) }) : this.starterGrids && this.starterGrids[c[0]]);
         if (!waiting && !grid) return null;               // a starter that couldn't be read
         return h('button', { class: 'cell starter', type: 'button', 'data-starter': c[0], 'aria-label': c[1] + ', ' + c[2],
-          onclick: () => this.starter(c[0]) }, [this.miniMap(grid, waiting && c[0] !== 'empty'), h('span', { class: 'st' }, [h('b', { text: c[1] }), h('small', { text: c[2] })])]);
+          onclick: () => this.starter(c[0]) }, [this.miniMap(grid, waiting && c[0] !== 'empty' && !own), h('span', { class: 'st' }, [h('b', { text: c[1] }), h('small', { text: c[2] })])]);
       });
       return K.group({ header: this.grid ? 'Start Over With' : 'Start With',
         footer: this.grid ? 'Replaces this draft. Nothing is saved until you Save.' : 'Each fills the grid from your home’s scenes, rooms, cameras and thermostats. Nothing is saved until you Save.' }, rows);
@@ -1050,9 +1160,13 @@
       if (views > 1) viewRows.push(K.button({ label: 'Remove View ' + (VIEW + 1), destructive: true, onClick: () => this.removeView(VIEW) }));
       add(K.group({ header: 'Views', footer: views > 1 ? 'Swipe sideways on the screen between its views. Each is a whole layout of its own on this grid.'
         : 'Add a view for a second layout a swipe away, as StandBy has.' }, viewRows));
-      add(K.group({ header: 'Grid', footer: 'The grid scales to fit each screen; its blocks keep their shape. In this preview they show at ' + pct + '% of full size.' + tip }, [
+      add(K.group({ header: 'Grid', footer: 'The grid scales to fit each screen; its blocks keep their shape. In this preview they show at ' + pct + '% of full size.' +
+        ' Square cells are as tall as they are wide, as on a HomeView.' + tip }, [
         K.select({ label: 'Screen Type', value: kind, options: [['custom', 'Custom']].concat(SCREEN_TYPES.map((t) => [t[0], t[1] + ' · ' + t[2] + ' × ' + t[3]])),
           onChange: (k) => this.screenType(k) }),
+        // CELL SHAPE (2026-10-30): every block stays where it is; only the cells change shape
+        K.seg({ label: 'Cell Shape', value: this.grid.cell === 'square' ? 'square' : 'tile', options: [['tile', 'Tile'], ['square', 'Square']],
+          onChange: (v) => this.cellShape(v) }),
         K.seg({ label: 'Columns', value: this.grid.cols, options: [6, 3, 2].map((n) => [n, String(n)]), onChange: (n) => config('cols', Number(n)) }),
         K.select({ label: 'Rows', value: this.grid.rows, options: [2, 3, 4, 5, 6].map((n) => [n, String(n)]), onChange: (n) => config('rows', Number(n)) }),
         K.toggle({ label: 'Show Boxes', sub: 'Off: every block straight on the background, as on a nightstand.', on: this.grid.boxes !== false, onChange: (on) => config('boxes', on) }),
@@ -1149,7 +1263,11 @@
         sub: noBoxes ? 'The screen hides every block’s box (Screen → Show Boxes).' : 'The card straight on the background, without its box.',
         onChange: (on) => { var patch = { bare: on || null }; if (ownBare) { var o = copy(item.opts); delete o.bare; patch.opts = o; } this.update(item.id, patch); } })];
       if (cat.opts && cat.opts.surface) this.surfaceFields((item.opts || {}).surface, (value) => { var o = copy(item.opts || {}); if (value) o.surface = value; else delete o.surface; this.update(item.id, { opts: o }); }, look);
-      add(K.group({ header: 'Appearance', footer: cat.opts && cat.opts.surface ? 'A custom background changes only the group’s own; its tiles keep the screen’s look.' : '' }, look));
+      // TILE STYLE (2026-10-30): a tile block's own, else the screen's (HK Settings → the screen → Appearance)
+      if (TILE_CARDS.indexOf(item.card) >= 0) look.push(K.seg({ label: 'Tile Style', value: item.tile || '', options: [['', 'Same as Screen'], ['home', 'Home'], ['centred', 'Centred']],
+        onChange: (v) => this.update(item.id, { tile: v || null }) }));
+      add(K.group({ header: 'Appearance', footer: cat.opts && cat.opts.surface ? 'A custom background changes only the group’s own; its tiles keep the screen’s look.'
+        : TILE_CARDS.indexOf(item.card) >= 0 ? 'Centred puts the icon above the name and room, as on a HomeView.' : '' }, look));
     }
     setShow(item, s) {
       if (item.card === 'accessories') {
@@ -1288,7 +1406,7 @@
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title', 'room_display'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display', 'thermostat_style'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
@@ -1342,8 +1460,8 @@
       if (box.querySelector('iframe')) return;
       if (this.catalogOff) this.catalogOff();
       var sz = box.dataset.previewSize, z = SIZES[sz], ctx = this.previewView._config.grid_ctx || {};
-      var unit = w.hkCards.TILE, gap = w.hkCards.HOME_GRID.gap;
-      var width = unit.w * z[0] + gap * (z[0] - 1), height = unit.tall * z[1] + gap * (z[1] - 1);
+      var unit = cellOf(this.grid), gap = unit.gap;
+      var width = unit.w * z[0] + gap * (z[0] - 1), height = unit.h * z[1] + gap * (z[1] - 1);
       var scale = Math.min(1, (box.clientWidth || 220) / width);
       box.style.height = height * scale + 'px';
       // Keep every descendant in the screen's custom-element registry. Adopting
@@ -1362,7 +1480,7 @@
         }
         var doc = fw.document, cell = doc.createElement('div'); cell.className = 'cell'; cell.setAttribute('size', sz);
         Object.assign(cell.style, { width: width + 'px', height: height + 'px', position: 'fixed', inset: '0', containerType: 'size', containerName: 'hk-cell' });
-        cell.style.setProperty('--hk-cell-w', (width + 10) / z[0] - 10 + 'px'); cell.style.setProperty('--hk-cell-h', (height + 10) / z[1] - 10 + 'px');
+        cell.style.setProperty('--hk-cell-w', (width + gap) / z[0] - gap + 'px'); cell.style.setProperty('--hk-cell-h', (height + gap) / z[1] - gap + 'px');
         var view = doc.createElement('hk-home-grid-view');
         Object.assign(view.style, { display: 'block', width: width + 'px', height: height + 'px', position: 'fixed', inset: '0' });
         var it = { id: 'preview', card: box.dataset.previewCard, size: sz, at: [0, 0], opts: this.previewOptions(box.dataset.previewCard) };
@@ -1475,6 +1593,12 @@
         if (kind === 'refresh') {
           rows.push(K.select({ label: 'Refresh', value: String(opts[key] || 10), options: [5, 10, 15, 20, 30, 60].map((n) => [String(n), 'Every ' + n + ' Seconds']),
             onChange: (v) => set(key, +v === 10 ? null : +v) }));
+          return;
+        }
+        // a thermostat's Style: the dial or Big Number, Tall and Large (Extra Large is its sheet)
+        if (kind === 'thermostat_style') {
+          if (o.page || o.size === 'XL') return;
+          rows.push(K.seg({ label: 'Style', value: opts[key] || 'dial', options: G.THERMOSTAT_STYLES, onChange: (v) => set(key, v === 'dial' ? null : v) }));
           return;
         }
         if (kind === 'days') {
@@ -1653,6 +1777,7 @@
       this.say('Not saved: this screen changed since you opened it.');
     }
   }
-  window.hkGridEditor = { place: place, makeRoom: makeRoom, valid: valid, firstSpace: firstSpace, add: add, snap: snap, landing: landing };
+  window.hkGridEditor = { place: place, makeRoom: makeRoom, valid: valid, firstSpace: firstSpace, add: add, snap: snap, landing: landing,
+                          SCREEN_TYPES: SCREEN_TYPES, SQUARE_STARTERS: SQUARE_STARTERS, screenTypeOf: screenTypeOf, scaleAt: scaleAt, squareStarter: squareStarter };
   customElements.define('hk-grid-editor', GridEditor);
 })();

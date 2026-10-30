@@ -189,6 +189,76 @@ step(function () {                      // FULL (F, 2026-10-30): the Cameras fac
   ok('only the Cameras face has it', E.valid(Object.assign(base(6, 4), { items: [{ id: 'c1', card: 'camera', size: 'F', at: [0, 0] }] })), false);
 });
 
+// ---- the Square screen, Cell Shape and the HomeView-style starters (2026-10-30, HOMEVIEW-LOOK.md Phase A)
+step(function () {
+  var GE = window.hkGridEditor, T = GE.SCREEN_TYPES;
+  ok('every screen type names its cells; Square is the one with square cells', T.map(function (t) { return t[0] + ':' + t[6]; }).join(),
+     'phone_portrait:tile,phone_landscape:tile,tablet_portrait:tile,tablet_landscape:tile,large_tablet:tile,car:tile,square:square');
+  ok('...Square: 3 x 3, no band, an 800 x 800 preview', JSON.stringify(T[T.length - 1].slice(1, 6)), JSON.stringify(['Square', 3, 3, false, [800, 800]]));
+  var sq = { v: 1, cols: 3, rows: 3, frame: [800, 800], band: false, cell: 'square', screen: 'square', items: [] };
+  ok('a square screen\'s grid is the Square type', GE.screenTypeOf(sq), 'square');
+  ok('...a 3 x 3 of square cells on another screen is not (Home with Pane\'s grid is one)', GE.screenTypeOf(Object.assign({}, sq, { screen: undefined })), 'custom');
+  ok('...square cells on a wide tablet are still its type', GE.screenTypeOf({ cols: 6, rows: 4, band: true, cell: 'square' }), 'tablet_landscape');
+  ok('the preview\'s scale reads the cells: a Square screen at full size', GE.scaleAt(sq, [800, 800]), 1);
+  ok('...6 x 4 square, band off, on a landscape tablet: 1295.4 x 877.4 at 0.91',
+     Math.round(GE.scaleAt({ cols: 6, rows: 4, band: false, cell: 'square' }, [1180, 820]) * 1000), 911);
+  ok('...6 x 4 tiles as before', Math.round(GE.scaleAt({ cols: 6, rows: 4, band: true }, [1280, 800]) * 1000), Math.round(Math.min(1, 1280 / 1280.4, 800 / (4 * 150 + 30 + 54.4 + 70)) * 1000));
+
+  var pg = page([]), ed = editor(pg, true);
+  ed.change({ v: 1, cols: 6, rows: 4, frame: [1280, 800], band: true, items: [{ id: 'a', card: 'timers', size: 'S', at: [4, 2] }, { id: 'b', card: 'clock', size: 'L', at: [0, 0] }] });
+  ed.cellShape('square');
+  ok('Cell Shape: Square, every block where it was', [ed.grid.cell, JSON.stringify(ed.grid.items.map(function (i) { return i.at; }))], ['square', '[[4,2],[0,0]]']);
+  ed.cellShape('tile');
+  ok('...and Tile again is no key, the blocks still there', ['cell' in ed.grid, JSON.stringify(ed.grid.items.map(function (i) { return i.at; }))], [false, '[[4,2],[0,0]]']);
+  return ed.screenType('square').then(function () {
+    var g = ed.grid;
+    ok('choosing Square: 3 x 3, no band, square cells, Fill the Screen, its preview', [g.cols, g.rows, g.band, g.cell, g.screen, g.grow, JSON.stringify(g.frame)],
+       [3, 3, false, 'square', 'square', true, '[800,800]']);
+    return ed.screenType('tablet_landscape');
+  }).then(function () {
+    ok('...another type takes its own cells and is no square screen', ['cell' in ed.grid, 'screen' in ed.grid, ed.grid.cols], [false, false, 6]);
+  });
+});
+
+step(function () {
+  var GE = window.hkGridEditor, S = GE.SQUARE_STARTERS;
+  var house = { climate: 'climate.den', scenes: ['scene.arrive', 'scene.good_night', 'scene.movie'], lock: 'lock.front_door',
+                light: ['light.entry'], fan: ['fan.bedroom'], more: ['light.porch', 'cover.shades'], weather: true, camera: true };
+  var base = { v: 1, cols: 3, rows: 3, frame: [800, 800], band: false, cell: 'square', screen: 'square', items: [] };
+  var hv = GE.squareStarter(S.square[0], base, house), by = function (g) { return g.items.map(function (i) { return i.card + ':' + i.size + '@' + i.at.join(','); }).join(' '); };
+  ok('Square: HomeView-style -- the thermostat L, the clock, two scenes, the lock and the lights', by(hv),
+     'thermostat:L@0,0 clock:S@2,0 scene:S@2,1 scene:S@0,2 accessory:S@1,2 accessory:S@2,2');
+  ok('...a valid layout, square cells on a square screen', [GE.valid(hv), hv.cell, hv.screen, hv.cols, hv.rows, hv.band], [true, 'square', 'square', 3, 3, false]);
+  var th = hv.items[0], ck = hv.items[1];
+  ok('...the room\'s thermostat in Big Number, Analog Numbers bare', [th.opts.entity, th.opts.style, ck.opts.clock_style, ck.bare], ['climate.den', 'big', 'numbers', true]);
+  ok('...the tiles centred, filled from the house', hv.items.slice(2).map(function (i) { return i.tile + ':' + (i.opts.scene || i.opts.entity); }).join(),
+     'centred:scene.arrive,centred:scene.good_night,centred:lock.front_door,centred:light.entry');
+  ok('nothing in the house: only the clock (a block with nothing to show is left out)', by(GE.squareStarter(S.square[0], base, { scenes: [], light: [], fan: [], more: [] })), 'clock:S@2,0');
+  var land = GE.squareStarter(S.tablet_landscape[0], { v: 1, cols: 6, rows: 4, frame: [1180, 820], band: true, items: [] }, house);
+  ok('Tablet, Landscape: Square, 6 x 4, square cells, no band, no square screen', [land.cols, land.rows, land.band, land.cell, 'screen' in land, GE.valid(land)],
+     [6, 4, false, 'square', false, true]);
+  ok('...its description says the text is smaller', /smaller/.test(S.tablet_landscape[0][2]), true);
+  ok('...the thermostat, clock, weather, camera, the lock and lights and a fan', ['thermostat', 'clock', 'weather', 'camera'].every(function (c) {
+    return land.items.some(function (i) { return i.card === c; }); }) && land.items.filter(function (i) { return i.tile === 'centred'; }).length === 7, true);
+  var por = GE.squareStarter(S.tablet_portrait[0], { v: 1, cols: 3, rows: 6, frame: [820, 1180], band: true, items: [] }, house);
+  var ph = GE.squareStarter(S.phone_portrait[0], { v: 1, cols: 2, rows: 5, frame: [390, 844], band: false, items: [] }, house);
+  ok('Tablet, Portrait: Square, 3 x 5; Phone, Portrait: Square, 2 x 4 with the thermostat Tall', [por.cols, por.rows, GE.valid(por), ph.cols, ph.rows, GE.valid(ph), ph.items[0].size],
+     [3, 5, true, 2, 4, true, 'T']);
+
+  // filled from the house: the tablet's room first, the front door's lock
+  var pg = page([]), ed = editor(pg, true);
+  pg.client = { states: { 'climate.hall': { state: 'heat', attributes: {} }, 'climate.den': { state: 'heat', attributes: {} },
+    'lock.back_door': { state: 'locked', attributes: { friendly_name: 'Back Door' } }, 'lock.side': { state: 'locked', attributes: { friendly_name: 'Front Door Lock' } },
+    'light.a_hall': { state: 'off', attributes: {} }, 'light.den_lamp': { state: 'on', attributes: {} }, 'fan.den': { state: 'off', attributes: {} },
+    'scene.arrive': { state: 'scening', attributes: {} }, 'weather.home': { state: 'sunny', attributes: {} } },
+    entities: { 'climate.den': { area_id: 'den' }, 'light.den_lamp': { area_id: 'den' }, 'light.a_hall': { area_id: 'hall' } }, devices: {},
+    areas: { den: { name: 'Den' }, hall: { name: 'Hall' } } };
+  pg.data.tablets = { t1: { screen: 'dashboard-hall', room: 'den' } };
+  var hh = ed.squareHouse();
+  ok('the house: the tablet\'s room\'s thermostat and lights, the front door\'s lock', [hh.climate, hh.lock, hh.light[0], hh.fan[0], hh.weather, hh.camera],
+     ['climate.den', 'lock.side', 'light.den_lamp', 'fan.den', true, false]);
+});
+
 steps.reduce(function (p, f) { return p.then(f); }, Promise.resolve()).then(function () {
   print(fail ? 'FAIL ' + fail + ' GRID EDITOR TESTS' : 'ALL ' + pass + ' GRID EDITOR TESTS PASS');
 }).catch(function (e) { print('Exception: ' + e + ' ' + (e.stack || '')); print('FAIL GRID EDITOR TESTS'); });

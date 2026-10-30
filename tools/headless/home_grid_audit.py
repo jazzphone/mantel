@@ -2,6 +2,7 @@
 looks, on a 6-column grid at 1280 x 800 -- nothing clipped, checked by measured geometry.
 
     python tools/headless/home_grid_audit.py [--only KEY ...] [--looks flat_light ...] [--shots DIR] [--json FILE]
+                                             [--cell square] [--homeview]
 
 A real Mantel Server and the gallery's fictional house (tools/headless/gallery.py), headless Chrome, no network
 beyond 127.0.0.1. Each card gets one screen per look, its Home a Home Grid holding the card once per size (XL, L
@@ -18,6 +19,10 @@ What it measures, in each block's cell (the view's `.cell`, which clips):
 * DESIGN.md, what can be measured: no text under the smallest type role (11 px), every control at least 44 px,
   every painted box's corner on the scale (23.5, 22, 20, 12, 8, a capsule, square) and the block's plate 23.5;
 * no page scroll, and no script error.
+
+Square cells (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase A): `--cell square` lays the same blocks on 196 x 196
+cells (S 196 x 196, W 402 x 196, T 196 x 402, L 402 x 402, XL 608 x 402), where every block's plate corner is
+HomeView's 34; `--homeview` also makes the tiles Centred, the thermostat Big Number and the clock Analog Numbers.
 
 Text scale: HK draws its type roles in px (hk-base.js TYPE) and a wall tablet's text size setting never reaches
 them (the Mantel app's web view sets -webkit-text-size-adjust:100%), so the one scale is the largest. The `long`
@@ -109,14 +114,29 @@ LONG = " and the Long Way Round"       # the `long` pass: every name this much l
 
 
 def screen(key: str, look: str, bar: bool = True) -> str:
-    return f"grid-{key.replace('_', '-')}-{look.replace('_', '-')}{'' if bar else '-nobar'}"
+    return f"grid-{key.replace('_', '-').replace(':', '-').lower()}-{look.replace('_', '-')}{'' if bar else '-nobar'}"
 
 
-def layout(key: str) -> dict:
-    sizes = HG.CATALOG[key]["sizes"]
-    items = [{"id": f"{key[:3]}{s.lower()}", "card": key, "size": s, "at": PLACES[s], **({"opts": OPTS[key]} if key in OPTS else {})}
+# a card with a Full Width size (XXL, 6 x 2) has it on a screen of its own, "key:XXL": it can't share the 6 x 4
+def parts(keys: list[str]) -> list[str]:
+    return [p for k in keys for p in ([k, k + ":XXL"] if "XXL" in HG.CATALOG[k]["sizes"] else [k])]
+
+
+# --cell square / --homeview (main): the grid's cells, and HomeView's tiles, thermostat and clock
+CELL = {"cell": "tile", "homeview": False}
+HOMEVIEW = {"thermostat": {"style": "big"}, "clock": {"clock_style": "numbers"}}
+
+
+def layout(part: str) -> dict:
+    key, _, only = part.partition(":")
+    sizes = [s for s in HG.CATALOG[key]["sizes"] if (s == only if only else s in PLACES)]
+    hv = CELL["homeview"]
+    opts = {**OPTS.get(key, {}), **(HOMEVIEW.get(key, {}) if hv else {})}
+    items = [{"id": f"{key[:3]}{s.lower()}", "card": key, "size": s, "at": PLACES.get(s, [0, 0]), **({"opts": opts} if opts else {}),
+              **({"tile": "centred"} if hv and key in ("accessory", "scene", "action") else {})}
              for s in sizes]
-    return {"v": 1, "cols": 6, "rows": 4, "frame": [1280, 800], "band": True, "items": items}
+    return {"v": 1, "cols": 6, "rows": 4, "frame": [1280, 800], "band": True, "items": items,
+            **({"cell": "square"} if CELL["cell"] == "square" else {})}
 
 
 def settings(passes: list[tuple[str, str, bool]]) -> dict:
@@ -178,8 +198,10 @@ MEASURE = r"""(() => {
         const cs = getComputedStyle(leaf), ctx = document.createElement('canvas').getContext('2d');
         ctx.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
         const metrics = ctx.measureText(node.data);
-        const baseline = r.top + (metrics.fontBoundingBoxAscent || parseFloat(cs.fontSize));
-        const top = baseline - metrics.actualBoundingBoxAscent, bottom = baseline + metrics.actualBoundingBoxDescent;
+        // (the font's metrics are the page's px; the range is on screen, the canvas scaled: square cells scale it more)
+        const k = view._gridScale || 1;
+        const baseline = r.top + (metrics.fontBoundingBoxAscent || parseFloat(cs.fontSize)) * k;
+        const top = baseline - metrics.actualBoundingBoxAscent * k, bottom = baseline + metrics.actualBoundingBoxDescent * k;
         if (r.height > 0 && (top < bounds.top - 1 || bottom > bounds.bottom + 1)) out.band_issues.push('band text clipped: ' + node.data.trim());
       }
     }
@@ -267,7 +289,9 @@ MEASURE = r"""(() => {
     }
     if (minFont < 11) rec.issues.push('text under the type roles: ' + minFont + ' px in ' + name(small));
     rec.min_font = minFont;
-    const SCALE = [23.5, 22, 20, 12, 8, 0];
+    // (square cells: HomeView's 34 on the block, as a corner of the scale)
+    const SQUARE = view.getAttribute('cell') === 'square', PLATE = SQUARE ? 34 : 23.5;
+    const SCALE = [23.5, 22, 20, 12, 8, 0].concat(SQUARE ? [34] : []);
     let outer = null, outerA = 0;
     for (const el of all) {
       if (!shown(el)) continue; const cs = getComputedStyle(el);
@@ -279,8 +303,8 @@ MEASURE = r"""(() => {
       if (!capsule && !SCALE.some(v => Math.abs(rad - v) < 0.6)) rec.issues.push('a corner off the scale: ' + rad + ' px on ' + name(el));
       const a = Math.min(r.width, c.width) * Math.min(r.height, c.height);
       if (a > outerA) { outerA = a; outer = { el, rad }; } }
-    if (outer && outerA > 0.6 * c.width * c.height && Math.abs(outer.rad - 23.5) > 0.6)
-      rec.issues.push("the block's plate corner is " + outer.rad + ' px, not 23.5: ' + name(outer.el));
+    if (outer && outerA > 0.6 * c.width * c.height && Math.abs(outer.rad - PLATE) > 0.6)
+      rec.issues.push("the block's plate corner is " + outer.rad + ' px, not ' + PLATE + ': ' + name(outer.el));
     // Check the material contract as well as geometry. Media may paint its
     // own image; every other plate must follow the active screen's material.
     const rendering = window.hkSettings && window.hkSettings.rendering();
@@ -418,14 +442,17 @@ def main(argv=None) -> int:
     ap.add_argument("--long", action="store_true", help="every name twice as long")
     ap.add_argument("--no-bar", nargs="*", choices=list(LOOKS), default=["flat_dark"], dest="nobar",
                     help="looks to run once more with the tab bar hidden (default: Flat Dark)")
+    ap.add_argument("--cell", choices=["tile", "square"], default="tile", help="the grid's cells (square: 196 x 196)")
+    ap.add_argument("--homeview", action="store_true", help="square cells, Centred tiles, Big Number, Analog Numbers")
     a = ap.parse_args(argv)
+    CELL.update(cell="square" if a.homeview else a.cell, homeview=a.homeview)
     keys = a.only or G2
     unknown = [k for k in keys if k not in HG.CATALOG]
     if unknown:
         ap.error(f"not in the catalog: {unknown}")
     if a.shots:
         a.shots.mkdir(parents=True, exist_ok=True)
-    report = asyncio.run(audit(keys, a.looks, a.shots, a.long, a.nobar))
+    report = asyncio.run(audit(parts(keys), a.looks, a.shots, a.long, a.nobar))
     if a.json:
         a.json.write_text(json.dumps(report, indent=1))
     bad, lines = summary(report)

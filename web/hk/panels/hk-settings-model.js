@@ -75,6 +75,7 @@
     ['lcd', 'Retro LCD', 'Seven segments on a backlit panel'],
     ['flip', 'Flip', 'Split-flap cards that flip as the minute turns'],
     ['analog', 'Analog', 'A watch face with a sweeping second hand'],
+    ['numbers', 'Analog Numbers', 'Numerals round a quiet dial, a slim second hand'],
     ['words', 'Words', '“It is quarter past seven”, in a grid of letters'],
     ['arc', 'Minimal Arc', 'The hour, big; the minutes a ring filling round it'],
     ['nixie', 'Nixie Tubes', 'Orange glow in glass tubes'],
@@ -92,6 +93,7 @@
     lcd: [['green', 'Green'], ['amber', 'Amber'], ['blue', 'Blue'], ['white', 'White'], ['night', 'Night']],
     flip: [['dark', 'Dark'], ['white', 'White'], ['red', 'Red'], ['navy', 'Navy']],
     analog: [['orange', 'Orange'], ['red', 'Red'], ['blue', 'Blue'], ['green', 'Green'], ['gold', 'Gold']],
+    numbers: [['white', 'White'], ['orange', 'Orange'], ['red', 'Red'], ['blue', 'Blue'], ['green', 'Green'], ['gold', 'Gold']],
     words: [['white', 'White'], ['warm', 'Warm'], ['blue', 'Blue'], ['green', 'Green'], ['pink', 'Pink']],
     arc: [['white', 'White'], ['orange', 'Orange'], ['blue', 'Blue'], ['green', 'Green'], ['pink', 'Pink']],
     nixie: [['orange', 'Orange'], ['ice', 'Ice Blue'], ['green', 'Green'], ['violet', 'Violet']],
@@ -309,6 +311,9 @@
   }
   // Tinted's icon circles (look.well, a screen's well)
   var TINT_WELLS = [['dark', 'Dark'], ['light', 'Light']];
+  // TILE STYLE (look.tile_style, a screen's tile_style; 2026-10-30): the Home
+  // Grid's tiles and the room pages' Tall pills (settings.py TILE_STYLES)
+  var TILE_STYLES = [['home', 'Home'], ['centred', 'Centred']];
   var PRESETS = {
     wall_tablet: ['Wall Tablet', 'Menu always open with the time and weather, back to Home when idle, no Home Assistant header.'],
     personal: ['Phone or iPad', 'Menu behind a button, time and weather in the header.'],
@@ -2075,7 +2080,7 @@
     ['header', 'Header', ['phone_header', 'kiosk', 'kiosk_header', 'kiosk_sidebar', 'kiosk_admins', 'kiosk_engine', 'kiosk_options'], true],
     // the pages, Home among them, and where each sits in the menu (set on Pages)
     ['pages', 'Pages', ['pages', 'custom_pages', 'only_pages', 'home_page', 'home_view', 'menu_top', 'categories', 'headers'], true],
-    ['look', 'Appearance', ['flat', 'flat_theme', 'glass', 'frost', 'frost_tint', 'blur', 'tint', 'well', 'sky', 'sky_animations', 'sky_weather', 'sky_precipitation', 'sky_focus_pause',
+    ['look', 'Appearance', ['flat', 'flat_theme', 'glass', 'frost', 'frost_tint', 'blur', 'tint', 'well', 'tile_style', 'sky', 'sky_animations', 'sky_weather', 'sky_precipitation', 'sky_focus_pause',
                             'sky_decorations', 'sky_decoration_style', 'sky_moving', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_custom', 'sky_pages',
                             'sky_liveliness', 'sky_liveliness_occ', 'sky_liveliness_custom', 'sky_calm_empty',
                             'sky_background', 'sky_color', 'sky_photo', 'sky_page_photos', 'sky_photo_look', 'sky_page_looks',
@@ -2463,7 +2468,7 @@
     menuOwn: menuOwn, ownsMenu: ownsMenu, menuOwnSet: menuOwnSet, menuOwnReset: menuOwnReset, menuSummary: menuSummary,
     MENU_KINDS: MENU_KINDS, menuKind: menuKind, kindUsers: kindUsers, usedBy: usedBy, menuWord: menuWord, KIND_KEYS: KIND_KEYS, usesSide: usesSide, PAGE_HEADER_SAYS: PAGE_HEADER_SAYS,
     accentColorOf: accentColorOf, accentChanges: accentChanges, GLASS: GLASS,
-    GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, BRIGHT_MODES: BRIGHT_MODES, TINT_WELLS: TINT_WELLS, isBlur: isBlur, isBright: isBright, modesFor: modesFor, styleValue: styleValue, glassStyle: glassStyle, WALLPAPER_NIGHT: WALLPAPER_NIGHT, SLOW_FPS: SLOW_FPS, LADDER: LADDER, ladderFacts: ladderFacts, ladderSignature: ladderSignature, slowRecommend: slowRecommend, PRESETS: PRESETS, STATUS_LABELS: STATUS_LABELS,
+    GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, BRIGHT_MODES: BRIGHT_MODES, TINT_WELLS: TINT_WELLS, TILE_STYLES: TILE_STYLES, isBlur: isBlur, isBright: isBright, modesFor: modesFor, styleValue: styleValue, glassStyle: glassStyle, WALLPAPER_NIGHT: WALLPAPER_NIGHT, SLOW_FPS: SLOW_FPS, LADDER: LADDER, ladderFacts: ladderFacts, ladderSignature: ladderSignature, slowRecommend: slowRecommend, PRESETS: PRESETS, STATUS_LABELS: STATUS_LABELS,
     STATUS_SAYS: STATUS_SAYS, STATUS_ROWS: STATUS_ROWS, STATUS_SOURCE: STATUS_SOURCE, PAGES: PAGES, pageOf: pageOf, PAGE_TYPES: PAGE_TYPES,
     PAGE_FEATURES: PAGE_FEATURES, pagesListed: pagesListed, pageOfRoute: pageOfRoute, routeForward: routeForward, screenShows: screenShows, headerOffOn: headerOffOn, statusSummary: statusSummary, HEADER_PAGES: HEADER_PAGES,
     WOODLAND: WOODLAND, woodlandSummary: woodlandSummary, CLOUD_STYLES: CLOUD_STYLES, SKY_MOVING: SKY_MOVING, DAYTIME_SKIES: DAYTIME_SKIES,

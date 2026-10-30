@@ -1221,7 +1221,10 @@ DEFAULTS: dict[str, dict[str, Any]] = {
              "page_accents": {},
              # FLAT COLORS (2026-10-17, flat_colors() above): All Screens'
              # two fields, and each page's own
-             "flat_colors": dict(FLAT_COLORS_DEFAULT), "flat_page_colors": {}},
+             "flat_colors": dict(FLAT_COLORS_DEFAULT), "flat_page_colors": {},
+             # TILE STYLE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase B): the Home Grid's tiles and the room
+             # pages' Tall pills in the Home app's layout, or Centred (the glyph above the name and room, HomeView's)
+             "tile_style": "home"},
     # THE CALENDAR (the Calendar page, hk-calendar.js, and the screensaver's
     # calendar pane): the calendar entities shown, in order (empty: every
     # calendar the house has), and each one's colour -- entity -> a page pill
@@ -1253,6 +1256,8 @@ BRIGHT_GLASS = ("bright", "bright_pre", "bright_each")
 GLASS = GLASS + BRIGHT_GLASS
 # Tinted's icon circles (look.well, a screen's well): Apple's dark, or light
 WELLS = ("dark", "light")
+# Tile Style (look.tile_style, a screen's tile_style; a Home Grid block's `tile`, home_grid.TILE_STYLES)
+TILE_STYLES = HG.TILE_STYLES
 # Looks that were tried and taken out, read as the one that replaced them:
 # Baked (blur_baked, each surface its own slice of the picture) cost more
 # than it saved and went on 2026-10-10 -- Pre-rendered is the same picture.
@@ -1331,6 +1336,8 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
         out["look"]["flat_theme"] = "dark"
     if out["look"].get("well") not in WELLS:
         out["look"]["well"] = DEFAULTS["look"]["well"]
+    if out["look"].get("tile_style") not in TILE_STYLES:
+        out["look"]["tile_style"] = DEFAULTS["look"]["tile_style"]
     out["sky"]["photo_look"] = photo_look(out["sky"].get("photo_look")) or dict(PHOTO_LOOK_DEFAULTS)
     out["sky"]["landscape_look"] = photo_look(out["sky"].get("landscape_look")) or dict(PHOTO_LOOK_DEFAULTS)
     out["sky"]["landscape"] = sky_landscape(out["sky"].get("landscape")) or DEFAULTS["sky"]["landscape"]
@@ -1488,7 +1495,7 @@ SAVER_DEFAULTS: dict[str, Any] = {
     "weather_slide": False, "weather_hide": [],
 }
 MOSAIC_COLORS = ("black", "white", "gray", "charcoal", "cream", "navy")
-SAVER_CLOCK_STYLES = ("today", "classic", "serif", "neon", "lcd", "flip", "analog", "words", "arc", "nixie", "poster",
+SAVER_CLOCK_STYLES = ("today", "classic", "serif", "neon", "lcd", "flip", "analog", "numbers", "words", "arc", "nixie", "poster",
                       "dots", "ring", "glass", "type")
 SAVER_CLOCK_BGS = ("black", "grain", "gradient", "aurora", "ink", "sky", "lowpoly", "topo", "constellation", "forecast", "skyonly", "photos",
                    "landscapes")
@@ -1882,6 +1889,8 @@ BOARD_DEFAULTS: dict[str, Any] = {
     "glass": "house", "frost": None, "blur": None, "tint": None, "well": None, "frost_tint": None, "sky": True, "car": False,
     # Bright Glass's Strength, this screen's own (None: All Screens')
     "bright": None,
+    # its own Tile Style (TILE_STYLES; None: All Screens')
+    "tile_style": None,
     # ...and in a car's browser (car on): car_layout, which Home the screen
     # generates there -- "home" the whole Home every screen has, "car" the
     # car's own (CAR_LAYOUTS); car_width, the layout width the car's window
@@ -2125,6 +2134,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["well"] = d.get("well") if d.get("well") in WELLS else None
     out["frost_tint"] = d.get("frost_tint") if isinstance(d.get("frost_tint"), bool) else None
     out["bright"] = amount_or_none(d.get("bright"))
+    out["tile_style"] = d.get("tile_style") if d.get("tile_style") in TILE_STYLES else None
     # The screen's own Sky / Background: each flag stored as anything but a
     # boolean is not set (follow All Screens), as a backdrop id not in
     # SKY_BACKDROPS and stops that do not parse are (sky_stops()).

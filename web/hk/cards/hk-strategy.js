@@ -1545,7 +1545,9 @@
   // first when the band is on, a card per block from the catalog
   // (hk-grid-catalog.js) with its cell, then the cards that only listen.
   // `ctx`: the house as this screen sees it, for a block naming nothing.
-  function homeGridView(grid, o, header, listeners, ctx) {
+  // `tiles`: the screen's Tile Style (its own, else All Screens'), which a
+  // block's own `tile` overrides; only Centred goes on the cell.
+  function homeGridView(grid, o, header, listeners, ctx, tiles) {
     var cards = [];
     if (grid.band !== false && header) {
       // A Home Grid has 60 px for its band, not the full page header's 150+.
@@ -1556,14 +1558,17 @@
     }
     (grid.items || []).forEach(function (it) {
       // (Hide Box: the block's own, or the screen's No Boxes -- the cell says so to every card inside it)
-      cards.push(Object.assign(window.hkGridCatalog.config(it, ctx),
-                               { hk_cell: { id: it.id, size: it.size, at: it.at, bare: !!it.bare || grid.boxes === false, view: it.view || 0 } }));
+      var cell = { id: it.id, size: it.size, at: it.at, bare: !!it.bare || grid.boxes === false, view: it.view || 0 };
+      if ((it.tile || tiles) === 'centred') cell.tile = 'centred';
+      cards.push(Object.assign(window.hkGridCatalog.config(it, ctx), { hk_cell: cell }));
     });
     (listeners || []).forEach(function (c) { cards.push(c); });
     return Object.assign({}, o, { type: 'custom:hk-home-grid-view', layout: undefined, cards: cards, grid_ctx: ctx,
                                   grid: Object.assign({ cols: grid.cols, rows: grid.rows, band: grid.band !== false, scale: grid.scale },
                                                       grid.grow === true ? { grow: true } : {}, grid.night && grid.night.mode !== 'off' ? { night: grid.night } : {},
-                                                      grid.views > 1 ? { views: grid.views } : {}) });
+                                                      grid.views > 1 ? { views: grid.views } : {},
+                                                      // square cells, and a Square screen (2026-10-30)
+                                                      grid.cell === 'square' ? { cell: 'square' } : {}, grid.screen === 'square' ? { screen: 'square' } : {}) });
   }
   // the catalog, when a Home Grid screen needs it: a parallel-loaded
   // resource, waited for by its ready event, never polled (cardsReady)
@@ -1865,7 +1870,7 @@
         battery: houseBattery(),
         climate: gridClimate, areas: gridAreas, scenes: gridScenes,
         rooms: rooms(client, opts).map(function (r) { return r.id; }).filter(Boolean)
-      }));
+      }, b.tile_style === 'home' || b.tile_style === 'centred' ? b.tile_style : setting('look.tile_style')));
     }
     var pages = {};
     if (opts.pages !== false) {

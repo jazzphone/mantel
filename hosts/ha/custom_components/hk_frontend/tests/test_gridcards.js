@@ -73,6 +73,42 @@ var client = window.hkHostClient.from(hass());
 
 H.run('GRID CARDS', [
 function () {
+  H.section('Centred tiles (2026-10-30, HOMEVIEW-LOOK.md Phase B): the block\'s Tile Style reaches its tile');
+  var factory = window.hkCards.createCard;
+  window.hkCards.createCard = function (cfg, c) { var el = H.make(cfg.type.slice(7)); el._root.replaceChildren = function (child) { this.innerHTML = ''; this.appendChild(child); }; el.setConfig(cfg); el.client = c; return el; };
+  var acc = window.hkCards.createCard(window.hkGridCatalog.config({ card: 'accessory', size: 'S', opts: { entity: 'lock.front_door' } }), client);
+  eq('Home: no attribute, no room line (the tile as it was)', [acc._child.getAttribute('tile'), 'room' in acc._child._config], [undefined, false]);
+  acc.setAttribute('tile', 'centred'); acc.attributeChangedCallback('tile', null, 'centred'); acc.client = client;
+  eq('Centred: on the accessory\'s tile, the name over its room', [acc._child.getAttribute('tile'), acc._child._config.room], ['centred', 'Den']);
+  acc.removeAttribute('tile'); acc.attributeChangedCallback('tile', 'centred', null); acc.client = client;
+  eq('...and back to Home', [acc._child.getAttribute('tile'), 'room' in acc._child._config], [undefined, false]);
+  var sc = window.hkCards.createCard(window.hkGridCatalog.config({ card: 'scene', size: 'S', opts: { scene: 'scene.good_night' } }), client);
+  sc.setAttribute('tile', 'centred'); sc.attributeChangedCallback('tile', null, 'centred'); sc.client = client;
+  eq('a scene: centred, its line says it is one', [sc._child.getAttribute('tile'), sc._child._config.room], ['centred', 'Scene']);
+  window.hkCards.createCard = factory;
+  // the CSS: one variant, the tiles' own parts, from the table (hk-base.js TILE.centred)
+  var tileCss = customElements.get('hk-tile-card').CSS, keyCss = customElements.get('hk-action-card').CSS, T = window.hkCards.TILE.centred;
+  ok('the tile and the key each have the variant, keyed by the attribute', tileCss.indexOf(':host([tile=centred])') >= 0 && keyCss.indexOf(':host([tile=centred])') >= 0);
+  ok('...a 196 x 150 cell\'s numbers, then a square cell\'s', tileCss.indexOf('top:' + T.tall.at + '%') >= 0 && tileCss.indexOf('@container hk-cell (min-height:180px){') >= 0 &&
+     tileCss.indexOf('width:' + T.square.glyph + 'px !important;height:' + T.square.glyph + 'px !important') >= 0);
+  ok('...the lock\'s and Lock Up\'s, the lights\' and the scenes\' tiles: hk-tile\'s and the key\'s', keyCss.indexOf('top:' + T.square.text + '%') >= 0);
+  ok('...off, the glyph bare; lit, in its well (the white plate stays)', tileCss.indexOf(':host([tile=centred]) hk-plate.card:not([data-on="1"]) .well{background:none !important}') >= 0);
+  ok('a block\'s corners on square cells: the tile and the key read --hk-block-radius', /:host\(\[size\]:not\(\[data-group-fill\]\)\) hk-plate\.card\{border-radius:var\(--hk-block-radius/.test(tileCss) &&
+     /hk-plate\.k\{border-radius:var\(--hk-block-radius/.test(keyCss));
+},
+function () {
+  H.section('Big Number and Analog Numbers in the catalog (2026-10-30, Phases C and F)');
+  var C = window.hkGridCatalog, ctx = { climate: ['climate.den'] };
+  eq('a thermostat block\'s Style: Big Number', C.config({ card: 'thermostat', size: 'L', opts: { style: 'big' } }, ctx), { type: 'custom:hk-control-card', entity: 'climate.den', style: 'big' });
+  eq('...the dial when it is not chosen', C.config({ card: 'thermostat', size: 'T' }, ctx), { type: 'custom:hk-control-card', entity: 'climate.den' });
+  eq('...Extra Large stays the sheet', C.config({ card: 'thermostat', size: 'XL', opts: { style: 'big' } }, ctx).type, 'custom:hk-grid-panel-card');
+  eq('...every thermostat page takes it', C.pages({ card: 'thermostat', size: 'L', opts: { style: 'big' }, pages: { source: 'thermostats' } }, { climate: ['climate.den', 'climate.hall'] })
+     .map(function (p) { return p.card.style; }), ['big', 'big']);
+  eq('the option, and its kind', [C.table().thermostat.opts, C.THERMOSTAT_STYLES], [{ entity: 'climate', style: 'thermostat_style' }, [['dial', 'Dial'], ['big', 'Big Number']]]);
+  eq('Analog Numbers after the faces a block had', C.CLOCK_FACES[C.CLOCK_FACES.length - 1], ['numbers', 'Analog Numbers']);
+  eq('...a clock block with it', C.config({ card: 'clock', size: 'S', opts: { clock_style: 'numbers', bare: true } }, {}), { type: 'custom:hk-grid-clock-card', clock_style: 'numbers', bare: true });
+},
+function () {
   H.section('standalone grid accessories reuse the room tile builder');
   var factory = window.hkCards.createCard;
   window.hkCards.createCard = function (cfg, c) { var el = H.make(cfg.type.slice(7)); el._root.replaceChildren = function (child) { this.innerHTML = ''; this.appendChild(child); }; el.setConfig(cfg); el.client = c; return el; };
