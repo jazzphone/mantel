@@ -92,7 +92,7 @@
       item.at[0] + z[0] <= grid.cols && item.at[1] + z[1] <= grid.rows;
   }
   function valid(grid) {
-    return [6, 3, 2].indexOf(grid.cols) >= 0 && Number.isInteger(grid.rows) && grid.rows >= 2 && grid.rows <= 6 &&
+    return COLS.indexOf(grid.cols) >= 0 && Number.isInteger(grid.rows) && grid.rows >= 2 && grid.rows <= 6 &&
       grid.frame.length === 2 && Number.isInteger(grid.frame[0]) && Number.isInteger(grid.frame[1]) &&
       grid.frame[0] >= 320 && grid.frame[0] <= 3840 && grid.frame[1] >= 320 && grid.frame[1] <= 2160 &&
       grid.items.length <= 24 && grid.items.every(function (it, i) {
@@ -386,6 +386,17 @@
     var read = board && board.side_pane_read, dash = read && read.dashboard;
     if (dash && dash.show && dash.show !== 'off') return null;
     return Object.assign(copy((board && board.side_pane) || {}), { dashboard: copy(PANE_FOR_HOME) });
+  }
+  // COLUMNS (hk_core home_grid.COLS; 4 and 5 since 2026-10-30)
+  var COLS = [6, 5, 4, 3, 2];
+  // ...and on square cells the ROWS FOLLOW: as many square rows as the
+  // screen's shape holds at that many columns -- its frame, less the Side
+  // Pane beside it where the screen shows one (about 400 px) -- 2 to 6
+  function rowsFor(grid, cols, board) {
+    var f = (grid && grid.frame) || [1280, 800], w = f[0], hgt = f[1];
+    var read = board && board.side_pane_read, dash = read && read.dashboard;
+    if (dash && dash.show && dash.show !== 'off' && w > hgt) w -= 400;
+    return Math.max(2, Math.min(6, Math.round(cols * hgt / Math.max(1, w))));
   }
   function screenTypeOf(grid) {
     var t = grid && SCREEN_TYPES.find(function (x) {
@@ -894,6 +905,19 @@
       if (r.grid.items.every((it) => it.id !== this.selected)) this.selected = null;
       this.change(r.grid);
     }
+    // COLUMNS: on square cells the rows follow (rowsFor) and the blocks flow
+    // onto the new grid in reading order; on tiles, as before, only when every
+    // block still fits
+    columns(n) {
+      if (this.grid.cell !== 'square') {
+        var next = copy(this.grid); next.cols = n;
+        if (valid(next)) this.change(next); else { this.say('Move or remove the blocks that would be outside the new grid first.'); this.side(); }
+        return;
+      }
+      var r = reflow(this.grid, n, rowsFor(this.grid, n, this.o.board));
+      if (r.left.length) this.say(r.left.length + (r.left.length === 1 ? ' block didn’t fit and was left out.' : ' blocks didn’t fit and were left out.'));
+      this.change(r.grid);
+    }
     // CELL SHAPE (2026-10-30): Tile or Square, every block where it was
     cellShape(v) {
       var next = copy(this.grid);
@@ -1190,7 +1214,7 @@
         // CELL SHAPE (2026-10-30): every block stays where it is; only the cells change shape
         K.seg({ label: 'Cell Shape', value: this.grid.cell === 'square' ? 'square' : 'tile', options: [['tile', 'Tile'], ['square', 'Square']],
           onChange: (v) => this.cellShape(v) }),
-        K.seg({ label: 'Columns', value: this.grid.cols, options: [6, 3, 2].map((n) => [n, String(n)]), onChange: (n) => config('cols', Number(n)) }),
+        K.seg({ label: 'Columns', value: this.grid.cols, options: COLS.slice().reverse().map((n) => [n, String(n)]), onChange: (n) => this.columns(Number(n)) }),
         K.select({ label: 'Rows', value: this.grid.rows, options: [2, 3, 4, 5, 6].map((n) => [n, String(n)]), onChange: (n) => config('rows', Number(n)) }),
         K.toggle({ label: 'Show Boxes', sub: 'Off: every block straight on the background, as on a nightstand.', on: this.grid.boxes !== false, onChange: (on) => config('boxes', on) }),
         K.toggle({ label: 'Fill the Screen', sub: 'Lets the grid grow past its own size on a screen bigger than it.', on: this.grid.grow === true, onChange: (on) => config('grow', on) }),
@@ -1807,7 +1831,7 @@
       this.say('Not saved: this screen changed since you opened it.');
     }
   }
-  window.hkGridEditor = { paneForStarter: paneForStarter, place: place, makeRoom: makeRoom, valid: valid, firstSpace: firstSpace, add: add, snap: snap, landing: landing,
+  window.hkGridEditor = { paneForStarter: paneForStarter, rowsFor: rowsFor, COLS: COLS, place: place, makeRoom: makeRoom, valid: valid, firstSpace: firstSpace, add: add, snap: snap, landing: landing,
                           SCREEN_TYPES: SCREEN_TYPES, SQUARE_STARTERS: SQUARE_STARTERS, screenTypeOf: screenTypeOf, scaleAt: scaleAt, squareStarter: squareStarter };
   customElements.define('hk-grid-editor', GridEditor);
 })();

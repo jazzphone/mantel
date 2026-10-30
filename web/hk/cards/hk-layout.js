@@ -1966,7 +1966,7 @@
     // hand gets the defaults)
     _grid() {
       var g = (this._config && this._config.grid) || {};
-      var cols = [6, 3, 2].indexOf(g.cols) >= 0 ? g.cols : 6;
+      var cols = [6, 5, 4, 3, 2].indexOf(g.cols) >= 0 ? g.cols : 6;
       var rows = (g.rows >= 2 && g.rows <= 6 && g.rows === Math.floor(g.rows)) ? g.rows : 4;
       return { cols: cols, rows: rows, band: g.band !== false, scale: Number.isInteger(g.scale) && g.scale >= 50 && g.scale <= 100 ? g.scale : 100,
                grow: g.grow === true, night: g.night && (g.night.mode === 'night' || g.night.mode === 'always') ? g.night : null,
