@@ -25,21 +25,7 @@ function measure() {
   };
 }
 
-// THE SIDE PANE'S SECTIONS, stood in (Phase A2 draws them): what a weather and a clock section give, as the
-// mock-up's widget
-function standIn() {
-  window.hkSidePane = { section(kind, size) {
-    const el = document.createElement('div');
-    el.style.cssText = 'height:100%;box-sizing:border-box;padding:22px 24px;color:#fff;font-family:inherit;' +
-      (kind === 'weather' ? 'background:linear-gradient(180deg,#4aa3ff,#1d6fe0)' : 'background:linear-gradient(180deg,#3a3a3c,#1c1c1e)');
-    el.innerHTML = kind === 'weather'
-      ? '<div style="font:600 22px/1.2 inherit">Home</div><div style="font-size:92px;font-weight:400;letter-spacing:-3px;line-height:1;margin-top:6px">54°</div>' +
-        '<div style="position:absolute;left:24px;bottom:22px;font-weight:600;font-size:19px;line-height:1.35">Clear<br>H:62° L:48°</div>'
-      : '<div style="font-size:15px;font-weight:600;opacity:.7">' + size.toUpperCase() + ' CLOCK</div><div style="font-size:48px;font-weight:500">8:42</div>';
-    el.style.position = 'relative';
-    return el;
-  } };
-}
+// THE WIDGETS are the Side Pane's own sections (hkSidePane.section, Phase A2), as the page draws them
 
 const SIZES = [[1180, 820], [820, 1180], [390, 844]];
 const CASES = [];
@@ -58,7 +44,6 @@ const GRID = { '1180x820': [6, 3], '820x1180': [4, 5], '390x844': [4, 6] };
       const ctx = await browser.newContext({ viewport: { width: c.w, height: c.h }, deviceScaleFactor: 2, hasTouch: true });
       await ctx.addCookies([{ name: 'mantel_session', value: input.cookie, url: input.origin }]);
       await ctx.route('**/*', r => new URL(r.request().url()).origin === input.origin ? r.continue() : r.abort());
-      if (c.widgets) await ctx.addInitScript(standIn);
       const page = await ctx.newPage();
       const errors = [];
       let phase = 'load';
