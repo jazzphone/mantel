@@ -486,16 +486,17 @@
                                            sidebarSource: sidebarSource,
                                            haNav: haNav, haList: haList, haOpen: haOpen, haKey: haKey,
                                            tabCentre: tabCentre, kinds: { ORDER: KIND_ORDER, PAGES: KIND_PAGES } } };
-  // (read defensively: Phase 0 is built beside this; an extension is
-  // offered once, when its module is there, and never throws into the menu)
+  // SWIPE BETWEEN PAGES (hk-pageswipe.js): the Pages screen goes right after
+  // Home in its order too -- offered once, when that module is there, and
+  // never throwing into the menu
   (function offer() {
-    var P = window.hkPageSwipe, fn = P && (P.extendOrder || P.extend || P.addOrder);
+    var P = window.hkPageSwipe, fn = P && P.extend;
     if (typeof fn !== 'function') {
       if (!offer.waiting) {
         offer.waiting = true;
         window.addEventListener('hk-module-ready', function again() {
           var Q = window.hkPageSwipe;
-          if (Q && typeof (Q.extendOrder || Q.extend || Q.addOrder) === 'function') { window.removeEventListener('hk-module-ready', again); offer(); }
+          if (Q && typeof Q.extend === 'function') { window.removeEventListener('hk-module-ready', again); offer(); }
         });
       }
       return;

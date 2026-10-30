@@ -351,7 +351,19 @@
     return look === 'frosted' ? 'frosted' : 'blur';
   }
 
-  window.hkTabBar = { version: '1.0.0', _: { fit: fit, parts: parts, scrollStep: scrollStep, material: material,
+  // A PAGE SWIPE'S HIGHLIGHT (2026-10-30, hk-pageswipe.js): the box `k` of
+  // the way from the tab you are on (a) to the one the swipe is taking you
+  // to (b) -- along a bar or down a rail alike -- and what puts the
+  // highlight there from a's own box (follow()): the offsets slide() reads
+  function between(a, b, k) {
+    k = Math.max(0, Math.min(1, +k || 0));
+    return { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, w: a.w + (b.w - a.w) * k, h: a.h + (b.h - a.h) * k, pos: a.pos };
+  }
+  function offsetsOf(box, home) {
+    return { hx: box.x - home.x, hy: box.y - home.y, sx: box.w / (home.w || 1), sy: box.h / (home.h || 1) };
+  }
+
+  window.hkTabBar = { version: '1.0.0', _: { between: between, offsetsOf: offsetsOf, fit: fit, parts: parts, scrollStep: scrollStep, material: material,
                                              roomsMode: roomsMode, roomsOf: roomsOf, moreOf: moreOf, phoneSet: phoneSet, railFit: railFit, position: position, room: room, scrollOf: scrollOf,
                                              stripSide: stripSide, stripFit: stripFit,
                                              SIZES: { TAB_MIN_W: TAB_MIN_W, TAB_MAX_W: TAB_MAX_W, MAX_TABS: MAX_TABS,
@@ -462,6 +474,8 @@
       '  transform-origin:0 0;transform:translate(var(--hx,0px),var(--hy,0px)) scale(var(--sx,1),var(--sy,1));',
       '  transition:transform .46s ' + SPRING + '}',
       '.tab.here.slide-from::before{transition:none}',
+      // a page swipe's landing: the spring at DUR.spring (DESIGN.md, "A page swipe")
+      ':host([data-landing]) .tab.here::before{transition-duration:.42s}',
       '.cur + .tab.here::before{left:0}',
       '.tab.here:last-child::before{right:0}',
       '.root.tight .tab.here::before{display:none}',
@@ -1011,7 +1025,8 @@
       return { x: r.left - p.left, y: r.top - p.top, w: r.width, h: r.height, pos: S.pos };
     }
     function markHere() {
-      var path = location.pathname, curIcon = null, hereEl = null;
+      // (a page swipe landing: the page it lands on, before the address is)
+      var path = S.landing || location.pathname, curIcon = null, hereEl = null;
       S.pill.querySelectorAll('.tab').forEach(function (el) {
         var k = el.getAttribute('data-t');
         var here = k === 'more' ? S.more.concat(S.roomsMode === 'more' ? S.rooms : [])
@@ -1457,6 +1472,7 @@
     // when it is in (hk-view-ready, hk-layout.js) -- not a timer.
     var navFrame = 0;
     function onNav() {
+      S.landing = null;
       closeSheet(true);
       S.scrollY = 0;
       setMode(rest());
@@ -1508,6 +1524,60 @@
       headerKey = key;
       window.dispatchEvent(new CustomEvent('hk-page-navigation'));
     }
+    // ------------------------------------------------ swipe between pages
+    // THE PAGES A SWIPE MOVES THROUGH (hk-pageswipe.js, the owner's decision
+    // 8, 2026-10-30): the bar's tabs, left to right as it shows them (More
+    // is not a page); with no bar, the side menu's order -- Home, then its
+    // Categories
+    function swipePages() {
+      if (S.on) return { bar: true, items: S.tabs.slice() };
+      if (!M.config()) return { bar: false, items: [] };
+      var m = model();
+      return { bar: false, items: [m.home].concat(m.categories).filter(Boolean) };
+    }
+    function tabOf(path) {
+      var at = -1;
+      S.tabs.forEach(function (it, i) { if (at < 0 && H.isHere(it, path)) at = i; });
+      return at < 0 || !S.pill ? null : S.pill.querySelector('.tab[data-t="' + at + '"]');
+    }
+    function calm() {
+      try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; }
+    }
+    // THE HIGHLIGHT FOLLOWS THE FINGER: `k` (0..1) of the way to the tab of
+    // `path`, drawn on the tab you are on and held there (slide-from), so
+    // the landing starts from where it is (S.hereBox). Not folded, nor too
+    // tight for a capsule, nor with Reduce Motion (it jumps as it lands).
+    function follow(k, path) {
+      if (!S.on || S.mode !== 'full' || S.tight || calm()) return false;
+      var here = S.pill.querySelector('.tab.here'), to = tabOf(path);
+      if (!here || !to) return false;
+      var home = boxOf(here), box = between(home, boxOf(to), k), o = offsetsOf(box, home);
+      here.classList.add('slide-from');
+      here.style.setProperty('--hx', o.hx + 'px');
+      here.style.setProperty('--hy', o.hy + 'px');
+      here.style.setProperty('--sx', String(o.sx));
+      here.style.setProperty('--sy', String(o.sy));
+      S.hereBox = box;
+      return true;
+    }
+    // ...AND LANDS on the spring, on the page the swipe lands on (null: back
+    // where it was, the swipe let go short)
+    var landT = 0;
+    function land(path) {
+      if (!S.root) return;
+      S.landing = path || null;
+      S.pill.querySelectorAll('.tab').forEach(function (el) {
+        el.classList.remove('slide-from');
+        ['--hx', '--hy', '--sx', '--sy'].forEach(function (v) { el.style.removeProperty(v); });
+      });
+      S.host.setAttribute('data-landing', '');
+      clearTimeout(landT);
+      landT = setTimeout(function () { if (S.host) S.host.removeAttribute('data-landing'); }, 600);
+      markHere();
+    }
+    window.hkTabBar.pages = swipePages;
+    window.hkTabBar.follow = follow;
+    window.hkTabBar.land = land;
     window.hkTabBar.sync = sync;
     window.hkTabBar.open = openSheet;
     window.hkTabBar.close = closeSheet;

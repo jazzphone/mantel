@@ -1313,7 +1313,10 @@
         // ask the shell for it then
         tell(entry, first);
         if (old && old.el.parentNode === slot) slot.removeChild(old.el);
-        slot.appendChild(entry.el);
+        // (a view a page swipe already put in the slot, beside the one shown
+        // -- peek() -- stays where it is: moved, its cards would stop and
+        // start again)
+        if (entry.el.parentNode !== slot) slot.appendChild(entry.el);
         if (old && !again && typeof win().scrollTo === 'function') { try { win().scrollTo(0, 0); } catch (e) { /* */ } }
         letGo(entry.index);
         return entry.el;
@@ -1365,6 +1368,16 @@
     }
     function refresh() { setClient(client, true); }
 
+    // A PAGE SWIPE'S NEIGHBOUR (hk-pageswipe.js, 2026-10-30): the view at
+    // `path`, if it is held (cache) -- fed the newest client -- or null. Never
+    // built here: a page not held is built as the swipe lands, by show().
+    function peek(path) {
+      var i = find(path), entry = i >= 0 ? cache[i] : null;
+      if (!entry || entry === cur) return null;
+      if (entry.fed !== client) feedEntry(entry, client);
+      return { el: entry.el, path: entry.path, index: entry.index, view: entry.view };
+    }
+
     // THE ROUTER: HK's navigation and the back button. A hash change (a
     // pop-up) is not a page change; an address on another dashboard leaves.
     function viewPathOf(pathname) {
@@ -1384,6 +1397,7 @@
     }
 
     function start() {
+      live = api;
       var S = shell();
       if (S && S.onNavigate) offs.push(S.onNavigate(route));
       var w = win();
@@ -1402,7 +1416,10 @@
       }
       return route();
     }
-    function stop() { offs.splice(0).forEach(function (off) { try { off(); } catch (e) { /* */ } }); }
+    function stop() {
+      if (live === api) live = null;
+      offs.splice(0).forEach(function (off) { try { off(); } catch (e) { /* */ } });
+    }
 
     // Move to a view of this dashboard by its path (HK's own navigation).
     function navigate(path) {
@@ -1437,12 +1454,13 @@
       };
     }
 
-    return {
+    var api = {
       config: config,
       base: base,
       container: container,
       slot: slot,
       show: show,
+      peek: peek,
       start: start,
       stop: stop,
       route: route,
@@ -1462,7 +1480,10 @@
       shellParts: shellParts,
       onView: onView
     };
+    return api;
   }
+  // the host started last and not stopped: the page's (the page swipe asks it for a neighbour)
+  var live = null;
 
   global.hkViewHost = {
     create: create,
@@ -1470,6 +1491,7 @@
     holds: holds,
     define: define,
     pictureRatio: parseRatio,
-    BUILT_IN: Object.freeze(Object.assign({}, BUILT_IN))
+    BUILT_IN: Object.freeze(Object.assign({}, BUILT_IN)),
+    live: function () { return live; }
   };
 })(globalThis);

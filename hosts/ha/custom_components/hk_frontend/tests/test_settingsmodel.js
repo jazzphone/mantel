@@ -530,6 +530,11 @@ ok('Use the Side Strip: All Screens\' bar_strip, on unless off, saved back', M.M
 ok('...on the Tab Bar page, its own setting one at a time', M.KIND_KEYS['tab-bar'].indexOf('tab_bar_strip') >= 0 &&
    eq(M.menuOwnSet({ menu_own: [] }, { tab_bar_strip: false }).menu_own, ['tab_bar_strip']) &&
    eq(M.menuOwnReset({ menu_own: ['tab_bar_strip', 'accent'] }, 'tab_bar_strip').menu_own, ['accent']));
+ok('Swipe Between Pages: Automatic, On, Off; found on the Menu page, All Screens\' and a screen\'s; copied with the menu',
+   M.SWIPE_PAGES.map(function (o) { return o[0]; }).join() === 'auto,on,off' && !!M.SWIPE_PAGES_SAYS.auto &&
+   M.SEARCH.some(function (r) { return r[1] === 'house/menu' && r[2] === 'menu.swipe_pages'; }) &&
+   M.SEARCH.some(function (r) { return r[1] === 'screen/menu' && r[2] === 'swipe_pages' && r[4] === true; }) &&
+   M.COPY_GROUPS.filter(function (g) { return g[0] === 'menu'; })[0][2].indexOf('swipe_pages') >= 0);
 ok('...found by search, on the Tab Bar page', M.SEARCH.some(function (r) {
   return r[0] === 'Use the Side Strip' && r[1] === 'house/menu/tab-bar' && r[2] === 'menu.bar_strip' && /duo/.test(r[3]); }));
 // THE GLASS (2026-10-10): Glass, Frosted, Tinted (2026-10-12), Blur -- and Blur's three modes

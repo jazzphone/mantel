@@ -750,6 +750,8 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "menu.bar_strip": _bool,
     "menu.bar_tabs_rail": lambda v: _tabs(v),
     "menu.bar_tabs_phone": lambda v: _tabs(v, S.TAB_BAR_TABS_PHONE),
+    # Swipe Between Pages, All Screens' (a screen's swipe_pages over it)
+    "menu.swipe_pages": _choice(S.SWIPE_PAGES),
     # ...and Phones' own (None: as before phones had their own)
     "menu.button_phone": _choice(S.BOARD_BUTTON_PHONE),
     "menu.bar_rooms_phone": lambda v: _rooms_place(v),
@@ -1122,6 +1124,8 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "tab_bar_strip": _bool,
     "tab_bar_tabs_rail": _tabs,
     "tab_bar_tabs_phone": lambda v: _tabs(v, S.TAB_BAR_TABS_PHONE),
+    # Swipe Between Pages, this screen's own; None: Same as All Screens
+    "swipe_pages": _choice(S.SWIPE_PAGES, none=True),
     "menu_phone": _choice(S.BOARD_PHONE_MENUS, none=True),
     "button_phone": _choice(S.BOARD_BUTTON_PHONE),
     "tab_bar_rooms_phone": lambda v: _rooms_place(v),

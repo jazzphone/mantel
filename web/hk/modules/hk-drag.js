@@ -26,6 +26,18 @@
 //                        passive)
 //   ghost(parent, node)  `node` put in `parent` to follow the pointer, 14 px
 //                        off: { node, move(ev), remove() }
+//   classify(dx, dy, o)  press()'s own test, for a gesture followed some
+//                        other way (the page swipe, hk-pageswipe.js): 'press'
+//                        inside o.slop, 'drag' along o.axis by more than
+//                        o.ratio (AXIS) times the other way -- any way with
+//                        o.free (a mouse) -- else 'scroll'
+//   sideways(path, stop) THE ONE LIST of what moves sideways itself (a block
+//                        that swipes its pages, a slider, the thermostat's
+//                        ring, a field, anything data-hk-control, a row that
+//                        scrolls sideways): true when an element of `path`
+//                        (an event's composedPath, up to `stop`) is one -- a
+//                        swipe that starts there is its, never the page's
+//                        (the page swipe) nor the views' (Home Grid)
 //
 // Every timer is read at call time (the tests drive their own).
 (function (global) {
@@ -36,9 +48,38 @@
   var SLOP_TOUCH = 8, SLOP_MOUSE = 5;
   var AXIS = 1.2;                  // "along the axis": more than 1.2 times the other way
 
-  function along(axis, dx, dy) {
-    if (axis === 'x') return Math.abs(dx) > Math.abs(dy) * AXIS;
-    if (axis === 'y') return Math.abs(dy) > Math.abs(dx) * AXIS;
+  function classify(dx, dy, o) {
+    o = o || {};
+    if (Math.hypot(dx, dy) < (o.slop || SLOP_TOUCH)) return 'press';
+    if (o.free) return 'drag';
+    if (o.axis === 'x') return Math.abs(dx) > Math.abs(dy) * (o.ratio || AXIS) ? 'drag' : 'scroll';
+    if (o.axis === 'y') return Math.abs(dy) > Math.abs(dx) * (o.ratio || AXIS) ? 'drag' : 'scroll';
+    return 'scroll';
+  }
+
+  // WHAT MOVES SIDEWAYS ITSELF (2026-10-30, Swipe Between Pages): what Home
+  // Grid's views already gave way to, and data-hk-control (a light held into
+  // its dimmer, any control that drags) and an editable field. Every card
+  // that adds a sideways control later carries data-hk-control.
+  var SIDEWAYS = '[role="slider"],.ring,.vs,input,select,textarea,[contenteditable="true"],[data-hk-control]';
+  function scrollsSideways(n) {
+    if (!(n.scrollWidth > n.clientWidth + 1)) return false;
+    var ox = '';
+    try { ox = typeof getComputedStyle === 'function' ? getComputedStyle(n).overflowX : ''; } catch (e) { ox = ''; }
+    return ox === 'auto' || ox === 'scroll';
+  }
+  function sideways(path, stop) {
+    var list = path || [];
+    for (var i = 0; i < list.length && list[i] !== stop; i++) {
+      var n = list[i];
+      if (!n || n.nodeType !== 1 || !n.matches) continue;
+      // a block that swipes its own pages, when it has more than one
+      if (n.localName === 'hk-pager-card') { if ((n._pages || []).length > 1) return true; continue; }
+      if (n.matches(SIDEWAYS)) return true;
+      // a row that really scrolls sideways (the scenes row, a camera strip):
+      // the browser pans it
+      if (scrollsSideways(n)) return true;
+    }
     return false;
   }
 
@@ -62,9 +103,9 @@
     var move = function (ev) {
       last = ev;
       if (dragging || scrolling) return;
-      var dx = ev.clientX - x0, dy = ev.clientY - y0;
-      if (Math.hypot(dx, dy) < (touch ? SLOP_TOUCH : SLOP_MOUSE)) return;
-      if (touch && !along(o.axis, dx, dy)) { scrolling = true; clearTimeout(hold); return; }
+      var k = classify(ev.clientX - x0, ev.clientY - y0, { slop: touch ? SLOP_TOUCH : SLOP_MOUSE, axis: o.axis, free: !touch });
+      if (k === 'press') return;
+      if (k === 'scroll') { scrolling = true; clearTimeout(hold); return; }
       lift(ev);
     };
     var stop = function () {
@@ -99,5 +140,6 @@
   }
 
   global.hkDrag = { HOLD_MS: HOLD_MS, SLOP_TOUCH: SLOP_TOUCH, SLOP_MOUSE: SLOP_MOUSE,
-                    press: press, holdStill: holdStill, ghost: ghost };
+                    press: press, holdStill: holdStill, ghost: ghost, classify: classify,
+                    sideways: sideways, SIDEWAYS: SIDEWAYS };
 })(typeof window !== 'undefined' ? window : globalThis);

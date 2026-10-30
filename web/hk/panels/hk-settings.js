@@ -2373,12 +2373,14 @@
       if (!kinds.length) {
         c.appendChild(K.group({ footer: 'This screen has no menu on tablets, computers or phones. Choose one in its Menu, on its page.' }, [
           K.nav({ label: x.title, href: base, fk: 'menu:screen' })]));
+        this.swipePagesGroup(c, b, x);
         return;
       }
       c.appendChild(K.group({ header: 'Navigation', footer: 'The ones this screen uses. Each setting follows All Screens until you change it here.' },
         kinds.map(function (k) {
           return K.nav({ label: k[1], value: M.menuSummary(b, M.KIND_KEYS[k[0]]), href: base + '/menu/' + k[0], sk: 'b:menu:' + k[0] });
         })));
+      this.swipePagesGroup(c, b, x);
       c.appendChild(K.group({ header: 'Rooms' }, [
         K.nav({ label: 'Rooms in the Menu', value: b.rooms_custom ? 'Just This Screen' : 'Same as All Screens', href: base + '/rooms', sk: 'b:menu_rooms' })]));
       var mine = [];
@@ -2387,6 +2389,23 @@
         c.appendChild(K.group({ footer: 'Every setting above follows All Screens again. The Accent Color and Back Button & Title stay as they are.' }, [
           K.button({ label: 'Reset All to All Screens', sk: 'b:menu_own:reset', onClick: function () { self.setB(x.path, M.menuOwnReset(b, mine)); } })]));
       }
+    }
+    // SWIPE BETWEEN PAGES (2026-10-30, hk-pageswipe.js): All Screens' on the
+    // Menu page (b null); a screen's beside its tab bar's settings -- Same as
+    // All Screens until chosen here, then Just This Screen, with Reset
+    swipePagesGroup(c, b, x) {
+      var self = this, wide = this.hasAttribute('wide');
+      var house = (this.data.settings.menu || {}).swipe_pages || 'auto';
+      var own = !!b && M.SWIPE_PAGES.some(function (o) { return o[0] === b.swipe_pages; });
+      var cur = own ? b.swipe_pages : house;
+      var rows = [K.seg({ label: 'Swipe Between Pages', sk: b ? 'b:swipe_pages' : 'menu.swipe_pages', value: cur, stack: !wide,
+        sub: b ? (own ? 'Just This Screen' : 'Same as All Screens') : null, options: M.SWIPE_PAGES,
+        onChange: function (v) { return b ? self.setB(x.path, { swipe_pages: v }) : self.setH({ 'menu.swipe_pages': v }); } })];
+      if (own) {
+        rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.SWIPE_PAGES, house) + ')', sk: 'b:swipe_pages:reset',
+          onClick: function () { self.setB(x.path, { swipe_pages: null }); } }));
+      }
+      c.appendChild(K.group({ header: 'Gestures', footer: M.SWIPE_PAGES_SAYS[cur] + ' A row, a slider or a block that swipes keeps its own swipe.' }, rows));
     }
     // A SCREEN THAT FOLLOWS ALL SCREENS: what it takes from them, in place,
     // then the one way to change them -- the same on every page (Cameras,
@@ -7613,6 +7632,7 @@
         M.MENU_KINDS.map(function (k) {
           return K.nav({ label: k[1], value: M.usedBy(M.kindUsers(k[0], bd, titleOf)), href: '#/house/menu/' + k[0], sk: 'menu:' + k[0] });
         })));
+      this.swipePagesGroup(c, null, null);
       c.appendChild(K.group({ header: 'Rooms', footer: 'Which rooms the side menu and the tab bar’s More list show, and in what order.' }, [
         K.nav({ label: 'Rooms in the Menu', icon: 'mdi:sofa', href: '#/house/rooms', sk: 'menu:rooms' })]));
       var hv = M.houseMenuAsBoard(this.data.settings.menu);

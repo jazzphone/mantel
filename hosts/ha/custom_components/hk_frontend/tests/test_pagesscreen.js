@@ -203,5 +203,14 @@ window.hkStrategy.generate({ music: false, popups: false }, hass).then(function 
   ok('...on Home\'s sky', !!cfg.views[0].sky === !!v.sky);
   ok('...on the page\'s own edges', v.layout.margin === '0px' && v.layout.padding === '0px');
 }).then(function () {
+  // ---- Swipe Between Pages, loaded after the menu (as hk-loader.js loads them): the Pages screen joins its order
+  load(HK_ROOT + '/frontend/modules/hk-pageswipe.js');
+  var o = window.hkPageSwipe._.order({ items: [{ kind: 'home', path: 'home' }, { kind: 'lights', path: 'lights' }, { kind: 'pages', path: 'pages' }] });
+  var os = o.map(function (x) { return x.path; }).join();
+  ok('the swipe\'s order: Home, then the Pages screen, then the rest', os === 'home,pages,lights', os);
+  var none = window.hkPageSwipe._.order({ items: [{ kind: 'home', path: 'home' }, { kind: 'lights', path: 'lights' }] });
+  var ns = none.map(function (x) { return x.path; }).join();
+  ok('...no Pages screen: the order as it was', ns === 'home,lights', ns);
+}).then(function () {
   print(fail ? 'FAIL ' + fail + ' PAGES SCREEN TESTS' : 'ALL ' + pass + ' PAGES SCREEN TESTS PASS');
 }).catch(function (e) { print('Exception: ' + e + ' ' + (e.stack || '')); });

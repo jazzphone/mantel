@@ -164,6 +164,9 @@
             bar_tabs: 6, bar_tabs_rail: 6, bar_tabs_phone: 3, bar_size: 'medium', bar_labels: 'show',
             // the rail in a phone's side strip (hk-tabbar.js, 2026-10-30)
             bar_strip: true,
+            // Swipe Between Pages (hk-pageswipe.js, 2026-10-30): auto -- where
+            // a tab bar shows; a screen's swipe_pages, when set, is its own
+            swipe_pages: 'auto',
             // Phones' own (hk-base.js phoneForm: a phone, or a tablet whose
             // own menu doesn't fit)
             bar_scroll_phone: 'shrink', button_phone: 'chip', bar_rooms_phone: 'more' },
@@ -740,6 +743,16 @@
     var cam = b && typeof b.camera_live_video === 'boolean' ? b.camera_live_video : get('cameras.live', true) !== false;
     var n = function (v) { return v ? '1' : '0'; };
     return style + ':a' + n(a) + 'w' + n(w) + 'r' + n(r) + 'f' + n(f) + 'c' + n(!flat && cam);
+  }
+  // SWIPE BETWEEN PAGES (2026-10-30): this screen's own (swipe_pages), else
+  // All Screens' (menu.swipe_pages) -- 'auto' (where a tab bar shows), 'on'
+  // or 'off'. hk-pageswipe.js decides the rest.
+  var SWIPE_PAGES = ['auto', 'on', 'off'];
+  function swipePages() {
+    var b = boardHere(), own = b ? b.swipe_pages : null;
+    if (SWIPE_PAGES.indexOf(own) >= 0) return own;
+    var h = get('menu.swipe_pages', 'auto');
+    return SWIPE_PAGES.indexOf(h) >= 0 ? h : 'auto';
   }
   // A PAGE'S BACKGROUND (Sky / Background -> Pages): this screen's choice
   // for the page, else All Screens', else null (Automatic: a page with a
@@ -1675,6 +1688,7 @@
     skyLook: skyLook,
     ladderSignature: ladderSignature,
     pagesScreen: pagesScreen,
+    swipePages: swipePages,
     reducedMotion: reducedMotion,
     pageSky: pageSky,
     flatBackground: flatBackground,

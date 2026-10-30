@@ -153,6 +153,15 @@ HS._apply({sky:{moving:'front'},boards:{'dashboard-sky':{sky_moving:'behind'}}})
 ok('...a screen can keep them behind', HS.skyLook().moving === 'behind');
 HS._apply({sky:{moving:'behind'},boards:{'dashboard-sky':{sky_moving:'front'}}});
 ok('...or bring them in front on its own', HS.skyLook().moving === 'front');
+print('=== Swipe Between Pages (2026-10-30) ===');
+HS._apply({ menu: {} });
+ok('Automatic unless chosen', HS.swipePages() === 'auto');
+HS._apply({ menu: { swipe_pages: 'on' }, boards: { 'dashboard-sky': { swipe_pages: null } } });
+ok('...All Screens\' On', HS.swipePages() === 'on');
+HS._apply({ menu: { swipe_pages: 'on' }, boards: { 'dashboard-sky': { swipe_pages: 'off' } } });
+ok('...a screen\'s own Off over it', HS.swipePages() === 'off');
+HS._apply({ menu: { swipe_pages: 'sideways' }, boards: { 'dashboard-sky': { swipe_pages: 'always' } } });
+ok('...a value it doesn\'t know: Automatic', HS.swipePages() === 'auto');
 print('=== Reduce Motion (2026-10-29) ===');
 (function () {
   var realMM = globalThis.matchMedia, reduce = false;

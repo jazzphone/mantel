@@ -607,6 +607,15 @@
           this._root.innerHTML = sized ? '<hk-plate class="blk"><div class="row" role="list"></div></hk-plate>'
                                        : '<div class="row" role="list"></div>';
           row = this._root.querySelector('.row');
+          // A ROW THAT FITS takes no sideways pan: a swipe on it is the
+          // page's (hkCards.fitPan, Swipe Between Pages); one that scrolls
+          // (a phone) keeps its own -- measured again as it changes size
+          if (!sized && typeof ResizeObserver === 'function') {
+            if (this._fitRo) this._fitRo.disconnect();
+            var fitRow = row;
+            this._fitRo = new ResizeObserver(function () { window.hkCards.fitPan(fitRow); });
+            this._fitRo.observe(row);
+          }
         }
         if (sized) row.style.setProperty('--cols', String(this._cols));
         if (sized && !list.length) {
@@ -624,6 +633,7 @@
             '<span class="tx"><span class="t">' + esc(it.title) + '</span><span class="v">' + esc(it.value) +
             '</span></span></button>';
         }).join('');
+        if (!sized && window.hkCards.fitPan) window.hkCards.fitPan(row);
         this._list = list;
         if (!this._wired) this._wire();
       }

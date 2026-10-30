@@ -939,3 +939,25 @@ renderer (the check stands one in); the widget kinds (`PAGES_SCREEN_WIDGETS`) ar
 confirmed at merge; the Pages screen's own screens swipe natively (`data-hk-control`) when there are two or more,
 so a page swipe from its last screen to the next page is not there; not yet seen on the iPad or a wall tablet,
 where the background blur shows (headless WebKit draws none).
+
+**2026-10-30, Phase 0 (Swipe Between Pages), branch `homeview-phase0`.** Built: `web/hk/modules/hk-pageswipe.js`
+(the gesture, the slide and the order; loaded by `hk-loader.js` in both products): the tab bar's pages left to right,
+the side menu's Home and Categories with no bar, none on a room or a page under More; the order extendable with
+`hkPageSwipe.extend(fn)` (`fn(items, ctx)`, for the Pages screen right after Home), and Automatic on where a tab bar
+shows or the screen's `pages_screen` is on (read defensively: `hkSettings.pagesScreen()` if it exists, else the board
+key; absent is off). The neighbour is the view host's own when held (`hkViewHost.live().peek()`; `show()` no longer
+re-appends a view already in the slot), else a title plate built on landing; also the plate on a tablet the ladder
+flagged. The tab bar: `pages()`, `follow(k, path)` (between two tabs, along a bar or down a rail) and `land(path)` on
+the spring at .42 s. One list of what moves sideways itself, `hkDrag.sideways` (and `hkDrag.classify`, press()'s
+test, shared); Home Grid's views use it, and hand a swipe past their last view over (`hk-swipe-past`), landing on the
+last view coming back (`swipeEnter`). Found in the browser: a scroll container takes every sideways pan even when it
+has nothing to scroll, so a row that fits (hk-row-card, a room's status row) now says touch-action pan-y
+(`hkCards.fitPan`), and hk-control's slider wrappers carry `data-hk-control`. The setting: `menu.swipe_pages` and a
+screen's `swipe_pages` (None: Same as All Screens), HK Settings → Menu → Gestures and a screen's Menu Settings.
+Checks: jsc `test_pageswipe.js` (70), `test_tabbar.js`, `test_homegrid.js`, `test_settings.js`, `test_settingsmodel.js`
+and every other suite green (CSS snapshot updated for the landing rule); `tests/test_hk_core_settings.py`;
+`tools/headless/page_swipe_check.py` passed in Chromium (CDP touch) and WebKit (synthetic touch pointer events) at
+1180 × 820, 820 × 1180, 390 × 844 and 844 × 390 (added to `ci.py full` as `page-swipe-check`); `ci.py quick` passed;
+`full --only` ha-build, hk-frontend-py/-js, grid_blocks_check, edit-mode-check, side-strip-check passed. Left: frame
+timing on the slowest wall tablet (`hk-fps.js`, SLOW_FPS) and trying it on the owner's iPad (Safari's own edge
+gestures, its pan decision on a real finger); WebKit's touch-action is not exercised headless.

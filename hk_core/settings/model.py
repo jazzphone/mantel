@@ -1160,7 +1160,10 @@ DEFAULTS: dict[str, dict[str, Any]] = {
              # Use the Side Strip (2026-10-30): on a phone with a strip of
              # system controls down one side (iPhone Duo), the tab bar is a
              # rail in the strip's empty part (hk-tabbar.js stripSide)
-             "bar_strip": True},
+             "bar_strip": True,
+             # Swipe Between Pages (SWIPE_PAGES): a screen's swipe_pages, when
+             # set, is its own
+             "swipe_pages": "auto"},
     # The room pages: whether room headings on Home open them, and what the
     # status row shows.
     # ROOMS, for every screen that doesn't set its own (a screen's
@@ -1415,6 +1418,8 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
         if section in out and isinstance(values, dict):
             out[section].update({k: v for k, v in values.items() if k in out[section]})
     out["look"]["saver"] = saver_options(out["look"].get("saver")) or dict(SAVER_DEFAULTS)
+    if out["menu"].get("swipe_pages") not in SWIPE_PAGES:
+        out["menu"]["swipe_pages"] = DEFAULTS["menu"]["swipe_pages"]
     np = out["now_playing"]
     for k, allowed in (("style", NP_STYLES), ("side", NP_SIDES), ("bar", NP_BARS), ("bar_phone", NP_BARS),
                        ("grace", NP_GRACES)):
@@ -1871,6 +1876,12 @@ TAB_BAR_START = ("full", "small")
 TAB_BAR_SIZES = ("small", "medium", "large")
 # TAB BAR LABELS (2026-10-24, the owner): each tab's name under its icon, or icons only -- a slimmer bar or rail
 TAB_BAR_LABELS = ("show", "icons")
+# SWIPE BETWEEN PAGES (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase 0): a
+# sideways swipe on a page goes to the next or the previous one, in the tab
+# bar's order (hk-pageswipe.js). auto: where a tab bar shows (or the screen's
+# Pages screen is on); on: everywhere, the side menu's order with no bar; off.
+# All Screens' menu.swipe_pages; a screen's swipe_pages, None: Same as All Screens
+SWIPE_PAGES = ("auto", "on", "off")
 # how many PAGES a bar (bottom / top) and a rail (left / right) show at
 # most, Home and More not counted (6: eight tabs in all) -- a phone never
 # more than 3, what fits its width
@@ -1949,6 +1960,9 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # Use the Side Strip (2026-10-30): the tab bar as a rail in a phone's
     # side strip of system controls, where it has one (iPhone Duo)
     "tab_bar_strip": True,
+    # Swipe Between Pages (SWIPE_PAGES, 2026-10-30): this screen's own; None,
+    # Same as All Screens (menu.swipe_pages)
+    "swipe_pages": None,
     # PHONES' OWN (BOARD_PHONE_MENUS): the menu, the screen's own as `menu`
     # is (None: as before phones had their own, phone_menu()); the button's
     # style and More's rooms, menu settings (MENU_KEYS)
@@ -2184,6 +2198,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["tab_bar_size"] = pick("tab_bar_size", TAB_BAR_SIZES)
     out["tab_bar_labels"] = pick("tab_bar_labels", TAB_BAR_LABELS)
     out["tab_bar_strip"] = d.get("tab_bar_strip") is not False
+    out["swipe_pages"] = d.get("swipe_pages") if d.get("swipe_pages") in SWIPE_PAGES else None
     out["tab_bar_tabs_rail"] = tab_count(d.get("tab_bar_tabs_rail"))
     out["tab_bar_tabs_phone"] = tab_count(d.get("tab_bar_tabs_phone"), 3, TAB_BAR_TABS_PHONE)
     out["tab_bar_scroll_phone"] = pick("tab_bar_scroll_phone", TAB_BAR_SCROLLS)

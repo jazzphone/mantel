@@ -416,6 +416,14 @@
         ev.preventDefault();
       }
 
+      // A ROW WITH NOTHING TO SCROLL takes no sideways pan, so a swipe on it
+      // is the page's (hkCards.fitPan, Swipe Between Pages) -- watched as it
+      // and its cards change size
+      var fit = function () { if (window.hkCards && window.hkCards.fitPan) window.hkCards.fitPan(row); };
+      var fro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
+      if (fro) { fro.observe(row); [].forEach.call(row.children || [], function (k) { fro.observe(k); }); }
+      fit();
+
       row.addEventListener('pointerdown', down);
       row.addEventListener('click', click, true);
       // passive:false because move() calls preventDefault to stop the browser
@@ -425,6 +433,7 @@
       document.addEventListener('pointercancel', up);
 
       this._dragOff = function () {
+        if (fro) fro.disconnect();
         row.removeEventListener('pointerdown', down);
         row.removeEventListener('click', click, true);
         document.removeEventListener('pointermove', move, { passive: false });

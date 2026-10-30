@@ -353,5 +353,33 @@ ok('every fit keeps the reserve, every size', ['small', 'medium', 'large'].every
 ok('the strip in the page\'s own code: Use the Side Strip off, no strip', /tab_bar_strip === false\) return null/.test(tbSrc) &&
    /stripSide\(sa\.left, sa\.right\)/.test(tbSrc));
 
+// SWIPE BETWEEN PAGES (2026-10-30, hk-pageswipe.js): the order is the bar's
+// tabs as it shows them, and the highlight is drawn between two tabs by the
+// swipe's fraction, along a bar or down a rail, then lands on the spring
+print('=== swipe between pages: the follow and the order ===');
+var bw = T.between, ofs = T.offsetsOf;
+var homeTab = { x: 4, y: 3, w: 96, h: 54, pos: 'bottom' }, lightsTab = { x: 104, y: 3, w: 80, h: 54, pos: 'bottom' };
+var half = bw(homeTab, lightsTab, 0.5);
+ok('halfway: the box halfway along, its width between the two', half.x === 54 && half.w === 88 && half.h === 54 && half.pos === 'bottom',
+   JSON.stringify(half));
+ok('...none of the way is the tab itself; all of it the next; past either end held',
+   JSON.stringify(bw(homeTab, lightsTab, 0)) === JSON.stringify(homeTab) && bw(homeTab, lightsTab, 1).x === 104 &&
+   bw(homeTab, lightsTab, 1.6).x === 104 && bw(homeTab, lightsTab, -1).x === 4);
+var o1 = ofs(half, homeTab);
+ok('the offsets slide() reads, from the tab the highlight is drawn on', o1.hx === 50 && o1.hy === 0 && Math.abs(o1.sx - 88 / 96) < 1e-9 && o1.sy === 1,
+   JSON.stringify(o1));
+var railA = { x: 5, y: 40, w: 62, h: 60, pos: 'left' }, railB = { x: 5, y: 110, w: 62, h: 60, pos: 'left' };
+var rq = bw(railA, railB, 0.25);
+ok('down a rail (the side strip\'s too): it moves down, not along', rq.x === 5 && rq.y === 57.5 && ofs(rq, railA).hy === 17.5 &&
+   ofs(rq, railA).hx === 0);
+ok('the page swipe reads the bar\'s own tabs, in order -- More is not a page -- and the menu\'s Home and Categories with no bar',
+   /function swipePages\(\) \{\s*if \(S\.on\) return \{ bar: true, items: S\.tabs\.slice\(\) \};/.test(tbSrc) &&
+   /\[m\.home\]\.concat\(m\.categories\)/.test(tbSrc) && /window\.hkTabBar\.pages = swipePages/.test(tbSrc));
+ok('follow() is not drawn folded, too tight, or with Reduce Motion (it jumps as it lands)',
+   /function follow\(k, path\) \{\s*if \(!S\.on \|\| S\.mode !== 'full' \|\| S\.tight \|\| calm\(\)\) return false;/.test(tbSrc));
+ok('...it holds the highlight where it is, so the landing starts there', /S\.hereBox = box;/.test(tbSrc) && /classList\.add\('slide-from'\)/.test(tbSrc));
+ok('land(): the page it lands on before the address is, on the spring at .42 s', /var path = S\.landing \|\| location\.pathname/.test(tbSrc) &&
+   /:host\(\[data-landing\]\) \.tab\.here::before\{transition-duration:\.42s\}/.test(tbSrc) && /S\.landing = null;/.test(tbSrc));
+
 print('\n' + (fail ? fail + ' FAILED, ' + pass + ' passed' : 'ALL ' + pass + ' TAB BAR TESTS PASS'));
 if (fail) throw new Error(fail + ' failed');

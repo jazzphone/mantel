@@ -850,7 +850,7 @@ class HkControlCard extends HTMLElement {
     if (this._config.layout === "tile") this.setAttribute("data-tilel", ""); else this.removeAttribute("data-tilel");
     return `<div class="surface compact${this._config.layout === "tile" ? " tilel" : ""}">
       <div class="head"><div class="glyph"><hk-icon icon="${this._icon("number")}"></hk-icon></div><div class="titles"><div class="name">${this._esc(this._name())}</div><div class="sub">${this._esc(this._rangeText(min, max, unit))}</div></div><div class="value" data-live>${Number.isFinite(val)?this._valueText(val, unit):"—"}</div></div>
-      <div class="range-wrap"><input class="filled" data-number type="range" min="${min}" max="${max}" step="${step}" value="${val}" style="--hk-fill:${pct}%"></div>
+      <div class="range-wrap" data-hk-control><input class="filled" data-number type="range" min="${min}" max="${max}" step="${step}" value="${val}" style="--hk-fill:${pct}%"></div>
     </div>`;
   }
   _select(s){
@@ -964,7 +964,7 @@ class HkControlCard extends HTMLElement {
     return `<div class="${cls}">
       ${hasProg ? `<div class="prog-track"><div class="prog-fill" ${fill}></div></div>
       <div class="prog-times">${times}</div>` : ""}
-      ${hasVol ? `<div class="range-wrap"><input class="filled" data-vol type="range" min="0" max="100" step="1" value="${vol}" style="--hk-fill:${vol}%"></div>` : ""}
+      ${hasVol ? `<div class="range-wrap" data-hk-control><input class="filled" data-vol type="range" min="0" max="100" step="1" value="${vol}" style="--hk-fill:${vol}%"></div>` : ""}
     </div>`;
   }
 
