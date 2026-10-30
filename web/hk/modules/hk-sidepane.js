@@ -91,6 +91,16 @@
       if (at > 0) sizes[i] = SIZES[at - 1]; else i--;
     }
     while (n > 0 && over(sizes, n)) n--;
+    // ...and what a step further down left room for has its Size back, from
+    // the top (a big section stepped down above small ones)
+    var want = (list || []).map(sizeOf);
+    for (var j = 0; j < n; j++) {
+      while (sizes[j] !== want[j]) {
+        var up = sizes.slice(); up[j] = SIZES[SIZES.indexOf(sizes[j]) + 1];
+        if (over(up, n)) break;
+        sizes = up;
+      }
+    }
     return { sizes: sizes.slice(0, n), n: n, dropped: sizes.length - n };
   }
   // WHERE IT GOES on a screen W x H: { kind: 'side', w } | { kind: 'band', h }
@@ -134,6 +144,25 @@
   function hm(d) { try { return L().time(d, { hour: 'numeric', minute: '2-digit' }); } catch (e) { return d.toTimeString().slice(0, 5); } }
   function dateLong(d) { try { return L().date(d, { weekday: 'long', month: 'long', day: 'numeric' }); } catch (e) { return d.toDateString(); } }
   function dateShort(d) { try { return L().date(d, { weekday: 'short', month: 'short', day: 'numeric' }); } catch (e) { return d.toDateString(); } }
+  // THE HOUSE CLOCK (the header's: the Time & Date sensors when chosen,
+  // else this screen's own; hkSettings.clock) -> { time, ampm, day, h, m }
+  function houseNow(c) {
+    var ck = HS() && HS().clock ? HS().clock(states(c)) : null, d = new Date();
+    var t = ck && ck.time && String(ck.time).indexOf(':') > 0 ? String(ck.time).split(':') : null;
+    var h = t ? parseInt(t[0], 10) : d.getHours(), m = t ? parseInt(t[1], 10) : d.getMinutes();
+    var day = d;
+    if (ck && ck.date && String(ck.date).indexOf('-') > 0) { var p = String(ck.date).split('-').map(Number); day = new Date(p[0], p[1] - 1, p[2], h, m); }
+    var is24 = L() && L().is24 && L().is24();
+    var time = is24 ? (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m : ((h % 12) || 12) + ':' + (m < 10 ? '0' : '') + m;
+    return { time: time, ampm: is24 ? '' : h >= 12 ? 'PM' : 'AM', day: day, h: h, m: m };
+  }
+  function condName(st) { var H = window.hkHeader; return H && H.conditionName ? H.conditionName(st) : String(st || '').replace(/-/g, ' ').replace(/^\w/, function (x) { return x.toUpperCase(); }); }
+  // the weather's own multicolor glyph (hk-header.js), else Material's
+  function wxGlyph(cond, px) {
+    var H = window.hkHeader;
+    try { if (H && H.wxSvg) return '<span class="wxg">' + H.wxSvg(cond, px) + '</span>'; } catch (e) { /* Material's */ }
+    return icon('mdi:weather-' + wxIcon(cond));
+  }
   function deg(v) { var n = num(v); return n == null ? '–' : Math.round(n) + '°'; }
   function ago(t) {
     var s = Math.max(0, Math.round((Date.now() - t) / 1000));
@@ -229,6 +258,11 @@
   var CAL = { evs: null, at: 0, busy: false, days: 0 };
   function calLoad(c, days, done) {
     var K = window.hkCalendar;
+    if (!K && !CAL.asked && typeof document !== 'undefined' && document.addEventListener) {
+      // (its code, where no card of the page has brought it yet)
+      CAL.asked = true;
+      import(window.hkV ? window.hkV('/hk/cards/hk-calendar.js') : '/hk/cards/hk-calendar.js').then(done, function () { CAL.evs = []; done(); });
+    }
     if (!K || !K.load || !c || CAL.busy || (CAL.evs && Date.now() - CAL.at < 300000 && CAL.days >= days)) return;
     CAL.busy = true;
     var from = new Date(); from.setHours(0, 0, 0, 0);
@@ -286,8 +320,8 @@
   function none(k, size, text) { return size === 'tiny' ? tiny(k, esc(text), '') : box(k, size, head(k) + '<div class="sub2">' + esc(text) + '</div>'); }
 
   // OUR OWN ANALOG FACE, numbered (the Clock at Full)
-  function faceSvg(d) {
-    var h = d.getHours() % 12, m = d.getMinutes(), s = '';
+  function faceSvg(now) {
+    var h = now.h % 12, m = now.m, s = '';
     for (var i = 1; i <= 12; i++) {
       var a = i * Math.PI / 6;
       s += '<text x="' + (78 * Math.sin(a)).toFixed(1) + '" y="' + (-78 * Math.cos(a) + 8).toFixed(1) + '">' + i + '</text>';
@@ -304,23 +338,24 @@
   // a doorbell's live camera); ctx.redraw() draws the pane again.
   var SEC = {
     clock: function (s, sec, c) {
-      var d = new Date(), t = '<span class="tm">' + esc(hm(d)) + '</span>';
+      var now = houseNow(c), d = now.day;
+      var t = '<span class="tm">' + esc(now.time) + (now.ampm ? '<small>' + now.ampm + '</small>' : '') + '</span>';
       if (s === 'tiny') return tiny('clock', t, esc(dateShort(d)));
-      if (s === 'full') return box('clock', s, '<div class="facebox">' + faceSvg(d) + '</div><div class="sub2 ctr">' + esc(dateLong(d)) + '</div>', 'grow');
+      if (s === 'full') return box('clock', s, '<div class="facebox">' + faceSvg(now) + '</div><div class="sub2 ctr">' + esc(dateLong(d)) + '</div>', 'grow');
       var set = attr(states(c)['sun.sun'], 'next_setting'), sun = s === 'more' && set ? ' · Sunset ' + esc(hm(new Date(set))) : '';
       return box('clock', s, '<div class="big2' + (s === 'less' ? ' less' : '') + '">' + t + '</div><div class="sub2">' + esc(dateLong(d)) + sun + '</div>');
     },
     weather: function (s, sec, c, ctx) {
       var id = setting('weather.entity', null) || domainIds(c, 'weather')[0], st = id && states(c)[id];
       if (!st) return none('weather', s, 'No weather');
-      var cond = String(st.state || '').replace(/-/g, ' ').replace(/^\w/, function (x) { return x.toUpperCase(); });
+      var cond = condName(st.state);
       var daily = ctx.forecast(id, 'daily'), hourly = s === 'more' || s === 'full' ? ctx.forecast(id, 'hourly') : [];
       var d0 = daily[0] || {}, hl = d0.temperature != null ? 'H:' + deg(d0.temperature) + ' L:' + deg(d0.templow) : '';
       var now = deg(attr(st, 'temperature'));
       if (s === 'tiny') return tiny('weather', esc(now + ' ' + cond), esc(hl));
-      var top = '<div class="wnow">' + icon('mdi:weather-' + wxIcon(st.state)) + '<b>' + esc(now) + '</b><div class="sub2">' + esc(cond) + (hl ? '<br>' + esc(hl) : '') + '</div></div>';
+      var top = '<div class="wnow">' + wxGlyph(st.state, 44) + '<b>' + esc(now) + '</b><div class="sub2">' + esc(cond) + (hl ? '<br>' + esc(hl) : '') + '</div></div>';
       var hrs = hourly.slice(0, 5).map(function (h, i) {
-        return '<div>' + esc(i ? hm(new Date(h.datetime)).replace(':00', '') : 'Now') + icon('mdi:weather-' + wxIcon(h.condition)) + '<b>' + esc(deg(h.temperature)) + '</b></div>';
+        return '<div>' + esc(i ? hm(new Date(h.datetime)).replace(':00', '') : 'Now') + wxGlyph(h.condition, 18) + '<b>' + esc(deg(h.temperature)) + '</b></div>';
       }).join('');
       var days = s === 'full' ? rows(daily.slice(1, 4).map(function (x) {
         return [L() ? L().date(new Date(x.datetime), { weekday: 'long' }) : '', deg(x.temperature) + ' / ' + deg(x.templow), 'mdi:weather-' + wxIcon(x.condition)];
@@ -329,7 +364,7 @@
     },
     calendar: function (s, sec, c, ctx) {
       ctx.calendar(sec.days || (s === 'full' ? 3 : 2));
-      if (!CAL.evs) return none('calendar', s, 'Reading the calendars…');
+      if (!CAL.evs) return none('calendar', s, window.hkCalendar && !window.hkCalendar.ids(c).length ? 'No calendars' : 'Reading the calendars\u2026');
       var evs = calComing();
       if (!evs.length) return none('calendar', s, 'Nothing coming up');
       var when = function (e) {
@@ -508,13 +543,14 @@
     if (CSS) return CSS;
     var K = C(), v = K && K.v ? K.v : function (n) { return 'var(--hk-' + n + ')'; }, R = (K && K.SP && K.SP.cardR) || 20;
     CSS = [
-      ':host{position:fixed;z-index:4;display:none;box-sizing:border-box;color:' + v('ink') + ';font-family:var(--hk-font-body,inherit);',
+      // (above the page, as Now Playing's pane was; under the menu, the tab bar and every sheet)
+      ':host{position:fixed;z-index:5;display:none;box-sizing:border-box;color:' + v('ink') + ';font-family:var(--hk-font-body,inherit);',
       '  -webkit-tap-highlight-color:transparent;contain:layout style}',
       ':host([on]){display:block}',
       ':host([mode="saver"]){position:absolute}',
       // THE PANE: the screensaver's pane's dark glass, its edge and shadow
       // toward the page (a left pane's mirrored)
-      '.pane{position:absolute;inset:0;overflow:hidden;background:linear-gradient(to bottom,rgba(14,22,40,.86),rgba(8,12,22,.94));',
+      '.pane{position:absolute;inset:0;overflow:hidden;background:linear-gradient(to bottom,rgba(14,22,40,.92),rgba(8,12,22,.97));',
       '  -webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6)}',
       ':host([side="right"]) .pane{border-left:1px solid ' + v('line') + ';box-shadow:-18px 0 44px rgba(0,0,0,.30)}',
       ':host([side="left"]) .pane{border-right:1px solid ' + v('line') + ';box-shadow:18px 0 44px rgba(0,0,0,.30)}',
@@ -535,6 +571,8 @@
       '.h2 hk-icon{--mdc-icon-size:15px;width:15px;height:15px}',
       '.big2{font:600 72px/1 var(--hk-font-body,inherit);letter-spacing:-2px;font-variant-numeric:tabular-nums}',
       '.big2.less{font-size:48px;letter-spacing:-1.2px}',
+      '.tm{white-space:nowrap}.tm small{font-size:.36em;font-weight:600;letter-spacing:0;margin-left:.18em;color:' + v('ink-2') + '}',
+      '.wxg{display:inline-grid;place-items:center;flex:none}.hrs .wxg{display:grid;margin:2px auto}',
       '.sub2{font:500 17px/1.3 var(--hk-font-body,inherit);color:' + v('ink-2') + '}',
       '.sub2.ctr{text-align:center}',
       '.r2{display:flex;align-items:center;gap:10px;font:600 17px/1.3 var(--hk-font-body,inherit);min-width:0}',
@@ -840,10 +878,28 @@
     try { n = parseFloat(document.documentElement.style.getPropertyValue('--hk-menu-right')) || 0; } catch (e) { n = 0; }
     return n;
   }
+  // the tab bar's room at the bottom (hk-tabbar.js --hk-tabbar-h: a calc(),
+  // so measured on a probe)
+  var probe = null;
   function tabRoom() {
-    var n = 0;
-    try { n = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hk-tabbar-h')) || 0; } catch (e) { n = 0; }
-    return n;
+    try {
+      if (!probe) {
+        probe = document.createElement('div');
+        probe.style.cssText = 'position:fixed;left:-9px;top:0;width:1px;visibility:hidden;pointer-events:none;height:var(--hk-tabbar-h,0px)';
+        document.body.appendChild(probe);
+      }
+      return probe.offsetHeight || 0;
+    } catch (e) { return 0; }
+  }
+  // A BAND'S ROOM at the page's foot: the view's margin (hk-menu.js keeps its
+  // sides, the tab bar its padding), so a page that scrolls ends above it
+  var bandView = null;
+  function bandRoom(h) {
+    var SH = window.hkShell, M = C() && C().menu, v = null;
+    try { v = h && SH && SH.viewSlot ? SH.viewSlot(M && M.panel ? M.panel() : undefined) : null; } catch (e) { v = null; }
+    if (bandView && bandView !== v) bandView.style.marginBottom = '';
+    bandView = h ? v : null;
+    if (v) v.style.marginBottom = h ? h + 'px' : '';
   }
   // its room on <html> (hk-menu.js narrows the page, hk-tabbar.js keeps
   // clear; a band's height for the page's foot), and the word it changed
@@ -892,11 +948,14 @@
         s.top = '0'; s.bottom = '0'; s.width = p.w + 'px'; s.height = '';
         s.left = sp.side === 'left' ? L0 + 'px' : ''; s.right = sp.side === 'left' ? '' : '0';
       } else if (up && p.kind === 'band') {
+        // (above the tab bar, whose top it reads: hk-tabbar.js --hk-tabbar-top)
         s.left = menuLeft() + 'px'; s.right = '0'; s.width = ''; s.top = ''; s.height = p.h + 'px';
-        s.bottom = tabRoom() + 'px';
+        s.bottom = 'var(--hk-tabbar-top,0px)';
       }
     }
     publish(up && p.kind === 'side' ? sp.side : null, up && p.kind === 'side' ? p.w : 0, up && p.kind === 'band' ? p.h : 0);
+    // (a Home Grid takes the band off its own height: hk-layout.js --hk-pane-b)
+    bandRoom(up && p.kind === 'band' && !(grid && grid.isConnected) ? p.h : 0);
     musicFlag(up && list.some(function (x) { return x.kind === 'now_playing'; }) && musicHas(c));
   }
   // at most once a frame, and again each second while it is up (the clock,

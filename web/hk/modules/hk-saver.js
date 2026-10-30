@@ -1119,12 +1119,13 @@
     // PANE SIDE: LEFT (the Side Pane's, 2026-10-30): the pane on the left,
     // its edge and shadow toward the photo on its right, and everything that
     // stepped aside for it from the right steps aside from the left
-    ':host([pside="left"]) .pane{right:auto;left:0;border-left:0;border-right:1px solid rgba(255,255,255,0.10);',
+    ':host([pside]) .pane{right:auto;left:0;border-left:0;border-right:1px solid rgba(255,255,255,0.10);',
     '  box-shadow:18px 0 44px rgba(0,0,0,.42),3px 0 12px rgba(0,0,0,.26)}',
-    ':host([pside="left"]) .ph[pw] img.fg{left:var(--hk-pane-w,0px)}',
-    ':host([pside="left"]) .ph[pw] .mowrap,:host([pside="left"]) .ph[pw] .phscrim{right:0;left:var(--hk-pane-w,0px)}',
-    ':host([pside="left"][pane]) .ck,:host([pside="left"][pane]) .en,:host([pside="left"][pane]) .wx{right:0;left:var(--hk-pane-w,' + PANE_W + 'px)}',
-    ':host([pside="left"][pane]) .fc,:host([pside="left"][pane]) .fcb,:host([pside="left"][pane]) .mu .mbody{right:0;left:var(--hk-pane-w,0px)}',
+    ':host([pside]) .ph[pw] img.fg{left:var(--hk-pane-w,0px)}',
+    ':host([pside]) .ph[pw] .mowrap,:host([pside]) .ph[pw] .phscrim{right:0;left:var(--hk-pane-w,0px)}',
+    ':host([pside][pane]) .ck,:host([pside][pane]) .en,:host([pside][pane]) .wx{right:0;left:var(--hk-pane-w,' + PANE_W + 'px)}',
+    ':host([pside][pane]) .info{left:var(--hk-pane-w,' + PANE_W + 'px)}',
+    ':host([pside][pane]) .fc,:host([pside][pane]) .fcb,:host([pside][pane]) .mu .mbody{right:0;left:var(--hk-pane-w,0px)}',
     // THE SIDE PANE'S OWN SECTIONS (cfg.pane_list): drawn by hk-sidepane.js
     // between Home Status and the pane's foot, on the pane's own background
     '.pane hk-side-pane{position:absolute;z-index:1;left:0;right:0;top:var(--hk-pane-top,' + PANE_TOP + 'px);bottom:var(--hk-pane-bottom,0px)}',
@@ -4155,7 +4156,9 @@
     if (!(hi > lo)) return;
     var cur = parseFloat(card.style.getPropertyValue('--hk-band-shift')) || 0;
     // (the shift is in the band's own pixels, which the zoom scales)
-    var want = Math.round(cur + ((RW - hi) - lo) / 2 / z);
+    // (a pane on the left: the room starts at its edge)
+    var x0 = paneUp && cfg && cfg.pane_side === 'left' ? paneW : 0;
+    var want = Math.round(cur + ((x0 + RW - hi) - (lo - x0)) / 2 / z);
     if (Math.abs(want - cur) >= 1) card.style.setProperty('--hk-band-shift', want + 'px');
   }
   // KIOSK SATELLITE'S DARK. Its API is promise-based, so it cannot be asked
