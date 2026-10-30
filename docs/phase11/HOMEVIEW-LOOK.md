@@ -18,7 +18,8 @@ is mostly the look:
 - more detail as someone comes near;
 - (ours, not HomeView's) a Side Pane beside the page, of sections you choose;
 - a swipe from page to page, with the tab bar following;
-- more screensaver faces.
+- more screensaver faces;
+- (from HomeView's app screen) a Pages screen of Mantel's own pages, to get around without a nav bar.
 
 ## Decisions already made (the owner, 2026-10-30)
 
@@ -38,6 +39,7 @@ is mostly the look:
 | 12 | Corners | **34 px on every square-cell block; the concentric 72 px at the screen's corners on the Square type only** ("hopefully not a huge uplift": it is a radius token and four corner classes) |
 | 13 | To-do in the pane | **Yes**, reading Home Assistant's to-do lists |
 | 14 | Photo, Time Behind | **Yes**: the cut-out made on the server, on import and by a backfill |
+| 15 | A Pages screen (2026-10-30) | **Yes**: an iPad-style home screen of Mantel's pages, right after Home in the swipe order; navigation without a nav bar |
 
 ## Rules for every phase
 
@@ -690,6 +692,49 @@ Reduce Motion and Flat hold it still. The other faces repaint once a minute.
 **Checks.** `test_saverclock.js` (each face draws, at every size the Clock block offers), `tests/test_hk_core_screensaver.py`
 (the new options), screenshots of every face at the eight sheet-review sizes.
 
+## Phase J. The Pages screen (Phase 4)
+
+The owner, 2026-10-30, from photos of HomeView's app screen: "a swipe right page that looks like the App Screen on
+the HomeView … the other pages we have like Music, Lights, Rooms, etc. in a full screen page/menu format … a way to
+navigate through Mantel's pages without a Nav bar."
+
+**What you see.** Swipe from Home and the **Pages screen** comes in: an iPad-style home screen of Mantel's own pages
+as large icons, over the screen's background (blurred, with the time drawn faintly behind as HomeView does). The
+date and time sit top left; who's using the screen top right (their initial or picture). A tap opens the page; a
+swipe back, or the Home pill at the bottom, returns to Home.
+
+| Part | Design |
+|---|---|
+| Icons | one per page in the screen's menu (Lights, Climate, Security, Cameras, Music, Calendar, Weather, Energy, Timers, Vacuums, Live TV, Water, custom pages): a rounded square (22.4 % corner, as iPadOS) in the page's **Accent Color** (`PAGE_ACCENTS`, a top-to-bottom gradient), the page's hk: glyph in white; the name under it, SF Pro 17 / 500, white with a soft shadow |
+| Live icons | Calendar shows today's weekday and date; Weather today's temperature; a red badge where something waits (timers running, notifications, an open door on Security) |
+| Rooms | a **Rooms** folder icon (four rooms in miniature); a tap opens the rooms as their own icons |
+| Widgets (optional) | any Side Pane section (Phase A2) at Less or More, as a 2 × 2 or 2 × 1 tile among the icons: Weather, Calendar, Now Playing, Security… Off by default |
+| Grid | landscape tablet 6 × 3 icons (120 px icons in 176 × 200 px slots), portrait 4 × 5, phone 4 × 6; more pages than fit make a second Pages screen, dots at the bottom |
+| Home pill | with no tab bar, a pill centred at the bottom: a tap or an upward swipe goes Home (the iPad's home indicator) |
+
+**Where it sits.** Right after Home in the swipe order (Home → Pages screen → the tab bar's other pages; Phase 0's
+order is one function this extends). With no tab bar it is the way around: Home ⇄ Pages screen, a tap into a page,
+the Home pill back. It is a page of its own (`/pages`), so the menu and the tab bar can show it too.
+
+**Settings** (Settings → Pages Screen, All Screens and per screen, as the Side Pane's page):
+
+| Setting | Key | Values | Default |
+|---|---|---|---|
+| Pages Screen | `pages_screen.show` | off, on | off |
+| Icons | `pages_screen.icons` | the menu's pages (Same as the Menu), or a list of its own, ordered | Same as the Menu |
+| Rooms | `pages_screen.rooms` | a folder, each room its own icon, none | a folder |
+| Widgets | `pages_screen.widgets` | Side Pane sections with a Size (Less, More) and a place | none |
+| Home Pill | `pages_screen.pill` | auto (when there's no tab bar), on, off | auto |
+
+**Code.** A new `web/hk/pages/hk-pages-screen.js` (the page, its icons, the live icons, the folder, the widgets
+from `hk-sidepane.js`); `hk-strategy.js` adds the view; the view host and Phase 0's swipe order place it after Home;
+`hk-tabbar.js` / `hk-menu.js` list it; `model.py`, `changes.py`, `hk-settings-model.js`, `hk-settings.js` (its
+page). Both products.
+
+**Checks.** jsc `test_pagesscreen.js` (the icons follow the menu, the badges, the folder, the grid at each size),
+`test_pageswipe.js` (Home → Pages screen), Python settings tests; screenshots at 1180 × 820, 820 × 1180, 390 × 844 in
+WebKit, with and without a tab bar, with and without widgets.
+
 ## How it behaves on each screen
 
 | | Landscape tablet 1180 × 820 | Portrait tablet 820 × 1180 | Phone 390 × 844 | iPad (11", 13") | iPhone Duo |
@@ -712,7 +757,7 @@ Reduce Motion and Flat hold it still. The other faces repaint once a minute.
 | 1 | 0 Swipe Between Pages | the owner's first pick; touches only the shell and the tab bar |
 | 2 | A, A2, B, C, F | the HomeView layout: cells, the pane, tiles, thermostat, clock |
 | 3 | D, D2, E | the material and the wallpapers, everywhere |
-| 4 | G, H, I | new behaviour: cameras face, near, screensaver faces |
+| 4 | G, H, I, J | new behaviour: cameras face, near, screensaver faces, the Pages screen |
 
 Each work phase:
 
