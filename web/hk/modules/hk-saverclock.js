@@ -604,6 +604,214 @@
     };
   };
 
+  // ------------------------------------------------------------ the HomeView-style faces
+  // THREE MORE FACES (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I), our
+  // own versions of the kinds HomeView offers, each on a ground of its own:
+  // LIQUID (soft, glossy numerals drifting over a pastel gradient), GIANT
+  // NUMERALS (an analog clock, 12, 3, 6 and 9 huge on a strong colour, the
+  // date in a corner) and SCATTERED NUMERALS (a quiet analog face whose
+  // numerals lean and fade, on a soft colour). Looks from the mock-up's
+  // faceArt() (bright-glass-home-grid.html), drawn at a 1180 x 820 tablet.
+  //
+  // WHAT THEY COST, by design (the plan's Performance):
+  //   - each is drawn again once a minute, on the minute (mount's run), never
+  //     each second -- the hands move by the minute;
+  //   - the second hand is a layer of its own the browser turns (a CSS
+  //     rotation of a pre-drawn hand, once a minute round), so the face under
+  //     it is never painted again for it;
+  //   - Liquid is a picture: the numerals drawn once a minute into a canvas
+  //     (the gloss, the shadow and the ripple drawn in), and its drift is a
+  //     slow transform of that canvas -- never a live SVG filter per frame;
+  //   - Reduce Motion and Flat hold them still (no drift, no second hand).
+  //
+  // Each fills the box it is given (ctx.box): a Clock block's, or the screen
+  // beside a Side Pane, never the window -- laid out wide, tall or square by
+  // its shape. Over photos or the forecast (ground: false) the ground stays
+  // off and the numerals turn white.
+  STYLES.push(['liquid', 'Liquid', 'Soft, glossy numerals that drift slowly over a pastel gradient'],
+              ['giant', 'Giant Numerals', 'An analog clock with 12, 3, 6 and 9 drawn huge on a strong colour'],
+              ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft colour']);
+  COLORS.liquid = [['pastel', 'Pastel', {}],
+    ['sunset', 'Sunset', { '--ckq0': '#ffe1c2', '--ckq1': '#ffc3b0', '--ckq2': '#f6b0cf', '--ckt0': '#ff7a3d', '--ckt1': '#ff4f7b', '--ckt2': '#b84fff' }],
+    ['ocean', 'Ocean', { '--ckq0': '#c7eef5', '--ckq1': '#b2d8f6', '--ckq2': '#c3c9f6', '--ckt0': '#13c2c2', '--ckt1': '#2f7bff', '--ckt2': '#6a4dff' }],
+    ['mint', 'Mint', { '--ckq0': '#dcf7e6', '--ckq1': '#cdeedf', '--ckq2': '#dce8ff', '--ckt0': '#24c47e', '--ckt1': '#17aeb0', '--ckt2': '#3f8cff' }]];
+  COLORS.giant = [['green', 'Green', {}],
+    ['blue', 'Blue', { '--ckg': '#2f6fd8', '--ckgi': '#0b1430' }],
+    ['orange', 'Orange', { '--ckg': '#f08a24', '--ckgi': '#2a1405' }],
+    ['pink', 'Pink', { '--ckg': '#e86aa6', '--ckgi': '#2a0d1c' }],
+    ['black', 'Black', { '--ckg': '#111214', '--ckgi': '#f2f2f2', '--ckgh': '#ff9f0a' }]];
+  COLORS.scattered = [['rose', 'Rose', {}],
+    ['sage', 'Sage', { '--cks': '#aebca5', '--cksi': '#4f5e48', '--cksh': '#2f3d2a', '--ckss': '#e2725b' }],
+    ['sky', 'Sky', { '--cks': '#a9bccf', '--cksi': '#4e6378', '--cksh': '#24364a', '--ckss': '#ff8a3d' }],
+    ['sand', 'Sand', { '--cks': '#d8c6a6', '--cksi': '#7a6345', '--cksh': '#4a3420', '--ckss': '#e0533d' }],
+    ['night', 'Night', { '--cks': '#1f2433', '--cksi': '#9aa2c4', '--cksh': '#e8ebf7', '--ckss': '#ff4f9a' }]];
+  // the faces with a ground of their own: no generated background under them,
+  // and drawn once a minute (mount)
+  var OWN = { liquid: 1, giant: 1, scattered: 1 };
+  CSS += '\n' + [
+    // the ground: a little larger than the face, so the burn-in drift never shows an edge
+    '.ckroot .face .ckgnd{position:absolute;inset:-6%;z-index:0}',
+    '.f-giant .ckgnd{background:var(--ckg,#3a9a5c)}',
+    '.f-scattered .ckgnd{background:var(--cks,#c9a9a6)}',
+    '.f-liquid .ckgnd{background:radial-gradient(circle at 30% 20%,var(--ckq0,#f3c4e4),var(--ckq1,#e7b7f0) 40%,var(--ckq2,#b6c8f7))}',
+    '.f-giant svg,.f-scattered svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;z-index:1}',
+    // the second hand: its own layer, turned by the browser once a minute round
+    '.ckroot svg.cksec{z-index:2;will-change:transform;transform-origin:50% 50%;animation:cksec 60s linear infinite}',
+    '@keyframes cksec{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}',
+    '.f-liquid canvas.lq{position:absolute;inset:0;width:100%;height:100%;z-index:1;will-change:transform;animation:cklq 48s ease-in-out infinite alternate}',
+    '@keyframes cklq{0%{transform:translate(-1.2%,-.8%) rotate(-1deg) scale(1)}50%{transform:translate(.8%,1%) rotate(.6deg) scale(1.025)}100%{transform:translate(1.4%,-.4%) rotate(1.2deg) scale(1)}}',
+    // still: Reduce Motion, Flat
+    '.ckroot.minutely .sh,.ckroot.minutely svg.cksec{display:none}',
+    '.ckroot.still svg.cksec{display:none}.ckroot.still .f-liquid canvas.lq{animation:none}',
+    '@media (prefers-reduced-motion:reduce){.ckroot svg.cksec{display:none}.f-liquid canvas.lq{animation:none}}',
+    // over photos or the forecast: no ground, white numerals; and at Night Mode, white on its black
+    '.ckroot.bare .f-giant,.ckroot.night .f-giant{--ckgi:rgba(255,255,255,.94)}',
+    '.ckroot.bare .f-scattered,.ckroot.night .f-scattered{--cksi:rgba(255,255,255,.9);--cksh:#fff}'
+  ].join('\n');
+  function sv(tag, attrs, parent, text) {
+    var e = document.createElementNS(SVGNS, tag);
+    Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  // a face's own svg, the given box (x y w h) of the drawing
+  function svgOf(f, vb) {
+    var s = sv('svg', { viewBox: vb.join(' '), 'aria-hidden': 'true' });
+    f.appendChild(s);
+    return s;
+  }
+  // its shape: wide, tall or square (a Clock block's S is wide: 196 x 150)
+  function shapeOf(b) { return b.w > b.h * 1.05 ? 'wide' : b.h > b.w * 1.05 ? 'tall' : 'square'; }
+  function ground(f, x) { if (x.ground) { var g = el('div', 'ckgnd ckbg'); f.appendChild(g); } }
+  // THE SECOND HAND: a drawing of its own over the face (the same box, so its
+  // centre is the face's), turned by the browser from where the minute is now
+  function secondHand(f, vb, draw) {
+    var s = svgOf(f, vb);
+    s.setAttribute('class', 'cksec');
+    draw(s);
+    var now = new Date();
+    s.style.animationDelay = '-' + ((now.getSeconds() + now.getMilliseconds() / 1000)).toFixed(2) + 's';
+    return s;
+  }
+  // hands to the minute: the hour hand by the minute too
+  function setHands(hh, mh, d) {
+    var mi = d.getMinutes(), ho = (d.getHours() % 12) + mi / 60;
+    var a = 'rotate(' + (ho * 30).toFixed(2) + ')', b = 'rotate(' + (mi * 6) + ')';
+    if (hh.getAttribute('transform') !== a) hh.setAttribute('transform', a);
+    if (mh.getAttribute('transform') !== b) mh.setAttribute('transform', b);
+  }
+  var SHORT_DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+  // GIANT NUMERALS: the mock's 320 x 220 drawing on a wide screen; a tall and
+  // a square one of its own, the four numerals pushed to the edges of each
+  var GIANT = {
+    wide: { vb: [-160, -110, 320, 220], fs: 120, n: { 12: [0, -12], 3: [104, 44], 6: [0, 112], 9: [-104, 44] }, date: [-148, 100, 11] },
+    tall: { vb: [-110, -160, 220, 320], fs: 120, n: { 12: [0, -62], 3: [70, 44], 6: [0, 152], 9: [-70, 44] }, date: [-100, 152, 11] },
+    square: { vb: [-125, -125, 250, 250], fs: 100, n: { 12: [0, -38], 3: [86, 36], 6: [0, 118], 9: [-86, 36] }, date: [-118, 118, 10] }
+  };
+  FACES.giant = function (f, x) {
+    var L = GIANT[shapeOf(x.box())];
+    ground(f, x);
+    var s = svgOf(f, L.vb), g = sv('g', { 'font-weight': '500', 'font-size': L.fs, 'text-anchor': 'middle', style: 'font-family:' + FONT + ';fill:var(--ckgi,#0d0d0d)' }, s);
+    Object.keys(L.n).forEach(function (k) { sv('text', { x: L.n[k][0], y: L.n[k][1], 'letter-spacing': k === '12' ? -8 : 0 }, g, k); });
+    var dt = sv('text', { x: L.date[0], y: L.date[1], 'font-size': L.date[2], 'font-weight': '600', style: 'font-family:' + FONT + ';fill:var(--ckgi,#0d0d0d)' }, s);
+    var hand = function (len, w) {
+      var h = sv('g', {}, s);
+      sv('line', { y1: 0, y2: -12, 'stroke-width': 2, style: 'stroke:var(--ckgh,#fff)' }, h);
+      sv('line', { y1: -12, y2: -len, 'stroke-width': w, 'stroke-linecap': 'round', style: 'stroke:var(--ckgh,#fff)' }, h);
+      return h;
+    };
+    var hh = hand(52, 7), mh = hand(90, 5.5);
+    sv('circle', { r: 2.2, style: 'fill:var(--ckgh,#fff)' }, s);
+    secondHand(f, L.vb, function (sec) {
+      sv('line', { y1: 14, y2: -100, 'stroke-width': 1.3, style: 'stroke:var(--ckgh,#fff)' }, sec);
+      sv('circle', { r: 3.4, style: 'fill:var(--ckgh,#fff)' }, sec);
+      sv('circle', { r: 1.5, style: 'fill:var(--ckg,#3a9a5c)' }, sec);
+    });
+    return function (d) {
+      setHands(hh, mh, d);
+      put(dt, SHORT_DAYS[d.getDay()] + ' ' + d.getDate());
+    };
+  };
+
+  // SCATTERED NUMERALS: a dial of twelve, each numeral turned to the rim and
+  // leaning a little more, three of them solid and the rest outlined, faded
+  var SCATTER_SOLID = { 12: 1, 1: 1, 3: 1 };
+  FACES.scattered = function (f, x) {
+    var vb = [-110, -110, 220, 220];
+    ground(f, x);
+    var s = svgOf(f, vb), g = sv('g', { 'font-weight': '300', 'font-size': 30, 'text-anchor': 'middle', style: 'font-family:' + FONT }, s);
+    for (var i = 1; i <= 12; i++) {
+      var a = i * Math.PI / 6, px = (80 * Math.sin(a)), py = (-80 * Math.cos(a)), solid = !!SCATTER_SOLID[i];
+      sv('text', { x: px.toFixed(1), y: (py + 10).toFixed(1), transform: 'rotate(' + (i * 30 + (i % 2 ? 8 : -6)) + ' ' + px.toFixed(1) + ' ' + py.toFixed(1) + ')',
+                   'stroke-width': solid ? 0 : 0.8, opacity: solid ? 0.9 : 0.55,
+                   style: solid ? 'fill:var(--cksi,#7a5754)' : 'fill:none;stroke:var(--cksi,#8a6764)' }, g, String(i));
+    }
+    var hand = function (tail, len, w) {
+      var h = sv('g', {}, s);
+      sv('line', { y1: tail, y2: -len, 'stroke-width': w, 'stroke-linecap': 'round', style: 'stroke:var(--cksh,#6b2f3a)' }, h);
+      return h;
+    };
+    var hh = hand(8, 48, 4.5), mh = hand(10, 80, 3.5);
+    secondHand(f, vb, function (sec) {
+      sv('line', { y1: 16, y2: -96, 'stroke-width': 1.2, style: 'stroke:var(--ckss,#ff4f9a)' }, sec);
+      sv('circle', { r: 3.2, style: 'fill:var(--ckss,#ff4f9a)' }, sec);
+    });
+    return function (d) { setHands(hh, mh, d); };
+  };
+
+  // LIQUID: the time drawn once a minute into a canvas the size of its box --
+  // a gradient fill, a white gloss along its rim, rippled a little (copied in
+  // strips, each moved by a sine) over a soft coloured shadow -- that the
+  // browser then drifts slowly (CSS, a transform of the canvas)
+  function liquidPaint(cv, s, x, minute) {
+    var b = x.box(), k = Math.min(1.5, window.devicePixelRatio || 1);
+    var W = Math.max(64, Math.round(b.w * k)), H = Math.max(40, Math.round(b.h * k));
+    cv.width = W; cv.height = H;
+    var g = cv.getContext && cv.getContext('2d');
+    if (!g) return;
+    var v = x.vars || {}, fs = Math.min(H * 0.52, W / (Math.max(4, s.length) * 0.6)), cy = H * 0.53;
+    var make = function () { var c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+    var a = make(), ag = a.getContext && a.getContext('2d'), r = make(), rg = r.getContext && r.getContext('2d');
+    if (!ag || !rg) return;
+    ag.font = '600 ' + fs.toFixed(1) + 'px ' + FONT;
+    ag.textAlign = 'center'; ag.textBaseline = 'middle';
+    var gr = ag.createLinearGradient(W * 0.25, cy - fs / 2, W * 0.75, cy + fs / 2);
+    gr.addColorStop(0, v['--ckt0'] || '#ff6fb1'); gr.addColorStop(0.5, v['--ckt1'] || '#a77bff'); gr.addColorStop(1, v['--ckt2'] || '#4f8dff');
+    ag.fillStyle = gr;
+    ag.fillText(s, W / 2, cy);
+    // the gloss: white along the top of each numeral, and a thin bright rim
+    ag.globalCompositeOperation = 'source-atop';
+    var gl = ag.createLinearGradient(0, cy - fs * 0.45, 0, cy + fs * 0.05);
+    gl.addColorStop(0, 'rgba(255,255,255,.55)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
+    ag.fillStyle = gl; ag.fillRect(0, 0, W, H);
+    ag.globalCompositeOperation = 'source-over';
+    ag.lineWidth = Math.max(1, fs * 0.012); ag.strokeStyle = 'rgba(255,255,255,.55)';
+    ag.strokeText(s, W / 2, cy);
+    // the ripple: strips, each moved by a sine of its height (a new phase each minute)
+    var step = Math.max(2, Math.round(H / 160)), ph = (minute || 0) * 0.7;
+    for (var y = 0; y < H; y += step) {
+      var dx = Math.sin(y / H * Math.PI * 4 + ph) * fs * 0.022;
+      rg.drawImage(a, 0, y, W, step, dx, y, W, step);
+    }
+    // the shadow under it, soft and coloured, then the numerals themselves
+    g.shadowColor = 'rgba(123,92,255,.38)'; g.shadowBlur = fs * 0.1; g.shadowOffsetY = fs * 0.045;
+    g.drawImage(r, 0, 0);
+    a.width = a.height = r.width = r.height = 0;            // (let go at once: a minute until the next)
+  }
+  FACES.liquid = function (f, x) {
+    ground(f, x);
+    var cv = el('canvas', 'lq'), last = '';
+    f.appendChild(cv);
+    return function (d) {
+      var t = hm(d, x.h24), s = t.h + ':' + t.m, key = s + '|' + x.box().w + 'x' + x.box().h;
+      if (key === last) return;
+      last = key;
+      liquidPaint(cv, s, x, d.getMinutes());
+    };
+  };
+
   // ------------------------------------------------------------ backgrounds
   // EVERY ONE MOVES BUT BLACK (2026-10-13, the owner: "they should all have
   // motion, with adjustable speed and maybe depth"). Speed 0-100 (0: still --
@@ -786,13 +994,21 @@
 
   // ------------------------------------------------------------ mount
   // opts: { style, h24, bg (a BGS id, or 'none': something else is behind),
-  //         motion ('slow' | 'still'), client, scrim, drift }
+  //         motion ('slow' | 'still'), client, scrim, drift,
+  //         ground (a face with a ground of its own: false over photos or the
+  //         forecast -- hk-saver.js says), still (a preview: drawn once) }
   function mount(layer, opts) {
     opts = opts || {};
     var style = FACES[opts.style] ? opts.style : 'classic';
     var root = el('div', 'ckroot'), css = el('style'), cv = null, x = null;
     css.textContent = CSS;
     root.appendChild(css);
+    // A FACE WITH A GROUND OF ITS OWN (Liquid, Giant and Scattered Numerals)
+    // draws it in place of the background behind the clock -- unless it is
+    // over the photos or the forecast (ground: false)
+    var own = !!OWN[style], grounded = own && opts.ground !== false;
+    if (own && !grounded) root.className += ' bare';
+    if (grounded) opts = Object.assign({}, opts, { bg: 'none', scrim: false });
     var bg = opts.bg && opts.bg !== 'none' ? opts.bg : null;
     // THE BACKGROUND: its painter's canvas -- 'soft' 64 x 40, or a share of
     // the screen's size once it is laid out
@@ -803,6 +1019,9 @@
     // REDUCED MOTION: the background stands still (the CSS above stills only the light and the face; the
     // painters kept repainting and cross-fading every second)
     try { if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) speed = 0; } catch (e) { /* as set */ }
+    // ...and Flat (or a still preview) holds the faces' own motion too: Liquid's drift, the second hand
+    if (own && (flat || opts.still)) root.className += ' still';
+    if (opts.minutely) root.className += ' minutely';
     var po = { depth: opts.depth != null ? Math.max(0, Math.min(100, +opts.depth || 0)) : 50 };
     // HOW IT MOVES SMOOTHLY (2026-10-13, the owner: "lots of these aren't
     // smooth"): drawn a few times a second, each frame jumped. Now the
@@ -862,7 +1081,9 @@
     layer.appendChild(root);
     var client = opts.client || null;
     var ctx = {
-      h24: !!opts.h24, glass: null, vars: color[2], weather: opts.weather || null,
+      h24: !!opts.h24, glass: null, vars: color[2], weather: opts.weather || null, ground: grounded,
+      // the box it fills (the layer: a block's, or the screen beside a pane -- never the window's own)
+      box: function () { return { w: layer.clientWidth || window.innerWidth || 1180, h: layer.clientHeight || window.innerHeight || 820 }; },
       client: function () { return client; },
       sun: function () {
         var s = client && client.states && client.states['sun.sun'], a = s && s.attributes;
@@ -936,7 +1157,11 @@
       paint();
     };
     var run = function () {
-      if (flat && style === 'classic') tStart = setTimeout(function () { now(); tT = setInterval(now,60000); }, 60000 - Date.now() % 60000);
+      // (a still preview: drawn once, nothing scheduled)
+      if (opts.still) return;
+      // once a minute, on the minute: Flat's Classic, and the faces with a ground of their own
+      // (and a face held to the minute: Glance's clock -- its second hand hidden)
+      if ((flat && style === 'classic') || own || opts.minutely) tStart = setTimeout(function () { now(); tT = setInterval(now,60000); }, 60000 - Date.now() % 60000);
       else tT = setInterval(now,1000);
       if (!P) { /* nothing behind */ }
       else if (how === 'live' && speed) {
@@ -964,18 +1189,25 @@
       run();
     };
     var recheck = function () { if (dead) return; if (held()) rest(); else wake(); };
-    document.addEventListener('visibilitychange', recheck);
-    window.addEventListener('hk-black', recheck);
+    // (a still preview -- HK Settings' -- draws once and listens for nothing)
+    if (!opts.still) {
+      document.addEventListener('visibilitychange', recheck);
+      window.addEventListener('hk-black', recheck);
+    }
     if (held()) { rested = true; } else run();
     // BURN-IN: a few percent somewhere else every five minutes
-    var dT = opts.drift === false ? null : setInterval(function () {
+    var dT = opts.drift === false || opts.still ? null : setInterval(function () {
       face.style.transform = 'translate(' + ((Math.random() - 0.5) * 4).toFixed(2) + '%,' + ((Math.random() - 0.5) * 4).toFixed(2) + '%)';
     }, 300000);
     return {
       setClient: function (h) { client = h; },
       // NIGHT MODE (hk-saver.js): the background holds -- nothing behind the
       // clock is drawn while the screen is a dim red clock on black
-      night: function (on) { nightOn = !!on; if (!nightOn) { tLast = Date.now(); } },
+      night: function (on) {
+        nightOn = !!on; if (!nightOn) { tLast = Date.now(); }
+        // (a face with its own ground: white numerals on Night Mode's black)
+        if (own) root.className = root.className.replace(/ night\b/g, '') + (nightOn ? ' night' : '');
+      },
       destroy: function () {
         dead = true;
         clearInterval(tT); clearTimeout(tStart); if (bT) clearInterval(bT); if (dT) clearInterval(dT);
@@ -990,5 +1222,5 @@
     };
   }
 
-  window.hkSaverClock = { STYLES: STYLES, BGS: BGS, COLORS: COLORS, mount: mount, _: { wordsAt: wordsAt, dotColumns: dotColumns, hm: hm, moving: moving, PAINTERS: PAINTERS } };
+  window.hkSaverClock = { STYLES: STYLES, BGS: BGS, COLORS: COLORS, OWN: OWN, mount: mount, _: { wordsAt: wordsAt, dotColumns: dotColumns, hm: hm, moving: moving, PAINTERS: PAINTERS, shapeOf: shapeOf } };
 })();
