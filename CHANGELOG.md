@@ -80,6 +80,16 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.89 - 2026-10-30
+
+- **A HomeView-style look, every part of it an option** (a screen looks as it did until you pick something): square cells on any screen and a **Square** (3 × 3) screen type; HomeView-style starters, with **Home with Pane** recommended for a landscape tablet; **Centred** tiles; a **Big Number** thermostat; an **Analog Numbers** clock; a **Cameras** face of up to nine stills; **Bright Glass** and twelve **Wallpapers** of our own that tint the tiles, on every surface but Mantel Settings.
+- **Swipe Between Pages:** a sideways swipe goes to the next or the previous page of the tab bar, the highlight following; a Home Grid turns its own views first, and rows that scroll sideways keep their swipe (**Menu → Gestures**).
+- **Side Pane:** one per screen, of the sections you pick (Clock, Weather, Calendar, Now Playing, Security, Camera, Timers, Energy, Climate, Who's Home, To-do, Notifications) at four sizes, beside Home, every page or the screensaver, on the left or the right. It takes over the screensaver's pane and Now Playing's side pane, with their settings.
+- **The Pages screen:** after Home, an iPad-style home screen of Mantel's pages as large icons (live ones for Calendar and Weather, badges, a Rooms folder), a way around without a tab bar.
+- **Nine screensaver faces:** Glance, Month, Day and Big Weather; Photo Titles; **Time Behind** (Mantel Photos cuts out each photo's subject on the server, on import and in the background, and uses only the photos where it works); and the Liquid, Giant Numerals and Scattered Numerals clocks.
+- **More When Near:** a sensor that sees the space in front of a tablet ends its screensaver, through the Sleep Screen.
+- iPhone Duo: Live TV's caption and ✕ stay clear of the side strip, and the docked Now Playing bar's plate runs under it.
+
 ## 0.1.88 - 2026-10-30
 
 - **iPhone Duo, like a native app:** the page runs edge to edge again, under the system strip at the side, and keeps its content clear of it; the tab bar becomes a rail in the strip's empty lower part (Use the Side Strip, under Menu → Tab Bar, turns it off). An iPhone held sideways keeps its content clear of the Dynamic Island.
