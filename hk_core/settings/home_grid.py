@@ -231,6 +231,8 @@ def _room_display(v: Any) -> str:
 
 # a Clock block's face (hk-grid-catalog.js CLOCK_FACES; "" is HK's own clock, stored as no option)
 CLOCK_FACES = ("analog", "classic", "serif", "flip", "lcd", "neon", "nixie", "dots", "arc")
+# ...and the HomeView-style faces (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase I), each on its own colour
+CLOCK_FACES += ("liquid", "giant", "scattered")
 
 
 def _clock_style(v: Any) -> str:

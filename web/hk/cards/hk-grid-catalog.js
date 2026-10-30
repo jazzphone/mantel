@@ -30,6 +30,9 @@
   // edge and Glass draws a pane of its own: neither sits in a block)
   var CLOCK_FACES = [['', 'Digital'], ['analog', 'Analog'], ['classic', 'Classic'], ['serif', 'Big Serif'], ['flip', 'Flip'],
     ['lcd', 'Retro LCD'], ['neon', 'Neon'], ['nixie', 'Nixie Tubes'], ['dots', 'Dot Matrix'], ['arc', 'Minimal Arc']];
+  // ...and the HomeView-style faces (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase I), each on its own colour
+  // -- the block becomes that colour (home_grid.py CLOCK_FACES)
+  CLOCK_FACES.push(['liquid', 'Liquid'], ['giant', 'Giant Numerals'], ['scattered', 'Scattered Numerals']);
   function panel(kind, more) { return Object.assign({ type: 'custom:hk-grid-panel-card', panel: kind }, more || {}); }
 
   // key -> its sizes, the page sources it has besides `list`, and

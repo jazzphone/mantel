@@ -2012,6 +2012,32 @@
     });
     return out;
   }
+  // THE HOMEVIEW-STYLE FACES (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I; settings.py's block of the same
+  // name): three more Shows (hk-saverfaces.js), three more clock faces (hk-saverclock.js), the Forecast's Layout,
+  // the photos' Titles and Time Behind, and the Day face's look. Each default is how the screensaver drew before.
+  // [id, name, what it is] -- the Show control's choices, Photos & Forecast ('both') being Photos with a slide
+  var SAVER_SHOWS = [
+    ['photos', 'Photos', 'Your photos, one after another.'],
+    ['forecast', 'Forecast', 'The forecast over the live sky and the season’s landscape.'],
+    ['clock', 'Clock', 'A clock, full screen, over the background you choose.'],
+    ['glance', 'Glance', 'The date, a clock, what’s playing and the weather, on a calm colour.'],
+    ['month', 'Month', 'This month with today circled, and the date drawn large behind it.'],
+    ['day', 'Day', 'The weekday and a big date, with HK’s own art for the day: pumpkins at Halloween, a cake on a birthday, the season’s leaves.']];
+  var FORECAST_LAYOUTS = [['classic', 'Classic'], ['big', 'Big']];
+  var DAY_LOOKS = [['auto', 'By Time of Day'], ['light', 'Light'], ['dark', 'Dark']];
+  Object.assign(SAVER_DEFAULTS, { forecast_layout: 'classic', photo_titles: false, time_behind: false, day_look: 'auto' });
+  CLOCK_STYLES.push(['liquid', 'Liquid', 'Soft, glossy numerals that drift slowly over a pastel gradient'],
+                    ['giant', 'Giant Numerals', 'An analog clock with 12, 3, 6 and 9 drawn huge on a strong colour'],
+                    ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft colour']);
+  CLOCK_COLORS.liquid = [['pastel', 'Pastel'], ['sunset', 'Sunset'], ['ocean', 'Ocean'], ['mint', 'Mint']];
+  CLOCK_COLORS.giant = [['green', 'Green'], ['blue', 'Blue'], ['orange', 'Orange'], ['pink', 'Pink'], ['black', 'Black']];
+  CLOCK_COLORS.scattered = [['rose', 'Rose'], ['sage', 'Sage'], ['sky', 'Sky'], ['sand', 'Sand'], ['night', 'Night']];
+  // the faces that bring their own ground: the Background behind the clock isn't drawn under them
+  var CLOCK_OWN_GROUND = ['liquid', 'giant', 'scattered'];
+  function showName(show) {
+    var s = SAVER_SHOWS.filter(function (x) { return x[0] === show; })[0];
+    return s ? s[1] : 'Photos';
+  }
   // COPY SETTINGS FROM ANOTHER SCREEN: every screen setting is in exactly
   // one group here or in COPY_NEVER (settings.py BOARD_DEFAULTS -- a Python
   // test holds the two together). [key, label, board keys, copied by default]
@@ -2099,7 +2125,7 @@
           .concat(o.extra_music && !first && !o.music_slide ? ['Music'] : [], o.show === 'clock' && o.weather_slide ? ['Weather'] : [])
       : (o.show === 'both' ? ['Forecast'] : []).concat(o.music_slide && !first ? ['Music'] : [], o.weather_slide ? ['Weather'] : []);
     if (o.energy_slide) extra.push('Home Energy');
-    var show = (first ? 'Music, Then ' : '') + (o.show === 'forecast' ? 'Forecast' : o.show === 'clock' ? 'Clock' : 'Photos') + (extra.length ? ' + ' + extra.join(' & ') : '');
+    var show = (first ? 'Music, Then ' : '') + showName(o.show) + (extra.length ? ' + ' + extra.join(' & ') : '');
     var n = o.starts_after, m = n % 60 ? Math.round(n / 6) / 10 : n / 60;
     var t = n < 60 ? n + ' Seconds' : m + (m === 1 ? ' Minute' : ' Minutes');
     return show + ' · ' + t;
@@ -2413,6 +2439,7 @@
     skySummary: skySummary, backdropFollow: backdropFollow,
     YAML_REF: YAML_REF, YAML_DEFAULTS: YAML_DEFAULTS, yamlRefText: yamlRefText, yamlRefItem: yamlRefItem,
     previewSizes: previewSizes, previewDefault: previewDefault, previewFit: previewFit,
+    SAVER_SHOWS: SAVER_SHOWS, FORECAST_LAYOUTS: FORECAST_LAYOUTS, DAY_LOOKS: DAY_LOOKS, CLOCK_OWN_GROUND: CLOCK_OWN_GROUND, showName: showName,
     SAVER_DEFAULTS: SAVER_DEFAULTS, saverOptions: saverOptions, saverCustom: saverCustom, ENERGY_PARTS: ENERGY_PARTS, energyShown: energyShown, WEATHER_PARTS: WEATHER_PARTS, weatherShown: weatherShown, listText: listText, saverSummary: saverSummary, saverFollows: saverFollows, kioskSummary: kioskSummary,
     NP_STYLES: NP_STYLES, NP_SIDES: NP_SIDES, NP_BARS: NP_BARS, NP_GRACES: NP_GRACES, npSummary: npSummary,
     COPY_GROUPS: COPY_GROUPS, COPY_NEVER: COPY_NEVER, copyDefaults: copyDefaults, copyChanges: copyChanges,
