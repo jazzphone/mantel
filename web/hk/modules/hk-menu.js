@@ -531,6 +531,17 @@
       // sky moves; near-solid, as a see-through panel over the land is not
       // read (the tab bar measured the same, 2026-10-05)
       '.root.tinted .mat{background:rgba(24,24,28,0.93);-webkit-backdrop-filter:none;backdrop-filter:none}',
+      // BRIGHT GLASS (2026-10-30, DESIGN.md "Bright Glass"): a white wash over
+      // the look's light blur (hkCards.BLUR.bright), the rim down its edge;
+      // the page you're on a white pill, its name and icon the accent's,
+      // deepened to read on white
+      '.root.bright .mat{background:linear-gradient(150deg,rgba(255,255,255,0.30),rgba(255,255,255,0.14));',
+      '  -webkit-backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);',
+      '  border-right:0;box-shadow:inset -1.5px 0 0 rgba(255,255,255,0.22)}',
+      '.root.bright .row{text-shadow:0 1px 2px rgba(0,0,0,0.18)}',
+      '.root.bright .row.here{color:color-mix(in srgb,var(--hk-here,' + window.hkCards.v('accent') + ') 64%,#000);text-shadow:none}',
+      '.root.bright .row.here::before{background:rgba(255,255,255,0.92)}',
+      '.root.bright .row.here hk-icon{color:color-mix(in srgb,var(--hk-here,' + window.hkCards.v('accent') + ') 64%,#000)}',
       // The open panel's shadow, under the tab (z -2): on .mat it would fall
       // over the tab, which sits BEHIND the material (below).
       '.panel::before{content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;',
@@ -656,6 +667,9 @@
       // the tab and the button are plates on the page: the cards' Tinted plate
       '.root.tinted .tab,.root.tinted .fab{-webkit-backdrop-filter:none;backdrop-filter:none;',
       '  background:var(--hk-glass-plate);border-color:transparent;box-shadow:var(--hk-look-shadow)}',
+      // ...and Bright Glass's chip plate over its own light blur
+      '.root.bright .tab,.root.bright .fab{background:var(--hk-chip-plate);border-color:transparent;box-shadow:var(--hk-look-shadow);',
+      '  -webkit-backdrop-filter:var(--hk-blur-filter);backdrop-filter:var(--hk-blur-filter)}',
       '.root.tabbed .tab{display:flex}',
       // the scrolled tab: always there, out past the edge until the chip is
       // scrolled away (sync / scrolled below)
@@ -983,6 +997,8 @@
       var home = isHome();
       var cls = ['root'];
       if (glass === 'frosted' || glass === 'tinted') cls.push(glass);
+      // Bright Glass in any of its modes (2026-10-30)
+      if (glass === 'bright' || glass === 'bright_pre' || glass === 'bright_each') cls.push('bright');
       pinGlass(glass === 'blur_pre');
       var tabAt = typeof M.tab === 'function' ? M.tab() : (style === 'tab' ? 'always' : 'never');
       // a menu docking by itself appears where it belongs (settle)

@@ -979,10 +979,11 @@
       'calc(var(--hk-tabbar-below, -100px) + ' + BAR_GAP + 'px), calc(var(--hk-edit-under, -100px) + 10px)) 16px 0;pointer-events:none}' +
       '#hk-edit .bar{pointer-events:auto;box-sizing:border-box;width:100%;max-width:640px;min-height:52px;' +
       'display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;column-gap:8px;' +
-      'padding:3px 5px;border-radius:26px;border:' + v('glass-border', '1px solid rgba(255,255,255,0.13)') + ';' +
-      'background:' + v('overlay', 'rgba(28,28,32,0.52)') + ';' +
-      '-webkit-backdrop-filter:' + B + ';backdrop-filter:' + B + ';' +
-      'box-shadow:0 10px 30px rgba(0,0,0,.28);color:' + v('ink', 'rgba(255,255,255,0.94)') + ';' +
+      // (a look's own bar, the tab bar's: --hk-bar-*, Bright Glass, 2026-10-30)
+      'padding:3px 5px;border-radius:26px;border:var(--hk-bar-edge, ' + v('glass-border', '1px solid rgba(255,255,255,0.13)') + ');' +
+      'background:var(--hk-bar-plate, ' + v('overlay', 'rgba(28,28,32,0.52)') + ');' +
+      '-webkit-backdrop-filter:var(--hk-bar-backdrop, ' + B + ');backdrop-filter:var(--hk-bar-backdrop, ' + B + ');' +
+      'box-shadow:var(--hk-bar-shadow, 0 10px 30px rgba(0,0,0,.28));text-shadow:var(--hk-look-text-shadow, none);color:' + v('ink', 'rgba(255,255,255,0.94)') + ';' +
       'font-family:' + v('font-body', '-apple-system, sans-serif') + '}' +
       '#hk-edit .l{justify-self:start;display:flex}' +
       '#hk-edit .r{justify-self:end;display:flex;align-items:center}' +
