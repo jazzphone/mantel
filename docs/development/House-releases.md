@@ -103,3 +103,10 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - All five tablets reloaded and drew their first screen in 2.4 to 3.0 s.
 - GitHub: jazzphone/hk-frontend v1.16.0 (Latest) with its Wiki; Mantel Link unchanged at 0.1.8.
 - TestFlight: Mantel Smart Home 0.1.88 (870), with the iPhone Duo's side strip.
+
+## Mantel 0.1.89 and HK Frontend 1.17.0 (2026-10-30)
+
+- Mantel 0.1.89 on the house (build c897faa6f5f0eb0e, commit a5bdd593): the HomeView-style look; healthz strict ok; all five tablets reloaded cleanly.
+- HK Frontend 1.17.0 on the house from the built clone; tagged v1.17.0 and released on jazzphone/hk-frontend with its wiki.
+- Mantel Link unchanged (0.1.8).
+- TestFlight: Mantel 0.1.89 build 934 uploaded.
