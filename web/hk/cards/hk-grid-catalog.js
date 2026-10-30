@@ -44,6 +44,9 @@
   // A THERMOSTAT BLOCK'S STYLE (2026-10-30): the dial, or Big Number -- the
   // target large, the arrows at its foot (Tall and Large; Extra Large is the sheet)
   var THERMOSTAT_STYLES = [['dial', 'Dial'], ['big', 'Big Number']];
+  // ...and the HomeView-style faces (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase I), each on its own colour
+  // -- the block becomes that colour (home_grid.py CLOCK_FACES)
+  CLOCK_FACES.push(['liquid', 'Liquid'], ['giant', 'Giant Numerals'], ['scattered', 'Scattered Numerals']);
   function panel(kind, more) { return Object.assign({ type: 'custom:hk-grid-panel-card', panel: kind }, more || {}); }
 
   // key -> its sizes, the page sources it has besides `list`, and

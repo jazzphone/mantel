@@ -33,6 +33,9 @@ export const STYLE = [
   '@media (max-width:380px){.mxgrid{grid-template-columns:repeat(3,1fr)}}',
   '.mxph{position:relative;aspect-ratio:1;padding:0;border:0;margin:0;background:var(--hk-fill);cursor:pointer;overflow:hidden}',
   '.mxph img{display:block;width:100%;height:100%;object-fit:cover}',
+  // TIME BEHIND (2026-10-30): the photos whose subject the screensaver can put the time behind
+  '.mxph .mxtb{position:absolute;left:5px;top:5px;padding:2px 6px;border-radius:6px;background:rgba(0,0,0,.55);color:#fff;',
+  '  font-size:11px;line-height:15px;font-weight:600;pointer-events:none;white-space:nowrap}',
   '.mxph .ck{position:absolute;right:6px;bottom:6px;width:22px;height:22px;border-radius:50%;border:1.5px solid #fff;',
   '  background:rgba(0,0,0,.18);box-shadow:0 0 2px rgba(0,0,0,.4);display:none}',
   '.mxgrid.sel .mxph .ck{display:block}',
@@ -149,6 +152,7 @@ export function page(sub, tools) {
       drawAlbums(c, d);
       drawStorage(c, d);
       drawFaces(c, d);
+      drawCutouts(c, d);
       drawImport(c, d);
     } };
 }
@@ -252,6 +256,43 @@ function drawFaces(c, d) {
   }
   row.setAttribute('data-fk', 'mx:photos-faces');                 // (the kit's info row takes no fk)
   c.appendChild(T.group({ header: 'Keep in View', footer }, [row]));
+}
+
+// TIME BEHIND (cutout.py; photos.py CutoutBackfill): how many photos qualify for the screensavers' Photo, Time
+// Behind -- or why it isn't available here (the cut-out model isn't installed, or can't run); while the backfill
+// cuts out the photos added before, the count is read again with the faces'
+function drawCutouts(c, d) {
+  const f = d.cutouts;
+  if (!f || !f.photos) return;
+  let row, footer;
+  if (f.state === 'unavailable') {
+    row = T.info('Time Behind', null, 'Not Available Here');
+    footer = 'Mantel needs its cut-out model to tell where the person or thing in a photo is. Without it, a screensaver set to Time Behind shows the time in front.';
+  } else {
+    if (FACES_LOOKING.includes(f.state)) pollCutouts();
+    const looking = FACES_LOOKING.includes(f.state) || f.left > 0;
+    row = T.info(looking ? 'Cutting Out' : 'Photos That Qualify', null,
+      looking ? f.checked.toLocaleString() + ' of ' + f.photos.toLocaleString() : f.usable.toLocaleString() + ' of ' + plural(f.photos, 'photo'));
+    footer = 'Time Behind draws the time behind the person or thing in a photo. It works on a clear subject, so only those photos qualify: ' +
+      'they are marked in each album, and an album can show only them. The others show the time in front. Each cut-out is kept with its photo, ' +
+      'counted in the space for photos, and goes into the backups.' + (looking ? ' The photos added before are cut out in the background, one at a time.' : '');
+  }
+  row.setAttribute('data-fk', 'mx:photos-cutouts');
+  c.appendChild(T.group({ header: 'Time Behind', footer }, [row]));
+}
+let cutoutsTimer = null;
+function pollCutouts() {
+  if (cutoutsTimer) return;
+  cutoutsTimer = setTimeout(async () => {
+    cutoutsTimer = null;
+    if (String(location.hash) !== home()) return;
+    try {
+      const got = (await T.api('GET', '/api/photos/cutouts')).cutouts;
+      const ov = overview();
+      if (got && ov && ov.data) ov.data.cutouts = got;
+    } catch (e) { /* asked again below */ }
+    T.redraw();
+  }, FACES_EVERY);
 }
 
 // IMPORT FROM HOME ASSISTANT (an Owner's): a media folder's photos copied into an album, in the background
@@ -373,6 +414,19 @@ function drawActions(c, d, aid, list) {
   const g = T.group({ footer: 'JPEG, PNG, WebP or HEIC (iPhone photos), up to ' + mb(d.limits.file_mb) + ' each. Choose many at once, or drop them on this page.' }, rows);
   g.appendChild(input);
   c.appendChild(g);
+  drawAlbumTimeBehind(c, d, aid, album, list);
+}
+// AN ALBUM'S TIME BEHIND (2026-10-30): Only Photos That Qualify -- its screensavers show only the photos the time
+// can go behind. Offered once Mantel can cut photos out (or when it is on already)
+function drawAlbumTimeBehind(c, d, aid, album, list) {
+  const st = d.cutouts || {};
+  if (st.state === 'unavailable' && !album.depth_only) return;
+  const n = list.filter((p) => p.cutout && p.cutout.ok).length;
+  c.appendChild(T.group({ header: 'Time Behind', footer: (album.depth_only
+      ? 'The screensavers showing this album show only its ' + plural(n, 'photo') + ' that qualify for Time Behind.' + (n ? '' : ' None qualify yet, so they show none.')
+      : plural(n, 'photo') + ' in this album qualify for Time Behind: the screensaver can draw the time behind the person or thing in them. Off: every photo shows, the others with the time in front.') }, [
+    K().toggle({ label: 'Only Photos That Qualify', on: !!album.depth_only, fk: 'mx:album-depth-only',
+      onChange: (on) => T.act('album', () => T.api('PUT', '/api/photos/albums/' + aid + '/options', { depth_only: on }), 'Saved.', 'photos') })]));
 }
 
 function drawGrid(c, aid, list) {
@@ -384,10 +438,12 @@ function drawGrid(c, aid, list) {
     // what a screen reader says it does and whether it is selected (aria-pressed)
     const grid = hh('div', { class: 'mxgrid' + (selecting ? ' sel' : ''), role: 'group', 'aria-label': 'Photos' });
     list.forEach((p, i) => {
+      const tb = !!(p.cutout && p.cutout.ok);
       const b = hh('button', { type: 'button', class: 'mxph', 'data-id': p.id, 'data-fk': 'mx:ph:' + p.id,
         'aria-pressed': selecting ? String(selected.has(p.id)) : null,
-        'aria-label': (p.name || 'Photo') + ', ' + p.width + ' by ' + p.height }, [
-        hh('img', { src: thumb(p.id), alt: '', loading: 'lazy', decoding: 'async', draggable: 'false' }), hh('span', { class: 'ck', 'aria-hidden': 'true' })]);
+        'aria-label': (p.name || 'Photo') + ', ' + p.width + ' by ' + p.height + (tb ? ', qualifies for Time Behind' : '') }, [
+        hh('img', { src: thumb(p.id), alt: '', loading: 'lazy', decoding: 'async', draggable: 'false' }), hh('span', { class: 'ck', 'aria-hidden': 'true' })]
+        .concat(tb ? [hh('span', { class: 'mxtb', text: 'Time Behind', 'aria-hidden': 'true' })] : []));
       b.addEventListener('click', () => {
         if (!selecting) { openViewer(list, i, aid); return; }
         if (selected.has(p.id)) selected.delete(p.id); else selected.add(p.id);
@@ -878,6 +934,8 @@ export function _reset() {
   selecting = false; selected.clear(); selAlbum = null; uploads.length = 0; active = 0; importJob = undefined;
   if (importTimer) clearTimeout(importTimer);
   if (facesTimer) clearTimeout(facesTimer);
+  if (cutoutsTimer) clearTimeout(cutoutsTimer);
+  cutoutsTimer = null;
   importTimer = null; facesTimer = null; faces = null; facesFrom = null; viewer = null; dropAlbum = null;
 }
 export const _state = { selected, uploads, get selecting() { return selecting; } };

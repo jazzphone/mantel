@@ -35,6 +35,12 @@ keeps its own library beside that, so a home can put its photos in Mantel and ch
   by hand (``PUT /api/photos/<id>/focus``) or put it back to automatic. The screensavers read the faces and the
   hand-set point with an album (``api_show``) and crop and zoom around them; a photo without either is cropped as
   it always was.
+* **Time Behind** (cutout.py; migration 0027). Each photo's subject is cut out once -- on upload, right after its
+  faces, and for photos stored before by ``CutoutBackfill`` (as the faces' backfill) -- and the photo is marked
+  usable only where the cut-out works. A usable photo's mask (``masks/<id>.png``) is counted in the quota and goes
+  into backups with the rest; ``api_show`` hands a screensaver the mask and where the time goes, and an album can
+  be set to show only the photos that qualify. Without the model, nothing changes. And for Photo Titles, the year a
+  photo was taken (its EXIF's, read before the EXIF is dropped) is kept.
 """
 from __future__ import annotations
 
@@ -57,6 +63,7 @@ from urllib.parse import unquote, urlsplit
 from aiohttp import web
 
 from . import audit, imaging
+from . import cutout as cutter
 from . import faces as face_finder
 # the picture work itself (image_work.py) runs in imaging.py's worker process; these names stay photos.py's
 from .image_work import (MID_EDGE, ORIGINAL_EDGE, PIXELS_MAX, SCREEN_EDGE, THUMB_EDGE, PhotoError, Processed,  # noqa: F401
@@ -79,7 +86,8 @@ FILE_NAME_MAX = 120
 SIZES = {"original": ("originals", ".jpg", "image/jpeg"),
          "screen": ("screen", ".jpg", "image/jpeg"),
          "mid": ("mid", ".jpg", "image/jpeg"),                  # made on first ask (PhotoLibrary.mid_path)
-         "thumb": ("thumbs", ".webp", "image/webp")}
+         "thumb": ("thumbs", ".webp", "image/webp"),
+         "mask": ("masks", ".png", "image/png")}                # Time Behind's cut-out, a usable photo's only
 LIMITS = {"quota_mb": (100, 1_048_576, 4096), "file_mb": (1, 200, 40)}      # (lowest, highest, default)
 ALBUM_MAX = 200
 ALBUM_PHOTOS_MAX = 20_000
@@ -210,9 +218,22 @@ class PhotoLibrary:
 
     def _write_files(self, photo_id: str, got: Processed) -> None:
         self.ensure()
-        for size, data in (("original", got.original), ("screen", got.screen), ("thumb", got.thumb)):
+        for size, data in (("original", got.original), ("screen", got.screen), ("thumb", got.thumb), ("mask", got.mask)):
+            if data is None:
+                continue
             folder, ext, _ = SIZES[size]
             _write(self.root / folder / f"{photo_id}{ext}", data)
+
+    def _write_mask(self, photo_id: str, data: bytes | None) -> None:
+        """A photo's cut-out written (or, None, taken away)."""
+        self.ensure()
+        folder, ext, _ = SIZES["mask"]
+        dest = self.root / folder / f"{photo_id}{ext}"
+        if data is None:
+            with contextlib.suppress(OSError):
+                dest.unlink()
+            return
+        _write(dest, data)
 
     def _remove_files(self, photo_id: str) -> None:
         for folder, ext, _ in SIZES.values():
@@ -257,10 +278,10 @@ class PhotoLibrary:
     def albums(self) -> list[dict]:
         rows = self.db.execute(
             "SELECT a.id, a.name, a.position, a.created, a.updated, COUNT(p.id) AS count, "
-            "COALESCE(SUM(p.bytes), 0) AS bytes, "
+            "COALESCE(SUM(p.bytes), 0) AS bytes, a.depth_only, COALESCE(SUM(p.cutout_ok = 1), 0) AS depth, "
             "(SELECT id FROM photos q WHERE q.album_id = a.id ORDER BY q.created DESC, q.id LIMIT 1) AS cover "
             "FROM photo_albums a LEFT JOIN photos p ON p.album_id = a.id GROUP BY a.id ORDER BY a.position, a.created")
-        return [dict(r) for r in rows]
+        return [dict(r, depth_only=bool(r["depth_only"])) for r in rows]
 
     def album(self, album_id: object) -> dict:
         row = None
@@ -269,6 +290,18 @@ class PhotoLibrary:
         if row is None:
             raise PhotoError("album_not_found", "That album no longer exists.", 404)
         return dict(row)
+
+    def set_album_options(self, album_id: str, body: object, before: Before = None) -> dict:
+        """An album's options: ``{depth_only: bool}`` -- Only Photos That Qualify (for Time Behind)."""
+        album = self.album(album_id)
+        if not isinstance(body, dict) or set(body) != {"depth_only"} or not isinstance(body["depth_only"], bool):
+            raise PhotoError("bad_options", "Send {depth_only: true or false}.")
+        if before is not None:
+            before({"id": album["id"], "depth_only": body["depth_only"]})
+        with self.db:
+            self.db.execute("UPDATE photo_albums SET depth_only=?, updated=? WHERE id=?",
+                            (int(body["depth_only"]), self.clock(), album["id"]))
+        return {"id": album["id"], "depth_only": body["depth_only"]}
 
     def _name_free(self, name: str, but: str | None = None) -> None:
         for row in self.db.execute("SELECT id, name FROM photo_albums"):
@@ -319,9 +352,9 @@ class PhotoLibrary:
 
     def photos(self, album_id: str) -> list[dict]:
         album = self.album(album_id)
-        return [with_focus(dict(r)) for r in self.db.execute(
-            f"SELECT {self._COLS}, faces, focus_x, focus_y FROM photos WHERE album_id=? ORDER BY created DESC, id",
-            (album["id"],))]
+        return [with_cutout(with_focus(dict(r))) for r in self.db.execute(
+            f"SELECT {self._COLS}, faces, focus_x, focus_y, cutout_at, cutout_ok, cutout_conf, cutout_by FROM photos "
+            "WHERE album_id=? ORDER BY created DESC, id", (album["id"],))]
 
     def photo(self, photo_id: str) -> dict | None:
         row = self.db.execute(f"SELECT {self._COLS} FROM photos WHERE id=?", (photo_id,)).fetchone() \
@@ -374,12 +407,18 @@ class PhotoLibrary:
                     log.warning("could not store a photo: %s", exc)
                     raise PhotoError("storage_failed", "Mantel couldn't store the photo (is the disk full?).", 507) from exc
                 checked = got.faces is not None
+                cut = got.cutout if isinstance(got.cutout, dict) else None
+                ok = bool(cut and cut.get("ok") and got.mask)
                 with self.db:
                     self.db.execute("INSERT INTO photos (id, album_id, sha256, name, width, height, bytes, source, "
-                                    "created, created_by, faces, faces_at, faces_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                                    "created, created_by, faces, faces_at, faces_by, cutout_at, cutout_by, cutout_ok, "
+                                    "cutout_conf, depth_box, taken) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                                     (pid, album["id"], sha, row["name"], got.width, got.height, got.size, source,
                                      row["created"], user, json.dumps(got.faces) if checked else None,
-                                     self.clock() if checked else None, face_finder.NAME if checked else None))
+                                     self.clock() if checked else None, face_finder.NAME if checked else None,
+                                     self.clock() if cut else None, cut.get("by") if cut else None,
+                                     int(ok) if cut else None, cut.get("conf") if cut else None,
+                                     json.dumps(cut["box"]) if ok else None, got.taken))
             except BaseException:
                 # A thread can't be cancelled: when this add is (an Owner stopped an import, Mantel is stopping), the
                 # writer is still putting files down. Take them away only once it has finished, or what it writes
@@ -456,6 +495,46 @@ class PhotoLibrary:
                               "ORDER BY created DESC LIMIT 1", skip).fetchone()
         return row["id"] if row else None
 
+    # -- Time Behind: the cut-outs ---------------------------------------------------------------------------
+    def uncut(self, skip: Iterable[str] = (), faces_known: bool = True) -> tuple[str, list | None] | None:
+        """The newest photo not cut out yet (but those in ``skip``) and its faces -- with ``faces_known``, only among
+        those whose faces have been looked for, so the time goes behind a head -- or None."""
+        skip = list(skip)
+        row = self.db.execute("SELECT id, faces FROM photos WHERE cutout_at IS NULL" +
+                              (" AND faces_at IS NOT NULL" if faces_known else "") +
+                              f" AND id NOT IN ({','.join('?' * len(skip))}) ORDER BY created DESC LIMIT 1", skip).fetchone()
+        return (row["id"], stored_faces(row["faces"])) if row else None
+
+    def cutout_counts(self) -> dict:
+        """``{photos, checked, usable, left, last}`` from the rows (``last``: when the latest was checked)."""
+        r = self.db.execute("SELECT COUNT(*) AS photos, COUNT(cutout_at) AS checked, MAX(cutout_at) AS last, "
+                            "SUM(cutout_ok = 1) AS usable FROM photos").fetchone()
+        photos, checked = int(r["photos"]), int(r["checked"])
+        return {"photos": photos, "checked": checked, "usable": int(r["usable"] or 0), "left": photos - checked,
+                "last": r["last"]}
+
+    async def store_cutout(self, photo_id: str, got: dict) -> bool:
+        """A photo's cut-out stored (the backfill): its row, and a usable one's mask -- counted in the quota; when it
+        doesn't fit, the photo is marked checked and not usable. False when it isn't usable (or is gone)."""
+        mask = got.get("mask") if got.get("ok") else None
+        box = got.get("box") if mask else None
+        async with self.lock:
+            row = self.db.execute("SELECT id FROM photos WHERE id=?", (photo_id,)).fetchone()
+            if row is None:                                     # deleted meanwhile
+                return False
+            had = self.path(photo_id, "mask")
+            was = had.stat().st_size if had is not None else 0
+            if mask and self.usage() - was + len(mask) > self.limits()["quota_mb"] << 20:
+                log.info("no room for photo %s's cut-out: Mantel Photos is full", photo_id[:8])
+                mask = box = None
+            await asyncio.to_thread(self._write_mask, photo_id, mask)
+            with self.db:
+                self.db.execute("UPDATE photos SET cutout_at=?, cutout_by=?, cutout_ok=?, cutout_conf=?, depth_box=?, "
+                                "bytes=bytes-?+? WHERE id=?",
+                                (self.clock(), got.get("by") or cutter.NAME, int(bool(mask)), got.get("conf"),
+                                 json.dumps(box) if mask else None, was, len(mask or b""), photo_id))
+        return bool(mask)
+
     def set_focus(self, photo_id: str, body: object, before: Before = None) -> dict:
         """``{x, y}`` (fractions 0..1) sets the focus by hand; ``{auto: true}`` puts it back to automatic."""
         row = self.db.execute("SELECT id, album_id FROM photos WHERE id=?", (photo_id,)).fetchone() \
@@ -511,6 +590,28 @@ def stored_faces(raw: object) -> list | None:
     return [f for f in got if isinstance(f, list) and len(f) >= 4] if isinstance(got, list) else []
 
 
+def stored_box(raw: object) -> list | None:
+    """The ``depth_box`` column -> [x, y, w, h] (fractions, inside the photo), or None (a damaged value too)."""
+    try:
+        got = json.loads(raw) if isinstance(raw, str) else None
+    except ValueError:
+        return None
+    if not isinstance(got, list) or len(got) != 4 or not all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in got):
+        return None
+    x, y, w, h = (float(v) for v in got)
+    if not (0 <= x and 0 <= y and w > 0 and h > 0 and x + w <= 1.0001 and y + h <= 1.0001):
+        return None
+    return [round(v, 4) for v in (x, y, w, h)]
+
+
+def with_cutout(row: dict) -> dict:
+    """A row with ``cutout_at/_ok/_conf/_by`` -> ``cutout``: None (not checked yet) or ``{ok, conf, by}``."""
+    at, ok, conf, by = (row.pop(k, None) for k in ("cutout_at", "cutout_ok", "cutout_conf", "cutout_by"))
+    row["cutout"] = None if at is None else {"ok": bool(ok), "conf": conf, "by": by}
+    return row
+
+
 def with_focus(row: dict) -> dict:
     """A row with ``faces``/``focus_x``/``focus_y`` -> ``faces`` (list or None) and ``focus {x, y, by}``:
     ``hand`` (set by hand), ``faces`` (the centre of the kept faces), ``none`` (checked, no faces) or ``pending``."""
@@ -539,7 +640,9 @@ class FaceBackfill:
     runs and stops when nothing is left; its state is the rows (``faces_at IS NULL``), so a restart carries on. A
     file that can't be read is stored as no faces, so it isn't tried again for ever; a photo the DETECTOR fails on stays
     unchecked (skipped for this run), and a few failures in a row stop the run (logged once). Nothing runs without a
-    detector."""
+    detector.
+
+    CutoutBackfill (Time Behind) is the same walk with its own steps: the hooks below (``_available`` .. ``_said``)."""
 
     START = 60.0
     REST = 0.5
@@ -556,10 +659,38 @@ class FaceBackfill:
         self.started: float | None = None        # the app's clock: when this run began looking
         self.finished: float | None = None       # ... and found nothing left
 
+    # -- its steps (CutoutBackfill has its own) ---------------------------------------------------------
+    def _available(self) -> bool:
+        return imaging.faces_available()
+
+    def _counts(self) -> dict:
+        return self.app["photos"].face_counts()
+
+    async def _ready(self) -> str | None:
+        return await imaging.faces_ready()
+
+    def _next(self, skip: set) -> tuple | None:
+        """(photo id, what its look needs) -- or None: nothing left; ``()``: wait (something must happen first)."""
+        pid = self.app["photos"].unchecked(skip=skip)
+        return None if pid is None else (pid, None)
+
+    async def _look(self, pid: str, extra):
+        return await imaging.look(self.app["photos"].path(pid, "screen"))
+
+    async def _store(self, pid: str, found) -> None:
+        lib: PhotoLibrary = self.app["photos"]
+        if lib.photo(pid) is not None:                  # not deleted meanwhile
+            lib.set_faces(pid, found)
+            self.checked += 1
+            self.with_faces += bool(found)
+
+    def _said(self, seconds: float) -> None:
+        log.info("checked %d photos for faces in %.0fs (%d with faces)", self.checked, seconds, self.with_faces)
+
     def start(self) -> asyncio.Task | None:
         if self.task is not None and not self.task.done():
             return self.task
-        if not imaging.faces_available():
+        if not self._available():
             return None
         self.task = asyncio.get_running_loop().create_task(self.run())
         return self.task
@@ -577,11 +708,10 @@ class FaceBackfill:
         this platform), ``done`` (every photo checked), ``waiting`` (for an import to finish), ``running``, or
         ``stopped`` (photos left and nothing looking: a detector that wouldn't start, or a photo added since
         whose own look failed; the next start picks them up)."""
-        lib: PhotoLibrary = self.app["photos"]
-        n = lib.face_counts()
+        n = self._counts()
         last = n.pop("last")
         imp = self.app.get("photos_import")
-        if not imaging.faces_available():
+        if not self._available():
             state = "unavailable"
         elif not n["left"]:
             state = "done"
@@ -594,9 +724,11 @@ class FaceBackfill:
         return dict(n, state=state, started=self.started,
                     finished=(self.finished or last) if state == "done" and n["photos"] else None)
 
+    WHAT = "face backfill"
+    MODEL = "detector"
+
     async def run(self) -> None:
         await asyncio.sleep(self.start_after)
-        lib: PhotoLibrary = self.app["photos"]
         began, ready = time.monotonic(), False
         failed: set[str] = set()                                # photos the detector failed on, left for another run
         in_a_row = 0
@@ -607,39 +739,89 @@ class FaceBackfill:
                 if imp is not None and imp.running:
                     await asyncio.sleep(self.IMPORT_WAIT)
                     continue
-                pid = lib.unchecked(skip=failed)
-                if pid is None:
+                nxt = self._next(failed)
+                if nxt is None:
                     self.finished = self.app["clock"]()
                     break
+                if not nxt:                                     # waiting on something else (the faces)
+                    await asyncio.sleep(self.IMPORT_WAIT)
+                    continue
+                pid, extra = nxt
                 if not ready:
-                    why = await imaging.faces_ready()
+                    why = await self._ready()
                     if why is not None:
-                        log.warning("the face backfill can't start: %s", why)
+                        log.warning("the %s can't start: %s", self.WHAT, why)
                         return
                     ready = True
                 try:
-                    found = await imaging.look(lib.path(pid, "screen"))
+                    found = await self._look(pid, extra)
                 except imaging.WorkerLost:                      # the worker died on it: as a detector failure
                     found = None
                 if found is None:                               # the detector failed: the row stays unchecked
                     failed.add(pid)
                     in_a_row += 1
                     if in_a_row >= self.FAILURES_MAX:
-                        log.warning("the face backfill stops: the detector failed on %d photos in a row; it tries "
-                                    "again when Mantel restarts", in_a_row)
+                        log.warning("the %s stops: the %s failed on %d photos in a row; it tries again when Mantel "
+                                    "restarts", self.WHAT, self.MODEL, in_a_row)
                         return
                     await asyncio.sleep(self.rest)
                     continue
                 in_a_row = 0
-                if lib.photo(pid) is not None:                  # not deleted meanwhile
-                    lib.set_faces(pid, found)
-                    self.checked += 1
-                    self.with_faces += bool(found)
+                await self._store(pid, found)
                 await asyncio.sleep(self.rest)
         finally:
             if self.checked:
-                log.info("checked %d photos for faces in %.0fs (%d with faces)", self.checked,
-                         time.monotonic() - began, self.with_faces)
+                self._said(time.monotonic() - began)
+
+
+class CutoutBackfill(FaceBackfill):
+    """Cuts out the photos stored before (or while no model was here), for Time Behind: ``app["photos_cutouts"]``.
+
+    FaceBackfill's walk -- a minute after the server starts, one photo at a time, newest first, resting between,
+    waiting while an import runs, carrying on after a restart (the rows: ``cutout_at IS NULL``), stopping after a few
+    model failures in a row -- with the cut-out's steps: the worker cuts out the screen-sized file
+    (``imaging.cut_look``), handed the faces already found, so a photo waits for its faces while the face backfill
+    still looks; the row and a usable photo's mask are written here (``store_cutout``, within the quota). Nothing
+    runs without the model."""
+
+    WHAT = "cut-out backfill"
+    MODEL = "cut-out model"
+
+    def __init__(self, app: web.Application, *, start: float | None = None, rest: float | None = None) -> None:
+        super().__init__(app, start=start, rest=rest)
+        self.usable = 0
+
+    def _available(self) -> bool:
+        return imaging.cutouts_available()
+
+    def _counts(self) -> dict:
+        return self.app["photos"].cutout_counts()
+
+    async def _ready(self) -> str | None:
+        return await imaging.cutouts_ready()
+
+    def _next(self, skip: set) -> tuple | None:
+        lib: PhotoLibrary = self.app["photos"]
+        got = lib.uncut(skip, faces_known=True)
+        if got is None and imaging.faces_available():
+            faces_bf = self.app.get("photos_faces")
+            if faces_bf is not None and faces_bf.running and lib.unchecked() is not None:
+                return ()                                       # the faces first: the time goes behind a head
+        if got is None:
+            got = lib.uncut(skip, faces_known=False)
+        return got
+
+    async def _look(self, pid: str, extra):
+        return await imaging.cut_look(self.app["photos"].path(pid, "screen"), extra)
+
+    async def _store(self, pid: str, found) -> None:
+        if self.app["photos"].photo(pid) is None:              # deleted meanwhile
+            return
+        self.usable += await self.app["photos"].store_cutout(pid, found)
+        self.checked += 1
+
+    def _said(self, seconds: float) -> None:
+        log.info("cut out %d photos in %.0fs (%d usable for Time Behind)", self.checked, seconds, self.usable)
 
 
 # -- importing from Home Assistant ------------------------------------------------------------------------
@@ -880,7 +1062,7 @@ async def api_overview(request: web.Request) -> web.Response:
     return _json(200, ok=True, albums=lib.albums(), usage=lib.usage(), photos=lib.count(), limits=lib.limits(),
                  screens=lib.screens(), backup=backup_info(request.app), owner=ident.user.role == "owner",
                  importing=imp.job.as_dict() if imp.job is not None else None,
-                 faces=request.app["photos_faces"].status())
+                 faces=request.app["photos_faces"].status(), cutouts=request.app["photos_cutouts"].status())
 
 
 @guard("manager", audit="photos.album.create")
@@ -914,6 +1096,18 @@ async def api_album_delete(request: web.Request) -> web.Response:
     except PhotoError as exc:
         return _fail(exc)
     return _json(200, ok=True, **got)
+
+
+@guard("manager", audit="photos.album.options")
+async def api_album_options(request: web.Request) -> web.Response:
+    """An album's options: Only Photos That Qualify (for Time Behind)."""
+    ident = guarded(request)
+    try:
+        got = _lib(request).set_album_options(request.match_info["album"], await _body(request),
+                                              before=_first(request, ident, "photos.album.options"))
+    except PhotoError as exc:
+        return _fail(exc)
+    return _json(200, ok=True, album=got)
 
 
 @guard("manager")
@@ -1027,6 +1221,16 @@ async def api_faces(request: web.Request) -> web.Response:
     return _json(200, ok=True, faces=request.app["photos_faces"].status())
 
 
+@guard("manager")
+async def api_cutouts(request: web.Request) -> web.Response:
+    """Time Behind's cut-outs through the library: how far they have got, and why there are none when the model
+    can't run here (Mantel Settings → Photos)."""
+    status = request.app["photos_cutouts"].status()
+    if status["state"] == "unavailable":
+        status["why"] = cutter.why_not()
+    return _json(200, ok=True, cutouts=status)
+
+
 @guard("owner", audit="photos.import.cancel")
 async def api_import_cancel(request: web.Request) -> web.Response:
     ident = guarded(request)
@@ -1062,8 +1266,10 @@ async def api_show(request: web.Request) -> web.Response:
         album = lib.album(request.match_info["album"])
     except PhotoError:
         return _nothing()
-    rows = lib.db.execute("SELECT id, name, width, height, faces, focus_x, focus_y FROM photos WHERE album_id=? "
-                          "ORDER BY created, id", (album["id"],))
+    only = bool(lib.db.execute("SELECT depth_only FROM photo_albums WHERE id=?", (album["id"],)).fetchone()[0])
+    rows = lib.db.execute("SELECT id, name, width, height, faces, focus_x, focus_y, cutout_at, cutout_ok, depth_box, "
+                          "taken FROM photos WHERE album_id=?" + (" AND cutout_ok = 1" if only else "") +
+                          " ORDER BY created, id", (album["id"],))
     out = []
     for r in rows:
         item = {"id": r["id"], "title": r["name"], "w": r["width"], "h": r["height"],
@@ -1073,6 +1279,12 @@ async def api_show(request: web.Request) -> web.Response:
         found = stored_faces(r["faces"])
         if found:
             item["faces"] = [[round(float(v), 4) for v in f[:4]] for f in found]
+        # TIME BEHIND: a usable photo's cut-out and where the time goes (the address changes with a new cut-out)
+        box = stored_box(r["depth_box"]) if r["cutout_ok"] else None
+        if box is not None:
+            item["depth"] = {"mask": f"/api/photos/{r['id']}/mask?v={int(r['cutout_at'] or 0)}", "box": box}
+        if isinstance(r["taken"], int):
+            item["year"] = r["taken"]                               # Photo Titles: the year it was taken
         out.append(item)
     return web.json_response({"album": album, "photos": out}, headers={"Cache-Control": "no-cache"})
 
@@ -1102,7 +1314,7 @@ async def serve(request: web.Request) -> web.StreamResponse:
 
 def register(app: web.Application, hub=None) -> None:
     """The library (``app["photos"]``), its import (``app["photos_import"]``), the faces backfill
-    (``app["photos_faces"]``) and the routes."""
+    (``app["photos_faces"]``), the cut-outs' (``app["photos_cutouts"]``) and the routes."""
     cfg = app["cfg"]
     lib = PhotoLibrary(Path(cfg.data_dir).expanduser() / "photos", app["store"].db, lambda: app["clock"]())
     app["photos"] = lib
@@ -1115,6 +1327,7 @@ def register(app: web.Application, hub=None) -> None:
     r.add_get(r"/api/photos/albums/{album:[0-9a-f]{16}}/photos", api_album_photos)
     r.add_post(r"/api/photos/albums/{album:[0-9a-f]{16}}/upload", api_upload)
     r.add_get(r"/api/photos/albums/{album:[0-9a-f]{16}}/show", api_show)
+    r.add_put(r"/api/photos/albums/{album:[0-9a-f]{16}}/options", api_album_options)
     r.add_post("/api/photos/delete", api_delete)
     r.add_post("/api/photos/move", api_move)
     r.add_put("/api/photos/limits", api_limits)
@@ -1124,16 +1337,20 @@ def register(app: web.Application, hub=None) -> None:
     r.add_post("/api/photos/import", api_import_start)
     r.add_delete("/api/photos/import", api_import_cancel)
     r.add_get("/api/photos/faces", api_faces)
+    r.add_get("/api/photos/cutouts", api_cutouts)
     r.add_put(r"/api/photos/{photo:[0-9a-f]{32}}/focus", api_focus)
-    r.add_get(r"/api/photos/{photo:[0-9a-f]{32}}/{size:original|screen|mid|thumb}", serve)
+    r.add_get(r"/api/photos/{photo:[0-9a-f]{32}}/{size:original|screen|mid|thumb|mask}", serve)
     app["photos_faces"] = FaceBackfill(app)
+    app["photos_cutouts"] = CutoutBackfill(app)
 
     async def begin(_app: web.Application) -> None:
         _app["photos_faces"].start()
+        _app["photos_cutouts"].start()
 
     async def stop(_app: web.Application) -> None:
         _app["photos_import"].cancel()
         _app["photos_faces"].cancel()
+        _app["photos_cutouts"].cancel()
 
     app.on_startup.append(begin)
     app.on_cleanup.append(stop)

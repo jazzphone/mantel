@@ -1609,6 +1609,20 @@ SAVER_RANGES = {"blur": (0, 100), "dim": (0, 80), "zoom": (100, 200)}
 SAVER_FOCUS = {"x": ("left", "center", "right"), "y": ("top", "center", "bottom")}
 SAVER_ORDERS = ("random", "sorted")
 SAVER_SHOWS = ("photos", "both", "forecast", "clock")
+# THE HOMEVIEW-STYLE FACES (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I): three more Shows -- Glance (the
+# date, a clock, what's playing and the weather), Month (the month, today circled) and Day (the weekday and the
+# date with HK's own occasion art; its look light or dark, or by the time of day) -- drawn by hk-saverfaces.js;
+# three more clock faces (hk-saverclock.js: Liquid, Giant Numerals, Scattered Numerals); the Forecast's Layout
+# (Big: Big Weather); and for the photos, Titles (the album's name and the year) and Time Behind (the time behind
+# the photo's subject: Mantel Photos only, which cuts each photo out on its server). Each new option's default is
+# how the screensaver drew before, so a screen saved earlier draws exactly as it did.
+SAVER_SHOWS += ("glance", "month", "day")
+SAVER_CLOCK_STYLES += ("liquid", "giant", "scattered")
+SAVER_FORECAST_LAYOUTS = ("classic", "big")
+SAVER_DAY_LOOKS = ("auto", "light", "dark")
+SAVER_DEFAULTS.update({"forecast_layout": "classic", "photo_titles": False, "time_behind": False, "day_look": "auto"})
+SAVER_CHOICES.update({"clock_style": SAVER_CLOCK_STYLES, "forecast_layout": SAVER_FORECAST_LAYOUTS,
+                      "day_look": SAVER_DAY_LOOKS})
 # ALL SCREENS' screensaver options (All Screens -> Screensaver): a screen
 # whose own `screensaver_options` is null uses these (resolved()).
 DEFAULTS["look"]["saver"] = dict(SAVER_DEFAULTS)

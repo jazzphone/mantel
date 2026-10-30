@@ -5,14 +5,15 @@ Mantel Photos' ``process`` (three stored sizes and the faces), Your Files' ``ree
 sent to another process; none of them writes a file, a row or an audit line -- the server does that with what comes
 back.
 
-This module is imported by a SPAWNED worker, which imports nothing else of Mantel's but ``faces``: it must never
-import the server (aiohttp, the store, the routes). photos.py and user_files.py import from here.
+This module is imported by a SPAWNED worker, which imports nothing else of Mantel's but ``faces`` and ``cutout``: it
+must never import the server (aiohttp, the store, the routes). photos.py and user_files.py import from here.
 
 * **In the worker** (``start_worker``, the pool's initializer): JPEGs are encoded progressive and optimized -- the
   encode holds the GIL, which there is the worker's own (MED-1 turned it off while it was the server's) -- and one
-  face detector is kept for the worker's life (ONNX Runtime is imported only there, never in the server).
+  face detector is kept for the worker's life (ONNX Runtime is imported only there, never in the server). So is the
+  cut-out model (cutout.py: Time Behind), when it is installed.
 * **In a thread** (imaging.py's fallback when no worker can run): baseline JPEG, as MED-1 left it, so the event loop
-  keeps running; a detector per look, dropped after.
+  keeps running; a detector (and a cut-out model) per look, dropped after.
 """
 from __future__ import annotations
 
@@ -24,6 +25,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import cutout as cutter
 from . import faces as face_finder
 
 log = logging.getLogger("mantel.photos")
@@ -171,6 +173,77 @@ def look(path: str | Path | None) -> list | None:
             return None
 
 
+# -- Time Behind: the cut-outs (cutout.py) ------------------------------------------------------------------------
+_cutter = None
+
+
+def _worker_cutter():
+    """The worker's one cut-out model, made on first use and kept (RuntimeError when it can't be made)."""
+    global _cutter
+    if _cutter is None:
+        _cutter = cutter.Cutter().__enter__()
+    return _cutter
+
+
+def _cutout_in(img, found: list | None) -> dict | None:
+    """An upload's cut-out (cutout.result, after its faces), or None when there's no model or it failed; never
+    raises."""
+    if not IN_WORKER:
+        return cutter.find(img, found)
+    if not cutter.available():
+        return None
+    try:
+        return cutter.result(_worker_cutter().mask(img), cutter.numpy(), found)
+    except Exception as exc:  # noqa: BLE001 -- a cut-out never fails an upload
+        log.warning("couldn't make a cut-out: %s: %s", type(exc).__name__, exc)
+        return None
+
+
+def cutter_ready() -> tuple[bool, str | None]:
+    """(cut-outs can be made on this platform, why the model won't start or None). In the worker the model is
+    loaded now and kept; in a thread it is loaded and dropped."""
+    if not cutter.available():
+        return False, cutter.why_not() or "the cut-out model isn't available"
+    try:
+        if IN_WORKER:
+            _worker_cutter()
+        else:
+            with cutter.Cutter():
+                pass
+    except Exception as exc:  # noqa: BLE001
+        return True, str(exc)
+    return True, None
+
+
+def cut_look(path: str | Path | None, found: list | None = None) -> dict | None:
+    """The cut-out of a stored file (the cut-out backfill), its faces as stored: ``{"ok": False, "why":
+    "unreadable"}`` when it can't be opened (nothing to cut, now or later), None when the MODEL failed on a picture
+    that opened (it is looked at again)."""
+    gone = {"ok": False, "why": "unreadable", "cover": None, "conf": None, "overlap": None, "box": None,
+            "by": cutter.NAME, "mask": None}
+    if path is None:
+        return gone
+    path = Path(path)
+    from PIL import Image
+    try:
+        im = Image.open(path)
+        im.load()
+    except Exception as exc:  # noqa: BLE001 -- an unreadable file is "nothing to cut", not a retry for ever
+        log.warning("couldn't cut out %s: %s: %s", path.name, type(exc).__name__, exc)
+        return gone
+    try:
+        with im:
+            if IN_WORKER:
+                return cutter.result(_worker_cutter().mask(im), cutter.numpy(), found)
+            with cutter.Cutter() as c:
+                return cutter.result(c.mask(im), cutter.numpy(), found)
+    except Exception as exc:  # noqa: BLE001 -- onnxruntime failing at run time: not the photo's fault
+        log.warning("the cut-out model failed on %s: %s: %s", path.name, type(exc).__name__, exc)
+        return None
+    finally:
+        _trim()
+
+
 # -- Mantel Photos: the three stored sizes ----------------------------------------------------------------------
 @dataclass
 class Processed:
@@ -180,10 +253,30 @@ class Processed:
     width: int
     height: int
     faces: list | None = None        # None: not looked for (no detector here, or it failed)
+    # Time Behind (cutout.result: ok, conf, box, by, and a usable one's mask PNG); None: not made (no model here,
+    # or it failed)
+    cutout: dict | None = None
+    taken: int | None = None         # the year it was taken (its EXIF's, read before the EXIF is dropped)
+
+    @property
+    def mask(self) -> bytes | None:
+        return (self.cutout or {}).get("mask") or None
 
     @property
     def size(self) -> int:
-        return len(self.original) + len(self.screen) + len(self.thumb)
+        return len(self.original) + len(self.screen) + len(self.thumb) + len(self.mask or b"")
+
+
+def taken_year(img) -> int | None:
+    """The year a picture was taken, from its EXIF (DateTimeOriginal, else DateTime), or None. Only the year is
+    kept (Photo Titles: an album's name and the year); everything else in the EXIF is dropped with it."""
+    try:
+        exif = img.getexif()
+        raw = exif.get_ifd(0x8769).get(36867) or exif.get(306)
+        year = int(str(raw)[:4])
+    except Exception:  # noqa: BLE001 -- no EXIF, or a damaged one: not known
+        return None
+    return year if 1900 <= year <= 2100 else None
 
 
 def sniff(data: bytes) -> str | None:
@@ -226,6 +319,7 @@ def _process(data: bytes) -> Processed:
         img.seek(0)
         img.load()
         icc = img.info.get("icc_profile")
+        taken = taken_year(img)                                  # the year alone, for Photo Titles
         ImageOps.exif_transpose(img, in_place=True)              # upright, then the EXIF is never written again
         # no copy of what is already the right mode: at tens of megapixels each copy is hundreds of MB
         if img.mode in ("RGBA", "LA", "PA") or (img.mode == "P" and "transparency" in img.info):
@@ -254,11 +348,12 @@ def _process(data: bytes) -> Processed:
         screen.thumbnail((SCREEN_EDGE, SCREEN_EDGE), Image.LANCZOS)
         screen_bytes = jpeg(screen, 85)
         found = _faces_in(screen)                                 # never raises; None when there's no detector
+        cut = _cutout_in(screen, found)                           # ...and after them, Time Behind's cut-out
         thumb = screen.copy()
         thumb.thumbnail((THUMB_EDGE, THUMB_EDGE), Image.LANCZOS)
         buf = io.BytesIO()
         thumb.save(buf, "WEBP", quality=78, method=4)
-        return Processed(original, screen_bytes, buf.getvalue(), width, height, found)
+        return Processed(original, screen_bytes, buf.getvalue(), width, height, found, cut, taken)
     except PhotoError:
         raise
     except Image.DecompressionBombError as exc:

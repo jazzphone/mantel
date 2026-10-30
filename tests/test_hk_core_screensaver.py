@@ -221,3 +221,67 @@ def test_the_black_screen_comes_back_from_a_restart_unconfirmed():
     assert (b.on, b.brightness, b.confirmed) == (True, 40, False), "a page that reloads while black says so again"
     b.restore("off", {"brightness": "bright"})
     assert (b.on, b.brightness) == (False, None)
+
+
+# ------------------------------------------------------------ the HomeView-style faces (HOMEVIEW-LOOK.md, Phase I)
+def test_the_new_shows_and_options_check():
+    from hk_core.settings import model as M
+    for show in ("glance", "month", "day"):
+        assert M.saver_options({"show": show})["show"] == show
+    assert M.saver_options({"show": "weather"}) is None, "refused, never quietly a default"
+    assert M.saver_options({"forecast_layout": "big"})["forecast_layout"] == "big"
+    assert M.saver_options({"forecast_layout": "huge"}) is None
+    for k in ("photo_titles", "time_behind"):
+        assert M.saver_options({k: True})[k] is True and M.saver_options({k: "on"}) is None
+    for look in ("auto", "light", "dark"):
+        assert M.saver_options({"day_look": look})["day_look"] == look
+    assert M.saver_options({"day_look": "dusk"}) is None
+    for face in ("liquid", "giant", "scattered"):
+        assert M.saver_options({"clock_style": face})["clock_style"] == face
+        assert M.saver_options({"clock_colors": {face: "blue"}})["clock_colors"] == {face: "blue"}
+    assert M.saver_options({"clock_style": "melting"}) is None
+
+
+def test_a_screensaver_saved_before_draws_as_it_did():
+    """Every new option's default is how the screensaver drew before: the Forecast's Classic layout, no titles, the
+    time in front, the Day face by the time of day (only drawn when chosen)."""
+    from hk_core.settings import model as M
+    old = {"show": "both", "starts_after": 300, "clock_over": "large", "clock_style": "flip"}
+    got = M.saver_options(old)
+    assert {k: got[k] for k in ("forecast_layout", "photo_titles", "time_behind", "day_look")} == \
+        {"forecast_layout": "classic", "photo_titles": False, "time_behind": False, "day_look": "auto"}
+    assert {k: got[k] for k in old} == old
+    assert M.board({"screensaver": True, "screensaver_options": old})["screensaver_options"] == got
+    assert M.SAVER_SHOWS[:4] == ("photos", "both", "forecast", "clock"), "the old Shows first, unchanged"
+
+
+JSC_ = __import__("pathlib").Path("/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc")
+
+
+@pytest.mark.skipif(not JSC_.exists(), reason="JavaScriptCore's jsc is macOS's")
+def test_the_settings_pages_model_offers_the_same(tmp_path):
+    """hk-settings-model.js (HK Settings) and hk-saverclock.js (the faces) against settings.py: the defaults, the
+    Shows, the clock faces and their colours."""
+    import json
+    import subprocess
+    from pathlib import Path
+    from hk_core.settings import model as M
+    root = Path(__file__).resolve().parents[1]
+    prelude = tmp_path / "prelude.js"
+    prelude.write_text(
+        "var window = this, self = this; var document = { createElement: function () { return {}; }, addEventListener: function () {} };\n"
+        f"load({json.dumps(str(root / 'web/client/hk-host-shell.js'))});\n"
+        f"load({json.dumps(str(root / 'hosts/ha/frontend/hk-ha-shell.js'))});\n"
+        f"load({json.dumps(str(root / 'web/hk/panels/hk-settings-model.js'))});\n"
+        f"load({json.dumps(str(root / 'web/hk/modules/hk-saverclock.js'))});\n"
+        "var m = window.hkSettingsModel, c = window.hkSaverClock;\n"
+        "print(JSON.stringify({defaults: m.SAVER_DEFAULTS, shows: m.SAVER_SHOWS.map(function (s) { return s[0]; }),"
+        " styles: m.CLOCK_STYLES.map(function (s) { return s[0]; }), faces: c.STYLES.map(function (s) { return s[0]; }),"
+        " colors: Object.keys(m.CLOCK_COLORS), layouts: m.FORECAST_LAYOUTS.map(function (s) { return s[0]; }),"
+        " looks: m.DAY_LOOKS.map(function (s) { return s[0]; })}));\n")
+    out = json.loads(subprocess.run([str(JSC_), str(prelude)], capture_output=True, text=True, check=True, timeout=30).stdout)
+    assert out["defaults"] == M.SAVER_DEFAULTS
+    assert set(out["shows"]) | {"both"} == set(M.SAVER_SHOWS)
+    assert out["styles"] == list(M.SAVER_CLOCK_STYLES) == out["faces"]
+    assert set(out["colors"]) == set(M.SAVER_CLOCK_STYLES)
+    assert tuple(out["layouts"]) == M.SAVER_FORECAST_LAYOUTS and tuple(out["looks"]) == M.SAVER_DAY_LOOKS

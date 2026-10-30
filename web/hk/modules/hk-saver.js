@@ -97,6 +97,9 @@
   // the mosaic's lines (settings.py MOSAIC_COLORS)
   var MOSAIC_COLORS = { black: '#000000', white: '#f5f5f2', gray: '#8e8e93', charcoal: '#2c2c2e', cream: '#efe6d2', navy: '#1c2a44' };
   var CLOCK_BGS = ['black', 'grain', 'gradient', 'aurora', 'ink', 'sky', 'lowpoly', 'topo', 'constellation', 'forecast', 'skyonly', 'photos', 'landscapes'];
+  // THE HOMEVIEW-STYLE SHOWS (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I): Glance, Month and Day, each a
+  // whole screen of hk-saverfaces.js's, mounted as the clock is (Show: Clock's layer, a background of its own)
+  var FACE_SHOWS = { glance: 1, month: 1, day: 1 };
   // LANDSCAPES (1.8.1): HK Frontend's own photos behind the clock, from
   // /hk/landscapes/ (index.json lists them; a home's own files folder can
   // answer with its own list), shown the way Photos shows yours
@@ -130,7 +133,7 @@
       portrait: shapeCfg(raw, 'portrait', raw.portrait_fill === true),
       landscape: shapeCfg(raw, 'landscape', raw.fill !== false),
       // photos (the forecast when there are none), forecast, or clock
-      show: raw.show === 'forecast' || raw.show === 'both' || raw.show === 'clock' ? raw.show : 'photos',
+      show: raw.show === 'forecast' || raw.show === 'both' || raw.show === 'clock' || FACE_SHOWS[raw.show] === 1 ? raw.show : 'photos',
       // THE CLOCKS (2026-10-13, hk-saverclock.js): Large over the photos or
       // the forecast (the corner one is a card), one style for both, and
       // what is behind Show: Clock
@@ -195,6 +198,13 @@
       // or an additional screen over the clock; and what it leaves out
       weather_slide: raw.weather_slide === true,
       weather_hide: Array.isArray(raw.weather_hide) ? raw.weather_hide.filter(function (x) { return typeof x === 'string'; }) : [],
+      // THE HOMEVIEW-STYLE FACES (2026-10-30, settings.py): the Forecast's Layout (Big: Big Weather), the photos'
+      // Titles (the album's name and the year) and Time Behind (the time behind the photo's subject, where the
+      // host cut it out: Mantel Photos), and the Day face's look
+      forecast_layout: raw.forecast_layout === 'big' ? 'big' : 'classic',
+      photo_titles: raw.photo_titles === true,
+      time_behind: raw.time_behind === true,
+      day_look: raw.day_look === 'light' || raw.day_look === 'dark' ? raw.day_look : 'auto',
       extra_music: raw.extra_music === true,
       extra_forecast: raw.extra_forecast === true,
       extra_every: n(raw.extra_every, 1, 60, 5),
@@ -393,6 +403,38 @@
     return vs[vs.length - 1][1];
   }
   function screenEdge() { return Math.max(window.innerWidth || 0, window.innerHeight || 0) || 1280; }
+  // PHOTO, TIME BEHIND (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I, decision 14): a host may hand a photo
+  // with its subject cut out (`depth`: {mask: an address, box: [x, y, w, h] fractions of the photo -- where the
+  // time goes}) -- Mantel Photos does, for the photos where a cut-out works. cleanDepth: what of it is sound.
+  function cleanDepth(p) {
+    var d = p && p.depth, b = d && d.box, f01 = function (v) { return typeof v === 'number' && isFinite(v) && v >= 0 && v <= 1; };
+    if (!d || typeof d.mask !== 'string' || !d.mask || /["\\()\s]/.test(d.mask) || !Array.isArray(b) || b.length !== 4 || !b.every(f01)) return null;
+    if (!(b[2] > 0 && b[3] > 0 && b[0] + b[2] <= 1.001 && b[1] + b[3] <= 1.001)) return null;
+    return { mask: d.mask, box: [b[0], b[1], b[2], b[3]] };
+  }
+  // where an iw x ih photo is drawn in a W x H box, as its fit and focus (0..1) lay it out: [left, top, w, h]
+  function drawnRect(iw, ih, W, H, fit, ax, ay) {
+    var k = fit === 'contain' ? Math.min(W / iw, H / ih) : Math.max(W / iw, H / ih), w = iw * k, h = ih * k;
+    return [(W - w) * ax, (H - h) * ay, w, h];
+  }
+  // the time's place on the screen: the photo's box, through how the photo is drawn. A place wider than what is seen
+  // of the photo (a landscape photo filling a portrait screen) is made smaller about its foot -- so it still sits
+  // behind the head -- down to half its size; past that, or with any of it outside what is seen, null: the time goes
+  // in front (never half a time)
+  var TIME_MARGIN = 0.04, TIME_SHRINK = 0.5;
+  function timePlace(box, rect, W, H) {
+    var x = rect[0] + box[0] * rect[2], y = rect[1] + box[1] * rect[3], w = box[2] * rect[2], h = box[3] * rect[3];
+    var cx = x + w / 2, room = 2 * Math.min(cx - W * TIME_MARGIN, W * (1 - TIME_MARGIN) - cx);
+    if (w > room + 1) {
+      var k = room / w;
+      if (!(k >= TIME_SHRINK)) return null;
+      y += h * (1 - k); w *= k; h *= k; x = cx - w / 2;
+    }
+    if (x < -1 || y < -1 || x + w > W + 1 || y + h > H + 1 || w < 40 || h < 20) return null;
+    return [x, y, w, h];
+  }
+  // the time's size to fill its place: as tall as the place lets it, no wider ("10:42" at its widest)
+  function timeFont(w, h) { return Math.min(h * 1.3, w / (5 * 0.58)); }
   // a face's box with room for the head around it: hair above, chin below
   function headOf(f) {
     return { x1: f[0] - f[2] * 0.2, y1: f[1] - f[3] * 0.35, x2: f[0] + f[2] * 1.2, y2: f[1] + f[3] * 1.15 };
@@ -1239,6 +1281,41 @@
     ':host([pcal]) .pm .mnt{font-size:calc(14px * var(--z))}',
     ':host([pcal]) .pm[idle] .mctl{grid-column:1 / -1}',
     '@media (prefers-reduced-motion:reduce){.ph,.phscrim,.fcscrim,.mu,.mfr,.mbgf{transition:none}.ph.zoom img.fg,.ph.mo.zoom .mocell canvas{animation:none}}'
+  ].join('\n') + '\n' + [
+    // THE HOMEVIEW-STYLE FACES (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I)
+    // Glance, Month and Day ([ckface]): what they show themselves, the corners leave out; on a light face the
+    // corners' words go dark
+    ':host([ckface=glance]) .info hk-clock-card,:host([ckface=glance]) .info hk-weather-strip-card,:host([ckface=glance]) .info hk-screensaver-now-card{display:none}',
+    ':host([ckface=month]) .info hk-clock-card{display:none}',
+    ':host([ckface=month]:not([cknight])) .info,:host([ckface=day][cklight]:not([cknight])) .info{--primary-text-color:#1c1c1e;--secondary-text-color:#48484a;color:#1c1c1e;text-shadow:none}',
+    // Big Weather ([fcbig]): it tells the time and the weather itself, over the forecast's sky
+    ':host([fcbig][forecast]) .info hk-clock-card,:host([fcbig][fcslide]) .info hk-clock-card,',
+    ':host([fcbig][forecast]) .info hk-weather-strip-card,:host([fcbig][fcslide]) .info hk-weather-strip-card{opacity:0}',
+    // PHOTO TITLES: the album's name and the year, bottom right, over a dark fade of its own (in the photo's layer,
+    // so it fades with its photo); in the photo's own box, beside a pane
+    '.ph .ttl{position:absolute;inset:0;container-type:size;pointer-events:none;background:linear-gradient(transparent 55%,rgba(0,0,0,.45))}',
+    '.ph[pw] .ttl,.ph[pw] .tb{right:var(--hk-pane-w,0px)}',
+    '.ph .ttl .tt{position:absolute;right:8.5cqmin;bottom:8.5cqmin;text-align:right;color:#fff;font-family:var(--hk-saver-font,-apple-system,system-ui,sans-serif);',
+    '  text-shadow:0 2px 18px rgba(0,0,0,.35)}',
+    '.ph .ttl .tt b{display:block;font-size:9.3cqmin;font-weight:700;letter-spacing:-.01em;line-height:1}',
+    '.ph .ttl .tt span{display:block;font-size:3.7cqmin;font-weight:600;opacity:.85;line-height:1.5}',
+    // PHOTO, TIME BEHIND: the photo, the time, then the photo's subject again over the time -- the same picture,
+    // masked by its cut-out, laid out exactly as the photo is (its fit and focus; the zoom and Slow Zoom move all
+    // three as one). A photo without a usable cut-out: the time in front, high in the middle.
+    '.ph .tb{position:absolute;inset:0;pointer-events:none;container-type:size;transform-origin:var(--org,var(--pos,50% 50%));scale:var(--zm,1)}',
+    '.ph.zoom .tb{animation:hk-saver-zoom var(--zd,33s) linear forwards}',
+    '.ph .tb .tbt{position:absolute;display:flex;align-items:center;justify-content:center;white-space:nowrap;line-height:1;',
+    '  font-family:var(--hk-saver-font,-apple-system,system-ui,sans-serif);font-weight:500;letter-spacing:-.03em;font-variant-numeric:proportional-nums;',
+    '  color:rgba(255,255,255,.94);text-shadow:0 2px 30px rgba(0,0,0,.22)}',
+    '.ph .tb.front .tbt{left:0;right:0;top:6cqh;font-size:24cqmin;height:28cqmin}',
+    '.ph .tb img.tbcut{object-fit:var(--fit,cover);object-position:var(--pos,50% 50%);',
+    '  -webkit-mask-size:var(--fit,cover);mask-size:var(--fit,cover);-webkit-mask-position:var(--pos,50% 50%);mask-position:var(--pos,50% 50%);',
+    '  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}',
+    ':host([cksoft]) .ph .tb{display:none}',
+    // ...and while it shows, the clock is the photo's: the corner clock and a Large clock step aside
+    ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info > hk-clock-card,',
+    ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .ck{opacity:0}',
+    '@media (prefers-reduced-motion:reduce){.ph.zoom .tb{animation:none}}'
   ].join('\n');
 
   function build() {
@@ -1301,6 +1378,8 @@
   function releaseVisuals() {
     if (fadeDone) fadeDone();
     displayLayer = null;
+    if (tbT) { clearTimeout(tbT); tbT = null; }
+    if (host) host.removeAttribute('tb');
     leaveExtras();
     leaveEnergy();
     leaveWeather();
@@ -1366,6 +1445,7 @@
   function onClientCards(h) {
     cards.forEach(function (c) { try { feedCard(c, h); } catch (e) { /* ignore */ } });
     if (ckCtl) ckCtl.setClient(h);
+    if (bigCtl) bigCtl.setClient(h);
     if (enCtl && enShowing) enCtl.setClient(h);
     if (wxCtl && wxShowing) wxCtl.setClient(h);
   }
@@ -1441,13 +1521,13 @@
     resetForecast();            // an element still fading out is reused
     setupPane();
     leaveClock();
-    if (cfg.show === 'clock') enterClock();
+    if (cfg.show === 'clock' || FACE_SHOWS[cfg.show]) enterClock();
     else if (cfg.show === 'forecast') enterForecast();
     // MUSIC FIRST, music playing: straight into it
     else if (cfg.music_first && musicPlaying()) { updateBand(); if (!showMusicSlide(true)) showNext(true); }
     else { updateBand(); showNext(true); }
     // A LARGE CLOCK over the photos or the forecast (the corner one is a card)
-    if (cfg.show !== 'clock' && cfg.clock_large) mountClock('none');
+    if (cfg.show !== 'clock' && !FACE_SHOWS[cfg.show] && cfg.clock_large) mountClock('none');
     // HOME ENERGY: its numbers asked for now, so its first turn has them;
     // the additional screens' timer
     energyPrep();
@@ -1728,10 +1808,12 @@
       return callWS({ type: 'media_source/browse_media', media_content_id: id }).then(function (r) {
         var kids = (r && r.children) || [];
         var sub = [];
+        // (the folder's own title: its photos' album, for Photo Titles)
+        var album = r && typeof r.title === 'string' ? r.title : '';
         kids.forEach(function (k) {
           if (out.length >= LIST_MAX) return;
           if (k.can_expand && depth < LIST_DEPTH) sub.push(k.media_content_id);
-          else if (!k.can_expand && isImage(k)) out.push({ id: k.media_content_id, title: k.title || '' });
+          else if (!k.can_expand && isImage(k)) out.push(album ? { id: k.media_content_id, title: k.title || '', album: album } : { id: k.media_content_id, title: k.title || '' });
         });
         return sub.reduce(function (p, s) { return p.then(function () { return walk(s, depth + 1); }); }, Promise.resolve());
       });
@@ -1751,6 +1833,11 @@
               if (vs.length) it.variants = vs;
               if (fc.focus) it.focus = fc.focus;
               if (fc.faces) it.faces = fc.faces;
+              // Photo Titles and Time Behind: the album, the year, the cut-out
+              var dp = cleanDepth(p);
+              if (dp) it.depth = dp;
+              if (typeof p.album === 'string' && p.album) it.album = p.album.slice(0, 80);
+              if (typeof p.year === 'number' && isFinite(p.year) && p.year >= 1900 && p.year <= 2100) it.year = Math.round(p.year);
               out.push(it);
             }
           });
@@ -2018,6 +2105,7 @@
     // (the preview keeps it, to show again as its settings change)
     lastPh = previewOn ? ph : null;
     fg.src = ph.url;
+    photoFaces(next, ph, L);
     // (with the calendar pane the blurred copy is always there: it is the
     // pane's background)
     // THE PANE comes or goes with a new photo (music_pane alone, as music
@@ -2106,6 +2194,9 @@
     if (m.mosaicOne) { paint(m.mosaicOne, first); return; }
     var layers = root.querySelectorAll('.ph'), next = layers[1 - layer];
     next.querySelectorAll('.mowrap').forEach(function (w) { w.querySelectorAll('canvas').forEach(clearCanvas); w.remove(); });
+    // (a mosaic has no titles, and no time behind: the clock as set)
+    next.querySelectorAll('.tb,.ttl').forEach(function (n) { n.remove(); });
+    if (host) setAttr(host, 'tb', false);
     next.classList.remove('zoom');
     next.classList.add('mo');
     var fg = next.querySelector('img.fg'), bgc = next.querySelector('canvas.bg');
@@ -2177,10 +2268,71 @@
   // THE PREVIEW, ONLY ITS PHOTO'S SETTINGS CHANGED (Portrait or Landscape
   // Photos): the photo on screen laid out again where it is -- no fade out
   // and in, so a crop or a blur can be judged as it changes
+  // PHOTO TITLES AND TIME BEHIND on a photo's layer (paint; relayout): the album and the year, bottom right; the
+  // time behind the photo's subject where its cut-out works and its place is in view, else the time in front
+  function photoFaces(lay, ph, L, c) {
+    c = c || cfg;
+    lay.querySelectorAll('.tb,.ttl').forEach(function (n) { n.remove(); });
+    if (!c || !ph || !ph.item) return;
+    var it = ph.item, before = lay.querySelector('.phscrim');
+    if (c.photo_titles && (it.album || it.year)) {
+      var ttl = document.createElement('div'), tt = document.createElement('div');
+      ttl.className = 'ttl'; tt.className = 'tt';
+      if (it.album) { var b = document.createElement('b'); b.textContent = it.album; tt.appendChild(b); }
+      if (it.year) { var y = document.createElement('span'); y.textContent = String(it.year); tt.appendChild(y); }
+      ttl.appendChild(tt);
+      lay.insertBefore(ttl, before);
+    }
+    if (host) setAttr(host, 'tb', !!c.time_behind);
+    if (!c.time_behind) return;
+    var r = lay.getBoundingClientRect ? lay.getBoundingClientRect() : null;
+    var W = Math.max(1, ((r && r.width) || window.innerWidth || 1280) - (paneUp ? paneW || 0 : 0)), H = (r && r.height) || window.innerHeight || 800;
+    var pos = String((lay.style.getPropertyValue && lay.style.getPropertyValue('--pos')) || '50% 50%').split(/\s+/).map(function (v) { var n = parseFloat(v); return isFinite(n) ? n / 100 : 0.5; });
+    var place = it.depth && ph.w && ph.h ? timePlace(it.depth.box, drawnRect(ph.w, ph.h, W, H, L.fit.fit, pos[0], pos[1] == null ? 0.5 : pos[1]), W, H) : null;
+    var tb = document.createElement('div'), t = document.createElement('div');
+    tb.className = 'tb ' + (place ? 'behind' : 'front');
+    t.className = 'tbt';
+    t.textContent = timeNow();
+    if (place) {
+      t.style.left = place[0].toFixed(1) + 'px'; t.style.top = place[1].toFixed(1) + 'px';
+      t.style.width = place[2].toFixed(1) + 'px'; t.style.height = place[3].toFixed(1) + 'px';
+      t.style.fontSize = timeFont(place[2], place[3]).toFixed(1) + 'px';
+    }
+    tb.appendChild(t);
+    if (place) {
+      var cut = document.createElement('img'), m = 'url("' + it.depth.mask + '")';
+      cut.className = 'tbcut'; cut.alt = '';
+      cut.style.setProperty('-webkit-mask-image', m);
+      cut.style.setProperty('mask-image', m);
+      cut.src = ph.url;
+      tb.appendChild(cut);
+    }
+    // (under the title: the subject cut out over the time, the album's name over them all)
+    lay.insertBefore(tb, lay.querySelector('.ttl') || before);
+    tbArm();
+  }
+  // the time on the photos, as the screen's clock tells it (its 24-Hour Time), put right on the minute
+  var tbT = null;
+  function timeNow() {
+    var d = new Date(), h = d.getHours();
+    if (!cfg || !cfg.clock_24) { h = h % 12; if (h === 0) h = 12; }
+    return (cfg && cfg.clock_24 && h < 10 ? '0' : '') + h + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
+  }
+  function tbArm() {
+    if (tbT) return;
+    tbT = setTimeout(function () {
+      tbT = null;
+      if (!on || !root || !cfg || !cfg.time_behind) return;
+      var s = timeNow();
+      root.querySelectorAll('.tb .tbt').forEach(function (e) { if (e.textContent !== s) e.textContent = s; });
+      tbArm();
+    }, 60000 - Date.now() % 60000 + 50);
+  }
   function relayout() {
     var top = root && root.querySelectorAll('.ph')[layer];
     if (!top || !lastPh || mode !== 'photos') return false;
     var L = layOut(top, lastPh), bg = top.querySelector('canvas.bg');
+    photoFaces(top, lastPh, L);
     if (L.fit.backdrop || paneUp || ckPhotos()) { drawBackdrop(bg, lastPh.img, L.lay.small); bg.hidden = false; } else { bg.hidden = true; clearCanvas(bg); }
     return true;
   }
@@ -2245,7 +2397,25 @@
   // no-photos fallback) by `band`; over the photos by `band_photos`.
   function bandWanted() {
     if (!on || !cfg || muShowing || enShowing || wxShowing) return false;
-    return fcVisible() ? cfg.band !== false : cfg.band_photos === true;
+    // (Big Weather is the forecast's details itself)
+    return fcVisible() ? cfg.band !== false && !bigWanted() : cfg.band_photos === true;
+  }
+  // BIG WEATHER (2026-10-30; the Forecast's Layout: Big): hk-saverfaces.js's, in the forecast's layer over its sky,
+  // wherever the forecast shows on its own -- Show: Forecast, the slide among the photos, no photos -- never under a
+  // clock (Behind the Clock: Forecast keeps the forecast's own details)
+  var bigCtl = null, bigRun = 0;
+  function bigWanted() { return !!(cfg && cfg.forecast_layout === 'big' && cfg.show !== 'clock' && !FACE_SHOWS[cfg.show]); }
+  function bigWeather() {
+    if (!root || !host) return;
+    var want = bigWanted();
+    setAttr(host, 'fcbig', want);
+    var fc = root.querySelector('.fc');
+    if (!want || !fc || bigCtl) return;
+    var run = ++bigRun;
+    facesModule().then(function (F) {
+      if (!F || run !== bigRun || !on || !fc.isConnected || bigCtl) return;
+      bigCtl = F.mount(fc, { kind: 'weather', h24: cfg.clock_24, weather: weatherEntity(), client: clientNow() });
+    });
   }
   function updateBand() {
     if (!host) return;
@@ -2275,9 +2445,28 @@
     }
     return ckLoad;
   }
+  // a Show of hk-saverfaces.js's (Glance, Month, Day): loaded only now
+  var fcxLoad = null;
+  function facesModule() {
+    if (window.hkSaverFaces) return Promise.resolve(window.hkSaverFaces);
+    if (!fcxLoad) {
+      fcxLoad = import('/hk/modules/hk-saverfaces.js').then(function () { return window.hkSaverFaces; })
+        .catch(function (e) { fcxLoad = null; console.warn('[hk-saver] faces', e && e.message); return null; });
+    }
+    return fcxLoad;
+  }
   function enterClock() {
     var bgk = cfg.clock_bg;
     host.setAttribute('ckmode', '');
+    // GLANCE, MONTH, DAY: a whole screen of their own, as Show: Clock on a background of its own
+    if (FACE_SHOWS[cfg.show]) {
+      mode = 'clock';
+      host.setAttribute('ckgen', '');
+      host.setAttribute('ckface', cfg.show);
+      updateBand();
+      mountClock('face');
+      return;
+    }
     if (bgk === 'forecast' || bgk === 'skyonly') { enterForecast(); mountClock('none'); return; }
     if (bgk === 'photos' || bgk === 'landscapes') {
       host.setAttribute('ckphotos', '');
@@ -2303,12 +2492,20 @@
       if (fx !== 'none') layer.style.filter = fx;
     }
     root.insertBefore(layer, root.querySelector('.info'));
-    clockModule().then(function (C) {
+    var face = bg === 'face';
+    Promise.all([clockModule(), face ? facesModule() : null]).then(function (got) {
+      var C = got[0], F = got[1];
       if (run !== ckRun || !on || !layer.isConnected) return;
-      if (!C) { layer.remove(); if (mode === 'clock') { mode = 'photos'; host.removeAttribute('ckgen'); enterForecast(); } return; }
-      ckCtl = C.mount(layer, { style: cfg.clock_style, h24: cfg.clock_24, color: cfg.clock_color, bg: bg, motion: cfg.clock_motion,
-                               speed: cfg.clock_speed, depth: cfg.clock_depth, weather: weatherEntity(),
-                               client: clientNow(), scrim: !dimmed });
+      if (!C || (face && !F)) { layer.remove(); if (mode === 'clock') { mode = 'photos'; host.removeAttribute('ckgen'); host.removeAttribute('ckface'); enterForecast(); } return; }
+      ckCtl = face
+        ? F.mount(layer, { kind: cfg.show, h24: cfg.clock_24, weather: weatherEntity(), look: cfg.day_look, clocks: C, client: clientNow() })
+        : C.mount(layer, { style: cfg.clock_style, h24: cfg.clock_24, color: cfg.clock_color, bg: bg, motion: cfg.clock_motion,
+                           speed: cfg.clock_speed, depth: cfg.clock_depth, weather: weatherEntity(),
+                           // (a face with a ground of its own keeps it off over the photos or the forecast)
+                           ground: bg !== 'none',
+                           client: clientNow(), scrim: !dimmed });
+      // the Day face's light look: the corners' words go dark on it
+      if (host && face) setAttr(host, 'cklight', cfg.show === 'day' && !F._.dayDark(cfg.day_look, new Date()));
       // TODAY carries its own weather and music: the corners' step aside
       if (host) setAttr(host, 'ckown', cfg.clock_style === 'today');
       nightCheck();
@@ -2362,6 +2559,8 @@
     if (!host) return;
     var dark = !!(ckCtl && on) && nightNow();
     setAttr(host, 'cknight', dark);
+    // (the Day face by the time of day: the corners' words follow its light and dark)
+    if (cfg && cfg.show === 'day' && window.hkSaverFaces && host.hasAttribute('ckface')) setAttr(host, 'cklight', !window.hkSaverFaces._.dayDark(cfg.day_look, new Date()));
     if (dark && exKind) exHide();
     if (ckCtl && ckCtl.night) ckCtl.night(dark);
   }
@@ -2373,7 +2572,7 @@
   function leaveClock() {
     ckArgs = null;
     if (nightT) { clearInterval(nightT); nightT = null; }
-    if (host) { host.removeAttribute('cknight'); host.removeAttribute('ckown'); }
+    if (host) { host.removeAttribute('cknight'); host.removeAttribute('ckown'); host.removeAttribute('ckface'); host.removeAttribute('cklight'); }
     ckRun++;
     if (ckCtl) { try { ckCtl.destroy(); } catch (e) { /* gone */ } ckCtl = null; }
     if (root) root.querySelectorAll('.ck').forEach(function (n) { n.remove(); });
@@ -2389,6 +2588,7 @@
     host.removeAttribute('fcslide');
     host.setAttribute('forecast', '');
     buildForecast();
+    bigWeather();
     updateBand();
     forecastTick(true);
     reveal(root.querySelector('.fc'), true);
@@ -2400,6 +2600,7 @@
   function showForecastSlide() {
     if (!on || !root || mode === 'forecast') return;
     buildForecast();
+    bigWeather();
     fcShowing = true; sinceFc = 0; lastSlide = 'forecast';
     host.setAttribute('fcslide', '');
     updateBand();
@@ -2414,6 +2615,9 @@
     forecastTick(false);
   }
   function leaveForecast() {
+    bigRun++;
+    if (bigCtl) { try { bigCtl.destroy(); } catch (e) { /* gone with the element */ } bigCtl = null; }
+    if (host) host.removeAttribute('fcbig');
     if (fTick) { clearInterval(fTick); fTick = null; }
     if (fscene) { try { fscene.destroy(); } catch (e) { /* gone with the element */ } fscene = null; }
     if (fband) cards = cards.filter(function (c) { return c !== fband; });
@@ -4685,7 +4889,11 @@
          ckFx: ckFx, MOSAIC_COLORS: MOSAIC_COLORS,
          mosaicPlan: mosaicPlan, mosaicAssign: mosaicAssign, coverRect: coverRect, MOSAICS: MOSAICS,
          reducedMotion: reducedMotion,
-         cleanFocus: cleanFocus, cleanVariants: cleanVariants, photoUrl: photoUrl, releasePh: releasePh, faceWindow: faceWindow, faceOrigin: faceOrigin, alignOf: alignOf, shuffle: shuffle, Deck: Deck, isImage: isImage,
+         cleanFocus: cleanFocus, cleanVariants: cleanVariants, cleanDepth: cleanDepth, drawnRect: drawnRect, timePlace: timePlace, timeFont: timeFont,
+         photoFaces: function (lay, ph, L, c) { return photoFaces(lay, ph, L, c); }, FACE_SHOWS: FACE_SHOWS, bigWanted: function () { return bigWanted(); },
+         // tools/headless/saver_faces_check.py: the saver's own CSS around a photo's layers
+         CSS: CSS,
+         photoUrl: photoUrl, releasePh: releasePh, faceWindow: faceWindow, faceOrigin: faceOrigin, alignOf: alignOf, shuffle: shuffle, Deck: Deck, isImage: isImage,
          // tests: the slide without real photos to count
          slide: { show: showForecastSlide, hide: hideForecastSlide, since: function (n) { sinceFc = n; }, schedule: function () { schedule(); } },
          paneOf: paneOf, slideOf: slideOf, turnOf: turnOf, extrasOf: extrasOf, mmss: mmss,

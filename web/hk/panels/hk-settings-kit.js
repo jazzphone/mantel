@@ -296,6 +296,8 @@
     return h('span', { class: 'lbl', id: lid }, [h('span', { class: 't', text: text }), sub ? h('small', { text: sub }) : null]);
   }
   function lead(o) {
+    // (a small picture of its own: the screensaver's faces, 2026-10-30)
+    if (o.thumb) return o.thumb;
     if (o.tile) return h('span', { class: 'tile', style: 'background:' + o.tile[1], 'aria-hidden': 'true' }, icon(o.tile[0], ''));
     if (o.icon) return icon(o.icon);
     return null;

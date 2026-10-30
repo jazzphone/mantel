@@ -88,6 +88,21 @@
     const s = ART_BUCKETS.find((b) => b >= n) || ART_BUCKETS[ART_BUCKETS.length - 1];
     return url + (url.indexOf('?') < 0 ? '?' : '&') + 's=' + s;
   }
+  // PHOTO TITLES AND TIME BEHIND (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I): the album's name and the
+  // year a photo was taken; and for a photo whose subject Mantel cut out, its mask (Mantel's own address, the
+  // page's prefix in front) and where the time goes ([x, y, w, h], each 0..1) -- passed on only when sound
+  const MASK_URL = /^\/api\/photos\/([0-9a-f]{32})\/mask(\?v=\d{1,12})?$/;
+  function depthOf(p, base) {
+    const d = p && p.depth, b = d && d.box, m = d && typeof d.mask === 'string' ? MASK_URL.exec(d.mask) : null;
+    if (!m || m[1] !== String(p.id) || !Array.isArray(b) || b.length !== 4 || !b.every(unit) || !(b[2] > 0 && b[3] > 0)) return {};
+    return { depth: { mask: base + d.mask, box: b.slice() } };
+  }
+  function titleOf(p, album) {
+    const out = {};
+    if (album && typeof album.name === 'string' && album.name) out.album = album.name;
+    if (Number.isInteger(p.year) && p.year >= 1900 && p.year <= 2100) out.year = p.year;
+    return out;
+  }
   function listPhotos(source) {
     const m = ALBUM.exec(String(source || ''));
     if (!m || typeof global.fetch !== 'function') return null;
@@ -96,7 +111,7 @@
       .then((r) => { if (!r.ok) throw new Error('album ' + r.status); return r.json(); })
       .then((j) => ((j && j.photos) || []).filter((p) => p && typeof p.url === 'string' && PHOTO_URL.test(p.url))
         .map((p) => Object.assign({ id: String(p.id), title: typeof p.title === 'string' ? p.title : '', url: base + p.url },
-                                  sizesOf(p.url, base), focusOf(p))));
+                                  sizesOf(p.url, base), focusOf(p), depthOf(p, base), titleOf(p, j.album))));
   }
   if (global.addEventListener) {
     global.addEventListener('storage', (e) => {

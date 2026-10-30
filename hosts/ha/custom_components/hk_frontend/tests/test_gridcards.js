@@ -105,7 +105,7 @@ function () {
   eq('...every thermostat page takes it', C.pages({ card: 'thermostat', size: 'L', opts: { style: 'big' }, pages: { source: 'thermostats' } }, { climate: ['climate.den', 'climate.hall'] })
      .map(function (p) { return p.card.style; }), ['big', 'big']);
   eq('the option, and its kind', [C.table().thermostat.opts, C.THERMOSTAT_STYLES], [{ entity: 'climate', style: 'thermostat_style' }, [['dial', 'Dial'], ['big', 'Big Number']]]);
-  eq('Analog Numbers after the faces a block had', C.CLOCK_FACES[C.CLOCK_FACES.length - 1], ['numbers', 'Analog Numbers']);
+  eq('Analog Numbers after the faces a block had, then the HomeView-style three', C.CLOCK_FACES.slice(-4).map(function (f) { return f[0]; }), ['numbers', 'liquid', 'giant', 'scattered']);
   eq('...a clock block with it', C.config({ card: 'clock', size: 'S', opts: { clock_style: 'numbers', bare: true } }, {}), { type: 'custom:hk-grid-clock-card', clock_style: 'numbers', bare: true });
 },
 function () {

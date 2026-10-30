@@ -114,6 +114,25 @@ def test_the_options_a_catalog_card_declares_are_the_mirrors(tmp_path):
         assert opts == HG.CATALOG[key]["opts"], key
 
 
+@pytest.mark.skipif(not JSC.exists(), reason="JavaScriptCore's jsc is macOS's")
+def test_the_clock_faces_a_block_offers_are_the_mirrors(tmp_path):
+    """The Clock block's faces (hk-grid-catalog.js CLOCK_FACES, "" HK's own) are home_grid.py's, and each is one of
+    the screensaver's faces; the HomeView-style faces among them (HOMEVIEW-LOOK.md, Phase I)."""
+    from hk_core.settings import model as M
+    prelude = tmp_path / "prelude.js"
+    prelude.write_text("var window = this; function CustomEvent() {} window.dispatchEvent = function () {};\n"
+                       f"load({json.dumps(str(ROOT / 'web/hk/cards/hk-grid-catalog.js'))});\n"
+                       "print(JSON.stringify(window.hkGridCatalog.CLOCK_FACES));\n")
+    out = json.loads(subprocess.run([str(JSC), str(prelude)], capture_output=True, text=True, check=True,
+                                    timeout=30).stdout)
+    assert [f[0] for f in out] == [""] + list(HG.CLOCK_FACES)
+    assert set(HG.CLOCK_FACES) <= set(M.SAVER_CLOCK_STYLES)
+    assert {"liquid", "giant", "scattered"} <= set(HG.CLOCK_FACES)
+    for face in ("liquid", "giant", "scattered"):
+        _, errors = write({"id": "c", "card": "clock", "size": "S", "at": [0, 0], "opts": {"clock_style": face}})
+        assert errors == {}, face
+
+
 @pytest.mark.parametrize('card', ['room', 'scenes'])
 def test_group_background_is_checked_and_roundtrips(card):
     appearance = {'color': '#345678', 'opacity': 42, 'blur': 'medium'}

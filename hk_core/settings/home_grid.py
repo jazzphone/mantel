@@ -254,6 +254,8 @@ def _room_display(v: Any) -> str:
 CLOCK_FACES = ("analog", "classic", "serif", "flip", "lcd", "neon", "nixie", "dots", "arc", "numbers")
 # a Thermostat block's style (hk-grid-catalog.js THERMOSTAT_STYLES): the dial, or Big Number
 THERMOSTAT_STYLES = ("dial", "big")
+# ...and the HomeView-style faces (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase I), each on its own colour
+CLOCK_FACES += ("liquid", "giant", "scattered")
 
 
 def _clock_style(v: Any) -> str:

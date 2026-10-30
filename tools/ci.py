@@ -168,6 +168,9 @@ def steps(build: Build | None = None) -> list[Step]:
     # Swipe Between Pages in Chromium and WebKit, with a finger, at two tablet and two phone sizes (2026-10-30)
     out.append(Step("page-swipe-check", [py, "tools/headless/page_swipe_check.py"], tier="full", timeout=1800,
                     skip=playwright_missing))
+    # the screensaver's HomeView-style faces and Time Behind in WebKit, a tablet either way and a phone (2026-10-30)
+    out.append(Step("saver-faces-check", [py, "tools/headless/saver_faces_check.py"], tier="full", timeout=600,
+                    skip=playwright_missing))
     out.append(Step("caddy-image", ["sh", "-c",
                     f"docker build -q -f packaging/docker/caddy.Dockerfile -t {CADDY_IMAGE} packaging/docker && "
                     f'"{py}" -m pytest -q -p no:cacheprovider tests/test_packaging.py -k caddy_image'],
