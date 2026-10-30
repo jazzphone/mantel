@@ -107,6 +107,42 @@ window.addEventListener('hk-view-ready', function (e) { ready.push(e.detail.view
      w._root.style.gridTemplateRows === '60px repeat(4, 150px)');
 })();
 
+// ---- beside the Side Pane (2026-10-30, hk-sidepane.js): the grid filling
+// the height says how wide it is, the pane takes what it leaves, and the
+// grid lays itself in the page the pane narrowed -- on either side
+load(HK_ROOT + '/frontend/modules/hk-sidepane.js');
+(function () {
+  var gcs = globalThis.getComputedStyle;
+  globalThis.getComputedStyle = function () { return { paddingLeft: '0px', paddingRight: '0px' }; };
+  var v = new View();
+  v.setConfig({ grid: { cols: 3, rows: 3, band: false, grow: true }, cards: [{ hk_cell: { id: 's1', size: 'L', at: [0, 0] } }] });
+  v.cards = [kid('s')];
+  v.isConnected = true;
+  v._root.getBoundingClientRect = function () { return {}; };
+  var room = 820 - 84;                                  // a 1180 x 820 tablet, the tab bar's 84 taken
+  v.clientWidth = 1180; v.clientHeight = room;
+  v._measure();
+  var w = parseFloat(v._root.style.width), h = parseFloat(v._root.style.height), want = Math.round(w * room / h);
+  ok('the grid filling the height says the width it takes', v.paneRoom(room) === want, [v.paneRoom(room), want]);
+  var css = v._sr.children[0].textContent;
+  ok('...and a band under the page comes off its height', /--g-room:calc\(var\(--hk-bar-room,var\(--hk-tabbar-h,0px\)\) \+ var\(--hk-pane-b,0px\)\)/.test(css));
+  var X = window.hkSidePane._;
+  // a square canvas (the 3 x 3 Square cells draw one): the pane takes the rest
+  v._root.style.width = '668.4px'; v._root.style.height = '668.4px';
+  var p = X.place(1180, 820, { width: 'standard', gridW: v.paneRoom(room) });
+  ok('...beside a 3 x 3 of square cells, the pane is 444', p.kind === 'side' && p.w === 444, p);
+  ['right', 'left'].forEach(function (side) {
+    // the page narrowed by the pane on its side (hk-menu.js margins): the grid's box is what is left
+    v.clientWidth = 1180 - p.w; v.clientHeight = room;
+    v._measure();
+    var left = parseFloat(v._root.style.left), sc = parseFloat(String(v._root.style.transform).replace('scale(', ''));
+    ok('...the pane on the ' + side + ': the grid fills the page beside it, edge to edge', Math.abs(left) < 1 &&
+       Math.abs(parseFloat(v._root.style.width) * sc - (1180 - p.w)) < 1.5, [left, sc]);
+  });
+  v._measure();
+  globalThis.getComputedStyle = gcs;
+})();
+
 // ---- the strategy
 function st(id, s, a) { return { entity_id: id, state: s, attributes: a || {} }; }
 var S = {};

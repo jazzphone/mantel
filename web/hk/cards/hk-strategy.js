@@ -2959,18 +2959,23 @@
       trigger: [{ condition: 'or', conditions: [].concat(
         withTimers ? [{ condition: 'numeric_state', entity: 'sensor.running_quick_timers', above: 0 }] : [],
         // (grace: the house's Hide After a Pause, read live -- hk-popup.js)
-        withMusic ? [{ condition: 'state', entity_from: { music: true }, state: 'playing', grace: 'now_playing' }] : []) }],
+        // ...while the Side Pane doesn't show it (2026-10-30, hk-sidepane.js
+        // says so with `hk-pane-music`)
+        withMusic ? [{ condition: 'and', conditions: [
+          { condition: 'state', entity_from: { music: true }, state: 'playing', grace: 'now_playing' },
+          { condition: 'not', conditions: [{ condition: 'flag', flag: 'hk-pane-music' }] }] }] : []) }],
       trigger_close: true,
       // NOW PLAYING'S PLACE (2026-10-15, the screen's Now Playing; hk-popup.js
-      // placeFor): a pane down one side -- the screensaver's music pane, the
-      // card after the player -- or this bar along the bottom or the top
-      // (top_vars: its inset at the top of the screen, not the bottom)
+      // placeFor): this bar along the bottom or the top (top_vars: its inset
+      // at the top of the screen, not the bottom). Its old side pane is the
+      // Side Pane's (2026-10-30): `pane` now says the bar holds the music the
+      // Side Pane may take over (hk-popup.js npin)
       pane: !!withMusic,
       top_vars: { 'hk-np-height': 'calc(104px + env(safe-area-inset-top, 0px))',
                   'hk-np-pad': 'calc(12px + env(safe-area-inset-top, 0px)) 24px 12px' },
       // the timers on the same plate, a slim row over the player (docked)
       cards: [].concat(withTimers ? [{ type: 'custom:hk-timer-strip-card', docked: true }] : [],
-                       withMusic ? [bar, { type: 'custom:hk-music-pane-card' }] : []) };
+                       withMusic ? [bar] : []) };
   }
 
   // REBUILT WHEN ITS SETTINGS CHANGE. A strategy builds the dashboard once,

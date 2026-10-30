@@ -1763,7 +1763,7 @@
       // Cards and swipe tracks clip their own content; the grid clips its
       // outer boundary. Shadows can extend between the cells.
       st.textContent =
-        ':host{--g-room:var(--hk-bar-room,var(--hk-tabbar-h,0px));display:block;position:relative;' +
+        ':host{--g-room:calc(var(--hk-bar-room,var(--hk-tabbar-h,0px)) + var(--hk-pane-b,0px));display:block;position:relative;' +
         'height:calc(100dvh - var(--g-room));max-height:calc(100dvh - var(--g-room));overflow:hidden;' +
         // (clear of a side safe area, as every view: hk-grid-view; _measure fits the grid between)
         'container-type:size;box-sizing:border-box;padding-left:' + SAFE_PAD_L + ';padding-right:' + SAFE_PAD_R + '}' +
@@ -2002,6 +2002,23 @@
       if (this._dots && g.views > 1) this._dots.style.top = Math.round(parseFloat(root.style.top) + (h - pad / 2) * scale - 9) + 'px';
       root.style.setProperty('--hk-cell-w', C.TILE.w + 'px');
       root.style.setProperty('--hk-cell-h', C.TILE.tall + 'px');
+    }
+
+    // BESIDE THE SIDE PANE (2026-10-30, hk-sidepane.js): the width the grid
+    // takes when it fills a height `H` (the screen's, less the tab bar's
+    // room) -- its own canvas scaled as _measure scales it, and its side
+    // paddings -- so the pane can take what it leaves (444 px beside a 3 x 3
+    // on a 1180 x 820 tablet). The pane then narrows the page (hk-menu.js),
+    // and the grid lays itself in what is left, on either side, as ever.
+    paneRoom(H) {
+      // (the canvas _measure last laid out, whatever its cells' shape)
+      var g = this._grid(), rs = this._root && this._root.style;
+      var w = rs ? parseFloat(rs.width) : 0, h = rs ? parseFloat(rs.height) : 0;
+      if (!(w > 0 && h > 0 && H > 0)) return 0;
+      var scale = Math.min(g.grow ? Infinity : 1, H / h) * g.scale / 100;
+      var cs = typeof getComputedStyle === 'function' ? getComputedStyle(this) : null;
+      var side = cs ? (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) : 0;
+      return Math.round(w * scale + side);
     }
 
     connectedCallback() {

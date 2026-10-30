@@ -136,6 +136,9 @@
     '.hkp.side .sheet{opacity:1;transition:transform .34s cubic-bezier(.32,.72,0,1)}',
     '.hkp.side .sheet>hk-now-playing-card{display:none}',
     '.hkp:not(.side) .sheet>hk-music-pane-card{display:none}',
+    // ...THE MUSIC IN THE SIDE PANE (2026-10-30, hk-sidepane.js: it says so
+    // with `hk-pane-music` on <html>): the bar keeps only the timers
+    '.hkp.npin .sheet>hk-now-playing-card{display:none}',
     '.hkp.side .sheet>hk-music-pane-card{flex:1 1 auto;min-height:0}',
     // THE BAR ALONG THE TOP (Bar Position: Top): the docked bar's mirror --
     // the screen's top edge, its hairline and shadow down onto the page,
@@ -675,13 +678,15 @@
     var W = window.innerWidth || 0, H = window.innerHeight || 0;
     return W > H && H >= 480 && W - menuRight() - w >= PANE_PAGE_MIN;
   }
+  // NOW PLAYING'S PANE IS THE SIDE PANE'S (2026-10-30, hk-sidepane.js;
+  // Show As: Side Pane moved into it once, hk_core side_pane_lifted): here,
+  // always the bar -- the music it holds stepping aside while the Side Pane
+  // shows it (`hk-pane-music`, the `npin` class). (`music` kept for the
+  // pane's old callers.)
   function placeFor(cfg, music) {
     var Mn = window.hkCards && window.hkCards.menu, np = Mn && Mn.nowPlaying ? Mn.nowPlaying() : null;
+    void music;
     if (!np || !cfg || !cfg.dock) return { kind: 'bar', bar: 'bottom' };
-    if (cfg.pane && music && np.style === 'pane') {
-      var w = paneWidth();
-      if (paneFits(w)) return { kind: 'pane', side: np.side, w: w };
-    }
     return { kind: 'bar', bar: np.bar };
   }
   // is there music for a pane (hk-saver.js: what plays, or is paused, that
@@ -930,7 +935,7 @@
         // music (`entity_from: {music: true}`): tapping another context on the
         // Play Music page must move the bar with it, and nothing in the states moved.
         if (!this._onFlags) {
-          this._onFlags = function () { if (self.client) self._evalTrigger(); };
+          this._onFlags = function () { if (self.client) self._evalTrigger(); if (self._open) { self._placeSig = null; self._place(); } };
           window.addEventListener('hk-popup-flags', this._onFlags);
         }
         if (!this._musicOff && window.hkMusic) {
@@ -1445,6 +1450,8 @@
           if (has) this._graceT = setTimeout(function () { self._place(); }, gms - (now - since) + 50);
         }
         var p = placeFor(cfg, has);
+        var de = document.documentElement, inPane = !!(cfg.pane && de && de.hasAttribute && de.hasAttribute('hk-pane-music'));
+        el.classList.toggle('npin', inPane);
         var sig = p.kind + ':' + (p.side || p.bar) + ':' + (p.w || 0);
         if (sig === this._placeSig) return;
         this._placeSig = sig;
