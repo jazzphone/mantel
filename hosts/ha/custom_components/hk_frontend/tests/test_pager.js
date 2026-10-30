@@ -219,8 +219,8 @@ print('\n=== the tab bar, and DESIGN.md ===');
 var View = customElements.get('hk-home-grid-view'), gv = new View();
 gv.setConfig({ grid: { cols: 6, rows: 4 }, cards: [] });
 var css = gv._sr.children[0].textContent;
-ok('the grid is the window less the tab bar\'s room (--hk-bar-room, else --hk-tabbar-h)',
-   css.indexOf('--g-room:var(--hk-bar-room,var(--hk-tabbar-h,0px))') >= 0 && css.indexOf('height:calc(100dvh - var(--g-room))') >= 0 &&
+ok('the grid is the window less the tab bar\'s room (--hk-bar-room, else --hk-tabbar-h) and a Side Pane band\'s',
+   css.indexOf('--g-room:calc(var(--hk-bar-room,var(--hk-tabbar-h,0px)) + var(--hk-pane-b,0px))') >= 0 && css.indexOf('height:calc(100dvh - var(--g-room))') >= 0 &&
    css.indexOf('height:100dvh') < 0);
 ok('cells keep shadows and shared backdrop access without a clip-path root', /\.cell\{[^}]*overflow:visible/.test(css) &&
    !/\.cell\{[^}]*clip-path/.test(css));

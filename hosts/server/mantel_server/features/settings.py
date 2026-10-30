@@ -54,6 +54,8 @@ ROUTE_RULES: dict[str, str] = {
     "mantel/clean_areas/coverage": "signed in",
     "hk_clean_areas/subscribe": "signed in; {configured, areas} from hk_core clean_areas over MantelHouse; an area "
                                 "is offered only through a vacuum the subject may view; carries nothing",
+    "hk_frontend/todo/items": "signed in; hk_core todo over MantelHouse: todo.get_items through the gateway as the "
+                              "person (RBAC on the list, audited); commands off: nothing sent, `refused`",
 }
 # a tablet's four linked entities: key -> (platform, icon), as hk_frontend makes them
 TABLET_ENTITIES = {SS.BLACK_KEY: ("switch", "mdi:monitor-off"), SS.SWITCH_KEY: ("switch", "mdi:image-multiple"),

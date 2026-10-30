@@ -265,6 +265,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     panel.register_commands(hass)
     from . import screensaver
     screensaver.register_commands(hass)
+    # the Side Pane's To-do lists (todo_lists.py; hk_core/todo.py)
+    from . import todo_lists
+    todo_lists.register_commands(hass)
     # THE PAGE HEADERS' server side (page_headers.py): Tonight's lighting
     # schedule, worked out from the automations, which only an admin may read
     from . import page_headers
@@ -630,7 +633,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Every entry is version 1.17; one from a later major version is refused
+    """Every entry is version 1.18; one from a later major version is refused
     rather than guessed at. An older minor version is marked 7 (the versions
     that made such entries already moved their data), then 7 -> 8 moves the
     screens' room settings to All Screens (settings.rooms_lifted), 8 -> 9
@@ -644,7 +647,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     differs from the defaults (settings.settings_trimmed), 15 -> 16 moves
     the Weather page to HK's own radar (settings.radar_lifted), and 16 -> 17
     has each screen's menu follow All Screens one setting at a time
-    (settings.menu_per_setting)."""
+    (settings.menu_per_setting), and 17 -> 18 moves the screensaver's pane
+    and Now Playing's into the Side Pane (settings.side_pane_lifted)."""
     if entry.version > 1:
         return False
     if entry.minor_version < 7:
@@ -781,6 +785,20 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 if data != dict(subs[p].data):
                     hass.config_entries.async_update_subentry(entry, subs[p], data=data)
         hass.config_entries.async_update_entry(entry, minor_version=17)
+    if entry.minor_version < 18:
+        # the screensaver's pane and Now Playing's become the Side Pane's
+        # groups, so every screen looks as it did (settings.side_pane_lifted);
+        # the older keys stay for one release
+        if F.kind_of(entry) == F.FRONTEND:
+            subs = {s.unique_id: s for s in entry.subentries.values()
+                    if s.subentry_type == dash_settings.SUBENTRY_DASHBOARD and s.unique_id}
+            options, items = dash_settings.side_pane_lifted(entry.options, {p: dict(s.data) for p, s in subs.items()})
+            for p, data in items.items():
+                if data != dict(subs[p].data):
+                    hass.config_entries.async_update_subentry(entry, subs[p], data=data)
+            if options is not None:
+                hass.config_entries.async_update_entry(entry, options=options)
+        hass.config_entries.async_update_entry(entry, minor_version=18)
     return True
 
 

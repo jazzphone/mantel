@@ -9,7 +9,8 @@ Assistant's through ``hosts/ha/.../house.py`` (``HaHouse``, the model followed h
   ``Floor``), so feature code never holds or changes the hub's data.
 * **local_time** is in the house's time zone: HA's ``get_config`` zone once read (``Authz.tz``),
   ``cfg.house_tz`` until then (the caller passes the zone as a callable).
-* **call_service** never talks to Home Assistant itself: it hands the call to ``caller`` -- in the
+* **call_service** (and **service_response**, a call that answers: ``todo.get_items``) never talks to Home
+  Assistant itself: it hands the call to ``caller`` -- in the
   server, ``features.FeatureCaller``, which sends it THROUGH THE COMMAND GATEWAY (RBAC, the audit
   row first, ``cfg.commands_enabled``), as the server's own Service actor or, when ``context`` is a
   person's ``Principal``, as that person. With no caller (or commands off) it raises
@@ -186,3 +187,13 @@ class MantelHouse:
         if self.caller is None:
             raise HouseCommandsDisabled()
         await self.caller(domain, service, dict(data), context)
+
+    async def service_response(self, domain: str, service: str, data: Mapping[str, Any],
+                               *, context: Any = None) -> Mapping[str, Any]:
+        """A service that answers (``todo.get_items``), through the same caller as any call -- the command
+        gateway, audited, as the person in ``context`` -- with the answer asked for (``return_response``)."""
+        if self.caller is None:
+            raise HouseCommandsDisabled()
+        got = await self.caller(domain, service, dict(data), context, response=True)
+        resp = got.get("response") if isinstance(got, Mapping) else None
+        return dict(resp) if isinstance(resp, Mapping) else {}

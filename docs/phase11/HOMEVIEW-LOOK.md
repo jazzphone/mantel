@@ -982,3 +982,26 @@ file** (u2netp.onnx and its SHA-256 in `cutout.MODEL_SHA256`; not downloaded), t
 cost measured on the house's photos and machine; the Day face's art for Thanksgiving and the July 4th/Valentine's
 frames as sprites of their own; Phase F's Analog Numbers face is another branch's -- Glance uses it once it is there
 (the analog face until then); the Side Pane beside the faces is Phase A2's (the faces read their box, not the window).
+
+**2026-10-30, Phase A2, the Side Pane (branch `homeview-pane`).** Built: All Screens' `side_pane` and a screen's
+sparse own one in `hk_core/settings/model.py` (each group resolving on its own; every screen handed
+`side_pane_read`), the writes checked in `changes.py` (eight sections, one Full), the once-only move of the
+screensaver's Calendar / Music pane and Now Playing's Show As: Side Pane (`side_pane_lifted`: Home Assistant's entry
+1.18, Mantel's start-up, which also sets the older keys back); To-do lists through the `House` port
+(`hk_core/todo.py`, `service_response`: HA's own `todo.get_items` as `hk_frontend/todo/items`, Mantel's gateway as
+the person; check-off is the page's `todo.update_item`, a command like any other); `web/hk/modules/hk-sidepane.js`
+(the twelve sections at four sizes, When There's Something, the doorbell, the fit that never scrolls, the room it
+takes; a band upright, never on a phone); the screensaver's pane reading its group on its Pane Side (the older
+calendar-and-music shape drawn as before); Now Playing's pane retired into it (the bar gives the music up while the
+pane shows it); the Home Grid beside it (`paneRoom`, the band off its height); HK Settings → Side Pane for All
+Screens and each screen, and links from Screensaver Options, Now Playing's Show As and the Home Grid editor.
+Checks: `tests/test_hk_core_side_pane.py` and `test_hk_core_todo.py` (pass); jsc `test_sidepane`, `test_homegrid`,
+`test_settingsmodel`, `test_saver`, `test_strategy`, `test_pager` and the whole JS suite (pass); HK Frontend's
+Python suites (pass); `tools/headless/side_pane_check.py` (new, ci `side-pane-check`) in WebKit at 1180 × 820,
+820 × 1180 and 390 × 844 (pass); `grid_blocks_check`, `grid_music_turn_check`, `side_strip_check`,
+`client_smoke`, `settings_viewports` (pass); `tools/ci.py quick` (pass). Left: the "Home with Pane" starter (the
+integrator, after square cells); beside 3 × 3 square cells the 444 px width is computed from the grid's measured
+canvas but only seen with today's 196 × 150 cells here; headless WebKit draws no backdrop blur, so the pane's glass
+was judged opaque; on a portrait Home Grid the band may cover a few px of the last row (the tab bar's room and the
+band's bottom are measured from two variables); notifications are those this page has shown since it loaded; the
+Energy section reads the house's power sensor (solar and battery by name), not yet the Energy feature's plan.

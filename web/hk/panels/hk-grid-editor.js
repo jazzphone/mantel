@@ -1180,6 +1180,9 @@
         nightRows.push(K.text({ label: 'Until', type: 'time', value: night.to, onCommit: (v) => { if (/^\d\d:\d\d$/.test(v) && v !== night.from) putNight({ to: v }); else this.side(); } }));
       }
       add(K.group({ header: 'Night', footer: 'Everything on the screen one dim red, on black, while Home shows: for a bedroom or a nightstand.' }, nightRows));
+      // THE SIDE PANE (2026-10-30): the screen's own page; the grid lays itself beside it
+      if (this.panel.paneLink) add(K.group({ header: 'Side Pane', footer: 'A pane of sections beside Home (or every page): the grid lays itself in what it leaves. Save this layout first.' },
+        [this.panel.paneLink(this.o.path, 'dash', 'grid:side_pane')]));
       add(K.group({ header: 'Header' }, [
         K.toggle({ label: 'Top Band', sub: 'The clock, weather and status chips', on: this.grid.band, onChange: (v) => config('band', v) }),
         K.toggle({ label: 'Clock', on: this.grid.header_clock !== false, disabled: !this.grid.band, onChange: (v) => config('header_clock', v) }),

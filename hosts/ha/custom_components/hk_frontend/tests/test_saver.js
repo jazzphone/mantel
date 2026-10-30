@@ -150,6 +150,25 @@ ok('the music: off by default, on only when asked', d.music_slide === false && d
    U.readCfg({ music_slide: true, music_pane: true }).music_slide === true && U.readCfg({ music_pane: 'yes' }).music_pane === false);
 ok('the pane is up for the calendar, the music, or both', !U.paneOf(d) && U.paneOf({ calendar: true }) && U.paneOf({ music_pane: true }) &&
    U.paneOf({ calendar: true, music_pane: true }) && !U.paneOf(null));
+// THE SIDE PANE'S SCREENSAVER GROUP (2026-10-30, hk-sidepane.js): the pane
+// reads the screen's side_pane_read; the older shape is drawn as it was
+var SPX = function (saver, side, dash) {
+  return { side: side || 'right', dashboard: dash || { show: 'off', sections: [] }, saver: saver };
+};
+var older = U.withPane({ calendar: false, music_pane: false }, SPX({ show: 'own', sections: [{ kind: 'calendar', days: 4 }, { kind: 'now_playing', when: 'active' }] }));
+ok('the Side Pane: the calendar above, the music below -- the pane as it was', older.calendar === true && older.calendar_days === 4 &&
+   older.music_pane === true && older.pane_list === null && older.pane_side === 'right');
+var c2 = U.readCfg(older);
+ok('...read so (and Pane Side right)', c2.calendar && c2.music_pane && c2.calendar_days === 4 && c2.pane_side === 'right' && c2.pane_list === null && U.paneOf(c2));
+var own = U.withPane({ calendar: true, music_pane: true }, SPX({ show: 'own', sections: [{ kind: 'clock', size: 'tiny' }, { kind: 'calendar' }] }, 'left'));
+ok('...any other sections: the Side Pane draws them, on its side; the older keys not read', own.calendar === false && own.music_pane === false &&
+   JSON.stringify(own.pane_list) === '[{"kind":"clock","size":"tiny"},{"kind":"calendar"}]' && own.pane_side === 'left' && U.paneOf(U.readCfg(own)));
+var same = U.withPane({}, SPX({ show: 'same', sections: [] }, 'right', { show: 'all', sections: [{ kind: 'now_playing', when: 'active' }] }));
+ok('...Same as the Dashboard: Now Playing\'s old pane is the music in the pane', same.music_pane === true && same.calendar === false);
+var off = U.withPane({ calendar: true }, SPX({ show: 'off', sections: [{ kind: 'clock' }] }));
+ok('...Off: no pane at all', !U.paneOf(U.readCfg(off)));
+var older2 = { calendar: true, music_pane: false };
+ok('...no Side Pane in the settings (an older server): the screensaver\'s own keys, as before', U.withPane(older2, null) === older2);
 ok('a slide among the photos: the forecast (Photos & Forecast)', U.slideOf({ show: 'both' }, false, '') === 'forecast' &&
    U.slideOf({ show: 'both' }, true, '') === 'forecast');
 ok('...the music only while it plays', U.slideOf({ show: 'photos', music_slide: true }, true, '') === 'music' &&

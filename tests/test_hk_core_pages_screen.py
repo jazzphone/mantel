@@ -87,3 +87,9 @@ def test_widgets_are_the_side_panes_sections():
     pane = getattr(S, "PANE_SECTIONS", None)
     if pane is not None:
         assert tuple(pane) == S.PAGES_SCREEN_WIDGETS
+
+
+def test_the_widgets_are_the_side_panes_sections():
+    """The Pages screen's widgets are drawn by the Side Pane (hkSidePane.section): the same kinds, by the same names."""
+    from hk_core.settings import model as M
+    assert set(M.PAGES_SCREEN_WIDGETS) == set(M.PANE_SECTIONS)

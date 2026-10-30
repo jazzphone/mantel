@@ -207,6 +207,12 @@
     // over it): a side pane or the bar on tablets & computers, the bar's
     // place there and on phones (hk-base.js nowPlaying)
     now_playing: { style: 'bar', side: 'right', bar: 'bottom', bar_phone: 'bottom', grace: 30 },
+    // THE SIDE PANE (2026-10-30; settings.py side_pane, hk-sidepane.js):
+    // where it goes, the Dashboard's and the screensaver's sections, the doorbell
+    side_pane: { side: 'right', width: 'standard',
+                 dashboard: { show: 'off', sections: [{ kind: 'weather' }, { kind: 'calendar' }, { kind: 'now_playing', when: 'active' }] },
+                 saver: { show: 'off', sections: [{ kind: 'clock', size: 'tiny' }, { kind: 'calendar' }, { kind: 'now_playing', size: 'less', when: 'active' }] },
+                 doorbell: true },
     // Browse Music (HK Settings -> Features -> Music). The Discover rows arrive as
     // the queries themselves (settings.py discover_rows); these are its
     // default five.

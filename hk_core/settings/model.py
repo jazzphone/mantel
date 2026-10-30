@@ -1333,7 +1333,7 @@ PAGES_SCREEN_ROOMS = ("folder", "each", "none")
 PAGES_SCREEN_PILL = ("auto", "on", "off")
 # the Side Pane's twelve sections (Phase A2's PANE_SECTIONS, in its order): one list once both are in
 PAGES_SCREEN_WIDGETS = ("clock", "weather", "calendar", "now_playing", "security", "camera", "timers", "energy",
-                        "climate", "whos_home", "todo", "notifications")
+                        "climate", "people", "todo", "notifications")
 PAGES_SCREEN_SIZES = ("less", "more")
 PAGES_SCREEN_PLACES = ("right", "left")
 PAGES_SCREEN_WIDGETS_MAX = 4
@@ -1468,6 +1468,8 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     wx["radar_native"] = radar_native(wx.get("radar_native"), strict=False)
     # the Pages screen, over its defaults (pages_screen() above)
     out["pages_screen"] = pages_screen(out.get("pages_screen"))
+    # the Side Pane, each group over its default
+    out["side_pane"] = side_pane(out.get("side_pane")) or copy.deepcopy(SIDE_PANE_DEFAULTS)
     return out
 
 
@@ -1779,6 +1781,295 @@ def as_client(stored: Stored | None,
         for kind, (section, key) in kinds.LEGACY.items():
             out[section][key] = list(found.get(kind) or [])
     return out
+
+
+# ------------------------------------------------------------ the side pane
+# THE SIDE PANE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md "Phase A2"): one
+# pane per screen, of sections the person picks and orders, beside the
+# Dashboard (Home only, or every page) and in the screensaver
+# (hk-sidepane.js draws it). All Screens' is the house section `side_pane`;
+# a screen's own is a sparse object of the same groups (`side_pane`, None:
+# Same as All Screens), each group resolving on its own: the screen's, else
+# All Screens'. It takes over the screensaver's Calendar / Music pane
+# (look.saver's calendar, calendar_days, music_pane) and Now Playing's Show
+# As: Side Pane (now_playing.style / .side, a screen's np_style / np_side),
+# moved over once by side_pane_lifted.
+PANE_SECTIONS = ("clock", "weather", "calendar", "now_playing", "security", "camera", "timers", "energy",
+                 "climate", "people", "todo", "notifications")
+# a section's Size: one line, the gist, the whole section, and the whole
+# section taking the room the pane has left (one Full at a time); absent is More
+PANE_SIZES = ("tiny", "less", "more", "full")
+# Always, or When There's Something (music playing, a timer running, ...);
+# absent is Always
+PANE_WHEN = ("always", "active")
+PANE_SIDES = ("right", "left")
+PANE_WIDTHS = {"narrow": 360, "standard": 400, "wide": 480}
+# On the Dashboard: Off, Home Only, Every Page; in the screensaver: Off,
+# Same as the Dashboard's sections, Its Own Sections
+PANE_SHOWS = ("off", "home", "all")
+PANE_SAVER_SHOWS = ("off", "same", "own")
+PANE_MAX = 8
+PANE_GROUPS = ("side", "width", "dashboard", "saver", "doorbell")
+# each kind's own options: the calendar's days (1-7), the camera's and the
+# to-do list's entity, the to-do list's Show Completed
+PANE_OPTIONS: dict[str, dict[str, Any]] = {"calendar": {"days": SAVER_CAL_DAYS}, "camera": {"entity": "camera"},
+                                           "todo": {"entity": "todo", "completed": bool}}
+SIDE_PANE_DEFAULTS: dict[str, Any] = {
+    "side": "right", "width": "standard",
+    "dashboard": {"show": "off", "sections": [{"kind": "weather"}, {"kind": "calendar"},
+                                              {"kind": "now_playing", "when": "active"}]},
+    "saver": {"show": "off", "sections": [{"kind": "clock", "size": "tiny"}, {"kind": "calendar"},
+                                          {"kind": "now_playing", "size": "less", "when": "active"}]},
+    "doorbell": True,
+}
+DEFAULTS["side_pane"] = copy.deepcopy(SIDE_PANE_DEFAULTS)
+
+
+def pane_section(v: Any, strict: bool = False) -> dict[str, Any] | None:
+    """One section, as stored: {kind, size, when, its options}, with size More
+    and when Always left out (they are what absent means). None when it is not
+    a section; strict, also when any key or value is one it can't use (the
+    form says so), where the tolerant read leaves that key out."""
+    if not isinstance(v, Mapping) or v.get("kind") not in PANE_SECTIONS:
+        return None
+    kind = v["kind"]
+    opts = PANE_OPTIONS.get(kind, {})
+    out: dict[str, Any] = {"kind": kind}
+    for k, val in v.items():
+        if k == "kind":
+            continue
+        if k == "size" and val in PANE_SIZES:
+            if val != "more":
+                out["size"] = val
+        elif k == "when" and val in PANE_WHEN:
+            if val != "always":
+                out["when"] = val
+        elif k in opts and opts[k] is bool and isinstance(val, bool):
+            if val:
+                out[k] = True
+        elif k in opts and isinstance(opts[k], tuple) and _whole(val, *opts[k]) is not None:
+            out[k] = _whole(val, *opts[k])
+        elif k in opts and isinstance(opts[k], str) and isinstance(val, str) \
+                and ENTITY_ID.match(val) and val.startswith(opts[k] + "."):
+            out[k] = val
+        elif strict:
+            return None
+    return out
+
+
+def pane_sections(v: Any, strict: bool = False) -> list[dict[str, Any]] | None:
+    """A group's sections, in order: at most PANE_MAX, one Full at most, no
+    section twice (the same kind and entity). Strict, any of that is None;
+    read tolerantly, a section it can't use is left out, a second Full is
+    More and the list is cut at PANE_MAX."""
+    if not isinstance(v, list):
+        return None
+    out: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    full = False
+    for x in v:
+        s = pane_section(x, strict)
+        key = (s["kind"], s.get("entity", "")) if s else None
+        if s is None or key in seen:
+            if strict:
+                return None
+            continue
+        if s.get("size") == "full":
+            if full:
+                if strict:
+                    return None
+                s.pop("size")
+            full = True
+        seen.add(key)
+        out.append(s)
+    if len(out) > PANE_MAX:
+        if strict:
+            return None
+        out = out[:PANE_MAX]
+    return out
+
+
+def pane_group(name: str, v: Any, strict: bool = False) -> Any:
+    """One group's value (PANE_GROUPS), checked; None when it can't be used.
+    A Dashboard or Screensaver group is whole: what it shows and its
+    sections, a missing one (tolerantly) the default's."""
+    if name == "side":
+        return v if v in PANE_SIDES else None
+    if name == "width":
+        return v if v in PANE_WIDTHS else None
+    if name == "doorbell":
+        return v if isinstance(v, bool) else None
+    if name not in ("dashboard", "saver") or not isinstance(v, Mapping):
+        return None
+    shows = PANE_SHOWS if name == "dashboard" else PANE_SAVER_SHOWS
+    if strict and (set(v) - {"show", "sections"} or "show" not in v or "sections" not in v):
+        return None
+    show = v.get("show") if v.get("show") in shows else (None if strict else SIDE_PANE_DEFAULTS[name]["show"])
+    secs = pane_sections(v.get("sections"), strict) if "sections" in v else None
+    if secs is None and not strict:
+        secs = copy.deepcopy(SIDE_PANE_DEFAULTS[name]["sections"])
+    if show is None or secs is None:
+        return None
+    return {"show": show, "sections": secs}
+
+
+def side_pane(v: Any, strict: bool = False) -> dict[str, Any] | None:
+    """All Screens' Side Pane, every group there (the defaults' where one is
+    missing); strict, None when anything is one it can't use."""
+    if not isinstance(v, Mapping) or (strict and set(v) - set(PANE_GROUPS)):
+        return None
+    out = copy.deepcopy(SIDE_PANE_DEFAULTS)
+    for g in PANE_GROUPS:
+        if g in v:
+            got = pane_group(g, v[g], strict)
+            if got is None and strict:
+                return None
+            if got is not None:
+                out[g] = got
+    return out
+
+
+def side_pane_own(v: Any, strict: bool = False) -> dict[str, Any] | None:
+    """A screen's own Side Pane: only the groups it sets, each checked; None
+    (Same as All Screens in everything) when it sets none. Strict, an empty
+    object is None as well, and anything it can't use is refused (raises
+    ValueError)."""
+    if v is None:
+        return None
+    if not isinstance(v, Mapping) or (strict and set(v) - set(PANE_GROUPS)):
+        if strict:
+            raise ValueError("side_pane")
+        return None
+    out = {}
+    for g in PANE_GROUPS:
+        if g in v and v[g] is not None:
+            got = pane_group(g, v[g], strict)
+            if got is None:
+                if strict:
+                    raise ValueError("side_pane")
+                continue
+            out[g] = got
+    return out or None
+
+
+def pane_resolved(house: Mapping[str, Any] | None, own: Mapping[str, Any] | None) -> dict[str, Any]:
+    """A screen's Side Pane as read: each group its own when it sets it, else
+    All Screens'. `own` (the groups it sets, in PANE_GROUPS order) says which,
+    for the settings page's "Just This Screen"."""
+    h = side_pane(house) or copy.deepcopy(SIDE_PANE_DEFAULTS)
+    mine = own or {}
+    out = {g: copy.deepcopy(mine[g] if g in mine else h[g]) for g in PANE_GROUPS}
+    out["own"] = [g for g in PANE_GROUPS if g in mine]
+    return out
+
+
+def _saver_pane(saver: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """The screensaver's pane before the Side Pane (look.saver or a screen's
+    own options): the calendar's events above, the music below while it
+    plays -- as a Screensaver group; None when it had none."""
+    s = saver or {}
+    secs: list[dict[str, Any]] = []
+    if s.get("calendar") is True:
+        days = _whole(s.get("calendar_days"), *SAVER_CAL_DAYS) or SAVER_DEFAULTS["calendar_days"]
+        secs.append({"kind": "calendar", "days": days})
+    if s.get("music_pane") is True:
+        secs.append({"kind": "now_playing", "when": "active"})
+    return {"show": "own", "sections": secs} if secs else None
+
+
+# a Dashboard group that is Now Playing's pane: the music, while it plays, on every page
+NP_PANE = {"show": "all", "sections": [{"kind": "now_playing", "when": "active"}]}
+_PANE_OLD_SAVER = ("calendar", "calendar_days", "music_pane")
+_PANE_OLD_BOARD = ("np_style", "np_side")
+
+
+def side_pane_lifted(options: Mapping[str, Any] | None, items: Mapping[str, Mapping[str, Any]],
+                     clear: bool = False) -> tuple[dict[str, Any] | None, dict[str, dict[str, Any]]]:
+    """THE SIDE PANE TAKES OVER (entry 1.18, 2026-10-30): the screensaver's
+    pane and Now Playing's become Side Pane groups, so every screen looks as it
+    did. All Screens': the screensaver's Calendar / Music (look.saver) its own
+    sections in the screensaver -- the calendar (its days), then Now Playing
+    when there's something; Now Playing's Show As: Side Pane the music, when
+    there's something, on every page, on its Pane Side. A screen whose own
+    screensaver options or Now Playing differ gets those groups of its own;
+    one that showed the same follows All Screens. (One Pane Side for both now:
+    where a screen had the music's pane on the left and the screensaver's on
+    the right, the music's side is kept.) The older keys stay as they were for
+    one release, read by nothing new; `clear` (Mantel, whose page and server
+    are one release) also sets them back. A house already moved (a stored
+    side_pane) and a screen already moved are left alone. Returns (new options
+    or None: unchanged, {path: new item data})."""
+    stored = dict((options or {}).get(CONF_DASHBOARD) or {})
+    m = merged(options)
+    new_options = None
+    if "side_pane" in stored:
+        house = side_pane(stored["side_pane"]) or copy.deepcopy(SIDE_PANE_DEFAULTS)
+    else:
+        house = copy.deepcopy(SIDE_PANE_DEFAULTS)
+        sv = _saver_pane(m["look"]["saver"])
+        if sv:
+            house["saver"] = sv
+        if m["now_playing"]["style"] == "pane":
+            house["dashboard"] = copy.deepcopy(NP_PANE)
+            house["side"] = m["now_playing"]["side"]
+        if house != SIDE_PANE_DEFAULTS:
+            stored["side_pane"] = house_stored("side_pane", house)
+            new_options = {**(options or {}), CONF_DASHBOARD: stored}
+    np = m["now_playing"]
+    out: dict[str, dict[str, Any]] = {}
+    for p, d in items.items():
+        data = dict(d)
+        if "side_pane" in data:
+            out[p] = data
+            continue
+        b = board(data)
+        own: dict[str, Any] = {}
+        mine = b.get("screensaver_options")
+        saver = house["saver"]
+        if isinstance(mine, dict):
+            sv = _saver_pane(mine) or {"show": "off", "sections": copy.deepcopy(SIDE_PANE_DEFAULTS["saver"]["sections"])}
+            if sv != house["saver"]:
+                own["saver"] = saver = sv
+        style = b.get("np_style") or np["style"]
+        if b.get("np_style"):
+            dash = copy.deepcopy(NP_PANE) if style == "pane" else \
+                {"show": "off", "sections": copy.deepcopy(SIDE_PANE_DEFAULTS["dashboard"]["sections"])}
+            if dash != house["dashboard"]:
+                own["dashboard"] = dash
+        # its side: the music's pane's, where it had one; else the right, the
+        # screensaver's pane's only side, where it has one of those
+        side = (b.get("np_side") or np["side"]) if style == "pane" else "right" if saver["show"] != "off" else None
+        if side and side != house["side"]:
+            own["side"] = side
+        if own:
+            data["side_pane"] = own
+        if clear:
+            for k in _PANE_OLD_BOARD:
+                data.pop(k, None)
+            so = data.get("screensaver_options")
+            if isinstance(so, dict) and any(k in so for k in _PANE_OLD_SAVER):
+                data["screensaver_options"] = {k: v for k, v in so.items() if k not in _PANE_OLD_SAVER}
+        out[p] = data
+    if clear:
+        st = dict((new_options or options or {}).get(CONF_DASHBOARD) or {})
+        changed = False
+        lk = dict(st.get("look") or {})
+        if isinstance(lk.get("saver"), dict) and any(k in lk["saver"] for k in _PANE_OLD_SAVER):
+            lk["saver"] = {k: v for k, v in lk["saver"].items() if k not in _PANE_OLD_SAVER}
+            if not lk["saver"]:
+                lk.pop("saver")
+            st["look"], changed = lk, True
+            if not lk:
+                st.pop("look")
+        npo = dict(st.get("now_playing") or {})
+        if any(k in npo for k in ("style", "side")):
+            st["now_playing"] = {k: v for k, v in npo.items() if k not in ("style", "side")}
+            if not st["now_playing"]:
+                st.pop("now_playing")
+            changed = True
+        if changed:
+            new_options = {**(new_options or options or {}), CONF_DASHBOARD: st}
+    return new_options, out
 
 
 # ------------------------------------------------------------ the dashboards
@@ -2108,6 +2399,10 @@ BOARD_DEFAULTS: dict[str, Any] = {
     "home_style": "generated", "home_grid": None}
 # THE PAGES SCREEN, a screen's own (pages_screen_own: only the fields it sets); None is Same as All Screens
 BOARD_DEFAULTS["pages_screen"] = None
+# THE SIDE PANE, this screen's own groups (side_pane_own; None: Same as All
+# Screens in everything -- settings `side_pane`, each group filled in by
+# resolved())
+BOARD_DEFAULTS["side_pane"] = None
 # A CAR'S BROWSER (a screen's car_layout / car_width): which Home it
 # generates there -- the whole one, or the car's own (the weather and the
 # house's status in a line, the chips, Scenes, Security and Favorites: no clock, the car
@@ -2331,6 +2626,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["camera_live"] = live if re.fullmatch(r"(input_select|select)\.[a-z0-9_]+", live) else ""
     # THE PAGES SCREEN, this screen's own fields (pages_screen_own); none: Same as All Screens
     out["pages_screen"] = pages_screen_own(d.get("pages_screen")) or None
+    out["side_pane"] = side_pane_own(d.get("side_pane"))
     return out
 
 
@@ -2665,7 +2961,8 @@ def house_cameras(order: Any) -> list[str]:
 
 def resolved(b: Mapping[str, Any], options: Mapping[str, Any] | None,
              house: Mapping[str, Any] | None = None, rooms: Mapping[str, Any] | None = None,
-             menu: Mapping[str, Any] | None = None, cameras: list[str] | None = None) -> dict[str, Any]:
+             menu: Mapping[str, Any] | None = None, cameras: list[str] | None = None,
+             pane: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """A screen's settings as READ: a null screensaver_options filled in with
     All Screens' (`house`, or read from `options`), and `screensaver_house`
     saying which it is; its rooms, All Screens' (`rooms`, or read from
@@ -2696,6 +2993,10 @@ def resolved(b: Mapping[str, Any], options: Mapping[str, Any] | None,
     out.update({k: v for k, v in hm.items() if k not in own})
     if "menu" not in own and out.get("menu") in MENU_STYLES:
         out["menu"] = style
+    # THE SIDE PANE AS READ (side_pane_read): each group the screen's own or
+    # All Screens' (`pane`, or read from `options`), its `own` saying which;
+    # side_pane stays the screen's own, as stored
+    out["side_pane_read"] = pane_resolved(merged(options)["side_pane"] if pane is None else pane, b.get("side_pane"))
     return out
 
 
@@ -3027,7 +3328,7 @@ def boards(stored: Stored | None) -> dict[str, dict[str, Any]]:
     m = merged(stored.options if stored is not None else None)
     house, rooms, menu, cams = m["look"]["saver"], m["rooms"], m["menu"], m["cameras"]["order"]
     for sub in (stored.of(SUBENTRY_DASHBOARD) if stored is not None else ()):
-        out[sub.unique_id] = resolved(board(sub.data), None, house, rooms, menu, cams)
+        out[sub.unique_id] = resolved(board(sub.data), None, house, rooms, menu, cams, pane=m["side_pane"])
     on = tablets(stored)
     for path, b in out.items():
         mine = [tid for tid, t in on.items() if t["screen"] == path]

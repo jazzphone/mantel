@@ -106,7 +106,7 @@ async def test_an_entry_from_1_15_with_the_radar_card_keeps_a_radar(hass, base, 
     old.add_to_hass(hass)
     assert await hass.config_entries.async_setup(old.entry_id)
     await hass.async_block_till_done()
-    assert old.minor_version == 17
+    assert old.minor_version == 18
     w = S.merged(old.options)["weather"]
     assert w["radar_native"]["enabled"] is True and w["radar_native"]["provider"] == "noaa"
     assert w["radar_native"]["interactive"] is True
@@ -120,7 +120,7 @@ async def test_an_entry_from_1_15_without_the_card_stays_off(hass, base, tmp_pat
     old.add_to_hass(hass)
     assert await hass.config_entries.async_setup(old.entry_id)
     await hass.async_block_till_done()
-    assert old.minor_version == 17
+    assert old.minor_version == 18
     assert S.merged(old.options)["weather"]["radar_native"]["enabled"] is False
     assert "radar_native" not in old.options["dashboard"]["weather"]
 

@@ -179,6 +179,11 @@
       // the calendar pane down the right (1.4), and the days it lists
       calendar: raw.calendar === true,
       calendar_days: n(raw.calendar_days, 1, 7, 2),
+      // THE SIDE PANE (2026-10-30, withPane below): the pane's side, and the
+      // sections the Side Pane draws in it where they are not the older
+      // calendar-and-music shape
+      pane_side: raw.pane_side === 'left' ? 'left' : 'right',
+      pane_list: Array.isArray(raw.pane_list) && raw.pane_list.length ? raw.pane_list.slice(0, 8) : null,
       // WHAT PLAYS, BIG: a slide among the photos (with the forecast, they
       // take turns) or over the forecast while music plays; and the music
       // in the pane down the right (under the calendar when both are on)
@@ -232,7 +237,37 @@
     return !!(cfg.user && user && user === cfg.user);
   }
   // THE PANE down the right: the calendar, the music, or both
-  function paneOf(c) { return !!c && (c.calendar === true || c.music_pane === true); }
+  function paneOf(c) { return !!c && (c.calendar === true || c.music_pane === true || !!c.pane_list); }
+  // THE SIDE PANE'S SCREENSAVER GROUP (2026-10-30, hk-sidepane.js; the
+  // screen's side_pane_read, All Screens' for HK Settings' All Screens
+  // preview): its sections in the screensaver's pane, on its Pane Side.
+  // The pane it took over -- the calendar above, the music below while it
+  // plays (side_pane_lifted moved look.saver's calendar / music_pane into
+  // exactly that) -- is drawn as it always was; any other sections by the
+  // Side Pane, in the same place. No Side Pane in the settings (an older
+  // server): the screensaver's own calendar / music_pane, as before.
+  function paneSecs(sp) {
+    var g = (sp && sp.saver) || {};
+    if (g.show === 'same') return ((sp.dashboard || {}).sections) || [];
+    return g.show === 'own' && Array.isArray(g.sections) ? g.sections : [];
+  }
+  function olderPane(secs) {
+    var cal = null, mu = false, i = 0;
+    if (secs[i] && secs[i].kind === 'calendar' && !secs[i].size && !secs[i].when) cal = secs[i++];
+    if (secs[i] && secs[i].kind === 'now_playing' && !secs[i].size && secs[i].when === 'active') { mu = true; i++; }
+    return i === secs.length && (cal || mu) ? { calendar: !!cal, days: cal && cal.days, music: mu } : null;
+  }
+  function withPane(raw, sp) {
+    if (!raw || !sp) return raw;
+    var secs = paneSecs(sp), old = olderPane(secs);
+    var out = Object.assign({}, raw, { calendar: false, music_pane: false, pane_list: null,
+                                       pane_side: sp.side === 'left' ? 'left' : 'right' });
+    if (old) {
+      out.calendar = old.calendar; out.music_pane = old.music;
+      if (old.days) out.calendar_days = old.days;
+    } else if (secs.length) out.pane_list = secs;
+    return out;
+  }
   // Which slide comes next among the photos: the music (only while it
   // plays), the forecast (Photos & Forecast), the weather and Home Energy
   // (each once it has something to show) take turns, in that order.
@@ -604,6 +639,9 @@
   // THE CALENDAR PANE (option `calendar`): its element, its scroller, the
   // card in it, its width now, and the timer that scrolls it back to today
   var paneEl = null, paneSc = null, paneCard = null, paneW = 0, paneResetT = null;
+  // ...the side it was laid out for, and the Side Pane drawing other
+  // sections in it (cfg.pane_list; hk-sidepane.js), with its tick
+  var paneSide = 'right', sidePane = null, sideT = null;
   // Photos & Forecast: the forecast as one slide every `forecast_every`
   // photos, over the photos, its sky still whenever it is not on screen
   var fcShowing = false, sinceFc = 0;
@@ -1120,6 +1158,19 @@
     // (its blurred art under the pane too, seen through it; the song beside it)
     '.mu .mbody{container-type:size;--a:min(62cqh,42cqw)}',
     ':host([pane]) .mu .mbody{right:var(--hk-pane-w,0px)}',
+    // PANE SIDE: LEFT (the Side Pane's, 2026-10-30): the pane on the left,
+    // its edge and shadow toward the photo on its right, and everything that
+    // stepped aside for it from the right steps aside from the left
+    ':host([pside]) .pane{right:auto;left:0;border-left:0;border-right:1px solid rgba(255,255,255,0.10);',
+    '  box-shadow:18px 0 44px rgba(0,0,0,.42),3px 0 12px rgba(0,0,0,.26)}',
+    ':host([pside]) .ph[pw] img.fg{left:var(--hk-pane-w,0px)}',
+    ':host([pside]) .ph[pw] .mowrap,:host([pside]) .ph[pw] .phscrim{right:0;left:var(--hk-pane-w,0px)}',
+    ':host([pside][pane]) .ck,:host([pside][pane]) .en,:host([pside][pane]) .wx{right:0;left:var(--hk-pane-w,' + PANE_W + 'px)}',
+    ':host([pside][pane]) .info{left:var(--hk-pane-w,' + PANE_W + 'px)}',
+    ':host([pside][pane]) .fc,:host([pside][pane]) .fcb,:host([pside][pane]) .mu .mbody{right:0;left:var(--hk-pane-w,0px)}',
+    // THE SIDE PANE'S OWN SECTIONS (cfg.pane_list): drawn by hk-sidepane.js
+    // between Home Status and the pane's foot, on the pane's own background
+    '.pane hk-side-pane{position:absolute;z-index:1;left:0;right:0;top:var(--hk-pane-top,' + PANE_TOP + 'px);bottom:var(--hk-pane-bottom,0px)}',
     '.pm{position:absolute;left:0;right:0;top:0;bottom:0;overflow:hidden;pointer-events:none;--z:var(--hk-mu-z,1);',
     '  transition:opacity ' + MU_ART_MS + 'ms ease,visibility 0s linear ' + MU_ART_MS + 'ms;will-change:opacity}',
     ':host([pm]) .pm{transition:opacity ' + MU_ART_MS + 'ms ease,visibility 0s}',
@@ -1363,6 +1414,7 @@
     buildCards(info);
   }
   function teardown() {
+    dropSide();
     if (host) { host.removeAttribute('dark'); host.removeAttribute('undark'); }
     coverDashboard(false);
     blackPage(false);
@@ -4078,7 +4130,8 @@
     };
     mus.paneNext = null;
     if (!paneOf(cfg)) {
-      host.removeAttribute('panecfg'); host.removeAttribute('pcal'); host.removeAttribute('pm');
+      dropSide();
+      host.removeAttribute('panecfg'); host.removeAttribute('pcal'); host.removeAttribute('pm'); host.removeAttribute('pside');
       mus.paneIn = false;
       setPane(false);
       if (host.style.removeProperty) PANE_VARS.forEach(function (v) { host.style.removeProperty(v); });
@@ -4087,6 +4140,16 @@
       return;
     }
     host.setAttribute('panecfg', '');
+    setAttr(host, 'pside', cfg.pane_side === 'left');
+    if (cfg.pane_list) {
+      host.removeAttribute('pcal'); host.removeAttribute('pm');
+      mus.paneIn = false;
+      dropCal();
+      musicPane(false);
+      sideSections();
+      return;
+    }
+    dropSide();
     // THE CALENDAR ([pcal]) and THE MUSIC ([pm], while it plays) share it:
     // either fills it, both put the calendar above the music
     setAttr(host, 'pcal', cfg.calendar);
@@ -4118,6 +4181,25 @@
     if (customElements.get(tag)) make();
     else if (customElements.whenDefined) customElements.whenDefined(tag).then(make);
   }
+  // THE SIDE PANE'S SECTIONS in the pane (cfg.pane_list): those with
+  // something to show (When There's Something), fitted by the Side Pane; the
+  // pane up while any shows, looked at again every 1.5 s while it runs
+  function sideSections() {
+    var SP = window.hkSidePane;
+    if (!host || !cfg || !cfg.pane_list || !SP) return;
+    var box = paneEl || (root && root.querySelector('.pane'));
+    if (!box) return;
+    if (!sidePane) { sidePane = SP.create('saver'); box.appendChild(sidePane); }
+    var list = SP.saverList({ saver: { show: 'own', sections: cfg.pane_list } }, clientNow());
+    setPane(list.length > 0);
+    var w = paneW || Math.round(PANE_W * scaleOf());
+    sidePane.show({ list: list, place: { kind: 'side', w: w }, side: cfg.pane_side });
+    if (!sideT) sideT = setInterval(function () { if (on && cfg && cfg.pane_list) sideSections(); }, 1500);
+  }
+  function dropSide() {
+    if (sideT) { clearInterval(sideT); sideT = null; }
+    if (sidePane) { sidePane.show(null); if (sidePane.parentNode) sidePane.parentNode.removeChild(sidePane); sidePane = null; }
+  }
   // its width and Home Status's place in it, for this screen (and again
   // every few seconds: a tablet turned, a window resized)
   function layoutPane() {
@@ -4125,8 +4207,9 @@
     var z = scaleOf(), w = Math.round(PANE_W * z);
     // the list scaled with the screen (its card may arrive after the width)
     if (paneCard && (paneCard.style.zoom || '1') !== String(z)) paneCard.style.zoom = z === 1 ? '' : String(z);
-    if (w === paneW && host.style.getPropertyValue && host.style.getPropertyValue('--hk-pane-w')) return;
-    paneW = w;
+    var sideNow = (cfg && cfg.pane_side) || 'right';
+    if (w === paneW && sideNow === paneSide && host.style.getPropertyValue && host.style.getPropertyValue('--hk-pane-w')) return;
+    paneW = w; paneSide = sideNow;
     // a new width for the pane is a new room for the band beside it
     if (fband && fband.isConnected) setTimeout(function () { if (fband && fband.isConnected) centerBand(fband); }, 0);
     var px = function (n) { return Math.round(n * z) + 'px'; };
@@ -4140,7 +4223,8 @@
     // position:fixed resolves against), so a window resized or a screen
     // turned at the same scale -- the pane's width unchanged, this skipped --
     // leaves them in the pane, never where the old width put them.
-    var footLeft = 'calc(100% - ' + (w - Math.round(28 * z)) + 'px)';
+    var left = cfg && cfg.pane_side === 'left';
+    var footLeft = left ? px(28) : 'calc(100% - ' + (w - Math.round(28 * z)) + 'px)';
     host.style.setProperty('--hk-ss-now-left', footLeft);
     host.style.setProperty('--hk-ss-now-max', (w - Math.round(56 * z)) + 'px');
     host.style.setProperty('--hk-ss-np-art', px(64));
@@ -4150,7 +4234,7 @@
     host.style.setProperty('--hk-ss-timers-left', footLeft);
     host.style.setProperty('--hk-ss-timers-right', px(28));
     host.style.setProperty('--hk-ss-timers-max', (w - Math.round(56 * z)) + 'px');
-    host.style.setProperty('--hk-ss-status-right', Math.round(28 * z) + 'px');
+    host.style.setProperty('--hk-ss-status-right', (left ? (window.innerWidth || 0) - w + Math.round(28 * z) : Math.round(28 * z)) + 'px');
     host.style.setProperty('--hk-ss-status-top', Math.round(26 * z) + 'px');
     host.style.setProperty('--hk-ss-status-width', (w - Math.round(56 * z)) + 'px');
     paneStack();
@@ -4276,7 +4360,9 @@
     if (!(hi > lo)) return;
     var cur = parseFloat(card.style.getPropertyValue('--hk-band-shift')) || 0;
     // (the shift is in the band's own pixels, which the zoom scales)
-    var want = Math.round(cur + ((RW - hi) - lo) / 2 / z);
+    // (a pane on the left: the room starts at its edge)
+    var x0 = paneUp && cfg && cfg.pane_side === 'left' ? paneW : 0;
+    var want = Math.round(cur + ((x0 + RW - hi) - (lo - x0)) / 2 / z);
     if (Math.abs(want - cur) >= 1) card.style.setProperty('--hk-band-shift', want + 'px');
   }
   // KIOSK SATELLITE'S DARK. Its API is promise-based, so it cannot be asked
@@ -4710,6 +4796,10 @@
     else if (shellConf && raw && !raw.entity) raw = fromSettings(conf) || raw;
     if (previewOn && previewHouse) raw = houseBlock() || raw;
     var HS = window.hkSettings;
+    if (raw && HS && HS.get) {
+      var bAll = HS.get('boards', null), bNow = bAll && bAll[String(location.pathname).split('/')[1] || ''];
+      raw = withPane(raw, previewOn && previewHouse ? HS.get('side_pane', null) : bNow && bNow.side_pane_read);
+    }
     if (HS && HS.lovelacePanel && HS.lovelacePanel() === false) raw = null;
     // the host's own album for this screen, in place of the house's photos
     // (hostPhotoSource; none in Home Assistant)
@@ -4896,7 +4986,7 @@
          photoUrl: photoUrl, releasePh: releasePh, faceWindow: faceWindow, faceOrigin: faceOrigin, alignOf: alignOf, shuffle: shuffle, Deck: Deck, isImage: isImage,
          // tests: the slide without real photos to count
          slide: { show: showForecastSlide, hide: hideForecastSlide, since: function (n) { sinceFc = n; }, schedule: function () { schedule(); } },
-         paneOf: paneOf, slideOf: slideOf, turnOf: turnOf, extrasOf: extrasOf, mmss: mmss,
+         paneOf: paneOf, withPane: withPane, slideOf: slideOf, turnOf: turnOf, extrasOf: extrasOf, mmss: mmss,
          // tests: Home Energy and the additional screens without waiting minutes
          energy: { show: showEnergySlide, hide: hideEnergySlide, ready: energyReady, prep: energyPrep, layout: energyLayout,
                    ctl: function () { return enCtl; } },

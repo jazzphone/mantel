@@ -654,19 +654,24 @@ window.hkStrategy.generate({}, hass).then(function (cfg) {
   WB.now_playing = true; WB.timer_bar = false;
   return window.hkStrategy.generate({}, hass).then(function (g2) {
     var m2 = media(g2);
-    ok('the Now Playing Bar alone: the player and no timers', kinds(m2) === 'custom:hk-now-playing-card,custom:hk-music-pane-card' &&
+    ok('the Now Playing Bar alone: the player and no timers', kinds(m2) === 'custom:hk-now-playing-card' &&
        JSON.stringify(m2.trigger).indexOf('running_quick_timers') < 0, kinds(m2));
-    // NOW PLAYING'S PLACE (2026-10-15): the same sheet can stand up as the
-    // screensaver's music pane (hk-popup.js placeFor), or go along the top
-    ok('...with the pane after the player, and the bar\'s place at the top', m2.pane === true &&
+    // NOW PLAYING'S PLACE (2026-10-15): the bar, along the bottom or the
+    // top; its old side pane is the Side Pane's (2026-10-30): the music
+    // steps out of the bar while the Side Pane shows it (`hk-pane-music`)
+    ok('...the bar holds the music the Side Pane may take, and its place at the top', m2.pane === true &&
        /safe-area-inset-top/.test((m2.top_vars || {})['hk-np-pad'] || ''), JSON.stringify({ pane: m2.pane, top: m2.top_vars }));
+    var music = (m2.trigger[0].conditions || [])[0] || {};
+    ok('...its music opens it only while the Side Pane doesn\'t show it', music.condition === 'and' &&
+       music.conditions[0].entity_from && music.conditions[0].entity_from.music === true &&
+       JSON.stringify(music.conditions[1]) === JSON.stringify({ condition: 'not', conditions: [{ condition: 'flag', flag: 'hk-pane-music' }] }), music);
     ok('the Timer Bar alone has no pane', m.pane === false, m.pane);
     delete WB.timer_bar;
     return window.hkStrategy.generate({}, hass);
   }).then(function (g3) {
     var m3 = media(g3);
     ok('...a screen saved before the Timer Bar keeps its timers with its Now Playing Bar',
-       kinds(m3) === 'custom:hk-timer-strip-card,custom:hk-now-playing-card,custom:hk-music-pane-card', kinds(m3));
+       kinds(m3) === 'custom:hk-timer-strip-card,custom:hk-now-playing-card', kinds(m3));
     var onPages = function (gg) { return gg.views.filter(function (v) { return JSON.stringify(v).indexOf('"#media"') > 0; }).map(function (v) { return v.path; }); };
     ok('the bar on Home, and the Music page, by default', JSON.stringify(onPages(g3)) === '["home","playmusic","music-browse"]', onPages(g3));
     // THE MUSIC PAGE'S: a phone's only -- while the page says it is one
@@ -676,7 +681,7 @@ window.hkStrategy.generate({}, hass).then(function (cfg) {
     ok('...the Music page\'s opens on the page\'s flag, then the bar\'s own trigger', mb && mb.trigger[0].condition === 'flag' &&
        mb.trigger[0].flag === 'hk-music-mini' && JSON.stringify(mb.trigger.slice(1)) === JSON.stringify(m3.trigger) && mb.carry === true && m3.carry === true, mb && mb.trigger);
     // (both carried: a phone's Home bar becomes the page's in place)
-    ok('...and Home\'s has no flag', JSON.stringify(m3.trigger).indexOf('flag') < 0);
+    ok('...and Home\'s has no flag of the Music page\'s', JSON.stringify(m3.trigger).indexOf('hk-music-mini') < 0);
     WB.bar_all_pages = true;
     return window.hkStrategy.generate({}, hass).then(function (g4) {
       var pg = onPages(g4), grid = g4.views.filter(function (v) { return v.type === 'custom:hk-grid-view'; }).map(function (v) { return v.path; });
