@@ -26,10 +26,10 @@ SET_KEYS = ("flat", "flat_theme", "glass", "accent", "tab_bar_glass", "tile_styl
             "swipe_pages", "side_pane", "screensaver", "screensaver_options", "camera_live_video")
 UNDO_KEYS = SET_KEYS + ("home_style", "home_grid")
 
-PANE_HOME = {"side": "right", "dashboard": {"show": "home", "sections": [
+PANE_HOME = {"side": "right", "headings": True, "dashboard": {"show": "home", "sections": [
     {"kind": "weather", "size": "more"}, {"kind": "calendar", "size": "more"},
     {"kind": "now_playing", "size": "more", "when": "active"}]}}
-PANE_WEATHER = {"side": "right", "dashboard": {"show": "home", "sections": [
+PANE_WEATHER = {"side": "right", "headings": False, "dashboard": {"show": "home", "sections": [
     {"kind": "weather", "size": "full"}, {"kind": "calendar", "size": "less"}]}}
 PANE_OFF = {"dashboard": {"show": "off", "sections": []}}
 

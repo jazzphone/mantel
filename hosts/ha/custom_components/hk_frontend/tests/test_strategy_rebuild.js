@@ -127,6 +127,10 @@ function quiet(name, change) {
   ok(name, refreshes === 0, refreshes);
 }
 quiet('the menu\'s highlight colour rebuilds nothing', function () { pushBoard('accent', 'blue'); });
+// THE SIDE PANE: hk-sidepane.js reads it live (2026-10-30: a change to it rebuilt the whole page)
+quiet('...nor the Side Pane, a screen\'s own or as read', function () {
+  pushBoard('side_pane', { width: 'wide' }); pushBoard('side_pane_read', { width: 'wide', headings: false });
+});
 quiet('...nor Swipe from Left Edge, the button\'s glyph, the clock, or the tab sizes', function () {
   pushBoard('swipe', true); pushBoard('glyph', 'lines'); pushBoard('clock', false);
   pushBoard('tab_size', 'small'); pushBoard('tab_size_phone', 'large');

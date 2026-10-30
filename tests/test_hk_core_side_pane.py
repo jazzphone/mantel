@@ -248,3 +248,13 @@ def test_a_screen_read_back_from_its_resolved_form_keeps_following():
     opts = {"dashboard": {"side_pane": {"side": "left"}}}
     r = M.resolved(M.board({}), opts)
     assert "side_pane" not in M.board_stored(S.as_stored("board", r))
+
+
+def test_section_headings_on_by_default_and_a_screen_can_turn_them_off():
+    # (2026-10-30) a small title over each section but the Clock and the Weather
+    from hk_core.settings import changes as C
+    from hk_core.settings import model as M
+    assert M.SIDE_PANE_DEFAULTS["headings"] is True and "headings" in M.PANE_GROUPS
+    b, err = C.apply_board({}, {"side_pane": {"headings": False}})
+    assert err == {} and M.board(b)["side_pane"] == {"headings": False}
+    assert C.apply_board({}, {"side_pane": {"headings": "yes"}})[1] != {}

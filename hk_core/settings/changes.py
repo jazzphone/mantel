@@ -711,6 +711,7 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "look.bright": _amount,
     "look.well": _choice(S.WELLS),
     "look.tile_style": _choice(S.TILE_STYLES),
+    "look.bright_pages": _choice(S.BRIGHT_PAGES),
     "look.details": _bool,
     "look.sky_switch": _entity("input_boolean", "switch"),
     "look.photos": _photos,
@@ -842,7 +843,7 @@ def _pane_group(name: str) -> Callable[[Any], Any]:
     def check(v: Any) -> Any:
         got = S.pane_group(name, v, strict=True)
         if got is None:
-            raise Invalid("choice" if name in ("side", "width") else "bool" if name == "doorbell" else "side_pane")
+            raise Invalid("choice" if name in ("side", "width") else "bool" if name in ("doorbell", "headings") else "side_pane")
         return got
     return check
 
@@ -1170,6 +1171,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "bright": _amount_or_none,
     "well": _choice(S.WELLS, none=True),
     "tile_style": _choice(S.TILE_STYLES, none=True),
+    "bright_pages": _choice(S.BRIGHT_PAGES, none=True),
     "sky": _bool,
     # this screen's own Sky / Background; None: follow All Screens
     "sky_animations": _bool_or_none,

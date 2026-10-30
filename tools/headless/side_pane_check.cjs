@@ -45,8 +45,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       const l = await look(page);
       if (phone) want('home ' + side + ': never on a phone', l, !l.on && !l.attr);
       else if (upright) want('home ' + side + ': a band under the page', l, l.on && l.side === 'band' && l.b && !l.scrolls);
-      else want('home ' + side + ': down its side, the grid beside it', l, l.on && l.side === side && l[side[0]] && !l.scrolls &&
-                (side === 'right' ? l.rect[0] + l.rect[2] === W : l.rect[0] === 0));
+      else want('home ' + side + ': down its side at its Width (Standard, 400), the grid beside it', l, l.on && l.side === side && l[side[0]] && !l.scrolls &&
+                l.rect[2] === 400 && (side === 'right' ? l.rect[0] + l.rect[2] === W : l.rect[0] === 0));
       await shot(page, tag + '-home-' + side);
     }
     // THE PANE'S MATERIAL IS THE SCREEN'S LOOK (the owner, 2026-10-30: "the side pane isn't blurred anymore?"):
@@ -64,9 +64,10 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
           const cs = getComputedStyle(pane), bf = cs.backdropFilter || cs.webkitBackdropFilter || 'none';
           const a = /rgba?\([^)]*,\s*([\d.]+)\)/.exec(cs.backgroundColor);
           return { look: p.getAttribute('look'), blur: bf, alpha: a ? +a[1] : (cs.backgroundColor === 'rgba(0, 0, 0, 0)' ? 0 : 1),
-                   titles: p.shadowRoot.querySelectorAll('.h2').length - p.shadowRoot.querySelectorAll('[data-k="todo"] .h2').length };
+                   // SECTION HEADINGS (on by default): over each section but the Clock and the Weather
+                   titles: [...p.shadowRoot.querySelectorAll('.secs>[data-k]')].every((x) => (x.dataset.k === 'clock' || x.dataset.k === 'weather') === !x.querySelector(':scope>.h2')) };
         });
-        want('the pane in ' + g, m, m && m.look === g && (blurs ? /blur/.test(m.blur) && m.alpha < 0.6 : !/blur/.test(m.blur) && m.alpha > 0.9) && m.titles === 0);
+        want('the pane in ' + g, m, m && m.look === g && (blurs ? /blur/.test(m.blur) && m.alpha < 0.6 : !/blur/.test(m.blur) && m.alpha > 0.9) && m.titles);
         await shot(page, tag + '-look-' + g);
       }
     }
@@ -117,6 +118,29 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         if (g === 'blur') await shot(page, tag + '-stopped-' + side);
       }
     }
+    // THE SAME EVERYWHERE (2026-10-30): its hairlines and its second ink resolved (the sheet once built before
+    // hkCards came had neither), and the weather still there on a page Mantel has narrowed to what it reads
+    const drawn = (sel) => page.evaluate((sel) => {
+      const deep = (r, s) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
+      const p = deep(document, sel)[0], sr = p && p.shadowRoot;
+      if (!sr || !p.hasAttribute('on')) return null;
+      const lines = [...sr.querySelectorAll('.secs>.sec+.sec')].map((x) => getComputedStyle(x)), sub = sr.querySelector('.sub2,.ev .et i');
+      const alpha = (c) => { const m = /rgba?\(([^)]+)\)/.exec(c); const p2 = m ? m[1].split(',').map(Number) : []; return p2.length > 3 ? p2[3] : 1; };
+      const wx = sr.querySelector('[data-k="weather"]');
+      return { lines: lines.length, ruled: lines.every((cs) => cs.borderTopStyle === 'solid' && alpha(cs.borderTopColor) > 0),
+               sub: sub ? getComputedStyle(sub).color : null, weather: wx ? wx.textContent.trim().slice(0, 40) : null };
+    }, sel);
+    if (!phone) {
+      const views0 = await page.evaluate(() => (window.hkCards.menu.config().views || []).map((v) => v.path).filter(Boolean));
+      // (a page with no weather of its own: Lights, else the first that isn't Home or Weather)
+      const away = views0.indexOf('lights') >= 0 ? 'lights' : views0.filter((v) => v !== 'home' && v !== 'weather')[0];
+      await open('pane-every-page', away);
+      await page.waitForTimeout(4500);            // the page narrows (web/home.js), then the pane draws again
+      const d = await drawn('hk-side-pane[mode="dash"]');
+      want('every page: its dividers drawn and its second ink grey', d, d && (upright || (d.lines > 0 && d.ruled)) && d.sub && d.sub !== 'rgb(255, 255, 255)');
+      want('...the weather still there on a narrowed page (' + away + ')', d, d && d.weather && /\d°/.test(d.weather) && d.weather.indexOf('No weather') < 0);
+      await shot(page, tag + '-narrowed-' + away);
+    }
     await open('pane-every-page');
     let l = await look(page);
     want('every page: Home', l, phone ? !l.on : l.on && !l.scrolls);
@@ -149,6 +173,9 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
                  kinds: sp ? [...sp.shadowRoot.querySelectorAll('.secs > *')].map((k) => (k.dataset.k || '') + ':' + (k.dataset.size || '')) : [] };
       });
       want('screensaver ' + side + ': its own sections on its side', s, s.on && (side === 'left' ? s.side !== null && s.rect[0] === 0 : s.side === null && s.rect[0] + s.rect[1] === W));
+      const sd = await drawn('hk-side-pane[mode="saver"]');
+      want('screensaver ' + side + ': its dividers and second ink as the Dashboard\'s, its weather there', sd,
+           sd && sd.lines > 0 && sd.ruled && sd.sub !== 'rgb(255, 255, 255)' && (!sd.weather || (/\d°/.test(sd.weather) && sd.weather.indexOf('No weather') < 0)));
       await shot(page, tag + '-saver-' + side);
       await page.evaluate(() => window.hkSaver.preview(false));
     }

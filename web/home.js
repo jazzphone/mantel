@@ -162,7 +162,9 @@ if (!(window.hkCards && window.hkCards.TILE)) {
   await new Promise((res) => window.addEventListener('hk-cards-ready', res, { once: true }));
 }
 
-const cfg = await window.hkStrategy.generate({}, host.client);
+// (the strategy reads the whole house to decide what to draw: none of it is a surface's own read, Host.seen)
+const build = async () => { host.building = true; try { return await window.hkStrategy.generate({}, host.client); } finally { host.building = false; } };
+const cfg = await build();
 mark('strategy');
 // the page about to be drawn: every card file it names asked for now, nested cards' too, together (the view host
 // would ask for each as it makes its card, and a container's children only once the container has drawn)
@@ -212,6 +214,9 @@ async function narrowSoon(view) {
     narrowTimer = setTimeout(() => {
       host.recording = false;
       for (const k of host.reads) if (host._states[k]) needed.add(k);
+      // ...and every state anything on the screen has read so far -- the Side Pane, the menu, the tab bar, the
+      // screensaver draw outside the page's cards and its recorded pass (Host.seen)
+      for (const k of host.seen) if (host._states[k]) needed.add(k);
       window.__mantelNarrow = needed.size;
       narrowed = true;
       hub.subscribe([...needed], [], false);     // snapshot arrives again, then only these entities' diffs
@@ -265,7 +270,7 @@ mark('rendered');
   const rebuild = () => {
     if (building) { again = true; return; }
     building = (async () => {
-      const next = await window.hkStrategy.generate({}, host.client);
+      const next = await build();
       await viewHost.reconfigure(next);
     })().catch((e) => console.error('[home] could not build the screen again', e)).then(() => {
       building = null;

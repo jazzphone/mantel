@@ -1104,3 +1104,39 @@ Performance's), a flat tint from the art's mean colour at 42 %. The screensaver'
 anywhere; a picture that can't be read (another origin) falls back to itself under a CSS blur rasterised once.
 `side_pane_check` plays a bright cover and checks the pane takes it on both sides and at 1180 × 820 and 1440 × 900,
 white words at 4.5:1 or better over its lightest part, the tint in Tinted, and the glass again once it stops.
+
+**15–17 and the owner's evening notes (2026-10-30, after 0.1.91).**
+
+- **Dividers that came and went (15).** `hk-sidepane.js` built its stylesheet once and kept it. Built before hkCards had
+  loaded, its design values had no fallbacks, and the pane hangs under `<body>`, where no `--hk-*` value is set: that
+  load's pane had no hairlines and no second ink (the grey "Tomorrow" went white), until a reload won the race. The
+  sheet now carries fallbacks of its own, isn't kept until hkCards is here, and is replaced once it is.
+- **The weather (and other data) going away and coming back (16).** Mantel narrows a page's state subscription to
+  what its cards read in a recorded pass; the Side Pane, the menu, the tab bar and the screensaver draw outside that
+  pass, so what only they read was dropped, then asked for again on their next read by name (`onMiss`) — away, then
+  back. And the pane found its weather by listing the `weather.` states it held, which a narrowed page has none of,
+  so nothing was asked for: "No weather" stuck. Now Mantel's host keeps every state read at any time outside the
+  strategy's whole-house pass (`Host.seen`), and narrowing keeps those too; the pane names a domain's entities from
+  the house's registry as well (reading one by name asks for it); and the weather section keeps its last state while
+  the live one is away — "No weather" only where the house has none.
+- **Section Headings (17).** **Decision:** a Side Pane setting, On by default (the owner leaned back toward them),
+  All Screens' or a screen's own: the small uppercase title with its icon over every section but the Clock and the
+  Weather (the music pane gets room for it above itself). The Looks set it: HomeView on, Active Weather off.
+- **Width did nothing beside a Home Grid.** The pane took whatever the grid left (444 px beside a 3 × 3), so Narrow,
+  Standard and Wide all looked the same on Home. **Decision:** its Width always; the grid fits itself in the rest.
+- **A Side Pane change rebuilt the whole page.** `side_pane` (and the screen's resolved `side_pane_read`) weren't on
+  the strategy's list of settings no build reads; the pane reads them live, so now nothing is rebuilt.
+- **The Rooms sheet** reads as before Bright Glass (soft circles, the glyph in the accent) on the darker sheet plate,
+  and every icon sits on one line however many lines its name takes.
+- **The tab bar in Bright Glass** is a little darker under its wash (`rgba(14,18,30,.30)`), its names' shadow
+  stronger, for light pages such as Climate.
+- **Bright Glass On.** **Decision:** a new setting, Home Only (the default) or Every Page, All Screens' or a
+  screen's own: with Home Only, every page but Home wears Blur in the same mode (Shared Layer, Pre-rendered, Each
+  Plate). The owner: "I like the radius and everything else of the Bright Glass... but the blur appearance just
+  looks nicer" on the other pages.
+
+Checks: `side_pane_check` asserts the headings, the dividers and the second ink in the Dashboard's and the
+screensaver's panes, the Width beside the grid, and the weather on a page Mantel has narrowed (in the gallery a
+page's header keeps the weather, so the sticky case is covered by `test_sidepane.js`'s registry and last-state test
+rather than in the browser); `bright_glass_check`, a room page in Blur; `test_strategy_rebuild`, a Side Pane change
+rebuilding nothing.

@@ -110,12 +110,10 @@ ok('has: the weather always has something', X.has(client, { kind: 'weather' }) =
 ok('place: a phone never', X.place(390, 844, {}).kind === 'none' && X.place(382, 678, {}).kind === 'none');
 ok('...a landscape tablet: its Width, down the side', eq(X.place(1180, 820, { width: 'standard' }), { kind: 'side', w: 400 }) &&
    X.place(1180, 820, { width: 'narrow' }).w === 360 && X.place(1180, 820, { width: 'wide' }).w === 480);
-ok('...beside a Home Grid filling the height it takes what the grid leaves (444 beside a 3 x 3)',
-   eq(X.place(1180, 820, { width: 'standard', gridW: 736 }), { kind: 'side', w: 444 }));
-ok('...and with no tab bar, 360 beside an 820 grid', X.place(1180, 820, { gridW: 820 }).w === 360);
-ok('...a grid that would leave too much or too little: its Width', X.place(1180, 820, { width: 'wide', gridW: 400 }).w === 480 &&
-   X.place(1180, 820, { width: 'narrow', gridW: 1100 }).w === 360);
-ok('...a docked menu comes off the room first', X.place(1180, 820, { width: 'standard', menu: 260, gridW: 476 }).w === 444);
+ok('...beside a Home Grid too, its Width: Narrow, Standard, Wide (the grid fits in what is left)',
+   [X.place(1180, 820, { width: 'narrow', gridW: 736 }).w, X.place(1180, 820, { width: 'standard', gridW: 736 }).w,
+    X.place(1180, 820, { width: 'wide', gridW: 736 }).w].join() === '360,400,480');
+ok('...with no page minimum beside a grid, a docked menu off the room first', X.place(1180, 820, { width: 'wide', menu: 260, gridW: 476 }).w === 480);
 ok('...a page that is no grid keeps 560 beside the pane', X.place(1180, 820, { width: 'wide', menu: 100 }).kind === 'side' &&
    X.place(1180, 820, { width: 'wide', menu: 200 }).kind === 'none');
 ok('...too little left beside it for the page: no pane', X.place(900, 700, { width: 'wide' }).kind === 'none');
@@ -176,6 +174,18 @@ P.ORDER.forEach(function (k) {
   });
 });
 ok('every section draws at every size, saying its kind and size', bad.length === 0, bad);
+// THE WEATHER WHILE ITS STATE IS AWAY (2026-10-30): a page narrowed by Mantel, a reconnect -- the last seen,
+// never "No weather"; named from the registry, so a page holding no weather state still asks for it
+var wxId = Object.keys(client.states).filter(function (k) { return k.indexOf('weather.') === 0; })[0];
+X.SEC.weather('less', {}, client, ctx);
+var away = Object.assign({}, client, { states: Object.assign({}, client.states), entities: {} });
+delete away.states[wxId]; away.entities[wxId] = { entity_id: wxId };
+var kept = X.SEC.weather('less', {}, away, ctx);
+ok('...the weather away: its last state, not "No weather"', kept.indexOf('No weather') < 0 && /\d+°/.test(kept), kept.slice(0, 160));
+// SECTION HEADINGS: never over the Clock or the Weather
+ok('...no heading over the Weather or the Clock', X.SEC.weather('less', {}, client, ctx).indexOf('class="h2"') < 0 &&
+   X.SEC.clock('less', {}, client, ctx).indexOf('class="h2"') < 0);
+ok('...one over Security (headings on by default)', X.SEC.security('less', {}, client, ctx).indexOf('class="h2"') > 0);
 ok('Tiny is one line: its glyph, the fact and a value', /class="sec cmp"/.test(X.SEC.weather('tiny', {}, client, ctx)) &&
    X.SEC.weather('tiny', {}, client, ctx).indexOf('54° Sunny') > 0);
 ok('...the timer\'s countdown', /Pasta[\s\S]*4:1[0-2]/.test(X.SEC.timers('tiny', {}, client, ctx)));

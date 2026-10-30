@@ -207,6 +207,12 @@ export class Host {
     this.calls = new Map();                 // message type -> times asked (the measured surface)
     this.reads = new Set();                 // entity ids read through hass.states after the build
     this.recording = false;
+    // EVERY id read through hass.states with a state, at any time: the Side Pane, the menu, the tab bar and the
+    // screensaver draw outside the page's cards, so the recorded pass missed what they read -- narrowing dropped
+    // it, their next read missed and asked again, and their data went away and came back (the owner,
+    // 2026-10-30: "lots of the data seems to just disappear and come back"). home.js keeps these too.
+    this.seen = new Set();
+    this.building = false;                  // the strategy's whole-house pass: its reads are no surface's
     // a read of an id the current (narrowed) subscription does not carry: home.js asks the hub for it
     // (onMiss), so a card that reads something later than the recorded pass still gets its state
     this.onMiss = null;
@@ -317,6 +323,7 @@ export class Host {
         if (typeof k === 'string') {
           if (self.recording) self.reads.add(k);
           else if (self.onMiss && !(k in t) && k.indexOf('.') > 0) self.onMiss(k);
+          if (!self.building && k in t) self.seen.add(k);
         }
         return t[k];
       },

@@ -241,10 +241,10 @@ load(HK_ROOT + '/frontend/modules/hk-sidepane.js');
   var css = v._sr.children[0].textContent;
   ok('...and a band under the page comes off its height', /--g-room:calc\(var\(--hk-bar-room,var\(--hk-tabbar-h,0px\)\) \+ var\(--hk-pane-b,0px\)\)/.test(css));
   var X = window.hkSidePane._;
-  // a square canvas (the 3 x 3 Square cells draw one): the pane takes the rest
+  // a square canvas (the 3 x 3 Square cells draw one): the pane keeps its Width, the grid fits the rest (2026-10-30)
   v._root.style.width = '668.4px'; v._root.style.height = '668.4px';
   var p = X.place(1180, 820, { width: 'standard', gridW: v.paneRoom(room) });
-  ok('...beside a 3 x 3 of square cells, the pane is 444', p.kind === 'side' && p.w === 444, p);
+  ok('...beside a 3 x 3 of square cells, the pane is its Width (Standard, 400)', p.kind === 'side' && p.w === 400, p);
   ['right', 'left'].forEach(function (side) {
     // the page narrowed by the pane on its side (hk-menu.js margins): the grid's box is what is left
     v.clientWidth = 1180 - p.w; v.clientHeight = room;

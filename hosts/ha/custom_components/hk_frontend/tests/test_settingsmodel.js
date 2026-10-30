@@ -753,7 +753,7 @@ ok('...every mode says what it costs', M.BLUR_MODES.every(function (m) { return 
 // ------------------------------------------------------------ the side pane (2026-10-30)
 (function () {
   ok('Side Pane: twelve kinds, four sizes, eight at most', M.PANE_KINDS.length === 12 && M.PANE_SIZES.length === 4 && M.PANE_MAX === 8 &&
-     eq(M.PANE_GROUPS, ['side', 'width', 'dashboard', 'saver', 'doorbell']));
+     eq(M.PANE_GROUPS, ['side', 'width', 'dashboard', 'saver', 'doorbell', 'headings']));
   var house = { side: 'left', dashboard: { show: 'home', sections: [{ kind: 'weather' }, { kind: 'timers', when: 'active' }] } };
   var hp = M.paneOf(house, null);
   ok('All Screens\': its groups over the defaults, none a screen\'s', hp.side === 'left' && hp.width === 'standard' && hp.doorbell === true &&

@@ -340,3 +340,14 @@ def test_a_wallpapers_motion_for_all_screens_and_for_a_screen():
     b, err = C.apply_board(b, {"sky_wallpaper_motion": None})
     assert err == {} and M.board(b)["sky_wallpaper_motion"] is None
     assert "wallpaper_motion" in M.SKY_RESET and "sky_wallpaper_motion" in M.SKY_RESET_BOARD
+
+
+def test_bright_glass_on_home_only_by_default():
+    # (2026-10-30) Bright Glass on Home, the other pages in its Blur; or on every page; a screen's own or All Screens'
+    assert M.merged({})["look"]["bright_pages"] == "home"
+    new, err = C.apply_house({}, {"look.bright_pages": "all"})
+    assert err == {} and M.merged(new)["look"]["bright_pages"] == "all"
+    assert C.apply_house({}, {"look.bright_pages": "some"})[1] == {"look.bright_pages": "choice"}
+    b, err = C.apply_board({}, {"bright_pages": "all"})
+    assert err == {} and M.board(b)["bright_pages"] == "all"
+    assert M.board({})["bright_pages"] is None

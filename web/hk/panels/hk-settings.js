@@ -5586,7 +5586,7 @@
       var put = function (g, v) { return self.paneSave(path, g, v); };
       // WHERE
       this.paneOwn(c, path, p, ['side', 'width']);
-      c.appendChild(K.group({ header: 'Where', footer: 'Beside a Home Grid that fills the screen’s height, the pane takes what the grid leaves. A tablet held upright shows it as a band under the page; phones never show it.' }, [
+      c.appendChild(K.group({ header: 'Where', footer: 'A Home Grid beside it fits itself in what the pane leaves. A tablet held upright shows it as a band under the page; phones never show it.' }, [
         K.seg({ label: 'Pane Side', sk: 'pane:side', value: p.side, options: M.PANE_SIDES, onChange: function (v) { put('side', v); } }),
         K.seg({ label: 'Width', sk: 'pane:width', value: p.width, options: M.PANE_WIDTHS, onChange: function (v) { put('width', v); } })]));
       // ON THE DASHBOARD
@@ -5602,6 +5602,11 @@
         K.seg({ label: 'Show', sk: 'pane:saver:show', value: saver.show, options: M.PANE_SAVER_SHOWS, stack: true,
                 onChange: function (v) { put('saver', { show: v, sections: saver.sections }); } })]));
       if (saver.show === 'own') this.paneSections(c, path, 'saver', saver, base);
+      // SECTION HEADINGS (2026-10-30): a small title over each section but the
+      // Clock and the Weather
+      this.paneOwn(c, path, p, ['headings']);
+      c.appendChild(K.group({ header: 'Look', footer: 'A small title, with its icon, over each section -- not over the Clock or the Weather, which say what they are.' }, [
+        K.toggle({ label: 'Section Headings', sk: 'pane:headings', on: p.headings !== false, onChange: function (on) { put('headings', on); } })]));
       // THE DOORBELL
       this.paneOwn(c, path, p, ['doorbell']);
       c.appendChild(K.group({ header: 'Doorbell', footer: 'When it rings, its camera at the top of the pane, live, for as long as its pop-up shows.' }, [
@@ -5932,6 +5937,7 @@
         tint: { on: !!look.frost_tint, onChange: function (on) { self.setH({ 'look.frost_tint': on }); } },
         blur: { value: look.blur, onChange: function (v) { self.setH({ 'look.blur': v }); } },
         bright: { value: typeof look.bright === 'number' ? look.bright : 50, onChange: function (v) { self.setH({ 'look.bright': v }); } },
+        brightPages: { value: look.bright_pages === 'all' ? 'all' : 'home', onChange: function (v) { self.setH({ 'look.bright_pages': v }); } },
         dark: { value: typeof look.tint === 'number' ? look.tint : 50, onChange: function (v) { self.setH({ 'look.tint': v }); } },
         well: { value: look.well || 'dark', onChange: function (v) { self.setH({ 'look.well': v }); } }
       }, 'look.'));
@@ -6072,6 +6078,11 @@
       var wOwn = b.well === 'dark' || b.well === 'light', wHouse = look.well || 'dark';
       app = app.concat(this.glassRows(gl.effective, {
         frost: amt('frost'), blur: amt('blur'), dark: amt('tint'), bright: amt('bright'),
+        brightPages: (function () {
+          var own = b.bright_pages === 'home' || b.bright_pages === 'all', house = look.bright_pages === 'all' ? 'all' : 'home';
+          return { value: own ? b.bright_pages : house, own: own, house: house,
+                   onChange: function (v) { set({ bright_pages: v }); }, reset: function () { set({ bright_pages: null }); } };
+        })(),
         well: { value: wOwn ? b.well : wHouse, own: wOwn, house: wHouse,
                 onChange: function (v) { set({ well: v }); }, reset: function () { set({ well: null }); } },
         tint: { on: tOwn ? b.frost_tint : tHouse, own: tOwn, house: tHouse,
@@ -6208,6 +6219,14 @@
       // BRIGHT GLASS's Strength (2026-10-30), held back by itself over a light
       // background (hkSettings.brightCap)
       if (uses.bright && v.bright) amount('bright', 'Strength');
+      // ...and where it shows (2026-10-30): Home Only, the other pages in its
+      // Blur, or Every Page
+      if (uses.bright && v.brightPages) {
+        var bp = v.brightPages;
+        rows.push(K.seg({ label: 'Bright Glass On', sk: skp + 'bright_pages', value: bp.value, options: M.BRIGHT_PAGES,
+          sub: bp.house == null ? 'Home Only: the other pages in Blur' : (bp.own ? 'Just This Screen' : 'Same as All Screens'), onChange: bp.onChange }));
+        if (bp.own) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.BRIGHT_PAGES, bp.house) + ')', sk: skp + 'bright_pages:reset', onClick: bp.reset }));
+      }
       if (uses.tint && v.dark) {
         amount('dark', 'Darkness', 'tint');
         var w = v.well;

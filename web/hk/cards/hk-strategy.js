@@ -3073,7 +3073,13 @@
                     // (hk-settings.js applies the look live, as frost's)
                     sky_wallpaper: 1, sky_wallpaper_night: 1, sky_wallpaper_motion: 1, bright: 1,
                     // (a Look's Undo is the settings page's to read)
-                    look_undo: 1 };
+                    look_undo: 1,
+                    // ...and the Side Pane: hk-sidepane.js reads it live and
+                    // draws again (a change to it rebuilt the whole page,
+                    // the owner, 2026-10-30)
+                    side_pane: 1, side_pane_read: 1,
+                    // ...and Bright Glass On (hk-settings.js glass(), on each page)
+                    bright_pages: 1 };
   // an accessory's fields only the chips read (Status & Chips' status, a custom
   // chip's when / label / attribute): changing one rebuilds nothing
   var CHIP_ONLY = { status: 1, when: 1, label: 1, attribute: 1 };

@@ -30,10 +30,8 @@
 // THE ROOM IT TAKES (publish): its width on its side of <html>, as
 // --hk-pane-l / --hk-pane-r and html[hk-pane], and the word 'hk-pane' --
 // hk-menu.js narrows the page by it, hk-tabbar.js centres the bar beside it,
-// the Home Grid lays itself in what is left (hk-layout.js). Beside a Home Grid
-// that fills the height it takes what the grid leaves (444 px beside a 3 x 3 on
-// a 1180 x 820 tablet); elsewhere its Width (Narrow 360, Standard 400, Wide
-// 480). A tablet held upright gets a band under the page, its sections side
+// the Home Grid lays itself in what is left (hk-layout.js). Always its Width
+// (Narrow 360, Standard 400, Wide 480), beside a Home Grid too (2026-10-30). A tablet held upright gets a band under the page, its sections side
 // by side (276 px; 198 on a narrower one); a phone never.
 //
 // Loaded by hk-loader.js; nothing happens at load but window.hkSidePane.
@@ -64,7 +62,7 @@
   var BAND_H = 276, BAND_SMALL = 198, BAND_SMALL_W = 760, PHONE_W = 640;
   // the page beside the pane keeps at least this, else no pane; and the most
   // a Home Grid may leave it (wider than this, it takes its Width instead)
-  var PAGE_MIN = 560, BESIDE_MAX = 560;
+  var PAGE_MIN = 560;
   var MAX = 8;
 
   function esc(s) {
@@ -111,12 +109,13 @@
     if (!(W >= PHONE_W)) return { kind: 'none' };
     if (H > W) return { kind: 'band', h: W < BAND_SMALL_W ? BAND_SMALL : BAND_H };
     var room = W - (o.menu || 0), w = WIDTHS[o.width] || WIDTHS.standard;
-    if (o.gridW > 0) {
-      // (the grid is the page, laid out to its own width: no page minimum)
-      var left = Math.round(room - o.gridW);
-      if (left >= WIDTHS.narrow && left <= BESIDE_MAX) return { kind: 'side', w: left };
-    }
-    if (room - w < PAGE_MIN) return { kind: 'none' };
+    // ITS WIDTH, ALWAYS (2026-10-30; the owner: "I'm not sure the side pane
+    // widths are working"): beside a Home Grid it once took whatever the grid
+    // left, so on Home Narrow, Standard and Wide all came out the same. Now
+    // the grid fits itself in what the pane leaves (it scales to any room),
+    // so beside one there is no page minimum
+    if (!(o.gridW > 0) && room - w < PAGE_MIN) return { kind: 'none' };
+    if (o.gridW > 0 && room - w < WIDTHS.narrow) return { kind: 'none' };
     return { kind: 'side', w: w };
   }
   // the Dashboard's pane on this page: Off, Home Only, Every Page
@@ -168,8 +167,17 @@
     var s = Math.max(0, Math.round((Date.now() - t) / 1000));
     return s < 60 ? s + ' s' : s < 3600 ? Math.round(s / 60) + ' min' : Math.round(s / 3600) + ' hr';
   }
+  // A DOMAIN'S ENTITIES: the states here and the house's registry -- a page
+  // Mantel has narrowed to what it reads holds no state for what only the
+  // pane reads, so the registry names them, and reading one by name asks for
+  // it (web/home.js keep). Listed from the states alone, the weather went
+  // "No weather" on such a page (2026-10-30).
   function domainIds(c, dom) {
-    return Object.keys(states(c)).filter(function (k) { return k.indexOf(dom + '.') === 0; }).sort();
+    var seen = {}, out = [];
+    [states(c), (c && c.entities) || {}].forEach(function (o) {
+      Object.keys(o).forEach(function (k) { if (k.indexOf(dom + '.') === 0 && !seen[k]) { seen[k] = 1; out.push(k); } });
+    });
+    return out.sort();
   }
   function kinds(k) { var x = setting('kinds', {}) || {}; return Array.isArray(x[k]) ? x[k] : []; }
 
@@ -303,10 +311,16 @@
 
   // ------------------------------------------------------------ drawing
   function icon(name, extra) { return '<hk-icon icon="' + name + '"' + (extra || '') + '></hk-icon>'; }
-  // NO TITLE OVER A SECTION (the owner, 2026-10-30: "I'm not sure we need a
-  // heading for each section"): what it shows says what it is, as HomeView's
-  // pane. A to-do list keeps its own name (which list is content, not a title).
-  function head() { return ''; }
+  // A SECTION'S HEADING (2026-10-30): the small uppercase title with its icon,
+  // as the pane's Section Headings say (the screen's Side Pane `headings`, on
+  // by default) -- never over the Clock or the Weather, which say what they
+  // are, nor on a Pages-screen widget. A to-do list keeps its own name either
+  // way (which list is content). HEAD_ON is the drawing pane's, set as it draws.
+  var HEAD_ON = true;
+  function head(k) {
+    if (!HEAD_ON || k === 'clock' || k === 'weather') return '';
+    return '<div class="h2">' + icon(KINDS[k][1]) + '<span>' + esc(KINDS[k][0]) + '</span></div>';
+  }
   function tiny(k, txt, val) {
     return '<div class="sec cmp" data-k="' + k + '" data-size="tiny"><div class="r2">' + icon(KINDS[k][1]) +
       '<span class="tx">' + txt + '</span>' + (val ? '<span class="v2">' + val + '</span>' : '') + '</div></div>';
@@ -350,7 +364,10 @@
     },
     weather: function (s, sec, c, ctx) {
       var id = setting('weather.entity', null) || domainIds(c, 'weather')[0], st = id && states(c)[id];
-      if (!st) return none('weather', s, 'No weather');
+      // (its state not here yet -- loading, a reconnect, a narrowed page asking
+      // for it: the last one seen, never "No weather" while it comes)
+      if (st) WX_LAST[id] = st; else if (id && WX_LAST[id]) st = WX_LAST[id];
+      if (!st) return none('weather', s, id ? 'Getting the weather…' : 'No weather');
       var cond = condName(st.state);
       var daily = ctx.forecast(id, 'daily'), hourly = s === 'more' || s === 'full' ? ctx.forecast(id, 'hourly') : [];
       var d0 = daily[0] || {}, hl = d0.temperature != null ? 'H:' + deg(d0.temperature) + ' L:' + deg(d0.templow) : '';
@@ -396,7 +413,7 @@
       // MORE AND FULL: the screensaver's music pane itself (hk-music-pane-card,
       // hk-saver.js): the art, the song, its buttons and volume, Up Next and
       // the Speakers / Browse panel -- the one view the dashboard shares
-      return '<div class="sec mp' + (s === 'full' ? ' grow' : '') + '" data-k="now_playing" data-size="' + s + '">' + ctx.slot('np', 'hk-music-pane-card', function (el) {
+      return '<div class="sec mp' + (s === 'full' ? ' grow' : '') + '" data-k="now_playing" data-size="' + s + '">' + head('now_playing') + ctx.slot('np', 'hk-music-pane-card', function (el) {
         if (el.active) el.active(true);
       }) + '</div>';
     },
@@ -578,11 +595,20 @@
   // ------------------------------------------------------------ the CSS
   // Built on first use: never hkCards while this file loads (DESIGN.md
   // Rules 1). Logical sizes (a 400 px pane), scaled whole by the pane.
-  var CSS = null;
+  // (built before hkCards has come, the design values have fallbacks of their
+  // own, and it is not kept: drawn again once hkCards is here -- the pane
+  // hangs under <body>, where no --hk-* value is set, and a sheet built
+  // without fallbacks lost its hairlines and its second ink for good, on
+  // whichever load drew it first -- the owner's dividers that came and went,
+  // 2026-10-30)
+  var CSS = null, BARE = { ink: '#fff', 'ink-2': 'rgba(235,235,245,0.6)', line: 'rgba(255,255,255,0.14)',
+    'line-strong': 'rgba(255,255,255,0.22)', key: 'rgba(118,118,128,0.24)', 'key-strong': 'rgba(118,118,128,0.36)' };
+  var WX_LAST = {};
+  function cssReady() { var K = C(); return !!(K && K.v); }
   function css() {
     if (CSS) return CSS;
-    var K = C(), v = K && K.v ? K.v : function (n) { return 'var(--hk-' + n + ')'; }, R = (K && K.SP && K.SP.cardR) || 20;
-    CSS = [
+    var K = C(), v = K && K.v ? K.v : function (n) { return 'var(--hk-' + n + (BARE[n] ? ',' + BARE[n] : '') + ')'; }, R = (K && K.SP && K.SP.cardR) || 20;
+    var out = [
       // (above the page, as Now Playing's pane was; under the menu, the tab bar and every sheet)
       ':host{position:fixed;z-index:5;display:none;box-sizing:border-box;color:' + v('ink') + ';font-family:var(--hk-font-body,inherit);',
       '  -webkit-tap-highlight-color:transparent;contain:layout style}',
@@ -685,6 +711,9 @@
       '.sec.mp{padding:0;display:block;position:relative;height:540px;background:none;overflow:visible}',
       '.sec.mp.grow{height:auto;min-height:540px}',
       '.sec.mp>*{position:absolute;inset:0;height:100%}',
+      // (its heading, when the pane has them, above the music pane, not over it)
+      '.sec.mp>.h2{position:relative;inset:auto;height:auto;padding:14px 0 0}',
+      '.sec.mp>.h2~*{top:34px;height:auto;bottom:0}',
       '.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}',
       '.stats div{font:500 13px/1.3 var(--hk-font-body,inherit);color:' + v('ink-2') + '}',
       '.stats b{display:block;font:600 22px/1.25 var(--hk-font-body,inherit);color:' + v('ink') + '}',
@@ -725,7 +754,8 @@
       '@media (hover:hover){.pp:hover,.keys button:hover{background:' + v('key-strong') + '}}',
       '@media (prefers-reduced-motion:no-preference){:host([side]) .pane{transition:opacity .2s}}'
     ].join('\n');
-    return CSS;
+    if (K && K.v) CSS = out;
+    return out;
   }
 
   // ------------------------------------------------------------ one pane
@@ -758,11 +788,14 @@
     _draw(again) {
       var o = this._o, c = clientNow();
       if (!this._built) {
+        this._cssFull = cssReady();
         this._root.innerHTML = '<style>' + css() + '</style><div class="pane"><div class="artbg" aria-hidden="true"><b></b><b></b><i></i></div><div class="pin"><div class="secs"></div></div></div>';
         this._pin = this._root.querySelector('.pin');
         this._secs = this._root.querySelector('.secs');
         this._built = true;
       }
+      // (its sheet drawn again with the design values, once hkCards has come)
+      if (!this._cssFull && cssReady()) { this._cssFull = true; this._root.querySelector('style').textContent = css(); }
       var band = o.place.kind === 'band', W = this.clientWidth || (band ? window.innerWidth : o.place.w) || DRAWN_W;
       var H = this.clientHeight || (band ? o.place.h : window.innerHeight) || 800;
       // drawn at 400 wide and scaled whole (a band at its own height, scaled the same)
@@ -771,6 +804,8 @@
       this._pin.style.height = (H / z).toFixed(1) + 'px';
       this._pin.style.transform = 'scale(' + z.toFixed(4) + ')';
       var list = o.list || [], self = this;
+      var sp = paneOf();
+      HEAD_ON = this.getAttribute('mode') !== 'widget' && !(sp && sp.headings === false);
       var ctx = this._ctx(c);
       var door = o.doorbell ? this._door(o.doorbell, c) : '';
       var render = function (sizes, n) {
@@ -783,7 +818,7 @@
         return html;
       };
       this._artBg(list, c);
-      var sig = JSON.stringify([list, W, H, o.side, band, o.doorbell]) + '|' + this._dataSig(c);
+      var sig = JSON.stringify([list, W, H, o.side, band, o.doorbell, HEAD_ON]) + '|' + this._dataSig(c);
       if (!again && sig === this._sig) return;
       this._sig = sig;
       var over = function (sizes, n) {

@@ -1231,7 +1231,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
              "flat_colors": dict(FLAT_COLORS_DEFAULT), "flat_page_colors": {},
              # TILE STYLE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase B): the Home Grid's tiles and the room
              # pages' Tall pills in the Home app's layout, or Centred (the glyph above the name and room, HomeView's)
-             "tile_style": "auto"},
+             "tile_style": "auto", "bright_pages": "home"},
     # THE CALENDAR (the Calendar page, hk-calendar.js, and the screensaver's
     # calendar pane): the calendar entities shown, in order (empty: every
     # calendar the house has), and each one's colour -- entity -> a page pill
@@ -1267,6 +1267,9 @@ WELLS = ("dark", "light")
 # Automatic (2026-10-30, the default; the owner: "maybe it could be linked to the Square Setting?"): Centred on a
 # Home Grid of square cells, Home on 196 x 150 tiles and the room pages -- Home and Centred stay to choose outright.
 TILE_STYLES = ("auto",) + HG.TILE_STYLES
+# BRIGHT GLASS ON (look.bright_pages, a screen's bright_pages; 2026-10-30, the owner: "should we only use Bright
+# Glass on the main page?"): Home only (the default), the other pages in its Blur; or every page
+BRIGHT_PAGES = ("home", "all")
 # Looks that were tried and taken out, read as the one that replaced them:
 # Baked (blur_baked, each surface its own slice of the picture) cost more
 # than it saved and went on 2026-10-10 -- Pre-rendered is the same picture.
@@ -1438,6 +1441,8 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
         out["look"]["flat_theme"] = "dark"
     if out["look"].get("well") not in WELLS:
         out["look"]["well"] = DEFAULTS["look"]["well"]
+    if out["look"].get("bright_pages") not in BRIGHT_PAGES:
+        out["look"]["bright_pages"] = "home"
     if out["look"].get("tile_style") not in TILE_STYLES:
         out["look"]["tile_style"] = DEFAULTS["look"]["tile_style"]
     out["sky"]["photo_look"] = photo_look(out["sky"].get("photo_look")) or dict(PHOTO_LOOK_DEFAULTS)
@@ -1817,7 +1822,8 @@ PANE_WIDTHS = {"narrow": 360, "standard": 400, "wide": 480}
 PANE_SHOWS = ("off", "home", "all")
 PANE_SAVER_SHOWS = ("off", "same", "own")
 PANE_MAX = 8
-PANE_GROUPS = ("side", "width", "dashboard", "saver", "doorbell")
+# headings (2026-10-30): a small title over each section but the Clock and the Weather (they say what they are)
+PANE_GROUPS = ("side", "width", "dashboard", "saver", "doorbell", "headings")
 # each kind's own options: the calendar's days (1-7), the camera's and the
 # to-do list's entity, the to-do list's Show Completed
 PANE_OPTIONS: dict[str, dict[str, Any]] = {"calendar": {"days": SAVER_CAL_DAYS}, "camera": {"entity": "camera"},
@@ -1829,6 +1835,7 @@ SIDE_PANE_DEFAULTS: dict[str, Any] = {
     "saver": {"show": "off", "sections": [{"kind": "clock", "size": "tiny"}, {"kind": "calendar"},
                                           {"kind": "now_playing", "size": "less", "when": "active"}]},
     "doorbell": True,
+    "headings": True,
 }
 DEFAULTS["side_pane"] = copy.deepcopy(SIDE_PANE_DEFAULTS)
 
@@ -1905,7 +1912,7 @@ def pane_group(name: str, v: Any, strict: bool = False) -> Any:
         return v if v in PANE_SIDES else None
     if name == "width":
         return v if v in PANE_WIDTHS else None
-    if name == "doorbell":
+    if name in ("doorbell", "headings"):
         return v if isinstance(v, bool) else None
     if name not in ("dashboard", "saver") or not isinstance(v, Mapping):
         return None
@@ -2311,6 +2318,7 @@ BOARD_DEFAULTS: dict[str, Any] = {
     "bright": None,
     # its own Tile Style (TILE_STYLES; None: All Screens')
     "tile_style": None,
+    "bright_pages": None,
     # ...and in a car's browser (car on): car_layout, which Home the screen
     # generates there -- "home" the whole Home every screen has, "car" the
     # car's own (CAR_LAYOUTS); car_width, the layout width the car's window
@@ -2564,6 +2572,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["frost_tint"] = d.get("frost_tint") if isinstance(d.get("frost_tint"), bool) else None
     out["bright"] = amount_or_none(d.get("bright"))
     out["tile_style"] = d.get("tile_style") if d.get("tile_style") in TILE_STYLES else None
+    out["bright_pages"] = d.get("bright_pages") if d.get("bright_pages") in BRIGHT_PAGES else None
     # The screen's own Sky / Background: each flag stored as anything but a
     # boolean is not set (follow All Screens), as a backdrop id not in
     # SKY_BACKDROPS and stops that do not parse are (sky_stops()).

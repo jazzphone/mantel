@@ -71,6 +71,9 @@ function sheetContrast() {
       say(/\bbright\b/.test(w.bar || ''), size + ' the tab bar wears its Bright Glass', w.bar);
       await shot('home');
       await go('/' + input.screen + '/room-living-room');
+      // BRIGHT GLASS ON HOME ONLY (the default, 2026-10-30): another page in its Blur
+      const roomLook = await page.evaluate(() => document.documentElement.getAttribute('data-hk-glass'));
+      say(roomLook === 'blur', size + ' a room page wears Blur (Bright Glass on Home only)', roomLook);
       await shot('room');
       await page.evaluate(standIn, await page.evaluate(sheetStandIn));
       await page.evaluate(() => window.hkDetail.open('light.living_room_lamps'));
