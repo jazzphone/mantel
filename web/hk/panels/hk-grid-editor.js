@@ -503,6 +503,9 @@
     '.screen-settings{margin:4px 0 16px}.screen-settings summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;font-weight:600;padding:0 4px}.screen-settings summary::before{content:"›";display:inline-block;transition:transform .15s}.screen-settings[open] summary::before{transform:rotate(90deg)}',
     // THE STARTERS: a map of each layout's blocks beside its name
     '.starter{display:flex;align-items:center;gap:12px;padding:10px 12px;text-align:left;cursor:pointer}',
+    // a Look's picture: its colours (or its wallpaper), its accent a dot
+    '.lookart{flex:none;width:64px;height:44px;border-radius:9px;position:relative;background-size:cover;background-position:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}',
+    '.lookart i{position:absolute;right:6px;bottom:6px;width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 1.5px rgba(255,255,255,.8)}',
     '.starter .st{display:grid;gap:2px;min-width:0}.starter .st b{font-weight:600;font-size:15px}.starter .st small{font-size:12px;color:var(--hk-label2);line-height:1.3}',
     '.mini{flex:none;width:136px;aspect-ratio:16/10;box-sizing:border-box;padding:5px;border-radius:8px;background:var(--hk-fill);display:grid;gap:3px}',
     '.mini i{border-radius:4px;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;overflow:hidden}',
@@ -939,7 +942,7 @@
     async starter(concept) {
       if (this.busy) return;
       if (this.grid && !await this.K.confirm(this.shadowRoot, { title: 'Use a Starter Layout?', message: 'This replaces your draft. Nothing is saved yet.', ok: 'Use Starter' })) return;
-      this.paneChange = null;
+      this.paneChange = null; this.lookChange = null;
       if (concept === 'empty') { this.selected = null; this.change(this.asScreen(copy(EMPTY))); return; }
       var sq = this.squareStarters().find((c) => c[0] === concept);
       if (sq) {
@@ -1029,7 +1032,69 @@
       kids.forEach((n) => box.appendChild(n));
       return box;
     }
+    // LAYOUT + LOOK (2026-10-30, hk_core looks.py): a whole setup -- the
+    // layout and the screen's settings -- in one step; each Look's picture
+    lookArt(l) {
+      var h = this.h, W = window.hkWallpapers, wall = l.settings.sky_background === 'wallpaper' && W && W.url(l.settings.sky_wallpaper, false);
+      var el = h('span', { class: 'lookart', 'aria-hidden': 'true' }, [h('i', {})]);
+      el.style.backgroundImage = wall ? 'url("' + wall + '")' : 'linear-gradient(160deg,' + l.art[0] + ',' + l.art[1] + ' 55%,' + l.art[2] + ')';
+      el.firstChild.style.background = l.art[3];
+      return el;
+    }
+    lookGallery() {
+      var h = this.h, K = this.K, M = window.hkSettingsModel;
+      if (!M || !M.LOOKS) return null;
+      return K.group({ header: 'Layout + Look', footer: 'A Look sets the layout and the screen’s look in one step: its style and colors, ' +
+        'background, tiles, Side Pane, swiping and screensaver. Nothing is saved until you Save, and the screen’s Looks page can undo it.' },
+        M.LOOKS.map((l) => h('button', { class: 'cell starter', type: 'button', 'data-look': l.id, 'aria-label': l.name + ', ' + l.about,
+          onclick: () => this.useLook(l.id) }, [this.lookArt(l), h('span', { class: 'st' }, [h('b', { text: l.name }), h('small', { text: l.about })])])));
+    }
+    // the Look's layout on this screen: its first starter this screen type
+    // has (HomeView-style, nightstand, or one of the house's, read from the
+    // server), its cells the Look's
+    async lookGrid(l) {
+      // (a screen with no grid yet is the empty one's type; Tap Weight last of all)
+      var grid = null, sq = SQUARE_STARTERS[screenTypeOf(this.grid || EMPTY)] || [];
+      for (var key of l.layout.starters.concat(['A'])) {
+        var a = sq.find((c) => c[0] === key);
+        if (a) { grid = squareStarter(a, this.grid, this.squareHouse()); break; }
+        var n = NIGHTSTAND.find((c) => c[0] === key);
+        if (n && this.grid) { grid = Object.assign(copy(this.grid), { items: copy(n[3]) }); if (n[4]) grid.views = n[4]; else delete grid.views; break; }
+        if (STARTERS.some((c) => c[0] === key)) {
+          var got = this.starterGrids && this.starterGrids[key];
+          if (!got) { try { got = (await this.panel.client.callWS({ type: 'hk_frontend/grid/starter', options: this.starterOptions(key) })).grid; } catch (e) { got = null; } }
+          if (got) { grid = this.asScreen(copy(got)); break; }
+        }
+      }
+      if (!grid) grid = copy(this.grid || EMPTY);
+      if (l.layout.cell === 'square') grid.cell = 'square';
+      else if (grid.screen !== 'square') delete grid.cell;
+      return grid;
+    }
+    async useLook(id) {
+      var M = window.hkSettingsModel, l = M.lookOf(id);
+      if (!l || this.busy) return;
+      if (!await this.K.confirm(this.shadowRoot, { title: 'Use the ' + l.name + ' Look?', message: 'Its layout replaces your draft, and Save also sets the ' +
+        'screen’s look: ' + l.about + ' The screen’s Looks page can undo it.', ok: 'Use ' + l.name })) return;
+      this.busy = true;
+      try {
+        var grid = await this.lookGrid(l), b = this.o.board || {};
+        var saver = M.saverOptions(b.screensaver_options || ((this.panel.data.settings || {}).look || {}).saver);
+        var r = M.lookChanges(l, b, saver, grid);
+        delete r.changes.home_grid; delete r.changes.home_style;
+        this.lookChange = r.changes; this.paneChange = null;
+        VIEW = 0; this.selected = null; this.change(grid);
+        this.say('Save also sets ' + r.rows.length + (r.rows.length === 1 ? ' thing' : ' things') + ' on this screen: ' +
+          r.rows.map((x) => x[0]).join(', ') + '.');
+      } finally { this.busy = false; }
+    }
     starterGallery() {
+      var looks = this.lookGallery(), starters = this.starterGallery1();
+      if (!looks) return starters;
+      var box = this.h('div', {}, [looks, starters]);
+      return box;
+    }
+    starterGallery1() {
       var h = this.h, K = this.K, waiting = !this.starterGrids;
       this.loadStarters();
       var kind = screenTypeOf(this.grid), night = kind === 'phone_landscape', square = this.squareStarters(), house = square.length ? this.squareHouse() : null;
@@ -1806,11 +1871,19 @@
         var msg = { type: 'hk_frontend/board/set', dashboard: this.o.path, changes: { home_style: 'grid', home_grid: grid } };
         // (a starter that asked for the Side Pane: the screen's, in the same write)
         if (this.paneChange) msg.changes.side_pane = this.paneChange;
+        // (a Look: its settings and its Undo -- the layout's own before it
+        // too -- in the same write)
+        if (this.lookChange) {
+          var b0 = this.o.board || {};
+          Object.assign(msg.changes, copy(this.lookChange));
+          msg.changes.look_undo.was.home_style = b0.home_style || 'generated';
+          msg.changes.look_undo.was.home_grid = b0.home_grid || null;
+        }
         if (!anyway && this.version != null) msg.expect_version = this.version;
         var result = await this.panel.actions().callWS(msg);
         this.panel.data.boards[this.o.path] = result && result.board || Object.assign({}, this.o.board, { home_style: 'grid', home_grid: grid },
-          this.paneChange ? { side_pane: this.paneChange } : {});
-        this.paneChange = null;
+          this.paneChange ? { side_pane: this.paneChange } : {}, this.lookChange || {});
+        this.paneChange = null; this.lookChange = null;
         keepVersion(this.panel, this.o.path, result);
         if (result && result.version != null) this.version = result.version;
         this.initial = JSON.stringify(grid); this.o.onSaved();

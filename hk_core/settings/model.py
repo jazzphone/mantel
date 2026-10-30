@@ -36,6 +36,7 @@ from ..house import House
 from ..notifications.dnd import DND_MAX, hhmm, notify_dnd  # noqa: F401
 from ..sleep import rules as SR
 from . import home_grid as HG
+from .looks import IDS as LOOK_IDS
 from . import kinds
 
 CONF_DASHBOARD = "dashboard"
@@ -2410,6 +2411,8 @@ BOARD_DEFAULTS["pages_screen"] = None
 # Screens in everything -- settings `side_pane`, each group filled in by
 # resolved())
 BOARD_DEFAULTS["side_pane"] = None
+# A LOOK'S UNDO (looks.py): the Look last applied here and this screen's own values before it; None: nothing to undo
+BOARD_DEFAULTS["look_undo"] = None
 # A CAR'S BROWSER (a screen's car_layout / car_width): which Home it
 # generates there -- the whole one, or the car's own (the weather and the
 # house's status in a line, the chips, Scenes, Security and Favorites: no clock, the car
@@ -2635,6 +2638,8 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     # THE PAGES SCREEN, this screen's own fields (pages_screen_own); none: Same as All Screens
     out["pages_screen"] = pages_screen_own(d.get("pages_screen")) or None
     out["side_pane"] = side_pane_own(d.get("side_pane"))
+    lu = d.get("look_undo")
+    out["look_undo"] = lu if (isinstance(lu, dict) and lu.get("look") in LOOK_IDS and isinstance(lu.get("was"), dict)) else None
     return out
 
 

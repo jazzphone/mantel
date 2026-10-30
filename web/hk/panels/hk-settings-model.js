@@ -2655,6 +2655,76 @@
   }
   function npShowAs(p) { return paneHasMusic(p) ? 'In the Side Pane' : 'Bar'; }
 
+
+  // ------------------------------------------------------------ LOOKS
+  // LOOKS (2026-10-30, hk_core/settings/looks.py -- the one list; this is its
+  // copy, compared by tests/test_hk_core_looks.py): whole themed setups a
+  // screen takes in one step -- its settings, its screensaver's options (a
+  // patch over the screen's) and the layout it starts from.
+  var LOOK_KEYS = ["flat", "flat_theme", "glass", "accent", "tab_bar_glass", "tile_style", "sky", "sky_background", "sky_color", "sky_wallpaper", "sky_wallpaper_night", "sky_wallpaper_motion", "sky_animations", "sky_weather", "sky_precipitation", "sky_moving", "sky_decorations", "sky_liveliness", "swipe_pages", "side_pane", "screensaver", "screensaver_options", "camera_live_video"];
+  var LOOK_UNDO_KEYS = ["flat", "flat_theme", "glass", "accent", "tab_bar_glass", "tile_style", "sky", "sky_background", "sky_color", "sky_wallpaper", "sky_wallpaper_night", "sky_wallpaper_motion", "sky_animations", "sky_weather", "sky_precipitation", "sky_moving", "sky_decorations", "sky_liveliness", "swipe_pages", "side_pane", "screensaver", "screensaver_options", "camera_live_video", "home_style", "home_grid"];
+  var LOOKS = [
+    {"id": "homeview", "name": "HomeView", "about": "Square tiles, centred, over a slow-moving wallpaper in Bright Glass, with the Side Pane and the Analog Numbers clock.", "art": ["#1f4b8d", "#375b91", "#0b285d", "#ff9500"], "layout": {"cell": "square", "starters": ["sq_pane", "sq_6x4", "sq_3x5", "sq_2x4", "sq_homeview"]}, "settings": {"flat": false, "glass": "bright", "accent": "orange", "tab_bar_glass": "house", "tile_style": "auto", "sky": true, "sky_background": "wallpaper", "sky_wallpaper": "ribbons_blue", "sky_wallpaper_night": "auto", "sky_wallpaper_motion": "slow", "swipe_pages": "on", "side_pane": {"side": "right", "dashboard": {"show": "home", "sections": [{"kind": "weather", "size": "more"}, {"kind": "calendar", "size": "more"}, {"kind": "now_playing", "size": "more", "when": "active"}]}}, "screensaver": true}, "saver": {"show": "clock", "clock_style": "numbers", "clock_bg": "gradient", "clock_motion": "slow"}},
+    {"id": "flat", "name": "Flat", "about": "Clean and solid: no blur, high contrast, the cards on one dark colour.", "art": ["#1c1c1e", "#1c1c1e", "#1c1c1e", "#0a84ff"], "layout": {"cell": "tile", "starters": ["A"]}, "settings": {"flat": true, "flat_theme": "dark", "accent": "blue", "tab_bar_glass": "tinted", "tile_style": "home", "swipe_pages": "auto", "screensaver": true}, "saver": {"show": "clock", "clock_style": "classic", "clock_bg": "black", "clock_motion": "still"}},
+    {"id": "performance", "name": "Performance", "about": "The lightest setup for a slow wall tablet: Glass, no rain or snow, nothing moving in front of the cards, no live camera, and a still screensaver.", "art": ["#2b3140", "#3a4152", "#202531", "#ff9500"], "layout": {"cell": "tile", "starters": ["Q"]}, "settings": {"flat": false, "glass": "clear", "accent": "orange", "tab_bar_glass": "tinted", "tile_style": "home", "sky_animations": false, "sky_precipitation": false, "sky_moving": "behind", "sky_decorations": false, "sky_wallpaper_motion": "off", "camera_live_video": false, "screensaver": true}, "saver": {"show": "clock", "clock_style": "classic", "clock_bg": "black", "clock_motion": "still", "zoom": false}},
+    {"id": "holiday", "name": "Holiday Whimsy", "about": "The live sky with the season's scenery and decorations, a festive bustle, the Day face with its occasion art, and Scattered Numerals.", "art": ["#2a1450", "#7a3b1c", "#1b0f24", "#ff9f0a"], "layout": {"cell": "tile", "starters": ["F", "A"]}, "settings": {"flat": false, "glass": "blur", "accent": "orange", "tab_bar_glass": "house", "tile_style": "auto", "sky": true, "sky_background": "live", "sky_animations": true, "sky_decorations": true, "sky_liveliness": "festive", "sky_moving": "front", "swipe_pages": "auto", "screensaver": true}, "saver": {"show": "day", "clock_style": "scattered", "day_look": "auto"}},
+    {"id": "weather", "name": "Active Weather", "about": "The live sky with its weather moving -- clouds, rain and snow -- the weather large in the Side Pane and Big Weather in the screensaver.", "art": ["#3a6ea8", "#7fa6c9", "#2c4a6b", "#32ade6"], "layout": {"cell": "tile", "starters": ["C", "A"]}, "settings": {"flat": false, "glass": "blur", "accent": "cyan", "tab_bar_glass": "house", "tile_style": "auto", "sky": true, "sky_background": "live", "sky_animations": true, "sky_weather": true, "sky_precipitation": true, "sky_moving": "behind", "swipe_pages": "auto", "side_pane": {"side": "right", "dashboard": {"show": "home", "sections": [{"kind": "weather", "size": "full"}, {"kind": "calendar", "size": "less"}]}}, "screensaver": true}, "saver": {"show": "forecast", "forecast_layout": "big"}},
+    {"id": "calm", "name": "Calming Backgrounds", "about": "Soft violet petals drifting slowly in Bright Glass, muted colours, and the Liquid clock.", "art": ["#3c3283", "#524999", "#211a5e", "#5e5ce6"], "layout": {"cell": "square", "starters": ["sq_pane", "sq_6x4", "sq_3x5", "sq_2x4", "sq_homeview"]}, "settings": {"flat": false, "glass": "bright", "accent": "indigo", "tab_bar_glass": "house", "tile_style": "auto", "sky": true, "sky_background": "wallpaper", "sky_wallpaper": "petals_violet", "sky_wallpaper_night": "auto", "sky_wallpaper_motion": "slow", "swipe_pages": "on", "screensaver": true}, "saver": {"show": "clock", "clock_style": "liquid", "clock_bg": "gradient", "clock_motion": "slow"}},
+    {"id": "night", "name": "Night & Bedside", "about": "Dark and quiet for a bedroom: a deep colour, the big clock a swipe from the weather, and a dim red clock at night.", "art": ["#0b1026", "#121a3a", "#05070f", "#ff453a"], "layout": {"cell": "tile", "starters": ["n_standby", "n_clock"]}, "settings": {"flat": false, "glass": "tinted", "accent": "red", "tab_bar_glass": "tinted", "tile_style": "home", "sky": true, "sky_background": "color", "sky_color": "midnight", "sky_animations": false, "swipe_pages": "on", "side_pane": {"dashboard": {"show": "off", "sections": []}}, "screensaver": true}, "saver": {"show": "clock", "clock_style": "classic", "clock_bg": "black", "clock_motion": "still", "clock_night": "night"}},
+    {"id": "photos", "name": "Photo Frame", "about": "The landscapes behind the cards, and your photos soon after you stop -- their titles, the time behind their subject where it can be.", "art": ["#4a6a3a", "#8aa070", "#2a3a22", "#ff375f"], "layout": {"cell": "tile", "starters": ["Q", "A"]}, "settings": {"flat": false, "glass": "blur", "accent": "pink", "tab_bar_glass": "house", "tile_style": "auto", "sky": true, "sky_background": "landscapes", "swipe_pages": "auto", "screensaver": true}, "saver": {"show": "photos", "starts_after": 60, "photo_titles": true, "time_behind": true}}
+  ];
+  function lookOf(id) { return LOOKS.filter(function (l) { return l.id === id; })[0] || null; }
+  // WHAT A LOOK CHANGES on a screen (`b`: its settings as read; `saver`: its
+  // screensaver's options now): the changes to send, its Undo (the screen's
+  // own values before), and the rows the sheet shows ([label, was, becomes])
+  // -- only what differs. `layout`: the Layout + Look's grid, if any.
+  var LOOK_LABELS = { flat: 'Flat Colors', flat_theme: 'Flat Theme', glass: 'Style', accent: 'Accent Color', tab_bar_glass: 'Tab Bar Glass',
+    tile_style: 'Tile Style', sky: 'Sky', sky_background: 'Background', sky_color: 'Color', sky_wallpaper: 'Wallpaper',
+    sky_wallpaper_night: 'Night Version', sky_wallpaper_motion: 'Wallpaper Motion', sky_animations: 'Animations', sky_weather: 'Weather',
+    sky_precipitation: 'Rain & Snow', sky_moving: 'Moving Things', sky_decorations: 'Decorations', sky_liveliness: 'Liveliness',
+    swipe_pages: 'Swipe Between Pages', side_pane: 'Side Pane', screensaver: 'Screensaver', screensaver_options: 'Screensaver Options',
+    camera_live_video: 'Live Camera', home_style: 'Home', home_grid: 'Layout' };
+  function lookSays(k, v) {
+    if (v === null || v === undefined) return 'Same as All Screens';
+    if (v === true) return 'On';
+    if (v === false) return 'Off';
+    var lists = { glass: GLASS_STYLES, tile_style: TILE_STYLES, sky_wallpaper_night: WALLPAPER_NIGHT, sky_wallpaper_motion: WALLPAPER_MOTION };
+    var o = lists[k] && lists[k].filter(function (x) { return x[0] === v; })[0];
+    if (o) return o[1];
+    if (k === 'side_pane') return v.dashboard && v.dashboard.show === 'off' ? 'Off' : 'On, beside Home';
+    if (k === 'screensaver_options') return 'The Look’s';
+    if (k === 'home_grid') return 'The Look’s starter';
+    if (typeof v === 'string') return v.replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+    return 'Set';
+  }
+  function lookChanges(look, b, saver, layout) {
+    b = b || {};
+    var ch = JSON.parse(JSON.stringify(look.settings)), was = {}, rows = [];
+    ch.screensaver_options = Object.assign({}, saver || {}, look.saver);
+    if (layout) { ch.home_style = 'grid'; ch.home_grid = layout; }
+    var same = function (a, c) { return JSON.stringify(a === undefined ? null : a) === JSON.stringify(c === undefined ? null : c); };
+    Object.keys(ch).forEach(function (k) {
+      var before = b[k] === undefined ? null : b[k];
+      was[k] = before;
+      if (k === 'screensaver_options') {
+        var now = Object.assign({}, saver || {});
+        if (Object.keys(look.saver).some(function (o) { return !same(now[o], look.saver[o]); })) rows.push([LOOK_LABELS[k], 'Yours', lookSays(k, ch[k])]);
+        return;
+      }
+      if (!same(before, ch[k])) rows.push([LOOK_LABELS[k] || k, k === 'home_grid' && before ? 'Your layout' : lookSays(k, before), lookSays(k, ch[k])]);
+    });
+    ch.look_undo = { look: look.id, was: was };
+    return { changes: ch, rows: rows };
+  }
+  // ...and its UNDO: the screen's own values back, the Undo spent
+  function lookUndo(b) {
+    var u = b && b.look_undo;
+    if (!u || !u.was) return null;
+    var ch = JSON.parse(JSON.stringify(u.was));
+    ch.look_undo = null;
+    return ch;
+  }
+
   root.hkSettingsModel = {
     PANE_KINDS: PANE_KINDS, PANE_SIZES: PANE_SIZES, PANE_WHEN: PANE_WHEN, PANE_SIDES: PANE_SIDES, PANE_WIDTHS: PANE_WIDTHS,
     PANE_SHOWS: PANE_SHOWS, PANE_SAVER_SHOWS: PANE_SAVER_SHOWS, PANE_GROUPS: PANE_GROUPS, PANE_MAX: PANE_MAX, PANE_DEFAULTS: PANE_DEFAULTS,
@@ -2722,6 +2792,7 @@
     topsOf: topsOf, placeOf: placeOf, placeSet: placeSet,
     camerasModel: camerasModel, autoCameras: autoCameras, livePlan: livePlan, liveYaml: liveYaml, liveNames: liveNames,
     move: move,
+    LOOKS: LOOKS, LOOK_KEYS: LOOK_KEYS, LOOK_UNDO_KEYS: LOOK_UNDO_KEYS, LOOK_LABELS: LOOK_LABELS, lookOf: lookOf, lookChanges: lookChanges, lookUndo: lookUndo,
     mmdd: mmdd, dateLabel: dateLabel, skyDate: skyDate, search: search
   };
 })();

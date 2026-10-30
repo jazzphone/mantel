@@ -174,6 +174,9 @@ def steps(build: Build | None = None) -> list[Step]:
     # the Side Pane in WebKit: beside Home on each side, Every Page, the screensaver, each section alone (2026-10-30)
     out.append(Step("side-pane-check", [py, "tools/headless/side_pane_check.py"], tier="full", timeout=900,
                     skip=playwright_missing))
+    # the Looks in WebKit: each applied from its page, Home at three sizes, Undo; Layout + Look in the editor (2026-10-30)
+    out.append(Step("looks-check", [py, "tools/headless/looks_check.py"], tier="full", timeout=900,
+                    skip=playwright_missing))
     out.append(Step("caddy-image", ["sh", "-c",
                     f"docker build -q -f packaging/docker/caddy.Dockerfile -t {CADDY_IMAGE} packaging/docker && "
                     f'"{py}" -m pytest -q -p no:cacheprovider tests/test_packaging.py -k caddy_image'],

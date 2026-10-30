@@ -435,7 +435,7 @@ def stand_in_connections(app, store) -> None:
     ha_client.connected_since, ha_client.ha_version = NOW - 3 * 3600, "2026.10.2"
 
 
-async def build(base: Path, showcase: bool = False):
+async def build(base: Path, showcase: bool = False, real_model: bool = False):
     """The invented house and a real Mantel Server over it. `showcase` (the docs' shots): also a day's history, a
     forecast, the Energy feature with its Power page, and Home Assistant and Music Assistant as connected. The
     other headless checks that build on this house leave it off, and get the plainer house they were written for."""
@@ -459,7 +459,10 @@ async def build(base: Path, showcase: bool = False):
     app["gateway"].commander = FictionalCommander(hub, app["gateway"].writes)     # changes the fictional states only
     owner = Identity(User(store.get_link("gallery-owner")["user_id"], OWNER, "owner", "ha_linked"), None, "lan")
     settings = settings_store.register(app, hub, settings_store.SettingsHooks(
-        may_configure=settings_store.rbac_may_configure()), model=settings_store.ThinModel())
+        may_configure=settings_store.rbac_may_configure()),
+        # (real_model: hk_core's settings model, as a house runs -- a check that writes keys the stored screen
+        # doesn't have yet, the Looks')
+        model=settings_store.load_model() if real_model else settings_store.ThinModel())
     if showcase:
         settings.features = FictionalFeatures()      # the Energy feature is added, with its Power page
 

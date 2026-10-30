@@ -210,6 +210,11 @@
     '.wallgrid button{display:flex;flex-direction:column;gap:6px;border:0;padding:0;margin:0;background:none;cursor:pointer;font:inherit;color:inherit;text-align:center}',
     '.wallgrid img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px;background:#05070e}',
     '.wallgrid span{font-size:13px;line-height:16px;color:var(--hk-label2)}',
+    // THE LOOKS (2026-10-30): each a row with its picture -- its colours or its wallpaper, its accent a dot
+    '.cell.look{display:flex;align-items:center;gap:12px;padding-top:10px;padding-bottom:10px;text-decoration:none;color:inherit;cursor:pointer}',
+    '.cell.look .st{display:grid;gap:2px;min-width:0}.cell.look .st b{font-weight:600}.cell.look .st small{font-size:13px;line-height:1.3;color:var(--hk-label2)}',
+    '.lookart{flex:none;width:64px;height:44px;border-radius:9px;position:relative;background-size:cover;background-position:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}',
+    '.lookart i{position:absolute;right:6px;bottom:6px;width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 1.5px rgba(255,255,255,.8)}',
     '.wallgrid button.on img{box-shadow:0 0 0 3px var(--hk-tint)}',
     '.wallgrid button.on span{color:var(--hk-tint);font-weight:600}',
     '.landgrid button.on{box-shadow:0 0 0 3px var(--hk-tint)}',
@@ -1893,6 +1898,10 @@
       var ab = ['Appearance', base + '/appearance'];
       if (s === 'appearance') return mk('Appearance', function (c) { self.s_appearance(c, x, b); });
       if (s === 'sidepane') return this.p_sidePane(path, sub.slice(1), [x.title, base]);
+      // LOOKS (2026-10-30, hk_core looks.py): a whole look in one step, and its Undo
+      var lb = ['Looks', base + '/looks'];
+      if (s === 'looks' && sub[1] && M.lookOf(sub[1])) return mk(M.lookOf(sub[1]).name, function (c) { self.lookPage(c, x, b, M.lookOf(sub[1]), base); }, lb);
+      if (s === 'looks') return mk('Looks', function (c) { self.looksPage(c, x, b, base); });
       if (s === 'accent') return mk('Accent Color', function (c) { self.accentPage(c, x, b); }, ab);
       if (s === 'menu-pages' && x.generated) s = 'pages';
       if (s === 'menu-pages') return mk('Pages in Menu', function (c) { self.s_menuPages(c, x, b); });
@@ -2098,6 +2107,10 @@
       // Appearance -- the style, colors, background and the tab bar's look
       c.appendChild(K.group({}, [
         K.nav({ label: 'Appearance', value: M.glassLabel(M.glassOf(b, this.data.settings.look).effective), sub: this.appearanceSays(b), href: base + '/appearance', sk: 'b:appearance', icon: 'mdi:palette' })]));
+      // LOOKS (2026-10-30): a whole themed setup in one step
+      var lu = b.look_undo && M.lookOf(b.look_undo.look);
+      c.appendChild(K.group({}, [K.nav({ label: 'Looks', value: lu ? lu.name : '', sub: 'HomeView, Flat, Performance, Holiday Whimsy and more, in one step',
+        href: base + '/looks', sk: 'b:looks', icon: 'mdi:view-dashboard-variant' })]));
       // THE SIDE PANE (2026-10-30): one row, its page as All Screens'
       c.appendChild(K.group({}, [K.nav({ label: 'Side Pane', value: M.paneSummary(this.paneNow(x.path)), href: base + '/sidepane', sk: 'b:side_pane', icon: 'mdi:dock-left' })]));
 
@@ -5495,6 +5508,46 @@
         var r = bd[p] && bd[p].side_pane_read;
         return !(r && r.own && r.own.length);
       })[0] || null;
+    }
+    // THE LOOKS (2026-10-30, hk_core looks.py; M.LOOKS): each with its
+    // picture and what it is; the one applied last can be undone here
+    looksPage(c, x, b, base) {
+      var self = this, u = b.look_undo && M.lookOf(b.look_undo.look);
+      if (u) {
+        c.appendChild(K.group({ footer: 'Puts back what this screen had before ' + u.name + ': its look, its settings and, from the Home Grid editor, its layout.' }, [
+          K.button({ label: 'Undo ' + u.name, fk: 'looks:undo', onClick: function () {
+            K.confirm(self.shadowRoot, { title: 'Undo ' + u.name + '?', message: 'This screen goes back to how it was before.', ok: 'Undo' }).then(function (ok) {
+              if (ok) self.setB(x.path, M.lookUndo(b));
+            });
+          } })]));
+      }
+      var art = function (l) {
+        var W = window.hkWallpapers, wall = l.settings.sky_background === 'wallpaper' && W && W.url(l.settings.sky_wallpaper, false);
+        var el = h('span', { class: 'lookart', 'aria-hidden': 'true' }, [h('i', {})]);
+        el.style.backgroundImage = wall ? 'url("' + wall + '")' : 'linear-gradient(160deg,' + l.art[0] + ',' + l.art[1] + ' 55%,' + l.art[2] + ')';
+        el.firstChild.style.background = l.art[3];
+        return el;
+      };
+      c.appendChild(K.group({ header: 'Looks', footer: 'Each sets this screen’s style and colors, its background, its tiles, the Side Pane, swiping and the ' +
+        'screensaver -- its layout stays. To start from a Look’s layout too, use Layout + Look in the Home Grid editor.' },
+        M.LOOKS.map(function (l) {
+          var row = h('a', { class: 'cell look', href: base + '/looks/' + l.id, 'data-fk': 'look:' + l.id }, [art(l),
+            h('span', { class: 'st' }, [h('b', { text: l.name }), h('small', { text: l.about })])]);
+          return row;
+        })));
+    }
+    // ONE LOOK: what it changes on this screen (only what differs), and Apply
+    lookPage(c, x, b, l, base) {
+      var self = this, saver = M.saverOptions(b.screensaver_options || this.hs('look.saver'));
+      var r = M.lookChanges(l, b, saver, null);
+      c.appendChild(K.group({ footer: l.about }, [K.info({ label: l.name, value: '' })]));
+      c.appendChild(K.group({ header: 'What Changes', footer: r.rows.length ? 'On this screen only. Its layout stays.' : 'This screen already looks this way.' },
+        r.rows.map(function (row) { return K.info({ label: row[0], value: row[1] + ' → ' + row[2] }); })));
+      if (r.rows.length) {
+        c.appendChild(K.group({ footer: 'Looks → Undo puts it all back.' }, [K.button({ label: 'Use ' + l.name, fk: 'look:apply', onClick: function () {
+          self.setB(x.path, r.changes).then(function () { self.back(base + '/looks'); });
+        } })]));
+      }
     }
     paneNow(path) {
       var b = path ? (this.data.boards || {})[path] : null;
