@@ -422,6 +422,9 @@
     // NOW PLAYING (2026-10-15): where the music playing shows -- a side pane
     // or the bar -- on every screen that doesn't choose its own
     ['nowplaying', 'Now Playing', 'mdi:music', C.red],
+    // THE SIDE PANE (2026-10-30): one pane per screen beside the page and in
+    // the screensaver, of the sections each picks
+    ['sidepane', 'Side Pane', 'mdi:dock-right', C.teal],
     // NOTIFICATIONS (the feature's, 2026-10-16): about every screen, so here
     // rather than under Pages -- its pages keep #/features/notify/...
     ['notify', 'Notifications', 'mdi:bell-badge', C.red, null, 'features/notify'],
@@ -1874,6 +1877,7 @@
       // out as All Screens' Appearance
       var ab = ['Appearance', base + '/appearance'];
       if (s === 'appearance') return mk('Appearance', function (c) { self.s_appearance(c, x, b); });
+      if (s === 'sidepane') return this.p_sidePane(path, sub.slice(1), [x.title, base]);
       if (s === 'accent') return mk('Accent Color', function (c) { self.accentPage(c, x, b); }, ab);
       if (s === 'menu-pages' && x.generated) s = 'pages';
       if (s === 'menu-pages') return mk('Pages in Menu', function (c) { self.s_menuPages(c, x, b); });
@@ -2070,6 +2074,8 @@
       // Appearance -- the style, colors, background and the tab bar's look
       c.appendChild(K.group({}, [
         K.nav({ label: 'Appearance', value: M.glassLabel(M.glassOf(b, this.data.settings.look).effective), sub: this.appearanceSays(b), href: base + '/appearance', sk: 'b:appearance', icon: 'mdi:palette' })]));
+      // THE SIDE PANE (2026-10-30): one row, its page as All Screens'
+      c.appendChild(K.group({}, [K.nav({ label: 'Side Pane', value: M.paneSummary(this.paneNow(x.path)), href: base + '/sidepane', sk: 'b:side_pane', icon: 'mdi:dock-right' })]));
 
       // BEHAVIOR
       var beh = [K.toggle({ label: 'Allow Pop-ups', sk: 'b:popups', on: b.popups, onChange: function (on) { set({ popups: on }); } })];
@@ -2087,10 +2093,9 @@
               options: [['', 'Same as All Screens (' + lab(list, hv) + ')', lab(list, hv)]].concat(list),
               onChange: function (v) { var o = {}; o[key] = v || null; set(o); } });
           };
-          var effStyle = b.np_style || hnp.style;
-          beh.push(npSel('np_style', 'Show As', M.NP_STYLES, hnp.style));
-          if (effStyle === 'pane') beh.push(npSel('np_side', 'Pane Side', M.NP_SIDES, hnp.side));
-          else beh.push(npSel('np_bar', 'Bar Position', M.NP_BARS, hnp.bar));
+          // (Show As: the bar, or the Side Pane's Now Playing -- its page, 2026-10-30)
+          beh.push(this.paneLink(path, 'np', 'b:np_style'));
+          beh.push(npSel('np_bar', 'Bar Position', M.NP_BARS, hnp.bar));
           beh.push(npSel('np_bar_phone', 'Bar Position on Phones', M.NP_BARS, hnp.bar_phone));
         }
         // (shown once the integration knows it: an older one would drop it)
@@ -3729,22 +3734,10 @@
         tog('Now Playing', 'music', 'Music playing anywhere in the house, bottom left.'),
         tog('Timers', 'timers', 'Running timers, bottom right.'),
         tog('Home Status', 'status', 'Top right: Home Secured when the alarm is armed and everything is shut, or what’s open or unlocked. Nothing when there’s nothing to say.')], overPhotos)));
-      // THE PANE down the right: the coming events, what plays, or both --
-      // the calendar above the music -- the photos (or the forecast) beside it
-      var days = function (n) { return n === 1 ? 'Today' : n === 2 ? 'Today & Tomorrow' : n + ' Days'; };
-      var pmKnown = self.saverKnown('music_pane'), pm = pmKnown && !!cur.music_pane, what = fc ? 'forecast' : 'photos';
-      c.appendChild(K.group({ header: 'Side Pane', footer: cur.calendar && pm
-          ? 'Down the right of the screen, Home Status at its top: the calendar’s events, and below them what’s playing while music plays. The ' + what + ' move over beside it. A swipe on the events scrolls them; the music’s buttons skip or pause; a touch anywhere else closes the screensaver.'
-          : cur.calendar
-          ? 'The events of the calendars in Pages → Calendar, down the right of the screen, with Home Status at its top; the ' +
-            what + ' move over beside it. A swipe on it scrolls it; a touch anywhere else closes the screensaver.'
-          : pm ? 'While music plays, what’s playing down the right of the screen, with Home Status at its top; the ' + what +
-            ' move over beside it, with the next photo. Its buttons skip or pause without closing the screensaver, and a tap on its album art opens Music. 20 seconds after the music stops, the pane goes.'
-          : 'Down the right of the screen: the coming events, what’s playing, or both.' }, [
-        tog('Calendar', 'calendar')].concat(cur.calendar ? [K.select({ label: 'Days', sk: 'saver:calendar_days',
-          value: String(cur.calendar_days), options: [1, 2, 3, 4, 5, 6, 7].map(function (n) { return [String(n), days(n)]; }),
-          onChange: function (v) { put('calendar_days', Number(v)); } })] : [],
-          pmKnown ? [tog('Music', 'music_pane')] : [])));
+      // THE PANE (the Side Pane's In the Screensaver group since 2026-10-30;
+      // its page has it -- this screen's, or All Screens')
+      c.appendChild(K.group({ header: 'Side Pane', footer: 'Sections down one side of the screen -- the events, what’s playing, the weather and more -- with the photos or the forecast beside it. Set on the Side Pane page, with the Dashboard’s.' },
+        [this.paneLink(this.panePath(styleHref), 'saver', 'saver:side_pane')]));
     }
     // HOME ENERGY'S ROWS (2026-10-14): its switch, and its options once on
     energyRows(cur, tog, href) {
@@ -4007,9 +4000,9 @@
       else over.push(tog('Forecast Along the Bottom', 'band_photos', 'Today, the next hours and the coming days, along the bottom.'));
       if (self.saverKnown('energy_slide')) self.saverExtras(c, cur, put, tog, 'clock', !!cur.music_first, String(styleHref || '').replace(/clock-style$/, 'energy'));
       c.appendChild(K.group({ header: 'Over the Clock', footer: 'Each is your choice: turn them all off for the clock alone.' }, over));
-      // the side pane: the clock moves over beside it, as the photos do
-      c.appendChild(K.group({ header: 'Side Pane', footer: 'Down the right of the screen: the coming events, what’s playing, or both. The clock moves over beside it.' },
-        [tog('Calendar', 'calendar')].concat(self.saverKnown('music_pane') ? [tog('Music', 'music_pane')] : [])));
+      // the side pane (the Side Pane's, 2026-10-30): the clock moves over beside it, as the photos do
+      c.appendChild(K.group({ header: 'Side Pane', footer: 'Sections down one side of the screen; the clock moves over beside it. Set on the Side Pane page.' },
+        [self.paneLink(self.panePath(styleHref), 'saver', 'saver:side_pane')]));
       if (self.saverKnown('music_first')) c.appendChild(K.group({ header: 'While Music Plays', footer: cur.music_first
           ? 'While music plays anywhere in the house, the album art fills the screen in place of the clock, with the song and its buttons, and the time small above it. The clock comes back 20 seconds after the music stops.'
           : 'Off: the clock stays while music plays.' }, [
@@ -4720,6 +4713,7 @@
         return { title: title, top: true, scope: 'Which chips each screen shows is its own. Here they are side by side, and each chip on every screen.',
                  body: function (c) { self.h_chips(c); } };
       }
+      if (page === 'sidepane') return this.p_sidePane(null, sub, [title, base]);
       if (page === 'nowplaying') {
         return { title: title, top: true, scope: 'Applies to every screen that doesn’t choose its own.', body: function (c) { self.h_nowPlaying(c); } };
       }
@@ -5249,6 +5243,148 @@
       var i = shown.indexOf(id);
       return { key: M.CAL_COLORS[(i < 0 ? 0 : i) % M.CAL_COLORS.length], auto: true };
     }
+    // THE SIDE PANE (2026-10-30; hk-sidepane.js draws it, settings.py
+    // side_pane): one page for All Screens (`path` null) and for each screen,
+    // its four groups each All Screens' or the screen's own ("Same as All
+    // Screens" / "Just This Screen", with Reset), as Flat Colors are. Its
+    // sections, each a page of its own: Size, When, and the kind's options.
+    // The places that had a pane of their own link here.
+    p_sidePane(path, sub, back) {
+      var self = this, x = path ? this.dash(path) : null, b = path ? (this.data.boards || {})[path] : null;
+      var base = path ? '#/screens/' + encodeURIComponent(path) + '/sidepane' : '#/house/sidepane';
+      var top = { title: 'Side Pane', back: back, preview: path || undefined };
+      if (sub[0] === 'section' && (sub[1] === 'dashboard' || sub[1] === 'saver')) {
+        var i = Number(sub[2]), p0 = this.paneNow(path), s0 = ((p0[sub[1]] || {}).sections || [])[i];
+        if (!s0) return Object.assign(top, { body: function (c) { self.paneBody(c, path, x, base); } });
+        return { title: (M.paneKind(s0.kind) || [0, s0.kind])[1], back: ['Side Pane', base], preview: path || undefined,
+                 body: function (c) { self.paneSection(c, path, sub[1], i); } };
+      }
+      return Object.assign(top, { top: !path, scope: path ? null : 'Applies to every screen that doesn’t choose its own.',
+                                  body: function (c) { self.paneBody(c, path, x, base); void b; } });
+    }
+    paneNow(path) {
+      var b = path ? (this.data.boards || {})[path] : null;
+      return M.paneOf((this.data.settings || {}).side_pane, b);
+    }
+    // a change to one group: All Screens', or the screen's own (its pane as
+    // read updated here at once; the answer brings the server's)
+    paneSave(path, g, value) {
+      var p = this.paneNow(path);
+      if (!path) return this.setH(M.paneSet(p, g, value, false));
+      var b = this.data.boards[path], ch = M.paneSet(p, g, value, true);
+      b.side_pane_read = Object.assign({}, b.side_pane_read || p, (function () { var o = {}; o[g] = value; return o; })(),
+                                       { own: Object.keys(ch.side_pane) });
+      return this.setB(path, ch);
+    }
+    paneResetGroup(path, g) {
+      var p = this.paneNow(path), b = this.data.boards[path], ch = M.paneReset(p, g);
+      var house = M.paneOf((this.data.settings || {}).side_pane, null);
+      b.side_pane_read = Object.assign({}, p, (function () { var o = {}; o[g] = house[g]; return o; })(),
+                                       { own: ch.side_pane ? Object.keys(ch.side_pane) : [] });
+      return this.setB(path, ch);
+    }
+    // a group's header line on a screen: whose it is, and its Reset
+    paneOwn(c, path, p, groups) {
+      if (!path) return;
+      var self = this, own = groups.some(function (g) { return p.own.indexOf(g) >= 0; });
+      var row = [K.info({ label: own ? 'Just This Screen' : 'Same as All Screens', sk: 'pane:own:' + groups[0],
+                          value: own ? '' : 'All Screens' })];
+      if (own) row.push(K.button({ label: 'Reset to All Screens', fk: 'pane:reset:' + groups[0], onClick: function () {
+        groups.forEach(function (g) { if (p.own.indexOf(g) >= 0) self.paneResetGroup(path, g); });
+      } }));
+      c.appendChild(K.group({}, row));
+    }
+    paneBody(c, path, x, base) {
+      var self = this, p = this.paneNow(path), dash = p.dashboard, saver = p.saver;
+      var put = function (g, v) { return self.paneSave(path, g, v); };
+      // WHERE
+      this.paneOwn(c, path, p, ['side', 'width']);
+      c.appendChild(K.group({ header: 'Where', footer: 'Beside a Home Grid that fills the screen’s height, the pane takes what the grid leaves. A tablet held upright shows it as a band under the page; phones never show it.' }, [
+        K.seg({ label: 'Pane Side', sk: 'pane:side', value: p.side, options: M.PANE_SIDES, onChange: function (v) { put('side', v); } }),
+        K.seg({ label: 'Width', sk: 'pane:width', value: p.width, options: M.PANE_WIDTHS, onChange: function (v) { put('width', v); } })]));
+      // ON THE DASHBOARD
+      this.paneOwn(c, path, p, ['dashboard']);
+      c.appendChild(K.group({ header: 'On the Dashboard', footer: dash.show === 'all'
+          ? 'On every page, each page narrowed by the pane.' : dash.show === 'home' ? 'Beside Home only.' : 'No pane beside the pages.' }, [
+        K.seg({ label: 'Show', sk: 'pane:dashboard:show', value: dash.show, options: M.PANE_SHOWS, stack: true,
+                onChange: function (v) { put('dashboard', { show: v, sections: dash.sections }); } })]));
+      if (dash.show !== 'off') this.paneSections(c, path, 'dashboard', dash, base);
+      // IN THE SCREENSAVER
+      this.paneOwn(c, path, p, ['saver']);
+      c.appendChild(K.group({ header: 'In the Screensaver', footer: 'Down the photos’ or the clock’s side, Home Status at its top.' }, [
+        K.seg({ label: 'Show', sk: 'pane:saver:show', value: saver.show, options: M.PANE_SAVER_SHOWS, stack: true,
+                onChange: function (v) { put('saver', { show: v, sections: saver.sections }); } })]));
+      if (saver.show === 'own') this.paneSections(c, path, 'saver', saver, base);
+      // THE DOORBELL
+      this.paneOwn(c, path, p, ['doorbell']);
+      c.appendChild(K.group({ header: 'Doorbell', footer: 'When it rings, its camera at the top of the pane, live, for as long as its pop-up shows.' }, [
+        K.toggle({ label: 'Show the Doorbell When It Rings', sk: 'pane:doorbell', on: p.doorbell !== false, onChange: function (on) { put('doorbell', on); } })]));
+      void x;
+    }
+    // A GROUP'S SECTIONS: in order, each opening its own page; a minus takes
+    // one away, the handle moves it, More adds one (eight at most)
+    paneSections(c, path, g, grp, base) {
+      var self = this, keys = grp.sections.map(M.secKey);
+      var name = function (s) { var k = M.paneKind(s.kind) || [0, s.kind]; return k[1]; };
+      var ent = function (s) { var st = s.entity && (self.client.states || {})[s.entity]; return st ? ((st.attributes || {}).friendly_name || s.entity) : ''; };
+      c.appendChild(K.listEditor({ fk: 'pane:' + g, minRows: 0, announce: this.announce.bind(this),
+        shownHeader: 'Sections', moreHeader: grp.sections.length < M.PANE_MAX ? 'Add a Section' : null,
+        shownFooter: 'Size: Tiny is one line; Less, the gist; More, the whole section; Full takes the room the pane has left. When There’s Something: only while it has something, such as music playing. The pane never scrolls: when the sections don’t fit, the last ones get smaller, then are left out.',
+        emptyText: 'No sections',
+        rows: grp.sections.map(function (s, i) {
+          var k = M.paneKind(s.kind) || [s.kind, s.kind, 'mdi:card-outline'];
+          return { value: keys[i], label: name(s) + (ent(s) ? ' (' + ent(s) + ')' : ''), icon: k[2], value2: M.secSays(s),
+                   href: base + '/section/' + g + '/' + i };
+        }),
+        more: M.secsMore(grp).map(function (k) { return { value: k[0], label: k[1], icon: k[2] }; }),
+        onChange: function (vals) {
+          if (vals.length > keys.length) { self.paneSave(path, g, M.secsAdd(grp, vals[vals.length - 1])); return; }
+          self.paneSave(path, g, M.secsOrder(grp, vals));
+        } }));
+    }
+    // ONE SECTION: its Size, Always or When There's Something, its options
+    paneSection(c, path, g, i) {
+      var self = this, p = this.paneNow(path), grp = p[g], s = grp.sections[i], st = this.client.states || {};
+      var set = function (k, v) { return self.paneSave(path, g, M.secSet(grp, i, k, v)); };
+      c.appendChild(K.group({ footer: 'Tiny: one line. Less: the gist. More: the whole section. Full: more again, taking the room the pane has left (one section at a time).' }, [
+        K.seg({ label: 'Size', sk: 'pane:sec:size', value: s.size || 'more', options: M.PANE_SIZES, onChange: function (v) { set('size', v === 'more' ? null : v); } })]));
+      c.appendChild(K.group({ footer: 'When There’s Something: music playing (or paused, for Hide After a Pause), a timer running, the alarm armed or a door open, a notification.' }, [
+        K.seg({ label: 'Show', sk: 'pane:sec:when', value: s.when || 'always', options: M.PANE_WHEN, stack: true,
+                onChange: function (v) { set('when', v === 'always' ? null : v); } })]));
+      var ids = function (dom) { return Object.keys(st).filter(function (k) { return k.indexOf(dom + '.') === 0; }).sort(); };
+      var nm = function (id) { return ((st[id] || {}).attributes || {}).friendly_name || id; };
+      if (s.kind === 'calendar') {
+        c.appendChild(K.group({ footer: 'The calendars in Pages → Calendar.' }, [
+          K.select({ label: 'Days', sk: 'pane:sec:days', value: String(s.days || ''), options: [['', 'As Its Size Shows']].concat([1, 2, 3, 4, 5, 6, 7].map(function (n) {
+            return [String(n), n === 1 ? 'Today' : n === 2 ? 'Today & Tomorrow' : n + ' Days'];
+          })), onChange: function (v) { set('days', v ? Number(v) : null); } })]));
+      }
+      if (s.kind === 'camera' || s.kind === 'todo') {
+        var dom = s.kind === 'camera' ? 'camera' : 'todo';
+        var rows = [K.select({ label: s.kind === 'camera' ? 'Camera' : 'List', sk: 'pane:sec:entity', value: s.entity || '',
+          options: [['', s.kind === 'camera' ? 'The First of Cameras' : 'The First List']].concat(ids(dom).map(function (id) { return [id, nm(id)]; })),
+          onChange: function (v) { set('entity', v || null); } })];
+        if (s.kind === 'todo') rows.push(K.toggle({ label: 'Show Completed', sk: 'pane:sec:completed', on: !!s.completed, onChange: function (on) { set('completed', on || null); } }));
+        c.appendChild(K.group({ footer: s.kind === 'todo' ? 'A tap on an item’s circle checks it off.' : null }, rows));
+      }
+      c.appendChild(K.group({}, [K.button({ label: 'Remove Section', destructive: true, fk: 'pane:sec:remove', onClick: function () {
+        var keys = grp.sections.map(M.secKey);
+        keys.splice(i, 1);
+        self.paneSave(path, g, M.secsOrder(grp, keys)).then(function () { self.back(path ? '#/screens/' + encodeURIComponent(path) + '/sidepane' : '#/house/sidepane'); });
+      } })]));
+    }
+    // THE LINK from where a pane used to be set (Screensaver Options, Now
+    // Playing, the Home Grid editor): `which` is what it says
+    // a screen's path from a Screensaver Options page's own address (null: All Screens')
+    panePath(href) {
+      var m = /^#\/screens\/([^/]+)\//.exec(String(href || ''));
+      return m ? decodeURIComponent(m[1]) : null;
+    }
+    paneLink(path, which, sk) {
+      var p = this.paneNow(path), href = path ? '#/screens/' + encodeURIComponent(path) + '/sidepane' : '#/house/sidepane';
+      var says = which === 'saver' ? M.paneSaverSummary(p) : which === 'np' ? M.npShowAs(p) : M.paneSummary(p);
+      return K.nav({ label: which === 'np' ? 'Show As' : 'Side Pane', value: says, href: href, sk: sk || 'pane:link:' + which });
+    }
     // ALL SCREENS -> NOW PLAYING: a side pane (the screensaver's music pane)
     // or the bar on tablets & computers, the bar on phones (hk-base.js
     // nowPlaying, hk-popup.js placeFor). Each screen may choose its own
@@ -5256,20 +5392,15 @@
     h_nowPlaying(c) {
       var self = this, np = this.npHouse(), wide = this.hasAttribute('wide');
       var set = function (k, v) { var o = {}; o['now_playing.' + k] = v; self.setH(o); };
-      var rows = [K.seg({ label: 'Show As', sk: 'now_playing.style', value: np.style, options: M.NP_STYLES,
-                          onChange: function (v) { set('style', v); } })];
-      if (np.style === 'pane') {
-        rows.push(K.seg({ label: 'Pane Side', sk: 'now_playing.side', value: np.side, options: M.NP_SIDES,
-                          onChange: function (v) { set('side', v); } }));
-        rows.push(K.info({ label: 'Too Narrow for the Pane', sub: 'Held upright, or too narrow beside the page', value: 'Use the Bar',
-                           sk: 'now_playing.narrow' }));
-      } else {
-        rows.push(K.seg({ label: 'Bar Position', sk: 'now_playing.bar', value: np.bar, options: M.NP_BARS,
-                          onChange: function (v) { set('bar', v); } }));
-      }
+      // SHOW AS: the bar, or In the Side Pane -- the Side Pane's page (2026-10-30;
+      // Now Playing's own pane moved into it)
+      var inPane = M.paneHasMusic(this.paneNow(null));
+      var rows = [this.paneLink(null, 'np', 'now_playing.style'),
+                  K.seg({ label: 'Bar Position', sk: 'now_playing.bar', value: np.bar, options: M.NP_BARS,
+                          onChange: function (v) { set('bar', v); } })];
       var gl = M.choiceLabel(M.NP_GRACES, np.grace).toLowerCase();
-      c.appendChild(K.group({ header: 'Tablets & Computers', footer: np.style === 'pane'
-        ? 'The pane slides in when music starts and leaves ' + gl + ' after it’s paused or stops. The page fits itself into the width that’s left.'
+      c.appendChild(K.group({ header: 'Tablets & Computers', footer: inPane
+        ? 'In the Side Pane while it shows; the bar wherever the pane doesn’t. It leaves ' + gl + ' after the music’s paused or stops.'
         : 'The bar slides in when music starts and leaves ' + gl + ' after it’s paused or stops.' }, rows));
       c.appendChild(K.group({ header: 'Phones', footer: 'Phones always use the bar. A pane would leave no room for the page.' }, [
         K.seg({ label: 'Bar Position', sk: 'now_playing.bar_phone', value: np.bar_phone, options: M.NP_BARS,

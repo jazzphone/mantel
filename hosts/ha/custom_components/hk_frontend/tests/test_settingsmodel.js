@@ -706,5 +706,41 @@ ok('...every mode says what it costs', M.BLUR_MODES.every(function (m) { return 
   ok('Use Flat goes with every step but Moving Things', eq(M.LADDER.map(function (x) { return x.flat; }), [true, true, false, true, true]));
   ok('...and the ladder is five steps, the style dearest', eq(M.LADDER.map(function (x) { return x.id; }), ['glass', 'rain', 'front', 'anim', 'camera']));
 })();
+// ------------------------------------------------------------ the side pane (2026-10-30)
+(function () {
+  ok('Side Pane: twelve kinds, four sizes, eight at most', M.PANE_KINDS.length === 12 && M.PANE_SIZES.length === 4 && M.PANE_MAX === 8 &&
+     eq(M.PANE_GROUPS, ['side', 'width', 'dashboard', 'saver', 'doorbell']));
+  var house = { side: 'left', dashboard: { show: 'home', sections: [{ kind: 'weather' }, { kind: 'timers', when: 'active' }] } };
+  var hp = M.paneOf(house, null);
+  ok('All Screens\': its groups over the defaults, none a screen\'s', hp.side === 'left' && hp.width === 'standard' && hp.doorbell === true &&
+     hp.dashboard.show === 'home' && eq(hp.own, []) && M.paneGroupSays(hp, 'side', false) === '');
+  ok('...a change saves its one group', eq(M.paneSet(hp, 'width', 'wide', false), { 'side_pane.width': 'wide' }));
+  var read = { side: 'left', width: 'wide', dashboard: hp.dashboard, saver: { show: 'off', sections: [] }, doorbell: true, own: ['width'] };
+  var sp = M.paneOf(house, { side_pane_read: read });
+  ok('a screen: its pane as read, and whose each group is', sp.width === 'wide' && M.paneGroupSays(sp, 'width', true) === 'Just This Screen' &&
+     M.paneGroupSays(sp, 'side', true) === 'Same as All Screens');
+  ok('...a change makes that group its own too, keeping the others', eq(M.paneSet(sp, 'side', 'right', true), { side_pane: { width: 'wide', side: 'right' } }));
+  ok('...Reset to All Screens takes one group back', eq(M.paneReset(M.paneOf(house, { side_pane_read: Object.assign({}, read, { own: ['width', 'side'] }) }), 'side'),
+     { side_pane: { width: 'wide' } }));
+  ok('...the last one back: Same as All Screens in everything (null)', eq(M.paneReset(sp, 'width'), { side_pane: null }));
+  var g = hp.dashboard;
+  ok('sections: added at Less, More and Always left out as stored', eq(M.secsAdd(g, 'todo').sections[2], { kind: 'todo', size: 'less' }) &&
+     eq(M.paneSection({ kind: 'clock', size: 'more', when: 'always', completed: false }), { kind: 'clock' }));
+  ok('...reordered by their keys', eq(M.secsOrder(g, ['timers:', 'weather:']).sections.map(function (s) { return s.kind; }), ['timers', 'weather']));
+  var f = M.secSet({ show: 'all', sections: [{ kind: 'clock', size: 'full' }, { kind: 'weather' }] }, 1, 'size', 'full');
+  ok('...one Full at a time: another made Full, the first is More again', eq(f.sections, [{ kind: 'clock' }, { kind: 'weather', size: 'full' }]));
+  ok('...When There\'s Something, and back to Always', M.secSet(g, 0, 'when', 'active').sections[0].when === 'active' &&
+     !('when' in M.secSet(g, 1, 'when', 'always').sections[1]));
+  var eight = { show: 'all', sections: M.PANE_KINDS.slice(0, 8).map(function (k) { return { kind: k[0] }; }) };
+  ok('...eight is the most: nothing more to add', M.secsMore(eight).length === 0 && M.secsAdd(eight, 'todo').sections.length === 8);
+  ok('...the kinds not there yet (a camera or a list may come twice)', M.secsMore(g).map(function (k) { return k[0]; }).indexOf('weather') < 0 &&
+     M.secsMore({ sections: [{ kind: 'camera' }] }).map(function (k) { return k[0]; }).indexOf('camera') >= 0);
+  ok('a section\'s row says its size and when', M.secSays({ kind: 'clock' }) === 'More' && M.secSays({ kind: 'x', size: 'tiny', when: 'active' }) === 'Tiny \u00b7 When There\u2019s Something');
+  ok('the links: the Dashboard\'s', M.paneSummary(hp) === 'Home Only, Left' && M.paneSummary(M.paneOf({}, null)) === 'Off');
+  ok('...the screensaver\'s', M.paneSaverSummary({ saver: { show: 'own', sections: [{ kind: 'calendar' }, { kind: 'now_playing' }] } }) === 'Calendar and Now Playing' &&
+     M.paneSaverSummary({ saver: { show: 'same' } }) === 'Same as the Dashboard' && M.paneSaverSummary(hp) === 'Off');
+  ok('...Now Playing\'s Show As: the bar, or in the Side Pane', M.npShowAs(hp) === 'Bar' &&
+     M.npShowAs({ dashboard: { show: 'all', sections: [{ kind: 'now_playing', when: 'active' }] } }) === 'In the Side Pane');
+})();
 print(fail ? '  ' + fail + ' SETTINGS MODEL TESTS FAILED' : '  ALL ' + pass + ' SETTINGS MODEL TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

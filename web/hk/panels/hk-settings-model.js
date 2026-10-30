@@ -2409,7 +2409,128 @@
     return 'Zoom ' + r.zoom + ' · ' + choiceLabel(RADAR_HISTORY, r.history_minutes);
   }
 
+  // ------------------------------------------------------------ the side pane
+  // THE SIDE PANE (2026-10-30, settings.py side_pane; hk-sidepane.js draws
+  // it): one pane per screen, its groups -- Where (Pane Side, Width), On the
+  // Dashboard, In the Screensaver, Doorbell -- All Screens' or a screen's
+  // own, each on its own. A screen is handed it as read (side_pane_read,
+  // its `own` the groups that are the screen's); All Screens' is the house
+  // section side_pane. Sections: {kind, size (absent: More), when (absent:
+  // Always), and a kind's own options}, eight at most, one Full.
+  var PANE_KINDS = [['clock', 'Clock', 'mdi:clock-outline', '#8e8e93'], ['weather', 'Weather', 'mdi:weather-partly-cloudy', '#32ade6'],
+    ['calendar', 'Calendar', 'mdi:calendar', '#ff3b30'], ['now_playing', 'Now Playing', 'mdi:music', '#ff2d55'],
+    ['security', 'Security', 'mdi:shield-home', '#30b0c7'], ['camera', 'Camera', 'mdi:cctv', '#636366'],
+    ['timers', 'Timers', 'mdi:timer-outline', '#ff9500'], ['energy', 'Energy', 'mdi:lightning-bolt', '#34c759'],
+    ['climate', 'Climate', 'mdi:thermostat', '#007aff'], ['people', 'Who’s Home', 'mdi:account-multiple', '#5856d6'],
+    ['todo', 'To-do', 'mdi:format-list-checks', '#ff9500'], ['notifications', 'Notifications', 'mdi:bell', '#ff3b30']];
+  var PANE_SIZES = [['tiny', 'Tiny'], ['less', 'Less'], ['more', 'More'], ['full', 'Full']];
+  var PANE_WHEN = [['always', 'Always'], ['active', 'When There’s Something']];
+  var PANE_SIDES = [['left', 'Left'], ['right', 'Right']];
+  var PANE_WIDTHS = [['narrow', 'Narrow'], ['standard', 'Standard'], ['wide', 'Wide']];
+  var PANE_SHOWS = [['off', 'Off'], ['home', 'Home Only'], ['all', 'Every Page']];
+  var PANE_SAVER_SHOWS = [['off', 'Off'], ['same', 'Same as the Dashboard'], ['own', 'Its Own Sections']];
+  var PANE_GROUPS = ['side', 'width', 'dashboard', 'saver', 'doorbell'];
+  var PANE_MAX = 8;
+  var PANE_DEFAULTS = { side: 'right', width: 'standard',
+    dashboard: { show: 'off', sections: [{ kind: 'weather' }, { kind: 'calendar' }, { kind: 'now_playing', when: 'active' }] },
+    saver: { show: 'off', sections: [{ kind: 'clock', size: 'tiny' }, { kind: 'calendar' }, { kind: 'now_playing', size: 'less', when: 'active' }] },
+    doorbell: true };
+  function paneCopy(v) { return JSON.parse(JSON.stringify(v)); }
+  function paneKind(k) { return PANE_KINDS.filter(function (x) { return x[0] === k; })[0] || null; }
+  // a section as stored: More and Always are what absent means
+  function paneSection(s) {
+    var out = {};
+    Object.keys(s || {}).forEach(function (k) {
+      if ((k === 'size' && s[k] === 'more') || (k === 'when' && s[k] === 'always') || (k === 'completed' && !s[k])) return;
+      out[k] = s[k];
+    });
+    return out;
+  }
+  // THE PANE AS THIS PAGE EDITS IT: a screen's as read, else All Screens'
+  // (over the defaults); `own` the screen's own groups (none for All Screens)
+  function paneOf(house, b) {
+    var r = b && b.side_pane_read;
+    if (r) return Object.assign(paneCopy(r), { own: (r.own || []).slice() });
+    var h = paneCopy(PANE_DEFAULTS);
+    PANE_GROUPS.forEach(function (g) { if (house && house[g] !== undefined && house[g] !== null) h[g] = paneCopy(house[g]); });
+    h.own = [];
+    return h;
+  }
+  // whose a group is, on a screen ('' for All Screens)
+  function paneGroupSays(p, g, screen) { return !screen ? '' : p.own.indexOf(g) >= 0 ? 'Just This Screen' : 'Same as All Screens'; }
+  // WHAT A CHANGE SAVES: All Screens' one group (side_pane.<group>), or the
+  // screen's own object -- the groups it had, and this one now its own too
+  function paneSet(p, g, value, screen) {
+    var out = {};
+    if (!screen) { out['side_pane.' + g] = value; return out; }
+    var own = {};
+    p.own.forEach(function (x) { own[x] = paneCopy(p[x]); });
+    own[g] = value;
+    out.side_pane = own;
+    return out;
+  }
+  // ...and Reset to All Screens: the group no longer the screen's (none
+  // left: null, Same as All Screens in everything)
+  function paneReset(p, g) {
+    var own = {};
+    p.own.forEach(function (x) { if (x !== g) own[x] = paneCopy(p[x]); });
+    return { side_pane: Object.keys(own).length ? own : null };
+  }
+  // A GROUP'S SECTIONS, changed: each returns the whole new group
+  function secKey(s) { return s.kind + ':' + (s.entity || ''); }
+  function paneGroup(grp, sections) { return { show: grp.show, sections: sections.map(paneSection) }; }
+  function secsAdd(grp, kind) {
+    if (!paneKind(kind) || grp.sections.length >= PANE_MAX) return paneGroup(grp, grp.sections);
+    return paneGroup(grp, grp.sections.concat([{ kind: kind, size: 'less' }]));
+  }
+  function secsOrder(grp, keys) {
+    var by = {};
+    grp.sections.forEach(function (s) { by[secKey(s)] = s; });
+    return paneGroup(grp, keys.map(function (k) { return by[k]; }).filter(Boolean));
+  }
+  function secSet(grp, i, k, v) {
+    var list = paneCopy(grp.sections);
+    if (!list[i]) return paneGroup(grp, list);
+    // ONE FULL AT A TIME: another made Full is More again
+    if (k === 'size' && v === 'full') list.forEach(function (s, j) { if (j !== i && s.size === 'full') delete s.size; });
+    if (v === null || v === undefined || v === '') delete list[i][k]; else list[i][k] = v;
+    return paneGroup(grp, list);
+  }
+  // the kinds not yet in a group (a camera or a list may come twice, by its entity)
+  function secsMore(grp) {
+    var have = grp.sections.map(function (s) { return s.kind; });
+    return grp.sections.length >= PANE_MAX ? [] : PANE_KINDS.filter(function (k) { return have.indexOf(k[0]) < 0 || k[0] === 'camera' || k[0] === 'todo'; });
+  }
+  // A SECTION'S ROW SAYS its size and when: "More", "Tiny · When There's Something"
+  function secSays(s) {
+    var size = choiceLabel(PANE_SIZES, s.size || 'more');
+    return s.when === 'active' ? size + ' · When There’s Something' : size;
+  }
+  // THE LINKS that were each pane's own settings: the Dashboard's ("Home
+  // Only, Right"), the screensaver's ("Calendar, Now Playing"), and Now
+  // Playing's Show As (the bar, or the Side Pane)
+  function paneSummary(p) {
+    var d = p.dashboard || {};
+    return d.show === 'off' || !d.show ? 'Off' : choiceLabel(PANE_SHOWS, d.show) + ', ' + choiceLabel(PANE_SIDES, p.side);
+  }
+  function paneSaverSummary(p) {
+    var g = p.saver || {};
+    if (g.show === 'same') return 'Same as the Dashboard';
+    if (g.show !== 'own' || !(g.sections || []).length) return 'Off';
+    return listText(g.sections.map(function (s) { return (paneKind(s.kind) || [0, s.kind])[1]; }));
+  }
+  function paneHasMusic(p) {
+    var d = p.dashboard || {};
+    return d.show !== 'off' && (d.sections || []).some(function (s) { return s.kind === 'now_playing'; });
+  }
+  function npShowAs(p) { return paneHasMusic(p) ? 'In the Side Pane' : 'Bar'; }
+
   root.hkSettingsModel = {
+    PANE_KINDS: PANE_KINDS, PANE_SIZES: PANE_SIZES, PANE_WHEN: PANE_WHEN, PANE_SIDES: PANE_SIDES, PANE_WIDTHS: PANE_WIDTHS,
+    PANE_SHOWS: PANE_SHOWS, PANE_SAVER_SHOWS: PANE_SAVER_SHOWS, PANE_GROUPS: PANE_GROUPS, PANE_MAX: PANE_MAX, PANE_DEFAULTS: PANE_DEFAULTS,
+    paneKind: paneKind, paneSection: paneSection, paneOf: paneOf, paneGroupSays: paneGroupSays, paneSet: paneSet, paneReset: paneReset,
+    secKey: secKey, secsAdd: secsAdd, secsOrder: secsOrder, secSet: secSet, secsMore: secsMore, secSays: secSays,
+    paneSummary: paneSummary, paneSaverSummary: paneSaverSummary, paneHasMusic: paneHasMusic, npShowAs: npShowAs,
     skySummary: skySummary, backdropFollow: backdropFollow,
     YAML_REF: YAML_REF, YAML_DEFAULTS: YAML_DEFAULTS, yamlRefText: yamlRefText, yamlRefItem: yamlRefItem,
     previewSizes: previewSizes, previewDefault: previewDefault, previewFit: previewFit,
