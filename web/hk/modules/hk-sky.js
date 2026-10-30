@@ -744,6 +744,11 @@
     '  opacity:var(--artO,0);transition:opacity 1.2s linear,background-image 0s}',
     // a photo of your own (paintPhoto): the whole picture, sharp, to the edges
     '#hk-sky.photo .art{inset:var(--phI,0px);filter:var(--phF,none)}',
+    // A WALLPAPER (paintWall, 2026-10-30): two layers, the one shown and the
+    // one fading in (its night version at sunset), each a still picture
+    '#hk-sky .wall{position:absolute;inset:0;background-size:cover;background-position:center;',
+    '  opacity:0;transition:opacity 4s linear}',
+    '#hk-sky .wall.on{opacity:1}',
 
     // The scrim is what keeps the glass plates readable -- see CAP.
     '#hk-sky .scrim{background:linear-gradient(to bottom,',
@@ -5551,6 +5556,45 @@
     });
   }
 
+  // A WALLPAPER (2026-10-30, hk-wallpapers.js): our own art, a still the
+  // browser paints once at the screen's size (a background picture, no live
+  // filter, nothing per frame) over the stops it publishes as the sky's
+  // (paintStatic). Two layers, made the first time one is shown, over the
+  // album's and under the grain and the scrim as a photo is: the night
+  // version crossfades in at sunset as the stops do. `wall`: {id} or null
+  // (none here: the layers fade out and let their pictures go).
+  var WALL_FADE_MS = 4500;
+  function paintWall(el, wall, night) {
+    var W = window.hkWallpapers, layers = el.querySelectorAll ? el.querySelectorAll('.wall') : [];
+    var src = wall && W ? W.url(wall.id, night) : null;
+    if (el._hkWall === src || (!src && !layers.length)) { el._hkWall = src; return; }
+    el._hkWall = src;
+    el.style.setProperty('--wall', src ? '"' + wall.id + (night ? ':night' : ':day') + '"' : 'none');
+    if (src && layers.length < 2) {
+      var art = el.querySelector('.art');
+      for (var i = layers.length; i < 2; i++) {
+        var d = document.createElement('div');
+        d.className = 'wall';
+        art.parentNode.insertBefore(d, art.nextSibling);
+      }
+      layers = el.querySelectorAll('.wall');
+    }
+    var shown = null;
+    for (var j = 0; j < layers.length; j++) if (layers[j].classList.contains('on')) shown = layers[j];
+    if (src) {
+      var next = layers[0] === shown ? layers[1] : layers[0];
+      next.style.backgroundImage = 'url("' + src + '")';
+      next.classList.add('on');
+      el.style.setProperty('--grainO', '0');
+    }
+    if (shown) shown.classList.remove('on');
+    // the picture faded out is let go once it is gone
+    clearTimeout(el._hkWallT);
+    el._hkWallT = setTimeout(function () {
+      for (var k = 0; k < layers.length; k++) if (!layers[k].classList.contains('on')) layers[k].style.backgroundImage = '';
+    }, WALL_FADE_MS);
+  }
+
   function paintStatic(el, stops) {
     var st = el.style;
     for (var i = 0; i < 4; i++) st.setProperty('--sk' + i, stops[i]);
@@ -6235,8 +6279,11 @@
         var up = client.states['sun.sun'] && Number((client.states['sun.sun'].attributes || {}).elevation) > 0;
         // a photo's tint is a backdrop under it, showing through (paintPhoto)
         var tint = opts.photo && opts.look && opts.look.tint;
+        // a wallpaper's night version: after sunset, or always or never
+        // (its Night Version)
+        var wn = opts.wall ? (opts.wall.night === 'auto' ? !up : opts.wall.night === 'night') : !up;
         var stops = opts.photo ? (tint ? (up ? tint.day : tint.night) : PHOTO_UNDER) : opts.still
-          ? (up ? opts.still.day : opts.still.night)
+          ? (wn ? opts.still.night : opts.still.day)
           : opts.variant && STATIC[opts.variant];
         if (stops && opts.variant === 'lights' && !opts.photo && !opts.still) {
           var HS = window.hkSettings, lc = HS && HS.get ? HS.get('headers.lights', null) : null;
@@ -6249,6 +6296,7 @@
           mounted.classList.add('static');
           mounted.classList.toggle('photo', !!opts.photo);
           paintStatic(mounted, stops);
+          paintWall(mounted, opts.photo ? null : opts.wall || null, wn);
           mountedVariant = opts.variant || (opts.photo ? 'photo' : 'still');
           // _hkRaw is the PALETTE's own luma, before any scrim. Keep it: the
           // album composite is measured against the gradient underneath it,
@@ -6278,6 +6326,7 @@
         } else {
           mounted.classList.remove('static');
           mounted.classList.remove('photo');
+          paintWall(mounted, null, false);
           mountedVariant = null;
           mounted.style.setProperty('--artO', '0');
           var rs = read(client);
@@ -6351,6 +6400,7 @@
     _surpriseForce: function (v) { SURPRISE_FORCE = v || null; return SURPRISE_FORCE; },
     _surprises: SURPRISE,
     _paintStatic: paintStatic,
+    _paintWall: paintWall,
     _static: STATIC,
     _build: build,
     _mounted: function () { return mounted; },
@@ -6494,7 +6544,7 @@
     var wants = flat || v.sky === true || typeof v.sky_variant === 'string' || (!!mode && mode !== 'own');
     if (!wants) return false;
     var variant = (typeof v.sky_variant === 'string') ? v.sky_variant : null, backdrop = null;
-    var still = null, photo = null, look = null;
+    var still = null, photo = null, look = null, wall = null;
     var black = (HS && HS.BLACK) || null;
     if (mode && mode !== 'own') {
       variant = null;
@@ -6515,6 +6565,11 @@
         photo = land && land.photo;
         if (!photo) still = black; else look = land.look;
       }
+      // 'wallpaper' (2026-10-30): the screen's Wallpaper
+      else if (mode === 'wallpaper') {
+        wall = typeof HS.wallpaper === 'function' ? HS.wallpaper() : null;
+        still = wall ? wall.stops : black;
+      }
       else still = typeof HS.pageBackdrop === 'function' ? HS.pageBackdrop(mode) : null;
     } else if (!variant && HS && typeof HS.skyLook === 'function') {
       // THE BACKGROUND (2026-10-13): a page that shows the live sky by
@@ -6524,9 +6579,11 @@
       // recolors the live sky; its stars still showed through.)
       var bg = HS.skyLook().background;
       if (bg && bg.mode === 'color') still = bg.stops || black;
+      // a Wallpaper (2026-10-30): its art over its own stops
+      else if (bg && bg.mode === 'wallpaper') { wall = bg.wallpaper; still = bg.stops || black; }
       else if (bg && bg.mode === 'photo') { photo = bg.photo || null; look = bg.look || null; if (!photo) still = bg.stops || black; }
     }
-    return { variant: variant, backdrop: backdrop, still: still, photo: photo, look: look, page: v.sky_page || null,
+    return { variant: variant, backdrop: backdrop, still: still, photo: photo, look: look, wall: wall, page: v.sky_page || null,
              enable: cfg.sky && cfg.sky.enable || null,
              sleep: cfg.sky && cfg.sky.sleep || null };
   }

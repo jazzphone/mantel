@@ -93,6 +93,97 @@ HS.previewGlass(null);
 ok('ending the preview returns to the setting', HS.glass() === 'clear' && !vars().back && heard === 2);
 off();
 
+print('\n=== Bright Glass (2026-10-30): clear glass, a light blur, a bright rim ===');
+// the sky it reads its light stop from (hk-sky.js publishes --sk0..3 on #hk-sky)
+var skyStyle = new Style();
+window.hkSky = { element: function () { return { style: skyStyle }; } };
+function sky(stops) { [0, 1, 2, 3].forEach(function (i) { if (stops) skyStyle.setProperty('--sk' + i, stops[i]); else skyStyle.removeProperty('--sk' + i); }); }
+function lv(k) { return st.getPropertyValue(k); }
+HS._apply({ configured: true, look: { glass: 'bright' } });
+v = vars();
+ok('the plate: a white wash brighter at the top left, as designed at 50 % (no sky: no light to mix in)',
+   v.plate === 'linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0)), linear-gradient(160deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.09) 45%, rgba(255, 255, 255, 0.05))', v.plate);
+ok('the blur: the bright tier, 4 px, so a wallpaper\'s edges show through', lv('--hk-blur-filter') === 'blur(4px) saturate(1.3) brightness(1.08)', lv('--hk-blur-filter'));
+ok('the rim, the glow and the shadow as inset shadows; no edge', lv('--hk-look-shadow') ===
+   'inset 0 0 0 1.5px rgba(255,255,255,0.22), inset 0 1.5px 0 rgba(255,255,255,0.30), inset 0 0 24px rgba(255,255,255,0.06), 0 6px 20px rgba(40,0,60,0.10)' &&
+   lv('--hk-look-edge') === '1px solid transparent', lv('--hk-look-shadow'));
+ok('off glyphs white .94, the second line white .78 lifted by the light, a light text shadow',
+   lv('--hk-look-glyph-off') === 'rgba(255,255,255,0.94)' && lv('--hk-look-sub') === 'rgba(255, 255, 255, 0.846)' &&
+   lv('--hk-look-text-shadow') === '0 1px 2px rgba(0,0,0,0.18)', [lv('--hk-look-glyph-off'), lv('--hk-look-sub')]);
+ok('its sheets: white .22 over blur(34px) saturate(2) with the rim; a control set into one .14',
+   lv('--hk-sheet-plate') === 'rgba(255,255,255,0.22)' && lv('--hk-sheet-backdrop') === 'blur(34px) saturate(2)' &&
+   /^inset 0 0 0 1\.5px/.test(lv('--hk-sheet-shadow')) && lv('--hk-glass-plate-sheet') === 'rgba(255,255,255,0.14)');
+ok('the Edit mode bar wears the tab bar\'s plate', /^linear-gradient\(150deg, rgba\(255,255,255,0\.30\)/.test(lv('--hk-bar-plate')) &&
+   lv('--hk-bar-backdrop') === lv('--hk-blur-filter'));
+ok('the shared layer (no plate blurs itself, the chips join it); the page is told', v.back === 'none' && !lv('--hk-glass-backdrop') &&
+   rootAttrs['data-hk-glass'] === 'bright' && HS.isBright(HS.glass()));
+HS._apply({ configured: true, look: { glass: 'bright_each' } });
+ok('Each Card: every plate and chip blurs itself with the bright filter',
+   lv('--hk-glass-backdrop') === 'blur(4px) saturate(1.3) brightness(1.08)' && vars().back === lv('--hk-glass-backdrop'));
+HS._apply({ configured: true, look: { glass: 'bright_pre', bright: 100 } });
+ok('Strength 100: twice the wash, twice the lift', /0\.48\) 0%, rgba\(255, 255, 255, 0\.18\) 45%, rgba\(255, 255, 255, 0\.1\)\)$/.test(vars().plate) &&
+   lv('--hk-blur-filter') === 'blur(4px) saturate(1.3) brightness(1.16)' && !lv('--hk-glass-backdrop'), [vars().plate, lv('--hk-blur-filter')]);
+HS._apply({ configured: true, look: { glass: 'bright', bright: 0 } });
+ok('Strength 0: the bare glass -- no wash, no lift', /0\) 0%, rgba\(255, 255, 255, 0\) 45%, rgba\(255, 255, 255, 0\)\)$/.test(vars().plate) &&
+   lv('--hk-blur-filter') === 'blur(4px) saturate(1.3) brightness(1)', vars().plate);
+HS._apply({ configured: true, look: { glass: 'bright', bright: 50 }, boards: { '': { bright: 25 } } });
+ok('a screen\'s own Strength wins', /0\.12\) 0%/.test(vars().plate), vars().plate);
+
+// OVER A BACKGROUND: the light stop mixed in at 7 %, the second line from it,
+// and the Strength capped where white text would fall under 4.5:1 over it
+sky(['#2a0b47', '#6a1b8f', '#46125e', '#8e1a6e']);
+window.dispatchEvent(new Event('hk-sky-change'));
+HS._apply({ configured: true, look: { glass: 'bright' } });
+v = vars();
+ok('the background\'s light stop (the lightest of the four) mixed in at 7 %', /^linear-gradient\(rgba\(142, 26, 110, 0\.07\), rgba\(142, 26, 110, 0\.07\)\)/.test(v.plate), v.plate);
+ok('...the chips the same, a little brighter', /rgba\(142, 26, 110, 0\.07\)/.test(v.chip) && /0\.3\) 0%/.test(v.chip), v.chip);
+ok('...the second line: it, 30 % into white .78', lv('--hk-look-sub') === 'rgba(215, 174, 204, 0.846)', lv('--hk-look-sub'));
+sky(['#16325e', '#2c5f9c', '#5f95cf', '#9cc2e6']);
+window.dispatchEvent(new Event('hk-sky-change'));
+var capLight = HS.brightCap(['#16325e', '#2c5f9c', '#5f95cf', '#9cc2e6']);
+ok('the sky moves (a light day sky): the look follows it, the wash held back to the cap', capLight < 50 &&
+   /rgba\(156, 194, 230, 0\.07\)/.test(vars().plate) && vars().plate.indexOf('rgba(255, 255, 255, 0.24)') < 0, [capLight, vars().plate]);
+ok('...a sky too light for white text even bare: the cap is 0, the bare glass', capLight === 0 || HS.brightContrast('#9cc2e6', '#9cc2e6', capLight) >= 4.5, capLight);
+ok('...a dark one: no cap', HS.brightCap(['#05070e', '#05070e', '#05070e', '#05070e']) === 100 && HS.brightCap(null) === 100);
+sky(['#16325e', '#2c5f9c', '#5f95cf', '#9cc2e6']);
+window.dispatchEvent(new Event('hk-sky-paint'));
+ok('...the same colors said again change nothing', /rgba\(156, 194, 230, 0\.07\)/.test(vars().plate));
+sky(null);
+HS._apply({ configured: true, look: { glass: 'blur' } });
+ok('leaving Bright Glass takes every name of its own back',
+   ['--hk-look-glyph-off', '--hk-look-sub', '--hk-look-text-shadow', '--hk-sheet-plate', '--hk-sheet-backdrop', '--hk-sheet-edge',
+    '--hk-sheet-shadow', '--hk-bar-plate', '--hk-bar-backdrop', '--hk-look-shadow', '--hk-look-well'].every(function (k) { return !lv(k); }));
+ok('?hkglass=bright previews it', /hkglass=\(flat\|clear\|frosted\|tinted\|blur_each\|blur_pre\|blur\|bright_each\|bright_pre\|bright\)/.test(read(HK_ROOT + '/frontend/modules/hk-settings.js')));
+
+// EVERY WALLPAPER holds the rule at the designed Strength (DESIGN.md: text
+// keeps 4.5:1 against the plate over each wallpaper's lightest stop)
+load(HK_ROOT + '/frontend/modules/hk-wallpapers.js');
+var W = window.hkWallpapers, weak = [];
+W.list().forEach(function (w) {
+  ['day', 'night'].forEach(function (k) {
+    var stops = W.stops(w.id)[k], cap = HS.brightCap(stops), light = stops.slice().sort(function (a, b) {
+      return HS.brightContrast(a, a, 0) - HS.brightContrast(b, b, 0); })[0];
+    if (cap < 50 || HS.brightContrast(light, light, Math.min(50, cap)) < 4.5) weak.push(w.id + ' ' + k + ' cap ' + cap);
+  });
+});
+ok('every wallpaper, day and night: white text keeps 4.5:1 at the designed Strength (no cap below 50)', weak.length === 0, weak);
+// THE SCREEN'S WALLPAPER (the Background a wallpaper is: hk-settings.js
+// background(), which the sky paints from)
+HS._apply({ configured: true, look: { glass: 'bright' }, sky: { background: 'wallpaper', wallpaper: 'shards_blue', wallpaper_night: 'night' } });
+var bgw = HS.skyLook().background;
+ok('a Wallpaper background: All Screens\' one, its Night Version and its own stops', bgw.mode === 'wallpaper' && bgw.wallpaper.id === 'shards_blue' &&
+   bgw.wallpaper.night === 'night' && bgw.stops.day[0] === W.stops('shards_blue').day[0] && !bgw.photo, bgw);
+HS._apply({ configured: true, look: { glass: 'bright' }, sky: { background: 'live', wallpaper: 'shards_blue' },
+            boards: { '': { sky_background: 'wallpaper', sky_wallpaper: 'petals_amber', sky_wallpaper_night: 'day' } } });
+bgw = HS.skyLook().background;
+ok('...a screen\'s own, each of the three on its own', bgw.mode === 'wallpaper' && bgw.wallpaper.id === 'petals_amber' && bgw.wallpaper.night === 'day', bgw);
+HS._apply({ configured: true, look: { glass: 'bright' }, sky: { background: 'wallpaper', wallpaper: 'plaid', wallpaper_night: 'often' } });
+bgw = HS.skyLook().background;
+ok('...one it doesn\'t know is the default, after sunset', bgw.wallpaper.id === 'ribbons_rose' && bgw.wallpaper.night === 'auto', bgw);
+ok('...the live sky\'s motion is not counted over it (the ladder)', /^bright:a0w0r0f0/.test(HS.ladderSignature()), HS.ladderSignature());
+HS._apply({ configured: true, look: { glass: 'clear' }, sky: {} });
+delete window.hkSky;
+
 print('\n=== every glass surface carries the material AND the marker ===');
 load(HK_ROOT + '/frontend/cards/hk-base.js');
 var M = window.hkCards.M;

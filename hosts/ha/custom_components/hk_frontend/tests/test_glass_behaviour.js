@@ -395,6 +395,16 @@ var imgsOf = function (l) { return l.children.filter(function (c) { return c.tag
 var live = function (l) { return /blur\(/.test(l.style.backdropFilter) && !imgsOf(l).length; };
 var V10 = view();
 add(V10.grid, card({ x: 20, y: 300, w: 192, h: 70 }));
+// BRIGHT GLASS (2026-10-30) wears the same layers in its Shared Layer and
+// Pre-rendered modes (its own filter through --hk-blur-filter); Each Card
+// none, as blur_each
+setLook('bright'); advance(300);
+ok('bright runs the shared layers, live', G.stats().active && !G.stats().pre && layersIn(V10.v).length > 0, G.stats());
+setLook('bright_pre'); advance(300);
+ok('bright_pre runs them pictured, as blur_pre does', G.stats().active && G.stats().pre, G.stats());
+setLook('bright_each'); advance(300);
+ok('bright_each: no shared layer (every plate blurs itself)', !G.stats().active, G.stats());
+setLook('blur'); advance(300);
 setLook('blur_pre'); advance(300);
 var pl = layersIn(V10.v);
 ok('blur_pre runs the shared layers, as Shared Layer does', G.stats().active && G.stats().pre && pl.length > 0, G.stats());

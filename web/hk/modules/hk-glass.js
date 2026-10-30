@@ -1393,10 +1393,13 @@
   function onWakePre() { if (PRE && active) preTick(false); }
 
   // blur and blur_pre share the layers; switching between them rebuilds
-  // them, live or pictured
+  // them, live or pictured. Bright Glass (2026-10-30) in its Shared Layer
+  // and Pre-rendered modes wears the same layers with its own filter
+  // (--hk-blur-filter)
   function sync() {
     var g = window.hkSettings && window.hkSettings.glass ? window.hkSettings.glass() : '';
-    var want = g === 'blur' || g === 'blur_pre', wantPre = g === 'blur_pre';
+    var want = g === 'blur' || g === 'blur_pre' || g === 'bright' || g === 'bright_pre';
+    var wantPre = g === 'blur_pre' || g === 'bright_pre';
     if (active && wantPre !== PRE) stop();
     PRE = wantPre;
     if (want) start(); else stop();

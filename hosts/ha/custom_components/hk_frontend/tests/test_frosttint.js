@@ -87,6 +87,20 @@ ok('a card joining is tinted in the next animation frame, before it is drawn', !
 frame();
 ok('...then it is', !!washOf(later));
 
+print('\n=== a wallpaper (2026-10-30): its stops are the sky\'s ===');
+// hk-sky.js paints a wallpaper as a still (the `static` sky: no woodland) and
+// publishes its four stops as --sk0..3 -- read here unchanged. Rose Ribbons by
+// day, from hk-wallpapers.js itself
+load(HK_ROOT + '/frontend/modules/hk-wallpapers.js');
+var rose = window.hkWallpapers.stops('ribbons_rose').day, was = {};
+[0, 1, 2, 3].forEach(function (i) { was[i] = SKY.computed['--sk' + i]; SKY.computed['--sk' + i] = rose[i]; });
+SKY.cls.push('static'); F.refresh(); frame();
+var wr = washOf(top), wl = washOf(low);
+ok('a card near the top takes the wallpaper\'s magenta (red and blue over green)', wr && wr[0] > wr[1] && wr[2] > wr[1], wr);
+ok('...one low down its deep purple, never the woodland\'s ground (a still has none)', wl && wl[2] > wl[1] && wl[2] >= wl[0] * 0.8, wl);
+[0, 1, 2, 3].forEach(function (i) { SKY.computed['--sk' + i] = was[i]; });
+SKY.cls = SKY.cls.filter(function (c) { return c !== 'static'; }); F.refresh(); frame();
+
 print('\n=== left gray ===');
 SKY.computed['--artO'] = '1'; F.refresh(); frame();
 ok('album art behind the page (Play Music): every card gray again', !top.style.getPropertyValue('--hk-glass-plate') && !low.style.getPropertyValue('--hk-glass-plate'));
