@@ -799,3 +799,31 @@ replacements: a screen that doesn't choose them keeps 196 × 150 and the Home la
 
 **Guards**, a line: "`test_blur` holds the `bright` tier; `test_type` the `display` role; a wallpaper contrast check
 in `tests/py/test_settings.py`."
+
+## Build log
+
+**2026-10-30, Phases A, B, C and F (branch `homeview-grid`).** Built: square cells (`home_grid.cell: square`, 196 ×
+196 with a 13 px gap; one table, `hkCards.HOME_GRID.square` and the catalog's `CELLS`, read by `_place`, `_measure`,
+`HkBase._block()` and the editor's `scaleAt()`); the Square (3 × 3) screen type, stored as `home_grid.screen: square`
+(a 3 × 3 of square cells is also Home with Pane's grid, so the type needs its own key) with its 14 px edge; corners
+through `--hk-block-radius` on each cell (34, and 72 on a Square screen's outer corners: four values), read by
+`hkCards.plate()`, the tiles, the keys, the clock, the camera, Now Playing and the vacuum; Cell Shape in Editor →
+Screen → Grid (blocks keep their places); hand-written HomeView-style starters filled from the house (Square, 6 × 4
+on a landscape tablet, with a hook for Home with Pane before it; Square, 3 × 5; Square, 2 × 4; HomeView-style on the
+Square type), all with Centred tiles. Centred tiles: `look.tile_style`, a screen's `tile_style` and a block's `tile`
+in both catalogs, HK Settings → Appearance → Tiles (Same as All Screens, Reset) and the block's Appearance; the
+measured geometry is `TILE.centred` in hk-base.js, one CSS builder (`hkCards.centredTile`) used by hk-tile.js and the
+keys; the Home Grid's accessory and scene tiles name their room, a room page's Tall pills keep their state. Big Number:
+`opts.style` (`THERMOSTAT_STYLES`) in both catalogs, drawn in hk-control.js beside `_climate` (steps held on the face,
+`set_temperature` 600 ms after the last tap; a hold on the number shows the modes; the name opens the sheet). Analog
+Numbers: `FACES.numbers`, in `CLOCK_FACES`, the screensaver's Clock Style list and `SAVER_CLOCK_STYLES`; bare, it
+fills its block. Fixed for square heights: the Wide Now Playing cover (it pushed the transport off the side), the
+block size's gap (`_block()` used 10), the corners above. Checks: Python home grid, cards and settings tests (180
+passed); every HK Frontend jsc suite (144 green; the CSS snapshot refreshed on purpose); `home_grid_audit.py`
+(new `--cell square`, `--homeview`; Full Width blocks on a screen of their own) over all 24 cards in tiles and in
+square cells: the only differences left are 44 px controls measured on a canvas scaled to 0.74 at 1280 × 800;
+`grid_blocks_check.py` (new `--cell square`) passes in tiles and square cells, Chromium and WebKit;
+`home_grid_visual_check.py --homeview` (new) passes every starter in Chrome and WebKit at 1180 × 820, 820 × 1180 and
+390 × 844 (and the Square type at 800 × 800); the Square starter beside the mock's square screen matches in layout.
+Left: the colours of off glyphs and the plate are Bright Glass's (Phase D); Home with Pane's starter is A2's; the
+Extra Large thermostat (the sheet in a block) clips its dial in tiles and square cells alike, as before this work.
