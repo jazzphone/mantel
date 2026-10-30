@@ -1,6 +1,7 @@
 """Every detail sheet at every screen size, in WebKit (Safari's engine), measured and shot.
 
     PLAYWRIGHT_PATH=... python tools/headless/sheet_review.py [--shots DIRECTORY] [--size WxH ...] [--only ID ...] [--report]
+        [--look bright [--wallpaper ID]]
 
 Opens each panel kind (and the variants that draw differently: a light that only
 dims or only switches, a heat-only thermostat, media with nothing playing...)
@@ -16,6 +17,10 @@ inside each sheet:
 With --shots, a screenshot of each and a contact sheet per size
 (contact-WxH.png) to look over. It fails on any sheet past those lines,
 unless --report.
+
+--look bright (2026-10-30): the house in Bright Glass over a Wallpaper (Rose
+Ribbons, or --wallpaper's), the sheets' frost stood in by Bright Glass's sheet
+plate over the wallpaper's middle stops.
 """
 import argparse, asyncio, json, os, sys, tempfile, time
 from datetime import datetime, timezone
@@ -30,6 +35,8 @@ ap.add_argument('--shots', type=Path)
 ap.add_argument('--size', action='append')
 ap.add_argument('--only', action='append')
 ap.add_argument('--report', action='store_true')
+ap.add_argument('--look', choices=['bright'])
+ap.add_argument('--wallpaper', default='ribbons_rose')
 args = ap.parse_args()
 
 # phone upright (small, common), phone on its side (small, common), iPad upright and on its side, the large iPad, the car
@@ -129,6 +136,9 @@ def contact(shots: Path, size: str, names):
 
 async def main():
     gallery.HOUSE.update(EXTRA)
+    if args.look == 'bright':
+        gallery.SETTINGS['settings']['look'] = {'glass': 'bright'}
+        gallery.SETTINGS['settings']['sky'] = {'background': 'wallpaper', 'wallpaper': args.wallpaper}
     sheets = [s for s in SHEETS if not args.only or s[0] in args.only]
     sizes = args.size or SIZES
     with tempfile.TemporaryDirectory() as td:
@@ -139,7 +149,7 @@ async def main():
                 stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
             out, _ = await proc.communicate(json.dumps({
                 'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'screen': gallery.SCREEN,
-                'sheets': sheets, 'sizes': sizes, 'shots': str(args.shots) if args.shots else None}).encode())
+                'sheets': sheets, 'sizes': sizes, 'shots': str(args.shots) if args.shots else None, 'look': args.look}).encode())
     bad, seen = [], 0
     for line in out.decode().splitlines():
         if not line.startswith('{'):

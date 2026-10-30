@@ -30,7 +30,9 @@ var EXCEPT = {
   'hk-person.js blur(20px)saturate(1.5)': 'map label',
   // Bright Glass's sheets (DESIGN.md: "its sheets take blur(34px) saturate(2)"):
   // the tab bar's More and Rooms
-  'hk-tabbar.js blur(34px)saturate(2)': 'Bright Glass sheets'
+  'hk-tabbar.js blur(34px)saturate(2)': 'Bright Glass sheets',
+  // ...and its side menu open over the page (a sheet, there)
+  'hk-menu.js blur(34px)saturate(2)': 'Bright Glass menu over the page'
 };
 var FILES = ['cards/hk-base', 'cards/hk-calendar', 'cards/hk-cameras', 'cards/hk-chip', 'cards/hk-control', 'cards/hk-detail',
   'cards/hk-energy', 'cards/hk-home', 'cards/hk-layout', 'cards/hk-library', 'cards/hk-media', 'cards/hk-music', 'cards/hk-person',

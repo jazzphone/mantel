@@ -799,3 +799,33 @@ replacements: a screen that doesn't choose them keeps 196 × 150 and the Home la
 
 **Guards**, a line: "`test_blur` holds the `bright` tier; `test_type` the `display` role; a wallpaper contrast check
 in `tests/py/test_settings.py`."
+
+## Build log
+
+**2026-10-30, Phases D, D2 and E (Bright Glass, the look everywhere, Wallpapers), branch `homeview-glass`.** Built:
+Bright Glass as the sixth Appearance Style, one stored value per Blur Mode as Blur's are (`bright`, `bright_pre`,
+`bright_each` in `GLASS` and `BOARD_GLASS`; `bright` in `TAB_BAR_GLASS`), with its Strength (`look.bright`, a
+screen's `bright`); `LOOKS.bright` in `hk-settings.js` sets the approved plate, blur, rim, glow, shadow, off glyph,
+`--hk-look-sub` and text shadow, mixing in the lightest of the sky's four stops, and caps Strength where white text
+would fall under 4.5:1 over it (`brightCap`), following the sky as it changes. `hkCards.BLUR.bright`; `HEAVY_LOOKS`
+and Mantel's frame-rate signatures know it. D2: room pills (off glyph, second line, text shadow), the detail sheets
+and the pop-ups left as they come (`--hk-sheet-*`: white .22 over blur(34px) saturate(2), the rim; set-in .14), the
+tab bar, the side menu and More (white pill, the accent deepened to read on it), the Edit mode bar (`--hk-bar-*`);
+HK Settings untouched. The screensaver's music controls already wear white .14 keys over the song's art and were
+left as they are. E: `web/hk/modules/hk-wallpapers.js` (twelve SVG builders, six families, night versions, four
+stops measured off the art by `tools/headless/wallpaper_stops.cjs`), loaded by `hk-loader.js` on both products' pages
+and by HK Settings; `hk-sky.js` paints one as a still over its stops with a crossfade to the night version; a
+Wallpaper background for All Screens, a screen and a page, with its picker and Night Version. **Two calls for the
+owner:** (1) the mock-ups' day palettes gave white text 1.4–3.7:1 at the lightest stop and broke the sky's luma caps,
+so the day palettes are deepened per family (rose 0.84 … teal 0.6) until both rules hold at Strength 50 — the day
+wallpapers are visibly deeper than the mock; relaxing the rule to 3:1 would allow brighter ones. (2) The side menu
+open *over* the page takes the sheets' blur(34px), not the 4 px tier: with 4 px its rows were unreadable over the page.
+Checks: the HA build's JS suites all green (new `test_wallpapers.js`; Bright Glass in `test_glass*.js`, `test_ladder.js`,
+`test_settingsmodel.js`, `test_frosttint.js`, `test_blur.js`, `test_detail.js`; `test_csssnapshot` updated on
+purpose); its Python suite 779 passed (per-wallpaper luma caps and contrast in `tests/py/test_settings.py`);
+`tests/test_hk_core_settings.py`; `tools/ci.py quick` passed. WebKit: `tools/headless/bright_glass_check.py` (new:
+four wallpapers, day and night, 1180 × 820, 820 × 1180, 390 × 844; Home, a room, a sheet, the menu, the picker) and
+`sheet_review.py --look bright` (new option) at all 8 sizes, the contact sheets looked at. Left: frame timing of
+Bright Glass on the slowest wall tablet; `detail_flat_e2e.py` lives in `hk_house`, not here, so its look list is not
+changed; Flat's own backgrounds don't offer a Wallpaper; the Home Grid's keys (`HkGridKey`) keep their glyph colours
+until Phase B's centred tiles land.

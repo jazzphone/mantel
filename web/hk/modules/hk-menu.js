@@ -538,6 +538,10 @@
       '.root.bright .mat{background:linear-gradient(150deg,rgba(255,255,255,0.30),rgba(255,255,255,0.14));',
       '  -webkit-backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);',
       '  border-right:0;box-shadow:inset -1.5px 0 0 rgba(255,255,255,0.22)}',
+      // ...but open OVER the page (not docked beside it) it is a sheet: its
+      // sheets' heavier blur, or the page's own text shows through its rows
+      // (WebKit, 2026-10-30)
+      '.root.bright:not(.docked) .mat{-webkit-backdrop-filter:blur(34px) saturate(2);backdrop-filter:blur(34px) saturate(2)}',
       '.root.bright .row{text-shadow:0 1px 2px rgba(0,0,0,0.18)}',
       '.root.bright .row.here{color:color-mix(in srgb,var(--hk-here,' + window.hkCards.v('accent') + ') 64%,#000);text-shadow:none}',
       '.root.bright .row.here::before{background:rgba(255,255,255,0.92)}',
