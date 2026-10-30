@@ -17,7 +17,8 @@ is mostly the look:
 - a camera face with up to nine feeds;
 - more detail as someone comes near;
 - (ours, not HomeView's) a Side Pane beside the page, of sections you choose;
-- a swipe from page to page, with the tab bar following.
+- a swipe from page to page, with the tab bar following;
+- more screensaver faces.
 
 ## Decisions already made (the owner, 2026-10-30)
 
@@ -602,6 +603,50 @@ the history replay, `hk-saver.js`'s leave-on-near.
 **Risks.** A sensor that flickers at the zone's edge would flip the screen; the linger holds it, and a touch always
 counts as near.
 
+## Phase I. Screensaver faces (Phase 4)
+
+The owner, 2026-10-30, from Apple's set of HomeView screensavers: "we can probably add these to the existing setups
+we have now". HK's screensaver already has Shows (`SAVER_SHOWS`: photos, both, forecast, clock) and 15 clock faces
+(`hk-saverclock.js` `FACES`: today, classic, serif, neon, lcd, flip, analog, words, arc, nixie, poster, dots, ring,
+glass, type), plus occasion art in the sky (holidays, birthdays, the woodland seasons). Nine new faces, our own
+versions of the kinds HomeView offers, each drawn for a wall tablet and able to sit beside the screensaver's Side
+Pane:
+
+| Face | What you see | Where it goes |
+|---|---|---|
+| **Glance** | the date large, the Analog Numbers clock, what's playing (cover, song, Play), the weather (place, temperature, condition, H / L), on a calm colour | a new Show, `glance` |
+| **Big Weather** | the temperature very large over the live sky, the condition and H / L, the time, then sunset, wind, humidity and air quality | a new Forecast layout, `big` |
+| **Month** | the month with today circled, the date drawn very large in red behind the grid, the time | a new Show, `month` (the calendar block's Month View, full screen) |
+| **Day** | the weekday and a big date with HK's own occasion art (pumpkins at Halloween, birthdays, the seasons), light or dark | a new Show, `day` |
+| **Photo, Time Behind** | the photo, with the time drawn behind the person or thing in it | a photo option, Time Behind |
+| **Photo Titles** | photos with their album's name and year | a photo option, Titles |
+| **Liquid** | soft, glossy numerals drifting slowly over a pastel gradient | a clock face, `liquid` |
+| **Giant Numerals** | an analog clock with 12, 3, 6 and 9 drawn huge on a strong colour, the date in a corner | a clock face, `giant` (colour variants) |
+| **Scattered Numerals** | a quiet analog face whose numerals lean and fade, on a soft colour | a clock face, `scattered` (colour variants) |
+
+**Not copied.** Apple's Snoopy faces are Peanuts characters under licence; the Day face uses HK's own occasion art
+instead. Every face is drawn for HK; no Apple artwork.
+
+**Photo, Time Behind** needs a cut-out of each photo's subject. It is made **once per photo, on the server** (Mantel
+Server, or the HK Frontend's Home Assistant host) when the photo is added, and stored beside it; the tablet only
+layers the photo, the time and the cut-out (no model, no camera, no per-frame cost). A photo with no clear subject
+shows the time in front, as today. Which segmentation model runs on the server, and on what hardware, is its own
+small project (open question 4).
+
+**Settings.** `SAVER_SHOWS` gains `glance`, `month`, `day`; the Forecast gains a Layout (Classic, Big); photos gain
+Time Behind (off, on) and Titles (off, on); `CLOCK_FACES` and `hk-saverclock.js` `FACES` gain `liquid`, `giant`,
+`scattered` (and Phase F's `numbers`). All in the screensaver's options, All Screens and per screen as today.
+
+**Files.** `hk-saverclock.js` (the three faces), `hk-saver.js` (the Shows, the photo options), `hk-weather.js` (the
+Big layout's data), the server's photo pipeline (the cut-out), `model.py` (`SAVER_SHOWS`, the options),
+`hk-settings.js` (previews in Clock Style and Show).
+
+**Performance.** Liquid's drift is a slow transform of a pre-drawn layer, never a live SVG filter on a wall tablet;
+Reduce Motion and Flat hold it still. The other faces repaint once a minute.
+
+**Checks.** `test_saverclock.js` (each face draws, at every size the Clock block offers), `tests/test_hk_core_screensaver.py`
+(the new options), screenshots of every face at the eight sheet-review sizes.
+
 ## How it behaves on each screen
 
 | | Landscape tablet 1180 × 820 | Portrait tablet 820 × 1180 | Phone 390 × 844 | iPad (11", 13") | iPhone Duo |
@@ -624,7 +669,7 @@ counts as near.
 | 1 | 0 Swipe Between Pages | the owner's first pick; touches only the shell and the tab bar |
 | 2 | A, A2, B, C, F | the HomeView layout: cells, the pane, tiles, thermostat, clock |
 | 3 | D, D2, E | the material and the wallpapers, everywhere |
-| 4 | G, H | new behaviour: cameras face, near |
+| 4 | G, H, I | new behaviour: cameras face, near, screensaver faces |
 
 Each work phase:
 
@@ -648,6 +693,8 @@ Still open:
    screen's corners only on the Square type (a wall tablet's own corners vary). Right split?
 3. **To-do in the pane** needs Home Assistant to-do lists, which HK doesn't read yet. Include it, or leave it for
    later?
+4. **Time Behind photos** need a subject cut-out made on the server. Build that (a model on the server), or leave the
+   face for later?
 
 ## Proposed changes to the house DESIGN.md
 
