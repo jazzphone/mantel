@@ -799,3 +799,26 @@ replacements: a screen that doesn't choose them keeps 196 × 150 and the Home la
 
 **Guards**, a line: "`test_blur` holds the `bright` tier; `test_type` the `display` role; a wallpaper contrast check
 in `tests/py/test_settings.py`."
+
+## Build log
+
+**Phase I, Screensaver faces (2026-10-30, branch `homeview-faces`).** Built: the Shows Glance, Month and Day and the
+Forecast's Big layout (Big Weather) in a new `web/hk/modules/hk-saverfaces.js`, sized in units of their own box (so
+they fit beside the Side Pane and on a phone), mounted by `hk-saver.js` as Show: Clock is; the weather's readings for
+them as `hkWxReadings` in `hk-weather.js`; the clock faces Liquid (a canvas drawn once a minute, drifted by a CSS
+transform), Giant Numerals and Scattered Numerals (once a minute; the second hand a layer the browser turns) in
+`hk-saverclock.js`, each with colour variants and a ground of its own, also offered by the Clock block (both catalogs);
+Photo Titles (the album's name and the year) and Photo, Time Behind (the time behind the photo's subject, the time in
+front where a photo doesn't qualify); the options in `model.py` and `hk-settings-model.js` (new Shows, `forecast_layout`,
+`photo_titles`, `time_behind`, `day_look`; each default is how the screensaver drew before -- the screensaver's
+options are a filled-in mapping, as `saverKnown` needs); HK Settings: Show as a menu with a strip of small pictures of
+each Show, the faces' pages, a picture on each Clock Style row, the Forecast Layout, Titles and Time Behind. Mantel:
+the cut-out pipeline (`cutout.py`, the worker, `CutoutBackfill`, migration 0027, the routes, the quota, backups, Setup
+Check, Photos' badge and Only Photos That Qualify; docs/phase4/PHOTOS.md, "Time Behind"). Checks: the Python suites
+for photos, cut-outs, settings and Home Grid; HK's jsc suites (`test_saverclock.js`: each new face at every Clock
+block size, `test_saverfaces.js` new, every suite in the HA build); `tools/headless/saver_faces_check.py` in WebKit at
+1180 x 820, 820 x 1180 and 390 x 844, compared by eye with the mock-up's faces; `tools/ci.py quick`. Left: **the model
+file** (u2netp.onnx and its SHA-256 in `cutout.MODEL_SHA256`; not downloaded), then the cut-out rules tuned and the
+cost measured on the house's photos and machine; the Day face's art for Thanksgiving and the July 4th/Valentine's
+frames as sprites of their own; Phase F's Analog Numbers face is another branch's -- Glance uses it once it is there
+(the analog face until then); the Side Pane beside the faces is Phase A2's (the faces read their box, not the window).
