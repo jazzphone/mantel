@@ -1042,7 +1042,25 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
         unsubscribe.recheck = lambda: _principal_ok(ctx.identity)      # type: ignore[attr-defined] -- live.py
         return unsubscribe
 
+    # THE SIDE PANE'S TO-DO LISTS (hk_core/todo.py): a list's items, read with todo.get_items through Mantel's
+    # House -- the command gateway, as the person asking (RBAC on the list, the audit row first); with house
+    # commands off nothing is sent and the page says so. Checking one off is the page's own command.
+    async def todo_items(ctx: Ctx, msg: dict):
+        from hk_core import todo as TD
+        from ..house import HouseCommandRefused
+        from ..readproxy import ReadBlocked
+        eid, done = msg.get("entity_id"), msg.get("completed", False)
+        if set(msg) - {"type", "id", "entity_id", "completed"} or not TD.valid_list(eid) or not isinstance(done, bool):
+            raise ReadBlocked("hk_frontend/todo/items carries a to-do list's entity_id and completed")
+        if not _principal_ok(ctx.identity):
+            raise Forbidden("sign in to read the list")
+        try:
+            return await TD.items(host.house, eid, done, context=ctx.identity)
+        except HouseCommandRefused as err:
+            return {"entity_id": eid, "items": [], "left": None, "refused": err.code}
+
     read_routes(app).update({
+        "hk_frontend/todo/items": Route(request=todo_items),
         "hk_frontend/events/subscribe": Route(subscribe=events),
         "mantel/live_tv/guide": Route(request=tv_guide),
         "mantel/energy/plan": Route(request=energy),

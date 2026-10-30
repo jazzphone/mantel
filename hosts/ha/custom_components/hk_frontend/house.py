@@ -82,3 +82,9 @@ class HaHouse:
     async def call_service(self, domain: str, service: str, data: Mapping[str, Any],
                            *, context: Any = None) -> None:
         await self._hass.services.async_call(domain, service, dict(data), blocking=True, context=context)
+
+    async def service_response(self, domain: str, service: str, data: Mapping[str, Any],
+                               *, context: Any = None) -> Mapping[str, Any]:
+        got = await self._hass.services.async_call(domain, service, dict(data), blocking=True, context=context,
+                                                   return_response=True)
+        return dict(got or {})

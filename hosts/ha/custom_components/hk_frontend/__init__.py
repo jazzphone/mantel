@@ -265,6 +265,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     panel.register_commands(hass)
     from . import screensaver
     screensaver.register_commands(hass)
+    # the Side Pane's To-do lists (todo_lists.py; hk_core/todo.py)
+    from . import todo_lists
+    todo_lists.register_commands(hass)
     # THE PAGE HEADERS' server side (page_headers.py): Tonight's lighting
     # schedule, worked out from the automations, which only an admin may read
     from . import page_headers

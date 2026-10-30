@@ -113,6 +113,11 @@ class House(Protocol):
                            *, context: Any = None) -> None:
         """Run a service and wait for it (raises on failure)."""
 
+    async def service_response(self, domain: str, service: str, data: Mapping[str, Any],
+                               *, context: Any = None) -> Mapping[str, Any]:
+        """Run a service that answers (`todo.get_items`) and return its answer (raises on failure). The
+        host decides how it is sent: Home Assistant's own call, or Mantel's command gateway."""
+
 
 def area_of(house: House, entity: Entity | None) -> str | None:
     """Where an entity is: its own area, else its device's."""

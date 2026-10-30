@@ -167,7 +167,8 @@ class FeatureCaller:
             self._actor = Principal(ident, authz.subject_of(ident))
         return self._actor
 
-    async def __call__(self, domain: str, service: str, data: Mapping[str, Any], context: Any = None) -> Any:
+    async def __call__(self, domain: str, service: str, data: Mapping[str, Any], context: Any = None,
+                       response: bool = False) -> Any:
         from ..authz import Principal
         gw = self.gateway()
         person = isinstance(context, Principal)
@@ -180,6 +181,9 @@ class FeatureCaller:
         self._n += 1
         msg = {"type": "command", "id": self._n, "kind": "service", "domain": domain, "service": service,
                "data": dict(data)}
+        if response:
+            # a call that answers (todo.get_items): the same command, its answer asked for
+            msg["return_response"] = True
         got: dict = {}
 
         async def send(reply: dict) -> None:
