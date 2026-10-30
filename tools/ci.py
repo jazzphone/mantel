@@ -190,7 +190,7 @@ def run_step(step: Step, log_dir: Path) -> Result:
     cwd = step.cwd() if callable(step.cwd) else step.cwd
     start = time.monotonic()
     try:
-        r = subprocess.run(cmd, cwd=cwd, env={**os.environ, **step.env}, stdin=subprocess.DEVNULL,
+        r = subprocess.run(cmd, cwd=cwd, env={**step_env(), **step.env}, stdin=subprocess.DEVNULL,
                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=step.timeout)
         output, code = r.stdout.decode(errors="replace"), r.returncode
     except subprocess.TimeoutExpired as e:
@@ -259,6 +259,18 @@ PRE_PUSH = """#!/bin/sh
 # installed by tools/ci.py --install-hooks: the quick checks before every push (git push --no-verify skips them)
 exec "{py}" tools/ci.py quick </dev/null
 """
+
+
+# GIT'S HOOK ENVIRONMENT STAYS OUT OF THE STEPS (2026-10-30). A hook runs with GIT_DIR, GIT_INDEX_FILE and the like
+# set to the repository it was called from; a step that makes a throwaway repository of its own (test_publish_release
+# runs `git init --bare`, test_check_private stages files) then acted on the REAL one: the pre-push hook made the
+# shared repository bare and emptied a worktree's index. Each step runs with them cleared.
+GIT_HOOK_VARS = ("GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE", "GIT_PREFIX", "GIT_COMMON_DIR", "GIT_OBJECT_DIRECTORY",
+                 "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_QUARANTINE_PATH", "GIT_NAMESPACE")
+
+
+def step_env() -> dict:
+    return {k: v for k, v in os.environ.items() if k not in GIT_HOOK_VARS}
 
 
 def install_hooks(hooks: Path | None = None) -> list[Path]:

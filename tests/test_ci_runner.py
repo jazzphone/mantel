@@ -102,3 +102,14 @@ def test_github_runs_the_workflows_only_by_hand(workflow):
     wf = yaml.safe_load((ROOT / ".github/workflows" / workflow).read_text())
     on = wf[True] if True in wf else wf["on"]
     assert set(on) == {"workflow_dispatch"}
+
+
+def test_a_step_never_sees_gits_hook_environment(tmp_path, monkeypatch):
+    # the pre-push hook runs with GIT_DIR and GIT_INDEX_FILE set; a step's own throwaway repository then hit the real
+    # one (2026-10-30: the shared repository made bare, a worktree's index emptied)
+    monkeypatch.setenv("GIT_DIR", "/nowhere/.git")
+    monkeypatch.setenv("GIT_INDEX_FILE", "/nowhere/index")
+    monkeypatch.setenv("KEEP_ME", "1")
+    probe = "import os,sys; sys.exit(0 if 'GIT_DIR' not in os.environ and 'GIT_INDEX_FILE' not in os.environ and os.environ.get('KEEP_ME') == '1' else 1)"
+    step = ci.Step("probe", [sys.executable, "-c", probe])
+    assert ci.run_step(step, tmp_path).status == "passed"
