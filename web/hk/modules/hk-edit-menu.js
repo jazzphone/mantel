@@ -170,7 +170,8 @@
   function hiddenOf(ctx, b) {
     var views = (ctx && ctx.cfg && ctx.cfg.views) || [], l = lists(modelOf(ctx, b)), out = [];
     views.forEach(function (v, i) {
-      if (!i || !v || v.menu_follows || v.area || (v.strategy && v.strategy.area)) return;
+      // (the Pages screen is always right after Home: never hidden, never moved)
+      if (!i || !v || v.menu_follows || v.pages_screen || v.area || (v.strategy && v.strategy.area)) return;
       if (v.visible === false || (Array.isArray(v.visible) && !v.visible.some(function (u) { return u && (u.user === ctx.user || u === ctx.user); }))) return;
       var title = v.menu_title || v.title, path = String(v.path || i);
       if (!title || l.top.indexOf(path) >= 0 || l.cats.indexOf(path) >= 0) return;
@@ -377,7 +378,11 @@
   // the same, on the session's lists: shown at once (true), or not (false)
   var A = { menuMove: act(menuMove), hide: act(hide), show: act(unhide), tabMove: act(tabMove), toMore: act(toMore),
             forward: act(forward), moreMove: act(moreMove) };
-  function visibleCats() { var T = global.hkTabBar, st = T && T._ && T._.state ? T._.state() : null; return st && st.tabs ? Math.max(0, st.tabs.length - 1) : 0; }
+  function visibleCats() {
+    var T = global.hkTabBar, st = T && T._ && T._.state ? T._.state() : null;
+    // (the category tabs: less Home, and the Pages screen's while it is on)
+    return st && st.tabs ? Math.max(0, st.tabs.filter(function (t) { return t && t.kind !== 'pages'; }).length - 1) : 0;
+  }
 
   function enterPart(ctx) {
     var M = menuState();
