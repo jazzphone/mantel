@@ -16,6 +16,7 @@ is mostly the look:
 - square cells, and a square screen;
 - a camera face with up to nine feeds;
 - more detail as someone comes near;
+- (ours, not HomeView's) a Side Pane beside the page, of sections you choose;
 - a swipe from page to page, with the tab bar following.
 
 ## Decisions already made (the owner, 2026-10-30)
@@ -23,11 +24,15 @@ is mostly the look:
 | # | Question | Answer |
 |---|---|---|
 | 1 | Square cells on wide tablets? | **Yes, on their existing layouts.** The 3 × 3 Square type is only for a screen that really is square |
-| 2 | A landscape starter? | **"Home with Pane":** a 3 × 3 grid beside the screensaver's Calendar / Music pane, with **Pane Side: Left or Right**, one setting for Home and the screensaver. The recommended landscape starter |
+| 2 | A landscape starter? | **"Home with Pane":** a 3 × 3 grid beside the Side Pane, with **Pane Side: Left or Right**. The recommended landscape starter |
 | 3 | Where does the new look reach? | **Every surface** (sheets, menus, the tab bar) **except HK Settings**, which stays iOS Settings |
 | 4 | What first? | **Swipe Between Pages** |
 | 5 | Defaults | **Everything is an option.** A screen looks as it does today until someone picks the new style |
 | 6 | Out of scope | Face and voice recognition, and an Intercom tile |
+| 7 | The pane (2026-10-30, second review) | **One Side Pane per screen**, of sections the person chooses (weather, the time, security, and more): HomeView has no such area, so it is where HK can be more useful. One Side Pane settings page for All Screens and for each screen, holding the Dashboard's pane (Off, Home Only, Every Page) and the Screensaver's. It replaces the screensaver's Side Pane group, Now Playing's Show As: Side Pane, and a pane of the Home Grid's own |
+| 8 | What a swipe moves through | **The tab bar's pages only** |
+| 9 | More When Near | **Through the Sleep Screen and the screensaver**, not a new grid feature: a sensor that sees the space in front of the tablet ends the screensaver; the tablet's camera is never used (it costs the tablet too much) |
+| 10 | The 6 × 4 square starter | **Kept, listed after Home with Pane**, its description saying the text is smaller |
 
 ## Rules for every phase
 
@@ -74,9 +79,9 @@ Pane's 218 px cells are the HomeView proportion, which is why it is the recommen
 your finger, the next page comes in beside it, and the tab bar's highlight slides along with it, so it is always
 under the page you are about to land on. The wallpaper or sky stays still behind; only the plates move.
 
-- **Order.** The tab bar's tabs, left to right (Home first), as the bar shows them. Pages under More are reached
-  from More, not by swiping. With no tab bar, the side menu's order (Home, then its Categories). On a room page
-  opened from Rooms, a swipe goes to the next room in Room Order.
+- **Order.** The tab bar's tabs, left to right (Home first), as the bar shows them (the owner, 2026-10-30). On a page
+  that isn't in the bar (a room, a page under More) there is no page swipe. With no tab bar, the side menu's order
+  (Home, then its Categories).
 - **A Home Grid's views go first.** With two or more views, a swipe turns the views (as today), and a swipe past
   the last view goes on to the next page. A swipe back from the next page lands on the last view.
 - **What keeps its own swipe.** Anything that moves sideways itself: the scenes row, a camera strip,
@@ -168,8 +173,8 @@ thermostat, the front door lock, the house's scenes):
 
 | Screen type | Starter | Blocks |
 |---|---|---|
-| Tablet, Landscape | **Home with Pane** (Phase A2, recommended) | thermostat L in Big Number, Numbers clock S bare, a scene, the front door lock, the room's lights; the pane on Calendar with Music |
-| Tablet, Landscape | **Square, 6 × 4** | thermostat L Big Number, Numbers clock S bare, cameras L, weather W, then centred S tiles: two scenes, the lock, lights, a fan |
+| Tablet, Landscape | **Home with Pane** (Phase A2, recommended, listed first) | thermostat L in Big Number, Numbers clock S bare, a scene, the front door lock, the room's lights; it turns the screen's Side Pane on for Home with Weather, Calendar and Now Playing (when playing), unless the screen already has a pane |
+| Tablet, Landscape | **Square, 6 × 4** (listed second; its description says the text is smaller than today's) | thermostat L Big Number, Numbers clock S bare, cameras L, weather W, then centred S tiles: two scenes, the lock, lights, a fan |
 | Tablet, Portrait | **Square, 3 × 5** | the landscape set re-flowed, the pane as a band (A2) |
 | Phone, Portrait | **Square, 2 × 4** | thermostat T Big Number, clock S, lock, lights, a scene |
 | Square | **HomeView-style** | thermostat L Big Number, Numbers clock S bare, then scene, lock and lights S |
@@ -199,70 +204,142 @@ card and size, `home_grid_visual_check.py` for each new starter in Chrome and We
 **Risks.** A 6 × 4 of square cells draws text at 12.7 px on a landscape tablet (the table above): legible at arm's
 length, small across a room. The starters say so in their description, and Home with Pane is the one offered first.
 
-## Phase A2. Home with a Side Pane (Phase 2)
+## Phase A2. The Side Pane (Phase 2)
 
-**What you see.** On a wide tablet, a 3 × 3 grid of 218 px square tiles beside a full-height pane: the
-screensaver's own Calendar and Music pane. **Pane Side** puts the pane on the left or the right; it moves on the
-Home screen and in the screensaver together.
+HomeView has no such area, so this is where HK can do more than it (the owner, 2026-10-30). **One Side Pane per
+screen**, made of sections the person picks and orders, shown beside the Dashboard (on Home only or on every page)
+and in the screensaver. It takes over three panes that exist today, each with its own settings:
 
-**The pane is the screensaver's** (hk-saver.js ~1037, "THE PANE": `.pane`, `PANE_W` = 400, the calendar list and
-the music view). The Music half is already a card, `hk-music-pane-card` (hk-saver.js ~3640), which the Now Playing
-side pane uses, scaled 0.85–1.3 by its width and already drawn for a left side (`:host([side="left"])`, ~3617). The
-Calendar half becomes a card of the same kind, `hk-calendar-pane-card`, cut from the screensaver's list so both
-draw the one code. Code reused, not copied.
+- the screensaver's **Side Pane** group (Calendar, Days, Music; `calendar`, `calendar_days`, `music_pane`,
+  hk-saver.js ~1037, "THE PANE");
+- **Now Playing → Show As: Side Pane** with its own **Pane Side** (`np_style`, `np_side`; hk-popup.js `placeFor`),
+  which slides the music in down one side on any page while something plays;
+- the Home Grid pane of the first draft of this plan (`home_grid.pane`), which is dropped: the grid simply lays
+  itself beside the screen's pane.
 
-**Settings.**
+### What you see
 
-| Setting | Key | Values | Default | Where |
-|---|---|---|---|---|
-| Side Pane | `home_grid.pane` | absent, or `{content: "calendar" \| "music" \| "both", days: 1–7}` | absent (no pane); a new pane is `both`, 2 days | Editor → Screen → Side Pane |
-| Pane Side (All Screens) | `screensaver.pane_side` | `right`, `left` | `right` | HK Settings → Screensaver → Options → Side Pane |
-| Pane Side (a screen) | `screensaver_options.pane_side` | as the screen's other screensaver options: `None` follows All Screens | `None` | HK Settings → Screens → the screen → Screensaver Options → Side Pane |
+**Home with Pane** on a wide tablet: a 3 × 3 grid of 218 px square tiles beside a full-height pane. **Pane Side**
+puts it on the left or the right, everywhere it shows. On **Every Page**, each page is narrowed by the pane's width
+(as the Now Playing pane narrows it today).
 
-- **Calendar with Music** (`both`) is the screensaver's: the calendar, with the music under it while something
-  plays (or is paused, within Hide After a Pause).
-- **One side for the whole screen.** The Home Grid reads the screen's Pane Side. The Now Playing pane
-  (`np_side`, Show As: Side Pane) follows it while its own is unset, so one choice moves all three panes. A screen
-  whose Now Playing side was set on its own keeps it.
-- **No pane twice.** While Home shows its own pane with music in it, the Now Playing pane and bar stay closed on
-  Home (they still open on the other pages).
-- **A pane needs 3 columns.** hk_core refuses `pane` on a 6- or 2-column grid (`grid`); the editor offers Side Pane
-  only on a 3-column grid, and the Home with Pane starter sets 3 × 3, square, Fill the Screen and band off.
+**Sections, each drawn for the pane** (the owner: purpose-built, not page cards squeezed in), at four **Sizes**:
 
-**Layout.**
+- **Tiny**: one line, its glyph, the fact and a value ("54° Clear · H:62° L:48°").
+- **Less**: the gist in two or three lines.
+- **More**: the whole section.
+- **Full**: More and then some, and it takes whatever room the pane has left (one Full section at a time).
+
+| Section | Tiny | Less | More | Full | Data from |
+|---|---|---|---|---|---|
+| Clock | time · date | time (48) and date | time (72), date, sunset | the Analog Numbers face, large | the house clock |
+| Weather | now · H / L | now, condition, H / L | + the next five hours | + the next three days | the weather entity (`hk-weather.js`'s data) |
+| Calendar | the next event | today's next two | four events | five, across days | the calendar entities (`hk-calendar.js`) |
+| Now Playing | song · pause | cover, song, artist, pause | cover, progress, transport | large cover, progress, transport | the screen's music (`hk-saver.js` music) |
+| Security | state · locks | state, one summary line | + each lock and the windows | + the garage, the last change and who | the Security chip's facts |
+| Camera | name · age of the still | a short still | 16:9 still | 4:3 still | the still cache |
+| Timers | the soonest | each on a line | each with its bar | + start presets | `sensor.running_quick_timers` |
+| Energy | use now · solar | use, solar, battery | + today's totals | + solar by the hour | the Energy feature |
+| Climate | a room · its state | two rooms | four rooms | every room and outside | the climate entities |
+| Who's Home | home · away counts | avatars | + where the away are | a row each, with travel time | `person.*` |
+| To-do | the list · item count | two items | four items | six items | `todo.*` (new to HK) |
+| Notifications | the latest | the latest with its time | three | five | `hk_core/notifications` |
+
+All of them live in `hk-sidepane.js` and read the same data as the pages, so the Dashboard's pane and the
+screensaver's draw the same thing.
+
+- **Always, or When There's Something.** Each section is either always shown or only while it has something: music
+  playing (or paused within Hide After a Pause), a timer running, the alarm armed, an open door, a notification. A
+  pane whose sections are all "When There's Something" and all quiet steps aside: that is today's Now Playing pane
+  exactly.
+- **The doorbell.** With **Show the Doorbell** on, a ring puts the doorbell's camera at the top of the pane, live, for
+  as long as the camera's pop-up would show.
+- **It never scrolls.** Sections keep their Size while they fit; when they don't, sizes step down from the bottom
+  (Full, More, Less, Tiny), then the last sections are left out and the pane's foot says how many ("+2 more"). At
+  most 8 sections.
+
+### Settings
+
+**Settings → Side Pane** (All Screens) and **Settings → Screens → the screen → Side Pane**, one page in HK Settings
+(iOS Settings in style). On a screen, each group says whose it is ("Same as All Screens", "Just This Screen") and
+has its own Reset, as Flat Colors do.
+
+| Group | Setting | Values | Default |
+|---|---|---|---|
+| Where | Pane Side | Left, Right | Right |
+| | Width | Narrow (360), Standard (400), Wide (480) | Standard |
+| On the Dashboard | Show | Off, Home Only, Every Page | Off |
+| | Sections | the list above, ordered; each with its Size (Tiny, Less, More, Full) and Always / When There's Something | Weather (More), Calendar (More), Now Playing (More, When There's Something) |
+| In the Screensaver | Show | Off, Same as the Dashboard, Its Own Sections | Off |
+| | Sections | as above, when Its Own | Clock (Tiny), Calendar (More), Now Playing (Less, When There's Something) |
+| Doorbell | Show the Doorbell When It Rings | on, off | on |
+
+The places that had their own pane become links to this page, so nothing is set in two places: the Screensaver
+Options' Side Pane row ("Side Pane: Calendar, Now Playing ›"), Now Playing's Show As (Bar, or "In the Side Pane ›"),
+and the Home Grid editor's Screen → Side Pane row ("Home Only, Right ›").
+
+**Schema** (`hk_core/settings/model.py`, mirrored in `hk-settings-model.js`, checked by `changes.py`):
+
+```json
+"side_pane": {
+  "side": "right", "width": "standard",
+  "dashboard": {"show": "off", "sections": [{"kind": "weather", "size": "more"}, {"kind": "calendar", "size": "more"},
+                                            {"kind": "now_playing", "size": "more", "when": "active"}]},
+  "saver": {"show": "off", "sections": []},
+  "doorbell": true
+}
+```
+
+- House: `side_pane` with these defaults. A screen: `side_pane: None`, or a sparse object whose groups (`side`,
+  `width`, `dashboard`, `saver`, `doorbell`) each resolve on their own, first found: the screen, All Screens.
+- `kind` in `PANE_SECTIONS` (12, above); `size` in `("tiny", "less", "more", "full")`, absent = more, at most one
+  `full`; `when` in `("always", "active")`, absent = always; per-kind options
+  (`days` for the calendar, `entity` for a camera or a to-do list). At most 8.
+- **Migration**, once, so every screen looks as it did: the screensaver's `calendar` / `music_pane` become
+  `saver: {show: "own", sections: [calendar(more, days), now_playing(more, active)]}`; Now Playing's `np_style: "pane"` becomes
+  `dashboard: {show: "all", sections: [now_playing(active)]}` and `np_side` becomes `side`. The old keys are read for
+  one release, then dropped.
+
+### Layout
 
 | Screen | The pane |
 |---|---|
-| Landscape tablet, 1180 × 820 | full height, 444 px wide beside a 736 px grid; the tab bar centred under the grid, not the pane |
-| Landscape, no tab bar | 360 px beside an 820 px grid (the pane's own scale, 0.9) |
-| Portrait tablet, 820 × 1180 | a band under the grid, 276 px tall, the grid 820 px square above it |
-| iPad, 1194 × 834 / 1366 × 1024 | as the landscape tablet: 444 px / 426 px of pane, cells 227 / 278 px; portrait, a band |
-| Phone (under 640 px) | no pane; the grid alone |
-| iPhone Duo, folded (382 × 678 of page, the 84 pt strip at the side) | no pane |
-| iPhone Duo, open (669 × 951) | a 198 px band: the calendar's next two events, or the mini player while music plays |
+| Landscape tablet, 1180 × 820 | full height, 444 px beside the 3 × 3 grid (it takes what the square grid leaves); on other pages its Width |
+| Landscape, no tab bar | 360 px beside an 820 px grid |
+| Portrait tablet, 820 × 1180 | a band under the page, 276 px tall, its sections side by side |
+| iPad, 1194 × 834 / 1366 × 1024 | as the landscape tablet; portrait, a band |
+| Phone (under 640 px) | never |
+| iPhone Duo, folded (382 × 678 of page) | never |
+| iPhone Duo, open (669 × 951) | a 198 px band: two compact sections |
 
-**Schema.** `home_grid.py` `_shape`: `pane` (`content` in `PANE_CONTENT = ("calendar", "music", "both")`, `days`
-1–7, needs `cols == 3`). `model.py`: `pane_side` in the screensaver's defaults and `PANE_SIDES = ("right", "left")`,
-checked in the screen's `screensaver_options`. The JS mirror in `hk-settings-model.js` and the parity test.
+The tab bar centres under the page beside the pane, not under the pane.
 
-**Files.** `hk-layout.js` (`HkHomeGridView` lays the grid beside the pane, sizes it for 3 columns, publishes
-`--hk-pane-l/-r` as hk-popup.js's `publishPane` does, so the tab bar keeps clear), `hk-saver.js` (Pane Side for the
-screensaver's pane: the CSS's `right:0`, `border-left`, the photo's width and the `.fc` offsets, mirrored;
-`hk-calendar-pane-card`), `hk-popup.js` (`placeFor`: no Now Playing pane on a Home that has one; `np_side`
-follows), `hk-grid-editor.js` (Side Pane group, the starter), `hk-settings.js` (Pane Side), `model.py`,
-`home_grid.py`.
+### Files
 
-**Checks.** `test_homegrid.js` (pane placement, both sides, the band in portrait, none on a phone),
-`tests/test_hk_core_home_grid.py` (`pane` refused off 3 columns), `tests/test_hk_core_screensaver.py`
-(`pane_side`); headless screenshots of the pane on each side on the Home screen and in the screensaver, the music
-pane while something plays, the portrait band, and a WebKit run at iPad size.
+- `web/hk/modules/hk-sidepane.js` (new): the pane host, its sections, the fit (full, compact, left out), and the
+  room it takes (`--hk-pane-l/-r` and `html[hk-pane]`, as hk-popup.js's `publishPane` does today).
+- The section cards above; `hk-calendar-pane-card` cut from `hk-saver.js`.
+- `hk-saver.js`: the screensaver's pane reads the resolved `saver` group; Pane Side for its CSS (`right:0`,
+  `border-left`, the photo's width and the `.fc` offsets, mirrored).
+- `hk-popup.js`: Now Playing's pane retired into the Side Pane (`placeFor` keeps the bar).
+- `hk-layout.js`: the Home Grid lays itself beside the pane.
+- `hk-settings.js`: the Side Pane page and the three links; `hk-settings-model.js`; `model.py`, `changes.py`.
 
-**Risks.**
+### Checks
 
-- The screensaver's pane was written for one place. Its photo width, the forecast's offsets and the clock's
-  `right:` all assume the right; each needs a left case. The checks above look at each.
-- Two copies of the calendar list (screensaver and Home) drawn at once would double its updates; the card shares
-  one source.
+- Python: the shape, the resolution (screen, All Screens), the migration of each old key, the section cap.
+- jsc: `test_sidepane.js` (new: the fit, When There's Something, the doorbell), `test_homegrid.js` (the grid beside
+  the pane on each side), `test_settingsmodel.js`.
+- Headless: the pane on each side on Home, on Every Page, and in the screensaver; with music playing; every section
+  alone and all eight together; the portrait band; WebKit at iPad size.
+
+### Risks
+
+- **Every Page on a wall tablet** leaves 780 px for the page at Standard: Energy and the page headers drop from
+  three columns to two, and Calendar and Music re-lay. Each page kind is screenshotted with the pane on.
+- The screensaver's pane was written for the right; its photo width, the forecast's offsets and the clock's `right:`
+  each need a left case.
+- One data source per section, shared by the Dashboard's pane and the screensaver's, so nothing updates twice.
 
 ## Phase B. Centred tiles (Phase 2)
 
@@ -486,36 +563,44 @@ own rule), `hk-layout.js` (`F` spans the grid).
 
 ## Phase H. More When Near (Phase 4)
 
-**What you see.** A face that shows a big clock from across the room and its controls when you walk up.
+**What you see.** From across the room the tablet shows the screensaver (its clock, the photos, its Side Pane);
+when someone walks up to it, the dashboard comes up before they touch it; when they walk away, the screensaver
+returns sooner than Starts After would bring it.
 
-Two ways to build it:
+**How.** The Sleep Screen already decides this from presence (`hk_core/sleep/rules.py`): somebody in the room wakes
+the tablet to the photos, a touch brings the dashboard, nobody darkens it. "Near" is one more list and one more
+rule, not a new grid feature:
 
-1. **A Near View** on the grid: when someone comes near, the grid turns to a chosen view (the controls); when no one
-   has been near for a while, it turns back to the first (the big clock). This is the HomeView behaviour, and
-   reuses Views.
-2. **A Show When condition, Someone's Near**, for a block's rules: one block swaps its card in place (a clock
-   becomes a thermostat).
+| Rule (in the Sleep Screen's order) | Shows |
+|---|---|
+| … 9 In use (touched within the window) | the dashboard |
+| **9a Somebody near the screen** (new) | **the dashboard** |
+| 10 Somebody in the room (Presence) | the screensaver |
+| 11 Nobody | dark |
 
-**What "near" means:** any of the screen's presence entities (the Sleep Screen's `presence` list, `hk_core/sleep`),
-plus the tablet's own motion where its kiosk app reports it (a new `motion` part in `hk_core/tablets/kiosk.py`
-`PARTS`, for Kiosk Satellite and Fully where their integrations expose it; to be checked per app).
+**What "near" means:** a sensor that sees the space in front of the tablet: an mmWave sensor's zone, or a distance
+sensor under a set distance. **Never the tablet's camera**: camera motion detection costs the tablet too much (the
+owner, 2026-10-30); the kiosk `motion` part of the first draft is dropped.
 
-**Settings.**
+**Settings** (the screen's Sleep Screen page):
 
-| Setting | Key | Values | Default | Where |
-|---|---|---|---|---|
-| Near View | `home_grid.near` | absent, or `{view: 1–3, after: 10–300 s}` | absent; a new one is view 2, 30 s | Editor → Screen → Views |
-| Someone's Near | `CONDITIONS` | adds `near` | — | Editor → the block → Show When |
+| Setting | Key | Values | Default |
+|---|---|---|---|
+| Near the Screen | `sleep.near` | entities (binary sensors, or a number sensor with a distance) | none |
+| …closer than | `sleep.near_cm` | 30–300 cm, for a distance sensor | 120 |
+| Back to the Screensaver | `sleep.near_linger` | 10–300 s with nobody near and no touch | 30 |
 
-**Code.** `home_grid.py` (`near`, the condition), `hk-grid-catalog.js` / `hk-grid-editor.js` (`CONDITION_NAMES`),
-`hk-layout.js` (turn the view), `hk_core/tablets/kiosk.py` (`motion`), the gateway's state feed for the tablet's
-presence.
+It needs the Sleep Screen to be decided by HK (`decided_by: "hk"`); the page says so when it is still the
+automation's.
 
-**Checks.** `tests/test_hk_core_home_grid.py`, `test_homegrid.js` (near turns the view and back after `after`; a
-touch keeps it near), `grid_panels_check.py` with a fake presence entity.
+**Code.** `hk_core/sleep/rules.py` (`near` in `LISTS`, the rule), `engine.py` (the facts), the host's sleep engine,
+`hk-settings.js` (the Sleep Screen page). No Home Grid change.
 
-**Risks.** A presence sensor that flickers would flip the face. `after` holds it; touching the screen counts as
-near.
+**Checks.** `tests/test_hk_core_sleep.py` (the rule's place in the order, the linger, a distance under and over),
+the history replay, `hk-saver.js`'s leave-on-near.
+
+**Risks.** A sensor that flickers at the zone's edge would flip the screen; the linger holds it, and a touch always
+counts as near.
 
 ## How it behaves on each screen
 
@@ -523,14 +608,14 @@ near.
 |---|---|---|---|---|---|
 | 0 Swipe | on with the bar; 24 px edges | the same | the bar's 5 tabs; More's pages by More | as a tablet; Safari's edge swipes kept | folded: as a phone, edges measured from the page (the 84 pt strip is not the page's); open: as a tablet |
 | A Square cells | 166–181 px (6 × 4) | 3 × 5 square: 200 px | 2 × 4 square: about 150 px | 6 × 4: 169 / 196 px | folded 2 × 4: about 130 px; open 3 × 4: 196 px |
-| A2 Pane | full height, 444 px | band under, 276 px | none | full height (444 / 426 px; cells 227 / 278 px); portrait a band | folded none; open a 198 px band |
+| A2 Side Pane | full height, 444 px beside the 3 × 3 (its Width on other pages) | band under, 276 px | never | as the landscape tablet; portrait a band | folded never; open a 198 px band |
 | B Centred | yes | yes | yes | yes | yes |
 | C Big Number | T and L | T and L | T (2 × 2 cells are L) | T and L | as a phone / tablet |
 | D Bright Glass | Shared Layer; ladder offers Glass on a slow tablet | the same | the same | the same | the same |
 | E Wallpaper | drawn once at the screen's size | redrawn on rotation | the same | the same | redrawn on fold |
 | F Numbers clock | S bare | S bare | S bare | S bare | S bare |
 | G Cameras | Full: 3 × 3 at 16:9 | Full: 3 × 3 | Full: 2 × 4 | Full: 3 × 3 | folded Full: 2 × 4; open Full: 3 × 3 |
-| H Near | presence + kiosk motion | the same | presence only | presence only | presence only |
+| H Near | a near-the-screen sensor ends the screensaver | the same | not used | not used | not used |
 
 ## Order and checks
 
@@ -554,11 +639,15 @@ Each work phase:
 
 ## Open questions for the owner
 
-1. **Now Playing's Pane Side** follows the new Pane Side unless set on its own (A2). Or keep them separate?
-2. **Rooms by swipe:** on a room page, a swipe goes to the next room (Phase 0). Or only the tab bar's pages?
-3. **Near View** (H, way 1) is an addition to the plan, beside the Someone's Near condition. Build both?
-4. **The 6 × 4 square grid's text** is 12.7 px on a landscape tablet with the tab bar. Keep the starter, or offer
-   only Home with Pane on landscape?
+Answered on 2026-10-30: the pane (decision 7), the swipe's pages (8), More When Near (9), the 6 × 4 starter (10).
+Still open:
+
+1. **The gap.** HomeView's gap between tiles is 6.7 % of a tile; HK's 10 px is 5 %. Square cells keep 10 (the
+   Square screen's edge is narrowed to 14). Match HomeView (about 13 px on square cells), or keep 10?
+2. **Corners on wide tablets.** The measured 34 px corner is on every square-cell grid; the concentric 72 px at the
+   screen's corners only on the Square type (a wall tablet's own corners vary). Right split?
+3. **To-do in the pane** needs Home Assistant to-do lists, which HK doesn't read yet. Include it, or leave it for
+   later?
 
 ## Proposed changes to the house DESIGN.md
 
@@ -622,7 +711,7 @@ replacements: a screen that doesn't choose them keeps 196 × 150 and the Home la
 
 > - 2026-10-30 (a HomeView-style look, docs/phase11/HOMEVIEW-LOOK.md in the Mantel repo): everything an option,
 >   existing screens unchanged until chosen; square cells (196 × 196) on any screen type and a Square (3 × 3) type;
->   Home with a Side Pane, the screensaver's pane, with one Pane Side for Home and the screensaver; Centred tiles
+>   one Side Pane per screen, of sections you choose, for the dashboard (Home Only or Every Page) and the screensaver, with one Pane Side, replacing the screensaver's and Now Playing's panes; Centred tiles
 >   for the Home Grid and the room pages' Tall pills, not regular pills; a Big Number thermostat; Bright Glass
 >   (the sixth look, a blur style for the ladder); twelve wallpapers of our own that tint the tiles; the look
 >   reaches every surface except HK Settings. Out of scope: face recognition, an Intercom tile.
