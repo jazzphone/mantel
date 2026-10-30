@@ -318,10 +318,15 @@
   // wallpaper, then its scenes, the front door's lock and the room's lights.
   // A block the house has nothing for is left out. By screen type: [key,
   // name, what it is, the grid's shape, its blocks as [what, size, at]].
-  // (HOME WITH PANE, the recommended landscape starter, is the Side Pane's,
-  // Phase A2: it goes first in tablet_landscape, before Square, 6 x 4.)
+  // HOME WITH PANE, the recommended landscape starter, goes first: a 3 x 3 of
+  // square tiles filling the height, beside the screen's Side Pane (Phase A2)
+  // -- its sixth field asks for the pane (paneForStarter below)
   var SQUARE_STARTERS = {
     tablet_landscape: [
+      ['sq_pane', 'Home with Pane', 'The recommended landscape layout: a 3 × 3 of square tiles beside the Side Pane, with the weather, the calendar and what’s playing.',
+        { cols: 3, rows: 3, band: false, grow: true },
+        [['thermostat', 'L', [0, 0]], ['clock', 'S', [2, 0]], ['scene', 'S', [2, 1]], ['scene', 'S', [0, 2]], ['lock', 'S', [1, 2]], ['light', 'S', [2, 2]]],
+        { pane: true }],
       ['sq_6x4', 'Square, 6 × 4', 'Square cells with centred tiles, as on a HomeView. The text is smaller than today’s.',
         { cols: 6, rows: 4, band: false },
         [['thermostat', 'L', [0, 0]], ['clock', 'S', [2, 0]], ['weather', 'W', [3, 0]], ['lock', 'S', [5, 0]],
@@ -369,6 +374,18 @@
     delete out.views;
     if (!c[3].screen) delete out.screen;
     return out;
+  }
+  // THE SIDE PANE A STARTER ASKS FOR (Home with Pane): the screen's change, or
+  // null when it already shows a pane on Home -- its own groups kept, the
+  // Dashboard's group the plan's default (Weather, Calendar, Now Playing while
+  // it plays) on Home
+  var PANE_FOR_HOME = { show: 'home', sections: [{ kind: 'weather', size: 'more' }, { kind: 'calendar', size: 'more' },
+                                                  { kind: 'now_playing', size: 'more', when: 'active' }] };
+  function paneForStarter(c, board) {
+    if (!c || !c[5] || !c[5].pane) return null;
+    var read = board && board.side_pane_read, dash = read && read.dashboard;
+    if (dash && dash.show && dash.show !== 'off') return null;
+    return Object.assign(copy((board && board.side_pane) || {}), { dashboard: copy(PANE_FOR_HOME) });
   }
   function screenTypeOf(grid) {
     var t = grid && SCREEN_TYPES.find(function (x) {
@@ -898,9 +915,15 @@
     async starter(concept) {
       if (this.busy) return;
       if (this.grid && !await this.K.confirm(this.shadowRoot, { title: 'Use a Starter Layout?', message: 'This replaces your draft. Nothing is saved yet.', ok: 'Use Starter' })) return;
+      this.paneChange = null;
       if (concept === 'empty') { this.selected = null; this.change(this.asScreen(copy(EMPTY))); return; }
       var sq = this.squareStarters().find((c) => c[0] === concept);
-      if (sq) { VIEW = 0; this.selected = null; this.change(squareStarter(sq, this.grid, this.squareHouse())); return; }
+      if (sq) {
+        VIEW = 0; this.selected = null; this.paneChange = paneForStarter(sq, this.o.board);
+        this.change(squareStarter(sq, this.grid, this.squareHouse()));
+        if (this.paneChange) this.say('Saving also turns on this screen’s Side Pane, beside Home.');
+        return;
+      }
       var own = NIGHTSTAND.find((c) => c[0] === concept);
       if (own && this.grid) {
         var g2 = Object.assign(copy(this.grid), { items: copy(own[3]) });
@@ -1757,9 +1780,13 @@
       try {
         var grid = copy(this.grid);
         var msg = { type: 'hk_frontend/board/set', dashboard: this.o.path, changes: { home_style: 'grid', home_grid: grid } };
+        // (a starter that asked for the Side Pane: the screen's, in the same write)
+        if (this.paneChange) msg.changes.side_pane = this.paneChange;
         if (!anyway && this.version != null) msg.expect_version = this.version;
         var result = await this.panel.actions().callWS(msg);
-        this.panel.data.boards[this.o.path] = result && result.board || Object.assign({}, this.o.board, { home_style: 'grid', home_grid: grid });
+        this.panel.data.boards[this.o.path] = result && result.board || Object.assign({}, this.o.board, { home_style: 'grid', home_grid: grid },
+          this.paneChange ? { side_pane: this.paneChange } : {});
+        this.paneChange = null;
         keepVersion(this.panel, this.o.path, result);
         if (result && result.version != null) this.version = result.version;
         this.initial = JSON.stringify(grid); this.o.onSaved();
@@ -1780,7 +1807,7 @@
       this.say('Not saved: this screen changed since you opened it.');
     }
   }
-  window.hkGridEditor = { place: place, makeRoom: makeRoom, valid: valid, firstSpace: firstSpace, add: add, snap: snap, landing: landing,
+  window.hkGridEditor = { paneForStarter: paneForStarter, place: place, makeRoom: makeRoom, valid: valid, firstSpace: firstSpace, add: add, snap: snap, landing: landing,
                           SCREEN_TYPES: SCREEN_TYPES, SQUARE_STARTERS: SQUARE_STARTERS, screenTypeOf: screenTypeOf, scaleAt: scaleAt, squareStarter: squareStarter };
   customElements.define('hk-grid-editor', GridEditor);
 })();

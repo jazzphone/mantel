@@ -1005,3 +1005,13 @@ canvas but only seen with today's 196 × 150 cells here; headless WebKit draws n
 was judged opaque; on a portrait Home Grid the band may cover a few px of the last row (the tab bar's room and the
 band's bottom are measured from two variables); notifications are those this page has shown since it loaded; the
 Energy section reads the house's power sensor (solar and battery by name), not yet the Energy feature's plan.
+
+**Integration (2026-10-30, the integrator).** The seven branches merged into one, every suite green after each
+merge. Found while merging and fixed: the Pages screen joined the swipe order last instead of after Home
+(`hk-pageswipe.js` loads after the menu and never announced itself; now it does, and `test_pagesscreen` loads both
+in the loader's order); the Side Pane had no way to draw one section as the Pages screen's widget
+(`hkSidePane.section`, a chrome-free `widget` mode) and the two named Who's Home differently (`people`, held equal by
+a test); test expectations two merges broke (the clock faces' order). Added the **Home with Pane** starter, first on
+a landscape tablet: a 3 × 3 of square tiles (Fill the Screen, band off) that turns the screen's Side Pane on for
+Home (Weather, Calendar, Now Playing while it plays) in the same write as the layout, unless the screen already
+shows a pane (`paneForStarter`, tested).

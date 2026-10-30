@@ -234,12 +234,25 @@ step(function () {
   ok('...the tiles centred, filled from the house', hv.items.slice(2).map(function (i) { return i.tile + ':' + (i.opts.scene || i.opts.entity); }).join(),
      'centred:scene.arrive,centred:scene.good_night,centred:lock.front_door,centred:light.entry');
   ok('nothing in the house: only the clock (a block with nothing to show is left out)', by(GE.squareStarter(S.square[0], base, { scenes: [], light: [], fan: [], more: [] })), 'clock:S@2,0');
-  var land = GE.squareStarter(S.tablet_landscape[0], { v: 1, cols: 6, rows: 4, frame: [1180, 820], band: true, items: [] }, house);
+  var land = GE.squareStarter(S.tablet_landscape[1], { v: 1, cols: 6, rows: 4, frame: [1180, 820], band: true, items: [] }, house);
   ok('Tablet, Landscape: Square, 6 x 4, square cells, no band, no square screen', [land.cols, land.rows, land.band, land.cell, 'screen' in land, GE.valid(land)],
      [6, 4, false, 'square', false, true]);
-  ok('...its description says the text is smaller', /smaller/.test(S.tablet_landscape[0][2]), true);
+  ok('...its description says the text is smaller', /smaller/.test(S.tablet_landscape[1][2]), true);
   ok('...the thermostat, clock, weather, camera, the lock and lights and a fan', ['thermostat', 'clock', 'weather', 'camera'].every(function (c) {
     return land.items.some(function (i) { return i.card === c; }); }) && land.items.filter(function (i) { return i.tile === 'centred'; }).length === 7, true);
+  // HOME WITH PANE, first on a landscape tablet: a 3 x 3 filling the height beside the screen's Side Pane
+  ok('Tablet, Landscape: Home with Pane first, then Square, 6 x 4', S.tablet_landscape.map(function (c) { return c[0]; }).join(), 'sq_pane,sq_6x4');
+  var hp = GE.squareStarter(S.tablet_landscape[0], { v: 1, cols: 6, rows: 4, frame: [1180, 820], band: true, items: [] }, house);
+  ok('...3 x 3 square cells, no band, Fill the Screen, no square screen, valid', [hp.cols, hp.rows, hp.cell, hp.band, hp.grow, 'screen' in hp, GE.valid(hp)],
+     [3, 3, 'square', false, true, false, true]);
+  ok('...the thermostat L in Big Number and the clock, then scenes, the lock, the lights', by(hp), 'thermostat:L@0,0 clock:S@2,0 scene:S@2,1 scene:S@0,2 accessory:S@1,2 accessory:S@2,2');
+  var want = GE.paneForStarter(S.tablet_landscape[0], { side_pane: { side: 'left' }, side_pane_read: { dashboard: { show: 'off' } } });
+  ok('...it turns the screen\'s Side Pane on for Home (Weather, Calendar, Now Playing while it plays), its own side kept',
+     [want && want.side, want && want.dashboard.show, want && want.dashboard.sections.map(function (x) { return x.kind + (x.when ? ':' + x.when : ''); }).join()],
+     ['left', 'home', 'weather,calendar,now_playing:active']);
+  ok('...not when the screen already shows a pane on Home or every page', [GE.paneForStarter(S.tablet_landscape[0], { side_pane_read: { dashboard: { show: 'all' } } }),
+     GE.paneForStarter(S.tablet_landscape[0], { side_pane_read: { dashboard: { show: 'home' } } })], [null, null]);
+  ok('...and no other starter asks for it', GE.paneForStarter(S.tablet_landscape[1], { side_pane_read: { dashboard: { show: 'off' } } }), null);
   var por = GE.squareStarter(S.tablet_portrait[0], { v: 1, cols: 3, rows: 6, frame: [820, 1180], band: true, items: [] }, house);
   var ph = GE.squareStarter(S.phone_portrait[0], { v: 1, cols: 2, rows: 5, frame: [390, 844], band: false, items: [] }, house);
   ok('Tablet, Portrait: Square, 3 x 5; Phone, Portrait: Square, 2 x 4 with the thermostat Tall', [por.cols, por.rows, GE.valid(por), ph.cols, ph.rows, GE.valid(ph), ph.items[0].size],
