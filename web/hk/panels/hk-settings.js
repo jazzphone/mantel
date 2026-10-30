@@ -3577,14 +3577,133 @@
     }
     // CLOCK STYLE (2026-10-13): the fourteen faces, the preview showing the
     // one chosen -- the same style for Show: Clock and a Large clock
+    // (2026-10-30: each with a small picture of itself; Liquid, Giant and
+    // Scattered Numerals bring their own colour)
     saverStyle(c, cur, put) {
-      var cr = this.clockColorRow(cur, put);
+      var self = this, cr = this.clockColorRow(cur, put);
       if (cr) c.appendChild(K.group({ footer: 'Each style keeps its own color.' }, [cr]));
-      c.appendChild(K.group({ footer: 'The same style for Show: Clock and a Large clock over the photos or the forecast. Every style shows the date.' },
+      c.appendChild(K.group({ footer: 'The same style for Show: Clock and a Large clock over the photos or the forecast. Every style shows the date' +
+          (M.CLOCK_OWN_GROUND ? ' but Liquid and Scattered Numerals. Liquid, Giant Numerals and Scattered Numerals bring their own colour, in place of the background behind the clock.' : '.') },
         M.CLOCK_STYLES.map(function (st) {
           return K.check({ label: st[1], sub: st[2], on: (cur.clock_style || 'classic') === st[0], fk: 'saver:clock_style:' + st[0],
+                           thumb: self.saverThumb(64, 44, 'clock:' + st[0], cur),
                            onClick: function () { put('clock_style', st[0]); } });
         })));
+    }
+    // THE SCREENSAVER'S FACES, SMALL (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I): a picture of a Show or a
+    // clock face for Clock Style's rows and Show's strip -- the face itself, drawn once (still) at a 1180 x 820
+    // tablet's size and scaled down whole, so it is exactly the face. Its modules load the first time one shows.
+    // `what`: photos, forecast, clock (the clock as chosen), clock:<style>, glance, month or day
+    saverFaceModules() {
+      var self = this;
+      if (window.hkSaverClock && window.hkSaverFaces) return Promise.resolve(true);
+      if (!this._fxLoad) {
+        this._fxLoad = Promise.all([window.hkSaverClock ? null : import('/hk/modules/hk-saverclock.js'),
+                                    window.hkSaverFaces ? null : import('/hk/modules/hk-saverfaces.js')])
+          .then(function () { return true; }, function () { self._fxLoad = null; return false; });
+      }
+      return this._fxLoad;
+    }
+    saverThumb(w, h, what, cur) {
+      var self = this, W = 1180, H = 820;
+      var box = document.createElement('span'), inner = document.createElement('div');
+      box.className = 'sthumb';
+      box.setAttribute('aria-hidden', 'true');
+      box.style.cssText = 'flex:none;position:relative;display:block;width:' + w + 'px;height:' + h + 'px;border-radius:' + Math.round(h / 7) + 'px;overflow:hidden;' +
+        'background:#1c1c1e;box-shadow:inset 0 0 0 .5px rgba(127,127,127,.35);margin-right:12px';
+      inner.style.cssText = 'position:absolute;left:0;top:0;width:' + W + 'px;height:' + H + 'px;transform-origin:0 0;transform:scale(' + (w / W).toFixed(4) + ',' + (h / H).toFixed(4) + ');pointer-events:none';
+      box.appendChild(inner);
+      // the two that are pictures of their own: the photos, the forecast
+      if (what === 'photos') {
+        inner.style.background = 'linear-gradient(#8fb3d6,#e9c09a)';
+        inner.innerHTML = '<svg viewBox="0 0 1180 820" width="1180" height="820"><circle cx="880" cy="230" r="80" fill="#fff4d6"/><path d="M0 640L260 360 470 560 700 300 1180 700V820H0z" fill="#58745f"/><path d="M0 820V700L340 560 620 700 900 600 1180 760V820z" fill="#3c5747"/></svg>';
+        return box;
+      }
+      if (what === 'forecast') {
+        inner.style.background = 'linear-gradient(#2f74ba,#a7d2ef)';
+        inner.innerHTML = '<svg viewBox="0 0 1180 820" width="1180" height="820"><path d="M300 330h300a110 110 0 0 0 10-219 160 160 0 0 0-308 34A100 100 0 0 0 300 330z" fill="#fff" opacity=".92"/>' +
+          '<path d="M0 640C260 560 420 600 620 560S980 520 1180 580V820H0z" fill="#4f7a55"/><rect y="700" width="1180" height="120" fill="rgba(6,10,18,.55)"/>' +
+          '<g fill="#fff" font-family="-apple-system,system-ui,sans-serif" font-weight="600" font-size="64">' +
+          [0, 1, 2, 3, 4].map(function (i) { return '<text x="' + (110 + i * 230) + '" y="785">' + (54 + i) + '°</text>'; }).join('') + '</g></svg>';
+        return box;
+      }
+      var tries = 0, draw = function () {
+        if (!box.isConnected) { if (++tries < 20) requestAnimationFrame(draw); return; }
+        var C = window.hkSaverClock, F = window.hkSaverFaces, o = cur || {};
+        try {
+          if (/^clock/.test(what)) {
+            var style = what.indexOf(':') > 0 ? what.split(':')[1] : (o.clock_style || 'classic');
+            C.mount(inner, { style: style, still: true, drift: false, h24: !!o.clock_24, bg: 'gradient', speed: 0,
+                             color: (o.clock_colors || {})[style] || '', client: self.client });
+          } else {
+            F.mount(inner, { kind: what, still: true, h24: !!o.clock_24, look: o.day_look, client: self.client, clocks: C });
+          }
+        } catch (e) { /* no picture: the frame alone */ }
+      };
+      this.saverFaceModules().then(function (ok) { if (ok) draw(); });
+      return box;
+    }
+    // THE SHOW (2026-10-30): six of them -- Photos, Forecast, Clock, Glance, Month and Day -- a menu, and under it
+    // a strip of each as it looks, the one chosen ringed; a tap on one chooses it. `value`: what shows now
+    // (Photos & Forecast is Photos, with the forecast a slide)
+    showRows(cur, put, value) {
+      var self = this, pick = function (v) { if (v !== value) put('show', v); };
+      var strip = document.createElement('div');
+      strip.className = 'cell sstrip';
+      strip.setAttribute('data-sk', 'saver:show-strip');
+      strip.setAttribute('role', 'radiogroup');
+      strip.setAttribute('aria-label', 'Show');
+      strip.style.cssText = 'display:flex;gap:12px;overflow-x:auto;padding:12px 16px 10px;scrollbar-width:none;align-items:flex-start';
+      M.SAVER_SHOWS.forEach(function (s) {
+        var on = s[0] === value, b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('role', 'radio');
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+        b.setAttribute('aria-label', s[1] + '. ' + s[2]);
+        b.setAttribute('data-fk', 'saver:show:' + s[0]);
+        b.style.cssText = 'flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;padding:3px;margin:0;' +
+          'font:inherit;font-size:12px;line-height:15px;color:' + (on ? 'var(--hk-tint,#0a84ff)' : 'inherit') + ';cursor:pointer;-webkit-tap-highlight-color:transparent';
+        var th = self.saverThumb(88, 61, s[0], cur);
+        th.style.marginRight = '0';
+        th.style.boxShadow = on ? '0 0 0 2.5px var(--hk-tint,#0a84ff)' : 'inset 0 0 0 .5px rgba(127,127,127,.35)';
+        var t = document.createElement('span');
+        t.textContent = s[1];
+        t.style.fontWeight = on ? '600' : '400';
+        b.appendChild(th); b.appendChild(t);
+        b.addEventListener('click', function () { pick(s[0]); });
+        strip.appendChild(b);
+      });
+      return [K.select({ label: 'Show', sk: 'saver:show', value: value, options: M.SAVER_SHOWS.map(function (s) { return [s[0], s[1]]; }), onChange: pick }), strip];
+    }
+    // GLANCE, MONTH AND DAY (2026-10-30; hk-saverfaces.js): a whole screen each. What is over it (each corner its own
+    // switch, but what the face shows itself), the Day face's look, the time's 24 hours and Night Mode, the side
+    // pane, and Starts After
+    saverFaceGroups(c, cur, put, tog) {
+      var self = this, show = cur.show, wide = this.hasAttribute('wide');
+      var says = (M.SAVER_SHOWS.filter(function (s) { return s[0] === show; })[0] || [0, '', ''])[2];
+      c.appendChild(K.group({ header: 'Show', footer: says + (show === 'glance' ? ' What’s playing is the house’s music now (or paused), and the weather is the one set in Weather.' : '') +
+          ' It fits itself beside the side pane, and to a phone.' }, this.showRows(cur, put, show)));
+      if (show === 'day') {
+        c.appendChild(K.group({ header: 'Day', footer: 'By Time of Day: light from 7 in the morning, dark from 7 in the evening. The art is HK’s own, as the sky’s: a birthday from Seasonal Sky, ' +
+            'Halloween, Christmas, Valentine’s Day and the Fourth in their weeks, and otherwise the season’s leaves, blossom, snow or butterflies.' }, [
+          K.seg({ label: 'Look', sk: 'saver:day_look', value: cur.day_look || 'auto', stack: !wide, options: M.DAY_LOOKS,
+                  onChange: function (v) { put('day_look', v); } })]));
+      }
+      c.appendChild(K.group({ header: 'Clock', footer: show === 'day' ? 'The Day face has no clock of its own: the corner clock (below) tells the time.'
+          : 'The time on the face.' + (show === 'glance' ? ' The clock is the analog face.' : '') }, [tog('24-Hour Time', 'clock_24')].concat(self.clockNightRows(cur, put))));
+      var over = [];
+      if (show === 'day') over.push(tog('Clock & Date', 'clock', 'Top left.'));
+      if (show !== 'glance') over.push(tog('Weather', 'weather', 'Top left: the temperature and conditions.'), tog('Now Playing', 'music', 'Music playing anywhere in the house, bottom left.'));
+      over.push(tog('Timers', 'timers', 'Running timers, bottom right.'),
+                tog('Home Status', 'status', 'Top right: Home Secured, or what’s open or unlocked.'));
+      c.appendChild(K.group({ header: 'Over the ' + M.showName(show), footer: show === 'glance' ? 'Glance shows the date, the time, the weather and what’s playing itself.' :
+          show === 'month' ? 'Month shows the date and the time itself.' : 'Each is your choice.' }, over));
+      c.appendChild(K.group({ header: 'Side Pane', footer: 'Down the right of the screen: the coming events, what’s playing, or both. The ' + M.showName(show) + ' face moves over beside it.' },
+        [tog('Calendar', 'calendar')].concat(self.saverKnown('music_pane') ? [tog('Music', 'music_pane')] : [])));
+      var opts = [60, 120, 180, 300, 600, 900, 1800].map(function (n) { return [String(n), MIN(n)]; });
+      if (!opts.some(function (o) { return o[0] === String(cur.starts_after); })) opts.push([String(cur.starts_after), MIN(cur.starts_after)]);
+      c.appendChild(K.group({ header: 'Timing' }, [K.select({ label: 'Starts After', sub: 'Untouched for this long.', value: String(cur.starts_after), sk: 'saver:starts_after',
+        options: opts, onChange: function (v) { put('starts_after', Number(v)); } })]));
     }
     saverPage(c, x, b, path) {
       var self = this, house = M.saverFollows(b);
@@ -3645,17 +3764,26 @@
       var styleName = (M.CLOCK_STYLES.filter(function (x) { return x[0] === (cur.clock_style || 'classic'); })[0] || [0, 'Classic'])[1];
       var muKnown = self.saverKnown('music_slide'), mu = muKnown && !!cur.music_slide;
       var every = function (n) { return 'Every ' + n + ' Photos'; };
+      // THE HOMEVIEW-STYLE SHOWS (2026-10-30): Glance, Month and Day beside them, once Home Assistant's HK Frontend
+      // knows them (the Forecast's Layout says so)
+      var fxKnown = self.saverKnown('forecast_layout'), big = fxKnown && cur.forecast_layout === 'big';
+      if (fxKnown && (cur.show === 'glance' || cur.show === 'month' || cur.show === 'day')) { this.saverFaceGroups(c, cur, put, tog); return; }
       if (ck) { this.saverClockGroups(c, cur, put, styleHref, styleName, tog, room); return; }
-      c.appendChild(K.group({ header: 'Show', footer: fc
+      c.appendChild(K.group({ header: 'Show', footer: (fc
           ? 'The forecast over the live sky and the season’s landscape: today, the next hours and the coming days. No photos needed.'
           : cur.fallback ? 'Your photos. When the photos folder has none, or can’t be read, the forecast shows instead.'
-          : 'Your photos. When the photos folder has none, or can’t be read, the screen stays dark.' }, [
+          : 'Your photos. When the photos folder has none, or can’t be read, the screen stays dark.') +
+          (big && (fc || both || cur.fallback) ? ' The forecast’s Big layout: the temperature very large over the live sky, the time, then the sunset, wind, humidity and air quality.' : '') },
+        (fxKnown ? this.showRows(cur, put, fc ? 'forecast' : 'photos') : [
         K.seg({ label: 'Show', value: fc ? 'forecast' : 'photos', sk: 'saver:show',
                 options: [['photos', 'Photos'], ['forecast', 'Forecast']].concat(ckKnown ? [['clock', 'Clock']] : []),
                 onChange: function (v) { put('show', v === 'forecast' || v === 'clock' ? v : 'photos'); } })
-      ].concat(fc ? [] : [tog('Forecast When There Are No Photos', 'fallback')],
+      ]).concat(fc ? [] : [tog('Forecast When There Are No Photos', 'fallback')],
+               // THE FORECAST'S LAYOUT (2026-10-30): Classic (the details along the bottom) or Big (Big Weather)
+               fxKnown && (fc || both || cur.fallback) ? [K.seg({ label: 'Forecast Layout', sk: 'saver:forecast_layout', value: big ? 'big' : 'classic',
+                 options: M.FORECAST_LAYOUTS, onChange: function (v) { put('forecast_layout', v); } })] : [],
                // the details ON the forecast, wherever a forecast can show
-               (fc || both || cur.fallback) ? [tog('Details on the Forecast', 'band',
+               (fc || both || cur.fallback) && !big ? [tog('Details on the Forecast', 'band',
                  'On the forecast: today, the next hours and the coming days along the bottom. Off: the sky and the landscape alone.')] : [])));
       // MUSIC FIRST (music_first; with Forecast, the older music_slide over
       // it is the same): while music plays it fills the screen
@@ -3928,6 +4056,17 @@
           onChange: function (v) { put('each_photo', Number(v)); } }));
       }
       prow.push(tog('Slow Zoom', 'zoom', 'A slow zoom across each photo. The tablet keeps drawing the whole time, so it runs warmer.'));
+      // PHOTO TITLES AND TIME BEHIND (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I): the album's name and the
+      // year; the time behind the person or thing in each photo -- where the host has a photo library of its own
+      // that cuts the photos out (Home Assistant's folder has no cut-outs, so there the time is in front)
+      var cutting = !!(window.hkShell && typeof window.hkShell.listPhotos === 'function');
+      if (!clockMode && self.saverKnown('photo_titles')) {
+        prow.push(tog('Titles', 'photo_titles', 'The album’s name and the year the photo was taken, bottom right.'));
+        if (cutting || cur.time_behind) {
+          prow.push(tog('Time Behind', 'time_behind', 'The time, large, behind the person or thing in each photo that qualifies; in front on the others.' +
+            (mo ? ' Not in a mosaic.' : '')));
+        }
+      }
       c.appendChild(K.group({ header: 'Photos', footer: (mo
           ? (upTo ? 'Up To: a new number of photos every ' + (cur.mosaic_every || 10) + ' minutes, one of them full screen now and then. ' : '') +
             'A new layout each time, picked at random — portraits in the tall cells, landscapes in the wide ones. One Photo at a Time changes one cell every ' +
@@ -3948,7 +4087,7 @@
     saverClockGroups(c, cur, put, styleHref, styleName, tog, room) {
       var self = this, bg = cur.clock_bg || 'gradient', wide = this.hasAttribute('wide');
       var bgRow = M.CLOCK_BGS.filter(function (x) { return x[0] === bg; })[0] || M.CLOCK_BGS[2];
-      c.appendChild(K.group({ header: 'Show', footer: 'A clock, full screen, over the background you choose.' }, [
+      c.appendChild(K.group({ header: 'Show', footer: 'A clock, full screen, over the background you choose.' }, self.saverKnown('forecast_layout') ? self.showRows(cur, put, 'clock') : [
         K.seg({ label: 'Show', value: 'clock', sk: 'saver:show', options: [['photos', 'Photos'], ['forecast', 'Forecast'], ['clock', 'Clock']],
                 onChange: function (v) { put('show', v); } })]));
       // A CLOCK FOR THE ROOM: offered while the clock isn't it already
