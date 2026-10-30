@@ -8,10 +8,10 @@ who or what it is, and nothing leaves the house.
 
 * **The model.** U²-Net's small form (``models/u2netp.onnx``, Apache-2.0, about 4.6 MB, as the rembg project
   publishes it), a salient-object model, run by ONNX Runtime on the CPU with one thread, so it never starves the
-  server. Its SHA-256 is checked before it is loaded (``MODEL_SHA256``). **It isn't in the repository until the
-  owner has fetched it**: without the file -- or with its SHA-256 still unset -- ``available()`` is False and the
-  feature is simply unavailable, as faces are without a detector (photos stay "not checked", the screens show the
-  time in front, Setup Check says so).
+  server. Vendored on 2026-10-30, the owner's OK; its SHA-256 is checked before it is loaded (``MODEL_SHA256``).
+  Without the file, or with another file in its place, ``available()`` is False and the feature is simply
+  unavailable, as faces are without a detector (photos stay "not checked", the screens show the time in front, Setup
+  Check says so).
 * **Only where it works** (``judge``). A cut-out is good on a clear subject (a portrait, a pet, a plant on a plain
   wall) and bad on a group spread across the frame, a busy scene or a landscape with no subject. So each photo is
   checked once and marked usable only when the subject covers 8-60 % of the frame, the mask is sure of itself (few
@@ -35,11 +35,11 @@ from . import faces as face_finder
 
 log = logging.getLogger("mantel.cutout")
 
-# THE MODEL: U²-Net small, as the rembg project publishes it (Apache-2.0; models/u2netp_LICENSE). Not vendored until
-# the owner has fetched it: the file goes at MODEL, and its SHA-256 (``shasum -a 256 u2netp.onnx``) in MODEL_SHA256.
+# THE MODEL: U²-Net small, as the rembg project publishes it (Apache-2.0; models/u2netp_LICENSE), fetched from
+# MODEL_URL and vendored at MODEL on 2026-10-30 (4,574,861 bytes).
 MODEL = Path(__file__).with_name("models") / "u2netp.onnx"
 MODEL_URL = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx"
-MODEL_SHA256 = ""           # unset: no file is trusted, and the feature is unavailable
+MODEL_SHA256 = "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8"
 NAME = "u2netp"
 SIZE = 320                  # the model's input, square
 MEAN, STD = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)

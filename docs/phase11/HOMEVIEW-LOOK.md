@@ -1015,3 +1015,10 @@ a test); test expectations two merges broke (the clock faces' order). Added the 
 a landscape tablet: a 3 × 3 of square tiles (Fill the Screen, band off) that turns the screen's Side Pane on for
 Home (Weather, Calendar, Now Playing while it plays) in the same write as the layout, unless the screen already
 shows a pane (`paneForStarter`, tested).
+
+**Time Behind's model vendored (2026-10-30, the owner's OK).** `u2netp.onnx` (4,574,861 bytes, SHA-256
+`309c8469…f4ddd8`) from the rembg project's v0.0.0 release, in `hosts/server/mantel_server/models/` beside its licence;
+`cutout.MODEL_SHA256` set. ONNX Runtime loads it (one 320 × 320 input, 320 × 320 masks). On this Mac a cut-out takes
+0.16 s: a plain wall with one subject qualifies (16 % cover, 0.90 confidence, 26 % overlap, a 14 KB mask), a landscape
+with no subject doesn't (size), so it keeps the time in front. The two tests of the unavailable path now make the
+model absent themselves; the vendored-file checksum test runs instead of skipping.

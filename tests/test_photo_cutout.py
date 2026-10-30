@@ -496,7 +496,8 @@ async def test_a_mask_that_does_not_fit_the_quota_is_not_kept(mantel, fake_cutte
     assert got["cutout_at"] is not None and got["cutout_ok"] == 0 and lib.path(ids[0], "mask") is None
 
 
-async def test_nothing_runs_without_the_model(mantel, no_cutter, monkeypatch):
+async def test_nothing_runs_without_the_model(mantel, no_cutter, monkeypatch, tmp_path):
+    monkeypatch.setattr(cutout, "MODEL", tmp_path / "u2netp.onnx")       # (the model is vendored: as a server without it)
     await _uncut(mantel, 1, monkeypatch)
     bf = photos.CutoutBackfill(mantel.app, start=0, rest=0)
     assert bf.start() is None and bf.status()["state"] == "unavailable"
@@ -522,7 +523,9 @@ async def test_the_overview_and_the_progress_are_a_managers(mantel, fake_cutter,
 
 
 # -- setup check, backups, the migration ------------------------------------------------------------------------------
-async def test_setup_check_says_when_the_model_cannot_run(mantel, monkeypatch):
+async def test_setup_check_says_when_the_model_cannot_run(mantel, monkeypatch, tmp_path):
+    monkeypatch.setattr(cutout, "MODEL", tmp_path / "u2netp.onnx")       # (the model is vendored: as a server without it)
+    monkeypatch.setattr(imaging, "cutouts_available", lambda: False)     # (and the worker not having said otherwise)
     lines = lambda: [x for x in setup_check.lines(mantel.app, 1) if x["title"] == "Time Behind"]   # noqa: E731
     assert lines() == [], "no photos: nothing to say"
     await _uncut(mantel, 1, monkeypatch)
