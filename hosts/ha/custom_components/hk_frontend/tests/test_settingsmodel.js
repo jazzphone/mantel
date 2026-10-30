@@ -626,6 +626,11 @@ ok('...every mode says what it costs', M.BLUR_MODES.every(function (m) { return 
   var NOW = 1000000, KITCHEN = 'dashboard-kitchen';
   // a screen's facts (M.ladderFacts): b its board, look All Screens' look, sky its sky.*, cams {strip, live}
   var F = function (b, look, sky, cams) { return M.ladderFacts(b || {}, look || {}, sky || {}, cams); };
+  // a Wallpaper with Motion counts as animation (2026-10-30): the Animations step stops it
+  var wm = F({ sky_background: 'wallpaper', sky_wallpaper_motion: 'slow' }, {}, {});
+  ok('a moving wallpaper is animation, not rain or moving things', wm.anim === true && wm.rain === false && wm.front === false, wm);
+  ok('...a still one is not', F({ sky_background: 'wallpaper' }, {}, {}).anim === false);
+  ok('...nor with Animations off', F({ sky_background: 'wallpaper', sky_wallpaper_motion: 'fast', sky_animations: false }, {}, {}).anim === false);
   // a tablet's report of drawing `fps` with these facts on (the sampler's word for them)
   var T = function (facts, fps, more) {
     return Object.assign({ name: 'Kitchen Tablet', screens: [KITCHEN], fps: fps, fps_screen: KITCHEN, fps_style: facts.style,

@@ -53,7 +53,7 @@ def contact(shots: Path, key: str):
 async def one(wall: str, night: str) -> list[str]:
     data = gallery.SETTINGS
     data['settings']['look'] = {'glass': 'bright'}
-    data['settings']['sky'] = {'background': 'wallpaper', 'wallpaper': wall, 'wallpaper_night': night}
+    data['settings']['sky'] = {'background': 'wallpaper', 'wallpaper': wall, 'wallpaper_night': night, 'wallpaper_motion': 'fast'}
     data['boards'][gallery.SCREEN] = {'pages': [], 'headers': {'home': True}, 'menu': 'tabbar', 'menu_custom': True, 'tab_bar_rooms': 'button'}
     data['boards'][MENU] = {'pages': [], 'headers': {'home': True}, 'menu': 'open'}
     with tempfile.TemporaryDirectory() as td:
@@ -64,7 +64,7 @@ async def one(wall: str, night: str) -> list[str]:
                 stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
             out, _ = await proc.communicate(json.dumps({
                 'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'screen': gallery.SCREEN, 'menu': MENU,
-                'wall': wall, 'night': night, 'sizes': SIZES, 'shots': str(args.shots)}).encode())
+                'wall': wall, 'night': night, 'motion': 'fast', 'sizes': SIZES, 'shots': str(args.shots)}).encode())
     bad = []
     for line in out.decode().splitlines():
         print(line, flush=True)

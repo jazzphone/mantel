@@ -326,3 +326,17 @@ def test_tile_style_for_all_screens_and_for_a_screen():
 def test_analog_numbers_is_a_screensaver_clock_style():
     assert M.SAVER_CLOCK_STYLES.index("numbers") == M.SAVER_CLOCK_STYLES.index("analog") + 1
     assert M.saver_options({"clock_style": "numbers"})["clock_style"] == "numbers"
+
+
+def test_a_wallpapers_motion_for_all_screens_and_for_a_screen():
+    # Off by default (wall tablets run all day); slow, medium or fast; a screen's own or Same as All Screens
+    assert M.merged({})["sky"]["wallpaper_motion"] == "off"
+    assert M.merged({"dashboard": {"sky": {"wallpaper_motion": "warp"}}})["sky"]["wallpaper_motion"] == "off"
+    new, err = C.apply_house({}, {"sky.wallpaper_motion": "slow"})
+    assert err == {} and M.merged(new)["sky"]["wallpaper_motion"] == "slow"
+    assert C.apply_house({}, {"sky.wallpaper_motion": "warp"})[1] == {"sky.wallpaper_motion": "choice"}
+    b, err = C.apply_board({}, {"sky_wallpaper_motion": "fast"})
+    assert err == {} and M.board(b)["sky_wallpaper_motion"] == "fast"
+    b, err = C.apply_board(b, {"sky_wallpaper_motion": None})
+    assert err == {} and M.board(b)["sky_wallpaper_motion"] is None
+    assert "wallpaper_motion" in M.SKY_RESET and "sky_wallpaper_motion" in M.SKY_RESET_BOARD

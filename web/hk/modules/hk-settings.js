@@ -119,7 +119,7 @@
            // WALLPAPER (2026-10-30): which one (hk-wallpapers.js) and when its
            // night version shows -- 'auto' after sunset, 'day', 'night'
            // (settings.py sky.wallpaper)
-           wallpaper: 'ribbons_rose', wallpaper_night: 'auto',
+           wallpaper: 'ribbons_rose', wallpaper_night: 'auto', wallpaper_motion: 'off',
            // each page's background: {page: 'own' | 'live' | backdrop id |
            // 'photo'} -- a page missing is Automatic (settings.py sky.pages);
            // a page's own photo, for 'photo': page_photos
@@ -754,7 +754,10 @@
   function ladderSignature() {
     var style = glass(), flat = style === 'flat', b = boardHere(), sk = skyLook();
     var live = !flat && !(b && b.sky === false) && !!sk.background && sk.background.mode === 'live';
-    var a = live && sk.animations, w = live && sk.weather, r = a && w && sk.precipitation, f = a && sk.moving === 'front';
+    // (a Wallpaper with Motion on moves too, while Animations are on)
+    var moving = !flat && !(b && b.sky === false) && !!sk.background && sk.background.mode === 'wallpaper' &&
+      !!sk.background.wallpaper && sk.background.wallpaper.motion !== 'off';
+    var a = (live || moving) && sk.animations, w = live && sk.weather, r = live && a && w && sk.precipitation, f = live && a && sk.moving === 'front';
     var cam = b && typeof b.camera_live_video === 'boolean' ? b.camera_live_video : get('cameras.live', true) !== false;
     var n = function (v) { return v ? '1' : '0'; };
     return style + ':a' + n(a) + 'w' + n(w) + 'r' + n(r) + 'f' + n(f) + 'c' + n(!flat && cam);
@@ -823,8 +826,10 @@
     var W = window.hkWallpapers;
     var id = (b && b.sky_wallpaper) || get('sky.wallpaper', 'ribbons_rose') || 'ribbons_rose';
     var night = (b && b.sky_wallpaper_night) || get('sky.wallpaper_night', 'auto') || 'auto';
+    var motion = (b && b.sky_wallpaper_motion) || get('sky.wallpaper_motion', 'off') || 'off';
     if (W && !W.has(id)) id = W.DEFAULT;
-    return { id: id, night: night === 'day' || night === 'night' ? night : 'auto', stops: W ? W.stops(id) : BLACK };
+    return { id: id, night: night === 'day' || night === 'night' ? night : 'auto', stops: W ? W.stops(id) : BLACK,
+             motion: ['slow', 'medium', 'fast'].indexOf(motion) >= 0 ? motion : 'off' };
   }
   // A PHOTO'S LOOK (2026-10-13): this screen's own, else All Screens' --
   // {blur px, dim 0..1 (brightness = 1 - dim), saturate 0..2, tint: {day,

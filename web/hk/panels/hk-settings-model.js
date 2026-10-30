@@ -145,6 +145,8 @@
   };
   // A WALLPAPER'S NIGHT VERSION (settings.py WALLPAPER_NIGHT)
   var WALLPAPER_NIGHT = [['auto', 'After Sunset'], ['day', 'Never'], ['night', 'Always']];
+  // ...AND ITS MOTION (settings.py WALLPAPER_MOTION): off, or a slow drift at a speed
+  var WALLPAPER_MOTION = [['off', 'Off'], ['slow', 'Slow'], ['medium', 'Medium'], ['fast', 'Fast']];
   // WHICH LANDSCAPE, AND WHEN IT CHANGES (settings.py sky_landscape):
   // 'wake', 'every:<minutes>' (LANDSCAPE_EVERY) or a file name -- Stay the Same
   var LANDSCAPE_EVERY = [['every:15', 'Every 15 Minutes'], ['every:30', 'Every 30 Minutes'], ['every:60', 'Every Hour'],
@@ -1108,11 +1110,14 @@
     var style = glassOf(b, look).effective, flat = style === 'flat';
     var own = function (bk, hk, dflt) { return b[bk] != null ? b[bk] : (sky[hk] == null ? dflt : sky[hk]); };
     var live = !flat && b.sky !== false && (b.sky_background || sky.background || 'live') === 'live';
-    var anim = live && own('sky_animations', 'animations', true) !== false;
+    // (a Wallpaper with Motion on moves too, while Animations are on: 2026-10-30)
+    var moving = !flat && b.sky !== false && (b.sky_background || sky.background) === 'wallpaper' &&
+      (own('sky_wallpaper_motion', 'wallpaper_motion', 'off') || 'off') !== 'off';
+    var anim = (live || moving) && own('sky_animations', 'animations', true) !== false;
     var weather = live && own('sky_weather', 'weather', true) !== false;
     return { style: style, anim: anim, weather: weather,
              rain: anim && weather && own('sky_precipitation', 'precipitation', true) !== false,
-             front: anim && own('sky_moving', 'moving', 'behind') === 'front',
+             front: live && anim && own('sky_moving', 'moving', 'behind') === 'front',
              camera: !flat && (typeof b.camera_live_video === 'boolean' ? b.camera_live_video : cams.live !== false),
              cams: !!cams.strip };
   }
@@ -1138,7 +1143,7 @@
       button: 'Put Moving Things Behind on This Screen', change: { sky_moving: 'behind' }, flat: false,
       after: function (f) { return Object.assign({}, f, { front: false }); } },
     { id: 'anim', applies: function (f) { return f.anim; }, label: 'Animations',
-      drew: 'Animations on', why: 'Off, the sky holds still: no drifting clouds, rain or snow, or little moving things.',
+      drew: 'Animations on', why: 'Off, the sky holds still: no drifting clouds, rain or snow, little moving things, or moving wallpaper.',
       button: 'Turn Off Animations on This Screen', change: { sky_animations: false }, flat: true,
       after: function (f) { return Object.assign({}, f, { anim: false, rain: false, front: false }); } },
     { id: 'camera', applies: function (f) { return f.camera && f.cams; }, label: 'Live Camera',
@@ -2174,7 +2179,7 @@
                             'sky_landscape', 'sky_landscape_look', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light', 'sky_flat_pages', 'sky_flat_image_look', 'sky_flat_page_image_looks', 'sky_image_look',
                             'flat_colors', 'flat_page_colors',
                             // Bright Glass's Strength and the Wallpaper (2026-10-30)
-                            'bright', 'sky_wallpaper', 'sky_wallpaper_night'], true],
+                            'bright', 'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion'], true],
     ['behavior', 'Behavior', ['popups', 'notify', 'notify_saver', 'notify_dnd', 'now_playing', 'timer_bar', 'bar_all_pages',
                               'np_style', 'np_side', 'np_bar', 'np_bar_phone', 'side_pane'], true],
     ['idle', 'When Idle', ['screensaver', 'screensaver_options', 'screensaver_engine', 'wallpanel_options'], true],
@@ -2320,7 +2325,7 @@
   function skySummary(b) {
     var keys = ['sky_animations', 'sky_weather', 'sky_precipitation', 'sky_focus_pause', 'sky_decorations', 'sky_decoration_style', 'sky_moving', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_custom',
                 'sky_background', 'sky_color', 'sky_photo', 'sky_photo_look', 'sky_landscape', 'sky_landscape_look',
-                'sky_wallpaper', 'sky_wallpaper_night'];
+                'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion'];
     var pages = Object.keys(b.sky_pages || {}).length;
     if (keys.every(function (k) { return b[k] == null; }) && !pages) return 'Same as All Screens';
     var parts = [];
@@ -2677,7 +2682,7 @@
     menuOwn: menuOwn, ownsMenu: ownsMenu, menuOwnSet: menuOwnSet, menuOwnReset: menuOwnReset, menuSummary: menuSummary,
     MENU_KINDS: MENU_KINDS, menuKind: menuKind, kindUsers: kindUsers, usedBy: usedBy, menuWord: menuWord, KIND_KEYS: KIND_KEYS, usesSide: usesSide, PAGE_HEADER_SAYS: PAGE_HEADER_SAYS,
     accentColorOf: accentColorOf, accentChanges: accentChanges, GLASS: GLASS,
-    GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, BRIGHT_MODES: BRIGHT_MODES, TINT_WELLS: TINT_WELLS, TILE_STYLES: TILE_STYLES, isBlur: isBlur, isBright: isBright, modesFor: modesFor, styleValue: styleValue, glassStyle: glassStyle, WALLPAPER_NIGHT: WALLPAPER_NIGHT, SLOW_FPS: SLOW_FPS, LADDER: LADDER, ladderFacts: ladderFacts, ladderSignature: ladderSignature, slowRecommend: slowRecommend, PRESETS: PRESETS, STATUS_LABELS: STATUS_LABELS,
+    GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, BRIGHT_MODES: BRIGHT_MODES, TINT_WELLS: TINT_WELLS, TILE_STYLES: TILE_STYLES, isBlur: isBlur, isBright: isBright, modesFor: modesFor, styleValue: styleValue, glassStyle: glassStyle, WALLPAPER_NIGHT: WALLPAPER_NIGHT, WALLPAPER_MOTION: WALLPAPER_MOTION, SLOW_FPS: SLOW_FPS, LADDER: LADDER, ladderFacts: ladderFacts, ladderSignature: ladderSignature, slowRecommend: slowRecommend, PRESETS: PRESETS, STATUS_LABELS: STATUS_LABELS,
     STATUS_SAYS: STATUS_SAYS, STATUS_ROWS: STATUS_ROWS, STATUS_SOURCE: STATUS_SOURCE, PAGES: PAGES, pageOf: pageOf, PAGE_TYPES: PAGE_TYPES,
     PAGE_FEATURES: PAGE_FEATURES, pagesListed: pagesListed, pageOfRoute: pageOfRoute, routeForward: routeForward, screenShows: screenShows, headerOffOn: headerOffOn, statusSummary: statusSummary, HEADER_PAGES: HEADER_PAGES,
     WOODLAND: WOODLAND, woodlandSummary: woodlandSummary, CLOUD_STYLES: CLOUD_STYLES, SKY_MOVING: SKY_MOVING,

@@ -6260,6 +6260,7 @@
       if (mode === 'wallpaper') {
         this.wallpaperGroup(c, { value: sky.wallpaper || 'ribbons_rose', night: sky.wallpaper_night || 'auto', fk: 'hwall', sk: 'sky.wallpaper',
           footer: 'Shown on Home, the room pages, and every page without a color of its own. Each screen can choose its own.',
+          motion: sky.wallpaper_motion || 'off', onMotion: function (v) { self.setH({ 'sky.wallpaper_motion': v }); },
           onSet: function (v) { self.setH({ 'sky.wallpaper': v }); }, onNight: function (v) { self.setH({ 'sky.wallpaper_night': v }); } });
         this.skyPagesGroup(c, null, null);
         this.skyResetGroup(c, null, null);
@@ -6350,7 +6351,7 @@
             ['sky_background', 'sky_color', 'sky_landscape', 'sky_photo_look', 'sky_landscape_look', 'sky_animations', 'sky_focus_pause',
              'sky_moving', 'sky_weather', 'sky_precipitation', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_decorations',
              'sky_decoration_style', 'sky_liveliness', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light', 'sky_flat_image_look', 'sky_image_look',
-             'sky_wallpaper', 'sky_wallpaper_night'].forEach(function (k) { ch[k] = null; });
+             'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion'].forEach(function (k) { ch[k] = null; });
             self.setB(x.path, ch);
           });
         } })]));
@@ -6438,6 +6439,14 @@
       if (nOwn) nRows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.WALLPAPER_NIGHT, o.nightHouse) + ')',
         sk: o.sk.replace('wallpaper', 'wallpaper_night') + ':reset', onClick: function () { o.onNight(null); } }));
       c.appendChild(K.group({ footer: 'Each wallpaper has a darker version for the night. After Sunset: it fades in as the sun goes down.' }, nRows));
+      // MOTION (2026-10-30): a slow drift of the picture, at a speed
+      var mOwn = o.motionHouse !== undefined && !!o.motion, mEff = o.motion || o.motionHouse || 'off';
+      var mRows = [K.seg({ label: 'Motion', sub: o.motionHouse === undefined ? null : (mOwn ? 'Just This Screen' : 'Same as All Screens'),
+        sk: o.sk.replace('wallpaper', 'wallpaper_motion'), value: mEff, options: M.WALLPAPER_MOTION, onChange: function (v) { o.onMotion(v); } })];
+      if (mOwn) mRows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.WALLPAPER_MOTION, o.motionHouse) + ')',
+        sk: o.sk.replace('wallpaper', 'wallpaper_motion') + ':reset', onClick: function () { o.onMotion(null); } }));
+      c.appendChild(K.group({ footer: 'The picture drifts, sways or turns slowly, so there is always a little motion. It stops while the screen is dark or hidden, ' +
+        'when Animations are off, and for Reduce Motion.' }, mRows));
     }
     // CHOOSE A LANDSCAPE: every one, small, the one it stays on ticked; a
     // tap picks it, and it stays (Stay the Same).
@@ -6862,6 +6871,8 @@
         if (mode === 'wallpaper') {
           this.wallpaperGroup(c, { value: b.sky_wallpaper || null, house: sky.wallpaper || 'ribbons_rose', night: b.sky_wallpaper_night || null,
             nightHouse: sky.wallpaper_night || 'auto', fk: 'bwall', sk: 'b:sky_wallpaper',
+            motion: b.sky_wallpaper_motion || null, motionHouse: sky.wallpaper_motion || 'off',
+            onMotion: function (v) { self.setB(x.path, { sky_wallpaper_motion: v }); },
             footer: 'Shown on Home, the room pages, and every page without a color of its own.',
             onSet: function (v) { self.setB(x.path, { sky_wallpaper: v, sky: true }); },
             onNight: function (v) { self.setB(x.path, { sky_wallpaper_night: v }); } });

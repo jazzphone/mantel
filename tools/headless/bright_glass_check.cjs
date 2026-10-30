@@ -76,6 +76,25 @@ function sheetContrast() {
       await page.evaluate(() => window.hkDetail.open('light.living_room_lamps'));
       await page.waitForTimeout(1400);
       await shot('sheet');
+      // THE WALLPAPER'S MOTION (2026-10-30), once per wallpaper: the picture moves (a transform, nothing else),
+      // the page keeps its frame rate, and Reduce Motion holds it still
+      if (size === input.sizes[0]) {
+        const motion = async () => page.evaluate(async () => {
+          const sky = window.hkSky && window.hkSky.element && window.hkSky.element(), wall = sky && sky.querySelector('.wall.on');
+          if (!wall) return null;
+          const t0 = getComputedStyle(wall).transform;
+          let frames = 0; const start = performance.now();
+          await new Promise((res) => { const tick = () => { frames++; if (performance.now() - start < 3000) requestAnimationFrame(tick); else res(); }; requestAnimationFrame(tick); });
+          return { wm: sky.getAttribute('data-wm'), moved: getComputedStyle(wall).transform !== t0, fps: Math.round(frames / 3), filter: getComputedStyle(wall).filter };
+        });
+        const m = await motion();
+        say(m && m.wm === input.motion && m.moved && m.filter === 'none', size + ' the wallpaper moves (' + input.motion + '), by transform alone', m);
+        say(m && m.fps >= 50, size + ' ...and the page keeps its frame rate', m && m.fps);
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        const r = await motion();
+        say(r && !r.moved, size + ' ...still under Reduce Motion', r);
+        await page.emulateMedia({ reducedMotion: 'no-preference' });
+      }
       // THE ROOMS SHEET (the button beside the tab bar), stood in as the sheets are, and its names' contrast
       await go('/' + input.screen + '/home');
       const cr = await page.evaluate(sheetContrast);

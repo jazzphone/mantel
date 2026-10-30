@@ -749,6 +749,22 @@
     '#hk-sky .wall{position:absolute;inset:0;background-size:cover;background-position:center;',
     '  opacity:0;transition:opacity 4s linear}',
     '#hk-sky .wall.on{opacity:1}',
+    // ...AND ITS MOTION (2026-10-30, the wallpaper's Motion: Off, Slow, Medium,
+    // Fast; paintWall sets data-wm and data-ws): the drawn picture itself
+    // drifts, sways or turns, as its shape suggests -- a transform on the
+    // pre-drawn layer, nothing repainted and no filter, so the compositor
+    // moves one texture. The layer reaches 10 % past each edge so no edge
+    // shows. It stops where the sky stops (.hidden, .held, .noanim, Reduce
+    // Motion: the rules below) and when Animations are off (paintWall).
+    '#hk-sky[data-wm] .wall{inset:-10%;will-change:transform;animation:hk-wall-sway var(--wmT,90s) ease-in-out infinite alternate}',
+    '#hk-sky[data-wm="slow"]{--wmT:90s}#hk-sky[data-wm="medium"]{--wmT:45s}#hk-sky[data-wm="fast"]{--wmT:20s}',
+    '#hk-sky[data-ws="petals"] .wall{transform-origin:86% 98%;animation-name:hk-wall-breathe}',
+    '#hk-sky[data-ws="shards"] .wall{animation-name:hk-wall-drift}',
+    '#hk-sky[data-ws="pinwheel"] .wall{transform-origin:32% 33%;animation-name:hk-wall-turn}',
+    '@keyframes hk-wall-sway{from{transform:translate3d(-3%,1%,0)}to{transform:translate3d(3%,-1%,0)}}',
+    '@keyframes hk-wall-breathe{from{transform:rotate(-2deg) scale(1)}to{transform:rotate(2deg) scale(1.04)}}',
+    '@keyframes hk-wall-drift{from{transform:translate3d(-2%,-2%,0) scale(1.02)}to{transform:translate3d(2%,2%,0) scale(1)}}',
+    '@keyframes hk-wall-turn{from{transform:rotate(-3deg)}to{transform:rotate(3deg)}}',
 
     // The scrim is what keeps the glass plates readable -- see CAP.
     '#hk-sky .scrim{background:linear-gradient(to bottom,',
@@ -5564,9 +5580,18 @@
   // version crossfades in at sunset as the stops do. `wall`: {id} or null
   // (none here: the layers fade out and let their pictures go).
   var WALL_FADE_MS = 4500;
+  // its Motion, while the sky's Animations are on
+  function wallMotion(el, wall) {
+    var HS = window.hkSettings, look = HS && HS.skyLook ? HS.skyLook() : null, W = window.hkWallpapers;
+    var m = wall && wall.motion && wall.motion !== 'off' && !(look && look.animations === false) ? wall.motion : null;
+    if (!el.setAttribute) return;
+    if (m) { el.setAttribute('data-wm', m); el.setAttribute('data-ws', W && W.has(wall.id) ? W.list().filter(function (x) { return x.id === wall.id; })[0].shape : 'ribbons'); }
+    else { el.removeAttribute('data-wm'); el.removeAttribute('data-ws'); }
+  }
   function paintWall(el, wall, night) {
     var W = window.hkWallpapers, layers = el.querySelectorAll ? el.querySelectorAll('.wall') : [];
     var src = wall && W ? W.url(wall.id, night) : null;
+    wallMotion(el, src ? wall : null);
     if (el._hkWall === src || (!src && !layers.length)) { el._hkWall = src; return; }
     el._hkWall = src;
     el.style.setProperty('--wall', src ? '"' + wall.id + (night ? ':night' : ':day') + '"' : 'none');

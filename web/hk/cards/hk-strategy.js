@@ -3071,7 +3071,7 @@
                     sky_flat_image_look: 1, sky_flat_page_image_looks: 1, sky_image_look: 1,
                     // (2026-10-30) the Wallpaper, and Bright Glass's Strength
                     // (hk-settings.js applies the look live, as frost's)
-                    sky_wallpaper: 1, sky_wallpaper_night: 1, bright: 1 };
+                    sky_wallpaper: 1, sky_wallpaper_night: 1, sky_wallpaper_motion: 1, bright: 1 };
   // an accessory's fields only the chips read (Status & Chips' status, a custom
   // chip's when / label / attribute): changing one rebuilds nothing
   var CHIP_ONLY = { status: 1, when: 1, label: 1, attribute: 1 };
