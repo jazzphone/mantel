@@ -9,7 +9,10 @@ carried onto four small tiles -- they slide into the space it left while it is h
 takes it back; Escape or letting go off the grid changes nothing. In Chromium with a finger and WebKit with a mouse,
 at an iPad's size; skipped, saying so, without PLAYWRIGHT_PATH and NODE (edit_mode_check.py's).
 
-    python tools/headless/grid_blocks_check.py [--shots DIRECTORY]
+    python tools/headless/grid_blocks_check.py [--shots DIRECTORY] [--cell square]
+
+`--cell square` (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase A) runs the same on square cells (196 x 196, the
+13 px gap): every block at its square height.
 """
 import argparse
 import asyncio
@@ -26,6 +29,7 @@ from aiohttp.test_utils import TestServer
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--shots', type=Path)
+parser.add_argument('--cell', choices=['tile', 'square'], default='tile')
 args = parser.parse_args()
 
 DEEP = "window.deep=(r,s)=>[...r.querySelectorAll('*')].flatMap(e=>[...(e.matches(s)?[e]:[]),...(e.shadowRoot?deep(e.shadowRoot,s):[])]);" \
@@ -68,6 +72,8 @@ async def main():
     gallery.HOUSE['calendar.family'] = (None, ('off', {'friendly_name': 'Family'}))
     gallery.SETTINGS['settings']['added'] = ['clean_areas']
     gallery.SETTINGS['settings']['generated'] = {'exclude_entities': ['light.living_room_ceiling']}
+    if args.cell == 'square':
+        GRID['cell'] = REFLOW['cell'] = 'square'
     gallery.SETTINGS['boards']['blocks'] = {'home_style': 'grid', 'home_grid': GRID, 'menu_custom': True, 'menu': 'tabbar'}
     gallery.SETTINGS['boards']['reflow'] = {'home_style': 'grid', 'home_grid': REFLOW, 'menu_custom': True, 'menu': 'tabbar'}
     with tempfile.TemporaryDirectory() as td:
@@ -93,7 +99,10 @@ async def main():
             keys = await b.eval("""(()=>{let c=cell('keypad').getBoundingClientRect(),kp=deep(cell('keypad'),'hk-alarm-keypad-card')[0],
               ks=[...kp.shadowRoot.querySelectorAll('.k,.a')].map(k=>k.getBoundingClientRect());
               return {side:!!kp.shadowRoot.querySelector('.side'),n:ks.length,inside:ks.every(r=>r.bottom<=c.bottom+1&&r.right<=c.right+1&&r.top>=c.top-1),
-                      tall:Math.min(...ks.map(r=>r.height))}})()""")
+                      tall:Math.min(...ks.map(r=>r.height)),scale:deep(document,'hk-home-grid-view')[0]._gridScale}})()""")
+            # (square cells: the whole canvas is scaled further down to fit, so the keys are measured on the canvas)
+            if args.cell == 'square':
+                keys['tall'] /= keys['scale']
             # the ways to arm stack in the keypad's right column, each a real button
             acts = await b.eval("(()=>{let kp=deep(cell('keypad'),'hk-alarm-keypad-card')[0];return [...kp.shadowRoot.querySelectorAll('.acts .a')].map(a=>Math.round(a.getBoundingClientRect().width))})()")
             assert len(acts) >= 2 and min(acts) >= 100, acts
