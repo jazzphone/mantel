@@ -152,9 +152,16 @@ square. Each screen type gets HomeView-style starters filled from the house.
 | Cell Shape | `home_grid.cell` | `tile` (196 × 150), `square` (196 × 196) | absent = `tile` | Editor → Screen → Grid |
 | Screen Type: Square | `SCREEN_TYPES` | `['square', 'Square', 3, 3, false, [800, 800], 'square']` | — | Editor → Screen → Screen Type |
 
-Screen types gain a seventh field, the cell shape; the existing six keep `tile`. Choosing Square sets 3 × 3, band
+Screen types gain a seventh field, the cell shape; the existing six keep `tile`. The Square type's edge is 14 px, not
+the page gutter's 27.2, as the screenshot's tiles sit about a gap from the glass. Choosing Square sets 3 × 3, band
 off, square cells and Fill the Screen. Changing Cell Shape on any type keeps its blocks where they are (the cells
 change shape, not position).
+
+**Corners.** Square cells take HomeView's corners, measured off the screenshot: 14.5 % of a one-cell tile and
+about 9 % of a 2 × 2 block, so the corner grows with the block. In a 196 cell: **28 px** for a block one cell on
+either side (S, W, T), **36 px** for 2 × 2 and larger, drawn as circular arcs. Where the browser has `corner-shape`
+(Chrome today, not Safari), they are continuous corners (`corner-shape: squircle`) at **38 / 48 px**, which covers
+the same span as Apple's curve. 196 × 150 tiles keep 23.5. `hkCards.R` gains `square` and `square-large`.
 
 **Starters** (hand-written like `NIGHTSTAND`, hk-grid-editor.js ~131, filled from the house: the screen's room's
 thermostat, the front door lock, the house's scenes):
@@ -275,9 +282,21 @@ its tall layout; `HkGridKey`, hk-grid-cards.js ~739, `KEY_CSS` ~718), and the ro
 | Tile Style (a screen) | `tile_style` (board) | `None`, `home`, `centred` | `None` | HK Settings → Screens → the screen → Appearance |
 | Tile Style (a block) | home_grid item `tile` | absent (Same as Screen), `home`, `centred` | absent | Editor → the block → Appearance |
 
-**Design.** In a 196 × 196 cell: the glyph 30 px (bare) or the 42 px well (lit), its centre at 38 % of the
-height; the name 15 / 600 and the room 13 / 500 in `ink-2`, 18.6 px apart, centred, the name's baseline at 74 %;
-two lines at most, the name ellipsed. In a 196 × 150 cell the same, the glyph's centre at 34 %.
+**Design.** Measured off a HomeView screenshot (the owner's, 2026-10-30) and matched to it side by side, in units
+of a 196 × 196 cell:
+
+| Part | Value | Measured |
+|---|---|---|
+| Glyph | the accessory's own **hk: glyph** (the home's SF Symbols, the same glyph Mantel draws today), 66 px box (about 55 px of ink), white; lit: 40 px in a 64 px well of its colour | 28 % of the tile tall |
+| Glyph centre | 33 % down | 33 % |
+| Name | **SF Pro** 21 / 600, −0.3 px, on a 27 px line, one line, ellipsed | centred at 65 % |
+| Room | SF Pro 20 / 400, the wallpaper's light colour 30 % into white 0.78 (`--sub`) | centred at 78 % |
+| Text block | its top at 57.7 % | |
+
+In a 196 × 150 cell: the glyph's box 50 px (30 px in a 50 px well) at 31 %, the name 17 / 600 and the room
+16 / 400 on 22 px lines from 55 %. Home-style tiles keep the measured 42 px well and 23 px glyph. The font and the
+glyphs are Mantel's own: SF Pro (`hkCards.T['font-body']`, the home's `SF-Pro.woff2`) and the hk: iconset; nothing
+new ships.
 
 **Code.** A layout variant of the existing tiles, keyed by an attribute (`tile="centred"` on the card's host,
 read by CSS only), so taps, holds, states and the press animation are the same code. `hk-tile.js`,
@@ -294,8 +313,8 @@ above (two lines, the name first) keeps the room on longer names only when it fi
 **What you see.** The thermostat block's **Style: Big Number**: the target temperature very large, ↓ and ↑ at the
 bottom corners, the name and room centred between them. In heat-and-cool, the two targets side by side at 0.62 of
 the size; a tap picks one (underlined), and the arrows step the picked one. A press and hold on the number opens
-the modes; a tap on the name opens the thermostat's sheet. While it heats or cools, a small status line over the
-number: "Heating to 68° · 66° now".
+the modes; a tap on the name opens the thermostat's sheet. Nothing else is on the tile: the mode and the current
+temperature are in the sheet.
 
 **Settings.**
 
@@ -305,10 +324,12 @@ number: "Heating to 68° · 66° now".
 
 Sizes T and L (XL stays the climate sheet).
 
-**Design.** The number follows the weather block's Big Temperature (hk-weather.js ~1535): container units,
-`min(46cqh, 40cqw)`, weight 500, tabular figures, letter-spacing −0.04 em; in T, `min(30cqh, 52cqw)`. The arrows
-are 44 px targets. A step is the entity's `target_temp_step` (else 1 °F / 0.5 °C), sent through the gateway after
-a 600 ms pause, as the dial sends.
+**Design.** Measured off the same screenshot, in an L block (402 × 402): the number SF Pro 500, `min(44cqh, 44cqw)`
+(31 % of the block tall, half its width for two digits), tabular, −0.03 em, centred at 42.7 % down. The foot is
+centred at 86 % down, 7 % in from each side: the chevrons (`chevron.down` / `up` at 58 px, about 32 px of ink, 8 % of
+the block, at 14 % and 86 % across) level with the name (21 / 600) and room (20 / 400), as on the tiles. In T,
+`min(25cqh, 50cqw)` at 40 %, 38 px chevrons and 17 / 16 text, the foot at 88 %. A step is the entity's
+`target_temp_step` (else 1 °F / 0.5 °C), sent through the gateway after a 600 ms pause, as the dial sends.
 
 **Code.** `hk-control.js` beside `_climate` (~522), sharing its service calls; `hk-grid-catalog.js` and
 `home_grid.py` (`style` with `THERMOSTAT_STYLES = ("dial", "big")` as an enum option kind, like `clock_style`).
@@ -318,19 +339,19 @@ a 600 ms pause, as the dial sends.
 
 ## Phase D. Bright Glass (Phase 3)
 
-**What you see.** A new Appearance Style, **Bright Glass**: a lighter, clearer plate over a stronger blur that
-boosts the colours behind it, a light rim brighter at the top left, and a soft inner glow. Over a vivid wallpaper
-the tiles take its colour. Off glyphs are white; lit tiles stay white plates.
+**What you see.** A new Appearance Style, **Bright Glass**: clear glass. The screenshot shows the wallpaper's
+edges crisply through the tiles, so the blur is light (4 px); a white wash brighter at the top left, a thin bright
+rim, and a slight lift in brightness do the work. Off glyphs are white; lit tiles stay white plates.
 
 | Part | Today's Glass (Blur) | Bright Glass |
 |---|---|---|
-| Plate | `linear-gradient(145deg, rgba(255,255,255,.16), rgba(255,255,255,.07))` | `linear-gradient(150deg, rgba(255,255,255,.30), rgba(255,255,255,.12))`, 18 % of the background's light colour mixed in |
-| Blur | `blur(20px) saturate(1.4) brightness(0.82)` | `blur(28px) saturate(2) brightness(1.06)` |
-| Rim | `1px solid rgba(255,255,255,.13)` | `inset 1px 1px 0 rgba(255,255,255,.55), inset -1px -1px 0 rgba(255,255,255,.14)` (two inset shadows: no mask, no extra layer) |
-| Glow | — | `inset 0 0 28px rgba(255,255,255,.10)` |
-| Shadow | `0 8px 22px rgba(0,0,0,.12)` | `0 10px 30px rgba(0,0,0,.14)` |
+| Plate | `linear-gradient(145deg, rgba(255,255,255,.16), rgba(255,255,255,.07))` | `linear-gradient(160deg, rgba(255,255,255,.24) 0%, rgba(255,255,255,.09) 45%, rgba(255,255,255,.05))`, 7 % of the background's light colour mixed in |
+| Blur | `blur(20px) saturate(1.4) brightness(0.82)` | `blur(4px) saturate(1.3) brightness(1.08)` |
+| Rim | `1px solid rgba(255,255,255,.13)` | `inset 0 0 0 1.5px rgba(255,255,255,.22), inset 0 1.5px 0 rgba(255,255,255,.30)` (inset shadows: no mask, no extra layer) |
+| Glow | — | `inset 0 0 24px rgba(255,255,255,.06)` |
+| Shadow | `0 8px 22px rgba(0,0,0,.12)` | `0 6px 20px rgba(40,0,60,.10)` |
 | Off glyph | its own colour | white, 0.94 |
-| Text | `ink`, `ink-2` | the same, with a 0 1px 2px rgba(0,0,0,.18) text shadow on the plate |
+| Text | `ink`, `ink-2` | `ink`; the second line `--sub` (the wallpaper's light colour 30 % into white 0.78); a 0 1px 2px rgba(0,0,0,.18) text shadow |
 
 **Settings.**
 
@@ -424,8 +445,10 @@ per wallpaper, a picker screenshot.
 
 ## Phase F. A numbered analog face (Phase 2)
 
-**What you see.** A clock face, **Analog Numbers**: white 1–12, white hour and minute hands, a slim second hand in
-the face's colour (orange by default), no date, on a faint disc. Bare, it fills an S block.
+**What you see.** A clock face, **Analog Numbers**, matched to the screenshot: white 1–12 (SF Pro 500) at 73 % of
+the radius, 60 white minute ticks at the rim, white hour and minute hands (51 % and 84 % of the radius) with a thin
+neck at the centre, a slim white second hand, no date, on a faint dark disc with no rim that fills its cell. Its
+colour variants colour the second hand.
 
 **Settings.** `CLOCK_FACES` gains `['numbers', 'Analog Numbers']` (hk-grid-catalog.js ~33, and its Python mirror);
 the screensaver's Clock Style list gains it too. Its colour variants are the analog face's (`--ckh`, `--ckm`).
@@ -543,16 +566,25 @@ To apply to `hk_house/docs/DESIGN.md` only with the owner's yes. Shown as text t
 
 | tier | value | where |
 |---|---|---|
-| bright | blur(28px) saturate(2) brightness(1.06) | Bright Glass: plates (Shared Layer), the tab bar, the menu, chips; its sheets take `blur(34px) saturate(2)` |
+| bright | blur(4px) saturate(1.3) brightness(1.08) | Bright Glass: plates (Shared Layer), the tab bar, the menu, chips; its sheets take `blur(34px) saturate(2)` |
 
 **The scales → Spacing**, in the tiles tier: "a Home Grid's square cell 196 × 196 (`HOME_GRID.square`); a centred
-tile: the glyph's centre at 38 % (34 % in a 150 tall cell), the name's baseline at 74 %, name → room 18.6 apart".
+tile, measured off HomeView: the glyph's 66 px box (40 in a 64 px well, lit) centred at 33 %, the name 21 / 600 and
+the room 20 / 400 on 27 px lines from 57.7 % (in a 150 tall cell: 50 px at 31 %, 17 / 16 on 22 px from 55 %); the
+Square screen type's edge 14 px".
+
+**The scales → Corners**, two rows:
+
+| rule | px | where |
+|---|---|---|
+| square | 28 (38 as a squircle) | a square cell's one-cell block: S, W, T |
+| square large | 36 (48 as a squircle) | a square cell's 2 × 2 and larger block |
 
 **The scales → Type roles**, a row:
 
 | role | size / weight / tracking |
 |---|---|
-| display | min(46cqh, 40cqw) / 500 / −0.04 em, tabular (the Big Number thermostat; the weather block's Big Temperature is the same rule) |
+| display | min(44cqh, 44cqw) / 500 / −0.03 em, tabular, centred at 42.7 % of its block (the Big Number thermostat; the weather block's Big Temperature is the same rule) |
 
 **The scales → Motion**, a paragraph: "**A page swipe** follows the finger; let go, it lands on `standard` (.34 s)
 and the tab bar's highlight on `spring` (.42 s), placed between two tabs by the swipe's fraction while it moves.
@@ -560,16 +592,16 @@ Reduce Motion: a cross-fade (`fade`, .2 s), the highlight jumps."
 
 **A new section, after Flat: "Bright Glass (2026-10-30)"**
 
-> The sixth look: a lighter, clearer plate over a stronger blur, for vivid backgrounds (the Wallpapers). One more
+> The sixth look: clear glass, a light blur and a bright rim, for vivid backgrounds (the Wallpapers). One more
 > Appearance Style (`look.glass: bright`, a screen's `glass`), with a Strength (`look.bright`, 50) and the Blur
 > look's three Blur Modes.
 >
 > | role | value |
 > |---|---|
-> | plate | linear-gradient(150deg, rgba(255,255,255,.30), rgba(255,255,255,.12)), the background's light stop mixed in at 18 % |
-> | rim | inset 1px 1px 0 rgba(255,255,255,.55), inset -1px -1px 0 rgba(255,255,255,.14) |
-> | glow | inset 0 0 28px rgba(255,255,255,.10) |
-> | shadow | 0 10px 30px rgba(0,0,0,.14) |
+> | plate | linear-gradient(160deg, rgba(255,255,255,.24) 0%, rgba(255,255,255,.09) 45%, rgba(255,255,255,.05)), the background's light stop mixed in at 7 % |
+> | rim | inset 0 0 0 1.5px rgba(255,255,255,.22), inset 0 1.5px 0 rgba(255,255,255,.30) |
+> | glow | inset 0 0 24px rgba(255,255,255,.06) |
+> | shadow | 0 6px 20px rgba(40,0,60,.10) |
 > | sheet | rgba(255,255,255,.22) over blur(34px) saturate(2), the rim |
 > | set into a sheet | rgba(255,255,255,.14) |
 > | off glyph | white 0.94 (the background supplies the colour) |
