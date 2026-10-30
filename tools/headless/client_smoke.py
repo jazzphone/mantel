@@ -321,6 +321,8 @@ async def smoke(shot=None, shots=None):
                       window.__proofMetric = metric;
                     })()""")
                     text = "window.__proofMetric._e.state.textContent"
+                    # the card draws on its next frame (updates are applied once a frame, 2026-10-29): wait for it
+                    assert await browser.wait("!!(window.__proofMetric._e && window.__proofMetric._e.state)", 10), "the metric card never drew"
                     assert await browser.eval(text) == "21.4 °C"
                     assert await browser.eval("window.__proofMetric.client === window.__mantel.client")
                     assert await browser.eval("window.hkHostClient.kind === 'mantel' && !window.hkHAClient")
