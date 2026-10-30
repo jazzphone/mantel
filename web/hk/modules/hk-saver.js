@@ -3195,6 +3195,10 @@
   function drawMusic(v, d) {
     var idle = !d || d.idle;
     v.d = d;
+    // (Speakers and Browse once their panel's code is here: a view made
+    // before hk-saver-panel.js loaded kept them hidden for good -- the Side
+    // Pane's player without them, 2026-10-30)
+    setAttr(v.el, 'nomx', !window.hkSaverPanel);
     setAttr(v.el, 'idle', idle);
     setAttr(v.el, 'none', !d);
     setText(v.room, !d ? '' : d.room);
@@ -3974,7 +3978,11 @@
           // IN THE SIDE PANE (nobg, hk-sidepane.js): on the pane's own album-art
           // backdrop -- none of its own, no box (2026-10-30)
           ':host([nobg]) .mbgf,:host([nobg]) .mshade{display:none!important}' +
-          ':host([nobg]) .pane,:host([nobg]) .pm,:host([nobg]) .mu{background:none!important;box-shadow:none!important;border:0!important}' + '</style><div class="pane"></div>';
+          ':host([nobg]) .pane,:host([nobg]) .pm,:host([nobg]) .mu{background:none!important;box-shadow:none!important;border:0!important}' +
+          // COMPACT (the Side Pane's More): the player without Up Next and the
+          // album, its art smaller (2026-10-30)
+          ':host([compact]) .mnext,:host([compact]) .malbum{display:none!important}' +
+          ':host([compact]) .mart{width:70%!important;margin-left:auto!important;margin-right:auto!important}' + '</style><div class="pane"></div>';
         this.addEventListener('pointerdown', function () { self._usedAt = Date.now(); }, true);
         // the screensaver's pane, as its host's attributes draw it
         ['panecfg', 'pane', 'pm'].forEach(function (a) { self.setAttribute(a, ''); });

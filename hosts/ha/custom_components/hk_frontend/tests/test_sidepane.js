@@ -182,6 +182,13 @@ var away = Object.assign({}, client, { states: Object.assign({}, client.states),
 delete away.states[wxId]; away.entities[wxId] = { entity_id: wxId };
 var kept = X.SEC.weather('less', {}, away, ctx);
 ok('...the weather away: its last state, not "No weather"', kept.indexOf('No weather') < 0 && /\d+°/.test(kept), kept.slice(0, 160));
+// THE CALENDAR'S SIZES (2026-10-30): Less the next two; More and Full every event in its Days, scrolling inside it,
+// each a target (data-ev)
+var less = X.SEC.calendar('less', {}, client, ctx), more = X.SEC.calendar('more', {}, client, ctx);
+ok('...the calendar: Less the next two, not scrolling; More all of its days, scrolling, each a target',
+   (less.match(/data-ev=/g) || []).length === 2 && less.indexOf('evs scroll') < 0 && more.indexOf('evs scroll') > 0 && /data-ev="0"/.test(more), [less.length, more.length]);
+// WHERE IT SITS and WHAT A TAP DOES: a row names its entity
+ok('...a row names what a tap on it opens (Who\'s Home, Full)', /data-ent="person\./.test(X.SEC.people('full', {}, client, ctx)));
 // SECTION HEADINGS: never over the Clock or the Weather
 ok('...no heading over the Weather or the Clock', X.SEC.weather('less', {}, client, ctx).indexOf('class="h2"') < 0 &&
    X.SEC.clock('less', {}, client, ctx).indexOf('class="h2"') < 0);

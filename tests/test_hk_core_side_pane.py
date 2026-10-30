@@ -258,3 +258,11 @@ def test_section_headings_on_by_default_and_a_screen_can_turn_them_off():
     b, err = C.apply_board({}, {"side_pane": {"headings": False}})
     assert err == {} and M.board(b)["side_pane"] == {"headings": False}
     assert C.apply_board({}, {"side_pane": {"headings": "yes"}})[1] != {}
+
+
+def test_a_section_sits_at_the_top_or_the_foot_and_says_what_a_tap_does():
+    # (2026-10-30) Top and Automatic are what absent means; Bottom, Its Page, Its Sheet and Nothing are kept
+    assert M.pane_section({"kind": "now_playing", "place": "bottom", "tap": "sheet"}) == {"kind": "now_playing", "place": "bottom", "tap": "sheet"}
+    assert M.pane_section({"kind": "weather", "place": "top", "tap": "auto"}) == {"kind": "weather"}
+    assert M.pane_section({"kind": "weather", "place": "middle"}, strict=True) is None
+    assert M.pane_section({"kind": "weather", "tap": "dance"}, strict=True) is None

@@ -44,6 +44,13 @@ async def homeview():
             HG.check(home)
             gallery.SETTINGS['boards'][name+'-home']=dict(gallery.SETTINGS['boards'][name],home_grid=home)
             screens.append({'screen':name+'-home','sizes':HV_SIZES+(['800x800'] if kind=='square' else []),'homeTiles':True})
+            # ...and the Security block Wide and Extra Large on square cells (2026-10-30)
+            if key=='sq_pane':
+                sec={'v':1,'cols':3,'rows':3,'frame':[1180,820],'band':False,'grow':True,'cell':'square','items':[
+                    {'id':'s1','card':'security','size':'W','at':[0,0]},{'id':'s2','card':'security','size':'XL','at':[0,1]}]}
+                HG.check(sec)
+                gallery.SETTINGS['boards'][name+'-security']=dict(gallery.SETTINGS['boards'][name],home_grid=sec)
+                screens.append({'screen':name+'-security','sizes':['1180x820']})
             # ...and Home with Pane at 4 columns (2026-10-30, the owner's "I could easily do 4"), the pane beside it
             if key=='sq_pane':
                 four=json.loads(json.dumps(grid)); four['cols']=4; four['rows']=4

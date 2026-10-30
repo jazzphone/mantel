@@ -62,6 +62,10 @@ SCREENS = {
     'pane-saver-right': screen({'side': 'right', 'saver': {'show': 'own', 'sections': SAVER}}, screensaver=True),
     'pane-saver-left': screen({'side': 'left', 'saver': {'show': 'own', 'sections': SAVER}}, screensaver=True),
     'pane-none': screen(None),
+    # (2026-10-30) the music at the pane's foot, the rest at its top; a calendar of a week's events, scrolling
+    'pane-placed': screen({'side': 'right', 'dashboard': {'show': 'all', 'sections': [
+        {'kind': 'weather', 'size': 'less'}, {'kind': 'calendar', 'days': 7}, {'kind': 'people'},
+        {'kind': 'now_playing', 'place': 'bottom'}]}}, grid=True),
 }
 
 

@@ -5643,6 +5643,11 @@
       c.appendChild(K.group({ footer: 'When There’s Something: music playing (or paused, for Hide After a Pause), a timer running, the alarm armed or a door open, a notification.' }, [
         K.seg({ label: 'Show', sk: 'pane:sec:when', value: s.when || 'always', options: M.PANE_WHEN, stack: true,
                 onChange: function (v) { set('when', v === 'always' ? null : v); } })]));
+      // WHERE IT SITS, and WHAT A TAP DOES (2026-10-30)
+      c.appendChild(K.group({ footer: 'Bottom: at the pane’s foot, under a space -- what’s playing, say -- in the order they are listed.' }, [
+        K.seg({ label: 'Place', sk: 'pane:sec:place', value: s.place || 'top', options: M.PANE_PLACES, onChange: function (v) { set('place', v === 'top' ? null : v); } })]));
+      c.appendChild(K.group({ footer: 'Automatic: its page where this screen has one, else its detail sheet. A tap on one thing in it -- an event, a person, a thermostat -- opens that thing’s sheet.' }, [
+        K.select({ label: 'When Tapped', sk: 'pane:sec:tap', value: s.tap || 'auto', options: M.PANE_TAPS, onChange: function (v) { set('tap', v === 'auto' ? null : v); } })]));
       var ids = function (dom) { return Object.keys(st).filter(function (k) { return k.indexOf(dom + '.') === 0; }).sort(); };
       var nm = function (id) { return ((st[id] || {}).attributes || {}).friendly_name || id; };
       if (s.kind === 'calendar') {

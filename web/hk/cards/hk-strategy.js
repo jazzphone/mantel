@@ -1559,9 +1559,12 @@
     (grid.items || []).forEach(function (it) {
       // (Hide Box: the block's own, or the screen's No Boxes -- the cell says so to every card inside it)
       var cell = { id: it.id, size: it.size, at: it.at, bare: !!it.bare || grid.boxes === false, view: it.view || 0 };
-      // (Automatic, the screen's default: Centred on square cells, Home on tiles)
-      var ts = it.tile || tiles || 'auto';
-      if (ts === 'centred' || (ts === 'auto' && grid.cell === 'square')) cell.tile = 'centred';
+      // (Automatic, the screen's default: Centred on square cells, Home on
+      // tiles. Never the screen's Centred on a Security block past Small: its
+      // mode buttons piled over its name, 2026-10-30. A block's own Centred is
+      // its own.)
+      var ts = it.tile || tiles || 'auto', keeps = it.card === 'security' && it.size !== 'S' && it.tile !== 'centred';
+      if (!keeps && (ts === 'centred' || (ts === 'auto' && grid.cell === 'square'))) cell.tile = 'centred';
       cards.push(Object.assign(window.hkGridCatalog.config(it, ctx), { hk_cell: cell }));
     });
     (listeners || []).forEach(function (c) { cards.push(c); });

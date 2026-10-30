@@ -141,6 +141,40 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       want('...the weather still there on a narrowed page (' + away + ')', d, d && d.weather && /\d°/.test(d.weather) && d.weather.indexOf('No weather') < 0);
       await shot(page, tag + '-narrowed-' + away);
     }
+    // AT THE TOP AND AT THE FOOT, AND A TAP ON EACH (2026-10-30)
+    if (!phone && !upright) {
+      await open('pane-placed');
+      await page.waitForTimeout(1500);
+      const pl = await page.evaluate(() => {
+        const p = document.querySelector('hk-side-pane[mode="dash"]'), sr = p.shadowRoot, pr = p.getBoundingClientRect();
+        const mp = sr.querySelector('[data-k="now_playing"]'), card = sr.querySelector('hk-music-pane-card');
+        const view = card && card.shadowRoot && card.shadowRoot.querySelector('[nomx]');
+        const ev = sr.querySelector('.evs.scroll');
+        return { order: [...sr.querySelectorAll('.secs>[data-k]')].map((x) => x.dataset.k), gap: !!sr.querySelector('.secs>.gap'),
+                 foot: mp ? Math.round(pr.bottom - mp.getBoundingClientRect().bottom) : null, mx: !!card && !view,
+                 scroll: ev ? getComputedStyle(ev).overflowY : null, evs: sr.querySelectorAll('[data-ev]').length, people: sr.querySelectorAll('[data-ent^="person."]').length };
+      });
+      want('placed: the music at the foot, under a space, with its Speakers and Browse', pl,
+           pl.order[pl.order.length - 1] === 'now_playing' && pl.gap && pl.foot !== null && pl.foot < 60 && pl.mx);
+      // (the gallery's calendars may hold nothing coming up: then only the people; test_sidepane.js has the events)
+      want('...the calendar\'s events scrolling inside it, each a target; the people each a target', pl, (pl.evs === 0 || pl.scroll === 'auto') && pl.people > 0);
+      await shot(page, tag + '-placed');
+      // a tap on a person: their sheet
+      const sheet = await page.evaluate(async () => {
+        const sr = document.querySelector('hk-side-pane[mode="dash"]').shadowRoot, who = sr.querySelector('[data-ent^="person."]');
+        let got = null; const D = window.hkDetail, was = D.open; D.open = (id) => { got = id; };
+        who.click(); D.open = was; return got;
+      });
+      want('...a tap on a person opens their sheet', sheet, /^person\./.test(sheet || ''));
+      // a tap on the weather: its page
+      const went = await page.evaluate(async () => {
+        const sr = document.querySelector('hk-side-pane[mode="dash"]').shadowRoot;
+        sr.querySelector('[data-k="weather"]').click();
+        await new Promise((r) => setTimeout(r, 900));
+        return location.pathname;
+      });
+      want('...a tap on the weather goes to its page', went, /\/weather$/.test(went));
+    }
     await open('pane-every-page');
     let l = await look(page);
     want('every page: Home', l, phone ? !l.on : l.on && !l.scrolls);

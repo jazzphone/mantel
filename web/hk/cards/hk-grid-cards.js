@@ -926,9 +926,11 @@
             Object.assign({ type: 'custom:hk-alarm-keypad-card', layout: 'side', glass: false }, alarm ? { entity: alarm } : {}));
           this._built = true;
         }
-        // four rows of keys and their three gaps fill the block's height
+        // four rows of keys and their three gaps fill the block's height (to
+        // 88 px a key: square cells are taller than tiles, and at 64 the
+        // Extra Large block left a band of nothing under its keys, 2026-10-30)
         var b = this._block(), h = b ? b.h - 28 : 282;
-        this._pad.style.setProperty('--hk-kp-key', Math.max(36, Math.min(64, Math.floor((h - 30) / 4))) + 'px');
+        this._pad.style.setProperty('--hk-kp-key', Math.max(36, Math.min(88, Math.floor((h - 30) / 4))) + 'px');
       }
     }
     watchSize(HkGridKeypadCard);

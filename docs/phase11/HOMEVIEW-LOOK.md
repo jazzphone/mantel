@@ -1140,3 +1140,27 @@ screensaver's panes, the Width beside the grid, and the weather on a page Mantel
 page's header keeps the weather, so the sticky case is covered by `test_sidepane.js`'s registry and last-state test
 rather than in the browser); `bright_glass_check`, a room page in Blur; `test_strategy_rebuild`, a Side Pane change
 rebuilding nothing.
+
+**The Side Pane's sections, and the Security block (2026-10-30, the owner directly).**
+
+- **At the top or at the foot.** **Decision:** a section's Place, Top (default) or Bottom, rather than two lists:
+  the top ones in order, a space, then the bottom ones (Now Playing at the foot, say).
+- **The pane's player had lost Speakers and Browse.** The music view hid them when it was made before
+  `hk-saver-panel.js` had loaded, and never looked again; it now looks on every draw.
+- **Less / More / Full that barely differed.** Now Playing at More is the player without Up Next and the album (its
+  art smaller), Full all of it; the Calendar's Less the next two, More every event of its Days (3 unless set),
+  Full a week's, the list scrolling inside the section where it doesn't fit (the pane itself still never
+  scrolls); Energy's Less what the house uses, More with the panels, the battery and today's, Full each as a row;
+  Climate's Less the temperatures, More and Full where each is set to; Who's Home at Full each person, where and
+  since when; Timers at More and Full offer the quick ones even with none running.
+- **Every section does something when tapped.** **Decision:** a section's When Tapped: Automatic (default: its page
+  where this screen has one, else its detail sheet), Its Page, Its Sheet or Nothing; a tap on one thing in it (an
+  event, a person, a lock, a thermostat, a source of power) opens that thing's sheet.
+- **The Wide and Extra Large Security blocks on square cells.** Tile Style Automatic put the Centred layout on the
+  Wide block, whose mode buttons then piled over its name: a Security block past Small now keeps its own layout
+  unless it chooses Centred itself. The Extra Large keypad's keys grow to 88 px, so four rows fill a square cell's
+  height instead of leaving a band under them.
+
+`side_pane_check` (a pane with the music at its foot: the space, the player's Speakers and Browse, a person's sheet
+and the weather's page on a tap), `test_sidepane.js` (the calendar's sizes and targets) and the grid check's
+Security screen.

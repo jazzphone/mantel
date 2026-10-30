@@ -328,9 +328,10 @@
   function box(k, size, inner, cls) {
     return '<div class="sec' + (cls ? ' ' + cls : '') + '" data-k="' + k + '" data-size="' + size + '">' + inner + '</div>';
   }
+  // (r[4]: the entity a tap on the row opens, its own sheet)
   function rows(list) {
     return list.map(function (r) {
-      return '<div class="r2' + (r[3] ? ' ' + r[3] : '') + '">' + (r[2] ? icon(r[2]) : '') + '<span class="tx">' + esc(r[0]) +
+      return '<div class="r2' + (r[3] ? ' ' + r[3] : '') + '"' + (r[4] ? ' data-ent="' + esc(r[4]) + '"' : '') + '>' + (r[2] ? icon(r[2]) : '') + '<span class="tx">' + esc(r[0]) +
         '</span><span class="v2">' + esc(r[1]) + '</span></div>';
     }).join('');
   }
@@ -383,7 +384,7 @@
       return box('weather', s, head('weather') + top + (s === 'less' || !hrs ? '' : '<div class="hrs">' + hrs + '</div>') + days);
     },
     calendar: function (s, sec, c, ctx) {
-      ctx.calendar(sec.days || (s === 'full' ? 3 : 2));
+      ctx.calendar(sec.days || (s === 'full' ? 7 : s === 'more' ? 3 : 2));
       if (!CAL.evs) return none('calendar', s, window.hkCalendar && !window.hkCalendar.ids(c).length ? 'No calendars' : 'Reading the calendars\u2026');
       var evs = calComing();
       if (!evs.length) return none('calendar', s, 'Nothing coming up');
@@ -394,11 +395,19 @@
         return allDay(e) ? (day || 'All day').trim() : day + hm(a);
       };
       if (s === 'tiny') return tiny('calendar', esc(evs[0].title || 'Event'), esc(when(evs[0])));
-      var n = { less: 2, more: 4, full: 5 }[s];
-      return box('calendar', s, head('calendar') + evs.slice(0, n).map(function (e) {
-        return '<div class="ev"><span class="cb" style="background:' + esc(ctx.evColor(e)) + '"></span><span class="et"><b>' +
+      // LESS: the next two. MORE and FULL: every event in its Days (3 and 7
+      // unless it says), scrolling inside the section where they don't all
+      // fit -- the pane itself never scrolls (2026-10-30). A tap on one opens
+      // its sheet (data-ev).
+      var days = sec.days || (s === 'full' ? 7 : s === 'more' ? 3 : 2), end = new Date(); end.setHours(0, 0, 0, 0);
+      end = end.getTime() + days * 86400000;
+      var mine = s === 'less' ? evs.slice(0, 2) : evs.filter(function (e) { return evStart(e).getTime() < end; });
+      if (!mine.length) mine = evs.slice(0, 1);
+      CAL.shown = mine;
+      return box('calendar', s, head('calendar') + '<div class="evs' + (s === 'less' ? '' : ' scroll') + '">' + mine.map(function (e, i) {
+        return '<div class="ev" data-ev="' + i + '"><span class="cb" style="background:' + esc(ctx.evColor(e)) + '"></span><span class="et"><b>' +
           esc(e.title || 'Event') + '</b><i>' + esc(when(e)) + '</i></span></div>';
-      }).join(''));
+      }).join('') + '</div>');
     },
     now_playing: function (s, sec, c, ctx) {
       var m = musicOf(c);
@@ -413,7 +422,9 @@
       // MORE AND FULL: the screensaver's music pane itself (hk-music-pane-card,
       // hk-saver.js): the art, the song, its buttons and volume, Up Next and
       // the Speakers / Browse panel -- the one view the dashboard shares
-      return '<div class="sec mp' + (s === 'full' ? ' grow' : '') + '" data-k="now_playing" data-size="' + s + '">' + head('now_playing') + ctx.slot('np', 'hk-music-pane-card', function (el) {
+      // (More: the player without Up Next and the album, its art smaller --
+      // `compact` on the card; Full: all of it, taking the room left)
+      return '<div class="sec mp' + (s === 'full' ? ' grow' : ' compact') + '" data-k="now_playing" data-size="' + s + '">' + head('now_playing') + ctx.slot('np', 'hk-music-pane-card', function (el) {
         if (el.active) el.active(true);
       }) + '</div>';
     },
@@ -430,10 +441,10 @@
           .filter(Boolean).join(' · ');
         return box('security', s, head('security') + top + (gist ? '<div class="sub2">' + esc(gist) + '</div>' : ''));
       }
-      var list = locks.slice(0, 4).map(function (id) { var x = states(c)[id] || {}; return [nameOf(x, id), x.state === 'unlocked' ? 'Unlocked' : x.state === 'locked' ? 'Locked' : String(x.state || ''), x.state === 'unlocked' ? 'mdi:lock-open-variant' : 'mdi:lock', x.state === 'unlocked' ? 'warn' : '']; });
+      var list = locks.slice(0, s === 'full' ? 8 : 4).map(function (id) { var x = states(c)[id] || {}; return [nameOf(x, id), x.state === 'unlocked' ? 'Unlocked' : x.state === 'locked' ? 'Locked' : String(x.state || ''), x.state === 'unlocked' ? 'mdi:lock-open-variant' : 'mdi:lock', x.state === 'unlocked' ? 'warn' : '', id]; });
       if (wins.length) list.push(['Windows', open.length ? open.length + ' open' : 'All closed', 'mdi:window-closed-variant']);
       if (s === 'full') {
-        kinds('garage').slice(0, 2).forEach(function (id) { var x = states(c)[id] || {}; list.push([nameOf(x, id), x.state === 'open' || x.state === 'on' ? 'Open' : 'Closed', 'mdi:garage']); });
+        kinds('garage').slice(0, 2).forEach(function (id) { var x = states(c)[id] || {}; list.push([nameOf(x, id), x.state === 'open' || x.state === 'on' ? 'Open' : 'Closed', 'mdi:garage', '', id]); });
         if (al && al.st) {
           var who = attr(al.st, 'changed_by'), at = al.st.last_changed ? hm(new Date(al.st.last_changed)) : '';
           list.push([ALARM[a] ? ALARM[a].split(' · ')[0] : 'Changed', [at, who].filter(Boolean).join(', '), 'mdi:history']);
@@ -452,7 +463,11 @@
     },
     timers: function (s, sec, c) {
       var t = timersOf(c);
-      if (!t.length) return none('timers', s, 'No timers running');
+      var keys = '<div class="keys">' + [1, 5, 10, 30].map(function (n) {
+        return '<button type="button" data-act="timer" data-min="' + n + '">' + n + ' min</button>';
+      }).join('') + '</div>';
+      // (none running: More and Full offer the quick ones, so a tap starts one)
+      if (!t.length) return s === 'more' || s === 'full' ? box('timers', s, head('timers') + '<div class="sub2">No timers running</div>' + keys) : none('timers', s, 'No timers running');
       var left = function (r) {
         var ms = r.finishes_at ? Date.parse(r.finishes_at) - Date.now() : 0;
         if (!r.finishes_at && r.remaining) return String(r.remaining).replace(/^0:/, '');
@@ -466,9 +481,7 @@
         var pct = total ? Math.max(0, Math.min(100, 100 - ms / 10 / total)) : 0;
         return '<div class="r2"><span class="tx">' + esc(r.name || 'Timer') + '</span><span class="v2 cd">' + esc(left(r)) + '</span></div>' +
           '<div class="bar2"><i style="width:' + pct.toFixed(1) + '%"></i></div>';
-      }).join('') + (s === 'full' ? '<div class="keys">' + [1, 5, 10, 30].map(function (n) {
-        return '<button type="button" data-act="timer" data-min="' + n + '">' + n + ' min</button>';
-      }).join('') + '</div>' : ''));
+      }).join('') + (s === 'full' ? keys : ''));
     },
     energy: function (s, sec, c) {
       var pid = setting('features.power', null), p = pid && states(c)[pid];
@@ -482,13 +495,20 @@
       var stats = '<div class="stats"><div><b>' + esc(kw(use)) + '</b>Using</div>' + (sol ? '<div><b>' + esc(sol) + '</b>Solar</div>' : '') +
         (bat ? '<div><b>' + esc(Math.round(num(states(c)[bat].state) || 0) + ' %') + '</b>Battery</div>' : '') + '</div>';
       var today = s === 'less' ? '' : energyToday(c);
-      return box('energy', s, head('energy') + stats + (today ? '<div class="sub2">' + esc(today) + '</div>' : ''));
+      // LESS: what the house uses; MORE: with the panels and the battery, and
+      // today's; FULL: the same, then each as a row with its sheet
+      if (s === 'less') stats = '<div class="stats"><div><b>' + esc(kw(use)) + '</b>Using</div></div>';
+      var more = s !== 'full' ? '' : rows([pid ? ['House', kw(use), 'mdi:home-lightning-bolt', '', pid] : null,
+                                          solarId ? ['Solar', sol, 'mdi:solar-power', '', solarId] : null,
+                                          bat ? ['Battery', Math.round(num(states(c)[bat].state) || 0) + ' %', 'mdi:home-battery', '', bat] : null].filter(Boolean));
+      return box('energy', s, head('energy') + stats + (today ? '<div class="sub2">' + esc(today) + '</div>' : '') + more);
     },
     climate: function (s, sec, c) {
       var st = states(c), ids = domainIds(c, 'climate');
       var row = function (id) {
         var x = st[id] || {}, cur = attr(x, 'current_temperature'), set = attr(x, 'temperature'), act = attr(x, 'hvac_action');
-        return [nameOf(x, id), deg(cur) + (set != null ? ' → ' + deg(set) : ''), act === 'heating' ? 'mdi:fire' : act === 'cooling' ? 'mdi:snowflake' : 'mdi:thermostat', act === 'heating' ? 'heat' : act === 'cooling' ? 'cool' : ''];
+        // (Less: its temperature; More and Full: where it is set to as well)
+        return [nameOf(x, id), deg(cur) + (set != null && s !== 'less' ? ' → ' + deg(set) : ''), act === 'heating' ? 'mdi:fire' : act === 'cooling' ? 'mdi:snowflake' : 'mdi:thermostat', act === 'heating' ? 'heat' : act === 'cooling' ? 'cool' : '', id];
       };
       if (!ids.length) return none('climate', s, 'No thermostats');
       if (s === 'tiny') { var r0 = row(ids[0]), a0 = attr(st[ids[0]], 'hvac_action'); return tiny('climate', esc(r0[0] + ' ' + deg(attr(st[ids[0]], 'current_temperature'))), esc(a0 ? String(a0).replace(/^\w/, function (x) { return x.toUpperCase(); }) : '')); }
@@ -506,11 +526,13 @@
       var home = ids.filter(function (id) { return (st[id] || {}).state === 'home'; }), away = ids.filter(function (id) { return home.indexOf(id) < 0; });
       if (s === 'tiny') return tiny('people', esc(home.length + ' home'), away.length ? esc(away.length + ' away') : '');
       var where = function (id) { var x = st[id] || {}; return x.state === 'home' ? 'Home' : x.state === 'not_home' ? 'Away' : String(x.state || '').replace(/_/g, ' '); };
-      if (s === 'full') return box('people', s, head('people') + rows(ids.slice(0, 8).map(function (id) { return [nameOf(st[id], id), where(id), 'mdi:account-circle']; })));
+      // FULL: each one, where and since when
+      var since = function (id) { var t = Date.parse((st[id] || {}).last_changed); return t ? ' · ' + ago(t) : ''; };
+      if (s === 'full') return box('people', s, head('people') + rows(ids.slice(0, 8).map(function (id) { return [nameOf(st[id], id), where(id) + since(id), 'mdi:account', '', id]; })));
       var av = '<div class="ppl">' + ids.slice(0, 5).map(function (id, i) {
         var x = st[id] || {}, pic = attr(x, 'entity_picture'), nm = nameOf(x, id);
         var face = pic ? '<img alt="" src="' + esc(pic) + '">' : esc(nm.charAt(0).toUpperCase());
-        return '<div class="' + (x.state === 'home' ? '' : 'away') + '"><i style="background:' + ['#ff9500', '#5856d6', '#34c759', '#ff2d55', '#32ade6'][i % 5] + '">' + face + '</i>' + esc(nm.split(' ')[0]) + '</div>';
+        return '<div data-ent="' + esc(id) + '" class="' + (x.state === 'home' ? '' : 'away') + '"><i style="background:' + ['#ff9500', '#5856d6', '#34c759', '#ff2d55', '#32ade6'][i % 5] + '">' + face + '</i>' + esc(nm.split(' ')[0]) + '</div>';
       }).join('') + '</div>';
       var line = s === 'more' && away.length ? away.slice(0, 2).map(function (id) { return nameOf(st[id], id).split(' ')[0] + ' is ' + (where(id) === 'Away' ? 'away' : 'at ' + where(id)); }).join(' · ') : '';
       return box('people', s, head('people') + av + (line ? '<div class="sub2">' + esc(line) + '</div>' : ''));
@@ -710,6 +732,22 @@
       // controls at the pane's width; Full takes what is left
       '.sec.mp{padding:0;display:block;position:relative;height:540px;background:none;overflow:visible}',
       '.sec.mp.grow{height:auto;min-height:540px}',
+      // (More: the compact player, its Up Next and album left out)
+      '.sec.mp.compact{height:430px}',
+      // AT THE FOOT: the space between the top sections and the bottom ones
+      '.secs>.gap{flex:1 1 auto;min-height:0;border:0}',
+      ':host([side="band"]) .secs>.gap{flex:0 0 0}',
+      // THE CALENDAR'S EVENTS at More and Full: scrolling inside the section
+      // where they don't all fit (the pane never scrolls), Full taking the
+      // room left
+      '.evs.scroll{max-height:300px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none}',
+      '.evs.scroll::-webkit-scrollbar{display:none}',
+      '.sec.grow[data-k="calendar"]{display:flex;flex-direction:column}',
+      '.sec.grow[data-k="calendar"] .evs.scroll{max-height:none;flex:1 1 auto;min-height:0}',
+      '.evs>.ev:last-child{border-bottom:0}',
+      // A TAP: every section and each thing in it is a target
+      '.secs>[data-i]:not([data-k="now_playing"]),[data-ent],[data-ev]{cursor:pointer}',
+      '.secs>[data-i]:not([data-k="now_playing"]):active,[data-ent]:active,[data-ev]:active{opacity:.7}',
       '.sec.mp>*{position:absolute;inset:0;height:100%}',
       // (its heading, when the pane has them, above the music pane, not over it)
       '.sec.mp>.h2{position:relative;inset:auto;height:auto;padding:14px 0 0}',
@@ -758,6 +796,36 @@
     return out;
   }
 
+  // ------------------------------------------------------------ taps
+  // a section's page (the screen's view of that path) and its sheet's entity
+  var TAP_PAGE = { weather: 'weather', calendar: 'calendar', now_playing: 'music', security: 'security', camera: 'cameras',
+                   timers: 'timers', energy: 'energy', climate: 'climate' };
+  function pagePath(p) {
+    var M = C() && C().menu, cfg = M && M.config ? M.config() : null;
+    var v = cfg && (cfg.views || []).filter(function (x) { return x && x.path === p; })[0];
+    if (!v) return null;
+    var seg = String(location.pathname).split('/')[1] || '';
+    return '/' + seg + '/' + p;
+  }
+  function go(path) {
+    var SH = window.hkShell;
+    if (SH && SH.navigate) SH.navigate(path); else location.assign(path);
+  }
+  function tapEntity(s, c) {
+    switch (s.kind) {
+      case 'weather': return setting('weather.entity', null) || domainIds(c, 'weather')[0] || null;
+      case 'calendar': return (window.hkCalendar && window.hkCalendar.ids ? window.hkCalendar.ids(c) : [])[0] || null;
+      case 'now_playing': { var m = musicOf(c); return m ? m.key : null; }
+      case 'security': { var al = alarmOf(c); return (al && al.id) || kinds('locks')[0] || null; }
+      case 'camera': return s.entity || (setting('cameras.order', []) || [])[0] || domainIds(c, 'camera')[0] || null;
+      case 'energy': return setting('features.power', null);
+      case 'climate': return domainIds(c, 'climate')[0] || null;
+      case 'people': return domainIds(c, 'person')[0] || null;
+      case 'todo': return s.entity || domainIds(c, 'todo')[0] || null;
+      default: return null;
+    }
+  }
+
   // ------------------------------------------------------------ one pane
   // A PANE: the Dashboard's (mode 'dash', fixed to the window's edge) or the
   // screensaver's (mode 'saver', inside its own shadow root). Given its
@@ -803,7 +871,13 @@
       this._pin.style.width = (W / z).toFixed(1) + 'px';
       this._pin.style.height = (H / z).toFixed(1) + 'px';
       this._pin.style.transform = 'scale(' + z.toFixed(4) + ')';
-      var list = o.list || [], self = this;
+      // AT THE TOP, AND AT THE FOOT (a section's Place, 2026-10-30): the top
+      // ones in order, a space, then the bottom ones -- each drawn with its
+      // index in the pane's list (data-i), what a tap on it reads
+      var all = o.list || [], self = this;
+      var list = all.filter(function (x) { return x.place !== 'bottom'; }), foot = list.length;
+      list = list.concat(all.filter(function (x) { return x.place === 'bottom'; }));
+      this._list = list;
       var sp = paneOf();
       HEAD_ON = this.getAttribute('mode') !== 'widget' && !(sp && sp.headings === false);
       var ctx = this._ctx(c);
@@ -812,7 +886,8 @@
         var html = door;
         for (var i = 0; i < n; i++) {
           var s = list[i], fn = SEC[s.kind];
-          try { html += fn ? fn(sizes[i], s, c, ctx) : ''; } catch (e) { console.warn('[hk-sidepane] ' + s.kind, e); }
+          if (i === foot && foot > 0) html += '<div class="gap" aria-hidden="true"></div>';
+          try { html += fn ? String(fn(sizes[i], s, c, ctx)).replace(/^<div /, '<div data-i="' + i + '" ') : ''; } catch (e) { console.warn('[hk-sidepane] ' + s.kind, e); }
         }
         if (n < list.length) html += '<div class="more2">+' + (list.length - n) + ' more</div>';
         return html;
@@ -866,6 +941,28 @@
       };
       img.onerror = function () { if (self._artPic === pic) self.removeAttribute('arted'); };
       img.src = pic;
+    }
+    // A TAP ON A SECTION (2026-10-30, the owner: "ALL the Widgets should do
+    // something if you tap on them"): on one thing in it -- an event, a
+    // person, a lock, a thermostat -- that thing's sheet; else the section's
+    // When Tapped: Automatic (its page where this screen has one, else its
+    // sheet), Its Page, Its Sheet or Nothing. Its buttons, the to-do list's
+    // circles and the music pane keep their own.
+    _tap(e, c) {
+      var t = e.target;
+      if (!t.closest || t.closest('button,input,form,a,.slot,hk-music-pane-card')) return;
+      var sec = t.closest('[data-i]'), s = sec && this._list ? this._list[+sec.getAttribute('data-i')] : null;
+      if (!s || s.tap === 'none') return;
+      var D = window.hkDetail, ev = t.closest('[data-ev]'), one = t.closest('[data-ent]');
+      if (ev && CAL.shown && CAL.shown[+ev.getAttribute('data-ev')]) {
+        var K = window.hkCalendar, x = CAL.shown[+ev.getAttribute('data-ev')];
+        if (K && K.show) { try { K.show(c, x); return; } catch (err) { /* below */ } }
+      }
+      if (one && D && D.open && s.tap !== 'page') { D.open(one.getAttribute('data-ent')); return; }
+      var page = TAP_PAGE[s.kind], ent = tapEntity(s, c), path = page && pagePath(page);
+      if ((s.tap === 'page' || !s.tap || s.tap === 'auto') && path) { go(path); return; }
+      if (ent && D && D.open && s.tap !== 'page') { D.open(ent); return; }
+      if (path) go(path);
     }
     _tallest() {
       var t = 0;
@@ -924,6 +1021,7 @@
         // (the music pane on the pane's own album-art backdrop: none of its
         // own and no box -- the owner, 2026-10-30)
         if (key === 'np' && !el.hasAttribute('nobg')) el.setAttribute('nobg', '');
+        if (key === 'np') el.toggleAttribute('compact', !!(el.parentNode && el.parentNode.classList && el.parentNode.classList.contains('compact')));
         if (key === 'np' && el.active) el.active(true);
       });
     }
@@ -960,7 +1058,8 @@
     // ------------------------------------------------ taps
     _click(e) {
       var b = e.target.closest ? e.target.closest('[data-act]') : null, c = clientNow();
-      if (!b || !c || !c.actions) return;
+      if (!b) { this._tap(e, c); return; }
+      if (!c || !c.actions) return;
       var act = b.getAttribute('data-act');
       if (act === 'pp') {
         var m = musicOf(c);

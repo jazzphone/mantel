@@ -2574,7 +2574,8 @@
   function paneSection(s) {
     var out = {};
     Object.keys(s || {}).forEach(function (k) {
-      if ((k === 'size' && s[k] === 'more') || (k === 'when' && s[k] === 'always') || (k === 'completed' && !s[k])) return;
+      if ((k === 'size' && s[k] === 'more') || (k === 'when' && s[k] === 'always') || (k === 'completed' && !s[k]) ||
+          (k === 'place' && s[k] === 'top') || (k === 'tap' && s[k] === 'auto')) return;
       out[k] = s[k];
     });
     return out;
@@ -2637,8 +2638,11 @@
   // A SECTION'S ROW SAYS its size and when: "More", "Tiny · When There's Something"
   function secSays(s) {
     var size = choiceLabel(PANE_SIZES, s.size || 'more');
-    return s.when === 'active' ? size + ' · When There’s Something' : size;
+    return [size, s.when === 'active' ? 'When There’s Something' : '', s.place === 'bottom' ? 'At the Bottom' : ''].filter(Boolean).join(' · ');
   }
+  // WHERE A SECTION SITS and WHAT A TAP DOES (settings.py PANE_PLACES, PANE_TAPS; 2026-10-30)
+  var PANE_PLACES = [['top', 'Top'], ['bottom', 'Bottom']];
+  var PANE_TAPS = [['auto', 'Automatic'], ['page', 'Its Page'], ['sheet', 'Its Sheet'], ['none', 'Nothing']];
   // THE LINKS that were each pane's own settings: the Dashboard's ("Home
   // Only, Right"), the screensaver's ("Calendar, Now Playing"), and Now
   // Playing's Show As (the bar, or the Side Pane)
@@ -2730,7 +2734,7 @@
 
   root.hkSettingsModel = {
     PANE_KINDS: PANE_KINDS, PANE_SIZES: PANE_SIZES, PANE_WHEN: PANE_WHEN, PANE_SIDES: PANE_SIDES, PANE_WIDTHS: PANE_WIDTHS,
-    PANE_SHOWS: PANE_SHOWS, PANE_SAVER_SHOWS: PANE_SAVER_SHOWS, PANE_GROUPS: PANE_GROUPS, PANE_MAX: PANE_MAX, PANE_DEFAULTS: PANE_DEFAULTS,
+    PANE_SHOWS: PANE_SHOWS, PANE_SAVER_SHOWS: PANE_SAVER_SHOWS, PANE_GROUPS: PANE_GROUPS, PANE_PLACES: PANE_PLACES, PANE_TAPS: PANE_TAPS, PANE_MAX: PANE_MAX, PANE_DEFAULTS: PANE_DEFAULTS,
     paneKind: paneKind, paneSection: paneSection, paneOf: paneOf, paneGroupSays: paneGroupSays, paneSet: paneSet, paneReset: paneReset,
     secKey: secKey, secsAdd: secsAdd, secsOrder: secsOrder, secSet: secSet, secsMore: secsMore, secSays: secSays,
     paneSummary: paneSummary, paneSaverSummary: paneSaverSummary, paneHasMusic: paneHasMusic, npShowAs: npShowAs,

@@ -1815,6 +1815,11 @@ PANE_SIZES = ("tiny", "less", "more", "full")
 # Always, or When There's Something (music playing, a timer running, ...);
 # absent is Always
 PANE_WHEN = ("always", "active")
+# WHERE A SECTION SITS (2026-10-30, the owner: "I'd like the music player widget to be at the bottom"): the top of the
+# pane, in order, or its foot; and WHAT A TAP ON IT DOES: Automatic (its page where the screen has one, else its
+# detail sheet), its page, its sheet, or nothing. Top and Automatic are what absent means.
+PANE_PLACES = ("top", "bottom")
+PANE_TAPS = ("auto", "page", "sheet", "none")
 PANE_SIDES = ("right", "left")
 PANE_WIDTHS = {"narrow": 360, "standard": 400, "wide": 480}
 # On the Dashboard: Off, Home Only, Every Page; in the screensaver: Off,
@@ -1859,6 +1864,12 @@ def pane_section(v: Any, strict: bool = False) -> dict[str, Any] | None:
         elif k == "when" and val in PANE_WHEN:
             if val != "always":
                 out["when"] = val
+        elif k == "place" and val in PANE_PLACES:
+            if val != "top":
+                out["place"] = val
+        elif k == "tap" and val in PANE_TAPS:
+            if val != "auto":
+                out["tap"] = val
         elif k in opts and opts[k] is bool and isinstance(val, bool):
             if val:
                 out[k] = True
