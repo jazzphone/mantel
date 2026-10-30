@@ -110,3 +110,10 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - HK Frontend 1.17.0 on the house from the built clone; tagged v1.17.0 and released on jazzphone/hk-frontend with its wiki.
 - Mantel Link unchanged (0.1.8).
 - TestFlight: Mantel 0.1.89 build 934 uploaded.
+
+## Mantel 0.1.90 and HK Frontend 1.18.0 (2026-10-30)
+
+- Mantel 0.1.90 on the house (build 85fdcdc760de1db8, commit 2bfd2a3c): Looks, the HomeView fixes (13 owner items), stereo pairs; healthz strict ok; all five tablets reloaded cleanly.
+- HK Frontend 1.18.0 on the house from the built clone; tagged v1.18.0 and released on jazzphone/hk-frontend with its wiki.
+- Mantel Link unchanged (0.1.8).
+- TestFlight 0.1.90 (946) not uploaded: Xcode Failed to Use Accounts; needs the owner to sign in again.
