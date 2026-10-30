@@ -4,7 +4,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
-The first public release of **Mantel**: HK Frontend's screens, inspired by Apple's Home app, served from a server of their own beside Home Assistant. It ships with **Mantel Link** 0.1.8 (Home Assistant's side of Mantel, from HACS) and alongside **HK Frontend** 1.15 (HK inside Home Assistant), built from the same code. The [user guide](docs/guide/Home.md) covers all of it; [HK Frontend and Mantel](docs/guide/HK-Frontend-and-Mantel.md) compares the products.
+The first public release of **Mantel**: HK Frontend's screens, inspired by Apple's Home app, served from a server of their own beside Home Assistant. It ships with **Mantel Link** 0.1.8 (Home Assistant's side of Mantel, from HACS) and alongside **HK Frontend** 1.16 (HK inside Home Assistant), built from the same code. The [user guide](docs/guide/Home.md) covers all of it; [HK Frontend and Mantel](docs/guide/HK-Frontend-and-Mantel.md) compares the products.
 
 **Running it**
 - **Three ways to run it:** the Home Assistant App (Home Assistant OS or Supervised; in Home Assistant's sidebar, optionally at its own address too), Docker Compose with Caddy or your own reverse proxy, or a Proxmox LXC made by a script. All three run the same server.
@@ -79,6 +79,11 @@ Reliability:
 - Docker and LXC: browser notifications and pairing the iPhone, iPad and Mac apps work (their keys live in the data folder, and in backups).
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
+
+## 0.1.88 - 2026-10-30
+
+- **iPhone Duo, like a native app:** the page runs edge to edge again, under the system strip at the side, and keeps its content clear of it; the tab bar becomes a rail in the strip's empty lower part (Use the Side Strip, under Menu → Tab Bar, turns it off). An iPhone held sideways keeps its content clear of the Dynamic Island.
+- **Home Grid editor: the other blocks make room.** Drag a block onto others and they slide into the space it left, or the nearest free spot, as you drag; Undo puts the whole move back.
 
 ## 0.1.87 - 2026-10-29
 
