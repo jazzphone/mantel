@@ -115,6 +115,10 @@
            // 'wake', 'every:<minutes>' or a file name (Stay the Same) --
            // and its own look (settings.py sky.landscape)
            landscape: 'every:1440', landscape_look: { blur: 0, dim: 0, saturation: 100, tint: '', tint_amount: 35 },
+           // WALLPAPER (2026-10-30): which one (hk-wallpapers.js) and when its
+           // night version shows -- 'auto' after sunset, 'day', 'night'
+           // (settings.py sky.wallpaper)
+           wallpaper: 'ribbons_rose', wallpaper_night: 'auto',
            // each page's background: {page: 'own' | 'live' | backdrop id |
            // 'photo'} -- a page missing is Automatic (settings.py sky.pages);
            // a page's own photo, for 'photo': page_photos
@@ -173,7 +177,7 @@
     // live cameras rest while another window has the focus (hk-cameras.js
     // CAM_FOCUS) -- behind the screensaver they always rest
     cameras: { order: [], live: true, focus_pause: true },
-    look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, well: 'dark', frost_tint: false, details: true, browse_view: 'music-browse', sky_switch: null,
+    look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, bright: 50, well: 'dark', frost_tint: false, details: true, browse_view: 'music-browse', sky_switch: null,
             photos: 'media-source://media_source/local/photos', page_pills: {}, page_accents: {},
             // FLAT COLORS (settings.py flat_colors; resolveFlatColors)
             flat_colors: { accent: 'auto', off_tint: 'auto', pages: 'accent' }, flat_page_colors: {},
@@ -399,7 +403,7 @@
     '<filter id=\'n\'><feTurbulence type=\'fractalNoise\' baseFrequency=\'0.85\' numOctaves=\'2\' stitchTiles=\'stitch\'/>' +
     '<feColorMatrix values=\'0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.06 0\'/></filter>' +
     '<rect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/></svg>")';
-  // key: 'frost' | 'blur' | 'tint' -- this dashboard's own (its Screen page), else
+  // key: 'frost' | 'blur' | 'tint' | 'bright' -- this dashboard's own (its Screen page), else
   // the house's (look.*).
   function amount(key) {
     var b = boardHere(), v = b && b[key];
@@ -484,6 +488,116 @@
       return { '--hk-glass-plate': OVER_BLUR, '--hk-glass-backdrop': b, '--hk-chip-backdrop': b };
     }
   };
+  // ------------------------------------------------------------ Bright Glass
+  // BRIGHT GLASS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase D; the house
+  // DESIGN.md "Bright Glass"): the sixth look -- clear glass, a light blur and
+  // a bright rim, for vivid backgrounds (the Wallpapers). In the Blur look's
+  // three modes: bright (Shared Layer: hk-glass.js's layers, the filter
+  // below), bright_pre (Pre-rendered) and bright_each (every plate its own).
+  //   plate   a white wash, brighter at the top left (BRIGHT.wash, at its
+  //           0 %, 45 % and 100 %), with the background's light stop mixed in
+  //           at 7 % -- the lightest of the sky's four stops (--sk0..3 on
+  //           #hk-sky: a wallpaper's, a color's, the live sky's)
+  //   blur    BLUR.bright: 4 px, so the wallpaper's edges show through
+  //   rim     inset shadows (no mask, no extra layer), a glow, a soft shadow
+  //   text    ink; the second line (--hk-look-sub) the light stop 30 % into
+  //           white .78; a light text shadow; off glyphs white .94
+  // STRENGTH (look.bright / a screen's bright, 0-100, 50 as designed) scales
+  // the wash and the lift together. CAPPED: never past where white text on
+  // the plate falls under 4.5:1 over the light stop (brightCap) -- so on a
+  // light background the glass holds back by itself.
+  var BRIGHT = {
+    wash: [0.24, 0.09, 0.05], chip: [0.30, 0.12, 0.07], lift: 0.08, mix: 0.07,
+    rim: 'inset 0 0 0 1.5px rgba(255,255,255,0.22), inset 0 1.5px 0 rgba(255,255,255,0.30)',
+    glow: 'inset 0 0 24px rgba(255,255,255,0.06)', shadow: '0 6px 20px rgba(40,0,60,0.10)',
+    well: 'rgba(255,255,255,0.16)', glyph: 'rgba(255,255,255,0.94)', textShadow: '0 1px 2px rgba(0,0,0,0.18)',
+    // a sheet or a pop-up: white .22 over its heavier blur, the rim; a
+    // control set into it .14
+    sheet: 'rgba(255,255,255,0.22)', sheetBlur: 'blur(34px) saturate(2)', setIn: 'rgba(255,255,255,0.14)',
+    sheetShadow: '0 26px 64px rgba(0,0,0,0.30)',
+    // a bar (the tab bar's, the Edit mode bar)
+    bar: 'linear-gradient(150deg, rgba(255,255,255,0.30), rgba(255,255,255,0.14))', barShadow: '0 10px 30px rgba(0,0,0,0.18)'
+  };
+  function isBright(g) { return g === 'bright' || g === 'bright_pre' || g === 'bright_each'; }
+  function rgbOf(s) {
+    s = String(s || '').trim();
+    var m = /^#([0-9a-f]{6})$/i.exec(s);
+    if (m) { var n = parseInt(m[1], 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+    m = /rgba?\(([^)]+)\)/.exec(s);
+    return m ? m[1].split(',').slice(0, 3).map(function (x) { return parseFloat(x); }) : null;
+  }
+  // WCAG's relative luminance and contrast
+  function relLum(c) {
+    var f = function (v) { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+  }
+  function overRgb(top, a, under) { return under.map(function (v, i) { return top[i] * a + v * (1 - a); }); }
+  // white text (ink, .94) on the plate where text sits -- its 45 % stop, the
+  // light mix -- over `stop` lifted by the filter, at Strength `n`
+  function brightContrast(stop, light, n) {
+    var k = n / 50, under = stop.map(function (v) { return Math.min(255, v * (1 + BRIGHT.lift * k)); });
+    var plate = overRgb(light, BRIGHT.mix, overRgb([255, 255, 255], BRIGHT.wash[1] * k, under));
+    var text = overRgb([255, 255, 255], 0.94, plate), a = relLum(text), b = relLum(plate);
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  }
+  // the lightest of the four stops (relative luminance), or null
+  function lightStop(stops) {
+    var best = null;
+    (stops || []).forEach(function (s) { var c = rgbOf(s); if (c && (!best || relLum(c) > relLum(best))) best = c; });
+    return best;
+  }
+  // THE CAP: the highest Strength (0-100) at which white text keeps 4.5:1 over
+  // the lightest stop; 0 when even the bare glass can't (a very light sky)
+  function brightCap(stops) {
+    var light = lightStop(stops);
+    if (!light) return 100;
+    for (var n = 100; n > 0; n--) if (brightContrast(light, light, n) >= 4.5) return n;
+    return 0;
+  }
+  // the four stops the sky paints now (their targets, not a cross-fade's
+  // middle), or null with no sky
+  function skyStops() {
+    var S = window.hkSky, el = S && S.element ? S.element() : null;
+    if (!el || !el.style) return null;
+    var st = [0, 1, 2, 3].map(function (i) { return el.style.getPropertyValue('--sk' + i); });
+    return st.every(function (x) { return rgbOf(x); }) ? st : null;
+  }
+  function rgba(c, a) { return 'rgba(' + c.map(function (v) { return Math.round(v); }).join(', ') + ', ' + a + ')'; }
+  function brightWash(alphas, k, light) {
+    var w = function (i) { return 'rgba(255, 255, 255, ' + +(alphas[i] * k).toFixed(3) + ')'; };
+    var mix = light ? rgba(light, BRIGHT.mix) : 'rgba(255, 255, 255, 0)';
+    return 'linear-gradient(' + mix + ', ' + mix + '), linear-gradient(160deg, ' + w(0) + ' 0%, ' + w(1) + ' 45%, ' + w(2) + ')';
+  }
+  // the look's variables at Strength `n` (capped by `stops`, the sky's), in
+  // a mode ('each': every plate blurs itself)
+  function brightLook(n, stops, each) {
+    var light = lightStop(stops), k = Math.min(n, brightCap(stops)) / 50;
+    var filter = 'blur(4px) saturate(1.3) brightness(' + +(1 + BRIGHT.lift * k).toFixed(3) + ')';
+    // --sub: the light stop 30 % into white .78 (color-mix's arithmetic,
+    // worked out here: a wall tablet's WebView may not have color-mix)
+    var l = light || [255, 255, 255], sa = 0.3 + 0.7 * 0.78;
+    var sub = rgba(l.map(function (v) { return (0.3 * v + 0.7 * 0.78 * 255) / sa; }), +sa.toFixed(3));
+    var out = { '--hk-glass-plate': brightWash(BRIGHT.wash, k, light), '--hk-chip-plate': brightWash(BRIGHT.chip, k, light),
+                '--hk-chip-backdrop': 'none', '--hk-blur-filter': filter,
+                '--hk-look-edge': '1px solid transparent', '--hk-look-edge-color': 'transparent',
+                '--hk-look-shadow': BRIGHT.rim + ', ' + BRIGHT.glow + ', ' + BRIGHT.shadow,
+                '--hk-look-well': BRIGHT.well, '--hk-look-glyph-off': BRIGHT.glyph, '--hk-look-sub': sub,
+                '--hk-look-text-shadow': BRIGHT.textShadow,
+                '--hk-glass-plate-sheet': BRIGHT.setIn,
+                '--hk-sheet-plate': BRIGHT.sheet, '--hk-sheet-backdrop': BRIGHT.sheetBlur,
+                '--hk-sheet-edge': '1px solid transparent', '--hk-sheet-shadow': BRIGHT.rim + ', ' + BRIGHT.sheetShadow,
+                '--hk-float-plate': brightWash(BRIGHT.chip, k, light), '--hk-float-backdrop': filter,
+                // the tab bar's plate, worn by the bars that aren't the tab
+                // bar's own (the Edit mode bar)
+                '--hk-bar-plate': BRIGHT.bar, '--hk-bar-backdrop': filter, '--hk-bar-edge': '1px solid transparent',
+                '--hk-bar-shadow': BRIGHT.rim + ', ' + BRIGHT.barShadow };
+    if (each) { out['--hk-glass-backdrop'] = filter; out['--hk-chip-backdrop'] = filter; }
+    return out;
+  }
+  LOOKS.bright = function () { return brightLook(amount('bright'), skyStops(), false); };
+  // (the shared layers wearing the picture, as blur_pre is blur's)
+  LOOKS.bright_pre = function () { return LOOKS.bright(); };
+  LOOKS.bright_each = function () { return brightLook(amount('bright'), skyStops(), true); };
   // looks taken out, worn as the one that replaced them (settings.py
   // RETIRED_GLASS) -- a cached copy from before may still name one
   var RETIRED = { blur_baked: 'blur_pre' };
@@ -491,13 +605,17 @@
   var flatKeys = [];
   var LOOK_VARS = ['--hk-glass-plate', '--hk-chip-plate', '--hk-chip-backdrop', '--hk-glass-backdrop',
                    '--hk-blur-filter', '--hk-glass-plate-sheet', '--hk-look-edge', '--hk-look-edge-color',
-                   '--hk-look-shadow', '--hk-look-well', '--hk-look-dash', '--hk-float-plate', '--hk-float-backdrop'];
-  // A PREVIEW ON ONE SCREEN: ?hkglass=clear|frosted|tinted|blur|blur_pre|blur_each on the URL
+                   '--hk-look-shadow', '--hk-look-well', '--hk-look-dash', '--hk-float-plate', '--hk-float-backdrop',
+                   // Bright Glass's own (2026-10-30)
+                   '--hk-look-glyph-off', '--hk-look-sub', '--hk-look-text-shadow',
+                   '--hk-sheet-plate', '--hk-sheet-backdrop', '--hk-sheet-edge', '--hk-sheet-shadow',
+                   '--hk-bar-plate', '--hk-bar-backdrop', '--hk-bar-edge', '--hk-bar-shadow'];
+  // A PREVIEW ON ONE SCREEN: ?hkglass=clear|frosted|tinted|blur|blur_pre|blur_each|bright|bright_pre|bright_each on the URL
   // (or hkSettings.previewGlass(), which the test probe uses) wears that look
   // on this page only, without changing the house's setting or the cache.
   var glassPreview = null;
   try {
-    var gm = /[?&]hkglass=(flat|clear|frosted|tinted|blur_each|blur_pre|blur)\b/.exec(location.search);
+    var gm = /[?&]hkglass=(flat|clear|frosted|tinted|blur_each|blur_pre|blur|bright_each|bright_pre|bright)\b/.exec(location.search);
     if (gm) glassPreview = gm[1];
   } catch (e) { /* no location (a test harness) */ }
   // A DASHBOARD'S OWN LOOK: its item's Screen page, else the house's.
@@ -641,6 +759,9 @@
   var BLACK = { day: ['#05070e', '#05070e', '#05070e', '#05070e'], night: ['#05070e', '#05070e', '#05070e', '#05070e'] };
   function background(b) {
     var mode = (b && b.sky_background) || get('sky.background', 'live') || 'live';
+    // A WALLPAPER (2026-10-30): our own art, a still as a Color is; its
+    // stops are its own (wallpaper())
+    if (mode === 'wallpaper') { var wp = wallpaper(b); return { mode: 'wallpaper', wallpaper: wp, stops: wp.stops, photo: null }; }
     // LANDSCAPES: a photo like any other, HK's own -- Black until the list
     // has come (landscapeList), never the live sky
     if (mode === 'landscapes') {
@@ -653,6 +774,17 @@
     var photo = (b && b.sky_photo) || get('sky.photo', null) || null;
     if (mode === 'photo') return { mode: 'photo', stops: BLACK, photo: photo, look: photoLook(b) };
     return { mode: 'color', stops: backdropStops(color, custom) || BLACK, photo: null };
+  }
+  // THE WALLPAPER as this screen has it (its own, else All Screens'): {id,
+  // night: 'auto' | 'day' | 'night', stops: {day, night}} -- Black's stops
+  // until hk-wallpapers.js has come (the sky draws it on its next tick)
+  function wallpaper(b) {
+    if (b === undefined) b = boardHere();
+    var W = window.hkWallpapers;
+    var id = (b && b.sky_wallpaper) || get('sky.wallpaper', 'ribbons_rose') || 'ribbons_rose';
+    var night = (b && b.sky_wallpaper_night) || get('sky.wallpaper_night', 'auto') || 'auto';
+    if (W && !W.has(id)) id = W.DEFAULT;
+    return { id: id, night: night === 'day' || night === 'night' ? night : 'auto', stops: W ? W.stops(id) : BLACK };
   }
   // A PHOTO'S LOOK (2026-10-13): this screen's own, else All Screens' --
   // {blur px, dim 0..1 (brightness = 1 - dim), saturate 0..2, tint: {day,
@@ -931,6 +1063,23 @@
     }
     if (root.toggleAttribute) root.toggleAttribute('data-hk-frost-tint', frostTint());
   }
+  // BRIGHT GLASS FOLLOWS THE SKY'S COLORS: its plate mixes the light stop in
+  // and its cap is worked out over it, so a change the sky says (a
+  // wallpaper's night version at sunset, a page of another color) is worn
+  // again -- only when the look's variables come out different
+  var brightKey = '';
+  function brightRefresh() {
+    var g = glass();
+    if (!isBright(g)) { brightKey = ''; return; }
+    var key = JSON.stringify(LOOKS[g]());
+    if (key === brightKey) return;
+    brightKey = key;
+    applyLook();
+  }
+  try {
+    window.addEventListener('hk-sky-change', brightRefresh);
+    window.addEventListener('hk-sky-paint', brightRefresh);
+  } catch (e) { /* no window events (a test harness) */ }
   // Marks a glass surface for the shared blur layer. NOT inherited, so only
   // the plate itself carries it, never the text and icons inside.
   try {
@@ -1471,6 +1620,11 @@
     // the Frosted plate with `wash` ([r, g, b]) in place of its gray, at this
     // screen's Frost amount (hk-frosttint.js)
     frostPlate: function (wash) { return frost(amount('frost'), wash); },
+    // BRIGHT GLASS (2026-10-30): which looks are it, its cap over a set of
+    // stops, its variables at a Strength (tests, the panel's note)
+    isBright: isBright, brightCap: brightCap, brightLook: brightLook, brightContrast: function (stop, light, n) {
+      return brightContrast(rgbOf(stop), rgbOf(light), n);
+    },
     skyLook: skyLook,
     ladderSignature: ladderSignature,
     reducedMotion: reducedMotion,
@@ -1482,6 +1636,7 @@
     photoLook: photoLook,
     pageLook: pageLook,
     pageLandscape: pageLandscape,
+    wallpaper: wallpaper,
     landscapeList: landscapeList,
     landscapeFile: landscapeFile,
     BLACK: BLACK,

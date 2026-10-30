@@ -121,7 +121,12 @@ ok('the caps follow a car browser\'s zoomed layout px (--hk-vw/--hk-vh), else th
 ok('the back button closes it (one history entry, same URL, carrying this sheet\'s token -- not a hash)',
    /var entry = \{ hkDetail: id, hkTok: tok \};/.test(src) && /history\.pushState\(entry, '', location\.href\)/.test(src));
 ok('it closes after 60 s untouched, counted from the last touch', /AUTO_CLOSE_MS = 60000/.test(src) && /sheet\.addEventListener\('pointerdown', armAuto, true\)/.test(src));
-ok('one blur layer, on the sheet only', (src.match(/-webkit-backdrop-filter:blur/g) || []).length === 1);
+ok('one blur layer, on the sheet only', (src.match(/-webkit-backdrop-filter:(var\(--hk-sheet-backdrop,)?blur/g) || []).length === 1);
+// ...which a look may wear as its own (Bright Glass, 2026-10-30): today's
+// values stand wherever it doesn't
+ok('...the sheet\'s plate, blur, edge and shadow a look\'s own, today\'s by default',
+   /background:var\(--hk-sheet-plate,rgba\(28,28,32,0\.52\)\);-webkit-backdrop-filter:var\(--hk-sheet-backdrop,blur\(34px\) saturate\(1\.9\)\)/.test(src) &&
+   /border:var\(--hk-sheet-edge,1px solid rgba\(255,255,255,0\.12\)\)/.test(src) && /box-shadow:var\(--hk-sheet-shadow,0 26px 64px rgba\(0,0,0,0\.55\)\)/.test(src));
 ok('no link to history or settings anywhere', !/History|settings tab|config\/entities/.test(src.replace(/\/\/.*$/mg, '')));
 
 print('\n=== covers, locks, climate ===');

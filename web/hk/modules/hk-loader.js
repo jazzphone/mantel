@@ -1,5 +1,5 @@
 // hk-loader.js - imports the order-independent dashboard modules (MODULES
-// below: kiosk, stats, charts, sky, idle, glass, skyshot, timers, saver,
+// below: kiosk, stats, charts, wallpapers, sky, idle, glass, skyshot, timers, saver,
 // saver-panel, fps, campost, menu, tabbar, notify, edit, edit-pages, drag).
 //
 // WHY THIS EXISTS
@@ -31,7 +31,12 @@
                  // asks (hk-kiosk.js): first, so a kiosk screen shows them
                  // for as short a time as possible.
                  'hk-kiosk.js',
-                 'hk-stats.js', 'hk-charts.js', 'hk-flat-image.js', 'hk-sky.js', 'hk-idle.js',
+                 'hk-stats.js', 'hk-charts.js', 'hk-flat-image.js',
+                 // The wallpapers' art and stops (a Background of our own,
+                 // 2026-10-30): it only assigns window.hkWallpapers; the sky
+                 // asks it as it paints, and paints again on its next tick
+                 'hk-wallpapers.js',
+                 'hk-sky.js', 'hk-idle.js',
                  // The sky as a picture, for the Pre-rendered blur (it only
                  // assigns window.hkSkyShot; hk-glass.js asks it when it paints)
                  'hk-skyshot.js',

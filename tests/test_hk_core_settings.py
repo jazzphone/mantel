@@ -251,3 +251,32 @@ def test_the_menu_follows_all_screens_one_setting_at_a_time():
     assert not err and own["menu_own"] == list(M.MENU_KEYS) and "menu_custom" not in own
     assert C.apply_board(own, {"menu_custom": False})[0]["menu_own"] == []
     assert C.apply_board({}, {"menu_own": ["bogus"]})[1] == {"menu_own": "choice"}
+
+
+# ------------------------------------------------------------------ Bright Glass and the Wallpapers (2026-10-30)
+def test_bright_glass_and_the_wallpapers_are_options_absent_until_chosen():
+    """docs/phase11/HOMEVIEW-LOOK.md Phases D and E: the sixth look in Blur's three modes, its Strength, the
+    tab bar's own; a Wallpaper background with its twelve and its Night Version. A house saved today reads
+    exactly as before."""
+    today = M.merged({})
+    assert today["look"]["glass"] == "clear" and today["sky"]["background"] == "live"
+    assert (today["look"]["bright"], today["sky"]["wallpaper"], today["sky"]["wallpaper_night"]) == (50, "ribbons_rose", "auto")
+    assert M.BRIGHT_GLASS == ("bright", "bright_pre", "bright_each") and set(M.BRIGHT_GLASS) <= set(M.GLASS) & set(M.BOARD_GLASS)
+    assert "bright" in M.TAB_BAR_GLASS and "wallpaper" in M.SKY_BACKGROUNDS and "wallpaper" in M.SKY_PAGE_MODES
+    new, err = C.apply_house({}, {"look.glass": "bright_pre", "look.bright": 70, "sky.background": "wallpaper",
+                                  "sky.wallpaper": "pinwheel_teal", "sky.wallpaper_night": "night",
+                                  "sky.pages": {"energy": "wallpaper"}})
+    m = M.merged(new)
+    assert err == {} and (m["look"]["glass"], m["look"]["bright"]) == ("bright_pre", 70)
+    assert (m["sky"]["background"], m["sky"]["wallpaper"], m["sky"]["wallpaper_night"]) == ("wallpaper", "pinwheel_teal", "night")
+    assert m["sky"]["pages"] == {"energy": "wallpaper"}
+    assert C.apply_house({}, {"sky.wallpaper": "plaid"})[1] == {"sky.wallpaper": "choice"}
+    assert C.apply_house({}, {"look.bright": 120})[1] == {"look.bright": "amount"}
+    b, err = C.apply_board({}, {"glass": "bright_each", "bright": 30, "tab_bar_glass": "bright", "sky_background": "wallpaper",
+                                "sky_wallpaper": "shards_graphite", "sky_wallpaper_night": "day"})
+    assert err == {} and (b["glass"], b["bright"], b["tab_bar_glass"]) == ("bright_each", 30, "bright")
+    assert (b["sky_wallpaper"], b["sky_wallpaper_night"]) == ("shards_graphite", "day")
+    b, err = C.apply_board(b, {"bright": None, "sky_wallpaper": None, "sky_wallpaper_night": None})
+    assert err == {} and b["bright"] is None and b["sky_wallpaper"] is None and b["sky_wallpaper_night"] is None, "Same as All Screens"
+    assert M.board({})["bright"] is None and M.board({})["sky_wallpaper"] is None
+    assert {"sky_wallpaper", "sky_wallpaper_night"} <= set(M.SKY_RESET_BOARD) and {"wallpaper", "wallpaper_night"} <= set(M.SKY_RESET)

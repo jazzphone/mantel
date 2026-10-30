@@ -1238,7 +1238,9 @@
           sheet.style.maxWidth = cfg.max_width ||
             'calc(var(--hk-vw, 100vw) - max(var(--hk-content-left, 0px), var(--hk-safe-left,env(safe-area-inset-left,0px))) - var(--hk-safe-right,env(safe-area-inset-right,0px)) - 24px)';
           sheet.style.padding = cfg.padding || '18px';
-          sheet.style.background = cfg.background || '#1c1c1e';
+          // (one left as it comes wears a look's own sheet: Bright Glass's,
+          // 2026-10-30 -- else #1c1c1e as always; a background configured stays)
+          sheet.style.background = cfg.background || 'var(--hk-sheet-plate, #1c1c1e)';
           // a card on the sheet's own plate wears the look's plate for a
           // sheet (M.bg; Tinted's dark plate on #1c1c1e is a hole); a sheet
           // with none (the docked bar's, transparent) keeps the page's
@@ -1272,6 +1274,10 @@
             var f = 'blur(' + cfg.blur + ') saturate(1.6)';
             sheet.style.backdropFilter = f;
             sheet.style.webkitBackdropFilter = f;
+          } else if (!cfg.background) {
+            // ...and its blur with it (none in every other look)
+            sheet.style.backdropFilter = 'var(--hk-sheet-backdrop, none)';
+            sheet.style.webkitBackdropFilter = 'var(--hk-sheet-backdrop, none)';
           }
           // vars: theme variables for the cards INSIDE, set on the sheet so
           // they inherit -- e.g. clearing a native card's own plate.

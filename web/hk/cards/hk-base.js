@@ -257,9 +257,13 @@
   // default), medium (tab bar, floating strip, banners), heavy (sheets,
   // pop-ups, the menu, the More sheet). HA's dialogs and HK Settings' nav bar
   // keep their own.
+  // ...and bright (2026-10-30): Bright Glass's plates (Shared Layer), tab
+  // bar, menu and chips -- light, so a wallpaper's edges show through; its
+  // sheets take blur(34px) saturate(2) (hk-settings.js BRIGHT)
   var BLUR = { light: 'blur(20px) saturate(1.4) brightness(0.82)',
                medium: 'blur(24px) saturate(1.6)',
-               heavy: 'blur(34px) saturate(1.9)' };
+               heavy: 'blur(34px) saturate(1.9)',
+               bright: 'blur(4px) saturate(1.3) brightness(1.08)' };
   // Corners (px): the plate is THE corner; a capsule is half its height
   // (R.capsule('52px') -> 'calc(52px / 2)'). Settings (10 / 7) and the
   // iOS switch keep theirs.

@@ -129,15 +129,20 @@
     ['landscapes', 'Landscapes', false, 'Photographs']];
   // THE BACKGROUND (Sky / Background's first choice, 2026-10-13; settings.py
   // SKY_BACKGROUNDS): what it is, in a line under the tabs
-  var SKY_BACKGROUNDS = [['live', 'Live Sky'], ['color', 'Color'], ['photo', 'Photo'], ['landscapes', 'Landscapes']];
-  var BG_LABELS = { live: 'Live Sky', color: 'Color', photo: 'Photo', landscapes: 'Landscapes' };
+  var SKY_BACKGROUNDS = [['live', 'Live Sky'], ['color', 'Color'], ['photo', 'Photo'], ['landscapes', 'Landscapes'],
+                         ['wallpaper', 'Wallpaper']];
+  var BG_LABELS = { live: 'Live Sky', color: 'Color', photo: 'Photo', landscapes: 'Landscapes', wallpaper: 'Wallpaper' };
   var BG_SAYS = {
     live: 'The real sun, moon and weather behind the cards, dressed for the seasons. What it shows is below.',
     color: 'A still color, a little different by day and by night. No sun, moon, stars, weather or decorations.',
     photo: 'A photo of your own, still and sharp. No sun, moon, stars, weather or decorations. A bright photo is dimmed a little so the cards stay readable.',
     // (2026-10-14) HK Frontend's own photos, the screensaver clock's
-    landscapes: 'Fifty landscape photos that come with ' + PN() + ' — mountains, lakes, coasts, forests, the northern lights — a new one each time the screen wakes, on a schedule, or the same one. No sun, moon, stars, weather or decorations.'
+    landscapes: 'Fifty landscape photos that come with ' + PN() + ' — mountains, lakes, coasts, forests, the northern lights — a new one each time the screen wakes, on a schedule, or the same one. No sun, moon, stars, weather or decorations.',
+    // (2026-10-30) our own art, hk-wallpapers.js
+    wallpaper: 'Twelve wallpapers of soft ribbons, petals, glass shards and pinwheels, in six colors, each with a darker version for the night. The cards take their color. Best with Bright Glass. No sun, moon, stars, weather or decorations.'
   };
+  // A WALLPAPER'S NIGHT VERSION (settings.py WALLPAPER_NIGHT)
+  var WALLPAPER_NIGHT = [['auto', 'After Sunset'], ['day', 'Never'], ['night', 'Always']];
   // WHICH LANDSCAPE, AND WHEN IT CHANGES (settings.py sky_landscape):
   // 'wake', 'every:<minutes>' (LANDSCAPE_EVERY) or a file name -- Stay the Same
   var LANDSCAPE_EVERY = [['every:15', 'Every 15 Minutes'], ['every:30', 'Every 30 Minutes'], ['every:60', 'Every Hour'],
@@ -261,22 +266,44 @@
     ['clear', 'Glass', 'The original see-through glass. The status chips blur what’s behind them.'],
     ['frosted', 'Frosted', 'A milky material with no blur. Costs nothing per frame on any device.'],
     ['tinted', 'Tinted', 'The Home app’s dark plate, with no blur anywhere on the page. The lightest on any device; sheets and pop-ups still blur while open.'],
-    ['blur', 'Blur', 'What’s behind the glass, blurred. Choose how in Blur Mode.']
+    ['blur', 'Blur', 'What’s behind the glass, blurred. Choose how in Blur Mode.'],
+    // BRIGHT GLASS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase D): the
+    // sixth look, in Blur's three modes (BRIGHT_MODES)
+    ['bright', 'Bright Glass', 'A light, clear glass that brings out the colours behind it. Best over a wallpaper.']
   ];
   var BLUR_MODES = [
     ['blur', 'Shared Layer', 'Live: the sky blurs as it moves, one blur for the whole page. Fine on wall tablets — but while the sky moves, the device blurs it again on every frame.'],
     ['blur_pre', 'Pre-rendered (Experimental)', 'Experimental: it can still trail or miss a change now and then. A picture of the sky, blurred once and painted again as the sky changes. The lightest blur, and the smoothest scrolling on a wall tablet. Drifting clouds catch up every 2 seconds and the light within a minute; rain, snow and a passing flock don’t show through the glass.'],
     ['blur_each', 'Each Card', 'Live: every card blurs what’s behind it, so a sheet or a scrolling row never leaves its frost behind. The heaviest — for phones, iPads and computers, not wall tablets.']
   ];
+  // ...and Bright Glass's, the same three by their own stored values
+  // (settings.py BRIGHT_GLASS)
+  var BRIGHT_MODES = BLUR_MODES.map(function (m) { return [m[0].replace('blur', 'bright'), m[1], m[2]]; });
   // every stored value, its full name and its note (a list, a summary)
-  // (every style but Blur, then Blur's modes -- a style added later is in)
-  var GLASS = GLASS_STYLES.filter(function (s) { return s[0] !== 'blur'; }).concat(BLUR_MODES.map(function (m) {
+  // (every style but Blur and Bright Glass, then their modes -- a style
+  // added later is in)
+  var GLASS = GLASS_STYLES.filter(function (s) { return s[0] !== 'blur' && s[0] !== 'bright'; }).concat(BLUR_MODES.map(function (m) {
     return [m[0], 'Blur · ' + m[1], m[2]];
+  })).concat(BRIGHT_MODES.map(function (m) {
+    return [m[0], 'Bright Glass · ' + m[1], m[2]];
   }));
   function isBlur(v) { return v === 'blur' || v === 'blur_pre' || v === 'blur_each'; }
+  function isBright(v) { return v === 'bright' || v === 'bright_pre' || v === 'bright_each'; }
+  // the Blur Modes of a style (Blur's or Bright Glass's), else null
+  function modesFor(style) { return style === 'blur' ? BLUR_MODES : style === 'bright' ? BRIGHT_MODES : null; }
+  // the value a style is saved as when picked: Blur and Bright Glass keep
+  // the mode already chosen (`cur`, either's), else start from `fallback`'s
+  function styleValue(style, cur, fallback) {
+    var modes = modesFor(style);
+    if (!modes) return style;
+    var mode = isBlur(cur) || isBright(cur) ? cur : (isBlur(fallback) || isBright(fallback) ? fallback : 'blur');
+    var at = ['', '_pre', '_each'].filter(function (x) { return mode === 'blur' + x || mode === 'bright' + x; })[0] || '';
+    return style + at;
+  }
   // the style a stored value belongs to
   function glassStyle(v) {
     if (isBlur(v)) return 'blur';
+    if (isBright(v)) return 'bright';
     for (var i = 0; i < GLASS_STYLES.length; i++) if (GLASS_STYLES[i][0] === v) return v;
     return 'clear';
   }
@@ -726,7 +753,8 @@
   function roomsPlace(v) { return v === false || v === 'off' ? 'off' : v === 'button' ? 'button' : 'more'; }
   // ('tinted' was stored as 'clear' before entry 1.12: Appearance's
   // see-through glass is 'clear')
-  var TAB_BAR_GLASS = [['house', 'Same as Screen'], ['blur', 'Blur'], ['frosted', 'Frosted'], ['tinted', 'Tinted']];
+  var TAB_BAR_GLASS = [['house', 'Same as Screen'], ['blur', 'Blur'], ['frosted', 'Frosted'], ['tinted', 'Tinted'],
+                       ['bright', 'Bright Glass']];
   function choiceLabel(list, v) {
     for (var i = 0; i < list.length; i++) if (list[i][0] === v) return list[i][1];
     return v;
@@ -1013,7 +1041,7 @@
   }
   // which amount the glass uses (the others are kept but not shown)
   function amountsFor(effective) {
-    return { frost: effective === 'frosted', blur: isBlur(effective), tint: effective === 'tinted' };
+    return { frost: effective === 'frosted', blur: isBlur(effective), tint: effective === 'tinted', bright: isBright(effective) };
   }
   // the Glass group's footer, for the style shown (All Screens' Appearance
   // and a screen's page say the same)
@@ -1022,6 +1050,7 @@
     if (style === 'flat') return 'Opaque surfaces with no blur, animations or live sky effects. Color, landscape and photo backgrounds remain available in Sky / Background. Your other appearance preferences are kept.';
     if (style === 'frosted') t += ' Frost: how milky, 50% is the middle. Tint from Background: each card takes the color of the page behind it instead of one gray.';
     if (isBlur(style)) t += ' Blur: how strong, 50% is 20 px.';
+    if (isBright(style)) t += ' Strength: how bright the glass is, 50% as designed. It holds back by itself where white text would get hard to read.';
     if (style === 'tinted') t += ' Darkness: how much of the background shows through, 50% is 75% dark. Icon Circles: Dark as the Home app’s, or Light to keep their shape over dark scenery.';
     return t;
   }
@@ -1055,7 +1084,7 @@
   // null: nothing to recommend (a light screen already, no numbers that
   // match, or all fast enough).
   var SLOW_FPS = 45, FPS_FRESH = 14 * 86400;
-  var HEAVY_LOOKS = { blur: 1, frosted: 1, tinted: 1 };
+  var HEAVY_LOOKS = { blur: 1, frosted: 1, tinted: 1, bright: 1 };
   // the settings the ladder reads, as a screen has them: {style, anim
   // (the sky animates), weather, rain, front (moving things over the cards),
   // camera (the first tile plays live), cams (the screen has a camera strip
@@ -1126,7 +1155,7 @@
     var label = step.label, says, then = null;
     if (step.id === 'glass') {
       label = (GLASS_STYLES.filter(function (g) { return g[0] === kind; })[0] || [0, kind])[1];
-      says = who + label + '. ' + (kind === 'blur' ? 'Glass looks almost the same and is lighter.'
+      says = who + label + '. ' + (kind === 'blur' || kind === 'bright' ? 'Glass looks almost the same and is lighter.'
         : 'Flat is the lightest look: no blur, animations or moving sky.');
     } else says = who + step.drew + '. ' + step.why;
     // the next step, if one would still apply once this one is taken
@@ -1333,6 +1362,7 @@
     if (mode === 'own') return 'Page Color';
     if (mode === 'photo') return 'Photo';
     if (mode === 'landscapes') return 'Landscapes';
+    if (mode === 'wallpaper') return 'Wallpaper';
     var b = (backdrops || []).filter(function (x) { return x.id === mode; })[0];
     return b ? b.label : mode === 'live' ? 'Live Sky' : mode;
   }
@@ -2050,7 +2080,9 @@
                             'sky_liveliness', 'sky_liveliness_occ', 'sky_liveliness_custom', 'sky_calm_empty',
                             'sky_background', 'sky_color', 'sky_photo', 'sky_page_photos', 'sky_photo_look', 'sky_page_looks',
                             'sky_landscape', 'sky_landscape_look', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light', 'sky_flat_pages', 'sky_flat_image_look', 'sky_flat_page_image_looks', 'sky_image_look',
-                            'flat_colors', 'flat_page_colors'], true],
+                            'flat_colors', 'flat_page_colors',
+                            // Bright Glass's Strength and the Wallpaper (2026-10-30)
+                            'bright', 'sky_wallpaper', 'sky_wallpaper_night'], true],
     ['behavior', 'Behavior', ['popups', 'notify', 'notify_saver', 'notify_dnd', 'now_playing', 'timer_bar', 'bar_all_pages',
                               'np_style', 'np_side', 'np_bar', 'np_bar_phone'], true],
     ['idle', 'When Idle', ['screensaver', 'screensaver_options', 'screensaver_engine', 'wallpanel_options'], true],
@@ -2195,13 +2227,14 @@
   // stops. A true flag is still an override, even when it matches the house.
   function skySummary(b) {
     var keys = ['sky_animations', 'sky_weather', 'sky_precipitation', 'sky_focus_pause', 'sky_decorations', 'sky_decoration_style', 'sky_moving', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_custom',
-                'sky_background', 'sky_color', 'sky_photo', 'sky_photo_look', 'sky_landscape', 'sky_landscape_look'];
+                'sky_background', 'sky_color', 'sky_photo', 'sky_photo_look', 'sky_landscape', 'sky_landscape_look',
+                'sky_wallpaper', 'sky_wallpaper_night'];
     var pages = Object.keys(b.sky_pages || {}).length;
     if (keys.every(function (k) { return b[k] == null; }) && !pages) return 'Same as All Screens';
     var parts = [];
     // the Background first: a still Color or Photo is the whole look
     if (b.sky_background) parts.push(BG_LABELS[b.sky_background] || b.sky_background);
-    if (b.sky_background === 'color' || b.sky_background === 'photo' || b.sky_background === 'landscapes') return parts.concat(pages ? [pages === 1 ? '1 Page Background' : pages + ' Page Backgrounds'] : []).join(', ');
+    if (b.sky_background === 'color' || b.sky_background === 'photo' || b.sky_background === 'landscapes' || b.sky_background === 'wallpaper') return parts.concat(pages ? [pages === 1 ? '1 Page Background' : pages + ' Page Backgrounds'] : []).join(', ');
     if (b.sky_animations === false) parts.push('No Animation');
     if (b.sky_weather === false) parts.push('No Weather');
     if (b.sky_precipitation === false) parts.push('No Rain & Snow');
@@ -2430,7 +2463,7 @@
     menuOwn: menuOwn, ownsMenu: ownsMenu, menuOwnSet: menuOwnSet, menuOwnReset: menuOwnReset, menuSummary: menuSummary,
     MENU_KINDS: MENU_KINDS, menuKind: menuKind, kindUsers: kindUsers, usedBy: usedBy, menuWord: menuWord, KIND_KEYS: KIND_KEYS, usesSide: usesSide, PAGE_HEADER_SAYS: PAGE_HEADER_SAYS,
     accentColorOf: accentColorOf, accentChanges: accentChanges, GLASS: GLASS,
-    GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, TINT_WELLS: TINT_WELLS, isBlur: isBlur, glassStyle: glassStyle, SLOW_FPS: SLOW_FPS, LADDER: LADDER, ladderFacts: ladderFacts, ladderSignature: ladderSignature, slowRecommend: slowRecommend, PRESETS: PRESETS, STATUS_LABELS: STATUS_LABELS,
+    GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, BRIGHT_MODES: BRIGHT_MODES, TINT_WELLS: TINT_WELLS, isBlur: isBlur, isBright: isBright, modesFor: modesFor, styleValue: styleValue, glassStyle: glassStyle, WALLPAPER_NIGHT: WALLPAPER_NIGHT, SLOW_FPS: SLOW_FPS, LADDER: LADDER, ladderFacts: ladderFacts, ladderSignature: ladderSignature, slowRecommend: slowRecommend, PRESETS: PRESETS, STATUS_LABELS: STATUS_LABELS,
     STATUS_SAYS: STATUS_SAYS, STATUS_ROWS: STATUS_ROWS, STATUS_SOURCE: STATUS_SOURCE, PAGES: PAGES, pageOf: pageOf, PAGE_TYPES: PAGE_TYPES,
     PAGE_FEATURES: PAGE_FEATURES, pagesListed: pagesListed, pageOfRoute: pageOfRoute, routeForward: routeForward, screenShows: screenShows, headerOffOn: headerOffOn, statusSummary: statusSummary, HEADER_PAGES: HEADER_PAGES,
     WOODLAND: WOODLAND, woodlandSummary: woodlandSummary, CLOUD_STYLES: CLOUD_STYLES, SKY_MOVING: SKY_MOVING, DAYTIME_SKIES: DAYTIME_SKIES,

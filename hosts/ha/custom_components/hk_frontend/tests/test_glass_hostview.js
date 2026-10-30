@@ -182,6 +182,11 @@ order = painted(CONTAINER); page = layersOf(V).filter(function (l) { return l.pa
 ok('the pills\' layer in the view, after the sky', page.length === 1 && order.indexOf(page[0]) > order.indexOf(SKY) &&
    CONTAINER.children.filter(isLayer).length === 0);
 setLook('blur'); advance(100);
+// (Bright Glass's Shared Layer, 2026-10-30: the same layers, the same place)
+setLook('bright'); advance(100);
+order = painted(CONTAINER); page = layersOf(V).filter(function (l) { return l.parentNode === V.shadowRoot; });
+ok('Bright Glass: the pills\' layer in the view, after the sky', page.length === 1 && order.indexOf(page[0]) > order.indexOf(SKY));
+setLook('blur'); advance(100);
 
 print('\n=== another page: its view, its layer ===');
 V.remove(); leaveAll(); advance(100);

@@ -704,10 +704,11 @@
       '  display:flex;flex-direction:column;gap:20px;padding:24px;border-radius:38px;',
       // THE COLOUR COMES THROUGH: a light tint over a saturated blur, so the
       // sky and the pills behind tint the sheet the way the Home app's cards
-      // are tinted.
-      '  background:rgba(28,28,32,0.52);-webkit-backdrop-filter:blur(34px) saturate(1.9);',
-      '  backdrop-filter:blur(34px) saturate(1.9);border:1px solid rgba(255,255,255,0.12);',
-      '  box-shadow:0 26px 64px rgba(0,0,0,0.55);overflow:hidden;',
+      // are tinted. A look may wear its own (--hk-sheet-*: Bright Glass's
+      // white .22 over blur(34px) saturate(2) and its rim, 2026-10-30).
+      '  background:var(--hk-sheet-plate,rgba(28,28,32,0.52));-webkit-backdrop-filter:var(--hk-sheet-backdrop,blur(34px) saturate(1.9));',
+      '  backdrop-filter:var(--hk-sheet-backdrop,blur(34px) saturate(1.9));border:var(--hk-sheet-edge,1px solid rgba(255,255,255,0.12));',
+      '  box-shadow:var(--hk-sheet-shadow,0 26px 64px rgba(0,0,0,0.55));overflow:hidden;',
       '  opacity:0;transform:translateY(24px) scale(.98);',
       '  transition:opacity .25s ease,transform .3s cubic-bezier(.32,.72,0,1)}',
       '.hkd.open .sheet{opacity:1;transform:none}',

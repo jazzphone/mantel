@@ -83,12 +83,18 @@ function openSheet(id) {
       const errors = []; page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(input.origin + '/' + input.screen + '/home');
       await page.waitForFunction(() => window.__mantelReady === true && !!window.hkDetail, null, { timeout: 30000 });
+      await page.waitForTimeout(1500);
       // headless WebKit draws no backdrop blur: the frost Safari gives the sheet stood in for, so the
       // page behind does not show through the shots
-      await page.evaluate(() => { const css = new CSSStyleSheet();
-        css.replaceSync('.hkd .sheet{background:rgba(44,44,50,.96)!important}');
-        document.adoptedStyleSheets = [...document.adoptedStyleSheets, css]; });
-      await page.waitForTimeout(1500);
+      // (Bright Glass: its sheet plate, white .22, over the wallpaper's middle stops, which its blur
+      // would bring through: sheet_review.py --look bright)
+      await page.evaluate((look) => { const css = new CSSStyleSheet();
+        const sky = document.getElementById('hk-sky') || (window.hkSky && window.hkSky.element && window.hkSky.element());
+        const mid = sky && sky.style.getPropertyValue('--sk1'), low = sky && sky.style.getPropertyValue('--sk2');
+        css.replaceSync(look === 'bright' && mid
+          ? '.hkd .sheet{background:linear-gradient(rgba(255,255,255,.22),rgba(255,255,255,.22)),linear-gradient(' + mid + ',' + low + ')!important}'
+          : '.hkd .sheet{background:rgba(44,44,50,.96)!important}');
+        document.adoptedStyleSheets = [...document.adoptedStyleSheets, css]; }, input.look || null);
       for (const [name, id] of input.sheets) {
         let m = null;
         for (let t = 0; t < 2 && !m; t++) {           // a sheet still closing refuses the next: once more

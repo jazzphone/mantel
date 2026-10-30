@@ -34,7 +34,12 @@ var cases = [
   ['a photo, a landscape', { glass: 'blur' }, { background: 'photo' }, {}, {}, 'blur:a0w0r0f0c1'],
   ['a screen of its own Flat', { glass: 'blur' }, { moving: 'front' }, { flat: true }, {}, 'flat:a0w0r0f0c0'],
   ['All Screens Flat', { flat: true, glass: 'blur' }, {}, {}, {}, 'flat:a0w0r0f0c0'],
-  ['a screen of its own Glass over All Screens’ Flat', { flat: true }, {}, { flat: false, glass: 'clear' }, {}, 'clear:a1w1r1f0c1']
+  ['a screen of its own Glass over All Screens’ Flat', { flat: true }, {}, { flat: false, glass: 'clear' }, {}, 'clear:a1w1r1f0c1'],
+  // BRIGHT GLASS (2026-10-30): a blur style of its own, over a wallpaper (a
+  // still: no sky motion to count)
+  ['Bright Glass over a wallpaper', { glass: 'bright' }, { background: 'wallpaper' }, {}, {}, 'bright:a0w0r0f0c1'],
+  ['...Pre-rendered, a screen of its own over the live sky', { glass: 'clear' }, {}, { glass: 'bright_pre' }, {}, 'bright_pre:a1w1r1f0c1'],
+  ['...a screen of its own wallpaper', { glass: 'bright_each' }, {}, { sky_background: 'wallpaper' }, {}, 'bright_each:a0w0r0f0c1']
 ];
 cases.forEach(function (c) {
   var got = both(c[1], c[2], c[3], c[4]);
@@ -43,7 +48,15 @@ cases.forEach(function (c) {
 });
 // the word is one the server keeps (page_health.py SIG)
 ok('every word is a style, a colon and a few letters and digits', cases.every(function (c) {
-  return /^(?:flat|clear|frosted|tinted|blur|blur_pre|blur_each):[a-z0-9]{1,24}$/.test(c[5]);
+  return /^(?:flat|clear|frosted|tinted|blur|blur_pre|blur_each|bright|bright_pre|bright_each):[a-z0-9]{1,24}$/.test(c[5]);
 }));
+// BRIGHT GLASS IS HEAVY (a blur style): a tablet under 45 fps on it is offered
+// Glass first, as on Blur, Frosted and Tinted -- in each of its modes
+['bright', 'bright_pre', 'bright_each'].forEach(function (g) {
+  var facts = M.ladderFacts({ glass: g }, {}, {}, { strip: true });
+  var rec = M.slowRecommend('hall', facts, [{ name: 'Hall', fps: 30, fps_screen: 'hall', fps_sig: M.ladderSignature(facts), fps_at: 1000 }], 1000);
+  ok(g + ': the slow-tablet ladder offers Glass first', !!rec && rec.step === 'glass' && rec.label === 'Bright Glass' &&
+     rec.change.glass === 'clear' && /Glass looks almost the same/.test(rec.says), rec);
+});
 print(fail ? 'FAIL ' + fail + ' LADDER TESTS' : 'ALL ' + pass + ' LADDER TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

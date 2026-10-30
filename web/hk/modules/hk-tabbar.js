@@ -340,7 +340,10 @@
   function material(setting, look) {
     if (look === 'flat') return 'flat';
     if (setting === 'tinted' || setting === 'clear') return 'tinted';
-    if (setting === 'frosted' || setting === 'blur') return setting;
+    if (setting === 'frosted' || setting === 'blur' || setting === 'bright') return setting;
+    // Same as Screen on Bright Glass (2026-10-30), in any of its modes: the
+    // bar's own Bright Glass
+    if (look === 'bright' || look === 'bright_pre' || look === 'bright_each') return 'bright';
     // Same as Screen: the screen's Tinted is this bar's Tinted -- no blur on
     // a bar that is always up (and no picture to pin behind it)
     if (look === 'tinted') return 'tinted';
@@ -419,6 +422,17 @@
       '  -webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6)}',
       '.frosted .g{background:rgba(62,64,74,0.95)}',
       '.tinted .g{background:rgba(24,24,28,0.93)}',
+      // BRIGHT GLASS (2026-10-30, DESIGN.md "Bright Glass"): a white wash over
+      // the look's light blur (hkCards.BLUR.bright), the rim; the page you're
+      // on a white pill, its name and icon the accent's, deepened to read on
+      // white. Its sheets (More, Rooms) a heavier blur under a white .22.
+      '.bright .g{background:linear-gradient(150deg,rgba(255,255,255,0.30),rgba(255,255,255,0.14));border-color:transparent;',
+      '  -webkit-backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);',
+      '  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.22),inset 0 1.5px 0 rgba(255,255,255,0.30),0 10px 30px rgba(0,0,0,0.18)}',
+      '.bright .tab.here::before,.bright .it.here{background:rgba(255,255,255,0.92)}',
+      '.bright .tab.here,.bright .cur,.bright .roomsbtn.here,.bright .it.here span,.bright .it.here hk-icon{color:color-mix(in srgb,' + window.hkCards.v('accent') + ' 64%,#000)}',
+      '.bright .tab,.bright .roomsbtn{text-shadow:0 1px 2px rgba(0,0,0,0.18)}',
+      '.bright .tab.here{text-shadow:none}',
       // THE PILL
       // TAB_GAP between tabs: two highlights side by side (the page you are
       // on, the one under the pointer) never touch
@@ -504,6 +518,7 @@
       // the More sheet: the overlay surface (hkCards.OVER), under a heavier blur than the bar
       '.blur .sheet.g{background:linear-gradient(145deg,rgba(255,255,255,0.10),rgba(255,255,255,0.03)),rgba(28,28,32,0.52);',
       '  -webkit-backdrop-filter:blur(34px) saturate(1.9);backdrop-filter:blur(34px) saturate(1.9)}',  // hkCards.BLUR.heavy
+      '.bright .sheet.g{background:rgba(255,255,255,0.22);-webkit-backdrop-filter:blur(34px) saturate(2);backdrop-filter:blur(34px) saturate(2)}',
       '.sheet h2{flex:none;margin:0 6px 12px;font-size:17px;font-weight:700;letter-spacing:-0.41px;color:' + window.hkCards.v('ink') + '}',
       // THE BIG GRID (2026-10-06): cells at least 84 px -- three across on a
       // phone, six on a computer -- big icons, and names on up to two lines

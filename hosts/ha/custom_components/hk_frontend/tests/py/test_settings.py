@@ -1200,6 +1200,96 @@ def test_tinted_is_a_glass_with_its_darkness_and_icon_circles():
     assert (b["tint"], b["well"]) == (100, None), "an amount is held to 0-100 (as Frost and Blur); an unknown circle follows All Screens"
 
 
+def test_bright_glass_is_a_look_in_blurs_three_modes_with_a_strength():
+    """Bright Glass (2026-10-30, Mantel's docs/phase11/HOMEVIEW-LOOK.md Phase D): the sixth look, one stored
+    value per Blur Mode as Blur's (bright, bright_pre, bright_each), with a Strength (`bright`, 0-100, 50) for
+    All Screens and a screen; the tab bar can wear it on its own. Nothing saved before changes."""
+    from custom_components.hk_frontend import settings as S
+    from custom_components.hk_frontend.settings_api import apply_board, apply_house
+    for g in ("bright", "bright_pre", "bright_each"):
+        assert g in S.GLASS and g in S.BOARD_GLASS and S.board({"glass": g})["glass"] == g
+    assert "bright" in S.TAB_BAR_GLASS and S.tab_bar_glass("bright") == "bright"
+    look = S.merged({})["look"]
+    assert look["bright"] == 50 and look["glass"] == "clear", "absent: today's look"
+    assert S.merged({"dashboard": {"look": {"glass": "bright", "bright": 80}}})["look"] == {**look, "glass": "bright", "bright": 80}
+    assert S.merged({"dashboard": {"look": {"bright": "lots"}}})["look"]["bright"] == 50
+    assert S.board({})["bright"] is None and S.board({"bright": 140})["bright"] == 100 and S.board({"bright": 0})["bright"] == 0
+    data, err = apply_board({}, {"glass": "bright_pre", "bright": 35, "tab_bar_glass": "bright"})
+    assert err == {} and (data["glass"], data["bright"], data["tab_bar_glass"]) == ("bright_pre", 35, "bright")
+    assert apply_board({}, {"bright": 101})[1] == {"bright": "amount"}
+    opts, err = apply_house({}, {"look.glass": "bright_each", "look.bright": 20})
+    assert err == {} and S.merged(opts)["look"]["glass"] == "bright_each" and S.merged(opts)["look"]["bright"] == 20
+
+
+def _js_value(src, name):
+    """A JavaScript literal of a module, read with an engine (node, else macOS's jsc)."""
+    import json
+    import subprocess
+    for cmd in (["node", "-e", src + "\nconsole.log(JSON.stringify(" + name + "))"],
+                ["/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc", "-e",
+                 src + "\nprint(JSON.stringify(" + name + "))"]):
+        try:
+            return json.loads(subprocess.run(cmd, capture_output=True, text=True, check=True).stdout)
+        except FileNotFoundError:
+            continue
+    raise AssertionError("a JavaScript engine is required to read hk-wallpapers.js")
+
+
+def test_wallpapers_stay_under_the_skys_caps_and_keep_white_text_readable_on_bright_glass():
+    """The Wallpapers (2026-10-30, Phase E): a Background kind of its own with twelve of our own, each with a
+    night version (sky.wallpaper / wallpaper_night, a screen's sky_wallpaper / sky_wallpaper_night). Each one's
+    four stops (hk-wallpapers.js, measured off its art) stay under the live sky's luma caps, as the curated
+    Colors do; and white text on Bright Glass keeps 4.5:1 against the plate drawn over each one's lightest stop
+    at the designed Strength (DESIGN.md "Bright Glass"; hk-settings.js brightCap holds it past that)."""
+    import os
+    from custom_components.hk_frontend import settings as S
+    assert "wallpaper" in S.SKY_BACKGROUNDS and "wallpaper" in S.SKY_PAGE_MODES
+    assert len(S.WALLPAPERS) == 12 and S.WALLPAPER_NIGHT == ("auto", "day", "night")
+    sky = S.merged({})["sky"]
+    assert (sky["background"], sky["wallpaper"], sky["wallpaper_night"]) == ("live", "ribbons_rose", "auto")
+    assert S.merged({"dashboard": {"sky": {"wallpaper": "plaid", "wallpaper_night": "often"}}})["sky"]["wallpaper"] == "ribbons_rose"
+    b = S.board({"sky_background": "wallpaper", "sky_wallpaper": "shards_blue", "sky_wallpaper_night": "night"})
+    assert (b["sky_background"], b["sky_wallpaper"], b["sky_wallpaper_night"]) == ("wallpaper", "shards_blue", "night")
+    assert S.board({"sky_wallpaper": "plaid"})["sky_wallpaper"] is None and S.board({})["sky_wallpaper_night"] is None
+    assert {"wallpaper", "wallpaper_night"} <= set(S.SKY_RESET) and {"sky_wallpaper", "sky_wallpaper_night"} <= set(S.SKY_RESET_BOARD)
+    src = open(os.path.join(COMPONENT, "frontend", "modules", "hk-wallpapers.js")).read()
+    walls = _js_value("globalThis.window = globalThis;\n" + src,
+                      "window.hkWallpapers.list().map(function (w) { return [w.id, window.hkWallpapers.stops(w.id)]; })")
+    assert [w[0] for w in walls] == list(S.WALLPAPERS)
+
+    def hexrgb(c):
+        return [int(c[i:i + 2], 16) for i in (1, 3, 5)]
+
+    def luma(c):
+        return sum(v * w for v, w in zip(hexrgb(c), (.2126, .7152, .0722)))
+
+    def rel(c):
+        lin = [(v / 255 / 12.92) if v / 255 <= .04045 else ((v / 255 + .055) / 1.055) ** 2.4 for v in c]
+        return .2126 * lin[0] + .7152 * lin[1] + .0722 * lin[2]
+
+    def over(top, a, under):
+        return [t * a + u * (1 - a) for t, u in zip(top, under)]
+
+    def contrast(stop, strength):
+        # the plate where text sits (its 45 % stop, .09 at 50) and the light stop at 7 %, over the stop lifted
+        # by the blur's brightness (1.08 at 50); white text at .94 on it
+        k = strength / 50
+        under = [min(255, v * (1 + .08 * k)) for v in hexrgb(stop)]
+        plate = over(hexrgb(stop), .07, over([255, 255, 255], .09 * k, under))
+        text = over([255, 255, 255], .94, plate)
+        a, b = rel(text), rel(plate)
+        return (max(a, b) + .05) / (min(a, b) + .05)
+
+    pos = (0, .42, .72, 1)
+    for wid, stops in walls:
+        for key in ("day", "night"):
+            values = list(map(luma, stops[key]))
+            assert values[-1] <= 146, (wid, key, values[-1])
+            assert sum((values[i] + values[i + 1]) / 2 * (pos[i + 1] - pos[i]) for i in range(3)) <= 86, (wid, key)
+            lightest = max(stops[key], key=lambda c: rel(hexrgb(c)))
+            assert contrast(lightest, 50) >= 4.5, (wid, key, round(contrast(lightest, 50), 2))
+
+
 def test_screensaver_portrait_and_landscape_photos():
     """Portrait and Landscape Photos, each their own (2026-10-13)."""
     from custom_components.hk_frontend import settings as S

@@ -13,7 +13,10 @@ function ok(name, cond, got) { if (cond) pass++; else { fail++; print('FAIL ' + 
 var flat = function (s) { return s.replace(/\s+/g, ''); };
 ok('BLUR has the three tiers', flat(B.light) === 'blur(20px)saturate(1.4)brightness(0.82)' &&
    flat(B.medium) === 'blur(24px)saturate(1.6)' && flat(B.heavy) === 'blur(34px)saturate(1.9)');
-var TIERS = [B.light, B.medium, B.heavy].map(flat);
+// ...and Bright Glass's (2026-10-30, DESIGN.md's Blur row): its plates, tab
+// bar, menu and chips
+ok('BLUR has the bright tier', flat(B.bright) === 'blur(4px)saturate(1.3)brightness(1.08)', B.bright);
+var TIERS = [B.light, B.medium, B.heavy, B.bright].map(flat);
 var EXCEPT = {
   // the menu's edge tab: a small plate on the page, lighter than a chip
   'hk-menu.js blur(20px)saturate(1.15)brightness(0.86)': 'edge tab',
@@ -24,7 +27,12 @@ var EXCEPT = {
   // the banners' small controls (2 more, Clear All)
   'hk-notify.js blur(18px)saturate(1.6)': 'banner controls',
   // the Person sheet's label over its map
-  'hk-person.js blur(20px)saturate(1.5)': 'map label'
+  'hk-person.js blur(20px)saturate(1.5)': 'map label',
+  // Bright Glass's sheets (DESIGN.md: "its sheets take blur(34px) saturate(2)"):
+  // the tab bar's More and Rooms
+  'hk-tabbar.js blur(34px)saturate(2)': 'Bright Glass sheets',
+  // ...and its side menu open over the page (a sheet, there)
+  'hk-menu.js blur(34px)saturate(2)': 'Bright Glass menu over the page'
 };
 var FILES = ['cards/hk-base', 'cards/hk-calendar', 'cards/hk-cameras', 'cards/hk-chip', 'cards/hk-control', 'cards/hk-detail',
   'cards/hk-energy', 'cards/hk-home', 'cards/hk-layout', 'cards/hk-library', 'cards/hk-media', 'cards/hk-music', 'cards/hk-person',

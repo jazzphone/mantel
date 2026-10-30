@@ -169,7 +169,9 @@
       var o = String(cfg.off_icon_color).toLowerCase().trim();
       return window.hkCards.flatColor(NAME_MAP[o] || cfg.off_icon_color, 'glyph');
     }
-    if (!on) return window.hkCards.flatColor(colourFor(cfg, stateObj), 'glyph');
+    // (Bright Glass, 2026-10-30: white, the background supplies the color --
+    // --hk-look-glyph-off, unset in every other look)
+    if (!on) return 'var(--hk-look-glyph-off, ' + window.hkCards.flatColor(colourFor(cfg, stateObj), 'glyph') + ')';
     if (!cfg.bare_icon) return 'white';
     // (lit and bare: Flat's Light takes the bright color, hk-base flatColor)
     return window.hkCards.flatColor(cfg.bare_icon_color || colourFor(cfg, stateObj), 'on');
@@ -268,6 +270,11 @@
     // cell, two to a section by default, instead of sitting pill-wide in it.
     ':host([data-hk-cell]) hk-plate.card{width:100%;min-width:0;max-width:none}',
     'hk-plate.card[data-on="1"] .label{color:' + window.hkCards.v('ink-on-state') + '}',
+    // BRIGHT GLASS (2026-10-30): off, the second line the background's light
+    // color into white (--hk-look-sub) and a light text shadow -- unset (as
+    // before) in every other look
+    'hk-plate.card:not([data-on="1"]) .label,hk-plate.card:not([data-on="1"]) .room{color:var(--hk-look-sub, ' + window.hkCards.v('ink-2') + ')}',
+    'hk-plate.card:not([data-on="1"]) .grid{text-shadow:var(--hk-look-text-shadow, none)}',
 
     // ---- scene variant -------------------------------------------------
     // A scene is NOT a pill with a different grid. Diffing every resolved
