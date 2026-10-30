@@ -45,7 +45,11 @@
     ['dots', 'Dot Matrix', 'An amber LED departure board'],
     ['ring', 'Day Ring', 'Today as a ring: daylight, night and the sun now'],
     ['glass', 'Glass', 'The time on a frosted pane'],
-    ['type', 'Typewriter', 'A sentence, typed out, the cursor blinking']
+    ['type', 'Typewriter', 'A sentence, typed out, the cursor blinking'],
+    // THE HOMEVIEW-STYLE FACES (2026-10-30; below, "the HomeView-style faces")
+    ['liquid', 'Liquid', 'Soft, glossy numerals that drift slowly over a pastel gradient'],
+    ['giant', 'Giant Numerals', 'An analog clock with 12, 3, 6 and 9 drawn huge on a strong colour'],
+    ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft colour']
   ];
   // [id, name, moving] -- every one moves but Black (PAINTERS below)
   var BGS = [
@@ -628,9 +632,6 @@
   // beside a Side Pane, never the window -- laid out wide, tall or square by
   // its shape. Over photos or the forecast (ground: false) the ground stays
   // off and the numerals turn white.
-  STYLES.push(['liquid', 'Liquid', 'Soft, glossy numerals that drift slowly over a pastel gradient'],
-              ['giant', 'Giant Numerals', 'An analog clock with 12, 3, 6 and 9 drawn huge on a strong colour'],
-              ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft colour']);
   COLORS.liquid = [['pastel', 'Pastel', {}],
     ['sunset', 'Sunset', { '--ckq0': '#ffe1c2', '--ckq1': '#ffc3b0', '--ckq2': '#f6b0cf', '--ckt0': '#ff7a3d', '--ckt1': '#ff4f7b', '--ckt2': '#b84fff' }],
     ['ocean', 'Ocean', { '--ckq0': '#c7eef5', '--ckq1': '#b2d8f6', '--ckq2': '#c3c9f6', '--ckt0': '#13c2c2', '--ckt1': '#2f7bff', '--ckt2': '#6a4dff' }],
