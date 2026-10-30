@@ -1,7 +1,8 @@
 """IMAGE WORK IN ITS OWN PROCESS (docs/phase4/PHOTOS.md, "Where the work runs").
 
-Decoding and re-encoding a picture (Mantel Photos' ``process``, Your Files' ``reencode_photo``) and looking for faces
-(an upload's, and the face backfill's ``look``) run here, in ONE worker process, ONE job at a time:
+Decoding and re-encoding a picture (Mantel Photos' ``process``, Your Files' ``reencode_photo``), looking for faces
+(an upload's, and the face backfill's ``look``) and cutting out a photo's subject (Time Behind: an upload's, and the
+cut-out backfill's ``cut_look``) run here, in ONE worker process, ONE job at a time:
 
 * **One worker.** A ``ProcessPoolExecutor(max_workers=1)`` with the ``spawn`` start method (a fresh interpreter that
   imports only image_work.py, faces.py and Pillow -- never the server, its sockets or its database). It is started on
@@ -33,6 +34,7 @@ from concurrent.futures.process import BrokenProcessPool
 from pathlib import Path
 from typing import Callable
 
+from . import cutout as cutter
 from . import faces as face_finder
 from . import image_work
 
@@ -60,6 +62,7 @@ _timer: threading.Timer | None = None
 _breaks = 0
 _fallback = False
 _faces: bool | None = None          # what the worker said about the face detector; None: not asked yet
+_cutouts: bool | None = None        # ...and about the cut-out model
 _slots: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Semaphore]" = weakref.WeakKeyDictionary()
 
 
@@ -275,12 +278,38 @@ async def look(path: Path | str | None) -> list | None:
     return await run(image_work.look, None if path is None else str(path))
 
 
+# -- Time Behind's cut-outs (cutout.py) ---------------------------------------------------------------------------
+def cutouts_available() -> bool:
+    """Cut-outs can be made here: the worker's answer once it has given one; before that, whether the model is the
+    expected file and ONNX Runtime is installed (the server never loads it). In the thread fallback,
+    cutout.available() itself."""
+    if _threads():
+        return cutter.available()
+    if _cutouts is not None:
+        return _cutouts
+    return cutter.installed()
+
+
+async def cutouts_ready() -> str | None:
+    """Load the worker's cut-out model now: None when it is ready, else why it isn't."""
+    global _cutouts
+    available, why = await run(image_work.cutter_ready)
+    if not _threads():
+        _cutouts = available
+    return why
+
+
+async def cut_look(path: Path | str | None, faces: list | None = None) -> dict | None:
+    """The cut-out backfill's look at one stored file (image_work.cut_look), in its turn with the uploads."""
+    return await run(image_work.cut_look, None if path is None else str(path), faces)
+
+
 def reset() -> None:
     """Stop the worker and forget every fallback (the tests; a server's own start begins this way)."""
-    global _pool, _pid, _busy, _timer, _breaks, _fallback, _faces
+    global _pool, _pid, _busy, _timer, _breaks, _fallback, _faces, _cutouts
     with _lock:
         pool, timer = _pool, _timer
-        _pool = _pid = _timer = _faces = None
+        _pool = _pid = _timer = _faces = _cutouts = None
         _busy = _breaks = 0
         _fallback = False
     if timer is not None:

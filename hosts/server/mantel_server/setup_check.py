@@ -9,7 +9,8 @@ Mantel, so Mantel answers with what *its* screens need, in the same shape the pa
 * Music Assistant: connected (optional: the Music page's own engine, Browse's library).
 * SF Pro and the SF Symbols glyphs: uploaded in Mantel settings -> Your files (Apple's, never shipped).
 * House commands: on or off (Mantel Settings → General, Allow Control of the House; off means read-only).
-* Photos: only when Mantel Photos has photos and faces can't be found on this platform (faces.py).
+* Photos: only when Mantel Photos has photos and faces can't be found on this platform (faces.py); and Time Behind,
+  when the cut-out model can't run (cutout.py: not installed, not the expected file, or no ONNX Runtime).
 * Screens: how many Mantel has (imported from HK in HA, or made here).
 * Wall Tablets: every tablet with a Direct Connection reached now, at once (tablet_links.setup_lines: Kiosk
   Satellite's ``/api/health``, Fully's ``deviceInfo``; reads only). No line when none has one.
@@ -79,6 +80,10 @@ def lines(app: Any, boards: int) -> list[dict[str, Any]]:
         from . import imaging
         if not imaging.faces_available():
             out.append(_line(None, "Photos", "Faces aren’t found on this platform; the screens’ own focus is used."))
+        if not imaging.cutouts_available():
+            from . import cutout
+            why = cutout.why_not() or "the cut-out model can’t run here"
+            out.append(_line(None, "Time Behind", why[:1].upper() + why[1:] + ", so photos show the time in front."))
     out.append(_line(True if boards else False, "Screens",
                      f"{boards} in Mantel." if boards else
                      "None yet. Once Home Assistant is connected Mantel builds a Home screen from your rooms; "

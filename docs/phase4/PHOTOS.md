@@ -240,6 +240,59 @@ A refused or missing album or photo for the saver's routes answers one 404 (noth
 * HK's saver suite (`test_saver.js`): a host with its own photos is listed by the host and shown from its
   addresses, never browsed or resolved; without one, the house's folder again.
 
+### Time Behind: the cut-outs (2026-10-30)
+
+The screensaver's Photo, Time Behind (docs/phase11/HOMEVIEW-LOOK.md, Phase I, decision 14) draws the time behind the
+person or thing in a photo: the photo, the time, then the photo's subject cut out and laid over the time. The cut-out
+is made here, never on a tablet, by a second model in the same image worker, beside YuNet.
+
+* **Model** (`cutout.py`). U²-Net small, `models/u2netp.onnx` (Apache-2.0, `models/u2netp_LICENSE`, about 4.6 MB, as
+  the rembg project publishes it), run by ONNX Runtime on the CPU with one thread; its SHA-256 (`MODEL_SHA256`) is
+  checked before it is loaded. **The file is not in the repository yet**: until it is put there and its SHA-256 set,
+  `cutout.available()` is False and nothing changes -- uploads work as before, photos stay "not cut out", the
+  screensavers show the time in front, Setup Check says why, and Photos says "Not Available Here".
+* **Only where it works** (`cutout.judge`, on a 96 px grid of the mask). Usable only when the subject covers 8-60 % of
+  the frame, the mask is sure of itself (at most a quarter of the subject and its fringe half-sure), and a place for
+  the time -- 0.36 of the photo's shorter side tall, 2.4 times as wide, centred on the largest face (else the top of
+  the subject), its top no lower than the head's -- overlaps the subject by 10-40 % (a quarter looked for). Faces,
+  found just before, put the time behind the head. The numbers are to tune on the house's photos.
+* **Data** (migration `0027_photo_cutout.sql`). `cutout_at`, `cutout_by` (`u2netp`), `cutout_ok`, `cutout_conf`,
+  `depth_box` (JSON `[x, y, w, h]`, fractions of the upright photo) beside `faces`; a partial index `photos_uncut` for
+  the backfill. A usable photo's mask is `masks/<id>.png`: the size of the screen copy, white with the mask in its
+  8-bit alpha (a browser masks with it as it is). It is counted in `bytes` (the quota), goes with the photo, and is in
+  the backups with the rest of `<data_dir>/photos`. An unusable photo keeps no mask. `photo_albums.depth_only` is an
+  album's Only Photos That Qualify. And `taken`: the year the photo was taken, from its EXIF (DateTimeOriginal, else
+  DateTime), read before the EXIF is dropped -- only the year, for Photo Titles; NULL for photos stored before.
+* **On upload** (`image_work._process`): right after the faces, on the screen-sized copy; `Processed.cutout` is None
+  when there's no model or it fails, and the upload never fails because of it.
+* **Backfill** (`CutoutBackfill`, `app["photos_cutouts"]`): FaceBackfill's walk with the cut-out's steps -- a minute
+  after the server starts, one photo at a time, newest first, resting, waiting while an import runs, carrying on after
+  a restart; a photo waits for its faces while the face backfill still looks; an unreadable file is marked checked and
+  not usable; a mask that doesn't fit the quota isn't kept. It logs "cut out N photos in Xs (M usable for Time
+  Behind)".
+* **REST.** `GET /api/photos/cutouts` (manager): `photos`, `checked`, `usable`, `left`, `state`, and `why` when
+  unavailable; the overview carries `cutouts` and each album's `depth_only` and `depth` (how many qualify);
+  `GET /api/photos/albums/<id>/photos` gives each photo's `cutout {ok, conf, by}`; `PUT
+  /api/photos/albums/<id>/options` `{depth_only}` (manager, CSRF, audited `photos.album.options`);
+  `GET /api/photos/<id>/mask` (feature:media, immutable). `api_show` gives a usable photo `depth {mask, box}` (the mask's
+  address carries `?v=` its cut-out's time), a photo's `year` when known, and only the qualifying photos when the
+  album says so.
+* **Shim.** `mantel-shell.js listPhotos` passes on a sound `depth` (its own photo's mask, under the page's prefix), the
+  album's name and the year. Photos shows a Time Behind badge on each photo that qualifies, the library's count (or
+  why it isn't available), and an album's Only Photos That Qualify.
+* **Screensaver** (`hk-saver.js photoFaces`): with Time Behind on, each photo (not a mosaic) gets the time behind its
+  subject where its place is in view -- made smaller about its foot, down to half, when a landscape photo fills a
+  portrait screen -- else in front, high in the middle; the corner and Large clocks step aside meanwhile. HK Frontend
+  inside Home Assistant has no image worker, so there every photo has the time in front (HK Settings offers Time
+  Behind only where the host lists photos of its own).
+* **Cost** (to measure on the house's machine before release): the model in the worker, tens of MB while it is up; a
+  fraction of a second per photo on x86, several times that on ARM; a tablet decodes the photo a second time for the
+  cut-out layer while Time Behind shows.
+* **Tests.** `tests/test_photo_cutout.py` (the rules on generated masks, the model read as rembg reads it with a fake
+  session, uploads, the backfill, the quota, the routes, the album option, Setup Check, the backup, the migration),
+  `tests/test_photo_cutout_js.py` (the page and the shell), HK's `test_saverfaces.js` (the layers), and
+  `tools/headless/saver_faces_check.py` (WebKit, a generated photo and its cut-out).
+
 ## Not done / for Avery
 
 * Not installed on the house. The App's image now installs Pillow and pillow-heif: the next App build pulls two
