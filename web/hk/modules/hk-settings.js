@@ -19,6 +19,7 @@
 //   hkSettings.skyPalettes()                  the fixed backdrops, by id
 //   hkSettings.ladderSignature()              what this screen shows that costs frames, as one word
 //                                             ("blur:a1w1r1f0c1"); the frame-rate sampler sends it
+//   hkSettings.pagesScreen(board)             the Pages screen as this screen shows it (Phase J)
 //   hkSettings.onChange(fn)                   called after a change; returns unsubscribe
 //
 // WHERE THE VALUES COME FROM, in order:
@@ -206,7 +207,10 @@
       { key: 'most_played', title: 'Most played', media_type: 'album', order_by: 'play_count_desc' },
       { key: 'recently_added', title: 'Recently added', media_type: 'album', order_by: 'timestamp_added_desc' },
       { key: 'favourite_radio', title: 'Favorite radio', media_type: 'radio', favorite: true }
-    ] }
+    ] },
+    // THE PAGES SCREEN (settings.py PAGES_SCREEN_DEFAULTS, Phase J): All
+    // Screens'; a screen's own fields over it (pagesScreen())
+    pages_screen: { show: 'off', icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto' }
   };
   // The sky's backdrops (Sky / Background): a fixed all-day gradient
   // instead of the live sky. This is the pre-answer mirror of settings.py
@@ -1105,6 +1109,40 @@
     });
     return out;
   }
+  // THE PAGES SCREEN AS THIS SCREEN SHOWS IT (settings.py
+  // pages_screen_resolved): each field the screen's own (its board's
+  // pages_screen, only the fields it sets), else All Screens' -- each checked
+  // as the server checks it, a bad one the default. `b`: a board (default:
+  // this screen's).
+  var PS_CHECK = {
+    show: function (v) { return v === 'on' || v === 'off' ? v : null; },
+    icons: function (v) {
+      if (v === 'menu') return v;
+      return Array.isArray(v) && v.every(function (x, i) { return typeof x === 'string' && /^[A-Za-z0-9_.-]{1,60}$/.test(x) && v.indexOf(x) === i; })
+        ? v.slice() : null;
+    },
+    rooms: function (v) { return ['folder', 'each', 'none'].indexOf(v) >= 0 ? v : null; },
+    widgets: function (v) {
+      if (!Array.isArray(v)) return null;
+      var out = [];
+      for (var i = 0; i < v.length; i++) {
+        var w = v[i];
+        if (!w || typeof w !== 'object' || typeof w.kind !== 'string') return null;
+        out.push({ kind: w.kind, size: w.size === 'less' ? 'less' : 'more', place: w.place === 'left' ? 'left' : 'right' });
+      }
+      return out;
+    },
+    pill: function (v) { return ['auto', 'on', 'off'].indexOf(v) >= 0 ? v : null; }
+  };
+  function pagesScreen(b) {
+    if (b === undefined) b = boardHere();
+    var d = DEFAULTS.pages_screen, house = get('pages_screen', null) || {}, own = (b && b.pages_screen) || {}, out = {};
+    Object.keys(d).forEach(function (k) {
+      var mine = own[k] !== undefined ? PS_CHECK[k](own[k]) : null, all = house[k] !== undefined ? PS_CHECK[k](house[k]) : null;
+      out[k] = mine !== null ? mine : all !== null ? all : (Array.isArray(d[k]) ? d[k].slice() : d[k]);
+    });
+    return out;
+  }
   // WHERE AND FROM WHOM THE RADAR COMES (hk-radar.js, the settings' summary):
   //   { enabled, provider: 'noaa' | 'rainviewer' | null, chosen, lat, lon,
   //     place, country, reason }
@@ -1473,6 +1511,7 @@
     frostPlate: function (wash) { return frost(amount('frost'), wash); },
     skyLook: skyLook,
     ladderSignature: ladderSignature,
+    pagesScreen: pagesScreen,
     reducedMotion: reducedMotion,
     pageSky: pageSky,
     flatBackground: flatBackground,
