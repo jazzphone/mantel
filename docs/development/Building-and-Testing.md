@@ -40,7 +40,8 @@ prints one table:
 - **quick** is the main suite, `check_links`, `check_version`, `package_check --release`, and the private words
   in what is committed and in the commit messages `origin/main` hasn't got.
 - **full** adds the HA build, HK Frontend's Python and JavaScript suites in it, the headless checks one at a time,
-  Edit mode's browser check (`edit-mode-check`) and the side strip's (`side-strip-check`), both when `PLAYWRIGHT_PATH`
+  Edit mode's browser check (`edit-mode-check`), the side strip's (`side-strip-check`) and the page swipe's
+  (`page-swipe-check`), all when `PLAYWRIGHT_PATH`
   and `NODE` are set, and the Caddy image
   test (it builds `mantel-caddy:ci`) when Docker is running.
 - Each step ends **passed**, **failed** or **skipped**, and a skip says why (no Docker, no Chrome, no private
@@ -195,6 +196,17 @@ through `--hk-safe-left`, `--hk-safe-right` and `--hk-safe-bottom`, which the pa
 that the sky fills the screen, the page's content stays clear of the insets, and the tab bar is a rail in the strip's
 foot below its reserve (or, without a strip, the bar inside the insets); `--shots DIR` keeps the screenshots.
 `tools/ci.py full` runs it as `side-strip-check`, skipped without `PLAYWRIGHT_PATH` or `NODE`.
+
+### Swipe Between Pages in Chromium and WebKit
+
+`tools/headless/page_swipe_check.py` (with its `.cjs`) swipes on the fictional house's screens in Chromium (a finger:
+CDP touch events, so the browser's own touch-action and scrolling) and WebKit (pointer events with pointerType touch at
+the element under the point; a mouse for the side menu's edge), at 1180 × 820, 820 × 1180, 390 × 844 and 844 × 390: a
+swipe on a tile turns the page and back, the tab bar's highlight on the page's tab after each (and following down a
+rail); one on the scenes row, a slider or a block that swipes its pages does not; a Home Grid turns its views first
+and lands on its last view coming back; from the left 24 px the side menu opens; Off turns nothing; an up-and-down
+swipe still scrolls. `--engine`, `--size` and `--shots DIR` narrow it and keep the screenshots. `tools/ci.py full`
+runs it as `page-swipe-check`, skipped without `PLAYWRIGHT_PATH` or `NODE`.
 
 ## A scratch Home Assistant
 

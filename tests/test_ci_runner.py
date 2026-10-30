@@ -32,6 +32,7 @@ def test_quick_is_part_of_full_and_full_adds_the_rest():
     assert full.index("ha-build") < full.index("hk-frontend-py") < full.index("hk-frontend-js")
     assert "edit-mode-check" in full and "edit-mode-check" not in quick
     assert "side-strip-check" in full and "side-strip-check" not in quick
+    assert "page-swipe-check" in full and "page-swipe-check" not in quick
 
 
 def test_edit_mode_check_skips_saying_why_without_playwright(monkeypatch, tmp_path):
