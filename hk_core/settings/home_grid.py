@@ -27,6 +27,13 @@ FRAME = (1280, 800)
 FRAME_W = (320, 3840)
 FRAME_H = (320, 2160)
 ITEMS_MAX = 24
+# A CELL'S SHAPE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md "The numbers"): a tile, 196 x 150, or a square, 196 x 196
+# (hk-grid-catalog.js CELLS). Stored only when square. A grid for a square SCREEN (`screen`, the Square screen
+# type) reaches to 14 px of the glass and rounds its corner blocks' outer corners with the display's.
+CELLS = ("tile", "square")
+SCREENS = ("square",)
+# a block's Tile Style (hk-settings-model.js TILE_STYLES; model.TILE_STYLES): absent, the screen's
+TILE_STYLES = ("home", "centred")
 # VIEWS (2026-10-24, StandBy's): up to four whole layouts on one screen's grid, a swipe apart
 VIEWS_MAX = 4
 PAGES_MAX = 12
@@ -51,7 +58,8 @@ CATALOG: dict[str, dict[str, Any]] = {
     "scene": {"sizes": ("S", "W"), "sources": (), "opts": {"scene": "scene"}},
     "scenes": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface"}},
     "now_playing": {"sizes": ("W", "T", "L"), "sources": ("speakers",), "opts": {"speaker": "speaker"}},
-    "thermostat": {"sizes": ("T", "L", "XL"), "sources": ("thermostats",), "opts": {"entity": "climate"}},
+    # style (2026-10-30): the dial, or Big Number (docs/phase11/HOMEVIEW-LOOK.md, Phase C)
+    "thermostat": {"sizes": ("T", "L", "XL"), "sources": ("thermostats",), "opts": {"entity": "climate", "style": "thermostat_style"}},
     "camera": {"sizes": ("W", "L", "XL"), "sources": ("cameras",),
                # follow (2026-10-24): swiping all cameras, turn to the one a selector or the latest motion picks
                "opts": {"entity": "camera", "follow": "camera_follow", "follow_select": "select"}},
@@ -229,8 +237,11 @@ def _room_display(v: Any) -> str:
     return v
 
 
-# a Clock block's face (hk-grid-catalog.js CLOCK_FACES; "" is HK's own clock, stored as no option)
-CLOCK_FACES = ("analog", "classic", "serif", "flip", "lcd", "neon", "nixie", "dots", "arc")
+# a Clock block's face (hk-grid-catalog.js CLOCK_FACES; "" is HK's own clock, stored as no option). "numbers"
+# (2026-10-30): Analog Numbers, HomeView's kind of face
+CLOCK_FACES = ("analog", "classic", "serif", "flip", "lcd", "neon", "nixie", "dots", "arc", "numbers")
+# a Thermostat block's style (hk-grid-catalog.js THERMOSTAT_STYLES): the dial, or Big Number
+THERMOSTAT_STYLES = ("dial", "big")
 
 
 def _clock_style(v: Any) -> str:
@@ -239,9 +250,16 @@ def _clock_style(v: Any) -> str:
     return v
 
 
+def _thermostat_style(v: Any) -> str:
+    if v not in THERMOSTAT_STYLES:
+        raise GridInvalid("grid_option")
+    return v
+
+
 OPTION_KINDS = {
     "room_display": _room_display,
     "clock_style": _clock_style,
+    "thermostat_style": _thermostat_style,
     "camera_follow": _camera_follow,
     "select": _domain("input_select", "select"),
     "boolean": _boolean,
@@ -398,7 +416,8 @@ def variant(v: Any, size: str) -> dict[str, Any]:
 
 def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
     """One block, checked against a grid of `cols` x `rows` (its place, not its neighbours)."""
-    if not isinstance(v, dict) or set(v) - {"id", "card", "size", "at", "opts", "pages", "when", "fallback", "rules", "bare", "view"}:
+    if not isinstance(v, dict) or set(v) - {"id", "card", "size", "at", "opts", "pages", "when", "fallback", "rules", "bare", "view",
+                                              "tile"}:
         raise GridInvalid("grid_item")
     if not isinstance(v.get("id"), str) or not ITEM_ID.match(v["id"]):
         raise GridInvalid("grid_item")
@@ -443,6 +462,11 @@ def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
             raise GridInvalid("grid_option")
         if v["bare"]:
             out["bare"] = True
+    # TILE STYLE (2026-10-30): the block's own, Home or Centred; absent, the screen's
+    if "tile" in v:
+        if v["tile"] not in TILE_STYLES:
+            raise GridInvalid("grid_option")
+        out["tile"] = v["tile"]
     _capacity(out, size)
     return out
 
@@ -482,7 +506,7 @@ def _night(v: Any) -> dict[str, Any]:
 
 def _shape(v: Any) -> dict[str, Any]:
     if not isinstance(v, dict) or set(v) - {"v", "cols", "rows", "frame", "band", "header_clock", "header_weather", "scale", "boxes", "grow",
-                                              "night", "views", "items"}:
+                                              "night", "views", "items", "cell", "screen"}:
         raise GridInvalid("grid")
     ver = v.get("v", VERSION)
     if type(ver) is not int or ver != VERSION:         # not True, not 1.0: == alone takes both
@@ -509,6 +533,16 @@ def _shape(v: Any) -> dict[str, Any]:
         views = _whole(v["views"], 1, VIEWS_MAX, "grid")
         if views > 1:
             out["views"] = views
+    # cell: square (2026-10-30) -- tile, the default, is no key; screen: square, the Square screen type's
+    if "cell" in v:
+        if v["cell"] not in CELLS:
+            raise GridInvalid("grid")
+        if v["cell"] == "square":
+            out["cell"] = "square"
+    if "screen" in v:
+        if v["screen"] not in SCREENS:
+            raise GridInvalid("grid")
+        out["screen"] = v["screen"]
     # boxes: False -- every block without its plate (Hide Box, the screen's); grow: True -- the grid may scale past
     # its own size to fill the screen (a phone on its side)
     for key in ("header_clock", "header_weather", "boxes", "grow"):

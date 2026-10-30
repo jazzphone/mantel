@@ -251,3 +251,24 @@ def test_the_menu_follows_all_screens_one_setting_at_a_time():
     assert not err and own["menu_own"] == list(M.MENU_KEYS) and "menu_custom" not in own
     assert C.apply_board(own, {"menu_custom": False})[0]["menu_own"] == []
     assert C.apply_board({}, {"menu_own": ["bogus"]})[1] == {"menu_own": "choice"}
+
+
+# ------------------------------------------------------------ Tile Style (2026-10-30, HOMEVIEW-LOOK.md Phase B)
+def test_tile_style_for_all_screens_and_for_a_screen():
+    assert M.merged({})["look"]["tile_style"] == "home"                        # today's look until it is chosen
+    assert M.merged({"dashboard": {"look": {"tile_style": "sideways"}}})["look"]["tile_style"] == "home"
+    new, err = C.apply_house({}, {"look.tile_style": "centred"})
+    assert err == {} and M.merged(new)["look"]["tile_style"] == "centred"
+    assert C.apply_house({}, {"look.tile_style": "centered"})[1] == {"look.tile_style": "choice"}
+    assert M.board(None)["tile_style"] is None                                  # Same as All Screens
+    b, err = C.apply_board({}, {"tile_style": "centred"})
+    assert err == {} and M.board(b)["tile_style"] == "centred"
+    b, err = C.apply_board(b, {"tile_style": None})                             # Reset to All Screens
+    assert err == {} and M.board(b)["tile_style"] is None
+    assert M.board({"tile_style": "round"})["tile_style"] is None
+    assert C.apply_board({}, {"tile_style": "round"})[1] == {"tile_style": "choice"}
+
+
+def test_analog_numbers_is_a_screensaver_clock_style():
+    assert M.SAVER_CLOCK_STYLES.index("numbers") == M.SAVER_CLOCK_STYLES.index("analog") + 1
+    assert M.saver_options({"clock_style": "numbers"})["clock_style"] == "numbers"

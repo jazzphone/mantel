@@ -173,7 +173,7 @@
     // live cameras rest while another window has the focus (hk-cameras.js
     // CAM_FOCUS) -- behind the screensaver they always rest
     cameras: { order: [], live: true, focus_pause: true },
-    look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, well: 'dark', frost_tint: false, details: true, browse_view: 'music-browse', sky_switch: null,
+    look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, well: 'dark', frost_tint: false, tile_style: 'home', details: true, browse_view: 'music-browse', sky_switch: null,
             photos: 'media-source://media_source/local/photos', page_pills: {}, page_accents: {},
             // FLAT COLORS (settings.py flat_colors; resolveFlatColors)
             flat_colors: { accent: 'auto', off_tint: 'auto', pages: 'accent' }, flat_page_colors: {},
@@ -426,6 +426,14 @@
     var b = boardHere();
     if (b && typeof b.frost_tint === 'boolean') return b.frost_tint;
     return get('look.frost_tint') === true;
+  }
+  // TILE STYLE, for this screen (2026-10-30): its own when it sets one (not
+  // null), else All Screens' -- 'home' (the Home app's layout) or 'centred'
+  // (HomeView's): the Home Grid's tiles and the room pages' Tall pills
+  function tileStyle() {
+    var b = boardHere();
+    if (b && (b.tile_style === 'home' || b.tile_style === 'centred')) return b.tile_style;
+    return get('look.tile_style') === 'centred' ? 'centred' : 'home';
   }
   // Over a blur: the plate the status chips always had over their own.
   var OVER_BLUR = 'linear-gradient(145deg, rgba(255,255,255,0.16), rgba(255,255,255,0.07))';
@@ -1468,6 +1476,7 @@
     appearance: appearance, rendering: rendering, refreshLook: applyLook,
     glass: glass,
     frostTint: frostTint,
+    tileStyle: tileStyle,
     // the Frosted plate with `wash` ([r, g, b]) in place of its gray, at this
     // screen's Frost amount (hk-frosttint.js)
     frostPlate: function (wash) { return frost(amount('frost'), wash); },
