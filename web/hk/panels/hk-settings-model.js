@@ -1719,6 +1719,56 @@
     return out;
   }
 
+  // ------------------------------------------------------------ the Pages screen
+  // THE PAGES SCREEN (docs/phase11/HOMEVIEW-LOOK.md, Phase J; settings.py
+  // PAGES_SCREEN_*): All Screens' every field; a screen's only the fields it
+  // sets (b.pages_screen, null: Same as All Screens), each resolved on its own
+  var PAGES_SCREEN_DEFAULTS = { show: 'off', icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto' };
+  var PAGES_SCREEN_SHOW = [['off', 'Off'], ['on', 'On']];
+  var PAGES_SCREEN_ROOMS = [['folder', 'A Rooms Folder'], ['each', 'Each Room Its Own Icon'], ['none', 'None']];
+  var PAGES_SCREEN_PILL = [['auto', 'When There\u2019s No Tab Bar'], ['on', 'Always'], ['off', 'Never']];
+  // the Side Pane's sections (Phase A2's PANE_SECTIONS, its order), as widgets
+  var PAGES_SCREEN_WIDGETS = [['clock', 'Clock'], ['weather', 'Weather'], ['calendar', 'Calendar'], ['now_playing', 'Now Playing'],
+    ['security', 'Security'], ['camera', 'Camera'], ['timers', 'Timers'], ['energy', 'Energy'], ['climate', 'Climate'],
+    ['whos_home', 'Who\u2019s Home'], ['todo', 'To-do'], ['notifications', 'Notifications']];
+  // a widget's size and side, as one choice: More is 2 x 2, Less 2 x 1
+  var PAGES_SCREEN_SPOTS = [['more:right', 'Large, Right'], ['more:left', 'Large, Left'], ['less:right', 'Small, Right'], ['less:left', 'Small, Left']];
+  var PAGES_SCREEN_WIDGETS_MAX = 4;
+  // the house's (`house`, the settings' pages_screen) and a screen's own
+  // (`own`, its b.pages_screen) as it shows: { value, own: {field: true} }
+  function pagesScreenOf(house, own) {
+    var h = house || {}, o = own || {}, value = {}, mine = {};
+    Object.keys(PAGES_SCREEN_DEFAULTS).forEach(function (k) {
+      var d = PAGES_SCREEN_DEFAULTS[k];
+      if (o[k] !== undefined && o[k] !== null) { value[k] = o[k]; mine[k] = true; }
+      else value[k] = h[k] !== undefined && h[k] !== null ? h[k] : (Array.isArray(d) ? d.slice() : d);
+    });
+    return { value: value, own: mine };
+  }
+  // a screen's own after one field changed: `v` undefined drops the field
+  // (Same as All Screens); none left is null
+  function pagesScreenSet(own, field, v) {
+    var out = Object.assign({}, own || {});
+    if (v === undefined) delete out[field]; else out[field] = v;
+    return Object.keys(out).length ? out : null;
+  }
+  // the row's value on a screen's page and All Screens'
+  function pagesScreenSummary(value) {
+    if (!value || value.show !== 'on') return 'Off';
+    var w = (value.widgets || []).length;
+    return 'On' + (Array.isArray(value.icons) ? ' \u00b7 ' + value.icons.length + ' Pages' : '') + (w ? ' \u00b7 ' + w + (w === 1 ? ' Widget' : ' Widgets') : '');
+  }
+  // the widgets with one changed: `spot` 'more:right'..., or 'remove'
+  function pagesWidgetSet(list, kind, spot) {
+    var out = (list || []).map(function (w) { return Object.assign({}, w); });
+    var i = -1;
+    out.forEach(function (w, j) { if (w.kind === kind) i = j; });
+    if (spot === 'remove') { if (i >= 0) out.splice(i, 1); return out; }
+    var p = String(spot || 'more:right').split(':'), w = { kind: kind, size: p[0] === 'less' ? 'less' : 'more', place: p[1] === 'left' ? 'left' : 'right' };
+    if (i >= 0) out[i] = w; else if (out.length < PAGES_SCREEN_WIDGETS_MAX) out.push(w);
+    return out;
+  }
+
   // ------------------------------------------------------------ search
   // Every setting the page has, where it is, and words people might use.
   // `screen: true` rows are on every screen's page.
@@ -1745,6 +1795,8 @@
     ['Favorites', 'screen/favorites', 'favorites', 'favourites', true],
     ['Rooms', 'screen/rooms', 'rooms_custom', 'room order home rooms on pages same as all screens', true],
     ['Pages on This Screen', 'screen/pages', 'pages', 'category pages custom pages which pages', true],
+    ['Pages Screen', 'screen/pages-screen', 'pages_screen', 'pages screen home screen app icons grid launcher homeview ipad widgets folder pill no tab bar swipe', true],
+    ['Pages Screen (All Screens)', 'house/pagesscreen', 'pages_screen.show', 'pages screen home screen app icons grid launcher homeview ipad widgets folder pill'],
     ['Glass', 'screen/glass', 'glass', 'look blur frosted clear', true],
     ['Live Sky', 'screen/sky', 'sky', 'background animated on off', true],
     ['Sky / Background', 'screen/sky', 'sky_look', 'backdrop animations weather decorations palette own look', true],
@@ -2044,7 +2096,7 @@
     ['favorites', 'Favorites', ['favorites'], false],
     ['header', 'Header', ['phone_header', 'kiosk', 'kiosk_header', 'kiosk_sidebar', 'kiosk_admins', 'kiosk_engine', 'kiosk_options'], true],
     // the pages, Home among them, and where each sits in the menu (set on Pages)
-    ['pages', 'Pages', ['pages', 'custom_pages', 'only_pages', 'home_page', 'home_view', 'menu_top', 'categories', 'headers'], true],
+    ['pages', 'Pages', ['pages', 'custom_pages', 'only_pages', 'home_page', 'home_view', 'menu_top', 'categories', 'headers', 'pages_screen'], true],
     ['look', 'Appearance', ['flat', 'flat_theme', 'glass', 'frost', 'frost_tint', 'blur', 'tint', 'well', 'sky', 'sky_animations', 'sky_weather', 'sky_precipitation', 'sky_focus_pause',
                             'sky_decorations', 'sky_decoration_style', 'sky_moving', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_custom', 'sky_pages',
                             'sky_liveliness', 'sky_liveliness_occ', 'sky_liveliness_custom', 'sky_calm_empty',
@@ -2457,6 +2509,10 @@
     chipsModel: chipsModel, chipsSave: chipsSave, chipsAddOwn: chipsAddOwn, chipsRemoveOwn: chipsRemoveOwn,
     chipQuiet: chipQuiet,
     scenesModel: scenesModel, scenesSave: scenesSave, scenesPagePill: scenesPagePill,
+    PAGES_SCREEN_DEFAULTS: PAGES_SCREEN_DEFAULTS, PAGES_SCREEN_SHOW: PAGES_SCREEN_SHOW, PAGES_SCREEN_ROOMS: PAGES_SCREEN_ROOMS,
+    PAGES_SCREEN_PILL: PAGES_SCREEN_PILL, PAGES_SCREEN_WIDGETS: PAGES_SCREEN_WIDGETS, PAGES_SCREEN_SPOTS: PAGES_SCREEN_SPOTS,
+    PAGES_SCREEN_WIDGETS_MAX: PAGES_SCREEN_WIDGETS_MAX, pagesScreenOf: pagesScreenOf, pagesScreenSet: pagesScreenSet,
+    pagesScreenSummary: pagesScreenSummary, pagesWidgetSet: pagesWidgetSet,
     pagesModel: pagesModel, pagesSave: pagesSave, pagesCustom: pagesCustom, onlyModel: onlyModel, onlySummary: onlySummary,
     skyPageRows: skyPageRows, skyAutoLabel: skyAutoLabel, skyModeLabel: skyModeLabel, skyModeOptions: skyModeOptions,
     roomsModel: roomsModel, roomsSave: roomsSave, roomsAuto: roomsAuto, houseRoomsAsBoard: houseRoomsAsBoard,
