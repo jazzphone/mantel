@@ -153,6 +153,8 @@ ok('X and Escape both close', /\.x'\)\.addEventListener\('click'/.test(player) &
 ok('the controls fade and come back on a touch', /quiet/.test(player) && /addEventListener\('pointerdown', wake, true\)/.test(player));
 ok('the X never fades (only the caption and the sound controls do)',
    /'\.hktv\.quiet \.cap\{opacity:0\}'/.test(player) && !/quiet \.top/.test(player) && /--hk-db-bar-opacity/.test(player));
+ok('the caption and the X keep clear of the screen\'s safe areas (an iPhone Duo\'s strip)',
+   /\.hktv \.top\{[^}]*--hk-safe-right,env\(safe-area-inset-right/.test(player.replace(/' \+\s*'/g, '')) && /--hk-safe-left/.test(player) && /--hk-safe-top/.test(player));
 ok('a volume slider in the player', /volume: true/.test(player) && /r\.type = 'range'/.test(cam));
 ok('in Fully it sets the tablet\'s media volume; elsewhere the video\'s, remembered per screen',
    /fk\.setAudioVolume\(Math\.round\(x \* 100\), FULLY_MUSIC\)/.test(cam) && /localStorage\.setItem\(VOL_KEY/.test(cam));

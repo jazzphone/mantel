@@ -3372,7 +3372,12 @@
       '.hktv{position:fixed;inset:0;z-index:8;background:#000;display:flex;' +
       '  -webkit-tap-highlight-color:transparent}' +
       '.hktv>hk-doorbell-card{flex:1;height:100%;display:block}' +
-      '.hktv .top{position:absolute;left:18px;right:18px;top:16px;display:flex;' +
+      // CLEAR OF THE SCREEN'S EDGES (2026-10-30, the owner's iPhone Duo): the picture fills the screen, the
+      // caption and the X keep out of its safe areas -- the Duo's strip of system controls down the side
+      // covered the X; an iPhone on its side has its Dynamic Island there (--hk-safe-*: hk-base.js SAFE)
+      '.hktv .top{position:absolute;left:calc(18px + var(--hk-safe-left,env(safe-area-inset-left,0px)));' +
+      '  right:calc(18px + var(--hk-safe-right,env(safe-area-inset-right,0px)));' +
+      '  top:calc(16px + var(--hk-safe-top,env(safe-area-inset-top,0px)));display:flex;' +
       '  align-items:center;justify-content:space-between;gap:12px;transition:opacity .3s;z-index:2}' +
       // The X NEVER fades -- there is always a way out;
       // the caption and the sound controls do.
