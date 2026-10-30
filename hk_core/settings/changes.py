@@ -1222,6 +1222,30 @@ BOARD: dict[str, Callable[[Any], Any]] = {
 }
 
 
+# THE PAGES SCREEN (model.pages_screen, Phase J): All Screens' a field at a time; a screen's whole -- the fields it
+# sets, or None (Same as All Screens)
+def _pages_field(field: str) -> Callable[[Any], Any]:
+    def check(v: Any) -> Any:
+        got = S.PAGES_SCREEN_CHECKS[field](v)
+        if got is None:
+            raise Invalid("choice")
+        return got
+    return check
+
+
+def _pages_screen(v: Any) -> dict[str, Any] | None:
+    if v is None:
+        return None
+    got = S.pages_screen_own(v, strict=True)
+    if got is None:
+        raise Invalid("choice")
+    return got or None
+
+
+HOUSE.update({f"pages_screen.{k}": _pages_field(k) for k in S.PAGES_SCREEN_DEFAULTS})
+BOARD["pages_screen"] = _pages_screen
+
+
 # ------------------------------------------------------------ a wall tablet
 def _idle_time(v: Any, none: bool = True) -> int | None:
     if v is None and none:

@@ -2297,6 +2297,7 @@
         var music = opts.music === false ? false : await musicConfigured(client);
         cfg = { views: views(client, opts, music) };
         customPages(cfg.views, listOf(b, 'custom_pages'));
+        pagesScreen(cfg.views, b);
       }
       energyLinks(cfg.views, seg);
       skyPages(cfg.views);
@@ -2321,6 +2322,28 @@
       else if (saver) cfg.hk_screensaver = hkSaver(saver, b.screensaver_options);
       return cfg;
     }
+  }
+
+  // THE PAGES SCREEN (docs/phase11/HOMEVIEW-LOOK.md, Phase J; decision 15):
+  // while the screen's Pages Screen is on (hkSettings.pagesScreen: its own,
+  // else All Screens'), a page right after Home -- an iPad-style home screen
+  // of the screen's pages (hk-pages-screen.js) -- at /pages (/pages-screen
+  // where a custom page has that address). It wears Home's sky and theme:
+  // the screen's own background, drawn blurred by the card. Its icons,
+  // rooms, widgets and pill the card reads live; only `show` builds.
+  // `pages_screen: true` is what the menu, the tab bar and Edit mode know it
+  // by (hk-menu.js model: right after Home).
+  function pagesScreen(list, b) {
+    var HS = window.hkSettings, home = list[0];
+    if (!home || !HS || !HS.pagesScreen || HS.pagesScreen(b).show !== 'on') return;
+    var path = list.some(function (v) { return v && v.path === 'pages'; }) ? 'pages-screen' : 'pages';
+    var v = { type: 'custom:hk-grid-view', title: 'Pages', path: path, subview: true, icon: 'mdi:view-grid',
+              pages_screen: true, background: home.background || '#05070e',
+              layout: { 'grid-template-columns': 'minmax(0, 1fr)', margin: '0px', padding: '0px' },
+              cards: [{ type: 'custom:hk-pages-screen-card', glass: false }] };
+    if (home.theme) v.theme = home.theme;
+    if (home.sky) v.sky = true;
+    list.splice(1, 0, v);
   }
 
   // THE HOUSE'S CUSTOM PAGES this dashboard lists (its Pages page; Custom
@@ -3074,7 +3097,9 @@
                            // the Energy page's plan (features/energy/plan.py)
                            setting('energy'),
                            // which calendars there are decides whether there is a Calendar page
-                           (setting('calendar') || {}).entities]);
+                           (setting('calendar') || {}).entities,
+                           // whether there is a Pages screen (All Screens'; the rest the card reads live)
+                           (setting('pages_screen') || {}).show]);
   }
   var built = { seg: null, sig: null, at: 0, timer: null };
   // NOT UNDER A FINGER. A rebuild re-creates every card -- an open sheet

@@ -919,3 +919,23 @@ square cells: the only differences left are 44 px controls measured on a canvas 
 390 × 844 (and the Square type at 800 × 800); the Square starter beside the mock's square screen matches in layout.
 Left: the colours of off glyphs and the plate are Bright Glass's (Phase D); Home with Pane's starter is A2's; the
 Extra Large thermostat (the sheet in a block) clips its dial in tiles and square cells alike, as before this work.
+
+**2026-10-30, Phase J, the Pages screen** (branch `homeview-pages`). Built: `pages_screen` in `hk_core/settings`
+(All Screens' every field, off by default; a screen's own fields or None) with its checks in `changes.py`, the
+page's copy in `hk-settings.js` (`pagesScreen()`); `web/hk/cards/hk-pages-screen.js` (in `cards/`, not `pages/`,
+so both products load it as a card: Lovelace resource on HK Frontend, lazy on Mantel) with the icons in their
+Accent Colors, live Calendar and Weather, badges (timers, Security's open doors and armed alarm, notifications for
+a page), the Rooms folder, widgets through `hkSidePane.section(kind, size)` where Phase A2's renderer is there, the
+faint time, the Home pill and a second Pages screen with dots; the strategy adds `/pages` after Home only while it is
+on; the menu lists it after Home and the tab bar as its second tab (`m.pages`), Edit mode leaves it in place, and
+`hkMenu._.pagesAfterHome` is offered to Phase 0's order function if it takes an extension (`extendOrder`,
+`extend` or `addOrder`, read defensively); Settings → Pages Screen for All Screens and each screen. Checks:
+`test_pagesscreen.js` (62) and the other jsc suites green, `tests/test_hk_core_pages_screen.py`, the HA package's
+Python suites, `tools/ci.py quick` and `full --only hk-frontend`, `edit-mode-check`, `side-strip-check` all passed;
+`tools/headless/pages_screen_check.py` passed all 12 WebKit cases (three sizes, with and without a tab bar and
+widgets), the screenshots compared with the mock-up's Pages screen. Left: the widgets' look waits for Phase A2's
+renderer (the check stands one in); the widget kinds (`PAGES_SCREEN_WIDGETS`) are to become Phase A2's
+`PANE_SECTIONS` when both are merged (a test says so if they differ); Phase 0's order function name is to be
+confirmed at merge; the Pages screen's own screens swipe natively (`data-hk-control`) when there are two or more,
+so a page swipe from its last screen to the next page is not there; not yet seen on the iPad or a wall tablet,
+where the background blur shows (headless WebKit draws none).

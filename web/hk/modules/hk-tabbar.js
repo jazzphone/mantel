@@ -291,7 +291,8 @@
 
   // What the bar holds, from the menu's list (hkMenu._.model's answer).
   function parts(m, f) {
-    var tabs = [m.home].concat(m.categories || []).filter(Boolean);
+    // (the Pages screen, Phase J, the second tab while it is on)
+    var tabs = [m.home, m.pages].concat(m.categories || []).filter(Boolean);
     var shown = tabs.slice(0, f.shown);
     var more = f.more ? (m.top || []).concat(tabs.slice(f.shown)) : [];
     return { tabs: shown, more: more, rooms: (m.rooms || []).slice() };
@@ -833,7 +834,7 @@
       // (hkEdit.editAny), so the bar's tabs do not change from page to page.
       S.edit = H.editItems ? H.editItems(C.client()) : [];
       var mayEdit = !!(window.hkEdit && window.hkEdit.editAny && window.hkEdit.editAny(C.client()));
-      var tabs = [m.home].concat(m.categories).filter(Boolean);
+      var tabs = [m.home, m.pages].concat(m.categories).filter(Boolean);
       var sz = b.tab_bar_size;
       var more0 = rm === 'more' || S.ha.length > 0 || S.hostRows.length > 0 || mayEdit;
       var f = rail ? railFit(tabs.length, m.top.length, railH(), more0, b.tab_bar_tabs_rail, sz)
@@ -866,7 +867,8 @@
       p.tabs.forEach(function (it, i) {
         // (its name as its label too: Icons Only hides the name it shows;
         // in Edit mode a page's tab says which page it is, to be dragged)
-        html += '<button class="tab" data-t="' + i + '"' + (ed && i > 0 ? ' data-p="' + esc(viewPath(it)) + '"' : '') +
+        // (Home and the Pages screen stay where they are: no handle)
+        html += '<button class="tab" data-t="' + i + '"' + (ed && i > 0 && it.kind !== 'pages' ? ' data-p="' + esc(viewPath(it)) + '"' : '') +
           ' aria-label="' + esc(it.title) + '"><hk-icon icon="' + icon(it.icon) + '"></hk-icon><span>' +
           esc(it.title) + '</span></button>';
       });
@@ -951,7 +953,7 @@
       // EDIT MODE: the tabs and More's pages and rooms drag (hk-edit-menu.js)
       if (ed) {
         window.hkEditMenu.wireBar({ pill: S.pill, sheet: S.sheets.more, roomsSheet: S.sheets.rooms, rail: rail,
-                                    visible: Math.max(0, p.tabs.length - 1), root: S.root });
+                                    visible: Math.max(0, p.tabs.filter(function (t) { return t.kind !== 'pages'; }).length - 1), root: S.root });
       }
     }
     // HK's Edit mode with the menu's lists (hk-edit-menu.js) -- not Home

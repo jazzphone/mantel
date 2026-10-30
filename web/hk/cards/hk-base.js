@@ -4408,6 +4408,12 @@
   window.hkCards.asClient = asClient;
   window.hkCards.FLAT = FLAT;
   window.hkCards.PAGE_ACCENTS = PAGE_ACCENTS;
+  // ...and each page's as drawn (its own, else PAGE_ACCENTS'), the accents'
+  // hexes, and a view's address as its page kind: the Pages screen's icons
+  // (hk-pages-screen.js)
+  window.hkCards.pageAccentHex = pageAccentHex;
+  window.hkCards.ACCENTS = ACCENTS;
+  window.hkCards.PAGE_OF_PATH = PAGE_OF_PATH;
   window.hkCards.pageTone = pageTone;
   window.hkCards.flatGround = flatGround;
   window.hkCards.FLAT_COLORS = FLAT_COLORS;

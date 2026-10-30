@@ -1314,6 +1314,97 @@ def discover_rows(keys: list[str] | None) -> list[dict[str, Any]]:
     return [{"key": k, **SHELVES[k]} for k in (keys or []) if k in SHELVES]
 
 
+# ------------------------------------------------------------ the Pages screen
+# THE PAGES SCREEN (docs/phase11/HOMEVIEW-LOOK.md, Phase J; decision 15, 2026-10-30): an iPad-style home screen of
+# the screen's own pages, right after Home in the swipe order, so a screen can be got around without a nav bar
+# (web/hk/cards/hk-pages-screen.js draws it). All Screens' `pages_screen` has every field; a screen's is None (Same
+# as All Screens) or only the fields it sets, each its own and the rest All Screens' (pages_screen_resolved).
+#   show     "off" | "on": the page at all (/pages, right after Home)
+#   icons    "menu": the screen's menu pages, in its order; or a list of view paths of its own, in its order
+#   rooms    "folder": one Rooms icon that opens them; "each": an icon per room; "none"
+#   widgets  Side Pane sections among the icons (Phase A2): [{kind, size, place}] -- size "less" (2 x 1) or
+#            "more" (2 x 2), place "right" or "left" of the first Pages screen, from the top
+#   pill     the Home pill at the foot: "auto" (where the screen shows no tab bar), "on", "off"
+PAGES_SCREEN_SHOW = ("off", "on")
+PAGES_SCREEN_ROOMS = ("folder", "each", "none")
+PAGES_SCREEN_PILL = ("auto", "on", "off")
+# the Side Pane's twelve sections (Phase A2's PANE_SECTIONS, in its order): one list once both are in
+PAGES_SCREEN_WIDGETS = ("clock", "weather", "calendar", "now_playing", "security", "camera", "timers", "energy",
+                        "climate", "whos_home", "todo", "notifications")
+PAGES_SCREEN_SIZES = ("less", "more")
+PAGES_SCREEN_PLACES = ("right", "left")
+PAGES_SCREEN_WIDGETS_MAX = 4
+PAGES_SCREEN_ICONS_MAX = 60
+PAGES_SCREEN_PATH = re.compile(r"^[A-Za-z0-9_.-]{1,60}$")
+PAGES_SCREEN_DEFAULTS: dict[str, Any] = {"show": "off", "icons": "menu", "rooms": "folder", "widgets": [],
+                                         "pill": "auto"}
+
+
+def _pages_icons(v: Any) -> str | list[str] | None:
+    """"menu", or view paths, each once (None: neither)."""
+    if v == "menu":
+        return v
+    if not isinstance(v, list) or len(v) > PAGES_SCREEN_ICONS_MAX:
+        return None
+    if not all(isinstance(x, str) and PAGES_SCREEN_PATH.match(x) for x in v) or len(set(v)) != len(v):
+        return None
+    return list(v)
+
+
+def _pages_widgets(v: Any) -> list[dict[str, str]] | None:
+    """[{kind, size, place}]: a section each at most once, a size and a place (absent: More, Right)."""
+    if not isinstance(v, list) or len(v) > PAGES_SCREEN_WIDGETS_MAX:
+        return None
+    out: list[dict[str, str]] = []
+    for w in v:
+        if not isinstance(w, Mapping) or set(w) - {"kind", "size", "place"}:
+            return None
+        kind, size, place = w.get("kind"), w.get("size", "more"), w.get("place", "right")
+        if _one_of(kind, PAGES_SCREEN_WIDGETS) is None or _one_of(size, PAGES_SCREEN_SIZES) is None \
+                or _one_of(place, PAGES_SCREEN_PLACES) is None or any(x["kind"] == kind for x in out):
+            return None
+        out.append({"kind": kind, "size": size, "place": place})
+    return out
+
+
+PAGES_SCREEN_CHECKS: dict[str, Any] = {
+    "show": lambda v: _one_of(v, PAGES_SCREEN_SHOW), "icons": _pages_icons,
+    "rooms": lambda v: _one_of(v, PAGES_SCREEN_ROOMS), "widgets": _pages_widgets,
+    "pill": lambda v: _one_of(v, PAGES_SCREEN_PILL),
+}
+
+
+def pages_screen(v: Any, strict: bool = False) -> dict[str, Any] | None:
+    """All Screens' Pages Screen: `v` over its defaults, each field checked (strict, a save: a bad field refuses the
+    whole, None; stored, read back: a bad field keeps its default)."""
+    return _typed(v, PAGES_SCREEN_DEFAULTS, PAGES_SCREEN_CHECKS, strict)
+
+
+def pages_screen_own(v: Any, strict: bool = False) -> dict[str, Any] | None:
+    """A screen's own Pages Screen: only the fields it sets, each checked ({} sets none: Same as All Screens).
+    strict: anything but a mapping, or an unknown or bad field, refuses the whole (None); otherwise it is left out."""
+    if not isinstance(v, Mapping):
+        return None if strict else {}
+    out: dict[str, Any] = {}
+    for k, x in v.items():
+        check = PAGES_SCREEN_CHECKS.get(k)
+        got = check(x) if check else None
+        if got is None:
+            if strict:
+                return None
+            continue
+        out[k] = got
+    return out
+
+
+def pages_screen_resolved(house: Any, own: Any) -> dict[str, Any]:
+    """A screen's Pages Screen as it shows: each field the screen's own, else All Screens'
+    (hk-settings.js pagesScreen() is the page's copy)."""
+    return {**(pages_screen(house) or copy.deepcopy(PAGES_SCREEN_DEFAULTS)), **(pages_screen_own(own) or {})}
+
+
+DEFAULTS["pages_screen"] = copy.deepcopy(PAGES_SCREEN_DEFAULTS)
+
 
 def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     """The stored settings over the defaults, section by section."""
@@ -1370,6 +1461,8 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     wx = out["weather"]
     wx["page"] = weather_page(wx.get("page"), strict=False)
     wx["radar_native"] = radar_native(wx.get("radar_native"), strict=False)
+    # the Pages screen, over its defaults (pages_screen() above)
+    out["pages_screen"] = pages_screen(out.get("pages_screen"))
     return out
 
 
@@ -1985,6 +2078,8 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # every screen builds it, or "grid" -- Home is this screen's own layout,
     # home_grid (home_grid.py; None: none yet, and Home is generated)
     "home_style": "generated", "home_grid": None}
+# THE PAGES SCREEN, a screen's own (pages_screen_own: only the fields it sets); None is Same as All Screens
+BOARD_DEFAULTS["pages_screen"] = None
 # A CAR'S BROWSER (a screen's car_layout / car_width): which Home it
 # generates there -- the whole one, or the car's own (the weather and the
 # house's status in a line, the chips, Scenes, Security and Favorites: no clock, the car
@@ -2205,6 +2300,8 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["kiosk_engine"] = d.get("kiosk_engine") if d.get("kiosk_engine") in KIOSK_ENGINES else "hk"
     live = str(d.get("camera_live") or "").strip()
     out["camera_live"] = live if re.fullmatch(r"(input_select|select)\.[a-z0-9_]+", live) else ""
+    # THE PAGES SCREEN, this screen's own fields (pages_screen_own); none: Same as All Screens
+    out["pages_screen"] = pages_screen_own(d.get("pages_screen")) or None
     return out
 
 

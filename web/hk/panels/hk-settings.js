@@ -433,6 +433,9 @@
     // rather than under Pages -- its pages keep #/features/notify/...
     ['notify', 'Notifications', 'mdi:bell-badge', C.red, null, 'features/notify'],
     ['menu', 'Menu', 'mdi:dock-left', C.orange],
+    // THE PAGES SCREEN (Phase J, 2026-10-30): every screen's that doesn't
+    // choose its own
+    ['pagesscreen', 'Pages Screen', 'mdi:view-grid', C.purple],
     ['rooms', 'Rooms', 'mdi:sofa', C.brown],
     ['chips', 'Status Chips', 'mdi:label-multiple', C.green],
     ['tablets', 'Wall Tablets', 'mdi:tablet', C.blue]
@@ -1900,6 +1903,11 @@
       if (s === 'favorites') return mk('Favorites', function (c) { self.s_favorites(c, x, b); });
       if (s === 'rooms') return mk('Rooms', function (c) { self.s_rooms(c, x, b); });
       if (s === 'pages') return mk('Pages on This Screen', function (c) { self.s_pages(c, x, b); });
+      if (s === 'pages-screen') {
+        var sps = { house: false, path: path, b: b, base: base + '/pages-screen' };
+        if (sub[1] === 'icons') return mk('Icons', function (c) { self.pagesScreenIcons(c, sps); }, ['Pages Screen', sps.base]);
+        return mk('Pages Screen', function (c) { self.pagesScreenPage(c, sps); });
+      }
       if (s === 'page-headers') return mk('Page Headers', function (c) { self.s_pageHeaders(c, x, b); });
       if (s === 'sky' && sub[1] === 'backdrop') return mk('Sky Colors', function (c) { self.s_backdrop(c, x, b); }, ['Sky / Background', base + '/sky']);
       if (s === 'sky' && sub[1] === 'landscape') {
@@ -2056,7 +2064,11 @@
           K.nav({ label: 'Pages on This Screen', href: base + '/pages', sk: 'b:pages',
                   value: b.pages.length ? b.pages.filter(function (k) { return k !== 'browse'; }).length + ' Pages' : 'Automatic' }),
           K.nav({ label: 'Page Headers', href: base + '/page-headers', sk: 'b:headers',
-                  value: hdOff ? hdOff + ' Off' : 'Same as All Screens' })]));
+                  value: hdOff ? hdOff + ' Off' : 'Same as All Screens' }),
+          // THE PAGES SCREEN (Phase J): its own, or All Screens'
+          K.nav({ label: 'Pages Screen', href: base + '/pages-screen', sk: 'b:pages_screen',
+                  value: b.pages_screen ? M.pagesScreenSummary(M.pagesScreenOf(this.data.settings.pages_screen, b.pages_screen).value)
+                                        : 'Same as All Screens' })]));
       }
 
       // THE HEADER (2026-10-09): what sits at the top of Home on a phone, and
@@ -4764,6 +4776,12 @@
         return { title: title, top: true, scope: 'Which chips each screen shows is its own. Here they are side by side, and each chip on every screen.',
                  body: function (c) { self.h_chips(c); } };
       }
+      if (page === 'pagesscreen') {
+        var hps = { house: true, base: base };
+        if (sub[0] === 'icons') return mk('Icons', function (c) { self.pagesScreenIcons(c, hps); });
+        return { title: title, top: true, scope: 'Applies to every screen that doesn’t choose its own.',
+                 body: function (c) { self.pagesScreenPage(c, hps); } };
+      }
       if (page === 'nowplaying') {
         return { title: title, top: true, scope: 'Applies to every screen that doesn’t choose its own.', body: function (c) { self.h_nowPlaying(c); } };
       }
@@ -5297,6 +5315,117 @@
     // or the bar on tablets & computers, the bar on phones (hk-base.js
     // nowPlaying, hk-popup.js placeFor). Each screen may choose its own
     // (its Behavior rows, np_*).
+    // THE PAGES SCREEN (docs/phase11/HOMEVIEW-LOOK.md, Phase J): All
+    // Screens' (ctx.house) or a screen's (ctx.path, ctx.b) -- on a screen each
+    // choice Same as All Screens until it is its own, with a Reset
+    psCtx(ctx) {
+      var self = this, house = this.data.settings.pages_screen || M.PAGES_SCREEN_DEFAULTS;
+      var own = ctx.house ? null : (ctx.b && ctx.b.pages_screen) || null;
+      var r = ctx.house ? { value: M.pagesScreenOf(house, null).value, own: {} } : M.pagesScreenOf(house, own);
+      return {
+        value: r.value, own: r.own, house: M.pagesScreenOf(house, null).value,
+        set: function (field, v) {
+          if (ctx.house) { var o = {}; o['pages_screen.' + field] = v; return self.setH(o); }
+          return self.setB(ctx.path, { pages_screen: M.pagesScreenSet(own, field, v) });
+        },
+        reset: function () { return self.setB(ctx.path, { pages_screen: null }); }
+      };
+    }
+    // a choice: All Screens' a plain pop-up, a screen's with Same as All Screens first
+    psSelect(ctx, ps, field, label, list) {
+      var lab = function (v) { return M.choiceLabel(list, v); };
+      if (ctx.house) {
+        return K.select({ label: label, sk: 'pages_screen.' + field, value: ps.value[field], options: list,
+                          onChange: function (v) { ps.set(field, v); } });
+      }
+      var hv = ps.house[field];
+      return K.select({ label: label, sk: 'b:pages_screen:' + field, sub: ps.own[field] ? 'Just This Screen' : 'Same as All Screens',
+                        value: ps.own[field] ? ps.value[field] : '',
+                        options: [['', 'Same as All Screens (' + lab(hv) + ')', lab(hv)]].concat(list),
+                        onChange: function (v) { ps.set(field, v || undefined); } });
+    }
+    pagesScreenPage(c, ctx) {
+      var self = this, ps = this.psCtx(ctx), val = ps.value;
+      c.appendChild(K.group({ footer: 'An iPad-style home screen of this screen’s pages, right after Home: swipe from Home to it, ' +
+          'or open it from the menu or the tab bar. A way around a screen without a tab bar.' }, [
+        this.psSelect(ctx, ps, 'show', 'Pages Screen', M.PAGES_SCREEN_SHOW)]));
+      var icons = Array.isArray(val.icons) ? val.icons.length + (val.icons.length === 1 ? ' Page' : ' Pages') : 'Same as the Menu';
+      c.appendChild(K.group({ header: 'Icons', footer: 'Each page as a large icon in its Accent Color. Calendar shows today’s date, ' +
+          'Weather the temperature, and a red badge shows what’s waiting: timers running, a door open, a notification.' }, [
+        K.nav({ label: 'Icons', value: icons, href: ctx.base + '/icons', sk: ctx.house ? 'pages_screen.icons' : 'b:pages_screen:icons',
+                sub: ctx.house ? null : ps.own.icons ? 'Just This Screen' : 'Same as All Screens' }),
+        this.psSelect(ctx, ps, 'rooms', 'Rooms', M.PAGES_SCREEN_ROOMS)]));
+      // WIDGETS: the Side Pane's sections among the icons
+      var widgets = val.widgets || [], have = {};
+      var rows = widgets.map(function (w) {
+        have[w.kind] = true;
+        return K.select({ label: M.choiceLabel(M.PAGES_SCREEN_WIDGETS, w.kind), sk: (ctx.house ? 'pages_screen.widgets:' : 'b:pages_screen:widgets:') + w.kind,
+                          value: w.size + ':' + w.place, options: M.PAGES_SCREEN_SPOTS.concat([['remove', 'Remove']]),
+                          onChange: function (v) { ps.set('widgets', M.pagesWidgetSet(widgets, w.kind, v)); } });
+      });
+      var left = M.PAGES_SCREEN_WIDGETS.filter(function (o) { return !have[o[0]]; });
+      if (widgets.length < M.PAGES_SCREEN_WIDGETS_MAX && left.length) {
+        rows.push(K.select({ label: 'Add a Widget', sk: ctx.house ? 'pages_screen.widgets' : 'b:pages_screen:widgets', value: '',
+                             placeholder: 'Choose', options: left,
+                             onChange: function (v) { if (v) ps.set('widgets', M.pagesWidgetSet(widgets, v, 'more:right')); } }));
+      }
+      if (!ctx.house && ps.own.widgets) {
+        rows.push(K.button({ label: 'Same Widgets as All Screens', sk: 'b:pages_screen:widgets:reset',
+                             onClick: function () { ps.set('widgets', undefined); } }));
+      }
+      c.appendChild(K.group({ header: 'Widgets', footer: 'Side Pane sections among the icons: Large is two icons wide and two tall, ' +
+          'Small two wide and one tall, on the first Pages screen from the top. They show where the screen has the Side Pane’s sections.' }, rows));
+      c.appendChild(K.group({ footer: 'A bar at the foot of the Pages screen, as on an iPad: tap it or swipe up on it to go Home.' }, [
+        this.psSelect(ctx, ps, 'pill', 'Home Pill', M.PAGES_SCREEN_PILL)]));
+      if (!ctx.house && Object.keys(ps.own).length) {
+        c.appendChild(K.group({}, [K.button({ label: 'Reset to All Screens', sk: 'b:pages_screen:reset', onClick: function () { ps.reset(); } })]));
+      }
+      if (ctx.house) {
+        var mine = Object.keys(this.data.boards || {}).filter(function (p) { return (self.data.boards[p] || {}).pages_screen; });
+        if (mine.length) {
+          c.appendChild(K.group({ header: 'Screens With Their Own', footer: 'These screens choose some of this for themselves.' },
+            mine.map(function (p) {
+              var x = self.dash(p);
+              return K.nav({ label: x ? x.title : p, href: '#/screens/' + encodeURIComponent(p) + '/pages-screen', fk: 'ps:own:' + p,
+                             value: M.pagesScreenSummary(M.pagesScreenOf(self.data.settings.pages_screen, self.data.boards[p].pages_screen).value) });
+            })));
+        }
+      }
+    }
+    // THE ICONS: the menu's pages in its order (Automatic), or a list of
+    // its own -- ordered, each page in or out
+    pagesScreenIcons(c, ctx) {
+      var self = this, ps = this.psCtx(ctx), val = ps.value;
+      var custom = {};
+      (this.data.custom_pages || []).forEach(function (p) { custom[p.path] = p.title; });
+      var kinds = (this.data.page_kinds || []).filter(function (k) { return k !== 'rooms' && k !== 'browse'; });
+      if (!this.energyOn()) kinds = kinds.filter(function (k) { return k !== 'energy'; });
+      if (!this.powerOn()) kinds = kinds.filter(function (k) { return k !== 'power'; });
+      var keys = ctx.house ? kinds.concat(Object.keys(custom))
+        : M.pagesModel(ctx.b, kinds, custom).rows.map(function (r) { return r.value; }).filter(function (k) { return k !== 'rooms'; });
+      var label = {}, paths = [];
+      keys.forEach(function (k) {
+        var p = M.menuPathOf(k, custom);
+        if (p && paths.indexOf(p) < 0) { paths.push(p); label[p] = custom[k] !== undefined ? custom[k] : (M.PAGE_LABELS[k] || k); }
+      });
+      if (!ctx.house) {
+        c.appendChild(K.group({ footer: ps.own.icons ? 'This screen’s own icons.' : 'The icons All Screens’ Pages Screen has.' }, [
+          K.select({ label: 'Icons', sk: 'b:pages_screen:icons', sub: ps.own.icons ? 'Just This Screen' : 'Same as All Screens',
+                     value: ps.own.icons ? 'own' : '', options: [['', 'Same as All Screens'], ['own', 'Just This Screen']],
+                     onChange: function (v) { ps.set('icons', v ? (Array.isArray(val.icons) ? val.icons : 'menu') : undefined); } })]));
+        if (!ps.own.icons) return;
+      }
+      var auto = !Array.isArray(val.icons);
+      var shown = auto ? paths : val.icons.filter(function (p) { return label[p] !== undefined; });
+      c.appendChild(K.listEditor({ fk: ctx.house ? 'psicons' : 'bpsicons', auto: auto, announce: this.announce.bind(this),
+        autoFooter: 'Automatic: the pages in this screen’s menu, in its order. Off: the pages you choose, in your order.',
+        onAuto: function (on) { ps.set('icons', on ? 'menu' : paths.slice()); },
+        shownHeader: 'Icons', shownFooter: auto ? null : 'In this order, row by row.',
+        rows: shown.map(function (p) { return { value: p, label: label[p] }; }),
+        more: auto ? [] : paths.filter(function (p) { return shown.indexOf(p) < 0; }).map(function (p) { return { value: p, label: label[p] }; }),
+        onChange: function (v) { ps.set('icons', v); } }));
+    }
+
     h_nowPlaying(c) {
       var self = this, np = this.npHouse(), wide = this.hasAttribute('wide');
       var set = function (k, v) { var o = {}; o['now_playing.' + k] = v; self.setH(o); };

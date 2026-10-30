@@ -87,7 +87,7 @@
   function model(cfg, areas, o) {
     o = o || {};
     var views = (cfg && Array.isArray(cfg.views)) ? cfg.views : [];
-    var out = { home: null, top: [], categories: [], rooms: [] };
+    var out = { home: null, pages: null, top: [], categories: [], rooms: [] };
     if (!views.length) return out;
     var dash = o.dash || '';
     // HA's own visibility: `visible: false`, or per user ([{ user: id }, ...]).
@@ -149,6 +149,15 @@
       if (!v) continue;
       var list = [].concat(v.area || (v.strategy && v.strategy.area) || []).filter(Boolean);
       if (!userCan(v)) continue;
+      // THE PAGES SCREEN (Phase J, hk-pages-screen.js; only while the
+      // screen's Pages Screen is on, so only then a view): right after Home,
+      // in the menu and as the bar's second tab -- whatever the Categories
+      // and the page order say, as Home is
+      if (v.pages_screen) {
+        if (!out.pages) out.pages = { title: v.menu_title || v.title || 'Pages', icon: v.menu_icon || v.icon || PAGES_ICON,
+                                      path: pathOf(v, i), index: i, kind: 'pages', paths: [String(i), v.path] };
+        continue;
+      }
       // A PAGE THAT FOLLOWS ANOTHER (Browse Music follows Play Music): in the
       // menu when its leader is, as its kind, right after it -- or where the
       // page order places it.
@@ -303,6 +312,8 @@
   // SF Symbols' public set; a floor plan says the same thing.
   var ROOM_ICON = 'mdi:floor-plan';
   var PAGE_ICON = 'mdi:view-dashboard-outline';
+  // the Pages screen's: a grid (Material's; the hk: set has none)
+  var PAGES_ICON = 'mdi:view-grid';
 
   // Which row is the page on screen: its path or its index, on this dashboard.
   function isHere(item, pathname) {
@@ -452,11 +463,45 @@
                          : nav ? 'link:' + nav.link + ':' + nav.top : 'none';
   }
 
-  window.hkMenu = { version: '1.1.0', _: { model: model, isHere: isHere, glyph: glyph, chipPaths: chipPaths, pagePaths: pagePaths,
+  // THE SWIPE ORDER WITH THE PAGES SCREEN (Phase 0's Swipe Between Pages,
+  // Phase J): Home, then the Pages screen, then the rest -- the bar's tabs
+  // and the menu's list already have it there (model above). `list`: pages
+  // in an order (the menu's items, or view paths); the Pages screen's item
+  // (kind 'pages', or the path `pagesPath`) is moved to right after the
+  // first. Phase 0's order function, where it takes an extension, is handed
+  // this below.
+  function pagesAfterHome(list, pagesPath) {
+    if (!Array.isArray(list) || list.length < 2) return list;
+    var at = -1;
+    list.forEach(function (x, i) {
+      if (at < 0 && i > 0 && x && (x.kind === 'pages' || (pagesPath && (x === pagesPath || x.path === pagesPath)))) at = i;
+    });
+    if (at <= 1) return list;
+    var out = list.slice(), it = out.splice(at, 1)[0];
+    out.splice(1, 0, it);
+    return out;
+  }
+  window.hkMenu = { version: '1.1.0', _: { model: model, isHere: isHere, glyph: glyph, chipPaths: chipPaths, pagePaths: pagePaths, pagesAfterHome: pagesAfterHome,
                                            haItems: haItems, hostItems: hostItems, editItems: editItems, editKey: editKey,
                                            sidebarSource: sidebarSource,
                                            haNav: haNav, haList: haList, haOpen: haOpen, haKey: haKey,
                                            tabCentre: tabCentre, kinds: { ORDER: KIND_ORDER, PAGES: KIND_PAGES } } };
+  // (read defensively: Phase 0 is built beside this; an extension is
+  // offered once, when its module is there, and never throws into the menu)
+  (function offer() {
+    var P = window.hkPageSwipe, fn = P && (P.extendOrder || P.extend || P.addOrder);
+    if (typeof fn !== 'function') {
+      if (!offer.waiting) {
+        offer.waiting = true;
+        window.addEventListener('hk-module-ready', function again() {
+          var Q = window.hkPageSwipe;
+          if (Q && typeof (Q.extendOrder || Q.extend || Q.addOrder) === 'function') { window.removeEventListener('hk-module-ready', again); offer(); }
+        });
+      }
+      return;
+    }
+    try { fn.call(P, function (list) { return pagesAfterHome(list, null); }); } catch (e) { /* its order stays its own */ }
+  })();
 
   whenBase(function (C) {
     var M = C.menu;
@@ -1272,6 +1317,7 @@
         return;
       }
       if (m.home) html += row(m.home);
+      if (m.pages) html += row(m.pages);
       S.haOn = m.ha;
       haCounts(m.ha);
       // THE HOME ASSISTANT SECTION where the screen puts it (ha_place): right
@@ -1325,6 +1371,7 @@
       };
       var head = function (sec, title) { return '<div class="sh ed" data-sec="' + sec + '" role="heading" aria-level="2">' + esc(title) + '</div>'; };
       if (m.home) html += edRow(m.home, 'home', { home: true });
+      if (m.pages) html += edRow(m.pages, 'home', { home: true });
       html += m.top.map(function (it) { return edRow(it, 'top', { sw: true, grip: true }); }).join('');
       html += head('categories', 'Categories');
       html += m.categories.map(function (it) { return edRow(it, 'categories', { sw: true, grip: true }); }).join('');

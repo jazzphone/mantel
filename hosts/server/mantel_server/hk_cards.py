@@ -29,6 +29,8 @@ from pathlib import Path
 LAZY = frozenset({
     "hk-calendar.js", "hk-cameras.js", "hk-energy.js", "hk-grid-cards.js", "hk-headers.js", "hk-home.js",
     "hk-library.js", "hk-media.js", "hk-music.js", "hk-stat.js", "hk-weather.js",
+    # the Pages screen (Phase J): only on its own page, while a screen has it on
+    "hk-pages-screen.js",
 })
 # hk-strategy.js is not a card list entry at all: home.js imports it with the bootstrap modules
 NOT_CARDS = frozenset({"hk-strategy.js"})
