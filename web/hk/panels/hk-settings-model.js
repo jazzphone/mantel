@@ -2541,12 +2541,12 @@
   // its `own` the groups that are the screen's); All Screens' is the house
   // section side_pane. Sections: {kind, size (absent: More), when (absent:
   // Always), and a kind's own options}, eight at most, one Full.
-  var PANE_KINDS = [['clock', 'Clock', 'mdi:clock-outline', '#8e8e93'], ['weather', 'Weather', 'mdi:weather-partly-cloudy', '#32ade6'],
+  var PANE_KINDS = [['clock', 'Clock', 'mdi:clock', '#8e8e93'], ['weather', 'Weather', 'mdi:weather-partly-cloudy', '#32ade6'],
     ['calendar', 'Calendar', 'mdi:calendar', '#ff3b30'], ['now_playing', 'Now Playing', 'mdi:music', '#ff2d55'],
     ['security', 'Security', 'mdi:shield-home', '#30b0c7'], ['camera', 'Camera', 'mdi:cctv', '#636366'],
     ['timers', 'Timers', 'mdi:timer-outline', '#ff9500'], ['energy', 'Energy', 'mdi:lightning-bolt', '#34c759'],
-    ['climate', 'Climate', 'mdi:thermostat', '#007aff'], ['people', 'Who’s Home', 'mdi:account-multiple', '#5856d6'],
-    ['todo', 'To-do', 'mdi:format-list-checks', '#ff9500'], ['notifications', 'Notifications', 'mdi:bell', '#ff3b30']];
+    ['climate', 'Climate', 'mdi:thermostat', '#007aff'], ['people', 'Who’s Home', 'mdi:account', '#5856d6'],
+    ['todo', 'To-do', 'mdi:clipboard-check', '#ff9500'], ['notifications', 'Notifications', 'mdi:bell', '#ff3b30']];
   var PANE_SIZES = [['tiny', 'Tiny'], ['less', 'Less'], ['more', 'More'], ['full', 'Full']];
   var PANE_WHEN = [['always', 'Always'], ['active', 'When There’s Something']];
   var PANE_SIDES = [['left', 'Left'], ['right', 'Right']];

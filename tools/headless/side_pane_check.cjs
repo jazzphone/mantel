@@ -49,6 +49,27 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
                 (side === 'right' ? l.rect[0] + l.rect[2] === W : l.rect[0] === 0));
       await shot(page, tag + '-home-' + side);
     }
+    // THE PANE'S MATERIAL IS THE SCREEN'S LOOK (the owner, 2026-10-30: "the side pane isn't blurred anymore?"):
+    // see-through over a live blur in Blur and Bright Glass, near-solid with none in Frosted and Tinted; no
+    // title over any section
+    if (!phone && !upright) {
+      for (const [g, blurs] of [['blur', true], ['bright', true], ['frosted', false], ['tinted', false]]) {
+        cur = 'pane-home-right?hkglass=' + g;
+        await page.goto(input.origin + '/pane-home-right/home?hkglass=' + g);
+        await page.waitForFunction(() => window.__mantelReady === true);
+        await page.waitForTimeout(2000);
+        const m = await page.evaluate(() => {
+          const p = document.querySelector('hk-side-pane[mode="dash"]'), pane = p && p.shadowRoot.querySelector('.pane');
+          if (!pane) return null;
+          const cs = getComputedStyle(pane), bf = cs.backdropFilter || cs.webkitBackdropFilter || 'none';
+          const a = /rgba?\([^)]*,\s*([\d.]+)\)/.exec(cs.backgroundColor);
+          return { look: p.getAttribute('look'), blur: bf, alpha: a ? +a[1] : (cs.backgroundColor === 'rgba(0, 0, 0, 0)' ? 0 : 1),
+                   titles: p.shadowRoot.querySelectorAll('.h2').length - p.shadowRoot.querySelectorAll('[data-k="todo"] .h2').length };
+        });
+        want('the pane in ' + g, m, m && m.look === g && (blurs ? /blur/.test(m.blur) && m.alpha < 0.6 : !/blur/.test(m.blur) && m.alpha > 0.9) && m.titles === 0);
+        await shot(page, tag + '-look-' + g);
+      }
+    }
     await open('pane-every-page');
     let l = await look(page);
     want('every page: Home', l, phone ? !l.on : l.on && !l.scrolls);

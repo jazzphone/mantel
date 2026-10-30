@@ -510,7 +510,9 @@
     // the block. A thermostat's temperature takes the glyph's place
     // (climate_tall). A scene keeps its bare glyph and two-line name.
     ':host([data-group-fill])>div{height:100%}:host([data-group-fill]) hk-plate.card{height:100%;width:100%;min-width:0;max-width:none}',
-    ':host([size]) hk-plate.card{width:100%;min-width:0;max-width:none;height:100%;padding:12.8px 12.8px 12.8px ' + TILE.padL + 'px}',
+    // (clear of a Square screen's outer corner: hk-layout.js cellInset, --hk-in-*)
+    ':host([size]) hk-plate.card{width:100%;min-width:0;max-width:none;height:100%;padding:calc(12.8px + var(--hk-in-t,0px)) calc(12.8px + var(--hk-in-r,0px)) ' +
+      'calc(12.8px + var(--hk-in-b,0px)) calc(' + TILE.padL + 'px + var(--hk-in-l,0px))}',
     ':host([size]) .card.tall .grid{grid-template-rows:44px minmax(0,1fr) auto auto}',
     ':host([size]) .card.scene.tall .grid{row-gap:0}',
     ':host([size]) .card.scene.tall .name{align-self:end;line-height:19px;font-size:17px}',

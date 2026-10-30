@@ -45,12 +45,12 @@
   // ------------------------------------------------------------ the sections
   // kind -> [name, glyph, color] (the settings page's rows wear the same)
   var KINDS = {
-    clock: ['Clock', 'mdi:clock-outline', '#8e8e93'], weather: ['Weather', 'mdi:weather-partly-cloudy', '#32ade6'],
+    clock: ['Clock', 'mdi:clock', '#8e8e93'], weather: ['Weather', 'mdi:weather-partly-cloudy', '#32ade6'],
     calendar: ['Calendar', 'mdi:calendar', '#ff3b30'], now_playing: ['Now Playing', 'mdi:music', '#ff2d55'],
     security: ['Security', 'mdi:shield-home', '#30b0c7'], camera: ['Camera', 'mdi:cctv', '#636366'],
     timers: ['Timers', 'mdi:timer-outline', '#ff9500'], energy: ['Energy', 'mdi:lightning-bolt', '#34c759'],
-    climate: ['Climate', 'mdi:thermostat', '#007aff'], people: ['Who’s Home', 'mdi:account-multiple', '#5856d6'],
-    todo: ['To-do', 'mdi:format-list-checks', '#ff9500'], notifications: ['Notifications', 'mdi:bell', '#ff3b30']
+    climate: ['Climate', 'mdi:thermostat', '#007aff'], people: ['Who’s Home', 'mdi:account', '#5856d6'],
+    todo: ['To-do', 'mdi:clipboard-check', '#ff9500'], notifications: ['Notifications', 'mdi:bell', '#ff3b30']
   };
   var ORDER = ['clock', 'weather', 'calendar', 'now_playing', 'security', 'camera', 'timers', 'energy', 'climate',
                'people', 'todo', 'notifications'];
@@ -303,7 +303,10 @@
 
   // ------------------------------------------------------------ drawing
   function icon(name, extra) { return '<hk-icon icon="' + name + '"' + (extra || '') + '></hk-icon>'; }
-  function head(k) { return '<div class="h2">' + icon(KINDS[k][1]) + '<span>' + esc(KINDS[k][0]) + '</span></div>'; }
+  // NO TITLE OVER A SECTION (the owner, 2026-10-30: "I'm not sure we need a
+  // heading for each section"): what it shows says what it is, as HomeView's
+  // pane. A to-do list keeps its own name (which list is content, not a title).
+  function head() { return ''; }
   function tiny(k, txt, val) {
     return '<div class="sec cmp" data-k="' + k + '" data-size="tiny"><div class="r2">' + icon(KINDS[k][1]) +
       '<span class="tx">' + txt + '</span>' + (val ? '<span class="v2">' + val + '</span>' : '') + '</div></div>';
@@ -476,7 +479,7 @@
       if (s === 'full') {
         var out = setting('weather.outside', null), w = setting('weather.entity', null) || domainIds(c, 'weather')[0];
         var t = out ? (st[out] || {}).state : attr(st[w], 'temperature');
-        if (t != null) list.push(['Outside', deg(t), 'mdi:home-thermometer-outline']);
+        if (t != null) list.push(['Outside', deg(t), 'mdi:home-thermometer']);
       }
       return box('climate', s, head('climate') + rows(list));
     },
@@ -550,10 +553,25 @@
       ':host([mode="saver"]){position:absolute}',
       // A WIDGET on the Pages screen (Phase J; section() below): one section, filling its slot, no pane of its own
       ':host([mode="widget"]){position:absolute;inset:0}',
-      // THE PANE: the screensaver's pane's dark glass, its edge and shadow
-      // toward the page (a left pane's mirrored)
-      '.pane{position:absolute;inset:0;overflow:hidden;background:linear-gradient(to bottom,rgba(14,22,40,.92),rgba(8,12,22,.97));',
-      '  -webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6)}',
+      // THE PANE: the docked side menu's material in the screen's look
+      // (hk-menu.js .mat; the host's `look`, sync() below), as Now Playing's
+      // pane was a frosted sheet -- one live blur, the page and the sky seen
+      // through it. It was a near-solid navy plate (.92-.97) once, its blur
+      // hidden under it (the owner, 2026-10-30: "the side pane isn't blurred
+      // anymore?"). Its edge and shadow toward the page (a left pane's mirrored).
+      '.pane{position:absolute;inset:0;overflow:hidden;background:rgba(28,28,32,0.52);',
+      '  -webkit-backdrop-filter:blur(34px) saturate(1.9);backdrop-filter:blur(34px) saturate(1.9)}',  // hkCards.BLUR.heavy
+      // Frosted and Tinted: no blur, near-solid, as the menu's (the pane is
+      // always up on a wall tablet); the slow tablets' Flat the same
+      ':host([look="frosted"]) .pane{background:rgba(34,38,56,0.95);-webkit-backdrop-filter:none;backdrop-filter:none}',
+      ':host([look="tinted"]) .pane,:host([look="flat"]) .pane{background:rgba(24,24,28,0.93);-webkit-backdrop-filter:none;backdrop-filter:none}',
+      // Bright Glass: the white wash over its light blur, the rim on the page side
+      ':host([look="bright"]) .pane{background:linear-gradient(150deg,rgba(255,255,255,0.30),rgba(255,255,255,0.14));',
+      '  -webkit-backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);backdrop-filter:blur(4px) saturate(1.3) brightness(1.08)}',
+      ':host([look="bright"][side="right"]) .pane{border-left:0;box-shadow:inset 1.5px 0 0 rgba(255,255,255,0.22),-18px 0 44px rgba(0,0,0,.18)}',
+      ':host([look="bright"][side="left"]) .pane{border-right:0;box-shadow:inset -1.5px 0 0 rgba(255,255,255,0.22),18px 0 44px rgba(0,0,0,.18)}',
+      ':host([look="bright"][side="band"]) .pane{border-top:0;box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.22),0 -18px 44px rgba(0,0,0,.18)}',
+      ':host([look="bright"]) .pin{text-shadow:0 1px 2px rgba(0,0,0,0.22)}',
       ':host([side="right"]) .pane{border-left:1px solid ' + v('line') + ';box-shadow:-18px 0 44px rgba(0,0,0,.30)}',
       ':host([side="left"]) .pane{border-right:1px solid ' + v('line') + ';box-shadow:18px 0 44px rgba(0,0,0,.30)}',
       ':host([side="band"]) .pane{border-top:1px solid ' + v('line') + ';box-shadow:0 -18px 44px rgba(0,0,0,.30)}',
@@ -572,6 +590,14 @@
       '.secs>.grow{flex:1 1 auto;min-height:0}',
       '.sec{background:' + v('key') + ';border-radius:' + R + 'px;padding:14px 16px;display:grid;gap:8px;align-content:start;box-sizing:border-box;overflow:hidden}',
       '.sec.cmp{padding:11px 16px}',
+      // ON THE PANE (not a band, not a Pages-screen widget): the sections sit
+      // straight on its glass, a hairline between them, no plates
+      ':host(:not([mode="widget"]):not([side="band"])) .secs{gap:0}',
+      ':host(:not([mode="widget"]):not([side="band"])) .sec:not(.cam2):not(.mp){background:none;border-radius:0;padding:14px 0}',
+      ':host(:not([mode="widget"]):not([side="band"])) .sec.cmp:not(.cam2){padding:11px 0}',
+      ':host(:not([mode="widget"]):not([side="band"])) .sec+.sec{border-top:1px solid ' + v('line') + '}',
+      ':host(:not([mode="widget"]):not([side="band"])) .sec.cam2{margin:14px 0}',
+      '.sec>.ev:last-child{border-bottom:0}',
       '.h2{display:flex;align-items:center;gap:6px;font:600 13px/1 var(--hk-font-body,inherit);letter-spacing:.3px;text-transform:uppercase;color:' + v('ink-2') + '}',
       '.h2 hk-icon{--mdc-icon-size:15px;width:15px;height:15px}',
       '.big2{font:600 72px/1 var(--hk-font-body,inherit);letter-spacing:-2px;font-variant-numeric:tabular-nums}',
@@ -948,6 +974,7 @@
       document.body.appendChild(dash);
     }
     var up = dash ? dash.show({ list: list, place: p, side: sp ? sp.side : 'right', doorbell: door }) : false;
+    if (dash) dress(dash, up);
     if (dash) {
       var s = dash.style;
       if (up && p.kind === 'side') {
@@ -964,6 +991,24 @@
     // (a Home Grid takes the band off its own height: hk-layout.js --hk-pane-b)
     bandRoom(up && p.kind === 'band' && !(grid && grid.isConnected) ? p.h : 0);
     musicFlag(up && list.some(function (x) { return x.kind === 'now_playing'; }) && musicHas(c));
+  }
+  // THE PANE'S MATERIAL is the screen's look (html[data-hk-glass],
+  // hk-settings.js; the slow tablets' ladder changes it too): its host's
+  // `look`, the CSS above. With a picture of the sky (Blur Mode
+  // Pre-rendered, hk-glass.js PINNED) it wears its slice of it under the
+  // menu's tint instead of blurring the moving sky live.
+  var PIN_TINT = 'linear-gradient(rgba(28,28,32,0.52),rgba(28,28,32,0.52))';
+  function lookOf(g) {
+    if (g === 'frosted' || g === 'tinted' || g === 'flat') return g;
+    if (g === 'bright' || g === 'bright_pre' || g === 'bright_each') return 'bright';
+    return 'blur';
+  }
+  function dress(el, up) {
+    var g = document.documentElement.getAttribute('data-hk-glass') || 'blur';
+    if (el.getAttribute('look') !== lookOf(g)) el.setAttribute('look', lookOf(g));
+    var G = window.hkGlass, pane = el.shadowRoot && el.shadowRoot.querySelector('.pane');
+    if (!G || !G.pin || !pane) return;
+    if (up && g === 'blur_pre') G.pin(pane, PIN_TINT); else G.unpin(pane);
   }
   // at most once a frame, and again each second while it is up (the clock,
   // a countdown, a grace running out)
@@ -984,6 +1029,8 @@
     window.addEventListener('hk-saver', soon);
     window.addEventListener('hk-module-ready', soon);
     window.addEventListener('hk-client-update', pushed);
+    // the look changing (a setting, the slow tablets' ladder): the material
+    try { new MutationObserver(soon).observe(document.documentElement, { attributes: true, attributeFilter: ['data-hk-glass'] }); } catch (e) { /* none */ }
     window.addEventListener('hk-view-ready', function (e) {
       var v = e && e.detail && e.detail.view;
       if (v && v.localName === 'hk-home-grid-view') grid = v;

@@ -431,7 +431,7 @@
     ['nowplaying', 'Now Playing', 'mdi:music', C.red],
     // THE SIDE PANE (2026-10-30): one pane per screen beside the page and in
     // the screensaver, of the sections each picks
-    ['sidepane', 'Side Pane', 'mdi:dock-right', C.teal],
+    ['sidepane', 'Side Pane', 'mdi:dock-left', C.teal],
     // NOTIFICATIONS (the feature's, 2026-10-16): about every screen, so here
     // rather than under Pages -- its pages keep #/features/notify/...
     ['notify', 'Notifications', 'mdi:bell-badge', C.red, null, 'features/notify'],
@@ -2099,7 +2099,7 @@
       c.appendChild(K.group({}, [
         K.nav({ label: 'Appearance', value: M.glassLabel(M.glassOf(b, this.data.settings.look).effective), sub: this.appearanceSays(b), href: base + '/appearance', sk: 'b:appearance', icon: 'mdi:palette' })]));
       // THE SIDE PANE (2026-10-30): one row, its page as All Screens'
-      c.appendChild(K.group({}, [K.nav({ label: 'Side Pane', value: M.paneSummary(this.paneNow(x.path)), href: base + '/sidepane', sk: 'b:side_pane', icon: 'mdi:dock-right' })]));
+      c.appendChild(K.group({}, [K.nav({ label: 'Side Pane', value: M.paneSummary(this.paneNow(x.path)), href: base + '/sidepane', sk: 'b:side_pane', icon: 'mdi:dock-left' })]));
 
       // BEHAVIOR
       var beh = [K.toggle({ label: 'Allow Pop-ups', sk: 'b:popups', on: b.popups, onChange: function (on) { set({ popups: on }); } })];
@@ -5472,15 +5472,29 @@
     p_sidePane(path, sub, back) {
       var self = this, x = path ? this.dash(path) : null, b = path ? (this.data.boards || {})[path] : null;
       var base = path ? '#/screens/' + encodeURIComponent(path) + '/sidepane' : '#/house/sidepane';
-      var top = { title: 'Side Pane', back: back, preview: path || undefined };
+      // THE PREVIEW at the top of the page at every width, the pane in it as
+      // you change it (the owner, 2026-10-30: "it may be good to include a
+      // preview for the side pane"): this screen, or on All Screens' page a
+      // screen that follows it
+      var pv = path || this.paneFollower();
+      var top = { title: 'Side Pane', back: back, preview: pv || undefined, previewTop: !!pv };
       if (sub[0] === 'section' && (sub[1] === 'dashboard' || sub[1] === 'saver')) {
         var i = Number(sub[2]), p0 = this.paneNow(path), s0 = ((p0[sub[1]] || {}).sections || [])[i];
         if (!s0) return Object.assign(top, { body: function (c) { self.paneBody(c, path, x, base); } });
-        return { title: (M.paneKind(s0.kind) || [0, s0.kind])[1], back: ['Side Pane', base], preview: path || undefined,
+        return { title: (M.paneKind(s0.kind) || [0, s0.kind])[1], back: ['Side Pane', base], preview: pv || undefined, previewTop: !!pv,
                  body: function (c) { self.paneSection(c, path, sub[1], i); } };
       }
       return Object.assign(top, { top: !path, scope: path ? null : 'Applies to every screen that doesn’t choose its own.',
                                   body: function (c) { self.paneBody(c, path, x, base); void b; } });
+    }
+    // a screen whose Side Pane is All Screens' throughout (none of its groups
+    // its own), else none
+    paneFollower() {
+      var bd = this.data.boards || {};
+      return Object.keys(bd).filter(function (p) {
+        var r = bd[p] && bd[p].side_pane_read;
+        return !(r && r.own && r.own.length);
+      })[0] || null;
     }
     paneNow(path) {
       var b = path ? (this.data.boards || {})[path] : null;
@@ -5552,7 +5566,7 @@
         shownFooter: 'Size: Tiny is one line; Less, the gist; More, the whole section; Full takes the room the pane has left. When There’s Something: only while it has something, such as music playing. The pane never scrolls: when the sections don’t fit, the last ones get smaller, then are left out.',
         emptyText: 'No sections',
         rows: grp.sections.map(function (s, i) {
-          var k = M.paneKind(s.kind) || [s.kind, s.kind, 'mdi:card-outline'];
+          var k = M.paneKind(s.kind) || [s.kind, s.kind, 'mdi:card'];
           return { value: keys[i], label: name(s) + (ent(s) ? ' (' + ent(s) + ')' : ''), icon: k[2], value2: M.secSays(s),
                    href: base + '/section/' + g + '/' + i };
         }),

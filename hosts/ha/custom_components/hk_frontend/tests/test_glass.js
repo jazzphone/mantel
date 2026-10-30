@@ -260,6 +260,10 @@ load(HK_ROOT + '/frontend/modules/hk-glass.js');
 var r = window.hkGlass._rrect(92, 328.3, 192, 70, 23.5);
 ok('a pill is its own rounded rectangle', r.indexOf('M115.5,328.3H260.5A23.5,23.5 0 0 1 284,351.8') === 0, r);
 ok('a radius larger than the shape is capped at half its height', window.hkGlass._rrect(0, 0, 100, 20, 50).indexOf('M10,0') === 0);
+// a Square screen's corner block: four corners, each its own (hk-layout.js cellRadius)
+var r4 = window.hkGlass._rrect(0, 0, 200, 200, [72, 34, 34, 34]);
+ok('four corners: the top-left 72, the rest 34', r4 === 'M72,0H166A34,34 0 0 1 200,34V166A34,34 0 0 1 166,200H34A34,34 0 0 1 0,166V72A72,72 0 0 1 72,0Z', r4);
+ok('one radius draws as it did', window.hkGlass._rrect(0, 0, 100, 50, 10) === window.hkGlass._rrect(0, 0, 100, 50, [10, 10, 10, 10]));
 
 print('\n=== big layers are cut into bands (GPU max texture) ===');
 var B = window.hkGlass._bands;
