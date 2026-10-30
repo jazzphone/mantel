@@ -464,6 +464,11 @@
   var CLOUD_STYLES = [['classic', 'Classic'], ['realistic', 'Realistic']];
   // Moving Things (sky.moving / a screen's sky_moving)
   var SKY_MOVING = [['behind', 'Behind the Cards'], ['front', 'In Front of the Cards']];
+  // SWIPE BETWEEN PAGES (menu.swipe_pages / a screen's swipe_pages; hk-pageswipe.js)
+  var SWIPE_PAGES = [['auto', 'Automatic'], ['on', 'On'], ['off', 'Off']];
+  var SWIPE_PAGES_SAYS = { auto: 'Where a tab bar shows, a sideways swipe goes to the next or the previous tab’s page.',
+                           on: 'A sideways swipe goes to the next or the previous page: the tab bar’s, or the side menu’s Home and Categories.',
+                           off: 'Pages change only from the menu or the tab bar.' };
   // the daytime sky's brightness (sky.daytime, settings.py DAYTIME_SKIES)
   var DAYTIME_SKIES = [['natural', 'Natural'], ['balanced', 'Balanced'], ['deep', 'Deep']];
   function woodlandSummary(list) {
@@ -1727,6 +1732,7 @@
     ['Back Button & Title', 'house/menu/header', 'menu.page_header', 'page header back title context navigation compact hide'],
     ['Back Button & Title', 'screen', 'page_header', 'page header back title context navigation compact hide', true],
     ['Menu Settings', 'screen/menu', 'menu_own', 'same as all screens own menu this screen side menu edge tab tab bar', true],
+    ['Swipe Between Pages', 'screen/menu', 'swipe_pages', 'swipe gesture next previous page sideways tab bar homeview same as all screens', true],
     ['Menu on Each Screen', 'house/menu', 'menu:screens', 'menu each screen tablets phones which kind button tab bar always open'],
     ['Side Menu', 'house/menu/side', 'menu:side', 'side menu drawer button always open docked used by'],
     ['Edge Tab', 'house/menu/edge-tab', 'menu:edge-tab', 'edge tab position size used by'],
@@ -1842,6 +1848,7 @@
     ['Menu Button Icon', 'house/menu/side', 'menu.glyph', 'glyph sidebar lines hamburger side menu'],
     ['Tap Clock to Open Menu', 'house/menu/side', 'menu.clock', 'side menu'],
     ['Swipe from Left Edge', 'house/menu/side', 'menu.swipe', 'menu gesture swipe drag edge open no button side menu'],
+    ['Swipe Between Pages', 'house/menu', 'menu.swipe_pages', 'swipe gesture next previous page sideways tab bar homeview'],
     ['Accent Color', 'house/appearance/accent', 'menu.accent', 'highlight color colour accent tint orange icons selected page menu flat'],
     ['Highlight Color', 'house/appearance/accent', 'menu.accent', 'menu color colour accent tint orange icons selected page highlight'],
     ['Button Style', 'house/menu/side/tablets', 'menu.style', 'menu chip tab edge pinned tablet side menu'],
@@ -2034,7 +2041,8 @@
     ['menu', 'Menu', ['menu', 'menu_own', 'page_header', 'dock_min', 'time_weather', 'ha_row', 'ha_place', 'tab_position', 'tab_size',
                       'tab_size_phone', 'accent', 'glyph', 'clock', 'swipe',
                       'tab_bar_scroll', 'tab_bar_rooms', 'tab_bar_glass', 'tab_bar_more', 'tab_bar_more_phone', 'tab_bar_pos', 'tab_bar_fold', 'tab_bar_start', 'tab_bar_adjust', 'tab_bar_scroll_phone', 'tab_bar_tabs',
-                      'tab_bar_tabs_rail', 'tab_bar_tabs_phone', 'tab_bar_size', 'tab_bar_labels', 'tab_bar_strip', 'menu_phone', 'button_phone', 'tab_bar_rooms_phone'], true],
+                      'tab_bar_tabs_rail', 'tab_bar_tabs_phone', 'tab_bar_size', 'tab_bar_labels', 'tab_bar_strip', 'menu_phone', 'button_phone', 'tab_bar_rooms_phone',
+                      'swipe_pages'], true],
     ['home', 'Home Page', ['chips_row', 'chips', 'chips_quiet', 'chips_extra', 'chips_custom', 'chips_custom_show'], true],
     // a screen's rooms: All Screens' or its own (rooms_custom)
     ['rooms', 'Rooms', ['rooms_custom', 'room_order', 'home_rooms', 'menu_rooms', 'page_rooms'], true],
@@ -2433,7 +2441,8 @@
     GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, TINT_WELLS: TINT_WELLS, isBlur: isBlur, glassStyle: glassStyle, SLOW_FPS: SLOW_FPS, LADDER: LADDER, ladderFacts: ladderFacts, ladderSignature: ladderSignature, slowRecommend: slowRecommend, PRESETS: PRESETS, STATUS_LABELS: STATUS_LABELS,
     STATUS_SAYS: STATUS_SAYS, STATUS_ROWS: STATUS_ROWS, STATUS_SOURCE: STATUS_SOURCE, PAGES: PAGES, pageOf: pageOf, PAGE_TYPES: PAGE_TYPES,
     PAGE_FEATURES: PAGE_FEATURES, pagesListed: pagesListed, pageOfRoute: pageOfRoute, routeForward: routeForward, screenShows: screenShows, headerOffOn: headerOffOn, statusSummary: statusSummary, HEADER_PAGES: HEADER_PAGES,
-    WOODLAND: WOODLAND, woodlandSummary: woodlandSummary, CLOUD_STYLES: CLOUD_STYLES, SKY_MOVING: SKY_MOVING, DAYTIME_SKIES: DAYTIME_SKIES,
+    WOODLAND: WOODLAND, woodlandSummary: woodlandSummary, CLOUD_STYLES: CLOUD_STYLES, SKY_MOVING: SKY_MOVING,
+    SWIPE_PAGES: SWIPE_PAGES, SWIPE_PAGES_SAYS: SWIPE_PAGES_SAYS, DAYTIME_SKIES: DAYTIME_SKIES,
     BROWSE_LABELS: BROWSE_LABELS, POPUP_KINDS: POPUP_KINDS, CLOSE_AFTER: CLOSE_AFTER, MONTHS: MONTHS,
     CAR_LAYOUTS: CAR_LAYOUTS, CAR_WIDTHS: CAR_WIDTHS, CAR_WIDTH: CAR_WIDTH, carWidthChoice: carWidthChoice,
     PAGE_PILL_DEFAULTS: PAGE_PILL_DEFAULTS, PILL_COLORS: PILL_COLORS, CAL_COLORS: CAL_COLORS, colorLabel: colorLabel,

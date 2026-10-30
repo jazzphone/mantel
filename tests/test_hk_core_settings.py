@@ -202,6 +202,30 @@ def test_a_screens_and_a_tablets_changes():
     assert C.apply_tablet({}, {"sleep": {"decided_by": "nobody"}}, "hall")[1] == {"sleep": "sleep"}
 
 
+def test_swipe_between_pages_all_screens_and_a_screens_own():
+    """Swipe Between Pages (docs/phase11/HOMEVIEW-LOOK.md, Phase 0, 2026-10-30): All Screens' menu.swipe_pages,
+    Automatic unless chosen; a screen's swipe_pages, None (Same as All Screens) unless chosen. Nothing saved
+    today changes: absent is Automatic and Same as All Screens."""
+    assert M.SWIPE_PAGES == ("auto", "on", "off")
+    assert M.merged({})["menu"]["swipe_pages"] == "auto"
+    assert M.merged({"dashboard": {"menu": {"swipe_pages": "sideways"}}})["menu"]["swipe_pages"] == "auto"
+    opts, err = C.apply_house({}, {"menu.swipe_pages": "on"})
+    assert err == {} and M.merged(opts)["menu"]["swipe_pages"] == "on"
+    assert C.apply_house({}, {"menu.swipe_pages": True})[1] == {"menu.swipe_pages": "choice"}
+    assert C.apply_house({}, {"menu.swipe_pages": None})[1] == {"menu.swipe_pages": "choice"}
+    assert M.board({})["swipe_pages"] is None and M.board({"swipe_pages": "nope"})["swipe_pages"] is None
+    for v in M.SWIPE_PAGES:
+        b, err = C.apply_board({}, {"swipe_pages": v})
+        assert err == {} and b["swipe_pages"] == v
+        back, err = C.apply_board(b, {"swipe_pages": None})
+        assert err == {} and back["swipe_pages"] is None, "Reset to All Screens"
+    assert C.apply_board({}, {"swipe_pages": "always"})[1] == {"swipe_pages": "choice"}
+    # a screen's own is read as it is, beside All Screens' (the page reads both: hkSettings.swipePages)
+    got = M.resolved(M.board({"swipe_pages": "off"}), {"dashboard": {"menu": {"swipe_pages": "on"}}})
+    assert got["swipe_pages"] == "off"
+    assert "swipe_pages" not in M.MENU_KEYS, "None-for-Same-as-All-Screens, not menu_own"
+
+
 def test_a_new_screen_starts_from_its_preset_and_all_screens_menu():
     """new_board: what Add Screen's Shown On starts a screen with (HA's dashboard flow), and what Mantel gives a house
     with no screens (settings_store.seed_home_screen): the preset over the defaults, pages empty (generated)."""
