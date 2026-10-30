@@ -157,11 +157,11 @@ the page gutter's 27.2, as the screenshot's tiles sit about a gap from the glass
 off, square cells and Fill the Screen. Changing Cell Shape on any type keeps its blocks where they are (the cells
 change shape, not position).
 
-**Corners.** Square cells take HomeView's corners, measured off the screenshot: 14.5 % of a one-cell tile and
-about 9 % of a 2 × 2 block, so the corner grows with the block. In a 196 cell: **28 px** for a block one cell on
-either side (S, W, T), **36 px** for 2 × 2 and larger, drawn as circular arcs. Where the browser has `corner-shape`
-(Chrome today, not Safari), they are continuous corners (`corner-shape: squircle`) at **38 / 48 px**, which covers
-the same span as Apple's curve. 196 × 150 tiles keep 23.5. `hkCards.R` gains `square` and `square-large`.
+**Corners.** Square cells take HomeView's corners, measured off the screenshot as circular arcs (fitted to within
+half a pixel), on corners away from the display's edge: **one radius for every block**, 21 px on a 120 px tile and
+on the 248 px 2 × 2 alike, so **34 px** in a 196 cell (today's tiles: 23.5). On the **Square** screen type a block's
+outer corner at the screen's corner is concentric with the display's own: 45 px on the screenshot, **72 px** here.
+196 × 150 tiles keep 23.5. `hkCards.R` gains `square` (34) and `square-screen` (72).
 
 **Starters** (hand-written like `NIGHTSTAND`, hk-grid-editor.js ~131, filled from the house: the screen's room's
 thermostat, the front door lock, the house's scenes):
@@ -445,10 +445,12 @@ per wallpaper, a picker screenshot.
 
 ## Phase F. A numbered analog face (Phase 2)
 
-**What you see.** A clock face, **Analog Numbers**, matched to the screenshot: white 1–12 (SF Pro 500) at 73 % of
-the radius, 60 white minute ticks at the rim, white hour and minute hands (51 % and 84 % of the radius) with a thin
-neck at the centre, a slim white second hand, no date, on a faint dark disc with no rim that fills its cell. Its
-colour variants colour the second hand.
+**What you see.** A clock face, **Analog Numbers**, matched to the screenshot side by side: SF Pro 500 numerals
+(23 units of a 200 face) at 71 % of the radius; 60 ticks at the rim, the hours' longer (86–95.5) and heavier (2.0,
+white 0.9) than the minutes' (90.5–95.5, 1.3, white 0.62); white hour and minute hands (52 % and 89 % of the
+radius, 6.4 and 5.6 wide) on a thin neck at the centre, with a soft shadow; a slim white second hand with a tail; a
+faint dark disc with a thin rim (white 0.28) that fills its cell; no date. Its colour variants colour the second
+hand.
 
 **Settings.** `CLOCK_FACES` gains `['numbers', 'Analog Numbers']` (hk-grid-catalog.js ~33, and its Python mirror);
 the screensaver's Clock Style list gains it too. Its colour variants are the analog face's (`--ckh`, `--ckm`).
@@ -577,8 +579,8 @@ Square screen type's edge 14 px".
 
 | rule | px | where |
 |---|---|---|
-| square | 28 (38 as a squircle) | a square cell's one-cell block: S, W, T |
-| square large | 36 (48 as a squircle) | a square cell's 2 × 2 and larger block |
+| square | 34 | every block on square cells, whatever its size (HomeView's one radius, measured) |
+| square screen | 72 | a Square screen's corner block, its outer corner only: concentric with the display |
 
 **The scales → Type roles**, a row:
 
