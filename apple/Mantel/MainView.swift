@@ -43,8 +43,7 @@ struct MainView: View {
 
     var body: some View {
         ZStack {
-            // the page's own ground (#05070e; a light page's, light): also the bands beside a page kept clear of a
-            // camera at the side
+            // the page's own ground (#05070e; a light page's, light), under the page while it draws
             (lightPage ? Color(uiColor: .systemBackground) : Color(red: 0.02, green: 0.03, blue: 0.055)).ignoresSafeArea()
             if !ready {
                 // the still only where it fits: one taken on the Duo's other display, or an iPad turned or in another
@@ -56,16 +55,20 @@ struct MainView: View {
                         ProgressView().tint(.white).controlSize(.large).frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
-                .ignoresSafeArea(edges: .vertical)
+                .ignoresSafeArea()
             }
             if let start {
                 HouseWebView(start: start, house: model.house!, onSessionEnded: { next in
                     Task { await load(next) }       // the web session ended: hand the web view a new one
                 }, onEvent: handle)
-                // under the status bar and the home indicator (the page pads itself by env(safe-area-inset-top and
-                // -bottom)), but not under a camera at the side: the Duo's outer display has it at its right edge,
-                // a phone turned has its Dynamic Island there, and HK's pages do not pad their sides
-                .ignoresSafeArea(edges: .vertical)
+                // EDGE TO EDGE, as a native app's backgrounds are (2026-10-30, the owner on the Duo: the black band
+                // down the strip "doesn't feel like a native Duo app"): under the status bar, the home indicator and
+                // a strip of system controls at the side -- the Duo's camera, time and Wi-Fi down its right edge, a
+                // phone turned with its Dynamic Island there. The page keeps what is read and touched clear of them
+                // by env(safe-area-inset-*) (hk-base.js SAFE), and puts its tab bar in the strip's empty foot
+                // (hk-tabbar.js stripSide); the sky and the screensaver run under it. The app's own ⋯ button, Can't
+                // Reach Mantel and the sheets stay inside the safe area.
+                .ignoresSafeArea()
                 .id(start)
                 .opacity(ready ? 1 : 0)
             }

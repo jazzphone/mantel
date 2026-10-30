@@ -83,10 +83,17 @@ player is gone.
 
 - **The web view is never rebuilt for a size.** A fold, a turn or a resized window resizes it in place; the page lays
   itself out by its width and keeps its scroll and state. It is transparent, so the app's own ground (the page's
-  `#05070e`) shows while a new size draws, never white. It runs under the status bar and the home indicator (the
-  page pads itself by `env(safe-area-inset-top/-bottom)`), but not under a camera at the side: HK's pages don't pad
-  their sides, and the Duo's outer display keeps its camera and status bar in an 84 pt strip down its right edge (a
-  phone turned has its Dynamic Island there too). The strip shows the app's ground; the page is 382 pt wide there.
+  `#05070e`) shows while a new size draws, never white.
+- **Edge to edge, as a native Duo app** (2026-10-30). The Duo keeps its camera, a Live Activity, the time and Wi-Fi
+  at the top of an 84 pt strip down its right edge (folded and open), and nothing below them. The web view runs
+  under the strip, the status bar and the home indicator, so the sky, a Flat ground, the screensaver and a full-screen
+  camera fill the whole display; the page keeps what is read and touched clear of them by `env(safe-area-inset-*)`
+  (HK's views, header, chips, cards, the side menu, the sheets, the Home Grid, Settings: `hk-base.js` `SAFE`). A
+  phone turned (its Dynamic Island at the side) gets the same. The tab bar becomes a rail in the strip's empty foot
+  (Menu → Tab Bar → Use the Side Strip, on by default; `hk-tabbar.js` `stripSide` / `stripFit`): Home, the bar's
+  tabs and More, as many as fit below 45 % of the strip's height (35 % in landscape), the rest in More. The app's ⋯
+  button, Can't Reach Mantel and its sheets stay inside the safe area. (From ab31c3b5 to this the web view stopped at
+  the strip, which showed as a black band.)
 - **The music player follows the page's width, decided at the tap.** `window.hkHostPlayer` (the page's way to ask
   for the app's player) only answers while the page is narrower than the Music page's two columns (760 pt, hk-music.js
   `COLS2`): an iPhone, the Duo folded or open in portrait, a narrow iPad window. Wider, the player is the page's own
@@ -104,7 +111,9 @@ Verified in the Simulator (iOS 27.0, 2026-10-29), paired with the fictional hous
 page 402 pt wide, safe area 62/34), iPad Pro 11-inch and 13-inch (M5) in portrait (the page's player, 834 and 1032 pt;
 the app's player as a form sheet), Setup on all three. The iPhone Duo (iOS 27.1) folded, on its outer display
 (466×678 pt): Setup, Home (the app's player), the player, Can't Reach Mantel and App Settings, all clear of the
-camera strip. Not verified: the Duo open (the inner display, 669×951 pt), as nothing found from the command line
+camera strip. Edge to edge (iOS 27.1, 2026-10-30): the Duo folded, Home with the sky under the strip, the page
+clear of it and the tab bar a rail in its foot (Home, Lights, Music, More) below the time and Wi-Fi; the open Duo's
+sizes only in WebKit (`tools/headless/side_strip_check.py`). Not verified: the Duo open (the inner display, 669×951 pt), as nothing found from the command line
 folds it (`simctl io <dev> screenConfig --display=N power off|on` only blanks a display, and toggling them crashed
 SpringBoard once; the fold is the Simulator window's own control); turning or resizing a window live; widgets
 placed on a Home Screen; the pointer and the keyboard shortcuts.

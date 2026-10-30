@@ -44,6 +44,7 @@ The first public release of **Mantel**: HK Frontend's screens, inspired by Apple
 
 ### Late changes before release
 
+- **iPhone Duo: edge to edge, the tab bar in the side strip.** The app's page runs under the Duo's strip of system controls (its camera, the time and Wi-Fi down the right edge) as a native app's does, the sky and the screensaver filling the display, and keeps its content clear of the strip; it was a black band. The tab bar becomes a rail in the strip's empty foot, below the system's items (**Menu → Tab Bar → Use the Side Strip**, on by default), the tabs that don't fit in More. A phone held sideways keeps its page clear of its Dynamic Island the same way, in the app and in a Home Screen web app.
 - Home Grid: swipe cards page with a mouse, a wheel or a trackpad; shared blur reaches cards inside swipe blocks; starter layouts stay inside Screen Settings while editing; fixed tall-tile proportions with a per-screen scale; six-by-two room and scene groups; person portraits load through Mantel and fall back to initials; room and scene groups take their own background color, opacity and blur.
 - Group controls show in the Lights and accessory lists without double-counting their members.
 - Ignore Announcements recognises Home Assistant service calls in Mantel, Music Assistant speakers included.
