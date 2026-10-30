@@ -40,7 +40,8 @@ prints one table:
 - **quick** is the main suite, `check_links`, `check_version`, `package_check --release`, and the private words
   in what is committed and in the commit messages `origin/main` hasn't got.
 - **full** adds the HA build, HK Frontend's Python and JavaScript suites in it, the headless checks one at a time,
-  Edit mode's browser check (`edit-mode-check`, when `PLAYWRIGHT_PATH` and `NODE` are set), and the Caddy image
+  Edit mode's browser check (`edit-mode-check`) and the side strip's (`side-strip-check`), both when `PLAYWRIGHT_PATH`
+  and `NODE` are set, and the Caddy image
   test (it builds `mantel-caddy:ci`) when Docker is running.
 - Each step ends **passed**, **failed** or **skipped**, and a skip says why (no Docker, no Chrome, no private
   words, no `~/.venvs/hk-ha-test`, no `PLAYWRIGHT_PATH` or `NODE`). A skip is never counted as a pass.
@@ -184,6 +185,16 @@ export PLAYWRIGHT_PATH=/path/to/node_modules/playwright-core NODE=$(command -v n
 
 Any page error or console error fails it, except the 404s of what each home supplies itself (SF Pro, the glyphs).
 Without `PLAYWRIGHT_PATH` or `NODE` it prints why and exits 0; `tools/ci.py full` runs it as `edit-mode-check`.
+
+### The side strip in WebKit
+
+`tools/headless/side_strip_check.py` (with its `.cjs`) looks at Home with the sky in WebKit at the iPhone Duo's sizes
+(folded 466 × 678 and open sideways 1000 × 703, its strip 84 at the right), with Use the Side Strip off, and on a
+phone held sideways (874 × 402, 62 at both sides). A headless browser has no safe area, so it stands the insets in
+through `--hk-safe-left`, `--hk-safe-right` and `--hk-safe-bottom`, which the page reads before `env()`. It checks
+that the sky fills the screen, the page's content stays clear of the insets, and the tab bar is a rail in the strip's
+foot below its reserve (or, without a strip, the bar inside the insets); `--shots DIR` keeps the screenshots.
+`tools/ci.py full` runs it as `side-strip-check`, skipped without `PLAYWRIGHT_PATH` or `NODE`.
 
 ## A scratch Home Assistant
 

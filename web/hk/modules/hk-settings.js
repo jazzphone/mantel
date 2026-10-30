@@ -157,6 +157,8 @@
             bar_more_phone: 'list', bar_pos: 'bottom', bar_fold: 'start', bar_start: 'full',
             bar_adjust: true, page_header: 'current',
             bar_tabs: 6, bar_tabs_rail: 6, bar_tabs_phone: 3, bar_size: 'medium', bar_labels: 'show',
+            // the rail in a phone's side strip (hk-tabbar.js, 2026-10-30)
+            bar_strip: true,
             // Phones' own (hk-base.js phoneForm: a phone, or a tablet whose
             // own menu doesn't fit)
             bar_scroll_phone: 'shrink', button_phone: 'chip', bar_rooms_phone: 'more' },

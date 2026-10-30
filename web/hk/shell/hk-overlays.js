@@ -22,7 +22,9 @@
   // OVER.solid (hk-base.js): the near-solid overlay, no blur -- a toast must read over anything
   var CSS = [
     '#hk-toasts{position:fixed;left:0;right:0;bottom:calc(24px + env(safe-area-inset-bottom, 0px));z-index:10001;',
-    '  display:flex;justify-content:center;pointer-events:none;padding:0 16px;box-sizing:border-box}',
+    // (centred between the side safe areas -- the iPhone Duo's strip, a phone turned: hk-base.js SAFE)
+    '  display:flex;justify-content:center;pointer-events:none;box-sizing:border-box;',
+    '  padding:0 calc(16px + var(--hk-safe-right,env(safe-area-inset-right,0px))) 0 calc(16px + var(--hk-safe-left,env(safe-area-inset-left,0px)))}',
     '#hk-toasts .toast{pointer-events:auto;display:flex;align-items:center;gap:12px;max-width:568px;min-width:0;',
     '  box-sizing:border-box;padding:12px 18px;border-radius:14px;background:rgba(24,24,28,0.93);color:#fff;',
     '  font:600 15px/1.35 -apple-system,"SF Pro Text",system-ui,sans-serif;',

@@ -1088,6 +1088,18 @@ def test_the_tab_bars_shrink_end():
     assert err == {} and S.resolved(S.board({}), opts)["tab_bar_adjust"] is False
     data, err = apply_board({}, {"menu_custom": True, "tab_bar_adjust": False})
     assert err == {} and data["tab_bar_adjust"] is False
+    # Use the Side Strip (2026-10-30, the iPhone Duo): on unless turned off, All Screens' or a screen's own
+    assert S.board({})["tab_bar_strip"] is True and S.board({"tab_bar_strip": False})["tab_bar_strip"] is False
+    assert S.board({"tab_bar_strip": "no"})["tab_bar_strip"] is True
+    assert S.MENU_KEYS["tab_bar_strip"] == "bar_strip" and S.house_menu({})["tab_bar_strip"] is True
+    opts, err = apply_house({}, {"menu.bar_strip": False})
+    assert err == {} and S.resolved(S.board({}), opts)["tab_bar_strip"] is False
+    assert apply_house({}, {"menu.bar_strip": "off"})[1] == {"menu.bar_strip": "bool"}
+    own = S.board({"menu_own": ["tab_bar_strip"], "tab_bar_strip": True})
+    assert S.resolved(own, opts)["tab_bar_strip"] is True
+    assert S.resolved(S.board({"menu_own": ["accent"], "tab_bar_strip": True}), opts)["tab_bar_strip"] is False
+    data, err = apply_board({}, {"menu_own": ["tab_bar_strip"], "tab_bar_strip": False})
+    assert err == {} and data["tab_bar_strip"] is False
 
 
 def test_the_tab_bars_while_scrolling_on_phones():

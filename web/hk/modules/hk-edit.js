@@ -973,7 +973,8 @@
     // (under a tab bar at the top, --hk-tabbar-below from hk-tabbar.js: as
     // far below it as it is below the window's edge, BAR_GAP; under the
     // host's own toolbar when it shows one, --hk-edit-under: mountBar)
-    return '#hk-edit{position:fixed;left:var(--hk-page-left,0px);right:var(--hk-page-right,0px);top:0;z-index:10;display:flex;justify-content:center;' +
+    // (and clear of a side safe area: hk-base.js SAFE, 2026-10-30)
+    return '#hk-edit{position:fixed;left:max(var(--hk-page-left,0px), var(--hk-safe-left,env(safe-area-inset-left,0px)));right:max(var(--hk-page-right,0px), var(--hk-safe-right,env(safe-area-inset-right,0px)));top:0;z-index:10;display:flex;justify-content:center;' +
       'box-sizing:border-box;padding:max(calc(var(--hk-safe-top, env(safe-area-inset-top, 0px)) + 10px), ' +
       'calc(var(--hk-tabbar-below, -100px) + ' + BAR_GAP + 'px), calc(var(--hk-edit-under, -100px) + 10px)) 16px 0;pointer-events:none}' +
       '#hk-edit .bar{pointer-events:auto;box-sizing:border-box;width:100%;max-width:640px;min-height:52px;' +

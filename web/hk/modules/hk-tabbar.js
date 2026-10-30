@@ -168,6 +168,58 @@
     return { shown: shown, more: more, width: railW(size), plate: true,
              height: 2 * rp + cells * tab + Math.max(0, cells - 1) * rg };
   }
+  // THE SIDE STRIP (Use the Side Strip, 2026-10-30, the owner on an iPhone
+  // Duo: "it doesn't feel like a native Duo app"). The Duo keeps its camera,
+  // a Live Activity, the time and Wi-Fi at the top of an 84 pt strip down its
+  // right edge, and nothing below them; its own apps run their backgrounds
+  // under the strip and put their controls in its empty foot. So does the
+  // tab bar: a rail in the strip, standing on its foot, as wide as the strip
+  // allows, its tabs a little shorter than a tablet rail's, with small names
+  // -- and the page needs no room for it at the bottom.
+  //   A STRIP is a side safe area of at least STRIP_MIN on ONE side only: a
+  // phone turned has its Dynamic Island's 59-62 px at both sides (the island
+  // in the middle of one), and is not one.
+  //   IT NEVER REACHES THE SYSTEM'S ITEMS: STRIP_RESERVE of the strip's
+  // height is kept clear above the rail -- more of a tall strip (portrait)
+  // than a short one -- and the tabs that don't fit below it go to More, as
+  // the bar's do. Fewer than Home and More: no rail, the bar as before.
+  var STRIP_MIN = 60, STRIP_RESERVE = { portrait: 0.45, landscape: 0.35 };
+  // the rail STRIP_EDGE in from each side of the strip, at least STRIP_FOOT
+  // over its foot (or the home indicator's safe area less 12, as LIFT), its
+  // tabs STRIP_TAB shorter than a rail's
+  var STRIP_EDGE = 6, STRIP_FOOT = 16, STRIP_TAB = -6;
+  // which side has a strip, from the side safe areas in px: 'left', 'right'
+  // or null
+  function stripSide(l, r) {
+    l = Math.max(0, +l || 0); r = Math.max(0, +r || 0);
+    if (r >= STRIP_MIN && l < r / 2) return 'right';
+    if (l >= STRIP_MIN && r < l / 2) return 'left';
+    return null;
+  }
+  // THE RAIL IN A STRIP: `n` tabs (Home and the categories), `top` pages at
+  // the top of the menu, `s` the strip -- { inset: its width, width and
+  // height: the window's, bottom: the bottom safe area, dock: the docked
+  // now-playing bar's height } -- `extra` as
+  // fit()'s, `most` the cells the bar would show (More included: the strip
+  // shows the same, or fewer), `size` the Tab Bar Size. Null when it can't
+  // hold Home and More. Pure, for the tests.
+  function stripFit(n, top, s, extra, most, size) {
+    s = s || {};
+    var inset = +s.inset || 0, h = +s.height || 0, w = Math.min(railW(size), inset - 2 * STRIP_EDGE);
+    if (!(w >= 40) || !(h > 0)) return null;
+    var gs = gapsOf(w), rp = gs.railPad, rg = gs.railGap, tab = RAIL_TAB + step(size) + STRIP_TAB;
+    // (above the docked now-playing bar, as a rail ends above it: it runs the screen's whole width)
+    var foot = Math.max(STRIP_FOOT, (+s.bottom || 0) - 12, (+s.dock || 0) ? (+s.dock || 0) + 10 : 0);
+    var reserve = Math.ceil(h * ((+s.width || 0) > h ? STRIP_RESERVE.landscape : STRIP_RESERVE.portrait));
+    var room = h - reserve - foot;
+    var slots = Math.min(Math.min(MAX_TABS, most || MAX_TABS), Math.floor((room - 2 * rp + rg) / (tab + rg)));
+    if (slots < 2 && !(n <= 1 && !top && !extra && slots >= 1)) return null;
+    var more = top > 0 || n > slots || !!extra;
+    var shown = more ? Math.max(0, Math.min(n, slots - 1)) : n, cells = shown + (more ? 1 : 0);
+    var height = 2 * rp + cells * tab + Math.max(0, cells - 1) * rg;
+    return { shown: shown, more: more, width: w, height: height, tab: tab, plate: true, foot: foot,
+             top: h - foot - height, reserve: reserve, x: (inset - w) / 2 };
+  }
   // WHERE THE BAR SITS: the screen's Tab Bar Position, a narrow window (a
   // phone held upright) keeping the bottom for a rail's -- too little width
   // beside it. A phone held sideways (2026-10-24, the nightstand) is wide
@@ -297,9 +349,12 @@
 
   window.hkTabBar = { version: '1.0.0', _: { fit: fit, parts: parts, scrollStep: scrollStep, material: material,
                                              roomsMode: roomsMode, roomsOf: roomsOf, moreOf: moreOf, phoneSet: phoneSet, railFit: railFit, position: position, room: room, scrollOf: scrollOf,
+                                             stripSide: stripSide, stripFit: stripFit,
                                              SIZES: { TAB_MIN_W: TAB_MIN_W, TAB_MAX_W: TAB_MAX_W, MAX_TABS: MAX_TABS,
                                                       GUTTER: GUTTER, GAP: GAP, ROUND: ROUND, PAD: PAD, RAIL_PAD: RAIL_PAD,
-                                                      RAIL_GAP: RAIL_GAP, SIZE_STEP: SIZE_STEP, GAP_RATIO: GAP_RATIO },
+                                                      RAIL_GAP: RAIL_GAP, SIZE_STEP: SIZE_STEP, GAP_RATIO: GAP_RATIO,
+                                                      RAIL_TAB: RAIL_TAB, STRIP_MIN: STRIP_MIN, STRIP_RESERVE: STRIP_RESERVE,
+                                                      STRIP_EDGE: STRIP_EDGE, STRIP_FOOT: STRIP_FOOT, STRIP_TAB: STRIP_TAB },
                                              gapsOf: gapsOf,
                                              barH: barH, railW: railW } };
 
@@ -324,6 +379,12 @@
     var EASE = 'cubic-bezier(.32,.72,0,1)';
     // the highlight's slide: a touch past and back, as a UIKit spring
     var SPRING = 'cubic-bezier(.34,1.24,.42,1)';
+    // THE PAGE'S EDGES, for the bar, its sheets and a rail: past Home
+    // Assistant's sidebar and a Now Playing pane (hk-menu.js, hk-popup.js),
+    // and never under a side safe area -- a phone turned with its Dynamic
+    // Island at the side, the iPhone Duo's strip (2026-10-30; hk-base.js SAFE)
+    var EDGE_L = 'max(var(--hk-content-left,0px) + var(--hk-pane-l,0px), var(--hk-safe-left,env(safe-area-inset-left,0px)))';
+    var EDGE_R = 'max(var(--hk-pane-r,0px), var(--hk-safe-right,env(safe-area-inset-right,0px)))';
     var CSS = [
       ':host{all:initial;--bh:' + BAR_H + 'px;--ti:24px;--ci:26px;--tf:10.5px}',
       // the gaps' unit (gapsOf): the thickness / GAP_RATIO -- 4 px on a 60 px bar
@@ -345,7 +406,7 @@
       '  -webkit-font-smoothing:antialiased;color:' + window.hkCards.v('ink') + ';-webkit-tap-highlight-color:transparent}',
       // THE ROW: the pill and the Rooms button, over the dashboard (past Home
       // Assistant's sidebar), clear of an iPhone's home indicator
-      '.row{position:fixed;left:calc(var(--hk-content-left,0px) + var(--hk-pane-l,0px) + ' + GUTTER + 'px);right:calc(' + GUTTER + 'px + var(--hk-pane-r,0px));',
+      '.row{position:fixed;left:calc(' + EDGE_L + ' + ' + GUTTER + 'px);right:calc(' + GUTTER + 'px + ' + EDGE_R + ');',
       '  bottom:' + LIFT_CSS + ';display:none;justify-content:center;',
       '  align-items:center;gap:' + GAP + 'px;pointer-events:none;transition:transform .34s ' + EASE + ',bottom .3s ' + EASE + '}',
       '.root.on .row{display:flex}',
@@ -409,7 +470,7 @@
       // THE SHEETS (More, Rooms): above the bar, the page still showing
       '.scrim{position:fixed;inset:0;display:none;pointer-events:auto}',
       '.root.sheeted .scrim{display:block}',
-      '.sheet{position:fixed;left:calc(var(--hk-content-left,0px) + var(--hk-pane-l,0px) + ' + GUTTER + 'px);right:calc(' + GUTTER + 'px + var(--hk-pane-r,0px));margin:0 auto;',
+      '.sheet{position:fixed;left:calc(' + EDGE_L + ' + ' + GUTTER + 'px);right:calc(' + GUTTER + 'px + ' + EDGE_R + ');margin:0 auto;',
       '  bottom:calc(var(--bh) + 10px + ' + LIFT_CSS + ');max-width:var(--sheet-w,860px);box-sizing:border-box;',
       // ...as tall as it needs, but always leaving TOP_GAP of the page above
       // it to tap out on
@@ -502,8 +563,8 @@
       // screen's whole width under it: hk-popup.js --hk-dock-h)
       ':host([data-pos="left"]) .row,:host([data-pos="right"]) .row{top:' + GUTTER + 'px;bottom:calc(' + GUTTER + 'px + var(--hk-dock-h, 0px));width:var(--bh);',
       '  flex-direction:column;justify-content:center;transform:none}',
-      ':host([data-pos="left"]) .row{left:calc(var(--hk-content-left,0px) + var(--hk-pane-l,0px) + ' + GUTTER + 'px);right:auto}',
-      ':host([data-pos="right"]) .row{right:calc(' + GUTTER + 'px + var(--hk-pane-r,0px));left:auto}',
+      ':host([data-pos="left"]) .row{left:calc(' + EDGE_L + ' + ' + GUTTER + 'px);right:auto}',
+      ':host([data-pos="right"]) .row{right:calc(' + GUTTER + 'px + ' + EDGE_R + ');left:auto}',
       // the pill hugs its tabs by top/bottom insets in its full-height column
       // (--rail-gap), and opening More takes them to 0: More and the rail
       // share one box exactly (a percentage height left Safari 4 px short)
@@ -531,9 +592,9 @@
       // (More, beside the rail, ends where the rail does: above the docked bar)
       ':host([data-pos="left"]) .sheet,:host([data-pos="right"]) .sheet{top:' + GUTTER + 'px;bottom:calc(' + GUTTER + 'px + var(--hk-dock-h, 0px));max-height:none;',
       '  width:var(--sheet-w,640px);max-width:none;margin:0;border-bottom:1px solid rgba(255,255,255,0.14);transform:none}',
-      ':host([data-pos="left"]) .root.joined .sheet{left:calc(var(--hk-content-left,0px) + var(--hk-pane-l,0px) + var(--bh) + ' + (GUTTER - 1) + 'px);right:auto;',
+      ':host([data-pos="left"]) .root.joined .sheet{left:calc(' + EDGE_L + ' + var(--bh) + ' + (GUTTER - 1) + 'px);right:auto;',
       '  border-radius:0 28px 28px 0;border-left:0;clip-path:inset(var(--rail-gap,0px) 100% var(--rail-gap,0px) 0 round 0 28px 28px 0)}',
-      ':host([data-pos="right"]) .root.joined .sheet{right:calc(var(--bh) + var(--hk-pane-r,0px) + ' + (GUTTER - 1) + 'px);left:auto;',
+      ':host([data-pos="right"]) .root.joined .sheet{right:calc(var(--bh) + ' + EDGE_R + ' + ' + (GUTTER - 1) + 'px);left:auto;',
       '  border-radius:28px 0 0 28px;border-right:0;clip-path:inset(var(--rail-gap,0px) 0 var(--rail-gap,0px) 100% round 28px 0 0 28px)}',
       ':host([data-pos="left"]) .root.joined .sheet.open{clip-path:inset(0 0 0 0 round 0 28px 28px 0)}',
       ':host([data-pos="right"]) .root.joined .sheet.open{clip-path:inset(0 0 0 0 round 28px 0 0 28px)}',
@@ -554,9 +615,26 @@
       '  padding:calc(var(--g) - 1px);border-radius:50%}',
       ':host([data-pos="left"]) .root.small.fold-end .pill,:host([data-pos="right"]) .root.small.fold-end .pill{top:calc(100% - var(--bh) + 6px);bottom:0}',
       ':host([data-pos="left"]) .pill,:host([data-pos="right"]) .pill{transition:top .42s ' + EASE + ',bottom .42s ' + EASE + ',left .34s ' + EASE + ',right .34s ' + EASE + ',border-radius .3s ' + EASE + '}',
-      ':host([data-pos="left"]) .root.gone .row{transform:translateX(calc(-100% - ' + (GUTTER + 8) + 'px - var(--hk-content-left,0px) - var(--hk-pane-l,0px)))}',
-      ':host([data-pos="right"]) .root.gone .row{transform:translateX(calc(100% + ' + (GUTTER + 8) + 'px + var(--hk-pane-r,0px)))}',
+      ':host([data-pos="left"]) .root.gone .row{transform:translateX(calc(-100% - ' + (GUTTER + 8) + 'px - ' + EDGE_L + '))}',
+      ':host([data-pos="right"]) .root.gone .row{transform:translateX(calc(100% + ' + (GUTTER + 8) + 'px + ' + EDGE_R + '))}',
       ':host([data-pos="left"]) .row,:host([data-pos="right"]) .row{transition:transform .34s ' + EASE + '}',
+      // ---- THE SIDE STRIP (stripFit): the rail in the strip, standing on
+      // its foot (--strip-top / --strip-foot, worked out in build()) and
+      // centred across it (--strip-x), its names a step smaller. It never
+      // folds or hides: it lies over nothing. More opens beside the strip as
+      // a sheet of its own (never joined: sync), from the top of the page
+      // to the rail's foot -- joined, the rail would have grown up into the
+      // strip's own items.
+      ':host([data-strip]){--tf:10px}',
+      ':host([data-strip]) .row{top:var(--strip-top,55%);bottom:var(--strip-foot,' + STRIP_FOOT + 'px)}',
+      ':host([data-strip="right"]) .row{right:var(--strip-x,' + STRIP_EDGE + 'px);left:auto}',
+      ':host([data-strip="left"]) .row{left:var(--strip-x,' + STRIP_EDGE + 'px);right:auto}',
+      ':host([data-strip]) .tab{flex-basis:var(--strip-tab,60px)}',
+      ':host([data-strip]) .sheet{top:max(' + GUTTER + 'px, calc(var(--hk-safe-top,env(safe-area-inset-top,0px)) + 8px));',
+      '  bottom:var(--strip-foot,' + STRIP_FOOT + 'px);border-bottom:1px solid rgba(255,255,255,0.14)}',
+      ':host([data-strip="right"]) .sheet{right:calc(var(--strip-w,84px) + 8px);left:auto;transform:translateX(16px)}',
+      ':host([data-strip="left"]) .sheet{left:calc(var(--strip-w,84px) + 8px);right:auto;transform:translateX(-16px)}',
+      ':host([data-strip]) .sheet.open{transform:none}',
       '@media (prefers-reduced-motion:reduce){.row,.pill,.roomsbtn,.sheet,.tab.here::before{transition:none}}',
       // ICONS ONLY: no names, on the bar and the rail alike
       ':host([data-icons]) .tab span{display:none}'
@@ -685,9 +763,25 @@
       try { d = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hk-dock-h')) || 0; } catch (e) { d = 0; }
       return Math.max(0, (window.innerHeight || 800) - d);
     }
+    // THE SIDE SAFE AREAS in px (hk-base.js safeArea), and the page's width
+    // between them (EDGE_L / EDGE_R): what the bar's tabs are fitted to
+    function safe() { return C.safeArea ? C.safeArea() : { top: 0, right: 0, bottom: 0, left: 0 }; }
+    function pageW(sa) {
+      sa = sa || safe();
+      return Math.max(0, (window.innerWidth || 0) - Math.max(leftOf(), sa.left) - Math.max(paneR(), sa.right));
+    }
+    // THE STRIP HERE (stripSide), for stripFit -- null without one, or with
+    // Use the Side Strip off
+    function stripNow(b) {
+      if ((b || {}).tab_bar_strip === false) return null;
+      var sa = safe(), side = stripSide(sa.left, sa.right);
+      if (!side) return null;
+      return { side: side, inset: Math.round(side === 'right' ? sa.right : sa.left), width: window.innerWidth || 0,
+               height: window.innerHeight || 0, bottom: Math.round(sa.bottom), dock: Math.round((window.innerHeight || 0) - railH()) };
+    }
     function listKey(width) {
       var h = C.client(), side = H.sidebarSource(), b = M.board();
-      return [M.dash(), cfgId(M.config()), width, railH(), b.ha_place, b.tab_bar_pos, b.tab_bar_rooms, b.tab_bar_rooms_phone, phoneAt(), phoneSet(), b.tab_bar_more, b.tab_bar_more_phone, b.tab_bar_size, b.tab_bar_labels, b.tab_bar_tabs, b.tab_bar_tabs_rail, b.tab_bar_tabs_phone, b.ha_row, JSON.stringify(S.haPrefs || null),
+      return [M.dash(), cfgId(M.config()), width, railH(), JSON.stringify(stripNow(b)), b.ha_place, b.tab_bar_pos, b.tab_bar_rooms, b.tab_bar_rooms_phone, phoneAt(), phoneSet(), b.tab_bar_more, b.tab_bar_more_phone, b.tab_bar_size, b.tab_bar_labels, b.tab_bar_tabs, b.tab_bar_tabs_rail, b.tab_bar_tabs_phone, b.ha_row, JSON.stringify(S.haPrefs || null),
               h && h.user && h.user.is_admin, H.hostItems().map(function (x) { return x.title + x.href; }).join(','),
               H.editKey ? H.editKey(h) : '', arranging() ? 'ed' : '', !!(window.hkEdit && window.hkEdit.editAny && window.hkEdit.editAny(h)), side && side.panels ? Object.keys(side.panels).join(',') : '', H.haKey ? H.haKey() : '', b.menu_rooms, JSON.stringify(b.room_order),
               JSON.stringify(b.categories), JSON.stringify(b.menu_top || []), JSON.stringify(b.pages || []),
@@ -698,7 +792,7 @@
     }
     function build() {
       var b = M.board(), m = model();
-      var width = (window.innerWidth || 0) - leftOf() - paneR();
+      var width = pageW();
       // a phone, by its screen as well as its width: a phone held
       // sideways keeps a phone's bar and fit -- and its rail, when the
       // screen puts the bar at a side (position: by the width)
@@ -729,6 +823,21 @@
       var more0 = rm === 'more' || S.ha.length > 0 || S.hostRows.length > 0 || mayEdit;
       var f = rail ? railFit(tabs.length, m.top.length, railH(), more0, b.tab_bar_tabs_rail, sz)
                    : fit(tabs.length, m.top.length, width, roomsOn, more0, b.tab_bar_tabs, sz, ph, b.tab_bar_tabs_phone);
+      // IN A SIDE STRIP (stripFit): the tabs the bar would show here, or
+      // fewer, down a rail in the strip -- the bar's own place where it
+      // can't hold Home and More
+      var st = stripNow(b), sf = null;
+      if (st) {
+        var fb = fit(tabs.length, m.top.length, width, false, rm !== 'off' || more0, b.tab_bar_tabs, sz, ph, b.tab_bar_tabs_phone);
+        sf = stripFit(tabs.length, m.top.length, st, rm !== 'off' || more0, fb.shown + (fb.more ? 1 : 0), sz);
+      }
+      if (sf) {
+        pos = st.side; rail = true;
+        if (rm === 'button') rm = 'more';
+        roomsOn = false;
+        f = sf;
+      }
+      S.strip = sf ? { side: st.side, inset: st.inset, width: sf.width, tab: sf.tab, top: sf.top, foot: sf.foot, x: sf.x } : null;
       S.pos = pos;
       if (S.posWas !== pos && S.mode !== 'full') setMode('full');
       S.posWas = pos;
@@ -766,18 +875,20 @@
       var joinW = Math.min(Math.max(0, width - 2 * GUTTER), Math.max(f.width, sheetW));
       // a rail's More slides out beside it: 380 px as a list, 640 as icons
       if (rail) joinW = Math.min(Math.max(0, width - 2 * GUTTER - railW(sz) - 16), list ? 380 : 640);
+      // (beside a strip: the page's width, the strip already out of it)
+      if (S.strip) joinW = Math.min(Math.max(0, width - 2 * GUTTER), list ? 380 : 640);
       // HUG AND GROW (2026-10-06): at rest the bar is as wide as its tabs (a
       // rail as tall as them); opening More grows it to More's size in the
       // same motion, so they meet as one shape
       S.pill.style.setProperty('--pill-w', f.width + 'px');
       // (a rail grows in height only: it keeps its own width)
-      S.pill.style.setProperty('--pill-open-w', (rail ? railW(sz) : roomsOn ? f.width : joinW) + 'px');
+      S.pill.style.setProperty('--pill-open-w', (S.strip ? f.width : rail ? railW(sz) : roomsOn ? f.width : joinW) + 'px');
       // ONE SHAPE GROWING: More's clip starts exactly where the bar is --
       // a bar's width inside More's (--bar-gap each side), a rail's height
       // inside the screen's (--rail-gap above and below) -- and opens with it
       // (not rounded: the rail is exactly its tabs and gaps tall, so the
       // highlight's gap at its ends is the same as at its sides)
-      var railGap = rail && f.height ? Math.max(0, (railH() - 2 * GUTTER - f.height) / 2) : 0;
+      var railGap = rail && f.height && !S.strip ? Math.max(0, (railH() - 2 * GUTTER - f.height) / 2) : 0;
       var barGap = !rail && !roomsOn ? Math.max(0, Math.round((joinW - f.width) / 2)) : 0;
       S.host.style.setProperty('--rail-gap', railGap + 'px');
       S.host.style.setProperty('--bar-gap', barGap + 'px');
@@ -1067,13 +1178,14 @@
           });
           // the stash (as tall as the bar) and a gutter either side of it
           var need = barH(undefined, sizeNow()) + 2 * GUTTER;
-          ok = r > 0 && (window.innerWidth || 0) - paneR() - r >= need;
+          ok = r > 0 && (window.innerWidth || 0) - Math.max(paneR(), safe().right) - r >= need;
         }
         if (de.hasAttribute('hk-tabbar-room') !== ok) { if (ok) de.setAttribute('hk-tabbar-room', 'end'); else de.removeAttribute('hk-tabbar-room'); }
       });
     }
     function onScroll(e) {
-      if (!S.on || S.sheet || arranging()) return;
+      // (a rail in the side strip lies over nothing: it stays)
+      if (!S.on || S.sheet || arranging() || S.strip) return;
       var t = e.target;
       var el = (t === document || t === document.documentElement) ? document.scrollingElement : t;
       if (!el || el.nodeType !== 1 || el === S.host) return;
@@ -1125,7 +1237,8 @@
     function railRoom() {
       var de = document.documentElement;
       if (!de || !de.style) return;
-      var pos = S.on ? S.pos : null, show = (pos === 'left' || pos === 'right') && S.mode !== 'gone';
+      // (none beside a rail in the side strip: the page already keeps clear of the strip)
+      var pos = S.on ? S.pos : null, show = (pos === 'left' || pos === 'right') && S.mode !== 'gone' && !S.strip;
       [['--hk-tabbar-l', 'left'], ['--hk-tabbar-r', 'right']].forEach(function (kv) {
         var v = show && pos === kv[1] ? (GUTTER + railW(sizeNow()) + 12) + 'px' : '';      // 12 px clear of the rail
         if (de.style.getPropertyValue(kv[0]) !== v) {
@@ -1137,7 +1250,7 @@
       railRoom();
       var b = M.board() || {}, pos = S.pos;
       var v = viewEl(), hv = SH.view(v);
-      var how = S.on && pos ? room(pos, scrollOf(b), b.tab_bar_adjust, isGrid(hv)) : 'none';
+      var how = S.on && pos && !S.strip ? room(pos, scrollOf(b), b.tab_bar_adjust, isGrid(hv)) : 'none';
       var on = how === 'scale' || how === 'shift';
       if (S.asideEl && S.asideEl !== hv) { S.asideEl.style.transform = ''; S.asideEl.style.transformOrigin = ''; S.asideEl = null; }
       if (!hv || !on) {
@@ -1175,7 +1288,9 @@
     function publish(on) {
       var de = document.documentElement;
       if (!de || !de.style) return;
-      var pos = on ? (S.pos || 'bottom') : null;
+      // (a rail in the side strip takes nothing: the page keeps clear of the
+      // strip whatever is in it, hk-layout.js)
+      var pos = on && !S.strip ? (S.pos || 'bottom') : null;
       // A RAIL THAT SHRINKS OR HIDES keeps no strip of the page's width: the
       // page runs full width under it (2026-10-06). A bar along the bottom or
       // the top only pads the page's ends, so it is over the content as soon
@@ -1269,7 +1384,7 @@
         S.host.style.setProperty('--hk-accent', a.color); S.host.style.setProperty('--hk-on-accent', a.on);
         S.host.style.setProperty('--hk-accent-base', a.base || a.color);
       }
-      var width = (window.innerWidth || 0) - leftOf() - paneR();
+      var width = pageW();
       iconsOnly = b.tab_bar_labels === 'icons';
       S.host.toggleAttribute('data-icons', iconsOnly);
       if (listKey(width) !== S.built) build();
@@ -1282,7 +1397,17 @@
       S.host.toggleAttribute('data-wide', railed || barH() !== BAR_H);
       // TAB BAR SIZE: the thickness itself, and the icons' and names' step
       var size = SIZE_STEP[b.tab_bar_size] !== undefined ? b.tab_bar_size : 'medium';
-      S.host.style.setProperty('--bh', (railed ? railW(size) : barH(undefined, size)) + 'px');
+      S.host.style.setProperty('--bh', (S.strip ? S.strip.width : railed ? railW(size) : barH(undefined, size)) + 'px');
+      // IN THE SIDE STRIP: where the rail stands, and how wide the strip is
+      // (More opens beside it)
+      var sv = S.strip ? { side: S.strip.side, top: S.strip.top + 'px', foot: S.strip.foot + 'px', x: S.strip.x + 'px',
+                           w: S.strip.inset + 'px', tab: S.strip.tab + 'px' } : null;
+      if (S.host.getAttribute('data-strip') !== (sv ? sv.side : null)) {
+        if (sv) S.host.setAttribute('data-strip', sv.side); else S.host.removeAttribute('data-strip');
+      }
+      [['--strip-top', 'top'], ['--strip-foot', 'foot'], ['--strip-x', 'x'], ['--strip-w', 'w'], ['--strip-tab', 'tab']].forEach(function (kv) {
+        if (sv) S.host.style.setProperty(kv[0], sv[kv[1]]); else S.host.style.removeProperty(kv[0]);
+      });
       if (S.host.getAttribute('data-size') !== size) S.host.setAttribute('data-size', size);
       var cls = ['root', 'on', mat];
       if (S.roomsMode === 'button' && S.rooms.length) cls.push('hasrooms');
@@ -1290,7 +1415,8 @@
       if (S.mode === 'small') cls.push('small');
       if (S.mode === 'gone') cls.push('gone');
       if (S.sheet) cls.push('sheeted');
-      if (S.roomsMode !== 'button') cls.push('joined');
+      // (More beside a rail in the side strip is a sheet of its own)
+      if (S.roomsMode !== 'button' && !S.strip) cls.push('joined');
       if ((M.board() || {}).tab_bar_fold === 'end') cls.push('fold-end');
       // Edit mode: the whole bar, never folded, its tabs to drag
       if (arranging()) { cls.push('editing'); if (S.mode !== 'full') { setMode('full'); cls = cls.filter(function (c) { return c !== 'small' && c !== 'gone'; }); } }
@@ -1304,6 +1430,7 @@
     // where the bar rests: small with Start Small (and Shrink), else full
     function rest() {
       var b = M.board() || {};
+      if (S.strip) return 'full';
       return scrollOf(b) === 'shrink' && b.tab_bar_start === 'small' ? 'small' : 'full';
     }
     // THE REST AT THE START OF THE NEXT FRAME, as the menu does: the address

@@ -368,7 +368,8 @@
     // its first frame on a phone was the two-column page (_layout sets cols)
     '.mu:not([cols]){visibility:hidden}',
     '.mu[cols="1"] .left{position:fixed;left:0;right:0;top:0;bottom:0;z-index:19;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;',
-    '  padding:max(10px,env(safe-area-inset-top,0px)) 20px max(24px,env(safe-area-inset-bottom,0px));transform:translateY(100%);visibility:hidden;',
+    // (its sides clear of a side safe area, its glass under it: hk-base.js SAFE)
+    '  padding:max(10px,env(safe-area-inset-top,0px)) calc(20px + var(--hk-safe-right,env(safe-area-inset-right,0px))) max(24px,env(safe-area-inset-bottom,0px)) calc(20px + var(--hk-safe-left,env(safe-area-inset-left,0px)));transform:translateY(100%);visibility:hidden;',
     '  transition:transform .42s cubic-bezier(.32,.72,0,1),visibility 0s linear .42s;',
     '  background:rgba(20,13,30,.80);-webkit-backdrop-filter:blur(40px) saturate(1.5);backdrop-filter:blur(40px) saturate(1.5)}',
     '.mu[cols="1"] .left.sheetup{transform:none;visibility:visible;transition:transform .42s cubic-bezier(.32,.72,0,1)}',

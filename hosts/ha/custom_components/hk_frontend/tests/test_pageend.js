@@ -165,7 +165,7 @@ function music(foot, cardEnd, rootEnd) {
   // the view keeps that margin inside it: a block formatting context
   var src = View.prototype._build.toString();
   ok('the view is a flow-root, so the root\'s bottom margin stays inside it', /:host\{display:flow-root;/.test(src));
-  ok('...clipping below only, with no overflow-clip-margin (Safari has none)', /:host\{display:flow-root;overflow-y:clip\}/.test(src) && !/clip-margin\s*:/.test(src + View.prototype._clipRoom.toString()));
+  ok('...clipping below only, with no overflow-clip-margin (Safari has none)', /:host\{display:flow-root;overflow-y:clip[;}]/.test(src) && !/clip-margin\s*:/.test(src + View.prototype._clipRoom.toString()));
 })();
 
 // THE CLIP REACHES THE BAR'S ROOM (shadows below the last row fade out

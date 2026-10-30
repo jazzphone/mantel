@@ -133,6 +133,46 @@
   // shadow root, not under the view the HK Kiosk theme is put on, so it says
   // the font itself, and sets the theme's variable for the cards in it.
   var FONT_ROOT = '--ha-font-family-body:' + v('font-body') + ';font-family:' + v('font-body');
+  // THE SIDE SAFE AREA (2026-10-30, the iPhone Duo): a strip of system
+  // controls down one side -- the Duo's camera, a Live Activity, the time
+  // and Wi-Fi in ~84 pt at its right -- or a phone turned with its Dynamic
+  // Island at the side. The app's web view runs under it, as a native app's
+  // backgrounds do (the sky, a Flat ground, the screensaver), and the page
+  // keeps what is read and touched clear of it: the views, the tab bar, the
+  // menu, the sheets. env(safe-area-inset-left / -right), 0 in a browser on
+  // a computer, so nothing moves there. Read through --hk-safe-left /
+  // --hk-safe-right first, as --hk-safe-top is (hk-menu.js), so a check can
+  // stand one in: a headless browser has no inset of its own.
+  var SAFE = { l: 'var(--hk-safe-left,env(safe-area-inset-left,0px))', r: 'var(--hk-safe-right,env(safe-area-inset-right,0px))',
+               t: 'var(--hk-safe-top,env(safe-area-inset-top,0px))', b: 'var(--hk-safe-bottom,env(safe-area-inset-bottom,0px))' };
+  // ...less what the page's own edge already clears on that side -- a docked
+  // menu, the Now Playing pane (hk-menu.js --hk-page-left / -right): the room
+  // the page keeps there
+  SAFE.padL = 'max(0px,' + SAFE.l + ' - var(--hk-page-left,0px))';
+  SAFE.padR = 'max(0px,' + SAFE.r + ' - var(--hk-page-right,0px))';
+  // ...and in px, measured (the tab bar's strip, the page's width for its
+  // band): a hidden probe padded by them. Zeros where it can't be read.
+  var safeProbe = null;
+  function safeArea() {
+    var out = { top: 0, right: 0, bottom: 0, left: 0 };
+    try {
+      var d = document, host = d.body || d.documentElement;
+      if (!host || typeof getComputedStyle !== 'function') return out;
+      if (!safeProbe || !safeProbe.isConnected) {
+        safeProbe = d.createElement('div');
+        safeProbe.setAttribute('aria-hidden', 'true');
+        safeProbe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;box-sizing:content-box;' +
+          'padding:' + SAFE.t + ' ' + SAFE.r + ' ' + SAFE.b + ' ' + SAFE.l;
+        host.appendChild(safeProbe);
+      }
+      var cs = getComputedStyle(safeProbe);
+      ['top', 'right', 'bottom', 'left'].forEach(function (k) {
+        var n = parseFloat(cs['padding' + k.charAt(0).toUpperCase() + k.slice(1)]);
+        out[k] = n > 0 ? n : 0;
+      });
+    } catch (e) { /* no layout here: no inset */ }
+    return out;
+  }
   // ...and the document's root carries the table's font as --hk-font-body,
   // for a surface whose stylesheet is built before this file has loaded
   // (hk-notify, hk-popup, hk-saver: they read var(--hk-font-body)). A theme
@@ -3840,6 +3880,8 @@
                 tab_bar_start: 'full', tab_bar_adjust: true, tab_bar_scroll_phone: 'shrink',
                 tab_bar_tabs: 6, tab_bar_tabs_rail: 6, tab_bar_size: 'medium', tab_bar_labels: 'show',
                 tab_bar_tabs_phone: 3,
+                // the rail in a phone's side strip (hk-tabbar.js stripSide, 2026-10-30)
+                tab_bar_strip: true,
                 // PHONES' OWN (phoneForm): the menu (null: as before there
                 // was one -- phoneMenu), the button's style, More's rooms
                 menu_phone: null, button_phone: 'chip', tab_bar_rooms_phone: 'more' };
@@ -4329,6 +4371,8 @@
   window.hkCards.T = T;                    // the design table (DESIGN.md)
   window.hkCards.v = v;
   window.hkCards.FONT_ROOT = FONT_ROOT;
+  window.hkCards.SAFE = SAFE;
+  window.hkCards.safeArea = safeArea;
   window.hkCards.SP = SP;
   window.hkCards.TILE = TILE;
   window.hkCards.CHIP = CHIP;

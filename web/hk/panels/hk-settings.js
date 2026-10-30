@@ -163,8 +163,9 @@
     // pads itself; the bottom (the home indicator) pads each scroller's end,
     // so rows scroll under it but the last one stops above it. env() is 0
     // everywhere else (HA's panel, a desktop browser), so nothing moves there.
+    // (the sides through --hk-safe-left / -right, which a check can stand in: hk-base.js SAFE)
     ':host{box-sizing:border-box;background:var(--hk-bg);',
-    '  padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)}',
+    '  padding:env(safe-area-inset-top,0px) var(--hk-safe-right,env(safe-area-inset-right,0px)) 0 var(--hk-safe-left,env(safe-area-inset-left,0px))}',
     '.app{display:flex;height:100%;overflow:hidden;position:relative}',
     '.side{flex:none;width:320px;height:100%;overflow-y:auto;overscroll-behavior:contain;padding:0 16px calc(40px + env(safe-area-inset-bottom,0px));',
     '  border-right:.5px solid var(--hk-sep)}',
@@ -2554,6 +2555,15 @@
         }, function (on) { return on !== false ? 'On' : 'Off'; }));
       }
       c.appendChild(K.group({ header: 'The Bar', footer: 'Its glass is under Appearance, with the other looks.' }, bar));
+      // THE SIDE STRIP (2026-10-30, hk-tabbar.js stripSide): the iPhone
+      // Duo's strip of system controls down one side, its foot empty -- the
+      // bar becomes a rail there, as its own apps have it
+      var strip = this.mRow(ctx, 'tab_bar_strip', function (set, whose) {
+        return K.toggle({ label: 'Use the Side Strip', sk: ctx.sk('tab_bar_strip'), on: v.tab_bar_strip !== false,
+          sub: whose || 'Tabs that don’t fit below the strip’s own items are in More.',
+          onChange: function (on) { set({ tab_bar_strip: on }); } });
+      }, function (on) { return on !== false ? 'On' : 'Off'; });
+      c.appendChild(K.group({ header: 'Side Strip', footer: 'On a phone with a strip of system controls at its side, such as iPhone Duo, the tab bar sits in the strip’s empty part.' }, strip));
       var scroll = [];
       if (tb) scroll = scroll.concat(this.mRow(ctx, 'tab_bar_scroll', function (set, whose) {
         return K.seg({ label: 'Tablets & Computers', sub: whose, sk: ctx.sk('tab_bar_scroll'), value: v.tab_bar_scroll || 'shrink', stack: !wide,

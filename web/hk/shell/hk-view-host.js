@@ -638,7 +638,10 @@
     class HkViewFallback extends H {
       setConfig(cfg) {
         this._config = cfg || {};
-        this.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:8px';
+        // (clear of a side safe area, as HK's own views: hk-base.js SAFE)
+        var S = (global.hkCards && global.hkCards.SAFE) || {};
+        this.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:8px;box-sizing:border-box;' +
+          'padding-left:calc(8px + ' + (S.padL || '0px') + ');padding-right:calc(8px + ' + (S.padR || '0px') + ')';
         var note = doc().createElement('div');
         note.textContent = this._config.__error
           ? 'This page could not be drawn (' + this._config.__error + '); its cards are shown in a column.'
