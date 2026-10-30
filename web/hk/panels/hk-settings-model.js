@@ -2190,7 +2190,8 @@
   // a screen's own where and title (settings.py BOARD_OWN) are never copied onto another
   // ...nor its Home Grid (its Home Style and layout): Copy Layout To… copies
   // a layout, keeping each block's tablet_room as it is (docs/phase11/HOME-GRID.md, G6)
-  var COPY_NEVER = ['where', 'title', 'home_style', 'home_grid'];
+  // (a Look's Undo is its own screen's: 2026-10-30)
+  var COPY_NEVER = ['where', 'title', 'home_style', 'home_grid', 'look_undo'];
   function copyDefaults() { return COPY_GROUPS.filter(function (g) { return g[3]; }).map(function (g) { return g[0]; }); }
   // the changes that copy `groups` of the screen `src` (its settings as read)
   function copyChanges(src, groups) {

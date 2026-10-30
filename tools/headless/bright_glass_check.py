@@ -54,7 +54,7 @@ async def one(wall: str, night: str) -> list[str]:
     data = gallery.SETTINGS
     data['settings']['look'] = {'glass': 'bright'}
     data['settings']['sky'] = {'background': 'wallpaper', 'wallpaper': wall, 'wallpaper_night': night, 'wallpaper_motion': 'fast'}
-    data['boards'][gallery.SCREEN] = {'pages': [], 'headers': {'home': True}, 'menu': 'tabbar', 'menu_custom': True, 'tab_bar_rooms': 'button'}
+    data['boards'][gallery.SCREEN] = {'pages': [], 'headers': {'home': True}, 'menu': 'tabbar', 'menu_custom': True, 'tab_bar_rooms': 'button', 'tab_bar_rooms_phone': 'button'}
     data['boards'][MENU] = {'pages': [], 'headers': {'home': True}, 'menu': 'open'}
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td))
