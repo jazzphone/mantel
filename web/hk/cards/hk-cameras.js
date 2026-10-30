@@ -1435,7 +1435,8 @@
       plate.style.gridTemplateRows = halfH + 'px ' + halfH + 'px';
       plate.style.gap = SEAM + 'px';
       plate.style.height = H + 'px';
-      plate.style.borderRadius = (this._config.radius || C.M.radius);
+      // (a block's own corners on square cells: hk-home-grid-view's --hk-block-radius)
+      plate.style.borderRadius = (this._config.radius || (block ? 'var(--hk-block-radius, ' + C.M.radius + ')' : C.M.radius));
       plate.style.background = (this._config.seam_color || '#0b0d12');
       plate.style.boxShadow = (this._config.shadow || 'var(--hk-look-shadow, 0 8px 22px rgba(0,0,0,0.12))');
 

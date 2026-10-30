@@ -123,7 +123,7 @@
         // glyph beside the status and its chips, the commands along the foot
         // as 44 px capsules. W: all four, on a page card's padding; S: Start
         // and Dock, on a tile's (the block is a tile's size)
-        ':host([size]) hk-plate.vac{height:100%;min-height:0;padding:' + C.CARD.pad + '}',
+        ':host([size]) hk-plate.vac{height:100%;min-height:0;padding:' + C.CARD.pad + ';border-radius:var(--hk-block-radius, ' + C.M.radius + ')}',
         ':host([size=S]) hk-plate.vac{padding:12.8px 12.8px 12.8px ' + C.TILE.padL + 'px}',
         ':host([size]) .vac .grid{height:100%;min-height:0;row-gap:8px;column-gap:10px;',
         '  grid-template-areas:"ico label label label" "ico meta meta meta" "start pause locate home";',

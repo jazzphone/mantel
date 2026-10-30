@@ -107,6 +107,59 @@ window.addEventListener('hk-view-ready', function (e) { ready.push(e.detail.view
      w._root.style.gridTemplateRows === '60px repeat(4, 150px)');
 })();
 
+// ---- square cells and the Square screen (2026-10-30, HOMEVIEW-LOOK.md Phase A)
+ok('the page and the editor read one cell table (hkCards.HOME_GRID.square, the catalog\'s CELLS)',
+   JSON.stringify(window.hkCards.HOME_GRID.square) === JSON.stringify(G.CELLS.square) &&
+   G.CELLS.tile.w === window.hkCards.TILE.w && G.CELLS.tile.h === window.hkCards.TILE.tall && G.CELLS.tile.gap === window.hkCards.HOME_GRID.gap);
+function measured(v, w, h) {
+  var gcs = globalThis.getComputedStyle;
+  globalThis.getComputedStyle = function () { return { paddingLeft: '0px', paddingRight: '0px' }; };
+  v.isConnected = true; v.clientWidth = w; v.clientHeight = h;
+  v._root.getBoundingClientRect = function () { return { left: 0, top: 0, width: 0, height: 0 }; };
+  v._measure();
+  globalThis.getComputedStyle = gcs;
+}
+(function () {
+  var v = new View(), t = kid('t'), c = kid('c'), s1 = kid('s1'), s2 = kid('s2'), lk = kid('lk'), lt = kid('lt');
+  v.setConfig({ grid: { cols: 3, rows: 3, band: false, cell: 'square', screen: 'square', grow: true }, cards: [
+    { hk_cell: { id: 't', size: 'L', at: [0, 0] } }, { hk_cell: { id: 'c', size: 'S', at: [2, 0], bare: true } },
+    { hk_cell: { id: 's1', size: 'S', at: [2, 1], tile: 'centred' } }, { hk_cell: { id: 's2', size: 'S', at: [0, 2], tile: 'centred' } },
+    { hk_cell: { id: 'lk', size: 'S', at: [1, 2], tile: 'centred' } }, { hk_cell: { id: 'lt', size: 'S', at: [2, 2] } }] });
+  v.cards = [t, c, s1, s2, lk, lt];
+  var root = v._root, kids = root.childNodes, R = function (i) { return kids[i].style['--hk-block-radius']; };
+  ok('square cells: 196 px rows', root.style.gridTemplateRows === 'repeat(3, 196px)', root.style.gridTemplateRows);
+  ok('...HomeView\'s 13 px gap, and a Square screen\'s canvas 14 px from the glass', root.style['--g-gap'] === '13px' && root.style['--g-pad'] === '14px',
+     [root.style['--g-gap'], root.style['--g-pad']]);
+  ok('...the view says its cells are square', v.attrs.cell === 'square');
+  ok('corners: the L at the top left, its outer corner concentric with the display (72), the rest 34', R(0) === '72px 34px 34px 34px', R(0));
+  ok('...the S at the top right', R(1) === '34px 72px 34px 34px', R(1));
+  ok('...a block away from the screen\'s corners: HomeView\'s one radius', R(2) === '34px' && R(4) === '34px', [R(2), R(4)]);
+  ok('...the bottom corners', R(3) === '34px 34px 34px 72px' && R(5) === '34px 34px 72px 34px', [R(3), R(5)]);
+  ok('Centred goes on the block\'s card; Home is no attribute', s1.attrs.tile === 'centred' && lk.attrs.tile === 'centred' && lt.attrs.tile === undefined && t.attrs.tile === undefined);
+  measured(v, 800, 800);
+  ok('measured: 3 x 196 + 2 x 13 + 2 x 14 = 642, filling an 800 px square screen', root.style.width === '642px' && root.style.height === '642px' &&
+     /^scale\(1\.246/.test(root.style.transform), [root.style.width, root.style.transform]);
+  ok('...a cell 196 x 196', root.style['--hk-cell-w'] === '196px' && root.style['--hk-cell-h'] === '196px');
+
+  var w = new View(), a = kid('a');
+  w.setConfig({ grid: { cols: 6, rows: 4, band: false, cell: 'square' }, cards: [{ hk_cell: { id: 'a', size: 'L', at: [0, 0] } }] });
+  w.cards = [a];
+  ok('square cells on a wide tablet: the page\'s gutter, every corner 34 (no Square screen)', w._root.style['--g-pad'] === w._root.style['--g-pad'] &&
+     parseFloat(w._root.style['--g-pad']) === window.hkCards.HOME_GRID.pad && w._root.childNodes[0].style['--hk-block-radius'] === '34px');
+  measured(w, 1180, 736);
+  ok('...6 x 4 measures 1295.4 x 877.4: 0.84 on a landscape tablet with its tab bar (the plan\'s table)', w._root.style.width === '1295.4px' &&
+     /^scale\(0\.83/.test(w._root.style.transform), [w._root.style.width, w._root.style.transform]);
+
+  // a layout saved before: nothing changes
+  var x = new View(), b = kid('b');
+  x.setConfig({ grid: { cols: 6, rows: 4, band: false }, cards: [{ hk_cell: { id: 'b', size: 'L', at: [0, 0] } }] });
+  x.cards = [b];
+  ok('tiles as before: 150 px rows, the stylesheet\'s gap, no corner of their own', x._root.style.gridTemplateRows === 'repeat(4, 150px)' &&
+     x._root.style['--g-gap'] === undefined && x._root.style['--g-pad'] === undefined && x._root.childNodes[0].style['--hk-block-radius'] === undefined && x.attrs.cell === undefined);
+  measured(x, 1180, 736);
+  ok('...and measured as before (196 x 150, 10)', x._root.style['--hk-cell-h'] === '150px' && x._root.style.width === '1280.4px', x._root.style.width);
+})();
+
 // ---- the strategy
 function st(id, s, a) { return { entity_id: id, state: s, attributes: a || {} }; }
 var S = {};
@@ -144,6 +197,17 @@ window.hkStrategy.generate({ music: false }, hass).then(function (cfg) {
     return window.hkStrategy.generate({ music: false }, hass);
   }).then(function (g) {
     ok('the band off: no header on Home', !g.views[0].cards.some(function (c) { return c.hk_band; }) && g.views[0].grid.band === false);
+    ok('...no block says a Tile Style while the screen has none', g.views[0].cards.filter(function (c) { return c.hk_cell; }).every(function (c) { return !('tile' in c.hk_cell); }));
+    // SQUARE CELLS AND CENTRED TILES (2026-10-30): the grid's cells and screen; the screen's Tile Style on
+    // each block that doesn't choose its own
+    var own = LAYOUT.items.map(function (it, i) { return i === 3 ? Object.assign({}, it, { tile: 'home' }) : it; });
+    BOARD = { home_style: 'grid', home_grid: Object.assign({}, LAYOUT, { cell: 'square', screen: 'square', items: own }), tile_style: 'centred' };
+    return window.hkStrategy.generate({ music: false }, hass);
+  }).then(function (g) {
+    var home = g.views[0], blocks = home.cards.filter(function (c) { return c.hk_cell; });
+    ok('square cells and a Square screen reach the view', home.grid.cell === 'square' && home.grid.screen === 'square', home.grid);
+    ok('the screen\'s Centred on each block; a block\'s own Home wins', blocks.slice(0, 3).every(function (b) { return b.hk_cell.tile === 'centred'; }) && !('tile' in blocks[3].hk_cell),
+       blocks.map(function (b) { return b.hk_cell.tile; }));
     BOARD = { home_style: 'grid', home_grid: null };
     return window.hkStrategy.generate({ music: false }, hass);
   }).then(function (g) {

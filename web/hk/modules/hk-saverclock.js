@@ -38,6 +38,8 @@
     ['lcd', 'Retro LCD', 'Seven segments on a backlit panel'],
     ['flip', 'Flip', 'Split-flap cards that flip as the minute turns'],
     ['analog', 'Analog', 'A watch face with a sweeping second hand'],
+    // (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase F) HomeView's kind of face, matched side by side
+    ['numbers', 'Analog Numbers', 'Numerals round a quiet dial, a slim second hand'],
     ['words', 'Words', '\u201cIt is quarter past seven\u201d, in a grid of letters'],
     ['arc', 'Minimal Arc', 'The hour, big; the minutes a ring filling round it'],
     ['nixie', 'Nixie Tubes', 'Orange glow in glass tubes'],
@@ -80,6 +82,10 @@
            ['navy', 'Navy', { '--ckc1': '#1d2b4f', '--ckc2': '#18244a', '--ckc3': '#141f40', '--ckdg': '#f4efe6' }]],
     analog: [['orange', 'Orange', {}], ['red', 'Red', { '--ckh': '#ff453a' }], ['blue', 'Blue', { '--ckh': '#0a84ff' }],
              ['green', 'Green', { '--ckh': '#30d158' }], ['gold', 'Gold', { '--ckh': '#ffd60a', '--ckm': '#f5e9cf' }]],
+    // its second hand white, as HomeView's; a colour colours it (the analog face's variables)
+    numbers: [['white', 'White', {}], ['orange', 'Orange', { '--ckh': '#ff9f0a' }], ['red', 'Red', { '--ckh': '#ff453a' }],
+              ['blue', 'Blue', { '--ckh': '#0a84ff' }], ['green', 'Green', { '--ckh': '#30d158' }],
+              ['gold', 'Gold', { '--ckh': '#ffd60a', '--ckm': '#f5e9cf' }]],
     words: [['white', 'White', {}], ['warm', 'Warm', { '--ckw': '#ffd59a' }], ['blue', 'Blue', { '--ckw': '#8fd0ff' }],
             ['green', 'Green', { '--ckw': '#8ff5b5' }], ['pink', 'Pink', { '--ckw': '#ff9fd2' }]],
     arc: [['white', 'White', {}], ['orange', 'Orange', { '--cka': '#ff9f0a' }], ['blue', 'Blue', { '--cka': '#64d2ff' }],
@@ -178,7 +184,7 @@
     '.f-flip .colon{font-size:14cqw;color:var(--ckcol,#e5e5e5);opacity:.8}',
     '.f-flip .dt{font-size:3cqw;font-weight:500;opacity:.85;margin-top:3cqw}',
     // analog, arc, ring (svg)
-    '.f-analog svg,.f-arc svg{width:72cqh;height:72cqh;overflow:visible}',
+    '.f-analog svg,.f-arc svg,.f-numbers svg{width:72cqh;height:72cqh;overflow:visible}',
     '.f-ring svg{width:78cqh;height:78cqh;overflow:visible}',
     // words
     '.f-words{flex-direction:column}',
@@ -427,6 +433,58 @@
       sh.style.transform = 'rotate(' + (turns * 360 + se * 6) + 'deg)';
       put(dl, DAYS[d.getDay()].toUpperCase());
       put(dl2, MONTHS[d.getMonth()].toUpperCase() + ' ' + d.getDate());
+    };
+  };
+
+  // ANALOG NUMBERS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase F),
+  // matched to HomeView's face side by side: SF Pro 500 numerals (23 units
+  // of the 200) at 71 % of the radius; 60 ticks at the rim, the hours'
+  // longer and heavier (86-95.5, 2.0, white .9) than the minutes'
+  // (90.5-95.5, 1.3, white .62); white hands (52 % x 6.4 and 89 % x 5.6) on
+  // a thin neck, with a soft shadow; a slim second hand with a tail, white
+  // unless a colour is chosen (--ckh); a faint dark disc with a thin rim
+  // that fills its box. No date. The shadow is each hand again, offset and
+  // dark -- not a filter, which Safari's SVG doesn't take and which would be
+  // drawn again every second.
+  function numbersSvg() {
+    var p = function (r, a) { return [(Math.sin(a) * r).toFixed(2), (-Math.cos(a) * r).toFixed(2)]; };
+    var s = '<svg viewBox="-100 -100 200 200"><circle r="98" fill="rgba(20,0,40,.18)" stroke="rgba(255,255,255,.28)" stroke-width="1"/>';
+    for (var i = 0; i < 60; i++) {
+      var hr = i % 5 === 0, a = i * Math.PI / 30, p1 = p(hr ? 86 : 90.5, a), p2 = p(95.5, a);
+      s += '<line x1="' + p1[0] + '" y1="' + p1[1] + '" x2="' + p2[0] + '" y2="' + p2[1] + '" stroke="rgba(255,255,255,' + (hr ? '.9' : '.62') +
+           ')" stroke-width="' + (hr ? '2' : '1.3') + '" stroke-linecap="round"/>';
+    }
+    for (var n = 1; n <= 12; n++) {
+      var q = p(71, (n % 12) * Math.PI / 6);
+      s += '<text x="' + q[0] + '" y="' + (+q[1] + 8.2).toFixed(2) + '" text-anchor="middle" font-size="23" font-weight="500" fill="#fff">' + n + '</text>';
+    }
+    // a hand: its neck, then its blade (y up the face is negative)
+    var hand = function (cls, len, w, colour) {
+      return '<g class="' + cls + '"><line y1="0" y2="-13" style="stroke:' + colour + '" stroke-width="2.2"/>' +
+             '<line y1="-12" y2="' + -len + '" style="stroke:' + colour + '" stroke-width="' + w + '" stroke-linecap="round"/></g>';
+    };
+    var sec = function (cls, colour) {
+      return '<g class="' + cls + '" style="transition:transform .25s cubic-bezier(.4,2.2,.6,1)"><line y1="14" y2="-96" style="stroke:' + colour +
+             '" stroke-width="1.2" stroke-linecap="round"/><circle r="3.4" style="fill:' + colour + '"/></g>';
+    };
+    var shade = 'rgba(0,0,0,.22)';
+    s += '<g transform="translate(0 .9)">' + hand('hh-s', 52, 7.4, shade) + hand('mh-s', 89, 6.6, shade) + sec('sh-s', shade) + '</g>' +
+         hand('hh', 52, 6.4, 'var(--ckm,#fff)') + hand('mh', 89, 5.6, 'var(--ckm,#fff)') + sec('sh', 'var(--ckh,#fff)') +
+         '<circle r="1.5" fill="#3a2050"/></svg>';
+    return s;
+  }
+  FACES.numbers = function (f) {
+    f.innerHTML = numbersSvg();
+    var q2 = function (c) { return f.querySelector('.' + c); };
+    var hh = [q2('hh'), q2('hh-s')], mh = [q2('mh'), q2('mh-s')], sh = [q2('sh'), q2('sh-s')];
+    var lastS = -1, turns = 0;
+    return function (d) {
+      var se = d.getSeconds(), mi = d.getMinutes() + se / 60, ho = (d.getHours() % 12) + mi / 60;
+      if (se < lastS) turns++;
+      lastS = se;
+      hh.forEach(function (g) { g.setAttribute('transform', 'rotate(' + (ho * 30).toFixed(2) + ')'); });
+      mh.forEach(function (g) { g.setAttribute('transform', 'rotate(' + (mi * 6).toFixed(2) + ')'); });
+      sh.forEach(function (g) { g.style.transform = 'rotate(' + (turns * 360 + se * 6) + 'deg)'; });
     };
   };
 
@@ -990,5 +1048,5 @@
     };
   }
 
-  window.hkSaverClock = { STYLES: STYLES, BGS: BGS, COLORS: COLORS, mount: mount, _: { wordsAt: wordsAt, dotColumns: dotColumns, hm: hm, moving: moving, PAINTERS: PAINTERS } };
+  window.hkSaverClock = { STYLES: STYLES, BGS: BGS, COLORS: COLORS, mount: mount, _: { wordsAt: wordsAt, dotColumns: dotColumns, hm: hm, moving: moving, PAINTERS: PAINTERS, numbersSvg: numbersSvg } };
 })();

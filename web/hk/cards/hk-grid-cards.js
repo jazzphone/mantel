@@ -632,8 +632,12 @@
     // mounted card, including pages and conditional fallbacks.
     class HkGridEntityCard extends HkBase {
       static get CSS() { return ':host{display:block;height:100%}:host>div,:host>div>*{display:block;width:100%;height:100%}'; }
-      static get observedAttributes() { return ['size', 'data-grid-pager']; }
-      attributeChangedCallback() { this._sizeChild(); }
+      static get observedAttributes() { return ['size', 'data-grid-pager', 'tile']; }
+      attributeChangedCallback(name, was, now) {
+        this._sizeChild();
+        // (Centred names the room under the accessory: the tile is made again)
+        if (name === 'tile' && was !== now && this._config && this.client) this.redraw();
+      }
       _tile() {
         var cfg = this._config || {}, h = this.client, t;
         if (!cfg.entity) return null;
@@ -649,6 +653,13 @@
         // The block owns geometry; the shared builder owns the accessory.
         t.size = (this.getAttribute('size') || cfg.size) === 'W' ? 'regular' : 'tall';
         delete t.view_layout; delete t.hk_place;
+        // CENTRED (2026-10-30): the name over its room, as HomeView has it (a
+        // scene's line says it is one); an accessory in no room keeps its state
+        if (this.getAttribute('tile') === 'centred') {
+          var area = cfg.kind === 'scene' ? null : areaOf(h, cfg.entity), areas = (h && h.areas) || {};
+          var room = cfg.kind === 'scene' ? 'Scene' : area && areas[area] && areas[area].name;
+          if (room) t.room = room;
+        }
         return t;
       }
       _sigOf() { return JSON.stringify(this._tile()); }
@@ -661,6 +672,8 @@
         this._child.setAttribute('size', this.getAttribute('size') || (this._config || {}).size || 'S');
         if (this.hasAttribute('data-grid-pager')) this._child.setAttribute('data-grid-pager', '');
         else this._child.removeAttribute('data-grid-pager');
+        if (this.getAttribute('tile') === 'centred') this._child.setAttribute('tile', 'centred');
+        else this._child.removeAttribute('tile');
       }
       _render() {
         var t = this._tile();
@@ -733,7 +746,14 @@
       '.name{font-weight:600;color:' + v('ink') + '}',
       '.state{font-weight:500;color:' + v('ink-2') + '}',
       '.state[data-kind="failed"]{color:' + v('fail') + '}',
-      '@media (prefers-reduced-motion:reduce){hk-plate.k,hk-plate.k:active{transition:none;transform:none}}'
+      '@media (prefers-reduced-motion:reduce){hk-plate.k,hk-plate.k:active{transition:none;transform:none}}',
+      // a block's corners on square cells (hk-home-grid-view's --hk-block-radius)
+      'hk-plate.k{border-radius:var(--hk-block-radius, ' + C.M.radius + ')}',
+      // CENTRED (2026-10-30, the Tile Style; hk-base.js TILE.centred): the
+      // glyph over the name and what it changes, all centred, as HomeView has it
+      ':host([tile=centred]) hk-plate.k{display:block}',
+      C.centredTile({ host: ':host([tile=centred])', plate: 'hk-plate.k', lit: 'hk-plate.k.lit', well: '.well', icon: '.icon',
+                      name: '.tx .name', sub: ['.tx .state'] })
     ].join('');
 
     class HkGridKey extends HkBase {
@@ -1118,7 +1138,7 @@
       return clockModule.p;
     }
     // (the block clips the face, not the face itself: scaled down, its own box is smaller than its drawing)
-    var CLOCK_CSS = '.body{height:100%}.ck .ckroot{overflow:visible}.ck{position:relative;height:100%;box-sizing:border-box;overflow:hidden;border-radius:' + C.R.plate + 'px}' +
+    var CLOCK_CSS = '.body{height:100%}.ck .ckroot{overflow:visible}.ck{position:relative;height:100%;box-sizing:border-box;overflow:hidden;border-radius:var(--hk-block-radius, ' + C.R.plate + 'px)}' +
       '.ck.plate{' + C.plate('card') + '}';
     class HkGridClockCard extends HkGridFull {
       static get CSS() { return FULL_CSS + CLOCK_CSS; }
@@ -1151,7 +1171,7 @@
         clockModule().then(function (M) {
           if (!M || run !== self._run || !box.isConnected) return;
           self._face = M.mount(box, { style: style, h24: self._h24(), bg: 'none', scrim: false, client: self.client });
-          self._fillWatch(box, !!c.bare);
+          self._fillWatch(box, !!c.bare, style);
         });
       }
       // THE FACE FILLS ITS BLOCK (2026-10-24, the owner on the nightstand
@@ -1161,7 +1181,8 @@
       // (more inside the box) -- up, or down when a face sized by the block's
       // height is wider than a Tall block. Measured again as the block
       // resizes and once the face's fonts are in.
-      _fillWatch(box, bare) {
+      // (Analog Numbers bare fills its block to the edge of its disc, as HomeView's does)
+      _fillWatch(box, bare, style) {
         var root = box.querySelector('.ckroot'), self = this;
         if (!root) return;
         var fill = function () {
@@ -1174,7 +1195,7 @@
             l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); btm = Math.max(btm, q.bottom);
           });
           if (!(r > l && btm > t)) return;
-          var m = bare ? 0.92 : 0.8, k = Math.min(b.width * m / (r - l), b.height * m / (btm - t), 3);
+          var m = bare ? (style === 'numbers' ? 1 : 0.92) : 0.8, k = Math.min(b.width * m / (r - l), b.height * m / (btm - t), 3);
           // centred on the drawing's own middle, not the block's
           var dx = (b.left + b.width / 2) - (l + r) / 2, dy = (b.top + b.height / 2) - (t + btm) / 2;
           if (Math.abs(k - 1) > 0.02) root.style.transform = 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scale(' + k.toFixed(3) + ')';

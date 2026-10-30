@@ -507,12 +507,30 @@
     ':host([size]) .card.tall .grid{grid-template-rows:44px minmax(0,1fr) auto auto}',
     ':host([size]) .card.scene.tall .grid{row-gap:0}',
     ':host([size]) .card.scene.tall .name{align-self:end;line-height:19px;font-size:17px}',
+    // ...its corners on square cells (hk-home-grid-view's --hk-block-radius); a group's pills keep theirs
+    ':host([size]:not([data-group-fill])) hk-plate.card{border-radius:var(--hk-block-radius, ' + window.hkCards.M.radius + ')}',
     // Two room rows on a short tablet still use the tall tile hierarchy,
     // retaining the standard 42 px well and each accessory’s configured glyph.
     '@container hk-cell (max-height:120px){',
     '  :host([data-group-fill]) hk-plate.card.tall{padding:8px 12px}',
     '  :host([data-group-fill]) .card.tall .grid{grid-template-rows:44px minmax(0,1fr) auto auto;row-gap:2px}',
     '}',
+    // ===================================================== CENTRED (2026-10-30)
+    // The Tile Style that centres the glyph over the name and the room, as
+    // HomeView does (docs/phase11/HOMEVIEW-LOOK.md Phase B; hk-base.js
+    // TILE.centred): a Home Grid block's tile (`tile` set by its block) and a
+    // room page's Tall pill (the screen's Tile Style, _render). The same tile
+    // -- its taps, holds, states and press -- laid out again: the grid's
+    // areas give way to places measured off HomeView. The second line is
+    // the room when the tile is given one (`roomed`), else its state.
+    ':host([tile=centred]) .grid{display:block;height:100%}',
+    ':host([tile=centred]) .card.roomed .label{display:none !important}',
+    // a thermostat's reading stands where the glyph would
+    ':host([tile=centred]) .card .temp{position:absolute;left:50%;top:32%;transform:translate(-50%,-50%);font-size:44px;letter-spacing:-0.5px}',
+    window.hkCards.centredTile({ host: ':host([tile=centred])', plate: 'hk-plate.card', lit: 'hk-plate.card[data-on="1"]',
+                                 well: '.well', icon: '.icon', name: '.name', sub: ['.label', '.room'] }),
+    // (...a thermostat has no glyph: its reading is the glyph, as in its tall tile)
+    ':host([tile=centred]) .card.climate_tall .well{display:none}',
   ].join('');
 
   // `on:` UNQUOTED IN YAML IS THE BOOLEAN true, so an icon_states map keyed on
@@ -791,6 +809,16 @@
       if (ic) e.icon.icon = ic;
 
       if (e.room && e.room.textContent !== cfg.room) e.room.textContent = cfg.room;
+      e.card.classList.toggle('roomed', !!e.room);
+      // TILE STYLE ON A PAGE (2026-10-30): a Tall pill that is no Home Grid
+      // block's (its block sets `tile` on it) takes its own `tile`, else the
+      // screen's (hkSettings.tileStyle: its own, else All Screens'). A
+      // regular pill stays as it is: wide and short, centred reads badly.
+      if (!this.hasAttribute('size') && !this.hasAttribute('data-group-fill')) {
+        var HS = window.hkSettings, tall = layout === 'tall' || layout === 'climate_tall';
+        var centred = cfg.tile ? cfg.tile === 'centred' : tall && !!HS && typeof HS.tileStyle === 'function' && HS.tileStyle() === 'centred';
+        if (centred) this.setAttribute('tile', 'centred'); else this.removeAttribute('tile');
+      }
       var nm = cfg.name || (st && st.attributes && st.attributes.friendly_name) || cfg.entity;
       if (e.name.textContent !== nm) e.name.textContent = nm;
       if (e.label) {

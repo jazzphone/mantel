@@ -227,6 +227,21 @@
   TILE.favRow = TILE.fav + TILE.gridGap;
   TILE.tall = 2 * TILE.h + TILE.gridGap;
   TILE.pad = '10.7px 12.8px 10.7px ' + TILE.padL + 'px';
+  // CENTRED TILES (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase B): the
+  // Tile Style that sets the glyph above the name and the room, all centred,
+  // as HomeView does -- measured off its screenshot, side by side. Per cell:
+  //   box / glyph  the glyph's box and its size, bare (off): 66 px in a 196
+  //                cell, about 55 px of ink
+  //   well / lit   lit: the glyph `lit` in a `well` of its colour
+  //   at           the glyph's centre, % down the tile
+  //   text         the name's top, % down; the room (or the state) under it
+  //   name / sub / line   their sizes (600 and 400) and the lines they sit on
+  // `tall`: a 196 x 150 tile (a room page's Tall pill, a tile-celled block);
+  // `square`: a 196 x 196 cell. Home's numbers above are untouched.
+  TILE.centred = {
+    tall: { box: 56, glyph: 50, well: 50, lit: 30, at: 31, text: 55, name: 17, sub: 16, line: 22 },
+    square: { box: 72, glyph: 66, well: 64, lit: 40, at: 33, text: 57.7, name: 21, sub: 20, line: 27 },
+    track: -0.3, inset: 10 };
   // A pill's width as CSS: --hk-pill (the iPad band's, css/hk-responsive.css)
   // or the table's.
   var PILL_W = 'var(--hk-pill,' + TILE.w + 'px)';
@@ -241,6 +256,12 @@
   // reads its class from its `size` attribute and its cell from
   // --hk-cell-w / --hk-cell-h.
   var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2] }, gap: TILE.gridGap, band: 60, pad: 1280 * 0.015 + 8 };
+  // SQUARE CELLS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md "The numbers"): a
+  // grid's `cell: square` -- 196 x 196, the tile's width with a square's
+  // height, and HomeView's 13 px gap (6.7 % of a cell; tiles keep 10). A
+  // Square screen's canvas edge is 14 px, about a gap from the glass, not the
+  // page gutter. hk-grid-catalog.js CELLS is the same table (a test holds it).
+  HOME_GRID.square = { w: TILE.w, h: 196, gap: 13, edge: 14 };
   // Breakpoints (px): screens for page structure, card widths for container
   // queries inside a card. A media query can't read a CSS variable, but every
   // card's CSS is a JS string, so these interpolate.
@@ -265,6 +286,10 @@
   // iOS switch keep theirs.
   var R = { plate: 23.5, inner: 12, small: 8, sheet: 38, sheetPhone: 30, banner: 30, bannerPhone: 26,
             sheetSmall: 28, cardInSheet: 20, bigArt: 22,
+            // square cells (HomeView's one radius, measured: 21 px on a 120 px
+            // tile -> 34 in a 196 cell), and a Square screen's corner block's
+            // outer corner, concentric with the display (45 -> 72)
+            square: 34, 'square-screen': 72,
             capsule: function (h) { return 'calc(' + h + ' / 2)'; } };
   // Overlay surfaces: translucent over its own blur, near-solid with none,
   // and the floating strip outside the Tinted look.
@@ -304,9 +329,41 @@
       return 'border-radius:' + M.radius + ';' + M.glass + ';border:' + M.border +
         ';box-shadow:var(--hk-look-shadow, ' + v(sh) + ')';
     }
-    return 'border-radius:' + M.radius + ';background:var(--hk-block-plate, ' + M.bg + ');--hk-glass-surface:var(--hk-block-glass, 1);' +
+    // (--hk-block-radius: a square cell's corners, hk-home-grid-view -- one
+    // radius, or four where a Square screen's corner rounds one of them)
+    return 'border-radius:var(--hk-block-radius, ' + M.radius + ');background:var(--hk-block-plate, ' + M.bg + ');--hk-glass-surface:var(--hk-block-glass, 1);' +
       'backdrop-filter:var(--hk-block-backdrop, var(--hk-glass-backdrop,none));-webkit-backdrop-filter:var(--hk-block-backdrop, var(--hk-glass-backdrop,none))' +
       ';border:var(--hk-block-edge, ' + M.border + ');box-shadow:var(--hk-block-shadow, var(--hk-look-shadow, ' + v(sh) + '))';
+  }
+  // A CENTRED TILE'S CSS (TILE.centred) over a tile's own parts, named by
+  // `s`: { host (the variant's :host), plate, lit (the plate lit), well,
+  // icon, name, sub (the second lines: a list) }. The tall cell's numbers,
+  // then the square cell's where the block's cell (hk-cell) is square. The
+  // tile's own rules for its layouts (a tall scene's two-line name, an
+  // inline well) are more specific than a variant can be, so the variant's
+  // say !important.
+  function centredTile(s) {
+    var C0 = TILE.centred, I = ' !important', off = s.plate + ':not(' + s.lit.slice(s.plate.length) + ')';
+    var at = function (pre, parts) { return parts.map(function (p) { return s.host + ' ' + (pre ? pre + ' ' : '') + p; }).join(','); };
+    var one = function (g) {
+      return at('', [s.well]) + '{width:' + g.box + 'px' + I + ';height:' + g.box + 'px' + I + ';top:' + g.at + '%' + I + '}' +
+        at('', [s.icon]) + '{width:' + g.glyph + 'px' + I + ';height:' + g.glyph + 'px' + I + '}' +
+        at(s.lit, [s.well]) + '{width:' + g.well + 'px' + I + ';height:' + g.well + 'px' + I + '}' +
+        at(s.lit, [s.icon]) + '{width:' + g.lit + 'px' + I + ';height:' + g.lit + 'px' + I + '}' +
+        at('', [s.name]) + '{top:' + g.text + '%' + I + ';font-size:' + g.name + 'px' + I + ';line-height:' + g.line + 'px' + I + '}' +
+        at('', s.sub) + '{top:calc(' + g.text + '% + ' + g.line + 'px)' + I + ';font-size:' + g.sub + 'px' + I + ';line-height:' + g.line + 'px' + I + '}';
+    };
+    var text = 'position:absolute' + I + ';left:' + C0.inset + 'px' + I + ';right:' + C0.inset + 'px' + I + ';margin:0' + I + ';width:auto' + I +
+      ';display:block' + I + ';text-align:center' + I + ';white-space:nowrap' + I + ';overflow:hidden;text-overflow:ellipsis;letter-spacing:' + C0.track + 'px' + I;
+    return at('', [s.plate]) + '{position:relative}' +
+      at('', [s.well]) + '{position:absolute' + I + ';left:50%' + I + ';margin:0' + I + ';transform:translate(-50%,-50%);border-radius:50%;' +
+        'display:flex;align-items:center;justify-content:center}' +
+      // off: the glyph bare, in its own colour; lit: in its circle on the white plate (HK's rule)
+      at(off, [s.well]) + '{background:none' + I + '}' +
+      at('', [s.name]) + '{' + text + ';font-weight:600' + I + '}' +
+      at('', s.sub) + '{' + text + ';font-weight:400' + I + ';color:' + v('ink-2') + I + '}' +
+      at(s.lit, s.sub) + '{color:' + v('ink-on-state') + I + '}' +
+      one(C0.tall) + '@container hk-cell (min-height:180px){' + one(C0.square) + '}';
   }
   // ONE TITLE ROW (the Energy page's): the name left, the detail right, one
   // baseline, 20 px tall. `sel` is the row (default .ttl); its <b> is the
@@ -2564,7 +2621,8 @@
     _block() {
       var sz = this._cellSize(), n = sz && HOME_GRID.sizes[sz];
       if (!n || typeof getComputedStyle !== 'function') return null;
-      var cs = getComputedStyle(this), g = HOME_GRID.gap;
+      // (the grid's gap, --g-gap: square cells' is HomeView's 13)
+      var cs = getComputedStyle(this), g = parseFloat(cs.getPropertyValue('--g-gap')) || HOME_GRID.gap;
       var cw = parseFloat(cs.getPropertyValue('--hk-cell-w')), ch = parseFloat(cs.getPropertyValue('--hk-cell-h'));
       if (!(cw > 0 && ch > 0)) return null;
       return { w: Math.floor(n[0] * cw + (n[0] - 1) * g), h: Math.floor(n[1] * ch + (n[1] - 1) * g) };
@@ -4387,6 +4445,7 @@
   window.hkCards.OVER = OVER;
   window.hkCards.TYPE = TYPE;
   window.hkCards.plate = plate;
+  window.hkCards.centredTile = centredTile;
   window.hkCards.titleRow = titleRow;
   window.hkCards.labelCss = labelCss;
   window.hkCards.figureCss = figureCss;

@@ -498,6 +498,51 @@ class HkControlCard extends HTMLElement {
         .media-bare.no-phone-times .prog-times{display:none}
         .media-bare.no-phone-times .prog-track{margin:0;height:4px}
       }
+      /* BIG NUMBER (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase C), measured
+         off HomeView in a Large block: the number 31 % of the block tall and
+         centred 42.7 % down; the foot centred 86 % down, 7 % in from each side,
+         the arrows (58 px, about 32 px of ink) level with the name and room.
+         Tall: the number by the width, at 40 %, 38 px arrows, 17 / 16 text,
+         the foot at 88 %. Heat and cool: both targets, at about 0.62 of it.
+         The name and room are the Centred tiles' (hk-base.js TILE.centred). */
+      :host([size]) .surface.big{height:100%}
+      .surface.big{position:relative;container-type:size;box-sizing:border-box;padding:0}
+      .big .bn{position:absolute;left:0;right:0;top:42.7%;transform:translateY(-50%);text-align:center;color:${window.hkCards.v('ink')};
+        font-weight:500;letter-spacing:-.03em;font-variant-numeric:tabular-nums;font-size:min(44cqh,44cqw);line-height:1;
+        user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+      :host([size=T]) .big .bn{font-size:min(25cqh,50cqw);top:40%}
+      .big.range .bn{font-size:min(28cqh,24cqw)}
+      :host([size=T]) .big.range .bn{font-size:min(14cqh,27cqw)}
+      .big.idle .bn{font-size:min(24cqh,30cqw)}
+      .big .pk{all:unset;cursor:pointer;border-bottom:4px solid transparent;padding:0 .04em}
+      .big .pk.sel{border-bottom-color:${window.hkCards.v('ink')}}
+      .big .pk:focus-visible,.big .ar:focus-visible,.big .nm:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
+      .big .ft{position:absolute;left:7%;right:7%;top:86%;transform:translateY(-50%);display:grid;grid-template-columns:58px minmax(0,1fr) 58px;align-items:center}
+      .big .ar{all:unset;box-sizing:border-box;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;color:${window.hkCards.v('ink')};
+        cursor:pointer;-webkit-tap-highlight-color:transparent}
+      .big .ar:active{background:${window.hkCards.v('key')}}
+      .big .ar[disabled]{opacity:.35;cursor:default}
+      /* (each target a little past its ink: a finger's 44 px, the Tall arrows and a target's digits) */
+      .big .ar,.big .pk,.big .nm{position:relative}
+      .big .ar::after{content:"";position:absolute;left:-4px;right:-4px;top:-4px;bottom:-4px}
+      .big .pk::after{content:"";position:absolute;left:-6px;right:-6px;top:-10px;bottom:-10px}
+      .big .nm::after{content:"";position:absolute;left:-4px;right:-4px;top:-6px;bottom:-6px}
+      .big .ar svg{width:58px;height:58px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+      .big .nm{all:unset;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+      .big .nm b,.big .nm i{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .big .nm b{font-size:${window.hkCards.TILE.centred.square.name}px;font-weight:600;line-height:${window.hkCards.TILE.centred.square.line}px;letter-spacing:-.3px;color:${window.hkCards.v('ink')}}
+      .big .nm i{font-style:normal;font-size:${window.hkCards.TILE.centred.square.sub}px;font-weight:400;line-height:${window.hkCards.TILE.centred.square.line}px;color:${window.hkCards.v('ink-2')}}
+      :host([size=T]) .big .ft{grid-template-columns:38px minmax(0,1fr) 38px;left:2px;right:2px;top:88%}
+      :host([size=T]) .big .ar{width:38px;height:48px;border-radius:24px}
+      :host([size=T]) .big .ar svg{width:38px;height:38px;stroke-width:2.2}
+      :host([size=T]) .big .nm b{font-size:${window.hkCards.TILE.centred.tall.name}px;line-height:${window.hkCards.TILE.centred.tall.line}px}
+      :host([size=T]) .big .nm i{font-size:${window.hkCards.TILE.centred.tall.sub}px;line-height:${window.hkCards.TILE.centred.tall.line}px}
+      /* ...a press and hold on the number: its modes, over the block */
+      .big .modes{position:absolute;inset:0;display:none;flex-direction:column;justify-content:center;gap:8px;padding:16px;
+        background:${window.hkCards.OVER.solid};border-radius:inherit}
+      .big.choosing .modes{display:flex}
+      .big .modes .segment{flex:none;height:44px;border:0;border-radius:22px;color:${window.hkCards.v('ink')};font-size:15px;font-weight:600}
+      .big .modes .segment.active{background:#fff;color:#1c1c1e;box-shadow:none}
     `;
   }
   // Fraction (0..1 of the ring) -> a point on it. The ring runs 135deg to
@@ -521,6 +566,7 @@ class HkControlCard extends HTMLElement {
   _heater() { return String(this._entityId() || "").indexOf("water_heater.") === 0; }
   _climate(s) {
     if (this._heater()) return this._waterDial(s);
+    if (this._config.style === "big" && this.hasAttribute('size')) return this._big(s);
     const a = s?.attributes || {}, mode = s?.state || "off";
     const action = a.hvac_action || mode;
     const cur = Number(a.current_temperature), hum = Number(a.current_humidity);
@@ -624,6 +670,122 @@ class HkControlCard extends HTMLElement {
         fanModes.map(m => `<button class="segment ${a.fan_mode === m ? "active" : ""}" data-fan="${this._esc(m)}">${this._esc(this._pretty(m))}</button>`).join("")
       }</div>` : ""}
     </div>`;
+  }
+
+  // BIG NUMBER (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase C; a Home
+  // Grid thermostat block's Style, Tall and Large): the target very large,
+  // the arrows at its foot either side of the name and the room, as
+  // HomeView draws its thermostat. Heat and cool: both targets, a tap picks
+  // one (underlined) and the arrows step it. A press and hold on the number:
+  // the modes; a tap on the name: the sheet. Nothing else -- the mode and
+  // the reading are the sheet's. A step is the entity's target_temp_step
+  // (else 1 degree F, 0.5 C), held on the face as the dial holds a setpoint,
+  // and sent as the dial sends one (set_temperature through the card's
+  // action port) 600 ms after the last tap.
+  _bigStep(a) {
+    const n = Number(a && a.target_temp_step);
+    if (n > 0) return n;
+    return /C/.test(window.hkLocale?.units?.().temp || "") ? 0.5 : 1;
+  }
+  _bigText(t, a) {
+    return this._bigStep(a) < 1 && Math.round(t) !== t ? t.toFixed(1) : String(Math.round(t));
+  }
+  _room() {
+    const c = this.client, e = c?.entities?.[this._entityId()] || {}, d = (c?.devices || {})[e.device_id] || {};
+    const area = e.area_id || d.area_id;
+    return (area && c?.areas?.[area]?.name) || "";
+  }
+  _big(s) {
+    const a = s?.attributes || {}, mode = s?.state || "off";
+    let lo = Number(a.target_temp_low), hi = Number(a.target_temp_high), single = Number(a.temperature);
+    const hold = this._hold;
+    if (hold && Date.now() < hold.until) {
+      const took = hold.which === "single" ? single === hold.single : (lo === hold.lo && hi === hold.hi);
+      if (took && !this._bigT) this._hold = null;
+      else if (hold.which === "single") single = hold.single;
+      else { lo = hold.lo; hi = hold.hi; }
+    } else this._hold = null;
+    const range = mode === "heat_cool" && Number.isFinite(lo) && Number.isFinite(hi);
+    const idle = mode === "off" || (!range && !Number.isFinite(single));
+    const pick = this._bigPick === "high" ? "high" : "low", t = v => this._esc(this._bigText(v, a));
+    const pk = (which, v, verb) => `<button class="pk${pick === which ? " sel" : ""}" type="button" data-big-pick="${which}" aria-pressed="${pick === which}" aria-label="${verb} ${t(v)} degrees">${t(v)}</button>`;
+    const bn = mode === "off" ? "Off" : idle ? "\u2014" : range ? pk("low", lo, "Heat to") + "\u2013" + pk("high", hi, "Cool to") : t(single);
+    const ORDER = ["off", "heat", "cool", "heat_cool"];
+    const has = Array.isArray(a.hvac_modes) && a.hvac_modes.length ? a.hvac_modes : ORDER;
+    const modes = ORDER.filter(m => has.includes(m)).concat(has.filter(m => !ORDER.includes(m)));
+    const name = this._esc(this._name()), room = this._esc(this._room());
+    const arrow = (dir, d, label) => `<button class="ar" type="button" data-big-step="${dir}" aria-label="${label}"${idle ? " disabled" : ""}>` +
+      `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg></button>`;
+    return `<div class="surface big${range ? " range" : ""}${idle ? " idle" : ""}${this._bigModes ? " choosing" : ""}" data-big>
+      <div class="bn" data-big-num aria-label="${range ? "" : (mode === "off" ? "Off" : t(single) + " degrees") + ", press and hold for the modes"}">${bn}</div>
+      <div class="ft">
+        ${arrow(-1, "M5.5 9.5 12 16l6.5-6.5", range ? (pick === "low" ? "Lower the heating target" : "Lower the cooling target") : "Lower the target")}
+        <button class="nm" type="button" data-tstat-details aria-label="${name}${room ? ", " + room : ""}, open the thermostat"><b>${name}</b>${room ? `<i>${room}</i>` : ""}</button>
+        ${arrow(1, "M5.5 14.5 12 8l6.5 6.5", range ? (pick === "low" ? "Raise the heating target" : "Raise the cooling target") : "Raise the target")}
+      </div>
+      <div class="modes" role="group" aria-label="Mode">${modes.map(m => `<button class="segment${mode === m ? " active" : ""}" type="button" data-mode="${this._esc(m)}">${this._esc(this._pretty(m))}</button>`).join("")}</div>
+    </div>`;
+  }
+  // ...a step up or down (dir 1 or -1) of the target, or of the one picked:
+  // by the entity's step, inside its range, the two targets never crossing
+  // (as on the dial); held on the face and sent 600 ms after the last
+  _bigNudge(dir, call) {
+    const st = this._state(), a = st?.attributes || {}, mode = st?.state || "off", step = this._bigStep(a);
+    const min = Number(a.min_temp), max = Number(a.max_temp);
+    const clamp = v => Math.round(Math.max(Number.isFinite(min) ? min : -Infinity, Math.min(Number.isFinite(max) ? max : Infinity, v)) * 100) / 100;
+    const snap = v => clamp(Math.round(v / step) * step), held = this._hold && Date.now() < this._hold.until ? this._hold : null;
+    if (mode === "off") return;
+    if (mode === "heat_cool" && Number.isFinite(Number(a.target_temp_low)) && Number.isFinite(Number(a.target_temp_high))) {
+      let lo = held && held.which !== "single" ? held.lo : Number(a.target_temp_low);
+      let hi = held && held.which !== "single" ? held.hi : Number(a.target_temp_high);
+      if (this._bigPick === "high") hi = Math.max(snap(hi + dir * step), lo + step);
+      else lo = Math.min(snap(lo + dir * step), hi - step);
+      this._hold = { which: this._bigPick === "high" ? "high" : "low", lo: lo, hi: hi, until: Date.now() + 8000 };
+    } else {
+      const now = held && held.which === "single" ? held.single : Number(a.temperature);
+      if (!Number.isFinite(now)) return;
+      this._hold = { which: "single", single: snap(now + dir * step), until: Date.now() + 8000 };
+    }
+    this._render();
+    clearTimeout(this._bigT);
+    this._bigT = setTimeout(() => {
+      this._bigT = null;
+      const h = this._hold;
+      if (!h) return;
+      h.until = Date.now() + 8000;
+      call("climate", "set_temperature", h.which === "single" ? { temperature: h.single } : { target_temp_low: h.lo, target_temp_high: h.hi });
+    }, 600);
+  }
+  // ...its taps: pick a target, step it, the modes on a hold of the number
+  _bindBig(el, call) {
+    el.querySelectorAll("[data-big-pick]").forEach(b => b.onclick = e => {
+      e.stopPropagation();
+      if (this._bigHeld) { this._bigHeld = false; return; }
+      this._bigPick = b.dataset.bigPick; this._render();
+    });
+    el.querySelectorAll("[data-big-step]").forEach(b => b.onclick = e => { e.stopPropagation(); this._bigNudge(Number(b.dataset.bigStep), call); });
+    // THE MODES: a press and hold of the number (half a second, the finger
+    // still), shut by a mode, a tap beside them or Escape
+    const num = el.querySelector("[data-big-num]");
+    if (num) {
+      let timer = null, x = 0, y = 0;
+      const stop = () => { clearTimeout(timer); timer = null; };
+      num.onpointerdown = e => {
+        x = e.clientX; y = e.clientY; this._bigHeld = false; stop();
+        timer = setTimeout(() => { timer = null; this._bigHeld = true; this._bigModes = true; this._render(); }, 500);
+      };
+      num.onpointermove = e => { if (timer && (Math.abs(e.clientX - x) > 8 || Math.abs(e.clientY - y) > 8)) stop(); };
+      num.onpointerup = num.onpointercancel = num.onpointerleave = stop;
+      num.oncontextmenu = e => e.preventDefault();
+    }
+    const box = el.querySelector(".modes");
+    if (box) box.onclick = e => { if (e.target === box) { e.stopPropagation(); this._bigModes = false; this._render(); } };
+    el.querySelectorAll(".modes [data-mode]").forEach(b => b.onclick = e => {
+      e.stopPropagation(); this._bigModes = false;
+      call("climate", "set_hvac_mode", { hvac_mode: b.dataset.mode });
+      this._render();
+    });
+    el.onkeydown = e => { if (e.key === "Escape" && this._bigModes) { this._bigModes = false; this._render(); } };
   }
 
   _waterDial(s) {
@@ -971,6 +1133,8 @@ class HkControlCard extends HTMLElement {
     }
     root.querySelectorAll("[data-tstat-details]").forEach(b=>b.onclick=()=>window.hkShell.moreInfo(id,this));
     root.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>call("climate","set_hvac_mode",{hvac_mode:b.dataset.mode}));
+    const big=root.querySelector("[data-big]");
+    if(big) this._bindBig(big,call);
     root.querySelectorAll("[data-fan]").forEach(b=>b.onclick=()=>call("climate","set_fan_mode",{fan_mode:b.dataset.fan}));
     root.querySelectorAll("[data-option]").forEach(b=>b.onclick=()=>call("select","select_option",{option:b.dataset.option}));
     root.querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>call("switch","toggle"));
