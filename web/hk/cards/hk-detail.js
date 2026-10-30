@@ -681,7 +681,9 @@
       // publishes where the dashboard starts) -- a docked menu is part of the
       // dashboard, so the sheet centres over it too. The backdrop, inset 0,
       // still covers everything.
-      '  box-sizing:border-box;padding-left:var(--hk-content-left,0px)}',
+      // ...and clear of a side safe area (the iPhone Duo's strip, a phone
+      // turned: hk-base.js SAFE, 2026-10-30)
+      '  box-sizing:border-box;padding-left:max(var(--hk-content-left,0px), var(--hk-safe-left,env(safe-area-inset-left,0px)));padding-right:var(--hk-safe-right,env(safe-area-inset-right,0px))}',
       // A CARD IN THE SHEET wears the look's plate for a sheet (M.bg), when
       // the look has one: Tinted's dark plate on this dark sheet is a hole
       '.hkd{--hk-plate-here:var(--hk-glass-plate-sheet)}',
@@ -697,7 +699,7 @@
       // on a phone (below) -- and never past the screen less 16 a side, which
       // is where a short window (the car, a phone on its side) scrolls.
       '.hkd .sheet{position:relative;box-sizing:border-box;pointer-events:auto;',
-      '  width:var(--hkd-w,' + STD + 'px);max-width:calc(var(--hk-vw, 100vw) - var(--hk-content-left, 0px) - 32px);',
+      '  width:var(--hkd-w,' + STD + 'px);max-width:calc(var(--hk-vw, 100vw) - max(var(--hk-content-left, 0px), var(--hk-safe-left,env(safe-area-inset-left,0px))) - var(--hk-safe-right,env(safe-area-inset-right,0px)) - 32px);',
       '  height:' + SHEET_H + 'px;max-height:calc(var(--hk-vh, 100dvh) - 32px);',
       '  display:flex;flex-direction:column;gap:20px;padding:24px;border-radius:38px;',
       // THE COLOUR COMES THROUGH: a light tint over a saturated blur, so the
@@ -773,7 +775,7 @@
       // sheet's lighter one lets the sky tint its glass; a picture has none.
       '.hkd.bare .bd{background:rgba(17,17,17,0.8)}',
       '@media (max-width:' + C.BP.phone + 'px){',
-      '  .hkd .sheet{width:calc(var(--hk-vw, 100vw) - 32px);padding:18px;gap:16px;border-radius:30px;',
+      '  .hkd .sheet{width:calc(var(--hk-vw, 100vw) - var(--hk-safe-left,env(safe-area-inset-left,0px)) - var(--hk-safe-right,env(safe-area-inset-right,0px)) - 32px);padding:18px;gap:16px;border-radius:30px;',
       // (20 above and below on a small phone -- an iPhone SE's 667 -- where 40 left a media sheet's last row under its foot)
       '    height:min(' + PHONE_H + 'px, calc(var(--hk-vh, 100dvh) - 40px))}',
       '}',
@@ -794,7 +796,7 @@
       '@media ' + SHORT_MQ + '{',
       '  .hkd .sheet{width:calc(var(--hkd-w,' + STD + 'px) + 120px);height:calc(var(--hk-vh, 100dvh) - 24px);max-height:calc(var(--hk-vh, 100dvh) - 24px);',
       '    padding:16px;gap:12px;border-radius:30px}',
-      '  .hkd .sheet:has(hk-detail-media){width:min(760px, calc(var(--hk-vw, 100vw) - var(--hk-content-left, 0px) - 32px))}',
+      '  .hkd .sheet:has(hk-detail-media){width:min(760px, calc(var(--hk-vw, 100vw) - max(var(--hk-content-left, 0px), var(--hk-safe-left,env(safe-area-inset-left,0px))) - var(--hk-safe-right,env(safe-area-inset-right,0px)) - 32px))}',
       '}',
       '@media (prefers-reduced-motion:reduce){.hkd .bd,.hkd .sheet,.hkd .body-frame::before,.hkd .body-frame::after{transition:none}}'
     ].join('');

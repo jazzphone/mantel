@@ -177,8 +177,20 @@ under them. Only a block swipes, never the whole screen (whole-screen pages: not
 - **Not on the tablet.** A tablet shows the grid and never offers editing.
 - **The editor:**
   - The grid shows its cells.
-  - Drag a block with the mouse; it snaps to cells. Dropping on a block of the same size swaps them. A drop that
-    doesn't fit outlines the cells in red and goes back.
+  - Drag a block with the mouse or a finger; it snaps to cells. **The others make room** (2026-10-30, the owner:
+    "As I move the block, the tiles that become free, the tiles that get overlapped, move to those free spots", as
+    an iPad's Home Screen does; `makeRoom` in `hk-grid-editor.js`, pure). The block goes where it is put, in its own
+    view, and the blocks it lands on move, never resized, to the first of: the space it left, all together as they
+    were (one of the same size: the old swap); each on its own, into that space where it fits, else the free place
+    nearest its old one in reading order (a bounded search, so a later block that has nowhere tries the earlier
+    one's next place; blocks of one size keep their reading order); one other block moved aside, then two, the
+    least far; last, the view's other blocks in reading order, each kept where it is while that's free, else at
+    the nearest free place. No way at all: null, and the block stays.
+  - While it is carried the block follows the pointer, lifted (1.04 ×), its outline shows the cells it would take,
+    and each time those change the others slide there (`translate` on their outlines and on the preview's own
+    cells, 200 ms, none with Reduce Motion). Dropped, that layout is the draft (one Undo); Escape, the pointer back
+    on its own cells or off the grid, or the browser taking the touch puts everything back. Where it can't go the
+    outline is red and a drop says so. Arrow keys use the same rule; a resize never makes room.
   - Each block has a size menu (only the sizes that card has) and Remove.
   - **+ Add** opens the catalog as a side panel, each card previewed at its sizes; drag one in, or click to place
     it in the first space that fits.
@@ -215,7 +227,7 @@ under them. Only a block swipes, never the whole screen (whole-screen pages: not
 | G2 | **Size classes on existing cards** | The 14 cards in the table, each laid out per size with container queries; Flat and Blur, light and dark, text scale | the render audit gains a Home Grid pass: every card × every size × the four looks, at 6 columns, nothing clipped (geometry checked, not only screenshots) |
 | G3 | **New cards** | `room`, `scene_suggested`, `action`, `everything` (and their editors) | unit tests per card; render audit; the Mantel smoke taps one and it lands in the audit log |
 | G4 | **Blocks that swipe** | `hk-pager-card`; the six sources; back to the start page on idle; gestures; dots; VoiceOver | unit tests (sources, idle return, the doorbell jump); a headless swipe in Mantel and HA; on the kitchen tablet |
-| G5 | **The desktop editor** | `hk-grid-editor.js`: drag and snap, swap, sizes, + Add, block options and Pages, grid settings, Save / Cancel, the starter layouts | unit tests on the placement logic (snap, swap, refusal); a headless drag in both hosts |
+| G5 | **The desktop editor** | `hk-grid-editor.js`: drag and snap, making room (swap included), sizes, + Add, block options and Pages, grid settings, Save / Cancel, the starter layouts | unit tests on the placement logic (snap, swap, refusal); a headless drag in both hosts |
 | G6 | **Mantel's extras** | History and Restore, Copy Layout To…, the entry in Mantel Settings → Screens | Mantel tests (permission, audit row, restore); the smoke |
 | G7 | **HK Frontend** | HK Settings → the screen → Home Style and Arrange Home Grid; publish; release notes | the scratch HA; `tests/test_ha_build.py` |
 | G8 | **Docs** | Mantel's guide (`docs/guide/Home-Grid.md`), HK Frontend's wiki page, screenshots at 1280 × 800, CHANGELOG | the docs link check |
@@ -714,7 +726,7 @@ its Python mirror.
 **Validation:**
 
 - Mantel main suite: **3,411 passed, 21 skipped**. The first full run found the host-history transport in shared code; it was moved behind the host hook. An unrelated gateway test also hit its existing random-ID substring assertion; it passed on rerun and the final suite is green.
-- `tests/test_grid_editor.py`: pure placement checks in JavaScriptCore (snap, equal-size swap, overlap/edge/resize refusal, first fit, item limit and immutable drafts), both starter concepts and malformed-input refusals. Settings-store tests cover role denial, history, layout-only restore, copy preserving target settings and relative tablet-room options.
+- `tests/test_grid_editor.py`: pure placement checks in JavaScriptCore (snap, equal-size swap, overlap/edge/resize refusal, first fit, item limit and immutable drafts), both starter concepts and malformed-input refusals. `test_gridroom.js` (HK Frontend's suites, 2026-10-30): making room -- onto smaller blocks with room left behind, the nearest free place, one block stepping aside, no way (null), equal sizes still swapping, other views untouched, one drop one Undo; `tools/headless/grid_blocks_check.py` carries a Large camera onto four small tiles in Chromium (a finger) and WebKit (a mouse) at an iPad's size: they slide while it is held, the drop and one Undo, Escape and a drop off the grid. Settings-store tests cover role denial, history, layout-only restore, copy preserving target settings and relative tablet-room options.
 - The built HA package's JavaScript suites are green. Its full Python suite passes: **758 passed**, including the new admin-only checked starter read.
 - `tools/headless/grid_editor_smoke.py`: real mouse drag swaps blocks; every overlay rectangle matches its real cell within 2 px with the tab bar showing; real catalog cards draw; refusal retains the draft; Save applies once; history restores a draft without a write; Copy preserves the target's other options; Cancel writes nothing; the saved 1280 × 800 Home Grid does not scroll. No browser exceptions.
 - `tools/testha/grid_editor_check.py`: real scratch Home Assistant (fictional demo integration, isolated config) opens the editor, renders the draft with real cards, swaps two blocks with a real mouse drag and saves successfully. The host-specific history control is absent. The scratch wrapper has light DOM, which the preview now handles.

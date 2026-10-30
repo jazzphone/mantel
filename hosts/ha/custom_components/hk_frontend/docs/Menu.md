@@ -244,7 +244,7 @@ set its own:
 | Edge Tab | Position | Level with Date | **Level with Date**: the tab’s middle lines up with the date under the clock. **Custom**: a **Distance from Top**, **Measured In** **Pixels** or **% of Screen Height**. |
 | Edge Tab | Size: Tablets & Computers | Large | **Standard** (the slim tab that fits the margin), **Large** or **Extra Large**. A bigger tab lies over the page’s edge and stays on top of it, and its touch area reaches a little past it. |
 | Edge Tab | Size: Phones | Standard | The same three sizes for a phone. On a phone even the standard tab lies over the first column of tiles. |
-| Tab Bar | Everything else | | Position, Size, Labels, While Scrolling, Tabs and More: see [the tab bar](Tab-Bar.md). Its glass is under **Appearance → Tab Bar Look**. |
+| Tab Bar | Everything else | | Position, Size, Labels, Use the Side Strip (an iPhone Duo's strip of system controls), While Scrolling, Tabs and More: see [the tab bar](Tab-Bar.md). Its glass is under **Appearance → Tab Bar Look**. |
 
 ![All Screens → Menu: each screen’s menu, its navigation and who uses each](images/settings-menu.webp)
 

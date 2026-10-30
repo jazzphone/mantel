@@ -35,6 +35,14 @@ check(!E.place(g,'c',[0,0]), 'small into large');
 check(!E.place(g,'a',[0,0],'XL'), 'resize cannot overlap');
 check(E.place(g,'a',[0,2]), 'empty move');
 check(!E.place(g,'a',[0.5,2]), 'fractional move');
+// a drag makes room (2026-10-30; HK Frontend's test_gridroom.js has the rest): a swap still, and a small tile onto a
+// Large block sends it to the nearest free place
+var room = E.makeRoom(g,'a',[2,0]);
+check(room.items[0].at.join() === '2,0' && room.items[1].at.join() === '0,0', 'making room: equal sizes swap');
+room = E.makeRoom(g,'c',[0,0]);
+check(room && room.items[2].at.join() === '0,0' && room.items[0].at.join() === '4,0' && E.valid(room), 'making room: the Large block moves aside');
+check(JSON.stringify(g) === original, 'making room leaves the draft alone');
+check(!E.makeRoom(g,'a',[5,0]), 'making room: past the edge');
 check(E.firstSpace(g,'W').join() === '4,0', 'first fit');
 check(E.add(g,'scene','W').items[3].at.join() === '4,0', 'catalog placement');
 check(!E.add(g,'people','S'), 'card does not support class');

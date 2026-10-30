@@ -3015,7 +3015,7 @@
                     ha_place: 1, tab_bar_scroll: 1, tab_bar_rooms: 1, tab_bar_glass: 1, tab_bar_more: 1,
                     tab_bar_more_phone: 1, tab_bar_pos: 1, tab_bar_fold: 1, tab_bar_start: 1,
                     tab_bar_adjust: 1, tab_bar_scroll_phone: 1, tab_bar_tabs: 1, tab_bar_tabs_rail: 1, tab_bar_tabs_phone: 1,
-                    tab_bar_size: 1, tab_bar_labels: 1,
+                    tab_bar_size: 1, tab_bar_labels: 1, tab_bar_strip: 1,
                     // ...and Phones' own menu (hk-base.js phoneMenu, 2026-10-08)
                     menu_phone: 1, button_phone: 1, tab_bar_rooms_phone: 1,
                     // ...and Now Playing's place (hk-popup.js placeFor reads it live)

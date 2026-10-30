@@ -27,6 +27,12 @@
   if (window.hkLayout) return;                  // double-load guard
   var HkBase = C.HkBase, M = C.M, register = C.register, firstOf = C.firstOf,
       create = C.create;
+  // THE ROOM A VIEW KEEPS BESIDE A SIDE SAFE AREA (hk-base.js SAFE; none
+  // with a cached hk-base.js from before it), and both together: the
+  // page's width less them, for the gutter a row may bleed into
+  var SAFE = C.SAFE || {};
+  var SAFE_PAD_L = SAFE.padL || '0px', SAFE_PAD_R = SAFE.padR || '0px';
+  var SAFE_PADS = SAFE_PAD_L + ' - ' + SAFE_PAD_R;
 
   // -------------------------------------------------------- hk-frame
   //
@@ -1117,8 +1123,8 @@
                        // gutter is 18.9 px); where the gutter is wider the
                        // clamp is the bleed and nothing moves.
                        '#root.hk-bleed{' +
-                       '--hk-bleed-lc:min(var(--hk-bleed-l,0px),var(--hk-gutter,calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px)) * var(--hk-side,0.02) + 4px)));' +
-                       '--hk-bleed-rc:min(var(--hk-bleed-r,0px),var(--hk-gutter,calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px)) * var(--hk-side,0.02) + 4px)));' +
+                       '--hk-bleed-lc:min(var(--hk-bleed-l,0px),var(--hk-gutter,calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px) - ' + SAFE_PADS + ') * var(--hk-side,0.02) + 4px)));' +
+                       '--hk-bleed-rc:min(var(--hk-bleed-r,0px),var(--hk-gutter,calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px) - ' + SAFE_PADS + ') * var(--hk-side,0.02) + 4px)));' +
                        'margin-left:calc(-1 * var(--hk-bleed-lc)) !important;' +
                        'margin-right:calc(-1 * var(--hk-bleed-rc)) !important}';
       this._root.appendChild(st);
@@ -1238,7 +1244,13 @@
       // (the clip stops at the view's foot -- a gutter below the last plate --
       // and a plate's shadow runs further (30-60 px), which the clip cut off
       // flat just above the tab bar, the user 2026-10-18. See _clipRoom.)
-      st.textContent = ':host{display:flow-root;overflow-y:clip}#root>*{margin:4px 4px 8px}' +
+      // CLEAR OF A SIDE SAFE AREA (2026-10-30): the iPhone Duo's strip of
+      // system controls, a phone turned with its Dynamic Island at the side.
+      // The view pads itself by it -- its background, and the sky behind it,
+      // still run under -- less what a docked menu or a pane already clears
+      // (hk-base.js SAFE.padL / padR). 0 in a browser on a computer.
+      st.textContent = ':host{display:flow-root;overflow-y:clip;box-sizing:border-box;padding-left:' + SAFE_PAD_L + ';padding-right:' + SAFE_PAD_R + '}' +
+        '#root>*{margin:4px 4px 8px}' +
         // (a grid of pop-ups alone: no room, no margins -- hk-grid-card _markZero)
         '#root>[data-hk-zero]{margin:0!important}' +
         '#root>[data-hk-page-header=none]{display:none!important}' +
@@ -1753,7 +1765,8 @@
       st.textContent =
         ':host{--g-room:var(--hk-bar-room,var(--hk-tabbar-h,0px));display:block;position:relative;' +
         'height:calc(100dvh - var(--g-room));max-height:calc(100dvh - var(--g-room));overflow:hidden;' +
-        'container-type:size;box-sizing:border-box}' +
+        // (clear of a side safe area, as every view: hk-grid-view; _measure fits the grid between)
+        'container-type:size;box-sizing:border-box;padding-left:' + SAFE_PAD_L + ';padding-right:' + SAFE_PAD_R + '}' +
         '#root{--g-pad:' + GRID.pad + 'px;--g-gap:' + GRID.gap + 'px;' +
         'box-sizing:border-box;display:grid;position:absolute;transform-origin:top left;padding:var(--g-pad);gap:var(--g-gap);' +
         'grid-template-columns:repeat(var(--g-cols), ' + C.TILE.w + 'px);overflow:hidden}' +
@@ -1778,7 +1791,8 @@
         '#root:not(.dragging):not(.sliding) .cell[data-view][inert]{visibility:hidden}' +
         ':host([views]){touch-action:pan-y}' +
         // ...and their dots, under the grid: a tap goes to that view
-        '.vdots{position:absolute;left:50%;transform:translateX(-50%);display:none;gap:2px;z-index:2}' +
+        // (centred on the grid, between the side paddings)
+        '.vdots{position:absolute;left:calc(50% + (' + SAFE_PAD_L + ' - ' + SAFE_PAD_R + ') / 2);transform:translateX(-50%);display:none;gap:2px;z-index:2}' +
         ':host([views]) .vdots{display:flex}' +
         '.vdots button{all:unset;box-sizing:border-box;width:18px;height:18px;display:flex;align-items:center;justify-content:center;cursor:pointer}' +
         '.vdots button::after{content:"";width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.35);transition:background .2s}' +
@@ -1972,11 +1986,15 @@
       var w = g.cols * C.TILE.w + (g.cols - 1) * gap + 2 * pad;
       var h = g.rows * C.TILE.tall + (g.rows - 1) * gap + 2 * pad + (g.band ? GRID.band + gap : 0);
       // (Fill the Screen, `grow`: past its own size too -- a phone on its side, whose grid is smaller than it)
-      var scale = Math.min(g.grow ? Infinity : 1, this.clientWidth / w, this.clientHeight / h) * g.scale / 100;
+      // (the width between the view's side paddings -- a side safe area, hk-grid-view's -- and the grid
+      // centred in it: the absolute root is placed from the padding box)
+      var cs = getComputedStyle(this), pl = parseFloat(cs.paddingLeft) || 0, pr = parseFloat(cs.paddingRight) || 0;
+      var cw = Math.max(0, this.clientWidth - pl - pr);
+      var scale = Math.min(g.grow ? Infinity : 1, cw / w, this.clientHeight / h) * g.scale / 100;
       if (!(scale > 0)) return;
       this._gridScale = scale;
       root.style.width = w + 'px'; root.style.height = h + 'px';
-      root.style.left = Math.max(0, (this.clientWidth - w * scale) / 2) + 'px';
+      root.style.left = pl + Math.max(0, (cw - w * scale) / 2) + 'px';
       root.style.top = Math.max(0, (this.clientHeight - h * scale) / 2) + 'px';
       root.style.transform = 'scale(' + scale + ')';
       root.style.setProperty('--g-w', w + 'px');

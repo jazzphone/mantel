@@ -94,6 +94,7 @@
       });
   }
   // A move may swap exactly one block of the same class. A resize never swaps.
+  // (A drag or an arrow key makes room instead, makeRoom(); 2026-10-30.)
   function place(grid, id, at, size) {
     var out = copy(grid), item = out.items.find(function (it) { return it.id === id; });
     if (!item || !SIZES[size || item.size]) return null;
@@ -106,6 +107,155 @@
       hit[0].at = old.at;
     }
     return valid(out) ? out : null;
+  }
+  // MAKING ROOM (2026-10-30, the owner: "As I move the block, the tiles that
+  // become free, the tiles that get overlapped, move to those free spots", as
+  // an iPad's Home Screen does): the block goes to `at`, and every block it
+  // lands on moves out of its way, within its own view and never resized.
+  // Where they go, the first of these that works:
+  //   1. the space the block left, all of them together as they were (one
+  //      block of the same size: the swap there always was);
+  //   2. each on its own: into that space where it fits, else the free place
+  //      nearest its old one in reading order;
+  //   3. the fewest other blocks moved aside to make the room (one, then two),
+  //      the least far; and last the view's other blocks laid out again in
+  //      reading order round the block where it was put.
+  // -> the new layout, or null: there is no way, and the block stays.
+  // A resize never makes room (place()).
+  function makeRoom(grid, id, at) {
+    var out = copy(grid), me = out.items.find(function (it) { return it.id === id; });
+    if (!me || !at || !SIZES[me.size] || !fits(out, { size: me.size, at: at })) return null;
+    var from = me.at.slice(), view = me.view || 0;
+    me.at = at.slice();
+    if (from[0] === at[0] && from[1] === at[1]) return out;
+    var mine = out.items.filter(function (it) { return it !== me && (it.view || 0) === view; });
+    var hit = mine.filter(function (it) { return overlap(me, it); });
+    var stay = mine.filter(function (it) { return hit.indexOf(it) < 0; });
+    var plan = !hit.length ? [] : together(me, from, hit) || settle(out, me, from, hit, [], stay) ||
+      aside(out, me, from, hit, stay) || inOrder(out, me, mine);
+    if (!plan) return null;
+    plan.forEach(function (p) { p[0].at = p[1]; });
+    return valid(out) ? out : null;
+  }
+  function cssId(id) { return window.CSS && CSS.escape ? CSS.escape(id) : String(id).replace(/["\\]/g, '\\$&'); }
+  function readAt(grid, at) { return at[1] * grid.cols + at[0]; }
+  // the cells a view's blocks take, as a list a cell each (row by row)
+  function taken(grid, items) {
+    var t = [];
+    for (var i = 0; i < grid.cols * grid.rows; i++) t.push(false);
+    items.forEach(function (it) { mark(grid, t, it.size, it.at, true); });
+    return t;
+  }
+  function mark(grid, t, size, at, on) {
+    var z = SIZES[size];
+    for (var y = at[1]; y < at[1] + z[1]; y++) for (var x = at[0]; x < at[0] + z[0]; x++) t[y * grid.cols + x] = on;
+  }
+  // every place a block of `size` fits among the cells not taken, in reading order
+  function spots(grid, t, size) {
+    var z = SIZES[size], out = [];
+    for (var row = 0; row + z[1] <= grid.rows; row++) for (var col = 0; col + z[0] <= grid.cols; col++) {
+      var clear = true;
+      for (var y = row; clear && y < row + z[1]; y++) for (var x = col; x < col + z[0]; x++) if (t[y * grid.cols + x]) { clear = false; break; }
+      if (clear) out.push([col, row]);
+    }
+    return out;
+  }
+  // 1. the blocks landed on, as they were, into the space the block left (the nearest way there)
+  function together(me, from, hit) {
+    var z = SIZES[me.size], x0 = Infinity, y0 = Infinity, x1 = 0, y1 = 0, best = null;
+    hit.forEach(function (it) {
+      var s = SIZES[it.size];
+      x0 = Math.min(x0, it.at[0]); y0 = Math.min(y0, it.at[1]); x1 = Math.max(x1, it.at[0] + s[0]); y1 = Math.max(y1, it.at[1] + s[1]);
+    });
+    for (var y = from[1]; y + y1 - y0 <= from[1] + z[1]; y++) for (var x = from[0]; x + x1 - x0 <= from[0] + z[0]; x++) {
+      var dx = x - x0, dy = y - y0, d = Math.abs(dx) + Math.abs(dy);
+      var moved = hit.map(function (it) { return [it, [it.at[0] + dx, it.at[1] + dy]]; });
+      if (moved.some(function (m) { return overlap(me, { size: m[0].size, at: m[1], view: me.view }); })) continue;
+      if (!best || d < best.d) best = { d: d, plan: moved };
+    }
+    return best && best.plan;
+  }
+  // 2. each block that has to go, the largest first, at the first place that
+  // works in its order of preference: the space the block left (the blocks
+  // landed on), then the nearest in reading order to where it was; trying the
+  // next place for an earlier block when a later one has nowhere (a bounded
+  // search). `extra` are blocks moved aside (3): only the nearest for them.
+  function settle(grid, me, from, hit, extra, fixed, budget) {
+    var z = SIZES[me.size], t = taken(grid, [me].concat(fixed)), left = budget || 4000, plan = [];
+    var area = function (it) { var s = SIZES[it.size]; return s[0] * s[1]; };
+    var order = hit.slice().sort(function (a, b) { return area(b) - area(a) || readAt(grid, a.at) - readAt(grid, b.at); }).concat(extra);
+    var inGone = function (at, size) {
+      var s = SIZES[size];
+      return at[0] >= from[0] && at[1] >= from[1] && at[0] + s[0] <= from[0] + z[0] && at[1] + s[1] <= from[1] + z[1];
+    };
+    var go = function (i) {
+      if (i === order.length) return true;
+      if (--left < 0) return false;
+      var it = order[i], own = readAt(grid, it.at), back = hit.indexOf(it) >= 0;
+      var places = spots(grid, t, it.size).map(function (p) {
+        return [p, back && inGone(p, it.size) ? 0 : 1, Math.abs(readAt(grid, p) - own), Math.hypot(p[0] - it.at[0], p[1] - it.at[1])];
+      }).sort(function (a, b) { return a[1] - b[1] || a[2] - b[2] || a[3] - b[3] || readAt(grid, a[0]) - readAt(grid, b[0]); });
+      for (var k = 0; k < places.length; k++) {
+        var p = places[k][0];
+        mark(grid, t, it.size, p, true); plan.push([it, p]);
+        if (go(i + 1)) return true;
+        plan.pop(); mark(grid, t, it.size, p, false);
+      }
+      return false;
+    };
+    if (!go(0)) return null;
+    // (blocks of one size that had to go keep their reading order among the places they got: two small
+    // tiles side by side stay that way round)
+    var sized = {};
+    plan.forEach(function (p) { if (hit.indexOf(p[0]) >= 0) (sized[p[0].size] = sized[p[0].size] || []).push(p); });
+    Object.keys(sized).forEach(function (k) {
+      var ps = sized[k], places = ps.map(function (p) { return p[1]; }).sort(function (a, b) { return readAt(grid, a) - readAt(grid, b); });
+      ps.sort(function (a, b) { return readAt(grid, a[0].at) - readAt(grid, b[0].at); }).forEach(function (p, i) { p[1] = places[i]; });
+    });
+    return plan;
+  }
+  // 3. the room made by moving one other block aside, else two: those
+  // nearest where the block went are tried, and of the ways that work the
+  // one that moves blocks least far wins
+  function aside(grid, me, from, hit, stay) {
+    var z = SIZES[me.size], cx = me.at[0] + z[0] / 2, cy = me.at[1] + z[1] / 2;
+    var near = stay.slice().sort(function (a, b) {
+      var s = SIZES[a.size], u = SIZES[b.size];
+      return Math.hypot(a.at[0] + s[0] / 2 - cx, a.at[1] + s[1] / 2 - cy) - Math.hypot(b.at[0] + u[0] / 2 - cx, b.at[1] + u[1] / 2 - cy);
+    });
+    var cost = function (plan) { return plan.reduce(function (n, p) { return n + Math.abs(p[1][0] - p[0].at[0]) + Math.abs(p[1][1] - p[0].at[1]); }, 0); };
+    var sets = [near.slice(0, 10).map(function (b) { return [b]; }), []];
+    near.slice(0, 8).forEach(function (a, i) { near.slice(i + 1, 8).forEach(function (b) { sets[1].push([a, b]); }); });
+    for (var n = 0; n < sets.length; n++) {
+      var best = null;
+      sets[n].forEach(function (extra) {
+        var plan = settle(grid, me, from, hit, extra, stay.filter(function (it) { return extra.indexOf(it) < 0; }), 1500);
+        if (plan && (!best || cost(plan) < cost(best))) best = plan;
+      });
+      if (best) return best;
+    }
+    return null;
+  }
+  // ...and last: every other block of the view in reading order, each where
+  // it is while that's free, else at the free place nearest it in reading
+  // order (so one pushes the next along); failing that, each at the first
+  // place left (the view laid out again in reading order)
+  function inOrder(grid, me, mine) {
+    var order = mine.slice().sort(function (a, b) { return readAt(grid, a.at) - readAt(grid, b.at); });
+    var lay = function (keep) {
+      var t = taken(grid, [me]), plan = [];
+      for (var i = 0; i < order.length; i++) {
+        var it = order[i], own = readAt(grid, it.at), places = spots(grid, t, it.size);
+        if (keep) places.sort(function (a, b) {
+          return Math.abs(readAt(grid, a) - own) - Math.abs(readAt(grid, b) - own) ||
+            Math.hypot(a[0] - it.at[0], a[1] - it.at[1]) - Math.hypot(b[0] - it.at[0], b[1] - it.at[1]) || readAt(grid, a) - readAt(grid, b);
+        });
+        if (!places.length) return null;
+        mark(grid, t, it.size, places[0], true); plan.push([it, places[0]]);
+      }
+      return plan;
+    };
+    return lay(true) || lay(false);
   }
   function firstSpace(grid, size, view) {
     for (var row = 0; row < grid.rows; row++) for (var col = 0; col < grid.cols; col++) {
@@ -204,6 +354,7 @@
     '.slot{border:1px dashed var(--hk-label3);border-radius:var(--grid-radius,var(--hk-glass-radius,23.5px));pointer-events:none}',
     '.block{position:absolute;z-index:3;cursor:grab;border:2px solid transparent;background:transparent;border-radius:var(--grid-radius,var(--hk-glass-radius,23.5px));color:var(--hk-label);touch-action:none}',
     '.block:hover{border-color:color-mix(in srgb,var(--hk-tint) 45%,transparent)}',
+    '.block.carried{z-index:5;cursor:grabbing}',
     '.block[aria-pressed=true]{border-color:var(--hk-tint)}.block:focus-visible{outline:3px solid var(--hk-tint)}',
     // the block's name: just above the one pointed at or chosen, never over a card's own title
     '.block .tag{position:absolute;bottom:calc(100% + 4px);left:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:7px;background:var(--hk-cell);font-size:13px;opacity:0;transition:opacity .12s}',
@@ -321,7 +472,7 @@
       this.stage = h('section', { class: 'stage', 'aria-label': 'Screen layout' });
       this.sidebar = h('aside', { class: 'sidebar', 'aria-label': 'Block and screen settings', tabindex: '0' });
       this.ui.appendChild(h('div', { class: 'work' }, [this.palette, this.stage, this.sidebar]));
-      this.stage.appendChild(h('p', { class: 'note', text: 'Drag a card from the left onto the grid. Drag blocks to move them; equal sizes swap. Cards are a preview: their controls don’t act on the house.' }));
+      this.stage.appendChild(h('p', { class: 'note', text: 'Drag a card from the left onto the grid. Drag blocks to move them; others make room. Cards are a preview: their controls don’t act on the house.' }));
       this.box = h('div', { class: 'framebox', 'data-loading': this.grid ? 'yes' : null }); this.stage.appendChild(this.box);
       this.frame = h('div', { class: 'frame' }); this.box.appendChild(this.frame);
       this.iframe = h('iframe', { title: 'Home Grid preview', tabindex: '-1', 'aria-hidden': 'true' });
@@ -384,7 +535,7 @@
           var delta = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
           if (!delta) return;
           e.preventDefault(); self.selected = it.id;
-          var next = place(self.grid, it.id, [it.at[0] + delta[0], it.at[1] + delta[1]]);
+          var next = makeRoom(self.grid, it.id, [it.at[0] + delta[0], it.at[1] + delta[1]]);
           if (next) { self.change(next); self.overlay.querySelector('[data-id="' + it.id + '"]').focus(); }
           else self.say('That move does not fit.');
         });
@@ -402,30 +553,130 @@
       var h = (this.overlay.clientHeight - (this.grid.rows - 1) * gap) / this.grid.rows;
       Object.assign(el.style, { left: it.at[0] * (w + gap) + 'px', top: it.at[1] * (h + gap) + 'px', width: (w + gap) * z[0] - gap + 'px', height: (h + gap) * z[1] - gap + 'px' });
     }
+    // MOVING A BLOCK (2026-10-30, the owner: "It would be cool if the tiles
+    // could adapt while you move/relocate existing tiles"): the block follows
+    // the pointer (a mouse or a finger), its outline shows the cells it would
+    // take, and each time that changes the others slide to where makeRoom()
+    // puts them -- back where they were, and the outline red, where it can't
+    // go. Dropped, that layout is the draft (one Undo takes it all back).
+    // Escape, the pointer back on its own cells or off the grid, or the
+    // browser taking the touch, and everything goes back.
     drag(e, it, button) {
       if (e.button !== 0 || this.busy) return;
       this.select(it.id);
-      var start = [e.clientX, e.clientY], at = it.at.slice(), moved = false, self = this;
-      var ghost = this.h('div', { class: 'ghost' }); this.position(ghost, it);
+      var self = this, start = [e.clientX, e.clientY], moved = false, key = null, at = null, next = null, z = SIZES[it.size];
+      var ghost = this.h('div', { class: 'ghost' });
       var origin = snap(e.clientX, e.clientY, this.overlay.getBoundingClientRect(), this.grid.cols, this.grid.rows);
+      var home = function (a) { return a[0] === it.at[0] && a[1] === it.at[1]; };
       button.setPointerCapture(e.pointerId);
-      var move = function (ev) {
-        if (Math.hypot(ev.clientX - start[0], ev.clientY - start[1]) < 4 && !moved) return;
-        moved = true; if (!ghost.parentNode) self.overlay.appendChild(ghost);
-        var pos = snap(ev.clientX, ev.clientY, self.overlay.getBoundingClientRect(), self.grid.cols, self.grid.rows);
-        at = [it.at[0] + pos[0] - origin[0], it.at[1] + pos[1] - origin[1]];
-        self.position(ghost, Object.assign({}, it, { at: at }));
-        ghost.classList.toggle('bad', !place(self.grid, it.id, at));
+      var follow = function (ev) {
+        if (!moved && Math.hypot(ev.clientX - start[0], ev.clientY - start[1]) < 4) return;
+        var r = self.overlay.getBoundingClientRect();
+        self.carry(it.id, ev.clientX - start[0], ev.clientY - start[1], r);
+        if (!moved) { moved = true; self.lift(it.id, true); window.addEventListener('keydown', escape, true); }
+        var inside = ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
+        var pos = snap(ev.clientX, ev.clientY, r, self.grid.cols, self.grid.rows);
+        // (a block held by its edge still lands inside the grid)
+        at = inside ? [Math.max(0, Math.min(self.grid.cols - z[0], it.at[0] + pos[0] - origin[0])),
+          Math.max(0, Math.min(self.grid.rows - z[1], it.at[1] + pos[1] - origin[1]))] : null;
+        // the layout is worked out again only when the cells change
+        if ((at ? at.join() : 'off') === key) return;
+        key = at ? at.join() : 'off';
+        next = at && !home(at) ? makeRoom(self.grid, it.id, at) : null;
+        if (!at) ghost.remove();
+        else { if (!ghost.parentNode) self.overlay.appendChild(ghost); self.position(ghost, Object.assign({}, it, { at: at })); }
+        ghost.classList.toggle('bad', !!at && !home(at) && !next);
+        self.slide(next, it.id);
+      };
+      var stop = function () {
+        button.removeEventListener('pointermove', follow); button.removeEventListener('pointerup', finish); button.removeEventListener('pointercancel', finish);
+        window.removeEventListener('keydown', escape, true);
+        ghost.remove();
       };
       var finish = function (ev) {
-        button.removeEventListener('pointermove', move); button.removeEventListener('pointerup', finish); button.removeEventListener('pointercancel', finish);
-        ghost.remove();
-        if (moved && ev.type !== 'pointercancel') {
-          var next = place(self.grid, it.id, at);
-          if (next) self.change(next); else self.say('That move does not fit. The block stays where it was.');
-        }
+        stop();
+        if (!moved) return;
+        if (ev && ev.type === 'pointerup' && next) { self.drop(next, it.id); return; }
+        self.slide(null, it.id); self.lift(it.id, false);
+        if (ev && ev.type === 'pointerup' && at && !home(at)) self.say('That move does not fit. The block stays where it was.');
       };
-      button.addEventListener('pointermove', move); button.addEventListener('pointerup', finish); button.addEventListener('pointercancel', finish);
+      var escape = function (ev) {
+        if (ev.key !== 'Escape') return;
+        ev.preventDefault(); ev.stopPropagation();
+        try { button.releasePointerCapture(e.pointerId); } catch (x) { /* already let go */ }
+        finish(null);
+      };
+      button.addEventListener('pointermove', follow); button.addEventListener('pointerup', finish); button.addEventListener('pointercancel', finish);
+    }
+    // THE PREVIEW'S OWN DRAWING OF A BLOCK (its .cell in the screen's grid),
+    // null while the preview loads; and the scale that grid is drawn at
+    previewGrid() {
+      var v = this.previewView && this.previewView.isConnected ? this.previewView : null;
+      try { v = v || this.iframe.contentWindow.hkShell.view(); } catch (x) { v = null; }
+      return v && v.shadowRoot && v._gridScale ? v : null;
+    }
+    cellOf(id) {
+      var v = this.previewGrid();
+      return v ? v.shadowRoot.querySelector('.cell[data-id="' + cssId(id) + '"]') : null;
+    }
+    blockOf(id) { return this.overlay.querySelector('.block[data-id="' + cssId(id) + '"]'); }
+    // a block shown [dx, dy] overlay px from where it is drawn: its outline and
+    // its card in the preview together (`translate`, so the views' own
+    // transform on a cell is kept), gliding there unless it follows the pointer
+    nudge(id, dx, dy, glide) {
+      var b = this.blockOf(id), c = this.cellOf(id);
+      var k = c ? this.previewGrid()._gridScale : 1, still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var ease = glide && !still ? 'translate .2s ease, scale .2s ease' : 'scale .2s ease';
+      [[b, 1], [c, k]].forEach(function (x) {
+        if (!x[0]) return;
+        x[0].style.transition = ease;
+        x[0].style.translate = dx || dy ? dx / x[1] + 'px ' + dy / x[1] + 'px' : '';
+      });
+    }
+    // one grid step in overlay px: [across, down]
+    step() {
+      var gap = this.cellGap || 10;
+      return [(this.overlay.clientWidth - (this.grid.cols - 1) * gap) / this.grid.cols + gap, (this.overlay.clientHeight - (this.grid.rows - 1) * gap) / this.grid.rows + gap];
+    }
+    // every other block of the view to its place in `layout` (null: its own)
+    slide(layout, id) {
+      var s = this.step();
+      this.grid.items.forEach((it) => {
+        if (it.id === id || (it.view || 0) !== VIEW) return;
+        var to = layout && layout.items.find((x) => x.id === it.id), at = to ? to.at : it.at;
+        this.nudge(it.id, (at[0] - it.at[0]) * s[0], (at[1] - it.at[1]) * s[1], true);
+      });
+    }
+    // the carried block, `dx`, `dy` screen px from where it was picked up
+    // (the editor's frame is scaled: rect is the overlay's on screen)
+    carry(id, dx, dy, rect) {
+      var f = rect.width / (this.overlay.clientWidth || rect.width || 1);
+      this.nudge(id, dx / f, dy / f, false);
+    }
+    // the carried block a little larger and over the rest, as on a Home Screen; let go, as it was
+    lift(id, on) {
+      var b = this.blockOf(id), c = this.cellOf(id);
+      if (b) b.classList.toggle('carried', on);
+      if (c) { c.style.zIndex = on ? '3' : ''; c.style.scale = on ? '1.04' : ''; }
+      if (!on) this.nudge(id, 0, 0, true);
+      // (and the transitions taken off again once the blocks are home, the views' slide with them)
+      clearTimeout(this.liftTimer);
+      if (!on) this.liftTimer = setTimeout(() => {
+        this.grid.items.forEach((it) => {
+          [this.blockOf(it.id), this.cellOf(it.id)]
+            .forEach((el) => { if (el && !el.style.translate) el.style.transition = ''; });
+        });
+      }, 260);
+    }
+    // DROPPED: the carried block settles on its cells, and the layout the
+    // others slid to is the draft. The preview's cells keep where they slid
+    // until the preview is drawn again from the draft (no flash of the old one)
+    drop(next, id) {
+      var s = this.step(), it = this.grid.items.find((x) => x.id === id), to = next.items.find((x) => x.id === id);
+      var c = this.cellOf(id);
+      if (c) c.style.scale = '';
+      this.nudge(id, (to.at[0] - it.at[0]) * s[0], (to.at[1] - it.at[1]) * s[1], true);
+      this.change(next);
     }
     // A CARD DRAGGED OUT OF THE PALETTE: a label follows the pointer, and over
     // the grid the block's real footprint shows where it lands (red: no room)
@@ -477,7 +728,8 @@
       // (the view being edited, in the preview too; its own cells place the overlay)
       if (view && view._showView && (this.grid.views || 1) > 1) view._showView(VIEW);
       var cell = view && view._config && view._config.grid && view.shadowRoot &&
-        view.shadowRoot.querySelector((this.grid.views || 1) > 1 ? '.cell[data-view="' + VIEW + '"]' : '.cell');
+        // (one that isn't sliding out of a moved block's way: makeRoom's, drag())
+        [].find.call(view.shadowRoot.querySelectorAll((this.grid.views || 1) > 1 ? '.cell[data-view="' + VIEW + '"]' : '.cell'), (c) => !c.style.translate);
       if (cell) {
         var r = cell.getBoundingClientRect(), it = view._config.cards.find((x) => x.hk_cell && x.hk_cell.id === cell.dataset.id).hk_cell;
         var gap = 10 * (view._gridScale || 1); this.cellGap = gap; this.overlay.style.gap = gap + 'px';
@@ -1379,6 +1631,6 @@
       this.say('Not saved: this screen changed since you opened it.');
     }
   }
-  window.hkGridEditor = { place: place, valid: valid, firstSpace: firstSpace, add: add, snap: snap, landing: landing };
+  window.hkGridEditor = { place: place, makeRoom: makeRoom, valid: valid, firstSpace: firstSpace, add: add, snap: snap, landing: landing };
   customElements.define('hk-grid-editor', GridEditor);
 })();

@@ -162,6 +162,9 @@ def steps(build: Build | None = None) -> list[Step]:
     # browsers, no fixed port)
     out.append(Step("edit-mode-check", [py, "tools/headless/edit_mode_check.py"], tier="full", timeout=1200,
                     skip=playwright_missing))
+    # the page beside the iPhone Duo's side strip, in WebKit (its insets stood in; 2026-10-30)
+    out.append(Step("side-strip-check", [py, "tools/headless/side_strip_check.py"], tier="full", timeout=600,
+                    skip=playwright_missing))
     out.append(Step("caddy-image", ["sh", "-c",
                     f"docker build -q -f packaging/docker/caddy.Dockerfile -t {CADDY_IMAGE} packaging/docker && "
                     f'"{py}" -m pytest -q -p no:cacheprovider tests/test_packaging.py -k caddy_image'],

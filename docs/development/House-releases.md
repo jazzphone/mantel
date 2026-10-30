@@ -95,3 +95,11 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - All five tablets reloaded (Reload Page) and drew their first screen in 2.1 to 2.9 s; no ERROR or Traceback in the App's log.
 - GitHub: jazzphone/hk-frontend v1.15.0 (Latest) with its Wiki, jazzphone/mantel-link v0.1.8 (Latest); main pushed.
 - TestFlight: Mantel Smart Home 0.1.86 (846), then 0.1.87 (860) with the iPad and iPhone Duo work, Can't Reach Mantel and the App Settings shortcut (uploaded from Xcode's Organizer once Xcode's account was signed in again).
+
+## Mantel 0.1.88 and HK Frontend 1.16.0 (2026-10-30)
+
+- Mantel 0.1.88, build `517b511dbfaed031`, by hand through Home Assistant; strict health ok.
+- HK Frontend 1.16.0 copied with rsync --inplace, clean against its build; Home Assistant restarted (Mantel's 502 warnings only while it was down); no errors from HK Frontend.
+- All five tablets reloaded and drew their first screen in 2.4 to 3.0 s.
+- GitHub: jazzphone/hk-frontend v1.16.0 (Latest) with its Wiki; Mantel Link unchanged at 0.1.8.
+- TestFlight: Mantel Smart Home 0.1.88 (870), with the iPhone Duo's side strip.

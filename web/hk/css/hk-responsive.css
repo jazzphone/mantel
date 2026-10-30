@@ -144,7 +144,12 @@
        child gets. hk-row-card and hk-grid-card clamp their bleed to it
        (they carry this same value as a fallback); a house with a different
        gutter states its own here. */
-    --hk-gutter: calc(100vw * var(--hk-side) + 4px);
+    /* (the page's width: the window's less the room the view keeps beside a
+       side safe area -- a phone turned with its Dynamic Island at the side,
+       the iPhone Duo's strip; hk-base.js SAFE, 2026-10-30) */
+    --hk-gutter: calc((100vw - max(0px, var(--hk-safe-left, env(safe-area-inset-left, 0px)) - var(--hk-page-left, 0px))
+                             - max(0px, var(--hk-safe-right, env(safe-area-inset-right, 0px)) - var(--hk-page-right, 0px)))
+                      * var(--hk-side) + 4px);
 
     /* ------------------------------------------------------------------
      * PAGE LAYOUTS. Same contract as --hk-track: every consumer writes

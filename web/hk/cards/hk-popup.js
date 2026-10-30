@@ -72,7 +72,12 @@
     // Assistant's sidebar (hk-menu.js publishes where the dashboard starts),
     // over the whole dashboard -- a docked menu is part of it. The backdrop,
     // inset 0, still covers everything.
-    '.hkp:not(.plain){padding-left:var(--hk-content-left,0px)}',
+    // ...and clear of a side safe area, a plain bar too (the iPhone Duo's
+    // strip, a phone turned: hk-base.js SAFE, 2026-10-30) -- its backdrop
+    // still covers everything
+    '.hkp:not(.plain){padding-left:max(var(--hk-content-left,0px), var(--hk-safe-left,env(safe-area-inset-left,0px)))}',
+    '.hkp{padding-right:var(--hk-safe-right,env(safe-area-inset-right,0px))}',
+    '.hkp.plain{padding-left:var(--hk-safe-left,env(safe-area-inset-left,0px))}',
     '.hkp.bottom{align-items:flex-end}',
     // THE TAB BAR (hk-tabbar.js) keeps the bottom of the screen: a bar that
     // grows up from the bottom (the now-playing bar) sits above it, as iOS
@@ -94,6 +99,10 @@
     // bottom tab bar rides over it -- nothing lies over it, and no gap is
     // left beside it (2026-10-10, the user's call)
     '.hkp.bottom.plain.dock{padding-left:0;padding-right:0}',
+    // ...its plate under a side safe area too, as a native bar's, and what
+    // is on it clear of one (the iPhone Duo's strip, a phone turned:
+    // hk-base.js SAFE, 2026-10-30)
+    '.hkp.dock .sheet>:not([data-hk-glass-layer]){margin-left:var(--hk-safe-left,env(safe-area-inset-left,0px));margin-right:var(--hk-safe-right,env(safe-area-inset-right,0px))}',
     // A DOCKED BAR'S BOX IS THE BAR, NOT THE WINDOW. Composited, the box is a
     // layer of its own, and at inset:0 that layer was the whole window and
     // more (its shadow's overflow): 1388 x 840 on a 1280 x 800 tablet, 1.14
@@ -140,7 +149,8 @@
     // it shows): it keeps the rail's column, so it never lies over the
     // rail's foot -- its More tab, or its small button (the bar is 100% wide,
     // so it fits what is left by itself)
-    '.hkp.bottom.plain{padding-left:var(--hk-tabbar-l,0px);padding-right:var(--hk-tabbar-r,0px)}',
+    // (and a side safe area's: hk-base.js SAFE)
+    '.hkp.bottom.plain{padding-left:max(var(--hk-tabbar-l,0px), var(--hk-safe-left,env(safe-area-inset-left,0px)));padding-right:max(var(--hk-tabbar-r,0px), var(--hk-safe-right,env(safe-area-inset-right,0px)))}',
     // Bubble's backdrop, measured: rgba(17,17,17,0.8), 0.3s opacity fade.
     '.hkp .bd{position:absolute;inset:0;background:rgba(17,17,17,0.8);opacity:0;',
     '  transition:opacity .3s ease;pointer-events:auto;-webkit-tap-highlight-color:transparent}',
@@ -469,21 +479,21 @@
   var STASH_EASE = 'cubic-bezier(.32,.72,0,1)';
   var STASH_PAGE_CSS = [
     '.hk-stash{position:fixed;z-index:5;--s:48px;',
-    '  right:max(16px, calc(env(safe-area-inset-right, 0px) + 8px));',
+    '  right:max(16px, calc(var(--hk-safe-right, env(safe-area-inset-right, 0px)) + 8px));',
     '  bottom:max(var(--hk-tabbar-top, 0px), 16px, calc(env(safe-area-inset-bottom, 0px) + 10px));',
     '  transition:bottom .42s ' + STASH_EASE + ',opacity .22s ease,transform .3s cubic-bezier(.32,.72,0,1)}',
     'html[hk-tabbar-fold=start] .hk-stash,html[hk-tabbar-fold=end] .hk-stash{--s:calc(var(--hk-tabbar-bh, 54px) - 6px);',
     '  bottom:var(--hk-tabbar-row, 14px)}',
     // (the bar's own gutter, 21 px: the two buttons mirror each other)
-    'html[hk-tabbar-fold=start] .hk-stash{right:max(21px, calc(env(safe-area-inset-right, 0px) + 8px))}',
-    'html[hk-tabbar-fold=end] .hk-stash{right:auto;left:max(21px, calc(env(safe-area-inset-left, 0px) + 8px))}',
+    'html[hk-tabbar-fold=start] .hk-stash{right:max(21px, calc(var(--hk-safe-right, env(safe-area-inset-right, 0px)) + 8px))}',
+    'html[hk-tabbar-fold=end] .hk-stash{right:auto;left:max(21px, calc(var(--hk-safe-left, env(safe-area-inset-left, 0px)) + 8px))}',
     'html[hk-tabbar-fold=gone] .hk-stash{bottom:max(16px, calc(env(safe-area-inset-bottom, 0px) + 10px))}',
     // ...and BESIDE A FULL BAR that leaves the corner free (a tablet's,
     // centered; hk-tabbar.js `hk-tabbar-room`): in its row, its size, as
     // beside the folded bar -- not floating above it over the page
     // (the bar's own height: a round button the size of its Rooms button)
     'html[hk-tabbar-room]:not([hk-tabbar-fold]) .hk-stash{--s:var(--hk-tabbar-bh, 60px);',
-    '  bottom:var(--hk-tabbar-row, 14px);right:max(21px, calc(env(safe-area-inset-right, 0px) + 8px))}',
+    '  bottom:var(--hk-tabbar-row, 14px);right:max(21px, calc(var(--hk-safe-right, env(safe-area-inset-right, 0px)) + 8px))}',
     // ACROSS THE SCREEN (folded to the right, and back) it does not slide
     // or jump: it pops up where it now goes -- a new animation name
     // restarts the pop; up and down the same side, `bottom` eases instead
@@ -1226,7 +1236,7 @@
           // them unequal with the bottom.
           // --hk-vw: see .hkp .sheet in CSS (the car's zoomed viewport).
           sheet.style.maxWidth = cfg.max_width ||
-            'calc(var(--hk-vw, 100vw) - var(--hk-content-left, 0px) - 24px)';
+            'calc(var(--hk-vw, 100vw) - max(var(--hk-content-left, 0px), var(--hk-safe-left,env(safe-area-inset-left,0px))) - var(--hk-safe-right,env(safe-area-inset-right,0px)) - 24px)';
           sheet.style.padding = cfg.padding || '18px';
           sheet.style.background = cfg.background || '#1c1c1e';
           // a card on the sheet's own plate wears the look's plate for a
