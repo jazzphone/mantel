@@ -1256,4 +1256,37 @@ print('\n=== after a restart: nothing asked of a state the new server has not se
   ok('  and no rebuild after', renders === n0 + 1, renders - n0);
 })();
 
+print('\n=== the Cameras face: its grid of tiles, one live in its place (2026-10-30) ===');
+(function () {
+  var st = {};
+  CAMS.forEach(function (c) { st[c.entity] = { state: 'recording', attributes: { friendly_name: c.name, entity_picture: '/api/camera_proxy/' + c.entity + '?token=ABC' } }; });
+  var face = function (extra) {
+    var m = new C(); m.isConnected = true;
+    m.setConfig(Object.assign({ own_cameras: true, grid: [3, 3], seam: 10, cameras: CAMS.map(function (c) { return { entity: c.entity }; }) }, extra || {}));
+    m.hass = { states: st };
+    return m;
+  };
+  var f = face(), plate = (f._root.children || []).filter(function (e) { return /\bgrid\b/.test(e.className); })[0];
+  ok('a plate of nine tiles, 3 x 3', !!plate && plate.children.length === 9 && plate.style.gridTemplateColumns === 'repeat(3, minmax(0, 1fr))' &&
+     plate.style.gridTemplateRows === 'repeat(3, minmax(0, 1fr))', plate && plate.children.length);
+  ok('...every one a still: no stream of its own', f._snaps.length === 9 && !f._liveSlot, f._snaps.length);
+  ok('...each with its name and its age', plate.children.every(function (t) {
+    return t.children.some(function (k) { return k.className === 'cn'; }) && t.children.some(function (k) { return k.className === 'age'; });
+  }));
+  ok('...and a button to the camera sheet', plate.children[2].getAttribute('role') === 'button' && /Front Yard Left/.test(plate.children[2].getAttribute('aria-label')));
+  ok('the selector and the strip\'s live camera play no part', f._sigOf().indexOf('grid|') === 0);
+  var opened = [], sh = window.hkShell.moreInfo;
+  window.hkShell.moreInfo = function (id) { opened.push(id); };
+  (plate.children[3]._listeners.click || []).forEach(function (fn) { fn({}); });
+  window.hkShell.moreInfo = sh;
+  ok('a tap opens that camera (live, in its sheet)', opened.length === 1 && opened[0] === CAMS[3].entity, opened.join());
+  var g = face({ live: CAMS[0].entity }), pl = (g._root.children || []).filter(function (e) { return /\bgrid\b/.test(e.className); })[0];
+  ok('a ringing doorbell: its tile live in its place, the rest stills', !!g._liveSlot && g._liveSlot.cam.entity === CAMS[0].entity &&
+     g._snaps.length === 8 && /\bon\b/.test(pl.children[0].className), g._snaps.length);
+  ok('...marked LIVE', pl.children[0].children.some(function (k) { return k.className === 'lv' && k.textContent === 'LIVE'; }));
+  var few = face({ grid: [2, 2] });
+  ok('as many as it has places', few._snaps.length === 4, few._snaps.length);
+  ok('a still asks for its tile\'s size, capped as the strip\'s are', /width=\d+&height=\d+/.test(f._srcFor(f._snaps[0].cam, f._snaps[0]) || ''), f._srcFor(f._snaps[0].cam, f._snaps[0]));
+})();
+
 print('\n' + (fail? 'FAILURES: '+fail : 'ALL '+pass+' MOSAIC TESTS PASS'));

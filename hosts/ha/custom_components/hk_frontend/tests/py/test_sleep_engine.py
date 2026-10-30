@@ -381,6 +381,38 @@ async def test_after_the_screensaver_with_no_presence_sensors(hass, frontend, fr
     assert s.state == "dark" and "5 min" in s.attributes["reason"]
 
 
+async def test_somebody_near_ends_the_screensaver_and_leaving_brings_it_back(hass, frontend):
+    # More When Near (rule 9a): a sensor that sees the space in front of the
+    # tablet takes the photos away before a touch; nobody near for Back to the
+    # Screensaver, and the photos come back sooner than Starts After
+    radar = "binary_sensor.hall_radar_zone"
+    k = Kiosk(hass)
+    hass.states.async_set(radar, "off")
+    await screen(hass, k, near=[radar], near_linger=10)
+    hass.states.async_set(MOTION, "on")
+    await settle(hass)
+    await hass.services.async_call("switch", "turn_on", {"entity_id": PHOTOS}, blocking=True)
+    await settle(hass)
+    assert hass.states.get(SLEEP).attributes["actual"] == "photos"
+    hass.states.async_set(radar, "on")
+    await settle(hass)
+    s = hass.states.get(SLEEP)
+    assert s.state == "dashboard" and s.attributes["reason"] == "somebody is near the screen" and s.attributes["near"]
+    assert hass.states.get(PHOTOS).state == "off", "the screensaver leaves for somebody near"
+    hass.states.async_set(radar, "off")
+    await settle(hass)
+    assert hass.states.get(PHOTOS).state == "off", "lingering"
+    # Back to the Screensaver's 10 s gone by: the radar cleared 11 s ago (a frozen clock would stop the
+    # wake's own waits, which run on the loop's)
+    eng = engine(hass)
+    eng._near_off_at -= timedelta(seconds=11)
+    eng.evaluate()
+    await settle(hass)
+    s = hass.states.get(SLEEP)
+    assert s.state == "photos" and s.attributes["reason"] == "nobody near the screen"
+    assert hass.states.get(PHOTOS).state == "on", "back to the screensaver, not after Starts After"
+
+
 async def test_a_loop_waits(hass, frontend, caplog):
     from custom_components.hk_frontend import sleep_engine as E
     k = Kiosk(hass)

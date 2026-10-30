@@ -125,6 +125,10 @@ class Sleep:
         # the last touch seen, and when it was first seen (SAVER_WAIT)
         self._touch_val: datetime | None = None
         self._touch_seen: datetime | None = None
+        # More When Near: a near sensor seeing somebody, and when the last
+        # stopped (Back to the Screensaver runs from then)
+        self._near_raw = False
+        self._near_off_at: datetime | None = None
 
     # ---------------------------------------------------- the host's part
     def _own(self) -> dict[str, str]:
@@ -226,6 +230,25 @@ class Sleep:
         self._present = bool(lingering)
         return self._present
 
+    def _near(self, now: datetime) -> bool | None:
+        """MORE WHEN NEAR: somebody near the screen -- a Near the Screen sensor sees them now, or one
+        did within Back to the Screensaver (near_linger), which holds a sensor flickering at its
+        zone's edge. None without a Near the Screen sensor; one that is unavailable sees nobody (the
+        rule only adds a wake, so it never holds the screen as a missing presence sensor does)."""
+        ids = self.o.get("near") or []
+        if not ids:
+            return None
+        cm = int(self.o.get("near_cm") or R.SLEEP_DEFAULTS["near_cm"])
+        if any(R.near(self._st(i), cm) for i in ids):
+            self._near_raw, self._near_off_at = True, None
+            return True
+        if self._near_raw:                 # just cleared
+            self._near_raw, self._near_off_at = False, now
+        return self._near_off_at is not None and now - self._near_off_at < timedelta(seconds=self._near_linger())
+
+    def _near_linger(self) -> int:
+        return int(self.o.get("near_linger") or R.SLEEP_DEFAULTS["near_linger"])
+
     def _last_touch(self) -> datetime | None:
         ts = [self._page_touch()]
         li = self._st(self.kiosk.get("touched"))
@@ -239,6 +262,13 @@ class Sleep:
 
     def _window(self) -> int:
         return window_of(self._starts_after())
+
+    def _touch_window(self) -> int:
+        """How long a touch keeps the screen in use: the window -- or, with a Near the Screen sensor,
+        Back to the Screensaver when that is sooner (a touch counts as near: with nobody near and no
+        touch for that long, the screensaver comes back)."""
+        w = self._window()
+        return min(w, self._near_linger()) if self.o.get("near") else w
 
     def _actual(self) -> str:
         own = self._own()
@@ -278,7 +308,7 @@ class Sleep:
         f["present"] = present
         touch = self._last_touch()
         f["last_touch"] = touch.isoformat() if touch else None
-        window = self._window()
+        window = self._touch_window()
         # IN USE: touched within the window (the page's touches, the kiosk's
         # last tap) and not dark -- a tap ends the black first, then counts;
         # or lit by the power button in quiet hours, for its minute
@@ -310,7 +340,12 @@ class Sleep:
                 and (now - self._touch_seen).total_seconds() < self._saver_wait():
             f["saver_wait"] = True
             recent = False
-        f["in_use"] = bool(((use is not None and use.state == "on") or recent) and actual != "dark") or hand
+        # (the host's In Use entity runs on the Starts After window: with a Near the Screen sensor, a
+        # touch it knows of counts for the shorter one above)
+        use_on = use is not None and use.state == "on" and not (o.get("near") and touch is not None
+                                                                and (now - touch).total_seconds() >= window)
+        f["in_use"] = bool((use_on or recent) and actual != "dark") or hand
+        f["near"] = self._near(now)
         lit_ids = o.get("lit") or []
         f["lit"] = (not lit_ids) or bool(self._on(lit_ids))
         if lit_ids:
@@ -343,9 +378,11 @@ class Sleep:
         o, cands = self.o, []
         if self._off_at is not None:
             cands.append(self._off_at + timedelta(seconds=int(o.get("linger") or 0)))
+        if self._near_off_at is not None:
+            cands.append(self._near_off_at + timedelta(seconds=self._near_linger()))
         touch = self._last_touch()
         if touch is not None:
-            cands.append(touch + timedelta(seconds=self._window()))
+            cands.append(touch + timedelta(seconds=self._touch_window()))
         if self.facts_now.get("after_saver_at"):
             cands.append(self.parse(self.facts_now["after_saver_at"]))
         if o.get("schedule"):
@@ -378,13 +415,22 @@ class Sleep:
         return self._next_change(now)
 
     def action(self) -> str | None:
-        """What to do about it: "sleep", "wake" or None (rules.action())."""
-        return R.action(self.want, self.actual)
+        """What to do about it: "sleep", "wake" or None (rules.action()) -- and "wake" to the photos
+        when somebody near the screen has gone (back_to_saver())."""
+        return R.action(self.want, self.actual) or ("wake" if self.back_to_saver() else None)
+
+    def back_to_saver(self) -> bool:
+        """MORE WHEN NEAR, THE WAY BACK: the dashboard is up, nobody is near and nobody has touched it
+        for Back to the Screensaver, and somebody is still in the room -- the photos now, sooner than
+        Starts After would bring them (the screen's own photos; without them it waits for Starts
+        After as ever)."""
+        return self.want == "photos" and self.reason == R.NOBODY_NEAR and self.actual == "dashboard" \
+            and bool(self._own().get("photos"))
 
     def wakes_to_photos(self) -> bool:
-        """A notification's wake comes up to the photos, the banner over them; any other, to
-        the dashboard as ever."""
-        return self.want == "photos" and bool(self.facts_now.get("notice"))
+        """A notification's wake comes up to the photos, the banner over them -- and nobody near any
+        more (back_to_saver()); any other, to the dashboard as ever."""
+        return (self.want == "photos" and bool(self.facts_now.get("notice"))) or self.back_to_saver()
 
     def power_off_wanted(self) -> bool:
         d = self.o.get("dark_display")
@@ -464,7 +510,7 @@ class Sleep:
         f = self.facts_now
         st = self._saver_touch()
         return {"decided_by": self.o.get("decided_by"), "reason": self.reason, "actual": self.actual,
-                "present": f.get("present"), "in_use": f.get("in_use"), "saver_use": f.get("saver_use"), "quiet": f.get("quiet"),
+                "present": f.get("present"), "near": f.get("near"), "in_use": f.get("in_use"), "saver_use": f.get("saver_use"), "quiet": f.get("quiet"),
                 "last_saver_touch": st.isoformat() if st else None,
                 "last_touch": f.get("last_touch"), "after_saver_at": f.get("after_saver_at"),
                 "kiosk": self.kiosk.get("screen"), "target_brightness": self.target(),

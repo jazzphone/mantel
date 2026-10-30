@@ -1926,6 +1926,9 @@
         var el = els[i];
         var slot = this._slots[i] || (this._slots[i] = document.createElement('div'));
         var cell = cfg && cfg.hk_cell, sz = cell && GRID.sizes[cell.size];
+        // FULL (F, 2026-10-30): the view's whole grid -- its columns and rows
+        var full = !!sz && (!sz[0] || !sz[1]);
+        if (full) sz = [g.cols, g.rows];
         if (cfg && cfg.hk_band && top) {
           slot.className = 'band';
           slot.removeAttribute('size');
@@ -1945,6 +1948,8 @@
           if (vw >= 0) { slot.setAttribute('data-view', String(vw)); slot.style.setProperty('--v', String(vw)); } else slot.removeAttribute('data-view');
           slot.style.gridColumn = (c + 1) + ' / span ' + sz[0];
           slot.style.gridRow = (r + 1 + top) + ' / span ' + sz[1];
+          // (a Full block's card reads its span here: hkCards HkBase._block)
+          if (full) { slot.style.setProperty('--hk-span-c', String(sz[0])); slot.style.setProperty('--hk-span-r', String(sz[1])); }
           if (el && el.setAttribute) el.setAttribute('size', cell.size);
         } else if (cfg && cfg.hk_band) {
           want.push(null); return;                // the band, turned off

@@ -254,6 +254,25 @@
         '  --ha-card-border-radius:0px;',
         '  --ha-card-box-shadow:none}',
         '.plate > *{min-width:0;min-height:0}',
+        // THE CAMERAS FACE (`grid`, 2026-10-30; hk-grid-cards.js
+        // hk-grid-cameras-card): not one joined plate but a tile per camera,
+        // apart, each with the block's corner and shadow, its name in a pill at
+        // the foot and its age in one at the top; the live one (a ringing
+        // doorbell) ringed red, LIVE where its age was
+        // (the plate itself has none of the strip's own: no corner, colour or shadow is set on it here)
+        '.plate.grid{width:100%;height:100%;overflow:visible}',
+        '.plate.grid>.snap,.plate.grid>.live{border-radius:' + C.M.radius + ';box-shadow:var(--hk-look-shadow, 0 8px 22px rgba(0,0,0,0.12))}',
+        '.plate.grid>.snap:focus-visible,.plate.grid>.live:focus-visible{outline:3px solid ' + C.v('ink') + ';outline-offset:2px}',
+        '.plate.grid .cn{position:absolute;left:10px;bottom:10px;z-index:3;max-width:calc(100% - 20px);box-sizing:border-box;',
+        '  height:25px;padding:6px 9px;border-radius:' + C.R.capsule('25px') + ';background:' + C.v('float-plate') + ';color:#fff;font-size:13px;font-weight:600;line-height:13px;',
+        '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}',
+        '.plate.grid .age{left:auto;bottom:auto;right:10px;top:10px;box-sizing:border-box;height:21px;padding:5px 8px;border-radius:' + C.R.capsule('21px') + ';',
+        '  background:' + C.v('float-plate') + ';font-size:11px;font-weight:600;line-height:11px;color:' + C.v('ink-2') + ';text-shadow:none}',
+        '.plate.grid .age:empty{display:none}',
+        '.plate.grid>.on .age{display:none}',
+        '.plate.grid .lv{position:absolute;right:10px;top:10px;z-index:3;box-sizing:border-box;height:21px;padding:5px 8px;border-radius:' + C.R.capsule('21px') + ';',
+        '  background:#ff3b30;color:#fff;font-size:11px;font-weight:700;line-height:11px;letter-spacing:.06em;pointer-events:none}',
+        '.plate.grid>.on::after{content:"";position:absolute;inset:0;z-index:2;border-radius:inherit;box-shadow:inset 0 0 0 3px #ff3b30;pointer-events:none}',
       ].join('');
     }
 
@@ -345,6 +364,8 @@
         var pl = this._plan();
         if (pl && pl.live && !pl.still && C.stale(h.states[pl.live.entity])) key += '|wait';
       }
+      // (the Cameras face: its own cameras; its live tile is a new config)
+      if (c.grid) return 'grid|' + key;
       var sel = this._selector();
       if (!sel) return 'fixed|' + key;
       var st = h.states[sel];
@@ -357,6 +378,13 @@
     _plan() {
       var cams = this._cams();
       if (!cams.length) return null;
+      // THE CAMERAS FACE (`grid: [columns, rows]`): as many as it has places,
+      // in order, `live` the one live in its place (a ringing doorbell)
+      var grid = this._config && this._config.grid;
+      if (Array.isArray(grid) && grid[0] > 0 && grid[1] > 0) {
+        var shown = cams.slice(0, grid[0] * grid[1]), want = this._config.live;
+        return { grid: [grid[0], grid[1]], cams: shown, live: shown.filter(function (c) { return c.entity === want; })[0] || null };
+      }
       // STILLS ONLY (a room page, 2026-10-09): no live tile -- every camera
       // in the pattern, starting with a full-height single, as the Home app
       // draws a room's cameras (one tall, then two stacked).
@@ -1404,6 +1432,7 @@
       this._stopTimer();
       var plan = this._plan();
       if (!plan) return;
+      if (plan.grid) { this._renderGrid(plan); return; }
 
       var H    = this._num('height', 202.5);
       var SEAM = this._num('seam', 2);
@@ -1447,48 +1476,10 @@
         plate.appendChild(first);
       } else if (plan.live) {
         // slot 1: the live camera, full height, uncropped
-        var liveAr = liveW + 'x' + Math.round(liveH);
-        // no live card on a state the new server has not sent (see _sigOf): the
-        // poster holds the slot until the camera is back
-        var stale = C.stale(this.client.states[plan.live.entity]), resting = !stale && this._resting();
-        var lv = stale || resting ? document.createElement('div') : this._pic(plan.live, true, liveAr);
-        if (VIDEO_OUTSIDE && lv.classList) lv.classList.add('wait');
-        var liveBox = document.createElement('div');
-        liveBox.className = 'live';
+        var liveBox = this._liveBox(plan.live, liveW, liveH);
         liveBox.style.gridColumn = '1';
         liveBox.style.gridRow = liveRow;
-        var pa = document.createElement('img'), pb = document.createElement('img');
-        pa.decoding = 'async'; pb.decoding = 'async'; pa.alt = ''; pb.alt = '';
-        var liveAge = null;
-        if (this._config.show_age !== false) {
-          liveAge = document.createElement('span');
-          liveAge.className = 'age';
-        }
-        // The poster canvas goes FIRST so it stays under the live card (z 1).
-        var pcv = this._canvasFor(liveBox);
-        if (pcv.el) liveBox.append(pcv.el);
-        liveBox.append(pa, pb, lv);
-        if (liveAge) liveBox.appendChild(liveAge);
-        // EVERY live tile takes its tap on the box, pop-up or not: left to
-        // picture-entity, whose touch handler swallows the click, a finger
-        // would open nothing -- and its more-info would go to HA's dialog. The
-        // box opens the camera sheet.
-        var me = this, liveCam = plan.live;
-        liveBox.classList.add('pop', 'tap');
-        liveBox.addEventListener('click', function () { me._openCam(liveCam); });
         plate.appendChild(liveBox);
-        // The poster is SLOT-SHAPED on purpose: it then goes through the exact
-        // same _loadSlot path as the stills -- double buffer, three-way release,
-        // hard swap -- instead of a second copy of that logic.
-        this._liveSlot = {
-          el: lv, cam: plan.live, ar: liveAr, box: liveBox,
-          poster: { box: liveBox, cam: plan.live, imgs: [pa, pb], front: -1,
-                    loading: [false, false], cssW: liveW, cssH: liveH, age: liveAge,
-                    cv: pcv.el, ctx: pcv.ctx }
-        };
-        // built resting: asleep, for the wake to remount (_resting)
-        if (resting) this._liveSlot.asleep = true;
-        this._wireRestore(this._liveSlot.poster);
       }
 
       var self = this;
@@ -1518,6 +1509,95 @@
       this._startTimer();
     }
 
+
+    // THE CAMERAS FACE: each camera a tile in the block's grid, a still at
+    // its tile's own size (_srcFor: the server shares one fetch of a size
+    // between tablets, camera_still.py), the live one in its place
+    _renderGrid(plan) {
+      this._watchBlock();
+      var b = this._block(), g = plan.grid, gap = this._num('seam', C.HOME_GRID.gap), self = this;
+      var cw = b ? (b.w - (g[0] - 1) * gap) / g[0] : 320, ch = b ? (b.h - (g[1] - 1) * gap) / g[1] : 180;
+      this._children = [];
+      var plate = document.createElement('div');
+      plate.className = 'plate grid';
+      plate.style.gridTemplateColumns = 'repeat(' + g[0] + ', minmax(0, 1fr))';
+      plate.style.gridTemplateRows = 'repeat(' + g[1] + ', minmax(0, 1fr))';
+      plate.style.gap = gap + 'px';
+      plan.cams.forEach(function (cam) {
+        var on = plan.live === cam, el = on ? self._liveBox(cam, cw, ch) : self._snap(cam, cw, ch);
+        var name = self._nameOf(cam);
+        if (on) el.classList.add('on');
+        el.setAttribute('role', 'button');
+        el.setAttribute('tabindex', '0');
+        el.setAttribute('aria-label', name + (on ? ', live' : ''));
+        el.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); self._openCam(cam); }
+        });
+        var cn = document.createElement('span');
+        cn.className = 'cn';
+        cn.textContent = name;
+        el.appendChild(cn);
+        if (on) {
+          var lv = document.createElement('span');
+          lv.className = 'lv';
+          lv.textContent = 'LIVE';
+          el.appendChild(lv);
+        }
+        plate.appendChild(el);
+      });
+      this._root.appendChild(plate);
+      this._startTimer();
+    }
+    _nameOf(cam) {
+      var st = this.client && this.client.states && this.client.states[cam.entity];
+      return cam.name || (st && st.attributes && st.attributes.friendly_name) || cam.entity;
+    }
+
+    // THE LIVE TILE: the camera's own card (a stream), over two posters of its
+    // still (the same slot as a still's, so the same _loadSlot path), the
+    // tap on the box. Kept as this._liveSlot -- one live tile per card.
+    _liveBox(cam, liveW, liveH) {
+      var liveAr = liveW + 'x' + Math.round(liveH);
+      // no live card on a state the new server has not sent (see _sigOf): the
+      // poster holds the slot until the camera is back
+      var stale = C.stale(this.client.states[cam.entity]), resting = !stale && this._resting();
+      var lv = stale || resting ? document.createElement('div') : this._pic(cam, true, liveAr);
+      if (VIDEO_OUTSIDE && lv.classList) lv.classList.add('wait');
+      var liveBox = document.createElement('div');
+      liveBox.className = 'live';
+      var pa = document.createElement('img'), pb = document.createElement('img');
+      pa.decoding = 'async'; pb.decoding = 'async'; pa.alt = ''; pb.alt = '';
+      var liveAge = null;
+      if (this._config.show_age !== false) {
+        liveAge = document.createElement('span');
+        liveAge.className = 'age';
+      }
+      // The poster canvas goes FIRST so it stays under the live card (z 1).
+      var pcv = this._canvasFor(liveBox);
+      if (pcv.el) liveBox.append(pcv.el);
+      liveBox.append(pa, pb, lv);
+      if (liveAge) liveBox.appendChild(liveAge);
+      // EVERY live tile takes its tap on the box, pop-up or not: left to
+      // picture-entity, whose touch handler swallows the click, a finger
+      // would open nothing -- and its more-info would go to HA's dialog. The
+      // box opens the camera sheet.
+      var me = this, liveCam = cam;
+      liveBox.classList.add('pop', 'tap');
+      liveBox.addEventListener('click', function () { me._openCam(liveCam); });
+      // The poster is SLOT-SHAPED on purpose: it then goes through the exact
+      // same _loadSlot path as the stills -- double buffer, three-way release,
+      // hard swap -- instead of a second copy of that logic.
+      this._liveSlot = {
+        el: lv, cam: cam, ar: liveAr, box: liveBox,
+        poster: { box: liveBox, cam: cam, imgs: [pa, pb], front: -1,
+                  loading: [false, false], cssW: liveW, cssH: liveH, age: liveAge,
+                  cv: pcv.el, ctx: pcv.ctx }
+      };
+      // built resting: asleep, for the wake to remount (_resting)
+      if (resting) this._liveSlot.asleep = true;
+      this._wireRestore(this._liveSlot.poster);
+      return liveBox;
+    }
 
     // EACH NEW CLIENT MUST REACH THE CHILDREN, and HkBase's default does not
     // do it -- it only gates the re-render. hk-row-card does the same.

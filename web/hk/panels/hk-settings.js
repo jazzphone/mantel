@@ -496,7 +496,10 @@
     night: { title: 'Night While', key: 'night_while',
       help: 'The night brightness while any of these is on (a Good Night or nap timer) — whatever the clock says. Day While still wins.' },
     day: { title: 'Day While', key: 'day_while',
-      help: 'The day brightness while any of these is on, even at night — the bathroom’s lights turned up bright, say.' }
+      help: 'The day brightness while any of these is on, even at night — the bathroom’s lights turned up bright, say.' },
+    // MORE WHEN NEAR (2026-10-30, rule 9a): never the tablet's own camera
+    near: { title: 'Near the Screen', key: 'near', domains: ['binary_sensor', 'sensor'],
+      help: 'Somebody is near the screen while one of these sees them: an mmWave sensor’s zone in front of the tablet, or a distance sensor reading under Closer Than. Then the dashboard comes up before a touch; with nobody near and no touch for Back to the Screensaver, the photos return. The tablet’s own camera is never used.' }
   };
   // THE THIRD-PARTY CARDS' OPTIONS: the handful people change, as controls
   // (an empty YAML box does not say what it wants), each showing the tuned value until changed (hk-strategy.js
@@ -3258,6 +3261,7 @@
                      onChange: function (v) { put({ linger: Number(v) }); } }),
           K.nav({ label: 'Only While Lit', href: base + '/lit', sk: 'b:sleep.lit', value: self.sleepCount(sl.lit) }),
           K.nav({ label: 'Sleep Until Re-entered', href: base + '/reset', sk: 'b:sleep.reset', value: self.sleepCount(sl.reset) })]));
+        this.sleepNear(c, sl, base, put);
         c.appendChild(K.group({ header: 'Overrides', footer: 'In this order: Wake For, Hold While, Keep Awake While, Stay Dark While — all before who is in the room. Another app in front is always left alone.' }, [
           K.nav({ label: 'Wake For', href: base + '/wake', sk: 'b:sleep.wake_for', value: self.sleepCount(sl.wake_for) }),
           K.nav({ label: 'Hold While', href: base + '/hold', sk: 'b:sleep.hold_while', value: self.sleepCount(sl.hold_while) }),
@@ -3296,10 +3300,39 @@
             K.nav({ label: 'Night While', href: base + '/night', sk: 'b:sleep.night_while', value: self.sleepCount(sl.night_while) })])));
         }
       }
+      // (Near the Screen is one of the rules: an automation deciding has none of them)
+      if (!hk) {
+        c.appendChild(K.group({ header: 'Near the Screen', footer: 'The dashboard when somebody comes near the screen, the screensaver again when they go: this needs Decided By ' +
+            PN() + '. An automation of yours decides this tablet now.' }, []));
+      }
       var wk = docsLink('Sleep-Screen', '', { sub: 'Sleep Screen', sk: 'b:sleep:wiki' });
       if (wk) c.appendChild(K.group({ footer: 'How Sleep Screen works, and ready-made automations for deciding it yourself.' }, [wk]));
     }
     sleepCount(list) { var n = (list || []).length; return n ? n + (n === 1 ? ' Entity' : ' Entities') : 'None'; }
+    // MORE WHEN NEAR (sleep_rules.py rule 9a): the sensors that see the space
+    // in front of the tablet; Closer Than for a distance sensor's reading (in
+    // cm, sleep_rules.NEAR_CM) and Back to the Screensaver (s, NEAR_LINGER)
+    sleepNear(c, sl, base, put) {
+      var self = this, near = sl.near || [];
+      var distance = near.some(function (id) { return id.split('.')[0] === 'sensor'; });
+      var cm = function (v) { return v >= 100 ? (v / 100).toFixed(v % 100 ? 1 : 0) + ' m' : v + ' cm'; };
+      var CM = [30, 50, 80, 100, 120, 150, 200, 250, 300], BACK = [10, 20, 30, 60, 120, 180, 300];
+      var with_ = function (list, v) { return list.indexOf(v) >= 0 ? list : list.concat(v).sort(function (a, b) { return a - b; }); };
+      var rows = [K.nav({ label: 'Near the Screen', href: base + '/near', sk: 'b:sleep.near', value: self.sleepCount(near) })];
+      if (near.length && distance) {
+        rows.push(K.select({ label: 'Closer Than', sk: 'b:sleep.near_cm', value: sl.near_cm || 120,
+                             options: with_(CM, sl.near_cm || 120).map(function (v) { return [v, cm(v)]; }),
+                             onChange: function (v) { put({ near_cm: Number(v) }); } }));
+      }
+      if (near.length) {
+        rows.push(K.select({ label: 'Back to the Screensaver', sk: 'b:sleep.near_linger', value: sl.near_linger || 30,
+                             options: with_(BACK, sl.near_linger || 30).map(function (v) { return [v, v < 60 ? v + ' s' : (v / 60) + ' min']; }),
+                             onChange: function (v) { put({ near_linger: Number(v) }); } }));
+      }
+      c.appendChild(K.group({ header: 'Near the Screen', footer: near.length
+          ? 'Somebody near the screen: the dashboard, before a touch (while lit, never in quiet hours). With nobody near and no touch for Back to the Screensaver, the photos come back — sooner than Starts After.'
+          : 'A sensor that sees the space in front of the tablet — an mmWave zone, or a distance sensor — brings the dashboard up as somebody walks up to it. The tablet’s own camera is never used.' }, rows));
+    }
     // ONE OF SLEEP SCREEN'S LISTS: as many entities as the house has; Hold
     // While and Wake For say which of theirs also work in quiet hours
     s_sleep_list_t(c, x, tid, which) { return this.s_sleepList(c, x, this.tabs()[tid] || {}, which); }

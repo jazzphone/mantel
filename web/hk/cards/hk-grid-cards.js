@@ -20,6 +20,10 @@
 //                            its own navigation opens them (the tab bar's More
 //                            sheet, else the side menu) -- for a screen without
 //                            its tab bar.
+//   hk-grid-cameras-card     `cameras` (XL, XXL, F): the Cameras face -- up to
+//                            nine stills at once, arranged to the block; a tap
+//                            opens one live, a doorbell ring makes its tile
+//                            live in place (2026-10-30).
 //
 // THE TABLET'S ROOM. A block may name `tablet_room` for its room: the wall
 // tablet showing the screen, asked of the host (hkShell.tabletRoom -- Home
@@ -337,11 +341,39 @@
     return { pages: pages, rooms: rooms };
   }
 
+  // ------------------------------------------------------------ the cameras face
+  // ITS ARRANGEMENT: [columns, rows] for `n` cameras in a block of `size`, at
+  // most Extra Large's 3 x 2, Full Width's 4 x 2, Full's 3 x 3 -- 2 x 4 in a
+  // view two columns wide (`cols`: a phone's). Fewer cameras take fewer
+  // places: the fewest empty, then the tiles nearest 16:9 in the block's
+  // w x h px (unmeasured: as the most it holds would draw them).
+  var CAM_MAX = { XL: [3, 2], XXL: [4, 2] }, WIDE = 16 / 9;
+  function camGrid(size, n, w, h, cols) {
+    var max = CAM_MAX[size] || (cols > 0 && cols <= 2 ? [2, 4] : [3, 3]), best = null;
+    n = Math.max(1, Math.min(n | 0, max[0] * max[1]));
+    for (var c = 1; c <= max[0]; c++) {
+      for (var r = 1; r <= max[1]; r++) {
+        if (c * r < n) continue;
+        var ar = w > 0 && h > 0 ? (w / c) / (h / r) : (max[0] / c) / (max[1] / r) * WIDE;
+        var t = { at: [c, r], empty: c * r - n, off: Math.abs(Math.log(ar / WIDE)) };
+        if (!best || t.empty < best.empty || (t.empty === best.empty && t.off < best.off - 1e-9)) best = t;
+      }
+    }
+    return best.at;
+  }
+  // THE DOORBELL A RING NAMES (the house's notification, kind doorbell): its
+  // camera when the face shows it, else a camera called doorbell (as a
+  // cameras block's pager turns to it: hk-layout.js pagerDoorbell)
+  function camRing(ids, camera) {
+    if (camera && ids.indexOf(camera) >= 0) return camera;
+    return ids.filter(function (id) { return /doorbell/.test(id); })[0] || null;
+  }
+
   window.hkGridCards = { version: '1.0.0',
     _: { roomOf: roomOf, roomParts: roomParts, fit: fit, layout: layout, percent: percent,
          dims: dims, dragged: dragged, dimCall: dimCall, suggestion: suggestion, holds: holds, minutes: minutes,
          houseMinutes: houseMinutes, plan: plan, menuCounts: menuCounts, DEFAULT_WINDOWS: DEFAULT_WINDOWS,
-         HOLD_MS: HOLD_MS } };
+         HOLD_MS: HOLD_MS, camGrid: camGrid, camRing: camRing } };
 
   whenBase(function (C) {
     if (window.hkGridCards.Room) return;
@@ -1203,6 +1235,113 @@
       [{ name: 'clock_style', label: 'Style', selector: { select: { options: [{ value: '', label: 'Digital' }, { value: 'analog', label: 'Analog' }] } } },
        { name: 'bare', label: 'Hide Box', selector: { boolean: {} } }], function () { return {}; });
 
+    // ===================================================== hk-grid-cameras-card
+    // THE CAMERAS FACE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase G):
+    // the cameras named, else every camera in Cameras' order, up to nine at
+    // once in the block's arrangement (camGrid). The stills are the camera
+    // strip's own (hk-cameras.js, its `grid` layout): double-buffered, each
+    // at its tile's size every `refresh` s and only while on screen, never
+    // under the screensaver. A tap opens that camera live (its camera sheet).
+    // ONE LIVE FEED AT A TIME (a tablet decodes one well; nine never connect:
+    // hk-cameras.js): the face opens none of its own but the doorbell's tile
+    // while it rings -- for RING_MS, and never under a sheet, the camera
+    // sheet's being the one then.
+    var RING_MS = 60000;
+    // ...and of two faces on one screen, the first to hear the ring has it
+    var camLive = null;
+    var CAMS_CSS = ':host{display:block;height:100%}.cams{height:100%}.cams > *{display:block;height:100%}';
+    class HkGridCamerasCard extends HkGridFull {
+      static get CSS() { return CAMS_CSS; }
+      getCardSize() { return 6; }
+      _size() { var s = this.getAttribute && this.getAttribute('size'); return CAM_MAX[s] || s === 'F' ? s : 'XL'; }
+      // its cameras: those the house has (a removed one leaves no hole)
+      _ids() {
+        var st = (this.client && this.client.states) || {};
+        return (this._config.cameras || []).filter(function (id) { return !!st[id]; });
+      }
+      // (Full: the view's columns, from its cell -- 2 on a phone)
+      _cols() {
+        try { return parseFloat(getComputedStyle(this).getPropertyValue('--hk-span-c')) || 0; } catch (e) { return 0; }
+      }
+      _arrange(n) { var b = this._block(); return camGrid(this._size(), n, b && b.w, b && b.h, this._cols()); }
+      _live(ids) {
+        var P = window.hkSettings, id;
+        if (!this._ringing || (window.hkPopupCover || 0) > 0) return null;
+        if (P && P.rendering && !P.rendering().autoplay) return null;     // (a tablet that plays no video)
+        if (camLive && camLive !== this && camLive.isConnected !== false && camLive._ringing) return null;
+        id = camRing(ids, this._ringing === true ? null : this._ringing);
+        if (id) camLive = this;
+        return id;
+      }
+      _cfg() {
+        var ids = this._ids(), g = this._arrange(ids.length), shown = ids.slice(0, g[0] * g[1]), live = this._live(shown);
+        return Object.assign({ type: 'custom:hk-camera-mosaic-card', own_cameras: true, grid: g, seam: C.HOME_GRID.gap,
+                               refresh: this._config.refresh || 10, cameras: shown.map(function (id) { return { entity: id }; }) },
+                             live ? { live: live } : {});
+      }
+      _sigOf() { return JSON.stringify([this._ids(), this._size(), this._blockKey || '', this._ringing || '', (window.hkPopupCover || 0) > 0]); }
+      // a new box for what it shows (the mosaic, or the stand-in)
+      _box() {
+        var box = document.createElement('div');
+        box.className = 'cams';
+        this._root.textContent = '';
+        this._root.appendChild(box);
+        this._kids = [];
+        return box;
+      }
+      _render() {
+        if (!this.client) return;                      // (which cameras the house has: not known yet)
+        this._watchBlock();
+        var cfg = this._cfg(), key = JSON.stringify(cfg);
+        if (!cfg.cameras.length) {
+          // (none of its cameras in the house: the catalog's stand-in, as a block with nothing to show)
+          if (this._key === '') return;
+          this._key = ''; this._mosaic = null;
+          this._mount(this._box(), { type: 'custom:hk-key-card', name: 'Cameras', icon: 'hk:camera' });
+          return;
+        }
+        if (this._mosaic && this._key === key) return;
+        this._key = key;
+        if (this._mosaic) {
+          if (this._mosaic.getAttribute('size') !== this._size()) this._mosaic.setAttribute('size', this._size());
+          this._mosaic.setConfig(cfg);
+          return;
+        }
+        this._mosaic = this._mount(this._box(), cfg, this._size());
+      }
+      connectedCallback() {
+        if (super.connectedCallback) super.connectedCallback();
+        var self = this;
+        if (!this._onRing) {
+          // A RING: the doorbell's tile live for a minute (a later ring, a minute from then)
+          this._onRing = function (e) {
+            var n = e && e.detail;
+            if (!n || n.type !== 'notification' || n.kind !== 'doorbell') return;
+            self._ringing = n.camera || true;
+            clearTimeout(self._ringT);
+            self._ringT = setTimeout(function () { self._ringing = null; if (camLive === self) camLive = null; self.redraw(); }, RING_MS);
+            self.redraw();
+          };
+          // a sheet opening takes the live tile back to its still; closing gives it back
+          this._onCover = function () { if (self._ringing) self.redraw(); };
+        }
+        window.addEventListener('hk-house-event', this._onRing);
+        window.addEventListener('hk-popup-change', this._onCover);
+      }
+      disconnectedCallback() {
+        window.removeEventListener('hk-house-event', this._onRing);
+        window.removeEventListener('hk-popup-change', this._onCover);
+        clearTimeout(this._ringT);
+        this._ringing = null;
+        if (camLive === this) camLive = null;
+        if (super.disconnectedCallback) super.disconnectedCallback();
+      }
+    }
+    watchSize(HkGridCamerasCard);
+    C.register('hk-grid-cameras-card', HkGridCamerasCard, 'HK Grid Cameras', 'Up to nine cameras at once, sized to a Home Grid block: a tap opens one live, and the doorbell goes live in its place when it rings.',
+      [{ name: 'cameras', label: 'Cameras', selector: { entity: { multiple: true, filter: { domain: 'camera' } } } },
+       { name: 'refresh', label: 'Refresh (seconds)', selector: { number: { min: 5, max: 60, step: 1 } } }], function () { return {}; });
+
     // ===================================================== hk-action-card
     var YELLOW = (C.PALETTE.icon && C.PALETTE.icon.yellow) || null;
     class HkActionCard extends HkGridKey {
@@ -1397,5 +1536,6 @@
     window.hkGridCards.Action = HkActionCard;
     window.hkGridCards.Everything = HkEverythingCard;
     window.hkGridCards.Scene = HkSuggestedSceneCard;
+    window.hkGridCards.Cameras = HkGridCamerasCard;
   });
 })();

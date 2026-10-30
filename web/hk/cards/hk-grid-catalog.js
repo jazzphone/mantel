@@ -18,8 +18,12 @@
   'use strict';
   if (window.hkGridCatalog) return;            // double-load guard
 
-  // Size classes: [columns, rows] (hkCards.HOME_GRID is the same table)
-  var SIZES = { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2] };
+  // Size classes: [columns, rows] (hkCards.HOME_GRID is the same table).
+  // F, Full (2026-10-30, the Cameras face): the view's whole grid -- 0 is
+  // "the grid's own" (span()) -- at [0, 0] only, so the only block in its
+  // view; offered for `cameras` alone
+  var SIZES = { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2], F: [0, 0] };
+  function span(size, cols, rows) { var z = SIZES[size]; return z ? [z[0] || cols, z[1] || rows] : null; }
   var TABLET_ROOM = 'tablet_room';
 
   // a block whose card isn't drawn yet (G3), or with nothing in the house to show
@@ -66,6 +70,13 @@
       var ids = o.entity ? [o.entity] : (ctx.cameras || []).slice(0, 1);
       return ids.length ? { type: 'custom:hk-camera-mosaic-card', own_cameras: true, height: 195, seam: 2, snapshot_cap: '480x270',
                             cameras: ids.map(function (id) { return { entity: id }; }) }
+                        : stand('Cameras', 'hk:camera'); } },
+    // THE CAMERAS FACE (2026-10-30; hk-grid-cards.js hk-grid-cameras-card):
+    // up to nine stills at once, arranged to the block -- the ones named, else
+    // every camera in Cameras' order (ctx.cameras)
+    cameras: { sizes: ['XL', 'XXL', 'F'], sources: [], opts: { cameras: 'cameras', refresh: 'refresh' }, card: function (s, o, ctx) {
+      var ids = o.cameras && o.cameras.length ? o.cameras : (ctx.cameras || []);
+      return ids.length ? Object.assign({ type: 'custom:hk-grid-cameras-card', cameras: ids.slice() }, o.refresh ? { refresh: o.refresh } : {})
                         : stand('Cameras', 'hk:camera'); } },
     // Large and Extra Large: the alarm's keypad (2026-10-24)
     security: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: { entity: 'alarm' }, card: function (s, o) {
@@ -271,7 +282,7 @@
     return out;
   }
 
-  window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
+  window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, span: span, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
                            PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, CLOCK_FACES: CLOCK_FACES,
                            CONDITIONS: CONDITIONS, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }

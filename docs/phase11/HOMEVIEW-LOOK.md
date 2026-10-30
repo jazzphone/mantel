@@ -874,3 +874,22 @@ four wallpapers, day and night, 1180 × 820, 820 × 1180, 390 × 844; Home, a ro
 Bright Glass on the slowest wall tablet; `detail_flat_e2e.py` lives in `hk_house`, not here, so its look list is not
 changed; Flat's own backgrounds don't offer a Wallpaper; the Home Grid's keys (`HkGridKey`) keep their glyph colours
 until Phase B's centred tiles land.
+
+**2026-10-30, Phases G and H (branch `homeview-camnear`).** *G, the Cameras face:* `cameras` in both catalogs
+(XL, XXL and the new Full, `F`: `SIZES` 0 x 0 = the grid's own, `home_grid.span()`, at [0, 0] only and alone in its
+view by the overlap rule; options `cameras`, `refresh` 5–60). `hk-grid-cameras-card` arranges up to nine (3 × 2,
+4 × 2, 3 × 3; 2 × 4 on two columns; fewer cameras, fewer places) and draws them through hk-camera-mosaic-card's new
+`grid` layout (the strip's stills, at each tile's size); a tap opens the camera sheet; a doorbell ring makes its tile
+live in place for a minute, one face per tablet, never under a sheet. hk-layout spans F (`--hk-span-c/-r`); the
+editor places F. *H, More When Near:* `near` in `LISTS`, rule 9a after In Use and the screensaver's own controls,
+`near_cm` (30–300, 120) and `near_linger` (10–300, 30); with a near list a touch counts for the shorter of the window
+and the linger, and `Sleep.back_to_saver()` brings the photos at once when nobody is near; the Sleep Screen page has
+Near the Screen, Closer Than and Back to the Screensaver, and says it needs Decided By HK. Checks: the sleep tests
+(+11, run again on Mantel's House), the home grid tests (+20), HA's sleep engine and rules (31 passed, one new: the
+screensaver leaving on near and coming back), every JS suite (144 green; CSS snapshot refreshed), the new
+`tools/headless/cameras_face_check.py` in WebKit at 1180 × 820, 820 × 1180 and 390 × 844 (passed, looked at),
+`ci.py full --only` grid_blocks_check, client_smoke, hk-frontend-js (passed), `ci.py quick` (passed). Left: no
+history replay of the Sleep Screen exists to extend; while somebody stands near without touching, the screensaver
+still starts at Starts After and the Sleep Screen takes it away again at once (a page-side hold for near is not
+built); a ring rebuilds every tile of the face, so the stills are soft for a moment until they reload; the still
+cache load test with nine cameras on several tablets was not run.

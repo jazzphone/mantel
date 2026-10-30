@@ -22,11 +22,19 @@ each rule now a setting of the screen's Sleep Screen page:
    7 Stay dark while (away) ....................... dark
    8 A presence sensor is missing ................. hold (no guess)
    9 In use (touched within the window) ........... dashboard
+  9a Somebody near the screen (Near the Screen) ... dashboard
   10 Somebody in the room (Presence) .............. photos
   11 Nobody ....................................... dark
 
 `photos` means "awake": a dark tablet wakes to the dashboard and the photo
 screensaver comes up on its own (Starts After); an awake one is left alone.
+
+MORE WHEN NEAR (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase H): 9a is a
+sensor that sees the space in front of the tablet -- an mmWave zone, or a
+distance under `near_cm` -- never the tablet's own camera. It brings the
+dashboard up before a touch; with nobody near and no touch for `near_linger`
+the screensaver comes back (engine.Sleep.back_to_saver), sooner than Starts
+After would bring it.
 """
 from __future__ import annotations
 
@@ -38,8 +46,15 @@ DARK_DISPLAYS = ("lowest", "off", "off_quiet")
 AFTER_SAVER = (0, 5, 15, 30, 60, 120, 240)    # minutes of photos; 0 = never
 LINGER = (0, 30, 60, 120, 300, 600, 900, 1800)
 BRIGHTNESS_MODES = ("leave", "fixed", "sensor")
-LISTS = ("presence", "lit", "quiet_while", "reset", "dark_while", "awake_while", "hold_while", "wake_for", "quiet_ok")
+LISTS = ("presence", "lit", "quiet_while", "reset", "dark_while", "awake_while", "hold_while", "wake_for", "quiet_ok",
+         "near")
 LIST_MAX = 40
+NEAR_CM = (30, 300)                           # ...closer than: a distance sensor's reading, cm
+NEAR_LINGER = (10, 300)                       # Back to the Screensaver: s with nobody near and no touch
+# 10 when somebody near the screen has gone: the photos now (engine.Sleep.back_to_saver)
+NOBODY_NEAR = "nobody near the screen"
+# a distance sensor's units, in cm (none: cm)
+DISTANCE_CM = {"mm": 0.1, "cm": 1.0, "m": 100.0, "in": 2.54, "ft": 30.48}
 
 SLEEP_DEFAULTS: dict[str, Any] = {
     # who decides: an automation (the black switch only -- the default), HK
@@ -73,6 +88,10 @@ SLEEP_DEFAULTS: dict[str, Any] = {
     # follow an entity's number -- kept for a screen that chose it before.)
     "brightness": "leave", "bright_day": 174, "bright_night": 75, "night_while": [], "bright_sensor": "",
     "bright_clock": False, "day_from": "07:00", "night_from": "22:00", "day_while": [],
+    # More When Near (rule 9a): somebody near the screen while any of `near`
+    # sees them -- a binary sensor on, or a number sensor's distance under
+    # near_cm -- and for near_linger s after; none: the rule is off
+    "near": [], "near_cm": 120, "near_linger": 30,
 }
 
 ON_STATES = ("on", "active", "triggered", "open", "opening", "detected", "playing")
@@ -119,6 +138,10 @@ def sleep_options(v: Any) -> dict[str, Any] | None:
         elif k in ("after_saver", "linger"):
             allowed = AFTER_SAVER if k == "after_saver" else LINGER
             if isinstance(val, bool) or val not in allowed:
+                return None
+        elif k in ("near_cm", "near_linger"):
+            lo, hi = NEAR_CM if k == "near_cm" else NEAR_LINGER
+            if isinstance(val, bool) or not isinstance(val, int) or not lo <= val <= hi:
                 return None
         elif k in ("bright_day", "bright_night"):
             if isinstance(val, bool) or not isinstance(val, (int, float)) or not 1 <= val <= 255:
@@ -177,6 +200,24 @@ def is_on(state: str | None) -> bool:
     return state in ON_STATES
 
 
+def near(st: Any, near_cm: float) -> bool:
+    """One Near the Screen entity sees somebody: on in its "on" sense (an
+    mmWave zone's occupancy), or a distance under `near_cm` -- its number in
+    its unit of measurement (cm without one). A reading of 0 is the sensor
+    seeing nobody, as the common radar modules report it."""
+    if st is None or missing(getattr(st, "state", None)):
+        return False
+    if is_on(st.state):
+        return True
+    try:
+        v = float(st.state)
+    except (TypeError, ValueError):
+        return False
+    unit = (getattr(st, "attributes", None) or {}).get("unit_of_measurement") or "cm"
+    k = DISTANCE_CM.get(unit)
+    return k is not None and 0 < v * k < near_cm
+
+
 def missing(state: str | None) -> bool:
     return state in (None, "unknown", "unavailable")
 
@@ -228,6 +269,9 @@ def decide(f: Mapping[str, Any]) -> tuple[str, str]:
       notice        a notification set to Wake the Screen, for its while
                     (its title; "" when none): up to the photos, the banner
                     over them (a screen already on its dashboard stays there)
+      near          somebody near the screen (More When Near: a sensor sees
+                    them, or did within Back to the Screensaver); None
+                    without a Near the Screen sensor
     """
     def first(names: Iterable[str]) -> str:
         return next(iter(names), "")
@@ -260,8 +304,13 @@ def decide(f: Mapping[str, Any]) -> tuple[str, str]:
         return "dashboard", "somebody is at the tablet"
     if saver_use and (lit or f.get("touched_since_dark")):
         return "photos", "somebody is using the screensaver"
+    # 9a: a passive wake, as presence is -- only while lit, never after Sleep
+    # Until Re-entered; below somebody using the screensaver's own controls
+    near_ = f.get("near")
+    if near_ and lit and not f.get("slept"):
+        return "dashboard", "somebody is near the screen"
     if present and lit and not f.get("slept"):
-        return "photos", "somebody is in the room"
+        return "photos", NOBODY_NEAR if near_ is False else "somebody is in the room"
     if present and not lit:
         return "dark", "the room's lights are off"
     if present and f.get("slept"):
