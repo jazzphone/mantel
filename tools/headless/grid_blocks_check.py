@@ -4,10 +4,17 @@ controls over Clean Areas, a block's rules switch its card in place (music playi
 armed), and a cameras block follows motion in its cameras' rooms. A calendar block shows the days it is asked for,
 scrolls inside itself and opens an event's sheet; a room block leaves out the house's Hidden Accessories.
 
+The editor makes room (2026-10-30, grid_blocks_check.cjs): on a screen shaped like the owner's tablet, a Large camera
+carried onto four small tiles -- they slide into the space it left while it is held, the drop keeps that and one Undo
+takes it back; Escape or letting go off the grid changes nothing. In Chromium with a finger and WebKit with a mouse,
+at an iPad's size; skipped, saying so, without PLAYWRIGHT_PATH and NODE (edit_mode_check.py's).
+
     python tools/headless/grid_blocks_check.py [--shots DIRECTORY]
 """
 import argparse
 import asyncio
+import json
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -32,6 +39,21 @@ GRID = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items
     {'id': 'ruled', 'card': 'weather', 'size': 'L', 'at': [0, 2], 'rules': RULES},
     {'id': 'room', 'card': 'room', 'size': 'L', 'at': [2, 2], 'opts': {'area': 'living_room', 'accessory_display': 'scroll'}},
     {'id': 'cal', 'card': 'calendar', 'size': 'L', 'at': [4, 2], 'opts': {'calendars': ['calendar.family'], 'days': 7}}]}
+# THE OWNER'S TABLET'S SHAPE (6 x 4, fictional accessories): three Large blocks across the top; four small tiles,
+# the Calendar, a Tall thermostat and two scenes below
+REFLOW = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1180, 820], 'band': True, 'items': [
+    {'id': 'weather', 'card': 'weather', 'size': 'L', 'at': [0, 0], 'opts': {'entity': 'weather.home'}},
+    {'id': 'camera', 'card': 'camera', 'size': 'L', 'at': [2, 0], 'opts': {'entity': 'camera.front_door'}},
+    {'id': 'music', 'card': 'now_playing', 'size': 'L', 'at': [4, 0]},
+    {'id': 'coffee', 'card': 'accessory', 'size': 'S', 'at': [0, 2], 'opts': {'entity': 'light.living_room_lamps'}},
+    {'id': 'fire', 'card': 'accessory', 'size': 'S', 'at': [1, 2], 'opts': {'entity': 'light.kitchen_pendants'}},
+    {'id': 'tread', 'card': 'accessory', 'size': 'S', 'at': [0, 3], 'opts': {'entity': 'lock.front_door'}},
+    {'id': 'lights', 'card': 'accessory', 'size': 'S', 'at': [1, 3], 'opts': {'entity': 'cover.garage_door'}},
+    {'id': 'cal', 'card': 'calendar', 'size': 'L', 'at': [2, 2], 'opts': {'calendars': ['calendar.family']}},
+    {'id': 'thermo', 'card': 'thermostat', 'size': 'T', 'at': [4, 2], 'opts': {'entity': 'climate.main_floor'}},
+    {'id': 'morning', 'card': 'scene', 'size': 'S', 'at': [5, 2], 'opts': {'scene': 'scene.good_morning'}},
+    {'id': 'relax', 'card': 'scene', 'size': 'S', 'at': [5, 3], 'opts': {'scene': 'scene.movie_night'}}]}
+MAC_CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 # a week of the fictional family's events, two a day: more than the block holds
 EVENTS = """(()=>{let d0=new Date();d0.setHours(0,0,0,0);let out=[];for(let i=0;i<7;i++)for(let h of [19,21]){
   let s=new Date(+d0+i*864e5+h*36e5),e=new Date(+s+36e5);out.push({summary:'Event '+i+'-'+h,uid:'u'+i+h,start:{dateTime:s.toISOString()},end:{dateTime:e.toISOString()}})}
@@ -47,8 +69,11 @@ async def main():
     gallery.SETTINGS['settings']['added'] = ['clean_areas']
     gallery.SETTINGS['settings']['generated'] = {'exclude_entities': ['light.living_room_ceiling']}
     gallery.SETTINGS['boards']['blocks'] = {'home_style': 'grid', 'home_grid': GRID, 'menu_custom': True, 'menu': 'tabbar'}
+    gallery.SETTINGS['boards']['reflow'] = {'home_style': 'grid', 'home_grid': REFLOW, 'menu_custom': True, 'menu': 'tabbar'}
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td))
+        from mantel_server.settings_store import load_model
+        app['settings'].model = load_model()
 
         def state(entity, value, attrs=None):
             cur = app['hub'].store.states.get(entity) or {}
@@ -119,6 +144,20 @@ async def main():
                 await b.screenshot(args.shots / 'blocks.png')
             exceptions = [line for line in b.console if line.startswith('EXCEPTION:')]
             assert not exceptions, exceptions
-            print('PASS: keypad and vacuum blocks, rules switching in place, cameras following motion, the calendar\'s days, scroll and taps, the room\'s hidden accessories')
+            print('PASS: keypad and vacuum blocks, rules switching in place, cameras following motion, the calendar\'s days, scroll and taps, the room\'s hidden accessories', flush=True)
+            # THE EDITOR MAKES ROOM, in Playwright's Chromium (a finger) and WebKit (a mouse) at an iPad's size
+            pw, node = os.environ.get('PLAYWRIGHT_PATH'), os.environ.get('NODE')
+            if not (pw and Path(pw).exists() and node and Path(node).exists()):
+                print('SKIPPED the editor making room: set PLAYWRIGHT_PATH and NODE (edit_mode_check.py\'s)')
+                return
+            failed = []
+            for engine in ('chromium', 'webkit'):
+                proc = await asyncio.create_subprocess_exec(node, str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE)
+                await proc.communicate(json.dumps({
+                    'origin': origin, 'cookie': cookie, 'screen': 'reflow', 'engine': engine, 'size': '1180x820',
+                    'shots': str(args.shots or ''), 'chrome': os.environ.get('CHROME') or MAC_CHROME}).encode())
+                if proc.returncode != 0:
+                    failed.append(engine)
+            assert not failed, 'the editor making room failed in ' + ', '.join(failed)
 
 asyncio.run(main())
