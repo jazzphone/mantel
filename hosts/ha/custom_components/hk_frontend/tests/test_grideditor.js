@@ -176,6 +176,19 @@ step(function () {                      // the kit: what Escape answers
   });
 });
 
+step(function () {                      // FULL (F, 2026-10-30): the Cameras face's whole view
+  var E = window.hkGridEditor, base = function (cols, rows, items) { return { v: 1, cols: cols, rows: rows, frame: [1280, 800], band: false, items: items || [] }; };
+  var g = E.add(base(6, 4), 'cameras', 'F');
+  ok('a Full block goes at the top left of an empty view', g && g.items[0].at, [0, 0]);
+  ok('...and fills it: nothing else fits beside it', E.firstSpace(g, 'S'), null);
+  ok('...a view with a block in it has no room for one', E.firstSpace(base(6, 4, [{ id: 'a1', card: 'timers', size: 'S', at: [5, 3] }]), 'F'), null);
+  ok('...nor anywhere but [0, 0]', E.place(g, g.items[0].id, [1, 0]), null);
+  ok('...a layout with a block beside it is not valid', E.valid(Object.assign(base(6, 4), { items: g.items.concat({ id: 'a1', card: 'timers', size: 'S', at: [5, 3] }) })), false);
+  ok('...but another view may have its own', E.valid(Object.assign(base(6, 4), { views: 2, items: g.items.concat({ id: 'a1', card: 'timers', size: 'S', at: [0, 0], view: 1 }) })), true);
+  ok('on a phone\'s 2 x 4 grid too', E.valid(Object.assign(base(2, 4), { items: [{ id: 'c1', card: 'cameras', size: 'F', at: [0, 0] }] })), true);
+  ok('only the Cameras face has it', E.valid(Object.assign(base(6, 4), { items: [{ id: 'c1', card: 'camera', size: 'F', at: [0, 0] }] })), false);
+});
+
 steps.reduce(function (p, f) { return p.then(f); }, Promise.resolve()).then(function () {
   print(fail ? 'FAIL ' + fail + ' GRID EDITOR TESTS' : 'ALL ' + pass + ' GRID EDITOR TESTS PASS');
 }).catch(function (e) { print('Exception: ' + e + ' ' + (e.stack || '')); print('FAIL GRID EDITOR TESTS'); });

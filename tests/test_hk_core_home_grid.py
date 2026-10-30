@@ -195,6 +195,52 @@ def test_a_starter_saves_through_the_write():
     assert errors == {} and b["home_grid"]["band"] is False
 
 
+# ------------------------------------------------------------ the Cameras face and Full (2026-10-30)
+@pytest.mark.parametrize("cols,rows", [(6, 4), (3, 3), (2, 4), (3, 6)])
+def test_a_full_block_is_the_whole_view_and_alone_in_it(cols, rows):
+    g = grid(block("c1", "cameras", "F", [0, 0], opts={"refresh": 15}), cols=cols, rows=rows)
+    assert HG.check(g) == g
+    assert HG.cells(g["items"][0], cols, rows) == {(0, c, r) for c in range(cols) for r in range(rows)}
+    assert HG.span("F", cols, rows) == (cols, rows) and HG.span("XL", cols, rows) == (3, 2)
+
+
+def test_a_full_block_shares_its_screen_only_with_other_views():
+    g = grid(block("c1", "cameras", "F", [0, 0]), block("a1", "timers", "S", [0, 0], view=1), views=2)
+    assert HG.check(g) == g
+    assert [i["id"] for i in M.board({"home_grid": grid(block("c1", "cameras", "F", [0, 0]),
+                                                        block("a1", "timers", "S", [5, 3]))})["home_grid"]["items"]] == ["c1"]
+
+
+@pytest.mark.parametrize("g,code", [
+    (grid(block("c1", "cameras", "F", [1, 0])), "grid_place"),
+    (grid(block("c1", "cameras", "F", [0, 1])), "grid_place"),
+    (grid(block("a1", "timers", "S", [5, 3]), block("c1", "cameras", "F", [0, 0])), "grid_overlap"),
+    (grid(block("c1", "cameras", "F", [0, 0]), block("a1", "timers", "S", [5, 3])), "grid_overlap"),
+    (grid(block("c1", "camera", "F", [0, 0])), "grid_size"),
+    (grid(block("c1", "clock", "F", [0, 0])), "grid_size"),
+    (grid(block("c1", "cameras", "L", [0, 0])), "grid_size"),
+    (grid(block("c1", "cameras", "XL", [0, 0]), cols=2), "grid_fit"),
+    (grid(block("c1", "cameras", "XL", [0, 0], opts={"refresh": 4})), "grid_option"),
+    (grid(block("c1", "cameras", "XL", [0, 0], opts={"refresh": 61})), "grid_option"),
+    (grid(block("c1", "cameras", "XL", [0, 0], opts={"refresh": True})), "grid_option"),
+    (grid(block("c1", "cameras", "XL", [0, 0], opts={"cameras": ["light.porch"]})), "grid_option"),
+    (grid(block("c1", "cameras", "XL", [0, 0], opts={"cameras": []})), "grid_option"),
+    (grid(block("c1", "cameras", "F", [0, 0], pages={"source": "cameras"})), "grid_source"),
+])
+def test_what_a_cameras_face_refuses(g, code):
+    assert write(g)[1] == {"home_grid": code}
+
+
+def test_a_cameras_face_names_its_cameras_or_shows_them_all():
+    g = grid(block("c1", "cameras", "XXL", [0, 0], opts={"cameras": ["camera.front_door", "camera.garden",
+                                                                      "camera.front_door"], "refresh": 5}),
+             block("c2", "cameras", "XL", [0, 2]))
+    b, errors = write(g)
+    assert errors == {}
+    assert b["home_grid"]["items"][0]["opts"] == {"cameras": ["camera.front_door", "camera.garden"], "refresh": 5}
+    assert "opts" not in b["home_grid"]["items"][1], "none named: every camera, in Cameras' order"
+
+
 # ------------------------------------------------------------ the catalog's mirror
 @pytest.mark.skipif(not JSC.exists(), reason="JavaScriptCore's jsc is macOS's")
 def test_the_catalog_and_its_python_mirror_agree(tmp_path):
@@ -212,7 +258,7 @@ def test_the_catalog_and_its_python_mirror_agree(tmp_path):
     assert out["sources"] == list(HG.SOURCES) and out["room"] == HG.TABLET_ROOM
     # ...and hk-base.js's size-class table is the same one
     base = (ROOT / "web/hk/cards/hk-base.js").read_text()
-    assert "var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2] }" in base
+    assert "var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2], F: [0, 0] }" in base
     # every page source a card names is a source
     assert all(set(v["sources"]) <= set(HG.SOURCES) for v in HG.CATALOG.values())
 

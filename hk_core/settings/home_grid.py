@@ -40,8 +40,17 @@ AREA_ID = re.compile(r"^[a-z0-9_]{1,80}\Z")
 # and checked here; the cards resolve it (G3, G4).
 TABLET_ROOM = "tablet_room"
 
-# Size classes: (columns, rows)
-SIZES: dict[str, tuple[int, int]] = {"S": (1, 1), "W": (2, 1), "T": (1, 2), "L": (2, 2), "XL": (3, 2), "XXL": (6, 2)}
+# Size classes: (columns, rows). F, Full (2026-10-30, the Cameras face): the view's whole grid -- 0 is "the grid's
+# own" (span()) -- at [0, 0] only and so the only block in its view; offered for `cameras` alone
+SIZES: dict[str, tuple[int, int]] = {"S": (1, 1), "W": (2, 1), "T": (1, 2), "L": (2, 2), "XL": (3, 2), "XXL": (6, 2),
+                                     "F": (0, 0)}
+FULL = "F"
+
+
+def span(size: str, cols: int, rows: int) -> tuple[int, int]:
+    """A size's columns and rows on a grid of `cols` x `rows`: its own, or the whole grid's for F."""
+    w, h = SIZES[size]
+    return (w or cols, h or rows)
 
 # THE CATALOG'S MIRROR: key -> its sizes, the page sources it swipes through besides `list` (every card has
 # `list`), and its options (name -> kind, OPTION_KINDS).
@@ -55,6 +64,9 @@ CATALOG: dict[str, dict[str, Any]] = {
     "camera": {"sizes": ("W", "L", "XL"), "sources": ("cameras",),
                # follow (2026-10-24): swiping all cameras, turn to the one a selector or the latest motion picks
                "opts": {"entity": "camera", "follow": "camera_follow", "follow_select": "select"}},
+    # THE CAMERAS FACE (2026-10-30): up to nine stills at once, arranged to the block; Full is the whole view.
+    # cameras: the ones shown (none: all, in Cameras' order); refresh: s between stills
+    "cameras": {"sizes": ("XL", "XXL", "F"), "sources": (), "opts": {"cameras": "cameras", "refresh": "refresh"}},
     # Large and Extra Large (2026-10-24): the alarm's keypad
     "security": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "alarm"}},
     "timers": {"sizes": ("S", "W"), "sources": (), "opts": {}},
@@ -258,7 +270,9 @@ OPTION_KINDS = {
     "weather": _domain("weather"),
     "vacuum": _domain("vacuum"),
     "calendars": _list(_domain("calendar")),
+    "cameras": _list(_domain("camera")),
     "days": lambda v: _whole(v, 1, 7, "grid_option"),
+    "refresh": lambda v: _whole(v, 5, 60, "grid_option"),
     "area": _area,
     "action": _action,
     "windows": _windows,
@@ -408,7 +422,7 @@ def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
     size = v.get("size")
     if size not in CATALOG[card]["sizes"]:
         raise GridInvalid("grid_size")
-    w, h = SIZES[size]
+    w, h = span(size, cols, rows)
     if w > cols or h > rows:
         raise GridInvalid("grid_fit")
     at = v.get("at")
@@ -447,9 +461,10 @@ def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
     return out
 
 
-def cells(it: Mapping[str, Any]) -> set[tuple[int, int, int]]:
-    """The cells a checked block covers, in its view (blocks overlap only within one)."""
-    (c, r), (w, h), view = it["at"], SIZES[it["size"]], it.get("view", 0)
+def cells(it: Mapping[str, Any], cols: int = COLS[0], rows: int = ROWS_DEFAULT) -> set[tuple[int, int, int]]:
+    """The cells a checked block covers on a `cols` x `rows` grid, in its view (blocks overlap only within one):
+    a Full block, all of them."""
+    (c, r), (w, h), view = it["at"], span(it["size"], cols, rows), it.get("view", 0)
     return {(view, c + x, r + y) for x in range(w) for y in range(h)}
 
 
@@ -531,7 +546,7 @@ def check(v: Any) -> dict[str, Any] | None:
         it = item(raw, out["cols"], out["rows"])
         if it["id"] in ids or it.get("view", 0) >= out.get("views", 1):
             raise GridInvalid("grid_item")
-        here = cells(it)
+        here = cells(it, out["cols"], out["rows"])
         if here & taken:
             raise GridInvalid("grid_overlap")
         ids.add(it["id"])
@@ -558,7 +573,7 @@ def layout(v: Any) -> dict[str, Any] | None:
             it = item(raw, out["cols"], out["rows"])
         except (GridInvalid, TypeError, KeyError):
             continue
-        here = cells(it)
+        here = cells(it, out["cols"], out["rows"])
         if it["id"] in ids or here & taken or it.get("view", 0) >= out.get("views", 1):
             continue
         ids.add(it["id"])

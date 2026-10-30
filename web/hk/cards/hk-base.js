@@ -239,8 +239,9 @@
   // hk-grid-catalog.js SIZES and hk_core home_grid.SIZES -- and the grid's
   // numbers: the gap between cells, the top band's height. A block's card
   // reads its class from its `size` attribute and its cell from
-  // --hk-cell-w / --hk-cell-h.
-  var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2] }, gap: TILE.gridGap, band: 60, pad: 1280 * 0.015 + 8 };
+  // --hk-cell-w / --hk-cell-h. F (Full: the view's whole grid) is 0 x 0 here:
+  // its cell says how many columns and rows (--hk-span-c / --hk-span-r).
+  var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2], F: [0, 0] }, gap: TILE.gridGap, band: 60, pad: 1280 * 0.015 + 8 };
   // Breakpoints (px): screens for page structure, card widths for container
   // queries inside a card. A media query can't read a CSS variable, but every
   // card's CSS is a JS string, so these interpolate.
@@ -2567,6 +2568,9 @@
       var cs = getComputedStyle(this), g = HOME_GRID.gap;
       var cw = parseFloat(cs.getPropertyValue('--hk-cell-w')), ch = parseFloat(cs.getPropertyValue('--hk-cell-h'));
       if (!(cw > 0 && ch > 0)) return null;
+      // (Full: the grid's own columns and rows, from its cell)
+      if (!n[0] || !n[1]) n = [parseFloat(cs.getPropertyValue('--hk-span-c')) || 0, parseFloat(cs.getPropertyValue('--hk-span-r')) || 0];
+      if (!(n[0] > 0 && n[1] > 0)) return null;
       return { w: Math.floor(n[0] * cw + (n[0] - 1) * g), h: Math.floor(n[1] * ch + (n[1] - 1) * g) };
     }
     // A CARD THAT LAYS OUT BY THE BLOCK'S PX (a camera's picture, how many

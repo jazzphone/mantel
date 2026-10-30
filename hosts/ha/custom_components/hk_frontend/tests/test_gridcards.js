@@ -325,6 +325,73 @@ function () {
   });
 },
 function () {
+  H.section('the Cameras face: how many, and how they are arranged (2026-10-30)');
+  eq('Extra Large: 3 x 2, six at most', [P.camGrid('XL', 6), P.camGrid('XL', 12)], [[3, 2], [3, 2]]);
+  eq('Full Width: 4 x 2, eight at most', [P.camGrid('XXL', 8), P.camGrid('XXL', 9)], [[4, 2], [4, 2]]);
+  eq('Full: 3 x 3, nine at most', [P.camGrid('F', 9, 1260, 630, 6), P.camGrid('F', 12, 0, 0, 3)], [[3, 3], [3, 3]]);
+  eq('...and 2 x 4 in a view two columns wide (a phone): eight', [P.camGrid('F', 9, 402, 630, 2), P.camGrid('F', 8, 0, 0, 2)], [[2, 4], [2, 4]]);
+  eq('fewer cameras, fewer places: four in Full are 2 x 2', P.camGrid('F', 4), [2, 2]);
+  eq('...four in Full Width, one row, the tiles nearest 16:9', P.camGrid('XXL', 4, 1260, 310), [4, 1]);
+  eq('...six in a landscape Full: 3 x 2, not 2 x 3', P.camGrid('F', 6, 1260, 630, 6), [3, 2]);
+  eq('...one camera: the whole block', P.camGrid('XL', 1), [1, 1]);
+  var cams = ['camera.driveway', 'camera.front_doorbell', 'camera.garden'];
+  eq('a ring names its camera', P.camRing(cams, 'camera.garden'), 'camera.garden');
+  eq('...or a camera called doorbell', [P.camRing(cams, null), P.camRing(cams, 'camera.elsewhere')], ['camera.front_doorbell', 'camera.front_doorbell']);
+  eq('...and none without one', P.camRing(['camera.driveway'], null), null);
+  var C = window.hkGridCatalog, ctx = { cameras: ['camera.driveway', 'camera.garden'] };
+  eq('the catalog: every camera in Cameras\' order when it names none', C.config({ card: 'cameras', size: 'F' }, ctx),
+     { type: 'custom:hk-grid-cameras-card', cameras: ['camera.driveway', 'camera.garden'] });
+  eq('...its own, and its refresh', C.config({ card: 'cameras', size: 'XL', opts: { cameras: ['camera.garden'], refresh: 30 } }, ctx),
+     { type: 'custom:hk-grid-cameras-card', cameras: ['camera.garden'], refresh: 30 });
+  eq('...a house with no camera: the stand-in', C.config({ card: 'cameras', size: 'XL' }, {}).type, 'custom:hk-key-card');
+  eq('...its sizes and options', [C.table().cameras.sizes, C.table().cameras.opts], [['XL', 'XXL', 'F'], { cameras: 'cameras', refresh: 'refresh' }]);
+  eq('Full is the grid\'s own columns and rows', [C.SIZES.F, C.span('F', 3, 3), C.span('F', 2, 4), C.span('XL', 6, 4)], [[0, 0], [3, 3], [2, 4], [3, 2]]);
+},
+function () {
+  H.section('the Cameras face: the stills, a tap, the doorbell live in its place (2026-10-30)');
+  var factory = window.hkCards.createCard, made = [];
+  window.hkCards.createCard = function (cfg) {
+    var el = document.createElement('div');
+    el.configs = [cfg];
+    el.setConfig = function (c) { el.configs.push(c); };
+    made.push(el);
+    return el;
+  };
+  var states = {};
+  ['driveway', 'front_doorbell', 'garden', 'garage', 'side_gate', 'patio', 'pool', 'shed', 'porch', 'attic'].forEach(function (n) {
+    states['camera.' + n] = { entity_id: 'camera.' + n, state: 'idle', attributes: { friendly_name: n } };
+  });
+  var h = hass();
+  Object.keys(states).forEach(function (id) { h.states[id] = states[id]; });
+  var card = H.make('hk-grid-cameras-card');
+  card.setAttribute('size', 'F');
+  card.setConfig({ cameras: Object.keys(states), refresh: 15 });
+  hkGive(card, h);
+  card._render();
+  var m = made[0], cfg = m && m.configs[m.configs.length - 1];
+  eq('one mosaic of stills in the block\'s arrangement (nothing before the house is known)', [made.length, cfg.type, cfg.grid, cfg.cameras.length, cfg.refresh, cfg.live],
+     [1, 'custom:hk-camera-mosaic-card', [3, 3], 9, 15, undefined]);
+  eq('...the first nine, in order', cfg.cameras[1].entity, 'camera.front_doorbell');
+  eq('...sized as its block', m.getAttribute('size'), 'F');
+  window.hkPopupCover = 0;
+  card.connectedCallback();                                         // (on the page: it listens)
+  window.dispatchEvent(new CustomEvent('hk-house-event', { detail: { type: 'notification', kind: 'doorbell', camera: 'camera.front_doorbell' } }));
+  cfg = m.configs[m.configs.length - 1];
+  eq('a ring: the doorbell live in its place, the only live one', [cfg.live, made.length], ['camera.front_doorbell', 1]);
+  window.hkPopupCover = 1;
+  window.dispatchEvent(new CustomEvent('hk-popup-change', { detail: { cover: 1 } }));
+  eq('a sheet over it (the camera sheet, live): its tile a still again', m.configs[m.configs.length - 1].live, undefined);
+  window.hkPopupCover = 0;
+  window.dispatchEvent(new CustomEvent('hk-popup-change', { detail: { cover: 0 } }));
+  eq('...and live again when it closes, while it rings', m.configs[m.configs.length - 1].live, 'camera.front_doorbell');
+  window.dispatchEvent(new CustomEvent('hk-house-event', { detail: { type: 'notification', kind: 'motion' } }));
+  eq('another notification changes nothing', m.configs[m.configs.length - 1].live, 'camera.front_doorbell');
+  card.disconnectedCallback();
+  card._render();
+  eq('off the page: no ring kept', m.configs[m.configs.length - 1].live, undefined);
+  window.hkCards.createCard = factory;
+},
+function () {
   H.section('Everything');
   var card = H.make('hk-everything-card');
   card.setConfig({});

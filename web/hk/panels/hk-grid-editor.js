@@ -7,37 +7,46 @@
 (function () {
   'use strict';
   if (window.hkGridEditor) return;
-  var G = window.hkGridCatalog, SIZES = G.SIZES;
+  var G = window.hkGridCatalog, SIZES = Object.assign({}, G.SIZES);
+  // FULL (F, 2026-10-30, the Cameras face): the view's whole grid. Its
+  // columns and rows are the grid's, so SIZES.F is the grid last taken in
+  // (sized(): the draft's, or the one a pure function is handed) and every
+  // placement rule reads it as any size: at [0, 0] only, alone in its view.
+  function sized(grid) {
+    if (grid && grid.cols > 0 && grid.rows > 0) SIZES.F = [grid.cols, grid.rows];
+    return grid;
+  }
   var NAMES = { accessory: 'Accessory', accessories: 'Accessory Group', scene: 'Scene', scenes: 'Scenes', now_playing: 'Now Playing',
     thermostat: 'Thermostat', camera: 'Camera', security: 'Security', timers: 'Timers', weather: 'Weather',
     calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', clock: 'Clock',
-    room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything',
+    room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything', cameras: 'Cameras',
     power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water' };
-  var SIZE_NAMES = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width' };
+  var SIZE_NAMES = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width', F: 'Full View' };
   // a size on a chip or a segment, short enough for four in a row
-  var SIZE_SHORT = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'X-Large', XXL: 'Full' };
+  var SIZE_SHORT = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'X-Large', XXL: 'Full', F: 'Full View' };
   var GROUPS = [
     ['Rooms & Lights', ['room', 'accessory', 'accessories', 'action']], ['Scenes', ['scene', 'scenes', 'scene_suggested']],
     ['Climate', ['thermostat', 'weather']], ['Music', ['now_playing', 'music', 'live_tv']],
-    ['Security & Cameras', ['security', 'doors', 'camera']], ['Info', ['clock', 'timers', 'calendar', 'battery', 'power', 'water', 'people', 'vacuum', 'everything']]
+    ['Security & Cameras', ['security', 'doors', 'camera', 'cameras']], ['Info', ['clock', 'timers', 'calendar', 'battery', 'power', 'water', 'people', 'vacuum', 'everything']]
   ];
   var DESCRIPTIONS = { room: 'Your room’s lights, fans and speaker', accessory: 'One light, switch or other accessory', accessories: 'Accessories you choose, in swipe pages',
     action: 'One tap for a household job', scene: 'Set a favourite scene', scenes: 'Your scenes together',
     scene_suggested: 'The right scene for the time of day', thermostat: 'Temperature and climate; Extra Large has every control',
     weather: 'Current conditions and the forecast', now_playing: 'Music and playback controls', security: 'The alarm, locks and doors; Large is the keypad',
-    camera: 'One camera, or swipe between cameras', clock: 'Digital or analog, with or without its box', timers: 'Timers and quick starts',
+    camera: 'One camera, or swipe between cameras', cameras: 'Up to nine cameras at once; Full View fills the page', clock: 'Digital or analog, with or without its box', timers: 'Timers and quick starts',
     calendar: 'Your upcoming events', battery: 'Your home’s stored energy', people: 'Who is home', vacuum: 'Cleaning status; Large adds controls and Clean Areas',
     everything: 'Open the screen’s full menu', power: 'Solar, the house, the battery and the grid right now',
     music: 'Choose speakers, then a playlist', doors: 'Locks, doors, windows and the garage', live_tv: 'Your channels; tap one to watch',
     water: 'Today’s water; Extra Large adds the main supply' };
   var GLYPHS = { room: 'mdi:sofa', accessory: 'mdi:lightbulb', accessories: 'mdi:view-grid', action: 'mdi:gesture-tap', scene: 'mdi:palette',
     scenes: 'mdi:palette', scene_suggested: 'mdi:weather-sunset', thermostat: 'mdi:thermostat', weather: 'mdi:weather-partly-cloudy',
-    now_playing: 'mdi:music', security: 'mdi:shield-home', camera: 'mdi:camera', clock: 'mdi:clock', timers: 'mdi:timer-outline',
+    now_playing: 'mdi:music', security: 'mdi:shield-home', camera: 'mdi:camera', cameras: 'mdi:cctv', clock: 'mdi:clock', timers: 'mdi:timer-outline',
     calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', everything: 'mdi:dots-horizontal',
     power: 'mdi:lightning-bolt', music: 'mdi:speaker-multiple', doors: 'mdi:door-closed-lock', live_tv: 'mdi:television-classic', water: 'mdi:water' };
   // AN OPTION'S NAME in the panel: by its kind (hk-grid-catalog.js opts), else by its own name
   var KIND_LABELS = { entity: 'Accessory', climate: 'Thermostat', camera: 'Camera', weather: 'Weather', vacuum: 'Vacuum',
-    speaker: 'Speaker', scene: 'Scene', scenes: 'Scenes', calendars: 'Calendars', area: 'Room', action: 'Does', windows: 'Time Windows', alarm: 'Alarm' };
+    speaker: 'Speaker', scene: 'Scene', scenes: 'Scenes', calendars: 'Calendars', area: 'Room', action: 'Does', windows: 'Time Windows', alarm: 'Alarm',
+    cameras: 'Cameras', refresh: 'Refresh' };
   var NAME_LABELS = { sky: 'Sky Background', title: 'Group Name', clock_style: 'Style', bare: 'Hide Box', big: 'Big Temperature', month: 'Month View' };
   // ONE THING OR PAGES THAT SWIPE, in each card's words: [one, its automatic source]
   var SHOW = { room: ['One Room', 'Swipe Between Rooms'], camera: ['One Camera', 'Swipe All Cameras'],
@@ -77,6 +86,7 @@
       a.at[1] < b.at[1] + y[1] && b.at[1] < a.at[1] + x[1];
   }
   function fits(grid, item) {
+    sized(grid);
     var z = SIZES[item.size];
     return !!z && item.at.every(Number.isInteger) && item.at[0] >= 0 && item.at[1] >= 0 &&
       item.at[0] + z[0] <= grid.cols && item.at[1] + z[1] <= grid.rows;
@@ -142,6 +152,7 @@
   // the cells a view's blocks take, as a list a cell each (row by row)
   function taken(grid, items) {
     var t = [];
+    sized(grid);
     for (var i = 0; i < grid.cols * grid.rows; i++) t.push(false);
     items.forEach(function (it) { mark(grid, t, it.size, it.at, true); });
     return t;
@@ -258,6 +269,7 @@
     return lay(true) || lay(false);
   }
   function firstSpace(grid, size, view) {
+    sized(grid);
     for (var row = 0; row < grid.rows; row++) for (var col = 0; col < grid.cols; col++) {
       var it = { size: size, at: [col, row], view: view === undefined ? VIEW : view };
       if (fits(grid, it) && !grid.items.some(function (x) { return overlap(it, x); })) return it.at;
@@ -300,6 +312,7 @@
   function reflow(grid, cols, rows) {
     var out = copy(grid), left = [];
     out.cols = cols; out.rows = rows; out.items = [];
+    sized(out);
     copy(grid.items).sort(function (a, b) { return (a.at[1] - b.at[1]) || (a.at[0] - b.at[0]); }).forEach(function (it) {
       var at = SIZES[it.size] && SIZES[it.size][0] <= cols ? firstSpace(out, it.size, it.view || 0) : null;
       if (!at) { left.push(it); return; }
@@ -419,7 +432,7 @@
     load(board) {
       this.o.board = board;
       this.version = versionOf(this.panel, this.o.path);
-      this.grid = board.home_grid ? copy(board.home_grid) : null;
+      this.grid = sized(board.home_grid ? copy(board.home_grid) : null);
       // a block saved with the older Show When (when + fallback) opens as rules: the fallback its
       // default, its own card its one rule (hk-grid-catalog.js rulesOf); Save writes it that way
       if (this.grid) this.grid.items = this.grid.items.map(function (it) {
@@ -501,7 +514,7 @@
         this.undoStack.push({ grid: copy(this.grid), selected: this.selected });
         if (this.undoStack.length > 50) this.undoStack.shift();
       }
-      this.grid = grid; this.saveButton.disabled = false; this.undoButton.disabled = !this.undoStack.length;
+      this.grid = sized(grid); this.saveButton.disabled = false; this.undoButton.disabled = !this.undoStack.length;
       if (this.selected && !grid.items.some((it) => it.id === this.selected)) this.selected = null;
       this.say(''); this.blocks(); this.side(); this.fit(); this.preview();
     }
@@ -1282,6 +1295,7 @@
         if (kind === 'entity') choices = choices.filter((op) => /^(light|switch|fan)\./.test(op[0]));
         if (kind === 'speaker') choices.sort((a, b) => (self.panel.client.states[b[0]]?.state === 'playing') - (self.panel.client.states[a[0]]?.state === 'playing'));
         if (kind === 'scenes' || kind === 'calendars') { if (choices.length) opts[name] = choices.slice(0, kind === 'scenes' ? 6 : 2).map((op) => op[0]); return; }
+        if (kind === 'cameras' || kind === 'refresh') return;                  // (the face: every camera, its own refresh)
         if (choices.length && !['windows', 'surface', 'boolean'].includes(kind)) opts[name] = choices[0][0];
       });
       return opts;
@@ -1457,6 +1471,12 @@
           rows.push(K.select({ label: 'Style', value: opts[key] || '', options: G.CLOCK_FACES, onChange: (v) => set(key, v || null) }));
           return;
         }
+        // THE CAMERAS FACE: how often its stills refresh (s), and which cameras -- none ticked: all of them
+        if (kind === 'refresh') {
+          rows.push(K.select({ label: 'Refresh', value: String(opts[key] || 10), options: [5, 10, 15, 20, 30, 60].map((n) => [String(n), 'Every ' + n + ' Seconds']),
+            onChange: (v) => set(key, +v === 10 ? null : +v) }));
+          return;
+        }
         if (kind === 'days') {
           rows.push(K.select({ label: 'Days', value: String(opts[key] || 2), options: [1, 2, 3, 4, 5, 6, 7].map((n) => [String(n), n === 1 ? 'Today Only' : n === 2 ? 'Today and Tomorrow' : n + ' Days']),
             onChange: (v) => set(key, +v === 2 ? null : +v) }));
@@ -1464,7 +1484,8 @@
         }
         var choices = self.choices(kind);
         if (card === 'scene' && kind === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
-        if (kind === 'scenes' || kind === 'calendars') {
+        if (kind === 'cameras' && !(opts[key] || []).length) rows.push(K.info({ label: 'All Cameras, in the Cameras page’s order. Tick some to choose.' }));
+        if (kind === 'scenes' || kind === 'calendars' || kind === 'cameras') {
           choices.forEach((op) => rows.push(K.check({ label: op[1], multi: true, on: (opts[key] || []).indexOf(op[0]) >= 0, onClick: (on) => {
             var list = (opts[key] || []).filter((v) => v !== op[0]); if (on) list.push(op[0]);
             if (list.length > 24) { self.say('At most 24 in a list.'); return; } set(key, list.length ? list : null);
@@ -1519,7 +1540,8 @@
       var client = this.panel.client, states = client.states || {};
       if (kind === 'area') return [['tablet_room', 'Tablet’s Room']].concat(Object.keys(client.areas || {}).map((id) => [id, client.areas[id].name || id]));
       var domains = { scene: ['scene', 'script'], scenes: ['scene'], speaker: ['media_player'], climate: ['climate'], camera: ['camera'],
-        timer: ['timer'], alarm: ['alarm_control_panel'], select: ['input_select', 'select'], doorbell: ['binary_sensor', 'camera'], weather: ['weather'], vacuum: ['vacuum'], calendars: ['calendar'], action: ['scene', 'script'] }[kind];
+        timer: ['timer'], alarm: ['alarm_control_panel'], select: ['input_select', 'select'], doorbell: ['binary_sensor', 'camera'], weather: ['weather'], vacuum: ['vacuum'], calendars: ['calendar'], action: ['scene', 'script'],
+        cameras: ['camera'] }[kind];
       var list = Object.keys(states).filter((id) => !domains || domains.indexOf(id.split('.')[0]) >= 0).map((id) => [id, (states[id].attributes || {}).friendly_name || id]);
       list.sort((a, b) => a[1].localeCompare(b[1]));
       if (kind === 'speaker' || kind === 'climate') list.unshift(['tablet_room', 'Tablet’s Room']);

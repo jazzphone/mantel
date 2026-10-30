@@ -89,6 +89,25 @@ window.addEventListener('hk-view-ready', function (e) { ready.push(e.detail.view
   v.cards = [band, a, b, c, pop, off];
   ok('re-setting the same cards keeps every slot and card in place', root.childNodes.every(function (s, i) { return s === before[i]; }) && a1.firstChild === a);
 })();
+// FULL (F, 2026-10-30): the Cameras face, the view's whole grid
+(function () {
+  ok('the catalog says Full is the grid\'s own', JSON.stringify(G.SIZES.F) === '[0,0]' && G.span('F', 2, 4).join() === '2,4');
+  [[6, 4, true], [3, 3, false], [2, 4, false]].forEach(function (t) {
+    var v = new View(), f = kid('f');
+    v.setConfig({ grid: { cols: t[0], rows: t[1], band: t[2] }, cards: [{ hk_band: true }, { hk_cell: { id: 'c1', size: 'F', at: [0, 0] } }] });
+    v.cards = [kid('band'), f];
+    var cell = v._root.childNodes.filter(function (k) { return k.className === 'cell'; })[0];
+    ok('a ' + t[0] + ' x ' + t[1] + ' grid: a Full block spans all of it' + (t[2] ? ', under the band' : ''),
+       !!cell && cell.style.gridColumn === '1 / span ' + t[0] && cell.style.gridRow === (t[2] ? 2 : 1) + ' / span ' + t[1],
+       cell && [cell.style.gridColumn, cell.style.gridRow]);
+    ok('...and tells its card how many columns and rows', cell.style['--hk-span-c'] === String(t[0]) && cell.style['--hk-span-r'] === String(t[1]) &&
+       f.attrs.size === 'F', [cell.style['--hk-span-c'], cell.style['--hk-span-r']]);
+  });
+  var v2 = new View(), s1 = kid('s');
+  v2.setConfig({ grid: { cols: 6, rows: 4, band: false }, cards: [{ hk_cell: { id: 's1', size: 'S', at: [0, 0] } }] });
+  v2.cards = [s1];
+  ok('...a block of its own size says nothing of the kind', v2._root.childNodes[0].style['--hk-span-c'] === undefined);
+})();
 (function () {
   var v = new View();
   var a = kid('a'), b = kid('b');
