@@ -1313,9 +1313,12 @@
       st.id = 'hk-bar-room';
       // 100dvh, the window as it shows now: on an iPad in Safari 100vh is the
       // window with its toolbars hidden, so a Home Grid that fits the window
-      // (100dvh) still scrolled by the toolbars' height (2026-10-24)
-      st.textContent = '#view[hk-bar-room]>' + SH.tags.view + '{min-height:calc(100vh - var(--hk-bar-room,0px))!important;' +
-        'min-height:calc(100dvh - var(--hk-bar-room,0px))!important}' +
+      // (100dvh) still scrolled by the toolbars' height (2026-10-24); less
+      // the Side Pane's band under the page and Edit mode's bar while they
+      // show, as a Home Grid's own height has them (hk-layout.js --g-room:
+      // the grid ran under the band, upright, 2026-10-31)
+      st.textContent = '#view[hk-bar-room]>' + SH.tags.view + '{min-height:calc(100vh - var(--hk-bar-room,0px) - var(--hk-pane-b,0px) - var(--hk-edit-room,0px))!important;' +
+        'min-height:calc(100dvh - var(--hk-bar-room,0px) - var(--hk-pane-b,0px) - var(--hk-edit-room,0px))!important}' +
         // (and Home Assistant's own #view, min-height:100vh, the same way)
         '#view[hk-bar-room]{min-height:100vh;min-height:100dvh}';
       // (a view in the document itself -- a host with no shadow roots: the head)

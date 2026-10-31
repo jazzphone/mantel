@@ -174,6 +174,9 @@ under them. Only a block swipes, never the whole screen (whole-screen pages: not
 - **Where:** Mantel Settings → Screens → the screen → **Arrange Home Grid**. In HK Frontend: HK Settings → the
   screen → Home Style → **Arrange Home Grid** (Home Assistant admins). Both open the editor in the browser,
   drawing the screen at its frame (1280 × 800), scaled to fit the window, with the house's live data.
+- **On the dashboard too** (2026-10-31): Edit mode, as on a generated page -- Edit Page, or Edit This Page in More
+  or an accessory's sheet -- drags, resizes, removes and adds blocks in place and saves the same `home_grid`
+  (`hk-edit-grid.js`; [HOMEVIEW-LOOK.md](HOMEVIEW-LOOK.md) Build log). A block's options stay the editor's.
 - **Not on the tablet.** A tablet shows the grid and never offers editing.
 - **The editor:**
   - The grid shows its cells.

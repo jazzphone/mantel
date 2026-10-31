@@ -239,7 +239,8 @@ load(HK_ROOT + '/frontend/modules/hk-sidepane.js');
   var w = parseFloat(v._root.style.width), h = parseFloat(v._root.style.height), want = Math.round(w * room / h);
   ok('the grid filling the height says the width it takes', v.paneRoom(room) === want, [v.paneRoom(room), want]);
   var css = v._sr.children[0].textContent;
-  ok('...and a band under the page comes off its height', /--g-room:calc\(var\(--hk-bar-room,var\(--hk-tabbar-h,0px\)\) \+ var\(--hk-pane-b,0px\)\)/.test(css));
+  ok('...and a band under the page comes off its height', /--g-room:calc\(var\(--hk-bar-room,var\(--hk-tabbar-h,0px\)\) \+ var\(--hk-pane-b,0px\) \+ var\(--hk-edit-room,0px\)\)/.test(css));
+  ok('...and Edit mode\'s bar too (hk-edit.js makeRoom: --hk-edit-room)', /--hk-edit-room,0px/.test(css));
   var X = window.hkSidePane._;
   // a square canvas (the 3 x 3 Square cells draw one): the pane keeps its Width, the grid fits the rest (2026-10-30)
   v._root.style.width = '668.4px'; v._root.style.height = '668.4px';

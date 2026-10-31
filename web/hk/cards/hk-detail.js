@@ -1691,7 +1691,7 @@
       if (editHere) {
         html += '<div class="sec editpg"><div class="cap">This Page</div><div class="grp"><button class="edpg" type="button">' +
           '<hk-icon icon="mdi:pencil"></hk-icon>Edit This Page</button></div>' +
-          '<div class="note">Drag the tiles on this page into place, and make them Tall or Regular.</div></div>';
+          '<div class="note">' + esc(window.hkEdit.hint ? window.hkEdit.hint() : 'Drag the tiles on this page into place, and make them Tall or Regular.') + '</div></div>';
       }
       html += '<div><div class="cap">Icon</div><div class="grp"><label class="gsearch"><input type="search" class="gq" ' +
         'placeholder="Search all icons" aria-label="Search all icons" autocomplete="off" spellcheck="false"></label>' +

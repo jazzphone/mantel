@@ -141,11 +141,12 @@ async function who() {
   assert.equal(await m.page.evaluate(() => editBar().querySelector('.t').textContent), 'Editing Kitchen', 'More\'s Edit Page');
   await m.page.evaluate(() => hkEdit.cancel());
   await close(m);
-  // a Home Grid screen's Home: its own editor, no Edit Page; its other pages are offered it
+  // a Home Grid screen's Home: Edit Page too (its blocks, hk-edit-grid.js -- grid_edit_check.py arranges them);
+  // its other pages as ever
   const g = await open('/em-grid/home', OWNER());
-  assert.equal(await g.page.evaluate(() => hkEdit.offer(hkCards.client())), false, 'not on a Home Grid screen\'s Home');
+  assert.equal(await g.page.evaluate(() => hkEdit.offer(hkCards.client())), true, 'on a Home Grid screen\'s Home');
   await g.page.evaluate(() => hkMenu.open()); await g.page.waitForTimeout(400);
-  assert(!(await g.page.evaluate(() => menuRows())).includes('Edit Page'), 'no Edit Page row on the Home Grid');
+  assert((await g.page.evaluate(() => menuRows())).includes('Edit Page'), 'an Edit Page row on the Home Grid');
   await go(g, '/em-grid/lights');
   assert.equal(await g.page.evaluate(() => hkEdit.offer(hkCards.client())), true, '...but on its Lights page');
   await close(g);
@@ -167,7 +168,7 @@ async function who() {
       await close(x);
     }
   }
-  pass('who: Edit Page in the menu and in More for an Owner; none for a Member, at a wall tablet, on a Home Grid\'s Home');
+  pass('who: Edit Page in the menu and in More for an Owner, a Home Grid\'s Home too; none for a Member or at a wall tablet');
 }
 
 // ------------------------------------------------------------------ the Edit bar beside a tab bar

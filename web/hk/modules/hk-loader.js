@@ -90,6 +90,9 @@
                  // ...Edit mode's menu, tab bar and Room Order (phase G):
                  // registers with hkEdit once both are in
                  'hk-edit-menu.js',
+                 // ...and Edit mode on a Home Grid's blocks (2026-10-31): the
+                 // same, and fetches the grid editor's rules when offered
+                 'hk-edit-grid.js',
                  'hk-drag.js',
                  // Swipe Between Pages (hk-pageswipe.js): listens for a
                  // sideways swipe on the page; reads the tab bar's list

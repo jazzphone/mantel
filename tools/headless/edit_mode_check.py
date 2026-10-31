@@ -6,8 +6,8 @@ fictional house (gallery.py's), against a real Mantel Server.
                                                  [--only SECTION ...] [--shots DIRECTORY]
 
 What it checks (edit_mode_check.cjs says each one):
-  who      Edit Page is in the menu and in the tab bar's More for an Owner, never for a Member or at a wall tablet,
-           and not on a Home Grid screen's Home
+  who      Edit Page is in the menu and in the tab bar's More for an Owner (a Home Grid screen's Home too: its blocks,
+           grid_edit_check.py), never for a Member or at a wall tablet
   room     a room page: a pill carried (a finger held ~300 ms, then moved; the mouse in WebKit), one made Tall,
            Done -- the room's Tile Order and the size saved, the page drawn again in the saved order; a quick
            swipe over the pills scrolls the page and lifts nothing

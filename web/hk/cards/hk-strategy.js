@@ -3284,6 +3284,8 @@
                         climateMembers: viaClient(climateMembers), pageMembers: viaClient(pageMembers),
                         batteryOf: viaClient(function (client, id) { return sibling(client, id, 'battery'); }),
                         groupOf: viaClient(groupOf), ownChange: ownChange,
+                        // a Home Grid's view from a layout (Edit mode's preview, hk-edit-grid.js)
+                        homeGridView: homeGridView,
                         // built again now, from the settings as they are (Edit mode's Reload)
                         rebuild: refreshKeepingPlace,
                         room: HkRoomViewStrategy.generate,

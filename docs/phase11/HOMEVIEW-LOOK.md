@@ -1369,3 +1369,47 @@ something can move to the volume line?"). Either opens the screensaver's panel (
 what plays at its foot) over the pane, at the pane's size (`musicPanel`); a tap outside, its X, Escape or a request
 landing close it. The Now Playing block keeps its turn-over, larger than the block (the owner: "the block can get
 larger"). `test_sidepane` (+4), `side_pane_check`.
+
+**2026-10-31, Edit mode on a Home Grid.** The owner: "we should include the same live edit mode on the
+HomeView/HomeGrid style dashboard like we have on the generated dashboards ... drag things around or even change
+sizes / remove icons ... right from the dashboard itself too!" A Home Grid screen's Home is now offered Edit the way
+every generated page is -- Edit Page in the menu, Edit This Page in the tab bar's More and in an accessory's sheet --
+with the same bar, Cancel and Done (`web/hk/modules/hk-edit-grid.js`, an `hkEdit` surface that says `grid: true`; the
+pills' surfaces never claim anything on a Home Grid). In Edit mode each block wiggles (a dashed frame with Reduce
+Motion) and:
+
+- **drags** with a finger (moved, or held a quarter second) or the mouse, snapping to the cells; an outline shows where
+  it would go (red where there is no way), and the blocks it lands on make room by the Home Grid editor's own rule
+  (`hkGridEditor.makeRoom`). The arrow keys move it a cell; Escape while it is held puts it back.
+- **changes size** from the badge at its foot: a sheet of the sizes its card comes in that the grid holds. A size
+  goes where the block is if it fits, else to the nearest place it fits with nothing else moved; one with no room
+  anywhere is greyed and says so ("No room"), and one its pages or rules can't take says why, in the editor's words
+  (`hkGridEditor.cannotResize`, taken out of the editor's `resize()`).
+- **is removed** with the minus at its top left (or Delete).
+- **is added** from Add in the bar: the catalog's cards in the editor's groups, each at the sizes the grid holds, put
+  in the first space of the view shown. One accessory and one scene are left to Arrange Home Grid, which chooses
+  what they show.
+
+The draft is the screen's `home_grid`, changed only by the editor's pure functions (`place`, `makeRoom`,
+`firstSpace`, `valid`; `hk-grid-editor.js` is fetched when a Home Grid is first offered Edit). Done sends one
+`board/set {home_grid}` with the screen's version, as the editor's Save does, checked by hk_core
+(`settings/home_grid.py check`; nothing new to decide there). The page itself is the preview: the strategy's own
+`homeGridView` draws the draft (`hkStrategy.homeGridView`, now exported), a block's element kept while its card is the
+same (a move changes only its cell; a size that changes the card makes it once), and `hk-home-grid-view` gained
+`arrange(config, elements)` and `cellBox()`. Cancel gives the view back its own config and elements; after Done it
+stays as arranged until the screen is built again from what was saved. A screen saved before today draws exactly as
+it did.
+
+While the bar shows, the grid gives its height up as well as moving down (`--hk-edit-room`, read by the view's
+`--g-room` and the tab bar's min-height rule), so it fits between the bar and the tab bar instead of running under
+the tab bar. Found on the way: the tab bar's min-height rule left out the Side Pane's band under an upright page, so
+a 3 × 3 Home Grid ran under the band; it takes `--hk-pane-b` off now, as the view does.
+
+Checks: `test_edit_grid.js` (83: the rules, the cards, the surface, a session on the real view -- keys, minus,
+sizes, Done with the version, Cancel); `test_edit.js` and `test_homegrid.js` updated; `tools/headless/grid_edit_check.py`
+(new, in `tools/ci.py`) in WebKit with the mouse and a finger at 1180 × 820, 820 × 1180 and 390 × 844 -- a 6 × 4
+Home Grid under a tab bar (every change, Done, drawn the same after a reload), the Square screen from an accessory's
+sheet (Cancel), and a 3 × 3 beside the Side Pane (Escape, Done); `edit_mode_check`'s `who` now expects Edit Page on a
+Home Grid's Home. **Left:** a block moves within the view shown (the dots go to another view; carrying one across
+views is not built); a block's options are still Arrange Home Grid's; a tablet's 6 × 4 grid on a phone draws its
+blocks small, and the badges stay at least 20 px there, over a good part of each block.
