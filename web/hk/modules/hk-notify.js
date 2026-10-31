@@ -176,7 +176,9 @@
     '.layer.sv{left:var(--hk-safe-left,env(safe-area-inset-left,0px));right:var(--hk-safe-right,env(safe-area-inset-right,0px))}',
     // (and clear of a side safe area -- the iPhone Duo's strip, a phone
     // turned: hk-base.js SAFE, 2026-10-30; over the saver too)
-    '.layer{position:fixed;left:max(var(--hk-content-left,0px), var(--hk-safe-left,env(safe-area-inset-left,0px)));right:max(var(--hk-page-right,0px), var(--hk-safe-right,env(safe-area-inset-right,0px)));top:0;height:0;z-index:' + Z + ';pointer-events:none;',
+    // (the whole screen's centre, over a Side Pane's edge too, as an iPad's own banners -- the owner, 2026-10-31,
+    // picked it over centring on the page beside the pane: --hk-page-right is no longer taken off)
+    '.layer{position:fixed;left:max(var(--hk-content-left,0px), var(--hk-safe-left,env(safe-area-inset-left,0px)));right:var(--hk-safe-right,env(safe-area-inset-right,0px));top:0;height:0;z-index:' + Z + ';pointer-events:none;',
     // the dashboard's font, as every HK surface outside the view has it
     // (hk-base.js puts --hk-font-body on the root; this sheet is built before
     // hk-base may have loaded). It named -apple-system first, which an
