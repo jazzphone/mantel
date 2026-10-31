@@ -996,13 +996,15 @@
     // show at their top, read live from the house's settings as those pages
     // read them, so a block follows a change without the screen being built
     // again. `panel`:
-    //   power     W the status in sentences; L, XL the house picture (or the
-    //             flow chart, as the Power page draws it), shrunk to fit
+    //   power     (2026-10-31) the power now and the day's chart, Activity's
+    //             numbers on the block's own plate (_ownPower)
     //   music     the speaker picker: speakers, presets and playlists
     //   doors     the house with its ways in: locks, doors, windows, garage
+    //             (S, W, T: how many are open and the list, _ownDoors)
     //   climate   a thermostat's full controls (its sheet)
     //   tv        Live TV's channels; a tap plays one full screen
-    //   water     the day's water; XL with the main supply beside it
+    //   water     (2026-10-31) today's water and the day's bars, the days
+    //             before beside them (_ownWater)
     // Nothing set up for it: the block says where to set it up.
     var PANEL_EMPTY = {
       power: ['Power', 'Add Energy with a power plan in Settings to show power here.'],
@@ -1022,24 +1024,18 @@
     }
     // what a panel block mounts: [{cfg, cls}] (each in a part of its own), or null
     function panelParts(kind, size, cfg, client) {
-      var big = size === 'L' || size === 'XL';
       if (kind === 'power') {
         var added = setting('added', []) || [], E = added.indexOf('energy') >= 0 ? setting('energy', null) : null, W = E && E.power;
         if (!W || typeof W !== 'object') return null;
         var B = W.battery || {};
-        // S (2026-10-31, the owner's widget mock-up): the power now, large,
-        // and the last three hours as a short chart -- drawn here (`own`)
-        if (size === 'S') return [{ own: 'power', home: W.home || null }];
-        // W: the status at its own height, shrunk to the block if it must be
-        if (!big) return [{ cls: 'fit fitw', cfg: { type: 'custom:hk-power-status-card', grid_status: W.grid_status, problem: B.problem, level: B.level,
-          backup: B.backup, home: W.home, charge: B.charge, discharge: B.discharge, eps: B.eps, storm: B.storm, solar: W.solar,
-          grid: W.grid, height: 'auto' } }];
-        // (the picture is as tall as its width makes it: shrunk to the block, cls fit)
-        return [{ cls: W.picture !== false ? 'fit' : '', cfg: W.picture !== false
-          ? { type: 'custom:hk-power-house-card', art: W.art, home: W.home, grid: W.grid, grid_export: W.grid_export, grid_status: W.grid_status,
-              solar: W.solar, level: B.level, charge: B.charge, discharge: B.discharge, reserve: B.reserve }
-          : { type: 'custom:hk-power-flow-card', grid: W.grid, home: W.home, level: B.level, grid_status: W.grid_status,
-              charge: B.charge, discharge: B.discharge, height: '100%' } }];
+        // EVERY SIZE AS ACTIVITY'S NUMBERS (2026-10-31, the owner's widget
+        // mock-up; the status in sentences at Wide and the house picture at
+        // Large were the Power page's own, and drew no plate of their own on
+        // a block): a green Using Now, the power now large, and a chart along
+        // the foot -- Small the last three hours, the rest the day; Large
+        // the sun and the battery under the figure; Extra Large today's top
+        // users beside it. Drawn here (`own`); the Power page keeps its cards.
+        return [{ own: 'power', home: W.home || null, solar: W.solar || null, level: B.level || null }];
       }
       if (kind === 'music') {
         var M = window.hkMusic, sp = M && M.speakers ? M.speakers() : [];
@@ -1071,21 +1067,15 @@
       }
       if (kind === 'water') {
         var hw = (setting('headers', null) || {}).water || {};
-        // S, W and T (2026-10-31, the widget mock-up): today large and the
-        // day's bars, drawn here -- Tall with the days before under them
-        if (size === 'S' || size === 'W' || size === 'T') return [{ own: 'water', meter: hw.meter || null }];
-        var parts = [{ cfg: Object.assign({ type: 'custom:hk-water-day-card', height: '100%' },
-          hw.meter ? { meter: hw.meter } : {}) }];
-        // XL: the main supply beside the day, as the Water page has it
-        var supply = hw.supply && client.states[hw.supply] ? hw.supply : Object.keys(client.states).filter(function (v) {
-          return dom(v) === 'valve' && /main|supply|shut.?off/i.test(v + ' ' + (attr(client.states[v], 'friendly_name') || ''));
-        })[0];
-        if (size === 'XL' && supply) { parts.push({ cfg: { type: 'custom:hk-water-supply-card', entity: supply, height: '100%' } }); }
-        // (the day's plate as tall as its part: a percent of the card's own
-        // wrapper left it at its content's 158 px, 2026-10-31 -- the part is a
-        // size container, so 100cqh is the part's height)
-        parts[0].cfg.height = '100cqh';
-        return parts;
+        // EVERY SIZE AS THE WIDGET MOCK-UP (2026-10-31): today large and the
+        // day's bars, drawn here -- Tall with the days before under them,
+        // Large and Extra Large with what the leak sensors say, Extra Large
+        // with the days before beside it. (The Water page keeps its day and
+        // its main supply; the block was the page's small chart in a big
+        // empty plate.)
+        var lk = null;
+        try { lk = window.hkStrategy && window.hkStrategy.inventory ? window.hkStrategy.inventory(client, hidesOf()).leaks : null; } catch (e) { lk = null; }
+        return [{ own: 'water', meter: hw.meter || null, leaks: lk || [] }];
       }
       return null;
     }
@@ -1138,7 +1128,8 @@
       '.wr em{font-style:normal;' + type('caption') + ';color:' + v('ink-2') + ';white-space:nowrap}' +
       '.wr>div.more{cursor:default}.wr>div.more b{font-weight:500;color:' + v('ink-2') + '}' +
       '.wg hk-icon{display:block;flex:none;--mdc-icon-size:100%}' +
-      '.wsplit{display:flex;gap:18px;flex:1;min-height:0}.wsplit>:last-child{flex:1}';
+      '.wsplit{display:flex;gap:18px;flex:1;min-height:0}.wsplit>:last-child{flex:1}' +
+      '.waxis{display:flex;justify-content:space-between;margin-top:6px;flex:none;' + type('micro') + ';color:' + v('ink-3') + '}';
     // a glyph from the MDI subset (web/mdi), in a color
     function gly(icon, px, col) {
       return '<hk-icon icon="' + icon + '" style="width:' + px + 'px;height:' + px + 'px' + (col ? ';color:' + col : '') + '"></hk-icon>';
@@ -1166,7 +1157,9 @@
       list.forEach(function (x) { if (typeof x.v === 'number' && x.v > mx) mx = x.v; });
       return '<svg class="wc" width="' + Math.round(w) + '" height="' + Math.round(h) + '" viewBox="0 0 ' + w.toFixed(1) + ' ' + h + '" aria-hidden="true">' + list.map(function (x, i) {
         var bh = Math.max(3, (mx > 0 && typeof x.v === 'number' ? Math.max(0.06, x.v / mx) : 0.06) * h);
-        return '<rect x="' + (i * (bw + gap)).toFixed(1) + '" y="' + (h - bh).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="' + rx.toFixed(1) + '" fill="' + x.c + '"/>';
+        return '<rect x="' + (i * (bw + gap)).toFixed(1) + '" y="' + (h - bh).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="' + rx.toFixed(1) + '" fill="' + x.c + '"' +
+          // (`ghost`: a slot still to come, drawn from the day before -- half the ink)
+          (x.ghost ? ' fill-opacity=".5"' : '') + '/>';
       }).join('') + '</svg>';
     }
     // a short chart's height: 40, or 28 on a tile cell (its figure keeps its room)
@@ -1233,7 +1226,7 @@
       var byNow = usual * share, pct = byNow > 0.5 ? Math.round(100 * (tot - byNow) / byNow) : null;
       var st0 = client.states[ids[0]];
       return { tot: tot, unit: attr(st0, 'unit_of_measurement') || '', seq: seq, day24: day24,
-               week: days.slice(0, -1).reverse(), more: /:/.test(ids[0]) ? null : ids[0],
+               week: days.slice(0, -1).reverse(), day0: days.length ? days[days.length - 1].t : new Date(), more: /:/.test(ids[0]) ? null : ids[0],
                cmp: pct == null ? '' : Math.abs(pct) < 15 ? 'About usual' : Math.abs(pct) + '% ' + (pct > 0 ? 'above' : 'below') + ' usual' };
     }
     // a door, a window or the garage: open, and its glyph
@@ -1287,32 +1280,96 @@
       }
       // A PART OF ITS OWN (the widget sizes): the entities it reads
       _ownIds(p) {
-        if (p.own === 'power') return p.home ? [p.home] : [];
+        if (p.own === 'power') return [p.home, p.solar, p.level].filter(Boolean);
         if (p.own === 'doors') return [].concat(p.doors, p.garage, p.windows);
-        if (p.own === 'water') return (p.meter ? [p.meter] : WATER_SRC.ids || []).slice(0, 1);
+        if (p.own === 'water') return (p.meter ? [p.meter] : WATER_SRC.ids || []).slice(0, 1).concat(p.leaks || []);
         return [];
       }
       _drawOwn() {
         var o = this._own;
         if (!o) return;
         var p = o.spec, size = sizeOf(this) || 'S', box = inner(this, size), h = this.client || { states: {} };
-        var html = p.own === 'power' ? this._ownPower(p, box, h) : p.own === 'doors' ? this._ownDoors(p, size, box, h) : this._ownWater(p, size, box, h);
+        var html = p.own === 'power' ? this._ownPower(p, size, box, h) : p.own === 'doors' ? this._ownDoors(p, size, box, h) : this._ownWater(p, size, box, h);
         if (html === o.html) return;
         o.html = html;
         C.morph(o.plate, html);
       }
-      // POWER, SMALL: what the house uses now, and the last three hours in
-      // fifteen-minute bars (the recorder's five-minute means, three to a bar)
-      _ownPower(p, box, h) {
-        var w = wattsOf(h, p.home), S = window.hkStats, five = S && p.home ? S.fiveMinute(h, [p.home], 37, this) : null;
-        var rows = (five && five[p.home]) || [], closed = rows.slice(-37, -1), bars = [];
-        for (var k = 0; k < 12; k++) {
-          var g = closed.slice(k * 3, k * 3 + 3).map(function (r) { return r.v; }).filter(function (x) { return typeof x === 'number'; });
-          bars.push({ v: g.length ? g.reduce(function (a, x) { return a + x; }, 0) / g.length : null, c: ACC.green });
+      // POWER: what the house uses now, large. Small the last three hours in
+      // fifteen-minute bars (the recorder's five-minute means, three to a
+      // bar); Wide, Large and Extra Large the day by the hour (each hour's
+      // mean since midnight, the hour we are in the reading now, the hours
+      // still to come yesterday's in gray). Large adds the sun and the
+      // battery under the figure, and the hours under the chart; Extra Large
+      // today's top users beside it.
+      _ownPower(p, size, box, h) {
+        var w = wattsOf(h, p.home), S = window.hkStats;
+        var kw = function (x) { return x == null ? ['—', ''] : Math.abs(x) >= 1000 ? [(x / 1000).toLocaleString(numTag(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }), 'kW'] : [Math.round(x).toLocaleString(numTag()), 'W']; };
+        var fig = kw(w), more = p.home ? ' data-more="' + esc(p.home) + '"' : '';
+        var lab = '<div class="wl" style="color:' + ACC.green + '">Using Now</div>';
+        if (size === 'S') {
+          var five = S && p.home ? S.fiveMinute(h, [p.home], 37, this) : null;
+          var rows = (five && five[p.home]) || [], closed = rows.slice(-37, -1), bars = [];
+          for (var k = 0; k < 12; k++) {
+            var g = closed.slice(k * 3, k * 3 + 3).map(function (r) { return r.v; }).filter(function (x) { return typeof x === 'number'; });
+            bars.push({ v: g.length ? g.reduce(function (a, x) { return a + x; }, 0) / g.length : null, c: ACC.green });
+          }
+          return lab + '<div class="wb"' + more + '>' + fig[0] + '</div>' +
+            '<div class="ws">' + fig[1] + '</div><div class="wf" role="img" aria-label="The last three hours">' + wbars(bars, box.iw, shortH(box)) + '</div>';
         }
-        var fig = w == null ? ['—', ''] : Math.abs(w) >= 1000 ? [(w / 1000).toLocaleString(numTag(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }), 'kW'] : [Math.round(w).toLocaleString(numTag()), 'W'];
-        return '<div class="wl" style="color:' + ACC.green + '">Using Now</div><div class="wb"' + (p.home ? ' data-more="' + esc(p.home) + '"' : '') + '>' + fig[0] + '</div>' +
-          '<div class="ws">' + fig[1] + '</div><div class="wf" role="img" aria-label="The last three hours">' + wbars(bars, box.iw, shortH(box)) + '</div>';
+        var hr = S && p.home ? S.hourly(h, [p.home], 48, this, { type: 'mean' }) : null, ser = (hr && hr[p.home]) || [], day = [];
+        if (ser.length) {
+          var start = -1;
+          for (var i = ser.length - 1; i >= 0; i--) if (S.fields(ser[i].t).hour === 0) { start = i; break; }
+          if (start < 0) start = Math.max(0, ser.length - 24);
+          for (var j = 0; j < 24; j++) {
+            var at = start + j, y = start - 24 + j;
+            if (at < ser.length) day.push({ v: at === ser.length - 1 && w != null ? w : ser[at].v, c: ACC.green });
+            else day.push({ v: y >= 0 && ser[y] ? ser[y].v : null, c: v('ink-3'), ghost: true });
+          }
+        }
+        while (day.length < 24) day.push({ v: null, c: v('ink-3'), ghost: true });
+        var big = '<div class="wb"' + more + '>' + esc(fig.join(' ').trim()) + '</div>';
+        var chart = function (cw, ch) { return '<div class="wf" role="img" aria-label="Today, hour by hour">' + wbars(day, cw, ch) + '</div>'; };
+        var axis = '<div class="waxis"><span>12 AM</span><span>6</span><span>12 PM</span><span>6</span></div>';
+        if (size === 'W') return lab + big + chart(box.iw, Math.max(30, box.ih - 19 - 46 - 10));
+        // the sun now and the battery's level, where the house has them
+        var sun = p.solar ? wattsOf(h, p.solar) : null, lv = p.level && h.states[p.level] ? Number(h.states[p.level].state) : NaN;
+        var line = [sun != null ? 'Solar ' + kw(sun).join(' ') : '', isFinite(lv) ? 'Battery ' + Math.round(lv) + '%' : ''].filter(Boolean).join(' · ');
+        var sub = line ? '<div class="ws">' + esc(line) + '</div>' : '';
+        var chH = Math.max(40, box.ih - 19 - 46 - (line ? 19 : 0) - 12 - 19);
+        if (size === 'L') return lab + big + sub + chart(box.iw, chH) + axis;
+        // XL: the chart on the left; today's top users on the right -- the
+        // whole house, then the Energy page's devices by what they used today
+        var lw = Math.round((box.iw - 22) * 0.58), users = this._topUsers(h);
+        var room = Math.max(1, Math.floor((box.ih - 19 - 6) / 36));
+        return '<div class="wsplit" style="gap:22px"><div class="wcol" style="flex:0 0 ' + lw + 'px">' + lab + big + sub + chart(lw, chH) + axis + '</div>' +
+          '<div class="wcol"><div class="wl" style="color:' + v('ink-2') + '">Today</div><div class="wr" style="margin-top:6px">' +
+          users.slice(0, room).map(function (u) {
+            return '<div' + (u.more ? ' data-more="' + esc(u.more) + '"' : ' style="cursor:default"') + '>' + gly(u.icon, 20, null) + '<b>' + esc(u.name) + '</b><em>' + u.v + '</em></div>';
+          }).join('') + '</div></div></div>';
+      }
+      // TODAY'S TOP USERS (Extra Large): the house so far today (the Energy
+      // page's own sum, hkEnergy.summary), then each device the Energy page
+      // counts, by its kWh today -- both null until their statistics land
+      _topUsers(h) {
+        var E = window.hkEnergy, EP = window.hkEnergyPage, out = [], self = this;
+        // (the Energy page's file, asked for by name where no card of it is on the screen, as the
+        // screensaver's energy asks: hk-loader.js hkNeed.file)
+        if (!E && window.hkNeed && window.hkNeed.file && !this._askedEnergy) {
+          this._askedEnergy = true;
+          window.hkNeed.file('hk-energy.js').then(function () { self.redraw(); });
+        }
+        var kwh = function (x) { return x == null ? '—' : (x >= 100 ? Math.round(x) : Math.round(x * 10) / 10).toLocaleString(numTag(), { minimumFractionDigits: x >= 100 ? 0 : 1 }) + ' kWh'; };
+        var s = null;
+        try { s = E && E.summary ? E.summary(h, this) : null; } catch (e) { s = null; }
+        out.push({ name: 'House', icon: 'mdi:home', v: kwh(s ? s.today.energy : null), more: null });
+        var M = EP && EP.getModel ? EP.getModel(h, this) : null;
+        (M ? M.devs : []).filter(function (d) { return d.counted && d.stat; }).map(function (d) {
+          return { d: d, v: EP.todayOf ? EP.todayOf(h, self, d.stat) : null };
+        }).filter(function (r) { return r.v != null && r.v > 0.05; }).sort(function (a, b) { return b.v - a.v; }).forEach(function (r) {
+          out.push({ name: r.d.name, icon: r.d.icon || 'mdi:power-plug', v: kwh(r.v), more: r.d.power || r.d.stat });
+        });
+        return out;
       }
       // DOORS AND WINDOWS: how many are open, large; Wide the count beside
       // the list, Tall over it -- the open ones first, in orange
@@ -1358,16 +1415,33 @@
         var last12 = d.seq.slice(-12).map(function (x) { return { v: x, c: ACC.cyan }; });
         if (size === 'S') return lab + big + '<div class="ws">' + unit + ' today</div><div class="wf">' + wbars(last12, box.iw, shortH(box)) + '</div>';
         if (size === 'W') {
-          var day = d.day24.map(function (x) { return { v: x.v, c: x.fut ? v('ink-3') : ACC.cyan }; });
+          var day = d.day24.map(function (x) { return { v: x.v, c: x.fut ? v('ink-3') : ACC.cyan, ghost: x.fut }; });
           return '<div class="wsplit"><div class="wcol" style="flex:0 0 130px">' + lab + big + '<div class="ws">' + unit + ' today</div>' +
             (d.cmp ? '<div class="ws">' + esc(d.cmp) + '</div>' : '') + '</div>' +
             '<div class="wcol" style="justify-content:flex-end">' + wbars(day, box.iw - 130 - 18, Math.max(40, box.ih - 30)) + '</div></div>';
         }
         var tz = window.hkStats && window.hkStats.tz();
         var row = function (x) {
-          return '<div><b>' + esc(new Date(x.t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', timeZone: tz }))) + '</b><em>' +
+          return '<div style="cursor:default"><b>' + esc(new Date(x.t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', timeZone: tz }))) + '</b><em>' +
             (x.v == null ? '—' : amount(x.v) + ' ' + unit) + '</em></div>';
         };
+        if (size === 'L' || size === 'XL') {
+          // what the leak sensors say: one wet, by name and in red; else "no leaks", where the house has them
+          var wet = (p.leaks || []).filter(function (id) { return h.states[id] && h.states[id].state === 'on'; });
+          var leak = wet.length ? '<span style="color:' + ACC.red + '">Leak: ' + esc(attr(h.states[wet[0]], 'friendly_name') || wet[0]) + '</span>'
+            : (p.leaks || []).length ? 'no leaks' : '';
+          var line = [d.cmp ? esc(d.cmp) : '', leak].filter(Boolean).join(' · ');
+          var today = '<div class="wl" style="color:' + ACC.cyan + '">Today</div><div class="wb"' + more + '>' + amount(d.tot) + ' ' + unit + '</div>' +
+            (line ? '<div class="ws">' + line + '</div>' : '');
+          var hours = d.day24.map(function (x) { return { v: x.v, c: x.fut ? v('ink-3') : ACC.cyan, ghost: x.fut }; });
+          var chH = Math.max(40, box.ih - 19 - 46 - (line ? 19 : 0) - 14);
+          if (size === 'L') return today + '<div class="wf">' + wbars(hours, box.iw, chH) + '</div>';
+          var lw = Math.round((box.iw - 22) * 0.58);
+          return '<div class="wsplit" style="gap:22px"><div class="wcol" style="flex:0 0 ' + lw + 'px">' + today + '<div class="wf">' + wbars(hours, lw, chH) + '</div></div>' +
+            '<div class="wcol"><div class="wl" style="color:' + v('ink-2') + '">This Week</div>' +
+            // (today first, as the mock-up's Sat over Fri, Thu, Wed)
+            '<div class="wr" style="margin-top:6px">' + fitRows([{ t: d.day0, v: d.tot }].concat(d.week), box.ih - 19 - 6, row) + '</div></div></div>';
+        }
         var room = box.ih - 19 - 46 - 19 - (d.cmp ? 19 : 0) - 12 - 44 - 14 - 19 - 4;
         return lab + big + '<div class="ws">' + unit + ' today</div>' + (d.cmp ? '<div class="ws">' + esc(d.cmp) + '</div>' : '') +
           '<div style="margin-top:12px">' + wbars(last12, box.iw, 44) + '</div>' +

@@ -23,7 +23,7 @@ var FEED = {
   kinds: { lights: ['light.kitchen_pendants', 'light.den_lamp', 'light.porch_light', 'light.all_downstairs'],
            speakers: ['media_player.kitchen_speaker', 'media_player.den_speaker'], fans: ['fan.bedroom_fan'],
            doors: ['binary_sensor.front_door', 'binary_sensor.back_door'], windows: ['binary_sensor.office_window'],
-           garage: ['cover.garage_door'], locks: ['lock.front_door'] },
+           garage: ['cover.garage_door'], locks: ['lock.front_door'], leaks: ['binary_sensor.sink_leak'] },
   generated: { exclude_entities: ['light.den_lamp'] }
 };
 window.hkSettings = {
@@ -196,7 +196,10 @@ function () {
   houseStats();
   var house = H.house({
     'sensor.home_power': ['1800', { unit_of_measurement: 'W' }],
+    'sensor.solar_power': ['2100', { unit_of_measurement: 'W' }],
+    'sensor.battery_level': ['76', { unit_of_measurement: '%' }],
     'sensor.water_meter': ['48211', { unit_of_measurement: 'gal' }],
+    'binary_sensor.sink_leak': ['off', { friendly_name: 'Sink Leak', device_class: 'moisture' }],
     'binary_sensor.front_door': ['off', { friendly_name: 'Front Door', device_class: 'door' }],
     'binary_sensor.back_door': ['off', { friendly_name: 'Back Door', device_class: 'door' }],
     'binary_sensor.office_window': ['on', { friendly_name: 'Office Window', device_class: 'window' }],
@@ -210,7 +213,13 @@ function () {
   var p = panel('power', 'S'), html = H.morphed(p._own.plate);
   ok('Power S: using now, large, in kW, and the last three hours as twelve bars', /Using Now/.test(html) && />1.8</.test(html) && />kW</.test(html) &&
      (html.match(/<rect /g) || []).length === 12, html);
-  eq('...Wide is still the status in sentences', panel('power', 'W')._own, null);
+  html = H.morphed(panel('power', 'W')._own.plate);
+  ok('Power W: on its own plate, the power now and the day as 24 hours', /1.8 kW</.test(html) && (html.match(/<rect /g) || []).length === 24, html);
+  ok('...the hours still to come yesterday\'s, at half the ink', (html.match(/fill-opacity=".5"/g) || []).length > 0, html);
+  html = H.morphed(panel('power', 'L')._own.plate);
+  ok('Power L: the sun and the battery under the figure, the hours under the chart', /Solar 2.1 kW · Battery 76%/.test(html) && /12 AM/.test(html), html);
+  html = H.morphed(panel('power', 'XL')._own.plate);
+  ok('Power XL: the chart left, today\'s top users right, the house first', /Today<\/div>/.test(html) && /<b>House<\/b>/.test(html) && /mdi:home/.test(html), html);
   html = H.morphed(panel('water', 'S')._own.plate);
   ok('Water S: today large (the hours since midnight and this one so far), gal today, twelve bars', /class="wb" data-more="sensor.water_meter">/.test(html) && /gal today/.test(html) &&
      (html.match(/<rect /g) || []).length === 12, html);
@@ -218,7 +227,13 @@ function () {
   ok('Water W: the number beside the day\'s 24 hours, against a usual day', (html.match(/<rect /g) || []).length === 24 && /usual/i.test(html), html);
   html = H.morphed(panel('water', 'T')._own.plate);
   ok('Water T: the short chart, then This Week, the days before newest first', /This Week/.test(html) && (html.match(/<em>\d+ gal<\/em>/g) || []).length >= 2, html);
-  ok('Water L is still the Water page\'s day, as tall as its block', panel('water', 'L')._parts()[0].cfg.height === '100cqh');
+  html = H.morphed(panel('water', 'L')._own.plate);
+  ok('Water L: Today, "N gal" large, against usual and no leaks, the day\'s 24 hours', /Today<\/div><div class="wb" data-more="sensor.water_meter">[\d,]+ gal</.test(html) &&
+     /no leaks/.test(html) && (html.match(/<rect /g) || []).length === 24, html);
+  html = H.morphed(panel('water', 'XL', house.set('binary_sensor.sink_leak', 'on'))._own.plate);
+  ok('Water XL: This Week beside it, today first; a wet sensor by name, in red', /This Week/.test(html) && /Leak: Sink Leak/.test(html) &&
+     (html.match(/<em>\d+ gal<\/em>/g) || []).length >= 3, html);
+  house.set('binary_sensor.sink_leak', 'off');
   html = H.morphed(panel('doors', 'S')._own.plate);
   ok('Doors S: how many are open, large, and which', /class="wb xl">1</.test(html) && /open · Office Window/.test(html) && /mdi:window-open/.test(html), html);
   html = H.morphed(panel('doors', 'W')._own.plate);

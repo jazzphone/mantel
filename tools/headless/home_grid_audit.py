@@ -140,6 +140,9 @@ def _hour(at: float) -> dict:
     return {"sensor.grid_energy_in": grid_in, "sensor.grid_energy_out": grid_out, "sensor.grid_energy_cost": grid_in * 0.21,
             "sensor.solar_energy": sun, "sensor.battery_energy_in": into, "sensor.battery_energy_out": out,
             "sensor.water_meter": k * (1.5 + 16 * bell(7, 1.2) + 12 * bell(19, 1.8)),
+            # the plan's devices (the Power block's top users)
+            "sensor.laundry_energy": k * 1.3 * bell(10, 1.2), "sensor.dishwasher_energy": k * 0.9 * bell(20, 0.8),
+            "sensor.office_energy": 0.12 if 8 <= h <= 18 else 0.02,
             # the means: the house's power in W, the battery's level in %
             "sensor.home_power": 1000 * use, "sensor.house_battery_level": max(20.0, min(100.0, 45 + 9 * max(0, min(h, 15) - 9) - 7 * max(0, h - 17)))}
 
@@ -150,8 +153,9 @@ def stat_rows(msg: dict) -> dict:
     step = {"5minute": 300, "hour": 3600, "day": 86400, "week": 604800, "month": 2678400}[msg.get("period", "hour")]
     t = datetime.fromisoformat(msg["start_time"].replace("Z", "+00:00")).timestamp()
     now, out = time.time(), {i: [] for i in msg["statistic_ids"]}
-    while t + step <= now:
-        hours = [t + 3600 * n for n in range(24)] if step == 86400 else [t]
+    # (a day is its closed hours, today's too: Home Assistant sums a day's buckets from its hourly ones)
+    while t + (3600 if step == 86400 else step) <= now:
+        hours = [t + 3600 * n for n in range(24) if t + 3600 * (n + 1) <= now] if step == 86400 else [t]
         for i in msg["statistic_ids"]:
             vals = [_hour(x).get(i) for x in hours]
             if None in vals:
@@ -421,7 +425,12 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                 # shows, and the test server's settings feed has no Energy feature to send (hkSettings.get answers
                 # `added` and `energy` as a house with it would)
                 # (and its sun, house and grid now, which the Battery and Power blocks read)
-                plan = json.dumps({"sections": [], "power": {"path": "power", "battery": BATTERY, "home": "sensor.home_power",
+                dev = lambda key, name, icon, stat: {"key": key, "kind": "device", "name": name, "icon": icon, "stat": stat, "power": None}
+                plan = json.dumps({"sections": [{"id": "appliances", "name": "Appliances", "items": [
+                    dev("app.laundry", "Laundry", "mdi:washing-machine", "sensor.laundry_energy"),
+                    dev("app.dishwasher", "Dishwasher", "mdi:dishwasher", "sensor.dishwasher_energy"),
+                    dev("app.office", "Office", "mdi:power-plug", "sensor.office_energy")]}],
+                                   "power": {"path": "power", "battery": BATTERY, "home": "sensor.home_power",
                                                              "solar": "sensor.solar_power", "grid": "sensor.grid_power"}})
                 await b.send("Page.addScriptToEvaluateOnNewDocument", source="""(() => { let hs;
                   Object.defineProperty(window, 'hkSettings', { configurable: true, get() { return hs; }, set(v) {
