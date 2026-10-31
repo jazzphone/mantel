@@ -129,3 +129,10 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - Mantel 0.1.92 on the house (build 2ed5250cf6828f14, commit ae5be214): the screensaver Shows reach the screensaver, the Side Pane and Pages Screen fixes, columns, renaming screens; healthz strict ok; all five tablets reloaded and drew.
 - HK Frontend 1.19.0 on the house from the built clone; tagged v1.19.0 and released on jazzphone/hk-frontend with its wiki.
 - Mantel Link unchanged (0.1.8).
+
+## Mantel 0.1.93 and HK Frontend 1.20.0 (2026-10-31)
+
+- Mantel App 0.1.93 (build fd4a80f1e5416a3e, commit 2153fcb9): /healthz?strict=1 ok, Home Assistant connected.
+- HK Frontend 1.20.0 copied into custom_components (v1.20.0 on GitHub; wiki unchanged); Home Assistant restarted.
+- The five kiosks reloaded; each drew its first screen in 1.8-2.8 s.
+- Date-dependent tests fixed before publishing (82ae53dd): they failed after midnight.
