@@ -661,6 +661,24 @@
     var a = String(own || PAGE_ACCENTS[kind]).toLowerCase();
     return ACCENTS[a] || (/^#[0-9a-f]{6}$/.test(a) ? a : null);
   }
+  // AN APP ICON (the Pages screen's; the tab bar's More and Rooms sheets,
+  // 2026-10-31): a rounded square in a colour, a little lighter at the top,
+  // a little deeper at the foot, as iPadOS's own. A page's colour is its
+  // accent (pageAccentHex); rooms have none, so each takes one by its place
+  // in the menu's rooms -- the same room the same colour in both places.
+  var ROOM_TINTS = ['orange', 'yellow', 'indigo', 'teal', 'green', 'pink', 'blue', 'purple', 'mint', 'red', 'cyan'];
+  function roomTint(i) { return ROOM_TINTS[(i || 0) % ROOM_TINTS.length]; }
+  function iconMix(hex, to, f) {
+    var c = [1, 3, 5].map(function (i) { return parseInt(hex.substr(i, 2), 16); });
+    return '#' + c.map(function (x) {
+      var y = Math.round(x + (to - x) * f);
+      return (y < 16 ? '0' : '') + y.toString(16);
+    }).join('');
+  }
+  function iconGradient(hex) {
+    if (!/^#[0-9a-f]{6}$/i.test(hex || '')) hex = '#8e8e93';
+    return [iconMix(hex, 255, 0.18), iconMix(hex, 0, 0.08)];
+  }
   // the photo's fade: the theme's own ground over it, `fade` 0..100
   function flatFade(fade, theme) {
     var f = Math.max(0, Math.min(100, fade == null ? 50 : +fade || 0)) / 100;
@@ -4431,6 +4449,9 @@
   window.hkCards.pageAccentHex = pageAccentHex;
   window.hkCards.ACCENTS = ACCENTS;
   window.hkCards.PAGE_OF_PATH = PAGE_OF_PATH;
+  window.hkCards.ROOM_TINTS = ROOM_TINTS;
+  window.hkCards.roomTint = roomTint;
+  window.hkCards.iconGradient = iconGradient;
   window.hkCards.pageTone = pageTone;
   window.hkCards.flatGround = flatGround;
   window.hkCards.FLAT_COLORS = FLAT_COLORS;

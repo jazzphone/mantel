@@ -305,6 +305,36 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await shot(page, tag + '-tall-pane-calendar');
       await page.evaluate(() => Object.assign(document.getElementById('solo').style, { bottom: '0px', height: '' }));
     }
+    // ALL SCREENS' SIDE PANE PAGE IN SETTINGS HAS ITS PREVIEW (2026-10-31, the owner: "there still isn't a
+    // preview in the Side Pane global page") -- a screen that follows All Screens, and where every screen has a
+    // pane of its own, the first screen drawing All Screens' pane (hkSidePane.previewHouse)
+    if (W === 1180) {
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      cur = 'settings/house/sidepane';
+      await page.goto(input.origin + '/settings#/house/sidepane');
+      await page.waitForTimeout(6000);
+      const frameOf = () => page.evaluate(() => {
+        const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
+        const fr = deep(document).find((e) => e.tagName === 'IFRAME' && e.closest && e.closest('.pvbox'));
+        if (!fr) return null;
+        const P = fr.contentWindow && fr.contentWindow.hkSidePane, pane = P && P.pane();
+        return { src: fr.getAttribute('src') || '', own: pane ? pane.own : null };
+      });
+      const follower = await frameOf();
+      want('Settings, All Screens\' Side Pane page: a preview, of a screen that follows All Screens', follower, !!follower);
+      // ...every screen its own: the panel's own data says so, the page drawn again
+      await page.evaluate(() => {
+        const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
+        const panel = deep(document).find((e) => e.tagName === 'HK-SETTINGS-PANEL');
+        Object.values(panel.data.boards || {}).forEach((b) => { b.side_pane_read = Object.assign({}, b.side_pane_read || {}, { own: ['dashboard'] }); });
+        location.hash = '#/house';
+        setTimeout(() => { location.hash = '#/house/sidepane'; }, 300);
+      });
+      await page.waitForTimeout(6000);
+      const house = await frameOf();
+      want('...and with every screen its own, the first screen drawing All Screens\' pane', house, !!house && Array.isArray(house.own) && house.own.length === 0);
+      await shot(page, tag + '-settings-sidepane');
+    }
     if (errors.length) fails.push(tag + ' page errors: ' + errors.join(' | '));
     await context.close();
   }

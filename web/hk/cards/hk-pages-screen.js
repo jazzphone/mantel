@@ -72,9 +72,8 @@
   var PILL_W = 200, PILL_H = 8, PILL_W_PHONE = 134, PILL_H_PHONE = 5, PILL_UP = 22;
   // a swipe up the pill this far goes Home
   var PILL_SWIPE = 24;
-  // the rooms' own colors, by their place in the list (rooms have no Accent
-  // Color): accent names, drawn as hkCards.ACCENTS has them
-  var ROOM_TINTS = ['orange', 'yellow', 'indigo', 'teal', 'green', 'pink', 'blue', 'purple', 'mint', 'red', 'cyan'];
+  // (the rooms' own colors, by their place in the list: hkCards.roomTint,
+  // shared with the tab bar's sheets)
   var PHONE_W = 640;
 
   // ---------------------------------------------------------------- pure
@@ -134,7 +133,7 @@
       (m.top || []).concat(m.categories || []).forEach(function (it) { if (it && it.kind !== 'pages') out.push(page(it)); });
     }
     var rooms = (m.rooms || []).map(function (r, i) {
-      return { key: 'room:' + viewKey(r), title: r.title, icon: r.icon, path: r.path, kind: 'room', tint: ROOM_TINTS[i % ROOM_TINTS.length] };
+      return { key: 'room:' + viewKey(r), title: r.title, icon: r.icon, path: r.path, kind: 'room', tint: window.hkCards.roomTint(i) };
     });
     if (ps.rooms === 'each') out = out.concat(rooms);
     else if (ps.rooms !== 'none' && rooms.length) out.push({ key: 'rooms', title: 'Rooms', kind: 'folder', rooms: rooms });
@@ -202,19 +201,9 @@
     return pill === 'on' || (pill !== 'off' && !tabBar);
   }
 
-  // AN ICON'S TWO COLORS, top and foot, from its accent (#rrggbb): a little
-  // lighter at the top, a little deeper at the foot, as iPadOS's own
-  function mix(hex, to, f) {
-    var c = [1, 3, 5].map(function (i) { return parseInt(hex.substr(i, 2), 16); });
-    return '#' + c.map(function (x) {
-      var y = Math.round(x + (to - x) * f);
-      return (y < 16 ? '0' : '') + y.toString(16);
-    }).join('');
-  }
-  function gradient(hex) {
-    if (!/^#[0-9a-f]{6}$/i.test(hex || '')) hex = '#8e8e93';
-    return [mix(hex, 255, 0.18), mix(hex, 0, 0.08)];
-  }
+  // AN ICON'S TWO COLORS, top and foot, from its accent (#rrggbb):
+  // hkCards.iconGradient, the tab bar's sheets' too
+  function gradient(hex) { return window.hkCards.iconGradient(hex); }
 
   // THE BADGES, by page kind: what waits there.
   //   timers   the quick timers running (sensor.running_quick_timers), else
@@ -667,6 +656,6 @@
     // its own page's, never a card to add by hand
     if (C.unlisted) C.unlisted('hk-pages-screen-card');
     window.hkPagesScreen = { card: HkPagesScreenCard, _: { grid: grid, icons: icons, place: place, pillOn: pillOn,
-                                                         gradient: gradient, badges: badges, ROOM_TINTS: ROOM_TINTS } };
+                                                         gradient: gradient, badges: badges, ROOM_TINTS: window.hkCards.ROOM_TINTS } };
   });
 })();

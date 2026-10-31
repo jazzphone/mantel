@@ -1319,3 +1319,18 @@ screensaver faces, Bright Glass). The other eleven were shot in WebKit beside th
   screensaver start at Starts After and the Sleep Screen take it away again (the Phase H entry's note); the Cameras
   face's stills are soft for a moment after a ring, until each reloads; Weather Tall and XL and Now Playing Tall on
   square cells keep their empty middles, for the widget pass the owner's references start.
+
+**2026-10-31, More and Rooms as app icons; Home Only takes in the Pages screen; the All Screens Side Pane preview.**
+The owner picked from a mock-up of three (round wells, bare glyphs, app icons): "App Icons, Roomy, and the Rooms
+having their own Color". Every page and room in the tab bar's More and Rooms sheets, and in More with the rooms in
+it, is the Pages screen's app icon: a rounded square, lighter at the top. A page takes its accent, a room its tint by
+its place in the menu's rooms, so a room is the same colour on both. Anything else (Home Assistant's pages,
+Notifications, This Page) is grey; Calendar shows the day's date. `hkCards.roomTint` and `iconGradient` (hk-base.js)
+are now shared with hk-pages-screen.js. On a tablet (its shorter side 600 or more) the sheet is bigger: up to 1040
+wide, 72 px clear of each side, its icons 76 px (the owner: "a lot bigger on the tablet, as long as there is enough
+room around it to tap out"). The phone keeps 60 px icons, and the list (More Style: List) its bare glyphs. Bright
+Glass On: Home Only now counts the Pages screen as Home ("they are essentially shared"). The Side Pane's All Screens
+page in Settings had no preview when every screen has a pane of its own; it now previews the first screen drawing
+All Screens' pane (`hkSidePane.previewHouse`). Checks: `bright_glass_check` (each room an app icon in its own
+colour; a tablet's sheet with 72 px of page each side; More with the rooms in it), `side_pane_check` (the Settings
+preview, both ways), `test_tabbar`, `test_glass` (Home Only on the Pages screen).
