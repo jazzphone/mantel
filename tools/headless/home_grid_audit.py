@@ -28,8 +28,10 @@ Text scale: HK draws its type roles in px (hk-base.js TYPE) and a wall tablet's 
 them (the Mantel app's web view sets -webkit-text-size-adjust:100%), so the one scale is the largest. The `long`
 pass instead names every thing at twice its usual length, which is what a larger text would do to a card.
 
-Stood in: the house's forecast (two forecast sensors), a family calendar's events, running timers, and the Energy
-feature's plan (on the page: the test server's feed has no Energy feature), so every block is measured full.
+Stood in: the house's forecast (two forecast sensors), a family calendar's events (today's, tomorrow's and the
+month's), running timers, two to-do lists and their items (the read the Side Pane makes, hk_frontend/todo/items:
+the test server's house commands are off, so it would say so), and the Energy feature's plan (on the page: the
+test server's feed has no Energy feature), so every block is measured full.
 """
 from __future__ import annotations
 
@@ -98,7 +100,13 @@ def _events() -> list[dict]:
             {"summary": "Piano Lesson", "start": {"dateTime": at(0, 16)}, "end": {"dateTime": at(0, 17)}, "location": "Maple Street"},
             {"summary": "Dinner with the Parkers", "start": {"dateTime": at(0, 18, 30)}, "end": {"dateTime": at(0, 20)}},
             {"summary": "Dentist", "start": {"dateTime": at(1, 9)}, "end": {"dateTime": at(1, 10)}},
-            {"summary": "Soccer Practice", "start": {"dateTime": at(1, 17)}, "end": {"dateTime": at(1, 18, 30)}}]
+            {"summary": "Soccer Practice", "start": {"dateTime": at(1, 17)}, "end": {"dateTime": at(1, 18, 30)}}] + [
+        # ...and the month around them: a dot under most days (the Calendar block's Extra Large)
+        {"summary": name, "start": {"dateTime": at(d, hour)}, "end": {"dateTime": at(d, hour + 1)}}
+        for d, name, hour in ((-20, "Book Club", 19), (-13, "Haircut", 10), (-9, "Parent Teacher Night", 18),
+                              (-6, "Yoga", 8), (-2, "Farmers Market", 9), (3, "Piano Lesson", 16), (4, "Dentist", 11),
+                              (6, "Movie Night", 19), (10, "Piano Lesson", 16), (13, "Car Service", 9),
+                              (17, "Yoga", 8), (21, "Book Club", 19), (24, "Piano Lesson", 16))]
 
 
 WEATHER = {"place": "Riverside", "forecast_hourly": "sensor.forecast_hourly", "forecast_daily": "sensor.forecast_daily"}
@@ -110,6 +118,13 @@ for _id, (_v, _u, _n) in {"level": ("82", "%", "Battery Level"), "stored": ("11.
                           "backup": ("9.5", "h", "Backup Time"), "reserve": ("20", "%", "Backup Reserve"),
                           "charge": ("1840", "W", "Charging Power"), "discharge": ("0", "W", "Discharging Power")}.items():
     EXTRA[BATTERY[_id]] = (None, (_v, {"friendly_name": _n, "unit_of_measurement": _u}))
+# the house's to-do lists, and what is on them (hk_frontend/todo/items' answer)
+TODO = {"todo.groceries": ("Groceries", ["Milk", "Eggs", "Coffee beans", "Lemons", "Paper towels", "Bread", "Apples",
+                                         "Rice", "Olive oil", "Butter", "Basil", "Oat milk"]),
+        "todo.household": ("Household", ["Replace filters", "Bins out", "Call the plumber", "Fix the gate",
+                                         "Book the chimney sweep"])}
+for _id, (_n, _items) in TODO.items():
+    EXTRA[_id] = (None, (str(len(_items)), {"friendly_name": _n, "supported_features": 15}))
 LONG = " and the Long Way Round"       # the `long` pass: every name this much longer
 
 
@@ -360,6 +375,14 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
     with tempfile.TemporaryDirectory(prefix="mantel-grid-audit-") as folder:
         app, cookie = await gallery.build(Path(folder))
         hub = app["hub"]
+        from mantel_server.connectors import Route
+
+        async def todo_items(ctx, msg):
+            eid = msg.get("entity_id")
+            name, items = TODO.get(eid, (eid, []))
+            return {"entity_id": eid, "name": name, "left": len(items),
+                    "items": [{"uid": f"{eid}-{i}", "summary": t, "done": False, "due": None} for i, t in enumerate(items)]}
+        app["read_routes"]["hk_frontend/todo/items"] = Route(request=todo_items)
         async with TestServer(app) as server:
             origin = str(server.make_url("")).rstrip("/")
             async with Browser(width=1280, height=800, port=9391) as b:

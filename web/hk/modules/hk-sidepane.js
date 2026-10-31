@@ -296,17 +296,32 @@
   // A TO-DO LIST'S ITEMS (hk_frontend/todo/items: hk_core/todo.py over the
   // House port), read again when the list's state (its count) changes; an
   // item checked off is struck through until the list says so
+  // (2026-10-31: the Home Grid's To-do block reads the same lists, hkSidePane.todo -- so whoever asks while a
+  // read is out is drawn again when it lands, not only the one that sent it)
   var TODO = {};
   function todoOf(c, eid, done, redraw) {
-    var t = TODO[eid] || (TODO[eid] = { sig: null, got: null, busy: false, off: {} });
+    var t = TODO[eid] || (TODO[eid] = { sig: null, got: null, busy: false, off: {}, wait: [] });
     var st = states(c)[eid], sig = st ? st.state + '|' + st.last_updated + '|' + !!done : null;
     if (c && c.callWS && sig && sig !== t.sig && !t.busy) {
-      t.busy = true; t.sig = sig;
+      t.busy = true; t.sig = sig; t.wait = [];
+      var landed = function () { var w = t.wait || []; t.wait = []; w.forEach(function (f) { f(); }); };
       c.callWS({ type: 'hk_frontend/todo/items', entity_id: eid, completed: !!done }).then(function (got) {
-        t.busy = false; t.got = got || null; t.off = {}; redraw();
-      }, function (e) { t.busy = false; t.got = { items: [], refused: (e && e.code) || 'failed' }; redraw(); });
-    }
+        t.busy = false; t.got = got || null; t.off = {}; redraw(); landed();
+      }, function (e) { t.busy = false; t.got = { items: [], refused: (e && e.code) || 'failed' }; redraw(); landed(); });
+    } else if (t.busy && redraw && (t.wait || (t.wait = [])).indexOf(redraw) < 0) t.wait.push(redraw);
     return t;
+  }
+  // CHECKED OFF: a house command (todo.update_item), struck through until the list says so; false when it is
+  // already on its way. ADDED: todo.add_item. Both through the page's action port, as every command.
+  function todoCheck(c, eid, uid) {
+    var t = TODO[eid];
+    if (!c || !c.actions || !eid || !uid || (t && t.off[uid])) return false;
+    if (t) t.off[uid] = true;
+    return c.actions.callService('todo', 'update_item', { item: uid, status: 'completed' }, { entity_id: eid })
+      .catch(function (e) { if (t) delete t.off[uid]; throw e; });
+  }
+  function todoAdd(c, eid, txt) {
+    return c.actions.callService('todo', 'add_item', { item: String(txt).slice(0, 200) }, { entity_id: eid });
   }
 
   // ------------------------------------------------------------ drawing
@@ -1183,13 +1198,10 @@
       } else if (act === 'todo') {
         // CHECKED OFF: a house command (todo.update_item), struck through
         // until the list says so
-        var eid = b.getAttribute('data-list'), uid = b.getAttribute('data-uid'), t = TODO[eid];
-        if (!eid || !uid || (t && t.off[uid])) return;
-        if (t) t.off[uid] = true;
+        var sent = todoCheck(c, b.getAttribute('data-list'), b.getAttribute('data-uid'));
+        if (!sent) return;
         b.classList.add('done');
-        c.actions.callService('todo', 'update_item', { item: uid, status: 'completed' }, { entity_id: eid }).catch(function () {
-          if (t) { delete t.off[uid]; } b.classList.remove('done');
-        });
+        sent.catch(function () { b.classList.remove('done'); });
       } else if (act === 'timer') {
         // A QUICK TIMER, as the Timers page starts one (the quick_timers package's script)
         var mins = Number(b.getAttribute('data-min')), p2 = function (n) { return (n < 10 ? '0' : '') + n; };
@@ -1205,7 +1217,7 @@
       var inp = f.querySelector('input'), txt = inp && String(inp.value || '').trim(), eid = f.getAttribute('data-list');
       if (!txt || !eid) return;
       inp.value = '';
-      c.actions.callService('todo', 'add_item', { item: txt.slice(0, 200) }, { entity_id: eid }).catch(function () { inp.value = txt; });
+      todoAdd(c, eid, txt).catch(function () { inp.value = txt; });
     }
     // (a widget is shown before it is placed: drawn again at its slot's size)
     connectedCallback() { if (this.getAttribute('mode') === 'widget' && this._o) this._draw(true); }
@@ -1470,6 +1482,8 @@
     // what the screensaver shows: its sections now, from the screen's Side Pane
     saverList: function (sp, c) { return shown(saverList(sp), function (s) { return has(c || clientNow(), s); }); },
     pane: paneOf,
+    // A TO-DO LIST'S ITEMS, checked off and added to, as the pane's own section does (the Home Grid's To-do block)
+    todo: { items: todoOf, check: todoCheck, add: todoAdd },
     sync: sync,
     previewHouse: function (on) { if (HOUSE === !!on) return; HOUSE = !!on; sync(); },
     // tests
