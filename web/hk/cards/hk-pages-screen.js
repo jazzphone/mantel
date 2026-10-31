@@ -330,6 +330,8 @@
       '.open .box{position:relative;background:rgba(255,255,255,.22);border-radius:' + C.R.sheet + 'px;overflow:auto;',
       '  box-shadow:0 10px 30px rgba(0,0,0,.2)}',
       '.open .app{position:relative}',
+      // (a room's name in the folder may take two lines rather than be cut)
+      '.open .nm{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-align:center}',
       '.open .grid{display:grid;justify-content:center}',
       '@keyframes hkPsOpen{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}',
       '.open .wrap{animation:hkPsOpen ' + C.DUR.standard + ' ' + C.EASE.standard + '}',
@@ -577,17 +579,27 @@
       }
 
       // THE OPEN FOLDER: the rooms as their own icons, four across (a
-      // phone's three), the folder's name over them; a tap outside closes it
+      // phone's three), the folder's name over them; a tap outside closes it.
+      // Its own slots, not the screen's (the owner, 2026-10-31): a tablet's
+      // were so wide the icons sat far in from the sides but close under
+      // the top; a phone's so narrow the names were cut with room to spare
+      // either side. Now a tablet's slot is an icon and a half, a phone's
+      // fills its width less the gutters; the top inset is the sides' (the
+      // padding and half the slot round the icon); a name may take two lines.
       _openHtml(d, g) {
         var f = d.list.filter(function (x) { return x.kind === 'folder'; })[0];
         if (!f) return '';
-        var cols = g.phone ? 3 : 4, self = this;
+        var self = this, n = Math.max(1, Math.min(g.phone ? 3 : 4, f.rooms.length)), pad = 12 * g.s;
+        var size = this._size() || { W: window.innerWidth || 1180, H: window.innerHeight || 820 };
+        var room = Math.max(n * g.icon, size.W - 2 * g.gutter - 2 * pad);
+        var slot = g.phone ? room / n : Math.min(room / n, Math.max(g.icon * 1.5, 150 * g.s));
+        var top = pad + Math.max(0, (slot - g.icon) / 2);
         var apps = f.rooms.map(function (rm) {
-          return self._app(rm, d, g, 'width:' + g.slotW.toFixed(1) + 'px;height:' + (SLOT_H * g.s).toFixed(1) + 'px');
+          return self._app(rm, d, g, 'width:' + slot.toFixed(1) + 'px;height:' + (SLOT_H * g.s).toFixed(1) + 'px');
         }).join('');
         return '<div class="open" data-close><div class="wrap"><h2>' + esc(f.title) + '</h2><div class="box" role="dialog" aria-label="' +
-               esc(f.title) + '" style="padding:' + (28 * g.s).toFixed(1) + 'px ' + (12 * g.s).toFixed(1) + 'px ' + (4 * g.s).toFixed(1) +
-               'px;max-height:' + Math.round(this._size().H * 0.7) + 'px"><div class="grid" style="grid-template-columns:repeat(' + Math.min(cols, f.rooms.length) + ',' + g.slotW.toFixed(1) + 'px)">' +
+               esc(f.title) + '" style="padding:' + top.toFixed(1) + 'px ' + pad.toFixed(1) + 'px ' + pad.toFixed(1) +
+               'px;max-height:' + Math.round(size.H * 0.7) + 'px"><div class="grid" style="grid-template-columns:repeat(' + n + ',' + slot.toFixed(1) + 'px)">' +
                apps + '</div></div></div></div>';
       }
 

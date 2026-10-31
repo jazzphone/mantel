@@ -105,6 +105,17 @@ const GRID = { '1180x820': [6, 3], '820x1180': [4, 5], '390x844': [4, 6] };
           return sr.querySelectorAll('.open .app').length;
         });
         assert(opened >= 4, c.name + ' the open folder\'s rooms ' + opened);
+        // (2026-10-31, the owner: its top inset the sides', no name cut, a phone's as wide as it can be)
+        const fit = await page.evaluate(() => {
+          const deep = (r, s) => [...r.querySelectorAll('*')].flatMap(e => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
+          const sr = deep(document, 'hk-pages-screen-card')[0].shadowRoot, box = sr.querySelector('.open .box').getBoundingClientRect();
+          const ics = [...sr.querySelectorAll('.open .ic')].map(e => e.getBoundingClientRect()), first = ics[0];
+          const cut = [...sr.querySelectorAll('.open .nm')].filter(e => e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1).length;
+          return { top: first.top - box.top, side: Math.min(...ics.map(r => r.left)) - box.left, cut, w: box.width, W: innerWidth };
+        });
+        assert(Math.abs(fit.top - fit.side) <= 4, c.name + ' the folder\'s top inset ' + fit.top.toFixed(1) + ' is not its sides\' ' + fit.side.toFixed(1));
+        assert(!fit.cut, c.name + ' the folder cuts ' + fit.cut + ' names');
+        if (fit.W < 600) assert(fit.w >= fit.W - 80, c.name + ' a phone\'s folder is ' + fit.w + ' of ' + fit.W);
         if (input.shots) await page.screenshot({ path: path.join(input.shots, c.name + '-folder.png') });
         await page.evaluate(() => {
           const deep = (r, s) => [...r.querySelectorAll('*')].flatMap(e => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
