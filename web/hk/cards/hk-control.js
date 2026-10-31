@@ -502,23 +502,23 @@ class HkControlCard extends HTMLElement {
          off HomeView in a Large block: the number 31 % of the block tall and
          centred 42.7 % down; the foot centred 86 % down, 7 % in from each side,
          the arrows (58 px, about 32 px of ink) level with the name and room.
-         Tall: the number by the width, at 40 %, 38 px arrows, 17 / 16 text,
-         the foot at 88 %. Heat and cool: both targets, at about 0.62 of it.
-         The name and room are the Centred tiles' (hk-base.js TILE.centred). */
+         Heat and cool: both targets, at about 0.62 of it. The name and room
+         are the Centred tiles' (hk-base.js TILE.centred). Extra Large (the
+         widget mock-up, 2026-10-31) draws the same face in its left part
+         (.face, a size container of its own, so its numbers are Large's). */
       :host([size]) .surface.big{height:100%}
       .surface.big{position:relative;container-type:size;box-sizing:border-box;padding:0}
+      .big .face{position:absolute;inset:0;container-type:size}
       .big .bn{position:absolute;left:0;right:0;top:42.7%;transform:translateY(-50%);text-align:center;color:${window.hkCards.v('ink')};
         font-weight:500;letter-spacing:-.03em;font-variant-numeric:tabular-nums;font-size:min(44cqh,44cqw);line-height:1;
         user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
-      :host([size=T]) .big .bn{font-size:min(25cqh,50cqw);top:40%}
       .big.range .bn{font-size:min(28cqh,24cqw)}
-      :host([size=T]) .big.range .bn{font-size:min(14cqh,27cqw)}
       .big.idle .bn{font-size:min(24cqh,30cqw)}
       /* THE PICKED TARGET in heat and cool: a dot under its digits, not a rule
          (the owner, 2026-10-30: "not a fan of the line under 66"); the dash
          between the two half an en dash, drawn, not the font's */
       .big .pk{all:unset;cursor:pointer;padding:0 .04em}
-      .big .pk.sel::before{content:"";position:absolute;left:50%;bottom:-.06em;width:.075em;height:.075em;min-width:8px;min-height:8px;
+      .big .bn .pk.sel::before{content:"";position:absolute;left:50%;bottom:-.06em;width:.075em;height:.075em;min-width:8px;min-height:8px;
         transform:translateX(-50%);border-radius:50%;background:${window.hkCards.v('ink')}}
       .big .ds{display:inline-block;width:.26em;height:.065em;min-height:4px;border-radius:calc(.065em / 2);background:currentColor;vertical-align:.3em;margin:0 .07em}
       .big .pk:focus-visible,.big .ar:focus-visible,.big .nm:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
@@ -541,15 +541,77 @@ class HkControlCard extends HTMLElement {
       .big .nm b{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}
       .big .nm b{font-size:${window.hkCards.TILE.centred.square.name}px;font-weight:600;line-height:${window.hkCards.TILE.centred.square.line}px;letter-spacing:-.3px;color:${window.hkCards.v('ink')}}
       .big .nm i{font-style:normal;font-size:${window.hkCards.TILE.centred.square.sub}px;font-weight:400;line-height:${window.hkCards.TILE.centred.square.line}px;color:${window.hkCards.v('ink-2')}}
-      :host([size=T]) .big .ft{grid-template-columns:38px minmax(0,1fr) 38px;column-gap:4px;left:2px;right:2px;top:88%}
-      :host([size=T]) .big .ar{width:38px;height:48px;border-radius:24px}
-      :host([size=T]) .big .ar svg{width:38px;height:38px;stroke-width:2.2}
-      :host([size=T]) .big .nm b{font-size:${window.hkCards.TILE.centred.tall.name}px;line-height:${window.hkCards.TILE.centred.tall.line}px}
-      :host([size=T]) .big .nm i{font-size:${window.hkCards.TILE.centred.tall.sub}px;line-height:${window.hkCards.TILE.centred.tall.line}px}
+      /* SMALL AND TALL (2026-10-31, the owner's notes on the widget mock-up):
+         a column inside the block's inset -- the target(s), Tall's row of
+         modes, then the foot: the arrows either side of the name, and under
+         it the mode and the reading ("Heat · 66°"). The number takes the
+         room the foot leaves and sits in the middle of it, the same space
+         above and below; on a tile cell (196 x 150) it is smaller by the
+         same rule. */
+      .big .in{position:absolute;inset:0;box-sizing:border-box;padding:${window.hkCards.blockPad(window.hkCards.CARD.pad)};display:flex;flex-direction:column;min-height:0}
+      .big .tg{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;gap:12px;color:${window.hkCards.v('ink')};
+        user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+      .big .one{display:flex;flex-direction:column;align-items:center;min-width:0}
+      .big .one b,.big .tt b{font-weight:500;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+      :host([size=S]) .big .one b{font-size:min(78px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px) * .72),48cqw)}
+      :host([size=S]) .big .one.long b{font-size:min(56px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px) * .6),30cqw)}
+      .big .one small,.big .tt small{${window.hkCards.typeCss('label-small')};line-height:14px;color:${window.hkCards.v('ink-2')}}
+      .big .heat small{color:${window.hkCards.ACCENTS.orange}}.big .cool small{color:${window.hkCards.ACCENTS.blue}}
+      /* ...heat and cool: the two side by side (Small) or cool over heat
+         (Tall), each label in its colour, the picked one on a light plate;
+         a tap picks one, the arrows step it */
+      .big .tt{all:unset;position:relative;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;
+        padding:4px 8px;border-radius:var(--hk-inner-radius,12px);cursor:pointer;-webkit-tap-highlight-color:transparent;min-width:0}
+      .big .tt.sel{background:${window.hkCards.v('key')}}
+      .big .tt:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
+      :host([size=S]) .big .tt{min-width:68px;min-height:60px}
+      :host([size=S]) .big .tt b{font-size:min(44px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px - 26px) * .9))}
+      :host([size=S]) .big .tg{gap:8px}
+      :host([size=T]) .big .tg{flex-direction:column;align-items:stretch;gap:6px}
+      :host([size=T]) .big .one b{font-size:min(96px,26cqh,50cqw)}
+      :host([size=T]) .big .one.long b{font-size:min(66px,18cqh,30cqw)}
+      :host([size=T]) .big .tt{padding:6px 8px}
+      :host([size=T]) .big .tt b{font-size:min(66px,16cqh)}
+      /* ...Tall's modes: a row of four, Heat, Cool, Auto, Off, each 44 px,
+         the one it is in white -- out into the inset a little, so four fit */
+      .big .mr{flex:none;align-self:center;width:176px;height:44px;margin:12px 0;display:flex;justify-content:space-between;border-radius:22px;background:${window.hkCards.v('key')}}
+      .big .mr button{all:unset;position:relative;box-sizing:border-box;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:${window.hkCards.v('ink')};cursor:pointer;-webkit-tap-highlight-color:transparent}
+      .big .mr button.on{background:#fff;color:#1c1c1e}
+      .big .mr hk-icon{width:22px;height:22px;--mdc-icon-size:22px;display:block;line-height:0}
+      .big .mr button:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
+      /* (on tile cells: two rows are 310 tall, not 405 -- hk-cell is the block's whole cell) */
+      @container hk-cell (max-height:380px){.big .mr{margin:8px 0}:host([size=T]) .big .tt{padding:4px 8px}}
+      /* ...the foot: 24 px arrows (28 on Tall) in 36 x 44 keys, each reaching 4 px past them (the face's
+         ::after): 44 x 52, and the name 6 px above and below its two lines -- a finger's 44 in the block's px */
+      .big .ff{flex:none;display:grid;grid-template-columns:36px minmax(0,1fr) 36px;align-items:center;min-height:44px}
+      .big .ff .ar{width:36px;height:44px;border-radius:12px;z-index:1}
+      .big .ff .ar svg{width:28px;height:28px;stroke-width:2.2}
+      :host([size=S]) .big .ff .ar svg{width:24px;height:24px}
+      .big .ff .nm b{${window.hkCards.typeCss('body')};font-weight:600;line-height:18px;display:block;white-space:nowrap;overflow-wrap:normal;letter-spacing:-.2px}
+      :host([size=T]) .big .ff .nm b{${window.hkCards.typeCss('headline')};line-height:21px}
+      /* (Tall's foot out into the inset, the arrows 12 px from the edge, so a name such as "Heat Pump" has
+         its 17 px between them) */
+      :host([size=T]) .big .ff{margin:0 calc(12px - var(--hk-pad-r,18px)) 0 calc(12px - var(--hk-pad-l,18px))}
+      .big .ff .nm i{${window.hkCards.typeCss('caption')};font-weight:400;line-height:16px}
+      /* EXTRA LARGE: the face, and the modes as a column the width of what is
+         left beside it, the reading inside centred under them */
+      :host([size=XL]) .big .face{right:calc(var(--hk-pad-r,18px) + 200px)}
+      .big .mc{position:absolute;top:var(--hk-pad-t,18px);bottom:var(--hk-pad-b,18px);right:var(--hk-pad-r,18px);width:200px;
+        display:flex;flex-direction:column;justify-content:center;gap:8px}
+      .big .mc>b{${window.hkCards.labelCss('label')};line-height:18px}
+      .big .mc button{all:unset;position:relative;box-sizing:border-box;flex:none;height:52px;border-radius:var(--hk-inner-radius,12px);display:flex;align-items:center;justify-content:center;gap:8px;
+        background:${window.hkCards.v('key')};color:${window.hkCards.v('ink')};${window.hkCards.typeCss('body')};font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}
+      .big .mc button.on{background:#fff;color:#1c1c1e}
+      .big .mc button:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
+      .big .mc hk-icon{width:20px;height:20px;--mdc-icon-size:20px;display:block;line-height:0}
+      .big .mc span{${window.hkCards.typeCss('caption')};line-height:18px;text-align:center;color:${window.hkCards.v('ink-2')};margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      @container hk-cell (max-height:380px){.big .mc{gap:6px}.big .mc button{height:46px}.big .mc span{margin-top:0}}
       /* ...a press and hold on the number: its modes, over the block */
       .big .modes{position:absolute;inset:0;display:none;flex-direction:column;justify-content:center;gap:8px;padding:16px;
         background:${window.hkCards.OVER.solid};border-radius:inherit}
       .big.choosing .modes{display:flex}
+      :host([size=S]) .big .modes{display:none;grid-template-columns:1fr 1fr;align-content:center;gap:8px;padding:14px}
+      :host([size=S]) .big.choosing .modes{display:grid}
       .big .modes .segment{flex:none;height:44px;border:0;border-radius:22px;color:${window.hkCards.v('ink')};font-size:15px;font-weight:600}
       .big .modes .segment.active{background:#fff;color:#1c1c1e;box-shadow:none}
     `;
@@ -575,7 +637,9 @@ class HkControlCard extends HTMLElement {
   _heater() { return String(this._entityId() || "").indexOf("water_heater.") === 0; }
   _climate(s) {
     if (this._heater()) return this._waterDial(s);
-    if (this._config.style === "big" && this.hasAttribute('size')) return this._big(s);
+    // (a Small block is Big Number whatever its style: a 196 x 150 tile has no room for the ring, its range
+    // ran across it and the name and modes were cut -- the lead, 2026-10-31)
+    if ((this._config.style === "big" || this.getAttribute('size') === "S") && this.hasAttribute('size')) return this._big(s);
     const a = s?.attributes || {}, mode = s?.state || "off";
     const action = a.hvac_action || mode;
     const cur = Number(a.current_temperature), hum = Number(a.current_humidity);
@@ -682,15 +746,21 @@ class HkControlCard extends HTMLElement {
   }
 
   // BIG NUMBER (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase C; a Home
-  // Grid thermostat block's Style, Tall and Large): the target very large,
-  // the arrows at its foot either side of the name and the room, as
-  // HomeView draws its thermostat. Heat and cool: both targets, a tap picks
-  // one (underlined) and the arrows step it. A press and hold on the number:
-  // the modes; a tap on the name: the sheet. Nothing else -- the mode and
-  // the reading are the sheet's. A step is the entity's target_temp_step
-  // (else 1 degree F, 0.5 C), held on the face as the dial holds a setpoint,
-  // and sent as the dial sends one (set_temperature through the card's
-  // action port) 600 ms after the last tap.
+  // Grid thermostat block's Style): the target very large, the arrows at its
+  // foot either side of the name, as HomeView draws its thermostat. Heat and
+  // cool: both targets, a tap picks one (a dot under it; on a light plate at
+  // Small and Tall) and the arrows step it. A press and hold on the number:
+  // every mode; a tap on the name: the sheet. A step is the entity's
+  // target_temp_step (else 1 degree F, 0.5 C), held on the face as the dial
+  // holds a setpoint, and sent as the dial sends one (set_temperature
+  // through the card's action port) 600 ms after the last tap.
+  //
+  // ...its sizes (2026-10-31, the owner's notes on the widget mock-up):
+  // Small the number alone over the foot, the mode and the reading under the
+  // name ("Heat · 66°"); Tall the targets stacked over a row of modes (Heat,
+  // Cool, Auto, Off); Large the measured face, the room and the mode under
+  // the name; Extra Large that face with the modes as a column beside it and
+  // "Inside 66° · 41% humidity" under them -- the real readings.
   _bigStep(a) {
     const n = Number(a && a.target_temp_step);
     if (n > 0) return n;
@@ -705,7 +775,7 @@ class HkControlCard extends HTMLElement {
     return (area && c?.areas?.[area]?.name) || "";
   }
   _big(s) {
-    const a = s?.attributes || {}, mode = s?.state || "off";
+    const a = s?.attributes || {}, mode = s?.state || "off", sz = ["S", "T", "XL"].includes(this.getAttribute("size")) ? this.getAttribute("size") : "L";
     let lo = Number(a.target_temp_low), hi = Number(a.target_temp_high), single = Number(a.temperature);
     const hold = this._hold;
     if (hold && Date.now() < hold.until) {
@@ -717,22 +787,52 @@ class HkControlCard extends HTMLElement {
     const range = mode === "heat_cool" && Number.isFinite(lo) && Number.isFinite(hi);
     const idle = mode === "off" || (!range && !Number.isFinite(single));
     const pick = this._bigPick === "high" ? "high" : "low", t = v => this._esc(this._bigText(v, a));
-    const pk = (which, v, verb) => `<button class="pk${pick === which ? " sel" : ""}" type="button" data-big-pick="${which}" aria-pressed="${pick === which}" aria-label="${verb} ${t(v)} degrees">${t(v)}</button>`;
-    const bn = mode === "off" ? "Off" : idle ? "\u2014" : range ? pk("low", lo, "Heat to") + '<span class="ds" aria-hidden="true"></span>' + pk("high", hi, "Cool to") : t(single);
     const ORDER = ["off", "heat", "cool", "heat_cool"];
     const has = Array.isArray(a.hvac_modes) && a.hvac_modes.length ? a.hvac_modes : ORDER;
     const modes = ORDER.filter(m => has.includes(m)).concat(has.filter(m => !ORDER.includes(m)));
-    const name = this._esc(this._name()), room = this._esc(this._room());
+    // (the four the row and the column show: Auto is heat and cool, else the
+    // entity's own auto; any other mode stays the hold's)
+    const FOUR = ["heat", "cool", has.includes("heat_cool") ? "heat_cool" : "auto", "off"].filter(m => has.includes(m));
+    const GLYPH = { heat: "mdi:fire", cool: "mdi:snowflake", heat_cool: "mdi:thermometer", auto: "mdi:thermometer", off: "mdi:power" };
+    const name = this._esc(this._name()), room = this._esc(this._room()), how = this._esc(this._pretty(mode));
+    // (a reading the entity lacks is null, and Number(null) is 0: not a reading)
+    const read = v => v == null || v === "" ? NaN : Number(v), cur = read(a.current_temperature), hum = read(a.current_humidity);
+    const sub = sz === "S" || sz === "T" ? how + (Number.isFinite(cur) ? " · " + Math.round(cur) + "°" : "")
+      : sz === "XL" ? (room || how) : (room ? room + " · " + how : how);
     const arrow = (dir, d, label) => `<button class="ar" type="button" data-big-step="${dir}" aria-label="${label}"${idle ? " disabled" : ""}>` +
       `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg></button>`;
-    return `<div class="surface big${range ? " range" : ""}${idle ? " idle" : ""}${this._bigModes ? " choosing" : ""}" data-big>
-      <div class="bn" data-big-num aria-label="${range ? "" : (mode === "off" ? "Off" : t(single) + " degrees") + ", press and hold for the modes"}">${bn}</div>
-      <div class="ft">
+    const foot = cls => `<div class="${cls}">
         ${arrow(-1, "M5.5 9.5 12 16l6.5-6.5", range ? (pick === "low" ? "Lower the heating target" : "Lower the cooling target") : "Lower the target")}
-        <button class="nm" type="button" data-tstat-details aria-label="${name}${room ? ", " + room : ""}, open the thermostat"><b>${name}</b>${room ? `<i>${room}</i>` : ""}</button>
+        <button class="nm" type="button" data-tstat-details aria-label="${name}${sub ? ", " + sub : ""}, open the thermostat"><b>${name}</b>${sub ? `<i>${sub}</i>` : ""}</button>
         ${arrow(1, "M5.5 14.5 12 8l6.5 6.5", range ? (pick === "low" ? "Raise the heating target" : "Raise the cooling target") : "Raise the target")}
-      </div>
-      <div class="modes" role="group" aria-label="Mode">${modes.map(m => `<button class="segment${mode === m ? " active" : ""}" type="button" data-mode="${this._esc(m)}">${this._esc(this._pretty(m))}</button>`).join("")}</div>
+      </div>`;
+    const held = `<div class="modes" role="group" aria-label="Mode">${modes.map(m => `<button class="segment${mode === m ? " active" : ""}" type="button" data-mode="${this._esc(m)}">${this._esc(this._pretty(m))}</button>`).join("")}</div>`;
+    const four = (cls, words) => `<div class="${cls}" role="group" aria-label="Mode">${words ? "<b>Mode</b>" : ""}${FOUR.map(m => `<button class="${mode === m ? "on" : ""}" type="button" data-big-mode="${this._esc(m)}" aria-pressed="${mode === m}"` +
+      `${words ? "" : ` aria-label="${this._esc(this._pretty(m))}"`}><hk-icon icon="${GLYPH[m]}" aria-hidden="true"></hk-icon>${words ? this._esc(this._pretty(m)) : ""}</button>`).join("")}` +
+      `${words && Number.isFinite(cur) ? `<span>Inside ${Math.round(cur)}°${Number.isFinite(hum) ? ` · ${Math.round(hum)}% humidity` : ""}</span>` : ""}</div>`;
+    const top = `<div class="surface big${range ? " range" : ""}${idle ? " idle" : ""}${this._bigModes ? " choosing" : ""}" data-big>`;
+    const label = range ? "" : (mode === "off" ? "Off" : t(single) + " degrees") + ", press and hold for the modes";
+    // SMALL AND TALL: the targets in a column with the foot
+    if (sz === "S" || sz === "T") {
+      const tt = (which, v, verb, kind) => `<button class="tt ${kind}${pick === which ? " sel" : ""}" type="button" data-big-pick="${which}" aria-pressed="${pick === which}" aria-label="${verb} ${t(v)} degrees">` +
+        `<small>${sz === "T" ? verb : kind === "heat" ? "Heat" : "Cool"}</small><b>${t(v)}</b></button>`;
+      const word = { heat: "Heat to", cool: "Cool to" }[mode] || "Target", kind = mode === "heat" || mode === "cool" ? " " + mode : "";
+      const text = mode === "off" ? "Off" : idle ? "—" : t(single);
+      const one = `<div class="one${kind}${text.length > 2 ? " long" : ""}">${sz === "T" && !idle ? `<small>${word}</small>` : ""}<b>${text}</b></div>`;
+      const tg = range ? (sz === "T" ? tt("high", hi, "Cool to", "cool") + tt("low", lo, "Heat to", "heat") : tt("low", lo, "Heat to", "heat") + tt("high", hi, "Cool to", "cool")) : one;
+      return `${top}<div class="in">
+        <div class="tg" data-big-num aria-label="${label}">${tg}</div>
+        ${sz === "T" ? four("mr", false) : ""}
+        ${foot("ff")}
+      </div>${held}</div>`;
+    }
+    const pk = (which, v, verb) => `<button class="pk${pick === which ? " sel" : ""}" type="button" data-big-pick="${which}" aria-pressed="${pick === which}" aria-label="${verb} ${t(v)} degrees">${t(v)}</button>`;
+    const bn = mode === "off" ? "Off" : idle ? "—" : range ? pk("low", lo, "Heat to") + '<span class="ds" aria-hidden="true"></span>' + pk("high", hi, "Cool to") : t(single);
+    return `${top}<div class="face">
+      <div class="bn" data-big-num aria-label="${label}">${bn}</div>
+      ${foot("ft")}
+      </div>${sz === "XL" ? four("mc", true) : ""}
+      ${held}
     </div>`;
   }
   // ...a step up or down (dir 1 or -1) of the target, or of the one picked:
@@ -793,6 +893,11 @@ class HkControlCard extends HTMLElement {
       e.stopPropagation(); this._bigModes = false;
       call("climate", "set_hvac_mode", { hvac_mode: b.dataset.mode });
       this._render();
+    });
+    // ...Tall's row and Extra Large's column of modes: a tap is the mode
+    el.querySelectorAll("[data-big-mode]").forEach(b => b.onclick = e => {
+      e.stopPropagation();
+      call("climate", "set_hvac_mode", { hvac_mode: b.dataset.bigMode });
     });
     el.onkeydown = e => { if (e.key === "Escape" && this._bigModes) { this._bigModes = false; this._render(); } };
   }

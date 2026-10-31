@@ -104,7 +104,7 @@ function () {
      /Math\.sqrt\(b\.width \* b\.height\)/.test(esrc) && /ink \* 0\.78 \/ mean/.test(esrc) && window.hkCards.TILE.centred.ink === 0.83 &&
      /window\.hkInkScale\(inkName, window\.hkCards\.TILE\.centred\.ink\)/.test(tsrc) && /e\.icon\.setAttribute\('ink', String\(C\.TILE\.centred\.ink\)\)/.test(gsrc));
   ok('the Room and Accessories blocks hand Centred to each tile, and redraw when it changes', /if \(centred\) el\.setAttribute\('tile', 'centred'\);/.test(gsrc) &&
-     /var key = JSON\.stringify\(\[p\.tiles, p\.more, p\.size, !!p\.scroll, centred\]\);/.test(gsrc) && /return \['size', 'tile'\];/.test(gsrc));
+     /var key = JSON\.stringify\(\[p\.tiles, p\.more, p\.size, !!p\.scroll, centred, !!p\.half, !!p\.color\]\);/.test(gsrc) && /return \['size', 'tile'\];/.test(gsrc));
   window.hkCards.createCard = factory;
   // the CSS: one variant, the tiles' own parts, from the table (hk-base.js TILE.centred)
   var tileCss = customElements.get('hk-tile-card').CSS, keyCss = customElements.get('hk-action-card').CSS, T = window.hkCards.TILE.centred;
@@ -123,7 +123,8 @@ function () {
   var C = window.hkGridCatalog, ctx = { climate: ['climate.den'] };
   eq('a thermostat block\'s Style: Big Number', C.config({ card: 'thermostat', size: 'L', opts: { style: 'big' } }, ctx), { type: 'custom:hk-control-card', entity: 'climate.den', style: 'big' });
   eq('...the dial when it is not chosen', C.config({ card: 'thermostat', size: 'T' }, ctx), { type: 'custom:hk-control-card', entity: 'climate.den' });
-  eq('...Extra Large stays the sheet', C.config({ card: 'thermostat', size: 'XL', opts: { style: 'big' } }, ctx).type, 'custom:hk-grid-panel-card');
+  eq('...Extra Large too: the face with the modes beside it (2026-10-31)', C.config({ card: 'thermostat', size: 'XL', opts: { style: 'big' } }, ctx), { type: 'custom:hk-control-card', entity: 'climate.den', style: 'big' });
+  eq('...the dial\'s Extra Large stays the sheet', C.config({ card: 'thermostat', size: 'XL' }, ctx).type, 'custom:hk-grid-panel-card');
   eq('...every thermostat page takes it', C.pages({ card: 'thermostat', size: 'L', opts: { style: 'big' }, pages: { source: 'thermostats' } }, { climate: ['climate.den', 'climate.hall'] })
      .map(function (p) { return p.card.style; }), ['big', 'big']);
   eq('the option, and its kind', [C.table().thermostat.opts, C.THERMOSTAT_STYLES], [{ entity: 'climate', style: 'thermostat_style' }, [['dial', 'Dial'], ['big', 'Big Number']]]);

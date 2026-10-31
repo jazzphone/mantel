@@ -146,6 +146,26 @@
     return DOMAIN_MAP[d] || NAME_MAP.gray;
   }
 
+  // A COLOUR AS #rrggbb, for a gradient of it (hkCards.iconGradient): a hex,
+  // an rgb()/rgba() (the palette's own), or a palette name; null otherwise
+  function hexOf(c) {
+    var s = String(c || '').trim().toLowerCase();
+    if (NAME_MAP[s]) s = String(NAME_MAP[s]).toLowerCase();
+    if (/^#[0-9a-f]{6}$/.test(s)) return s;
+    var m = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/.exec(s);
+    if (!m) return null;
+    return '#' + [m[1], m[2], m[3]].map(function (x) { var n = Math.max(0, Math.min(255, +x)); return (n < 16 ? '0' : '') + n.toString(16); }).join('');
+  }
+  // A COLOUR FOR SOMETHING THAT HAS NONE OF ITS OWN (a scene no one gave a
+  // Color): one of the app icons' tints, the same one every time for the same
+  // scene, so Movie Night is one color in every block (2026-10-31)
+  function ownTint(key) {
+    var s = String(key || ''), h = 0, C = window.hkCards;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+    var name = C.roomTint ? C.roomTint(Math.abs(h)) : 'purple';
+    return (C.ACCENTS && C.ACCENTS[name]) || '#bf5af2';
+  }
+
   // BARE_ICON IS AN ON-STATE RULE ONLY, and getting this wrong is invisible
   // until something is playing. Transparency belongs to the ON state's well
   // colour alone -- OFF stays rgba(0,0,0,0.14). A card that wants a
@@ -542,7 +562,42 @@
     window.hkCards.centredTile({ host: ':host([tile=centred])', plate: 'hk-plate.card', lit: 'hk-plate.card[data-on="1"]',
                                  well: '.well', icon: '.icon', name: '.name', sub: ['.label', '.room'] }),
     // (...a thermostat has no glyph: its reading is the glyph, as in its tall tile)
-    ':host([tile=centred]) .card.climate_tall .well{display:none}',
+    ':host([tile=centred]) .card.climate_tall .well,:host([tile=centred]) .card.climate .well{display:none}',
+    // ...and in a short place (under 124 px: a Room block's Wide tiles above
+    // its foot line) one step smaller, so the glyph and the two lines still
+    // stand apart (the widget mock-up's Room, 2026-10-31)
+    '@container hk-cell (max-height:124px){' +
+      ':host([tile=centred]) .well{width:46px !important;height:46px !important;top:29% !important}' +
+      ':host([tile=centred]) .icon{width:40px !important;height:40px !important}' +
+      ':host([tile=centred]) .name{top:53% !important;font-size:15px !important;line-height:19px !important}' +
+      ':host([tile=centred]) .label,:host([tile=centred]) .room{top:calc(53% + 19px) !important;font-size:13px !important;line-height:17px !important}}',
+    // A SCENE BLOCK AT WIDE (2026-10-31, the widget mock-up; the owner: "the
+    // glyph at the tiles' 58 px beside its name and what it does"): the glyph
+    // at a Centred tile's size on the block's inset, the name and what the
+    // scene sets beside it, the two lines together in the middle
+    ':host([tile=centred][size=W]) hk-plate.card.scene{padding:' + window.hkCards.blockPad('14px') + ' !important}',
+    ':host([tile=centred][size=W]) hk-plate.card.scene .grid{display:grid !important;grid-template-columns:' + TILE.centred.square.box + 'px minmax(0,1fr);' +
+      'grid-template-areas:none !important;grid-template-rows:auto auto;align-content:center;column-gap:18px;height:100%}',
+    ':host([tile=centred][size=W]) hk-plate.card.scene .well{position:relative !important;left:auto !important;top:auto !important;transform:none !important;' +
+      'grid-column:1;grid-row:1 / span 2;align-self:center;width:' + TILE.centred.square.box + 'px !important;height:' + TILE.centred.square.box + 'px !important}',
+    ':host([tile=centred][size=W]) hk-plate.card.scene .icon{width:' + TILE.centred.square.glyph + 'px !important;height:' + TILE.centred.square.glyph + 'px !important}',
+    ':host([tile=centred][size=W]) hk-plate.card.scene .name{position:static !important;grid-column:2;grid-row:1;text-align:left !important;align-self:end;' +
+      'font-size:' + TILE.centred.square.name + 'px !important;line-height:26px !important}',
+    ':host([tile=centred][size=W]) hk-plate.card.scene .room{position:static !important;grid-column:2;grid-row:2;text-align:left !important;align-self:start;' +
+      'font-size:17px !important;line-height:22px !important;white-space:normal !important;display:-webkit-box !important;-webkit-box-orient:vertical;-webkit-line-clamp:2}',
+    // IN ITS OWN COLOR (2026-10-31, the owner's notes on the widget mock-up:
+    // "Color: the same tile on a gradient of its own color"): a tile whose
+    // block has Color on (`block_color` in its config). A scene stands on its
+    // gradient always; an accessory while it is lit, in place of the white
+    // plate -- off, it keeps the glass. The gradient is the app icons'
+    // (hkCards.iconGradient); the glyph and the words white. A tapped scene
+    // still flashes white (hk-tapped), as on the glass.
+    'hk-plate.card[data-hk-grad]:not(.hk-tapped){background:linear-gradient(180deg,var(--hk-grad-a),var(--hk-grad-b)) !important;' +
+      '--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none}',
+    // (over the lit plate's own colors, Centred's !important ones too)
+    ':host hk-plate.card[data-hk-grad]:not(.hk-tapped) .name,:host([tile]) hk-plate.card[data-on][data-hk-grad]:not(.hk-tapped) .name{color:#fff !important}',
+    ':host hk-plate.card[data-hk-grad]:not(.hk-tapped) .label,:host hk-plate.card[data-hk-grad]:not(.hk-tapped) .room,' +
+      ':host([tile]) hk-plate.card[data-on][data-hk-grad]:not(.hk-tapped) .label,:host([tile]) hk-plate.card[data-on][data-hk-grad]:not(.hk-tapped) .room{color:rgba(255,255,255,0.85) !important}'
   ].join('');
 
   // `on:` UNQUOTED IN YAML IS THE BOOLEAN true, so an icon_states map keyed on
@@ -678,6 +733,10 @@
     // Overridable because a tile may replace the pill's colour rule
     // entirely -- the media tile does.
     _iconColour(cfg, st, on) { return iconColour(cfg, st, on); }
+    // ITS OWN COLOR, for its gradient (`block_color`): the glyph's when lit;
+    // and whether it stands on it while off too (a scene, which is never on)
+    _ownColour(cfg, st) { return colourFor(cfg, st); }
+    _paintedOff() { return false; }
     // A CSS class rather than inline styles, so a variant's deltas live in the
     // shared stylesheet and cost nothing per instance.
     _variant() { return ''; }
@@ -817,6 +876,21 @@
         e.card.style.removeProperty('--hk-idle-pill');
         e.card.style.removeProperty('--hk-idle-glyph');
       }
+      // IN ITS OWN COLOR (`block_color`, the CSS's): on its gradient the glyph
+      // is white -- bare, or in a white wash of a circle where it has one
+      var grad = cfg.block_color && (on || this._paintedOff()) ? C.iconGradient(hexOf(this._ownColour(cfg, st)) || '#8e8e93') : null;
+      if (grad) {
+        if (idle) { e.card.removeAttribute('data-hk-idle'); e.card.style.removeProperty('--hk-idle-pill'); e.card.style.removeProperty('--hk-idle-glyph'); }
+        wb = this._bareWell(bareCfg, wb) ? 'transparent' : 'rgba(255,255,255,0.25)';
+        ic = '#fff';
+        e.card.setAttribute('data-hk-grad', '');
+        e.card.style.setProperty('--hk-grad-a', grad[0]);
+        e.card.style.setProperty('--hk-grad-b', grad[1]);
+      } else if (e.card.hasAttribute('data-hk-grad')) {
+        e.card.removeAttribute('data-hk-grad');
+        e.card.style.removeProperty('--hk-grad-a');
+        e.card.style.removeProperty('--hk-grad-b');
+      }
       if (wb !== null) e.well.style.background = wb;
       e.icon.style.color = ic;
       if (cfg.icon_size) {
@@ -927,7 +1001,20 @@
         // the dark glass, or it vanished on the ivory tile -- Apple TV, HomePod)
         return (cfg.bare_icon && cfg.icon_color) ? window.hkCards.flatColor(cfg.icon_color, 'glyph') : '' + window.hkCards.v('glyph') + '';
       }
+      // CENTRED, PLAYING (2026-10-31): the speaker's own color on the white
+      // plate, as every lit Centred glyph is -- not the HomePod's grey, which
+      // read as off beside the lamps in a Room block
+      if (this.getAttribute('tile') === 'centred') return window.hkCards.flatColor(this._ownColour(cfg, st), 'on');
       return super._iconColour(cfg, st, on);
+    }
+    // A SPEAKER'S OWN COLOR: its accessory's Color (icon_color, a palette
+    // name or a hex), else Music's -- its page's accent -- never the HomePod
+    // glyph's white or grey
+    _ownColour(cfg) {
+      var c = String(cfg.icon_color || '').toLowerCase().trim();
+      if (c && c !== 'white' && (NAME_MAP[c] || /^#[0-9a-f]{6}$/.test(c))) return NAME_MAP[c] || c;
+      var C = window.hkCards;
+      return (C.pageAccentHex && C.pageAccentHex('music')) || (C.ACCENTS && C.ACCENTS.pink) || '#ff375f';
     }
   }
 
@@ -1454,6 +1541,10 @@
     }
     // (Flat Colors: its chosen color, else neutral -- never the domain's)
     _idleSource(cfg) { return this._tint(cfg); }
+    // ON ITS GRADIENT (`block_color`) always, a scene having no on: its
+    // chosen color, else a tint of its own (ownTint)
+    _ownColour(cfg) { return this._tint(cfg) || ownTint(cfg.entity || cfg.name); }
+    _paintedOff() { return true; }
     _render() {
       super._render();
       var e = this._els, t = this._tint(this._config || {});
@@ -1603,6 +1694,9 @@
   window.hkTile.colourFor = colourFor;
   window.hkTile.ON_STATES = ON_STATES;   // hk-chip.js reuses this
   window.hkTile.iconColour = iconColour;
+  // (a Home Grid block in its own color: hk-grid-cards.js's Action and Everything)
+  window.hkTile.hexOf = hexOf;
+  window.hkTile.ownTint = ownTint;
   // hk-chip / hk-stat drawn before this file ran used fallback colours:
   // tell them the palette is here (MODULE WAKE, hk-base.js).
   window.dispatchEvent(new CustomEvent('hk-module-ready', { detail: 'hkTile' }));

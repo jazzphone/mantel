@@ -293,6 +293,11 @@
     '.mpanel.sheet.in{transform:none}',
     '@media (prefers-reduced-motion:reduce){.mpanel.pop,.mpanel.sheet{transition:none}}'
   ].join('');
+  // A HOME GRID BLOCK'S CONTENT BOX: its insets (hkCards.blockPad's, the
+  // grid cell's --hk-pad-*) off the block's own width and height, for a
+  // cover sized by the block
+  var NP_PAD = { t: 'var(--hk-pad-t,20px)', r: 'var(--hk-pad-r,22px)', b: 'var(--hk-pad-b,20px)', l: 'var(--hk-pad-l,22px)' };
+  var NP_W = '(100cqw - ' + NP_PAD.l + ' - ' + NP_PAD.r + ')', NP_H = '(100cqh - ' + NP_PAD.t + ' - ' + NP_PAD.b + ')';
   // the screensaver's Browse glyph (mdi library-music)
   var LIB = 'M4 6H2v14a2 2 0 0 0 2 2h14v-2H4V6zm16-4H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm-2 5h-3v5.5a2.5 2.5 0 1 1-1-2V5h4v2z';
   // THE MUSIC PAGE (hk-music.js): its two addresses
@@ -458,6 +463,8 @@
         // without one.
         '.np .stop{grid-area:stop;display:flex}',
         '.np .close{grid-area:close;display:none}',
+        // (a Home Grid block's label over the song: no area anywhere else)
+        '.np .lab{display:none}',
         // the bar's alone: hidden elsewhere, or each would take a track of its own
         '.np .spk,.np .brw{display:none}',
         '.np.bar .spk{grid-area:spk;display:flex}.np.bar .brw{grid-area:brw;display:flex}',
@@ -766,12 +773,23 @@
         // A block of its own (docs/phase11/HOME-GRID.md), the plate filling
         // it at HK's corner, over the cover's blur (.bg, as every player),
         // the cover's size from the block's (the cell is a size container:
-        // cqw / cqh are the block's). No player buttons (the sheet has them,
-        // a tap away). Buttons keep 48 px targets.
-        //   W  the cover beside the song, the transport under it
-        //   T  the cover on top, the song, the progress, the transport
-        //   L  the cover beside the song and its speaker, then the progress,
-        //      the transport and the volume across, as Apple Music has them
+        // cqw / cqh are the block's; NP_W / NP_H its content box). Music's
+        // widgets (2026-10-31, the mock-up the owner approved: "Small new
+        // (cover with Speakers beside it, song, controls). Tall: controls up
+        // off the bottom edge. Speakers and Browse either side of the
+        // controls; volume under them on W, T, L"). Every control a 44 px
+        // target but Tall's row, where five share 160 px.
+        //   S  the cover with Speakers beside it, the song, back / play /
+        //      next along the foot (no room for the volume: its Speakers
+        //      opens the panel's Volume)
+        //   W  the cover beside the song, the transport with Speakers and
+        //      Browse at its ends, the volume under it
+        //   T  the cover on top, a label, the song, the progress, the
+        //      transport, the volume -- the transport up off the foot
+        //   L  the cover beside a label and the song, then the progress, the
+        //      transport and the volume across, as Apple Music has them
+        // On a tile cell (196 x 150, @container hk-cell) a size keeps its
+        // order and loses a line: the artist on S and W, the label on T.
         ':host([size]) hk-plate.np{--hk-np-height:100%;--hk-np-pad:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';border-radius:var(--hk-block-radius, ' + window.hkCards.M.radius + ');',
         // the shadow its neighbours have (the look's), not the page player's
         // 0 22px 60px, which spilt 80 px over the blocks round it
@@ -790,60 +808,103 @@
         ':host([size]) .np .title{' + window.hkCards.typeCss('headline') + ';letter-spacing:0;line-height:22px;align-self:end}',
         ':host([size]) .np .artist{' + window.hkCards.typeCss('body') + ';line-height:19px;letter-spacing:0}',
         ':host([size]) .np .player{display:none}',
-        ':host([size]) .np .tb{width:48px;height:48px;margin:0;align-self:center;justify-self:center}',
-        ':host([size]) .np .tb hk-icon{width:28px;height:28px;--mdc-icon-size:28px}',
-        ':host([size]) .np .play hk-icon{width:36px;height:36px;--mdc-icon-size:36px}',
+        // THE LABEL over the song (the widget's "NOW PLAYING"), on T and L
+        // (z-index: over the wash, as every row of the player)
+        ':host([size=T]) .np .lab,:host([size=L]) .np .lab{display:block;grid-area:lab;z-index:2;' + window.hkCards.typeCss('label') + ';line-height:16px;',
+        '  color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:end;min-width:0}',
+        // THE VOLUME under the transport on W, T and L: the slider in a 44 px
+        // place for a finger, a small and a large speaker either side (the
+        // pane's mini player's, 2026-10-31)
+        ':host([size=W]) .np .meta,:host([size=T]) .np .meta,:host([size=L]) .np .meta{display:flex;align-items:center;gap:10px;padding:0;--hk-range-h:44px}',
+        ':host([size]) .np .meta > :not(.vg){flex:1 1 auto;min-width:0;order:1}',
+        ':host([size]) .np .vg{flex:none;width:14px;height:14px;--mdc-icon-size:14px;color:rgba(255,255,255,.75)}',
+        ':host([size]) .np .vg.hi{order:2;width:20px;height:20px;--mdc-icon-size:20px}',
+        // (T: Speakers and Browse stand at the volume's ends, its own speakers left out)
+        ':host([size=T]) .np .vg{display:none}',
+        ':host([size]) .np .tb{width:44px;height:44px;margin:0;align-self:center;justify-self:center;position:relative}',
+        ':host([size]) .np .tb hk-icon{width:26px;height:26px;--mdc-icon-size:26px}',
+        ':host([size]) .np .play hk-icon{width:34px;height:34px;--mdc-icon-size:34px}',
         // SPEAKERS AND BROWSE (2026-10-27): either side of the transport, as on
-        // the screensaver's pane; each turns the card over (_turn). W: five
-        // 46 px tracks with no gap between them (the gap is in the art's
-        // track) -- 110 + 12 + 230 of a 358 px block
-        ':host([size]) .np .spk,:host([size]) .np .brw{display:flex;grid-area:spk;color:rgba(255,255,255,.86)}',
+        // the screensaver's pane, each on a quiet round well (Music's widget,
+        // 2026-10-31); each turns the card over (_turn)
+        ':host([size]) .np .spk,:host([size]) .np .brw{display:flex;grid-area:spk;color:#fff}',
         ':host([size]) .np .brw{grid-area:brw}',
-        ':host([size]) .np .spk hk-icon{width:24px;height:24px;--mdc-icon-size:24px;color:rgba(255,255,255,.86)}',
-        ':host([size]) .np .brw svg{width:23px;height:23px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.55))}',
+        ':host([size]) .np .spk::before,:host([size]) .np .brw::before{content:"";position:absolute;left:50%;top:50%;width:var(--np-well,34px);height:var(--np-well,34px);',
+        '  border-radius:50%;background:rgba(255,255,255,.16);transform:translate(-50%,-50%)}',
+        ':host([size]) .np .spk hk-icon,:host([size]) .np .brw svg{position:relative}',
+        ':host([size]) .np .spk hk-icon{width:20px;height:20px;--mdc-icon-size:20px;color:#fff}',
+        ':host([size]) .np .brw svg{width:19px;height:19px}',
         // (nothing plays: no rooms to move -- Browse still starts something)
         ':host([size]) .np .spk.dis{opacity:.35;pointer-events:none}',
-        // (the cover as tall as the block, but never wider than the room the
-        // transport leaves it: a square cell's 196 would push it off the side)
-        ':host([size=W]) hk-plate.np{--np-art:min(100cqh - 40px, 100cqw - 44px - 242px);',
-        '  --hk-np-cols:calc(var(--np-art) + 12px) 46px 46px 46px 46px 46px minmax(0,1fr);',
-        '  --hk-np-areas:"art . . . . . ." "art title title title title title title" "art artist artist artist artist artist artist" "art spk prev play next brw .";',
-        '  --hk-np-rows:minmax(0,1fr) min-content min-content 52px}',
-        ':host([size=W]) .np .grid{column-gap:0}',
-        ':host([size=W]) .np .tb{width:46px}',
-        // T: in the card's top corners, beside the cover (narrowed to clear them) -- clear of the corner's curve, 12 px
-        // in (at 4 they sat in the arc, 2026-10-30)
-        ':host([size=T]) .np .spk,:host([size=T]) .np .brw{grid-area:auto;position:absolute;top:12px;width:32px;height:32px;z-index:3}',
-        ':host([size=T]) .np .spk{left:12px}:host([size=T]) .np .brw{right:12px}',
-        ':host([size=T]) .np .spk::before,:host([size=T]) .np .brw::before{content:"";position:absolute;inset:-6px}',
-        ':host([size=T]) .np .spk hk-icon{width:21px;height:21px;--mdc-icon-size:21px}',
-        ':host([size=T]) .np .brw svg{width:20px;height:20px}',
-        ':host([size=T]) hk-plate.np{--np-art:min(100cqw - 92px, 100cqh - 190px);',
-        '  --hk-np-cols:repeat(3,minmax(0,1fr));',
-        '  --hk-np-areas:"art art art" "title title title" "artist artist artist" ". . ." "sub sub sub" "prev play next";',
-        '  --hk-np-rows:var(--np-art) min-content min-content minmax(0,1fr) min-content 52px}',
-        ':host([size=T]) .np .art{justify-self:center;margin-bottom:8px}',
+        // S: the cover in the corner, Speakers in the other; the song; back,
+        // play and next along the foot, their glyphs on the inset's edges
+        // (each 44 px target reaching into the inset)
+        ':host([size=S]) hk-plate.np{--np-art:min(64px, ' + NP_H + ' - 96px);',
+        '  --hk-np-cols:44px minmax(0,1fr) 44px minmax(0,1fr) 44px;',
+        '  --hk-np-areas:"art art . . spk" "title title title title title" "artist artist artist artist artist" ". . . . ." "prev . play . next";',
+        '  --hk-np-rows:var(--np-art) min-content min-content minmax(0,1fr) 44px}',
+        ':host([size=S]) .np .grid{column-gap:0;row-gap:0}',
+        ':host([size=S]) .np .art{align-self:start}',
+        ':host([size=S]) .np .title{padding-top:8px;align-self:start}',
+        ':host([size=S]) .np .brw{display:none}',
+        ':host([size=S]) .np .spk{align-self:start;justify-self:end;margin:-5px -5px 0 0}',
+        ':host([size=S]) .np .prev{justify-self:start;margin-left:-10px}:host([size=S]) .np .next{justify-self:end;margin-right:-10px}',
+        ':host([size=S]) .np .tb hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
+        ':host([size=S]) .np .play hk-icon{width:30px;height:30px;--mdc-icon-size:30px}',
+        ':host([size=S]) .np .spk hk-icon{width:20px;height:20px;--mdc-icon-size:20px}',
+        '@container hk-cell (max-height:179px){:host([size=S]) hk-plate.np{--np-art:min(64px, ' + NP_H + ' - 76px)}:host([size=S]) .np .artist{display:none}}',
+        // W: the cover as tall as the block, or as wide as five 44 px controls
+        // leave it; the song at its top, the transport and the volume at its
+        // foot (the column as tall as the cover, centred in the block)
+        ':host([size=W]) hk-plate.np{display:flex;flex-direction:column;justify-content:center;',
+        '  --np-art:min(' + NP_H + ', ' + NP_W + ' - 236px);',
+        '  --hk-np-cols:calc(var(--np-art) + 16px) repeat(5,minmax(0,1fr));',
+        '  --hk-np-areas:"art title title title title title" "art artist artist artist artist artist" "art . . . . ." "art spk prev play next brw" "art meta meta meta meta meta";',
+        '  --hk-np-rows:min-content min-content minmax(0,1fr) 44px var(--np-vol,44px)}',
+        ':host([size=W]) .np .grid{column-gap:0;row-gap:0;height:var(--np-art)}',
+        ':host([size=W]) .np .spk{justify-self:start;margin-left:-5px}:host([size=W]) .np .brw{justify-self:end;margin-right:-5px}',
+        '@container hk-cell (max-height:179px){:host([size=W]) .np .artist{display:none}}',
+        // T: the cover across the top; the transport up off the foot, the
+        // volume under it between Speakers and Browse -- the Side Pane's
+        // mini player's line (2026-10-31): five across left each 32 px, and
+        // three keys over two at the volume's ends keep every one 44
+        ':host([size=T]) hk-plate.np{--hk-np-pad:' + NP_PAD.t + ' ' + NP_PAD.r + ' calc(' + NP_PAD.b + ' + 6px) ' + NP_PAD.l + ';',
+        '  --np-art:min(' + NP_W + ', ' + NP_H + ' - 212px);',
+        '  --hk-np-cols:44px minmax(0,1fr) 44px minmax(0,1fr) 44px;',
+        '  --hk-np-areas:"art art art art art" "lab lab lab lab lab" "title title title title title" "artist artist artist artist artist" ". . . . ." "sub sub sub sub sub" "prev . play . next" "spk meta meta meta brw";',
+        '  --hk-np-rows:calc(var(--np-art) + 12px) min-content min-content min-content minmax(0,1fr) min-content 44px var(--np-vol,44px)}',
+        ':host([size=T]) .np .grid{column-gap:0;row-gap:0}',
+        ':host([size=T]) .np .art{justify-self:start;align-self:start}',
+        ':host([size=T]) .np .tb{width:44px;--np-well:30px}',
+        ':host([size=T]) .np .spk{justify-self:start}:host([size=T]) .np .brw{justify-self:end}',
+        ':host([size=T]) .np .tb hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
+        ':host([size=T]) .np .play hk-icon{width:30px;height:30px;--mdc-icon-size:30px}',
+        ':host([size=T]) .np .spk hk-icon{width:18px;height:18px;--mdc-icon-size:18px}',
+        ':host([size=T]) .np .brw svg{width:17px;height:17px}',
         ':host([size=T]) .np.tall .shade,:host([size=T]) .np .shade{background:linear-gradient(180deg,rgba(8,9,12,.10) 0%,rgba(8,9,12,.30) 45%,rgba(8,9,12,.74) 100%)}',
+        '@container hk-cell (max-height:379px){:host([size=T]) hk-plate.np{--np-art:min(' + NP_W + ', ' + NP_H + ' - 190px)}:host([size=T]) .np .lab{display:none}}',
         // (L: the transport centred on the middle three tracks; the cover
         // spans the first two, so it is as wide as the gap beside them allows)
         ':host([size=L]) hk-plate.np{--np-art:min(100cqh - 40px - 166px, (100cqw - 44px - 248px) / 2 + 78px);',
         '  --hk-np-cols:minmax(0,1fr) 64px 64px 64px minmax(0,1fr);',
-        '  --hk-np-areas:"art art . . ." "art art title title title" "art art artist artist artist" "art art player player player" "art art . . ." "sub sub sub sub sub" "spk prev play next brw" "meta meta meta meta meta";',
+        '  --hk-np-areas:"art art . . ." "art art lab lab lab" "art art title title title" "art art artist artist artist" "art art . . ." "sub sub sub sub sub" "spk prev play next brw" "meta meta meta meta meta";',
         '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content minmax(0,1fr) min-content 56px min-content}',
-        // (the volume a 44 px target: its slider as tall as its row)
-        ':host([size=L]) .np .meta{display:block;padding:0;--hk-range-h:44px}',
-        ':host([size]) .np .sub{align-self:end}:host([size=L]) .np .sub,:host([size=T]) .np .sub{padding-top:12px}',
+        ':host([size]) .np .sub{align-self:end}:host([size=L]) .np .sub{padding-top:12px}:host([size=T]) .np .sub{padding-top:6px}',
+        ':host([size=L]) .np .lab{padding-bottom:2px}',
         ':host([size=L]) .np .title{' + window.hkCards.typeCss('title') + ';line-height:27px}',
-        ':host([size=L]) .np .player{display:block;' + window.hkCards.typeCss('label-small') + ';padding-top:6px}',
-        ':host([size=L]) .np .tb{width:56px;height:56px}',
+        ':host([size=L]) .np .tb{width:56px;height:56px;--np-well:40px}',
         ':host([size=L]) .np .spk,:host([size=L]) .np .brw{width:48px}',
         ':host([size=L]) .np .tb hk-icon{width:32px;height:32px;--mdc-icon-size:32px}',
         ':host([size=L]) .np .play hk-icon{width:44px;height:44px;--mdc-icon-size:44px}',
-        ':host([size][data-grid-pager]) hk-plate.np{--hk-np-pad:20px 22px 44px}',
+        ':host([size=L]) .np .spk hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
+        ':host([size=L]) .np .brw svg{width:23px;height:23px}',
+        // IN A PAGER (hk-pager-card): its dots under the block's foot, so no
+        // volume and no label
+        ':host([size][data-grid-pager]) hk-plate.np{--hk-np-pad:20px 22px 44px;--np-vol:0px}',
+        ':host([size][data-grid-pager]) .np .meta,:host([size][data-grid-pager]) .np .lab{display:none}',
         ':host([size=W][data-grid-pager]) hk-plate.np{--np-art:calc(100cqh - 64px);',
-        '  --hk-np-areas:"art title title title title title title" "art spk prev play next brw .";--hk-np-rows:minmax(0,1fr) 46px}',
+        '  --hk-np-areas:"art title title title title title" "art spk prev play next brw";--hk-np-rows:minmax(0,1fr) 46px}',
         ':host([size=W][data-grid-pager]) .np .artist{display:none}',
-        ':host([size=W][data-grid-pager]) .np .tb{width:44px;height:44px}',
         ':host([size=T][data-grid-pager]) hk-plate.np{--np-art:min(100cqw - 76px,100cqh - 174px)}'
       ].join('');
     }
@@ -1387,7 +1448,12 @@
           '<div class="title" data-hk-role="title"></div>' +
           '<div class="artist" data-hk-role="artist"></div>' +
           '<div class="player" data-hk-role="player"></div>' +
-          '<div class="meta" data-hk-role="meta"></div>' +
+          '<div class="lab" data-hk-role="lab"></div>' +
+          // (a Home Grid block's volume: a small and a large speaker either
+          // side of the slider, only there -- the page's tall layout shows
+          // every child of `meta`)
+          '<div class="meta" data-hk-role="meta">' + (this.hasAttribute('size')
+            ? '<hk-icon class="vg lo" icon="mdi:volume-high"></hk-icon><hk-icon class="vg hi" icon="mdi:volume-high"></hk-icon>' : '') + '</div>' +
           // SECOND CARD SLOT, for the bar. The full player stacks
           // progress + times + volume in one `meta` column; the bar is
           // 104px tall and cannot, so it passes TWO cards -- progress
@@ -1439,7 +1505,7 @@
         var q = this._root.querySelector.bind(this._root);
         this._e = { bg: q('.bg'), art: q('.art'), title: q('.title'),
                     artist: q('.artist'), player: q('.player'), meta: q('.meta'),
-                    sub: q('.sub'), play: q('.play'), spk: q('.spk') };
+                    sub: q('.sub'), play: q('.play'), spk: q('.spk'), lab: q('.lab') };
         var self = this;
         q('.prev').addEventListener('click', function () { self._svc('previous'); });
         q('.play').addEventListener('click', function () { self._svc('play_pause'); });
@@ -1494,7 +1560,11 @@
           });
         } else {
           // ON A HOME GRID (a block of its own, `size`): the card turns over
-          q('.spk').addEventListener('click', function () { if (self.hasAttribute('size')) self._turn('speakers'); });
+          // -- a Small block's Speakers to the Volume, the one it has no
+          // slider for (the mock-up, 2026-10-31)
+          q('.spk').addEventListener('click', function () {
+            if (self.hasAttribute('size')) self._turn(self.getAttribute('size') === 'S' ? 'volume' : 'speakers');
+          });
           q('.brw').addEventListener('click', function () { if (self.hasAttribute('size')) self._turn('browse'); });
         }
         q('.close').addEventListener('click', function () { self._putAway(); });
@@ -1630,6 +1700,9 @@
       // the no-speaker case reads the same way.
       var pl = this._playerLine(p);
       if (e.player.__txt !== pl) { e.player.__txt = pl; e.player.textContent = pl; }
+      // a block's label: what the music is doing (the widget's "Now Playing")
+      var lb = !p ? 'Not Playing' : p.state === 'playing' ? 'Now Playing' : p.state === 'paused' ? 'Paused' : 'Not Playing';
+      if (e.lab && e.lab.textContent !== lb) e.lab.textContent = lb;
       // feed(), not a plain bridge: the nested card may not be upgraded yet.
       if (this._metaCard && this.client) feed(this._metaCard, this.client);
       if (this._subCard && this.client) feed(this._subCard, this.client);
@@ -3538,6 +3611,378 @@
     ],
     function () { return { port: 8095, path: '/#/home' }; });
 
-  window.hkMedia = { version: '1.0.0' };
+  // ------------------------------------------------ the Home Grid's widgets
+  // A COLOR OF ITS OWN for a thing with no picture (a cover, a channel): one
+  // of the accents, by its name, toward black along a gradient -- the
+  // mock-up's covers and channel tiles (2026-10-31)
+  var TINTS = ['blue', 'orange', 'purple', 'green', 'cyan', 'yellow', 'pink', 'indigo', 'teal', 'red'];
+  function hashOf(s) {
+    var h = 0; s = String(s || '');
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+  function tintOf(key) {
+    var a = C.ACCENTS[TINTS[hashOf(key) % TINTS.length]], n = parseInt(a.slice(1), 16);
+    var dark = function (c) { return Math.round(c * 0.45); };
+    return [a, 'rgb(' + dark(n >> 16 & 255) + ',' + dark(n >> 8 & 255) + ',' + dark(n & 255) + ')'];
+  }
+
+  // ------------------------------------------------- hk-recent-music-card
+  //
+  // THE MUSIC BLOCK (2026-10-31, the owner: "S (last played, play on its
+  // cover), W four covers with names, T six covers; L/XL as now"): Music's
+  // Recently Played widget, mounted in the Home Grid's `music` panel block
+  // (hk-grid-cards.js). What played last, then covers to play again; a tap
+  // plays one on this screen's music (hkMusic.player), through
+  // hk_frontend.music_play_media as Browse plays (hk-library.js _play).
+  //   S   the last, play on its cover, its name and artist at the foot
+  //   W   four covers in a row with their names
+  //   T   six, two across (four on a tile cell)
+  //   L   the last above a hairline and eight (four on a tile cell)
+  //   XL  the last above twelve (six on a tile cell)
+  // THE MUSIC PAGE'S LIST: its Recently played shelf's query (Browse's
+  // Discover, hk-library.js _loadDiscover -- tracks by when they last
+  // played), one cover per album, so a record played through shows once.
+  // Asked again after RECENT_AGE on the next draw, as the shelf is; a failed
+  // ask keeps what it had and tries again after RECENT_RETRY.
+  var RECENT_AGE = 10 * 60 * 1000, RECENT_RETRY = 60 * 1000;
+  // [covers in the grid, columns, rows] by size (L and XL: the last above them)
+  var RECENT = { S: [0, 1, 1], W: [4, 4, 1], T: [6, 2, 3], L: [8, 4, 2], XL: [12, 6, 2] };
+  function recentCovers(items) {
+    var seen = {}, out = [];
+    (items || []).forEach(function (it) {
+      if (!it || !it.uri || out.length >= 13) return;
+      var album = it.album && it.album.uri, key = album || it.image || it.uri;
+      if (seen[key]) return;
+      seen[key] = 1;
+      out.push({ uri: it.uri, name: it.name || '', key: album || it.name || it.uri,
+                 artist: ((it.artists || [])[0] || {}).name || '', image: it.image || (it.album && it.album.image) || null });
+    });
+    return out;
+  }
+  var MU_CSS = [
+    ':host{display:block;height:100%}',
+    // (a size container: the covers are sized by the plate's room)
+    'hk-plate.mu{box-sizing:border-box;height:100%;display:flex;flex-direction:column;overflow:hidden;container-type:size;',
+    '  padding:' + C.blockPad('14px') + ';' + C.plate('card') + '}',
+    '.lab{display:block;' + C.typeCss('label') + ';line-height:16px;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}',
+    // A COVER: its picture, or a gradient of its own with a note
+    '.cvr{position:relative;display:grid;place-items:center;overflow:hidden;flex:none;border-radius:' + C.R.small + 'px;',
+    '  background:linear-gradient(140deg,var(--c1),var(--c2));box-shadow:0 4px 12px rgba(0,0,0,.25);transition:transform .12s ease,opacity .2s}',
+    '.cvr img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}',
+    '.cvr hk-icon{width:26px;height:26px;--mdc-icon-size:26px;color:rgba(255,255,255,.55)}',
+    '.it,.last{all:unset;box-sizing:border-box;position:relative;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+    '.it:active .cvr,.last:active .cvr{transform:scale(.97)}',
+    '.busy .cvr{opacity:.55}',
+    '.it:focus-visible .cvr,.last:focus-visible .cvr{outline:2px solid ' + C.v('ink') + ';outline-offset:2px}',
+    // THE GRID: the covers as large as the room lets them, the first and last
+    // on the inset's edges, the rows spread down the block (--n0 / --r0 the
+    // size's, set on it; --n / --r what a cell's shape leaves, below)
+    '.cvw{flex:1;min-height:0;container-type:size;margin-top:10px}',
+    '.cv{height:100%;display:grid;--n:var(--n0);--r:var(--r0);--cv:min((100cqw - (var(--n) - 1) * 10px) / var(--n), (100cqh - (var(--r) - 1) * 10px) / var(--r) - 21px);',
+    '  grid-template-columns:repeat(var(--n),var(--cv));grid-template-rows:repeat(var(--r),auto);justify-content:space-between;align-content:space-between}',
+    '.it{display:flex;flex-direction:column;gap:4px;min-width:0}',
+    '.it .cvr{width:var(--cv);height:var(--cv)}',
+    '.it .nm{display:block;' + C.typeCss('caption') + ';font-weight:600;line-height:17px;color:' + C.v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    // THE LAST: S's cover with play on it; L's and XL's beside its name
+    '.last{display:block;flex:none;width:var(--big);height:var(--big)}',
+    '.last .cvr{width:100%;height:100%;border-radius:' + C.R.inner + 'px}',
+    '.last .cvr hk-icon{width:36px;height:36px;--mdc-icon-size:36px}',
+    '.mu.S .last{--big:min(96px, 100cqh - 44px)}',
+    '.pl{position:absolute;right:-6px;bottom:-6px;width:40px;height:40px;border-radius:50%;background:#fff;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}',
+    '.pl hk-icon{width:22px;height:22px;--mdc-icon-size:22px;color:#1c1c1e}',
+    '.ft{margin-top:auto;min-width:0}',
+    '.t1{display:block;' + C.typeCss('headline') + ';line-height:21px;color:' + C.v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.t2{display:block;' + C.typeCss('caption') + ';line-height:17px;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.top{display:flex;gap:16px;align-items:flex-start;flex:none}',
+    '.mu.L .last,.mu.XL .last{--big:min(120px, 100cqh - 160px)}',
+    '.top .col{display:flex;flex-direction:column;min-width:0;flex:1}',
+    '.top .t1{' + C.typeCss('title') + ';line-height:27px;margin-top:2px}',
+    '.top .t2{' + C.typeCss('body') + ';line-height:19px;color:' + C.ACCENTS.pink + '}',
+    '.hr{height:1px;flex:none;margin:14px 0 4px;background:' + C.v('line') + '}',
+    '.none{flex:1;display:grid;place-items:center;text-align:center;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}',
+    // ON A TILE CELL (196 x 150 a cell): a row fewer
+    '@container hk-cell (max-height:379px){.mu.T .cv{--r:2}.mu.T .it:nth-child(n+5),.mu.L .it:nth-child(n+5),.mu.XL .it:nth-child(n+7){display:none}',
+    '  .mu.L .cv,.mu.XL .cv{--r:1}}'
+  ].join('');
+
+  class HkRecentMusicCard extends HkBase {
+    static get CSS() { return MU_CSS; }
+    getCardSize() { return 4; }
+    _receiveClient() {
+      if (window.hkMusic) window.hkMusic.attach(this.client);
+      super._receiveClient();
+    }
+    _size() { var s = this.getAttribute('size'); return RECENT[s] ? s : 'L'; }
+    // what is drawn: the size, the covers, and whether music is set up
+    _sigOf() {
+      var Mu = window.hkMusic;
+      return JSON.stringify([this._size(), this._items || null, !!(Mu && Mu.libraryEntry && Mu.libraryEntry()), musicMissing()]);
+    }
+    _load() {
+      var Mu = window.hkMusic, entry = Mu && Mu.libraryEntry && Mu.libraryEntry(), h = this.client, self = this;
+      if (!h || !h.callWS || !entry || this._busy || Date.now() < (this._due || 0)) return;
+      this._busy = true;
+      this._due = Date.now() + RECENT_AGE;
+      var msg = { type: 'call_service', domain: 'music_assistant', service: 'get_library', return_response: true,
+                  service_data: { config_entry_id: entry, media_type: 'track', order_by: 'last_played_desc', limit: 40 } };
+      // (a service call over the WebSocket is the action port's; Mantel answers this one as a read: hk-library.js _ws)
+      var port = window.hkClient && window.hkClient.isWrite(msg) ? this._actions() : h;
+      Promise.resolve(port ? port.callWS(msg) : Promise.reject(new Error('no port'))).then(function (res) {
+        var resp = (res && res.response) || res || {};
+        self._items = recentCovers(resp.items);
+      }, function () {
+        if (!self._items) self._items = [];
+        self._due = Date.now() + RECENT_RETRY;
+      }).then(function () { self._busy = false; self.redraw(); });
+    }
+    _cover(it, cls) {
+      var t = it ? tintOf(it.key) : ['rgba(255,255,255,.14)', 'rgba(255,255,255,.08)'];
+      return '<span class="cvr' + (cls ? ' ' + cls : '') + '" style="--c1:' + t[0] + ';--c2:' + t[1] + '">' + (it ? '<hk-icon icon="mdi:music"></hk-icon>' : '') + '</span>';
+    }
+    _render() {
+      if (musicMissing()) { drawNoMusic(this); return; }
+      this._load();
+      var s = this._size(), R = RECENT[s], items = this._items, list = items || [], self = this;
+      var last = list[0], more = s === 'W' || s === 'T' ? list.slice(0, R[0]) : list.slice(1, 1 + R[0]);
+      // (still asking: the covers' places, empty)
+      if (!items) { last = null; more = []; for (var i = 0; i < R[0]; i++) more.push(null); }
+      var cell = function (it, i) {
+        return '<button type="button" class="it" data-i="' + i + '"' + (it ? ' aria-label="Play ' + esc(it.name) + '"' : ' disabled') + '>' +
+               self._cover(it) + '<span class="nm">' + (it ? esc(it.name) : '&nbsp;') + '</span></button>';
+      };
+      var grid = '<div class="cvw"><div class="cv" style="--n0:' + R[1] + ';--r0:' + R[2] + '">' + more.map(function (it, j) {
+        return cell(it, s === 'W' || s === 'T' ? j : j + 1); }).join('') + '</div></div>';
+      var lastBtn = '<button type="button" class="last" data-i="0"' + (last ? ' aria-label="Play ' + esc(last.name) + '"' : ' disabled') + '>' +
+                    this._cover(last) + (s === 'S' && last ? '<span class="pl"><hk-icon icon="mdi:play"></hk-icon></span>' : '') + '</button>';
+      var words = last ? '<b class="t1">' + esc(last.name) + '</b><small class="t2">' + esc(last.artist) + '</small>' : '';
+      var body;
+      if (items && !items.length) body = '<span class="lab">Recently Played</span><div class="none">Music played here shows up here.</div>';
+      else if (s === 'S') body = lastBtn + '<div class="ft">' + words + '</div>';
+      else if (s === 'W' || s === 'T') body = '<span class="lab">Recently Played</span>' + grid;
+      else body = '<div class="top">' + lastBtn + '<div class="col"><span class="lab">Recently Played</span>' + words + '</div></div><div class="hr"></div>' + grid;
+      this._root.innerHTML = '<hk-plate class="mu ' + s + '" data-hk-role="card">' + body + '</hk-plate>';
+      this._root.querySelectorAll('[data-i]').forEach(function (b) {
+        var it = list[+b.getAttribute('data-i')];
+        if (!it) return;
+        if (it.image) self._artImage(it.image, b.querySelector('.cvr'), '<hk-icon icon="mdi:music"></hk-icon>', 300);
+        b.addEventListener('click', function (e) { e.stopPropagation(); self._play(it, b); });
+      });
+    }
+    // ON THIS SCREEN'S MUSIC, as Browse plays: the integration checks the
+    // player, starts it and answers -- so a failure is said, not a cheerful
+    // "Playing" over silence
+    _play(it, el) {
+      var Mu = window.hkMusic, player = Mu && this.client ? Mu.player(this.client) : null, self = this;
+      if (!player) { window.hkShell.toast({ message: 'Pick a speaker on the Music page to play ' + it.name + '.' }, this); return; }
+      if (el.classList.contains('busy')) return;
+      el.classList.add('busy');
+      this._callResp('hk_frontend', 'music_play_media', { player: player, media_content_id: it.uri, media_content_type: 'music' }).then(function (res) {
+        el.classList.remove('busy');
+        var r = (res && res.response) || {};
+        if (!res.ok || r.ok === false) { window.hkShell.toast({ message: 'Could not play ' + it.name + (r.message ? ': ' + r.message : '') }, self); return; }
+        if (Mu.setFocus) Mu.setFocus(player);
+        // played: it is the last now
+        self._due = 0;
+      });
+    }
+  }
+  register('hk-recent-music-card', HkRecentMusicCard, 'HK Recently Played',
+    'What played last and covers to play again, sized to a Home Grid block.', null, function () { return {}; });
+  // (the Home Grid's Music block's: not offered in the card picker)
+  if (C.unlisted) C.unlisted('hk-recent-music-card');
+
+  // -------------------------------------------------- hk-tv-channels-card
+  //
+  // THE LIVE TV BLOCK (2026-10-31, the owner: "channels (a tile per channel
+  // in its color, what is on, a progress bar); a tap opens that channel full
+  // screen as the Live TV page does. No remote buttons"), mounted in the
+  // Home Grid's `live_tv` panel block (hk-grid-cards.js). Small one
+  // channel, Wide two, Tall three, Large four, Extra Large six -- the Live
+  // TV page's first, in its order.
+  //
+  // THE PAGE'S OWN CHANNELS AND PLAYER (hk-cameras.js hk-tv-guide-card):
+  // ws hk_tv/channels, asked again when the socket comes back and on a
+  // back-off while the answer is empty (an HA restart says "not set up
+  // yet"); each channel's `now` sensor for what is on; and its full-screen
+  // player, hkCameras.tvPlayer, with its viewer heartbeat and idle hold.
+  // A Mantel page loads hk-cameras.js when it is first needed (hkNeed).
+  var TV_SLOTS = { S: 1, W: 2, T: 3, L: 4, XL: 6 };
+  var TV_BACKOFF = [5000, 15000, 60000, 300000];
+  function tvShare(a) {
+    var s = +new Date(a.start), e = +new Date(a.end), n = Date.now();
+    return e > s ? Math.max(0, Math.min(100, (n - s) / (e - s) * 100)) : 0;
+  }
+  // [columns, rows] for k channels in a size's slots
+  function tvGrid(size, k) {
+    if (size === 'T') return [1, k];
+    if (size === 'L' || size === 'XL') { var r = k > (size === 'XL' ? 3 : 2) ? 2 : 1; return [Math.ceil(k / r), r]; }
+    return [k, 1];
+  }
+  var TV_CSS = [
+    ':host{display:block;height:100%}',
+    'hk-plate.tv{position:relative;box-sizing:border-box;height:100%;display:grid;gap:10px;overflow:hidden;padding:' + C.blockPad('14px') + ';' + C.plate('card') + ';',
+    '  grid-template-columns:repeat(var(--n,1),minmax(0,1fr));grid-template-rows:repeat(var(--r,1),minmax(0,1fr))}',
+    // S: the one channel is the block (on its plate, which keeps the look's material)
+    'hk-plate.tv.one{padding:0}',
+    '.ch{all:unset;box-sizing:border-box;position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;padding:12px;',
+    '  border-radius:var(--hk-inner-radius,' + C.R.inner + 'px);background:linear-gradient(150deg,var(--c1),var(--c2));color:#fff;cursor:pointer;',
+    '  overflow:hidden;container-type:size;text-shadow:0 1px 2px rgba(0,0,0,.22);-webkit-tap-highlight-color:transparent;transition:transform .12s ease}',
+    '.ch:active{transform:scale(.98)}',
+    '.ch:focus-visible{outline:2px solid #fff;outline-offset:-4px}',
+    '.one .ch{position:absolute;inset:0;border-radius:inherit;padding:' + C.blockPad('14px') + '}',
+    // ITS MARK: the guide's logo on white where it has one, else its number
+    '.lg{display:grid;place-items:center;flex:none;align-self:flex-start;min-width:38px;height:38px;padding:0 7px;box-sizing:border-box;',
+    '  border-radius:' + C.R.small + 'px;background:rgba(255,255,255,.25);' + C.typeCss('body') + ';font-weight:800;font-variant-numeric:tabular-nums;text-shadow:none}',
+    '.lg.pic{background:rgba(255,255,255,.9);padding:5px 7px}.lg img{display:block;max-height:100%;max-width:72px;object-fit:contain}',
+    '.one .lg{min-width:52px;height:52px;' + C.typeCss('title') + ';font-weight:800}',
+    '.tx{display:flex;flex-direction:column;min-width:0;margin-top:auto}',
+    '.tx b{' + C.typeCss('body') + ';font-weight:600;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.tx small{' + C.typeCss('caption') + ';line-height:16px;color:rgba(255,255,255,.86);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.one .tx b{' + C.typeCss('headline') + ';line-height:22px}',
+    // HOW FAR THROUGH what is on
+    '.bar{display:block;flex:none;height:4px;margin-top:8px;border-radius:' + C.R.capsule('4px') + ';background:rgba(255,255,255,.3);overflow:hidden}',
+    '.bar i{display:block;height:100%;border-radius:' + C.R.capsule('4px') + ';background:#fff}',
+    // (a short tile -- three down a Tall block on tile cells: its words and its
+    // bar; the query reads the tile's content box, inside its 12 px padding)
+    '@container (max-height:84px){.lg{display:none}}',
+    '.none{grid-column:1 / -1;align-self:center;text-align:center;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}'
+  ].join('');
+
+  class HkTvChannelsCard extends HkBase {
+    static get CSS() { return TV_CSS; }
+    getCardSize() { return 4; }
+    _size() { var s = this.getAttribute('size'); return TV_SLOTS[s] ? s : 'L'; }
+    _shown() { return (this._channels || []).slice(0, TV_SLOTS[this._size()]); }
+    _sigOf() {
+      var h = this.client;
+      if (!h) return null;
+      return JSON.stringify([this._size(), this._channels ? this._shown().map(function (c) {
+        var st = c.now && h.states[c.now];
+        return [c.number, c.name, c.camera, st ? st.last_updated : 'x'];
+      }) : null, !!this._configured]);
+    }
+    // the open player follows the house, as the page's does
+    _receiveClient() {
+      super._receiveClient();
+      if (this._player) this._player.update(this.client);
+    }
+    _fetch() {
+      var h = this.client, self = this;
+      if (this._loading || !h || !h.callWS) return;
+      clearTimeout(this._chanT); this._chanT = null;
+      this._loading = true;
+      Promise.resolve(h.callWS({ type: 'hk_tv/channels' })).then(function (r) {
+        var list = (r && r.channels) || [];
+        // (an empty answer never replaces channels already drawn: right after a restart it means "not yet")
+        if (list.length || !(self._channels && self._channels.length)) { self._channels = list; self._configured = !!(r && r.configured); }
+        return list.length > 0;
+      }, function () {
+        if (!self._channels) { self._channels = []; self._configured = false; }
+        return false;
+      }).then(function (good) {
+        self._loading = false;
+        if (good) self._tries = 0;
+        else if (self.isConnected !== false && !self._chanT) {
+          var n = self._tries = (self._tries || 0) + 1;
+          self._chanT = setTimeout(function () { self._chanT = null; self._fetch(); }, TV_BACKOFF[Math.min(n - 1, TV_BACKOFF.length - 1)]);
+        }
+        self.redraw();
+      });
+    }
+    // the socket back (an HA restart): the channels asked again
+    _watchConn() {
+      var conn = this.client && this.client.subscriptions, self = this;
+      if (this.isConnected === false || !conn || conn === this._conn || typeof conn.addEventListener !== 'function') return;
+      this._unwatchConn();
+      this._conn = conn;
+      this._onReady = function () { self._tries = 0; self._fetch(); };
+      conn.addEventListener('ready', this._onReady);
+    }
+    _unwatchConn() {
+      if (this._conn && this._onReady && typeof this._conn.removeEventListener === 'function') this._conn.removeEventListener('ready', this._onReady);
+      this._conn = null; this._onReady = null;
+    }
+    _render() {
+      var h = this.client, s = this._size(), self = this;
+      if (!h) return;
+      this._watchConn();
+      if (!this._channels) this._fetch();
+      var list = this._shown(), g = tvGrid(s, Math.max(1, list.length));
+      this._bars = [];
+      if (!list.length) {
+        this._root.innerHTML = '<hk-plate class="tv" data-hk-role="card"><div class="none"></div></hk-plate>';
+        this._root.querySelector('.none').textContent = !this._channels ? '' : this._configured
+          ? 'No channels yet. Add some in HK Settings → Features → Live TV.' : 'Add Live TV to show its channels here.';
+        return;
+      }
+      var plate = document.createElement('hk-plate');
+      plate.className = 'tv' + (s === 'S' ? ' one' : '');
+      plate.setAttribute('data-hk-role', 'card');
+      plate.style.setProperty('--n', g[0]); plate.style.setProperty('--r', g[1]);
+      list.forEach(function (ch, i) {
+        var st = (ch.now && h.states[ch.now]) || { state: '', attributes: {} }, a = st.attributes || {};
+        var t = tintOf(ch.number || ch.name), on = st.state && st.state !== 'unknown' && st.state !== 'unavailable' ? st.state : 'Live';
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'ch';
+        b.style.setProperty('--c1', t[0]); b.style.setProperty('--c2', t[1]);
+        // (the last of an odd few takes the row's room: no hole in the block)
+        if (i === list.length - 1 && g[1] > 1 && list.length < g[0] * g[1]) b.style.gridColumn = 'span ' + (g[0] * g[1] - list.length + 1);
+        b.setAttribute('aria-label', 'Watch ' + (ch.name || ch.number) + ', ' + on);
+        b.innerHTML = '<span class="lg"></span><span class="tx"><b></b><small></small></span>' + (a.start && a.end ? '<i class="bar"><i></i></i>' : '');
+        var lg = b.querySelector('.lg'), mono = esc(ch.number || String(ch.name || '').slice(0, 2));
+        if (a.logo) { lg.classList.add('pic'); self._artImage(a.logo, lg, mono, 150); lg.addEventListener('error', function () { lg.classList.remove('pic'); }, true); }
+        else lg.innerHTML = mono;
+        b.querySelector('b').textContent = on;
+        b.querySelector('small').textContent = ch.name || ch.number || '';
+        if (a.start && a.end) self._bars.push({ el: b.querySelector('.bar i'), a: a });
+        b.addEventListener('click', function (e) { e.stopPropagation(); self._open(ch); });
+        plate.appendChild(b);
+      });
+      this._root.innerHTML = '';
+      this._root.appendChild(plate);
+      this._tick();
+    }
+    // how far through, moved every half minute without a redraw
+    _tick() {
+      (this._bars || []).forEach(function (b) { b.el.style.width = tvShare(b.a).toFixed(1) + '%'; });
+    }
+    // THE LIVE TV PAGE'S PLAYER, full screen (hk-cameras.js), once its file is in
+    _open(ch) {
+      if (!ch || !ch.camera) return;
+      var self = this, go = function () {
+        var K = window.hkCameras;
+        if (!K || !K.tvPlayer || self.isConnected === false) return;
+        if (self._player) self._player.close();
+        self._player = K.tvPlayer(self, ch);
+      };
+      if (window.hkCameras && window.hkCameras.tvPlayer) { go(); return; }
+      var N = window.hkNeed;
+      if (N && N.has && N.has('hk-tv-guide-card')) N('hk-tv-guide-card').then(go);
+    }
+    connectedCallback() {
+      if (super.connectedCallback) super.connectedCallback();
+      var self = this;
+      clearInterval(this._tickT);
+      this._tickT = setInterval(function () { self._tick(); }, 30000);
+      this._watchConn();
+      if (this._channels && !this._channels.length) { this._tries = 0; this._fetch(); }
+    }
+    disconnectedCallback() {
+      if (super.disconnectedCallback) super.disconnectedCallback();
+      clearInterval(this._tickT);
+      clearTimeout(this._chanT); this._chanT = null;
+      this._unwatchConn();
+      // leaving the page ends the show: no stream, tuner or hold left behind
+      if (this._player) this._player.close();
+    }
+  }
+  register('hk-tv-channels-card', HkTvChannelsCard, 'HK Live TV Channels',
+    'The Live TV page\'s first channels with what is on, sized to a Home Grid block; a tap plays one full screen.', null, function () { return {}; });
+  // (the Home Grid's Live TV block's: not offered in the card picker)
+  if (C.unlisted) C.unlisted('hk-tv-channels-card');
+
+  // (for tests: the Home Grid widgets' pure pieces)
+  window.hkMedia = { version: '1.0.0', _: { recentCovers: recentCovers, tvGrid: tvGrid, tintOf: tintOf, RECENT: RECENT, TV_SLOTS: TV_SLOTS } };
   });
 })();

@@ -1213,6 +1213,8 @@
   var SCENE_ICON = { scene: 'mdi:palette', script: 'mdi:script-text-play', button: 'mdi:gesture-tap-button',
                      input_button: 'mdi:gesture-tap-button', automation: 'mdi:robot' };
   function sceneTap(id) { return window.hkCards.sceneTap(id); }
+  // between a Home Grid block's scenes (the widget mock-up's tight grid, 2026-10-31)
+  var BLOCK_GAP = 8;
   function scenePill(client, id, look) {
     var st = client && client.states[id], ent = client && client.entities && client.entities[id];
     var a = (st && st.attributes) || {};
@@ -1315,11 +1317,17 @@
     // size of one cell (hk-tile.js, on a Home Grid). No heading: the block is
     // the scenes. (More scenes are the pager's pages, G4.)
     var cell = cfg.hk_cell && C0().HOME_GRID.sizes[cfg.hk_cell];
-    // (fewer scenes than cells: the cells they need and no holes -- one row of them, else fewer columns, 2026-10-30)
+    // HEIGHT AND COLOR (2026-10-31, the owner's notes on the widget mock-up:
+    // "Height Full or Half, Color on or off, on any style of dashboard"):
+    // Full, a scene a cell -- W two, L four, XL six; Half, the shorter button,
+    // twice as many rows. The grid takes as many as there are: fewer than a
+    // row, one row of them; else the rows they fill, never an empty one.
     if (cell) {
-      var n = Math.min(pills.length, cell[0] * cell[1]), cols = cell[0], rows = cell[1];
-      if (n < cols * rows) { if (n <= cols) { rows = 1; cols = n; } else cols = Math.ceil(n / rows); }
-      return { auto: auto, config: { hk_cell: cfg.hk_cell, cols: cols, rows: rows, surface: cfg.surface, pills: pills.slice(0, n) } };
+      var half = cfg.height === 'half', cols = cell[0], rows = cell[1] * (half ? 2 : 1);
+      var n = Math.min(pills.length, cols * rows);
+      if (n <= cols) { cols = Math.max(1, n); rows = 1; } else rows = Math.ceil(n / cols);
+      return { auto: auto, config: { hk_cell: cfg.hk_cell, cols: cols, rows: rows, surface: cfg.surface, half: half, color: !!cfg.color,
+                                     pills: pills.slice(0, n) } };
     }
     return { auto: auto, config: { type: 'grid', columns: 1, square: false, cards: [
       { type: 'custom:hk-heading-card', name: cfg.name || 'Scenes' },
@@ -1334,6 +1342,13 @@
         cards: [{ type: 'custom:hk-row-card', card_width: 'var(--hk-pill, ' + T.w + 'px)', gap: T.gridGap,
                   pad_top: 14, pad_bottom: 30, pad_left: away ? 0 : 22, pad_right: away ? 0 : 22,
                   phone_card_width: 'calc((100% - ' + T.gridGap + 'px) / 2 + 4px)', phone_gap: T.gridGap + 'px', cards: pills }] }] } };
+  }
+  // A SCENE AS A BLOCK'S TILE (the plan's Height and Color): Full Centred,
+  // "Scene" under its name; Half the pill. (The tile's own `tile`: a pill
+  // outside a block answers the screen's Tile Style itself.)
+  function blockPill(pill, plan) {
+    return Object.assign({}, pill, plan.half ? { size: 'regular', tile: 'home' } : Object.assign({ tile: 'centred' }, pill.entity ? { room: 'Scene' } : {}),
+                         plan.color ? { block_color: true } : {});
   }
   class HkScenesCard extends HTMLElement {
     constructor() {
@@ -1417,7 +1432,13 @@
       if (this._el.load) this._el.load();
     }
     // A HOME GRID BLOCK: the scene tiles on the block's own cells, made as
-    // HK's own cards (never a host wrapper) so each can be told its size
+    // HK's own cards (never a host wrapper) so each can be told its size.
+    // Full: HomeView's tile (Centred: the glyph large and bare over the name,
+    // "Scene" under it), on every dashboard; Half: the scene pill, the Home
+    // app's button. Each sits in a place of its own that is its cell
+    // (hk-cell), so a Centred tile takes the sizes for the room it has.
+    // Color: each on a gradient of its own color (hk-tile.js block_color).
+    // The tiles 8 px apart, as the mock-up's (a widget's tight grid).
     _grid(plan) {
       if (this._el) { if (this._el.parentNode === this) this.removeChild(this._el); this._el = null; }
       if (!this._box) {
@@ -1425,15 +1446,19 @@
         this.appendChild(this._box);
       }
       var box = this._box, client = this.client;
-      box.style.cssText = C0().plate('card') + ';box-sizing:border-box;padding:var(--hk-pad-t,12px) var(--hk-pad-r,12px) calc(var(--hk-pad-b,12px) + var(--hk-pager-safe,0px)) var(--hk-pad-l,12px);display:grid;width:100%;height:100%;gap:' + C0().HOME_GRID.gap + 'px;' +
+      box.style.cssText = C0().plate('card') + ';box-sizing:border-box;padding:var(--hk-pad-t,12px) var(--hk-pad-r,12px) calc(var(--hk-pad-b,12px) + var(--hk-pager-safe,0px)) var(--hk-pad-l,12px);display:grid;width:100%;height:100%;gap:' + BLOCK_GAP + 'px;' +
         'grid-template-columns:repeat(' + plan.cols + ',minmax(0,1fr));grid-template-rows:repeat(' + plan.rows + ',minmax(0,1fr));overflow:hidden;--hk-pill:100%';
       delete box._hkGroupBase; C0().groupSurface(box, plan.surface);
       while (box.firstChild) box.removeChild(box.firstChild);
       this._tiles = plan.pills.map(function (pill) {
-        var t = window.hkCards.create(pill);
+        var cfg = blockPill(pill, plan);
+        var slot = document.createElement('div');
+        slot.style.cssText = 'position:relative;min-width:0;min-height:0;container-type:size;container-name:hk-cell';
+        var t = window.hkCards.create(cfg);
         t.setAttribute('data-group-fill', '');
-        t.style.cssText = 'min-width:0;min-height:0;width:100%;height:100%';
-        box.appendChild(t);
+        t.style.cssText = 'display:block;min-width:0;min-height:0;width:100%;height:100%';
+        slot.appendChild(t);
+        box.appendChild(slot);
         if (client) t.hkSetClient(client);
         return t;
       });
@@ -1575,7 +1600,7 @@
   window.hkChip.HkStatusChipCard = HkStatusChipCard;
   window.hkChip.HkChipsCard = HkChipsCard;
   window.hkChip.HkScenesCard = HkScenesCard;
-  window.hkChip.scenes = { plan: scenesPlan, pill: scenePill, page: pagePill };
+  window.hkChip.scenes = { plan: scenesPlan, pill: scenePill, page: pagePill, blockPill: blockPill };
   window.hkChip.kinds = { ORDER: KIND_ORDER, NAMES: KIND_NAMES, QUIET: QUIET_DEFAULT, PAGES: KIND_PAGES,
                           config: kindConfig, auto: autoKinds, found: found, rowPlan: rowPlan,
                           entityChip: entityChip };

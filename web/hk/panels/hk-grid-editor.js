@@ -450,8 +450,9 @@
   // pages, its rules' cards), in words; null: it can (the dashboard's Edit
   // mode asks too, hk-edit-grid.js)
   function cannotResize(item, sz) {
-    if (item.card === 'accessories' && item.pages && item.pages.source === 'list' && item.pages.list.some(function (pg) { return ((pg.opts || {}).accessories || []).length > G.PER_PAGE[sz]; })) {
-      return 'A ' + SIZE_NAMES[sz] + ' page holds ' + G.PER_PAGE[sz] + ' accessories. Move some to another page, or choose Automatic Pages, first.';
+    var holds = G.perPage(Object.assign({}, item, { size: sz }));
+    if (item.card === 'accessories' && item.pages && item.pages.source === 'list' && item.pages.list.some(function (pg) { return ((pg.opts || {}).accessories || []).length > holds; })) {
+      return 'A ' + SIZE_NAMES[sz] + ' page holds ' + holds + ' accessories. Move some to another page, or choose Automatic Pages, first.';
     }
     var misfit = (item.rules || []).find(function (r) { return !G.table()[r.card].sizes.includes(sz); });
     if (misfit) return 'A rule’s card, ' + NAMES[misfit.card] + ', doesn’t come in ' + SIZE_NAMES[sz] + '. Change or remove that rule first.';
@@ -1397,10 +1398,10 @@
         onChange: (on) => { var patch = { bare: on || null }; if (ownBare) { var o = copy(item.opts); delete o.bare; patch.opts = o; } this.update(item.id, patch); } })];
       if (cat.opts && cat.opts.surface) this.surfaceFields((item.opts || {}).surface, (value) => { var o = copy(item.opts || {}); if (value) o.surface = value; else delete o.surface; this.update(item.id, { opts: o }); }, look);
       // TILE STYLE (2026-10-30): a tile block's own, else the screen's (HK Settings → the screen → Appearance)
-      if (TILE_CARDS.indexOf(item.card) >= 0) look.push(K.seg({ label: 'Tile Style', value: item.tile || '', options: [['', 'Same as Screen'], ['home', 'Home'], ['centred', 'Centred']],
+      if (TILE_CARDS.indexOf(item.card) >= 0) look.push(K.seg({ label: 'Tile Style', value: item.tile || '', options: [['', 'Same as Screen'], ['home', 'Home'], ['centred', 'Centered']],
         onChange: (v) => this.update(item.id, { tile: v || null }) }));
       add(K.group({ header: 'Appearance', footer: cat.opts && cat.opts.surface ? 'A custom background changes only the group’s own; its tiles keep the screen’s look.'
-        : TILE_CARDS.indexOf(item.card) >= 0 ? 'Centred puts the icon above the name and room, as on a HomeView.' : '' }, look));
+        : TILE_CARDS.indexOf(item.card) >= 0 ? 'Centered puts the icon above the name and room, as on a HomeView.' : '' }, look));
     }
     setShow(item, s) {
       if (item.card === 'accessories') {

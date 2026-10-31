@@ -28,8 +28,16 @@ Text scale: HK draws its type roles in px (hk-base.js TYPE) and a wall tablet's 
 them (the Mantel app's web view sets -webkit-text-size-adjust:100%), so the one scale is the largest. The `long`
 pass instead names every thing at twice its usual length, which is what a larger text would do to a card.
 
-Stood in: the house's forecast (two forecast sensors), a family calendar's events, running timers, and the Energy
-feature's plan (on the page: the test server's feed has no Energy feature), so every block is measured full.
+Stood in: the house's forecast (two forecast sensors), a family calendar's events (today's, tomorrow's and the
+month's), running timers (and the quick timers' lengths), a third person away at a zone, two
+to-do lists and their items (the read the Side Pane makes, hk_frontend/todo/items:
+the test server's house commands are off, so it would say so), the Energy feature's plan and Clean Areas' rooms (on the page: the test
+server's feed has neither feature) with Home Assistant's Energy settings and the recorder's statistics for its
+meters and a water meter (stat_rows), and Live TV -- added on the page, six channels in the hk_tv/channels answer,
+each with its camera and what is on now -- so every block is measured full; the
+weather's feels-like, UV and wind direction and the sun's next setting (the Weather block's Extra Large reads them),
+and a thermostat on Heat (the house's two are on heat and cool): `--opts thermostat='{"entity": "climate.office"}'`
+draws it, as `--opts` names anything else a block can take.
 """
 from __future__ import annotations
 
@@ -71,11 +79,34 @@ EXTRA = {
     "sensor.running_quick_timers": (None, ("2", {"friendly_name": "Running Quick Timers", "running": [
         {"name": "Pasta", "entity_id": "timer.quick_1", "finishes_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 420))},
         {"name": "Laundry", "entity_id": "timer.quick_2", "finishes_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 1800))}]})),
+    # (the two quick timers themselves: their lengths draw the rings of time left)
+    "timer.quick_1": (None, ("active", {"friendly_name": "Quick Timer 1", "duration": "0:12:00", "remaining": "0:12:00",
+                                        "finishes_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 420))})),
+    "timer.quick_2": (None, ("active", {"friendly_name": "Quick Timer 2", "duration": "0:45:00", "remaining": "0:45:00",
+                                        "finishes_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 1800))})),
+    # (a third person, out at a zone: Who's Home says who is where)
+    "person.robin": (None, ("Work", {"friendly_name": "Robin"})),
 }
+# (a thermostat on Heat, one target: the gallery's two are on heat and cool; the weather's readings the house lacks)
+EXTRA["climate.office"] = ("office", ("heat", {"friendly_name": "Heat Pump", "current_temperature": 66, "temperature": 68,
+                                               "hvac_action": "heating", "hvac_modes": ["off", "heat", "cool", "heat_cool"],
+                                               "min_temp": 50, "max_temp": 90, "supported_features": 25, "current_humidity": 41}))
+EXTRA["weather.home"] = (None, ("partlycloudy", {"friendly_name": "Home", "temperature": 64, "temperature_unit": "°F",
+                                                 "humidity": 52, "wind_speed": 6, "wind_speed_unit": "mph", "wind_bearing": 315,
+                                                 "apparent_temperature": 62, "uv_index": 2}))
+SUNSET = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 3 * 3600))
+EXTRA["sun.sun"] = (None, ("above_horizon", {"friendly_name": "Sun", "elevation": 40.0, "azimuth": 180.0, "next_setting": SUNSET}))
+# the rooms Clean Areas offers the vacuum's Large and Extra Large blocks (stood in on the page, below)
+CLEAN_AREAS = ["kitchen", "living_room", "dining_room", "office", "bedroom", "guest_room"]
 # what each block names (a block that names nothing takes the house's: its cameras, weather, vacuum)
 OPTS = {"accessory": {"entity": "light.living_room_lamps"}, "scene": {"scene": "scene.movie_night"},
         "now_playing": {"speaker": "media_player.living_room"}, "thermostat": {"entity": "climate.main_floor"},
         "room": {"area": "living_room"}}
+# ...and what a block names at each size (an Accessories block holds as many as its size's tiles: hk_core's capacity)
+ACCESSORIES = ["light.living_room_lamps", "fan.bedroom_ceiling", "light.living_room_ceiling", "media_player.living_room",
+               "lock.front_door", "light.kitchen_pendants", "cover.garage_door", "switch.garage_outlet", "light.office_desk",
+               "light.porch", "light.bedroom_lamps", "light.backyard_string"]
+SIZED = {"accessories": lambda s: {"accessories": [{"entity": e} for e in ACCESSORIES[:{"W": 2, "L": 4, "XL": 6, "XXL": 12}[s]]]}}
 # the forecast, as the forecast sensors Settings -> Weather can name
 def _forecast(step: int, n: int, temps: list[int], conds: list[str]) -> list[dict]:
     t0 = int(time.time() // step * step) + step
@@ -98,7 +129,13 @@ def _events() -> list[dict]:
             {"summary": "Piano Lesson", "start": {"dateTime": at(0, 16)}, "end": {"dateTime": at(0, 17)}, "location": "Maple Street"},
             {"summary": "Dinner with the Parkers", "start": {"dateTime": at(0, 18, 30)}, "end": {"dateTime": at(0, 20)}},
             {"summary": "Dentist", "start": {"dateTime": at(1, 9)}, "end": {"dateTime": at(1, 10)}},
-            {"summary": "Soccer Practice", "start": {"dateTime": at(1, 17)}, "end": {"dateTime": at(1, 18, 30)}}]
+            {"summary": "Soccer Practice", "start": {"dateTime": at(1, 17)}, "end": {"dateTime": at(1, 18, 30)}}] + [
+        # ...and the month around them: a dot under most days (the Calendar block's Extra Large)
+        {"summary": name, "start": {"dateTime": at(d, hour)}, "end": {"dateTime": at(d, hour + 1)}}
+        for d, name, hour in ((-20, "Book Club", 19), (-13, "Haircut", 10), (-9, "Parent Teacher Night", 18),
+                              (-6, "Yoga", 8), (-2, "Farmers Market", 9), (3, "Piano Lesson", 16), (4, "Dentist", 11),
+                              (6, "Movie Night", 19), (10, "Piano Lesson", 16), (13, "Car Service", 9),
+                              (17, "Yoga", 8), (21, "Book Club", 19), (24, "Piano Lesson", 16))]
 
 
 WEATHER = {"place": "Riverside", "forecast_hourly": "sensor.forecast_hourly", "forecast_daily": "sensor.forecast_daily"}
@@ -110,7 +147,77 @@ for _id, (_v, _u, _n) in {"level": ("82", "%", "Battery Level"), "stored": ("11.
                           "backup": ("9.5", "h", "Backup Time"), "reserve": ("20", "%", "Backup Reserve"),
                           "charge": ("1840", "W", "Charging Power"), "discharge": ("0", "W", "Discharging Power")}.items():
     EXTRA[BATTERY[_id]] = (None, (_v, {"friendly_name": _n, "unit_of_measurement": _u}))
+# the house's to-do lists, and what is on them (hk_frontend/todo/items' answer)
+TODO = {"todo.groceries": ("Groceries", ["Milk", "Eggs", "Coffee beans", "Lemons", "Paper towels", "Bread", "Apples",
+                                         "Rice", "Olive oil", "Butter", "Basil", "Oat milk"]),
+        "todo.household": ("Household", ["Replace filters", "Bins out", "Call the plumber", "Fix the gate",
+                                         "Book the chimney sweep"])}
+for _id, (_n, _items) in TODO.items():
+    EXTRA[_id] = (None, (str(len(_items)), {"friendly_name": _n, "supported_features": 15}))
+# LIVE TV's channels (hk_tv/channels): [number, name, what is on, minutes in, minutes long]
+TV = [("4.1", "Channel 4", "Evening News", 37, 60), ("7.1", "Food", "Coastal Kitchens", 9, 30),
+      ("9.1", "Comedy", "Night Owls", 24, 30), ("11.1", "Sports", "Evening Match", 54, 120),
+      ("13.1", "Nature", "Wild Coasts", 12, 60), ("20.1", "Kids", "Story Time", 21, 30)]
+for _no, _name, _on, _in, _long in TV:
+    _id = _no.replace(".", "_")
+    EXTRA[f"camera.channel_{_id}"] = (None, ("idle", {"friendly_name": _name}))
+    EXTRA[f"sensor.channel_{_id}_now"] = (None, (_on, {"friendly_name": f"{_name} Now", "subtitle": "",
+        "start": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() - _in * 60)),
+        "end": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + (_long - _in) * 60))}))
 LONG = " and the Long Way Round"       # the `long` pass: every name this much longer
+
+# THE ENERGY FEATURE'S METERS (2026-10-31, the widget blocks: Energy Rings, Battery, Power and Water): Home
+# Assistant's Energy settings as energy/get_prefs answers them, and the recorder's statistics for each meter --
+# a made-up day by the hour (a morning and an evening, the sun at midday, the battery filling then giving),
+# each day a little different, so a usual day, this week and this month all have numbers
+ENERGY_PREFS = {"energy_sources": [
+    {"type": "grid", "flow_from": [{"stat_energy_from": "sensor.grid_energy_in", "stat_cost": "sensor.grid_energy_cost"}],
+     "flow_to": [{"stat_energy_to": "sensor.grid_energy_out"}]},
+    {"type": "solar", "stat_energy_from": "sensor.solar_energy"},
+    {"type": "battery", "stat_energy_to": "sensor.battery_energy_in", "stat_energy_from": "sensor.battery_energy_out"},
+    {"type": "water", "stat_energy_from": "sensor.water_meter"}], "device_consumption": []}
+EXTRA["sensor.water_meter"] = (None, ("48211", {"friendly_name": "Water Meter", "unit_of_measurement": "gal", "device_class": "water",
+                                                "state_class": "total_increasing"}))
+
+
+def _hour(at: float) -> dict:
+    """What each meter changed by in the hour starting `at` (seconds, UTC: the test server's Home Assistant zone)."""
+    import math
+    h, day = time.gmtime(at).tm_hour, int(at // 86400)
+    bell = lambda mid, w: math.exp(-((h - mid) / w) ** 2)
+    k = 0.85 + 0.3 * ((day * 37) % 10) / 10
+    use = k * (0.45 + 1.1 * bell(19, 2.5) + 0.6 * bell(8, 1.5))
+    sun = (0.8 + 0.4 * ((day * 13) % 5) / 5) * 2.4 * max(0.0, math.sin(math.pi * (h - 6) / 13)) if 6 <= h <= 19 else 0.0
+    into, out = (0.5 if 10 <= h <= 14 else 0.0), (0.45 if 18 <= h <= 22 else 0.0)
+    grid_in, grid_out = max(0.0, use + into - sun - out), max(0.0, sun + out - use - into)
+    return {"sensor.grid_energy_in": grid_in, "sensor.grid_energy_out": grid_out, "sensor.grid_energy_cost": grid_in * 0.21,
+            "sensor.solar_energy": sun, "sensor.battery_energy_in": into, "sensor.battery_energy_out": out,
+            "sensor.water_meter": k * (1.5 + 16 * bell(7, 1.2) + 12 * bell(19, 1.8)),
+            # the plan's devices (the Power block's top users)
+            "sensor.laundry_energy": k * 1.3 * bell(10, 1.2), "sensor.dishwasher_energy": k * 0.9 * bell(20, 0.8),
+            "sensor.office_energy": 0.12 if 8 <= h <= 18 else 0.02,
+            # the means: the house's power in W, the battery's level in %
+            "sensor.home_power": 1000 * use, "sensor.house_battery_level": max(20.0, min(100.0, 45 + 9 * max(0, min(h, 15) - 9) - 7 * max(0, h - 17)))}
+
+
+def stat_rows(msg: dict) -> dict:
+    """recorder/statistics_during_period, stood in: every closed bucket from the start asked for to now."""
+    from datetime import datetime
+    step = {"5minute": 300, "hour": 3600, "day": 86400, "week": 604800, "month": 2678400}[msg.get("period", "hour")]
+    t = datetime.fromisoformat(msg["start_time"].replace("Z", "+00:00")).timestamp()
+    now, out = time.time(), {i: [] for i in msg["statistic_ids"]}
+    # (a day is its closed hours, today's too: Home Assistant sums a day's buckets from its hourly ones)
+    while t + (3600 if step == 86400 else step) <= now:
+        hours = [t + 3600 * n for n in range(24) if t + 3600 * (n + 1) <= now] if step == 86400 else [t]
+        for i in msg["statistic_ids"]:
+            vals = [_hour(x).get(i) for x in hours]
+            if None in vals:
+                continue
+            v = sum(vals) * (step / 3600 if step < 3600 else 1)
+            mean = i in ("sensor.home_power", "sensor.house_battery_level")
+            out[i].append({"start": t * 1000, "end": (t + step) * 1000, "mean" if mean else "change": vals[0] if mean else v})
+        t += step
+    return out
 
 
 def screen(key: str, look: str, bar: bool = True) -> str:
@@ -132,7 +239,8 @@ def layout(part: str) -> dict:
     sizes = [s for s in HG.CATALOG[key]["sizes"] if (s == only if only else s in PLACES)]
     hv = CELL["homeview"]
     opts = {**OPTS.get(key, {}), **(HOMEVIEW.get(key, {}) if hv else {})}
-    items = [{"id": f"{key[:3]}{s.lower()}", "card": key, "size": s, "at": PLACES.get(s, [0, 0]), **({"opts": opts} if opts else {}),
+    items = [{"id": f"{key[:3]}{s.lower()}", "card": key, "size": s, "at": PLACES.get(s, [0, 0]),
+              **({"opts": {**opts, **SIZED[key](s)}} if key in SIZED else {"opts": opts} if opts else {}),
               **({"tile": "centred"} if hv and key in ("accessory", "scene", "action") else {})}
              for s in sizes]
     return {"v": 1, "cols": 6, "rows": 4, "frame": [1280, 800], "band": True, "items": items,
@@ -275,8 +383,11 @@ MEASURE = r"""(() => {
           if (Number.isFinite(top) && Number.isFinite(bottom)) h = Math.max(h, r.height - top - bottom);
           if (Number.isFinite(left) && Number.isFinite(right)) w = Math.max(w, r.width - left - right);
         }
-        if (r.width >= 1 && r.height >= 1 && (w < 43.5 || h < 43.5))
-          rec.issues.push('a control under 44 px: ' + name(el) + ' ' + Math.round(r.width) + 'x' + Math.round(r.height)); }
+        // (in the block's own px: the grid is drawn scaled to the screen -- 0.74 on square cells at 1280 x 800 --
+        // and a control is laid out at 44 before that, 2026-10-31)
+        const gs = view._gridScale || 1;
+        if (r.width >= 1 && r.height >= 1 && (w / gs < 43.5 || h / gs < 43.5))
+          rec.issues.push('a control under 44 px: ' + name(el) + ' ' + Math.round(r.width / gs) + 'x' + Math.round(r.height / gs)); }
     }
     // Dial text belongs inside its open centre, not across the track/knobs.
     const ring = card.shadowRoot && card.shadowRoot.querySelector('[data-ring]');
@@ -289,9 +400,10 @@ MEASURE = r"""(() => {
     }
     if (minFont < 11) rec.issues.push('text under the type roles: ' + minFont + ' px in ' + name(small));
     rec.min_font = minFont;
-    // (square cells: HomeView's 34 on the block, as a corner of the scale)
+    // (square cells: HomeView's 34 on the block, as a corner of the scale, and the pills inside following it --
+    // --hk-inner-radius, 34 less the block's 18 px inset: 16)
     const SQUARE = view.getAttribute('cell') === 'square', PLATE = SQUARE ? 34 : 23.5;
-    const SCALE = [23.5, 22, 20, 12, 8, 0].concat(SQUARE ? [34] : []);
+    const SCALE = [23.5, 22, 20, 12, 8, 0].concat(SQUARE ? [34, 16] : []);
     let outer = null, outerA = 0;
     for (const el of all) {
       if (!shown(el)) continue; const cs = getComputedStyle(el);
@@ -356,10 +468,27 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
     async def calendar_events(self, entity_id, start, end):
         return _events() if entity_id == "calendar.family" else []
     OfflineReads.get_calendar_events = calendar_events
+    ask = OfflineReads.request
+
+    async def request(self, msg):
+        if msg.get("type") == "hk_tv/channels":
+            return {"configured": True, "channels": [{"number": n, "name": name, "camera": f"camera.channel_{n.replace('.', '_')}",
+                                                     "now": f"sensor.channel_{n.replace('.', '_')}_now"} for n, name, *_ in TV]}
+        return await ask(self, msg)
+    OfflineReads.request = request
     report: dict = {}
     with tempfile.TemporaryDirectory(prefix="mantel-grid-audit-") as folder:
         app, cookie = await gallery.build(Path(folder))
         hub = app["hub"]
+        from mantel_server.connectors import Route
+
+        async def todo_items(ctx, msg):
+            eid = msg.get("entity_id")
+            name, items = TODO.get(eid, (eid, []))
+            return {"entity_id": eid, "name": name, "left": len(items),
+                    "items": [{"uid": f"{eid}-{i}", "summary": t, "done": False, "due": None} for i, t in enumerate(items)]}
+        app["read_routes"]["hk_frontend/todo/items"] = Route(request=todo_items)
+        hub.readproxy.energy_prefs, hub.readproxy.stat_rows = ENERGY_PREFS, stat_rows
         async with TestServer(app) as server:
             origin = str(server.make_url("")).rstrip("/")
             async with Browser(width=1280, height=800, port=9391) as b:
@@ -369,12 +498,23 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                 # THE ENERGY FEATURE, stood in on the page: its plan's house battery is what the `battery` block
                 # shows, and the test server's settings feed has no Energy feature to send (hkSettings.get answers
                 # `added` and `energy` as a house with it would)
-                plan = json.dumps({"sections": [], "power": {"path": "power", "battery": BATTERY}})
+                # (and its sun, house and grid now, which the Battery and Power blocks read)
+                # ...and CLEAN AREAS, its rooms answered as hk_clean_areas/subscribe would (the Vacuum block's rooms)
+                dev = lambda key, name, icon, stat: {"key": key, "kind": "device", "name": name, "icon": icon, "stat": stat, "power": None}
+                plan = json.dumps({"sections": [{"id": "appliances", "name": "Appliances", "items": [
+                    dev("app.laundry", "Laundry", "mdi:washing-machine", "sensor.laundry_energy"),
+                    dev("app.dishwasher", "Dishwasher", "mdi:dishwasher", "sensor.dishwasher_energy"),
+                    dev("app.office", "Office", "mdi:power-plug", "sensor.office_energy")]}],
+                                   "power": {"path": "power", "battery": BATTERY, "home": "sensor.home_power",
+                                                             "solar": "sensor.solar_power", "grid": "sensor.grid_power"}})
                 await b.send("Page.addScriptToEvaluateOnNewDocument", source="""(() => { let hs;
                   Object.defineProperty(window, 'hkSettings', { configurable: true, get() { return hs; }, set(v) {
-                    hs = v; if (!v || !v.get || v.__audit) return; const get = v.get; v.__audit = true;
-                    v.get = function (p, f) { if (p === 'added') return ['energy']; if (p === 'energy') return """ + plan + """;
-                      return get.apply(this, arguments); }; } }); })()""")
+                    hs = v; if (!v || !v.get || v.__audit) return; const get = v.get, sub = v.subscribe; v.__audit = true;
+                    v.get = function (p, f) { if (p === 'added') return ['energy', 'live_tv', 'clean_areas']; if (p === 'energy') return """ + plan + """;
+                      return get.apply(this, arguments); };
+                    v.subscribe = function (conn, msg, on) { if (msg && msg.type === 'hk_clean_areas/subscribe') {
+                      setTimeout(() => on({ configured: true, areas: """ + json.dumps(CLEAN_AREAS) + """ }), 0); return () => {}; }
+                      return sub.apply(this, arguments); }; } }); })()""")
                 sun = None
                 for key, look, bar in passes:
                     elev = SUN.get(look, 40.0)
@@ -382,7 +522,7 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                         sun = elev
                         hub.store.apply_event({"a": {"sun.sun": {
                             "s": "above_horizon" if elev > 0 else "below_horizon", "lc": gallery.NOW, "lu": gallery.NOW,
-                            "a": {"friendly_name": "Sun", "elevation": elev, "azimuth": 180.0}}}})
+                            "a": {"friendly_name": "Sun", "elevation": elev, "azimuth": 180.0, "next_setting": SUNSET}}}})
                     name = screen(key, look, bar)
                     mark = len(b.console)
                     await b.open(f"{origin}/{name}/home", cookie)
@@ -444,7 +584,12 @@ def main(argv=None) -> int:
                     help="looks to run once more with the tab bar hidden (default: Flat Dark)")
     ap.add_argument("--cell", choices=["tile", "square"], default="tile", help="the grid's cells (square: 196 x 196)")
     ap.add_argument("--homeview", action="store_true", help="square cells, Centred tiles, Big Number, Analog Numbers")
+    ap.add_argument("--opts", nargs="*", default=[], metavar="KEY=JSON",
+                    help="what a block names, over the audit's own (thermostat='{\"entity\": \"climate.office\"}')")
     a = ap.parse_args(argv)
+    for o in a.opts:
+        k, _, v = o.partition("=")
+        OPTS[k] = {**OPTS.get(k, {}), **json.loads(v)}
     CELL.update(cell="square" if a.homeview else a.cell, homeview=a.homeview)
     keys = a.only or G2
     unknown = [k for k in keys if k not in HG.CATALOG]

@@ -68,19 +68,20 @@
                            o.height ? { height: o.height } : {}, o.color ? { color: true } : {}); } },
     now_playing: { sizes: ['S', 'W', 'T', 'L'], sources: ['speakers'], opts: { speaker: 'speaker' }, card: function (s, o) {
       // T and L: the progress above the transport (the Home app's and Apple
-      // Music's order); L the volume under it as well. Its speaker's own
-      // controls, or the screen's music.
+      // Music's order); W, T and L the volume under it (Music's widgets,
+      // 2026-10-31). Its speaker's own controls, or the screen's music.
       var sp = own(o.speaker), ctl = function (parts) {
         return Object.assign({ type: 'custom:hk-media-control-card', color: 'purple', bare: true, parts: parts },
                              sp ? { entity: sp } : { entity_from: { music: true } });
       };
-      var extra = s === 'L' ? { sub_card: ctl(['progress']), meta_card: ctl(['volume']) }
-                : s === 'T' ? { sub_card: ctl(['progress']) } : {};
+      var extra = s === 'L' || s === 'T' ? { sub_card: ctl(['progress']), meta_card: ctl(['volume']) }
+                : s === 'W' ? { meta_card: ctl(['volume']) } : {};
       return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, sp ? { entity: sp } : {}, extra); } },
-    // Extra Large: the thermostat's full controls, its sheet (2026-10-24)
+    // Extra Large: the thermostat's full controls, its sheet (2026-10-24) -- in Big Number, its face with the modes
+    // beside it (hk-control.js _big, 2026-10-31)
     thermostat: { sizes: ['S', 'T', 'L', 'XL'], sources: ['thermostats'], opts: { entity: 'climate', style: 'thermostat_style' }, card: function (s, o, ctx) {
       var id = own(o.entity) || (ctx.climate || [])[0];
-      if (s === 'XL') return panel('climate', id ? { entity: id } : {});
+      if (s === 'XL' && o.style !== 'big') return panel('climate', id ? { entity: id } : {});
       // the dial (hk-control.js), sized to the block (G2) -- or its Big Number
       return id ? Object.assign({ type: 'custom:hk-control-card', entity: id }, o.style === 'big' ? { style: 'big' } : {})
                 : stand('Thermostat', 'hk:thermostat'); } },
@@ -189,6 +190,8 @@
   // the house to show: one page, the block's card as it is without pages.
   var PAGES_MAX = 12;
   var PER_PAGE = { W: 2, L: 4, XL: 6, XXL: 12 };      // a scenes page's scenes, by size
+  // ...twice as many at Half height (2026-10-31: the shorter button, two rows in each of Full's)
+  function perPage(it) { return (PER_PAGE[it.size] || 2) * (((it.opts || {}).height === 'half') ? 2 : 1); }
   function pages(item, ctx) {
     var it = item || {}, c = CARDS[it.card], x = ctx || {};
     if (!c) return [{ card: stand('Unavailable', 'mdi:help-circle-outline') }];
@@ -204,7 +207,7 @@
     else if (p.source === 'list') {
       out = p.list.map(function (pg) { return page((pg && pg.opts) || {}); });
     } else if (p.source === 'accessories') {
-      var entries = base.accessories || [], count = PER_PAGE[it.size] || 2;
+      var entries = base.accessories || [], count = perPage(it);
       for (var ai = 0; ai < entries.length; ai += count) out.push(page({ accessories: entries.slice(ai, ai + count) }));
     } else if (p.source === 'rooms') {
       out = rooms.map(function (a) { return page({ area: a }, { area: a }); });
@@ -219,7 +222,7 @@
       out = (x.speakers || []).filter(function (s) { return s && s.entity; })
         .map(function (s) { return page({ speaker: s.entity }, { entity: s.entity, area: s.area || null }); });
     } else if (p.source === 'scenes') {
-      var per = PER_PAGE[it.size] || 4, all = (x.scenes || []).slice(0, per * PAGES_MAX);
+      var per = perPage(it), all = (x.scenes || []).slice(0, per * PAGES_MAX);
       for (var i = 0; i < all.length; i += per) out.push(page({ scenes: all.slice(i, i + per) }));
     }
     out = out.slice(0, PAGES_MAX);
@@ -309,7 +312,7 @@
   }
 
   window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, span: span, CELLS: CELLS, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
-                           PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES,
+                           PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES,
                            CONDITIONS: CONDITIONS, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
 })();

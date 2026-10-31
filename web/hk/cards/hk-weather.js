@@ -1562,63 +1562,120 @@
         this._balanceHero();
         if (buildDue(this)) build(this, this._root.querySelector('.hero'));
       },
-      // ---- A HOME GRID BLOCK (G2): W and XL
+      // ---- A HOME GRID BLOCK (G2), Weather's own widgets at each size (2026-10-31, the owner's notes on the
+      // widget mock-up): Small the place, the temperature, the symbol, the condition and today's high and low;
+      // Wide those and the next six hours; Tall the hours down its length (as many as it holds, up to eight);
+      // Large the hours and five days; Extra Large the Weather page in small -- the hours, then feels like,
+      // humidity, wind, the chance of rain, sunset and UV in the left column, seven days on the right.
       _renderBlock() {
         var cfg = this._config, states = this.client.states, st = states[cfg.entity] || {}, sz = this._cellSize();
-        var t = this._nowTemp(), feels = num(((st.attributes) || {}).apparent_temperature);
+        var a = st.attributes || {}, src = this._sources(), t = this._nowTemp();
         var cond = window.hkHeader && window.hkHeader.conditionName ? window.hkHeader.conditionName(st.state) : String(st.state || '');
-        var today = this._days(1)[0] || {}, hi = num(today.temperature), lo = num(today.templow);
+        var nDays = sz === 'XL' ? 7 : sz === 'L' ? 5 : 1;
+        var allDays = this._days(nDays), today = allDays[0] || {}, hi = num(today.temperature), lo = num(today.templow);
         var night = !!(window.hkHeader && window.hkHeader.isNight && window.hkHeader.isNight(states));
         var sym = function (state, px) {
           return window.hkHeader && window.hkHeader.wxSvg && !/^(unknown|unavailable)$/.test(state || 'unknown')
             ? window.hkHeader.wxSvg(state, px, { night: night, sym: true }) : '';
         };
         this._watchBlock();
-        var hrs = this._hours(6), days = sz === 'W' ? [] : this._days(sz === 'XL' ? 5 : 3);
-        var span = days.flatMap(function (d) { return [num(d.templow), num(d.temperature)]; }).filter(function (v) { return v !== null; });
-        var min = span.length ? Math.min.apply(null, span) : 0, max = span.length ? Math.max.apply(null, span) : 1;
         var hl = [hi !== null ? 'H:' + Math.round(hi) + '°' : '', lo !== null ? 'L:' + Math.round(lo) + '°' : ''].filter(Boolean).join('  ');
+        var place = esc(titled(cfg.place || this._place())), now = t !== null ? Math.round(t) + '°' : '--';
+        var skyEl = cfg.sky ? '<hk-grid-weather-sky entity="' + esc(cfg.entity) + '" aria-hidden="true"></hk-grid-weather-sky>' : '';
+        var done = function (self, html) {
+          C.morph(self._root, html);
+          var sky = self._root.querySelector('hk-grid-weather-sky');
+          if (sky) sky.client = self.client;
+        };
         // BIG TEMPERATURE (2026-10-24, StandBy's weather): the place, the
         // temperature as large as the block holds, then the condition and
-        // today's high and low -- nothing else. A Tall block is always this.
-        if (cfg.big || sz === 'T') {
-          C.morph(this._root, '<hk-plate class="wb big ' + sz + (cfg.sky ? ' sky' : '') + '" role="group" aria-label="Weather">' +
-            (cfg.sky ? '<hk-grid-weather-sky entity="' + esc(cfg.entity) + '" aria-hidden="true"></hk-grid-weather-sky>' : '') +
-            '<b class="place-name">' + esc(titled(cfg.place || this._place())) + '</b>' +
-            '<div class="bn">' + (t !== null ? Math.round(t) + '°' : '--') + '</div>' +
+        // today's high and low -- nothing else, at any size it is chosen for.
+        if (cfg.big) {
+          return done(this, '<hk-plate class="wb big ' + sz + (cfg.sky ? ' sky' : '') + '" role="group" aria-label="Weather">' + skyEl +
+            '<b class="place-name">' + place + '</b>' +
+            '<div class="bn">' + now + '</div>' +
             '<div class="bc"><span class="sym" aria-hidden="true">' + sym(st.state, '26px') + '</span><b>' + esc(cond || '--') + '</b></div>' +
             (hl ? '<span class="bh">' + esc(hl) + '</span>' : '') + '</hk-plate>');
-          var bsky = this._root.querySelector('hk-grid-weather-sky');
-          if (bsky) bsky.client = this.client;
-          return;
         }
-        var html = '<hk-plate class="wb ' + sz + (hrs.length ? ' hh' : '') + (cfg.sky ? ' sky' : '') + '" role="group" aria-label="Weather forecast">' +
-          (cfg.sky ? '<hk-grid-weather-sky entity="' + esc(cfg.entity) + '" aria-hidden="true"></hk-grid-weather-sky>' : '') + '<div class="top">' +
-          '<div class="place-now"><b class="place-name">' + esc(titled(cfg.place || this._place())) + '</b>' +
-          '<div class="tpn">' + (t !== null ? Math.round(t) + '°' : '--') + '</div></div>' +
+        var plate = function (label, inner) {
+          return '<hk-plate class="wb ' + sz + (sz === 'W' && hrs.length ? ' hh' : '') + (cfg.sky ? ' sky' : '') + '" role="group" aria-label="' + label + '">' + skyEl + inner + '</hk-plate>';
+        };
+        // SMALL: the place and the temperature at the top, the symbol, the
+        // condition and the high and low at the foot (on a tile, the symbol
+        // beside the condition: 150 tall holds no line of its own for it)
+        if (sz === 'S') {
+          return done(this, plate('Weather', '<b class="place-name">' + place + '</b><div class="tpn">' + now + '</div>' +
+            '<div class="sc"><span class="sym" aria-hidden="true">' + sym(st.state, '26px') + '</span><span class="sct"><b>' + esc(cond || '--') + '</b>' +
+            (hl ? '<span>' + esc(hl) + '</span>' : '') + '</span></div>'));
+        }
+        var top = '<div class="top"><div class="place-now"><b class="place-name">' + place + '</b>' +
+          '<div class="tpn">' + now + '</div></div>' +
           '<div class="tx"><div class="sym" aria-hidden="true">' + sym(st.state, '32px') + '</div><b>' + esc(cond || '--') + '</b>' +
-          (hl ? '<span>' + esc(hl) + '</span>' : '') + '</div></div>' +
-          (sz !== 'W' ? '<div class="readings">' + [
-            feels !== null ? 'Feels ' + Math.round(feels) + '°' : '',
-            st.attributes && st.attributes.humidity != null ? st.attributes.humidity + '% Humidity' : '',
-            st.attributes && st.attributes.wind_speed != null ? st.attributes.wind_speed + ' ' + (st.attributes.wind_speed_unit || '') + ' Wind' : ''
-          ].filter(Boolean).map(function (v) { return '<span>' + esc(v) + '</span>'; }).join('') + '</div>' : '') +
-          (hrs.length ? '<div class="hrs" style="--n:6">' + hrs.map(function (h) {
+          (hl ? '<span>' + esc(hl) + '</span>' : '') + '</div></div>';
+        var hourCells = function (list) {
+          return '<div class="hrs" style="grid-template-columns:repeat(' + list.length + ',minmax(0,1fr))">' + list.map(function (h) {
             var value = num(h.temperature);
             return '<div class="hr"><small>' + esc(hourLabel(h.datetime)) + '</small>' + sym(h.condition, '24px') +
               '<b>' + (value !== null ? Math.round(value) + '°' : '--') + '</b></div>';
-          }).join('') + '</div>' : '') +
-          (days.length ? '<div class="days">' + days.map(function (d, i) {
-            var low = num(d.templow), high = num(d.temperature), range = Math.max(1, max - min);
+          }).join('') + '</div>';
+        };
+        // TALL: the hours down its length, one a line, as many as it holds
+        // (eight on square cells, six on tiles), spread to its foot
+        if (sz === 'T') {
+          // (the hours' room: the block less its inset and the five lines above them, 24 px an hour at the least)
+          var blk = this._block(), fit = blk ? Math.floor((blk.h - 158) / 24) : 8;
+          var vh = this._hours(Math.max(3, Math.min(8, fit)));
+          return done(this, plate('Weather forecast', '<b class="place-name">' + place + '</b><div class="tpn">' + now + '</div>' +
+            '<div class="tl"><span class="sym" aria-hidden="true">' + sym(st.state, '22px') + '</span><b>' + esc(cond || '--') + '</b></div>' +
+            (hl ? '<span class="th">' + esc(hl) + '</span>' : '') +
+            (vh.length ? '<div class="vh">' + vh.map(function (h) {
+              var value = num(h.temperature);
+              return '<div class="vr"><small>' + esc(hourLabel(h.datetime)) + '</small>' + sym(h.condition, '20px') +
+                '<b>' + (value !== null ? Math.round(value) + '°' : '--') + '</b></div>';
+            }).join('') + '</div>' : '')));
+        }
+        var dayRows = function (days) {
+          var span = days.flatMap(function (d) { return [num(d.templow), num(d.temperature)]; }).filter(function (v) { return v !== null; });
+          var min = span.length ? Math.min.apply(null, span) : 0, max = span.length ? Math.max.apply(null, span) : 1, range = Math.max(1, max - min);
+          return '<div class="days">' + days.map(function (d, i) {
+            var low = num(d.templow), high = num(d.temperature);
             var left = low === null ? 0 : (low - min) / range * 100, width = low === null || high === null ? 0 : (high - low) / range * 100;
             var day = i === 0 ? 'Today' : new Date(d.datetime).toLocaleDateString(undefined, { weekday: 'short' });
-            return '<div class="day"><b>' + esc(day) + '</b>' + sym(d.condition, '18px') +
+            return '<div class="day"><b>' + esc(day) + '</b>' + sym(d.condition, '20px') +
               '<span class="low">' + (low === null ? '--' : Math.round(low) + '°') + '</span><i class="range">' +
               '<i style="left:' + left.toFixed(2) + '%;width:' + width.toFixed(2) + '%"></i></i><span>' + (high === null ? '--' : Math.round(high) + '°') + '</span></div>';
-          }).join('') + '</div>' : '') + '</hk-plate>';
-        C.morph(this._root, html);
-        var sky = this._root.querySelector('hk-grid-weather-sky');
-        if (sky) sky.client = this.client;
+          }).join('') + '</div>';
+        };
+        var hrs = this._hours(sz === 'XL' ? 5 : 6);
+        // EXTRA LARGE: the page in small. Each reading only when the house
+        // has it: feels like, humidity and wind from Settings' sensors or the
+        // weather entity, the chance of rain today's (else this hour's), the
+        // sun's next setting (its rising, after dark), and the UV index.
+        if (sz === 'XL') {
+          var rd = function (id, attr) { return id ? num((states[id] || {}).state) : num(a[attr]); };
+          var feels = rd(src.feels, 'apparent_temperature'), hum = rd(src.humidity, 'humidity'), wind = rd(src.wind, 'wind_speed');
+          var h0 = hrs[0] || {}, rain = num(today.precipitation_probability);
+          if (rain === null) rain = num(h0.precipitation_probability);
+          var uv = num(a.uv_index);
+          if (uv === null) uv = num(h0.uv_index);
+          var sun = states['sun.sun'], sa = (sun && sun.attributes) || {}, up = !sun || sun.state !== 'below_horizon';
+          var at = fmtTime(up ? sa.next_setting : sa.next_rising), brg = num(a.wind_bearing);
+          var reads = [
+            ['mdi:thermometer', 'Feels like', feels !== null ? Math.round(feels) + '°' : null],
+            ['mdi:water-percent', 'Humidity', hum !== null ? Math.round(hum) + '%' : null],
+            ['mdi:weather-windy', 'Wind', wind !== null ? Math.round(wind) + ' ' + this._units().wind + (brg !== null ? ' ' + dir16(brg) : '') : null],
+            ['mdi:weather-rainy', 'Rain', rain !== null ? Math.round(rain) + '%' : null],
+            ['mdi:weather-sunset', up ? 'Sunset' : 'Sunrise', at],
+            ['mdi:white-balance-sunny', 'UV', uv !== null ? Math.round(uv) + ' ' + (uv < 3 ? 'Low' : uv < 6 ? 'Moderate' : uv < 8 ? 'High' : uv < 11 ? 'Very High' : 'Extreme') : null]
+          ].filter(function (r) { return r[2]; });
+          return done(this, plate('Weather forecast', '<div class="lc">' + top + (hrs.length ? hourCells(hrs) : '') +
+            (reads.length ? '<div class="rds">' + reads.map(function (r) {
+              return '<span><hk-icon icon="' + r[0] + '" aria-hidden="true"></hk-icon><small>' + esc(r[1]) + '</small><b>' + esc(r[2]) + '</b></span>';
+            }).join('') + '</div>' : '') + '</div>' +
+            (allDays.length ? '<div class="rc"><b class="lab">' + allDays.length + '-Day Forecast</b>' + dayRows(allDays) + '</div>' : '')));
+        }
+        // WIDE AND LARGE: the top, the next six hours; Large five days under them
+        return done(this, plate('Weather forecast', top + (hrs.length ? hourCells(hrs) : '') + (sz === 'L' && allDays.length ? dayRows(allDays) : '')));
       },
       // THE PAIR CENTERED ON ITS INK, as the screensaver balances it: what is
       // drawn -- the symbol's paths (at rest: a turning ray or a drifting
@@ -1891,11 +1948,11 @@
           '.plain .place,.plain .sub,.plain .lbl,.plain .lo,.plain .pop.wet{color:var(--hk-ink-2,#fff)}',
           '.plain .pop{color:var(--hk-ink-3,#fff)}',
           '.plain .temp,.plain .cond,.plain .lbl.now,.plain .hi{color:var(--hk-ink,#fff)}',
-          // ON A HOME GRID (G2, the `weather` block): a plate -- the symbol,
-          // the temperature, the condition with today's high and low and the
-          // place, the outlook under them; at XL the band's own temperature
-          // size (76, not a role: DESIGN.md) and the next hours along the
-          // foot, as many as its width holds (_renderBlock)
+          // ON A HOME GRID (G2, the `weather` block): a plate -- the place
+          // and the temperature, the symbol, the condition and today's high
+          // and low; the hours and the days as each size has them
+          // (_renderBlock). Square cells (196 tall, two rows 405) and tile
+          // cells (150, two rows 310) each get their spacing by hk-cell query.
           'hk-plate.wb{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;margin:0;padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';',
           '  display:flex;flex-direction:column;justify-content:center;gap:12px;overflow:hidden;color:' + C.v('ink') + '}',
           '.wb .top{display:flex;justify-content:space-between;align-items:center;gap:12px;min-width:0;flex:none}',
@@ -1909,24 +1966,70 @@
           '.wb .hr{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}',
           '.wb .hr small{' + C.typeCss('caption') + ';line-height:16px;color:' + C.v('ink-2') + ';white-space:nowrap}',
           '.wb .hr b{' + C.typeCss('body') + ';line-height:18px;font-variant-numeric:tabular-nums}',
-          '.wb.XL{padding:' + window.hkCards.blockPad('14px 22px') + ';display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr);grid-template-rows:auto minmax(0,1fr) auto;gap:8px 18px}',
-          '.wb.XL .top{grid-column:1;grid-row:1/3;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:8px}.wb.XL .tx{align-items:flex-start;text-align:left}',
-          '.wb.XL .readings{grid-column:1;grid-row:3}.wb.XL .hrs{grid-column:2;grid-row:1;border-top:0;padding-top:0}.wb.XL .hr{gap:2px}.wb.XL .days{grid-column:2;grid-row:2/4;align-content:start;gap:4px}',
-          // (XL: both columns from the top -- the place and the hours on one line, 2026-10-30; centred, they didn't)
           '.wb .days{display:grid;gap:2px;border-top:1px solid ' + RULE + ';padding-top:6px;flex:none}',
-          '.wb .day{display:grid;grid-template-columns:52px 18px 32px minmax(0,1fr) 32px;align-items:center;gap:10px;height:20px;' + C.typeCss('caption') + ';font-variant-numeric:tabular-nums}',
+          '.wb .day{display:grid;grid-template-columns:52px 20px 32px minmax(0,1fr) 32px;align-items:center;gap:10px;height:20px;' + C.typeCss('caption') + ';font-variant-numeric:tabular-nums}',
           '.wb .day b{font-weight:600}.wb .low{color:' + C.v('ink-2') + ';text-align:right}.wb .day>span:last-child{text-align:right}',
           '.wb .range{display:block;height:5px;border-radius:' + C.R.capsule('5px') + ';background:' + C.v('key') + ';position:relative;overflow:hidden}',
           '.wb .range i{position:absolute;height:100%;border-radius:' + C.R.capsule('5px') + ';background:linear-gradient(90deg,#64d2ff,#ffd60a,#ff9f0a)}'
-          ,'.wb .readings{display:flex;flex-wrap:wrap;gap:4px 12px;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + ';flex:none}',
+          ,
           // WIDE ON A SQUARE CELL (2026-10-31, the owner's widget references:
           // Weather's medium widget, the same 2 : 1): 196 tall, not 150 --
           // the place and temperature, the condition and high and low at the
           // top, the next six hours along the foot, where a tile's row left
-          // the lower half bare. On a tile the hours aren't drawn.
+          // the lower half bare. On a tile (150 tall holds no row under the
+          // top) the hours go beside it: the place, the temperature and the
+          // condition on the left, five hours on the right (2026-10-31: the
+          // tile's Wide had left half of itself bare).
           '.wb.W .hrs{display:none}',
           '@container hk-cell (min-height:180px){hk-plate.wb.W.hh{justify-content:space-between}.wb.W .hrs{display:grid;border-top:0;padding-top:0}.wb.W .hr{gap:2px}}',
-          '.wb.L{padding:' + window.hkCards.blockPad('14px 22px') + ';gap:8px}.wb.L .hrs{padding-top:6px}.wb.L .hr{gap:2px}',
+          '@container hk-cell (max-height:179px){hk-plate.wb.W.hh{flex-direction:row;align-items:center;gap:14px}' +
+            '.wb.W.hh .top{flex-direction:column;align-items:flex-start;gap:2px;max-width:40%}' +
+            '.wb.W.hh .tx{align-items:flex-start;text-align:left}.wb.W.hh .tx .sym,.wb.W.hh .tx span{display:none}' +
+            '.wb.W.hh .hrs{display:grid;flex:1;min-width:0;grid-template-columns:repeat(5,minmax(0,1fr));border-top:0;padding:0 0 0 12px;border-left:1px solid ' + RULE + '}' +
+            '.wb.W.hh .hr:nth-child(n+6){display:none}.wb.W.hh .hr{gap:2px}}',
+          // SMALL (2026-10-31): the place and the temperature, the symbol over
+          // the condition and the high and low at the foot -- on a tile the
+          // symbol beside them
+          '.wb.S{justify-content:flex-start;gap:0}',
+          '.wb.S .sc{margin-top:auto;display:flex;align-items:center;gap:8px;min-width:0}',
+          '.wb.S .sct{display:flex;flex-direction:column;min-width:0}',
+          '.wb.S .sct b{' + C.typeCss('body') + ';font-weight:600;line-height:18px}.wb.S .sct span{' + C.typeCss('caption') + ';line-height:17px;color:' + C.v('ink-2') + ';font-variant-numeric:tabular-nums}',
+          '.wb.S .sct b,.wb.S .sct span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+          '@container hk-cell (min-height:180px){.wb.S .sc{flex-direction:column;align-items:flex-start;gap:4px}}',
+          // TALL: the symbol and the condition under the temperature, the
+          // high and low under them, then the hours down the rest, spread to
+          // the foot
+          '.wb.T{justify-content:flex-start;gap:0}',
+          '.wb.T .tl{display:flex;align-items:center;gap:6px;min-width:0;margin-top:2px}',
+          '.wb.T .tl b{' + C.typeCss('body') + ';font-weight:600;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+          '.wb.T .th{' + C.typeCss('caption') + ';line-height:17px;color:' + C.v('ink-2') + ';font-variant-numeric:tabular-nums;white-space:nowrap}',
+          '.wb.T .vh{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:space-between;border-top:1px solid ' + RULE + ';margin-top:12px;padding-top:8px}',
+          '.wb.T .vr{display:grid;grid-template-columns:minmax(0,1fr) 20px 40px;align-items:center;gap:8px;height:22px}',
+          '.wb.T .vr small{' + C.typeCss('caption') + ';color:' + C.v('ink-2') + ';white-space:nowrap}',
+          '.wb.T .vr b{' + C.typeCss('body') + ';font-weight:600;text-align:right;font-variant-numeric:tabular-nums}',
+          // LARGE: the top with room round it, the hours, five days
+          '.wb.L{gap:14px}.wb.L .hrs{padding-top:12px}.wb.L .hr{gap:2px}.wb.L .days{padding-top:10px;gap:4px}',
+          '.wb.L .day,.wb.XL .day{height:24px;font-size:15px}',
+          '@container hk-cell (max-height:380px){.wb.L{gap:8px}.wb.L .hrs{padding-top:6px}.wb.L .days{padding-top:6px;gap:2px}.wb.L .day,.wb.XL .day{height:20px;font-size:13px}}',
+          // EXTRA LARGE, a small Weather page: the top, the hours and the
+          // readings (two across, with room between) on the left; seven days
+          // on the right, one under the other, not spread to its foot
+          '.wb.XL{display:grid;grid-template-columns:260px minmax(0,1fr);column-gap:24px;align-items:stretch}',
+          '.wb.XL .lc{display:flex;flex-direction:column;justify-content:space-between;gap:12px;min-width:0;min-height:0}',
+          '.wb.XL .hrs{padding-top:10px}.wb.XL .hr{gap:2px}',
+          '.wb.XL .rds{display:grid;grid-template-columns:1fr 1fr;gap:14px;border-top:1px solid ' + RULE + ';padding-top:12px}',
+          '.wb.XL .rds span{display:grid;grid-template-columns:18px minmax(0,1fr);column-gap:6px;align-items:center;min-width:0}',
+          '.wb.XL .rds hk-icon{width:16px;height:16px;--mdc-icon-size:16px;color:' + C.v('ink-2') + ';display:block;line-height:0}',
+          '.wb.XL .rds small{' + C.typeCss('caption') + ';line-height:16px;color:' + C.v('ink-2') + '}',
+          '.wb.XL .rds b{grid-column:2;' + C.typeCss('body') + ';font-weight:600;line-height:19px;font-variant-numeric:tabular-nums}',
+          '.wb.XL .rds small,.wb.XL .rds b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
+          '.wb.XL .rc{display:flex;flex-direction:column;justify-content:center;gap:10px;min-width:0}',
+          '.wb.XL .rc .lab{' + C.labelCss('label') + ';line-height:18px}',
+          '.wb.XL .days{border-top:0;padding-top:0;gap:8px}',
+          // (on a tile: the readings three across, each its value under it)
+          '@container hk-cell (max-height:380px){.wb.XL{grid-template-columns:272px minmax(0,1fr)}.wb.XL .lc{gap:8px}.wb.XL .hrs{padding-top:6px}' +
+            '.wb.XL .rds{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:8px}.wb.XL .rds span{grid-template-columns:16px minmax(0,1fr);column-gap:4px}' +
+            '.wb.XL .rds b{grid-column:1/-1}.wb.XL .days{gap:6px}}',
           // BIG TEMPERATURE: the number sized to the block (its height first, its width for a wide one)
           '.wb.big{gap:2px;justify-content:center;align-items:flex-start}',
           '.wb.big .place-name{max-width:100%}',

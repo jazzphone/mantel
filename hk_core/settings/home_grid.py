@@ -434,6 +434,9 @@ def _capacity(v: Mapping[str, Any], size: str) -> None:
     if v.get("card") != "accessories":
         return
     per = {"W": 2, "L": 4, "XL": 6, "XXL": 12}[size]
+    # (Half height, 2026-10-31: the shorter button, two rows in each of Full's)
+    if v.get("opts", {}).get("height") == "half":
+        per *= 2
     base = v.get("opts", {}).get("accessories", [])
     pages = v.get("pages", {})
     if pages.get("source") == "accessories":
