@@ -261,26 +261,32 @@
     return hub.ask('tablet_act', { tablet: String(msg.tablet), act: String(msg.act) });
   }
   var LIBRARY_KEYS = ['type', 'domain', 'service', 'service_data', 'return_response'];
+  // Music Assistant's services that only answer: Browse's library, Up Next's queue (the Music page and the
+  // screensaver), the screensaver's search for the next song's cover. Each is Mantel's read music_assistant/<service>.
+  var MA_READ_SERVICES = ['get_library', 'get_queue', 'search'];
   function isLibraryRead(msg) {
-    return !!msg && msg.type === 'call_service' && msg.domain === 'music_assistant' && msg.service === 'get_library' &&
-      msg.return_response === true && Object.keys(msg).every(function (k) { return LIBRARY_KEYS.indexOf(k) >= 0; }) &&
+    return !!msg && msg.type === 'call_service' && msg.domain === 'music_assistant' &&
+      MA_READ_SERVICES.indexOf(msg.service) >= 0 && msg.return_response === true && Object.keys(msg).every(function (k) { return LIBRARY_KEYS.indexOf(k) >= 0; }) &&
       (msg.service_data === undefined || (msg.service_data !== null && typeof msg.service_data === 'object' && !Array.isArray(msg.service_data)));
   }
-  // answered as Home Assistant's WebSocket does a service call with a response: {response: {items}}; a picture on
-  // Mantel's /ma proxy gets the page's prefix in front (HA App mode serves Mantel under Ingress)
+  // answered as Home Assistant's WebSocket does a service call with a response: {response: <HA's answer>}; a picture
+  // on Mantel's /ma proxy gets the page's prefix in front (HA App mode serves Mantel under Ingress), wherever it sits
   function libraryRead(hub, msg) {
-    var q = Object.assign({}, msg.service_data || {}, { type: 'music_assistant/get_library' });
+    var q = Object.assign({}, msg.service_data || {}, { type: 'music_assistant/' + msg.service });
     return hub.read(q).then(function (res) {
       var base = global.__mantelBase || '';
-      var fix = function (v) {
-        if (!v || typeof v !== 'object') return v;
-        var out = Object.assign({}, v);
-        if (typeof out.image === 'string' && /^\/ma\/imageproxy[?/]/.test(out.image)) out.image = base + out.image;
-        if (Array.isArray(out.artists)) out.artists = out.artists.map(fix);
-        if (out.album) out.album = fix(out.album);
+      var fix = function (v, depth) {
+        if (Array.isArray(v)) return depth > 6 ? v : v.map(function (x) { return fix(x, depth + 1); });
+        if (!v || typeof v !== 'object' || depth > 6) return v;
+        var out = {};
+        Object.keys(v).forEach(function (k) {
+          var x = v[k];
+          out[k] = k === 'image' && typeof x === 'string' && /^\/ma\/imageproxy[?/]/.test(x) ? base + x : fix(x, depth + 1);
+        });
         return out;
       };
-      return { response: { items: ((res && res.items) || []).map(fix) } };
+      if (msg.service === 'get_library') return { response: { items: fix((res && res.items) || [], 0) } };
+      return { response: fix(res || {}, 0) };
     });
   }
   function withFeatures(port, hub) {
@@ -306,9 +312,10 @@
       // heartbeat ALSO goes to HA through the gateway, as before. docs/phase4/FEATURE-PARITY.md "Live TV".
       if (t === 'hk_tv/watching') return tvWatching(hub, msg, acts, callWS);
       // BROWSE'S LIBRARY (hk-library.js: Discover's shelves and every category list) asks
-      // music_assistant.get_library over the socket. A read of Music Assistant's library, never a command: sent as
-      // Mantel's read `music_assistant/get_library` (music.py), on every server, commands on or off, nothing audited
-      // and nothing reaching Home Assistant. Only that one service with return_response; anything else about
+      // music_assistant.get_library over the socket; Up Next (the Music page, the screensaver) asks get_queue, and the
+      // screensaver's next-song cover asks search. Reads of Music Assistant, never commands: each is sent as Mantel's
+      // read `music_assistant/<service>` (music.py), on every server, commands on or off, nothing audited and nothing
+      // reaching Home Assistant (2026-10-31). Only those services with return_response; anything else about
       // call_service is a command as before. Mantel without Music Assistant answers `ma_not_configured`: the call then
       // goes the old way (the gateway: Home Assistant's, or refused when commands are off).
       if (isLibraryRead(msg) && typeof hub.read === 'function') {

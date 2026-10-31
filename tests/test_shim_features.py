@@ -231,6 +231,18 @@ def test_browses_library_is_a_music_read_never_a_command(observed, mode):
         assert r["libOtherFrames"] == ["command"] * 3 and r["libOtherSent"] == 3
 
 
+@pytest.mark.parametrize("mode", ["off", "on"])
+def test_up_next_and_the_cover_search_are_music_reads_never_commands(observed, mode):
+    r = observed[mode]
+    assert r["queueFrame"]["msg"] == {"type": "music_assistant/get_queue", "entity_id": "media_player.den"}
+    nxt = r["queue"]["response"]["media_player.den"]["next_item"]["media_item"]
+    assert nxt["image"] == f"/ing/ma/imageproxy/{'cd' * 32}?size=256" and nxt["album"]["image"] == "https://img.example/al.jpg"
+    assert r["searchFrame"]["msg"] == {"type": "music_assistant/search", "config_entry_id": "e1", "name": "Song",
+                                       "artist": "Band", "media_type": ["track"], "limit": 5}
+    assert r["search"]["response"]["tracks"][0]["image"] == "/ing/ma/imageproxy?path=x&provider=p&size=256"
+    assert r["queueSent"] == 2 and r["queueFrame"]["type"] == "read"
+
+
 def test_the_frames_are_what_the_servers_handlers_accept():
     # the same keys the features package validates (screen_report: tablet + bools; notify_mute: key + seconds)
     src = "".join(f.read_text() for f in sorted((ROOT / "hosts/server/mantel_server/features").glob("*.py")))

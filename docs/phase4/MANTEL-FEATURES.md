@@ -253,12 +253,32 @@ Fictional lifecycle, feed and no-command tests pass; live speaker/display accept
   nothing audited, nothing to HA). A picture that is not a web address goes by Music Assistant's
   `/imageproxy/<proxy_id>` under Mantel's `/ma` (MA 2.10 answers its older `?path=&provider=` form 400; that form is
   kept only for an MA that sends no `proxy_id`; the route needs `control` on music and `--ma-web-url`). Without Music
-  Assistant in Mantel the call goes the old way (the gateway: HA's, or refused with commands off). The tree reads
-  (`media_player/browse_media`, `search_media`: an album's tracks, an artist's albums, a search) still go through
-  HA. When HA fails to open a playlist (its bare `unknown_error`), Mantel asks Music Assistant once for the same
-  songs: a refused sign-in (MA's LoginFailed: Apple Music's user token expired, so the account's own saved
+  Assistant in Mantel the call goes the old way (the gateway: HA's, or refused with commands off). Since 2026-10-31
+  the tree reads (`media_player/browse_media`, `search_media`) on a Music Assistant speaker are answered by Mantel too
+  (below). A refused sign-in (MA's LoginFailed: Apple Music's user token expired, so the account's own saved
   playlists cannot be read while catalog playlists from a search still open) is answered `login_failed` with what to
   do, and Keep Playlists Ready's note says the same.
+
+**Nothing about music through HA (2026-10-31).** The owner: "If Mantel has a direct connection to Music Assistant,
+nothing should route through Home Assistant for it to work." While HA restarted, the speakers' states went
+unavailable and every Music card read "?". With Music Assistant connected to Mantel:
+- **The speakers' states** are Music Assistant's (`music_states.py`): its players and queues, kept from
+  `players/all` / `player_queues/all` and its `player_*` / `queue_*` events, built into exactly HA's
+  `music_assistant` entity shape (checked against the house: all 13 speakers identical but the position anchor) under
+  the same `media_player` ids, as an overlay in the hub's StateStore that HA's word never replaces. The pages, the
+  apps, RBAC, the rooms and the engine's waits read it unchanged. MA away: kept 60 s, then `unavailable`.
+- **The covers**: `entity_picture` is MA's image; `entity_picture_local` is Mantel's `/api/media/<entity>/art`, which
+  fetches MA's image (never HA's media proxy), scaled, `view` on the player.
+- **A page's plain `media_player.*` calls** on Music Assistant speakers (play/pause, next, previous, stop, seek,
+  volume set/up/down/mute, shuffle, repeat, join, unjoin, play_media) go to Music Assistant through the gateway
+  (`MusicHost.route`: the same checks and audit row; a `MusicRun` for exactly the speakers named and their queues).
+  Another player, or another service (a TV's `select_source`), is HA's as before.
+- **Browse's tree and search** (`media_player/browse_media`, `search_media`) on a Music Assistant speaker: answered by
+  Mantel from MA's reads in HA's `BrowseMedia` / `SearchMedia` shape (`music_browse.py`; a `media-source://` id stays
+  HA's). **Up Next** (`music_assistant.get_queue`) and the screensaver's next-cover search (`music_assistant.search`)
+  are the shim's reads `music_assistant/get_queue` and `/search`, answered from MA.
+- **Still from HA**: the entity registry (ids, names, rooms: the whole house's), the Ignore Announcements markers
+  (HA's own TTS/announce service events), the one-time settings import. Person pictures are not music.
 - **Not run against a real Music Assistant** (none for testing; the house's is never contacted): the message
   shapes follow HA's integration and the official client, and are pinned against a fake. `ma_players` relies on
   HA's `music_assistant` entities' `unique_id` being the MA player id, and the queue id being the player id.

@@ -46,10 +46,12 @@ commands. Without Music Assistant in Mantel the read answers ``ma_not_configured
 old path (the call as a gateway command: HA's, or refused with commands off).
 
 Announcement markers watch HA service events and player states for display-only suppression.
-Not here (docs/phase4/MANTEL-FEATURES.md "Music"): the failure
-notifications (HA raises persistent notifications; Mantel logs them and lists them in its status), and
-Browse's tree reads (``media_player/browse_media`` and ``search_media`` for an album's tracks, an artist's
-albums, a search: HK still sends those through Home Assistant).
+**Nothing about music through HA** (2026-10-31; docs/phase4/MANTEL-FEATURES.md): while Music Assistant is connected
+here the speakers' states and covers are Music Assistant's (music_states.py), a page's plain ``media_player.*`` calls
+on its speakers go to it (``MusicHost.route``), and Browse's tree, search, Up Next and the next-cover search are
+answered from it (music_browse.py; the reads ``music_assistant/get_queue`` and ``/search``).
+Not here: the failure notifications (HA raises persistent notifications; Mantel logs them and lists them in its
+status).
 """
 from __future__ import annotations
 
@@ -118,9 +120,21 @@ ROUTE_RULES: dict[str, str] = {
     "music_assistant/get_library": "feature:music (view; no player); HA's music_assistant.get_library fields only; "
                                    "Music Assistant's library items as {items: [...]}. Needs Music Assistant in Mantel "
                                    "(else ma_not_configured), not the music settings",
-    "media_player/browse_media": "readproxy's (view the media player; HA answers it). When HA fails to open a "
-                                 "playlist uri, Music Assistant is asked once for its songs (a read); a refused "
-                                 "sign-in (LoginFailed) is answered login_failed with what to do, else HA's error",
+    "music_assistant/get_queue": "feature:music and view every media player named, else not_found; Music Assistant "
+                                 "speakers only (else ma_not_configured, as without Music Assistant here); HA's "
+                                 "get_queue answer {entity: queue details} from Music Assistant's active queue",
+    "music_assistant/search": "feature:music (view; no player); HA's music_assistant.search fields only; Music "
+                              "Assistant's search as HA's {artists, albums, tracks, ...}. Needs Music Assistant in "
+                              "Mantel (else ma_not_configured)",
+    "media_player/browse_media": "view the media player, else not_found. A Music Assistant speaker while Music "
+                                 "Assistant is connected here: answered by Mantel from Music Assistant's reads in "
+                                 "HA's BrowseMedia shape (music_browse.py; a media-source:// id stays HA's). "
+                                 "Otherwise readproxy's (HA answers it); when HA fails to open a playlist uri, Music "
+                                 "Assistant is asked once for its songs (a read); a refused sign-in (LoginFailed) is "
+                                 "answered login_failed with what to do, else HA's error",
+    "media_player/search_media": "view the media player, else not_found. A Music Assistant speaker while Music "
+                                 "Assistant is connected here: Music Assistant's search in HA's SearchMedia shape "
+                                 "(music_browse.py). Otherwise readproxy's (HA answers it)",
 }
 
 # measured timings (hk_core/music/const.py), read at call time so tests can shorten them
@@ -329,6 +343,16 @@ def to_ma(domain: str, service: str, data: Mapping[str, Any], pid: Callable[[str
         return [("players/cmd/volume_set", {"player_id": pid(e), "volume_level": level}) for e in ents]
     if domain == "media_player" and service == "shuffle_set":
         return [("player_queues/shuffle", {"queue_id": pid(e), "shuffle_enabled": bool(data["shuffle"])}) for e in ents]
+    if domain == "media_player" and service in ("volume_up", "volume_down"):
+        return [(f"players/cmd/{service}", {"player_id": pid(e)}) for e in ents]
+    if domain == "media_player" and service == "volume_mute":
+        return [("players/cmd/volume_mute", {"player_id": pid(e), "muted": bool(data["is_volume_muted"])}) for e in ents]
+    if domain == "media_player" and service == "media_seek":
+        return [("players/cmd/seek", {"player_id": pid(e), "position": int(float(data["seek_position"]))}) for e in ents]
+    if domain == "media_player" and service == "repeat_set":
+        if data.get("repeat") not in ("off", "one", "all"):
+            raise KeyError("repeat is off, one or all")
+        return [("player_queues/repeat", {"queue_id": pid(e), "repeat_mode": data["repeat"]}) for e in ents]
     if domain == "media_player" and service == "play_media":
         return [("player_queues/play_media", {"queue_id": pid(e), "media": [str(data["media_content_id"])],
                                               "option": data.get("enqueue") or "play"}) for e in ents]
@@ -346,7 +370,22 @@ def to_ma(domain: str, service: str, data: Mapping[str, Any], pid: Callable[[str
 # Every Music Assistant command a request's steps may send (to_ma's, and the queue's play_index).
 RUN_COMMANDS = frozenset({*PLAYER_COMMANDS.values(), "players/cmd/ungroup", "players/cmd/group_many",
                           "players/cmd/volume_set", "player_queues/shuffle", "player_queues/play_media",
-                          "player_queues/transfer", "player_queues/play_index"})
+                          "player_queues/transfer", "player_queues/play_index",
+                          # a page's own media_player.* call on a Music Assistant speaker (MA_SERVICES)
+                          "players/cmd/volume_up", "players/cmd/volume_down", "players/cmd/volume_mute",
+                          "players/cmd/seek", "player_queues/repeat"})
+
+# HA's media_player services a page calls on a speaker (the Side Pane's volume and play/pause, the media sheet, the
+# screensaver, the Speakers sheet, the app's volume) that go to Music Assistant, not HA, while it is connected to
+# Mantel (MusicHost.route). The data each may carry besides entity_id; anything else (a TV's select_source) is HA's.
+MA_SERVICES: dict[str, frozenset[str]] = {
+    **{s: frozenset() for s in PLAYER_COMMANDS}, "unjoin": frozenset(), "join": frozenset({"group_members"}),
+    "volume_set": frozenset({"volume_level"}), "volume_up": frozenset(), "volume_down": frozenset(),
+    "volume_mute": frozenset({"is_volume_muted"}), "media_seek": frozenset({"seek_position"}),
+    "shuffle_set": frozenset({"shuffle"}), "repeat_set": frozenset({"repeat"}),
+    "play_media": frozenset({"media_content_id", "media_content_type", "enqueue"}),
+}
+OP_SERVICE = "media_player"        # MusicHost.run's op for one of them
 _PLAYER_ARGS = ("player_id", "queue_id", "target_player", "source_queue_id", "target_queue_id")
 _PLAYER_LISTS = ("child_player_ids", "player_ids")
 
@@ -498,6 +537,68 @@ def library_item(item: Mapping[str, Any], nested: bool = False) -> dict[str, Any
         if isinstance(album, Mapping):
             out["album"] = library_item(album, True)
     return out
+
+
+# ------------------------------------------------------------------- Up Next and the next song's cover (reads)
+# music_assistant.get_queue and music_assistant.search as HA 2026.10 accepts them, answered from Music Assistant
+# (2026-10-31): the Music page's and the screensaver's Up Next, and the screensaver's search for the next song's cover.
+SEARCH_FIELDS = frozenset({"config_entry_id", "name", "media_type", "artist", "album", "limit", "library_only"})
+SEARCH_TYPES = ("artist", "album", "track", "playlist", "radio", "audiobook", "podcast")
+SEARCH_KEYS = {"artist": "artists", "album": "albums", "track": "tracks", "playlist": "playlists", "radio": "radio",
+               "audiobook": "audiobooks", "podcast": "podcasts"}
+
+
+def check_search(data: Any) -> dict[str, Any]:
+    """``music_assistant.search``'s service data -> Music Assistant's ``music/search`` args (HA's handler: the
+    artist and album go in front of the name). Anything HA's action would not take raises ValueError."""
+    if not isinstance(data, Mapping) or set(data) - SEARCH_FIELDS:
+        raise ValueError(f"search takes {sorted(SEARCH_FIELDS)} in service_data")
+    name = data.get("name")
+    if not isinstance(name, str) or not 0 < len(name) <= TEXT_MAX:
+        raise ValueError("name is text")
+    parts = []
+    for k in ("artist", "album"):
+        v = data.get(k)
+        if v is not None and (not isinstance(v, str) or len(v) > TEXT_MAX):
+            raise ValueError(f"{k} is text")
+        if v:
+            parts.append(v)
+    kinds = data.get("media_type", list(SEARCH_TYPES))
+    kinds = [kinds] if isinstance(kinds, str) else kinds
+    if not isinstance(kinds, list) or not kinds or not all(k in SEARCH_TYPES for k in kinds):
+        raise ValueError(f"media_type is some of {list(SEARCH_TYPES)}")
+    limit = data.get("limit", 5)
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+        raise ValueError("limit is 1..100")
+    if not isinstance(data.get("library_only", False), bool):
+        raise ValueError("library_only is true or false")
+    return {"search_query": " - ".join(parts + [name]), "media_types": list(dict.fromkeys(kinds)), "limit": limit,
+            "library_only": data.get("library_only", False)}
+
+
+def search_answer(got: Any) -> dict[str, list]:
+    got = got if isinstance(got, Mapping) else {}
+    return {key: [library_item(i) for i in got.get(key) or [] if isinstance(i, Mapping)] for key in SEARCH_KEYS.values()}
+
+
+def queue_item_dict(item: Any) -> dict[str, Any] | None:
+    """HA's queue_item_dict_from_mass_item (no stream details: nothing on a page reads them)."""
+    if not isinstance(item, Mapping):
+        return None
+    mi = item.get("media_item")
+    stream = item.get("streamdetails") if isinstance(item.get("streamdetails"), Mapping) else {}
+    return {"queue_item_id": str(item.get("queue_item_id") or ""), "name": str(item.get("name") or ""),
+            "duration": item.get("duration") if isinstance(item.get("duration"), int) else None,
+            "media_item": library_item(mi) if isinstance(mi, Mapping) else None,
+            "stream_title": stream.get("stream_title") if isinstance(stream.get("stream_title"), str) else None}
+
+
+def queue_details(q: Mapping[str, Any]) -> dict[str, Any]:
+    """HA's music_assistant.get_queue answer for one player (QUEUE_DETAILS_SCHEMA)."""
+    return {"queue_id": q.get("queue_id"), "active": q.get("active"), "name": q.get("display_name"),
+            "items": q.get("items"), "shuffle_enabled": q.get("shuffle_enabled"), "repeat_mode": q.get("repeat_mode"),
+            "current_index": q.get("current_index"), "elapsed_time": q.get("elapsed_time"),
+            "current_item": queue_item_dict(q.get("current_item")), "next_item": queue_item_dict(q.get("next_item"))}
 
 
 # ----------------------------------------------------------------------------------- the gateway's side
@@ -978,6 +1079,24 @@ class MantelMusic:
             return self._done({"ok": False, "message": f"It did not start on {cfg.name_of(player)}."}, what, rid, t0)
         return self._done({"ok": True, "leader": player}, what, rid, t0)
 
+    async def service(self, service: str, data: dict[str, Any]) -> dict[str, Any]:
+        """A page's own ``media_player.<service>`` on Music Assistant speakers (MA_SERVICES), sent as the commands HA's
+        music_assistant integration sends for it. Shuffle and repeat act on the speaker's active queue, as HA's do."""
+        def queue_of(e: str) -> str:
+            q = self._attr(e, "active_queue")
+            return q if isinstance(q, str) and q else self.host.pid(e)
+        run, client = RUN.get(), self.host.ma
+        try:
+            if run is None or client is None:
+                raise PermissionError("no audited music request is running")
+            pid = queue_of if service in ("shuffle_set", "repeat_set") else self.host.pid
+            for command, args in to_ma(OP_SERVICE, service, data, pid):
+                await client.command(run, command, **args)
+        except Exception as err:  # noqa: BLE001 -- an answer, never a dropped request
+            log.warning("music: media_player.%s failed: %s", service, type(err).__name__)
+            return {"ok": False, "message": "The speaker did not respond."}
+        return {"ok": True}
+
     async def _missing(self, cfg: MusicConfig, items: list[str]) -> list[str]:
         wanted = E.library_links(items)
         if not wanted or self.host.ma is None:
@@ -1064,6 +1183,10 @@ class MusicHost:
         self.house = MantelHouse(hub.store, hub.registry, tz=(lambda: authz.tz) if authz is not None else "UTC")
         self.announcements = Announcements(self.house, hub.registry, self.config, self.push)
         self.engine = MantelMusic(self)
+        # THE SPEAKERS' STATES FROM MUSIC ASSISTANT (music_states.py): while it is configured here, what the pages,
+        # the app and the engine's waits read for a Music Assistant speaker is Music Assistant's, never HA's
+        from .music_states import MusicStates
+        self.states = MusicStates(app, hub, lambda: ma_players(hub.registry), self._states_changed)
         self.warmer = MantelWarmer(self)
         self._watchers: dict[int, tuple[set[str], Callable[[], None]]] = {}
         self._wid = itertools.count(1)
@@ -1140,6 +1263,16 @@ class MusicHost:
         if got is None:
             raise KeyError(f"{entity} is not a Music Assistant player")
         return got
+
+    def _states_changed(self, changed: set[str]) -> None:
+        """The overlay changed speakers' states: everything that follows the hub's changes hears it (HA's change
+        chain, which this module heads; without an HA client, the hub's pages and the engine's waits)."""
+        ha = getattr(self.hub, "ha", None)
+        if ha is not None:
+            ha.on_change(set(changed))
+            return
+        self.hub.on_change(set(changed))
+        self.on_change(set(changed))
 
     # -- the hub's changes (the engine's waits; the screens' feed) -------------------------------------------
     def watch(self, entities: set[str], cb: Callable[[], None]) -> Callable[[], None]:
@@ -1470,11 +1603,35 @@ class MusicHost:
             self.warmer.follow(WARM_SOON)
 
     # -- the gateway's side --------------------------------------------------------------------------------
+    def route(self, cmd: Any) -> Any:
+        """A page's plain ``media_player.*`` call (gateway.service_command: its checks, its audit) that names only
+        Music Assistant speakers goes to Music Assistant while it is connected here (MA_SERVICES), never to HA: the
+        command gets ``music`` (op OP_SERVICE), and Gateway._forward hands it to ``run``. Anything else as it was."""
+        frame = cmd.frame or {}
+        if cmd.music is not None or cmd.kind not in ("service", "ws") or frame.get("type") != "call_service" \
+                or frame.get("domain") != OP_SERVICE or frame.get("service") not in MA_SERVICES:
+            return cmd
+        service = frame["service"]
+        data, target = dict(frame.get("service_data") or {}), dict(frame.get("target") or {})
+        if set(target) - {"entity_id"} or set(data) - {"entity_id"} - MA_SERVICES[service]:
+            return cmd
+        ents = list(dict.fromkeys(_ids(target.get("entity_id")) + _ids(data.get("entity_id"))))
+        named = ents + _ids(data.get("group_members"))
+        speakers = ma_players(self.hub.registry)
+        if not ents or not all(e in speakers for e in named):
+            return cmd
+        data["entity_id"] = ents
+        cmd.music = {"op": OP_SERVICE, "args": {"service": service, "data": data},
+                     "return_response": bool(frame.get("return_response"))}
+        return cmd
+
     def expand(self, cmd: Any) -> Any:
         """The checks Mantel's engine adds, knowing the configuration: Stop All names every room; a preset's
         sync group (which has no room) is checked as its rooms."""
         from .gateway import Check
         m = cmd.music or {}
+        if m.get("op") == OP_SERVICE:         # a plain media_player call: its own checks, as for HA's
+            return cmd
         cfg = self.config()
         action = cmd.action
         names = [c.entity_id for c in cmd.checks if c.entity_id]
@@ -1504,7 +1661,12 @@ class MusicHost:
             return None
         cfg = self.config()
         players = set()
-        for e in cfg.players():
+        speakers = cfg.players()
+        if op == OP_SERVICE:                  # the speakers it names (each checked by the gateway), and their queues
+            d = a["data"]
+            speakers = _ids(d.get("entity_id")) + _ids(d.get("group_members"))
+            players |= {q for e in speakers for q in [self.engine._attr(e, "active_queue")] if isinstance(q, str) and q}
+        for e in speakers:
             try:
                 players.add(self.pid(e))
             except KeyError:
@@ -1524,6 +1686,8 @@ class MusicHost:
                 res = await self.engine.transport(a["player"], a["command"], a.get("level"))
             elif op == SERVICE_PLAY_MEDIA:
                 res = await self.engine.play_media(a["player"], a["media_content_id"], a["media_content_type"])
+            elif op == OP_SERVICE:
+                res = await self.engine.service(a["service"], a["data"])
             else:
                 raise MusicRefusal("invalid_command", f"{op} is not a music action")
         finally:
@@ -1531,6 +1695,10 @@ class MusicHost:
             RUN.reset(token)
         # EVERY ACTION ANSWERS (HA's _answer): a caller that did not ask for the answer learns of a failure
         # as an error; a request that stood down for a newer one is not a failure
+        if op == OP_SERVICE:                  # HA's answer to a plain service call: its context, no response
+            if not res.get("ok"):
+                raise MusicRefusal("home_assistant_error", str(res.get("message")))
+            return {"context": {"id": f"mantel-audit-{audit_id}"}, "response": None}
         if not music.get("return_response") and not res.get("ok") and not res.get("superseded"):
             raise MusicRefusal("home_assistant_error", str(res.get("message") or "The request failed."))
         return {"context": {"id": f"mantel-audit-{audit_id}"},
@@ -1550,7 +1718,7 @@ class MusicHost:
 
     def status(self) -> dict[str, Any]:
         doc = self.doc()
-        return {"active": self.active, "music_assistant": self.ma is not None,
+        return {"active": self.active, "music_assistant": self.ma is not None, "states": self.states.status(),
                 "connected": bool(self.ma is not None and self.ma.connected.is_set()),
                 "settings": doc is not None, "notes": dict(self.engine.notes), "requests": list(self.engine.log),
                 "keep_ready": {"on": self.warmer.on, "last": self.warmer.status()},
@@ -1569,17 +1737,20 @@ class MusicHost:
                 asyncio.get_running_loop().create_task(self._push_one(sid, force=True))
         # Keep Playlists Ready follows the connection too: its loop ends when Music Assistant goes, and was
         # started only at start() and on a settings save, so one connected later never warmed anything
+        self.states.connection_changed()
         if self.started:
             self.warmer.follow(WARM_SOON)
             asyncio.get_running_loop().create_task(self.refresh_groups())
 
     async def start(self) -> None:
         self.started = True
+        self.states.start()
         self.warmer.follow()
         self._groups_task = asyncio.get_running_loop().create_task(self._groups_loop())
 
     async def stop(self) -> None:
         self.started = False
+        await self.states.stop()
         self.warmer.stop()
         self.announcements.reset()
         if self._groups_task is not None:
@@ -1593,7 +1764,8 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
     page's ``music_used`` message, ``GET /api/music/status`` (Owner/Admin), and the hub's changes. Commands come
     only through the gateway (``Gateway._forward`` -> ``MusicHost.run``)."""
     from .connectors import Hooks
-    from .readproxy import MEDIA_PLAYER, NotFound, ReadBlocked
+    from .readproxy import MEDIA_PLAYER, READ_ALLOWED, NotFound, ReadBlocked
+    BROWSE_KEYS, SEARCH_KEYS = READ_ALLOWED["media_player/browse_media"], READ_ALLOWED["media_player/search_media"]
     if "music" in app:
         return app["music"]
     hooks = Hooks.coerce(hooks)
@@ -1605,6 +1777,11 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
         first_change, first_registry = ha.on_change, ha.on_registry
 
         def on_change(changed: set[str]) -> None:
+            # Music Assistant's speakers first: HA's word on them is put back before anything reads it
+            try:
+                host.states.reassert(set(changed))
+            except Exception:  # noqa: BLE001 -- never break the hub's own callback
+                log.exception("music: Music Assistant's states could not be put back")
             first_change(changed)
             host.on_change(set(changed))
 
@@ -1675,7 +1852,99 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
             raise Forbidden("may not use music")
         return await host.get_library(query)
 
+    async def get_queue(ctx: Ctx, msg: dict):
+        """music_assistant.get_queue as a read (the page's shim): {entity: HA's queue details}. A player that is not a
+        Music Assistant speaker, or no Music Assistant here: ma_not_configured (the shim then asks the old way)."""
+        if set(msg) - {"type", "id", "entity_id"}:
+            raise ReadBlocked("get_queue carries entity_id only")
+        ents = _ids(msg.get("entity_id"))
+        if not ents or len(ents) > 20 or not all(MEDIA_PLAYER.match(e) for e in ents):
+            raise ReadBlocked("get_queue needs media_player entity ids")
+        speakers = ma_players(hub.registry)
+        if host.ma is None or not all(e in speakers for e in ents):
+            raise MaNotConfigured("Music Assistant is not connected to Mantel.")
+        if not await may_feature(hooks, ctx.identity, "music"):
+            raise Forbidden("may not use music")
+        ok = await allowed_ids(hooks, ctx.identity, "view", ents)
+        if any(e not in ok for e in ents):
+            raise NotFound("Entity not found")
+        out = {}
+        try:
+            for e in ents:
+                q = await host.ma.active_queue(speakers[e])
+                if not isinstance(q, Mapping) or not q.get("queue_id"):
+                    raise NotFound(f"{e} has no queue")
+                out[e] = queue_details(q)
+        except (NotFound, ReadBlocked):
+            raise
+        except Exception as err:  # noqa: BLE001 -- the page's error, never a dropped request
+            log.info("music: the queue could not be read: %s", type(err).__name__)
+            raise ConnectionError("Music Assistant could not be read.") from None
+        return out
+
+    async def search(ctx: Ctx, msg: dict):
+        """music_assistant.search as a read (the page's shim): HA's {artists, albums, tracks, ...} from Music
+        Assistant. No Music Assistant here: ma_not_configured (the shim then asks the old way)."""
+        if host.ma is None:
+            raise MaNotConfigured("Music Assistant is not connected to Mantel.")
+        try:
+            args = check_search({k: v for k, v in msg.items() if k not in ("type", "id")})
+        except ValueError as err:
+            raise ReadBlocked(str(err)) from None
+        if not await may_feature(hooks, ctx.identity, "music"):
+            raise Forbidden("may not use music")
+        try:
+            return search_answer(await host.ma.read("music/search", **args))
+        except Exception as err:  # noqa: BLE001 -- the page's error, never a dropped request
+            log.info("music: Music Assistant could not be searched: %s", type(err).__name__)
+            raise ConnectionError("Music Assistant could not be read.") from None
+
+    def from_ma(msg: dict) -> bool:
+        """A Browse read Mantel answers from Music Assistant: on one of its speakers, Music Assistant connected."""
+        eid, cid = msg.get("entity_id"), msg.get("media_content_id")
+        return host.ma is not None and isinstance(eid, str) and eid in ma_players(hub.registry) \
+            and not (isinstance(cid, str) and cid.startswith("media-source://"))
+
+    async def ma_browse(ctx: Ctx, msg: dict, keys: frozenset[str], answer: Callable[[], Any]):
+        from . import music_browse
+        if set(msg) - keys - {"type", "id"}:
+            raise ReadBlocked(f"{msg.get('type')} carries {sorted(keys)} only")
+        for k in keys - {"entity_id", "media_filter_classes"}:
+            if msg.get(k) is not None and (not isinstance(msg[k], str) or len(msg[k]) > 1000):
+                raise ReadBlocked(f"{k} is text")
+        if msg["entity_id"] not in await allowed_ids(hooks, ctx.identity, "view", [msg["entity_id"]]):
+            raise NotFound("Entity not found")
+        from .connectors.ma import MaError
+        try:
+            return await answer()
+        except music_browse.BrowseError as err:
+            raise NotFound(str(err)) from None
+        except MaError as err:
+            if err.error_code == MA_LOGIN_FAILED:      # the streaming service refused MA's sign-in: say what to do
+                raise SignInRefused(SIGN_IN_AGAIN) from None
+            log.info("music: Music Assistant could not be browsed: error %s", err.error_code)
+            raise ConnectionError("Music Assistant could not be read.") from None
+        except Exception as err:  # noqa: BLE001 -- the page's error, never a dropped request
+            log.info("music: Music Assistant could not be browsed: %s", type(err).__name__)
+            raise ConnectionError("Music Assistant could not be read.") from None
+
+    async def search_media(ctx: Ctx, msg: dict):
+        if not from_ma(msg):
+            return await bridge().request(ctx.identity, msg)
+        from . import music_browse
+        classes = msg.get("media_filter_classes")
+        if classes is not None and not (isinstance(classes, list) and all(isinstance(c, str) for c in classes)):
+            raise ReadBlocked("media_filter_classes is a list of media classes")
+        if not isinstance(msg.get("search_query"), str):
+            raise ReadBlocked("search_query is text")
+        return await ma_browse(ctx, msg, SEARCH_KEYS, lambda: music_browse.search(
+            host.ma, msg["search_query"], msg.get("media_content_id"), msg.get("media_content_type"), classes))
+
     async def browse_media(ctx: Ctx, msg: dict):
+        if from_ma(msg):
+            from . import music_browse
+            return await ma_browse(ctx, msg, BROWSE_KEYS, lambda: music_browse.browse(
+                host.ma, msg.get("media_content_id"), msg.get("media_content_type")))
         # HA answers it (readproxy: view on the player); when HA fails to open a playlist, Music Assistant is
         # asked why (a refused sign-in reads as HA's bare unknown_error otherwise)
         try:
@@ -1690,10 +1959,13 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
 
     read_routes(app).update({
         "media_player/browse_media": Route(request=browse_media),
+        "media_player/search_media": Route(request=search_media),
         "hk_music/subscribe": Route(subscribe=subscribe),
         "hk_music/queue": Route(request=queue),
         "hk_music/settings/library": Route(request=library),
         "music_assistant/get_library": Route(request=get_library),
+        "music_assistant/get_queue": Route(request=get_queue),
+        "music_assistant/search": Route(request=search),
         # (HK Settings' Music page, hk_music/settings/get, is feature_pages.py's: MusicHost.page while active)
     })
 
