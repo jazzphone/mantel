@@ -7,6 +7,7 @@ socket of a full app with the fake command connection (it checks every frame and
 HaCommander and sends nothing anywhere). Nothing real is sent."""
 import asyncio
 import json
+import re
 
 import pytest
 
@@ -66,10 +67,11 @@ async def tablet(env, room="kitchen"):
 
 
 def secrets_absent(env, *values):
-    """No code, PIN or HA code anywhere in the audit."""
+    """No code, PIN or HA code anywhere in the audit -- as a value of its own, not inside another (a random hex id
+    once held "8642", the house code, and failed the suite)."""
     text = json.dumps(env.audit(), default=str)
     for v in values:
-        assert v not in text
+        assert not re.search(r"(?<![0-9A-Za-z])" + re.escape(v) + r"(?![0-9A-Za-z])", text), v
 
 
 # -- classification: the code comes out before anything else --------------------------------------------
