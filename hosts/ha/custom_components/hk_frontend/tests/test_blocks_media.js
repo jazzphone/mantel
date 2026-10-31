@@ -75,7 +75,8 @@ function () {
      css.indexOf('"art spk prev play next brw" "art meta meta meta meta meta"') >= 0);
   ok('...five 44 px controls beside the cover (the cover gives way)', css.indexOf("' - 236px)") < 0 && /--np-art:min\(\(100cqh[^;]*- 236px\)/.test(css));
   ok('Tall: the label, the song, the progress, the transport with Speakers and Browse, the volume',
-     css.indexOf('"lab lab lab lab lab" "title title title title title" "artist artist artist artist artist" ". . . . ." "sub sub sub sub sub" "spk prev play next brw" "meta meta meta meta meta"') >= 0);
+     css.indexOf('"lab lab lab lab lab" "title title title title title" "artist artist artist artist artist" ". . . . ." "sub sub sub sub sub" "prev . play . next" "spk meta meta meta brw"') >= 0 &&
+     css.indexOf('--hk-np-cols:44px minmax(0,1fr) 44px minmax(0,1fr) 44px;') >= 0);
   ok('...the transport up off the foot: the bottom inset 6 px more', /:host\(\[size=T\]\) hk-plate\.np\{--hk-np-pad:[^;]*calc\(var\(--hk-pad-b,20px\) \+ 6px\)/.test(css));
   ok('...no longer Speakers and Browse in the top corners', css.indexOf('position:absolute;top:12px;width:32px') < 0);
   ok('Large: the label over the song, the volume under the transport',

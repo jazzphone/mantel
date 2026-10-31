@@ -819,6 +819,8 @@
         ':host([size]) .np .meta > :not(.vg){flex:1 1 auto;min-width:0;order:1}',
         ':host([size]) .np .vg{flex:none;width:14px;height:14px;--mdc-icon-size:14px;color:rgba(255,255,255,.75)}',
         ':host([size]) .np .vg.hi{order:2;width:20px;height:20px;--mdc-icon-size:20px}',
+        // (T: Speakers and Browse stand at the volume's ends, its own speakers left out)
+        ':host([size=T]) .np .vg{display:none}',
         ':host([size]) .np .tb{width:44px;height:44px;margin:0;align-self:center;justify-self:center;position:relative}',
         ':host([size]) .np .tb hk-icon{width:26px;height:26px;--mdc-icon-size:26px}',
         ':host([size]) .np .play hk-icon{width:34px;height:34px;--mdc-icon-size:34px}',
@@ -863,16 +865,17 @@
         ':host([size=W]) .np .spk{justify-self:start;margin-left:-5px}:host([size=W]) .np .brw{justify-self:end;margin-right:-5px}',
         '@container hk-cell (max-height:179px){:host([size=W]) .np .artist{display:none}}',
         // T: the cover across the top; the transport up off the foot, the
-        // volume under it; five 32 px tracks (Speakers and Browse on the
-        // inset's edges), each 44 px tall
+        // volume under it between Speakers and Browse -- the Side Pane's
+        // mini player's line (2026-10-31): five across left each 32 px, and
+        // three keys over two at the volume's ends keep every one 44
         ':host([size=T]) hk-plate.np{--hk-np-pad:' + NP_PAD.t + ' ' + NP_PAD.r + ' calc(' + NP_PAD.b + ' + 6px) ' + NP_PAD.l + ';',
         '  --np-art:min(' + NP_W + ', ' + NP_H + ' - 212px);',
-        '  --hk-np-cols:repeat(5,minmax(0,1fr));',
-        '  --hk-np-areas:"art art art art art" "lab lab lab lab lab" "title title title title title" "artist artist artist artist artist" ". . . . ." "sub sub sub sub sub" "spk prev play next brw" "meta meta meta meta meta";',
+        '  --hk-np-cols:44px minmax(0,1fr) 44px minmax(0,1fr) 44px;',
+        '  --hk-np-areas:"art art art art art" "lab lab lab lab lab" "title title title title title" "artist artist artist artist artist" ". . . . ." "sub sub sub sub sub" "prev . play . next" "spk meta meta meta brw";',
         '  --hk-np-rows:calc(var(--np-art) + 12px) min-content min-content min-content minmax(0,1fr) min-content 44px var(--np-vol,44px)}',
         ':host([size=T]) .np .grid{column-gap:0;row-gap:0}',
         ':host([size=T]) .np .art{justify-self:start;align-self:start}',
-        ':host([size=T]) .np .tb{width:100%;max-width:44px;--np-well:30px}',
+        ':host([size=T]) .np .tb{width:44px;--np-well:30px}',
         ':host([size=T]) .np .spk{justify-self:start}:host([size=T]) .np .brw{justify-self:end}',
         ':host([size=T]) .np .tb hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
         ':host([size=T]) .np .play hk-icon{width:30px;height:30px;--mdc-icon-size:30px}',
