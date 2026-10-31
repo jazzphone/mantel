@@ -3839,9 +3839,10 @@
     '  border-radius:' + C.R.small + 'px;background:rgba(255,255,255,.25);' + C.typeCss('body') + ';font-weight:800;font-variant-numeric:tabular-nums;text-shadow:none}',
     '.lg.pic{background:rgba(255,255,255,.9);padding:5px 7px}.lg img{display:block;max-height:100%;max-width:72px;object-fit:contain}',
     '.one .lg{min-width:52px;height:52px;' + C.typeCss('title') + ';font-weight:800}',
-    // (a channel chosen on a big block: its mark and its words as large as the room)
-    '@container (min-height:200px){.one .lg{min-width:76px;height:76px;padding:0 10px;font-size:30px;line-height:34px}.one .lg img{max-width:120px}',
-    '  .one .tx b{font-size:22px;line-height:27px}.one .tx small{font-size:15px;line-height:19px}}',
+    // (a channel chosen on a big block -- Tall, Large, Extra Large: `big`, set from its size, as neither a <button>
+    // nor the cell from inside the panel answers a size query in WebKit -- its mark and its words as large as the room)
+    '.one.big .lg{min-width:76px;height:76px;padding:0 10px;font-size:30px;line-height:34px}.one.big .lg img{max-width:120px}',
+    '.one.big .tx b{' + C.typeCss('title') + ';line-height:27px}.one.big .tx small{' + C.typeCss('body') + ';line-height:20px}',
     '.tx{display:flex;flex-direction:column;min-width:0;margin-top:auto}',
     '.tx b{' + C.typeCss('body') + ';font-weight:600;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.tx small{' + C.typeCss('caption') + ';line-height:16px;color:rgba(255,255,255,.86);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -3932,7 +3933,7 @@
         return;
       }
       var plate = document.createElement('hk-plate');
-      plate.className = 'tv' + (s === 'S' || this._chosen() ? ' one' : '');
+      plate.className = 'tv' + (s === 'S' || this._chosen() ? ' one' : '') + (this._chosen() && /^(T|L|XL)$/.test(s) ? ' big' : '');
       plate.setAttribute('data-hk-role', 'card');
       plate.style.setProperty('--n', g[0]); plate.style.setProperty('--r', g[1]);
       list.forEach(function (ch, i) {
