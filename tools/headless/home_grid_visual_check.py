@@ -66,13 +66,15 @@ async def homeview():
                 # ...and Accessory blocks Centred (2026-10-31, the owner): the alarm armed, its glyph the block's size,
                 # not a room page's 27 px; a lamp whose Line Under Name is State says its state, not its room
                 gallery.HOUSE['alarm_control_panel.bedroom'] = ('bedroom', ('armed_home', {'friendly_name': 'Bedroom Alarm', 'code_format': 'number'}))
-                acc={'v':1,'cols':3,'rows':3,'frame':[1180,820],'band':False,'grow':True,'cell':'square','items':[
+                acc={'v':1,'cols':3,'rows':4,'frame':[1180,820],'band':False,'grow':True,'cell':'square','items':[
                     {'id':'a1','card':'accessory','size':'S','at':[0,0],'opts':{'entity':'alarm_control_panel.bedroom'}},
                     {'id':'a2','card':'accessory','size':'S','at':[1,0],'opts':{'entity':'alarm_control_panel.bedroom','secondary':{'mode':'state'}}},
                     {'id':'a3','card':'accessory','size':'S','at':[2,0],'opts':{'entity':'alarm_control_panel.home'}},
                     # ...and an Accessories block Centred (2026-10-31): its tiles HomeView's, each with its state
                     {'id':'a4','card':'accessories','size':'L','at':[0,1],'opts':{'accessories':[{'entity':'light.living_room_lamps'},
-                     {'entity':'light.living_room_ceiling'},{'entity':'lock.front_door'},{'entity':'light.kitchen_pendants'}]}}]}
+                     {'entity':'light.living_room_ceiling'},{'entity':'lock.front_door'},{'entity':'light.kitchen_pendants'}]}},
+                    # ...and a Room block Centred (2026-10-31, the owner: its glyphs "aren't following HomeView styling")
+                    {'id':'a5','card':'room','size':'W','at':[1,3],'opts':{'area':'living_room'}}]}
                 HG.check(acc)
                 gallery.SETTINGS['boards'][name+'-acc']=dict(gallery.SETTINGS['boards'][name],home_grid=acc)
                 screens.append({'screen':name+'-acc','sizes':['1180x820']})
