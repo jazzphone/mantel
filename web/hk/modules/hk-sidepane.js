@@ -487,13 +487,18 @@
       var state = a ? ALARM[a] || a : locks.length ? (un.length ? 'Unlocked' : 'Locked') : 'No alarm';
       if (s === 'tiny') return tiny('security', esc(state), esc(lockLine));
       var top = '<div class="r2 big">' + icon(KINDS.security[1], ' class="shield"') + '<span class="tx">' + esc(state) + '</span></div>';
+      // ONLY WHAT IS OPEN (the owner, 2026-10-31: "if all windows, doors, and locks are closed and locked, I don't
+      // really need to know that... I just need to know when something opens"): All Locked the all-clear, then
+      // the windows and doors open, if any -- never "all windows closed"
+      var n = function (k, one, many) { return k + ' ' + (k === 1 ? one : many) + ' open'; };
       if (s === 'less') {
-        var gist = [lockLine, wins.length ? (open.length ? open.length + ' windows open' : 'all windows closed') : '', doors.length ? doors.length + ' doors open' : '']
+        var gist = [lockLine, open.length ? n(open.length, 'window', 'windows') : '', doors.length ? n(doors.length, 'door', 'doors') : '']
           .filter(Boolean).join(' · ');
         return box('security', s, head('security') + top + (gist ? '<div class="sub2">' + esc(gist) + '</div>' : ''));
       }
       var list = locks.slice(0, s === 'full' ? 8 : 4).map(function (id) { var x = states(c)[id] || {}; return [nameOf(x, id), x.state === 'unlocked' ? 'Unlocked' : x.state === 'locked' ? 'Locked' : String(x.state || ''), x.state === 'unlocked' ? 'mdi:lock-open-variant' : 'mdi:lock', x.state === 'unlocked' ? 'warn' : '', id]; });
-      if (wins.length) list.push(['Windows', open.length ? open.length + ' open' : 'All closed', 'mdi:window-closed-variant']);
+      // (More: the windows only when one is open; Full, the whole picture, says so either way)
+      if (wins.length && (open.length || s === 'full')) list.push(['Windows', open.length ? open.length + ' open' : 'All closed', open.length ? 'mdi:window-open-variant' : 'mdi:window-closed-variant', open.length ? 'warn' : '']);
       if (s === 'full') {
         kinds('garage').slice(0, 2).forEach(function (id) { var x = states(c)[id] || {}; list.push([nameOf(x, id), x.state === 'open' || x.state === 'on' ? 'Open' : 'Closed', 'mdi:garage', '', id]); });
         if (al && al.st) {
