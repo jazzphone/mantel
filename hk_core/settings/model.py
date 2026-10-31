@@ -233,13 +233,41 @@ SKY_BACKGROUNDS = ("live", "color", "photo", "landscapes", "wallpaper")
 # Tint from Background, the Flat image tint and Bright Glass read them. Which
 # version shows (WALLPAPER_NIGHT): "auto" the night one after sunset, or always
 # "day" / "night".
+# THE MOTION THEMES (2026-10-31, the owner on 0.1.94: more moving backgrounds, one that takes any colour, with
+# presets): six more wallpapers, each drawn by hk-wallpapers.js from one colour (WALLPAPER_COLOR) -- a still
+# ground and a few layers its Motion moves.
+WALLPAPER_THEMES = ("aurora", "blobs", "waves", "dots", "beams", "meteors")
 WALLPAPERS = ("ribbons_rose", "petals_rose", "petals_violet", "shards_violet", "shards_blue", "ribbons_blue",
               "pinwheel_teal", "ribbons_teal", "pinwheel_amber", "petals_amber", "shards_graphite",
-              "pinwheel_graphite")
+              "pinwheel_graphite") + WALLPAPER_THEMES
 WALLPAPER_NIGHT = ("auto", "day", "night")
 # A WALLPAPER'S MOTION (2026-10-30, the owner: "animated slowly with a speed setting... an option to turn the
 # animation off or on"): off, or a slow drift at one of three speeds -- transform only, on the drawn picture
+# (a theme's layers each move their own way, at the same three speeds)
 WALLPAPER_MOTION = ("off", "slow", "medium", "fast")
+# A THEME'S COLOUR (2026-10-31): one of the presets, one tap each (hk-wallpapers.js COLORS mirrors this, in
+# its order), or "#rrggbb", any colour. Only its hue and how vivid it is are used: how light the theme's shades
+# run is set by hk-wallpapers.js, so any colour keeps white text readable.
+WALLPAPER_COLORS = (
+    {"id": "rose", "label": "Rose", "hex": "#e0457b"},
+    {"id": "coral", "label": "Coral", "hex": "#f0644a"},
+    {"id": "amber", "label": "Amber", "hex": "#f59e0b"},
+    {"id": "green", "label": "Green", "hex": "#34c759"},
+    {"id": "teal", "label": "Teal", "hex": "#14b8a6"},
+    {"id": "blue", "label": "Blue", "hex": "#2f7bf6"},
+    {"id": "violet", "label": "Violet", "hex": "#7a5cff"},
+    {"id": "graphite", "label": "Graphite", "hex": "#8a94a6"},
+)
+WALLPAPER_COLOR_IDS = tuple(c["id"] for c in WALLPAPER_COLORS)
+
+
+def wallpaper_color(v: Any) -> str | None:
+    """A theme's colour as stored (a WALLPAPER_COLORS id, or "#rrggbb" in lower case), or None."""
+    if not isinstance(v, str):
+        return None
+    if v in WALLPAPER_COLOR_IDS:
+        return v
+    return v.lower() if ACCENT_HEX.fullmatch(v) else None
 SKY_COLOR_IDS = tuple(i for i in SKY_BACKDROP_IDS if i != "live")
 # A PAGE'S BACKGROUND (Sky / Background -> Pages): its own color, any
 # backdrop -- "live" among them, the live sky -- "photo" (its own photo,
@@ -512,11 +540,11 @@ def sky_photo(v: Any) -> str | None:
 # photo and custom colors you made (photo, gradient_custom: kept for next
 # time), or Advanced's dates, hemisphere and sources. A screen's reset is
 # SKY_RESET_BOARD to None: Same as All Screens.
-SKY_RESET = ("background", "color", "landscape", "wallpaper", "wallpaper_night", "wallpaper_motion", "photo_look", "landscape_look", "image_look", "flat_background", "flat_color", "flat_image_look", "flat_fade", "flat_tint", "flat_tint_amount", "flat_tint_light",
+SKY_RESET = ("background", "color", "landscape", "wallpaper", "wallpaper_night", "wallpaper_motion", "wallpaper_color","photo_look", "landscape_look", "image_look", "flat_background", "flat_color", "flat_image_look", "flat_fade", "flat_tint", "flat_tint_amount", "flat_tint_light",
              "animations", "focus_pause", "moving", "weather", "precipitation",
              "cloud_style", "daytime", "gradient", "decorations", "decoration_style",
              "woodland", "themes", "liveliness_all", "liveliness", "liveliness_custom")
-SKY_RESET_BOARD = ("sky_background", "sky_color", "sky_landscape", "sky_wallpaper", "sky_wallpaper_night", "sky_wallpaper_motion", "sky_photo_look", "sky_landscape_look", "sky_image_look",
+SKY_RESET_BOARD = ("sky_background", "sky_color", "sky_landscape", "sky_wallpaper", "sky_wallpaper_night", "sky_wallpaper_motion", "sky_wallpaper_color", "sky_photo_look", "sky_landscape_look", "sky_image_look",
                    "sky_flat_background", "sky_flat_color", "sky_flat_image_look", "sky_flat_fade", "sky_flat_tint", "sky_flat_tint_amount", "sky_flat_tint_light",
                    "sky_animations", "sky_focus_pause", "sky_moving", "sky_weather", "sky_precipitation",
                    "sky_cloud_style", "sky_daytime", "sky_gradient", "sky_decorations", "sky_decoration_style",
@@ -1041,6 +1069,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
             # version shows (WALLPAPER_NIGHT); a screen's sky_wallpaper /
             # sky_wallpaper_night are its own
             "wallpaper": "ribbons_rose", "wallpaper_night": "auto", "wallpaper_motion": "off",
+            # ...and a theme's colour (WALLPAPER_COLORS, or "#rrggbb"; 2026-10-31)
+            "wallpaper_color": "blue",
             # EACH PAGE'S BACKGROUND (sky_pages below): page kind or custom
             # page address -> "own" (its own color), "live" (the live sky,
             # with this look), a backdrop id (a still color) or "photo"
@@ -1476,6 +1506,7 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
         sk["wallpaper_night"] = "auto"
     if sk.get("wallpaper_motion") not in WALLPAPER_MOTION:
         sk["wallpaper_motion"] = "off"
+    sk["wallpaper_color"] = wallpaper_color(sk.get("wallpaper_color")) or DEFAULTS["sky"]["wallpaper_color"]
     br = amount_or_none(out["look"].get("bright"))
     out["look"]["bright"] = DEFAULTS["look"]["bright"] if br is None else br
     # each over its own defaults: a partly stored object is still whole, and
@@ -1567,6 +1598,11 @@ SAVER_DEFAULTS: dict[str, Any] = {
     # (SAVER_CLOCK_BGS) that moves slowly or changes once a minute (still)
     "clock_over": "corner", "clock_style": "classic", "clock_bg": "gradient", "clock_motion": "slow",
     "clock_24": False,
+    # A WALLPAPER BEHIND THE CLOCK (2026-10-31, the owner: "offer the current backgrounds and the new backgrounds
+    # from the HomeView screen in the Clock Screensaver Background selection"): clock_bg "wallpaper" -- one of
+    # WALLPAPERS, the twelve drawn ones or a motion theme in its colour (WALLPAPER_COLORS or "#rrggbb"); its
+    # motion is the background's Speed below
+    "clock_wallpaper": "aurora", "clock_wallpaper_color": "blue",
     # each face's color (hk-saverclock.js COLORS): {style: color id}; a face
     # missing is its own first color
     "clock_colors": {},
@@ -1615,9 +1651,9 @@ MOSAIC_COLORS = ("black", "white", "gray", "charcoal", "cream", "navy")
 SAVER_CLOCK_STYLES = ("today", "classic", "serif", "neon", "lcd", "flip", "analog", "numbers", "words", "arc", "nixie", "poster",
                       "dots", "ring", "glass", "type")
 SAVER_CLOCK_BGS = ("black", "grain", "gradient", "aurora", "ink", "sky", "lowpoly", "topo", "constellation", "forecast", "skyonly", "photos",
-                   "landscapes")
+                   "landscapes", "wallpaper")
 SAVER_CHOICES = {"clock_over": ("corner", "large"), "clock_style": SAVER_CLOCK_STYLES,
-                 "clock_bg": SAVER_CLOCK_BGS, "clock_motion": ("slow", "still"),
+                 "clock_bg": SAVER_CLOCK_BGS, "clock_motion": ("slow", "still"), "clock_wallpaper": WALLPAPERS,
                  "photo_layout": ("single", "mosaic"), "mosaic_gap": ("none", "thin", "rounded"),
                  "mosaic_change": ("one", "all"), "clock_night": ("off", "night", "always"),
                  "mosaic_color": MOSAIC_COLORS}
@@ -1712,6 +1748,10 @@ def saver_options(v: Any, legacy: Any = None) -> dict[str, Any] | None:
                                                 for s, c in val.items()):
                 return None
             out[k] = dict(val)
+        elif k == "clock_wallpaper_color":
+            if wallpaper_color(val) is None:
+                return None
+            out[k] = wallpaper_color(val)
         elif k in ("energy_hide", "weather_hide"):
             parts = SAVER_ENERGY_PARTS if k == "energy_hide" else SAVER_WEATHER_PARTS
             if not isinstance(val, list) or any(x not in parts for x in val):
@@ -2355,7 +2395,7 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # ...and its own Landscape and its look (None: All Screens')
     "sky_landscape": None, "sky_landscape_look": None,
     # ...and its own Wallpaper and Night Version (None: All Screens')
-    "sky_wallpaper": None, "sky_wallpaper_night": None, "sky_wallpaper_motion": None,
+    "sky_wallpaper": None, "sky_wallpaper_night": None, "sky_wallpaper_motion": None, "sky_wallpaper_color": None,
     # Liveliness, this screen's own, as All Screens' is: one preset for every
     # occasion or "custom" (None: Same as All Screens), then each occasion's
     # preset and Custom knobs; calm_empty -- Calm When Nobody's Around (the
@@ -2611,6 +2651,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["sky_wallpaper"] = d.get("sky_wallpaper") if d.get("sky_wallpaper") in WALLPAPERS else None
     out["sky_wallpaper_night"] = d.get("sky_wallpaper_night") if d.get("sky_wallpaper_night") in WALLPAPER_NIGHT else None
     out["sky_wallpaper_motion"] = d.get("sky_wallpaper_motion") if d.get("sky_wallpaper_motion") in WALLPAPER_MOTION else None
+    out["sky_wallpaper_color"] = wallpaper_color(d.get("sky_wallpaper_color"))
     out["sky_page_photos"] = sky_page_photos(d.get("sky_page_photos")) or {}
     out["sky_page_looks"] = page_looks(d.get("sky_page_looks")) or {}
     out["sky_flat_background"] = d.get("sky_flat_background") if d.get("sky_flat_background") in FLAT_BACKGROUNDS else None

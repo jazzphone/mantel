@@ -19,6 +19,8 @@ function node() {
                   remove: function (k) { n.className = n.className.split(' ').filter(function (c) { return c !== k; }).join(' '); },
                   toggle: function (k, on) { if (on) this.add(k); else this.remove(k); } };
   n.appendChild = function (c) { c.parentNode = n; n.children.push(c); return c; };
+  n.removeChild = function (c) { n.children.splice(n.children.indexOf(c), 1); c.parentNode = null; return c; };
+  Object.defineProperty(n, 'firstChild', { get: function () { return n.children[0] || null; } });
   n.insertBefore = function (c, b) { c.parentNode = n; var i = b ? n.children.indexOf(b) : -1; n.children.splice(i < 0 ? n.children.length : i, 0, c); return c; };
   n.querySelectorAll = function (sel) {
     var out = [], want = sel.slice(1);
@@ -35,12 +37,13 @@ globalThis.document = { createElement: node, readyState: 'complete', head: node(
 load(HK_ROOT + '/frontend/modules/hk-wallpapers.js');
 var W = window.hkWallpapers;
 var py = read(HK_ROOT + '/hk_core/settings/model.py');
-var m = /\nWALLPAPERS = \(([\s\S]*?)\)\n/.exec(py);
-var ids = m ? (m[1].match(/"([a-z_]+)"/g) || []).map(function (s) { return s.slice(1, -1); }) : [];
-check('the twelve, in settings.py WALLPAPERS\' order', ids.length === 12 && JSON.stringify(W.list().map(function (w) { return w.id; })) === JSON.stringify(ids), ids);
+var m = /\nWALLPAPERS = \(([\s\S]*?)\) \+ WALLPAPER_THEMES\n/.exec(py), mt = /\nWALLPAPER_THEMES = \(([\s\S]*?)\)\n/.exec(py);
+var tuple = function (x) { return x ? (x[1].match(/"([a-z_]+)"/g) || []).map(function (s) { return s.slice(1, -1); }) : []; };
+var ids = tuple(m).concat(tuple(mt));
+check('the twelve and the six themes, in settings.py WALLPAPERS\' order', ids.length === 18 && JSON.stringify(W.list().map(function (w) { return w.id; })) === JSON.stringify(ids), ids);
 check('...the default is settings.py\'s', /"wallpaper": "ribbons_rose"/.test(py) && W.DEFAULT === 'ribbons_rose');
 var fam = {}, shapes = {};
-W.list().forEach(function (w) { (fam[w.family] = fam[w.family] || []).push(w.shape); shapes[w.shape] = 1; });
+W.list().filter(function (w) { return !w.theme; }).forEach(function (w) { (fam[w.family] = fam[w.family] || []).push(w.shape); shapes[w.shape] = 1; });
 check('six families, two shapes each; four shapes', Object.keys(fam).length === 6 && Object.keys(fam).every(function (f) { return fam[f].length === 2 && fam[f][0] !== fam[f][1]; }) &&
       Object.keys(shapes).sort().join() === 'petals,pinwheel,ribbons,shards', fam);
 check('...named as you would say them', W.list()[0].name === 'Rose Ribbons' && W.list()[11].name === 'Graphite Pinwheel');
@@ -59,9 +62,59 @@ check('...the night version its own colours, with a few still stars', a !== b &&
 check('...as an address a background takes, made once', /^data:image\/svg\+xml;charset=utf-8,%3Csvg/.test(W.url('petals_amber')) && W.url('petals_amber') === W.url('petals_amber') &&
       W.url('petals_amber', true) !== W.url('petals_amber'));
 check('an unknown one is the default', W.stops('nope').day[0] === W.stops('ribbons_rose').day[0] && !W.has('nope') && W.has('shards_graphite'));
-var big = W.list().reduce(function (n, w) { return Math.max(n, W.svg(w.id, false).length, W.svg(w.id, true).length); }, 0);
-check('each drawing stays small (under 6 kB of SVG, made once on the page), and what ships is the builders (under 20 kB)',
-      big < 6000 && read(HK_ROOT + '/frontend/modules/hk-wallpapers.js').length < 20000, big);
+var big = W.list().filter(function (w) { return !w.theme; }).reduce(function (n, w) { return Math.max(n, W.svg(w.id, false).length, W.svg(w.id, true).length); }, 0);
+var bigT = W.list().filter(function (w) { return w.theme; }).reduce(function (n, w) { return Math.max(n, W.svg(w.id, false).length, W.svg(w.id, true).length); }, 0);
+check('each drawing stays small (under 6 kB of SVG, a theme\'s still frame under 20 kB -- the aurora\'s rays -- made once on the page), ' +
+      'and what ships is the builders (under 40 kB before minifying)',
+      big < 6000 && bigT < 20000 && read(HK_ROOT + '/frontend/modules/hk-wallpapers.js').length < 40000, [big, bigT]);
+
+// THE MOTION THEMES (2026-10-31): six, each in one colour of the owner's
+var themes = W.list().filter(function (w) { return w.theme; });
+check('six themes, each named, no family; known as themes', themes.map(function (w) { return w.name; }).join() === 'Aurora,Blobs,Waves,Dot Field,Light Beams,Meteors' &&
+      themes.every(function (w) { return w.shape === 'theme' && !w.family && W.isTheme(w.id) && W.has(w.id); }) && !W.isTheme('ribbons_rose') && !W.isTheme('toString'));
+var mc = /\nWALLPAPER_COLORS = \(([\s\S]*?)\n\)\n/.exec(py), pyCols = [];
+if (mc) mc[1].replace(/\{"id": "([a-z]+)", "label": "([A-Za-z ]+)", "hex": "(#[0-9a-f]{6})"\}/g, function (_, id, label, hex) { pyCols.push([id, label, hex]); });
+check('the presets are settings.py WALLPAPER_COLORS, in its order; the default its default', pyCols.length === 8 && JSON.stringify(pyCols) === JSON.stringify(W.COLORS) &&
+      /"wallpaper_color": "blue"/.test(py) && W.COLOR_DEFAULT === 'blue', pyCols);
+check('a colour: a preset\'s, your own (lower case), else the default\'s', W.color('teal') === '#14b8a6' && W.color('#A1B2C3') === '#a1b2c3' &&
+      W.color('plaid') === '#2f7bf6' && W.color(null) === '#2f7bf6' && W.color('#abc') === '#2f7bf6');
+var Y = function (c) { var f = function (v) { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }, n = parseInt(c.slice(1), 16);
+  return 0.2126 * f(n >> 16) + 0.7152 * f(n >> 8 & 255) + 0.0722 * f(n & 255); };
+var shades = ['#ff0000', '#ffff00', '#ffffff', '#000000', '#14b8a6'].map(function (c) { return [W.colors('waves', false, c), W.colors('waves', true, c)]; });
+check('any colour\'s shades: five, darkest first, at set luminances -- a white, a black, a yellow the same as a blue -- the night darker',
+      shades.every(function (s) { return s[0].length === 5 && s[0].every(function (c, i) { return i === 0 || Y(c) > Y(s[0][i - 1]); }) &&
+        s[0].every(function (c, i) { return Math.abs(Y(c) - Y(shades[4][0][i])) < 0.004 && Y(s[1][i]) < Y(c); }); }), shades);
+check('...in the colour\'s own hue: a red\'s are red, white\'s and black\'s grey', /^#[0-9a-f]{2}0[0-4]0[0-4]$/.test(shades[0][0][2]) &&
+      shades[2][0].join() === shades[3][0].join() && shades[2][0].every(function (c) { return c.slice(1, 3) === c.slice(3, 5) && c.slice(3, 5) === c.slice(5, 7); }), shades[0][0]);
+check('...a partner turned round the wheel where a theme draws one (Aurora: ten shades, Blobs fifteen)',
+      W.colors('aurora', false, 'rose').length === 10 && W.colors('blobs', false, 'rose').length === 15 && W.colors('aurora', false, 'rose')[7] !== W.colors('aurora', false, 'rose')[2]);
+check('a theme\'s stops: four by day and by night, from its colour', themes.every(function (w) {
+  var a = W.stops(w.id, 'rose'), b = W.stops(w.id, 'teal');
+  return a.day.length === 4 && a.night.length === 4 && a.day.concat(a.night).every(function (c) { return /^#[0-9a-f]{6}$/.test(c); }) && a.day.join() !== b.day.join();
+}));
+check('...every theme has its measured weights, one per shade and band', themes.every(function (w) {
+  var M = W._weights[w.id], K = W.colors(w.id, false).length;
+  return M && M.w.length === 4 && M.w.every(function (r) { return r.length === K; }) && M.c.day.length === 4 && M.c.night.length === 4;
+}));
+var f1 = W.svg('waves', false, 't1', 'rose'), f2 = W.svg('waves', true, 't2', 'teal');
+check('its still frame: a 1000 x 700 picture cut to the screen, in its colour, its ids kept apart',
+      /viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid slice"/.test(f1) && f1.indexOf(W.colors('waves', false, 'rose')[3]) >= 0 &&
+      f2.indexOf(W.colors('waves', true, 'teal')[3]) >= 0 && /id="t1_/.test(f1) && !/t1_/.test(f2));
+check('...its address made once per colour and version', W.url('waves', false, 'rose') === W.url('waves', false, 'rose') &&
+      W.url('waves', false, 'rose') !== W.url('waves', false, 'teal') && W.url('waves', false, 'teal') !== W.url('waves', true, 'teal') &&
+      W.url('waves', false, 'blue') === W.url('waves', false, '#2F7BF6'));
+var sc = W.scene('aurora', false, 'violet');
+check('ON THE SCREEN: a ground and its layers, each a picture in a box (or a tile) with how it moves; made once per colour and version',
+      sc === W.scene('aurora', false, '#7a5cff') && sc !== W.scene('aurora', true, 'violet') && /^data:image\/svg\+xml/.test(sc.ground) && sc.layers.length === 2 &&
+      sc.layers.every(function (L) { return /^data:image\/svg\+xml/.test(L.url) && L.box.length === 4 && L.mv.an === 'sway' && /^[a-f]$/.test(L.d); }) &&
+      W.scene('dots', false).layers.some(function (L) { return L.tile === 30 && !L.box && L.mv.an === 'tile'; }) && W.scene('ribbons_rose', false) === null);
+check('...every layer moves by one of the sky\'s four keyframes, at one of its six lengths', themes.every(function (w) {
+  return W.scene(w.id, false).layers.every(function (L) { return ['sway', 'loop', 'tile', 'meteor'].indexOf(L.mv.an) >= 0 && /^[a-f]$/.test(L.d); });
+}));
+check('...a few layers each, no filter and no blend mode in any picture', themes.every(function (w) {
+  var s = W.scene(w.id, true, 'amber'), all = decodeURIComponent(s.ground) + s.layers.map(function (L) { return decodeURIComponent(L.url); }).join('');
+  return s.layers.length <= 5 && !/<filter|feGaussian|mix-blend|blur\(/.test(all);
+}));
 
 // THE SKY PAINTS ONE (hk-sky.js paintWall)
 load(HK_ROOT + '/frontend/modules/hk-sky.js');
@@ -88,7 +141,42 @@ hkSky._paintWall(sky, null, false);
 timers.splice(0).forEach(function (f) { f(); });
 check('another background: the wallpaper fades out and its pictures go', !layers.some(function (l) { return l.classList.contains('on') || l.style.backgroundImage; }) &&
       sky.values['--wall'] === 'none');
+// A MOTION THEME ON THE SCREEN (paintWall's wallScene)
+hkSky._paintWall(sky, { id: 'waves', color: 'rose' }, false);
+var tl = layers.filter(function (l) { return l.classList.contains('on'); })[0], wsc = W.scene('waves', false, 'rose');
+check('a theme: its ground on the layer, its own layers inside it, each its picture in its box with how it moves',
+      tl && tl.classList.contains('th') && tl.style.backgroundImage === 'url("' + wsc.ground + '")' && tl.children.length === 3 &&
+      tl.children.every(function (i, n) { return i.style.backgroundImage === 'url("' + wsc.layers[n].url + '")' && i.className === 'sway' &&
+        i.style.left === wsc.layers[n].box[0] + '%' && i.values['--an'] === 'hk-wt-sway' && /^var\(--w[a-f]\)$/.test(i.values['--ad']); }) &&
+      sky.values['--wall'] === '"waves@' + W.color('rose') + ':day"');
+hkSky._paintWall(sky, { id: 'waves', color: 'rose' }, false);
+check('...painted again with nothing new: untouched', tl.classList.contains('on') && tl.children.length === 3);
+hkSky._paintWall(sky, { id: 'waves', color: 'teal' }, false);
+var tl2 = layers.filter(function (l) { return l.classList.contains('on'); })[0];
+check('...another colour: it crossfades to the other layer, drawn in the new one', tl2 !== tl && tl2.style.backgroundImage === 'url("' + W.scene('waves', false, 'teal').ground + '")');
+timers.splice(0).forEach(function (f) { f(); });
+check('...and the old one\'s layers go once it has faded', tl.children.length === 0 && tl.style.backgroundImage === '' && tl2.children.length === 3);
+hkSky._paintWall(sky, { id: 'dots', color: 'blue' }, false);
+var dl = layers.filter(function (l) { return l.classList.contains('on'); })[0], tile = dl.children.filter(function (i) { return i.className === 'tile'; })[0];
+check('the dot field\'s tile overhangs one tile, moves one tile', tile && tile.style.left === '-30px' && tile.style.top === '-30px' && tile.values['--tile'] === '30px' &&
+      tile.style.backgroundSize === '30px 30px');
+hkSky._paintWall(sky, { id: 'ribbons_rose' }, false);
+timers.splice(0).forEach(function (f) { f(); });
+var back = layers.filter(function (l) { return l.classList.contains('on'); })[0];
+check('back to a drawn one: no theme left on its layer', !back.classList.contains('th') && back.children.length === 0 &&
+      !layers.some(function (l) { return l.children.length; }));
+hkSky._paintWall(sky, null, false);
+timers.splice(0).forEach(function (f) { f(); });
 var src = read(HK_ROOT + '/frontend/modules/hk-sky.js');
+check('a theme\'s layers move only while its Motion is on (data-wm), transform and opacity only; the ground stands still',
+      /'#hk-sky\[data-wm\] \.wall\.th\{inset:0;will-change:auto;animation:none\}'/.test(src) &&
+      /'#hk-sky\[data-wm\] \.wall\.th>i\{will-change:transform,opacity;animation:var\(--an\)/.test(src) &&
+      (src.match(/@keyframes (hk-wt-[a-z]+|hk-meteor-wt)\{[^']*/g) || []).length === 4 &&
+      (src.match(/@keyframes (hk-wt-[a-z]+|hk-meteor-wt)\{[^']*/g) || []).every(function (k) { return !/(left|top|width|height|margin|background|filter)\s*:/.test(k); }));
+check('...the rules are hkWallpapers.motionCss\'s for the sky, written out (the screensaver\'s clock takes the same)',
+      W.motionCss('#hk-sky .wall.th>i', '#hk-sky[data-wm] .wall.th>i', 'hk-wt-').split('\n').every(function (r) { return src.indexOf("'" + r + "'") >= 0; }));
+check('...a meteor is a mover a Pre-rendered blur leaves out; Reduce Motion stops all', hkSky.moves({ animationName: 'hk-wt-meteor' }) &&
+      /@media \(prefers-reduced-motion:reduce\)\{#hk-sky \*\{animation:none!important\}\}/.test(src));
 check('the layers fade as the stops do (4 s), and stay off the sky\'s animations (a still: the static sky)',
       /#hk-sky \.wall\{position:absolute;inset:0;background-size:cover;background-position:center;',\s*'  opacity:0;transition:opacity 4s linear\}/.test(src) &&
       /else if \(bg && bg\.mode === 'wallpaper'\) \{ wall = bg\.wallpaper; still = bg\.stops \|\| black; \}/.test(src) &&

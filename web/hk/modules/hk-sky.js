@@ -757,7 +757,10 @@
     // shows. It stops where the sky stops (.hidden, .held, .noanim, Reduce
     // Motion: the rules below) and when Animations are off (paintWall).
     '#hk-sky[data-wm] .wall{inset:-10%;will-change:transform;animation:hk-wall-sway var(--wmT,90s) ease-in-out infinite alternate}',
-    '#hk-sky[data-wm="slow"]{--wmT:90s}#hk-sky[data-wm="medium"]{--wmT:45s}#hk-sky[data-wm="fast"]{--wmT:20s}',
+    // (--wa..--wf: a motion theme's lengths at the speed, below)
+    '#hk-sky[data-wm="slow"]{--wmT:90s;--wa:46s;--wb:61s;--wc:77s;--wd:24s;--we:13s;--wf:17s}',
+    '#hk-sky[data-wm="medium"]{--wmT:45s;--wa:23s;--wb:31s;--wc:39s;--wd:12s;--we:8s;--wf:10s}',
+    '#hk-sky[data-wm="fast"]{--wmT:20s;--wa:12s;--wb:16s;--wc:20s;--wd:6s;--we:5s;--wf:6s}',
     '#hk-sky[data-ws="petals"] .wall{transform-origin:86% 98%;animation-name:hk-wall-breathe}',
     '#hk-sky[data-ws="shards"] .wall{animation-name:hk-wall-drift}',
     '#hk-sky[data-ws="pinwheel"] .wall{transform-origin:32% 33%;animation-name:hk-wall-turn}',
@@ -765,6 +768,30 @@
     '@keyframes hk-wall-breathe{from{transform:rotate(-2deg) scale(1)}to{transform:rotate(2deg) scale(1.04)}}',
     '@keyframes hk-wall-drift{from{transform:translate3d(-2%,-2%,0) scale(1.02)}to{transform:translate3d(2%,2%,0) scale(1)}}',
     '@keyframes hk-wall-turn{from{transform:rotate(-3deg)}to{transform:rotate(3deg)}}',
+    // A MOTION THEME (2026-10-31, hk-wallpapers.js THEMES; paintWall's
+    // wallScene): the ground stands still (no sway of the whole picture);
+    // its own layers move instead, each by one of four keyframes with its
+    // own values -- sway (out and back), loop (round three points), tile
+    // (one tile on, and round again: seamless) and a meteor's flight
+    // (hk-wt-meteor, a mover a Pre-rendered blur leaves out: hkSky.moves) --
+    // at the Motion's lengths. Transform and opacity only, each layer one
+    // texture drawn once; will-change only while it moves. Without data-wm
+    // (Motion Off, Animations Off) nothing runs and every layer stands where
+    // it starts: the still frame. Reduce Motion, .hidden, .held and .noanim
+    // stop them as they stop the rest of the sky (the rules below). The
+    // rules are hkWallpapers.motionCss('#hk-sky .wall.th>i', '#hk-sky[data-wm]
+    // .wall.th>i', 'hk-wt-') written out -- this sheet is made whether or not
+    // the wallpapers have come; test_wallpapers.js holds the two the same.
+    '#hk-sky[data-wm] .wall.th{inset:0;will-change:auto;animation:none}',
+    '#hk-sky .wall.th>i{position:absolute;display:block;background-position:0 0;background-size:100% 100%;background-repeat:no-repeat;transform:var(--bt,none);transform-origin:var(--or,50% 50%)}',
+    '#hk-sky .wall.th>i.tile{background-repeat:repeat}',
+    '#hk-sky[data-wm] .wall.th>i{will-change:transform,opacity;animation:var(--an) var(--ad) ease-in-out var(--dl,0s) infinite alternate both}',
+    '#hk-sky[data-wm] .wall.th>i.loop{animation-direction:normal}',
+    '#hk-sky[data-wm] .wall.th>i.tile,#hk-sky[data-wm] .wall.th>i.meteor{animation-timing-function:linear;animation-direction:normal}',
+    '@keyframes hk-wt-sway{from{transform:none;opacity:1}to{transform:translate3d(var(--tx,0),var(--ty,0),0) scale(var(--ts,1));opacity:var(--to,1)}}',
+    '@keyframes hk-wt-loop{0%,100%{transform:none}33%{transform:translate3d(var(--x1),var(--y1),0) scale(var(--s1))}66%{transform:translate3d(var(--x2),var(--y2),0) scale(var(--s2))}}',
+    '@keyframes hk-wt-tile{from{transform:none}to{transform:translate3d(var(--tile),var(--tile),0)}}',
+    '@keyframes hk-wt-meteor{0%{transform:var(--bt) translate3d(0,0,0);opacity:0}2%{opacity:1}9%,100%{transform:var(--bt) translate3d(60vw,0,0);opacity:0}}',
 
     // The scrim is what keeps the glass plates readable -- see CAP.
     '#hk-sky .scrim{background:linear-gradient(to bottom,',
@@ -5588,13 +5615,25 @@
     if (m) { el.setAttribute('data-wm', m); el.setAttribute('data-ws', W && W.has(wall.id) ? W.list().filter(function (x) { return x.id === wall.id; })[0].shape : 'ribbons'); }
     else { el.removeAttribute('data-wm'); el.removeAttribute('data-ws'); }
   }
+  // A MOTION THEME (2026-10-31, hk-wallpapers.js scene()): its ground is the
+  // layer's picture, as a drawn wallpaper's is, and its own layers go inside
+  // it, each an <i> with its picture and how it moves (the .wall.th rules:
+  // they move only while the Motion is on, else they stand where they start
+  // -- the still frame). Made again only when the theme, its colour or its
+  // version changes; a drawn wallpaper's layer has none.
+  function wallScene(layer, sc) {
+    layer.classList.toggle('th', !!sc);
+    var W = window.hkWallpapers;
+    if (W && W.paintScene) W.paintScene(layer, sc, 'hk-wt-');
+  }
   function paintWall(el, wall, night) {
     var W = window.hkWallpapers, layers = el.querySelectorAll ? el.querySelectorAll('.wall') : [];
-    var src = wall && W ? W.url(wall.id, night) : null;
+    var sc = wall && W && W.scene ? W.scene(wall.id, night, wall.color) : null;
+    var src = wall && W ? (sc ? sc.key : W.url(wall.id, night)) : null;
     wallMotion(el, src ? wall : null);
     if (el._hkWall === src || (!src && !layers.length)) { el._hkWall = src; return; }
     el._hkWall = src;
-    el.style.setProperty('--wall', src ? '"' + wall.id + (night ? ':night' : ':day') + '"' : 'none');
+    el.style.setProperty('--wall', src ? '"' + wall.id + (sc ? '@' + W.color(wall.color) : '') + (night ? ':night' : ':day') + '"' : 'none');
     if (src && layers.length < 2) {
       var art = el.querySelector('.art');
       for (var i = layers.length; i < 2; i++) {
@@ -5608,15 +5647,18 @@
     for (var j = 0; j < layers.length; j++) if (layers[j].classList.contains('on')) shown = layers[j];
     if (src) {
       var next = layers[0] === shown ? layers[1] : layers[0];
-      next.style.backgroundImage = 'url("' + src + '")';
+      next.style.backgroundImage = 'url("' + (sc ? sc.ground : src) + '")';
+      wallScene(next, sc);
       next.classList.add('on');
       el.style.setProperty('--grainO', '0');
     }
     if (shown) shown.classList.remove('on');
-    // the picture faded out is let go once it is gone
+    // the picture faded out is let go once it is gone (a theme's layers too)
     clearTimeout(el._hkWallT);
     el._hkWallT = setTimeout(function () {
-      for (var k = 0; k < layers.length; k++) if (!layers[k].classList.contains('on')) layers[k].style.backgroundImage = '';
+      for (var k = 0; k < layers.length; k++) {
+        if (!layers[k].classList.contains('on')) { layers[k].style.backgroundImage = ''; wallScene(layers[k], null); }
+      }
     }, WALL_FADE_MS);
   }
 
@@ -6140,7 +6182,9 @@
   // Names here are prefixes (the flights' are made per speed: near-flock-x…).
   var MOVERS = ['hk-spfly', 'hk-spfall', 'hk-xfall', 'hk-spburst', 'near-swirl', 'hk-bolt', 'near-confetti',
                 'hk-meteor', 'near-glow', 'near-glint', 'hk-ffwander', 'hk-witchfly', 'hk-sleigh', 'hk-batfly',
-                'near-flock', 'hk-leaffall', 'hk-leaftumble', 'near-petal', 'near-geese'];
+                'near-flock', 'hk-leaffall', 'hk-leaftumble', 'near-petal', 'near-geese',
+                // a motion theme's meteors (2026-10-31, hk-wallpapers.js)
+                'hk-wt-meteor'];
   // WHAT DRIFTS ACROSS THE SKY while staying in its picture: the clouds
   // (realistic and classic decks), the fog's wisps, the moon's mist, the
   // aurora. A pre-rendered blur (hk-glass.js) paints its picture again every

@@ -348,6 +348,18 @@ def _flat_color(none: bool) -> Callable[[Any], Any]:
     return check
 
 
+def _wallpaper_color(none: bool) -> Callable[[Any], Any]:
+    """A motion theme's colour (2026-10-31): a preset or "#rrggbb"; a screen's may be None (All Screens')."""
+    def check(v: Any) -> Any:
+        if none and v in (None, ""):
+            return None
+        got = S.wallpaper_color(v)
+        if got is None:
+            raise Invalid("choice")
+        return got
+    return check
+
+
 def _flat_tint(v: Any, none: bool) -> str | None:
     if none and v in (None, ""):
         return None
@@ -803,6 +815,7 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "sky.wallpaper": _choice(S.WALLPAPERS),
     "sky.wallpaper_night": _choice(S.WALLPAPER_NIGHT),
     "sky.wallpaper_motion": _choice(S.WALLPAPER_MOTION),
+    "sky.wallpaper_color": _wallpaper_color(False),
     "sky.page_looks": _page_looks,
     "sky.flat_background": _choice(S.FLAT_BACKGROUNDS),
     "sky.flat_color": _flat_color(False),
@@ -1198,6 +1211,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "sky_wallpaper": _choice(S.WALLPAPERS, none=True),
     "sky_wallpaper_night": _choice(S.WALLPAPER_NIGHT, none=True),
     "sky_wallpaper_motion": _choice(S.WALLPAPER_MOTION, none=True),
+    "sky_wallpaper_color": _wallpaper_color(True),
     "sky_flat_background": _choice(S.FLAT_BACKGROUNDS, none=True),
     "sky_flat_color": _flat_color(True),
     "sky_flat_fade": _amount_or_none,

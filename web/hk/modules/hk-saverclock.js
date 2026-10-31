@@ -58,7 +58,11 @@
     ['black', 'Black', false], ['grain', 'Grain Wash', true], ['gradient', 'Drifting Gradient', true],
     ['aurora', 'Aurora', true], ['ink', 'Ink Swirl', true], ['sky', 'Follow the Sky', true],
     // after coolbackgrounds.io (the owner's find, 2026-10-13)
-    ['lowpoly', 'Low Poly', true], ['topo', 'Topography', true], ['constellation', 'Constellation', true]
+    ['lowpoly', 'Low Poly', true], ['topo', 'Topography', true], ['constellation', 'Constellation', true],
+    // THE WALLPAPERS (2026-10-31, the owner: the HomeView screen's backgrounds
+    // here too): one of hk-wallpapers.js's, a motion theme in its colour --
+    // drawn as the dashboard's sky draws it (mount's wallpaper below)
+    ['wallpaper', 'Wallpaper', true]
   ];
   // EACH FACE'S COLORS (2026-10-13): [id, name, its CSS variables] -- the
   // first is the face as it always looked. A screen keeps one per face
@@ -125,6 +129,9 @@
   var CSS = [
     '.ckroot{position:absolute;inset:0;container-type:size;overflow:hidden;color:#fff;font-family:' + FONT + ';font-variant-numeric:tabular-nums}',
     '.ckroot canvas.ckbg{position:absolute;inset:0;width:100%;height:100%;display:block}',
+    // a wallpaper behind the clock (mount): its ground, cut to the screen; its layers paused while the screen rests
+    '.ckroot .ckwall{position:absolute;inset:0;overflow:hidden;background-size:cover;background-position:center}',
+    '.ckroot .ckwall.mv.held>i{animation-play-state:paused}',
     '.ckroot .ckscrim{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(0,0,0,.16),rgba(0,0,0,.4))}',
     '.ckroot .face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:transform 6s ease-in-out}',
     '.ckroot .dt{letter-spacing:.02em}',
@@ -1072,12 +1079,34 @@
     // THE BACKGROUND: its painter's canvas -- 'soft' 64 x 40, or a share of
     // the screen's size once it is laid out
     var flat = !!(window.hkSettings && window.hkSettings.rendering && window.hkSettings.rendering().flat);
-    var P = !flat && bg ? PAINTERS[bg] || PAINTERS.gradient : null, pst = null;
+    // A WALLPAPER: no painter -- the page's own pictures (wallpaper() below)
+    var WP = window.hkWallpapers, wallBg = !flat && bg === 'wallpaper' && !!(WP && WP.paintScene);
+    var P = !flat && bg && !wallBg ? PAINTERS[bg] || PAINTERS.gradient : null, pst = null;
     if (flat && bg && bg !== 'none') root.style.background = 'var(--hk-flat-ground,#17181A)';
     var speed = opts.speed != null ? Math.max(0, Math.min(100, +opts.speed || 0)) : (opts.motion === 'still' ? 0 : 35);
     // REDUCED MOTION: the background stands still (the CSS above stills only the light and the face; the
     // painters kept repainting and cross-fading every second)
     try { if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) speed = 0; } catch (e) { /* as set */ }
+    // A WALLPAPER BEHIND THE CLOCK (2026-10-31): the picture the dashboard
+    // shows -- a drawn one still, a motion theme's ground with its layers --
+    // in one element (.ckbg: Night Mode hides it with the rest of the
+    // background). opts.wallpaper: {id, color, night}. Its layers move by
+    // hkWallpapers.motionCss, as the sky's do, at lengths the Speed scales
+    // (35, as designed, the Motion's Slow); Speed 0 and Reduce Motion leave
+    // the still frame. Nothing is drawn per frame: no canvas, no timer.
+    var wallEl = null;
+    if (wallBg) {
+      var wo = opts.wallpaper || {}, wid = WP.has(wo.id) ? wo.id : 'aurora', wsc = WP.scene(wid, !!wo.night, wo.color);
+      css.textContent += WP.motionCss('.ckroot .ckwall>i', '.ckroot .ckwall.mv>i', 'ck-wt-');
+      wallEl = el('div', 'ckwall ckbg');
+      wallEl.style.backgroundImage = 'url("' + (wsc ? wsc.ground : WP.url(wid, !!wo.night)) + '")';
+      if (wsc) WP.paintScene(wallEl, wsc, 'ck-wt-');
+      if (wsc && speed) {
+        wallEl.className += ' mv';
+        Object.keys(WP.LENGTHS).forEach(function (k) { wallEl.style.setProperty('--w' + k, (WP.LENGTHS[k] * 35 / speed).toFixed(1) + 's'); });
+      }
+      root.appendChild(wallEl);
+    }
     // ...and Flat (or a still preview) holds the faces' own motion too: Liquid's drift, the second hand
     if (own && (flat || opts.still)) root.className += ' still';
     if (opts.minutely) root.className += ' minutely';
@@ -1236,6 +1265,7 @@
     var rest = function () {
       if (rested) return;
       rested = true;
+      if (wallEl) wallEl.classList.add('held');
       clearInterval(tT); clearTimeout(tStart); if (bT) clearInterval(bT);
       tT = tStart = bT = null;
       if (raf) { cancelAnimationFrame(raf); raf = 0; }
@@ -1243,6 +1273,7 @@
     var wake = function () {
       if (dead || !rested) return;
       rested = false;
+      if (wallEl && !nightOn) wallEl.classList.remove('held');
       tLast = Date.now();                      // the time asleep is not motion
       now();
       run();
@@ -1253,7 +1284,7 @@
       document.addEventListener('visibilitychange', recheck);
       window.addEventListener('hk-black', recheck);
     }
-    if (held()) { rested = true; } else run();
+    if (held()) { rested = true; if (wallEl) wallEl.classList.add('held'); } else run();
     // BURN-IN: a few percent somewhere else every five minutes
     var dT = opts.drift === false || opts.still ? null : setInterval(function () {
       face.style.transform = 'translate(' + ((Math.random() - 0.5) * 4).toFixed(2) + '%,' + ((Math.random() - 0.5) * 4).toFixed(2) + '%)';
@@ -1264,6 +1295,8 @@
       // clock is drawn while the screen is a dim red clock on black
       night: function (on) {
         nightOn = !!on; if (!nightOn) { tLast = Date.now(); }
+        // (a wallpaper's layers hold too: hidden, they would still be moved)
+        if (wallEl) wallEl.classList.toggle('held', nightOn || rested);
         // (a face with its own ground: white numerals on Night Mode's black)
         if (own) root.className = root.className.replace(/ night\b/g, '') + (nightOn ? ' night' : '');
       },

@@ -120,6 +120,9 @@
            // night version shows -- 'auto' after sunset, 'day', 'night'
            // (settings.py sky.wallpaper)
            wallpaper: 'ribbons_rose', wallpaper_night: 'auto', wallpaper_motion: 'off',
+           // ...and a motion theme's colour (2026-10-31; settings.py
+           // WALLPAPER_COLORS, or '#rrggbb')
+           wallpaper_color: 'blue',
            // each page's background: {page: 'own' | 'live' | backdrop id |
            // 'photo'} -- a page missing is Automatic (settings.py sky.pages);
            // a page's own photo, for 'photo': page_photos
@@ -192,7 +195,7 @@
                      music_slide: false, music_pane: false, music_first: false, fade_back: 500,
                      portrait_fill: false, portrait_blur: 50, portrait_dim: 20, portrait_zoom: 100, portrait_x: 'center', portrait_y: 'center',
                      landscape_blur: 50, landscape_dim: 20, landscape_zoom: 100, landscape_x: 'center', landscape_y: 'center',
-                     clock_over: 'corner', clock_style: 'classic', clock_bg: 'gradient', clock_motion: 'slow', clock_24: false, clock_colors: {}, clock_speed: 35, clock_depth: 50, clock_night: 'off', clock_night_from: '22:00', clock_night_to: '07:00',
+                     clock_over: 'corner', clock_style: 'classic', clock_bg: 'gradient', clock_motion: 'slow', clock_wallpaper: 'aurora', clock_wallpaper_color: 'blue', clock_24: false, clock_colors: {}, clock_speed: 35, clock_depth: 50, clock_night: 'off', clock_night_from: '22:00', clock_night_to: '07:00',
                      photo_layout: 'single', mosaic_count: 3, mosaic_gap: 'thin', mosaic_change: 'one', mosaic_line: 0, mosaic_color: 'black', mosaic_random: false, mosaic_every: 10,
                      clock_photo_soft: false, clock_photo_dim: 35, clock_text_shadow: 40, clock_text_outline: 0,
                      energy_slide: false, extra_music: false, extra_forecast: false, extra_every: 5, extra_for: 30, energy_hide: [],
@@ -843,17 +846,21 @@
     return { mode: 'color', stops: backdropStops(color, custom) || BLACK, photo: null };
   }
   // THE WALLPAPER as this screen has it (its own, else All Screens'): {id,
-  // night: 'auto' | 'day' | 'night', stops: {day, night}} -- Black's stops
-  // until hk-wallpapers.js has come (the sky draws it on its next tick)
+  // night: 'auto' | 'day' | 'night', stops: {day, night}, motion, color} --
+  // Black's stops until hk-wallpapers.js has come (the sky draws it on its
+  // next tick). `color`: a motion theme's (2026-10-31), "#rrggbb"; the drawn
+  // twelve keep their own palettes
   function wallpaper(b) {
     if (b === undefined) b = boardHere();
     var W = window.hkWallpapers;
     var id = (b && b.sky_wallpaper) || get('sky.wallpaper', 'ribbons_rose') || 'ribbons_rose';
     var night = (b && b.sky_wallpaper_night) || get('sky.wallpaper_night', 'auto') || 'auto';
     var motion = (b && b.sky_wallpaper_motion) || get('sky.wallpaper_motion', 'off') || 'off';
+    var col = (b && b.sky_wallpaper_color) || get('sky.wallpaper_color', 'blue') || 'blue';
     if (W && !W.has(id)) id = W.DEFAULT;
-    return { id: id, night: night === 'day' || night === 'night' ? night : 'auto', stops: W ? W.stops(id) : BLACK,
-             motion: ['slow', 'medium', 'fast'].indexOf(motion) >= 0 ? motion : 'off' };
+    col = W ? W.color(col) : null;
+    return { id: id, night: night === 'day' || night === 'night' ? night : 'auto', stops: W ? W.stops(id, col) : BLACK,
+             motion: ['slow', 'medium', 'fast'].indexOf(motion) >= 0 ? motion : 'off', color: col };
   }
   // A PHOTO'S LOOK (2026-10-13): this screen's own, else All Screens' --
   // {blur px, dim 0..1 (brightness = 1 - dim), saturate 0..2, tint: {day,

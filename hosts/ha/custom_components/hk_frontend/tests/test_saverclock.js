@@ -231,5 +231,39 @@ print('=== the HomeView-style faces (2026-10-30; HOMEVIEW-LOOK.md, Phase I) ==='
   g.destroy();
 })();
 
+// A WALLPAPER BEHIND THE CLOCK (2026-10-31, the owner: the HomeView screen's backgrounds in the clock's
+// Background): drawn as the dashboard draws it -- no canvas, no timer of its own
+print('=== a wallpaper behind the clock ===');
+load(HK_ROOT + '/frontend/modules/hk-wallpapers.js');
+(function () {
+  var WP = window.hkWallpapers, find = function (n, cls) {
+    var out = []; (function walk(x) { (x.children || x.childNodes || []).forEach(function (k) { if (String(k.className || '').split(' ').indexOf(cls) >= 0) out.push(k); walk(k); }); })(n); return out;
+  };
+  ok('Wallpaper is a background the clock draws, and HK Settings lists it', C.BGS.some(function (b) { return b[0] === 'wallpaper' && b[2]; }) &&
+     M.CLOCK_BGS.some(function (b) { return b[0] === 'wallpaper'; }), true);
+  var l = document.createElement('div'), c = C.mount(l, { style: 'classic', bg: 'wallpaper', drift: false, speed: 35, wallpaper: { id: 'waves', color: 'teal', night: false } });
+  var w = find(l, 'ckwall')[0], sc = WP.scene('waves', false, 'teal');
+  ok('a motion theme: its ground and its layers, as the sky has them, and no canvas', !!w && w.style.backgroundImage === 'url("' + sc.ground + '")' &&
+     find(w, 'sway').length === 3 && !find(l, 'ckbg').some(function (n) { return n.tagName && n.tagName.toLowerCase() === 'canvas'; }), true);
+  ok('...moving at the Speed (35: the Motion\'s Slow lengths), hidden with the background in Night Mode (.ckbg)',
+     / mv\b/.test(w.className) && / ckbg\b/.test(w.className) && w.style.getPropertyValue('--wa') === '46.0s', true);
+  c.night(true);
+  ok('...held in Night Mode', / held\b/.test(w.className), true);
+  c.night(false);
+  ok('...and moving again after', / held\b/.test(w.className), false);
+  c.destroy();
+  l = document.createElement('div'); c = C.mount(l, { style: 'classic', bg: 'wallpaper', drift: false, speed: 0, wallpaper: { id: 'aurora', color: '#ff8800' } });
+  w = find(l, 'ckwall')[0];
+  ok('Speed 0 (and Reduce Motion, which makes it 0): the still frame -- its layers there, nothing moving', !!w && !/ mv\b/.test(w.className) && find(w, 'sway').length === 2, true);
+  c.destroy();
+  l = document.createElement('div'); c = C.mount(l, { style: 'classic', bg: 'wallpaper', drift: false, speed: 35, wallpaper: { id: 'petals_violet', night: true } });
+  w = find(l, 'ckwall')[0];
+  ok('a drawn one: its night picture, still', !!w && w.style.backgroundImage === 'url("' + WP.url('petals_violet', true) + '")' && !find(w, 'sway').length, true);
+  c.destroy();
+  var css = read(HK_ROOT + '/frontend/modules/hk-saverclock.js');
+  ok('its motion is hkWallpapers.motionCss, paused while the screen rests', /WP\.motionCss\('\.ckroot \.ckwall>i', '\.ckroot \.ckwall\.mv>i', 'ck-wt-'\)/.test(css) &&
+     /'\.ckroot \.ckwall\.mv\.held>i\{animation-play-state:paused\}'/.test(css), true);
+})();
+
 print(fail ? 'FAIL ' + fail + ' SAVER CLOCK TESTS' : 'ALL ' + pass + ' SAVER CLOCK TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

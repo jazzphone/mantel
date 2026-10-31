@@ -2897,6 +2897,8 @@
       clock: o.clock !== false, clock_over: o.clock_over, clock_style: o.clock_style, clock_bg: o.clock_bg,
       clock_motion: o.clock_motion, clock_24: o.clock_24 === true, clock_colors: o.clock_colors, clock_speed: o.clock_speed, clock_depth: o.clock_depth,
       clock_night: o.clock_night, clock_night_from: o.clock_night_from, clock_night_to: o.clock_night_to,
+      // a Wallpaper behind the clock (2026-10-31; hk-saverclock.js draws it, hkWallpapers checks both)
+      clock_wallpaper: o.clock_wallpaper, clock_wallpaper_color: o.clock_wallpaper_color,
       // the mosaic (hk-saver.js readCfg checks them)
       photo_layout: o.photo_layout, mosaic_count: o.mosaic_count, mosaic_gap: o.mosaic_gap, mosaic_change: o.mosaic_change,
       mosaic_line: o.mosaic_line, mosaic_color: o.mosaic_color, mosaic_random: o.mosaic_random, mosaic_every: o.mosaic_every,
@@ -3104,7 +3106,7 @@
                     sky_flat_image_look: 1, sky_flat_page_image_looks: 1, sky_image_look: 1,
                     // (2026-10-30) the Wallpaper, and Bright Glass's Strength
                     // (hk-settings.js applies the look live, as frost's)
-                    sky_wallpaper: 1, sky_wallpaper_night: 1, sky_wallpaper_motion: 1, bright: 1,
+                    sky_wallpaper: 1, sky_wallpaper_night: 1, sky_wallpaper_motion: 1, sky_wallpaper_color: 1, bright: 1,
                     // (a Look's Undo is the settings page's to read)
                     look_undo: 1,
                     // ...and the Side Pane: hk-sidepane.js reads it live and

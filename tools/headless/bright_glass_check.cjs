@@ -173,7 +173,7 @@ function sheetContrast() {
           const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
           return deep(document).filter((e) => e.matches && e.matches('.wallgrid button')).length;
         });
-        say(picker === 12, size + ' the Wallpaper picker shows the twelve', picker);
+        say(picker === 18, size + ' the Wallpaper picker shows the twelve and the six motion themes', picker);
         await shot('picker');
       }
       say(!errors.length, size + ' no page errors', errors.slice(0, 3));

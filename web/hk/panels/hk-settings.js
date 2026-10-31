@@ -3833,7 +3833,8 @@
             // the clock as chosen over each Background (the two pictures above: the clock over them, no ground)
             var bgId = what.slice(3), own = bgId === 'skyonly' || bgId === 'landscapes';
             C.mount(inner, { style: o.clock_style || 'classic', still: true, drift: false, h24: !!o.clock_24, bg: own ? 'none' : bgId, speed: 0,
-                             ground: !own, scrim: false, color: (o.clock_colors || {})[o.clock_style || 'classic'] || '', client: self.client });
+                             ground: !own, scrim: false, color: (o.clock_colors || {})[o.clock_style || 'classic'] || '', client: self.client,
+                             wallpaper: { id: o.clock_wallpaper || 'aurora', color: o.clock_wallpaper_color || 'blue' } });
           } else if (/^clock/.test(what)) {
             var style = what.indexOf(':') > 0 ? what.split(':')[1] : (o.clock_style || 'classic');
             C.mount(inner, { style: style, still: true, drift: false, h24: !!o.clock_24, bg: 'gradient', speed: 0,
@@ -4342,7 +4343,8 @@
         var spd = cur.clock_speed != null ? cur.clock_speed : (cur.clock_motion === 'still' ? 0 : 35);
         brows.push(K.slider({ label: 'Speed', sub: spd ? null : 'Still: it changes once a minute', sk: 'saver:clock_speed', value: spd, min: 0, max: 100, step: 5, unit: '%',
                               onChange: function (v) { put({ clock_speed: v, clock_motion: v ? 'slow' : 'still' }); } }));
-        brows.push(K.slider({ label: 'Depth', sub: 'How strong it is: the colors, the glow, the relief', sk: 'saver:clock_depth', value: cur.clock_depth != null ? cur.clock_depth : 50,
+        // (a Wallpaper has no Depth: it is drawn as the dashboard draws it)
+        if (bg !== 'wallpaper') brows.push(K.slider({ label: 'Depth', sub: 'How strong it is: the colors, the glow, the relief', sk: 'saver:clock_depth', value: cur.clock_depth != null ? cur.clock_depth : 50,
                               min: 0, max: 100, step: 5, unit: '%', onChange: function (v) { put('clock_depth', v); } }));
       }
       var bfoot = { forecast: 'The forecast’s live sky and the season’s land behind the clock.',
@@ -4350,7 +4352,9 @@
                     photos: cur.clock_photo_soft ? 'Your photos, blurred and darkened behind it, changing every ' + MIN(cur.each_photo).toLowerCase() + '.'
                       : 'Your photos behind it, laid out as Photos (below) says, darkened so the clock reads.',
                     landscapes: 'Fifty photos of mountains, lakes, coasts, deserts and forests, one after another behind the clock' + (cur.clock_photo_soft ? ', blurred and darkened.' : ', darkened so the clock reads.'),
-                    sky: 'The live sky’s colors as they are now, with no stars or weather.' }[bg] ||
+                    sky: 'The live sky’s colors as they are now, with no stars or weather.',
+                    wallpaper: 'One of the HomeView look’s wallpapers, or a motion theme in a color you choose, drawn as the dashboard draws it, ' +
+                      'its night version after sunset. Speed: how fast a motion theme moves; 0 holds it still, as Reduce Motion does.' }[bg] ||
                   (bgRow[2] ? 'Drawn on the tablet itself and moved smoothly: a new frame about once a second, blended into the last (Constellation draws every frame). Speed 0 holds it still.' : 'Plain black: nothing moves.');
       // PHOTOS BEHIND IT (2026-10-13): sharp, as the Photo Screensaver shows
       // them, or Soft (the blurred copies); darkened by their own amount
@@ -4361,6 +4365,12 @@
                               min: 0, max: 80, step: 5, unit: '%', onChange: function (v) { put('clock_photo_dim', v); } }));
       }
       c.appendChild(K.group({ header: 'Behind the Clock', footer: bfoot }, brows));
+      // A WALLPAPER BEHIND IT (2026-10-31, the owner): the dashboard's own picker -- the twelve, the motion themes,
+      // a theme's Color -- for the screensaver's own choice; its night version follows the sun, its motion the Speed
+      if (bg === 'wallpaper' && self.saverKnown('clock_wallpaper')) {
+        self.wallpaperGroup(c, { value: cur.clock_wallpaper || 'aurora', color: cur.clock_wallpaper_color || 'blue', fk: 'swall', sk: 'saver:clock_wallpaper',
+          saver: true, onSet: function (v) { put('clock_wallpaper', v); }, onColor: function (v) { put('clock_wallpaper_color', v); } });
+      }
       var over = [tog('Weather', 'weather', 'Top left: the temperature and conditions.'),
                   tog('Now Playing', 'music', 'Music playing anywhere in the house, bottom left.'),
                   tog('Timers', 'timers', 'Running timers, bottom right.'),
@@ -6564,7 +6574,7 @@
       var mode = sky.background || 'live';
       c.appendChild(K.group({ footer: M.BG_SAYS[mode] + ' Each screen, and each page, can choose its own.' }, [
         K.previewPick({ label: 'Background', sk: 'sky.background', value: mode, options: M.SKY_BACKGROUNDS,
-                picture: function (v, w, ht) { return self.bgKindThumb(v, w, ht, sky.wallpaper); },
+                picture: function (v, w, ht) { return self.bgKindThumb(v, w, ht, sky.wallpaper, null, sky.wallpaper_color); },
                 onChange: function (v) { self.setH({ 'sky.background': v }); } })]));
       if (mode === 'color') {
         this.colorGroup(c, { id: sky.color || 'midnight', custom: sky.gradient_custom, fk: 'hcolor:',
@@ -6606,7 +6616,9 @@
         this.wallpaperGroup(c, { value: sky.wallpaper || 'ribbons_rose', night: sky.wallpaper_night || 'auto', fk: 'hwall', sk: 'sky.wallpaper',
           footer: 'Shown on Home, the room pages, and every page without a color of its own. Each screen can choose its own.',
           motion: sky.wallpaper_motion || 'off', onMotion: function (v) { self.setH({ 'sky.wallpaper_motion': v }); },
-          onSet: function (v) { self.setH({ 'sky.wallpaper': v }); }, onNight: function (v) { self.setH({ 'sky.wallpaper_night': v }); } });
+          color: sky.wallpaper_color || 'blue', onColor: function (v) { self.setH({ 'sky.wallpaper_color': v }); },
+          onSet: function (v, motion) { var ch = { 'sky.wallpaper': v }; if (motion) ch['sky.wallpaper_motion'] = motion; self.setH(ch); },
+          onNight: function (v) { self.setH({ 'sky.wallpaper_night': v }); } });
         this.skyPagesGroup(c, null, null);
         this.skyResetGroup(c, null, null);
         return;
@@ -6696,7 +6708,7 @@
             ['sky_background', 'sky_color', 'sky_landscape', 'sky_photo_look', 'sky_landscape_look', 'sky_animations', 'sky_focus_pause',
              'sky_moving', 'sky_weather', 'sky_precipitation', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_decorations',
              'sky_decoration_style', 'sky_liveliness', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light', 'sky_flat_image_look', 'sky_image_look',
-             'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion'].forEach(function (k) { ch[k] = null; });
+             'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion', 'sky_wallpaper_color'].forEach(function (k) { ch[k] = null; });
             self.setB(x.path, ch);
           });
         } })]));
@@ -6718,11 +6730,12 @@
     }
     // THE BACKGROUND'S KINDS, SMALL (2026-10-31; its previewPick): Live Sky the sun over a hill under a day's sky,
     // Color a still evening's colors (Flat's, `solid`: its one color), Photo a photo of your own (a picture of
-    // one), Landscapes the first, and Wallpaper the one chosen (`wall`) -- drawn as pictures, nothing live
-    bgKindThumb(kind, w, ht, wall, solid) {
+    // one), Landscapes the first, and Wallpaper the one chosen (`wall`; a motion theme in its colour, `col`) -- drawn
+    // as pictures, nothing live
+    bgKindThumb(kind, w, ht, wall, solid, col) {
       var el = document.createElement('span');
       el.style.cssText = 'display:block;width:' + w + 'px;height:' + ht + 'px;background-position:center;background-size:cover';
-      var W = window.hkWallpapers, wurl = kind === 'wallpaper' && W && W.url ? W.url(wall || 'ribbons_rose', false) : null;
+      var W = window.hkWallpapers, wurl = kind === 'wallpaper' && W && W.url ? W.url(wall || 'ribbons_rose', false, col) : null;
       if (kind === 'live') el.innerHTML = '<svg viewBox="0 0 88 61" width="100%" height="100%" preserveAspectRatio="none"><defs><linearGradient id="bk-l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f86d0"/><stop offset="1" stop-color="#bfe0f5"/></linearGradient></defs><rect width="88" height="61" fill="url(#bk-l)"/><circle cx="64" cy="18" r="7" fill="#fff6cf"/><path d="M0 48C20 38 36 42 52 40S76 36 88 42V61H0z" fill="#5d8a5f"/></svg>';
       else if (kind === 'color') el.style.background = 'linear-gradient(#1b2350,#5a3a78 55%,#d9826b)';
       else if (kind === 'solid') el.style.background = solid || '#24252A';
@@ -6774,26 +6787,42 @@
     // Version. On a screen: Same as All Screens (`house`, `nightHouse`) until
     // it picks its own.
     //   o = { value (own, or null), house, night (own, or null), nightHouse,
-    //         onSet(id | null), onNight(v | null), fk, sk, footer }
+    //         onSet(id | null, motion), onNight(v | null), fk, sk, footer,
+    //         color (own, or null), colorHouse, onColor(v | null) }
+    //
+    // THE MOTION THEMES (2026-10-31): a second grid, each drawn in the colour
+    // the theme takes; with one chosen, its Color below -- the presets one tap
+    // each, then Your Own Color, as the Accent Color's page has them. Picking
+    // a theme while the Motion is Off turns it to Slow (in the same place:
+    // All Screens' or the screen's own): a moving background that stood
+    // still would look broken. Motion Off afterwards keeps it still.
     wallpaperGroup(c, o) {
       var W = window.hkWallpapers, eff = o.value || o.house, rows = [];
       if (!W) { c.appendChild(K.group({ header: 'Wallpaper' }, [K.info({ label: 'Loading…', value: '' })])); return; }
       var list = W.list(), name = function (id) { return (list.filter(function (w) { return w.id === id; })[0] || {}).name || id; };
+      var mEff = o.motion || o.motionHouse || 'off', cEff = o.color || o.colorHouse || W.COLOR_DEFAULT;
       if (o.house !== undefined) {
         rows.push(K.check({ label: 'Same as All Screens', sub: 'Now ' + name(o.house), on: !o.value, fk: o.fk + ':follow',
                             onClick: function () { o.onSet(null); } }));
       }
-      var grid = h('div', { class: 'cell wallgrid' }, list.map(function (w) {
-        var on = eff === w.id;
-        var bt = h('button', { class: on ? 'on' : '', type: 'button', title: w.name, 'aria-label': w.name,
-                               'aria-pressed': on ? 'true' : 'false', 'data-fk': o.fk + ':' + w.id },
-                   [h('img', { src: W.url(w.id, false), alt: '' }), h('span', { text: w.name })]);
-        bt.addEventListener('click', function () { o.onSet(w.id); });
-        return bt;
-      }));
-      rows.push(grid);
+      var grid = function (ws) {
+        return h('div', { class: 'cell wallgrid' }, ws.map(function (w) {
+          var on = eff === w.id;
+          var bt = h('button', { class: on ? 'on' : '', type: 'button', title: w.name, 'aria-label': w.name,
+                                 'aria-pressed': on ? 'true' : 'false', 'data-fk': o.fk + ':' + w.id },
+                     [h('img', { src: W.url(w.id, false, cEff), alt: '' }), h('span', { text: w.name })]);
+          bt.addEventListener('click', function () { o.onSet(w.id, w.theme && mEff === 'off' ? 'slow' : null); });
+          return bt;
+        }));
+      };
+      rows.push(grid(list.filter(function (w) { return !w.theme; })));
       c.appendChild(this.withError(K.group({ header: 'Wallpaper', footer: (o.footer ? o.footer + ' ' : '') +
-        'Our own art, drawn for ' + PN() + '. The cards take its colors — Bright Glass shows them best.' }, rows), o.sk));
+        'Our own art, drawn for ' + PN() + '.' + (o.saver ? '' : ' The cards take its colors — Bright Glass shows them best.') }, rows), o.sk));
+      c.appendChild(K.group({ header: 'Motion Themes', footer: 'Moving backgrounds in a color you choose: aurora, soft blobs, waves, a field of dots, beams of light and meteors. ' +
+        'Each is light enough for a wall tablet.' }, [grid(list.filter(function (w) { return w.theme; }))]));
+      if (W.isTheme(eff)) this.wallColorGroup(c, o, cEff);
+      // (the screensaver's clock: its night version follows the sun, its motion is the Background's Speed)
+      if (o.saver) return;
       var nOwn = o.nightHouse !== undefined && !!o.night, nEff = o.night || o.nightHouse || 'auto';
       var nRows = [K.seg({ label: 'Night Version', sub: o.nightHouse === undefined ? null : (nOwn ? 'Just This Screen' : 'Same as All Screens'),
         sk: o.sk.replace('wallpaper', 'wallpaper_night'), value: nEff, options: M.WALLPAPER_NIGHT, onChange: function (v) { o.onNight(v); } })];
@@ -6808,6 +6837,34 @@
         sk: o.sk.replace('wallpaper', 'wallpaper_motion') + ':reset', onClick: function () { o.onMotion(null); } }));
       c.appendChild(K.group({ footer: 'The picture drifts, sways or turns slowly, so there is always a little motion. It stops while the screen is dark or hidden, ' +
         'when Animations are off, and for Reduce Motion.' }, mRows));
+    }
+    // A MOTION THEME'S COLOR (2026-10-31): Same as All Screens (on a screen),
+    // the presets (hk-wallpapers.js COLORS, settings.py WALLPAPER_COLORS), and
+    // Your Own Color -- the rows and the color well the Accent Color uses.
+    // `cEff`: the color in use.
+    wallColorGroup(c, o, cEff) {
+      var W = window.hkWallpapers, rows = [], hex = W.color(cEff), mine = o.colorHouse === undefined || !!o.color;
+      var preset = function (v) { return W.COLORS.filter(function (p) { return p[0] === v; })[0] || null; };
+      var label = function (v) { var p = preset(v); return p ? p[1] : String(W.color(v)).toUpperCase(); };
+      if (o.colorHouse !== undefined) {
+        rows.push(K.check({ label: 'Same as All Screens', sub: 'Now ' + label(o.colorHouse), on: !o.color, fk: o.fk + ':color:follow',
+                            tile: ['', W.color(o.colorHouse)], onClick: function () { o.onColor(null); } }));
+      }
+      W.COLORS.forEach(function (p) {
+        rows.push(K.check({ label: p[1], tile: ['', p[2]], on: mine && cEff === p[0], fk: o.fk + ':color:' + p[0], onClick: function () { o.onColor(p[0]); } }));
+      });
+      var own = mine && !preset(cEff);
+      var row = K.text({ label: 'Your Own Color', sub: own ? hex.toUpperCase() : 'Pick any color.', type: 'color', fk: o.fk + ':color:custom',
+                         value: hex, onCommit: function (t) { if (/^#[0-9a-f]{6}$/i.test(t)) o.onColor(t.toLowerCase()); } });
+      var inp = row.querySelector('input');
+      if (inp) {
+        inp.style.cssText = 'flex:none;width:44px;height:30px;padding:0;border-radius:8px;cursor:pointer';
+        inp.addEventListener('change', function () { if (/^#[0-9a-f]{6}$/i.test(inp.value)) o.onColor(inp.value.toLowerCase()); });
+      }
+      if (own) row.classList.add('on');
+      rows.push(row);
+      c.appendChild(this.withError(K.group({ header: 'Color', footer: 'The theme is drawn in this color’s shades, darker at night. A very light or very dark color ' +
+        'is drawn in its own hue but kept deep enough for the cards’ text to stay easy to read.' }, rows), o.sk.replace('wallpaper', 'wallpaper_color')));
     }
     // CHOOSE A LANDSCAPE: every one, small, the one it stays on ticked; a
     // tap picks it, and it stays (Stay the Same).
@@ -7181,7 +7238,7 @@
       if (!pageScreen) {
         var ownMode = legacyOff ? 'color' : b.sky_background, hMode = sky.background || 'live', mode = ownMode || hMode;
         var bgRows = [K.previewPick({ label: 'Background', sub: ownMode ? 'Just This Screen' : 'Same as All Screens', sk: 'b:sky_background', value: mode,
-          options: M.SKY_BACKGROUNDS, picture: function (v, w, ht) { return self.bgKindThumb(v, w, ht, b.sky_wallpaper || sky.wallpaper); }, onChange: function (v) {
+          options: M.SKY_BACKGROUNDS, picture: function (v, w, ht) { return self.bgKindThumb(v, w, ht, b.sky_wallpaper || sky.wallpaper, null, b.sky_wallpaper_color || sky.wallpaper_color); }, onChange: function (v) {
             var ch = { sky_background: v, sky: true };
             if (legacyOff && v === 'color' && !b.sky_color) ch.sky_color = 'black';
             self.setB(x.path, ch);
@@ -7234,8 +7291,10 @@
             nightHouse: sky.wallpaper_night || 'auto', fk: 'bwall', sk: 'b:sky_wallpaper',
             motion: b.sky_wallpaper_motion || null, motionHouse: sky.wallpaper_motion || 'off',
             onMotion: function (v) { self.setB(x.path, { sky_wallpaper_motion: v }); },
+            color: b.sky_wallpaper_color || null, colorHouse: sky.wallpaper_color || 'blue',
+            onColor: function (v) { self.setB(x.path, { sky_wallpaper_color: v }); },
             footer: 'Shown on Home, the room pages, and every page without a color of its own.',
-            onSet: function (v) { self.setB(x.path, { sky_wallpaper: v, sky: true }); },
+            onSet: function (v, motion) { var ch = { sky_wallpaper: v, sky: true }; if (motion) ch.sky_wallpaper_motion = motion; self.setB(x.path, ch); },
             onNight: function (v) { self.setB(x.path, { sky_wallpaper_night: v }); } });
           this.skyPagesGroup(c, x, b);
           this.skyResetGroup(c, x, b);
@@ -7417,9 +7476,9 @@
       rows.push(K.check({ label: 'Landscapes', sub: PN() + '’s own photos, as ' + (b ? 'the screen' : 'All Screens') + ' has them', on: cur === 'landscapes',
                           fk: 'pbd:' + r.key + ':landscapes', tile: ['mdi:image-filter-hdr', C.teal], onClick: function () { pick('landscapes'); } }));
       // (2026-10-30) the screen's Wallpaper
-      var wn = window.hkWallpapers, wid = (b && b.sky_wallpaper) || sky.wallpaper || 'ribbons_rose';
+      var wn = window.hkWallpapers, wid = (b && b.sky_wallpaper) || sky.wallpaper || 'ribbons_rose', wcol = (b && b.sky_wallpaper_color) || sky.wallpaper_color;
       rows.push(K.check({ label: 'Wallpaper', sub: 'Our own art, as ' + (b ? 'the screen' : 'All Screens') + ' has it', on: cur === 'wallpaper',
-                          fk: 'pbd:' + r.key + ':wallpaper', tile: ['mdi:wallpaper', wn ? 'center / cover url("' + wn.url(wid, false) + '")' : C.purple],
+                          fk: 'pbd:' + r.key + ':wallpaper', tile: ['mdi:wallpaper', wn ? 'center / cover url("' + wn.url(wid, false, wcol) + '")' : C.purple],
                           onClick: function () { pick('wallpaper'); } }));
       c.appendChild(K.group({ header: alone === false ? r.label : null, footer: (alone ? r.label + ' is this screen’s only page, so its background is the screen’s. ' : '') +
         'Page Color, Color, Photo, Landscapes and Wallpaper are still: no sun, moon, stars, weather or decorations.' }, rows));
