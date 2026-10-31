@@ -30,7 +30,36 @@ SHOWS = {
     'saver-day': ({'show': 'day', 'day_look': 'dark'}, 'day'),
     'saver-bigweather': ({'show': 'forecast', 'forecast_layout': 'big'}, 'big'),
     'saver-forecast': ({'show': 'forecast'}, None),
+    # Photos with Time Behind (2026-10-30): the weather under the time, centred, never beside it
+    'saver-timebehind': ({'show': 'photos', 'time_behind': True, 'photo_titles': True}, 'tb'),
 }
+
+
+async def photos_for(server, cookie, screen):
+    """Photos for Time Behind: a drawn person against a drawn sky, uploaded to a Mantel album the screen shows (as an
+    Owner does in Mantel Settings). No real photo."""
+    import io
+    from aiohttp import ClientSession, FormData
+    from PIL import Image, ImageDraw
+    base = str(server.make_url('')).rstrip('/')
+    async with ClientSession(cookies={'mantel_session': cookie}) as http:
+        async with http.get(base + '/api/session') as r:
+            csrf = (await r.json()).get('csrf')
+        h = {'X-CSRF-Token': csrf} if csrf else {}
+        async with http.post(base + '/api/photos/albums', json={'name': 'Lake Weekend'}, headers=h) as r:
+            aid = (await r.json())['album']['id']
+        im = Image.new('RGB', (1500, 1000))
+        d = ImageDraw.Draw(im)
+        for y in range(1000):
+            d.line([(0, y), (1500, y)], fill=(int(233 - 90 * y / 1000), int(160 - 100 * y / 1000), int(140 - 90 * y / 1000)))
+        d.ellipse([640, 160, 860, 440], fill=(214, 168, 140))
+        d.rounded_rectangle([490, 500, 1010, 1060], radius=120, fill=(52, 72, 110))
+        buf = io.BytesIO(); im.save(buf, 'JPEG', quality=88)
+        fd = FormData(); fd.add_field('file', buf.getvalue(), filename='person.jpg', content_type='image/jpeg')
+        async with http.post(base + f'/api/photos/albums/{aid}/upload', data=fd, headers=h) as r:
+            assert r.status == 201, await r.text()
+        async with http.put(base + f'/api/photos/screens/{screen}', json={'album': aid}, headers=h) as r:
+            assert r.status == 200, await r.text()
 
 
 async def main():
@@ -41,6 +70,7 @@ async def main():
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td), real_model=True)
         async with TestServer(app) as server:
+            await photos_for(server, cookie, 'saver-timebehind')
             if args.shots:
                 args.shots.mkdir(parents=True, exist_ok=True)
             proc = await asyncio.create_subprocess_exec(args.node, str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE,

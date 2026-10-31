@@ -439,37 +439,64 @@
   }
   function screenEdge() { return Math.max(window.innerWidth || 0, window.innerHeight || 0) || 1280; }
   // PHOTO, TIME BEHIND (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I, decision 14): a host may hand a photo
-  // with its subject cut out (`depth`: {mask: an address, box: [x, y, w, h] fractions of the photo -- where the
-  // time goes}) -- Mantel Photos does, for the photos where a cut-out works. cleanDepth: what of it is sound.
+  // with its subject cut out (`depth`: {mask: an address}) -- Mantel Photos does, for the photos with a clear
+  // subject. cleanDepth: what of it is sound (a `box` from before 0.1.93 is ignored: the time no longer moves).
   function cleanDepth(p) {
-    var d = p && p.depth, b = d && d.box, f01 = function (v) { return typeof v === 'number' && isFinite(v) && v >= 0 && v <= 1; };
-    if (!d || typeof d.mask !== 'string' || !d.mask || /["\\()\s]/.test(d.mask) || !Array.isArray(b) || b.length !== 4 || !b.every(f01)) return null;
-    if (!(b[2] > 0 && b[3] > 0 && b[0] + b[2] <= 1.001 && b[1] + b[3] <= 1.001)) return null;
-    return { mask: d.mask, box: [b[0], b[1], b[2], b[3]] };
+    var d = p && p.depth;
+    if (!d || typeof d.mask !== 'string' || !d.mask || /["\\()\s]/.test(d.mask)) return null;
+    return { mask: d.mask };
   }
   // where an iw x ih photo is drawn in a W x H box, as its fit and focus (0..1) lay it out: [left, top, w, h]
   function drawnRect(iw, ih, W, H, fit, ax, ay) {
     var k = fit === 'contain' ? Math.min(W / iw, H / ih) : Math.max(W / iw, H / ih), w = iw * k, h = ih * k;
     return [(W - w) * ax, (H - h) * ay, w, h];
   }
-  // the time's place on the screen: the photo's box, through how the photo is drawn. A place wider than what is seen
-  // of the photo (a landscape photo filling a portrait screen) is made smaller about its foot -- so it still sits
-  // behind the head -- down to half its size; past that, or with any of it outside what is seen, null: the time goes
-  // in front (never half a time)
-  var TIME_MARGIN = 0.04, TIME_SHRINK = 0.5;
-  function timePlace(box, rect, W, H) {
-    var x = rect[0] + box[0] * rect[2], y = rect[1] + box[1] * rect[3], w = box[2] * rect[2], h = box[3] * rect[3];
-    var cx = x + w / 2, room = 2 * Math.min(cx - W * TIME_MARGIN, W * (1 - TIME_MARGIN) - cx);
-    if (w > room + 1) {
-      var k = room / w;
-      if (!(k >= TIME_SHRINK)) return null;
-      y += h * (1 - k); w *= k; h *= k; x = cx - w / 2;
-    }
-    if (x < -1 || y < -1 || x + w > W + 1 || y + h > H + 1 || w < 40 || h < 20) return null;
-    return [x, y, w, h];
+  // THE TIME'S ONE PLACE (2026-10-30, the owner: the same spot and size on every photo): upper centre, as the CSS
+  // lays it out in the photo's box (W x H, beside any pane) -- a line 28 % of its shorter side tall, 6 % down, the
+  // figures 24 % of it. glyphBox: the figures' own box in it, [left, top, w, h] (a figure 0.58 of the type wide, a
+  // colon 0.3, the figures' height 0.72), what the subject is weighed against
+  var TB = { top: 0.06, line: 0.28, type: 0.24 }, TB_WAIT = 1500;
+  function timeFoot(W, H) { return H * TB.top + Math.min(W, H) * TB.line; }
+  function glyphBox(W, H, text) {
+    var m = Math.min(W, H), f = m * TB.type, s = String(text || '10:42');
+    var w = f * (s.replace(/[^0-9]/g, '').length * 0.58 + s.replace(/[0-9]/g, '').length * 0.3), h = f * 0.72;
+    return [(W - w) / 2, H * TB.top + (m * TB.line - h) / 2, w, h];
   }
-  // the time's size to fill its place: as tall as the place lets it, no wider ("10:42" at its widest)
-  function timeFont(w, h) { return Math.min(h * 1.3, w / (5 * 0.58)); }
+  // HOW MUCH OF THE FIGURES THE SUBJECT COVERS: the share of a mask's alpha (RGBA bytes) at half or more. Behind,
+  // the subject over the time, only where it covers some of it -- enough to read as in front, not so much the time
+  // can't be read -- else the time in front with no cut-out
+  var TB_COVER = [0.05, 0.35];
+  function coverShare(px) {
+    var n = 0, k = 0;
+    for (var i = 3; i < px.length; i += 4) { n++; if (px[i] >= 128) k++; }
+    return n ? k / n : 0;
+  }
+  function behindAt(share) { return typeof share === 'number' && share >= TB_COVER[0] && share <= TB_COVER[1]; }
+  // ...weighed once per photo, screen and layout (the share, by key), from the stored mask drawn as the photo is:
+  // the figures' box, 96 px wide, the mask laid over it where the photo is. A mask that can't be read (another
+  // site's, no canvas): in front
+  var tbShares = {};
+  function tbKey(mask, W, H, fit, pos, text) { return [mask, Math.round(W), Math.round(H), fit, pos.join(' '), String(text).length].join('|'); }
+  function tbShare(mask, rect, g, key, done) {
+    if (key in tbShares) { done(tbShares[key]); return; }
+    if (typeof Image === 'undefined') { done(null); return; }
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function () {
+      var share = null;
+      try {
+        var cw = 96, ch = Math.max(8, Math.round(cw * g[3] / g[2])), k = cw / g[2];
+        var cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+        var x = cv.getContext('2d');
+        x.drawImage(img, (rect[0] - g[0]) * k, (rect[1] - g[1]) * k, rect[2] * k, rect[3] * k);
+        share = coverShare(x.getImageData(0, 0, cw, ch).data);
+      } catch (e) { share = null; }
+      tbShares[key] = share;
+      done(share);
+    };
+    img.onerror = function () { tbShares[key] = null; done(null); };
+    img.src = mask;
+  }
   // a face's box with room for the head around it: hair above, chin below
   function headOf(f) {
     return { x1: f[0] - f[2] * 0.2, y1: f[1] - f[3] * 0.35, x2: f[0] + f[2] * 1.2, y2: f[1] + f[3] * 1.15 };
@@ -1358,14 +1385,31 @@
     '.ph .tb .tbt{position:absolute;display:flex;align-items:center;justify-content:center;white-space:nowrap;line-height:1;',
     '  font-family:var(--hk-saver-font,-apple-system,system-ui,sans-serif);font-weight:500;letter-spacing:-.03em;font-variant-numeric:proportional-nums;',
     '  color:rgba(255,255,255,.94);text-shadow:0 2px 30px rgba(0,0,0,.22)}',
-    '.ph .tb.front .tbt{left:0;right:0;top:6cqh;font-size:24cqmin;height:28cqmin}',
+    // (the one place: TB in hk-saver.js, glyphBox's numbers)
+    '.ph .tb .tbt{left:0;right:0;top:6cqh;font-size:24cqmin;height:28cqmin}',
+    '.ph .tb.wait{visibility:hidden}',
     '.ph .tb img.tbcut{object-fit:var(--fit,cover);object-position:var(--pos,50% 50%);',
     '  -webkit-mask-size:var(--fit,cover);mask-size:var(--fit,cover);-webkit-mask-position:var(--pos,50% 50%);mask-position:var(--pos,50% 50%);',
     '  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}',
     ':host([cksoft]) .ph .tb{display:none}',
-    // ...and while it shows, the clock is the photo's: the corner clock and a Large clock step aside
-    ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info > hk-clock-card,',
+    // ...and while it shows, the clock is the photo's: the corner clock and a Large clock step aside, and the rest of
+    // the corner (the weather, what is playing, the timers) goes under the time, centred (2026-10-30, the owner: the
+    // weather sat jammed against the time's left) -- in the photo's box, beside any pane
+    ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info > hk-clock-card{display:none}',
     ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .ck{opacity:0}',
+    ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info{left:0;right:0;width:auto;',
+    '  top:calc(var(--hk-tb-foot,34vh) + 6px);padding:0 30px;align-items:center;text-align:center}',
+    // (each as wide as what it says, so it centres -- and no wider than the screen: the weather then fits itself)
+    ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info > hk-weather-strip-card,',
+    ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info > hk-timer-strip-card{width:max-content;max-width:100%;box-sizing:border-box}',
+    // ...on a phone, the weather at the size its narrower time calls for (its 36 px type and 60 px glyph are a
+    // tablet's: they ran off both sides), and the photo's title clear of what is playing, under it at the left
+    '@media (max-width:599px){:host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info > hk-weather-strip-card{zoom:.7}',
+    '  .ph .ttl .tt{bottom:calc(8.5cqmin + 112px)}',
+    // (and what is playing as wide as the phone allows: at 46 % of it, its song was "Bl...")
+    '  :host{--hk-ss-now-max:calc(100vw - 40px)}}',
+    ':host([tb][pane]:not([pside]):not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info{right:var(--hk-pane-w,' + PANE_W + 'px)}',
+    ':host([tb][pside][pane]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info{left:var(--hk-pane-w,' + PANE_W + 'px)}',
     '@media (prefers-reduced-motion:reduce){.ph.zoom .tb{animation:none}}'
   ].join('\n');
 
@@ -2321,7 +2365,7 @@
   // Photos): the photo on screen laid out again where it is -- no fade out
   // and in, so a crop or a blur can be judged as it changes
   // PHOTO TITLES AND TIME BEHIND on a photo's layer (paint; relayout): the album and the year, bottom right; the
-  // time behind the photo's subject where its cut-out works and its place is in view, else the time in front
+  // time upper centre, behind the photo's subject where its cut-out covers some of the figures, else in front
   function photoFaces(lay, ph, L, c) {
     c = c || cfg;
     lay.querySelectorAll('.tb,.ttl').forEach(function (n) { n.remove(); });
@@ -2340,25 +2384,32 @@
     var r = lay.getBoundingClientRect ? lay.getBoundingClientRect() : null;
     var W = Math.max(1, ((r && r.width) || window.innerWidth || 1280) - (paneUp ? paneW || 0 : 0)), H = (r && r.height) || window.innerHeight || 800;
     var pos = String((lay.style.getPropertyValue && lay.style.getPropertyValue('--pos')) || '50% 50%').split(/\s+/).map(function (v) { var n = parseFloat(v); return isFinite(n) ? n / 100 : 0.5; });
-    var place = it.depth && ph.w && ph.h ? timePlace(it.depth.box, drawnRect(ph.w, ph.h, W, H, L.fit.fit, pos[0], pos[1] == null ? 0.5 : pos[1]), W, H) : null;
-    var tb = document.createElement('div'), t = document.createElement('div');
-    tb.className = 'tb ' + (place ? 'behind' : 'front');
+    if (pos[1] == null) pos[1] = 0.5;
+    // (where the time ends: the weather goes under it)
+    if (host && host.style) host.style.setProperty('--hk-tb-foot', timeFoot(W, H).toFixed(1) + 'px');
+    var tb = document.createElement('div'), t = document.createElement('div'), d = cleanDepth(it);
     t.className = 'tbt';
     t.textContent = timeNow();
-    if (place) {
-      t.style.left = place[0].toFixed(1) + 'px'; t.style.top = place[1].toFixed(1) + 'px';
-      t.style.width = place[2].toFixed(1) + 'px'; t.style.height = place[3].toFixed(1) + 'px';
-      t.style.fontSize = timeFont(place[2], place[3]).toFixed(1) + 'px';
-    }
     tb.appendChild(t);
-    if (place) {
-      var cut = document.createElement('img'), m = 'url("' + it.depth.mask + '")';
+    var cutIn = false, behind = function (yes) {
+      tb.className = 'tb ' + (yes ? 'behind' : 'front');
+      if (!yes || cutIn) return;
+      cutIn = true;
+      var cut = document.createElement('img'), m = 'url("' + d.mask + '")';
       cut.className = 'tbcut'; cut.alt = '';
       cut.style.setProperty('-webkit-mask-image', m);
       cut.style.setProperty('mask-image', m);
       cut.src = ph.url;
       tb.appendChild(cut);
-    }
+    };
+    if (d && ph.w && ph.h) {
+      // (hidden until weighed -- the mask is a moment away the first time -- and never longer than TB_WAIT)
+      var key = tbKey(d.mask, W, H, L.fit.fit, pos, t.textContent), settled = false;
+      var settle = function (share) { if (settled) return; settled = true; behind(behindAt(share)); };
+      tb.className = 'tb wait';
+      tbShare(d.mask, drawnRect(ph.w, ph.h, W, H, L.fit.fit, pos[0], pos[1]), glyphBox(W, H, t.textContent), key, settle);
+      if (!settled) setTimeout(function () { settle(null); }, TB_WAIT);
+    } else behind(false);
     // (under the title: the subject cut out over the time, the album's name over them all)
     lay.insertBefore(tb, lay.querySelector('.ttl') || before);
     tbArm();
@@ -4991,7 +5042,8 @@
          ckFx: ckFx, MOSAIC_COLORS: MOSAIC_COLORS,
          mosaicPlan: mosaicPlan, mosaicAssign: mosaicAssign, coverRect: coverRect, MOSAICS: MOSAICS,
          reducedMotion: reducedMotion,
-         cleanFocus: cleanFocus, cleanVariants: cleanVariants, cleanDepth: cleanDepth, drawnRect: drawnRect, timePlace: timePlace, timeFont: timeFont,
+         cleanFocus: cleanFocus, cleanVariants: cleanVariants, cleanDepth: cleanDepth, drawnRect: drawnRect, glyphBox: glyphBox, timeFoot: timeFoot, coverShare: coverShare,
+         behindAt: behindAt, tbKey: tbKey, tbShares: tbShares,
          photoFaces: function (lay, ph, L, c) { return photoFaces(lay, ph, L, c); }, FACE_SHOWS: FACE_SHOWS, bigWanted: function () { return bigWanted(); },
          // tools/headless/saver_faces_check.py: the saver's own CSS around a photo's layers
          CSS: CSS,

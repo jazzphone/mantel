@@ -134,21 +134,24 @@ ok('chosen: read', [c1.show, c1.forecast_layout, c1.photo_titles, c1.time_behind
 ok('Month and Day are Shows too; anything else is Photos', [U.readCfg({ show: 'month' }).show, U.readCfg({ show: 'day' }).show, U.readCfg({ show: 'week' }).show], ['month', 'day', 'photos']);
 ok('...and odd values are their defaults', [U.readCfg({ forecast_layout: 'huge' }).forecast_layout, U.readCfg({ time_behind: 'yes' }).time_behind, U.readCfg({ day_look: 'dusk' }).day_look], ['classic', false, 'auto']);
 var MASK = '/api/photos/' + '1'.repeat(32) + '/mask?v=9';
-ok('a sound cut-out is kept', U.cleanDepth({ depth: { mask: MASK, box: [0.3, 0.1, 0.4, 0.2] } }), { mask: MASK, box: [0.3, 0.1, 0.4, 0.2] });
-ok('...an unsound one dropped', [{ depth: { mask: MASK, box: [0.8, 0.1, 0.4, 0.2] } }, { depth: { mask: MASK, box: [0.1, 0.1, 0, 0.2] } }, { depth: { mask: 'x") , url("y', box: [0.1, 0.1, 0.2, 0.2] } },
-   { depth: { box: [0.1, 0.1, 0.2, 0.2] } }, {}, null].map(U.cleanDepth), [null, null, null, null, null, null]);
+ok('a sound cut-out is kept (a box from before is not)', U.cleanDepth({ depth: { mask: MASK, box: [0.3, 0.1, 0.4, 0.2] } }), { mask: MASK });
+ok('...without a box too', U.cleanDepth({ depth: { mask: MASK } }), { mask: MASK });
+ok('...an unsound one dropped', [{ depth: { mask: 'x") , url("y' } }, { depth: { mask: '' } }, { depth: { box: [0.1, 0.1, 0.2, 0.2] } }, {}, null].map(U.cleanDepth),
+   [null, null, null, null, null]);
 // a 3:2 photo filling a 1180 x 820 screen, its focus in the middle: scaled to 1230 x 820, 25 px off each side
 var rect = U.drawnRect(3000, 2000, 1180, 820, 'cover', 0.5, 0.5);
 ok('where a filled photo is drawn', rect.map(function (v) { return Math.round(v); }), [-25, 0, 1230, 820]);
 ok('...and a whole one, letterboxed', U.drawnRect(2000, 3000, 1180, 820, 'contain', 0.5, 0.5).map(function (v) { return Math.round(v); }), [317, 0, 547, 820]);
-ok('the time’s place through it', U.timePlace([0.3, 0.1, 0.4, 0.2], rect, 1180, 820).map(function (v) { return Math.round(v); }), [344, 82, 492, 164]);
-ok('...out of what is seen: no place (the time goes in front)', U.timePlace([0.0, 0.1, 0.4, 0.2], U.drawnRect(3000, 1000, 1180, 820, 'cover', 0.5, 0.5), 1180, 820), null);
-// the same photo filling a portrait tablet (820 x 1180): scaled to 1770 x 1180, its middle 820 seen -- the place,
-// wider than that, made smaller about its foot to fit (a 4 % margin each side), still behind the head
-var tall = U.drawnRect(3000, 2000, 820, 1180, 'cover', 0.5, 0.5), pl = U.timePlace([0.26, 0.1, 0.48, 0.19], tall, 820, 1180);
-ok('a place wider than what is seen: smaller, about its foot', pl.map(function (v) { return Math.round(v); }), [33, 143, 754, 199]);
-ok('...never below half its size', U.timePlace([0.05, 0.1, 0.9, 0.19], tall, 820, 1180), null);
-ok('the time as tall as its place, no wider', [Math.round(U.timeFont(492, 164)), Math.round(U.timeFont(200, 164))], [170, 69]);
+// THE TIME'S ONE PLACE (2026-10-30): upper centre, the same on every photo -- its figures' box, and where it ends
+ok('the figures upper centre: the same box whatever the photo', U.glyphBox(1180, 820, '10:42').map(function (v) { return Math.round(v); }), [332, 93, 516, 142]);
+ok('...on a portrait tablet and a phone, from the shorter side', [U.glyphBox(820, 1180, '10:42'), U.glyphBox(390, 844, '9:05')].map(function (b) { return b.map(function (v) { return Math.round(v); }); }),
+   [[152, 115, 516, 142], [100, 72, 191, 67]]);
+ok('where the time ends (the weather under it)', [Math.round(U.timeFoot(1180, 820)), Math.round(U.timeFoot(390, 844))], [279, 160]);
+// HOW MUCH THE SUBJECT COVERS: the share of the mask at half or more; behind only from 5 % to 35 %
+var px = function (on, n) { var a = []; for (var i = 0; i < n; i++) a.push(0, 0, 0, i < on ? 255 : 0); return a; };
+ok('the share of the figures the subject covers', [U.coverShare(px(0, 100)), U.coverShare(px(20, 100)), U.coverShare(px(100, 100)), U.coverShare([])], [0, 0.2, 1, 0]);
+ok('behind from 5 % to 35 %: none, a little, some, too much, unread', [0, 0.04, 0.05, 0.2, 0.35, 0.36, 0.9, null].map(U.behindAt),
+   [false, false, true, true, true, false, false, false]);
 
 print('=== Photo Titles and Time Behind on a photo ===');
 // a photo's layer, as hk-saver.js builds it (the photo, its scrim)
@@ -169,25 +172,33 @@ El.prototype.remove = function () { var p = this.parentNode; if (p) p.children =
 var L = { fit: { fit: 'cover' } };
 var PH = { url: '/api/photos/' + '1'.repeat(32) + '/screen', w: 3000, h: 2000,
            item: { id: 'host/p1', album: 'Lake Weekend', year: 2025, depth: { mask: MASK, box: [0.3, 0.1, 0.4, 0.2] } } };
+// (the mask's share for this photo on this screen, as weighed once: a fifth of the figures covered)
+var KEY = U.tbKey(MASK, 1180, 820, 'cover', [0.5, 0.5], '10:42');
 var lay = layerWith();
+U.tbShares[KEY] = 0.2; U.tbShares[KEY.replace(/\|5$/, '|4')] = 0.2;
 U.photoFaces(lay, PH, L, U.readCfg({ photo_titles: true, time_behind: true }));
 var names = lay.children.map(function (e) { return e.className; });
 ok('the photo, its time, its title over them, then the scrim', names, ['fg', 'tb behind', 'ttl', 'phscrim']);
 var ttl = lay.children[2], tb = lay.children[1];
 ok('the title: the album and the year', words(ttl), ['Lake Weekend', '2025']);
 var tbt = tb.children[0], cut = tb.children[1];
-ok('the time in its place, sized to it', [tbt.className, tbt.style.left, tbt.style.top, tbt.style.width, tbt.style.height, tbt.style.fontSize],
-   ['tbt', '344.0px', '82.0px', '492.0px', '164.0px', '169.7px']);
+ok('the time in its one place: nothing set on it here (the stylesheet places it)', [tbt.className, tbt.style.left || '', tbt.style.top || '', tbt.style.fontSize || ''], ['tbt', '', '', '']);
 ok('...it tells the time', /^\d{1,2}:\d\d$/.test(tbt.textContent), true);
 ok('...and over it the photo again, masked by its cut-out', [cut.tagName, cut.className, cut.src || cut.getAttribute('src'), cut.style['mask-image'], cut.style['-webkit-mask-image']],
    ['img', 'tbcut', PH.url, 'url("' + MASK + '")', 'url("' + MASK + '")']);
-// a photo without a cut-out, or one whose place is cropped away: the time in front
+// a subject that covers too much of the figures, or none: the time in front, nothing over it
+U.tbShares[KEY] = 0.6; U.tbShares[KEY.replace(/\|5$/, '|4')] = 0.6;
+lay = layerWith();
+U.photoFaces(lay, PH, L, U.readCfg({ time_behind: true }));
+ok('a subject over most of the time: in front, nothing masked', [lay.children[1].className, lay.children[1].children.length], ['tb front', 1]);
+// a photo without a cut-out: the time in front
 lay = layerWith();
 U.photoFaces(lay, { url: 'x', w: 3000, h: 2000, item: { id: 'host/p2' } }, L, U.readCfg({ time_behind: true }));
 ok('no cut-out: the time in front, and nothing masked', lay.children.map(function (e) { return e.className; }).concat([lay.children[1].children.length]), ['fg', 'tb front', 'phscrim', 1]);
+// a mask not yet weighed (here: no Image to read it with): hidden, then in front -- never a guess
 lay = layerWith();
-U.photoFaces(lay, { url: 'x', w: 3000, h: 1000, item: { id: 'host/p3', depth: { mask: MASK, box: [0.0, 0.1, 0.4, 0.2] } } }, L, U.readCfg({ time_behind: true }));
-ok('its place cropped away: in front', lay.children[1].className, 'tb front');
+U.photoFaces(lay, { url: 'x', w: 3000, h: 2000, item: { id: 'host/p3', depth: { mask: MASK + '0' } } }, L, U.readCfg({ time_behind: true }));
+ok('a mask that can\'t be read: in front', lay.children[1].className, 'tb front');
 lay = layerWith();
 U.photoFaces(lay, PH, L, U.readCfg({}));
 ok('neither chosen: the photo as before', lay.children.map(function (e) { return e.className; }), ['fg', 'phscrim']);

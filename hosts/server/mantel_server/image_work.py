@@ -220,7 +220,7 @@ def cut_look(path: str | Path | None, found: list | None = None) -> dict | None:
     "unreadable"}`` when it can't be opened (nothing to cut, now or later), None when the MODEL failed on a picture
     that opened (it is looked at again)."""
     gone = {"ok": False, "why": "unreadable", "cover": None, "conf": None, "overlap": None, "box": None,
-            "by": cutter.NAME, "mask": None}
+            "by": cutter.BY, "mask": None}
     if path is None:
         return gone
     path = Path(path)

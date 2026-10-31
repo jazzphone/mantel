@@ -1220,3 +1220,19 @@ Security screen.
   the other entities with a status line". A button or input_button added to a room, a page or a Home Grid block is
   now a tile with **Tap** under its name (it was a scene's pill, one line); a tap anywhere presses it and it lights
   a moment, as before. In a scenes row it is still a scene's pill.
+- **24, Time Behind: one place for the time.** The time is now always upper centre, the same spot and size on every
+  photo (6 % down, a line 28 % of the shorter side, the figures 24 %); the place Mantel chose per photo is gone.
+  Mantel keeps the cut-out for any photo with a clear subject (8-60 % of the frame, sure) and no place
+  (`cutout_by` "u2netp/2"; the backfill judges again the photos the old rules turned down), and each screen decides
+  as it draws: the stored mask, laid out as the photo is (its fit and focus), is weighed under the figures, and
+  the subject goes over the time only where it covers 5-35 % of them -- else the time in front, no cut-out. The
+  share is weighed once per photo and screen, the time hidden until then (at most 1.5 s). Mantel's shell passed a
+  cut-out on only with a place, so it now passes the mask alone.
+- **25, the weather with Time Behind.** It sat in the corner column, jammed against the time's left. With Time
+  Behind the corner clock goes and the rest of the column -- the weather, the timers -- sits under the time,
+  centred, in the photo's box beside any pane; on a phone the weather at 70 % (its tablet sizes ran off both
+  sides), the photo's title above what is playing, and what is playing as wide as the phone allows (it read
+  "Bl..."). `saver_faces_check` draws a person at the left, the middle and the right and one filling the top of the
+  frame, and checks the time's place and each decision at each size; `saver_shows_check` uploads a photo to a
+  Mantel album, starts the screensaver as a house does, and checks the weather is there, under the time and
+  centred, on a tablet and a phone, and screenshots the Settings preview.

@@ -418,7 +418,7 @@ class PhotoLibrary:
                                      self.clock() if checked else None, face_finder.NAME if checked else None,
                                      self.clock() if cut else None, cut.get("by") if cut else None,
                                      int(ok) if cut else None, cut.get("conf") if cut else None,
-                                     json.dumps(cut["box"]) if ok else None, got.taken))
+                                     json.dumps(cut["box"]) if ok and cut.get("box") else None, got.taken))
             except BaseException:
                 # A thread can't be cancelled: when this add is (an Owner stopped an import, Mantel is stopping), the
                 # writer is still putting files down. Take them away only once it has finished, or what it writes
@@ -498,11 +498,13 @@ class PhotoLibrary:
     # -- Time Behind: the cut-outs ---------------------------------------------------------------------------
     def uncut(self, skip: Iterable[str] = (), faces_known: bool = True) -> tuple[str, list | None] | None:
         """The newest photo not cut out yet (but those in ``skip``) and its faces -- with ``faces_known``, only among
-        those whose faces have been looked for, so the time goes behind a head -- or None."""
+        those whose faces have been looked for -- or None. Also one judged by the old rules that kept no mask
+        (``cutout_by`` u2netp: a clear subject the time couldn't be placed behind then; cutout.BY)."""
         skip = list(skip)
-        row = self.db.execute("SELECT id, faces FROM photos WHERE cutout_at IS NULL" +
+        row = self.db.execute("SELECT id, faces FROM photos WHERE (cutout_at IS NULL OR (cutout_ok = 0 AND cutout_by = ?))" +
                               (" AND faces_at IS NOT NULL" if faces_known else "") +
-                              f" AND id NOT IN ({','.join('?' * len(skip))}) ORDER BY created DESC LIMIT 1", skip).fetchone()
+                              f" AND id NOT IN ({','.join('?' * len(skip))}) ORDER BY created DESC LIMIT 1",
+                              [cutter.NAME, *skip]).fetchone()
         return (row["id"], stored_faces(row["faces"])) if row else None
 
     def cutout_counts(self) -> dict:
@@ -531,8 +533,8 @@ class PhotoLibrary:
             with self.db:
                 self.db.execute("UPDATE photos SET cutout_at=?, cutout_by=?, cutout_ok=?, cutout_conf=?, depth_box=?, "
                                 "bytes=bytes-?+? WHERE id=?",
-                                (self.clock(), got.get("by") or cutter.NAME, int(bool(mask)), got.get("conf"),
-                                 json.dumps(box) if mask else None, was, len(mask or b""), photo_id))
+                                (self.clock(), got.get("by") or cutter.BY, int(bool(mask)), got.get("conf"),
+                                 json.dumps(box) if mask and box else None, was, len(mask or b""), photo_id))
         return bool(mask)
 
     def set_focus(self, photo_id: str, body: object, before: Before = None) -> dict:
@@ -1279,10 +1281,13 @@ async def api_show(request: web.Request) -> web.Response:
         found = stored_faces(r["faces"])
         if found:
             item["faces"] = [[round(float(v), 4) for v in f[:4]] for f in found]
-        # TIME BEHIND: a usable photo's cut-out and where the time goes (the address changes with a new cut-out)
-        box = stored_box(r["depth_box"]) if r["cutout_ok"] else None
-        if box is not None:
-            item["depth"] = {"mask": f"/api/photos/{r['id']}/mask?v={int(r['cutout_at'] or 0)}", "box": box}
+        # TIME BEHIND: a usable photo's cut-out (the address changes with a new cut-out); each screen decides, with
+        # the photo as it draws it, whether the time goes behind its subject (hk-saver.js). An older one's box, too
+        if r["cutout_ok"]:
+            item["depth"] = {"mask": f"/api/photos/{r['id']}/mask?v={int(r['cutout_at'] or 0)}"}
+            box = stored_box(r["depth_box"])
+            if box is not None:
+                item["depth"]["box"] = box
         if isinstance(r["taken"], int):
             item["year"] = r["taken"]                               # Photo Titles: the year it was taken
         out.append(item)

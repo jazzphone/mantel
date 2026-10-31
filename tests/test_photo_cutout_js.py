@@ -104,7 +104,7 @@ const id = (n) => String(n).repeat(32);
       { id: id(4), title: 'Four', url: '/api/photos/' + id(4) + '/screen',
         depth: { mask: 'https://elsewhere.example/m.png', box: [0.3, 0.1, 0.4, 0.2] } },
       { id: id(5), title: 'Five', url: '/api/photos/' + id(5) + '/screen',
-        depth: { mask: '/api/photos/' + id(5) + '/mask', box: [0.3, 0.1, 0, 2] } }] }) });
+        depth: { mask: '/api/photos/' + id(5) + '/mask' } }] }) });
     eval(fs.readFileSync(process.argv[1] + '/web/client/hk-host-shell.js', 'utf8'));
     eval(fs.readFileSync(process.argv[1] + '/web/shim/mantel-shell.js', 'utf8'));
     out[base || 'root'] = await hkShell.listPhotos('mantel-photos://a1a1a1a1a1a1a1a1');
@@ -118,12 +118,12 @@ def test_the_shell_hands_the_screensaver_a_cut_out_its_album_and_year():
     got = json.loads(subprocess.run(["node", "-e", SHELL, str(ROOT)], capture_output=True, text=True, check=True,
                                     timeout=30).stdout)
     one, two, four, five = got["root"]
-    assert one["depth"] == {"mask": "/api/photos/" + "1" * 32 + "/mask?v=1000", "box": [0.3, 0.1, 0.4, 0.2]}
+    assert one["depth"] == {"mask": "/api/photos/" + "1" * 32 + "/mask?v=1000"}, "the mask alone: a box from before is not passed on"
     assert one["album"] == "Lake Weekend" and one["year"] == 2025
     assert "depth" not in two, "another photo's mask is never used"
     assert "year" not in two, "a year that can't be is dropped"
     assert "depth" not in four, "never another host's"
-    assert "depth" not in five, "a place for the time that can't be"
+    assert five["depth"] == {"mask": "/api/photos/" + "5" * 32 + "/mask"}, "as Mantel sends it now: the mask, no box"
     assert all(p["album"] == "Lake Weekend" for p in got["root"])
     ing = got["/api/hassio_ingress/Fict1onal"][0]
     assert ing["depth"]["mask"] == "/api/hassio_ingress/Fict1onal/api/photos/" + "1" * 32 + "/mask?v=1000"

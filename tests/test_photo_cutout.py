@@ -38,15 +38,12 @@ def grid(mask_img):
     return cutout.grid_of(mask_img, np)
 
 
-def test_a_clear_subject_is_usable_and_the_time_goes_above_it_overlapping_a_quarter():
-    got = cutout.judge(grid(portrait(960, 720)), np)
-    assert got["ok"] and got["why"] is None, got
-    assert cutout.COVER[0] <= got["cover"] <= cutout.COVER[1]
-    assert cutout.OVERLAP[0] <= got["overlap"] <= cutout.OVERLAP[1] and abs(got["overlap"] - cutout.AIM) < 0.06
-    x, y, w, h = got["box"]
-    assert abs((x + w / 2) - 0.5) < 0.03, "centred on the subject's top"
-    assert y + h > 0.25 and y < 0.42, "behind the head: its foot over the head, its top above it"
-    assert h == pytest.approx(cutout.TIME_H, abs=0.02) and 0 <= x and x + w <= 1 and 0 <= y and y + h <= 1
+def test_a_clear_subject_is_usable_wherever_it_sits_and_no_place_is_chosen_here():
+    # (2026-10-30) the time is always upper centre; each screen decides behind or in front (hk-saver.js)
+    for head, body in (((0.5, 0.42, 0.11), (0.31, 0.58, 0.69)), ((0.22, 0.45, 0.1), (0.05, 0.6, 0.4)), ((0.8, 0.5, 0.1), (0.62, 0.65, 0.98))):
+        got = cutout.judge(grid(portrait(960, 720, head=head, body=body)), np)
+        assert got["ok"] and got["why"] is None and got["box"] is None and got["overlap"] is None, got
+        assert cutout.COVER[0] <= got["cover"] <= cutout.COVER[1]
 
 
 def test_too_small_or_too_large_a_subject_is_not_used():
@@ -69,23 +66,15 @@ def test_an_unsure_mask_is_not_used():
     assert not got["ok"] and got["conf"] < cutout.SURE
 
 
-def test_a_subject_that_fills_the_top_of_the_frame_has_no_place_for_the_time():
+def test_a_subject_along_the_top_is_still_a_clear_subject_the_screen_decides():
     m = Image.new("L", (960, 720), 0)
-    ImageDraw.Draw(m).rectangle([0, 0, 960, 260], fill=255)              # a band along the top: nowhere behind it
+    ImageDraw.Draw(m).rectangle([0, 0, 960, 260], fill=255)              # a band along the top
     got = cutout.judge(grid(m), np)
-    assert got["why"] == "place" and got["box"] is None
+    assert got["ok"] and got["why"] is None, "no longer 'place': the screen finds it covers too much of the time"
 
 
-def test_a_face_puts_the_time_behind_the_head():
-    m = portrait(960, 720, head=(0.3, 0.45, 0.1), body=(0.12, 0.6, 0.48))
-    alone = cutout.judge(grid(m), np)
-    face = [[0.22, 0.33, 0.16, 0.2, 0.95]]                               # the head's face, as faces.py stores it
-    with_face = cutout.judge(grid(m), np, face)
-    assert with_face["ok"], with_face
-    fx = face[0][0] + face[0][2] / 2
-    assert abs(with_face["box"][0] + with_face["box"][2] / 2 - fx) < 0.03, "centred on the face"
-    assert with_face["box"][1] <= face[0][1] - cutout.HAIR * face[0][3] + 0.02, "its top above the hair"
-    assert alone["ok"]
+def test_judged_by_these_rules():
+    assert cutout.BY == "u2netp/2" and cutout.result(portrait(96, 72), np)["by"] == cutout.BY
 
 
 def test_the_stored_mask_is_white_with_the_mask_in_its_alpha():
@@ -250,8 +239,8 @@ async def test_an_upload_is_cut_out_after_its_faces_and_a_usable_one_keeps_its_m
     assert r.status == 201, body
     pid = body["photo"]["id"]
     got = row(mantel, pid)
-    assert got["cutout_ok"] == 1 and got["cutout_by"] == "u2netp" and got["cutout_at"] is not None
-    assert got["cutout_conf"] > cutout.SURE and len(json.loads(got["depth_box"])) == 4
+    assert got["cutout_ok"] == 1 and got["cutout_by"] == "u2netp/2" and got["cutout_at"] is not None
+    assert got["cutout_conf"] > cutout.SURE and got["depth_box"] is None, "no place is chosen here: each screen decides"
     lib = mantel.app["photos"]
     mask = lib.path(pid, "mask")
     assert mask is not None and mask.stat().st_mode & 0o777 == 0o600
@@ -260,7 +249,7 @@ async def test_an_upload_is_cut_out_after_its_faces_and_a_usable_one_keeps_its_m
     assert got["bytes"] == sizes and lib.usage() == sizes, "the mask counts against the quota"
     # the manager's list carries it (the page's Time Behind badge)
     r, body = await send(mantel, "GET", f"/api/photos/albums/{aid}/photos")
-    assert body["photos"][0]["cutout"] == {"ok": True, "conf": got["cutout_conf"], "by": "u2netp"}
+    assert body["photos"][0]["cutout"] == {"ok": True, "conf": got["cutout_conf"], "by": "u2netp/2"}
 
 
 async def test_an_unusable_cut_out_is_marked_checked_and_keeps_no_mask(mantel, fake_cutter):
@@ -318,7 +307,7 @@ async def test_the_screensavers_read_the_mask_and_the_place_only_for_a_usable_ph
     shown = {p["id"]: p for p in (await r.json())["photos"]}
     assert "depth" not in shown[bad]
     d = shown[good]["depth"]
-    assert d["box"] == json.loads(row(mantel, good)["depth_box"])
+    assert "box" not in d, "the mask alone: the screen decides where the time goes"
     assert d["mask"].startswith(f"/api/photos/{good}/mask?v=")
     r = await mantel.client.get(d["mask"])
     assert r.status == 200 and r.content_type == "image/png" and "immutable" in r.headers["Cache-Control"]

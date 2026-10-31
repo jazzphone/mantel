@@ -3,8 +3,8 @@ way (1180 x 820, 820 x 1180) and a phone (390 x 844): the Shows Glance, Month, D
 (hk-saverfaces.js), the clock faces Liquid, Giant Numerals and Scattered Numerals (hk-saverclock.js) full screen and
 in each size of the Home Grid's Clock block, and a photo with Titles and Time Behind -- the photo, the time, then the
 photo's subject masked over it, through hk-saver.js's own layers and CSS -- and one that doesn't qualify (the time in
-front). The photo and its cut-out are GENERATED here (a drawn plant against a drawn sky) and judged by cutout.py's own
-rules; no real photo, and no model.
+front). The photos and their cut-outs are GENERATED here (a drawn person against a drawn sky: at the left, the middle
+and the right, and one filling the top of the frame) and judged by cutout.py's own rules; no real photo, no model.
 
 Each face is drawn on a page of its own, the modules served from web/ on loopback (nothing else is reached); a face
 must draw something inside its box, never throw, and never overflow the screen sideways. `--shots DIR` keeps the
@@ -29,32 +29,42 @@ sys.path[:0] = [str(ROOT / "hosts/server")]
 
 
 def fixtures(dest: Path) -> dict:
-    """A drawn photo (a plant in a pot against an evening sky), its cut-out as cutout.py stores it, and where the
-    time goes by cutout.py's own rules."""
+    """Drawn photos -- a person (a head and shoulders) against an evening sky, at the left, the middle and the right,
+    and one whose subject fills the top of the frame -- their cut-outs as cutout.py stores them (judged by its own
+    rules), and a plain photo with none."""
     import numpy as np
     from PIL import Image, ImageDraw
     from mantel_server import cutout
     W, H = 1500, 1000
-    sky = Image.new("RGB", (W, H))
-    d = ImageDraw.Draw(sky)
-    for y in range(H):
-        t = y / H
-        d.line([(0, y), (W, y)], fill=(int(233 - 90 * t), int(160 - 100 * t), int(140 - 90 * t)))
-    mask = Image.new("L", (W, H), 0)
 
-    def plant(dr, stem, leaf, pot):
-        dr.rectangle([742, 420, 758, 1000], fill=stem)
-        for cx, cy, rx, ry in ((750, 360, 120, 150), (640, 420, 110, 80), (860, 430, 110, 80), (700, 300, 70, 90), (800, 290, 70, 95)):
-            dr.ellipse([cx - rx, cy - ry, cx + rx, cy + ry], fill=leaf)
-        dr.polygon([(600, 1000), (630, 820), (870, 820), (900, 1000)], fill=pot)
-    plant(d, (58, 42, 26), (47, 109, 58), (200, 100, 60))
-    plant(ImageDraw.Draw(mask), 255, 255, 255)
-    sky.save(dest / "photo.jpg", quality=88)
-    got = cutout.result(mask, np)
-    assert got["ok"], got
-    (dest / "mask.png").write_bytes(got["mask"])
+    def sky():
+        im = Image.new("RGB", (W, H))
+        d = ImageDraw.Draw(im)
+        for y in range(H):
+            t = y / H
+            d.line([(0, y), (W, y)], fill=(int(233 - 90 * t), int(160 - 100 * t), int(140 - 90 * t)))
+        return im
+
+    def person(dr, cx, skin, shirt, big=False):
+        if big:                                    # a subject filling the top of the frame, over the time's place
+            dr.ellipse([cx - 430, -20, cx + 430, 540], fill=skin)
+            dr.rectangle([cx - 420, 520, cx + 420, H], fill=shirt)
+            return
+        dr.ellipse([cx - 110, 160, cx + 110, 440], fill=skin)
+        dr.rectangle([cx - 40, 420, cx + 40, 520], fill=skin)
+        dr.rounded_rectangle([cx - 260, 500, cx + 260, H + 60], radius=120, fill=shirt)
+    made = {}
+    for name, cx, big in (("left", 560, False), ("centre", 750, False), ("right", 940, False), ("big", 750, True)):
+        im, mask = sky(), Image.new("L", (W, H), 0)
+        person(ImageDraw.Draw(im), cx, (214, 168, 140), (52, 72, 110), big)
+        person(ImageDraw.Draw(mask), cx, 255, 255, big)
+        im.save(dest / f"photo-{name}.jpg", quality=88)
+        got = cutout.result(mask, np)
+        assert got["ok"], (name, got)
+        (dest / f"mask-{name}.png").write_bytes(got["mask"])
+        made[name] = {"cover": got["cover"]}
     Image.new("RGB", (W, H), (120, 150, 190)).save(dest / "plain.jpg", quality=80)
-    return {"box": got["box"], "cover": got["cover"], "overlap": got["overlap"]}
+    return made
 
 
 async def main(shots, mock):

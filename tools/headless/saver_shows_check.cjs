@@ -6,8 +6,9 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
   let fails = 0;
   const say = (ok, what, got) => { if (!ok) fails++; console.log((ok ? 'PASS ' : 'FAIL ') + what + (ok ? '' : '  got ' + JSON.stringify(got))); };
   try {
-    for (const [screen, want] of Object.entries(input.shows)) {
-      const ctx = await browser.newContext({ viewport: { width: 1180, height: 820 } });
+    const runs = Object.entries(input.shows).flatMap(([screen, want]) => want === 'tb' ? [[screen, want, 1180, 820], [screen, want, 390, 844]] : [[screen, want, 1180, 820]]);
+    for (const [screen, want, W, H] of runs) {
+      const ctx = await browser.newContext({ viewport: { width: W, height: H } });
       await ctx.addCookies([{ name: 'mantel_session', value: input.cookie, url: input.origin }]);
       await ctx.route('**/*', (r) => new URL(r.request().url()).origin === input.origin ? r.continue() : r.abort());
       const page = await ctx.newPage(), errors = [];
@@ -23,6 +24,35 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
         return host ? { face: host.getAttribute('ckface'), big: host.hasAttribute('fcbig') } : null;
       });
+      if (want === 'tb') {
+        // THE WEATHER WITH TIME BEHIND: there, with its temperature, under the time and centred on it -- never beside it
+        const tb = await page.evaluate(() => {
+          const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
+          const sr = host && host.shadowRoot, t = sr && sr.querySelector('.ph .tb .tbt'), w = sr && sr.querySelector('.info hk-weather-strip-card');
+          const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height }; };
+          const ink = (e) => { const g = []; const walk = (n) => { if (!n) return; if (n.nodeType === 3) { const rg = document.createRange(); rg.selectNodeContents(n); const r = rg.getBoundingClientRect(); if (r.width > 0 && n.textContent.trim()) g.push(r); } (n.shadowRoot ? [...n.shadowRoot.childNodes] : []).concat([...n.childNodes]).forEach(walk); }; walk(e);
+            return g.length ? { l: Math.min(...g.map((r) => r.left)), r: Math.max(...g.map((r) => r.right)), text: (e.shadowRoot || e).textContent.replace(/\s+/g, ' ').trim().slice(0, 60) } : null; };
+          return host ? { tb: host.hasAttribute('tb'), time: t ? box(t) : null, weather: w ? Object.assign(box(w), { ink: ink(w) }) : null, W: innerWidth } : null;
+        });
+        say(started && !!tb && tb.tb && !!tb.time, screen + ' ' + W + 'x' + H + ': Photos with the time on them', tb);
+        const wx = tb && tb.weather, ink = wx && wx.ink;
+        say(!!wx && wx.h > 0 && !!ink && /\d°/.test(ink.text), screen + ' ' + W + 'x' + H + ': the weather is there, with its temperature', wx);
+        say(!!wx && !!tb.time && wx.t >= tb.time.b - 1, screen + ' ' + W + 'x' + H + ': ...under the time', [wx, tb && tb.time]);
+        say(!!ink && Math.abs((ink.l + ink.r) / 2 - tb.W / 2) < 24, screen + ' ' + W + 'x' + H + ': ...centred on it', ink);
+        say(!errors.length, screen + ' ' + W + 'x' + H + ': no page errors', errors.slice(0, 3));
+        if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '.png' });
+        // ...and in its Settings preview (the screen's Screensaver page)
+        if (W > 600) {
+          await page.evaluate(() => window.hkSaver && window.hkSaver.preview && window.hkSaver.preview(false));
+          // (its preview column shows beside the page on a wide window)
+          await page.setViewportSize({ width: 1440, height: 1000 });
+          await page.goto(input.origin + '/settings#/screens/' + screen + '/screensaver');
+          await page.waitForTimeout(9000);
+          if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-settings-preview.png' });
+        }
+        await ctx.close();
+        continue;
+      }
       const ok = !!got && (want === 'big' ? got.big : want ? got.face === want : !got.face && !got.big);
       say(started && ok, screen + ': the screensaver draws ' + (want || 'the classic forecast'), got);
       say(!errors.length, screen + ': no page errors', errors.slice(0, 3));

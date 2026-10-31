@@ -15,7 +15,7 @@ const STATES = {
 // [name, how it is drawn]
 const FACES = [['glance', 'show'], ['month', 'show'], ['day', 'show'], ['day-dark', 'show'], ['weather', 'show'],
                ['liquid', 'clock'], ['giant', 'clock'], ['scattered', 'clock'], ['giant-blue', 'clock'],
-               ['time-behind', 'photo'], ['time-front', 'photo']];
+               ['tb-left', 'photo'], ['tb-centre', 'photo'], ['tb-right', 'photo'], ['tb-big', 'photo'], ['tb-plain', 'photo']];
 
 async function draw(page, name, how, made) {
   return page.evaluate(({ name, how, made, STATES }) => {
@@ -43,11 +43,11 @@ async function draw(page, name, how, made) {
       ph.className = 'ph top'; fg.className = 'fg'; scrim.className = 'phscrim';
       ph.append(fg, scrim);
       root.appendChild(ph);
-      const behind = name === 'time-behind', url = behind ? '/fx/photo.jpg' : '/fx/plain.jpg';
+      const which = name.slice(3), url = which === 'plain' ? '/fx/plain.jpg' : '/fx/photo-' + which + '.jpg';
       ph.style.setProperty('--fit', 'cover'); ph.style.setProperty('--pos', '50% 50%'); ph.style.setProperty('--zm', '1');
       fg.src = url;
       const item = { id: 'host/p', album: 'Lake Weekend', year: 2025 };
-      if (behind) item.depth = { mask: '/fx/mask.png', box: made.box };
+      if (which !== 'plain') item.depth = { mask: '/fx/mask-' + which + '.png' };
       window.hkSaver._.photoFaces(ph, { url, w: 1500, h: 1000, item }, { fit: { fit: 'cover' } }, window.hkSaver._.readCfg({ photo_titles: true, time_behind: true }));
     }
     return true;
@@ -87,17 +87,23 @@ function measure() {
         }
         try {
           await draw(page, name, how, input.made);
-          await page.waitForTimeout(how === 'photo' ? 900 : 500);
+          await page.waitForTimeout(how === 'photo' ? 1200 : 500);
           const m = await page.evaluate(measure);
           assert(m.shown > 2, name + ' draws something ' + JSON.stringify(m));
           assert(m.sw <= m.W + 1, name + ' never wider than the screen ' + JSON.stringify(m));
-          if (name === 'time-behind') {
-            // (a phone held upright sees too little of a landscape photo for the time to fit behind the plant at
-            // half its size or more: there it may go in front -- never half a time)
-            if (w >= 600) assert.equal(m.tb, 'tb behind', 'the time behind the plant');
+          if (how === 'photo') {
+            // THE TIME'S ONE PLACE (2026-10-30): upper centre, the same on every photo -- in view, centred, its top
+            // 6 % down -- and the subject over it only where it covers some of it: the person at the middle on a
+            // tablet held either way, at the left and the right on one held sideways; one filling the top of the
+            // frame, never (in front); a photo with no cut-out, in front
             assert(m.tbt.l >= -1 && m.tbt.r <= m.W + 1 && m.tbt.t >= -1, 'the time in view ' + JSON.stringify(m.tbt));
+            assert(Math.abs((m.tbt.l + m.tbt.r) / 2 - m.W / 2) < 2, 'the time centred ' + JSON.stringify(m.tbt));
+            assert(Math.abs(m.tbt.t - m.H * 0.06) < 2, 'the time 6 % down ' + JSON.stringify(m.tbt));
+            const want = { centre: w >= 600 ? 'tb behind' : null, left: w > h ? 'tb behind' : null, right: w > h ? 'tb behind' : null,
+                           big: 'tb front', plain: 'tb front' }[name.slice(3)];
+            if (want) assert.equal(m.tb, want, name + ': ' + want);
+            else assert(/^tb (behind|front)$/.test(m.tb), name + ' decided ' + m.tb);
           }
-          if (name === 'time-front') assert.equal(m.tb, 'tb front', 'no cut-out: the time in front');
           assert.deepEqual(errors, [], name + ' page errors');
           if (input.shots) await page.screenshot({ path: path.join(input.shots, name + '-' + w + 'x' + h + '.png') });
           console.log('PASS ' + name + ' ' + w + 'x' + h + (m.tb ? ' (' + m.tb + ')' : ''));

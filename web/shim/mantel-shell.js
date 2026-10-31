@@ -90,12 +90,13 @@
   }
   // PHOTO TITLES AND TIME BEHIND (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I): the album's name and the
   // year a photo was taken; and for a photo whose subject Mantel cut out, its mask (Mantel's own address, the
-  // page's prefix in front) and where the time goes ([x, y, w, h], each 0..1) -- passed on only when sound
+  // page's prefix in front) -- passed on only when it is this photo's own. (No place for the time since 0.1.93:
+  // the time is always upper centre and the screen weighs the mask against it, hk-saver.js tbShare.)
   const MASK_URL = /^\/api\/photos\/([0-9a-f]{32})\/mask(\?v=\d{1,12})?$/;
   function depthOf(p, base) {
-    const d = p && p.depth, b = d && d.box, m = d && typeof d.mask === 'string' ? MASK_URL.exec(d.mask) : null;
-    if (!m || m[1] !== String(p.id) || !Array.isArray(b) || b.length !== 4 || !b.every(unit) || !(b[2] > 0 && b[3] > 0)) return {};
-    return { depth: { mask: base + d.mask, box: b.slice() } };
+    const d = p && p.depth, m = d && typeof d.mask === 'string' ? MASK_URL.exec(d.mask) : null;
+    if (!m || m[1] !== String(p.id)) return {};
+    return { depth: { mask: base + d.mask } };
   }
   function titleOf(p, album) {
     const out = {};
