@@ -77,10 +77,11 @@
       var extra = s === 'L' || s === 'T' ? { sub_card: ctl(['progress']), meta_card: ctl(['volume']) }
                 : s === 'W' ? { meta_card: ctl(['volume']) } : {};
       return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, sp ? { entity: sp } : {}, extra); } },
-    // Extra Large: the thermostat's full controls, its sheet (2026-10-24)
+    // Extra Large: the thermostat's full controls, its sheet (2026-10-24) -- in Big Number, its face with the modes
+    // beside it (hk-control.js _big, 2026-10-31)
     thermostat: { sizes: ['S', 'T', 'L', 'XL'], sources: ['thermostats'], opts: { entity: 'climate', style: 'thermostat_style' }, card: function (s, o, ctx) {
       var id = own(o.entity) || (ctx.climate || [])[0];
-      if (s === 'XL') return panel('climate', id ? { entity: id } : {});
+      if (s === 'XL' && o.style !== 'big') return panel('climate', id ? { entity: id } : {});
       // the dial (hk-control.js), sized to the block (G2) -- or its Big Number
       return id ? Object.assign({ type: 'custom:hk-control-card', entity: id }, o.style === 'big' ? { style: 'big' } : {})
                 : stand('Thermostat', 'hk:thermostat'); } },
