@@ -41,6 +41,9 @@ SHOWS = {
     # beside the readings, the same margin each side -- held sideways, upright and on a phone
     'saver-daylight': ({'show': 'day', 'day_look': 'light'}, 'day-ink'),
     'saver-bigcorners': ({'show': 'forecast', 'forecast_layout': 'big'}, 'big-corners'),
+    # Settings' preview, just what is changing (2026-10-31): the screensaver alone in the frame on its pages, a change
+    # shown in place, the screen again once they are left
+    'saver-preview': ({'show': 'clock', 'clock_bg': 'gradient', 'clock_style': 'classic'}, 'preview'),
 }
 
 

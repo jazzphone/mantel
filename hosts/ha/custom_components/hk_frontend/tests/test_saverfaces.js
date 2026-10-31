@@ -208,6 +208,17 @@ ok('the share of the figures the subject covers', [U.coverShare(px(0, 100)), U.c
 ok('behind from 5 % to 35 %: none, a little, some, too much, unread', [0, 0.04, 0.05, 0.2, 0.35, 0.36, 0.9, null].map(U.behindAt),
    [false, false, true, true, true, false, false, false]);
 
+// SETTINGS' OPTIONS, AS THEY CHANGE (2026-10-31): the preview's block is made from the options the page hands it
+// (hkSaver.preview's `over`), on this screen's settings -- the screensaver on whatever the screen says
+(function () {
+  var made = [], HS0 = window.hkSettings, ST0 = window.hkStrategy;
+  window.hkSettings = { get: function (k, d) { return k === 'boards' ? { 'dashboard-kitchen': { title: 'Kitchen', screensaver: false, screensaver_options: { show: 'photos' } } } : k === 'look.saver' ? { show: 'forecast' } : d; } };
+  window.hkStrategy = { saverBlock: function (c, b) { made.push([b.title, b.screensaver, b.screensaver_options.show]); return { show: b.screensaver_options.show }; } };
+  ok('the options handed over make the block, on this screen, the screensaver on', [U.houseBlock({ show: 'day' }), made[0]], [{ show: 'day' }, ['Kitchen', true, 'day']]);
+  ok('...none handed over: All Screens’ (the house preview)', U.houseBlock().show, 'forecast');
+  window.hkSettings = HS0; window.hkStrategy = ST0;
+})();
+
 print('=== Photo Titles and Time Behind on a photo ===');
 // a photo's layer, as hk-saver.js builds it (the photo, its scrim)
 function layerWith(pos) {

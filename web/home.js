@@ -135,7 +135,13 @@ for (const m of ['modules/hk-settings.js', 'iconset/hk-icons.js', 'modules/tesla
 // ONLY THE CARDS A SCREEN USES (2026-10-29): the other card files are hk-loader.js's to import, the first time
 // one of their cards is asked for
 if (window.hkNeed) window.hkNeed.arm(cardList.lazy || {});
-await Promise.all(cards.map((c) => imp('/hk/cards/' + c)));
+// THE SCREENSAVER ALONE (?hk_preview=saver, Settings' preview of a screen's screensaver, 2026-10-31): the base of the
+// cards only -- the screensaver's corner cards are lazy ones, asked for as it makes them -- no strategy run, no
+// view drawn. The screensaver reads this screen's settings itself (hk-saver.js fromSettings) and is shown as soon
+// as it is here; Settings hands it each change (hkSaver.preview). A page laid out at the screen's own size, so it
+// is drawn exactly as the screen draws it.
+const SAVER_ONLY = new URLSearchParams(location.search).get('hk_preview') === 'saver';
+await Promise.all((SAVER_ONLY ? cards.filter((c) => c === 'hk-base.js') : cards).map((c) => imp('/hk/cards/' + c)));
 mark('code');
 // shown inside Home Assistant (a Webpage dashboard): its header and sidebar as the screen says, and the way back
 // (ha-frame.js; Mantel Link's script listens on Home Assistant's side)
@@ -162,6 +168,12 @@ if (!(window.hkCards && window.hkCards.TILE)) {
   await new Promise((res) => window.addEventListener('hk-cards-ready', res, { once: true }));
 }
 
+if (SAVER_ONLY) {
+  window.hkMantelShell.saverOnly();
+  if (window.hkSaver && window.hkSaver.preview) window.hkSaver.preview(true);
+  window.__mantelReady = true;
+  await new Promise(() => {});                    // nothing more: no view on this page
+}
 // (the strategy reads the whole house to decide what to draw: none of it is a surface's own read, Host.seen)
 const build = async () => { host.building = true; try { return await window.hkStrategy.generate({}, host.client); } finally { host.building = false; } };
 const cfg = await build();

@@ -40,6 +40,9 @@
 //     notes               { overview, screen_remove, add_screen }: the
 //                 host's words where HK's own page differs on it
 //     screenBase          the prefix of a screen's own address
+//     saverPage           true: a screen's address with ?hk_preview=saver is
+//                         a page of only its screensaver (the preview's, on
+//                         the screensaver's pages)
 //     back                { label, href }: the way out, on a host with no
 //                 sidebar of its own
 //     owns        { tablet_user: true }: what of HK's own the host keeps
@@ -136,6 +139,9 @@
   // feed they read, the glyphs, the detail sheet's pane.
   var cardsReady = null;
   var DETAIL_WAIT = 15000;
+  // what the preview says under it: the screen, live; or the screensaver alone, each change as it is made
+  var PV_SAYS = { screen: 'Live: changes show here within seconds. A generated screen rebuilds itself within about ten.',
+                  saver: 'The screensaver alone, with live weather, music and photos: each change shows here as you make it.' };
   function loadCards() {
     if (cardsReady) return cardsReady;
     cardsReady = (async function () {
@@ -944,6 +950,7 @@
     // One change (or a few) to the house's settings. `local` shows it at
     // once; the answer is the truth.
     setH(changes) {
+      if (changes && Object.prototype.hasOwnProperty.call(changes, 'look.saver') && this._saverHouse) this.saverOver(changes['look.saver']);
       var d = this.data;
       return this.save({ type: DOMAIN + '/settings/set', changes: changes }, Object.keys(changes), function () {
         Object.keys(changes).forEach(function (p) {
@@ -957,6 +964,7 @@
     }
     setB(path, changes) {
       var d = this.data;
+      if (changes && Object.prototype.hasOwnProperty.call(changes, 'screensaver_options') && !this._saverHouse && this._pv && this._pv.path === path) this.saverOver(changes.screensaver_options);
       return this.save({ type: DOMAIN + '/board/set', dashboard: path, changes: changes },
         Object.keys(changes).map(function (k) { return 'b:' + k; }), function () {
           var whole = {};
@@ -1213,8 +1221,10 @@
       this.previewButton(!xwide && !!pg.preview, pinned);
       if (pg.preview && !xwide && !pg.previewTop && !pinned) pg.preview = null;
       this._pvPinned = pinned;
+      // (pinned: a preview not pinned has none set -- compared as it was, undefined against false, no preview was
+      // ever kept: every change made the frame load its screen again, 2026-10-31)
       var keepPv = pg.preview && this._pv && this._pv.path === pg.preview && this._pv.view === (pg.previewView || '0') &&
-        this._pv.pinned === pinned && this.pageEl.querySelector('.pvcol');
+        !!this._pv.pinned === pinned && this.pageEl.querySelector('.pvcol');
       if (keepPv) {
         this.pageEl.replaceChild(head, this.pageEl.querySelector('.ph'));
         this.pageEl.replaceChild(content, this.pageEl.querySelector('.pc'));
@@ -1298,13 +1308,26 @@
       // WHICH PHOTO (2026-10-13): Any, or a Portrait or Landscape one -- held
       // while its settings change, so a crop or a blur can be judged
       var shape = this._saverEnergy ? 'energy' : this._saverWx ? 'weather' : this._saverShape || '';
+      if (!on) this._saverOver = null;
       var go = function () {
         var S = null;
         try { S = fr.contentWindow && fr.contentWindow.hkSaver; } catch (e) { /* not ours */ }
-        if (S && typeof S.preview === 'function') { S.preview(on, shape || null, !!house); return true; }
+        if (S && typeof S.preview === 'function') { S.preview(on, shape || null, !!house, on ? self._saverOver : null); return true; }
         return false;
       };
-      if (!go()) self._saverWait = setInterval(function () { if (go() || ++n > 80) clearInterval(self._saverWait); }, 250);
+      // THE SCREENSAVER ALONE (2026-10-31): a host with a page of only the screensaver (its settingsHost's
+      // saverPage) shows that in the frame while these pages are open -- the screen's own size, no dashboard behind
+      // it -- and the screen again once they are left: the frame's address changes (one short load), and nothing is
+      // asked of it until its new page is up
+      var want = this.previewSrc(on), says = col.querySelector('.pvsays');
+      if (says) says.textContent = /hk_preview=saver/.test(want) ? PV_SAYS.saver : PV_SAYS.screen;
+      if (fr.getAttribute('src') !== want) {
+        fr.setAttribute('src', want);
+        fr.addEventListener('load', function () {
+          if (go()) return;
+          self._saverWait = setInterval(function () { if (go() || ++n > 80) clearInterval(self._saverWait); }, 250);
+        }, { once: true });
+      } else if (!go()) self._saverWait = setInterval(function () { if (go() || ++n > 80) clearInterval(self._saverWait); }, 250);
       if (on && (this._saverEnergy || this._saverWx)) {
         box.parentNode.insertBefore(h('div', { class: 'pvsaver' }, [h('p', { class: 'gf',
           text: (this._saverWx ? 'The weather' : 'Home Energy') + ' as this screen shows it, held while you change these. Only this preview changes.' })]), box.nextSibling);
@@ -1321,6 +1344,21 @@
                        : 'The screensaver as this screen shows it, with the changes you make here.') +
                 ' Portrait or Landscape keeps one photo of that shape while you change its settings. Only this preview changes.' })]), box.nextSibling);
       }
+    }
+
+    // EACH CHANGE TO THE SCREENSAVER, AS IT IS MADE (2026-10-31): the options handed to the preview's screensaver
+    // the moment they are put -- before the save has gone round -- which shows them where it is (hkSaver.preview's
+    // `over`); kept for the frame until these pages are left. null: the saved ones again (Same as All Screens).
+    saverOver(o) {
+      this._saverOver = o && typeof o === 'object' ? o : null;
+      if (this._saverWas) this.saverPreview(true);
+    }
+    // the preview frame's address: the screen, or the screensaver alone (saverPreview)
+    previewSrc(saverOnly) {
+      var pv = this._pv, x = this.host();
+      if (!pv) return '';
+      return this.hostScreenBase() + '/' + pv.path + '/' + (pv.view || '0') + '?hk_kiosk=on&kiosk&wp_enabled=false' +
+        (saverOnly && x && x.saverPage === true ? '&hk_preview=saver' : '');
     }
 
     // THE SKY'S PREVIEW. On the Sky page the preview frame shows today's own
@@ -1887,8 +1925,7 @@
         fit();
       }
       col.appendChild(pick);
-      col.appendChild(h('p', { class: 'gf' }, [dims, document.createTextNode(
-        'Live: changes show here within seconds. A generated screen rebuilds itself within about ten.')]));
+      col.appendChild(h('p', { class: 'gf' }, [dims, h('span', { class: 'pvsays', text: PV_SAYS.screen })]));
       requestAnimationFrame(fit);
       new ResizeObserver(fit).observe(col);
       this._pv = { path: path, view: view };

@@ -682,11 +682,16 @@
   var previewHouse = false;
   // ...and Home Energy's Options: the energy screen, held (2026-10-14)
   var previewEnergy = false, previewWeather = false;
-  function houseBlock() {
+  // ...and the options HK Settings hands it as they change (2026-10-31, the owner: "just what they're changing,
+  // updating in place"): drawn from them at once -- not after the save has gone round the server and back, and the
+  // settings are next read (refreshSoon: every 2 s) -- and kept until the preview ends, so the save, when it comes
+  // back, is the same block and changes nothing
+  var previewOver = null;
+  function houseBlock(over) {
     var HS = window.hkSettings, S = window.hkStrategy;
     var all = HS && HS.get ? HS.get('boards', null) : null;
     var b = all && all[String(location.pathname).split('/')[1] || ''];
-    var o = HS && HS.get ? HS.get('look.saver', null) : null;
+    var o = over || (HS && HS.get ? HS.get('look.saver', null) : null);
     if (!b || !o || !S || !S.saverBlock) return null;
     return S.saverBlock(clientNow(), Object.assign({}, b, { screensaver: true, screensaver_options: o }));
   }
@@ -4905,6 +4910,7 @@
     // same block again, now -- else the one the strategy made.
     else if (shellConf && raw && !raw.entity) raw = fromSettings(conf) || raw;
     if (previewOn && previewHouse) raw = houseBlock() || raw;
+    if (previewOn && previewOver) raw = houseBlock(previewOver) || raw;
     var HS = window.hkSettings;
     if (raw && HS && HS.get) {
       var bAll = HS.get('boards', null), bNow = bAll && bAll[String(location.pathname).split('/')[1] || ''];
@@ -5028,9 +5034,11 @@
     // Portrait / Landscape Photos settings), held while they change
     // `house`: with All Screens' settings, not this screen's own
     // 'energy': Home Energy, held while its options change; 'weather': the weather
-    preview: function (v, shape, house) {
+    // `over`: the options to show, as the page has them now (previewOver), else the saved ones
+    preview: function (v, shape, house, over) {
       var sh = shape === 'portrait' || shape === 'landscape' ? shape : null, en = shape === 'energy', wx = shape === 'weather';
       previewHouse = !!(v && house);
+      previewOver = v && over && typeof over === 'object' && !Array.isArray(over) ? over : null;
       if (sh !== previewShape || en !== previewEnergy || wx !== previewWeather) {
         previewShape = sh; previewEnergy = en; previewWeather = wx;
         if (lastPh && sh && shapeOfPh(lastPh) !== sh) lastPh = null;
@@ -5090,7 +5098,7 @@
          mosaicPlan: mosaicPlan, mosaicAssign: mosaicAssign, coverRect: coverRect, MOSAICS: MOSAICS,
          reducedMotion: reducedMotion,
          cleanFocus: cleanFocus, cleanVariants: cleanVariants, cleanDepth: cleanDepth, drawnRect: drawnRect, glyphBox: glyphBox, coverShare: coverShare,
-         behindAt: behindAt, tbKey: tbKey, tbShares: tbShares,
+         behindAt: behindAt, tbKey: tbKey, tbShares: tbShares, houseBlock: houseBlock,
          photoFaces: function (lay, ph, L, c) { return photoFaces(lay, ph, L, c); }, photoOpts: photoOpts, FACE_SHOWS: FACE_SHOWS, bigWanted: function () { return bigWanted(); },
          // tools/headless/saver_faces_check.py: the saver's own CSS around a photo's layers
          CSS: CSS,
