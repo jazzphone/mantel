@@ -182,6 +182,10 @@ def steps(build: Build | None = None) -> list[Step]:
     # (each engine at each size a step of its own, so they run side by side: six minutes together)
     out += [Step(f"edit-mode-check-{e}-{z}", [py, "tools/headless/edit_mode_check.py", "--engine", e, "--size", z], tier="full",
                  timeout=1200, skip=playwright_missing) for e in ("chromium", "webkit") for z in ("1180x820", "390x844")]
+    # Edit mode on a Home Grid in WebKit, a finger and a mouse, at a tablet either way and a phone (2026-10-31)
+    # (each size a step of its own)
+    out += [Step(f"grid-edit-check-{z}", [py, "tools/headless/grid_edit_check.py", "--size", z], tier="full",
+                 timeout=900, skip=playwright_missing) for z in ("1180x820", "820x1180", "390x844")]
     # the page beside the iPhone Duo's side strip, in WebKit (its insets stood in; 2026-10-30)
     out.append(Step("side-strip-check", [py, "tools/headless/side_strip_check.py"], tier="full", timeout=600,
                     skip=playwright_missing))

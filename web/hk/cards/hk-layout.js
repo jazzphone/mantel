@@ -1798,13 +1798,15 @@
       // as --hk-bar-room on it (top or bottom; hk-tabbar.js publish()), and
       // --hk-tabbar-h on <html> at the bottom. The canvas fits the remaining
       // room uniformly; rows keep their logical height when the dock changes.
+      // EDIT MODE'S BAR comes out of it too (--hk-edit-room, hk-edit.js
+      // makeRoom): the grid fits under the bar, never runs under the foot.
       //
       // Do not put clip-path on a cell: it creates a backdrop root, so a
       // shared blur inside a swipe track cannot sample the wallpaper.
       // Cards and swipe tracks clip their own content; the grid clips its
       // outer boundary. Shadows can extend between the cells.
       st.textContent =
-        ':host{--g-room:calc(var(--hk-bar-room,var(--hk-tabbar-h,0px)) + var(--hk-pane-b,0px));display:block;position:relative;' +
+        ':host{--g-room:calc(var(--hk-bar-room,var(--hk-tabbar-h,0px)) + var(--hk-pane-b,0px) + var(--hk-edit-room,0px));display:block;position:relative;' +
         'height:calc(100dvh - var(--g-room));max-height:calc(100dvh - var(--g-room));overflow:hidden;' +
         // (clear of a side safe area, as every view: hk-grid-view; _measure fits the grid between)
         'container-type:size;box-sizing:border-box;padding-left:' + SAFE_PAD_L + ';padding-right:' + SAFE_PAD_R + '}' +
@@ -2107,6 +2109,26 @@
       var cs = typeof getComputedStyle === 'function' ? getComputedStyle(this) : null;
       var side = cs ? (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) : 0;
       return Math.round(w * scale + side);
+    }
+
+    // EDIT MODE ON THE DASHBOARD (2026-10-31, hk-edit-grid.js): the blocks
+    // laid out afresh -- a config's cards and their elements together, matched
+    // by index as ever, the elements kept that are kept -- and the cells'
+    // box on the screen, for where a carried block lands
+    arrange(config, els) {
+      this._config = config || {};
+      this._cards = els || [];
+      this._place();
+    }
+    // { left, top, width, height } of the cells (not the band, not the edge)
+    // in the window's px, their gap there, the scale and the grid's numbers
+    cellBox() {
+      var root = this._root, g = this._grid(), k = this._gridScale || 1;
+      if (!root || !root.getBoundingClientRect) return null;
+      var shape = cellShape(g), r = root.getBoundingClientRect(), top = g.band ? GRID.band + shape.gap : 0;
+      return { left: r.left + shape.pad * k, top: r.top + (shape.pad + top) * k,
+               width: (g.cols * C.TILE.w + (g.cols - 1) * shape.gap) * k, height: (g.rows * shape.h + (g.rows - 1) * shape.gap) * k,
+               gap: shape.gap * k, scale: k, cols: g.cols, rows: g.rows, views: g.views, view: this._view || 0 };
     }
 
     connectedCallback() {

@@ -203,7 +203,7 @@ function () {
   eq('a combined room (the Backyard and its Deck): yes', E.editable(BACKYARD), true);
   eq('Weather: nothing to edit', E.editable(WEATHER), false);
   eq('a category page: not the room surface\'s (phase D adds its own)', E.editable(LIGHTS), false);
-  eq('a Home Grid screen\'s Home: never (it has its own editor)', E.editable(GRIDHOME), false);
+  eq('a Home Grid screen\'s Home: not the pills\' surfaces\', whatever its cards say (hk-edit-grid.js has its blocks)', E.editable(GRIDHOME), false);
   eq('no view: no', E.editable(null), false);
   var seen = [];
   var spec = E.surface({ id: 'test-weather', offers: function (v) { seen.push(v.path); return v.path === 'weather'; },

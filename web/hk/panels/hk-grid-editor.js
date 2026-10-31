@@ -443,6 +443,17 @@
     var c = Math.round((x - rect.left) / (cw + gap) - z[0] / 2), r = Math.round((y - rect.top) / (ch + gap) - z[1] / 2);
     return [Math.max(0, Math.min(cols - z[0], c)), Math.max(0, Math.min(rows - z[1], r))];
   }
+  // WHY A BLOCK CAN'T TAKE A SIZE whatever room there is round it (its
+  // pages, its rules' cards), in words; null: it can (the dashboard's Edit
+  // mode asks too, hk-edit-grid.js)
+  function cannotResize(item, sz) {
+    if (item.card === 'accessories' && item.pages && item.pages.source === 'list' && item.pages.list.some(function (pg) { return ((pg.opts || {}).accessories || []).length > G.PER_PAGE[sz]; })) {
+      return 'A ' + SIZE_NAMES[sz] + ' page holds ' + G.PER_PAGE[sz] + ' accessories. Move some to another page, or choose Automatic Pages, first.';
+    }
+    var misfit = (item.rules || []).find(function (r) { return !G.table()[r.card].sizes.includes(sz); });
+    if (misfit) return 'A rule’s card, ' + NAMES[misfit.card] + ', doesn’t come in ' + SIZE_NAMES[sz] + '. Change or remove that rule first.';
+    return null;
+  }
   function add(grid, card, size, at) {
     if (grid.items.length >= 24) return null;
     var out = copy(grid), n = 1;
@@ -1343,13 +1354,8 @@
       add(K.group({}, [K.button({ label: 'Remove Block', destructive: true, onClick: () => this.remove(item.id) })]));
     }
     resize(item, sz) {
-      if (item.card === 'accessories' && item.pages && item.pages.source === 'list' && item.pages.list.some((pg) => ((pg.opts || {}).accessories || []).length > G.PER_PAGE[sz])) {
-        this.say('A ' + SIZE_NAMES[sz] + ' page holds ' + G.PER_PAGE[sz] + ' accessories. Move some to another page, or choose Automatic Pages, first.'); this.side(); return;
-      }
-      var misfit = (item.rules || []).find((r) => !G.table()[r.card].sizes.includes(sz));
-      if (misfit) {
-        this.say('A rule’s card, ' + NAMES[misfit.card] + ', doesn’t come in ' + SIZE_NAMES[sz] + '. Change or remove that rule first.'); this.side(); return;
-      }
+      var no = cannotResize(item, sz);
+      if (no) { this.say(no); this.side(); return; }
       var next = place(this.grid, item.id, item.at, sz);
       if (next) this.change(next); else { this.say('A ' + SIZE_NAMES[sz] + ' block doesn’t fit here. Make room around it first.'); this.side(); }
     }
@@ -1914,6 +1920,9 @@
     }
   }
   window.hkGridEditor = { paneForStarter: paneForStarter, fullColumns: fullColumns, COLS: COLS, place: place, makeRoom: makeRoom, valid: valid, firstSpace: firstSpace, add: add, snap: snap, landing: landing,
-                          SCREEN_TYPES: SCREEN_TYPES, SQUARE_STARTERS: SQUARE_STARTERS, screenTypeOf: screenTypeOf, scaleAt: scaleAt, squareStarter: squareStarter };
+                          SCREEN_TYPES: SCREEN_TYPES, SQUARE_STARTERS: SQUARE_STARTERS, screenTypeOf: screenTypeOf, scaleAt: scaleAt, squareStarter: squareStarter,
+                          // (the dashboard's Edit mode names and sizes blocks as this editor does: hk-edit-grid.js)
+                          cannotResize: cannotResize, NAMES: NAMES, SIZE_NAMES: SIZE_NAMES, SIZE_SHORT: SIZE_SHORT, GLYPHS: GLYPHS,
+                          GROUPS: GROUPS, DESCRIPTIONS: DESCRIPTIONS };
   customElements.define('hk-grid-editor', GridEditor);
 })();

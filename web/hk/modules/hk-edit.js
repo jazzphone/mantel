@@ -22,8 +22,12 @@
 //                   cards: [...]}) hold something this surface edits? Pure
 //                   and cheap: the menu asks it on each rebuild (memoised per
 //                   view object). A page is offered Edit when any surface
-//                   says yes -- never a Home Grid screen's Home, which has
-//                   its own editor.
+//                   says yes. A Home Grid screen's Home is asked only of
+//                   the surfaces that say `grid: true` (its blocks,
+//                   hk-edit-grid.js, 2026-10-31): the pills' never claim
+//                   anything inside a block.
+//     hint          optional: what Edit does on such a page, in a line (the
+//                   detail sheet's note under "Edit This Page")
 //     enter(ctx)    the page is going into Edit mode: claim what is on it
 //                   and return a PART, or null for nothing here. ctx:
 //                     h        the client (reads: h.callWS; saves are sent by
@@ -48,6 +52,8 @@
 //     note          optional: a line under the bar's title ("Lights keep
 //                   this order on their room pages too")
 //     buttons       optional: [{ label, run(session) }] in the bar
+//     escape()      optional: Escape is the part's now (a block carried, a
+//                   sheet of its own open): true when it took it
 //   hkEdit.button({ id, label, show(session), run(session) })  a bar button
 //                   of its own (the Room Order sheet's "Rooms", phase G)
 //
@@ -69,6 +75,7 @@
 // THE SESSION
 //   offer(h)        Edit is offered here now (the menu's "Edit Page", the
 //                   tab bar's More, the sheet's "Edit This Page")
+//   hint()          the line that says what it does here (a surface's hint)
 //   editAny(h)      the person may edit and some page of this dashboard can
 //                   be (the tab bar keeps its More for them on every page)
 //   enter(h, opts)  true when Edit mode began (opts.viewEl: the view, else
@@ -78,6 +85,7 @@
 //   cancel()        everything since Edit began is put back
 //   leave(saved)    out of Edit mode without asking (saved: keep the page as
 //                   it is arranged)
+//   say(text)       a line in the bar ('' clears it): what a part just did
 // window gets `hk-edit` ({detail: {active}}) when Edit begins or ends and
 // when a surface is registered: the menu and the tab bar rebuild.
 //
@@ -189,12 +197,17 @@
   }
   function unbutton(id) { BUTTONS = BUTTONS.filter(function (b) { return b.id !== id; }); }
 
+  function isHomeGrid(view) { return !!view && view.type === 'custom:hk-home-grid-view'; }
+  // does surface `s` claim something on `view`?
+  function claims(s, view) {
+    if (isHomeGrid(view) && !s.grid) return false;
+    try { return !!s.offers(view); } catch (e) { return false; }
+  }
   function editable(view) {
     if (!view || typeof view !== 'object') return false;
-    if (view.type === 'custom:hk-home-grid-view') return false;          // Home Grid: its own editor
     var m = MEMO && MEMO.get(view);
     if (m && m.gen === GEN) return m.yes;
-    var yes = SURFACES.some(function (s) { try { return !!s.offers(view); } catch (e) { return false; } });
+    var yes = SURFACES.some(function (s) { return claims(s, view); });
     if (MEMO) MEMO.set(view, { gen: GEN, yes: yes });
     return yes;
   }
@@ -207,6 +220,13 @@
     if (!canEditPage(h, h)) return false;
     var cfg = dashCfg();
     return !!cfg && Array.isArray(cfg.views) && cfg.views.some(editable);
+  }
+  // what Edit does on this page, in a line: the first surface's that offers it
+  var HINT = 'Drag the tiles on this page into place, and make them Tall or Regular.';
+  function hint() {
+    var cv = currentView(), out = '';
+    if (cv) SURFACES.forEach(function (s) { if (!out && s.hint && claims(s, cv.view)) out = String(s.hint); });
+    return out || HINT;
   }
   // for the menu's list key: changes when the offer does
   function offerKey(h) {
@@ -791,6 +811,8 @@
     var parts = [];
     SURFACES.forEach(function (sf) {
       var p = null;
+      // (a Home Grid: its blocks' surfaces, and those that join every page -- the menu)
+      if (isHomeGrid(cv.view) && !sf.grid) { try { if (sf.offers(cv.view)) return; } catch (e) { return; } }
       try { p = sf.enter(ctx); } catch (e) { p = null; if (global.console) console.error('[hk-edit] ' + sf.id, e); }
       if (p) parts.push(p);
     });
@@ -933,6 +955,7 @@
       if (e.key !== 'Escape' || session !== s || asking(s)) return;
       if (e.stopPropagation) e.stopPropagation();
       if (carry) { drop(); return; }
+      if (s.parts.some(function (p) { try { return !!(p.escape && p.escape()); } catch (x) { return false; } })) return;
       if (!s.saving) cancel();
     };
     s.onUnload = function (e) {
@@ -1077,11 +1100,15 @@
     if (!room) return;
     s.room = { el: v, was: v.style.getPropertyValue('margin-top'), prio: v.style.getPropertyPriority ? v.style.getPropertyPriority('margin-top') : '' };
     v.style.setProperty('margin-top', 'calc(' + (s.room.was || '0px') + ' + ' + room + 'px)');
+    // (a view the screen's height -- the Home Grid -- gives the room up from
+    // its height as well, and fits under the bar: hk-layout.js --g-room)
+    v.style.setProperty('--hk-edit-room', room + 'px');
   }
   function unroom(s) {
     var R = s.room;
     if (!R) return;
     if (R.was) R.el.style.setProperty('margin-top', R.was, R.prio || ''); else R.el.style.removeProperty('margin-top');
+    R.el.style.removeProperty('--hk-edit-room');
     s.room = null;
   }
   function paintExtra(s) {
@@ -1144,8 +1171,8 @@
   global.hkEdit = {
     version: '1.0.0',
     canEditPage: canEditPage,
-    currentView: currentView, editable: editable, offer: offer, editAny: editAny, offerKey: offerKey,
-    enter: enter, leave: leave, cancel: cancel, done: done, active: active,
+    currentView: currentView, editable: editable, offer: offer, editAny: editAny, offerKey: offerKey, hint: hint,
+    enter: enter, leave: leave, cancel: cancel, done: done, active: active, say: say,
     surface: surface, surfaces: surfaces, button: button,
     pillGroups: pillGroups, roomOrders: roomOrders, sizeSaves: sizeSaves,
     // the Reduce Motion frame round a pill (the scenes row's too: hk-edit-pages.js)
