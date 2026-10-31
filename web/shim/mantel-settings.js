@@ -95,8 +95,9 @@ export const host = {
   renameInHome(id, name, client) {
     return client.actions.callWS({ type: 'config/entity_registry/update', entity_id: id, name: name });
   },
-  // a wall tablet's Home Assistant user is Mantel's (its 'tablet' group), not HK's Tablet User
-  get owns() { return { tablet_user: true }; },
+  // a wall tablet's Home Assistant user is Mantel's (its 'tablet' group), not HK's Tablet User; the font and
+  // glyphs are in Your Files (Mantel's data), not HK Frontend's folder; HA's sidebar entry is HK Frontend's
+  get owns() { return { tablet_user: true, files: ROUTE + '/files', sidebar: true }; },
   groups() {
     if (!me) return [];
     const out = [];

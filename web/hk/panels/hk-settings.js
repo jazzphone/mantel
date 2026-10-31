@@ -48,6 +48,9 @@
 //     owns        { tablet_user: true }: what of HK's own the host keeps
 //                 itself, so HK's control for it is not drawn (a wall
 //                 tablet's Tablet User: the host's 'tablet' group has it)
+//                 files: '<route>': the font and glyphs are the host's own
+//                 (that route's page), not HK's folder under /config
+//                 sidebar: true: no Home Assistant sidebar of HK's to show
 //     extend(where, c, ctx, panel)  the host's own groups on one of HK's
 //                 pages, appended to c: where 'tablets' (Wall Tablets, after
 //                 its list; ctx { tablets }), 'tablet' (a wall tablet's
@@ -10048,10 +10051,15 @@
           self.entityRow({ label: 'Date Sensor', sk: 'clock.date', value: self.hs('clock.date'), none: 'Each Screen’s Own Clock', filter: { domains: ['sensor'] }, onPick: set('clock.date') })]));
         // (the Clean-Areas Script and the Wrong-Code Indicator are the
         // Vacuums and Security pages' since 2026-10-16)
-        c.appendChild(K.group({ header: 'HK Settings', footer: 'Off: HK Settings leaves the sidebar for everyone. It’s still in ' + haPlace('Settings → Devices & Services → HK Frontend → Configure') + '.' }, [
+        var own = (self.host() && self.host().owns) || {};
+        if (!own.sidebar) c.appendChild(K.group({ header: 'HK Settings', footer: 'Off: HK Settings leaves the sidebar for everyone. It’s still in ' + haPlace('Settings → Devices & Services → HK Frontend → Configure') + '.' }, [
           K.toggle({ label: 'Show in Sidebar', sk: 'sidebar', on: I.sidebar !== false, onChange: function (on) { self.setH({ sidebar: on }); } })]));
         var fnd = function (v) { return v ? 'Found' : 'Missing'; };
-        c.appendChild(K.group({ header: 'Your Files', footer: 'Apple’s SF Pro font and the SF Symbols glyphs can’t ship with the integration. Put the font at fonts/SF-Pro.woff2 and the glyphs at iconset/hk-glyphs.js in this folder, under /config.' }, [
+        // a host that keeps the font and glyphs itself checks them on its own
+        // page: HK's folder under /config is not where they are (2026-10-31)
+        if (own.files) c.appendChild(K.group({ header: 'Your Files' }, [
+          K.nav({ label: 'Font and Glyphs', sk: 'files_host', value: 'In Your Files', href: '#/' + own.files })]));
+        else c.appendChild(K.group({ header: 'Your Files', footer: 'Apple’s SF Pro font and the SF Symbols glyphs can’t ship with the integration. Put the font at fonts/SF-Pro.woff2 and the glyphs at iconset/hk-glyphs.js in this folder, under /config.' }, [
           K.text({ label: 'Folder', sk: 'files_folder', value: I.files_folder, placeholder: 'hk_local', error: self.err('files_folder'),
                    onCommit: function (v) { self.setH({ files_folder: v }); } }),
           K.info({ label: 'SF Pro Font', value: fnd(f.font), valueCls: f.font ? 'ok' : 'warn' }),
