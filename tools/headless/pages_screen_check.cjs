@@ -17,9 +17,9 @@ function measure() {
     W: innerWidth, H: innerHeight, card: card ? box(card) : null, apps,
     cols: new Set(apps.map(a => Math.round(a.l))).size, rows: new Set(apps.map(a => Math.round(a.t))).size,
     widgets: sr ? [...sr.querySelectorAll('.wd')].map(w => Object.assign(box(w), { kind: w.getAttribute('data-kind') })) : [],
-    // (2026-10-30) no Background Clock unless chosen; the Weather icon on its sky; the icons having come in
+    // (2026-10-30) no Background Clock unless chosen; the Weather icon on its sky; first drawn at the size it has now
+    first: card ? card._firstSize || null : null, size: card ? card._sizeWas || null : null,
     clock: !!(sr && sr.querySelector('.time')), sky: !!(sr && sr.querySelector('.wx hk-grid-weather-sky')),
-    entered: !!(card && card._enteredAt > 0),
     screens: sr ? sr.querySelectorAll('.screen').length : 0,
     homePill: !!(sr && sr.querySelector('.pill')), folder: !!(sr && sr.querySelector('[data-folder]')),
     tabs: bsr ? [...bsr.querySelectorAll('.root.on .tab')].map(t => t.getAttribute('aria-label')) : [],
@@ -73,9 +73,10 @@ const GRID = { '1180x820': [6, 3], '820x1180': [4, 5], '390x844': [4, 6] };
         if (m.barTop !== null) assert(a.b + 24 <= m.barTop, c.name + ' icon and its name clear of the tab bar ' + JSON.stringify(a) + ' bar ' + m.barTop);
       }
       assert(!m.scrolls, c.name + ': the page never scrolls');
+      assert(m.first && m.first.W === m.size.W && m.first.H === m.size.H,
+             c.name + ': first drawn at its own size, so it never jumps ' + JSON.stringify([m.first, m.size]));
       assert(!m.clock, c.name + ': no Background Clock (Off unless chosen)');
       assert(m.sky, c.name + ': the Weather icon on the sky of now');
-      assert(m.entered, c.name + ': its icons came in as it was shown');
       if (c.bar) {
         assert(!m.homePill, c.name + ': no Home pill beside the tab bar');
         assert.equal(m.tabs[0], 'Home'); assert.equal(m.tabs[1], 'Pages', c.name + ' tabs ' + m.tabs);

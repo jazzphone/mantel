@@ -1175,7 +1175,7 @@ Security screen.
   screen's own).
 - **20, the blur.** The Pages Screen's background blur goes from 26 px to 8 px (saturate 1.15): the wallpaper, the
   sky or a photo still reads behind the icons.
-- **21, Launchpad's entrance.** The icons settle from 116 % and faint into place, 8 ms apart (at most 20 steps), 260 ms
+- **21, Launchpad's entrance** (taken back below: no entrance). The icons settle from 116 % and faint into place, 8 ms apart (at most 20 steps), 260 ms
   each: about 0.4 s in all, transform and opacity only; leaving by an icon or the Home pill, the reverse (170 ms)
   before the page changes. Only when the page is shown (connected, or a navigation that leaves it visible), never on
   a redraw; never for Reduce Motion, Animations off or Flat (Performance turns Animations off). Leaving through the
@@ -1195,3 +1195,12 @@ Security screen.
   of height and width runs out). The Grid group says how many columns fit at full size (`fullColumns`). At
   1440 × 900 beside the pane, 4 and 5 columns of 4 rows both draw 180 px cells; at 1180 × 820 five no longer fit and
   the grid shrinks. A grid saved as 5 × 5 keeps its rows until they are set back.
+
+**After 0.1.92 (2026-10-30).**
+
+- **21 taken back: no entrance at all.** The owner: the Pages Screen's animation "is not great at all ... just have
+  the page load in at the right size ... so it doesn't jump". The entrance and the leaving fade are gone, and so is
+  the jump under them: the page used to draw first at the window's size, then again at its own once laid out (the
+  tab bar, the Side Pane and the safe areas take their share). It now draws only once it has a size of its own, and
+  draws again only when that size changes. `pages_screen_check` asserts the first drawing was at the size it has
+  when measured, at every size it tries.

@@ -343,15 +343,6 @@
       '.open .app{position:relative}',
       '.open .grid{display:grid;justify-content:center}',
       '@keyframes hkPsOpen{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}',
-      // COMING IN, AS LAUNCHPAD'S (2026-10-30): the icons settle from a little
-      // larger and faint into place, a few ms apart (--i); going, the reverse.
-      // Transform and opacity only, about 0.4 s in all; never on a redraw
-      // (_enter), never for Reduce Motion, Animations off or Flat (_moves)
-      '@keyframes hkPsIn{from{opacity:0;transform:scale(1.16)}to{opacity:1;transform:none}}',
-      '@keyframes hkPsOut{from{opacity:1;transform:none}to{opacity:0;transform:scale(1.12)}}',
-      ':host([data-entering]) .app,:host([data-entering]) .wd{animation:hkPsIn 260ms cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 8ms)}',
-      ':host([data-leaving]) .app,:host([data-leaving]) .wd{animation:hkPsOut 170ms ease-in both}',
-      '@media (prefers-reduced-motion:reduce){:host([data-entering]) .app,:host([data-leaving]) .app,:host([data-entering]) .wd,:host([data-leaving]) .wd{animation:none}}',
       '.open .wrap{animation:hkPsOpen ' + C.DUR.standard + ' ' + C.EASE.standard + '}',
       '@media (prefers-reduced-motion:reduce){.open .wrap{animation:none}.ic{transition:none}}'
     ].join('');
@@ -381,46 +372,6 @@
         }
         if (this._ro) this._ro.observe(this);
         this._tick();
-        // (shown: now, and each time the page comes back -- a kept page is
-        // not connected again, so a navigation that leaves it visible)
-        this._enterSoon();
-        if (!this._navOff && window.hkShell && window.hkShell.onNavigate) {
-          var me = this;
-          this._navOff = window.hkShell.onNavigate(function () { me._enterSoon(); }) || true;
-        }
-      }
-      // ITS ICONS COME IN when the page is shown (not when it redraws)
-      _enterSoon() {
-        var self = this;
-        requestAnimationFrame(function () { requestAnimationFrame(function () {
-          var shown = self.isConnected && self.getClientRects().length > 0;
-          if (shown && !self._shown) self._enter();
-          self._shown = shown;
-        }); });
-      }
-      _moves() {
-        var HS = window.hkSettings, mq = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
-        if (mq && mq.matches) return false;
-        if (HS && HS.rendering && HS.rendering().flat) return false;
-        return !(HS && HS.skyLook && HS.skyLook().animations === false);
-      }
-      _enter() {
-        if (!this._moves()) return;
-        var self = this;
-        this.removeAttribute('data-leaving');
-        Array.prototype.forEach.call(this._root.querySelectorAll('.app,.wd'), function (a, i) { a.style.setProperty('--i', String(Math.min(i, 20))); });
-        this.setAttribute('data-entering', '');
-        this._enteredAt = Date.now();
-        clearTimeout(this._enterT);
-        this._enterT = setTimeout(function () { self.removeAttribute('data-entering'); }, 520);
-      }
-      // ...and go out, the reverse, before `go` (an icon's page, Home)
-      _leave(go) {
-        if (!this._moves()) { go(); return; }
-        var self = this;
-        this.removeAttribute('data-entering');
-        this.setAttribute('data-leaving', '');
-        setTimeout(function () { self.removeAttribute('data-leaving'); self._shown = false; go(); }, 170);
       }
       disconnectedCallback() {
         super.disconnectedCallback();
@@ -470,18 +421,24 @@
                  tabBar: !!(M && M.tabBar && M.tabBar()), flat: flat,
                  widgets: render ? (ps.widgets || []) : [], render: render };
       }
+      // its own box -- null until it has one: drawn first at the window's size
+      // (the tab bar's and the Side Pane's room in it), it then drew again at
+      // its own, every icon jumping (the owner, 2026-10-30: "just have the
+      // page load in at the right size... so it doesn't jump at all"); the
+      // ResizeObserver draws it once it is laid out
       _size() {
         var r = this.getBoundingClientRect ? this.getBoundingClientRect() : null;
-        var W = r && r.width > 0 ? r.width : (window.innerWidth || 1180);
-        var Hh = r && r.height > 0 ? r.height : (window.innerHeight || 820);
-        return { W: Math.round(W), H: Math.round(Hh) };
+        if (!(r && r.width > 0 && r.height > 0)) return typeof ResizeObserver === 'undefined' ? { W: window.innerWidth || 1180, H: window.innerHeight || 820 } : null;
+        return { W: Math.round(r.width), H: Math.round(r.height) };
       }
       // NOT ON EVERY PUSH: a draw when what shows changes (the minute, the
       // size, the settings, the icons, a badge, the temperature). Widgets
       // follow the house themselves, so a push only hands them the client.
       _sigOf() { return null; }
       _render() {
-        var d = this._read(), sz = this._size(), now = new Date();
+        var sz = this._size();
+        if (!sz) return;                         // (not laid out yet: drawn when it is, at its size)
+        var d = this._read(), now = new Date();
         this._sizeWas = sz;
         var key = JSON.stringify([sz, now.getHours(), now.getMinutes(), now.getDate(), d.ps, d.list, d.badges, d.temp, d.who,
                                   d.tabBar, d.flat, !!d.render, this._folder, window.hkSettings && window.hkSettings.version,
@@ -493,6 +450,7 @@
         var keep = this._root.querySelector('.screens'), at = keep ? keep.scrollLeft : 0;
         this._root.innerHTML = this._html(d, sz, now);
         this._built = true;
+        if (!this._firstSize) this._firstSize = sz;   // (what it was first drawn at: the check holds it to its size now)
         this._d = d;
         var sc = this._root.querySelector('.screens');
         if (sc && at) sc.scrollLeft = at;
@@ -660,7 +618,7 @@
 
       _home() {
         var m = this._d && this._d.m, p = m && m.home && m.home.path;
-        if (p && window.hkShell && window.hkShell.navigate) this._leave(function () { window.hkShell.navigate(p); });
+        if (p && window.hkShell && window.hkShell.navigate) window.hkShell.navigate(p);
       }
       _wire(d) {
         var self = this, root = this._root;
@@ -670,7 +628,7 @@
             var t = e.target && e.target.closest ? e.target : null;
             if (!t) return;
             var go = t.closest('[data-go]');
-            if (go) { e.stopPropagation(); self._folder = false; var to = go.getAttribute('data-go'); self._leave(function () { window.hkShell.navigate(to); }); return; }
+            if (go) { e.stopPropagation(); self._folder = false; window.hkShell.navigate(go.getAttribute('data-go')); return; }
             if (t.closest('[data-folder]')) { self._folder = true; self.redraw(); return; }
             var dot = t.closest('[data-dot]');
             if (dot) {
