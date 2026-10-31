@@ -88,7 +88,9 @@ async def main():
             assert await b.wait("deep(document,'hk-alarm-keypad-card').length>0", 10)
             assert await b.eval('calls.length===3')
             state('alarm_control_panel.home', 'armed_away', {'friendly_name': 'Home Alarm', 'code_format': 'number'})
-            assert await b.wait("deep(document,'hk-grid-security-card')[0]._look().state==='Armed Away'", 10)
+            # (what the block draws: the widget, since 2026-10-31, has no tile's _look)
+            assert await b.wait("deep(document,'hk-grid-security-card')[0].shadowRoot.textContent.replace(/\\s+/g,'').includes('ArmedAway')", 10), \
+                await b.eval("deep(document,'hk-grid-security-card')[0].shadowRoot.textContent")
             assert await b.eval('document.documentElement.scrollHeight<=innerHeight+1')
             errors = [line for line in b.console if line.startswith('EXCEPTION:')]
             assert not errors, errors

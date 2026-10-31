@@ -79,7 +79,15 @@ function () {
   house.set('sensor.running_quick_timers', '1', { running: [{ name: 'Pasta', entity_id: 'timer.quick_1', finishes_at: iso(420) }] });
   var p = sized('hk-timer-strip-card', 'W', { entity: 'sensor.running_quick_timers' })._e.__html;
   ok('paused: the ring resumes it, play at its centre, the time held', /data-service="start" aria-label="Resume Pasta"/.test(p) && /mdi:play/.test(p) && /hold="240"/.test(p));
-  ok('...one timer on Wide: Create a Timer beside it', /class="new-timer" data-new/.test(p));
+  ok('...one timer on Wide: quick starts and + beside it, the timer\'s own layout', /Start another/.test(p) && /class="ft qs">/.test(p) &&
+     (p.match(/data-preset=/g) || []).length === 2 && /<button class="add" data-new aria-label="Create a Timer">/.test(p));
+  house.set('sensor.running_quick_timers', '0', { running: [] });
+  house.set('timer.quick_1', 'idle', { friendly_name: 'Quick Timer 1' });
+  var none = sized('hk-timer-strip-card', 'S', { entity: 'sensor.running_quick_timers' })._e.__html;
+  ok('none running, Small: the orange Timers, None running, two quick starts as keys and +', /<b class="nm">Timers<\/b>/.test(none) && /None running/.test(none) &&
+     (none.match(/data-preset=/g) || []).length === 2 && /data-preset="5"[^>]*>5m</.test(none) && /data-new/.test(none));
+  none = sized('hk-timer-strip-card', 'W', { entity: 'sensor.running_quick_timers' })._e.__html;
+  ok('...Wide: five quick starts across the block and +', /class="gt wide"/.test(none) && (none.match(/data-preset=/g) || []).length === 5 && />1h</.test(none) === false && />30m</.test(none));
   ok('a square cell: the mock-up\'s ring and Stop (76 and 52 on Small, 72 and 48 on Wide)',
      SRC.indexOf(":host([size=S]) hk-plate.strip{--ring:76px;--stop:52px}") > 0 && SRC.indexOf(":host([size=W]) hk-plate.strip{--ring:72px;--stop:48px}") > 0);
   ok('...a tile cell\'s at least a finger\'s 44', SRC.indexOf("overflow:hidden;--ring:56px;--stop:44px}") > 0);

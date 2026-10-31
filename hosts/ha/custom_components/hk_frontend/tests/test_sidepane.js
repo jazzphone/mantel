@@ -199,6 +199,19 @@ ok('Tiny is one line: its glyph, the fact and a value', /class="sec cmp"/.test(X
 ok('...the timer\'s countdown', /Pasta[\s\S]*4:1[0-2]/.test(X.SEC.timers('tiny', {}, client, ctx)));
 ok('Security: its state and its locks', X.SEC.security('tiny', {}, client, ctx).indexOf('Armed · Home') > 0 && X.SEC.security('tiny', {}, client, ctx).indexOf('1 unlocked') > 0);
 ok('...More lists each lock, Full who changed it', X.SEC.security('more', {}, client, ctx).indexOf('Back Door') > 0 && X.SEC.security('full', {}, client, ctx).indexOf('Alex') > 0);
+// only what is open (2026-10-31, the owner: "I just need to know when something opens"): All locked the all-clear
+var lockWas = [states['lock.front_door'].state, states['lock.back_door'].state];
+states['lock.front_door'].state = states['lock.back_door'].state = 'locked';
+SET.kinds.windows = ['binary_sensor.office_window'];
+states['binary_sensor.office_window'] = { entity_id: 'binary_sensor.office_window', state: 'off', attributes: { friendly_name: 'Office Window', device_class: 'window' } };
+var calm = X.SEC.security('less', {}, client, ctx);
+ok('Security Less, all shut: All locked, never "all windows closed"', calm.indexOf('All locked') > 0 && !/closed/i.test(calm), calm);
+ok('...More: no Windows row while none is open', X.SEC.security('more', {}, client, ctx).indexOf('Windows') < 0);
+states['binary_sensor.office_window'].state = 'on';
+ok('...a window open: said, in the singular', X.SEC.security('less', {}, client, ctx).indexOf('All locked · 1 window open') > 0 &&
+   X.SEC.security('more', {}, client, ctx).indexOf('1 open') > 0);
+SET.kinds.windows = []; delete states['binary_sensor.office_window'];
+states['lock.front_door'].state = lockWas[0]; states['lock.back_door'].state = lockWas[1];
 var more = X.SEC.now_playing('more', {}, client, ctx);
 ok('Now Playing: Tiny the song and a pause; More the mini player a size up (2026-10-31, "one family"), Full the screensaver\'s music pane',
    X.SEC.now_playing('tiny', {}, client, ctx).indexOf('Late Light') > 0 && /data-act="pp"/.test(X.SEC.now_playing('tiny', {}, client, ctx)) &&

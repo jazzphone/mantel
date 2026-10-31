@@ -1063,12 +1063,19 @@
       'hk-plate.sec[size=W],hk-plate.sec.kp{flex-direction:row;gap:18px}',
       '[role=button]{cursor:pointer}',
       '[role=button]:focus-visible,button:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
-      // the shield in its well, the state's color
-      '.wl{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;background:var(--c,' + v('key') + ')}',
-      '.wl hk-icon{width:25px;height:25px;--mdc-icon-size:100%;display:flex;color:#fff}',
+      // the shield bare, in the state's color (gray disarmed), as the Small blocks beside it draw their glyphs
+      // (the owner, 2026-10-31: "Yes, bare glyph" -- no circle, as HomeView's tiles): 34 px, the heading's 30
+      '.wl{width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex:none}',
+      '.wl hk-icon{width:100%;height:100%;--mdc-icon-size:100%;display:flex;color:var(--c,' + v('ink-2') + ')}',
+      '.hd .wl{width:30px;height:30px}',
       '.one{display:flex;flex-direction:column;min-width:0;margin-top:auto}',
-      '.big{' + type('figure') + ';font-weight:600;line-height:1.05;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t,' + v('ink') + ')}',
+      // (the state a title's size, 22: at a figure's 30 "Disarmed" filled a Small block -- the owner, 2026-10-31: "really large")
+      '.big{' + type('title') + ';font-weight:600;line-height:1.1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t,' + v('ink') + ')}',
       '.sub{' + type('body') + ';font-weight:400;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      // SMALL: the name and its line as the Small blocks beside it have them (the Action's: a headline over a
+      // caption, on the block's inset) -- the owner, 2026-10-31: "different than All Lights Off and Lock Up"
+      'hk-plate.sec[size=S] .big{' + type('headline') + ';line-height:21px;margin-top:0}',
+      'hk-plate.sec[size=S] .sub{' + type('caption') + ';line-height:17px}',
       '.side{display:flex;flex-direction:column;flex:0 0 150px;min-width:0}',
       '.hd{display:flex;align-items:center;gap:12px;min-width:0;flex:none;min-height:44px}',
       '.hd .tx{display:flex;flex-direction:column;min-width:0}',
@@ -1390,13 +1397,15 @@
         var S = window.hkStrategy, inv = null;
         try { inv = S && S.inventory ? S.inventory(client, hidesOf()) : null; } catch (e) { inv = null; }
         if (!inv || !(inv.locks.length + inv.doors.length + inv.windows.length + inv.garage.length)) return null;
-        // S, W and T (2026-10-31, the widget mock-up): how many are open, large;
-        // Wide the count beside the list, Tall the list -- the doors, the
-        // garage and the windows, the open ones first (the locks are Security's)
-        if (size === 'S' || size === 'W' || size === 'T') {
-          return inv.doors.length + inv.windows.length + inv.garage.length
-            ? [{ own: 'doors', doors: inv.doors, windows: inv.windows, garage: inv.garage }] : null;
+        // EVERY SIZE (2026-10-31, the widget mock-up): how many are open, large;
+        // Wide the count beside the list, Tall and Large the list under it,
+        // Extra Large beside it -- the doors, the garage and the windows, the
+        // open ones first (the locks are Security's). The house picture with
+        // Recent Activity stays the Doors & Locks page's.
+        if (inv.doors.length + inv.windows.length + inv.garage.length) {
+          return [{ own: 'doors', doors: inv.doors, windows: inv.windows, garage: inv.garage }];
         }
+        // (a house of locks alone: their overview, as before)
         var alarm = setting('security.alarm', null) || firstOfDomain(client, 'alarm_control_panel');
         return [{ cfg: { type: 'custom:hk-security-overview-card', alarm: alarm, locks: inv.locks, doors: inv.doors, windows: inv.windows,
           garage: inv.garage, leaks: inv.leaks || [], height: '100%' } }];
@@ -1472,6 +1481,9 @@
       '.wr{display:flex;flex-direction:column;min-width:0;min-height:0}' +
       '.wr>div{display:flex;align-items:center;gap:10px;height:36px;flex:none;border-bottom:1px solid ' + v('line') + ';cursor:pointer;-webkit-tap-highlight-color:transparent}' +
       '.wr>div:last-child{border-bottom:0}' +
+      // (Large and up: 44 px rows, a tap target each, the name over since when)
+      '.wr.tall>div{height:44px}.wr .wt{display:flex;flex-direction:column;flex:1;min-width:0}.wr .wt b{flex:none}' +
+      '.wr .wt small{' + type('caption') + ';line-height:15px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
       '.wr b{' + type('body') + ';font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
       '.wr em{font-style:normal;' + type('caption') + ';color:' + v('ink-2') + ';white-space:nowrap}' +
       '.wr>div.more{cursor:default}.wr>div.more b{font-weight:500;color:' + v('ink-2') + '}' +
@@ -1492,8 +1504,8 @@
     }
     // HOW MANY ROWS OF 36 FIT in `room` px -- and when not all do, the last
     // of them says how many more
-    function fitRows(items, room, row) {
-      var n = Math.max(1, Math.floor(room / 36));
+    function fitRows(items, room, row, each) {
+      var n = Math.max(1, Math.floor(room / (each || 36)));
       if (items.length <= n) return items.map(row).join('');
       return items.slice(0, n - 1).map(row).join('') + '<div class="more"><b>' + (items.length - n + 1) + ' more</b></div>';
     }
@@ -1748,7 +1760,26 @@
           return '<div class="wsplit"><div class="wcol" style="flex:0 0 170px">' + lab + big + '<div class="ws">' + esc(line) + '</div></div>' +
             '<div class="wcol wr">' + fitRows(list, box.ih, row) + '</div></div>';
         }
-        return lab + big + '<div class="wr" style="margin-top:6px">' + fitRows(list, box.ih - 19 - 33 - 6, row) + '</div>';
+        if (size === 'T') return lab + big + '<div class="wr" style="margin-top:6px">' + fitRows(list, box.ih - 19 - 33 - 6, row) + '</div>';
+        // LARGE AND EXTRA LARGE (2026-10-31, the owner: not the house picture
+        // with Recent Activity): Reminders' list -- the count, then each door
+        // and window a 44 px row, an open one saying since when (a time, so
+        // it never goes stale between redraws). Extra Large the count in a
+        // column of its own beside the list.
+        var since = function (st) {
+          var t = Date.parse(st.last_changed || ''), L = window.hkLocale;
+          if (!t) return '';
+          var d = new Date(t), today = new Date().toDateString() === d.toDateString(), tag = L ? L.tag() : undefined;
+          return 'Open since ' + (today ? d.toLocaleTimeString(tag, { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString(tag, { weekday: 'short' }));
+        };
+        var tall = function (x) {
+          var g = WAY_GLYPH[x.kind][x.open ? 0 : 1], s = x.open ? since(x.st) : '';
+          return '<div data-more="' + esc(x.id) + '">' + gly(g, 20, x.open ? ACC.orange : null) + '<span class="wt"><b>' + esc(name(x)) + '</b>' +
+            (s ? '<small>' + esc(s) + '</small>' : '') + '</span><em' + (x.open ? ' style="color:' + ACC.orange + '"' : '') + '>' + (x.open ? 'Open' : 'Closed') + '</em></div>';
+        };
+        if (size === 'L') return lab + big + '<div class="wr tall" style="margin-top:6px">' + fitRows(list, box.ih - 19 - 33 - 6, tall, 44) + '</div>';
+        return '<div class="wsplit" style="gap:22px"><div class="wcol" style="flex:0 0 200px">' + lab + '<div class="wb">' + (open.length ? open.length + ' open' : 'All closed') + '</div>' +
+          '<div class="ws">' + esc(line) + '</div></div><div class="wcol wr tall">' + fitRows(list, box.ih, tall, 44) + '</div></div>';
       }
       // WATER: today's large; Small and Tall the last twelve hours as a
       // short chart (Tall the days before under it); Wide the day's hours
