@@ -275,8 +275,11 @@ MEASURE = r"""(() => {
           if (Number.isFinite(top) && Number.isFinite(bottom)) h = Math.max(h, r.height - top - bottom);
           if (Number.isFinite(left) && Number.isFinite(right)) w = Math.max(w, r.width - left - right);
         }
-        if (r.width >= 1 && r.height >= 1 && (w < 43.5 || h < 43.5))
-          rec.issues.push('a control under 44 px: ' + name(el) + ' ' + Math.round(r.width) + 'x' + Math.round(r.height)); }
+        // (in the block's own px: the grid is drawn scaled to the screen -- 0.74 on square cells at 1280 x 800 --
+        // and a control is laid out at 44 before that, 2026-10-31)
+        const gs = view._gridScale || 1;
+        if (r.width >= 1 && r.height >= 1 && (w / gs < 43.5 || h / gs < 43.5))
+          rec.issues.push('a control under 44 px: ' + name(el) + ' ' + Math.round(r.width / gs) + 'x' + Math.round(r.height / gs)); }
     }
     // Dial text belongs inside its open centre, not across the track/knobs.
     const ring = card.shadowRoot && card.shadowRoot.querySelector('[data-ring]');
