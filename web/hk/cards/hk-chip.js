@@ -1315,8 +1315,12 @@
     // size of one cell (hk-tile.js, on a Home Grid). No heading: the block is
     // the scenes. (More scenes are the pager's pages, G4.)
     var cell = cfg.hk_cell && C0().HOME_GRID.sizes[cfg.hk_cell];
-    if (cell) return { auto: auto, config: { hk_cell: cfg.hk_cell, cols: cell[0], rows: cell[1],
-                                             surface: cfg.surface, pills: pills.slice(0, cell[0] * cell[1]) } };
+    // (fewer scenes than cells: the cells they need and no holes -- one row of them, else fewer columns, 2026-10-30)
+    if (cell) {
+      var n = Math.min(pills.length, cell[0] * cell[1]), cols = cell[0], rows = cell[1];
+      if (n < cols * rows) { if (n <= cols) { rows = 1; cols = n; } else cols = Math.ceil(n / rows); }
+      return { auto: auto, config: { hk_cell: cfg.hk_cell, cols: cols, rows: rows, surface: cfg.surface, pills: pills.slice(0, n) } };
+    }
     return { auto: auto, config: { type: 'grid', columns: 1, square: false, cards: [
       { type: 'custom:hk-heading-card', name: cfg.name || 'Scenes' },
       { type: 'custom:hk-grid-card',
@@ -1421,7 +1425,7 @@
         this.appendChild(this._box);
       }
       var box = this._box, client = this.client;
-      box.style.cssText = C0().plate('card') + ';box-sizing:border-box;padding:12px 12px max(12px,calc(var(--hk-pager-safe,0px) + 20px));display:grid;width:100%;height:100%;gap:' + C0().HOME_GRID.gap + 'px;' +
+      box.style.cssText = C0().plate('card') + ';box-sizing:border-box;padding:var(--hk-pad-t,12px) var(--hk-pad-r,12px) calc(var(--hk-pad-b,12px) + var(--hk-pager-safe,0px)) var(--hk-pad-l,12px);display:grid;width:100%;height:100%;gap:' + C0().HOME_GRID.gap + 'px;' +
         'grid-template-columns:repeat(' + plan.cols + ',minmax(0,1fr));grid-template-rows:repeat(' + plan.rows + ',minmax(0,1fr));overflow:hidden;--hk-pill:100%';
       delete box._hkGroupBase; C0().groupSurface(box, plan.surface);
       while (box.firstChild) box.removeChild(box.firstChild);

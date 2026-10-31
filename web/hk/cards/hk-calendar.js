@@ -1365,7 +1365,7 @@
     // and tomorrow unless the block says), one line each, a later day under
     // its own heading; at T the time goes under the title. The lines scroll
     // inside the plate, under the date, and a line opens its event's sheet.
-    ':host([size]) .blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + window.hkCards.CARD.pad + ';',
+    ':host([size]) .blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';',
     '  overflow:hidden;display:flex;flex-direction:column}',
     '.blk .lbl{' + window.hkCards.labelCss('label') + ';line-height:16px}',
     '.blk .date{' + window.hkCards.typeCss('title') + ';line-height:27px;margin:2px 0 ' + GV.under + 'px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',

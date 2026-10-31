@@ -1813,7 +1813,15 @@
         'grid-template-columns:repeat(var(--g-cols), ' + C.TILE.w + 'px);overflow:hidden}' +
         '.band{grid-column:1 / -1;grid-row:1;min-width:0;min-height:0;overflow:hidden}' +
         '.cell{position:relative;min-width:0;min-height:0;overflow:visible;' +
-        'container-type:size;container-name:hk-cell}' +
+        'container-type:size;container-name:hk-cell;' +
+        // THE BLOCK'S INSET (hkCards.blockPad): 14 px on tiles, 18 on square cells (a 34 px corner's curve comes 10 px
+        // in), and a Square screen's outer corner on top (cellInset's --hk-in-*)
+        '--hk-block-pad:14px;--hk-pad-t:calc(var(--hk-block-pad) + var(--hk-in-t,0px));--hk-pad-r:calc(var(--hk-block-pad) + var(--hk-in-r,0px));' +
+        '--hk-pad-b:calc(var(--hk-block-pad) + var(--hk-in-b,0px));--hk-pad-l:calc(var(--hk-block-pad) + var(--hk-in-l,0px))}' +
+        ':host([cell=square]) .cell{--hk-block-pad:18px}' +
+        // ...and on square cells what sits inside a block's plate on its inset is concentric with it (34 - 18); tiles keep
+        // their pills' own corners (at 23.5 - 14 they would be near square)
+        ':host([cell=square]) .cell{--hk-inner-radius:max(12px, calc(var(--hk-block-radius, 34px) - var(--hk-block-pad)))}' +
         '.cell>*,.band>*{display:block;box-sizing:border-box;width:100%;max-height:100%;margin:0!important}' +
         '.cell>*{height:100%}' +
         // HIDE BOX (2026-10-24): the block's boxes (card and panel plates, hkCards.plate) clear, no edge, no shadow and

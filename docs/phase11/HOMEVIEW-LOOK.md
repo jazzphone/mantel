@@ -1236,3 +1236,32 @@ Security screen.
   frame, and checks the time's place and each decision at each size; `saver_shows_check` uploads a photo to a
   Mantel album, starts the screensaver as a house does, and checks the weather is there, under the time and
   centred, on a tablet and a phone, and screenshots the Settings preview.
+
+**The blocks audited at their five sizes (2026-10-30, the owner: "a full Audit and fix around all the buttons in
+their 5 sizes ... Alignment, proper use of space and proper understanding of edge padding").** Every catalog block
+at each size it allows, on tiles and on square cells, at an iPad's and a phone's size, measured and looked at
+(nine different edge insets, 6 to 23 px, were the main finding). Fixed:
+
+- **One inset for every block** (`hkCards.blockPad`): the grid's cell sets `--hk-pad-*` -- 14 px on tiles, 18 on
+  square cells (a 34 px corner's curve comes 10 px in) -- and a Square screen's outer-corner inset on top, which
+  only the tiles read before (the Security and Vacuum wells were cut by the 72 px corner). Read by the full and
+  panel blocks, Room and Accessories (W's heading was 6 px from the top), Scenes, Timers, People, the suggested
+  scene, Calendar, Clock, Weather (its L and XL too), Now Playing, the thermostat and the vacuum. The tiles and the
+  S keys keep the tile's measured padding (DESIGN.md Rule 5), with the corner inset added.
+- **Concentric pills** on square cells: a group's pills take the block's radius less its inset (16 px), not 23.5
+  inside 34.
+- **The Thermostat XL dial** ran out of its column: a block's parts are size containers of their own now, so a card
+  inside one sizes itself to its part. Its readings grow with their plate.
+- **Clock Tall**: its time and AM / PM ran past the plate; Tall has its own sizes.
+- **Scenes**: 20 px at the foot against 12 elsewhere with no pager to clear; fewer scenes than cells now fill the
+  block (one row of them, else fewer columns), and **Room XL** with a row's worth of things draws one row of taller
+  pills, not a second row of nothing.
+- **Vacuum L / XL** without Clean Areas: the card sat at its own 150 px at the top of an empty block; it fills it.
+- **Now Playing Tall**: Speakers and Browse sat 4 px from the corners, in the curve; 12 px in. Its blurred art kept
+  the tile's corner under a square cell's.
+- **Weather XL**: both columns from the top (the place and the hours level; centred, they weren't).
+- **Timers** on a square cell: the ring and the name at the tiles' scale.
+
+Left for the owner's eye (the audit's notes, docs/phase11/BLOCKS-AUDIT.md): one type scale for the blocks' names on
+square cells, the scene pills' layout in tall slots, the empty middles of Now Playing Tall and Weather Tall on
+square cells, Doors XL's callouts over its activity row, the Power and Water blocks' plates.

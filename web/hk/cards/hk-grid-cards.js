@@ -396,7 +396,7 @@
     // ===================================================== hk-grid-room-card
     var ROOM_CSS = [
       ':host{display:block;height:100%;position:relative}',
-      '.room{box-sizing:border-box;height:100%;display:flex;flex-direction:column;overflow:hidden;padding:14px;gap:10px;' + C.plate('card') + ';',
+      '.room{box-sizing:border-box;height:100%;display:flex;flex-direction:column;overflow:hidden;padding:' + C.blockPad('14px') + ';gap:10px;' + C.plate('card') + ';',
       '  --hk-pill:100%}',
       // THE NAME: a room heading's (19.7 / 700, measured off the Home app),
       // with the way into its page when it has one
@@ -410,7 +410,8 @@
       '.nm i{font-style:normal;opacity:0.62;flex:none}',
       '.nm:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:4px;border-radius:' + C.R.small + 'px}',
       // THE PILLS: HK's own, a cell wide, in whole rows
-      '.room[size=W]{padding:8px 12px;gap:6px}.room[size=W] .hd{height:22px}.room[size=W] .tiles{padding-bottom:0}',
+      // (W: its heading on the block's inset like every block's words -- at 8 px it sat 6 px from the plate's top)
+      '.room[size=W]{gap:6px}.room[size=W] .hd{height:22px}.room[size=W] .tiles{padding-bottom:0}',
       ':host([data-grid-pager]) .room[size=W]{padding-bottom:28px}',
       '.tiles{display:grid;grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));',
       '  grid-template-rows:repeat(var(--rows,2),minmax(0,1fr));gap:' + GAP + 'px;flex:1;min-height:0;padding-bottom:var(--hk-pager-safe,0px)}',
@@ -511,8 +512,11 @@
         var e = this._e;
         e.box.setAttribute('size', p.size);
         C.groupSurface(e.box, this._config.surface);
+        // (as many pills as it has fill the block: fewer than a row's worth, one row of taller ones -- not a second
+        // row of nothing, 2026-10-30)
+        var nPills = (p.tiles || []).length + (p.more ? 1 : 0), oneRow = p.size !== 'W' && !p.scroll && nPills > 0 && nPills <= COLS[p.size];
         e.tiles.style.setProperty('--cols', String(COLS[p.size]));
-        e.tiles.style.setProperty('--rows', p.size === 'W' ? '1' : '2');
+        e.tiles.style.setProperty('--rows', p.size === 'W' || oneRow ? '1' : '2');
         e.tiles.style.setProperty('--scroll-gaps', p.size === 'W' ? '0px' : GAP + 'px');
         e.tiles.classList.toggle('scrolling', !!p.scroll);
         if (e.name.textContent !== (p.name || 'Room')) e.name.textContent = p.name || 'Room';
@@ -763,7 +767,9 @@
     var KEY_CSS = [
       ':host{display:block;height:100%}',
       'hk-plate.k{box-sizing:border-box;height:100%;display:flex;flex-direction:column;justify-content:space-between;',
-      '  padding:12.8px 12.8px 12.8px ' + TILE.padL + 'px;cursor:pointer;overflow:hidden;' + C.plate('tile') + ';',
+      // (a tile's padding -- and a Square screen's corner inset, as hk-tile.js has it: the shield's well was cut by
+      // the 72 px corner, 2026-10-30)
+      '  padding:calc(12.8px + var(--hk-in-t,0px)) calc(12.8px + var(--hk-in-r,0px)) calc(12.8px + var(--hk-in-b,0px)) calc(' + TILE.padL + 'px + var(--hk-in-l,0px));cursor:pointer;overflow:hidden;' + C.plate('tile') + ';',
       '  -webkit-tap-highlight-color:transparent;--ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0;',
       '  transition:transform ' + C.DUR.press + ' ease,filter ' + C.DUR.press + ' ease}',
       'hk-plate.k:active{transform:scale(0.97);filter:brightness(0.93)}',
@@ -834,7 +840,7 @@
     // Security uses the shared alarm sheet: no arm/disarm command can bypass its PIN.
     class HkGridSecurityCard extends HkGridKey {
       static get CSS() { return KEY_CSS + ':host([size=W]) .k{position:relative;padding-right:236px}' +
-        '.security-extra{position:absolute;right:14px;top:14px;bottom:14px;width:210px;display:flex;flex-direction:column;justify-content:space-between;gap:6px}' +
+        '.security-extra{position:absolute;right:calc(12.8px + var(--hk-in-r,0px));top:calc(12.8px + var(--hk-in-t,0px));bottom:calc(12.8px + var(--hk-in-b,0px));width:210px;display:flex;flex-direction:column;justify-content:space-between;gap:6px}' +
         '.security-extra p{margin:0;' + type('caption') + ';color:' + v('ink-2') + ';line-height:18px}' +
         '.security-extra button{border:0;min-height:44px;min-width:44px;border-radius:22px;background:' + v('key') + ';color:' + v('ink') + ';' + type('caption') + ';cursor:pointer}' +
         '.security-actions{display:flex;gap:6px}.security-actions button{flex:1}'; }
@@ -885,7 +891,7 @@
     // Extra Large Vacuum block its controls with Clean Areas -- the Security
     // and Vacuum pages' own cards, each in a block-sized plate.
     var FULL_CSS = ':host{display:block;height:100%}' +
-      'hk-plate.full{box-sizing:border-box;height:100%;display:flex;flex-direction:column;gap:10px;padding:14px;overflow:hidden;' + C.plate('card') + '}' +
+      'hk-plate.full{box-sizing:border-box;height:100%;display:flex;flex-direction:column;gap:10px;padding:' + C.blockPad('14px') + ';overflow:hidden;' + C.plate('card') + '}' +
       '.ttl{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:24px;flex:none;padding:0 4px}' +
       '.ttl b{' + type('headline') + ';color:' + v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
       '.body{flex:1;min-height:0;position:relative}.body > *{display:block;height:100%}' +
@@ -950,7 +956,9 @@
         if (this._built && this._key === key) return;
         this._key = key; this._kids = [];
         if (!picker) {
-          this._root.innerHTML = '<div class="body"></div>';
+          // (the whole block's height: .body's flex:1 needs a flex parent, and here it has none -- the card sat at
+          // its own 150 px at the top of an empty block, 2026-10-30)
+          this._root.innerHTML = '<div class="body" style="height:100%"></div>';
           this._mount(this._root.querySelector('.body'), { type: 'custom:hk-vacuum-card', entity: this._config.entity }, 'L');
         } else {
           // the vacuum's own plate, then Clean Areas in a plate of its own
@@ -1051,18 +1059,22 @@
     // worth; an XL water block's day and supply, half each)
     var PANEL_CSS = '.parts{display:flex;flex-direction:column;gap:10px;height:100%}' +
       '.parts.row{flex-direction:row}.parts.row .part{flex:1 1 0;min-width:0}.parts.row .part.wide{flex:2 1 0}' +
-      '.part{flex:1;min-height:0;position:relative}.part > *{display:block;height:100%;--hk-sec-min:0px}' +
+      // (each part a size container of its own: a card inside sizes itself to its part, not the whole block -- the
+      // Thermostat XL's dial was sized to the block and ran out of its column, 2026-10-30)
+      '.part{flex:1;min-height:0;position:relative;container-type:size}.part > *{display:block;height:100%;--hk-sec-min:0px}' +
       // FIT: the card at its own height, scaled down to the part (_fit)
       '.part.fit{overflow:hidden}.part.fit > *{height:auto;transform-origin:50% 0}' +
-      '.rd{' + C.plate('card') + ';box-sizing:border-box;height:100%;padding:' + C.CARD.pad + ';display:flex;flex-direction:column;gap:12px;justify-content:space-between}' +
+      '.rd{' + C.plate('card') + ';box-sizing:border-box;height:100%;padding:' + C.blockPad(C.CARD.pad) + ';display:flex;flex-direction:column;gap:12px;justify-content:space-between}' +
       '.rd .now{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}' +
       '.rd .now div{display:flex;flex-direction:column;gap:2px;min-width:0}' +
       '.rd .k{' + type('caption') + ';color:' + v('ink-2') + '}' +
       '.rd .v{' + type('title') + ';font-variant-numeric:tabular-nums}' +
+      // (the readings grow with their plate -- the Thermostat XL's left a band of nothing under them, 2026-10-30)
+      '.rd .v{font-size:clamp(22px, 12cqh, 40px);line-height:1.1}' +
       '.rd .row{display:flex;flex-direction:column;gap:6px}' +
       C.segCss('.rd .seg', { on: '[aria-pressed="true"]', fill: true }) +
       '.rd .seg button{flex:1 1 0}' +
-      '.part.plated{' + C.plate('card') + ';box-sizing:border-box;padding:14px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}' +
+      '.part.plated{' + C.plate('card') + ';box-sizing:border-box;padding:' + C.blockPad('14px') + ';overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}' +
       '.part.plated::-webkit-scrollbar{display:none}.part.plated > *{height:auto;min-height:100%}' +
       '.empty{' + type('body') + ';color:' + v('ink-2') + ';padding:0 4px}';
     class HkGridPanelCard extends HkGridFull {
@@ -1445,7 +1457,7 @@
     var SCENE_CSS = [
       ':host{display:block;height:100%}',
       'hk-plate.sg{box-sizing:border-box;height:100%;position:relative;display:flex;align-items:center;gap:16px;',
-      '  padding:' + C.CARD.pad + ';cursor:pointer;overflow:hidden;' + C.plate('card') + ';',
+      '  padding:' + C.blockPad(C.CARD.pad) + ';cursor:pointer;overflow:hidden;' + C.plate('card') + ';',
       '  -webkit-tap-highlight-color:transparent;--ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0;',
       '  transition:transform ' + C.DUR.press + ' ease,filter ' + C.DUR.press + ' ease}',
       'hk-plate.sg:active{transform:scale(0.98);filter:brightness(0.93)}',

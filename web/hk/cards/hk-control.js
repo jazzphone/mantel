@@ -345,7 +345,7 @@ class HkControlCard extends HTMLElement {
       /* The grid dial shares the card's insets. Its face stays inside the
          open centre, and the modes anchor to the foot rather than floating. */
       :host([size]){height:100%;--hk-tstat-val:clamp(22px,calc(var(--hk-tstat-ring) * .15),36px)}
-      :host([size]) .surface.tstat{height:100%;padding:${window.hkCards.CARD.pad};padding-bottom:calc(20px + var(--hk-pager-safe,0px));gap:0;align-items:stretch}
+      :host([size]) .surface.tstat{height:100%;padding:${window.hkCards.blockPad(window.hkCards.CARD.pad)};padding-bottom:calc(var(--hk-pad-b, 20px) + var(--hk-pager-safe,0px));gap:0;align-items:stretch}
       :host([size]) .tstat-name{${window.hkCards.typeCss('headline')};text-align:left;line-height:21px}
       :host([size]) .tstat-sub{${window.hkCards.typeCss('caption')};line-height:18px;margin-top:4px;white-space:normal;text-align:left}
       :host([size]) .tstat-wrap{align-self:center;flex:none;margin:auto 0}

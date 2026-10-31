@@ -4492,6 +4492,17 @@
   window.hkCards.TYPE = TYPE;
   window.hkCards.plate = plate;
   window.hkCards.centredTile = centredTile;
+  // THE BLOCK'S INSET (2026-10-30, the owner: "proper understanding of edge padding"): one padding for every Home
+  // Grid block's plate -- the grid's cell sets --hk-pad-t / -r / -b / -l (hk-layout.js: 14 px on tiles, 18 on
+  // square cells, a Square screen's corner inset added), and where no grid does (a card on a page) the plate keeps
+  // `pad`, its own (CSS, one to four values). Tiles keep TILE.pad (DESIGN.md Rule 5): this is for the blocks.
+  window.hkCards.blockPad = function (pad) {
+    var p = String(pad || '14px').trim().split(/\s+/);
+    if (p.length === 1) p = [p[0], p[0], p[0], p[0]];
+    else if (p.length === 2) p = [p[0], p[1], p[0], p[1]];
+    else if (p.length === 3) p = [p[0], p[1], p[2], p[1]];
+    return 'var(--hk-pad-t,' + p[0] + ') var(--hk-pad-r,' + p[1] + ') var(--hk-pad-b,' + p[2] + ') var(--hk-pad-l,' + p[3] + ')';
+  };
   window.hkCards.titleRow = titleRow;
   window.hkCards.labelCss = labelCss;
   window.hkCards.figureCss = figureCss;

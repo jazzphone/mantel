@@ -772,7 +772,7 @@
         //   T  the cover on top, the song, the progress, the transport
         //   L  the cover beside the song and its speaker, then the progress,
         //      the transport and the volume across, as Apple Music has them
-        ':host([size]) hk-plate.np{--hk-np-height:100%;--hk-np-pad:' + window.hkCards.CARD.pad + ';border-radius:var(--hk-block-radius, ' + window.hkCards.M.radius + ');',
+        ':host([size]) hk-plate.np{--hk-np-height:100%;--hk-np-pad:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';border-radius:var(--hk-block-radius, ' + window.hkCards.M.radius + ');',
         // the shadow its neighbours have (the look's), not the page player's
         // 0 22px 60px, which spilt 80 px over the blocks round it
         '  box-shadow:inset 0 1px 0 rgba(255,255,255,.2),var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-lg') + ')}',
@@ -785,7 +785,7 @@
         ':host([size]) .np .bg img{opacity:.92}',
         // the blur kept inside the plate's corners: oversized and blurred, it
         // otherwise tinted a box round the block as far as the cell let it
-        ':host([size]) .np .bg,:host([size]) .np .shade{overflow:hidden;border-radius:' + window.hkCards.M.radius + '}',
+        ':host([size]) .np .bg,:host([size]) .np .shade{overflow:hidden;border-radius:var(--hk-block-radius, ' + window.hkCards.M.radius + ')}',
         ':host([size]) .np .shade{background:linear-gradient(100deg,rgba(8,9,12,.58) 0%,rgba(8,9,12,.38) 55%,rgba(8,9,12,.28) 100%)}',
         ':host([size]) .np .title{' + window.hkCards.typeCss('headline') + ';letter-spacing:0;line-height:22px;align-self:end}',
         ':host([size]) .np .artist{' + window.hkCards.typeCss('body') + ';line-height:19px;letter-spacing:0}',
@@ -811,13 +811,14 @@
         '  --hk-np-rows:minmax(0,1fr) min-content min-content 52px}',
         ':host([size=W]) .np .grid{column-gap:0}',
         ':host([size=W]) .np .tb{width:46px}',
-        // T: in the card's top corners, beside the cover (narrowed to clear them)
-        ':host([size=T]) .np .spk,:host([size=T]) .np .brw{grid-area:auto;position:absolute;top:4px;width:32px;height:32px;z-index:3}',
-        ':host([size=T]) .np .spk{left:4px}:host([size=T]) .np .brw{right:4px}',
+        // T: in the card's top corners, beside the cover (narrowed to clear them) -- clear of the corner's curve, 12 px
+        // in (at 4 they sat in the arc, 2026-10-30)
+        ':host([size=T]) .np .spk,:host([size=T]) .np .brw{grid-area:auto;position:absolute;top:12px;width:32px;height:32px;z-index:3}',
+        ':host([size=T]) .np .spk{left:12px}:host([size=T]) .np .brw{right:12px}',
         ':host([size=T]) .np .spk::before,:host([size=T]) .np .brw::before{content:"";position:absolute;inset:-6px}',
         ':host([size=T]) .np .spk hk-icon{width:21px;height:21px;--mdc-icon-size:21px}',
         ':host([size=T]) .np .brw svg{width:20px;height:20px}',
-        ':host([size=T]) hk-plate.np{--np-art:min(100cqw - 76px, 100cqh - 190px);',
+        ':host([size=T]) hk-plate.np{--np-art:min(100cqw - 92px, 100cqh - 190px);',
         '  --hk-np-cols:repeat(3,minmax(0,1fr));',
         '  --hk-np-areas:"art art art" "title title title" "artist artist artist" ". . ." "sub sub sub" "prev play next";',
         '  --hk-np-rows:var(--np-art) min-content min-content minmax(0,1fr) min-content 52px}',

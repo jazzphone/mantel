@@ -123,8 +123,9 @@
         // glyph beside the status and its chips, the commands along the foot
         // as 44 px capsules. W: all four, on a page card's padding; S: Start
         // and Dock, on a tile's (the block is a tile's size)
-        ':host([size]) hk-plate.vac{height:100%;min-height:0;padding:' + C.CARD.pad + ';border-radius:var(--hk-block-radius, ' + C.M.radius + ')}',
-        ':host([size=S]) hk-plate.vac{padding:12.8px 12.8px 12.8px ' + C.TILE.padL + 'px}',
+        ':host([size]) hk-plate.vac{height:100%;min-height:0;padding:' + C.blockPad(C.CARD.pad) + ';border-radius:var(--hk-block-radius, ' + C.M.radius + ')}',
+        // (Small: a tile's padding, as the tiles beside it -- and a Square screen's corner inset)
+        ':host([size=S]) hk-plate.vac{padding:calc(12.8px + var(--hk-in-t,0px)) calc(12.8px + var(--hk-in-r,0px)) calc(12.8px + var(--hk-in-b,0px)) calc(' + C.TILE.padL + 'px + var(--hk-in-l,0px))}',
         ':host([size]) .vac .grid{height:100%;min-height:0;row-gap:8px;column-gap:10px;',
         '  grid-template-areas:"ico label label label" "ico meta meta meta" "start pause locate home";',
         '  grid-template-columns:44px repeat(3,minmax(0,1fr));grid-template-rows:22px 22px minmax(44px,1fr)}',
@@ -144,7 +145,7 @@
         // commands as round keys at the top right: Start and Dock on Small,
         // all four on Wide. (A tile's cell is 70 px: never this.)
         '@container hk-cell (min-height:180px){',
-        '  :host([size=S]) hk-plate.vac,:host([size=W]) hk-plate.vac{padding:12.8px 12.8px 12.8px ' + C.TILE.padL + 'px}',
+        '  :host([size=S]) hk-plate.vac,:host([size=W]) hk-plate.vac{padding:calc(12.8px + var(--hk-in-t,0px)) calc(12.8px + var(--hk-in-r,0px)) calc(12.8px + var(--hk-in-b,0px)) calc(' + C.TILE.padL + 'px + var(--hk-in-l,0px))}',
         '  :host([size=S]) .vac .grid,:host([size=W]) .vac .grid{row-gap:' + C.TILE.tallRowGap + 'px;column-gap:8px;',
         '    grid-template-rows:44px minmax(0,1fr) ' + C.TILE.lineH + 'px ' + C.TILE.lineH + 'px}',
         '  :host([size=S]) .vac .grid{grid-template-areas:"ico . start home" ". . . ." "label label label label" "meta meta meta meta";',
@@ -2010,10 +2011,12 @@
         // pause / resume and cancel; none running, Create a Timer (and, at W,
         // the Timers page's quick starts)
         ':host([size]) hk-plate.strip{display:flex;flex-direction:column;justify-content:center;gap:8px;box-sizing:border-box;',
-        '  height:100%;padding:12px;' + window.hkCards.plate('card') + ';overflow:hidden}',
+        '  height:100%;padding:' + window.hkCards.blockPad('12px') + ';' + window.hkCards.plate('card') + ';overflow:hidden}',
         '.timer-grid{display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));gap:12px}.grid-timer{display:grid;gap:6px;min-width:0}',
         '.timer-heading{display:flex;align-items:center;gap:10px;min-width:0}.timer-heading>b{font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + window.hkCards.v('ink') + '}',
         '.timer-ring{width:56px;height:56px;flex:none;border-radius:50%;display:grid;place-items:center;position:relative}',
+        // (on a square cell, 196 tall: the ring and the name at the size of the tiles beside it, 2026-10-30)
+        '@container hk-cell (min-height:180px){:host([size]) .timer-ring{width:72px;height:72px}:host([size]) .timer-heading>b{font-size:17px}}',
         '.timer-ring svg{position:absolute;inset:0;width:56px;height:56px;transform:rotate(-90deg)}.timer-ring circle{fill:none;stroke-width:4px;stroke:' + window.hkCards.v('key') + '}.timer-ring .ring-left{stroke:' + window.hkCards.v('warn') + ';stroke-dasharray:calc(var(--hk-left,1)*100) 100}',
         '.timer-ring hk-countdown{position:relative;font-size:13px;font-weight:600;color:' + window.hkCards.v('ink') + ';font-variant-numeric:tabular-nums}',
         '.timer-controls{display:flex;gap:8px}.timer-controls button,.quick-grid button{border:0;border-radius:22px;background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + ';min-width:44px;min-height:44px;flex:1;cursor:pointer;font:inherit;' + window.hkCards.typeCss('caption') + '}',
@@ -2214,7 +2217,7 @@
     static get CSS() {
       return [
         'hk-plate.pp{display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;height:100%;',
-        '  padding:' + C.CARD.pad + ';margin:0;' + C.plate('card') + ';overflow:hidden}',
+        '  padding:' + C.blockPad(C.CARD.pad) + ';margin:0;' + C.plate('card') + ';overflow:hidden}',
         '.pp .row{display:grid;grid-template-columns:repeat(var(--n,4),minmax(' + PP.w + 'px,1fr));gap:0 ' + PP.gap + 'px;',
         '  justify-content:start}',
         '.pr{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;min-height:44px;margin:0;padding:0;',

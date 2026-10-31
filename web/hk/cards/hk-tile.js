@@ -518,6 +518,9 @@
     ':host([size]) .card.scene.tall .name{align-self:end;line-height:19px;font-size:17px}',
     // ...its corners on square cells (hk-home-grid-view's --hk-block-radius); a group's pills keep theirs
     ':host([size]:not([data-group-fill])) hk-plate.card{border-radius:var(--hk-block-radius, ' + window.hkCards.M.radius + ')}',
+    // ...and a group's pills concentric with their block (2026-10-30): its radius less its inset (hk-layout.js
+    // --hk-inner-radius), not the block's own -- 23.5 inside 34 swelled at the corners
+    ':host([data-group-fill]) hk-plate.card{border-radius:var(--hk-inner-radius, ' + window.hkCards.M.radius + ')}',
     // Two room rows on a short tablet still use the tall tile hierarchy,
     // retaining the standard 42 px well and each accessory’s configured glyph.
     '@container hk-cell (max-height:120px){',

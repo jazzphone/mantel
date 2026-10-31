@@ -1895,7 +1895,7 @@
           // place, the outlook under them; at XL the band's own temperature
           // size (76, not a role: DESIGN.md) and the next hours along the
           // foot, as many as its width holds (_renderBlock)
-          'hk-plate.wb{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;margin:0;padding:' + window.hkCards.CARD.pad + ';',
+          'hk-plate.wb{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;margin:0;padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';',
           '  display:flex;flex-direction:column;justify-content:center;gap:12px;overflow:hidden;color:' + C.v('ink') + '}',
           '.wb .top{display:flex;justify-content:space-between;align-items:center;gap:12px;min-width:0;flex:none}',
           '.wb .place-now{min-width:0}.wb .place-name{display:block;' + C.typeCss('headline') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -1908,16 +1908,17 @@
           '.wb .hr{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}',
           '.wb .hr small{' + C.typeCss('caption') + ';line-height:16px;color:' + C.v('ink-2') + ';white-space:nowrap}',
           '.wb .hr b{' + C.typeCss('body') + ';line-height:18px;font-variant-numeric:tabular-nums}',
-          '.wb.XL{padding:14px 22px;display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr);grid-template-rows:auto minmax(0,1fr) auto;gap:8px 18px}',
-          '.wb.XL .top{grid-column:1;grid-row:1/3;flex-direction:column;align-items:flex-start;justify-content:center;gap:8px}.wb.XL .tx{align-items:flex-start;text-align:left}',
-          '.wb.XL .readings{grid-column:1;grid-row:3}.wb.XL .hrs{grid-column:2;grid-row:1;border-top:0;padding-top:0}.wb.XL .hr{gap:2px}.wb.XL .days{grid-column:2;grid-row:2/4;align-content:center;gap:4px}',
+          '.wb.XL{padding:' + window.hkCards.blockPad('14px 22px') + ';display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr);grid-template-rows:auto minmax(0,1fr) auto;gap:8px 18px}',
+          '.wb.XL .top{grid-column:1;grid-row:1/3;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:8px}.wb.XL .tx{align-items:flex-start;text-align:left}',
+          '.wb.XL .readings{grid-column:1;grid-row:3}.wb.XL .hrs{grid-column:2;grid-row:1;border-top:0;padding-top:0}.wb.XL .hr{gap:2px}.wb.XL .days{grid-column:2;grid-row:2/4;align-content:start;gap:4px}',
+          // (XL: both columns from the top -- the place and the hours on one line, 2026-10-30; centred, they didn't)
           '.wb .days{display:grid;gap:2px;border-top:1px solid ' + RULE + ';padding-top:6px;flex:none}',
           '.wb .day{display:grid;grid-template-columns:52px 18px 32px minmax(0,1fr) 32px;align-items:center;gap:10px;height:20px;' + C.typeCss('caption') + ';font-variant-numeric:tabular-nums}',
           '.wb .day b{font-weight:600}.wb .low{color:' + C.v('ink-2') + ';text-align:right}.wb .day>span:last-child{text-align:right}',
           '.wb .range{display:block;height:5px;border-radius:' + C.R.capsule('5px') + ';background:' + C.v('key') + ';position:relative;overflow:hidden}',
           '.wb .range i{position:absolute;height:100%;border-radius:' + C.R.capsule('5px') + ';background:linear-gradient(90deg,#64d2ff,#ffd60a,#ff9f0a)}'
           ,'.wb .readings{display:flex;flex-wrap:wrap;gap:4px 12px;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + ';flex:none}',
-          '.wb.L{padding:14px 22px;gap:8px}.wb.L .hrs{padding-top:6px}.wb.L .hr{gap:2px}',
+          '.wb.L{padding:' + window.hkCards.blockPad('14px 22px') + ';gap:8px}.wb.L .hrs{padding-top:6px}.wb.L .hr{gap:2px}',
           // BIG TEMPERATURE: the number sized to the block (its height first, its width for a wide one)
           '.wb.big{gap:2px;justify-content:center;align-items:flex-start}',
           '.wb.big .place-name{max-width:100%}',
@@ -2795,7 +2796,7 @@
                // than a screensaver's fixed 150px; the date uses a type role.
                ':host([size]){overflow:hidden}' +
                ':host([size]) hk-plate.clock{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;' +
-               'padding:' + window.hkCards.CARD.pad + ';display:flex;flex-direction:column;justify-content:center;overflow:hidden}' +
+               'padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';display:flex;flex-direction:column;justify-content:center;overflow:hidden}' +
                ':host([size]) [data-hk-clock=clock]{min-width:0!important;width:100%}' +
                ':host([size]) [data-hk-clock=date]{font-weight:500!important;letter-spacing:0!important}' +
                // BARE (the Clock block's Hide Box): the time on the wallpaper,
@@ -2808,6 +2809,8 @@
         if (sz === 'XL' || sz === 'XXL') return ['clamp(72px, min(18cqw, 40cqh), 150px)', '26px', window.hkCards.TYPE.headline.size + 'px'];
         if (sz === 'L') return ['clamp(56px, min(22cqw, 36cqh), 120px)', '24px', window.hkCards.TYPE.headline.size + 'px'];
         if (sz === 'S') return ['min(40px, 20cqw)', '14px', window.hkCards.TYPE.caption.size + 'px'];
+        // (Tall: one column wide -- its time and AM / PM ran past the plate's edge, 2026-10-30)
+        if (sz === 'T') return ['min(56px, 22cqw)', '14px', window.hkCards.TYPE.caption.size + 'px'];
         return ['min(72px, 48cqh, 26cqw)', '22px', window.hkCards.TYPE.caption.size + 'px'];
       }
       // The clock's time ticks every minute and its date every day (the Time &
