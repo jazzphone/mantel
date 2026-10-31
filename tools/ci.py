@@ -75,6 +75,16 @@ class Result:
     reason: str = ""
 
 
+_XDIST: dict[str, bool] = {}
+
+
+def xdist_args(py: str) -> list[str]:
+    """The main suite's workers: 8 where pytest-xdist is installed in `py` (asked once), none where it isn't."""
+    if py not in _XDIST:
+        _XDIST[py] = subprocess.run([py, "-c", "import xdist"], capture_output=True).returncode == 0
+    return ["-n", os.environ.get("CI_PYTEST_WORKERS") or "8"] if _XDIST[py] else []
+
+
 def private_env() -> dict[str, str]:
     if os.environ.get("HK_PRIVATE") or os.environ.get("HK_PRIVATE_FILE"):
         return {}
@@ -148,7 +158,8 @@ def steps(build: Build | None = None) -> list[Step]:
         Step("build-tools", ["npm", "ci", "--prefix", "tools", "--ignore-scripts", "--no-audit", "--no-fund",
                              "--loglevel=error"], skip=lambda: None if shutil.which("npm") else "no npm (Node.js)",
              timeout=300, first=True),
-        Step("main-suite", [py, "-m", "pytest", "-q", "-p", "no:cacheprovider"], env=private_env()),
+        # (on 8 workers where pytest-xdist is installed: about a minute, not four)
+        Step("main-suite", lambda: [py, "-m", "pytest", "-q", "-p", "no:cacheprovider", *xdist_args(py)], env=private_env()),
         Step("check-links", [py, "tools/check_links.py"], timeout=300),
         Step("check-version", [py, "tools/check_version.py"], timeout=300),
         Step("package-check", [py, "tools/package_check.py", "--release"], timeout=600),

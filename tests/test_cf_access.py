@@ -464,7 +464,8 @@ def _door(peer, headers, port=None, **cfg):
 
 
 @pytest.mark.parametrize("cf", CF_HEADERS)
-@pytest.mark.parametrize("value", ["", "198.51.100.4", token()])
+# (fixed ids: the token is signed afresh at collection, and pytest-xdist's workers must collect the same names)
+@pytest.mark.parametrize("value", ["", "198.51.100.4", token()], ids=["empty", "an-address", "a-token"])
 def test_a_cloudflare_header_can_never_give_the_lan_rules(cf, value, monkeypatch):
     from mantel_server import door_key
     caddy = "172.31.251.2"

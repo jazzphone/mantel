@@ -343,7 +343,10 @@ async def test_heic_without_the_decoder_is_a_clear_refusal(mantel, monkeypatch, 
 @pytest.mark.parametrize("data", [b"GIF89a" + b"\x00" * 50, b"<svg xmlns='http://www.w3.org/2000/svg'><script>1</script></svg>",
                                   b"\xff\xd8\xff" + os.urandom(200), b"%PDF-1.4 fake", b"\x89PNG\r\n\x1a\n" + b"junk",
                                   b"RIFF\x00\x00\x00\x00WEBPjunk", b"MZ" + os.urandom(100),
-                                  dummy_woff2(), b"<?php system($_GET['c']); ?>"])
+                                  dummy_woff2(), b"<?php system($_GET['c']); ?>"],
+                         # (fixed ids: some are random bytes, and pytest-xdist's workers must collect the same names)
+                         ids=["gif", "svg-script", "jpeg-head-random", "pdf", "png-head-junk", "webp-head-junk", "exe-random",
+                              "woff2", "php"])
 async def test_things_that_are_not_pictures_are_refused(mantel, data):
     m = mantel
     await m.sign_in("avery")

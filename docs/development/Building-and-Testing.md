@@ -31,8 +31,8 @@ The checks run on the developer's Mac, not on GitHub (its workflows run only by 
 prints one table:
 
 ```bash
-~/.venvs/mantel/bin/python tools/ci.py quick     # about 4 minutes: the main suite and the release checks
-~/.venvs/mantel/bin/python tools/ci.py full      # about 7: also the HA build, HK Frontend's suites, the headless checks
+~/.venvs/mantel/bin/python tools/ci.py quick     # about a minute: the main suite (8 workers, pytest-xdist) and the release checks
+~/.venvs/mantel/bin/python tools/ci.py full      # about 3: also the HA build, HK Frontend's suites, the headless checks
 CI_JOBS=3 ~/.venvs/mantel/bin/python tools/ci.py full    # fewer at once (6 unless set)
 ~/.venvs/mantel/bin/python tools/ci.py full --only js    # only the steps whose name contains "js"
 ~/.venvs/mantel/bin/python tools/ci.py --list            # every step and its tier
@@ -42,6 +42,8 @@ CI_JOBS=3 ~/.venvs/mantel/bin/python tools/ci.py full    # fewer at once (6 unle
   first; every other step then runs at once with the others, `CI_JOBS` of them (6 unless set), the longest first by
   the last run's times; the CDP checks (`headless-*`) share one fixed DevTools port and run one after another. Edit
   mode and Swipe Between Pages are a step per engine (and per size for Edit mode), so they run side by side too.
+  The main suite runs on 8 workers (`CI_PYTEST_WORKERS`) where `pytest-xdist` is installed (`pip install -e
+  '.[dev]'`); a parametrised test's ids must not depend on random data, or the workers collect different tests.
 - **quick** is the main suite, `check_links`, `check_version`, `package_check --release`, and the private words
   in what is committed and in the commit messages `origin/main` hasn't got.
 - **full** adds the HA build, HK Frontend's Python and JavaScript suites in it, the headless checks one at a time,
