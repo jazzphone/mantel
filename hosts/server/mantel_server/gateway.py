@@ -68,7 +68,7 @@ from aiohttp import web
 from . import alarm_pin, readproxy
 from .authz import ENTITY_ID, Authz, Principal
 from .guards import guard
-from .ha_client import (TALK_ENTITY, TALK_LIVE_TYPE, CommandBlocked, CommandTicket, HaCommandError, HaCommander,
+from .ha_client import (REGISTRY_KEYS, TALK_ENTITY, TALK_LIVE_TYPE, CommandBlocked, CommandTicket, HaCommandError, HaCommander,
                         HTTP_METHODS, UPLOAD_MAX_BYTES, UPLOAD_METHOD, UPLOAD_MIN_BYTES, UPLOAD_TYPES, _API_PATH,
                         talk_target, upload_type)
 
@@ -393,6 +393,18 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
                 return got
             return service_command(inner.get("domain"), inner.get("service"), inner.get("service_data"),
                                    inner.get("target"), inner.get("return_response", False))
+        if t == "config/entity_registry/update":
+            # HK writes two things to an entity's registry entry: its room (area_id) and, with "Also rename in
+            # Home Assistant" (2026-10-31), its display name. Nothing else goes through: above all not
+            # `new_entity_id` (renaming the id breaks every automation that names it), nor disabled_by, hidden_by,
+            # labels or options, which are Home Assistant's own pages to change.
+            extra = set(inner) - REGISTRY_KEYS
+            if extra:
+                raise Refused("invalid_command", f"config/entity_registry/update carries only entity_id, name and "
+                                                 f"area_id, not {sorted(extra)}")
+            name = inner.get("name")
+            if name is not None and (not isinstance(name, str) or len(name) > 255):
+                raise Refused("invalid_command", "name is text of at most 255 characters, or null")
         got = music.classify_ws(inner)
         if got is not None:
             return got

@@ -178,6 +178,20 @@ async def test_as_a_favorite_a_name_a_glyph_and_what_it_controls_with(hass, fron
     assert conn.sent[-1]["result"] == {}, "None or empty: back to automatic"
 
 
+async def test_also_rename_in_home_assistant_is_kept_only_while_on(hass, frontend):
+    """The switch (2026-10-31): on is stored, off or None is not -- the name stays, the syncing stops."""
+    import voluptuous as vol
+    from custom_components.hk_frontend.accessories import ws_accessory_set
+    conn = await _admin(hass)
+    ws_accessory_set(hass, conn, {"id": 1, "type": "hk_frontend/accessory/set", "entity_id": "light.main",
+                                  "name": "Island Lights", "ha_name": True})
+    assert conn.sent[-1]["result"] == {"name": "Island Lights", "ha_name": True}
+    ws_accessory_set(hass, conn, {"id": 2, "type": "hk_frontend/accessory/set", "entity_id": "light.main", "ha_name": False})
+    assert conn.sent[-1]["result"] == {"name": "Island Lights"}
+    with pytest.raises(vol.Invalid):
+        ws_accessory_set._ws_schema({"id": 3, "type": "hk_frontend/accessory/set", "entity_id": "light.main", "ha_name": "yes"})
+
+
 async def test_a_page_in_its_own_order(hass, frontend):
     """The Vacuums page's order (the settings page's drag list) --
     ids once each, only the pages that have one, an empty list back to A to Z."""

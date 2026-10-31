@@ -27,7 +27,7 @@ PATH = re.compile(r"^[a-z0-9_-]+$")
 PAGE_ORDERS = ("vacuums", "security")
 ATTR = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_ .-]{0,59}$")
 FIELDS = ("name", "icon", "show_as", "size", "anim", "status", "home", "room", "color", "when", "label", "attribute",
-          "fav_name", "fav_icon", "fav_with", "fav_room", "on_text", "off_text")
+          "fav_name", "fav_icon", "fav_with", "fav_room", "on_text", "off_text", "ha_name")
 FAV_WITH_MAX = 8
 IDS_MAX = 500
 # each field's own check as HK Frontend's websocket schema had it (accessory/set): (kind, limit or choices)
@@ -36,7 +36,7 @@ _SCHEMA: dict[str, tuple[str, Any]] = {
     "anim": ("in", ANIMS), "status": ("bool", None), "home": ("bool", None), "room": ("bool", None),
     "color": ("in", COLORS), "when": ("text", 60), "label": ("text", 40), "attribute": ("match", ATTR),
     "fav_name": ("text", 60), "fav_icon": ("match", ICON), "fav_with": ("ids", FAV_WITH_MAX),
-    "fav_room": ("text", 40), "on_text": ("text", 30), "off_text": ("text", 30),
+    "fav_room": ("text", 40), "on_text": ("text", 30), "off_text": ("text", 30), "ha_name": ("bool", None),
 }
 
 
@@ -78,6 +78,9 @@ def clean_entity(v: Any) -> dict[str, Any]:
     for k in ("status", "home", "room"):
         if v.get(k) is False:
             out[k] = False
+    # ALSO RENAME IN HOME ASSISTANT (2026-10-31): kept only while on; off is the same as never having been on
+    if v.get("ha_name") is True:
+        out["ha_name"] = True
     fav_name = v.get("fav_name")
     if isinstance(fav_name, str) and fav_name.strip():
         out["fav_name"] = fav_name.strip()[:60]
@@ -194,7 +197,7 @@ def set_one(doc: Any, entity_id: Any, changes: dict[str, Any], screen: Any = Non
         elif k in FIELDS:
             if k == "fav_with" and isinstance(v, list):
                 v = [x for x in v if x != eid]          # never with itself
-            if v is None or (k in ("status", "home", "room") and v is True):
+            if v is None or (k in ("status", "home", "room") and v is True) or (k == "ha_name" and v is not True):
                 cur.pop(k, None)
             else:
                 cur[k] = v

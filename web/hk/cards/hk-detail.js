@@ -1600,6 +1600,32 @@
       });
     }
 
+    // ALSO RENAME IN HOME ASSISTANT (2026-10-31, the owner: "Also rename in Home Assistant"): how this page writes
+    // an entity's display name to Home Assistant's registry, or null where it may not -- the switch is then not
+    // drawn at all. Only people who may change the house, and only while the connection can do it:
+    //  * a host with settings of its own (settingsHost()) answers both questions and does the write itself,
+    //    through its own audited route (canRenameInHome(client), renameInHome(id, name, client));
+    //  * the host that IS Home Assistant (haNav 'own') has no such host: an admin writes the registry
+    //    directly, config/entity_registry/update, which Home Assistant allows admins only.
+    // Home Assistant has one name per entity, so only the home-wide name is ever sent, never a screen's.
+    var HA_RENAME_NOTE = 'On: this name is also Home Assistant’s name for it, so the logbook, voice assistants and ' +
+      'HomeKit Bridge say it too. Its entity ID stays, so automations keep working. A name for only this dashboard stays ' +
+      'here. Off: it stops syncing, and Home Assistant keeps the last name; change it there.';
+    function homeRenamer(h) {
+      var shell = window.hkShell, host = null, own = false;
+      try { host = shell && shell.settingsHost ? shell.settingsHost() : null; } catch (e) { host = null; }
+      if (host) {
+        var can = false;
+        try { can = typeof host.canRenameInHome === 'function' && typeof host.renameInHome === 'function' && !!host.canRenameInHome(h); } catch (e) { can = false; }
+        return can ? function (id, name) { return host.renameInHome(id, name, h); } : null;
+      }
+      try { own = !!shell && shell.haNav() === 'own'; } catch (e) { own = false; }
+      if (!own || !canEdit(h) || !h.actions || typeof h.actions.callWS !== 'function') return null;
+      return function (id, name) {
+        return h.actions.callWS({ type: 'config/entity_registry/update', entity_id: id, name: name });
+      };
+    }
+
     function accessoryPane(h, id, onName, opts) {
       opts = opts || {};
       // A client; the settings page (slice 11) still hands its host input,
@@ -1634,6 +1660,7 @@
       var area = e.area_id || devArea || '';
       var here = !!(cur.names && cur.names[dash]);
       var errBox = null;
+      var homeRename = homeRenamer(h);
 
       function fail(err) {
         if (!errBox) return;
@@ -1655,8 +1682,11 @@
       html += '<div><div class="cap">Name and room</div><div class="grp">' +
         '<div class="row"><span class="k">Name</span><input class="nm" type="text" maxlength="60" aria-label="Name" ' +
         'autocomplete="off" spellcheck="false"></div>' +
+        (homeRename ? '<div class="row"><span class="k">Also rename in Home Assistant</span><input class="tg haname" type="checkbox" role="switch" ' +
+          'aria-label="Also rename in Home Assistant"></div>' : '') +
         (opts.panel ? '' : '<div class="row"><span class="k">Only on this dashboard</span><input class="tg here" type="checkbox" role="switch" aria-label="Only on this dashboard"></div>') +
-        '<div class="row"><span class="k">Room</span><select class="room" aria-label="Room"></select></div></div></div>';
+        '<div class="row"><span class="k">Room</span><select class="room" aria-label="Room"></select></div></div>' +
+        (homeRename ? '<div class="note hanote">' + esc(HA_RENAME_NOTE) + '</div>' : '') + '</div>';
       var showable = d === 'switch' || d === 'light' || d === 'input_boolean';
       if (showable) {
         html += '<div><div class="cap">Show as</div><div class="grp"><div class="seg show"></div></div></div>';
@@ -1784,7 +1814,7 @@
         '<button class="go">Reset</button></div></div>' +
         '<div class="note err" hidden></div>' +
         '<div class="note">Saved as you change it, on every screen. The room is Home Assistant\'s own; ' +
-        'the name and icon are these dashboards\' only.</div>';
+        'the name and icon are these dashboards\' only' + (homeRename ? ', unless Also rename in Home Assistant is on.' : '.') + '</div>';
       el.innerHTML = html;
       errBox = el.querySelector('.err');
 
@@ -1822,11 +1852,41 @@
         var ch = { name: v || null };
         if (hereBox.checked) ch.screen = dash;
         else cur.name = v || null;
-        save(ch).then(function () { if (onName) onName(v || null); });
+        save(ch).then(function () {
+          if (onName) onName(v || null);
+          if (haBox && cur.ha_name && !hereBox.checked) toHome(v);
+        });
       };
       nm.addEventListener('input', function () { clearTimeout(nt); nt = setTimeout(saveName, 700); });
       nm.addEventListener('change', saveName);
       nm.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') nm.blur(); });
+      // ALSO RENAME IN HOME ASSISTANT: while on, the home-wide name is written to Home Assistant's registry as it is
+      // saved (an emptied name clears Home Assistant's own, which then shows its default); a name for this dashboard
+      // alone is never sent. Switched on, the name there is written at once; with no name yet, nothing is, so a name
+      // someone gave it in Home Assistant is not wiped.
+      var haBox = homeRename ? el.querySelector('.haname') : null;
+      var toHome = function (name) {
+        return homeRename(id, name || null).then(function () { return true; }, function (err) {
+          if (errBox) {
+            errBox.textContent = 'Not renamed in Home Assistant: ' + ((err && err.message) || err || 'unknown error');
+            errBox.hidden = false;
+          }
+          return false;
+        });
+      };
+      if (haBox) {
+        haBox.checked = !!cur.ha_name;
+        haBox.addEventListener('change', function () {
+          if (errBox) errBox.hidden = true;
+          if (!haBox.checked) { cur.ha_name = null; save({ ha_name: false }); return; }
+          var v = String(cur.name || '').trim();
+          (v ? toHome(v) : Promise.resolve(true)).then(function (done) {
+            if (!done) { haBox.checked = false; return; }
+            cur.ha_name = true;
+            save({ ha_name: true });
+          });
+        });
+      }
       hereBox.addEventListener('change', function () {
         // moving the name between "the home's" and "this dashboard's"
         // (turning it off must not save the typed per-screen name as the
@@ -2142,10 +2202,11 @@
         sure.hidden = true; resetBtn.hidden = false;
         var all = { name: null, icon: null, show_as: null, size: null, anim: null, status: null, home: null, color: null, when: null, label: null,
                     attribute: null, fav_name: null, fav_icon: null, fav_with: null, fav_room: null,
-                    on_text: null, off_text: null };
+                    on_text: null, off_text: null, ha_name: false };
         save(all).then(function () { return save({ name: null, screen: dash }); }).then(function () {
           cur = {};
           nm.value = ''; hereBox.checked = false; st.checked = true; hm.checked = true;
+          if (haBox) haBox.checked = false;
           if (seg) seg.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', !x.dataset.v); });
           paintSize();
           paintSpin();

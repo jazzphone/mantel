@@ -64,6 +64,9 @@ const NOTES = {
 };
 
 let lastPage = null;
+// whether the server has house commands on (the hub's capabilities): set by the page that owns the socket
+let commandsOn = () => false;
+export function useCommands(fn) { commandsOn = typeof fn === 'function' ? fn : () => false; }
 const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, backups: pBackups, service: pService, about: pAbout, general: pGeneral,
                 connect: pConnect, connections: pConnections, audit: pAudit, setup: pSetup };
 
@@ -81,6 +84,17 @@ export const host = {
   tabletHealth() { return manages() ? api('GET', '/api/performance/tablets').then((r) => (r && r.tablets) || []) : Promise.resolve([]); },
   // a screen's pencil (the panel's titleLine): Mantel's own screen renamed, its address kept (screens.py PUT)
   renameScreen(path, title) { return api('PUT', '/api/screens/' + encodeURIComponent(path), { title }); },
+  // ALSO RENAME IN HOME ASSISTANT (the accessory page's switch, 2026-10-31): a name written to Home Assistant's
+  // registry is a house command, so it is offered only to the people who manage the house, only while the server
+  // has house commands on (Allow Control of the House; off, the gateway refuses it) and Mantel can read Home
+  // Assistant. The write is the gateway's own command, as the person who asked: checked against their role,
+  // audited before it is sent. The client is the page's own, the one it was asked with.
+  canRenameInHome(client) {
+    return !!(manages() && commandsOn() && client && client.actions && typeof client.actions.callWS === 'function');
+  },
+  renameInHome(id, name, client) {
+    return client.actions.callWS({ type: 'config/entity_registry/update', entity_id: id, name: name });
+  },
   // a wall tablet's Home Assistant user is Mantel's (its 'tablet' group), not HK's Tablet User
   get owns() { return { tablet_user: true }; },
   groups() {

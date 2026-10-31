@@ -8999,7 +8999,7 @@
           scope: K.esc((a ? this.areaName(a) + ' · ' : '') + id) + ' · the same on every screen',
           body: function (c) { self.a_one(c, id); } };
       }
-      return { title: 'Accessories', top: true, scope: 'How each accessory shows on every screen: its name, room, icon and where it appears. Home Assistant’s own names are untouched.',
+      return { title: 'Accessories', top: true, scope: 'How each accessory shows on every screen: its name, room, icon and where it appears. Home Assistant’s own names are untouched unless you turn on Also rename in Home Assistant.',
                body: function (c) { self.a_root(c); } };
     }
     // ACCESSORIES, laid out by type and then by room (2026-10-13). A type's
