@@ -1204,3 +1204,10 @@ Security screen.
   tab bar, the Side Pane and the safe areas take their share). It now draws only once it has a size of its own, and
   draws again only when that size changes. `pages_screen_check` asserts the first drawing was at the size it has
   when measured, at every size it tries.
+- **Lists that give way in the Side Pane.** The owner: the calendar, the to-do list and the like "should contract
+  vertically when there isn't enough room". The Calendar, To-do, Timers, Climate, Notifications and Who's Home at
+  Full put their rows in a list that scrolls inside the section; down the pane, such a section gets shorter where
+  the pane is short, to its heading and one row (and what sits under its rows: the timers' keys, the to-do list's
+  Add), and fades out at its foot where rows are cut off. Only past that does a size step down or a section go.
+  `side_pane_check` draws a 400 px pane 900, 640 and 480 px tall with eight events: at 640 every section keeps its
+  Size and the calendar scrolls; at every height the pane never scrolls and no list is under its floor.

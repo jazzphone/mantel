@@ -252,6 +252,40 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
           await page.evaluate(() => { document.querySelectorAll('.solo4').forEach((e) => e.remove()); document.getElementById('solo').style.display = ''; });
         }
       }
+      // A SHORT PANE, LISTS IN IT (2026-10-30, the owner: the calendar, the to-do list and the like "should contract
+      // vertically when there isn't enough room"): the lists give way first -- shorter, their rows scrolling inside,
+      // each at least its heading and a row -- before any size steps down or a section is left out
+      for (const H of [900, 640, 480]) {
+        const cr = await page.evaluate((H) => {
+          const el = document.getElementById('solo'), CAL = window.hkSidePane._.CAL, t0 = Date.now();
+          // (eight events over the coming day, so the calendar has more than a short pane holds)
+          CAL.evs = [...Array(8)].map((_, i) => ({ cal: 'calendar.family', title: 'Event ' + (i + 1), allDay: false,
+                                                    start: new Date(t0 + (i + 1) * 3600000), end: new Date(t0 + (i + 1.5) * 3600000) }));
+          CAL.at = t0; CAL.days = 7;
+          Object.assign(el.style, { left: '0px', top: '0px', bottom: 'auto', height: H + 'px', width: '400px' });
+          const list = [{ kind: 'weather', size: 'less' }, { kind: 'calendar', size: 'more' }, { kind: 'climate', size: 'more' },
+                        { kind: 'people', size: 'full' }, { kind: 'timers', size: 'more' }];
+          el.show({ list, place: { kind: 'side', w: 400 }, side: 'left' });
+          const secs = el.shadowRoot.querySelector('.secs');
+          const k = [...secs.querySelectorAll('.secs>[data-k]')];
+          return { H, drawn: k.map((x) => x.dataset.k + ':' + x.dataset.size), more: !!secs.querySelector('.more2'),
+                   scrolls: secs.scrollHeight > secs.clientHeight + 1,
+                   lists: k.filter((x) => x.classList.contains('shrink')).map((x) => {
+                     const l = x.querySelector('.lst');
+                     return { k: x.dataset.k, h: x.offsetHeight, floor: parseFloat(x.style.minHeight) || 0, rows: l ? l.scrollHeight : 0, shown: l ? l.clientHeight : 0 };
+                   }) };
+        }, H);
+        notes.push(tag + ' short pane ' + H + ': ' + cr.drawn.join(', ') + ' ' + JSON.stringify(cr.lists));
+        want('a short pane (' + H + ' px) never scrolls, its lists at least their floor', cr,
+             !cr.scrolls && cr.lists.every((l) => l.h + 1 >= l.floor));
+        if (H === 640) {
+          want('...at 640 px the lists give way before any size steps down: every section at its Size, one list scrolling', cr,
+               !cr.more && cr.drawn.join() === 'weather:less,calendar:more,climate:more,people:full,timers:more' &&
+               cr.lists.some((l) => l.k === 'calendar' && l.rows > l.shown + 20));
+          await shot(page, tag + '-short-pane-640');
+        }
+      }
+      await page.evaluate(() => Object.assign(document.getElementById('solo').style, { bottom: '0px', height: '' }));
     }
     if (errors.length) fails.push(tag + ' page errors: ' + errors.join(' | '));
     await context.close();

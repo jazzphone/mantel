@@ -328,6 +328,12 @@
   function box(k, size, inner, cls) {
     return '<div class="sec' + (cls ? ' ' + cls : '') + '" data-k="' + k + '" data-size="' + size + '">' + inner + '</div>';
   }
+  // A LIST THAT GIVES WAY (2026-10-30, the owner: the calendar, the to-do list
+  // and the like "should contract vertically when there isn't enough room"):
+  // its rows in a .lst, the section a .shrink -- shorter where the pane is
+  // short, the rows scrolling inside it, down to its heading and one row
+  // (_floors); only past that does a size step down (fit)
+  function lst(inner) { return '<div class="lst">' + inner + '</div>'; }
   // (r[4]: the entity a tap on the row opens, its own sheet)
   function rows(list) {
     return list.map(function (r) {
@@ -404,10 +410,10 @@
       var mine = s === 'less' ? evs.slice(0, 2) : evs.filter(function (e) { return evStart(e).getTime() < end; });
       if (!mine.length) mine = evs.slice(0, 1);
       CAL.shown = mine;
-      return box('calendar', s, head('calendar') + '<div class="evs' + (s === 'less' ? '' : ' scroll') + '">' + mine.map(function (e, i) {
+      return box('calendar', s, head('calendar') + '<div class="evs' + (s === 'less' ? '' : ' scroll') + ' lst">' + mine.map(function (e, i) {
         return '<div class="ev" data-ev="' + i + '"><span class="cb" style="background:' + esc(ctx.evColor(e)) + '"></span><span class="et"><b>' +
           esc(e.title || 'Event') + '</b><i>' + esc(when(e)) + '</i></span></div>';
-      }).join('') + '</div>');
+      }).join('') + '</div>', 'shrink');
     },
     now_playing: function (s, sec, c, ctx) {
       var m = musicOf(c);
@@ -475,13 +481,13 @@
         return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (sx < 10 ? '0' : '') + sx;
       };
       if (s === 'tiny') return tiny('timers', esc(t[0].name || 'Timer'), '<span class="cd">' + esc(left(t[0])) + '</span>');
-      if (s === 'less') return box('timers', s, head('timers') + rows(t.slice(0, 3).map(function (r) { return [r.name || 'Timer', left(r)]; })));
-      return box('timers', s, head('timers') + t.slice(0, s === 'full' ? 4 : 3).map(function (r) {
+      if (s === 'less') return box('timers', s, head('timers') + lst(rows(t.slice(0, 3).map(function (r) { return [r.name || 'Timer', left(r)]; }))), 'shrink');
+      return box('timers', s, head('timers') + lst(t.slice(0, s === 'full' ? 4 : 3).map(function (r) {
         var total = num(r.duration_s || r.total) || 0, ms = r.finishes_at ? Date.parse(r.finishes_at) - Date.now() : 0;
         var pct = total ? Math.max(0, Math.min(100, 100 - ms / 10 / total)) : 0;
         return '<div class="r2"><span class="tx">' + esc(r.name || 'Timer') + '</span><span class="v2 cd">' + esc(left(r)) + '</span></div>' +
           '<div class="bar2"><i style="width:' + pct.toFixed(1) + '%"></i></div>';
-      }).join('') + (s === 'full' ? keys : ''));
+      }).join('')) + (s === 'full' ? keys : ''), 'shrink');
     },
     energy: function (s, sec, c) {
       var pid = setting('features.power', null), p = pid && states(c)[pid];
@@ -518,7 +524,7 @@
         var t = out ? (st[out] || {}).state : attr(st[w], 'temperature');
         if (t != null) list.push(['Outside', deg(t), 'mdi:home-thermometer']);
       }
-      return box('climate', s, head('climate') + rows(list));
+      return box('climate', s, head('climate') + lst(rows(list)), 'shrink');
     },
     people: function (s, sec, c) {
       var st = states(c), ids = domainIds(c, 'person');
@@ -528,7 +534,7 @@
       var where = function (id) { var x = st[id] || {}; return x.state === 'home' ? 'Home' : x.state === 'not_home' ? 'Away' : String(x.state || '').replace(/_/g, ' '); };
       // FULL: each one, where and since when
       var since = function (id) { var t = Date.parse((st[id] || {}).last_changed); return t ? ' · ' + ago(t) : ''; };
-      if (s === 'full') return box('people', s, head('people') + rows(ids.slice(0, 8).map(function (id) { return [nameOf(st[id], id), where(id) + since(id), 'mdi:account', '', id]; })));
+      if (s === 'full') return box('people', s, head('people') + lst(rows(ids.slice(0, 8).map(function (id) { return [nameOf(st[id], id), where(id) + since(id), 'mdi:account', '', id]; }))), 'shrink');
       var av = '<div class="ppl">' + ids.slice(0, 5).map(function (id, i) {
         var x = st[id] || {}, pic = attr(x, 'entity_picture'), nm = nameOf(x, id);
         var face = pic ? '<img alt="" src="' + esc(pic) + '">' : esc(nm.charAt(0).toUpperCase());
@@ -553,13 +559,13 @@
           (it.done ? ' disabled' : '') + ' aria-label="Check off ' + esc(it.summary) + '"><i></i><span>' + esc(it.summary) + '</span></button>';
       }).join('');
       var add = s === 'full' ? '<form class="add" data-list="' + esc(eid) + '"><input name="item" placeholder="Add an item" aria-label="Add an item to ' + esc(name) + '" autocomplete="off"><button type="submit" aria-label="Add">' + icon('mdi:plus') + '</button></form>' : '';
-      return box('todo', s, h + '<div class="todo">' + (list || '<div class="sub2">Nothing left</div>') + '</div>' + add);
+      return box('todo', s, h + '<div class="todo lst">' + (list || '<div class="sub2">Nothing left</div>') + '</div>' + add, 'shrink');
     },
     notifications: function (s) {
       var n = notesOf();
       if (!n.length) return none('notifications', s, 'No notifications');
       if (s === 'tiny') return tiny('notifications', esc(n[0].text), esc(ago(n[0].at)));
-      return box('notifications', s, head('notifications') + rows(n.slice(0, { less: 1, more: 3, full: 5 }[s]).map(function (x) { return [x.text, ago(x.at)]; })));
+      return box('notifications', s, head('notifications') + lst(rows(n.slice(0, { less: 1, more: 3, full: 5 }[s]).map(function (x) { return [x.text, ago(x.at)]; }))), 'shrink');
     }
   };
   function wxIcon(cond) {
@@ -759,6 +765,16 @@
       '.sec.grow[data-k="calendar"]{display:flex;flex-direction:column}',
       '.sec.grow[data-k="calendar"] .evs.scroll{max-height:none;flex:1 1 auto;min-height:0}',
       '.evs>.ev:last-child{border-bottom:0}',
+      // A LIST THAT GIVES WAY (lst): down the pane (not a band, not a Pages
+      // Screen widget) its section shrinks where the pane is short, to the
+      // floor _floors sets; its rows scroll inside
+      '.sec.shrink{display:flex;flex-direction:column}',
+      '.sec.shrink>*{flex:none}',
+      ':host(:not([side="band"]):not([mode="widget"])) .secs>.shrink:not(.grow){flex:0 1 auto}',
+      '.lst{display:grid;gap:8px;align-content:start}.evs.lst{display:block}',
+      '.sec.shrink>.lst{flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none}',
+      '.sec.shrink>.lst::-webkit-scrollbar{display:none}',
+      '.sec.shrink>.lst.cut{-webkit-mask-image:linear-gradient(#000 calc(100% - 22px),transparent);mask-image:linear-gradient(#000 calc(100% - 22px),transparent)}',
       // A TAP: every section and each thing in it is a target
       '.secs>[data-i]:not([data-k="now_playing"]),[data-ent],[data-ev]{cursor:pointer}',
       '.secs>[data-i]:not([data-k="now_playing"]):active,[data-ent]:active,[data-ev]:active{opacity:.7}',
@@ -913,6 +929,7 @@
       var over = function (sizes, n) {
         self._secs.innerHTML = render(sizes, n);
         self._fill();
+        self._floors();
         return band ? self._secs.scrollWidth > self._secs.clientWidth + 1 || self._tallest() > self._secs.clientHeight + 1
                     : self._secs.scrollHeight > self._secs.clientHeight + 1;
       };
@@ -920,6 +937,8 @@
       // (the last measured draw may be a step past the answer: draw the answer)
       this._secs.innerHTML = render(got.sizes, got.n);
       this._fill();
+      this._floors();
+      this._cuts();
       this._fit = got;
     }
     // THE ALBUM ART BEHIND THE WHOLE PANE (2026-10-30, the owner: "if something
@@ -985,6 +1004,28 @@
       if ((s.tap === 'page' || !s.tap || s.tap === 'auto') && path) { go(path); return; }
       if (ent && D && D.open && s.tap !== 'page') { D.open(ent); return; }
       if (path) go(path);
+    }
+    // HOW SHORT A .shrink MAY GO: its heading, what is under its rows (the
+    // timers' keys, the to-do list's Add) and its first row, as laid out
+    // before it gives way (the pane is scaled whole: CSS pixels, offsetHeight)
+    _floors() {
+      Array.prototype.forEach.call(this._secs.querySelectorAll('.secs>.shrink'), function (sec) {
+        var cs = getComputedStyle(sec), gap = parseFloat(cs.rowGap) || 0, h = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+        var kids = Array.prototype.filter.call(sec.children, function (k) { return k.offsetHeight > 0 || k.classList.contains('lst'); });
+        kids.forEach(function (k, i) {
+          if (i) h += gap;
+          if (!k.classList.contains('lst')) { h += k.offsetHeight; return; }
+          var one = k.firstElementChild;
+          h += one ? Math.min(k.scrollHeight, one.offsetHeight + (one.nextElementSibling && one.nextElementSibling.classList.contains('bar2') ? one.nextElementSibling.offsetHeight + 8 : 0)) : 0;
+        });
+        sec.style.minHeight = Math.ceil(h) + 2 + 'px';
+      });
+    }
+    // ...and a list cut short fades out at its foot, so it reads as more below
+    _cuts() {
+      Array.prototype.forEach.call(this._secs.querySelectorAll('.shrink>.lst'), function (l) {
+        l.classList.toggle('cut', l.scrollHeight > l.clientHeight + 2);
+      });
     }
     _tallest() {
       var t = 0;
