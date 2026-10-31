@@ -474,5 +474,12 @@ function () {
   card._tap();
   window.hkCards.menu.tabBar = tb; window.hkTabBar = bar; window.hkMenu = was;
   eq('the tab bar showing: its More sheet', [sheets, opened], [['more'], 1]);
+},
+function () {
+  H.section('a camera block\'s Name (2026-10-31): Automatic, Show or Hide, handed to its mosaic');
+  var G = window.hkGridCatalog, ctx = { cameras: ['camera.porch'] };
+  var tag = function (o) { var c = G.config({ card: 'camera', size: 'L', at: [0, 0], opts: o }, ctx); return (c.cards ? c.cards[0] : c).name_tag; };
+  eq('the option is a name_tag', G.table().camera.opts.name, 'name_tag');
+  eq('...Automatic unless set', [tag({}), tag({ name: 'hide' }), tag({ name: 'show' })], ['auto', 'hide', 'show']);
 }
 ]);

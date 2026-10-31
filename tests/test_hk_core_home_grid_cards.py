@@ -249,3 +249,16 @@ def test_half_height_holds_twice_the_accessories():
     assert errors == {"home_grid": "grid_option"}
     _, errors = write({"id": "a1", "card": "accessories", "size": "W", "at": [0, 0], "opts": {"accessories": many, "height": "half"}})
     assert errors == {}
+
+
+@pytest.mark.parametrize("name", ["auto", "show", "hide"])
+def test_a_camera_blocks_name_is_automatic_shown_or_hidden(name):
+    # (2026-10-31, the owner: the camera's name in the corner, an option per block)
+    b, errors = write({"id": "c", "card": "camera", "size": "L", "at": [0, 0], "opts": {"name": name}})
+    assert errors == {} and b["home_grid"]["items"][0]["opts"] == {"name": name}
+
+
+@pytest.mark.parametrize("name", ["off", True, None, "Show"])
+def test_a_camera_name_that_is_not_one_is_refused(name):
+    _, errors = write({"id": "c", "card": "camera", "size": "L", "at": [0, 0], "opts": {"name": name}})
+    assert errors == {"home_grid": "grid_option"}

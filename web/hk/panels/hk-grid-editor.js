@@ -1540,7 +1540,7 @@
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
@@ -1738,6 +1738,11 @@
         // SCENES AND ACCESSORIES (2026-10-31): Full or Half height, glass or Color; an Energy Rings block's period
         if (kind === 'tile_height') {
           rows.push(K.seg({ label: 'Height', value: opts[key] || 'full', options: [['full', 'Full'], ['half', 'Half']], onChange: (v) => set(key, v === 'full' ? null : v) }));
+          return;
+        }
+        // A CAMERA'S NAME at its foot (2026-10-31): Automatic (on a tile cell, not HomeView's square ones), Show, Hide
+        if (kind === 'name_tag') {
+          rows.push(K.seg({ label: 'Name', value: opts[key] || 'auto', options: [['auto', 'Automatic'], ['show', 'Show'], ['hide', 'Hide']], onChange: (v) => set(key, v === 'auto' ? null : v) }));
           return;
         }
         if (kind === 'period') {

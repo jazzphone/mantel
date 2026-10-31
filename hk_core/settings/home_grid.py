@@ -74,7 +74,10 @@ CATALOG: dict[str, dict[str, Any]] = {
     # (S, 2026-10-31, the owner: "a small option to the camera": one still in a cell)
     "camera": {"sizes": ("S", "W", "L", "XL"), "sources": ("cameras",),
                # follow (2026-10-24): swiping all cameras, turn to the one a selector or the latest motion picks
-               "opts": {"entity": "camera", "follow": "camera_follow", "follow_select": "select"}},
+               "opts": {"entity": "camera", "follow": "camera_follow", "follow_select": "select",
+                        # name (2026-10-31, the owner): the camera's name at the foot -- Automatic shows it on a
+                        # tile cell and leaves it off HomeView's square cells; Show or Hide either way
+                        "name": "name_tag"}},
     # THE CAMERAS FACE (2026-10-30): up to nine stills at once, arranged to the block; Full is the whole view.
     # cameras: the ones shown (none: all, in Cameras' order); refresh: s between stills
     "cameras": {"sizes": ("XL", "XXL", "F"), "sources": (), "opts": {"cameras": "cameras", "refresh": "refresh"}},
@@ -270,6 +273,8 @@ CLOCK_FACES += ("liquid", "giant", "scattered")
 # block's period
 TILE_HEIGHTS = ("full", "half")
 PERIODS = ("day", "week", "month")
+# a camera block's name at its foot
+NAME_TAGS = ("auto", "show", "hide")
 
 
 def _tile_height(v: Any) -> str:
@@ -280,6 +285,12 @@ def _tile_height(v: Any) -> str:
 
 def _period(v: Any) -> str:
     if v not in PERIODS:
+        raise GridInvalid("grid_option")
+    return v
+
+
+def _name_tag(v: Any) -> str:
+    if v not in NAME_TAGS:
         raise GridInvalid("grid_option")
     return v
 
@@ -302,6 +313,7 @@ OPTION_KINDS = {
     "thermostat_style": _thermostat_style,
     "tile_height": _tile_height,
     "period": _period,
+    "name_tag": _name_tag,
     "todo": _domain("todo"),
     "camera_follow": _camera_follow,
     "select": _domain("input_select", "select"),

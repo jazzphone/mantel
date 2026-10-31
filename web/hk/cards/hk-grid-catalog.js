@@ -86,10 +86,10 @@
       return id ? Object.assign({ type: 'custom:hk-control-card', entity: id }, o.style === 'big' ? { style: 'big' } : {})
                 : stand('Thermostat', 'hk:thermostat'); } },
     // (S, 2026-10-31, the owner: "a small option to the camera": one still in a cell)
-    camera: { sizes: ['S', 'W', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera', follow: 'camera_follow', follow_select: 'select' }, card: function (s, o, ctx) {
+    camera: { sizes: ['S', 'W', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera', follow: 'camera_follow', follow_select: 'select', name: 'name_tag' }, card: function (s, o, ctx) {
       var ids = o.entity ? [o.entity] : (ctx.cameras || []).slice(0, 1);
       return ids.length ? { type: 'custom:hk-camera-mosaic-card', own_cameras: true, height: 195, seam: 2, snapshot_cap: '480x270',
-                            cameras: ids.map(function (id) { return { entity: id }; }) }
+                            cameras: ids.map(function (id) { return { entity: id }; }), name_tag: o.name || 'auto' }
                         : stand('Cameras', 'hk:camera'); } },
     // THE CAMERAS FACE (2026-10-30; hk-grid-cards.js hk-grid-cameras-card):
     // up to nine stills at once, arranged to the block -- the ones named, else
