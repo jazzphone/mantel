@@ -68,14 +68,14 @@
                            o.height ? { height: o.height } : {}, o.color ? { color: true } : {}); } },
     now_playing: { sizes: ['S', 'W', 'T', 'L'], sources: ['speakers'], opts: { speaker: 'speaker' }, card: function (s, o) {
       // T and L: the progress above the transport (the Home app's and Apple
-      // Music's order); L the volume under it as well. Its speaker's own
-      // controls, or the screen's music.
+      // Music's order); W, T and L the volume under it (Music's widgets,
+      // 2026-10-31). Its speaker's own controls, or the screen's music.
       var sp = own(o.speaker), ctl = function (parts) {
         return Object.assign({ type: 'custom:hk-media-control-card', color: 'purple', bare: true, parts: parts },
                              sp ? { entity: sp } : { entity_from: { music: true } });
       };
-      var extra = s === 'L' ? { sub_card: ctl(['progress']), meta_card: ctl(['volume']) }
-                : s === 'T' ? { sub_card: ctl(['progress']) } : {};
+      var extra = s === 'L' || s === 'T' ? { sub_card: ctl(['progress']), meta_card: ctl(['volume']) }
+                : s === 'W' ? { meta_card: ctl(['volume']) } : {};
       return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, sp ? { entity: sp } : {}, extra); } },
     // Extra Large: the thermostat's full controls, its sheet (2026-10-24)
     thermostat: { sizes: ['S', 'T', 'L', 'XL'], sources: ['thermostats'], opts: { entity: 'climate', style: 'thermostat_style' }, card: function (s, o, ctx) {

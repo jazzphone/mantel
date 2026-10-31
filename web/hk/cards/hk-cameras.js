@@ -3553,7 +3553,9 @@
        helper: 'Optional heading. The channels themselves are added in HK Settings → Features → Live TV.' }],
     function () { return {}; });
 
-  window.hkCameras = { version: '1.0.0' };
+  // (tvPlayer: the Home Grid's Live TV block opens its channels in this
+  // page's own player, hk-media.js hk-tv-channels-card, 2026-10-31)
+  window.hkCameras = { version: '1.0.0', tvPlayer: tvPlayer };
   // for tests: the Cameras page's take-turns queue (hk-camera-live-card)
   window.hkCameras._live = { queue: function () { return liveQueue; }, turns: function () { return liveTurns.slice(); },
                              video: liveVideo, TURN_MS: LIVE_TURN_MS, STUCK_MS: LIVE_STUCK_MS, SAVED_MAX_MS: SAVED_MAX_MS };

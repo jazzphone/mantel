@@ -28,8 +28,9 @@ Text scale: HK draws its type roles in px (hk-base.js TYPE) and a wall tablet's 
 them (the Mantel app's web view sets -webkit-text-size-adjust:100%), so the one scale is the largest. The `long`
 pass instead names every thing at twice its usual length, which is what a larger text would do to a card.
 
-Stood in: the house's forecast (two forecast sensors), a family calendar's events, running timers, and the Energy
-feature's plan (on the page: the test server's feed has no Energy feature), so every block is measured full.
+Stood in: the house's forecast (two forecast sensors), a family calendar's events, running timers, the Energy
+feature's plan (on the page: the test server's feed has no Energy feature), and Live TV -- added on the page, six
+channels in the hk_tv/channels answer, each with its camera and what is on now -- so every block is measured full.
 """
 from __future__ import annotations
 
@@ -110,6 +111,16 @@ for _id, (_v, _u, _n) in {"level": ("82", "%", "Battery Level"), "stored": ("11.
                           "backup": ("9.5", "h", "Backup Time"), "reserve": ("20", "%", "Backup Reserve"),
                           "charge": ("1840", "W", "Charging Power"), "discharge": ("0", "W", "Discharging Power")}.items():
     EXTRA[BATTERY[_id]] = (None, (_v, {"friendly_name": _n, "unit_of_measurement": _u}))
+# LIVE TV's channels (hk_tv/channels): [number, name, what is on, minutes in, minutes long]
+TV = [("4.1", "Channel 4", "Evening News", 37, 60), ("7.1", "Food", "Coastal Kitchens", 9, 30),
+      ("9.1", "Comedy", "Night Owls", 24, 30), ("11.1", "Sports", "Evening Match", 54, 120),
+      ("13.1", "Nature", "Wild Coasts", 12, 60), ("20.1", "Kids", "Story Time", 21, 30)]
+for _no, _name, _on, _in, _long in TV:
+    _id = _no.replace(".", "_")
+    EXTRA[f"camera.channel_{_id}"] = (None, ("idle", {"friendly_name": _name}))
+    EXTRA[f"sensor.channel_{_id}_now"] = (None, (_on, {"friendly_name": f"{_name} Now", "subtitle": "",
+        "start": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() - _in * 60)),
+        "end": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + (_long - _in) * 60))}))
 LONG = " and the Long Way Round"       # the `long` pass: every name this much longer
 
 
@@ -356,6 +367,14 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
     async def calendar_events(self, entity_id, start, end):
         return _events() if entity_id == "calendar.family" else []
     OfflineReads.get_calendar_events = calendar_events
+    ask = OfflineReads.request
+
+    async def request(self, msg):
+        if msg.get("type") == "hk_tv/channels":
+            return {"configured": True, "channels": [{"number": n, "name": name, "camera": f"camera.channel_{n.replace('.', '_')}",
+                                                     "now": f"sensor.channel_{n.replace('.', '_')}_now"} for n, name, *_ in TV]}
+        return await ask(self, msg)
+    OfflineReads.request = request
     report: dict = {}
     with tempfile.TemporaryDirectory(prefix="mantel-grid-audit-") as folder:
         app, cookie = await gallery.build(Path(folder))
@@ -373,7 +392,7 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                 await b.send("Page.addScriptToEvaluateOnNewDocument", source="""(() => { let hs;
                   Object.defineProperty(window, 'hkSettings', { configurable: true, get() { return hs; }, set(v) {
                     hs = v; if (!v || !v.get || v.__audit) return; const get = v.get; v.__audit = true;
-                    v.get = function (p, f) { if (p === 'added') return ['energy']; if (p === 'energy') return """ + plan + """;
+                    v.get = function (p, f) { if (p === 'added') return ['energy', 'live_tv']; if (p === 'energy') return """ + plan + """;
                       return get.apply(this, arguments); }; } }); })()""")
                 sun = None
                 for key, look, bar in passes:
