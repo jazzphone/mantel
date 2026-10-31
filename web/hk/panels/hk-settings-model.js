@@ -2597,7 +2597,7 @@
     var out = {};
     Object.keys(s || {}).forEach(function (k) {
       if ((k === 'size' && s[k] === 'more') || (k === 'when' && s[k] === 'always') || (k === 'completed' && !s[k]) ||
-          (k === 'place' && s[k] === 'top') || (k === 'tap' && s[k] === 'auto')) return;
+          (k === 'place' && s[k] === 'top') || (k === 'tap' && s[k] === 'auto') || (k === 'name' && s[k] === 'hide')) return;
       out[k] = s[k];
     });
     return out;
@@ -2665,6 +2665,8 @@
   // WHERE A SECTION SITS and WHAT A TAP DOES (settings.py PANE_PLACES, PANE_TAPS; 2026-10-30)
   var PANE_PLACES = [['top', 'Top'], ['bottom', 'Bottom']];
   var PANE_TAPS = [['auto', 'Automatic'], ['page', 'Its Page'], ['sheet', 'Its Sheet'], ['none', 'Nothing']];
+  // THE CAMERA'S NAME (settings.py PANE_CHOICES; 2026-10-31): Hide is what absent means
+  var PANE_CAMERA_NAMES = [['hide', 'Hide'], ['auto', 'Automatic'], ['show', 'Show']];
   // THE LINKS that were each pane's own settings: the Dashboard's ("Home
   // Only, Right"), the screensaver's ("Calendar, Now Playing"), and Now
   // Playing's Show As (the bar, or the Side Pane)
@@ -2758,7 +2760,7 @@
 
   root.hkSettingsModel = {
     PANE_KINDS: PANE_KINDS, PANE_SIZES: PANE_SIZES, PANE_WHEN: PANE_WHEN, PANE_SIDES: PANE_SIDES, PANE_WIDTHS: PANE_WIDTHS,
-    PANE_SHOWS: PANE_SHOWS, PANE_SAVER_SHOWS: PANE_SAVER_SHOWS, PANE_GROUPS: PANE_GROUPS, PANE_PLACES: PANE_PLACES, PANE_TAPS: PANE_TAPS, PANE_MAX: PANE_MAX, PANE_DEFAULTS: PANE_DEFAULTS,
+    PANE_SHOWS: PANE_SHOWS, PANE_SAVER_SHOWS: PANE_SAVER_SHOWS, PANE_GROUPS: PANE_GROUPS, PANE_PLACES: PANE_PLACES, PANE_TAPS: PANE_TAPS, PANE_CAMERA_NAMES: PANE_CAMERA_NAMES, PANE_MAX: PANE_MAX, PANE_DEFAULTS: PANE_DEFAULTS,
     paneKind: paneKind, paneSection: paneSection, paneOf: paneOf, paneGroupSays: paneGroupSays, paneSet: paneSet, paneReset: paneReset,
     secKey: secKey, secsAdd: secsAdd, secsOrder: secsOrder, secSet: secSet, secsMore: secsMore, secSays: secSays,
     paneSummary: paneSummary, paneSaverSummary: paneSaverSummary, paneHasMusic: paneHasMusic, npShowAs: npShowAs,

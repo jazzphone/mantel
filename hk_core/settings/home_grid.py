@@ -94,7 +94,8 @@ CATALOG: dict[str, dict[str, Any]] = {
     "power": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     "music": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     "doors": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
-    "live_tv": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
+    # channel (2026-10-31, the owner): one channel of the guide fills the block; none, as many as the size holds
+    "live_tv": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"channel": "tv_channel", "tap": "tap_target"}},
     "water": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # the new cards (G3)
     "room": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface", "accessory_display": "room_display", "tap": "tap_target"}},
@@ -301,6 +302,17 @@ def _name_tag(v: Any) -> str:
 TAP_TARGETS = ("auto", "page", "sheet", "none")
 
 
+# A LIVE TV BLOCK'S CHANNEL, by its guide number ("4.1": hk_tv/channels), as the Live TV page names it. Whether the
+# house still tunes it is for the card to say (a channel gone from the guide draws the automatic ones).
+TV_CHANNEL = re.compile(r"^[0-9]{1,4}(\.[0-9]{1,3})?\Z")
+
+
+def _tv_channel(v: Any) -> str:
+    if not isinstance(v, str) or not TV_CHANNEL.match(v):
+        raise GridInvalid("grid_option")
+    return v
+
+
 def _tap_target(v: Any) -> str:
     if v not in TAP_TARGETS:
         raise GridInvalid("grid_option")
@@ -327,6 +339,7 @@ OPTION_KINDS = {
     "period": _period,
     "name_tag": _name_tag,
     "tap_target": _tap_target,
+    "tv_channel": _tv_channel,
     "todo": _domain("todo"),
     "camera_follow": _camera_follow,
     "select": _domain("input_select", "select"),

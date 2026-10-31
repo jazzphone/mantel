@@ -3826,6 +3826,7 @@
     'hk-plate.tv{position:relative;box-sizing:border-box;height:100%;display:grid;gap:10px;overflow:hidden;padding:' + C.blockPad('14px') + ';' + C.plate('card') + ';',
     '  grid-template-columns:repeat(var(--n,1),minmax(0,1fr));grid-template-rows:repeat(var(--r,1),minmax(0,1fr))}',
     // S: the one channel is the block (on its plate, which keeps the look's material)
+    // (a channel chosen fills the block at any size, as Small's does)
     'hk-plate.tv.one{padding:0}',
     '.ch{all:unset;box-sizing:border-box;position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;padding:12px;',
     '  border-radius:var(--hk-inner-radius,' + C.R.inner + 'px);background:linear-gradient(150deg,var(--c1),var(--c2));color:#fff;cursor:pointer;',
@@ -3838,6 +3839,10 @@
     '  border-radius:' + C.R.small + 'px;background:rgba(255,255,255,.25);' + C.typeCss('body') + ';font-weight:800;font-variant-numeric:tabular-nums;text-shadow:none}',
     '.lg.pic{background:rgba(255,255,255,.9);padding:5px 7px}.lg img{display:block;max-height:100%;max-width:72px;object-fit:contain}',
     '.one .lg{min-width:52px;height:52px;' + C.typeCss('title') + ';font-weight:800}',
+    // (a channel chosen on a big block -- Tall, Large, Extra Large: `big`, set from its size, as neither a <button>
+    // nor the cell from inside the panel answers a size query in WebKit -- its mark and its words as large as the room)
+    '.one.big .lg{min-width:76px;height:76px;padding:0 10px;font-size:30px;line-height:34px}.one.big .lg img{max-width:120px}',
+    '.one.big .tx b{' + C.typeCss('title') + ';line-height:27px}.one.big .tx small{' + C.typeCss('body') + ';line-height:20px}',
     '.tx{display:flex;flex-direction:column;min-width:0;margin-top:auto}',
     '.tx b{' + C.typeCss('body') + ';font-weight:600;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.tx small{' + C.typeCss('caption') + ';line-height:16px;color:rgba(255,255,255,.86);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -3855,7 +3860,16 @@
     static get CSS() { return TV_CSS; }
     getCardSize() { return 4; }
     _size() { var s = this.getAttribute('size'); return TV_SLOTS[s] ? s : 'L'; }
-    _shown() { return (this._channels || []).slice(0, TV_SLOTS[this._size()]); }
+    // THE CHANNEL CHOSEN (the block's Channel option, 2026-10-31, the owner), by its guide number: it fills the
+    // block. One the guide no longer has is left out, and the block shows the guide's first, as with none chosen.
+    _chosen() {
+      var n = this._config && this._config.channel;
+      return n ? (this._channels || []).filter(function (c) { return c.number === n; })[0] || null : null;
+    }
+    _shown() {
+      var one = this._chosen();
+      return one ? [one] : (this._channels || []).slice(0, TV_SLOTS[this._size()]);
+    }
     _sigOf() {
       var h = this.client;
       if (!h) return null;
@@ -3919,7 +3933,7 @@
         return;
       }
       var plate = document.createElement('hk-plate');
-      plate.className = 'tv' + (s === 'S' ? ' one' : '');
+      plate.className = 'tv' + (s === 'S' || this._chosen() ? ' one' : '') + (this._chosen() && /^(T|L|XL)$/.test(s) ? ' big' : '');
       plate.setAttribute('data-hk-role', 'card');
       plate.style.setProperty('--n', g[0]); plate.style.setProperty('--r', g[1]);
       list.forEach(function (ch, i) {
