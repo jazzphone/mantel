@@ -155,3 +155,11 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - The five kiosks reloaded; each drew its first screen in 2.2-3.2 s.
 - iOS app 0.1.95 (1064) uploaded to TestFlight. Mantel Link unchanged at 0.1.8.
 - ci full: 30 of 31 together; client_smoke failed once while running in parallel and passed alone.
+
+## Mantel 0.1.96 and HK Frontend 1.23.0 (2026-10-31)
+
+- Mantel App 0.1.96 (build 7127fddf95777e8d, commit b7589ecd): /healthz?strict=1 ok, Home Assistant connected.
+- HK Frontend 1.23.0 copied into custom_components (v1.23.0 on GitHub; wiki unchanged); Home Assistant restarted.
+- The five kiosks reloaded; each drew its first screen in 1.9-3.6 s.
+- iOS app 0.1.96 (1089) uploaded to TestFlight. Mantel Link unchanged at 0.1.8.
+- ci full: 30 of 31 together; tests/test_mantel_link.py failed once under load, passed 3 of 3 alone and in the pre-push main suite.
