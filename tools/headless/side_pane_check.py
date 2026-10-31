@@ -78,6 +78,17 @@ async def main():
     gallery.HOUSE['media_player.living_room'] = (mp[0], (mp[1][0], dict(mp[1][1], entity_picture='/hk/landscapes/01.webp')))
     gallery.HOUSE['sensor.house_power'] = (None, ('1400', {'unit_of_measurement': 'W', 'device_class': 'power'}))
     gallery.HOUSE['alarm_control_panel.home'] = (None, ('armed_home', {'friendly_name': 'Home Alarm', 'changed_by': 'Sam'}))
+    # two quick timers running, one paused, and the sun's next setting: the Timers rows (the ring the pause, the
+    # red Stop) and the Clock's sunset at the right of its date
+    import time
+    at = lambda s: time.strftime('%Y-%m-%dT%H:%M:%S+00:00', time.gmtime(time.time() + s))
+    gallery.HOUSE['sensor.running_quick_timers'] = (None, ('2', {'friendly_name': 'Running Quick Timers', 'running': [
+        {'name': 'Pasta', 'entity_id': 'timer.quick_1', 'finishes_at': at(522)},
+        {'name': 'Laundry', 'entity_id': 'timer.quick_2', 'finishes_at': at(1450)}]}))
+    gallery.HOUSE['timer.quick_1'] = (None, ('active', {'friendly_name': 'Pasta', 'duration': '0:14:00', 'finishes_at': at(522)}))
+    gallery.HOUSE['timer.quick_2'] = (None, ('active', {'friendly_name': 'Laundry', 'duration': '0:40:00', 'finishes_at': at(1450)}))
+    gallery.HOUSE['timer.quick_3'] = (None, ('paused', {'friendly_name': 'Tea', 'duration': '0:05:00', 'remaining': '0:03:10'}))
+    gallery.HOUSE['sun.sun'] = (None, ('above_horizon', {'friendly_name': 'Sun', 'elevation': 30.0, 'next_setting': at(6 * 3600)}))
     gallery.SETTINGS['settings']['features'] = {'power': 'sensor.house_power'}
     gallery.SETTINGS['settings']['security'] = {'alarm': 'alarm_control_panel.home'}
     sizes = [tuple(int(n) for n in s.split('x')) for s in (args.size or ['1180x820', '820x1180', '390x844'])]

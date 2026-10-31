@@ -958,32 +958,20 @@
     watchSize(HkGridKeypadCard);
     C.register('hk-grid-keypad-card', HkGridKeypadCard, 'HK Grid Keypad', 'The alarm keypad, sized to a Home Grid block.',
       [{ name: 'entity', label: 'Alarm', selector: { entity: { filter: { domain: 'alarm_control_panel' } } } }], function () { return {}; });
-    // THE VACUUM: its card (status, Start, Pause, Locate, Dock) over Clean
-    // Areas when the home has them (as the Vacuums page does: hk-strategy.js),
-    // else its card fills the block
+    // THE VACUUM: the vacuum card's own block at Large and Extra Large (2026-10-31,
+    // the owner: "rooms as tiles to tick, 'Clean 2 rooms'"): its state, the
+    // rooms Clean Areas offers when the home has them (as the Vacuums page
+    // does: hk-strategy.js), and big Clean and Dock keys -- hk-vacuum-card
+    // draws it, by the size it is given (hk-home.js _renderBlock)
     class HkGridVacuumFull extends HkGridFull {
-      _picker() {
-        var HS = window.hkSettings, added = (HS && HS.get && HS.get('added', [])) || [];
-        return added.indexOf('clean_areas') >= 0 || !!(HS && HS.get && HS.get('features.vacuum_script', null));
-      }
-      _sigOf() { return JSON.stringify([this._config.entity || null, sizeOf(this), this._picker()]); }
+      _sigOf() { return JSON.stringify([this._config.entity || null, sizeOf(this)]); }
       _render() {
-        var picker = this._picker(), key = JSON.stringify([this._config.entity, picker]);
+        var key = JSON.stringify([this._config.entity, sizeOf(this)]);
         if (this._built && this._key === key) return;
         this._key = key; this._kids = [];
-        if (!picker) {
-          // (the whole block's height: .body's flex:1 needs a flex parent, and here it has none -- the card sat at
-          // its own 150 px at the top of an empty block, 2026-10-30)
-          this._root.innerHTML = '<div class="body" style="height:100%"></div>';
-          this._mount(this._root.querySelector('.body'), { type: 'custom:hk-vacuum-card', entity: this._config.entity }, 'L');
-        } else {
-          // the vacuum's own plate, then Clean Areas in a plate of its own
-          // (Clean Areas is a panel of its own, its plate and its words)
-          this._root.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px;height:100%">' +
-            '<div class="top" style="flex:0 0 150px"></div><div class="areas"></div></div>';
-          this._mount(this._root.querySelector('.top'), { type: 'custom:hk-vacuum-card', entity: this._config.entity }, 'W');
-          this._mount(this._root.querySelector('.areas'), { type: 'custom:hk-area-select-card', layout: 'panel' }).setAttribute('data-fill', '');
-        }
+        // (the whole block's height: the card fills it)
+        this._root.innerHTML = '<div class="body" style="height:100%"></div>';
+        this._mount(this._root.querySelector('.body'), { type: 'custom:hk-vacuum-card', entity: this._config.entity }, sizeOf(this) || 'L');
         this._built = true;
       }
     }

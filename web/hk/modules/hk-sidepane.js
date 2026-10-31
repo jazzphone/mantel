@@ -215,8 +215,15 @@
     return !!m && Date.now() - musicAt < graceMs();
   }
   function timersOf(c) {
-    var st = states(c)['sensor.running_quick_timers'], list = attr(st, 'running');
-    return (Array.isArray(list) ? list : []).filter(function (r) { return r && (r.finishes_at || r.remaining); });
+    var all = states(c), list = attr(all['sensor.running_quick_timers'], 'running');
+    var out = (Array.isArray(list) ? list : []).filter(function (r) { return r && (r.finishes_at || r.remaining); });
+    // (a paused quick timer, which the sensor lists no longer: there to resume, as on the Timers block)
+    Object.keys(all).sort().forEach(function (id) {
+      if (/^timer\.quick_/.test(id) && all[id].state === 'paused' && !out.some(function (r) { return r.entity_id === id; })) {
+        out.push({ entity_id: id, name: attr(all[id], 'friendly_name'), remaining: attr(all[id], 'remaining') });
+      }
+    });
+    return out;
   }
   function alarmOf(c) {
     var id = setting('security.alarm', null) || domainIds(c, 'alarm_control_panel')[0];
@@ -382,8 +389,13 @@
       var t = '<span class="tm">' + esc(now.time) + (now.ampm ? '<small>' + now.ampm + '</small>' : '') + '</span>';
       if (s === 'tiny') return tiny('clock', t, esc(dateShort(d)));
       if (s === 'full') return box('clock', s, '<div class="facebox">' + faceSvg(now) + '</div><div class="sub2 ctr">' + esc(dateLong(d)) + '</div>', 'grow');
-      var set = attr(states(c)['sun.sun'], 'next_setting'), sun = s === 'more' && set ? ' · Sunset ' + esc(hm(new Date(set))) : '';
-      return box('clock', s, '<div class="big2' + (s === 'less' ? ' less' : '') + '">' + t + '</div><div class="sub2">' + esc(dateLong(d)) + sun + '</div>');
+      // LINED UP (2026-10-31, the owner: "the time's left edge with the
+      // date's, AM on the baseline, date left / sunset right"): the digits
+      // pulled back by their own side bearing, AM on their baseline, and
+      // under them the date at the left and the sunset at the right
+      var set = attr(states(c)['sun.sun'], 'next_setting'), sun = s === 'more' && set ? '<span class="sun">Sunset ' + esc(hm(new Date(set))) + '</span>' : '';
+      return box('clock', s, '<div class="big2 ck' + (s === 'less' ? ' less' : '') + '">' + t + '</div><div class="sub2 ckd"><span class="dl">' + esc(dateLong(d)) + '</span>' +
+        (sun ? '<span class="ds">' + esc(dateShort(d)) + '</span>' : '') + sun + '</div>');
     },
     weather: function (s, sec, c, ctx) {
       var id = setting('weather.entity', null) || domainIds(c, 'weather')[0], st = id && states(c)[id];
@@ -514,12 +526,27 @@
         return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (sx < 10 ? '0' : '') + sx;
       };
       if (s === 'tiny') return tiny('timers', esc(t[0].name || 'Timer'), '<span class="cd">' + esc(left(t[0])) + '</span>');
-      if (s === 'less') return box('timers', s, head('timers') + lst(rows(t.slice(0, 3).map(function (r) { return [r.name || 'Timer', left(r)]; }))), 'shrink');
+      // EACH TIMER (2026-10-31, the owner: "the ring is the pause (its centre
+      // shows pause/play), a big red stop key", as the Timers block has them):
+      // its ring of time left -- a tap pauses or resumes it -- its time and
+      // its name, and the red Stop. The time is an <hk-countdown> (hk-timers.js),
+      // which ticks on its own and hands the ring the fraction left
+      // (--hk-left, on the row): the pane draws again only as its data changes.
+      var T = window.hkTimers, all = states(c);
       return box('timers', s, head('timers') + lst(t.slice(0, s === 'full' ? 4 : 3).map(function (r) {
-        var total = num(r.duration_s || r.total) || 0, ms = r.finishes_at ? Date.parse(r.finishes_at) - Date.now() : 0;
-        var pct = total ? Math.max(0, Math.min(100, 100 - ms / 10 / total)) : 0;
-        return '<div class="r2"><span class="tx">' + esc(r.name || 'Timer') + '</span><span class="v2 cd">' + esc(left(r)) + '</span></div>' +
-          '<div class="bar2"><i style="width:' + pct.toFixed(1) + '%"></i></div>';
+        var id = r.entity_id, x = id && all[id], a = (x && x.attributes) || {}, nm = esc(r.name || 'Timer');
+        var paused = x ? x.state === 'paused' : !r.finishes_at;
+        var total = num(r.duration_s || r.total) || (T && T.secs ? T.secs(a.duration) : 0) || 0;
+        var rest = paused ? (T && T.secs ? T.secs(a.remaining || r.remaining) : 0) : Math.max(0, Math.round((Date.parse(r.finishes_at) - Date.now()) / 1000));
+        var clock = paused ? 'hold="' + rest + '"' : 'deadline="' + Date.parse(r.finishes_at) + '"';
+        var frac = total ? Math.max(0, Math.min(1, rest / total)) : 1;
+        return '<div class="tmr" style="--hk-left:' + frac.toFixed(2) + '">' +
+          (id ? '<button type="button" class="tpr" data-act="tp" data-timer="' + esc(id) + '" data-paused="' + (paused ? 1 : 0) + '" aria-label="' + (paused ? 'Resume ' : 'Pause ') + nm + '">' +
+            '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45"></circle><circle class="l" cx="50" cy="50" r="45" pathLength="100"></circle></svg>' +
+            icon(paused ? 'mdi:play' : 'mdi:pause') + '</button>' : '') +
+          '<hk-countdown ' + clock + ' total="' + total + '">' + esc(left(paused ? { remaining: a.remaining || r.remaining } : r)) + '</hk-countdown>' +
+          '<span class="tn">' + nm + '</span>' +
+          (id ? '<button type="button" class="tst" data-act="tx" data-timer="' + esc(id) + '" aria-label="Stop ' + nm + '">' + icon('mdi:stop') + '</button>' : '') + '</div>';
       }).join('')) + (s === 'full' ? keys : ''), 'shrink');
     },
     energy: function (s, sec, c) {
@@ -753,6 +780,13 @@
       '.big2{font:600 72px/1 var(--hk-font-body,inherit);letter-spacing:-2px;font-variant-numeric:tabular-nums}',
       '.big2.less{font-size:48px;letter-spacing:-1.2px}',
       '.tm{white-space:nowrap}.tm small{font-size:.36em;font-weight:600;letter-spacing:0;margin-left:.18em;color:' + v('ink-2') + '}',
+      // (the Clock lined up: the digits' side bearing taken back, so their ink starts where the date's does; AM
+      // on their baseline; the date at the left, the sunset at the right)
+      '.ck .tm{display:flex;align-items:baseline;margin-left:-0.05em}.ck .tm small{margin-left:.14em}',
+      '.ckd{display:flex;justify-content:space-between;align-items:baseline;gap:4px 12px;flex-wrap:wrap}.ckd>*{white-space:nowrap}.ckd .sun{margin-left:auto}',
+      // (a narrow pane: the date short, "Sat, Oct 31", so the sunset keeps its place at the right of it)
+      '.sec[data-k="clock"]{container-type:inline-size}.ckd .ds{display:none}',
+      '@container (max-width:320px){.ckd .ds{display:inline}.ckd:has(.ds) .dl{display:none}}',
       '.wxg{display:inline-grid;place-items:center;flex:none}.hrs .wxg{display:grid;margin:2px auto}',
       '.sub2{font:500 17px/1.3 var(--hk-font-body,inherit);color:' + v('ink-2') + '}',
       '.sub2.ctr{text-align:center}',
@@ -763,6 +797,21 @@
       '.r2.warn .v2,.r2.heat hk-icon{color:#ff9f0a}.r2.cool hk-icon{color:#64d2ff}',
       '.r2.big{font-size:22px}.r2.big hk-icon{--mdc-icon-size:30px;width:30px;height:30px;color:#30b0c7}',
       '.cd{font-variant-numeric:tabular-nums;color:#ff9f0a}',
+      // A TIMER'S ROW: the ring (the pause) at the left, the time over its name, the red Stop at the right
+      '.tmr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"r t s" "r n s";column-gap:12px;align-items:center;--ring:56px}',
+      '.tmr hk-countdown{grid-area:t;align-self:end;font:400 24px/1.15 var(--hk-font-body,inherit);font-variant-numeric:tabular-nums;color:' + v('ink') + '}',
+      '.tmr .tn{grid-area:n;align-self:start;min-width:0;font:500 14px/1.3 var(--hk-font-body,inherit);color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.tpr,.tst{all:unset;box-sizing:border-box;position:relative;display:grid;place-items:center;border-radius:50%;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+      '.tpr{grid-area:r;width:var(--ring);height:var(--ring)}',
+      '.tpr svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}',
+      '.tpr circle{fill:none;stroke-width:10px;stroke:' + v('line-strong') + '}',
+      '.tpr .l{stroke:#ff9f0a;stroke-linecap:round;stroke-dasharray:calc(var(--hk-left,1)*100) 100}',
+      '.tpr hk-icon{position:relative;--mdc-icon-size:20px;width:20px;height:20px;color:#ff9f0a}',
+      '.tst{grid-area:s;width:44px;height:44px;background:#ff453a}',
+      '.tst hk-icon{--mdc-icon-size:20px;width:20px;height:20px;color:#fff}',
+      '.tpr:active,.tst:active{transform:scale(0.95)}',
+      '.tpr:focus-visible,.tst:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
+      '.sec[data-size="less"] .tmr{--ring:44px}.sec[data-size="less"] .tmr hk-countdown{font-size:20px}',
       '.wnow{display:flex;align-items:center;gap:12px}',
       '.wnow hk-icon{--mdc-icon-size:44px;width:44px;height:44px;color:#ffd60a}',
       '.wnow b{font:600 44px/1 var(--hk-font-body,inherit);letter-spacing:-1px}',
@@ -1100,7 +1149,8 @@
       var st = states(c), o = this._o, ids = [];
       (o.list || []).forEach(function (s) { ids.push(s.entity || ''); });
       var m = musicOf(c);
-      return JSON.stringify([Math.floor(Date.now() / 30000), m && [m.key, m.playing, m.title], timersOf(c).length,
+      return JSON.stringify([Math.floor(Date.now() / 30000), m && [m.key, m.playing, m.title],
+        timersOf(c).map(function (r) { var x = st[r.entity_id]; return [r.entity_id, x && x.state, r.finishes_at || r.remaining]; }),
         ids.map(function (id) { return id && st[id] ? st[id].last_updated : ''; }), CAL.at, notesOf().length,
         Object.keys(TODO).map(function (k) { return TODO[k].sig + (TODO[k].got ? 1 : 0); })]);
     }
@@ -1202,6 +1252,12 @@
         if (!sent) return;
         b.classList.add('done');
         sent.catch(function () { b.classList.remove('done'); });
+      } else if (act === 'tp' || act === 'tx') {
+        // A RUNNING TIMER'S RING (pause / resume) AND STOP: the Timers block's
+        // services (timer.pause, timer.start, timer.cancel)
+        var tid = b.getAttribute('data-timer');
+        if (tid) c.actions.callService('timer', act === 'tx' ? 'cancel' : b.getAttribute('data-paused') === '1' ? 'start' : 'pause', {}, { entity_id: tid })
+          .catch(function () { /* refused: said by the host */ });
       } else if (act === 'timer') {
         // A QUICK TIMER, as the Timers page starts one (the quick_timers package's script)
         var mins = Number(b.getAttribute('data-min')), p2 = function (n) { return (n < 10 ? '0' : '') + n; };
