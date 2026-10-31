@@ -499,7 +499,7 @@
       // today's; FULL: the same, then each as a row with its sheet
       if (s === 'less') stats = '<div class="stats"><div><b>' + esc(kw(use)) + '</b>Using</div></div>';
       var more = s !== 'full' ? '' : rows([pid ? ['House', kw(use), 'mdi:home-lightning-bolt', '', pid] : null,
-                                          solarId ? ['Solar', sol, 'mdi:solar-power', '', solarId] : null,
+                                          solarId ? ['Solar', sol, 'mdi:weather-sunny', '', solarId] : null,
                                           bat ? ['Battery', Math.round(num(states(c)[bat].state) || 0) + ' %', 'mdi:home-battery', '', bat] : null].filter(Boolean));
       return box('energy', s, head('energy') + stats + (today ? '<div class="sub2">' + esc(today) + '</div>' : '') + more);
     },
