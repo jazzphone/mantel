@@ -143,3 +143,7 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - HK Frontend 1.21.0 copied into custom_components (v1.21.0 on GitHub; wiki unchanged); Home Assistant restarted.
 - The five kiosks reloaded; each drew its first screen in 2.7-3.7 s.
 - TestFlight 0.1.94 (1034) not uploaded: Xcode's account needs signing in again (Failed to Use Accounts).
+
+## Mantel 0.1.94 (1034) on TestFlight (2026-10-31)
+
+- The iOS app 0.1.94, build 1034, uploaded to App Store Connect after Xcode's account was signed in again.
