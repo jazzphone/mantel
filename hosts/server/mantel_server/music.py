@@ -331,7 +331,7 @@ def to_ma(domain: str, service: str, data: Mapping[str, Any], pid: Callable[[str
         return [("player_queues/shuffle", {"queue_id": pid(e), "shuffle_enabled": bool(data["shuffle"])}) for e in ents]
     if domain == "media_player" and service == "play_media":
         return [("player_queues/play_media", {"queue_id": pid(e), "media": [str(data["media_content_id"])],
-                                              "option": "play"}) for e in ents]
+                                              "option": data.get("enqueue") or "play"}) for e in ents]
     if domain == "music_assistant" and service == "play_media":
         media = data["media_id"]
         return [("player_queues/play_media", {"queue_id": pid(e), "media": list(media) if isinstance(media, list)
@@ -635,6 +635,14 @@ class MantelMusic:
 
     def _state(self, entity: str) -> str | None:
         return E.state_of(self.house, entity)
+
+    def _now_playing(self, entity: str) -> tuple[Any, ...]:
+        return (self._state(entity), self._attr(entity, "media_content_id"), self._attr(entity, "media_title"))
+
+    def _started_anew(self, entity: str, was: tuple[Any, ...]) -> bool:
+        """Playing, and not still what played before: a speaker already playing said "playing" at once."""
+        now = self._now_playing(entity)
+        return now[0] == "playing" and (was[0] != "playing" or now[1:] != was[1:])
 
     def _attr(self, entity: str, name: str) -> Any:
         return E.attr(self.house, entity, name)
@@ -951,11 +959,15 @@ class MantelMusic:
         stamps = self._claims.claim(E.browse_rooms(self.house, cfg, player))
         try:
             async with self._request(stamps):
+                # Browse starts afresh, as Apple Music does: the queue is replaced, never added to (a
+                # playlist "played" into a shuffled queue was lost among its songs, the owner 2026-10-31)
+                was = self._now_playing(player)
                 ok = await self._call("media_player", "play_media", {"entity_id": player, "media_content_id": content_id,
-                                                                     "media_content_type": content_type})
+                                                                     "media_content_type": content_type,
+                                                                     "enqueue": "replace"})
                 if not ok:
                     return self._done({"ok": False, "message": "Music Assistant could not play that."}, what, rid, t0)
-                started = await self._wait([player], lambda: self._state(player) == "playing", START_TIMEOUT)
+                started = await self._wait([player], lambda: self._started_anew(player, was), START_TIMEOUT)
         except asyncio.CancelledError:
             if self._was_stopped():
                 return self._done(dict(STOPPED), what, rid, t0)
