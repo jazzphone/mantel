@@ -351,6 +351,30 @@ async def test_actions_answer_the_caller(hass, music, house):
     assert not hass.services.has_service("hk_music", "play")
 
 
+async def test_browse_replaces_a_playing_queue_and_waits_for_the_new_music(hass, music, house):
+    # a playlist played over another (Christmas, then a Halloween one found in
+    # Browse) replaces the queue: added to a shuffled queue it was lost among
+    # its songs, and "playing" said nothing new (the owner, 2026-10-31)
+    house.set(OFF, "playing", media_content_id="library://playlist/christmas", media_title="Underneath the Tree")
+    res = await hass.services.async_call(DOMAIN, "music_play_media",
+                                         {"player": OFF, "media_content_id": "apple_music://playlist/halloween",
+                                          "media_content_type": "playlist"},
+                                         blocking=True, return_response=True)
+    assert res == {"ok": True, "leader": OFF}
+    assert house.called("play_media")[-1]["enqueue"] == "replace"
+
+
+async def test_still_playing_the_old_song_is_not_started_anew(music):
+    eng = music
+    was = ("playing", "library://track/1", "Underneath the Tree")
+    eng._now_playing = lambda e: was
+    assert not eng._started_anew(OFF, was)
+    eng._now_playing = lambda e: ("playing", "library://track/2", "Monster Mash")
+    assert eng._started_anew(OFF, was)
+    eng._now_playing = lambda e: ("playing", "library://track/1", "Underneath the Tree")
+    assert eng._started_anew(OFF, ("idle", "library://track/1", "Underneath the Tree"))
+
+
 async def test_actions_before_the_feature_is_added_say_so(hass, frontend, house):
     from homeassistant.exceptions import ServiceValidationError
     assert not feature_entries(hass, "music")
