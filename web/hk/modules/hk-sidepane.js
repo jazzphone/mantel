@@ -517,9 +517,14 @@
       if (!st) return none('camera', s, 'No camera');
       var age = st.last_updated ? ago(Date.parse(st.last_updated)) + ' ago' : '';
       if (s === 'tiny') return tiny('camera', esc(nameOf(st, id)), esc(age));
-      var pic = attr(st, 'entity_picture');
-      return '<div class="sec cam2 ' + s + '" data-k="camera" data-size="' + s + '">' +
-        (pic ? '<img alt="" src="' + esc(ctx.still(id, pic)) + '">' : '') + '<span class="cn">' + esc(nameOf(st, id)) + '</span></div>';
+      // THE STILL, WHEN IT HAS LOADED (2026-10-31, the owner: "never the ?"): the camera's glyph on the dark plate
+      // always, and the picture over it only once one has come (ctx.still: the last good address, else ''; _cams
+      // fetches and refreshes it in place). THE NAME (the owner's item 33 for the blocks, 42 here): Hide unless
+      // the section's Name says Show, or Automatic, which shows it on a short still only, as the blocks' cells do
+      var url = ctx.still(id);
+      return '<div class="sec cam2 ' + s + '" data-k="camera" data-size="' + s + '" data-cam="' + esc(id) + '" data-name="' + (sec.name || 'hide') + '">' +
+        '<span class="cg" aria-hidden="true">' + icon(KINDS.camera[1]) + '</span>' +
+        (url ? '<img alt="" src="' + esc(url) + '">' : '') + '<span class="cn">' + esc(nameOf(st, id)) + '</span></div>';
     },
     timers: function (s, sec, c) {
       var t = timersOf(c);
@@ -921,6 +926,10 @@
       '.sec.cam2.less{aspect-ratio:auto;height:120px}',
       '.sec.cam2.full{aspect-ratio:4/3}',
       '.sec.cam2>img,.sec.cam2>.live,.sec.cam2>.live>*{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}',
+      // (the glyph on the dark plate until a still has loaded over it; the name by the section's Name)
+      '.sec.cam2>.cg{position:absolute;inset:0;display:grid;place-items:center;color:rgba(255,255,255,.4)}',
+      '.sec.cam2>.cg hk-icon{width:40px;height:40px;--hk-icon-size:40px}',
+      '.sec.cam2[data-name=hide] .cn,.sec.cam2[data-name=auto]:not(.less) .cn{display:none}',
       '.sec.cam2 .cn{position:absolute;left:12px;bottom:12px;font:600 13px/1 var(--hk-font-body,inherit);background:rgba(28,28,30,.62);padding:6px 9px;border-radius:999px}',
       '.sec.cam2 .lv{position:absolute;right:12px;top:12px;font:700 11px/1 var(--hk-font-body,inherit);letter-spacing:.06em;background:#ff3b30;padding:5px 8px;border-radius:999px;z-index:1}',
       '.sec.cam2.ring{box-shadow:inset 0 0 0 3px #ff3b30}',
@@ -1060,6 +1069,7 @@
       this._fill();
       this._floors();
       this._cuts();
+      this._cams();
       this._fit = got;
     }
     // THE ALBUM ART BEHIND THE WHOLE PANE (2026-10-30, the owner: "if something
@@ -1177,14 +1187,49 @@
           return rgb && rgb.length === 3 ? 'rgb(' + rgb.join(',') + ')' : '#ff9f0a';
         },
         forecast: function (wid, kind) { return self._forecast(c, wid, kind); },
-        still: function (id, pic) {
-          // a still at most every ten seconds (the strip's rule), never the same address twice
-          var s = self._stills[id] || (self._stills[id] = { at: 0, n: 0 });
-          if (Date.now() - s.at > 10000) { s.at = Date.now(); s.n++; }
-          return pic + (pic.indexOf('?') >= 0 ? '&' : '?') + 'hk_n=' + s.n;
-        },
+        // a camera's last still that loaded, or '' (see _cams)
+        still: function (id) { var s = self._stills[id]; return s && s.url || ''; },
         slot: function (key, tag) { self._want = self._want || {}; self._want[key] = tag; return '<div class="slot" data-slot="' + key + '"></div>'; }
       };
+    }
+    // THE CAMERA'S STILL, LOADED AND REFRESHED IN PLACE (2026-10-31, the owner's item 42: "Driveway Camera ...
+    // never loads", a "?" forever). WHY: the address asked for carried `hk_n=`, and Mantel's still route answers
+    // only width, height, v and _hk (camera_still.py: anything else is a 400), so every request failed; and it
+    // asked for no size, which is the camera's whole 4K frame (1.8 MB) where the blocks ask 480 x 270. Now, as
+    // the blocks' strip does (hk-cameras.js _srcFor): the entity's own entity_picture, read fresh each time (HA
+    // rotates its token), `_hk` a counter, and the tier's size. A new one is loaded off screen and put in only once
+    // it has a picture (naturalWidth), at most every ten seconds; one that failed is not asked for again with the
+    // same address for a minute. A draw shows the last good one at once.
+    _cams() {
+      var self = this, c = clientNow(), nodes = this._secs ? this._secs.querySelectorAll('.cam2[data-k="camera"]') : [];
+      var ids = {};
+      Array.prototype.forEach.call(nodes, function (n) { var id = n.getAttribute('data-cam'); if (id) ids[id] = 1; });
+      var any = Object.keys(ids);
+      if (!any.length) { if (this._camT) { clearInterval(this._camT); this._camT = null; } return; }
+      if (!this._camT) this._camT = setInterval(function () { self._cams(); }, 10000);
+      if (!c) return;
+      any.forEach(function (id) {
+        var st = states(c)[id], HC = C(), a = st && st.attributes;
+        var pic = a && !a.restored && !(HC && HC.stale && HC.stale(st)) ? a.entity_picture : null;
+        var s = self._stills[id] || (self._stills[id] = { at: 0, n: 0, url: '', busy: false, bad: '', badAt: 0 });
+        if (!pic || s.busy || Date.now() - s.at < 9000) return;
+        if (s.bad === pic && Date.now() - s.badAt < 60000) return;
+        s.busy = true; s.at = Date.now(); s.n++;
+        var url = pic + (pic.indexOf('?') < 0 ? '?' : '&') + '_hk=' + s.n + '&width=480&height=270', im = new Image();
+        im.onload = function () {
+          s.busy = false;
+          if (!im.naturalWidth) { s.bad = pic; s.badAt = Date.now(); return; }
+          s.url = url; s.bad = '';
+          Array.prototype.forEach.call(self._secs.querySelectorAll('.cam2[data-k="camera"]'), function (n) {
+            if (n.getAttribute('data-cam') !== id) return;
+            var el = n.querySelector('img');
+            if (!el) { el = document.createElement('img'); el.alt = ''; n.insertBefore(el, n.querySelector('.cn')); }
+            if (el.getAttribute('src') !== url) el.setAttribute('src', url);
+          });
+        };
+        im.onerror = function () { s.busy = false; s.bad = pic; s.badAt = Date.now(); };
+        im.src = url;
+      });
     }
     // ELEMENTS KEPT BETWEEN DRAWS (the music pane, the doorbell's live
     // camera): made once, moved into each draw's place for them
@@ -1217,6 +1262,7 @@
     // ...and taken out when the pane steps aside (the music pane stops drawing)
     _park() {
       var np = this._slots.np;
+      if (this._camT) { clearInterval(this._camT); this._camT = null; }
       if (np && np.active) np.active(false);
       Object.keys(this._slots).forEach(function (k) { var el = this._slots[k]; if (el.parentNode) el.parentNode.removeChild(el); }, this);
     }
