@@ -273,7 +273,7 @@
     ['blur', 'Blur', 'What’s behind the glass, blurred. Choose how in Blur Mode.'],
     // BRIGHT GLASS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase D): the
     // sixth look, in Blur's three modes (BRIGHT_MODES)
-    ['bright', 'Bright Glass', 'A light, clear glass that brings out the colours behind it. Best over a wallpaper.']
+    ['bright', 'Bright Glass', 'A light, clear glass that brings out the colors behind it. Best over a wallpaper.']
   ];
   var BLUR_MODES = [
     ['blur', 'Shared Layer', 'Live: the sky blurs as it moves, one blur for the whole page. Fine on wall tablets — but while the sky moves, the device blurs it again on every frame.'],
@@ -316,7 +316,7 @@
   // TILE STYLE (look.tile_style, a screen's tile_style; 2026-10-30): the Home
   // Grid's tiles and the room pages' Tall pills (settings.py TILE_STYLES)
   // Automatic (the default): Centred on square cells, Home on tiles and the room pages
-  var TILE_STYLES = [['auto', 'Automatic'], ['home', 'Home'], ['centred', 'Centred']];
+  var TILE_STYLES = [['auto', 'Automatic'], ['home', 'Home'], ['centred', 'Centered']];
   // BRIGHT GLASS ON (look.bright_pages, a screen's bright_pages; settings.py BRIGHT_PAGES)
   var BRIGHT_PAGES = [['home', 'Home Only'], ['all', 'Every Page']];
   var PRESETS = {
@@ -1006,11 +1006,14 @@
     if (!names.length) return 'Not used on any screen';
     return names.length <= 2 ? names.join(', ') : names.length + ' Screens';
   }
-  // A SCREEN'S MENU ON EACH DEVICE in a word each: "Tab Bar · Button"
+  // A SCREEN'S MENU ON EACH DEVICE in words: "Tab Bar on Both" when they
+  // are the same, else "Button, Tab Bar on Phones" (2026-10-30: never
+  // "Button · Button")
   function menuWord(b) {
     var m = menuMode(b), p = phoneMenu(b);
     var t = m === 'off' ? 'Off' : m === 'open' ? 'Always Open' : m === 'tabbar' ? 'Tab Bar' : 'Button';
-    return t + ' · ' + (p === 'off' ? 'Off' : p === 'tabbar' ? 'Tab Bar' : 'Button');
+    var ph = p === 'off' ? 'Off' : p === 'tabbar' ? 'Tab Bar' : 'Button';
+    return t === ph ? (t === 'Off' ? 'Off' : t + ' on Both') : t + ', ' + ph + ' on Phones';
   }
   // which menu settings each kind's page holds (a screen's Reset there)
   var KIND_KEYS = {
@@ -1038,6 +1041,11 @@
     for (var i = 0; i < GLASS.length; i++) if (GLASS[i][0] === v) return GLASS[i][1];
     return v;
   }
+  // ...as a row's value, the style alone ("Bright Glass", not "Bright Glass
+  // · Shared Layer": its mode is on the Style page)
+  function glassShort(v) {
+    return isBlur(v) ? 'Blur' : isBright(v) ? 'Bright Glass' : glassLabel(v);
+  }
   // this screen's glass: its own, or All Screens'
   function glassOf(b, look) {
     var own = !!b.glass && b.glass !== 'house';
@@ -1062,7 +1070,7 @@
   // and a screen's page say the same)
   function glassFooter(style) {
     var t = 'How the pills, tiles and chips look.';
-    if (style === 'flat') return 'Opaque surfaces with no blur, animations or live sky effects. Color, landscape and photo backgrounds remain available in Sky / Background. Your other appearance preferences are kept.';
+    if (style === 'flat') return 'Opaque surfaces with no blur, animations or live sky effects. Color, landscape and photo backgrounds remain available in Background. Your other appearance preferences are kept.';
     if (style === 'frosted') t += ' Frost: how milky, 50% is the middle. Tint from Background: each card takes the color of the page behind it instead of one gray.';
     if (isBlur(style)) t += ' Blur: how strong, 50% is 20 px.';
     if (isBright(style)) t += ' Strength: how bright the glass is, 50% as designed. It holds back by itself where white text would get hard to read.';
@@ -1656,7 +1664,7 @@
           sub: 'Or turn on Hide Home Assistant Header & Sidebar in the screen’s HK settings, with nothing written. A kiosk_mode block (the Kiosk Mode plugin’s) wins over both.',
           yaml: 'hk_kiosk:\n  header: true        # Home Assistant’s header\n  sidebar: true       # ...and its sidebar\n  admins: true        # false: an admin still sees them' },
         { id: 'screensaver', title: 'Photo Screensaver', key: 'hk_screensaver', anchor: 'photo-screensaver',
-          sub: 'Or turn on Photo Screensaver in the screen’s HK settings, with nothing written, and get its switch and In Use sensor too.',
+          sub: 'Or turn on Screensaver in the screen’s HK settings, with nothing written, and get its switch and In Use sensor too.',
           yaml: 'hk_screensaver:\n  user: {user}   # the tablet’s Home Assistant user\n' +
                 '  tablet: kitchen        # optional, instead of user: the wall tablet’s id\n' +
                 '  entity: input_boolean.kitchen_photos   # optional: yours, kept in step\n' +
@@ -1823,10 +1831,12 @@
   // Every setting the page has, where it is, and words people might use.
   // `screen: true` rows are on every screen's page.
   var SEARCH = [
-    ['Menu', 'screen', 'menu', 'sidebar drawer navigation off button always open docked', true],
+    // (a screen's menu on each device is at the top of its Menu since 2026-10-30)
+    ['Menu', 'screen/menu', 'menu', 'menu settings tablets computers sidebar drawer navigation off button always open docked tab bar', true],
+    ['Menu on Phones', 'screen/menu', 'menu_phone', 'phone phones menu chip button tab bar off', true],
     ['Back Button & Title', 'house/menu/header', 'menu.page_header', 'page header back title context navigation compact hide'],
     ['Back Button & Title', 'screen', 'page_header', 'page header back title context navigation compact hide', true],
-    ['Menu Settings', 'screen/menu', 'menu_own', 'same as all screens own menu this screen side menu edge tab tab bar', true],
+    ['Menu Options', 'screen', 'menu_own', 'menu settings same as all screens own menu this screen side menu edge tab tab bar', true],
     ['Swipe Between Pages', 'screen/menu', 'swipe_pages', 'swipe gesture next previous page sideways tab bar homeview same as all screens', true],
     ['Menu on Each Screen', 'house/menu', 'menu:screens', 'menu each screen tablets phones which kind button tab bar always open'],
     ['Side Menu', 'house/menu/side', 'menu:side', 'side menu drawer button always open docked used by'],
@@ -1850,7 +1860,7 @@
     ['Pages Screen (All Screens)', 'house/pagesscreen', 'pages_screen.show', 'pages screen home screen app icons grid launcher homeview ipad widgets folder pill'],
     ['Glass', 'screen/glass', 'glass', 'look blur frosted clear', true],
     ['Live Sky', 'screen/sky', 'sky', 'background animated on off', true],
-    ['Sky / Background', 'screen/sky', 'sky_look', 'backdrop animations weather decorations palette own look', true],
+    ['Background', 'screen/sky', 'sky_look', 'backdrop animations weather decorations palette own look', true],
     ['Liveliness', 'screen/sky', 'sky_liveliness', 'liveliness subtle classic festive party custom busy calm moving bats leaves each occasion', true],
     ['Calm When Nobody\u2019s Around', 'screen/sky', 'sky_calm_empty', 'empty room nobody occupancy motion presence calm quiet', true],
     ['Home Assistant Header & Sidebar', 'screen', 'kiosk', 'kiosk mode hide', true],
@@ -1861,10 +1871,13 @@
     ['Car Browser', 'screen', 'car', 'tesla viewport', true],
     ['Rename Screen', 'screen', 'rename', 'rename name title dashboard sidebar pencil', true],
     ['Now Playing', 'screen', 'now_playing', 'music media bar pane player', true],
-    ['Now Playing Placement', 'screen', 'np_style', 'music media bar pane side left right top bottom phones player', true],
+    ['Now Playing Options', 'screen', 'np_options', 'music media bar pane same as all screens own player', true],
+    ['Now Playing Placement', 'screen/nowplaying', 'np_style', 'music media bar pane side left right top bottom phones player show as', true],
+    ['Now Playing Bar Position', 'screen/nowplaying', 'np_bar', 'music media bar top bottom position player tablets computers', true],
+    ['Now Playing Bar on Phones', 'screen/nowplaying', 'np_bar_phone', 'music media bar top bottom position player phones', true],
     ['Timer Bar', 'screen', 'timer_bar', 'timers quick timer bar countdown docked bottom', true],
     ['On Every Page', 'screen', 'bar_all_pages', 'now playing timer bar every page all pages everywhere', true],
-    ['Photo Screensaver', 'screen', 'screensaver', 'photos wall tablet slideshow', true],
+    ['Screensaver', 'screen', 'screensaver', 'photo screensaver photos wall tablet slideshow clock glance idle', true],
     ['Screensaver Options', 'screen/screensaver', 'screensaver_options', 'photo timing starts after each photo order random slideshow', true],
     ['Screensaver for All Screens', 'house/screensaver', 'look.saver', 'screensaver all screens global default every tablet'],
     ['Same as All Screens (Screensaver)', 'screen/screensaver', 'saver:house', 'screensaver all screens own global', true],
@@ -1877,8 +1890,8 @@
     ['Slide Every', 'screen/screensaver', 'saver:forecast_every', 'screensaver slide every photos how often forecast music', true],
     ['Slow Zoom', 'screen/screensaver', 'saver:zoom', 'screensaver photo zoom ken burns', true],
     ['Over the Photos', 'screen/screensaver', 'saver:clock', 'screensaver clock weather now playing music timers', true],
-    ['Calendar Pane', 'screen/screensaver', 'saver:calendar', 'screensaver calendar events agenda pane right side upcoming today tomorrow days', true],
-    ['Music Pane', 'screen/screensaver', 'saver:music_pane', 'screensaver music pane right side now playing album art song next previous', true],
+    ['Calendar Pane', 'screen/sidepane', 'pane:saver:show', 'screensaver calendar events agenda pane right side upcoming today tomorrow days', true],
+    ['Music Pane', 'screen/sidepane', 'pane:saver:show', 'screensaver music pane right side now playing album art song next previous', true],
     ['Home Status', 'screen/screensaver', 'saver:status', 'screensaver security secured locks doors alarm top right', true],
     ['Screensaver Switch', 'screen/screensaver', 'saver:ent:switch', 'screensaver photo switch automation entity turn on off bedtime doorbell', true],
     ['Screen In Use', 'screen/screensaver', 'saver:ent:binary_sensor', 'in use touched tablet binary sensor automation window starts after timer', true],
@@ -2124,15 +2137,15 @@
     ['photos', 'Photos', 'Your photos, one after another.'],
     ['forecast', 'Forecast', 'The forecast over the live sky and the season’s landscape.'],
     ['clock', 'Clock', 'A clock, full screen, over the background you choose.'],
-    ['glance', 'Glance', 'The date, a clock, what’s playing and the weather, on a calm colour.'],
+    ['glance', 'Glance', 'The date, a clock, what’s playing and the weather, on a calm color.'],
     ['month', 'Month', 'This month with today circled, and the date drawn large behind it.'],
     ['day', 'Day', 'The weekday and a big date, with HK’s own art for the day: pumpkins at Halloween, a cake on a birthday, the season’s leaves.']];
   var FORECAST_LAYOUTS = [['classic', 'Classic'], ['big', 'Big']];
   var DAY_LOOKS = [['auto', 'By Time of Day'], ['light', 'Light'], ['dark', 'Dark']];
   Object.assign(SAVER_DEFAULTS, { forecast_layout: 'classic', photo_titles: false, time_behind: false, day_look: 'auto' });
   CLOCK_STYLES.push(['liquid', 'Liquid', 'Soft, glossy numerals that drift slowly over a pastel gradient'],
-                    ['giant', 'Giant Numerals', 'An analog clock with 12, 3, 6 and 9 drawn huge on a strong colour'],
-                    ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft colour']);
+                    ['giant', 'Giant Numerals', 'An analog clock with 12, 3, 6 and 9 drawn huge on a strong color'],
+                    ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft color']);
   CLOCK_COLORS.liquid = [['pastel', 'Pastel'], ['sunset', 'Sunset'], ['ocean', 'Ocean'], ['mint', 'Mint']];
   CLOCK_COLORS.giant = [['green', 'Green'], ['blue', 'Blue'], ['orange', 'Orange'], ['pink', 'Pink'], ['black', 'Black']];
   CLOCK_COLORS.scattered = [['rose', 'Rose'], ['sage', 'Sage'], ['sky', 'Sky'], ['sand', 'Sand'], ['night', 'Night']];
@@ -2157,9 +2170,14 @@
                               : 'Bar, ' + choiceLabel(NP_BARS, b.np_bar || house.bar);
     return where + (b.np_bar_phone ? ' · Phones ' + choiceLabel(NP_BARS, b.np_bar_phone) : '');
   }
+  // ...whether a screen has any of its own (its Now Playing Options row, and
+  // its Reset to All Screens there)
+  var NP_OWN_KEYS = ['np_style', 'np_side', 'np_bar', 'np_bar_phone'];
+  function npOwn(b) { return NP_OWN_KEYS.some(function (k) { return !!(b || {})[k]; }); }
   var COPY_GROUPS = [
-    // the groups as the screen's page has them (2026-10-09): Menu, Home
-    // Page, Header, Pages, Appearance, Behavior, When Idle, This Device
+    // the groups as the screen's page has them (2026-10-09; named as its
+    // groups are since 2026-10-30): Menu, Home Page, Header, Pages,
+    // Appearance, Now Playing & Pop-ups, Screensaver, This Device
     // a screen's menu: All Screens', or its own one setting at a time (menu_own)
     ['menu', 'Menu', ['menu', 'menu_own', 'page_header', 'dock_min', 'time_weather', 'ha_row', 'ha_place', 'tab_position', 'tab_size',
                       'tab_size_phone', 'accent', 'glyph', 'clock', 'swipe',
@@ -2184,9 +2202,9 @@
                             'flat_colors', 'flat_page_colors',
                             // Bright Glass's Strength and the Wallpaper (2026-10-30)
                             'bright', 'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion'], true],
-    ['behavior', 'Behavior', ['popups', 'notify', 'notify_saver', 'notify_dnd', 'now_playing', 'timer_bar', 'bar_all_pages',
+    ['behavior', 'Now Playing, Side Pane, Pop-ups & Notifications', ['popups', 'notify', 'notify_saver', 'notify_dnd', 'now_playing', 'timer_bar', 'bar_all_pages',
                               'np_style', 'np_side', 'np_bar', 'np_bar_phone', 'side_pane'], true],
-    ['idle', 'When Idle', ['screensaver', 'screensaver_options', 'screensaver_engine', 'wallpanel_options'], true],
+    ['idle', 'Screensaver', ['screensaver', 'screensaver_options', 'screensaver_engine', 'wallpanel_options'], true],
     ['device', 'This Device', ['car', 'car_layout', 'car_width'], false]
   ];
   // never copied (1.14: a tablet's own -- its user, room, idle, Sleep Screen
@@ -2695,13 +2713,15 @@
     camera_live_video: 'Live Camera', home_style: 'Home', home_grid: 'Layout' };
   function lookSays(k, v) {
     if (v === null || v === undefined) return 'Same as All Screens';
+    // a screen's glass 'house' is All Screens' (never "House")
+    if (k === 'glass' && v === 'house') return 'Same as All Screens';
     if (v === true) return 'On';
     if (v === false) return 'Off';
     var lists = { glass: GLASS_STYLES, tile_style: TILE_STYLES, sky_wallpaper_night: WALLPAPER_NIGHT, sky_wallpaper_motion: WALLPAPER_MOTION };
     var o = lists[k] && lists[k].filter(function (x) { return x[0] === v; })[0];
     if (o) return o[1];
     if (k === 'side_pane') return v.dashboard && v.dashboard.show === 'off' ? 'Off' : 'On, beside Home';
-    if (k === 'screensaver_options') return 'The Look’s';
+    if (k === 'screensaver_options') return 'The Look’s Options';
     if (k === 'home_grid') return 'The Look’s starter';
     if (typeof v === 'string') return v.replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
     return 'Set';
@@ -2717,7 +2737,7 @@
       was[k] = before;
       if (k === 'screensaver_options') {
         var now = Object.assign({}, saver || {});
-        if (Object.keys(look.saver).some(function (o) { return !same(now[o], look.saver[o]); })) rows.push([LOOK_LABELS[k], 'Yours', lookSays(k, ch[k])]);
+        if (Object.keys(look.saver).some(function (o) { return !same(now[o], look.saver[o]); })) rows.push([LOOK_LABELS[k], 'Your Options', lookSays(k, ch[k])]);
         return;
       }
       if (!same(before, ch[k])) rows.push([LOOK_LABELS[k] || k, k === 'home_grid' && before ? 'Your layout' : lookSays(k, before), lookSays(k, ch[k])]);
@@ -2745,7 +2765,7 @@
     previewSizes: previewSizes, previewDefault: previewDefault, previewFit: previewFit,
     SAVER_SHOWS: SAVER_SHOWS, FORECAST_LAYOUTS: FORECAST_LAYOUTS, DAY_LOOKS: DAY_LOOKS, CLOCK_OWN_GROUND: CLOCK_OWN_GROUND, showName: showName,
     SAVER_DEFAULTS: SAVER_DEFAULTS, saverOptions: saverOptions, saverCustom: saverCustom, ENERGY_PARTS: ENERGY_PARTS, energyShown: energyShown, WEATHER_PARTS: WEATHER_PARTS, weatherShown: weatherShown, listText: listText, saverSummary: saverSummary, saverFollows: saverFollows, kioskSummary: kioskSummary,
-    NP_STYLES: NP_STYLES, NP_SIDES: NP_SIDES, NP_BARS: NP_BARS, NP_GRACES: NP_GRACES, npSummary: npSummary,
+    NP_STYLES: NP_STYLES, NP_SIDES: NP_SIDES, NP_BARS: NP_BARS, NP_GRACES: NP_GRACES, npSummary: npSummary, npOwn: npOwn, NP_OWN_KEYS: NP_OWN_KEYS,
     COPY_GROUPS: COPY_GROUPS, COPY_NEVER: COPY_NEVER, copyDefaults: copyDefaults, copyChanges: copyChanges,
     skyPreviewScreen: skyPreviewScreen, skyMoments: skyMoments,
     version: '2.0.0',
@@ -2785,7 +2805,7 @@
     errorText: errorText, refusals: refusals,
     menuMode: menuMode, menuFor: menuFor, menuStyleLabel: menuStyleLabel, showsTab: showsTab,
     stylesFor: stylesFor, swipeChanges: swipeChanges,
-    glassLabel: glassLabel, glassOf: glassOf, amountOf: amountOf, amountsFor: amountsFor, glassFooter: glassFooter,
+    glassLabel: glassLabel, glassShort: glassShort, glassOf: glassOf, amountOf: amountOf, amountsFor: amountsFor, glassFooter: glassFooter,
     chipsModel: chipsModel, chipsSave: chipsSave, chipsAddOwn: chipsAddOwn, chipsRemoveOwn: chipsRemoveOwn,
     chipQuiet: chipQuiet,
     scenesModel: scenesModel, scenesSave: scenesSave, scenesPagePill: scenesPagePill,
@@ -2801,7 +2821,7 @@
     topsOf: topsOf, placeOf: placeOf, placeSet: placeSet,
     camerasModel: camerasModel, autoCameras: autoCameras, livePlan: livePlan, liveYaml: liveYaml, liveNames: liveNames,
     move: move,
-    LOOKS: LOOKS, LOOK_KEYS: LOOK_KEYS, LOOK_UNDO_KEYS: LOOK_UNDO_KEYS, LOOK_LABELS: LOOK_LABELS, lookOf: lookOf, lookChanges: lookChanges, lookUndo: lookUndo,
+    LOOKS: LOOKS, LOOK_KEYS: LOOK_KEYS, LOOK_UNDO_KEYS: LOOK_UNDO_KEYS, LOOK_LABELS: LOOK_LABELS, lookOf: lookOf, lookSays: lookSays, lookChanges: lookChanges, lookUndo: lookUndo,
     mmdd: mmdd, dateLabel: dateLabel, skyDate: skyDate, search: search
   };
 })();

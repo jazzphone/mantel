@@ -32,10 +32,14 @@ SHOWS = {
     'saver-forecast': ({'show': 'forecast'}, None),
     # Photos with Time Behind (2026-10-30): the weather under the time, centred, never beside it
     'saver-timebehind': ({'show': 'photos', 'time_behind': True, 'photo_titles': True}, 'tb'),
+    # 26 (2026-10-30): the photo options where they apply -- Clock on sharp photos offers Time Behind and draws it;
+    # on Soft photos neither (left on from Photos, it couldn't be turned off from Clock)
+    'saver-clockphotos': ({'show': 'clock', 'clock_bg': 'photos', 'time_behind': True}, 'clock-tb'),
+    'saver-clocksoft': ({'show': 'clock', 'clock_bg': 'photos', 'clock_photo_soft': True, 'time_behind': True}, 'clock-soft'),
 }
 
 
-async def photos_for(server, cookie, screen):
+async def photos_for(server, cookie, screens):
     """Photos for Time Behind: a drawn person against a drawn sky, uploaded to a Mantel album the screen shows (as an
     Owner does in Mantel Settings). No real photo."""
     import io
@@ -58,8 +62,9 @@ async def photos_for(server, cookie, screen):
         fd = FormData(); fd.add_field('file', buf.getvalue(), filename='person.jpg', content_type='image/jpeg')
         async with http.post(base + f'/api/photos/albums/{aid}/upload', data=fd, headers=h) as r:
             assert r.status == 201, await r.text()
-        async with http.put(base + f'/api/photos/screens/{screen}', json={'album': aid}, headers=h) as r:
-            assert r.status == 200, await r.text()
+        for screen in screens:
+            async with http.put(base + f'/api/photos/screens/{screen}', json={'album': aid}, headers=h) as r:
+                assert r.status == 200, await r.text()
 
 
 async def main():
@@ -70,7 +75,7 @@ async def main():
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td), real_model=True)
         async with TestServer(app) as server:
-            await photos_for(server, cookie, 'saver-timebehind')
+            await photos_for(server, cookie, ('saver-timebehind', 'saver-clockphotos', 'saver-clocksoft'))
             if args.shots:
                 args.shots.mkdir(parents=True, exist_ok=True)
             proc = await asyncio.create_subprocess_exec(args.node, str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE,

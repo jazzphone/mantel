@@ -199,8 +199,8 @@ var keyOf = function (q, label) {
   return x && x.key;
 };
 ok('search: a screen page\'s row is lit by its b: label', keyOf('menu', 'Menu') === 'b:menu');
-ok('...and so is one on a page under the screen (Menu Settings, Hide Header)',
-   keyOf('menu settings', 'Menu Settings') === 'b:menu_own' && keyOf('hide header', 'Hide Header') === 'b:kiosk_header');
+ok('...and so is one on a page under the screen (Menu, Hide Header)',
+   keyOf('menu phones', 'Menu on Phones') === 'b:menu_phone' && keyOf('hide header', 'Hide Header') === 'b:kiosk_header');
 ok('...while a key with its own prefix stays as it is',
    keyOf('forecast no photos', 'Forecast When There Are No Photos') === 'saver:fallback');
 ok('...and a house setting keeps its own key', M.search('backdrop', []).filter(function (y) { return y.route === 'house/appearance/sky/backdrop'; })
@@ -385,8 +385,8 @@ ok('rooms summary', M.roomsSummary(hb) === '2 on Home' && M.roomsSummary({ room_
   ok('tab bar: on either device', eq(M.kindUsers('tab-bar', boards, title), ['Kitchen', 'Hall']));
   ok('"used by" as a row says it', M.usedBy([]) === 'Not used on any screen' && M.usedBy(['Den']) === 'Den' &&
      M.usedBy(['Kitchen', 'Hall']) === 'Kitchen, Hall' && M.usedBy(['Kitchen', 'Den', 'Hall']) === '3 Screens');
-  ok('a screen\'s menu on each device in a word each', M.menuWord(boards.a) === 'Tab Bar · Button' && M.menuWord(boards.c) === 'Off · Off' &&
-     M.menuWord(boards.d) === 'Always Open · Tab Bar' && M.menuWord({ menu: 'auto' }) === 'Button · Button');
+  ok('a screen\'s menu on each device in words, "on Both" when the same', M.menuWord(boards.a) === 'Tab Bar, Button on Phones' && M.menuWord(boards.c) === 'Off' &&
+     M.menuWord(boards.d) === 'Always Open, Tab Bar on Phones' && M.menuWord({ menu: 'auto' }) === 'Button on Both');
   // ACCENT COLOR: the menu's highlight and Flat's accent, one choice
   var look = { flat_colors: { accent: 'auto' } };
   ok('All Screens\' Accent Color is the menu\'s accent', M.accentColorOf(look, { accent: 'teal' }, null, false, false).name === 'Teal' &&
@@ -545,9 +545,10 @@ ok('glass: six styles, Blur\'s three modes and Bright Glass\'s, one stored value
    eq(M.GLASS.map(function (g) { return g[0]; }), ['flat', 'clear', 'frosted', 'tinted', 'blur', 'blur_pre', 'blur_each', 'bright', 'bright_pre', 'bright_each']));
 // BRIGHT GLASS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase D)
 ok('Bright Glass: the approved words, its own style, Blur\'s modes by its own values',
-   eq(M.GLASS_STYLES[5], ['bright', 'Bright Glass', 'A light, clear glass that brings out the colours behind it. Best over a wallpaper.']) &&
+   eq(M.GLASS_STYLES[5], ['bright', 'Bright Glass', 'A light, clear glass that brings out the colors behind it. Best over a wallpaper.']) &&
    M.glassStyle('bright_pre') === 'bright' && M.glassStyle('bright_each') === 'bright' && M.isBright('bright') && !M.isBlur('bright') &&
    M.glassLabel('bright') === 'Bright Glass · Shared Layer' && M.glassLabel('bright_each') === 'Bright Glass · Each Card' &&
+   M.glassShort('bright_each') === 'Bright Glass' && M.glassShort('blur_pre') === 'Blur' && M.glassShort('tinted') === 'Tinted' &&
    M.modesFor('bright') === M.BRIGHT_MODES && M.modesFor('blur') === M.BLUR_MODES && M.modesFor('tinted') === null);
 ok('...picking a style keeps the Blur Mode already chosen, either\'s',
    M.styleValue('bright', 'blur_pre', 'blur') === 'bright_pre' && M.styleValue('blur', 'bright_each', 'blur') === 'blur_each' &&
@@ -634,6 +635,8 @@ ok('...every mode says what it costs', M.BLUR_MODES.every(function (m) { return 
      lc.changes.look_undo.look === 'homeview' && lc.changes.look_undo.was.glass === 'house' && lc.changes.look_undo.was.side_pane === null, lc.changes);
   ok('...the sheet lists what differs (the accent is orange already)', lc.rows.some(function (r) { return r[0] === 'Style'; }) &&
      !lc.rows.some(function (r) { return r[0] === 'Accent Color'; }), lc.rows);
+  ok('...a screen\'s glass \'house\' reads Same as All Screens, never "House"', lc.rows.filter(function (r) { return r[0] === 'Style'; })[0][1] === 'Same as All Screens' &&
+     M.lookSays('screensaver_options', {}) === 'The Look’s Options', lc.rows);
   var un = M.lookUndo({ look_undo: lc.changes.look_undo });
   ok('...and Undo puts the screen\'s own values back, the Undo spent', un.glass === 'house' && un.side_pane === null && un.look_undo === null, un);
   ok('...nothing to undo without one', M.lookUndo({}) === null);

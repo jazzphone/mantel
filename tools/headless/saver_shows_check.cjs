@@ -53,6 +53,28 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         await ctx.close();
         continue;
       }
+      if (want === 'clock-tb' || want === 'clock-soft') {
+        const sharp = want === 'clock-tb';
+        const tb = await page.evaluate(() => {
+          const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
+          return host ? { tb: host.hasAttribute('tb'), ckmode: host.hasAttribute('ckmode'), time: !!host.shadowRoot.querySelector('.ph .tb .tbt') } : null;
+        });
+        say(started && !!tb && tb.ckmode && tb.tb === sharp && tb.time === sharp,
+            screen + (sharp ? ': Clock on sharp photos with Time Behind saved on draws it' : ': Clock on Soft photos with Time Behind saved on: the clock, no time on the photos'), tb);
+        await page.evaluate(() => window.hkSaver && window.hkSaver.preview && window.hkSaver.preview(false));
+        await page.goto(input.origin + '/settings#/screens/' + screen + '/screensaver');
+        await page.waitForTimeout(5000);
+        const rows = await page.evaluate(() => {
+          const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
+          return deep(document).filter((e) => !e.children.length && /^(Time Behind|Titles)$/.test((e.textContent || '').trim())).map((e) => e.textContent.trim());
+        });
+        say(sharp ? rows.includes('Time Behind') && rows.includes('Titles') : !rows.includes('Time Behind') && !rows.includes('Titles'),
+            screen + (sharp ? ': its Screensaver page offers Time Behind and Titles' : ': its Screensaver page offers neither'), rows);
+        say(!errors.length, screen + ': no page errors', errors.slice(0, 3));
+        if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-settings.png', fullPage: true });
+        await ctx.close();
+        continue;
+      }
       const ok = !!got && (want === 'big' ? got.big : want ? got.face === want : !got.face && !got.big);
       say(started && ok, screen + ': the screensaver draws ' + (want || 'the classic forecast'), got);
       say(!errors.length, screen + ': no page errors', errors.slice(0, 3));

@@ -36,10 +36,10 @@ page.data = { settings: { sky: {}, look: {} }, choices: {} };
 ok('house backdrop opens its own page (Sky Colors)', open('#/house/sky/backdrop').title, 'Sky Colors');
 page.dash = function (path) { return { path: path, title: 'Sky Test', item: true }; };
 page.data.boards = { 'dashboard-sky': {} };
-ok('screen sky opens the named page', P.p_screen.call(page, 'dashboard-sky', ['sky']).title, 'Sky / Background');
+ok('screen sky opens the named page', P.p_screen.call(page, 'dashboard-sky', ['sky']).title, 'Background');
 var backdrop = P.p_screen.call(page, 'dashboard-sky', ['sky', 'backdrop']);
 ok('screen backdrop opens its picker (Sky Colors)', backdrop.title, 'Sky Colors');
-ok('screen backdrop Back returns to Sky / Background', backdrop.back[1], '#/screens/dashboard-sky/sky');
+ok('screen backdrop Back returns to Background', backdrop.back[1], '#/screens/dashboard-sky/sky');
 // SKY LIVELINESS (2026-10-08): a woodland season has its own page now, Back
 // to the seasons; the night sky has one too
 ok('a woodland season opens its own page', open('#/house/sky/woodland/fall').title, 'Autumn');
@@ -432,29 +432,32 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   });
   ok('opening every one of them wrote nothing', writes.length, 0);
   // the old addresses open the new pages
-  ok('Sky / Background opens under Appearance', go('#/house/sky').title === 'Sky / Background' && go('#/house/sky').back[1] === '#/house/appearance', true);
+  ok('Background (Sky / Background before) opens under Appearance', go('#/house/sky').title === 'Background' && go('#/house/sky').back[1] === '#/house/appearance', true);
   ok('...and its pages too', go('#/house/sky/woodland').back[1], '#/house/appearance/sky');
   ok('the sidebar has no Sky entry', /\['sky',/.test(read(HK_ROOT + '/frontend/panels/hk-settings.js').split('var HOUSE = [')[1].split('];')[0]), false);
   ok('the Highlight Color is the Accent Color', go('#/house/menu/accent').title, 'Accent Color');
   ok('...a screen’s too, whether its menu follows or not', go('#/screens/dashboard-k/menu/accent').title, 'Accent Color');
   ok('the device pages open Menu', go('#/house/menu/tablets').title, 'Menu');
   ok('...a button style the Side Menu’s', go('#/house/menu/tablets/style').title === 'Button Style' && go('#/house/menu/tablets/style').back[1] === '#/house/menu/side', true);
-  ok('a screen’s device page opens its Menu Settings', go('#/screens/dashboard-k/menu/phones').title, 'Menu Settings');
+  ok('a screen’s device page opens its Menu', go('#/screens/dashboard-k/menu/phones').title, 'Menu');
   // All Screens -> Appearance
   var ap = text(draw(go('#/house/appearance')).box);
-  ok('All Screens’ Appearance: Style, Colors, Background, Tab Bar Look', ['Style', 'Colors', 'Background', 'Tab Bar Look', 'Accent Color', 'Tab Bar Glass', 'Sky / Background'].every(function (w) { return ap.indexOf(w) >= 0; }), true);
+  ok('All Screens’ Appearance: Style (with Tile Style), Colors & Background, Tab Bar', ['Style', 'Tile Style', 'Colors & Background', 'Tab Bar', 'Accent Color', 'Tab Bar Glass', 'Background'].every(function (w) { return ap.indexOf(w) >= 0; }) &&
+     !/Tab Bar Look|Sky \/ Background|Tiles/.test(ap), true);
   ok('...no Flat Colors while no screen is Flat', /Flat Colors/.test(ap), false);
   // All Screens -> Menu
   var mp = text(draw(go('#/house/menu')).box);
-  ok('Menu on Each Screen: its two choices as the value', /Tab Bar · Button/.test(mp) && /Off · Off/.test(mp), true);
+  ok('Menu on Each Screen: its two choices in words as the value', /Tab Bar, Button on Phones/.test(mp) && /\bOff\b/.test(mp) && !/ · /.test(mp), true);
   ok('Navigation: who uses each', /Side Menu/.test(mp) && /Edge Tab/.test(mp) && /Tab Bar/.test(mp) && /Kitchen/.test(mp), true);
   ok('...and the rooms’ one home, and Back Button & Title', /Rooms in the Menu/.test(mp) && /Back Button & Title/.test(mp), true);
-  ok('a kind no screen uses says so', /Not used on any screen/.test(text(draw(go('#/house/menu/side')).box)) === false &&
-     /Used by Kitchen/.test(text(draw(go('#/house/menu/edge-tab')).box)), true);
+  ok('a kind says who uses it, under its title (the page\'s scope line)', /Not used on any screen/.test(go('#/house/menu/side').scope) === false &&
+     /Used by Kitchen/.test(go('#/house/menu/edge-tab').scope) && !/Used by/.test(text(draw(go('#/house/menu/edge-tab')).box)), true);
   // a screen's Menu Settings: only the kinds it uses, each setting its own one at a time
   var sm = text(draw(go('#/screens/dashboard-k/menu')).box);
   ok('a screen’s Menu Settings lists only the kinds it uses', /Side Menu/.test(sm) && /Edge Tab/.test(sm) && /Tab Bar/.test(sm), true);
-  ok('...a screen with no menu says so', /has no menu/.test(text(draw(go('#/screens/dashboard-c/menu')).box)), true);
+  var nm = draw(go('#/screens/dashboard-c/menu')).box;
+  ok('...a screen with no menu: its menu on each device at the top, no kinds', /Menu on This Screen/.test(text(nm)) && !!byFk(nm, 'b:menu:off') && !!byFk(nm, 'b:menu_phone:off') && !/Navigation/.test(text(nm)), true);
+  ok('...and its page has the one Menu row, its menus in words', /Off/.test(text(draw(go('#/screens/dashboard-c')).box)) && !byFk(draw(go('#/screens/dashboard-c')).box, 'b:menu:off'), true);
   var tbp = draw(go('#/screens/dashboard-k/menu/tab-bar')).box;
   ok('its Tab Bar page: Size Just This Screen, Position Same as All Screens', /Just This Screen/.test(text(tbp)) && /Same as All Screens/.test(text(tbp)), true);
   tap(byFk(tbp, 'b:tab_bar_size:reset'));
@@ -464,7 +467,7 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   ok('a button style chosen on a screen is its own', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { button_phone: 'chip', menu_own: ['accent', 'tab_bar_size', 'button_phone'] }]));
   // a screen's page: Appearance one row; Back Button & Title in its Header
   var main = text(draw(go('#/screens/dashboard-k')).box);
-  ok('a screen’s Appearance is one row: its style and whose it is', /Appearance/.test(main) && /Shared Layer/.test(main) && /Same as All Screens/.test(main), true);
+  ok('a screen’s Appearance is one row: its style and whose it is', /Appearance/.test(main) && /Blur/.test(main) && !/Shared Layer/.test(main) && /Same as All Screens/.test(main), true);
   ok('...Back Button & Title beside its other header settings', /Back Button & Title/.test(main), true);
   ok('...no Sky group of its own any more', main.split('Sky / Background').length - 1, 0);
   var sa = text(draw(go('#/screens/dashboard-k/appearance')).box);

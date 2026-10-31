@@ -1271,3 +1271,27 @@ square cells, Doors XL's callouts over its activity row, the Power and Water blo
   photos -- Show: Photos and Both, and Clock on Photos that aren't Soft, where the Screensaver page offers both
   toggles -- and do nothing anywhere else (Clock on Soft photos, Landscapes or its own background, the Forecast,
   Glance, Month, Day). `test_saverfaces.js` checks each Show.
+
+**The screen settings tidied (2026-10-30, the owner: "things are starting to become a bit of a mess. Menu,
+Screensaver, Appearance").** An audit of every settings page at an iPad's and a phone's size found each feature of
+the week with its own page, its own way of saying Same as All Screens (six in all) and, on a screen's page, its own
+one-row group. Presentation only -- no stored key or value changed, every old address opens its page, every search
+key stays:
+
+- **All Screens** in the order a screen is set up: Appearance, Menu, Pages Screen, Side Pane (an icon of its own,
+  not Menu's), Now Playing, Screensaver, Notifications, Status Chips, Rooms, Wall Tablets.
+- **A screen's page**: Menu & Header, Home Page, Pages, Look (Appearance, Looks, Side Pane together), Now Playing (a
+  switch and **Now Playing Options**, a page of its own, as the screensaver has), Pop-ups, Notifications,
+  Screensaver. The menu's Tablets & Computers / Phones choices moved to the top of the screen's Menu page.
+- **Appearance** in three groups, Tile Style under Style; a slider says whose value it is in its sub-line.
+- **Side Pane**: each row says whose it is, one Reset at the foot, Show a pop-up, the sections' lists on pages of
+  their own -- 1,517 px tall on an iPad, from 3,334.
+- **Screensaver**: one group order for every Show, one Show control (the pop-up over the pictures went), the
+  pictures three across on a phone, the photo source beside the photos' settings ("Slideshow" under it, never a
+  second "Photos"); Glance, Month and Day link to the Side Pane instead of the switches it overrides.
+- **Pages Screen** shows nothing else while it is off; a Look's page opens with its picture.
+- Words: US spelling in labels (stored values unchanged), "Background" for "Sky / Background", menu values as
+  "Button, Tab Bar on Phones", "Same as All Screens" for "House".
+
+The audit and its notes: the shared notes' settings-layout-audit.md; `looks_check`, `settings_viewports`,
+`saver_shows_check`, `side_pane_check` and `pages_screen_check` pass.
