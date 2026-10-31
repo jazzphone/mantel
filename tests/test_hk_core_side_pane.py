@@ -294,6 +294,16 @@ def test_the_clock_s_look_is_saved_whole_with_its_group():
     assert C.apply_board({}, {"side_pane": {"dashboard": {"show": "home", "sections": [{"kind": "clock", "face": "roman"}]}}})[1] != {}
 
 
+def test_now_playing_has_two_taps_of_its_own():
+    # (2026-10-31, item 44) open the panel in place, or flip to the controls; no other section has them
+    for tap in ("panel", "flip"):
+        assert M.pane_section({"kind": "now_playing", "tap": tap}, strict=True) == {"kind": "now_playing", "tap": tap}
+        assert M.pane_section({"kind": "weather", "tap": tap}) == {"kind": "weather"}
+        assert M.pane_section({"kind": "weather", "tap": tap}, strict=True) is None
+    assert M.pane_section({"kind": "now_playing", "tap": "auto"}) == {"kind": "now_playing"}
+    assert M.pane_section({"kind": "now_playing", "tap": "dance"}, strict=True) is None
+
+
 def test_now_playing_s_album_art_background_is_on_unless_set_off():
     # (2026-10-31, item 41) stored only when off, as a bool; only Now Playing has it
     assert M.pane_section({"kind": "now_playing", "art": True}) == {"kind": "now_playing"}

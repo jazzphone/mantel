@@ -5848,12 +5848,13 @@
       c.appendChild(K.group({ header: 'Section', footer: 'Size — Tiny: one line. Less: the gist. More: the whole section. Full: more again, taking the room the pane has left (one section at a time). ' +
           'When There’s Something: music playing (or paused, for Hide After a Pause), a timer running, the alarm armed or a door open, a notification. ' +
           'Bottom: at the pane’s foot, under a space — what’s playing, say — in the order they are listed. ' +
-          'When Tapped — Automatic: its page where this screen has one, else its detail sheet. A tap on one thing in it — an event, a person, a thermostat — opens that thing’s sheet.' }, [
+          'When Tapped — Automatic: its page where this screen has one, else its detail sheet. A tap on one thing in it — an event, a person, a thermostat — opens that thing’s sheet.' +
+          (s.kind === 'now_playing' ? ' Now Playing also: Open the Panel — Speakers, Volume, Queue and Browse, right in the pane; Flip to the Controls — the section turns over to them.' : '') }, [
         K.seg({ label: 'Size', sk: 'pane:sec:size', value: s.size || 'more', options: M.PANE_SIZES, onChange: function (v) { set('size', v === 'more' ? null : v); } }),
         K.seg({ label: 'Show', sk: 'pane:sec:when', value: s.when || 'always', options: M.PANE_WHEN, stack: true,
                 onChange: function (v) { set('when', v === 'always' ? null : v); } }),
         K.seg({ label: 'Place', sk: 'pane:sec:place', value: s.place || 'top', options: M.PANE_PLACES, onChange: function (v) { set('place', v === 'top' ? null : v); } }),
-        K.select({ label: 'When Tapped', sk: 'pane:sec:tap', value: s.tap || 'auto', options: M.PANE_TAPS, onChange: function (v) { set('tap', v === 'auto' ? null : v); } })]));
+        K.select({ label: 'When Tapped', sk: 'pane:sec:tap', value: s.tap || 'auto', options: M.paneTaps(s.kind), onChange: function (v) { set('tap', v === 'auto' ? null : v); } })]));
       var ids = function (dom) { return Object.keys(st).filter(function (k) { return k.indexOf(dom + '.') === 0; }).sort(); };
       var nm = function (id) { return ((st[id] || {}).attributes || {}).friendly_name || id; };
       if (s.kind === 'calendar') {

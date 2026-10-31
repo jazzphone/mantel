@@ -1208,6 +1208,9 @@
       if (!t.closest || t.closest('button,input,form,a,.slot,hk-music-pane-card')) return;
       var sec = t.closest('[data-i]'), s = sec && this._list ? this._list[+sec.getAttribute('data-i')] : null;
       if (!s || s.tap === 'none') return;
+      // NOW PLAYING'S OWN TWO (2026-10-31, item 44): the Speakers / Volume / Queue / Browse panel opens in place over
+      // the pane, or the section flips over to it, as the screensaver's player turns (musicPanel)
+      if (s.kind === 'now_playing' && (s.tap === 'panel' || s.tap === 'flip')) { musicPanel(this, 'speakers', s.tap === 'flip' ? sec : null); return; }
       var D = window.hkDetail, ev = t.closest('[data-ev]'), one = t.closest('[data-ent]');
       if (ev && CAL.shown && CAL.shown[+ev.getAttribute('data-ev')]) {
         var K = window.hkCalendar, x = CAL.shown[+ev.getAttribute('data-ev')];
@@ -1503,7 +1506,7 @@
   // player is. A tap outside, its X, Escape, a moment after a request has
   // landed, and the music going close it.
   var mpnl = null;
-  function musicPanel(pane, tab) {
+  function musicPanel(pane, tab, from) {
     var P = window.hkSaverPanel, HC = C();
     if (mpnl) { if (mpnl.p.tab() !== tab) mpnl.p.show(tab); else closeMusicPanel(); return; }
     if (!P || !pane || !pane.getBoundingClientRect) return;
@@ -1553,6 +1556,13 @@
     window.addEventListener('keydown', me.key);
     document.body.appendChild(host);
     mpnl = me;
+    // FLIPPED OVER (Now Playing's When Tapped, 2026-10-31, item 44): the section turns over to the same panel
+    if (from && from.getBoundingClientRect) {
+      var fr = from.getBoundingClientRect();
+      me.from = from; me.rect = { left: fr.left, top: fr.top, width: fr.width, height: fr.height };
+      me.box = { x: r.left + inset, y: r.top + inset, w: r.width - 2 * inset, h: r.height - 2 * inset };
+      turnAnim(me, true);
+    }
   }
   function closeMusicPanel() {
     var me = mpnl;
@@ -1560,8 +1570,46 @@
     mpnl = null;
     clearTimeout(me.doneT);
     window.removeEventListener('keydown', me.key);
-    try { me.p.destroy(); } catch (e) { /* gone */ }
-    me.host.remove();
+    var fin = function () { try { me.p.destroy(); } catch (e) { /* gone */ } me.host.remove(); if (me.from && me.from.isConnected) me.from.style.visibility = ''; };
+    if (me.from) { turnAnim(me, false, fin); return; }
+    fin();
+  }
+  // THE TURN, as the Home Grid's Now Playing block and the screensaver turn the card (hk-media.js _turnAnim): the section
+  // to edge-on where it stands, then the panel from edge-on, growing from the section's size to its own; back the same
+  // way. Transforms only; at rest under Reduce Motion (the section hidden, the panel shown).
+  function turnAnim(me, opening, done) {
+    var el = me.p.el, src = me.from, B = me.box, R = me.rect, HC = C();
+    var EASE = (HC && HC.EASE) || { standard: 'ease-out', exit: 'ease-in' };
+    var reduce = (window.hkSettings && window.hkSettings.skyLook && window.hkSettings.skyLook().animations === false) ||
+                 (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    var edge = 'perspective(1500px) rotateY(90deg)';
+    var small = 'perspective(1500px) translate(' + Math.round(R.left + R.width / 2 - (B.x + B.w / 2)) + 'px,' + Math.round(R.top + R.height / 2 - (B.y + B.h / 2)) +
+                'px) rotateY(-90deg) scale(' + (R.width / B.w).toFixed(3) + ',' + (R.height / B.h).toFixed(3) + ')';
+    var live = src && src.isConnected && typeof src.animate === 'function';
+    var can = !reduce && typeof el.animate === 'function';
+    if (me.anim) { try { me.anim.cancel(); } catch (x) { /* done */ } me.anim = null; }
+    if (opening) {
+      if (!can || !live) { if (src && src.isConnected) src.style.visibility = 'hidden'; return; }
+      el.style.visibility = 'hidden';
+      var a = me.anim = src.animate([{ transform: 'none' }, { transform: edge }], { duration: 240, easing: EASE.exit, fill: 'forwards' });
+      a.onfinish = function () {
+        if (src.isConnected) src.style.visibility = 'hidden';
+        a.cancel();
+        if (mpnl !== me) return;
+        el.style.visibility = '';
+        var b = me.anim = el.animate([{ transform: small }, { transform: 'none' }], { duration: 440, easing: EASE.standard });
+        b.onfinish = function () { if (me.anim === b) me.anim = null; };
+      };
+    } else {
+      if (!can || !live) { done(); return; }
+      var c1 = me.anim = el.animate([{ transform: 'none' }, { transform: small }], { duration: 300, easing: EASE.exit, fill: 'forwards' });
+      c1.onfinish = function () {
+        el.style.visibility = 'hidden';
+        src.style.visibility = '';
+        var c2 = me.anim = src.animate([{ transform: edge }, { transform: 'none' }], { duration: 280, easing: EASE.standard });
+        c2.onfinish = function () { me.anim = null; done(); };
+      };
+    }
   }
   // NOW PLAYING IN THE PANE: the docked bar gives the music up to it while
   // it shows (hk-popup.js's `flag` condition, hk-strategy.js)

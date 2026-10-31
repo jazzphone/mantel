@@ -196,6 +196,35 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       }
       want('Album Art Background: on, the pane takes the art; off (the section\'s switch), its ordinary ground', art, art.on.arted && art.on.layers > 0 && !art.off.arted && art.off.layers === 0);
     }
+    // NOW PLAYING'S WHEN TAPPED (2026-10-31, item 44): a tap on the song's own words (no button) opens the Speakers /
+    // Volume / Queue / Browse panel over the pane, in place -- or, set to Flip, turns the section over to it (the
+    // section hidden once it has turned); Escape closes it and the section is back
+    if (!phone && !upright) {
+      const panelState = () => page.evaluate(() => {
+        const host = [...document.body.children].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.mpanel'));
+        const pane = document.querySelector('hk-side-pane[mode="dash"]'), pr = pane.getBoundingClientRect();
+        const np = pane.shadowRoot.querySelector('[data-k="now_playing"]');
+        if (!host) return { open: false, shown: np ? getComputedStyle(np).visibility : null };
+        const mp = host.shadowRoot.querySelector('.mpanel'), r = mp.getBoundingClientRect();
+        return { open: true, inPane: r.left >= pr.left - 1 && r.right <= pr.right + 1 && r.top >= pr.top - 1 && r.bottom <= pr.bottom + 1,
+                 tabs: [...host.shadowRoot.querySelectorAll('.mptabs div')].map((x) => x.textContent.trim()).join('|'), shown: np ? np.style.visibility : null };
+      });
+      for (const how of ['panel', 'flip']) {
+        await open('pane-tap-' + how);
+        await page.waitForTimeout(2000);
+        await page.evaluate(() => document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('[data-k="now_playing"] .np .tx b').click());
+        if (how === 'flip') { await page.waitForTimeout(140); await shot(page, tag + '-tap-flip-turning'); }
+        await page.waitForTimeout(900);
+        const st = await panelState();
+        want('Now Playing tapped (' + how + '): the panel open inside the pane, its four tabs' + (how === 'flip' ? ', the section turned away' : ''), st,
+             st.open && st.inPane && /Speakers.*Volume.*Queue.*Browse/i.test(st.tabs) && (how === 'panel' || st.shown === 'hidden'));
+        await shot(page, tag + '-tap-' + how);
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(1200);
+        const back = await panelState();
+        want('...Escape closes it' + (how === 'flip' ? ', the section turned back' : ''), back, !back.open && back.shown !== 'hidden');
+      }
+    }
     // THE CLOCK'S SIX LOOKS, A TO F (2026-10-31, item 43; the "Side Pane clock styles" board): each a screen whose Side Pane
     // clock sets its choices, drawn at the screen's own pane. A is today's clock; B right with no AM/PM; C centered,
     // large, light, the colon flashing (where animations are on), the short date; D right, large, bold, the sunset

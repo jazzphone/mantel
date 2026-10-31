@@ -1864,6 +1864,9 @@ PANE_WHEN = ("always", "active")
 # detail sheet), its page, its sheet, or nothing. Top and Automatic are what absent means.
 PANE_PLACES = ("top", "bottom")
 PANE_TAPS = ("auto", "page", "sheet", "none")
+# Now Playing's own two (2026-10-31, the owner's item 44): the Speakers / Volume / Queue / Browse panel opens in
+# place over the pane, or the section flips over to it as the screensaver's player turns
+PANE_TAPS_OWN: dict[str, tuple[str, ...]] = {"now_playing": ("panel", "flip")}
 # a kind's own choice, its first value what absent means: the Camera's Name (2026-10-31, the owner's item 42), as
 # the Home Grid's camera block has it (Automatic, Show, Hide) but Hide by default -- the pane's still is a plain picture
 PANE_CHOICES: dict[str, dict[str, tuple[str, ...]]] = {
@@ -1926,7 +1929,7 @@ def pane_section(v: Any, strict: bool = False) -> dict[str, Any] | None:
         elif k == "place" and val in PANE_PLACES:
             if val != "top":
                 out["place"] = val
-        elif k == "tap" and val in PANE_TAPS:
+        elif k == "tap" and (val in PANE_TAPS or val in PANE_TAPS_OWN.get(kind, ())):
             if val != "auto":
                 out["tap"] = val
         elif k in PANE_FLAGS_ON.get(kind, ()) and isinstance(val, bool):
