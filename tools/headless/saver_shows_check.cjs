@@ -25,20 +25,22 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         return host ? { face: host.getAttribute('ckface'), big: host.hasAttribute('fcbig') } : null;
       });
       if (want === 'tb') {
-        // THE WEATHER WITH TIME BEHIND: there, with its temperature, under the time and centred on it -- never beside it
+        // THE WEATHER WITH TIME BEHIND (2026-10-31, the owner: back in the corner, as on Clock): there, with its
+        // temperature, upper left -- and never over the time's figures
         const tb = await page.evaluate(() => {
           const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
           const sr = host && host.shadowRoot, t = sr && sr.querySelector('.ph .tb .tbt'), w = sr && sr.querySelector('.info hk-weather-strip-card');
           const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height }; };
           const ink = (e) => { const g = []; const walk = (n) => { if (!n) return; if (n.nodeType === 3) { const rg = document.createRange(); rg.selectNodeContents(n); const r = rg.getBoundingClientRect(); if (r.width > 0 && n.textContent.trim()) g.push(r); } (n.shadowRoot ? [...n.shadowRoot.childNodes] : []).concat([...n.childNodes]).forEach(walk); }; walk(e);
-            return g.length ? { l: Math.min(...g.map((r) => r.left)), r: Math.max(...g.map((r) => r.right)), text: (e.shadowRoot || e).textContent.replace(/\s+/g, ' ').trim().slice(0, 60) } : null; };
-          return host ? { tb: host.hasAttribute('tb'), time: t ? box(t) : null, weather: w ? Object.assign(box(w), { ink: ink(w) }) : null, W: innerWidth } : null;
+            return g.length ? { l: Math.min(...g.map((r) => r.left)), r: Math.max(...g.map((r) => r.right)), t: Math.min(...g.map((r) => r.top)), b: Math.max(...g.map((r) => r.bottom)), text: (e.shadowRoot || e).textContent.replace(/\s+/g, ' ').trim().slice(0, 60) } : null; };
+          const U = window.hkSaver && window.hkSaver._, g = U && t ? U.glyphBox(innerWidth, innerHeight, t.textContent) : null;
+          return host ? { tb: host.hasAttribute('tb'), time: t ? box(t) : null, figures: g, weather: w ? Object.assign(box(w), { ink: ink(w) }) : null, W: innerWidth } : null;
         });
         say(started && !!tb && tb.tb && !!tb.time, screen + ' ' + W + 'x' + H + ': Photos with the time on them', tb);
-        const wx = tb && tb.weather, ink = wx && wx.ink;
+        const wx = tb && tb.weather, ink = wx && wx.ink, g = tb && tb.figures;
         say(!!wx && wx.h > 0 && !!ink && /\d°/.test(ink.text), screen + ' ' + W + 'x' + H + ': the weather is there, with its temperature', wx);
-        say(!!wx && !!tb.time && wx.t >= tb.time.b - 1, screen + ' ' + W + 'x' + H + ': ...under the time', [wx, tb && tb.time]);
-        say(!!ink && Math.abs((ink.l + ink.r) / 2 - tb.W / 2) < 24, screen + ' ' + W + 'x' + H + ': ...centred on it', ink);
+        say(!!ink && ink.l <= 40 && ink.t <= 70, screen + ' ' + W + 'x' + H + ': ...in the upper-left corner', ink);
+        say(!!ink && !!g && (ink.b <= g[1] + 1 || ink.r <= g[0] + 1), screen + ' ' + W + 'x' + H + ': ...clear of the time\'s figures', [ink, g]);
         say(!errors.length, screen + ' ' + W + 'x' + H + ': no page errors', errors.slice(0, 3));
         if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '.png' });
         // ...and in its Settings preview (the screen's Screensaver page)
@@ -61,6 +63,16 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         });
         say(started && !!tb && tb.ckmode && tb.tb === sharp && tb.time === sharp,
             screen + (sharp ? ': Clock on sharp photos with Time Behind saved on draws it' : ': Clock on Soft photos with Time Behind saved on: the clock, no time on the photos'), tb);
+        if (sharp) {
+          // ...as bright as on Photos (2026-10-31, the owner: "the clock is dim"): over the photos' dark wash, not under it
+          const lift = await page.evaluate(() => {
+            const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph .tb'));
+            const tbx = host && host.shadowRoot.querySelector('.ph .tb'), ph = tbx && tbx.closest('.ph');
+            return tbx ? { tb: Number(getComputedStyle(tbx).zIndex) || 0, wash: Number(getComputedStyle(ph, '::after').zIndex) || 0, op: getComputedStyle(tbx).opacity } : null;
+          });
+          say(!!lift && lift.tb > lift.wash && lift.op === '1', screen + ': the time over the photos\' dark wash, at full strength', lift);
+          if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '.png' });
+        }
         await page.evaluate(() => window.hkSaver && window.hkSaver.preview && window.hkSaver.preview(false));
         await page.goto(input.origin + '/settings#/screens/' + screen + '/screensaver');
         await page.waitForTimeout(5000);

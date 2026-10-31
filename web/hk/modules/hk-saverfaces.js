@@ -22,14 +22,19 @@
 // Loaded by hk-saver.js only when a screen shows one -- never on its own.
 //
 // WHAT IT COSTS A WALL TABLET: words and a few shapes, written again once a
-// minute (only what changed), and when the house's music or weather changes;
-// nothing animates. Glance's clock is hk-saverclock.js's analog face, held to the
-// minute (its second hand hidden).
+// minute (only what changed), and when the house's music or weather changes.
+// Glance's clock is hk-saverclock.js's analog face, held to the minute (its
+// second hand hidden). The one motion: the Day face's art drifts, slowly (a
+// bat across a few points over a quarter of a minute, a leaf rocking) -- CSS
+// animations of a handful of small pictures' translate and rotate, which the
+// compositor runs without the page; none under Flat, Reduce Motion or a still
+// preview.
 //
-//   hkSaverFaces.mount(layer, { kind, client, h24, weather, look, clocks })
+//   hkSaverFaces.mount(layer, { kind, client, h24, weather, look, clocks, onReadings })
 //     -> { setClient(c), night(on), destroy(), kind }
 //   kind: 'glance' | 'month' | 'day' | 'weather'; look (Day): 'auto' |
-//   'light' | 'dark'; clocks: window.hkSaverClock (Glance's clock)
+//   'light' | 'dark'; clocks: window.hkSaverClock (Glance's clock); onReadings(n) (Big Weather): how many
+//   readings its bottom row has, whenever that changes
 (function () {
   'use strict';
   if (window.hkSaverFaces) return;
@@ -87,6 +92,20 @@
     '.hkf.day .dn{position:absolute;left:0;right:0;top:18.3cqmin;text-align:center;font:400 68cqmin/1 ' + HAND + '}',
     '.hkf.day .art .pk{position:absolute;left:19.5%;top:68%;width:22cqmin;height:20cqmin;transform:translate(-50%,-50%)}',
     '@container (aspect-ratio < 0.8){.hkf.day .dn{top:30cqh}.hkf.day .art .pk{left:26%;top:84%}}',
+    // THE DAY'S ART, MOVING (2026-10-31, the owner: the bats, leaves, pumpkin and moon "gently moving"): slow loops
+    // of each picture's own translate and rotate (they add to its placing transform), each out of step with the
+    // next (--k: its own delay); none under Flat or a still preview (no .live) or Reduce Motion
+    '.hkf.day.live .art .bat{animation:hkf-bat 17s ease-in-out infinite}',
+    '.hkf.day.live .art .leaf{animation:hkf-leaf 11s ease-in-out infinite}',
+    '.hkf.day.live .art .moon{animation:hkf-moon 24s ease-in-out infinite}',
+    '.hkf.day.live .art .drift{animation:hkf-leaf 14s ease-in-out infinite}',
+    '.hkf.day.live .art .pk{transform-origin:50% 90%;animation:hkf-pk 9s ease-in-out infinite}',
+    '.hkf.day.live .art > *{animation-delay:var(--k,0s)}',
+    '@keyframes hkf-bat{0%,100%{translate:0 0;rotate:0deg}25%{translate:-3cqmin -1.6cqmin;rotate:-5deg}50%{translate:-1cqmin .8cqmin;rotate:3deg}75%{translate:2cqmin -.8cqmin;rotate:-2deg}}',
+    '@keyframes hkf-leaf{0%,100%{translate:0 0;rotate:0deg}30%{translate:.8cqmin 1.2cqmin;rotate:9deg}65%{translate:-.6cqmin .4cqmin;rotate:-7deg}}',
+    '@keyframes hkf-moon{0%,100%{translate:0 0}50%{translate:0 -1.4cqmin}}',
+    '@keyframes hkf-pk{0%,100%{rotate:0deg}30%{rotate:-2.5deg}70%{rotate:2.5deg}}',
+    '@media (prefers-reduced-motion:reduce){.hkf.day.live .art > *{animation:none}}',
     // BIG WEATHER: over the live sky (the forecast's own layer)
     '.hkf.weather{text-shadow:0 1px 12px rgba(0,20,50,.18)}',
     '.hkf.weather .wash{position:absolute;inset:0;background:linear-gradient(180deg,rgba(4,12,30,.18),rgba(4,12,30,0) 30%,rgba(4,12,30,0) 62%,rgba(4,12,30,.28))}',
@@ -96,10 +115,21 @@
     '.hkf.weather .tm{position:absolute;right:7.3cqmin;top:6.1cqmin;font-size:5.4cqmin;font-weight:600;line-height:1}',
     '.hkf.weather .tp{position:absolute;left:4.9cqmin;top:18.3cqmin;font-size:48.8cqmin;font-weight:600;line-height:1;letter-spacing:-.05em;',
     '  background:linear-gradient(#fff,rgba(255,255,255,.35));-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none}',
+    // THE BOTTOM ROW (2026-10-31, the owner: the music and the readings "randomly picked alignment and gaps"): on the
+    // face's own margins -- 7.3 units each side, as the condition and the time above, 6.1 up from the foot, as they
+    // are down from the top -- each reading a box 14 units tall, centred in it. What the screensaver plays beside it
+    // is laid out to the same numbers (hk-saver.js, Big Weather's corners): its picture 14 units, its title and
+    // artist the readings' two sizes
     '.hkf.weather .rd{position:absolute;left:7.3cqmin;right:7.3cqmin;bottom:6.1cqmin;display:grid;grid-template-columns:repeat(var(--n,4),1fr);text-align:center;font-size:3.7cqmin;font-weight:600;line-height:1.3}',
-    '.hkf.weather .rd svg{width:4.4cqmin;height:4.4cqmin;fill:currentColor;opacity:.9}',
+    '.hkf.weather .rd > div{height:14cqmin;display:flex;flex-direction:column;align-items:center;justify-content:center}',
+    '.hkf.weather .rd svg{display:block;width:4.4cqmin;height:4.4cqmin;fill:currentColor;opacity:.9}',
     '.hkf.weather .rd small{display:block;font-size:2.9cqmin;opacity:.85}',
     '@container (aspect-ratio < 1){.hkf.weather .tp{top:24cqh}.hkf.weather .rd{grid-template-columns:repeat(2,1fr);row-gap:4cqmin}}',
+    // ...while music plays (.np), held sideways, the row is split: what plays on the left margin (no wider than 40 %),
+    // the readings packed against the right one, 9.8 units apart -- the last one's edge as far in from the right as
+    // the music's picture is from the left (2026-10-31, the owner); upright, there is no room beside it, and it sits
+    // one row above them on the same margin, 4 units clear
+    '@container (aspect-ratio >= 1){.hkf.weather.np .rd{left:calc(40cqw + 2.4cqmin);display:flex;justify-content:flex-end;gap:9.8cqmin}}',
     // NIGHT MODE (hk-saver.js): the ground goes (it is a .ckbg), what is on it turns white for the red wash
     '.hkf.night{color:#fff}.hkf.night .hd,.hkf.night .g,.hkf.night .g .wd,.hkf.night .big{color:#fff}.hkf.night .art{display:none}'
   ].join('\n');
@@ -185,6 +215,29 @@
   }
   // the Day face's look: Light, Dark, or by the time of day (dark from 7 in the evening to 7 in the morning)
   function dayDark(look, d) { return look === 'dark' || (look !== 'light' && (d.getHours() >= 19 || d.getHours() < 7)); }
+  // how a picture of the art moves (.live): a bat drifts, a leaf, petal, heart, crystal or butterfly rocks, the moon
+  // rises and falls a little; the web holds still
+  function motionOf(file) {
+    return /^bat/.test(file) ? 'bat' : /^moon/.test(file) ? 'moon' : /^leaf/.test(file) ? 'leaf' : /^web\./.test(file) ? '' : 'drift';
+  }
+  // EACH FACE'S GROUND, AND THE INK THAT READS ON IT (2026-10-31, the owner: on the light Day face the time, the
+  // date and the weather were white on a page nearly white): the colour behind the screensaver's corners, and its
+  // relative luminance (WCAG's). A ground at 0.6 or more is light -- where the faces' own words are dark (Day's
+  // light look and Month, at 0.8 and more); Glance's blue-grey (under 0.5) and the dark look keep white, as the
+  // face's own words do. Big Weather: the forecast's sky, never light.
+  var GROUNDS = { glance: '#a9bcc6', month: '#f7f5f2', day: '#eceae5', dayDark: '#16171b' };
+  function groundOf(kind, look, d) {
+    if (kind === 'day') return dayDark(look, d || new Date()) ? GROUNDS.dayDark : GROUNDS.day;
+    return GROUNDS[kind] || null;
+  }
+  function luminance(hex) {
+    var m = /^#([0-9a-f]{6})$/i.exec(String(hex || ''));
+    if (!m) return 0;
+    var c = [0, 2, 4].map(function (i) { var v = parseInt(m[1].substr(i, 2), 16) / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+  function inkOn(hex) { return hex && luminance(hex) >= 0.6 ? 'dark' : 'light'; }
+  function inkFor(kind, look, d) { return inkOn(groundOf(kind, look, d)); }
 
   // ------------------------------------------------------------ glyphs (our own)
   var G = {
@@ -284,10 +337,10 @@
       built = key;
       art.textContent = '';
       if (O.frame) { var f = el('img', 'frame'); f.alt = ''; f.src = SKY + O.frame; art.appendChild(f); }
-      O.sprites.forEach(function (s) {
-        var im = el('img'); im.alt = ''; im.src = SKY + s[0];
+      O.sprites.forEach(function (s, i) {
+        var im = el('img', motionOf(s[0]) || null); im.alt = ''; im.src = SKY + s[0];
         im.style.cssText = 'left:' + s[1] + '%;top:' + s[2] + '%;width:' + s[3] + 'cqmin;height:' + s[3] + 'cqmin;object-fit:contain;' +
-                           'transform:translate(-50%,-50%) rotate(' + s[4] + 'deg);opacity:' + s[5];
+                           'transform:translate(-50%,-50%) rotate(' + s[4] + 'deg);opacity:' + s[5] + ';--k:' + (-i * 2.3).toFixed(1) + 's';
         art.appendChild(im);
       });
       if (O.pumpkin) art.appendChild(pumpkin());
@@ -311,11 +364,13 @@
     var key = null;
     return function (d) {
       put(tm, hm(d, x.h24));
+      var c = x.client(), np = !!playing(c && c.states);
+      if (/\bnp\b/.test(r.className) !== np) r.className = r.className.replace(/ np\b/g, '') + (np ? ' np' : '');
       var w = x.weather(), k = w ? JSON.stringify([w.temp, w.cond, w.hi, w.lo, w.sunset && w.sunset.getTime(), w.wind, w.humidity, w.aqi, d.getHours() >= 12]) : '';
       if (k === key) return;
       key = k;
       cn.textContent = ''; rd.textContent = '';
-      if (!w) { put(tp, ''); return; }
+      if (!w) { put(tp, ''); if (x.onReadings) x.onReadings(0); return; }
       cn.innerHTML = wxGlyph(w.cond);
       cn.appendChild(el('span', null, w.says));
       if (w.hi != null || w.lo != null) { cn.appendChild(el('br')); cn.appendChild(el('span', 'hl', 'H:' + deg(w.hi) + ' L:' + deg(w.lo))); }
@@ -326,6 +381,8 @@
       if (w.humidity != null) cols.push([G.drop, Math.round(w.humidity) + '%', 'Humidity']);
       if (w.aqi != null) cols.push([G.aqi, String(w.aqi), 'AQI']);
       rd.style.setProperty('--n', String(Math.max(1, cols.length)));
+      // (how many: upright they take one row or two, and what the screensaver plays sits above them)
+      if (x.onReadings) x.onReadings(cols.length);
       cols.forEach(function (c) {
         var cell = el('div');
         cell.innerHTML = c[0];
@@ -340,7 +397,9 @@
   function mount(layer, opts) {
     opts = opts || {};
     var kind = KINDS.indexOf(opts.kind) >= 0 ? opts.kind : 'glance';
-    var root = el('div', 'hkf ' + kind), css = el('style'), ground = el('div', 'ckbg'), inn = el('div', 'in');
+    var HS = window.hkSettings, flat = !!(HS && HS.rendering && HS.rendering().flat);
+    // (the Day face's art moves, but under Flat -- the look that spares a tablet -- or in a still preview)
+    var root = el('div', 'hkf ' + kind + (kind === 'day' && !flat && !opts.still ? ' live' : '')), css = el('style'), ground = el('div', 'ckbg'), inn = el('div', 'in');
     css.textContent = CSS;
     root.append(css);
     if (kind !== 'weather') root.appendChild(ground);       // (Big Weather: the forecast's sky is its ground)
@@ -349,6 +408,7 @@
     var client = opts.client || null, dead = false, fc = null, fcFor = '', daily = [];
     var x = {
       h24: !!opts.h24, look: opts.look || 'auto', clocks: opts.clocks || window.hkSaverClock || null, still: !!opts.still, parts: [],
+      onReadings: typeof opts.onReadings === 'function' ? opts.onReadings : null,
       client: function () { return client; },
       // the weather now, today's high and low from the daily forecast (hkWxForecast, shared with the cards)
       weather: function () {
@@ -392,5 +452,6 @@
     };
   }
 
-  window.hkSaverFaces = { KINDS: KINDS.slice(), mount: mount, _: { monthGrid: monthGrid, occasionOf: occasionOf, playing: playing, dayDark: dayDark, hm: hm } };
+  window.hkSaverFaces = { KINDS: KINDS.slice(), mount: mount, _: { monthGrid: monthGrid, occasionOf: occasionOf, playing: playing, dayDark: dayDark, hm: hm,
+    motionOf: motionOf, groundOf: groundOf, luminance: luminance, inkOn: inkOn, inkFor: inkFor, CSS: CSS } };
 })();

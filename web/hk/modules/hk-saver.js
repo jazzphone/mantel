@@ -456,7 +456,6 @@
   // figures 24 % of it. glyphBox: the figures' own box in it, [left, top, w, h] (a figure 0.58 of the type wide, a
   // colon 0.3, the figures' height 0.72), what the subject is weighed against
   var TB = { top: 0.06, line: 0.28, type: 0.24 }, TB_WAIT = 1500;
-  function timeFoot(W, H) { return H * TB.top + Math.min(W, H) * TB.line; }
   function glyphBox(W, H, text) {
     var m = Math.min(W, H), f = m * TB.type, s = String(text || '10:42');
     var w = f * (s.replace(/[^0-9]/g, '').length * 0.58 + s.replace(/[0-9]/g, '').length * 0.3), h = f * 0.72;
@@ -1367,14 +1366,39 @@
     '@media (prefers-reduced-motion:reduce){.ph,.phscrim,.fcscrim,.mu,.mfr,.mbgf{transition:none}.ph.zoom img.fg,.ph.mo.zoom .mocell canvas{animation:none}}'
   ].join('\n') + '\n' + [
     // THE HOMEVIEW-STYLE FACES (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I)
-    // Glance, Month and Day ([ckface]): what they show themselves, the corners leave out; on a light face the
-    // corners' words go dark
+    // Glance, Month and Day ([ckface]): what they show themselves, the corners leave out; on a light face
+    // ([cklight]: its ground's luminance, hkSaverFaces inkFor) the corners' words go dark -- the ink the corner cards
+    // draw with (--hk-ink and its steps), not only the box's colour: with that alone the time, the date and the
+    // temperature stayed white on the light Day face (2026-10-31), and their glow goes
     ':host([ckface=glance]) .info hk-clock-card,:host([ckface=glance]) .info hk-weather-strip-card,:host([ckface=glance]) .info hk-screensaver-now-card{display:none}',
     ':host([ckface=month]) .info hk-clock-card{display:none}',
-    ':host([ckface=month]:not([cknight])) .info,:host([ckface=day][cklight]:not([cknight])) .info{--primary-text-color:#1c1c1e;--secondary-text-color:#48484a;color:#1c1c1e;text-shadow:none}',
+    // ...Month's own top line is the month and the time: the corner weather has no room beside it, and Home Status
+    // sits under it at its right edge (2026-10-31: both were drawn over it) -- in the face's units, 1vmin without the
+    // pane; beside one, Home Status is in the pane
+    ':host([ckface=month]) .info hk-weather-strip-card{display:none}',
+    ':host([ckface=month]:not([pane])) .info{--hk-ss-status-top:calc(11.5vmin + 6px);--hk-ss-status-right:9.8vmin;--hk-ss-status-l1:min(26px,4.6vmin);--hk-ss-status-l2:min(18px,3.4vmin)}',
+    ':host([ckface][cklight]:not([cknight])) .info{--primary-text-color:#1c1c1e;--secondary-text-color:#48484a;color:#1c1c1e;text-shadow:none;',
+    '  --hk-ink:#1c1c1e;--hk-ink-2:rgba(28,28,30,.72);--hk-ink-3:rgba(28,28,30,.5);--hk-glyph:#1c1c1e;--hk-glow:none;',
+    '  --hk-ss-ink:#1c1c1e;--hk-ss-ink-2:rgba(28,28,30,.72);--hk-ss-glow:none}',
     // Big Weather ([fcbig]): it tells the time and the weather itself, over the forecast's sky
     ':host([fcbig][forecast]) .info hk-clock-card,:host([fcbig][fcslide]) .info hk-clock-card,',
     ':host([fcbig][forecast]) .info hk-weather-strip-card,:host([fcbig][fcslide]) .info hk-weather-strip-card{opacity:0}',
+    // ...and what stays in its corners never lands on it (2026-10-31, the owner: "Disarmed" drawn over its time):
+    // Home Status under the face's time (6.1 + 5.4 down, then 1.6 more), at its right edge, at the readings' sizes
+    // (3.7, 2.9) and as wide as the top allows beside the condition (its 7.3 margins, 30 for the condition); what plays on the face's bottom row, to its numbers
+    // (hkSaverFaces, THE BOTTOM ROW): on its 7.3-unit margin, 6.1 up, its picture as tall as a reading's box (14),
+    // its title and artist the readings' sizes (3.7, 2.9), no wider than the row's left 40 % -- the face's units:
+    // its 1cqmin is 1vmin on a screen without the pane; beside one, the corners are in the pane. Upright, it sits
+    // above the readings with 4 units between: two rows of them (2 x 14 + 4), or one for two readings or fewer
+    // ([fcn]: how many, from the face), or none
+    ':host([fcbig][forecast]:not([pane])) .info,:host([fcbig][fcslide]:not([pane])) .info{--hk-ss-status-top:13.1vmin;--hk-ss-status-right:7.3vmin;',
+    '  --hk-ss-status-width:calc(100vw - 44.6vmin);--hk-ss-status-l1:3.7vmin;--hk-ss-status-l2:2.9vmin;',
+    '  --hk-ss-now-left:7.3vmin;--hk-ss-now-bottom:6.1vmin;--hk-ss-np-art:14vmin;--hk-ss-np-title:3.7vmin;--hk-ss-np-artist:2.9vmin;--hk-ss-np-gap:2.4vmin;',
+    '  --hk-ss-now-max:calc(40vw - 7.3vmin)}',
+    '@media (max-aspect-ratio:1/1){:host([fcbig][forecast]:not([pane])) .info,:host([fcbig][fcslide]:not([pane])) .info{',
+    '  --hk-ss-now-bottom:calc(6.1vmin + 32vmin + 4vmin);--hk-ss-corner-bottom:calc(6.1vmin + 32vmin + 4vmin);--hk-ss-now-max:calc(100vw - 14.6vmin)}',
+    '  :host([fcbig][fcn="1"]:not([pane])) .info,:host([fcbig][fcn="2"]:not([pane])) .info{--hk-ss-now-bottom:calc(6.1vmin + 14vmin + 4vmin);--hk-ss-corner-bottom:calc(6.1vmin + 14vmin + 4vmin)}',
+    '  :host([fcbig][fcn="0"]:not([pane])) .info{--hk-ss-now-bottom:6.1vmin;--hk-ss-corner-bottom:6.1vmin}}',
     // PHOTO TITLES: the album's name and the year, bottom right, over a dark fade of its own (in the photo's layer,
     // so it fades with its photo); in the photo's own box, beside a pane
     '.ph .ttl{position:absolute;inset:0;container-type:size;pointer-events:none;background:linear-gradient(transparent 55%,rgba(0,0,0,.45))}',
@@ -1399,23 +1423,21 @@
     '  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}',
     ':host([cksoft]) .ph .tb{display:none}',
     // ...and while it shows, the clock is the photo's: the corner clock and a Large clock step aside, and the rest of
-    // the corner (the weather, what is playing, the timers) goes under the time, centred (2026-10-30, the owner: the
-    // weather sat jammed against the time's left) -- in the photo's box, beside any pane
+    // the corner (the weather, what is playing, the timers) keeps the corner, upper left, above the figures (2026-10-31,
+    // the owner: under the time, centred, it "left the corner" -- back where Clock has it)
     ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info > hk-clock-card{display:none}',
     ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .ck{opacity:0}',
-    ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info{left:0;right:0;width:auto;',
-    '  top:calc(var(--hk-tb-foot,34vh) + 6px);padding:0 30px;align-items:center;text-align:center}',
-    // (each as wide as what it says, so it centres -- and no wider than the screen: the weather then fits itself)
-    ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info > hk-weather-strip-card,',
-    ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info > hk-timer-strip-card{width:max-content;max-width:100%;box-sizing:border-box}',
     // ...on a phone, the weather at the size its narrower time calls for (its 36 px type and 60 px glyph are a
-    // tablet's: they ran off both sides), and the photo's title clear of what is playing, under it at the left
+    // tablet's), and the photo's title clear of what is playing, under it at the left
     '@media (max-width:599px){:host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info > hk-weather-strip-card{zoom:.7}',
     '  .ph .ttl .tt{bottom:calc(8.5cqmin + 112px)}',
     // (and what is playing as wide as the phone allows: at 46 % of it, its song was "Bl...")
     '  :host{--hk-ss-now-max:calc(100vw - 40px)}}',
-    ':host([tb][pane]:not([pside]):not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info{right:var(--hk-pane-w,' + PANE_W + 'px)}',
-    ':host([tb][pside][pane]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide])) .info{left:var(--hk-pane-w,' + PANE_W + 'px)}',
+    // CLOCK ON PHOTOS: the time and the titles over the photos' dark wash (.ph::after), not under it -- under it the
+    // time was drawn grey (2026-10-31, the owner: "the clock is dim"); the cut-out over the time darkened as the
+    // wash darkens the photo (a black wash at d is the colour times 1 - d), so the subject still matches its photo
+    ':host([ckphotos]) .ph .tb,:host([ckphotos]) .ph .ttl{z-index:3}',
+    ':host([ckphotos]) .ph .tb img.tbcut{filter:brightness(calc(1 - var(--hk-ckdim,.35)))}',
     '@media (prefers-reduced-motion:reduce){.ph.zoom .tb{animation:none}}'
   ].join('\n');
 
@@ -1538,8 +1560,13 @@
   // A CARD'S CONFIG for where it is now: Home Status at the top of the
   // pane sized for it, and the timers in its foot -- set again whenever the
   // pane comes or goes (setPane)
+  // ...and its colours the screensaver's ink where one is set: dark on a light face ([cklight]), else as configured
+  var INKS = { color: '--hk-ss-ink', ampm_color: '--hk-ss-ink-2', date_color: '--hk-ss-ink-2' };
   function cardConf(c, tag) {
     var conf = Object.assign({}, c, { type: c.type });
+    Object.keys(INKS).forEach(function (k) {
+      if (typeof conf[k] === 'string' && conf[k] && conf[k].indexOf('var(') < 0) conf[k] = 'var(' + INKS[k] + ',' + conf[k] + ')';
+    });
     if (paneUp && tag === 'hk-screensaver-status-card') { conf.line1_size = '22px'; conf.line_size = '16px'; conf.align = 'left'; }
     if (paneUp && tag === 'hk-timer-strip-card') conf.scale = Math.round(1.15 * scaleOf() * 100) / 100;
     return conf;
@@ -2401,8 +2428,6 @@
     var W = Math.max(1, ((r && r.width) || window.innerWidth || 1280) - (paneUp ? paneW || 0 : 0)), H = (r && r.height) || window.innerHeight || 800;
     var pos = String((lay.style.getPropertyValue && lay.style.getPropertyValue('--pos')) || '50% 50%').split(/\s+/).map(function (v) { var n = parseFloat(v); return isFinite(n) ? n / 100 : 0.5; });
     if (pos[1] == null) pos[1] = 0.5;
-    // (where the time ends: the weather goes under it)
-    if (host && host.style) host.style.setProperty('--hk-tb-foot', timeFoot(W, H).toFixed(1) + 'px');
     var tb = document.createElement('div'), t = document.createElement('div'), d = cleanDepth(it);
     t.className = 'tbt';
     t.textContent = timeNow();
@@ -2533,7 +2558,8 @@
     var run = ++bigRun;
     facesModule().then(function (F) {
       if (!F || run !== bigRun || !on || !fc.isConnected || bigCtl) return;
-      bigCtl = F.mount(fc, { kind: 'weather', h24: cfg.clock_24, weather: weatherEntity(), client: clientNow() });
+      bigCtl = F.mount(fc, { kind: 'weather', h24: cfg.clock_24, weather: weatherEntity(), client: clientNow(),
+                             onReadings: function (n) { if (host) host.setAttribute('fcn', String(n)); } });
     });
   }
   function updateBand() {
@@ -2623,8 +2649,8 @@
                            // (a face with a ground of its own keeps it off over the photos or the forecast)
                            ground: bg !== 'none',
                            client: clientNow(), scrim: !dimmed });
-      // the Day face's light look: the corners' words go dark on it
-      if (host && face) setAttr(host, 'cklight', cfg.show === 'day' && !F._.dayDark(cfg.day_look, new Date()));
+      // a light face (Month, the Day face's light look): the corners' words go dark on it
+      if (host && face) setAttr(host, 'cklight', faceLight(F));
       // TODAY carries its own weather and music: the corners' step aside
       if (host) setAttr(host, 'ckown', cfg.clock_style === 'today');
       nightCheck();
@@ -2632,6 +2658,11 @@
       // Show: Clock on a background of its own: there is something to show
       if (mode === 'clock' && entrance) entrance();
     });
+  }
+  // whether the face on screen has a light ground, by its luminance (hkSaverFaces inkFor): dark ink in the corners
+  function faceLight(F) {
+    var X = F && F._;
+    return !!(cfg && FACE_SHOWS[cfg.show] && X && X.inkFor && X.inkFor(cfg.show, cfg.day_look, new Date()) === 'dark');
   }
   // THE CLOCK'S TEXT OVER PHOTOS (2026-10-13): Outline, four hard shadows a
   // stroke's width out (any face: text, canvas or SVG), then Shadow, one soft
@@ -2679,7 +2710,7 @@
     var dark = !!(ckCtl && on) && nightNow();
     setAttr(host, 'cknight', dark);
     // (the Day face by the time of day: the corners' words follow its light and dark)
-    if (cfg && cfg.show === 'day' && window.hkSaverFaces && host.hasAttribute('ckface')) setAttr(host, 'cklight', !window.hkSaverFaces._.dayDark(cfg.day_look, new Date()));
+    if (cfg && window.hkSaverFaces && host.hasAttribute('ckface')) setAttr(host, 'cklight', faceLight(window.hkSaverFaces));
     if (dark && exKind) exHide();
     if (ckCtl && ckCtl.night) ckCtl.night(dark);
   }
@@ -2736,7 +2767,7 @@
   function leaveForecast() {
     bigRun++;
     if (bigCtl) { try { bigCtl.destroy(); } catch (e) { /* gone with the element */ } bigCtl = null; }
-    if (host) host.removeAttribute('fcbig');
+    if (host) { host.removeAttribute('fcbig'); host.removeAttribute('fcn'); }
     if (fTick) { clearInterval(fTick); fTick = null; }
     if (fscene) { try { fscene.destroy(); } catch (e) { /* gone with the element */ } fscene = null; }
     if (fband) cards = cards.filter(function (c) { return c !== fband; });
@@ -5058,7 +5089,7 @@
          ckFx: ckFx, MOSAIC_COLORS: MOSAIC_COLORS,
          mosaicPlan: mosaicPlan, mosaicAssign: mosaicAssign, coverRect: coverRect, MOSAICS: MOSAICS,
          reducedMotion: reducedMotion,
-         cleanFocus: cleanFocus, cleanVariants: cleanVariants, cleanDepth: cleanDepth, drawnRect: drawnRect, glyphBox: glyphBox, timeFoot: timeFoot, coverShare: coverShare,
+         cleanFocus: cleanFocus, cleanVariants: cleanVariants, cleanDepth: cleanDepth, drawnRect: drawnRect, glyphBox: glyphBox, coverShare: coverShare,
          behindAt: behindAt, tbKey: tbKey, tbShares: tbShares,
          photoFaces: function (lay, ph, L, c) { return photoFaces(lay, ph, L, c); }, photoOpts: photoOpts, FACE_SHOWS: FACE_SHOWS, bigWanted: function () { return bigWanted(); },
          // tools/headless/saver_faces_check.py: the saver's own CSS around a photo's layers
