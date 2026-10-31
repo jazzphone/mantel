@@ -294,6 +294,17 @@ H.run('page headers', [
       card.hass = hass();
       H.ok('collapsed again: 2 rows', (drawn(card).match(/class="ar"/g) || []).length === 2);
       H.ok('who did it, when the logbook says', html2.indexOf('by HomeKit') > 0);
+      // RENAMED in Settings (2026-10-31, the owner: "Entry Door" was still "Garage Door" in Activity): the name given wins
+      // over Home Assistant's and over the way in it belongs to
+      var hsWas = window.hkSettings;
+      window.hkSettings = { get: function (k, d) { return k === 'accessories' ? { entities: { 'binary_sensor.front_door_entry': { name: 'Entry Door' } } } : (hsWas && hsWas.get ? hsWas.get(k, d) : d); } };
+      card._hkSig = null;                       // (a Settings save rebuilds the screen's cards)
+      card.hass = hass();
+      var renamed = drawn(card);
+      window.hkSettings = hsWas;
+      H.ok('a renamed contact says its own name in Activity', renamed.indexOf('Entry Door closed') > 0 && renamed.indexOf('Front Door closed') < 0, renamed.slice(-700));
+      card._hkSig = null;
+      card.hass = hass();
       H.ok('"2 today", newest first', html2.indexOf('2 today') > 0 && html2.indexOf('Front Door locked') < html2.indexOf('Front Door closed'));
       // nothing to look after: no Device Care
       house.set('sensor.front_door_lock_battery', '80', { device_class: 'battery' });

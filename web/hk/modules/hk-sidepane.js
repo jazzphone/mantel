@@ -137,7 +137,11 @@
   function setting(path, fb) { var s = HS(); return s && s.get ? s.get(path, fb) : fb; }
   function states(c) { return (c && c.states) || {}; }
   function attr(st, k) { return st && st.attributes ? st.attributes[k] : undefined; }
-  function nameOf(st, id) { return (attr(st, 'friendly_name') || String(id || '').split('.').pop().replace(/_/g, ' ')); }
+  // (Mantel's own name first, hkCards.accName: a rename reaches the pane too, 2026-10-31)
+  function nameOf(st, id) {
+    var own = C() && C().accName && id ? C().accName(id) : null;
+    return own || attr(st, 'friendly_name') || String(id || '').split('.').pop().replace(/_/g, ' ');
+  }
   function num(v) { var n = Number(v); return isFinite(n) ? n : null; }
   function L() { return window.hkLocale; }
   function hm(d) { try { return L().time(d, { hour: 'numeric', minute: '2-digit' }); } catch (e) { return d.toTimeString().slice(0, 5); } }

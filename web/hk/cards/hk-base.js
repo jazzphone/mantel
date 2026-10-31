@@ -4517,6 +4517,18 @@
   window.hkCards.TYPE = TYPE;
   window.hkCards.plate = plate;
   window.hkCards.centredTile = centredTile;
+  // AN ACCESSORY'S OWN NAME (Settings, Accessories: this dashboard's, else the
+  // home's; null when none is set) -- for the cards that name accessories
+  // from Home Assistant's friendly_name, so a rename in Mantel reaches them
+  // too (2026-10-31, the owner: Activity still said "Garage Door" after it
+  // was renamed "Entry Door"). hk-strategy.js and hk-detail.js read it the same.
+  window.hkCards.accName = function (id) {
+    var HS = window.hkSettings, A = HS && HS.get ? HS.get('accessories', null) : null, a = A && A.entities && A.entities[id];
+    if (!a) return null;
+    var dash = '';
+    try { dash = String(location.pathname).split('/')[1] || ''; } catch (e) { dash = ''; }
+    return (a.names && a.names[dash]) || a.name || null;
+  };
   // THE BLOCK'S INSET (2026-10-30, the owner: "proper understanding of edge padding"): one padding for every Home
   // Grid block's plate -- the grid's cell sets --hk-pad-t / -r / -b / -l (hk-layout.js: 14 px on tiles, 18 on
   // square cells, a Square screen's corner inset added), and where no grid does (a card on a page) the plate keeps

@@ -1739,7 +1739,7 @@
           (x[1] || []).forEach(function (id) { var st = h.states[id]; if (st) list.push({ id: id, kind: x[0], st: st, open: opened(st) }); });
         });
         list.sort(function (a, b) { return (b.open ? 1 : 0) - (a.open ? 1 : 0); });
-        var open = list.filter(function (x) { return x.open; }), name = function (x) { return attr(x.st, 'friendly_name') || x.id; };
+        var open = list.filter(function (x) { return x.open; }), name = function (x) { return (C.accName && C.accName(x.id)) || attr(x.st, 'friendly_name') || x.id; };
         var row = function (x) {
           var g = WAY_GLYPH[x.kind][x.open ? 0 : 1];
           return '<div data-more="' + esc(x.id) + '">' + gly(g, 20, x.open ? ACC.orange : null) + '<b>' + esc(name(x)) + '</b><em' +
@@ -1807,7 +1807,7 @@
         if (size === 'L' || size === 'XL') {
           // what the leak sensors say: one wet, by name and in red; else "no leaks", where the house has them
           var wet = (p.leaks || []).filter(function (id) { return h.states[id] && h.states[id].state === 'on'; });
-          var leak = wet.length ? '<span style="color:' + ACC.red + '">Leak: ' + esc(attr(h.states[wet[0]], 'friendly_name') || wet[0]) + '</span>'
+          var leak = wet.length ? '<span style="color:' + ACC.red + '">Leak: ' + esc((C.accName && C.accName(wet[0])) || attr(h.states[wet[0]], 'friendly_name') || wet[0]) + '</span>'
             : (p.leaks || []).length ? 'no leaks' : '';
           var line = [d.cmp ? esc(d.cmp) : '', leak].filter(Boolean).join(' · ');
           var today = '<div class="wl" style="color:' + ACC.cyan + '">Today</div><div class="wb"' + more + '>' + amount(d.tot) + ' ' + unit + '</div>' +
@@ -2463,7 +2463,7 @@
         if (!ids.length) return;
         kinds.push({ kind: k, ids: ids });
         ids.map(function (id) {
-          var a = areaOf(client, id), room = a && areas[a] ? areas[a].name : '', full = attr(st[id], 'friendly_name') || id;
+          var a = areaOf(client, id), room = a && areas[a] ? areas[a].name : '', full = (C.accName && C.accName(id)) || attr(st[id], 'friendly_name') || id;
           // the room's name off the front ("Kitchen Pendants" in the Kitchen), unless
           // all that is left is what it is ("Porch Light" stays itself)
           var name = short ? short(full, room) : full;

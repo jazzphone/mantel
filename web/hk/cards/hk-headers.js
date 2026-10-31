@@ -55,7 +55,9 @@
     var m = Math.max(0, Math.round(ms / MIN));
     return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '');
   }
-  function nameOf(h, id) { var s = h && h.states[id]; return (s && s.attributes.friendly_name) || id; }
+  // (Mantel's own name first: hkCards.accName, 2026-10-31)
+  function ownName(id) { var C0 = window.hkCards; return (C0 && C0.accName && C0.accName(id)) || null; }
+  function nameOf(h, id) { var s = h && h.states[id]; return ownName(id) || (s && s.attributes.friendly_name) || id; }
   function areaOf(h, id) {
     var e = h.entities && h.entities[id];
     if (!e) return null;
@@ -772,7 +774,7 @@
       var head = '<div class="ttl"><b>' + (sensed || left.length ? 'Left On' : 'Tonight') + '</b>' +
         (sensed ? '<span' + (left.length ? ' class="warn">' + left.length + (left.length === 1 ? ' light' : ' lights') + ' in empty rooms' : '>by room presence') + '</span>' : '<span>lighting</span>') + '</div>';
       var lo = !sensed ? '' : left.length ? shown.map(function (z) {
-        var nm = (h.states[z.x.id].attributes || {}).friendly_name || z.x.id;
+        var nm = nameOf(h, z.x.id);
         var icon = z.x.icon || 'hk:lightbulb';
         return '<div class="lo" data-more="' + esc(z.x.id) + '"><div class="well" style="--a:' + P.yellow + '"><hk-icon icon="' + esc(icon) + '"></hk-icon></div>' +
           '<div><b>' + esc(nm) + '</b><span class="s mi">' + esc(z.x.room || '') + ' · <em>empty ' + shortDur(z.empty) + '</em>' +
@@ -1098,10 +1100,12 @@
       evs.reverse();
       var rows = [], used = {}, seen = {}, expanded = this._expanded();
       var label = function (id) {
-        var nm = nameOf(h, id).replace(/ (Lock|Entry|Door Input|Contact|Sensor)$/i, '');
+        // a name given in Settings is said as given; Home Assistant's loses its "Lock" / "Sensor"
+        var own = ownName(id);
+        var nm = own || nameOf(h, id).replace(/ (Lock|Entry|Door Input|Contact|Sensor)$/i, '');
         if (id === alarm) nm = 'Alarm';
-        // a door contact reads as its way in ("Front Door", not "Front Door Entry")
-        if (id.indexOf('binary_sensor.') === 0) Object.keys(ways).forEach(function (k) { if (ways[k].indexOf(id) >= 0) nm = WAYS[k].name; });
+        // a door contact reads as its way in ("Front Door", not "Front Door Entry") -- unless it was renamed
+        if (!own && id.indexOf('binary_sensor.') === 0) Object.keys(ways).forEach(function (k) { if (ways[k].indexOf(id) >= 0) nm = WAYS[k].name; });
         return nm;
       };
       var forLong = function (ms) { return ms < MIN ? Math.max(1, Math.round(ms / 1000)) + ' seconds' : dur(ms).replace(/ min$/, ' minutes'); };
@@ -2054,7 +2058,7 @@
     function cause(h, msg) {
       var m = String(msg || '').replace(/^triggered by\s*/i, '');
       var ent = /(?:state of|numeric state of|event)\s+([a-z_]+\.[a-z0-9_]+)/i.exec(m);
-      if (ent && h.states[ent[1]]) return (h.states[ent[1]].attributes || {}).friendly_name || ent[1];
+      if (ent && h.states[ent[1]]) return nameOf(h, ent[1]);
       var sun = /sun(?:\s+event)?\s+(sunset|sunrise)/i.exec(m);
       if (sun) return sun[1][0].toUpperCase() + sun[1].slice(1);
       if (/^action run$/i.test(m) || /^service/i.test(m)) return 'Run by hand';
@@ -2295,6 +2299,8 @@
     function nameOf(h, id) {
       var lab = labelOf(id), raw = lab && h.states[lab] ? String(h.states[lab].state || '').trim() : '';
       if (raw && raw !== 'unknown' && raw !== 'unavailable') return raw;
+      var own = ownName(id);
+      if (own) return own;
       var s = h.states[id], f = (s && s.attributes.friendly_name) || id;
       return String(f).replace(/\s*[-–]?\s*timer\s*$/i, '') || f;
     }
