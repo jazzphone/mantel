@@ -223,6 +223,21 @@ print('\n=== a config flow\'s HTTP write: exactly the frontend\'s callApi, throu
   act.request = function () { return Promise.resolve(response(200, 'text/plain', 'fine')); };
   got = null; P.rest.call(pg, 'DELETE', 'p').then(function (r) { got = r; }); drain();
   ok('a text answer is its text', got, 'fine');
+  // A MANTEL SCREEN RENAMED: by its host (Mantel's screens API), not Lovelace; the pencil shows for it only there
+  var renamed = [], hostPg = page({ actions: act });
+  hostPg._host = { renameScreen: function (p, t) { renamed.push([p, t]); return Promise.resolve({ ok: true }); } };
+  hostPg.reload = function () { return Promise.resolve(); }; hostPg.status = function () {}; hostPg.announce = function () {}; hostPg.render = function () {};
+  ok('Mantel\'s own screens are renamable where the host renames them, as stored HA dashboards are; YAML ones are not',
+     [!!P.renamable.call(hostPg, { mode: 'mantel', id: null }), !!P.renamable.call(hostPg, { mode: 'storage', id: 'd1' }),
+      !!P.renamable.call(hostPg, { mode: 'yaml', id: null }), !!P.renamable.call(Object.assign(page({ actions: act }), { _host: null }), { mode: 'mantel', id: null })],
+     [true, true, false, false]);
+  seen.length = 0;
+  P.renameScreen.call(Object.assign(hostPg, { _renameBusy: false }), { mode: 'mantel', id: null, path: 'dashboard-den', title: 'Den' }, 'Study'); drain();
+  ok('a Mantel screen renamed: the host\'s renameScreen(key, title), nothing sent to Home Assistant', [renamed, seen.length],
+     [[['dashboard-den', 'Study']], 0]);
+  hostPg._host.renameScreen = function () { return Promise.reject(new Error('Only a manager can do that.')); };
+  P.renameScreen.call(Object.assign(hostPg, { _renameBusy: false }), { mode: 'mantel', id: null, path: 'dashboard-den', title: 'Den' }, 'Study'); drain();
+  ok('...a refusal says Mantel\'s words', hostPg._renameErr, 'Couldn’t rename it: Only a manager can do that.');
   act.request = function () { return Promise.resolve(response(200, 'application/json', new Error('bad json'))); };
   thrown = null; P.rest.call(pg, 'POST', 'p', {}).catch(function (e) { thrown = e; }); drain();
   ok('a body that won\'t parse', thrown && [thrown.error, thrown.body], ['Unable to parse JSON response', null]);

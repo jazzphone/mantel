@@ -1135,16 +1135,21 @@
       this._renameBusy = true;
       this.status('saving');
       try {
-        // the dashboard itself: its title is the sidebar's name
-        await this.actions().callWS({ type: 'lovelace/dashboards/update', dashboard_id: x.id, title: title });
-        // ...and the screen's own item (and its screensaver's device) after it
-        await this.actions().callWS({ type: DOMAIN + '/dashboard/titled', dashboard: x.path });
+        if (this.hostRenames(x)) {
+          // a screen its host keeps itself: the host renames it; the address stays
+          await this.host().renameScreen(x.path, title);
+        } else {
+          // the dashboard itself: its title is the sidebar's name
+          await this.actions().callWS({ type: 'lovelace/dashboards/update', dashboard_id: x.id, title: title });
+          // ...and the screen's own item (and its screensaver's device) after it
+          await this.actions().callWS({ type: DOMAIN + '/dashboard/titled', dashboard: x.path });
+        }
         this._renaming = null; this._renameDraft = null; this._renameErr = null;
         try { await this.reload(); } catch (e) { x.title = title; }
         this.status('saved');
         this.announce('Renamed to ' + title + '.');
       } catch (e) {
-        this._renameErr = 'Couldn’t rename it: ' + String((e && e.message) || e);
+        this._renameErr = 'Couldn’t rename it: ' + String((e && (e.message || (e.body && e.body.message) || e.error)) || e);
         this.status('error');
       }
       this._renameBusy = false;
@@ -1462,8 +1467,13 @@
     err(sk) { return this.errors[sk] || null; }
     dash(path) { return this.data.dashboards.filter(function (x) { return x.path === path; })[0]; }
     // a dashboard Home Assistant can rename: one it stores (a YAML dashboard
-    // is named in its YAML), with its collection id
-    renamable(x) { return x && x.mode === 'storage' && x.id ? x : null; }
+    // is named in its YAML), with its collection id -- or a screen the host
+    // keeps itself (no Lovelace id), which the host renames (renameScreen)
+    renamable(x) { return x && ((x.mode === 'storage' && x.id) || this.hostRenames(x)) ? x : null; }
+    hostRenames(x) {
+      var hx = this.host();
+      return !!(x && !x.id && x.mode !== 'storage' && x.mode !== 'yaml' && hx && typeof hx.renameScreen === 'function');
+    }
     name(id) {
       if (!id) return '';
       var a = ((this.data.accessories || {}).entities || {})[id];
