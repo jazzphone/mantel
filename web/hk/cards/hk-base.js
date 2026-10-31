@@ -1796,6 +1796,129 @@
     }
   }
 
+  // (the art guard below keeps its copies here too, and trims them)
+  function snapCacheKeys(prefix) { return Object.keys(snapMem()).filter(function (k) { return k.indexOf(prefix) === 0; }); }
+  function snapCacheDrop(entity) { delete snapMem()[entity]; snapSaveLater(); }
+
+  // ------------------------------------------- NEVER THE BROKEN-IMAGE "?"
+  //
+  // (2026-10-31, the owner's item 46, from a screenshot: the Now Playing
+  // block's cover and every face under Who's Home drew the browser's
+  // broken-image icon.) A picture that cannot load -- Music Assistant away,
+  // an artwork host that refuses, a signed path gone stale -- must show what
+  // the block shows with no picture at all: the music note for art, the
+  // person's initial on their color for a face. Never the "?".
+  //
+  // THREE PARTS, ONE HELPER:
+  //   artImg(url, opts)    the <img> markup. Its src goes through artSrc, so
+  //                        a URL that failed a moment ago is NOT fetched again
+  //                        on the next render (a morph() or an innerHTML
+  //                        would otherwise ask, fail and flash on every
+  //                        state change in the house).
+  //   artGuard(root)       capture-phase `error` and `load` listeners on a
+  //                        card's or a module's root (capture, because
+  //                        neither event bubbles; on the ROOT, because a
+  //                        render replaces the <img> itself). On error the
+  //                        <img>'s src becomes the fallback: an SVG data URL,
+  //                        so the node is still an image (naturalWidth > 0)
+  //                        and still the right size. On load it keeps a small
+  //                        copy.
+  //   the kept copy        the LAST GOOD picture, a 160 px thumbnail in the
+  //                        snapshot cache above ("art:" keys, at most
+  //                        ART_KEEP of them, the least recently used going
+  //                        first), so it survives a reload too. While a fetch
+  //                        fails the last good copy of THE SAME picture is
+  //                        shown; with none kept, the placeholder. A cover's
+  //                        key includes its query (version, token), so the
+  //                        next track's failing cover is the note, never the
+  //                        last track's art; a face's key is its path.
+  //
+  // An element opts in with data-ph="note" (art), "av" (a face; data-initials
+  // and data-color say what to draw) or "bg" (a blurred backdrop: a flat dark).
+  var ART_KEEP = 24;
+  var ART_BAD_MS = 30 * 1000;        // how long a failed address is not asked again
+  var artBad = {};                   // url -> when it failed
+  var artUse = {}, artTick = 0;      // key -> use counter (the LRU order)
+  var artLast = {};                  // key -> the url last kept
+  var ART_NOTE = 'M21,3V15.5A3.5,3.5 0 0,1 17.5,19A3.5,3.5 0 0,1 14,15.5A3.5,3.5 0 0,1 17.5,12C18.04,12 18.55,12.12 19,12.34V6.47L9,8.6V17.5A3.5,3.5 0 0,1 5.5,21A3.5,3.5 0 0,1 2,17.5A3.5,3.5 0 0,1 5.5,14C6.04,14 6.55,14.12 7,14.34V6L21,3Z';
+  var ART_COLORS = ['#ff9500', '#5856d6', '#34c759', '#ff2d55', '#32ade6'];
+
+  // THE KEY SAYS WHICH PICTURE IT IS (the lead, 2026-10-31: a failed cover must never be the PREVIOUS TRACK's). A cover's
+  // key keeps its query -- the version or token (?v=, ?token=) is what tells one album's art from the next's -- so a
+  // kept copy stands in only for the very same picture. A face (kind "av") is the same face whatever the query says:
+  // its key is the path alone.
+  function artKey(url, kind) { return 'art:' + String(url || '').replace(kind === 'av' ? /[?#].*$/ : /#.*$/, ''); }
+  function artKept(url, kind) {
+    var k = artKey(url, kind), hit = snapCacheGet(k);
+    if (!hit || !hit.d) return '';
+    artUse[k] = ++artTick;
+    return hit.d;
+  }
+  // Keep the picture that just loaded, and drop the least recently used past the cap.
+  function artKeep(img, url, kind) {
+    var k = artKey(url, kind);
+    if (!url || /^(data|blob):/.test(url)) return;
+    var put = snapCachePut(k, img, artLast[k] !== url);
+    if (!put) return;
+    artLast[k] = url;
+    artUse[k] = ++artTick;
+    var keys = snapCacheKeys('art:');
+    if (keys.length <= ART_KEEP) return;
+    keys.sort(function (a, b) { return (artUse[a] || 0) - (artUse[b] || 0); });
+    for (var i = 0; i < keys.length - ART_KEEP; i++) { snapCacheDrop(keys[i]); delete artUse[keys[i]]; delete artLast[keys[i]]; }
+  }
+  function artSvg(kind, ini, color) {
+    var body;
+    if (kind === 'av') {
+      var c = color || ART_COLORS[(String(ini || '?').charCodeAt(0) || 0) % ART_COLORS.length];
+      body = '<rect width="64" height="64" fill="' + String(c).replace(/[^#\w(),.% -]/g, '') + '"/><text x="32" y="33" text-anchor="middle" dominant-baseline="central" ' +
+        'fill="#fff" font-family="system-ui,sans-serif" font-size="28" font-weight="600">' +
+        String(ini || '').replace(/[<>&"]/g, '') + '</text>';
+    } else if (kind === 'bg') {
+      body = '<rect width="64" height="64" fill="#14161c"/>';
+    } else {
+      body = '<rect width="64" height="64" fill="#2a2d36"/><path transform="translate(16 16) scale(1.33)" fill="#fff" fill-opacity=".5" d="' + ART_NOTE + '"/>';
+    }
+    return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">' + body + '</svg>');
+  }
+  // What an <img> that cannot load shows: the last good picture, else the placeholder
+  function artFallback(url, kind, ini, color) { return artKept(url, kind) || artSvg(kind, ini, color); }
+  // The address to put in the markup: the picture's own, unless it failed a moment ago
+  function artSrc(url, o) {
+    o = o || {};
+    var at = artBad[url];
+    if (at && Date.now() - at < ART_BAD_MS) return artFallback(url, o.ph || 'note', o.ini, o.color);
+    if (at) delete artBad[url];
+    return url;
+  }
+  function artImg(url, o) {
+    o = o || {};
+    var q = function (s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); };
+    return '<img' + (o.cls ? ' class="' + q(o.cls) + '"' : '') + ' alt="" data-ph="' + (o.ph || 'note') + '"' +
+      (o.ini != null ? ' data-initials="' + q(o.ini) + '"' : '') + (o.color ? ' data-color="' + q(o.color) + '"' : '') +
+      (o.attrs ? ' ' + o.attrs : '') + ' src="' + q(artSrc(url, o)) + '">';
+  }
+  function artGuard(root) {
+    if (!root || root._hkArtGuard || !root.addEventListener) return;
+    root._hkArtGuard = true;
+    var mine = function (e) {
+      var im = e.target;
+      return im && String(im.tagName).toUpperCase() === 'IMG' && im.getAttribute && im.getAttribute('data-ph') ? im : null;
+    };
+    root.addEventListener('error', function (e) {
+      var im = mine(e);
+      if (!im) return;
+      var cur = im.getAttribute('src') || '';
+      if (/^data:/.test(cur)) return;      // the fallback itself: never a loop
+      if (cur) artBad[cur] = Date.now();
+      im.setAttribute('src', artFallback(cur, im.getAttribute('data-ph'), im.getAttribute('data-initials'), im.getAttribute('data-color')));
+    }, true);
+    root.addEventListener('load', function (e) {
+      var im = mine(e);
+      if (im && im.naturalWidth > 0) artKeep(im, im.getAttribute('src') || '', im.getAttribute('data-ph'));
+    }, true);
+  }
+
   var BASE_CSS = [
     // Every hk card clears the WebView tap highlight itself too, rather than
     // relying on an ancestor HA happens to style (see hk-popup.js).
@@ -2149,6 +2272,7 @@
       }
       this._root = document.createElement('div');
       this.shadowRoot.append(this._root);
+      artGuard(this._root);           // never the broken-image "?" (see NEVER THE BROKEN-IMAGE)
       var self = this;
       // (only a card that says where it leads listens)
       if (this._tapTarget !== HkBase.prototype._tapTarget) this._root.addEventListener('click', function (e) { self._blockClick(e); });
@@ -2516,6 +2640,10 @@
         // Stop the pending request before replacing the node it belongs to.
         try { img.src = ''; } catch (e) { /* not worth failing a paint over */ }
         box.innerHTML = iconHtml;
+        // THE LAST GOOD PICTURE beats the placeholder (item 46: kept for the
+        // big covers only -- 200 library tiles would fill the cache)
+        var kept = sz >= 500 ? artKept(url) : '';
+        if (kept) { var k = document.createElement('img'); k.alt = ''; k.src = kept; box.appendChild(k); }
       };
       var t = setTimeout(function () {
         // `complete && naturalWidth` is the one honest test for "it arrived":
@@ -2523,7 +2651,7 @@
         if (img.complete && img.naturalWidth > 0) { done = true; return; }
         fail();
       }, ART_TIMEOUT);
-      img.addEventListener('load', function () { done = true; clearTimeout(t); });
+      img.addEventListener('load', function () { done = true; clearTimeout(t); if (sz >= 500) artKeep(img, url); });
       // A SIGNED PATH THAT ERRORS GETS ONE FRESH SIGNATURE (see artWatch):
       // after a restart the kept path is a 401, and a new one is the cure.
       // Once only -- `resigned` -- so an image that is simply missing costs
@@ -3135,12 +3263,16 @@
 
   // Exported for hk-campost.js, which reuses this cache as the cameras
   // page's video poster.
-  window.hkCards.snapCache = { get: snapCacheGet, put: snapCachePut,
+  window.hkCards.snapCache = { get: snapCacheGet, put: snapCachePut, keys: snapCacheKeys, drop: snapCacheDrop,
                                FRESH: SNAP_FRESH,
                                // tests only: read storage again; save now
                                _reset: function () { SNAP_MEM = null; snapDirty = false; snapSaveT = null; },
                                _flush: function () { snapSaveT = null; snapDirty = true; snapFlush(); } };
   window.hkCards.create = create;
+  window.hkCards.artGuard = artGuard;
+  window.hkCards.artImg = artImg;
+  window.hkCards.artSrc = artSrc;
+  window.hkCards.art = { kept: artKept, bad: artBad, svg: artSvg, KEEP: ART_KEEP, BAD_MS: ART_BAD_MS };
   window.hkCards.BASE_CSS = BASE_CSS;
   window.hkCards.confirmSheet = confirmSheet;
 

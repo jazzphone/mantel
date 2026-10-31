@@ -237,6 +237,7 @@
     host.id = 'hk-notify';
     root = host.attachShadow({ mode: 'open' });
     var C = window.hkCards;
+    if (C && C.artGuard) C.artGuard(root);
     if (C && C.flatSurface) C.flatSurface(host, 'notification');
     root.innerHTML = '<style>' + CSS + (C && C.flatCss ? C.flatCss() : '') +
       ':host([hk-flat]) .nb,:host([hk-flat]) .ctl button{background:var(--hk-flat-elevated)!important;color:var(--hk-ink);box-shadow:var(--hk-flat-elevated-shadow)}' + '</style><div class="layer"><div class="ctl"></div></div>';
@@ -260,7 +261,9 @@
   var fan = false;
 
   function iconHtml(n) {
-    if (n.kind === 'people' && n.picture) return '<div class="ic av"><img src="' + esc(n.picture) + '" alt=""></div>';
+    // (item 46: a face that will not load is the initials, never the broken-image "?")
+    if (n.kind === 'people' && n.picture) return '<div class="ic av">' + (window.hkCards && window.hkCards.artImg
+      ? window.hkCards.artImg(n.picture, { ph: 'av', ini: n.initials || '', color: '#8a909e' }) : '<img src="' + esc(n.picture) + '" alt="">') + '</div>';
     if (n.kind === 'people') return '<div class="ic av">' + esc(n.initials || '') + '</div>';
     return '<div class="ic" style="background:' + esc(n.tint || '#8e8e93') + '"><hk-icon icon="' + esc(n.icon || 'hk:bell') + '"></hk-icon></div>';
   }

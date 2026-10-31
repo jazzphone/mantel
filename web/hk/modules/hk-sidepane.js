@@ -129,6 +129,11 @@
 
   // ------------------------------------------------------------ the house
   function C() { return window.hkCards; }
+  var FACE_COLORS = ['#ff9500', '#5856d6', '#34c759', '#ff2d55', '#32ade6'];
+  // A picture that cannot load is the note or the initial, never the "?" (item 46: hkCards.artImg)
+  function pic(url, o) {
+    return C() && C().artImg ? C().artImg(url, o) : '<img' + (o.cls ? ' class="' + o.cls + '"' : '') + ' alt="" src="' + esc(url) + '">';
+  }
   function clientNow() {
     var HC = window.hkHostClient;
     return (C() && C().client && C().client()) || (HC && HC.current && HC.current()) || null;
@@ -529,7 +534,7 @@
         var mk = function (act, name, ic, cls) { return '<button type="button" class="' + (cls || 'pp') + '" data-act="' + act + '" aria-label="' + name + '">' + icon(ic) + '</button>'; };
         var prog = s === 'more' ? '<div class="npp" role="progressbar" aria-label="Song" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(m.at * 100) + '"><i style="transform:scaleX(' + m.at.toFixed(4) + ')' +
           (m.playing && m.left > 0 ? ';animation:npp ' + Math.round(m.left) + 's linear forwards' : '') + '"></i></div>' : '';
-        return box('now_playing', s, (s === 'more' ? head('now_playing') : '') + '<div class="r2 np' + (s === 'more' ? ' np2' : '') + '">' + (m.pic ? '<img class="art" alt="" src="' + esc(m.pic) + '">' : '<span class="art">' + icon('mdi:music') + '</span>') +
+        return box('now_playing', s, (s === 'more' ? head('now_playing') : '') + '<div class="r2 np' + (s === 'more' ? ' np2' : '') + '">' + (m.pic ? pic(m.pic, { cls: 'art', ph: 'note' }) : '<span class="art">' + icon('mdi:music') + '</span>') +
           '<span class="tx"><b>' + esc(m.title) + '</b><i>' + esc(m.artist) + '</i></span></div>' + prog +
           '<div class="trow">' + mk('spk', 'Speakers', 'mdi:speaker') + mk('prev', 'Previous', 'mdi:skip-previous', 'tk') +
           mk('pp', m.playing ? 'Pause' : 'Play', m.playing ? 'mdi:pause' : 'mdi:play', 'pp big') + mk('next', 'Next', 'mdi:skip-next', 'tk') +
@@ -672,9 +677,9 @@
       var since = function (id) { var t = Date.parse((st[id] || {}).last_changed); return t ? ' · ' + ago(t) : ''; };
       if (s === 'full') return box('people', s, head('people') + lst(rows(ids.slice(0, 8).map(function (id) { return [nameOf(st[id], id), where(id) + since(id), 'mdi:account', '', id]; }))), 'shrink');
       var av = '<div class="ppl" style="--n:' + Math.min(5, ids.length) + '">' + ids.slice(0, 5).map(function (id, i) {
-        var x = st[id] || {}, pic = attr(x, 'entity_picture'), nm = nameOf(x, id);
-        var face = pic ? '<img alt="" src="' + esc(pic) + '">' : esc(nm.charAt(0).toUpperCase());
-        return '<div data-ent="' + esc(id) + '" class="' + (x.state === 'home' ? '' : 'away') + '"><i style="background:' + ['#ff9500', '#5856d6', '#34c759', '#ff2d55', '#32ade6'][i % 5] + '">' + face + '</i>' + esc(nm.split(' ')[0]) + '</div>';
+        var x = st[id] || {}, pic_ = attr(x, 'entity_picture'), nm = nameOf(x, id);
+        var face = pic_ ? pic(pic_, { ph: 'av', ini: nm.charAt(0).toUpperCase(), color: FACE_COLORS[i % 5] }) : esc(nm.charAt(0).toUpperCase());
+        return '<div data-ent="' + esc(id) + '" class="' + (x.state === 'home' ? '' : 'away') + '"><i style="background:' + FACE_COLORS[i % 5] + '">' + face + '</i>' + esc(nm.split(' ')[0]) + '</div>';
       }).join('') + '</div>';
       var line = s === 'more' && away.length ? away.slice(0, 2).map(function (id) { return nameOf(st[id], id).split(' ')[0] + ' is ' + (where(id) === 'Away' ? 'away' : 'at ' + where(id)); }).join(' · ') : '';
       return box('people', s, head('people') + av + (line ? '<div class="sub2">' + esc(line) + '</div>' : ''));
@@ -1067,6 +1072,7 @@
     constructor() {
       super();
       this._root = this.attachShadow({ mode: 'open' });
+      if (C() && C().artGuard) C().artGuard(this._root);
       this._slots = {};
       this._stills = {};
       this._wx = {};
