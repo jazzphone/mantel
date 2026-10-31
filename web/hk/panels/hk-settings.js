@@ -5862,6 +5862,10 @@
             return [String(n), n === 1 ? 'Today' : n === 2 ? 'Today & Tomorrow' : n + ' Days'];
           })), onChange: function (v) { set('days', v ? Number(v) : null); } })]));
       }
+      if (s.kind === 'now_playing') {
+        c.appendChild(K.group({ footer: 'The song’s album art, blurred, as the ground of the whole pane while something plays. Off: the pane keeps its ordinary ground.' }, [
+          K.toggle({ label: 'Album Art Background', sk: 'pane:sec:art', on: s.art !== false, onChange: function (on) { set('art', on ? null : false); } })]));
+      }
       if (s.kind === 'clock') {
         // THE CLOCK'S LOOK (2026-10-31, item 43; hk_core PANE_CHOICES): its face, where it sits, its type, the date and a
         // second line -- each first choice today's clock

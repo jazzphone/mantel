@@ -184,6 +184,18 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       const awayR = await paneR();
       want('...the pane as wide there as beside Home\'s grid (no page laid out again on the way)', [homeR, awayR], homeR && homeR === awayR);
     }
+    // THE ALBUM ART BACKGROUND IS A SWITCH (2026-10-31, item 41): on by default (the art blurred behind the pane while a
+    // song plays); a Now Playing section that sets it off leaves the pane its ordinary ground
+    if (!phone && !upright) {
+      const art = {};
+      for (const k of ['on', 'off']) {
+        await open('pane-art-' + k);
+        await page.waitForTimeout(2500);
+        art[k] = await page.evaluate(() => { const p = document.querySelector('hk-side-pane[mode="dash"]'); return { arted: p.hasAttribute('arted'), layers: p.shadowRoot.querySelectorAll('.artbg b').length }; });
+        await shot(page, tag + '-art-' + k);
+      }
+      want('Album Art Background: on, the pane takes the art; off (the section\'s switch), its ordinary ground', art, art.on.arted && art.on.layers > 0 && !art.off.arted && art.off.layers === 0);
+    }
     // THE CLOCK'S SIX LOOKS, A TO F (2026-10-31, item 43; the "Side Pane clock styles" board): each a screen whose Side Pane
     // clock sets its choices, drawn at the screen's own pane. A is today's clock; B right with no AM/PM; C centered,
     // large, light, the colon flashing (where animations are on), the short date; D right, large, bold, the sunset

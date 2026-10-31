@@ -1162,7 +1162,10 @@
     // the screen's glass. Where the look has no blur (Flat, Tinted, Frosted,
     // Glass -- Performance's), a flat tint from the art instead.
     _artBg(list, c) {
-      var want = list.some(function (s) { return s.kind === 'now_playing'; }) ? musicOf(c) : null;
+      // (the Now Playing section's Album Art Background, on unless set off -- item 41: off, the pane keeps its ordinary
+      // ground, and the music pane at Full its own backdrop)
+      this._artOn = list.some(function (s) { return s.kind === 'now_playing' && s.art !== false; });
+      var want = this._artOn ? musicOf(c) : null;
       var pic = want && want.pic ? want.pic : null, self = this;
       var g = document.documentElement.getAttribute('data-hk-glass') || 'blur';
       var tint = document.documentElement.hasAttribute('data-hk-flat') || ['flat', 'tinted', 'frosted', 'clear'].indexOf(g) >= 0;
@@ -1330,7 +1333,7 @@
         slot.parentNode.replaceChild(el, slot);
         // (the music pane on the pane's own album-art backdrop: none of its
         // own and no box -- the owner, 2026-10-30)
-        if (key === 'np' && !el.hasAttribute('nobg')) el.setAttribute('nobg', '');
+        if (key === 'np') el.toggleAttribute('nobg', self._artOn !== false);
         if (key === 'np') el.toggleAttribute('compact', !!(el.parentNode && el.parentNode.classList && el.parentNode.classList.contains('compact')));
         if (key === 'np' && el.active) el.active(true);
       });

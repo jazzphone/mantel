@@ -2598,7 +2598,7 @@
     Object.keys(s || {}).forEach(function (k) {
       if ((k === 'size' && s[k] === 'more') || (k === 'when' && s[k] === 'always') || (k === 'completed' && !s[k]) ||
           (k === 'place' && s[k] === 'top') || (k === 'tap' && s[k] === 'auto') || (k === 'name' && s[k] === 'hide') ||
-          (s.kind === 'clock' && CLOCK_ABSENT[k] !== undefined && s[k] === CLOCK_ABSENT[k])) return;
+          (s.kind === 'clock' && CLOCK_ABSENT[k] !== undefined && s[k] === CLOCK_ABSENT[k]) || (s.kind === 'now_playing' && k === 'art' && s[k] !== false)) return;
       out[k] = s[k];
     });
     return out;

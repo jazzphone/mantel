@@ -1876,7 +1876,8 @@ PANE_CHOICES: dict[str, dict[str, tuple[str, ...]]] = {
               "scale": ("medium", "small", "large"), "weight": ("semibold", "light", "regular", "bold"),
               "date": ("full", "short", "off"), "line": ("auto", "none", "sunset", "weather")}}
 # options that are on unless set off, stored only when off: the clock's AM/PM (it shows only on a 12-hour clock)
-PANE_FLAGS_ON: dict[str, tuple[str, ...]] = {"clock": ("ampm",)}
+# ...and Now Playing's Album Art Background (item 41): the song's art blurred behind the whole pane
+PANE_FLAGS_ON: dict[str, tuple[str, ...]] = {"clock": ("ampm",), "now_playing": ("art",)}
 PANE_SIDES = ("right", "left")
 PANE_WIDTHS = {"narrow": 360, "standard": 400, "wide": 480}
 # On the Dashboard: Off, Home Only, Every Page; in the screensaver: Off,

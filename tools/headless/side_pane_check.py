@@ -73,6 +73,11 @@ SCREENS = {
     'pane-saver-right': screen({'side': 'right', 'saver': {'show': 'own', 'sections': SAVER}}, screensaver=True),
     'pane-saver-left': screen({'side': 'left', 'saver': {'show': 'own', 'sections': SAVER}}, screensaver=True),
     'pane-none': screen(None),
+    # (2026-10-31, item 41) Now Playing's Album Art Background set off: the pane keeps its ordinary ground
+    'pane-art-off': screen({'side': 'right', 'dashboard': {'show': 'home', 'sections': [
+        {'kind': 'weather', 'size': 'less'}, {'kind': 'now_playing', 'art': False}]}}, grid=True),
+    'pane-art-on': screen({'side': 'right', 'dashboard': {'show': 'home', 'sections': [
+        {'kind': 'weather', 'size': 'less'}, {'kind': 'now_playing'}]}}, grid=True),
     # (2026-10-31, item 43) the Clock section's six looks, A to F, the "Side Pane clock styles" board
     **{f'pane-clock-{k.lower()}': screen({'side': 'right', 'dashboard': {'show': 'home', 'sections': [dict(kind='clock', **look), {'kind': 'weather', 'size': 'less'}]}}, grid=True)
        for k, look in CLOCK_LOOKS.items()},

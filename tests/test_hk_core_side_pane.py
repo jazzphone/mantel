@@ -294,6 +294,17 @@ def test_the_clock_s_look_is_saved_whole_with_its_group():
     assert C.apply_board({}, {"side_pane": {"dashboard": {"show": "home", "sections": [{"kind": "clock", "face": "roman"}]}}})[1] != {}
 
 
+def test_now_playing_s_album_art_background_is_on_unless_set_off():
+    # (2026-10-31, item 41) stored only when off, as a bool; only Now Playing has it
+    assert M.pane_section({"kind": "now_playing", "art": True}) == {"kind": "now_playing"}
+    assert M.pane_section({"kind": "now_playing", "art": False}) == {"kind": "now_playing", "art": False}
+    assert M.pane_section({"kind": "now_playing", "art": "no"}) == {"kind": "now_playing"}
+    assert M.pane_section({"kind": "now_playing", "art": "no"}, strict=True) is None
+    assert M.pane_section({"kind": "weather", "art": False}) == {"kind": "weather"}
+    b, err = C.apply_board({}, {"side_pane": {"dashboard": {"show": "home", "sections": [{"kind": "now_playing", "art": False}]}}})
+    assert err == {} and M.board(b)["side_pane"]["dashboard"]["sections"] == [{"kind": "now_playing", "art": False}]
+
+
 def test_the_camera_s_name_is_hide_unless_chosen():
     # (2026-10-31, the owner's item 42: the name the Home Grid's camera block can show, Hide in the pane by default)
     assert M.pane_section({"kind": "camera", "name": "hide"}) == {"kind": "camera"}
