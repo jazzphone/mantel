@@ -455,14 +455,8 @@ MEASURE = r"""(() => {
 })()"""
 
 
-async def audit(keys: list[str], looks: list[str], shots: Path | None, long: bool, nobar: list[str]) -> dict:
-    gallery.HOUSE.update(EXTRA)
-    if long:
-        for eid, (area, (state, attrs)) in list(gallery.HOUSE.items()):
-            if "friendly_name" in attrs and not eid.startswith("sun."):
-                gallery.HOUSE[eid] = (area, (state, dict(attrs, friendly_name=attrs["friendly_name"] + LONG)))
-    passes = [(k, lk, True) for lk in looks for k in keys] + [(k, lk, False) for lk in nobar for k in keys]
-    gallery.SETTINGS = settings(passes)
+def stand_in_reads() -> None:
+    """The reads the test server cannot answer: the family calendar's events and Live TV's channels."""
     from client_smoke import OfflineReads
 
     async def calendar_events(self, entity_id, start, end):
@@ -476,45 +470,65 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                                                      "now": f"sensor.channel_{n.replace('.', '_')}_now"} for n, name, *_ in TV]}
         return await ask(self, msg)
     OfflineReads.request = request
+
+
+def stand_in_app(app) -> None:
+    """The to-do lists' items and Home Assistant's Energy settings and statistics, on the built test server."""
+    from mantel_server.connectors import Route
+
+    async def todo_items(ctx, msg):
+        eid = msg.get("entity_id")
+        name, items = TODO.get(eid, (eid, []))
+        return {"entity_id": eid, "name": name, "left": len(items),
+                "items": [{"uid": f"{eid}-{i}", "summary": t, "done": False, "due": None} for i, t in enumerate(items)]}
+    app["read_routes"]["hk_frontend/todo/items"] = Route(request=todo_items)
+    hub = app["hub"]
+    hub.readproxy.energy_prefs, hub.readproxy.stat_rows = ENERGY_PREFS, stat_rows
+
+
+def feed_script() -> str:
+    """THE ENERGY FEATURE, stood in on the page: its plan's house battery is what the `battery` block shows, and the
+    test server's settings feed has no Energy feature to send (hkSettings.get answers `added` and `energy` as a house
+    with it would) -- its sun, house and grid now, which the Battery and Power blocks read -- and CLEAN AREAS, its
+    rooms answered as hk_clean_areas/subscribe would (the Vacuum block's rooms). Run before the page's own scripts."""
+    dev = lambda key, name, icon, stat: {"key": key, "kind": "device", "name": name, "icon": icon, "stat": stat, "power": None}
+    plan = json.dumps({"sections": [{"id": "appliances", "name": "Appliances", "items": [
+        dev("app.laundry", "Laundry", "mdi:washing-machine", "sensor.laundry_energy"),
+        dev("app.dishwasher", "Dishwasher", "mdi:dishwasher", "sensor.dishwasher_energy"),
+        dev("app.office", "Office", "mdi:power-plug", "sensor.office_energy")]}],
+                       "power": {"path": "power", "battery": BATTERY, "home": "sensor.home_power",
+                                                 "solar": "sensor.solar_power", "grid": "sensor.grid_power"}})
+    return """(() => { let hs;
+      Object.defineProperty(window, 'hkSettings', { configurable: true, get() { return hs; }, set(v) {
+        hs = v; if (!v || !v.get || v.__audit) return; const get = v.get, sub = v.subscribe; v.__audit = true;
+        v.get = function (p, f) { if (p === 'added') return ['energy', 'live_tv', 'clean_areas']; if (p === 'energy') return """ + plan + """;
+          return get.apply(this, arguments); };
+        v.subscribe = function (conn, msg, on) { if (msg && msg.type === 'hk_clean_areas/subscribe') {
+          setTimeout(() => on({ configured: true, areas: """ + json.dumps(CLEAN_AREAS) + """ }), 0); return () => {}; }
+          return sub.apply(this, arguments); }; } }); })()"""
+
+
+async def audit(keys: list[str], looks: list[str], shots: Path | None, long: bool, nobar: list[str]) -> dict:
+    gallery.HOUSE.update(EXTRA)
+    if long:
+        for eid, (area, (state, attrs)) in list(gallery.HOUSE.items()):
+            if "friendly_name" in attrs and not eid.startswith("sun."):
+                gallery.HOUSE[eid] = (area, (state, dict(attrs, friendly_name=attrs["friendly_name"] + LONG)))
+    passes = [(k, lk, True) for lk in looks for k in keys] + [(k, lk, False) for lk in nobar for k in keys]
+    gallery.SETTINGS = settings(passes)
+    stand_in_reads()
     report: dict = {}
     with tempfile.TemporaryDirectory(prefix="mantel-grid-audit-") as folder:
         app, cookie = await gallery.build(Path(folder))
         hub = app["hub"]
-        from mantel_server.connectors import Route
-
-        async def todo_items(ctx, msg):
-            eid = msg.get("entity_id")
-            name, items = TODO.get(eid, (eid, []))
-            return {"entity_id": eid, "name": name, "left": len(items),
-                    "items": [{"uid": f"{eid}-{i}", "summary": t, "done": False, "due": None} for i, t in enumerate(items)]}
-        app["read_routes"]["hk_frontend/todo/items"] = Route(request=todo_items)
-        hub.readproxy.energy_prefs, hub.readproxy.stat_rows = ENERGY_PREFS, stat_rows
+        stand_in_app(app)
         async with TestServer(app) as server:
             origin = str(server.make_url("")).rstrip("/")
             async with Browser(width=1280, height=800, port=9391) as b:
                 await b.restrict_origin(origin)
                 # the page has the focus, as a wall tablet's does (cameras rest without it: cameras.focus_pause)
                 await b.send("Emulation.setFocusEmulationEnabled", enabled=True)
-                # THE ENERGY FEATURE, stood in on the page: its plan's house battery is what the `battery` block
-                # shows, and the test server's settings feed has no Energy feature to send (hkSettings.get answers
-                # `added` and `energy` as a house with it would)
-                # (and its sun, house and grid now, which the Battery and Power blocks read)
-                # ...and CLEAN AREAS, its rooms answered as hk_clean_areas/subscribe would (the Vacuum block's rooms)
-                dev = lambda key, name, icon, stat: {"key": key, "kind": "device", "name": name, "icon": icon, "stat": stat, "power": None}
-                plan = json.dumps({"sections": [{"id": "appliances", "name": "Appliances", "items": [
-                    dev("app.laundry", "Laundry", "mdi:washing-machine", "sensor.laundry_energy"),
-                    dev("app.dishwasher", "Dishwasher", "mdi:dishwasher", "sensor.dishwasher_energy"),
-                    dev("app.office", "Office", "mdi:power-plug", "sensor.office_energy")]}],
-                                   "power": {"path": "power", "battery": BATTERY, "home": "sensor.home_power",
-                                                             "solar": "sensor.solar_power", "grid": "sensor.grid_power"}})
-                await b.send("Page.addScriptToEvaluateOnNewDocument", source="""(() => { let hs;
-                  Object.defineProperty(window, 'hkSettings', { configurable: true, get() { return hs; }, set(v) {
-                    hs = v; if (!v || !v.get || v.__audit) return; const get = v.get, sub = v.subscribe; v.__audit = true;
-                    v.get = function (p, f) { if (p === 'added') return ['energy', 'live_tv', 'clean_areas']; if (p === 'energy') return """ + plan + """;
-                      return get.apply(this, arguments); };
-                    v.subscribe = function (conn, msg, on) { if (msg && msg.type === 'hk_clean_areas/subscribe') {
-                      setTimeout(() => on({ configured: true, areas: """ + json.dumps(CLEAN_AREAS) + """ }), 0); return () => {}; }
-                      return sub.apply(this, arguments); }; } }); })()""")
+                await b.send("Page.addScriptToEvaluateOnNewDocument", source=feed_script())
                 sun = None
                 for key, look, bar in passes:
                     elev = SUN.get(look, 40.0)

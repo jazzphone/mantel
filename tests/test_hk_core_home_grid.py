@@ -98,6 +98,10 @@ def test_six_to_two_columns(cols):
     (grid(block("a1", "scenes", "W", [0, 0], opts={"colour": "red"})), "grid_option"),
     (grid(block("a1", "camera", "L", [0, 0], opts={"entity": "tablet_room"})), "grid_option"),
     (grid(block("a1", "action", "S", [0, 0], opts={"action": "launch_rocket"})), "grid_option"),
+    # When Tapped is Automatic, Page, Detail Sheet or Nothing -- and only on a block with something to open
+    (grid(block("a1", "weather", "L", [0, 0], opts={"tap": "popup"})), "grid_option"),
+    (grid(block("a1", "weather", "L", [0, 0], opts={"tap": True})), "grid_option"),
+    (grid(block("a1", "scene", "S", [0, 0], opts={"scene": "scene.good_night", "tap": "page"})), "grid_option"),
 ])
 def test_what_is_refused_and_why(g, code):
     b, errors = write(g)
@@ -113,6 +117,18 @@ def test_the_tablets_room_is_an_options_value():
     b, errors = write(g)
     assert errors == {}
     assert b["home_grid"]["items"][0]["opts"] == {"speaker": "tablet_room"}
+
+
+@pytest.mark.parametrize("tap", ["auto", "page", "sheet", "none"])
+def test_when_tapped_is_kept_on_every_block_that_has_something_to_open(tap):
+    opening = [k for k, c in HG.CATALOG.items() if c["opts"].get("tap") == "tap_target"]
+    assert {"weather", "calendar", "todo", "battery", "power", "water", "energy_rings", "on_now", "people", "room"} <= set(opening)
+    assert not {"accessory", "scene", "action", "everything", "camera"} & set(opening)
+    for key in opening:
+        size = HG.CATALOG[key]["sizes"][0]
+        b, errors = write(grid(block("a1", key, size, [0, 0], opts={"tap": tap})))
+        assert errors == {}, (key, errors)
+        assert b["home_grid"]["items"][0]["opts"] == {"tap": tap}
 
 
 def test_a_scenes_block_can_swipe_through_its_own_pages():

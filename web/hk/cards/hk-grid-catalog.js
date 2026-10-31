@@ -66,7 +66,7 @@
     scenes: { sizes: ['W', 'L', 'XL', 'XXL'], sources: ['scenes'], opts: { scenes: 'scenes', surface: 'surface', height: 'tile_height', color: 'boolean' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-scenes-card', surface: o.surface }, o.scenes ? { scenes: o.scenes } : {},
                            o.height ? { height: o.height } : {}, o.color ? { color: true } : {}); } },
-    now_playing: { sizes: ['S', 'W', 'T', 'L'], sources: ['speakers'], opts: { speaker: 'speaker' }, card: function (s, o) {
+    now_playing: { sizes: ['S', 'W', 'T', 'L'], sources: ['speakers'], opts: { speaker: 'speaker', tap: 'tap_target' }, card: function (s, o) {
       // T and L: the progress above the transport (the Home app's and Apple
       // Music's order); W, T and L the volume under it (Music's widgets,
       // 2026-10-31). Its speaker's own controls, or the screen's music.
@@ -79,7 +79,7 @@
       return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, sp ? { entity: sp } : {}, extra); } },
     // Extra Large: the thermostat's full controls, its sheet (2026-10-24) -- in Big Number, its face with the modes
     // beside it (hk-control.js _big, 2026-10-31)
-    thermostat: { sizes: ['S', 'T', 'L', 'XL'], sources: ['thermostats'], opts: { entity: 'climate', style: 'thermostat_style' }, card: function (s, o, ctx) {
+    thermostat: { sizes: ['S', 'T', 'L', 'XL'], sources: ['thermostats'], opts: { entity: 'climate', style: 'thermostat_style', tap: 'tap_target' }, card: function (s, o, ctx) {
       var id = own(o.entity) || (ctx.climate || [])[0];
       if (s === 'XL' && o.style !== 'big') return panel('climate', id ? { entity: id } : {});
       // the dial (hk-control.js), sized to the block (G2) -- or its Big Number
@@ -99,47 +99,47 @@
       return ids.length ? Object.assign({ type: 'custom:hk-grid-cameras-card', cameras: ids.slice() }, o.refresh ? { refresh: o.refresh } : {})
                         : stand('Cameras', 'hk:camera'); } },
     // Large and Extra Large: the alarm's keypad (2026-10-24)
-    security: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: { entity: 'alarm' }, card: function (s, o) {
+    security: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: { entity: 'alarm', tap: 'tap_target' }, card: function (s, o) {
       if (s === 'L' || s === 'XL') return Object.assign({ type: 'custom:hk-grid-keypad-card' }, o.entity ? { entity: o.entity } : {});
       return Object.assign({ type: 'custom:hk-grid-security-card' }, o.entity ? { entity: o.entity } : {}); } },
-    timers: { sizes: ['S', 'W'], sources: [], card: function () {
+    timers: { sizes: ['S', 'W'], sources: [], opts: { tap: 'tap_target' }, card: function () {
       return { type: 'custom:hk-timer-strip-card', entity: 'sensor.running_quick_timers' }; } },
     // Tall, and Big Temperature at any size: the number large, as StandBy has it (2026-10-24)
-    weather: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { entity: 'weather', sky: 'boolean', big: 'boolean' }, card: function (s, o, ctx) {
+    weather: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { entity: 'weather', sky: 'boolean', big: 'boolean', tap: 'tap_target' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.weather;
       return id ? Object.assign({ type: 'custom:hk-weather-band-card', section: 'hero', entity: id, sky: o.sky === true }, o.big ? { big: true } : {})
                 : stand('Weather', 'hk:weather-partly-cloudy'); } },
-    calendar: { sizes: ['S', 'T', 'L', 'XL'], sources: [], opts: { calendars: 'calendars', days: 'days', month: 'boolean' }, card: function (s, o) {
+    calendar: { sizes: ['S', 'T', 'L', 'XL'], sources: [], opts: { calendars: 'calendars', days: 'days', month: 'boolean', tap: 'tap_target' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-calendar-pane-card' }, o.calendars ? { calendars: o.calendars } : {}, o.days ? { days: o.days } : {},
                            o.month ? { month: true } : {}); } },
-    battery: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], card: function (s, o, ctx) {
+    battery: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function (s, o, ctx) {
       // the house battery the Energy feature names (hk-energy.js), sized to the block (G2)
       var B = ctx.battery;
       return B && B.level ? { type: 'custom:hk-house-battery-card', level: B.level, stored: B.stored, backup: B.backup,
                               reserve: B.reserve, charge: B.charge, discharge: B.discharge }
                           : stand('Battery', 'mdi:home-battery'); } },
-    people: { sizes: ['S', 'W'], sources: [], card: function () { return { type: 'custom:hk-people-card' }; } },
+    people: { sizes: ['S', 'W'], sources: [], opts: { tap: 'tap_target' }, card: function () { return { type: 'custom:hk-people-card' }; } },
     // Large and Extra Large: its controls with Clean Areas (2026-10-24)
     vacuum: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: { entity: 'vacuum' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.vacuum;
       if (!id) return stand('Vacuum', 'hk:robot-vacuum');
       return { type: s === 'L' || s === 'XL' ? 'custom:hk-grid-vacuum-card' : 'custom:hk-vacuum-card', entity: id }; } },
     // every size, HK's clock or a screensaver face, with or without its box (2026-10-24)
-    clock: { sizes: ['S', 'W', 'T', 'L', 'XL', 'XXL'], sources: [], opts: { clock_style: 'clock_style', bare: 'boolean' }, card: function (s, o) {
+    clock: { sizes: ['S', 'W', 'T', 'L', 'XL', 'XXL'], sources: [], opts: { clock_style: 'clock_style', bare: 'boolean', tap: 'tap_target' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-grid-clock-card' }, o.clock_style ? { clock_style: o.clock_style } : {}, o.bare ? { bare: true } : {}); } },
     // THE PAGES' OWN PANELS (2026-10-24; hk-grid-cards.js hk-grid-panel-card),
     // each read live from the house's settings as its page reads them
-    power: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: {}, card: function () { return panel('power'); } },
-    music: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: {}, card: function () { return panel('music'); } },
-    doors: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: {}, card: function () { return panel('doors'); } },
-    live_tv: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: {}, card: function () { return panel('tv'); } },
-    water: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: {}, card: function () { return panel('water'); } },
+    power: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return panel('power'); } },
+    music: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return panel('music'); } },
+    doors: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return panel('doors'); } },
+    live_tv: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return panel('tv'); } },
+    water: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return panel('water'); } },
     // THE NEW CARDS (G3, hk-grid-cards.js). `opts` names each option and its
     // kind, as home_grid.CATALOG does (a test holds them equal). A card handed
     // `tablet_room` resolves it itself, through the host (hkShell.tabletRoom):
     // the tablet showing the screen may be known only once the page is up.
     // `fallback` is the room it shows on a page that is no wall tablet.
-    room: { sizes: ['W', 'L', 'XL', 'XXL'], sources: ['rooms'], opts: { area: 'area', surface: 'surface', accessory_display: 'room_display' }, card: function (s, o, ctx) {
+    room: { sizes: ['W', 'L', 'XL', 'XXL'], sources: ['rooms'], opts: { area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target' }, card: function (s, o, ctx) {
       // no room of its own: the tablet's, else the screen's first
       return { type: 'custom:hk-grid-room-card', area: o.area || TABLET_ROOM, fallback: (ctx.rooms || [])[0] || null, size: s, surface: o.surface, accessory_display: o.accessory_display || 'summary' }; } },
     scene_suggested: { sizes: ['W', 'L'], sources: [], opts: { windows: 'windows' }, card: function (s, o) {
@@ -149,10 +149,10 @@
     everything: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: {}, card: function () { return { type: 'custom:hk-everything-card' }; } },
     // THE WIDGET BLOCKS (2026-10-31, docs/phase11/HOMEVIEW-LOOK.md "Blocks as widgets"): what is on now, a to-do
     // list, and the Energy page's rings over a period of the block's own
-    on_now: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: {}, card: function () { return { type: 'custom:hk-on-now-card' }; } },
-    todo: { sizes: ['S', 'T', 'L', 'XL'], sources: [], opts: { entity: 'todo' }, card: function (s, o) {
+    on_now: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return { type: 'custom:hk-on-now-card' }; } },
+    todo: { sizes: ['S', 'T', 'L', 'XL'], sources: [], opts: { entity: 'todo', tap: 'tap_target' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-todo-card' }, o.entity ? { entity: o.entity } : {}); } },
-    energy_rings: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { period: 'period' }, card: function (s, o) {
+    energy_rings: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { period: 'period', tap: 'tap_target' }, card: function (s, o) {
       return { type: 'custom:hk-energy-rings-card', period: o.period || 'day' }; } }
   };
   var SOURCES = ['list', 'rooms', 'cameras', 'thermostats', 'speakers', 'scenes', 'accessories'];
@@ -168,8 +168,13 @@
     if (!c) return stand('Unavailable', 'mdi:help-circle-outline');
     if ((it.rules && it.rules.length) || (it.when && it.fallback)) return { type: 'custom:hk-grid-conditional-card', item: it, ctx: ctx || {}, force: it._conditionPreview };
     if (paged(it)) return { type: 'custom:hk-pager-card', item: it, ctx: ctx || {} };
-    return c.card(it.size, it.opts || {}, ctx || {});
+    return tapped(c.card(it.size, it.opts || {}, ctx || {}), it.opts);
   }
+  // WHEN TAPPED, the block's choice (Automatic is none): the card's `tap` -- 'page', 'sheet' or 'none' (hk-base.js openTarget)
+  function tapped(cfg, o) {
+    return o && o.tap && o.tap !== 'auto' && cfg && cfg.type !== 'custom:hk-key-card' ? Object.assign({}, cfg, { tap: o.tap }) : cfg;
+  }
+  var TAP_TARGETS = [['auto', 'Automatic'], ['page', 'Page'], ['sheet', 'Detail Sheet'], ['none', 'Nothing']];
   function paged(it) {
     var p = it.pages, c = CARDS[it.card];
     return !!(c && p && (p.source === 'list' ? Array.isArray(p.list) && p.list.length
@@ -197,7 +202,7 @@
     if (!c) return [{ card: stand('Unavailable', 'mdi:help-circle-outline') }];
     var p = it.pages || {}, base = it.opts || {}, areas = x.areas || {};
     function page(opts, extra) {
-      var o = Object.assign({}, base, opts), cfg = c.card(it.size, o, x);
+      var o = Object.assign({}, base, opts), cfg = tapped(c.card(it.size, o, x), o);
       // a scenes page shows just its scenes, never the screen's Scenes choice
       if (it.card === 'scenes' && o.scenes) cfg.room = true;
       return Object.assign({ card: cfg }, extra || {});
@@ -226,7 +231,7 @@
       for (var i = 0; i < all.length; i += per) out.push(page({ scenes: all.slice(i, i + per) }));
     }
     out = out.slice(0, PAGES_MAX);
-    return out.length ? out : [{ card: c.card(it.size, base, x) }];
+    return out.length ? out : [{ card: tapped(c.card(it.size, base, x), base) }];
   }
 
   // THE TABLET'S ROOM (`tablet_room` in a block's options and `pages.start`):
@@ -312,7 +317,7 @@
   }
 
   window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, span: span, CELLS: CELLS, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
-                           PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES,
+                           PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES, TAP_TARGETS: TAP_TARGETS,
                            CONDITIONS: CONDITIONS, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
 })();

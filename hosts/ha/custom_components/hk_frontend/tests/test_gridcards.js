@@ -127,7 +127,7 @@ function () {
   eq('...the dial\'s Extra Large stays the sheet', C.config({ card: 'thermostat', size: 'XL' }, ctx).type, 'custom:hk-grid-panel-card');
   eq('...every thermostat page takes it', C.pages({ card: 'thermostat', size: 'L', opts: { style: 'big' }, pages: { source: 'thermostats' } }, { climate: ['climate.den', 'climate.hall'] })
      .map(function (p) { return p.card.style; }), ['big', 'big']);
-  eq('the option, and its kind', [C.table().thermostat.opts, C.THERMOSTAT_STYLES], [{ entity: 'climate', style: 'thermostat_style' }, [['dial', 'Dial'], ['big', 'Big Number']]]);
+  eq('the option, and its kind', [C.table().thermostat.opts, C.THERMOSTAT_STYLES], [{ entity: 'climate', style: 'thermostat_style', tap: 'tap_target' }, [['dial', 'Dial'], ['big', 'Big Number']]]);
   eq('Analog Numbers after the faces a block had, then the HomeView-style three', C.CLOCK_FACES.slice(-4).map(function (f) { return f[0]; }), ['numbers', 'liquid', 'giant', 'scattered']);
   eq('...a clock block with it', C.config({ card: 'clock', size: 'S', opts: { clock_style: 'numbers', bare: true } }, {}), { type: 'custom:hk-grid-clock-card', clock_style: 'numbers', bare: true });
 },
@@ -174,10 +174,10 @@ function () {
   var t = C.table();
   eq('the options each declares (home_grid.CATALOG\'s: a pytest holds them equal)',
      [t.room.opts, t.scene_suggested.opts, t.action.opts, t.everything.opts],
-     [{ area: 'area', surface: 'surface', accessory_display: 'room_display' }, { windows: 'windows' }, { action: 'action', area: 'area', color: 'boolean' }, {}]);
+     [{ area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target' }, { windows: 'windows' }, { action: 'action', area: 'area', color: 'boolean' }, {}]);
   // (2026-10-31) the widget blocks, and Scenes' and Accessories' Height and Color
   eq('...the widget blocks and their sizes', [t.on_now.sizes, t.todo.sizes, t.energy_rings.sizes, t.energy_rings.opts, t.todo.opts],
-     [['S', 'W', 'T', 'L', 'XL'], ['S', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], { period: 'period' }, { entity: 'todo' }]);
+     [['S', 'W', 'T', 'L', 'XL'], ['S', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], { period: 'period', tap: 'tap_target' }, { entity: 'todo', tap: 'tap_target' }]);
   eq('...Scenes and Accessories: Height and Color', [t.scenes.opts.height, t.scenes.opts.color, t.accessories.opts.height, t.accessories.opts.color, t.scene.opts.color],
      ['tile_height', 'boolean', 'tile_height', 'boolean', 'boolean']);
 },

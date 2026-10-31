@@ -1441,6 +1441,11 @@
   ].join('\n');
   class HkCalendarPaneCard extends HkBase {
     static get CSS() { return PANE_CSS + FLAT_EVENT_CSS; }
+    // (a block's tap, hk-base.js openTarget) the Calendar page, else the first calendar's sheet
+    _tapTarget() {
+      var ids = this.client ? calIds(this.client) : [];
+      return [{ page: 'calendar' }, ids[0] && { sheet: ids[0] }];
+    }
     constructor() {
       super();
       this._evs = []; this._have = ''; this._n = 0;
@@ -1833,6 +1838,11 @@
 
   class HkTodoCard extends HkBase {
     static get CSS() { return TODO_CSS; }
+    // (a block's tap, hk-base.js openTarget) the list, over the page: to tick off and to add to
+    _tapTarget() {
+      var a = this.client && this._config ? this._lists()[0] : null, self = this;
+      return a ? [{ run: function () { self._open(a); } }] : [];
+    }
     constructor() {
       super();
       this._n = 0;

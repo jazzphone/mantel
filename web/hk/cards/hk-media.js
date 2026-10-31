@@ -306,6 +306,8 @@
     return seg === 'playmusic' || seg === 'music-browse';
   }
   class HkNowPlayingCard extends HkBase {
+    // (a block's tap, hk-base.js openTarget) the Now Playing page, else the playing speaker's sheet
+    _tapTarget() { var p = this.client ? this._res().player : null; return [{ page: 'playmusic' }, p && { sheet: p }]; }
     static get CSS() {
       return [
         'hk-plate.np{position:relative;overflow:hidden;display:block;',

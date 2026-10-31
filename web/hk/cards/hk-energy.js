@@ -3174,6 +3174,8 @@
   // it charges (or back while it powers the house); its packs as small
   // batteries; EPS and the charging speed.
   class HkHouseBatteryCard extends HkPowerBase {
+    // (a block's tap, hk-base.js openTarget) Energy, else the battery's own level sensor
+    _tapTarget() { var id = (this._config || {}).level; return [{ page: 'energy' }, id && { sheet: id }]; }
     static get PART_CSS() {
       return [
         'hk-plate.ep.hb{height:auto;min-height:256px}',
@@ -4072,6 +4074,9 @@
   }
   class HkEnergyRingsCard extends HkBase {
     static get CSS() { return RINGS_CSS; }
+    // (a block's tap, hk-base.js openTarget) Energy. Small is its own switch (a tap changes the period): its whole
+    // plate is a button
+    _tapTarget() { return this._cellSize() === 'S' ? [] : [{ page: 'energy' }]; }
     getCardSize() { return 4; }
     setConfig(config) {
       super.setConfig(config);

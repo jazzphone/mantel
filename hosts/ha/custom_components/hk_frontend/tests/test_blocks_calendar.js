@@ -174,7 +174,7 @@ H.run('CALENDAR AND TO-DO BLOCKS', [
       // TICKED OFF: the Side Pane's command
       var cls = {}, el = { getAttribute: function (k) { return { 'data-list': 'todo.groceries', 'data-uid': 'g2' }[k]; },
                            hasAttribute: function (k) { return k === 'data-uid'; }, classList: { add: function (c) { cls[c] = 1; }, remove: function (c) { delete cls[c]; } } };
-      t._root._listeners.click[0]({ target: { closest: function () { return el; } } });
+      t._root._listeners.click[t._root._listeners.click.length - 1]({ target: { closest: function () { return el; } } });
       var call = hs.calls[hs.calls.length - 1] || {};
       H.ok('a tap on an item ticks it off: todo.update_item, completed', call.domain === 'todo' && call.service === 'update_item' &&
            JSON.stringify(call.data).indexOf('"item":"g2"') >= 0 && JSON.stringify(call.data).indexOf('completed') >= 0, call);
