@@ -260,6 +260,12 @@ load(HK_ROOT + '/frontend/modules/hk-wallpapers.js');
   w = find(l, 'ckwall')[0];
   ok('a drawn one: its night picture, still', !!w && w.style.backgroundImage === 'url("' + WP.url('petals_violet', true) + '")' && !find(w, 'sway').length, true);
   c.destroy();
+  // (2026-11-01, item 45: an art in any colour, as the dashboard draws it; an old id is its art in its preset)
+  l = document.createElement('div'); c = C.mount(l, { style: 'classic', bg: 'wallpaper', drift: false, speed: 35, wallpaper: { id: 'shards', color: '#ff8800' } });
+  w = find(l, 'ckwall')[0];
+  ok('an art in a colour of your own', !!w && w.style.backgroundImage === 'url("' + WP.url('shards', false, '#ff8800') + '")' &&
+     WP.url('shards', false, '#ff8800') !== WP.url('shards', false, 'blue') && WP.url('petals_violet', true) === WP.url('petals', true, 'violet'), true);
+  c.destroy();
   var css = read(HK_ROOT + '/frontend/modules/hk-saverclock.js');
   ok('its motion is hkWallpapers.motionCss, paused while the screen rests', /WP\.motionCss\('\.ckroot \.ckwall>i', '\.ckroot \.ckwall\.mv>i', 'ck-wt-'\)/.test(css) &&
      /'\.ckroot \.ckwall\.mv\.held>i\{animation-play-state:paused\}'/.test(css), true);

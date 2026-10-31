@@ -89,6 +89,10 @@ def stored_house(body: Mapping[str, Any] | None, merged_form: bool = True) -> di
             values["discover"] = [r["key"] for r in disc if isinstance(r.get("key"), str)]
             now[section]["discover"] = values["discover"]
         keep = {k: now[section][k] for k in values if k in now[section]}
+        # the Wallpaper and its colour as the pair they are read as (item 45, 2026-11-01): an old id alone
+        # ("pinwheel_teal") is Pinwheel in Teal, and both go with it
+        if section == "sky" and ("wallpaper" in keep or "wallpaper_color" in keep):
+            keep.update({k: now[section][k] for k in ("wallpaper", "wallpaper_color")})
         if section == "sky" and merged_form:
             for k, baked in _NO_PLACE.items():
                 if k in keep and keep[k] == baked:

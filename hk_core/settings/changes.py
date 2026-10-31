@@ -812,7 +812,7 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "sky.photo_look": _photo_look(False),
     "sky.landscape": _landscape(False),
     "sky.landscape_look": _photo_look(False),
-    "sky.wallpaper": _choice(S.WALLPAPERS),
+    "sky.wallpaper": _choice(S.WALLPAPERS + tuple(S.WALLPAPER_LEGACY)),
     "sky.wallpaper_night": _choice(S.WALLPAPER_NIGHT),
     "sky.wallpaper_motion": _choice(S.WALLPAPER_MOTION),
     "sky.wallpaper_color": _wallpaper_color(False),
@@ -952,6 +952,21 @@ def apply_house(options: Mapping[str, Any], changes: Mapping[str, Any],
                 dash[where[0]] = S.house_stored(where[0], {**{k: v for k, v in old.items() if k in now[where[0]]}, where[1]: []})
     if errors:
         return dict(options), errors
+    # THE WALLPAPER AND ITS COLOUR, stored as a pair (item 45, 2026-11-01): what was shown (an old id its art in its
+    # preset), then this call's art and colour -- an old id written its own preset, unless a colour comes with it
+    if "sky.wallpaper" in changes or "sky.wallpaper_color" in changes:
+        was = (options.get(S.CONF_DASHBOARD) or {}).get("sky")
+        was = was if isinstance(was, dict) else {}
+        art, color = S.wallpaper_choice(was.get("wallpaper"), was.get("wallpaper_color"))
+        w = changes.get("sky.wallpaper")
+        if w in S.WALLPAPER_LEGACY:
+            art, color = S.WALLPAPER_LEGACY[w]
+        elif w is not None:
+            art = w
+        if "sky.wallpaper_color" in changes:
+            color = changes["sky.wallpaper_color"]
+        cur = dash.get("sky") if isinstance(dash.get("sky"), dict) else {}
+        dash["sky"] = S.house_stored("sky", {**cur, "wallpaper": art, "wallpaper_color": S.wallpaper_color(color) or color})
     return {**options, **top, S.CONF_DASHBOARD: dash}, {}
 
 
@@ -1208,7 +1223,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "sky_photo_look": _photo_look(True),
     "sky_landscape": _landscape(True),
     "sky_landscape_look": _photo_look(True),
-    "sky_wallpaper": _choice(S.WALLPAPERS, none=True),
+    "sky_wallpaper": _choice(S.WALLPAPERS + tuple(S.WALLPAPER_LEGACY), none=True),
     "sky_wallpaper_night": _choice(S.WALLPAPER_NIGHT, none=True),
     "sky_wallpaper_motion": _choice(S.WALLPAPER_MOTION, none=True),
     "sky_wallpaper_color": _wallpaper_color(True),
@@ -1441,6 +1456,15 @@ def apply_board(data: Mapping[str, Any], changes: Mapping[str, Any]
             errors[key] = err.code
     if errors:
         return S.board(data), errors
+    # A COLOUR FOR A SCREEN STILL ON AN OLD WALLPAPER ID (item 45): the old id would read as its own preset, so its art
+    # is stored with the colour
+    if "sky_wallpaper_color" in clean and "sky_wallpaper" not in clean and data.get("sky_wallpaper") in S.WALLPAPER_LEGACY:
+        clean["sky_wallpaper"] = S.WALLPAPER_LEGACY[data["sky_wallpaper"]][0]
+    # ...and an old id written: its art in its preset, unless a colour comes with it
+    if clean.get("sky_wallpaper") in S.WALLPAPER_LEGACY:
+        art, preset = S.WALLPAPER_LEGACY[clean["sky_wallpaper"]]
+        clean["sky_wallpaper"] = art
+        clean.setdefault("sky_wallpaper_color", preset)
     if "menu_custom" in clean:
         # an older page's Same as All Screens switch: every menu setting, or none
         clean.setdefault("menu_own", list(S.MENU_KEYS) if clean.pop("menu_custom") else [])

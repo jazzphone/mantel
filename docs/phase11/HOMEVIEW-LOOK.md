@@ -567,6 +567,31 @@ test in `test_settings.py` (every theme in every preset and a sweep of 54 colour
 `tools/headless/motion_themes_check.py` (each theme in two colours at 1180 × 820 and 390 × 844, the still frame,
 Settings, the screensaver).
 
+### Phase E3. Wallpapers in a colour, one combined picker (2026-11-01, feedback item 45, the owner's Option A)
+
+**What you see.** One Wallpaper picker: the four arts (Ribbons, Petals, Shards, Pinwheel) and the six motion themes
+side by side, a MOVES mark on the themes, and on every one while the Motion is on. Under it one Color (the presets
+and Your Own Color) for all of them, then Motion, then Night Version. The Clock screensaver's Wallpaper background
+uses the same picker and colour.
+
+| Setting | Key | Values | Default |
+|---|---|---|---|
+| Wallpaper | `sky.wallpaper` / `sky_wallpaper`; screensaver `clock_wallpaper` | `ribbons`, `petals`, `shards`, `pinwheel` and the six themes; the twelve old ids still read | `ribbons` |
+| Colour | `sky.wallpaper_color` / `sky_wallpaper_color`; `clock_wallpaper_color` | a preset or `#rrggbb` | `rose` (nothing stored: Ribbons in Rose) |
+
+**Today's choices keep their look.** An old id (`ribbons_rose` …, `WALLPAPER_LEGACY`) reads as its art in its own
+preset, whatever colour is stored beside it, in `merged()`, `board()` and `saver_options()`; a write stores the art
+and colour as a pair. Each of the twelve pairs keeps its family's tuned shades, so they draw exactly as before (the
+same SVG; stops within 1 of 255). Any other pair -- Ribbons in Amber, Petals in Green, any colour of your own -- takes
+`ART_RAMP`: the colour's hue, its saturation capped and greyed toward the light shades, at fixed luminances (the
+families' mean, a tenth under it by day). The one visible difference: a preset that was drawn with a hue drift (Rose's
+violet shadows) is drawn in its own hue on the arts it never had (Shards in Rose), so Petals in Rose and Shards in
+Rose differ a little more than the art alone.
+
+**Checks.** The contrast test in `test_settings.py` and `test_glass.js` over every art and theme in every preset and
+the sweep, plus the twelve; `wallpaper_stops.cjs --check` (every art and theme in every preset and three own colours);
+`motion_themes_check.py` (each art and theme in two colours, the picker, the screensaver), `bright_glass_check.py`.
+
 ## Phase F. A numbered analog face (Phase 2)
 
 **What you see.** A clock face, **Analog Numbers**, matched to the screenshot side by side: SF Pro 500 numerals

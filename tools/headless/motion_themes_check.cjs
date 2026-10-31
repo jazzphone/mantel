@@ -9,8 +9,8 @@ async function sky(page, wait) {
   return page.evaluate(async (ms) => {
     const S = window.hkSky && window.hkSky.element && window.hkSky.element(), wall = S && S.querySelector('.wall.on');
     if (!wall) return null;
-    // (a meteor stands unseen most of its cycle: its animation's own time moving counts too)
-    const kids = [...wall.children], t0 = kids.map((k) => getComputedStyle(k).transform + '|' + getComputedStyle(k).opacity);
+    // (a meteor stands unseen most of its cycle: its animation's own time moving counts too; an art (2026-11-01) moves as one picture)
+    const kids = wall.classList.contains('th') ? [...wall.children] : [wall], t0 = kids.map((k) => getComputedStyle(k).transform + '|' + getComputedStyle(k).opacity);
     const c0 = kids.flatMap((k) => k.getAnimations()).map((a) => [a, a.playState === 'running' ? a.currentTime : null]);
     let frames = 0; const start = performance.now();
     await new Promise((res) => { const tick = () => { frames++; if (performance.now() - start < ms) requestAnimationFrame(tick); else res(); }; requestAnimationFrame(tick); });
@@ -43,14 +43,14 @@ async function sky(page, wait) {
       for (const s of input.screens) {
         await go('/' + s.path + '/home');
         const m = await sky(page);
-        const tag = size + ' ' + s.theme + ' ' + s.color;
-        say(m && m.th && m.layers >= 2 && m.wm === 'medium' && /^"[a-z]+@#[0-9a-f]{6}:(day|night)"$/.test(m.wall) && m.wall.indexOf(s.theme + '@') === 1,
-            tag + ': the sky shows the theme, its layers inside it, Motion Medium', m);
+        const tag = size + ' ' + s.theme + ' ' + s.color, hex = await page.evaluate((c) => window.hkWallpapers.color(c), s.color);
+        say(m && (s.art ? !m.th && m.layers === 1 : m.th && m.layers >= 2) && m.wm === 'medium' && /^"[a-z]+@#[0-9a-f]{6}:(day|night)"$/.test(m.wall) && m.wall.indexOf(s.theme + '@' + hex + ':') === 1,
+            tag + ': the sky shows it (a theme with its layers inside), in its colour, Motion Medium', m);
         say(m && m.moved && m.running >= 1 && m.filters === 0 && m.props.every((p) => p === 'transform' || p === 'opacity'),
             tag + ': ...they move, by transform and opacity alone', m && { moved: m.moved, running: m.running, props: m.props, filters: m.filters });
         say(m && m.fps >= 50, tag + ': ...and the page keeps its frame rate', m && m.fps);
         await page.screenshot({ path: input.shots + '/' + s.path + '-' + size + '.png' });
-        if (s === input.screens[0]) {
+        if (s === input.screens.find((x) => !x.art)) {
           await page.emulateMedia({ reducedMotion: 'reduce' });
           const r = await sky(page);
           say(r && r.th && !r.moved && r.running === 0, size + ' Reduce Motion: the still frame', r);
@@ -61,7 +61,8 @@ async function sky(page, wait) {
       const st = await sky(page);
       say(st && st.th && st.layers === 3 && !st.wm && !st.moved && st.running === 0, size + ' Animations Off: the still frame, its layers where they start', st);
       await page.screenshot({ path: input.shots + '/still-' + size + '.png' });
-      // HK SETTINGS: Sky / Background with All Screens' Aurora in Teal -- the twelve, the six, the Color
+      // HK SETTINGS: Sky / Background with All Screens' Aurora in Teal -- one picker, the four arts and the six themes
+      // (2026-11-01, item 45), MOVES on every one while the Motion is on, then the Color, the Motion and the Night Version
       await page.goto(input.origin + '/settings#/house/appearance/sky');
       await page.waitForTimeout(3500);
       const pick = await page.evaluate(() => {
@@ -71,9 +72,17 @@ async function sky(page, wait) {
         const color = all.filter((e) => e.getAttribute && /^hwall:color:/.test(e.getAttribute('data-fk') || ''));
         const t = all.find((e) => e.getAttribute && e.getAttribute('data-fk') === 'hwall:aurora');
         if (t) t.scrollIntoView({ block: 'start' });
-        return { grids: grids.map((g) => g.querySelectorAll('button').length), on, color: color.length };
+        // (in page order: the picker, a Color row, the Motion, the Night Version)
+        const marks = [grids[0], all.find((e) => e.getAttribute && e.getAttribute('data-fk') === 'hwall:color:rose'),
+          all.find((e) => e.getAttribute && e.getAttribute('data-sk') === 'sky.wallpaper_motion'), all.find((e) => e.getAttribute && e.getAttribute('data-sk') === 'sky.wallpaper_night')];
+        const order = marks.every(Boolean) && marks.every((m, i) => !i || (marks[i - 1].compareDocumentPosition(m) & Node.DOCUMENT_POSITION_FOLLOWING))
+          ? ['sky.wallpaper', 'sky.wallpaper_color', 'sky.wallpaper_motion', 'sky.wallpaper_night'] : marks.map(Boolean);
+        return { grids: grids.map((g) => g.querySelectorAll('button').length), moves: grids.map((g) => g.querySelectorAll('.mv').length), on, color: color.length,
+                 order: [...new Set(order)] };
       });
-      say(pick.grids.join() === '12,6' && pick.on.join() === 'hwall:aurora' && pick.color >= 9, size + ' Settings: the twelve, the six motion themes, a theme\'s Color', pick);
+      say(pick.grids.join() === '10' && pick.moves.join() === '10' && pick.on.join() === 'hwall:aurora' && pick.color >= 9 &&
+          pick.order.join() === 'sky.wallpaper,sky.wallpaper_color,sky.wallpaper_motion,sky.wallpaper_night',
+          size + ' Settings: one picker of the four wallpapers and six themes, all marked MOVES, then Color, Motion, Night Version', pick);
       await page.waitForTimeout(600);
       await page.screenshot({ path: input.shots + '/settings-themes-' + size + '.png' });
       await page.evaluate(() => {
@@ -118,10 +127,11 @@ async function sky(page, wait) {
         const all = deep(document), t = all.find((e) => e.getAttribute && e.getAttribute('data-sk') === 'saver:clock_bg');
         if (t) t.scrollIntoView({ block: 'start' });
         return { pick: !!t, grids: all.filter((e) => e.matches && e.matches('.wallgrid')).map((g) => g.querySelectorAll('button').length),
+                 color: all.filter((e) => e.getAttribute && /^swall:color:/.test(e.getAttribute('data-fk') || '')).length,
                  on: all.filter((e) => e.matches && e.matches('.wallgrid button[aria-pressed="true"]')).map((b) => b.getAttribute('data-fk')),
                  night: all.some((e) => e.getAttribute && /wallpaper_night/.test(e.getAttribute('data-sk') || '')) };
       });
-      say(sp.pick && sp.grids.join() === '12,6' && sp.on.join() === 'swall:meteors' && !sp.night, size + ' Settings, the clock\'s Background: the same picker, no Night Version or Motion of its own', sp);
+      say(sp.pick && sp.grids.join() === '10' && sp.color >= 9 && sp.on.join() === 'swall:meteors' && !sp.night, size + ' Settings, the clock\'s Background: the same picker, no Night Version or Motion of its own', sp);
       await page.waitForTimeout(600);
       await page.screenshot({ path: input.shots + '/settings-saver-' + size + '.png' });
       await page.evaluate(() => {

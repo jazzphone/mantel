@@ -21,7 +21,7 @@ from typing import Any
 # THE KEYS A LOOK MAY SET (a screen's settings) -- and so the ones its Undo keeps; the Layout + Look starters also
 # keep home_style and home_grid
 SET_KEYS = ("flat", "flat_theme", "glass", "accent", "tab_bar_glass", "tile_style",
-            "sky", "sky_background", "sky_color", "sky_wallpaper", "sky_wallpaper_night", "sky_wallpaper_motion",
+            "sky", "sky_background", "sky_color", "sky_wallpaper", "sky_wallpaper_night", "sky_wallpaper_motion", "sky_wallpaper_color",
             "sky_animations", "sky_weather", "sky_precipitation", "sky_moving", "sky_decorations", "sky_liveliness",
             "swipe_pages", "side_pane", "screensaver", "screensaver_options", "camera_live_video")
 UNDO_KEYS = SET_KEYS + ("home_style", "home_grid")
@@ -43,7 +43,7 @@ LOOKS: tuple[dict[str, Any], ...] = (
      "art": ["#1f4b8d", "#375b91", "#0b285d", "#ff9500"],
      "layout": {"cell": "square", "starters": ["sq_pane", "sq_6x4", "sq_3x5", "sq_2x4", "sq_homeview"]},
      "settings": {"flat": False, "glass": "bright", "accent": "orange", "tab_bar_glass": "house", "tile_style": "auto",
-                  "sky": True, "sky_background": "wallpaper", "sky_wallpaper": "ribbons_blue", "sky_wallpaper_night": "auto",
+                  "sky": True, "sky_background": "wallpaper", "sky_wallpaper": "ribbons", "sky_wallpaper_color": "blue", "sky_wallpaper_night": "auto",
                   "sky_wallpaper_motion": "slow", "swipe_pages": "on", "side_pane": PANE_HOME, "screensaver": True},
      "saver": {"show": "clock", "clock_style": "numbers", "clock_bg": "gradient", "clock_motion": "slow"}},
     {"id": "flat", "name": "Flat",
@@ -86,7 +86,7 @@ LOOKS: tuple[dict[str, Any], ...] = (
      "art": ["#3c3283", "#524999", "#211a5e", "#5e5ce6"],
      "layout": {"cell": "square", "starters": ["sq_pane", "sq_6x4", "sq_3x5", "sq_2x4", "sq_homeview"]},
      "settings": {"flat": False, "glass": "bright", "accent": "indigo", "tab_bar_glass": "house", "tile_style": "auto",
-                  "sky": True, "sky_background": "wallpaper", "sky_wallpaper": "petals_violet", "sky_wallpaper_night": "auto",
+                  "sky": True, "sky_background": "wallpaper", "sky_wallpaper": "petals", "sky_wallpaper_color": "violet", "sky_wallpaper_night": "auto",
                   "sky_wallpaper_motion": "slow", "swipe_pages": "on", "screensaver": True},
      "saver": {"show": "clock", "clock_style": "liquid", "clock_bg": "gradient", "clock_motion": "slow"}},
     {"id": "night", "name": "Night & Bedside",

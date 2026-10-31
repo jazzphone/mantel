@@ -1099,7 +1099,7 @@
       var wo = opts.wallpaper || {}, wid = WP.has(wo.id) ? wo.id : 'aurora', wsc = WP.scene(wid, !!wo.night, wo.color);
       css.textContent += WP.motionCss('.ckroot .ckwall>i', '.ckroot .ckwall.mv>i', 'ck-wt-');
       wallEl = el('div', 'ckwall ckbg');
-      wallEl.style.backgroundImage = 'url("' + (wsc ? wsc.ground : WP.url(wid, !!wo.night)) + '")';
+      wallEl.style.backgroundImage = 'url("' + (wsc ? wsc.ground : WP.url(wid, !!wo.night, wo.color)) + '")';
       if (wsc) WP.paintScene(wallEl, wsc, 'ck-wt-');
       if (wsc && speed) {
         wallEl.className += ' mv';

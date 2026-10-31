@@ -37,45 +37,75 @@ globalThis.document = { createElement: node, readyState: 'complete', head: node(
 load(HK_ROOT + '/frontend/modules/hk-wallpapers.js');
 var W = window.hkWallpapers;
 var py = read(HK_ROOT + '/hk_core/settings/model.py');
-var m = /\nWALLPAPERS = \(([\s\S]*?)\) \+ WALLPAPER_THEMES\n/.exec(py), mt = /\nWALLPAPER_THEMES = \(([\s\S]*?)\)\n/.exec(py);
+// (2026-11-01, item 45: one combined picker -- four arts and six themes, each in a colour; the twelve as an art in a preset)
+var ma = /\nWALLPAPER_ARTS = \(([\s\S]*?)\)\n/.exec(py), mt = /\nWALLPAPER_THEMES = \(([\s\S]*?)\)\n/.exec(py);
 var tuple = function (x) { return x ? (x[1].match(/"([a-z_]+)"/g) || []).map(function (s) { return s.slice(1, -1); }) : []; };
-var ids = tuple(m).concat(tuple(mt));
-check('the twelve and the six themes, in settings.py WALLPAPERS\' order', ids.length === 18 && JSON.stringify(W.list().map(function (w) { return w.id; })) === JSON.stringify(ids), ids);
-check('...the default is settings.py\'s', /"wallpaper": "ribbons_rose"/.test(py) && W.DEFAULT === 'ribbons_rose');
-var fam = {}, shapes = {};
-W.list().filter(function (w) { return !w.theme; }).forEach(function (w) { (fam[w.family] = fam[w.family] || []).push(w.shape); shapes[w.shape] = 1; });
-check('six families, two shapes each; four shapes', Object.keys(fam).length === 6 && Object.keys(fam).every(function (f) { return fam[f].length === 2 && fam[f][0] !== fam[f][1]; }) &&
-      Object.keys(shapes).sort().join() === 'petals,pinwheel,ribbons,shards', fam);
-check('...named as you would say them', W.list()[0].name === 'Rose Ribbons' && W.list()[11].name === 'Graphite Pinwheel');
+var ids = tuple(ma).concat(tuple(mt));
+check('the four arts and the six themes, in settings.py WALLPAPERS\' order', /\nWALLPAPERS = WALLPAPER_ARTS \+ WALLPAPER_THEMES\n/.test(py) &&
+      ids.length === 10 && JSON.stringify(W.list().map(function (w) { return w.id; })) === JSON.stringify(ids), ids);
+check('...the default is settings.py\'s: Ribbons, in Rose when nothing is stored', /"wallpaper": "ribbons",/.test(py) && /"wallpaper_color": "rose",/.test(py) &&
+      W.DEFAULT === 'ribbons' && /return "ribbons", "rose"/.test(py));
+var mlg = /\nWALLPAPER_LEGACY = \{([\s\S]*?)\n\}\n/.exec(py), pyOld = [];
+if (mlg) mlg[1].replace(/"([a-z_]+)": \("([a-z]+)", "([a-z]+)"\)/g, function (_, id, art, col) { pyOld.push([id, art, col]); });
+check('the twelve as stored before: settings.py WALLPAPER_LEGACY, in its order', pyOld.length === 12 && JSON.stringify(pyOld) === JSON.stringify(W.LEGACY), pyOld);
+check('...each read as its art in its own preset, whatever colour is asked', W.LEGACY.every(function (l) {
+  var r = W.resolve(l[0], '#123456'); return r.id === l[1] && r.hex === W.color(l[2]) && W.has(l[0]) && !W.isTheme(l[0]);
+}));
+check('the arts named as you would say them; they move only with the Motion, the themes by themselves', W.list().slice(0, 4).map(function (w) { return w.name; }).join() === 'Ribbons,Petals,Shards,Pinwheel' &&
+      W.list().every(function (w) { return w.moves === w.theme; }));
 check('every family has five colours by day and by night, the night darker', Object.keys(W.FAMILIES).every(function (f) {
   var F = W.FAMILIES[f], L = function (c) { var n = parseInt(c.slice(1), 16); return 0.2126 * (n >> 16) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255); };
   return F.day.length === 5 && F.night.length === 5 && L(F.night[3]) < L(F.day[3]) + 1;
 }));
-check('each has four stops by day and by night, a Color backdrop\'s shape', W.list().every(function (w) {
-  var s = W.stops(w.id); return s.day.length === 4 && s.night.length === 4 && s.day.concat(s.night).every(function (c) { return /^#[0-9a-f]{6}$/.test(c); });
-}));
-var a = W.svg('shards_blue', false, 'p1'), b = W.svg('shards_blue', true, 'p2');
+// TODAY'S CHOICES KEEP THEIR LOOK: each of the twelve pairs is its tuned family, exactly; any other pair the rule
+check('each of the twelve (an art in the preset it was drawn in): that family\'s own shades -- they draw as before', W.LEGACY.every(function (l) {
+  return W.colors(l[1], false, l[2]).join() === W.FAMILIES[l[2]].day.join() && W.colors(l[1], true, l[2]).join() === W.FAMILIES[l[2]].night.join() &&
+    W.svg(l[0], false, 'x') === W.svg(l[1], false, 'x', l[2]);
+}) && W.colors('ribbons', false, 'amber').join() !== W.FAMILIES.amber.day.join());
+// ...and their stops as the old tables had them (measured off the same art: within 2 of 255)
+var BEFORE = { ribbons_rose: ['#8a1f74', '#973681', '#46125e', '#42115e'], petals_violet: ['#211a5e', '#3c3283', '#524999', '#584fa1'],
+  shards_blue: ['#3e5780', '#38588b', '#2d528b', '#315790'], pinwheel_teal: ['#1a4f49', '#1a4e48', '#1b4944', '#153e39'],
+  petals_amber: ['#3d1b07', '#613515', '#7b4a1f', '#844f20'], shards_graphite: ['#53575e', '#52565e', '#4b5059', '#515761'] };
+var near = function (a, b) { return [1, 3, 5].every(function (j) { return Math.abs(parseInt(a.slice(j, j + 2), 16) - parseInt(b.slice(j, j + 2), 16)) <= 2; }); };
+check('...their stops as they were', Object.keys(BEFORE).every(function (id) { return W.stops(id).day.every(function (c, i) { return near(c, BEFORE[id][i]); }); }),
+      Object.keys(BEFORE).map(function (id) { return W.stops(id).day; }));
+// ANY OTHER COLOUR: five shades of its hue at the arts' luminances, darkest first, the night darker
+var Y = function (c) { var f = function (v) { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }, n = parseInt(c.slice(1), 16);
+  return 0.2126 * f(n >> 16) + 0.7152 * f(n >> 8 & 255) + 0.0722 * f(n & 255); };
+var arts = ['#ff0000', '#ffee00', '#ffffff', 'green', 'coral'].map(function (c) { return [W.colors('ribbons', false, c), W.colors('ribbons', true, c)]; });
+check('an art in any other colour: five shades at the arts\' luminances, the night darker', arts.every(function (s) {
+  return s[0].every(function (c, i) { return Math.abs(Y(c) - W.ART_RAMP.day[i]) < 0.004 && Y(s[1][i]) < Y(c); });
+}), arts);
+check('...in the colour\'s hue: a red\'s are red, white\'s grey', /^#[0-9a-f]{2}0[0-9a-f]0[0-9a-f]$/.test(arts[0][0][1]) &&
+      arts[2][0].every(function (c) { return c.slice(1, 3) === c.slice(3, 5) && c.slice(3, 5) === c.slice(5, 7); }), arts[0][0]);
+check('each has four stops by day and by night in any colour, a Color backdrop\'s shape', W.list().every(function (w) {
+  return ['rose', '#ff8800', '#000000'].every(function (c) {
+    var s = W.stops(w.id, c); return s.day.length === 4 && s.night.length === 4 && s.day.concat(s.night).every(function (x) { return /^#[0-9a-f]{6}$/.test(x); });
+  });
+}) && W.stops('ribbons', 'coral').day.join() !== W.stops('ribbons', 'green').day.join());
+var a = W.svg('shards', false, 'p1', 'blue'), b = W.svg('shards', true, 'p2', 'blue');
 check('the art is an SVG cut to the screen (slice), its ids kept apart', /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice"/.test(a) &&
       /id="p1_a"/.test(a) && /id="p2_a"/.test(b) && !/p1_/.test(b));
 check('...the night version its own colours, with a few still stars', a !== b && /<circle/.test(b) && !/<circle/.test(a) &&
-      b.indexOf(W.colors('shards_blue', true)[0]) >= 0 && a.indexOf(W.colors('shards_blue', false)[0]) >= 0);
-check('...as an address a background takes, made once', /^data:image\/svg\+xml;charset=utf-8,%3Csvg/.test(W.url('petals_amber')) && W.url('petals_amber') === W.url('petals_amber') &&
-      W.url('petals_amber', true) !== W.url('petals_amber'));
-check('an unknown one is the default', W.stops('nope').day[0] === W.stops('ribbons_rose').day[0] && !W.has('nope') && W.has('shards_graphite'));
+      b.indexOf(W.colors('shards', true, 'blue')[0]) >= 0 && a.indexOf(W.colors('shards', false, 'blue')[0]) >= 0);
+check('...as an address a background takes, made once per colour; an old id the same picture as its art in its preset',
+      /^data:image\/svg\+xml;charset=utf-8,%3Csvg/.test(W.url('petals', false, 'amber')) && W.url('petals', false, 'amber') === W.url('petals_amber') &&
+      W.url('petals', true, 'amber') !== W.url('petals', false, 'amber') && W.url('petals', false, 'green') !== W.url('petals', false, 'amber'));
+check('an unknown one is the default art', W.stops('nope', 'rose').day[0] === W.stops('ribbons', 'rose').day[0] && !W.has('nope') && W.has('shards_graphite') && W.has('shards'));
 var big = W.list().filter(function (w) { return !w.theme; }).reduce(function (n, w) { return Math.max(n, W.svg(w.id, false).length, W.svg(w.id, true).length); }, 0);
 var bigT = W.list().filter(function (w) { return w.theme; }).reduce(function (n, w) { return Math.max(n, W.svg(w.id, false).length, W.svg(w.id, true).length); }, 0);
 check('each drawing stays small (under 6 kB of SVG, a theme\'s still frame under 20 kB -- the aurora\'s rays -- made once on the page), ' +
-      'and what ships is the builders (under 40 kB before minifying)',
-      big < 6000 && bigT < 20000 && read(HK_ROOT + '/frontend/modules/hk-wallpapers.js').length < 40000, [big, bigT]);
+      'and what ships is the builders (under 44 kB before minifying)',
+      big < 6000 && bigT < 20000 && read(HK_ROOT + '/frontend/modules/hk-wallpapers.js').length < 44000, [big, bigT, read(HK_ROOT + '/frontend/modules/hk-wallpapers.js').length]);
 
 // THE MOTION THEMES (2026-10-31): six, each in one colour of the owner's
 var themes = W.list().filter(function (w) { return w.theme; });
 check('six themes, each named, no family; known as themes', themes.map(function (w) { return w.name; }).join() === 'Aurora,Blobs,Waves,Dot Field,Light Beams,Meteors' &&
-      themes.every(function (w) { return w.shape === 'theme' && !w.family && W.isTheme(w.id) && W.has(w.id); }) && !W.isTheme('ribbons_rose') && !W.isTheme('toString'));
+      themes.every(function (w) { return w.shape === 'theme' && !w.family && W.isTheme(w.id) && W.has(w.id); }) && !W.isTheme('ribbons_rose') && !W.isTheme('ribbons') && !W.isTheme('toString'));
 var mc = /\nWALLPAPER_COLORS = \(([\s\S]*?)\n\)\n/.exec(py), pyCols = [];
 if (mc) mc[1].replace(/\{"id": "([a-z]+)", "label": "([A-Za-z ]+)", "hex": "(#[0-9a-f]{6})"\}/g, function (_, id, label, hex) { pyCols.push([id, label, hex]); });
 check('the presets are settings.py WALLPAPER_COLORS, in its order; the default its default', pyCols.length === 8 && JSON.stringify(pyCols) === JSON.stringify(W.COLORS) &&
-      /"wallpaper_color": "blue"/.test(py) && W.COLOR_DEFAULT === 'blue', pyCols);
+      W.COLOR_DEFAULT === 'blue' && /w, wallpaper_color\(c\) or "blue"/.test(py), pyCols);
 check('a colour: a preset\'s, your own (lower case), else the default\'s', W.color('teal') === '#14b8a6' && W.color('#A1B2C3') === '#a1b2c3' &&
       W.color('plaid') === '#2f7bf6' && W.color(null) === '#2f7bf6' && W.color('#abc') === '#2f7bf6');
 var Y = function (c) { var f = function (v) { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }, n = parseInt(c.slice(1), 16);
@@ -127,7 +157,7 @@ check('a wallpaper: two layers over the album\'s, under the scrim; one shown, th
       sky.children.indexOf(layers[0]) === 2 && sky.children.indexOf(layers[1]) === 3 && sky.children[4].className === 'scrim' &&
       layers.filter(function (l) { return l.classList.contains('on'); }).length === 1 &&
       layers.filter(function (l) { return l.classList.contains('on'); })[0].style.backgroundImage === 'url("' + W.url('ribbons_rose', false) + '")');
-check('...no grain over it; the sky says which it shows (a change the glass hears)', sky.values['--grainO'] === '0' && sky.values['--wall'] === '"ribbons_rose:day"');
+check('...no grain over it; the sky says which it shows (a change the glass hears)', sky.values['--grainO'] === '0' && sky.values['--wall'] === '"ribbons@' + W.color('rose') + ':day"');
 var shown = layers.filter(function (l) { return l.classList.contains('on'); })[0];
 hkSky._paintWall(sky, { id: 'ribbons_rose' }, false);
 check('painted again with nothing new: untouched', shown.classList.contains('on') && sky.querySelectorAll('.wall').length === 2);

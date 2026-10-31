@@ -284,7 +284,7 @@ def test_bright_glass_and_the_wallpapers_are_options_absent_until_chosen():
     exactly as before."""
     today = M.merged({})
     assert today["look"]["glass"] == "clear" and today["sky"]["background"] == "live"
-    assert (today["look"]["bright"], today["sky"]["wallpaper"], today["sky"]["wallpaper_night"]) == (50, "ribbons_rose", "auto")
+    assert (today["look"]["bright"], today["sky"]["wallpaper"], today["sky"]["wallpaper_color"], today["sky"]["wallpaper_night"]) == (50, "ribbons", "rose", "auto")
     assert M.BRIGHT_GLASS == ("bright", "bright_pre", "bright_each") and set(M.BRIGHT_GLASS) <= set(M.GLASS) & set(M.BOARD_GLASS)
     assert "bright" in M.TAB_BAR_GLASS and "wallpaper" in M.SKY_BACKGROUNDS and "wallpaper" in M.SKY_PAGE_MODES
     new, err = C.apply_house({}, {"look.glass": "bright_pre", "look.bright": 70, "sky.background": "wallpaper",
@@ -292,14 +292,14 @@ def test_bright_glass_and_the_wallpapers_are_options_absent_until_chosen():
                                   "sky.pages": {"energy": "wallpaper"}})
     m = M.merged(new)
     assert err == {} and (m["look"]["glass"], m["look"]["bright"]) == ("bright_pre", 70)
-    assert (m["sky"]["background"], m["sky"]["wallpaper"], m["sky"]["wallpaper_night"]) == ("wallpaper", "pinwheel_teal", "night")
+    assert (m["sky"]["background"], m["sky"]["wallpaper"], m["sky"]["wallpaper_color"], m["sky"]["wallpaper_night"]) == ("wallpaper", "pinwheel", "teal", "night")
     assert m["sky"]["pages"] == {"energy": "wallpaper"}
     assert C.apply_house({}, {"sky.wallpaper": "plaid"})[1] == {"sky.wallpaper": "choice"}
     assert C.apply_house({}, {"look.bright": 120})[1] == {"look.bright": "amount"}
     b, err = C.apply_board({}, {"glass": "bright_each", "bright": 30, "tab_bar_glass": "bright", "sky_background": "wallpaper",
                                 "sky_wallpaper": "shards_graphite", "sky_wallpaper_night": "day"})
     assert err == {} and (b["glass"], b["bright"], b["tab_bar_glass"]) == ("bright_each", 30, "bright")
-    assert (b["sky_wallpaper"], b["sky_wallpaper_night"]) == ("shards_graphite", "day")
+    assert (b["sky_wallpaper"], b["sky_wallpaper_color"], b["sky_wallpaper_night"]) == ("shards", "graphite", "day")
     b, err = C.apply_board(b, {"bright": None, "sky_wallpaper": None, "sky_wallpaper_night": None})
     assert err == {} and b["bright"] is None and b["sky_wallpaper"] is None and b["sky_wallpaper_night"] is None, "Same as All Screens"
     assert M.board({})["bright"] is None and M.board({})["sky_wallpaper"] is None
@@ -345,14 +345,12 @@ def test_a_wallpapers_motion_for_all_screens_and_for_a_screen():
 def test_the_motion_themes_are_wallpapers_in_a_colour_of_your_own():
     # (2026-10-31, the owner on 0.1.94) six more wallpapers, each in one colour: a preset or any "#rrggbb"
     assert M.WALLPAPER_THEMES == ("aurora", "blobs", "waves", "dots", "beams", "meteors")
-    assert M.WALLPAPERS[-6:] == M.WALLPAPER_THEMES and len(M.WALLPAPERS) == 18 and len(set(M.WALLPAPERS)) == 18
+    assert M.WALLPAPERS[-6:] == M.WALLPAPER_THEMES and len(M.WALLPAPERS) == 10 and len(set(M.WALLPAPERS)) == 10
     assert M.WALLPAPER_COLOR_IDS == ("rose", "coral", "amber", "green", "teal", "blue", "violet", "graphite")
     assert all(M.ACCENT_HEX.fullmatch(c["hex"]) for c in M.WALLPAPER_COLORS)
-    # absent: Blue, and nothing saved before changes
-    sky = M.merged({})["sky"]
-    assert (sky["wallpaper"], sky["wallpaper_color"]) == ("ribbons_rose", "blue")
+    # a theme stored with no colour: Blue, as it was drawn before the arts took the colour too (2026-11-01)
     for v, want in (("teal", "teal"), ("#A1B2C3", "#a1b2c3"), ("#abc", "blue"), ("plaid", "blue"), (12, "blue"), (None, "blue")):
-        assert M.merged({"dashboard": {"sky": {"wallpaper_color": v}}})["sky"]["wallpaper_color"] == want, v
+        assert M.merged({"dashboard": {"sky": {"wallpaper": "aurora", "wallpaper_color": v}}})["sky"]["wallpaper_color"] == want, v
     new, err = C.apply_house({}, {"sky.background": "wallpaper", "sky.wallpaper": "aurora", "sky.wallpaper_color": "#FF8800",
                                   "sky.wallpaper_motion": "slow"})
     assert err == {}
@@ -371,7 +369,57 @@ def test_the_motion_themes_are_wallpapers_in_a_colour_of_your_own():
     # Reset to Defaults takes it back, as the rest of the page
     assert "wallpaper_color" in M.SKY_RESET and "sky_wallpaper_color" in M.SKY_RESET_BOARD
     new, err = C.apply_house(new, {"sky.reset": True})
-    assert err == {} and M.merged(new)["sky"]["wallpaper_color"] == "blue" and M.merged(new)["sky"]["wallpaper"] == "ribbons_rose"
+    assert err == {} and (M.merged(new)["sky"]["wallpaper"], M.merged(new)["sky"]["wallpaper_color"]) == ("ribbons", "rose")
+
+
+def test_the_wallpapers_take_the_colour_and_the_twelve_read_as_an_art_in_a_preset():
+    # (2026-11-01, item 45: one combined picker) four arts and six themes, one colour for all of them
+    assert M.WALLPAPER_ARTS == ("ribbons", "petals", "shards", "pinwheel") and M.WALLPAPERS == M.WALLPAPER_ARTS + M.WALLPAPER_THEMES
+    assert len(M.WALLPAPER_LEGACY) == 12 and all(a in M.WALLPAPER_ARTS and c in M.WALLPAPER_COLOR_IDS for a, c in M.WALLPAPER_LEGACY.values())
+    # nothing stored: Ribbons in Rose, the twelve's default -- whatever colour is stored beside nothing
+    assert (M.merged({})["sky"]["wallpaper"], M.merged({})["sky"]["wallpaper_color"]) == ("ribbons", "rose")
+    assert M.merged({"dashboard": {"sky": {"wallpaper_color": "teal"}}})["sky"]["wallpaper_color"] == "rose"
+    # every old id reads as its art in its own preset, even with a theme's colour stored beside it
+    for old, (art, color) in M.WALLPAPER_LEGACY.items():
+        sky = M.merged({"dashboard": {"sky": {"wallpaper": old, "wallpaper_color": "#123456"}}})["sky"]
+        assert (sky["wallpaper"], sky["wallpaper_color"]) == (art, color), old
+        b = M.board({"sky_wallpaper": old, "sky_wallpaper_color": "coral"})
+        assert (b["sky_wallpaper"], b["sky_wallpaper_color"]) == (art, color), old
+        s = M.saver_options({"clock_wallpaper": old, "clock_wallpaper_color": "coral"})
+        assert (s["clock_wallpaper"], s["clock_wallpaper_color"]) == (art, color), old
+    assert M.merged({"dashboard": {"sky": {"wallpaper": "plaid"}}})["sky"]["wallpaper"] == "ribbons"
+    # writes: an art in any colour, stored as a pair (so Ribbons in Teal is not read back as Ribbons in Rose)
+    new, err = C.apply_house({}, {"sky.wallpaper": "ribbons", "sky.wallpaper_color": "teal"})
+    assert err == {} and new["dashboard"]["sky"] == {"wallpaper": "ribbons", "wallpaper_color": "teal"}
+    assert (M.merged(new)["sky"]["wallpaper"], M.merged(new)["sky"]["wallpaper_color"]) == ("ribbons", "teal")
+    # a colour alone, over nothing stored: Ribbons (what showed) in it
+    new, err = C.apply_house({}, {"sky.wallpaper_color": "#00aaff"})
+    assert err == {} and (M.merged(new)["sky"]["wallpaper"], M.merged(new)["sky"]["wallpaper_color"]) == ("ribbons", "#00aaff")
+    # ...over an old id: its art in the new colour, the old id gone from the store
+    old = {"dashboard": {"sky": {"wallpaper": "petals_amber"}}}
+    new, err = C.apply_house(old, {"sky.wallpaper_color": "green"})
+    assert err == {} and new["dashboard"]["sky"] == {"wallpaper": "petals", "wallpaper_color": "green"}
+    # ...an art alone, over an old id: in the old id's colour; an old id written: its art in its preset
+    new, err = C.apply_house(old, {"sky.wallpaper": "shards"})
+    assert err == {} and (M.merged(new)["sky"]["wallpaper"], M.merged(new)["sky"]["wallpaper_color"]) == ("shards", "amber")
+    new, err = C.apply_house({}, {"sky.wallpaper": "pinwheel_teal"})
+    assert err == {} and new["dashboard"]["sky"] == {"wallpaper": "pinwheel", "wallpaper_color": "teal"}
+    # the default pair is not stored at all
+    new, err = C.apply_house({}, {"sky.wallpaper": "ribbons", "sky.wallpaper_color": "rose"})
+    assert err == {} and not new["dashboard"].get("sky")
+    # a screen: an old id written is its art in its preset; a colour over its old id keeps the art
+    b, err = C.apply_board({}, {"sky_wallpaper": "shards_blue"})
+    assert err == {} and (b["sky_wallpaper"], b["sky_wallpaper_color"]) == ("shards", "blue")
+    b, err = C.apply_board({"sky_wallpaper": "ribbons_teal"}, {"sky_wallpaper_color": "violet"})
+    assert err == {} and (b["sky_wallpaper"], b["sky_wallpaper_color"]) == ("ribbons", "violet")
+    b, err = C.apply_board({}, {"sky_wallpaper": "petals", "sky_wallpaper_color": "#ff0000"})
+    assert err == {} and (b["sky_wallpaper"], b["sky_wallpaper_color"]) == ("petals", "#ff0000")
+    # the Looks name an art and a colour
+    from hk_core.settings import looks as LOOKS
+    assert "sky_wallpaper_color" in LOOKS.SET_KEYS
+    for look in LOOKS.LOOKS:
+        w = look["settings"].get("sky_wallpaper")
+        assert w is None or (w in M.WALLPAPERS and look["settings"].get("sky_wallpaper_color") in M.WALLPAPER_COLOR_IDS), look["id"]
 
 
 def test_a_wallpaper_behind_the_screensavers_clock():
@@ -380,7 +428,9 @@ def test_a_wallpaper_behind_the_screensavers_clock():
     d = M.saver_options({})
     assert (d["clock_wallpaper"], d["clock_wallpaper_color"]) == ("aurora", "blue")
     got = M.saver_options({"show": "clock", "clock_bg": "wallpaper", "clock_wallpaper": "petals_violet"})
-    assert (got["clock_bg"], got["clock_wallpaper"]) == ("wallpaper", "petals_violet")
+    assert (got["clock_bg"], got["clock_wallpaper"], got["clock_wallpaper_color"]) == ("wallpaper", "petals", "violet")
+    got = M.saver_options({"clock_wallpaper": "shards", "clock_wallpaper_color": "green"})
+    assert (got["clock_wallpaper"], got["clock_wallpaper_color"]) == ("shards", "green")
     got = M.saver_options({"clock_wallpaper": "meteors", "clock_wallpaper_color": "#00AAFF"})
     assert (got["clock_wallpaper"], got["clock_wallpaper_color"]) == ("meteors", "#00aaff")
     assert M.saver_options({"clock_wallpaper_color": "coral"})["clock_wallpaper_color"] == "coral"

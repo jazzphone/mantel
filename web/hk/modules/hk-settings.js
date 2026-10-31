@@ -119,10 +119,10 @@
            // WALLPAPER (2026-10-30): which one (hk-wallpapers.js) and when its
            // night version shows -- 'auto' after sunset, 'day', 'night'
            // (settings.py sky.wallpaper)
-           wallpaper: 'ribbons_rose', wallpaper_night: 'auto', wallpaper_motion: 'off',
+           wallpaper: 'ribbons', wallpaper_night: 'auto', wallpaper_motion: 'off',
            // ...and a motion theme's colour (2026-10-31; settings.py
            // WALLPAPER_COLORS, or '#rrggbb')
-           wallpaper_color: 'blue',
+           wallpaper_color: 'rose',
            // each page's background: {page: 'own' | 'live' | backdrop id |
            // 'photo'} -- a page missing is Automatic (settings.py sky.pages);
            // a page's own photo, for 'photo': page_photos
@@ -848,17 +848,17 @@
   // THE WALLPAPER as this screen has it (its own, else All Screens'): {id,
   // night: 'auto' | 'day' | 'night', stops: {day, night}, motion, color} --
   // Black's stops until hk-wallpapers.js has come (the sky draws it on its
-  // next tick). `color`: a motion theme's (2026-10-31), "#rrggbb"; the drawn
-  // twelve keep their own palettes
+  // next tick). `color`: "#rrggbb" -- a motion theme's (2026-10-31), and an
+  // art's too since 2026-11-01 (item 45). An old id ("ribbons_rose", which
+  // settings.py reads as its art in its preset already) is that here too
   function wallpaper(b) {
     if (b === undefined) b = boardHere();
     var W = window.hkWallpapers;
-    var id = (b && b.sky_wallpaper) || get('sky.wallpaper', 'ribbons_rose') || 'ribbons_rose';
+    var id = (b && b.sky_wallpaper) || get('sky.wallpaper', 'ribbons') || 'ribbons';
     var night = (b && b.sky_wallpaper_night) || get('sky.wallpaper_night', 'auto') || 'auto';
     var motion = (b && b.sky_wallpaper_motion) || get('sky.wallpaper_motion', 'off') || 'off';
-    var col = (b && b.sky_wallpaper_color) || get('sky.wallpaper_color', 'blue') || 'blue';
-    if (W && !W.has(id)) id = W.DEFAULT;
-    col = W ? W.color(col) : null;
+    var col = (b && b.sky_wallpaper_color) || get('sky.wallpaper_color', 'rose') || 'rose';
+    if (W) { var r = W.resolve(id, col); id = r.id; col = r.hex; } else col = null;
     return { id: id, night: night === 'day' || night === 'night' ? night : 'auto', stops: W ? W.stops(id, col) : BLACK,
              motion: ['slow', 'medium', 'fast'].indexOf(motion) >= 0 ? motion : 'off', color: col };
   }

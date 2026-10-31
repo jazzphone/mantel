@@ -66,7 +66,9 @@ function sheetContrast() {
       await go('/' + input.screen + '/home');
       const w = await page.evaluate(wears);
       say(w.glass === 'bright', size + ' the page wears Bright Glass', w.glass);
-      say(w.wall === '"' + input.wall + ':' + input.night + '"' && w.layer, size + ' the sky shows the wallpaper, ' + input.night, w);
+      // (2026-11-01: --wall names the art and its colour; an old id is its art in its preset)
+      const want = await page.evaluate((id) => { const r = window.hkWallpapers.resolve(id); return '"' + r.id + '@' + r.hex + ':'; }, input.wall);
+      say(w.wall === want + input.night + '"' && w.layer, size + ' the sky shows the wallpaper, ' + input.night, w);
       say(/rgba\(\d+, \d+, \d+, 0\.07\)/.test(w.plate) && !/rgba\(255, 255, 255, 0\)/.test(w.plate.split('),')[0]), size + ' the plate mixes the light stop in', w.plate);
       say(/\bbright\b/.test(w.bar || ''), size + ' the tab bar wears its Bright Glass', w.bar);
       await shot('home');
@@ -173,7 +175,7 @@ function sheetContrast() {
           const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
           return deep(document).filter((e) => e.matches && e.matches('.wallgrid button')).length;
         });
-        say(picker === 18, size + ' the Wallpaper picker shows the twelve and the six motion themes', picker);
+        say(picker === 10, size + ' the Background picker shows the four wallpapers and the six motion themes', picker);
         await shot('picker');
       }
       say(!errors.length, size + ' no page errors', errors.slice(0, 3));
