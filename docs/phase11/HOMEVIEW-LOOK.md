@@ -1211,3 +1211,8 @@ Security screen.
   Add), and fades out at its foot where rows are cut off. Only past that does a size step down or a section go.
   `side_pane_check` draws a 400 px pane 900, 640 and 480 px tall with eight events: at 640 every section keeps its
   Size and the calendar scrolls; at every height the pane never scrolls and no list is under its floor.
+- **The Vacuum block, Small and Wide, on square cells.** The owner: they "don't really look good in the homeview
+  layout". On a square cell they now read as the blocks beside them: a tall tile's padding, the glyph's well at the
+  top left, the name and one line of status at the foot (the chips as words, "Docked · 92%", a warning in its
+  colour), and the commands as round keys at the top right -- Start and Dock on Small, all four on Wide (whose last
+  one was cut off on a phone). Tiles keep their layout. `home_grid_visual_check --homeview` draws a Vacuum screen.

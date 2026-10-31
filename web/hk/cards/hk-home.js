@@ -135,7 +135,33 @@
         ':host([size]) .vac .ico hk-icon{--mdc-icon-size:24px;width:24px;height:24px}',
         ':host([size]) .vac .label{' + C.typeCss('headline') + ';line-height:22px}',
         ':host([size]) .vac .meta{flex-wrap:nowrap;overflow:hidden;align-self:start}',
-        ':host([size]) .vac .cmd{height:44px;align-self:end;border-radius:22px}'
+        ':host([size]) .vac .cmd{height:44px;align-self:end;border-radius:22px}',
+        // ON A SQUARE CELL (HomeView, 2026-10-30; the owner: the Wide and Small
+        // vacuums "don't really look good in the homeview layout"): read as
+        // the blocks beside it -- a tall tile's padding, the glyph's well at
+        // its top left, the name and one line of status at its foot (the
+        // chips as words: "Docked · 92%", a warning in its colour), and the
+        // commands as round keys at the top right: Start and Dock on Small,
+        // all four on Wide. (A tile's cell is 70 px: never this.)
+        '@container hk-cell (min-height:180px){',
+        '  :host([size=S]) hk-plate.vac,:host([size=W]) hk-plate.vac{padding:12.8px 12.8px 12.8px ' + C.TILE.padL + 'px}',
+        '  :host([size=S]) .vac .grid,:host([size=W]) .vac .grid{row-gap:' + C.TILE.tallRowGap + 'px;column-gap:8px;',
+        '    grid-template-rows:44px minmax(0,1fr) ' + C.TILE.lineH + 'px ' + C.TILE.lineH + 'px}',
+        '  :host([size=S]) .vac .grid{grid-template-areas:"ico . start home" ". . . ." "label label label label" "meta meta meta meta";',
+        '    grid-template-columns:44px minmax(0,1fr) 44px 44px}',
+        '  :host([size=W]) .vac .grid{grid-template-areas:"ico . start pause locate home" ". . . . . ." "label label label label label label" "meta meta meta meta meta meta";',
+        '    grid-template-columns:44px minmax(0,1fr) repeat(4,44px)}',
+        '  :host([size=S]) .vac .cmd,:host([size=W]) .vac .cmd{width:44px;height:44px;border-radius:50%;align-self:start}',
+        '  :host([size=S]) .vac .cmd hk-icon,:host([size=W]) .vac .cmd hk-icon{--mdc-icon-size:22px;width:22px;height:22px}',
+        '  :host([size=S]) .vac .label,:host([size=W]) .vac .label{font-size:' + C.TILE.tallText + 'px;font-weight:600;letter-spacing:-0.15px;line-height:' + C.TILE.lineH + 'px;align-self:end}',
+        '  :host([size=S]) .vac .meta,:host([size=W]) .vac .meta{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;',
+        '    font-size:' + C.TILE.tallText + 'px;font-weight:400;line-height:' + C.TILE.lineH + 'px;color:' + C.v('ink-2') + ';align-self:start;width:100%}',
+        '  :host([size=S]) .vac .chip,:host([size=W]) .vac .chip{display:inline;padding:0;border-radius:0;background:none;font:inherit;letter-spacing:0;color:inherit}',
+        '  :host([size=S]) .vac .chip+.chip::before,:host([size=W]) .vac .chip+.chip::before{content:" \\00B7  ";color:' + C.v('ink-2') + '}',
+        '  :host([size=S]) .vac .chip.warn,:host([size=W]) .vac .chip.warn{color:#ff9f0a}',
+        '  :host([size=S]) .vac .chip.bad,:host([size=W]) .vac .chip.bad,:host([size=S]) .vac .chip.err,:host([size=W]) .vac .chip.err{color:#ff453a}',
+        '  :host([size=S]) .vac .chip.good,:host([size=W]) .vac .chip.good{color:#30d158}',
+        '}'
       ].join('');
     }
 

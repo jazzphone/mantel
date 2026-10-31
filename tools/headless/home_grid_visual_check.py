@@ -25,6 +25,9 @@ from aiohttp.test_utils import TestServer
 HV_SIZES=['1180x820','820x1180','390x844']
 async def homeview():
     import subprocess
+    # (a vacuum of this check's own, for the Vacuum blocks on square cells)
+    gallery.HOUSE['vacuum.downstairs'] = ('living_room', ('docked', {'friendly_name': 'Downstairs', 'battery_level': 92,
+                                                                    'fan_speed': 'Standard', 'supported_features': 16383}))
     states={k:{'state':v[1][0],'attributes':v[1][1]} for k,v in gallery.HOUSE.items()}
     house={'states':states,'entities':{k:{'area_id':v[0]} for k,v in gallery.HOUSE.items() if v[0]},
            'areas':{r[0]:{'name':r[1]} for r in gallery.ROOMS}}
@@ -51,6 +54,14 @@ async def homeview():
                 HG.check(sec)
                 gallery.SETTINGS['boards'][name+'-security']=dict(gallery.SETTINGS['boards'][name],home_grid=sec)
                 screens.append({'screen':name+'-security','sizes':['1180x820']})
+                # ...and the Vacuum block Small and Wide on square cells (2026-10-30, the owner: they "don't really
+                # look good in the homeview layout")
+                vac={'v':1,'cols':3,'rows':3,'frame':[1180,820],'band':False,'grow':True,'cell':'square','items':[
+                    {'id':'v1','card':'vacuum','size':'S','at':[0,0]},{'id':'v2','card':'vacuum','size':'W','at':[1,0]},
+                    {'id':'v3','card':'vacuum','size':'S','at':[0,1]}]}
+                HG.check(vac)
+                gallery.SETTINGS['boards'][name+'-vacuum']=dict(gallery.SETTINGS['boards'][name],home_grid=vac)
+                screens.append({'screen':name+'-vacuum','sizes':['1180x820','390x844']})
             # ...and Home with Pane at 4 columns (2026-10-30, the owner's "I could easily do 4"), the pane beside it
             if key=='sq_pane':
                 four=json.loads(json.dumps(grid)); four['cols']=4; four['rows']=4
