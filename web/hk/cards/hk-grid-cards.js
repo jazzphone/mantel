@@ -16,10 +16,10 @@
 //   hk-action-card           `action` (S): one tap for one job -- Lock Up, All
 //                            Lights Off, Garage, or a scene or script -- with
 //                            the state it changes under its name.
-//   hk-everything-card       `everything` (S): the screen's pages and rooms, as
-//                            its own navigation opens them (the tab bar's More
-//                            sheet, else the side menu) -- for a screen without
-//                            its tab bar.
+//   hk-everything-card       `everything` (S, W, L, XL): the screen's pages and
+//                            rooms as app icons, a tap going there (Small a
+//                            folder of four; the last place opens the rest, as
+//                            the tab bar's More sheet or the side menu does).
 //   hk-grid-cameras-card     `cameras` (XL, XXL, F): the Cameras face -- up to
 //                            nine stills at once, arranged to the block; a tap
 //                            opens one live, a doorbell ring makes its tile
@@ -105,6 +105,31 @@
     })(cards);
     return out;
   }
+  // WHAT THE ROOM IS DOING, in a line under its name (the widget mock-up,
+  // 2026-10-31): its temperature (a sensor's, else its thermostat's reading,
+  // never a setpoint: hkRoom.climateReading), the lights on, and at Extra
+  // Large a speaker playing -- "71° · 2 lights on"; Wide, beside the name,
+  // the short form "71° · 2 on"
+  function roomLine(client, area, parts, size) {
+    var st = client.states || {}, temp = null;
+    // (as the house reports it, the way the thermostat's tile says it -- no conversion)
+    var ids = Object.keys(st).filter(function (id) {
+      return areaOf(client, id) === area && ((dom(id) === 'sensor' && attr(st[id], 'device_class') === 'temperature') || dom(id) === 'climate');
+    }).sort(function (a, b) { return (dom(a) === 'sensor' ? 0 : 1) - (dom(b) === 'sensor' ? 0 : 1); });
+    for (var i = 0; i < ids.length && temp === null; i++) {
+      var raw = dom(ids[i]) === 'climate' ? attr(st[ids[i]], 'current_temperature') : st[ids[i]].state;
+      if (raw != null && raw !== '' && isFinite(Number(raw)) && !OFF[st[ids[i]].state]) temp = Number(raw);
+    }
+    var lit = parts.all.filter(function (c) { return dom(c.entity) === 'light' && st[c.entity] && st[c.entity].state === 'on'; }).length;
+    var playing = parts.speakers.some(function (c) { return st[c.entity] && st[c.entity].state === 'playing'; });
+    var out = [];
+    if (temp !== null) out.push(Math.round(temp) + '°');
+    if (parts.all.some(function (c) { return dom(c.entity) === 'light'; })) {
+      out.push(size === 'W' ? (lit ? lit + ' on' : 'All off') : lit ? plural(lit, 'light on', 'lights on') : 'Lights off');
+    }
+    if (playing && (size === 'XL' || size === 'XXL')) out.push('Speaker playing');
+    return out.join(' · ');
+  }
   // A PILL AS THE ROOM CARD DRAWS IT: the page's own, regular size, and a tap
   // anywhere on it toggles (the hold is the room card's, below)
   function pill(c, light) {
@@ -123,7 +148,8 @@
   // How many pills fit: whole rows of them under the header, the room's
   // columns across. The last place is the speaker's when there is one; lights
   // that don't fit are left out (the room's page has them all).
-  var PILL_H = 70, GAP = 10;
+  // (8 px between them: the widget mock-up's tight grid, 2026-10-31)
+  var PILL_H = 70, GAP = 8;
   var COLS = { W: 2, L: 2, XL: 3, XXL: 6 };
   var HEAD = { W: 42, L: 66, XL: 66, XXL: 66 };
   function fit(size, height) {
@@ -248,6 +274,23 @@
       if (L && L.time) return L.time(d, { hour: 'numeric', minute: '2-digit', timeZone: 'local' });
     } catch (e) { /* the plain form */ }
     return hhmm;
+  }
+
+  // WHAT A SCENE DOES, in a line (a Scene block at Wide, 2026-10-31: "its
+  // name and what it does"): what it sets, counted by kind, from the
+  // entities Home Assistant says it holds -- "Sets 2 lights, 1 shade and 1
+  // speaker"; a scene that says nothing is a Scene
+  var SAYS = [['light', 'light', 'lights'], ['cover', 'shade', 'shades'], ['media_player', 'speaker', 'speakers'],
+              ['climate', 'thermostat', 'thermostats'], ['fan', 'fan', 'fans'], ['switch', 'switch', 'switches'],
+              ['lock', 'lock', 'locks']];
+  function sceneSays(client, id) {
+    var ids = attr(client && client.states && client.states[id], 'entity_id'), by = {};
+    if (!Array.isArray(ids) || !ids.length) return 'Scene';
+    ids.forEach(function (e) { by[dom(e)] = (by[dom(e)] || 0) + 1; });
+    var parts = SAYS.filter(function (k) { return by[k[0]]; }).map(function (k) { return plural(by[k[0]], k[1], k[2]); });
+    var rest = ids.length - SAYS.reduce(function (n, k) { return n + (by[k[0]] || 0); }, 0);
+    if (rest) parts.push(plural(rest, 'other', 'others'));
+    return 'Sets ' + (parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]);
   }
 
   // ------------------------------------------------------------ the actions
@@ -397,35 +440,55 @@
     // ===================================================== hk-grid-room-card
     var ROOM_CSS = [
       ':host{display:block;height:100%;position:relative}',
-      '.room{box-sizing:border-box;height:100%;display:flex;flex-direction:column;overflow:hidden;padding:' + C.blockPad('14px') + ';gap:10px;' + C.plate('card') + ';',
+      '.room{box-sizing:border-box;height:100%;display:flex;flex-direction:column;overflow:hidden;padding:' + C.blockPad('14px') + ';gap:8px;' + C.plate('card') + ';',
       '  --hk-pill:100%}',
-      // THE NAME: a room heading's (19.7 / 700, measured off the Home app),
-      // with the way into its page when it has one
-      '.hd{display:flex;align-items:center;gap:6px;min-width:0;height:28px;flex:none;padding:0 8px}',
-      '.nm{all:unset;position:relative;cursor:pointer;min-width:0;min-height:28px;max-width:100%;display:flex;align-items:center;gap:6px;',
-      '  font-size:19.7px;font-weight:700;line-height:1;letter-spacing:-0.45px;color:' + v('ink') + ';',
-      '  text-shadow:' + v('glow') + ';-webkit-tap-highlight-color:transparent}',
-      // a 44 px target round the 28 px line (DESIGN.md: touch targets)
-      '.nm::after{content:"";position:absolute;left:-6px;right:-6px;top:-8px;bottom:-8px}',
+      // THE NAME (the widget mock-up, 2026-10-31): Wide, a headline with what
+      // the room is doing at its right on the same line; Large and up, a
+      // title with that line under it -- and the way into its page, when it has one
+      '.hd{display:flex;align-items:baseline;gap:10px;min-width:0;flex:none;padding:0 2px}',
+      '.room:not([size=W]) .hd{flex-direction:column;align-items:flex-start;gap:1px}',
+      '.nm{all:unset;position:relative;cursor:pointer;min-width:0;max-width:100%;display:flex;align-items:center;gap:5px;',
+      '  ' + type('headline') + ';line-height:22px;color:' + v('ink') + ';text-shadow:' + v('glow') + ';-webkit-tap-highlight-color:transparent}',
+      '.room:not([size=W]) .nm{' + type('title') + ';line-height:27px}',
+      // a 44 px target round the line (DESIGN.md: touch targets)
+      '.nm::after{content:"";position:absolute;left:-8px;right:-8px;top:-12px;bottom:-12px}',
+      '.nm:disabled{cursor:default}',
       '.nm span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:1px 0 2px 1px}',
       '.nm i{font-style:normal;opacity:0.62;flex:none}',
       '.nm:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:4px;border-radius:' + C.R.small + 'px}',
-      // THE PILLS: HK's own, a cell wide, in whole rows
-      // (W: its heading on the block's inset like every block's words -- at 8 px it sat 6 px from the plate's top)
-      '.room[size=W]{gap:6px}.room[size=W] .hd{height:22px}.room[size=W] .tiles{padding-bottom:0}',
-      ':host([data-grid-pager]) .room[size=W]{padding-bottom:28px}',
+      '.st{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';text-shadow:' + v('glow') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
+      '.room[size=W] .st{margin-left:auto}',
+      '.st:empty{display:none}',
+      // THE TILES, in whole rows, 8 px apart (the mock-up's tight grid)
       '.tiles{display:grid;grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));',
-      '  grid-template-rows:repeat(var(--rows,2),minmax(0,1fr));gap:' + GAP + 'px;flex:1;min-height:0;padding-bottom:var(--hk-pager-safe,0px)}',
-      '.tiles.scrolling{grid-template-rows:none;grid-auto-rows:calc((100% - var(--scroll-gaps,10px))/var(--rows,2));align-content:start;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-width:thin;padding-bottom:0;margin-bottom:var(--hk-pager-safe,0px)}',
+      '  grid-template-rows:repeat(var(--rows,2),minmax(0,1fr));gap:' + GAP + 'px;flex:1;min-height:0}',
+      // ...or scrolling: as many rows showing as the block has, the rest
+      // under them -- up and down is the room's, sideways the pager's
+      '.tiles.scrolling{grid-template-rows:none;grid-auto-rows:calc((100% - var(--scroll-gaps,' + GAP + 'px))/var(--rows,2));align-content:start;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-width:none}',
+      '.tiles.scrolling::-webkit-scrollbar{display:none}',
       '.tiles.scrolling .slot{touch-action:pan-x pan-y}',
       '.slot{container-type:size;container-name:hk-cell;min-width:0;min-height:0}.slot > *{display:block;width:100%;height:100%}',
-      '.more{border:0;border-radius:' + v('glass-radius') + ';' + C.plate('tile') + ';color:' + v('ink') + ';' + type('body') + ';min-height:44px;cursor:pointer}',
+      '.more{border:0;border-radius:var(--hk-inner-radius,' + v('glass-radius') + ');' + C.plate('tile') + ';color:' + v('ink') + ';' + type('body') + ';min-height:44px;cursor:pointer}',
       '.slot{position:relative;touch-action:pan-x;-webkit-user-select:none;user-select:none;',
       '  -webkit-touch-callout:none}',
       '.none{' + type('body') + ';color:' + v('ink-3') + ';text-shadow:' + v('glow') + '}',
+      // THE FOOT LINE (the owner, 2026-10-31: "dots for the rooms, then 'N
+      // more below' (dots, not '1 of 4 rooms')"): one short line, centred --
+      // the rooms' dots when the block pages through them, a tap beside the
+      // current one a room back or on, and what is scrolled out of sight
+      '.ft{flex:none;display:flex;align-items:center;justify-content:center;gap:8px;height:16px;min-width:0;' + type('micro') + ';line-height:16px;color:' + v('ink-2') + ';text-shadow:' + v('glow') + '}',
+      '.ft[hidden],.ft [hidden]{display:none}',
+      '.fd{all:unset;position:relative;display:flex;gap:6px;align-items:center;height:16px;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+      // (the dots' 44 px target, reaching up over the tiles' gap and down into the inset)
+      '.fd::after{content:"";position:absolute;left:-10px;right:-10px;top:-12px;bottom:-16px}',
+      '.fd:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:4px;border-radius:8px}',
+      '.fd i{width:7px;height:7px;border-radius:50%;background:' + v('mark') + ';flex:none}',
+      '.fd i[aria-current=true]{background:' + v('ink') + '}',
+      '.ft b{width:3px;height:3px;border-radius:50%;background:' + v('ink-3') + ';flex:none}',
+      '.ft span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       // THE DIMMER, while a light is held: the readout over its pill -- a
       // fill from the bottom and the percent -- on the near-solid overlay
-      '.dim{position:absolute;inset:0;border-radius:' + v('glass-radius') + ';overflow:hidden;',
+      '.dim{position:absolute;inset:0;border-radius:var(--hk-inner-radius,' + v('glass-radius') + ');overflow:hidden;',
       '  background:' + v('overlay-solid') + ';display:flex;align-items:center;justify-content:center;',
       '  pointer-events:none;z-index:1}',
       '.dim i{position:absolute;left:0;right:0;bottom:0;background:' + v('track-fill') + ';opacity:0.32}',
@@ -451,27 +514,36 @@
         }
         return h;
       }
+      // THE PAGER IT IS A PAGE OF (hk-layout.js hk-pager-card, a block whose
+      // pages are the rooms): its page, "2 of 5" (the page's own label), and
+      // the pager, to turn -- null when it pages nothing
+      _paging() {
+        if (!this.hasAttribute('data-grid-pager')) return null;
+        var page = this.parentNode, root = this.getRootNode ? this.getRootNode() : null, pager = root && root.host;
+        var m = page && page.getAttribute && /^(\d+) of (\d+)$/.exec(page.getAttribute('aria-label') || '');
+        if (!m || !pager || typeof pager.goTo !== 'function') return null;
+        return { at: +m[1] - 1, of: +m[2], pager: pager };
+      }
       // what it draws, in one go: the room, its pills, its line
       _plan() {
         var h = this.client, size = this._size(), area = this._area();
-        if (!h || !h.states || !area) return { area: area, size: size, tiles: [], status: null, line: '', name: '' };
-        var parts = roomParts(h, area);
+        if (!h || !h.states || !area) return { area: area, size: size, tiles: [], status: '', name: '' };
+        var parts = roomParts(h, area), name = (h.areas[area] || {}).name || area, status = roomLine(h, area, parts, size);
         if (this._config.accessory_display === 'scroll') {
-          return { area: area, size: size, scroll: true, more: 0, name: (h.areas[area] || {}).name || area,
+          return { area: area, size: size, scroll: true, more: 0, name: name, status: status,
                    tiles: parts.all.map(function (c) { return pill(c, ['light', 'switch', 'input_boolean', 'fan'].indexOf(dom(c.entity)) >= 0); }) };
         }
-        // A paged group leaves the same clear foot as other interactive cards.
+        // (the foot line's room, when it pages: hk-layout.js leaves a paged room its own dots)
         var places = fit(size, this._height() - (this.hasAttribute('data-grid-pager') ? 24 : 0));
-        var room = (h.areas || {})[area] || {};
         var total = parts.lights.length + (speakerOf(h, parts.speakers) ? 1 : 0), more = total > places;
         return { area: area, size: size, parts: parts, tiles: layout(parts, size, Math.max(0, places - (more ? 1 : 0)), h),
-                 more: more ? total - Math.max(0, places - 1) : 0, line: '', name: room.name || area };
+                 more: more ? total - Math.max(0, places - 1) : 0, name: name, status: status };
       }
       _sigOf() {
         var p = this._plan();
         this._p = p;
-        return JSON.stringify([p.area, p.size, p.name, p.more, !!p.scroll, this._config.surface, p.tiles.map(function (t) { return t.entity; }),
-                               this._height(), !!window.hkStrategy, !!window.hkRoom]);
+        return JSON.stringify([p.area, p.size, p.name, p.status, p.more, !!p.scroll, this._config.surface, p.tiles.map(function (t) { return t.entity; }),
+                               this._height(), !!window.hkStrategy, !!window.hkRoom, this.getAttribute('tile')]);
       }
       // EACH NEW CLIENT: every pill gets it (they gate their own draws)
       _receiveClient() {
@@ -488,6 +560,7 @@
           this._ro = new ResizeObserver(function (en) {
             var r = en && en[0] && en[0].contentRect, hh = r ? Math.round(r.height) : 0;
             if (hh && hh !== self._h) { self._h = hh; self.redraw(); }
+            self._below();
           });
           this._ro.observe(this);
         }
@@ -502,25 +575,42 @@
         this._p = null;
         if (!this._built) {
           this._root.innerHTML = '<div class="room"><div class="hd"><button class="nm" type="button"><span></span>' +
-            '<i aria-hidden="true">›</i></button></div>' +
-            '<div class="tiles" role="list"></div></div>';
+            '<i aria-hidden="true">›</i></button><span class="st"></span></div>' +
+            '<div class="tiles" role="list"></div>' +
+            '<div class="ft" hidden><button class="fd" type="button"></button><b></b><span></span></div></div>';
           var q = this._root.querySelector.bind(this._root);
-          this._e = { box: q('.room'), nm: q('.nm'), name: q('.nm span'), chev: q('.nm i'), tiles: q('.tiles') };
+          this._e = { box: q('.room'), hd: q('.hd'), nm: q('.nm'), name: q('.nm span'), chev: q('.nm i'), st: q('.st'), tiles: q('.tiles'),
+                      ft: q('.ft'), fd: q('.fd'), sep: q('.ft b'), below: q('.ft span') };
           this._e.nm.addEventListener('click', function (e) { e.stopPropagation(); self._openRoom(); });
+          // a tap on the dots: a room back or on, by the side of the current dot it lands
+          this._e.fd.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var pg = self._paging(), cur = pg && self._e.fd.children[pg.at];
+            if (!cur) return;
+            var r = cur.getBoundingClientRect(), to = pg.at + (e.clientX < r.left + r.width / 2 ? -1 : 1);
+            if (to >= 0 && to < pg.of) pg.pager.goTo(to, true);
+          });
+          this._e.tiles.addEventListener('scroll', function () { self._below(); }, { passive: true });
           this._kids = []; this._key = null;
           this._built = true;
         }
         var e = this._e;
         e.box.setAttribute('size', p.size);
         C.groupSurface(e.box, this._config.surface);
-        // (as many pills as it has fill the block: fewer than a row's worth, one row of taller ones -- not a second
-        // row of nothing, 2026-10-30)
-        var nPills = (p.tiles || []).length + (p.more ? 1 : 0), oneRow = p.size !== 'W' && !p.scroll && nPills > 0 && nPills <= COLS[p.size];
-        e.tiles.style.setProperty('--cols', String(COLS[p.size]));
-        e.tiles.style.setProperty('--rows', p.size === 'W' || oneRow ? '1' : '2');
-        e.tiles.style.setProperty('--scroll-gaps', p.size === 'W' ? '0px' : GAP + 'px');
+        e.hd.style.display = p.head === false ? 'none' : '';
+        // HOW MANY ACROSS AND DOWN: the block's own (Accessories: by its
+        // Height), else the room's columns and its rows -- as many pills as
+        // it has fill the block: fewer than a row's worth, one row of taller
+        // ones, not a second row of nothing (2026-10-30)
+        var nPills = (p.tiles || []).length + (p.more ? 1 : 0), cols = p.cols || COLS[p.size];
+        var oneRow = p.size !== 'W' && !p.scroll && nPills > 0 && nPills <= cols;
+        var rows = p.rows || (p.size === 'W' || oneRow ? 1 : 2);
+        e.tiles.style.setProperty('--cols', String(cols));
+        e.tiles.style.setProperty('--rows', String(rows));
+        e.tiles.style.setProperty('--scroll-gaps', ((rows - 1) * GAP) + 'px');
         e.tiles.classList.toggle('scrolling', !!p.scroll);
         if (e.name.textContent !== (p.name || 'Room')) e.name.textContent = p.name || 'Room';
+        if (e.st.textContent !== (p.status || '')) e.st.textContent = p.status || '';
         var path = this._roomPath(p.area);
         e.chev.style.display = path ? '' : 'none';
         e.nm.setAttribute('aria-label', (p.name || 'Room') + (path ? ', open the room' : ''));
@@ -528,9 +618,12 @@
         // CENTRED (2026-10-31, the owner: the Accessories block's tiles "don't
         // follow the sizing for HomeView styling", with no second line): the
         // block's Tile Style on each tile -- the glyph bare and large over the
-        // name and its state, the cell's own sizes (hk-base.js TILE.centred)
-        var centred = this.getAttribute('tile') === 'centred';
-        var key = JSON.stringify([p.tiles, p.more, p.size, !!p.scroll, centred]);
+        // name and its state, the cell's own sizes (hk-base.js TILE.centred).
+        // An Accessories block's Full is Centred on every dashboard, its Half
+        // the Home app's pill (p.centred, p.half); Color each lit one on its
+        // own color's gradient (hk-tile.js block_color).
+        var centred = !p.half && (p.centred || this.getAttribute('tile') === 'centred');
+        var key = JSON.stringify([p.tiles, p.more, p.size, !!p.scroll, centred, !!p.half, !!p.color]);
         if (key !== this._key) {
           this._key = key;
           e.tiles.innerHTML = '';
@@ -544,10 +637,13 @@
           p.tiles.forEach(function (t) {
             var slot = document.createElement('div');
             slot.className = 'slot';
-            if (p.size !== 'W') slot.setAttribute('size', 'S');
+            var tall = p.size !== 'W' && !p.half;
+            if (tall) slot.setAttribute('size', 'S');
             slot.setAttribute('role', 'listitem');
-            var el = C.createCard(p.size === 'W' ? t : Object.assign({}, t, { size: 'tall' }), h);
-            if (p.size !== 'W') el.setAttribute('size', 'S');
+            // (Wide: a row of the room's regular pills -- a thermostat's too, whose tall tile was cut above the foot line)
+            var cfg = Object.assign({}, t, p.half ? { size: 'regular', tile: 'home' } : tall ? { size: 'tall' } : { size: 'regular' }, p.color ? { block_color: true } : {});
+            var el = C.createCard(cfg, h);
+            if (tall) el.setAttribute('size', 'S');
             el.setAttribute('data-group-fill', '');
             if (centred) el.setAttribute('tile', 'centred');
             slot.appendChild(el);
@@ -561,6 +657,39 @@
             more.addEventListener('click', () => self._openRoom()); e.tiles.appendChild(more);
           }
         }
+        // THE FOOT LINE: the rooms' dots while it pages, and -- scrolling --
+        // a place for what is out of sight whenever there is more than shows
+        var pg = this._paging();
+        var fdKey = pg ? pg.at + '/' + pg.of : '';
+        if (e.fd.getAttribute('data-k') !== fdKey) {
+          e.fd.setAttribute('data-k', fdKey);
+          e.fd.innerHTML = '';
+          for (var i = 0; pg && i < pg.of; i++) {
+            var d = document.createElement('i');
+            if (i === pg.at) d.setAttribute('aria-current', 'true');
+            e.fd.appendChild(d);
+          }
+          if (pg) e.fd.setAttribute('aria-label', (p.name || 'Room') + ', room ' + (pg.at + 1) + ' of ' + pg.of + '. Tap beside the dot for the room before or after.');
+        }
+        e.fd.hidden = !pg;
+        this._scrolls = !!p.scroll && p.tiles.length > cols * rows;
+        e.ft.hidden = !pg && !this._scrolls;
+        this._below();
+      }
+      // "N MORE BELOW": the tiles not wholly in sight under the scroll's foot
+      // (none once it is scrolled to the end)
+      _below() {
+        var e = this._e;
+        if (!e) return;
+        var n = 0;
+        if (this._scrolls) {
+          var t = e.tiles, bottom = t.scrollTop + t.clientHeight + 1;
+          Array.prototype.forEach.call(t.children, function (c) { if (c.offsetTop + c.offsetHeight > bottom) n++; });
+        }
+        var text = n ? n + ' more below' : '';
+        if (e.below.textContent !== text) e.below.textContent = text;
+        e.below.hidden = !n;
+        e.sep.hidden = !n || e.fd.hidden;
       }
       _roomPath(area) {
         var M = C.menu;
@@ -679,7 +808,8 @@
       attributeChangedCallback(name, was, now) {
         this._sizeChild();
         // (Centred names the room under the accessory: the tile is made again)
-        if (name === 'tile' && was !== now && this._config && this.client) this.redraw();
+        // (...and a scene's line is what it does at Wide: made again for a new size)
+        if ((name === 'tile' || name === 'size') && was !== now && this._config && this.client) this.redraw();
       }
       _tile() {
         var cfg = this._config || {}, h = this.client, t;
@@ -687,7 +817,12 @@
         if (cfg.kind === 'scene') {
           var scenes = window.hkChip && window.hkChip.scenes;
           t = scenes && scenes.pill ? scenes.pill(h, cfg.entity) : { type: 'custom:hk-scene-card', entity: cfg.entity };
-          t = Object.assign({}, t, { elevated: false });
+          // A SCENE BLOCK (2026-10-31, the owner's notes on the widget
+          // mock-up): HomeView's tile on every dashboard, glass or on its own
+          // color's gradient (`color`); at Wide its glyph beside its name and
+          // what it does (hk-tile.js, :host([tile=centred][size=W]))
+          var wide = (this.getAttribute('size') || cfg.size) === 'W';
+          t = Object.assign({}, t, { elevated: false, room: wide ? sceneSays(h, cfg.entity) : 'Scene' }, cfg.color ? { block_color: true } : {});
         } else {
           var S = window.hkStrategy;
           t = S && S.tileFor && h ? S.tileFor(h, cfg.entity, friendly(h, cfg.entity)) : { type: 'custom:hk-tile-card', entity: cfg.entity };
@@ -704,10 +839,10 @@
         // ...and every glyph the block's own size, bare (the tile's Centred
         // rule): an accessory drawn at a room page's size (the alarm's 27 px)
         // was a speck beside the others (the owner, 2026-10-31)
-        if (this.getAttribute('tile') === 'centred') { delete t.icon_size; delete t.bare_icon; delete t.well_background; }
-        if (this.getAttribute('tile') === 'centred' && !chosen) {
-          var area = cfg.kind === 'scene' ? null : areaOf(h, cfg.entity), areas = (h && h.areas) || {};
-          var room = cfg.kind === 'scene' ? 'Scene' : area && areas[area] && areas[area].name;
+        if (this.getAttribute('tile') === 'centred' || cfg.kind === 'scene') { delete t.icon_size; delete t.bare_icon; delete t.well_background; }
+        if (this.getAttribute('tile') === 'centred' && !chosen && cfg.kind !== 'scene') {
+          var area = areaOf(h, cfg.entity), areas = (h && h.areas) || {};
+          var room = area && areas[area] && areas[area].name;
           if (room) t.room = room;
         }
         return t;
@@ -722,7 +857,7 @@
         this._child.setAttribute('size', this.getAttribute('size') || (this._config || {}).size || 'S');
         if (this.hasAttribute('data-grid-pager')) this._child.setAttribute('data-grid-pager', '');
         else this._child.removeAttribute('data-grid-pager');
-        if (this.getAttribute('tile') === 'centred') this._child.setAttribute('tile', 'centred');
+        if (this.getAttribute('tile') === 'centred' || (this._config || {}).kind === 'scene') this._child.setAttribute('tile', 'centred');
         else this._child.removeAttribute('tile');
       }
       _render() {
@@ -750,22 +885,32 @@
       _roomPath() { return null; }
       _openRoom() {}
       _sigOf() { return super._sigOf() + JSON.stringify(this._config.accessories || []); }
+      // HEIGHT AND COLOR (2026-10-31, the owner's notes on the widget
+      // mock-up): the block is its tiles, no heading. Full, HomeView's tile
+      // (Centred, the state under the name) on any dashboard -- W two, L
+      // four, XL six; Half, the Home app's pill, twice as many rows. The grid
+      // takes as many as are chosen, never an empty row (as Scenes does:
+      // hk-chip.js scenesPlan). Color: each one lit on its own color.
       _plan() {
-        var client = this.client, size = this._size(), cfg = this._config;
-        var entries = cfg.accessories || [], limit = (COLS[size] || 2) * (size === 'W' ? 1 : 2);
-        var tiles = entries.slice(0, limit).map(function (entry) {
+        var client = this.client, size = this._size(), cfg = this._config, half = cfg.height === 'half';
+        var cell = C.HOME_GRID.sizes[size] || [2, 2], cols = cell[0], rows = cell[1] * (half ? 2 : 1);
+        var entries = (cfg.accessories || []).slice(0, cols * rows), n = entries.length;
+        if (n <= cols) { cols = Math.max(1, n); rows = 1; } else rows = Math.ceil(n / cols);
+        var tiles = entries.map(function (entry) {
           var S = window.hkStrategy, id = entry.entity;
           var t = S && S.tileFor && client ? S.tileFor(client, id, friendly(client, id)) : { type: 'custom:hk-tile-card', entity: id };
           t = Object.assign({}, t, { secondary: entry.secondary });
           if (dom(id) === 'light') t.tap_action = { action: 'toggle' };
+          // (Full: every glyph the tile's own size, bare -- as a Centred block's: hk-grid-entity-card)
+          if (!half) { delete t.icon_size; delete t.bare_icon; delete t.well_background; }
           return t;
         });
-        return { area: null, size: size, tiles: tiles, more: 0, name: cfg.title || 'Accessories', empty: 'Choose accessories in the editor' };
+        return { area: null, size: size, tiles: tiles, more: 0, name: cfg.title || 'Accessories', empty: 'Choose accessories in the editor',
+                 head: false, cols: cols, rows: rows, half: half, centred: !half, color: !!cfg.color };
       }
       _render() {
         super._render();
         this._e.nm.disabled = true;
-        this._e.nm.style.cursor = 'default';
       }
     }
     watchSize(HkGridAccessoriesCard);
@@ -778,6 +923,8 @@
     // Everything. A key with a state: the glyph in its well at the top, the
     // name and the state it changes at the bottom -- the tall tile's measured
     // pieces (42 px well, 15 / 600 on 16.5 px lines, the pill's padding).
+    // AN APP ICON'S CORNER: iPadOS's 22.4 % of its side (hk-tabbar.js ICON_CORNER, the Pages screen's)
+    var APP_CORNER = '22.4%';
     var KEY_CSS = [
       ':host{display:block;height:100%}',
       'hk-plate.k{box-sizing:border-box;height:100%;display:flex;flex-direction:column;justify-content:space-between;',
@@ -805,7 +952,27 @@
       // glyph over the name and what it changes, all centred, as HomeView has it
       ':host([tile=centred]) hk-plate.k{display:block}',
       C.centredTile({ host: ':host([tile=centred])', plate: 'hk-plate.k', lit: 'hk-plate.k.lit', well: '.well', icon: '.icon',
-                      name: '.tx .name', sub: ['.tx .state'] })
+                      name: '.tx .name', sub: ['.tx .state'] }),
+      // IN ITS OWN COLOR (2026-10-31, the widget mock-up; _look's `paint`): the
+      // plate a gradient of the key's color -- the app icons' (hkCards.
+      // iconGradient) -- its glyph and words white. Off a HomeView dashboard it
+      // is Shortcuts' button: the glyph bare at the top, the name and its state
+      // larger at the foot, on the block's inset
+      'hk-plate.k[data-paint]{background:linear-gradient(180deg,var(--k-a),var(--k-b)) !important;--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none}',
+      'hk-plate.k[data-paint] .name{color:#fff !important}hk-plate.k[data-paint] .state{color:rgba(255,255,255,0.85) !important}',
+      ':host(:not([tile=centred])) hk-plate.k[data-paint]{padding:' + C.blockPad('14px') + '}',
+      ':host(:not([tile=centred])) hk-plate.k[data-paint] .well{width:34px;height:34px;background:none;border-radius:0}',
+      ':host(:not([tile=centred])) hk-plate.k[data-paint] .icon{width:34px;height:34px}',
+      ':host(:not([tile=centred])) hk-plate.k[data-paint] .name{' + type('headline') + ';line-height:21px}',
+      ':host(:not([tile=centred])) hk-plate.k[data-paint] .state{' + type('caption') + ';line-height:17px}',
+      // A FOLDER OF APP ICONS in the glyph's place (Everything, Small): four
+      // of the screen's pages and rooms in their colors, on a frosted square
+      '.well.folder{background:none !important;border-radius:0}',
+      '.fold{box-sizing:border-box;width:100%;height:100%;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:8%;padding:11%;',
+      '  border-radius:' + APP_CORNER + ';background:rgba(255,255,255,0.22);box-shadow:0 4px 10px rgba(0,0,0,0.18)}',
+      '.fold i{display:flex;align-items:center;justify-content:center;border-radius:' + APP_CORNER + ';min-width:0;min-height:0}',
+      '.fold hk-icon{width:58%;height:58%;--mdc-icon-size:100%;display:flex;color:#fff}',
+      ':host(:not([tile=centred])) .well.folder{width:46px;height:46px}'
     ].join('');
 
     class HkGridKey extends HkBase {
@@ -829,9 +996,34 @@
         }
         var e = this._e, k = this._look();
         if (e.icon.icon !== k.icon) e.icon.icon = k.icon;
+        // its own color's gradient, or the glass
+        var g = k.paint ? C.iconGradient(k.paint) : null;
+        if (g) { e.card.setAttribute('data-paint', ''); e.card.style.setProperty('--k-a', g[0]); e.card.style.setProperty('--k-b', g[1]); }
+        else if (e.card.hasAttribute('data-paint')) { e.card.removeAttribute('data-paint'); e.card.style.removeProperty('--k-a'); e.card.style.removeProperty('--k-b'); }
+        // a folder of app icons in the glyph's place: [[color, glyph], ...]
+        var fk = k.folder ? JSON.stringify(k.folder) : '';
+        if (fk !== (this._foldKey || '')) {
+          this._foldKey = fk;
+          var well = e.icon.parentNode, old = well.querySelector('.fold');
+          if (old) old.remove();
+          well.classList.toggle('folder', !!k.folder);
+          e.icon.style.display = k.folder ? 'none' : '';
+          if (k.folder) {
+            var f = document.createElement('span');
+            f.className = 'fold';
+            f.setAttribute('aria-hidden', 'true');
+            k.folder.forEach(function (x) {
+              var gi = C.iconGradient(x[0]), i = document.createElement('i'), ic = document.createElement('hk-icon');
+              i.style.background = 'linear-gradient(180deg,' + gi[0] + ',' + gi[1] + ')';
+              ic.icon = x[1];
+              i.appendChild(ic); f.appendChild(i);
+            });
+            well.appendChild(f);
+          }
+        }
         // (Centred: the glyph by what is drawn, as the tiles' -- TILE.centred.ink)
         if (this.getAttribute('tile') === 'centred') e.icon.setAttribute('ink', String(C.TILE.centred.ink)); else e.icon.removeAttribute('ink');
-        e.icon.style.color = k.color || '';
+        e.icon.style.color = g ? '#fff' : k.color || '';
         if (e.name.textContent !== k.name) e.name.textContent = k.name;
         var said = this._said || null;
         var text = said ? said.text : k.state;
@@ -853,59 +1045,241 @@
       }
     }
 
-    // Security uses the shared alarm sheet: no arm/disarm command can bypass its PIN.
-    class HkGridSecurityCard extends HkGridKey {
-      static get CSS() { return KEY_CSS + ':host([size=W]) .k{position:relative;padding-right:236px}' +
-        '.security-extra{position:absolute;right:calc(12.8px + var(--hk-in-r,0px));top:calc(12.8px + var(--hk-in-t,0px));bottom:calc(12.8px + var(--hk-in-b,0px));width:210px;display:flex;flex-direction:column;justify-content:space-between;gap:6px}' +
-        '.security-extra p{margin:0;' + type('caption') + ';color:' + v('ink-2') + ';line-height:18px}' +
-        '.security-extra button{border:0;min-height:44px;min-width:44px;border-radius:22px;background:' + v('key') + ';color:' + v('ink') + ';' + type('caption') + ';cursor:pointer}' +
-        '.security-actions{display:flex;gap:6px}.security-actions button{flex:1}'; }
-      _alarm() { return this._config.entity || setting('security.alarm', null) || Object.keys(this.client && this.client.states || {}).find((id) => dom(id) === 'alarm_control_panel'); }
-      _look() {
-        var st = this.client && this.client.states && this.client.states[this._alarm()], state = st && st.state || 'unavailable';
-        var words = { disarmed: 'Disarmed', armed_home: 'Armed Home', armed_away: 'Armed Away', armed_night: 'Armed Night',
-          armed_vacation: 'Armed Vacation', triggered: 'Triggered', pending: 'Pending', arming: 'Arming', disarming: 'Disarming', unavailable: 'Unavailable', unknown: 'Unknown' };
-        return { name: 'Security', icon: state === 'disarmed' ? 'hk:shield-off' : 'hk:shield-lock',
-          state: words[state] || 'Armed', color: /^armed|triggered|pending/.test(state) ? (state === 'triggered' ? v('fail') : C.PALETTE.icon.green) : null };
+    // ===================================================== hk-grid-security-card
+    // SECURITY AS A WIDGET (2026-10-31, the widget mock-up): the one fact, big
+    // -- the alarm's state in its color. Small: its shield, the state large
+    // and the mode and the locks under it. Wide: that beside the locks, the
+    // garage and the doors and windows, the open ones first and in orange.
+    // Large: the shield and "Armed · Home" over that list, Home, Away and
+    // Disarm at the foot. Extra Large (hk-grid-keypad-card): the alarm's
+    // keypad beside the list. Every arming goes through the alarm's own sheet
+    // or keypad: no command here can bypass its PIN. The list takes the room
+    // it has, a row of 44 px each, and says "N more" for what does not fit.
+    var SEC_ROW = 44;
+    var SEC_CSS = [
+      ':host{display:block;height:100%}',
+      'hk-plate.sec{box-sizing:border-box;height:100%;display:flex;flex-direction:column;gap:10px;padding:' + C.blockPad('14px') + ';overflow:hidden;' + C.plate('card') + ';color:' + v('ink') + ';',
+      '  -webkit-tap-highlight-color:transparent;--ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
+      'hk-plate.sec[size=W],hk-plate.sec.kp{flex-direction:row;gap:18px}',
+      '[role=button]{cursor:pointer}',
+      '[role=button]:focus-visible,button:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
+      // the shield in its well, the state's color
+      '.wl{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;background:var(--c,' + v('key') + ')}',
+      '.wl hk-icon{width:25px;height:25px;--mdc-icon-size:100%;display:flex;color:#fff}',
+      '.one{display:flex;flex-direction:column;min-width:0;margin-top:auto}',
+      '.big{' + type('figure') + ';font-weight:600;line-height:1.05;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t,' + v('ink') + ')}',
+      '.sub{' + type('body') + ';font-weight:400;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.side{display:flex;flex-direction:column;flex:0 0 150px;min-width:0}',
+      '.hd{display:flex;align-items:center;gap:12px;min-width:0;flex:none;min-height:44px}',
+      '.hd .tx{display:flex;flex-direction:column;min-width:0}',
+      '.hd b{' + type('title') + ';font-weight:600;line-height:27px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.hd small{' + type('caption') + ';color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.col{display:flex;flex-direction:column;gap:10px;flex:1;min-width:0;min-height:0}',
+      '.rows{display:flex;flex-direction:column;flex:1;min-height:0;min-width:0;overflow:hidden}',
+      '.row{display:flex;align-items:center;gap:10px;height:' + SEC_ROW + 'px;flex:none;box-sizing:border-box;border-bottom:1px solid ' + v('line') + ';min-width:0}',
+      '.row:last-child,.row.end{border-bottom:0}',
+      '.row hk-icon{width:20px;height:20px;--mdc-icon-size:100%;display:flex;flex:none;color:' + v('ink-2') + '}',
+      '.row span{' + type('body') + ';flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.row em{font-style:normal;' + type('caption') + ';color:' + v('ink-2') + ';white-space:nowrap;flex:none}',
+      '.row.open hk-icon,.row.open em{color:' + v('warn') + '}',
+      '.row.lk hk-icon{color:var(--lk)}',
+      '.row.mo span{color:' + v('ink-2') + '}',
+      // Home, Away and Disarm along the foot, where a thumb is: the mode it is in lit
+      '.arm{display:flex;gap:8px;flex:none}',
+      '.arm button{all:unset;box-sizing:border-box;flex:1;height:44px;border-radius:22px;text-align:center;background:' + v('key') + ';' + type('body') + ';font-weight:600;color:' + v('ink') + ';cursor:pointer}',
+      '.arm button.on{background:#fff;color:#1c1c1e}',
+      '.arm button:active{background:' + v('key-strong') + '}',
+      // (Extra Large: the alarm's keypad, its keys sized to the block)
+      '.kpad{flex:0 0 264px;min-width:0;min-height:0}.kpad.side{flex-basis:330px}.kpad > *{display:block;height:100%}'
+    ].join('');
+    var SEC_WORDS = { disarmed: ['Disarmed', ''], armed_home: ['Armed', 'Home'], armed_away: ['Armed', 'Away'], armed_night: ['Armed', 'Night'],
+                      armed_vacation: ['Armed', 'Vacation'], armed_custom_bypass: ['Armed', 'Custom'], arming: ['Arming…', ''], pending: ['Pending…', ''],
+                      disarming: ['Disarming…', ''], triggered: ['Triggered', ''] };
+    // the alarm's state as the block says it: the word, its mode, the shield and its color
+    function alarmLook(st) {
+      var s = st && st.state, w = SEC_WORDS[s], A = C.ACCENTS;
+      if (!w) return { word: s === 'unavailable' || s === 'unknown' || !st ? 'Unavailable' : String(s), mode: '', icon: 'mdi:shield-off', color: null };
+      var armed = /^armed_/.test(s);
+      return { word: w[0], mode: w[1], icon: s === 'disarmed' ? 'mdi:shield-off' : s === 'triggered' ? 'mdi:shield-alert' : s === 'armed_home' ? 'mdi:shield-home' : 'mdi:shield-lock',
+               color: s === 'triggered' ? A.red : armed ? A.teal : /ing$|pending/.test(s) ? A.orange : null, text: s === 'triggered' ? A.red : null };
+    }
+    // ITS LIST: the locks, the garage, the doors and windows (the house's
+    // lists, else what it has), each {id, name, icon, value, open, lock}; the
+    // open ones first
+    function secRows(client) {
+      var st = (client && client.states) || {}, out = [];
+      var locks = (kind('locks') || own(client, 'lock')).filter(function (id) { return dom(id) === 'lock' && st[id]; });
+      locks.forEach(function (id) {
+        var s = st[id].state, open = s === 'unlocked' || s === 'open';
+        out.push({ id: id, name: friendly(client, id), icon: open ? 'mdi:lock-open-variant' : 'mdi:lock', value: open ? 'Unlocked' : OFF[s] ? 'Unknown' : 'Locked', open: open, lock: !open });
+      });
+      var garage = (kind('garage') || own(client, 'cover').filter(function (id) { return DOORS[attr(st[id], 'device_class')]; })).filter(function (id) { return st[id]; });
+      garage.forEach(function (id) {
+        var s = st[id].state, shut = s === 'closed' || s === 'off';
+        out.push({ id: id, name: friendly(client, id), icon: shut ? 'mdi:garage' : 'mdi:garage-open', value: shut ? 'Closed' : OFF[s] ? 'Unknown' : 'Open', open: !shut && !OFF[s] });
+      });
+      ['doors', 'windows'].forEach(function (k) {
+        var dc = k === 'doors' ? 'door' : 'window';
+        (kind(k) || Object.keys(st).filter(function (id) { return dom(id) === 'binary_sensor' && attr(st[id], 'device_class') === dc; }).sort())
+          .filter(function (id) { return st[id]; }).forEach(function (id) {
+            var open = st[id].state === 'on';
+            out.push({ id: id, name: friendly(client, id), icon: 'mdi:' + dc + (open ? (dc === 'door' ? '-open' : '-open-variant') : (dc === 'door' ? '-closed' : '-closed-variant')),
+                       value: open ? 'Open' : 'Closed', open: open });
+          });
+      });
+      return out.filter(function (r) { return r.open; }).concat(out.filter(function (r) { return !r.open; }));
+    }
+    // ...and what it says in a few words: "1 window open", else the locks
+    function secSays(rows) {
+      var open = rows.filter(function (r) { return r.open; });
+      if (open.length) return open.length === 1 ? open[0].name + ' ' + open[0].value.toLowerCase() : open.length + ' open';
+      return rows.some(function (r) { return r.lock; }) ? 'All locked' : rows.length ? 'All closed' : '';
+    }
+
+    class HkGridSecurityCard extends HkBase {
+      static get CSS() { return SEC_CSS; }
+      getCardSize() { return 2; }
+      _alarm() {
+        return this._config.entity || setting('security.alarm', null) ||
+          Object.keys((this.client && this.client.states) || {}).filter(function (id) { return dom(id) === 'alarm_control_panel'; })[0] || null;
+      }
+      _size() { return sizeOf(this) || 'S'; }
+      _keys() { return false; }
+      _sigOf() {
+        var id = this._alarm(), st = id && this.client && this.client.states[id];
+        return JSON.stringify([id, st && st.state, secRows(this.client), this._size(), this._blockKey || '']);
       }
       _tap() { var id = this._alarm(); if (id) window.hkShell.moreInfo(id, this); }
-      _sigOf() { return JSON.stringify([this._look(), this._summary(), sizeOf(this)]); }
-      _summary() {
-        var states = this.client && this.client.states || {}, locks = kind('locks') || own(this.client, 'lock');
-        var n = locks.filter((id) => states[id] && states[id].state === 'locked').length;
-        var entries = ['doors', 'windows'].flatMap((k) => kind(k) || Object.keys(states).filter((id) => dom(id) === 'binary_sensor' && attr(states[id], 'device_class') === (k === 'doors' ? 'door' : 'window')))
-          .filter((id) => states[id]);
-        var opened = entries.filter((id) => states[id].state === 'on');
-        // (a house without door or window sensors says nothing about them)
-        return [locks.length ? plural(n, 'Lock Locked', 'Locks Locked') : '',
-                opened.length ? plural(opened.length, 'Entry Open', 'Entries Open') : entries.length ? 'Entries Closed' : ''].filter(Boolean).join(' · ');
+      // (the keypad, Extra Large: each new client)
+      _receiveClient() {
+        super._receiveClient();
+        var c = this.client;
+        (this._kids || []).forEach(function (k) { window.hkHostClient.bridge(k, c); });
+      }
+      _button(el, fn) {
+        el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
+        el.addEventListener('click', function (ev) { ev.stopPropagation(); fn(); });
+        el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); fn(); } });
+      }
+      connectedCallback() {
+        super.connectedCallback();
+        var self = this;
+        if (!this._fitRO && typeof ResizeObserver === 'function') {
+          this._fitRO = new ResizeObserver(function () { self._fit(); });
+          this._fitRO.observe(this);
+        }
+      }
+      disconnectedCallback() {
+        if (this._fitRO) { this._fitRO.disconnect(); this._fitRO = null; }
+        super.disconnectedCallback();
       }
       _render() {
-        super._render();
-        var old = this._e.card.querySelector('.security-extra'); if (old) old.remove();
-        this._e.card.setAttribute('role', sizeOf(this) === 'W' ? 'group' : 'button');
-        if (sizeOf(this) === 'W') this._e.card.removeAttribute('tabindex'); else this._e.card.setAttribute('tabindex', '0');
-        if (sizeOf(this) !== 'W') return;
-        var extra = document.createElement('div'); extra.className = 'security-extra';
-        var text = document.createElement('p'); text.textContent = this._summary(); extra.appendChild(text);
-        var actions = document.createElement('div'); actions.className = 'security-actions';
-        ['Home', 'Away', 'Disarm'].forEach((name) => {
-          var button = document.createElement('button'); button.textContent = name; button.setAttribute('aria-label', name + ' — open alarm controls');
-          button.addEventListener('click', (e) => { e.stopPropagation(); this._tap(); }); actions.appendChild(button);
+        this._watchBlock();
+        var self = this, size = this._size(), keys = this._keys() && size === 'XL', alarm = this._alarm();
+        // (a tile cell's shorter Extra Large: the keys side by side with the readout and the ways to arm, so
+        // each key keeps 44 px -- stacked under the readout they came to 36)
+        var bk = this._block(), side = keys && !!bk && bk.h < 340;
+        var shape = size + (keys ? 'k' : '') + (side ? 's' : '') + '|' + alarm;
+        if (!this._built || this._shape !== shape) {
+          this._shape = shape;
+          var head = '<div class="hd"><div class="wl"><hk-icon></hk-icon></div><div class="tx"><b></b><small></small></div></div>';
+          var html = size === 'S' ? '<div class="wl"><hk-icon></hk-icon></div><div class="one"><div class="big"></div><div class="sub"></div></div>'
+            : size === 'W' ? '<div class="side"><div class="wl"><hk-icon></hk-icon></div><div class="one"><div class="big"></div><div class="sub"></div></div></div><div class="rows"></div>'
+            : keys ? '<div class="kpad"></div><div class="col">' + head + '<div class="rows"></div></div>'
+            : head + '<div class="rows"></div><div class="arm"><button type="button" data-m="home">Home</button><button type="button" data-m="away">Away</button><button type="button" data-m="off">Disarm</button></div>';
+          this._root.innerHTML = '<hk-plate class="sec' + (keys ? ' kp' : '') + '" data-hk-role="card" size="' + size + '">' + html + '</hk-plate>';
+          var q = this._root.querySelector.bind(this._root), all = this._root.querySelectorAll.bind(this._root);
+          this._e = { card: q('.sec'), wl: q('.wl'), icon: q('.wl hk-icon'), big: q('.big') || q('.hd b'), sub: q('.sub') || q('.hd small'), rows: q('.rows') };
+          // the tap: Small the whole block, Wide its state, Large its heading -- the alarm's sheet, with its PIN
+          var hit = size === 'S' ? this._e.card : size === 'W' ? q('.side') : q('.hd');
+          this._button(hit, function () { self._tap(); });
+          Array.prototype.forEach.call(all('.arm button'), function (b) {
+            b.setAttribute('aria-label', b.textContent + ': the alarm’s controls');
+            b.addEventListener('click', function (ev) { ev.stopPropagation(); self._tap(); });
+          });
+          this._kids = [];
+          if (keys) {
+            this._pad = C.createCard(Object.assign({ type: 'custom:hk-alarm-keypad-card', glass: false }, side ? { layout: 'side' } : {}, alarm ? { entity: alarm } : {}), this.client);
+            q('.kpad').classList.toggle('side', side);
+            q('.kpad').appendChild(this._pad);
+            this._kids.push(this._pad);
+          } else this._pad = null;
+          this._rowKey = null;
+          this._built = true;
+        }
+        var e = this._e, st = alarm && this.client && this.client.states[alarm], look = alarmLook(st), rows = secRows(this.client), says = secSays(rows);
+        if (e.icon.icon !== look.icon) e.icon.icon = look.icon;
+        if (look.color) e.card.style.setProperty('--c', look.color); else e.card.style.removeProperty('--c');
+        if (look.text) e.card.style.setProperty('--t', look.text); else e.card.style.removeProperty('--t');
+        var big = size === 'S' || size === 'W' ? look.word : look.word + (look.mode ? ' · ' + look.mode : '');
+        var sub = size === 'S' ? [look.mode, says && says.charAt(0).toLowerCase() + says.slice(1)].filter(Boolean).join(' · ') : size === 'W' ? (look.mode || says) : says;
+        if (size === 'S' && !look.mode) sub = says;
+        e.big.textContent = big;
+        e.sub.textContent = sub;
+        var label = 'Security, ' + big + (sub ? ', ' + sub : '');
+        (size === 'S' ? e.card : (e.card.querySelector('.side') || e.card.querySelector('.hd'))).setAttribute('aria-label', label);
+        Array.prototype.forEach.call(this._root.querySelectorAll('.arm button'), function (b) {
+          var m = b.getAttribute('data-m');
+          b.classList.toggle('on', m === 'off' ? !!st && st.state === 'disarmed' : !!st && st.state === 'armed_' + m);
         });
-        extra.appendChild(actions); this._e.card.appendChild(extra);
-        // The plate's keyboard action remains on the tile, not its nested controls.
-        if (!this._securityKeys) { this._securityKeys = true; this._e.card.addEventListener('keydown', (e) => { if (e.target !== this._e.card) e.stopPropagation(); }, { capture: true }); }
+        if (e.rows) {
+          var key = JSON.stringify(rows);
+          if (key !== this._rowKey) {
+            this._rowKey = key;
+            e.rows.innerHTML = '';
+            rows.forEach(function (r) {
+              var d = document.createElement('div');
+              d.className = 'row' + (r.open ? ' open' : '') + (r.lock ? ' lk' : '');
+              d.innerHTML = '<hk-icon></hk-icon><span></span><em></em>';
+              d.querySelector('hk-icon').icon = r.icon;
+              d.querySelector('span').textContent = r.name;
+              d.querySelector('em').textContent = r.value;
+              self._button(d, function () { window.hkShell.moreInfo(r.id, self); });
+              d.setAttribute('aria-label', r.name + ', ' + r.value);
+              e.rows.appendChild(d);
+            });
+            var more = document.createElement('div');
+            more.className = 'row mo';
+            more.innerHTML = '<hk-icon></hk-icon><span></span>';
+            more.querySelector('hk-icon').icon = 'mdi:dots-horizontal';
+            this._button(more, function () { self._tap(); });
+            e.rows.appendChild(more);
+            this._more = more;
+          }
+          e.card.style.setProperty('--lk', C.ACCENTS.teal);
+        }
+        if (this._pad) {
+          // the keys and their gaps fill the block's height: the readout, four rows of keys, the ways to arm
+          var h = bk ? bk.h - 36 : 369;
+          this._pad.style.setProperty('--hk-kp-key', Math.max(36, Math.min(64, side ? Math.floor((h - 30) / 4) : Math.floor((h - 44 - 50) / 5))) + 'px');
+        }
+        this._fit();
+      }
+      // THE LIST IN THE ROOM IT HAS: whole rows; what does not fit, "N more"
+      _fit() {
+        var e = this._e;
+        if (!e || !e.rows || !this._more) return;
+        var list = Array.prototype.filter.call(e.rows.children, function (c) { return c !== this._more; }, this);
+        var h = e.rows.clientHeight;
+        if (!h) return;
+        var fits = Math.max(0, Math.floor((h + 1) / SEC_ROW)), cut = list.length > fits, show = cut ? Math.max(0, fits - 1) : list.length;
+        list.forEach(function (r, i) { r.style.display = i >= show ? 'none' : ''; r.classList.toggle('end', !cut && i === show - 1); });
+        this._more.style.display = cut && fits > 0 ? '' : 'none';
+        if (cut) {
+          var t = (list.length - show) + ' more';
+          this._more.querySelector('span').textContent = t;
+          this._more.setAttribute('aria-label', t + ': the alarm’s sheet');
+        }
       }
     }
     watchSize(HkGridSecurityCard);
-    C.register('hk-grid-security-card', HkGridSecurityCard, 'HK Grid Security', 'Alarm status and shared PIN controls.', [{ name: 'entity', label: 'Alarm', selector: { entity: { filter: { domain: 'alarm_control_panel' } } } }], function () { return {}; });
+    C.register('hk-grid-security-card', HkGridSecurityCard, 'HK Grid Security', 'The alarm’s state, its locks, doors and windows, and the alarm’s own controls with its PIN.', [{ name: 'entity', label: 'Alarm', selector: { entity: { filter: { domain: 'alarm_control_panel' } } } }], function () { return {}; });
 
     // ===================================================== the full-control blocks
     // (2026-10-24, the owner: "the detail sheets that are useful as blocks"):
-    // a Large or Extra Large Security block is the alarm's keypad, a Large or
-    // Extra Large Vacuum block its controls with Clean Areas -- the Security
-    // and Vacuum pages' own cards, each in a block-sized plate.
+    // a Large or Extra Large Vacuum block is its controls with Clean Areas --
+    // the Vacuum page's own card in a block-sized plate. (Security's keypad,
+    // Extra Large since 2026-10-31, is the Security block's: above.)
     var FULL_CSS = ':host{display:block;height:100%}' +
       'hk-plate.full{box-sizing:border-box;height:100%;display:flex;flex-direction:column;gap:10px;padding:' + C.blockPad('14px') + ';overflow:hidden;' + C.plate('card') + '}' +
       '.ttl{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:24px;flex:none;padding:0 4px}' +
@@ -928,35 +1302,16 @@
         return el;
       }
     }
-    // THE KEYPAD: the alarm's own keys, side by side (hk-security.js
-    // layout: 'side'), the keys sized to the block; the PIN is checked as it
-    // always is, by the alarm, never here
-    class HkGridKeypadCard extends HkGridFull {
-      // the alarm: the block's, else the home's, else the first (as the small Security block finds it)
-      _alarm() {
-        return this._config.entity || setting('security.alarm', null) ||
-          Object.keys((this.client && this.client.states) || {}).filter(function (id) { return dom(id) === 'alarm_control_panel'; })[0] || null;
-      }
-      _sigOf() { return JSON.stringify([this._alarm(), sizeOf(this), this._blockKey || '']); }
-      _render() {
-        this._watchBlock();
-        var alarm = this._alarm();
-        if (!this._built || this._for !== alarm) {
-          this._root.innerHTML = '<hk-plate class="full" data-hk-role="card"><div class="body"></div></hk-plate>';
-          this._kids = []; this._for = alarm;
-          this._pad = this._mount(this._root.querySelector('.body'),
-            Object.assign({ type: 'custom:hk-alarm-keypad-card', layout: 'side', glass: false }, alarm ? { entity: alarm } : {}));
-          this._built = true;
-        }
-        // four rows of keys and their three gaps fill the block's height (to
-        // 88 px a key: square cells are taller than tiles, and at 64 the
-        // Extra Large block left a band of nothing under its keys, 2026-10-30)
-        var b = this._block(), h = b ? b.h - 28 : 282;
-        this._pad.style.setProperty('--hk-kp-key', Math.max(36, Math.min(88, Math.floor((h - 30) / 4))) + 'px');
-      }
+    // THE KEYPAD (the catalog's Large and Extra Large Security): Large is the
+    // Security block's own (the list, Home, Away and Disarm); Extra Large
+    // keeps the alarm's keypad beside the list (the owner, 2026-10-31) -- its
+    // own keys, readout and ways to arm (hk-security.js); the PIN is checked
+    // as it always is, by the alarm, never here
+    class HkGridKeypadCard extends HkGridSecurityCard {
+      _keys() { return true; }
     }
     watchSize(HkGridKeypadCard);
-    C.register('hk-grid-keypad-card', HkGridKeypadCard, 'HK Grid Keypad', 'The alarm keypad, sized to a Home Grid block.',
+    C.register('hk-grid-keypad-card', HkGridKeypadCard, 'HK Grid Keypad', 'The alarm keypad beside its locks, doors and windows, sized to a Home Grid block.',
       [{ name: 'entity', label: 'Alarm', selector: { entity: { filter: { domain: 'alarm_control_panel' } } } }], function () { return {}; });
     // THE VACUUM: its card (status, Start, Pause, Locate, Dock) over Clean
     // Areas when the home has them (as the Vacuums page does: hk-strategy.js),
@@ -1394,7 +1749,21 @@
        { name: 'refresh', label: 'Refresh (seconds)', selector: { number: { min: 5, max: 60, step: 1 } } }], function () { return {}; });
 
     // ===================================================== hk-action-card
+    // ONE ACTION, THE WHOLE BLOCK ITS BUTTON (2026-10-31, the owner's notes on
+    // the widget mock-up): on a HomeView dashboard HomeView's tile (Centred:
+    // the glyph large over its name, what it will do under it), on the glass
+    // or -- `color` -- a gradient of its own color; on a standard one
+    // Shortcuts' button, always in its color. Its color: All Lights Off the
+    // Lights page's yellow, Lock Up and Garage Security's teal, a scene or
+    // script its accessory's Color, else a tint of its own (hk-tile.js ownTint).
     var YELLOW = (C.PALETTE.icon && C.PALETTE.icon.yellow) || null;
+    function actionHex(client, action) {
+      var A = C.ACCENTS, T = window.hkTile || {};
+      if (action === 'lights_off') return A.yellow;
+      if (action === 'lock_up' || action === 'garage') return A.teal;
+      var acc = ((setting('accessories', {}) || {}).entities || {})[action] || {};
+      return (acc.color && T.hexOf && T.hexOf(acc.color)) || (T.ownTint ? T.ownTint(action) : A.purple);
+    }
     class HkActionCard extends HkGridKey {
       setConfig(config) {
         if (!config || !config.action) throw new Error('hk-action: `action` is required');
@@ -1406,12 +1775,13 @@
       }
       _sigOf() {
         var p = this._plan();
-        return JSON.stringify([p.name, p.icon, p.state, p.hot, this._said || null]);
+        return JSON.stringify([p.name, p.icon, p.state, p.hot, this._said || null, this.getAttribute('tile'), !!this._config.color]);
       }
       _look() {
         var p = this._plan(), a = this._config.action;
         var color = !p.hot ? null : a === 'lights_off' ? YELLOW : a === 'lock_up' || a === 'garage' ? v('warn') : null;
-        return { name: p.name, icon: p.icon, state: p.state, color: color };
+        var paint = this.getAttribute('tile') !== 'centred' || this._config.color ? actionHex(this.client, a) : null;
+        return { name: p.name, icon: p.icon, state: p.state, color: color, paint: paint };
       }
       _tap() {
         var p = this._plan(), self = this;
@@ -1429,21 +1799,81 @@
       [{ name: 'action', required: true, selector: { select: { mode: 'dropdown', custom_value: true, options: ACTION_OPTIONS } },
          helper: 'Or a scene or script, by its entity ID (scene.movie_night).' },
        { name: 'area', selector: { area: {} },
-         helper: 'All Lights Off in this room only. Leave empty for the whole home.' }],
+         helper: 'All Lights Off in this room only. Leave empty for the whole home.' },
+       { name: 'color', selector: { boolean: {} },
+         helper: 'On a HomeView dashboard: on a gradient of its color, not the glass.' }],
       function () { return { action: 'lock_up' }; });
 
     // ===================================================== hk-everything-card
+    // THE WAY TO EVERY PAGE AND ROOM (what More opens), as app icons
+    // (2026-10-31, the owner's notes on the widget mock-up): Small, four of
+    // them as a folder over the name and what is on now; Wide, Large and Extra
+    // Large the icons themselves -- the tab bar's and the Pages screen's look,
+    // a page in its accent, a room in its tint by its place among the menu's
+    // rooms (hkCards.iconGradient / roomTint) -- a tap goes straight there, the
+    // last place opens the rest; a heading says what is on.
+    function menuItems(client) {
+      var M = C.menu, H = window.hkMenu && window.hkMenu._, cfg = null;
+      try { cfg = M && M.config ? M.config() : null; } catch (e) { cfg = null; }
+      if (!H || !H.model || !cfg || !Array.isArray(cfg.views)) return null;
+      var b = (M.board ? M.board() : null) || {};
+      var m = H.model(cfg, client && client.areas, { dash: M.dash ? M.dash() : '', order: b.menu_rooms === 'order' ? 'order' : 'az',
+        roomOrder: b.room_order, user: client && client.user && client.user.id, categories: b.categories, top: b.menu_top, chips: b.chips,
+        chipsRow: b.chips_row, pageOrder: H.pagePaths ? H.pagePaths(b.pages, b.custom_pages) : [], ha: false }) || {};
+      var A = C.ACCENTS, PO = C.PAGE_OF_PATH || {}, glyph = H.glyph || function (i) { return i; };
+      var pages = (m.top || []).concat(m.categories || []).map(function (it) {
+        var p = String((it.paths || [])[1] != null ? it.paths[1] : (it.paths || [])[0]);
+        return { title: it.title, icon: glyph(it.icon), path: it.path, hex: (C.pageAccentHex && C.pageAccentHex(PO[p] || p)) || A.orange };
+      });
+      var rooms = (m.rooms || []).map(function (it, i) {
+        return { title: it.title, icon: glyph(it.icon), path: it.path, hex: A[C.roomTint ? C.roomTint(i) : 'orange'] || A.orange };
+      });
+      return pages.concat(rooms);
+    }
+    // WHAT IS ON NOW: the lights, switches and fans on, the speakers playing
+    // (none hidden, none a group)
+    function onNow(client) {
+      var st = (client && client.states) || {}, n = 0;
+      ['light', 'switch', 'fan'].forEach(function (d) { own(client, d).forEach(function (id) { if (st[id].state === 'on') n++; }); });
+      own(client, 'media_player').forEach(function (id) { if (st[id].state === 'playing') n++; });
+      return n;
+    }
+    function onNowText(n) { return n ? n + ' on now' : 'All off'; }
+    // [columns, rows, labels] at each size (the mock-up's: Wide a row of
+    // five, Large four by three, Extra Large six by three)
+    var EV_GRID = { W: [5, 1, false], L: [4, 3, true], XL: [6, 3, true], XXL: [10, 3, true] };
+    var EV_CSS = [
+      'hk-plate.ev{box-sizing:border-box;height:100%;display:flex;flex-direction:column;padding:' + C.blockPad('14px') + ';overflow:hidden;' + C.plate('card') + ';color:' + v('ink') + '}',
+      '.evh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex:none;min-width:0}',
+      '.evh b{' + type('headline') + ';white-space:nowrap}',
+      '.evh span{' + type('caption') + ';color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
+      '.apps{flex:1;min-height:0;display:grid;grid-template-columns:repeat(var(--c),minmax(0,1fr));column-gap:8px;row-gap:var(--rg);',
+      '  justify-items:center;align-content:var(--ac,center);padding-top:10px}',
+      '.app{all:unset;box-sizing:border-box;position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;max-width:100%;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+      '.app i{display:flex;align-items:center;justify-content:center;flex:none;width:var(--px);height:var(--px);border-radius:' + APP_CORNER + ';color:#fff;font-style:normal;',
+      '  box-shadow:0 4px 10px rgba(0,0,0,0.22);transition:transform ' + C.DUR.press + ' ease}',
+      '.app i hk-icon{width:calc(var(--px) * 0.53);height:calc(var(--px) * 0.53);--mdc-icon-size:100%;display:flex;color:#fff}',
+      '.app:active i{transform:scale(0.94)}',
+      '.app:focus-visible i{outline:2px solid ' + v('ink-2') + ';outline-offset:3px}',
+      '.app small{' + type('micro') + ';line-height:14px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + v('glow') + '}',
+      '.app.mo i{background:rgba(255,255,255,0.2);' + type('headline') + '}',
+      '@media (prefers-reduced-motion:reduce){.app i{transition:none}.app:active i{transform:none}}'
+    ].join('');
     class HkEverythingCard extends HkGridKey {
-      _sigOf() { return JSON.stringify([menuCounts(), C.menu && C.menu.sig ? C.menu.sig() : '']); }
+      static get CSS() { return KEY_CSS + EV_CSS; }
+      _size() { return sizeOf(this) || 'S'; }
+      _items() { return menuItems(this.client) || []; }
+      _sigOf() {
+        return JSON.stringify([this._items().map(function (x) { return x.path; }), onNow(this.client), this._size(), this._blockKey || '',
+                               C.menu && C.menu.sig ? C.menu.sig() : '']);
+      }
       _look() {
-        var n = menuCounts();
-        var state = !n ? 'Pages and Rooms'
-          : [n.pages ? plural(n.pages, 'Page', 'Pages') : '', n.rooms ? plural(n.rooms, 'Room', 'Rooms') : '']
-              .filter(Boolean).join(' · ') || 'Pages and Rooms';
-        // the menu button's own glyph (the screen's: lines or the sidebar)
+        var items = this._items(), n = onNow(this.client);
+        // four of its places, as a folder (none yet: the menu button's own glyph)
         var icon = 'hk:menu';
         try { if (C.menu && C.menu.icon) icon = C.menu.icon() || icon; } catch (e) { /* hk:menu */ }
-        return { name: 'Everything', icon: icon, state: state, color: null };
+        return { name: 'Everything', icon: icon, state: onNowText(n), color: null,
+                 folder: items.length >= 4 ? items.slice(0, 4).map(function (x) { return [x.hex, x.icon]; }) : null };
       }
       // THE SCREEN'S OWN NAVIGATION, never a second menu: with the tab bar
       // showing, its More sheet (what the bar's menu opens); else the side
@@ -1453,9 +1883,59 @@
         if (M && M.tabBar && M.tabBar() && B && typeof B.open === 'function') { B.open('more'); return; }
         if (M && M.open) M.open();
       }
+      _render() {
+        var size = this._size();
+        if (size === 'S' || !EV_GRID[size]) {
+          if (this._mode !== 'S') { this._mode = 'S'; this._built = false; this._foldKey = null; }
+          return super._render();
+        }
+        this._watchBlock();
+        var self = this, items = this._items(), g = EV_GRID[size], cols = g[0], rows = g[1], labels = g[2];
+        if (this._mode !== size || !this._built) {
+          this._mode = size;
+          this._root.innerHTML = '<hk-plate class="ev" data-hk-role="card"><div class="evh"><b>Everything</b><span></span></div><div class="apps" role="list"></div></hk-plate>';
+          this._ev = { card: this._root.querySelector('.ev'), say: this._root.querySelector('.evh span'), apps: this._root.querySelector('.apps') };
+          this._appKey = null;
+          this._built = true;
+        }
+        var e = this._ev, said = onNowText(onNow(this.client));
+        if (e.say.textContent !== said) e.say.textContent = said;
+        // THE ICONS' SIZE, by the room the block has: as large as the mock-up's
+        // (52 at Wide, 62 above) where they fit, smaller on a tile's shorter cell
+        var b = this._block(), h = b ? b.h - 36 - 22 - 10 : (rows === 1 ? 110 : 330), rg = rows > 1 ? 12 : 0;
+        var px = Math.max(36, Math.min(labels ? 62 : 52, Math.floor((h - (rows - 1) * rg) / rows) - (labels ? 20 : 0)));
+        e.apps.style.setProperty('--c', String(cols));
+        e.apps.style.setProperty('--px', px + 'px');
+        e.apps.style.setProperty('--rg', rg + 'px');
+        e.apps.style.setProperty('--ac', rows === 1 ? 'end' : 'center');
+        var places = cols * rows, cut = items.length > places, shown = cut ? items.slice(0, places - 1) : items;
+        var key = JSON.stringify([shown, cut ? items.length - shown.length : 0, labels]);
+        if (key === this._appKey) return;
+        this._appKey = key;
+        e.apps.innerHTML = '';
+        shown.forEach(function (x) {
+          var gr = C.iconGradient(x.hex), a = document.createElement('button');
+          a.type = 'button'; a.className = 'app'; a.setAttribute('role', 'listitem'); a.setAttribute('aria-label', x.title);
+          a.innerHTML = '<i><hk-icon></hk-icon></i>' + (labels ? '<small></small>' : '');
+          a.querySelector('i').style.background = 'linear-gradient(180deg,' + gr[0] + ',' + gr[1] + ')';
+          a.querySelector('hk-icon').icon = x.icon;
+          if (labels) a.querySelector('small').textContent = x.title;
+          a.addEventListener('click', function (ev) { ev.stopPropagation(); C.navigate(x.path, self); });
+          e.apps.appendChild(a);
+        });
+        if (cut) {
+          var m = document.createElement('button'), rest = items.length - shown.length;
+          m.type = 'button'; m.className = 'app mo'; m.setAttribute('role', 'listitem'); m.setAttribute('aria-label', rest + ' more: every page and room');
+          m.innerHTML = '<i></i>' + (labels ? '<small>All</small>' : '');
+          m.querySelector('i').textContent = '+' + rest;
+          m.addEventListener('click', function (ev) { ev.stopPropagation(); self._tap(); });
+          e.apps.appendChild(m);
+        }
+      }
     }
+    watchSize(HkEverythingCard);
     C.register('hk-everything-card', HkEverythingCard, 'HK Everything',
-      'Opens the menu: every page and room of the screen. For a Home Grid screen without its tab bar.',
+      'Every page and room of the screen, as app icons: a tap goes there. For a Home Grid screen.',
       [{ name: 'glass', selector: { boolean: {} },
          helper: 'Off: leave this card out of the shared blur (Glass look: Blur).' }],
       function () { return {}; });
@@ -1586,6 +2066,9 @@
     window.hkGridCards.Room = HkGridRoomCard;
     window.hkGridCards.Action = HkActionCard;
     window.hkGridCards.Everything = HkEverythingCard;
+    // (tests/test_blocks_tiles.js: the widget blocks' own sums)
+    Object.assign(window.hkGridCards._, { roomLine: roomLine, sceneSays: sceneSays, secRows: secRows, secSays: secSays,
+                                          alarmLook: alarmLook, menuItems: menuItems, onNow: onNow, actionHex: actionHex });
     window.hkGridCards.Scene = HkSuggestedSceneCard;
     window.hkGridCards.Cameras = HkGridCamerasCard;
   });
