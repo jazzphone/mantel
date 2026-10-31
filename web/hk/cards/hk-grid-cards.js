@@ -1224,7 +1224,7 @@
         if (look.color) e.card.style.setProperty('--c', look.color); else e.card.style.removeProperty('--c');
         if (look.text) e.card.style.setProperty('--t', look.text); else e.card.style.removeProperty('--t');
         var big = size === 'S' || size === 'W' ? look.word : look.word + (look.mode ? ' · ' + look.mode : '');
-        var sub = size === 'S' ? [look.mode, says && says.charAt(0).toLowerCase() + says.slice(1)].filter(Boolean).join(' · ') : size === 'W' ? (look.mode || says) : says;
+        var sub = size === 'S' ? [look.mode, says && (/^All /.test(says) ? 'all ' + says.slice(4) : says)].filter(Boolean).join(' · ') : size === 'W' ? (look.mode || says) : says;
         if (size === 'S' && !look.mode) sub = says;
         e.big.textContent = big;
         e.sub.textContent = sub;
