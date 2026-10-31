@@ -161,6 +161,16 @@ class MusicManager:
     def _state(self, entity: str) -> str | None:
         return E.state_of(self.house, entity)
 
+    def _now_playing(self, entity: str) -> tuple[Any, ...]:
+        return (self._state(entity), self._attr(entity, "media_content_id"),
+                self._attr(entity, "media_title"))
+
+    def _started_anew(self, entity: str, was: tuple[Any, ...]) -> bool:
+        """Playing, and not still what played before: a speaker already
+        playing says "playing" at once, whatever it plays."""
+        now = self._now_playing(entity)
+        return now[0] == "playing" and (was[0] != "playing" or now[1:] != was[1:])
+
     def _attr(self, entity: str, name: str) -> Any:
         return E.attr(self.house, entity, name)
 
@@ -631,12 +641,16 @@ class MusicManager:
         stamps = self._claim(E.browse_rooms(self.house, cfg, player))
         try:
             async with self._request(stamps):
+                # Browse starts afresh, as Apple Music does: the queue is replaced,
+                # never added to (a playlist "played" into a shuffled queue was
+                # lost among its songs, the owner 2026-10-31)
+                was = self._now_playing(player)
                 ok = await self._call("media_player", "play_media",
                                       {"entity_id": player, "media_content_id": content_id,
-                                       "media_content_type": content_type})
+                                       "media_content_type": content_type, "enqueue": "replace"})
                 if not ok:
                     return done({"ok": False, "message": "Music Assistant could not play that."})
-                started = await self._wait([player], lambda: self._state(player) == "playing",
+                started = await self._wait([player], lambda: self._started_anew(player, was),
                                            START_TIMEOUT)
         except asyncio.CancelledError:
             if self._was_stopped():
