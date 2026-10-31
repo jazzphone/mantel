@@ -1398,7 +1398,7 @@
         // (2026-10-31, Music's widget: what played last and covers to play
         // again, at the block's size -- hk-media.js hk-recent-music-card)
         var M = window.hkMusic, sp = M && M.speakers ? M.speakers() : [];
-        return sp && sp.length ? [{ cfg: Object.assign({ type: 'custom:hk-recent-music-card' }, cfg.show ? { show: cfg.show } : {}, cfg.playlist ? { playlist: cfg.playlist } : {}), size: size }] : null;
+        return sp && sp.length ? [{ cfg: Object.assign({ type: 'custom:hk-recent-music-card' }, cfg.show ? { show: cfg.show } : {}, cfg.playlist ? { playlist: cfg.playlist } : {}, cfg.speaker ? { speaker: cfg.speaker } : {}), size: size }] : null;
       }
       if (kind === 'doors') {
         var S = window.hkStrategy, inv = null;

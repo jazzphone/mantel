@@ -1711,6 +1711,13 @@ SAVER_DAY_LOOKS = ("auto", "light", "dark")
 SAVER_DEFAULTS.update({"forecast_layout": "classic", "photo_titles": False, "time_behind": False, "day_look": "auto"})
 SAVER_CHOICES.update({"clock_style": SAVER_CLOCK_STYLES, "forecast_layout": SAVER_FORECAST_LAYOUTS,
                       "day_look": SAVER_DAY_LOOKS})
+# BIG WEATHER'S NUMBER AND TIME BEHIND'S PLACE (2026-10-31, the owner): Big Weather draws the temperature or the time
+# huge, standing on the landscape's ground (forecast_big); Time Behind's figures are tb_size % of the screen's shorter
+# side, tb_top % down from the top, and the photo under them darkened tb_dim % (Show: Photos and Both -- on Clock the
+# photos' own Darken, clock_photo_dim, does it). The defaults are how they drew before.
+SAVER_FORECAST_BIG = ("temp", "clock")
+SAVER_DEFAULTS.update({"forecast_big": "temp", "tb_size": 24, "tb_top": 6, "tb_dim": 0})
+SAVER_CHOICES.update({"forecast_big": SAVER_FORECAST_BIG})
 # ALL SCREENS' screensaver options (All Screens -> Screensaver): a screen
 # whose own `screensaver_options` is null uses these (resolved()).
 DEFAULTS["look"]["saver"] = dict(SAVER_DEFAULTS)
@@ -1730,7 +1737,7 @@ SAVER_INTS = {"starts_after": SAVER_STARTS, "each_photo": SAVER_EACH, "forecast_
               "calendar_days": SAVER_CAL_DAYS, "fade_back": SAVER_FADE_BACK, "mosaic_count": SAVER_MOSAIC,
               "clock_speed": (0, 100), "clock_depth": (0, 100), "mosaic_line": (0, 24), "mosaic_every": (1, 120),
               "clock_photo_dim": (0, 80), "clock_text_shadow": (0, 100), "clock_text_outline": (0, 100),
-              "extra_every": (1, 60), "extra_for": (10, 300)}
+              "extra_every": (1, 60), "extra_for": (10, 300), "tb_size": (12, 40), "tb_top": (0, 50), "tb_dim": (0, 80)}
 
 
 def saver_options(v: Any, legacy: Any = None) -> dict[str, Any] | None:

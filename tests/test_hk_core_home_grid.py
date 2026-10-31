@@ -102,6 +102,9 @@ def test_six_to_two_columns(cols):
     (grid(block("a1", "weather", "L", [0, 0], opts={"tap": "popup"})), "grid_option"),
     (grid(block("a1", "weather", "L", [0, 0], opts={"tap": True})), "grid_option"),
     (grid(block("a1", "scene", "S", [0, 0], opts={"scene": "scene.good_night", "tap": "page"})), "grid_option"),
+    # a music block plays on a speaker or a speaker group: a media player, nothing else
+    (grid(block("a1", "music", "S", [0, 0], opts={"speaker": "light.kitchen"})), "grid_option"),
+    (grid(block("a1", "music", "S", [0, 0], opts={"speaker": "Kitchen"})), "grid_option"),
 ])
 def test_what_is_refused_and_why(g, code):
     b, errors = write(g)

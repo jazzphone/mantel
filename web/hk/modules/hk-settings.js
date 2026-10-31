@@ -201,7 +201,9 @@
                      energy_slide: false, extra_music: false, extra_forecast: false, extra_every: 5, extra_for: 30, energy_hide: [],
                      weather_slide: false, weather_hide: [],
                      // the HomeView-style faces (settings.py, 2026-10-30)
-                     forecast_layout: 'classic', photo_titles: false, time_behind: false, day_look: 'auto' } },
+                     forecast_layout: 'classic', photo_titles: false, time_behind: false, day_look: 'auto',
+                     // Big Weather's number, Time Behind's size, place and darkening (settings.py, 2026-10-31)
+                     forecast_big: 'temp', tb_size: 24, tb_top: 6, tb_dim: 0 } },
     // The Calendar page and the screensaver's calendar pane (All Screens ->
     // Calendar): the calendars shown, in order (empty: every calendar), and
     // each one's colour (a page pill colour)

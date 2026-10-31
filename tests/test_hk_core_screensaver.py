@@ -240,6 +240,13 @@ def test_the_new_shows_and_options_check():
         assert M.saver_options({"clock_style": face})["clock_style"] == face
         assert M.saver_options({"clock_colors": {face: "blue"}})["clock_colors"] == {face: "blue"}
     assert M.saver_options({"clock_style": "melting"}) is None
+    # Big Weather's number; Time Behind's size, height and darkening (2026-10-31)
+    assert M.saver_options({"forecast_big": "clock"})["forecast_big"] == "clock"
+    assert M.saver_options({"forecast_big": "moon"}) is None
+    got = M.saver_options({"tb_size": 32, "tb_top": 20, "tb_dim": 40})
+    assert (got["tb_size"], got["tb_top"], got["tb_dim"]) == (32, 20, 40)
+    for bad in ({"tb_size": 8}, {"tb_size": 60}, {"tb_top": 70}, {"tb_dim": 90}):
+        assert M.saver_options(bad) is None, bad
 
 
 def test_a_screensaver_saved_before_draws_as_it_did():
@@ -250,6 +257,8 @@ def test_a_screensaver_saved_before_draws_as_it_did():
     got = M.saver_options(old)
     assert {k: got[k] for k in ("forecast_layout", "photo_titles", "time_behind", "day_look")} == \
         {"forecast_layout": "classic", "photo_titles": False, "time_behind": False, "day_look": "auto"}
+    assert {k: got[k] for k in ("forecast_big", "tb_size", "tb_top", "tb_dim")} == \
+        {"forecast_big": "temp", "tb_size": 24, "tb_top": 6, "tb_dim": 0}
     assert {k: got[k] for k in old} == old
     assert M.board({"screensaver": True, "screensaver_options": old})["screensaver_options"] == got
     assert M.SAVER_SHOWS[:4] == ("photos", "both", "forecast", "clock"), "the old Shows first, unchanged"

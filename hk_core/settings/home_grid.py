@@ -94,7 +94,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     "power": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # show (2026-10-31, the owner): what it shows -- Recently Played (none stored), the Music page's playlists (presets), or
     # one playlist, named by `playlist` (its name in Music's settings)
-    "music": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"show": "music_show", "playlist": "music_playlist", "tap": "tap_target"}},
+    "music": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"show": "music_show", "playlist": "music_playlist", "speaker": "music_speaker", "tap": "tap_target"}},
     "doors": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # channel (2026-10-31, the owner): one channel of the guide fills the block; none, as many as the size holds
     "live_tv": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"channel": "tv_channel", "tap": "tap_target"}},
@@ -360,6 +360,8 @@ OPTION_KINDS = {
     "tv_channel": _tv_channel,
     "music_show": _music_show,
     "music_playlist": _music_playlist,
+    # where a music block's tap plays (2026-10-31, the owner): a speaker or a speaker group, else this screen's music
+    "music_speaker": _domain("media_player"),
     "todo": _domain("todo"),
     "camera_follow": _camera_follow,
     "select": _domain("input_select", "select"),

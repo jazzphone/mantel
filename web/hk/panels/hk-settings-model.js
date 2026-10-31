@@ -2145,6 +2145,9 @@
   var FORECAST_LAYOUTS = [['classic', 'Classic'], ['big', 'Big']];
   var DAY_LOOKS = [['auto', 'By Time of Day'], ['light', 'Light'], ['dark', 'Dark']];
   Object.assign(SAVER_DEFAULTS, { forecast_layout: 'classic', photo_titles: false, time_behind: false, day_look: 'auto' });
+  // Big Weather's number; Time Behind's size, place and darkening (settings.py, 2026-10-31)
+  var FORECAST_BIG = [['temp', 'Temperature'], ['clock', 'Clock']];
+  Object.assign(SAVER_DEFAULTS, { forecast_big: 'temp', tb_size: 24, tb_top: 6, tb_dim: 0 });
   CLOCK_STYLES.push(['liquid', 'Liquid', 'Soft, glossy numerals that drift slowly over a pastel gradient'],
                     ['giant', 'Giant Numerals', 'An analog clock with 12, 3, 6 and 9 drawn huge on a strong color'],
                     ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft color']);
@@ -2781,7 +2784,7 @@
     skySummary: skySummary, backdropFollow: backdropFollow,
     YAML_REF: YAML_REF, YAML_DEFAULTS: YAML_DEFAULTS, yamlRefText: yamlRefText, yamlRefItem: yamlRefItem,
     previewSizes: previewSizes, previewDefault: previewDefault, previewFit: previewFit,
-    SAVER_SHOWS: SAVER_SHOWS, FORECAST_LAYOUTS: FORECAST_LAYOUTS, DAY_LOOKS: DAY_LOOKS, CLOCK_OWN_GROUND: CLOCK_OWN_GROUND, showName: showName,
+    SAVER_SHOWS: SAVER_SHOWS, FORECAST_LAYOUTS: FORECAST_LAYOUTS, FORECAST_BIG: FORECAST_BIG, DAY_LOOKS: DAY_LOOKS, CLOCK_OWN_GROUND: CLOCK_OWN_GROUND, showName: showName,
     SAVER_DEFAULTS: SAVER_DEFAULTS, saverOptions: saverOptions, saverCustom: saverCustom, ENERGY_PARTS: ENERGY_PARTS, energyShown: energyShown, WEATHER_PARTS: WEATHER_PARTS, weatherShown: weatherShown, listText: listText, saverSummary: saverSummary, saverFollows: saverFollows, kioskSummary: kioskSummary,
     NP_STYLES: NP_STYLES, NP_SIDES: NP_SIDES, NP_BARS: NP_BARS, NP_GRACES: NP_GRACES, npSummary: npSummary, npOwn: npOwn, NP_OWN_KEYS: NP_OWN_KEYS,
     COPY_GROUPS: COPY_GROUPS, COPY_NEVER: COPY_NEVER, copyDefaults: copyDefaults, copyChanges: copyChanges,

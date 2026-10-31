@@ -214,6 +214,10 @@
       photo_titles: raw.photo_titles === true,
       time_behind: raw.time_behind === true,
       day_look: raw.day_look === 'light' || raw.day_look === 'dark' ? raw.day_look : 'auto',
+      // Big Weather's number (2026-10-31): the temperature or the time; Time Behind's figures, their size and
+      // height (% of the shorter side; % down) and the photo darkened under them (Photos and Both)
+      forecast_big: raw.forecast_big === 'clock' ? 'clock' : 'temp',
+      tb_size: n(raw.tb_size, 12, 40, 24), tb_top: n(raw.tb_top, 0, 50, 6), tb_dim: n(raw.tb_dim, 0, 80, 0),
       extra_music: raw.extra_music === true,
       extra_forecast: raw.extra_forecast === true,
       extra_every: n(raw.extra_every, 1, 60, 5),
@@ -459,11 +463,17 @@
   // lays it out in the photo's box (W x H, beside any pane) -- a line 28 % of its shorter side tall, 6 % down, the
   // figures 24 % of it. glyphBox: the figures' own box in it, [left, top, w, h] (a figure 0.58 of the type wide, a
   // colon 0.3, the figures' height 0.72), what the subject is weighed against
+  // ...the size and the height as the screen sets them (2026-10-31, the owner: tb_size, tb_top -- 24 and 6 the
+  // defaults, the line always 7/6 of the figures), passed in `c` (else the defaults)
   var TB = { top: 0.06, line: 0.28, type: 0.24 }, TB_WAIT = 1500;
-  function glyphBox(W, H, text) {
-    var m = Math.min(W, H), f = m * TB.type, s = String(text || '10:42');
+  function tbGeom(c) {
+    var t = c && c.tb_size ? c.tb_size / 100 : TB.type;
+    return { top: c && c.tb_top != null ? c.tb_top / 100 : TB.top, type: t, line: t * TB.line / TB.type };
+  }
+  function glyphBox(W, H, text, c) {
+    var g = tbGeom(c), m = Math.min(W, H), f = m * g.type, s = String(text || '10:42');
     var w = f * (s.replace(/[^0-9]/g, '').length * 0.58 + s.replace(/[0-9]/g, '').length * 0.3), h = f * 0.72;
-    return [(W - w) / 2, H * TB.top + (m * TB.line - h) / 2, w, h];
+    return [(W - w) / 2, H * g.top + (m * g.line - h) / 2, w, h];
   }
   // HOW MUCH OF THE FIGURES THE SUBJECT COVERS: the share of a mask's alpha (RGBA bytes) at half or more. Behind,
   // the subject over the time, only where it covers some of it -- enough to read as in front, not so much the time
@@ -479,7 +489,11 @@
   // the figures' box, 96 px wide, the mask laid over it where the photo is. A mask that can't be read (another
   // site's, no canvas): in front
   var tbShares = {};
-  function tbKey(mask, W, H, fit, pos, text) { return [mask, Math.round(W), Math.round(H), fit, pos.join(' '), String(text).length].join('|'); }
+  // (the time's size and height as well, where the screen changed them: tbGeom)
+  function tbKey(mask, W, H, fit, pos, text, c) {
+    var g = tbGeom(c), k = [mask, Math.round(W), Math.round(H), fit, pos.join(' '), String(text).length].join('|');
+    return g.type === TB.type && g.top === TB.top ? k : k + '|' + g.type + '|' + g.top;
+  }
   function tbShare(mask, rect, g, key, done) {
     if (key in tbShares) { done(tbShares[key]); return; }
     if (typeof Image === 'undefined') { done(null); return; }
@@ -1445,7 +1459,8 @@
     '  font-family:var(--hk-saver-font,-apple-system,system-ui,sans-serif);font-weight:500;letter-spacing:-.03em;font-variant-numeric:proportional-nums;',
     '  color:rgba(255,255,255,.94);text-shadow:0 2px 30px rgba(0,0,0,.22)}',
     // (the one place: TB in hk-saver.js, glyphBox's numbers)
-    '.ph .tb .tbt{left:0;right:0;top:6cqh;font-size:24cqmin;height:28cqmin}',
+    // (its size and height as the screen sets them: --tb-size, --tb-top on the host, photoFaces)
+    '.ph .tb .tbt{left:0;right:0;top:calc(var(--tb-top,6) * 1cqh);font-size:calc(var(--tb-size,24) * 1cqmin);height:calc(var(--tb-size,24) * 7cqmin / 6)}',
     '.ph .tb.wait{visibility:hidden}',
     '.ph .tb img.tbcut{object-fit:var(--fit,cover);object-position:var(--pos,50% 50%);',
     '  -webkit-mask-size:var(--fit,cover);mask-size:var(--fit,cover);-webkit-mask-position:var(--pos,50% 50%);mask-position:var(--pos,50% 50%);',
@@ -1467,6 +1482,11 @@
     // wash darkens the photo (a black wash at d is the colour times 1 - d), so the subject still matches its photo
     ':host([ckphotos]) .ph .tb,:host([ckphotos]) .ph .ttl{z-index:3}',
     ':host([ckphotos]) .ph .tb img.tbcut{filter:brightness(calc(1 - var(--hk-ckdim,.35)))}',
+    // TIME BEHIND'S OWN DARKEN on Photos and Both (2026-10-31, tbLook's --tb-dim): the same wash, the time and the
+    // titles over it, the cut-out darkened with the photo -- none at 0, as before
+    ':host([tb]:not([ckphotos])) .ph::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:rgba(0,0,0,var(--tb-dim,0))}',
+    ':host([tb]:not([ckphotos])) .ph .tb,:host([tb]:not([ckphotos])) .ph .ttl{z-index:3}',
+    ':host([tb]:not([ckphotos])) .ph .tb img.tbcut{filter:brightness(calc(1 - var(--tb-dim,0)))}',
     '@media (prefers-reduced-motion:reduce){.ph.zoom .tb{animation:none}}'
   ].join('\n');
 
@@ -2216,7 +2236,7 @@
   // one: on a Mac or an iPad the copy was the photo at 96 px, enlarged --
   // pixelated behind the pane (HK Settings' preview, 2026-10-10).
   var BACKDROP_W = 96, BACKDROP_SMALL = 24;
-  function drawBackdrop(c, img, small) {
+  function drawBackdrop(c, img, small, ay) {
     if (isFlat()) { clearCanvas(c); return; }
     if (!c || !img) return;
     var W = Math.max(1, window.innerWidth || 1280), H = Math.max(1, window.innerHeight || 800);
@@ -2231,7 +2251,7 @@
     if (!tc) return;
     var k = Math.max(t.width / iw, t.height / ih), dw = iw * k, dh = ih * k;
     tc.imageSmoothingQuality = 'high';
-    tc.drawImage(img, (t.width - dw) / 2, (t.height - dh) / 2, dw, dh);
+    tc.drawImage(img, (t.width - dw) / 2, (t.height - dh) * (ay == null ? 0.5 : ay), dw, dh);
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(t, 0, 0, c.width, c.height);
   }
@@ -2437,6 +2457,16 @@
     var on = !!c && (c.show === 'photos' || c.show === 'both' || (c.show === 'clock' && c.clock_bg === 'photos' && !c.clock_photo_soft));
     return { titles: on && !!c.photo_titles, behind: on && !!c.time_behind };
   }
+  // TIME BEHIND'S SIZE, HEIGHT AND DARKENING (2026-10-31, the owner: "adjust the clock's size and position
+  // vertically", and dim the photo as Clock on Photos can): on the host, for the CSS; the darkening on Photos and
+  // Both only (on Clock the photos' own Darken, --hk-ckdim, is the one)
+  function tbLook(c) {
+    if (!host || !host.style) return;
+    var on = !!c && photoOpts(c).behind;
+    host.style.setProperty('--tb-size', String(on ? c.tb_size : 24));
+    host.style.setProperty('--tb-top', String(on ? c.tb_top : 6));
+    host.style.setProperty('--tb-dim', String(on && c.show !== 'clock' ? (c.tb_dim || 0) / 100 : 0));
+  }
   function photoFaces(lay, ph, L, c) {
     c = c || cfg;
     lay.querySelectorAll('.tb,.ttl').forEach(function (n) { n.remove(); });
@@ -2452,6 +2482,7 @@
       lay.insertBefore(ttl, before);
     }
     if (host) setAttr(host, 'tb', po.behind);
+    tbLook(c);
     if (!po.behind) return;
     var r = lay.getBoundingClientRect ? lay.getBoundingClientRect() : null;
     var W = Math.max(1, ((r && r.width) || window.innerWidth || 1280) - (paneUp ? paneW || 0 : 0)), H = (r && r.height) || window.innerHeight || 800;
@@ -2474,10 +2505,10 @@
     };
     if (d && ph.w && ph.h) {
       // (hidden until weighed -- the mask is a moment away the first time -- and never longer than TB_WAIT)
-      var key = tbKey(d.mask, W, H, L.fit.fit, pos, t.textContent), settled = false;
+      var key = tbKey(d.mask, W, H, L.fit.fit, pos, t.textContent, c), settled = false;
       var settle = function (share) { if (settled) return; settled = true; behind(behindAt(share)); };
       tb.className = 'tb wait';
-      tbShare(d.mask, drawnRect(ph.w, ph.h, W, H, L.fit.fit, pos[0], pos[1]), glyphBox(W, H, t.textContent), key, settle);
+      tbShare(d.mask, drawnRect(ph.w, ph.h, W, H, L.fit.fit, pos[0], pos[1]), glyphBox(W, H, t.textContent, c), key, settle);
       if (!settled) setTimeout(function () { settle(null); }, TB_WAIT);
     } else behind(false);
     // (under the title: the subject cut out over the time, the album's name over them all)
@@ -2576,18 +2607,21 @@
   // BIG WEATHER (2026-10-30; the Forecast's Layout: Big): hk-saverfaces.js's, in the forecast's layer over its sky,
   // wherever the forecast shows on its own -- Show: Forecast, the slide among the photos, no photos -- never under a
   // clock (Behind the Clock: Forecast keeps the forecast's own details)
-  var bigCtl = null, bigRun = 0;
+  var bigCtl = null, bigRun = 0, bigFor = '';
   function bigWanted() { return !!(cfg && cfg.forecast_layout === 'big' && cfg.show !== 'clock' && !FACE_SHOWS[cfg.show]); }
   function bigWeather() {
     if (!root || !host) return;
     var want = bigWanted();
     setAttr(host, 'fcbig', want);
     var fc = root.querySelector('.fc');
+    // (its big number changed -- the temperature or the time: drawn again)
+    if (bigCtl && (!want || bigFor !== cfg.forecast_big)) { try { bigCtl.destroy(); } catch (e) { /* gone */ } bigCtl = null; }
     if (!want || !fc || bigCtl) return;
     var run = ++bigRun;
     facesModule().then(function (F) {
       if (!F || run !== bigRun || !on || !fc.isConnected || bigCtl) return;
-      bigCtl = F.mount(fc, { kind: 'weather', h24: cfg.clock_24, weather: weatherEntity(), client: clientNow(),
+      bigFor = cfg.forecast_big;
+      bigCtl = F.mount(fc, { kind: 'weather', h24: cfg.clock_24, big: cfg.forecast_big, weather: weatherEntity(), client: clientNow(),
                              onReadings: function (n) { if (host) host.setAttribute('fcn', String(n)); } });
     });
   }
@@ -2929,6 +2963,7 @@
         root.insertBefore(enCtl.el, root.querySelector('.info'));
       } else enCtl.setHide(cfg.energy_hide);
       enCtl.ready(clientNow());
+      landImg();                         // (the landscape's image asked for now: its blurred copy ready at the first turn)
       if (!hold) return;
       var tries = 0, show = function () {
         if (run !== enRun || !on || enShowing) return;
@@ -2951,8 +2986,21 @@
   }
   function energyLook() {
     if (mode === 'photos' && curImg()) return 'photo';
-    if (mode === 'forecast' || fcShowing) return 'sky';
+    if (mode === 'forecast' || fcShowing) return landImg() ? 'land' : 'sky';
     return 'plain';
+  }
+  // OVER THE FORECAST, ITS LANDSCAPE BLURRED (2026-10-31, the owner: Home Energy over the forecast "doesn't blur the
+  // forecast backdrop" -- the big temperature and the details read through its dark wash): the season's landscape on
+  // screen drawn small, as a photo's blurred copy is, its foot at the foot (hk-sky.js .land: cover, center bottom).
+  // Its image is the one the sky shows, from the browser's cache; until it has loaded (or under Flat, which draws no
+  // copies), the darkened sky as before.
+  var landIm = null;
+  function landImg() {
+    if (isFlat() || !root) return null;
+    var i = root.querySelector('.fc .land>i.on'), m = i && /url\(["']?([^"')]+)["']?\)/.exec(getComputedStyle(i).backgroundImage || '');
+    if (!m) return null;
+    if (!landIm || landIm.hkSrc !== m[1]) { landIm = new Image(); landIm.hkSrc = m[1]; landIm.src = m[1]; }
+    return landIm.complete && landIm.naturalWidth ? landIm : null;
   }
   // ITS ROOM: beside the pane (it tells the time itself, top left)
   function energyLayout() {
@@ -2978,8 +3026,11 @@
     if (!enCtl.ready(h)) return false;
     // above whatever came after it (a clock mounted again), under the corner cards
     if (!underCards(enCtl.el, info)) root.insertBefore(enCtl.el, info);
-    var look = energyLook(), img = look === 'photo' ? curImg() : null;
-    if (!enCtl.draw(h, look, img ? function (c) { drawBackdrop(c, img, BACKDROP_SMALL); } : null)) return false;
+    var look = energyLook(), img = look === 'photo' ? curImg() : look === 'land' ? landImg() : null;
+    // (the landscape's blurred copy is drawn as a photo's is, its foot at the foot)
+    var foot = look === 'land' ? 1 : 0.5;
+    if (look === 'land') look = 'photo';
+    if (!enCtl.draw(h, look, img ? function (c) { drawBackdrop(c, img, BACKDROP_SMALL, foot); } : null)) return false;
     enShowing = true; sinceFc = 0; lastSlide = 'energy';
     host.setAttribute('enslide', '');
     updateBand();

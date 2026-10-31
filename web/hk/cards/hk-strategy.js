@@ -2892,7 +2892,7 @@
       show: SAVER_SHOW_KEYS.indexOf(o.show) >= 0 ? o.show : 'photos', fallback: o.fallback !== false,
       // the HomeView-style faces' options (hk-saver.js readCfg checks them)
       forecast_layout: o.forecast_layout, photo_titles: o.photo_titles === true, time_behind: o.time_behind === true,
-      day_look: o.day_look,
+      day_look: o.day_look, forecast_big: o.forecast_big, tb_size: o.tb_size, tb_top: o.tb_top, tb_dim: o.tb_dim,
       // the clocks (hk-saverclock.js; hk-saver.js readCfg checks them)
       clock: o.clock !== false, clock_over: o.clock_over, clock_style: o.clock_style, clock_bg: o.clock_bg,
       clock_motion: o.clock_motion, clock_24: o.clock_24 === true, clock_colors: o.clock_colors, clock_speed: o.clock_speed, clock_depth: o.clock_depth,

@@ -96,6 +96,8 @@
   // Search is typed, so it debounces. 350ms is long enough that a five-letter
   // artist is one request instead of five, and short enough not to feel laggy.
   var DEBOUNCE = 350;
+  // how long a request waits for the house's connection to reach the card before it fails (_ws)
+  var CLIENT_WAIT = 10000;
 
   // How many items a Discover shelf shows. get_library answers 25 and five
   // shelves of 25 is 125 pieces of artwork on a wall tablet, where the bill
@@ -690,8 +692,20 @@
     // ------------------------------------------------------------ data
     // `wait`: how long before giving up, 20 s unless the caller knows better
     _ws(msg, wait) {
-      if (!this.client || !this.client.callWS) return Promise.reject(new Error('no client'));
       var self = this;
+      // NO CONNECTION YET (2026-10-31, the owner: "Could not open that: no client", and Try Again worked): the page
+      // asks as it opens, sometimes a moment before the house's connection reaches the card. Wait for it -- a
+      // quarter second at a time, up to CLIENT_WAIT -- rather than fail the first ask
+      if (!this.client || !this.client.callWS) {
+        return new Promise(function (resolve, reject) {
+          var t0 = Date.now(), look = function () {
+            if (self.client && self.client.callWS) { self._ws(msg, wait).then(resolve, reject); return; }
+            if (Date.now() - t0 >= CLIENT_WAIT) { reject(new Error('Music isn\u2019t connected yet')); return; }
+            setTimeout(look, 250);
+          };
+          setTimeout(look, 250);
+        });
+      }
       return new Promise(function (resolve, reject) {
         var timer = setTimeout(function () {
           reject(new Error('Music Assistant did not respond. Try again.'));

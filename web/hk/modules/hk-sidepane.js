@@ -509,9 +509,22 @@
       var mine = s === 'less' ? evs.slice(0, 2) : evs.filter(function (e) { return evStart(e).getTime() < end; });
       if (!mine.length) mine = evs.slice(0, 1);
       CAL.shown = mine;
+      // UNDER THEIR DAY (2026-10-31, the owner: "the date or day of the week before the events as a header, instead of
+      // ... a second line"): Today, Tomorrow, then the weekday, once each; under each event only its time, or All day
+      var dayOf = function (e) {
+        var a = evStart(e), today = new Date(); today.setHours(0, 0, 0, 0);
+        var n = Math.floor((new Date(a.getFullYear(), a.getMonth(), a.getDate()) - today) / 86400000);
+        if (n <= 0) return 'Today';
+        if (n === 1) return 'Tomorrow';
+        if (n < 7) { try { return L().date(a, { weekday: 'long' }); } catch (x) { /* below */ } }
+        return dateShort(a);
+      };
+      var last = null;
       return box('calendar', s, head('calendar') + '<div class="evs' + (s === 'less' ? '' : ' scroll') + ' lst">' + mine.map(function (e, i) {
-        return '<div class="ev" data-ev="' + i + '"><span class="cb" style="background:' + esc(ctx.evColor(e)) + '"></span><span class="et"><b>' +
-          esc(e.title || 'Event') + '</b><i>' + esc(when(e)) + '</i></span></div>';
+        var d = dayOf(e), hd = d !== last ? '<div class="evd">' + esc(d) + '</div>' : '';
+        last = d;
+        return hd + '<div class="ev" data-ev="' + i + '"><span class="cb" style="background:' + esc(ctx.evColor(e)) + '"></span><span class="et"><b>' +
+          esc(e.title || 'Event') + '</b><i>' + esc(allDay(e) ? 'All day' : hm(evStart(e))) + '</i></span></div>';
       }).join('') + '</div>', 'shrink');
     },
     now_playing: function (s, sec, c, ctx) {
@@ -923,6 +936,10 @@
       '.ev .et{min-width:0}',
       '.ev .et b{display:block;font:600 17px/1.3 var(--hk-font-body,inherit);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.ev .et i{font:500 13px/1.3 var(--hk-font-body,inherit);font-style:normal;color:' + v('ink-2') + '}',
+      // a day's heading over its events (the last event before the next day keeps no rule under it)
+      '.evd{font:600 13px/1.3 var(--hk-font-body,inherit);color:' + v('ink-2') + ';padding:12px 0 2px}',
+      '.evd:first-child{padding-top:0}',
+      '.ev:has(+ .evd){border-bottom:0}',
       '.np .art{width:56px;height:56px;border-radius:10px;object-fit:cover;flex:none;background:' + v('key') + ';display:grid;place-items:center}',
       '.np .tx b{display:block;overflow:hidden;text-overflow:ellipsis}.np .tx i{display:block;font:500 15px/1.3 var(--hk-font-body,inherit);font-style:normal;color:' + v('ink-2') + ';overflow:hidden;text-overflow:ellipsis}',
       '.pp{all:unset;cursor:pointer;flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:' + v('key') + '}',

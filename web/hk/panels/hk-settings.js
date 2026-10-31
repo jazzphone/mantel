@@ -4014,6 +4014,10 @@
                fxKnown && (fc || both || cur.fallback) ? [K.previewPick({ label: 'Forecast Layout', sk: 'saver:forecast_layout', value: big ? 'big' : 'classic',
                  options: M.FORECAST_LAYOUTS, picture: function (v, w, ht) { return self.saverThumb(w, ht, v === 'big' ? 'weather' : 'forecast', cur); },
                  onChange: function (v) { put('forecast_layout', v); } })] : [],
+               // BIG WEATHER'S NUMBER (2026-10-31, the owner): the temperature or the time, standing on the ground
+               big && (fc || both || cur.fallback) && self.saverKnown('forecast_big') ? [K.seg({ label: 'Big Number', sk: 'saver:forecast_big',
+                 value: cur.forecast_big === 'clock' ? 'clock' : 'temp', options: M.FORECAST_BIG,
+                 onChange: function (v) { put('forecast_big', v); } })] : [],
                // the details ON the forecast, wherever a forecast can show
                (fc || both || cur.fallback) && !big ? [tog('Details on the Forecast', 'band',
                  'On the forecast: today, the next hours and the coming days along the bottom. Off: the sky and the landscape alone.')] : [])));
@@ -4296,6 +4300,18 @@
             ? 'The time on each photo, large, behind the person or thing in it where it can be, in place of the clock above.'
             : 'The time, large, behind the person or thing in each photo that qualifies; in front on the others.') +
             (mo ? ' Not in a mosaic.' : '')));
+          // ITS SIZE, ITS HEIGHT AND THE PHOTO DARKENED UNDER IT (2026-10-31, the owner): with it, as Clock on
+          // Photos has its Darken -- there that one is it (Backgrounds), so it isn't asked twice
+          if (cur.time_behind && self.saverKnown('tb_size')) {
+            prow.push(K.slider({ label: 'Time Size', sk: 'saver:tb_size', value: cur.tb_size != null ? cur.tb_size : 24,
+                                 min: 12, max: 40, step: 2, unit: '%', onChange: function (v) { put('tb_size', v); } }));
+            prow.push(K.slider({ label: 'Time Height', sk: 'saver:tb_top', value: cur.tb_top != null ? cur.tb_top : 6,
+                                 min: 0, max: 50, step: 2, unit: '%', onChange: function (v) { put('tb_top', v); } }));
+            if (!clockMode) {
+              prow.push(K.slider({ label: 'Darken', sk: 'saver:tb_dim', value: cur.tb_dim || 0,
+                                   min: 0, max: 80, step: 5, unit: '%', onChange: function (v) { put('tb_dim', v); } }));
+            }
+          }
         }
       }
       // (under the photos' source groups -- a folder, a host's album and its

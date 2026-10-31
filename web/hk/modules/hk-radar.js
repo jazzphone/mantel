@@ -257,11 +257,17 @@
       '.rc.preview .lg{bottom:' + (C.CARD.y + 68) + 'px}',
       // THE MAP FULL SCREEN: the same card in a dialog (the top layer), a safe
       // inset from the window's edge
-      'dialog.rx{position:fixed;inset:24px;width:calc(100vw - 48px);height:calc(100dvh - 48px);max-width:none;max-height:none;margin:0;padding:0;border:0;',
+      // CLEAR OF THE SCREEN'S SAFE AREAS (2026-10-31, the iPhone Duo): its strip of system controls down the
+      // side covered the X, as it did Live TV's (hk-cameras.js) -- each edge's inset added to the gap (--rx-gap)
+      'dialog.rx{--rx-gap:24px;position:fixed;margin:0;',
+      '  top:calc(var(--rx-gap) + ' + C.SAFE.t + ');right:calc(var(--rx-gap) + ' + C.SAFE.r + ');',
+      '  bottom:calc(var(--rx-gap) + ' + C.SAFE.b + ');left:calc(var(--rx-gap) + ' + C.SAFE.l + ');',
+      '  width:calc(100vw - 2 * var(--rx-gap) - ' + C.SAFE.l + ' - ' + C.SAFE.r + ');',
+      '  height:calc(100dvh - 2 * var(--rx-gap) - ' + C.SAFE.t + ' - ' + C.SAFE.b + ');max-width:none;max-height:none;padding:0;border:0;',
       '  border-radius:' + C.R.plate + 'px;background:transparent;overflow:visible;color:inherit}',
       'dialog.rx::backdrop{background:rgba(6,14,24,.62);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}',
       'dialog.rx .rc{height:100%}',
-      '@media (max-width:' + C.BP.phone + 'px){dialog.rx{inset:10px;width:calc(100vw - 20px);height:calc(100dvh - 20px)}}',
+      '@media (max-width:' + C.BP.phone + 'px){dialog.rx{--rx-gap:10px}}',
       '@media (prefers-reduced-motion:reduce){.btn:active{transform:none}}'
     ].join('');
   }
