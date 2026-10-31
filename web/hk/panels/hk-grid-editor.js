@@ -25,13 +25,18 @@
   var SIZE_NAMES = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width', F: 'Full View' };
   // a size on a chip or a segment, short enough for four in a row
   var SIZE_SHORT = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'X-Large', XXL: 'Full', F: 'Full View' };
+  // EVERY CATALOG KEY IS IN ONE OF THESE (2026-10-31, the owner: On Now, To-do and Energy Rings were missing from the
+  // card list -- the list is drawn from GROUPS, so a block added to the catalog and not here was never offered, in
+  // this editor or in Edit mode's Add). tests/test_grideditor.js holds the two equal, name, description and glyph
+  // included. On Now sits with the lights it turns off; Energy Rings beside Power and Water.
   var GROUPS = [
-    ['Rooms & Lights', ['room', 'accessory', 'accessories', 'action']], ['Scenes', ['scene', 'scenes', 'scene_suggested']],
+    ['Rooms & Lights', ['room', 'accessory', 'accessories', 'action', 'on_now']], ['Scenes', ['scene', 'scenes', 'scene_suggested']],
     ['Climate', ['thermostat', 'weather']], ['Music', ['now_playing', 'music', 'live_tv']],
-    ['Security & Cameras', ['security', 'doors', 'camera', 'cameras']], ['Info', ['clock', 'timers', 'calendar', 'battery', 'power', 'water', 'people', 'vacuum', 'everything']]
+    ['Security & Cameras', ['security', 'doors', 'camera', 'cameras']],
+    ['Info', ['clock', 'timers', 'calendar', 'todo', 'battery', 'power', 'energy_rings', 'water', 'people', 'vacuum', 'everything']]
   ];
   var DESCRIPTIONS = { room: 'Your room’s lights, fans and speaker', accessory: 'One light, switch or other accessory', accessories: 'Accessories you choose, in swipe pages',
-    action: 'One tap for a household job', scene: 'Set a favourite scene', scenes: 'Your scenes together',
+    action: 'One tap for a household job', scene: 'Set a favorite scene', scenes: 'Your scenes together',
     scene_suggested: 'The right scene for the time of day', thermostat: 'Temperature and climate; Extra Large has every control',
     weather: 'Current conditions and the forecast', now_playing: 'Music and playback controls', security: 'The alarm, locks and doors; Large is the keypad',
     camera: 'One camera, or swipe between cameras', cameras: 'Up to nine cameras at once; Full View fills the page', clock: 'Digital or analog, with or without its box', timers: 'Timers and quick starts',
@@ -468,6 +473,57 @@
     out.items.push(item);
     return valid(out) ? out : null;
   }
+  // A CARD DROPPED WHERE THERE IS NO ROOM (2026-10-31, the owner: "if there's no room for the card, let me drag it
+  // onto the grid anyway ... it replaces the blocks it covers"): a new block of `card` at `size` goes to `at`, in
+  // `view` (the editor's own when none is given), by the first of
+  //   1. nothing in the way: it goes there;
+  //   2. the blocks in the way moved to free places, as a dragged block makes room (makeRoom's steps 2 and 3 --
+  //      there is no space it left, as a block being moved leaves one): nothing is lost while there is room;
+  //   3. the blocks it covers removed, and it takes their cells -- only the ones it covers.
+  // -> { grid, moved: [ids moved aside], removed: [the blocks that went] }, or null: it doesn't fit the grid at all
+  // (or the layout is full and nothing is covered).
+  function addOver(grid, card, size, at, view) {
+    var z = SIZES[size], v = view === undefined ? VIEW : view || 0;
+    if (!z || !at || !fits(grid, { size: size, at: at })) return null;
+    var fresh = function () {
+      var out = copy(grid), n = 1;
+      while (out.items.some(function (it) { return it.id === 'b' + n; })) n++;
+      var item = { id: 'b' + n, card: card, size: size, at: at.slice() };
+      if (v) item.view = v;
+      return { out: out, item: item };
+    };
+    var a = fresh(), hit = a.out.items.filter(function (it) { return (it.view || 0) === v && overlap(a.item, it); });
+    if (!hit.length) {
+      if (grid.items.length >= 24) return null;
+      a.out.items.push(a.item);
+      return valid(a.out) ? { grid: a.out, moved: [], removed: [] } : null;
+    }
+    if (grid.items.length < 24) {
+      var mine = a.out.items.filter(function (it) { return (it.view || 0) === v; }), stay = mine.filter(function (it) { return hit.indexOf(it) < 0; });
+      var was = {};
+      mine.forEach(function (it) { was[it.id] = it.at.slice(); });
+      a.out.items.push(a.item);
+      // (`from` is off the grid: no space was left, so none of the blocks goes "back" into it)
+      var gone = [-9, -9];
+      var plan = settle(a.out, a.item, gone, hit, [], stay) || aside(a.out, a.item, gone, hit, stay) || inOrder(a.out, a.item, mine);
+      if (plan) {
+        plan.forEach(function (p) { p[0].at = p[1]; });
+        if (valid(a.out)) {
+          return { grid: a.out, removed: [], moved: mine.filter(function (it) { return it.at[0] !== was[it.id][0] || it.at[1] !== was[it.id][1]; }).map(function (it) { return it.id; }) };
+        }
+      }
+    }
+    var b = fresh(), covered = b.out.items.filter(function (it) { return (it.view || 0) === v && overlap(b.item, it); });
+    b.out.items = b.out.items.filter(function (it) { return covered.indexOf(it) < 0; });
+    b.out.items.push(b.item);
+    return valid(b.out) ? { grid: b.out, moved: [], removed: covered.map(function (it) { return grid.items.find(function (x) { return x.id === it.id; }); }) } : null;
+  }
+  // "Camera", "Camera and Lights", "Camera, Lights and Clock", "4 blocks": what a drop would take away, in words
+  function listOf(items) {
+    var names = items.map(function (it) { return NAMES[it.card] || it.card; });
+    if (names.length > 3) return names.length + ' blocks';
+    return names.length < 2 ? names.join('') : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+  }
   var CSS = [
     ':host{position:fixed;inset:0;z-index:1000;overflow:hidden}',
     '.editor{height:100%;display:flex;flex-direction:column;overflow:hidden;background:var(--hk-bg)}',
@@ -495,6 +551,10 @@
     '.block .tag{position:absolute;bottom:calc(100% + 4px);left:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:7px;background:var(--hk-cell);font-size:13px;opacity:0;transition:opacity .12s}',
     '.block:hover .tag,.block[aria-pressed=true] .tag,.block:focus-visible .tag{opacity:1}',
     '.ghost{position:absolute;pointer-events:none;border:3px solid var(--hk-tint);background:color-mix(in srgb,var(--hk-tint) 18%,transparent);border-radius:var(--grid-radius,var(--hk-glass-radius,23.5px));z-index:4}.ghost.bad{border-color:var(--hk-red);background:color-mix(in srgb,var(--hk-red) 14%,transparent)}',
+    // A CARD HELD OVER BLOCKS IT WOULD REPLACE (paletteDrag): its outline dashed red, the blocks that go washed red
+    '.ghost.replace{border-style:dashed;border-color:var(--hk-red);background:transparent}',
+    '.block.going{border-color:var(--hk-red);background:color-mix(in srgb,var(--hk-red) 42%,transparent)}',
+    '.note.warn{color:var(--hk-red)}',
     '.float{position:fixed;left:0;top:0;z-index:20;pointer-events:none;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:var(--hk-cell);color:var(--hk-label);box-shadow:var(--hk-shadow);font-size:13px;font-weight:600;white-space:nowrap}',
     '.float hk-icon{width:20px;height:20px;color:var(--hk-tint)}',
     '.note{font-size:13px;color:var(--hk-label2);line-height:1.5;margin:0 0 10px}.message{flex:none;color:var(--hk-red);min-height:24px;padding:6px 20px 0}',
@@ -817,31 +877,69 @@
       this.change(next);
     }
     // A CARD DRAGGED OUT OF THE PALETTE: a label follows the pointer, and over
-    // the grid the block's real footprint shows where it lands (red: no room)
+    // the grid the block's real footprint shows where it lands. Where something
+    // is in the way the others make room if they can; where they can't (the
+    // grid is full) the card takes the cells it covers and the blocks it
+    // covers go (2026-10-31, the owner: "let me drag it onto the grid
+    // anyway"): they are washed red while it is held over them, the hint line
+    // says which will go, and the drop is one step for Undo. addOver() decides.
     paletteDrag(e, card, row) {
       if (!this.grid || this.busy || this.pickerTarget) return false;
-      var self = this, size = this.sizeFor(card), ghost = this.h('div', { class: 'ghost' }), at = null;
+      var self = this, size = this.sizeFor(card), ghost = this.h('div', { class: 'ghost' }), at = null, key = null, plan = null;
       var label = window.hkDrag.ghost(this.shadowRoot, this.h('div', { class: 'float' },
         [this.h('hk-icon', { icon: GLYPHS[card] }), this.h('span', { text: NAMES[card] + ' · ' + SIZE_NAMES[size] })]));
+      // the hint line says what the drop would do; its height is kept so the screen doesn't rescale under the hand
+      var note = this.stage.querySelector('.note'), said = note ? note.textContent : '';
+      if (note) Object.assign(note.style, { height: note.getBoundingClientRect().height + 'px', overflow: 'hidden' });
       var over = function (ev) {
         var r = self.overlay.getBoundingClientRect();
         return ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom ? r : null;
       };
+      // (a mouse dragging across the editor doesn't select its text)
+      this.ui.style.userSelect = this.ui.style.webkitUserSelect = 'none';
+      try { window.getSelection().removeAllRanges(); } catch (x) { /* no selection */ }
+      // what is held over: the blocks that go, red; the ones that make room, slid aside in the preview
+      var show = function () {
+        var gone = plan ? plan.removed.map(function (it) { return it.id; }) : [];
+        self.overlay.querySelectorAll('.block').forEach(function (b) {
+          var out = gone.indexOf(b.dataset.id) >= 0, c = self.cellOf(b.dataset.id);
+          b.classList.toggle('going', out);
+          if (c) { c.style.transition = 'opacity .15s'; c.style.opacity = out ? '.3' : ''; }
+        });
+        self.slide(plan && plan.moved.length ? plan.grid : null, '');
+        ghost.classList.toggle('bad', !!at && !plan);
+        ghost.classList.toggle('replace', gone.length > 0);
+        if (note) {
+          note.textContent = !at ? said : !plan ? 'That doesn’t fit the grid.' : gone.length
+            ? 'Dropping here replaces ' + listOf(plan.removed) + '. Undo puts ' + (gone.length > 1 ? 'them' : 'it') + ' back.' : said;
+          note.classList.toggle('warn', !!plan && gone.length > 0);
+        }
+      };
       var move = function (ev) {
         label.move(ev);
-        var r = over(ev);
-        if (!r) { at = null; ghost.remove(); return; }
-        at = landing(ev.clientX, ev.clientY, r, self.grid.cols, self.grid.rows, self.cellGap || 10, size);
-        if (!ghost.parentNode) self.overlay.appendChild(ghost);
-        self.position(ghost, { size: size, at: at });
-        ghost.classList.toggle('bad', !add(self.grid, card, size, at));
+        var r = over(ev), was = key;
+        at = r ? landing(ev.clientX, ev.clientY, r, self.grid.cols, self.grid.rows, self.cellGap || 10, size) : null;
+        key = at ? at.join() : 'off';
+        if (!at) ghost.remove();
+        else { if (!ghost.parentNode) self.overlay.appendChild(ghost); self.position(ghost, { size: size, at: at }); }
+        if (key === was) return;
+        plan = at ? addOver(self.grid, card, size, at) : null;
+        show();
       };
       var finish = function (ev) {
         row.removeEventListener('pointermove', move); row.removeEventListener('pointerup', finish); row.removeEventListener('pointercancel', finish);
         ghost.remove(); label.remove();
-        if (ev.type === 'pointercancel' || !at) return;
-        if (add(self.grid, card, size, at)) self.addCard(card, size, at);
-        else self.say('No room there for a ' + SIZE_NAMES[size] + ' ' + NAMES[card] + '. Move or remove a block, or pick a smaller size.');
+        self.ui.style.userSelect = self.ui.style.webkitUserSelect = '';
+        var drop = ev.type === 'pointerup' && at ? plan : null, there = at;
+        // (dropped: the blocks that go and the ones aside stay as they are shown until the preview is drawn again from
+        // the draft; else every block back where it is. The hint as it was either way)
+        if (!drop) { at = null; plan = null; show(); }
+        self.lift('', false);
+        if (note) { note.textContent = said; note.classList.remove('warn'); note.style.height = ''; note.style.overflow = ''; }
+        if (ev.type === 'pointercancel' || !there) return;
+        if (drop) self.addCard(card, size, there);
+        else self.say(self.grid.items.length >= 24 ? 'A screen holds 24 blocks at most. Drop the card onto a block to replace it, or remove one first.'
+          : 'A ' + SIZE_NAMES[size] + ' ' + NAMES[card] + ' doesn’t fit there. Drop it nearer the middle, or pick a smaller size.');
       };
       move(e);
       row.addEventListener('pointermove', move); row.addEventListener('pointerup', finish); row.addEventListener('pointercancel', finish);
@@ -888,11 +986,13 @@
     }
     addCard(card, size, at) {
       if (!this.grid) { this.say('Choose a starter layout, or Start Empty, first.'); return; }
-      var next = add(this.grid, card, size, at);
-      if (!next) { this.say('No space for that size. Remove or move a block first.'); return; }
-      var added = next.items[next.items.length - 1];
+      // (dropped at `at`: the others make room, or the blocks it covers go -- addOver(); the Add button's own place is the first free one)
+      var free = at ? null : add(this.grid, card, size), r = at ? addOver(this.grid, card, size, at) : free && { grid: free, moved: [], removed: [] };
+      if (!r) { this.say(at ? 'No room there for a ' + SIZE_NAMES[size] + ' ' + NAMES[card] + '.' : 'No space for that size. Remove or move a block first, or drag the card onto the blocks it should replace.'); return; }
+      var added = r.grid.items[r.grid.items.length - 1];
       Object.assign(added, this.variantFor(card));
-      this.selected = added.id; this.pickerCard = null; this.change(next);
+      this.selected = added.id; this.pickerCard = null; this.change(r.grid);
+      if (r.removed.length) this.say(listOf(r.removed) + (r.removed.length > 1 ? ' were' : ' was') + ' replaced by ' + NAMES[card] + '. Undo (⌘Z) puts ' + (r.removed.length > 1 ? 'them' : 'it') + ' back.');
     }
     // A SCREEN TYPE: its columns, rows, band and preview size together, the
     // blocks re-packed in reading order; any that can't fit are named first
@@ -1208,11 +1308,14 @@
       var D = window.hkDrag;
       D.holdStill(row, 'lifted');
       row.addEventListener('pointerdown', function (e) {
+        // THE SIZE CHIP PRESSED is read here, not at the tap: the press captures the pointer to the row, so the
+        // pointerup's target is the row whatever was under the finger (2026-10-31, the owner: choosing Wide left the
+        // preview on Small -- the tap always fell through to opening and closing the row)
+        var chip = e.target.closest && e.target.closest('.chip');
         D.press(row, e, {
           axis: 'x',
           lift: function (ev) { return self.paletteDrag(ev, k, row); },
-          tap: function (ev) {
-            var chip = ev.target.closest && ev.target.closest('.chip');
+          tap: function () {
             if (chip) { self.paletteSizes[k] = chip.dataset.size; self.pickerCard = k; }
             else self.pickerCard = self.pickerCard === k ? null : k;
             self.drawPalette();
@@ -1221,8 +1324,12 @@
       });
       row.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter' && e.key !== ' ') return;
-        e.preventDefault(); this.pickerCard = this.pickerCard === k ? null : k; this.drawPalette();
-        var again = this.palette.querySelector('[data-card="' + k + '"]'); if (again) again.focus();
+        e.preventDefault();
+        // (Enter on a size chip chooses that size, as a tap does; on the row, opens or closes it)
+        var chip = e.target.closest && e.target.closest('.chip');
+        if (chip) { this.paletteSizes[k] = chip.dataset.size; this.pickerCard = k; } else this.pickerCard = this.pickerCard === k ? null : k;
+        this.drawPalette();
+        var again = this.palette.querySelector(chip ? '[data-card="' + k + '"] .chip[data-size="' + chip.dataset.size + '"]' : '[data-card="' + k + '"]'); if (again) again.focus();
       });
       return row;
     }
@@ -1233,7 +1340,7 @@
       var preview = h('div', { class: 'catalog-preview', 'data-preview-card': k, 'data-preview-size': sz, role: 'img',
         'aria-label': NAMES[k] + ' preview, ' + SIZE_NAMES[sz] });
       return h('div', { class: 'cell pal-detail' }, [preview,
-        h('p', { class: 'note', text: 'Sample readings. On your screen it shows your home.' }),
+        h('p', { class: 'note', text: 'Sample readings. On your screen it shows your home.' + (space ? '' : ' There’s no free space for this size: drag the card onto the grid to replace the blocks it covers.') }),
         h('button', { class: 'catalog-add', type: 'button', disabled: !space,
           text: this.pickerTarget ? 'Use ' + NAMES[k] : space ? 'Add ' + SIZE_NAMES[sz] + ' ' + NAMES[k] : 'No room for this size',
           onclick: () => this.usePicked(k, sz) })]);
@@ -1937,7 +2044,7 @@
       this.say('Not saved: this screen changed since you opened it.');
     }
   }
-  window.hkGridEditor = { paneForStarter: paneForStarter, fullColumns: fullColumns, COLS: COLS, place: place, makeRoom: makeRoom, valid: valid, firstSpace: firstSpace, add: add, snap: snap, landing: landing,
+  window.hkGridEditor = { paneForStarter: paneForStarter, fullColumns: fullColumns, COLS: COLS, place: place, makeRoom: makeRoom, valid: valid, firstSpace: firstSpace, add: add, addOver: addOver, listOf: listOf, snap: snap, landing: landing,
                           SCREEN_TYPES: SCREEN_TYPES, SQUARE_STARTERS: SQUARE_STARTERS, screenTypeOf: screenTypeOf, scaleAt: scaleAt, squareStarter: squareStarter,
                           // (the dashboard's Edit mode names and sizes blocks as this editor does: hk-edit-grid.js)
                           cannotResize: cannotResize, NAMES: NAMES, SIZE_NAMES: SIZE_NAMES, SIZE_SHORT: SIZE_SHORT, GLYPHS: GLYPHS,

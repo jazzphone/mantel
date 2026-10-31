@@ -20,7 +20,11 @@
 //                 a size with no room anywhere is offered greyed, saying so
 //   removed       the minus at its top left (or Delete on the keyboard)
 //   added         Add in the bar: the catalog's cards, each at its sizes,
-//                 put in the first space that fits in the view shown
+//                 put in the first space that fits in the view shown; a
+//                 size with no free space is placed by hand -- held over the
+//                 grid, it replaces the blocks it covers (hkGridEditor.addOver:
+//                 the others make room first when they can), those washed red
+//                 and named in the bar's line while it is held
 // THE LAYOUT IS THE SCREEN'S `home_grid`, and only that: the draft is the
 // layout the screen was drawn from, changed only by the editor's own pure
 // functions (place, makeRoom, firstSpace, valid -- hk-grid-editor.js,
@@ -230,7 +234,10 @@
       // where the carried block would go; red: nowhere
       '#root>.hk-ge-target{pointer-events:none;z-index:5;box-sizing:border-box;border-radius:' + R + ';' +
       'border:calc(3px * ' + K + ') dashed ' + v('accent', '#ff9f0a') + ';background:rgba(255,255,255,.08)}' +
-      '#root>.hk-ge-target.bad{border-color:' + v('fail', '#ff453a') + ';background:rgba(255,69,58,.10)}';
+      '#root>.hk-ge-target.bad,#root>.hk-ge-target.replace{border-color:' + v('fail', '#ff453a') + ';background:rgba(255,69,58,.10)}' +
+      // the blocks a placed card would replace: dimmed, framed red
+      '#root.hk-ge-on>.cell.hk-ge-going{animation:none;opacity:.45}' +
+      '#root.hk-ge-on>.cell.hk-ge-going>.hk-ge{box-shadow:inset 0 0 0 calc(3px * ' + K + ') ' + v('fail', '#ff453a') + ';background:rgba(255,69,58,.28)}';
   }
   var MINUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg>';
   var CHEVRON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg>';
@@ -256,6 +263,7 @@
     this.ready = false;
     this.css = null;
     this.carry = null;
+    this.placing = null;
     this.press = null;
     this.sheet = null;
     this.note = '';
@@ -288,7 +296,7 @@
       contextmenu: function (e) { if (self.hit(e).cell) { e.stopPropagation(); e.preventDefault(); } },
       keydown: function (e) { self.key(e); },
       // a block carried: nothing under the finger scrolls
-      touchmove: function (e) { if (self.carry) e.preventDefault(); },
+      touchmove: function (e) { if (self.carry || self.placing) e.preventDefault(); },
       resize: function () { self.scale(); }
     };
     ['pointerdown', 'click', 'contextmenu', 'keydown'].forEach(function (t) { root.addEventListener(t, self.on[t], true); });
@@ -436,6 +444,7 @@
     return { act: act, cover: cover, cell: cell, id: cell && cell.getAttribute('data-id') };
   };
   Part.prototype.down = function (e) {
+    if (this.placing) { this.placeDown(e); return; }
     var s = E() && E().active(), hit = this.hit(e);
     if (!hit.cell) return;                             // the grid between blocks: the views' swipe, the dots
     e.stopPropagation();
@@ -472,6 +481,7 @@
     this.press = p;
   };
   Part.prototype.click = function (e) {
+    if (this.placing) { e.stopPropagation(); e.preventDefault(); return; }
     var hit = this.hit(e), s = E() && E().active();
     if (!hit.cell) return;
     e.stopPropagation(); e.preventDefault();
@@ -483,6 +493,7 @@
   // THE KEYBOARD on a block: an arrow moves it a cell (making room as a drag
   // does), Delete or Backspace removes it
   Part.prototype.key = function (e) {
+    if (this.placing) return;                          // a card being placed has its own keys (placeKey)
     var hit = this.hit(e), s = E() && E().active();
     if (!hit.cell || !s || s.saving) return;
     if (hit.act && (e.key === 'Enter' || e.key === ' ')) return;          // the button's own click
@@ -536,7 +547,7 @@
   };
   // the outline where the carried block would go
   Part.prototype.aimAt = function (at, bad) {
-    var c = this.carry, t = c && c.target, z = G().span(c.it.size, this.grid.cols, this.grid.rows);
+    var c = this.carry || this.placing, t = c && c.target, z = c && G().span(c.it ? c.it.size : c.size, this.grid.cols, this.grid.rows);
     if (!t) return;
     var top = this.bandRow();
     t.style.gridColumn = (at[0] + 1) + ' / span ' + z[0];
@@ -558,20 +569,20 @@
     // the others make room (or go back to their places): only the cells move
     this.show(cand || this.grid);
   };
-  // the blocks other than the carried one at their places in `grid`
+  // the blocks other than the carried one at their places in `grid` (a card being placed carries none: all of them)
   Part.prototype.show = function (grid) {
-    var c = this.carry;
+    var c = this.carry || this.placing;
     if (!c || c.shown === grid) return;
     c.shown = grid;
     var first = this.boxes(), top = this.bandRow();
     this.cells().forEach(function (cell) {
       var it = find(grid, cell.getAttribute('data-id'));
-      if (!it || it.id === c.it.id) return;
+      if (!it || (c.it && it.id === c.it.id)) return;
       var z = G().span(it.size, grid.cols, grid.rows);
       cell.style.gridColumn = (it.at[0] + 1) + ' / span ' + z[0];
       cell.style.gridRow = (it.at[1] + 1 + top) + ' / span ' + z[1];
     });
-    this.glide(first, c.p.cell);
+    this.glide(first, c.p && c.p.cell);
   };
   Part.prototype.drop = function (ev, cancelled) {
     var c = this.carry;
@@ -594,8 +605,133 @@
   // Escape while a block is carried, or a sheet is open: theirs, not Cancel's
   Part.prototype.escape = function () {
     if (this.sheet) { this.closeSheet(); return true; }
+    if (this.placing) { this.placeEnd(false); say('Cancelled.'); return true; }
     if (this.carry) { if (this.press && this.press.stop) this.press.stop(); this.drop(null, true); return true; }
     return false;
+  };
+
+  // ------------------------------------------------------------ placing a card by hand
+  // A CARD THERE IS NO FREE SPACE FOR (2026-10-31, the owner: "if there's no
+  // room for the card, let me drag it onto the grid anyway ... it replaces
+  // the blocks it covers"): Add offers its size, and choosing it ends the
+  // sheet and starts PLACING -- a mouse's pointer, a finger down and moving,
+  // or the arrow keys carry an outline over the grid (Enter, a click, or a
+  // finger lifted over the grid drops the card there; Escape, or a finger
+  // lifted off the grid, gives up). Where blocks are in the way the others
+  // make room if they can, else the card takes the cells it covers and those
+  // blocks are removed (hkGridEditor.addOver, the editor's own rule): they are
+  // dimmed and framed red while it is held over them, and the bar's line names
+  // them. Dropped, it is one change: Cancel puts everything back.
+  Part.prototype.placeStart = function (card, size, view) {
+    var box = this.view.cellBox && this.view.cellBox(), Xe = X(), root = this.view._root;
+    if (!box || !Xe || !root) return false;
+    this.placeEnd(false);
+    var t = doc().createElement('div');
+    t.className = 'hk-ge-target';
+    t.setAttribute('aria-hidden', 'true');
+    t.style.display = 'none';
+    root.appendChild(t);
+    var self = this, w = win(), p = this.placing = { card: card, size: size, view: view || 0, target: t, at: null, plan: null, key: null, down: false,
+      shown: this.grid, what: sizeName(size) + ' ' + ((Xe.NAMES && Xe.NAMES[card]) || card) };
+    root.classList.add('hk-ge-carrying');
+    p.on = {
+      move: function (e) { if (self.placing === p) self.placeAt(e.clientX, e.clientY); },
+      up: function (e) {
+        if (self.placing !== p || !p.down) return;
+        p.down = false;
+        self.placeAt(e.clientX, e.clientY);
+        if (p.at) self.placeDrop(); else { self.placeEnd(false); say('Cancelled.'); }
+      },
+      cancel: function () { if (self.placing === p) { p.down = false; self.placeAim(null); } },
+      key: function (e) { self.placeKey(e); }
+    };
+    w.addEventListener('pointermove', p.on.move, true); w.addEventListener('pointerup', p.on.up, true);
+    w.addEventListener('pointercancel', p.on.cancel, true); w.addEventListener('keydown', p.on.key, true);
+    say(this.placeHint());
+    return true;
+  };
+  Part.prototype.placeEnd = function (keepShown) {
+    var p = this.placing;
+    if (!p) return;
+    // (the others back where the draft has them, unless the drop is about to draw them where it puts them)
+    if (!keepShown) this.show(this.grid);
+    this.placing = null;
+    var w = win(), root = this.view._root;
+    w.removeEventListener('pointermove', p.on.move, true); w.removeEventListener('pointerup', p.on.up, true);
+    w.removeEventListener('pointercancel', p.on.cancel, true); w.removeEventListener('keydown', p.on.key, true);
+    if (p.target && p.target.parentNode) p.target.parentNode.removeChild(p.target);
+    if (root) root.classList.remove('hk-ge-carrying');
+    this.cells().forEach(function (c) { c.classList.remove('hk-ge-going'); });
+    say('');
+  };
+  // the line in the bar: what a drop here would do
+  Part.prototype.placeHint = function () {
+    var p = this.placing, Xe = X();
+    if (!p.at) return 'Drag the new ' + p.what + ' over the grid, onto the blocks it should replace, and let go. Escape cancels.';
+    if (!p.plan) return 'The ' + p.what + ' doesn’t fit there.';
+    if (p.plan.removed.length) return 'The ' + p.what + ' replaces ' + Xe.listOf(p.plan.removed) + ' here. Cancel puts ' + (p.plan.removed.length > 1 ? 'them' : 'it') + ' back.';
+    return 'The ' + p.what + ' goes here' + (p.plan.moved.length ? '; the others make room.' : '.');
+  };
+  // the outline at the cells `at` (null: off the grid), and what it would do there
+  Part.prototype.placeAim = function (at) {
+    var p = this.placing, Xe = X();
+    if (!p) return;
+    var key = at ? at.join() : 'off';
+    if (key === p.key) return;
+    p.key = key; p.at = at;
+    p.plan = at ? Xe.addOver(this.grid, p.card, p.size, at, p.view) : null;
+    var gone = p.plan ? p.plan.removed.map(function (it) { return it.id; }) : [];
+    p.target.style.display = at ? '' : 'none';
+    if (at) this.aimAt(at, !p.plan);
+    p.target.classList.toggle('replace', gone.length > 0);
+    this.cells().forEach(function (c) { c.classList.toggle('hk-ge-going', gone.indexOf(c.getAttribute('data-id')) >= 0); });
+    // the others that make room slide aside; the rest as the draft has them
+    this.show(p.plan && p.plan.moved.length ? p.plan.grid : this.grid);
+    say(this.placeHint());
+  };
+  Part.prototype.placeAt = function (x, y) {
+    var p = this.placing, box = this.view.cellBox && this.view.cellBox(), Xe = X();
+    if (!p || !box || !Xe) return;
+    var inside = x >= box.left && x <= box.left + box.width && y >= box.top && y <= box.top + box.height;
+    this.placeAim(inside ? Xe.landing(x, y, box, box.cols, box.rows, box.gap, p.size) : null);
+  };
+  Part.prototype.placeDown = function (e) {
+    var p = this.placing;
+    if (!p || (e.button !== undefined && e.button !== 0)) return;
+    e.stopPropagation();
+    if (e.pointerType === 'mouse') e.preventDefault();
+    p.down = true;
+    this.placeAt(e.clientX, e.clientY);
+  };
+  // the arrow keys move the outline a cell (from the middle of the grid at first), Enter drops the card; a button's
+  // own keys (the bar's Done, Cancel and Add) stay its own
+  Part.prototype.placeKey = function (e) {
+    var p = this.placing, box = this.view.cellBox && this.view.cellBox(), Xe = X();
+    if (!p || !box || !Xe) return;
+    var path = e.composedPath ? e.composedPath() : [], t = path[0] || e.target;
+    if (t && t.localName === 'button') return;
+    var d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key], z = G().span(p.size, box.cols, box.rows);
+    if (d) {
+      e.stopPropagation(); e.preventDefault();
+      var from = p.at || [Math.floor((box.cols - z[0]) / 2), Math.floor((box.rows - z[1]) / 2)], to = p.at ? [from[0] + d[0], from[1] + d[1]] : from;
+      this.placeAim([Math.max(0, Math.min(box.cols - z[0], to[0])), Math.max(0, Math.min(box.rows - z[1], to[1]))]);
+    } else if ((e.key === 'Enter' || e.key === ' ') && p.at) {
+      e.stopPropagation(); e.preventDefault();
+      this.placeDrop();
+    }
+  };
+  Part.prototype.placeDrop = function () {
+    var p = this.placing;
+    if (!p) return;
+    var plan = p.plan, Xe = X();
+    if (!plan) { say(this.placeHint()); return; }
+    this.placeEnd(true);
+    var added = plan.grid.items[plan.grid.items.length - 1];
+    if (p.card === 'accessories') added.pages = { source: 'accessories' };
+    if (p.card === 'room') added.opts = { accessory_display: 'scroll' };
+    var gone = plan.removed, nm = (Xe.NAMES && Xe.NAMES[p.card]) || p.card;
+    this.commit(plan.grid, gone.length ? Xe.listOf(gone) + (gone.length > 1 ? ' were' : ' was') + ' replaced by ' + nm + '. Cancel puts ' + (gone.length > 1 ? 'them' : 'it') + ' back.' : nm + ' added.');
+    this.focus(added.id);
   };
 
   // ------------------------------------------------------------ the sheets
@@ -616,6 +752,7 @@
       '.chip{appearance:none;border:0;min-height:32px;min-width:44px;padding:0 10px;border-radius:8px;background:var(--hk-fill);color:var(--hk-tint);' +
       'font:inherit;font-size:13px;font-weight:600;cursor:pointer}' +
       '.chip[disabled]{color:var(--hk-label3);cursor:default}' +
+      '.chip[data-replace]{color:var(--hk-label2)}' +
       '.chip:not([disabled]):active{background:var(--hk-press)}' +
       '.cell .why{margin-left:auto;font-size:13px;color:var(--hk-label2)}' +
       '.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}';
@@ -704,14 +841,16 @@
               var z = G().span(s, self.grid.cols, self.grid.rows);
               if (!z || z[0] > self.grid.cols || z[1] > self.grid.rows) return;
               var room = !!added(Xe, self.grid, key, s, view);
+              // (no free space for it: its chip still works -- the card is placed by hand over the blocks it replaces)
               var b = K.h('button', { class: 'chip', type: 'button', 'data-card': key, 'data-size': s, text: Xe.SIZE_SHORT[s],
-                                      'aria-label': 'Add ' + Xe.NAMES[key] + ', ' + Xe.SIZE_NAMES[s] + (room ? '' : ': no room'),
-                                      title: room ? '' : 'No room for a ' + Xe.SIZE_NAMES[s] + ' block' });
-              if (!room) b.disabled = true;
+                                      'aria-label': room ? 'Add ' + Xe.NAMES[key] + ', ' + Xe.SIZE_NAMES[s] : 'Add ' + Xe.NAMES[key] + ', ' + Xe.SIZE_NAMES[s] + ': no free space, place it over blocks to replace them',
+                                      title: room ? '' : 'No free space for a ' + Xe.SIZE_NAMES[s] + ' block: place it over the blocks it replaces' });
+              if (!room) b.setAttribute('data-replace', '');
               b.addEventListener('click', function () {
-                var next = added(Xe, self.grid, key, s, view);
+                var next = room && added(Xe, self.grid, key, s, view);
                 self.closeSheet();
                 if (next) { self.commit(next, Xe.NAMES[key] + ' added.'); self.focus(next.items[next.items.length - 1].id); }
+                else if (!room) self.placeStart(key, s, view);
               });
               chips.appendChild(b);
             });
@@ -732,6 +871,7 @@
   // Cancel, Reload, Discard: the view as it was drawn, its own elements
   Part.prototype.restore = function () {
     if (this.carry) this.drop(null, true);
+    this.placeEnd(false);
     this.closeSheet();
     this.grid = copy(this.initial);
     if (this.ready) this.view.arrange(this.cfg0, this.els0);
@@ -740,6 +880,7 @@
     var root = this.view._root, self = this;
     if (this.press && this.press.stop) this.press.stop();
     if (this.carry) this.drop(null, true);
+    this.placeEnd(false);
     this.closeSheet();
     if (this.ready) {
       ['pointerdown', 'click', 'contextmenu', 'keydown'].forEach(function (t) { root.removeEventListener(t, self.on[t], true); });

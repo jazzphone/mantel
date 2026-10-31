@@ -12,6 +12,10 @@ What it checks (grid_edit_check.cjs says each one), for the mouse and for a fing
            same after a reload
   square   a Square screen (3 x 3 square cells, no band), from an accessory's sheet (its gear, Edit This Page):
            a block carried, then Cancel -- the page as it was, nothing saved
+  replace  a 6 x 4 Home Grid with every cell taken: Add offers a card's size anyway, and choosing it places the card by
+           hand -- held over the grid (a mouse's pointer, or a finger down and moving) the blocks it would replace are
+           dimmed and named in the bar, Escape gives up, a drop replaces them (the others make room first where they
+           can), and Cancel puts them all back; a second drop and Done saves it
   pane     a 3 x 3 Home Grid beside the Side Pane: the pane stays beside the grid while it is edited; a block
            carried, Escape while it is held puts it back; Done saves
 No page errors and no console errors anywhere. Skips (exit 0, saying why) without PLAYWRIGHT_PATH or NODE.
@@ -46,6 +50,12 @@ SQUARE = {'v': 1, 'cols': 3, 'rows': 3, 'frame': [800, 800], 'band': False, 'gro
               {'id': 'lamps', 'card': 'accessory', 'size': 'S', 'at': [2, 0], 'opts': {'entity': 'light.living_room_lamps'}},
               {'id': 'thermo', 'card': 'thermostat', 'size': 'T', 'at': [2, 1]},
               {'id': 'lock', 'card': 'action', 'size': 'S', 'at': [0, 2], 'opts': {'action': 'lock_up'}}]}
+# the 6 x 4 grid with every cell taken: no free space for any card, so a card is placed over the blocks it replaces
+FULL = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items': TILES['items'] + [
+    {'id': 'cal', 'card': 'calendar', 'size': 'L', 'at': [3, 2]},
+    {'id': 'scenes', 'card': 'scenes', 'size': 'W', 'at': [0, 3]},
+    {'id': 'ppl', 'card': 'people', 'size': 'S', 'at': [5, 2]},
+    {'id': 'vac', 'card': 'vacuum', 'size': 'S', 'at': [5, 3]}]}
 PANE_GRID = {'v': 1, 'cols': 3, 'rows': 3, 'frame': [800, 800], 'band': False, 'grow': True, 'items': [
     {'id': 'p1', 'card': 'thermostat', 'size': 'T', 'at': [0, 0]},
     {'id': 'p2', 'card': 'now_playing', 'size': 'L', 'at': [1, 0]},
@@ -71,6 +81,7 @@ def house(gallery) -> None:
     for i in INPUTS:
         b[f'ge-tiles-{i}'] = {**base, 'title': 'Den Wall', 'home_grid': json.loads(json.dumps(TILES))}
         b[f'ge-square-{i}'] = {**base, 'title': 'Kitchen Square', 'home_grid': json.loads(json.dumps(SQUARE))}
+        b[f'ge-full-{i}'] = {**base, 'title': 'Den Full Wall', 'home_grid': json.loads(json.dumps(FULL))}
         b[f'ge-pane-{i}'] = {**base, 'title': 'Hall Pane', 'home_grid': json.loads(json.dumps(PANE_GRID)),
                              'side_pane': {'side': 'right', 'dashboard': {'show': 'home', 'sections': [
                                  {'kind': 'weather'}, {'kind': 'calendar'}, {'kind': 'timers'}]}}}

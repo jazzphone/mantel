@@ -277,6 +277,32 @@ step(function () {
      ['climate.den', 'lock.side', 'light.den_lamp', 'fan.den', true, false]);
 });
 
+// EVERY BLOCK THE CATALOG HAS IS IN THE PICKER (2026-10-31, the owner: On Now, To-do and Energy Rings, added that
+// morning, were not in the card list): the list is drawn from GROUPS, and Edit mode's Add reads the same, so a block in
+// the catalog and not in GROUPS was offered nowhere. Each key needs a place in a group, a name, a description and a
+// glyph; a key that is meant to stay out of the picker goes in INTERNAL below, with its reason.
+step(function () {
+  var GE = window.hkGridEditor, cat = window.hkGridCatalog.table(), keys = Object.keys(cat);
+  var INTERNAL = {};                // catalog key -> why it is not offered ({} today: every block is a card to add)
+  var listed = [];
+  GE.GROUPS.forEach(function (g) { g[1].forEach(function (k) { listed.push(k); }); });
+  ok('every catalog key but the internal ones is in a group of the picker', keys.filter(function (k) { return !INTERNAL[k] && listed.indexOf(k) < 0; }), []);
+  ok('...no group names a key the catalog has not (an old name left behind)', listed.filter(function (k) { return !cat[k]; }), []);
+  ok('...none is in two groups', listed.filter(function (k, i) { return listed.indexOf(k) !== i; }), []);
+  ok('...an internal key is one the catalog has, and gives its reason', Object.keys(INTERNAL).filter(function (k) { return !cat[k] || !INTERNAL[k]; }), []);
+  var offered = keys.filter(function (k) { return !INTERNAL[k]; });
+  ok('each has a name', offered.filter(function (k) { return !GE.NAMES[k] || typeof GE.NAMES[k] !== 'string'; }), []);
+  ok('...a description', offered.filter(function (k) { return !GE.DESCRIPTIONS[k] || typeof GE.DESCRIPTIONS[k] !== 'string'; }), []);
+  ok('...and a glyph (MDI or the house\'s own)', offered.filter(function (k) { return !/^(mdi|hk):[a-z0-9-]+$/.test(GE.GLYPHS[k] || ''); }), []);
+  ok('...and names, descriptions and glyphs for nothing else', [Object.keys(GE.NAMES), Object.keys(GE.DESCRIPTIONS), Object.keys(GE.GLYPHS)].map(function (o) {
+    return o.filter(function (k) { return !cat[k]; }); }), [[], [], []]);
+  var groupOf = function (k) { return GE.GROUPS.filter(function (g) { return g[1].indexOf(k) >= 0; }).map(function (g) { return g[0]; })[0]; };
+  ok('the widget blocks are where the owner would look: On Now with the lights, To-do with Info, Energy Rings beside Power and Water',
+     [groupOf('on_now'), groupOf('todo'), groupOf('energy_rings'), GE.GROUPS.filter(function (g) { return g[0] === 'Info'; })[0][1].join().match(/power,energy_rings,water/) !== null],
+     ['Rooms & Lights', 'Info', 'Info', true]);
+  ok('...US spelling in what the picker says', offered.filter(function (k) { return /favour|colour|centre|grey/i.test(GE.NAMES[k] + ' ' + GE.DESCRIPTIONS[k]); }), []);
+});
+
 steps.reduce(function (p, f) { return p.then(f); }, Promise.resolve()).then(function () {
   print(fail ? 'FAIL ' + fail + ' GRID EDITOR TESTS' : 'ALL ' + pass + ' GRID EDITOR TESTS PASS');
 }).catch(function (e) { print('Exception: ' + e + ' ' + (e.stack || '')); print('FAIL GRID EDITOR TESTS'); });
