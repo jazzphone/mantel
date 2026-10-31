@@ -1436,3 +1436,46 @@ box (the alarm, drawn to its box's edges, was half again the lamps' size): by it
 measured lightbulb (`TILE.centred.ink`, hk-elements.js `hkInkScale` for the host's state icon and hk-icon's `ink`
 for the keys), never past the box. `test_gridcards` (+2), `home_grid_visual_check --homeview` (an Accessories block
 Centred).
+
+**2026-10-31, the Home Grid's blocks as widgets.** The owner went through a mock-up of every block at every size
+("Home Grid Blocks", 25 versions of notes) and asked for all of it built. One rule for all of them: a block is a
+widget on one plate, 18 px in from every edge (`hkCards.blockPad`), its corners 34 and what sits inside them 16
+(`--hk-inner-radius`); a tap target is 44 px in the block's own px (not the scaled grid's); a list fills what it is
+given and says "N more" where it is cut; every size draws on square cells (196) and on tile cells (150). Built in six
+groups, each in its own branch, then merged:
+
+- **Catalog.** New sizes: Now Playing, Thermostat, Weather, Who's Home and Power Small; Calendar Small and Extra
+  Large; Battery Tall, Large and Extra Large; Music, Doors, Live TV and Water Small, Wide and Tall; Everything Wide,
+  Large and Extra Large. New blocks: **On Now** (what is on, and All Off), **To-do** (a list; Small opens it as a
+  panel) and **Energy Rings** (energy, cost, solar and water against a usual day, Today / Week / Month). New options:
+  **Height** (Full: HomeView's tile; Half: the Home app's button, twice as many to a block) and **Color** (an
+  accessory that is on, or a scene, takes a gradient of its own color) on Scenes, Scene, Accessories and Action.
+- **Calendar and To-do.** Small the day and the next event; Tall and Large the rest of today then the coming days;
+  Extra Large the month with dots in the events' colors, a tap on a day showing its events beside it. To-do is the
+  Reminders widget: the list's name in its color, the count large, rows to tick (44 px, so fewer than the mock's).
+- **Now Playing, Music, Live TV.** Small the cover with Speakers beside it and the transport along the foot; Wide,
+  Tall and Large add the volume (a 44 px place), Tall's between Speakers and Browse so every key keeps 44. Music the
+  recently played as covers; Live TV the channels as tiles, a tap opening the full-screen player.
+- **Thermostat and Weather.** Big Number Small (the target, the arrows either side of the name; heat and cool both
+  in Auto), Tall stacked with the modes, Extra Large with the modes beside it; a Small block is Big Number whatever
+  its style (the dial has no room). Weather Small, Tall the hours down its length, Large six hours and five days,
+  Extra Large a small Weather page (readings left, seven days right); Wide on a tile puts its hours beside the
+  temperature.
+- **Energy, Battery, Power, Water, Doors, On Now.** Energy Rings at every size (tabs top right, Tall centered); the
+  Battery as Activity's ring, Extra Large with the day's charge as bars; Power, Water and Doors Small as a label, the
+  number large and the day's bars. Power Wide to Extra Large the power now over the day's chart (Large the solar and
+  the battery and an hour axis, Extra Large today's top users beside it); Water Large the day's gallons over its
+  bars, Extra Large This Week beside them (the main valve stays on the Water page).
+- **Timers, Who's Home, Vacuum.** A timer's ring is its pause key with a red Stop beside it; Who's Home Small the faces,
+  those away dimmed; the Vacuum built round Clean (one big key, Dock beside it), from Large up its rooms to tick.
+  The Side Pane's Clock lined up and its timers as rows.
+- **Tiles.** Scenes and Accessories in Full or Half, with or without Color; Scene Wide the glyph larger; Action as
+  Shortcuts' button; the Room block one line at its foot (the rooms' dots, then "N more below"); Everything's app
+  icons (Small four as a folder); Security Wide's rows and Extra Large's keypad.
+
+Checks: `test_blocks_calendar/media/climate/energy/home/tiles.js` (new), `home_grid_audit.py` for all 27 blocks on
+square cells (`--homeview`) and on tiles in every look (its 44 px check now divides by `view._gridScale`; stand-ins
+for to-do lists, channels, the Energy prefs, a vacuum's rooms and running timers), each size shot in WebKit beside
+the mock-up's drawing. **Different from the mock-up:** to-do rows are 44 px; Weather's hours are labelled by the
+clock, not "Now"; Large Now Playing keeps its transport across the block (no Up Next); Doors Large and Extra Large
+are still the house picture with Recent Activity.
