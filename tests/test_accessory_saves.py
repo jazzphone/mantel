@@ -56,6 +56,17 @@ async def test_an_accessorys_settings_are_saved_like_hk_frontends(env):
     assert got["result"] == {} and "switch.coffee" not in acc(env).body["entities"]
 
 
+async def test_also_rename_in_home_assistant_is_kept_only_while_on(env):
+    """The switch (2026-10-31) is a setting of the accessory; the registry write itself is the gateway's."""
+    got = await save(env, OWNER, {"type": "hk_frontend/accessory/set", "entity_id": "switch.coffee", "name": "Coffee",
+                                  "ha_name": True})
+    assert got["result"] == {"name": "Coffee", "ha_name": True}
+    got = await save(env, OWNER, {"type": "hk_frontend/accessory/set", "entity_id": "switch.coffee", "ha_name": False}, rid=2)
+    assert got["result"] == {"name": "Coffee"}, "off is not stored: the name stays, the syncing stops"
+    got = await save(env, OWNER, {"type": "hk_frontend/accessory/set", "entity_id": "switch.coffee", "ha_name": "yes"}, rid=3)
+    assert got["error"]["code"] == "invalid_format" and "ha_name" in got["error"]["message"]
+
+
 @pytest.mark.parametrize("msg, field", [
     ({"entity_id": "not an id"}, "entity_id"),
     ({"entity_id": "light.lamp", "show_as": "toaster"}, "show_as"),

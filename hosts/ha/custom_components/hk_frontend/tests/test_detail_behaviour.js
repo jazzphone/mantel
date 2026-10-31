@@ -1208,5 +1208,95 @@ print('\n=== the sheet reads through the client (Phase 1 slice 5) ===');
   ok('the sheet\'s timeline asks the client for a GET of the recorder\'s history', asked.join() === 'GET history/period', asked);
 })();
 
+// =====================================================================
+// ALSO RENAME IN HOME ASSISTANT (2026-10-31, the owner): the switch under an accessory's name. Shown only to people
+// who may change the house and only where the connection can do it; the home-wide name goes to Home Assistant's
+// entity registry as its display name (never the entity id), a name for one screen never does; switched off, it
+// stops and Home Assistant keeps the last name.
+print('\n=== accessory settings: also rename in Home Assistant ===');
+(function () {
+  __resetTimers(); resetHistory();
+  var WS = [];
+  var h = house({ 'switch.coffee': ['off', { friendly_name: 'Kitchen Coffee' }] });
+  h.user = { is_admin: true };
+  h.areas = {}; h.devices = {};
+  h.entities = { 'switch.coffee': {} };
+  h.callWS = function (m) { if (m.type !== 'hk_frontend/hidden/get') WS.push(m); return Promise.resolve({}); };
+  var saved = window.hkSettings, shell = window.hkShell, host = null;
+  var acc = { entities: { 'switch.coffee': { name: 'Coffee' } }, rooms: {} };
+  window.hkSettings = { get: function (p, f) { return p === 'accessories' ? acc : p === 'boards' ? {} : f; } };
+  var regs = function () { return WS.filter(function (m) { return m.type === 'config/entity_registry/update'; }); };
+  var sets = function () { return WS.filter(function (m) { return m.type === 'hk_frontend/accessory/set'; }); };
+  var html = function (pn) { return pn._html || pn.innerHTML || ''; };
+
+  // in Home Assistant itself (haNav 'own', no host of its own): an admin writes the registry directly
+  var pane = _.accessoryPane(h, 'switch.coffee', null, { generated: true });
+  ok('an admin in Home Assistant sees the switch, off by default, with its footnote',
+     /class="tg haname"/.test(html(pane)) && /logbook, voice assistants and HomeKit Bridge/.test(html(pane)) &&
+     pane.querySelector('.haname').checked === false);
+  var ha = pane.querySelector('.haname');
+  ha.checked = true; ha._listeners.change[0](); drainMicrotasks(); drainMicrotasks();
+  ok('switched on: the home-wide name goes to the registry as the display name, by entity_id, no new id',
+     regs().length === 1 && JSON.stringify(regs()[0]) === JSON.stringify({ type: 'config/entity_registry/update', entity_id: 'switch.coffee', name: 'Coffee' }), regs());
+  ok('...and the switch is saved as part of the accessory', sets().length === 1 && sets()[0].ha_name === true && sets()[0].entity_id === 'switch.coffee', sets());
+  var nm = pane.querySelector('.nm');
+  nm.value = '  Coffee Maker '; nm._listeners.change[0](); drainMicrotasks(); drainMicrotasks();
+  ok('a new name while on goes to Home Assistant, trimmed', regs().length === 2 && regs()[1].name === 'Coffee Maker' && regs()[1].entity_id === 'switch.coffee', regs());
+  var n0 = regs().length;
+  pane.querySelector('.here').checked = true;
+  nm.value = 'Brew'; nm._listeners.change[0](); drainMicrotasks(); drainMicrotasks();
+  ok('a name for this dashboard only is saved for it and never sent to Home Assistant',
+     regs().length === n0 && sets().some(function (m) { return m.name === 'Brew' && m.screen === 'dashboard-kitchen'; }), regs());
+  pane.querySelector('.here').checked = false;
+  nm.value = ''; nm._listeners.change[0](); drainMicrotasks(); drainMicrotasks();
+  ok('an emptied home-wide name clears Home Assistant\'s own', regs().length === n0 + 1 && regs()[n0].name === null, regs());
+  var n1 = regs().length;
+  ha.checked = false; ha._listeners.change[0](); drainMicrotasks();
+  nm.value = 'Espresso'; nm._listeners.change[0](); drainMicrotasks(); drainMicrotasks();
+  ok('switched off: it stops syncing (Home Assistant keeps the last name)', regs().length === n1 &&
+     sets().some(function (m) { return m.ha_name === false; }), regs());
+
+  // a write Home Assistant refuses: the switch goes back off, nothing is saved as on, and the page says why
+  var h3 = Object.assign({}, h);
+  var sets3 = [];
+  h3.callWS = function (m) { if (m.type === 'config/entity_registry/update') return Promise.reject(new Error('Unauthorized')); if (m.type !== 'hk_frontend/hidden/get') sets3.push(m); return Promise.resolve({}); };
+  var p3 = _.accessoryPane(h3, 'switch.coffee', null, { generated: true });
+  p3.querySelector('.haname').checked = true; p3.querySelector('.haname')._listeners.change[0](); drainMicrotasks(); drainMicrotasks(); drainMicrotasks();
+  ok('refused by Home Assistant: the switch is off again, nothing saved as on, the reason shown',
+     p3.querySelector('.haname').checked === false && !sets3.some(function (m) { return m.ha_name === true; }) &&
+     /Not renamed in Home Assistant: Unauthorized/.test(p3.querySelector('.err').textContent), sets3);
+
+  // no name yet: switching on writes nothing (a name given in Home Assistant is not wiped)
+  acc = { entities: {}, rooms: {} };
+  WS.length = 0;
+  var p4 = _.accessoryPane(h, 'switch.coffee', null, { generated: true });
+  p4.querySelector('.haname').checked = true; p4.querySelector('.haname')._listeners.change[0](); drainMicrotasks(); drainMicrotasks();
+  ok('switched on with no name yet: saved as on, nothing written to Home Assistant', regs().length === 0 && sets().length === 1 && sets()[0].ha_name === true, WS);
+
+  // who sees it: not a non-admin, not a host with settings of its own that cannot (commands off), not one that has no such call
+  var noAdmin = Object.assign({}, h, { user: { is_admin: false } });
+  ok('not for a non-admin', !/haname/.test(html(_.accessoryPane(noAdmin, 'switch.coffee', null, { generated: true }))));
+  var calls = [], can = true;
+  host = { canRenameInHome: function (c) { calls.push(['can', !!c]); return can; },
+           renameInHome: function (id, name, c) { calls.push(['rename', id, name, !!c]); return Promise.resolve(); } };
+  window.hkShell = Object.create(shell, { settingsHost: { value: function () { return host; } } });
+  acc = { entities: { 'switch.coffee': { name: 'Coffee' } }, rooms: {} };
+  WS.length = 0;
+  var p5 = _.accessoryPane(h, 'switch.coffee', null, { generated: true });
+  ok('a host with settings of its own is asked whether the connection can do it, and offers the switch when it can',
+     /class="tg haname"/.test(html(p5)) && calls[0][0] === 'can' && calls[0][1] === true, calls);
+  p5.querySelector('.haname').checked = true; p5.querySelector('.haname')._listeners.change[0](); drainMicrotasks(); drainMicrotasks();
+  ok('...and the write goes through the host (never the page\'s own socket), with the id and the home-wide name',
+     JSON.stringify(calls[1]) === JSON.stringify(['rename', 'switch.coffee', 'Coffee', true]) && regs().length === 0, calls);
+  can = false;
+  ok('...no switch while the host says it cannot (house commands off, not connected)', !/haname/.test(html(_.accessoryPane(h, 'switch.coffee', null, { generated: true }))));
+  host = {};
+  ok('...nor from a host with no such call', !/haname/.test(html(_.accessoryPane(h, 'switch.coffee', null, { generated: true }))));
+  window.hkShell = Object.create(shell, { haNav: { value: function () { return { link: 'https://ha.example', top: true }; } } });
+  ok('...nor on a page that is not Home Assistant\'s own and has no host', !/haname/.test(html(_.accessoryPane(h, 'switch.coffee', null, { generated: true }))));
+  window.hkShell = shell;
+  window.hkSettings = saved;
+})();
+
 print('\n' + (fail ? 'FAIL ' + fail + ' DETAIL BEHAVIOUR TESTS' : 'ALL ' + pass + ' DETAIL BEHAVIOUR TESTS PASS'));
 if (fail) throw new Error('detail behaviour tests failed');

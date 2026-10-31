@@ -64,7 +64,14 @@ for (const [name, me] of Object.entries(cases)) {
     const pg = h.page(['mantel', s], null);
     pages[s] = pg && pg.title;
   }
-  out[name] = { house: h.house, first: h.first(), title: h.title, groups, pages,
+  const sent = [], client = { actions: { callWS: (msg) => { sent.push(msg); return Promise.resolve({}); } } };
+  m.useCommands(() => false);
+  const commandsOff = h.canRenameInHome(client);
+  m.useCommands(() => true);
+  const rename = { commandsOff, commandsOn: h.canRenameInHome(client), noClient: h.canRenameInHome(null) };
+  await h.renameInHome('light.kitchen', 'Island Lights', client);
+  rename.sent = sent;
+  out[name] = { rename, house: h.house, first: h.first(), title: h.title, groups, pages,
                 notMine: h.page(['screens', 'x'], null), search: h.search().map((r) => r.route),
                 forward: ['connections', 'people', 'me', 'screens/x', 'nope'].map((p) => h.forward(p)) };
 }
@@ -119,6 +126,17 @@ def test_everyone_else_gets_me_only_and_never_the_houses_settings(run):
     assert p["house"] is False and p["first"] == "mantel/me"
     assert routes(p) == ["mantel/me"] and p["search"] == ["mantel/me"]
     assert set(p["pages"].values()) == {"Fictional adult"}
+
+
+def test_also_rename_in_home_assistant_is_offered_to_the_house_managers_while_commands_are_on(run):
+    """The accessory page's switch (2026-10-31) asks the host: an Owner or Admin, house commands on, a client to
+    write with. The write is the gateway's registry command for the entity's name and nothing else."""
+    for who in ("owner", "admin"):
+        r = run[who]["rename"]
+        assert (r["commandsOn"], r["commandsOff"], r["noClient"]) == (True, False, False), who
+        assert r["sent"] == [{"type": "config/entity_registry/update", "entity_id": "light.kitchen", "name": "Island Lights"}]
+    for who in ("adult", "first_run"):         # not the house's managers, or Home Assistant not read yet
+        assert run[who]["rename"]["commandsOn"] is False, who
 
 
 def test_the_first_run_opens_connections_without_hks_settings(run):

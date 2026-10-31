@@ -77,6 +77,7 @@ try {
   window.hkMantelShell.setAtTablet(me.at_tablet === true);        // GET /api/admin/overview's, as /api/me's
   window.hkMantelShell.setSettings(mantelSettings.host);
   window.hkMantelClient.useCommands(hub);
+  mantelSettings.useCommands(() => hub.commandsEnabled());
   const user = { id: me.user && me.user.ha_user_id, name: me.user && me.user.name, is_owner: me.user && me.user.role === 'owner',
                  is_admin: !!me.user && (me.user.role === 'owner' || me.user.role === 'admin'), credentials: [], mfa_modules: [] };
   let host;

@@ -7,6 +7,12 @@
                already share a name (the AirPlay and the Music Assistant
                HomePod).
     names      {dashboard url path: name} -- a name on one dashboard only.
+    ha_name    True: ALSO RENAME IN HOME ASSISTANT (2026-10-31) -- the home-wide
+               name is also written to the entity registry as the entity's
+               display name, by the panel (an admin's own
+               config/entity_registry/update), never its entity id and never a
+               per-screen name. Off (the default) is not stored. Switching it
+               off stops the syncing; Home Assistant keeps the last name.
     icon       an hk: glyph (or mdi:) for its tile and its sheet.
     show_as    light / fan / switch / outlet -- what it is drawn as and which
                chip counts it (a coffee maker on an outlet, a fan on a switch).
@@ -84,7 +90,7 @@ PATH = re.compile(r"^[a-z0-9_-]+$")
 PAGE_ORDERS = ("vacuums", "security")
 ATTR = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_ .-]{0,59}$")
 FIELDS = ("name", "icon", "show_as", "size", "anim", "status", "home", "room", "color", "when", "label", "attribute",
-          "fav_name", "fav_icon", "fav_with", "fav_room", "on_text", "off_text")
+          "fav_name", "fav_icon", "fav_with", "fav_room", "on_text", "off_text", "ha_name")
 FAV_WITH_MAX = 8
 
 
@@ -165,6 +171,9 @@ def clean_entity(v: Any) -> dict[str, Any]:
     for k in ("status", "home", "room"):
         if v.get(k) is False:
             out[k] = False
+    # ALSO RENAME IN HOME ASSISTANT: kept only while on
+    if v.get("ha_name") is True:
+        out["ha_name"] = True
     fav_name = v.get("fav_name")
     if isinstance(fav_name, str) and fav_name.strip():
         out["fav_name"] = fav_name.strip()[:60]
@@ -259,7 +268,7 @@ class Accessories:
             elif k in FIELDS:
                 if k == "fav_with" and isinstance(v, list):
                     v = [x for x in v if x != entity_id]          # never with itself
-                if v is None or (k in ("status", "home", "room") and v is True):
+                if v is None or (k in ("status", "home", "room") and v is True) or (k == "ha_name" and v is not True):
                     cur.pop(k, None)
                 else:
                     cur[k] = v
@@ -360,6 +369,7 @@ def current(hass: HomeAssistant) -> dict[str, Any]:
     vol.Optional("fav_room"): vol.Any(None, vol.All(str, vol.Length(max=40))),
     vol.Optional("on_text"): vol.Any(None, vol.All(str, vol.Length(max=30))),
     vol.Optional("off_text"): vol.Any(None, vol.All(str, vol.Length(max=30))),
+    vol.Optional("ha_name"): vol.Any(None, bool),
     vol.Optional("screen"): vol.Any(None, vol.All(str, vol.Match(PATH))),
     vol.Optional("expect_version"): EXPECT_VERSION,
 })

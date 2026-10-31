@@ -339,6 +339,10 @@ class HaClient:
 # ------------------------------------------------------------------------------ P3.3: the command path
 # Everything below is reached only through gateway.py, after RBAC (and the Alarm PIN for the alarm) and the audit row.
 CALL_SERVICE_KEYS = frozenset({"domain", "service", "service_data", "target", "return_response"})
+# What HK writes to an entity's registry entry: its room and, with "Also rename in Home Assistant" (2026-10-31), its
+# display name. Never `new_entity_id` (renaming the id breaks every automation that names it), nor disabled_by,
+# hidden_by, labels or options. The gateway refuses the rest before the audit row; this is the second lock.
+REGISTRY_KEYS = frozenset({"type", "id", "entity_id", "name", "area_id"})
 HTTP_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 _API_PATH = re.compile(r"^/api/[A-Za-z0-9_\-./]+(\?[A-Za-z0-9_\-.=&%:+,]*)?$")
 
@@ -613,6 +617,8 @@ def check_command(frame: object, ticket: object, writes: frozenset[str]) -> None
         extra = set(frame) - {"type"} - CALL_SERVICE_KEYS  # type: ignore[arg-type]
         if extra or not isinstance(frame.get("domain"), str) or not isinstance(frame.get("service"), str):  # type: ignore[union-attr]
             raise CommandBlocked("call_service carries domain, service, service_data, target, return_response only")
+    if kind == "config/entity_registry/update" and set(frame) - REGISTRY_KEYS:  # type: ignore[arg-type]
+        raise CommandBlocked("config/entity_registry/update carries entity_id, name and area_id only")
     _spend(ticket, "ws")
 
 

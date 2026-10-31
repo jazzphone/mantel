@@ -284,6 +284,46 @@ async def test_ws_writes_and_reads_are_told_apart(gw):
     await ws.close()
 
 
+async def test_also_rename_in_home_assistant_is_a_configure_command_audited_and_only_the_name(gw):
+    """HK's "Also rename in Home Assistant" (2026-10-31): the display name goes to the entity registry through
+    the gateway as the person who asked -- an Owner or Admin (`configure` on the entity), an audit row written
+    first -- and never the entity id, nor anything else of the registry entry."""
+    rename = {"type": "config/entity_registry/update", "entity_id": "light.kitchen", "name": "Island Lights"}
+    await gw.login("jordan", "adult")
+    ws = await gw.socket()
+    denied = await gw.command(ws, kind="ws", msg=rename)
+    assert denied["error"]["code"] == "forbidden"
+    assert gw.fake.sent == []
+    await ws.close()
+    await gw.login("avery", "owner")
+    ws = await gw.socket()
+    ok = await gw.command(ws, id=2, kind="ws", msg=rename)
+    assert "result" in ok
+    assert gw.fake.frames == [rename]
+    cleared = await gw.command(ws, id=3, kind="ws", msg=dict(rename, name=None))
+    assert "result" in cleared and gw.fake.frames[-1]["name"] is None
+    rows = [r for r in gw.audit() if r["action"] == "config/entity_registry/update"]
+    assert [(r["decision"], r["role"], r["result"], json.loads(r["target"])) for r in rows] == [
+        ("denied", "adult", "not_sent", ["light.kitchen"]),
+        ("allowed", "owner", "ok", ["light.kitchen"]), ("allowed", "owner", "ok", ["light.kitchen"])]
+    assert "Island Lights" not in json.dumps(rows)              # the new name is never stored in the audit row
+    n = len(gw.fake.frames)
+    for extra in ({"new_entity_id": "light.island"}, {"disabled_by": "user"}, {"name": 5}, {"name": "x" * 256}):
+        bad = await gw.command(ws, id=9, kind="ws", msg=dict(rename, **extra))
+        assert bad["error"]["code"] == "invalid_command", extra
+    assert len(gw.fake.frames) == n                             # nothing of it was sent
+    await ws.close()
+
+
+def test_the_command_connection_refuses_a_registry_entry_change_beyond_name_and_room():
+    from mantel_server.ha_client import check_command
+    ticket = CommandTicket(1, "ws")
+    check_command({"type": "config/entity_registry/update", "entity_id": "light.a", "name": "x"}, ticket, WRITES)
+    with pytest.raises(CommandBlocked):
+        check_command({"type": "config/entity_registry/update", "entity_id": "light.a", "new_entity_id": "light.b"},
+                      CommandTicket(1, "ws"), WRITES)
+
+
 def test_classification_rules():
     c = classify(service("lock", "unlock", "lock.front_door"), WRITES)
     assert (c.kind, c.action, [ch.entity_id for ch in c.checks]) == ("service", "lock.unlock", ["lock.front_door"])
