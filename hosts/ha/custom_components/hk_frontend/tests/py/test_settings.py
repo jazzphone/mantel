@@ -1244,12 +1244,13 @@ def test_wallpapers_stay_under_the_skys_caps_and_keep_white_text_readable_on_bri
     import os
     from custom_components.hk_frontend import settings as S
     assert "wallpaper" in S.SKY_BACKGROUNDS and "wallpaper" in S.SKY_PAGE_MODES
-    assert len(S.WALLPAPERS) == 18 and S.WALLPAPER_NIGHT == ("auto", "day", "night")
+    # (2026-11-01, item 45: four arts and six themes, each in a colour; the twelve read as an art in a preset)
+    assert len(S.WALLPAPERS) == 10 and len(S.WALLPAPER_LEGACY) == 12 and S.WALLPAPER_NIGHT == ("auto", "day", "night")
     sky = S.merged({})["sky"]
-    assert (sky["background"], sky["wallpaper"], sky["wallpaper_night"]) == ("live", "ribbons_rose", "auto")
-    assert S.merged({"dashboard": {"sky": {"wallpaper": "plaid", "wallpaper_night": "often"}}})["sky"]["wallpaper"] == "ribbons_rose"
+    assert (sky["background"], sky["wallpaper"], sky["wallpaper_color"], sky["wallpaper_night"]) == ("live", "ribbons", "rose", "auto")
+    assert S.merged({"dashboard": {"sky": {"wallpaper": "plaid", "wallpaper_night": "often"}}})["sky"]["wallpaper"] == "ribbons"
     b = S.board({"sky_background": "wallpaper", "sky_wallpaper": "shards_blue", "sky_wallpaper_night": "night"})
-    assert (b["sky_background"], b["sky_wallpaper"], b["sky_wallpaper_night"]) == ("wallpaper", "shards_blue", "night")
+    assert (b["sky_background"], b["sky_wallpaper"], b["sky_wallpaper_color"], b["sky_wallpaper_night"]) == ("wallpaper", "shards", "blue", "night")
     assert S.board({"sky_wallpaper": "plaid"})["sky_wallpaper"] is None and S.board({})["sky_wallpaper_night"] is None
     assert {"wallpaper", "wallpaper_night"} <= set(S.SKY_RESET) and {"sky_wallpaper", "sky_wallpaper_night"} <= set(S.SKY_RESET_BOARD)
     src = open(os.path.join(COMPONENT, "frontend", "modules", "hk-wallpapers.js")).read()
@@ -1291,11 +1292,15 @@ def test_wallpapers_stay_under_the_skys_caps_and_keep_white_text_readable_on_bri
         for s in (1, .5):
             import colorsys
             sweep.append("#" + "".join("%02x" % round(v * 255) for v in colorsys.hls_to_rgb(h / 360, .5, s)))
+    # ...and (2026-11-01) every art the same way; and the twelve as they were stored, each its art in its preset
     themed = _js_value("globalThis.window = globalThis;\n" + src + "\nvar SWEEP = " + __import__("json").dumps(sweep) + ";",
-                       "[].concat.apply([], window.hkWallpapers.list().filter(function (w) { return w.theme; }).map(function (w) {"
+                       "[].concat.apply([], window.hkWallpapers.list().map(function (w) {"
                        " return SWEEP.map(function (c) { return [w.id + '@' + c, window.hkWallpapers.stops(w.id, c)]; }); }))")
-    assert len(themed) == 6 * len(sweep)
-    walls = [w for w in walls if w[0] not in S.WALLPAPER_THEMES] + themed
+    assert len(themed) == 10 * len(sweep)
+    old = _js_value("globalThis.window = globalThis;\n" + src,
+                    "window.hkWallpapers.LEGACY.map(function (w) { return [w[0], window.hkWallpapers.stops(w[0])]; })")
+    assert [w[0] for w in old] == list(S.WALLPAPER_LEGACY)
+    walls = themed + old
 
     pos = (0, .42, .72, 1)
     for wid, stops in walls:

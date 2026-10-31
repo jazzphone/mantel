@@ -208,3 +208,16 @@ def test_an_import_moves_each_screen_s_menu_too():
     boards = {k: b for scope, k, b in docs if scope == "board"}
     assert boards == {"dashboard-den": {"menu": "open", "accent": "red", "menu_own": ["accent"]},
                       "dashboard-hall": {"menu": "open"}}
+
+
+def test_an_old_wallpaper_id_is_stored_with_its_colour():
+    """Item 45 (2026-11-01): "pinwheel_teal" alone, stored as differences, is Pinwheel in Teal -- both kept, as the
+    pair they are read as (a lone "pinwheel" would read back in Blue); the default pair, Ribbons in Rose, goes."""
+    got = S.stored_house({"sky": {"background": "wallpaper", "wallpaper": "pinwheel_teal"}}, merged_form=False)
+    assert got["sky"] == {"background": "wallpaper", "wallpaper": "pinwheel", "wallpaper_color": "teal"}
+    sky = M.merged({"dashboard": got})["sky"]
+    assert (sky["wallpaper"], sky["wallpaper_color"]) == ("pinwheel", "teal")
+    got = S.stored_house({"sky": {"wallpaper": "ribbons_rose", "decorations": False}}, merged_form=False)
+    assert got["sky"] == {"decorations": False}
+    got = S.stored_house({"sky": {"wallpaper_color": "green"}}, merged_form=False)
+    assert "wallpaper_color" not in got.get("sky", {}), "a colour alone over nothing stored was never shown: Ribbons in Rose"

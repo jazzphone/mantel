@@ -159,9 +159,13 @@ ok('?hkglass=bright previews it', /hkglass=\(flat\|clear\|frosted\|tinted\|blur_
 // keeps 4.5:1 against the plate over each wallpaper's lightest stop)
 load(HK_ROOT + '/frontend/modules/hk-wallpapers.js');
 var W = window.hkWallpapers, weak = [];
-W.list().forEach(function (w) {
+// (2026-11-01, item 45: every art and theme in every preset and a few colours of the owner's own, and the
+// twelve as they were stored)
+var COLS = W.COLORS.map(function (c) { return c[0]; }).concat(['#ffffff', '#000000', '#ffee00', '#ff0000', '#00ffff']);
+W.list().map(function (w) { return COLS.map(function (c) { return [w.id, c]; }); }).reduce(function (a, b) { return a.concat(b); }, [])
+ .concat(W.LEGACY.map(function (l) { return [l[0], null]; })).forEach(function (wc) {
   ['day', 'night'].forEach(function (k) {
-    var stops = W.stops(w.id)[k], cap = HS.brightCap(stops), light = stops.slice().sort(function (a, b) {
+    var w = { id: wc[0] + (wc[1] ? '@' + wc[1] : '') }, stops = W.stops(wc[0], wc[1])[k], cap = HS.brightCap(stops), light = stops.slice().sort(function (a, b) {
       return HS.brightContrast(a, a, 0) - HS.brightContrast(b, b, 0); })[0];
     if (cap < 50 || HS.brightContrast(light, light, Math.min(50, cap)) < 4.5) weak.push(w.id + ' ' + k + ' cap ' + cap);
   });
@@ -171,15 +175,21 @@ ok('every wallpaper, day and night: white text keeps 4.5:1 at the designed Stren
 // background(), which the sky paints from)
 HS._apply({ configured: true, look: { glass: 'bright' }, sky: { background: 'wallpaper', wallpaper: 'shards_blue', wallpaper_night: 'night' } });
 var bgw = HS.skyLook().background;
-ok('a Wallpaper background: All Screens\' one, its Night Version and its own stops', bgw.mode === 'wallpaper' && bgw.wallpaper.id === 'shards_blue' &&
-   bgw.wallpaper.night === 'night' && bgw.stops.day[0] === W.stops('shards_blue').day[0] && !bgw.photo, bgw);
+// (an old id, 2026-11-01: its art in its own preset)
+ok('a Wallpaper background: All Screens\' one, its Night Version and its own stops', bgw.mode === 'wallpaper' && bgw.wallpaper.id === 'shards' &&
+   bgw.wallpaper.color === W.color('blue') && bgw.wallpaper.night === 'night' && bgw.stops.day[0] === W.stops('shards_blue').day[0] && !bgw.photo, bgw);
 HS._apply({ configured: true, look: { glass: 'bright' }, sky: { background: 'live', wallpaper: 'shards_blue' },
             boards: { '': { sky_background: 'wallpaper', sky_wallpaper: 'petals_amber', sky_wallpaper_night: 'day' } } });
 bgw = HS.skyLook().background;
-ok('...a screen\'s own, each of the three on its own', bgw.mode === 'wallpaper' && bgw.wallpaper.id === 'petals_amber' && bgw.wallpaper.night === 'day', bgw);
+ok('...a screen\'s own, each of the three on its own', bgw.mode === 'wallpaper' && bgw.wallpaper.id === 'petals' && bgw.wallpaper.color === W.color('amber') && bgw.wallpaper.night === 'day', bgw);
+HS._apply({ configured: true, look: { glass: 'bright' }, sky: { background: 'wallpaper', wallpaper: 'shards', wallpaper_color: 'teal' },
+            boards: { '': { sky_wallpaper: 'pinwheel', sky_wallpaper_color: '#ff8800' } } });
+bgw = HS.skyLook().background;
+ok('...an art in a colour, a screen\'s own', bgw.wallpaper.id === 'pinwheel' && bgw.wallpaper.color === '#ff8800' &&
+   bgw.stops.day.join() === W.stops('pinwheel', '#ff8800').day.join(), bgw);
 HS._apply({ configured: true, look: { glass: 'bright' }, sky: { background: 'wallpaper', wallpaper: 'plaid', wallpaper_night: 'often' } });
 bgw = HS.skyLook().background;
-ok('...one it doesn\'t know is the default, after sunset', bgw.wallpaper.id === 'ribbons_rose' && bgw.wallpaper.night === 'auto', bgw);
+ok('...one it doesn\'t know is the default, after sunset', bgw.wallpaper.id === 'ribbons' && bgw.wallpaper.night === 'auto', bgw);
 ok('...the live sky\'s motion is not counted over it (the ladder)', /^bright:a0w0r0f0/.test(HS.ladderSignature()), HS.ladderSignature());
 HS._apply({ configured: true, look: { glass: 'clear' }, sky: {} });
 delete window.hkSky;

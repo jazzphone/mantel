@@ -5612,7 +5612,9 @@
     var HS = window.hkSettings, look = HS && HS.skyLook ? HS.skyLook() : null, W = window.hkWallpapers;
     var m = wall && wall.motion && wall.motion !== 'off' && !(look && look.animations === false) ? wall.motion : null;
     if (!el.setAttribute) return;
-    if (m) { el.setAttribute('data-wm', m); el.setAttribute('data-ws', W && W.has(wall.id) ? W.list().filter(function (x) { return x.id === wall.id; })[0].shape : 'ribbons'); }
+    // (data-ws: the art's shape, or 'theme' -- an old id its art: W.resolve)
+    var shape = !m ? null : W && W.isTheme(wall.id) ? 'theme' : W ? W.resolve(wall.id).id : 'ribbons';
+    if (m) { el.setAttribute('data-wm', m); el.setAttribute('data-ws', shape); }
     else { el.removeAttribute('data-wm'); el.removeAttribute('data-ws'); }
   }
   // A MOTION THEME (2026-10-31, hk-wallpapers.js scene()): its ground is the
@@ -5629,11 +5631,13 @@
   function paintWall(el, wall, night) {
     var W = window.hkWallpapers, layers = el.querySelectorAll ? el.querySelectorAll('.wall') : [];
     var sc = wall && W && W.scene ? W.scene(wall.id, night, wall.color) : null;
-    var src = wall && W ? (sc ? sc.key : W.url(wall.id, night)) : null;
+    // (an art in its colour too, 2026-11-01: item 45)
+    var src = wall && W ? (sc ? sc.key : W.url(wall.id, night, wall.color)) : null;
+    var rw = wall && W ? W.resolve(wall.id, wall.color) : null;
     wallMotion(el, src ? wall : null);
     if (el._hkWall === src || (!src && !layers.length)) { el._hkWall = src; return; }
     el._hkWall = src;
-    el.style.setProperty('--wall', src ? '"' + wall.id + (sc ? '@' + W.color(wall.color) : '') + (night ? ':night' : ':day') + '"' : 'none');
+    el.style.setProperty('--wall', src ? '"' + rw.id + '@' + rw.hex + (night ? ':night' : ':day') + '"' : 'none');
     if (src && layers.length < 2) {
       var art = el.querySelector('.art');
       for (var i = layers.length; i < 2; i++) {

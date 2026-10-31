@@ -1,4 +1,4 @@
-"""THE MOTION THEMES, in WebKit (2026-10-31, the owner on 0.1.94: more moving backgrounds, any colour).
+"""THE WALLPAPERS AND MOTION THEMES IN A COLOUR, in WebKit (2026-10-31 the themes; 2026-11-01 the arts, item 45).
 
     PLAYWRIGHT_PATH=... NODE=node python tools/headless/motion_themes_check.py --shots DIRECTORY [--size WxH ...]
 
@@ -26,12 +26,15 @@ if not args.node or not os.environ.get('PLAYWRIGHT_PATH'):
 import gallery  # noqa: E402
 
 SIZES = args.size or ['1180x820', '390x844']
-# each theme in a preset and in a colour of the owner's own
+# each art (2026-11-01, item 45) in a preset and in a colour of the owner's own -- Ribbons in Rose one of the twelve, its
+# tuned shades -- and each theme the same
+ARTS = {'ribbons': ('rose', '#ff8800'), 'petals': ('green', '#5ac8fa'), 'shards': ('coral', '#b0b0b0'), 'pinwheel': ('violet', '#ffd60a')}
 THEMES = {'aurora': ('teal', '#ff5fa2'), 'blobs': ('violet', '#ff8800'), 'waves': ('blue', '#2ec4b6'),
           'dots': ('rose', '#c0f000'), 'beams': ('amber', '#6a8cff'), 'meteors': ('graphite', '#9b5cff')}
 STILL = 'mt-still'                  # Animations off: the still frame
 SAVER = {'mt-saver-theme': {'clock_wallpaper': 'meteors', 'clock_wallpaper_color': 'violet'},
-         'mt-saver-drawn': {'clock_wallpaper': 'petals_violet'}}
+         'mt-saver-drawn': {'clock_wallpaper': 'petals_violet'},          # an old id: Petals in Violet
+         'mt-saver-art': {'clock_wallpaper': 'shards', 'clock_wallpaper_color': '#ff8800'}}
 
 
 def board(theme, color, **more):
@@ -43,11 +46,12 @@ def board(theme, color, **more):
 async def main():
     from aiohttp.test_utils import TestServer
     screens = []
-    for theme, colors in THEMES.items():
-        for color in colors:
-            name = 'mt-' + theme + '-' + color.lstrip('#')
-            gallery.SETTINGS['boards'][name] = board(theme, color)
-            screens.append({'path': name, 'theme': theme, 'color': color})
+    for group, art in ((ARTS, True), (THEMES, False)):
+        for theme, colors in group.items():
+            for color in colors:
+                name = 'mt-' + theme + '-' + color.lstrip('#')
+                gallery.SETTINGS['boards'][name] = board(theme, color)
+                screens.append({'path': name, 'theme': theme, 'color': color, 'art': art})
     gallery.SETTINGS['boards'][STILL] = board('waves', 'blue', sky_animations=False)
     for name, opts in SAVER.items():
         gallery.SETTINGS['boards'][name] = {'title': name, 'pages': [], 'headers': {'home': True}, 'menu_custom': True, 'menu': 'tabbar',

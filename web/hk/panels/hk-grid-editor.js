@@ -1158,7 +1158,7 @@
     // LAYOUT + LOOK (2026-10-30, hk_core looks.py): a whole setup -- the
     // layout and the screen's settings -- in one step; each Look's picture
     lookArt(l) {
-      var h = this.h, W = window.hkWallpapers, wall = l.settings.sky_background === 'wallpaper' && W && W.url(l.settings.sky_wallpaper, false);
+      var h = this.h, W = window.hkWallpapers, wall = l.settings.sky_background === 'wallpaper' && W && W.url(l.settings.sky_wallpaper, false, l.settings.sky_wallpaper_color);
       var el = h('span', { class: 'lookart', 'aria-hidden': 'true' }, [h('i', {})]);
       el.style.backgroundImage = wall ? 'url("' + wall + '")' : 'linear-gradient(160deg,' + l.art[0] + ',' + l.art[1] + ' 55%,' + l.art[2] + ')';
       el.firstChild.style.background = l.art[3];

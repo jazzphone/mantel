@@ -1,17 +1,20 @@
 // hk-wallpapers.js -- THE WALLPAPERS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md
 // Phase E): a Background of our own art, window.hkWallpapers.
 //
-// Twelve wallpapers: four shapes (soft folded ribbons, petals, glass shards,
-// pinwheels) in six colour families (Rose, Violet, Blue, Teal, Amber,
-// Graphite), each with a darker night version. Each is an SVG drawn here from
-// its family's five colours (darkest first) -- the same builder draws the
-// screen's background (hk-sky.js, painted once at the screen's size) and the
-// picker's previews (HK Settings -> Sky / Background).
+// Four arts (soft folded ribbons, petals, glass shards, pinwheels), each in
+// any colour (2026-11-01, item 45: the owner's one combined picker; before,
+// twelve fixed pairs in six colour families -- "ribbons_rose" and the rest
+// still read, as an art in its preset, and draw as they did), each with a
+// darker night version. Each is an SVG drawn here from five shades of its
+// colour (darkest first) -- the same builder draws the screen's background
+// (hk-sky.js, painted once at the screen's size) and the picker's previews
+// (HK Settings -> Sky / Background).
 //
 // THE STOPS. A wallpaper also names four stops, top to bottom, as a Color
 // backdrop has: the art's own mean colour across the screen at the sky's stop
-// heights (0, .42, .72, 1), measured off the drawn SVG
-// (tools/headless/wallpaper_stops.cjs measures them again). hk-sky.js
+// heights (0, .42, .72, 1) -- for any colour a measured blend of its shades
+// (WEIGHTS, as the themes' below; tools/headless/wallpaper_stops.cjs
+// measures them and holds them to the art in every preset). hk-sky.js
 // publishes them as the sky's --sk0..--sk3, so Frosted's Tint from
 // Background (hk-frosttint.js), the Flat image tint and Bright Glass's plate
 // mix read a wallpaper as they read the sky. They stay under the sky's luma
@@ -61,27 +64,23 @@
     graphite: { name: 'Graphite',
       day: ['#12151a', '#272b34', '#444b56', '#737a88', '#b3b9c2'], night: ['#08090c', '#121419', '#1f232a', '#363c47', '#5d6572'] }
   };
+  // THE ARTS (2026-11-01, item 45: the owner's "one combined picker"): the
+  // four shapes, each in any colour (settings.py WALLPAPERS, in its order)
   var SHAPES = { ribbons: 'Ribbons', petals: 'Petals', shards: 'Shards', pinwheel: 'Pinwheel' };
-
-  // THE TWELVE (settings.py WALLPAPERS, in its order): id, shape, family,
-  // and the art's four stops by day and by night
-  var LIST = [
-    ['ribbons_rose', 'ribbons', 'rose', ['#8a1f74', '#973681', '#46125e', '#42115e'], ['#511250', '#651f5f', '#260a36', '#230935']],
-    ['petals_rose', 'petals', 'rose', ['#39104f', '#642674', '#84367e', '#90377f'], ['#20092d', '#41174b', '#5b205a', '#62215d']],
-    ['petals_violet', 'petals', 'violet', ['#211a5e', '#3c3283', '#524999', '#584fa1'], ['#120e3f', '#262066', '#342d80', '#373089']],
-    ['shards_violet', 'shards', 'violet', ['#564e8f', '#564d9b', '#50469e', '#564da5'], ['#413c78', '#3e387f', '#342d7f', '#352e89']],
-    ['shards_blue', 'shards', 'blue', ['#3e5780', '#38588b', '#2d528b', '#315790'], ['#324c78', '#2c4b80', '#204480', '#1e478a']],
-    ['ribbons_blue', 'ribbons', 'blue', ['#1f4b8d', '#375b91', '#0d2a5e', '#0b285d'], ['#123a7d', '#1d498d', '#091f4a', '#081e48']],
-    ['pinwheel_teal', 'pinwheel', 'teal', ['#1a4f49', '#1a4e48', '#1b4944', '#153e39'], ['#0c443d', '#0d433c', '#0c3e38', '#0a342f']],
-    ['ribbons_teal', 'ribbons', 'teal', ['#155750', '#2c645d', '#083732', '#063531'], ['#0a4841', '#12584f', '#042a26', '#042825']],
-    ['pinwheel_amber', 'pinwheel', 'amber', ['#6e3b13', '#6a3914', '#623614', '#502b11'], ['#4d270c', '#4b260d', '#46240c', '#3a1d0a']],
-    ['petals_amber', 'petals', 'amber', ['#3d1b07', '#613515', '#7b4a1f', '#844f20'], ['#271104', '#46240d', '#5d3314', '#633614']],
-    ['shards_graphite', 'shards', 'graphite', ['#53575e', '#52565e', '#4b5059', '#515761'], ['#373a3f', '#34363c', '#282c32', '#272b33']],
-    ['pinwheel_graphite', 'pinwheel', 'graphite', ['#3e434c', '#3d414a', '#393d46', '#2f333a'], ['#1d2027', '#1d2026', '#1b1e24', '#16191e']]
-  ];
-  var BY_ID = {};
-  LIST.forEach(function (w) { BY_ID[w[0]] = { id: w[0], shape: w[1], family: w[2], day: w[3], night: w[4] }; });
-  var DEFAULT = 'ribbons_rose';
+  var ARTS = ['ribbons', 'petals', 'shards', 'pinwheel'];
+  // THE TWELVE AS THEY WERE STORED (settings.py WALLPAPER_LEGACY, in its
+  // order): an art in one of the six presets -- "ribbons_rose" reads as
+  // Ribbons in Rose, and draws as it always did (FAMILIES)
+  var LEGACY = [['ribbons_rose', 'ribbons', 'rose'], ['petals_rose', 'petals', 'rose'], ['petals_violet', 'petals', 'violet'],
+    ['shards_violet', 'shards', 'violet'], ['shards_blue', 'shards', 'blue'], ['ribbons_blue', 'ribbons', 'blue'],
+    ['pinwheel_teal', 'pinwheel', 'teal'], ['ribbons_teal', 'ribbons', 'teal'], ['pinwheel_amber', 'pinwheel', 'amber'],
+    ['petals_amber', 'petals', 'amber'], ['shards_graphite', 'shards', 'graphite'], ['pinwheel_graphite', 'pinwheel', 'graphite']];
+  var LEGACY_BY = {};
+  LEGACY.forEach(function (w) { LEGACY_BY[w[0]] = [w[1], w[2]]; });
+  // what a stored value draws: [art or theme, colour id or null (the
+  // colour chosen)] -- an old id its art and its family's preset
+  function legacy(id) { return LEGACY_BY[id] || null; }
+  var DEFAULT = 'ribbons';
 
   // ------------------------------------------------------------ the art
   // (drawn for HK, 2026-10-30, as the HomeView-look mock-ups drew them --
@@ -202,17 +201,30 @@
     if (d) h = mx === c[0] ? ((c[1] - c[2]) / d + 6) % 6 : mx === c[1] ? (c[2] - c[0]) / d + 2 : (c[0] - c[1]) / d + 4;
     return { h: h * 60, s: Math.min(1, s) };
   }
-  function ramp(hex, shift, night) {
-    var hs = hueOf(hex), h = ((hs.h + shift) % 360 + 360) % 360 / 60, s = Math.min(hs.s, 0.9);
-    // the hue at HSL lightness .5
-    var x = s * (1 - Math.abs(h % 2 - 1)), k = [[s, x, 0], [x, s, 0], [0, s, x], [0, x, s], [x, 0, s], [s, 0, x]][Math.floor(h) % 6];
-    var base = k.map(function (v) { return lin((v + 0.5 - s / 2) * 255); });
-    var Yb = 0.2126 * base[0] + 0.7152 * base[1] + 0.0722 * base[2];
-    return RAMP[night ? 'night' : 'day'].map(function (Y) {
+  // `spec` (the Wallpaper arts', ART_RAMP below): its own luminances, a cap on
+  // the colour's saturation and how much of it each shade keeps
+  function ramp(hex, shift, night, spec) {
+    var hs = hueOf(hex), h = ((hs.h + shift) % 360 + 360) % 360 / 60;
+    var ys = (spec || RAMP)[night ? 'night' : 'day'], ks = spec ? spec[night ? 'knight' : 'kday'] : null;
+    return ys.map(function (Y, i) {
+      var s = Math.min(hs.s, spec ? spec.cap : 0.9) * (ks ? ks[i] : 1);
+      // the hue at HSL lightness .5
+      var x = s * (1 - Math.abs(h % 2 - 1)), k = [[s, x, 0], [x, s, 0], [0, s, x], [0, x, s], [x, 0, s], [s, 0, x]][Math.floor(h) % 6];
+      var base = k.map(function (v) { return lin((v + 0.5 - s / 2) * 255); });
+      var Yb = 0.2126 * base[0] + 0.7152 * base[1] + 0.0722 * base[2];
       var t = Y > Yb ? (Y - Yb) / (1 - Yb) : 0;
       return hexOf(base.map(function (v) { return enc(Y <= Yb ? v * Y / Yb : v + (1 - v) * t); }));
     });
   }
+  // THE WALLPAPER ARTS' SHADES IN ANY COLOUR (2026-11-01, item 45): five, by
+  // the same rule, at the luminances the six drawn families averaged -- a
+  // tenth under that by day, where a grey Shards (its white glare on top) ran
+  // over the sky's mean cap -- their lighter shades greyer, as theirs were
+  // (`kday` / `knight`, the share of the colour's saturation each keeps).
+  // The twelve keep their own tuned shades (FAMILIES), so a Wallpaper chosen
+  // before draws exactly as it did (artPalette).
+  var ART_RAMP = { cap: 0.85, day: [0.0086, 0.032, 0.08, 0.174, 0.323], night: [0.0048, 0.0165, 0.0401, 0.0934, 0.2170],
+                   kday: [0.95, 0.95, 0.85, 0.55, 0.3], knight: [0.95, 0.95, 0.9, 0.75, 0.6] };
   // a radial gradient, as lg above
   function rg(id, cx, cy, r, stops) {
     return '<radialGradient id="' + id + '" cx="' + cx + '" cy="' + cy + '" r="' + r + '">' +
@@ -398,6 +410,15 @@
   // by tools/headless/wallpaper_stops.cjs --weights, which also checks the
   // stops they give against the art drawn in each preset (--check)
   var WEIGHTS = {
+    // the four arts (2026-11-01; shards' c is its white glare, by day and night)
+    ribbons: { w: [[0, 0.3908, 0.4843, 0.1237, 0], [0.025, 0.3377, 0.1489, 0.4168, 0.0713], [0.4356, 0.518, 0.0194, 0.0269, 0], [0.4298, 0.5626, 0.0066, 0, 0]],
+      c: { day: [0.0005, 0.0002, 0.0001, 0.0005], night: [0.0005, 0.0003, 0.0001, 0.0005] } },
+    petals: { w: [[0.6942, 0.2507, 0, 0.0539, 0], [0.2073, 0.5873, 0.0257, 0.0567, 0.122], [0.0961, 0.4276, 0.1308, 0.1624, 0.1819], [0.0766, 0.3165, 0.2163, 0.2265, 0.1628]],
+      c: { day: [0.0005, 0.0005, 0.0005, 0.0005], night: [0.0006, 0.0006, 0.0005, 0.0005] } },
+    shards: { w: [[0.2864, 0.36, 0.0072, 0.1136, 0.1159], [0.1137, 0.4421, 0.1898, 0.0477, 0.1136], [0.0301, 0.4913, 0.2523, 0.0784, 0.112], [0.0002, 0.3729, 0.3301, 0.1363, 0.1595]],
+      c: { day: [0.1159, 0.0934, 0.0354, 0.0005], night: [0.1159, 0.0935, 0.0354, 0.0005] } },
+    pinwheel: { w: [[0.2696, 0.23, 0.3148, 0.1033, 0.0822], [0.2026, 0.4388, 0.1602, 0.1017, 0.0966], [0.3576, 0.3349, 0.0502, 0.1884, 0.0688], [0.5571, 0.2422, 0.0087, 0.1209, 0.0708]],
+      c: { day: [0.0005, 0.0005, 0.0005, 0.0005], night: [0.0006, 0.0006, 0.0005, 0.0005] } },
     aurora: { w: [[0.9581, 0.0313, 0, 0.0098, 0, 0, 0, 0, 0, 0], [0.1282, 0.2668, 0, 0.0619, 0.1164, 0, 0, 0, 0.2322, 0.1932],
       [0, 0.7363, 0.2625, 0, 0, 0, 0, 0, 0, 0], [0, 0.0521, 0.9469, 0, 0, 0, 0, 0, 0, 0]],
       c: { day: [0.0005, 0.0004, 0.0006, 0.0005], night: [0.0007, 0.0005, 0.0006, 0.0005] } },
@@ -415,7 +436,19 @@
       [0, 0.6074, 0.2592, 0, 0, 0, 0, 0, 0.1321, 0], [0, 0.0386, 0.7378, 0, 0, 0, 0, 0, 0.2229, 0]],
       c: { day: [0.0008, 0.0008, 0.0008, 0.0005], night: [0.0009, 0.001, 0.0008, 0.0005] } }
   };
+  // A WALLPAPER ART'S FIVE SHADES in a colour: one of the twelve it was drawn
+  // as (Ribbons in Rose ...), that family's tuned shades, so the twelve draw
+  // exactly as they did; anything else by ART_RAMP's rule (a family on an
+  // art it was never tuned for can run too light: Ribbons in Amber's top
+  // stop held Bright Glass under its designed Strength)
+  function artPalette(art, hex, night) {
+    for (var i = 0; i < LEGACY.length; i++) {
+      if (LEGACY[i][1] === art && color(LEGACY[i][2]) === hex) return FAMILIES[LEGACY[i][2]][night ? 'night' : 'day'].slice();
+    }
+    return ramp(hex, 0, night, ART_RAMP);
+  }
   function palette(id, hex, night) {
+    if (SHAPES.hasOwnProperty(id)) return artPalette(id, hex, night);
     return THEMES[id].hues.reduce(function (a, sh) { return a.concat(ramp(hex, sh, night)); }, []);
   }
   function themeStops(id, hex, night) {
@@ -458,25 +491,34 @@
   }
 
   function isTheme(id) { return Object.prototype.hasOwnProperty.call(THEMES, id); }
-  function get(id) { return BY_ID[id] || BY_ID[DEFAULT]; }
-  // THE SVG of a wallpaper, by day or by night (a theme's still frame, in
-  // its colour `col`). `uid` keeps its gradients' ids apart where several
+  function isArt(id) { return Object.prototype.hasOwnProperty.call(SHAPES, id); }
+  // WHAT A STORED CHOICE DRAWS: {id: an art or a theme, hex} -- an old id
+  // ("ribbons_rose") its art in its own preset, whatever colour is chosen;
+  // one it doesn't know the default art
+  function resolve(id, col) {
+    var l = legacy(id);
+    if (l) return { id: l[0], hex: color(l[1]) };
+    return { id: isTheme(id) || isArt(id) ? id : DEFAULT, hex: color(col) };
+  }
+  // an art's frame: 1000 x 1000, cut to the screen; a few still stars at night
+  function artFrame(art, P, night, u) { return DRAW[art](P, u) + (night ? stars() : ''); }
+  // THE SVG of a wallpaper, by day or by night, in its colour `col` (a
+  // theme's still frame). `uid` keeps its gradients' ids apart where several
   // are drawn in one document (the picker)
   function svg(id, night, uid, col) {
-    var u = (uid || 'hkw') + '_';
-    if (isTheme(id)) {
+    var u = (uid || 'hkw') + '_', r = resolve(id, col), P = palette(r.id, r.hex, night);
+    if (isTheme(r.id)) {
       return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' +
-        themeFrame(id, palette(id, color(col), night), night, u) + '</svg>';
+        themeFrame(r.id, P, night, u) + '</svg>';
     }
-    var w = get(id), fam = FAMILIES[w.family];
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' +
-      DRAW[w.shape](night ? fam.night : fam.day, u) + (night ? stars() : '') + '</svg>';
+      artFrame(r.id, P, night, u) + '</svg>';
   }
-  // ...as an address a background or an image takes (made once)
+  // ...as an address a background or an image takes (made once per colour)
   var urls = {};
   function url(id, night, col) {
-    var th = isTheme(id), k = (th ? id + '@' + color(col) : get(id).id) + (night ? ':n' : ':d');
-    if (!urls[k]) urls[k] = dataUrl(svg(th ? id : get(id).id, night, 'w', col));
+    var r = resolve(id, col), k = r.id + '@' + r.hex + (night ? ':n' : ':d');
+    if (!urls[k]) urls[k] = dataUrl(svg(r.id, night, 'w', r.hex));
     return urls[k];
   }
   // A THEME ON THE SCREEN (hk-sky.js paintWall): its ground's address and
@@ -554,36 +596,37 @@
   var LENGTHS = { a: 46, b: 61, c: 77, d: 24, e: 13, f: 17 };
   // its four stops, {day, night} -- a Color backdrop's shape (a theme's in
   // its colour)
+  // (an art's stops, as a theme's, are its measured blend of its shades --
+  // the twelve's old tables, measured off the same art, are what they give
+  // in the six presets: wallpaper_stops.cjs --check)
   function stops(id, col) {
-    if (isTheme(id)) { var hex = color(col); return { day: themeStops(id, hex, false), night: themeStops(id, hex, true) }; }
-    var w = get(id); return { day: w.day.slice(), night: w.night.slice() };
+    var r = resolve(id, col);
+    return { day: themeStops(r.id, r.hex, false), night: themeStops(r.id, r.hex, true) };
   }
 
   window.hkWallpapers = {
-    version: '1.1.0',
+    version: '1.2.0',
     DEFAULT: DEFAULT,
-    // [{id, shape, family, name, theme}], in settings.py's order: the twelve
-    // drawn ones, then the six themes (shape 'theme', no family)
+    // [{id, name, theme, moves}], in settings.py WALLPAPERS' order: the four
+    // arts, then the six themes. `moves`: it animates by itself (a theme);
+    // an art moves only while the Wallpaper's Motion is on
     list: function () {
-      return LIST.map(function (w) {
-        return { id: w[0], shape: w[1], family: w[2], name: FAMILIES[w[2]].name + ' ' + SHAPES[w[1]], theme: false };
-      }).concat(THEME_IDS.map(function (id) { return { id: id, shape: 'theme', family: null, name: THEMES[id].name, theme: true }; }));
+      return ARTS.map(function (a) { return { id: a, shape: a, name: SHAPES[a], theme: false, moves: false }; })
+        .concat(THEME_IDS.map(function (id) { return { id: id, shape: 'theme', name: THEMES[id].name, theme: true, moves: true }; }));
     },
-    has: function (id) { return !!BY_ID[id] || isTheme(id); },
-    isTheme: isTheme,
+    has: function (id) { return isArt(id) || isTheme(id) || !!legacy(id); },
+    isTheme: function (id) { return isTheme(resolve(id).id) && !legacy(id); },
+    isArt: isArt, resolve: resolve, legacy: legacy, LEGACY: LEGACY,
     svg: svg, url: url, stops: stops, scene: scene, paintScene: paintScene, motionCss: motionCss, LENGTHS: LENGTHS,
-    // a theme's colour: the presets ([id, name, hex]), the default, and a
-    // stored value as "#rrggbb"
+    // the colour: the presets ([id, name, hex]), the default, and a stored
+    // value as "#rrggbb"
     COLORS: COLORS, COLOR_DEFAULT: COLOR_DEFAULT, color: color,
-    // the family's five colours (the tests; the stops' measuring tool); a
-    // theme's shades in a colour
-    colors: function (id, night, col) {
-      if (isTheme(id)) return palette(id, color(col), night);
-      var f = FAMILIES[get(id).family]; return (night ? f.night : f.day).slice();
-    },
-    FAMILIES: FAMILIES, SHAPES: SHAPES,
-    // the measuring tool's: a theme's still frame drawn from any shades
+    // a wallpaper's shades in a colour (the tests; the measuring tool)
+    colors: function (id, night, col) { var r = resolve(id, col); return palette(r.id, r.hex, night); },
+    FAMILIES: FAMILIES, SHAPES: SHAPES, ART_RAMP: ART_RAMP,
+    // the measuring tool's: a wallpaper's still frame drawn from any shades
     _frame: function (id, P, night) {
+      if (isArt(id)) return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice">' + artFrame(id, P, night, 'm_') + '</svg>';
       return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid slice">' + themeFrame(id, P, night, 'm_') + '</svg>';
     },
     _weights: WEIGHTS
