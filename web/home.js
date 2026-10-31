@@ -141,7 +141,8 @@ if (window.hkNeed) window.hkNeed.arm(cardList.lazy || {});
 // as it is here; Settings hands it each change (hkSaver.preview). A page laid out at the screen's own size, so it
 // is drawn exactly as the screen draws it.
 const SAVER_ONLY = new URLSearchParams(location.search).get('hk_preview') === 'saver';
-await Promise.all((SAVER_ONLY ? cards.filter((c) => c === 'hk-base.js') : cards).map((c) => imp('/hk/cards/' + c)));
+if (SAVER_ONLY) cards.splice(0, cards.length, ...cards.filter((c) => c === 'hk-base.js'));
+await Promise.all(cards.map((c) => imp('/hk/cards/' + c)));
 mark('code');
 // shown inside Home Assistant (a Webpage dashboard): its header and sidebar as the screen says, and the way back
 // (ha-frame.js; Mantel Link's script listens on Home Assistant's side)

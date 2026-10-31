@@ -47,3 +47,19 @@ def test_the_card_list_is_asked_for_early_and_taken_by_home_js():
     assert "window.__mantelCardList" in (WEB / "home.js").read_text()
     served = ingress.rewrite(early, PREFIX)
     assert f"link.href = hkV('{PREFIX}/hk/cards/' + c)" in served                  # under Ingress too (hkV: the ?v=)
+
+
+def test_the_screensaver_alone_skips_the_strategy_and_the_view():
+    """Settings' screensaver preview (?hk_preview=saver, 2026-10-31): the card base only, the shell told there is no
+    view host, the screensaver shown -- and the page goes no further: no strategy run, no view drawn."""
+    text = (WEB / "home.js").read_text()
+    assert "new URLSearchParams(location.search).get('hk_preview') === 'saver'" in text
+    assert "if (SAVER_ONLY) cards.splice(0, cards.length, ...cards.filter((c) => c === 'hk-base.js'));" in text
+    branch = text.index("if (SAVER_ONLY) {")
+    body = text[branch:text.index("\n}\n", branch) + 2]
+    assert "window.hkMantelShell.saverOnly();" in body and "window.hkSaver.preview(true)" in body
+    assert "window.__mantelReady = true;" in body and "await new Promise(() => {});" in body
+    assert branch < text.index("await window.hkStrategy.generate(") and branch < text.index("await viewHost.start();")
+    shell = (WEB / "shim" / "mantel-shell.js").read_text()
+    assert "function saverOnly() { S.use(Object.assign({}, MANTEL, { dashboardConfig: () => ({}) })); }" in shell
+    assert "saverOnly," in shell
