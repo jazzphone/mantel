@@ -123,3 +123,9 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - Mantel 0.1.91 on the house (build ffe7f7c204be67d5, commit 2030bb38): the Side Pane takes the album art while music plays; healthz strict ok; tablets reloaded.
 - HK Frontend 1.18.1 on the house from the built clone; tagged v1.18.1 and released on jazzphone/hk-frontend with its wiki.
 - Mantel Link unchanged (0.1.8).
+
+## Mantel 0.1.92 and HK Frontend 1.19.0 (2026-10-30)
+
+- Mantel 0.1.92 on the house (build 2ed5250cf6828f14, commit ae5be214): the screensaver Shows reach the screensaver, the Side Pane and Pages Screen fixes, columns, renaming screens; healthz strict ok; all five tablets reloaded and drew.
+- HK Frontend 1.19.0 on the house from the built clone; tagged v1.19.0 and released on jazzphone/hk-frontend with its wiki.
+- Mantel Link unchanged (0.1.8).
