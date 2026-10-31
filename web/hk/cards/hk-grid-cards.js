@@ -1039,8 +1039,10 @@
               charge: B.charge, discharge: B.discharge, height: '100%' } }];
       }
       if (kind === 'music') {
+        // (2026-10-31, Music's widget: what played last and covers to play
+        // again, at the block's size -- hk-media.js hk-recent-music-card)
         var M = window.hkMusic, sp = M && M.speakers ? M.speakers() : [];
-        return sp && sp.length ? [{ cfg: { type: 'custom:hk-speaker-picker-card' }, cls: 'plated' }] : null;
+        return sp && sp.length ? [{ cfg: { type: 'custom:hk-recent-music-card' }, size: size }] : null;
       }
       if (kind === 'doors') {
         var S = window.hkStrategy, inv = null;
@@ -1057,7 +1059,9 @@
         return id ? [{ cfg: { type: 'custom:hk-control-card', entity: id }, size: 'T' }, { readings: id, cls: 'wide' }] : null;
       }
       if (kind === 'tv') {
-        return (setting('added', []) || []).indexOf('live_tv') >= 0 ? [{ cfg: { type: 'custom:hk-tv-guide-card' }, cls: 'plated' }] : null;
+        // (2026-10-31: its first channels, a tile each in its color with what
+        // is on; a tap plays one full screen -- hk-media.js hk-tv-channels-card)
+        return (setting('added', []) || []).indexOf('live_tv') >= 0 ? [{ cfg: { type: 'custom:hk-tv-channels-card' }, size: size }] : null;
       }
       if (kind === 'water') {
         var hw = (setting('headers', null) || {}).water || {}, parts = [{ cfg: Object.assign({ type: 'custom:hk-water-day-card', height: '100%' },
