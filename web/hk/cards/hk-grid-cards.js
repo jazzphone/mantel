@@ -1426,7 +1426,7 @@
       if (kind === 'tv') {
         // (2026-10-31: its first channels, a tile each in its color with what
         // is on; a tap plays one full screen -- hk-media.js hk-tv-channels-card)
-        return (setting('added', []) || []).indexOf('live_tv') >= 0 ? [{ cfg: { type: 'custom:hk-tv-channels-card' }, size: size }] : null;
+        return (setting('added', []) || []).indexOf('live_tv') >= 0 ? [{ cfg: Object.assign({ type: 'custom:hk-tv-channels-card' }, cfg.channel ? { channel: cfg.channel } : {}), size: size }] : null;
       }
       if (kind === 'water') {
         var hw = (setting('headers', null) || {}).water || {};
