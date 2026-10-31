@@ -17,9 +17,9 @@ var T0 = Date.UTC(2026, 9, 31, 15, 0, 0);
 Date.now = function () { return T0 + 7 * 60e3; };
 
 // ---- the thermostat, as test_thermostat.js draws it: the markup read as written
-function big(state, attrs, size) {
+function big(state, attrs, size, style) {
   var C = customElements.get('hk-control-card'), c = new C(), calls = [], html = '';
-  c.setConfig({ type: 'custom:hk-control-card', entity: 'climate.den', style: 'big' });
+  c.setConfig(Object.assign({ type: 'custom:hk-control-card', entity: 'climate.den' }, style === 'dial' ? {} : { style: 'big' }));
   c.setAttribute('size', size);
   Object.defineProperty(c.shadowRoot, 'innerHTML', { get: function () { return html; }, set: function (v) { html = String(v); } });
   c.hass = { states: { 'climate.den': { state: state, attributes: Object.assign({ friendly_name: 'Thermostat', min_temp: 50, max_temp: 90,
@@ -83,6 +83,9 @@ H.run('CLIMATE BLOCKS', [
     H.ok('...and the arrows step the one picked', r._hold.hi === 73 && r._hold.lo === 68, r._hold);
     var o = big('off', { temperature: 68 }, 'S');
     H.ok('off: Off, the arrows not to be used', /<b>Off<\/b>/.test(o.html()) && count(o.html(), /data-big-step="[^"]+" aria-label="[^"]+" disabled/g) === 2);
+    var d = big('heat_cool', { target_temp_low: 68, target_temp_high: 72 }, 'S', 'dial').html();
+    H.ok('Small is Big Number whatever the style: a tile has no room for the ring', /surface big/.test(d) && !/data-ring/.test(d), d.slice(0, 200));
+    H.ok('...Tall keeps the dial it was given', /data-ring/.test(big('heat_cool', { target_temp_low: 68, target_temp_high: 72 }, 'T', 'dial').html()));
   },
   function () {
     H.section('the thermostat, Tall: the targets stacked, a row of modes, the foot');

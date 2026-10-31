@@ -637,7 +637,9 @@ class HkControlCard extends HTMLElement {
   _heater() { return String(this._entityId() || "").indexOf("water_heater.") === 0; }
   _climate(s) {
     if (this._heater()) return this._waterDial(s);
-    if (this._config.style === "big" && this.hasAttribute('size')) return this._big(s);
+    // (a Small block is Big Number whatever its style: a 196 x 150 tile has no room for the ring, its range
+    // ran across it and the name and modes were cut -- the lead, 2026-10-31)
+    if ((this._config.style === "big" || this.getAttribute('size') === "S") && this.hasAttribute('size')) return this._big(s);
     const a = s?.attributes || {}, mode = s?.state || "off";
     const action = a.hvac_action || mode;
     const cur = Number(a.current_temperature), hum = Number(a.current_humidity);
