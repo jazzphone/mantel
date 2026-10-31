@@ -263,12 +263,14 @@
         '.plate.grid{width:100%;height:100%;overflow:visible}',
         '.plate.grid>.snap,.plate.grid>.live{border-radius:' + C.M.radius + ';box-shadow:var(--hk-look-shadow, 0 8px 22px rgba(0,0,0,0.12))}',
         '.plate.grid>.snap:focus-visible,.plate.grid>.live:focus-visible{outline:3px solid ' + C.v('ink') + ';outline-offset:2px}',
-        '.plate.grid .cn{position:absolute;left:10px;bottom:10px;z-index:3;max-width:calc(100% - 20px);box-sizing:border-box;',
+        '.plate.grid .cn,.plate.blk .cn{position:absolute;left:10px;bottom:10px;z-index:3;max-width:calc(100% - 20px);box-sizing:border-box;',
         '  height:25px;padding:6px 9px;border-radius:' + C.R.capsule('25px') + ';background:' + C.v('float-plate') + ';color:#fff;font-size:13px;font-weight:600;line-height:13px;',
         '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}',
-        '.plate.grid .age{left:auto;bottom:auto;right:10px;top:10px;box-sizing:border-box;height:21px;padding:5px 8px;border-radius:' + C.R.capsule('21px') + ';',
+        // (a block's name clear of the pager's dots at the foot's middle)
+        '.plate.blk .cn{max-width:calc(50% - 30px)}',
+        '.plate.grid .age,.plate.blk .age{left:auto;bottom:auto;right:10px;top:10px;box-sizing:border-box;height:21px;padding:5px 8px;border-radius:' + C.R.capsule('21px') + ';',
         '  background:' + C.v('float-plate') + ';font-size:11px;font-weight:600;line-height:11px;color:' + C.v('ink-2') + ';text-shadow:none}',
-        '.plate.grid .age:empty{display:none}',
+        '.plate.grid .age:empty,.plate.blk .age:empty{display:none}',
         '.plate.grid>.on .age{display:none}',
         '.plate.grid .lv{position:absolute;right:10px;top:10px;z-index:3;box-sizing:border-box;height:21px;padding:5px 8px;border-radius:' + C.R.capsule('21px') + ';',
         '  background:#ff3b30;color:#fff;font-size:11px;font-weight:700;line-height:11px;letter-spacing:.06em;pointer-events:none}',
@@ -1481,6 +1483,16 @@
         liveBox.style.gridColumn = '1';
         liveBox.style.gridRow = liveRow;
         plate.appendChild(liveBox);
+      }
+      // A HOME GRID BLOCK NAMES ITS CAMERA (2026-10-31, against the HomeView
+      // mock-up): the name at the foot, its age at the top -- the Cameras
+      // face's own tags
+      if (block && plan.live) {
+        plate.classList.add('blk');
+        var cn = document.createElement('span');
+        cn.className = 'cn';
+        cn.textContent = this._nameOf(plan.live);
+        plate.firstElementChild.appendChild(cn);
       }
 
       var self = this;

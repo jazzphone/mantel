@@ -1295,3 +1295,27 @@ key stays:
 
 The audit and its notes: the shared notes' settings-layout-audit.md; `looks_check`, `settings_viewports`,
 `saver_shows_check`, `side_pane_check` and `pages_screen_check` pass.
+
+**2026-10-31, the mock-ups against what was built.** The owner asked whether everything in the artifact had been built
+and compared. Every section had been built; four had been compared (the Square starter, the Pages screen, the
+screensaver faces, Bright Glass). The other eleven were shot in WebKit beside the artifact's own sections
+(`home_grid_visual_check --homeview`, `side_pane_check`, `cameras_face_check`, `bright_glass_check`,
+`page_swipe_check`, `home_grid_audit --cell square`):
+
+- **As the mock-up:** the full 6 × 4 and Home with Pane (3 × 3 at 216 px beside the pane), Centred tiles, the
+  numbered analog face, Swipe Between Pages (the plates move, the wallpaper stays), the Cameras face's 3 × 3 and
+  2 × 4, its LIVE ring on a doorbell, the settings' keys, and the per-screen table.
+- **Different on purpose (the owner's later calls):** the Side Pane's sections sit on the pane's glass with
+  hairlines, not on plates of their own (7, 17); Big Number marks the picked target with a dot, not a rule; Bright
+  Glass's sheets are a deep tint, not white .22 (the Rooms sheet over the blue wallpaper was hard to read); a tap on
+  the Cameras face opens the camera's sheet, as the plan says, rather than making that tile the live one.
+- **Fixed:** the Side Pane's calendar stopped at 300 px with a space under it (the owner: "a gap/space above Who's
+  Home that could be filled") -- down the pane its events now run to the sections at the foot, and where the pane is
+  short it is the first to give way, the other lists keeping their rows (`side_pane_check`'s tall pane);
+  Weather Wide on a square cell left its lower half bare -- it is the medium Weather widget now (the owner's widget
+  references: the same 2 : 1), the next six hours along its foot, where there are hours; the Camera block on the Home
+  Grid names its camera, as the mock-up's did (the name at the foot, the age at the top, the Cameras face's tags).
+- **Left:** More When Near has no page-side hold -- somebody near the screen without touching it still sees the
+  screensaver start at Starts After and the Sleep Screen take it away again (the Phase H entry's note); the Cameras
+  face's stills are soft for a moment after a ring, until each reloads; Weather Tall and XL and Now Playing Tall on
+  square cells keep their empty middles, for the widget pass the owner's references start.

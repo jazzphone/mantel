@@ -774,6 +774,12 @@
       '.lst{display:grid;gap:8px;align-content:start}.evs.lst{display:block}',
       '.sec.shrink>.lst{flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none}',
       '.sec.shrink>.lst::-webkit-scrollbar{display:none}',
+      // ...and the calendar's events, down the pane, run as far as the pane
+      // has room for, not to 300 px with a space under them (the owner,
+      // 2026-10-31: "a gap/space above Who's Home that could be filled")
+      // -- and so, where the pane is short, the first to give way
+      ':host(:not([side="band"]):not([mode="widget"])) .sec.shrink>.evs.scroll{max-height:none}',
+      ':host(:not([side="band"]):not([mode="widget"])) .secs>.shrink[data-k="calendar"]:not(.grow){flex-shrink:100}',
       '.sec.shrink>.lst.cut{-webkit-mask-image:linear-gradient(#000 calc(100% - 22px),transparent);mask-image:linear-gradient(#000 calc(100% - 22px),transparent)}',
       // A TAP: every section and each thing in it is a target
       '.secs>[data-i]:not([data-k="now_playing"]),[data-ent],[data-ev]{cursor:pointer}',

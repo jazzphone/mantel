@@ -285,6 +285,24 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
           await shot(page, tag + '-short-pane-640');
         }
       }
+      // A TALL PANE, THE CALENDAR LONG (2026-10-31, the owner: "a gap/space above Who's Home that could be filled
+      // with the calendar extending down"): its events run down to the sections at the foot, no space between
+      const tall = await page.evaluate(() => {
+        const el = document.getElementById('solo'), CAL = window.hkSidePane._.CAL, t0 = Date.now();
+        CAL.evs = [...Array(20)].map((_, i) => ({ cal: 'calendar.family', title: 'Event ' + (i + 1), allDay: false,
+                                                   start: new Date(t0 + (i + 1) * 3600000), end: new Date(t0 + (i + 1.5) * 3600000) }));
+        CAL.at = t0; CAL.days = 7;
+        Object.assign(el.style, { left: '0px', top: '0px', bottom: 'auto', height: '1000px', width: '400px' });
+        el.show({ list: [{ kind: 'weather', size: 'less' }, { kind: 'calendar', size: 'more' },
+                         { kind: 'people', size: 'less', place: 'bottom' }, { kind: 'security', size: 'less', place: 'bottom' }],
+                  place: { kind: 'side', w: 400 }, side: 'left' });
+        const secs = el.shadowRoot.querySelector('.secs'), gap = secs.querySelector('.gap'), l = secs.querySelector('[data-k="calendar"] .lst');
+        return { gap: gap ? gap.offsetHeight : -1, rows: l.scrollHeight, shown: l.clientHeight, scrolls: secs.scrollHeight > secs.clientHeight + 1 };
+      });
+      notes.push(tag + ' tall pane, long calendar: ' + JSON.stringify(tall));
+      want('a tall pane: the calendar runs down to the foot\'s sections, no space above them', tall,
+           !tall.scrolls && tall.gap >= 0 && tall.gap <= 2 && tall.shown > 400 && tall.rows > tall.shown);
+      await shot(page, tag + '-tall-pane-calendar');
       await page.evaluate(() => Object.assign(document.getElementById('solo').style, { bottom: '0px', height: '' }));
     }
     if (errors.length) fails.push(tag + ' page errors: ' + errors.join(' | '));

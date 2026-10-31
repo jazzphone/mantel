@@ -1573,7 +1573,7 @@
             ? window.hkHeader.wxSvg(state, px, { night: night, sym: true }) : '';
         };
         this._watchBlock();
-        var hrs = sz === 'W' ? [] : this._hours(6), days = sz === 'W' ? [] : this._days(sz === 'XL' ? 5 : 3);
+        var hrs = this._hours(6), days = sz === 'W' ? [] : this._days(sz === 'XL' ? 5 : 3);
         var span = days.flatMap(function (d) { return [num(d.templow), num(d.temperature)]; }).filter(function (v) { return v !== null; });
         var min = span.length ? Math.min.apply(null, span) : 0, max = span.length ? Math.max.apply(null, span) : 1;
         var hl = [hi !== null ? 'H:' + Math.round(hi) + '°' : '', lo !== null ? 'L:' + Math.round(lo) + '°' : ''].filter(Boolean).join('  ');
@@ -1591,7 +1591,7 @@
           if (bsky) bsky.client = this.client;
           return;
         }
-        var html = '<hk-plate class="wb ' + sz + (cfg.sky ? ' sky' : '') + '" role="group" aria-label="Weather forecast">' +
+        var html = '<hk-plate class="wb ' + sz + (hrs.length ? ' hh' : '') + (cfg.sky ? ' sky' : '') + '" role="group" aria-label="Weather forecast">' +
           (cfg.sky ? '<hk-grid-weather-sky entity="' + esc(cfg.entity) + '" aria-hidden="true"></hk-grid-weather-sky>' : '') + '<div class="top">' +
           '<div class="place-now"><b class="place-name">' + esc(titled(cfg.place || this._place())) + '</b>' +
           '<div class="tpn">' + (t !== null ? Math.round(t) + '°' : '--') + '</div></div>' +
@@ -1918,6 +1918,13 @@
           '.wb .range{display:block;height:5px;border-radius:' + C.R.capsule('5px') + ';background:' + C.v('key') + ';position:relative;overflow:hidden}',
           '.wb .range i{position:absolute;height:100%;border-radius:' + C.R.capsule('5px') + ';background:linear-gradient(90deg,#64d2ff,#ffd60a,#ff9f0a)}'
           ,'.wb .readings{display:flex;flex-wrap:wrap;gap:4px 12px;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + ';flex:none}',
+          // WIDE ON A SQUARE CELL (2026-10-31, the owner's widget references:
+          // Weather's medium widget, the same 2 : 1): 196 tall, not 150 --
+          // the place and temperature, the condition and high and low at the
+          // top, the next six hours along the foot, where a tile's row left
+          // the lower half bare. On a tile the hours aren't drawn.
+          '.wb.W .hrs{display:none}',
+          '@container hk-cell (min-height:180px){hk-plate.wb.W.hh{justify-content:space-between}.wb.W .hrs{display:grid;border-top:0;padding-top:0}.wb.W .hr{gap:2px}}',
           '.wb.L{padding:' + window.hkCards.blockPad('14px 22px') + ';gap:8px}.wb.L .hrs{padding-top:6px}.wb.L .hr{gap:2px}',
           // BIG TEMPERATURE: the number sized to the block (its height first, its width for a wide one)
           '.wb.big{gap:2px;justify-content:center;align-items:flex-start}',
