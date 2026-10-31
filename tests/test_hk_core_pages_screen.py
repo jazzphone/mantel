@@ -9,7 +9,7 @@ from hk_core.settings import changes as C, model as S
 
 def test_all_screens_has_every_field_and_starts_off():
     got = S.merged(None)["pages_screen"]
-    assert got == {"show": "off", "icons": "menu", "rooms": "folder", "widgets": [], "pill": "auto"}
+    assert got == {"show": "off", "icons": "menu", "rooms": "folder", "widgets": [], "pill": "auto", "clock": "off"}
     # stored values over the defaults; a bad one read back is its default, never an error
     opts = {"dashboard": {"pages_screen": {"show": "on", "rooms": "sideways", "widgets": [{"kind": "weather"}]}}}
     got = S.merged(opts)["pages_screen"]
@@ -44,7 +44,7 @@ def test_all_screens_saves_a_field_at_a_time():
     assert err == {}
     got = S.merged(opts)["pages_screen"]
     assert got == {"show": "on", "icons": ["security", "lights"], "rooms": "folder",
-                   "widgets": [{"kind": "weather", "size": "less", "place": "left"}], "pill": "off"}
+                   "widgets": [{"kind": "weather", "size": "less", "place": "left"}], "pill": "off", "clock": "off"}
     # only what differs from the defaults is stored
     assert opts["dashboard"]["pages_screen"] == {"show": "on", "icons": ["security", "lights"], "pill": "off",
                                                  "widgets": [{"kind": "weather", "size": "less", "place": "left"}]}

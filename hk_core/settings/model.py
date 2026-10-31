@@ -1340,6 +1340,9 @@ def discover_rows(keys: list[str] | None) -> list[dict[str, Any]]:
 PAGES_SCREEN_SHOW = ("off", "on")
 PAGES_SCREEN_ROOMS = ("folder", "each", "none")
 PAGES_SCREEN_PILL = ("auto", "on", "off")
+# the time, large and faint, behind the icons (HomeView's; 2026-10-30, the owner: "why is there a huge clock in the
+# background?" -- Off unless chosen)
+PAGES_SCREEN_CLOCK = ("off", "on")
 # the Side Pane's twelve sections (Phase A2's PANE_SECTIONS, in its order): one list once both are in
 PAGES_SCREEN_WIDGETS = ("clock", "weather", "calendar", "now_playing", "security", "camera", "timers", "energy",
                         "climate", "people", "todo", "notifications")
@@ -1349,7 +1352,7 @@ PAGES_SCREEN_WIDGETS_MAX = 4
 PAGES_SCREEN_ICONS_MAX = 60
 PAGES_SCREEN_PATH = re.compile(r"^[A-Za-z0-9_.-]{1,60}$")
 PAGES_SCREEN_DEFAULTS: dict[str, Any] = {"show": "off", "icons": "menu", "rooms": "folder", "widgets": [],
-                                         "pill": "auto"}
+                                         "pill": "auto", "clock": "off"}
 
 
 def _pages_icons(v: Any) -> str | list[str] | None:
@@ -1383,6 +1386,7 @@ PAGES_SCREEN_CHECKS: dict[str, Any] = {
     "show": lambda v: _one_of(v, PAGES_SCREEN_SHOW), "icons": _pages_icons,
     "rooms": lambda v: _one_of(v, PAGES_SCREEN_ROOMS), "widgets": _pages_widgets,
     "pill": lambda v: _one_of(v, PAGES_SCREEN_PILL),
+    "clock": lambda v: _one_of(v, PAGES_SCREEN_CLOCK),
 }
 
 

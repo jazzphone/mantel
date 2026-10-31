@@ -582,7 +582,7 @@
   // (a plain picture layer: WebKit left a scaled-up canvas unpainted at some
   // sizes) -- {url, rgb: its mean colour}; url null where the picture can't
   // be read
-  var ART = 64;
+  var ART = 64, ART_MEAN = 78, ART_MAX = 132;
   function artDraw(img) {
     var c = document.createElement('canvas'); c.width = ART; c.height = ART;
     var ctx = c.getContext && c.getContext('2d'), out = { url: null, rgb: null };
@@ -608,8 +608,22 @@
     try { ctx.filter = 'blur(3px)'; } catch (e) { /* the upscale alone */ }
     ctx.drawImage(mc ? m : t, -6, -6, ART + 12, ART + 12);
     try { ctx.filter = 'none'; } catch (e) { /* ignore */ }
-    ctx.fillStyle = 'rgba(0,0,0,0.38)';
-    ctx.fillRect(0, 0, ART, ART);
+    // ITS BRIGHTNESS, EVENED OUT (2026-10-30): a fixed darkening made a dark
+    // cover all but black ("the Side Pane is solid black"). Each pixel scaled
+    // so the art's mean sits at ART_MEAN -- a dark cover lifted, a light one
+    // held down -- and none past ART_MAX, so white words over it (under the
+    // shade) keep 4.5:1 however light the cover
+    try {
+      var px = ctx.getImageData(0, 0, ART, ART), dd = px.data, lum = function (i) { return 0.2126 * dd[i] + 0.7152 * dd[i + 1] + 0.0722 * dd[i + 2]; }, sum2 = 0;
+      for (var p = 0; p < dd.length; p += 4) sum2 += lum(p);
+      var k = Math.max(0.3, Math.min(2.6, ART_MEAN / Math.max(1, sum2 / (dd.length / 4))));
+      for (var q = 0; q < dd.length; q += 4) {
+        dd[q] *= k; dd[q + 1] *= k; dd[q + 2] *= k;
+        var l = lum(q);
+        if (l > ART_MAX) { var f = ART_MAX / l; dd[q] *= f; dd[q + 1] *= f; dd[q + 2] *= f; }
+      }
+      ctx.putImageData(px, 0, 0);
+    } catch (e) { ctx.fillStyle = 'rgba(0,0,0,0.38)'; ctx.fillRect(0, 0, ART, ART); }
     try { out.url = c.toDataURL('image/png'); } catch (e) { out.url = null; }
     return out;
   }
@@ -669,8 +683,8 @@
       ':host([arted]) .artbg{opacity:1}',
       '.artbg b{position:absolute;left:-8%;top:-8%;width:116%;height:116%;display:block;opacity:0;transition:opacity 1.2s ease;background-size:100% 100%}',
       '.artbg b.on{opacity:1}',
-      '.artbg b.raw{background-size:cover;background-position:center;filter:blur(40px) brightness(.62)}',
-      '.artbg i{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(6,10,18,.34),rgba(6,10,18,.46))}',
+      '.artbg b.raw{background-size:cover;background-position:center;filter:blur(40px) brightness(.7)}',
+      '.artbg i{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(6,10,18,.24),rgba(6,10,18,.34))}',
       ':host([arttint]) .artbg{background:var(--art-tint,#1c1c22)}:host([arttint]) .artbg b,:host([arttint]) .artbg i{display:none}',
       '@media (prefers-reduced-motion:reduce){.artbg,.artbg b{transition:none}}',
       '.pin{position:absolute;left:0;top:0;transform-origin:0 0;box-sizing:border-box;display:flex;flex-direction:column;padding:30px 28px 26px}',
@@ -857,7 +871,7 @@
       var o = this._o, c = clientNow();
       if (!this._built) {
         this._cssFull = cssReady();
-        this._root.innerHTML = '<style>' + css() + '</style><div class="pane"><div class="artbg" aria-hidden="true"><b></b><b></b><i></i></div><div class="pin"><div class="secs"></div></div></div>';
+        this._root.innerHTML = '<style>' + css() + '</style><div class="pane"><div class="artbg" aria-hidden="true"><i></i></div><div class="pin"><div class="secs"></div></div></div>';
         this._pin = this._root.querySelector('.pin');
         this._secs = this._root.querySelector('.secs');
         this._built = true;
@@ -929,14 +943,22 @@
       var img = new Image();
       img.onload = function () {
         if (self._artPic !== pic) return;
-        var ly = self._root.querySelectorAll('.artbg b'), n = self._artFlip ? 0 : 1;
-        self._artFlip = !self._artFlip;
-        var got = artDraw(img);
+        var got = artDraw(img), bg = self._root.querySelector('.artbg');
         if (got.rgb) self.style.setProperty('--art-tint', 'rgb(' + got.rgb.map(function (v) { return Math.round(v * 0.42); }).join(',') + ')');
-        // (a picture that can't be read here: itself, under a blur drawn once)
-        ly[n].classList.toggle('raw', !got.url);
-        ly[n].style.backgroundImage = 'url("' + (got.url || pic).replace(/"/g, '%22') + '")';
-        ly[n].classList.add('on'); ly[1 - n].classList.remove('on');
+        // A NEW LAYER FOR EACH SONG, its picture set before it is in the page,
+        // faded in over the last, which then goes: WebKit left a layer whose
+        // picture changed during its fade unpainted -- the pane's ground alone,
+        // near black (2026-10-30). (A picture that can't be read here: itself,
+        // under a blur drawn once.)
+        var b = document.createElement('b');
+        if (!got.url) b.className = 'raw';
+        b.style.backgroundImage = 'url("' + (got.url || pic).replace(/"/g, '%22') + '")';
+        bg.insertBefore(b, bg.querySelector('i'));
+        var olds = Array.prototype.filter.call(bg.querySelectorAll('b'), function (x) { return x !== b; });
+        requestAnimationFrame(function () { requestAnimationFrame(function () {
+          b.classList.add('on');
+          olds.forEach(function (o) { o.classList.remove('on'); setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 1300); });
+        }); });
         self.setAttribute('arted', '');
       };
       img.onerror = function () { if (self._artPic === pic) self.removeAttribute('arted'); };

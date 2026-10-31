@@ -212,9 +212,12 @@
           if (super.connectedCallback) super.connectedCallback();
           this._visible = true;
           this._motion = matchMedia('(prefers-reduced-motion: reduce)');
+          // (`still`: one frame of the sky, never running -- the Pages screen's
+          // Weather icon, 2026-10-30: its conditions and time of day, drawn
+          // again only as the weather changes)
           this._pause = () => {
             var S = window.hkSettings, moving = !S || !S.skyLook || S.skyLook().animations !== false;
-            if (this._scene) this._scene.pause(document.hidden || !this._visible || this._motion.matches || !moving || !!window.hkSky.asleep());
+            if (this._scene) this._scene.pause(this.hasAttribute('still') || document.hidden || !this._visible || this._motion.matches || !moving || !!window.hkSky.asleep());
           };
           document.addEventListener('visibilitychange', this._pause);
           window.addEventListener('hk-asleep', this._pause);

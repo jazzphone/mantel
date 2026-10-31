@@ -5748,6 +5748,8 @@
           'Small two wide and one tall, on the first Pages screen from the top. They show where the screen has the Side Pane’s sections.' }, rows));
       c.appendChild(K.group({ footer: 'A bar at the foot of the Pages screen, as on an iPad: tap it or swipe up on it to go Home.' }, [
         this.psSelect(ctx, ps, 'pill', 'Home Pill', M.PAGES_SCREEN_PILL)]));
+      c.appendChild(K.group({ footer: 'The time, large and faint, behind the icons.' }, [
+        this.psSelect(ctx, ps, 'clock', 'Background Clock', M.PAGES_SCREEN_CLOCK)]));
       if (!ctx.house && Object.keys(ps.own).length) {
         c.appendChild(K.group({}, [K.button({ label: 'Reset to All Screens', sk: 'b:pages_screen:reset', onClick: function () { ps.reset(); } })]));
       }

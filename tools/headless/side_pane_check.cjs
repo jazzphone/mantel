@@ -86,7 +86,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
           const card = sr.querySelector('hk-music-pane-card'), on = sr.querySelector('.artbg b.on');
           const own = card && card.shadowRoot ? [...card.shadowRoot.querySelectorAll('.mbgf,.mshade')].filter((e) => getComputedStyle(e).display !== 'none').length : -1;
           let worst = null;
-          // the drawn art's lightest pixel (a small PNG), under the shade's lighter top
+          // the drawn art's lightest pixel (a small PNG), under the shade's lighter top (.24)
           const url = on && /url\("(data:[^"]+)"\)/.exec(on.style.backgroundImage);
           if (url) {
             const im = new Image(); im.src = url[1];
@@ -95,7 +95,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
             const x = cv.getContext('2d'); x.drawImage(im, 0, 0);
             const d = x.getImageData(0, 0, cv.width, cv.height).data; let hi = 0;
             for (let i = 0; i < d.length; i += 4) hi = Math.max(hi, 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]);
-            const v = (hi * 0.66 + 8 * 0.34) / 255, lum = v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+            const v = (hi * 0.76 + 8 * 0.24) / 255, lum = v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
             worst = +((1.05) / (lum + 0.05)).toFixed(2);
           }
           return { arted: p.hasAttribute('arted'), tint: p.hasAttribute('arttint'), tintColor: p.style.getPropertyValue('--art-tint'), nobg: !!(card && card.hasAttribute('nobg')), own, worst };
@@ -166,7 +166,11 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         who.click(); D.open = was; return got;
       });
       want('...a tap on a person opens their sheet', sheet, /^person\./.test(sheet || ''));
-      // a tap on the weather: its page
+      // a tap on the weather: its page -- and the pane the same width there as beside Home's grid (it once took what
+      // the grid left on Home and its Width elsewhere, so going to a page re-laid Home out first: the owner's
+      // "resize on first load", 2026-10-30)
+      const paneR = () => page.evaluate(() => document.documentElement.style.getPropertyValue('--hk-pane-r'));
+      const homeR = await paneR();
       const went = await page.evaluate(async () => {
         const sr = document.querySelector('hk-side-pane[mode="dash"]').shadowRoot;
         sr.querySelector('[data-k="weather"]').click();
@@ -174,6 +178,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         return location.pathname;
       });
       want('...a tap on the weather goes to its page', went, /\/weather$/.test(went));
+      const awayR = await paneR();
+      want('...the pane as wide there as beside Home\'s grid (no page laid out again on the way)', [homeR, awayR], homeR && homeR === awayR);
     }
     await open('pane-every-page');
     let l = await look(page);

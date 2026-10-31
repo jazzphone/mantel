@@ -1164,3 +1164,34 @@ rebuilding nothing.
 `side_pane_check` (a pane with the music at its foot: the space, the player's Speakers and Browse, a person's sheet
 and the weather's page on a tap), `test_sidepane.js` (the calendar's sizes and targets) and the grid check's
 Security screen.
+
+**18–23: the Pages Screen and the columns (2026-10-30, on 0.1.91).**
+
+- **18, the resize on first load.** Going from Home to another page, the Side Pane changed width: beside Home's grid
+  it took what the grid left, elsewhere its Width, so Home was laid out again under the new width before the next
+  page showed (the reflowed grid in the recording), and again on the way back. With the pane always its Width
+  (item 15's batch) it stays put; `side_pane_check` now asserts the same `--hk-pane-r` on Home and on another page.
+- **19, the huge clock.** **Decision:** the Pages Screen's **Background Clock**, Off by default (All Screens' or a
+  screen's own).
+- **20, the blur.** The Pages Screen's background blur goes from 26 px to 8 px (saturate 1.15): the wallpaper, the
+  sky or a photo still reads behind the icons.
+- **21, Launchpad's entrance.** The icons settle from 116 % and faint into place, 8 ms apart (at most 20 steps), 260 ms
+  each: about 0.4 s in all, transform and opacity only; leaving by an icon or the Home pill, the reverse (170 ms)
+  before the page changes. Only when the page is shown (connected, or a navigation that leaves it visible), never on
+  a redraw; never for Reduce Motion, Animations off or Flat (Performance turns Animations off). Leaving through the
+  tab bar changes page at once: the bar isn't the card's to hold.
+- **22, the Weather icon's sky.** The icon draws the Live Sky's own scene for the weather entity
+  (`hk-grid-weather-sky`, now with a `still` mode: one frame, paused, drawn again only as the weather or the time of
+  day changes) under its glyph and temperature; Flat keeps the plain icon. The Home Grid's Weather block already has
+  its Sky option (opt-in) and keeps it: its larger plate carries the forecast's words, which the owner hasn't asked
+  to put over a sky.
+- **The Side Pane's art ground, near black.** Two causes: a dark cover darkened by a fixed amount, and WebKit leaving
+  the layer whose picture changed mid-fade unpainted (the pane's own ground alone showed). Each cover is now evened
+  out (its mean brightness to 78, no pixel past 132, so white words keep 4.5:1 under the lighter shade), and each
+  song gets a new layer, its picture set before it is in the page, faded in over the last.
+- **23, columns.** The editor made the rows follow the columns (5 columns became 5 × 5 in the 4 × 4's square). The
+  rows now stay what they are (they come from the height); a column more extends the grid sideways at the same cell
+  size while the width holds it, and only then does the grid get smaller (`hk-layout.js` already scales by whichever
+  of height and width runs out). The Grid group says how many columns fit at full size (`fullColumns`). At
+  1440 × 900 beside the pane, 4 and 5 columns of 4 rows both draw 180 px cells; at 1180 × 820 five no longer fit and
+  the grid shrinks. A grid saved as 5 × 5 keeps its rows until they are set back.

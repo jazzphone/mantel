@@ -1771,10 +1771,12 @@
   // THE PAGES SCREEN (docs/phase11/HOMEVIEW-LOOK.md, Phase J; settings.py
   // PAGES_SCREEN_*): All Screens' every field; a screen's only the fields it
   // sets (b.pages_screen, null: Same as All Screens), each resolved on its own
-  var PAGES_SCREEN_DEFAULTS = { show: 'off', icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto' };
+  var PAGES_SCREEN_DEFAULTS = { show: 'off', icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto', clock: 'off' };
   var PAGES_SCREEN_SHOW = [['off', 'Off'], ['on', 'On']];
   var PAGES_SCREEN_ROOMS = [['folder', 'A Rooms Folder'], ['each', 'Each Room Its Own Icon'], ['none', 'None']];
   var PAGES_SCREEN_PILL = [['auto', 'When There\u2019s No Tab Bar'], ['on', 'Always'], ['off', 'Never']];
+  // the time, large and faint, behind the icons (settings.py PAGES_SCREEN_CLOCK; Off unless chosen)
+  var PAGES_SCREEN_CLOCK = [['off', 'Off'], ['on', 'On']];
   // the Side Pane's sections (Phase A2's PANE_SECTIONS, its order), as widgets
   var PAGES_SCREEN_WIDGETS = [['clock', 'Clock'], ['weather', 'Weather'], ['calendar', 'Calendar'], ['now_playing', 'Now Playing'],
     ['security', 'Security'], ['camera', 'Camera'], ['timers', 'Timers'], ['energy', 'Energy'], ['climate', 'Climate'],
@@ -2788,7 +2790,7 @@
     chipQuiet: chipQuiet,
     scenesModel: scenesModel, scenesSave: scenesSave, scenesPagePill: scenesPagePill,
     PAGES_SCREEN_DEFAULTS: PAGES_SCREEN_DEFAULTS, PAGES_SCREEN_SHOW: PAGES_SCREEN_SHOW, PAGES_SCREEN_ROOMS: PAGES_SCREEN_ROOMS,
-    PAGES_SCREEN_PILL: PAGES_SCREEN_PILL, PAGES_SCREEN_WIDGETS: PAGES_SCREEN_WIDGETS, PAGES_SCREEN_SPOTS: PAGES_SCREEN_SPOTS,
+    PAGES_SCREEN_PILL: PAGES_SCREEN_PILL, PAGES_SCREEN_CLOCK: PAGES_SCREEN_CLOCK, PAGES_SCREEN_WIDGETS: PAGES_SCREEN_WIDGETS, PAGES_SCREEN_SPOTS: PAGES_SCREEN_SPOTS,
     PAGES_SCREEN_WIDGETS_MAX: PAGES_SCREEN_WIDGETS_MAX, pagesScreenOf: pagesScreenOf, pagesScreenSet: pagesScreenSet,
     pagesScreenSummary: pagesScreenSummary, pagesWidgetSet: pagesWidgetSet,
     pagesModel: pagesModel, pagesSave: pagesSave, pagesCustom: pagesCustom, onlyModel: onlyModel, onlySummary: onlySummary,

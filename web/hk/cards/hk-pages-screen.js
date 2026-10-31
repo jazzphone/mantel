@@ -65,7 +65,9 @@
   // the time behind: 470 px of an 820 tall screen, 16 % white
   var TIME_H = 0.573, TIME_W = 0.398, TIME_ALPHA = 0.16;
   // the background's blur (the mock-up's)
-  var BG_BLUR = 'blur(26px) saturate(1.3)';
+  // (8 px since 2026-10-30, the owner: "the background may also be too
+  // blurred" -- 26 px left a wallpaper or the sky a wash of colour)
+  var BG_BLUR = 'blur(8px) saturate(1.15)';
   // the Home pill: 200 x 8 (a phone's 134 x 5, as an iPhone's), 22 up
   var PILL_W = 200, PILL_H = 8, PILL_W_PHONE = 134, PILL_H_PHONE = 5, PILL_UP = 22;
   // a swipe up the pill this far goes Home
@@ -307,6 +309,9 @@
       '.cal span{font-weight:400;line-height:1;text-align:center}',
       '.wx{align-content:center;gap:0}',
       '.wx span{font-weight:500;line-height:1;letter-spacing:-0.02em}',
+      '.wx{overflow:hidden;isolation:isolate}',
+      '.wx hk-grid-weather-sky{position:absolute;inset:0;z-index:-1;border-radius:inherit;overflow:hidden;pointer-events:none}',
+      '.wx>hk-icon,.wx>span{position:relative;text-shadow:0 1px 4px rgba(0,0,0,.35)}',
       // the folder: rooms in miniature on frosted glass
       '.fold{background:rgba(255,255,255,.28);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);',
       '  grid-template-columns:repeat(2,auto);align-content:center;justify-content:center}',
@@ -338,6 +343,15 @@
       '.open .app{position:relative}',
       '.open .grid{display:grid;justify-content:center}',
       '@keyframes hkPsOpen{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}',
+      // COMING IN, AS LAUNCHPAD'S (2026-10-30): the icons settle from a little
+      // larger and faint into place, a few ms apart (--i); going, the reverse.
+      // Transform and opacity only, about 0.4 s in all; never on a redraw
+      // (_enter), never for Reduce Motion, Animations off or Flat (_moves)
+      '@keyframes hkPsIn{from{opacity:0;transform:scale(1.16)}to{opacity:1;transform:none}}',
+      '@keyframes hkPsOut{from{opacity:1;transform:none}to{opacity:0;transform:scale(1.12)}}',
+      ':host([data-entering]) .app,:host([data-entering]) .wd{animation:hkPsIn 260ms cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 8ms)}',
+      ':host([data-leaving]) .app,:host([data-leaving]) .wd{animation:hkPsOut 170ms ease-in both}',
+      '@media (prefers-reduced-motion:reduce){:host([data-entering]) .app,:host([data-leaving]) .app,:host([data-entering]) .wd,:host([data-leaving]) .wd{animation:none}}',
       '.open .wrap{animation:hkPsOpen ' + C.DUR.standard + ' ' + C.EASE.standard + '}',
       '@media (prefers-reduced-motion:reduce){.open .wrap{animation:none}.ic{transition:none}}'
     ].join('');
@@ -367,6 +381,46 @@
         }
         if (this._ro) this._ro.observe(this);
         this._tick();
+        // (shown: now, and each time the page comes back -- a kept page is
+        // not connected again, so a navigation that leaves it visible)
+        this._enterSoon();
+        if (!this._navOff && window.hkShell && window.hkShell.onNavigate) {
+          var me = this;
+          this._navOff = window.hkShell.onNavigate(function () { me._enterSoon(); }) || true;
+        }
+      }
+      // ITS ICONS COME IN when the page is shown (not when it redraws)
+      _enterSoon() {
+        var self = this;
+        requestAnimationFrame(function () { requestAnimationFrame(function () {
+          var shown = self.isConnected && self.getClientRects().length > 0;
+          if (shown && !self._shown) self._enter();
+          self._shown = shown;
+        }); });
+      }
+      _moves() {
+        var HS = window.hkSettings, mq = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+        if (mq && mq.matches) return false;
+        if (HS && HS.rendering && HS.rendering().flat) return false;
+        return !(HS && HS.skyLook && HS.skyLook().animations === false);
+      }
+      _enter() {
+        if (!this._moves()) return;
+        var self = this;
+        this.removeAttribute('data-leaving');
+        Array.prototype.forEach.call(this._root.querySelectorAll('.app,.wd'), function (a, i) { a.style.setProperty('--i', String(Math.min(i, 20))); });
+        this.setAttribute('data-entering', '');
+        this._enteredAt = Date.now();
+        clearTimeout(this._enterT);
+        this._enterT = setTimeout(function () { self.removeAttribute('data-entering'); }, 520);
+      }
+      // ...and go out, the reverse, before `go` (an icon's page, Home)
+      _leave(go) {
+        if (!this._moves()) { go(); return; }
+        var self = this;
+        this.removeAttribute('data-entering');
+        this.setAttribute('data-leaving', '');
+        setTimeout(function () { self.removeAttribute('data-leaving'); self._shown = false; go(); }, 170);
       }
       disconnectedCallback() {
         super.disconnectedCallback();
@@ -388,7 +442,7 @@
         var client = this.client || {}, states = client.states || {}, HS = window.hkSettings, M = C.menu;
         var b = M && M.board ? M.board() : {};
         // (this screen's own as stored -- hkSettings reads it: menu.board() keeps only the menu's keys)
-        var ps = HS && HS.pagesScreen ? HS.pagesScreen() : { icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto' };
+        var ps = HS && HS.pagesScreen ? HS.pagesScreen() : { icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto', clock: 'off' };
         var cfg = M && M.config ? M.config() : null, h = H();
         var m = h && h.model && cfg ? h.model(cfg, client.areas, {
           dash: M.dash ? M.dash() : '', order: b.menu_rooms === 'order' ? 'order' : 'az', roomOrder: b.room_order,
@@ -410,7 +464,7 @@
         }
         var flat = !!(HS && HS.rendering && HS.rendering().flat);
         var render = sectionRenderer();
-        return { ps: ps, m: m, list: list, badges: badges(states, sec, notes), temp: isFinite(t) ? Math.round(t) + '°' : '',
+        return { ps: ps, m: m, list: list, badges: badges(states, sec, notes), temp: isFinite(t) ? Math.round(t) + '°' : '', wx: wx || null,
                  who: { name: (client.user && client.user.name) || (person && person.attributes.friendly_name) || '',
                         pic: person && person.attributes.entity_picture || '' },
                  tabBar: !!(M && M.tabBar && M.tabBar()), flat: flat,
@@ -444,9 +498,22 @@
         if (sc && at) sc.scrollLeft = at;
         this._mountWidgets(d);
         this._wire(d);
+        this._skies();
+      }
+      // the Weather icon's sky: the house handed to it (and its code asked for
+      // once: hk-weather.js defines it)
+      _skies() {
+        var c = this.client, els = this._root.querySelectorAll('hk-grid-weather-sky'), self = this;
+        if (!els.length || !c) return;
+        if (!customElements.get('hk-grid-weather-sky')) {
+          if (!this._skyAsked && window.hkNeed) { this._skyAsked = true; Promise.resolve(window.hkNeed('hk-weather-band-card')).then(function () { self._skies(); }, function () {}); }
+          return;
+        }
+        Array.prototype.forEach.call(els, function (el) { el.client = c; });
       }
       _feed() {
         var c = this.client, A = window.hkHostClient;
+        this._skies();
         (this._widgetEls || []).forEach(function (el) {
           if (el && typeof el.setConfig === 'function' && A && A.bridge && c) A.bridge(el, c);
         });
@@ -458,11 +525,14 @@
         var screens = place(d.list.length, d.widgets, g.cols, g.rows);
         this._screens = screens.length;
         var out = '<div class="bg"></div>';
-        // the time, faint, behind it all
-        var hm = fmt(now, { hour: 'numeric', minute: '2-digit' }, true).replace(/\s?[AP]\.?M\.?$/i, '');
-        // (a phone's under its date line, which takes the top there)
-        out += '<div class="time" aria-hidden="true" style="top:' + (g.phone ? 64 : Math.round(40 * s)) + 'px;font-size:' +
-               Math.round(Math.min(Ht * TIME_H, W * TIME_W)) + 'px">' + esc(hm) + '</div>';
+        // the time, faint, behind it all -- the Background Clock, Off unless
+        // chosen (2026-10-30)
+        if (d.ps.clock === 'on') {
+          var hm = fmt(now, { hour: 'numeric', minute: '2-digit' }, true).replace(/\s?[AP]\.?M\.?$/i, '');
+          // (a phone's under its date line, which takes the top there)
+          out += '<div class="time" aria-hidden="true" style="top:' + (g.phone ? 64 : Math.round(40 * s)) + 'px;font-size:' +
+                 Math.round(Math.min(Ht * TIME_H, W * TIME_W)) + 'px">' + esc(hm) + '</div>';
+        }
         // the date and time, top left; who's here, top right
         var fs = g.phone ? 15 : 20, top = g.phone ? 18 : 40;
         out += '<div class="when" style="left:' + Math.round(g.gutter) + 'px;top:calc(env(safe-area-inset-top, 0px) + ' + top +
@@ -538,7 +608,12 @@
           plate = box + 'background:linear-gradient(180deg,' + gr[0] + ',' + gr[1] + ')';
           if (it.page === 'weather' && d.temp) {
             cls += ' wx';
-            inner = gl(it.icon, 34 * s) + '<span style="font-size:' + (44 * s).toFixed(1) + 'px">' + esc(d.temp) + '</span>';
+            // THE SKY OF NOW behind it (2026-10-30, the owner: "weather should
+            // always show the weather forecast as its background (live sky)...
+            // unless flat"): the Live Sky's own scene for the weather, one
+            // still frame (hk-grid-weather-sky still); Flat keeps the plain icon
+            inner = (!d.flat && d.wx ? '<hk-grid-weather-sky still entity="' + esc(d.wx) + '" aria-hidden="true"></hk-grid-weather-sky>' : '') +
+                    gl(it.icon, 34 * s) + '<span style="font-size:' + (44 * s).toFixed(1) + 'px">' + esc(d.temp) + '</span>';
           } else inner = gl(it.icon, GLYPH * s);
         }
         var n = d.badges[it.page] || d.badges['path:' + it.key] || 0;
@@ -585,7 +660,7 @@
 
       _home() {
         var m = this._d && this._d.m, p = m && m.home && m.home.path;
-        if (p && window.hkShell && window.hkShell.navigate) window.hkShell.navigate(p);
+        if (p && window.hkShell && window.hkShell.navigate) this._leave(function () { window.hkShell.navigate(p); });
       }
       _wire(d) {
         var self = this, root = this._root;
@@ -595,7 +670,7 @@
             var t = e.target && e.target.closest ? e.target : null;
             if (!t) return;
             var go = t.closest('[data-go]');
-            if (go) { e.stopPropagation(); self._folder = false; window.hkShell.navigate(go.getAttribute('data-go')); return; }
+            if (go) { e.stopPropagation(); self._folder = false; var to = go.getAttribute('data-go'); self._leave(function () { window.hkShell.navigate(to); }); return; }
             if (t.closest('[data-folder]')) { self._folder = true; self.redraw(); return; }
             var dot = t.closest('[data-dot]');
             if (dot) {

@@ -225,7 +225,7 @@
     ] },
     // THE PAGES SCREEN (settings.py PAGES_SCREEN_DEFAULTS, Phase J): All
     // Screens'; a screen's own fields over it (pagesScreen())
-    pages_screen: { show: 'off', icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto' }
+    pages_screen: { show: 'off', icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto', clock: 'off' }
   };
   // The sky's backdrops (Sky / Background): a fixed all-day gradient
   // instead of the live sky. This is the pre-answer mirror of settings.py
@@ -1326,6 +1326,7 @@
   // this screen's).
   var PS_CHECK = {
     show: function (v) { return v === 'on' || v === 'off' ? v : null; },
+    clock: function (v) { return v === 'on' || v === 'off' ? v : null; },
     icons: function (v) {
       if (v === 'menu') return v;
       return Array.isArray(v) && v.every(function (x, i) { return typeof x === 'string' && /^[A-Za-z0-9_.-]{1,60}$/.test(x) && v.indexOf(x) === i; })

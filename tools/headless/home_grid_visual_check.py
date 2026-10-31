@@ -57,7 +57,12 @@ async def homeview():
                 HG.check(four)
                 gallery.SETTINGS['boards'][name+'-4']=dict(gallery.SETTINGS['boards'][name],home_grid=four,
                     side_pane={'side':'right','dashboard':{'show':'home','sections':[{'kind':'weather'},{'kind':'calendar'}]}})
-                screens.append({'screen':name+'-4','sizes':HV_SIZES})
+                screens.append({'screen':name+'-4','sizes':HV_SIZES+['1440x900']})
+                # ...and at 5 columns with the same 4 rows: the same cells where the width holds them (1440 x 900)
+                five=json.loads(json.dumps(four)); five['cols']=5
+                HG.check(five)
+                gallery.SETTINGS['boards'][name+'-5']=dict(gallery.SETTINGS['boards'][name+'-4'],home_grid=five)
+                screens.append({'screen':name+'-5','sizes':['1180x820','1440x900']})
     with tempfile.TemporaryDirectory() as td:
         app,cookie=await gallery.build(Path(td))
         async with TestServer(app) as server:

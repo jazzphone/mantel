@@ -252,12 +252,11 @@ step(function () {
      ['left', 'home', 'weather,calendar,now_playing:active']);
   ok('...not when the screen already shows a pane on Home or every page', [GE.paneForStarter(S.tablet_landscape[0], { side_pane_read: { dashboard: { show: 'all' } } }),
      GE.paneForStarter(S.tablet_landscape[0], { side_pane_read: { dashboard: { show: 'home' } } })], [null, null]);
-  // COLUMNS on square cells (2026-10-30): 2 to 6, the rows following the screen's shape, less the Side Pane
+  // COLUMNS on square cells (2026-10-30): 2 to 6; the rows come from the height, and the columns that fit at full size
+  // beside the Side Pane are said (more, and the grid gets smaller)
   ok('the columns offered', GE.COLS, [6, 5, 4, 3, 2]);
-  var LS = { frame: [1180, 820] }, PANE = { side_pane_read: { dashboard: { show: 'home' } } };
-  ok('beside the pane on a tablet on its side: 3, 4, 5 and 6 columns give as many rows', [3, 4, 5, 6].map(function (n) { return GE.rowsFor(LS, n, PANE); }), [3, 4, 5, 6]);
-  ok('...without it: the 6 x 4, a 4 x 3', [GE.rowsFor(LS, 6, {}), GE.rowsFor(LS, 4, {})], [4, 3]);
-  ok('...upright, the pane under the page takes no width', GE.rowsFor({ frame: [820, 1180] }, 4, PANE), 6);
+  var SQ = { cell: 'square', rows: 4, band: false, grow: true, frame: [1180, 820] }, PANE = { side_pane_read: { dashboard: { show: 'home' } } };
+  ok('4 rows on a 1180 x 820 tablet beside the pane: 3 columns at full size (3.8 fit); without it, 5; a 1366 x 1024 (its cells grown to fill the height), 3 and 5', [GE.fullColumns(SQ, PANE), GE.fullColumns(SQ, {}), GE.fullColumns(Object.assign({}, SQ, { frame: [1366, 1024] }), PANE), GE.fullColumns(Object.assign({}, SQ, { frame: [1366, 1024] }), {})], [3, 5, 3, 5]);
   ok('...and no other starter asks for it', GE.paneForStarter(S.tablet_landscape[1], { side_pane_read: { dashboard: { show: 'off' } } }), null);
   var por = GE.squareStarter(S.tablet_portrait[0], { v: 1, cols: 3, rows: 6, frame: [820, 1180], band: true, items: [] }, house);
   var ph = GE.squareStarter(S.phone_portrait[0], { v: 1, cols: 2, rows: 5, frame: [390, 844], band: false, items: [] }, house);

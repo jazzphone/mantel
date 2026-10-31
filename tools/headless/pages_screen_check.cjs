@@ -17,6 +17,9 @@ function measure() {
     W: innerWidth, H: innerHeight, card: card ? box(card) : null, apps,
     cols: new Set(apps.map(a => Math.round(a.l))).size, rows: new Set(apps.map(a => Math.round(a.t))).size,
     widgets: sr ? [...sr.querySelectorAll('.wd')].map(w => Object.assign(box(w), { kind: w.getAttribute('data-kind') })) : [],
+    // (2026-10-30) no Background Clock unless chosen; the Weather icon on its sky; the icons having come in
+    clock: !!(sr && sr.querySelector('.time')), sky: !!(sr && sr.querySelector('.wx hk-grid-weather-sky')),
+    entered: !!(card && card._enteredAt > 0),
     screens: sr ? sr.querySelectorAll('.screen').length : 0,
     homePill: !!(sr && sr.querySelector('.pill')), folder: !!(sr && sr.querySelector('[data-folder]')),
     tabs: bsr ? [...bsr.querySelectorAll('.root.on .tab')].map(t => t.getAttribute('aria-label')) : [],
@@ -47,7 +50,8 @@ const GRID = { '1180x820': [6, 3], '820x1180': [4, 5], '390x844': [4, 6] };
       const page = await ctx.newPage();
       const errors = [];
       let phase = 'load';
-      page.on('pageerror', e => errors.push(phase + ': ' + e.message));
+      // (the browser's own "ResizeObserver loop" note is no page error, as the other checks have it)
+      page.on('pageerror', e => { if (!/ResizeObserver loop/.test(e.message)) errors.push(phase + ': ' + e.message); });
       await page.goto(input.origin + '/' + c.screen + '/pages');
       try { await page.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 }); }
       catch (e) { throw new Error(c.name + ': the page never got ready (' + page.url() + '; errors ' + JSON.stringify(errors) + ')'); }
@@ -69,6 +73,9 @@ const GRID = { '1180x820': [6, 3], '820x1180': [4, 5], '390x844': [4, 6] };
         if (m.barTop !== null) assert(a.b + 24 <= m.barTop, c.name + ' icon and its name clear of the tab bar ' + JSON.stringify(a) + ' bar ' + m.barTop);
       }
       assert(!m.scrolls, c.name + ': the page never scrolls');
+      assert(!m.clock, c.name + ': no Background Clock (Off unless chosen)');
+      assert(m.sky, c.name + ': the Weather icon on the sky of now');
+      assert(m.entered, c.name + ': its icons came in as it was shown');
       if (c.bar) {
         assert(!m.homePill, c.name + ': no Home pill beside the tab bar');
         assert.equal(m.tabs[0], 'Home'); assert.equal(m.tabs[1], 'Pages', c.name + ' tabs ' + m.tabs);

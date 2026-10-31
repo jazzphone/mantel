@@ -389,14 +389,21 @@
   }
   // COLUMNS (hk_core home_grid.COLS; 4 and 5 since 2026-10-30)
   var COLS = [6, 5, 4, 3, 2];
-  // ...and on square cells the ROWS FOLLOW: as many square rows as the
-  // screen's shape holds at that many columns -- its frame, less the Side
-  // Pane beside it where the screen shows one (about 400 px) -- 2 to 6
-  function rowsFor(grid, cols, board) {
-    var f = (grid && grid.frame) || [1280, 800], w = f[0], hgt = f[1];
+  // ...and on square cells HOW MANY COLUMNS FIT AT FULL SIZE: the rows come
+  // from the height (the cells as big as the rows let them be), and each
+  // column more extends the grid sideways at that size while the width --
+  // the frame, less the Side Pane beside it where the screen shows one
+  // (about 400 px) -- holds it; past that the whole grid gets smaller (the
+  // owner, 2026-10-30: 5 columns once made the rows 5 too, squeezed into
+  // the 4 x 4's square). hk-layout.js _measure scales by whichever runs out.
+  function fullColumns(grid, board) {
+    var f = (grid && grid.frame) || [1280, 800], w = f[0], hgt = f[1], c = cellOf(grid);
     var read = board && board.side_pane_read, dash = read && read.dashboard;
     if (dash && dash.show && dash.show !== 'off' && w > hgt) w -= 400;
-    return Math.max(2, Math.min(6, Math.round(cols * hgt / Math.max(1, w))));
+    var pad = grid.screen === 'square' && c.edge ? c.edge : 1280 * 0.015 + 8;
+    var gh = grid.rows * c.h + (grid.rows - 1) * c.gap + 2 * pad + (grid.band ? 60 + c.gap : 0);
+    var s = Math.min(grid.grow ? Infinity : 1, hgt / gh);
+    return Math.max(1, Math.floor((w / s - 2 * pad + c.gap) / (c.w + c.gap)));
   }
   function screenTypeOf(grid) {
     var t = grid && SCREEN_TYPES.find(function (x) {
@@ -917,7 +924,8 @@
         if (valid(next)) this.change(next); else { this.say('Move or remove the blocks that would be outside the new grid first.'); this.side(); }
         return;
       }
-      var r = reflow(this.grid, n, rowsFor(this.grid, n, this.o.board));
+      // (the rows stay: they come from the height, fullColumns)
+      var r = reflow(this.grid, n, this.grid.rows);
       if (r.left.length) this.say(r.left.length + (r.left.length === 1 ? ' block didn’t fit and was left out.' : ' blocks didn’t fit and were left out.'));
       this.change(r.grid);
     }
@@ -1273,7 +1281,8 @@
       add(K.group({ header: 'Views', footer: views > 1 ? 'Swipe sideways on the screen between its views. Each is a whole layout of its own on this grid.'
         : 'Add a view for a second layout a swipe away, as StandBy has.' }, viewRows));
       add(K.group({ header: 'Grid', footer: 'The grid scales to fit each screen; its blocks keep their shape. In this preview they show at ' + pct + '% of full size.' +
-        ' Square cells are as tall as they are wide, as on a HomeView.' + tip }, [
+        ' Square cells are as tall as they are wide, as on a HomeView.' +
+        (this.grid.cell === 'square' ? ' Up to ' + fullColumns(this.grid, this.o.board) + ' columns at full size here; more, and the cells get smaller.' : '') + tip }, [
         K.select({ label: 'Screen Type', value: kind, options: [['custom', 'Custom']].concat(SCREEN_TYPES.map((t) => [t[0], t[1] + ' · ' + t[2] + ' × ' + t[3]])),
           onChange: (k) => this.screenType(k) }),
         // CELL SHAPE (2026-10-30): every block stays where it is; only the cells change shape
@@ -1904,7 +1913,7 @@
       this.say('Not saved: this screen changed since you opened it.');
     }
   }
-  window.hkGridEditor = { paneForStarter: paneForStarter, rowsFor: rowsFor, COLS: COLS, place: place, makeRoom: makeRoom, valid: valid, firstSpace: firstSpace, add: add, snap: snap, landing: landing,
+  window.hkGridEditor = { paneForStarter: paneForStarter, fullColumns: fullColumns, COLS: COLS, place: place, makeRoom: makeRoom, valid: valid, firstSpace: firstSpace, add: add, snap: snap, landing: landing,
                           SCREEN_TYPES: SCREEN_TYPES, SQUARE_STARTERS: SQUARE_STARTERS, screenTypeOf: screenTypeOf, scaleAt: scaleAt, squareStarter: squareStarter };
   customElements.define('hk-grid-editor', GridEditor);
 })();

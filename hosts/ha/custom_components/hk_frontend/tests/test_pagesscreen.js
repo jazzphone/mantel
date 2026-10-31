@@ -19,8 +19,8 @@ load(HK_ROOT + '/frontend/modules/hk-settings.js');
 var HS = window.hkSettings;
 print('=== the settings ===');
 var d0 = HS.pagesScreen({});
-ok('All Screens\' defaults: off, the menu\'s icons, a Rooms folder, no widgets, the pill when there\'s no tab bar',
-   JSON.stringify(d0) === JSON.stringify({ show: 'off', icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto' }), d0);
+ok('All Screens\' defaults: off, the menu\'s icons, a Rooms folder, no widgets, the pill when there\'s no tab bar, no background clock',
+   JSON.stringify(d0) === JSON.stringify({ show: 'off', icons: 'menu', rooms: 'folder', widgets: [], pill: 'auto', clock: 'off' }), d0);
 HS._apply({ configured: true, pages_screen: { show: 'on', icons: 'menu', rooms: 'each', widgets: [{ kind: 'weather', size: 'more', place: 'right' }], pill: 'auto' } });
 var r1 = HS.pagesScreen({ pages_screen: null });
 ok('a screen Same as All Screens reads All Screens\'', r1.show === 'on' && r1.rooms === 'each' && r1.widgets.length === 1, r1);
@@ -166,7 +166,7 @@ ok('badges: Timers 2, Security 1, in red', />2<\/b>/.test(html) && />1<\/b>/.tes
 ok('...said to VoiceOver', html.indexOf('aria-label="Timers, 2 waiting"') > 0);
 ok('the folder: four rooms in miniature', count(/<u style/g) === 4);
 ok('the date and time top left, who\'s here top right (an initial)', /class="when"/.test(html) && />A<\/div>/.test(html));
-ok('the time faint behind', /class="time" aria-hidden="true"/.test(html));
+ok('no time faint behind (the Background Clock is Off unless chosen, 2026-10-30)', !/class="time"/.test(html));
 ok('no tab bar: the Home pill', html.indexOf('class="pill"') > 0);
 ok('one screen: no dots, and the screens\' swipe is the page\'s', html.indexOf('class="dots"') < 0 && html.indexOf('data-hk-control') < 0);
 var hb = card._html(Object.assign({}, data, { tabBar: true }), { W: 1180, H: 736 }, new Date(2026, 9, 30, 8, 42));
