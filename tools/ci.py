@@ -154,9 +154,9 @@ def steps(build: Build | None = None) -> list[Step]:
     py = python()
     out = [
         # esbuild, pinned (tools/package.json): the image and HK Frontend builds minify with it, and the suite
-        # checks what it makes (2026-10-29)
-        Step("build-tools", ["npm", "ci", "--prefix", "tools", "--ignore-scripts", "--no-audit", "--no-fund",
-                             "--loglevel=error"], skip=lambda: None if shutil.which("npm") else "no npm (Node.js)",
+        # checks what it makes (2026-10-29); npm ci only when tools/node_modules is not what the lock pins, the old
+        # folder set aside first: the SMB share sometimes can't delete it in place (tools/build_tools.py, 2026-10-31)
+        Step("build-tools", [py, "tools/build_tools.py"], skip=lambda: None if shutil.which("npm") else "no npm (Node.js)",
              timeout=300, first=True),
         # (on 8 workers where pytest-xdist is installed: about a minute, not four)
         Step("main-suite", lambda: [py, "-m", "pytest", "-q", "-p", "no:cacheprovider", *xdist_args(py)], env=private_env()),
