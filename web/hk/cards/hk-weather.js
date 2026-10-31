@@ -882,6 +882,8 @@
         this._act({ action: 'navigate', navigation_path: path }, false);
       }
       _render() {
+        // (a client can arrive before the config: the editor's previews hand one over first)
+        if (!this._config) return;
         if (this._config.grid_band) { this._renderBand(); return; }
         var cfg = this._config;
         if (!this._built) {
