@@ -576,23 +576,21 @@ class HkControlCard extends HTMLElement {
          the one it is in white -- out into the inset a little, so four fit */
       .big .mr{flex:none;align-self:center;width:176px;height:44px;margin:12px 0;display:flex;justify-content:space-between;border-radius:22px;background:${window.hkCards.v('key')}}
       .big .mr button{all:unset;position:relative;box-sizing:border-box;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:${window.hkCards.v('ink')};cursor:pointer;-webkit-tap-highlight-color:transparent}
-      .big .mr button::after{content:"";position:absolute;left:-8px;right:-8px;top:-8px;bottom:-8px}
       .big .mr button.on{background:#fff;color:#1c1c1e}
       .big .mr hk-icon{width:22px;height:22px;--mdc-icon-size:22px;display:block;line-height:0}
       .big .mr button:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
       /* (on tile cells: two rows are 310 tall, not 405 -- hk-cell is the block's whole cell) */
       @container hk-cell (max-height:380px){.big .mr{margin:8px 0}:host([size=T]) .big .tt{padding:4px 8px}}
-      /* ...the foot: 24 px arrows (28 on Tall), each a finger's room past its ink */
+      /* ...the foot: 24 px arrows (28 on Tall) in 36 x 44 keys, each reaching 4 px past them (the face's
+         ::after): 44 x 52, and the name 6 px above and below its two lines -- a finger's 44 in the block's px */
       .big .ff{flex:none;display:grid;grid-template-columns:36px minmax(0,1fr) 36px;align-items:center;min-height:44px}
       .big .ff .ar{width:36px;height:44px;border-radius:12px;z-index:1}
-      .big .ff .ar::after{left:-12px;right:-12px;top:-8px;bottom:-8px}
       .big .ff .ar svg{width:28px;height:28px;stroke-width:2.2}
       :host([size=S]) .big .ff .ar svg{width:24px;height:24px}
-      .big .ff .nm::after{top:-13px;bottom:-13px}
       .big .ff .nm b{${window.hkCards.typeCss('body')};font-weight:600;line-height:18px;display:block;white-space:nowrap;overflow-wrap:normal;letter-spacing:-.2px}
       :host([size=T]) .big .ff .nm b{${window.hkCards.typeCss('headline')};line-height:21px}
-      /* (Tall's foot out into the inset, the arrows 12 px from the edge -- their reach to it -- so a name
-         such as "Heat Pump" has its 17 px between them) */
+      /* (Tall's foot out into the inset, the arrows 12 px from the edge, so a name such as "Heat Pump" has
+         its 17 px between them) */
       :host([size=T]) .big .ff{margin:0 calc(12px - var(--hk-pad-r,18px)) 0 calc(12px - var(--hk-pad-l,18px))}
       .big .ff .nm i{${window.hkCards.typeCss('caption')};font-weight:400;line-height:16px}
       /* EXTRA LARGE: the face, and the modes as a column the width of what is
@@ -603,7 +601,6 @@ class HkControlCard extends HTMLElement {
       .big .mc>b{${window.hkCards.labelCss('label')};line-height:18px}
       .big .mc button{all:unset;position:relative;box-sizing:border-box;flex:none;height:52px;border-radius:var(--hk-inner-radius,12px);display:flex;align-items:center;justify-content:center;gap:8px;
         background:${window.hkCards.v('key')};color:${window.hkCards.v('ink')};${window.hkCards.typeCss('body')};font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}
-      .big .mc button::after{content:"";position:absolute;left:0;right:0;top:-4px;bottom:-4px}
       .big .mc button.on{background:#fff;color:#1c1c1e}
       .big .mc button:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
       .big .mc hk-icon{width:20px;height:20px;--mdc-icon-size:20px;display:block;line-height:0}
