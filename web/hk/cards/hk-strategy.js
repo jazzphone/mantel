@@ -2237,6 +2237,25 @@
     customElements.define('ll-strategy-view-hk-room', HkRoomViewStrategy);
   }
 
+  // THE LOOK ALONE (?hk_preview=look, Settings' preview on the Appearance pages, 2026-10-31, the owner: "just what
+  // they're changing"): the screen as it is -- its background, its glass, its accent, its menu and tab bar -- with
+  // only a few cards on its Home: the header and its chips, the scenes, and the room with the most tiles. A Home Grid
+  // (or any other kind of page) is left as it is.
+  function lookPreview() { try { return /[?&]hk_preview=look(?:&|$)/.test(String(location.search)); } catch (e) { return false; } }
+  function lookSample(vs) {
+    var v = vs && vs[0];
+    if (!v || v.type !== 'custom:hk-grid-view' || !Array.isArray(v.cards)) return;
+    var types = function (c) { return [c.type].concat((c.cards || []).reduce(function (a, k) { return a.concat(types(k)); }, []), c.card ? types(c.card) : []); };
+    var has = function (c, t) { return types(c).indexOf(t) >= 0; };
+    var tiles = function (c) { return types(c).length; };
+    var head = v.cards.filter(function (c) { return has(c, 'custom:hk-header-card') || has(c, 'custom:hk-chips-card'); })[0];
+    var scenes = v.cards.filter(function (c) { return has(c, 'custom:hk-scenes-card'); })[0];
+    var room = v.cards.filter(function (c) { return c !== head && c !== scenes && has(c, 'custom:hk-heading-card') && has(c, 'custom:hk-grid-card') &&
+                                                   !has(c, 'custom:hk-camera-mosaic-card'); })
+      .reduce(function (best, c) { return !best || tiles(c) > tiles(best) ? c : best; }, null);
+    v.cards = [head, scenes, room].filter(Boolean);
+  }
+
   class HkDashboardStrategy extends HTMLElement {
     static shouldRegenerate(config, oldInput, newInput) { return regChanged(config, clientOf(oldInput), clientOf(newInput)); }
     static async generate(config, input) {
@@ -2311,6 +2330,7 @@
       }
       energyLinks(cfg.views, seg);
       skyPages(cfg.views);
+      if (lookPreview()) lookSample(cfg.views);
       var saver = screensaverOf(client, b);
       if (opts.sky !== false) {
         // THE SKY (hk-sky.js): off everywhere with the house's switch (Look ->
@@ -3291,6 +3311,6 @@
                         room: HkRoomViewStrategy.generate,
                         rooms: viaClient(rooms), contactGlyphs: contactGlyphs, overlay: overlay,
                         kioskOf: kioskOf, saverBlock: viaClient(saverBlock),
-                        shouldRegenerate: HkDashboardStrategy.shouldRegenerate, inputs: inputs,
+                        shouldRegenerate: HkDashboardStrategy.shouldRegenerate, inputs: inputs, lookSample: lookSample,
                         _built: built, _busy: busy };
 })();

@@ -56,6 +56,37 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         await ctx.close();
         continue;
       }
+      if (want === 'look') {
+        await page.setViewportSize({ width: 1440, height: 1000 });
+        const frame = () => page.evaluate((screen) => {
+          const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
+          const fr = deep(document).find((e) => e.tagName === 'IFRAME'); let w = null; try { w = fr && fr.contentWindow; } catch (e) { /* not ours */ }
+          const all = w && w.document ? deep(w.document) : [];
+          const b = w && w.hkSettings ? (w.hkSettings.get('boards', {}) || {})[screen] || {} : {};
+          // (its room headings and scenes' heading: on the look alone, the scenes and one room)
+          return fr ? { src: fr.getAttribute('src'), same: fr.__mark === 1, doc: !!(w && w.__mark), heads: all.filter((e) => e.tagName === 'HK-HEADING-CARD').length,
+                        chips: all.some((e) => e.tagName === 'HK-CHIPS-CARD'), scenes: all.some((e) => e.tagName === 'HK-SCENES-CARD'), accent: b.accent || null } : null;
+        }, screen);
+        const until = async (f, ms) => { let v; for (let t = 0; t < ms; t += 25) { v = await frame(); if (v && f(v)) return v; await page.waitForTimeout(25); } return v; };
+        await page.goto(input.origin + '/settings#/screens/' + screen + '/appearance');
+        const up = await until((v) => /hk_preview=look/.test(v.src) && v.heads > 0, 25000);
+        say(!!up && up.heads > 0 && up.heads <= 2 && up.chips && up.scenes, screen + ': its Appearance page previews the look alone: the chips, the scenes and one room', up);
+        await page.evaluate(() => { const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
+          const fr = deep(document).find((e) => e.tagName === 'IFRAME'); fr.__mark = 1; fr.contentWindow.__mark = 1; });
+        if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-appearance.png' });
+        await page.goto(input.origin + '/settings#/screens/' + screen + '/accent');
+        await page.waitForTimeout(800);
+        const was = (await frame()).accent, pick = was === 'green' ? 'blue' : 'green';
+        await page.locator('[data-fk*="' + pick + '"]').first().click();
+        const t0 = Date.now(), got = await until((v) => v.accent === pick, 5000), ms = Date.now() - t0;
+        say(!!got && got.accent === pick && ms < 2000 && got.same && got.doc, screen + ': ...an Accent Color there in moments (' + ms + ' ms), in the same page', got);
+        await page.goto(input.origin + '/settings#/screens/' + screen + '/chips');
+        const back = await until((v) => !/hk_preview/.test(v.src) && v.heads > 2, 25000);
+        say(!!back && back.same, screen + ': its other pages preview the whole screen, in the same frame', back);
+        say(!errors.length, screen + ': no page errors', errors.slice(0, 3));
+        await ctx.close();
+        continue;
+      }
       if (want === 'preview') {
         await page.evaluate(() => window.hkSaver && window.hkSaver.preview && window.hkSaver.preview(false));
         await page.setViewportSize({ width: 1440, height: 1000 });
