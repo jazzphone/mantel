@@ -119,7 +119,6 @@ def test_a_step_never_sees_gits_hook_environment(tmp_path, monkeypatch):
 
 def test_steps_run_side_by_side_but_the_first_ones_first_and_a_lane_in_order(tmp_path, monkeypatch):
     # (2026-10-30) the build first; the rest at once, CI_JOBS of them; a lane's steps one after another
-    import time
     log = tmp_path / "order"
     def stamp(name, secs=0.4):
         return ci.Step(name, [sys.executable, "-c", f"import time,sys; open({str(log)!r},'a').write('{name}+\\n'); "
@@ -129,11 +128,12 @@ def test_steps_run_side_by_side_but_the_first_ones_first_and_a_lane_in_order(tmp
     l1, l2 = stamp("lane1", 0.2), stamp("lane2", 0.2)
     l1.lane = l2.lane = "port"
     monkeypatch.setenv("CI_JOBS", "6")
-    t0 = time.monotonic()
     rec = ci.run([first, a, b, c, l1, l2], "full", record_dir=tmp_path / "rec", echo=lambda _: None)
-    took = time.monotonic() - t0
     seq = log.read_text().split()
     assert rec["ok"] and [x["name"] for x in rec["steps"]] == ["build", "a", "b", "c", "lane1", "lane2"]
     assert seq[:2] == ["build+", "build-"], seq                   # before everything
     assert seq.index("lane1-") < seq.index("lane2+"), seq          # a lane in order
-    assert took < 1.5, took                                       # a, b and c side by side (not 1.2 s + the rest)
+    # a, b and c side by side: each started before any of them ended (by the order of their marks, not the clock --
+    # a loaded machine stretches the clock)
+    ends = min(seq.index(n + "-") for n in "abc")
+    assert all(seq.index(n + "+") < ends for n in "abc"), seq
