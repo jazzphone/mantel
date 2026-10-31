@@ -163,3 +163,11 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - The five kiosks reloaded; each drew its first screen in 1.9-3.6 s.
 - iOS app 0.1.96 (1089) uploaded to TestFlight. Mantel Link unchanged at 0.1.8.
 - ci full: 30 of 31 together; tests/test_mantel_link.py failed once under load, passed 3 of 3 alone and in the pre-push main suite.
+
+## Mantel 0.1.97 and HK Frontend 1.24.1 (2026-10-31)
+
+- Mantel App 0.1.97 (build 315721f0d57d0a39, commit 3754dcc5): /healthz?strict=1 ok, Home Assistant connected.
+- HK Frontend 1.24.1 copied into custom_components (v1.24.0 and v1.24.1 on GitHub; wiki unchanged); Home Assistant restarted. 1.24.1 adds the Music First fix found after 1.24.0 was published.
+- The five kiosks reloaded; each drew its first screen in 2.5-5.3 s (just after Home Assistant's restart).
+- iOS app 0.1.97 (1097) uploaded to TestFlight. Mantel Link unchanged at 0.1.8.
+- ci full on 3754dcc5: 30 of 31 together; the main suite failed twice under load (test_mantel_link's handover, a photo upload's 20 ms event-loop limit at 23 ms), then passed alone and as its own step.

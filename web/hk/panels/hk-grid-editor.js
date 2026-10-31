@@ -1558,7 +1558,8 @@
     }
     // WHAT A MUSIC BLOCK SHOWS, plainly (its Shows option's footnote)
     musicNote(item) {
-      var o = item.opts || {}, tap = ' A tap on one plays it on this screen’s speakers.';
+      var o = item.opts || {}, Mu = window.hkMusic;
+      var tap = o.speaker ? ' A tap on one plays it on ' + (Mu && Mu.nameOf ? Mu.nameOf(o.speaker) : o.speaker) + '.' : ' A tap on one plays it on this screen’s speakers.';
       if (o.show === 'presets') return 'Shows the Music page’s playlists as tiles; a playlist with choices (Decades) shows each choice.' + tap;
       if (o.show === 'playlist') return 'Shows one playlist: ' + (o.playlist || (this.musicPlaylists()[0] || {}).name || 'the first one you set up') + '. If it has choices, each is a tile.' + tap;
       return 'Shows what played last, and covers to play again.' + tap;
@@ -1655,7 +1656,7 @@
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'tv_channel', 'music_show', 'music_playlist'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
@@ -1873,7 +1874,7 @@
         // A MUSIC BLOCK'S SHOW (2026-10-31, the owner): Recently Played, the Music page's playlists, or one of them, chosen from
         // the house's (as the Music page reads them); the Content footnote says what the block shows
         if (kind === 'music_show') {
-          rows.push(K.select({ label: 'Shows', value: opts[key] || 'recent', options: [['recent', 'Recently Played'], ['presets', 'Presets'], ['playlist', 'One Playlist']],
+          rows.push(K.select({ label: 'Shows', value: opts[key] || 'recent', options: [['recent', 'Recently Played'], ['presets', 'Playlists'], ['playlist', 'One Playlist']],
             onChange: (v) => set(key, v === 'recent' ? null : v) }));
           return;
         }
@@ -1882,6 +1883,15 @@
           var pls = self.musicPlaylists().map((p) => [p.name, p.name]);
           if (opts[key] && !pls.some((op) => op[0] === opts[key])) pls.push([opts[key], opts[key] + ' (Unavailable)']);
           rows.push(K.select({ label: 'Playlist', value: opts[key] || (pls[0] || [''])[0], options: pls.length ? pls : [['', 'None Set Up']], onChange: (v) => set(key, v) }));
+          return;
+        }
+        // WHERE IT PLAYS (2026-10-31, the owner: "what HomePod or HomePod Group we want it to play on ... like a quick
+        // action"): Automatic -- this screen's music, as the Music page has it -- or one speaker, or a speaker group
+        if (kind === 'music_speaker') {
+          var Mu = window.hkMusic, rm = Mu && Mu.rooms ? Mu.rooms() : [], gp = Mu && Mu.presets ? Mu.presets() : [];
+          var sp = [['', 'Automatic']].concat(gp.map((g) => [g.entity, g.name + ' (Group)']), rm.map((r) => [r.entity, r.name]));
+          if (opts[key] && !sp.some((op) => op[0] === opts[key])) sp.push([opts[key], opts[key] + ' (Unavailable)']);
+          rows.push(K.select({ label: 'Plays On', value: opts[key] || '', options: sp, onChange: (v) => set(key, v || null) }));
           return;
         }
         // A LIVE TV BLOCK'S CHANNEL (2026-10-31, the owner): Automatic (the guide's first, as many as the size holds) or one

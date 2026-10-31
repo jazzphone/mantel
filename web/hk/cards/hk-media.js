@@ -3803,9 +3803,15 @@
     // ON THIS SCREEN'S MUSIC, as Browse plays: the integration checks the
     // player, starts it and answers -- so a failure is said, not a cheerful
     // "Playing" over silence
+    // WHERE IT PLAYS: the block's own speaker or group (its Plays On, while the house has it), else this screen's
+    _target() {
+      var Mu = window.hkMusic, sp = this._config && this._config.speaker;
+      if (sp && Mu && Mu.known && Mu.known(sp)) return sp;
+      return Mu && this.client ? Mu.player(this.client) : null;
+    }
     _play(it, el) {
       if (it.playlist) { this._playList(it, el); return; }
-      var Mu = window.hkMusic, player = Mu && this.client ? Mu.player(this.client) : null, self = this;
+      var Mu = window.hkMusic, player = this._target(), self = this;
       if (!player) { window.hkShell.toast({ message: 'Pick a speaker on the Music page to play ' + it.name + '.' }, this); return; }
       if (el.classList.contains('busy')) return;
       el.classList.add('busy');
@@ -3822,7 +3828,7 @@
   // A PLAYLIST ON THIS SCREEN'S SPEAKERS, as the Music page plays one (hk-music.js _playPlaylist): the rooms of what
   // this screen follows -- a preset's own, else the one -- and hk_frontend.music_play; a failure is said
   HkRecentMusicCard.prototype._playList = function (it, el) {
-    var Mu = window.hkMusic, self = this, p = Mu && this.client ? Mu.player(this.client) : null;
+    var Mu = window.hkMusic, self = this, p = this._target();
     var pre = p && Mu.presets().filter(function (x) { return x.entity === p; })[0];
     var rooms = pre ? pre.members.slice() : p ? [p] : [];
     if (!rooms.length) { window.hkShell.toast({ message: 'Pick a speaker on the Music page to play ' + it.name + '.' }, this); return; }

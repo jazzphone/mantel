@@ -109,7 +109,7 @@ function () {
   // the CSS: one variant, the tiles' own parts, from the table (hk-base.js TILE.centred)
   var tileCss = customElements.get('hk-tile-card').CSS, keyCss = customElements.get('hk-action-card').CSS, T = window.hkCards.TILE.centred;
   ok('the tile and the key each have the variant, keyed by the attribute', tileCss.indexOf(':host([tile=centred])') >= 0 && keyCss.indexOf(':host([tile=centred])') >= 0);
-  ok('...a 196 x 150 cell\'s numbers, then a square cell\'s', tileCss.indexOf('top:' + T.tall.at + '%') >= 0 && tileCss.indexOf('@container hk-cell (min-height:180px){') >= 0 &&
+  ok('...a 196 x 150 cell\'s numbers, then a square cell\'s', tileCss.indexOf('top:' + T.tall.at + '%') >= 0 && tileCss.indexOf('@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){') >= 0 &&
      tileCss.indexOf('width:' + T.square.glyph + 'px !important;height:' + T.square.glyph + 'px !important') >= 0);
   ok('...the lock\'s and Lock Up\'s, the lights\' and the scenes\' tiles: hk-tile\'s and the key\'s', keyCss.indexOf('top:' + T.square.text + '%') >= 0);
   ok('...the glyph bare, off and lit -- no circle (2026-10-31, HomeView has none)', tileCss.indexOf(':host([tile=centred]) .well{background:none !important}') >= 0 &&

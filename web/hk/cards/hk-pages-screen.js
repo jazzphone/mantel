@@ -58,6 +58,9 @@
   var WIDGET_IN = 12, WIDGET_TOP = 4, WIDGET_FOOT = 36, WIDGET_R = 30;
   // the side gutter (62 of a 1180 px screen), never under 16
   var GUTTER = 0.0525, GUTTER_MIN = 16;
+  // the screens shown once the layout has held still this long after a draw, and never later than SETTLE_MAX ms after
+  // the first (_settle)
+  var SETTLE_QUIET = 150, SETTLE_MAX = 700;
   // the header's room: 16 % of the height, 100..150
   var TOP_SHARE = 0.16, TOP_MIN = 100, TOP_MAX = 150;
   // the foot: the dots alone, or the dots over the Home pill
@@ -282,6 +285,10 @@
       '.screens{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;',
       '  scrollbar-width:none;overscroll-behavior-x:contain}',
       '.screens::-webkit-scrollbar{display:none}',
+      // SHOWN ONCE IT HOLDS STILL (2026-10-31, the owner: the icons "kind of jump into place" as it loads): until its
+      // size and its glyphs have settled (_settle), the screens are drawn but not shown, then fade in where they stay
+      '.screens{transition:opacity ' + C.DUR.fade + ' ease}',
+      ':host([data-settling]) .screens{opacity:0;transition:none}',
       '.screen{position:relative;flex:none;width:100%;height:100%;scroll-snap-align:start}',
       '.app{all:unset;box-sizing:border-box;position:absolute;display:grid;justify-items:center;align-content:start;cursor:pointer}',
       '.app:focus-visible .ic{outline:3px solid rgba(255,255,255,.85);outline-offset:3px}',
@@ -368,6 +375,7 @@
         super.disconnectedCallback();
         if (this._ro) this._ro.disconnect();
         if (this._clockT) { clearTimeout(this._clockT); this._clockT = null; }
+        if (this._settleT) { clearTimeout(this._settleT); this._settleT = null; this._settleFrom = 0; this.removeAttribute('data-settling'); }
         this._folder = false;
       }
       // THE CLOCK: drawn again on the minute (a push may not come)
@@ -440,7 +448,10 @@
         this.toggleAttribute('data-open', !!this._folder);
         var keep = this._root.querySelector('.screens'), at = keep ? keep.scrollLeft : 0;
         this._root.innerHTML = this._html(d, sz, now);
+        var first = !this._built;
         this._built = true;
+        if (first) this._settleFrom = Date.now();
+        if (this._settleFrom) this._settle();
         if (!this._firstSize) this._firstSize = sz;   // (what it was first drawn at: the check holds it to its size now)
         this._d = d;
         var sc = this._root.querySelector('.screens');
@@ -448,6 +459,19 @@
         this._mountWidgets(d);
         this._wire(d);
         this._skies();
+      }
+      // HELD UNTIL STILL: each draw while settling waits SETTLE_QUIET again -- a size that changes as the tab bar's or
+      // the Side Pane's room arrives, the glyphs coming in -- and never longer than SETTLE_MAX from the first draw
+      _settle() {
+        var self = this;
+        this.setAttribute('data-settling', '');
+        clearTimeout(this._settleT);
+        var left = SETTLE_MAX - (Date.now() - this._settleFrom);
+        this._settleT = setTimeout(function () {
+          self._settleT = null;
+          self._settleFrom = 0;
+          self.removeAttribute('data-settling');
+        }, Math.max(0, Math.min(SETTLE_QUIET, left)));
       }
       // the Weather icon's sky: the house handed to it (and its code asked for
       // once: hk-weather.js defines it)

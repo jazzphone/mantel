@@ -127,8 +127,19 @@
     '.hkf.weather .cn svg{width:3.7cqmin;height:3.7cqmin;vertical-align:-.5cqmin;margin-right:.6cqmin}',
     '.hkf.weather .cn .hl{opacity:.85}',
     '.hkf.weather .tm{position:absolute;right:7.3cqmin;top:6.1cqmin;font-size:5.4cqmin;font-weight:600;line-height:1}',
-    '.hkf.weather .tp{position:absolute;left:4.9cqmin;top:18.3cqmin;font-size:48.8cqmin;font-weight:600;line-height:1;letter-spacing:-.05em;',
-    '  background:linear-gradient(#fff,rgba(255,255,255,.35));-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none}',
+    // THE BIG NUMBER STANDS ON THE GROUND (2026-10-31, the owner: it "sits a little above"): its foot on the
+    // landscape's meadow, not a fixed distance from the top. The art covers the screen from its foot (hk-sky.js
+    // .land: cover, center bottom; ~3:2), so the meadow in front of the tree line is 32 % of the art's drawn height up
+    // from the bottom, however wide the screen -- that height the screen's own, or its width at 3:2 when wider. The
+    // line box's foot is 0.145 of the type below the figures' baseline (line-height 1). Under the figures (.tpn, the
+    // gradient clipped to them) a soft contact shadow on the land (::before, painted first; no filter: a gradient)
+    '.hkf.weather .tp{position:absolute;left:4.9cqmin;bottom:calc(.32 * max(100cqh, 66.7cqw) - .145em);font-size:48.8cqmin;font-weight:600;line-height:1;letter-spacing:-.05em}',
+    '.hkf.weather .tpn{position:relative;display:inline-block;background:linear-gradient(#fff,rgba(255,255,255,.35));-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none}',
+    '.hkf.weather .tp::before{content:"";position:absolute;left:0;right:3%;bottom:.06em;height:.17em;pointer-events:none;',
+    '  background:radial-gradient(closest-side,rgba(20,14,4,.42),rgba(20,14,4,.18) 55%,rgba(20,14,4,0));transform:skewX(-24deg)}',
+    '.hkf.weather .tp:has(.tpn:empty)::before{display:none}',
+    // ...the time, when it is the big number (forecast_big: clock): a little smaller, the figures being wider
+    '.hkf.weather.bigclock .tp{font-size:40cqmin;letter-spacing:-.04em}',
     // THE BOTTOM ROW (2026-10-31, the owner: the music and the readings "randomly picked alignment and gaps"): on the
     // face's own margins -- 7.3 units each side, as the condition and the time above, 6.1 up from the foot, as they
     // are down from the top -- each reading a box 14 units tall, centred in it. What the screensaver plays beside it
@@ -138,7 +149,9 @@
     '.hkf.weather .rd > div{height:14cqmin;display:flex;flex-direction:column;align-items:center;justify-content:center}',
     '.hkf.weather .rd svg{display:block;width:4.4cqmin;height:4.4cqmin;fill:currentColor;opacity:.9}',
     '.hkf.weather .rd small{display:block;font-size:2.9cqmin;opacity:.85}',
-    '@container (aspect-ratio < 1){.hkf.weather .tp{top:24cqh}.hkf.weather .rd{grid-template-columns:repeat(2,1fr);row-gap:4cqmin}}',
+    // (upright: on the ground too, but never lower than the row above the readings -- what plays sits there)
+    '@container (aspect-ratio < 1){.hkf.weather .tp{bottom:calc(max(.32 * max(100cqh, 66.7cqw), 58cqmin) - .145em)}.hkf.weather.bigclock .tp{font-size:30cqmin}',
+    '  .hkf.weather .rd{grid-template-columns:repeat(2,1fr);row-gap:4cqmin}}',
     // ...while music plays (.np), held sideways, the row is split: what plays on the left margin (no wider than 40 %),
     // the readings packed against the right one, 9.8 units apart -- the last one's edge as far in from the right as
     // the music's picture is from the left (2026-10-31, the owner); upright, there is no room beside it, and it sits
@@ -374,22 +387,26 @@
 
   BUILD.weather = function (r, inn, x) {
     inn.appendChild(el('div', 'wash'));
-    var cn = el('div', 'cn'), tm = el('div', 'tm'), tp = el('div', 'tp'), rd = el('div', 'rd');
-    inn.append(cn, tm, tp, rd);
+    var cn = el('div', 'cn'), tm = el('div', 'tm'), tpb = el('div', 'tp'), tp = el('span', 'tpn'), rd = el('div', 'rd');
+    tpb.appendChild(tp);
+    inn.append(cn, tm, tpb, rd);
     var key = null;
+    var bigClock = x.big === 'clock';
+    if (bigClock) r.className += ' bigclock';
     return function (d) {
-      put(tm, hm(d, x.h24));
+      // (the big number the time: the temperature takes the time's place, top right)
+      if (bigClock) put(tp, hm(d, x.h24)); else put(tm, hm(d, x.h24));
       var c = x.client(), np = !!playing(c && c.states);
       if (/\bnp\b/.test(r.className) !== np) r.className = r.className.replace(/ np\b/g, '') + (np ? ' np' : '');
       var w = x.weather(), k = w ? JSON.stringify([w.temp, w.cond, w.hi, w.lo, w.sunset && w.sunset.getTime(), w.wind, w.humidity, w.aqi, d.getHours() >= 12]) : '';
       if (k === key) return;
       key = k;
       cn.textContent = ''; rd.textContent = '';
-      if (!w) { put(tp, ''); if (x.onReadings) x.onReadings(0); return; }
+      if (!w) { put(bigClock ? tm : tp, ''); if (x.onReadings) x.onReadings(0); return; }
       cn.innerHTML = wxGlyph(w.cond);
       cn.appendChild(el('span', null, w.says));
       if (w.hi != null || w.lo != null) { cn.appendChild(el('br')); cn.appendChild(el('span', 'hl', 'H:' + deg(w.hi) + ' L:' + deg(w.lo))); }
-      put(tp, deg(w.temp));
+      put(bigClock ? tm : tp, deg(w.temp));
       var cols = [];
       if (w.sunset) cols.push([G.sunset, hm(w.sunset, x.h24) + (x.h24 ? '' : (w.sunset.getHours() < 12 ? ' AM' : ' PM')), 'Sunset']);
       if (w.wind != null) cols.push([G.wind, Math.round(w.wind) + ' ' + (w.windUnit || ''), 'Wind']);
@@ -422,7 +439,7 @@
     layer.appendChild(root);
     var client = opts.client || null, dead = false, fc = null, fcFor = '', daily = [];
     var x = {
-      h24: !!opts.h24, look: opts.look || 'auto', clocks: opts.clocks || window.hkSaverClock || null, still: !!opts.still, parts: [],
+      h24: !!opts.h24, look: opts.look || 'auto', big: opts.big === 'clock' ? 'clock' : 'temp', clocks: opts.clocks || window.hkSaverClock || null, still: !!opts.still, parts: [],
       onReadings: typeof opts.onReadings === 'function' ? opts.onReadings : null,
       client: function () { return client; },
       // the weather now, today's high and low from the daily forecast (hkWxForecast, shared with the cards)

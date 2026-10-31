@@ -467,7 +467,8 @@
       '.tiles.scrolling{grid-template-rows:none;grid-auto-rows:calc((100% - var(--scroll-gaps,' + GAP + 'px))/var(--rows,2));align-content:start;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-width:none}',
       '.tiles.scrolling::-webkit-scrollbar{display:none}',
       '.tiles.scrolling .slot{touch-action:pan-x pan-y}',
-      '.slot{container-type:size;container-name:hk-cell;min-width:0;min-height:0}.slot > *{display:block;width:100%;height:100%}',
+      // (a slot is a cell of its own, not the grid's: it is no square because the grid's cells are -- hk-layout.js)
+      '.slot{container-type:size;container-name:hk-cell;--hk-cell-shape:none;min-width:0;min-height:0}.slot > *{display:block;width:100%;height:100%}',
       '.more{border:0;border-radius:var(--hk-inner-radius,' + v('glass-radius') + ');' + C.plate('tile') + ';color:' + v('ink') + ';' + type('body') + ';min-height:44px;cursor:pointer}',
       '.slot{position:relative;touch-action:pan-x;-webkit-user-select:none;user-select:none;',
       '  -webkit-touch-callout:none}',
@@ -1398,7 +1399,7 @@
         // (2026-10-31, Music's widget: what played last and covers to play
         // again, at the block's size -- hk-media.js hk-recent-music-card)
         var M = window.hkMusic, sp = M && M.speakers ? M.speakers() : [];
-        return sp && sp.length ? [{ cfg: Object.assign({ type: 'custom:hk-recent-music-card' }, cfg.show ? { show: cfg.show } : {}, cfg.playlist ? { playlist: cfg.playlist } : {}), size: size }] : null;
+        return sp && sp.length ? [{ cfg: Object.assign({ type: 'custom:hk-recent-music-card' }, cfg.show ? { show: cfg.show } : {}, cfg.playlist ? { playlist: cfg.playlist } : {}, cfg.speaker ? { speaker: cfg.speaker } : {}), size: size }] : null;
       }
       if (kind === 'doors') {
         var S = window.hkStrategy, inv = null;

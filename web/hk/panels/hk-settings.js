@@ -4014,6 +4014,10 @@
                fxKnown && (fc || both || cur.fallback) ? [K.previewPick({ label: 'Forecast Layout', sk: 'saver:forecast_layout', value: big ? 'big' : 'classic',
                  options: M.FORECAST_LAYOUTS, picture: function (v, w, ht) { return self.saverThumb(w, ht, v === 'big' ? 'weather' : 'forecast', cur); },
                  onChange: function (v) { put('forecast_layout', v); } })] : [],
+               // BIG WEATHER'S NUMBER (2026-10-31, the owner): the temperature or the time, standing on the ground
+               big && (fc || both || cur.fallback) && self.saverKnown('forecast_big') ? [K.seg({ label: 'Big Number', sk: 'saver:forecast_big',
+                 value: cur.forecast_big === 'clock' ? 'clock' : 'temp', options: M.FORECAST_BIG,
+                 onChange: function (v) { put('forecast_big', v); } })] : [],
                // the details ON the forecast, wherever a forecast can show
                (fc || both || cur.fallback) && !big ? [tog('Details on the Forecast', 'band',
                  'On the forecast: today, the next hours and the coming days along the bottom. Off: the sky and the landscape alone.')] : [])));
@@ -4296,6 +4300,18 @@
             ? 'The time on each photo, large, behind the person or thing in it where it can be, in place of the clock above.'
             : 'The time, large, behind the person or thing in each photo that qualifies; in front on the others.') +
             (mo ? ' Not in a mosaic.' : '')));
+          // ITS SIZE, ITS HEIGHT AND THE PHOTO DARKENED UNDER IT (2026-10-31, the owner): with it, as Clock on
+          // Photos has its Darken -- there that one is it (Backgrounds), so it isn't asked twice
+          if (cur.time_behind && self.saverKnown('tb_size')) {
+            prow.push(K.slider({ label: 'Time Size', sk: 'saver:tb_size', value: cur.tb_size != null ? cur.tb_size : 24,
+                                 min: 12, max: 40, step: 2, unit: '%', onChange: function (v) { put('tb_size', v); } }));
+            prow.push(K.slider({ label: 'Time Height', sk: 'saver:tb_top', value: cur.tb_top != null ? cur.tb_top : 6,
+                                 min: 0, max: 50, step: 2, unit: '%', onChange: function (v) { put('tb_top', v); } }));
+            if (!clockMode) {
+              prow.push(K.slider({ label: 'Darken', sk: 'saver:tb_dim', value: cur.tb_dim || 0,
+                                   min: 0, max: 80, step: 5, unit: '%', onChange: function (v) { put('tb_dim', v); } }));
+            }
+          }
         }
       }
       // (under the photos' source groups -- a folder, a host's album and its
@@ -5878,7 +5894,8 @@
         };
         c.appendChild(K.group({ header: 'Look', footer: 'Face — Stacked: the hours over the minutes, as StandBy has them. Analog: the Analog Numbers face, small, with the time and date beside it. ' +
             'AM/PM shows only on a 12-hour clock. The colon flashes only where animations are on (not under Reduce Motion, Animations Off or Flat). ' +
-            'Second Line — Automatic: the date, with the sunset beside it at More.' }, [
+            'Second Line — Automatic: the date, with the sunset beside it at More. ' +
+            'Beside the Time — Weather: the temperature and the sky at the right of the time, as the menu’s header has them (at Less and More; under the time when it is centred).' }, [
           K.seg({ label: 'Face', sk: 'pane:clock:face', value: s.face || 'digital', options: M.CLOCK_FACES, onChange: function (v) { set('face', v === 'digital' ? null : v); } }),
           K.seg({ label: 'Alignment', sk: 'pane:clock:align', value: s.align || 'left', options: M.CLOCK_ALIGNS, onChange: function (v) { set('align', v === 'left' ? null : v); } }),
           K.seg({ label: 'Text Size', sk: 'pane:clock:scale', value: s.scale || 'medium', options: M.CLOCK_SCALES, onChange: function (v) { set('scale', v === 'medium' ? null : v); } }),
@@ -5886,7 +5903,8 @@
           K.toggle({ label: 'AM/PM', sk: 'pane:clock:ampm', on: s.ampm !== false, onChange: function (on) { set('ampm', on ? null : false); } }),
           K.toggle({ label: 'Flashing Colon', sk: 'pane:clock:colon', on: !!s.colon, onChange: function (on) { set('colon', on || null); } }),
           K.seg({ label: 'Date', sk: 'pane:clock:date', value: s.date || 'full', options: M.CLOCK_DATES, onChange: function (v) { set('date', v === 'full' ? null : v); } }),
-          pick('Second Line', 'pane:clock:line', 'line', M.CLOCK_LINES, 'auto')]));
+          pick('Second Line', 'pane:clock:line', 'line', M.CLOCK_LINES, 'auto'),
+          K.seg({ label: 'Beside the Time', sk: 'pane:clock:beside', value: s.beside || 'none', options: M.CLOCK_BESIDE, onChange: function (v) { set('beside', v === 'none' ? null : v); } })]));
       }
       if (s.kind === 'camera' || s.kind === 'todo') {
         var dom = s.kind === 'camera' ? 'camera' : 'todo';

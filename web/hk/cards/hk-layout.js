@@ -1823,7 +1823,10 @@
         // in), and a Square screen's outer corner on top (cellInset's --hk-in-*)
         '--hk-block-pad:14px;--hk-pad-t:calc(var(--hk-block-pad) + var(--hk-in-t,0px));--hk-pad-r:calc(var(--hk-block-pad) + var(--hk-in-r,0px));' +
         '--hk-pad-b:calc(var(--hk-block-pad) + var(--hk-in-b,0px));--hk-pad-l:calc(var(--hk-block-pad) + var(--hk-in-l,0px))}' +
-        ':host([cell=square]) .cell{--hk-block-pad:18px}' +
+        // ...and its cells say they are square (2026-10-31, the owner: the glyphs small on a 1280 x 800 tablet): a block
+        // asked "a square cell?" by its height (180 px or more), and beside the Side Pane a square cell is ~154 px. The
+        // blocks ask `(min-height:180px) or style(--hk-cell-shape: square)`: where style() is unknown, as it was
+        ':host([cell=square]) .cell{--hk-block-pad:18px;--hk-cell-shape:square}' +
         // ...and on square cells what sits inside a block's plate on its inset is concentric with it (34 - 18); tiles keep
         // their pills' own corners (at 23.5 - 14 they would be near square)
         ':host([cell=square]) .cell{--hk-inner-radius:max(12px, calc(var(--hk-block-radius, 34px) - var(--hk-block-pad)))}' +
@@ -2649,10 +2652,19 @@
         // the block out of line with the ones under it (the owner,
         // 2026-10-31: "pushed to the right some")
         var t = self._track, w = t && t.clientWidth;
-        if (w) { var at = Math.round(t.scrollLeft / w); if (Math.abs(t.scrollLeft - at * w) > 0.5) t.scrollLeft = at * w; }
+        if (w) { var at = self._pageLeft(Math.round(t.scrollLeft / w)); if (Math.abs(t.scrollLeft - at) > 0.5) t.scrollLeft = at; }
         pager.classList.remove('moving');
         self.removeAttribute('data-moving');
       }, PAGER_STILL);
+    }
+    // WHERE PAGE i SITS in the track: its own offset from the first page's, not i whole widths (2026-10-31, the
+    // owner: the camera block "shifted to the right again"). The track's clientWidth is rounded to a whole pixel and
+    // a page's width is not -- 594.6 px drawn, 595 asked -- so i x clientWidth drifted half a pixel a page: four or
+    // five pixels into the gap by the sixth or the tenth camera. Each page's own offset is out by half a pixel at most.
+    _pageLeft(i) {
+      var s = this._slots || [], p = s[i], p0 = s[0], t = this._track;
+      if (p && p0 && p.offsetParent === p0.offsetParent && p0.offsetParent) return p.offsetLeft - p0.offsetLeft;
+      return i * ((t && t.clientWidth) || 0);
     }
     // the page the track has come to rest on
     _settle() {
@@ -2669,8 +2681,9 @@
       this._want = i;
       var t = this._track, w = t && t.clientWidth;
       if (w) {
-        if (t.scrollTo) t.scrollTo({ left: i * w, behavior: smooth && !pagerCalm() ? 'smooth' : 'auto' });
-        else t.scrollLeft = i * w;
+        var left = this._pageLeft(i);
+        if (t.scrollTo) t.scrollTo({ left: left, behavior: smooth && !pagerCalm() ? 'smooth' : 'auto' });
+        else t.scrollLeft = left;
       }
       this._show(i);
     }

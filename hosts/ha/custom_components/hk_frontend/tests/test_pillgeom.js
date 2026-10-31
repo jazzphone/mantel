@@ -61,16 +61,16 @@ var TL = window.hkCards.TILE, CT = TL.centred;
 check('Home\'s tile is unchanged: 196 x 70, the tall 150, a 42 px well, a 23 px glyph, 15 px text',
       TL.w === 196 && TL.h === 70 && TL.tall === 150 && TL.glyph === 23 && TL.tallText === 15 && TL.gridGap === 10 && TL.padL === 9.8,
       JSON.stringify([TL.w, TL.h, TL.tall, TL.glyph, TL.tallText]));
-check('Centred in a square cell: the glyph in a 66 px box (72 drawn round it) at 33 %, lit or not -- no circle (2026-10-31)',
-      CT.square.glyph === 66 && CT.square.box === 72 && CT.square.at === 33 && !('lit' in CT.square) && !('well' in CT.square), JSON.stringify(CT.square));
+check('Centred in a square cell: the glyph in a 76 px box (82 drawn round it) at 33 %, lit or not -- no circle (2026-10-31: HomeView\'s ~30 % of the tile)',
+      CT.square.glyph === 76 && CT.square.box === 82 && CT.square.at === 33 && !('lit' in CT.square) && !('well' in CT.square), JSON.stringify(CT.square));
 check('...the name 21 and the room 20 on 27 px lines, from 57.7 %', CT.square.name === 21 && CT.square.sub === 20 && CT.square.line === 27 && CT.square.text === 57.7);
-check('Centred in a 196 x 150 cell: a 50 px glyph at 31 %, 17 / 16 on 22 px from 55 %',
-      CT.tall.glyph === 50 && CT.tall.at === 31 && CT.tall.name === 17 && CT.tall.sub === 16 && CT.tall.line === 22 && CT.tall.text === 55 && !('lit' in CT.tall), JSON.stringify(CT.tall));
+check('Centred in a 196 x 150 cell: a 58 px glyph at 31 %, 17 / 16 on 22 px from 55 %',
+      CT.tall.glyph === 58 && CT.tall.at === 31 && CT.tall.name === 17 && CT.tall.sub === 16 && CT.tall.line === 22 && CT.tall.text === 55 && !('lit' in CT.tall), JSON.stringify(CT.tall));
 check('...tracked -0.3, 10 px in from the sides', CT.track === -0.3 && CT.inset === 10);
 var cc = window.hkCards.centredTile({ host: ':host([tile=centred])', plate: 'hk-plate.card', lit: 'hk-plate.card[data-on="1"]', well: '.well', icon: '.icon', name: '.name', sub: ['.label'] });
-check('the CSS is the table\'s: the name 600 at 21 px in a square cell, the room 400, centred', /@container hk-cell \(min-height:180px\)\{[^@]*\.name\{top:57\.7% !important;font-size:21px !important;line-height:27px !important\}/.test(cc) &&
+check('the CSS is the table\'s: the name 600 at 21 px in a square cell, the room 400, centred', /@container hk-cell \(min-height:180px\) or style\(--hk-cell-shape: square\)\{[^@]*\.name\{top:57\.7% !important;font-size:21px !important;line-height:27px !important\}/.test(cc) &&
       /\.label\{position:absolute[^}]*text-align:center[^}]*font-weight:400/.test(cc) && /\.name\{position:absolute[^}]*font-weight:600/.test(cc));
 check('...and only under the variant: every rule begins with its :host', cc.split('}').filter(function (r) { return r.trim() && r.indexOf('{') >= 0; })
-      .every(function (r) { return /^(@container hk-cell \(min-height:180px\)\{)?:host\(\[tile=centred\]\)/.test(r.trim()); }));
+      .every(function (r) { return /^(@container hk-cell \(min-height:180px\) or style\(--hk-cell-shape: square\)\{)?:host\(\[tile=centred\]\)/.test(r.trim()); }));
 
 print(fail ? 'FAIL ' + fail + ' PILL GEOMETRY TESTS' : 'ALL ' + pass + ' PILL GEOMETRY TESTS PASS');

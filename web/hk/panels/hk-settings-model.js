@@ -2145,6 +2145,9 @@
   var FORECAST_LAYOUTS = [['classic', 'Classic'], ['big', 'Big']];
   var DAY_LOOKS = [['auto', 'By Time of Day'], ['light', 'Light'], ['dark', 'Dark']];
   Object.assign(SAVER_DEFAULTS, { forecast_layout: 'classic', photo_titles: false, time_behind: false, day_look: 'auto' });
+  // Big Weather's number; Time Behind's size, place and darkening (settings.py, 2026-10-31)
+  var FORECAST_BIG = [['temp', 'Temperature'], ['clock', 'Clock']];
+  Object.assign(SAVER_DEFAULTS, { forecast_big: 'temp', tb_size: 24, tb_top: 6, tb_dim: 0 });
   CLOCK_STYLES.push(['liquid', 'Liquid', 'Soft, glossy numerals that drift slowly over a pastel gradient'],
                     ['giant', 'Giant Numerals', 'An analog clock with 12, 3, 6 and 9 drawn huge on a strong color'],
                     ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft color']);
@@ -2679,7 +2682,9 @@
   var CLOCK_WEIGHTS = [['light', 'Light'], ['regular', 'Regular'], ['semibold', 'Semibold'], ['bold', 'Bold']];
   var CLOCK_DATES = [['full', 'Full'], ['short', 'Short'], ['off', 'Off']];
   var CLOCK_LINES = [['auto', 'Automatic'], ['none', 'None'], ['sunset', 'Sunset'], ['weather', 'Weather']];
-  var CLOCK_ABSENT = { face: 'digital', align: 'left', scale: 'medium', weight: 'semibold', date: 'full', line: 'auto', ampm: true, colon: false };
+  // the weather beside the time, as the menu's header has it (2026-10-31, the owner)
+  var CLOCK_BESIDE = [['none', 'None'], ['weather', 'Weather']];
+  var CLOCK_ABSENT = { face: 'digital', align: 'left', scale: 'medium', weight: 'semibold', date: 'full', line: 'auto', beside: 'none', ampm: true, colon: false };
   // THE LINKS that were each pane's own settings: the Dashboard's ("Home
   // Only, Right"), the screensaver's ("Calendar, Now Playing"), and Now
   // Playing's Show As (the bar, or the Side Pane)
@@ -2774,14 +2779,14 @@
   root.hkSettingsModel = {
     PANE_KINDS: PANE_KINDS, PANE_SIZES: PANE_SIZES, PANE_WHEN: PANE_WHEN, PANE_SIDES: PANE_SIDES, PANE_WIDTHS: PANE_WIDTHS,
     PANE_SHOWS: PANE_SHOWS, PANE_SAVER_SHOWS: PANE_SAVER_SHOWS, PANE_GROUPS: PANE_GROUPS, PANE_PLACES: PANE_PLACES, PANE_TAPS: PANE_TAPS, paneTaps: paneTaps, PANE_CAMERA_NAMES: PANE_CAMERA_NAMES, CLOCK_FACES: CLOCK_FACES, CLOCK_ALIGNS: CLOCK_ALIGNS, CLOCK_SCALES: CLOCK_SCALES,
-    CLOCK_WEIGHTS: CLOCK_WEIGHTS, CLOCK_DATES: CLOCK_DATES, CLOCK_LINES: CLOCK_LINES, PANE_MAX: PANE_MAX, PANE_DEFAULTS: PANE_DEFAULTS,
+    CLOCK_WEIGHTS: CLOCK_WEIGHTS, CLOCK_DATES: CLOCK_DATES, CLOCK_LINES: CLOCK_LINES, CLOCK_BESIDE: CLOCK_BESIDE, PANE_MAX: PANE_MAX, PANE_DEFAULTS: PANE_DEFAULTS,
     paneKind: paneKind, paneSection: paneSection, paneOf: paneOf, paneGroupSays: paneGroupSays, paneSet: paneSet, paneReset: paneReset,
     secKey: secKey, secsAdd: secsAdd, secsOrder: secsOrder, secSet: secSet, secsMore: secsMore, secSays: secSays,
     paneSummary: paneSummary, paneSaverSummary: paneSaverSummary, paneHasMusic: paneHasMusic, npShowAs: npShowAs,
     skySummary: skySummary, backdropFollow: backdropFollow,
     YAML_REF: YAML_REF, YAML_DEFAULTS: YAML_DEFAULTS, yamlRefText: yamlRefText, yamlRefItem: yamlRefItem,
     previewSizes: previewSizes, previewDefault: previewDefault, previewFit: previewFit,
-    SAVER_SHOWS: SAVER_SHOWS, FORECAST_LAYOUTS: FORECAST_LAYOUTS, DAY_LOOKS: DAY_LOOKS, CLOCK_OWN_GROUND: CLOCK_OWN_GROUND, showName: showName,
+    SAVER_SHOWS: SAVER_SHOWS, FORECAST_LAYOUTS: FORECAST_LAYOUTS, FORECAST_BIG: FORECAST_BIG, DAY_LOOKS: DAY_LOOKS, CLOCK_OWN_GROUND: CLOCK_OWN_GROUND, showName: showName,
     SAVER_DEFAULTS: SAVER_DEFAULTS, saverOptions: saverOptions, saverCustom: saverCustom, ENERGY_PARTS: ENERGY_PARTS, energyShown: energyShown, WEATHER_PARTS: WEATHER_PARTS, weatherShown: weatherShown, listText: listText, saverSummary: saverSummary, saverFollows: saverFollows, kioskSummary: kioskSummary,
     NP_STYLES: NP_STYLES, NP_SIDES: NP_SIDES, NP_BARS: NP_BARS, NP_GRACES: NP_GRACES, npSummary: npSummary, npOwn: npOwn, NP_OWN_KEYS: NP_OWN_KEYS,
     COPY_GROUPS: COPY_GROUPS, COPY_NEVER: COPY_NEVER, copyDefaults: copyDefaults, copyChanges: copyChanges,

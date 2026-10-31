@@ -371,7 +371,7 @@
         // (a Large or Extra Large block with no rooms to offer: the battery large in the middle)
         '.vb .mid{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;min-height:0}',
         // ON A SQUARE CELL (196 x 196): the mock-up's sizes
-        '@container hk-cell (min-height:180px){',
+        '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){',
         '  hk-plate.vb{--vb-key:48px;--vb-gl:34px}',
         '  .vb[data-s=S] .nm{margin-top:8px}',
         '  .vb .big{font-size:36px}',
@@ -2249,7 +2249,7 @@
         '.gt .stop hk-icon{width:calc(var(--stop) * 0.46);height:calc(var(--stop) * 0.46);--mdc-icon-size:calc(var(--stop) * 0.46);color:#fff}',
         '.gt .pr:active,.gt .stop:active{transform:scale(0.95)}',
         '.gt .pr:focus-visible,.gt .stop:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
-        '@container hk-cell (min-height:180px){',
+        '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){',
         '  :host([size=S]) hk-plate.strip{--ring:76px;--stop:52px}',
         '  :host([size=W]) hk-plate.strip{--ring:72px;--stop:48px}',
         '  :host([size=S]) .gt hk-countdown{font-size:36px}',

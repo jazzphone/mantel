@@ -135,9 +135,12 @@
     return pre + '.ai{position:relative;flex:none;display:grid;place-items:center;width:' + px + 'px;height:' + px + 'px;border-radius:' + n(ICON_CORNER) + ';' +
         'color:#fff;box-shadow:0 5px 14px rgba(0,0,0,0.25)}' +
       pre + '.it .ai hk-icon,' + pre + '.it.here .ai hk-icon{--mdc-icon-size:' + n(ICON_GLYPH) + ';width:' + n(ICON_GLYPH) + ';height:' + n(ICON_GLYPH) + ';color:#fff}' +
-      pre + '.ai.cal{background:#fff;color:#1c1c1e;grid-template-rows:auto auto;align-content:center;justify-items:center;line-height:1}' +
+      // (upright: the tile is an <i>, and its date leaned with it -- off centre, 2026-10-31, the owner; the date's
+      // tracking given back on its right, so the figures sit in the middle)
+      pre + '.ai.cal{background:#fff;color:#1c1c1e;grid-template-rows:auto auto;align-content:center;justify-items:center;line-height:1;font-style:normal}' +
+      pre + '.ai.cal .calg{display:none}' +
       pre + '.ai.cal i{font-style:normal;font-size:' + n(0.2) + ';font-weight:600;color:' + ((window.hkCards && window.hkCards.ACCENTS) ? window.hkCards.ACCENTS.red : '#ff453a') + '}' +
-      pre + '.ai.cal b{font-size:' + n(0.55) + ';font-weight:400;letter-spacing:-1px}';
+      pre + '.ai.cal b{font-size:' + n(0.55) + ';font-weight:400;letter-spacing:-1px;margin-right:-1px}';
   }
   // A TAB NARROWER THAN THIS (six on a phone: ~55 px) has no room for the
   // highlight's capsule -- it would be a cramped circle -- so the page you
@@ -603,6 +606,8 @@
       '.bigsheet .sheet h3{' + C.typeCss('headline') + '}',
       // the list (More Style: List) keeps its glyphs on their own
       '.sheet.list .ai{width:22px;height:22px;background:none!important;box-shadow:none!important;border-radius:0}',
+      // ...Calendar there its glyph, as every other row's, never the icon's date (2026-10-31, the owner)
+      '.sheet.list .ai.cal>i,.sheet.list .ai.cal>b{display:none}.sheet.list .ai.cal .calg{display:block}',
       '.sheet.list .it .ai hk-icon{--mdc-icon-size:22px;width:22px;height:22px;color:var(--hk-accent-base,' + window.hkCards.v('accent') + ')}',
       '.sheet.list .it.here .ai hk-icon{color:var(--hk-on-accent,#fff)}',
       '[data-sheet="rooms"] .roomgrid .it span{-webkit-line-clamp:3}',
@@ -1044,7 +1049,7 @@
       if (kind === 'calendar') {
         var now = new Date(), L = window.hkLocale, tag = L && L.tag ? L.tag() : undefined, day = '', wd = '';
         try { wd = now.toLocaleDateString(tag, { weekday: 'short' }); day = now.toLocaleDateString(tag, { day: 'numeric' }); } catch (e) { day = String(now.getDate()); }
-        return '<i class="ai cal" aria-hidden="true"><i>' + esc(wd) + '</i><b>' + esc(day) + '</b></i>';
+        return '<i class="ai cal" aria-hidden="true"><i>' + esc(wd) + '</i><b>' + esc(day) + '</b><hk-icon class="calg" icon="' + icon(it.icon) + '"></hk-icon></i>';
       }
       var g = C.iconGradient ? C.iconGradient(hex) : [hex, hex];
       return '<i class="ai" style="background:linear-gradient(180deg,' + g[0] + ',' + g[1] + ')"><hk-icon icon="' + icon(it.icon) + '"></hk-icon></i>';
