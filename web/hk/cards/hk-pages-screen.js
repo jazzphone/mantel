@@ -480,6 +480,7 @@
       _html(d, sz, now) {
         var W = sz.W, Ht = sz.H, pill = pillOn(d.ps.pill, d.tabBar);
         var g = grid(W, Ht, { pill: pill }), s = g.s;
+        g.now = now;                             // the calendar icon's day: the time this is drawn for
         var screens = place(d.list.length, d.widgets, g.cols, g.rows);
         this._screens = screens.length;
         var out = '<div class="bg"></div>';
@@ -557,7 +558,7 @@
           }).join('');
         } else if (it.page === 'calendar') {
           cls += ' cal';
-          var now = new Date();
+          var now = g.now || new Date();
           plate = box;
           inner = '<i style="font-size:' + (22 * s).toFixed(1) + 'px;color:' + red() + '">' + esc(fmt(now, { weekday: 'short' })) + '</i>' +
                   '<span style="font-size:' + (66 * s).toFixed(1) + 'px;letter-spacing:' + (-2 * s).toFixed(1) + 'px">' + esc(fmt(now, { day: 'numeric' })) + '</span>';

@@ -13,6 +13,8 @@
 // browser.
 if (typeof HK_ROOT === 'undefined')
   throw new Error('HK_ROOT is not set -- run this through tests/run, not jsc directly');
+// fixtures at now ± minutes: the clock is pinned to noon (fixed_clock.js), so none crosses midnight
+load(HK_ROOT + '/tests/fixed_clock.js');
 load(HK_ROOT + '/tests/dom.js');
 
 function __aug(el) {

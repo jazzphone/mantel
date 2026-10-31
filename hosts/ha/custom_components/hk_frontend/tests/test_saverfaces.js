@@ -6,6 +6,9 @@
 // masked over it -- or the time in front.
 if (typeof HK_ROOT === 'undefined') throw new Error('run through tests/run');
 var DIR = HK_ROOT + '/';
+// the fixtures are of Friday 30 October 2026: the clock is pinned to its noon (fixed_clock.js)
+var FIXED_DAY = [2026, 9, 30];
+load(DIR + 'tests/fixed_clock.js');
 load(DIR + 'tests/dom.js');
 var pass = 0, fail = 0;
 function ok(name, got, want) {

@@ -2,9 +2,10 @@
 // noon of today's date, so "3 hours ago" or "in 30 minutes" never crosses
 // midnight into another day, whatever the real hour is. Load it FIRST (before
 // dom.js), so every Date the suite and the cards make reads this clock.
-// new Date() and Date.now() say noon; new Date(anything) is the real Date.
+// new Date() and Date.now() say noon; new Date(anything) is the real Date. A suite
+// whose fixtures are of one day sets FIXED_DAY = [year, monthIndex, day] first.
 (function () {
-  var Real = Date, at = new Real();
+  var Real = Date, at = typeof FIXED_DAY !== 'undefined' ? new Real(FIXED_DAY[0], FIXED_DAY[1], FIXED_DAY[2]) : new Real();
   at.setHours(12, 0, 0, 0);
   var NOW = at.getTime();
   var Fixed = function () {
