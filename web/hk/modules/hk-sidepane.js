@@ -852,6 +852,13 @@
       ':host([mode="saver"]) .pin{padding:4px 28px 22px}',
       ':host([mode="widget"]) .pane{background:none;-webkit-backdrop-filter:none;backdrop-filter:none;border:0;box-shadow:none}',
       ':host([mode="widget"]) .pin{padding:0}',
+      // THE SAME ROOM ABOVE AS AT THE SIDE (2026-10-31, the owner: "so much buffer/padding above the time"): the
+      // pane's 30 px, the first section's own 14 and the clock's leading put its digits ~55 px down against 28 at the
+      // right. Beside the page: the top inset the sides', the first section none of its own, and the big time trimmed
+      // to its figures' height (text-box; where a browser has none, only the leading is left)
+      ':host(:not([mode="widget"]):not([mode="saver"]):not([side="band"])) .pin{padding-top:28px}',
+      ':host(:not([mode="widget"]):not([mode="saver"]):not([side="band"])) .secs>.sec:first-child:not(.cam2):not(.mp){padding-top:0}',
+      ':host(:not([mode="widget"]):not([mode="saver"]):not([side="band"])) .secs>.sec[data-k="clock"]:first-child .big2{text-box:trim-start cap alphabetic}',
       ':host([mode="widget"]) .secs>.sec{flex:1 1 auto}',
       '.secs{display:flex;flex-direction:column;gap:12px;flex:1 1 auto;min-height:0;overflow:hidden}',
       ':host([side="band"]) .secs{flex-direction:row;align-items:stretch}',
