@@ -1813,7 +1813,10 @@
         '#root{--g-pad:' + GRID.pad + 'px;--g-gap:' + GRID.gap + 'px;' +
         'box-sizing:border-box;display:grid;position:absolute;transform-origin:top left;padding:var(--g-pad);gap:var(--g-gap);' +
         'grid-template-columns:repeat(var(--g-cols), ' + C.TILE.w + 'px);overflow:hidden}' +
-        '.band{grid-column:1 / -1;grid-row:1;min-width:0;min-height:0;overflow:hidden}' +
+        // (the band clips what runs past the grid, but not the clock's glow or the chips' shadows: 20 px of room
+        // inside the clip, given back by the margin, so it takes the same place -- the owner, 2026-10-31: a hard
+        // line under the date and round the Security chip)
+        '.band{grid-column:1 / -1;grid-row:1;min-width:0;min-height:0;overflow:hidden;padding:20px;margin:-20px}' +
         '.cell{position:relative;min-width:0;min-height:0;overflow:visible;' +
         'container-type:size;container-name:hk-cell;' +
         // THE BLOCK'S INSET (hkCards.blockPad): 14 px on tiles, 18 on square cells (a 34 px corner's curve comes 10 px

@@ -756,7 +756,9 @@
           '.band-weather{flex:1 1 240px;min-width:0;max-width:360px}',
           fitCss('.band-weather'),
           '.band-security{flex:1 1 280px;min-width:0;margin-left:auto}',
-          '.band-chips{display:none;min-width:0;flex:1 1 360px;height:60px;align-items:center;overflow:hidden}',
+          // (the chips' shadows inside the clip: 14 px above and below, given back by the margin -- the owner,
+          // 2026-10-31: a hard line round the Security chip)
+          '.band-chips{display:none;min-width:0;flex:1 1 360px;height:60px;align-items:center;overflow:hidden;box-sizing:content-box;padding:14px 0;margin:-14px 0}',
           '.band-chips>*{width:100%;min-width:0}',
           '.grid-band.has-chips .band-security{display:none}',
           '.grid-band.has-chips .band-chips{display:flex}',
