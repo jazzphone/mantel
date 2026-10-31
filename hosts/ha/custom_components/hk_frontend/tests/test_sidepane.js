@@ -199,8 +199,13 @@ ok('Tiny is one line: its glyph, the fact and a value', /class="sec cmp"/.test(X
 ok('...the timer\'s countdown', /Pasta[\s\S]*4:1[0-2]/.test(X.SEC.timers('tiny', {}, client, ctx)));
 ok('Security: its state and its locks', X.SEC.security('tiny', {}, client, ctx).indexOf('Armed · Home') > 0 && X.SEC.security('tiny', {}, client, ctx).indexOf('1 unlocked') > 0);
 ok('...More lists each lock, Full who changed it', X.SEC.security('more', {}, client, ctx).indexOf('Back Door') > 0 && X.SEC.security('full', {}, client, ctx).indexOf('Alex') > 0);
-ok('Now Playing: Tiny the song and a pause; More the screensaver\'s music pane', X.SEC.now_playing('tiny', {}, client, ctx).indexOf('Late Light') > 0 &&
-   /data-act="pp"/.test(X.SEC.now_playing('tiny', {}, client, ctx)) && /data-slot="np"/.test(X.SEC.now_playing('more', {}, client, ctx)));
+var more = X.SEC.now_playing('more', {}, client, ctx);
+ok('Now Playing: Tiny the song and a pause; More the mini player a size up (2026-10-31, "one family"), Full the screensaver\'s music pane',
+   X.SEC.now_playing('tiny', {}, client, ctx).indexOf('Late Light') > 0 && /data-act="pp"/.test(X.SEC.now_playing('tiny', {}, client, ctx)) &&
+   !/data-slot="np"/.test(more) && /class="r2 np np2"/.test(more) && /data-act="spk"/.test(more) && /data-act="brw"/.test(more) &&
+   /data-slot="np"/.test(X.SEC.now_playing('full', {}, client, ctx)), more);
+ok('...More shows the song\'s progress over the row, Less does not', /class="npp" role="progressbar"/.test(more) && more.indexOf('class="npp"') < more.indexOf('data-act="spk"') &&
+   !/class="npp"/.test(X.SEC.now_playing('less', {}, client, ctx)));
 ok('...Full takes what the pane has left', /class="sec mp grow"/.test(X.SEC.now_playing('full', {}, client, ctx)));
 var less = X.SEC.now_playing('less', {}, client, ctx);
 var at = function (h, act) { return h.indexOf('data-act="' + act + '"'); };

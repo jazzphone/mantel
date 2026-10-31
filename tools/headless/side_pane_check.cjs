@@ -100,7 +100,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
           }
           return { arted: p.hasAttribute('arted'), tint: p.hasAttribute('arttint'), tintColor: p.style.getPropertyValue('--art-tint'), nobg: !!(card && card.hasAttribute('nobg')), own, worst };
         });
-        want('playing in ' + g + ' on the ' + side + ': the whole pane takes the album art', a, a && a.arted && a.nobg && a.own === 0 &&
+        // (the mini player at More, 2026-10-31, has no backdrop of its own; Full's music pane drops its own: nobg)
+        want('playing in ' + g + ' on the ' + side + ': the whole pane takes the album art', a, a && a.arted && (a.own === -1 || (a.nobg && a.own === 0)) &&
              (tinted ? a.tint && /^rgb\(/.test(a.tintColor) : !a.tint && a.worst >= 4.5));
         await shot(page, tag + '-playing-' + g + '-' + side);
         // STOPPED: paused through the house, past Hide After a Pause (made 0 here), Now Playing steps aside -- and
@@ -151,7 +152,9 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         const view = card && card.shadowRoot && card.shadowRoot.querySelector('[nomx]');
         const ev = sr.querySelector('.evs.scroll');
         return { order: [...sr.querySelectorAll('.secs>[data-k]')].map((x) => x.dataset.k), gap: !!sr.querySelector('.secs>.gap'),
-                 foot: mp ? Math.round(pr.bottom - mp.getBoundingClientRect().bottom) : null, mx: !!card && !view,
+                 foot: mp ? Math.round(pr.bottom - mp.getBoundingClientRect().bottom) : null,
+                 // (Speakers and Browse: the mini player's own, Less and More, 2026-10-31; Full's, the music pane's)
+                 mx: !!(mp && mp.querySelector('[data-act="spk"]') && mp.querySelector('[data-act="brw"]')) || (!!card && !view),
                  scroll: ev ? getComputedStyle(ev).overflowY : null, evs: sr.querySelectorAll('[data-ev]').length, people: sr.querySelectorAll('[data-ent^="person."]').length };
       });
       want('placed: the music at the foot, under a space, with its Speakers and Browse', pl,

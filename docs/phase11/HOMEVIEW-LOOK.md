@@ -1420,3 +1420,10 @@ line; under it one row of Speakers, back, play / pause (white, the largest), nex
 small and a large speaker either side -- a 6 px track in a 44 px place for a finger ("make sure the thin line for
 volume is ok for a finger"). The pane's section headings lost their glyphs (the owner: "rather it just be text"),
 the To-do list's name too. `test_sidepane` (+3), `side_pane_check`.
+
+**2026-10-31, the pane's Now Playing as one family.** More is now the mini player a size up (the owner: "Yes, one
+family"): an 88 px cover, the song's progress over the row of controls (drawn by the compositor to the song's end,
+no redraw a second; still under Reduce Motion), then the volume. Full stays the screensaver's own music pane; its
+five buttons keep one row where the pane is narrow (under 360 px: smaller and closer -- in a 290 px strip Browse
+had dropped to a line of its own). `side_pane_check` reads the mini player's Speakers and Browse, and a pane with no
+music pane of its own still takes the album art.

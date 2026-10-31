@@ -1198,7 +1198,7 @@
     // THE SIDE PANE'S OWN SECTIONS (cfg.pane_list): drawn by hk-sidepane.js
     // between Home Status and the pane's foot, on the pane's own background
     '.pane hk-side-pane{position:absolute;z-index:1;left:0;right:0;top:var(--hk-pane-top,' + PANE_TOP + 'px);bottom:var(--hk-pane-bottom,0px)}',
-    '.pm{position:absolute;left:0;right:0;top:0;bottom:0;overflow:hidden;pointer-events:none;--z:var(--hk-mu-z,1);',
+    '.pm{position:absolute;left:0;right:0;top:0;bottom:0;overflow:hidden;pointer-events:none;--z:var(--hk-mu-z,1);container-type:inline-size;',
     '  transition:opacity ' + MU_ART_MS + 'ms ease,visibility 0s linear ' + MU_ART_MS + 'ms;will-change:opacity}',
     ':host([pm]) .pm{transition:opacity ' + MU_ART_MS + 'ms ease,visibility 0s}',
     // the blurred art, two of them for the fade from one song to the next
@@ -1322,6 +1322,12 @@
     ':host(:not([pcal])) .pm .mbtn.mpp{width:calc(62px * var(--z));height:calc(62px * var(--z))}',
     ':host(:not([pcal])) .pm .mbtn.mx,:host([pcal]) .pm .mbtn.mx{width:calc(42px * var(--z));height:calc(42px * var(--z))}',
     '.pm .mbtn.mx hk-icon{--mdc-icon-size:calc(22px * var(--z));width:calc(22px * var(--z));height:calc(22px * var(--z))}',
+    // (a narrow pane -- the band's sections, a 290 px strip: the five keep one
+    // row, smaller and closer, rather than Browse dropping to a line of its
+    // own, 2026-10-31)
+    '@container (max-width:360px){:host(:not([pcal])) .pm .mctl{column-gap:calc(8px * var(--z))}',
+    '  :host(:not([pcal])) .pm .mbtn{width:calc(44px * var(--z));height:calc(44px * var(--z))}:host(:not([pcal])) .pm .mbtn.mpp{width:calc(54px * var(--z));height:calc(54px * var(--z))}',
+    '  :host(:not([pcal])) .pm .mbtn.mx,:host([pcal]) .pm .mbtn.mx{width:calc(38px * var(--z));height:calc(38px * var(--z))}}',
     ':host(:not([pcal])) .pm .mnext{justify-content:center;margin-top:calc(28px * var(--z));text-align:left}',
     ':host(:not([pcal])) .pm .mnth{width:calc(38px * var(--z));height:calc(38px * var(--z))}',
     ':host(:not([pcal])) .pm .mnl{font-size:calc(10px * var(--z))}',

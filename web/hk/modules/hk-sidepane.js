@@ -206,7 +206,7 @@
     var playing = st.state === 'playing';
     var t = pos + (playing && at ? (Date.now() - at) / 1000 : 0);
     return { key: ctx.key, playing: playing, title: ctx.title || a.media_title || '', artist: ctx.artist || a.media_artist || '',
-             pic: pic, at: dur ? Math.max(0, Math.min(1, t / dur)) : 0, vol: num(a.volume_level) };
+             pic: pic, at: dur ? Math.max(0, Math.min(1, t / dur)) : 0, left: dur ? Math.max(0, dur - t) : 0, vol: num(a.volume_level) };
   }
   // ...held a grace after it stops (All Screens -> Now Playing -> Hide After a Pause)
   function musicHas(c) {
@@ -422,28 +422,32 @@
       var pp = '<button type="button" class="pp" data-act="pp" aria-label="' + (m.playing ? 'Pause' : 'Play') + '">' +
                icon(m.playing ? 'mdi:pause' : 'mdi:play') + '</button>';
       if (s === 'tiny') return tiny('now_playing', esc(m.title || 'Playing'), pp);
-      // LESS, A MINI PLAYER (2026-10-31, the owner's pick of three): the cover
-      // and the song on their own line; under it one row -- Speakers, back,
-      // play / pause (white, the largest), next, Browse -- the screensaver's
-      // two at its ends, opening its panel over the pane (musicPanel); then
-      // the volume, its speakers either side, a quiet 6 px track in a 44 px
-      // place for a finger ("make sure the thin line for volume is ok for a
-      // finger to use")
-      if (s === 'less') {
+      // LESS AND MORE, A MINI PLAYER (2026-10-31, the owner's pick of three):
+      // the cover and the song on their own line; under it one row --
+      // Speakers, back, play / pause (white, the largest), next, Browse -- the
+      // screensaver's two at its ends, opening its panel over the pane
+      // (musicPanel); then the volume, its speakers either side, a quiet 6 px
+      // track in a 44 px place for a finger ("make sure the thin line for
+      // volume is ok for a finger to use"). MORE is the same player a size up
+      // ("one family"): a bigger cover and the song's progress over the row,
+      // drawn by the compositor to the song's end (no redraw a second). FULL
+      // stays the screensaver's own pane, below.
+      if (s === 'less' || s === 'more') {
         var mk = function (act, name, ic, cls) { return '<button type="button" class="' + (cls || 'pp') + '" data-act="' + act + '" aria-label="' + name + '">' + icon(ic) + '</button>'; };
-        return box('now_playing', s, '<div class="r2 np">' + (m.pic ? '<img class="art" alt="" src="' + esc(m.pic) + '">' : '<span class="art">' + icon('mdi:music') + '</span>') +
-          '<span class="tx"><b>' + esc(m.title) + '</b><i>' + esc(m.artist) + '</i></span></div>' +
+        var prog = s === 'more' ? '<div class="npp" role="progressbar" aria-label="Song" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(m.at * 100) + '"><i style="transform:scaleX(' + m.at.toFixed(4) + ')' +
+          (m.playing && m.left > 0 ? ';animation:npp ' + Math.round(m.left) + 's linear forwards' : '') + '"></i></div>' : '';
+        return box('now_playing', s, (s === 'more' ? head('now_playing') : '') + '<div class="r2 np' + (s === 'more' ? ' np2' : '') + '">' + (m.pic ? '<img class="art" alt="" src="' + esc(m.pic) + '">' : '<span class="art">' + icon('mdi:music') + '</span>') +
+          '<span class="tx"><b>' + esc(m.title) + '</b><i>' + esc(m.artist) + '</i></span></div>' + prog +
           '<div class="trow">' + mk('spk', 'Speakers', 'mdi:speaker') + mk('prev', 'Previous', 'mdi:skip-previous', 'tk') +
           mk('pp', m.playing ? 'Pause' : 'Play', m.playing ? 'mdi:pause' : 'mdi:play', 'pp big') + mk('next', 'Next', 'mdi:skip-next', 'tk') +
           mk('brw', 'Browse Music', 'mdi:music-box-multiple') + '</div>' +
           (m.vol !== null ? '<div class="vol">' + icon('mdi:volume-high', ' class="lo"') + '<input type="range" min="0" max="100" step="1" data-act="vol" aria-label="Volume" value="' +
             Math.round(m.vol * 100) + '">' + icon('mdi:volume-high') + '</div>' : ''));
       }
-      // MORE AND FULL: the screensaver's music pane itself (hk-music-pane-card,
+      // FULL: the screensaver's music pane itself (hk-music-pane-card,
       // hk-saver.js): the art, the song, its buttons and volume, Up Next and
-      // the Speakers / Browse panel -- the one view the dashboard shares
-      // (More: the player without Up Next and the album, its art smaller --
-      // `compact` on the card; Full: all of it, taking the room left)
+      // the Speakers / Browse panel -- the one view the dashboard shares --
+      // taking the room left
       return '<div class="sec mp' + (s === 'full' ? ' grow' : ' compact') + '" data-k="now_playing" data-size="' + s + '">' + head('now_playing') + ctx.slot('np', 'hk-music-pane-card', function (el) {
         if (el.active) el.active(true);
       }) + '</div>';
@@ -766,6 +770,11 @@
       '.tk:active{background:' + v('key') + '}',
       '.pp.big{width:52px;height:52px;background:#fff;color:#1c1c1e}.pp.big hk-icon{--mdc-icon-size:30px;width:30px;height:30px;color:#1c1c1e}',
       '.vol{display:flex;align-items:center;gap:10px;margin-top:4px}',
+      '.np2 .art{width:88px;height:88px;border-radius:12px}.np2 .tx b{font-size:20px}',
+      '.npp{height:4px;border-radius:2px;background:' + v('line-strong') + ';overflow:hidden;margin-top:14px}',
+      '.npp i{display:block;height:100%;background:' + v('ink') + ';transform-origin:left center}',
+      '@keyframes npp{to{transform:scaleX(1)}}',
+      '@media (prefers-reduced-motion:reduce){.npp i{animation:none!important}}',
       '.vol hk-icon{--mdc-icon-size:20px;width:20px;height:20px;color:' + v('ink-2') + ';flex:none}.vol hk-icon.lo{--mdc-icon-size:14px;width:14px;height:14px}',
       '.vol input{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:44px;background:transparent;margin:0;touch-action:pan-y;cursor:pointer}',
       '.vol input::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:' + v('line-strong') + '}',
