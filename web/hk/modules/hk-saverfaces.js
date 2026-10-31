@@ -24,11 +24,10 @@
 // WHAT IT COSTS A WALL TABLET: words and a few shapes, written again once a
 // minute (only what changed), and when the house's music or weather changes.
 // Glance's clock is hk-saverclock.js's analog face, held to the minute (its
-// second hand hidden). The one motion: the Day face's art drifts, slowly (a
-// bat across a few points over a quarter of a minute, a leaf rocking) -- CSS
-// animations of a handful of small pictures' translate and rotate, which the
-// compositor runs without the page; none under Flat, Reduce Motion or a still
-// preview.
+// second hand hidden). The one motion: the Day face's art -- leaves falling,
+// bats flying across -- CSS animations of a handful of small pictures'
+// translate, rotate and scale, which the compositor runs without the page;
+// none under Flat, Reduce Motion or a still preview.
 //
 //   hkSaverFaces.mount(layer, { kind, client, h24, weather, look, clocks, onReadings })
 //     -> { setClient(c), night(on), destroy(), kind }
@@ -91,18 +90,33 @@
     '.hkf.day .wd{position:absolute;left:0;right:0;top:7.3cqmin;text-align:center;font:400 10.2cqmin/1 ' + HAND + ';letter-spacing:.07em;margin-right:-.07em;text-transform:uppercase}',
     '.hkf.day .dn{position:absolute;left:0;right:0;top:18.3cqmin;text-align:center;font:400 68cqmin/1 ' + HAND + '}',
     '.hkf.day .art .pk{position:absolute;left:19.5%;top:68%;width:22cqmin;height:20cqmin;transform:translate(-50%,-50%)}',
+    // (clear of the screensaver's corner where its words would meet them: hk-saver.js dayFit)
+    '.hkf.day .wd{translate:0 var(--hk-day-push,0px)}',
+    '.hkf.day .dn{translate:0 var(--hk-day-push-dn,0px);scale:var(--hk-day-scale,1);transform-origin:50% 0}',
+    // (a face nearly square -- beside the Side Pane -- has its date wider than the pumpkin's room at its left: the
+    // pumpkin in the corner under it, right)
+    '@container (0.8 <= aspect-ratio < 1.25){.hkf.day .art .pk{left:86%;top:89%;width:17cqmin;height:15cqmin}}',
     '@container (aspect-ratio < 0.8){.hkf.day .dn{top:30cqh}.hkf.day .art .pk{left:26%;top:84%}}',
-    // THE DAY'S ART, MOVING (2026-10-31, the owner: the bats, leaves, pumpkin and moon "gently moving"): slow loops
-    // of each picture's own translate and rotate (they add to its placing transform), each out of step with the
-    // next (--k: its own delay); none under Flat or a still preview (no .live) or Reduce Motion
-    '.hkf.day.live .art .bat{animation:hkf-bat 17s ease-in-out infinite}',
-    '.hkf.day.live .art .leaf{animation:hkf-leaf 11s ease-in-out infinite}',
+    // THE DAY'S ART, MOVING (2026-10-31, the owner: "bats flying, leaves falling"): each picture's own translate,
+    // rotate and scale (they add to its placing transform), so the compositor runs them -- leaves, petals and snow
+    // fall from above the face to below it through their places, swaying and turning; bats fly across it with their
+    // wings beating, butterflies more slowly; the moon rises a little, the pumpkin rocks; the web holds still. --x
+    // and --y: a picture's place (the face's units), --k its own start in the loop. None under Flat or a still
+    // preview (no .live) or Reduce Motion.
+    '.hkf.day.live .art .fall{animation:hkf-fall 21s linear infinite}',
+    '.hkf.day.live .art .fly{animation:hkf-fly 19s linear infinite,hkf-flap .34s ease-in-out infinite alternate}',
+    '.hkf.day.live .art .flutter{animation:hkf-fly 31s linear infinite,hkf-flap .55s ease-in-out infinite alternate}',
     '.hkf.day.live .art .moon{animation:hkf-moon 24s ease-in-out infinite}',
-    '.hkf.day.live .art .drift{animation:hkf-leaf 14s ease-in-out infinite}',
+    '.hkf.day.live .art .drift{animation:hkf-drift 11s ease-in-out infinite}',
     '.hkf.day.live .art .pk{transform-origin:50% 90%;animation:hkf-pk 9s ease-in-out infinite}',
     '.hkf.day.live .art > *{animation-delay:var(--k,0s)}',
-    '@keyframes hkf-bat{0%,100%{translate:0 0;rotate:0deg}25%{translate:-3cqmin -1.6cqmin;rotate:-5deg}50%{translate:-1cqmin .8cqmin;rotate:3deg}75%{translate:2cqmin -.8cqmin;rotate:-2deg}}',
-    '@keyframes hkf-leaf{0%,100%{translate:0 0;rotate:0deg}30%{translate:.8cqmin 1.2cqmin;rotate:9deg}65%{translate:-.6cqmin .4cqmin;rotate:-7deg}}',
+    '@keyframes hkf-fall{0%{translate:0 calc(-1 * var(--y,50cqh) - 14cqh);rotate:-20deg}25%{translate:4cqmin calc(-.5 * var(--y,50cqh) + 13cqh);rotate:40deg}',
+    '  50%{translate:-3cqmin calc(50cqh - var(--y,50cqh));rotate:110deg}75%{translate:3cqmin calc(87cqh - var(--y,50cqh));rotate:170deg}',
+    '  100%{translate:-1cqmin calc(114cqh - var(--y,50cqh));rotate:240deg}}',
+    '@keyframes hkf-fly{0%{translate:calc(-1 * var(--x,50cqw) - 12cqw) 0}20%{translate:calc(20cqw - var(--x,50cqw)) -4cqh}',
+    '  45%{translate:calc(48cqw - var(--x,50cqw)) 2cqh}70%{translate:calc(76cqw - var(--x,50cqw)) -5cqh}100%{translate:calc(112cqw - var(--x,50cqw)) -1cqh}}',
+    '@keyframes hkf-flap{from{scale:1 1}to{scale:1 .55}}',
+    '@keyframes hkf-drift{0%,100%{translate:0 0;rotate:0deg}30%{translate:.8cqmin 1.2cqmin;rotate:9deg}65%{translate:-.6cqmin .4cqmin;rotate:-7deg}}',
     '@keyframes hkf-moon{0%,100%{translate:0 0}50%{translate:0 -1.4cqmin}}',
     '@keyframes hkf-pk{0%,100%{rotate:0deg}30%{rotate:-2.5deg}70%{rotate:2.5deg}}',
     '@media (prefers-reduced-motion:reduce){.hkf.day.live .art > *{animation:none}}',
@@ -215,10 +229,11 @@
   }
   // the Day face's look: Light, Dark, or by the time of day (dark from 7 in the evening to 7 in the morning)
   function dayDark(look, d) { return look === 'dark' || (look !== 'light' && (d.getHours() >= 19 || d.getHours() < 7)); }
-  // how a picture of the art moves (.live): a bat drifts, a leaf, petal, heart, crystal or butterfly rocks, the moon
-  // rises and falls a little; the web holds still
+  // how a picture of the art moves (.live): a bat flies across, a butterfly flutters across, a leaf, a petal and snow
+  // fall, the moon rises and falls a little, a heart rocks; the web holds still
   function motionOf(file) {
-    return /^bat/.test(file) ? 'bat' : /^moon/.test(file) ? 'moon' : /^leaf/.test(file) ? 'leaf' : /^web\./.test(file) ? '' : 'drift';
+    return /^bat/.test(file) ? 'fly' : /butterfly/.test(file) ? 'flutter' : /^moon/.test(file) ? 'moon' :
+      /^leaf|petal|crystal/.test(file) ? 'fall' : /^web\./.test(file) ? '' : 'drift';
   }
   // EACH FACE'S GROUND, AND THE INK THAT READS ON IT (2026-10-31, the owner: on the light Day face the time, the
   // date and the weather were white on a page nearly white): the colour behind the screensaver's corners, and its
@@ -340,7 +355,7 @@
       O.sprites.forEach(function (s, i) {
         var im = el('img', motionOf(s[0]) || null); im.alt = ''; im.src = SKY + s[0];
         im.style.cssText = 'left:' + s[1] + '%;top:' + s[2] + '%;width:' + s[3] + 'cqmin;height:' + s[3] + 'cqmin;object-fit:contain;' +
-                           'transform:translate(-50%,-50%) rotate(' + s[4] + 'deg);opacity:' + s[5] + ';--k:' + (-i * 2.3).toFixed(1) + 's';
+                           'transform:translate(-50%,-50%) rotate(' + s[4] + 'deg);opacity:' + s[5] + ';--x:' + s[1] + 'cqw;--y:' + s[2] + 'cqh;--k:' + (-i * 5.3).toFixed(1) + 's';
         art.appendChild(im);
       });
       if (O.pumpkin) art.appendChild(pumpkin());
