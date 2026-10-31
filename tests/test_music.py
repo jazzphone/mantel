@@ -549,7 +549,16 @@ async def test_transfer_stop_transport_browse_and_queue_play(on):
                                          media_content_id="library://track/9", media_content_type="music"))
     assert r["result"]["response"] == {"ok": True, "leader": "media_player.cody_ma"}
     assert on.ma.sent()[n:] == [("player_queues/play_media", {"queue_id": "ma-cody", "media": ["library://track/9"],
-                                                              "option": "play"})]
+                                                              "option": "replace"})]
+    # Browse over a speaker already playing replaces its queue, and waits for the new music: "playing" alone
+    # said nothing new (a Halloween playlist was lost in a shuffled Christmas queue, the owner 2026-10-31)
+    n = len(on.ma.sent())
+    r = await on.command(ws, id=6, **svc("music_play_media", player="media_player.kitchen_ma",
+                                         media_content_id="apple_music://playlist/halloween", media_content_type="playlist"))
+    assert r["result"]["response"] == {"ok": True, "leader": "media_player.kitchen_ma"}
+    assert on.ma.sent()[n:] == [("player_queues/play_media", {"queue_id": "ma-kitchen",
+                                                              "media": ["apple_music://playlist/halloween"],
+                                                              "option": "replace"})]
     n = len(on.ma.sent())
     r = await on.command(ws, id=4, kind="ws", msg={"type": "hk_music/queue_play", "entity_id": "media_player.den_ma",
                                                    "item_id": "qi-3"})
