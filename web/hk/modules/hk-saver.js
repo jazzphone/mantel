@@ -1386,6 +1386,13 @@
     // temperature stayed white on the light Day face (2026-10-31), and their glow goes
     ':host([ckface=glance]) .info hk-clock-card,:host([ckface=glance]) .info hk-weather-strip-card,:host([ckface=glance]) .info hk-screensaver-now-card{display:none}',
     ':host([ckface=month]) .info hk-clock-card{display:none}',
+    // ...the Day face: the corner's time and weather smaller (its own words are the day; the corner's photos-sized
+    // clock ran into "SATURDAY", 2026-10-31, the owner), and the day and its date moved down only where the corner's
+    // words would still meet them (dayFit: --hk-day-push)
+    ':host([ckface=day]) .info > hk-clock-card,:host([ckface=day]) .info > hk-weather-strip-card{zoom:.6}',
+    ':host([ckface=day]:not([pane])) .info{--hk-ss-status-l1:min(28px,4.6vmin);--hk-ss-status-l2:min(19px,3.4vmin)}',
+    '@media (max-width:599px){:host([ckface=day]:not([pane])) .info > hk-clock-card,:host([ckface=day]:not([pane])) .info > hk-weather-strip-card{zoom:.45}',
+    '  :host([ckface=day]:not([pane])) .info{--hk-ss-status-right:30px;--hk-ss-status-width:calc(100vw - 60px);--hk-ss-status-l1:20px;--hk-ss-status-l2:15px}}',
     // ...Month's own top line is the month and the time: the corner weather has no room beside it, and Home Status
     // sits under it at its right edge (2026-10-31: both were drawn over it) -- in the face's units, 1vmin without the
     // pane; beside one, Home Status is in the pane
@@ -1393,7 +1400,15 @@
     ':host([ckface=month]:not([pane])) .info{--hk-ss-status-top:calc(11.5vmin + 6px);--hk-ss-status-right:9.8vmin;--hk-ss-status-l1:min(26px,4.6vmin);--hk-ss-status-l2:min(18px,3.4vmin)}',
     ':host([ckface][cklight]:not([cknight])) .info{--primary-text-color:#1c1c1e;--secondary-text-color:#48484a;color:#1c1c1e;text-shadow:none;',
     '  --hk-ink:#1c1c1e;--hk-ink-2:rgba(28,28,30,.72);--hk-ink-3:rgba(28,28,30,.5);--hk-glyph:#1c1c1e;--hk-glow:none;',
-    '  --hk-ss-ink:#1c1c1e;--hk-ss-ink-2:rgba(28,28,30,.72);--hk-ss-glow:none}',
+    '  --hk-ss-ink:#1c1c1e;--hk-ss-ink-2:rgba(28,28,30,.72);--hk-ss-glow:none;',
+    // (and the weather's glyph: its white parts drawn in the ink -- a white cloud on the light page, 2026-10-31,
+    // the owner -- its sun still yellow)
+    '  --hk-wx-w:#1c1c1e}',
+    // ...but what sits in the pane beside it (Home Status, what plays, the timers: the pane's own dark ground) keeps
+    // its light ink -- they are the corner's cards, drawn there
+    ':host([ckface][cklight][pane]:not([cknight])) .info > hk-screensaver-status-card,:host([ckface][cklight][pane]:not([cknight])) .info > hk-screensaver-now-card,',
+    ':host([ckface][cklight][pane]:not([cknight])) .info > hk-timer-strip-card{--primary-text-color:#ffffff;--secondary-text-color:#dddddd;color:rgba(255,255,255,0.94);',
+    '  --hk-ink:initial;--hk-ink-2:initial;--hk-ink-3:initial;--hk-glyph:initial;--hk-glow:initial;--hk-ss-ink:initial;--hk-ss-ink-2:initial;--hk-ss-glow:initial;--hk-wx-w:initial}',
     // Big Weather ([fcbig]): it tells the time and the weather itself, over the forecast's sky
     ':host([fcbig][forecast]) .info hk-clock-card,:host([fcbig][fcslide]) .info hk-clock-card,',
     ':host([fcbig][forecast]) .info hk-weather-strip-card,:host([fcbig][fcslide]) .info hk-weather-strip-card{opacity:0}',
@@ -2667,6 +2682,8 @@
                            client: clientNow(), scrim: !dimmed });
       // a light face (Month, the Day face's light look): the corners' words go dark on it
       if (host && face) setAttr(host, 'cklight', faceLight(F));
+      // (the Day face clear of the corner: once its words and the corner's are drawn)
+      if (face && cfg.show === 'day') { requestAnimationFrame(dayFit); setTimeout(dayFit, 600); setTimeout(dayFit, 2000); }
       // TODAY carries its own weather and music: the corners' step aside
       if (host) setAttr(host, 'ckown', cfg.clock_style === 'today');
       nightCheck();
@@ -2727,8 +2744,79 @@
     setAttr(host, 'cknight', dark);
     // (the Day face by the time of day: the corners' words follow its light and dark)
     if (cfg && window.hkSaverFaces && host.hasAttribute('ckface')) setAttr(host, 'cklight', faceLight(window.hkSaverFaces));
+    dayFit();
     if (dark && exKind) exHide();
     if (ckCtl && ckCtl.night) ckCtl.night(dark);
+  }
+  // THE DAY FACE AND THE CORNER (2026-10-31): where the corner's words (the time, the date, the weather) would meet
+  // the day's name or its date -- a screen held upright, a phone, a long day's name -- both move down, clear of
+  // them (--hk-day-push on the screensaver, the face's .wd and .dn translated by it). Measured from the words
+  // themselves, not their boxes (the corner's column is wider than what it says): when the face is put up, on a
+  // resize, and with the minute (a wider time)
+  function cornerInk(withStatus) {
+    var info = root && root.querySelector('.info'), box = null;
+    if (!info) return null;
+    [].forEach.call(info.querySelectorAll(':scope > hk-clock-card, :scope > hk-weather-strip-card' + (withStatus ? ', :scope > hk-screensaver-status-card' : '')), function (card) {
+      if (!card.shadowRoot || getComputedStyle(card).display === 'none') return;
+      var walk = function (n) {
+        if (n.nodeType === 3) {
+          if (!n.textContent.trim()) return;
+          var rg = document.createRange(); rg.selectNodeContents(n);
+          var r = rg.getBoundingClientRect();
+          if (r.width > 0) box = box ? { l: Math.min(box.l, r.left), r: Math.max(box.r, r.right), b: Math.max(box.b, r.bottom) } : { l: r.left, r: r.right, b: r.bottom };
+          return;
+        }
+        [].forEach.call(n.childNodes || [], walk);
+      };
+      walk(card.shadowRoot);
+    });
+    return box;
+  }
+  function textBox(el) {
+    var rg = document.createRange(); rg.selectNodeContents(el);
+    var r = rg.getBoundingClientRect();
+    return r && r.width > 0 ? r : null;
+  }
+  var DAY_GAP = 14;
+  function dayFit() {
+    if (!host || !root || !on || !cfg || cfg.show !== 'day' || !host.hasAttribute('ckface')) return;
+    var wd = root.querySelector('.ck .hkf.day .wd'), dn = root.querySelector('.ck .hkf.day .dn');
+    if (!wd || !dn) return;
+    var px = function (k) { return parseFloat(host.style.getPropertyValue(k)) || 0; };
+    var curW = px('--hk-day-push'), curD = px('--hk-day-push-dn'), sc = px('--hk-day-scale') || 1;
+    // ON A PHONE Home Status has no room beside the corner's time ("Disarme..." drawn over it): under its words,
+    // the corner's own margin, as wide as the phone, at a phone's size -- and the day measured against all of it
+    var phone = (window.innerWidth || 0) < 600 && !paneUp, words = phone ? cornerInk() : null;
+    if (phone && words) host.style.setProperty('--hk-ss-status-top', Math.round(words.b + 8) + 'px');
+    else if (!paneUp) host.style.removeProperty('--hk-ss-status-top');
+    var ink = cornerInk(phone);
+    // the day's name and the date as laid out, before any push or scale (the date is scaled from its top centre);
+    // the date's figures, not its line: set at a line-height of 1, they run from a fifth of its box to 85 % of it
+    var w = textBox(wd), d = textBox(dn);
+    if (!w || !d) return;
+    var wTop = w.top - curW, wBot = w.bottom - curW, cx = (d.left + d.right) / 2, dW = d.width / sc, dH = d.height / sc;
+    var dTop = d.top - curD, dL = cx - dW / 2, dR = cx + dW / 2, gTop = dTop + dH * 0.2;
+    var across = function (l, r) { return ink && l < ink.r + DAY_GAP && r > ink.l - DAY_GAP; };
+    // the day's name below the corner's words where they meet; the date below them, and below the day's name
+    var pushW = across(w.left, w.right) && wTop < ink.b + DAY_GAP ? Math.ceil(ink.b + DAY_GAP - wTop) : 0;
+    var face = root.querySelector('.ck .hkf.day'), foot = face ? face.getBoundingClientRect().bottom : (window.innerHeight || 0);
+    var pk = root.querySelector('.ck .hkf.day .art .pk'), pr = pk && pk.getBoundingClientRect();
+    // ...and where that takes its foot off the face, or (moved) onto the pumpkin under it, the date smaller -- never
+    // under half its size. Smaller from its top, its figures start higher: settled together, twice over.
+    var pushD = 0, scale = 1;
+    for (var pass = 0; pass < 3; pass++) {
+      var g = dH * 0.2 * scale;
+      pushD = Math.max(0, across(dL, dR) && dTop + g < ink.b + DAY_GAP ? Math.ceil(ink.b + DAY_GAP - dTop - g) : 0,
+                       Math.ceil(wBot + pushW + DAY_GAP - dTop - g));
+      var fb = foot;
+      if (pushD > 0 && pr && pr.width && pr.left < dR && pr.right > dL && pr.top > dTop + pushD) fb = Math.min(fb, pr.top + pr.height * 0.1);
+      var room = fb - DAY_GAP - (dTop + pushD), need = dH * 0.85;
+      scale = need > room && need > 0 ? Math.max(0.5, Math.round(room / need * 100) / 100) : 1;
+    }
+    var put = function (k, v, none) { if (v === none) host.style.removeProperty(k); else host.style.setProperty(k, String(v) + (k === '--hk-day-scale' ? '' : 'px')); };
+    if (pushW !== curW) put('--hk-day-push', pushW, 0);
+    if (pushD !== curD) put('--hk-day-push-dn', pushD, 0);
+    if (scale !== sc) put('--hk-day-scale', scale, 1);
   }
   // the screen's weather service (Weather), for Today
   function weatherEntity() {
@@ -2738,7 +2826,8 @@
   function leaveClock() {
     ckArgs = null;
     if (nightT) { clearInterval(nightT); nightT = null; }
-    if (host) { host.removeAttribute('cknight'); host.removeAttribute('ckown'); host.removeAttribute('ckface'); host.removeAttribute('cklight'); }
+    if (host) { host.removeAttribute('cknight'); host.removeAttribute('ckown'); host.removeAttribute('ckface'); host.removeAttribute('cklight');
+      if (host.style.removeProperty) ['--hk-day-push', '--hk-day-push-dn', '--hk-day-scale'].concat(paneUp ? [] : ['--hk-ss-status-top']).forEach(function (k) { host.style.removeProperty(k); }); }
     ckRun++;
     if (ckCtl) { try { ckCtl.destroy(); } catch (e) { /* gone */ } ckCtl = null; }
     if (root) root.querySelectorAll('.ck').forEach(function (n) { n.remove(); });
@@ -4329,6 +4418,8 @@
   // its width and Home Status's place in it, for this screen (and again
   // every few seconds: a tablet turned, a window resized)
   function layoutPane() {
+    // (the face beside the pane is narrower: the Day face measured again once it is laid out)
+    setTimeout(dayFit, 80);
     if (!host || !paneUp) return;
     var z = scaleOf(), w = Math.round(PANE_W * z);
     // the list scaled with the screen (its card may arrive after the width)
@@ -4990,7 +5081,7 @@
   });
   window.hkShell.onNavigate(function () { setTimeout(refresh, 0); });
   window.addEventListener('popstate', function () { setTimeout(refresh, 0); });
-  window.addEventListener('resize', function () { if (on) { layoutPane(); layoutMusic(); placePanel(); } });
+  window.addEventListener('resize', function () { if (on) { layoutPane(); layoutMusic(); placePanel(); setTimeout(dayFit, 50); } });
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) { lastInput = Date.now(); armIdle(); resumedAt = clock.now(); }
     musicTick();

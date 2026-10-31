@@ -2931,6 +2931,18 @@
         if (sz === 'T') return ['min(56px, 22cqw)', '14px', window.hkCards.TYPE.caption.size + 'px'];
         return ['min(72px, 48cqh, 26cqw)', '22px', window.hkCards.TYPE.caption.size + 'px'];
       }
+      // ITS OWN MINUTE (2026-10-31, the owner: the screensaver preview's clock stood still): it redraws when the house
+      // pushes a change and its time has moved -- a quiet house (a fictional one, a real one at night, a page that
+      // hears only a few of its states) pushes nothing for minutes, and the time stayed where it was. Now it asks
+      // again on each minute itself, while it is on the page.
+      connectedCallback() { super.connectedCallback(); this._armMinute(); }
+      disconnectedCallback() { clearTimeout(this._minT); this._minT = null; super.disconnectedCallback(); }
+      _armMinute() {
+        var self = this;
+        clearTimeout(this._minT);
+        this._minT = setTimeout(function () { self._minT = null; if (self.isConnected === false) return; if (self.client) self.requestUpdate(); self._armMinute(); },
+                                60000 - Date.now() % 60000 + 250);
+      }
       // The clock's time ticks every minute and its date every day (the Time &
       // Date sensors chosen in Configure, or this screen's clock); neither is
       // named in the config, so the base signature would never redraw.

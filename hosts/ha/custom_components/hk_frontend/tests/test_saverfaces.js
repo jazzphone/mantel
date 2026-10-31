@@ -130,12 +130,16 @@ ok('dark ink on Day (light, and By Time of Day in the morning) and Month; light 
    ['dark', 'dark', 'light', 'light', 'dark', 'light', 'light']);
 ok('...and an odd colour reads as dark (white ink)', [FU.inkOn(null), FU.inkOn('red'), FU.luminance('#ffffff'), FU.luminance('#000000')], ['light', 'light', 1, 0]);
 // THE DAY FACE MOVING: bats drift, leaves rock, the moon rises a little, the web holds still -- not under Flat or a still preview
-ok('how each picture moves', ['bat1.webp', 'moon-hallow.webp', 'leaf-oak-f.webp', 'web.webp', 'sp-petal.webp'].map(FU.motionOf), ['bat', 'moon', 'leaf', '', 'drift']);
-ok('the moving face’s rules: slow (a bat a 17 s loop, the moon 24), out of step, none under Reduce Motion',
-   [/\.hkf\.day\.live \.art \.bat\{animation:hkf-bat 17s/.test(FU.CSS), /hkf-moon 24s/.test(FU.CSS), FU.CSS.indexOf('animation-delay:var(--k,0s)') >= 0,
-    FU.CSS.indexOf('@media (prefers-reduced-motion:reduce){.hkf.day.live .art > *{animation:none}}') >= 0], [true, true, true, true]);
+ok('how each picture moves (2026-10-31, the owner: "bats flying, leaves falling")', ['bat1.webp', 'moon-hallow.webp', 'leaf-oak-f.webp', 'web.webp', 'sp-petal.webp', 'sp-crystal.webp', 'sp-butterfly.webp', 'sp-heart.webp'].map(FU.motionOf),
+   ['fly', 'moon', 'fall', '', 'fall', 'fall', 'flutter', 'drift']);
+ok('the moving face’s rules: leaves fall through their places, bats fly across with their wings beating, out of step, none under Reduce Motion',
+   [/\.hkf\.day\.live \.art \.fall\{animation:hkf-fall 21s linear infinite\}/.test(FU.CSS), /\.fly\{animation:hkf-fly 19s linear infinite,hkf-flap/.test(FU.CSS),
+    /@keyframes hkf-fall\{0%\{translate:0 calc\(-1 \* var\(--y,50cqh\) - 14cqh\)/.test(FU.CSS), FU.CSS.indexOf('animation-delay:var(--k,0s)') >= 0,
+    FU.CSS.indexOf('@media (prefers-reduced-motion:reduce){.hkf.day.live .art > *{animation:none}}') >= 0], [true, true, true, true, true]);
+ok('...the day and its date move down by what the screensaver says (clear of its corner), the date smaller where it must be',
+   [FU.CSS.indexOf('.hkf.day .wd{translate:0 var(--hk-day-push,0px)}') >= 0, FU.CSS.indexOf('.hkf.day .dn{translate:0 var(--hk-day-push-dn,0px);scale:var(--hk-day-scale,1);transform-origin:50% 0}') >= 0], [true, true]);
 (function () {
-  var mk = function (o) { var l = document.createElement('div'); var c = F.mount(l, Object.assign({ kind: 'day', look: 'light', still: false }, o)); var r = l.children[0]; var cls = r.className; var arts = walk(r).filter(function (e) { return /\b(bat|leaf|moon|drift)\b/.test(e.className || ''); }).length; c.destroy(); return [cls, arts]; };
+  var mk = function (o) { var l = document.createElement('div'); var c = F.mount(l, Object.assign({ kind: 'day', look: 'light', still: false }, o)); var r = l.children[0]; var cls = r.className; var arts = walk(r).filter(function (e) { return /\b(fly|flutter|fall|moon|drift)\b/.test(e.className || ''); }).length; c.destroy(); return [cls, arts]; };
   var saved = window.hkSettings;
   window.hkSettings = { rendering: function () { return { flat: false }; }, get: function (k, d) { return d; } };
   var live = mk({});
@@ -154,6 +158,14 @@ ok('the moving face’s rules: slow (a bat a 17 s loop, the moon 24), out of ste
   c.setClient({ states: quiet, config: {} });
   ok('Big Weather knows when music plays, and when it stops', [on, /\bnp\b/.test(l.children[0].className)], [true, false]);
   c.destroy();
+})();
+
+// THE CORNER CLOCK'S OWN MINUTE (2026-10-31, the owner: the preview's clock stood still in a quiet house)
+(function () {
+  var W = read(DIR + 'frontend/cards/hk-weather.js');
+  ok('the clock card asks again on each minute while it is on the page, and lets go when it leaves (chained)',
+     [/connectedCallback\(\) \{ super\.connectedCallback\(\); this\._armMinute\(\); \}/.test(W), /disconnectedCallback\(\) \{ clearTimeout\(this\._minT\); this\._minT = null; super\.disconnectedCallback\(\); \}/.test(W),
+      /60000 - Date\.now\(\) % 60000 \+ 250/.test(W)], [true, true, true]);
 })();
 
 print('=== hk-saver.js: the options, the cut-out, the time’s place ===');
@@ -197,6 +209,11 @@ ok('...the music on the face’s bottom row, to its numbers: its margins, a read
    U.CSS.indexOf('--hk-ss-now-left:7.3vmin;--hk-ss-now-bottom:6.1vmin;--hk-ss-np-art:14vmin;--hk-ss-np-title:3.7vmin;--hk-ss-np-artist:2.9vmin;--hk-ss-np-gap:2.4vmin;') >= 0, true);
 ok('...the row split at 40 % held sideways; upright, a row above the readings', [FU.CSS.indexOf('.hkf.weather.np .rd{left:calc(40cqw + 2.4cqmin);display:flex;justify-content:flex-end;gap:9.8cqmin}') >= 0, U.CSS.indexOf('--hk-ss-now-bottom:calc(6.1vmin + 32vmin + 4vmin)') >= 0, FU.CSS.indexOf('.hkf.weather .rd > div{height:14cqmin;') >= 0], [true, true, true]);
 ok('Month: no corner weather over its top line, Home Status under it', [U.CSS.indexOf(':host([ckface=month]) .info hk-weather-strip-card{display:none}') >= 0, /:host\(\[ckface=month\]:not\(\[pane\]\)\) \.info\{--hk-ss-status-top/.test(U.CSS)], [true, true]);
+// THE DAY FACE AND THE CORNER (2026-10-31, the owner: the clock "colliding into the name of the Day"): the corner's
+// words smaller on it, the weather's glyph in the light face's ink, a phone's Home Status under the corner
+ok('the Day face: the corner’s time and weather smaller, smaller still on a phone', [U.CSS.indexOf(':host([ckface=day]) .info > hk-clock-card,:host([ckface=day]) .info > hk-weather-strip-card{zoom:.6}') >= 0,
+   U.CSS.indexOf('@media (max-width:599px){:host([ckface=day]:not([pane])) .info > hk-clock-card,:host([ckface=day]:not([pane])) .info > hk-weather-strip-card{zoom:.45}') >= 0], [true, true]);
+ok('a light face: the weather glyph’s white in its ink; the pane’s cards keep theirs', [/--hk-wx-w:#1c1c1e\}/.test(U.CSS), U.CSS.indexOf(':host([ckface][cklight][pane]:not([cknight])) .info > hk-screensaver-status-card') >= 0], [true, true]);
 // CLOCK ON PHOTOS WITH TIME BEHIND (2026-10-31, the owner: "the clock is dim"): the time over the photos' dark wash
 // (.ph::after, z-index 2), and the cut-out over it darkened as much as the wash darkens the photo
 ok('the dark wash over the photos is a layer of its own', /:host\(\[ckphotos\]\) \.ph::after\{[^}]*z-index:2/.test(U.CSS), true);

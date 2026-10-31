@@ -6,7 +6,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
   let fails = 0;
   const say = (ok, what, got) => { if (!ok) fails++; console.log((ok ? 'PASS ' : 'FAIL ') + what + (ok ? '' : '  got ' + JSON.stringify(got))); };
   try {
-    const runs = Object.entries(input.shows).flatMap(([screen, want]) => want === 'tb' || want === 'day-ink' ? [[screen, want, 1180, 820], [screen, want, 390, 844]]
+    const runs = Object.entries(input.shows).flatMap(([screen, want]) => want === 'tb' ? [[screen, want, 1180, 820], [screen, want, 390, 844]]
+      : want === 'day-ink' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]]
       : want === 'big-corners' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]] : [[screen, want, 1180, 820]]);
     for (const [screen, want, W, H] of runs) {
       const ctx = await browser.newContext({ viewport: { width: W, height: H } });
@@ -132,7 +133,19 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           const now = sr && sr.querySelector('.info hk-screensaver-now-card'), nc = now && now.shadowRoot && now.shadowRoot.querySelector('.sscorner img,.sscorner .ph');
           const nr = nc && nc.getBoundingClientRect();
           const inks = [...(sr ? sr.querySelectorAll('.hkf.weather .rd > div > *') : [])].map((e) => { const rg = document.createRange(); rg.selectNodeContents(e); const r = e.tagName === 'svg' ? e.getBoundingClientRect() : rg.getBoundingClientRect(); return r.right; });
-          return { texts: out, tm: box('.hkf.weather .tm'), rd: box('.hkf.weather .rd'), np: nr ? { l: nr.left, t: nr.top, r: nr.right, b: nr.bottom } : null, rdRight: inks.length ? Math.max(...inks) : null, W: innerWidth, light: host && host.hasAttribute('cklight') };
+          // the Day face: its day's name and date (their figures), the corner's words, the art moving, the glyph's ink
+          const tbx = (sel) => { const e = sr && sr.querySelector(sel); if (!e) return null; const rg = document.createRange(); rg.selectNodeContents(e); const r = rg.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; };
+          const wdb = tbx('.hkf.day .wd'), dnb = tbx('.hkf.day .dn');
+          if (dnb) { const h = dnb.b - dnb.t; dnb.t += h * 0.2; dnb.b = dnb.t + h * 0.65; }
+          const cw = []; const walk2 = (n) => { if (!n) return; if (n.nodeType === 3 && n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); const r = rg.getBoundingClientRect(); if (r.width > 0) cw.push(r); }
+            (n.shadowRoot ? [...n.shadowRoot.childNodes] : []).concat([...(n.childNodes || [])]).forEach(walk2); };
+          (sr ? [...sr.querySelectorAll('.info > hk-clock-card, .info > hk-weather-strip-card' + (innerWidth < 600 ? ', .info > hk-screensaver-status-card' : ''))] : []).forEach(walk2);
+          const corner = cw.length ? { l: Math.min(...cw.map((r) => r.left)), r: Math.max(...cw.map((r) => r.right)), t: Math.min(...cw.map((r) => r.top)), b: Math.max(...cw.map((r) => r.bottom)) } : null;
+          const moving = sr ? [...sr.querySelectorAll('.hkf.day .art > *')].flatMap((e) => e.getAnimations()).filter((a) => a.playState === 'running').map((a) => a.animationName) : [];
+          const wxCard = sr && sr.querySelector('.info > hk-weather-strip-card'), glyph = wxCard && wxCard.shadowRoot && wxCard.shadowRoot.querySelector('svg.hk-wx path, hk-icon.hk-wx');
+          const facefoot = sr && sr.querySelector('.ck .hkf.day') ? sr.querySelector('.ck .hkf.day').getBoundingClientRect().bottom : null;
+          return { wd: wdb, dn: dnb, corner, moving, glyphInk: glyph ? getComputedStyle(glyph).fill || getComputedStyle(glyph).color : null, facefoot,
+                   texts: out, tm: box('.hkf.weather .tm'), rd: box('.hkf.weather .rd'), np: nr ? { l: nr.left, t: nr.top, r: nr.right, b: nr.bottom } : null, rdRight: inks.length ? Math.max(...inks) : null, W: innerWidth, light: host && host.hasAttribute('cklight') };
         });
         const lum = (c) => { const v = (c.match(/[\d.]+/g) || []).slice(0, 3).map(Number); return (0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]) / 255; };
         const tag = screen + ' ' + W + 'x' + H;
@@ -140,6 +153,12 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           const light = m.texts.filter((x) => lum(x.c) > 0.5);
           say(started && m.light && m.texts.length >= 3, tag + ': the light Day face, its corners there', m.texts.map((x) => x.t));
           say(!light.length, tag + ': ...every word in them dark on its light page', light);
+          // (2026-10-31, the owner: the clock "colliding into the name of the Day"; "bats flying, leaves falling")
+          const meet = (a, b) => !!(a && b && a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b);
+          say(!!m.corner && !!m.wd && !meet(m.corner, m.wd) && !meet(m.corner, m.dn), tag + ': ...the corner’s words clear of the day’s name and its date', [m.corner, m.wd, m.dn]);
+          say(!!m.dn && m.dn.b <= m.facefoot + 1, tag + ': ...the date whole on the face', [m.dn, m.facefoot]);
+          say(m.moving.includes('hkf-fall') && m.moving.includes('hkf-fly') && m.moving.includes('hkf-flap'), tag + ': ...its leaves falling, its bats flying', m.moving);
+          say(!!m.glyphInk && lum(m.glyphInk) < 0.5, tag + ': ...the weather’s glyph in the dark ink too', m.glyphInk);
         } else {
           const st = m.texts.filter((x) => /Disarmed|Unlocked/.test(x.t)), over = (a, b) => a && b && a.l < b.r && b.l < a.r && a.top < b.b && b.top < a.b;
           say(started && st.length > 0 && !!m.tm, tag + ': Big Weather with Home Status', st.map((x) => x.t));
