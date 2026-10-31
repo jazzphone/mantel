@@ -1,6 +1,6 @@
 """Home Grid's full-control blocks, rules and following cameras (2026-10-24) against the fictional home, never a
-household's: a Large Security block is the alarm keypad with its keys inside the block, a Large Vacuum block its
-controls over Clean Areas, a block's rules switch its card in place (music playing; a time window and the alarm
+household's: an Extra Large Security block is the alarm keypad (Large lists the locks and doors since 2026-10-31) with its keys inside the block, a Large Vacuum block its
+rooms its own keys (not Clean Areas under it), a block's rules switch its card in place (music playing; a time window and the alarm
 armed), and a cameras block follows motion in its cameras' rooms. A calendar block shows the days it is asked for,
 as many rows as fit and "N more" at its foot, and opens an event's sheet; a room block leaves out the house's Hidden
 Accessories.
@@ -38,12 +38,12 @@ DEEP = "window.deep=(r,s)=>[...r.querySelectorAll('*')].flatMap(e=>[...(e.matche
 RULES = [{'when': {'all': [{'kind': 'music_playing'}]}, 'card': 'now_playing'},
          {'when': {'all': [{'kind': 'time', 'from': '00:00', 'to': '23:59'}, {'kind': 'alarm_armed'}]}, 'card': 'security'}]
 GRID = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items': [
-    {'id': 'keypad', 'card': 'security', 'size': 'L', 'at': [0, 0]},
-    {'id': 'vac', 'card': 'vacuum', 'size': 'L', 'at': [2, 0], 'opts': {'entity': 'vacuum.robot'}},
-    {'id': 'cams', 'card': 'camera', 'size': 'L', 'at': [4, 0], 'opts': {'follow': 'motion'}, 'pages': {'source': 'cameras'}},
+    {'id': 'keypad', 'card': 'security', 'size': 'XL', 'at': [0, 0]},
+    {'id': 'vac', 'card': 'vacuum', 'size': 'L', 'at': [3, 0], 'opts': {'entity': 'vacuum.robot'}},
+    {'id': 'cams', 'card': 'camera', 'size': 'W', 'at': [4, 2], 'opts': {'follow': 'motion'}, 'pages': {'source': 'cameras'}},
     {'id': 'ruled', 'card': 'weather', 'size': 'L', 'at': [0, 2], 'rules': RULES},
-    {'id': 'room', 'card': 'room', 'size': 'L', 'at': [2, 2], 'opts': {'area': 'living_room', 'accessory_display': 'scroll'}},
-    {'id': 'cal', 'card': 'calendar', 'size': 'L', 'at': [4, 2], 'opts': {'calendars': ['calendar.family'], 'days': 7}}]}
+    {'id': 'room', 'card': 'room', 'size': 'W', 'at': [4, 3], 'opts': {'area': 'living_room', 'accessory_display': 'scroll'}},
+    {'id': 'cal', 'card': 'calendar', 'size': 'L', 'at': [2, 2], 'opts': {'calendars': ['calendar.family'], 'days': 7}}]}
 # THE OWNER'S TABLET'S SHAPE (6 x 4, fictional accessories): three Large blocks across the top; four small tiles,
 # the Calendar, a Tall thermostat and two scenes below
 REFLOW = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1180, 820], 'band': True, 'items': [
@@ -104,15 +104,19 @@ async def main():
             # (square cells: the whole canvas is scaled further down to fit, so the keys are measured on the canvas)
             if args.cell == 'square':
                 keys['tall'] /= keys['scale']
-            # the ways to arm stack in the keypad's right column, each a real button
+            # the ways to arm, each a real button: in the keypad's right column on a tile, side by side under the keys
+            # on a square cell (2026-10-31: they carry the typed PIN), each at least 44 px wide in the block's own px
             acts = await b.eval("(()=>{let kp=deep(cell('keypad'),'hk-alarm-keypad-card')[0];return [...kp.shadowRoot.querySelectorAll('.acts .a')].map(a=>Math.round(a.getBoundingClientRect().width))})()")
-            assert len(acts) >= 2 and min(acts) >= 100, acts
+            if args.cell == 'square':
+                acts = [a / keys['scale'] for a in acts]
+            assert len(acts) >= 2 and min(acts) >= 44, acts
             assert not await b.eval("deep(cell('keypad'),'hk-alarm-keypad-card')[0].shadowRoot.textContent.includes('Unavailable')"), 'the home\'s alarm'
-            assert keys['side'] and keys['n'] >= 12 and keys['inside'] and keys['tall'] >= 40, keys
+            assert (keys['side'] or args.cell == 'square') and keys['n'] >= 12 and keys['inside'] and keys['tall'] >= 40, keys
             # the vacuum: its card fills the block without Clean Areas, and sits over them with
             assert await b.eval("deep(cell('vac'),'hk-vacuum-card').length===1 && deep(cell('vac'),'hk-area-select-card').length===0")
             await b.eval("(()=>{let g=hkSettings.get.bind(hkSettings);hkSettings.get=(k,d)=>k==='added'?['clean_areas']:g(k,d);deep(cell('vac'),'hk-grid-vacuum-card')[0].redraw()})()")
-            assert await b.wait("deep(cell('vac'),'hk-vacuum-card').length===1 && deep(cell('vac'),'hk-area-select-card').length===1", 10)
+            # (2026-10-31, the Vacuum widget: its rooms are its own keys to tick, never the Clean Areas card under it)
+            assert await b.wait("deep(cell('vac'),'hk-vacuum-card').length===1 && deep(cell('vac'),'hk-area-select-card').length===0", 10)
             # rules: nothing holds -> the default; music -> Now Playing; the alarm armed in the window -> the keypad
             kind = "(()=>{let c=deep(cell('ruled'),'hk-grid-conditional-card')[0];return c&&c._child&&c._child.localName})()"
             assert await b.wait(kind + "==='hk-weather-band-card'", 10), await b.eval(kind)
