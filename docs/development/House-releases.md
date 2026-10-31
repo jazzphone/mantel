@@ -147,3 +147,11 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 ## Mantel 0.1.94 (1034) on TestFlight (2026-10-31)
 
 - The iOS app 0.1.94, build 1034, uploaded to App Store Connect after Xcode's account was signed in again.
+
+## Mantel 0.1.95 and HK Frontend 1.22.0 (2026-10-31)
+
+- Mantel App 0.1.95 (build 38b5124bae8cd4c6, commit c321872f): /healthz?strict=1 ok, Home Assistant connected.
+- HK Frontend 1.22.0 copied into custom_components (v1.22.0 on GitHub; wiki unchanged); Home Assistant restarted.
+- The five kiosks reloaded; each drew its first screen in 2.2-3.2 s.
+- iOS app 0.1.95 (1064) uploaded to TestFlight. Mantel Link unchanged at 0.1.8.
+- ci full: 30 of 31 together; client_smoke failed once while running in parallel and passed alone.
