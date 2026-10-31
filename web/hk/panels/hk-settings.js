@@ -3760,11 +3760,31 @@
           [0, 1, 2, 3, 4].map(function (i) { return '<text x="' + (110 + i * 230) + '" y="785">' + (54 + i) + '°</text>'; }).join('') + '</g></svg>';
         return box;
       }
+      // (the clock's Background, 2026-10-31: the live sky alone, and a landscape -- behind the clock as chosen)
+      if (what === 'bg:skyonly') inner.style.background = 'linear-gradient(#1f4f8f,#5f9bd0 60%,#b9d9ef)';
+      if (what === 'bg:landscapes') { inner.style.background = 'center/cover url("/hk/landscapes/thumbs/01.webp"),#05070e'; }
+      if (what === 'bg:photos') return this.saverThumb(w, h, 'photos', cur);
+      if (what === 'bg:forecast') return this.saverThumb(w, h, 'forecast', cur);
+      // Big Weather: a picture of it, as the forecast's is (the face needs the weather's readings, not loaded here)
+      if (what === 'weather') {
+        inner.style.background = 'linear-gradient(#2f74ba,#4f93cf 60%,#a7d2ef)';
+        inner.innerHTML = '<svg viewBox="0 0 1180 820" width="1180" height="820" font-family="-apple-system,system-ui,sans-serif" fill="#fff">' +
+          '<path d="M0 640C260 560 420 600 620 560S980 520 1180 580V820H0z" fill="#4f7a55"/>' +
+          '<text x="60" y="80" font-size="34" font-weight="600">Sunny</text><text x="1120" y="94" font-size="44" font-weight="600" text-anchor="end">9:41</text>' +
+          '<text x="40" y="520" font-size="400" font-weight="600" letter-spacing="-20" opacity=".92">64°</text>' +
+          '<g font-size="40" font-weight="600" text-anchor="middle">' + [210, 470, 730, 990].map(function (x, i) { return '<text x="' + x + '" y="740">' + ['6:37', '10', '60%', '21'][i] + '</text>'; }).join('') + '</g></svg>';
+        return box;
+      }
       var tries = 0, draw = function () {
         if (!box.isConnected) { if (++tries < 20) requestAnimationFrame(draw); return; }
         var C = window.hkSaverClock, F = window.hkSaverFaces, o = cur || {};
         try {
-          if (/^clock/.test(what)) {
+          if (/^bg:/.test(what)) {
+            // the clock as chosen over each Background (the two pictures above: the clock over them, no ground)
+            var bgId = what.slice(3), own = bgId === 'skyonly' || bgId === 'landscapes';
+            C.mount(inner, { style: o.clock_style || 'classic', still: true, drift: false, h24: !!o.clock_24, bg: own ? 'none' : bgId, speed: 0,
+                             ground: !own, scrim: false, color: (o.clock_colors || {})[o.clock_style || 'classic'] || '', client: self.client });
+          } else if (/^clock/.test(what)) {
             var style = what.indexOf(':') > 0 ? what.split(':')[1] : (o.clock_style || 'classic');
             C.mount(inner, { style: style, still: true, drift: false, h24: !!o.clock_24, bg: 'gradient', speed: 0,
                              color: (o.clock_colors || {})[style] || '', client: self.client });
@@ -3822,7 +3842,8 @@
       if (show === 'day') {
         c.appendChild(K.group({ header: 'Day', footer: 'By Time of Day: light from 7 in the morning, dark from 7 in the evening. The art is HK’s own, as the sky’s: a birthday from Seasonal Sky, ' +
             'Halloween, Christmas, Valentine’s Day and the Fourth in their weeks, and otherwise the season’s leaves, blossom, snow or butterflies.' }, [
-          K.seg({ label: 'Look', sk: 'saver:day_look', value: cur.day_look || 'auto', stack: !wide, options: M.DAY_LOOKS,
+          K.previewPick({ label: 'Look', sk: 'saver:day_look', value: cur.day_look || 'auto', options: M.DAY_LOOKS,
+                  picture: function (v, w, ht) { return self.saverThumb(w, ht, 'day', Object.assign({}, cur, { day_look: v })); },
                   onChange: function (v) { put('day_look', v); } })]));
       }
       c.appendChild(K.group({ header: 'Clock', footer: show === 'day' ? 'The Day face has no clock of its own: the corner clock (below) tells the time.'
@@ -3933,8 +3954,9 @@
                 onChange: function (v) { put('show', v === 'forecast' || v === 'clock' ? v : 'photos'); } })
       ]).concat(fc ? [] : [tog('Forecast When There Are No Photos', 'fallback')],
                // THE FORECAST'S LAYOUT (2026-10-30): Classic (the details along the bottom) or Big (Big Weather)
-               fxKnown && (fc || both || cur.fallback) ? [K.seg({ label: 'Forecast Layout', sk: 'saver:forecast_layout', value: big ? 'big' : 'classic',
-                 options: M.FORECAST_LAYOUTS, onChange: function (v) { put('forecast_layout', v); } })] : [],
+               fxKnown && (fc || both || cur.fallback) ? [K.previewPick({ label: 'Forecast Layout', sk: 'saver:forecast_layout', value: big ? 'big' : 'classic',
+                 options: M.FORECAST_LAYOUTS, picture: function (v, w, ht) { return self.saverThumb(w, ht, v === 'big' ? 'weather' : 'forecast', cur); },
+                 onChange: function (v) { put('forecast_layout', v); } })] : [],
                // the details ON the forecast, wherever a forecast can show
                (fc || both || cur.fallback) && !big ? [tog('Details on the Forecast', 'band',
                  'On the forecast: today, the next hours and the coming days along the bottom. Off: the sky and the landscape alone.')] : [])));
@@ -4259,8 +4281,10 @@
         K.nav({ label: 'Style', value: styleName, href: styleHref, sk: 'saver:clock_style' }),
         self.clockColorRow(cur, put),
         tog('24-Hour Time', 'clock_24')].concat(self.clockNightRows(cur, put)).filter(Boolean)));
-      var brows = [K.select({ label: 'Background', sk: 'saver:clock_bg', value: bg,
-        options: M.CLOCK_BGS.map(function (x) { return [x[0], x[1]]; }),
+      // (each a small picture of the clock over it, 2026-10-31: the owner's "mini image previews")
+      var brows = [K.previewPick({ label: 'Background', sk: 'saver:clock_bg', value: bg,
+        options: M.CLOCK_BGS.map(function (x) { return [x[0], x[1], x[3]]; }),
+        picture: function (v, w, ht) { return self.saverThumb(w, ht, 'bg:' + v, cur); },
         onChange: function (v) { put('clock_bg', v); } })];
       // SPEED AND DEPTH (2026-10-13): every background moves but Black --
       // how fast (0: still, for a tablet that runs warm) and how strong
@@ -6468,7 +6492,8 @@
       // Backdrop, and the stars still showed through.
       var mode = sky.background || 'live';
       c.appendChild(K.group({ footer: M.BG_SAYS[mode] + ' Each screen, and each page, can choose its own.' }, [
-        K.seg({ label: 'Background', sk: 'sky.background', value: mode, options: M.SKY_BACKGROUNDS, stack: !this.hasAttribute('wide'),
+        K.previewPick({ label: 'Background', sk: 'sky.background', value: mode, options: M.SKY_BACKGROUNDS,
+                picture: function (v, w, ht) { return self.bgKindThumb(v, w, ht, sky.wallpaper); },
                 onChange: function (v) { self.setH({ 'sky.background': v }); } })]));
       if (mode === 'color') {
         this.colorGroup(c, { id: sky.color || 'midnight', custom: sky.gradient_custom, fk: 'hcolor:',
@@ -6619,6 +6644,22 @@
         }).catch(function () { self._landAsk = false; });
       }
       return null;
+    }
+    // THE BACKGROUND'S KINDS, SMALL (2026-10-31; its previewPick): Live Sky the sun over a hill under a day's sky,
+    // Color a still evening's colors (Flat's, `solid`: its one color), Photo a photo of your own (a picture of
+    // one), Landscapes the first, and Wallpaper the one chosen (`wall`) -- drawn as pictures, nothing live
+    bgKindThumb(kind, w, ht, wall, solid) {
+      var el = document.createElement('span');
+      el.style.cssText = 'display:block;width:' + w + 'px;height:' + ht + 'px;background-position:center;background-size:cover';
+      var W = window.hkWallpapers, wurl = kind === 'wallpaper' && W && W.url ? W.url(wall || 'ribbons_rose', false) : null;
+      if (kind === 'live') el.innerHTML = '<svg viewBox="0 0 88 61" width="100%" height="100%" preserveAspectRatio="none"><defs><linearGradient id="bk-l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f86d0"/><stop offset="1" stop-color="#bfe0f5"/></linearGradient></defs><rect width="88" height="61" fill="url(#bk-l)"/><circle cx="64" cy="18" r="7" fill="#fff6cf"/><path d="M0 48C20 38 36 42 52 40S76 36 88 42V61H0z" fill="#5d8a5f"/></svg>';
+      else if (kind === 'color') el.style.background = 'linear-gradient(#1b2350,#5a3a78 55%,#d9826b)';
+      else if (kind === 'solid') el.style.background = solid || '#24252A';
+      else if (kind === 'photo') el.innerHTML = '<svg viewBox="0 0 88 61" width="100%" height="100%" preserveAspectRatio="none"><rect width="88" height="61" fill="#d9c4a5"/><circle cx="30" cy="22" r="9" fill="#8a5a3c"/><path d="M14 61c2-16 10-24 16-24s14 8 16 24z" fill="#365f8a"/><circle cx="60" cy="25" r="8" fill="#c99a76"/><path d="M45 61c2-14 9-21 15-21s13 7 15 21z" fill="#b04a4a"/></svg>';
+      else if (kind === 'landscapes') el.style.backgroundImage = 'url("/hk/landscapes/thumbs/01.webp")';
+      else if (wurl) el.style.backgroundImage = 'url("' + wurl + '")';
+      else el.style.background = 'linear-gradient(160deg,#c45a7c,#6a3d8f)';
+      return el;
     }
     // a landscape's picture: its small copy (`thumb`) for the grid, else the photo
     landSrc(p, big) {
@@ -7068,8 +7109,8 @@
       var pageScreen = !!(pk.only && pk.only.keys.length), legacyOff = b.sky === false;
       if (!pageScreen) {
         var ownMode = legacyOff ? 'color' : b.sky_background, hMode = sky.background || 'live', mode = ownMode || hMode;
-        var bgRows = [K.seg({ label: 'Background', sub: ownMode ? 'Just This Screen' : 'Same as All Screens', sk: 'b:sky_background', value: mode,
-          options: M.SKY_BACKGROUNDS, stack: !this.hasAttribute('wide'), onChange: function (v) {
+        var bgRows = [K.previewPick({ label: 'Background', sub: ownMode ? 'Just This Screen' : 'Same as All Screens', sk: 'b:sky_background', value: mode,
+          options: M.SKY_BACKGROUNDS, picture: function (v, w, ht) { return self.bgKindThumb(v, w, ht, b.sky_wallpaper || sky.wallpaper); }, onChange: function (v) {
             var ch = { sky_background: v, sky: true };
             if (legacyOff && v === 'color' && !b.sky_color) ch.sky_color = 'black';
             self.setB(x.path, ch);
@@ -7635,8 +7676,10 @@
     flatSky(c, x, b, base) {
       var self = this, sky = this.data.settings.sky, theme = this.flatTheme(b), put = this.flatPut(x, b);
       var hMode = sky.flat_background || 'color', own = b ? b.sky_flat_background : null, mode = own || hMode;
-      var bgRows = [K.seg({ label: 'Background', sub: b ? (own ? 'Just This Screen' : 'Same as All Screens') : null, sk: b ? 'b:sky_flat_background' : 'sky.flat_background',
-        value: mode, options: [['color', 'Color'], ['photo', 'Photo'], ['landscapes', 'Landscapes']], stack: !this.hasAttribute('wide'),
+      var bgRows = [K.previewPick({ label: 'Background', sub: b ? (own ? 'Just This Screen' : 'Same as All Screens') : null, sk: b ? 'b:sky_flat_background' : 'sky.flat_background',
+        value: mode, options: [['color', 'Color'], ['photo', 'Photo'], ['landscapes', 'Landscapes']],
+        // (Flat's Color: one solid color, its theme's ground)
+        picture: function (v, w, ht) { return self.bgKindThumb(v === 'color' ? 'solid' : v, w, ht, null, theme === 'light' ? '#ECEAE5' : '#24252A'); },
         onChange: function (v) { put({ sky_flat_background: v }); } })];
       if (own) bgRows.push(K.button({ label: 'Reset to All Screens (' + M.BG_LABELS[hMode] + ')', sk: 'b:sky_flat_background:reset',
                                       onClick: function () { put({ sky_flat_background: null }); } }));
