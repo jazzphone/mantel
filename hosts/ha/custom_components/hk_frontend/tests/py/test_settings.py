@@ -1244,7 +1244,7 @@ def test_wallpapers_stay_under_the_skys_caps_and_keep_white_text_readable_on_bri
     import os
     from custom_components.hk_frontend import settings as S
     assert "wallpaper" in S.SKY_BACKGROUNDS and "wallpaper" in S.SKY_PAGE_MODES
-    assert len(S.WALLPAPERS) == 12 and S.WALLPAPER_NIGHT == ("auto", "day", "night")
+    assert len(S.WALLPAPERS) == 18 and S.WALLPAPER_NIGHT == ("auto", "day", "night")
     sky = S.merged({})["sky"]
     assert (sky["background"], sky["wallpaper"], sky["wallpaper_night"]) == ("live", "ribbons_rose", "auto")
     assert S.merged({"dashboard": {"sky": {"wallpaper": "plaid", "wallpaper_night": "often"}}})["sky"]["wallpaper"] == "ribbons_rose"
@@ -1279,6 +1279,23 @@ def test_wallpapers_stay_under_the_skys_caps_and_keep_white_text_readable_on_bri
         text = over([255, 255, 255], .94, plate)
         a, b = rel(text), rel(plate)
         return (max(a, b) + .05) / (min(a, b) + .05)
+
+    # THE MOTION THEMES (2026-10-31) take any colour: each in every preset, and in colours swept round the wheel
+    # at full and half saturation, with white, black, grey and a bright yellow -- the owner's own can be any
+    assert [c["id"] for c in S.WALLPAPER_COLORS] == _js_value("globalThis.window = globalThis;\n" + src,
+                                                              "window.hkWallpapers.COLORS.map(function (c) { return c[0]; })")
+    assert [c["hex"] for c in S.WALLPAPER_COLORS] == _js_value("globalThis.window = globalThis;\n" + src,
+                                                               "window.hkWallpapers.COLORS.map(function (c) { return c[2]; })")
+    sweep = [c["id"] for c in S.WALLPAPER_COLORS] + ["#ffffff", "#000000", "#808080", "#ffff00", "#00ffff", "#ff00ff"]
+    for h in range(0, 360, 15):
+        for s in (1, .5):
+            import colorsys
+            sweep.append("#" + "".join("%02x" % round(v * 255) for v in colorsys.hls_to_rgb(h / 360, .5, s)))
+    themed = _js_value("globalThis.window = globalThis;\n" + src + "\nvar SWEEP = " + __import__("json").dumps(sweep) + ";",
+                       "[].concat.apply([], window.hkWallpapers.list().filter(function (w) { return w.theme; }).map(function (w) {"
+                       " return SWEEP.map(function (c) { return [w.id + '@' + c, window.hkWallpapers.stops(w.id, c)]; }); }))")
+    assert len(themed) == 6 * len(sweep)
+    walls = [w for w in walls if w[0] not in S.WALLPAPER_THEMES] + themed
 
     pos = (0, .42, .72, 1)
     for wid, stops in walls:

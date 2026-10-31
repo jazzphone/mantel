@@ -140,8 +140,8 @@
     photo: 'A photo of your own, still and sharp. No sun, moon, stars, weather or decorations. A bright photo is dimmed a little so the cards stay readable.',
     // (2026-10-14) HK Frontend's own photos, the screensaver clock's
     landscapes: 'Fifty landscape photos that come with ' + PN() + ' — mountains, lakes, coasts, forests, the northern lights — a new one each time the screen wakes, on a schedule, or the same one. No sun, moon, stars, weather or decorations.',
-    // (2026-10-30) our own art, hk-wallpapers.js
-    wallpaper: 'Twelve wallpapers of soft ribbons, petals, glass shards and pinwheels, in six colors, each with a darker version for the night. The cards take their color. Best with Bright Glass. No sun, moon, stars, weather or decorations.'
+    // (2026-10-30) our own art, hk-wallpapers.js; (2026-10-31) its motion themes
+    wallpaper: 'Twelve wallpapers of soft ribbons, petals, glass shards and pinwheels, and six moving themes in any color you choose, each with a darker version for the night. The cards take their color. Best with Bright Glass. No sun, moon, stars, weather or decorations.'
   };
   // A WALLPAPER'S NIGHT VERSION (settings.py WALLPAPER_NIGHT)
   var WALLPAPER_NIGHT = [['auto', 'After Sunset'], ['day', 'Never'], ['night', 'Always']];
@@ -1939,7 +1939,7 @@
     ['Pause When Not in Focus', 'house/appearance/sky', 'sky.focus_pause', 'pause idle focus background window computer animations performance cpu'],
     ['Live First Camera', 'page/cameras', 'cameras.live', 'camera strip live video snapshot first tile performance'],
     ['Page Backgrounds', 'house/appearance/sky', 'sky.pages', 'page color background backdrop energy climate lights still live sky'],
-    ['Background', 'house/appearance/sky', 'sky.background', 'background live sky color solid gradient photo picture wallpaper image upload still no stars plain black'],
+    ['Background', 'house/appearance/sky', 'sky.background', 'background live sky color solid gradient photo picture wallpaper image upload still no stars plain black motion moving animated theme aurora blobs waves dots beams meteors'],
     ['Landscapes', 'house/appearance/sky', 'sky.background', 'landscapes landscape photos mountains lakes coasts forests nature scenery background scenic wake interval change'],
     ['Background Photo', 'house/appearance/sky', 'sky.photo', 'photo picture wallpaper image upload background blur dim darken saturation tint color cast'],
     ['Sky Colors', 'house/appearance/sky/backdrop', 'sky.gradient', 'backdrop palette gradient live sky colors tint dusk midnight fjord dune graphite plum ember mist black custom'],
@@ -2201,7 +2201,7 @@
                             'sky_landscape', 'sky_landscape_look', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light', 'sky_flat_pages', 'sky_flat_image_look', 'sky_flat_page_image_looks', 'sky_image_look',
                             'flat_colors', 'flat_page_colors',
                             // Bright Glass's Strength and the Wallpaper (2026-10-30)
-                            'bright', 'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion'], true],
+                            'bright', 'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion', 'sky_wallpaper_color'], true],
     ['behavior', 'Now Playing, Side Pane, Pop-ups & Notifications', ['popups', 'notify', 'notify_saver', 'notify_dnd', 'now_playing', 'timer_bar', 'bar_all_pages',
                               'np_style', 'np_side', 'np_bar', 'np_bar_phone', 'side_pane'], true],
     ['idle', 'Screensaver', ['screensaver', 'screensaver_options', 'screensaver_engine', 'wallpanel_options'], true],
@@ -2348,7 +2348,7 @@
   function skySummary(b) {
     var keys = ['sky_animations', 'sky_weather', 'sky_precipitation', 'sky_focus_pause', 'sky_decorations', 'sky_decoration_style', 'sky_moving', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_custom',
                 'sky_background', 'sky_color', 'sky_photo', 'sky_photo_look', 'sky_landscape', 'sky_landscape_look',
-                'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion'];
+                'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion', 'sky_wallpaper_color'];
     var pages = Object.keys(b.sky_pages || {}).length;
     if (keys.every(function (k) { return b[k] == null; }) && !pages) return 'Same as All Screens';
     var parts = [];

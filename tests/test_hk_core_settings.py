@@ -342,6 +342,38 @@ def test_a_wallpapers_motion_for_all_screens_and_for_a_screen():
     assert "wallpaper_motion" in M.SKY_RESET and "sky_wallpaper_motion" in M.SKY_RESET_BOARD
 
 
+def test_the_motion_themes_are_wallpapers_in_a_colour_of_your_own():
+    # (2026-10-31, the owner on 0.1.94) six more wallpapers, each in one colour: a preset or any "#rrggbb"
+    assert M.WALLPAPER_THEMES == ("aurora", "blobs", "waves", "dots", "beams", "meteors")
+    assert M.WALLPAPERS[-6:] == M.WALLPAPER_THEMES and len(M.WALLPAPERS) == 18 and len(set(M.WALLPAPERS)) == 18
+    assert M.WALLPAPER_COLOR_IDS == ("rose", "coral", "amber", "green", "teal", "blue", "violet", "graphite")
+    assert all(M.ACCENT_HEX.fullmatch(c["hex"]) for c in M.WALLPAPER_COLORS)
+    # absent: Blue, and nothing saved before changes
+    sky = M.merged({})["sky"]
+    assert (sky["wallpaper"], sky["wallpaper_color"]) == ("ribbons_rose", "blue")
+    for v, want in (("teal", "teal"), ("#A1B2C3", "#a1b2c3"), ("#abc", "blue"), ("plaid", "blue"), (12, "blue"), (None, "blue")):
+        assert M.merged({"dashboard": {"sky": {"wallpaper_color": v}}})["sky"]["wallpaper_color"] == want, v
+    new, err = C.apply_house({}, {"sky.background": "wallpaper", "sky.wallpaper": "aurora", "sky.wallpaper_color": "#FF8800",
+                                  "sky.wallpaper_motion": "slow"})
+    assert err == {}
+    m = M.merged(new)["sky"]
+    assert (m["wallpaper"], m["wallpaper_color"], m["wallpaper_motion"]) == ("aurora", "#ff8800", "slow")
+    assert C.apply_house({}, {"sky.wallpaper_color": "orange-ish"})[1] == {"sky.wallpaper_color": "choice"}
+    assert C.apply_house({}, {"sky.wallpaper_color": None})[1] == {"sky.wallpaper_color": "choice"}, "All Screens always has one"
+    assert C.apply_house({}, {"sky.wallpaper": "lava"})[1] == {"sky.wallpaper": "choice"}
+    # a screen's own, or Same as All Screens
+    b, err = C.apply_board({}, {"sky_background": "wallpaper", "sky_wallpaper": "meteors", "sky_wallpaper_color": "violet"})
+    assert err == {} and (M.board(b)["sky_wallpaper"], M.board(b)["sky_wallpaper_color"]) == ("meteors", "violet")
+    b, err = C.apply_board(b, {"sky_wallpaper_color": None})
+    assert err == {} and M.board(b)["sky_wallpaper_color"] is None and M.board({})["sky_wallpaper_color"] is None
+    assert M.board({"sky_wallpaper_color": "#12345g"})["sky_wallpaper_color"] is None
+    assert C.apply_board({}, {"sky_wallpaper_color": "#12"})[1] == {"sky_wallpaper_color": "choice"}
+    # Reset to Defaults takes it back, as the rest of the page
+    assert "wallpaper_color" in M.SKY_RESET and "sky_wallpaper_color" in M.SKY_RESET_BOARD
+    new, err = C.apply_house(new, {"sky.reset": True})
+    assert err == {} and M.merged(new)["sky"]["wallpaper_color"] == "blue" and M.merged(new)["sky"]["wallpaper"] == "ribbons_rose"
+
+
 def test_bright_glass_on_home_only_by_default():
     # (2026-10-30) Bright Glass on Home, the other pages in its Blur; or on every page; a screen's own or All Screens'
     assert M.merged({})["look"]["bright_pages"] == "home"
