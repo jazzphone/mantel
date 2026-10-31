@@ -38,9 +38,22 @@ CHROME = find_chrome()
 ROOT_FLAGS = ["--no-sandbox"] if hasattr(os, "geteuid") and os.geteuid() == 0 else []
 
 
+def free_port(port: int) -> int:
+    """`port` when nothing listens on it, else one the system has free: two checks (two sessions, two
+    worktrees) on one Mac no longer meet on a fixed DevTools port."""
+    import socket
+    with socket.socket() as s:
+        try:
+            s.bind(("127.0.0.1", port))
+            return port
+        except OSError:
+            s.bind(("127.0.0.1", 0))
+            return s.getsockname()[1]
+
+
 class Browser:
     def __init__(self, width=1280, height=800, port=9333):
-        self.width, self.height, self.port = width, height, port
+        self.width, self.height, self.port = width, height, free_port(port)
         self.proc = None
         self.profile = tempfile.mkdtemp(prefix="mantel-chrome-")
         self.console: list[str] = []
