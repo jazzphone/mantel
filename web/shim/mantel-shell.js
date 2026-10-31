@@ -279,12 +279,15 @@
   }
 
   S.use(MANTEL);
+  // THE SCREENSAVER ALONE (home.js, ?hk_preview=saver): no view host ever comes, and the screensaver makes its block
+  // from this screen's settings -- which it does when the dashboard's config is there but names no block of its own
+  function saverOnly() { S.use(Object.assign({}, MANTEL, { dashboardConfig: () => ({}) })); }
   // home.js hands over GET /api/services ({music_assistant: '/ma/' | null, go2rtc: '/go2rtc/' | null})
   function setServices(got) { services = got && typeof got === 'object' ? got : {}; }
 
   // home.js hands over the signed-in person's Mantel role (GET /api/me)
   function setRole(r) { role = typeof r === 'string' ? r : ''; }
 
-  global.hkMantelShell = { attach, install, setServices, setRole, setRoom, setAtTablet, setSettings, setHaAddress, hostMenu, haNav,
+  global.hkMantelShell = { attach, install, saverOnly, setServices, setRole, setRoom, setAtTablet, setSettings, setHaAddress, hostMenu, haNav,
                            serviceUrl, tabletRoom, atTablet, kind: 'mantel' };
 })(globalThis);

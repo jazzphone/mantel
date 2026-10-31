@@ -1769,14 +1769,15 @@
         // and artist would sit centred against each other beside the album art
         // instead of sharing a left edge. Nothing in the card sets it, so there
         // is nothing to notice; the inherited value does it.
+        // (--hk-ss-ink, -ink-2 and -glow: the screensaver's on a light face -- dark words, no shadow)
         '.sscorner .txt{min-width:0;text-align:left;text-shadow:none;',
-        '  filter:drop-shadow(0px 1px 3px rgba(0,0,0,0.34))',
-        '    drop-shadow(0px 3px 14px rgba(0,0,0,0.30))}',
+        '  filter:var(--hk-ss-glow,drop-shadow(0px 1px 3px rgba(0,0,0,0.34))',
+        '    drop-shadow(0px 3px 14px rgba(0,0,0,0.30)))}',
         '.sscorner .t{font-size:var(--hk-ss-np-title,34px);font-weight:700;letter-spacing:-0.4px;',
-        '  line-height:1.12;color:rgba(255,255,255,.97);white-space:nowrap;',
+        '  line-height:1.12;color:var(--hk-ss-ink,rgba(255,255,255,.97));white-space:nowrap;',
         '  overflow:hidden;text-overflow:ellipsis}',
         '.sscorner .a{font-size:var(--hk-ss-np-artist,24px);font-weight:500;letter-spacing:-0.1px;',
-        '  line-height:1.2;margin-top:4px;color:rgba(255,255,255,.82);',
+        '  line-height:1.2;margin-top:4px;color:var(--hk-ss-ink-2,rgba(255,255,255,.82));',
         '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
       ].join('');
     }

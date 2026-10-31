@@ -188,6 +188,27 @@
     '  -webkit-appearance:none;appearance:none;background:transparent;color:transparent;border:0}',
     '.pop select option{color:initial;background:initial}',
     '.pop:focus-within{outline:3px solid color-mix(in srgb,var(--hk-tint) 55%,transparent);outline-offset:3px;border-radius:6px}',
+    // A CHOICE SHOWN AS PICTURES (previewPick): the row says the choice, with a small picture of it; tapped, it drops
+    // down a grid of every choice drawn small, the one chosen ringed -- three across on a phone, as many as fit wider
+    '.cell.pvrow{cursor:pointer;-webkit-tap-highlight-color:transparent;width:100%;border:0;background:none;font:inherit;color:inherit;text-align:left}',
+    '.pvrow .pvnow{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:10px;color:var(--hk-label2)}',
+    '.pvrow .pvnow .pvname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.pvrow .pvdis{flex:none;width:13px;height:8px;color:var(--hk-label3);transition:transform .25s cubic-bezier(.32,.72,0,1)}',
+    '.pvrow[aria-expanded=true] .pvdis{transform:rotate(180deg)}',
+    '.pvthumb{flex:none;position:relative;display:block;overflow:hidden;background:#1c1c1e;box-shadow:inset 0 0 0 .5px rgba(127,127,127,.35)}',
+    '.pvgrid{position:relative;display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--pvw,88px),1fr));gap:14px 12px;padding:12px 16px 14px;justify-items:center;align-items:start}',
+    '.pvgrid::before{content:"";position:absolute;top:0;right:0;left:16px;height:0;border-top:1px solid var(--hk-sep)}',
+    '@media (min-resolution:2dppx){.pvgrid::before{border-top-width:.5px}}',
+    ':host(:not([wide])) .pvgrid{grid-template-columns:repeat(3,1fr)}',
+    '.pvgrid[hidden]{display:none}',
+    '.pvgrid button{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;max-width:100%;background:none;border:0;padding:3px;margin:0;',
+    '  font:inherit;font-size:12px;line-height:15px;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+    '.pvgrid button .pvcap{max-width:100%;text-align:center;overflow-wrap:anywhere}',
+    '.pvgrid button[aria-checked=true]{color:var(--hk-tint)}',
+    '.pvgrid button[aria-checked=true] .pvcap{font-weight:600}',
+    '.pvgrid button[aria-checked=true] .pvthumb{box-shadow:0 0 0 2.5px var(--hk-tint)}',
+    '.pvgrid .pvhead{grid-column:1 / -1;justify-self:start;font-size:13px;color:var(--hk-label2);text-transform:uppercase;letter-spacing:.02em;margin:4px 0 -6px}',
+    '@media (prefers-reduced-motion:reduce){.pvrow .pvdis{transition:none}}',
     // SLIDER
     '.cell.slider{flex-direction:column;align-items:stretch;gap:8px;padding:10px 16px 12px}',
     '.cell.slider .top{display:flex;align-items:center;gap:10px}',
@@ -459,6 +480,56 @@
       o.onChange(s.value);
     });
     return h('span', { class: 'pop' }, [pv, svg(UPDOWN), s]);
+  }
+  // A CHOICE SHOWN AS PICTURES (2026-10-31, the owner: the previews "inside a drop-down"): a row that says the
+  // choice, with a small picture of it, and drops down every choice drawn small -- a tap on one picks it and folds
+  // the grid away. The pictures are drawn only when the grid first opens (o.picture(value, w, h) -> an element: what
+  // the page draws them with), so a closed one costs a row. o.label, o.sub, o.sk, o.value, o.onChange(v),
+  // o.options [[value, text, group]] -- a group's name heads its choices, as the system's menus do --, o.size
+  // [w, h] of a picture (88 x 61: a tablet's shape), o.rowSize [w, h] of the row's own (44 x 30). The grid stays
+  // open across a redraw of the page while it is open (by o.sk).
+  var pvOpen = {};
+  function previewPick(o) {
+    var lid = id('l'), gid = id('pv'), size = o.size || [88, 61], rs = o.rowSize || [44, 30];
+    var cur = o.options.filter(function (x) { return String(x[0]) === String(o.value); })[0] || o.options[0];
+    var frame = function (el, w, ht) {
+      var f = h('span', { class: 'pvthumb', 'aria-hidden': 'true', style: 'width:' + w + 'px;height:' + ht + 'px;border-radius:' + Math.max(4, Math.round(ht / 7)) + 'px' });
+      if (el) { el.style && (el.style.margin = '0'); f.appendChild(el); }
+      return f;
+    };
+    var shot = function (v, w, ht) { var el = null; try { el = o.picture ? o.picture(v, w, ht) : null; } catch (e) { el = null; } return frame(el, w, ht); };
+    var row = h('button', { class: 'cell pvrow', type: 'button', 'data-sk': o.sk, 'data-fk': o.fk || o.sk, 'aria-expanded': 'false', 'aria-controls': gid,
+                            disabled: !!o.disabled }, [
+      lead(o), label(o.label, o.sub, lid),
+      h('span', { class: 'pvnow' }, [cur ? shot(cur[0], rs[0], rs[1]) : null, h('span', { class: 'pvname', text: cur ? cur[1] : '' })]),
+      svg('<svg class="pvdis" viewBox="0 0 13 8" aria-hidden="true"><path d="M1.5 1.5 6.5 6.5 11.5 1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>')]);
+    var grid = h('div', { class: 'pvgrid', id: gid, role: 'radiogroup', 'aria-labelledby': lid, hidden: true, style: '--pvw:' + size[0] + 'px' });
+    var built = false, build = function () {
+      if (built) return;
+      built = true;
+      var last = null;
+      o.options.forEach(function (op) {
+        if (op[2] && op[2] !== last) { last = op[2]; grid.appendChild(h('div', { class: 'pvhead', text: op[2], 'aria-hidden': 'true' })); }
+        var on = op === cur, b = h('button', { type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false', 'data-fk': (o.fk || o.sk) + ':' + op[0],
+                                               'aria-label': op[2] ? op[1] + ', ' + op[2] : op[1] }, [shot(op[0], size[0], size[1]), h('span', { class: 'pvcap', text: op[1] })]);
+        b.addEventListener('click', function () {
+          delete pvOpen[o.sk];
+          show(false);
+          if (op !== cur) o.onChange(op[0]);
+          row.focus && row.focus();
+        });
+        grid.appendChild(b);
+      });
+    };
+    var show = function (yes) {
+      if (yes) build();
+      grid.hidden = !yes;
+      row.setAttribute('aria-expanded', yes ? 'true' : 'false');
+      if (o.sk) { if (yes) pvOpen[o.sk] = 1; else delete pvOpen[o.sk]; }
+    };
+    row.addEventListener('click', function () { show(grid.hidden); });
+    if (o.sk && pvOpen[o.sk]) show(true);
+    return h('div', { class: 'cellwrap pvpick', 'data-sk': o.sk ? o.sk + ':pick' : null }, [watchRow(row), grid]);
   }
   // A SLIDER: o.value, o.min, o.max, o.step, o.unit, o.badge, o.onChange(v)
   // (on release; the number follows the thumb while it moves)
@@ -1344,9 +1415,9 @@
   }
 
   root.hkSettingsKit = {
-    version: '2.2.0', CSS: CSS, h: h, esc: esc, icon: icon, svg: svg, id: id,
+    version: '2.3.0', CSS: CSS, h: h, esc: esc, icon: icon, svg: svg, id: id,
     CHEV: CHEV, CHECK: CHECK, group: group, nav: nav, toggle: toggle, seg: seg, select: select, slider: slider,
-    text: text, info: info, check: check, button: button, recommend: recommend, listEditor: listEditor, confirm: confirm, label: label, popup: popup,
+    text: text, info: info, check: check, button: button, recommend: recommend, previewPick: previewPick, listEditor: listEditor, confirm: confirm, label: label, popup: popup,
     moveVal: moveVal, yaml: yaml, yamlParse: yamlParse, yamlDump: yamlDump, YamlError: YamlError
   };
 })();

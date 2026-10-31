@@ -1055,7 +1055,8 @@
         var H = window.hkHeader, st = this.client && this.client.states;
         if (!H || !H.security || !st) return '';
         var c = this._config || {};
-        return H.security(st, { line1Size: c.line1_size || '36px', lineSize: c.line_size || '24px',
+        // (the screensaver may size the lines for where they sit: --hk-ss-status-l1 and -l2, Big Weather on a phone)
+        return H.security(st, { line1Size: c.line1_size || 'var(--hk-ss-status-l1,36px)', lineSize: c.line_size || 'var(--hk-ss-status-l2,24px)',
                                 pad: '0px', minHeight: '0px', align: c.align });
       }
       // A CHEAP SIGNATURE (2026-10-29). It was the whole header's HTML, built on every push of the house (about a dozen a

@@ -40,6 +40,9 @@
 //     notes               { overview, screen_remove, add_screen }: the
 //                 host's words where HK's own page differs on it
 //     screenBase          the prefix of a screen's own address
+//     saverPage           true: a screen's address with ?hk_preview=saver is
+//                         a page of only its screensaver (the preview's, on
+//                         the screensaver's pages)
 //     back                { label, href }: the way out, on a host with no
 //                 sidebar of its own
 //     owns        { tablet_user: true }: what of HK's own the host keeps
@@ -135,6 +138,10 @@
   // The dashboards' own modules, for an accessory's settings: the settings
   // feed they read, the glyphs, the detail sheet's pane.
   var cardsReady = null;
+  var DETAIL_WAIT = 15000;
+  // what the preview says under it: the screen, live; or the screensaver alone, each change as it is made
+  var PV_SAYS = { screen: 'Live: changes show here within seconds. A generated screen rebuilds itself within about ten.',
+                  saver: 'The screensaver alone, with live weather, music and photos: each change shows here as you make it.' };
   function loadCards() {
     if (cardsReady) return cardsReady;
     cardsReady = (async function () {
@@ -145,6 +152,17 @@
         var t = tries[i];
         if (t[0] === 'customIconsets' ? (window.customIconsets && window.customIconsets.hk) : window[t[0]]) continue;
         try { await import(t[1] + '?v=' + v); } catch (e) { console.warn('[hk-settings] ' + t[1], e); }
+      }
+      // ...AND ITS SHEETS: hk-detail.js sets window.hkDetail only once it has fetched its panels (web/hk/sheets/),
+      // a moment after its own import has returned -- so an accessory's page opened first thing (a search, a
+      // link, a reload) found no detail and said it "couldn't load" (2026-10-31, the owner). It says when it is
+      // up (hk-detail-ready); never waited for longer than DETAIL_WAIT, and tried again next time if it never came
+      if (!window.hkDetail) {
+        await new Promise(function (done) {
+          var t = setTimeout(done, DETAIL_WAIT);
+          window.addEventListener('hk-detail-ready', function () { clearTimeout(t); done(); }, { once: true });
+        });
+        if (!window.hkDetail) cardsReady = null;
       }
     })();
     return cardsReady;
@@ -307,6 +325,10 @@
     '.code{max-width:100%;min-width:0;box-sizing:border-box}',
     'h1.lt{margin:4px 0 4px;font-family:var(--hk-display);font-size:34px;line-height:41px;font-weight:700;letter-spacing:.01em;outline:none}',
     ':host([wide]) h1.lt{font-size:30px;line-height:36px}',
+    // A TITLE WITH NOTHING UNDER IT (no scope line) keeps the room the line would have left before the first group:
+    // its 4 px alone put the group against the title (2026-10-31, the owner: "a lot of headings ... really close to
+    // the first option" -- Screensaver Options over Same as All Screens)
+    '.ph.bare{margin-bottom:20px}',
     '.scope{margin:0 0 24px;font-size:15px;line-height:20px;color:var(--hk-label2)}',
     // A SCREEN'S NAME, with its pencil (renaming the dashboard): the pencil
     // beside the title, centred on its line; the field the same size as the
@@ -928,6 +950,7 @@
     // One change (or a few) to the house's settings. `local` shows it at
     // once; the answer is the truth.
     setH(changes) {
+      if (changes && Object.prototype.hasOwnProperty.call(changes, 'look.saver') && this._saverHouse) this.saverOver(changes['look.saver']);
       var d = this.data;
       return this.save({ type: DOMAIN + '/settings/set', changes: changes }, Object.keys(changes), function () {
         Object.keys(changes).forEach(function (p) {
@@ -941,6 +964,7 @@
     }
     setB(path, changes) {
       var d = this.data;
+      if (changes && Object.prototype.hasOwnProperty.call(changes, 'screensaver_options') && !this._saverHouse && this._pv && this._pv.path === path) this.saverOver(changes.screensaver_options);
       return this.save({ type: DOMAIN + '/board/set', dashboard: path, changes: changes },
         Object.keys(changes).map(function (k) { return 'b:' + k; }), function () {
           var whole = {};
@@ -1180,7 +1204,8 @@
       this.bar.querySelector('.mid').textContent = pg.title || '';
       // THE PAGE. A screen's preview stays put while its settings redraw (a
       // moved iframe would load the whole dashboard again).
-      var head = h('div', { class: 'ph' }, [pg.rename ? this.titleLine(pg) : h('h1', { class: 'lt', tabindex: '-1', text: pg.title || '' }),
+      // (a title with no line under it: .bare, its own room before the first group)
+      var head = h('div', { class: 'ph' + (pg.scope ? '' : ' bare') }, [pg.rename ? this.titleLine(pg) : h('h1', { class: 'lt', tabindex: '-1', text: pg.title || '' }),
         pg.scope ? h('p', { class: 'scope', html: pg.scope }) : null]);
       var content = h('div', { class: 'pc' });
       try { pg.body(content); } catch (e) {
@@ -1196,8 +1221,10 @@
       this.previewButton(!xwide && !!pg.preview, pinned);
       if (pg.preview && !xwide && !pg.previewTop && !pinned) pg.preview = null;
       this._pvPinned = pinned;
+      // (pinned: a preview not pinned has none set -- compared as it was, undefined against false, no preview was
+      // ever kept: every change made the frame load its screen again, 2026-10-31)
       var keepPv = pg.preview && this._pv && this._pv.path === pg.preview && this._pv.view === (pg.previewView || '0') &&
-        this._pv.pinned === pinned && this.pageEl.querySelector('.pvcol');
+        !!this._pv.pinned === pinned && this.pageEl.querySelector('.pvcol');
       if (keepPv) {
         this.pageEl.replaceChild(head, this.pageEl.querySelector('.ph'));
         this.pageEl.replaceChild(content, this.pageEl.querySelector('.pc'));
@@ -1281,13 +1308,26 @@
       // WHICH PHOTO (2026-10-13): Any, or a Portrait or Landscape one -- held
       // while its settings change, so a crop or a blur can be judged
       var shape = this._saverEnergy ? 'energy' : this._saverWx ? 'weather' : this._saverShape || '';
+      if (!on) this._saverOver = null;
       var go = function () {
         var S = null;
         try { S = fr.contentWindow && fr.contentWindow.hkSaver; } catch (e) { /* not ours */ }
-        if (S && typeof S.preview === 'function') { S.preview(on, shape || null, !!house); return true; }
+        if (S && typeof S.preview === 'function') { S.preview(on, shape || null, !!house, on ? self._saverOver : null); return true; }
         return false;
       };
-      if (!go()) self._saverWait = setInterval(function () { if (go() || ++n > 80) clearInterval(self._saverWait); }, 250);
+      // THE SCREENSAVER ALONE (2026-10-31): a host with a page of only the screensaver (its settingsHost's
+      // saverPage) shows that in the frame while these pages are open -- the screen's own size, no dashboard behind
+      // it -- and the screen again once they are left: the frame's address changes (one short load), and nothing is
+      // asked of it until its new page is up
+      var want = this.previewSrc(on), says = col.querySelector('.pvsays');
+      if (says) says.textContent = /hk_preview=saver/.test(want) ? PV_SAYS.saver : PV_SAYS.screen;
+      if (fr.getAttribute('src') !== want) {
+        fr.setAttribute('src', want);
+        fr.addEventListener('load', function () {
+          if (go()) return;
+          self._saverWait = setInterval(function () { if (go() || ++n > 80) clearInterval(self._saverWait); }, 250);
+        }, { once: true });
+      } else if (!go()) self._saverWait = setInterval(function () { if (go() || ++n > 80) clearInterval(self._saverWait); }, 250);
       if (on && (this._saverEnergy || this._saverWx)) {
         box.parentNode.insertBefore(h('div', { class: 'pvsaver' }, [h('p', { class: 'gf',
           text: (this._saverWx ? 'The weather' : 'Home Energy') + ' as this screen shows it, held while you change these. Only this preview changes.' })]), box.nextSibling);
@@ -1304,6 +1344,21 @@
                        : 'The screensaver as this screen shows it, with the changes you make here.') +
                 ' Portrait or Landscape keeps one photo of that shape while you change its settings. Only this preview changes.' })]), box.nextSibling);
       }
+    }
+
+    // EACH CHANGE TO THE SCREENSAVER, AS IT IS MADE (2026-10-31): the options handed to the preview's screensaver
+    // the moment they are put -- before the save has gone round -- which shows them where it is (hkSaver.preview's
+    // `over`); kept for the frame until these pages are left. null: the saved ones again (Same as All Screens).
+    saverOver(o) {
+      this._saverOver = o && typeof o === 'object' ? o : null;
+      if (this._saverWas) this.saverPreview(true);
+    }
+    // the preview frame's address: the screen, or the screensaver alone (saverPreview)
+    previewSrc(saverOnly) {
+      var pv = this._pv, x = this.host();
+      if (!pv) return '';
+      return this.hostScreenBase() + '/' + pv.path + '/' + (pv.view || '0') + '?hk_kiosk=on&kiosk&wp_enabled=false' +
+        (saverOnly && x && x.saverPage === true ? '&hk_preview=saver' : '');
     }
 
     // THE SKY'S PREVIEW. On the Sky page the preview frame shows today's own
@@ -1870,8 +1925,7 @@
         fit();
       }
       col.appendChild(pick);
-      col.appendChild(h('p', { class: 'gf' }, [dims, document.createTextNode(
-        'Live: changes show here within seconds. A generated screen rebuilds itself within about ten.')]));
+      col.appendChild(h('p', { class: 'gf' }, [dims, h('span', { class: 'pvsays', text: PV_SAYS.screen })]));
       requestAnimationFrame(fit);
       new ResizeObserver(fit).observe(col);
       this._pv = { path: path, view: view };
@@ -3748,11 +3802,31 @@
           [0, 1, 2, 3, 4].map(function (i) { return '<text x="' + (110 + i * 230) + '" y="785">' + (54 + i) + '°</text>'; }).join('') + '</g></svg>';
         return box;
       }
+      // (the clock's Background, 2026-10-31: the live sky alone, and a landscape -- behind the clock as chosen)
+      if (what === 'bg:skyonly') inner.style.background = 'linear-gradient(#1f4f8f,#5f9bd0 60%,#b9d9ef)';
+      if (what === 'bg:landscapes') { inner.style.background = 'center/cover url("/hk/landscapes/thumbs/01.webp"),#05070e'; }
+      if (what === 'bg:photos') return this.saverThumb(w, h, 'photos', cur);
+      if (what === 'bg:forecast') return this.saverThumb(w, h, 'forecast', cur);
+      // Big Weather: a picture of it, as the forecast's is (the face needs the weather's readings, not loaded here)
+      if (what === 'weather') {
+        inner.style.background = 'linear-gradient(#2f74ba,#4f93cf 60%,#a7d2ef)';
+        inner.innerHTML = '<svg viewBox="0 0 1180 820" width="1180" height="820" font-family="-apple-system,system-ui,sans-serif" fill="#fff">' +
+          '<path d="M0 640C260 560 420 600 620 560S980 520 1180 580V820H0z" fill="#4f7a55"/>' +
+          '<text x="60" y="80" font-size="34" font-weight="600">Sunny</text><text x="1120" y="94" font-size="44" font-weight="600" text-anchor="end">9:41</text>' +
+          '<text x="40" y="520" font-size="400" font-weight="600" letter-spacing="-20" opacity=".92">64°</text>' +
+          '<g font-size="40" font-weight="600" text-anchor="middle">' + [210, 470, 730, 990].map(function (x, i) { return '<text x="' + x + '" y="740">' + ['6:37', '10', '60%', '21'][i] + '</text>'; }).join('') + '</g></svg>';
+        return box;
+      }
       var tries = 0, draw = function () {
         if (!box.isConnected) { if (++tries < 20) requestAnimationFrame(draw); return; }
         var C = window.hkSaverClock, F = window.hkSaverFaces, o = cur || {};
         try {
-          if (/^clock/.test(what)) {
+          if (/^bg:/.test(what)) {
+            // the clock as chosen over each Background (the two pictures above: the clock over them, no ground)
+            var bgId = what.slice(3), own = bgId === 'skyonly' || bgId === 'landscapes';
+            C.mount(inner, { style: o.clock_style || 'classic', still: true, drift: false, h24: !!o.clock_24, bg: own ? 'none' : bgId, speed: 0,
+                             ground: !own, scrim: false, color: (o.clock_colors || {})[o.clock_style || 'classic'] || '', client: self.client });
+          } else if (/^clock/.test(what)) {
             var style = what.indexOf(':') > 0 ? what.split(':')[1] : (o.clock_style || 'classic');
             C.mount(inner, { style: style, still: true, drift: false, h24: !!o.clock_24, bg: 'gradient', speed: 0,
                              color: (o.clock_colors || {})[style] || '', client: self.client });
@@ -3810,7 +3884,8 @@
       if (show === 'day') {
         c.appendChild(K.group({ header: 'Day', footer: 'By Time of Day: light from 7 in the morning, dark from 7 in the evening. The art is HK’s own, as the sky’s: a birthday from Seasonal Sky, ' +
             'Halloween, Christmas, Valentine’s Day and the Fourth in their weeks, and otherwise the season’s leaves, blossom, snow or butterflies.' }, [
-          K.seg({ label: 'Look', sk: 'saver:day_look', value: cur.day_look || 'auto', stack: !wide, options: M.DAY_LOOKS,
+          K.previewPick({ label: 'Look', sk: 'saver:day_look', value: cur.day_look || 'auto', options: M.DAY_LOOKS,
+                  picture: function (v, w, ht) { return self.saverThumb(w, ht, 'day', Object.assign({}, cur, { day_look: v })); },
                   onChange: function (v) { put('day_look', v); } })]));
       }
       c.appendChild(K.group({ header: 'Clock', footer: show === 'day' ? 'The Day face has no clock of its own: the corner clock (below) tells the time.'
@@ -3921,8 +3996,9 @@
                 onChange: function (v) { put('show', v === 'forecast' || v === 'clock' ? v : 'photos'); } })
       ]).concat(fc ? [] : [tog('Forecast When There Are No Photos', 'fallback')],
                // THE FORECAST'S LAYOUT (2026-10-30): Classic (the details along the bottom) or Big (Big Weather)
-               fxKnown && (fc || both || cur.fallback) ? [K.seg({ label: 'Forecast Layout', sk: 'saver:forecast_layout', value: big ? 'big' : 'classic',
-                 options: M.FORECAST_LAYOUTS, onChange: function (v) { put('forecast_layout', v); } })] : [],
+               fxKnown && (fc || both || cur.fallback) ? [K.previewPick({ label: 'Forecast Layout', sk: 'saver:forecast_layout', value: big ? 'big' : 'classic',
+                 options: M.FORECAST_LAYOUTS, picture: function (v, w, ht) { return self.saverThumb(w, ht, v === 'big' ? 'weather' : 'forecast', cur); },
+                 onChange: function (v) { put('forecast_layout', v); } })] : [],
                // the details ON the forecast, wherever a forecast can show
                (fc || both || cur.fallback) && !big ? [tog('Details on the Forecast', 'band',
                  'On the forecast: today, the next hours and the coming days along the bottom. Off: the sky and the landscape alone.')] : [])));
@@ -4247,8 +4323,10 @@
         K.nav({ label: 'Style', value: styleName, href: styleHref, sk: 'saver:clock_style' }),
         self.clockColorRow(cur, put),
         tog('24-Hour Time', 'clock_24')].concat(self.clockNightRows(cur, put)).filter(Boolean)));
-      var brows = [K.select({ label: 'Background', sk: 'saver:clock_bg', value: bg,
-        options: M.CLOCK_BGS.map(function (x) { return [x[0], x[1]]; }),
+      // (each a small picture of the clock over it, 2026-10-31: the owner's "mini image previews")
+      var brows = [K.previewPick({ label: 'Background', sk: 'saver:clock_bg', value: bg,
+        options: M.CLOCK_BGS.map(function (x) { return [x[0], x[1], x[3]]; }),
+        picture: function (v, w, ht) { return self.saverThumb(w, ht, 'bg:' + v, cur); },
         onChange: function (v) { put('clock_bg', v); } })];
       // SPEED AND DEPTH (2026-10-13): every background moves but Black --
       // how fast (0: still, for a tablet that runs warm) and how strong
@@ -6456,7 +6534,8 @@
       // Backdrop, and the stars still showed through.
       var mode = sky.background || 'live';
       c.appendChild(K.group({ footer: M.BG_SAYS[mode] + ' Each screen, and each page, can choose its own.' }, [
-        K.seg({ label: 'Background', sk: 'sky.background', value: mode, options: M.SKY_BACKGROUNDS, stack: !this.hasAttribute('wide'),
+        K.previewPick({ label: 'Background', sk: 'sky.background', value: mode, options: M.SKY_BACKGROUNDS,
+                picture: function (v, w, ht) { return self.bgKindThumb(v, w, ht, sky.wallpaper); },
                 onChange: function (v) { self.setH({ 'sky.background': v }); } })]));
       if (mode === 'color') {
         this.colorGroup(c, { id: sky.color || 'midnight', custom: sky.gradient_custom, fk: 'hcolor:',
@@ -6607,6 +6686,22 @@
         }).catch(function () { self._landAsk = false; });
       }
       return null;
+    }
+    // THE BACKGROUND'S KINDS, SMALL (2026-10-31; its previewPick): Live Sky the sun over a hill under a day's sky,
+    // Color a still evening's colors (Flat's, `solid`: its one color), Photo a photo of your own (a picture of
+    // one), Landscapes the first, and Wallpaper the one chosen (`wall`) -- drawn as pictures, nothing live
+    bgKindThumb(kind, w, ht, wall, solid) {
+      var el = document.createElement('span');
+      el.style.cssText = 'display:block;width:' + w + 'px;height:' + ht + 'px;background-position:center;background-size:cover';
+      var W = window.hkWallpapers, wurl = kind === 'wallpaper' && W && W.url ? W.url(wall || 'ribbons_rose', false) : null;
+      if (kind === 'live') el.innerHTML = '<svg viewBox="0 0 88 61" width="100%" height="100%" preserveAspectRatio="none"><defs><linearGradient id="bk-l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f86d0"/><stop offset="1" stop-color="#bfe0f5"/></linearGradient></defs><rect width="88" height="61" fill="url(#bk-l)"/><circle cx="64" cy="18" r="7" fill="#fff6cf"/><path d="M0 48C20 38 36 42 52 40S76 36 88 42V61H0z" fill="#5d8a5f"/></svg>';
+      else if (kind === 'color') el.style.background = 'linear-gradient(#1b2350,#5a3a78 55%,#d9826b)';
+      else if (kind === 'solid') el.style.background = solid || '#24252A';
+      else if (kind === 'photo') el.innerHTML = '<svg viewBox="0 0 88 61" width="100%" height="100%" preserveAspectRatio="none"><rect width="88" height="61" fill="#d9c4a5"/><circle cx="30" cy="22" r="9" fill="#8a5a3c"/><path d="M14 61c2-16 10-24 16-24s14 8 16 24z" fill="#365f8a"/><circle cx="60" cy="25" r="8" fill="#c99a76"/><path d="M45 61c2-14 9-21 15-21s13 7 15 21z" fill="#b04a4a"/></svg>';
+      else if (kind === 'landscapes') el.style.backgroundImage = 'url("/hk/landscapes/thumbs/01.webp")';
+      else if (wurl) el.style.backgroundImage = 'url("' + wurl + '")';
+      else el.style.background = 'linear-gradient(160deg,#c45a7c,#6a3d8f)';
+      return el;
     }
     // a landscape's picture: its small copy (`thumb`) for the grid, else the photo
     landSrc(p, big) {
@@ -7056,8 +7151,8 @@
       var pageScreen = !!(pk.only && pk.only.keys.length), legacyOff = b.sky === false;
       if (!pageScreen) {
         var ownMode = legacyOff ? 'color' : b.sky_background, hMode = sky.background || 'live', mode = ownMode || hMode;
-        var bgRows = [K.seg({ label: 'Background', sub: ownMode ? 'Just This Screen' : 'Same as All Screens', sk: 'b:sky_background', value: mode,
-          options: M.SKY_BACKGROUNDS, stack: !this.hasAttribute('wide'), onChange: function (v) {
+        var bgRows = [K.previewPick({ label: 'Background', sub: ownMode ? 'Just This Screen' : 'Same as All Screens', sk: 'b:sky_background', value: mode,
+          options: M.SKY_BACKGROUNDS, picture: function (v, w, ht) { return self.bgKindThumb(v, w, ht, b.sky_wallpaper || sky.wallpaper); }, onChange: function (v) {
             var ch = { sky_background: v, sky: true };
             if (legacyOff && v === 'color' && !b.sky_color) ch.sky_color = 'black';
             self.setB(x.path, ch);
@@ -7623,8 +7718,10 @@
     flatSky(c, x, b, base) {
       var self = this, sky = this.data.settings.sky, theme = this.flatTheme(b), put = this.flatPut(x, b);
       var hMode = sky.flat_background || 'color', own = b ? b.sky_flat_background : null, mode = own || hMode;
-      var bgRows = [K.seg({ label: 'Background', sub: b ? (own ? 'Just This Screen' : 'Same as All Screens') : null, sk: b ? 'b:sky_flat_background' : 'sky.flat_background',
-        value: mode, options: [['color', 'Color'], ['photo', 'Photo'], ['landscapes', 'Landscapes']], stack: !this.hasAttribute('wide'),
+      var bgRows = [K.previewPick({ label: 'Background', sub: b ? (own ? 'Just This Screen' : 'Same as All Screens') : null, sk: b ? 'b:sky_flat_background' : 'sky.flat_background',
+        value: mode, options: [['color', 'Color'], ['photo', 'Photo'], ['landscapes', 'Landscapes']],
+        // (Flat's Color: one solid color, its theme's ground)
+        picture: function (v, w, ht) { return self.bgKindThumb(v === 'color' ? 'solid' : v, w, ht, null, theme === 'light' ? '#ECEAE5' : '#24252A'); },
         onChange: function (v) { put({ sky_flat_background: v }); } })];
       if (own) bgRows.push(K.button({ label: 'Reset to All Screens (' + M.BG_LABELS[hMode] + ')', sk: 'b:sky_flat_background:reset',
                                       onClick: function () { put({ sky_flat_background: null }); } }));

@@ -30,12 +30,20 @@ SHOWS = {
     'saver-day': ({'show': 'day', 'day_look': 'dark'}, 'day'),
     'saver-bigweather': ({'show': 'forecast', 'forecast_layout': 'big'}, 'big'),
     'saver-forecast': ({'show': 'forecast'}, None),
-    # Photos with Time Behind (2026-10-30): the weather under the time, centred, never beside it
+    # Photos with Time Behind (2026-10-31): the weather in the upper-left corner, as on Clock, clear of the time
     'saver-timebehind': ({'show': 'photos', 'time_behind': True, 'photo_titles': True}, 'tb'),
     # 26 (2026-10-30): the photo options where they apply -- Clock on sharp photos offers Time Behind and draws it;
     # on Soft photos neither (left on from Photos, it couldn't be turned off from Clock)
     'saver-clockphotos': ({'show': 'clock', 'clock_bg': 'photos', 'time_behind': True}, 'clock-tb'),
     'saver-clocksoft': ({'show': 'clock', 'clock_bg': 'photos', 'clock_photo_soft': True, 'time_behind': True}, 'clock-soft'),
+    # 2026-10-31: the light Day face's corners in dark ink (they were white on its near-white page), at a tablet and a
+    # phone; Big Weather's corners never on its own words -- Home Status under its time, what plays on its bottom row
+    # beside the readings, the same margin each side -- held sideways, upright and on a phone
+    'saver-daylight': ({'show': 'day', 'day_look': 'light'}, 'day-ink'),
+    'saver-bigcorners': ({'show': 'forecast', 'forecast_layout': 'big'}, 'big-corners'),
+    # Settings' preview, just what is changing (2026-10-31): the screensaver alone in the frame on its pages, a change
+    # shown in place, the screen again once they are left
+    'saver-preview': ({'show': 'clock', 'clock_bg': 'gradient', 'clock_style': 'classic'}, 'preview'),
 }
 
 
@@ -69,6 +77,10 @@ async def photos_for(server, cookie, screens):
 
 async def main():
     from aiohttp.test_utils import TestServer
+    # (something for Home Status to say: the back door unlocked, the house's locks and alarm the status is made of)
+    gallery.HOUSE['lock.back_door'] = ('kitchen', ('unlocked', {'friendly_name': 'Back Door'}))
+    gallery.SETTINGS['settings']['security'] = {'alarm': 'alarm_control_panel.home', 'locks': ['lock.front_door', 'lock.back_door'],
+                                                'doors': [], 'windows': [], 'garage': []}
     for name, (opts, _) in SHOWS.items():
         gallery.SETTINGS['boards'][name] = {'title': name, 'pages': [], 'headers': {'home': True}, 'menu_custom': True, 'menu': 'tabbar',
                                             'screensaver': True, 'screensaver_options': opts}

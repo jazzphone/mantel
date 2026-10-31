@@ -71,6 +71,8 @@ export const host = {
   title: 'Mantel Settings',
   get house() { return manages(); },
   get screenBase() { return BASE; },
+  // a screen's page of only its screensaver (home.js ?hk_preview=saver): the panel's screensaver preview shows that
+  saverPage: true,
   get back() { return { label: 'Dashboard', href: mantelUrl('/home') }; },
   notes: NOTES,
   gridHistory(path, panel) { return panel.client.callWS({ type: 'mantel/settings/history', scope: 'board', key: path, bodies: true, limit: 100 }); },

@@ -121,6 +121,41 @@ F.KINDS.forEach(function (kind) {
     var has = walk(l.children[0]).some(function (e) { return e.className === 'ckbg'; }); c2.destroy(); return has; })(), false);
 })();
 
+print('=== the faces’ grounds, the Day face moving, Big Weather beside the music ===');
+// THE INK ON EACH FACE (2026-10-31, the owner: the corners white on the light Day face): by its ground's luminance
+var noon = new Date(2026, 9, 31, 8, 11), late = new Date(2026, 9, 31, 21, 0);
+ok('the grounds’ luminance: Day light and Month light, Glance and Day dark not', [FU.luminance('#eceae5') > 0.6, FU.luminance('#f7f5f2') > 0.6, FU.luminance('#a9bcc6') < 0.6, FU.luminance('#16171b') < 0.1], [true, true, true, true]);
+ok('dark ink on Day (light, and By Time of Day in the morning) and Month; light on the rest',
+   [FU.inkFor('day', 'light', late), FU.inkFor('day', 'auto', noon), FU.inkFor('day', 'auto', late), FU.inkFor('day', 'dark', noon), FU.inkFor('month', 'auto', noon), FU.inkFor('glance', 'auto', noon), FU.inkFor('weather', 'auto', noon)],
+   ['dark', 'dark', 'light', 'light', 'dark', 'light', 'light']);
+ok('...and an odd colour reads as dark (white ink)', [FU.inkOn(null), FU.inkOn('red'), FU.luminance('#ffffff'), FU.luminance('#000000')], ['light', 'light', 1, 0]);
+// THE DAY FACE MOVING: bats drift, leaves rock, the moon rises a little, the web holds still -- not under Flat or a still preview
+ok('how each picture moves', ['bat1.webp', 'moon-hallow.webp', 'leaf-oak-f.webp', 'web.webp', 'sp-petal.webp'].map(FU.motionOf), ['bat', 'moon', 'leaf', '', 'drift']);
+ok('the moving face’s rules: slow (a bat a 17 s loop, the moon 24), out of step, none under Reduce Motion',
+   [/\.hkf\.day\.live \.art \.bat\{animation:hkf-bat 17s/.test(FU.CSS), /hkf-moon 24s/.test(FU.CSS), FU.CSS.indexOf('animation-delay:var(--k,0s)') >= 0,
+    FU.CSS.indexOf('@media (prefers-reduced-motion:reduce){.hkf.day.live .art > *{animation:none}}') >= 0], [true, true, true, true]);
+(function () {
+  var mk = function (o) { var l = document.createElement('div'); var c = F.mount(l, Object.assign({ kind: 'day', look: 'light', still: false }, o)); var r = l.children[0]; var cls = r.className; var arts = walk(r).filter(function (e) { return /\b(bat|leaf|moon|drift)\b/.test(e.className || ''); }).length; c.destroy(); return [cls, arts]; };
+  var saved = window.hkSettings;
+  window.hkSettings = { rendering: function () { return { flat: false }; }, get: function (k, d) { return d; } };
+  var live = mk({});
+  ok('the Day face moves: .live', /\blive\b/.test(live[0]), true);
+  ok('...a still preview doesn’t', /\blive\b/.test(mk({ still: true })[0]), false);
+  window.hkSettings = { rendering: function () { return { flat: true }; }, get: function (k, d) { return d; } };
+  ok('...nor under Flat', /\blive\b/.test(mk({})[0]), false);
+  window.hkSettings = saved;
+  ok('...and only the Day face', (function () { var l = document.createElement('div'); var c = F.mount(l, { kind: 'month' }); var k = l.children[0].className; c.destroy(); return /\blive\b/.test(k); })(), false);
+})();
+// BIG WEATHER WHILE MUSIC PLAYS (2026-10-31): .np, so held sideways its readings move over beside the music
+(function () {
+  var l = document.createElement('div'), c = F.mount(l, { kind: 'weather', client: { states: STATES, config: {} } });
+  var on = /\bnp\b/.test(l.children[0].className);
+  var quiet = {}; Object.keys(STATES).forEach(function (k) { if (k.indexOf('media_player.') !== 0) quiet[k] = STATES[k]; });
+  c.setClient({ states: quiet, config: {} });
+  ok('Big Weather knows when music plays, and when it stops', [on, /\bnp\b/.test(l.children[0].className)], [true, false]);
+  c.destroy();
+})();
+
 print('=== hk-saver.js: the options, the cut-out, the time’s place ===');
 // the page's few pieces hk-saver.js reads at load
 location.pathname = '/dashboard-kitchen/0';
@@ -149,12 +184,40 @@ ok('...and a whole one, letterboxed', U.drawnRect(2000, 3000, 1180, 820, 'contai
 ok('the figures upper centre: the same box whatever the photo', U.glyphBox(1180, 820, '10:42').map(function (v) { return Math.round(v); }), [332, 93, 516, 142]);
 ok('...on a portrait tablet and a phone, from the shorter side', [U.glyphBox(820, 1180, '10:42'), U.glyphBox(390, 844, '9:05')].map(function (b) { return b.map(function (v) { return Math.round(v); }); }),
    [[152, 115, 516, 142], [100, 72, 191, 67]]);
-ok('where the time ends (the weather under it)', [Math.round(U.timeFoot(1180, 820)), Math.round(U.timeFoot(390, 844))], [279, 160]);
+// WHERE THE REST OF THE CORNER GOES (2026-10-31, the owner: "why did the weather leave the upper-left corner?"): the
+// corner clock steps aside for the photo's time, and the weather keeps the corner -- no rule moves the corner itself
+var TBQ = ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide]))';
+ok('Time Behind: the corner clock steps aside', U.CSS.indexOf(TBQ + ' .info > hk-clock-card{display:none}') >= 0, true);
+ok('...and the weather keeps the corner (no rule places the corner under the time)', [U.CSS.indexOf(TBQ + ' .info{'), U.CSS.indexOf('--hk-tb-foot'), U.CSS.indexOf("[tb][pane]")], [-1, -1, -1]);
+// A LIGHT FACE'S CORNERS (2026-10-31): the ink the corner cards draw with goes dark, not only the box's colour
+ok('a light face: the corners’ ink dark, their glow gone', /:host\(\[ckface\]\[cklight\]:not\(\[cknight\]\)\) \.info\{[^}]*--hk-ink:#1c1c1e[^}]*--hk-glow:none[^}]*--hk-ss-ink:#1c1c1e[^}]*--hk-ss-glow:none/.test(U.CSS), true);
+// BIG WEATHER'S CORNERS (2026-10-31, the owner: "Disarmed" over its time): Home Status under the time, the music beside the readings
+ok('Big Weather: Home Status under its time, at its edge, at the readings’ sizes', U.CSS.indexOf(':host([fcbig][forecast]:not([pane])) .info,:host([fcbig][fcslide]:not([pane])) .info{--hk-ss-status-top:13.1vmin;--hk-ss-status-right:7.3vmin;\n  --hk-ss-status-width:calc(100vw - 44.6vmin);--hk-ss-status-l1:3.7vmin;--hk-ss-status-l2:2.9vmin;') >= 0, true);
+ok('...the music on the face’s bottom row, to its numbers: its margins, a reading’s height, the readings’ sizes',
+   U.CSS.indexOf('--hk-ss-now-left:7.3vmin;--hk-ss-now-bottom:6.1vmin;--hk-ss-np-art:14vmin;--hk-ss-np-title:3.7vmin;--hk-ss-np-artist:2.9vmin;--hk-ss-np-gap:2.4vmin;') >= 0, true);
+ok('...the row split at 40 % held sideways; upright, a row above the readings', [FU.CSS.indexOf('.hkf.weather.np .rd{left:calc(40cqw + 2.4cqmin);display:flex;justify-content:flex-end;gap:9.8cqmin}') >= 0, U.CSS.indexOf('--hk-ss-now-bottom:calc(6.1vmin + 32vmin + 4vmin)') >= 0, FU.CSS.indexOf('.hkf.weather .rd > div{height:14cqmin;') >= 0], [true, true, true]);
+ok('Month: no corner weather over its top line, Home Status under it', [U.CSS.indexOf(':host([ckface=month]) .info hk-weather-strip-card{display:none}') >= 0, /:host\(\[ckface=month\]:not\(\[pane\]\)\) \.info\{--hk-ss-status-top/.test(U.CSS)], [true, true]);
+// CLOCK ON PHOTOS WITH TIME BEHIND (2026-10-31, the owner: "the clock is dim"): the time over the photos' dark wash
+// (.ph::after, z-index 2), and the cut-out over it darkened as much as the wash darkens the photo
+ok('the dark wash over the photos is a layer of its own', /:host\(\[ckphotos\]\) \.ph::after\{[^}]*z-index:2/.test(U.CSS), true);
+ok('...the time and the titles over it', U.CSS.indexOf(':host([ckphotos]) .ph .tb,:host([ckphotos]) .ph .ttl{z-index:3}') >= 0, true);
+ok('...the subject over the time as dark as the photo under the wash', U.CSS.indexOf(':host([ckphotos]) .ph .tb img.tbcut{filter:brightness(calc(1 - var(--hk-ckdim,.35)))}') >= 0, true);
 // HOW MUCH THE SUBJECT COVERS: the share of the mask at half or more; behind only from 5 % to 35 %
 var px = function (on, n) { var a = []; for (var i = 0; i < n; i++) a.push(0, 0, 0, i < on ? 255 : 0); return a; };
 ok('the share of the figures the subject covers', [U.coverShare(px(0, 100)), U.coverShare(px(20, 100)), U.coverShare(px(100, 100)), U.coverShare([])], [0, 0.2, 1, 0]);
 ok('behind from 5 % to 35 %: none, a little, some, too much, unread', [0, 0.04, 0.05, 0.2, 0.35, 0.36, 0.9, null].map(U.behindAt),
    [false, false, true, true, true, false, false, false]);
+
+// SETTINGS' OPTIONS, AS THEY CHANGE (2026-10-31): the preview's block is made from the options the page hands it
+// (hkSaver.preview's `over`), on this screen's settings -- the screensaver on whatever the screen says
+(function () {
+  var made = [], HS0 = window.hkSettings, ST0 = window.hkStrategy;
+  window.hkSettings = { get: function (k, d) { return k === 'boards' ? { 'dashboard-kitchen': { title: 'Kitchen', screensaver: false, screensaver_options: { show: 'photos' } } } : k === 'look.saver' ? { show: 'forecast' } : d; } };
+  window.hkStrategy = { saverBlock: function (c, b) { made.push([b.title, b.screensaver, b.screensaver_options.show]); return { show: b.screensaver_options.show }; } };
+  ok('the options handed over make the block, on this screen, the screensaver on', [U.houseBlock({ show: 'day' }), made[0]], [{ show: 'day' }, ['Kitchen', true, 'day']]);
+  ok('...none handed over: All Screens’ (the house preview)', U.houseBlock().show, 'forecast');
+  window.hkSettings = HS0; window.hkStrategy = ST0;
+})();
 
 print('=== Photo Titles and Time Behind on a photo ===');
 // a photo's layer, as hk-saver.js builds it (the photo, its scrim)
