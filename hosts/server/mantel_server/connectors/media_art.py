@@ -19,6 +19,11 @@ asks ``?s=<px>`` gets the picture scaled to the next size bucket (150, 300, 600,
 megabytes; without ``s`` the picture comes through as it always did. The key of the kept copy is the player's own
 artwork address as HA last gave it (never the page's ``v``), so an old ``v`` can't keep an old cover.
 
+**A Music Assistant speaker's cover** (music_states.py, 2026-10-31): while Music Assistant is connected to Mantel, a
+speaker's state is Music Assistant's and its ``entity_picture_local`` is already this route; the route then fetches
+Music Assistant's own image for it (its image proxy on the home network, or the provider's CDN), scaled as below, and
+never asks Home Assistant -- so the covers stay while HA restarts. ``view`` on the player decides, as for HA's.
+
 **Remote covers** -- Music Assistant names most artwork by its original address (Apple's CDN, MA's own image
 proxy): ``GET /api/media/art?e=<base64url address>&s=<px>`` fetches it here (the internet, or on the home
 network only Music Assistant's ``/imageproxy/``; every redirect checked again: hk_core/art/fetch.py), scales it
@@ -73,9 +78,12 @@ def shape(entity_id: str, state: dict, base: str = "") -> dict:
         return state
     attrs = state.get("a") or {}
     hit = [k for k in PICTURE_ATTRS if isinstance(attrs.get(k), str) and attrs[k].startswith(HA_PROXY)]
-    if not hit:
+    own = [k for k in PICTURE_ATTRS if base and isinstance(attrs.get(k), str) and attrs[k].startswith(art_url(entity_id))]
+    if not hit and not own:
         return state
     out = dict(attrs)
+    for k in own:          # already Mantel's own route (music_states.py: a Music Assistant speaker): the page's prefix
+        out[k] = base + attrs[k]
     for k in hit:
         out[k] = art_url(entity_id, base, camera_still.version_of(attrs[k])) if PLAYER_ID.match(entity_id) else None
     return {**state, "a": out}
@@ -191,9 +199,13 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
             return camera_still._error(404, "unknown_player")
         if set(request.query) - {"v", "s", "_hk"}:
             return camera_still._error(400, "bad_query")
+        size = size_of(request)
+        music = request.app.get("music")
+        states = getattr(music, "states", None)
+        if states is not None and states.owns(entity_id):
+            return await from_music_assistant(request, entity_id, states.image(entity_id), size)
         cfg = request.app["cfg"]
         url = f"{cfg.ha_url.rstrip('/')}{HA_PROXY}{entity_id}"
-        size = size_of(request)
         own = _own_picture(hub.store.states.get(entity_id))
         if size is None or size == 0 or own is None:        # no size asked for: through, as it always was
             resp = await camera_still.proxy_image(request, url, {}, get_token(), f"artwork for {entity_id}",
@@ -222,6 +234,28 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
         stats["served"] += 1
         stats["scaled"] += 1
         return _scaled(body, ctype)
+
+    async def from_music_assistant(request: web.Request, entity_id: str, address: str | None,
+                                   size: int | None) -> web.StreamResponse:
+        """A Music Assistant speaker's cover, from Music Assistant (the overlay's ``entity_picture``)."""
+        stats = request.app["media_art"]
+        if not address or not art_fetch.is_remote(address):
+            return camera_still._error(404, "no_artwork")
+        size = 1000 if not size else size
+        try:
+            got = await scaled.once((address, size), lambda: art_fetch.async_fetch(
+                address, size, scaled.cache, web_session(), scaled.resolve, scaled.run))
+        except art_resize.Refused as exc:
+            log.info("artwork for %s refused: %s", entity_id, exc)
+            return camera_still._error(415, "artwork_unsupported")
+        except Exception as exc:  # noqa: BLE001 -- Music Assistant away: no picture, never a 500
+            log.info("artwork for %s unavailable: %s", entity_id, type(exc).__name__)
+            return camera_still._error(502, "artwork_unavailable")
+        if got is None:
+            return camera_still._error(404, "no_artwork")
+        stats["served"] += 1
+        stats["scaled"] += 1
+        return _scaled(*got)
 
     @guard("signed_in")          # any session; feature:media decides, as for the screensaver's photos
     async def remote(request: web.Request) -> web.StreamResponse:

@@ -16,8 +16,10 @@ passes through Mantel when a screen shows a camera.
 - **Music Assistant**, version 2.7 or later for the sign-in below (or any
   version with a long-lived token).
 - Home Assistant's **Music Assistant** integration, with its players in Home
-  Assistant. Mantel reads the speakers, their rooms and their state from Home
-  Assistant, and sends the music commands to Music Assistant itself.
+  Assistant. Mantel takes each speaker's name and room from Home Assistant.
+  Everything else (what plays, the volume, the groups, the covers, the queue,
+  Browse, search and every command) comes from Music Assistant itself, so the
+  music keeps working while Home Assistant restarts.
 - Each speaker in a Home Assistant **area**, as HK Frontend's
   [Music](https://github.com/jazzphone/hk-frontend/wiki/Music) page needs.
 
@@ -133,8 +135,18 @@ token. Each signed-in page is written to the Audit Log when it opens.
   the Music page may briefly show it as what is playing.
 - **Failure notices** (a group that would not form, a playlist that did not
   start) are logged by Mantel, not raised as Home Assistant notifications.
-- Opening an album's tracks, an artist's albums or a search still reads
-  through Home Assistant's Music Assistant integration.
+
+### While Home Assistant restarts
+
+With Music Assistant connected, the Music page, the Now Playing card, the Side
+Pane and the screensaver keep showing what plays and its cover, and every
+button keeps working, while Home Assistant is restarting or away. Mantel reads
+each speaker's state from Music Assistant directly, in the same form Home
+Assistant gives it.
+
+If Music Assistant itself is away for more than a minute, its speakers show as
+unavailable until it is back. A speaker added to Music Assistant appears once
+Home Assistant has it too (its name and room come from there).
 
 ## Cameras
 

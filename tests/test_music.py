@@ -100,6 +100,12 @@ class Env(GF.Env):
 
     async def connected(self):
         await wait_for(lambda: self.app["ma"].connected.is_set())
+        await wait_for(lambda: self.app["music"].states.on)
+
+    async def playing(self, entity, s="playing", **attrs):
+        """A speaker plays in Music Assistant, and Mantel's state for it says so."""
+        await self.ma.set(entity, s, **attrs)
+        await wait_for(lambda: self.app["hub"].store.states[entity]["s"] == s)
 
     def link(self, username: str, ha_user_id: str) -> str:
         db = self.app["accounts"].db
@@ -325,7 +331,7 @@ async def test_the_queue_and_the_library_come_from_music_assistant(off):
     lib = (await off.read(ws, {"type": "hk_music/settings/library"}, rid=51))["result"]
     assert lib == {"items": [{"uri": "library://playlist/1", "name": "Morning Mix"},
                              {"uri": "library://playlist/2", "name": "Evening"}]}
-    reads = [(f["command"], f["args"]) for f in off.ma.frames if f["command"] != "auth"]
+    reads = [(f["command"], f["args"]) for f in off.ma.frames if f["command"] not in {"auth", *MF.OVERLAY_READS}]
     assert reads == [("player_queues/get_active_queue", {"player_id": "ma-kitchen"}),
                      ("player_queues/items", {"queue_id": "ma-kitchen", "limit": 5, "offset": 2}),
                      ("music/playlists/library_items", {"limit": 500, "order_by": "name"})]
@@ -529,9 +535,8 @@ async def test_a_playlist_gone_from_the_library_is_refused_not_played(on):
 
 async def test_transfer_stop_transport_browse_and_queue_play(on):
     hub = on.app["hub"]
-    hub.store.apply_event({"c": {"media_player.kitchen_ma": {"+": {"s": "playing", "a": {
-        "media_content_id": "library://playlist/1", "volume_level": 0.5}}}}})
     await on.connected()
+    await on.playing("media_player.kitchen_ma", media_content_id="library://playlist/1", volume_level=0.5)
     await on.login("jamie", "adult")
     ws = await on.socket()
     svc = lambda s, **d: {"kind": "service", "domain": "hk_frontend", "service": s, "data": d,   # noqa: E731
@@ -677,7 +682,7 @@ async def test_keep_playlists_ready_uses_server_only_reads(off):
     w.sleep = lambda s: asyncio.sleep(0)
     assert w.on is False
     delay = await w.round()
-    sent = [(f["command"], f["args"]) for f in off.ma.frames if f["command"] != "auth"]
+    sent = [(f["command"], f["args"]) for f in off.ma.frames if f["command"] not in {"auth", *MF.OVERLAY_READS}]
     assert sent[0][0] == "music/recently_played_items" and "played_after_timestamp" in sent[0][1]
     assert ("music/playlists/library_items", {"limit": 1000}) in sent
     assert ("music/playlists/playlist_tracks", {"item_id": "1", "provider_instance_id_or_domain": "library",
@@ -716,7 +721,8 @@ async def test_status_is_owner_or_admin(off):
 
 def test_every_music_read_route_has_one_rule():
     assert set(M.ROUTE_RULES) == {"hk_music/subscribe", "hk_music/queue", "hk_music/settings/library",
-                                  "music_assistant/get_library", "media_player/browse_media"}
+                                  "music_assistant/get_library", "media_player/browse_media",
+                                  "media_player/search_media", "music_assistant/get_queue", "music_assistant/search"}
     from mantel_server import feature_pages as FP
     assert FP.PAGE_READS["hk_music/settings/get"] == "music"        # one path: feature_pages, MusicHost.page when on
     assert M.MUSIC_WS <= set(json.loads(open(
@@ -810,10 +816,10 @@ def test_a_proxy_id_that_is_not_one_is_not_used():
     assert M._library_image(dict(art, proxy_id="AB" * 32)) == f"/ma/imageproxy/{'ab' * 32}?size=256"
 
 
-# ------------------------------------------------------------------------------- Browse: a playlist HA cannot open
-def browse(cid, ctype="music"):
-    return {"type": "media_player/browse_media", "entity_id": "media_player.kitchen_ma",
-            "media_content_id": cid, "media_content_type": ctype}
+# ------------------------------------------------------------------------- Browse's tree: Music Assistant's, not HA's
+def browse(cid, ctype="music", entity="media_player.kitchen_ma"):
+    return {"type": "media_player/browse_media", "entity_id": entity, "media_content_id": cid,
+            "media_content_type": ctype}
 
 
 def ha_browse(env, answer):
@@ -833,9 +839,76 @@ def tracks_reads(env):
     return [f["args"] for f in env.ma.frames if f["command"] == "music/playlists/playlist_tracks"]
 
 
+PROXY_THUMB = f"http://ma.fake.test:8095/imageproxy/{MF.PROXY_ID}?size=256"
+
+
+async def test_browse_is_answered_from_music_assistant_in_has_shape_and_ha_is_never_asked(off):
+    await off.connected()
+    await off.login("jamie", "adult")
+    ws = await off.socket(expect_caps=False)
+    asked = ha_browse(off, RuntimeError("HA must not be asked"))
+    root = (await off.read(ws, {"type": "media_player/browse_media", "entity_id": "media_player.kitchen_ma"}))["result"]
+    assert root["title"] == "Music Assistant" and root["can_expand"] and not root["can_play"]
+    assert [(c["media_content_id"], c["title"], c["children_media_class"]) for c in root["children"]] == [
+        ("artists", "Artists", "artist"), ("albums", "Albums", "album"), ("tracks", "Tracks", "track"),
+        ("playlists", "Playlists", "playlist"), ("radio", "Radio stations", "music"), ("podcasts", "Podcasts", "podcast"),
+        ("audiobooks", "Audiobooks", "directory")]
+    albums = (await off.read(ws, browse("albums", "music_assistant"), rid=51))["result"]
+    assert albums["media_content_type"] == "album" and albums["can_search"] is True and len(albums["children"]) == 5
+    c = albums["children"][2]
+    assert c == {"title": "Band - Album C", "media_class": "album", "media_content_type": "music",
+                 "media_content_id": "library://album/3", "children_media_class": None, "can_play": True,
+                 "can_expand": True, "can_search": True, "thumbnail": PROXY_THUMB, "not_shown": 0}
+    sent = [(f["command"], f["args"]) for f in off.ma.frames if f["command"].startswith("music/")]
+    assert sent[-1] == ("music/albums/library_items", {"limit": 500, "order_by": "sort_name"})
+    album = (await off.read(ws, browse("library://album/1", "album"), rid=52))["result"]
+    assert album["title"] == "Album A" and album["media_class"] == "album" and album["can_play"]
+    assert [t["title"] for t in album["children"]] == ["Band - Song 1", "Band - Song 2", "Band - Song 3"], \
+        "an unavailable song is left out, as HA does"
+    assert album["children"][0]["thumbnail"] == "https://img.example/1.jpg" and not album["children"][0]["can_expand"]
+    artist = (await off.read(ws, browse("library://artist/8", "artist"), rid=53))["result"]
+    assert artist["search_media_classes"] == ["album", "track"]
+    assert [a["media_content_id"] for a in artist["children"]] == ["library://album/2", "library://album/4"]
+    # a search result's catalog playlist opens through Music Assistant too
+    pl = (await off.read(ws, browse("apple_music://playlist/pl.fictional", "playlist"), rid=54))["result"]
+    assert pl["title"] == "Fictional Mix" and pl["children_media_class"] == "track"
+    assert tracks_reads(off) == [{"item_id": "pl.fictional", "provider_instance_id_or_domain": "apple_music"}]
+    got = await off.read(ws, browse("library://nothing/1"), rid=55)
+    assert got["error"]["code"] == "not_found"
+    assert asked == [] and off.ma.sent() == [] and off.audit() == []
+    await ws.close()
+
+
+async def test_search_is_answered_from_music_assistant(off):
+    await off.connected()
+    await off.login("jamie", "adult")
+    ws = await off.socket(expect_caps=False)
+    asked = ha_browse(off, RuntimeError("HA must not be asked"))
+    got = (await off.read(ws, {"type": "media_player/search_media", "entity_id": "media_player.kitchen_ma",
+                               "search_query": "song"}))["result"]
+    assert got["version"] == 1
+    assert [(r["media_class"], r["title"], r["can_expand"]) for r in got["result"]] == [
+        ("artist", "Band", True), ("album", "Band - Album A", True), ("track", "Band - Song 1", False),
+        ("track", "Band - Song 2", False), ("music", "Jazz FM", False)]
+    search = [f["args"] for f in off.ma.frames if f["command"] == "music/search"]
+    assert search == [{"search_query": "song", "limit": 5, "library_only": False,
+                       "media_types": ["artist", "album", "track", "playlist", "radio", "audiobook", "podcast"]}]
+    within = (await off.read(ws, {"type": "media_player/search_media", "entity_id": "media_player.kitchen_ma",
+                                  "search_query": "2", "media_content_id": "library://album/1"}, rid=51))["result"]
+    assert [r["title"] for r in within["result"]] == ["Band - Song 2"]
+    got = await off.read(ws, {"type": "media_player/search_media", "entity_id": "media_player.kitchen_ma",
+                              "search_query": "x", "media_filter_classes": ["episode"]}, rid=52)
+    assert got["result"] == {"version": 1, "result": []}
+    bad = await off.read(ws, {"type": "media_player/search_media", "entity_id": "media_player.kitchen_ma",
+                              "search_query": "x", "limit": 9}, rid=53)
+    assert bad["error"]["code"] == "not_allowed"
+    assert asked == []
+    await ws.close()
+
+
 async def test_a_saved_playlist_refused_for_sign_in_says_so_not_unknown_error(off):
-    # HA's music_assistant browse raises MA's LoginFailed as a bare unknown_error; Mantel asks MA once, and the
-    # page reads what to do. (Apple Music refuses the account's own playlists when its user token has expired.)
+    # Music Assistant's LoginFailed (Apple Music refuses the account's own playlists when its user token has expired):
+    # the page reads what to do, and the songs were read once, never forced
     await off.connected()
     await off.login("jamie", "adult")
     ws = await off.socket(expect_caps=False)
@@ -843,46 +916,50 @@ async def test_a_saved_playlist_refused_for_sign_in_says_so_not_unknown_error(of
     asked = ha_browse(off, RuntimeError("unknown_error"))
     got = await off.read(ws, browse("library://playlist/1"))
     assert got["error"] == {"code": "login_failed", "message": M.SIGN_IN_AGAIN}
-    assert len(asked) == 1 and asked[0]["media_content_id"] == "library://playlist/1"
     assert tracks_reads(off) == [{"item_id": "1", "provider_instance_id_or_domain": "library"}], "a read, never forced"
-    assert off.ma.sent() == [] and off.audit() == []
+    assert asked == [] and off.ma.sent() == [] and off.audit() == []
     await ws.close()
 
 
-async def test_a_search_results_playlist_opens_through_ha_and_music_assistant_is_not_asked(off):
+async def test_music_assistant_failing_a_browse_is_unavailable(off):
     await off.connected()
     await off.login("jamie", "adult")
     ws = await off.socket(expect_caps=False)
-    tree = {"title": "Fictional Mix", "media_content_id": "apple_music://playlist/pl.fictional", "children": []}
-    ha_browse(off, tree)
-    got = await off.read(ws, browse("apple_music://playlist/pl.fictional", "playlist"))
-    assert got["result"] == tree and tracks_reads(off) == []
+
+    async def broken(*_a, **_k):
+        raise RuntimeError("boom")
+    off.app["ma"].library = broken
+    got = await off.read(ws, browse("albums", "music_assistant"))
+    assert got["error"] == {"code": "unavailable", "message": "Music Assistant could not be read."}
     await ws.close()
 
 
-@pytest.mark.parametrize("cid", ["library://playlist/2", "library://album/1", "library://playlist/1/../x"])
-async def test_other_browse_failures_keep_has_error(off, cid):
+async def test_a_browse_on_a_speaker_one_may_not_see_asks_nothing(off):
+    await off.m.user("cody", "child")
+    uid = off.app["accounts"].db.execute("SELECT id FROM users WHERE username='cody'").fetchone()["id"]
+    off.app["rbac"].set_scopes("user", uid, ["cody_room"])
     await off.connected()
-    await off.login("jamie", "adult")
+    await off.login("cody", "child")
     ws = await off.socket(expect_caps=False)
-    ha_browse(off, RuntimeError("unknown_error"))
-    got = await off.read(ws, browse(cid))
-    assert got["error"] == {"code": "failed", "message": "unknown_error"}
-    # MA asked only about a playlist uri, and it read the songs fine: HA's error stands
-    assert tracks_reads(off) == ([{"item_id": "2", "provider_instance_id_or_domain": "library"}]
-                                 if cid == "library://playlist/2" else [])
-    await ws.close()
-
-
-async def test_a_refused_browse_is_not_diagnosed(off):
-    from mantel_server.connectors import Forbidden
-    await off.connected()
-    await off.login("jamie", "adult")
-    ws = await off.socket(expect_caps=False)
-    off.ma.signed_out.add(("library", "1"))
-    ha_browse(off, Forbidden("may not view media_player.kitchen_ma"))
+    n = len(off.ma.frames)
     got = await off.read(ws, browse("library://playlist/1"))
-    assert got["error"]["code"] == "forbidden" and tracks_reads(off) == []
+    assert got["error"]["code"] == "not_found" and off.ma.frames[n:] == []
+    got = await off.read(ws, {"type": "media_player/search_media", "entity_id": "media_player.kitchen_ma",
+                              "search_query": "x"}, rid=51)
+    assert got["error"]["code"] == "not_found" and off.ma.frames[n:] == []
+    await ws.close()
+
+
+async def test_ha_still_answers_a_media_source_id_and_a_player_that_is_not_music_assistants(off):
+    await off.connected()
+    await off.login("owner1", "owner")
+    ws = await off.socket(expect_caps=False)
+    tree = {"title": "My media", "children": []}
+    asked = ha_browse(off, tree)
+    got = await off.read(ws, browse("media-source://media_source/local/x", "music"))
+    assert got["result"] == tree
+    got = await off.read(ws, browse("", "music", entity="media_player.tv"), rid=51)
+    assert got["result"] == tree and [a["entity_id"] for a in asked] == ["media_player.kitchen_ma", "media_player.tv"]
     await ws.close()
 
 

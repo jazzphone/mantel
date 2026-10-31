@@ -5,8 +5,6 @@ its steps land). Every frame is recorded so tests can assert exactly what Mantel
 contacted; every name, id and token is fictional."""
 from __future__ import annotations
 
-import time
-
 from connector_fakes import FakeMa
 
 MA_ENTRY = "ma-entry-fictional"
@@ -122,9 +120,26 @@ DOC = {
 }
 
 
+# Music Assistant's own reads that Mantel makes to keep the speakers' states (music_states.py): not a request's
+OVERLAY_READS = frozenset({"players/all", "player_queues/all"})
+
+
+def ma_player(pid: str, entity: str) -> dict:
+    """A Music Assistant player (to_dict shape) as the house starts: idle, volume 20, its own queue."""
+    group = entity == "media_player.downstairs_ma"
+    return {"player_id": pid, "display_name": entity.split(".")[1].replace("_", " ").title(),
+            "type": "group" if group else "player", "available": True, "enabled": True, "powered": True,
+            "playback_state": "idle", "volume_level": 20, "group_volume": 20, "volume_muted": False,
+            "group_members": [], "synced_to": None, "active_source": pid, "current_media": None,
+            "supported_features": ["volume_set", "volume_mute", "pause"] + ([] if group else ["set_members"]),
+            "volume_control": "native", "mute_control": "native", "power_control": "none", "icon": "mdi-speaker",
+            "source_list": [{"id": pid, "name": "Music Assistant Queue", "passive": False}]}
+
+
 class HouseMa(FakeMa):
-    """FakeMa that knows the house: it answers the engine's reads and moves the players' HA states (through
-    ``hub.store`` + ``hub.ha.on_change``, as HA's subscribe_entities would) for each command."""
+    """FakeMa that knows the house: it answers the engine's reads and, for each command, changes its players the way
+    Music Assistant does and tells Mantel (``player_updated`` / ``queue_updated``), as the real one does -- so the
+    speakers' states Mantel shows (music_states.py) and the engine's waits follow Music Assistant, not HA."""
 
     def __init__(self, hub=None) -> None:
         super().__init__()
@@ -132,42 +147,105 @@ class HouseMa(FakeMa):
         self.react = True
         # (provider, item id) of playlists whose songs MA cannot read: the streaming service refused its sign-in
         self.signed_out: set[tuple[str, str]] = set()
-        # players/all's answer, when a test gives one (hk_core/music/groups.py: pairs, the presets' rooms)
-        self.players: list | None = None
+        self.model = {pid: ma_player(pid, e) for e, pid in PID.items()}
+        self.qs = {pid: {"queue_id": pid, "active": True, "shuffle_enabled": False, "repeat_mode": "off",
+                         "current_index": 2, "items": 9, "current_item": None} for pid in PID.values()}
+        self._players: list | None = None
+
+    # players/all's answer, when a test gives one (hk_core/music/groups.py: pairs, the presets' rooms): what it says
+    # about a player is that player's from then on
+    @property
+    def players(self):
+        return self._players
+
+    @players.setter
+    def players(self, value) -> None:
+        self._players = value
+        if isinstance(value, list):
+            for p in value:
+                self.model[p["player_id"]] = {**ma_player(p["player_id"], ENT.get(p["player_id"], "x.x")),
+                                              **self.model.get(p["player_id"], {}), **p}
+
+    def commands(self) -> list[str]:
+        return [c for c in super().commands() if c not in OVERLAY_READS]
 
     def sent(self, *, commands_only: bool = True) -> list[tuple[str, dict]]:
         out = []
         for f in self.frames:
             c = f.get("command")
+            if c in OVERLAY_READS:
+                continue
             if commands_only and not (c.startswith("players/cmd/") or c.startswith("player_queues/")
                                       and c not in ("player_queues/get_active_queue", "player_queues/items")):
                 continue
             out.append((c, f.get("args") or {}))
         return out
 
-    def _set(self, entity: str, s: str | None = None, **attrs) -> None:
-        if self.hub is None or not self.react:
+    async def set(self, entity: str, s: str | None = None, **attrs) -> None:
+        """A speaker changes in Music Assistant (HA's names for what changed: state, volume_level, media_content_id,
+        media_title, media_artist, shuffle, group_members as entity ids), and Mantel is told."""
+        if entity not in PID:
             return
-        plus: dict = {"lu": time.time()}
+        pid = PID[entity]
+        p = dict(self.model[pid])
+        q = dict(self.qs[pid])
         if s is not None:
-            plus["s"], plus["lc"] = s, time.time()
-        if attrs:
-            plus["a"] = attrs
-        changed = self.hub.store.apply_event({"c": {entity: {"+": plus}}})
-        self.hub.ha.on_change(changed)
+            p["playback_state"], p["powered"] = (s, True) if s != "off" else (p["playback_state"], False)
+        if "volume_level" in attrs:
+            p["volume_level"] = p["group_volume"] = round(attrs.pop("volume_level") * 100)
+        if "group_members" in attrs:
+            p["group_members"] = [PID[e] for e in attrs.pop("group_members")]
+        if "shuffle" in attrs:
+            q["shuffle_enabled"] = attrs.pop("shuffle")
+        media = dict(p.get("current_media") or {})
+        for ha, ma in (("media_content_id", "uri"), ("media_title", "title"), ("media_artist", "artist"),
+                       ("media_album_name", "album"), ("media_duration", "duration"), ("image", "image_url")):
+            if ha in attrs:
+                media[ma] = attrs.pop(ha)
+        if media:
+            p["current_media"] = media
+        assert not attrs, f"the fake has no Music Assistant field for {sorted(attrs)}"
+        self.model[pid], self.qs[pid] = p, q
+        await self.push({"event": "queue_updated", "object_id": pid, "data": q})
+        await self.push({"event": "player_updated", "object_id": pid, "data": p})
+
+    async def _set(self, entity: str, s: str | None = None, **attrs) -> None:
+        if self.react:
+            await self.set(entity, s, **attrs)
 
     async def answer(self, ws, mid, cmd, args) -> None:
         async def ok(result):
             await ws.send_json({"message_id": mid, "result": result, "partial": False})
 
-        if cmd == "players/all" and self.players is not None:
-            return await ok(self.players)
+        if cmd == "players/all":
+            return await ok(self.players if self.players is not None and not isinstance(self.players, list)
+                            else list(self.model.values()))
+        if cmd == "player_queues/all":
+            return await ok(list(self.qs.values()))
         if cmd.startswith("music/") and cmd.endswith("/library_items"):
             return await ok(library_answer(cmd, args))
         if cmd == "player_queues/get_active_queue":
-            return await ok({"queue_id": args["player_id"], "current_index": 2, "items": 9})
+            return await ok({"queue_id": args["player_id"], "current_index": 2, "items": 9, "active": True,
+                             "display_name": "Fictional", "shuffle_enabled": True, "repeat_mode": "off",
+                             "elapsed_time": 12.5, "current_item": dict(QUEUE_ITEMS[0], media_item=TRACKS[2]),
+                             "next_item": dict(QUEUE_ITEMS[1], media_item=dict(TRACKS[3], album=ALBUMS[2]))})
         if cmd == "player_queues/items":
             return await ok(QUEUE_ITEMS[: args.get("limit", 10)])
+        if cmd == "music/item_by_uri":
+            hit = next((i for items in LIB_ITEMS.values() for i in items if i["uri"] == args["uri"]), None)
+            if hit is None and args["uri"] == "apple_music://playlist/pl.fictional":
+                hit = {"item_id": "pl.fictional", "provider": "apple_music", "media_type": "playlist",
+                       "uri": args["uri"], "name": "Fictional Mix"}
+            if hit is None:
+                return await ws.send_json({"message_id": mid, "error_code": 3, "details": "not found"})
+            return await ok(dict(hit, provider=hit.get("provider", "library")))
+        if cmd == "music/artists/artist_albums":
+            return await ok([a for a in ALBUMS if a["artists"][0]["item_id"] == args["item_id"]])
+        if cmd == "music/albums/album_tracks":
+            return await ok(TRACKS[:3] + [dict(TRACKS[3], available=False)])
+        if cmd == "music/search":
+            return await ok({"artists": ARTISTS[:1], "albums": ALBUMS[:1], "tracks": TRACKS[:2], "playlists": [],
+                             "radio": RADIOS, "podcasts": [], "audiobooks": []})
         if cmd == "music/playlists/playlist_tracks":
             if (args.get("provider_instance_id_or_domain"), args.get("item_id")) in self.signed_out:
                 return await ws.send_json({"message_id": mid, "error_code": 6,          # LoginFailed
@@ -178,32 +256,32 @@ class HouseMa(FakeMa):
         e = ENT.get(args.get("player_id") or args.get("queue_id") or args.get("target_player") or
                     args.get("target_queue_id") or "")
         if cmd == "players/cmd/ungroup":
-            self._set(e, group_members=[])
+            await self._set(e, group_members=[])
         elif cmd == "players/cmd/group_many":
             group = [e] + [ENT[c] for c in args["child_player_ids"]]
             for m in group:
-                self._set(m, group_members=group)
+                await self._set(m, group_members=group)
         elif cmd == "players/cmd/pause":
-            self._set(e, "paused")
+            await self._set(e, "paused")
         elif cmd == "players/cmd/stop":
-            self._set(e, "idle")
+            await self._set(e, "idle")
         elif cmd == "players/cmd/play_pause":
-            st = self.hub.store.states.get(e, {}).get("s") if self.hub else None
-            self._set(e, "paused" if st == "playing" else "playing")
+            st = self.model[PID[e]]["playback_state"]
+            await self._set(e, "paused" if st == "playing" else "playing")
         elif cmd == "players/cmd/volume_set":
-            self._set(e, volume_level=args["volume_level"] / 100)
+            await self._set(e, volume_level=args["volume_level"] / 100)
         elif cmd == "player_queues/shuffle":
-            self._set(e, shuffle=args["shuffle_enabled"])
+            await self._set(e, shuffle=args["shuffle_enabled"])
         elif cmd == "player_queues/play_media":
-            self._set(e, "playing", media_content_id=args["media"][0])
+            await self._set(e, "playing", media_content_id=args["media"][0])
             if e == "media_player.downstairs_ma":
                 for m in ("media_player.kitchen_ma", "media_player.den_ma"):
-                    self._set(m, "playing")
+                    await self._set(m, "playing")
         elif cmd == "player_queues/transfer":
             src = ENT[args["source_queue_id"]]
-            moving = self.hub.store.states[src]["a"].get("media_content_id") if self.hub else None
-            self._set(e, "playing", media_content_id=moving)
-            self._set(src, "idle")
+            moving = (self.model[PID[src]].get("current_media") or {}).get("uri")
+            await self._set(e, "playing", media_content_id=moving)
+            await self._set(src, "idle")
         if cmd.startswith("players/cmd/") or cmd.startswith("player_queues/"):
             return await ok(None)
         return await super().answer(ws, mid, cmd, args)

@@ -285,6 +285,22 @@ async function run(label, commandsOn) {
     catch (e) { (res.libOther = res.libOther || []).push(e.code); }
   }
   res.libOtherSent = sent.length - lo0;
+  // Up Next (music_assistant.get_queue) and the next song's cover search (music_assistant.search): Mantel's reads too,
+  // the answer HA's shape under `response`, a /ma picture anywhere in it under the page's prefix
+  const qq0 = sent.length;
+  const qq = a.callWS({ type: 'call_service', domain: 'music_assistant', service: 'get_queue', return_response: true,
+                        service_data: { entity_id: 'media_player.den' } });
+  res.queueFrame = last();
+  reply({ type: 'read_result', id: res.queueFrame.id, result: { 'media_player.den': { queue_id: 'q', next_item: {
+    name: 'N', media_item: { name: 'N', image: '/ma/imageproxy/' + 'cd'.repeat(32) + '?size=256',
+                             album: { name: 'Al', image: 'https://img.example/al.jpg' } } } } } });
+  res.queue = await qq;
+  const sq = a.callWS({ type: 'call_service', domain: 'music_assistant', service: 'search', return_response: true,
+                        service_data: { config_entry_id: 'e1', name: 'Song', artist: 'Band', media_type: ['track'], limit: 5 } });
+  res.searchFrame = last();
+  reply({ type: 'read_result', id: res.searchFrame.id, result: { tracks: [{ name: 'Song', image: '/ma/imageproxy?path=x&provider=p&size=256' }] } });
+  res.search = await sq;
+  res.queueSent = sent.length - qq0;
   globalThis.__mantelBase = '';
   res.settingsSave = (() => { const q = a.callWS({ type: 'hk_frontend/board/set', board: {} }); const f = last(); reply({ type: 'settings_result', id: f.id, result: { ok: true } }); return f.type; })();
   out[label] = res;

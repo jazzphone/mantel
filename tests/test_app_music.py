@@ -30,9 +30,17 @@ async def house(tmp_path, monkeypatch):
 async def phone_of(m, username="jamie", role="adult"):
     from connector_fakes import wait_for
     await wait_for(lambda: m.app["ma"].connected.is_set())
+    await wait_for(lambda: m.app["music"].states.on)
     phone, _ = await sign_in_app(m, username, role)
     m.forget_cookies()
     return phone
+
+
+async def playing(m, entity, **attrs):
+    """A speaker plays in Music Assistant, and Mantel's state for it says so (music_states.py)."""
+    from connector_fakes import wait_for
+    await m.ma.set(entity, "playing", **attrs)
+    await wait_for(lambda: m.app["hub"].store.states[entity]["s"] == "playing")
 
 
 def play(**over):
@@ -93,9 +101,8 @@ def test_a_pair_counts_in_a_playing_preset_unless_it_plays_something_else():
 # ------------------------------------------------------------------------------------------- the routes
 async def test_the_app_reads_the_music_and_sets_its_speaker(house):
     m = house
-    m.app["hub"].store.apply_event({"c": {"media_player.den_ma": {"+": {"s": "playing", "a": {
-        "media_title": "Song 3", "media_artist": "Band", "volume_level": 0.4}}}}})
     phone = await phone_of(m)
+    await playing(m, "media_player.den_ma", media_title="Song 3", media_artist="Band", volume_level=0.4)
     r, got = await phone.call("GET", "/api/app/music")
     assert r.status == 200 and got["configured"] is True, got
     assert [s["entity"] for s in got["speakers"]][:1] == ["media_player.downstairs_ma"]
@@ -116,9 +123,8 @@ async def test_the_app_reads_the_music_and_sets_its_speaker(house):
 
 async def test_the_music_pages_requests_go_through_the_gateway(house):
     m = house
-    m.app["hub"].store.apply_event({"c": {"media_player.kitchen_ma": {"+": {"s": "playing", "a": {
-        "media_content_id": "library://playlist/1", "volume_level": 0.5}}}}})
     phone = await phone_of(m)
+    await playing(m, "media_player.kitchen_ma", media_content_id="library://playlist/1", volume_level=0.5)
     r, got = await phone.call("POST", "/api/app/music/command",
                               {"service": "transfer", "data": {"rooms": ["media_player.den_ma"],
                                                                "source": "media_player.kitchen_ma"}})

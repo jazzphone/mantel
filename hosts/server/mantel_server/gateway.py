@@ -699,6 +699,9 @@ class Gateway:
             return await reply(fail("unavailable", "alarm_pin_unavailable", aid))
 
         subject = principal.subject
+        music = self.app.get("music")
+        if music is not None and music.active:
+            cmd = music.route(cmd)          # a plain media_player call on Music Assistant speakers: to Music Assistant
         engine = self._music_engine(cmd)
         if engine is not None:
             cmd = engine.expand(cmd)        # Stop All: every room; a preset's group: its rooms
