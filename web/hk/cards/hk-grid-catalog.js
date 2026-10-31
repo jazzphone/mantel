@@ -190,6 +190,8 @@
   // the house to show: one page, the block's card as it is without pages.
   var PAGES_MAX = 12;
   var PER_PAGE = { W: 2, L: 4, XL: 6, XXL: 12 };      // a scenes page's scenes, by size
+  // ...twice as many at Half height (2026-10-31: the shorter button, two rows in each of Full's)
+  function perPage(it) { return (PER_PAGE[it.size] || 2) * (((it.opts || {}).height === 'half') ? 2 : 1); }
   function pages(item, ctx) {
     var it = item || {}, c = CARDS[it.card], x = ctx || {};
     if (!c) return [{ card: stand('Unavailable', 'mdi:help-circle-outline') }];
@@ -205,7 +207,7 @@
     else if (p.source === 'list') {
       out = p.list.map(function (pg) { return page((pg && pg.opts) || {}); });
     } else if (p.source === 'accessories') {
-      var entries = base.accessories || [], count = PER_PAGE[it.size] || 2;
+      var entries = base.accessories || [], count = perPage(it);
       for (var ai = 0; ai < entries.length; ai += count) out.push(page({ accessories: entries.slice(ai, ai + count) }));
     } else if (p.source === 'rooms') {
       out = rooms.map(function (a) { return page({ area: a }, { area: a }); });
@@ -220,7 +222,7 @@
       out = (x.speakers || []).filter(function (s) { return s && s.entity; })
         .map(function (s) { return page({ speaker: s.entity }, { entity: s.entity, area: s.area || null }); });
     } else if (p.source === 'scenes') {
-      var per = PER_PAGE[it.size] || 4, all = (x.scenes || []).slice(0, per * PAGES_MAX);
+      var per = perPage(it), all = (x.scenes || []).slice(0, per * PAGES_MAX);
       for (var i = 0; i < all.length; i += per) out.push(page({ scenes: all.slice(i, i + per) }));
     }
     out = out.slice(0, PAGES_MAX);
@@ -310,7 +312,7 @@
   }
 
   window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, span: span, CELLS: CELLS, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
-                           PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES,
+                           PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES,
                            CONDITIONS: CONDITIONS, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
 })();

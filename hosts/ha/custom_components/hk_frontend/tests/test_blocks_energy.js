@@ -254,7 +254,7 @@ function () {
     h.devices = {};
     return h;
   };
-  var o = window.hkGridCards._.onNow(window.hkHostClient.from(hass()));
+  var o = window.hkGridCards._.whatsOn(window.hkHostClient.from(hass()));
   eq('the kinds on: two lights, a speaker playing, a fan, a switch in a room', o.kinds.map(function (x) { return x.kind.key + ' ' + x.ids.length; }),
      ['lights 2', 'speakers 1', 'fans 1', 'switches 1']);
   ok('...not a group light (its lights are counted), not a hidden one, not a paused speaker, not a switch in no room',

@@ -240,3 +240,12 @@ def test_the_analog_numbers_clock():
     b, errors = write({"id": "c", "card": "clock", "size": "S", "at": [0, 0], "opts": {"clock_style": "numbers"}, "bare": True})
     assert errors == {} and b["home_grid"]["items"][0] == {"id": "c", "card": "clock", "size": "S", "at": [0, 0],
                                                           "opts": {"clock_style": "numbers"}, "bare": True}
+
+
+def test_half_height_holds_twice_the_accessories():
+    # (2026-10-31) Half: the shorter button, two rows in each of Full's
+    many = [{"entity": f"light.l{i}"} for i in range(4)]
+    _, errors = write({"id": "a1", "card": "accessories", "size": "W", "at": [0, 0], "opts": {"accessories": many}})
+    assert errors == {"home_grid": "grid_option"}
+    _, errors = write({"id": "a1", "card": "accessories", "size": "W", "at": [0, 0], "opts": {"accessories": many, "height": "half"}})
+    assert errors == {}

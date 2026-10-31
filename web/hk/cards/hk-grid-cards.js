@@ -2332,7 +2332,7 @@
     ];
     function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
     // -> [{kind, ids}] of the kinds with something on, and [{id, kind, name, room}] each thing
-    function onNow(client) {
+    function whatsOn(client) {
       var st = (client && client.states) || {}, ents = (client && client.entities) || {}, areas = (client && client.areas) || {};
       var inv = null, G = hidesOf();
       try { inv = window.hkStrategy && window.hkStrategy.inventory ? window.hkStrategy.inventory(client, G) : null; } catch (e) { inv = null; }
@@ -2396,7 +2396,7 @@
       static get CSS() { return WG_CSS + ON_CSS; }
       getCardSize() { return 4; }
       _sigOf() {
-        var o = onNow(this.client), st = (this.client && this.client.states) || {};
+        var o = whatsOn(this.client), st = (this.client && this.client.states) || {};
         return JSON.stringify([o.things.map(function (t) { return t.id + (st[t.id] ? st[t.id].last_updated : ''); }), sizeOf(this), this._blockKey || '']);
       }
       _render() {
@@ -2412,7 +2412,7 @@
           });
           this._built = true;
         }
-        var size = sizeOf(this) || 'L', box = inner(this, size), o = onNow(this.client);
+        var size = sizeOf(this) || 'L', box = inner(this, size), o = whatsOn(this.client);
         var lab = '<div class="wl" style="color:' + ACC.orange + '">On Now</div>';
         var all = o.n ? '<button type="button" class="on-b all" data-all>All Off</button>' : '';
         var thing = function (t) {
@@ -2459,7 +2459,7 @@
       // OFF: one thing, a kind, or everything on -- one call per kind, the
       // room pages' own commands (HkBase._call: the host's action port)
       _off(id, kindKey, everything) {
-        var o = onNow(this.client), self = this;
+        var o = whatsOn(this.client), self = this;
         var groups = everything ? o.kinds : o.kinds.filter(function (x) { return x.kind.key === kindKey; });
         if (id) {
           var t = o.things.filter(function (x) { return x.id === id; })[0];
@@ -2475,6 +2475,6 @@
          helper: 'Off: leave this card out of the shared blur (Glass look: Blur).' }],
       function () { return {}; });
     window.hkGridCards.OnNow = HkOnNowCard;
-    window.hkGridCards._.onNow = onNow;
+    window.hkGridCards._.whatsOn = whatsOn;
   });
 })();
