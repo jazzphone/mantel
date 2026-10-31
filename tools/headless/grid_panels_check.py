@@ -65,10 +65,11 @@ async def main():
             {'id': 'vc', 'card': 'clock', 'size': 'T', 'at': [0, 0]},
             {'id': 'vcam', 'card': 'camera', 'size': 'L', 'at': [1, 0], 'pages': {'source': 'cameras'}},
             {'id': 'vw', 'card': 'weather', 'size': 'L', 'at': [0, 0], 'view': 1}]}}
-    # Big Temperature and Month View, StandBy's (a Tall weather block is always the big number)
+    # Big Temperature and Month View, StandBy's (Big Temperature its own option: a Tall weather block shows the hours
+    # down its length since 2026-10-31)
     gallery.SETTINGS['boards']['standby'] = {'home_style': 'grid', 'menu_custom': True, 'menu': 'tabbar', 'home_grid': {
         'v': 1, 'cols': 3, 'rows': 2, 'frame': [844, 390], 'band': False, 'boxes': False, 'grow': True, 'night': {'mode': 'always'}, 'items': [
-            {'id': 'wx', 'card': 'weather', 'size': 'T', 'at': [0, 0]},
+            {'id': 'wx', 'card': 'weather', 'size': 'T', 'at': [0, 0], 'opts': {'big': True}},
             {'id': 'cal', 'card': 'calendar', 'size': 'L', 'at': [1, 0], 'opts': {'month': True}}]}}
     gallery.SETTINGS['boards']['panels'] = {'home_style': 'grid', 'home_grid': BIG, 'menu_custom': True, 'menu': 'tabbar'}
     gallery.SETTINGS['boards']['panels2'] = {'home_style': 'grid', 'home_grid': SMALL, 'menu_custom': True, 'menu': 'tabbar'}
@@ -90,11 +91,12 @@ async def main():
                 await b.eval(STUB % json.dumps(POWER))
                 await asyncio.sleep(2.5)
                 if screen == 'panels':
-                    # Live TV's channels (the integration's list, stood in): tiles that scroll inside the block
-                    await b.eval("(()=>{let t=deep(cell('tv'),'hk-tv-guide-card')[0];t._configured=true;"
+                    # Live TV's channels (the integration's list, stood in): a Large block shows four as tiles
+                    # (2026-10-31, the widget: channels, not a remote)
+                    await b.eval("(()=>{let t=deep(cell('tv'),'hk-tv-channels-card')[0];t._configured=true;"
                                  "t._channels=[1,2,3,4,5].map(i=>({name:'Channel '+i,number:i+'.1',now:null}));t._hkSig=null;t.redraw();void 0})()")
                     await asyncio.sleep(0.5)
-                    assert await b.eval("deep(cell('tv'),'hk-tv-guide-card')[0].shadowRoot.querySelectorAll('.tv-grid > *').length") == 5
+                    assert await b.eval("deep(cell('tv'),'hk-tv-channels-card')[0].shadowRoot.querySelectorAll('.ch').length") == 4
                 # every block's parts stay inside it
                 got = await b.eval("""(()=>{let out={};%s.forEach(id=>{let c=cell(id),r=c.getBoundingClientRect(),p=deep(c,'hk-grid-panel-card')[0],
                   kids=[...p.shadowRoot.querySelectorAll('.part > *')];
@@ -106,11 +108,12 @@ async def main():
                 assert all(g['inside'] for k, g in got.items() if k not in ('music', 'tv')), got
                 if screen == 'panels':
                     assert got['thermo']['kids'] == ['hk-control-card', 'div'] and got['power']['kids'] == ['hk-plate'], got
+                    assert got['doors']['kids'] == ['hk-plate'], got
                     # the thermostat's modes and fan beside its dial, the current ones pressed
                     pressed = await b.eval("[...deep(cell('thermo'),'hk-grid-panel-card')[0].shadowRoot.querySelectorAll('.rd button[aria-pressed=\"true\"]')].map(x=>x.textContent)")
                     assert pressed == ['Auto', 'Auto'], pressed
                 else:
-                    assert got['water']['kids'] == ['hk-plate'] and got['power']['kids'] == ['hk-plate'], got
+                    assert got['water']['kids'] == ['hk-plate'] and got['power']['kids'] == ['hk-plate'] and got['doors']['kids'] == ['hk-plate'], got
                 if args.shots:
                     args.shots.mkdir(parents=True, exist_ok=True)
                     await b.screenshot(args.shots / f'{screen}.png')
@@ -149,7 +152,8 @@ async def main():
             await b.open(origin + '/standby/home', cookie)
             assert await b.wait('window.__mantelReady===true', 30)
             await b.eval(DEEP)
-            assert await b.wait("deep(cell('cal'),'.md').length>=28 && deep(cell('wx'),'.wb.big .bn').length===1", 15)
+            assert await b.wait("deep(cell('cal'),'.md').length>=28", 15), 'Month View'
+            assert await b.wait("deep(cell('wx'),'.wb.big .bn').length===1", 15), await b.eval("deep(cell('wx'),'hk-plate').map(p=>p.className)")
             sb = await b.eval("""(()=>{let c=cell('cal'),r=c.getBoundingClientRect(),now=deep(c,'.md.now')[0],days=deep(c,'.md:not(.out)'),
               n=deep(cell('wx'),'.bn')[0];
               return {today:+now.textContent===new Date().getDate(),days:days.length===new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate(),

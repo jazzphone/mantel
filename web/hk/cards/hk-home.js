@@ -2226,8 +2226,8 @@
         // (its centre shows pause/play), a big red stop key"): each running
         // timer its name, its time large, and at its foot the ring of time
         // left -- a tap on it pauses or resumes -- with the red Stop beside
-        // it. Small one timer, Wide two. None running, Create a Timer (and,
-        // at W, the Timers page's quick starts). Tile cells first, a square
+        // it. Small one timer, Wide two. None running, quick starts as keys and
+        // an orange + (below). Tile cells first, a square
         // cell's sizes after.
         ':host([size]) hk-plate.strip{display:flex;flex-direction:column;justify-content:center;gap:8px;box-sizing:border-box;',
         '  height:100%;padding:' + window.hkCards.blockPad('14px') + ';' + window.hkCards.plate('card') + ';overflow:hidden;--ring:56px;--stop:44px}',
@@ -2249,19 +2249,23 @@
         '.gt .stop hk-icon{width:calc(var(--stop) * 0.46);height:calc(var(--stop) * 0.46);--mdc-icon-size:calc(var(--stop) * 0.46);color:#fff}',
         '.gt .pr:active,.gt .stop:active{transform:scale(0.95)}',
         '.gt .pr:focus-visible,.gt .stop:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
-        // (one timer on a Wide block: Create a Timer beside it)
-        '.tg>.new-timer{align-self:center}',
         '@container hk-cell (min-height:180px){',
         '  :host([size=S]) hk-plate.strip{--ring:76px;--stop:52px}',
         '  :host([size=W]) hk-plate.strip{--ring:72px;--stop:48px}',
         '  :host([size=S]) .gt hk-countdown{font-size:36px}',
         '  :host([size=W]) .gt hk-countdown{font-size:34px}',
         '}',
-        '.quick-grid button{border:0;border-radius:22px;background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + ';min-width:44px;min-height:44px;flex:1;cursor:pointer;font:inherit;' + window.hkCards.typeCss('caption') + '}',
-        '.new-timer{border:0;background:none;color:' + window.hkCards.v('ink') + ';display:flex;align-items:center;gap:10px;text-align:left;min-height:56px;cursor:pointer;padding:0}',
-        '.new-timer i{width:42px;height:42px;background:' + window.hkCards.v('key') + ';border-radius:50%;display:grid;place-items:center;flex:none}.new-timer hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
-        '.new-timer span{display:grid;gap:3px}.new-timer b{font-size:15px;font-weight:600}.new-timer small{' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + '}',
-        '.quick-grid{display:flex;gap:6px}'
+        // NONE RUNNING (2026-10-31, the owner: Create a Timer "looks way off from our latest design"): the
+        // running timer's own layout -- the orange name, then what there is in place of a time, then at the foot
+        // where the ring and Stop sit, quick starts as round keys and an orange + for any other length
+        '.gt .none{' + window.hkCards.typeCss('body') + ';color:' + window.hkCards.v('ink-2') + ';margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.gt .ft.qs{align-items:center;gap:8px}',
+        '.qs button{all:unset;box-sizing:border-box;flex:1 1 0;max-width:var(--stop);min-width:44px;height:var(--stop);border-radius:' + window.hkCards.R.capsule('var(--stop)') + ';display:grid;place-items:center;cursor:pointer;',
+        '  background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + ';' + window.hkCards.typeCss('body') + ';font-weight:600;font-variant-numeric:tabular-nums;-webkit-tap-highlight-color:transparent}',
+        '.qs button.add{background:' + window.hkCards.ACCENTS.orange + ';color:#fff}.qs button.add hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
+        '.qs button:active{transform:scale(0.95)}.qs button:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
+        // (Wide with none: the row runs the block's width, each a pill)
+        '.gt.wide .qs button{max-width:none}'
       ].join('');
     }
     getCardSize() { return 1; }
@@ -2298,11 +2302,13 @@
       });
       rows = rows.filter((r) => r.state === 'paused' || r.attrs.finishes_at && !isNaN(Date.parse(r.attrs.finishes_at)))
         .sort((a, b) => (Date.parse(a.attrs.finishes_at) || Infinity) - (Date.parse(b.attrs.finishes_at) || Infinity));
-      if (!rows.length) {
-        var presets = (window.hkSettings && window.hkSettings.get('headers.timers.presets', null)) || [5, 10, 15, 20, 30, 60];
-        return '<button class="new-timer" data-new aria-label="Create a Timer"><i><hk-icon icon="mdi:timer-outline"></hk-icon></i><span><b>Timers</b><small>Create a Timer</small></span></button>' +
-          (sized === 'W' ? '<div class="quick-grid">' + presets.slice(0, 6).map((m) => '<button data-preset="' + Number(m) + '">' + esc(HkTimersPageCard.label(Number(m))) + '</button>').join('') + '</div>' : '');
-      }
+      // NONE RUNNING, or a Wide block's second place: the quick starts (Settings' presets) as keys, + for the rest
+      var presets = (window.hkSettings && window.hkSettings.get('headers.timers.presets', null)) || [5, 10, 15, 20, 30, 60];
+      var short = (m) => m < 60 ? m + 'm' : m % 60 ? Math.floor(m / 60) + 'h' + (m % 60) : m / 60 + 'h';
+      var idle = (n, sub, wide) => '<div class="gt' + (wide ? ' wide' : '') + '"><div class="hd"><b class="nm">Timers</b></div><span class="none">' + esc(sub) + '</span>' +
+        '<div class="ft qs">' + presets.slice(0, n).map((m) => '<button data-preset="' + Number(m) + '" aria-label="Start a ' + esc(HkTimersPageCard.label(Number(m))) + ' timer">' + esc(short(Number(m))) + '</button>').join('') +
+        '<button class="add" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"></hk-icon></button></div></div>';
+      if (!rows.length) return '<div class="tg">' + idle(sized === 'W' ? 5 : 2, 'None running', sized === 'W') + '</div>';
       var max = sized === 'S' ? 1 : 2, shown = rows.slice(0, max), left = rows.length - shown.length;
       return '<div class="tg" style="--cols:' + max + '">' + shown.map(function (r, i) {
         var paused = r.state === 'paused', total = T ? T.secs(r.attrs.duration) : 0, nm = esc(r.name || 'Timer');
@@ -2315,7 +2321,7 @@
           '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45"></circle><circle class="left" cx="50" cy="50" r="45" pathLength="100"></circle></svg>' +
           '<hk-icon icon="mdi:' + (paused ? 'play' : 'pause') + '"></hk-icon></button>' +
           '<button class="stop" data-timer="' + esc(r.id) + '" data-service="cancel" aria-label="Stop ' + nm + '"><hk-icon icon="mdi:stop"></hk-icon></button></div></div>';
-      }).join('') + (shown.length < max ? '<button class="new-timer" data-new aria-label="Create a Timer"><i><hk-icon icon="mdi:timer-outline"></hk-icon></i><span><b>New Timer</b><small>Create a Timer</small></span></button>' : '') + '</div>';
+      }).join('') + (shown.length < max ? idle(2, 'Start another') : '') + '</div>';
     }
     _sigOf() {
       var h = this.client;

@@ -32,10 +32,11 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
         const b=cell.getBoundingClientRect(),card=cell.firstElementChild;
         for(const p of (card.localName==='hk-pager-card'?[card]:all(card,'hk-pager-card'))) for(const slot of p._slots){if(Math.abs(slot.getBoundingClientRect().height-b.height)>1)issues.push('short page '+cell.dataset.id);}
         for(const p of (card.localName==='hk-pager-card'?[card]:[])){
+          // (a Room block hides the pager's dots: its own foot line has them, 2026-10-31)
           const dots=p.shadowRoot.querySelector('.pc').getBoundingClientRect();
-          if(Math.abs((dots.left+dots.right-b.left-b.right)/2)>1)issues.push('page dots are not centred '+cell.dataset.id);
+          if(dots.width&&Math.abs((dots.left+dots.right-b.left-b.right)/2)>1)issues.push('page dots are not centred '+cell.dataset.id);
           for(const slot of p._slots){let r=slot.getBoundingClientRect();if(r.right<b.left+5||r.left>b.right-5)continue;
-            for(const button of all(slot,'.segment,.tb')){let br=button.getBoundingClientRect();for(const dot of p._dots){let d=dot.getBoundingClientRect();if(br.left<d.right&&br.right>d.left&&br.top<d.bottom&&br.bottom>d.top)issues.push('dots cover control '+cell.dataset.id);}}
+            for(const button of all(slot,'.segment,.tb')){let br=button.getBoundingClientRect();for(const dot of p._dots){let d=dot.getBoundingClientRect();if(br.left<d.right-1&&br.right>d.left+1&&br.top<d.bottom-1&&br.bottom>d.top+1)issues.push('dots cover control '+cell.dataset.id);}}
           }
         }
         const rooms=card.localName==='hk-grid-room-card'?[card]:all(card,'hk-grid-room-card');
@@ -67,9 +68,10 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
         const players=card.localName==='hk-now-playing-card'?[card]:all(card,'hk-now-playing-card');
         for(const player of players.filter(p=>p.getAttribute('size')==='L')) {
           const art=player.shadowRoot.querySelector('.art').getBoundingClientRect();
-          const title=player.shadowRoot.querySelector('.title').getBoundingClientRect();
-          const byline=player.shadowRoot.querySelector('.player').getBoundingClientRect();
-          if(Math.abs((art.top+art.bottom)/2-(title.top+byline.bottom)/2)>1)issues.push('album art and track metadata are not centred together');
+          // the words from the label (Large has one over the song since 2026-10-31) to the artist's line
+          const lab=player.shadowRoot.querySelector('.lab'),top=(lab&&lab.getBoundingClientRect().height?lab:player.shadowRoot.querySelector('.title')).getBoundingClientRect();
+          const byline=player.shadowRoot.querySelector('.artist').getBoundingClientRect();
+          if(Math.abs((art.top+art.bottom)/2-(top.top+byline.bottom)/2)>2)issues.push('album art and track metadata are not centred together '+JSON.stringify([art.top,art.bottom,top.top,byline.bottom].map(Math.round)));
         }
         for(const r of all(card,'[data-ring]')){
           const face=r.parentElement.querySelector('[data-face]'),range=document.createRange();range.selectNodeContents(face);
@@ -133,7 +135,9 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
     const pager=page.locator('hk-pager-card').filter({has:page.locator('hk-grid-room-card')}).first();
     if(await pager.count()){
       const start=await pager.evaluate(p=>p._startIndex());
-      await pager.locator('.dot').nth(1).click();
+      // (the Room block's own foot line: a tap right of the current dot is the next room, 2026-10-31)
+      const fd=pager.locator('hk-grid-room-card').first().locator('.fd'),fb=await fd.boundingBox();
+      await fd.click({position:{x:fb.width-2,y:fb.height/2}});
       await page.waitForFunction(()=>{const all=r=>[...r.querySelectorAll('*')].flatMap(e=>[e,...(e.shadowRoot?all(e.shadowRoot):[])]);return all(document).some(e=>e.localName==='hk-pager-card'&&e._index===1&&e._els.some(c=>c?.localName==='hk-grid-room-card'));});
       // Real mouse drag, then a client state push: retain the chosen page.
       await pager.evaluate(p=>p.goTo(0,false));
@@ -238,10 +242,12 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
         Object.assign(card.style,{position:'fixed',width:'1226px',height:'310px'});
         document.body.appendChild(card);await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
         const tiles=card.shadowRoot.querySelector('.tiles'),cs=getComputedStyle(tiles);
-        const ok=cs.gridTemplateColumns.split(' ').length===6&&cs.gridTemplateRows.split(' ').length===2;
+        // six across; a room of fewer pills than a row holds takes one row of taller ones, not a second of nothing (2026-10-30)
+        const n=card.shadowRoot.querySelectorAll('.tiles > *').length;
+        const ok=cs.gridTemplateColumns.split(' ').length===6&&cs.gridTemplateRows.split(' ').length===(n<=6?1:2);
         card.remove();return ok;
       });
-      if(!wide)throw new Error('full-width room did not reserve six columns and two rows');
+      if(!wide)throw new Error('full-width room did not reserve six columns and the rows its pills need');
     }
     if(report.issues.length)process.exitCode=1;
   }
@@ -341,7 +347,7 @@ async function homeview(input){
             }
             if(card.localName==='hk-control-card'||inside(card,'hk-control-card').length){const c=card.localName==='hk-control-card'?card:inside(card,'hk-control-card')[0];
               const big=c.shadowRoot.querySelector('.surface.big');if(!big)issues.push(id+': thermostat is not Big Number');else{
-                const bn=big.querySelector('.bn').getBoundingClientRect(),ft=big.querySelector('.ft').getBoundingClientRect();
+                const bn=big.querySelector('[data-big-num]').getBoundingClientRect(),ft=big.querySelector('[data-tstat-details]').parentElement.getBoundingClientRect();
                 if(bn.bottom>ft.top+2)issues.push(id+': the number runs into the foot');
                 if(ft.left<r.left||ft.right>r.right)issues.push(id+': the foot is past the block');
                 seen.big=(seen.big||0)+1;}}

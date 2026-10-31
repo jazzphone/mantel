@@ -240,6 +240,15 @@ function () {
   ok('Doors W: the count beside the list, the open one first and in orange', /1 open/.test(html) && /All doors closed/.test(html) &&
      html.indexOf('Office Window') < html.indexOf('Front Door') && /color:#ff9f0a">Open</.test(html), html);
   ok('...a row opens its own sheet; the locks are Security\'s, not here', /data-more="binary_sensor.front_door"/.test(html) && !/lock.front_door/.test(html));
+  // Large and Extra Large (2026-10-31, the owner: not the house picture): the same list, 44 px rows; Extra Large the count beside it
+  var pl = panel('doors', 'L');
+  ok('Doors L: its own plate, not the house picture', !!pl._own && pl._own.spec.own === 'doors');
+  html = H.morphed(pl._own.plate);
+  ok('...the count over 44 px rows, the open one first', /class="wb m">1 open</.test(html) && /class="wr tall"/.test(html) &&
+     html.indexOf('Office Window') < html.indexOf('Front Door'), html);
+  html = H.morphed(panel('doors', 'XL')._own.plate);
+  ok('Doors XL: the count in its own column beside the list', /class="wsplit"/.test(html) && /flex:0 0 200px/.test(html) &&
+     /All doors closed/.test(html) && (html.match(/<div data-more=/g) || []).length === 4, html);
   var closed = house.set('binary_sensor.office_window', 'off');
   html = H.morphed(panel('doors', 'T', closed)._own.plate);
   ok('Doors T: all closed, the list under it', /All closed/.test(html) && (html.match(/<div data-more=/g) || []).length === 4, html);

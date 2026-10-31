@@ -1477,5 +1477,16 @@ Checks: `test_blocks_calendar/media/climate/energy/home/tiles.js` (new), `home_g
 square cells (`--homeview`) and on tiles in every look (its 44 px check now divides by `view._gridScale`; stand-ins
 for to-do lists, channels, the Energy prefs, a vacuum's rooms and running timers), each size shot in WebKit beside
 the mock-up's drawing. **Different from the mock-up:** to-do rows are 44 px; Weather's hours are labelled by the
-clock, not "Now"; Large Now Playing keeps its transport across the block (no Up Next); Doors Large and Extra Large
-are still the house picture with Recent Activity.
+clock, not "Now"; Large Now Playing keeps its transport across the block (no Up Next).
+
+**2026-10-31, after the owner looked again.** Doors Large and Extra Large were still the house picture with Recent
+Activity ("Not sure I like this one"): now Reminders' list as the mock-up draws it -- the count, then each door and
+window a 44 px row, the open one first in orange saying since when (a time, so it never goes stale); Extra Large the
+count in a column beside the list. The house picture stays the Doors & Locks page's. Security Small's state was a
+figure's 30 px ("really large"), and its type unlike the Small blocks beside it: it now has the Action's foot, a
+headline over a caption. Timers with none running had kept the old Create a Timer row ("looks way off"): it is the
+running timer's own layout -- the orange name, "None running", and at the foot quick starts as round keys (two on
+Small, five across Wide) with an orange + that opens Create a Timer; a Wide block with one timer has the same beside
+it. Checks brought up to the widgets (`grid_blocks_check`, `grid_panels_check`, `grid_review_check`,
+`home_grid_visual_check`): the keypad is Security's Extra Large, the Vacuum's rooms its own keys, Live TV channel
+tiles, Tall Weather's hours (Big Temperature its own option), the Room block's own dots.
