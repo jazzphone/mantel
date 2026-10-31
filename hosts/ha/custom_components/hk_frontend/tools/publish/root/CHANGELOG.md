@@ -5,6 +5,14 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.25.0 - 2026-10-31
+
+- **Side Pane Clock, Under the Time:** at More, a strip the clock's width under the time: Next Hours, the Sun (the day's arc from sunrise to sunset with the sun on it), the Moon (tonight's, drawn, and when it is next full or new) or Conditions (sunset, wind, humidity, UV). Sunset beside the date stays the default.
+- **Side Pane Clock, weather beside the time:** the time and the temperature share a baseline, and so do the date and the sky. A right-aligned time has the weather at its left. At More the sunset is a line of its own. When Tapped opens the Weather page.
+- **Side Pane:** the room under the last section matches the sides.
+- **Home Energy over the Forecast:** the whole screen is blurred behind it, the sky as well as the land.
+- **Music block:** Plays On lists the house's speakers and speaker groups.
+
 ## 1.24.1 - 2026-10-31
 
 - **Music First over the Forecast:** the time, the date and the weather show in the corner again while the music covers a Big forecast or its details (they were hidden unless the Forecast's Layout was Classic).
