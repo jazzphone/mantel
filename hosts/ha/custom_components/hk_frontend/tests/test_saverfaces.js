@@ -209,6 +209,20 @@ lay = layerWith();
 U.photoFaces(lay, { url: 'x', w: 10, h: 10, item: { id: 'host/p4' } }, L, U.readCfg({ photo_titles: true }));
 ok('no album and no year: no title', lay.children.map(function (e) { return e.className; }), ['fg', 'phscrim']);
 ok('the HomeView-style Shows', Object.keys(U.FACE_SHOWS).sort(), ['day', 'glance', 'month']);
+// WHERE THE PHOTO OPTIONS APPLY (2026-10-30): only where the photos are shown as photos -- each saved option either
+// has its toggle on that Show's page or does nothing there
+var both = { photo_titles: true, time_behind: true };
+var where = function (o) { var p = U.photoOpts(U.readCfg(Object.assign({}, both, o))); return [p.titles, p.behind]; };
+ok('Photos and Both: as chosen', [where({ show: 'photos' }), where({ show: 'both' })], [[true, true], [true, true]]);
+ok('Clock on Photos: as chosen; on Soft photos, Landscapes or its own background: nothing',
+   [where({ show: 'clock', clock_bg: 'photos' }), where({ show: 'clock', clock_bg: 'photos', clock_photo_soft: true }),
+    where({ show: 'clock', clock_bg: 'landscapes' }), where({ show: 'clock', clock_bg: 'gradient' })],
+   [[true, true], [false, false], [false, false], [false, false]]);
+ok('the Forecast, Glance, Month and Day: nothing', ['forecast', 'glance', 'month', 'day'].map(function (s) { return where({ show: s }); }),
+   [[false, false], [false, false], [false, false], [false, false]]);
+lay = layerWith();
+U.photoFaces(lay, PH, L, U.readCfg({ show: 'clock', clock_bg: 'photos', clock_photo_soft: true, photo_titles: true, time_behind: true }));
+ok('Clock on Soft photos with both saved on: the photo alone (the clock stays the clock)', lay.children.map(function (e) { return e.className; }), ['fg', 'phscrim']);
 
 print(fail ? 'FAIL ' + fail + ' SAVER FACES TESTS' : 'ALL ' + pass + ' SAVER FACES TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

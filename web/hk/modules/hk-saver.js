@@ -2366,12 +2366,22 @@
   // and in, so a crop or a blur can be judged as it changes
   // PHOTO TITLES AND TIME BEHIND on a photo's layer (paint; relayout): the album and the year, bottom right; the
   // time upper centre, behind the photo's subject where its cut-out covers some of the figures, else in front
+  // WHERE THE PHOTO OPTIONS APPLY (2026-10-30, the owner: switched to Clock with Time Behind left on from Photos,
+  // "there is no way to turn it off"): Photo Titles and Time Behind only where the photos are shown as photos --
+  // Show: Photos and Both, and Clock on Photos that aren't Soft (the Screensaver page offers both toggles in each of
+  // those). Anywhere else -- Clock on Soft photos, Landscapes or a background of its own, the Forecast, Glance, Month
+  // and Day -- a saved option does nothing.
+  function photoOpts(c) {
+    var on = !!c && (c.show === 'photos' || c.show === 'both' || (c.show === 'clock' && c.clock_bg === 'photos' && !c.clock_photo_soft));
+    return { titles: on && !!c.photo_titles, behind: on && !!c.time_behind };
+  }
   function photoFaces(lay, ph, L, c) {
     c = c || cfg;
     lay.querySelectorAll('.tb,.ttl').forEach(function (n) { n.remove(); });
     if (!c || !ph || !ph.item) return;
     var it = ph.item, before = lay.querySelector('.phscrim');
-    if (c.photo_titles && (it.album || it.year)) {
+    var po = photoOpts(c);
+    if (po.titles && (it.album || it.year)) {
       var ttl = document.createElement('div'), tt = document.createElement('div');
       ttl.className = 'ttl'; tt.className = 'tt';
       if (it.album) { var b = document.createElement('b'); b.textContent = it.album; tt.appendChild(b); }
@@ -2379,8 +2389,8 @@
       ttl.appendChild(tt);
       lay.insertBefore(ttl, before);
     }
-    if (host) setAttr(host, 'tb', !!c.time_behind);
-    if (!c.time_behind) return;
+    if (host) setAttr(host, 'tb', po.behind);
+    if (!po.behind) return;
     var r = lay.getBoundingClientRect ? lay.getBoundingClientRect() : null;
     var W = Math.max(1, ((r && r.width) || window.innerWidth || 1280) - (paneUp ? paneW || 0 : 0)), H = (r && r.height) || window.innerHeight || 800;
     var pos = String((lay.style.getPropertyValue && lay.style.getPropertyValue('--pos')) || '50% 50%').split(/\s+/).map(function (v) { var n = parseFloat(v); return isFinite(n) ? n / 100 : 0.5; });
@@ -2425,7 +2435,7 @@
     if (tbT) return;
     tbT = setTimeout(function () {
       tbT = null;
-      if (!on || !root || !cfg || !cfg.time_behind) return;
+      if (!on || !root || !cfg || !photoOpts(cfg).behind) return;
       var s = timeNow();
       root.querySelectorAll('.tb .tbt').forEach(function (e) { if (e.textContent !== s) e.textContent = s; });
       tbArm();
@@ -5044,7 +5054,7 @@
          reducedMotion: reducedMotion,
          cleanFocus: cleanFocus, cleanVariants: cleanVariants, cleanDepth: cleanDepth, drawnRect: drawnRect, glyphBox: glyphBox, timeFoot: timeFoot, coverShare: coverShare,
          behindAt: behindAt, tbKey: tbKey, tbShares: tbShares,
-         photoFaces: function (lay, ph, L, c) { return photoFaces(lay, ph, L, c); }, FACE_SHOWS: FACE_SHOWS, bigWanted: function () { return bigWanted(); },
+         photoFaces: function (lay, ph, L, c) { return photoFaces(lay, ph, L, c); }, photoOpts: photoOpts, FACE_SHOWS: FACE_SHOWS, bigWanted: function () { return bigWanted(); },
          // tools/headless/saver_faces_check.py: the saver's own CSS around a photo's layers
          CSS: CSS,
          photoUrl: photoUrl, releasePh: releasePh, faceWindow: faceWindow, faceOrigin: faceOrigin, alignOf: alignOf, shuffle: shuffle, Deck: Deck, isImage: isImage,

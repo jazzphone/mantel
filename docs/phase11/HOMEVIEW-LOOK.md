@@ -1265,3 +1265,9 @@ at each size it allows, on tiles and on square cells, at an iPad's and a phone's
 Left for the owner's eye (the audit's notes, docs/phase11/BLOCKS-AUDIT.md): one type scale for the blocks' names on
 square cells, the scene pills' layout in tall slots, the empty middles of Now Playing Tall and Weather Tall on
 square cells, Doors XL's callouts over its activity row, the Power and Water blocks' plates.
+- **26, photo options that couldn't be turned off.** The owner: switched to Clock with Time Behind left on from
+  Photos, "there is no way to turn it off". It still applied on Clock over photos (and with Soft photos hid both the
+  clock and its own time: no time at all). Photo Titles and Time Behind now apply only where the photos are shown as
+  photos -- Show: Photos and Both, and Clock on Photos that aren't Soft, where the Screensaver page offers both
+  toggles -- and do nothing anywhere else (Clock on Soft photos, Landscapes or its own background, the Forecast,
+  Glance, Month, Day). `test_saverfaces.js` checks each Show.
