@@ -319,6 +319,10 @@
     '.code{max-width:100%;min-width:0;box-sizing:border-box}',
     'h1.lt{margin:4px 0 4px;font-family:var(--hk-display);font-size:34px;line-height:41px;font-weight:700;letter-spacing:.01em;outline:none}',
     ':host([wide]) h1.lt{font-size:30px;line-height:36px}',
+    // A TITLE WITH NOTHING UNDER IT (no scope line) keeps the room the line would have left before the first group:
+    // its 4 px alone put the group against the title (2026-10-31, the owner: "a lot of headings ... really close to
+    // the first option" -- Screensaver Options over Same as All Screens)
+    '.ph.bare{margin-bottom:20px}',
     '.scope{margin:0 0 24px;font-size:15px;line-height:20px;color:var(--hk-label2)}',
     // A SCREEN'S NAME, with its pencil (renaming the dashboard): the pencil
     // beside the title, centred on its line; the field the same size as the
@@ -1192,7 +1196,8 @@
       this.bar.querySelector('.mid').textContent = pg.title || '';
       // THE PAGE. A screen's preview stays put while its settings redraw (a
       // moved iframe would load the whole dashboard again).
-      var head = h('div', { class: 'ph' }, [pg.rename ? this.titleLine(pg) : h('h1', { class: 'lt', tabindex: '-1', text: pg.title || '' }),
+      // (a title with no line under it: .bare, its own room before the first group)
+      var head = h('div', { class: 'ph' + (pg.scope ? '' : ' bare') }, [pg.rename ? this.titleLine(pg) : h('h1', { class: 'lt', tabindex: '-1', text: pg.title || '' }),
         pg.scope ? h('p', { class: 'scope', html: pg.scope }) : null]);
       var content = h('div', { class: 'pc' });
       try { pg.body(content); } catch (e) {
