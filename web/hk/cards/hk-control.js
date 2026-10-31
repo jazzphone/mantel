@@ -54,8 +54,18 @@ class HkControlCard extends HTMLElement {
     if (!config || !(config.entity || config.entity_from))
       throw new Error("hk-control-card requires an entity or an entity_from");
     this._config = config;
-    if (!this.shadowRoot) this.attachShadow({mode:"open"});
+    if (!this.shadowRoot) {
+      this.attachShadow({mode:"open"});
+      // A HOME GRID BLOCK'S TAP (hk-base.js blockClick): this card is no HkBase, so it listens for itself
+      var self = this;
+      this.shadowRoot.addEventListener("click", function (e) { if (window.hkCards && window.hkCards.blockClick) window.hkCards.blockClick(self, e, self.shadowRoot); });
+    }
     this._signature = "";
+  }
+  // the thermostat's sheet, else the Climate page (a block's tap)
+  _tapTarget() {
+    const id = this._entityId();
+    return [id && { sheet: id }, { page: "climate" }];
   }
   // WHICH entity this card is driving, resolved fresh on every render.
   //

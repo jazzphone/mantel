@@ -699,6 +699,8 @@
         var path = this._roomPath(this._area());
         if (path) C.navigate(path, this);
       }
+      // (the plate's tap, hk-base.js openTarget: the heading's, anywhere the block has no accessory)
+      _tapTarget() { var a = this._area(); return a ? [{ room: a }] : []; }
 
       // PRESS AND HOLD: the pill's own tap toggles; held still for HOLD_MS it
       // is the dimmer -- a drag up or down sets the brightness, sent once on
@@ -1157,6 +1159,9 @@
         return JSON.stringify([id, st && st.state, secRows(this.client), this._size(), this._blockKey || '']);
       }
       _tap() { var id = this._alarm(); if (id) window.hkShell.moreInfo(id, this); }
+      // (the plate's tap, hk-base.js openTarget: Small the whole block, Wide its state and Large its heading already
+      // were the alarm's sheet; now anywhere between its rows, too -- not the keypad's keys and gaps, a PIN's)
+      _tapTarget() { var id = this._alarm(); return id ? [{ sheet: id }] : []; }
       // (the keypad, Extra Large: each new client)
       _receiveClient() {
         super._receiveClient();
@@ -1192,14 +1197,14 @@
           var head = '<div class="hd"><div class="wl"><hk-icon></hk-icon></div><div class="tx"><b></b><small></small></div></div>';
           var html = size === 'S' ? '<div class="wl"><hk-icon></hk-icon></div><div class="one"><div class="big"></div><div class="sub"></div></div>'
             : size === 'W' ? '<div class="side"><div class="wl"><hk-icon></hk-icon></div><div class="one"><div class="big"></div><div class="sub"></div></div></div><div class="rows"></div>'
-            : keys ? '<div class="kpad"></div><div class="col">' + head + '<div class="rows"></div></div>'
+            : keys ? '<div class="kpad" data-notap></div><div class="col">' + head + '<div class="rows"></div></div>'
             : head + '<div class="rows"></div><div class="arm"><button type="button" data-m="home">Home</button><button type="button" data-m="away">Away</button><button type="button" data-m="off">Disarm</button></div>';
           this._root.innerHTML = '<hk-plate class="sec' + (keys ? ' kp' : '') + '" data-hk-role="card" size="' + size + '">' + html + '</hk-plate>';
           var q = this._root.querySelector.bind(this._root), all = this._root.querySelectorAll.bind(this._root);
           this._e = { card: q('.sec'), wl: q('.wl'), icon: q('.wl hk-icon'), big: q('.big') || q('.hd b'), sub: q('.sub') || q('.hd small'), rows: q('.rows') };
           // the tap: Small the whole block, Wide its state, Large its heading -- the alarm's sheet, with its PIN
           var hit = size === 'S' ? this._e.card : size === 'W' ? q('.side') : q('.hd');
-          this._button(hit, function () { self._tap(); });
+          this._button(hit, function () { if (self._config.tap !== 'none') self._tap(); });
           Array.prototype.forEach.call(all('.arm button'), function (b) {
             b.setAttribute('aria-label', b.textContent + ': the alarm’s controls');
             b.addEventListener('click', function (ev) { ev.stopPropagation(); self._tap(); });
@@ -1302,6 +1307,8 @@
         (this._kids || []).forEach(function (k) { window.hkHostClient.bridge(k, c); });
       }
       _mount(parent, cfg, size) {
+        // (the block's When Tapped goes with it: a dial inside the climate panel answers the same)
+        if (this._config && this._config.tap) cfg = Object.assign({}, cfg, { tap: this._config.tap });
         var el = C.createCard(cfg, this.client);
         if (size) el.setAttribute('size', size);
         parent.appendChild(el);
@@ -1594,6 +1601,19 @@
     var WAY_GLYPH = { door: ['mdi:door-open', 'mdi:door-closed'], window: ['mdi:window-open', 'mdi:window-closed'], garage: ['mdi:garage-open', 'mdi:garage'] };
     class HkGridPanelCard extends HkGridFull {
       static get CSS() { return FULL_CSS + PANEL_CSS + WG_CSS; }
+      // THE PLATE'S TAP (hk-base.js openTarget; 2026-10-31, the owner on 0.1.94): the page the panel is a part of --
+      // the figure and the rows in it keep their own sheets (data-more) -- or, on a screen without that page, the
+      // reading's own sheet
+      _tapTarget() {
+        var c = this._config || {}, kind = c.panel, parts = this._parts(), p0 = (parts && parts[0]) || {};
+        if (kind === 'power') return [{ page: 'power' }, { page: 'energy' }, p0.home && { sheet: p0.home }];
+        if (kind === 'water') return [{ page: 'water' }, p0.meter && { sheet: p0.meter }];
+        if (kind === 'doors') return [{ page: 'doors-windows' }];
+        if (kind === 'music') return [{ page: 'music-browse' }, { page: 'playmusic' }];
+        if (kind === 'tv') return [{ page: 'live-tv' }];
+        if (kind === 'climate') { var id = c.entity || firstOfDomain(this.client || { states: {} }, 'climate'); return [id && { sheet: id }, { page: 'climate' }]; }
+        return [];
+      }
       _parts() {
         var c = this._config || {};
         try { return panelParts(c.panel, sizeOf(this), c, this.client || { states: {} }); } catch (e) { return null; }
@@ -1905,6 +1925,8 @@
     class HkGridClockCard extends HkGridFull {
       static get CSS() { return FULL_CSS + CLOCK_CSS; }
       getCardSize() { return 2; }
+      // (the plate's tap, hk-base.js openTarget) a clock leads to the Timers page, as iOS's clock widget opens Clock
+      _tapTarget() { return [{ page: 'timers' }]; }
       // 24-hour as the screen's screensaver clock is (its 24-Hour Clock; off, as HK's own clock reads)
       _h24() {
         var M = window.hkCards.menu, b = M && M.board ? M.board() || {} : {}, so = b.screensaver_options || {};
@@ -2228,6 +2250,8 @@
         if (M && M.tabBar && M.tabBar() && B && typeof B.open === 'function') { B.open('more'); return; }
         if (M && M.open) M.open();
       }
+      // (the plate's tap, hk-base.js openTarget) the same, from anywhere on a larger block than the key
+      _tapTarget() { var self = this; return [{ run: function () { self._tap(); } }]; }
       _render() {
         var size = this._size();
         if (size === 'S' || !EV_GRID[size]) {
@@ -2501,6 +2525,11 @@
     class HkOnNowCard extends HkBase {
       static get CSS() { return WG_CSS + ON_CSS; }
       getCardSize() { return 4; }
+      // (the plate's tap, hk-base.js openTarget) what is on, as a sheet of those things; one thing, its own sheet
+      _tapTarget() {
+        var ids = whatsOn(this.client).things.map(function (t) { return t.id; });
+        return ids.length > 1 ? [{ group: ['On Now', ids, { icon: 'mdi:power' }] }] : ids.length ? [{ sheet: ids[0] }] : [];
+      }
       _sigOf() {
         var o = whatsOn(this.client), st = (this.client && this.client.states) || {};
         return JSON.stringify([o.things.map(function (t) { return t.id + (st[t.id] ? st[t.id].last_updated : ''); }), sizeOf(this), this._blockKey || '']);

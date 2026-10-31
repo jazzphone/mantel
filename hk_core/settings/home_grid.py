@@ -68,9 +68,9 @@ CATALOG: dict[str, dict[str, Any]] = {
                                                                               "height": "tile_height", "color": "boolean"}},
     "scene": {"sizes": ("S", "W"), "sources": (), "opts": {"scene": "scene", "color": "boolean"}},
     "scenes": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface", "height": "tile_height", "color": "boolean"}},
-    "now_playing": {"sizes": ("S", "W", "T", "L"), "sources": ("speakers",), "opts": {"speaker": "speaker"}},
+    "now_playing": {"sizes": ("S", "W", "T", "L"), "sources": ("speakers",), "opts": {"speaker": "speaker", "tap": "tap_target"}},
     # style (2026-10-30): the dial, or Big Number (docs/phase11/HOMEVIEW-LOOK.md, Phase C)
-    "thermostat": {"sizes": ("S", "T", "L", "XL"), "sources": ("thermostats",), "opts": {"entity": "climate", "style": "thermostat_style"}},
+    "thermostat": {"sizes": ("S", "T", "L", "XL"), "sources": ("thermostats",), "opts": {"entity": "climate", "style": "thermostat_style", "tap": "tap_target"}},
     # (S, 2026-10-31, the owner: "a small option to the camera": one still in a cell)
     "camera": {"sizes": ("S", "W", "L", "XL"), "sources": ("cameras",),
                # follow (2026-10-24): swiping all cameras, turn to the one a selector or the latest motion picks
@@ -82,31 +82,31 @@ CATALOG: dict[str, dict[str, Any]] = {
     # cameras: the ones shown (none: all, in Cameras' order); refresh: s between stills
     "cameras": {"sizes": ("XL", "XXL", "F"), "sources": (), "opts": {"cameras": "cameras", "refresh": "refresh"}},
     # Large and Extra Large (2026-10-24): the alarm's keypad
-    "security": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "alarm"}},
-    "timers": {"sizes": ("S", "W"), "sources": (), "opts": {}},
-    "weather": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"entity": "weather", "sky": "boolean", "big": "boolean"}},
-    "calendar": {"sizes": ("S", "T", "L", "XL"), "sources": (), "opts": {"calendars": "calendars", "days": "days", "month": "boolean"}},
-    "battery": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {}},
-    "people": {"sizes": ("S", "W"), "sources": (), "opts": {}},
+    "security": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "alarm", "tap": "tap_target"}},
+    "timers": {"sizes": ("S", "W"), "sources": (), "opts": {"tap": "tap_target"}},
+    "weather": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"entity": "weather", "sky": "boolean", "big": "boolean", "tap": "tap_target"}},
+    "calendar": {"sizes": ("S", "T", "L", "XL"), "sources": (), "opts": {"calendars": "calendars", "days": "days", "month": "boolean", "tap": "tap_target"}},
+    "battery": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
+    "people": {"sizes": ("S", "W"), "sources": (), "opts": {"tap": "tap_target"}},
     # Large and Extra Large (2026-10-24): its controls with Clean Areas
     "vacuum": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "vacuum"}},
-    "clock": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": (), "opts": {"clock_style": "clock_style", "bare": "boolean"}},
-    "power": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {}},
-    "music": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {}},
-    "doors": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {}},
-    "live_tv": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {}},
-    "water": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {}},
+    "clock": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": (), "opts": {"clock_style": "clock_style", "bare": "boolean", "tap": "tap_target"}},
+    "power": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
+    "music": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
+    "doors": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
+    "live_tv": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
+    "water": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # the new cards (G3)
-    "room": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface", "accessory_display": "room_display"}},
+    "room": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface", "accessory_display": "room_display", "tap": "tap_target"}},
     "scene_suggested": {"sizes": ("W", "L"), "sources": (), "opts": {"windows": "windows"}},
     # `area`: the room an action keeps to (All Lights Off in one room); the others ignore it
     "action": {"sizes": ("S",), "sources": (), "opts": {"action": "action", "area": "area", "color": "boolean"}},
     "everything": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {}},
     # THE WIDGET BLOCKS (2026-10-31, docs/phase11/HOMEVIEW-LOOK.md "Blocks as widgets"): what is on now, a to-do
     # list, and the Energy page's rings over a period of the block's own
-    "on_now": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {}},
-    "todo": {"sizes": ("S", "T", "L", "XL"), "sources": (), "opts": {"entity": "todo"}},
-    "energy_rings": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"period": "period"}},
+    "on_now": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
+    "todo": {"sizes": ("S", "T", "L", "XL"), "sources": (), "opts": {"entity": "todo", "tap": "tap_target"}},
+    "energy_rings": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"period": "period", "tap": "tap_target"}},
 }
 SOURCES = ("list", "rooms", "cameras", "thermostats", "speakers", "scenes", "accessories")
 # the sources that can open on the tablet's own room (or its speaker)
@@ -295,6 +295,18 @@ def _name_tag(v: Any) -> str:
     return v
 
 
+# WHEN TAPPED (2026-10-31, the owner on 0.1.94: "it would great if the user had an option as well... like Detail Sheet or
+# Page"), a block's tap on its plate as the Side Pane's is (settings.py PANE_TAPS): Automatic, its page where the
+# screen has one else its sheet; Page or Detail Sheet, that one, else the other; Nothing. Controls inside keep theirs.
+TAP_TARGETS = ("auto", "page", "sheet", "none")
+
+
+def _tap_target(v: Any) -> str:
+    if v not in TAP_TARGETS:
+        raise GridInvalid("grid_option")
+    return v
+
+
 def _clock_style(v: Any) -> str:
     if v not in CLOCK_FACES:
         raise GridInvalid("grid_option")
@@ -314,6 +326,7 @@ OPTION_KINDS = {
     "tile_height": _tile_height,
     "period": _period,
     "name_tag": _name_tag,
+    "tap_target": _tap_target,
     "todo": _domain("todo"),
     "camera_follow": _camera_follow,
     "select": _domain("input_select", "select"),

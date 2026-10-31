@@ -1506,6 +1506,65 @@
     window.hkShell.navigate(path);
   }
 
+  // A HOME GRID BLOCK OPENS SOMETHING WHEN TAPPED (2026-10-31, the owner on 0.1.94: "ALL the blocks should do
+  // something if you tap on them" -- the Weather block did not open Weather). A card that is a block (it carries a
+  // size in the grid's table) and says where it leads, `_tapTarget()`, opens that when it is tapped anywhere that is
+  // no control; the controls inside it (a light's toggle, a timer's ring, a thermostat's arrows, a row with its own
+  // sheet) keep their own taps. `_tapTarget()` answers a list of places in order and the first this screen has wins:
+  //   { page: 'weather' }   this screen's page of that kind (menu.pagePath); none on a screen without it
+  //   { room: area }        this screen's page for the room
+  //   { sheet: id }         the entity's sheet (hkShell.moreInfo)
+  //   { group: [title, ids, opts] }  a sheet of several things (hkDetail.openGroup)
+  //   { run: fn }           the card's own: a list over the page, the tab bar's More
+  // (and the block's When Tapped, `tap`, chooses between a page and a sheet: the editor's Automatic is neither)
+  // None of them to open, and the tap does nothing, silently.
+  var TAP_CONTROLS = 'button,a,input,select,textarea,summary,[role=button],[role=slider],[role=switch],[role=checkbox],[role=link],[role=menuitem],' +
+    // (what drags itself, and ends in a click: a slider, the thermostat's ring)
+    '[data-more],[data-hk-control],[data-notap],.ring,.vs,' +
+    // (the parts of a block that act on a tap and leave it to bubble: an event, a day, a to-do item, a timer's key...)
+    '[data-ev],[data-day],[data-mon],[data-go],[data-uid],[data-open],[data-add],[data-id],[data-off],[data-kind],[data-p],[data-preset],[data-new],[data-timer]';
+  // WHEN TAPPED (the block's `tap`, as the Side Pane's): 'page' or 'sheet' puts that kind first -- the other still
+  // follows when there is none of it -- and 'none' opens nothing
+  var TAP_KIND = { page: 'page', room: 'page', sheet: 'sheet', group: 'sheet', run: 'sheet' };
+  function openTarget(el, list) {
+    var M = window.hkCards.menu, D = window.hkDetail, SH = window.hkShell, mode = (el._config || {}).tap;
+    var all = (Array.isArray(list) ? list : [list]).filter(Boolean);
+    if (mode === 'none') return false;
+    if (mode === 'page' || mode === 'sheet') {
+      all = all.filter(function (t) { return TAP_KIND[Object.keys(t)[0]] === mode; })
+        .concat(all.filter(function (t) { return TAP_KIND[Object.keys(t)[0]] !== mode; }));
+    }
+    for (var i = 0; i < all.length; i++) {
+      var t = all[i], path = null;
+      try {
+        if (t.page) path = M && M.pagePath ? M.pagePath(t.page) : null;
+        else if (t.room) path = M && M.roomPath ? M.roomPath(t.room) : null;
+        if (path) { navigate(path, el); return true; }
+        if (t.sheet && SH && SH.moreInfo) { SH.moreInfo(t.sheet, el); return true; }
+        if (t.group && D && D.openGroup) { D.openGroup.apply(D, t.group); return true; }
+        if (t.run) { t.run(); return true; }
+      } catch (e) { /* a place that will not open: the next */ }
+    }
+    return false;
+  }
+
+  // (also for the cards that are no HkBase -- hk-control-card -- which call it from a listener of their own)
+  function blockClick(el, e, root) {
+    if (e.defaultPrevented || e._hkBlockTap || typeof el._tapTarget !== 'function') return;
+    var size = el.getAttribute && el.getAttribute('size');
+    if (!size || !HOME_GRID.sizes[size]) return;
+    var target = el._tapTarget();
+    if (!target || (Array.isArray(target) && !target.length) || (el._config && el._config.tap === 'none')) return;
+    var path = e.composedPath ? e.composedPath() : [e.target];
+    for (var i = 0; i < path.length; i++) {
+      var n = path[i];
+      if (n === root || n === el) break;
+      if (n && n.matches && n.matches(TAP_CONTROLS)) return;
+    }
+    // (a block inside a block, the climate panel's dial: the inner one answers, the outer one leaves it be)
+    if (openTarget(el, target)) e._hkBlockTap = true;
+  }
+
   function confirmSheet(text, onOk, opts) {
     opts = opts || {};
     if (!_sheet) {
@@ -2090,6 +2149,9 @@
       }
       this._root = document.createElement('div');
       this.shadowRoot.append(this._root);
+      var self = this;
+      // (only a card that says where it leads listens)
+      if (this._tapTarget !== HkBase.prototype._tapTarget) this._root.addEventListener('click', function (e) { self._blockClick(e); });
       this._clientExplicit = false;
       this._hkClient = null;
       this._hkSig = null;
@@ -2140,6 +2202,10 @@
       clientSeen(value);
       this._receiveClient();
     }
+    // A TAP ON A BLOCK'S PLATE (see openTarget): a click that reaches the card's root from no control. A card says
+    // where it leads in _tapTarget(); one that does not, or one that is no block, is left alone.
+    _tapTarget() { return null; }
+    _blockClick(e) { blockClick(this, e, this._root); }
     // A CLIENT BEFORE A CONFIG, without drawing: for a parent that must hand a
     // card its client before setConfig (setConfig draws at once). The next
     // client, or the host's object at the entry, replaces it as usual.
@@ -3170,6 +3236,8 @@
     b.style.removeProperty('--sx');
   };
   window.hkCards.navigate = navigate;
+  window.hkCards.openTarget = openTarget;
+  window.hkCards.blockClick = blockClick;
   window.hkCards.neverToggles = neverToggles;
   // WHAT A TAP ON A SCENE PILL DOES: runs it. A scene turns on, a script
   // runs, a button is pressed, an automation triggers; anything else opens

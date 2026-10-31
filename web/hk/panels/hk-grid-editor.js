@@ -1647,7 +1647,7 @@
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
@@ -1854,6 +1854,12 @@
         }
         if (kind === 'period') {
           rows.push(K.seg({ label: 'Period', value: opts[key] || 'day', options: [['day', 'Today'], ['week', 'Week'], ['month', 'Month']], onChange: (v) => set(key, v === 'day' ? null : v) }));
+          return;
+        }
+        // WHEN TAPPED (2026-10-31, the owner on 0.1.94), as the Side Pane's: a tap on the block's plate opens its page or
+        // its detail sheet, whichever the screen has, or neither; the controls in the block keep their own taps
+        if (kind === 'tap_target') {
+          rows.push(K.seg({ label: 'When Tapped', value: opts[key] || 'auto', options: G.TAP_TARGETS, onChange: (v) => set(key, v === 'auto' ? null : v) }));
           return;
         }
         if (kind === 'days') {

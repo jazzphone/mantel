@@ -1495,6 +1495,9 @@
     ].join('');
 
     var PAGE_METHODS = {
+      // A HOME GRID BLOCK'S TAP (hk-base.js openTarget; 2026-10-31, the owner on 0.1.94: the Weather block opened
+      // nothing): the Weather page, else the weather's own sheet
+      _tapTarget() { var id = (this._config || {}).entity; return [{ page: 'weather' }, id && { sheet: id }]; },
       _section() { var s = (this._config || {}).section; return SECTIONS.indexOf(s) >= 0 ? s : null; },
       // how the forecast stands: 'ok' (has entries), 'wait' (asked, not yet
       // answered), 'none' (the service gave none)

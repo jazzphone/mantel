@@ -2269,6 +2269,8 @@
       ].join('');
     }
     getCardSize() { return 1; }
+    // (a block's tap, hk-base.js openTarget) the Timers page
+    _tapTarget() { return [{ page: 'timers' }]; }
     _gridTap() {
       if (this._tapWired) return;
       this._tapWired = true;
@@ -2499,6 +2501,13 @@
     return { c: mc, f: Math.min((w - (mc - 1) * PP.g) / mc, (h - (mr - 1) * PP.g) / mr, 64), fit: mc * mr - 1 };
   }
   class HkPeopleCard extends HkBase {
+    // (a block's tap, hk-base.js openTarget) a person's sheet -- the first at home, else the first -- and from it
+    // the others; a face in the block opens its own person
+    _tapTarget() {
+      var st = (this.client && this.client.states) || {}, ids = Object.keys(st).filter(function (id) { return id.indexOf('person.') === 0; });
+      var home = ids.filter(function (id) { return st[id].state === 'home'; })[0] || ids[0];
+      return home ? [{ sheet: home }] : [];
+    }
     static get CSS() {
       return [
         'hk-plate.pp{display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;height:100%;',
