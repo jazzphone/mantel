@@ -2682,7 +2682,9 @@
   var CLOCK_WEIGHTS = [['light', 'Light'], ['regular', 'Regular'], ['semibold', 'Semibold'], ['bold', 'Bold']];
   var CLOCK_DATES = [['full', 'Full'], ['short', 'Short'], ['off', 'Off']];
   var CLOCK_LINES = [['auto', 'Automatic'], ['none', 'None'], ['sunset', 'Sunset'], ['weather', 'Weather']];
-  var CLOCK_ABSENT = { face: 'digital', align: 'left', scale: 'medium', weight: 'semibold', date: 'full', line: 'auto', ampm: true, colon: false };
+  // the weather beside the time, as the menu's header has it (2026-10-31, the owner)
+  var CLOCK_BESIDE = [['none', 'None'], ['weather', 'Weather']];
+  var CLOCK_ABSENT = { face: 'digital', align: 'left', scale: 'medium', weight: 'semibold', date: 'full', line: 'auto', beside: 'none', ampm: true, colon: false };
   // THE LINKS that were each pane's own settings: the Dashboard's ("Home
   // Only, Right"), the screensaver's ("Calendar, Now Playing"), and Now
   // Playing's Show As (the bar, or the Side Pane)
@@ -2777,7 +2779,7 @@
   root.hkSettingsModel = {
     PANE_KINDS: PANE_KINDS, PANE_SIZES: PANE_SIZES, PANE_WHEN: PANE_WHEN, PANE_SIDES: PANE_SIDES, PANE_WIDTHS: PANE_WIDTHS,
     PANE_SHOWS: PANE_SHOWS, PANE_SAVER_SHOWS: PANE_SAVER_SHOWS, PANE_GROUPS: PANE_GROUPS, PANE_PLACES: PANE_PLACES, PANE_TAPS: PANE_TAPS, paneTaps: paneTaps, PANE_CAMERA_NAMES: PANE_CAMERA_NAMES, CLOCK_FACES: CLOCK_FACES, CLOCK_ALIGNS: CLOCK_ALIGNS, CLOCK_SCALES: CLOCK_SCALES,
-    CLOCK_WEIGHTS: CLOCK_WEIGHTS, CLOCK_DATES: CLOCK_DATES, CLOCK_LINES: CLOCK_LINES, PANE_MAX: PANE_MAX, PANE_DEFAULTS: PANE_DEFAULTS,
+    CLOCK_WEIGHTS: CLOCK_WEIGHTS, CLOCK_DATES: CLOCK_DATES, CLOCK_LINES: CLOCK_LINES, CLOCK_BESIDE: CLOCK_BESIDE, PANE_MAX: PANE_MAX, PANE_DEFAULTS: PANE_DEFAULTS,
     paneKind: paneKind, paneSection: paneSection, paneOf: paneOf, paneGroupSays: paneGroupSays, paneSet: paneSet, paneReset: paneReset,
     secKey: secKey, secsAdd: secsAdd, secsOrder: secsOrder, secSet: secSet, secsMore: secsMore, secSays: secSays,
     paneSummary: paneSummary, paneSaverSummary: paneSaverSummary, paneHasMusic: paneHasMusic, npShowAs: npShowAs,

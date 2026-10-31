@@ -1920,7 +1920,9 @@ PANE_CHOICES: dict[str, dict[str, tuple[str, ...]]] = {
     # is what draws today's clock, so a clock that sets none of them is unchanged.
     "clock": {"face": ("digital", "stacked", "analog"), "align": ("left", "center", "right"),
               "scale": ("medium", "small", "large"), "weight": ("semibold", "light", "regular", "bold"),
-              "date": ("full", "short", "off"), "line": ("auto", "none", "sunset", "weather")}}
+              "date": ("full", "short", "off"), "line": ("auto", "none", "sunset", "weather"),
+              # ...and the weather beside the time, as the menu's header has it (2026-10-31, the owner)
+              "beside": ("none", "weather")}}
 # options that are on unless set off, stored only when off: the clock's AM/PM (it shows only on a 12-hour clock)
 # ...and Now Playing's Album Art Background (item 41): the song's art blurred behind the whole pane
 PANE_FLAGS_ON: dict[str, tuple[str, ...]] = {"clock": ("ampm",), "now_playing": ("art",)}

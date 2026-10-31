@@ -393,7 +393,7 @@
   // Stacked -- StandBy's hours over minutes -- or Analog, the Analog Numbers face small with the time and date
   // beside it), Alignment, Size (`scale`), Weight, AM/PM, Flashing Colon, Date, Second Line. What a section
   // leaves out is today's clock.
-  var CLOCK_DEFAULTS = { face: 'digital', align: 'left', scale: 'medium', weight: 'semibold', date: 'full', line: 'auto' };
+  var CLOCK_DEFAULTS = { face: 'digital', align: 'left', scale: 'medium', weight: 'semibold', date: 'full', line: 'auto', beside: 'none' };
   function clockLook(sec) {
     var o = {};
     Object.keys(CLOCK_DEFAULTS).forEach(function (k) { o[k] = sec && sec[k] ? sec[k] : CLOCK_DEFAULTS[k]; });
@@ -429,12 +429,23 @@
     var id = setting('weather.entity', null) || domainIds(c, 'weather')[0], st = id && (states(c)[id] || WX_LAST[id]);
     return st ? esc(deg(attr(st, 'temperature')) + ' ' + condName(st.state)) : '';
   }
+  // THE WEATHER BESIDE THE TIME (2026-10-31, the owner: "like we do for the left side bar menu"): the condition's glyph
+  // and the temperature at the right of the time, the condition and today's high under them, as the menu's header
+  // draws them (hk-menu.js); nothing until the weather is here
+  function besideWeather(c, ctx) {
+    var id = setting('weather.entity', null) || domainIds(c, 'weather')[0], st = id && (states(c)[id] || WX_LAST[id]);
+    if (!st) return '';
+    var daily = ctx && ctx.forecast ? ctx.forecast(id, 'daily') : [], d0 = daily[0] || {};
+    var cond = condName(st.state), hi = d0.temperature != null ? 'H:' + deg(d0.temperature) : '';
+    return '<div class="ckx"><div class="wt">' + wxGlyph(st.state, 34) + '<b>' + esc(deg(attr(st, 'temperature'))) + '</b></div>' +
+      '<div class="sub2">' + esc(cond) + (hi ? '<span class="hl"> \u00b7 ' + esc(hi) + '</span>' : '') + '</div></div>';
+  }
 
   // EACH SECTION AT EACH SIZE: (size, sec, c, ctx) -> HTML. ctx.slot(key,
   // make) leaves a place for an element kept between draws (the music pane,
   // a doorbell's live camera); ctx.redraw() draws the pane again.
   var SEC = {
-    clock: function (s, sec, c) {
+    clock: function (s, sec, c, ctx) {
       // THE CLOCK'S LOOK (2026-10-31, the owner's item 43): every choice's first value is today's clock, so a
       // section that sets none draws exactly what it did (the classes and the spans below are added only for
       // a choice made)
@@ -446,7 +457,9 @@
       // THE SECOND LINE: Sunset or Weather, under the date (Automatic is today's: the sunset beside the date at
       // More; None is no second line at all)
       var set = attr(states(c)['sun.sun'], 'next_setting'), sunText = set ? 'Sunset ' + esc(hm(new Date(set))) : '';
-      var extra = o.line === 'sunset' ? sunText : o.line === 'weather' ? clockWeather(c) : '';
+      // (the weather beside the time: at Less and More, a digital or stacked face -- and then not its second line too)
+      var wxBy = o.beside === 'weather' && (s === 'less' || s === 'more') && o.face !== 'analog' ? besideWeather(c, ctx) : '';
+      var extra = o.line === 'sunset' ? sunText : o.line === 'weather' && !wxBy ? clockWeather(c) : '';
       var second = extra ? '<div class="sub2 ck2">' + extra + '</div>' : '';
       if (s === 'full') {
         var big = o.face === 'stacked' ? '<div class="big2 ck stk">' + stackHtml(now) + '</div>' : faceSvg(now);
@@ -466,6 +479,7 @@
       }
       var main = o.face === 'stacked' ? '<div class="big2 ck stk' + (s === 'less' ? ' less' : '') + '">' + stackHtml(now) + '</div>'
                                       : '<div class="big2 ck' + (s === 'less' ? ' less' : '') + '">' + t + '</div>';
+      if (wxBy) return box('clock', s, '<div class="ckrow"><div class="ckl">' + main + line + '</div>' + wxBy + '</div>', (cls + ' ckby').trim());
       return box('clock', s, main + line, cls.trim());
     },
     weather: function (s, sec, c, ctx) {
@@ -889,6 +903,18 @@
       '.ckd{display:flex;justify-content:space-between;align-items:baseline;gap:4px 12px;flex-wrap:wrap}.ckd>*{white-space:nowrap}.ckd .sun{margin-left:auto}',
       // (a narrow pane: the date short, "Sat, Oct 31", so the sunset keeps its place at the right of it)
       '.sec[data-k="clock"]{container-type:inline-size}.ckd .ds{display:none}',
+      // THE WEATHER BESIDE THE TIME (besideWeather): the time and date at the left, the weather at the right, their
+      // tops level; its temperature two thirds of the time's size, its glyph as tall as its figures
+      '.ckrow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.ckl{min-width:0;display:grid;gap:8px}',
+      '.ckx{flex:none;display:grid;justify-items:end;gap:8px;text-align:right}',
+      '.ckx .wt{display:flex;align-items:center;gap:.22em;font:var(--ckw,600) calc(48px*var(--cks,1))/1 var(--hk-font-body,inherit);letter-spacing:calc(-1px*var(--cks,1))}',
+      '.ckx .wt .wxg,.ckx .wt hk-icon{display:flex;width:.72em;height:.72em;--mdc-icon-size:.72em}.ckx .wt .wxg svg{width:100%;height:100%}',
+      '.ckx .sub2{white-space:nowrap}',
+      '.ckl:has(.big2.less)+.ckx .wt{font-size:calc(36px*var(--cks,1))}',
+      // (a narrow pane: the high goes, then the date's long form -- the time keeps its room)
+      '@container (max-width:300px){.ckx .hl{display:none}}',
+      // (centred or at the right, the weather goes under the time instead, at its alignment)
+      '.cka-center .ckrow,.cka-right .ckrow{flex-direction:column;align-items:stretch}.cka-center .ckx{justify-items:center;text-align:center}',
       '@container (max-width:320px){.ckd .ds{display:inline}.ckd:has(.ds) .dl{display:none}}',
       // THE CLOCK'S CHOICES (item 43): Stacked (the hours over the minutes), Analog (the small face with the time and date
       // beside it), Alignment, the second line, and the flashing colon (held under Reduce Motion as well as by skyLook())
