@@ -269,6 +269,19 @@ print('\n=== Pages (2026-10-16) ===');
   var err2 = null;
   try { P.p_screen.call(pg, 'dashboard-a', ['page-headers']).body(document.createElement('div')); } catch (e) { err2 = String(e); }
   ok('Page Headers draws', err2, null);
+  // ADVANCED'S FILES: HK's folder checked here; a host that keeps the font and glyphs itself is pointed to its
+  // own page instead (its files were reported Missing, the owner 2026-10-31), and HA's sidebar row is not drawn
+  var adv = function (host) {
+    var b = document.createElement('div'), was = pg._host;
+    pg._host = host;
+    try { P.p_advanced.call(pg).body(b); } finally { pg._host = was; }
+    return JSON.stringify(b, function (k, v) { return k === 'parentNode' || k === '_listeners' ? undefined : v; }) || '';
+  };
+  var own = adv(null), hosted = adv({ owns: { files: 'host/files', sidebar: true } });
+  ok('Advanced checks HK\u2019s folder: the font, the glyphs and Show in Sidebar',
+     [/SF Pro Font/.test(own), /SF Symbols Glyphs/.test(own), /Show in Sidebar/.test(own), /In Your Files/.test(own)].join(), 'true,true,true,false');
+  ok('...a host that keeps them: one row to its page, no folder, no sidebar row',
+     [/In Your Files/.test(hosted), /#\/host\/files/.test(hosted), /SF Pro Font|hk_local|Show in Sidebar/.test(hosted)].join(), 'true,true,false');
   // ON SCREENS: each screen a link to its Pages on This Screen
   var box = document.createElement('div');
   go('#/page/water').body(box);
