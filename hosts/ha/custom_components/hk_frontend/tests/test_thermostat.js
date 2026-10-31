@@ -145,7 +145,7 @@ check('an entity that lists none gets the classic four', none.join() === 'off,he
   var html = c.html().split('</style>')[1];
   check('Big Number: the target alone, large, no degree sign, no status line', /<div class="bn" data-big-num[^>]*>68<\/div>/.test(html) && !/tstat-act|tstat-sub|Currently|ring/.test(html), html.slice(0, 300));
   check('...on the panel plate (the dial\'s), not the dial', /<hk-plate class="surface big"/.test(html) && !/data-ring/.test(html));
-  check('...the arrows either side of the name and the room', /data-big-step="-1"[\s\S]*<b>Thermostat<\/b><i>Living Room<\/i>[\s\S]*data-big-step="1"/.test(html));
+  check('...the arrows either side of the name, the room and the mode (2026-10-31)', /data-big-step="-1"[\s\S]*<b>Thermostat<\/b><i>Living Room · Heat<\/i>[\s\S]*data-big-step="1"/.test(html));
   check('...the name opens the sheet', /class="nm" type="button" data-tstat-details/.test(html));
   check('...the modes are there for a press and hold, the one it is in on', /class="modes"/.test(html) && /class="segment active" type="button" data-mode="heat"/.test(html));
   check('...the dial unless chosen', !/surface big/.test(big('heat', { temperature: 68 }, 'L', { style: undefined }).html()));
@@ -186,10 +186,9 @@ check('an entity that lists none gets the classic four', none.join() === 'off,he
   check('the measured numbers: the number min(44cqh,44cqw) at 42.7 %, the foot at 86 % 4 % in with 12 px gaps (room for the name), 58 px arrows',
         /\.big \.bn\{[^}]*top:42\.7%[^}]*font-size:min\(44cqh,44cqw\)/.test(css) && /\.big \.ft\{[^}]*left:4%;right:4%;top:86%[^}]*column-gap:12px/.test(css) &&
         /\.big \.ar\{[^}]*width:58px;height:58px/.test(css));
-  check('...Tall: min(25cqh,50cqw) at 40 %, 38 px arrows, 17 / 16 text, the foot at 88 %',
-        /:host\(\[size=T\]\) \.big \.bn\{font-size:min\(25cqh,50cqw\);top:40%\}/.test(css) && /:host\(\[size=T\]\) \.big \.ft\{[^}]*top:88%/.test(css) &&
-        /:host\(\[size=T\]\) \.big \.nm b\{font-size:17px/.test(css) && /:host\(\[size=T\]\) \.big \.nm i\{font-size:16px/.test(css) &&
+  check('...the name and room the Centred tiles\' (21 / 20)',
         /\.big \.nm b\{font-size:21px;font-weight:600;line-height:27px/.test(css) && /\.big \.nm i\{font-style:normal;font-size:20px;font-weight:400/.test(css));
+  // (Small, Tall and Extra Large: test_blocks_climate.js)
 })();
 
 print(fail ? 'FAIL ' + fail + ' THERMOSTAT TESTS' : 'ALL ' + pass + ' THERMOSTAT TESTS PASS');

@@ -123,7 +123,8 @@ function () {
   var C = window.hkGridCatalog, ctx = { climate: ['climate.den'] };
   eq('a thermostat block\'s Style: Big Number', C.config({ card: 'thermostat', size: 'L', opts: { style: 'big' } }, ctx), { type: 'custom:hk-control-card', entity: 'climate.den', style: 'big' });
   eq('...the dial when it is not chosen', C.config({ card: 'thermostat', size: 'T' }, ctx), { type: 'custom:hk-control-card', entity: 'climate.den' });
-  eq('...Extra Large stays the sheet', C.config({ card: 'thermostat', size: 'XL', opts: { style: 'big' } }, ctx).type, 'custom:hk-grid-panel-card');
+  eq('...Extra Large too: the face with the modes beside it (2026-10-31)', C.config({ card: 'thermostat', size: 'XL', opts: { style: 'big' } }, ctx), { type: 'custom:hk-control-card', entity: 'climate.den', style: 'big' });
+  eq('...the dial\'s Extra Large stays the sheet', C.config({ card: 'thermostat', size: 'XL' }, ctx).type, 'custom:hk-grid-panel-card');
   eq('...every thermostat page takes it', C.pages({ card: 'thermostat', size: 'L', opts: { style: 'big' }, pages: { source: 'thermostats' } }, { climate: ['climate.den', 'climate.hall'] })
      .map(function (p) { return p.card.style; }), ['big', 'big']);
   eq('the option, and its kind', [C.table().thermostat.opts, C.THERMOSTAT_STYLES], [{ entity: 'climate', style: 'thermostat_style' }, [['dial', 'Dial'], ['big', 'Big Number']]]);

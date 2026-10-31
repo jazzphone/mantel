@@ -29,7 +29,10 @@ them (the Mantel app's web view sets -webkit-text-size-adjust:100%), so the one 
 pass instead names every thing at twice its usual length, which is what a larger text would do to a card.
 
 Stood in: the house's forecast (two forecast sensors), a family calendar's events, running timers, and the Energy
-feature's plan (on the page: the test server's feed has no Energy feature), so every block is measured full.
+feature's plan (on the page: the test server's feed has no Energy feature), so every block is measured full; the
+weather's feels-like, UV and wind direction and the sun's next setting (the Weather block's Extra Large reads them),
+and a thermostat on Heat (the house's two are on heat and cool): `--opts thermostat='{"entity": "climate.office"}'`
+draws it, as `--opts` names anything else a block can take.
 """
 from __future__ import annotations
 
@@ -72,6 +75,15 @@ EXTRA = {
         {"name": "Pasta", "entity_id": "timer.quick_1", "finishes_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 420))},
         {"name": "Laundry", "entity_id": "timer.quick_2", "finishes_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 1800))}]})),
 }
+# (a thermostat on Heat, one target: the gallery's two are on heat and cool; the weather's readings the house lacks)
+EXTRA["climate.office"] = ("office", ("heat", {"friendly_name": "Heat Pump", "current_temperature": 66, "temperature": 68,
+                                               "hvac_action": "heating", "hvac_modes": ["off", "heat", "cool", "heat_cool"],
+                                               "min_temp": 50, "max_temp": 90, "supported_features": 25, "current_humidity": 41}))
+EXTRA["weather.home"] = (None, ("partlycloudy", {"friendly_name": "Home", "temperature": 64, "temperature_unit": "°F",
+                                                 "humidity": 52, "wind_speed": 6, "wind_speed_unit": "mph", "wind_bearing": 315,
+                                                 "apparent_temperature": 62, "uv_index": 2}))
+SUNSET = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 3 * 3600))
+EXTRA["sun.sun"] = (None, ("above_horizon", {"friendly_name": "Sun", "elevation": 40.0, "azimuth": 180.0, "next_setting": SUNSET}))
 # what each block names (a block that names nothing takes the house's: its cameras, weather, vacuum)
 OPTS = {"accessory": {"entity": "light.living_room_lamps"}, "scene": {"scene": "scene.movie_night"},
         "now_playing": {"speaker": "media_player.living_room"}, "thermostat": {"entity": "climate.main_floor"},
@@ -289,9 +301,10 @@ MEASURE = r"""(() => {
     }
     if (minFont < 11) rec.issues.push('text under the type roles: ' + minFont + ' px in ' + name(small));
     rec.min_font = minFont;
-    // (square cells: HomeView's 34 on the block, as a corner of the scale)
+    // (square cells: HomeView's 34 on the block, as a corner of the scale, and what sits on its inset concentric
+    // with it, --hk-inner-radius: 34 - 18)
     const SQUARE = view.getAttribute('cell') === 'square', PLATE = SQUARE ? 34 : 23.5;
-    const SCALE = [23.5, 22, 20, 12, 8, 0].concat(SQUARE ? [34] : []);
+    const SCALE = [23.5, 22, 20, 12, 8, 0].concat(SQUARE ? [34, 16] : []);
     let outer = null, outerA = 0;
     for (const el of all) {
       if (!shown(el)) continue; const cs = getComputedStyle(el);
@@ -382,7 +395,7 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                         sun = elev
                         hub.store.apply_event({"a": {"sun.sun": {
                             "s": "above_horizon" if elev > 0 else "below_horizon", "lc": gallery.NOW, "lu": gallery.NOW,
-                            "a": {"friendly_name": "Sun", "elevation": elev, "azimuth": 180.0}}}})
+                            "a": {"friendly_name": "Sun", "elevation": elev, "azimuth": 180.0, "next_setting": SUNSET}}}})
                     name = screen(key, look, bar)
                     mark = len(b.console)
                     await b.open(f"{origin}/{name}/home", cookie)
@@ -444,7 +457,12 @@ def main(argv=None) -> int:
                     help="looks to run once more with the tab bar hidden (default: Flat Dark)")
     ap.add_argument("--cell", choices=["tile", "square"], default="tile", help="the grid's cells (square: 196 x 196)")
     ap.add_argument("--homeview", action="store_true", help="square cells, Centred tiles, Big Number, Analog Numbers")
+    ap.add_argument("--opts", nargs="*", default=[], metavar="KEY=JSON",
+                    help="what a block names, over the audit's own (thermostat='{\"entity\": \"climate.office\"}')")
     a = ap.parse_args(argv)
+    for o in a.opts:
+        k, _, v = o.partition("=")
+        OPTS[k] = {**OPTS.get(k, {}), **json.loads(v)}
     CELL.update(cell="square" if a.homeview else a.cell, homeview=a.homeview)
     keys = a.only or G2
     unknown = [k for k in keys if k not in HG.CATALOG]
