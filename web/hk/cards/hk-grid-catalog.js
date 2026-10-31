@@ -56,13 +56,17 @@
   var CARDS = {
     accessory: { sizes: ['S', 'W'], sources: [], opts: { entity: 'entity', secondary: 'secondary' }, card: function (s, o) {
       return o.entity ? { type: 'custom:hk-grid-entity-card', entity: o.entity, secondary: o.secondary, kind: 'accessory', size: s } : stand('Accessory', 'mdi:lightbulb'); } },
-    accessories: { sizes: ['W', 'L', 'XL', 'XXL'], sources: ['accessories'], opts: { accessories: 'accessories', title: 'title', surface: 'surface' }, card: function (s, o) {
-      return { type: 'custom:hk-grid-accessories-card', accessories: o.accessories || [], title: o.title || 'Accessories', surface: o.surface }; } },
-    scene: { sizes: ['S', 'W'], sources: [], opts: { scene: 'scene' }, card: function (s, o) {
-      return o.scene ? { type: 'custom:hk-grid-entity-card', entity: o.scene, kind: 'scene', size: s } : stand('Scene', 'mdi:palette'); } },
-    scenes: { sizes: ['W', 'L', 'XL', 'XXL'], sources: ['scenes'], opts: { scenes: 'scenes', surface: 'surface' }, card: function (s, o) {
-      return Object.assign({ type: 'custom:hk-scenes-card', surface: o.surface }, o.scenes ? { scenes: o.scenes } : {}); } },
-    now_playing: { sizes: ['W', 'T', 'L'], sources: ['speakers'], opts: { speaker: 'speaker' }, card: function (s, o) {
+    // (height, color 2026-10-31: Full, HomeView's square tile, or Half, the shorter button; each on its own
+    // color's gradient or glass)
+    accessories: { sizes: ['W', 'L', 'XL', 'XXL'], sources: ['accessories'], opts: { accessories: 'accessories', title: 'title', surface: 'surface', height: 'tile_height', color: 'boolean' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-grid-accessories-card', accessories: o.accessories || [], title: o.title || 'Accessories', surface: o.surface },
+                           o.height ? { height: o.height } : {}, o.color ? { color: true } : {}); } },
+    scene: { sizes: ['S', 'W'], sources: [], opts: { scene: 'scene', color: 'boolean' }, card: function (s, o) {
+      return o.scene ? Object.assign({ type: 'custom:hk-grid-entity-card', entity: o.scene, kind: 'scene', size: s }, o.color ? { color: true } : {}) : stand('Scene', 'mdi:palette'); } },
+    scenes: { sizes: ['W', 'L', 'XL', 'XXL'], sources: ['scenes'], opts: { scenes: 'scenes', surface: 'surface', height: 'tile_height', color: 'boolean' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-scenes-card', surface: o.surface }, o.scenes ? { scenes: o.scenes } : {},
+                           o.height ? { height: o.height } : {}, o.color ? { color: true } : {}); } },
+    now_playing: { sizes: ['S', 'W', 'T', 'L'], sources: ['speakers'], opts: { speaker: 'speaker' }, card: function (s, o) {
       // T and L: the progress above the transport (the Home app's and Apple
       // Music's order); L the volume under it as well. Its speaker's own
       // controls, or the screen's music.
@@ -74,7 +78,7 @@
                 : s === 'T' ? { sub_card: ctl(['progress']) } : {};
       return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, sp ? { entity: sp } : {}, extra); } },
     // Extra Large: the thermostat's full controls, its sheet (2026-10-24)
-    thermostat: { sizes: ['T', 'L', 'XL'], sources: ['thermostats'], opts: { entity: 'climate', style: 'thermostat_style' }, card: function (s, o, ctx) {
+    thermostat: { sizes: ['S', 'T', 'L', 'XL'], sources: ['thermostats'], opts: { entity: 'climate', style: 'thermostat_style' }, card: function (s, o, ctx) {
       var id = own(o.entity) || (ctx.climate || [])[0];
       if (s === 'XL') return panel('climate', id ? { entity: id } : {});
       // the dial (hk-control.js), sized to the block (G2) -- or its Big Number
@@ -100,20 +104,20 @@
     timers: { sizes: ['S', 'W'], sources: [], card: function () {
       return { type: 'custom:hk-timer-strip-card', entity: 'sensor.running_quick_timers' }; } },
     // Tall, and Big Temperature at any size: the number large, as StandBy has it (2026-10-24)
-    weather: { sizes: ['W', 'T', 'L', 'XL'], sources: [], opts: { entity: 'weather', sky: 'boolean', big: 'boolean' }, card: function (s, o, ctx) {
+    weather: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { entity: 'weather', sky: 'boolean', big: 'boolean' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.weather;
       return id ? Object.assign({ type: 'custom:hk-weather-band-card', section: 'hero', entity: id, sky: o.sky === true }, o.big ? { big: true } : {})
                 : stand('Weather', 'hk:weather-partly-cloudy'); } },
-    calendar: { sizes: ['T', 'L'], sources: [], opts: { calendars: 'calendars', days: 'days', month: 'boolean' }, card: function (s, o) {
+    calendar: { sizes: ['S', 'T', 'L', 'XL'], sources: [], opts: { calendars: 'calendars', days: 'days', month: 'boolean' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-calendar-pane-card' }, o.calendars ? { calendars: o.calendars } : {}, o.days ? { days: o.days } : {},
                            o.month ? { month: true } : {}); } },
-    battery: { sizes: ['S', 'W'], sources: [], card: function (s, o, ctx) {
+    battery: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], card: function (s, o, ctx) {
       // the house battery the Energy feature names (hk-energy.js), sized to the block (G2)
       var B = ctx.battery;
       return B && B.level ? { type: 'custom:hk-house-battery-card', level: B.level, stored: B.stored, backup: B.backup,
                               reserve: B.reserve, charge: B.charge, discharge: B.discharge }
                           : stand('Battery', 'mdi:home-battery'); } },
-    people: { sizes: ['W'], sources: [], card: function () { return { type: 'custom:hk-people-card' }; } },
+    people: { sizes: ['S', 'W'], sources: [], card: function () { return { type: 'custom:hk-people-card' }; } },
     // Large and Extra Large: its controls with Clean Areas (2026-10-24)
     vacuum: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: { entity: 'vacuum' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.vacuum;
@@ -124,11 +128,11 @@
       return Object.assign({ type: 'custom:hk-grid-clock-card' }, o.clock_style ? { clock_style: o.clock_style } : {}, o.bare ? { bare: true } : {}); } },
     // THE PAGES' OWN PANELS (2026-10-24; hk-grid-cards.js hk-grid-panel-card),
     // each read live from the house's settings as its page reads them
-    power: { sizes: ['W', 'L', 'XL'], sources: [], opts: {}, card: function () { return panel('power'); } },
-    music: { sizes: ['L', 'XL'], sources: [], opts: {}, card: function () { return panel('music'); } },
-    doors: { sizes: ['L', 'XL'], sources: [], opts: {}, card: function () { return panel('doors'); } },
-    live_tv: { sizes: ['L', 'XL'], sources: [], opts: {}, card: function () { return panel('tv'); } },
-    water: { sizes: ['L', 'XL'], sources: [], opts: {}, card: function () { return panel('water'); } },
+    power: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: {}, card: function () { return panel('power'); } },
+    music: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: {}, card: function () { return panel('music'); } },
+    doors: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: {}, card: function () { return panel('doors'); } },
+    live_tv: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: {}, card: function () { return panel('tv'); } },
+    water: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: {}, card: function () { return panel('water'); } },
     // THE NEW CARDS (G3, hk-grid-cards.js). `opts` names each option and its
     // kind, as home_grid.CATALOG does (a test holds them equal). A card handed
     // `tablet_room` resolves it itself, through the host (hkShell.tabletRoom):
@@ -139,9 +143,16 @@
       return { type: 'custom:hk-grid-room-card', area: o.area || TABLET_ROOM, fallback: (ctx.rooms || [])[0] || null, size: s, surface: o.surface, accessory_display: o.accessory_display || 'summary' }; } },
     scene_suggested: { sizes: ['W', 'L'], sources: [], opts: { windows: 'windows' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-suggested-scene-card', size: s }, o.windows ? { windows: o.windows } : {}); } },
-    action: { sizes: ['S'], sources: [], opts: { action: 'action', area: 'area' }, card: function (s, o) {
-      return Object.assign({ type: 'custom:hk-action-card', action: o.action || 'lock_up' }, o.area ? { area: o.area } : {}); } },
-    everything: { sizes: ['S'], sources: [], opts: {}, card: function () { return { type: 'custom:hk-everything-card' }; } }
+    action: { sizes: ['S'], sources: [], opts: { action: 'action', area: 'area', color: 'boolean' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-action-card', action: o.action || 'lock_up' }, o.area ? { area: o.area } : {}, o.color ? { color: true } : {}); } },
+    everything: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: {}, card: function () { return { type: 'custom:hk-everything-card' }; } },
+    // THE WIDGET BLOCKS (2026-10-31, docs/phase11/HOMEVIEW-LOOK.md "Blocks as widgets"): what is on now, a to-do
+    // list, and the Energy page's rings over a period of the block's own
+    on_now: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: {}, card: function () { return { type: 'custom:hk-on-now-card' }; } },
+    todo: { sizes: ['S', 'T', 'L', 'XL'], sources: [], opts: { entity: 'todo' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-todo-card' }, o.entity ? { entity: o.entity } : {}); } },
+    energy_rings: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { period: 'period' }, card: function (s, o) {
+      return { type: 'custom:hk-energy-rings-card', period: o.period || 'day' }; } }
   };
   var SOURCES = ['list', 'rooms', 'cameras', 'thermostats', 'speakers', 'scenes', 'accessories'];
 

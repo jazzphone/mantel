@@ -76,10 +76,16 @@ def test_an_action_that_is_not_one_is_refused(opts):
 
 
 @pytest.mark.parametrize("size", ["W", "L"])
-def test_an_action_and_everything_are_small_only(size):
-    for card in ("action", "everything"):
-        _, errors = write({"id": "a1", "card": card, "size": size, "at": [0, 0]})
-        assert errors == {"home_grid": "grid_size"}
+def test_an_action_is_small_only(size):
+    _, errors = write({"id": "a1", "card": "action", "size": size, "at": [0, 0]})
+    assert errors == {"home_grid": "grid_size"}
+
+
+@pytest.mark.parametrize("size", ["W", "L", "XL"])
+def test_everything_comes_in_more_sizes(size):
+    # (2026-10-31) Wide, Large and Extra Large: the app icons themselves
+    _, errors = write({"id": "a1", "card": "everything", "size": size, "at": [0, 0]})
+    assert errors == {}
 
 
 # ------------------------------------------------------------ the starters and the tab bar

@@ -64,12 +64,13 @@ def span(size: str, cols: int, rows: int) -> tuple[int, int]:
 # `list`), and its options (name -> kind, OPTION_KINDS).
 CATALOG: dict[str, dict[str, Any]] = {
     "accessory": {"sizes": ("S", "W"), "sources": (), "opts": {"entity": "entity", "secondary": "secondary"}},
-    "accessories": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("accessories",), "opts": {"accessories": "accessories", "title": "title", "surface": "surface"}},
-    "scene": {"sizes": ("S", "W"), "sources": (), "opts": {"scene": "scene"}},
-    "scenes": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface"}},
-    "now_playing": {"sizes": ("W", "T", "L"), "sources": ("speakers",), "opts": {"speaker": "speaker"}},
+    "accessories": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("accessories",), "opts": {"accessories": "accessories", "title": "title", "surface": "surface",
+                                                                              "height": "tile_height", "color": "boolean"}},
+    "scene": {"sizes": ("S", "W"), "sources": (), "opts": {"scene": "scene", "color": "boolean"}},
+    "scenes": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface", "height": "tile_height", "color": "boolean"}},
+    "now_playing": {"sizes": ("S", "W", "T", "L"), "sources": ("speakers",), "opts": {"speaker": "speaker"}},
     # style (2026-10-30): the dial, or Big Number (docs/phase11/HOMEVIEW-LOOK.md, Phase C)
-    "thermostat": {"sizes": ("T", "L", "XL"), "sources": ("thermostats",), "opts": {"entity": "climate", "style": "thermostat_style"}},
+    "thermostat": {"sizes": ("S", "T", "L", "XL"), "sources": ("thermostats",), "opts": {"entity": "climate", "style": "thermostat_style"}},
     # (S, 2026-10-31, the owner: "a small option to the camera": one still in a cell)
     "camera": {"sizes": ("S", "W", "L", "XL"), "sources": ("cameras",),
                # follow (2026-10-24): swiping all cameras, turn to the one a selector or the latest motion picks
@@ -80,24 +81,29 @@ CATALOG: dict[str, dict[str, Any]] = {
     # Large and Extra Large (2026-10-24): the alarm's keypad
     "security": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "alarm"}},
     "timers": {"sizes": ("S", "W"), "sources": (), "opts": {}},
-    "weather": {"sizes": ("W", "T", "L", "XL"), "sources": (), "opts": {"entity": "weather", "sky": "boolean", "big": "boolean"}},
-    "calendar": {"sizes": ("T", "L"), "sources": (), "opts": {"calendars": "calendars", "days": "days", "month": "boolean"}},
-    "battery": {"sizes": ("S", "W"), "sources": (), "opts": {}},
-    "people": {"sizes": ("W",), "sources": (), "opts": {}},
+    "weather": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"entity": "weather", "sky": "boolean", "big": "boolean"}},
+    "calendar": {"sizes": ("S", "T", "L", "XL"), "sources": (), "opts": {"calendars": "calendars", "days": "days", "month": "boolean"}},
+    "battery": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {}},
+    "people": {"sizes": ("S", "W"), "sources": (), "opts": {}},
     # Large and Extra Large (2026-10-24): its controls with Clean Areas
     "vacuum": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "vacuum"}},
     "clock": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": (), "opts": {"clock_style": "clock_style", "bare": "boolean"}},
-    "power": {"sizes": ("W", "L", "XL"), "sources": (), "opts": {}},
-    "music": {"sizes": ("L", "XL"), "sources": (), "opts": {}},
-    "doors": {"sizes": ("L", "XL"), "sources": (), "opts": {}},
-    "live_tv": {"sizes": ("L", "XL"), "sources": (), "opts": {}},
-    "water": {"sizes": ("L", "XL"), "sources": (), "opts": {}},
+    "power": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {}},
+    "music": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {}},
+    "doors": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {}},
+    "live_tv": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {}},
+    "water": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {}},
     # the new cards (G3)
     "room": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface", "accessory_display": "room_display"}},
     "scene_suggested": {"sizes": ("W", "L"), "sources": (), "opts": {"windows": "windows"}},
     # `area`: the room an action keeps to (All Lights Off in one room); the others ignore it
-    "action": {"sizes": ("S",), "sources": (), "opts": {"action": "action", "area": "area"}},
-    "everything": {"sizes": ("S",), "sources": (), "opts": {}},
+    "action": {"sizes": ("S",), "sources": (), "opts": {"action": "action", "area": "area", "color": "boolean"}},
+    "everything": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {}},
+    # THE WIDGET BLOCKS (2026-10-31, docs/phase11/HOMEVIEW-LOOK.md "Blocks as widgets"): what is on now, a to-do
+    # list, and the Energy page's rings over a period of the block's own
+    "on_now": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {}},
+    "todo": {"sizes": ("S", "T", "L", "XL"), "sources": (), "opts": {"entity": "todo"}},
+    "energy_rings": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"period": "period"}},
 }
 SOURCES = ("list", "rooms", "cameras", "thermostats", "speakers", "scenes", "accessories")
 # the sources that can open on the tablet's own room (or its speaker)
@@ -260,6 +266,24 @@ THERMOSTAT_STYLES = ("dial", "big")
 CLOCK_FACES += ("liquid", "giant", "scattered")
 
 
+# Scenes and Accessories (2026-10-31): Full, HomeView's square tile, or Half, the shorter button; an Energy Rings
+# block's period
+TILE_HEIGHTS = ("full", "half")
+PERIODS = ("day", "week", "month")
+
+
+def _tile_height(v: Any) -> str:
+    if v not in TILE_HEIGHTS:
+        raise GridInvalid("grid_option")
+    return v
+
+
+def _period(v: Any) -> str:
+    if v not in PERIODS:
+        raise GridInvalid("grid_option")
+    return v
+
+
 def _clock_style(v: Any) -> str:
     if v not in CLOCK_FACES:
         raise GridInvalid("grid_option")
@@ -276,6 +300,9 @@ OPTION_KINDS = {
     "room_display": _room_display,
     "clock_style": _clock_style,
     "thermostat_style": _thermostat_style,
+    "tile_height": _tile_height,
+    "period": _period,
+    "todo": _domain("todo"),
     "camera_follow": _camera_follow,
     "select": _domain("input_select", "select"),
     "boolean": _boolean,

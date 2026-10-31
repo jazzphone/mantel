@@ -173,7 +173,12 @@ function () {
   var t = C.table();
   eq('the options each declares (home_grid.CATALOG\'s: a pytest holds them equal)',
      [t.room.opts, t.scene_suggested.opts, t.action.opts, t.everything.opts],
-     [{ area: 'area', surface: 'surface', accessory_display: 'room_display' }, { windows: 'windows' }, { action: 'action', area: 'area' }, {}]);
+     [{ area: 'area', surface: 'surface', accessory_display: 'room_display' }, { windows: 'windows' }, { action: 'action', area: 'area', color: 'boolean' }, {}]);
+  // (2026-10-31) the widget blocks, and Scenes' and Accessories' Height and Color
+  eq('...the widget blocks and their sizes', [t.on_now.sizes, t.todo.sizes, t.energy_rings.sizes, t.energy_rings.opts, t.todo.opts],
+     [['S', 'W', 'T', 'L', 'XL'], ['S', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], { period: 'period' }, { entity: 'todo' }]);
+  eq('...Scenes and Accessories: Height and Color', [t.scenes.opts.height, t.scenes.opts.color, t.accessories.opts.height, t.accessories.opts.color, t.scene.opts.color],
+     ['tile_height', 'boolean', 'tile_height', 'boolean', 'boolean']);
 },
 function () {
   H.section('the tablet\'s room, through the host');

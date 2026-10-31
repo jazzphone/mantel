@@ -20,7 +20,8 @@
     thermostat: 'Thermostat', camera: 'Camera', security: 'Security', timers: 'Timers', weather: 'Weather',
     calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', clock: 'Clock',
     room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything', cameras: 'Cameras',
-    power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water' };
+    power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water',
+    on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings' };
   var SIZE_NAMES = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width', F: 'Full View' };
   // a size on a chip or a segment, short enough for four in a row
   var SIZE_SHORT = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'X-Large', XXL: 'Full', F: 'Full View' };
@@ -37,17 +38,19 @@
     calendar: 'Your upcoming events', battery: 'Your home’s stored energy', people: 'Who is home', vacuum: 'Cleaning status; Large adds controls and Clean Areas',
     everything: 'Open the screen’s full menu', power: 'Solar, the house, the battery and the grid right now',
     music: 'Choose speakers, then a playlist', doors: 'Locks, doors, windows and the garage', live_tv: 'Your channels; tap one to watch',
-    water: 'Today’s water; Extra Large adds the main supply' };
+    water: 'Today’s water; Extra Large adds the main supply',
+    on_now: 'What’s on in the house, and a way to turn it off', todo: 'A to-do list; tick items off', energy_rings: 'The Energy page’s rings: today, this week or this month' };
   var GLYPHS = { room: 'mdi:sofa', accessory: 'mdi:lightbulb', accessories: 'mdi:view-grid', action: 'mdi:gesture-tap', scene: 'mdi:palette',
     scenes: 'mdi:palette', scene_suggested: 'mdi:weather-sunset', thermostat: 'mdi:thermostat', weather: 'mdi:weather-partly-cloudy',
     now_playing: 'mdi:music', security: 'mdi:shield-home', camera: 'mdi:camera', cameras: 'mdi:cctv', clock: 'mdi:clock', timers: 'mdi:timer-outline',
     calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', everything: 'mdi:dots-horizontal',
-    power: 'mdi:lightning-bolt', music: 'mdi:speaker-multiple', doors: 'mdi:door-closed-lock', live_tv: 'mdi:television-classic', water: 'mdi:water' };
+    power: 'mdi:lightning-bolt', music: 'mdi:speaker-multiple', doors: 'mdi:door-closed-lock', live_tv: 'mdi:television-classic', water: 'mdi:water',
+    on_now: 'mdi:lightbulb-on', todo: 'mdi:clipboard-check', energy_rings: 'mdi:lightning-bolt' };
   // AN OPTION'S NAME in the panel: by its kind (hk-grid-catalog.js opts), else by its own name
   var KIND_LABELS = { entity: 'Accessory', climate: 'Thermostat', camera: 'Camera', weather: 'Weather', vacuum: 'Vacuum',
     speaker: 'Speaker', scene: 'Scene', scenes: 'Scenes', calendars: 'Calendars', area: 'Room', action: 'Does', windows: 'Time Windows', alarm: 'Alarm',
-    cameras: 'Cameras', refresh: 'Refresh' };
-  var NAME_LABELS = { sky: 'Sky Background', title: 'Group Name', clock_style: 'Style', bare: 'Hide Box', big: 'Big Temperature', month: 'Month View' };
+    cameras: 'Cameras', refresh: 'Refresh', todo: 'List' };
+  var NAME_LABELS = { sky: 'Sky Background', title: 'Group Name', clock_style: 'Style', bare: 'Hide Box', big: 'Big Temperature', month: 'Month View', color: 'Color' };
   // ONE THING OR PAGES THAT SWIPE, in each card's words: [one, its automatic source]
   var SHOW = { room: ['One Room', 'Swipe Between Rooms'], camera: ['One Camera', 'Swipe All Cameras'],
     thermostat: ['One Thermostat', 'Swipe All Thermostats'], now_playing: ['One Speaker', 'Swipe All Speakers'],
@@ -1536,7 +1539,7 @@
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title', 'room_display', 'thermostat_style'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
@@ -1731,6 +1734,15 @@
           rows.push(K.seg({ label: 'Style', value: opts[key] || 'dial', options: G.THERMOSTAT_STYLES, onChange: (v) => set(key, v === 'dial' ? null : v) }));
           return;
         }
+        // SCENES AND ACCESSORIES (2026-10-31): Full or Half height, glass or Color; an Energy Rings block's period
+        if (kind === 'tile_height') {
+          rows.push(K.seg({ label: 'Height', value: opts[key] || 'full', options: [['full', 'Full'], ['half', 'Half']], onChange: (v) => set(key, v === 'full' ? null : v) }));
+          return;
+        }
+        if (kind === 'period') {
+          rows.push(K.seg({ label: 'Period', value: opts[key] || 'day', options: [['day', 'Today'], ['week', 'Week'], ['month', 'Month']], onChange: (v) => set(key, v === 'day' ? null : v) }));
+          return;
+        }
         if (kind === 'days') {
           rows.push(K.select({ label: 'Days', value: String(opts[key] || 2), options: [1, 2, 3, 4, 5, 6, 7].map((n) => [String(n), n === 1 ? 'Today Only' : n === 2 ? 'Today and Tomorrow' : n + ' Days']),
             onChange: (v) => set(key, +v === 2 ? null : +v) }));
@@ -1795,7 +1807,7 @@
       if (kind === 'area') return [['tablet_room', 'Tablet’s Room']].concat(Object.keys(client.areas || {}).map((id) => [id, client.areas[id].name || id]));
       var domains = { scene: ['scene', 'script'], scenes: ['scene'], speaker: ['media_player'], climate: ['climate'], camera: ['camera'],
         timer: ['timer'], alarm: ['alarm_control_panel'], select: ['input_select', 'select'], doorbell: ['binary_sensor', 'camera'], weather: ['weather'], vacuum: ['vacuum'], calendars: ['calendar'], action: ['scene', 'script'],
-        cameras: ['camera'] }[kind];
+        cameras: ['camera'], todo: ['todo'] }[kind];
       var list = Object.keys(states).filter((id) => !domains || domains.indexOf(id.split('.')[0]) >= 0).map((id) => [id, (states[id].attributes || {}).friendly_name || id]);
       list.sort((a, b) => a[1].localeCompare(b[1]));
       if (kind === 'speaker' || kind === 'climate') list.unshift(['tablet_room', 'Tablet’s Room']);
