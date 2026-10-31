@@ -785,8 +785,19 @@
       // An inline style would beat the variant's stylesheet rule, so a card
       // that paints no well (scene) returns null and CSS decides. This is the
       // whole reason _wellBackground exists rather than a direct assignment.
-      var wb = this._wellBackground(cfg, st, on);
-      var ic = this._iconColour(cfg, st, on);
+      // TILE STYLE ON A PAGE (2026-10-30): a Tall pill that is no Home Grid
+      // block's (its block sets `tile` on it) takes its own `tile`, else the
+      // screen's (hkSettings.tileStyle: its own, else All Screens'). A
+      // regular pill stays as it is: wide and short, centred reads badly.
+      if (!this.hasAttribute('size') && !this.hasAttribute('data-group-fill')) {
+        var HS = window.hkSettings, tall = layout === 'tall' || layout === 'climate_tall';
+        var centred = cfg.tile ? cfg.tile === 'centred' : tall && !!HS && typeof HS.tileStyle === 'function' && HS.tileStyle() === 'centred';
+        if (centred) this.setAttribute('tile', 'centred'); else this.removeAttribute('tile');
+      }
+      // (a Centred tile draws every glyph bare, lit in its own colour)
+      var bareCfg = this.getAttribute('tile') === 'centred' ? Object.assign({}, cfg, { bare_icon: true }) : cfg;
+      var wb = this._wellBackground(bareCfg, st, on);
+      var ic = this._iconColour(bareCfg, st, on);
       // FLAT COLORS (2026-10-17; hk-base flatPalette / flatIdle): OFF, the
       // pill takes a wash of its source -- its own color, or the one tint
       // chosen -- its circle a deeper one and its glyph that color at 3:1.
@@ -822,15 +833,6 @@
 
       if (e.room && e.room.textContent !== cfg.room) e.room.textContent = cfg.room;
       e.card.classList.toggle('roomed', !!e.room);
-      // TILE STYLE ON A PAGE (2026-10-30): a Tall pill that is no Home Grid
-      // block's (its block sets `tile` on it) takes its own `tile`, else the
-      // screen's (hkSettings.tileStyle: its own, else All Screens'). A
-      // regular pill stays as it is: wide and short, centred reads badly.
-      if (!this.hasAttribute('size') && !this.hasAttribute('data-group-fill')) {
-        var HS = window.hkSettings, tall = layout === 'tall' || layout === 'climate_tall';
-        var centred = cfg.tile ? cfg.tile === 'centred' : tall && !!HS && typeof HS.tileStyle === 'function' && HS.tileStyle() === 'centred';
-        if (centred) this.setAttribute('tile', 'centred'); else this.removeAttribute('tile');
-      }
       var nm = cfg.name || (st && st.attributes && st.attributes.friendly_name) || cfg.entity;
       if (e.name.textContent !== nm) e.name.textContent = nm;
       if (e.label) {

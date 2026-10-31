@@ -14,6 +14,7 @@ parser.add_argument('--node',default=shutil.which('node'))
 parser.add_argument('--browser',help='optional browser executable')
 parser.add_argument('--shots',type=Path)
 parser.add_argument('--homeview',action='store_true',help='the HomeView-style starters (square cells, Centred tiles) at tablet and phone sizes')
+parser.add_argument('--only',action='append',help='--homeview: only this screen (its name, e.g. hv-sq-pane-4); may be given more than once')
 args=parser.parse_args()
 if not args.node: parser.error('Node is required; provide --node')
 import gallery
@@ -84,6 +85,7 @@ async def homeview():
                 HG.check(five)
                 gallery.SETTINGS['boards'][name+'-5']=dict(gallery.SETTINGS['boards'][name+'-4'],home_grid=five)
                 screens.append({'screen':name+'-5','sizes':['1180x820','1440x900']})
+    if args.only: screens=[s for s in screens if s['screen'] in args.only]
     with tempfile.TemporaryDirectory() as td:
         app,cookie=await gallery.build(Path(td))
         async with TestServer(app) as server:

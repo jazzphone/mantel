@@ -1343,3 +1343,14 @@ at its own size, in its circle when on: the alarm's tile came from the room page
 in the tab bar's sheets now take their corner (22.4 %) and Calendar's date from the icon's size, as the Pages screen
 does, rather than as new off-scale pixels (the radii and type ratchets). Checks: `test_gridcards` (+3),
 `home_grid_visual_check --homeview` (a new Accessory screen: the alarm armed, and with Line Under Name State).
+
+**2026-10-31, Centred tiles without circles; a Small camera; Who's Home spread out.** The owner, beside HomeView's
+own picture: "No circle/wells behind icons. fairly large icons". A Centred tile now draws every glyph bare at the
+glyph size (66 px in a square cell, 50 in a 196 × 150), off and on alike; on, it is in its own colour on the white
+plate (hk-tile.js draws a Centred tile's glyph as `bare_icon`). The measured places were checked against that picture
+again and hold: the glyph's centre 33 % down, the name 57.7 % (21 / 600), the second line under it (20 / 400) on 27 px
+lines. `TILE.centred` loses `well` and `lit`. The Camera block comes Small (one still in a cell; both catalogs). The
+Side Pane's Who's Home spreads its people evenly across the pane, as the block does, not packed to the left.
+`home_grid_visual_check` gains `--only SCREEN`, and its "page scroll" now says by how much, the band's height and any
+bottom margin left on the page: Home with Pane at 4 columns, upright, scrolled by exactly the band (276 px) twice in
+full runs and never when run alone -- not yet caught in the act.

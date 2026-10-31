@@ -70,7 +70,8 @@ CATALOG: dict[str, dict[str, Any]] = {
     "now_playing": {"sizes": ("W", "T", "L"), "sources": ("speakers",), "opts": {"speaker": "speaker"}},
     # style (2026-10-30): the dial, or Big Number (docs/phase11/HOMEVIEW-LOOK.md, Phase C)
     "thermostat": {"sizes": ("T", "L", "XL"), "sources": ("thermostats",), "opts": {"entity": "climate", "style": "thermostat_style"}},
-    "camera": {"sizes": ("W", "L", "XL"), "sources": ("cameras",),
+    # (S, 2026-10-31, the owner: "a small option to the camera": one still in a cell)
+    "camera": {"sizes": ("S", "W", "L", "XL"), "sources": ("cameras",),
                # follow (2026-10-24): swiping all cameras, turn to the one a selector or the latest motion picks
                "opts": {"entity": "camera", "follow": "camera_follow", "follow_select": "select"}},
     # THE CAMERAS FACE (2026-10-30): up to nine stills at once, arranged to the block; Full is the whole view.

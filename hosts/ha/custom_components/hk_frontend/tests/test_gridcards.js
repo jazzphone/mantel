@@ -93,7 +93,7 @@ function () {
   var tileOf = window.hkStrategy.tileFor;
   window.hkStrategy.tileFor = function () { return { type: 'custom:hk-tall-card', entity: 'lock.front_door', icon: 'hk:alarm-light-off', icon_size: '27px', bare_icon: true, well_background: 'transparent' }; };
   acc.setAttribute('tile', 'centred'); made = acc._tile();
-  eq('...a glyph drawn bare at a room page\'s 27 px takes the block\'s size and circle', ['icon_size' in made, 'bare_icon' in made, 'well_background' in made], [false, false, false]);
+  eq('...a glyph drawn at a room page\'s 27 px takes the block\'s size', ['icon_size' in made, 'bare_icon' in made, 'well_background' in made], [false, false, false]);
   acc.removeAttribute('tile'); made = acc._tile();
   eq('...on a Home block it stays as the room page draws it', [made.icon_size, made.bare_icon], ['27px', true]);
   window.hkStrategy.tileFor = tileOf; void c0;
@@ -104,7 +104,9 @@ function () {
   ok('...a 196 x 150 cell\'s numbers, then a square cell\'s', tileCss.indexOf('top:' + T.tall.at + '%') >= 0 && tileCss.indexOf('@container hk-cell (min-height:180px){') >= 0 &&
      tileCss.indexOf('width:' + T.square.glyph + 'px !important;height:' + T.square.glyph + 'px !important') >= 0);
   ok('...the lock\'s and Lock Up\'s, the lights\' and the scenes\' tiles: hk-tile\'s and the key\'s', keyCss.indexOf('top:' + T.square.text + '%') >= 0);
-  ok('...off, the glyph bare; lit, in its well (the white plate stays)', tileCss.indexOf(':host([tile=centred]) hk-plate.card:not([data-on="1"]) .well{background:none !important}') >= 0);
+  ok('...the glyph bare, off and lit -- no circle (2026-10-31, HomeView has none)', tileCss.indexOf(':host([tile=centred]) .well{background:none !important}') >= 0 &&
+     tileCss.indexOf(':host([tile=centred]) hk-plate.card[data-on="1"] .icon{width:') < 0);
+  ok('...lit, the glyph in its own colour (the tile draws it bare)', /getAttribute\('tile'\) === 'centred' \? Object\.assign\(\{\}, cfg, \{ bare_icon: true \}\)/.test(readFile(HK_ROOT + '/frontend/cards/hk-tile.js')));
   ok('a block\'s corners on square cells: the tile and the key read --hk-block-radius', /:host\(\[size\]:not\(\[data-group-fill\]\)\) hk-plate\.card\{border-radius:var\(--hk-block-radius/.test(tileCss) &&
      /hk-plate\.k\{border-radius:var\(--hk-block-radius/.test(keyCss));
 },
@@ -393,6 +395,7 @@ function () {
      { type: 'custom:hk-grid-cameras-card', cameras: ['camera.garden'], refresh: 30 });
   eq('...a house with no camera: the stand-in', C.config({ card: 'cameras', size: 'XL' }, {}).type, 'custom:hk-key-card');
   eq('...its sizes and options', [C.table().cameras.sizes, C.table().cameras.opts], [['XL', 'XXL', 'F'], { cameras: 'cameras', refresh: 'refresh' }]);
+  eq('the Camera block comes Small too (2026-10-31): one still in a cell', C.table().camera.sizes, ['S', 'W', 'L', 'XL']);
   eq('Full is the grid\'s own columns and rows', [C.SIZES.F, C.span('F', 3, 3), C.span('F', 2, 4), C.span('XL', 6, 4)], [[0, 0], [3, 3], [2, 4], [3, 2]]);
 },
 function () {

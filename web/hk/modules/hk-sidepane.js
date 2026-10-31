@@ -535,7 +535,7 @@
       // FULL: each one, where and since when
       var since = function (id) { var t = Date.parse((st[id] || {}).last_changed); return t ? ' · ' + ago(t) : ''; };
       if (s === 'full') return box('people', s, head('people') + lst(rows(ids.slice(0, 8).map(function (id) { return [nameOf(st[id], id), where(id) + since(id), 'mdi:account', '', id]; }))), 'shrink');
-      var av = '<div class="ppl">' + ids.slice(0, 5).map(function (id, i) {
+      var av = '<div class="ppl" style="--n:' + Math.min(5, ids.length) + '">' + ids.slice(0, 5).map(function (id, i) {
         var x = st[id] || {}, pic = attr(x, 'entity_picture'), nm = nameOf(x, id);
         var face = pic ? '<img alt="" src="' + esc(pic) + '">' : esc(nm.charAt(0).toUpperCase());
         return '<div data-ent="' + esc(id) + '" class="' + (x.state === 'home' ? '' : 'away') + '"><i style="background:' + ['#ff9500', '#5856d6', '#34c759', '#ff2d55', '#32ade6'][i % 5] + '">' + face + '</i>' + esc(nm.split(' ')[0]) + '</div>';
@@ -791,8 +791,10 @@
       '.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}',
       '.stats div{font:500 13px/1.3 var(--hk-font-body,inherit);color:' + v('ink-2') + '}',
       '.stats b{display:block;font:600 22px/1.25 var(--hk-font-body,inherit);color:' + v('ink') + '}',
-      '.ppl{display:flex;gap:14px}',
-      '.ppl div{display:grid;justify-items:center;gap:4px;font:500 13px/1.2 var(--hk-font-body,inherit);color:' + v('ink-2') + '}',
+      // (spread evenly across the pane, as the Who's Home block has them --
+      // not packed to the left; the owner, 2026-10-31)
+      '.ppl{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:14px}',
+      '.ppl div{display:grid;justify-items:center;gap:4px;min-width:0;font:500 13px/1.2 var(--hk-font-body,inherit);color:' + v('ink-2') + '}',
       '.ppl i{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font:600 18px/1 var(--hk-font-body,inherit);font-style:normal;color:#fff;overflow:hidden}',
       '.ppl i img{width:100%;height:100%;object-fit:cover}',
       '.ppl .away i{opacity:.45}',
