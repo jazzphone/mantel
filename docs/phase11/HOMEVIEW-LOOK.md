@@ -1354,3 +1354,9 @@ Side Pane's Who's Home spreads its people evenly across the pane, as the block d
 `home_grid_visual_check` gains `--only SCREEN`, and its "page scroll" now says by how much, the band's height and any
 bottom margin left on the page: Home with Pane at 4 columns, upright, scrolled by exactly the band (276 px) twice in
 full runs and never when run alone -- not yet caught in the act.
+
+**2026-10-31, a block pager at rest on its page.** The owner's Camera block (nine cameras, on the sixth) sat a few px
+to the right of the column under it, its left edge out of line too. The pager's pages are exact (each page the
+track's width, `PAGER_ROOM` either side), but a smooth turn cut short -- a camera following motion while the block was
+drawn again, or a hidden tab -- left the track a few px past its page, and nothing put it back. Once the track has
+been still for `PAGER_STILL`, it now sits exactly on the page it is nearest (`test_pager`).

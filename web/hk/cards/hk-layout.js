@@ -2617,6 +2617,12 @@
       clearTimeout(this._stillT);
       this._stillT = setTimeout(function () {
         if (self._drag && self._drag.moved) { self._moving(); return; }
+        // ...and at rest ON its page: a smooth turn cut short (the block
+        // drawn again, a hidden tab) left the plates a few px into the gap,
+        // the block out of line with the ones under it (the owner,
+        // 2026-10-31: "pushed to the right some")
+        var t = self._track, w = t && t.clientWidth;
+        if (w) { var at = Math.round(t.scrollLeft / w); if (Math.abs(t.scrollLeft - at * w) > 0.5) t.scrollLeft = at * w; }
         pager.classList.remove('moving');
         self.removeAttribute('data-moving');
       }, PAGER_STILL);
