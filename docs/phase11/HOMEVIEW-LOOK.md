@@ -1413,3 +1413,10 @@ sheet (Cancel), and a 3 × 3 beside the Side Pane (Escape, Done); `edit_mode_che
 Home Grid's Home. **Left:** a block moves within the view shown (the dots go to another view; carrying one across
 views is not built); a block's options are still Arrange Home Grid's; a tablet's 6 × 4 grid on a phone draws its
 blocks small, and the badges stay at least 20 px there, over a good part of each block.
+
+**2026-10-31, the pane's Now Playing at Less as a mini player; headings in words alone.** Of three layouts drawn (a
+mini player, cover first, the lock screen's), the owner picked the mini player: the cover and the song on their own
+line; under it one row of Speakers, back, play / pause (white, the largest), next and Browse; then the volume, a
+small and a large speaker either side -- a 6 px track in a 44 px place for a finger ("make sure the thin line for
+volume is ok for a finger"). The pane's section headings lost their glyphs (the owner: "rather it just be text"),
+the To-do list's name too. `test_sidepane` (+3), `side_pane_check`.

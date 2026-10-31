@@ -193,6 +193,7 @@ ok('...a row names what a tap on it opens (Who\'s Home, Full)', /data-ent="perso
 ok('...no heading over the Weather or the Clock', X.SEC.weather('less', {}, client, ctx).indexOf('class="h2"') < 0 &&
    X.SEC.clock('less', {}, client, ctx).indexOf('class="h2"') < 0);
 ok('...one over Security (headings on by default)', X.SEC.security('less', {}, client, ctx).indexOf('class="h2"') > 0);
+ok('...its words alone, no glyph (2026-10-31, the owner)', /<div class="h2"><span>Security<\/span><\/div>/.test(X.SEC.security('less', {}, client, ctx)));
 ok('Tiny is one line: its glyph, the fact and a value', /class="sec cmp"/.test(X.SEC.weather('tiny', {}, client, ctx)) &&
    X.SEC.weather('tiny', {}, client, ctx).indexOf('54° Sunny') > 0);
 ok('...the timer\'s countdown', /Pasta[\s\S]*4:1[0-2]/.test(X.SEC.timers('tiny', {}, client, ctx)));
@@ -202,18 +203,21 @@ ok('Now Playing: Tiny the song and a pause; More the screensaver\'s music pane',
    /data-act="pp"/.test(X.SEC.now_playing('tiny', {}, client, ctx)) && /data-slot="np"/.test(X.SEC.now_playing('more', {}, client, ctx)));
 ok('...Full takes what the pane has left', /class="sec mp grow"/.test(X.SEC.now_playing('full', {}, client, ctx)));
 var less = X.SEC.now_playing('less', {}, client, ctx);
-ok('...Less: the song and play / pause; Speakers and Browse at the ends of the line under it (2026-10-31, the owner)',
+var at = function (h, act) { return h.indexOf('data-act="' + act + '"'); };
+ok('...Less, a mini player (2026-10-31, the owner\'s pick): the song, then Speakers, back, play / pause, next, Browse on one row',
    /data-act="spk"[^>]*aria-label="Speakers"/.test(less) && /data-act="brw"[^>]*aria-label="Browse Music"/.test(less) &&
-   less.indexOf('data-act="pp"') < less.indexOf('class="vol"') && less.indexOf('class="vol"') < less.indexOf('data-act="spk"') &&
-   less.indexOf('data-act="spk"') < less.indexOf('data-act="brw"'), less);
+   less.indexOf('Late Light') < at(less, 'spk') && at(less, 'spk') < at(less, 'prev') && at(less, 'prev') < at(less, 'pp') &&
+   at(less, 'pp') < at(less, 'next') && at(less, 'next') < at(less, 'brw') && /class="pp big"/.test(less), less);
 var src = readFile(HK_ROOT + '/frontend/modules/hk-sidepane.js');
 ok('...Speakers and Browse open the screensaver\'s panel over the pane, its four tabs', /musicPanel\(this, act === 'spk' \? 'speakers' : 'browse'\)/.test(src) &&
    /tabs: \['speakers', 'volume', 'queue', 'browse'\]/.test(src));
 ok('...no volume where the player reports none', !/data-act="vol"/.test(less));
 client.states['media_player.kitchen'].attributes.volume_level = 0.42;
 var lessV = X.SEC.now_playing('less', {}, client, ctx);
-ok('...and its volume between them where it does, set where it is let go', /data-act="spk".*data-act="vol"[^>]*value="42".*data-act="brw"/.test(lessV) &&
+ok('...and its volume under the row where it does, set where it is let go', at(lessV, 'brw') < at(lessV, 'vol') && /data-act="vol"[^>]*value="42"/.test(lessV) &&
    /'media_player', 'volume_set', \{ volume_level:/.test(src), lessV);
+ok('...a 44 px place for a finger, its track 6 px', /\.vol input\{[^}]*height:44px/.test(src) && /\.vol input::-webkit-slider-runnable-track\{height:6px/.test(src));
+ok('...back and next go to the music\'s player', /'media_previous_track' : 'media_next_track'/.test(src));
 delete client.states['media_player.kitchen'].attributes.volume_level;
 
 ok('Calendar: the next event, then two, four, five', X.SEC.calendar('tiny', {}, client, ctx).indexOf('Pumpkin carving') > 0 &&

@@ -311,15 +311,16 @@
 
   // ------------------------------------------------------------ drawing
   function icon(name, extra) { return '<hk-icon icon="' + name + '"' + (extra || '') + '></hk-icon>'; }
-  // A SECTION'S HEADING (2026-10-30): the small uppercase title with its icon,
-  // as the pane's Section Headings say (the screen's Side Pane `headings`, on
+  // A SECTION'S HEADING (2026-10-30): the small uppercase title -- text alone
+  // since 2026-10-31 (the owner: "remove the glyph/icon... rather it just be
+  // text"), as the pane's Section Headings say (the screen's Side Pane `headings`, on
   // by default) -- never over the Clock or the Weather, which say what they
   // are, nor on a Pages-screen widget. A to-do list keeps its own name either
   // way (which list is content). HEAD_ON is the drawing pane's, set as it draws.
   var HEAD_ON = true;
   function head(k) {
     if (!HEAD_ON || k === 'clock' || k === 'weather') return '';
-    return '<div class="h2">' + icon(KINDS[k][1]) + '<span>' + esc(KINDS[k][0]) + '</span></div>';
+    return '<div class="h2"><span>' + esc(KINDS[k][0]) + '</span></div>';
   }
   function tiny(k, txt, val) {
     return '<div class="sec cmp" data-k="' + k + '" data-size="tiny"><div class="r2">' + icon(KINDS[k][1]) +
@@ -421,18 +422,22 @@
       var pp = '<button type="button" class="pp" data-act="pp" aria-label="' + (m.playing ? 'Pause' : 'Play') + '">' +
                icon(m.playing ? 'mdi:pause' : 'mdi:play') + '</button>';
       if (s === 'tiny') return tiny('now_playing', esc(m.title || 'Playing'), pp);
-      // LESS: the song and play / pause; under it the volume, between the
-      // screensaver's Speakers and Browse, which open its panel over the pane
-      // (musicPanel) -- the owner, 2026-10-31: "like this for the side pane
-      // media player too", the two on the volume's line so the song keeps its
-      // row. With no volume to set, the two at that line's ends.
+      // LESS, A MINI PLAYER (2026-10-31, the owner's pick of three): the cover
+      // and the song on their own line; under it one row -- Speakers, back,
+      // play / pause (white, the largest), next, Browse -- the screensaver's
+      // two at its ends, opening its panel over the pane (musicPanel); then
+      // the volume, its speakers either side, a quiet 6 px track in a 44 px
+      // place for a finger ("make sure the thin line for volume is ok for a
+      // finger to use")
       if (s === 'less') {
-        var mk = function (act, name, ic) { return '<button type="button" class="pp" data-act="' + act + '" aria-label="' + name + '">' + icon(ic) + '</button>'; };
+        var mk = function (act, name, ic, cls) { return '<button type="button" class="' + (cls || 'pp') + '" data-act="' + act + '" aria-label="' + name + '">' + icon(ic) + '</button>'; };
         return box('now_playing', s, '<div class="r2 np">' + (m.pic ? '<img class="art" alt="" src="' + esc(m.pic) + '">' : '<span class="art">' + icon('mdi:music') + '</span>') +
-          '<span class="tx"><b>' + esc(m.title) + '</b><i>' + esc(m.artist) + '</i></span>' + pp + '</div>' +
-          '<div class="vol">' + mk('spk', 'Speakers', 'mdi:speaker') +
-          (m.vol !== null ? '<input type="range" min="0" max="100" step="1" data-act="vol" aria-label="Volume" value="' + Math.round(m.vol * 100) + '">' : '<span class="sp"></span>') +
-          mk('brw', 'Browse Music', 'mdi:music-box-multiple') + '</div>');
+          '<span class="tx"><b>' + esc(m.title) + '</b><i>' + esc(m.artist) + '</i></span></div>' +
+          '<div class="trow">' + mk('spk', 'Speakers', 'mdi:speaker') + mk('prev', 'Previous', 'mdi:skip-previous', 'tk') +
+          mk('pp', m.playing ? 'Pause' : 'Play', m.playing ? 'mdi:pause' : 'mdi:play', 'pp big') + mk('next', 'Next', 'mdi:skip-next', 'tk') +
+          mk('brw', 'Browse Music', 'mdi:music-box-multiple') + '</div>' +
+          (m.vol !== null ? '<div class="vol">' + icon('mdi:volume-high', ' class="lo"') + '<input type="range" min="0" max="100" step="1" data-act="vol" aria-label="Volume" value="' +
+            Math.round(m.vol * 100) + '">' + icon('mdi:volume-high') + '</div>' : ''));
       }
       // MORE AND FULL: the screensaver's music pane itself (hk-music-pane-card,
       // hk-saver.js): the art, the song, its buttons and volume, Up Next and
@@ -558,7 +563,7 @@
       var name = nameOf(st, eid), left = num(st.state);
       if (s === 'tiny') return tiny('todo', esc(name), left == null ? '' : esc(left + (left === 1 ? ' item' : ' items')));
       var t = todoOf(c, eid, sec.completed, ctx.redraw), got = t.got;
-      var h = '<div class="h2">' + icon(KINDS.todo[1]) + '<span>' + esc(name) + '</span></div>';
+      var h = '<div class="h2"><span>' + esc(name) + '</span></div>';
       if (!got) return box('todo', s, h + '<div class="sub2">Reading the list…</div>');
       if (got.refused) return box('todo', s, h + '<div class="sub2">' + esc(got.refused === 'commands_disabled' ? 'Can’t read the list while control of the house is off.' : 'Can’t read the list.') + '</div>');
       var items = (got.items || []).slice(0, { less: 2, more: 4, full: 6 }[s]);
@@ -726,7 +731,6 @@
       ':host(:not([mode="widget"]):not([side="band"])) .sec.mp{border-radius:0}',
       '.sec>.ev:last-child{border-bottom:0}',
       '.h2{display:flex;align-items:center;gap:6px;font:600 13px/1 var(--hk-font-body,inherit);letter-spacing:.3px;text-transform:uppercase;color:' + v('ink-2') + '}',
-      '.h2 hk-icon{--mdc-icon-size:15px;width:15px;height:15px}',
       '.big2{font:600 72px/1 var(--hk-font-body,inherit);letter-spacing:-2px;font-variant-numeric:tabular-nums}',
       '.big2.less{font-size:48px;letter-spacing:-1.2px}',
       '.tm{white-space:nowrap}.tm small{font-size:.36em;font-weight:600;letter-spacing:0;margin-left:.18em;color:' + v('ink-2') + '}',
@@ -757,8 +761,13 @@
       '.pp{all:unset;cursor:pointer;flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:' + v('key') + '}',
       '.pp hk-icon{--mdc-icon-size:22px;width:22px;height:22px}',
       '.cmp .pp{width:30px;height:30px;margin:-4px 0}',
-      '.vol{display:flex;align-items:center;gap:12px;margin-top:12px}.vol .sp{flex:1}',
-      '.vol input{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:28px;background:transparent;margin:0;touch-action:pan-y}',
+      '.trow{display:flex;align-items:center;justify-content:space-between;margin-top:12px}',
+      '.tk{all:unset;cursor:pointer;display:grid;place-items:center;width:44px;height:44px;border-radius:50%}.tk hk-icon{--mdc-icon-size:30px;width:30px;height:30px}',
+      '.tk:active{background:' + v('key') + '}',
+      '.pp.big{width:52px;height:52px;background:#fff;color:#1c1c1e}.pp.big hk-icon{--mdc-icon-size:30px;width:30px;height:30px;color:#1c1c1e}',
+      '.vol{display:flex;align-items:center;gap:10px;margin-top:4px}',
+      '.vol hk-icon{--mdc-icon-size:20px;width:20px;height:20px;color:' + v('ink-2') + ';flex:none}.vol hk-icon.lo{--mdc-icon-size:14px;width:14px;height:14px}',
+      '.vol input{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:44px;background:transparent;margin:0;touch-action:pan-y;cursor:pointer}',
       '.vol input::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:' + v('line-strong') + '}',
       '.vol input::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}',
       '.vol input::-moz-range-track{height:6px;border-radius:3px;background:' + v('line-strong') + '}',
@@ -1157,6 +1166,9 @@
       if (act === 'pp') {
         var m = musicOf(c);
         if (m) c.actions.callService('media_player', 'media_play_pause', {}, { entity_id: m.key }).catch(function () { /* refused: said by the host */ });
+      } else if (act === 'prev' || act === 'next') {
+        var mn = musicOf(c);
+        if (mn) c.actions.callService('media_player', act === 'prev' ? 'media_previous_track' : 'media_next_track', {}, { entity_id: mn.key }).catch(function () { /* refused: said by the host */ });
       } else if (act === 'spk' || act === 'brw') {
         musicPanel(this, act === 'spk' ? 'speakers' : 'browse');
       } else if (act === 'todo') {
