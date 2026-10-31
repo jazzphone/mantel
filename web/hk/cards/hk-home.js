@@ -50,6 +50,181 @@
   // (Home Assistant's own helpers, named as the host names them: hk-host-shell.js haName)
   function NO_HELPERS() { return 'Quick timers need ' + window.hkShell.haName('HK Frontend\u2019s timer helpers') + ' (helpers/quick_timers.yaml).'; }
 
+  // ------------------------------------------------------- picking rooms
+  // THE ROOMS TO CLEAN, AND CLEANING THEM: the rooms Clean Areas offers, the
+  // selection, and the one dispatch. The area picker (below) is built on it,
+  // and so, from Large up, is the Vacuum block (2026-10-31, the owner: "rooms
+  // as tiles to tick, 'Clean 2 rooms'") -- one way to ask for rooms, so the
+  // block and the Vacuums page can never send them differently.
+  //
+  // A card on this sets `_auto` (show the rooms Clean Areas offers, live) and
+  // `_sel` (a Set) before it draws, and redraws in _render.
+  function areaPicking(Base) {
+    return class extends Base {
+      // THROUGH hkSettings.subscribe, as every lasting subscription here is: the
+      // command is HK Frontend's own and always answers ({configured: false}
+      // without Clean Areas), but right after a restart a screen can reconnect
+      // before it is registered, and a raw subscribe refused then is dropped for
+      // good -- the picker kept the old rooms until the card was rebuilt. This
+      // one resubscribes on every reconnect and retries a refusal with back-off.
+      _subAreas() {
+        if (!this._auto || this._areaSub || !this.isConnected) return;
+        var conn = this.client && this.client.subscriptions;    // the client's port
+        var sub = window.hkSettings && window.hkSettings.subscribe;
+        if (!conn || typeof conn.subscribeMessage !== 'function' || typeof sub !== 'function') return;
+        var self = this;
+        this._areaSub = sub(conn, { type: 'hk_clean_areas/subscribe' }, function (ev) {
+          self._offer = ev || { configured: false, areas: [] };
+          self._render();
+        }, 'hk-area-select');
+      }
+      connectedCallback() {
+        super.connectedCallback();
+        this._subAreas();
+      }
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        var close = this._areaSub;
+        this._areaSub = null;
+        if (typeof close === 'function') close();
+      }
+      // THE ORDER within a floor: the card's own `order:` (area ids -- a house
+      // whose rooms read in a sequence of its own), else this screen's Room
+      // order when it is used on pages (Home -> Rooms), else A to Z. A room not
+      // in the order follows those that are, A to Z.
+      _order() {
+        if (Array.isArray(this._config.order) && this._config.order.length) return this._config.order;
+        var M = window.hkCards && window.hkCards.menu, b = M && M.board ? M.board() : null;
+        return b && b.page_rooms === 'order' && Array.isArray(b.room_order) ? b.room_order : [];
+      }
+      // [{name, areas: [{id, name}]}], or null while HK Clean Areas has not
+      // answered yet
+      _floors() {
+        if (!this._auto) return this._config.floors || [];
+        var o = this._offer;
+        if (!o) return null;
+        var A = (this.client && this.client.areas) || {}, FL = (this.client && this.client.floors) || {};
+        // without HK Clean Areas a house's own script still cleans: every area
+        var ids = (o.missing || o.configured === false) && this._script() ? Object.keys(A) : (o.areas || []);
+        var by = {};
+        ids.forEach(function (id) {
+          var a = A[id];
+          if (!a) return;
+          var f = a.floor_id && FL[a.floor_id] ? a.floor_id : '';
+          (by[f] = by[f] || []).push({ id: id, name: a.name || id });
+        });
+        var lv = function (f) { var x = FL[f]; return x && typeof x.level === 'number' ? x.level : 1e9; };
+        var rank = {}, order = this._order();
+        order.forEach(function (id, i) { if (!(id in rank)) rank[id] = i; });
+        var rk = function (a) { return a.id in rank ? rank[a.id] : order.length; };
+        return Object.keys(by).sort(function (x, y) {
+          return (x === '') - (y === '') || lv(x) - lv(y) || String((FL[x] || {}).name).localeCompare(String((FL[y] || {}).name));
+        }).map(function (f) {
+          return { name: (FL[f] && FL[f].name) || 'Rooms',
+                   areas: by[f].sort(function (x, y) { return rk(x) - rk(y) || String(x.name).localeCompare(String(y.name)); }) };
+        });
+      }
+      _script() { return this._config.start_script || setting('features.vacuum_script'); }
+      // what the rooms drawn depend on: the order, and each offered area's
+      // name and floor (the list itself arrives by subscription)
+      _areaSig() {
+        var A = (this.client && this.client.areas) || {}, FL = (this.client && this.client.floors) || {};
+        var ids = (this._offer && this._offer.areas) || [];
+        return this._order().join(',') + '|' + ids.map(function (id) {
+          var a = A[id] || {}, f = FL[a.floor_id] || {};
+          return id + ':' + (a.name || '') + ':' + (a.floor_id || '') + ':' + (f.name || '') + ':' + (f.level == null ? '' : f.level);
+        }).join(',');
+      }
+      // a room no longer offered is no longer selected
+      _keepOffered(floors) {
+        if (!floors || !this._auto || !this._sel || !this._sel.size) return;
+        var here = {}, sel = this._sel;
+        floors.forEach(function (f) { (f.areas || []).forEach(function (a) { here[a.id] = true; }); });
+        sel.forEach(function (id) { if (!here[id]) sel.delete(id); });
+      }
+
+      _toggle(id) {
+        this._sel.has(id) ? this._sel.delete(id) : this._sel.add(id);
+        this._render();
+      }
+      _clear() { this._sel.clear(); this._render(); }
+
+      // SAME RULE AS THE TIMER KEYPAD: the selection survives a failed dispatch.
+      // Six rooms chosen, one tap, a rejected call: clearing then would wipe
+      // the lot with nothing cleaning and nothing said.
+      _start() {
+        if (!this._sel.size || !this.client) return;
+        var n = this._sel.size;
+        if (!this._begin('Sending ' + n + (n === 1 ? ' area\u2026' : ' areas\u2026'))) return;
+        var self = this;
+        var areas = Array.from(this._sel);
+        var sent = function () {
+          self._clear();              // _clear re-renders
+          self._setStatus('sent', n === 1 ? 'Sent 1 area to clean.'
+                                          : 'Sent ' + n + ' areas to clean.', 5000);
+        };
+        // A HOUSE'S OWN SCRIPT, when it names one (the card's start_script, or
+        // Configure -> Advanced): it receives `areas` and does the rest. Still
+        // script.turn_on and only `ok` -- the robot cards beside this one are
+        // the real confirmation.
+        var script = this._script();
+        if (script) {
+          this._call('script', 'turn_on', { entity_id: script, variables: { areas: areas } })
+            .then(function (ok) {
+              self._end();
+              if (ok) sent();
+              else {
+                // Selection untouched: six rooms chosen is real work to redo.
+                self._setStatus('failed', 'Could not reach Home Assistant. Tap to retry.');
+                self._render();
+              }
+            });
+          return;
+        }
+        // OTHERWISE CLEAN AREAS SENDS THEM (hk_frontend.clean_areas, the Clean
+        // Areas feature): each vacuum gets the chosen areas on its own room
+        // map, and it says which areas no vacuum reaches. Not added: say so,
+        // rather than an error from the action.
+        if (!(window.hkCards && window.hkCards.added && window.hkCards.added('clean_areas'))) {
+          this._end();
+          this._setStatus('failed', 'Add Clean Areas (' + window.hkShell.haPlace('HK Frontend \u2192 Add feature') + ') to clean by area.');
+          this._render();
+          return;
+        }
+        this._callResp('hk_frontend', 'clean_areas', { areas: areas }).then(function (res) {
+          self._end();
+          var r = (res && res.response) || {};
+          if (res.ok && r.ok) {
+            sent();
+            // SOME AREAS NO VACUUM REACHES: the rest were sent, so this is a
+            // `warn` (it stays until the next action), not a failure.
+            if (r.unreachable && r.unreachable.length) {
+              self._setStatus('warn', 'Sent. No vacuum reaches ' + r.unreachable.length +
+                              ' of them.');
+            }
+            return;
+          }
+          // SOME VACUUMS STARTED AND SOME DID NOT: keep only the areas of the
+          // ones that failed, so a retry does not re-send the robots already
+          // cleaning. A refusal or an unreachable Home Assistant keeps it all.
+          if (res.ok && r.failed && r.failed.length && r.plan) {
+            var bad = {};
+            r.failed.forEach(function (f) { bad[f.vacuum] = true; });
+            var keep = [];
+            r.plan.forEach(function (step) {
+              if (bad[step.vacuum]) keep = keep.concat(step.areas || []);
+            });
+            self._sel = new Set(keep.filter(function (a) { return areas.indexOf(a) !== -1; }));
+          }
+          // Home Assistant's own refusal (res.error), else the service's answer.
+          self._setStatus('failed', r.message || res.error ||
+                          'Could not reach Home Assistant. Tap to retry.');
+          self._render();
+        });
+      }
+    };
+  }
+
   // --------------------------------------------------------- hk-vacuum
   //
   // One vacuum: a live glyph, its name, a row of small chips, and four
@@ -61,7 +236,7 @@
   // THE CHIP ROW IS THE REASON THIS CARD EXISTS: without it a stuck vacuum
   // looks exactly like a docked one. Each chip is a fact you would otherwise have to
   // open the more-info dialog to learn.
-  class HkVacuumCard extends HkBase {
+  class HkVacuumCard extends areaPicking(HkBase) {
     static get CSS() {
       return [
         // 188px, not 200, and row-gap 10 rather than 14. A page that stacks
@@ -119,49 +294,94 @@
         '  color:' + window.hkCards.v('glyph') + '}',
         '@media (prefers-reduced-motion:reduce){',
         '  .vac .cmd,.vac .cmd:active,.vac .ico{transition:none;transform:none}}',
-        // ON A HOME GRID (G2, the `vacuum` block): the plate fills it; the
-        // glyph beside the status and its chips, the commands along the foot
-        // as 44 px capsules. W: all four, on a page card's padding; S: Start
-        // and Dock, on a tile's (the block is a tile's size)
-        ':host([size]) hk-plate.vac{height:100%;min-height:0;padding:' + C.blockPad(C.CARD.pad) + ';border-radius:var(--hk-block-radius, ' + C.M.radius + ')}',
-        // (Small: a tile's padding, as the tiles beside it -- and a Square screen's corner inset)
-        ':host([size=S]) hk-plate.vac{padding:calc(12.8px + var(--hk-in-t,0px)) calc(12.8px + var(--hk-in-r,0px)) calc(12.8px + var(--hk-in-b,0px)) calc(' + C.TILE.padL + 'px + var(--hk-in-l,0px))}',
-        ':host([size]) .vac .grid{height:100%;min-height:0;row-gap:8px;column-gap:10px;',
-        '  grid-template-areas:"ico label label label" "ico meta meta meta" "start pause locate home";',
-        '  grid-template-columns:44px repeat(3,minmax(0,1fr));grid-template-rows:22px 22px minmax(44px,1fr)}',
-        ':host([size=S]) .vac .grid{grid-template-areas:"ico label" "ico meta" "start home";',
-        '  grid-template-columns:44px minmax(0,1fr)}',
-        ':host([size=S]) .vac [data-hk-role=pause],:host([size=S]) .vac [data-hk-role=locate]{display:none}',
-        ':host([size]) .vac .ico{width:44px;height:44px;border-radius:22px;align-self:start}',
-        ':host([size]) .vac .ico hk-icon{--mdc-icon-size:24px;width:24px;height:24px}',
-        ':host([size]) .vac .label{' + C.typeCss('headline') + ';line-height:22px}',
-        ':host([size]) .vac .meta{flex-wrap:nowrap;overflow:hidden;align-self:start}',
-        ':host([size]) .vac .cmd{height:44px;align-self:end;border-radius:22px}',
-        // ON A SQUARE CELL (HomeView, 2026-10-30; the owner: the Wide and Small
-        // vacuums "don't really look good in the homeview layout"): read as
-        // the blocks beside it -- a tall tile's padding, the glyph's well at
-        // its top left, the name and one line of status at its foot (the
-        // chips as words: "Docked · 92%", a warning in its colour), and the
-        // commands as round keys at the top right: Start and Dock on Small,
-        // all four on Wide. (A tile's cell is 70 px: never this.)
+        // ON A HOME GRID (the `vacuum` block; redrawn as a widget, 2026-10-31,
+        // the owner: "big Clean / Dock keys", the mock-up's Vacuum): built
+        // round what a vacuum is for -- what it is doing and its battery, one
+        // big Clean (Pause while it runs, Resume when paused) where a thumb is
+        // and Dock beside it. Large and Extra Large add the rooms to clean as
+        // tiles to tick, the Clean key saying how many (areaPicking, Clean
+        // Areas); Extra Large draws the battery as a ring beside them. Its
+        // own markup (_renderBlock), not the page card's: a page keeps that.
+        // Tile cells (196 x 150) first, a square cell's sizes after.
+        ':host([size]){display:block;height:100%}',
+        'hk-plate.vb{box-sizing:border-box;height:100%;display:flex;flex-direction:column;padding:' + C.blockPad(C.CARD.pad) + ';' + C.plate('card') + ';',
+        '  overflow:hidden;cursor:pointer;color:' + C.v('ink') + ';-webkit-tap-highlight-color:transparent;--vb-key:44px;--vb-gl:28px}',
+        '.vb .top{display:flex;align-items:center;gap:10px;min-width:0;flex:none}',
+        '.vb .gl{flex:none;width:var(--vb-gl);height:var(--vb-gl);--mdc-icon-size:var(--vb-gl);color:' + C.ACCENTS.mint + '}',
+        '.vb .gl.bad{color:' + C.ACCENTS.red + '}',
+        '.vb .pct{margin-left:auto;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + ';font-variant-numeric:tabular-nums}',
+        '.vb .nm{display:block;min-width:0;' + C.typeCss('headline') + ';letter-spacing:-0.2px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.vb .rt{display:flex;flex-direction:column;min-width:0}',
+        '.vb .sub{display:block;min-width:0;font-size:15px;font-weight:400;line-height:1.3;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.vb[data-s=S] .sub{' + C.typeCss('caption') + '}',
+        '.vb .sub.two{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}',
+        '.vb .warn{color:' + C.ACCENTS.orange + '}.vb .bad,.vb .err{color:' + C.ACCENTS.red + '}.vb .good{color:' + C.ACCENTS.green + '}',
+        '.vb .big{font-size:34px;font-weight:300;letter-spacing:-0.02em;line-height:1.05;font-variant-numeric:tabular-nums;margin-top:2px}',
+        '.vb .lab{display:block;font-size:15px;font-weight:600;letter-spacing:-0.1px;text-transform:uppercase;color:' + C.v('ink-2') + ';margin-top:10px;flex:none}',
+        '.vb .note{' + C.typeCss('caption') + ';line-height:1.3;color:' + C.v('ink-2') + ';margin-top:6px}',
+        // the status of a clean just sent, in place of the line it is about
+        '.vb .hk-status:empty{display:none}.vb .hk-status{' + C.typeCss('caption') + ';line-height:1.3;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.vb .hk-status[data-kind=failed]{color:' + C.v('fail') + '}.vb .hk-status[data-kind=warn]{color:' + C.v('warn') + '}',
+        '.vb .rt:has(.hk-status:not(:empty)) .sub{display:none}',
+        // THE KEYS at the foot: Clean (white, as a selected key is) taking the room, Dock round beside it
+        '.vb .keys{display:flex;gap:10px;margin-top:auto;padding-top:10px;flex:none}',
+        '.vb .key{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px;flex:none;height:var(--vb-key);min-width:var(--vb-key);',
+        '  --vb-r:calc(var(--vb-key) / 2);border-radius:var(--vb-r);background:' + C.v('key-strong') + ';color:' + C.v('ink') + ';font-family:inherit;' + C.typeCss('headline') + ';white-space:nowrap;cursor:pointer}',
+        '.vb .key>span{min-width:0;overflow:hidden;text-overflow:ellipsis}',
+        '.vb .key.go{flex:1 1 auto;min-width:0;padding:0 10px;background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
+        '.vb .key.wide{padding:0 18px}',
+        '.vb .key hk-icon{flex:none;width:22px;height:22px;--mdc-icon-size:22px}',
+        '.vb .key[aria-disabled=true]{opacity:.45;pointer-events:none}',
+        '.vb .key:active,.vb .vr:active{transform:scale(0.97)}',
+        '.vb .key:focus-visible,.vb .vr:focus-visible{outline:2px solid ' + C.v('ink-2') + ';outline-offset:2px}',
+        // WIDE: the vacuum and its battery large on the left, the two keys stacked on the right
+        '.vb[data-s=W]{flex-direction:row;gap:16px}',
+        '.vb[data-s=W] .col{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}',
+        // (its name at the top, the battery and what it is doing at the foot, level with the Dock key)
+        '.vb[data-s=W] .col .big{margin-top:auto}',
+        '.vb[data-s=W] .side{flex:0 0 132px;display:flex;flex-direction:column;justify-content:center;gap:8px}',
+        '.vb[data-s=W] .side .key{flex:none;width:100%;--vb-key:48px}',
+        // THE ROOMS, two across, filling the room down to the keys (a tile grows to 76 px; a few rooms
+        // never leave a band of nothing over the keys); more than fit, as many whole rows as fill it and
+        // the last tile "3 more", which opens every room over the page (--vb-row and the count: _fitRooms)
+        '.vb .rooms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:var(--vb-row,minmax(var(--vb-key),76px));gap:8px;align-content:start;',
+        '  flex:1 1 auto;min-height:0;margin-top:6px;overflow:hidden}',
+        '.vb .vr.more{color:' + C.v('ink-2') + '}',
+        '.vb .vr{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 10px;cursor:pointer;',
+        '  border-radius:var(--hk-inner-radius, 12px);background:' + C.v('key') + ';color:' + C.v('ink') + ';font-family:inherit;font-size:13px;font-weight:600}',
+        '.vb .vr>span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.vb .vr hk-icon{flex:none;width:16px;height:16px;--mdc-icon-size:16px}',
+        '.vb .vr[aria-pressed=true]{background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
+        // EXTRA LARGE: the vacuum, its battery as a ring and its last run on the left; the rooms on the right
+        '.vb[data-s=XL]{flex-direction:row;gap:22px}',
+        // (the ring in the middle of what its column has left, the last run at the foot, level with the keys)
+        '.vb[data-s=XL] .lcol{flex:0 0 200px;display:flex;flex-direction:column;min-width:0}',
+        '.vb[data-s=XL] .lcol .ring{margin-top:auto;margin-bottom:auto}',
+        '.vb[data-s=XL] .lcol .rt{min-height:var(--vb-key);justify-content:flex-end}',
+        '.vb[data-s=XL] .rcol{flex:1 1 auto;display:flex;flex-direction:column;min-width:0}',
+        '.vb[data-s=XL] .rcol .lab{margin-top:0}',
+        '.vb[data-s=XL] .key.dk{padding:0 18px}',
+        '.vb .ring{position:relative;flex:none;width:104px;height:104px;margin:10px auto;display:grid;place-items:center;text-align:center}',
+        '.vb .ring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}',
+        '.vb .ring circle{fill:none;stroke-width:8px;stroke:' + C.v('line-strong') + '}',
+        '.vb .ring .fill{stroke:' + C.ACCENTS.green + ';stroke-linecap:round}',
+        '.vb .ring .fill.warn{stroke:' + C.ACCENTS.orange + '}.vb .ring .fill.bad{stroke:' + C.ACCENTS.red + '}',
+        '.vb .ring b{display:block;font-size:22px;font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums}',
+        '.vb .ring small{display:block;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}',
+        // (a Large or Extra Large block with no rooms to offer: the battery large in the middle)
+        '.vb .mid{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;min-height:0}',
+        // ON A SQUARE CELL (196 x 196): the mock-up's sizes
         '@container hk-cell (min-height:180px){',
-        '  :host([size=S]) hk-plate.vac,:host([size=W]) hk-plate.vac{padding:calc(12.8px + var(--hk-in-t,0px)) calc(12.8px + var(--hk-in-r,0px)) calc(12.8px + var(--hk-in-b,0px)) calc(' + C.TILE.padL + 'px + var(--hk-in-l,0px))}',
-        '  :host([size=S]) .vac .grid,:host([size=W]) .vac .grid{row-gap:' + C.TILE.tallRowGap + 'px;column-gap:8px;',
-        '    grid-template-rows:44px minmax(0,1fr) ' + C.TILE.lineH + 'px ' + C.TILE.lineH + 'px}',
-        '  :host([size=S]) .vac .grid{grid-template-areas:"ico . start home" ". . . ." "label label label label" "meta meta meta meta";',
-        '    grid-template-columns:44px minmax(0,1fr) 44px 44px}',
-        '  :host([size=W]) .vac .grid{grid-template-areas:"ico . start pause locate home" ". . . . . ." "label label label label label label" "meta meta meta meta meta meta";',
-        '    grid-template-columns:44px minmax(0,1fr) repeat(4,44px)}',
-        '  :host([size=S]) .vac .cmd,:host([size=W]) .vac .cmd{width:44px;height:44px;border-radius:50%;align-self:start}',
-        '  :host([size=S]) .vac .cmd hk-icon,:host([size=W]) .vac .cmd hk-icon{--mdc-icon-size:22px;width:22px;height:22px}',
-        '  :host([size=S]) .vac .label,:host([size=W]) .vac .label{font-size:' + C.TILE.tallText + 'px;font-weight:600;letter-spacing:-0.15px;line-height:' + C.TILE.lineH + 'px;align-self:end}',
-        '  :host([size=S]) .vac .meta,:host([size=W]) .vac .meta{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;',
-        '    font-size:' + C.TILE.tallText + 'px;font-weight:400;line-height:' + C.TILE.lineH + 'px;color:' + C.v('ink-2') + ';align-self:start;width:100%}',
-        '  :host([size=S]) .vac .chip,:host([size=W]) .vac .chip{display:inline;padding:0;border-radius:0;background:none;font:inherit;letter-spacing:0;color:inherit}',
-        '  :host([size=S]) .vac .chip+.chip::before,:host([size=W]) .vac .chip+.chip::before{content:" \\00B7  ";color:' + C.v('ink-2') + '}',
-        '  :host([size=S]) .vac .chip.warn,:host([size=W]) .vac .chip.warn{color:#ff9f0a}',
-        '  :host([size=S]) .vac .chip.bad,:host([size=W]) .vac .chip.bad,:host([size=S]) .vac .chip.err,:host([size=W]) .vac .chip.err{color:#ff453a}',
-        '  :host([size=S]) .vac .chip.good,:host([size=W]) .vac .chip.good{color:#30d158}',
+        '  hk-plate.vb{--vb-key:48px;--vb-gl:34px}',
+        '  .vb[data-s=S] .nm{margin-top:8px}',
+        '  .vb .big{font-size:36px}',
+        '  .vb .keys{padding-top:12px}',
+        '  .vb .lab{margin-top:12px}',
+        '  .vb[data-s=W] .side{flex-basis:140px;gap:10px}',
+        '  .vb[data-s=W] .side .key{--vb-key:56px;font-size:17px}',
+        '  .vb[data-s=W] .top .gl{--vb-gl:30px}',
+        '  .vb .ring{width:120px;height:120px;margin:14px auto}',
+        '  .vb .ring b{font-size:30px}',
         '}'
       ].join('');
     }
@@ -170,11 +390,15 @@
       if (!config || !config.entity) throw new Error('hk-vacuum: `entity` is required');
       super.setConfig(config);
     }
+    // (the rooms ticked on a Large or Extra Large block: this element's alone, areaPicking)
+    _onConfig() { this._sel = new Set(); }
     getCardSize() { return 3; }
 
     // The card reads four sensors its `entity` does not name -- and the
     // vacuum's own attributes (battery_level), so last_updated, not state:
     // a battery that charges while the vacuum stays `docked` must redraw.
+    // A block also draws by its size, the rooms offered and how long ago it
+    // last ran (to ten minutes).
     _sigOf() {
       var h = this.client, c = this._config;
       if (!h || !c) return null;
@@ -185,7 +409,17 @@
         var s = h.states[ids[i]];
         out += ids[i] + '=' + (s ? s.last_updated : 'x') + ';';
       }
+      if (this._cellSize()) {
+        out += '|' + this._cellSize() + '|' + (this._blockKey || '') + '|' + this._picker() + '|' + !!this._offer + '|' +
+          this._areaSig() + '|' + Math.floor(Date.now() / 600000);
+      }
       return out;
+    }
+    // Rooms to offer: Clean Areas added, or the house's own cleaning script
+    // named (as the Vacuums page decides, hk-strategy.js)
+    _picker() {
+      var HS = window.hkSettings, added = (HS && HS.get && HS.get('added', [])) || [];
+      return added.indexOf('clean_areas') >= 0 || !!(HS && HS.get && HS.get('features.vacuum_script', null));
     }
 
     _v(id) {
@@ -208,7 +442,7 @@
       var bn = Number(b);
       if (b != null && b !== 'unknown' && b !== 'unavailable' && isFinite(bn)) {
         // Colour the battery the way the Home app does: only shout when it is low.
-        out.push({ t: Math.round(bn) + '%',
+        out.push({ t: Math.round(bn) + '%', k: 'battery', n: bn,
                    c: bn <= 20 ? 'bad' : (bn <= 40 ? 'warn' : '') });
       }
 
@@ -234,6 +468,8 @@
 
     _render() {
       var cfg = this._config;
+      var sized = this._cellSize();
+      if (sized) { this._renderBlock(sized); return; }
       if (!this._built) {
         var cmds = HkVacuumCard.COMMANDS;
         var html = '<hk-plate class="vac" data-hk-role="card"><div class="grid">' +
@@ -283,7 +519,140 @@
         });
       }
     }
+
+    // ---- THE BLOCK (see the CSS): drawn whole each time and morphed in, so
+    // a tap's focus and the rooms' scroll survive a state push
+    _renderBlock(sz) {
+      var cfg = this._config, esc = C.esc, self = this;
+      this._built = false;                       // (the page's markup, if the block ever leaves the grid)
+      this._watchBlock();
+      var st = this._st(cfg.entity), state = (st && st.state) || 'unknown', a = (st && st.attributes) || {};
+      var nm = cfg.name || a.friendly_name || cfg.entity;
+      var chips = this._chips(st), bat = chips.filter(function (c) { return c.k === 'battery'; })[0];
+      var words = function (list) {
+        return list.map(function (c) { return c.c ? '<span class="' + c.c + '">' + esc(c.t) + '</span>' : esc(c.t); }).join(' \u00B7 ');
+      };
+      var rest = chips.filter(function (c) { return c.k !== 'battery'; });
+      var faulty = rest.some(function (c) { return c.c === 'err'; }) || state === 'error';
+      // HOW LONG SINCE IT LAST RAN: since it docked (the state's last change).
+      // A restart of the house also sets that, so it is a floor, not a log.
+      var since = '';
+      if ((state === 'docked' || state === 'idle') && st && st.last_changed) {
+        var m = Math.round((Date.now() - Date.parse(st.last_changed)) / 60000);
+        since = !(m >= 1) ? '' : m < 60 ? m + ' min' : m < 48 * 60 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' days';
+      }
+      // THE ROOMS (Large up, with Clean Areas or the house's script)
+      var roomsOn = (sz === 'L' || sz === 'XL') && this._picker();
+      this._auto = roomsOn;
+      if (roomsOn) this._subAreas();
+      var floors = roomsOn ? this._floors() : null;
+      this._keepOffered(floors);
+      var n = roomsOn ? this._sel.size : 0;
+      // THE KEYS: Clean (Pause while it runs, Resume when paused; with rooms
+      // ticked, "Clean 2 rooms") and Dock
+      var go = state === 'cleaning' ? ['pause', 'mdi:pause', 'Pause'] : state === 'paused' ? ['start', 'mdi:play', 'Resume']
+        : n ? ['rooms', 'mdi:play', 'Clean ' + n + (n === 1 ? ' room' : ' rooms')] : ['start', 'mdi:play', 'Clean'];
+      if (this._busy) go = ['', 'mdi:play', 'Sending…'];
+      var key = function (k, cls, words) {
+        return '<button type="button" class="key ' + cls + '" data-svc="' + k[0] + '" aria-label="' + esc(k[2] + ' ' + nm) + '"' +
+          (k[0] ? '' : ' aria-disabled="true"') + '><hk-icon icon="' + k[1] + '"></hk-icon>' + (words ? '<span>' + esc(k[2]) + '</span>' : '') + '</button>';
+      };
+      var dock = ['return_to_base', 'mdi:home', 'Dock'];
+      var glyph = '<hk-icon class="gl' + (faulty ? ' bad' : '') + '" icon="mdi:robot-vacuum"></hk-icon>';
+      var status = this._hkStatus, stNode = '<div class="hk-status" role="status" aria-live="polite"' +
+        (status ? ' data-kind="' + esc(status.kind) + '">' + esc(status.text) : '>') + '</div>';
+      var rooms = '', cap = this._vbCap || Infinity;
+      if (roomsOn) {
+        var list = floors ? floors.reduce(function (o, f) { return o.concat(f.areas || []); }, []) : null;
+        rooms = '<b class="lab">Rooms</b>' + (list === null ? '<div class="note">Reading the rooms…</div>'
+          : !list.length ? '<div class="note">No room can be cleaned by area yet.</div>'
+          : '<div class="rooms" role="group" aria-label="Rooms to clean"' + (this._vbRow ? ' style="--vb-row:' + this._vbRow + 'px"' : '') + '>' +
+            list.slice(0, list.length > cap ? cap - 1 : cap).map(function (r) {
+              var on = self._sel.has(r.id);
+              return '<button type="button" class="vr" data-area="' + esc(r.id) + '" aria-pressed="' + on + '">' +
+                (on ? '<hk-icon icon="mdi:check"></hk-icon>' : '') + '<span>' + esc(r.name) + '</span></button>';
+            }).join('') + (list.length > cap ? '<button type="button" class="vr more" data-more aria-label="Every room to clean"><span>' +
+              (list.length - cap + 1) + ' more</span></button>' : '') + '</div>');
+      }
+      var html;
+      if (sz === 'S') {
+        html = '<div class="top">' + glyph + (bat ? '<span class="pct ' + bat.c + '">' + esc(bat.t) + '</span>' : '') + '</div>' +
+          '<b class="nm">' + esc(nm) + '</b><span class="sub">' + words(rest) + '</span>' +
+          '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
+      } else if (sz === 'W') {
+        html = '<div class="col"><div class="top">' + glyph + '<b class="nm">' + esc(nm) + '</b></div>' +
+          (bat ? '<div class="big ' + bat.c + '">' + esc(bat.t) + '</div>' : '') +
+          '<span class="sub two">' + words(rest) + (since ? ' \u00B7 ' + esc(since) + ' since its last run' : '') + '</span></div>' +
+          '<div class="side">' + key(go, 'go', true) + key(dock, 'dk', true) + '</div>';
+      } else if (sz === 'XL') {
+        var pct = bat ? Math.max(0, Math.min(100, bat.n)) : 0;
+        var run = [since ? 'Last run ' + since + ' ago' : ''];
+        // (how much it cleaned and how long, where the vacuum says: older Xiaomi and Roborock integrations do)
+        if (isFinite(Number(a.cleaned_area)) && isFinite(Number(a.cleaning_time)) && a.cleaned_area != null && a.cleaning_time != null) {
+          run.push(Math.round(Number(a.cleaned_area)) + ' m\u00B2 in ' + Math.round(Number(a.cleaning_time)) + ' min');
+        }
+        var left = '<div class="top">' + glyph + '<b class="nm">' + esc(nm) + '</b></div>' +
+          '<div class="ring" role="img" aria-label="' + esc((bat ? bat.t : 'Battery unknown') + ', ' + C.sentenceCase(state.replace(/_/g, ' '))) + '">' +
+          '<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54"></circle>' +
+          (bat ? '<circle class="fill ' + bat.c + '" cx="60" cy="60" r="54" pathLength="100" stroke-dasharray="' + pct.toFixed(1) + ' 100"></circle>' : '') +
+          '</svg><span><b>' + esc(bat ? bat.t : '\u2013') + '</b><small>' + words(rest.slice(0, 1)) + '</small></span></div>' +
+          '<div class="rt">' + stNode + '<span class="sub two">' + (rest.length > 1 ? words(rest.slice(1)) + '<br>' : '') +
+          esc(run.filter(Boolean).join('\n')).replace(/\n/g, '<br>') + '</span></div>';
+        html = '<div class="lcol">' + left + (roomsOn ? '' : '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', true) + '</div>') + '</div>' +
+          (roomsOn ? '<div class="rcol">' + rooms + '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', true) + '</div></div>' : '');
+      } else {
+        // LARGE: the vacuum at the top, the rooms under it, the keys at the foot
+        html = '<div class="top">' + glyph + '<span class="rt"><b class="nm">' + esc(nm) + '</b>' + stNode +
+          '<span class="sub">' + words(chips) + '</span></span></div>' +
+          (roomsOn ? rooms : '<div class="mid">' + (bat ? '<div class="big ' + bat.c + '">' + esc(bat.t) + '</div>' : '') +
+            '<span class="sub two">' + words(rest) + (since ? ' \u00B7 ' + esc(since) + ' since its last run' : '') + '</span></div>') +
+          '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
+      }
+      C.morph(this._root, '<hk-plate class="vb" data-s="' + sz + '" data-hk-role="card">' + html + '</hk-plate>');
+      this._fitRooms();
+      if (!this._blockTaps) {
+        // ONE LISTENER for the block: a room ticks, a key acts, anywhere else opens the vacuum's sheet
+        this._blockTaps = true;
+        this._root.addEventListener('click', function (e) {
+          if (!self._cellSize()) return;            // (the page card's own taps)
+          var t = e.target.closest && e.target.closest('[data-svc],[data-area],[data-more]');
+          e.stopPropagation();
+          if (!t) { self._act((self._config || {}).tap_action, true); return; }
+          if (t.hasAttribute('data-area')) { self._toggle(t.getAttribute('data-area')); return; }
+          if (t.hasAttribute('data-more')) { self._allRooms(); return; }
+          var svc = t.getAttribute('data-svc');
+          if (svc === 'rooms') self._start();
+          else if (svc && self.client) self._call('vacuum', svc, { entity_id: self._config.entity });
+        });
+      }
+    }
   }
+  // THE ROOMS' ROWS, to the room the block leaves them: every room's row up
+  // to 76 px when they all fit, else as many whole rows (each a finger's 44
+  // at least) as fill it exactly, the rest scrolling under the fade. Measured
+  // after the draw (the keys and the heading take what they take); the next
+  // draw writes the same height into its markup, so a morph keeps it.
+  HkVacuumCard.prototype._fitRooms = function () {
+    var rm = this._root.querySelector('.rooms');
+    if (!rm || !(rm.clientHeight > 0)) return;
+    var all = (this._floors() || []).reduce(function (n, f) { return n + (f.areas || []).length; }, 0);
+    var h = rm.clientHeight, gap = 8, key = parseFloat(getComputedStyle(rm).getPropertyValue('--vb-key')) || 44;
+    var need = Math.ceil(all / 2), fit = Math.max(1, Math.floor((h + gap) / (key + gap)));
+    var rows = Math.min(need, fit), row = Math.floor((h - (rows - 1) * gap) / rows);
+    if (need <= fit) row = Math.min(76, row);
+    var cap = need <= fit ? Infinity : fit * 2, was = this._vbCap || Infinity;
+    if (row !== this._vbRow) { this._vbRow = row; rm.style.setProperty('--vb-row', row + 'px'); }
+    // (a different count drawn again, once: the room the rooms have does not change with how many there are)
+    if (cap !== was) { this._vbCap = cap; this._render(); }
+  };
+  // EVERY ROOM, over the page: the Vacuums page's own picker (Clean Areas'
+  // panel) in a sheet, larger than the block, for a house with more rooms
+  // than the block holds
+  HkVacuumCard.prototype._allRooms = function () {
+    var D = window.hkDetail;
+    if (D && D.open) D.open(null, { name: 'Rooms to Clean', icon: 'mdi:robot-vacuum' },
+      { cards: { cards: [{ type: 'custom:hk-area-select-card', layout: 'panel' }] } });
+  };
   // grid-area, glyph, vacuum service, aria-label.
   HkVacuumCard.COMMANDS = [
     ['start', 'mdi:play', 'start', 'Start'],
@@ -300,7 +669,7 @@
   // and two tablets never share one selection. The only thing that reaches
   // Home Assistant is the finished
   // list, once, when Clean is pressed.
-  class HkAreaSelectCard extends HkBase {
+  class HkAreaSelectCard extends areaPicking(HkBase) {
     static get CSS() {
       return [
         // THE SAME TRACK AS THE ROOM PILLS on the Play Music page: the same
@@ -370,70 +739,6 @@
       this._sel = new Set();
       this._auto = !Array.isArray(this._config.floors) || !this._config.floors.length;
     }
-    // THROUGH hkSettings.subscribe, as every lasting subscription here is: the
-    // command is HK Frontend's own and always answers ({configured: false}
-    // without Clean Areas), but right after a restart a screen can reconnect
-    // before it is registered, and a raw subscribe refused then is dropped for
-    // good -- the picker kept the old rooms until the card was rebuilt. This
-    // one resubscribes on every reconnect and retries a refusal with back-off.
-    _subAreas() {
-      if (!this._auto || this._areaSub || !this.isConnected) return;
-      var conn = this.client && this.client.subscriptions;    // the client's port
-      var sub = window.hkSettings && window.hkSettings.subscribe;
-      if (!conn || typeof conn.subscribeMessage !== 'function' || typeof sub !== 'function') return;
-      var self = this;
-      this._areaSub = sub(conn, { type: 'hk_clean_areas/subscribe' }, function (ev) {
-        self._offer = ev || { configured: false, areas: [] };
-        self._render();
-      }, 'hk-area-select');
-    }
-    connectedCallback() {
-      super.connectedCallback();
-      this._subAreas();
-    }
-    disconnectedCallback() {
-      super.disconnectedCallback();
-      var close = this._areaSub;
-      this._areaSub = null;
-      if (typeof close === 'function') close();
-    }
-    // THE ORDER within a floor: the card's own `order:` (area ids -- a house
-    // whose rooms read in a sequence of its own), else this screen's Room
-    // order when it is used on pages (Home -> Rooms), else A to Z. A room not
-    // in the order follows those that are, A to Z.
-    _order() {
-      if (Array.isArray(this._config.order) && this._config.order.length) return this._config.order;
-      var M = window.hkCards && window.hkCards.menu, b = M && M.board ? M.board() : null;
-      return b && b.page_rooms === 'order' && Array.isArray(b.room_order) ? b.room_order : [];
-    }
-    // [{name, areas: [{id, name}]}], or null while HK Clean Areas has not
-    // answered yet
-    _floors() {
-      if (!this._auto) return this._config.floors || [];
-      var o = this._offer;
-      if (!o) return null;
-      var A = (this.client && this.client.areas) || {}, FL = (this.client && this.client.floors) || {};
-      // without HK Clean Areas a house's own script still cleans: every area
-      var ids = (o.missing || o.configured === false) && this._script() ? Object.keys(A) : (o.areas || []);
-      var by = {};
-      ids.forEach(function (id) {
-        var a = A[id];
-        if (!a) return;
-        var f = a.floor_id && FL[a.floor_id] ? a.floor_id : '';
-        (by[f] = by[f] || []).push({ id: id, name: a.name || id });
-      });
-      var lv = function (f) { var x = FL[f]; return x && typeof x.level === 'number' ? x.level : 1e9; };
-      var rank = {}, order = this._order();
-      order.forEach(function (id, i) { if (!(id in rank)) rank[id] = i; });
-      var rk = function (a) { return a.id in rank ? rank[a.id] : order.length; };
-      return Object.keys(by).sort(function (x, y) {
-        return (x === '') - (y === '') || lv(x) - lv(y) || String((FL[x] || {}).name).localeCompare(String((FL[y] || {}).name));
-      }).map(function (f) {
-        return { name: (FL[f] && FL[f].name) || 'Rooms',
-                 areas: by[f].sort(function (x, y) { return rk(x) - rk(y) || String(x.name).localeCompare(String(y.name)); }) };
-      });
-    }
-    _script() { return this._config.start_script || setting('features.vacuum_script'); }
     // Reads NO entity: everything it draws is the card-local selection, and
     // every change to that calls _render itself. HkBase's default signature has
     // no entity to key on and returns null ("always render"), which would wipe
@@ -445,104 +750,14 @@
     _sigOf() {
       if (!this._auto) return 'static';
       this._subAreas();
-      var A = (this.client && this.client.areas) || {}, FL = (this.client && this.client.floors) || {};
-      var ids = (this._offer && this._offer.areas) || [];
-      return 'auto|' + this._order().join(',') + '|' + ids.map(function (id) {
-        var a = A[id] || {}, f = FL[a.floor_id] || {};
-        return id + ':' + (a.name || '') + ':' + (a.floor_id || '') + ':' + (f.name || '') + ':' + (f.level == null ? '' : f.level);
-      }).join(',');
-    }
-
-    _toggle(id) {
-      this._sel.has(id) ? this._sel.delete(id) : this._sel.add(id);
-      this._render();
-    }
-    _clear() { this._sel.clear(); this._render(); }
-
-    // SAME RULE AS THE TIMER KEYPAD: the selection survives a failed dispatch.
-    // Six rooms chosen, one tap, a rejected call: clearing then would wipe
-    // the lot with nothing cleaning and nothing said.
-    _start() {
-      if (!this._sel.size || !this.client) return;
-      var n = this._sel.size;
-      if (!this._begin('Sending ' + n + (n === 1 ? ' area…' : ' areas…'))) return;
-      var self = this;
-      var areas = Array.from(this._sel);
-      var sent = function () {
-        self._clear();              // _clear re-renders
-        self._setStatus('sent', n === 1 ? 'Sent 1 area to clean.'
-                                        : 'Sent ' + n + ' areas to clean.', 5000);
-      };
-      // A HOUSE'S OWN SCRIPT, when it names one (the card's start_script, or
-      // Configure -> Advanced): it receives `areas` and does the rest. Still
-      // script.turn_on and only `ok` -- the robot cards beside this one are
-      // the real confirmation.
-      var script = this._script();
-      if (script) {
-        this._call('script', 'turn_on', { entity_id: script, variables: { areas: areas } })
-          .then(function (ok) {
-            self._end();
-            if (ok) sent();
-            else {
-              // Selection untouched: six rooms chosen is real work to redo.
-              self._setStatus('failed', 'Could not reach Home Assistant. Tap to retry.');
-              self._render();
-            }
-          });
-        return;
-      }
-      // OTHERWISE CLEAN AREAS SENDS THEM (hk_frontend.clean_areas, the Clean
-      // Areas feature): each vacuum gets the chosen areas on its own room
-      // map, and it says which areas no vacuum reaches. Not added: say so,
-      // rather than an error from the action.
-      if (!(window.hkCards && window.hkCards.added && window.hkCards.added('clean_areas'))) {
-        this._end();
-        this._setStatus('failed', 'Add Clean Areas (' + window.hkShell.haPlace('HK Frontend → Add feature') + ') to clean by area.');
-        this._render();
-        return;
-      }
-      this._callResp('hk_frontend', 'clean_areas', { areas: areas }).then(function (res) {
-        self._end();
-        var r = (res && res.response) || {};
-        if (res.ok && r.ok) {
-          sent();
-          // SOME AREAS NO VACUUM REACHES: the rest were sent, so this is a
-          // `warn` (it stays until the next action), not a failure.
-          if (r.unreachable && r.unreachable.length) {
-            self._setStatus('warn', 'Sent. No vacuum reaches ' + r.unreachable.length +
-                            ' of them.');
-          }
-          return;
-        }
-        // SOME VACUUMS STARTED AND SOME DID NOT: keep only the areas of the
-        // ones that failed, so a retry does not re-send the robots already
-        // cleaning. A refusal or an unreachable Home Assistant keeps it all.
-        if (res.ok && r.failed && r.failed.length && r.plan) {
-          var bad = {};
-          r.failed.forEach(function (f) { bad[f.vacuum] = true; });
-          var keep = [];
-          r.plan.forEach(function (step) {
-            if (bad[step.vacuum]) keep = keep.concat(step.areas || []);
-          });
-          self._sel = new Set(keep.filter(function (a) { return areas.indexOf(a) !== -1; }));
-        }
-        // Home Assistant's own refusal (res.error), else the service's answer.
-        self._setStatus('failed', r.message || res.error ||
-                        'Could not reach Home Assistant. Tap to retry.');
-        self._render();
-      });
+      return 'auto|' + this._areaSig();
     }
 
     _render() {
       if (!this._config) return;
       var floors = this._floors();
       var self = this;
-      // a room no longer offered is no longer selected
-      if (floors && this._auto && this._sel && this._sel.size) {
-        var here = {};
-        floors.forEach(function (f) { (f.areas || []).forEach(function (a) { here[a.id] = true; }); });
-        this._sel.forEach(function (id) { if (!here[id]) self._sel.delete(id); });
-      }
+      this._keepOffered(floors);
       var n = this._sel ? this._sel.size : 0;
       if (this._config.layout === 'panel') return this._renderPanel(floors, n);
       this._root.innerHTML = '';
@@ -2006,21 +2221,43 @@
         // itself, so its host must take no space and must not clip.
         'hk-plate.strip.fixed{height:0;overflow:visible}',
         '.strip > div{min-width:0;overflow:hidden}',
-        // ON A HOME GRID (the `timers` block, docs/phase11/HOME-GRID.md R6):
-        // a plate of the running timers, each its ring of time left and its
-        // pause / resume and cancel; none running, Create a Timer (and, at W,
-        // the Timers page's quick starts)
+        // ON A HOME GRID (the `timers` block, docs/phase11/HOME-GRID.md R6;
+        // redrawn as a widget 2026-10-31, the owner: "the ring is the pause
+        // (its centre shows pause/play), a big red stop key"): each running
+        // timer its name, its time large, and at its foot the ring of time
+        // left -- a tap on it pauses or resumes -- with the red Stop beside
+        // it. Small one timer, Wide two. None running, Create a Timer (and,
+        // at W, the Timers page's quick starts). Tile cells first, a square
+        // cell's sizes after.
         ':host([size]) hk-plate.strip{display:flex;flex-direction:column;justify-content:center;gap:8px;box-sizing:border-box;',
-        '  height:100%;padding:' + window.hkCards.blockPad('12px') + ';' + window.hkCards.plate('card') + ';overflow:hidden}',
-        '.timer-grid{display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));gap:12px}.grid-timer{display:grid;gap:6px;min-width:0}',
-        '.timer-heading{display:flex;align-items:center;gap:10px;min-width:0}.timer-heading>b{font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + window.hkCards.v('ink') + '}',
-        '.timer-ring{width:56px;height:56px;flex:none;border-radius:50%;display:grid;place-items:center;position:relative}',
-        // (on a square cell, 196 tall: the ring and the name at the size of the tiles beside it, 2026-10-30)
-        '@container hk-cell (min-height:180px){:host([size]) .timer-ring{width:72px;height:72px}:host([size]) .timer-heading>b{font-size:17px}}',
-        '.timer-ring svg{position:absolute;inset:0;width:56px;height:56px;transform:rotate(-90deg)}.timer-ring circle{fill:none;stroke-width:4px;stroke:' + window.hkCards.v('key') + '}.timer-ring .ring-left{stroke:' + window.hkCards.v('warn') + ';stroke-dasharray:calc(var(--hk-left,1)*100) 100}',
-        '.timer-ring hk-countdown{position:relative;font-size:13px;font-weight:600;color:' + window.hkCards.v('ink') + ';font-variant-numeric:tabular-nums}',
-        '.timer-controls{display:flex;gap:8px}.timer-controls button,.quick-grid button{border:0;border-radius:22px;background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + ';min-width:44px;min-height:44px;flex:1;cursor:pointer;font:inherit;' + window.hkCards.typeCss('caption') + '}',
-        '.timer-controls hk-icon{display:block;width:20px;height:20px;margin:auto;--mdc-icon-size:20px}',
+        '  height:100%;padding:' + window.hkCards.blockPad('14px') + ';' + window.hkCards.plate('card') + ';overflow:hidden;--ring:56px;--stop:44px}',
+        '.tg{display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));gap:18px;flex:1 1 auto;min-height:0}',
+        '.gt{display:flex;flex-direction:column;min-width:0;min-height:0}',
+        '.gt .hd{display:flex;align-items:baseline;gap:8px;min-width:0}',
+        '.gt .nm{min-width:0;font-size:15px;font-weight:600;line-height:1.25;color:' + window.hkCards.ACCENTS.orange + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.gt .more{margin-left:auto;flex:none;' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + '}',
+        '.gt hk-countdown{display:block;font-size:30px;font-weight:300;letter-spacing:-0.02em;line-height:1.05;color:' + window.hkCards.v('ink') + ';margin-top:2px}',
+        '.gt .ft{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-top:auto;padding-top:6px}',
+        // THE RING IS THE PAUSE: time left in orange round its track, pause or play at its centre
+        '.gt .pr,.gt .stop{all:unset;box-sizing:border-box;position:relative;flex:none;border-radius:50%;display:grid;place-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+        '.gt .pr{width:var(--ring);height:var(--ring)}',
+        '.gt .pr svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}',
+        '.gt .pr circle{fill:none;stroke-width:10px;stroke:' + window.hkCards.v('line-strong') + '}',
+        '.gt .pr .left{stroke:' + window.hkCards.ACCENTS.orange + ';stroke-linecap:round;stroke-dasharray:calc(var(--hk-left,1)*100) 100}',
+        '.gt .pr hk-icon{position:relative;width:calc(var(--ring) * 0.36);height:calc(var(--ring) * 0.36);--mdc-icon-size:calc(var(--ring) * 0.36);color:' + window.hkCards.ACCENTS.orange + '}',
+        '.gt .stop{width:var(--stop);height:var(--stop);background:' + window.hkCards.ACCENTS.red + '}',
+        '.gt .stop hk-icon{width:calc(var(--stop) * 0.46);height:calc(var(--stop) * 0.46);--mdc-icon-size:calc(var(--stop) * 0.46);color:#fff}',
+        '.gt .pr:active,.gt .stop:active{transform:scale(0.95)}',
+        '.gt .pr:focus-visible,.gt .stop:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
+        // (one timer on a Wide block: Create a Timer beside it)
+        '.tg>.new-timer{align-self:center}',
+        '@container hk-cell (min-height:180px){',
+        '  :host([size=S]) hk-plate.strip{--ring:76px;--stop:52px}',
+        '  :host([size=W]) hk-plate.strip{--ring:72px;--stop:48px}',
+        '  :host([size=S]) .gt hk-countdown{font-size:36px}',
+        '  :host([size=W]) .gt hk-countdown{font-size:34px}',
+        '}',
+        '.quick-grid button{border:0;border-radius:22px;background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + ';min-width:44px;min-height:44px;flex:1;cursor:pointer;font:inherit;' + window.hkCards.typeCss('caption') + '}',
         '.new-timer{border:0;background:none;color:' + window.hkCards.v('ink') + ';display:flex;align-items:center;gap:10px;text-align:left;min-height:56px;cursor:pointer;padding:0}',
         '.new-timer i{width:42px;height:42px;background:' + window.hkCards.v('key') + ';border-radius:50%;display:grid;place-items:center;flex:none}.new-timer hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
         '.new-timer span{display:grid;gap:3px}.new-timer b{font-size:15px;font-weight:600}.new-timer small{' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + '}',
@@ -2066,14 +2303,19 @@
         return '<button class="new-timer" data-new aria-label="Create a Timer"><i><hk-icon icon="mdi:timer-outline"></hk-icon></i><span><b>Timers</b><small>Create a Timer</small></span></button>' +
           (sized === 'W' ? '<div class="quick-grid">' + presets.slice(0, 6).map((m) => '<button data-preset="' + Number(m) + '">' + esc(HkTimersPageCard.label(Number(m))) + '</button>').join('') + '</div>' : '');
       }
-      var max = sized === 'S' ? 1 : 2;
-      return '<div class="timer-grid" style="--cols:' + Math.min(max, rows.length) + '">' + rows.slice(0, max).map(function (r) {
-        var paused = r.state === 'paused', total = T ? T.secs(r.attrs.duration) : 0;
+      var max = sized === 'S' ? 1 : 2, shown = rows.slice(0, max), left = rows.length - shown.length;
+      return '<div class="tg" style="--cols:' + max + '">' + shown.map(function (r, i) {
+        var paused = r.state === 'paused', total = T ? T.secs(r.attrs.duration) : 0, nm = esc(r.name || 'Timer');
         var clock = paused ? 'hold="' + (T ? T.secs(r.attrs.remaining) : 0) + '"' : 'deadline="' + Date.parse(r.attrs.finishes_at) + '"';
-        return '<div class="grid-timer"><div class="timer-heading"><div class="timer-ring"><svg viewBox="0 0 56 56" aria-hidden="true"><circle class="ring-track" cx="28" cy="28" r="25"></circle><circle class="ring-left" cx="28" cy="28" r="25" pathLength="100"></circle></svg><hk-countdown ' + clock + ' total="' + total + '"></hk-countdown></div><b>' + esc(r.name || 'Timer') + '</b></div>' +
-          '<div class="timer-controls"><button data-timer="' + esc(r.id) + '" data-service="' + (paused ? 'start' : 'pause') + '" aria-label="' + (paused ? 'Resume' : 'Pause') + ' ' + esc(r.name || 'Timer') + '"><hk-icon icon="mdi:' + (paused ? 'play' : 'pause') + '"></hk-icon></button>' +
-          '<button data-timer="' + esc(r.id) + '" data-service="cancel" aria-label="Cancel ' + esc(r.name || 'Timer') + '"><hk-icon icon="mdi:close"></hk-icon></button></div></div>';
-      }).join('') + '</div>';
+        // (the countdown is the column's child: it writes the fraction left, --hk-left, on the column, and the ring reads it)
+        return '<div class="gt"><div class="hd"><b class="nm">' + nm + '</b>' +
+          (left && i === shown.length - 1 ? '<span class="more">+' + left + ' more</span>' : '') + '</div>' +
+          '<hk-countdown ' + clock + ' total="' + total + '"></hk-countdown>' +
+          '<div class="ft"><button class="pr" data-timer="' + esc(r.id) + '" data-service="' + (paused ? 'start' : 'pause') + '" aria-label="' + (paused ? 'Resume' : 'Pause') + ' ' + nm + '">' +
+          '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45"></circle><circle class="left" cx="50" cy="50" r="45" pathLength="100"></circle></svg>' +
+          '<hk-icon icon="mdi:' + (paused ? 'play' : 'pause') + '"></hk-icon></button>' +
+          '<button class="stop" data-timer="' + esc(r.id) + '" data-service="cancel" aria-label="Stop ' + nm + '"><hk-icon icon="mdi:stop"></hk-icon></button></div></div>';
+      }).join('') + (shown.length < max ? '<button class="new-timer" data-new aria-label="Create a Timer"><i><hk-icon icon="mdi:timer-outline"></hk-icon></i><span><b>New Timer</b><small>Create a Timer</small></span></button>' : '') + '</div>';
     }
     _sigOf() {
       var h = this.client;
@@ -2101,6 +2343,15 @@
         var html0 = this._grid(on && on.attributes && on.attributes.running, sized);
         this._gridTap();
         window.hkCards.morph(this._e, html0);
+        // THE COUNTDOWNS PAINT AGAIN NOW: the morph took their text and their
+        // column's --hk-left (neither is in the markup), and each skips a write
+        // it thinks it has made -- the ring sat full, the time blank, until the
+        // next second or hundredth moved (hk-timers.js paint)
+        this._e.querySelectorAll('hk-countdown').forEach(function (cd) {
+          cd._hkLast = null;
+          if (cd.parentElement) cd.parentElement._hkFrac = null;
+          cd.setAttribute('total', cd.getAttribute('total') || '0');
+        });
         return;
       }
       // '' is a CORRECT rendering, not a failure: with no timers running the
@@ -2212,7 +2463,35 @@
   // person their picture or initials, ringed green at home, their name and
   // where they are; a tap opens their sheet (hk-person.js). As many as the
   // width holds, in `people:` order, else every person A to Z.
-  var PP = { w: 72, gap: 12, av: 48, home: 'rgba(52,199,89,0.85)' };
+  //
+  // AS A BLOCK (2026-10-31, the owner: "S new (faces, away dimmed, a line
+  // saying who is where; fill the block); W spread evenly"; the mock-up's
+  // Find My People): WHO'S HOME at the top left, then the faces, each in a
+  // color of its own. Small: the faces as large as the block holds them,
+  // those away dimmed, and one line under them -- "2 home · Robin at Work".
+  // Wide: the faces spread evenly across, each with its name and where.
+  var PP = { w: 72, gap: 12, av: 48, home: 'rgba(52,199,89,0.85)', g: 8, line: 19, lab: 19 };
+  var FACE = ['orange', 'blue', 'purple', 'green', 'pink', 'teal', 'indigo', 'yellow'];
+  // (where someone is, in words: Home, Away, or the zone's name)
+  function whereOf(s) {
+    return s.state === 'home' ? 'Home' : s.state === 'not_home' ? 'Away'
+      : /^(unknown|unavailable)$/.test(s.state) ? 'Unknown' : String(s.state).replace(/(^|[\s_])(\w)/g, function (m, a, c) { return (a === '_' ? ' ' : a) + c.toUpperCase(); });
+  }
+  // THE FACES' GRID on a Small block: the columns and rows that draw them
+  // largest in (w x h), each cell a finger's 44 at least; when they cannot
+  // all fit, as many as do, the last cell saying how many more. -> {c, f, fit}
+  function faceGrid(n, w, h) {
+    var best = null;
+    for (var c = 1; c <= Math.max(1, n); c++) {
+      var r = Math.ceil(n / c), cw = (w - (c - 1) * PP.g) / c, ch = (h - (r - 1) * PP.g) / r;
+      var f = Math.min(cw, ch, 64);
+      if (cw >= 44 && ch >= 44 && (!best || f > best.f)) best = { c: c, f: f, fit: n };
+    }
+    if (best) return best;
+    // (too many for the block: the most cells of 44 that it holds)
+    var mc = Math.max(1, Math.floor((w + PP.g) / (44 + PP.g))), mr = Math.max(1, Math.floor((h + PP.g) / (44 + PP.g)));
+    return { c: mc, f: Math.min((w - (mc - 1) * PP.g) / mc, (h - (mr - 1) * PP.g) / mr, 64), fit: mc * mr - 1 };
+  }
   class HkPeopleCard extends HkBase {
     static get CSS() {
       return [
@@ -2231,7 +2510,25 @@
         '.av img{width:100%;height:100%;object-fit:cover;display:block}',
         '.pr b{' + C.typeCss('body') + ';line-height:19px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.pr span{' + C.typeCss('caption') + ';line-height:16px;color:' + C.v('ink-2') + ';max-width:100%;',
-        '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+        '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        // ---- THE BLOCK: the heading, then the faces in their own colors (no ring)
+        ':host([size]) hk-plate.pp{justify-content:flex-start;padding:' + C.blockPad('14px') + '}',
+        '.pp .lab{flex:none;font-size:15px;font-weight:600;line-height:' + PP.lab + 'px;letter-spacing:-0.1px;text-transform:uppercase;color:' + C.v('ink-2') + '}',
+        '.pp .face{flex:none;width:var(--f);height:var(--f);border-radius:50%;overflow:hidden;display:grid;place-items:center;',
+        '  font-size:calc(var(--f) * 0.38);font-weight:600;line-height:1;color:#fff;background:var(--fc,' + C.v('key-strong') + ')}',
+        '.pp .face img{width:100%;height:100%;object-fit:cover;display:block}',
+        '.pp .mo{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}',
+        '.pp .mo .face{background:' + C.v('key-strong') + ';color:' + C.v('ink') + ';font-size:calc(var(--f) * 0.3)}',
+        // (Small: a grid of faces filling what the heading and the line leave, those away dimmed)
+        '.pp .fc{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(var(--c),minmax(0,1fr));grid-auto-rows:minmax(0,1fr);',
+        '  gap:' + PP.g + 'px;align-content:center;margin:' + PP.g + 'px 0}',
+        '.pp .fc .pr,.pp .fc .mo{width:100%;height:100%;min-height:44px;justify-content:center}',
+        '.pp .fc .away .face{opacity:.45}',
+        '.pp .line{flex:none;font-size:15px;line-height:' + PP.line + 'px;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        // (Wide: spread evenly, each with its name and where, in the middle of what the heading leaves)
+        '.pp .wide{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:' + PP.gap + 'px;align-content:center;align-items:center}',
+        '.pp .wide .pr b,.pp .wide .mo b{font-size:15px;font-weight:600;line-height:19px;margin-top:2px}',
+        '.pp .wide .pr span:not(.face){font-size:13px;line-height:16px}'
       ].join('');
     }
     getCardSize() { return 2; }
@@ -2245,38 +2542,80 @@
     _sigOf() {
       var h = this.client;
       if (!h) return null;
-      return this._ids().map(function (id) { var s = h.states[id]; return id + '=' + s.state + '/' + ((s.attributes || {}).entity_picture || ''); }).join(';');
+      return this._ids().map(function (id) { var s = h.states[id]; return id + '=' + s.state + '/' + ((s.attributes || {}).entity_picture || ''); }).join(';') +
+        '|' + (this._cellSize() || '') + '|' + (this._blockKey || '');
+    }
+    // ONE PERSON'S FACE on a block, as a button opening their sheet (the
+    // caller closes it): their picture, else their initials, on their color
+    _face(id, i, cls) {
+      var esc = C.esc, s = this.client.states[id], a = s.attributes || {}, nm = String(a.friendly_name || id);
+      var ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
+      return '<button class="pr' + (cls ? ' ' + cls : '') + '" data-id="' + esc(id) + '" aria-label="' + esc(nm + ', ' + whereOf(s)) + '">' +
+        '<span class="face" style="--fc:' + C.ACCENTS[FACE[i % FACE.length]] + '">' +
+        (a.entity_picture ? '<img alt="" data-initials="' + esc(ini) + '" src="' + esc(a.entity_picture) + '">' : esc(ini)) + '</span>';
+    }
+    // "2 home · Robin at Work": how many are home, and where the one away is
+    _line(ids) {
+      var st = this.client.states, first = function (id) { return String((st[id].attributes || {}).friendly_name || id).split(/\s+/)[0]; };
+      var home = ids.filter(function (id) { return st[id].state === 'home'; }), away = ids.filter(function (id) { return st[id].state !== 'home'; });
+      if (!away.length) return home.length === 1 ? first(home[0]) + ' is home' : 'Everyone home';
+      if (!home.length && away.length > 1) return 'Nobody home';
+      var w = whereOf(st[away[0]]);
+      return (home.length ? home.length + ' home · ' : '') +
+        (away.length === 1 ? first(away[0]) + (w === 'Away' || w === 'Unknown' ? ' away' : ' at ' + w) : away.length + ' away');
     }
     _render() {
       var h = this.client;
       if (!h) return;
       this._watchBlock();
-      var b = this._block(), ids = this._ids();
-      var n = b ? Math.max(1, Math.floor((b.w - 2 * C.CARD.x + PP.gap) / (PP.w + PP.gap))) : ids.length;
-      var esc = C.esc;
-      var where = function (s) {
-        return s.state === 'home' ? 'Home' : s.state === 'not_home' ? 'Away'
-          : /^(unknown|unavailable)$/.test(s.state) ? 'Unknown' : String(s.state).replace(/(^|[\s_])(\w)/g, function (m, a, c) { return (a === '_' ? ' ' : a) + c.toUpperCase(); });
-      };
-      var cells = ids.slice(0, n).map(function (id) {
-        var s = h.states[id], a = s.attributes || {}, nm = String(a.friendly_name || id);
-        var ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
-        return '<button class="pr' + (s.state === 'home' ? ' home' : '') + '" data-id="' + esc(id) + '" aria-label="' +
-          esc(nm + ', ' + where(s)) + '"><span class="av">' + (a.entity_picture ? '<img alt="" data-initials="' + esc(ini) + '" src="' + esc(a.entity_picture) + '">' : esc(ini)) +
-          '</span><b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(where(s)) + '</span></button>';
-      });
-      C.morph(this._root, '<hk-plate class="pp" data-hk-role="card"><div class="row" role="list" style="--n:' +
-        Math.min(n, Math.max(1, ids.length)) + '">' + cells.join('') + '</div></hk-plate>');
-      this._root.querySelectorAll('.av img').forEach(function (img) {
+      var b = this._block(), ids = this._ids(), sz = this._cellSize();
+      var esc = C.esc, self = this, html;
+      if (sz) {
+        // THE BLOCK: its room inside the inset (the cell's --hk-pad-*: 14 on a tile, 18 on a square cell)
+        var cs = typeof getComputedStyle === 'function' ? getComputedStyle(this) : null;
+        var pad = function (k) { var x = cs ? parseFloat(cs.getPropertyValue('--hk-pad-' + k)) : NaN; return x >= 0 ? x : 14; };
+        // (before the view has measured: a tile cell's block)
+        var iw = b ? b.w - pad('l') - pad('r') : sz === 'W' ? 374 : 168, ih = b ? b.h - pad('t') - pad('b') : 122;
+        if (sz === 'S') {
+          var gr = faceGrid(ids.length, iw, ih - PP.lab - PP.line - 2 * PP.g), fit = Math.min(ids.length, gr.fit);
+          html = '<b class="lab">Who’s Home</b><div class="fc" role="list" style="--c:' + gr.c + ';--f:' + Math.floor(gr.f) + 'px">' +
+            ids.slice(0, fit).map(function (id, i) {
+              return self._face(id, i, h.states[id].state === 'home' ? 'home' : 'away') + '</button>';
+            }).join('') + (ids.length > fit ? '<span class="mo" aria-label="' + (ids.length - fit) + ' more"><span class="face">+' + (ids.length - fit) + '</span></span>' : '') +
+            '</div><div class="line">' + esc(ids.length ? this._line(ids) : 'Nobody added') + '</div>';
+        } else {
+          // (as many as the width holds, each at least 72 across; the face as large as the height leaves, to 64)
+          var n = Math.max(1, Math.floor((iw + PP.gap) / (PP.w + PP.gap))), cut = ids.length > n ? n - 1 : ids.length;
+          var f = Math.max(36, Math.min(64, ih - PP.lab - 19 - 16 - 6 - 2 * PP.g));
+          html = '<b class="lab">Who’s Home</b><div class="wide" role="list" style="--n:' + Math.max(1, Math.min(n, ids.length)) + ';--f:' + f + 'px">' +
+            ids.slice(0, cut).map(function (id, i) {
+              var s = h.states[id], nm = String((s.attributes || {}).friendly_name || id);
+              return self._face(id, i, s.state === 'home' ? 'home' : '') + '<b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s)) + '</span></button>';
+            }).join('') + (ids.length > cut ? '<span class="mo" aria-label="' + (ids.length - cut) + ' more"><span class="face">+' + (ids.length - cut) + '</span><b>More</b></span>' : '') +
+            (ids.length ? '' : '<span class="line">Nobody added</span>') + '</div>';
+        }
+        C.morph(this._root, '<hk-plate class="pp" data-hk-role="card">' + html + '</hk-plate>');
+      } else {
+        var n0 = b ? Math.max(1, Math.floor((b.w - 2 * C.CARD.x + PP.gap) / (PP.w + PP.gap))) : ids.length;
+        var cells = ids.slice(0, n0).map(function (id) {
+          var s = h.states[id], a = s.attributes || {}, nm = String(a.friendly_name || id);
+          var ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
+          return '<button class="pr' + (s.state === 'home' ? ' home' : '') + '" data-id="' + esc(id) + '" aria-label="' +
+            esc(nm + ', ' + whereOf(s)) + '"><span class="av">' + (a.entity_picture ? '<img alt="" data-initials="' + esc(ini) + '" src="' + esc(a.entity_picture) + '">' : esc(ini)) +
+            '</span><b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s)) + '</span></button>';
+        });
+        C.morph(this._root, '<hk-plate class="pp" data-hk-role="card"><div class="row" role="list" style="--n:' +
+          Math.min(n0, Math.max(1, ids.length)) + '">' + cells.join('') + '</div></hk-plate>');
+      }
+      this._root.querySelectorAll('.av img, .face img').forEach(function (img) {
         // once (the browser's own error can follow the hand-made one, on an image no longer in the page)
         img.onerror = function () { img.onerror = null; if (img.parentNode) img.parentNode.textContent = img.getAttribute('data-initials'); };
         if (img.complete && !img.naturalWidth) img.onerror();
       });
       if (!this._wired) {
         this._wired = true;
-        var self = this;
         this._root.addEventListener('click', function (e) {
-          var t = e.target.closest && e.target.closest('.pr');
+          var t = e.target.closest && e.target.closest('.pr[data-id]');
           if (t) window.hkShell.moreInfo(t.getAttribute('data-id'), self);
         });
       }

@@ -28,8 +28,9 @@ Text scale: HK draws its type roles in px (hk-base.js TYPE) and a wall tablet's 
 them (the Mantel app's web view sets -webkit-text-size-adjust:100%), so the one scale is the largest. The `long`
 pass instead names every thing at twice its usual length, which is what a larger text would do to a card.
 
-Stood in: the house's forecast (two forecast sensors), a family calendar's events, running timers, and the Energy
-feature's plan (on the page: the test server's feed has no Energy feature), so every block is measured full.
+Stood in: the house's forecast (two forecast sensors), a family calendar's events, running timers (and the quick
+timers' lengths), a third person away at a zone, and, on the page (the test server's feed has neither feature), the
+Energy feature's plan and Clean Areas' rooms, so every block is measured full.
 """
 from __future__ import annotations
 
@@ -71,7 +72,16 @@ EXTRA = {
     "sensor.running_quick_timers": (None, ("2", {"friendly_name": "Running Quick Timers", "running": [
         {"name": "Pasta", "entity_id": "timer.quick_1", "finishes_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 420))},
         {"name": "Laundry", "entity_id": "timer.quick_2", "finishes_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 1800))}]})),
+    # (the two quick timers themselves: their lengths draw the rings of time left)
+    "timer.quick_1": (None, ("active", {"friendly_name": "Quick Timer 1", "duration": "0:12:00", "remaining": "0:12:00",
+                                        "finishes_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 420))})),
+    "timer.quick_2": (None, ("active", {"friendly_name": "Quick Timer 2", "duration": "0:45:00", "remaining": "0:45:00",
+                                        "finishes_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 1800))})),
+    # (a third person, out at a zone: Who's Home says who is where)
+    "person.robin": (None, ("Work", {"friendly_name": "Robin"})),
 }
+# the rooms Clean Areas offers the vacuum's Large and Extra Large blocks (stood in on the page, below)
+CLEAN_AREAS = ["kitchen", "living_room", "dining_room", "office", "bedroom", "guest_room"]
 # what each block names (a block that names nothing takes the house's: its cameras, weather, vacuum)
 OPTS = {"accessory": {"entity": "light.living_room_lamps"}, "scene": {"scene": "scene.movie_night"},
         "now_playing": {"speaker": "media_player.living_room"}, "thermostat": {"entity": "climate.main_floor"},
@@ -369,12 +379,16 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                 # THE ENERGY FEATURE, stood in on the page: its plan's house battery is what the `battery` block
                 # shows, and the test server's settings feed has no Energy feature to send (hkSettings.get answers
                 # `added` and `energy` as a house with it would)
+                # ...and CLEAN AREAS, its rooms answered as hk_clean_areas/subscribe would (the Vacuum block's rooms)
                 plan = json.dumps({"sections": [], "power": {"path": "power", "battery": BATTERY}})
                 await b.send("Page.addScriptToEvaluateOnNewDocument", source="""(() => { let hs;
                   Object.defineProperty(window, 'hkSettings', { configurable: true, get() { return hs; }, set(v) {
-                    hs = v; if (!v || !v.get || v.__audit) return; const get = v.get; v.__audit = true;
-                    v.get = function (p, f) { if (p === 'added') return ['energy']; if (p === 'energy') return """ + plan + """;
-                      return get.apply(this, arguments); }; } }); })()""")
+                    hs = v; if (!v || !v.get || v.__audit) return; const get = v.get, sub = v.subscribe; v.__audit = true;
+                    v.get = function (p, f) { if (p === 'added') return ['energy', 'clean_areas']; if (p === 'energy') return """ + plan + """;
+                      return get.apply(this, arguments); };
+                    v.subscribe = function (conn, msg, on) { if (msg && msg.type === 'hk_clean_areas/subscribe') {
+                      setTimeout(() => on({ configured: true, areas: """ + json.dumps(CLEAN_AREAS) + """ }), 0); return () => {}; }
+                      return sub.apply(this, arguments); }; } }); })()""")
                 sun = None
                 for key, look, bar in passes:
                     elev = SUN.get(look, 40.0)
