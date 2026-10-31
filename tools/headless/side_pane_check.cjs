@@ -184,6 +184,83 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       const awayR = await paneR();
       want('...the pane as wide there as beside Home\'s grid (no page laid out again on the way)', [homeR, awayR], homeR && homeR === awayR);
     }
+    // THE ALBUM ART BACKGROUND IS A SWITCH (2026-10-31, item 41): on by default (the art blurred behind the pane while a
+    // song plays); a Now Playing section that sets it off leaves the pane its ordinary ground
+    if (!phone && !upright) {
+      const art = {};
+      for (const k of ['on', 'off']) {
+        await open('pane-art-' + k);
+        await page.waitForTimeout(2500);
+        art[k] = await page.evaluate(() => { const p = document.querySelector('hk-side-pane[mode="dash"]'); return { arted: p.hasAttribute('arted'), layers: p.shadowRoot.querySelectorAll('.artbg b').length }; });
+        await shot(page, tag + '-art-' + k);
+      }
+      want('Album Art Background: on, the pane takes the art; off (the section\'s switch), its ordinary ground', art, art.on.arted && art.on.layers > 0 && !art.off.arted && art.off.layers === 0);
+    }
+    // NOW PLAYING'S WHEN TAPPED (2026-10-31, item 44): a tap on the song's own words (no button) opens the Speakers /
+    // Volume / Queue / Browse panel over the pane, in place -- or, set to Flip, turns the section over to it (the
+    // section hidden once it has turned); Escape closes it and the section is back
+    if (!phone && !upright) {
+      const panelState = () => page.evaluate(() => {
+        const host = [...document.body.children].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.mpanel'));
+        const pane = document.querySelector('hk-side-pane[mode="dash"]'), pr = pane.getBoundingClientRect();
+        const np = pane.shadowRoot.querySelector('[data-k="now_playing"]');
+        if (!host) return { open: false, shown: np ? getComputedStyle(np).visibility : null };
+        const mp = host.shadowRoot.querySelector('.mpanel'), r = mp.getBoundingClientRect();
+        return { open: true, inPane: r.left >= pr.left - 1 && r.right <= pr.right + 1 && r.top >= pr.top - 1 && r.bottom <= pr.bottom + 1,
+                 tabs: [...host.shadowRoot.querySelectorAll('.mptabs div')].map((x) => x.textContent.trim()).join('|'), shown: np ? np.style.visibility : null };
+      });
+      for (const how of ['panel', 'flip']) {
+        await open('pane-tap-' + how);
+        await page.waitForTimeout(2000);
+        await page.evaluate(() => document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('[data-k="now_playing"] .np .tx b').click());
+        if (how === 'flip') { await page.waitForTimeout(140); await shot(page, tag + '-tap-flip-turning'); }
+        await page.waitForTimeout(900);
+        const st = await panelState();
+        want('Now Playing tapped (' + how + '): the panel open inside the pane, its four tabs' + (how === 'flip' ? ', the section turned away' : ''), st,
+             st.open && st.inPane && /Speakers.*Volume.*Queue.*Browse/i.test(st.tabs) && (how === 'panel' || st.shown === 'hidden'));
+        await shot(page, tag + '-tap-' + how);
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(1200);
+        const back = await panelState();
+        want('...Escape closes it' + (how === 'flip' ? ', the section turned back' : ''), back, !back.open && back.shown !== 'hidden');
+      }
+    }
+    // THE CLOCK'S SIX LOOKS, A TO F (2026-10-31, item 43; the "Side Pane clock styles" board): each a screen whose Side Pane
+    // clock sets its choices, drawn at the screen's own pane. A is today's clock; B right with no AM/PM; C centered,
+    // large, light, the colon flashing (where animations are on), the short date; D right, large, bold, the sunset
+    // line; E stacked; F the small analog face. Upright (a band under the page): one of them is drawn.
+    if (!phone) {
+      const readClock = () => page.evaluate(() => {
+        const p = document.querySelector('hk-side-pane[mode="dash"]'), sr = p && p.shadowRoot, ck = sr && sr.querySelector('[data-k="clock"]');
+        if (!ck) return null;
+        const big = ck.querySelector('.big2'), tm = ck.querySelector('.tm'), cs = big ? getComputedStyle(big) : null;
+        const S = window.hkSettings, anim = !(S && S.skyLook && S.skyLook().animations === false);
+        return { cls: ck.className, ampm: !!ck.querySelector('.tm small'), colon: !!ck.querySelector('.ckc'), anim, sun: !!ck.querySelector('.sun'), ds: !!ck.querySelector('.ds'),
+                 line2: (ck.querySelector('.ck2') || {}).textContent || '', stk: !!ck.querySelector('.stk'), analog: !!ck.querySelector('.ckan svg.face'),
+                 weight: cs ? +cs.fontWeight : 0, size: cs ? parseFloat(cs.fontSize) : 0, align: getComputedStyle(ck).textAlign,
+                 h: Math.round(ck.getBoundingClientRect().height), scrolls: p.shadowRoot.querySelector('.secs').scrollHeight > p.shadowRoot.querySelector('.secs').clientHeight + 1 };
+      });
+      const looks = {};
+      for (const k of upright ? ['D'] : input.looks) {
+        await open('pane-clock-' + k.toLowerCase());
+        await page.waitForTimeout(1500);
+        looks[k] = await readClock();
+        await shot(page, tag + '-clock-' + k);
+      }
+      if (!upright) {
+        const L = looks;
+        want('clock A: today\'s -- digits with AM/PM, the date and the sunset, no extra classes', L.A, L.A && /^sec\b/.test(L.A.cls) && !/ck[asw]-/.test(L.A.cls) && L.A.ampm && L.A.sun && !L.A.colon && !L.A.line2 && L.A.weight === 600);
+        want('clock B: right, no AM/PM', L.B, L.B && /cka-right/.test(L.B.cls) && !L.B.ampm && L.B.align === 'right');
+        want('clock C: centered, large, light, the colon flashing (where animations are on), the short date, and larger than A', [L.C, L.A],
+             L.C && /cka-center/.test(L.C.cls) && L.C.weight === 300 && L.C.size > L.A.size * 1.2 && L.C.colon === L.C.anim && !L.C.ampm && L.C.align === 'center');
+        want('clock D: right, large, bold, with the sunset on a line of its own', L.D, L.D && /cka-right/.test(L.D.cls) && L.D.weight === 700 && /^Sunset /.test(L.D.line2) && !L.D.sun);
+        want('clock E: stacked', L.E, L.E && L.E.stk && !L.E.ampm);
+        want('clock F: the small analog face with the time and date beside it', L.F, L.F && L.F.analog);
+        want('...none of them makes the pane scroll', looks, Object.values(looks).every((x) => x && !x.scrolls));
+      } else {
+        want('clock D in a band under the page', looks.D, looks.D && looks.D.line2.indexOf('Sunset') === 0);
+      }
+    }
     // THE CAMERA'S STILL LOADS (2026-10-31, the owner's item 42: a "?" over "Driveway Camera ..." forever -- the address
     // carried a query Mantel's still route refuses): each camera section's picture decoded (naturalWidth > 0) over
     // its glyph, no request for a still refused, and its name hidden unless the section says Show

@@ -384,22 +384,84 @@
       '<circle r="4" class="pin"/></svg>';
   }
 
+  // THE CLOCK SECTION'S LOOK (hk_core PANE_CHOICES; the "Side Pane clock styles" board, item 43): Face (Digital,
+  // Stacked -- StandBy's hours over minutes -- or Analog, the Analog Numbers face small with the time and date
+  // beside it), Alignment, Size (`scale`), Weight, AM/PM, Flashing Colon, Date, Second Line. What a section
+  // leaves out is today's clock.
+  var CLOCK_DEFAULTS = { face: 'digital', align: 'left', scale: 'medium', weight: 'semibold', date: 'full', line: 'auto' };
+  function clockLook(sec) {
+    var o = {};
+    Object.keys(CLOCK_DEFAULTS).forEach(function (k) { o[k] = sec && sec[k] ? sec[k] : CLOCK_DEFAULTS[k]; });
+    o.ampm = !(sec && sec.ampm === false);
+    o.colon = !!(sec && sec.colon === true);
+    return o;
+  }
+  // the classes a choice adds to the section (its type's size and weight, its alignment): none for today's
+  function clockClasses(o) {
+    var cls = '';
+    if (o.align !== 'left') cls += ' cka-' + o.align;
+    if (o.scale !== 'medium') cls += ' cks-' + o.scale;
+    if (o.weight !== 'semibold') cls += ' ckw-' + o.weight;
+    return cls;
+  }
+  // The colon flashes only where motion is allowed: not under Reduce Motion (the device's), Animations Off, or Flat
+  // (hkSettings.skyLook().animations says all three)
+  function motionOk() {
+    try { var S = HS(); return !(S && S.skyLook && S.skyLook().animations === false); } catch (e) { return true; }
+  }
+  // the time: AM/PM only when the clock is a 12-hour one and the section shows it; the colon its own span when it flashes
+  function timeHtml(now, o, flash) {
+    var p = now.time.split(':');
+    return '<span class="tm">' + esc(p[0]) + (flash ? '<span class="ckc">:</span>' : ':') + esc(p[1]) + (now.ampm && o.ampm ? '<small>' + now.ampm + '</small>' : '') + '</span>';
+  }
+  // STACKED: the hours over the minutes (StandBy's); no colon to flash and no AM/PM beside them
+  function stackHtml(now) {
+    var p = now.time.split(':');
+    return '<span class="tm"><span>' + esc(p[0]) + '</span><span>' + esc(p[1]) + '</span></span>';
+  }
+  // the weather line: "64° Partly Cloudy" (the weather section's own reading); nothing while it has none
+  function clockWeather(c) {
+    var id = setting('weather.entity', null) || domainIds(c, 'weather')[0], st = id && (states(c)[id] || WX_LAST[id]);
+    return st ? esc(deg(attr(st, 'temperature')) + ' ' + condName(st.state)) : '';
+  }
+
   // EACH SECTION AT EACH SIZE: (size, sec, c, ctx) -> HTML. ctx.slot(key,
   // make) leaves a place for an element kept between draws (the music pane,
   // a doorbell's live camera); ctx.redraw() draws the pane again.
   var SEC = {
     clock: function (s, sec, c) {
-      var now = houseNow(c), d = now.day;
-      var t = '<span class="tm">' + esc(now.time) + (now.ampm ? '<small>' + now.ampm + '</small>' : '') + '</span>';
-      if (s === 'tiny') return tiny('clock', t, esc(dateShort(d)));
-      if (s === 'full') return box('clock', s, '<div class="facebox">' + faceSvg(now) + '</div><div class="sub2 ctr">' + esc(dateLong(d)) + '</div>', 'grow');
+      // THE CLOCK'S LOOK (2026-10-31, the owner's item 43): every choice's first value is today's clock, so a
+      // section that sets none draws exactly what it did (the classes and the spans below are added only for
+      // a choice made)
+      var o = clockLook(sec), now = houseNow(c), d = now.day, flash = o.colon && motionOk();
+      var t = timeHtml(now, o, flash);
+      var cls = clockClasses(o);
+      var dateText = o.date === 'off' ? '' : esc(o.date === 'short' ? dateShort(d) : dateLong(d));
+      if (s === 'tiny') return tiny('clock', t, o.date === 'off' ? '' : esc(dateShort(d)));
+      // THE SECOND LINE: Sunset or Weather, under the date (Automatic is today's: the sunset beside the date at
+      // More; None is no second line at all)
+      var set = attr(states(c)['sun.sun'], 'next_setting'), sunText = set ? 'Sunset ' + esc(hm(new Date(set))) : '';
+      var extra = o.line === 'sunset' ? sunText : o.line === 'weather' ? clockWeather(c) : '';
+      var second = extra ? '<div class="sub2 ck2">' + extra + '</div>' : '';
+      if (s === 'full') {
+        var big = o.face === 'stacked' ? '<div class="big2 ck stk">' + stackHtml(now) + '</div>' : faceSvg(now);
+        return box('clock', s, '<div class="facebox">' + big + '</div>' + (dateText ? '<div class="sub2 ctr">' + dateText + '</div>' : '') + second, 'grow' + cls);
+      }
       // LINED UP (2026-10-31, the owner: "the time's left edge with the
       // date's, AM on the baseline, date left / sunset right"): the digits
       // pulled back by their own side bearing, AM on their baseline, and
       // under them the date at the left and the sunset at the right
-      var set = attr(states(c)['sun.sun'], 'next_setting'), sun = s === 'more' && set ? '<span class="sun">Sunset ' + esc(hm(new Date(set))) + '</span>' : '';
-      return box('clock', s, '<div class="big2 ck' + (s === 'less' ? ' less' : '') + '">' + t + '</div><div class="sub2 ckd"><span class="dl">' + esc(dateLong(d)) + '</span>' +
-        (sun ? '<span class="ds">' + esc(dateShort(d)) + '</span>' : '') + sun + '</div>');
+      var sun = o.line === 'auto' && s === 'more' && set ? '<span class="sun">' + sunText + '</span>' : '';
+      var dl = dateText ? '<span class="dl">' + dateText + '</span>' : '';
+      var line = (dl || sun ? '<div class="sub2 ckd">' + dl + (sun && o.date === 'full' ? '<span class="ds">' + esc(dateShort(d)) + '</span>' : '') + sun + '</div>' : '') + second;
+      if (o.face === 'analog') {
+        // THE ANALOG NUMBERS FACE, small, with the time and the date beside it
+        return box('clock', s, '<div class="ckan">' + faceSvg(now) + '<div class="ckt"><b>' + t + '</b>' + (dateText ? '<span class="sub2">' + dateText + '</span>' : '') +
+          '</div></div>' + second, cls.trim());
+      }
+      var main = o.face === 'stacked' ? '<div class="big2 ck stk' + (s === 'less' ? ' less' : '') + '">' + stackHtml(now) + '</div>'
+                                      : '<div class="big2 ck' + (s === 'less' ? ' less' : '') + '">' + t + '</div>';
+      return box('clock', s, main + line, cls.trim());
     },
     weather: function (s, sec, c, ctx) {
       var id = setting('weather.entity', null) || domainIds(c, 'weather')[0], st = id && states(c)[id];
@@ -791,8 +853,10 @@
       ':host(:not([mode="widget"]):not([side="band"])) .sec.mp{border-radius:0}',
       '.sec>.ev:last-child{border-bottom:0}',
       '.h2{display:flex;align-items:center;gap:6px;font:600 13px/1 var(--hk-font-body,inherit);letter-spacing:.3px;text-transform:uppercase;color:' + v('ink-2') + '}',
-      '.big2{font:600 72px/1 var(--hk-font-body,inherit);letter-spacing:-2px;font-variant-numeric:tabular-nums}',
-      '.big2.less{font-size:48px;letter-spacing:-1.2px}',
+      // (the Clock's Size and Weight are --cks and --ckw, set by a section's classes; unset they are today's 72 / 48 px, 600)
+      '.big2{font:var(--ckw,600) calc(72px*var(--cks,1))/1 var(--hk-font-body,inherit);letter-spacing:calc(-2px*var(--cks,1));font-variant-numeric:tabular-nums}',
+      '.big2.less{font-size:calc(48px*var(--cks,1));letter-spacing:calc(-1.2px*var(--cks,1))}',
+      '.cks-small{--cks:.75}.cks-large{--cks:1.25}.ckw-light{--ckw:300}.ckw-regular{--ckw:400}.ckw-bold{--ckw:700}',
       '.tm{white-space:nowrap}.tm small{font-size:.36em;font-weight:600;letter-spacing:0;margin-left:.18em;color:' + v('ink-2') + '}',
       // (the Clock lined up: the digits' side bearing taken back, so their ink starts where the date's does; AM
       // on their baseline; the date at the left, the sunset at the right)
@@ -801,6 +865,22 @@
       // (a narrow pane: the date short, "Sat, Oct 31", so the sunset keeps its place at the right of it)
       '.sec[data-k="clock"]{container-type:inline-size}.ckd .ds{display:none}',
       '@container (max-width:320px){.ckd .ds{display:inline}.ckd:has(.ds) .dl{display:none}}',
+      // THE CLOCK'S CHOICES (item 43): Stacked (the hours over the minutes), Analog (the small face with the time and date
+      // beside it), Alignment, the second line, and the flashing colon (held under Reduce Motion as well as by skyLook())
+      '.big2.stk{font-size:calc(60px*var(--cks,1));line-height:.92;letter-spacing:calc(-1.5px*var(--cks,1))}.big2.stk.less{font-size:calc(40px*var(--cks,1))}',
+      '.stk .tm{display:flex;flex-direction:column;align-items:flex-start;margin-left:-0.05em}',
+      '.sec[data-k="clock"].grow .big2.stk{font-size:calc(120px*var(--cks,1))}',
+      '.ckan{display:flex;align-items:center;gap:16px;min-width:0}',
+      '.ckan .face{width:calc(88px*var(--cks,1));height:auto;flex:none}.sec[data-size="less"] .ckan .face{width:calc(68px*var(--cks,1))}',
+      '.ckt{display:grid;gap:4px;min-width:0}.ckt b{font:var(--ckw,600) calc(24px*var(--cks,1))/1.1 var(--hk-font-body,inherit);font-variant-numeric:tabular-nums;white-space:nowrap}',
+      '.ckt .sub2{font-size:calc(15px*var(--cks,1))}.sub2.ck2{font-size:15px}',
+      '.cka-center,.cka-center .sub2{text-align:center}.cka-right,.cka-right .sub2{text-align:right}',
+      '.cka-center .ck .tm,.cka-center .ckd,.cka-center .ckan{justify-content:center}.cka-right .ck .tm,.cka-right .ckd,.cka-right .ckan{justify-content:flex-end}',
+      '.cka-center .ckd .sun,.cka-right .ckd .sun{margin-left:0}.cka-right .ck .tm{margin-left:0}',
+      '.cka-center .stk .tm{align-items:center;margin-left:0}.cka-right .stk .tm{align-items:flex-end}',
+      '.cka-right .facebox{justify-items:end}',
+      '@keyframes ckblink{0%,49%{opacity:1}50%,100%{opacity:.25}}.ckc{animation:ckblink 2s steps(1) infinite}',
+      '@media (prefers-reduced-motion:reduce){.ckc{animation:none}}',
       '.wxg{display:inline-grid;place-items:center;flex:none}.hrs .wxg{display:grid;margin:2px auto}',
       '.sub2{font:500 17px/1.3 var(--hk-font-body,inherit);color:' + v('ink-2') + '}',
       '.sub2.ctr{text-align:center}',
@@ -1082,7 +1162,10 @@
     // the screen's glass. Where the look has no blur (Flat, Tinted, Frosted,
     // Glass -- Performance's), a flat tint from the art instead.
     _artBg(list, c) {
-      var want = list.some(function (s) { return s.kind === 'now_playing'; }) ? musicOf(c) : null;
+      // (the Now Playing section's Album Art Background, on unless set off -- item 41: off, the pane keeps its ordinary
+      // ground, and the music pane at Full its own backdrop)
+      this._artOn = list.some(function (s) { return s.kind === 'now_playing' && s.art !== false; });
+      var want = this._artOn ? musicOf(c) : null;
       var pic = want && want.pic ? want.pic : null, self = this;
       var g = document.documentElement.getAttribute('data-hk-glass') || 'blur';
       var tint = document.documentElement.hasAttribute('data-hk-flat') || ['flat', 'tinted', 'frosted', 'clear'].indexOf(g) >= 0;
@@ -1125,6 +1208,9 @@
       if (!t.closest || t.closest('button,input,form,a,.slot,hk-music-pane-card')) return;
       var sec = t.closest('[data-i]'), s = sec && this._list ? this._list[+sec.getAttribute('data-i')] : null;
       if (!s || s.tap === 'none') return;
+      // NOW PLAYING'S OWN TWO (2026-10-31, item 44): the Speakers / Volume / Queue / Browse panel opens in place over
+      // the pane, or the section flips over to it, as the screensaver's player turns (musicPanel)
+      if (s.kind === 'now_playing' && (s.tap === 'panel' || s.tap === 'flip')) { musicPanel(this, 'speakers', s.tap === 'flip' ? sec : null); return; }
       var D = window.hkDetail, ev = t.closest('[data-ev]'), one = t.closest('[data-ent]');
       if (ev && CAL.shown && CAL.shown[+ev.getAttribute('data-ev')]) {
         var K = window.hkCalendar, x = CAL.shown[+ev.getAttribute('data-ev')];
@@ -1250,7 +1336,7 @@
         slot.parentNode.replaceChild(el, slot);
         // (the music pane on the pane's own album-art backdrop: none of its
         // own and no box -- the owner, 2026-10-30)
-        if (key === 'np' && !el.hasAttribute('nobg')) el.setAttribute('nobg', '');
+        if (key === 'np') el.toggleAttribute('nobg', self._artOn !== false);
         if (key === 'np') el.toggleAttribute('compact', !!(el.parentNode && el.parentNode.classList && el.parentNode.classList.contains('compact')));
         if (key === 'np' && el.active) el.active(true);
       });
@@ -1420,7 +1506,7 @@
   // player is. A tap outside, its X, Escape, a moment after a request has
   // landed, and the music going close it.
   var mpnl = null;
-  function musicPanel(pane, tab) {
+  function musicPanel(pane, tab, from) {
     var P = window.hkSaverPanel, HC = C();
     if (mpnl) { if (mpnl.p.tab() !== tab) mpnl.p.show(tab); else closeMusicPanel(); return; }
     if (!P || !pane || !pane.getBoundingClientRect) return;
@@ -1470,6 +1556,13 @@
     window.addEventListener('keydown', me.key);
     document.body.appendChild(host);
     mpnl = me;
+    // FLIPPED OVER (Now Playing's When Tapped, 2026-10-31, item 44): the section turns over to the same panel
+    if (from && from.getBoundingClientRect) {
+      var fr = from.getBoundingClientRect();
+      me.from = from; me.rect = { left: fr.left, top: fr.top, width: fr.width, height: fr.height };
+      me.box = { x: r.left + inset, y: r.top + inset, w: r.width - 2 * inset, h: r.height - 2 * inset };
+      turnAnim(me, true);
+    }
   }
   function closeMusicPanel() {
     var me = mpnl;
@@ -1477,8 +1570,46 @@
     mpnl = null;
     clearTimeout(me.doneT);
     window.removeEventListener('keydown', me.key);
-    try { me.p.destroy(); } catch (e) { /* gone */ }
-    me.host.remove();
+    var fin = function () { try { me.p.destroy(); } catch (e) { /* gone */ } me.host.remove(); if (me.from && me.from.isConnected) me.from.style.visibility = ''; };
+    if (me.from) { turnAnim(me, false, fin); return; }
+    fin();
+  }
+  // THE TURN, as the Home Grid's Now Playing block and the screensaver turn the card (hk-media.js _turnAnim): the section
+  // to edge-on where it stands, then the panel from edge-on, growing from the section's size to its own; back the same
+  // way. Transforms only; at rest under Reduce Motion (the section hidden, the panel shown).
+  function turnAnim(me, opening, done) {
+    var el = me.p.el, src = me.from, B = me.box, R = me.rect, HC = C();
+    var EASE = (HC && HC.EASE) || { standard: 'ease-out', exit: 'ease-in' };
+    var reduce = (window.hkSettings && window.hkSettings.skyLook && window.hkSettings.skyLook().animations === false) ||
+                 (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    var edge = 'perspective(1500px) rotateY(90deg)';
+    var small = 'perspective(1500px) translate(' + Math.round(R.left + R.width / 2 - (B.x + B.w / 2)) + 'px,' + Math.round(R.top + R.height / 2 - (B.y + B.h / 2)) +
+                'px) rotateY(-90deg) scale(' + (R.width / B.w).toFixed(3) + ',' + (R.height / B.h).toFixed(3) + ')';
+    var live = src && src.isConnected && typeof src.animate === 'function';
+    var can = !reduce && typeof el.animate === 'function';
+    if (me.anim) { try { me.anim.cancel(); } catch (x) { /* done */ } me.anim = null; }
+    if (opening) {
+      if (!can || !live) { if (src && src.isConnected) src.style.visibility = 'hidden'; return; }
+      el.style.visibility = 'hidden';
+      var a = me.anim = src.animate([{ transform: 'none' }, { transform: edge }], { duration: 240, easing: EASE.exit, fill: 'forwards' });
+      a.onfinish = function () {
+        if (src.isConnected) src.style.visibility = 'hidden';
+        a.cancel();
+        if (mpnl !== me) return;
+        el.style.visibility = '';
+        var b = me.anim = el.animate([{ transform: small }, { transform: 'none' }], { duration: 440, easing: EASE.standard });
+        b.onfinish = function () { if (me.anim === b) me.anim = null; };
+      };
+    } else {
+      if (!can || !live) { done(); return; }
+      var c1 = me.anim = el.animate([{ transform: 'none' }, { transform: small }], { duration: 300, easing: EASE.exit, fill: 'forwards' });
+      c1.onfinish = function () {
+        el.style.visibility = 'hidden';
+        src.style.visibility = '';
+        var c2 = me.anim = src.animate([{ transform: edge }, { transform: 'none' }], { duration: 280, easing: EASE.standard });
+        c2.onfinish = function () { me.anim = null; done(); };
+      };
+    }
   }
   // NOW PLAYING IN THE PANE: the docked bar gives the music up to it while
   // it shows (hk-popup.js's `flag` condition, hk-strategy.js)

@@ -1864,9 +1864,23 @@ PANE_WHEN = ("always", "active")
 # detail sheet), its page, its sheet, or nothing. Top and Automatic are what absent means.
 PANE_PLACES = ("top", "bottom")
 PANE_TAPS = ("auto", "page", "sheet", "none")
+# Now Playing's own two (2026-10-31, the owner's item 44): the Speakers / Volume / Queue / Browse panel opens in
+# place over the pane, or the section flips over to it as the screensaver's player turns
+PANE_TAPS_OWN: dict[str, tuple[str, ...]] = {"now_playing": ("panel", "flip")}
 # a kind's own choice, its first value what absent means: the Camera's Name (2026-10-31, the owner's item 42), as
 # the Home Grid's camera block has it (Automatic, Show, Hide) but Hide by default -- the pane's still is a plain picture
-PANE_CHOICES: dict[str, dict[str, tuple[str, ...]]] = {"camera": {"name": ("hide", "auto", "show")}}
+PANE_CHOICES: dict[str, dict[str, tuple[str, ...]]] = {
+    "camera": {"name": ("hide", "auto", "show")},
+    # THE CLOCK'S LOOK (2026-10-31, the owner's item 43; the "Side Pane clock styles" board): the face, where it sits
+    # in the pane, its type's size (`scale`: the section's own `size` is Tiny..Full) and weight, how much date, and
+    # a second line under it -- Automatic is today's (the date with the sunset beside it at More). Each first value
+    # is what draws today's clock, so a clock that sets none of them is unchanged.
+    "clock": {"face": ("digital", "stacked", "analog"), "align": ("left", "center", "right"),
+              "scale": ("medium", "small", "large"), "weight": ("semibold", "light", "regular", "bold"),
+              "date": ("full", "short", "off"), "line": ("auto", "none", "sunset", "weather")}}
+# options that are on unless set off, stored only when off: the clock's AM/PM (it shows only on a 12-hour clock)
+# ...and Now Playing's Album Art Background (item 41): the song's art blurred behind the whole pane
+PANE_FLAGS_ON: dict[str, tuple[str, ...]] = {"clock": ("ampm",), "now_playing": ("art",)}
 PANE_SIDES = ("right", "left")
 PANE_WIDTHS = {"narrow": 360, "standard": 400, "wide": 480}
 # On the Dashboard: Off, Home Only, Every Page; in the screensaver: Off,
@@ -1878,8 +1892,9 @@ PANE_MAX = 8
 PANE_GROUPS = ("side", "width", "dashboard", "saver", "doorbell", "headings")
 # each kind's own options: the calendar's days (1-7), the camera's and the
 # to-do list's entity, the to-do list's Show Completed
+# (the clock's Flashing Colon: off unless set)
 PANE_OPTIONS: dict[str, dict[str, Any]] = {"calendar": {"days": SAVER_CAL_DAYS}, "camera": {"entity": "camera"},
-                                           "todo": {"entity": "todo", "completed": bool}}
+                                           "todo": {"entity": "todo", "completed": bool}, "clock": {"colon": bool}}
 SIDE_PANE_DEFAULTS: dict[str, Any] = {
     "side": "right", "width": "standard",
     "dashboard": {"show": "off", "sections": [{"kind": "weather"}, {"kind": "calendar"},
@@ -1914,9 +1929,12 @@ def pane_section(v: Any, strict: bool = False) -> dict[str, Any] | None:
         elif k == "place" and val in PANE_PLACES:
             if val != "top":
                 out["place"] = val
-        elif k == "tap" and val in PANE_TAPS:
+        elif k == "tap" and (val in PANE_TAPS or val in PANE_TAPS_OWN.get(kind, ())):
             if val != "auto":
                 out["tap"] = val
+        elif k in PANE_FLAGS_ON.get(kind, ()) and isinstance(val, bool):
+            if not val:
+                out[k] = False
         elif k in PANE_CHOICES.get(kind, {}) and val in PANE_CHOICES[kind][k]:
             if val != PANE_CHOICES[kind][k][0]:
                 out[k] = val

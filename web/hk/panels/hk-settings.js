@@ -5848,12 +5848,13 @@
       c.appendChild(K.group({ header: 'Section', footer: 'Size — Tiny: one line. Less: the gist. More: the whole section. Full: more again, taking the room the pane has left (one section at a time). ' +
           'When There’s Something: music playing (or paused, for Hide After a Pause), a timer running, the alarm armed or a door open, a notification. ' +
           'Bottom: at the pane’s foot, under a space — what’s playing, say — in the order they are listed. ' +
-          'When Tapped — Automatic: its page where this screen has one, else its detail sheet. A tap on one thing in it — an event, a person, a thermostat — opens that thing’s sheet.' }, [
+          'When Tapped — Automatic: its page where this screen has one, else its detail sheet. A tap on one thing in it — an event, a person, a thermostat — opens that thing’s sheet.' +
+          (s.kind === 'now_playing' ? ' Now Playing also: Open the Panel — Speakers, Volume, Queue and Browse, right in the pane; Flip to the Controls — the section turns over to them.' : '') }, [
         K.seg({ label: 'Size', sk: 'pane:sec:size', value: s.size || 'more', options: M.PANE_SIZES, onChange: function (v) { set('size', v === 'more' ? null : v); } }),
         K.seg({ label: 'Show', sk: 'pane:sec:when', value: s.when || 'always', options: M.PANE_WHEN, stack: true,
                 onChange: function (v) { set('when', v === 'always' ? null : v); } }),
         K.seg({ label: 'Place', sk: 'pane:sec:place', value: s.place || 'top', options: M.PANE_PLACES, onChange: function (v) { set('place', v === 'top' ? null : v); } }),
-        K.select({ label: 'When Tapped', sk: 'pane:sec:tap', value: s.tap || 'auto', options: M.PANE_TAPS, onChange: function (v) { set('tap', v === 'auto' ? null : v); } })]));
+        K.select({ label: 'When Tapped', sk: 'pane:sec:tap', value: s.tap || 'auto', options: M.paneTaps(s.kind), onChange: function (v) { set('tap', v === 'auto' ? null : v); } })]));
       var ids = function (dom) { return Object.keys(st).filter(function (k) { return k.indexOf(dom + '.') === 0; }).sort(); };
       var nm = function (id) { return ((st[id] || {}).attributes || {}).friendly_name || id; };
       if (s.kind === 'calendar') {
@@ -5861,6 +5862,28 @@
           K.select({ label: 'Days', sk: 'pane:sec:days', value: String(s.days || ''), options: [['', 'As Its Size Shows']].concat([1, 2, 3, 4, 5, 6, 7].map(function (n) {
             return [String(n), n === 1 ? 'Today' : n === 2 ? 'Today & Tomorrow' : n + ' Days'];
           })), onChange: function (v) { set('days', v ? Number(v) : null); } })]));
+      }
+      if (s.kind === 'now_playing') {
+        c.appendChild(K.group({ footer: 'The song’s album art, blurred, as the ground of the whole pane while something plays. Off: the pane keeps its ordinary ground.' }, [
+          K.toggle({ label: 'Album Art Background', sk: 'pane:sec:art', on: s.art !== false, onChange: function (on) { set('art', on ? null : false); } })]));
+      }
+      if (s.kind === 'clock') {
+        // THE CLOCK'S LOOK (2026-10-31, item 43; hk_core PANE_CHOICES): its face, where it sits, its type, the date and a
+        // second line -- each first choice today's clock
+        var pick = function (label, sk, key, opts, dflt) {
+          return K.select({ label: label, sk: sk, value: s[key] || dflt, options: opts, onChange: function (v) { set(key, v === dflt ? null : v); } });
+        };
+        c.appendChild(K.group({ header: 'Look', footer: 'Face — Stacked: the hours over the minutes, as StandBy has them. Analog: the Analog Numbers face, small, with the time and date beside it. ' +
+            'AM/PM shows only on a 12-hour clock. The colon flashes only where animations are on (not under Reduce Motion, Animations Off or Flat). ' +
+            'Second Line — Automatic: the date, with the sunset beside it at More.' }, [
+          K.seg({ label: 'Face', sk: 'pane:clock:face', value: s.face || 'digital', options: M.CLOCK_FACES, onChange: function (v) { set('face', v === 'digital' ? null : v); } }),
+          K.seg({ label: 'Alignment', sk: 'pane:clock:align', value: s.align || 'left', options: M.CLOCK_ALIGNS, onChange: function (v) { set('align', v === 'left' ? null : v); } }),
+          K.seg({ label: 'Text Size', sk: 'pane:clock:scale', value: s.scale || 'medium', options: M.CLOCK_SCALES, onChange: function (v) { set('scale', v === 'medium' ? null : v); } }),
+          pick('Weight', 'pane:clock:weight', 'weight', M.CLOCK_WEIGHTS, 'semibold'),
+          K.toggle({ label: 'AM/PM', sk: 'pane:clock:ampm', on: s.ampm !== false, onChange: function (on) { set('ampm', on ? null : false); } }),
+          K.toggle({ label: 'Flashing Colon', sk: 'pane:clock:colon', on: !!s.colon, onChange: function (on) { set('colon', on || null); } }),
+          K.seg({ label: 'Date', sk: 'pane:clock:date', value: s.date || 'full', options: M.CLOCK_DATES, onChange: function (v) { set('date', v === 'full' ? null : v); } }),
+          pick('Second Line', 'pane:clock:line', 'line', M.CLOCK_LINES, 'auto')]));
       }
       if (s.kind === 'camera' || s.kind === 'todo') {
         var dom = s.kind === 'camera' ? 'camera' : 'todo';
