@@ -794,7 +794,8 @@
         var centred = cfg.tile ? cfg.tile === 'centred' : tall && !!HS && typeof HS.tileStyle === 'function' && HS.tileStyle() === 'centred';
         if (centred) this.setAttribute('tile', 'centred'); else this.removeAttribute('tile');
       }
-      // (a Centred tile draws every glyph bare, lit in its own colour)
+      // (a Centred tile draws every glyph bare, lit in its own colour, each
+      // one as large as the next by what is drawn: TILE.centred.ink)
       var bareCfg = this.getAttribute('tile') === 'centred' ? Object.assign({}, cfg, { bare_icon: true }) : cfg;
       var wb = this._wellBackground(bareCfg, st, on);
       var ic = this._iconColour(bareCfg, st, on);
@@ -830,6 +831,15 @@
       var cl = this.client; if (cl) cl.bindStateIcon(e.icon, st);
       var ic = this._icon(st);
       if (ic) e.icon.icon = ic;
+      // CENTRED: each glyph as large as the next by what it draws, not its box
+      // (hkInkScale, TILE.centred.ink: about 55 px of a 66 px box, HomeView's;
+      // the alarm drawn to its box's edges was half again the lamps' size,
+      // 2026-10-31). The host's icon element, so the box is scaled whole.
+      var inkName = this.getAttribute('tile') === 'centred' && ic && window.hkInkScale ? ic : null, icEl = e.icon;
+      if (!inkName) icEl.style.removeProperty('scale');
+      else window.hkInkScale(inkName, window.hkCards.TILE.centred.ink).then(function (k) {
+        if (icEl.icon === inkName || icEl.getAttribute('icon') === inkName || !icEl.icon) icEl.style.setProperty('scale', String(Math.round(k * 1000) / 1000));
+      });
 
       if (e.room && e.room.textContent !== cfg.room) e.room.textContent = cfg.room;
       e.card.classList.toggle('roomed', !!e.room);

@@ -59,8 +59,13 @@
     return Promise.resolve(null);
   }
 
+  // `ink` (0..1, 2026-10-31): the glyph's drawing, not its box, fills that
+  // share of the icon -- measured off the path and the viewBox fitted round
+  // it -- so a glyph drawn to its box's edges (the alarm) and one drawn small
+  // in it (a lamp) look one size. A Centred tile asks for it: HomeView's
+  // glyphs are alike in what is drawn (about 55 px in a 66 px box).
   class HkIcon extends HTMLElement {
-    static get observedAttributes() { return ['icon']; }
+    static get observedAttributes() { return ['icon', 'ink']; }
     constructor() {
       super();
       var root = this.attachShadow({ mode: 'open' });
@@ -77,7 +82,8 @@
       this._icon = v;
       this._load();
     }
-    attributeChangedCallback(name, was, value) { if (name === 'icon') this.icon = value; }
+    attributeChangedCallback(name, was, value) { if (name === 'icon') this.icon = value; else if (name === 'ink' && was !== value) this._fit(); }
+    connectedCallback() { if (this.hasAttribute('ink')) this._fit(); }
     // what is drawn now ({path, secondaryPath, viewBox} or null), for tests and callers
     get drawn() { return this._drawn; }
     _load() {
@@ -94,6 +100,29 @@
       svg.setAttribute('viewBox', icon.viewBox || '0 0 24 24');
       p.setAttribute('d', icon.path || '');
       if (icon.secondaryPath) s.setAttribute('d', icon.secondaryPath); else s.removeAttribute('d');
+      this._fit();
+    }
+    // the drawing to `ink` of the box (above): its bounds, the viewBox a
+    // square round their middle; with no `ink`, the glyph's own viewBox. Not
+    // laid out yet (no bounds): again once it is.
+    _fit() {
+      var root = this.shadowRoot, svg = root && root.querySelector('svg'), g = svg && svg.querySelector('g'), icon = this._drawn;
+      if (!svg || !icon) return;
+      var ink = parseFloat(this.getAttribute('ink'));
+      if (!(ink > 0 && ink <= 1)) { svg.setAttribute('viewBox', icon.viewBox || '0 0 24 24'); return; }
+      var b = null;
+      try { b = g.getBBox(); } catch (e) { b = null; }
+      if (!b || !(b.width > 0 && b.height > 0)) {
+        var self = this;
+        if (!this._fitWait && typeof requestAnimationFrame === 'function') {
+          this._fitWait = true;
+          requestAnimationFrame(function () { self._fitWait = false; if (self.isConnected) self._fit(); });
+        }
+        return;
+      }
+      var vb = String(icon.viewBox || '0 0 24 24').split(/[\s,]+/).map(Number), own = Math.max(vb[2] || 24, vb[3] || 24);
+      var side = own / inkScale(b, own, ink), cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+      svg.setAttribute('viewBox', (cx - side / 2).toFixed(3) + ' ' + (cy - side / 2).toFixed(3) + ' ' + side.toFixed(3) + ' ' + side.toFixed(3));
     }
   }
 
@@ -143,6 +172,37 @@
   }
 
   ce.define('hk-icon', HkIcon);
+  // ...and the same by a glyph's name, for an icon this file does not draw
+  // (hk-state-icon, the host's): the scale that makes each glyph look one
+  // size, measured once per glyph off a hidden SVG; 1 when it can't be
+  var INKS = {};
+  // BY ITS AREA, not its longest side: a wide, short glyph (the alarm) looks
+  // bigger than a tall, narrow one (a lamp) of the same height. The glyph's
+  // ink as a square's side, to `ink` of HomeView's measured lightbulb's (its
+  // box's .645, about 55 px of a 66 px box), never past the box's edge
+  function inkScale(b, side, ink) {
+    var mean = Math.sqrt(b.width * b.height) / side, big = Math.max(b.width, b.height) / side;
+    return Math.min(ink * 0.78 / mean, 0.96 / big);
+  }
+  global.hkInkScale = function (name, ink) {
+    var key = name + '|' + ink;
+    if (INKS[key]) return INKS[key];
+    INKS[key] = resolve(name).then(function (icon) {
+      if (!icon || !icon.path || !global.document || !global.document.body) return 1;
+      var NS = 'http://www.w3.org/2000/svg', svg = global.document.createElementNS(NS, 'svg'), path = global.document.createElementNS(NS, 'path');
+      var vb = String(icon.viewBox || '0 0 24 24').split(/[\s,]+/).map(Number), side = Math.max(vb[2] || 24, vb[3] || 24);
+      svg.setAttribute('viewBox', vb.join(' '));
+      svg.style.cssText = 'position:absolute;left:-9999px;top:0;width:24px;height:24px;visibility:hidden';
+      path.setAttribute('d', icon.path);
+      svg.appendChild(path);
+      global.document.body.appendChild(svg);
+      var b = null;
+      try { b = path.getBBox(); } catch (e) { b = null; }
+      svg.remove();
+      return b && b.width > 0 && b.height > 0 ? inkScale(b, side, ink) : 1;
+    }, function () { return 1; });
+    return INKS[key];
+  };
   ce.define('hk-plate', HkPlate);
   // an iconset (or hkIcons) has just been registered: draw the icons that asked too early
   function iconsetAdded() {

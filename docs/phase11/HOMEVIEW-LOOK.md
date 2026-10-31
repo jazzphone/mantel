@@ -1427,3 +1427,12 @@ no redraw a second; still under Reduce Motion), then the volume. Full stays the 
 five buttons keep one row where the pane is narrow (under 360 px: smaller and closer -- in a 290 px strip Browse
 had dropped to a line of its own). `side_pane_check` reads the mini player's Speakers and Browse, and a pane with no
 music pane of its own still takes the album art.
+
+**2026-10-31, Centred glyphs alike, and the Room and Accessories blocks Centred.** On a HomeView dashboard the
+Accessories block's tiles kept the room pages' pill (the owner: they "don't follow the sizing for HomeView styling",
+no second line); the Room and Accessories blocks now hand their Tile Style to each tile, so it draws HomeView's: the
+glyph bare and large, the name, its state under it. And every Centred glyph is now sized by what it draws, not its
+box (the alarm, drawn to its box's edges, was half again the lamps' size): by its area, to the size of HomeView's
+measured lightbulb (`TILE.centred.ink`, hk-elements.js `hkInkScale` for the host's state icon and hk-icon's `ink`
+for the keys), never past the box. `test_gridcards` (+2), `home_grid_visual_check --homeview` (an Accessories block
+Centred).

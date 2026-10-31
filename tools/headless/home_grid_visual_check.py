@@ -69,7 +69,10 @@ async def homeview():
                 acc={'v':1,'cols':3,'rows':3,'frame':[1180,820],'band':False,'grow':True,'cell':'square','items':[
                     {'id':'a1','card':'accessory','size':'S','at':[0,0],'opts':{'entity':'alarm_control_panel.bedroom'}},
                     {'id':'a2','card':'accessory','size':'S','at':[1,0],'opts':{'entity':'alarm_control_panel.bedroom','secondary':{'mode':'state'}}},
-                    {'id':'a3','card':'accessory','size':'S','at':[2,0],'opts':{'entity':'alarm_control_panel.home'}}]}
+                    {'id':'a3','card':'accessory','size':'S','at':[2,0],'opts':{'entity':'alarm_control_panel.home'}},
+                    # ...and an Accessories block Centred (2026-10-31): its tiles HomeView's, each with its state
+                    {'id':'a4','card':'accessories','size':'L','at':[0,1],'opts':{'accessories':[{'entity':'light.living_room_lamps'},
+                     {'entity':'light.living_room_ceiling'},{'entity':'lock.front_door'},{'entity':'light.kitchen_pendants'}]}}]}
                 HG.check(acc)
                 gallery.SETTINGS['boards'][name+'-acc']=dict(gallery.SETTINGS['boards'][name],home_grid=acc)
                 screens.append({'screen':name+'-acc','sizes':['1180x820']})

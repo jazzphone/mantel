@@ -97,6 +97,14 @@ function () {
   acc.removeAttribute('tile'); made = acc._tile();
   eq('...on a Home block it stays as the room page draws it', [made.icon_size, made.bare_icon], ['27px', true]);
   window.hkStrategy.tileFor = tileOf; void c0;
+  // (2026-10-31) a Room or Accessories block hands its Tile Style to its tiles
+  var esrc = readFile(HK_ROOT + '/frontend/elements/hk-elements.js'), tsrc = readFile(HK_ROOT + '/frontend/cards/hk-tile.js');
+  var gsrc = readFile(HK_ROOT + '/frontend/cards/hk-grid-cards.js');
+  ok('a Centred glyph is sized by what it draws, by area, to HomeView\'s lightbulb (2026-10-31: the alarm was half again the lamps\' size)',
+     /Math\.sqrt\(b\.width \* b\.height\)/.test(esrc) && /ink \* 0\.78 \/ mean/.test(esrc) && window.hkCards.TILE.centred.ink === 0.83 &&
+     /window\.hkInkScale\(inkName, window\.hkCards\.TILE\.centred\.ink\)/.test(tsrc) && /e\.icon\.setAttribute\('ink', String\(C\.TILE\.centred\.ink\)\)/.test(gsrc));
+  ok('the Room and Accessories blocks hand Centred to each tile, and redraw when it changes', /if \(centred\) el\.setAttribute\('tile', 'centred'\);/.test(gsrc) &&
+     /var key = JSON\.stringify\(\[p\.tiles, p\.more, p\.size, !!p\.scroll, centred\]\);/.test(gsrc) && /return \['size', 'tile'\];/.test(gsrc));
   window.hkCards.createCard = factory;
   // the CSS: one variant, the tiles' own parts, from the table (hk-base.js TILE.centred)
   var tileCss = customElements.get('hk-tile-card').CSS, keyCss = customElements.get('hk-action-card').CSS, T = window.hkCards.TILE.centred;

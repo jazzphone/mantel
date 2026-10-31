@@ -242,7 +242,11 @@
   TILE.centred = {
     tall: { box: 56, glyph: 50, at: 31, text: 55, name: 17, sub: 16, line: 22 },
     square: { box: 72, glyph: 66, at: 33, text: 57.7, name: 21, sub: 20, line: 27 },
-    track: -0.3, inset: 10 };
+    track: -0.3, inset: 10,
+    // what of the glyph's box its drawing fills, whatever the glyph (hk-icon
+    // `ink`): about 55 px of a 66 px box, HomeView's (2026-10-31, the alarm
+    // drawn to its box's edges was half again the lamps' size)
+    ink: 0.83 };
   // A pill's width as CSS: --hk-pill (the iPad band's, css/hk-responsive.css)
   // or the table's.
   var PILL_W = 'var(--hk-pill,' + TILE.w + 'px)';
@@ -2625,10 +2629,11 @@
     // A HOME GRID BLOCK'S SIZE (docs/phase11/HOME-GRID.md): hk-home-grid-view
     // sets `size` (S, W, T, L, XL) on a block's card. A card laid out per
     // size reads it with _cellSize() or :host([size=..]); one that builds its
-    // DOM once is rebuilt when it changes. Anywhere else it is null.
-    static get observedAttributes() { return ['size']; }
+    // DOM once is rebuilt when it changes. Anywhere else it is null. So is its
+    // Tile Style (`tile`, 2026-10-31): a Centred glyph is sized by what it draws.
+    static get observedAttributes() { return ['size', 'tile']; }
     attributeChangedCallback(name, was, now) {
-      if (name !== 'size' || was === now || !this._config) return;
+      if ((name !== 'size' && name !== 'tile') || was === now || !this._config) return;
       this._built = false;
       this._hkSig = null;
       this._render();

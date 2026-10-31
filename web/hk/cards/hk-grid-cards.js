@@ -388,8 +388,9 @@
     }
     // a size attribute set after the card is drawn (the view sets it on
     // placing the card) draws it again
+    // (and its Tile Style: the Room and Accessories blocks hand it to their tiles)
     function watchSize(Ctor) {
-      Object.defineProperty(Ctor, 'observedAttributes', { get: function () { return ['size']; } });
+      Object.defineProperty(Ctor, 'observedAttributes', { get: function () { return ['size', 'tile']; } });
       Ctor.prototype.attributeChangedCallback = function () { if (this._config) { this._built = false; this.redraw(); } };
     }
 
@@ -524,7 +525,12 @@
         e.chev.style.display = path ? '' : 'none';
         e.nm.setAttribute('aria-label', (p.name || 'Room') + (path ? ', open the room' : ''));
         // the pills: made again only when what they are changes
-        var key = JSON.stringify([p.tiles, p.more, p.size, !!p.scroll]);
+        // CENTRED (2026-10-31, the owner: the Accessories block's tiles "don't
+        // follow the sizing for HomeView styling", with no second line): the
+        // block's Tile Style on each tile -- the glyph bare and large over the
+        // name and its state, the cell's own sizes (hk-base.js TILE.centred)
+        var centred = this.getAttribute('tile') === 'centred';
+        var key = JSON.stringify([p.tiles, p.more, p.size, !!p.scroll, centred]);
         if (key !== this._key) {
           this._key = key;
           e.tiles.innerHTML = '';
@@ -543,6 +549,7 @@
             var el = C.createCard(p.size === 'W' ? t : Object.assign({}, t, { size: 'tall' }), h);
             if (p.size !== 'W') el.setAttribute('size', 'S');
             el.setAttribute('data-group-fill', '');
+            if (centred) el.setAttribute('tile', 'centred');
             slot.appendChild(el);
             e.tiles.appendChild(slot);
             self._kids.push(el);
@@ -822,6 +829,8 @@
         }
         var e = this._e, k = this._look();
         if (e.icon.icon !== k.icon) e.icon.icon = k.icon;
+        // (Centred: the glyph by what is drawn, as the tiles' -- TILE.centred.ink)
+        if (this.getAttribute('tile') === 'centred') e.icon.setAttribute('ink', String(C.TILE.centred.ink)); else e.icon.removeAttribute('ink');
         e.icon.style.color = k.color || '';
         if (e.name.textContent !== k.name) e.name.textContent = k.name;
         var said = this._said || null;
