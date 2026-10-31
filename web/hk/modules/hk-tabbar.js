@@ -126,6 +126,19 @@
   // in from each side of the page, so there is page all round to tap out on.
   // A tablet: its shorter side at least SHEET_TABLET.
   var SHEET_BIG = 1040, SHEET_OUT = 72, SHEET_TABLET = 600;
+  // AN ITEM'S APP ICON: this size (a tablet's sheet the bigger), its corner
+  // and its glyph shares of it -- iPadOS's 22.4 %, the Pages screen's
+  var APP_ICON = 60, APP_ICON_BIG = 76, ICON_CORNER = 0.224, ICON_GLYPH = 0.53;
+  // ...drawn as: the plate, the glyph, Calendar's weekday and date (shares of the icon)
+  function appIconCss(px, pre) {
+    var n = function (f) { return (px * f).toFixed(1) + 'px'; };
+    return pre + '.ai{position:relative;flex:none;display:grid;place-items:center;width:' + px + 'px;height:' + px + 'px;border-radius:' + n(ICON_CORNER) + ';' +
+        'color:#fff;box-shadow:0 5px 14px rgba(0,0,0,0.25)}' +
+      pre + '.it .ai hk-icon,' + pre + '.it.here .ai hk-icon{--mdc-icon-size:' + n(ICON_GLYPH) + ';width:' + n(ICON_GLYPH) + ';height:' + n(ICON_GLYPH) + ';color:#fff}' +
+      pre + '.ai.cal{background:#fff;color:#1c1c1e;grid-template-rows:auto auto;align-content:center;justify-items:center;line-height:1}' +
+      pre + '.ai.cal i{font-style:normal;font-size:' + n(0.2) + ';font-weight:600;color:' + ((window.hkCards && window.hkCards.ACCENTS) ? window.hkCards.ACCENTS.red : '#ff453a') + '}' +
+      pre + '.ai.cal b{font-size:' + n(0.55) + ';font-weight:400;letter-spacing:-1px}';
+  }
   // A TAB NARROWER THAN THIS (six on a phone: ~55 px) has no room for the
   // highlight's capsule -- it would be a cramped circle -- so the page you
   // are on is its icon and name in the highlight colour, as iOS draws it
@@ -577,24 +590,17 @@
       // grey; Calendar the day's date. They replaced More's bare glyphs and
       // the rooms' round plates (Control Center's look), so the two sheets
       // and the Pages screen look alike.
-      '.ai{position:relative;flex:none;display:grid;place-items:center;width:60px;height:60px;border-radius:13.5px;',
-      '  color:#fff;box-shadow:0 5px 14px rgba(0,0,0,0.25)}',
-      '.it .ai hk-icon,.it.here .ai hk-icon{--mdc-icon-size:32px;width:32px;height:32px;color:#fff}',
-      '.ai.cal{background:#fff;color:#1c1c1e;grid-template-rows:auto auto;align-content:center;justify-items:center;line-height:1}',
-      '.ai.cal i{font-style:normal;font-size:12px;font-weight:600;color:' + (window.hkCards.ACCENTS ? window.hkCards.ACCENTS.red : '#ff453a') + '}',
-      '.ai.cal b{font-size:33px;font-weight:400;letter-spacing:-1px}',
+      appIconCss(APP_ICON, '') +
       // (the page you're on: its plate and its name in the highlight, as before, and a white ring round its icon)
       '.it.here .ai{box-shadow:0 0 0 3px rgba(255,255,255,0.9),0 5px 14px rgba(0,0,0,0.25)}',
       // A TABLET'S SHEET IS BIGGER (the owner: "It can be a lot bigger on the
       // tablet, as long as there is enough room around it to tap out"): up to
-      // SHEET_BIG wide, SHEET_OUT clear of each side, the icons 76 px
+      // SHEET_BIG wide, SHEET_OUT clear of each side, the icons APP_ICON_BIG
       '.bigsheet .grid{grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}',
-      '.bigsheet .ai{width:76px;height:76px;border-radius:17px}',
-      '.bigsheet .it .ai hk-icon,.bigsheet .it.here .ai hk-icon{--mdc-icon-size:40px;width:40px;height:40px}',
-      '.bigsheet .ai.cal i{font-size:15px}.bigsheet .ai.cal b{font-size:42px}',
-      '.bigsheet .it{min-height:132px;gap:10px;font-size:14px;letter-spacing:-0.15px}',
-      '.bigsheet .sheet{padding:22px 18px 0}.bigsheet .sheet h2{font-size:22px;margin:0 8px 14px}',
-      '.bigsheet .sheet h3{font-size:17px}',
+      appIconCss(APP_ICON_BIG, '.bigsheet ') +
+      '.bigsheet .it{min-height:132px;gap:10px;' + C.typeCss('body') + ';font-weight:600}',
+      '.bigsheet .sheet{padding:22px 18px 0}.bigsheet .sheet h2{' + C.typeCss('title') + ';margin:0 8px 14px}',
+      '.bigsheet .sheet h3{' + C.typeCss('headline') + '}',
       // the list (More Style: List) keeps its glyphs on their own
       '.sheet.list .ai{width:22px;height:22px;background:none!important;box-shadow:none!important;border-radius:0}',
       '.sheet.list .it .ai hk-icon{--mdc-icon-size:22px;width:22px;height:22px;color:var(--hk-accent-base,' + window.hkCards.v('accent') + ')}',

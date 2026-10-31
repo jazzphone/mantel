@@ -1334,3 +1334,12 @@ page in Settings had no preview when every screen has a pane of its own; it now 
 All Screens' pane (`hkSidePane.previewHouse`). Checks: `bright_glass_check` (each room an app icon in its own
 colour; a tablet's sheet with 72 px of page each side; More with the rooms in it), `side_pane_check` (the Settings
 preview, both ways), `test_tabbar`, `test_glass` (Home Only on the Pages screen).
+
+**2026-10-31, an Accessory block Centred: its Line Under Name, and its glyph.** The owner put an alarm's keypad in an
+Accessory block, set Line Under Name to State, and it still said its room, its glyph a speck beside the others. A
+Centred block put the room under every accessory's name whatever Line Under Name said; now a chosen line (State,
+Brightness, an attribute, Hidden) wins and the room shows only for Automatic. And a Centred block now draws every glyph
+at its own size, in its circle when on: the alarm's tile came from the room pages bare, at their 27 px. The app icons
+in the tab bar's sheets now take their corner (22.4 %) and Calendar's date from the icon's size, as the Pages screen
+does, rather than as new off-scale pixels (the radii and type ratchets). Checks: `test_gridcards` (+3),
+`home_grid_visual_check --homeview` (a new Accessory screen: the alarm armed, and with Line Under Name State).

@@ -296,7 +296,7 @@ async function homeview(input){
           const s=view._gridScale,sq=window.hkCards.HOME_GRID.square,g=view._grid(),bounds=view.getBoundingClientRect(),root=view._root.getBoundingClientRect();
           if(g.cell!=='square')issues.push('cells are not square');
           if(root.left<bounds.left-1||root.right>bounds.right+1||root.top<bounds.top-1||root.bottom>bounds.bottom+1)issues.push('canvas past the screen');
-          const se=document.scrollingElement;if(se.scrollHeight>innerHeight+1||se.scrollWidth>innerWidth+1)issues.push('page scroll');
+          const se=document.scrollingElement;if(se.scrollHeight>innerHeight+1||se.scrollWidth>innerWidth+1)issues.push('page scroll '+(se.scrollWidth-innerWidth)+' x '+(se.scrollHeight-innerHeight)+(document.documentElement.scrollTop?' (scrolled '+document.documentElement.scrollTop+')':''));
           for(const cell of view.shadowRoot.querySelectorAll('.cell')){
             const id=cell.dataset.id,dims=window.hkCards.HOME_GRID.sizes[cell.getAttribute('size')],r=cell.getBoundingClientRect(),card=cell.firstElementChild;
             if(Math.abs(r.width/s-(sq.w*dims[0]+sq.gap*(dims[0]-1)))>1||Math.abs(r.height/s-(sq.h*dims[1]+sq.gap*(dims[1]-1)))>1)issues.push(id+': not square cells '+Math.round(r.width/s)+'x'+Math.round(r.height/s));

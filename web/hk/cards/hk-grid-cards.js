@@ -691,7 +691,14 @@
         delete t.view_layout; delete t.hk_place;
         // CENTRED (2026-10-30): the name over its room, as HomeView has it (a
         // scene's line says it is one); an accessory in no room keeps its state
-        if (this.getAttribute('tile') === 'centred') {
+        // -- and one whose Line Under Name is chosen shows that, not the room
+        // (the owner, 2026-10-31: set to State, "it's still just showing Master Bedroom")
+        var chosen = cfg.secondary && cfg.secondary.mode && cfg.secondary.mode !== 'auto';
+        // ...and every glyph the block's own size, in its circle when on: an
+        // accessory drawn bare at a room page's size (the alarm's 27 px) was a
+        // speck beside the others (the owner, 2026-10-31)
+        if (this.getAttribute('tile') === 'centred') { delete t.icon_size; delete t.bare_icon; delete t.well_background; }
+        if (this.getAttribute('tile') === 'centred' && !chosen) {
           var area = cfg.kind === 'scene' ? null : areaOf(h, cfg.entity), areas = (h && h.areas) || {};
           var room = cfg.kind === 'scene' ? 'Scene' : area && areas[area] && areas[area].name;
           if (room) t.room = room;

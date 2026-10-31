@@ -395,7 +395,8 @@ ok('...Calendar the day\'s date', /'<i class="ai cal" aria-hidden="true"><i>'/.t
 ok('no round plates left for the rooms', !/roomgrid \.it hk-icon\{--mdc-icon-size:28px/.test(tbSrc));
 ok('the list (More Style: List) keeps its glyphs bare', /\.sheet\.list \.ai\{width:22px;height:22px;background:none!important/.test(tbSrc));
 ok('a tablet\'s sheet: up to 1040 wide, 72 in from each side (a tablet by its shorter side), its icons 76 px', /var SHEET_BIG = 1040, SHEET_OUT = 72, SHEET_TABLET = 600;/.test(tbSrc) &&
-   /Math\.min\(SHEET_BIG, width - 2 \* SHEET_OUT\)/.test(tbSrc) && /\.bigsheet \.ai\{width:76px;height:76px/.test(tbSrc));
+   /Math\.min\(SHEET_BIG, width - 2 \* SHEET_OUT\)/.test(tbSrc) && /var APP_ICON = 60, APP_ICON_BIG = 76, ICON_CORNER = 0\.224/.test(tbSrc) &&
+   /appIconCss\(APP_ICON_BIG, '\.bigsheet '\)/.test(tbSrc));
 
 print('\n' + (fail ? fail + ' FAILED, ' + pass + ' passed' : 'ALL ' + pass + ' TAB BAR TESTS PASS'));
 if (fail) throw new Error(fail + ' failed');
