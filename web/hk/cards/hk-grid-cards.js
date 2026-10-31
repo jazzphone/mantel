@@ -1027,6 +1027,9 @@
         var added = setting('added', []) || [], E = added.indexOf('energy') >= 0 ? setting('energy', null) : null, W = E && E.power;
         if (!W || typeof W !== 'object') return null;
         var B = W.battery || {};
+        // S (2026-10-31, the owner's widget mock-up): the power now, large,
+        // and the last three hours as a short chart -- drawn here (`own`)
+        if (size === 'S') return [{ own: 'power', home: W.home || null }];
         // W: the status at its own height, shrunk to the block if it must be
         if (!big) return [{ cls: 'fit fitw', cfg: { type: 'custom:hk-power-status-card', grid_status: W.grid_status, problem: B.problem, level: B.level,
           backup: B.backup, home: W.home, charge: B.charge, discharge: B.discharge, eps: B.eps, storm: B.storm, solar: W.solar,
@@ -1046,6 +1049,13 @@
         var S = window.hkStrategy, inv = null;
         try { inv = S && S.inventory ? S.inventory(client, hidesOf()) : null; } catch (e) { inv = null; }
         if (!inv || !(inv.locks.length + inv.doors.length + inv.windows.length + inv.garage.length)) return null;
+        // S, W and T (2026-10-31, the widget mock-up): how many are open, large;
+        // Wide the count beside the list, Tall the list -- the doors, the
+        // garage and the windows, the open ones first (the locks are Security's)
+        if (size === 'S' || size === 'W' || size === 'T') {
+          return inv.doors.length + inv.windows.length + inv.garage.length
+            ? [{ own: 'doors', doors: inv.doors, windows: inv.windows, garage: inv.garage }] : null;
+        }
         var alarm = setting('security.alarm', null) || firstOfDomain(client, 'alarm_control_panel');
         return [{ cfg: { type: 'custom:hk-security-overview-card', alarm: alarm, locks: inv.locks, doors: inv.doors, windows: inv.windows,
           garage: inv.garage, leaks: inv.leaks || [], height: '100%' } }];
@@ -1060,13 +1070,21 @@
         return (setting('added', []) || []).indexOf('live_tv') >= 0 ? [{ cfg: { type: 'custom:hk-tv-guide-card' }, cls: 'plated' }] : null;
       }
       if (kind === 'water') {
-        var hw = (setting('headers', null) || {}).water || {}, parts = [{ cfg: Object.assign({ type: 'custom:hk-water-day-card', height: '100%' },
+        var hw = (setting('headers', null) || {}).water || {};
+        // S, W and T (2026-10-31, the widget mock-up): today large and the
+        // day's bars, drawn here -- Tall with the days before under them
+        if (size === 'S' || size === 'W' || size === 'T') return [{ own: 'water', meter: hw.meter || null }];
+        var parts = [{ cfg: Object.assign({ type: 'custom:hk-water-day-card', height: '100%' },
           hw.meter ? { meter: hw.meter } : {}) }];
         // XL: the main supply beside the day, as the Water page has it
         var supply = hw.supply && client.states[hw.supply] ? hw.supply : Object.keys(client.states).filter(function (v) {
           return dom(v) === 'valve' && /main|supply|shut.?off/i.test(v + ' ' + (attr(client.states[v], 'friendly_name') || ''));
         })[0];
         if (size === 'XL' && supply) { parts.push({ cfg: { type: 'custom:hk-water-supply-card', entity: supply, height: '100%' } }); }
+        // (the day's plate as tall as its part: a percent of the card's own
+        // wrapper left it at its content's 158 px, 2026-10-31 -- the part is a
+        // size container, so 100cqh is the part's height)
+        parts[0].cfg.height = '100cqh';
         return parts;
       }
       return null;
@@ -1093,20 +1111,150 @@
       '.part.plated{' + C.plate('card') + ';box-sizing:border-box;padding:' + C.blockPad('14px') + ';overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}' +
       '.part.plated::-webkit-scrollbar{display:none}.part.plated > *{height:auto;min-height:100%}' +
       '.empty{' + type('body') + ';color:' + v('ink-2') + ';padding:0 4px}';
+    // THE BLOCKS AS WIDGETS (2026-10-31, the owner's mock-up, "Home Grid
+    // blocks, widget style"): what a block is in its color, the one figure
+    // large and light, a line under it, then a short chart or a list along
+    // the foot. A panel's own part (`own`: Power S, Water and Doors S to T)
+    // and On Now draw with these.
+    var ACC = C.ACCENTS;
+    var WG_CSS = 'hk-plate.wg{box-sizing:border-box;height:100%;position:relative;display:flex;flex-direction:column;overflow:hidden;' +
+        'padding:' + C.blockPad('14px') + ';' + C.plate('card') + ';color:' + v('ink') + '}' +
+      '.wl{font-size:15px;font-weight:600;line-height:19px;letter-spacing:0.2px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}' +
+      '.wb{font-size:44px;font-weight:300;letter-spacing:-0.9px;line-height:1.04;font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:2px;flex:none}' +
+      '.wb.m{font-size:30px;font-weight:500;letter-spacing:-0.5px}' +
+      '.ws{' + type('body') + ';line-height:19px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}' +
+      '.wf{margin-top:auto}.wcol{display:flex;flex-direction:column;min-width:0}' +
+      '.wc{display:block;flex:none}' +
+      // THE COUNT, as large as a block's figure gets (the clock's 72); a
+      // tile cell (150 tall) the hero's 44, so the words under it keep their room
+      '.wb.xl{font-size:72px;letter-spacing:-1.5px}' +
+      '@container hk-cell (max-height:179px){.wb.xl{font-size:44px;letter-spacing:-0.9px}}' +
+      // A LIST: rows of 36, the open (or the on) ones in their color; what
+      // does not fit is "N more" in the last row's place
+      '.wr{display:flex;flex-direction:column;min-width:0;min-height:0}' +
+      '.wr>div{display:flex;align-items:center;gap:10px;height:36px;flex:none;border-bottom:1px solid ' + v('line') + ';cursor:pointer;-webkit-tap-highlight-color:transparent}' +
+      '.wr>div:last-child{border-bottom:0}' +
+      '.wr b{' + type('body') + ';font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '.wr em{font-style:normal;' + type('caption') + ';color:' + v('ink-2') + ';white-space:nowrap}' +
+      '.wr>div.more{cursor:default}.wr>div.more b{font-weight:500;color:' + v('ink-2') + '}' +
+      '.wg hk-icon{display:block;flex:none;--mdc-icon-size:100%}' +
+      '.wsplit{display:flex;gap:18px;flex:1;min-height:0}.wsplit>:last-child{flex:1}';
+    // a glyph from the MDI subset (web/mdi), in a color
+    function gly(icon, px, col) {
+      return '<hk-icon icon="' + icon + '" style="width:' + px + 'px;height:' + px + 'px' + (col ? ';color:' + col : '') + '"></hk-icon>';
+    }
+    // the block in px inside its inset: the view's measure, else a square cell's
+    var SQ_BLOCK = { S: [196, 196], W: [405, 196], T: [196, 405], L: [405, 405], XL: [614, 405] };
+    function inner(card, size) {
+      if (card._watchBlock) card._watchBlock();
+      var b = card._block ? card._block() : null, d = SQ_BLOCK[size] || SQ_BLOCK.S, pad = 18;
+      try { pad = parseFloat(getComputedStyle(card).getPropertyValue('--hk-block-pad')) || 18; } catch (e) { pad = 18; }
+      return { iw: (b ? b.w : d[0]) - 2 * pad, ih: (b ? b.h : d[1]) - 2 * pad };
+    }
+    // HOW MANY ROWS OF 36 FIT in `room` px -- and when not all do, the last
+    // of them says how many more
+    function fitRows(items, room, row) {
+      var n = Math.max(1, Math.floor(room / 36));
+      if (items.length <= n) return items.map(row).join('');
+      return items.slice(0, n - 1).map(row).join('') + '<div class="more"><b>' + (items.length - n + 1) + ' more</b></div>';
+    }
+    // SHORT BARS, each in its color: [{v, c}] scaled to the largest, `w` x
+    // `h` px -- an SVG, as HK's bars are drawn (hk-energy.js barChart), 3 px
+    // apart with their tops rounded
+    function wbars(list, w, h) {
+      var mx = 0, n = list.length, gap = 3, bw = Math.max(1, (w - (n - 1) * gap) / n), rx = Math.min(3, bw / 2);
+      list.forEach(function (x) { if (typeof x.v === 'number' && x.v > mx) mx = x.v; });
+      return '<svg class="wc" width="' + Math.round(w) + '" height="' + Math.round(h) + '" viewBox="0 0 ' + w.toFixed(1) + ' ' + h + '" aria-hidden="true">' + list.map(function (x, i) {
+        var bh = Math.max(3, (mx > 0 && typeof x.v === 'number' ? Math.max(0.06, x.v / mx) : 0.06) * h);
+        return '<rect x="' + (i * (bw + gap)).toFixed(1) + '" y="' + (h - bh).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="' + rx.toFixed(1) + '" fill="' + x.c + '"/>';
+      }).join('') + '</svg>';
+    }
+    // a short chart's height: 40, or 28 on a tile cell (its figure keeps its room)
+    function shortH(box) { return box.ih < 140 ? 28 : 40; }
+    // a power sensor's watts, read with its unit (hkChart.power; a W or kW sensor)
+    function wattsOf(client, id) {
+      var s = id && client && client.states[id];
+      if (!s) return null;
+      if (window.hkChart && window.hkChart.power) return window.hkChart.power(client.states, id, { watts: true, fallback: null });
+      var n = Number(s.state);
+      return isFinite(n) ? (/^kW$/i.test(attr(s, 'unit_of_measurement') || '') ? n * 1000 : n) : null;
+    }
+    function numTag() { return window.hkLocale && window.hkLocale.numTag ? window.hkLocale.numTag() : undefined; }
+    function amount(x) { return x < 10 ? (Math.round(x * 10) / 10).toLocaleString(numTag()) : Math.round(x).toLocaleString(numTag()); }
+    // THE WATER METER: Settings -> Pages -> Water's, else the Energy
+    // settings' water sources (energy/get_prefs, asked once for the page)
+    var WATER_SRC = { ids: null, wait: null };
+    function waterIds(card, client, meter) {
+      if (meter) return [meter];
+      if (WATER_SRC.ids) return WATER_SRC.ids;
+      if (!WATER_SRC.wait && client && client.callWS) {
+        WATER_SRC.wait = client.callWS({ type: 'energy/get_prefs' }).then(function (pr) {
+          WATER_SRC.ids = ((pr && pr.energy_sources) || []).filter(function (s) { return s.type === 'water' && s.stat_energy_from; })
+            .map(function (s) { return s.stat_energy_from; });
+        }, function () { WATER_SRC.ids = []; }).then(function () { WATER_SRC.wait = null; card.redraw(); });
+      }
+      return null;
+    }
+    // TODAY'S WATER, as the Water page sums it (hk-headers.js water day):
+    // each hour since midnight from the recorder's statistics, this hour
+    // from its five-minute ones; the hours still to come yesterday's, in
+    // gray; the days before, newest first; and today against a usual day by
+    // now (the week before's mean, on yesterday's own shape)
+    function waterDay(card, client, ids) {
+      var S = window.hkStats;
+      if (!S || !ids.length) return null;
+      var hr = S.hourly(client, ids, 48, card), fm = S.fiveMinute(client, ids, 13, card, { type: 'change' }), dd = S.daily(client, ids, 8, card);
+      if (!hr || !dd) return null;
+      var sumAt = function (ser, i) {
+        var got = false, t = 0;
+        ids.forEach(function (id) { var r = ser[id] && ser[id][i]; if (r && r.v != null) { got = true; t += r.v; } });
+        return got ? t : null;
+      };
+      var first = hr[ids[0]] || [], n = first.length, start = -1;
+      for (var i = n - 1; i >= 0; i--) if (S.fields(first[i].t).hour === 0) { start = i; break; }
+      if (start < 0) start = Math.max(0, n - 24);
+      var seq = first.map(function (r, k) { return sumAt(hr, k); });
+      var hourStart = n ? +first[n - 1].t : Date.now(), part = null;
+      if (fm) (fm[ids[0]] || []).forEach(function (r, k) { if (+r.t >= hourStart) { var x = sumAt(fm, k); if (x != null) part = (part || 0) + x; } });
+      seq[n - 1] = part;
+      var today = seq.slice(start), yday = seq.slice(Math.max(0, start - 24), start), nowK = today.length - 1;
+      var tot = today.reduce(function (a, x) { return a + (x || 0); }, 0);
+      var day24 = [];
+      for (var k = 0; k < 24; k++) day24.push(k <= nowK ? { v: today[k], fut: false } : { v: yday[k], fut: true });
+      // a usual day by now: the seven days before today, on yesterday's shape
+      var days = (dd[ids[0]] || []).map(function (r, k) { return { t: r.t, v: sumAt(dd, k) }; });
+      var before = days.slice(0, -1).filter(function (x) { return x.v != null; });
+      var usual = before.length ? before.reduce(function (a, x) { return a + x.v; }, 0) / before.length : 0;
+      var yAll = yday.reduce(function (a, x) { return a + (x || 0); }, 0), frac = Math.min(1, (Date.now() - hourStart) / 36e5);
+      var share = Math.min(1, Math.max(0, (Date.now() - (n ? +first[start].t : Date.now())) / 864e5));
+      if (yAll > 0.5 && yday.length === 24) {
+        share = (yday.slice(0, nowK).reduce(function (a, x) { return a + (x || 0); }, 0) + (yday[nowK] || 0) * frac) / yAll;
+      }
+      var byNow = usual * share, pct = byNow > 0.5 ? Math.round(100 * (tot - byNow) / byNow) : null;
+      var st0 = client.states[ids[0]];
+      return { tot: tot, unit: attr(st0, 'unit_of_measurement') || '', seq: seq, day24: day24,
+               week: days.slice(0, -1).reverse(), more: /:/.test(ids[0]) ? null : ids[0],
+               cmp: pct == null ? '' : Math.abs(pct) < 15 ? 'About usual' : Math.abs(pct) + '% ' + (pct > 0 ? 'above' : 'below') + ' usual' };
+    }
+    // a door, a window or the garage: open, and its glyph
+    function opened(st) { return !!st && (st.state === 'on' || st.state === 'open' || st.state === 'opening' || st.state === 'closing'); }
+    var WAY_GLYPH = { door: ['mdi:door-open', 'mdi:door-closed'], window: ['mdi:window-open', 'mdi:window-closed'], garage: ['mdi:garage-open', 'mdi:garage'] };
     class HkGridPanelCard extends HkGridFull {
-      static get CSS() { return FULL_CSS + PANEL_CSS; }
+      static get CSS() { return FULL_CSS + PANEL_CSS + WG_CSS; }
       _parts() {
         var c = this._config || {};
         try { return panelParts(c.panel, sizeOf(this), c, this.client || { states: {} }); } catch (e) { return null; }
       }
       _sigOf() {
         var parts = this._parts(), h = this.client, rd = parts && parts[1] && parts[1].readings, st = rd && h ? h.states[rd] : null;
-        return JSON.stringify([parts, sizeOf(this), st ? st.last_updated : null]);
+        // (a part of its own: the states it reads, and the block's size)
+        var own = parts && parts[0] && parts[0].own ? this._ownIds(parts[0]).map(function (id) { var s = h && h.states[id]; return s ? s.last_updated : null; }) : null;
+        return JSON.stringify([parts, sizeOf(this), st ? st.last_updated : null, own, own ? this._blockKey || '' : null]);
       }
       _render() {
         var parts = this._parts(), key = JSON.stringify(parts);
-        if (this._built && this._key === key) { this._readings(); return; }
-        this._key = key; this._kids = []; this._built = true;
+        if (this._built && this._key === key) { this._readings(); this._drawOwn(); return; }
+        this._key = key; this._kids = []; this._built = true; this._own = null;
         if (!parts) {
           var e = PANEL_EMPTY[this._config.panel] || ['', ''];
           this._root.innerHTML = '<hk-plate class="full" data-hk-role="card"><div class="ttl"><b></b></div><div class="empty"></div></hk-plate>';
@@ -1122,10 +1270,109 @@
           part.className = 'part' + (p.cls ? ' ' + p.cls : '');
           box.appendChild(part);
           if (p.readings) { self._rd = part; return; }
+          if (p.own) {
+            part.innerHTML = '<hk-plate class="wg" data-hk-role="card"></hk-plate>';
+            self._own = { spec: p, plate: part.querySelector('hk-plate'), html: null };
+            self._own.plate.addEventListener('click', function (e) {
+              var row = e.target.closest && e.target.closest('[data-more]');
+              if (row) { e.stopPropagation(); window.hkShell.moreInfo(row.getAttribute('data-more'), self); }
+            });
+            return;
+          }
           var kid = self._mount(part, p.cfg, p.size);
           if (/\bfit\b/.test(p.cls || '')) self._fitWatch(part, kid, /\bfitw\b/.test(p.cls));
         });
         this._readings();
+        this._drawOwn();
+      }
+      // A PART OF ITS OWN (the widget sizes): the entities it reads
+      _ownIds(p) {
+        if (p.own === 'power') return p.home ? [p.home] : [];
+        if (p.own === 'doors') return [].concat(p.doors, p.garage, p.windows);
+        if (p.own === 'water') return (p.meter ? [p.meter] : WATER_SRC.ids || []).slice(0, 1);
+        return [];
+      }
+      _drawOwn() {
+        var o = this._own;
+        if (!o) return;
+        var p = o.spec, size = sizeOf(this) || 'S', box = inner(this, size), h = this.client || { states: {} };
+        var html = p.own === 'power' ? this._ownPower(p, box, h) : p.own === 'doors' ? this._ownDoors(p, size, box, h) : this._ownWater(p, size, box, h);
+        if (html === o.html) return;
+        o.html = html;
+        C.morph(o.plate, html);
+      }
+      // POWER, SMALL: what the house uses now, and the last three hours in
+      // fifteen-minute bars (the recorder's five-minute means, three to a bar)
+      _ownPower(p, box, h) {
+        var w = wattsOf(h, p.home), S = window.hkStats, five = S && p.home ? S.fiveMinute(h, [p.home], 37, this) : null;
+        var rows = (five && five[p.home]) || [], closed = rows.slice(-37, -1), bars = [];
+        for (var k = 0; k < 12; k++) {
+          var g = closed.slice(k * 3, k * 3 + 3).map(function (r) { return r.v; }).filter(function (x) { return typeof x === 'number'; });
+          bars.push({ v: g.length ? g.reduce(function (a, x) { return a + x; }, 0) / g.length : null, c: ACC.green });
+        }
+        var fig = w == null ? ['—', ''] : Math.abs(w) >= 1000 ? [(w / 1000).toLocaleString(numTag(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }), 'kW'] : [Math.round(w).toLocaleString(numTag()), 'W'];
+        return '<div class="wl" style="color:' + ACC.green + '">Using Now</div><div class="wb"' + (p.home ? ' data-more="' + esc(p.home) + '"' : '') + '>' + fig[0] + '</div>' +
+          '<div class="ws">' + fig[1] + '</div><div class="wf" role="img" aria-label="The last three hours">' + wbars(bars, box.iw, shortH(box)) + '</div>';
+      }
+      // DOORS AND WINDOWS: how many are open, large; Wide the count beside
+      // the list, Tall over it -- the open ones first, in orange
+      _ownDoors(p, size, box, h) {
+        var list = [];
+        [['door', p.doors], ['garage', p.garage], ['window', p.windows]].forEach(function (x) {
+          (x[1] || []).forEach(function (id) { var st = h.states[id]; if (st) list.push({ id: id, kind: x[0], st: st, open: opened(st) }); });
+        });
+        list.sort(function (a, b) { return (b.open ? 1 : 0) - (a.open ? 1 : 0); });
+        var open = list.filter(function (x) { return x.open; }), name = function (x) { return attr(x.st, 'friendly_name') || x.id; };
+        var row = function (x) {
+          var g = WAY_GLYPH[x.kind][x.open ? 0 : 1];
+          return '<div data-more="' + esc(x.id) + '">' + gly(g, 20, x.open ? ACC.orange : null) + '<b>' + esc(name(x)) + '</b><em' +
+            (x.open ? ' style="color:' + ACC.orange + '"' : '') + '>' + (x.open ? 'Open' : 'Closed') + '</em></div>';
+        };
+        var lab = '<div class="wl" style="color:' + ACC.teal + '">Doors &amp; Windows</div>';
+        var ways = open.filter(function (x) { return x.kind !== 'window'; }).length, wins = open.length - ways;
+        var line = !open.length ? 'All closed' : !ways ? 'All doors closed' : !wins ? 'All windows closed'
+          : plural(ways, 'door', 'doors') + ' · ' + plural(wins, 'window', 'windows');
+        if (size === 'S') {
+          var first = open[0];
+          return gly(first ? WAY_GLYPH[first.kind][0] : 'mdi:door-closed', 34, first ? ACC.orange : ACC.teal) +
+            '<div class="wb xl">' + open.length + '</div>' +
+            '<div class="ws">' + esc(open.length === 1 ? 'open · ' + name(first) : open.length ? 'open' : 'All closed') + '</div>';
+        }
+        var big = '<div class="wb m">' + (open.length ? open.length + ' open' : 'All closed') + '</div>';
+        if (size === 'W') {
+          return '<div class="wsplit"><div class="wcol" style="flex:0 0 170px">' + lab + big + '<div class="ws">' + esc(line) + '</div></div>' +
+            '<div class="wcol wr">' + fitRows(list, box.ih, row) + '</div></div>';
+        }
+        return lab + big + '<div class="wr" style="margin-top:6px">' + fitRows(list, box.ih - 19 - 33 - 6, row) + '</div>';
+      }
+      // WATER: today's large; Small and Tall the last twelve hours as a
+      // short chart (Tall the days before under it); Wide the day's hours
+      // beside the number, the chart on the block's foot
+      _ownWater(p, size, box, h) {
+        var lab = '<div class="wl" style="color:' + ACC.cyan + '">Water</div>';
+        var ids = waterIds(this, h, p.meter);
+        if (ids && !ids.length) return lab + '<div class="ws wf" style="white-space:normal">' + esc(PANEL_EMPTY.water[1]) + '</div>';
+        var d = ids ? waterDay(this, h, ids) : null;
+        if (!d) return lab + '<div class="ws wf">Loading today…</div>';
+        var more = d.more ? ' data-more="' + esc(d.more) + '"' : '', unit = esc(d.unit), big = '<div class="wb"' + more + '>' + amount(d.tot) + '</div>';
+        var last12 = d.seq.slice(-12).map(function (x) { return { v: x, c: ACC.cyan }; });
+        if (size === 'S') return lab + big + '<div class="ws">' + unit + ' today</div><div class="wf">' + wbars(last12, box.iw, shortH(box)) + '</div>';
+        if (size === 'W') {
+          var day = d.day24.map(function (x) { return { v: x.v, c: x.fut ? v('ink-3') : ACC.cyan }; });
+          return '<div class="wsplit"><div class="wcol" style="flex:0 0 130px">' + lab + big + '<div class="ws">' + unit + ' today</div>' +
+            (d.cmp ? '<div class="ws">' + esc(d.cmp) + '</div>' : '') + '</div>' +
+            '<div class="wcol" style="justify-content:flex-end">' + wbars(day, box.iw - 130 - 18, Math.max(40, box.ih - 30)) + '</div></div>';
+        }
+        var tz = window.hkStats && window.hkStats.tz();
+        var row = function (x) {
+          return '<div><b>' + esc(new Date(x.t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', timeZone: tz }))) + '</b><em>' +
+            (x.v == null ? '—' : amount(x.v) + ' ' + unit) + '</em></div>';
+        };
+        var room = box.ih - 19 - 46 - 19 - (d.cmp ? 19 : 0) - 12 - 44 - 14 - 19 - 4;
+        return lab + big + '<div class="ws">' + unit + ' today</div>' + (d.cmp ? '<div class="ws">' + esc(d.cmp) + '</div>' : '') +
+          '<div style="margin-top:12px">' + wbars(last12, box.iw, 44) + '</div>' +
+          '<div class="wl" style="margin-top:14px;color:' + v('ink-2') + '">This Week</div>' +
+          '<div class="wr" style="margin-top:2px">' + fitRows(d.week, room, row) + '</div>';
       }
       // A THERMOSTAT'S READINGS AND CONTROLS beside its dial: inside,
       // humidity and outside (the sheet's three), then its modes and its fan
@@ -1588,5 +1835,171 @@
     window.hkGridCards.Everything = HkEverythingCard;
     window.hkGridCards.Scene = HkSuggestedSceneCard;
     window.hkGridCards.Cameras = HkGridCamerasCard;
+
+    // ===================================================== hk-on-now-card
+    // ON NOW (2026-10-31, the owner's widget mock-up, "On Now (new)"): what
+    // is on in the house right now -- the lights, the speakers playing, the
+    // fans and the room's switches -- counted as the Reminders widget counts,
+    // each kind in its color. Off and All Off are house commands through the
+    // card's action port, as the room pages' toggles are (a speaker pauses).
+    //   S       the count large, and what it is
+    //   W       each kind a chip; a tap turns that kind off
+    //   T       each kind with its count, and All Off
+    //   L, XL   each thing that is on with its own Off, "+N more", All Off
+    //           (XL the count in a column of its own beside them)
+    // The house's own lists (Status & Chips, hkStrategy.inventory) less what
+    // it hides; a group light is its lights, never counted twice.
+    var ON_KINDS = [
+      { key: 'lights', one: 'light', many: 'lights', icon: 'mdi:lightbulb', color: ACC.yellow, call: ['light', 'turn_off'], off: 'Off' },
+      { key: 'speakers', one: 'speaker', many: 'speakers', icon: 'mdi:speaker', color: ACC.pink, call: ['media_player', 'media_pause'], off: 'Pause' },
+      { key: 'fans', one: 'fan', many: 'fans', icon: 'mdi:fan', color: ACC.cyan, call: ['fan', 'turn_off'], off: 'Off' },
+      { key: 'switches', one: 'switch', many: 'switches', icon: 'mdi:power-plug', color: ACC.green, call: ['switch', 'turn_off'], off: 'Off' }
+    ];
+    function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+    // -> [{kind, ids}] of the kinds with something on, and [{id, kind, name, room}] each thing
+    function onNow(client) {
+      var st = (client && client.states) || {}, ents = (client && client.entities) || {}, areas = (client && client.areas) || {};
+      var inv = null, G = hidesOf();
+      try { inv = window.hkStrategy && window.hkStrategy.inventory ? window.hkStrategy.inventory(client, G) : null; } catch (e) { inv = null; }
+      inv = inv || {};
+      var has = function (list, id) { return Array.isArray(list) && list.indexOf(id) >= 0; };
+      var hid = function (id) {
+        var e = ents[id] || {}, a = areaOf(client, id);
+        return !!(e.hidden || e.entity_category || has(G.exclude_entities, id) || (a && has(G.exclude_areas, a)) || (e.device_id && has(G.exclude_devices, e.device_id)));
+      };
+      var is = function (state) { return function (id) { return st[id] && st[id].state === state && !isGroup(st[id]); }; };
+      var lists = {
+        lights: (inv.lights || []).filter(is('on')),
+        speakers: (inv.speakers || []).filter(is('playing')),
+        fans: (inv.fans || []).filter(is('on')),
+        // a switch in a room (a car's charging or an integration's own setting is not "on" in the house)
+        switches: Object.keys(st).filter(function (id) { return dom(id) === 'switch' && st[id].state === 'on' && areaOf(client, id) && !hid(id); }).sort()
+      };
+      var short = window.hkStrategy && window.hkStrategy.shortName;
+      var kinds = [], things = [];
+      ON_KINDS.forEach(function (k) {
+        var ids = lists[k.key];
+        if (!ids.length) return;
+        kinds.push({ kind: k, ids: ids });
+        ids.map(function (id) {
+          var a = areaOf(client, id), room = a && areas[a] ? areas[a].name : '', full = attr(st[id], 'friendly_name') || id;
+          // the room's name off the front ("Kitchen Pendants" in the Kitchen), unless
+          // all that is left is what it is ("Porch Light" stays itself)
+          var name = short ? short(full, room) : full;
+          if (/^(light|lights|lamp|fan|speaker|switch|plug)$/i.test(name)) name = full;
+          var under = name === room ? '' : room;
+          return { id: id, kind: k, name: name, room: k.key === 'speakers' ? (under ? under + ' · Playing' : 'Playing') : under };
+        }).sort(function (x, y) { return (x.room + x.name).localeCompare(y.room + y.name); }).forEach(function (t) { things.push(t); });
+      });
+      return { kinds: kinds, things: things, n: things.length };
+    }
+    var ON_CSS = [
+      ':host{display:block;height:100%}',
+      '.ws.wrap{white-space:normal}',
+      // the controls: a chip per kind, Off per thing, All Off -- 44 px each
+      '.on-b{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;min-width:44px;cursor:pointer;',
+      '  border-radius:22px;background:' + v('key') + ';color:' + v('ink') + ';' + type('caption') + ';font-weight:600;-webkit-tap-highlight-color:transparent}',
+      '.on-b:active{filter:brightness(0.9)}.on-b:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
+      '.on-b.all{' + type('body') + ';font-weight:600;padding:0 22px}',
+      '.chips{display:grid;gap:4px;align-content:center;min-width:0}',
+      '.chips .on-b{justify-content:flex-start;padding:0 12px;min-width:0}',
+      '.chips .on-b span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.chips .on-b em{font-style:normal;opacity:.7;flex:none}',
+      '.on-l{display:flex;flex-direction:column;min-height:0}',
+      '.on-l>div{display:flex;align-items:center;gap:10px;box-sizing:border-box;height:48px;flex:none;border-bottom:1px solid ' + v('line') + '}',
+      '.on-l>div:last-child{border-bottom:0}',
+      '.on-l .tx{flex:1;min-width:0;display:flex;flex-direction:column}',
+      '.on-l .tx b{' + type('body') + ';font-weight:600;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.on-l .tx small{' + type('caption') + ';line-height:16px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.on-l .on-b{padding:0 12px;flex:none}',
+      '.on-hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex:none}',
+      '.on-ft{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;padding-top:8px;flex:none}',
+      '.on-x{display:flex;gap:22px;flex:1;min-height:0}.on-x>.wcol:last-child{flex:1}',
+      '.none{' + type('body') + ';color:' + v('ink-2') + '}'
+    ].join('');
+    class HkOnNowCard extends HkBase {
+      static get CSS() { return WG_CSS + ON_CSS; }
+      getCardSize() { return 4; }
+      _sigOf() {
+        var o = onNow(this.client), st = (this.client && this.client.states) || {};
+        return JSON.stringify([o.things.map(function (t) { return t.id + (st[t.id] ? st[t.id].last_updated : ''); }), sizeOf(this), this._blockKey || '']);
+      }
+      _render() {
+        var self = this;
+        if (!this._built) {
+          this._root.innerHTML = '<hk-plate class="wg" data-hk-role="card" role="group" aria-label="On now"></hk-plate>';
+          this._plate = this._root.querySelector('hk-plate');
+          this._plate.addEventListener('click', function (e) {
+            var b = e.target.closest && e.target.closest('button');
+            if (!b) return;
+            e.stopPropagation();
+            self._off(b.getAttribute('data-off'), b.getAttribute('data-kind'), b.hasAttribute('data-all'));
+          });
+          this._built = true;
+        }
+        var size = sizeOf(this) || 'L', box = inner(this, size), o = onNow(this.client);
+        var lab = '<div class="wl" style="color:' + ACC.orange + '">On Now</div>';
+        var all = o.n ? '<button type="button" class="on-b all" data-all>All Off</button>' : '';
+        var thing = function (t) {
+          return '<div>' + gly(t.kind.icon, 20, t.kind.color) + '<span class="tx"><b>' + esc(t.name) + '</b>' + (t.room ? '<small>' + esc(t.room) + '</small>' : '') + '</span>' +
+            '<button type="button" class="on-b" data-off="' + esc(t.id) + '" aria-label="' + esc(t.kind.off + ' ' + t.name) + '">' + t.kind.off + '</button></div>';
+        };
+        // as many things as fit in `room` px (rows of 48): the rest are "+N more"
+        var list = function (room) {
+          var fit = Math.max(1, Math.floor(room / 48)), shown = o.things.slice(0, fit);
+          return { html: '<div class="on-l">' + shown.map(thing).join('') + '</div>', more: o.n - shown.length };
+        };
+        var html;
+        if (size === 'S') {
+          var first = o.kinds[0], rest = o.kinds.slice(1);
+          html = lab + '<div class="wb xl">' + o.n + '</div><div class="ws wf wrap">' + (o.n ? esc(plural(first.ids.length, first.kind.one, first.kind.many)) +
+            (rest.length ? '<br>' + esc(rest.map(function (x) { return plural(x.ids.length, x.kind.one, x.kind.many); }).join(' · ')) : '') : 'Nothing on') + '</div>';
+        } else if (size === 'W') {
+          var rows = Math.max(1, Math.floor((box.ih + 4) / 48)), two = o.kinds.length > rows;
+          html = '<div class="wsplit"><div class="wcol" style="flex:0 0 ' + (two ? 90 : 120) + 'px">' + lab + '<div class="wb xl">' + o.n + '</div></div>' +
+            (o.n ? '<div class="chips" style="grid-template-columns:repeat(' + (two ? 2 : 1) + ',minmax(0,1fr))">' + o.kinds.map(function (x) {
+              return '<button type="button" class="on-b" data-kind="' + x.kind.key + '" aria-label="' + esc(x.kind.off + ' ' + plural(x.ids.length, x.kind.one, x.kind.many)) + '">' +
+                // (two across, on a tile cell: the glyph says what, the number how many)
+                gly(x.kind.icon, 18, x.kind.color) + '<span>' + esc(two ? String(x.ids.length) : plural(x.ids.length, cap(x.kind.one), cap(x.kind.many))) + '</span><em>' + x.kind.off + '</em></button>';
+            }).join('') + '</div>' : '<div class="wcol" style="justify-content:center"><div class="none">Nothing is on</div></div>') + '</div>';
+        } else if (size === 'T') {
+          html = lab + '<div class="wb xl">' + o.n + '</div>' +
+            (o.n ? '<div class="wr" style="margin-top:6px">' + o.kinds.map(function (x) {
+              return '<div style="cursor:default">' + gly(x.kind.icon, 20, x.kind.color) + '<b>' + esc(cap(x.kind.many)) + '</b><em>' + x.ids.length + '</em></div>';
+            }).join('') + '</div>' : '<div class="none">Nothing is on</div>') +
+            '<div class="on-ft">' + all.replace('class="on-b all"', 'class="on-b all" style="flex:1"') + '</div>';
+        } else if (size === 'L') {
+          var l = list(box.ih - 19 - 6 - 52);
+          html = '<div class="on-hd">' + lab + '<span class="ws">' + o.n + ' on</span></div>' +
+            (o.n ? l.html : '<div class="none" style="margin:auto">Nothing is on</div>') +
+            '<div class="on-ft"><span class="ws">' + (l.more ? '+' + l.more + ' more' : '') + '</span>' + all + '</div>';
+        } else {
+          var x2 = list(box.ih - (o.n > Math.floor(box.ih / 48) ? 24 : 0));
+          html = '<div class="on-x"><div class="wcol" style="flex:0 0 150px">' + lab + '<div class="wb xl">' + o.n + '</div>' +
+            '<div class="ws wrap">' + (o.n ? o.kinds.map(function (x) { return esc(plural(x.ids.length, x.kind.one, x.kind.many)); }).join('<br>') : 'Nothing on') + '</div><div class="wf">' + all.replace('class="on-b all"', 'class="on-b all" style="width:100%"') + '</div></div>' +
+            '<div class="wcol">' + (o.n ? x2.html + (x2.more ? '<div class="ws" style="margin-top:4px">+' + x2.more + ' more</div>' : '') : '<div class="none" style="margin:auto">Nothing is on</div>') + '</div></div>';
+        }
+        C.morph(this._plate, html);
+      }
+      // OFF: one thing, a kind, or everything on -- one call per kind, the
+      // room pages' own commands (HkBase._call: the host's action port)
+      _off(id, kindKey, everything) {
+        var o = onNow(this.client), self = this;
+        var groups = everything ? o.kinds : o.kinds.filter(function (x) { return x.kind.key === kindKey; });
+        if (id) {
+          var t = o.things.filter(function (x) { return x.id === id; })[0];
+          groups = t ? [{ kind: t.kind, ids: [id] }] : [];
+        }
+        groups.forEach(function (x) { self._call(x.kind.call[0], x.kind.call[1], { entity_id: x.ids.length === 1 ? x.ids[0] : x.ids.slice() }); });
+      }
+    }
+    watchSize(HkOnNowCard);
+    C.register('hk-on-now-card', HkOnNowCard, 'HK On Now',
+      'What is on in the house now -- lights, speakers, fans and switches -- with Off for each and All Off. Made for a Home Grid.',
+      [{ name: 'glass', selector: { boolean: {} },
+         helper: 'Off: leave this card out of the shared blur (Glass look: Blur).' }],
+      function () { return {}; });
+    window.hkGridCards.OnNow = HkOnNowCard;
+    window.hkGridCards._.onNow = onNow;
   });
 })();
