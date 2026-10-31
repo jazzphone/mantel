@@ -2383,7 +2383,7 @@
         '.pc{position:relative;display:flex;flex:none;box-sizing:border-box;max-width:calc(100% - 12px);align-items:flex-end;justify-content:center;height:44px;padding:0 10px;pointer-events:auto;cursor:pointer;' +
         'touch-action:pan-y;-webkit-tap-highlight-color:transparent}' +
         '.pc::before{content:"";position:absolute;bottom:3px;left:0;right:0;height:16px;border-radius:' + C0.R.capsule('16px') + ';background:rgba(30,30,36,.22);pointer-events:none}' +
-        '.pager.one .dots{display:none}' +
+        '.pager.one .dots,.pager.own .dots{display:none}' +
         // 44 px targets, reaching up over the page's foot
         '.dot{flex:0 1 ' + PAGER_PITCH + 'px;min-width:0;height:44px;margin:0;padding:0 0 7px;border:0;background:none;' +
         'display:flex;align-items:flex-end;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
@@ -2456,7 +2456,9 @@
       var root = this._root;
       root.innerHTML = '';
       var pager = document.createElement('div');
-      pager.className = 'pager' + (n < 2 ? ' one' : '');
+      // (a Room block draws the rooms' dots in its own foot line, beside what is scrolled out of sight:
+      // hk-grid-cards.js, 2026-10-31)
+      pager.className = 'pager' + (n < 2 ? ' one' : '') + (((this._config || {}).item || {}).card === 'room' ? ' own' : '');
       var track = document.createElement('div');
       track.className = 'track';
       var dots = document.createElement('div');

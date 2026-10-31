@@ -24,7 +24,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     return {count:room._kids.length,height:r.height,tileHeight:slot.height,scroll:tiles.scrollHeight,lock:room._kids.some(k=>k._config.entity==='lock.back_door'),more:!!tiles.querySelector('.more'),x:r.x+r.width/2,y:r.y+r.height/2};
    });
    assert(geometry.count>8 && geometry.lock && !geometry.more,JSON.stringify(geometry));
-   assert(geometry.scroll>geometry.height && Math.abs(geometry.tileHeight-(geometry.height-10)/2)<2,JSON.stringify(geometry));
+   assert(geometry.scroll>geometry.height && Math.abs(geometry.tileHeight-(geometry.height-8)/2)<2,JSON.stringify(geometry));
    const index=await page.evaluate(()=>p._index);
    await page.mouse.move(geometry.x,geometry.y);await page.mouse.wheel(0,600);await page.waitForTimeout(300);
    assert(await page.evaluate(()=>tiles.scrollTop>100));assert.equal(await page.evaluate(()=>p._index),index);

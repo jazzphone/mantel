@@ -104,7 +104,7 @@ function () {
      /Math\.sqrt\(b\.width \* b\.height\)/.test(esrc) && /ink \* 0\.78 \/ mean/.test(esrc) && window.hkCards.TILE.centred.ink === 0.83 &&
      /window\.hkInkScale\(inkName, window\.hkCards\.TILE\.centred\.ink\)/.test(tsrc) && /e\.icon\.setAttribute\('ink', String\(C\.TILE\.centred\.ink\)\)/.test(gsrc));
   ok('the Room and Accessories blocks hand Centred to each tile, and redraw when it changes', /if \(centred\) el\.setAttribute\('tile', 'centred'\);/.test(gsrc) &&
-     /var key = JSON\.stringify\(\[p\.tiles, p\.more, p\.size, !!p\.scroll, centred\]\);/.test(gsrc) && /return \['size', 'tile'\];/.test(gsrc));
+     /var key = JSON\.stringify\(\[p\.tiles, p\.more, p\.size, !!p\.scroll, centred, !!p\.half, !!p\.color\]\);/.test(gsrc) && /return \['size', 'tile'\];/.test(gsrc));
   window.hkCards.createCard = factory;
   // the CSS: one variant, the tiles' own parts, from the table (hk-base.js TILE.centred)
   var tileCss = customElements.get('hk-tile-card').CSS, keyCss = customElements.get('hk-action-card').CSS, T = window.hkCards.TILE.centred;

@@ -102,6 +102,11 @@ CLEAN_AREAS = ["kitchen", "living_room", "dining_room", "office", "bedroom", "gu
 OPTS = {"accessory": {"entity": "light.living_room_lamps"}, "scene": {"scene": "scene.movie_night"},
         "now_playing": {"speaker": "media_player.living_room"}, "thermostat": {"entity": "climate.main_floor"},
         "room": {"area": "living_room"}}
+# ...and what a block names at each size (an Accessories block holds as many as its size's tiles: hk_core's capacity)
+ACCESSORIES = ["light.living_room_lamps", "fan.bedroom_ceiling", "light.living_room_ceiling", "media_player.living_room",
+               "lock.front_door", "light.kitchen_pendants", "cover.garage_door", "switch.garage_outlet", "light.office_desk",
+               "light.porch", "light.bedroom_lamps", "light.backyard_string"]
+SIZED = {"accessories": lambda s: {"accessories": [{"entity": e} for e in ACCESSORIES[:{"W": 2, "L": 4, "XL": 6, "XXL": 12}[s]]]}}
 # the forecast, as the forecast sensors Settings -> Weather can name
 def _forecast(step: int, n: int, temps: list[int], conds: list[str]) -> list[dict]:
     t0 = int(time.time() // step * step) + step
@@ -230,7 +235,8 @@ def layout(part: str) -> dict:
     sizes = [s for s in HG.CATALOG[key]["sizes"] if (s == only if only else s in PLACES)]
     hv = CELL["homeview"]
     opts = {**OPTS.get(key, {}), **(HOMEVIEW.get(key, {}) if hv else {})}
-    items = [{"id": f"{key[:3]}{s.lower()}", "card": key, "size": s, "at": PLACES.get(s, [0, 0]), **({"opts": opts} if opts else {}),
+    items = [{"id": f"{key[:3]}{s.lower()}", "card": key, "size": s, "at": PLACES.get(s, [0, 0]),
+              **({"opts": {**opts, **SIZED[key](s)}} if key in SIZED else {"opts": opts} if opts else {}),
               **({"tile": "centred"} if hv and key in ("accessory", "scene", "action") else {})}
              for s in sizes]
     return {"v": 1, "cols": 6, "rows": 4, "frame": [1280, 800], "band": True, "items": items,
