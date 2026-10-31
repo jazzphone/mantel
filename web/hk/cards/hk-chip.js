@@ -1453,7 +1453,7 @@
       this._tiles = plan.pills.map(function (pill) {
         var cfg = blockPill(pill, plan);
         var slot = document.createElement('div');
-        slot.style.cssText = 'position:relative;min-width:0;min-height:0;container-type:size;container-name:hk-cell';
+        slot.style.cssText = 'position:relative;min-width:0;min-height:0;container-type:size;container-name:hk-cell;--hk-cell-shape:none';
         var t = window.hkCards.create(cfg);
         t.setAttribute('data-group-fill', '');
         t.style.cssText = 'display:block;min-width:0;min-height:0;width:100%;height:100%';

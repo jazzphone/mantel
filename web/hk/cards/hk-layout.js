@@ -1823,7 +1823,10 @@
         // in), and a Square screen's outer corner on top (cellInset's --hk-in-*)
         '--hk-block-pad:14px;--hk-pad-t:calc(var(--hk-block-pad) + var(--hk-in-t,0px));--hk-pad-r:calc(var(--hk-block-pad) + var(--hk-in-r,0px));' +
         '--hk-pad-b:calc(var(--hk-block-pad) + var(--hk-in-b,0px));--hk-pad-l:calc(var(--hk-block-pad) + var(--hk-in-l,0px))}' +
-        ':host([cell=square]) .cell{--hk-block-pad:18px}' +
+        // ...and its cells say they are square (2026-10-31, the owner: the glyphs small on a 1280 x 800 tablet): a block
+        // asked "a square cell?" by its height (180 px or more), and beside the Side Pane a square cell is ~154 px. The
+        // blocks ask `(min-height:180px) or style(--hk-cell-shape: square)`: where style() is unknown, as it was
+        ':host([cell=square]) .cell{--hk-block-pad:18px;--hk-cell-shape:square}' +
         // ...and on square cells what sits inside a block's plate on its inset is concentric with it (34 - 18); tiles keep
         // their pills' own corners (at 23.5 - 14 they would be near square)
         ':host([cell=square]) .cell{--hk-inner-radius:max(12px, calc(var(--hk-block-radius, 34px) - var(--hk-block-pad)))}' +

@@ -1421,7 +1421,7 @@
     '.wg .md:active b{opacity:0.6}',
     '.wg .md.out{cursor:default}',
     // (the cell is the block's own, so a square one is 180 px and up for Small, two rows' 360 for the rest)
-    '@container hk-cell (min-height:180px){.wg.S .dn{font-size:44px}.wg.S .nx{margin-top:8px}}',
+    '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){.wg.S .dn{font-size:44px}.wg.S .nx{margin-top:8px}}',
     '@container hk-cell (min-height:360px){.wg.T .dn{font-size:54px}.wg.L .dn{font-size:64px}',
     '  .wg .mon .mh{display:flex;margin-top:-13px}.wg .c2 .mh{display:none}}',
     // MONTH VIEW: seven columns, the weeks' rows sharing the height; the day's
@@ -1795,7 +1795,7 @@
     '  background:' + window.hkCards.v('key') + ';cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}',
     '.tw .addb:active{opacity:0.7}',
     // (the cell is the block's own: a square one is 180 px and up for Small, two rows' 360 for the rest)
-    '@container hk-cell (min-height:180px){.tw.S .cn{font-size:54px}}',
+    '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){.tw.S .cn{font-size:54px}}',
     '@container hk-cell (min-height:360px){.tw.T .cn{font-size:44px}.tw.L .cn,.tw.XL .cn{font-size:54px}}'
   ].join('\n');
   // THE WHOLE LIST, over the page (hk-media.js _turn's way): on <body> under a shadow root of its own -- the

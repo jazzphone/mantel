@@ -1988,7 +1988,7 @@
           // condition on the left, five hours on the right (2026-10-31: the
           // tile's Wide had left half of itself bare).
           '.wb.W .hrs{display:none}',
-          '@container hk-cell (min-height:180px){hk-plate.wb.W.hh{justify-content:space-between}.wb.W .hrs{display:grid;border-top:0;padding-top:0}.wb.W .hr{gap:2px}}',
+          '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){hk-plate.wb.W.hh{justify-content:space-between}.wb.W .hrs{display:grid;border-top:0;padding-top:0}.wb.W .hr{gap:2px}}',
           '@container hk-cell (max-height:179px){hk-plate.wb.W.hh{flex-direction:row;align-items:center;gap:14px}' +
             '.wb.W.hh .top{flex-direction:column;align-items:flex-start;gap:2px;max-width:40%}' +
             '.wb.W.hh .tx{align-items:flex-start;text-align:left}.wb.W.hh .tx .sym,.wb.W.hh .tx span{display:none}' +
@@ -2002,7 +2002,7 @@
           '.wb.S .sct{display:flex;flex-direction:column;min-width:0}',
           '.wb.S .sct b{' + C.typeCss('body') + ';font-weight:600;line-height:18px}.wb.S .sct span{' + C.typeCss('caption') + ';line-height:17px;color:' + C.v('ink-2') + ';font-variant-numeric:tabular-nums}',
           '.wb.S .sct b,.wb.S .sct span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-          '@container hk-cell (min-height:180px){.wb.S .sc{flex-direction:column;align-items:flex-start;gap:4px}}',
+          '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){.wb.S .sc{flex-direction:column;align-items:flex-start;gap:4px}}',
           // TALL: the symbol and the condition under the temperature, the
           // high and low under them, then the hours down the rest, spread to
           // the foot

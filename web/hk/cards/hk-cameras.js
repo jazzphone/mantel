@@ -271,7 +271,7 @@
         // (the block's Name: Hide, or Automatic on HomeView's square cells -- the owner, 2026-10-31: the name
         // in the corner, "Front Door Camera Low resolution cha...", wasn't wanted there)
         '.plate.blk[data-name=hide] .cn{display:none}',
-        '@container hk-cell (min-height:180px){.plate.blk:not([data-name=show]) .cn{display:none}}',
+        '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){.plate.blk:not([data-name=show]) .cn{display:none}}',
         '.plate.grid .age,.plate.blk .age{left:auto;bottom:auto;right:10px;top:10px;box-sizing:border-box;height:21px;padding:5px 8px;border-radius:' + C.R.capsule('21px') + ';',
         '  background:' + C.v('float-plate') + ';font-size:11px;font-weight:600;line-height:11px;color:' + C.v('ink-2') + ';text-shadow:none}',
         '.plate.grid .age:empty,.plate.blk .age:empty{display:none}',

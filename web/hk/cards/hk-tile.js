@@ -906,7 +906,7 @@
       var ic = this._icon(st);
       if (ic) e.icon.icon = ic;
       // CENTRED: each glyph as large as the next by what it draws, not its box
-      // (hkInkScale, TILE.centred.ink: about 55 px of a 66 px box, HomeView's;
+      // (hkInkScale, TILE.centred.ink: about 63 px of a 76 px box, HomeView's;
       // the alarm drawn to its box's edges was half again the lamps' size,
       // 2026-10-31). The host's icon element, so the box is scaled whole.
       var inkName = this.getAttribute('tile') === 'centred' && ic && window.hkInkScale ? ic : null, icEl = e.icon;

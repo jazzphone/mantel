@@ -63,7 +63,7 @@
   // share of the icon -- measured off the path and the viewBox fitted round
   // it -- so a glyph drawn to its box's edges (the alarm) and one drawn small
   // in it (a lamp) look one size. A Centred tile asks for it: HomeView's
-  // glyphs are alike in what is drawn (about 55 px in a 66 px box).
+  // glyphs are alike in what is drawn (about 63 px in a 76 px box).
   class HkIcon extends HTMLElement {
     static get observedAttributes() { return ['icon', 'ink']; }
     constructor() {
@@ -179,7 +179,7 @@
   // BY ITS AREA, not its longest side: a wide, short glyph (the alarm) looks
   // bigger than a tall, narrow one (a lamp) of the same height. The glyph's
   // ink as a square's side, to `ink` of HomeView's measured lightbulb's (its
-  // box's .645, about 55 px of a 66 px box), never past the box's edge
+  // box's .645, about 63 px of a 76 px box), never past the box's edge
   function inkScale(b, side, ink) {
     var mean = Math.sqrt(b.width * b.height) / side, big = Math.max(b.width, b.height) / side;
     return Math.min(ink * 0.78 / mean, 0.96 / big);

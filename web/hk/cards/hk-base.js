@@ -240,11 +240,13 @@
   // `tall`: a 196 x 150 tile (a room page's Tall pill, a tile-celled block);
   // `square`: a 196 x 196 cell. Home's numbers above are untouched.
   TILE.centred = {
-    tall: { box: 56, glyph: 50, at: 31, text: 55, name: 17, sub: 16, line: 22 },
-    square: { box: 72, glyph: 66, at: 33, text: 57.7, name: 21, sub: 20, line: 27 },
+    // (the glyphs 15 % larger, 2026-10-31, the owner with HomeView beside them: Apple's ink is ~30 % of the tile's
+    // height -- the lock 34 of 120, the lights 39 -- and ours was 25 %)
+    tall: { box: 64, glyph: 58, at: 31, text: 55, name: 17, sub: 16, line: 22 },
+    square: { box: 82, glyph: 76, at: 33, text: 57.7, name: 21, sub: 20, line: 27 },
     track: -0.3, inset: 10,
     // what of the glyph's box its drawing fills, whatever the glyph (hk-icon
-    // `ink`): about 55 px of a 66 px box, HomeView's (2026-10-31, the alarm
+    // `ink`): about 63 px of a 76 px box, HomeView's (2026-10-31, the alarm
     // drawn to its box's edges was half again the lamps' size)
     ink: 0.83 };
   // A pill's width as CSS: --hk-pill (the iPad band's, css/hk-responsive.css)
@@ -371,7 +373,7 @@
       at('', [s.name]) + '{' + text + ';font-weight:600' + I + '}' +
       at('', s.sub) + '{' + text + ';font-weight:400' + I + ';color:' + v('ink-2') + I + '}' +
       at(s.lit, s.sub) + '{color:' + v('ink-on-state') + I + '}' +
-      one(C0.tall) + '@container hk-cell (min-height:180px){' + one(C0.square) + '}';
+      one(C0.tall) + '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){' + one(C0.square) + '}';
   }
   // ONE TITLE ROW (the Energy page's): the name left, the detail right, one
   // baseline, 20 px tall. `sel` is the row (default .ttl); its <b> is the
