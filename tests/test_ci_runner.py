@@ -30,14 +30,15 @@ def test_quick_is_part_of_full_and_full_adds_the_rest():
     assert {"ha-build", "hk-frontend-py", "hk-frontend-js", "caddy-image"} <= set(full)
     assert [n for n in full if n.startswith("headless-")] == [f"headless-{n}" for n in ci.HEADLESS]
     assert full.index("ha-build") < full.index("hk-frontend-py") < full.index("hk-frontend-js")
-    assert "edit-mode-check" in full and "edit-mode-check" not in quick
+    assert {"edit-mode-check-chromium-1180x820", "edit-mode-check-webkit-390x844"} <= set(full)
     assert "side-strip-check" in full and "side-strip-check" not in quick
-    assert "page-swipe-check" in full and "page-swipe-check" not in quick
+    assert {"page-swipe-check-chromium", "page-swipe-check-webkit"} <= set(full)
+    assert not any(n.startswith(("edit-mode", "page-swipe")) for n in quick)
 
 
 def test_edit_mode_check_skips_saying_why_without_playwright(monkeypatch, tmp_path):
-    step = next(s for s in ci.steps() if s.name == "edit-mode-check")
-    assert step.tier == "full" and step.cmd[-1] == "tools/headless/edit_mode_check.py"
+    step = next(s for s in ci.steps() if s.name == "edit-mode-check-webkit-1180x820")
+    assert step.tier == "full" and "tools/headless/edit_mode_check.py" in step.cmd and step.cmd[-4:] == ["--engine", "webkit", "--size", "1180x820"]
     monkeypatch.delenv("PLAYWRIGHT_PATH", raising=False)
     monkeypatch.delenv("NODE", raising=False)
     assert "PLAYWRIGHT_PATH" in step.skip()
@@ -69,7 +70,7 @@ def test_a_skip_says_why_and_is_never_a_pass_and_a_failure_keeps_its_log(tmp_pat
     assert (tmp_path / "broken.log").read_text().strip() == "3 failed, 10 passed"
     assert by["needs-docker"] == {"name": "needs-docker", "status": "skipped", "seconds": 0.0,
                                   "reason": "Docker is not running"}
-    assert record["ok"] is False and len(seen) == 3
+    assert record["ok"] is False and len([x for x in seen if x.endswith(" ...")]) == 3   # (and each one done, said as it ends)
     assert "1 passed, 1 failed, 1 skipped" in ci.table(record)
 
 
@@ -114,3 +115,25 @@ def test_a_step_never_sees_gits_hook_environment(tmp_path, monkeypatch):
     probe = "import os,sys; sys.exit(0 if 'GIT_DIR' not in os.environ and 'GIT_INDEX_FILE' not in os.environ and os.environ.get('KEEP_ME') == '1' else 1)"
     step = ci.Step("probe", [sys.executable, "-c", probe])
     assert ci.run_step(step, tmp_path).status == "passed"
+
+
+def test_steps_run_side_by_side_but_the_first_ones_first_and_a_lane_in_order(tmp_path, monkeypatch):
+    # (2026-10-30) the build first; the rest at once, CI_JOBS of them; a lane's steps one after another
+    import time
+    log = tmp_path / "order"
+    def stamp(name, secs=0.4):
+        return ci.Step(name, [sys.executable, "-c", f"import time,sys; open({str(log)!r},'a').write('{name}+\\n'); "
+                                                    f"time.sleep({secs}); open({str(log)!r},'a').write('{name}-\\n')"], timeout=30)
+    a, b, c = stamp("a"), stamp("b"), stamp("c")
+    first = stamp("build", 0.1); first.first = True
+    l1, l2 = stamp("lane1", 0.2), stamp("lane2", 0.2)
+    l1.lane = l2.lane = "port"
+    monkeypatch.setenv("CI_JOBS", "6")
+    t0 = time.monotonic()
+    rec = ci.run([first, a, b, c, l1, l2], "full", record_dir=tmp_path / "rec", echo=lambda _: None)
+    took = time.monotonic() - t0
+    seq = log.read_text().split()
+    assert rec["ok"] and [x["name"] for x in rec["steps"]] == ["build", "a", "b", "c", "lane1", "lane2"]
+    assert seq[:2] == ["build+", "build-"], seq                   # before everything
+    assert seq.index("lane1-") < seq.index("lane2+"), seq          # a lane in order
+    assert took < 1.5, took                                       # a, b and c side by side (not 1.2 s + the rest)

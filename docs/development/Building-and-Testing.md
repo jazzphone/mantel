@@ -32,11 +32,16 @@ prints one table:
 
 ```bash
 ~/.venvs/mantel/bin/python tools/ci.py quick     # about 4 minutes: the main suite and the release checks
-~/.venvs/mantel/bin/python tools/ci.py full      # about 15: also the HA build, HK Frontend's suites, the headless checks
+~/.venvs/mantel/bin/python tools/ci.py full      # about 7: also the HA build, HK Frontend's suites, the headless checks
+CI_JOBS=3 ~/.venvs/mantel/bin/python tools/ci.py full    # fewer at once (6 unless set)
 ~/.venvs/mantel/bin/python tools/ci.py full --only js    # only the steps whose name contains "js"
 ~/.venvs/mantel/bin/python tools/ci.py --list            # every step and its tier
 ```
 
+- **Side by side** (2026-10-30; one at a time, full took 24 minutes): the build tools and HK Frontend's build run
+  first; every other step then runs at once with the others, `CI_JOBS` of them (6 unless set), the longest first by
+  the last run's times; the CDP checks (`headless-*`) share one fixed DevTools port and run one after another. Edit
+  mode and Swipe Between Pages are a step per engine (and per size for Edit mode), so they run side by side too.
 - **quick** is the main suite, `check_links`, `check_version`, `package_check --release`, and the private words
   in what is committed and in the commit messages `origin/main` hasn't got.
 - **full** adds the HA build, HK Frontend's Python and JavaScript suites in it, the headless checks one at a time,
@@ -185,7 +190,7 @@ export PLAYWRIGHT_PATH=/path/to/node_modules/playwright-core NODE=$(command -v n
   page moves down so its title is never under the bar. `--shots` keeps the screenshots.
 
 Any page error or console error fails it, except the 404s of what each home supplies itself (SF Pro, the glyphs).
-Without `PLAYWRIGHT_PATH` or `NODE` it prints why and exits 0; `tools/ci.py full` runs it as `edit-mode-check`.
+Without `PLAYWRIGHT_PATH` or `NODE` it prints why and exits 0; `tools/ci.py full` runs it as `edit-mode-check-<engine>-<size>`, four steps side by side.
 
 ### The side strip in WebKit
 
@@ -206,7 +211,7 @@ swipe on a tile turns the page and back, the tab bar's highlight on the page's t
 rail); one on the scenes row, a slider or a block that swipes its pages does not; a Home Grid turns its views first
 and lands on its last view coming back; from the left 24 px the side menu opens; Off turns nothing; an up-and-down
 swipe still scrolls. `--engine`, `--size` and `--shots DIR` narrow it and keep the screenshots. `tools/ci.py full`
-runs it as `page-swipe-check`, skipped without `PLAYWRIGHT_PATH` or `NODE`.
+runs it as `page-swipe-check-chromium` and `-webkit`, skipped without `PLAYWRIGHT_PATH` or `NODE`.
 
 ### The screensaver's faces in WebKit
 

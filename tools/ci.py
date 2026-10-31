@@ -21,6 +21,8 @@ import json
 import os
 import shutil
 import subprocess
+import threading
+import concurrent.futures
 import sys
 import tempfile
 import time
@@ -57,6 +59,12 @@ class Step:
     env: dict[str, str] = field(default_factory=dict)
     cwd: Path | Callable[[], Path] = ROOT
     timeout: float = 1800
+    # HOW IT RUNS BESIDE THE OTHERS (2026-10-30: one at a time, full took 24 minutes on an 18-core Mac): `first`
+    # steps run before everything, in order (the build tools, HK Frontend's build its suites run in); the rest run
+    # side by side (CI_JOBS at once, 6 unless set), except that steps sharing a `lane` run one after another in it
+    # (the CDP checks share one fixed DevTools port)
+    first: bool = False
+    lane: str = ""
 
 
 @dataclass
@@ -139,7 +147,7 @@ def steps(build: Build | None = None) -> list[Step]:
         # checks what it makes (2026-10-29)
         Step("build-tools", ["npm", "ci", "--prefix", "tools", "--ignore-scripts", "--no-audit", "--no-fund",
                              "--loglevel=error"], skip=lambda: None if shutil.which("npm") else "no npm (Node.js)",
-             timeout=300),
+             timeout=300, first=True),
         Step("main-suite", [py, "-m", "pytest", "-q", "-p", "no:cacheprovider"], env=private_env()),
         Step("check-links", [py, "tools/check_links.py"], timeout=300),
         Step("check-version", [py, "tools/check_version.py"], timeout=300),
@@ -148,7 +156,7 @@ def steps(build: Build | None = None) -> list[Step]:
         Step("private-words", lambda: [py, "tools/check_private.py", "--rev", "HEAD",
                                        *([] if no_upstream() else ["--messages", "origin/main..HEAD"])],
              skip=no_private_words, env=private_env(), timeout=300),
-        Step("ha-build", lambda: [py, "tools/build_ha.py", str(build.ha)], tier="full", timeout=600),
+        Step("ha-build", lambda: [py, "tools/build_ha.py", str(build.ha)], tier="full", timeout=600, first=True),
         Step("hk-frontend-py", [str(HA_PY), "-m", "pytest", "-q", "-p", "no:cacheprovider"], tier="full",
              skip=lambda: build.missing() or (None if HA_PY.exists() else f"no harness venv at {HA_PY.parent.parent}"),
              cwd=lambda: build.ha / "tests/py"),
@@ -156,18 +164,20 @@ def steps(build: Build | None = None) -> list[Step]:
              skip=lambda: build.missing() or (None if JSC.exists() else "no JavaScriptCore (macOS only)")),
     ]
     out += [Step(f"headless-{n}", [py, f"tools/headless/{n}.py"], tier="full", timeout=600,
-                 skip=lambda: None if chrome() else "no Chrome or Chromium (set CHROME)")
+                 skip=lambda: None if chrome() else "no Chrome or Chromium (set CHROME)", lane="devtools")
             for n in HEADLESS]     # one at a time: each uses a fixed DevTools port
     # Edit mode in Chromium (a finger) and WebKit (a mouse), at a tablet's and a phone's size (Playwright's own
     # browsers, no fixed port)
-    out.append(Step("edit-mode-check", [py, "tools/headless/edit_mode_check.py"], tier="full", timeout=1200,
-                    skip=playwright_missing))
+    # (each engine at each size a step of its own, so they run side by side: six minutes together)
+    out += [Step(f"edit-mode-check-{e}-{z}", [py, "tools/headless/edit_mode_check.py", "--engine", e, "--size", z], tier="full",
+                 timeout=1200, skip=playwright_missing) for e in ("chromium", "webkit") for z in ("1180x820", "390x844")]
     # the page beside the iPhone Duo's side strip, in WebKit (its insets stood in; 2026-10-30)
     out.append(Step("side-strip-check", [py, "tools/headless/side_strip_check.py"], tier="full", timeout=600,
                     skip=playwright_missing))
     # Swipe Between Pages in Chromium and WebKit, with a finger, at two tablet and two phone sizes (2026-10-30)
-    out.append(Step("page-swipe-check", [py, "tools/headless/page_swipe_check.py"], tier="full", timeout=1800,
-                    skip=playwright_missing))
+    # (each engine a step of its own)
+    out += [Step(f"page-swipe-check-{e}", [py, "tools/headless/page_swipe_check.py", "--engine", e], tier="full", timeout=1800,
+                 skip=playwright_missing) for e in ("chromium", "webkit")]
     # the screensaver's HomeView-style faces and Time Behind in WebKit, a tablet either way and a phone (2026-10-30)
     out.append(Step("saver-faces-check", [py, "tools/headless/saver_faces_check.py"], tier="full", timeout=600,
                     skip=playwright_missing))
@@ -235,13 +245,44 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
         after: Callable[[Step, Result], None] | None = None) -> dict:
     record_dir.mkdir(exist_ok=True)
     started = datetime.datetime.now(datetime.timezone.utc)
-    results = []
-    for step in chosen:
-        echo(f"  {step.name} ...")
+    got: dict[str, Result] = {}
+    lock = threading.Lock()
+
+    def one(step: Step):
+        with lock:
+            echo(f"  {step.name} ...")
         res = run_step(step, record_dir)
-        results.append(res)
-        if after:
-            after(step, res)
+        with lock:
+            got[step.name] = res
+            if after:
+                after(step, res)
+            if res.status != "skipped":
+                echo(f"  {step.name} {res.status} ({res.seconds:.0f}s)")
+
+    for step in [s for s in chosen if s.first]:
+        one(step)
+    # the rest side by side: each step a job, or a lane's steps one job in their order
+    jobs: list[list[Step]] = []
+    lanes: dict[str, list[Step]] = {}
+    for step in [s for s in chosen if not s.first]:
+        if step.lane:
+            if step.lane not in lanes:
+                lanes[step.lane] = []
+                jobs.append(lanes[step.lane])
+            lanes[step.lane].append(step)
+        else:
+            jobs.append([step])
+    # (the longest first, by the last run's times, so a long one doesn't end the run alone)
+    try:
+        was = {x["name"]: x["seconds"] for x in json.loads((record_dir / "last-run.json").read_text())["steps"]}
+    except (OSError, ValueError, KeyError, TypeError):
+        was = {}
+    jobs.sort(key=lambda job: -sum(was.get(s.name, 60) for s in job))
+    width = max(1, int(os.environ.get("CI_JOBS") or 6))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=width) as pool:
+        for f in [pool.submit(lambda job=job: [one(s) for s in job]) for job in jobs]:
+            f.result()
+    results = [got[s.name] for s in chosen]
     record = {
         "tier": tier,
         "commit": git("rev-parse", "HEAD").strip(),
