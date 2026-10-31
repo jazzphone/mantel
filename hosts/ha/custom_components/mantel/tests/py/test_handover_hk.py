@@ -67,15 +67,21 @@ async def test_hand_over_and_back_keeps_every_id(hass, mantel, house):
     reg, devs = er.async_get(hass), dr.async_get(hass)
     assert platforms(hass) == dict.fromkeys(HALL, "hk_frontend"), "HK Frontend mirrors while it holds the bridge"
     assert link.runtime_data.state == "dormant"
-    await until(hass, lambda: mantel.reports)
-    assert mantel.reports[-1]["hk_frontend"] == {"installed": True, "loaded": True, "linked": True}
-    hk_header = next(h for h in mantel.headers if "domain=hk_frontend" in h.get("X-Mantel-Link", ""))
+    # Both links report once connected, each from a task of its own: Mantel Link what it sees of HK Frontend (in
+    # mantel.reports with it), HK Frontend its dashboards, on each socket it opens
+    link_reports = lambda: [r for r in mantel.reports if "hk_frontend" in r]  # noqa: E731
+    hk_sockets = lambda: [h for h in mantel.headers if "domain=hk_frontend" in h.get("X-Mantel-Link", "")]  # noqa: E731
+    hk_reported = lambda: [m for m in mantel.by_domain.get("hk_frontend", []) if m.get("type") == "report"]  # noqa: E731
+    await until(hass, lambda: link_reports() and len(hk_reported()) == len(hk_sockets()) == 1)
+    assert link_reports()[-1]["hk_frontend"] == {"installed": True, "loaded": True, "linked": True}
+    hk_header = hk_sockets()[0]
     assert hk_header["X-Mantel-Link"] == "domain=hk_frontend; protocol=1; features=bridge,settings,actions,reads"
     before = {eid: reg.async_get(eid).id for eid in HALL}
     dev = devs.async_get(reg.async_get(BLACK).device_id)
     devs.async_update_device(dev.id, area_id="loft", name_by_user="Loft Tablet")
     reg.async_update_entity(SLEEP, name="Loft sleep")
 
+    hk_before = len(hk_sockets())
     await hand(hass, mantel, LINK_HOLDS)
     await until(hass, lambda: platforms(hass) == dict.fromkeys(HALL, "mantel") and live(hass), timeout=15)
     assert {eid: reg.async_get(eid).id for eid in HALL} == before, "the same registry entries, moved"
@@ -91,7 +97,11 @@ async def test_hand_over_and_back_keeps_every_id(hass, mantel, house):
     assert not [e for e in reg.entities.values() if e.entity_id.endswith("_2")], "no second entity anywhere"
     assert hk.data["mantel_owners"]["bridge"] == "mantel" and link.runtime_data.state == "mirroring"
 
-    # hk_frontend.set_black_screen (HK Frontend's, it is still loaded) reaches the tablet through Mantel Link
+    # hk_frontend.set_black_screen (HK Frontend's, it is still loaded) reaches the tablet through Mantel Link.
+    # The hand-over reloaded HK Frontend too: its link opens a socket again and reports its dashboards on it --
+    # on a busy machine after the entities have moved, and the report was taken for the service call. Its
+    # socket is watched once its reload is done.
+    await until(hass, lambda: len(hk_sockets()) > hk_before and len(hk_reported()) == len(hk_sockets()))
     mantel.by_domain.clear()
     await hass.services.async_call("hk_frontend", "set_black_screen", {"entity_id": BLACK, "black": True,
                                                                       "brightness": 90}, blocking=True)
@@ -101,7 +111,7 @@ async def test_hand_over_and_back_keeps_every_id(hass, mantel, house):
     await until(hass, sent)
     got = sent()
     assert got and got[-1]["service"] == "set_black_screen" and got[-1]["data"] == {"black": True, "brightness": 90}
-    assert not mantel.by_domain.get("hk_frontend"), "not through HK Frontend's own link"
+    assert not mantel.by_domain.get("hk_frontend"), ("not through HK Frontend's own link", mantel.by_domain["hk_frontend"])
 
     # and back
     await hand(hass, mantel, HK_HOLDS)
