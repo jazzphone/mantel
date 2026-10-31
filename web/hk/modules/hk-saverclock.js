@@ -334,8 +334,11 @@
         else {
           var at = m.attributes, pic = at.entity_picture;
           np.style.display = '';
-          np.innerHTML = (pic ? '<img alt="">' : '<div class="ph"></div>') + '<div><span class="t"></span> <span class="a"></span></div><div class="bars"><i></i><i></i><i></i></div>';
-          if (pic) np.querySelector('img').src = pic;
+          // (item 46: through hkCards.artImg, so a cover that will not load is the note, never the "?")
+          var HC = window.hkCards, ai = HC && HC.artImg;
+          if (ai && HC.artGuard) HC.artGuard(np);
+          np.innerHTML = (pic ? (ai ? ai(pic, { ph: 'note' }) : '<img alt="">') : '<div class="ph"></div>') + '<div><span class="t"></span> <span class="a"></span></div><div class="bars"><i></i><i></i><i></i></div>';
+          if (pic && !ai) np.querySelector('img').src = pic;
           put(np.querySelector('.t'), at.media_title);
           put(np.querySelector('.a'), at.media_artist ? '\u00b7 ' + at.media_artist : '');
         }

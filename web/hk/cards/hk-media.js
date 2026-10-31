@@ -1666,10 +1666,12 @@
       // Chrome decodes in time, so the tablets never showed it. The cover is
       // already loaded (the same picture): decoding it in the frame costs a
       // few ms once, where the gap cost a visible blink every time.
-      var picAttr = esc(pic);
-      var bg = pic ? ('<img src="' + picAttr + '" alt="" decoding="sync">') : '<div class="flat"></div>';
+      // (ITEM 46: through hkCards.artImg, so a cover that will not load is the
+      // note and a flat backdrop, never the broken-image "?"; the guard is the card's)
+      var AI = window.hkCards.artImg;
+      var bg = pic ? AI(pic, { ph: 'bg', attrs: 'decoding="sync"' }) : '<div class="flat"></div>';
       window.hkCards.morph(e.bg, bg);
-      var art = pic ? ('<img src="' + picAttr + '" alt="" decoding="sync">')
+      var art = pic ? AI(pic, { ph: 'note', attrs: 'decoding="sync"' })
                     : '<div class="none">&#9835;</div>';
       window.hkCards.morph(e.art, art);
 
