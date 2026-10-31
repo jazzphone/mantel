@@ -3664,6 +3664,20 @@
     });
     return out;
   }
+  // THE MUSIC BLOCK'S SHOW (2026-10-31, the owner): Recently Played, the Music page's playlists (its presets, Play
+  // Music's tiles), or one playlist. A playlist with choices (Decades: 2020s, 2010s...) stands for each choice, so
+  // every tile plays at a tap; the playlists are read as the Music page reads them (hkMusic.playlists()).
+  function playlistTiles(pls, only) {
+    var out = [];
+    (pls || []).forEach(function (p) {
+      if (!p || (only && p.name !== only)) return;
+      if (p.options && p.options.length) p.options.forEach(function (o) {
+        out.push({ playlist: o.key, name: o.name, key: p.name + o.name, artist: p.name, icon: p.icon || null });
+      });
+      else if (p.key) out.push({ playlist: p.key, name: p.name, key: p.name, artist: 'Playlist', icon: p.icon || null });
+    });
+    return out;
+  }
   var MU_CSS = [
     ':host{display:block;height:100%}',
     // (a size container: the covers are sized by the plate's room)
@@ -3718,14 +3732,22 @@
       super._receiveClient();
     }
     _size() { var s = this.getAttribute('size'); return RECENT[s] ? s : 'L'; }
+    _mode() { var m = this._config && this._config.show; return m === 'presets' || m === 'playlist' ? m : 'recent'; }
+    // the playlists' tiles (Presets, One Playlist): none chosen or found, the first playlist, as the block begins
+    _tiles() {
+      var Mu = window.hkMusic, pls = Mu && Mu.playlists ? Mu.playlists() : [], m = this._mode();
+      if (m === 'recent') return null;
+      var one = m === 'playlist' ? (this._config.playlist || (pls[0] || {}).name) : null;
+      return playlistTiles(pls, one);
+    }
     // what is drawn: the size, the covers, and whether music is set up
     _sigOf() {
       var Mu = window.hkMusic;
-      return JSON.stringify([this._size(), this._items || null, !!(Mu && Mu.libraryEntry && Mu.libraryEntry()), musicMissing()]);
+      return JSON.stringify([this._size(), this._mode(), this._tiles(), this._items || null, !!(Mu && Mu.libraryEntry && Mu.libraryEntry()), musicMissing()]);
     }
     _load() {
       var Mu = window.hkMusic, entry = Mu && Mu.libraryEntry && Mu.libraryEntry(), h = this.client, self = this;
-      if (!h || !h.callWS || !entry || this._busy || Date.now() < (this._due || 0)) return;
+      if (this._mode() !== 'recent' || !h || !h.callWS || !entry || this._busy || Date.now() < (this._due || 0)) return;
       this._busy = true;
       this._due = Date.now() + RECENT_AGE;
       var msg = { type: 'call_service', domain: 'music_assistant', service: 'get_library', return_response: true,
@@ -3742,12 +3764,15 @@
     }
     _cover(it, cls) {
       var t = it ? tintOf(it.key) : ['rgba(255,255,255,.14)', 'rgba(255,255,255,.08)'];
-      return '<span class="cvr' + (cls ? ' ' + cls : '') + '" style="--c1:' + t[0] + ';--c2:' + t[1] + '">' + (it ? '<hk-icon icon="mdi:music"></hk-icon>' : '') + '</span>';
+      return '<span class="cvr' + (cls ? ' ' + cls : '') + '" style="--c1:' + t[0] + ';--c2:' + t[1] + '">' + (it ? '<hk-icon icon="' + esc(it.icon || 'mdi:music') + '"></hk-icon>' : '') + '</span>';
     }
     _render() {
       if (musicMissing()) { drawNoMusic(this); return; }
-      this._load();
-      var s = this._size(), R = RECENT[s], items = this._items, list = items || [], self = this;
+      var mode = this._mode(), tiles = this._tiles();
+      if (!tiles) this._load();
+      var s = this._size(), R = RECENT[s], items = tiles || this._items, list = items || [], self = this;
+      // (a playlist's own name over its choices; Presets, the page's playlists)
+      var lab = mode === 'presets' ? 'Playlists' : mode === 'playlist' ? (tiles[0] && tiles[0].artist !== 'Playlist' ? tiles[0].artist : 'Playlist') : 'Recently Played';
       var last = list[0], more = s === 'W' || s === 'T' ? list.slice(0, R[0]) : list.slice(1, 1 + R[0]);
       // (still asking: the covers' places, empty)
       if (!items) { last = null; more = []; for (var i = 0; i < R[0]; i++) more.push(null); }
@@ -3761,10 +3786,10 @@
                     this._cover(last) + (s === 'S' && last ? '<span class="pl"><hk-icon icon="mdi:play"></hk-icon></span>' : '') + '</button>';
       var words = last ? '<b class="t1">' + esc(last.name) + '</b><small class="t2">' + esc(last.artist) + '</small>' : '';
       var body;
-      if (items && !items.length) body = '<span class="lab">Recently Played</span><div class="none">Music played here shows up here.</div>';
+      if (items && !items.length) body = '<span class="lab">' + lab + '</span><div class="none">' + (tiles ? 'No playlists yet. Add some in HK Settings → Features → Music.' : 'Music played here shows up here.') + '</div>';
       else if (s === 'S') body = lastBtn + '<div class="ft">' + words + '</div>';
-      else if (s === 'W' || s === 'T') body = '<span class="lab">Recently Played</span>' + grid;
-      else body = '<div class="top">' + lastBtn + '<div class="col"><span class="lab">Recently Played</span>' + words + '</div></div><div class="hr"></div>' + grid;
+      else if (s === 'W' || s === 'T') body = '<span class="lab">' + lab + '</span>' + grid;
+      else body = '<div class="top">' + lastBtn + '<div class="col"><span class="lab">' + lab + '</span>' + words + '</div></div><div class="hr"></div>' + grid;
       this._root.innerHTML = '<hk-plate class="mu ' + s + '" data-hk-role="card">' + body + '</hk-plate>';
       this._root.querySelectorAll('[data-i]').forEach(function (b) {
         var it = list[+b.getAttribute('data-i')];
@@ -3777,6 +3802,7 @@
     // player, starts it and answers -- so a failure is said, not a cheerful
     // "Playing" over silence
     _play(it, el) {
+      if (it.playlist) { this._playList(it, el); return; }
       var Mu = window.hkMusic, player = Mu && this.client ? Mu.player(this.client) : null, self = this;
       if (!player) { window.hkShell.toast({ message: 'Pick a speaker on the Music page to play ' + it.name + '.' }, this); return; }
       if (el.classList.contains('busy')) return;
@@ -3791,6 +3817,22 @@
       });
     }
   }
+  // A PLAYLIST ON THIS SCREEN'S SPEAKERS, as the Music page plays one (hk-music.js _playPlaylist): the rooms of what
+  // this screen follows -- a preset's own, else the one -- and hk_frontend.music_play; a failure is said
+  HkRecentMusicCard.prototype._playList = function (it, el) {
+    var Mu = window.hkMusic, self = this, p = Mu && this.client ? Mu.player(this.client) : null;
+    var pre = p && Mu.presets().filter(function (x) { return x.entity === p; })[0];
+    var rooms = pre ? pre.members.slice() : p ? [p] : [];
+    if (!rooms.length) { window.hkShell.toast({ message: 'Pick a speaker on the Music page to play ' + it.name + '.' }, this); return; }
+    if (el.classList.contains('busy')) return;
+    el.classList.add('busy');
+    this._callResp('hk_frontend', 'music_play', { rooms: rooms, playlist: it.playlist }).then(function (res) {
+      el.classList.remove('busy');
+      var r = (res && res.response) || {};
+      if (!res.ok || r.ok === false) { window.hkShell.toast({ message: 'Could not play ' + it.name + (r.message ? ': ' + r.message : '') }, self); return; }
+      if (r.leader && Mu.known(r.leader)) Mu.setFocus(r.leader, { hold: true });
+    });
+  };
   register('hk-recent-music-card', HkRecentMusicCard, 'HK Recently Played',
     'What played last and covers to play again, sized to a Home Grid block.', null, function () { return {}; });
   // (the Home Grid's Music block's: not offered in the card picker)
@@ -4001,6 +4043,6 @@
   if (C.unlisted) C.unlisted('hk-tv-channels-card');
 
   // (for tests: the Home Grid widgets' pure pieces)
-  window.hkMedia = { version: '1.0.0', _: { recentCovers: recentCovers, tvGrid: tvGrid, tintOf: tintOf, RECENT: RECENT, TV_SLOTS: TV_SLOTS } };
+  window.hkMedia = { version: '1.0.0', _: { recentCovers: recentCovers, playlistTiles: playlistTiles, tvGrid: tvGrid, tintOf: tintOf, RECENT: RECENT, TV_SLOTS: TV_SLOTS } };
   });
 })();

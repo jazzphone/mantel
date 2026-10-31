@@ -131,6 +131,18 @@ def test_when_tapped_is_kept_on_every_block_that_has_something_to_open(tap):
         assert b["home_grid"]["items"][0]["opts"] == {"tap": tap}
 
 
+def test_a_music_block_keeps_what_it_shows_and_its_playlist():
+    for opts in ({"show": "recent"}, {"show": "presets"}, {"show": "playlist", "playlist": "Decades"}, {"show": "playlist"}):
+        b, errors = write(grid(block("a1", "music", "L", [0, 0], opts=dict(opts, tap="page"))))
+        assert errors == {}, (opts, errors)
+        assert b["home_grid"]["items"][0]["opts"] == dict(opts, tap="page")
+    for bad in ({"show": "queue"}, {"show": None}, {"playlist": ""}, {"playlist": " Decades"}, {"playlist": "x" * 61}, {"playlist": 3}):
+        _, errors = write(grid(block("a1", "music", "L", [0, 0], opts=bad)))
+        assert errors, bad
+    _, errors = write(grid(block("a1", "live_tv", "L", [0, 0], opts={"show": "presets"})))
+    assert errors, "only a Music block has a Show"
+
+
 def test_a_scenes_block_can_swipe_through_its_own_pages():
     pages = {"source": "list", "list": [{"opts": {"scenes": ["scene.dinner", "scene.movie_night"]}},
                                         {"opts": {"scenes": ["scene.good_night"]}}]}
