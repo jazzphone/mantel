@@ -31,7 +31,8 @@ pass instead names every thing at twice its usual length, which is what a larger
 Stood in: the house's forecast (two forecast sensors), a family calendar's events (today's, tomorrow's and the
 month's), running timers, two to-do lists and their items (the read the Side Pane makes, hk_frontend/todo/items:
 the test server's house commands are off, so it would say so), the Energy feature's plan (on the page: the test
-server's feed has no Energy feature), and Live TV -- added on the page, six channels in the hk_tv/channels answer,
+server's feed has no Energy feature) with Home Assistant's Energy settings and the recorder's statistics for its
+meters and a water meter (stat_rows), and Live TV -- added on the page, six channels in the hk_tv/channels answer,
 each with its camera and what is on now -- so every block is measured full; the
 weather's feels-like, UV and wind direction and the sun's next setting (the Weather block's Extra Large reads them),
 and a thermostat on Heat (the house's two are on heat and cool): `--opts thermostat='{"entity": "climate.office"}'`
@@ -149,6 +150,55 @@ for _no, _name, _on, _in, _long in TV:
         "start": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() - _in * 60)),
         "end": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + (_long - _in) * 60))}))
 LONG = " and the Long Way Round"       # the `long` pass: every name this much longer
+
+# THE ENERGY FEATURE'S METERS (2026-10-31, the widget blocks: Energy Rings, Battery, Power and Water): Home
+# Assistant's Energy settings as energy/get_prefs answers them, and the recorder's statistics for each meter --
+# a made-up day by the hour (a morning and an evening, the sun at midday, the battery filling then giving),
+# each day a little different, so a usual day, this week and this month all have numbers
+ENERGY_PREFS = {"energy_sources": [
+    {"type": "grid", "flow_from": [{"stat_energy_from": "sensor.grid_energy_in", "stat_cost": "sensor.grid_energy_cost"}],
+     "flow_to": [{"stat_energy_to": "sensor.grid_energy_out"}]},
+    {"type": "solar", "stat_energy_from": "sensor.solar_energy"},
+    {"type": "battery", "stat_energy_to": "sensor.battery_energy_in", "stat_energy_from": "sensor.battery_energy_out"},
+    {"type": "water", "stat_energy_from": "sensor.water_meter"}], "device_consumption": []}
+EXTRA["sensor.water_meter"] = (None, ("48211", {"friendly_name": "Water Meter", "unit_of_measurement": "gal", "device_class": "water",
+                                                "state_class": "total_increasing"}))
+
+
+def _hour(at: float) -> dict:
+    """What each meter changed by in the hour starting `at` (seconds, UTC: the test server's Home Assistant zone)."""
+    import math
+    h, day = time.gmtime(at).tm_hour, int(at // 86400)
+    bell = lambda mid, w: math.exp(-((h - mid) / w) ** 2)
+    k = 0.85 + 0.3 * ((day * 37) % 10) / 10
+    use = k * (0.45 + 1.1 * bell(19, 2.5) + 0.6 * bell(8, 1.5))
+    sun = (0.8 + 0.4 * ((day * 13) % 5) / 5) * 2.4 * max(0.0, math.sin(math.pi * (h - 6) / 13)) if 6 <= h <= 19 else 0.0
+    into, out = (0.5 if 10 <= h <= 14 else 0.0), (0.45 if 18 <= h <= 22 else 0.0)
+    grid_in, grid_out = max(0.0, use + into - sun - out), max(0.0, sun + out - use - into)
+    return {"sensor.grid_energy_in": grid_in, "sensor.grid_energy_out": grid_out, "sensor.grid_energy_cost": grid_in * 0.21,
+            "sensor.solar_energy": sun, "sensor.battery_energy_in": into, "sensor.battery_energy_out": out,
+            "sensor.water_meter": k * (1.5 + 16 * bell(7, 1.2) + 12 * bell(19, 1.8)),
+            # the means: the house's power in W, the battery's level in %
+            "sensor.home_power": 1000 * use, "sensor.house_battery_level": max(20.0, min(100.0, 45 + 9 * max(0, min(h, 15) - 9) - 7 * max(0, h - 17)))}
+
+
+def stat_rows(msg: dict) -> dict:
+    """recorder/statistics_during_period, stood in: every closed bucket from the start asked for to now."""
+    from datetime import datetime
+    step = {"5minute": 300, "hour": 3600, "day": 86400, "week": 604800, "month": 2678400}[msg.get("period", "hour")]
+    t = datetime.fromisoformat(msg["start_time"].replace("Z", "+00:00")).timestamp()
+    now, out = time.time(), {i: [] for i in msg["statistic_ids"]}
+    while t + step <= now:
+        hours = [t + 3600 * n for n in range(24)] if step == 86400 else [t]
+        for i in msg["statistic_ids"]:
+            vals = [_hour(x).get(i) for x in hours]
+            if None in vals:
+                continue
+            v = sum(vals) * (step / 3600 if step < 3600 else 1)
+            mean = i in ("sensor.home_power", "sensor.house_battery_level")
+            out[i].append({"start": t * 1000, "end": (t + step) * 1000, "mean" if mean else "change": vals[0] if mean else v})
+        t += step
+    return out
 
 
 def screen(key: str, look: str, bar: bool = True) -> str:
@@ -418,6 +468,7 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
             return {"entity_id": eid, "name": name, "left": len(items),
                     "items": [{"uid": f"{eid}-{i}", "summary": t, "done": False, "due": None} for i, t in enumerate(items)]}
         app["read_routes"]["hk_frontend/todo/items"] = Route(request=todo_items)
+        hub.readproxy.energy_prefs, hub.readproxy.stat_rows = ENERGY_PREFS, stat_rows
         async with TestServer(app) as server:
             origin = str(server.make_url("")).rstrip("/")
             async with Browser(width=1280, height=800, port=9391) as b:
@@ -427,7 +478,9 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                 # THE ENERGY FEATURE, stood in on the page: its plan's house battery is what the `battery` block
                 # shows, and the test server's settings feed has no Energy feature to send (hkSettings.get answers
                 # `added` and `energy` as a house with it would)
-                plan = json.dumps({"sections": [], "power": {"path": "power", "battery": BATTERY}})
+                # (and its sun, house and grid now, which the Battery and Power blocks read)
+                plan = json.dumps({"sections": [], "power": {"path": "power", "battery": BATTERY, "home": "sensor.home_power",
+                                                             "solar": "sensor.solar_power", "grid": "sensor.grid_power"}})
                 await b.send("Page.addScriptToEvaluateOnNewDocument", source="""(() => { let hs;
                   Object.defineProperty(window, 'hkSettings', { configurable: true, get() { return hs; }, set(v) {
                     hs = v; if (!v || !v.get || v.__audit) return; const get = v.get; v.__audit = true;

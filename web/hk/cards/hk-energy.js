@@ -1230,7 +1230,32 @@
     var receivedAt = receiptTimes.length ? Math.min.apply(null, receiptTimes) : null;
     var mo = { energy: Mo.home + o.home, cost: Mo.cost + o.cost, water: Mo.water + o.water, gas: Mo.gas + o.gas, solar: Mo.solar + o.solar };
     var bat = M.house && client.states[M.house.entity], bl = bat ? Number(bat.state) : NaN;
+    // THE PERIODS' RINGS (2026-10-31, the Energy Rings block): today, this
+    // week and this month so far, each against a usual one -- a usual day for
+    // each of its days -- with its dot where a usual one would be by now
+    // (the days gone, and today's share of a usual day). The week is calc's
+    // own calendar week, as the page's This Week tab; the open hour is added
+    // to each, as it is to today and the month. Where each is heading: what
+    // is used so far, and a usual day for what is left of it.
+    var Wk = calc(M, D, 'week', now, null, { back: 0, ws: S.weekStart(client) });
+    var keys = rings.map(function (r) { return r.key; });
+    var periods = {};
+    [['day', T, today, 'Today'], ['week', Wk, null, 'This week'], ['month', Mo, mo, MONTHS[S.fields(Mo.start).month - 1]]].forEach(function (x) {
+      var R = x[1];
+      if (!R) return;
+      var so = x[2] || { energy: R.home + o.home, cost: R.cost + o.cost, water: R.water + o.water, gas: R.gas + o.gas, solar: R.solar + o.solar };
+      var n = x[0] === 'day' ? 1 : R.n, gone = x[0] === 'day' ? 0 : R.whole;
+      var left = Math.max(0, n - gone - eBy[0]);
+      periods[x[0]] = {
+        name: x[3], n: n,
+        rings: keys.map(function (k) {
+          return { key: k, name: RING_NAME[k], c: RING[k], v: so[k], typ: typ[k] * n, tick: (gone + share[k]) / n, unit: unit(k) };
+        }),
+        heading: { energy: so.energy + typ.energy * left, cost: M.hasCost && R.cur !== false ? so.cost + typ.cost * left : null }
+      };
+    });
     return {
+      periods: periods,
       asOf: o.upTo, receivedAt: receivedAt, hasFives: !!F, contributor: cause, today0: T.today0, rings: rings, typ: typ, today: today, usualByNow: typ.energy * eBy[0],
       yday: eBy[1], month: mo, monthName: MONTHS[S.fields(Mo.start).month - 1],
       // where the month's cost is heading: so far, and a usual day for each day left
@@ -1664,8 +1689,12 @@
   // ------------------------------------------------- the hero: now, or rings
   // `tick`: a week or month still going marks on each ring where a usual
   // one would be by now (the days gone of its length) -- past it is above usual
-  function ringSvg(list, more, tick) {
-    var w = list.length > 3 ? 18 : 22, step = w + 4, r0 = 96, out = '', ticks = '';
+  // `o` (the Energy Rings block, 2026-10-31): the rings' width, the step from
+  // one to the next and the outer radius, in the 220 viewBox's units -- a
+  // block draws them at 132 px, where the page's 18 would be hairlines
+  function ringSvg(list, more, tick, o) {
+    o = o || {};
+    var w = o.w || (list.length > 3 ? 18 : 22), step = o.step || w + 4, r0 = o.r0 || 96, out = '', ticks = '';
     list.forEach(function (x, i) {
       var r = r0 - i * step, c = 2 * Math.PI * r, f = Math.max(0, Math.min(x.f, 1)), over = Math.max(0, Math.min(x.f - 1, 1));
       out += '<circle cx="110" cy="110" r="' + r + '" fill="none" stroke="' + x.c + '" stroke-opacity=".18" stroke-width="' + w + '"/>';
@@ -2879,6 +2908,42 @@
     '.anim > :nth-child(2){animation-delay:60ms}.anim > :nth-child(3){animation-delay:120ms}.anim > :nth-child(n+4){animation-delay:180ms}' +
     '@media (prefers-reduced-motion: reduce){.anim > *{animation:none}}';
 
+  // THE BLOCKS AS WIDGETS (2026-10-31, the owner's mock-up, "Home Grid
+  // blocks, widget style"): what a block is in its color, the one figure
+  // large and light, a line under it; rows of figures two by two; a row of
+  // bars. The Battery and Energy Rings blocks share them.
+  var WIDGET_CSS = [
+    '.wl{font-size:15px;font-weight:600;line-height:19px;letter-spacing:0.2px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}',
+    '.wb{font-size:44px;font-weight:300;letter-spacing:-0.9px;line-height:1.04;font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:2px;flex:none}',
+    '.ws{' + window.hkCards.typeCss('body') + ';line-height:19px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.ws.wrap{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}',
+    '.wf{margin-top:auto}',
+    '.wcol{display:flex;flex-direction:column;min-width:0}',
+    '.wc{display:block}',
+    '.waxis{display:flex;justify-content:space-between;margin-top:6px;' + window.hkCards.typeCss('micro') + ';color:' + window.hkCards.v('ink-3') + '}',
+    '.wgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px}.wgrid>div{display:flex;flex-direction:column;min-width:0}',
+    '.wgrid b{' + window.hkCards.typeCss('label') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.wgrid span{font-size:22px;font-weight:600;letter-spacing:-0.3px;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+  ].join('');
+  // A BLOCK'S BOX in px, and inside its inset: the view's measure, else a
+  // square cell's (the inset 18 there, 14 on tiles: --hk-block-pad)
+  var SQUARE = { S: [196, 196], W: [405, 196], T: [196, 405], L: [405, 405], XL: [614, 405] };
+  function blockBox(card, size) {
+    card._watchBlock();
+    var b = card._block(), d = SQUARE[size] || SQUARE.S, pad = 18;
+    try { pad = parseFloat(getComputedStyle(card).getPropertyValue('--hk-block-pad')) || 18; } catch (e) { pad = 18; }
+    var w = b ? b.w : d[0], h = b ? b.h : d[1];
+    return { w: w, h: h, pad: pad, iw: w - 2 * pad, ih: h - 2 * pad };
+  }
+  // ONE RING, as Activity draws it: its track, and the arc from the top
+  function ringOne(f, col, px, sw) {
+    var r = px / 2 - sw / 2 - 1, c = 2 * Math.PI * r, k = Math.max(0, Math.min(1, f || 0)), m = (px / 2).toFixed(1);
+    return '<svg width="' + px + '" height="' + px + '" viewBox="0 0 ' + px + ' ' + px + '" aria-hidden="true">' +
+      '<circle cx="' + m + '" cy="' + m + '" r="' + r.toFixed(1) + '" fill="none" stroke="' + col + '" stroke-opacity=".22" stroke-width="' + sw + '"/>' +
+      (k > 0.001 ? '<circle cx="' + m + '" cy="' + m + '" r="' + r.toFixed(1) + '" fill="none" stroke="' + col + '" stroke-width="' + sw + '" stroke-linecap="round" stroke-dasharray="' +
+        (c * k).toFixed(1) + ' ' + c.toFixed(1) + '" transform="rotate(-90 ' + m + ' ' + m + ')"/>' : '') + '</svg>';
+  }
+
   // THE SHELL: HK's plate, gated on the entities its config names
   class HkPowerBase extends HkBase {
     // Flat keeps its motion: the drawing in IS the chart (hk-base flatCss)
@@ -3145,44 +3210,141 @@
         '.pk2 .pv{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}',
         '.facts{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:14px;border-top:1px solid ' + window.hkCards.v('line') + '}',
         '.facts .big{font-size:20px;margin-top:5px}',
-        // ON A HOME GRID (G2, the `battery` block): the plate fills the block.
-        // S: what it is doing beside its name, the level (the hero role) and a
-        // small battery filled to it; W: the battery itself, shorter, the level and the stored
-        // kWh and backup inside it. No reserve or limit marks (their labels
-        // need the page's room above).
-        ':host([size]) hk-plate.ep.hb{height:100%;min-height:0}',
-        '.gb{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:8px}',
-        '.gb .lv{' + window.hkCards.typeCss('hero') + ';line-height:1;font-variant-numeric:tabular-nums}',
-        '.gb .lv u{text-decoration:none;font-size:15px;font-weight:600;letter-spacing:0;margin-left:3px;color:' + window.hkCards.v('ink-2') + '}',
-        '.gb .mini{height:24px;margin-right:7px}',
-        '.gb .mini i.low{background:' + window.hkCards.v('battery-fill-low') + '}',
-        '.gb .cell{height:76px;border-width:5px;border-radius:20px;margin-right:14px}',
-        '.gb .cell:after{right:-14px;top:22px;width:8px;height:22px}',
-        '.gb .cell .fill{border-radius:' + window.hkCards.R.inner + 'px}',
-        '.gb .cell .txt{padding-left:18px}',
-        '.gb .cell .txt b{' + window.hkCards.typeCss('figure') + ';line-height:1}',
-        '.gb .cell .txt b u{font-size:15px}',
-        '.gb .cell .txt span{' + window.hkCards.typeCss('caption') + ';line-height:16px;margin-top:4px}'
+        // ON A HOME GRID (the `battery` block; 2026-10-31, the owner's mock-up
+        // of the blocks as Apple's widgets): the plate fills the block on its
+        // inset, and the battery is Activity's ring -- WIDGET_CSS's label,
+        // figure and lines. S the level and its ring; W the stored kWh and
+        // the backup beside a larger ring; T the ring large; L the ring with
+        // the level inside, then solar in, the house using, the grid and when
+        // it is full, two by two; XL the same beside the day's charge as bars.
+        ':host([size]) hk-plate.ep.hb{height:100%;min-height:0;padding:' + window.hkCards.blockPad('14px') + '}',
+        WIDGET_CSS,
+        '.bring{position:relative;display:grid;place-items:center;flex:none}.bring>svg{position:absolute;inset:0}',
+        '.bring hk-icon{position:relative;display:block;--mdc-icon-size:100%}',
+        '.bring .in{position:relative;display:flex;flex-direction:column;align-items:center;line-height:1}',
+        '.bring .in b{font-weight:500;letter-spacing:-0.5px;font-variant-numeric:tabular-nums}',
+        '.bring .in small{' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + ';margin-top:4px}',
+        '.bw{display:flex;gap:18px;flex:1;min-height:0}.bw>.wcol{flex:1}',
+        '.bt{display:flex;flex-direction:column;flex:1;min-height:0}.bt .bring{margin:auto}',
+        '.blg{display:flex;flex-direction:column;justify-content:space-evenly;flex:1;min-height:0}',
+        '.blg .top{display:flex;gap:18px;align-items:center;min-width:0}',
+        '.bx{display:flex;gap:24px;flex:1;min-height:0}',
+        '.bx .lft{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center}',
+        '.bx .rt{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}',
+        '.bx .wbars{flex:1;min-height:40px;margin-top:8px}',
+        '.bx .wgrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 10px;margin-top:12px}.bx .wgrid span{font-size:17px}'
       ].join('');
     }
-    // A HOME GRID BLOCK: S and W
+    // a block also reads the Energy feature's sun, house and grid (and is
+    // drawn again for a new block size)
+    _ids() {
+      var out = super._ids(), P = this._cellSize() ? plan() : null, W = (P && P.power) || {};
+      [W.solar, W.home, W.grid].forEach(function (id) { if (id && out.indexOf(id) < 0) out.push(id); });
+      return out;
+    }
+    _sigOf() {
+      var s = super._sigOf();
+      return s == null ? null : s + '|' + (this._cellSize() || '') + '|' + (this._blockKey || '');
+    }
+    // A HOME GRID BLOCK, from the battery's own readings and the Energy
+    // feature's (the plan's power page: the sun, the house and the grid now)
     _renderBlock(sized) {
-      var c = this._config || {}, h = this.client;
+      var c = this._config || {}, h = this.client, P = plan(), W = (P && P.power) || {};
       var lvl = numOf(h, c.level), level = lvl == null ? 0 : Math.max(0, Math.min(100, lvl));
       var stored = numOf(h, c.stored), bh = hoursOf(h, c.backup), bw = batFlow(h, c), res = numOf(h, c.reserve);
       var doing = bw > 0 ? 'Charging' : bw < 0 ? 'Powering the house' : 'Standing by';
-      var sub = [stored != null ? fx(stored, 1) + ' kWh' : null, bh != null ? hm(bh) + ' of backup' : null].filter(Boolean).join(' · ');
-      var pct = lvl == null ? '—' : Math.round(level) + '<u>%</u>', low = res != null && level <= res ? ' low' : '';
+      var pct = lvl == null ? '—' : Math.round(level) + '%', low = res != null && level <= res;
+      var col = low ? NAMED.red : NAMED.green, b = blockBox(this, sized);
+      var glyph = bw > 0 ? 'mdi:lightning-bolt' : 'mdi:home-battery';
+      var ring = function (px, inner) { return '<div class="bring"' + moreAttr(c.level) + ' style="width:' + px + 'px;height:' + px + 'px">' + ringOne(level / 100, col, px, px > 100 ? 10 : 8) + inner + '</div>'; };
+      var icon = function (px) { return '<hk-icon icon="' + glyph + '" style="width:' + px + 'px;height:' + px + 'px;color:' + col + '"></hk-icon>'; };
+      var face = function (px, fs) { return '<div class="in"><b style="font-size:' + fs + 'px">' + pct + '</b><small>' + esc(doing === 'Powering the house' ? 'In use' : doing) + '</small></div>'; };
+      var backup = bh != null ? hm(bh) + ' of backup' : '';
+      var both = [stored != null ? fx(stored, 1) + ' kWh' : null, backup || null].filter(Boolean).join(' · ');
+      var name = esc(c.title || (sized === 'S' || sized === 'T' ? 'Battery' : 'House Battery'));
+      var lab = '<div class="wl" style="color:' + col + '">' + name + '</div>';
       if (sized === 'S') {
-        this._paint('<div class="ttl"><b>' + esc(c.title || 'Battery') + '</b><span>' + esc(bw > 0 ? 'charging' : bw < 0 ? 'in use' : '') + '</span></div>' +
-          '<div class="gb"' + moreAttr(c.level) + '><div class="lv">' + pct + '</div>' +
-          '<div class="mini"><i class="' + low.trim() + '" style="width:' + level + '%"></i></div></div>');
+        // the ring as large as the room under the level leaves (a tile cell is 150 tall)
+        var sp = Math.max(36, Math.min(64, b.ih - 19 - 46 - 6));
+        this._paint(lab + '<div class="wb">' + pct + '</div><div class="wf">' + ring(sp, icon(Math.round(sp * 0.42))) + '</div>');
         return;
       }
-      this._paint('<div class="ttl"><b>' + esc(c.title || 'House Battery') + '</b><span>' + esc(doing.toLowerCase()) + '</span></div>' +
-        '<div class="gb"><div class="cell"' + moreAttr(c.level) + '><div class="fill' + low + '" style="width:' + level + '%">' +
-        (bw !== 0 ? '<div class="hshim' + (bw < 0 ? ' bw' : '') + '"></div>' : '') + '</div>' +
-        '<div class="txt"><b>' + pct + '</b><span>' + sub + '</span></div></div></div>');
+      if (sized === 'W') {
+        var wp = Math.min(120, b.ih);
+        this._paint('<div class="bw"><div class="wcol">' + lab + '<div class="wb">' + pct + '</div>' +
+          '<div class="ws">' + esc([doing, stored != null ? fx(stored, 1) + ' kWh' : null].filter(Boolean).join(' · ')) + '</div>' +
+          (backup ? '<div class="wf ws">About ' + esc(backup) + '</div>' : '') + '</div>' +
+          '<div class="wcol" style="flex:none;justify-content:center">' + ring(wp, icon(Math.round(wp * 0.37))) + '</div></div>');
+        return;
+      }
+      if (sized === 'T') {
+        // the ring as large as the column, or the room the words leave it
+        var tp = Math.max(80, Math.min(b.iw, b.ih - 19 - 46 - 19 - 38 - 24));
+        this._paint('<div class="bt">' + lab + '<div class="wb">' + pct + '</div><div class="ws">' + esc(doing) + '</div>' +
+          ring(tp, icon(Math.round(tp * 0.32))) + (both ? '<div class="ws wrap">' + esc(both) + '</div>' : '') + '</div>');
+        return;
+      }
+      // L and XL: the four figures -- the sun in, the house using, the grid,
+      // and when the battery is full (charging) or how long it lasts
+      var sun = W.solar ? pw(h, c.solar || W.solar) : null, home = pw(h, c.home || W.home), grid = pw(h, c.grid || W.grid);
+      var kw = function (w) { return w == null ? '—' : Math.abs(w) >= 1000 ? fx(w / 1000, 1) + ' kW' : fx(w, 0) + ' W'; };
+      var full = '—', fullK = 'Full By';
+      var cap = stored != null && lvl > 0 ? stored / (lvl / 100) : null;
+      if (bw > 0 && cap != null && level < 100) {
+        var hrs = (cap - stored) * 1000 / bw;
+        if (hrs > 0 && hrs < 48) full = new Date(Date.now() + hrs * HOUR).toLocaleTimeString(window.hkLocale.tag(),
+          window.hkLocale.clock({ hour: 'numeric', minute: '2-digit', timeZone: window.hkStats && window.hkStats.tz() }));
+      } else if (bw > 0 && level >= 100) full = 'Full';
+      else { fullK = 'Lasts'; full = bh != null ? hm(bh) : '—'; }
+      var stat = function (k, cl, val, more) { return '<div' + moreAttr(more) + '><b style="color:' + cl + '">' + k + '</b><span>' + esc(val) + '</span></div>'; };
+      var four = function (short) {
+        return stat(short ? 'Solar' : 'Solar In', NAMED.yellow, sun == null ? 'None' : kw(sun), c.solar || W.solar) +
+          stat(short ? 'Using' : 'House Using', NAMED.orange, kw(home), c.home || W.home) +
+          stat(grid != null && grid < -5 ? 'To Grid' : short ? 'Grid' : 'From Grid', NAMED.blue, kw(grid == null ? null : Math.abs(grid)), c.grid || W.grid) +
+          stat(fullK, col, full, c.level);
+      };
+      if (sized === 'L') {
+        var lp = Math.max(96, Math.min(150, b.ih - 2 * 44 - 12 - 24));
+        this._paint('<div class="blg"><div class="top">' + ring(lp, face(lp, Math.round(lp * 0.21))) +
+          '<div class="wcol">' + lab + '<div class="wb" style="font-size:30px">' + (stored != null ? fx(stored, 1) + ' kWh' : pct) + '</div>' +
+          (backup ? '<div class="ws wrap">About ' + esc(backup) + '</div>' : '') + '</div></div>' +
+          '<div class="wgrid">' + four(false) + '</div></div>');
+        return;
+      }
+      // XL: the ring and what is stored on the left; the day's charge as bars, then the four figures
+      var xp = Math.max(120, Math.min(190, b.ih - 44, Math.round(b.iw * 0.34)));
+      this._paint('<div class="bx"><div class="lft" style="width:' + Math.max(xp, 200) + 'px">' + ring(xp, face(xp, Math.round(xp * 0.21))) +
+        (both ? '<div class="ws wrap">' + esc(both) + '</div>' : '') + '</div>' +
+        '<div class="rt"><div class="wl" style="color:' + window.hkCards.v('ink-2') + '">Today</div>' +
+        '<div class="wbars">' + this._dayBars(c, lvl, col, b.iw - Math.max(xp, 200) - 24, Math.max(40, b.ih - 19 - 8 - 19 - 12 - 40)) + '</div>' +
+        '<div class="waxis"><span>12 AM</span><span>6</span><span>12 PM</span><span>6</span></div>' +
+        '<div class="wgrid">' + four(true) + '</div></div></div>');
+    }
+    // THE DAY'S CHARGE: each hour's mean level since midnight (the hour we
+    // are in, the level now), and the hours still to come yesterday's, in
+    // gray -- the shape of a usual day ahead
+    // (`w` x `h` px: an SVG, as HK's bars are drawn -- barChart)
+    _dayBars(c, lvl, col, w, h0) {
+      var S = window.hkStats, h = this.client, hr = S && c.level ? S.hourly(h, c.level, 48, this, { type: 'mean' }) : null;
+      var out = [];
+      if (hr && hr.length) {
+        var start = -1;
+        for (var i = hr.length - 1; i >= 0; i--) if (S.fields(hr[i].t).hour === 0) { start = i; break; }
+        if (start < 0) start = Math.max(0, hr.length - 24);
+        for (var k = 0; k < 24; k++) {
+          var j = start + k, now = j === hr.length - 1, y = start - 24 + k;
+          if (j < hr.length) out.push({ v: now && lvl != null ? lvl : hr[j].v, fut: false });
+          else out.push({ v: y >= 0 && hr[y] ? hr[y].v : null, fut: true });
+        }
+      }
+      while (out.length < 24) out.push({ v: null, fut: true });
+      var gap = 3, bw = Math.max(1, (w - 23 * gap) / 24), rx = Math.min(3, bw / 2);
+      return '<svg class="wc" width="' + Math.round(w) + '" height="' + Math.round(h0) + '" viewBox="0 0 ' + w.toFixed(1) + ' ' + h0 + '" role="img" aria-label="The battery’s charge through the day">' +
+        out.map(function (x, i) {
+          var bh = Math.max(3, Math.min(100, x.v || 0) / 100 * h0);
+          return '<rect x="' + (i * (bw + gap)).toFixed(1) + '" y="' + (h0 - bh).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) +
+            '" rx="' + rx.toFixed(1) + '" fill="' + (x.fut ? REST : col) + '"/>';
+        }).join('') + '</svg>';
     }
     _render() {
       this._shell('hb');
@@ -3846,6 +4008,176 @@
       { name: 'options', selector: { object: {} }, helper: 'Optional: [{value, name, description}], in order. Empty: the select\'s own.' }
     ],
     function (client) { return { entity: firstOf(client, 'select') || firstOf(client, 'input_select') }; });
+
+  // ================================================= THE ENERGY RINGS BLOCK
+  // (2026-10-31, the owner's mock-up, "Energy Rings (new)"): the Energy page's
+  // rings, the Activity rings' way, on a Home Grid block -- Energy, Cost,
+  // Solar, Water and Gas where the house has them (four at most, the plan's
+  // choice), each against a usual period, a white dot where the usual is by
+  // now, a second lap past it. The numbers are the page's own (summary():
+  // the same sums, so the two never disagree). Today, This Week or This
+  // Month: the block's `period` is where it starts, and the switch in its top
+  // right corner (Tall: across the top) changes it in place -- the block's
+  // own, never the page's tab. Small has no switch: a tap moves it on.
+  //   S   the rings, and the period under them
+  //   W   the rings, and each figure beside them
+  //   T   the switch, the rings and the figures, evenly spaced
+  //   L   the switch; the rings centred under it; the figures two by two
+  //   XL  the rings on the left; the figures two by two, centred with them,
+  //       and the period so far with where its cost is heading
+  var RING_PERIODS = [['day', 'Today'], ['week', 'Week'], ['month', 'Month']];
+  var RINGS_CSS = [
+    ':host{display:block;height:100%}',
+    'hk-plate.er{box-sizing:border-box;height:100%;position:relative;display:flex;flex-direction:column;overflow:hidden;',
+    '  padding:' + window.hkCards.blockPad('14px') + ';' + window.hkCards.plate('card') + ';color:' + window.hkCards.v('ink') + ';',
+    '  -webkit-tap-highlight-color:transparent}',
+    'hk-plate.er[role=button]{cursor:pointer}',
+    WIDGET_CSS,
+    '.rings{display:block;flex:none}.rings .tick{fill:#fff;filter:drop-shadow(0 0 2px rgba(0,0,0,.55))}',
+    // THE SWITCH: three choices on a track, the chosen one white; each a
+    // 44 px target (its ::after reaches above and below the 30 px pill)
+    '.per{display:flex;gap:2px;padding:3px;border-radius:' + window.hkCards.R.capsule('33px') + ';background:' + window.hkCards.v('key') + ';flex:none;z-index:1}',
+    '.per button{all:unset;position:relative;box-sizing:border-box;min-width:46px;padding:5px 11px;border-radius:' + window.hkCards.R.capsule('27px') + ';text-align:center;cursor:pointer;',
+    '  ' + window.hkCards.typeCss('caption') + ';font-weight:600;line-height:17px;color:' + window.hkCards.v('ink-2') + '}',
+    '.per button::after{content:"";position:absolute;top:-9px;bottom:-9px;left:-1px;right:-1px}',
+    '.per button[aria-pressed=true]{background:#fff;color:#1c1c1e}',
+    '.per button:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
+    '.per.tr{position:absolute;top:var(--hk-pad-t,14px);right:var(--hk-pad-r,14px)}',
+    '.per.sm{align-self:stretch;justify-content:space-between}.per.sm button{flex:1;min-width:0;padding:5px 4px}',
+    // the figures: a dot in the ring's color, the name, the amount
+    '.ev{display:flex;flex-direction:column;gap:5px;min-width:0}',
+    '.ev>div{display:grid;grid-template-columns:10px minmax(0,1fr) auto;column-gap:8px;align-items:center}',
+    '.ev i{width:10px;height:10px;border-radius:50%}',
+    '.ev b{' + window.hkCards.typeCss('body') + ';font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.ev span{' + window.hkCards.typeCss('body') + ';font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}',
+    '.wgrid span em{font-style:normal;font-size:.55em;font-weight:600;color:' + window.hkCards.v('ink-2') + ';margin-left:2px}',
+    '.wgrid small{' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.wgrid.c>div{align-items:center;text-align:center}',
+    '.er-s{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;flex:1;min-height:0}',
+    '.er-s small{' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + '}',
+    '.er-w{display:flex;align-items:center;gap:20px;flex:1;min-height:0}.er-w .ev{flex:1;padding-top:30px}',
+    '.er-t{display:flex;flex-direction:column;align-items:center;justify-content:space-between;flex:1;min-height:0}.er-t .ev{align-self:stretch}',
+    '.er-l{display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;flex:1;min-height:0;padding-top:30px}.er-l .wgrid{align-self:stretch}',
+    '.er-x{display:flex;align-items:center;gap:30px;flex:1;min-height:0}.er-x>.wcol{flex:1;justify-content:center}',
+    '.er-x .wgrid span{font-size:30px;letter-spacing:-0.6px}.er-l .wgrid span{font-size:22px}',
+    '.so{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:16px;padding-top:12px;border-top:1px solid ' + window.hkCards.v('line') + '}',
+    '.so b{' + window.hkCards.typeCss('headline') + ';white-space:nowrap}.so small{' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.wait{margin:auto;' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + ';text-align:center}'
+  ].join('');
+  // the rings' width and step in px at a size (the mock-up's: 14 px rings
+  // 3 px apart, 18 on the largest), in the 220 viewBox's units
+  function ringFit(px) {
+    var w = px > 180 ? 18 : 14, k = 220 / px;
+    return { w: w * k, step: (w + 3) * k, r0: 110 - (w / 2 + 2) * k };
+  }
+  class HkEnergyRingsCard extends HkBase {
+    static get CSS() { return RINGS_CSS; }
+    getCardSize() { return 4; }
+    setConfig(config) {
+      super.setConfig(config);
+      var p = (config || {}).period;
+      this._period = RING_PERIODS.some(function (x) { return x[0] === p; }) ? p : 'day';
+    }
+    // the period, the size and the minute: the sums move on with the clock;
+    // their statistics landing (hk-stats) and the page's settings (prefs)
+    // wake the card on their own
+    _sigOf() { return JSON.stringify([this._period, this._cellSize(), this._blockKey || '', Math.floor(Date.now() / 60e3), !!plan()]); }
+    _render() {
+      var size = this._cellSize() || 'L', h = this.client;
+      if (!this._built) {
+        this._root.innerHTML = '<hk-plate class="er" data-hk-role="card"></hk-plate>';
+        this._card = this._root.querySelector('hk-plate');
+        var self = this;
+        this._card.addEventListener('click', function (e) {
+          var b = e.target.closest && e.target.closest('button[data-p]');
+          if (b) { e.stopPropagation(); self._pick(b.getAttribute('data-p')); return; }
+          if (self._cellSize() === 'S') self._pick(null);
+        });
+        this._card.addEventListener('keydown', function (e) {
+          if (e.target === self._card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); self._pick(null); }
+        });
+        this._built = true;
+        this._ringWas = null;
+      }
+      var b = blockBox(this, size), card = this._card;
+      card.className = 'er ' + size;
+      var small = size === 'S';
+      if (small) {
+        card.setAttribute('role', 'button'); card.setAttribute('tabindex', '0');
+      } else { card.removeAttribute('role'); card.removeAttribute('tabindex'); }
+      var s = null;
+      // (`_clock`: a test's own time)
+      try { s = h ? summary(h, this, this._clock ? +this._clock() : undefined) : null; } catch (e) { console.warn('[hk-energy-rings]', e && e.message); s = null; }
+      var per = s && s.periods && s.periods[this._period];
+      if (!per) {
+        card.removeAttribute('aria-label');
+        window.hkCards.morph(card, '<div class="wl" style="color:' + RING.energy + '">Energy</div><div class="wait">' +
+          (plan() ? 'Loading…' : 'Add Energy in Settings to show its rings here.') + '</div>');
+        return;
+      }
+      var p = this._period, name = { day: 'Today', week: 'This Week', month: 'This Month' }[p];
+      var list = per.rings.map(function (r) { return { key: r.key, c: r.c, f: r.typ > 0 ? r.v / r.typ : 0, tick: r.typ > 0 && r.tick < 1 ? r.tick : null }; });
+      var amount = function (r, unitEm) {
+        if (r.key === 'cost') return esc(s.money(r.v, 2));
+        var val = r.key === 'water' || r.key === 'gas' ? fx(r.v, 0) : fx(r.v, Math.abs(r.v) >= 100 ? 0 : 1);
+        return val + (r.unit ? (unitEm ? '<em>' + esc(r.unit) + '</em>' : ' ' + esc(r.unit)) : '');
+      };
+      var usual = function (r) { return r.typ > 0 ? Math.round(100 * r.v / r.typ) + '% of usual' : 'Learning your usual'; };
+      var rings = function (px) { return '<div style="width:' + px + 'px;height:' + px + 'px;flex:none">' + ringSvg(list, null, 0, ringFit(px)).replace('class="rings"', 'class="rings" width="' + px + '" height="' + px + '"') + '</div>'; };
+      var sw = function (cls) {
+        return '<div class="per ' + cls + '" role="group" aria-label="Period">' + RING_PERIODS.map(function (x) {
+          return '<button type="button" data-p="' + x[0] + '" aria-pressed="' + (x[0] === p) + '">' + x[1] + '</button>';
+        }).join('') + '</div>';
+      };
+      var evals = function () {
+        return '<div class="ev">' + per.rings.map(function (r) {
+          return '<div><i style="background:' + r.c + '"></i><b>' + esc(r.name) + '</b><span>' + amount(r, false) + '</span></div>';
+        }).join('') + '</div>';
+      };
+      var grid = function (cls) {
+        return '<div class="wgrid ' + cls + '">' + per.rings.map(function (r) {
+          return '<div><b style="color:' + r.c + '">' + esc(r.name) + '</b><span>' + amount(r, true) + '</span><small>' + usual(r) + '</small></div>';
+        }).join('') + '</div>';
+      };
+      var html, evH = per.rings.length * 23, grH = Math.ceil(per.rings.length / 2);
+      if (small) {
+        html = '<div class="er-s">' + rings(Math.max(60, Math.min(b.iw, b.ih - 22))) + '<small>' + name + '</small></div>';
+      } else if (size === 'W') {
+        html = '<div class="er-w">' + rings(Math.max(80, Math.min(b.ih, Math.round(b.iw * 0.45)))) + evals() + '</div>' + sw('tr');
+      } else if (size === 'T') {
+        html = '<div class="er-t">' + sw('sm') + rings(Math.max(80, Math.min(b.iw - 6, b.ih - 34 - evH - 24))) + evals() + '</div>';
+      } else if (size === 'L') {
+        // the figures two by two under the rings: 2 rows of label, amount and line
+        html = sw('tr') + '<div class="er-l">' + rings(Math.max(80, Math.min(170, b.ih - 30 - grH * 57 - 12 - 12))) + grid('c') + '</div>';
+      } else {
+        var head = per.heading, toward = head.cost != null ? s.money(head.cost, p === 'day' ? 2 : 0) : fx(head.energy, p === 'day' ? 1 : 0) + ' kWh';
+        var soFar = (p === 'month' ? per.name : name) + ' so far';
+        html = sw('tr') + '<div class="er-x">' + rings(Math.max(120, Math.min(250, b.ih, Math.round(b.iw * 0.45)))) +
+          '<div class="wcol">' + grid('') + '<div class="so"><b>' + esc(soFar) + '</b><small>Heading for ' + esc(toward) + '</small></div></div></div>';
+      }
+      card.setAttribute('aria-label', 'Energy rings, ' + name + ': ' + per.rings.map(function (r) { return r.name + ' ' + amount(r, false).replace(/<[^>]+>/g, '') + ', ' + usual(r); }).join('; ') +
+        (small ? '. Tap for ' + { day: 'this week', week: 'this month', month: 'today' }[p] : ''));
+      window.hkCards.morph(card, html);
+      // THE RINGS SWEEP IN as the page's do: from nothing on a new period,
+      // from where they were on an update
+      this._ringWas = sweepRings(card, this._ringWas, this._ringFor !== p);
+      this._ringFor = p;
+    }
+    // a period chosen (or, on Small, the next one)
+    _pick(p) {
+      var i = RING_PERIODS.map(function (x) { return x[0]; }).indexOf(this._period);
+      var next = p || RING_PERIODS[(i + 1) % RING_PERIODS.length][0];
+      if (next === this._period) return;
+      this._period = next;
+      this.redraw();
+    }
+  }
+  register('hk-energy-rings-card', HkEnergyRingsCard, 'HK Energy Rings',
+    'The Energy page\'s rings on a Home Grid block: Energy, Cost, Solar and Water against a usual day, week or month.',
+    C && [{ name: 'period', label: 'Period', selector: { select: { mode: 'dropdown', options: [
+      { value: 'day', label: 'Today' }, { value: 'week', label: 'This Week' }, { value: 'month', label: 'This Month' }] } },
+      helper: 'Where the block starts. A tap on its switch changes it.' }],
+    function () { return { period: 'day' }; });
 
   // THE PAGE'S API FOR THE TILES AND HEADINGS (hk-stat.js): the tab, the lit
   // section, and a device's figures for the tab -- one shared request.
