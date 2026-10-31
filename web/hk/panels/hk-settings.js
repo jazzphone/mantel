@@ -5862,6 +5862,24 @@
             return [String(n), n === 1 ? 'Today' : n === 2 ? 'Today & Tomorrow' : n + ' Days'];
           })), onChange: function (v) { set('days', v ? Number(v) : null); } })]));
       }
+      if (s.kind === 'clock') {
+        // THE CLOCK'S LOOK (2026-10-31, item 43; hk_core PANE_CHOICES): its face, where it sits, its type, the date and a
+        // second line -- each first choice today's clock
+        var pick = function (label, sk, key, opts, dflt) {
+          return K.select({ label: label, sk: sk, value: s[key] || dflt, options: opts, onChange: function (v) { set(key, v === dflt ? null : v); } });
+        };
+        c.appendChild(K.group({ header: 'Look', footer: 'Face — Stacked: the hours over the minutes, as StandBy has them. Analog: the Analog Numbers face, small, with the time and date beside it. ' +
+            'AM/PM shows only on a 12-hour clock. The colon flashes only where animations are on (not under Reduce Motion, Animations Off or Flat). ' +
+            'Second Line — Automatic: the date, with the sunset beside it at More.' }, [
+          K.seg({ label: 'Face', sk: 'pane:clock:face', value: s.face || 'digital', options: M.CLOCK_FACES, onChange: function (v) { set('face', v === 'digital' ? null : v); } }),
+          K.seg({ label: 'Alignment', sk: 'pane:clock:align', value: s.align || 'left', options: M.CLOCK_ALIGNS, onChange: function (v) { set('align', v === 'left' ? null : v); } }),
+          K.seg({ label: 'Text Size', sk: 'pane:clock:scale', value: s.scale || 'medium', options: M.CLOCK_SCALES, onChange: function (v) { set('scale', v === 'medium' ? null : v); } }),
+          pick('Weight', 'pane:clock:weight', 'weight', M.CLOCK_WEIGHTS, 'semibold'),
+          K.toggle({ label: 'AM/PM', sk: 'pane:clock:ampm', on: s.ampm !== false, onChange: function (on) { set('ampm', on ? null : false); } }),
+          K.toggle({ label: 'Flashing Colon', sk: 'pane:clock:colon', on: !!s.colon, onChange: function (on) { set('colon', on || null); } }),
+          K.seg({ label: 'Date', sk: 'pane:clock:date', value: s.date || 'full', options: M.CLOCK_DATES, onChange: function (v) { set('date', v === 'full' ? null : v); } }),
+          pick('Second Line', 'pane:clock:line', 'line', M.CLOCK_LINES, 'auto')]));
+      }
       if (s.kind === 'camera' || s.kind === 'todo') {
         var dom = s.kind === 'camera' ? 'camera' : 'todo';
         var rows = [K.select({ label: s.kind === 'camera' ? 'Camera' : 'List', sk: 'pane:sec:entity', value: s.entity || '',

@@ -2597,7 +2597,8 @@
     var out = {};
     Object.keys(s || {}).forEach(function (k) {
       if ((k === 'size' && s[k] === 'more') || (k === 'when' && s[k] === 'always') || (k === 'completed' && !s[k]) ||
-          (k === 'place' && s[k] === 'top') || (k === 'tap' && s[k] === 'auto') || (k === 'name' && s[k] === 'hide')) return;
+          (k === 'place' && s[k] === 'top') || (k === 'tap' && s[k] === 'auto') || (k === 'name' && s[k] === 'hide') ||
+          (s.kind === 'clock' && CLOCK_ABSENT[k] !== undefined && s[k] === CLOCK_ABSENT[k])) return;
       out[k] = s[k];
     });
     return out;
@@ -2667,6 +2668,15 @@
   var PANE_TAPS = [['auto', 'Automatic'], ['page', 'Its Page'], ['sheet', 'Its Sheet'], ['none', 'Nothing']];
   // THE CAMERA'S NAME (settings.py PANE_CHOICES; 2026-10-31): Hide is what absent means
   var PANE_CAMERA_NAMES = [['hide', 'Hide'], ['auto', 'Automatic'], ['show', 'Show']];
+  // THE CLOCK'S LOOK (settings.py PANE_CHOICES, PANE_FLAGS_ON; 2026-10-31, item 43): each choice's first value is
+  // what absent means -- today's clock -- and AM/PM is on, the Flashing Colon off, unless set
+  var CLOCK_FACES = [['digital', 'Digital'], ['stacked', 'Stacked'], ['analog', 'Analog']];
+  var CLOCK_ALIGNS = [['left', 'Left'], ['center', 'Center'], ['right', 'Right']];
+  var CLOCK_SCALES = [['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']];
+  var CLOCK_WEIGHTS = [['light', 'Light'], ['regular', 'Regular'], ['semibold', 'Semibold'], ['bold', 'Bold']];
+  var CLOCK_DATES = [['full', 'Full'], ['short', 'Short'], ['off', 'Off']];
+  var CLOCK_LINES = [['auto', 'Automatic'], ['none', 'None'], ['sunset', 'Sunset'], ['weather', 'Weather']];
+  var CLOCK_ABSENT = { face: 'digital', align: 'left', scale: 'medium', weight: 'semibold', date: 'full', line: 'auto', ampm: true, colon: false };
   // THE LINKS that were each pane's own settings: the Dashboard's ("Home
   // Only, Right"), the screensaver's ("Calendar, Now Playing"), and Now
   // Playing's Show As (the bar, or the Side Pane)
@@ -2760,7 +2770,8 @@
 
   root.hkSettingsModel = {
     PANE_KINDS: PANE_KINDS, PANE_SIZES: PANE_SIZES, PANE_WHEN: PANE_WHEN, PANE_SIDES: PANE_SIDES, PANE_WIDTHS: PANE_WIDTHS,
-    PANE_SHOWS: PANE_SHOWS, PANE_SAVER_SHOWS: PANE_SAVER_SHOWS, PANE_GROUPS: PANE_GROUPS, PANE_PLACES: PANE_PLACES, PANE_TAPS: PANE_TAPS, PANE_CAMERA_NAMES: PANE_CAMERA_NAMES, PANE_MAX: PANE_MAX, PANE_DEFAULTS: PANE_DEFAULTS,
+    PANE_SHOWS: PANE_SHOWS, PANE_SAVER_SHOWS: PANE_SAVER_SHOWS, PANE_GROUPS: PANE_GROUPS, PANE_PLACES: PANE_PLACES, PANE_TAPS: PANE_TAPS, PANE_CAMERA_NAMES: PANE_CAMERA_NAMES, CLOCK_FACES: CLOCK_FACES, CLOCK_ALIGNS: CLOCK_ALIGNS, CLOCK_SCALES: CLOCK_SCALES,
+    CLOCK_WEIGHTS: CLOCK_WEIGHTS, CLOCK_DATES: CLOCK_DATES, CLOCK_LINES: CLOCK_LINES, PANE_MAX: PANE_MAX, PANE_DEFAULTS: PANE_DEFAULTS,
     paneKind: paneKind, paneSection: paneSection, paneOf: paneOf, paneGroupSays: paneGroupSays, paneSet: paneSet, paneReset: paneReset,
     secKey: secKey, secsAdd: secsAdd, secsOrder: secsOrder, secSet: secSet, secsMore: secsMore, secSays: secSays,
     paneSummary: paneSummary, paneSaverSummary: paneSaverSummary, paneHasMusic: paneHasMusic, npShowAs: npShowAs,

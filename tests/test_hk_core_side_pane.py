@@ -268,6 +268,32 @@ def test_a_section_sits_at_the_top_or_the_foot_and_says_what_a_tap_does():
     assert M.pane_section({"kind": "weather", "tap": "dance"}, strict=True) is None
 
 
+def test_the_clock_s_look_is_today_s_until_chosen():
+    # (2026-10-31, item 43) each first value is what absent means; AM/PM is on unless set off, the colon off unless set on
+    assert M.pane_section({"kind": "clock", "face": "digital", "align": "left", "scale": "medium", "weight": "semibold",
+                           "ampm": True, "colon": False, "date": "full", "line": "auto"}) == {"kind": "clock"}
+    look = {"kind": "clock", "size": "less", "face": "stacked", "align": "right", "scale": "large", "weight": "bold",
+            "ampm": False, "colon": True, "date": "short", "line": "sunset"}
+    assert M.pane_section(look) == look and M.pane_section(look, strict=True) == look
+    assert M.pane_section({"kind": "clock", "line": "weather"}) == {"kind": "clock", "line": "weather"}
+    assert M.pane_section({"kind": "clock", "date": "off"}) == {"kind": "clock", "date": "off"}
+    # ...a value it can't use is left out (read) or refused (a form), and only the clock has them
+    for bad in ({"face": "roman"}, {"align": "middle"}, {"scale": "huge"}, {"weight": "black"}, {"date": "long"},
+                {"line": "moon"}, {"ampm": "yes"}, {"colon": 1}):
+        assert M.pane_section({"kind": "clock", **bad}) == {"kind": "clock"}
+        assert M.pane_section({"kind": "clock", **bad}, strict=True) is None
+    assert M.pane_section({"kind": "weather", "face": "stacked"}) == {"kind": "weather"}
+    assert M.pane_section({"kind": "weather", "face": "stacked"}, strict=True) is None
+
+
+def test_the_clock_s_look_is_saved_whole_with_its_group():
+    got = M.side_pane({"dashboard": {"show": "home", "sections": [{"kind": "clock", "align": "right", "weight": "light"}]}}, strict=True)
+    assert got["dashboard"]["sections"] == [{"kind": "clock", "align": "right", "weight": "light"}]
+    b, err = C.apply_board({}, {"side_pane": {"dashboard": {"show": "home", "sections": [{"kind": "clock", "face": "analog", "ampm": False}]}}})
+    assert err == {} and M.board(b)["side_pane"]["dashboard"]["sections"] == [{"kind": "clock", "face": "analog", "ampm": False}]
+    assert C.apply_board({}, {"side_pane": {"dashboard": {"show": "home", "sections": [{"kind": "clock", "face": "roman"}]}}})[1] != {}
+
+
 def test_the_camera_s_name_is_hide_unless_chosen():
     # (2026-10-31, the owner's item 42: the name the Home Grid's camera block can show, Hide in the pane by default)
     assert M.pane_section({"kind": "camera", "name": "hide"}) == {"kind": "camera"}

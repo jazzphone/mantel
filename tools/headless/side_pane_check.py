@@ -46,6 +46,17 @@ GRID = {'v': 1, 'cols': 3, 'rows': 3, 'frame': [800, 800], 'band': False, 'grow'
     {'id': 'p5', 'card': 'timers', 'size': 'S', 'at': [0, 2]}]}
 
 
+# the board's six looks, each from the Clock section's choices (A is today's: none set)
+CLOCK_LOOKS = {
+    'A': {},
+    'B': {'align': 'right', 'ampm': False},
+    'C': {'align': 'center', 'scale': 'large', 'weight': 'light', 'ampm': False, 'colon': True, 'date': 'short'},
+    'D': {'align': 'right', 'scale': 'large', 'weight': 'bold', 'ampm': False, 'line': 'sunset'},
+    'E': {'face': 'stacked', 'date': 'short'},
+    'F': {'face': 'analog'},
+}
+
+
 def screen(pane, grid=False, **extra):
     b = {'title': 'Side Pane', 'pages': [], 'headers': {'home': True}, 'menu_custom': True, 'menu': 'tabbar', 'side_pane': pane}
     if grid:
@@ -62,6 +73,9 @@ SCREENS = {
     'pane-saver-right': screen({'side': 'right', 'saver': {'show': 'own', 'sections': SAVER}}, screensaver=True),
     'pane-saver-left': screen({'side': 'left', 'saver': {'show': 'own', 'sections': SAVER}}, screensaver=True),
     'pane-none': screen(None),
+    # (2026-10-31, item 43) the Clock section's six looks, A to F, the "Side Pane clock styles" board
+    **{f'pane-clock-{k.lower()}': screen({'side': 'right', 'dashboard': {'show': 'home', 'sections': [dict(kind='clock', **look), {'kind': 'weather', 'size': 'less'}]}}, grid=True)
+       for k, look in CLOCK_LOOKS.items()},
     # (2026-10-31, item 42) the camera's still in the pane: loaded over its glyph, its name hidden unless chosen
     'pane-camera': screen({'side': 'right', 'dashboard': {'show': 'home', 'sections': [
         {'kind': 'weather', 'size': 'less'}, {'kind': 'camera'}, {'kind': 'camera', 'entity': 'camera.backyard', 'size': 'less', 'name': 'show'}]}}, grid=True),
@@ -105,7 +119,7 @@ async def main():
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=os.environ)
             out, err = await proc.communicate(json.dumps({
                 'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'engine': args.engine,
-                'shots': str(args.shots) if args.shots else None, 'sizes': sizes}).encode())
+                'shots': str(args.shots) if args.shots else None, 'sizes': sizes, 'looks': sorted(CLOCK_LOOKS)}).encode())
             print(out.decode())
             if err.strip():
                 print(err.decode(), file=sys.stderr)

@@ -192,6 +192,32 @@ ok('...a row names what a tap on it opens (Who\'s Home, Full)', /data-ent="perso
 // SECTION HEADINGS: never over the Clock or the Weather
 ok('...no heading over the Weather or the Clock', X.SEC.weather('less', {}, client, ctx).indexOf('class="h2"') < 0 &&
    X.SEC.clock('less', {}, client, ctx).indexOf('class="h2"') < 0);
+// THE CLOCK'S LOOK (2026-10-31, item 43): a section that sets none draws today's clock, as it was written before the choices
+var ck0 = X.SEC.clock('more', { kind: 'clock' }, client, ctx);
+ok('Clock: with no choices, today\'s markup (digits, AM/PM beside them, the long date, the sunset)',
+   /^<div class="sec" data-k="clock" data-size="more"><div class="big2 ck"><span class="tm">\d{1,2}:\d\d(<small>[AP]M<\/small>)?<\/span><\/div><div class="sub2 ckd"><span class="dl">[^<]+<\/span><span class="ds">[^<]+<\/span><span class="sun">Sunset [^<]+<\/span><\/div><\/div>$/.test(ck0), ck0);
+ok('...and the section\'s own classes only for a choice made', X.SEC.clock('more', { kind: 'clock', align: 'right', scale: 'large', weight: 'bold' }, client, ctx).indexOf('class="sec cka-right cks-large ckw-bold"') > 0);
+var ckA = X.SEC.clock('more', { kind: 'clock', ampm: false }, client, ctx);
+ok('...AM/PM off takes it out', ckA.indexOf('<small>') < 0 && ck0.indexOf('<small>') > 0);
+ok('...a 24-hour clock has none to show either', (function () {
+  window.hkLocale = Object.assign({}, window.hkLocale, { is24: function () { return true; } });
+  var h = X.SEC.clock('more', { kind: 'clock' }, client, ctx); delete window.hkLocale.is24; return h.indexOf('<small>') < 0; })());
+var ckC = X.SEC.clock('more', { kind: 'clock', colon: true, date: 'short', line: 'none' }, client, ctx);
+ok('...a flashing colon is its own span, the date short, no second line (and no sunset beside it)', ckC.indexOf('<span class="ckc">:</span>') > 0 &&
+   ckC.indexOf('class="ds"') < 0 && ckC.indexOf('Sunset') < 0 && ck0.indexOf('ckc') < 0);
+ok('...held while motion is off (Reduce Motion, Animations Off, Flat: skyLook().animations)', (function () {
+  var was = window.hkSettings.skyLook; window.hkSettings.skyLook = function () { return { animations: false }; };
+  var h = X.SEC.clock('more', { kind: 'clock', colon: true }, client, ctx); window.hkSettings.skyLook = was; return h.indexOf('ckc') < 0 && h.indexOf('<span class="tm">') > 0; })());
+var ckD = X.SEC.clock('more', { kind: 'clock', line: 'sunset', date: 'full' }, client, ctx), ckE = X.SEC.clock('more', { kind: 'clock', line: 'weather' }, client, ctx);
+ok('...Sunset and Weather are a line of their own under the date', /<div class="sub2 ck2">Sunset [^<]+<\/div>/.test(ckD) && ckD.indexOf('class="sun"') < 0 &&
+   /<div class="sub2 ck2">54° [^<]+<\/div>/.test(ckE), [ckD, ckE]);
+ok('...Date Off leaves only the second line', X.SEC.clock('more', { kind: 'clock', date: 'off', line: 'none' }, client, ctx).indexOf('ckd') < 0 &&
+   X.SEC.clock('tiny', { kind: 'clock', date: 'off' }, client, ctx).indexOf('class="v2"') < 0);
+var ckS = X.SEC.clock('more', { kind: 'clock', face: 'stacked' }, client, ctx), ckN = X.SEC.clock('more', { kind: 'clock', face: 'analog', date: 'short' }, client, ctx);
+ok('...Stacked: the hours over the minutes; Analog: the small face with the time and date beside it', /class="big2 ck stk"><span class="tm"><span>\d{1,2}<\/span><span>\d\d<\/span>/.test(ckS) &&
+   /class="ckan"><svg class="face"/.test(ckN) && /<div class="ckt"><b><span class="tm">/.test(ckN) && ckN.indexOf('class="face"') > 0, [ckS, ckN]);
+ok('...Full: the face as today, or the digits stacked', /class="facebox"><svg class="face"/.test(X.SEC.clock('full', { kind: 'clock' }, client, ctx)) &&
+   /class="facebox"><div class="big2 ck stk"/.test(X.SEC.clock('full', { kind: 'clock', face: 'stacked' }, client, ctx)));
 ok('...one over Security (headings on by default)', X.SEC.security('less', {}, client, ctx).indexOf('class="h2"') > 0);
 ok('...its words alone, no glyph (2026-10-31, the owner)', /<div class="h2"><span>Security<\/span><\/div>/.test(X.SEC.security('less', {}, client, ctx)));
 ok('Tiny is one line: its glyph, the fact and a value', /class="sec cmp"/.test(X.SEC.weather('tiny', {}, client, ctx)) &&
