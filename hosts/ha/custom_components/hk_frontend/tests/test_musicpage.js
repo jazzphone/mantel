@@ -5,6 +5,7 @@ var DIR = HK_ROOT + '/';
 load(DIR + 'tests/dom.js');
 load(DIR + 'tests/card_harness.js');
 load(DIR + 'frontend/cards/hk-base.js');
+load(DIR + 'frontend/modules/hk-saver-panel.js');   // (the group's volume rule lives there)
 load(DIR + 'frontend/cards/hk-music.js');
 
 var pass = 0, fail = 0;

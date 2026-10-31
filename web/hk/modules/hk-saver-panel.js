@@ -48,6 +48,7 @@
   if (window.hkSaverPanel) return;
 
   var VOL_EVERY = 200;          // a volume drag sends at most this often (ms)
+  var GROUP = '*';              // the Volume tab's group row, in place of a room's entity id
   var VOL_HOLD = 4000;          // ...and its own value stands this long after
   var DONE_MS = 1200;           // a request done: the answer read, then closed
   var BLUR = 32;                // the blurred art, drawn this small
@@ -94,6 +95,20 @@
   function playTarget(rooms, presets) {
     for (var i = 0; i < presets.length; i++) if (presets[i].entity && same(rooms, presets[i].members)) return { player: presets[i].entity, then: null };
     return { player: rooms[0] || null, then: rooms.length > 1 ? rooms.slice() : null };
+  }
+  // THE GROUP'S VOLUME (the room card's rule, hk-control.js; moved here from hk-music.js 2026-10-31, so the
+  // Music page's slider and a Small Now Playing block's Speakers sheet are one rule): one room, the room;
+  // an ad-hoc group, every member in one call; a preset's sync group, the group then its rooms (the group
+  // scales them, the rooms level it)
+  function volumeCalls(ctx, presets, level) {
+    if (!ctx) return [];
+    if (ctx.kind === 'preset') {
+      var p = presets.filter(function (x) { return x.entity === ctx.key; })[0];
+      var mem = (p && p.members) || ctx.members;
+      return [{ entity_id: ctx.key, volume_level: level }, { entity_id: mem, volume_level: level }];
+    }
+    if (ctx.members.length > 1) return [{ entity_id: ctx.members.slice(), volume_level: level }];
+    return [{ entity_id: ctx.key, volume_level: level }];
   }
   // the line over the buttons: what the ticks do, before anything is pressed.
   // `music`: what plays ("Piano Man"); `next`: the ticks are also where the
@@ -230,6 +245,9 @@
     '.mpvs .tr b{position:absolute;top:50%;left:calc(var(--v,0) * 100%);width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;',
     '  background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.3);transition:transform .12s}',
     '.mpvs.drag .tr b{transform:scale(1.18)}',
+    // (the group's, above its rooms: set apart by a heavier line)
+    '.mpvrow.grp{border-bottom:2px solid rgba(255,255,255,.22);margin-bottom:2px}',
+    '.mpvrow.grp .mpvhd b{font-weight:700}',
     '.mpnone{opacity:.7;font-size:15px;padding:18px 4px}',
     // BROWSE: the house's playlists, then the Browse Music page
     '.mppl h4{margin:0 0 9px 2px;font-size:15px;font-weight:700}',
@@ -281,7 +299,9 @@
   // o: { client() -- the house: everything the panel reads, and its buttons
   // through the client's action port; ctx() -- the music on the screensaver (hkMusic's context) or
   // null, art() -- its blurred art (a canvas) or null, done(ms) -- close it,
-  // follow(key) -- the music moved here, wide() -- two columns fit }
+  // follow(key) -- the music moved here, wide() -- two columns fit, group -- the Volume tab opens with the
+  // whole group's slider (2026-10-31, the owner: a Small Now Playing block's Speakers listed only each
+  // speaker's own) }
   var TAB_NAME = { speakers: 'Speakers', volume: 'Volume', browse: 'Browse', queue: 'Queue' };
   function create(o) {
     var el = document.createElement('div');
@@ -550,11 +570,21 @@
         var v = mine && (S.drag && S.drag.key === k || t < mine.until) ? mine.val : (typeof a.volume_level === 'number' ? a.volume_level : null);
         return { k: k, v: v };
       });
+      // THE GROUP'S, first: a preset's own level, else the rooms' average
+      if (o.group && c && rows.length > 1) {
+        var gm = S.vols[GROUP], gv = gm && (S.drag && S.drag.key === GROUP || t < gm.until) ? gm.val : null;
+        if (gv === null) {
+          var pa = (h[c.key] || {}).attributes || {}, known = rows.filter(function (r) { return r.v !== null; });
+          gv = c.kind === 'preset' && typeof pa.volume_level === 'number' ? pa.volume_level
+             : known.length ? known.reduce(function (n, r) { return n + r.v; }, 0) / known.length : null;
+        }
+        rows.unshift({ k: GROUP, v: gv, name: label(c), group: true });
+      }
       var sig = rows.map(function (r) { return r.k; }).join(',');
       if (E.vol.__sig !== sig) {
         E.vol.__sig = sig;
         E.vol.innerHTML = rows.length ? rows.map(function (r) {
-          return '<div class="mpvrow" data-vk="' + esc(r.k) + '"><div class="mpvhd"><b>' + esc(nameOf(r.k)) + '</b><span></span></div>' +
+          return '<div class="mpvrow' + (r.group ? ' grp' : '') + '" data-vk="' + esc(r.k) + '"><div class="mpvhd"><b>' + esc(r.name || nameOf(r.k)) + '</b><span></span></div>' +
                  '<div class="mpvs" data-vol="' + esc(r.k) + '"><div class="tr"><i></i><b></b></div></div></div>';
         }).join('') : '<div class="mpnone">Nothing is playing.</div>';
       }
@@ -587,6 +617,15 @@
       if (d) d.sent = Date.now();
       if (mine.sent === mine.val) return;
       mine.sent = mine.val;
+      if (key === GROUP) {
+        // every room takes the level, as the Music page's slider sets it: its rows follow at once
+        var c = ctx(), m = M(), until = Date.now() + VOL_HOLD;
+        S.members.forEach(function (k) { S.vols[k] = { val: mine.val, until: until, sent: mine.val }; });
+        (c ? volumeCalls(c, m && m.presets ? m.presets() : [], mine.val) : []).reduce(function (p, data) {
+          return p.then(function () { return act.callService('media_player', 'volume_set', data); });
+        }, Promise.resolve()).catch(function (e) { /* offline */ });
+        return;
+      }
       try { act.callService('media_player', 'volume_set', { entity_id: key, volume_level: mine.val }); } catch (e) { /* offline */ }
     }
     el.addEventListener('pointerdown', function (e) {
@@ -868,6 +907,6 @@
     };
   }
 
-  window.hkSaverPanel = { create: create, CSS: CSS, _: { ticksPlan: ticksPlan, ticksCaption: ticksCaption, playTarget: playTarget } };
+  window.hkSaverPanel = { create: create, CSS: CSS, volumeCalls: volumeCalls, _: { ticksPlan: ticksPlan, ticksCaption: ticksCaption, playTarget: playTarget, volumeCalls: volumeCalls } };
   try { window.dispatchEvent(new Event('hk-saver-panel')); } catch (e) { /* ignore */ }
 })();

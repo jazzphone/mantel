@@ -1489,6 +1489,7 @@
       } }));
       rows = rows.concat(this.fields(item.card, item.opts || {}, (opts) => this.update(item.id, { opts: opts }), { hide: hide, size: item.size, list: src === 'list' }));
       if (item.card === 'room') footer = this.roomNote(item, src);
+      else if (item.card === 'music' && !src) footer = this.musicNote(item);
       else if (src === 'list') footer = 'Each page repeats this card with its own choices. A choice left on Same as the Block uses the block’s.';
       else if (item.card === 'accessories') footer = 'Each page holds ' + G.PER_PAGE[item.size] + ' at this size; more make more pages.';
       else if (item.card === 'camera' && src === 'cameras' && (item.opts || {}).follow) footer = (item.opts.follow === 'motion'
@@ -1554,6 +1555,13 @@
         if (value === 'tablet_room') pages.start = 'tablet_room'; else delete pages.start;
         this.update(item.id, { opts: opts, pages: pages });
       } });
+    }
+    // WHAT A MUSIC BLOCK SHOWS, plainly (its Shows option's footnote)
+    musicNote(item) {
+      var o = item.opts || {}, tap = ' A tap on one plays it on this screen’s speakers.';
+      if (o.show === 'presets') return 'Shows the Music page’s playlists as tiles; a playlist with choices (Decades) shows each choice.' + tap;
+      if (o.show === 'playlist') return 'Shows one playlist: ' + (o.playlist || (this.musicPlaylists()[0] || {}).name || 'the first one you set up') + '. If it has choices, each is a tile.' + tap;
+      return 'Shows what played last, and covers to play again.' + tap;
     }
     roomNote(item, src) {
       var area = (item.opts || {}).area || (item.pages && item.pages.start === 'tablet_room' ? 'tablet_room' : '');
@@ -1647,7 +1655,7 @@
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'tv_channel'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'tv_channel', 'music_show', 'music_playlist'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
@@ -1862,6 +1870,20 @@
           rows.push(K.seg({ label: 'When Tapped', value: opts[key] || 'auto', options: G.TAP_TARGETS, onChange: (v) => set(key, v === 'auto' ? null : v) }));
           return;
         }
+        // A MUSIC BLOCK'S SHOW (2026-10-31, the owner): Recently Played, the Music page's playlists, or one of them, chosen from
+        // the house's (as the Music page reads them); the Content footnote says what the block shows
+        if (kind === 'music_show') {
+          rows.push(K.select({ label: 'Shows', value: opts[key] || 'recent', options: [['recent', 'Recently Played'], ['presets', 'Presets'], ['playlist', 'One Playlist']],
+            onChange: (v) => set(key, v === 'recent' ? null : v) }));
+          return;
+        }
+        if (kind === 'music_playlist') {
+          if (opts.show !== 'playlist') return;
+          var pls = self.musicPlaylists().map((p) => [p.name, p.name]);
+          if (opts[key] && !pls.some((op) => op[0] === opts[key])) pls.push([opts[key], opts[key] + ' (Unavailable)']);
+          rows.push(K.select({ label: 'Playlist', value: opts[key] || (pls[0] || [''])[0], options: pls.length ? pls : [['', 'None Set Up']], onChange: (v) => set(key, v) }));
+          return;
+        }
         // A LIVE TV BLOCK'S CHANNEL (2026-10-31, the owner): Automatic (the guide's first, as many as the size holds) or one
         // of the guide's, asked of the house (hk_tv/channels) the first time a block shows this row
         if (kind === 'tv_channel') {
@@ -1929,6 +1951,13 @@
       rows.push(K.text({ label: 'Background Color', type: 'color', value: surface.color, onCommit: (v) => put('color', v) }));
       rows.push(K.slider({ label: 'Background Opacity', value: surface.opacity, min: 0, max: 100, unit: '%', onChange: (v) => put('opacity', Number(v)) }));
       rows.push(K.select({ label: 'Background Blur', value: surface.blur, options: [['screen', 'Follow Screen'], ['none', 'None'], ['light', 'Light'], ['medium', 'Medium'], ['heavy', 'Heavy']], onChange: (v) => put('blur', v) }));
+    }
+    // the house's playlists, as the Music page reads them (hkMusic.playlists(), the screen's copy in the preview): the
+    // list fills in once the house has answered
+    musicPlaylists() {
+      var w = (this.iframe && this.iframe.contentWindow) || window, Mu = w.hkMusic, self = this;
+      if (Mu && Mu.onChange && !this._muOff) this._muOff = Mu.onChange(function () { if (self.isConnected && self.selected) self.side(); });
+      return Mu && Mu.playlists ? Mu.playlists() : [];
     }
     // the guide's channels, [{number, name}], read once (the row fills in when they arrive)
     tvChannels() {

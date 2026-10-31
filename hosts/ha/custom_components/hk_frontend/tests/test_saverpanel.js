@@ -73,5 +73,12 @@ ok('...on other rooms: the first, then all of them', JSON.stringify(U.playTarget
 ok('...on one room: just it', JSON.stringify(U.playTarget([G], PRE)) === JSON.stringify({ player: G, then: null }));
 ok('names are escaped', !/<i>/.test(U.ticksCaption(group, ['<i>x'], '<i>song', true, function (rs) { return rs.join(' and '); })));
 
+// THE GROUP'S VOLUME, one rule (2026-10-31): the Music page's slider and a Small Now Playing block's Speakers sheet
+ok('the rule is exported', window.hkSaverPanel.volumeCalls === U.volumeCalls);
+ok('a group: every room in one call', JSON.stringify(U.volumeCalls({ key: LR, kind: 'group', members: group }, [], 0.4)) === JSON.stringify([{ entity_id: group, volume_level: 0.4 }]));
+var vpre = U.volumeCalls({ key: 'grp_down', kind: 'preset', members: [LR, K] }, PRE, 0.5);
+ok('a preset: its group, then its rooms', vpre.length === 2 && vpre[0].entity_id === 'grp_down' && JSON.stringify(vpre[1].entity_id) === JSON.stringify([LR, K]));
+ok('one room: that room', JSON.stringify(U.volumeCalls({ key: K, kind: 'room', members: [K] }, [], 0.2)) === JSON.stringify([{ entity_id: K, volume_level: 0.2 }]));
+
 print('\n' + (fail ? fail + ' FAILED, ' : 'ALL ') + pass + ' SAVER PANEL TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

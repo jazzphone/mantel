@@ -116,18 +116,11 @@
     for (var i = 0; i < presets.length; i++) if (presets[i].entity && same(rooms, presets[i].members)) return { player: presets[i].entity, then: null };
     return { player: rooms[0] || null, then: rooms.length > 1 ? rooms.slice() : null };
   }
-  // THE GROUP'S VOLUME (the room card's rule, hk-control.js): one room, the
-  // room; an ad-hoc group, every member in one call; a preset's sync group,
-  // the group then its rooms (the group scales them, the rooms level it)
+  // THE GROUP'S VOLUME (the room card's rule, hk-control.js): the panel's own (hk-saver-panel.js volumeCalls, which
+  // a Small Now Playing block's Speakers sheet uses too)
   function volumeCalls(ctx, presets, level) {
-    if (!ctx) return [];
-    if (ctx.kind === 'preset') {
-      var p = presets.filter(function (x) { return x.entity === ctx.key; })[0];
-      var mem = (p && p.members) || ctx.members;
-      return [{ entity_id: ctx.key, volume_level: level }, { entity_id: mem, volume_level: level }];
-    }
-    if (ctx.members.length > 1) return [{ entity_id: ctx.members.slice(), volume_level: level }];
-    return [{ entity_id: ctx.key, volume_level: level }];
+    var P = window.hkSaverPanel;
+    return P && P.volumeCalls ? P.volumeCalls(ctx, presets, level) : [];
   }
 
   // (after the panel's own CSS: see _panelCss)
