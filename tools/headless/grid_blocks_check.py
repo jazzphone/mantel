@@ -2,7 +2,8 @@
 household's: a Large Security block is the alarm keypad with its keys inside the block, a Large Vacuum block its
 controls over Clean Areas, a block's rules switch its card in place (music playing; a time window and the alarm
 armed), and a cameras block follows motion in its cameras' rooms. A calendar block shows the days it is asked for,
-scrolls inside itself and opens an event's sheet; a room block leaves out the house's Hidden Accessories.
+as many rows as fit and "N more" at its foot, and opens an event's sheet; a room block leaves out the house's Hidden
+Accessories.
 
 The editor makes room (2026-10-30, grid_blocks_check.cjs): on a screen shaped like the owner's tablet, a Large camera
 carried onto four small tiles -- they slide into the space it left while it is held, the drop keeps that and one Undo
@@ -136,24 +137,27 @@ async def main():
             tiles = "deep(cell('room'),'[entity]').map(e=>e.getAttribute('entity')||'').concat(deep(cell('room'),'*').map(e=>e._config&&e._config.entity).filter(Boolean))"
             assert await b.wait(tiles + ".includes('light.living_room_lamps')", 10), await b.eval(tiles)
             assert 'light.living_room_ceiling' not in await b.eval(tiles), 'a hidden accessory in the room block'
-            # the calendar: seven days of events, under their days' headings, scrolling inside the block; a tap opens one
+            # the calendar: seven days of events, under their days' headings, as many rows as the block has room for
+            # and "N more" at its foot (2026-10-31, Calendar's widgets: no scroll); a tap opens one
             # (the house's client is frozen, so the card is handed what Home Assistant would answer)
             await b.eval("(()=>{let c=deep(cell('cal'),'hk-calendar-pane-card')[0];let ev=" + EVENTS + ";"
                          "c._evs=ev.map(e=>hkCalendar._.norm('calendar.family',e));c._n++;c.redraw();void 0})()")
             pane = "deep(cell('cal'),'hk-calendar-pane-card')[0].shadowRoot"
-            assert await b.wait(pane + ".querySelectorAll('.gev').length>=12", 15), await b.eval(pane + ".innerHTML.slice(0,300)")
-            cal = await b.eval("(()=>{let r=" + pane + ",gl=r.querySelector('.gl'),c=cell('cal').getBoundingClientRect(),g=gl.getBoundingClientRect();"
-                               "return {heads:[...r.querySelectorAll('.gd')].map(e=>e.textContent),scrolls:gl.scrollHeight>gl.clientHeight+20,inside:g.bottom<=c.bottom+1}})()")
-            assert len(cal['heads']) >= 5 and cal['heads'][0] == 'Tomorrow' and cal['scrolls'] and cal['inside'], cal
+            assert await b.wait(pane + ".querySelectorAll('.ev2').length>=12", 15), await b.eval(pane + ".innerHTML.slice(0,300)")
+            cal = await b.eval("(()=>{let r=" + pane + ",c=cell('cal').getBoundingClientRect(),vis=[...r.querySelectorAll('.ev2')].filter(e=>e.offsetParent);"
+                               "return {heads:[...r.querySelectorAll('.gh')].map(e=>e.textContent),shown:vis.length,all:r.querySelectorAll('.ev2').length,"
+                               "inside:vis.every(e=>e.getBoundingClientRect().bottom<=c.bottom+1),foot:(r.querySelector('.ft')||{}).textContent}})()")
+            assert cal['heads'] and cal['heads'][0] == 'Tomorrow' and 0 < cal['shown'] < cal['all'] and cal['inside'] and \
+                cal['foot'] == f"{cal['all'] - cal['shown']} more", cal
             await b.eval("(()=>{window.__opened=null;let D=window.hkDetail;if(D){let o=D.open.bind(D);D.open=function(a,b,c){window.__opened=c&&c.event&&c.event.title;return o(a,b,c)}}"
-                         "let r=" + pane + ",ev=r.querySelectorAll('.gev');ev[ev.length-1].scrollIntoView();ev[ev.length-1].click()})()")
-            assert await b.wait("window.__opened==='Event 6-21'", 10), await b.eval('window.__opened')
+                         "let r=" + pane + ",ev=[...r.querySelectorAll('.ev2')].filter(e=>e.offsetParent);window.__want=ev[ev.length-1].querySelector('b').textContent;ev[ev.length-1].click()})()")
+            assert await b.wait("window.__opened&&window.__opened===window.__want", 10), await b.eval('[window.__opened,window.__want]')
             if args.shots:
                 args.shots.mkdir(parents=True, exist_ok=True)
                 await b.screenshot(args.shots / 'blocks.png')
             exceptions = [line for line in b.console if line.startswith('EXCEPTION:')]
             assert not exceptions, exceptions
-            print('PASS: keypad and vacuum blocks, rules switching in place, cameras following motion, the calendar\'s days, scroll and taps, the room\'s hidden accessories', flush=True)
+            print('PASS: keypad and vacuum blocks, rules switching in place, cameras following motion, the calendar\'s days, rows that fit and taps, the room\'s hidden accessories', flush=True)
             # THE EDITOR MAKES ROOM, in Playwright's Chromium (a finger) and WebKit (a mouse) at an iPad's size
             pw, node = os.environ.get('PLAYWRIGHT_PATH'), os.environ.get('NODE')
             if not (pw and Path(pw).exists() and node and Path(node).exists()):
