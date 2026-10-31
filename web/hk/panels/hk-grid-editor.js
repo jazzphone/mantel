@@ -1647,7 +1647,7 @@
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'tv_channel'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
@@ -1862,6 +1862,15 @@
           rows.push(K.seg({ label: 'When Tapped', value: opts[key] || 'auto', options: G.TAP_TARGETS, onChange: (v) => set(key, v === 'auto' ? null : v) }));
           return;
         }
+        // A LIVE TV BLOCK'S CHANNEL (2026-10-31, the owner): Automatic (the guide's first, as many as the size holds) or one
+        // of the guide's, asked of the house (hk_tv/channels) the first time a block shows this row
+        if (kind === 'tv_channel') {
+          var guide = self.tvChannels();
+          var tv = [['', 'Automatic']].concat(guide.map((c) => [c.number, c.number + ' ' + (c.name || '')]));
+          if (opts[key] && !tv.some((op) => op[0] === opts[key])) tv.push([opts[key], opts[key] + ' (Unavailable)']);
+          rows.push(K.select({ label: 'Channel', value: opts[key] || '', options: tv, onChange: (v) => set(key, v) }));
+          return;
+        }
         if (kind === 'days') {
           rows.push(K.select({ label: 'Days', value: String(opts[key] || 2), options: [1, 2, 3, 4, 5, 6, 7].map((n) => [String(n), n === 1 ? 'Today Only' : n === 2 ? 'Today and Tomorrow' : n + ' Days']),
             onChange: (v) => set(key, +v === 2 ? null : +v) }));
@@ -1920,6 +1929,19 @@
       rows.push(K.text({ label: 'Background Color', type: 'color', value: surface.color, onCommit: (v) => put('color', v) }));
       rows.push(K.slider({ label: 'Background Opacity', value: surface.opacity, min: 0, max: 100, unit: '%', onChange: (v) => put('opacity', Number(v)) }));
       rows.push(K.select({ label: 'Background Blur', value: surface.blur, options: [['screen', 'Follow Screen'], ['none', 'None'], ['light', 'Light'], ['medium', 'Medium'], ['heavy', 'Heavy']], onChange: (v) => put('blur', v) }));
+    }
+    // the guide's channels, [{number, name}], read once (the row fills in when they arrive)
+    tvChannels() {
+      var self = this;
+      if (!this._tv) {
+        this._tv = [];
+        var c = this.panel.client;
+        if (c && c.callWS) Promise.resolve(c.callWS({ type: 'hk_tv/channels' })).then(function (r) {
+          self._tv = (r && r.channels) || [];
+          if (self.isConnected && self.selected) self.side();
+        }, function () { /* not set up: Automatic only */ });
+      }
+      return this._tv;
     }
     choices(kind) {
       var client = this.panel.client, states = client.states || {};
