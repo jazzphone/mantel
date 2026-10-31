@@ -720,13 +720,22 @@ async def smoke(shot=None, shots=None):
                       const bar = document.querySelector('#hk-shell-root > #hk-tabbar'), sr = bar && bar.shadowRoot;
                       const rows = () => sr ? [...sr.querySelectorAll('.sheet[data-sheet="more"].open .it[data-k="m"]')] : [];
                       const box = (el) => { const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; };
-                      return { rows, box, sr };
+                      // the sheet has finished its opening motion (its CSS transitions, not a timer)
+                      const still = () => { const s = sr && sr.querySelector('.sheet[data-sheet="more"].open');
+                                            return !!s && s.getAnimations({ subtree: true }).length === 0; };
+                      return { rows, box, sr, still, more: sr && sr.querySelector('.tab[data-t="more"]') };
                     })"""
-                    await browser.eval("window.__moreProbe = " + more_row)
-                    await browser.eval("window.__moreProbe().sr.querySelector('.tab[data-t=\"more\"]').click()")
-                    assert await browser.wait("window.__moreProbe().rows().length === 1", 5), "no Mantel row in the open More sheet"
-                    drawn = await browser.eval("""(async () => {
-                      await new Promise(r => setTimeout(r, 900));        // the sheet's opening motion
+
+                    async def open_more(what):
+                        # the tab bar mounts on its own sync, after the page is ready (a page load away from Settings
+                        # included): its More tab is looked for before it is clicked
+                        await browser.eval("window.__moreProbe = " + more_row)
+                        assert await browser.wait("!!window.__moreProbe().more", 15), f"no More tab in the tab bar {what}"
+                        await browser.eval("window.__moreProbe().more.click()")
+                        assert await browser.wait("window.__moreProbe().rows().length === 1", 5), f"no Mantel row {what}"
+                    await open_more("in the open More sheet")
+                    assert await browser.wait("window.__moreProbe().still()", 10), "the More sheet did not settle"
+                    drawn = await browser.eval("""(() => {
                       const p = window.__moreProbe(), sheet = p.rows()[0].closest('.sheet').getBoundingClientRect();
                       return p.rows().map(el => {
                         const r = el.getBoundingClientRect();
@@ -808,10 +817,8 @@ async def smoke(shot=None, shots=None):
                     assert await browser.wait("location.pathname.endsWith('/home')", 10), "the way back did not leave Mantel Settings"
                     if not await browser.wait("window.__mantelReady === true", 25):
                         raise AssertionError("the dashboard did not return: " + json.dumps(browser.console[-15:]))
-                    await browser.eval("window.__moreProbe = " + more_row)
-                    await browser.eval("window.__moreProbe().sr.querySelector('.tab[data-t=\"more\"]').click()")
-                    assert await browser.wait("window.__moreProbe().rows().length === 1", 5), "no Mantel row after returning"
-                    await browser.eval("new Promise(r => setTimeout(r, 900))")
+                    await open_more("after returning")
+                    assert await browser.wait("window.__moreProbe().still()", 10), "the More sheet did not settle"
                     await browser.eval("window.__moreProbe().rows()[0].click()")
                     assert await browser.wait("location.pathname === '/settings'", 10), "the row did not open /settings again"
                     # A page opened by its own address is drawn first by the view host. With narrowing on (the
