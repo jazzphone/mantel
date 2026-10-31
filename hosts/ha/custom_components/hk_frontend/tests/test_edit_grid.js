@@ -5,6 +5,9 @@
 //                 block added in the first space of the view shown, the
 //                 editor's variant, never past 24; Done's one board/set
 //                 {home_grid}, nothing when it is as it was
+//   placing       a card with no free space for it, placed by hand: the others make
+//                 room when they can, else the blocks it covers are removed (dimmed
+//                 and named in the bar while it is held), one change for Cancel
 //   the cards     the band, then the strategy's own card per block, then
 //                 the cards that only listen; a block's element kept while
 //                 its card is the same
@@ -286,6 +289,104 @@ function () {
   eq('...its own elements', VIEW._cards.every(function (el, i) { return el === els0[i]; }), true);
   eq('...the camera back in its cell', cellOf(VIEW, 'cam').style.gridColumn, '5 / span 2');
   eq('...nothing sent', h.sent.length, 0);
+},
+function () {
+  H.section('a card with no free space is placed by hand, replacing the blocks it covers');
+  var full = copy(LAYOUT);
+  full.items.push({ id: 'f1', card: 'clock', size: 'L', at: [3, 2] }, { id: 'f2', card: 'clock', size: 'W', at: [0, 3] },
+                  { id: 'f3', card: 'clock', size: 'S', at: [5, 2] }, { id: 'f4', card: 'clock', size: 'S', at: [5, 3] });
+  BOARD.home_grid = full;
+  var cfgF = viewCfg(full);
+  var v = new View();
+  v.setConfig(cfgF);
+  v.isConnected = true; v.clientWidth = 1180; v.clientHeight = 820;
+  v.cards = cfgF.cards.map(function (c) { var el = document.createElement('x-card'); el._config = c; return el; });
+  // (the cells' box on the screen: the stub page has no layout)
+  v.cellBox = function () { return { left: 0, top: 0, width: 1180, height: 800, gap: 10, scale: 1, cols: 6, rows: 4, view: 0 }; };
+  VIEW = v;
+  var h = who(true);
+  eq('enter', E.enter(h, { viewEl: v }), true);
+  var part = EG.active(), els0 = v._cards.slice();
+  eq('the grid is full: Add has no free space for a Large Camera', R.added(X, part.grid, 'camera', 'L', 0), null);
+  eq('placing starts, and the bar says what to do', [part.placeStart('camera', 'L', 0), /^Drag the new Large Camera over the grid/.test(E._.barMessage())], [true, true]);
+  eq('...the outline is made, not shown yet', [v._root.childNodes.filter(function (k) { return k.className.indexOf('hk-ge-target') >= 0; }).length, part.placing.target.style.display], [1, 'none']);
+  eq('...the badges are out of the way, as while a block is carried', v._root.className.split(' ').indexOf('hk-ge-carrying') >= 0, true);
+  // a mouse over the grid, no button down: the outline follows it; Action, Timers and a Wide Clock lie under a Large card at column 1, row 3
+  (globalThis.__winL.pointermove || []).forEach(function (f) { f(ev({ clientX: 100, clientY: 600 })); });
+  eq('held over them: the outline is at their cells and red', [part.placing.at, part.placing.target.classList.contains('replace'), part.placing.target.style.display], [[0, 2], true, '']);
+  eq('...those blocks are dimmed', cells(v).filter(function (c) { return c.className.indexOf('hk-ge-going') >= 0; }).map(function (c) { return c.attrs['data-id']; }).sort(), ['f2', 'lock', 'timers']);
+  eq('...the bar names them, and says Cancel brings them back', E._.barMessage(), 'The Large Camera replaces Action, Timers and Clock here. Cancel puts them back.');
+  eq('...nothing is changed yet', [at(part.grid, 'lock'), part.grid.items.length, part.dirty()], ['0,2 S', 11, false]);
+  (globalThis.__winL.pointermove || []).forEach(function (f) { f(ev({ clientX: 1000, clientY: 100 })); });
+  eq('moved over blocks that are free (the camera\'s own cells: Large over a Large): its own blocks go there', part.placing.plan.removed.map(function (it) { return it.id; }), ['cam']);
+  (globalThis.__winL.pointermove || []).forEach(function (f) { f(ev({ clientX: 1000, clientY: 790 })); });
+  eq('...off the bottom of the grid\'s box, the outline lands on its last row', part.placing.at, [4, 2]);
+  (globalThis.__winL.pointermove || []).forEach(function (f) { f(ev({ clientX: 500, clientY: 1400 })); });
+  eq('...off the grid: no outline, nothing dimmed, the first line again', [part.placing.at, part.placing.target.style.display,
+     cells(v).filter(function (c) { return c.className.indexOf('hk-ge-going') >= 0; }).length, /^Drag the new/.test(E._.barMessage())], [null, 'none', 0, true]);
+  // Escape gives up: nothing changed, every block as it was
+  part.placeAt(100, 600);
+  eq('Escape while held: Edit mode is still on, the card not placed', [part.escape(), part.placing, part.grid.items.length, cells(v).length, E.active() !== null, E._.barMessage()], [true, null, 11, 11, true, 'Cancelled.']);
+  eq('...no block dimmed, the outline gone, the badges back', [cells(v).filter(function (c) { return c.className.indexOf('hk-ge-going') >= 0; }).length,
+     v._root.childNodes.filter(function (k) { return k.className.indexOf('hk-ge-target') >= 0; }).length, v._root.className.split(' ').indexOf('hk-ge-carrying') >= 0], [0, 0, false]);
+  // a finger: down on the grid, over the blocks, up there -- the card drops
+  part.placeStart('camera', 'L', 0);
+  fire(v._root, 'pointerdown', ev({ clientX: 100, clientY: 600, pointerType: 'touch' }));
+  eq('a finger down on the grid aims at once', part.placing.at, [0, 2]);
+  var up = ev({ clientX: 100, clientY: 600, pointerType: 'touch' });
+  (globalThis.__winL.pointerup || []).forEach(function (f) { f(up); });
+  eq('...lifted there: Action, Timers and Clock are replaced by the Camera, Large, at those cells', [part.placing, at(part.grid, 'lock'), at(part.grid, 'timers'), at(part.grid, 'f2'), at(part.grid, 'b1')],
+     [null, null, null, null, '0,2 L']);
+  eq('...the rest as they were, and the layout valid', [at(part.grid, 'clock'), at(part.grid, 'thermo'), at(part.grid, 'f1'), X.valid(part.grid), part.grid.items.length], ['0,0 L', '2,2 T', '3,2 L', true, 9]);
+  eq('...the page shows it: the three cells gone, the new one made', [!!cellOf(v, 'lock'), !!cellOf(v, 'timers'), !!cellOf(v, 'f2'), !!cellOf(v, 'b1')], [false, false, false, true]);
+  eq('...the others\' elements are kept', cellOf(v, 'clock').firstChild, els0[0]);
+  eq('...nothing dimmed, the bar says what went', [cells(v).filter(function (c) { return c.className.indexOf('hk-ge-going') >= 0; }).length,
+     E._.barMessage()], [0, 'Action, Timers and Clock were replaced by Camera. Cancel puts them back.']);
+  eq('...one change: dirty, and Cancel puts the page back as it was', [E.active().dirty(), (E.cancel(), E.active()), v._config === cfgF, !!cellOf(v, 'lock'), !!cellOf(v, 'b1')], [true, null, true, true, false]);
+
+  // the arrow keys and Enter, and a finger lifted off the grid
+  VIEW = v;
+  eq('enter again', E.enter(who(true), { viewEl: v }), true);
+  part = EG.active();
+  part.placeStart('cameras', 'XXL', 0);
+  var key = function (k) { return fire(v._root, 'keydown', ev({ key: k, path: [] })); };
+  (globalThis.__winL.keydown || []).forEach(function (f) { f(ev({ key: 'ArrowDown', path: [] })); });
+  eq('an arrow key, first: the outline in the middle of the grid (a Full Width card spans every column)', part.placing.at, [0, 1]);
+  eq('...a Full Width card there covers the two rows it takes: the Weather, the Music, the Camera and more go', part.placing.plan.removed.length >= 4, true);
+  (globalThis.__winL.keydown || []).forEach(function (f) { f(ev({ key: 'ArrowUp', path: [] })); });
+  eq('...Up, and it is at the top', part.placing.at, [0, 0]);
+  eq('...a button\'s own Enter is not the drop', ((globalThis.__winL.keydown || []).forEach(function (f) { f(ev({ key: 'Enter', path: [{ localName: 'button' }] })); }), !!part.placing), true);
+  fire(v._root, 'pointerdown', ev({ clientX: 500, clientY: 1400, pointerType: 'touch' }));
+  var off = ev({ clientX: 500, clientY: 1400, pointerType: 'touch' });
+  (globalThis.__winL.pointerup || []).forEach(function (f) { f(off); });
+  eq('a finger lifted off the grid gives up: nothing placed, everything as it was', [part.placing, part.grid.items.length, E._.barMessage()], [null, 11, 'Cancelled.']);
+  part.placeStart('cameras', 'XXL', 0);
+  (globalThis.__winL.keydown || []).forEach(function (f) { f(ev({ key: 'ArrowDown', path: [] })); });
+  (globalThis.__winL.keydown || []).forEach(function (f) { f(ev({ key: 'Enter', path: [] })); });
+  eq('Enter drops it where the outline is: the Full Width card replaces what it covers', [part.placing, part.grid.items.slice(-1)[0].card, part.grid.items.slice(-1)[0].size, X.valid(part.grid)], [null, 'cameras', 'XXL', true]);
+  E.cancel();
+  BOARD.home_grid = copy(LAYOUT);
+  key = null;
+},
+function () {
+  H.section('placed over blocks that can move: they make room and none is removed');
+  VIEW = drawn();
+  VIEW.cellBox = function () { return { left: 0, top: 0, width: 1180, height: 800, gap: 10, scale: 1, cols: 6, rows: 4, view: 0 }; };
+  eq('enter', E.enter(who(true), { viewEl: VIEW }), true);
+  var part = EG.active();
+  part.placeStart('camera', 'L', 0);
+  part.placeAt(100, 600);
+  eq('a Large card onto two small tiles, with free cells elsewhere: nothing to remove', [part.placing.plan.removed.length, part.placing.plan.moved.sort(), part.placing.target.classList.contains('replace')], [0, ['lock', 'timers'], false]);
+  eq('...the bar says the others make room', E._.barMessage(), 'The Large Camera goes here; the others make room.');
+  eq('...no block dimmed', cells(VIEW).filter(function (c) { return c.className.indexOf('hk-ge-going') >= 0; }).length, 0);
+  eq('...those two slid aside in the view (their cells, not the draft)', [cellOf(VIEW, 'lock').style.gridColumn !== '1 / span 1', at(part.grid, 'lock')], [true, '0,2 S']);
+  part.placeAt(500, 1400);
+  eq('...off the grid: they are back', [cellOf(VIEW, 'lock').style.gridColumn, cellOf(VIEW, 'lock').style.gridRow], ['1 / span 1', '3 / span 1']);
+  part.placeAt(100, 600);
+  part.placeDrop();
+  eq('dropped: the Camera is there, the two tiles moved, none lost', [at(part.grid, 'b1'), part.grid.items.length, X.valid(part.grid), at(part.grid, 'lock') !== '0,2 S'], ['0,2 L', 8, true, true]);
+  eq('...the bar says it was added', E._.barMessage(), 'Camera added.');
+  E.cancel();
 },
 function () {
   H.section('a view that is not what the settings say: no Edit');

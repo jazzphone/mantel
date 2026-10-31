@@ -31,6 +31,17 @@ const HELP = () => {
       const b = view().cellBox(), cw = (b.width - (b.cols - 1) * b.gap) / b.cols, ch = (b.height - (b.rows - 1) * b.gap) / b.rows;
       return { x: b.left + c * (cw + b.gap) + cw / 2, y: b.top + r * (ch + b.gap) + ch / 2 };
     },
+    // the middle of the cells [c, r] to [c + w, r + h]: where a card w x h cells large is held to land on them
+    blockAt: (c, r, w, h) => {
+      const b = view().cellBox(), cw = (b.width - (b.cols - 1) * b.gap) / b.cols, ch = (b.height - (b.rows - 1) * b.gap) / b.rows;
+      return { x: b.left + c * (cw + b.gap) + (w * cw + (w - 1) * b.gap) / 2, y: b.top + r * (ch + b.gap) + (h * ch + (h - 1) * b.gap) / 2 };
+    },
+    // a card being placed: where its outline is, whether it is the replacing kind, the blocks marked to go
+    placing: () => {
+      const pl = hkEditGrid.active() && hkEditGrid.active().placing;
+      return pl ? { at: pl.at, shown: pl.target.style.display !== 'none', replace: pl.target.classList.contains('replace'),
+                    going: [...view()._root.children].filter(c => c.classList.contains('hk-ge-going')).map(c => c.getAttribute('data-id')).sort() } : null;
+    },
     btn: (id, cls) => { const b = cell(id) && cell(id).querySelector('.hk-ge .' + cls); return b ? box(b) : null; },
     covers: () => [...view()._root.children].filter(c => c.getAttribute('data-id')).map(c => {
       const cv = c.querySelector('.hk-ge');
@@ -205,6 +216,87 @@ async function tiles(inp) {
   pass('tiles (' + how + '): Edit from More; carried to a free cell and onto another, made Wide, removed, added; Done saved and drawn after a reload');
 }
 
+// ------------------------------------------------------------------ a full grid: a card placed over the blocks it replaces
+async function replace(inp) {
+  const board = 'ge-full-' + inp, t = await open('/' + board + '/home', inp === 'finger'), p = t.page, how = inp;
+  await enterFromMore(t);
+  const items = () => p.evaluate(() => hkEditGrid.active().grid.items.map(i => i.id + '@' + i.at.join(',') + ' ' + i.size).sort());
+  const start = await items(), shown0 = await ge(t, 'shown');
+  assert.equal(start.length, 11, 'the grid is full of blocks');
+  assert.equal(await p.evaluate(() => ['S', 'W', 'T', 'L', 'XL'].map(z => hkGridEditor.firstSpace(hkEditGrid.active().grid, z)).every(x => x === null)), true, 'no free space for any size');
+  // Add: the Large Camera has no free space, and its chip is still there to choose
+  const choose = async () => {
+    await tapAt(t, await ge(t, 'barBtn', 'Add'));
+    await p.waitForFunction(() => !!__ge.sheet(), null, { timeout: 5000 });
+    const chip = await p.evaluate(() => { const c = __ge.sheet().querySelector('.chip[data-card="camera"][data-size="L"]'); return c && { replace: c.hasAttribute('data-replace'), disabled: c.disabled, title: c.title }; });
+    assert.deepEqual([chip && chip.replace, chip && chip.disabled], [true, false], 'a size with no free space is offered, marked as one that replaces: ' + JSON.stringify(chip));
+    assert.match(chip.title, /place it over the blocks it replaces/);
+    return chip;
+  };
+  await choose();
+  await shot(t, 'replace-add');
+  await tapAt(t, await ge(t, 'sheetRow', '.chip[data-card="camera"][data-size="L"]'));
+  assert.equal(await p.evaluate(() => !__ge.sheet()), true, 'the sheet closed');
+  assert.match(await ge(t, 'barMsg'), /^Drag the new Large Camera over the grid, onto the blocks it should replace, and let go\. Escape cancels\.$/, 'the bar says what to do');
+  const over = await ge(t, 'blockAt', 0, 2, 2, 2);
+  // held over the lock, Timers and Scenes. A mouse's pointer is enough; a finger goes down on the grid and moves there.
+  const hold = async () => {
+    if (t.finger) { await p.evaluate(([x, y]) => __finger.down(x, y), [over.x + 120, over.y]); for (let i = 1; i <= 8; i++) { await p.evaluate(([x, y]) => __finger.move(x, y), [over.x + 120 - 120 * i / 8, over.y]); await p.waitForTimeout(25); } }
+    else { await p.mouse.move(over.x + 120, over.y); for (let i = 1; i <= 8; i++) { await p.mouse.move(over.x + 120 - 120 * i / 8, over.y); await p.waitForTimeout(25); } }
+    await p.waitForTimeout(350);
+  };
+  await hold();
+  const held = await ge(t, 'placing');
+  assert.deepEqual([held.at, held.shown, held.replace, held.going], [[0, 2], true, true, ['lock', 'scenes', 'timers']], 'held over them: the outline is red, and the three they would replace are dimmed');
+  assert.equal(await ge(t, 'barMsg'), 'The Large Camera replaces Action, Timers and Scenes here. Cancel puts them back.', 'the bar names them');
+  assert.deepEqual(await items(), start, 'nothing is changed while it is held');
+  assert.equal(await p.evaluate(() => getComputedStyle(__ge.cell('lock')).opacity), '0.45', 'the dimmed block is dimmed');
+  await shot(t, 'replace-held');
+  // Escape: given up, every block as it was
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(250);
+  if (t.finger) await p.evaluate(([x, y]) => __finger.up(x, y), [over.x, over.y]); else await p.mouse.move(over.x, over.y - 400);
+  await p.waitForTimeout(300);
+  assert.deepEqual([await ge(t, 'placing'), await items(), await ge(t, 'barMsg'), await p.evaluate(() => !!hkEdit.active())], [null, start, 'Cancelled.', true], 'Escape: nothing placed, Edit mode goes on');
+  assert.deepEqual(await ge(t, 'shown'), shown0, '...every block drawn where it was');
+  // the drop
+  await choose();
+  await tapAt(t, await ge(t, 'sheetRow', '.chip[data-card="camera"][data-size="L"]'));
+  await hold();
+  if (t.finger) await p.evaluate(([x, y]) => __finger.up(x, y), [over.x, over.y]);
+  else { await p.mouse.down(); await p.mouse.up(); }
+  await p.waitForTimeout(700);
+  const placed = await items();
+  assert.deepEqual(placed, start.filter(s => !/^(lock|timers|scenes)@/.test(s)).concat(['b1@0,2 L']).sort(), 'dropped: the three are gone, the Camera took their cells, nothing else moved (' + how + ')');
+  assert.equal(await ge(t, 'barMsg'), 'Action, Timers and Scenes were replaced by Camera. Cancel puts them back.');
+  assert.deepEqual(await ge(t, 'placing'), null, 'placing is over');
+  assert.equal(await p.evaluate(() => hkGridEditor.valid(hkEditGrid.active().grid)), true, '...the layout valid');
+  assert.deepEqual((await ge(t, 'shown')).filter(x => /^(lock|timers|scenes|b1)@/.test(x)), ['b1@0,2 L'], '...the page shows it');
+  assert.equal(await p.evaluate(() => [...__ge.view()._root.children].filter(c => c.classList.contains('hk-ge-going')).length), 0, '...nothing left dimmed');
+  await shot(t, 'replace-dropped');
+  // Cancel: all back
+  await tapAt(t, await ge(t, 'barBtn', 'Cancel'));
+  await p.waitForFunction(() => !hkEdit.active(), null, { timeout: 5000 });
+  assert.deepEqual(await ge(t, 'shown'), shown0, 'Cancel: the page as it was, the three blocks back');
+  assert.deepEqual(await ge(t, 'saved', board), start.map(x => x), '...nothing saved');
+  // again, and Done keeps it
+  await enterFromMore(t);
+  await choose();
+  await tapAt(t, await ge(t, 'sheetRow', '.chip[data-card="camera"][data-size="L"]'));
+  await hold();
+  if (t.finger) await p.evaluate(([x, y]) => __finger.up(x, y), [over.x, over.y]);
+  else { await p.mouse.down(); await p.mouse.up(); }
+  await p.waitForTimeout(700);
+  const want = await items();
+  assert.equal(want.length, 9, 'replaced again');
+  await tapAt(t, await ge(t, 'barBtn', 'Done'));
+  await p.waitForFunction(() => !hkEdit.active(), null, { timeout: 10000 });
+  await p.waitForFunction(([b, w]) => JSON.stringify(__ge.saved(b)) === JSON.stringify(w), [board, want], { timeout: 15000 })
+    .catch(async () => { throw new Error('not saved as arranged: ' + JSON.stringify([await ge(t, 'saved', board), want])); });
+  await close(t, 'replace ' + how);
+  pass('replace (' + how + '): a full grid still offers the card; held over blocks they are dimmed and named, Escape gives up, the drop replaces them, Cancel puts them back, Done saves');
+}
+
 // ------------------------------------------------------------------ the Square screen, from a sheet, Cancel
 async function square(inp) {
   const board = 'ge-square-' + inp, t = await open('/' + board + '/home', inp === 'finger'), p = t.page;
@@ -267,6 +359,7 @@ async function pane(inp) {
   try {
     for (const inp of input.inputs) {
       await tiles(inp);
+      await replace(inp);
       await square(inp);
       await pane(inp);
     }

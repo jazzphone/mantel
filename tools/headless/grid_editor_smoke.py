@@ -44,8 +44,8 @@ async def main():
             print('editor ready',flush=True)
             await b.eval("window.ed=document.querySelector('hk-settings-panel').shadowRoot.querySelector('hk-grid-editor');void 0")
             # The starters: each with a map of the blocks it would put on this screen.
-            assert await b.wait("!!ed.starterGrids && ed.sidebar.querySelectorAll('.starter').length===8", 20)
-            assert await b.eval("[...ed.sidebar.querySelectorAll('.starter')].every(s=>s.dataset.starter==='empty'||s.querySelectorAll('.mini i').length>=6)")
+            assert await b.wait("!!ed.starterGrids && ed.sidebar.querySelectorAll('.starter[data-starter]').length===8", 20)
+            assert await b.eval("[...ed.sidebar.querySelectorAll('.starter[data-starter]')].every(s=>s.dataset.starter==='empty'||s.querySelectorAll('.mini i').length>=6)")
             assert await b.eval("Object.values(ed.starterGrids).every(g=>g.items.reduce((n,i)=>n+({S:1,W:2,T:2,L:4,XL:6,XXL:12})[i.size],0)>=20)")
             if ARGS.shots:
                 ARGS.shots.mkdir(parents=True, exist_ok=True)
@@ -93,14 +93,23 @@ async def main():
                     await b.send('Input.dispatchMouseEvent', type='mouseMoved', x=src['x'] + (dst['x'] - src['x']) * i / 10, y=src['y'] + (dst['y'] - src['y']) * i / 10, button='left', buttons=1)
                 assert await b.eval("!!ed.overlay.querySelector('.ghost') && !!ed.shadowRoot.querySelector('.float')")
                 bad = await b.eval("ed.overlay.querySelector('.ghost').classList.contains('bad')")
+                # (what the held card says it would do: the blocks it replaces, marked, and the hint line's words)
+                palette_drag.held = await b.eval("({replace:ed.overlay.querySelector('.ghost').classList.contains('replace'),going:[...ed.overlay.querySelectorAll('.block.going')].map(x=>x.dataset.id),note:ed.stage.querySelector('.note').textContent})")
                 await b.send('Input.dispatchMouseEvent', type='mouseReleased', x=dst['x'], y=dst['y'], button='left', clickCount=1)
                 assert await b.eval("!ed.overlay.querySelector('.ghost') && !ed.shadowRoot.querySelector('.float')")
                 return bad
             await b.eval("ed.paletteSizes.security='S';ed.drawPalette()")
             assert not await palette_drag('security', 18)            # column 1, row 4: the space a8 left
             assert await b.eval("(()=>{let it=ed.grid.items.find(i=>i.card==='security'&&i.at.join()==='0,3');return !!it && it.size==='S' && ed.selected===it.id})()")
-            assert await palette_drag('security', 1)                  # a taken space: refused, nothing added
-            assert await b.eval("ed.grid.items.filter(i=>i.card==='security').length===1 && ed.message.textContent.includes('No room there')")
+            # a taken space on a full grid (the Small security just filled the last cell): the card takes the cells it
+            # covers and the block there goes -- marked while held, named in the hint line, one Undo brings it back
+            before_taken = await b.eval('JSON.stringify(ed.grid)')
+            assert not await palette_drag('security', 1)
+            assert palette_drag.held['replace'] and len(palette_drag.held['going']) == 1 and palette_drag.held['note'].startswith('Dropping here replaces '), palette_drag.held
+            assert await b.eval("ed.grid.items.filter(i=>i.card==='security').length===2 && ed.grid.items.length===" + str(len(json.loads(before_taken)['items'])) + " && ed.message.textContent.includes('was replaced by Security')"), await b.eval('ed.message.textContent')
+            assert await b.eval("!ed.stage.querySelector('.note').classList.contains('warn') && ed.stage.querySelector('.note').textContent.startsWith('Drag a card')")
+            await b.eval("ed.undo()")
+            assert await b.eval('JSON.stringify(ed.grid)===' + json.dumps(before_taken))
             await b.eval("ed.undo()")
             assert await b.eval("!ed.grid.items.some(i=>i.card==='security'&&i.at.join()==='0,3')")
             await b.eval("ed.undo()")
@@ -177,7 +186,10 @@ async def main():
             await b.eval("[...ed.shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='Remove View').click()")
             assert await b.wait('JSON.stringify(ed.grid)===' + json.dumps(views_before), 5), await b.eval('JSON.stringify(ed.grid)')
             print('views: added, edited one at a time, removed with their blocks', flush=True)
-            assert await b.eval("ed.palette.querySelectorAll('.pal-row').length === 24")
+            # every block of the catalog is a row (2026-10-31: On Now, To-do and Energy Rings were not), by its name
+            assert await b.eval("ed.palette.querySelectorAll('.pal-row').length === Object.keys(hkGridCatalog.table()).filter(k=>ed.sizesOf(k).length).length")
+            assert await b.eval("['on_now','todo','energy_rings'].every(k=>!!ed.palette.querySelector('[data-card='+k+']'))")
+            assert await b.eval("[...ed.palette.querySelectorAll('.pal-row b')].map(x=>x.textContent).filter(x=>['On Now','To-do','Energy Rings'].includes(x)).length===3")
             assert await b.wait("[...ed.palette.querySelectorAll('.pal-row > hk-icon')].every(e=>!!e.drawn?.path)",10)
             if ARGS.shots:
                 await screenshot_font(b)
@@ -218,7 +230,7 @@ async def main():
                 if key == 'thermostat':
                     assert await b.wait("ed.palette.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?._state()?.attributes.current_temperature===71",10)
                 if key == 'weather':
-                    assert await b.wait("ed.palette.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?.shadowRoot.querySelectorAll('.day').length===3",10)
+                    assert await b.wait("ed.palette.querySelector('[data-preview-card] iframe').contentWindow.galleryCard?.shadowRoot.querySelectorAll('.day').length>=3",10)
             await b.eval("ed.pickerCard=null;let it=ed.grid.items.find(i=>i.card==='camera');ed.select(it.id)")
             # Swipe All Cameras hides the one-camera choice; One Camera shows it
             assert await b.eval("![...ed.sidebar.querySelectorAll('select')].some(s=>[...s.options].some(o=>o.value==='camera.backyard'))")

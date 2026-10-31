@@ -111,5 +111,67 @@ ok('a drop is the draft', [where(ed.grid).camera, where(ed.grid).coffee, ed.undo
 ed.undo();
 ok('...and one Undo puts every block back', JSON.stringify(ed.grid), JSON.stringify(house()));
 
+// 9. A CARD DROPPED WHERE THERE IS NO ROOM (2026-10-31, the owner: "if there's no room for the card, let me drag it
+// onto the grid anyway ... it replaces the blocks it covers"; addOver): the others make room when they can, and
+// only when they can't the blocks it covers go, and it takes their cells -- never more than it covers
+g = house(); before = JSON.stringify(g);
+ok('the owner\'s screen is full: no free space for any size', ['S', 'W', 'T', 'L', 'XL'].map(function (z) { return E.firstSpace(g, z); }), [null, null, null, null, null]);
+var o = E.addOver(g, 'camera', 'L', [0, 2]);
+ok('a Large card onto the four small tiles: they go, it takes their cells', o && [o.removed.map(function (it) { return it.id; }), o.moved, where(o.grid).b1, o.grid.items.length],
+   [['coffee', 'fire', 'tread', 'lights'], [], '0,2', 8]);
+ok('...nothing else moves, nothing is resized, the layout is valid', o && [where(o.grid).cal, where(o.grid).weather, where(o.grid).thermo, E.valid(o.grid)], ['2,2', '0,0', '4,2', true]);
+ok('...the new block is the card at the size asked, last, with an id of its own', o && JSON.stringify(o.grid.items[o.grid.items.length - 1]), JSON.stringify({ id: 'b1', card: 'camera', size: 'L', at: [0, 2] }));
+ok('the draft itself is untouched', JSON.stringify(g), before);
+o = E.addOver(g, 'clock', 'L', [1, 2]);
+ok('a Large card half over a small column and the Calendar: only the blocks it covers go', o && o.removed.map(function (it) { return it.id; }).sort(), ['cal', 'fire', 'lights']);
+ok('...the ones it does not cover stay where they are', o && [where(o.grid).coffee, where(o.grid).tread, where(o.grid).thermo], ['0,2', '0,3', '4,2']);
+o = E.addOver(g, 'timers', 'S', [5, 2]);
+ok('a Small card onto a Small block: that one goes, and only that one', o && [o.removed.map(function (it) { return it.id; }), o.grid.items.length, E.valid(o.grid)], [['morning'], 11, true]);
+ok('a card that does not fit the grid there at all: null', [E.addOver(g, 'camera', 'XL', [4, 0]), E.addOver(g, 'camera', 'L', [5, 0]), E.addOver(g, 'camera', 'L', null)], [null, null, null]);
+
+// ...with room somewhere, the others make room instead of going (nothing is lost while there is space)
+var some = house();
+some.items = some.items.filter(function (it) { return it.id !== 'morning' && it.id !== 'relax'; });
+o = E.addOver(some, 'timers', 'S', [0, 2]);
+ok('a free grid: the Small card goes onto the tile and that tile moves to a free place, nothing removed', o && [o.removed, o.moved, where(o.grid).b1, where(o.grid).coffee], [[], ['coffee'], '0,2', '5,2']);
+ok('...valid, and no block changed size', o && [E.valid(o.grid), o.grid.items.length], [true, 10]);
+o = E.addOver(some, 'camera', 'L', [0, 2]);
+ok('...a Large card onto the four small tiles with only two cells free: they can\'t all go there, so they are replaced', o && [o.removed.length, o.moved],
+   [4, []]);
+var open = house();
+open.items = open.items.filter(function (it) { return ['coffee', 'fire', 'tread', 'lights', 'morning', 'relax'].indexOf(it.id) < 0; });
+o = E.addOver(open, 'camera', 'L', [4, 2]);
+ok('...with the room for the thermostat and a Large card, they make room and nothing is removed', o && [o.removed.length, o.moved.length > 0, E.valid(o.grid)], [0, true, true]);
+o = E.addOver(open, 'timers', 'S', [0, 2]);
+ok('nothing in the way: it goes there, nothing moved or removed', o && [o.removed, o.moved, where(o.grid).b1], [[], [], '0,2']);
+
+// ...never past 24 blocks: a card onto a free cell is refused at 24, onto a block it replaces it
+var many = grid(6, 4, []);
+for (var i = 0; i < 24; i++) many.items.push(b('c' + i, 'timers', 'S', [i % 6, Math.floor(i / 6)]));
+ok('24 blocks: a card onto one replaces it (still 24)', (function () { var r2 = E.addOver(many, 'clock', 'S', [0, 0]); return r2 && [r2.removed.length, r2.grid.items.length]; })(), [1, 24]);
+many.items.pop();
+ok('...23 blocks and a free cell: it goes there', (function () { var r2 = E.addOver(many, 'clock', 'S', [5, 3]); return r2 && [r2.removed.length, r2.grid.items.length]; })(), [0, 24]);
+
+// a block is covered only in the view it is added to
+var two = grid(6, 4, [b('a', 'weather', 'L', [0, 0]), b('v1', 'weather', 'L', [0, 0], 1), b('z', 'timers', 'S', [5, 3])], { views: 2 });
+o = E.addOver(two, 'camera', 'L', [0, 0], 1);
+ok('another view\'s blocks are never covered: the block in view 1 makes room, the one in view 0 stays', o && [o.removed, o.moved, where(o.grid).a, o.grid.items.slice(-1)[0].view], [[], ['v1'], '0,0', 1]);
+
+ok('what goes, in words', [E.listOf([{ card: 'camera' }]), E.listOf([{ card: 'camera' }, { card: 'clock' }]),
+   E.listOf([{ card: 'camera' }, { card: 'clock' }, { card: 'people' }]), E.listOf([{ card: 'camera' }, { card: 'clock' }, { card: 'people' }, { card: 'vacuum' }, { card: 'timers' }])],
+   ['Camera', 'Camera and Clock', 'Camera, Clock and People', '5 blocks']);
+
+// 10. ...dropped in the editor: one step, and one Undo puts every block back (the blocks that went too)
+ed.grid = house(); ed.undoStack = []; ed.selected = null;
+ed.panel.client = { states: {}, entities: {}, devices: {}, areas: {} };
+ed.addCard('camera', 'L', [0, 2]);
+ok('the drop is the draft: the four are gone, the card is there, the editor says so', [ed.grid.items.length, ed.grid.items.some(function (it) { return it.id === 'coffee'; }), where(ed.grid).b1, ed.undoStack.length],
+   [8, false, '0,2', 1]);
+ok('...the message says how many went and that Undo brings them back', /^4 blocks were replaced by Camera\. Undo \(⌘Z\) puts them back\.$/.test(ed.message.textContent), true);
+ed.undo();
+ok('...one Undo puts every block back', JSON.stringify(ed.grid), JSON.stringify(house()));
+ed.addCard('timers', 'S');
+ok('the Add button\'s own place is the first free one: none on a full grid, and it says what to do', [ed.grid.items.length, /drag the card onto the blocks it should replace/.test(ed.message.textContent)], [11, true]);
+
 print('');
 print(fail ? 'FAILED ' + fail + ' of ' + (pass + fail) : 'ALL ' + pass + ' GRID ROOM TESTS PASS');
