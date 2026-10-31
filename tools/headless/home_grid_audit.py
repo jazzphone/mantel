@@ -318,9 +318,10 @@ MEASURE = r"""(() => {
     }
     if (minFont < 11) rec.issues.push('text under the type roles: ' + minFont + ' px in ' + name(small));
     rec.min_font = minFont;
-    // (square cells: HomeView's 34 on the block, as a corner of the scale)
+    // (square cells: HomeView's 34 on the block, as a corner of the scale, and the pills inside following it --
+    // --hk-inner-radius, 34 less the block's 18 px inset: 16)
     const SQUARE = view.getAttribute('cell') === 'square', PLATE = SQUARE ? 34 : 23.5;
-    const SCALE = [23.5, 22, 20, 12, 8, 0].concat(SQUARE ? [34] : []);
+    const SCALE = [23.5, 22, 20, 12, 8, 0].concat(SQUARE ? [34, 16] : []);
     let outer = null, outerA = 0;
     for (const el of all) {
       if (!shown(el)) continue; const cs = getComputedStyle(el);
