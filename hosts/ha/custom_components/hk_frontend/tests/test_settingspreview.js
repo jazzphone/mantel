@@ -23,10 +23,10 @@ var P = customElements.get('hk-settings-panel').prototype;
 print('=== the frame’s address ===');
 function pg(host) { var p = Object.create(P); p._host = host; p._pv = { path: 'dashboard-kitchen', view: '0' }; return p; }
 var withPage = pg({ saverPage: true, screenBase: '/base' }), without = pg(null);
-ok('the screensaver’s pages, on a host with a page of only the screensaver: that page', P.previewSrc.call(withPage, true),
+ok('the screensaver’s pages, on a host with a page of only the screensaver: that page', P.previewSrc.call(withPage, 'saver'),
    '/base/dashboard-kitchen/0?hk_kiosk=on&kiosk&wp_enabled=false&hk_preview=saver');
-ok('...any other page: the screen, as the preview always loaded it', P.previewSrc.call(withPage, false), '/base/dashboard-kitchen/0?hk_kiosk=on&kiosk&wp_enabled=false');
-ok('a host without one: the screen on every page', P.previewSrc.call(without, true), '/dashboard-kitchen/0?hk_kiosk=on&kiosk&wp_enabled=false');
+ok('...any other page: the screen, as the preview always loaded it', P.previewSrc.call(withPage, null), '/base/dashboard-kitchen/0?hk_kiosk=on&kiosk&wp_enabled=false');
+ok('a host without one: the screen on the screensaver’s pages too', P.previewSrc.call(without, 'saver'), '/dashboard-kitchen/0?hk_kiosk=on&kiosk&wp_enabled=false');
 ok('the screen’s address as the preview column makes it (so nothing loads again for nothing)',
    SRC.indexOf("fr.src = mbase + '/' + path + '/' + view + '?hk_kiosk=on&kiosk&wp_enabled=false';") >= 0, true);
 
@@ -62,7 +62,9 @@ ok('no preview showing: kept for when it does, nothing asked of the frame', [f.h
 
 print('=== the frame kept across a redraw ===');
 ok('a preview not pinned is kept (pinned compared as true or false, not undefined against false)', /!!this\._pv\.pinned === pinned/.test(SRC), true);
-ok('...and the frame waits for its new page before it is asked anything', /fr\.setAttribute\('src', want\);\s*fr\.addEventListener\('load'/.test(SRC), true);
+ok('...its address changed in one place, never on a redraw (frameSrc)', /if \(want && fr\.getAttribute\('src'\) !== want\) fr\.setAttribute\('src', want\);/.test(SRC), true);
+ok('...and a frame on its way to the screensaver alone, or back, is asked nothing until it is there',
+   /if \(\/hk_preview=saver\/\.test\(bound\) !== \/hk_preview=saver\/\.test\(at\)\) return false;/.test(SRC), true);
 
 print(fail ? 'FAIL ' + fail + ' SETTINGS PREVIEW TESTS' : 'ALL ' + pass + ' SETTINGS PREVIEW TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

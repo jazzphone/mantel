@@ -141,7 +141,8 @@
   var DETAIL_WAIT = 15000;
   // what the preview says under it: the screen, live; or the screensaver alone, each change as it is made
   var PV_SAYS = { screen: 'Live: changes show here within seconds. A generated screen rebuilds itself within about ten.',
-                  saver: 'The screensaver alone, with live weather, music and photos: each change shows here as you make it.' };
+                  saver: 'The screensaver alone, with live weather, music and photos: each change shows here as you make it.',
+                  look: 'This screen’s look with a few of its cards on it: changes show here within moments.' };
   function loadCards() {
     if (cardsReady) return cardsReady;
     cardsReady = (async function () {
@@ -1248,6 +1249,9 @@
       this.skyPreview(pg.preview ? pg.sky : null);
       this._saverEnergy = !!pg.saverEnergy;
       this._saverWx = !!pg.saverWeather;
+      // what the frame shows: the screen, the screensaver alone, or the look alone (previewSrc)
+      this._frameMode = pg.preview ? (pg.saverPreview ? 'saver' : pg.lookPreview ? 'look' : null) : null;
+      this.frameSrc();
       this.saverPreview(!!(pg.preview && pg.saverPreview), !!pg.saverHouse);
       this.panePreview(!!(pg.preview && pg.paneHouse));
     }
@@ -1309,25 +1313,17 @@
       // while its settings change, so a crop or a blur can be judged
       var shape = this._saverEnergy ? 'energy' : this._saverWx ? 'weather' : this._saverShape || '';
       if (!on) this._saverOver = null;
+      // (a frame on its way to the screensaver alone, or back, is asked nothing until it is there: its old page
+      // would answer -- frameSrc changes its address)
+      var bound = this.previewSrc(this._frameMode);
       var go = function () {
-        var S = null;
-        try { S = fr.contentWindow && fr.contentWindow.hkSaver; } catch (e) { /* not ours */ }
+        var S = null, at = '';
+        try { S = fr.contentWindow && fr.contentWindow.hkSaver; at = fr.contentWindow.location.search; } catch (e) { /* not ours */ }
+        if (/hk_preview=saver/.test(bound) !== /hk_preview=saver/.test(at)) return false;
         if (S && typeof S.preview === 'function') { S.preview(on, shape || null, !!house, on ? self._saverOver : null); return true; }
         return false;
       };
-      // THE SCREENSAVER ALONE (2026-10-31): a host with a page of only the screensaver (its settingsHost's
-      // saverPage) shows that in the frame while these pages are open -- the screen's own size, no dashboard behind
-      // it -- and the screen again once they are left: the frame's address changes (one short load), and nothing is
-      // asked of it until its new page is up
-      var want = this.previewSrc(on), says = col.querySelector('.pvsays');
-      if (says) says.textContent = /hk_preview=saver/.test(want) ? PV_SAYS.saver : PV_SAYS.screen;
-      if (fr.getAttribute('src') !== want) {
-        fr.setAttribute('src', want);
-        fr.addEventListener('load', function () {
-          if (go()) return;
-          self._saverWait = setInterval(function () { if (go() || ++n > 80) clearInterval(self._saverWait); }, 250);
-        }, { once: true });
-      } else if (!go()) self._saverWait = setInterval(function () { if (go() || ++n > 80) clearInterval(self._saverWait); }, 250);
+      if (!go()) self._saverWait = setInterval(function () { if (go() || ++n > 80) clearInterval(self._saverWait); }, 250);
       if (on && (this._saverEnergy || this._saverWx)) {
         box.parentNode.insertBefore(h('div', { class: 'pvsaver' }, [h('p', { class: 'gf',
           text: (this._saverWx ? 'The weather' : 'Home Energy') + ' as this screen shows it, held while you change these. Only this preview changes.' })]), box.nextSibling);
@@ -1353,12 +1349,22 @@
       this._saverOver = o && typeof o === 'object' ? o : null;
       if (this._saverWas) this.saverPreview(true);
     }
-    // the preview frame's address: the screen, or the screensaver alone (saverPreview)
-    previewSrc(saverOnly) {
+    // THE PREVIEW FRAME'S ADDRESS (2026-10-31, the owner: "just what they're changing"): the screen; on the
+    // screensaver's pages the screensaver alone, where the host has a page of only that (its settingsHost's
+    // saverPage); on the Appearance pages the look alone -- the screen with a few of its cards (hk-strategy.js
+    // lookSample). Changed when a page asks for another (one short load), never on a redraw.
+    previewSrc(mode) {
       var pv = this._pv, x = this.host();
       if (!pv) return '';
-      return this.hostScreenBase() + '/' + pv.path + '/' + (pv.view || '0') + '?hk_kiosk=on&kiosk&wp_enabled=false' +
-        (saverOnly && x && x.saverPage === true ? '&hk_preview=saver' : '');
+      var q = mode === 'saver' && x && x.saverPage === true ? '&hk_preview=saver' : mode === 'look' ? '&hk_preview=look' : '';
+      return this.hostScreenBase() + '/' + pv.path + '/' + (pv.view || '0') + '?hk_kiosk=on&kiosk&wp_enabled=false' + q;
+    }
+    frameSrc() {
+      var col = this.pageEl.querySelector('.pvcol'), fr = col && col.querySelector('.pvbox iframe');
+      if (!fr) return;
+      var want = this.previewSrc(this._frameMode), says = col.querySelector('.pvsays');
+      if (says) says.textContent = /hk_preview=saver/.test(want) ? PV_SAYS.saver : /hk_preview=look/.test(want) ? PV_SAYS.look : PV_SAYS.screen;
+      if (want && fr.getAttribute('src') !== want) fr.setAttribute('src', want);
     }
 
     // THE SKY'S PREVIEW. On the Sky page the preview frame shows today's own
@@ -1965,6 +1971,8 @@
       var mk = function (title, body, backTo) {
         return { title: title, back: backTo || [x.title, base], preview: path, body: body };
       };
+      // (the Appearance pages: the look alone in the preview)
+      var mkl = function (title, body, backTo) { return Object.assign(mk(title, body, backTo), { lookPreview: true }); };
       // A SCREEN'S MENU SETTINGS (2026-10-29): the kinds it uses, each the
       // page All Screens' is, every setting Same as All Screens until it is
       // its own (menu_own); its menu on each device is set on its page alone
@@ -1985,16 +1993,16 @@
       // APPEARANCE (2026-10-29): one row on the screen's page, this page laid
       // out as All Screens' Appearance
       var ab = ['Appearance', base + '/appearance'];
-      if (s === 'appearance') return mk('Appearance', function (c) { self.s_appearance(c, x, b); });
+      if (s === 'appearance') return mkl('Appearance', function (c) { self.s_appearance(c, x, b); });
       if (s === 'sidepane') return this.p_sidePane(path, sub.slice(1), [x.title, base]);
       // NOW PLAYING OPTIONS (2026-10-30): the screen's own Now Playing, laid
       // out as All Screens' (its rows were under Behavior on its page)
       if (s === 'nowplaying') return mk('Now Playing Options', function (c) { self.s_nowPlaying(c, x, b); });
       // LOOKS (2026-10-30, hk_core looks.py): a whole look in one step, and its Undo
       var lb = ['Looks', base + '/looks'];
-      if (s === 'looks' && sub[1] && M.lookOf(sub[1])) return mk(M.lookOf(sub[1]).name, function (c) { self.lookPage(c, x, b, M.lookOf(sub[1]), base); }, lb);
-      if (s === 'looks') return mk('Looks', function (c) { self.looksPage(c, x, b, base); });
-      if (s === 'accent') return mk('Accent Color', function (c) { self.accentPage(c, x, b); }, ab);
+      if (s === 'looks' && sub[1] && M.lookOf(sub[1])) return mkl(M.lookOf(sub[1]).name, function (c) { self.lookPage(c, x, b, M.lookOf(sub[1]), base); }, lb);
+      if (s === 'looks') return mkl('Looks', function (c) { self.looksPage(c, x, b, base); });
+      if (s === 'accent') return mkl('Accent Color', function (c) { self.accentPage(c, x, b); }, ab);
       if (s === 'menu-pages' && x.generated) s = 'pages';
       if (s === 'menu-pages') return mk('Pages in Menu', function (c) { self.s_menuPages(c, x, b); });
       if (s === 'chips' && sub[1]) return mk(M.CHIP_LABELS[sub[1]] || sub[1], function (c) { self.s_chip(c, x, b, sub[1]); },
@@ -2014,31 +2022,31 @@
         return mk('Pages Screen', function (c) { self.pagesScreenPage(c, sps); });
       }
       if (s === 'page-headers') return mk('Page Headers', function (c) { self.s_pageHeaders(c, x, b); });
-      if (s === 'sky' && sub[1] === 'backdrop') return mk('Sky Colors', function (c) { self.s_backdrop(c, x, b); }, ['Background', base + '/sky']);
+      if (s === 'sky' && sub[1] === 'backdrop') return mkl('Sky Colors', function (c) { self.s_backdrop(c, x, b); }, ['Background', base + '/sky']);
       if (s === 'sky' && sub[1] === 'landscape') {
-        return mk('Choose a Landscape', function (c) {
+        return mkl('Choose a Landscape', function (c) {
           self.landscapePick(c, { value: b.sky_landscape || null, house: self.data.settings.sky.landscape || 'every:1440', fk: 'blandpick',
                                   onSet: function (v) { self.setB(x.path, { sky_landscape: v, sky: true }); } });
         }, ['Background', base + '/sky']);
       }
-      if (s === 'sky' && sub[1] === 'pages') return mk('Background', function (c) { self.s_sky(c, x, b); }, ab);
+      if (s === 'sky' && sub[1] === 'pages') return mkl('Background', function (c) { self.s_sky(c, x, b); }, ab);
       if (s === 'sky' && sub[1] === 'lively' && sub[2]) {
         var locc = decodeURIComponent(sub[2]);
-        return mk(M.livelyOccLabel(locc), function (c) { self.livelyGroup(c, locc, null, { b: b, path: path }); },
+        return mkl(M.livelyOccLabel(locc), function (c) { self.livelyGroup(c, locc, null, { b: b, path: path }); },
                   ['Each Occasion', base + '/sky/lively']);
       }
       if (s === 'sky' && sub[1] === 'lively') {
-        return mk('Each Occasion', function (c) { self.livelyList(c, { b: b, path: path, base: base }); }, ['Background', base + '/sky']);
+        return mkl('Each Occasion', function (c) { self.livelyList(c, { b: b, path: path, base: base }); }, ['Background', base + '/sky']);
       }
       if (s === 'sky' && sub[1] === 'page' && sub[2]) {
         var skey = decodeURIComponent(sub[2]);
         var srow = this.skyRow(skey, b), sflat = this.flatHere(b);
-        return mk(srow ? srow.label : 'Page', function (c) { if (srow) { if (sflat) self.flatPagePicker(c, x, b, srow, base + '/sky'); else self.pagePicker(c, x, b, srow); } },
+        return mkl(srow ? srow.label : 'Page', function (c) { if (srow) { if (sflat) self.flatPagePicker(c, x, b, srow, base + '/sky'); else self.pagePicker(c, x, b, srow); } },
                   srow && srow.room ? ['Room Pages', base + '/sky/page/rooms'] : ['Background', base + '/sky']);
       }
-      if (s === 'sky') return mk('Background', function (c) { self.s_sky(c, x, b); }, ab);
-      if (s === 'glass') return mk('Appearance Style', function (c) { self.s_glass(c, x, b); }, ab);
-      if (s === 'flat-colors') return this.p_flatColors('screen', x, b, sub.slice(1), mk, ab);
+      if (s === 'sky') return mkl('Background', function (c) { self.s_sky(c, x, b); }, ab);
+      if (s === 'glass') return mkl('Appearance Style', function (c) { self.s_glass(c, x, b); }, ab);
+      if (s === 'flat-colors') return this.p_flatColors('screen', x, b, sub.slice(1), mkl, ab);
       if (s === 'copy') return mk('Copy Settings', function (c) { self.s_copy(c, x, b); });
       // SLEEP SCREEN is each tablet's since 1.14: a screen's old address opens
       // its (first) tablet's
@@ -5101,16 +5109,13 @@
         return { title: title, top: true, scope: 'Applies to every screen that doesn’t choose its own.', body: function (c) { self.h_nowPlaying(c); } };
       }
       if (page === 'appearance') {
-        if (sub[0] === 'glass') return mk('Appearance Style', function (c) { self.h_glass(c); });
-        if (sub[0] === 'accent') return mk('Accent Color', function (c) { self.accentPage(c, null, null); });
-        // SKY / BACKGROUND (its own sidebar entry until 2026-10-29)
-        if (sub[0] === 'sky') return this.houseSky(sub.slice(1));
-        if (sub[0] === 'flat-colors') return this.p_flatColors('house', null, null, sub.slice(1), mk, [title, base]);
-        if (sub[0] === 'pills') return mk('Page Pills', function (c) { self.h_pills(c); });
-        if (sub[0] === 'pill' && sub[1]) {
-          return mk(M.PAGE_LABELS[sub[1]] || sub[1], function (c) { self.s_pill(c, null, null, sub[1]); }, ['Page Pills', base + '/pills']);
-        }
-        return { title: title, top: true, scope: 'Applies to every screen that doesn’t choose its own.', body: function (c) { self.h_appearance(c); } };
+        // THE PREVIEW (2026-10-31): the look alone, on a screen that follows All Screens' Appearance (none: no
+        // preview, as before)
+        // (the Background's pages pick their own screen for the sky's themes: kept)
+        var lp = this.lookFollower(), hr = this.houseAppearance(sub, mk, base, title);
+        if (hr && !hr.preview && lp) hr.preview = lp;
+        if (hr && hr.preview) hr.lookPreview = true;
+        return hr;
       }
       if (page === 'menu') {
         // ALL SCREENS -> MENU (2026-10-29): each kind of menu a page of its own
@@ -6365,6 +6370,30 @@
       return gl.own ? 'Just This Screen' : 'Same as All Screens';
     }
     // ALL SCREENS' SKY / BACKGROUND (under Appearance since 2026-10-29)
+    // ALL SCREENS -> APPEARANCE's pages (p_house): Style, Accent, Background, Flat Colors, Page Pills, the page itself
+    houseAppearance(sub, mk, base, title) {
+      var self = this;
+      if (sub[0] === 'glass') return mk('Appearance Style', function (c) { self.h_glass(c); });
+      if (sub[0] === 'accent') return mk('Accent Color', function (c) { self.accentPage(c, null, null); });
+      // SKY / BACKGROUND (its own sidebar entry until 2026-10-29)
+      if (sub[0] === 'sky') return this.houseSky(sub.slice(1));
+      if (sub[0] === 'flat-colors') return this.p_flatColors('house', null, null, sub.slice(1), mk, [title, base]);
+      if (sub[0] === 'pills') return mk('Page Pills', function (c) { self.h_pills(c); });
+      if (sub[0] === 'pill' && sub[1]) {
+        return mk(M.PAGE_LABELS[sub[1]] || sub[1], function (c) { self.s_pill(c, null, null, sub[1]); }, ['Page Pills', base + '/pills']);
+      }
+      return { title: title, top: true, scope: 'Applies to every screen that doesn’t choose its own.', body: function (c) { self.h_appearance(c); } };
+    }
+    // THE SCREEN ALL SCREENS' APPEARANCE PAGES PREVIEW: one that follows them (none of its own set -- unset, or
+    // `house`, Same as All Screens), else the first screen, as the screensaver's All Screens page does
+    lookFollower() {
+      var bd = (this.data && this.data.boards) || {}, keys = Object.keys(bd);
+      var own = ['flat', 'flat_theme', 'glass', 'tab_bar_glass', 'tile_style', 'sky_background', 'sky_color', 'sky_wallpaper'];
+      return keys.filter(function (p) {
+        var b = bd[p] || {};
+        return b.sky !== false && !own.some(function (k) { return b[k] !== undefined && b[k] !== null && b[k] !== 'house'; });
+      })[0] || keys[0] || null;
+    }
     houseSky(sub) {
       var self = this, base = '#/house/appearance/sky', title = 'Background';
       var scope = 'Applies to every screen.';

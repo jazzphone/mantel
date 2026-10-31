@@ -44,6 +44,8 @@ SHOWS = {
     # Settings' preview, just what is changing (2026-10-31): the screensaver alone in the frame on its pages, a change
     # shown in place, the screen again once they are left
     'saver-preview': ({'show': 'clock', 'clock_bg': 'gradient', 'clock_style': 'classic'}, 'preview'),
+    # ...and on the Appearance pages the look alone: the screen with a few of its cards, a change there in moments
+    'look-preview': ({'show': 'photos'}, 'look'),
 }
 
 
