@@ -135,6 +135,7 @@
   // The dashboards' own modules, for an accessory's settings: the settings
   // feed they read, the glyphs, the detail sheet's pane.
   var cardsReady = null;
+  var DETAIL_WAIT = 15000;
   function loadCards() {
     if (cardsReady) return cardsReady;
     cardsReady = (async function () {
@@ -145,6 +146,17 @@
         var t = tries[i];
         if (t[0] === 'customIconsets' ? (window.customIconsets && window.customIconsets.hk) : window[t[0]]) continue;
         try { await import(t[1] + '?v=' + v); } catch (e) { console.warn('[hk-settings] ' + t[1], e); }
+      }
+      // ...AND ITS SHEETS: hk-detail.js sets window.hkDetail only once it has fetched its panels (web/hk/sheets/),
+      // a moment after its own import has returned -- so an accessory's page opened first thing (a search, a
+      // link, a reload) found no detail and said it "couldn't load" (2026-10-31, the owner). It says when it is
+      // up (hk-detail-ready); never waited for longer than DETAIL_WAIT, and tried again next time if it never came
+      if (!window.hkDetail) {
+        await new Promise(function (done) {
+          var t = setTimeout(done, DETAIL_WAIT);
+          window.addEventListener('hk-detail-ready', function () { clearTimeout(t); done(); }, { once: true });
+        });
+        if (!window.hkDetail) cardsReady = null;
       }
     })();
     return cardsReady;
