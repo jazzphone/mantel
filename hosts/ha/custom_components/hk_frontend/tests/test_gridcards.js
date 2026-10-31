@@ -85,6 +85,18 @@ function () {
   var sc = window.hkCards.createCard(window.hkGridCatalog.config({ card: 'scene', size: 'S', opts: { scene: 'scene.good_night' } }), client);
   sc.setAttribute('tile', 'centred'); sc.attributeChangedCallback('tile', null, 'centred'); sc.client = client;
   eq('a scene: centred, its line says it is one', [sc._child.getAttribute('tile'), sc._child._config.room], ['centred', 'Scene']);
+  // (2026-10-31, the owner) a chosen Line Under Name wins over the room; every glyph the block's size, in its circle when on
+  var st = window.hkCards.createCard(window.hkGridCatalog.config({ card: 'accessory', size: 'S', opts: { entity: 'lock.front_door', secondary: { mode: 'state' } } }), client);
+  st.setAttribute('tile', 'centred'); st.attributeChangedCallback('tile', null, 'centred'); st.client = client;
+  eq('Centred with Line Under Name: State -- no room, the state line', ['room' in st._child._config, st._child._config.secondary], [false, { mode: 'state' }]);
+  var c0 = acc._config, made = null;
+  var tileOf = window.hkStrategy.tileFor;
+  window.hkStrategy.tileFor = function () { return { type: 'custom:hk-tall-card', entity: 'lock.front_door', icon: 'hk:alarm-light-off', icon_size: '27px', bare_icon: true, well_background: 'transparent' }; };
+  acc.setAttribute('tile', 'centred'); made = acc._tile();
+  eq('...a glyph drawn bare at a room page\'s 27 px takes the block\'s size and circle', ['icon_size' in made, 'bare_icon' in made, 'well_background' in made], [false, false, false]);
+  acc.removeAttribute('tile'); made = acc._tile();
+  eq('...on a Home block it stays as the room page draws it', [made.icon_size, made.bare_icon], ['27px', true]);
+  window.hkStrategy.tileFor = tileOf; void c0;
   window.hkCards.createCard = factory;
   // the CSS: one variant, the tiles' own parts, from the table (hk-base.js TILE.centred)
   var tileCss = customElements.get('hk-tile-card').CSS, keyCss = customElements.get('hk-action-card').CSS, T = window.hkCards.TILE.centred;

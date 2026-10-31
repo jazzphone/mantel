@@ -62,6 +62,16 @@ async def homeview():
                 HG.check(vac)
                 gallery.SETTINGS['boards'][name+'-vacuum']=dict(gallery.SETTINGS['boards'][name],home_grid=vac)
                 screens.append({'screen':name+'-vacuum','sizes':['1180x820','390x844']})
+                # ...and Accessory blocks Centred (2026-10-31, the owner): the alarm armed, its glyph the block's size,
+                # not a room page's 27 px; a lamp whose Line Under Name is State says its state, not its room
+                gallery.HOUSE['alarm_control_panel.bedroom'] = ('bedroom', ('armed_home', {'friendly_name': 'Bedroom Alarm', 'code_format': 'number'}))
+                acc={'v':1,'cols':3,'rows':3,'frame':[1180,820],'band':False,'grow':True,'cell':'square','items':[
+                    {'id':'a1','card':'accessory','size':'S','at':[0,0],'opts':{'entity':'alarm_control_panel.bedroom'}},
+                    {'id':'a2','card':'accessory','size':'S','at':[1,0],'opts':{'entity':'alarm_control_panel.bedroom','secondary':{'mode':'state'}}},
+                    {'id':'a3','card':'accessory','size':'S','at':[2,0],'opts':{'entity':'alarm_control_panel.home'}}]}
+                HG.check(acc)
+                gallery.SETTINGS['boards'][name+'-acc']=dict(gallery.SETTINGS['boards'][name],home_grid=acc)
+                screens.append({'screen':name+'-acc','sizes':['1180x820']})
             # ...and Home with Pane at 4 columns (2026-10-30, the owner's "I could easily do 4"), the pane beside it
             if key=='sq_pane':
                 four=json.loads(json.dumps(grid)); four['cols']=4; four['rows']=4

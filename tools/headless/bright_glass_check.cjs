@@ -120,7 +120,36 @@ function sheetContrast() {
       const count = await page.evaluate(() => document.getElementById('hk-tabbar').shadowRoot.querySelectorAll('[data-sheet="rooms"] .roomgrid .it').length);
       say(count >= 4, size + ' the Rooms sheet lists the rooms', count);
       say(!lines.length, size + ' no room name cut short', lines);
+      // ...each room an app icon in its own colour, and on a tablet a big sheet with the page all round it
+      // (2026-10-31, the owner: "a lot bigger on the tablet, as long as there is enough room around it to tap out")
+      const geo = await page.evaluate(() => {
+        const sr = document.getElementById('hk-tabbar').shadowRoot, sh = sr.querySelector('[data-sheet="rooms"]').getBoundingClientRect();
+        const ai = [...sr.querySelectorAll('[data-sheet="rooms"] .roomgrid .it .ai')];
+        return { left: Math.round(sh.left), right: Math.round(innerWidth - sh.right), top: Math.round(sh.top), width: Math.round(sh.width), icons: ai.length,
+                 colours: new Set(ai.map((a) => a.style.background)).size, side: ai[0] ? Math.round(ai[0].getBoundingClientRect().width) : 0 };
+      });
+      say(geo.icons === count && geo.colours >= Math.min(count, 4), size + ' each room an app icon in its own colour', geo);
+      if (Math.min(width, height) >= 600) {
+        say(geo.left >= 72 && geo.right >= 72 && geo.top >= 90 && geo.side === 76 && geo.width >= Math.min(1040, width - 144) - 1,
+            size + ' ...a tablet\'s sheet as big as leaves 72 px of page each side, its icons 76 px', geo);
+      }
       await shot('rooms');
+      // MORE WITH THE ROOMS IN IT (the screen's Rooms in More): the pages in their colours, the rooms in theirs
+      await go('/' + input.more + '/home');
+      const more = await page.evaluate(() => {
+        const sr = document.getElementById('hk-tabbar').shadowRoot, btn = sr.querySelector('.tab[data-t="more"]');
+        if (!btn) return null;
+        btn.click();
+        return true;
+      });
+      await page.waitForTimeout(1200);
+      const mi = await page.evaluate(() => {
+        const sr = document.getElementById('hk-tabbar').shadowRoot, sh = sr.querySelector('[data-sheet="more"]');
+        const rooms = [...sh.querySelectorAll('.roomgrid .it .ai')], pages = [...sh.querySelectorAll('.pages .it .ai')];
+        return { open: sh.classList.contains('open'), rooms: rooms.length, pages: pages.length, plain: [...sh.querySelectorAll('.grid .it')].filter((it) => !it.querySelector('.ai')).length };
+      });
+      say(more && mi.open && mi.rooms >= 4 && mi.plain === 0, size + ' More with the rooms in it: every page and room an app icon', mi);
+      await shot('more');
       await go('/' + input.menu + '/home');
       await page.evaluate(() => {
         if (window.hkMenu && !(window.hkMenu.docked && window.hkMenu.docked())) window.hkMenu.open();

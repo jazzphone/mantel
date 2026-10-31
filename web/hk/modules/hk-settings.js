@@ -695,8 +695,12 @@
     var here = '';
     try { here = decodeURIComponent((String(location.pathname).split('/')[2] || '').split('?')[0]); } catch (e) { return true; }
     if (!here || here === '0' || here === 'home') return true;
-    var M = window.hkCards && window.hkCards.menu, cfg = M && M.config ? M.config() : null, v0 = cfg && cfg.views && cfg.views[0];
-    return !!(v0 && v0.path === here);
+    var M = window.hkCards && window.hkCards.menu, cfg = M && M.config ? M.config() : null, vs = (cfg && cfg.views) || [];
+    if (vs[0] && vs[0].path === here) return true;
+    // ...and the Pages screen, Home's other half: it wears Home's background
+    // (the owner, 2026-10-31: Bright Glass's Home Only "should apply to the
+    // Pages Screen, right? Since they are essentially shared")
+    return vs.some(function (v) { return v && v.pages_screen && String(v.path) === here; });
   }
   // Sky / Background (HK Settings -> Sky / Background; a screen's own on
   // its Screen page): this page's sky look, resolved like glass() -- this

@@ -1320,6 +1320,30 @@ screensaver faces, Bright Glass). The other eleven were shot in WebKit beside th
   face's stills are soft for a moment after a ring, until each reloads; Weather Tall and XL and Now Playing Tall on
   square cells keep their empty middles, for the widget pass the owner's references start.
 
+**2026-10-31, More and Rooms as app icons; Home Only takes in the Pages screen; the All Screens Side Pane preview.**
+The owner picked from a mock-up of three (round wells, bare glyphs, app icons): "App Icons, Roomy, and the Rooms
+having their own Color". Every page and room in the tab bar's More and Rooms sheets, and in More with the rooms in
+it, is the Pages screen's app icon: a rounded square, lighter at the top. A page takes its accent, a room its tint by
+its place in the menu's rooms, so a room is the same colour on both. Anything else (Home Assistant's pages,
+Notifications, This Page) is grey; Calendar shows the day's date. `hkCards.roomTint` and `iconGradient` (hk-base.js)
+are now shared with hk-pages-screen.js. On a tablet (its shorter side 600 or more) the sheet is bigger: up to 1040
+wide, 72 px clear of each side, its icons 76 px (the owner: "a lot bigger on the tablet, as long as there is enough
+room around it to tap out"). The phone keeps 60 px icons, and the list (More Style: List) its bare glyphs. Bright
+Glass On: Home Only now counts the Pages screen as Home ("they are essentially shared"). The Side Pane's All Screens
+page in Settings had no preview when every screen has a pane of its own; it now previews the first screen drawing
+All Screens' pane (`hkSidePane.previewHouse`). Checks: `bright_glass_check` (each room an app icon in its own
+colour; a tablet's sheet with 72 px of page each side; More with the rooms in it), `side_pane_check` (the Settings
+preview, both ways), `test_tabbar`, `test_glass` (Home Only on the Pages screen).
+
+**2026-10-31, an Accessory block Centred: its Line Under Name, and its glyph.** The owner put an alarm's keypad in an
+Accessory block, set Line Under Name to State, and it still said its room, its glyph a speck beside the others. A
+Centred block put the room under every accessory's name whatever Line Under Name said; now a chosen line (State,
+Brightness, an attribute, Hidden) wins and the room shows only for Automatic. And a Centred block now draws every glyph
+at its own size, in its circle when on: the alarm's tile came from the room pages bare, at their 27 px. The app icons
+in the tab bar's sheets now take their corner (22.4 %) and Calendar's date from the icon's size, as the Pages screen
+does, rather than as new off-scale pixels (the radii and type ratchets). Checks: `test_gridcards` (+3),
+`home_grid_visual_check --homeview` (a new Accessory screen: the alarm armed, and with Line Under Name State).
+
 **2026-10-31, Edit mode on a Home Grid.** The owner: "we should include the same live edit mode on the
 HomeView/HomeGrid style dashboard like we have on the generated dashboards ... drag things around or even change
 sizes / remove icons ... right from the dashboard itself too!" A Home Grid screen's Home is now offered Edit the way

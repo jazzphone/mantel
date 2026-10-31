@@ -1173,7 +1173,12 @@
 
   // ------------------------------------------------------- the Dashboard's
   // THE SCREEN'S SIDE PANE AS READ (settings side_pane_read), or null
+  // (HK Settings' All Screens page, when no screen follows All Screens
+  // throughout: its preview is a screen drawing All Screens' pane, 2026-10-31)
+  var HOUSE = false;
   function paneOf() {
+    var hs = HOUSE && setting('side_pane', null);
+    if (hs) return Object.assign({}, hs, { own: [] });
     var M = C() && C().menu, dash = M && M.dash ? M.dash() : String(location.pathname).split('/')[1] || '';
     var all = setting('boards', null), b = all && all[dash];
     return (b && b.side_pane_read) || null;
@@ -1353,6 +1358,7 @@
     saverList: function (sp, c) { return shown(saverList(sp), function (s) { return has(c || clientNow(), s); }); },
     pane: paneOf,
     sync: sync,
+    previewHouse: function (on) { if (HOUSE === !!on) return; HOUSE = !!on; sync(); },
     // tests
     _: { shown: shown, fit: fit, place: place, wants: wants, saverList: saverList, has: has, ringing: ringing, SEC: SEC,
          publish: publish, musicFlag: musicFlag, NOTES: NOTES, TODO: TODO, CAL: CAL }

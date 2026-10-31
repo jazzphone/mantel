@@ -1222,6 +1222,23 @@
       this._saverEnergy = !!pg.saverEnergy;
       this._saverWx = !!pg.saverWeather;
       this.saverPreview(!!(pg.preview && pg.saverPreview), !!pg.saverHouse);
+      this.panePreview(!!(pg.preview && pg.paneHouse));
+    }
+
+    // THE SIDE PANE'S ALL SCREENS PREVIEW: the screen in the frame drawing
+    // All Screens' pane, not its own (p_sidePane's paneHouse); its window's
+    // hkSidePane, once it has one
+    panePreview(on) {
+      var self = this, fr = this.pageEl.querySelector('.pvcol .pvbox iframe'), n = 0;
+      clearInterval(this._paneWait);
+      if (!fr) return;
+      var go = function () {
+        var P = null;
+        try { P = fr.contentWindow && fr.contentWindow.hkSidePane; } catch (e) { /* not ours */ }
+        if (P && typeof P.previewHouse === 'function') { P.previewHouse(on); return true; }
+        return false;
+      };
+      if (!go()) this._paneWait = setInterval(function () { if (go() || ++n > 80) clearInterval(self._paneWait); }, 250);
     }
 
     // THE PREVIEW BUTTON (narrower than a desk): the live preview pinned to
@@ -5545,19 +5562,23 @@
       // you change it (the owner, 2026-10-30: "it may be good to include a
       // preview for the side pane"): this screen, or on All Screens' page a
       // screen that follows it
-      var pv = path || this.paneFollower();
-      var top = { title: 'Side Pane', back: back, preview: pv || undefined, previewTop: !!pv };
+      // -- and where every screen has a pane of its own (the owner, 2026-10-31:
+      // "there still isn't a preview in the Side Pane global page"), the first
+      // screen, drawing All Screens' pane instead of its own (hkSidePane.previewHouse)
+      var follower = path ? null : this.paneFollower(), pv = path || follower || Object.keys(this.data.boards || {})[0] || null;
+      var house = !path && !follower && !!pv;
+      var top = { title: 'Side Pane', back: back, preview: pv || undefined, previewTop: !!pv, paneHouse: house };
       // THE SECTIONS (2026-10-30): the Dashboard's and the Screensaver's
       // lists, each a page of its own (#/.../sidepane/dashboard, /saver)
       var secTitle = { dashboard: 'Dashboard Sections', saver: 'Screensaver Sections' };
       if ((sub[0] === 'dashboard' || sub[0] === 'saver') && !sub[1]) {
-        return { title: secTitle[sub[0]], back: ['Side Pane', base], preview: pv || undefined, previewTop: !!pv,
+        return { title: secTitle[sub[0]], back: ['Side Pane', base], preview: pv || undefined, previewTop: !!pv, paneHouse: house,
                  body: function (c) { self.paneSectionsPage(c, path, sub[0], base); } };
       }
       if (sub[0] === 'section' && (sub[1] === 'dashboard' || sub[1] === 'saver')) {
         var i = Number(sub[2]), p0 = this.paneNow(path), s0 = ((p0[sub[1]] || {}).sections || [])[i];
         if (!s0) return Object.assign(top, { body: function (c) { self.paneBody(c, path, x, base); } });
-        return { title: (M.paneKind(s0.kind) || [0, s0.kind])[1], back: [secTitle[sub[1]], base + '/' + sub[1]], preview: pv || undefined, previewTop: !!pv,
+        return { title: (M.paneKind(s0.kind) || [0, s0.kind])[1], back: [secTitle[sub[1]], base + '/' + sub[1]], preview: pv || undefined, previewTop: !!pv, paneHouse: house,
                  body: function (c) { self.paneSection(c, path, sub[1], i); } };
       }
       return Object.assign(top, { top: !path, scope: path ? null : 'Applies to every screen that doesn’t choose its own.',
@@ -6363,12 +6384,12 @@
       // BRIGHT GLASS's Strength (2026-10-30), held back by itself over a light
       // background (hkSettings.brightCap)
       if (uses.bright && v.bright) amount('bright', 'Strength');
-      // ...and where it shows (2026-10-30): Home Only, the other pages in its
-      // Blur, or Every Page
+      // ...and where it shows (2026-10-30): Home Only (and the Pages screen,
+      // 2026-10-31), the other pages in its Blur, or Every Page
       if (uses.bright && v.brightPages) {
         var bp = v.brightPages;
         rows.push(K.seg({ label: 'Bright Glass On', sk: skp + 'bright_pages', value: bp.value, options: M.BRIGHT_PAGES,
-          sub: bp.house == null ? 'Home Only: the other pages in Blur' : (bp.own ? 'Just This Screen' : 'Same as All Screens'), onChange: bp.onChange }));
+          sub: bp.house == null ? 'Home Only: Home and the Pages screen; the other pages in Blur' : (bp.own ? 'Just This Screen' : 'Same as All Screens'), onChange: bp.onChange }));
         if (bp.own) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.BRIGHT_PAGES, bp.house) + ')', sk: skp + 'bright_pages:reset', onClick: bp.reset }));
       }
       if (uses.tint && v.dark) {

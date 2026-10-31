@@ -352,5 +352,22 @@ ok('HkBase passes the card and direction to changed()', /hkGlass\.changed\(card,
   ok('turning the blur off gives the promotions back', /promoted\.forEach\(unpromote\);/.test(g));
 })();
 
+print('\n=== Bright Glass On: Home Only takes in the Pages screen (2026-10-31) ===');
+(function () {
+  var was = location.pathname, M0 = window.hkCards;
+  window.hkCards = Object.assign({}, M0 || {}, { menu: { config: function () {
+    return { views: [{ path: 'home' }, { path: 'pages', pages_screen: true }, { path: 'lights' }] };
+  } } });
+  HS._apply({ configured: true, look: { glass: 'bright', bright_pages: 'home' } });
+  var on = function (p) { location.pathname = p; return HS.glass(); };
+  ok('Home Only: Bright Glass on Home', on('/dashboard-hall/home') === 'bright');
+  ok('...and on the Pages screen, Home\'s other half', on('/dashboard-hall/pages') === 'bright');
+  ok('...the other pages in Blur', on('/dashboard-hall/lights') === 'blur');
+  HS._apply({ configured: true, look: { glass: 'bright', bright_pages: 'all' } });
+  ok('Every Page: Bright Glass on the other pages too', on('/dashboard-hall/lights') === 'bright');
+  location.pathname = was; window.hkCards = M0;
+  HS._apply({ configured: true, look: { glass: 'clear' } });
+})();
+
 print(fail ? 'FAIL ' + fail + ' GLASS TESTS' : 'ALL ' + pass + ' GLASS TESTS PASS');
 if (fail) throw new Error('glass tests failed');

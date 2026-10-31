@@ -381,5 +381,22 @@ ok('...it holds the highlight where it is, so the landing starts there', /S\.her
 ok('land(): the page it lands on before the address is, on the spring at .42 s', /var path = S\.landing \|\| location\.pathname/.test(tbSrc) &&
    /:host\(\[data-landing\]\) \.tab\.here::before\{transition-duration:\.42s\}/.test(tbSrc) && /S\.landing = null;/.test(tbSrc));
 
+print('=== More and Rooms as app icons (2026-10-31) ===');
+var HC = window.hkCards;
+ok('a room\'s colour by its place, the Pages screen\'s: the first orange, the twelfth orange again',
+   HC.roomTint(0) === 'orange' && HC.roomTint(1) === 'yellow' && HC.roomTint(11) === 'orange' && HC.ROOM_TINTS.length === 11);
+var g = HC.iconGradient(HC.ACCENTS.blue);
+ok('an icon\'s two colours: lighter at the top, deeper at the foot', g[0] !== g[1] && parseInt(g[0].substr(1, 2), 16) > parseInt(g[1].substr(1, 2), 16), JSON.stringify(g));
+ok('...and a colour it cannot read is grey', HC.iconGradient('nope')[0] === HC.iconGradient('#8e8e93')[0]);
+ok('every item of a sheet drawn as an app icon (fill -> appIcon)', /'>' \+ appIcon\(it, k, i \+ \(at \|\| 0\)\) \+ '<span>'/.test(tbSrc));
+ok('...a room in its tint by its place, a page in its accent (Home and the rest orange), anything else grey',
+   /if \(k === 'r'\) hex = A\[C\.roomTint/.test(tbSrc) && /C\.pageAccentHex\(kind\)\) \|\| A\.orange/.test(tbSrc) && /hex = '#8e8e93'/.test(tbSrc));
+ok('...Calendar the day\'s date', /'<i class="ai cal" aria-hidden="true"><i>'/.test(tbSrc));
+ok('no round plates left for the rooms', !/roomgrid \.it hk-icon\{--mdc-icon-size:28px/.test(tbSrc));
+ok('the list (More Style: List) keeps its glyphs bare', /\.sheet\.list \.ai\{width:22px;height:22px;background:none!important/.test(tbSrc));
+ok('a tablet\'s sheet: up to 1040 wide, 72 in from each side (a tablet by its shorter side), its icons 76 px', /var SHEET_BIG = 1040, SHEET_OUT = 72, SHEET_TABLET = 600;/.test(tbSrc) &&
+   /Math\.min\(SHEET_BIG, width - 2 \* SHEET_OUT\)/.test(tbSrc) && /var APP_ICON = 60, APP_ICON_BIG = 76, ICON_CORNER = 0\.224/.test(tbSrc) &&
+   /appIconCss\(APP_ICON_BIG, '\.bigsheet '\)/.test(tbSrc));
+
 print('\n' + (fail ? fail + ' FAILED, ' + pass + ' passed' : 'ALL ' + pass + ' TAB BAR TESTS PASS'));
 if (fail) throw new Error(fail + ' failed');

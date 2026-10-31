@@ -122,6 +122,23 @@
   // a sheet never comes closer than this to the top of the window: the page
   // that shows there is where a tap closes it
   var TOP_GAP = 96;
+  // A TABLET'S SHEET OF ICONS (2026-10-31): this wide at most, and this far
+  // in from each side of the page, so there is page all round to tap out on.
+  // A tablet: its shorter side at least SHEET_TABLET.
+  var SHEET_BIG = 1040, SHEET_OUT = 72, SHEET_TABLET = 600;
+  // AN ITEM'S APP ICON: this size (a tablet's sheet the bigger), its corner
+  // and its glyph shares of it -- iPadOS's 22.4 %, the Pages screen's
+  var APP_ICON = 60, APP_ICON_BIG = 76, ICON_CORNER = 0.224, ICON_GLYPH = 0.53;
+  // ...drawn as: the plate, the glyph, Calendar's weekday and date (shares of the icon)
+  function appIconCss(px, pre) {
+    var n = function (f) { return (px * f).toFixed(1) + 'px'; };
+    return pre + '.ai{position:relative;flex:none;display:grid;place-items:center;width:' + px + 'px;height:' + px + 'px;border-radius:' + n(ICON_CORNER) + ';' +
+        'color:#fff;box-shadow:0 5px 14px rgba(0,0,0,0.25)}' +
+      pre + '.it .ai hk-icon,' + pre + '.it.here .ai hk-icon{--mdc-icon-size:' + n(ICON_GLYPH) + ';width:' + n(ICON_GLYPH) + ';height:' + n(ICON_GLYPH) + ';color:#fff}' +
+      pre + '.ai.cal{background:#fff;color:#1c1c1e;grid-template-rows:auto auto;align-content:center;justify-items:center;line-height:1}' +
+      pre + '.ai.cal i{font-style:normal;font-size:' + n(0.2) + ';font-weight:600;color:' + ((window.hkCards && window.hkCards.ACCENTS) ? window.hkCards.ACCENTS.red : '#ff453a') + '}' +
+      pre + '.ai.cal b{font-size:' + n(0.55) + ';font-weight:400;letter-spacing:-1px}';
+  }
   // A TAB NARROWER THAN THIS (six on a phone: ~55 px) has no room for the
   // highlight's capsule -- it would be a cramped circle -- so the page you
   // are on is its icon and name in the highlight colour, as iOS draws it
@@ -540,9 +557,6 @@
       '.bright .sheet.g{background:var(--hk-sheet-plate,rgba(14,20,38,0.55));-webkit-backdrop-filter:var(--hk-sheet-backdrop,blur(34px) saturate(1.5) brightness(0.86));',
       '  backdrop-filter:var(--hk-sheet-backdrop,blur(34px) saturate(1.5) brightness(0.86))}',
       '.root.bright.sheeted .scrim{background:rgba(6,10,22,0.22)}',
-      // (the room's glyph in the accent on a soft circle -- white discs with a
-      // deepened glyph looked heavy, the owner, 2026-10-30)
-      '.bright [data-sheet="rooms"] .roomgrid .it hk-icon{background:rgba(255,255,255,0.16)}',
       '.bright .it span{text-shadow:0 1px 2px rgba(0,0,0,0.25)}',
       '.sheet h2{flex:none;margin:0 6px 12px;font-size:17px;font-weight:700;letter-spacing:-0.41px;color:' + window.hkCards.v('ink') + '}',
       // THE BIG GRID (2026-10-06): cells at least 84 px -- three across on a
@@ -568,12 +582,29 @@
       // tab bar's capsule does; nothing lights up under the pointer
       '.it.here{background:rgba(255,255,255,0.16)}',
       '.it.here span{color:' + window.hkCards.v('accent') + '}',
-      // ROOMS ON THEIR OWN SHEET (the Rooms button): each icon in a soft round
-      // plate (Control Center's look). In More they look like its pages.
-      '[data-sheet="rooms"] .roomgrid .it hk-icon{--mdc-icon-size:28px;width:58px;height:58px;border-radius:50%;',
-      '  align-items:center;justify-content:center;background:rgba(255,255,255,0.12);transition:background-color .15s ease}',
-      '[data-sheet="rooms"] .roomgrid .it.here hk-icon{background:' + window.hkCards.v('accent') + ';color:var(--hk-on-accent,#fff)}',
-      // a long room name ("Master Bedroom Closet") on up to three lines, not cut on its second
+      // APP ICONS (2026-10-31, the owner, from a mock-up of three: "App Icons,
+      // Roomy, and the Rooms having their own Color"): every page and room in
+      // More and on the Rooms sheet a rounded square in its colour, its glyph
+      // white -- the Pages screen's icons (hkCards.iconGradient): a page in its
+      // accent, a room in its tint by its place in the menu's rooms, the rest
+      // grey; Calendar the day's date. They replaced More's bare glyphs and
+      // the rooms' round plates (Control Center's look), so the two sheets
+      // and the Pages screen look alike.
+      appIconCss(APP_ICON, '') +
+      // (the page you're on: its plate and its name in the highlight, as before, and a white ring round its icon)
+      '.it.here .ai{box-shadow:0 0 0 3px rgba(255,255,255,0.9),0 5px 14px rgba(0,0,0,0.25)}',
+      // A TABLET'S SHEET IS BIGGER (the owner: "It can be a lot bigger on the
+      // tablet, as long as there is enough room around it to tap out"): up to
+      // SHEET_BIG wide, SHEET_OUT clear of each side, the icons APP_ICON_BIG
+      '.bigsheet .grid{grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}',
+      appIconCss(APP_ICON_BIG, '.bigsheet ') +
+      '.bigsheet .it{min-height:132px;gap:10px;' + C.typeCss('body') + ';font-weight:600}',
+      '.bigsheet .sheet{padding:22px 18px 0}.bigsheet .sheet h2{' + C.typeCss('title') + ';margin:0 8px 14px}',
+      '.bigsheet .sheet h3{' + C.typeCss('headline') + '}',
+      // the list (More Style: List) keeps its glyphs on their own
+      '.sheet.list .ai{width:22px;height:22px;background:none!important;box-shadow:none!important;border-radius:0}',
+      '.sheet.list .it .ai hk-icon{--mdc-icon-size:22px;width:22px;height:22px;color:var(--hk-accent-base,' + window.hkCards.v('accent') + ')}',
+      '.sheet.list .it.here .ai hk-icon{color:var(--hk-on-accent,#fff)}',
       '[data-sheet="rooms"] .roomgrid .it span{-webkit-line-clamp:3}',
       // ...every icon on one line across, however many lines its name takes
       // (centred, a two- or three-line name pushed its circle up, 2026-10-30)
@@ -588,7 +619,6 @@
       '.sheet.list .it span{display:block;flex:1;min-width:0;white-space:nowrap;text-overflow:ellipsis}',
       '.sheet.list .it.here{background:' + window.hkCards.v('accent') + ';color:var(--hk-on-accent,#fff)}',
       '.sheet.list .it.here span,.sheet.list .it.here hk-icon{color:var(--hk-on-accent,#fff)}',
-      '.sheet.list .roomgrid .it hk-icon{width:22px;height:22px;background:none;--mdc-icon-size:22px}',
       '.it:active{filter:brightness(1.25)}',
       // ---- TAB BAR POSITION: TOP. The bottom's mirror: More hangs from the
       // bar, the bar hides upward
@@ -917,7 +947,9 @@
       // of the two -- More's (860 px of icons, 420 of list) or what the tabs
       // need -- within the screen, so opening More never widens anything
       // More Style: a phone's own, else the tablet's (moreOf)
-      var list = moreOf(b) === 'list', sheetW = list ? 420 : 860;
+      var list = moreOf(b) === 'list', big = !list && Math.min(width, window.innerHeight || width) >= SHEET_TABLET;
+      var sheetW = list ? 420 : big ? Math.min(SHEET_BIG, width - 2 * SHEET_OUT) : 860;
+      S.big = big;
       var joinW = Math.min(Math.max(0, width - 2 * GUTTER), Math.max(f.width, sheetW));
       // a rail's More slides out beside it: 380 px as a list, 640 as icons
       if (rail) joinW = Math.min(Math.max(0, width - 2 * GUTTER - railW(sz) - 16), list ? 380 : 640);
@@ -993,9 +1025,29 @@
       var ed = arranging() && (k === 'p' || k === 'r');
       grid.innerHTML = items.map(function (it, i) {
         return '<button class="it" data-k="' + k + '" data-i="' + (i + (at || 0)) + '"' +
-          (ed ? ' data-p="' + esc(k === 'r' ? it.path : viewPath(it)) + '"' : '') + '><hk-icon icon="' + icon(it.icon) + '"></hk-icon><span>' +
+          (ed ? ' data-p="' + esc(k === 'r' ? it.path : viewPath(it)) + '"' : '') + '>' + appIcon(it, k, i + (at || 0)) + '<span>' +
           esc(it.title) + '</span></button>';
       }).join('');
+    }
+    // AN ITEM'S APP ICON (the CSS's APP ICONS): a page in its accent (Home
+    // and a page with none, the menu's orange), a room in its tint by its
+    // place, anything else -- Home Assistant's pages, Notifications, This
+    // Page's -- grey; Calendar the day's date
+    function appIcon(it, k, i) {
+      var A = C.ACCENTS || {}, hex = '#8e8e93', kind = '';
+      if (k === 'r') hex = A[C.roomTint ? C.roomTint(i) : 'orange'] || hex;
+      else if (k === 'p') {
+        var v = viewPath(it);
+        kind = (C.PAGE_OF_PATH || {})[v] || v;
+        hex = (C.pageAccentHex && C.pageAccentHex(kind)) || A.orange || '#ff9f0a';
+      }
+      if (kind === 'calendar') {
+        var now = new Date(), L = window.hkLocale, tag = L && L.tag ? L.tag() : undefined, day = '', wd = '';
+        try { wd = now.toLocaleDateString(tag, { weekday: 'short' }); day = now.toLocaleDateString(tag, { day: 'numeric' }); } catch (e) { day = String(now.getDate()); }
+        return '<i class="ai cal" aria-hidden="true"><i>' + esc(wd) + '</i><b>' + esc(day) + '</b></i>';
+      }
+      var g = C.iconGradient ? C.iconGradient(hex) : [hex, hex];
+      return '<i class="ai" style="background:linear-gradient(180deg,' + g[0] + ',' + g[1] + ')"><hk-icon icon="' + icon(it.icon) + '"></hk-icon></i>';
     }
     // the Now Playing pane's width on the right (hk-popup.js, on <html>'s
     // own style); on the left it is in leftOf
@@ -1462,6 +1514,7 @@
       var cls = ['root', 'on', mat];
       if (S.roomsMode === 'button' && S.rooms.length) cls.push('hasrooms');
       if (S.tight) cls.push('tight');
+      if (S.big) cls.push('bigsheet');
       if (S.mode === 'small') cls.push('small');
       if (S.mode === 'gone') cls.push('gone');
       if (S.sheet) cls.push('sheeted');
