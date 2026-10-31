@@ -374,6 +374,20 @@ def test_the_motion_themes_are_wallpapers_in_a_colour_of_your_own():
     assert err == {} and M.merged(new)["sky"]["wallpaper_color"] == "blue" and M.merged(new)["sky"]["wallpaper"] == "ribbons_rose"
 
 
+def test_a_wallpaper_behind_the_screensavers_clock():
+    # (2026-10-31, the owner) the Clock screensaver's Background offers the Wallpapers and the motion themes
+    assert "wallpaper" in M.SAVER_CLOCK_BGS
+    d = M.saver_options({})
+    assert (d["clock_wallpaper"], d["clock_wallpaper_color"]) == ("aurora", "blue")
+    got = M.saver_options({"show": "clock", "clock_bg": "wallpaper", "clock_wallpaper": "petals_violet"})
+    assert (got["clock_bg"], got["clock_wallpaper"]) == ("wallpaper", "petals_violet")
+    got = M.saver_options({"clock_wallpaper": "meteors", "clock_wallpaper_color": "#00AAFF"})
+    assert (got["clock_wallpaper"], got["clock_wallpaper_color"]) == ("meteors", "#00aaff")
+    assert M.saver_options({"clock_wallpaper_color": "coral"})["clock_wallpaper_color"] == "coral"
+    for bad in ({"clock_wallpaper": "lava"}, {"clock_wallpaper_color": "#fff"}, {"clock_wallpaper_color": None}, {"clock_bg": "wallpapers"}):
+        assert M.saver_options(bad) is None, bad
+
+
 def test_bright_glass_on_home_only_by_default():
     # (2026-10-30) Bright Glass on Home, the other pages in its Blur; or on every page; a screen's own or All Screens'
     assert M.merged({})["look"]["bright_pages"] == "home"

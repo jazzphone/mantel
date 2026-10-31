@@ -128,7 +128,9 @@
     ['ink', 'Ink Swirl', true, 'Moving'], ['sky', 'Follow the Sky', true, 'Moving'],
     ['lowpoly', 'Low Poly', true, 'Patterns'], ['topo', 'Topography', true, 'Patterns'], ['constellation', 'Constellation', true, 'Patterns'],
     ['forecast', 'Forecast', false, 'From Your Screens'], ['skyonly', 'Sky Only', false, 'From Your Screens'], ['photos', 'Photos', false, 'From Your Screens'],
-    ['landscapes', 'Landscapes', false, 'Photographs']];
+    ['landscapes', 'Landscapes', false, 'Photographs'],
+    // (2026-10-31, the owner) the HomeView look's wallpapers and the motion themes
+    ['wallpaper', 'Wallpaper', true, 'Wallpapers']];
   // THE BACKGROUND (Sky / Background's first choice, 2026-10-13; settings.py
   // SKY_BACKGROUNDS): what it is, in a line under the tabs
   var SKY_BACKGROUNDS = [['live', 'Live Sky'], ['color', 'Color'], ['photo', 'Photo'], ['landscapes', 'Landscapes'],
@@ -2116,7 +2118,7 @@
                          portrait_fill: false, portrait_blur: 50, portrait_dim: 20, portrait_zoom: 100, portrait_x: 'center', portrait_y: 'center',
                          landscape_blur: 50, landscape_dim: 20, landscape_zoom: 100, landscape_x: 'center', landscape_y: 'center',
                          // the clocks (settings.py)
-                         clock_over: 'corner', clock_style: 'classic', clock_bg: 'gradient', clock_motion: 'slow', clock_24: false, clock_colors: {}, clock_speed: 35, clock_depth: 50, clock_night: 'off', clock_night_from: '22:00', clock_night_to: '07:00',
+                         clock_over: 'corner', clock_style: 'classic', clock_bg: 'gradient', clock_motion: 'slow', clock_wallpaper: 'aurora', clock_wallpaper_color: 'blue', clock_24: false, clock_colors: {}, clock_speed: 35, clock_depth: 50, clock_night: 'off', clock_night_from: '22:00', clock_night_to: '07:00',
                      photo_layout: 'single', mosaic_count: 3, mosaic_gap: 'thin', mosaic_change: 'one', mosaic_line: 0, mosaic_color: 'black', mosaic_random: false, mosaic_every: 10,
                      clock_photo_soft: false, clock_photo_dim: 35, clock_text_shadow: 40, clock_text_outline: 0,
                      // Home Energy and the additional screens (settings.py, 2026-10-14)

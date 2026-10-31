@@ -540,6 +540,33 @@ The sky's animations (rain, birds) stay off over a wallpaper.
 `tests/py/test_settings.py` (keys, each wallpaper's stops under the sky's luma caps), the contrast check of Phase D
 per wallpaper, a picker screenshot.
 
+### Phase E2. Motion themes in any colour (2026-10-31, feedback item 34)
+
+**What you see.** Six more Wallpapers that move -- Aurora, Blobs, Waves, Dot Field, Light Beams, Meteors -- each
+drawn in one colour the owner picks: eight presets (Rose, Coral, Amber, Green, Teal, Blue, Violet, Graphite) one tap
+each, or Your Own Color. A "Motion Themes" grid under the twelve; with a theme chosen, its Color below (the Accent
+Color's rows and colour well). Picking a theme while Motion is Off turns it to Slow. The Clock screensaver's
+Background offers Wallpaper too, with the same picker (its night version follows the sun, its motion the Speed).
+
+| Setting | Key | Values | Default |
+|---|---|---|---|
+| Wallpaper | `sky.wallpaper` / `sky_wallpaper` | adds `aurora`, `blobs`, `waves`, `dots`, `beams`, `meteors` | unchanged |
+| Theme colour | `sky.wallpaper_color` / `sky_wallpaper_color` | a preset id or `#rrggbb` | `blue` |
+| Clock background | screensaver `clock_bg` | adds `wallpaper`; `clock_wallpaper`, `clock_wallpaper_color` | `aurora`, `blue` |
+
+**How.** `hk-wallpapers.js` makes five shades of the colour (and of a partner hue where a theme uses one) at set
+luminances, so any colour keeps the caps and 4.5:1; a theme is a still ground plus two to five layers, each its own
+small SVG moved by transform and opacity (four keyframes, `motionCss()`), nothing per frame. Stops come from weights
+measured once off the still frame (`wallpaper_stops.cjs --weights`; `--check` holds them to the art in every
+preset). Motion stops under Flat (no wallpaper), Animations Off, Reduce Motion, a hidden or held screen and the
+screensaver's Night Mode, leaving the still frame. The slow-tablet ladder counts a moving theme as it counts
+wallpaper Motion.
+
+**Checks.** `test_wallpapers.js`, `test_saverclock.js`, `tests/test_hk_core_settings.py`, the wallpaper contrast
+test in `test_settings.py` (every theme in every preset and a sweep of 54 colours), and
+`tools/headless/motion_themes_check.py` (each theme in two colours at 1180 × 820 and 390 × 844, the still frame,
+Settings, the screensaver).
+
 ## Phase F. A numbered analog face (Phase 2)
 
 **What you see.** A clock face, **Analog Numbers**, matched to the screenshot side by side: SF Pro 500 numerals

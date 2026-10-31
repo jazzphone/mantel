@@ -1598,6 +1598,11 @@ SAVER_DEFAULTS: dict[str, Any] = {
     # (SAVER_CLOCK_BGS) that moves slowly or changes once a minute (still)
     "clock_over": "corner", "clock_style": "classic", "clock_bg": "gradient", "clock_motion": "slow",
     "clock_24": False,
+    # A WALLPAPER BEHIND THE CLOCK (2026-10-31, the owner: "offer the current backgrounds and the new backgrounds
+    # from the HomeView screen in the Clock Screensaver Background selection"): clock_bg "wallpaper" -- one of
+    # WALLPAPERS, the twelve drawn ones or a motion theme in its colour (WALLPAPER_COLORS or "#rrggbb"); its
+    # motion is the background's Speed below
+    "clock_wallpaper": "aurora", "clock_wallpaper_color": "blue",
     # each face's color (hk-saverclock.js COLORS): {style: color id}; a face
     # missing is its own first color
     "clock_colors": {},
@@ -1646,9 +1651,9 @@ MOSAIC_COLORS = ("black", "white", "gray", "charcoal", "cream", "navy")
 SAVER_CLOCK_STYLES = ("today", "classic", "serif", "neon", "lcd", "flip", "analog", "numbers", "words", "arc", "nixie", "poster",
                       "dots", "ring", "glass", "type")
 SAVER_CLOCK_BGS = ("black", "grain", "gradient", "aurora", "ink", "sky", "lowpoly", "topo", "constellation", "forecast", "skyonly", "photos",
-                   "landscapes")
+                   "landscapes", "wallpaper")
 SAVER_CHOICES = {"clock_over": ("corner", "large"), "clock_style": SAVER_CLOCK_STYLES,
-                 "clock_bg": SAVER_CLOCK_BGS, "clock_motion": ("slow", "still"),
+                 "clock_bg": SAVER_CLOCK_BGS, "clock_motion": ("slow", "still"), "clock_wallpaper": WALLPAPERS,
                  "photo_layout": ("single", "mosaic"), "mosaic_gap": ("none", "thin", "rounded"),
                  "mosaic_change": ("one", "all"), "clock_night": ("off", "night", "always"),
                  "mosaic_color": MOSAIC_COLORS}
@@ -1743,6 +1748,10 @@ def saver_options(v: Any, legacy: Any = None) -> dict[str, Any] | None:
                                                 for s, c in val.items()):
                 return None
             out[k] = dict(val)
+        elif k == "clock_wallpaper_color":
+            if wallpaper_color(val) is None:
+                return None
+            out[k] = wallpaper_color(val)
         elif k in ("energy_hide", "weather_hide"):
             parts = SAVER_ENERGY_PARTS if k == "energy_hide" else SAVER_WEATHER_PARTS
             if not isinstance(val, list) or any(x not in parts for x in val):

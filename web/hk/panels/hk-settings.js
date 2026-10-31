@@ -3833,7 +3833,8 @@
             // the clock as chosen over each Background (the two pictures above: the clock over them, no ground)
             var bgId = what.slice(3), own = bgId === 'skyonly' || bgId === 'landscapes';
             C.mount(inner, { style: o.clock_style || 'classic', still: true, drift: false, h24: !!o.clock_24, bg: own ? 'none' : bgId, speed: 0,
-                             ground: !own, scrim: false, color: (o.clock_colors || {})[o.clock_style || 'classic'] || '', client: self.client });
+                             ground: !own, scrim: false, color: (o.clock_colors || {})[o.clock_style || 'classic'] || '', client: self.client,
+                             wallpaper: { id: o.clock_wallpaper || 'aurora', color: o.clock_wallpaper_color || 'blue' } });
           } else if (/^clock/.test(what)) {
             var style = what.indexOf(':') > 0 ? what.split(':')[1] : (o.clock_style || 'classic');
             C.mount(inner, { style: style, still: true, drift: false, h24: !!o.clock_24, bg: 'gradient', speed: 0,
@@ -4342,7 +4343,8 @@
         var spd = cur.clock_speed != null ? cur.clock_speed : (cur.clock_motion === 'still' ? 0 : 35);
         brows.push(K.slider({ label: 'Speed', sub: spd ? null : 'Still: it changes once a minute', sk: 'saver:clock_speed', value: spd, min: 0, max: 100, step: 5, unit: '%',
                               onChange: function (v) { put({ clock_speed: v, clock_motion: v ? 'slow' : 'still' }); } }));
-        brows.push(K.slider({ label: 'Depth', sub: 'How strong it is: the colors, the glow, the relief', sk: 'saver:clock_depth', value: cur.clock_depth != null ? cur.clock_depth : 50,
+        // (a Wallpaper has no Depth: it is drawn as the dashboard draws it)
+        if (bg !== 'wallpaper') brows.push(K.slider({ label: 'Depth', sub: 'How strong it is: the colors, the glow, the relief', sk: 'saver:clock_depth', value: cur.clock_depth != null ? cur.clock_depth : 50,
                               min: 0, max: 100, step: 5, unit: '%', onChange: function (v) { put('clock_depth', v); } }));
       }
       var bfoot = { forecast: 'The forecast’s live sky and the season’s land behind the clock.',
@@ -4350,7 +4352,9 @@
                     photos: cur.clock_photo_soft ? 'Your photos, blurred and darkened behind it, changing every ' + MIN(cur.each_photo).toLowerCase() + '.'
                       : 'Your photos behind it, laid out as Photos (below) says, darkened so the clock reads.',
                     landscapes: 'Fifty photos of mountains, lakes, coasts, deserts and forests, one after another behind the clock' + (cur.clock_photo_soft ? ', blurred and darkened.' : ', darkened so the clock reads.'),
-                    sky: 'The live sky’s colors as they are now, with no stars or weather.' }[bg] ||
+                    sky: 'The live sky’s colors as they are now, with no stars or weather.',
+                    wallpaper: 'One of the HomeView look’s wallpapers, or a motion theme in a color you choose, drawn as the dashboard draws it, ' +
+                      'its night version after sunset. Speed: how fast a motion theme moves; 0 holds it still, as Reduce Motion does.' }[bg] ||
                   (bgRow[2] ? 'Drawn on the tablet itself and moved smoothly: a new frame about once a second, blended into the last (Constellation draws every frame). Speed 0 holds it still.' : 'Plain black: nothing moves.');
       // PHOTOS BEHIND IT (2026-10-13): sharp, as the Photo Screensaver shows
       // them, or Soft (the blurred copies); darkened by their own amount
@@ -4361,6 +4365,12 @@
                               min: 0, max: 80, step: 5, unit: '%', onChange: function (v) { put('clock_photo_dim', v); } }));
       }
       c.appendChild(K.group({ header: 'Behind the Clock', footer: bfoot }, brows));
+      // A WALLPAPER BEHIND IT (2026-10-31, the owner): the dashboard's own picker -- the twelve, the motion themes,
+      // a theme's Color -- for the screensaver's own choice; its night version follows the sun, its motion the Speed
+      if (bg === 'wallpaper' && self.saverKnown('clock_wallpaper')) {
+        self.wallpaperGroup(c, { value: cur.clock_wallpaper || 'aurora', color: cur.clock_wallpaper_color || 'blue', fk: 'swall', sk: 'saver:clock_wallpaper',
+          saver: true, onSet: function (v) { put('clock_wallpaper', v); }, onColor: function (v) { put('clock_wallpaper_color', v); } });
+      }
       var over = [tog('Weather', 'weather', 'Top left: the temperature and conditions.'),
                   tog('Now Playing', 'music', 'Music playing anywhere in the house, bottom left.'),
                   tog('Timers', 'timers', 'Running timers, bottom right.'),
@@ -6807,10 +6817,12 @@
       };
       rows.push(grid(list.filter(function (w) { return !w.theme; })));
       c.appendChild(this.withError(K.group({ header: 'Wallpaper', footer: (o.footer ? o.footer + ' ' : '') +
-        'Our own art, drawn for ' + PN() + '. The cards take its colors — Bright Glass shows them best.' }, rows), o.sk));
+        'Our own art, drawn for ' + PN() + '.' + (o.saver ? '' : ' The cards take its colors — Bright Glass shows them best.') }, rows), o.sk));
       c.appendChild(K.group({ header: 'Motion Themes', footer: 'Moving backgrounds in a color you choose: aurora, soft blobs, waves, a field of dots, beams of light and meteors. ' +
         'Each is light enough for a wall tablet.' }, [grid(list.filter(function (w) { return w.theme; }))]));
       if (W.isTheme(eff)) this.wallColorGroup(c, o, cEff);
+      // (the screensaver's clock: its night version follows the sun, its motion is the Background's Speed)
+      if (o.saver) return;
       var nOwn = o.nightHouse !== undefined && !!o.night, nEff = o.night || o.nightHouse || 'auto';
       var nRows = [K.seg({ label: 'Night Version', sub: o.nightHouse === undefined ? null : (nOwn ? 'Just This Screen' : 'Same as All Screens'),
         sk: o.sk.replace('wallpaper', 'wallpaper_night'), value: nEff, options: M.WALLPAPER_NIGHT, onChange: function (v) { o.onNight(v); } })];

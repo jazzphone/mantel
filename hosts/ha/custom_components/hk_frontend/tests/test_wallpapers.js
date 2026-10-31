@@ -173,7 +173,9 @@ check('a theme\'s layers move only while its Motion is on (data-wm), transform a
       /'#hk-sky\[data-wm\] \.wall\.th>i\{will-change:transform,opacity;animation:var\(--an\)/.test(src) &&
       (src.match(/@keyframes (hk-wt-[a-z]+|hk-meteor-wt)\{[^']*/g) || []).length === 4 &&
       (src.match(/@keyframes (hk-wt-[a-z]+|hk-meteor-wt)\{[^']*/g) || []).every(function (k) { return !/(left|top|width|height|margin|background|filter)\s*:/.test(k); }));
-check('...a meteor is a mover a Pre-rendered blur leaves out; Reduce Motion stops all', hkSky.moves({ animationName: 'hk-meteor-wt' }) &&
+check('...the rules are hkWallpapers.motionCss\'s for the sky, written out (the screensaver\'s clock takes the same)',
+      W.motionCss('#hk-sky .wall.th>i', '#hk-sky[data-wm] .wall.th>i', 'hk-wt-').split('\n').every(function (r) { return src.indexOf("'" + r + "'") >= 0; }));
+check('...a meteor is a mover a Pre-rendered blur leaves out; Reduce Motion stops all', hkSky.moves({ animationName: 'hk-wt-meteor' }) &&
       /@media \(prefers-reduced-motion:reduce\)\{#hk-sky \*\{animation:none!important\}\}/.test(src));
 check('the layers fade as the stops do (4 s), and stay off the sky\'s animations (a still: the static sky)',
       /#hk-sky \.wall\{position:absolute;inset:0;background-size:cover;background-position:center;',\s*'  opacity:0;transition:opacity 4s linear\}/.test(src) &&

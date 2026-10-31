@@ -96,7 +96,7 @@
   // (exported on hkSaver._ for tests/test_saver.js)
   // the mosaic's lines (settings.py MOSAIC_COLORS)
   var MOSAIC_COLORS = { black: '#000000', white: '#f5f5f2', gray: '#8e8e93', charcoal: '#2c2c2e', cream: '#efe6d2', navy: '#1c2a44' };
-  var CLOCK_BGS = ['black', 'grain', 'gradient', 'aurora', 'ink', 'sky', 'lowpoly', 'topo', 'constellation', 'forecast', 'skyonly', 'photos', 'landscapes'];
+  var CLOCK_BGS = ['black', 'grain', 'gradient', 'aurora', 'ink', 'sky', 'lowpoly', 'topo', 'constellation', 'forecast', 'skyonly', 'photos', 'landscapes', 'wallpaper'];
   // THE HOMEVIEW-STYLE SHOWS (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I): Glance, Month and Day, each a
   // whole screen of hk-saverfaces.js's, mounted as the clock is (Show: Clock's layer, a background of its own)
   var FACE_SHOWS = { glance: 1, month: 1, day: 1 };
@@ -141,6 +141,10 @@
       clock_style: typeof raw.clock_style === 'string' ? raw.clock_style : 'classic',
       clock_bg: CLOCK_BGS.indexOf(raw.clock_bg) >= 0 ? raw.clock_bg : 'gradient',
       clock_motion: raw.clock_motion === 'still' ? 'still' : 'slow',
+      // a Wallpaper behind it (2026-10-31): which, and a motion theme's colour
+      // (hkWallpapers checks both as it draws)
+      clock_wallpaper: typeof raw.clock_wallpaper === 'string' ? raw.clock_wallpaper : 'aurora',
+      clock_wallpaper_color: typeof raw.clock_wallpaper_color === 'string' ? raw.clock_wallpaper_color : 'blue',
       // the background's Speed (0 still) and Depth (2026-10-13); an older
       // Motion: Still is Speed 0
       clock_speed: n(raw.clock_speed, 0, 100, raw.clock_motion === 'still' ? 0 : 35),
@@ -606,6 +610,11 @@
   function clientNow() {
     var C = window.hkCards, HC = window.hkHostClient;
     return (C && C.client && C.client()) || (HC && HC.current && HC.current()) || null;
+  }
+  // the sun below the horizon (sun.sun), as the sky reads it; unknown: by day
+  function sunDown() {
+    var c = clientNow(), s = c && c.states && c.states['sun.sun'];
+    return !!(s && s.attributes && Number(s.attributes.elevation) <= 0);
   }
   // ...and its action port, for everything the screensaver changes (the switch,
   // the music's buttons and volume, its touch and black acknowledgements): the
@@ -2651,6 +2660,8 @@
         ? F.mount(layer, { kind: cfg.show, h24: cfg.clock_24, weather: weatherEntity(), look: cfg.day_look, clocks: C, client: clientNow() })
         : C.mount(layer, { style: cfg.clock_style, h24: cfg.clock_24, color: cfg.clock_color, bg: bg, motion: cfg.clock_motion,
                            speed: cfg.clock_speed, depth: cfg.clock_depth, weather: weatherEntity(),
+                           // a Wallpaper: its night version while the sun is down, as the dashboard's After Sunset
+                           wallpaper: bg === 'wallpaper' ? { id: cfg.clock_wallpaper, color: cfg.clock_wallpaper_color, night: sunDown() } : null,
                            // (a face with a ground of its own keeps it off over the photos or the forecast)
                            ground: bg !== 'none',
                            client: clientNow(), scrim: !dimmed });

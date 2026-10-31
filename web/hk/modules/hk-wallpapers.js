@@ -496,6 +496,62 @@
     }) };
     return scenes[k];
   }
+  // ...ITS LAYERS, PUT IN AN ELEMENT (the sky's .wall, the screensaver
+  // clock's .ckwall): each an <i> with its picture, in its box (or a tile
+  // overhanging one tile), carrying how it moves as custom properties for
+  // the keyframes of motionCss() below, named `pre` + its kind (the sky's
+  // 'hk-wt-'). `sc` null: emptied. Nothing moves until the page's CSS turns
+  // the animation on -- without it each layer stands where it starts.
+  function paintScene(layer, sc, pre) {
+    while (layer.firstChild) layer.removeChild(layer.firstChild);
+    if (!sc) return;
+    sc.layers.forEach(function (L) {
+      var i = document.createElement('i'), st = i.style, mv = L.mv || {};
+      i.className = mv.an || '';
+      st.backgroundImage = 'url("' + L.url + '")';
+      if (L.tile) {
+        // one tile past the top and left: it moves one tile and round again
+        st.left = st.top = -L.tile + 'px'; st.right = st.bottom = '0px';
+        st.backgroundSize = L.tile + 'px ' + L.tile + 'px';
+        st.setProperty('--tile', L.tile + 'px');
+      } else {
+        st.left = L.box[0] + '%'; st.top = L.box[1] + '%'; st.width = L.box[2] + '%'; st.height = L.box[3] + '%';
+      }
+      if (L.rot) st.setProperty('--bt', 'rotate(' + L.rot + 'deg)');
+      if (L.still !== 1) st.opacity = String(L.still);
+      st.setProperty('--an', (pre || 'hk-wt-') + mv.an);
+      st.setProperty('--ad', 'var(--w' + (L.d || 'a') + ')');
+      if (mv.or) st.setProperty('--or', mv.or);
+      ['tx', 'ty', 'ts', 'to', 'x1', 'y1', 's1', 'x2', 'y2', 's2', 'dl'].forEach(function (k) { if (mv[k] != null) st.setProperty('--' + k, mv[k]); });
+      layer.appendChild(i);
+    });
+  }
+  // THE THEMES' MOTION, as CSS for a page: `layer`, the selector of a
+  // scene's <i>s; `moving`, the same while it may move; `pre`, the
+  // keyframes' prefix. Four keyframes, transform and opacity only -- sway
+  // (out and back), loop (round three points), tile (one tile on, and round
+  // again: seamless), a meteor's flight -- at the lengths --wa..--wf the page
+  // sets for its speed. The sky (hk-sky.js) and the screensaver's clock
+  // (hk-saverclock.js) each take it with their own selectors.
+  function motionCss(layer, moving, pre) {
+    return [
+      layer + '{position:absolute;display:block;background-position:0 0;background-size:100% 100%;background-repeat:no-repeat;' +
+        'transform:var(--bt,none);transform-origin:var(--or,50% 50%)}',
+      layer + '.tile{background-repeat:repeat}',
+      moving + '{will-change:transform,opacity;animation:var(--an) var(--ad) ease-in-out var(--dl,0s) infinite alternate both}',
+      moving + '.loop{animation-direction:normal}',
+      moving + '.tile,' + moving + '.meteor{animation-timing-function:linear;animation-direction:normal}',
+      '@keyframes ' + pre + 'sway{from{transform:none;opacity:1}to{transform:translate3d(var(--tx,0),var(--ty,0),0) scale(var(--ts,1));opacity:var(--to,1)}}',
+      '@keyframes ' + pre + 'loop{0%,100%{transform:none}33%{transform:translate3d(var(--x1),var(--y1),0) scale(var(--s1))}' +
+        '66%{transform:translate3d(var(--x2),var(--y2),0) scale(var(--s2))}}',
+      '@keyframes ' + pre + 'tile{from{transform:none}to{transform:translate3d(var(--tile),var(--tile),0)}}',
+      '@keyframes ' + pre + 'meteor{0%{transform:var(--bt) translate3d(0,0,0);opacity:0}2%{opacity:1}' +
+        '9%,100%{transform:var(--bt) translate3d(60vw,0,0);opacity:0}}'
+    ].join('\n');
+  }
+  // the lengths --wa..--wf, in seconds, at Motion Slow; Medium half, Fast a
+  // quarter or so (hk-sky.js), the screensaver's Speed scales them
+  var LENGTHS = { a: 46, b: 61, c: 77, d: 24, e: 13, f: 17 };
   // its four stops, {day, night} -- a Color backdrop's shape (a theme's in
   // its colour)
   function stops(id, col) {
@@ -515,7 +571,7 @@
     },
     has: function (id) { return !!BY_ID[id] || isTheme(id); },
     isTheme: isTheme,
-    svg: svg, url: url, stops: stops, scene: scene,
+    svg: svg, url: url, stops: stops, scene: scene, paintScene: paintScene, motionCss: motionCss, LENGTHS: LENGTHS,
     // a theme's colour: the presets ([id, name, hex]), the default, and a
     // stored value as "#rrggbb"
     COLORS: COLORS, COLOR_DEFAULT: COLOR_DEFAULT, color: color,
