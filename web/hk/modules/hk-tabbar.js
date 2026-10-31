@@ -1438,6 +1438,7 @@
         if (S.viewPad) S.view.style.setProperty(S.viewProp, S.viewPad);
         S.view.removeAttribute('hk-bar-room');
         S.view.style.removeProperty('--hk-bar-room');
+        S.view.style.removeProperty('--hk-rail-l'); S.view.style.removeProperty('--hk-rail-r');
         S.view = null;
       }
       if (view && S.view !== view) {
@@ -1454,6 +1455,11 @@
         // bar's room came on top of it and a page that fits the window
         // (Calendar, Live TV) scrolled by the bar's height. Above or below,
         // the room comes out of the view's own minimum.
+        // ...AND BESIDE A RAIL its room is published (2026-10-31, the owner on
+        // the phone: the rows that swipe sideways -- the chips, the cameras,
+        // the scenes -- run under the rail to the screen's edge, as HomeView's
+        // do, their first pill still on the page's inset; hk-row.js)
+        if ((pos === 'left' || pos === 'right') && add && add !== '0px') view.style.setProperty(pos === 'left' ? '--hk-rail-l' : '--hk-rail-r', add);
         if (pos === 'bottom' || pos === 'top') {
           barRoomCss(view);
           view.style.setProperty('--hk-bar-room', add);

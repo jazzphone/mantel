@@ -61,6 +61,10 @@
   // padR, 2026-10-30), both sides: out of the page's width for the gutter
   var SAFE_PADS = 'max(0px,var(--hk-safe-left,env(safe-area-inset-left,0px)) - var(--hk-page-left,0px)) - ' +
                   'max(0px,var(--hk-safe-right,env(safe-area-inset-right,0px)) - var(--hk-page-right,0px))';
+  // ...and what a row reaches into past the view's edge (2026-10-31): that
+  // room on each side, and a side rail's (hk-tabbar.js --hk-rail-l / -r)
+  var OUT_L = 'calc(var(--hk-rail-l,0px) + max(0px,var(--hk-safe-left,env(safe-area-inset-left,0px)) - var(--hk-page-left,0px)))';
+  var OUT_R = 'calc(var(--hk-rail-r,0px) + max(0px,var(--hk-safe-right,env(safe-area-inset-right,0px)) - var(--hk-page-right,0px)))';
   var CSS = [
     ':host{display:block;position:relative}',
     // The scroller. `gap` rather than per-child margins so the last child has
@@ -171,9 +175,12 @@
     '    --hk-bleed-rc:min(var(--hk-bleed-r,0px),var(--hk-gutter,calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px) - ' + SAFE_PADS + ') * var(--hk-side,0.02) + 4px)));',
     '    margin-left:calc(-1 * var(--hk-bleed-lc)) !important;',
     '    margin-right:calc(-1 * var(--hk-bleed-rc)) !important}',
-    '  .row{',
-    '    padding-left:calc(var(--hk-row-pl,0px) - var(--hk-bleed-l,0px) + var(--hk-bleed-lc,var(--hk-bleed-l,0px))) !important;',
-    '    padding-right:calc(var(--hk-row-pr,0px) - var(--hk-bleed-r,0px) + var(--hk-bleed-rc,var(--hk-bleed-r,0px))) !important}',
+    // UNDER A RAIL OR A SIDE STRIP (2026-10-31, the owner: rows run under the side controls to the screen's edge,
+    // as HomeView's do): the scroller itself reaches past its host into that room (OUT_L / OUT_R) and pays it
+    // back as padding, so its first pill keeps the page's inset -- the host's own margin is its grid's to set
+    '  .row{margin-left:calc(-1 * ' + OUT_L + ');margin-right:calc(-1 * ' + OUT_R + ');',
+    '    padding-left:calc(var(--hk-row-pl,0px) - var(--hk-bleed-l,0px) + var(--hk-bleed-lc,var(--hk-bleed-l,0px)) + ' + OUT_L + ') !important;',
+    '    padding-right:calc(var(--hk-row-pr,0px) - var(--hk-bleed-r,0px) + var(--hk-bleed-rc,var(--hk-bleed-r,0px)) + ' + OUT_R + ') !important}',
     // the lead follows the same clamp as the padding it sits over
     '  .lead{left:calc(var(--hk-row-pl,0px) - var(--hk-bleed-l,0px) + var(--hk-bleed-lc,var(--hk-bleed-l,0px)))}',
     '  .row.has-lead{',
