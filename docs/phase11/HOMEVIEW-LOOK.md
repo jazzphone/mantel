@@ -1216,3 +1216,7 @@ Security screen.
   top left, the name and one line of status at the foot (the chips as words, "Docked · 92%", a warning in its
   colour), and the commands as round keys at the top right -- Start and Dock on Small, all four on Wide (whose last
   one was cut off on a phone). Tiles keep their layout. `home_grid_visual_check --homeview` draws a Vacuum screen.
+- **A button's second line.** The owner: an input_button added among the accessories "looks a bit funny next to
+  the other entities with a status line". A button or input_button added to a room, a page or a Home Grid block is
+  now a tile with **Tap** under its name (it was a scene's pill, one line); a tap anywhere presses it and it lights
+  a moment, as before. In a scenes row it is still a scene's pill.

@@ -345,9 +345,14 @@
       return { type: 'custom:hk-scene-card', entity: id, name: name, icon: icon, icon_color: 'white',
                elevated: true, tap_action: call(d + '.turn_on') };
     }
+    // A BUTTON is a tile with a second line, "Tap", as the accessories beside
+    // it have their state (2026-10-30, the owner: an input_button "looks a bit
+    // funny next to the other entities with a status line"); a tap anywhere
+    // presses it, and it lights a moment (HkTileBase._momentary). In a scenes
+    // row it is still a scene's pill (hk-scenes.js).
     if (d === 'button' || d === 'input_button') {
-      return { type: 'custom:hk-scene-card', entity: id, name: name, icon: icon, icon_color: 'white',
-               elevated: true, tap_action: call(d + '.press') };
+      return { type: 'custom:hk-tile-card', entity: id, name: name, icon: icon, icon_color: 'white', label: 'Tap',
+               tap_action: call(d + '.press'), icon_tap_action: call(d + '.press') };
     }
     var t = { type: 'custom:hk-tile-card', entity: id, name: name, icon: icon, icon_color: 'white',
               label_mode: 'state' };

@@ -1300,6 +1300,10 @@ window.hkStrategy.generate({}, hass).then(function (cfg) {
   hass.entities['scene.movie'] = { area_id: 'den' };
   S['input_button.nap'] = st('input_button.nap', '2026-10-01', { friendly_name: 'Nap' });
   hass.entities['input_button.nap'] = {};
+  // A BUTTON ADDED AMONG ACCESSORIES (2026-10-30): a tile with "Tap" for its second line, pressed by a tap anywhere
+  var napTile = window.hkStrategy.tileFor(hass, 'input_button.nap', 'Nap');
+  ok('an input_button is a tile with "Tap" under its name, pressed on a tap', napTile.type === 'custom:hk-tile-card' &&
+     napTile.label === 'Tap' && napTile.tap_action.service === 'input_button.press' && napTile.icon_tap_action.service === 'input_button.press', napTile);
   var row = function (area) {
     var cs = window.hkStrategy.roomCards(hass, [area], 'Room', {});
     return cs.filter(function (c) { return c.type === 'custom:hk-scenes-card'; })[0] || null;
