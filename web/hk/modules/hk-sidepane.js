@@ -393,7 +393,7 @@
   // Stacked -- StandBy's hours over minutes -- or Analog, the Analog Numbers face small with the time and date
   // beside it), Alignment, Size (`scale`), Weight, AM/PM, Flashing Colon, Date, Second Line. What a section
   // leaves out is today's clock.
-  var CLOCK_DEFAULTS = { face: 'digital', align: 'left', scale: 'medium', weight: 'semibold', date: 'full', line: 'auto', beside: 'none' };
+  var CLOCK_DEFAULTS = { face: 'digital', align: 'left', scale: 'medium', weight: 'semibold', date: 'full', line: 'auto', beside: 'none', below: 'auto' };
   function clockLook(sec) {
     var o = {};
     Object.keys(CLOCK_DEFAULTS).forEach(function (k) { o[k] = sec && sec[k] ? sec[k] : CLOCK_DEFAULTS[k]; });
@@ -442,6 +442,78 @@
              sky: '<div class="sub2 ckxs">' + esc(cond) + (hi ? '<span class="hl"> \u00b7 ' + esc(hi) + '</span>' : '') + '</div>' };
   }
 
+  // UNDER THE TIME (2026-10-31, the owner: at More the sunset "just kind of blends in ... something that spans the whole
+  // way"): a strip the clock's width under the time and date, of the clock's own choosing -- the next hours, the
+  // sun's day, the moon, or the conditions (wind, humidity, UV, sunset). '' when what it needs isn't here.
+  var SYNODIC = 29.530588853, NEW_MOON = Date.UTC(2000, 0, 6, 18, 14);
+  function moonAge(t) { var a = ((t - NEW_MOON) / 86400000) % SYNODIC; return a < 0 ? a + SYNODIC : a; }
+  // its name: New, First Quarter, Full and Last Quarter only within a day of them (eight equal bins called 67 %
+  // "Last Quarter"), the crescents and gibbous between
+  function moonName(age) {
+    var f = age / SYNODIC, near = 1 / SYNODIC;
+    if (f < near || f > 1 - near) return 'New Moon';
+    if (Math.abs(f - 0.25) < near) return 'First Quarter';
+    if (Math.abs(f - 0.5) < near) return 'Full Moon';
+    if (Math.abs(f - 0.75) < near) return 'Last Quarter';
+    return (f < 0.5 ? 'Waxing ' : 'Waning ') + (f < 0.25 || f > 0.75 ? 'Crescent' : 'Gibbous');
+  }
+  // the moon drawn as it is tonight: its dark disc, the lit part bounded by the limb and the terminator (an ellipse)
+  function moonSvg(age, px) {
+    var r = 20, cx = 22, cy = 22, f = age / SYNODIC, k = Math.cos(2 * Math.PI * f), rx = Math.abs(k) * r, wax = f < 0.5;
+    var lit = 'M' + cx + ' ' + (cy - r) + ' A' + r + ' ' + r + ' 0 0 ' + (wax ? 1 : 0) + ' ' + cx + ' ' + (cy + r) +
+              ' A' + rx.toFixed(2) + ' ' + r + ' 0 0 ' + ((k > 0) === wax ? 0 : 1) + ' ' + cx + ' ' + (cy - r) + 'Z';
+    return '<svg class="moon" viewBox="0 0 44 44" width="' + px + '" height="' + px + '" aria-hidden="true">' +
+      '<circle cx="22" cy="22" r="20" fill="rgba(255,255,255,.14)"/><path d="' + lit + '" fill="#f2f0e6"/></svg>';
+  }
+  function underTime(kind, c, ctx) {
+    var st = states(c), sun = st['sun.sun'], now = Date.now();
+    var wid = setting('weather.entity', null) || domainIds(c, 'weather')[0], w = wid && (st[wid] || WX_LAST[wid]);
+    if (kind === 'hours') {
+      var hourly = w && ctx && ctx.forecast ? ctx.forecast(wid, 'hourly') : [];
+      if (!hourly.length) return '';
+      return '<div class="ckb hrs">' + hourly.slice(0, 5).map(function (h, i) {
+        return '<div>' + esc(i ? hm(new Date(h.datetime)).replace(':00', '') : 'Now') + wxGlyph(h.condition, 18) + '<b>' + esc(deg(h.temperature)) + '</b></div>';
+      }).join('') + '</div>';
+    }
+    if (kind === 'sun') {
+      var rise = Date.parse(attr(sun, 'next_rising')), set = Date.parse(attr(sun, 'next_setting'));
+      if (!isFinite(rise) || !isFinite(set)) return '';
+      // the day it is in: by day the sunrise was today (the next one is tomorrow's); by night, the day to come
+      var day = set < rise;
+      if (day) rise -= 86400000;
+      var p = day ? Math.max(0, Math.min(1, (now - rise) / (set - rise))) : 0, pt = function (t) { return [10 + t * 280, 52 - 42 * Math.sin(Math.PI * t)]; };
+      var path = function (a, b) { var o = []; for (var i = 0; i <= 40; i++) { var q = pt(a + (b - a) * i / 40); o.push(q[0].toFixed(1) + ',' + q[1].toFixed(1)); } return o.join(' '); };
+      var at = pt(p), len = Math.round((set - rise) / 60000);
+      return '<div class="ckb cksun"><svg viewBox="0 0 300 60" aria-hidden="true">' +
+        '<defs><linearGradient id="ckSunG" x1="0" x2="1"><stop offset="0" stop-color="#ff9f0a"/><stop offset="1" stop-color="#ffd60a"/></linearGradient></defs>' +
+        '<line x1="0" y1="52" x2="300" y2="52" stroke="rgba(255,255,255,.22)" stroke-width="1"/>' +
+        '<polyline points="' + path(0, 1) + '" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="2" stroke-dasharray="3 5" stroke-linecap="round"/>' +
+        (day && p > 0 ? '<polyline points="' + path(0, p) + '" fill="none" stroke="url(#ckSunG)" stroke-width="3" stroke-linecap="round"/>' : '') +
+        (day ? '<circle cx="' + at[0].toFixed(1) + '" cy="' + at[1].toFixed(1) + '" r="9" fill="rgba(255,214,10,.25)"/><circle cx="' + at[0].toFixed(1) + '" cy="' + at[1].toFixed(1) + '" r="5.5" fill="#ffd60a"/>' : '') +
+        '</svg><div class="sub2 cksl"><span>' + icon('mdi:weather-sunset-up') + esc(hm(new Date(rise))) + '</span><span class="ckdl">' +
+        esc(Math.floor(len / 60) + 'h ' + (len % 60) + 'm of daylight') + '</span><span>' + icon('mdi:weather-sunset') + esc(hm(new Date(set))) + '</span></div></div>';
+    }
+    if (kind === 'moon') {
+      var age = moonAge(now), f = age / SYNODIC, lit = Math.round((1 - Math.cos(2 * Math.PI * f)) / 2 * 100);
+      var name = moonName(age), toFull = (SYNODIC / 2 - age + SYNODIC) % SYNODIC, toNew = SYNODIC - age;
+      var next = toFull < toNew ? ['Full', toFull] : ['New', toNew], dn = Math.round(next[1]);
+      var when = dn <= 0 ? 'tonight' : dn === 1 ? 'tomorrow' : 'in ' + dn + ' days';
+      return '<div class="ckb ckmoon">' + moonSvg(age, 44) + '<div><b>' + esc(name) + '</b><div class="sub2">' + esc(lit + '% lit · ' + next[0] + ' Moon ' + when) + '</div></div></div>';
+    }
+    if (kind === 'conditions') {
+      var a = (w && w.attributes) || {}, cols = [];
+      var setT = Date.parse(attr(sun, 'next_setting')), riseT = Date.parse(attr(sun, 'next_rising'));
+      if (isFinite(setT) && isFinite(riseT)) cols.push(setT < riseT ? ['mdi:weather-sunset', hm(new Date(setT)), 'Sunset'] : ['mdi:weather-sunset-up', hm(new Date(riseT)), 'Sunrise']);
+      if (num(a.wind_speed) != null) cols.push(['mdi:weather-windy', Math.round(num(a.wind_speed)) + (a.wind_speed_unit ? ' ' + a.wind_speed_unit : ''), 'Wind']);
+      if (num(a.humidity) != null) cols.push(['mdi:water-percent', Math.round(num(a.humidity)) + '%', 'Humidity']);
+      if (num(a.uv_index) != null) cols.push(['mdi:white-balance-sunny', String(Math.round(num(a.uv_index))), 'UV']);
+      if (!cols.length) return '';
+      return '<div class="ckb ckrd" style="--n:' + cols.length + '">' + cols.map(function (x) {
+        return '<div>' + icon(x[0]) + '<b>' + esc(x[1]) + '</b><span>' + esc(x[2]) + '</span></div>'; }).join('') + '</div>';
+    }
+    return '';
+  }
+
   // EACH SECTION AT EACH SIZE: (size, sec, c, ctx) -> HTML. ctx.slot(key,
   // make) leaves a place for an element kept between draws (the music pane,
   // a doorbell's live camera); ctx.redraw() draws the pane again.
@@ -470,7 +542,9 @@
       // date's, AM on the baseline, date left / sunset right"): the digits
       // pulled back by their own side bearing, AM on their baseline, and
       // under them the date at the left and the sunset at the right
-      var sun = o.line === 'auto' && s === 'more' && set ? '<span class="sun">' + sunText + '</span>' : '';
+      // (UNDER THE TIME, at More: a strip of its own in the sunset's place -- underTime)
+      var under = s === 'more' && o.below !== 'auto' && o.face !== 'analog' ? underTime(o.below, c, ctx) : '';
+      var sun = o.line === 'auto' && s === 'more' && set && !under ? '<span class="sun">' + sunText + '</span>' : '';
       var dl = dateText ? '<span class="dl">' + dateText + '</span>' : '';
       var line = (dl || sun ? '<div class="sub2 ckd">' + dl + (sun && o.date === 'full' ? '<span class="ds">' + esc(dateShort(d)) + '</span>' : '') + sun + '</div>' : '') + second;
       if (o.face === 'analog') {
@@ -483,9 +557,9 @@
       if (wxBy) {
         // (the date's line without the second line, which runs the whole width under both)
         var dateLine = dl || sun ? '<div class="sub2 ckd">' + dl + (sun && o.date === 'full' ? '<span class="ds">' + esc(dateShort(d)) + '</span>' : '') + sun + '</div>' : '<div class="ckd"></div>';
-        return box('clock', s, '<div class="ckrow">' + main + wxBy.wt + dateLine + wxBy.sky + second + '</div>', (cls + ' ckby').trim());
+        return box('clock', s, '<div class="ckrow">' + main + wxBy.wt + dateLine + wxBy.sky + second + under + '</div>', (cls + ' ckby').trim());
       }
-      return box('clock', s, main + line, cls.trim());
+      return box('clock', s, main + line + under, cls.trim());
     },
     weather: function (s, sec, c, ctx) {
       var id = setting('weather.entity', null) || domainIds(c, 'weather')[0], st = id && states(c)[id];
@@ -931,6 +1005,22 @@
       // ...and the date's line beside the weather has no room for the sunset at its right (it wrapped under, off to
       // the side -- 2026-10-31): there the sunset is a line of its own under the date, on the time's side
       '.ckby .ckd{flex-direction:column;flex-wrap:nowrap;gap:4px}.ckby .ckd .sun{margin-left:0}',
+      // UNDER THE TIME (underTime): the clock's width, under a hairline, whatever the alignment
+      '.ckb{border-top:1px solid ' + v('line') + ';padding-top:12px;margin-top:4px;text-align:left;justify-self:stretch;width:100%;box-sizing:border-box}',
+      '.ckrow>.ckb{grid-column:1 / -1}',
+      '.ckb.hrs{text-align:center}',
+      // ...the sun's day: its arc, gone over in the sun's colours, the sun where it is; sunrise, daylight, sunset
+      '.cksun svg{display:block;width:100%;height:auto;overflow:visible}',
+      '.cksl{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px;white-space:nowrap}',
+      '.cksl span{display:inline-flex;align-items:center;gap:4px}.cksl hk-icon{--mdc-icon-size:16px;width:16px;height:16px;color:#ffd60a}',
+      '@container (max-width:300px){.cksl .ckdl{display:none}}',
+      // ...the moon: tonight's, drawn, its name and how much is lit, the next full or new moon
+      '.ckmoon{display:flex;align-items:center;gap:14px}.ckmoon .moon{flex:none;filter:drop-shadow(0 0 6px rgba(242,240,230,.25))}',
+      '.ckmoon b{display:block;font:600 17px/1.3 var(--hk-font-body,inherit)}',
+      // ...the conditions: up to four readings, each its glyph, its value and its name
+      '.ckrd{display:grid;grid-template-columns:repeat(var(--n,4),1fr);text-align:center;gap:6px}',
+      '.ckrd hk-icon{--mdc-icon-size:20px;width:20px;height:20px;display:block;margin:0 auto 4px;color:' + v('ink-2') + '}',
+      '.ckrd b{display:block;font:600 16px/1.25 var(--hk-font-body,inherit);white-space:nowrap}.ckrd span{display:block;font:500 12px/1.3 var(--hk-font-body,inherit);color:' + v('ink-2') + '}',
       '.ckby.cka-right .ckd{align-items:flex-end}.ckby.cka-center .ckd{align-items:center}',
       '@container (max-width:320px){.ckd .ds{display:inline}.ckd:has(.ds) .dl{display:none}}',
       // THE CLOCK'S CHOICES (item 43): Stacked (the hours over the minutes), Analog (the small face with the time and date

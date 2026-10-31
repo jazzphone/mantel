@@ -5895,7 +5895,8 @@
         c.appendChild(K.group({ header: 'Look', footer: 'Face — Stacked: the hours over the minutes, as StandBy has them. Analog: the Analog Numbers face, small, with the time and date beside it. ' +
             'AM/PM shows only on a 12-hour clock. The colon flashes only where animations are on (not under Reduce Motion, Animations Off or Flat). ' +
             'Second Line — Automatic: the date, with the sunset beside it at More. ' +
-            'Beside the Time — Weather: the temperature and the sky at the right of the time, as the menu’s header has them (at Less and More; under the time when it is centred).' }, [
+            'Beside the Time — Weather: the temperature and the sky beside the time, as the menu’s header has them (at Less and More; under the time when it is centred). ' +
+            'Under the Time, at More — Sunset: the sunset beside the date. Next Hours: the coming hours’ weather. Sun: the day’s arc from sunrise to sunset, with the sun on it. Moon: tonight’s moon and when it is next full or new. Conditions: the sunset or sunrise, wind, humidity and UV.' }, [
           K.seg({ label: 'Face', sk: 'pane:clock:face', value: s.face || 'digital', options: M.CLOCK_FACES, onChange: function (v) { set('face', v === 'digital' ? null : v); } }),
           K.seg({ label: 'Alignment', sk: 'pane:clock:align', value: s.align || 'left', options: M.CLOCK_ALIGNS, onChange: function (v) { set('align', v === 'left' ? null : v); } }),
           K.seg({ label: 'Text Size', sk: 'pane:clock:scale', value: s.scale || 'medium', options: M.CLOCK_SCALES, onChange: function (v) { set('scale', v === 'medium' ? null : v); } }),
@@ -5904,7 +5905,8 @@
           K.toggle({ label: 'Flashing Colon', sk: 'pane:clock:colon', on: !!s.colon, onChange: function (on) { set('colon', on || null); } }),
           K.seg({ label: 'Date', sk: 'pane:clock:date', value: s.date || 'full', options: M.CLOCK_DATES, onChange: function (v) { set('date', v === 'full' ? null : v); } }),
           pick('Second Line', 'pane:clock:line', 'line', M.CLOCK_LINES, 'auto'),
-          K.seg({ label: 'Beside the Time', sk: 'pane:clock:beside', value: s.beside || 'none', options: M.CLOCK_BESIDE, onChange: function (v) { set('beside', v === 'none' ? null : v); } })]));
+          K.seg({ label: 'Beside the Time', sk: 'pane:clock:beside', value: s.beside || 'none', options: M.CLOCK_BESIDE, onChange: function (v) { set('beside', v === 'none' ? null : v); } }),
+          pick('Under the Time', 'pane:clock:below', 'below', M.CLOCK_BELOW, 'auto')]));
       }
       if (s.kind === 'camera' || s.kind === 'todo') {
         var dom = s.kind === 'camera' ? 'camera' : 'todo';
