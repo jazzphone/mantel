@@ -1360,3 +1360,12 @@ to the right of the column under it, its left edge out of line too. The pager's 
 track's width, `PAGER_ROOM` either side), but a smooth turn cut short -- a camera following motion while the block was
 drawn again, or a hidden tab -- left the track a few px past its page, and nothing put it back. Once the track has
 been still for `PAGER_STILL`, it now sits exactly on the page it is nearest (`test_pager`).
+
+**2026-10-31, the Side Pane's Now Playing at Less: Speakers, Browse and the volume.** The owner: Speakers and Browse
+"should be like this for the side pane media player too". At More and Full the pane already holds the screensaver's
+music pane, both buttons on it. Less was the song and play / pause alone; now the song keeps its row with play /
+pause, and under it the volume (`media_player.volume_set` where it is let go) sits between Speakers and Browse ("Maybe
+something can move to the volume line?"). Either opens the screensaver's panel (Speakers, Volume, Queue, Browse,
+what plays at its foot) over the pane, at the pane's size (`musicPanel`); a tap outside, its X, Escape or a request
+landing close it. The Now Playing block keeps its turn-over, larger than the block (the owner: "the block can get
+larger"). `test_sidepane` (+4), `side_pane_check`.

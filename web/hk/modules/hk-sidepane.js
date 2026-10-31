@@ -206,7 +206,7 @@
     var playing = st.state === 'playing';
     var t = pos + (playing && at ? (Date.now() - at) / 1000 : 0);
     return { key: ctx.key, playing: playing, title: ctx.title || a.media_title || '', artist: ctx.artist || a.media_artist || '',
-             pic: pic, at: dur ? Math.max(0, Math.min(1, t / dur)) : 0 };
+             pic: pic, at: dur ? Math.max(0, Math.min(1, t / dur)) : 0, vol: num(a.volume_level) };
   }
   // ...held a grace after it stops (All Screens -> Now Playing -> Hide After a Pause)
   function musicHas(c) {
@@ -421,9 +421,18 @@
       var pp = '<button type="button" class="pp" data-act="pp" aria-label="' + (m.playing ? 'Pause' : 'Play') + '">' +
                icon(m.playing ? 'mdi:pause' : 'mdi:play') + '</button>';
       if (s === 'tiny') return tiny('now_playing', esc(m.title || 'Playing'), pp);
+      // LESS: the song and play / pause; under it the volume, between the
+      // screensaver's Speakers and Browse, which open its panel over the pane
+      // (musicPanel) -- the owner, 2026-10-31: "like this for the side pane
+      // media player too", the two on the volume's line so the song keeps its
+      // row. With no volume to set, the two at that line's ends.
       if (s === 'less') {
+        var mk = function (act, name, ic) { return '<button type="button" class="pp" data-act="' + act + '" aria-label="' + name + '">' + icon(ic) + '</button>'; };
         return box('now_playing', s, '<div class="r2 np">' + (m.pic ? '<img class="art" alt="" src="' + esc(m.pic) + '">' : '<span class="art">' + icon('mdi:music') + '</span>') +
-          '<span class="tx"><b>' + esc(m.title) + '</b><i>' + esc(m.artist) + '</i></span>' + pp + '</div>');
+          '<span class="tx"><b>' + esc(m.title) + '</b><i>' + esc(m.artist) + '</i></span>' + pp + '</div>' +
+          '<div class="vol">' + mk('spk', 'Speakers', 'mdi:speaker') +
+          (m.vol !== null ? '<input type="range" min="0" max="100" step="1" data-act="vol" aria-label="Volume" value="' + Math.round(m.vol * 100) + '">' : '<span class="sp"></span>') +
+          mk('brw', 'Browse Music', 'mdi:music-box-multiple') + '</div>');
       }
       // MORE AND FULL: the screensaver's music pane itself (hk-music-pane-card,
       // hk-saver.js): the art, the song, its buttons and volume, Up Next and
@@ -748,6 +757,12 @@
       '.pp{all:unset;cursor:pointer;flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:' + v('key') + '}',
       '.pp hk-icon{--mdc-icon-size:22px;width:22px;height:22px}',
       '.cmp .pp{width:30px;height:30px;margin:-4px 0}',
+      '.vol{display:flex;align-items:center;gap:12px;margin-top:12px}.vol .sp{flex:1}',
+      '.vol input{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:28px;background:transparent;margin:0;touch-action:pan-y}',
+      '.vol input::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:' + v('line-strong') + '}',
+      '.vol input::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}',
+      '.vol input::-moz-range-track{height:6px;border-radius:3px;background:' + v('line-strong') + '}',
+      '.vol input::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:50%;background:#fff}',
       // the screensaver's music pane, in a section: More is its art and
       // controls at the pane's width; Full takes what is left
       '.sec.mp{padding:0;display:block;position:relative;height:540px;background:none;overflow:visible}',
@@ -877,6 +892,13 @@
       this._wx = {};
       var self = this;
       this._root.addEventListener('click', function (e) { self._click(e); });
+      // THE VOLUME: set where it is let go (the music's own player)
+      this._root.addEventListener('change', function (e) {
+        var t = e.target, c = clientNow(), m = c && musicOf(c);
+        if (!t || t.getAttribute('data-act') !== 'vol' || !m || !c.actions) return;
+        c.actions.callService('media_player', 'volume_set', { volume_level: Math.max(0, Math.min(1, Number(t.value) / 100)) }, { entity_id: m.key })
+          .catch(function () { /* refused: said by the host */ });
+      });
       this._root.addEventListener('submit', function (e) { self._submit(e); });
     }
     // what it shows now: { list (sections), place, doorbell (a camera) }
@@ -1135,6 +1157,8 @@
       if (act === 'pp') {
         var m = musicOf(c);
         if (m) c.actions.callService('media_player', 'media_play_pause', {}, { entity_id: m.key }).catch(function () { /* refused: said by the host */ });
+      } else if (act === 'spk' || act === 'brw') {
+        musicPanel(this, act === 'spk' ? 'speakers' : 'browse');
       } else if (act === 'todo') {
         // CHECKED OFF: a house command (todo.update_item), struck through
         // until the list says so
@@ -1245,6 +1269,72 @@
     });
     if (l || r || b) de.setAttribute('hk-pane', l ? 'left' : r ? 'right' : 'band'); else de.removeAttribute('hk-pane');
     try { window.dispatchEvent(new Event('hk-pane')); } catch (e) { /* no listeners */ }
+  }
+  // THE MUSIC'S PANEL OVER THE PANE (Less's Speakers and Browse): the
+  // screensaver's (hk-saver-panel.js) -- Speakers, Volume, Queue, Browse, what
+  // plays at its foot -- the pane's own size and place, so it opens where the
+  // player is. A tap outside, its X, Escape, a moment after a request has
+  // landed, and the music going close it.
+  var mpnl = null;
+  function musicPanel(pane, tab) {
+    var P = window.hkSaverPanel, HC = C();
+    if (mpnl) { if (mpnl.p.tab() !== tab) mpnl.p.show(tab); else closeMusicPanel(); return; }
+    if (!P || !pane || !pane.getBoundingClientRect) return;
+    var r = pane.getBoundingClientRect();
+    var host = document.createElement('div');
+    host.style.cssText = 'position:fixed;inset:0;z-index:12;' + ((HC && HC.FONT_ROOT) || '');
+    var sr = host.attachShadow({ mode: 'open' });
+    var st = document.createElement('style');
+    st.textContent = P.CSS + (HC && HC.shadeCss ? HC.shadeCss('.mpanel') : '') +
+      '.scrim{position:fixed;inset:0}.mpanel.pn{position:fixed;border-radius:' + ((HC && HC.R && HC.R.sheet) || 38) + 'px;background:rgb(24,25,29);' +
+      'box-shadow:0 26px 70px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.12)}';
+    sr.appendChild(st);
+    var scrim = document.createElement('div'); scrim.className = 'scrim';
+    sr.appendChild(scrim);
+    var me = { host: host, doneT: null };
+    me.p = P.create({
+      tabs: ['speakers', 'volume', 'queue', 'browse'],
+      client: function () { return clientNow(); },
+      ctx: function () { return musicNow(clientNow()); },
+      art: function () { return null; },
+      stop: true,
+      follow: function (key) { var Mu = window.hkMusic; if (key && Mu && Mu.known && Mu.known(key)) Mu.setFocus(key); },
+      done: function (ms) {
+        if (mpnl !== me) return;
+        clearTimeout(me.doneT);
+        me.doneT = setTimeout(function () { if (mpnl === me) closeMusicPanel(); }, ms || 0);
+      },
+      wide: function () { return false; },
+      mini: function () { return true; },
+      now: function () {
+        var m = musicOf(clientNow());
+        return m ? { idle: false, playing: m.playing, title: m.title, artist: m.artist, pic: m.pic, room: '' } : null;
+      },
+      transport: function (k) {
+        var c = clientNow(), m = c && musicOf(c);
+        if (m && c.actions) c.actions.callService('media_player', k === 'pp' ? 'media_play_pause' : 'media_next_track', {}, { entity_id: m.key }).catch(function () { /* refused */ });
+      }
+    });
+    var el = me.p.el, inset = 8;
+    el.classList.add('up', 'pn');
+    el.style.cssText = 'left:' + (r.left + inset) + 'px;top:' + (r.top + inset) + 'px;width:' + (r.width - 2 * inset) + 'px;height:' + (r.height - 2 * inset) + 'px';
+    sr.appendChild(el);
+    me.p.size(r.width - 2 * inset, r.height - 2 * inset, 1);
+    me.p.show(tab);
+    scrim.addEventListener('click', closeMusicPanel);
+    me.key = function (ev) { if (ev.key === 'Escape') closeMusicPanel(); };
+    window.addEventListener('keydown', me.key);
+    document.body.appendChild(host);
+    mpnl = me;
+  }
+  function closeMusicPanel() {
+    var me = mpnl;
+    if (!me) return;
+    mpnl = null;
+    clearTimeout(me.doneT);
+    window.removeEventListener('keydown', me.key);
+    try { me.p.destroy(); } catch (e) { /* gone */ }
+    me.host.remove();
   }
   // NOW PLAYING IN THE PANE: the docked bar gives the music up to it while
   // it shows (hk-popup.js's `flag` condition, hk-strategy.js)

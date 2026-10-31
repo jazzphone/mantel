@@ -201,6 +201,21 @@ ok('...More lists each lock, Full who changed it', X.SEC.security('more', {}, cl
 ok('Now Playing: Tiny the song and a pause; More the screensaver\'s music pane', X.SEC.now_playing('tiny', {}, client, ctx).indexOf('Late Light') > 0 &&
    /data-act="pp"/.test(X.SEC.now_playing('tiny', {}, client, ctx)) && /data-slot="np"/.test(X.SEC.now_playing('more', {}, client, ctx)));
 ok('...Full takes what the pane has left', /class="sec mp grow"/.test(X.SEC.now_playing('full', {}, client, ctx)));
+var less = X.SEC.now_playing('less', {}, client, ctx);
+ok('...Less: the song and play / pause; Speakers and Browse at the ends of the line under it (2026-10-31, the owner)',
+   /data-act="spk"[^>]*aria-label="Speakers"/.test(less) && /data-act="brw"[^>]*aria-label="Browse Music"/.test(less) &&
+   less.indexOf('data-act="pp"') < less.indexOf('class="vol"') && less.indexOf('class="vol"') < less.indexOf('data-act="spk"') &&
+   less.indexOf('data-act="spk"') < less.indexOf('data-act="brw"'), less);
+var src = readFile(HK_ROOT + '/frontend/modules/hk-sidepane.js');
+ok('...Speakers and Browse open the screensaver\'s panel over the pane, its four tabs', /musicPanel\(this, act === 'spk' \? 'speakers' : 'browse'\)/.test(src) &&
+   /tabs: \['speakers', 'volume', 'queue', 'browse'\]/.test(src));
+ok('...no volume where the player reports none', !/data-act="vol"/.test(less));
+client.states['media_player.kitchen'].attributes.volume_level = 0.42;
+var lessV = X.SEC.now_playing('less', {}, client, ctx);
+ok('...and its volume between them where it does, set where it is let go', /data-act="spk".*data-act="vol"[^>]*value="42".*data-act="brw"/.test(lessV) &&
+   /'media_player', 'volume_set', \{ volume_level:/.test(src), lessV);
+delete client.states['media_player.kitchen'].attributes.volume_level;
+
 ok('Calendar: the next event, then two, four, five', X.SEC.calendar('tiny', {}, client, ctx).indexOf('Pumpkin carving') > 0 &&
    (X.SEC.calendar('less', {}, client, ctx).match(/class="ev"/g) || []).length === 2);
 ok('Who’s Home: home and away counts', X.SEC.people('tiny', {}, client, ctx).indexOf('1 home') > 0 && X.SEC.people('tiny', {}, client, ctx).indexOf('1 away') > 0);
