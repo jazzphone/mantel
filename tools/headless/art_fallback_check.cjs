@@ -96,12 +96,16 @@ const VISIBLE_IMGS = () => {
           imgs.forEach((el) => { const s = el.getAttribute('src'); if (/__art\//.test(s)) el.setAttribute('src', s.replace(/[?].*$/, '') + '?v=2'); });
           return imgs.length;
         });
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(3500);
         const after = await page.evaluate(`(${VISIBLE_IMGS.toString()})()`);
-        const kind = after.filter((i) => i.ph).map((i) => (/^data:image\/jpeg/.test(i.src) ? 'last-good' : /^data:image\/svg/.test(i.src) ? 'placeholder' : 'other:' + i.src));
+        const kindOf = (i) => (/^data:image\/jpeg/.test(i.src) ? 'last-good' : /^data:image\/svg/.test(i.src) ? 'placeholder' : 'other:' + i.src);
+        const kind = after.filter((i) => i.ph).map((i) => i.ph + ':' + kindOf(i));
+        // a cover whose next version fails is the note, NEVER the last cover; a face keeps its last good one
+        const wrong = after.filter((i) => i.ph && i.ph !== 'av' && kindOf(i) !== 'placeholder');
         const brk = after.filter((i) => !i.ok);
         if (brk.length) fails.push(name + ' (next version refused): ' + JSON.stringify(brk.slice(0, 4)));
-        else if (!kind.includes('last-good')) fails.push(name + ' (next version refused): no last-good picture shown; kept=' + kept + ' re-asked=' + re + ' got ' + JSON.stringify(kind));
+        else if (wrong.length) fails.push(name + ' (next version refused): a cover is not the note: ' + JSON.stringify(wrong.slice(0, 3)));
+        else if (kind.some((k) => k.startsWith('av:')) && !kind.includes('av:last-good')) fails.push(name + ' (next version refused): no last-good picture shown; kept=' + kept + ' re-asked=' + re + ' got ' + JSON.stringify(kind));
         else notes.push(name + ' (next version refused): ' + kind.join(',') + ' (kept ' + kept + ')');
         bad = false;
       }

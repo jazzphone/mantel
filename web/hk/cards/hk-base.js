@@ -1826,11 +1826,12 @@
   //   the kept copy        the LAST GOOD picture, a 160 px thumbnail in the
   //                        snapshot cache above ("art:" keys, at most
   //                        ART_KEEP of them, the least recently used going
-  //                        first), so it survives a reload too. While the new
-  //                        fetch fails the last good one is shown; only with
-  //                        none kept does the placeholder come. The key is
-  //                        the address without its query (?v=...): a speaker's
-  //                        art address stays and its version changes.
+  //                        first), so it survives a reload too. While a fetch
+  //                        fails the last good copy of THE SAME picture is
+  //                        shown; with none kept, the placeholder. A cover's
+  //                        key includes its query (version, token), so the
+  //                        next track's failing cover is the note, never the
+  //                        last track's art; a face's key is its path.
   //
   // An element opts in with data-ph="note" (art), "av" (a face; data-initials
   // and data-color say what to draw) or "bg" (a blurred backdrop: a flat dark).
@@ -1842,16 +1843,20 @@
   var ART_NOTE = 'M21,3V15.5A3.5,3.5 0 0,1 17.5,19A3.5,3.5 0 0,1 14,15.5A3.5,3.5 0 0,1 17.5,12C18.04,12 18.55,12.12 19,12.34V6.47L9,8.6V17.5A3.5,3.5 0 0,1 5.5,21A3.5,3.5 0 0,1 2,17.5A3.5,3.5 0 0,1 5.5,14C6.04,14 6.55,14.12 7,14.34V6L21,3Z';
   var ART_COLORS = ['#ff9500', '#5856d6', '#34c759', '#ff2d55', '#32ade6'];
 
-  function artKey(url) { return 'art:' + String(url || '').replace(/[?#].*$/, ''); }
-  function artKept(url) {
-    var k = artKey(url), hit = snapCacheGet(k);
+  // THE KEY SAYS WHICH PICTURE IT IS (the lead, 2026-10-31: a failed cover must never be the PREVIOUS TRACK's). A cover's
+  // key keeps its query -- the version or token (?v=, ?token=) is what tells one album's art from the next's -- so a
+  // kept copy stands in only for the very same picture. A face (kind "av") is the same face whatever the query says:
+  // its key is the path alone.
+  function artKey(url, kind) { return 'art:' + String(url || '').replace(kind === 'av' ? /[?#].*$/ : /#.*$/, ''); }
+  function artKept(url, kind) {
+    var k = artKey(url, kind), hit = snapCacheGet(k);
     if (!hit || !hit.d) return '';
     artUse[k] = ++artTick;
     return hit.d;
   }
   // Keep the picture that just loaded, and drop the least recently used past the cap.
-  function artKeep(img, url) {
-    var k = artKey(url);
+  function artKeep(img, url, kind) {
+    var k = artKey(url, kind);
     if (!url || /^(data|blob):/.test(url)) return;
     var put = snapCachePut(k, img, artLast[k] !== url);
     if (!put) return;
@@ -1877,7 +1882,7 @@
     return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">' + body + '</svg>');
   }
   // What an <img> that cannot load shows: the last good picture, else the placeholder
-  function artFallback(url, kind, ini, color) { return artKept(url) || artSvg(kind, ini, color); }
+  function artFallback(url, kind, ini, color) { return artKept(url, kind) || artSvg(kind, ini, color); }
   // The address to put in the markup: the picture's own, unless it failed a moment ago
   function artSrc(url, o) {
     o = o || {};
@@ -1910,7 +1915,7 @@
     }, true);
     root.addEventListener('load', function (e) {
       var im = mine(e);
-      if (im && im.naturalWidth > 0) artKeep(im, im.getAttribute('src') || '');
+      if (im && im.naturalWidth > 0) artKeep(im, im.getAttribute('src') || '', im.getAttribute('data-ph'));
     }, true);
   }
 

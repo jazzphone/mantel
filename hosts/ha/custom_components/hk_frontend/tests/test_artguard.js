@@ -84,12 +84,23 @@ var g1 = img('/api/media/b/art?v=1', { 'data-ph': 'note' });
 g1.naturalWidth = 600; g1.naturalHeight = 600;
 fire(root, 'load', g1);
 var keys = SC.keys('art:');
-ok('a load keeps a thumbnail, keyed without its query', keys, ['art:/api/media/b/art']);
+ok('a cover is kept under its own address, version included', keys, ['art:/api/media/b/art?v=1']);
 ok('160 wide', globalThis.__canvasCalls[0], { w: 160, h: 160 });
+// TRACK A LOADED, TRACK B FAILS: the note, never A's cover (the lead's rule)
 var broken = img('/api/media/b/art?v=2', { 'data-ph': 'note' });
 fire(root, 'error', broken);
-ok('the next version failing shows the last good one', /^data:image\/jpeg/.test(broken.getAttribute('src')), true);
-ok('...and so does a re-render', /^data:image\/jpeg/.test(H.artSrc('/api/media/b/art?v=2', { ph: 'note' })), true);
+ok('track B failing is the note, not track A\'s cover', /^data:image\/svg/.test(broken.getAttribute('src')), true);
+ok('...and so does a re-render', /^data:image\/svg/.test(H.artSrc('/api/media/b/art?v=2', { ph: 'note' })), true);
+var again = img('/api/media/b/art?v=1', { 'data-ph': 'note' });
+fire(root, 'error', again);
+ok('the SAME picture failing later is its own kept copy', /^data:image\/jpeg/.test(again.getAttribute('src')), true);
+// a face is the same face whatever the query
+var f1 = img('/p/sam.jpg?t=1', { 'data-ph': 'av', 'data-initials': 'S' });
+f1.naturalWidth = 200; f1.naturalHeight = 200;
+fire(root, 'load', f1);
+var f2 = img('/p/sam.jpg?t=2', { 'data-ph': 'av', 'data-initials': 'S' });
+fire(root, 'error', f2);
+ok('a face failing under a new query keeps the last good face', /^data:image\/jpeg/.test(f2.getAttribute('src')), true);
 var nokept = img('/api/media/c/art?v=1', { 'data-ph': 'note' });
 fire(root, 'error', nokept);
 ok('with nothing kept for it, the placeholder', /^data:image\/svg/.test(nokept.getAttribute('src')), true);
