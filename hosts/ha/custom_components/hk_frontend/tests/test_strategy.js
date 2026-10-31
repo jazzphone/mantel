@@ -1280,6 +1280,14 @@ window.hkStrategy.generate({}, hass).then(function (cfg) {
     ok('the screensaver block carries the calendar pane and its days', !!sb && sb.calendar === true && sb.calendar_days === 4, sb);
     ok('...and Fade Back: half a second unless set, 0 kept (at once)', sb.fade_back === 500 &&
        window.hkStrategy.saverBlock(hass, { tablet_user: 'Kitchen', screensaver: true, screensaver_options: { fade_back: 0 } }).fade_back === 0);
+    // THE HOMEVIEW-STYLE SHOWS reach the screensaver (they were turned into photos)
+    var face = function (o) { return window.hkStrategy.saverBlock(hass, { tablet_user: 'Kitchen', screensaver: true, screensaver_options: o }); };
+    ok('Glance, Month and Day reach the screensaver as themselves',
+       face({ show: 'glance' }).show === 'glance' && face({ show: 'month' }).show === 'month' && face({ show: 'day' }).show === 'day');
+    ok('...an unknown Show is still photos', face({ show: 'nonsense' }).show === 'photos');
+    var fo = face({ show: 'forecast', forecast_layout: 'big', photo_titles: true, time_behind: true, day_look: 'dark' });
+    ok('...and so do Big Weather, Photo Titles, Time Behind and the Day face\'s look',
+       fo.forecast_layout === 'big' && fo.photo_titles === true && fo.time_behind === true && fo.day_look === 'dark', fo);
     window.hkSettings = saved;
   });
 }).then(function () {

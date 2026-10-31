@@ -77,6 +77,8 @@ export const host = {
   // each wall tablet's latest frame rate, the screens it shows and the style it was drawn with (performance.py), for
   // the panel's "a lighter look for a slow tablet": only for the people who manage the house (the route's guard)
   tabletHealth() { return manages() ? api('GET', '/api/performance/tablets').then((r) => (r && r.tablets) || []) : Promise.resolve([]); },
+  // a screen's pencil (the panel's titleLine): Mantel's own screen renamed, its address kept (screens.py PUT)
+  renameScreen(path, title) { return api('PUT', '/api/screens/' + encodeURIComponent(path), { title }); },
   // a wall tablet's Home Assistant user is Mantel's (its 'tablet' group), not HK's Tablet User
   get owns() { return { tablet_user: true }; },
   groups() {
