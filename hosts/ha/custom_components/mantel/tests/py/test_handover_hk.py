@@ -95,7 +95,11 @@ async def test_hand_over_and_back_keeps_every_id(hass, mantel, house):
     mantel.by_domain.clear()
     await hass.services.async_call("hk_frontend", "set_black_screen", {"entity_id": BLACK, "black": True,
                                                                       "brightness": 90}, blocking=True)
-    got = [m for m in mantel.by_domain.get("mantel", []) if m.get("type") == "call_service"]
+    # (it reaches the fake Mantel over the link's socket: on a busy machine a moment after the call returns --
+    # the suite once failed here with every test running at once)
+    sent = lambda: [m for m in mantel.by_domain.get("mantel", []) if m.get("type") == "call_service"]  # noqa: E731
+    await until(hass, sent)
+    got = sent()
     assert got and got[-1]["service"] == "set_black_screen" and got[-1]["data"] == {"black": True, "brightness": 90}
     assert not mantel.by_domain.get("hk_frontend"), "not through HK Frontend's own link"
 
@@ -107,7 +111,7 @@ async def test_hand_over_and_back_keeps_every_id(hass, mantel, house):
     assert reg.async_get(BLACK).device_id == dev.id, "back on HK Frontend's own device"
     assert devs.async_get(dev.id).area_id == "loft"
     assert not [e for e in reg.entities.values() if e.entity_id.endswith("_2")]
-    assert link.runtime_data.state == "dormant"
+    await until(hass, lambda: link.runtime_data.state == "dormant")
 
 
 async def test_a_waiting_sleep_script_never_fails(hass, mantel, house):

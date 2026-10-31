@@ -42,7 +42,10 @@ def test_mantel_link_suite(tmp_path):
     env.pop("PYTHONPATH", None)
     run = subprocess.run([str(HA_PYTEST), "-q", "-p", "no:cacheprovider"], cwd=suite, env=env,
                          capture_output=True, text=True, timeout=900)
-    tail = (run.stdout + run.stderr)[-6000:]
+    out = run.stdout + run.stderr
+    # (the failing lines first: a long captured log once pushed the assertion itself out of the tail)
+    said = "\n".join([ln for ln in out.splitlines() if ln.startswith(("E   ", ">   ", "FAILED", "ERROR"))][:60])
+    tail = said + "\n...\n" + out[-3000:]
     assert run.returncode == 0, tail
     last = run.stdout.strip().splitlines()[-1]
     assert " passed" in last and "skipped" not in last and "error" not in last, tail

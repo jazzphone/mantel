@@ -184,7 +184,7 @@ class FakeMantel:
             await self.server.close()
 
 
-async def until(hass, check, timeout: float = 5.0) -> None:
+async def until(hass, check, timeout: float = 15.0) -> None:
     """Wait (the link is a real socket) until `check()` is true."""
     loop = asyncio.get_running_loop()
     end = loop.time() + timeout
