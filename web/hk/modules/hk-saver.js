@@ -1167,7 +1167,8 @@
     // ...on a layer of its own for good: the fade alone made it one only
     // while fading (a layer made and dropped at every forecast slide)
     '.info > hk-weather-strip-card{transition:opacity ' + CROSSFADE_MS + 'ms ease;will-change:opacity}',
-    ':host([band]) .info > hk-weather-strip-card{opacity:0}',
+    // (...and under the music the details are covered: the corner tells the weather again)
+    ':host([band]:not([muslide])) .info > hk-weather-strip-card{opacity:0}',
     // THE PANE ([pane]: the calendar, the music or both): the photo beside it, its own blurred copy
     // under the pane (the backdrop img, always shown), the forecast and its
     // details beside it too -- the sky held to its box, not the screen
@@ -1423,9 +1424,11 @@
     ':host([ckface][cklight][pane]:not([cknight])) .info > hk-screensaver-status-card,:host([ckface][cklight][pane]:not([cknight])) .info > hk-screensaver-now-card,',
     ':host([ckface][cklight][pane]:not([cknight])) .info > hk-timer-strip-card{--primary-text-color:#ffffff;--secondary-text-color:#dddddd;color:rgba(255,255,255,0.94);',
     '  --hk-ink:initial;--hk-ink-2:initial;--hk-ink-3:initial;--hk-glyph:initial;--hk-glow:initial;--hk-ss-ink:initial;--hk-ss-ink-2:initial;--hk-ss-glow:initial;--hk-wx-w:initial}',
-    // Big Weather ([fcbig]): it tells the time and the weather itself, over the forecast's sky
-    ':host([fcbig][forecast]) .info hk-clock-card,:host([fcbig][fcslide]) .info hk-clock-card,',
-    ':host([fcbig][forecast]) .info hk-weather-strip-card,:host([fcbig][fcslide]) .info hk-weather-strip-card{opacity:0}',
+    // Big Weather ([fcbig]): it tells the time and the weather itself, over the forecast's sky -- not while the music
+    // covers it (Music First: 2026-10-31, the owner: the time, the date and the weather were gone over the music
+    // unless the Forecast's Layout was Classic; a Large clock's corner copy came back by its fade-in alone)
+    ':host([fcbig][forecast]:not([muslide])) .info hk-clock-card,:host([fcbig][fcslide]:not([muslide])) .info hk-clock-card,',
+    ':host([fcbig][forecast]:not([muslide])) .info hk-weather-strip-card,:host([fcbig][fcslide]:not([muslide])) .info hk-weather-strip-card{opacity:0}',
     // ...and what stays in its corners never lands on it (2026-10-31, the owner: "Disarmed" drawn over its time):
     // Home Status under the face's time (6.1 + 5.4 down, then 1.6 more), at its right edge, at the readings' sizes
     // (3.7, 2.9) and as wide as the top allows beside the condition (its 7.3 margins, 30 for the condition); what plays on the face's bottom row, to its numbers
