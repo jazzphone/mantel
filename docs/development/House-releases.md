@@ -171,3 +171,12 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - The five kiosks reloaded; each drew its first screen in 2.5-5.3 s (just after Home Assistant's restart).
 - iOS app 0.1.97 (1097) uploaded to TestFlight. Mantel Link unchanged at 0.1.8.
 - ci full on 3754dcc5: 30 of 31 together; the main suite failed twice under load (test_mantel_link's handover, a photo upload's 20 ms event-loop limit at 23 ms), then passed alone and as its own step.
+
+## Mantel 0.1.98 and HK Frontend 1.25.0 (2026-10-31)
+
+- Every commit since 0.1.97 read first: two that ship (the Side Pane Clock's Under the Time strip and the weather beside the time, Home Energy's whole-screen blur, the Music block's speakers) and another session's three that don't (two steadier checks, build-tools' install, the Phase 12 plan).
+- Mantel App 0.1.98 (build 53ad7a5ec265d144, commit 6bab0256): /healthz?strict=1 ok, Home Assistant connected.
+- HK Frontend 1.25.0 copied into custom_components (v1.25.0 on GitHub; wiki unchanged); Home Assistant restarted.
+- The five kiosks reloaded; each drew its first screen in 2.2-3.1 s.
+- iOS app 0.1.98 (1107) uploaded to TestFlight. Mantel Link unchanged at 0.1.8.
+- ci full on 6bab0256: 31 of 31.
