@@ -1864,6 +1864,9 @@ PANE_WHEN = ("always", "active")
 # detail sheet), its page, its sheet, or nothing. Top and Automatic are what absent means.
 PANE_PLACES = ("top", "bottom")
 PANE_TAPS = ("auto", "page", "sheet", "none")
+# a kind's own choice, its first value what absent means: the Camera's Name (2026-10-31, the owner's item 42), as
+# the Home Grid's camera block has it (Automatic, Show, Hide) but Hide by default -- the pane's still is a plain picture
+PANE_CHOICES: dict[str, dict[str, tuple[str, ...]]] = {"camera": {"name": ("hide", "auto", "show")}}
 PANE_SIDES = ("right", "left")
 PANE_WIDTHS = {"narrow": 360, "standard": 400, "wide": 480}
 # On the Dashboard: Off, Home Only, Every Page; in the screensaver: Off,
@@ -1914,6 +1917,9 @@ def pane_section(v: Any, strict: bool = False) -> dict[str, Any] | None:
         elif k == "tap" and val in PANE_TAPS:
             if val != "auto":
                 out["tap"] = val
+        elif k in PANE_CHOICES.get(kind, {}) and val in PANE_CHOICES[kind][k]:
+            if val != PANE_CHOICES[kind][k][0]:
+                out[k] = val
         elif k in opts and opts[k] is bool and isinstance(val, bool):
             if val:
                 out[k] = True

@@ -184,6 +184,36 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       const awayR = await paneR();
       want('...the pane as wide there as beside Home\'s grid (no page laid out again on the way)', [homeR, awayR], homeR && homeR === awayR);
     }
+    // THE CAMERA'S STILL LOADS (2026-10-31, the owner's item 42: a "?" over "Driveway Camera ..." forever -- the address
+    // carried a query Mantel's still route refuses): each camera section's picture decoded (naturalWidth > 0) over
+    // its glyph, no request for a still refused, and its name hidden unless the section says Show
+    if (!phone && !upright) {
+      const bad = [];
+      const onRes = (r) => { if (/\/api\/camera\/.+\/still/.test(r.url()) && r.status() >= 400) bad.push(r.status() + ' ' + r.url()); };
+      page.on('response', onRes);
+      await open('pane-camera');
+      await page.waitForTimeout(2500);
+      const cam = await page.evaluate(() => {
+        const sr = document.querySelector('hk-side-pane[mode="dash"]').shadowRoot;
+        return [...sr.querySelectorAll('.cam2[data-k="camera"]')].map((n) => {
+          const im = n.querySelector('img'), cn = n.querySelector('.cn'), g = n.querySelector('.cg');
+          return { cam: n.dataset.cam, name: n.dataset.name, loaded: !!(im && im.complete && im.naturalWidth > 0), src: im ? im.getAttribute('src') : null,
+                   glyph: !!g, nameShown: !!cn && getComputedStyle(cn).display !== 'none' };
+        });
+      });
+      page.off('response', onRes);
+      want('camera: two sections, each still loaded (naturalWidth > 0) over its glyph, none refused', [cam, bad],
+           cam.length === 2 && cam.every((c) => c.loaded && c.glyph && /_hk=\d+/.test(c.src) && c.src.indexOf('hk_n') < 0) && !bad.length);
+      want('...the name hidden by default, shown when the section says Show', cam, cam[0].name === 'hide' && !cam[0].nameShown && cam[1].name === 'show' && cam[1].nameShown);
+      // ...and refreshed in place: a later still (a new counter) replaces the first without a redraw
+      await page.waitForTimeout(10500);
+      const again = await page.evaluate(() => {
+        const im = document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('.cam2 img');
+        return im ? { src: im.getAttribute('src'), ok: im.complete && im.naturalWidth > 0 } : null;
+      });
+      want('...refreshed in place: a newer still, loaded', [cam[0].src, again], again && again.ok && again.src !== cam[0].src);
+      await shot(page, tag + '-camera');
+    }
     await open('pane-every-page');
     let l = await look(page);
     want('every page: Home', l, phone ? !l.on : l.on && !l.scrolls);

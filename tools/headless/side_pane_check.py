@@ -62,6 +62,9 @@ SCREENS = {
     'pane-saver-right': screen({'side': 'right', 'saver': {'show': 'own', 'sections': SAVER}}, screensaver=True),
     'pane-saver-left': screen({'side': 'left', 'saver': {'show': 'own', 'sections': SAVER}}, screensaver=True),
     'pane-none': screen(None),
+    # (2026-10-31, item 42) the camera's still in the pane: loaded over its glyph, its name hidden unless chosen
+    'pane-camera': screen({'side': 'right', 'dashboard': {'show': 'home', 'sections': [
+        {'kind': 'weather', 'size': 'less'}, {'kind': 'camera'}, {'kind': 'camera', 'entity': 'camera.backyard', 'size': 'less', 'name': 'show'}]}}, grid=True),
     # (2026-10-30) the music at the pane's foot, the rest at its top; a calendar of a week's events, scrolling
     'pane-placed': screen({'side': 'right', 'dashboard': {'show': 'all', 'sections': [
         {'kind': 'weather', 'size': 'less'}, {'kind': 'calendar', 'days': 7}, {'kind': 'people'},

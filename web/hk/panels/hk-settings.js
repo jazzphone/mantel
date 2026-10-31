@@ -5868,7 +5868,10 @@
           options: [['', s.kind === 'camera' ? 'The First of Cameras' : 'The First List']].concat(ids(dom).map(function (id) { return [id, nm(id)]; })),
           onChange: function (v) { set('entity', v || null); } })];
         if (s.kind === 'todo') rows.push(K.toggle({ label: 'Show Completed', sk: 'pane:sec:completed', on: !!s.completed, onChange: function (on) { set('completed', on || null); } }));
-        c.appendChild(K.group({ footer: s.kind === 'todo' ? 'A tap on an item’s circle checks it off.' : null }, rows));
+        // THE CAMERA'S NAME, as the Home Grid's camera block has it (Hide here unless chosen)
+        if (s.kind === 'camera') rows.push(K.select({ label: 'Name', sk: 'pane:sec:name', value: s.name || 'hide', options: M.PANE_CAMERA_NAMES,
+          onChange: function (v) { set('name', v === 'hide' ? null : v); } }));
+        c.appendChild(K.group({ footer: s.kind === 'todo' ? 'A tap on an item’s circle checks it off.' : s.kind === 'camera' ? 'Name — Automatic: shown on a short still, hidden on a tall one.' : null }, rows));
       }
       c.appendChild(K.group({}, [K.button({ label: 'Remove Section', destructive: true, fk: 'pane:sec:remove', onClick: function () {
         var keys = grp.sections.map(M.secKey);

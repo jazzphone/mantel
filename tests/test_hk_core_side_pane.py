@@ -266,3 +266,12 @@ def test_a_section_sits_at_the_top_or_the_foot_and_says_what_a_tap_does():
     assert M.pane_section({"kind": "weather", "place": "top", "tap": "auto"}) == {"kind": "weather"}
     assert M.pane_section({"kind": "weather", "place": "middle"}, strict=True) is None
     assert M.pane_section({"kind": "weather", "tap": "dance"}, strict=True) is None
+
+
+def test_the_camera_s_name_is_hide_unless_chosen():
+    # (2026-10-31, the owner's item 42: the name the Home Grid's camera block can show, Hide in the pane by default)
+    assert M.pane_section({"kind": "camera", "name": "hide"}) == {"kind": "camera"}
+    assert M.pane_section({"kind": "camera", "name": "show"}) == {"kind": "camera", "name": "show"}
+    assert M.pane_section({"kind": "camera", "name": "auto"}) == {"kind": "camera", "name": "auto"}
+    assert M.pane_section({"kind": "camera", "name": "loud"}) == {"kind": "camera"}
+    assert M.pane_section({"kind": "camera", "name": "loud"}, strict=True) is None

@@ -161,7 +161,7 @@ ok('...once each way', !de.hasAttribute('hk-pane-music') && flags === 2);
 
 // ------------------------------------------------------------ every section, every size
 var ctx = { redraw: function () {}, calendar: function () {}, evColor: function () { return '#ff9f0a'; }, forecast: function () { return []; },
-            still: function (id, pic) { return pic; }, slot: function (k) { return '<div class="slot" data-slot="' + k + '"></div>'; } };
+            still: function (id) { return ctx.stills[id] || ''; }, stills: {}, slot: function (k) { return '<div class="slot" data-slot="' + k + '"></div>'; } };
 X.CAL.evs = [{ cal: 'calendar.family', title: 'Pumpkin carving', allDay: false, start: new Date(NOW + 1800000), end: new Date(NOW + 5400000) },
              { cal: 'calendar.home', title: 'Bins out', allDay: false, start: new Date(NOW + 7200000), end: new Date(NOW + 9000000) }];
 X.CAL.at = NOW;
@@ -243,8 +243,19 @@ ok('Calendar: the next event, then two, four, five', X.SEC.calendar('tiny', {}, 
 ok('Who’s Home: home and away counts', X.SEC.people('tiny', {}, client, ctx).indexOf('1 home') > 0 && X.SEC.people('tiny', {}, client, ctx).indexOf('1 away') > 0);
 ok('Climate: a room and what it is doing', X.SEC.climate('tiny', {}, client, ctx).indexOf('Living Room 68°') > 0 && X.SEC.climate('tiny', {}, client, ctx).indexOf('Heating') > 0);
 ok('Energy: use now', X.SEC.energy('tiny', {}, client, ctx).indexOf('1.4 kW') > 0);
-ok('Camera: its name and the age of its still; Less up a still', X.SEC.camera('tiny', {}, client, ctx).indexOf('Front Door') > 0 &&
-   X.SEC.camera('tiny', {}, client, ctx).indexOf('8 s ago') > 0 && /<img[^>]*camera_proxy/.test(X.SEC.camera('less', {}, client, ctx)));
+ok('Camera Tiny: its name and the age of its still', X.SEC.camera('tiny', {}, client, ctx).indexOf('Front Door') > 0 &&
+   X.SEC.camera('tiny', {}, client, ctx).indexOf('8 s ago') > 0);
+// THE STILL (2026-10-31, the owner's item 42: a "?" forever): no picture in the markup until one has loaded -- the
+// camera's glyph on the dark plate instead -- then the loaded address, which carries no `hk_n` (Mantel's route
+// refuses it, a 400)
+var camNone = X.SEC.camera('less', {}, client, ctx);
+ok('Camera: before a still has loaded, the glyph and no <img> (never the broken "?")', camNone.indexOf('class="cg"') > 0 && camNone.indexOf('<img') < 0);
+ctx.stills['camera.front_door'] = '/api/camera_proxy/camera.front_door?token=t&_hk=1&width=480&height=270';
+var camGot = X.SEC.camera('less', {}, client, ctx);
+ok('Camera: once loaded, its still over the glyph', /<img[^>]*camera_proxy[^>]*_hk=1/.test(camGot) && camGot.indexOf('hk_n') < 0 && camGot.indexOf('class="cg"') > 0);
+ok('Camera: its Name is Hide unless chosen', camGot.indexOf('data-name="hide"') > 0 && X.SEC.camera('less', { name: 'show' }, client, ctx).indexOf('data-name="show"') > 0 &&
+   X.SEC.camera('less', { name: 'auto' }, client, ctx).indexOf('data-name="auto"') > 0);
+delete ctx.stills['camera.front_door'];
 
 // ------------------------------------------------------------ to-do
 ok('To-do Tiny: the list and how many', X.SEC.todo('tiny', { kind: 'todo' }, client, ctx).indexOf('Groceries') > 0 && X.SEC.todo('tiny', {}, client, ctx).indexOf('4 items') > 0);
