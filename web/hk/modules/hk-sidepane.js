@@ -437,8 +437,9 @@
     if (!st) return '';
     var daily = ctx && ctx.forecast ? ctx.forecast(id, 'daily') : [], d0 = daily[0] || {};
     var cond = condName(st.state), hi = d0.temperature != null ? 'H:' + deg(d0.temperature) : '';
-    return '<div class="ckx"><div class="wt">' + wxGlyph(st.state, 34) + '<b>' + esc(deg(attr(st, 'temperature'))) + '</b></div>' +
-      '<div class="sub2">' + esc(cond) + (hi ? '<span class="hl"> \u00b7 ' + esc(hi) + '</span>' : '') + '</div></div>';
+    // (two parts, each in its own place in the clock's grid: the temperature beside the time, the sky beside the date)
+    return { wt: '<div class="ckx">' + wxGlyph(st.state, 34) + '<b>' + esc(deg(attr(st, 'temperature'))) + '</b></div>',
+             sky: '<div class="sub2 ckxs">' + esc(cond) + (hi ? '<span class="hl"> \u00b7 ' + esc(hi) + '</span>' : '') + '</div>' };
   }
 
   // EACH SECTION AT EACH SIZE: (size, sec, c, ctx) -> HTML. ctx.slot(key,
@@ -479,7 +480,11 @@
       }
       var main = o.face === 'stacked' ? '<div class="big2 ck stk' + (s === 'less' ? ' less' : '') + '">' + stackHtml(now) + '</div>'
                                       : '<div class="big2 ck' + (s === 'less' ? ' less' : '') + '">' + t + '</div>';
-      if (wxBy) return box('clock', s, '<div class="ckrow"><div class="ckl">' + main + line + '</div>' + wxBy + '</div>', (cls + ' ckby').trim());
+      if (wxBy) {
+        // (the date's line without the second line, which runs the whole width under both)
+        var dateLine = dl || sun ? '<div class="sub2 ckd">' + dl + (sun && o.date === 'full' ? '<span class="ds">' + esc(dateShort(d)) + '</span>' : '') + sun + '</div>' : '<div class="ckd"></div>';
+        return box('clock', s, '<div class="ckrow">' + main + wxBy.wt + dateLine + wxBy.sky + second + '</div>', (cls + ' ckby').trim());
+      }
       return box('clock', s, main + line, cls.trim());
     },
     weather: function (s, sec, c, ctx) {
@@ -870,7 +875,9 @@
       // pane's 30 px, the first section's own 14 and the clock's leading put its digits ~55 px down against 28 at the
       // right. Beside the page: the top inset the sides', the first section none of its own, and the big time trimmed
       // to its figures' height (text-box; where a browser has none, only the leading is left)
-      ':host(:not([mode="widget"]):not([mode="saver"]):not([side="band"])) .pin{padding-top:28px}',
+      ':host(:not([mode="widget"]):not([mode="saver"]):not([side="band"])) .pin{padding-top:28px;padding-bottom:28px}',
+      // ...and at the foot the same (2026-10-31, the owner: room under Security): the last section none of its own
+      ':host(:not([mode="widget"]):not([mode="saver"]):not([side="band"])) .secs>.sec:last-child:not(.cam2):not(.mp){padding-bottom:0}',
       ':host(:not([mode="widget"]):not([mode="saver"]):not([side="band"])) .secs>.sec:first-child:not(.cam2):not(.mp){padding-top:0}',
       ':host(:not([mode="widget"]):not([mode="saver"]):not([side="band"])) .secs>.sec[data-k="clock"]:first-child .big2{text-box:trim-start cap alphabetic}',
       ':host([mode="widget"]) .secs>.sec{flex:1 1 auto}',
@@ -903,18 +910,28 @@
       '.ckd{display:flex;justify-content:space-between;align-items:baseline;gap:4px 12px;flex-wrap:wrap}.ckd>*{white-space:nowrap}.ckd .sun{margin-left:auto}',
       // (a narrow pane: the date short, "Sat, Oct 31", so the sunset keeps its place at the right of it)
       '.sec[data-k="clock"]{container-type:inline-size}.ckd .ds{display:none}',
-      // THE WEATHER BESIDE THE TIME (besideWeather): the time and date at the left, the weather at the right, their
-      // tops level; its temperature two thirds of the time's size, its glyph as tall as its figures
-      '.ckrow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.ckl{min-width:0;display:grid;gap:8px}',
-      '.ckx{flex:none;display:grid;justify-items:end;gap:8px;text-align:right}',
-      '.ckx .wt{display:flex;align-items:center;gap:.22em;font:var(--ckw,600) calc(48px*var(--cks,1))/1 var(--hk-font-body,inherit);letter-spacing:calc(-1px*var(--cks,1))}',
-      '.ckx .wt .wxg,.ckx .wt hk-icon{display:flex;width:.72em;height:.72em;--mdc-icon-size:.72em}.ckx .wt .wxg svg{width:100%;height:100%}',
-      '.ckx .sub2{white-space:nowrap}',
-      '.ckl:has(.big2.less)+.ckx .wt{font-size:calc(36px*var(--cks,1))}',
+      // THE WEATHER BESIDE THE TIME (besideWeather): two rows on two baselines (2026-10-31, the owner: the date and the
+      // sky "should line up") -- the time and the temperature, their figures on one baseline (the temperature two
+      // thirds of the time's size, so it sits lower rather than growing heavy); the date and the sky on the next. The
+      // time's side takes the room; the weather's is as wide as it needs. A second line runs under both
+      '.ckrow{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"t w" "d s";column-gap:12px;row-gap:8px;align-items:baseline}',
+      '.ckrow>.big2{grid-area:t;min-width:0}.ckrow>.ckx{grid-area:w}.ckrow>.ckd{grid-area:d;min-width:0}.ckrow>.ckxs{grid-area:s}.ckrow>.ck2{grid-column:1 / -1}',
+      '.ckx{justify-self:end;white-space:nowrap;font:var(--ckw,600) calc(48px*var(--cks,1))/1 var(--hk-font-body,inherit);letter-spacing:calc(-1px*var(--cks,1))}',
+      // (the glyph inline, centred on the figures, so the line's baseline is the figures')
+      '.ckx .wxg,.ckx hk-icon{display:inline-block;width:.72em;height:.72em;--mdc-icon-size:.72em;vertical-align:-.04em;margin-right:.18em}.ckx .wxg svg{display:block;width:100%;height:100%}',
+      '.ckxs{justify-self:end;text-align:right;white-space:nowrap}',
+      '.ckrow:has(.big2.less)>.ckx{font-size:calc(36px*var(--cks,1))}',
       // (a narrow pane: the high goes, then the date's long form -- the time keeps its room)
-      '@container (max-width:300px){.ckx .hl{display:none}}',
-      // (centred or at the right, the weather goes under the time instead, at its alignment)
-      '.cka-center .ckrow,.cka-right .ckrow{flex-direction:column;align-items:stretch}.cka-center .ckx{justify-items:center;text-align:center}',
+      '@container (max-width:300px){.ckxs .hl{display:none}}',
+      // (the time at the right: the weather at the left, mirrored -- 2026-10-31, the owner; centred: under the time)
+      '.cka-right .ckrow{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"w t" "s d"}',
+      '.cka-right .ckx,.cka-right .ckxs{justify-self:start;text-align:left}',
+      '.cka-center .ckrow{grid-template-columns:1fr;grid-template-areas:"t" "d" "w" "s";justify-items:center}.cka-center .ckx,.cka-center .ckxs{justify-self:center;text-align:center}',
+      '.cka-center .ckrow>.ckx{margin-top:10px}',
+      // ...and the date's line beside the weather has no room for the sunset at its right (it wrapped under, off to
+      // the side -- 2026-10-31): there the sunset is a line of its own under the date, on the time's side
+      '.ckby .ckd{flex-direction:column;flex-wrap:nowrap;gap:4px}.ckby .ckd .sun{margin-left:0}',
+      '.ckby.cka-right .ckd{align-items:flex-end}.ckby.cka-center .ckd{align-items:center}',
       '@container (max-width:320px){.ckd .ds{display:inline}.ckd:has(.ds) .dl{display:none}}',
       // THE CLOCK'S CHOICES (item 43): Stacked (the hours over the minutes), Analog (the small face with the time and date
       // beside it), Alignment, the second line, and the flashing colon (held under Reduce Motion as well as by skyLook())
@@ -1273,7 +1290,10 @@
         if (K && K.show) { try { K.show(c, x); return; } catch (err) { /* below */ } }
       }
       if (one && D && D.open && s.tap !== 'page') { D.open(one.getAttribute('data-ent')); return; }
-      var page = TAP_PAGE[s.kind], ent = tapEntity(s, c), path = page && pagePath(page);
+      // (the Clock has no page of its own; showing the weather -- beside the time or under it -- its page is Weather:
+      // 2026-10-31, the owner set When Tapped to its page and nothing happened)
+      var page = s.kind === 'clock' ? (s.beside === 'weather' || s.line === 'weather' ? 'weather' : null) : TAP_PAGE[s.kind];
+      var ent = tapEntity(s, c), path = page && pagePath(page);
       if ((s.tap === 'page' || !s.tap || s.tap === 'auto') && path) { go(path); return; }
       if (ent && D && D.open && s.tap !== 'page') { D.open(ent); return; }
       if (path) go(path);

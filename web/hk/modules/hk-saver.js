@@ -2239,7 +2239,8 @@
   // one: on a Mac or an iPad the copy was the photo at 96 px, enlarged --
   // pixelated behind the pane (HK Settings' preview, 2026-10-10).
   var BACKDROP_W = 96, BACKDROP_SMALL = 24;
-  function drawBackdrop(c, img, small, ay) {
+  // `sky`: colour stops painted under the picture first ([[offset, colour]...]: a landscape's transparent sky)
+  function drawBackdrop(c, img, small, ay, sky) {
     if (isFlat()) { clearCanvas(c); return; }
     if (!c || !img) return;
     var W = Math.max(1, window.innerWidth || 1280), H = Math.max(1, window.innerHeight || 800);
@@ -2254,6 +2255,12 @@
     if (!tc) return;
     var k = Math.max(t.width / iw, t.height / ih), dw = iw * k, dh = ih * k;
     tc.imageSmoothingQuality = 'high';
+    if (sky && sky.length) {
+      var gr = tc.createLinearGradient(0, 0, 0, t.height);
+      sky.forEach(function (s) { try { gr.addColorStop(s[0], s[1]); } catch (e) { /* not a colour */ } });
+      tc.fillStyle = gr;
+      tc.fillRect(0, 0, t.width, t.height);
+    }
     tc.drawImage(img, (t.width - dw) / 2, (t.height - dh) * (ay == null ? 0.5 : ay), dw, dh);
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(t, 0, 0, c.width, c.height);
@@ -3005,6 +3012,16 @@
     if (!landIm || landIm.hkSrc !== m[1]) { landIm = new Image(); landIm.hkSrc = m[1]; landIm.src = m[1]; }
     return landIm.complete && landIm.naturalWidth ? landIm : null;
   }
+  // ...and the sky over it, as it is now: the art's top is transparent (the live sky shows through it), so its copy
+  // alone left the sky, its clouds and Big Weather's words sharp above the land (2026-10-31, the owner: "only half
+  // blurred"). The sky's own four stops, where a landed sky puts them (hk-sky.js .own.landed .grad)
+  function skyStops() {
+    var k = root && root.querySelector('.fc #hk-sky'), cs = k && getComputedStyle(k), out = [];
+    if (!cs) return out;
+    [0, 0.24, 0.44, 0.62].forEach(function (at, i) { var v = cs.getPropertyValue('--sk' + i).trim(); if (v) out.push([at, v]); });
+    if (out.length) out.push([1, out[out.length - 1][1]]);
+    return out;
+  }
   // ITS ROOM: beside the pane (it tells the time itself, top left)
   function energyLayout() {
     if (!enCtl || !root || !host) return;
@@ -3033,7 +3050,8 @@
     // (the landscape's blurred copy is drawn as a photo's is, its foot at the foot)
     var foot = look === 'land' ? 1 : 0.5;
     if (look === 'land') look = 'photo';
-    if (!enCtl.draw(h, look, img ? function (c) { drawBackdrop(c, img, BACKDROP_SMALL, foot); } : null)) return false;
+    var sky = foot === 1 ? skyStops() : null;
+    if (!enCtl.draw(h, look, img ? function (c) { drawBackdrop(c, img, BACKDROP_SMALL, foot, sky); } : null)) return false;
     enShowing = true; sinceFc = 0; lastSlide = 'energy';
     host.setAttribute('enslide', '');
     updateBand();
@@ -5256,6 +5274,8 @@
          cleanFocus: cleanFocus, cleanVariants: cleanVariants, cleanDepth: cleanDepth, drawnRect: drawnRect, glyphBox: glyphBox, coverShare: coverShare,
          behindAt: behindAt, tbKey: tbKey, tbShares: tbShares, houseBlock: houseBlock,
          photoFaces: function (lay, ph, L, c) { return photoFaces(lay, ph, L, c); }, photoOpts: photoOpts, FACE_SHOWS: FACE_SHOWS, bigWanted: function () { return bigWanted(); },
+         // (Home Energy's backdrop over the forecast, as it would be painted now: the landscape's copy over the sky)
+         energyBackdrop: function (c) { var im = landImg(); if (!im) return false; drawBackdrop(c, im, BACKDROP_SMALL, 1, skyStops()); return true; },
          // tools/headless/saver_faces_check.py: the saver's own CSS around a photo's layers
          CSS: CSS,
          photoUrl: photoUrl, releasePh: releasePh, faceWindow: faceWindow, faceOrigin: faceOrigin, alignOf: alignOf, shuffle: shuffle, Deck: Deck, isImage: isImage,

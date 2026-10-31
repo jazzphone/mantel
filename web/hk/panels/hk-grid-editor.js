@@ -1558,8 +1558,8 @@
     }
     // WHAT A MUSIC BLOCK SHOWS, plainly (its Shows option's footnote)
     musicNote(item) {
-      var o = item.opts || {}, Mu = window.hkMusic;
-      var tap = o.speaker ? ' A tap on one plays it on ' + (Mu && Mu.nameOf ? Mu.nameOf(o.speaker) : o.speaker) + '.' : ' A tap on one plays it on this screen’s speakers.';
+      var o = item.opts || {}, sp = o.speaker && this.musicSpeakers().filter((s) => s.entity === o.speaker)[0];
+      var tap = o.speaker ? ' A tap on one plays it on ' + (sp ? sp.name : o.speaker) + '.' : ' A tap on one plays it on this screen’s speakers.';
       if (o.show === 'presets') return 'Shows the Music page’s playlists as tiles; a playlist with choices (Decades) shows each choice.' + tap;
       if (o.show === 'playlist') return 'Shows one playlist: ' + (o.playlist || (this.musicPlaylists()[0] || {}).name || 'the first one you set up') + '. If it has choices, each is a tile.' + tap;
       return 'Shows what played last, and covers to play again.' + tap;
@@ -1888,7 +1888,8 @@
         // WHERE IT PLAYS (2026-10-31, the owner: "what HomePod or HomePod Group we want it to play on ... like a quick
         // action"): Automatic -- this screen's music, as the Music page has it -- or one speaker, or a speaker group
         if (kind === 'music_speaker') {
-          var Mu = window.hkMusic, rm = Mu && Mu.rooms ? Mu.rooms() : [], gp = Mu && Mu.presets ? Mu.presets() : [];
+          // (the house's speakers as the preview has them -- this page has no music of its own: musicPlaylists)
+          var sps = self.musicSpeakers(), gp = sps.filter((s) => !!s.members), rm = sps.filter((s) => !s.members);
           var sp = [['', 'Automatic']].concat(gp.map((g) => [g.entity, g.name + ' (Group)']), rm.map((r) => [r.entity, r.name]));
           if (opts[key] && !sp.some((op) => op[0] === opts[key])) sp.push([opts[key], opts[key] + ' (Unavailable)']);
           rows.push(K.select({ label: 'Plays On', value: opts[key] || '', options: sp, onChange: (v) => set(key, v || null) }));
@@ -1968,6 +1969,12 @@
       var w = (this.iframe && this.iframe.contentWindow) || window, Mu = w.hkMusic, self = this;
       if (Mu && Mu.onChange && !this._muOff) this._muOff = Mu.onChange(function () { if (self.isConnected && self.selected) self.side(); });
       return Mu && Mu.playlists ? Mu.playlists() : [];
+    }
+    // the house's speakers and speaker groups ({entity, name, members?}), from the same place
+    musicSpeakers() {
+      this.musicPlaylists();
+      var w = (this.iframe && this.iframe.contentWindow) || window, Mu = w.hkMusic;
+      return Mu && Mu.speakers ? Mu.speakers() : [];
     }
     // the guide's channels, [{number, name}], read once (the row fills in when they arrive)
     tvChannels() {
