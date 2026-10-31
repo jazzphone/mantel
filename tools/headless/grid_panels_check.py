@@ -1,5 +1,5 @@
-"""Home Grid's page panels as blocks (2026-10-24) against the fictional home, never a household's: Power (the status
-in sentences at Wide, the house picture or flow chart at Large), Music (the speaker picker), Doors & Locks (the house
+"""Home Grid's page panels as blocks (2026-10-24) against the fictional home, never a household's: Power (Activity's
+numbers on its own plate, 2026-10-31), Music (the speaker picker), Doors & Locks (the house
 with its ways in), an Extra Large thermostat (its full controls), Live TV and Water each draw inside their block, and
 a block whose feature isn't set up says where to set it up. The Clock block draws a screensaver face without its box,
 and HK's own clock at Small, on a phone held sideways, beside an icon-only tab bar rail that leaves the grid the
@@ -105,12 +105,12 @@ async def main():
                 # what scrolls inside its own plate (Music's speakers, Live TV's channels) may run past it; the rest fit
                 assert all(g['inside'] for k, g in got.items() if k not in ('music', 'tv')), got
                 if screen == 'panels':
-                    assert got['thermo']['kids'] == ['hk-control-card', 'div'] and got['power']['kids'] == ['hk-power-house-card'], got
+                    assert got['thermo']['kids'] == ['hk-control-card', 'div'] and got['power']['kids'] == ['hk-plate'], got
                     # the thermostat's modes and fan beside its dial, the current ones pressed
                     pressed = await b.eval("[...deep(cell('thermo'),'hk-grid-panel-card')[0].shadowRoot.querySelectorAll('.rd button[aria-pressed=\"true\"]')].map(x=>x.textContent)")
                     assert pressed == ['Auto', 'Auto'], pressed
                 else:
-                    assert got['water']['kids'] == ['hk-water-day-card', 'hk-water-supply-card'] and got['power']['kids'] == ['hk-power-status-card'], got
+                    assert got['water']['kids'] == ['hk-plate'] and got['power']['kids'] == ['hk-plate'], got
                 if args.shots:
                     args.shots.mkdir(parents=True, exist_ok=True)
                     await b.screenshot(args.shots / f'{screen}.png')
