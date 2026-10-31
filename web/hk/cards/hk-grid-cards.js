@@ -1063,9 +1063,11 @@
       'hk-plate.sec[size=W],hk-plate.sec.kp{flex-direction:row;gap:18px}',
       '[role=button]{cursor:pointer}',
       '[role=button]:focus-visible,button:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
-      // the shield in its well, the state's color
-      '.wl{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;background:var(--c,' + v('key') + ')}',
-      '.wl hk-icon{width:25px;height:25px;--mdc-icon-size:100%;display:flex;color:#fff}',
+      // the shield bare, in the state's color (gray disarmed), as the Small blocks beside it draw their glyphs
+      // (the owner, 2026-10-31: "Yes, bare glyph" -- no circle, as HomeView's tiles): 34 px, the heading's 30
+      '.wl{width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex:none}',
+      '.wl hk-icon{width:100%;height:100%;--mdc-icon-size:100%;display:flex;color:var(--c,' + v('ink-2') + ')}',
+      '.hd .wl{width:30px;height:30px}',
       '.one{display:flex;flex-direction:column;min-width:0;margin-top:auto}',
       // (the state a title's size, 22: at a figure's 30 "Disarmed" filled a Small block -- the owner, 2026-10-31: "really large")
       '.big{' + type('title') + ';font-weight:600;line-height:1.1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t,' + v('ink') + ')}',
