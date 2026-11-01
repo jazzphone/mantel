@@ -57,9 +57,9 @@ ok('a picture that fails: its frame alone', [byCls(bad, 'pvthumb').length, byCls
 
 print('=== where the page uses it ===');
 var SRC = read(HK_ROOT + '/frontend/panels/hk-settings.js');
-ok('the clock’s Background: the clock over each, by group', /K\.previewPick\(\{ label: 'Background', sk: 'saver:clock_bg'[\s\S]{0,200}x\[3\]\]; \}\),\s*picture: function \(v, w, ht\) \{ return self\.saverThumb\(w, ht, 'bg:' \+ v, cur\)/.test(SRC), true);
-ok('the Day face’s Look: the face in each', /K\.previewPick\(\{ label: 'Look', sk: 'saver:day_look'[\s\S]{0,160}saverThumb\(w, ht, 'day', Object\.assign\(\{\}, cur, \{ day_look: v \}\)\)/.test(SRC), true);
-ok('the Forecast’s Layout: Classic and Big Weather', /K\.previewPick\(\{ label: 'Forecast Layout'[\s\S]{0,200}v === 'big' \? 'weather' : 'forecast'/.test(SRC), true);
+// (2026-11-01: the Screensaver page's pickers -- the clock's Background, the Day face's Look, the Forecast's Layout --
+// are Edit Screensaver's, with a picture of each background: the page keeps what can't be laid out)
+ok('the Screensaver page picks no look: the editor does', /sk: 'saver:clock_bg'|sk: 'saver:day_look'|label: 'Forecast Layout'/.test(SRC), false);
 ok('the sky’s Background, for All Screens and for a screen, and Flat’s', [/K\.previewPick\(\{ label: 'Background', sk: 'sky\.background'/.test(SRC), /K\.previewPick\(\{ label: 'Background', sub: ownMode/.test(SRC),
    /K\.previewPick\(\{ label: 'Background', sub: b \? \(own/.test(SRC)], [true, true, true]);
 ok('...none of them a segmented control or a pop-up menu any more', /K\.(seg|select)\(\{ label: '(Background|Look|Forecast Layout)', (sk|sub)/.test(SRC), false);

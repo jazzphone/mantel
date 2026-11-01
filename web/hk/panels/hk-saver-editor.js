@@ -100,6 +100,10 @@
     ':host(:not([previewing])) .ov .w:hover,:host(:not([previewing])) .ov .big:hover{outline:2px solid rgba(255,255,255,.55);outline-offset:4px}',
     '.ov [aria-pressed=true]{outline:4px solid var(--hk-tint)!important;outline-offset:5px!important}',
     '.ov .z.want{outline:3px dashed #30d158!important;background:rgba(48,209,88,.18)!important}',
+    // (the + after what a zone has: round, its sign large)
+    ':host(:not([previewing])) .ov .z.plus{border-radius:50%}',
+    ':host(:not([previewing])) .ov .z.plus span{font-size:calc(var(--zf,22px) * 2);font-weight:300}',
+    ':host([previewing]) .ov .z{display:none}',
     // (a card with nothing to show now -- no music, no timer -- still has its place: drawn as one, with its name and
     // when it shows; the owner, 2026-11-01: "I had no idea they were there until I hovered over them")
     ':host(:not([previewing])) .ov .w.empty{outline:2px dashed rgba(255,255,255,.7);outline-offset:3px;background:rgba(0,0,0,.18)}',
@@ -250,13 +254,16 @@
       var P = info.plan, zs = info.zones, self = this;
       this.ov.style.setProperty('--zf', Math.max(11, Math.min(info.W, info.H) * 0.026).toFixed(1) + 'px');
       var place = function (el, b) { el.style.left = b.x + 'px'; el.style.top = b.y + 'px'; el.style.width = b.w + 'px'; el.style.height = b.h + 'px'; return el; };
-      var zone = function (z, b) {
+      // (plus: the place after what a zone has, while it has room -- a + to tap, or Add Here with a widget picked)
+      var zone = function (z, b, plus) {
         var want = self.pick && LM.fits(zs, z, self.pick);
-        var e = place(h('button', { type: 'button', class: 'z' + (want ? ' want' : ''), 'aria-pressed': self.sel === z ? 'true' : 'false',
-                                    'aria-label': LM.ZONE_NAMES[z], onclick: (ev) => { ev.stopPropagation(); self.tapZone(z); } },
-          [h('span', { text: want ? 'Add Here' : self.zoneName(z) })]), b);
+        var e = place(h('button', { type: 'button', class: 'z' + (want ? ' want' : '') + (plus ? ' plus' : ''), 'aria-pressed': self.sel === z ? 'true' : 'false',
+                                    'aria-label': plus ? 'Add to ' + self.zoneName(z) : self.zoneName(z), onclick: (ev) => { ev.stopPropagation(); self.tapZone(z); } },
+          [h('span', { text: want ? (plus ? '+' : 'Add Here') : plus ? '+' : self.zoneName(z) })]), b);
         self.ov.appendChild(e);
       };
+      // ...room for one more of any kind the zone takes
+      var room = function (z) { return Object.keys(LM.CATALOG).some(function (id) { return LM.fits(zs, z, id); }); };
       var item = function (z, i, b) {
         var w = zs[z][i];
         if (!w) return;
@@ -271,16 +278,24 @@
       if (zs.line.length) item('line', 0, P.line); else if (this.T().big.kind !== 'none') zone('line', P.line);
       if (zs.row.length) {
         P.row.items.forEach(function (it) { item('row', it.i, it); });
-        // (one more: after the last, on its line -- a place as big as a widget, not a sliver beside the row)
+        // ONE MORE, ALWAYS SHOWN while there is room (2026-11-01, the owner: "As soon as I add one, there is no + or
+        // anything to add another"): a + as big as a widget after the last, on its line -- or under the row, a line full
         var last = P.row.items[P.row.items.length - 1];
-        if (this.pick && LM.fits(zs, 'row', this.pick) && last) zone('row', { x: last.x + last.w + 14, y: last.y, w: Math.max(last.h, 90), h: last.h });
+        if (last && (this.pick ? LM.fits(zs, 'row', this.pick) : room('row'))) {
+          var units = zs.row.reduce(function (n, w) { return n + (LM.UNITS[LM.CATALOG[w.id][0]] || 1); }, 0);
+          var full = units % LM.ROW_LINE === 0, d = last.h;
+          zone('row', full ? { x: P.row.box.x + P.row.box.w / 2 - d / 2, y: P.row.box.y + P.row.box.h + 14, w: d, h: d }
+                           : { x: last.x + last.w + 14, y: last.y, w: d, h: d }, true);
+        }
       } else if (this.T().big.kind !== 'none') zone('row', P.row.box);
       ['tl', 'tr', 'bl', 'br'].forEach(function (z) {
         (P.corners[z] || []).forEach(function (b) { item(z, b.i, b); });
         if (P.ghosts[z]) zone(z, P.ghosts[z]);
-        else if (self.pick && LM.fits(zs, z, self.pick) && P.corners[z] && P.corners[z].length) {
-          var last = P.corners[z][P.corners[z].length - 1], up = z[0] === 'b';
-          zone(z, { x: last.x, y: up ? last.y - 70 : last.y + last.h + 10, w: Math.max(200, last.w), h: 60 });
+        else if ((self.pick ? LM.fits(zs, z, self.pick) : room(z)) && P.corners[z] && P.corners[z].length) {
+          // (after the stack: under a top corner's, over a bottom one's; a + at its side's edge)
+          var last = P.corners[z][P.corners[z].length - 1], up = z[0] === 'b', d = Math.max(40, Math.min(64, info.H * 0.07)), left = z[1] === 'l';
+          zone(z, { x: self.pick ? last.x : left ? last.x : last.x + last.w - d, y: up ? last.y - (self.pick ? 70 : d + 12) : last.y + last.h + 12,
+                    w: self.pick ? Math.max(200, last.w) : d, h: self.pick ? 60 : d }, !self.pick);
         }
       });
       // (the band's empty place only while a band is being added: drawn always, it lay over the bottom corners)
@@ -462,8 +477,9 @@
       if (bg === 'soft') add(K.group({}, [K.slider({ label: 'Darken', value: o.clock_photo_dim, min: 0, max: 80, step: 5, unit: '%', onChange: function (v) { self.change(function (x) { x.clock_photo_dim = v; }); } })]));
       if (bg === 'photos') add(K.group({}, [K.slider({ label: 'Darken', value: o.tb_dim || 0, min: 0, max: 80, step: 5, unit: '%', onChange: function (v) { self.change(function (x) { x.tb_dim = v; }); } })]));
       var more = this.o.house ? '#/house/screensaver' : '#/screens/' + encodeURIComponent(this.o.path) + '/screensaver';
-      add(K.group({ footer: 'Your albums, the order and timing of the photos, the mosaic, each kind of photo’s fit and focus, the wallpaper, the forecast’s details: on the Screensaver page, as before.' },
-        [K.nav({ label: 'Photos, Wallpaper and More', href: more })]));
+      add(K.group({ footer: 'Your albums, the order and timing of the photos, the mosaic, each kind of photo’s fit and focus' + (bg === 'wallpaper' ? ', which wallpaper' : '') +
+          ', the slides’ options, Night Mode and when it starts: on the Screensaver page. Everything you see is set here.' },
+        [K.nav({ label: bg === 'wallpaper' ? 'Choose the Wallpaper, Photos and More' : 'Photos, Slides and Timing', href: more })]));
       add(K.group({ header: 'Slides', footer: 'What comes between, every so often.' }, [
         bg === 'photos' ? K.toggle({ label: 'The Forecast Between Photos', sub: 'Every ' + (o.forecast_every || 10) + ' photos', on: o.show === 'both',
           onChange: function (on) { self.change(function (x) { x.show = on ? 'both' : 'photos'; }); } }) : null,

@@ -99,7 +99,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
           const fr = deep(document).find((e) => e.tagName === 'IFRAME'); let w = null; try { w = fr && fr.contentWindow; } catch (e) { /* not ours */ }
           const S = w && w.hkSaver, st = S && S.stats ? S.stats() : null;
-          return fr ? { src: fr.getAttribute('src'), same: fr.__mark === 1, doc: !!(w && w.__mark), on: !!(st && st.on && st.preview), bg: S && S.config() ? S.config().clock_bg : null,
+          return fr ? { src: fr.getAttribute('src'), same: fr.__mark === 1, doc: !!(w && w.__mark), on: !!(st && st.on && st.preview), bg: S && S.config() ? S.config().clock_bg : null, night: S && S.config() ? S.config().clock_night : null,
                         views: w && w.document ? w.document.querySelectorAll('hk-grid-view,hk-home-grid-view').length : -1 } : null;
         });
         const until = async (f, ms) => { let v; for (let t = 0; t < ms; t += 25) { v = await frame(); if (v && f(v)) return v; await page.waitForTimeout(25); } return v; };
@@ -108,11 +108,11 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         say(!!up && /[?&]hk_preview=saver\b/.test(up.src) && up.views === 0, screen + ': its Screensaver page previews the screensaver alone (no dashboard)', up);
         await page.evaluate(() => { const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
           const fr = deep(document).find((e) => e.tagName === 'IFRAME'); fr.__mark = 1; fr.contentWindow.__mark = 1; });
-        const row = page.locator('[data-sk="saver:clock_bg"].pvrow').first();
-        await row.scrollIntoViewIfNeeded(); await row.click();
-        await page.locator('[data-fk="saver:clock_bg:aurora"]').first().click();
-        const t0 = Date.now(), got = await until((v) => v.bg === 'aurora', 3000), ms = Date.now() - t0;
-        say(!!got && got.bg === 'aurora' && ms < 1000, screen + ': ...a change shows there at once (' + ms + ' ms)', got);
+        // (the page keeps what can't be laid out -- Night Mode here; the look is Edit Screensaver's since 2026-11-01)
+        const btn = page.locator('[data-fk="saver:clock_night:always"]').first();
+        await btn.scrollIntoViewIfNeeded(); await btn.click();
+        const t0 = Date.now(), got = await until((v) => v.night === 'always', 3000), ms = Date.now() - t0;
+        say(!!got && got.night === 'always' && ms < 1000, screen + ': ...a change shows there at once (' + ms + ' ms)', got);
         await page.waitForTimeout(2500);
         const after = await frame();
         say(!!after && after.same && after.doc && after.on, screen + ': ...in place: the same frame and page after the save comes back, still showing', after);

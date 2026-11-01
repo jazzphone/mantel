@@ -598,7 +598,6 @@ print('\n=== the clock recommendation on the kit’s recommend (2026-10-29) ==='
   };
   ok('a group with its title, its button and its reason', [kids.length, said(kids[0]), said(kids[2])].join(' | '), '3 | Recommended for Kitchen | Why it is.');
   ok('...the button keeps its key', kids[1].children[0].attrs['data-fk'], 'saver:clock_rec');
-  ok('the saver’s clock page draws it through the kit', /K\.recommend\(\{ title: room \? 'Recommended for ' \+ room/.test(read(HK_ROOT + '/frontend/panels/hk-settings.js')), true);
 })();
 
 print(fail ? 'FAIL ' + fail + ' SETTINGS ROUTE TESTS' : 'ALL ' + pass + ' SETTINGS ROUTE TESTS PASS');

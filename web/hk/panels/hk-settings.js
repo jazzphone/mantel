@@ -920,6 +920,14 @@
       if (this.hist.length > 1 && this.hist[this.hist.length - 2] === hash) history.back();
       else this.go(hash);
     }
+    // LEAVING A PAGE THAT HAD A FRAME OF ITS OWN (the Screensaver editor's screen): to `hash` in this page's own history
+    // entry, never the browser's Back -- a frame's loads are entries too, and Back after the frame had gone took Safari
+    // to the frame's address, the screensaver alone, full screen (2026-11-01, the owner: "Sometimes hitting save...
+    // loads the Screensaver preview full screen")
+    leaveTo(hash) {
+      if ((location.hash || '#/') === hash) { this.go(hash); return; }
+      location.replace(location.pathname + location.search + hash);      // -> hashchange -> onHash
+    }
     announce(text) {
       var l = this.liveEl;
       l.textContent = '';
@@ -1373,7 +1381,15 @@
       if (!fr) return;
       var want = this.previewSrc(this._frameMode), says = col.querySelector('.pvsays');
       if (says) says.textContent = /hk_preview=saver/.test(want) ? PV_SAYS.saver : /hk_preview=look/.test(want) ? PV_SAYS.look : PV_SAYS.screen;
-      if (want && fr.getAttribute('src') !== want) fr.setAttribute('src', want);
+      var at = fr.getAttribute('data-src') || fr.getAttribute('src');
+      if (!want || at === want) return;
+      // (in the frame's own history entry: a new src is a Back step of the page's, and Back would load the frame's
+      // address instead of going back a page; data-src keeps where it was sent)
+      var loaded = null;
+      try { loaded = fr.contentWindow && fr.contentWindow.location.href !== 'about:blank' ? fr.contentWindow.location : null; } catch (e) { loaded = null; }
+      fr.setAttribute('data-src', want);
+      if (loaded) { try { loaded.replace(new URL(want, location.href).href); return; } catch (e) { /* another origin's */ } }
+      fr.setAttribute('src', want);
     }
 
     // THE SKY'S PREVIEW. On the Sky page the preview frame shows today's own
@@ -3860,76 +3876,6 @@
       this.saverFaceModules().then(function (ok) { if (ok) draw(); });
       return box;
     }
-    // THE SHOW (2026-10-30): six of them -- Photos, Forecast, Clock, Glance, Month and Day -- a strip of each as it
-    // looks, the one chosen ringed; a tap on one chooses it (the radio group: the pop-up above it went, 2026-10-30).
-    // On a phone a grid, three across, never cut off at the edge. `value`: what shows now (Photos & Forecast is
-    // Photos, with the forecast a slide)
-    showRows(cur, put, value) {
-      var self = this, pick = function (v) { if (v !== value) put('show', v); };
-      var strip = document.createElement('div');
-      strip.className = 'cell sstrip';
-      strip.setAttribute('data-sk', 'saver:show');
-      strip.setAttribute('role', 'radiogroup');
-      strip.setAttribute('aria-label', 'Show');
-      strip.style.cssText = this.hasAttribute('wide')
-        ? 'display:flex;gap:12px;overflow-x:auto;padding:12px 16px 10px;scrollbar-width:none;align-items:flex-start'
-        : 'display:grid;grid-template-columns:repeat(3,1fr);gap:12px 10px;padding:12px 16px 10px;justify-items:center;align-items:start';
-      M.SAVER_SHOWS.forEach(function (s) {
-        var on = s[0] === value, b = document.createElement('button');
-        b.type = 'button';
-        b.setAttribute('role', 'radio');
-        b.setAttribute('aria-checked', on ? 'true' : 'false');
-        b.setAttribute('aria-label', s[1] + '. ' + s[2]);
-        b.setAttribute('data-fk', 'saver:show:' + s[0]);
-        b.style.cssText = 'flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;padding:3px;margin:0;' +
-          'font:inherit;font-size:12px;line-height:15px;color:' + (on ? 'var(--hk-tint,#0a84ff)' : 'inherit') + ';cursor:pointer;-webkit-tap-highlight-color:transparent';
-        var th = self.saverThumb(88, 61, s[0], cur);
-        th.style.marginRight = '0';
-        th.style.boxShadow = on ? '0 0 0 2.5px var(--hk-tint,#0a84ff)' : 'inset 0 0 0 .5px rgba(127,127,127,.35)';
-        var t = document.createElement('span');
-        t.textContent = s[1];
-        t.style.fontWeight = on ? '600' : '400';
-        b.appendChild(th); b.appendChild(t);
-        b.addEventListener('click', function () { pick(s[0]); });
-        strip.appendChild(b);
-      });
-      return [strip];
-    }
-    // GLANCE, MONTH AND DAY (2026-10-30; hk-saverfaces.js): a whole screen each. What is over it (each corner its own
-    // switch, but what the face shows itself), the Day face's look, the time's 24 hours and Night Mode, the side
-    // pane, and Starts After
-    saverFaceGroups(c, cur, put, tog, styleHref, photoSrc) {
-      var self = this, show = cur.show, wide = this.hasAttribute('wide');
-      var says = (M.SAVER_SHOWS.filter(function (s) { return s[0] === show; })[0] || [0, '', ''])[2];
-      c.appendChild(K.group({ header: 'Show', footer: says + (show === 'glance' ? ' What’s playing is the house’s music now (or paused), and the weather is the one set in Weather.' : '') +
-          ' It fits itself beside the side pane, and to a phone.' }, this.showRows(cur, put, show)));
-      if (show === 'day') {
-        c.appendChild(K.group({ header: 'Day', footer: 'By Time of Day: light from 7 in the morning, dark from 7 in the evening. The art is HK’s own, as the sky’s: a birthday from Seasonal Sky, ' +
-            'Halloween, Christmas, Valentine’s Day and the Fourth in their weeks, and otherwise the season’s leaves, blossom, snow or butterflies.' }, [
-          K.previewPick({ label: 'Look', sk: 'saver:day_look', value: cur.day_look || 'auto', options: M.DAY_LOOKS,
-                  picture: function (v, w, ht) { return self.saverThumb(w, ht, 'day', Object.assign({}, cur, { day_look: v })); },
-                  onChange: function (v) { put('day_look', v); } })]));
-      }
-      c.appendChild(K.group({ header: 'Clock', footer: show === 'day' ? 'The Day face has no clock of its own: the corner clock (below) tells the time.'
-          : 'The time on the face.' + (show === 'glance' ? ' The clock is the analog face.' : '') }, [tog('24-Hour Time', 'clock_24')].concat(self.clockNightRows(cur, put))));
-      var over = [];
-      if (show === 'day') over.push(tog('Clock & Date', 'clock', 'Top left.'));
-      if (show !== 'glance') over.push(tog('Weather', 'weather', 'Top left: the temperature and conditions.'), tog('Now Playing', 'music', 'Music playing anywhere in the house, bottom left.'));
-      over.push(tog('Timers', 'timers', 'Running timers, bottom right.'),
-                tog('Home Status', 'status', 'Top right: Home Secured, or what’s open or unlocked.'));
-      c.appendChild(K.group({ header: 'Over the ' + M.showName(show), footer: show === 'glance' ? 'Glance shows the date, the time, the weather and what’s playing itself.' :
-          show === 'month' ? 'Month shows the date and the time itself.' : 'Each is your choice.' }, over));
-      if (photoSrc) photoSrc(c);
-      // THE SIDE PANE (2026-10-30 tidy-up): the Side Pane page's, as on every
-      // other show -- its Calendar and Music switches went (hk-saver.js
-      // withPane sets them from the Side Pane; calendar / music_pane stay stored)
-      c.appendChild(K.group({ header: 'Side Pane', footer: 'Sections down one side of the screen; the ' + M.showName(show) + ' face moves over beside it. Set on the Side Pane page.' },
-        [self.paneLink(self.panePath(styleHref), 'saver', 'saver:side_pane')]));
-      var opts = [60, 120, 180, 300, 600, 900, 1800].map(function (n) { return [String(n), MIN(n)]; });
-      if (!opts.some(function (o) { return o[0] === String(cur.starts_after); })) opts.push([String(cur.starts_after), MIN(cur.starts_after)]);
-      c.appendChild(K.group({ header: 'Timing' }, [K.select({ label: 'Starts After', sub: 'Untouched for this long.', value: String(cur.starts_after), sk: 'saver:starts_after',
-        options: opts, onChange: function (v) { put('starts_after', Number(v)); } })]));
-    }
     // THE SCREENSAVER EDITOR (2026-11-01, docs/phase12/SCREENSAVER-EDITOR.md): hk-saver-editor.js, loaded the first time it
     // is opened; one per screen (or All Screens), kept while its page shows. `house`: All Screens' screensaver
     saverEditorPage(key, o) {
@@ -3943,8 +3889,8 @@
             if (!ed) {
               ed = document.createElement('hk-saver-editor');
               self._saverEditors[key] = ed;
-              ed.configure(Object.assign({ panel: self, onCancel: function () { delete self._saverEditors[key]; self.back(o.back[1]); },
-                                           onSaved: function () { delete self._saverEditors[key]; self.back(o.back[1]); } }, o));
+              ed.configure(Object.assign({ panel: self, onCancel: function () { delete self._saverEditors[key]; self.leaveTo(o.back[1]); },
+                                           onSaved: function () { delete self._saverEditors[key]; self.leaveTo(o.back[1]); } }, o));
             }
             c.appendChild(ed);
           };
@@ -3957,7 +3903,9 @@
     // way back (the Show drawn as it was)
     saverEditRow(c, href, cur, put, note) {
       var self = this, lay = !!(cur && cur.layout);
-      c.appendChild(K.group({ footer: lay ? 'Laid out in the editor: the big time and the widgets are set there. Below, the corner cards, the Large clock, Time Behind\u2019s size and the Forecast\u2019s Layout don\u2019t apply while it has a layout.' : note },
+      // (the page below is what can't be laid out: the photos, the slides, Night Mode and the timing)
+      c.appendChild(K.group({ footer: (note ? note + ' ' : '') + 'What shows and how it looks \u2014 the background, the time, the widgets and the corners \u2014 is set in the editor' +
+          (lay ? '.' : ', starting from how it looks today.') + ' Below: the photos, the slides, Night Mode and the timing.' },
         [K.nav({ label: 'Edit Screensaver', sub: 'The background, the big time and the widgets, on the screen itself', icon: 'mdi:pencil', href: href, sk: 'saver:editor' })]
           .concat(lay && put ? [K.button({ label: 'Remove the Layout\u2026', destructive: true, fk: 'saver:layout-off', onClick: function () {
             K.confirm(self.shadowRoot, { title: 'Remove the Layout?', message: 'The screensaver is drawn as its Show was before the editor. Its other settings stay.', ok: 'Remove', destructive: true })
@@ -4009,12 +3957,13 @@
       c.appendChild(this.saverEntities(b, path));
       if (x.generated) this.engineGroup(c, b, path);
     }
-    // THE OPTIONS THEMSELVES, for a screen of its own or for All Screens:
-    // `cur` the options in force, `put(key, value)` saves one.
-    // ONE ORDER FOR EVERY SHOW (2026-10-30): Show, the show's own groups,
-    // what is over it, Now and Then, While Music Plays, Photos (where it shows
-    // any: `photoSrc(c)` draws where they come from first, and says whether it
-    // drew anything), Portrait and Landscape, Side Pane, Timing
+    // THE OPTIONS THAT LIVE OUTSIDE THE EDITOR, for a screen of its own or for All Screens: `cur` the options in
+    // force, `put(key, value)` saves one. EDIT SCREENSAVER IS WHERE IT IS LAID OUT (2026-11-01, the owner: "The editor
+    // should be the primary source for modifications. Only things that really need to live outside the editor to
+    // function should be on the settings page"): the background, the time and its face, colors and depth, the widgets
+    // and the corners, Time Behind, the darkening and the legibility are the editor's (a screen with no layout opens
+    // there as it is drawn today). Here: where the photos come from and how they show, the wallpaper chosen, what comes
+    // between and how often, Night Mode, the Side Pane and the timing
     saverGroups(c, cur, put, styleHref, room, photoSrc) {
       var self = this;
       var sel = function (label, k, choices, sub) {
@@ -4029,74 +3978,32 @@
       // ONE TIMER: Starts After also decides how long a touch keeps the screen
       // In Use (a minute less, never under 15 s -- screensaver.py window_of)
       var win = Math.max(15, cur.starts_after - 60);
-      // WHAT IT SHOWS (2026-10-10): the photos -- with slides between them,
-      // the forecast and the music -- or the forecast, the music over it
-      // while it plays. Stored as before: show is photos, both (the forecast
-      // slide on) or forecast; music_slide beside it.
-      var fc = cur.show === 'forecast', both = cur.show === 'both';
-      // SHOW: CLOCK (2026-10-13): the clock is the screensaver; what is
-      // behind it is its own choice -- below, in its own groups
-      var ckKnown = self.saverKnown('clock_style'), ck = ckKnown && cur.show === 'clock';
-      var styleName = (M.CLOCK_STYLES.filter(function (x) { return x[0] === (cur.clock_style || 'classic'); })[0] || [0, 'Classic'])[1];
-      var muKnown = self.saverKnown('music_slide'), mu = muKnown && !!cur.music_slide;
-      var every = function (n) { return 'Every ' + n + ' Photos'; };
-      // THE HOMEVIEW-STYLE SHOWS (2026-10-30): Glance, Month and Day beside them, once Home Assistant's HK Frontend
-      // knows them (the Forecast's Layout says so)
-      var fxKnown = self.saverKnown('forecast_layout'), big = fxKnown && cur.forecast_layout === 'big';
-      if (fxKnown && (cur.show === 'glance' || cur.show === 'month' || cur.show === 'day')) { this.saverFaceGroups(c, cur, put, tog, styleHref, photoSrc); return; }
-      if (ck) { this.saverClockGroups(c, cur, put, styleHref, styleName, tog, room, photoSrc); return; }
-      c.appendChild(K.group({ header: 'Show', footer: (fc
-          ? 'The forecast over the live sky and the season’s landscape: today, the next hours and the coming days. No photos needed.'
-          : cur.fallback ? 'Your photos. When the photos folder has none, or can’t be read, the forecast shows instead.'
-          : 'Your photos. When the photos folder has none, or can’t be read, the screen stays dark.') +
-          (big && (fc || both || cur.fallback) ? ' The forecast’s Big layout: the temperature very large over the live sky, the time, then the sunset, wind, humidity and air quality.' : '') },
-        (fxKnown ? this.showRows(cur, put, fc ? 'forecast' : 'photos') : [
-        K.seg({ label: 'Show', value: fc ? 'forecast' : 'photos', sk: 'saver:show',
-                options: [['photos', 'Photos'], ['forecast', 'Forecast']].concat(ckKnown ? [['clock', 'Clock']] : []),
-                onChange: function (v) { put('show', v === 'forecast' || v === 'clock' ? v : 'photos'); } })
-      ]).concat(fc ? [] : [tog('Forecast When There Are No Photos', 'fallback')],
-               // THE FORECAST'S LAYOUT (2026-10-30): Classic (the details along the bottom) or Big (Big Weather)
-               fxKnown && (fc || both || cur.fallback) ? [K.previewPick({ label: 'Forecast Layout', sk: 'saver:forecast_layout', value: big ? 'big' : 'classic',
-                 options: M.FORECAST_LAYOUTS, picture: function (v, w, ht) { return self.saverThumb(w, ht, v === 'big' ? 'weather' : 'forecast', cur); },
-                 onChange: function (v) { put('forecast_layout', v); } })] : [],
-               // BIG WEATHER'S NUMBER (2026-10-31, the owner): the temperature or the time, standing on the ground
-               big && (fc || both || cur.fallback) && self.saverKnown('forecast_big') ? [K.seg({ label: 'Big Number', sk: 'saver:forecast_big',
-                 value: cur.forecast_big === 'clock' ? 'clock' : 'temp', options: M.FORECAST_BIG,
-                 onChange: function (v) { put('forecast_big', v); } })] : [],
-               // ...the time planted in the meadow (2026-11-01, the owner): on by default; off, as it drew before
-               big && (fc || both || cur.fallback) && cur.forecast_big === 'clock' && self.saverKnown('forecast_planted') ? [K.toggle({
-                 label: 'Planted Numerals', sub: 'The time as solid figures standing in the meadow, with shadows from the sky’s sun and grass at their feet.',
-                 on: cur.forecast_planted !== false, sk: 'saver:forecast_planted', onChange: function (on) { put('forecast_planted', on); } })] : [],
-               // the details ON the forecast, wherever a forecast can show
-               (fc || both || cur.fallback) && !big ? [tog('Details on the Forecast', 'band',
-                 'On the forecast: today, the next hours and the coming days along the bottom. Off: the sky and the landscape alone.')] : [])));
-      // MUSIC FIRST (music_first; with Forecast, the older music_slide over
-      // it is the same): while music plays it fills the screen
-      var mfKnown = self.saverKnown('music_first'), mf = (mfKnown && !!cur.music_first) || (fc && mu);
-      // THE SLIDES between the photos (the music's only when it isn't first)
-      // HOME ENERGY (2026-10-14): a slide among the photos too
+      var show = cur.show, fc = show === 'forecast', both = show === 'both', ck = show === 'clock', bg = cur.clock_bg || 'gradient';
+      var face = show === 'glance' || show === 'month' || show === 'day';
+      // (photos where the background is photos: the Photos show, Photos with the forecast between, the clock over them)
+      var photos = show === 'photos' || both || (ck && (bg === 'photos' || bg === 'landscapes'));
+      var mf = !!cur.music_first, muKnown = self.saverKnown('music_slide'), mu = muKnown && !!cur.music_slide;
       var enKnown = self.saverKnown('energy_slide'), en = enKnown && !!cur.energy_slide;
       var energyHref = String(styleHref || '').replace(/clock-style$/, 'energy');
       var weatherHref = String(styleHref || '').replace(/clock-style$/, 'weather');
-      // OVER THE PHOTOS (or the forecast), first after the Show
-      var overPhotos = fc ? [] : [tog('Forecast Along the Bottom', 'band_photos', 'Today, the next hours and the coming days, along the bottom of the photos.')];
-      c.appendChild(K.group({ header: fc ? 'On the Screen' : 'Over the Photos', footer: fc
-          ? 'The forecast is the weather set in Weather; today’s conditions are in it, so the Weather line isn’t needed.'
-          : /^#\/house\//.test(String(styleHref || '')) ? 'The photos come from Screensaver Photos, under Photos below.'
-          : 'The photos come from Screensaver Photos (All Screens → Screensaver).' }, [
-        ckKnown ? K.seg({ label: 'Clock', sub: cur.clock === false ? 'No clock' : cur.clock_over === 'large' ? 'Your Clock Style, centered' : 'Small, top left, with the date',
-                          sk: 'saver:clock_over', value: cur.clock === false ? 'off' : cur.clock_over === 'large' ? 'large' : 'corner',
-                          options: [['corner', 'Corner'], ['large', 'Large'], ['off', 'Off']],
-                          onChange: function (v) { put(v === 'off' ? { clock: false } : { clock: true, clock_over: v }); } })
-                : tog('Clock & Date', 'clock')].concat(
-          ckKnown && cur.clock !== false && cur.clock_over === 'large'
-            ? [K.nav({ label: 'Clock Style', value: styleName, href: styleHref, sk: 'saver:clock_style' }), this.clockColorRow(cur, put)]
-                .concat(this.clockNightRows(cur, put), fc ? [] : this.clockTextRows(cur, put)).filter(Boolean) : [],
-          fc ? [] : [tog('Weather', 'weather')], [
-        tog('Now Playing', 'music', 'Music playing anywhere in the house, bottom left.'),
-        tog('Timers', 'timers', 'Running timers, bottom right.'),
-        tog('Home Status', 'status', 'Top right: Home Secured when the alarm is armed and everything is shut, or what’s open or unlocked. Nothing when there’s nothing to say.')], overPhotos)));
-      if (!fc) {
+      var every = function (n) { return 'Every ' + n + ' Photos'; };
+      // PHOTOS: where they come from (All Screens' folder, a host's album), then how they show (Slideshow)
+      var srcDrew = photoSrc ? photoSrc(c) : false;
+      if (photos) {
+        if (!ck) c.appendChild(K.group({ footer: cur.fallback ? 'When the photos folder has none, or can’t be read, the forecast shows instead.'
+            : 'When the photos folder has none, or can’t be read, the screen stays dark.' }, [tog('Forecast When There Are No Photos', 'fallback')]));
+        this.saverPhotoGroups(c, cur, put, tog, ck, srcDrew);
+      }
+      // THE WALLPAPER, where the background is one (the editor's Background: Wallpaper): the dashboard's own picker --
+      // the four wallpapers and the six motion themes, one Color; its night version follows the sun, its motion the Speed
+      if (ck && bg === 'wallpaper' && self.saverKnown('clock_wallpaper')) {
+        self.wallpaperGroup(c, { value: cur.clock_wallpaper || 'aurora', color: cur.clock_wallpaper_color || 'blue', fk: 'swall', sk: 'saver:clock_wallpaper',
+          saver: true, moving: (cur.clock_speed != null ? cur.clock_speed : (cur.clock_motion === 'still' ? 0 : 35)) > 0,
+          onSet: function (v) { put('clock_wallpaper', v); }, onColor: function (v) { put('clock_wallpaper_color', v); } });
+      }
+      // NOW AND THEN: the slides among the photos, how often, and their own options; over the forecast or a clock, the
+      // screens that come in now and then (saverExtras)
+      if (photos && !ck) {
         var muSlide = mu && !mf;
         var wxKnown = self.saverKnown('weather_slide'), wx = wxKnown && !!cur.weather_slide;
         var turns = [muSlide && 'the music', both && 'the forecast', wx && 'the weather', en && 'Home Energy'].filter(Boolean);
@@ -4115,28 +4022,14 @@
                                     options: [3, 5, 10, 20].concat([3, 5, 10, 20].indexOf(cur.forecast_every) < 0 ? [cur.forecast_every] : [])
                                       .map(function (n) { return [String(n), every(n)]; }),
                                     onChange: function (v) { put('forecast_every', Number(v)); } })] : [])));
-      }
-      if (fc && enKnown) this.saverExtras(c, cur, put, tog, 'forecast', mf, energyHref);
-      if (mfKnown || (fc && muKnown)) {
-        c.appendChild(K.group({ header: 'While Music Plays', footer: mf
-            ? 'While music plays anywhere in the house, the album art fills the screen in place of the ' + (fc ? 'forecast' : 'photos') +
-              ', with the song, what’s up next and its buttons (they skip or pause without closing the screensaver; a tap on the art opens Music). The ' +
-              (fc ? 'forecast' : 'photos') + ' come back 20 seconds after the music stops.'
-            : 'Off: the ' + (fc ? 'forecast stays' : 'photos go on') + ' while music plays' + (fc ? '.' : (mu ? ', the music as one of the slides.' : '.')) }, [
-          K.toggle({ label: 'Music First', sub: 'The music fills the screen while it plays.', on: mf, sk: 'saver:music_first',
-                     onChange: function (on) {
-                       // (the older Forecast switch, music_slide over it, is folded in)
-                       if (!mfKnown) { put('music_slide', on); return; }
-                       put(fc ? { music_first: on, music_slide: false } : { music_first: on });
-                     } })]));
-      }
-      // PHOTOS: where they come from (All Screens' folder, a host's album),
-      // then how they show (Slideshow) -- no second Photos header
-      var srcDrew = photoSrc ? photoSrc(c) : false;
-      if (!fc) this.saverPhotoGroups(c, cur, put, tog, false, srcDrew);
-      // THE PANE (the Side Pane's In the Screensaver group since 2026-10-30;
-      // its page has it -- this screen's, or All Screens')
-      c.appendChild(K.group({ header: 'Side Pane', footer: 'Sections down one side of the screen — the events, what’s playing, the weather and more — with the photos or the forecast beside it. Set on the Side Pane page, with the Dashboard’s.' },
+      } else if ((fc || ck) && enKnown) this.saverExtras(c, cur, put, tog, fc ? 'forecast' : 'clock', mf, energyHref);
+      // NIGHT MODE: the clock dim red on black at night -- a time of day, not a look
+      var night = this.clockNightRows(cur, put);
+      if (night.length) c.appendChild(K.group({ header: 'Night Mode', footer: 'Wherever the screensaver shows the time large: the Clock, a big time in the editor, Glance and Month.' }, night));
+      // THE PANE (the Side Pane's In the Screensaver group since 2026-10-30; its page has it -- this screen's, or All
+      // Screens')
+      c.appendChild(K.group({ header: 'Side Pane', footer: 'Sections down one side of the screen — the events, what’s playing, the weather and more — with the ' +
+          (ck ? 'clock' : face ? M.showName(show) + ' face' : fc ? 'forecast' : 'photos or the forecast') + ' beside it. Set on the Side Pane page, with the Dashboard’s.' },
         [this.paneLink(this.panePath(styleHref), 'saver', 'saver:side_pane')]));
       // BACK TO THE DASHBOARD (hk-saver.js stop): a touch or the switch
       var FADES = [[0, 'Instant'], [500, '0.5 Seconds'], [1000, '1 Second'], [2000, '2 Seconds']];
@@ -4146,7 +4039,7 @@
           ' after each touch (a minute less than Starts After), so the photos never come up while someone is using it, and an automation reading ' +
           'In Use never disagrees with the screensaver.' }, [
         sel('Starts After', 'starts_after', [60, 120, 180, 300, 600, 900, 1800], 'Untouched for this long.')].concat(
-          fc ? [] : [sel('Each Photo For', 'each_photo', [10, 20, 30, 60, 120, 300])],
+          photos && !ck ? [sel('Each Photo For', 'each_photo', [10, 20, 30, 60, 120, 300])] : [],
           !self.saverKnown('fade_back') ? [] : [K.select({ label: 'Fade Back', sub: 'From the screensaver to the dashboard, after a touch or when the switch turns off.',
                       value: String(cur.fade_back), sk: 'saver:fade_back',
                       options: fadeOpts.map(function (f) { return [String(f[0]), f[1]]; }),
@@ -4334,35 +4227,8 @@
           onChange: function (v) { put('each_photo', Number(v)); } }));
       }
       prow.push(tog('Slow Zoom', 'zoom', 'A slow zoom across each photo. The tablet keeps drawing the whole time, so it runs warmer.'));
-      // PHOTO TITLES AND TIME BEHIND (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I): the album's name and the
-      // year; the time behind the person or thing in each photo -- where the host has a photo library of its own
-      // that cuts the photos out (Home Assistant's folder has no cut-outs, so there the time is in front)
-      var cutting = !!(window.hkShell && typeof window.hkShell.listPhotos === 'function');
-      // ...offered wherever they apply (hk-saver.js photoOpts): Photos and Both, and Clock on Photos that aren't Soft
-      // -- there Time Behind is the clock (2026-10-30, the owner: left on from Photos, it couldn't be turned off from
-      // Clock)
-      var sharpUnderClock = clockMode && cur.clock_bg === 'photos' && !cur.clock_photo_soft;
-      if ((!clockMode || sharpUnderClock) && self.saverKnown('photo_titles')) {
-        prow.push(tog('Titles', 'photo_titles', 'The album’s name and the year the photo was taken, bottom right.'));
-        if (cutting || cur.time_behind) {
-          prow.push(tog('Time Behind', 'time_behind', (sharpUnderClock
-            ? 'The time on each photo, large, behind the person or thing in it where it can be, in place of the clock above.'
-            : 'The time, large, behind the person or thing in each photo that qualifies; in front on the others.') +
-            (mo ? ' Not in a mosaic.' : '')));
-          // ITS SIZE, ITS HEIGHT AND THE PHOTO DARKENED UNDER IT (2026-10-31, the owner): with it, as Clock on
-          // Photos has its Darken -- there that one is it (Backgrounds), so it isn't asked twice
-          if (cur.time_behind && self.saverKnown('tb_size')) {
-            prow.push(K.slider({ label: 'Time Size', sk: 'saver:tb_size', value: cur.tb_size != null ? cur.tb_size : 24,
-                                 min: 12, max: 40, step: 2, unit: '%', onChange: function (v) { put('tb_size', v); } }));
-            prow.push(K.slider({ label: 'Time Height', sk: 'saver:tb_top', value: cur.tb_top != null ? cur.tb_top : 6,
-                                 min: 0, max: 50, step: 2, unit: '%', onChange: function (v) { put('tb_top', v); } }));
-            if (!clockMode) {
-              prow.push(K.slider({ label: 'Darken', sk: 'saver:tb_dim', value: cur.tb_dim || 0,
-                                   min: 0, max: 80, step: 5, unit: '%', onChange: function (v) { put('tb_dim', v); } }));
-            }
-          }
-        }
-      }
+      // (Titles and Time Behind -- its size, height and darkening -- are the editor's since 2026-11-01: the Photo Title
+      // widget, the big time Behind the Subject)
       // (under the photos' source groups -- a folder, a host's album and its
       // import -- this one is how they show: Slideshow, never a second Photos)
       c.appendChild(K.group({ header: afterSrc ? 'Slideshow' : 'Photos', footer: (mo
@@ -4373,106 +4239,6 @@
           : 'Tap the left or right edge of the screensaver for the previous or next ' + (mo ? 'mosaic' : 'photo') + ', or the forecast details for the Weather page; anywhere else closes it.') }, prow));
       this.saverShape(c, cur, put, 'portrait', mo);
       this.saverShape(c, cur, put, 'landscape', mo);
-    }
-    // THE CLOCK'S TEXT OVER PHOTOS (2026-10-13): how much it stands out
-    clockTextRows(cur, put) {
-      if (!this.saverKnown('clock_text_shadow')) return [];
-      return [K.slider({ label: 'Shadow', sk: 'saver:clock_text_shadow', value: cur.clock_text_shadow != null ? cur.clock_text_shadow : 40,
-                         min: 0, max: 100, step: 5, unit: '%', onChange: function (v) { put('clock_text_shadow', v); } }),
-              K.slider({ label: 'Outline', sk: 'saver:clock_text_outline', value: cur.clock_text_outline || 0,
-                         min: 0, max: 100, step: 5, unit: '%', onChange: function (v) { put('clock_text_outline', v); } })];
-    }
-    saverClockGroups(c, cur, put, styleHref, styleName, tog, room, photoSrc) {
-      var self = this, bg = cur.clock_bg || 'gradient', wide = this.hasAttribute('wide');
-      var bgRow = M.CLOCK_BGS.filter(function (x) { return x[0] === bg; })[0] || M.CLOCK_BGS[2];
-      c.appendChild(K.group({ header: 'Show', footer: 'A clock, full screen, over the background you choose.' }, self.saverKnown('forecast_layout') ? self.showRows(cur, put, 'clock') : [
-        K.seg({ label: 'Show', value: 'clock', sk: 'saver:show', options: [['photos', 'Photos'], ['forecast', 'Forecast'], ['clock', 'Clock']],
-                onChange: function (v) { put('show', v); } })]));
-      // A CLOCK FOR THE ROOM: offered while the clock isn't it already
-      var rec = M.clockRecommend(room), recSet = rec.set;
-      var recNow = Object.keys(recSet).every(function (k) { return (cur[k] || (k === 'clock_night' ? 'off' : '')) === recSet[k]; });
-      if (!recNow && self.saverKnown('clock_night')) {
-        var rName = (M.CLOCK_STYLES.filter(function (st) { return st[0] === recSet.clock_style; })[0] || [0, ''])[1];
-        var bName = (M.CLOCK_BGS.filter(function (b2) { return b2[0] === recSet.clock_bg; })[0] || [0, ''])[1];
-        c.appendChild(K.recommend({ title: room ? 'Recommended for ' + room : 'Recommended', says: rec.says + '. You can change any of it after.', actions: [
-          { label: 'Use ' + rName + ' on ' + bName + (recSet.clock_night === 'night' ? ', Red at Night' : ''), sk: 'saver:clock_rec',
-            onClick: function () { put(Object.assign({}, recSet)); } }] }));
-      }
-      c.appendChild(K.group({ header: 'Clock', footer: (cur.clock_style === 'today' ? 'Today shows the weather and what\u2019s playing itself: the corners\u2019 Weather and Now Playing step aside. ' : '') +
-          'Every style shows the date. On a screen left on all night, the clock drifts a little every few minutes, so nothing burns in.' }, [
-        K.nav({ label: 'Style', value: styleName, href: styleHref, sk: 'saver:clock_style' }),
-        self.clockColorRow(cur, put),
-        tog('24-Hour Time', 'clock_24')].concat(self.clockNightRows(cur, put)).filter(Boolean)));
-      // (each a small picture of the clock over it, 2026-10-31: the owner's "mini image previews")
-      var brows = [K.previewPick({ label: 'Background', sk: 'saver:clock_bg', value: bg,
-        options: M.CLOCK_BGS.map(function (x) { return [x[0], x[1], x[3]]; }),
-        picture: function (v, w, ht) { return self.saverThumb(w, ht, 'bg:' + v, cur); },
-        onChange: function (v) { put('clock_bg', v); } })];
-      // SPEED AND DEPTH (2026-10-13): every background moves but Black --
-      // how fast (0: still, for a tablet that runs warm) and how strong
-      if (bgRow[2] && self.saverKnown('clock_speed')) {
-        var spd = cur.clock_speed != null ? cur.clock_speed : (cur.clock_motion === 'still' ? 0 : 35);
-        brows.push(K.slider({ label: 'Speed', sub: spd ? null : 'Still: it changes once a minute', sk: 'saver:clock_speed', value: spd, min: 0, max: 100, step: 5, unit: '%',
-                              onChange: function (v) { put({ clock_speed: v, clock_motion: v ? 'slow' : 'still' }); } }));
-        // (a Wallpaper has no Depth: it is drawn as the dashboard draws it)
-        if (bg !== 'wallpaper') brows.push(K.slider({ label: 'Depth', sub: 'How strong it is: the colors, the glow, the relief', sk: 'saver:clock_depth', value: cur.clock_depth != null ? cur.clock_depth : 50,
-                              min: 0, max: 100, step: 5, unit: '%', onChange: function (v) { put('clock_depth', v); } }));
-      }
-      var bfoot = { forecast: 'The forecast’s live sky and the season’s land behind the clock.',
-                    skyonly: 'The live sky alone, as it is outside: clouds, stars, the moon, rain and snow — no land, trees or decorations.',
-                    photos: cur.clock_photo_soft ? 'Your photos, blurred and darkened behind it, changing every ' + MIN(cur.each_photo).toLowerCase() + '.'
-                      : 'Your photos behind it, laid out as Photos (below) says, darkened so the clock reads.',
-                    landscapes: 'Fifty photos of mountains, lakes, coasts, deserts and forests, one after another behind the clock' + (cur.clock_photo_soft ? ', blurred and darkened.' : ', darkened so the clock reads.'),
-                    sky: 'The live sky’s colors as they are now, with no stars or weather.',
-                    wallpaper: 'One of the HomeView look’s wallpapers, or a motion theme in a color you choose, drawn as the dashboard draws it, ' +
-                      'its night version after sunset. Speed: how fast a motion theme moves; 0 holds it still, as Reduce Motion does.' }[bg] ||
-                  (bgRow[2] ? 'Drawn on the tablet itself and moved smoothly: a new frame about once a second, blended into the last (Constellation draws every frame). Speed 0 holds it still.' : 'Plain black: nothing moves.');
-      // PHOTOS BEHIND IT (2026-10-13): sharp, as the Photo Screensaver shows
-      // them, or Soft (the blurred copies); darkened by their own amount
-      if ((bg === 'photos' || bg === 'landscapes') && self.saverKnown('clock_photo_dim')) {
-        brows.push(K.seg({ label: 'Photos', sk: 'saver:clock_photo_soft', value: cur.clock_photo_soft ? 'soft' : 'sharp', stack: !wide,
-                           options: [['sharp', 'Sharp'], ['soft', 'Soft']], onChange: function (v) { put('clock_photo_soft', v === 'soft'); } }));
-        brows.push(K.slider({ label: 'Darken', sk: 'saver:clock_photo_dim', value: cur.clock_photo_dim != null ? cur.clock_photo_dim : 35,
-                              min: 0, max: 80, step: 5, unit: '%', onChange: function (v) { put('clock_photo_dim', v); } }));
-      }
-      c.appendChild(K.group({ header: 'Behind the Clock', footer: bfoot }, brows));
-      // A WALLPAPER BEHIND IT (2026-10-31, the owner): the dashboard's own picker -- the four wallpapers and the six motion themes,
-      // one Color (item 45) -- for the screensaver's own choice; its night version follows the sun, its motion the Speed
-      if (bg === 'wallpaper' && self.saverKnown('clock_wallpaper')) {
-        self.wallpaperGroup(c, { value: cur.clock_wallpaper || 'aurora', color: cur.clock_wallpaper_color || 'blue', fk: 'swall', sk: 'saver:clock_wallpaper',
-          saver: true, moving: (cur.clock_speed != null ? cur.clock_speed : (cur.clock_motion === 'still' ? 0 : 35)) > 0, onSet: function (v) { put('clock_wallpaper', v); }, onColor: function (v) { put('clock_wallpaper_color', v); } });
-      }
-      var over = [tog('Weather', 'weather', 'Top left: the temperature and conditions.'),
-                  tog('Now Playing', 'music', 'Music playing anywhere in the house, bottom left.'),
-                  tog('Timers', 'timers', 'Running timers, bottom right.'),
-                  tog('Home Status', 'status', 'Top right: Home Secured, or what’s open or unlocked.')];
-      if (bg === 'forecast' || bg === 'skyonly') over.push(tog('Forecast Details', 'band', 'Today, the next hours and the coming days, along the bottom.'));
-      else over.push(tog('Forecast Along the Bottom', 'band_photos', 'Today, the next hours and the coming days, along the bottom.'));
-      c.appendChild(K.group({ header: 'Over the Clock', footer: 'Each is your choice: turn them all off for the clock alone.' }, over));
-      if (self.saverKnown('energy_slide')) self.saverExtras(c, cur, put, tog, 'clock', !!cur.music_first, String(styleHref || '').replace(/clock-style$/, 'energy'));
-      if (self.saverKnown('music_first')) c.appendChild(K.group({ header: 'While Music Plays', footer: cur.music_first
-          ? 'While music plays anywhere in the house, the album art fills the screen in place of the clock, with the song and its buttons, and the time small above it. The clock comes back 20 seconds after the music stops.'
-          : 'Off: the clock stays while music plays.' }, [
-        K.toggle({ label: 'Music First', sub: 'The music fills the screen while it plays.', on: !!cur.music_first, sk: 'saver:music_first',
-                   onChange: function (on) { put({ music_first: on }); } })]));
-      // PHOTOS behind the clock: where they come from, the clock's text over
-      // them, then how they show (after the clock's own groups since 2026-10-30)
-      var srcDrew = photoSrc ? photoSrc(c) : false;
-      if (bg === 'photos' || bg === 'landscapes') {
-        var ctr = self.clockTextRows(cur, put);
-        if (ctr.length) {
-          c.appendChild(K.group({ header: 'Clock Text', footer: 'How much the clock stands out from the photos: a soft shadow under it, and a dark outline around it.' }, ctr));
-          srcDrew = false;
-        }
-        self.saverPhotoGroups(c, cur, put, tog, true, srcDrew);
-      }
-      // the side pane (the Side Pane's, 2026-10-30): the clock moves over beside it, as the photos do
-      c.appendChild(K.group({ header: 'Side Pane', footer: 'Sections down one side of the screen; the clock moves over beside it. Set on the Side Pane page.' },
-        [self.paneLink(self.panePath(styleHref), 'saver', 'saver:side_pane')]));
-      var opts = [60, 120, 180, 300, 600, 900, 1800].map(function (n) { return [String(n), MIN(n)]; });
-      if (!opts.some(function (o) { return o[0] === String(cur.starts_after); })) opts.push([String(cur.starts_after), MIN(cur.starts_after)]);
-      c.appendChild(K.group({ header: 'Timing' }, [K.select({ label: 'Starts After', sub: 'Untouched for this long.', value: String(cur.starts_after), sk: 'saver:starts_after',
-        options: opts, onChange: function (v) { put('starts_after', Number(v)); } })]));
     }
     // PORTRAIT OR LANDSCAPE PHOTOS (2026-10-13), each their own: Whole (over
     // a blurred copy: its Blur and Dim) or Fill the Screen, a Zoom, and the

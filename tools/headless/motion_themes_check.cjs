@@ -124,14 +124,14 @@ async function sky(page, wait) {
       await page.waitForTimeout(3500);
       const sp = await page.evaluate(() => {
         const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
-        const all = deep(document), t = all.find((e) => e.getAttribute && e.getAttribute('data-sk') === 'saver:clock_bg');
+        const all = deep(document), t = all.find((e) => e.matches && e.matches('.wallgrid'));   // (its Background is the editor's since 2026-11-01; the wallpaper chosen stays here)
         if (t) t.scrollIntoView({ block: 'start' });
         return { pick: !!t, grids: all.filter((e) => e.matches && e.matches('.wallgrid')).map((g) => g.querySelectorAll('button').length),
                  color: all.filter((e) => e.getAttribute && /^swall:color:/.test(e.getAttribute('data-fk') || '')).length,
                  on: all.filter((e) => e.matches && e.matches('.wallgrid button[aria-pressed="true"]')).map((b) => b.getAttribute('data-fk')),
                  night: all.some((e) => e.getAttribute && /wallpaper_night/.test(e.getAttribute('data-sk') || '')) };
       });
-      say(sp.pick && sp.grids.join() === '10' && sp.color >= 9 && sp.on.join() === 'swall:meteors' && !sp.night, size + ' Settings, the clock\'s Background: the same picker, no Night Version or Motion of its own', sp);
+      say(sp.pick && sp.grids.join() === '10' && sp.color >= 9 && sp.on.join() === 'swall:meteors' && !sp.night, size + ' Settings, the clock\'s wallpaper: the same picker, no Night Version or Motion of its own', sp);
       await page.waitForTimeout(600);
       await page.screenshot({ path: input.shots + '/settings-saver-' + size + '.png' });
       await page.evaluate(() => {

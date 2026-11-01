@@ -62,7 +62,11 @@ ok('no preview showing: kept for when it does, nothing asked of the frame', [f.h
 
 print('=== the frame kept across a redraw ===');
 ok('a preview not pinned is kept (pinned compared as true or false, not undefined against false)', /!!this\._pv\.pinned === pinned/.test(SRC), true);
-ok('...its address changed in one place, never on a redraw (frameSrc)', /if \(want && fr\.getAttribute\('src'\) !== want\) fr\.setAttribute\('src', want\);/.test(SRC), true);
+ok('...its address changed in one place, never on a redraw (frameSrc)', /var at = fr\.getAttribute\('data-src'\) \|\| fr\.getAttribute\('src'\);\s*if \(!want \|\| at === want\) return;/.test(SRC), true);
+// (2026-11-01: a new src is a Back step of the page's -- Back after the Screensaver editor's Save loaded the frame's
+// address, the screensaver alone, full screen -- so a loaded frame goes there in its own history entry)
+ok('...in the frame\'s own history entry once it has a page (location.replace), its src only before', [/loaded\.replace\(new URL\(want, location\.href\)\.href\); return;/.test(SRC), /fr\.setAttribute\('data-src', want\);/.test(SRC)], [true, true]);
+ok('the Screensaver editor leaves in its own history entry, never by Back', [/leaveTo\(hash\) \{[\s\S]{0,160}location\.replace\(/.test(SRC), /onSaved: function \(\) \{ delete self\._saverEditors\[key\]; self\.leaveTo\(o\.back\[1\]\); \}/.test(SRC)], [true, true]);
 ok('...and a frame on its way to the screensaver alone, or back, is asked nothing until it is there',
    /if \(\/hk_preview=saver\/\.test\(bound\) !== \/hk_preview=saver\/\.test\(at\)\) return false;/.test(SRC), true);
 
