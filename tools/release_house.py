@@ -18,8 +18,8 @@ second full run. Each release commit the tool makes passes `versions` before it 
   Home Assistant's websocket (supervisor/api), reload the store and update `local_mantel`; wait until Mantel's
   /api/version answers the staged build and /healthz?strict=1 is ok (through the App's Ingress); fail on any
   "Traceback" or "ERROR" in the App's log.
-* hk-frontend / mantel-link: set the manifest version, commit and push; build (HK Frontend: tools/build_ha.py)
-  and copy the component into the config share with rsync --inplace, never --delete (HA's Samba share half-fails
+* hk-frontend / mantel-link: set the manifest version, commit and push; build (HK Frontend: tools/build_ha.py;
+  Mantel Link: its publish.py, whose layout vendors the hk_core modules it imports) and copy the component into the config share with rsync --inplace, never --delete (HA's Samba share half-fails
   without --inplace); check the copy with diff; restart Home Assistant and wait until it serves the new files.
   HK Frontend is then published to jazzphone/hk-frontend's main from a fresh clone (publish.py --commit --push),
   with --no-tests when the full run ran the suites publish.py would run again (PUBLISH_SUITES).
@@ -434,7 +434,11 @@ def release_component(product: str, version: str, dry: bool, github_release: boo
             run(sys.executable, "tools/build_ha.py", f"{tmp}/ha", env={"HK_PRIVATE": regex})
             built = Path(tmp) / "ha/custom_components" / spec["domain"]
         else:
-            built = src
+            # its published layout: the hk_core modules it imports are vendored inside only there (the component's
+            # own folder has none, and a copy of it left the house's old hk_core/ in place)
+            run(sys.executable, str(src / "tools/publish/publish.py"), f"{tmp}/built", *no_tests,
+                env={"HK_PRIVATE": regex})
+            built = Path(tmp) / "built/custom_components" / spec["domain"]
         excludes = [a for x in COPY_EXCLUDES for a in ("--exclude", x)]
         run("rsync", "-rt", "--inplace", *excludes, f"{built}/", f"{dest}/")
         diff = subprocess.run(["diff", "-rq", *[a for x in COPY_EXCLUDES for a in ("-x", x)], str(built), str(dest)],

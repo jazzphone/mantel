@@ -251,3 +251,12 @@ def test_the_github_release_is_opt_in_and_not_for_mantel_itself(capsys):
     assert source.count('"--release"') == 1 and '*(["--release"] if github_release else [])' in source
     assert rh.main(["mantel", "0.1.99", "--github-release"]) == 2
     assert "--github-release is for hk-frontend and mantel-link" in capsys.readouterr().err
+
+
+def test_mantel_link_goes_to_the_house_from_its_published_layout():
+    # the hk_core modules it imports are vendored only in its published layout: a copy of the component's own folder
+    # left the house's old hk_core/ in place (2026-11-01)
+    source = (ROOT / "tools/release_house.py").read_text()
+    body = source[source.index("def release_component("):]
+    assert 'str(src / "tools/publish/publish.py"), f"{tmp}/built", *no_tests' in body
+    assert 'built = Path(tmp) / "built/custom_components" / spec["domain"]' in body and "built = src" not in body
