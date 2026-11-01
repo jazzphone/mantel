@@ -132,7 +132,7 @@
     power: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return panel('power'); } },
     // show (2026-10-31, the owner): Recently Played, the Music page's playlists (presets) or one playlist, named by `playlist`;
     // speaker: where a tap plays -- a speaker or a speaker group -- else this screen's music
-    music: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { show: 'music_show', playlist: 'music_playlist', speaker: 'music_speaker', tap: 'tap_target' }, card: function (s, o) {
+    music: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { show: 'music_show', playlist: 'music_playlist', speaker: 'music_speaker', tap: 'music_tap' }, card: function (s, o) {
       return panel('music', Object.assign(o.show && o.show !== 'recent' ? { show: o.show } : {}, o.show === 'playlist' && o.playlist ? { playlist: o.playlist } : {},
                                           o.speaker ? { speaker: o.speaker } : {})); } },
     doors: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return panel('doors'); } },
@@ -181,6 +181,8 @@
     return o && o.tap && o.tap !== 'auto' && cfg && cfg.type !== 'custom:hk-key-card' ? Object.assign({}, cfg, { tap: o.tap }) : cfg;
   }
   var TAP_TARGETS = [['auto', 'Automatic'], ['page', 'Page'], ['sheet', 'Detail Sheet'], ['none', 'Nothing']];
+  // ...a Music block's (2026-11-01, the owner): Choose a Playlist, the house's playlists in the Music page's sheet
+  var MUSIC_TAPS = TAP_TARGETS.concat([['playlists', 'Choose a Playlist']]);
   function paged(it) {
     var p = it.pages, c = CARDS[it.card];
     return !!(c && p && (p.source === 'list' ? Array.isArray(p.list) && p.list.length
@@ -323,7 +325,7 @@
   }
 
   window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, span: span, CELLS: CELLS, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
-                           PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES, TAP_TARGETS: TAP_TARGETS,
+                           PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES, TAP_TARGETS: TAP_TARGETS, MUSIC_TAPS: MUSIC_TAPS,
                            CONDITIONS: CONDITIONS, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
 })();

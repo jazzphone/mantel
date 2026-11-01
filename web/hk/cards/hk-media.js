@@ -3659,7 +3659,7 @@
   function recentCovers(items) {
     var seen = {}, out = [];
     (items || []).forEach(function (it) {
-      if (!it || !it.uri || out.length >= 13) return;
+      if (!it || !it.uri || out.length >= 40) return;
       var album = it.album && it.album.uri, key = album || it.image || it.uri;
       if (seen[key]) return;
       seen[key] = 1;
@@ -3708,6 +3708,16 @@
     '.cvw{flex:1;min-height:0;container-type:size;margin-top:10px}',
     '.cv{height:100%;display:grid;--n:var(--n0);--r:var(--r0);--cv:min((100cqw - (var(--n) - 1) * 10px) / var(--n), (100cqh - (var(--r) - 1) * 10px) / var(--r) - 21px);',
     '  grid-template-columns:repeat(var(--n),var(--cv));grid-template-rows:repeat(var(--r),auto);justify-content:space-between;align-content:space-between}',
+    // EVERY COVER, SCROLLING IN THE BLOCK (2026-11-01, the owner): across in Wide and Extra Large, down in Tall and
+    // Large, the next row or column showing a little at the edge so it is plain there is more; a finger scrolls it
+    // (the page's own swipe keeps the other direction)
+    '.cv.x{grid-auto-flow:column;grid-template-columns:none;grid-auto-columns:var(--cv);justify-content:start;column-gap:10px;',
+    '  --cv:min((100cqw - var(--n) * 10px) / (var(--n) + .4), (100cqh - (var(--r) - 1) * 10px) / var(--r) - 21px);',
+    '  overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:none}',
+    '.cv.y{grid-template-rows:none;grid-auto-rows:auto;align-content:start;row-gap:10px;',
+    '  --cv:min((100cqw - (var(--n) - 1) * 10px) / var(--n), (100cqh - var(--r) * 10px) / (var(--r) + .35) - 21px);',
+    '  overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;touch-action:pan-y;scrollbar-width:none}',
+    '.cv::-webkit-scrollbar{display:none}',
     '.it{display:flex;flex-direction:column;gap:4px;min-width:0}',
     '.it .cvr{width:var(--cv);height:var(--cv)}',
     '.it .nm{display:block;' + C.typeCss('caption') + ';font-weight:600;line-height:17px;color:' + C.v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -3716,6 +3726,21 @@
     '.last .cvr{width:100%;height:100%;border-radius:' + C.R.inner + 'px}',
     '.last .cvr hk-icon{width:36px;height:36px;--mdc-icon-size:36px}',
     '.mu.S .last{--big:min(96px, 100cqh - 44px)}',
+    // SMALL (2026-11-01, the owner): the cover is the whole block, play in its middle, the name over its foot; a tap
+    // anywhere else is the block's When Tapped (Choose a Playlist, the Music page...)
+    'hk-plate.mu.S{padding:0;position:relative}',
+    '.mu.S .bg{position:absolute;inset:0;border-radius:inherit;overflow:hidden}',
+    '.mu.S .bg .cvr{width:100%;height:100%;border-radius:0;box-shadow:none}',
+    '.mu.S .bg .cvr hk-icon{width:44px;height:44px;--mdc-icon-size:44px;opacity:0}',
+    '.mu.S .sh{position:absolute;left:0;right:0;bottom:0;height:58%;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.62));pointer-events:none}',
+    '.mu.S .go{all:unset;box-sizing:border-box;position:absolute;left:50%;top:40%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;',
+    '  background:rgba(255,255,255,.94);display:grid;place-items:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.35);transition:transform .12s ease;-webkit-tap-highlight-color:transparent}',
+    '.mu.S .go:active{transform:scale(.92)}',
+    '.mu.S .go:focus-visible{outline:2px solid #fff;outline-offset:3px}',
+    '.mu.S .go hk-icon{width:30px;height:30px;--mdc-icon-size:30px;color:#1c1c1e}',
+    '.mu.S.busy .go{opacity:.6}',
+    '.mu.S .ft{position:absolute;left:14px;right:14px;bottom:12px;margin:0;pointer-events:none}',
+    '.mu.S .t1,.mu.S .t2{color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)}',
     '.pl{position:absolute;right:-6px;bottom:-6px;width:40px;height:40px;border-radius:50%;background:#fff;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}',
     '.pl hk-icon{width:22px;height:22px;--mdc-icon-size:22px;color:#1c1c1e}',
     '.ft{margin-top:auto;min-width:0}',
@@ -3729,8 +3754,7 @@
     '.hr{height:1px;flex:none;margin:14px 0 4px;background:' + C.v('line') + '}',
     '.none{flex:1;display:grid;place-items:center;text-align:center;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}',
     // ON A TILE CELL (196 x 150 a cell): a row fewer
-    '@container hk-cell (max-height:379px){.mu.T .cv{--r:2}.mu.T .it:nth-child(n+5),.mu.L .it:nth-child(n+5),.mu.XL .it:nth-child(n+7){display:none}',
-    '  .mu.L .cv,.mu.XL .cv{--r:1}}'
+    '@container hk-cell (max-height:379px){.mu.T .cv{--r:2}.mu.L .cv,.mu.XL .cv{--r:1}}'
   ].join('');
 
   class HkRecentMusicCard extends HkBase {
@@ -3782,28 +3806,34 @@
       var s = this._size(), R = RECENT[s], items = tiles || this._items, list = items || [], self = this;
       // (a playlist's own name over its choices; Presets, the page's playlists)
       var lab = mode === 'presets' ? 'Playlists' : mode === 'playlist' ? (tiles[0] && tiles[0].artist !== 'Playlist' ? tiles[0].artist : 'Playlist') : 'Recently Played';
-      var last = list[0], more = s === 'W' || s === 'T' ? list.slice(0, R[0]) : list.slice(1, 1 + R[0]);
+      // (every cover past the first: the grid scrolls -- across in Wide and Extra Large, down in Tall and Large)
+      var last = list[0], more = s === 'W' || s === 'T' ? list.slice() : list.slice(1), axis = s === 'W' || s === 'XL' ? 'x' : 'y';
       // (still asking: the covers' places, empty)
       if (!items) { last = null; more = []; for (var i = 0; i < R[0]; i++) more.push(null); }
       var cell = function (it, i) {
         return '<button type="button" class="it" data-i="' + i + '"' + (it ? ' aria-label="Play ' + esc(it.name) + '"' : ' disabled') + '>' +
                self._cover(it) + '<span class="nm">' + (it ? esc(it.name) : '&nbsp;') + '</span></button>';
       };
-      var grid = '<div class="cvw"><div class="cv" style="--n0:' + R[1] + ';--r0:' + R[2] + '">' + more.map(function (it, j) {
+      var grid = '<div class="cvw"><div class="cv ' + axis + '" style="--n0:' + R[1] + ';--r0:' + R[2] + '">' + more.map(function (it, j) {
         return cell(it, s === 'W' || s === 'T' ? j : j + 1); }).join('') + '</div></div>';
       var lastBtn = '<button type="button" class="last" data-i="0"' + (last ? ' aria-label="Play ' + esc(last.name) + '"' : ' disabled') + '>' +
                     this._cover(last) + (s === 'S' && last ? '<span class="pl"><hk-icon icon="mdi:play"></hk-icon></span>' : '') + '</button>';
       var words = last ? '<b class="t1">' + esc(last.name) + '</b><small class="t2">' + esc(last.artist) + '</small>' : '';
       var body;
       if (items && !items.length) body = '<span class="lab">' + lab + '</span><div class="none">' + (tiles ? 'No playlists yet. Add some in HK Settings → Features → Music.' : 'Music played here shows up here.') + '</div>';
-      else if (s === 'S') body = lastBtn + '<div class="ft">' + words + '</div>';
+      else if (s === 'S') body = '<span class="bg">' + this._cover(last) + '</span><span class="sh"></span>' +
+        (last ? '<button type="button" class="go" data-i="0" aria-label="Play ' + esc(last.name) + '"><hk-icon icon="mdi:play"></hk-icon></button>' : '') +
+        '<div class="ft">' + words + '</div>';
       else if (s === 'W' || s === 'T') body = '<span class="lab">' + lab + '</span>' + grid;
       else body = '<div class="top">' + lastBtn + '<div class="col"><span class="lab">' + lab + '</span>' + words + '</div></div><div class="hr"></div>' + grid;
       this._root.innerHTML = '<hk-plate class="mu ' + s + '" data-hk-role="card">' + body + '</hk-plate>';
+      var plate = this._root.querySelector('hk-plate');
+      if (s === 'S' && last && last.image) this._artImage(last.image, this._root.querySelector('.bg .cvr'), '<hk-icon icon="mdi:music"></hk-icon>', 600);
       this._root.querySelectorAll('[data-i]').forEach(function (b) {
         var it = list[+b.getAttribute('data-i')];
         if (!it) return;
-        if (it.image) self._artImage(it.image, b.querySelector('.cvr'), '<hk-icon icon="mdi:music"></hk-icon>', 300);
+        if (it.image && b.querySelector('.cvr')) self._artImage(it.image, b.querySelector('.cvr'), '<hk-icon icon="mdi:music"></hk-icon>', 300);
+        if (s === 'S') b._busyOn = plate;            // (Small's busy look is the whole block's)
         b.addEventListener('click', function (e) { e.stopPropagation(); self._play(it, b); });
       });
     }
@@ -3816,7 +3846,15 @@
       if (sp && Mu && Mu.known && Mu.known(sp)) return sp;
       return Mu && this.client ? Mu.player(this.client) : null;
     }
+    // WHEN TAPPED, on the block's plate (its covers play): Choose a Playlist -- every playlist in the Music page's sheet,
+    // so the block starts any of them -- else the Music page, else the speaker's sheet (hk-base.js openTarget)
+    _tapTarget() {
+      if ((this._config || {}).tap === 'playlists') return [{ run: this._choosePlaylist.bind(this) }];
+      var p = this._target();
+      return [{ page: 'playmusic' }, p && { sheet: p }];
+    }
     _play(it, el) {
+      if (el && el._busyOn) el = el._busyOn;
       if (it.options) { this._choose(it, el); return; }
       if (it.playlist) { this._playList(it, el); return; }
       var Mu = window.hkMusic, player = this._target(), self = this;
@@ -3839,14 +3877,16 @@
     var Mu = window.hkMusic, self = this, p = this._target();
     var pre = p && Mu.presets().filter(function (x) { return x.entity === p; })[0];
     var rooms = pre ? pre.members.slice() : p ? [p] : [];
-    if (!rooms.length) { window.hkShell.toast({ message: 'Pick a speaker on the Music page to play ' + it.name + '.' }, this); return; }
-    if (el.classList.contains('busy')) return;
+    if (!rooms.length) { window.hkShell.toast({ message: 'Pick a speaker on the Music page to play ' + it.name + '.' }, this); return Promise.resolve(false); }
+    if (el.classList.contains('busy')) return Promise.resolve(false);
     el.classList.add('busy');
-    this._callResp('hk_frontend', 'music_play', { rooms: rooms, playlist: it.playlist }).then(function (res) {
+    // (answers whether it played: the playlists' sheet closes on it)
+    return this._callResp('hk_frontend', 'music_play', { rooms: rooms, playlist: it.playlist }).then(function (res) {
       el.classList.remove('busy');
       var r = (res && res.response) || {};
-      if (!res.ok || r.ok === false) { window.hkShell.toast({ message: 'Could not play ' + it.name + (r.message ? ': ' + r.message : '') }, self); return; }
+      if (!res.ok || r.ok === false) { window.hkShell.toast({ message: 'Could not play ' + it.name + (r.message ? ': ' + r.message : '') }, self); return false; }
       if (r.leader && Mu.known(r.leader)) Mu.setFocus(r.leader, { hold: true });
+      return true;
     });
   };
   // ONE OF A PLAYLIST'S CHOICES, picked in the Music page's sheet (hk-music.js _play: hkCards.chooseSheet), then
@@ -3858,10 +3898,92 @@
       self._playList({ playlist: opt.key, name: opt.name }, el);
     });
   };
+  // CHOOSE A PLAYLIST (the block's When Tapped, 2026-11-01, the owner: "1 quick button to launch any playlist", "more
+  // like a detail sheet... similar to how the playlists look on the large or x-large card, but in a pop up"): every
+  // playlist as the block's covers, in a detail sheet (hk-music-playlists-card, below); the plain pick-one list only
+  // where there is no detail sheet
+  HkRecentMusicCard.prototype._choosePlaylist = function () {
+    var Mu = window.hkMusic, tiles = playlistTiles(Mu && Mu.playlists ? Mu.playlists() : [], null), self = this, D = window.hkDetail;
+    var el = this._root.querySelector('hk-plate') || this;
+    if (!tiles.length) {
+      window.hkShell.toast({ message: 'No playlists yet. Add some in HK Settings → Features → Music.' }, this);
+      return;
+    }
+    var sp = this._config && this._config.speaker;
+    if (D && D.open && customElements.get('hk-music-playlists-card')) {
+      D.open(null, { name: 'Playlists', icon: 'mdi:playlist-music' },
+        { cards: { cards: [Object.assign({ type: 'custom:hk-music-playlists-card' }, sp ? { speaker: sp } : {})], width: 'wide' } });
+      return;
+    }
+    if (!C.chooseSheet) return;
+    C.chooseSheet('Play a Playlist', tiles.map(function (t, i) { return { name: t.name, key: String(i), icon: t.icon }; }), function (opt) {
+      var t = tiles[+opt.key];
+      if (t) self._play(t, el);
+    });
+  };
   register('hk-recent-music-card', HkRecentMusicCard, 'HK Recently Played',
     'What played last and covers to play again, sized to a Home Grid block.', null, function () { return {}; });
   // (the Home Grid's Music block's: not offered in the card picker)
   if (C.unlisted) C.unlisted('hk-recent-music-card');
+
+  // -------------------------------------------------- hk-music-playlists-card
+  //
+  // THE PLAYLISTS' SHEET (a Music block's Choose a Playlist, 2026-11-01): every playlist as the block's own covers,
+  // in a detail sheet; a tap plays it where the block plays (its speaker, else this screen's music) and the sheet
+  // goes. A playlist with choices (Decades) opens them in place, Back over them.
+  var PL_CSS = [
+    ':host{display:block;height:auto}',
+    '.pls{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:18px 16px;padding:4px 2px 10px}',
+    '.pls .it{display:flex;flex-direction:column;gap:7px;min-width:0}',
+    '.pls .cvr{width:100%;aspect-ratio:1;border-radius:' + C.R.inner + 'px}',
+    '.pls .cvr hk-icon{width:34px;height:34px;--mdc-icon-size:34px;color:rgba(255,255,255,.7)}',
+    '.pls .nm{' + C.typeCss('body') + ';font-weight:600;line-height:19px}',
+    '.pls .sub{display:block;' + C.typeCss('caption') + ';line-height:16px;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.bk{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:4px;margin:0 0 12px;cursor:pointer;' + C.typeCss('body') + ';color:' + C.v('accent') + '}',
+    '.bk hk-icon{width:22px;height:22px;--mdc-icon-size:22px}',
+    '.hd{' + C.typeCss('title') + ';line-height:27px;color:' + C.v('ink') + ';margin:0 0 14px}'
+  ].join('');
+  class HkMusicPlaylistsCard extends HkRecentMusicCard {
+    static get CSS() { return MU_CSS + PL_CSS; }
+    _size() { return 'L'; }
+    _tapTarget() { return HkBase.prototype._tapTarget.call(this); }
+    _sigOf() {
+      var Mu = window.hkMusic;
+      return JSON.stringify([Mu && Mu.playlists ? Mu.playlists() : [], this._open || null, musicMissing()]);
+    }
+    _render() {
+      if (musicMissing()) { drawNoMusic(this); return; }
+      var Mu = window.hkMusic, all = playlistTiles(Mu && Mu.playlists ? Mu.playlists() : [], null), self = this;
+      var open = this._open ? all.filter(function (t) { return t.name === self._open && t.options; })[0] : null;
+      if (this._open && !open) this._open = null;
+      var list = open ? open.options.map(function (o) { return { playlist: o.playlist, name: o.name, key: open.name + o.name, artist: open.name, icon: open.icon }; }) : all;
+      var html = (open ? '<button type="button" class="bk" data-back><hk-icon icon="mdi:chevron-left"></hk-icon>Playlists</button>' +
+                         '<div class="hd">' + esc(open.name) + '</div>' : '') +
+        '<div class="pls">' + list.map(function (it, i) {
+          return '<button type="button" class="it" data-i="' + i + '" aria-label="' + (it.options ? 'Choose from ' : 'Play ') + esc(it.name) + '">' +
+                 self._cover(it) + '<span class="nm">' + esc(it.name) + '</span><span class="sub">' + esc(it.artist) + '</span></button>';
+        }).join('') + '</div>';
+      this._list = list;
+      this._root.innerHTML = html;
+      var back = this._root.querySelector('[data-back]');
+      if (back) back.addEventListener('click', function () { self._open = null; self.redraw(); });
+      this._root.querySelectorAll('[data-i]').forEach(function (b) {
+        var it = list[+b.getAttribute('data-i')];
+        b.addEventListener('click', function (e) { e.stopPropagation(); self._pick(it, b); });
+      });
+    }
+    // a cover tapped: a playlist with choices opens them; any other plays, and the sheet goes once it does
+    _pick(it, el) {
+      if (it.options) { this._open = it.name; this.redraw(); return Promise.resolve(false); }
+      return Promise.resolve(this._playList(it, el)).then(function (played) {
+        if (played && window.hkDetail && window.hkDetail.close) window.hkDetail.close();
+        return played;
+      });
+    }
+  }
+  register('hk-music-playlists-card', HkMusicPlaylistsCard, 'HK Playlists',
+    'Every playlist as covers, to play one where the Music block plays.', null, function () { return {}; });
+  if (C.unlisted) C.unlisted('hk-music-playlists-card');
 
   // -------------------------------------------------- hk-tv-channels-card
   //

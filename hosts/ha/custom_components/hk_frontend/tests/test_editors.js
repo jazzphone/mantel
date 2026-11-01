@@ -37,9 +37,10 @@ var RAW = /_/;                       // a label or option still showing a config
 var JARGON = /`|hk-|button-card|swipe|\bTHE\b|\bpx\b/;
 
 // (hk-pager-card: a Home Grid block's pages, built by the catalog from the block, never by hand; the Music and
-// Live TV blocks' widgets, hk-media.js, mounted by the panel block at the block's size, 2026-10-31)
+// Live TV blocks' widgets, hk-media.js, mounted by the panel block at the block's size, 2026-10-31; and the Music
+// block's playlists sheet, opened by its Choose a Playlist, 2026-11-01)
 var NOT_IN_PICKER = { 'hk-screensaver-status-card': 1, 'hk-screensaver-now-card': 1, 'hk-pager-card': 1, 'hk-grid-conditional-card': 1, 'hk-grid-entity-card': 1,
-                      'hk-recent-music-card': 1, 'hk-tv-channels-card': 1 };
+                      'hk-recent-music-card': 1, 'hk-tv-channels-card': 1, 'hk-music-playlists-card': 1 };
 var cards = Object.keys(defined).filter(function (n) { return /^hk-.*-card$/.test(n); }).sort();
 print('=== ' + cards.length + ' cards ===');
 cards.forEach(function (tag) {

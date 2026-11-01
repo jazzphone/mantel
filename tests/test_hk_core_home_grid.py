@@ -134,6 +134,14 @@ def test_when_tapped_is_kept_on_every_block_that_has_something_to_open(tap):
         assert b["home_grid"]["items"][0]["opts"] == {"tap": tap}
 
 
+def test_a_music_block_may_choose_a_playlist_when_tapped_and_only_it():
+    for tap in ("auto", "page", "sheet", "none", "playlists"):
+        b, errors = write(grid(block("a1", "music", "S", [0, 0], opts={"tap": tap})))
+        assert errors == {} and b["home_grid"]["items"][0]["opts"] == {"tap": tap}, tap
+    _b, errors = write(grid(block("a1", "weather", "S", [0, 0], opts={"tap": "playlists"})))
+    assert errors, "Choose a Playlist is the Music block's alone"
+
+
 def test_a_music_block_keeps_what_it_shows_and_its_playlist():
     for opts in ({"show": "recent"}, {"show": "presets"}, {"show": "playlist", "playlist": "Decades"}, {"show": "playlist"}):
         b, errors = write(grid(block("a1", "music", "L", [0, 0], opts=dict(opts, tap="page"))))

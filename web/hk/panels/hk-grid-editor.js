@@ -1656,7 +1656,7 @@
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
@@ -1869,6 +1869,11 @@
         // its detail sheet, whichever the screen has, or neither; the controls in the block keep their own taps
         if (kind === 'tap_target') {
           rows.push(K.seg({ label: 'When Tapped', value: opts[key] || 'auto', options: G.TAP_TARGETS, onChange: (v) => set(key, v === 'auto' ? null : v) }));
+          return;
+        }
+        // ...a Music block's, with Choose a Playlist (2026-11-01, the owner): five, so a list rather than a segment
+        if (kind === 'music_tap') {
+          rows.push(K.select({ label: 'When Tapped', value: opts[key] || 'auto', options: G.MUSIC_TAPS, onChange: (v) => set(key, v === 'auto' ? null : v) }));
           return;
         }
         // A MUSIC BLOCK'S SHOW (2026-10-31, the owner): Recently Played, the Music page's playlists, or one of them, chosen from

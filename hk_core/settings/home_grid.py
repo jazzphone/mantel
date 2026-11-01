@@ -94,7 +94,9 @@ CATALOG: dict[str, dict[str, Any]] = {
     "power": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # show (2026-10-31, the owner): what it shows -- Recently Played (none stored), the Music page's playlists (presets), or
     # one playlist, named by `playlist` (its name in Music's settings)
-    "music": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"show": "music_show", "playlist": "music_playlist", "speaker": "music_speaker", "tap": "tap_target"}},
+    # tap (2026-11-01, the owner): When Tapped's choices, and Choose a Playlist -- every playlist in the Music page's
+    # sheet, so the block is one button to start any of them
+    "music": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"show": "music_show", "playlist": "music_playlist", "speaker": "music_speaker", "tap": "music_tap"}},
     "doors": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # channel (2026-10-31, the owner): one channel of the guide fills the block; none, as many as the size holds
     "live_tv": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"channel": "tv_channel", "tap": "tap_target"}},
@@ -302,6 +304,8 @@ def _name_tag(v: Any) -> str:
 # Page"), a block's tap on its plate as the Side Pane's is (settings.py PANE_TAPS): Automatic, its page where the
 # screen has one else its sheet; Page or Detail Sheet, that one, else the other; Nothing. Controls inside keep theirs.
 TAP_TARGETS = ("auto", "page", "sheet", "none")
+# ...and a Music block's own (2026-11-01, the owner): Choose a Playlist, the house's playlists in a sheet
+MUSIC_TAPS = ("playlists",)
 
 
 # A LIVE TV BLOCK'S CHANNEL, by its guide number ("4.1": hk_tv/channels), as the Live TV page names it. Whether the
@@ -337,6 +341,12 @@ def _tap_target(v: Any) -> str:
     return v
 
 
+def _music_tap(v: Any) -> str:
+    if v not in TAP_TARGETS + MUSIC_TAPS:
+        raise GridInvalid("grid_option")
+    return v
+
+
 def _clock_style(v: Any) -> str:
     if v not in CLOCK_FACES:
         raise GridInvalid("grid_option")
@@ -357,6 +367,7 @@ OPTION_KINDS = {
     "period": _period,
     "name_tag": _name_tag,
     "tap_target": _tap_target,
+    "music_tap": _music_tap,
     "tv_channel": _tv_channel,
     "music_show": _music_show,
     "music_playlist": _music_playlist,

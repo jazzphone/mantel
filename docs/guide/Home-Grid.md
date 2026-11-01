@@ -73,6 +73,8 @@ The **Clock** block comes in every size. **Style** is HK's own digital clock, or
 
 A block for something you haven't set up says where to set it up.
 
+The **Music** block's **Show** picks Recently Played, your **Playlists** (as on the Music page) or **One Playlist**. At Small, the cover fills the whole block, with play in the middle. Larger sizes hold every playlist and scroll through them: sideways at Wide and Extra Large, up and down at Tall and Large. A playlist with choices, such as **Decades**, is one tile that asks which one to play, as its pill on the Music page does. A Music block's **When Tapped** also offers **Choose a Playlist**: tapping the block, anywhere but its play buttons, opens every playlist to start one.
+
 **Month View** (Calendar) draws the month as a grid with today circled and a dot under each day with something on it; tapping a day opens it on the Calendar page. **Big Temperature** (Weather) draws the place, the temperature as large as the block holds, the condition and today's high and low; a Tall Weather block is always drawn this way.
 
 The **Calendar** block shows what is still to come over its **Days** (Today Only up to 7 Days; Today and Tomorrow by default), each later day under its own heading. The events scroll inside the block, and tapping one opens its details.
