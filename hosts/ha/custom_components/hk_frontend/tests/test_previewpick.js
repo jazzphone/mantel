@@ -59,7 +59,10 @@ print('=== where the page uses it ===');
 var SRC = read(HK_ROOT + '/frontend/panels/hk-settings.js');
 // (2026-11-01: the Screensaver page's pickers -- the clock's Background, the Day face's Look, the Forecast's Layout --
 // are Edit Screensaver's, with a picture of each background: the page keeps what can't be laid out)
-ok('the Screensaver page picks no look: the editor does', /sk: 'saver:clock_bg'|sk: 'saver:day_look'|label: 'Forecast Layout'/.test(SRC), false);
+ok('the Screensaver page picks no look: the editor does', /sk: 'saver:clock_bg'|sk: 'saver:day_look'/.test(SRC), false);
+// ...but the forecast where it comes in as a slide (2026-11-01, the owner: "no way of setting Big layout for forecast
+// with Photos"): Classic and Big Weather, each pictured
+ok('the Forecast slide\'s Layout: Classic and Big Weather', /K\.previewPick\(\{ label: 'Layout', sk: 'saver:forecast_layout'[\s\S]{0,200}v === 'big' \? 'weather' : 'forecast'/.test(SRC), true);
 ok('the sky’s Background, for All Screens and for a screen, and Flat’s', [/K\.previewPick\(\{ label: 'Background', sk: 'sky\.background'/.test(SRC), /K\.previewPick\(\{ label: 'Background', sub: ownMode/.test(SRC),
    /K\.previewPick\(\{ label: 'Background', sub: b \? \(own/.test(SRC)], [true, true, true]);
 ok('...none of them a segmented control or a pop-up menu any more', /K\.(seg|select)\(\{ label: '(Background|Look|Forecast Layout)', (sk|sub)/.test(SRC), false);

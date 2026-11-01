@@ -265,10 +265,15 @@
       return byType[t] || Object.assign({ type: t }, LAYOUT_CARD_CONF[t] || {});
     });
     c.clock_large = false;
-    c.forecast_layout = 'classic';
     c.time_behind = b.kind === 'time' && b.depth === 'behind';
     if (c.time_behind && b.size) c.tb_size = b.size;
-    c.band = c.band_photos = ids.indexOf('forecast_band') >= 0;
+    // THE FORECAST AS THE BACKGROUND is the layout's: classic, its details where the layout has them. AS A SLIDE --
+    // between the photos, in their place, now and then over a clock -- its own Layout and Details (2026-11-01, the
+    // owner: "there is no way of setting Big layout for forecast with Photos")
+    var fcBack = c.show === 'forecast' || (c.show === 'clock' && (c.clock_bg === 'forecast' || c.clock_bg === 'skyonly'));
+    var bandHere = ids.indexOf('forecast_band') >= 0;
+    if (fcBack) { c.forecast_layout = 'classic'; c.band = c.band_photos = bandHere; }
+    else c.band_photos = bandHere;
     c.photo_titles = false;                  // (a widget of the layout's: photo_title)
     return c;
   }
@@ -1177,6 +1182,9 @@
     '.lay .lyland{background-repeat:no-repeat;pointer-events:none}',
     ':host([lay][muslide]) .lay,:host([lay][enslide]) .lay,:host([lay][wxslide]) .lay{opacity:0}',
     ':host([cklight]:not([cknight])) .lay{--tint:#1c1c1e}',
+    // (Big Weather among the photos, or in their place, tells the time itself: the layout's big element and widgets
+    // step aside while it shows, as they do for the music)
+    ':host([lay][fcbig][fcslide]) .lay,:host([lay][fcbig][forecast]) .lay{opacity:0}',
     // (a corner card's backdrop: the widgets' Glass and Tinted -- a static fill, never a backdrop-filter)
     '.lay .lyplate{position:absolute;--sw-ink:var(--tint)}',
     '.lay .lyplate.c-white{--sw-ink:#fff}.lay .lyplate.c-accent{--sw-ink:var(--hk-accent,#ffb38a)}',
@@ -2702,7 +2710,8 @@
   // wherever the forecast shows on its own -- Show: Forecast, the slide among the photos, no photos -- never under a
   // clock (Behind the Clock: Forecast keeps the forecast's own details)
   var bigCtl = null, bigRun = 0, bigFor = '';
-  function bigWanted() { return !!(cfg && !cfg.layout && cfg.forecast_layout === 'big' && cfg.show !== 'clock' && !FACE_SHOWS[cfg.show]); }
+  // (with a layout too, where the forecast is a slide: layoutCfg made it Classic where the forecast is the background)
+  function bigWanted() { return !!(cfg && cfg.forecast_layout === 'big' && cfg.show !== 'clock' && !FACE_SHOWS[cfg.show]); }
   function bigWeather() {
     if (!root || !host) return;
     var want = bigWanted();
@@ -3103,6 +3112,16 @@
       });
     });
     P.moved.forEach(function (mv) { if (mv.to === null) { var c = widgetAt(mv.zone, mv.i); if (c) put(c, null); } });
+    // BIG WEATHER AS A SLIDE (among the photos, or in their place): the cards where Big Weather puts them -- the
+    // layout's own places for them taken off while it shows, put back with the next plan after it
+    if (host.hasAttribute('fcbig') && (fcShowing || mode === 'forecast')) {
+      cards.forEach(function (c) {
+        Array.prototype.slice.call(c.style).forEach(function (p) { if (/^--hk-ss-|^--hk-ink$/.test(p) || p === 'left' || p === 'top') c.style.removeProperty(p); });
+        c.removeAttribute('lyhide');
+      });
+      Object.keys(ly.plates || {}).forEach(function (id) { ly.plates[id].remove(); delete ly.plates[id]; });
+      return;
+    }
     // the cards: through their own variables (fixed, against the screensaver), or placed (the clock, the weather);
     // each its own size (its config's sizes times it), color and backdrop, as a widget has
     var itemOf = function (id) { var f = null; Object.keys(zs).forEach(function (z) { zs[z].forEach(function (w) { if (w.id === id) f = w; }); }); return f; };
@@ -3443,6 +3462,7 @@
     updateBand();
     forecastTick(true);
     reveal(root.querySelector('.fc'), false);
+    layoutSoon();
   }
   function hideForecastSlide() {
     if (!fcShowing) return;
@@ -3450,6 +3470,7 @@
     if (host) host.removeAttribute('fcslide');
     updateBand();
     forecastTick(false);
+    layoutSoon();
   }
   function leaveForecast() {
     bigRun++;
