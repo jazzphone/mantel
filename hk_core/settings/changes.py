@@ -31,6 +31,7 @@ from typing import Any
 
 from ..sleep import rules as SR
 from . import home_grid as HG
+from . import saver_layout as SLAY
 from . import looks as LOOKS
 from . import kinds as K
 from . import model as S
@@ -233,6 +234,12 @@ def _saver_options(v: Any) -> dict[str, Any]:
     got = S.saver_options(v)
     if got is None:
         raise Invalid("saver_options")
+    # the layout strictly: the read keeps what it can of one, the write takes only one that checks whole
+    if isinstance(v, dict) and v.get("layout") is not None:
+        try:
+            got["layout"] = SLAY.check(v["layout"])
+        except SLAY.LayoutInvalid as e:
+            raise Invalid(e.code) from None
     return got
 
 

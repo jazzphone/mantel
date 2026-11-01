@@ -36,6 +36,7 @@ from ..house import House
 from ..notifications.dnd import DND_MAX, hhmm, notify_dnd  # noqa: F401
 from ..sleep import rules as SR
 from . import home_grid as HG
+from . import saver_layout as SLAY
 from .looks import IDS as LOOK_IDS
 from . import kinds
 
@@ -1722,6 +1723,11 @@ SAVER_CHOICES.update({"forecast_big": SAVER_FORECAST_BIG})
 # shadows cast by the scene's sun, grass in front of their feet (hk-saverfaces.js plant()). On by the owner's choice
 # -- unlike the options above, it changes how a saved screen draws; off draws the time as before.
 SAVER_DEFAULTS.update({"forecast_planted": True})
+# THE SCREENSAVER'S LAYOUT (2026-11-01, the owner: "Lets do the editor!"; docs/phase12/SCREENSAVER-EDITOR.md): None
+# draws as each Show always has; the Screensaver editor saves one big element and the widgets in zones
+# (saver_layout.py). Read tolerantly here -- a layout this build can only partly draw keeps what it can, never
+# costing the screen its other options; the write checks it strictly (changes._saver_options).
+SAVER_DEFAULTS.update({"layout": None})
 # ALL SCREENS' screensaver options (All Screens -> Screensaver): a screen
 # whose own `screensaver_options` is null uses these (resolved()).
 DEFAULTS["look"]["saver"] = dict(SAVER_DEFAULTS)
@@ -1796,6 +1802,8 @@ def saver_options(v: Any, legacy: Any = None) -> dict[str, Any] | None:
             if wallpaper_color(val) is None:
                 return None
             out[k] = wallpaper_color(val)
+        elif k == "layout":
+            out[k] = SLAY.layout(val) if val is not None else None
         elif k in ("energy_hide", "weather_hide"):
             parts = SAVER_ENERGY_PARTS if k == "energy_hide" else SAVER_WEATHER_PARTS
             if not isinstance(val, list) or any(x not in parts for x in val):

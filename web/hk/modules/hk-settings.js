@@ -207,7 +207,9 @@
                      // Big Weather's number, Time Behind's size, place and darkening (settings.py, 2026-10-31)
                      forecast_big: 'temp', tb_size: 24, tb_top: 6, tb_dim: 0,
                      // Big Weather's time planted in the meadow (settings.py, 2026-11-01)
-                     forecast_planted: true } },
+                     forecast_planted: true,
+                     // the Screensaver editor's layout (settings.py, 2026-11-01)
+                     layout: null } },
     // The Calendar page and the screensaver's calendar pane (All Screens ->
     // Calendar): the calendars shown, in order (empty: every calendar), and
     // each one's colour (a page pill colour)

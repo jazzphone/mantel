@@ -2150,6 +2150,8 @@
   Object.assign(SAVER_DEFAULTS, { forecast_big: 'temp', tb_size: 24, tb_top: 6, tb_dim: 0 });
   // Big Weather's time planted in the meadow (settings.py, 2026-11-01)
   Object.assign(SAVER_DEFAULTS, { forecast_planted: true });
+  // the Screensaver editor's layout (settings.py, 2026-11-01; hk-saverlayout.js): none draws as each Show always has
+  Object.assign(SAVER_DEFAULTS, { layout: null });
   CLOCK_STYLES.push(['liquid', 'Liquid', 'Soft, glossy numerals that drift slowly over a pastel gradient'],
                     ['giant', 'Giant Numerals', 'An analog clock with 12, 3, 6 and 9 drawn huge on a strong color'],
                     ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft color']);

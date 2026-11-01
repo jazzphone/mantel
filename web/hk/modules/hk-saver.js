@@ -219,6 +219,8 @@
       forecast_big: raw.forecast_big === 'clock' ? 'clock' : 'temp',
       // ...the time planted in the meadow, lit by the scene's sun (2026-11-01, hk-saverfaces.js plant()): on unless off
       forecast_planted: raw.forecast_planted !== false,
+      // THE LAYOUT (2026-11-01, the Screensaver editor's; hk-saverlayout.js): none draws as each Show always has
+      layout: raw.layout && typeof raw.layout === 'object' && raw.layout.v === 1 ? raw.layout : null,
       tb_size: n(raw.tb_size, 12, 40, 24), tb_top: n(raw.tb_top, 0, 50, 6), tb_dim: n(raw.tb_dim, 0, 80, 0),
       extra_music: raw.extra_music === true,
       extra_forecast: raw.extra_forecast === true,
