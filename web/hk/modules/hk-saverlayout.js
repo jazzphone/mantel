@@ -270,39 +270,42 @@
     var pad = 1.5 * u, colBox = { x: P.col.x - pad, y: P.col.y - pad, w: P.col.w + 2 * pad, h: P.col.h + 2 * pad };
     var hit = function (a, c) { return !(a.x + a.w <= c.x || c.x + c.w <= a.x || a.y + a.h <= c.y || c.y + c.h <= a.y); };
     var foot = room.y + room.h - m - (bandH ? bandH + gap : 0);
-    ['l', 'r'].forEach(function (sd) {
-      var at = function (zone, i, end) {
-        var s = size(zs[zone][i].id);
-        return { zone: zone, i: i, w: s.w, h: s.h, x: sd === 'l' ? room.x + m : room.x + room.w - m - s.w, end: end };
-      };
-      var stacks = { t: [], b: [] }, movers = [];
-      ['t', 'b'].forEach(function (end) {
-        var zone = end + sd;
-        zs[zone].forEach(function (w, i) { stacks[end].push(at(zone, i, end)); });
+    // each corner's cards, as wide and tall as they are, at their side's edge
+    var stacks = { tl: [], tr: [], bl: [], br: [] }, movers = [];
+    ['tl', 'tr', 'bl', 'br'].forEach(function (zone) {
+      zs[zone].forEach(function (w, i) {
+        var sz = size(w.id);
+        stacks[zone].push({ zone: zone, i: i, w: sz.w, h: sz.h, x: zone[1] === 'l' ? room.x + m : room.x + room.w - m - sz.w });
       });
-      // where each lands at its own end, to see which the column reaches
-      var place = function (list, end) {
-        var y = end === 't' ? room.y + m : foot;
-        list.forEach(function (c) {
-          if (end === 't') { c.y = y; y += c.h + gap; } else { c.y = y - c.h; y = c.y - gap; }
-        });
+    });
+    // stacked from the edge at one end: the two sides apart -- or, where a card of one side would reach one of the
+    // other's (a narrow screen, wide cards), as one stack, the left side's first
+    var place = function (end) {
+      var L = stacks[end + 'l'], R = stacks[end + 'r'];
+      var down = end === 't', start = down ? room.y + m : foot;
+      var run = function (list, y) {
+        list.forEach(function (c) { if (down) { c.y = y; y += c.h + gap; } else { c.y = y - c.h; y = c.y - gap; } });
+        return y;
       };
-      ['t', 'b'].forEach(function (end) { place(stacks[end], end); });
-      ['t', 'b'].forEach(function (end) {
-        stacks[end] = stacks[end].filter(function (c) {
-          if (hasBig && hit(c, colBox)) { movers.push(c); return false; }
-          return true;
-        });
+      run(L, start); run(R, start);
+      var clash = L.some(function (a) { return R.some(function (b) { return hit(a, b); }); });
+      if (clash) run(R, run(L, start));
+    };
+    place('t'); place('b');
+    // a card the column reaches goes to the other end of its side, after what is there
+    ['tl', 'tr', 'bl', 'br'].forEach(function (zone) {
+      stacks[zone] = stacks[zone].filter(function (c) {
+        if (hasBig && hit(c, colBox)) { movers.push(c); return false; }
+        return true;
       });
-      movers.forEach(function (c) { var other = c.end === 't' ? 'b' : 't'; stacks[other].push(Object.assign(c, { end: other })); });
-      ['t', 'b'].forEach(function (end) { place(stacks[end], end); });
-      ['t', 'b'].forEach(function (end) {
-        stacks[end].forEach(function (c) {
-          var moved = movers.indexOf(c) >= 0;
-          if (moved && hasBig && hit(c, colBox)) { P.moved.push({ zone: c.zone, i: c.i, to: null }); return; }
-          if (moved) P.moved.push({ zone: c.zone, i: c.i, to: end + sd });
-          (P.corners[c.zone] = P.corners[c.zone] || []).push({ i: c.i, x: c.x, y: c.y, w: c.w, h: c.h });
-        });
+    });
+    movers.forEach(function (c) { var other = (c.zone[0] === 't' ? 'b' : 't') + c.zone[1]; c.to = other; stacks[other].push(c); });
+    if (movers.length) { place('t'); place('b'); }
+    ['tl', 'tr', 'bl', 'br'].forEach(function (end) {
+      stacks[end].forEach(function (c) {
+        if (c.to && hasBig && hit(c, colBox)) { P.moved.push({ zone: c.zone, i: c.i, to: null }); return; }
+        if (c.to) P.moved.push({ zone: c.zone, i: c.i, to: c.to });
+        (P.corners[c.zone] = P.corners[c.zone] || []).push({ i: c.i, x: c.x, y: c.y, w: c.w, h: c.h });
       });
     });
     // an empty corner's place, for the editor (where its first card would go, unless a moved one is there)

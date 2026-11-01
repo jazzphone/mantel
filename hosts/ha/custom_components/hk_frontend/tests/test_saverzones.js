@@ -80,5 +80,14 @@ ok('...and the band along the bottom, clear of it', g.bottom.y >= g.big.y + g.bi
 var pane = L.plan({ x: 0, y: 0, w: 880, h: 800 }, L.oriented(tb, 880, 800), { big: bigOf(24) }, { w: 1280, h: 800 });
 ok('beside the Side Pane: everything in the room it leaves', Object.keys(pane.corners).every(function (z) { return pane.corners[z].every(function (c) { return c.x + c.w <= 880; }); }), true);
 
+// UPRIGHT, WIDE CARDS (2026-11-01, the first layouts in WebKit): Home Status, moved to the bottom, was drawn over the
+// weather beside it -- where the two sides' cards would meet they are one stack
+var upr = L.plan({ x: 0, y: 0, w: 820, h: 1180 }, L.oriented(tb, 820, 1180), { big: { w: 520, h: 236, base: 200 },
+  widget: function (id) { return { status_card: { w: 475, h: 40 }, weather_card: { w: 300, h: 44 }, music_card: { w: 360, h: 84 }, timers_card: { w: 246, h: 70 } }[id]; } }, { w: 820, h: 1180 });
+var ups = [];
+Object.keys(upr.corners).forEach(function (z) { upr.corners[z].forEach(function (c) { ups.push(c); }); });
+ok('upright, wide cards: nothing on anything else, nothing on the time',
+   [ups.some(function (a, i) { return ups.some(function (b, j) { return i < j && hit(a, b); }); }), ups.some(function (c) { return hit(c, upr.col); })], [false, false]);
+
 print(fail ? 'FAIL ' + fail + ' SAVER ZONES TESTS' : 'ALL ' + pass + ' SAVER ZONES TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

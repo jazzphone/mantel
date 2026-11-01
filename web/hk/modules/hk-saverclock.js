@@ -16,7 +16,8 @@
 //     again, smaller, into a canvas of its own (the Pre-rendered blur's idea)
 //   - burn-in: the face drifts a few percent every five minutes
 //
-//   hkSaverClock.mount(el, { style, h24, bg, motion, client })
+//   hkSaverClock.mount(el, { style, h24, bg, motion, client, face, timeOnly })
+//   (face: false -- the background alone; timeOnly -- the time without its date: the Screensaver editor's layout)
 //     -> { setClient(c), destroy() }    el: the layer to draw into
 (function () {
   'use strict';
@@ -135,6 +136,8 @@
     '.ckroot .ckscrim{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(0,0,0,.16),rgba(0,0,0,.4))}',
     '.ckroot .face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:transform 6s ease-in-out}',
     '.ckroot .dt{letter-spacing:.02em}',
+    // THE SCREENSAVER EDITOR'S LAYOUT (2026-11-01, mount's timeOnly): the face's time alone; the date is a widget
+    '.ckroot.timeonly .dt{display:none}',
     // THE TYPOGRAPHY PASS (2026-10-13): the big times in proportional digits
     // -- tabular ones left a gap around every "1" ("1 1:41") -- and SF Pro's
     // case forms, which lift the colon to the middle of the digits instead of
@@ -1159,6 +1162,10 @@
     // a face with its own backdrop)
     if (opts.scrim !== false && bg !== 'black' && style !== 'poster' && style !== 'lcd') root.appendChild(el('div', 'ckscrim'));
     var face = el('div', 'face f-' + style);
+    // THE SCREENSAVER EDITOR'S LAYOUT (2026-11-01): the background alone (face: false) -- the time is drawn in a box of
+    // its own -- or the time alone (timeOnly), its date a widget of the layout's
+    if (opts.face === false) face.style.display = 'none';
+    if (opts.timeOnly) root.className += ' timeonly';
     root.appendChild(face);
     // ITS COLOR: the chosen one's variables on the clock, over the face's own
     var color = colorOf(style, opts.color);
@@ -1184,7 +1191,7 @@
         return r === null || st === null ? null : { rise: r, set: st };
       }
     };
-    var tick = FACES[style](face, ctx);
+    var tick = opts.face === false ? function () {} : FACES[style](face, ctx);
     // its own time: seconds times the Speed (35 is 1x); Speed 0 holds it
     var dead = false, tLast = Date.now(), tOwn = 0, rate = speed / 35, raf = 0, lastDraw = 0, nightOn = false;
     var MORPH = speed ? Math.max(400, Math.min(2500, Math.round(1000 * 35 / speed))) : 0;

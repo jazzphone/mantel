@@ -409,8 +409,11 @@
       .map(function (v) { return +v.toFixed(7); }).join(',') + ')';
   }
   // the figures drawn, their shadows and their ground, into .pl, for the time `text` on a face W x H
-  function plant(pl, text, W, H, s, season, again) {
+  // (align: where across the face the figures stand -- left, as Big Weather draws them, center or right; size: % of
+  // the shorter side, Big Weather's own when none -- the Screensaver editor's layout, 2026-11-01)
+  function plant(pl, text, W, H, s, season, again, align, size) {
     var g = plGeometry(W, H), L = plLight(s, season);
+    if (size) { g.fs = size * Math.min(W, H) / 100; g.ls = -0.04 * g.fs; }      // (the layout's size: % of the shorter side)
     pl.textContent = '';
     var t = function (parent, cls) {
       var e = el('div', 't' + (cls ? ' ' + cls : ''), text);
@@ -434,7 +437,7 @@
       var m = cv.measureText('8');
       if (m && m.actualBoundingBoxAscent > 0) cap = m.actualBoundingBoxAscent;
     } catch (e) { /* the estimate */ }
-    var X = g.left, Y = g.yG - base;                          // the box; its baseline on the ground line
+    var X = align === 'center' ? (W - bw) / 2 : align === 'right' ? W - g.left - bw : g.left, Y = g.yG - base;   // its baseline on the ground line
     var boxed = function (parent) {
       var b = el('div', 'b');
       b.style.left = X.toFixed(2) + 'px'; b.style.top = Y.toFixed(2) + 'px';
@@ -723,7 +726,8 @@
         return w;
       }
     };
-    var tick = BUILD[kind](root, inn, x);
+    // (groundOnly: the face's ground and nothing on it -- the Screensaver editor's layout puts its own things there)
+    var tick = opts.groundOnly ? function () {} : BUILD[kind](root, inn, x);
     var paint = function () { if (!dead) { try { tick(new Date()); } catch (e) { console.warn('[hk-saverfaces]', kind, e && e.message); } } };
     x.paint = paint;
     paint();
@@ -757,7 +761,7 @@
     };
   }
 
-  window.hkSaverFaces = { KINDS: KINDS.slice(), mount: mount, _: { monthGrid: monthGrid, occasionOf: occasionOf, playing: playing, dayDark: dayDark, hm: hm,
+  window.hkSaverFaces = { KINDS: KINDS.slice(), mount: mount, plant: plant, _: { monthGrid: monthGrid, occasionOf: occasionOf, playing: playing, dayDark: dayDark, hm: hm,
     plGeometry: plGeometry, plLight: plLight, castH: castH, castLength: castLength,
     motionOf: motionOf, groundOf: groundOf, luminance: luminance, inkOn: inkOn, inkFor: inkFor, CSS: CSS } };
 })();
