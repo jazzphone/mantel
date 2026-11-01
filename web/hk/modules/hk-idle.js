@@ -294,6 +294,44 @@
     if (!document.hidden) reset();
   });
 
+  // THE TABLET'S SCREEN CHANGED (2026-11-01, the owner: "trying to change the Kitchen Tablet to Kitchen-HomeView
+  // screen ... everything I have done, doesn't seem to work"). A tablet's screen is picked when its kiosk app opens
+  // the start page; every reload after that keeps the page it is on, so a new Screen in Wall Tablets reached it only
+  // the next time the app went back to its start page. Now the page follows it: the screen its tablet had when this
+  // browser last looked (kept here, per tablet) and the one it has now -- changed, with the page still on the old
+  // one, it opens the new one's first page (a full load: another screen). Nothing else moves it: the first look only remembers,
+  // and a page on some other screen (opened on purpose) stays. Not while something holds the page (Live TV): again
+  // a little later.
+  var SEEN_KEY = 'hk-tablet-screen', SCREEN_RE = /^[A-Za-z0-9_-]+$/;
+  function seenScreens() { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') || {}; } catch (e) { return {}; } }
+  function seeScreen(id, screen) {
+    try { var o = seenScreens(); o[id] = screen; localStorage.setItem(SEEN_KEY, JSON.stringify(o)); } catch (e) { /* no storage */ }
+  }
+  // where to go (a screen), or '' -- `was` the screen remembered, `dash` the one this page is on (pure: test_idle.js)
+  function screenMove(screen, was, dash) {
+    if (!screen || !SCREEN_RE.test(screen) || !was || was === screen) return '';
+    return dash === was ? screen : '';
+  }
+  var followT = null;
+  function followScreen() {
+    clearTimeout(followT);
+    // (a page inside another -- Settings' previews -- is never moved: it shows what it is asked to)
+    try { if (window.top !== window) return; } catch (e) { return; }
+    var t = tabletHere();
+    if (!t || !t.id || !t.screen || !SCREEN_RE.test(t.screen)) return;
+    var was = seenScreens()[t.id] || '';
+    if (was === t.screen) return;
+    var to = screenMove(t.screen, was, parts().dash);
+    if (to && Object.keys(holds).length) { followT = setTimeout(followScreen, RECHECK_MS); return; }
+    seeScreen(t.id, t.screen);
+    // (its first page, as the idle return's; the query stays: ?hk_tablet= and the kiosk's flags are how the page was opened)
+    if (to) location.assign('/' + to + '/0' + (location.search || ''));
+  }
+  if (window.hkSettings && window.hkSettings.onChange) window.hkSettings.onChange(followScreen);
+  window.addEventListener('hk-module-ready', function (e) {
+    if (e && e.detail && e.detail.module === 'hk-settings') followScreen();
+  });
+
   window.hkIdle = {
     // Console helpers. hkIdle.now() tests the navigation without waiting, and
     // hkIdle.set(0) disables it for a debugging session. hkIdle.set(null)
@@ -323,6 +361,7 @@
       reset();
       return Object.keys(aways);
     },
+    _screenMove: screenMove, _follow: followScreen,
     status: function () {
       return { onSubview: onSubview(), armed: !!timer, idleMs: currentIdleMs,
         overridden: IDLE_OVERRIDE_MS !== null, holds: Object.keys(holds), aways: Object.keys(aways) };
@@ -330,4 +369,5 @@
   };
 
   reset();
+  followScreen();
 })();
