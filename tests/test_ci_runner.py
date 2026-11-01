@@ -307,3 +307,14 @@ def test_steps_run_side_by_side_but_the_first_ones_first_and_a_lane_in_order(tmp
     # a loaded machine stretches the clock)
     ends = min(seq.index(n + "-") for n in "abc")
     assert all(seq.index(n + "+") < ends for n in "abc"), seq
+
+
+def test_each_steps_time_outlasts_a_smaller_run(tmp_path):
+    # the longest first needs each step's time; a quick, versions or --only run once replaced them all (2026-11-01)
+    ci.run([fake("long"), fake("short")], "full", record_dir=tmp_path, echo=lambda s: None)
+    times = json.loads((tmp_path / "step-times.json").read_text())
+    assert set(times) == {"long", "short"}
+    ci.run([fake("short"), fake("skipped", skip=lambda: "no Chrome")], "quick", record_dir=tmp_path, echo=lambda s: None)
+    assert set(ci.step_times(tmp_path)) == {"long", "short"}, "kept; a skip has no time"
+    (tmp_path / "step-times.json").unlink()
+    assert set(ci.step_times(tmp_path)) == {"short", "skipped"}, "before step-times.json: the last run's"

@@ -338,11 +338,10 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
             lanes[step.lane].append(step)
         else:
             jobs.append([step])
-    # (the longest first, by the last run's times, so a long one doesn't end the run alone)
-    try:
-        was = {x["name"]: x["seconds"] for x in json.loads((record_dir / "last-run.json").read_text())["steps"]}
-    except (OSError, ValueError, KeyError, TypeError):
-        was = {}
+    # (the longest first, by each step's last time, so a long one doesn't end the run alone: kept in step-times.json,
+    # not last-run.json, which a quick, versions or --only run replaces -- 2026-11-01, a full run after them waited
+    # 90 s on a long step started last)
+    was = step_times(record_dir)
     jobs.sort(key=lambda job: -sum(was.get(s.name, 60) for s in job))
     # (13 at once on this 18-core Mac: the browser checks mostly wait, so the cores were two-thirds idle at 9 and
     # the run waited on width, not CPU -- 2026-11-01, 238 s at 9, 191 s at 14, every check steady and no slower)
@@ -365,6 +364,8 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
         "steps": [vars(r) for r in results],
     }
     (record_dir / "last-run.json").write_text(json.dumps(record, indent=2) + "\n")
+    times = {**was, **{r.name: round(r.seconds, 1) for r in results if r.status != "skipped"}}
+    (record_dir / "step-times.json").write_text(json.dumps(times, indent=1, sort_keys=True) + "\n")
     if store:
         remember(record, store)
     return record
@@ -461,6 +462,16 @@ def full_run_for(head: str, store: Path, root: Path = ROOT, look: int = 20) -> t
             return r, "versions"
         newest = newest or why
     return None, f"the last passed full run was on {fulls[0]['commit'][:9]}, not HEAD {head[:9]}, and {newest}"
+
+
+def step_times(record_dir: Path) -> dict[str, float]:
+    """Each step's seconds the last time it ran (or, before step-times.json, the last run's)."""
+    for name, read in (("step-times.json", lambda d: d), ("last-run.json", lambda d: {x["name"]: x["seconds"] for x in d["steps"]})):
+        try:
+            return {str(k): float(v) for k, v in read(json.loads((record_dir / name).read_text())).items()}
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue
+    return {}
 
 
 def table(record: dict) -> str:
