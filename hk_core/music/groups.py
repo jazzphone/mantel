@@ -13,6 +13,10 @@ So both are read from Music Assistant's own player list (``players/all``, the ho
 
 With no player list (Music Assistant not reachable yet) there is no Groups: the presets keep the
 rooms chosen for them, and no speaker is a pair.
+
+A VIRTUAL PAIR (2026-10-31, docs/phase4/VIRTUAL-PAIRS.md) is two players Mantel makes one room, with no
+group in Music Assistant: its parts are folded back into it the same way (``rooms_of``'s ``virtual``), and
+a Music Assistant group of exactly its two players is its own group (``group_of``), used for it alone.
 """
 from __future__ import annotations
 
@@ -79,15 +83,31 @@ class Groups:
         p = self.player(entity)
         return p is not None and p.group
 
-    def rooms_of(self, group: str, rooms: Iterable[str]) -> GroupRooms | None:
+    def group_of(self, entities: Iterable[str]) -> str | None:
+        """The entity of a Music Assistant group whose players are exactly ``entities`` (a virtual pair's
+        own group, "the Actual Group Pair"), or None. With two such groups, the first by entity id."""
+        want = {self.pids.get(e) for e in entities}
+        if None in want or len(want) < 2:
+            return None
+        for e in sorted(self.pids):
+            p = self.player(e)
+            if p is not None and p.group and set(p.members) == want:
+                return e
+        return None
+
+    def rooms_of(self, group: str, rooms: Iterable[str],
+                 virtual: Mapping[str, Iterable[str]] | None = None) -> GroupRooms | None:
         """The rooms Music Assistant's group ``group`` (an entity) plays in, from the speakers ``rooms`` in
-        their order; None when it is not a group Music Assistant knows."""
+        their order; None when it is not a group Music Assistant knows. ``virtual``: {a virtual pair's room:
+        its two players' entities}, folded back into the pair as a stereo pair's are."""
         g = self.player(group)
         if g is None or not g.group:
             return None
         have, claimed, out = set(g.members), set(), GroupRooms()
         for r in rooms:
             parts = self.parts(r)
+            if not parts and virtual and r in virtual:
+                parts = [self.pids[e] for e in virtual[r] if e in self.pids] or None
             if parts:
                 inside = [x for x in parts if x in have]
                 claimed.update(inside)

@@ -452,6 +452,8 @@ def music_config(payload: Any, ok: set[str]) -> dict:
             one["members"] = [m for m in s["members"] if m in ok]
         if isinstance(s.get("pair"), list):                    # a pair room: its players' names
             one["pair"] = [str(n) for n in s["pair"]]
+        if isinstance(s.get("parts"), list):                   # a virtual pair: its two players (one room)
+            one["parts"] = [p for p in s["parts"] if isinstance(p, str) and p.startswith("media_player.")]
         speakers.append(one)
     floors = []
     for f in payload.get("floors") or []:

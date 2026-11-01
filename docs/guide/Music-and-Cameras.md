@@ -95,6 +95,22 @@ speakers, picked as one room's speaker) counts as one room in them; see
 HK Frontend's [Music](https://github.com/jazzphone/hk-frontend/wiki/Music#stereo-pairs). Up Next for a speaker you may not see answers
 as if it did not exist.
 
+### Speaker pairs
+
+Two speakers in one room, such as two HomePods, can be **paired in Mantel**:
+Mantel Settings → Music → Speakers → Pair Two Speakers. Give the pair a name
+(or leave it to be named by its area) and choose its two speakers. The pair is
+then one speaker everywhere: the Music page, the Speakers panel, the Side Pane,
+the Music and Now Playing blocks, home rooms and Plays on.
+
+The two are grouped in Music Assistant each time they play, not kept in a
+Music Assistant group, so each stays free to join other rooms. Volume goes to
+both together; play and pause go to the first, which leads the pair. If Music
+Assistant also has a group of exactly those two speakers, the pair plays
+through it when it plays on its own; with other rooms its two speakers join
+them instead (a preset whose rooms are exactly the ones chosen still plays
+through its own group). Unpair it on the same page to have two speakers again.
+
 ### Playing needs house commands on
 
 With house commands off, the Music page reads everything (what is playing,

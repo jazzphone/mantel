@@ -198,6 +198,11 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
             "entity_picture": f"http://{lan_ip or '127.0.0.1'}:{port}/app/fictional-cover.png"}})})
         ma_fake.hub = hub
         app["settings"].store.write([("house", M.MUSIC_DOC, json.loads(json.dumps(MF.DOC)))], actor=Actor(label="app_dev_server"))
+        # Music added, as a house that imported HK Frontend's has it, so Mantel Settings' Music pages open
+        from mantel_server.features.settings import FEATURES_DOC
+        if app["settings"].store.get("house", FEATURES_DOC) is None:
+            app["settings"].store.write([("house", FEATURES_DOC, {"ha": {"added": ["music"], "items": {}, "source": None}})],
+                                        actor=Actor(label="app_dev_server"))
     # a fictional album cover, served by this server itself (a "remote" picture, as a provider's CDN would be)
     hub.store.apply_event({"c": {"media_player.living_room": {"+": {"a": {
         "entity_picture": f"http://{lan_ip or '127.0.0.1'}:{port}/app/fictional-cover.png",

@@ -73,6 +73,7 @@ start with [Architecture](Architecture.md); for running it, [Operations](../OPER
 | [phase4/MANTEL-FEATURES.md](../phase4/MANTEL-FEATURES.md) | Mantel's House adapter and the feature host: `hk_core` features running in Mantel Server. |
 | [phase4/FEATURE-PARITY.md](../phase4/FEATURE-PARITY.md) | HK's feature pages on Mantel: Live TV, Energy, Power and Clean Areas. |
 | [phase4/PHOTOS.md](../phase4/PHOTOS.md) | Mantel Photos: the screensavers' own photo library. |
+| [phase4/VIRTUAL-PAIRS.md](../phase4/VIRTUAL-PAIRS.md) | Virtual Pairs: two Music Assistant speakers as one room, grouped at play time, beside Music Assistant's own groups. |
 
 ## Phase 5: linked mode
 

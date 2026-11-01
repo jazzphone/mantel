@@ -12,6 +12,8 @@ CONF_VOLUME = "volume"          # the house playlist volume, 0..1
 CONF_HOMES = "homes"            # {user_id: room player} -- each tablet's own room
 CONF_IGNORE_ANNOUNCEMENTS = "ignore_announcements"
 CONF_KEEP_READY = "keep_ready"  # keep the playlists' songs fetched (warm.py); off by default
+CONF_PAIRS = "pairs"            # VIRTUAL PAIRS (docs/phase4/VIRTUAL-PAIRS.md): [{players: [first, second], name}]
+CONF_PLAYERS = "players"        # a pair's two players: the first is the room, the second plays with it
 
 # ---- item (subentry) types: stored with every preset and playlist, so they
 # keep these names

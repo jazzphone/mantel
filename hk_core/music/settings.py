@@ -11,11 +11,11 @@ from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 from .checks import playlist_errors, preset_errors, speakers_errors
-from .config import MusicConfig, Preset
+from .config import MusicConfig, Preset, virtual_pairs
 from .groups import kind, problem_text
 from .const import (
     CONF_CHOOSER, CONF_GROUP, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS, CONF_KEEP_READY,
-    CONF_MEMBERS, CONF_NAME, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME,
+    CONF_MEMBERS, CONF_NAME, CONF_ORDER, CONF_PAIRS, CONF_PLAYERS, CONF_SPEAKERS, CONF_VOLUME,
 )
 
 MSG = {
@@ -35,9 +35,14 @@ MSG = {
     "unknown": "That setting doesn’t exist.",
     "no_item": "That preset or playlist is gone.",
     "text": "That text is too long.",
+    "pair_two": "Choose two different speakers.",
+    "pair_twice": "A speaker can be in only one pair.",
+    "pair_group": "Choose two speakers, not a Music Assistant group or a preset’s sync group.",
+    "pair_part": "That speaker is half of a pair. Unpair it first.",
+    "no_pairs": "Speaker pairs are set up in Mantel Settings.",
 }
 TEXT_MAX = 60
-SETTINGS = (CONF_SPEAKERS, CONF_VOLUME, CONF_HOMES, CONF_KEEP_READY, CONF_IGNORE_ANNOUNCEMENTS)
+SETTINGS = (CONF_SPEAKERS, CONF_VOLUME, CONF_HOMES, CONF_KEEP_READY, CONF_IGNORE_ANNOUNCEMENTS, CONF_PAIRS)
 DEFAULT_ICON = "mdi:playlist-music"
 
 
@@ -54,26 +59,44 @@ def text(v: Any) -> str:
 
 
 def apply(options: Mapping[str, Any], changes: Mapping[str, Any], players: set[str],
-          groups: list[str]) -> tuple[dict[str, Any], dict[str, str]]:
+          groups: list[str], pairs: bool = False,
+          ma_groups: Iterable[str] = ()) -> tuple[dict[str, Any], dict[str, str]]:
     """The options after `changes` (speakers in order, volume 0..1, homes {user: room or None},
-    keep_ready and ignore_announcements on/off), and the refusals by field. `players`: the music
-    server's players and whatever is chosen; `groups`: the presets' sync groups."""
+    keep_ready and ignore_announcements on/off, the virtual pairs), and the refusals by field.
+    `players`: the music server's players and whatever is chosen; `groups`: the presets' sync groups;
+    `pairs`: whether this host plays virtual pairs (Mantel's engine does); `ma_groups`: the players
+    that are Music Assistant groups (never half of a pair: a group cannot join another player)."""
     opts, errors = dict(options), {}
     for k in changes:
         if k not in SETTINGS:
             errors[k] = MSG["unknown"]
     if CONF_SPEAKERS in changes:
         sp = changes[CONF_SPEAKERS]
+        seconds = {p[CONF_PLAYERS][1] for p in virtual_pairs(opts)}
         if not isinstance(sp, list) or not all(isinstance(x, str) for x in sp):
             errors[CONF_SPEAKERS] = MSG["list"]
         elif any(x not in players for x in sp):
             errors[CONF_SPEAKERS] = MSG["not_a_player"]
+        elif CONF_PAIRS not in changes and set(sp) & seconds:
+            errors[CONF_SPEAKERS] = MSG["pair_part"]
         elif e := speakers_errors(list(dict.fromkeys(sp)), groups):
             errors.update(say(e))
         else:
             opts[CONF_SPEAKERS] = list(dict.fromkeys(sp))
+            # a pair whose room is no longer a speaker is no pair: its second player is a player again
+            if CONF_PAIRS in opts:
+                opts[CONF_PAIRS] = [p for p in virtual_pairs(opts) if p[CONF_PLAYERS][0] in opts[CONF_SPEAKERS]]
             # a home room that is no longer a speaker is no home room
             opts[CONF_HOMES] = {u: r for u, r in (opts.get(CONF_HOMES) or {}).items() if r in opts[CONF_SPEAKERS]}
+    if CONF_PAIRS in changes:
+        if not pairs:
+            errors[CONF_PAIRS] = MSG["no_pairs"]
+        else:
+            got, why = check_pairs(changes[CONF_PAIRS], players, set(groups) | set(ma_groups))
+            if why:
+                errors[CONF_PAIRS] = MSG[why]
+            else:
+                opts.update(pair_speakers(opts, got))
     if CONF_VOLUME in changes:
         v = changes[CONF_VOLUME]
         if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v <= 1:
@@ -106,6 +129,71 @@ def apply(options: Mapping[str, Any], changes: Mapping[str, Any], players: set[s
                     homes.pop(str(user), None)
             opts[CONF_HOMES] = homes
     return opts, errors
+
+
+# ------------------------------------------------------------- virtual pairs
+def check_pairs(v: Any, players: set[str], groups: set[str]) -> tuple[list[dict[str, Any]], str | None]:
+    """The page's pairs ([{players: [first, second], name}]) checked: (the pairs, a refusal's code or None)."""
+    if not isinstance(v, list):
+        return [], "list"
+    out, used = [], set()
+    for p in v:
+        two = p.get(CONF_PLAYERS) if isinstance(p, Mapping) else None
+        name = p.get(CONF_NAME, "") if isinstance(p, Mapping) else None
+        if not isinstance(two, list) or not all(isinstance(x, str) for x in two) \
+                or not (name is None or isinstance(name, str)):
+            return [], "list"
+        if len(two) != 2 or two[0] == two[1]:
+            return [], "pair_two"
+        if any(x not in players for x in two):
+            return [], "not_a_player"
+        if set(two) & groups:
+            return [], "pair_group"
+        if set(two) & used:
+            return [], "pair_twice"
+        if len(text(name)) > TEXT_MAX:
+            return [], "text"
+        used.update(two)
+        out.append({CONF_PLAYERS: list(two), CONF_NAME: text(name)})
+    return out, None
+
+
+def pair_speakers(options: Mapping[str, Any], pairs: list[dict[str, Any]]) -> dict[str, Any]:
+    """The speakers and home rooms that go with new pairs: a pair is ONE speaker, in the place of the first of
+    its two that was one (its first player, the room); a home room on its second player moves to the room. A
+    pair taken apart gives its second player back, just after the first."""
+    sp = list(options.get(CONF_SPEAKERS) or [])
+    new = {(p[CONF_PLAYERS][0], p[CONF_PLAYERS][1]) for p in pairs}
+    for p in virtual_pairs(options):
+        a, b = p[CONF_PLAYERS]
+        if (a, b) not in new and a in sp and b not in sp and not any(b in two for two in new):
+            sp.insert(sp.index(a) + 1, b)
+    homes = dict(options.get(CONF_HOMES) or {})
+    for a, b in new:
+        if a not in sp:
+            if b in sp:
+                sp[sp.index(b)] = a
+            else:
+                sp.append(a)
+        sp = [x for x in sp if x != b]
+        homes = {u: (a if r == b else r) for u, r in homes.items()}
+    return {CONF_SPEAKERS: list(dict.fromkeys(sp)), CONF_PAIRS: pairs,
+            CONF_HOMES: {u: r for u, r in homes.items() if r in sp}}
+
+
+def pairs_page(cfg: MusicConfig, options: Mapping[str, Any], name: Callable[[str], str]) -> list[dict[str, Any]]:
+    """The page's virtual pairs: {room, name (as set, maybe ""), shown (the room's name), players [{entity,
+    name}], ma_group: Music Assistant's own group of the two (its name) or None}. `name`: a player's name."""
+    out = []
+    for p in virtual_pairs(options):
+        a, b = p[CONF_PLAYERS]
+        if a not in cfg.room_ids:
+            continue
+        g = cfg.pair_groups.get(a)
+        out.append({"room": a, "name": p[CONF_NAME], "shown": cfg.name_of(a),
+                    "players": [{"entity": e, "name": name(e)} for e in (a, b)],
+                    "ma_group": name(g) if g else None})
+    return out
 
 
 # ------------------------------------------------------------- Music Assistant's groups

@@ -15,11 +15,16 @@ PLAYERS = {
     "media_player.cody_ma": ("ma-cody", "cody_room"),
     "media_player.downstairs_ma": ("ma-downstairs", None),        # a sync group: no room
     "media_player.garage_ma": ("ma-garage", "garage"),           # MA has it; not one of the house's speakers
+    # the Study's two HomePods, not yet speakers: a VIRTUAL PAIR's two players (docs/phase4/VIRTUAL-PAIRS.md)
+    "media_player.study_left_ma": ("ma-study-l", "study"),
+    "media_player.study_right_ma": ("ma-study-r", "study"),
+    "media_player.study_pair_ma": ("ma-study-pair", None),       # a group of those two, when a test says so
 }
 AREAS = [{"area_id": "kitchen", "name": "Kitchen", "floor_id": "main"},
          {"area_id": "den", "name": "Den", "floor_id": "main"},
          {"area_id": "cody_room", "name": "Cody's Room", "floor_id": "upper"},
          {"area_id": "garage", "name": "Garage", "floor_id": "main"},
+         {"area_id": "study", "name": "Study", "floor_id": "upper"},
          {"area_id": "porch", "name": "Porch"}]
 FLOORS = [{"floor_id": "main", "name": "Main Floor", "level": 0}, {"floor_id": "upper", "name": "Upstairs", "level": 1}]
 ENTITIES = [{"entity_id": e, "area_id": a, "platform": "music_assistant", "unique_id": pid,
@@ -277,6 +282,9 @@ class HouseMa(FakeMa):
             if e == "media_player.downstairs_ma":
                 for m in ("media_player.kitchen_ma", "media_player.den_ma"):
                     await self._set(m, "playing")
+            elif self.model[PID[e]].get("type") == "group":        # any other group: its players play with it
+                for m in self.model[PID[e]].get("group_members") or []:
+                    await self._set(ENT[m], "playing", media_content_id=args["media"][0])
         elif cmd == "player_queues/transfer":
             src = ENT[args["source_queue_id"]]
             moving = (self.model[PID[src]].get("current_media") or {}).get("uri")

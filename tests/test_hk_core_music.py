@@ -558,3 +558,195 @@ def test_the_settings_page_says_what_music_assistant_has(pcfg):
     assert page["groups"][EVERY] == {"rooms": [K, LR, OFF, LOFT, EXTRA], "problems": []}
     assert len(page["groups"]["media_player.half"]["problems"]) == 2
     assert S.groups_page(MusicConfig(), [EVERY]) == {"ma_groups": False, "pairs": {}, "groups": {}}
+
+
+# ------------------------------------------------------------- VIRTUAL PAIRS (docs/phase4/VIRTUAL-PAIRS.md)
+# The Study's two HomePods made ONE room in Mantel, with no group in Music Assistant: the left is the room, the
+# right plays with it. Music Assistant also has a group of exactly those two (the "Actual Group Pair"), and
+# Everywhere's group holds both players.
+from hk_core.music.const import CONF_PAIRS  # noqa: E402
+
+SL, SR, DECK = "media_player.study_left", "media_player.study_right", "media_player.deck"
+SG = "media_player.study_group"
+VPIDS = {K: "ap_k", LR: "ap_lr", SL: "ap_sl", SR: "ap_sr", DECK: "ap_deck", SG: "sg_study", DOWNG: "sg_down",
+         EVERY: "sg_every", "media_player.half": "sg_half"}
+V_PLAYERS = ma(
+    ("ap_k", "Kitchen HomePod", "player", []), ("ap_lr", "Living Room HomePod", "player", []),
+    ("ap_sl", "Study Left HomePod", "player", []), ("ap_sr", "Study Right HomePod", "player", []),
+    ("ap_deck", "Deck Speaker", "player", []),
+    ("sg_study", "Study HomePods", "group", ["ap_sr", "ap_sl"]),
+    ("sg_down", "Downstairs", "group", ["ap_k", "ap_lr"]),
+    ("sg_every", "Everywhere", "group", ["ap_k", "ap_sr", "ap_lr", "ap_sl"]),
+    ("sg_half", "Half", "group", ["ap_sl", "ap_k"]))
+PAIR = {"players": [SL, SR], "name": ""}
+
+
+def vbuild(house, players=V_PLAYERS, name="", items=None, speakers=(K, SL, LR)):
+    for e in (SL, SR, DECK, SG):
+        if house.state(e) is None:
+            house.set(e, "idle", group_members=[], volume_level=0.3, friendly_name=e.split(".")[1].title())
+    house._entities.update({SL: Entity(SL, area_id="office"), SR: Entity(SR, area_id="office")})
+    opts = {CONF_SPEAKERS: list(speakers), CONF_VOLUME: 0.35, CONF_HOMES: {}, CONF_PAIRS: [dict(PAIR, name=name)]}
+    items = items if items is not None else [preset("p_every", "Everywhere", EVERY, [K]),
+                                             preset("p_down", "Downstairs", DOWNG, DOWN)]
+    groups = G.Groups.read(players, VPIDS) if players is not None else None
+    return MusicConfig.build(house, opts, items, library_entry="ma1", groups=groups)
+
+
+def test_a_virtual_pair_is_one_room_its_second_player_folded_in(house):
+    v = vbuild(house)
+    assert v.room_ids == [K, SL, LR] and v.partners == {SL: SR}
+    assert v.name_of(SL) == "Study" and v.name_of(SR) == "Study", "named by its first player's area"
+    assert vbuild(house, name="Reading Nook").name_of(SL) == "Reading Nook", "or the name it was given"
+    assert v.room_of(SR) == SL and v.room_of(SL) == SL and v.room_of(DECK) is None
+    assert v.fold([K, SL, SR, DECK]) == [K, SL, DECK], "a group's members as rooms; other players stay"
+    assert v.players_of([K, SL]) == [K, SL, SR]
+    # one speaker on every screen, its two players said so the screens fold the second into it
+    speakers = [s for s in v.as_client(None)["speakers"] if "members" not in s]
+    assert [s["entity"] for s in speakers] == [K, SL, LR]
+    assert speakers[1] == {"name": "Study", "entity": SL, "parts": [SL, SR]}
+    # a request's steps may name the second player and the pair's own group; a command may not
+    assert SR in v.ma_players() and SG in v.ma_players() and SR not in v.players()
+    assert E.check_player(v, SR)["message"] == f"{SR} is not a speaker this house knows."
+    assert "knows" in E.validate(house, v, [SR])["message"]
+
+
+def test_music_assistants_own_group_of_the_two_is_found_and_presets_fold_the_pair(house):
+    v = vbuild(house)
+    g = G.Groups.read(V_PLAYERS, VPIDS)
+    assert g.group_of([SL, SR]) == SG and g.group_of([SR, SL]) == SG and g.group_of([K]) is None
+    assert g.group_of([SL, "media_player.unknown"]) is None
+    assert v.pair_groups == {SL: SG} and v.name_of(SG) == "Study"
+    by = {p.key: p for p in v.presets}
+    assert by["p_every"].members == [K, SL, LR] and by["p_every"].from_ma and not by["p_every"].problems
+    half = vbuild(house, items=[preset("p_half", "Half", "media_player.half", [K])]).presets[0]
+    assert half.members == [K] and half.problems == [
+        {"code": "part", "room": SL, "in": ["Study Left HomePod"], "out": ["Study Right HomePod"]}]
+    # without Music Assistant's players: still one room, joined at play time, no group of its own
+    assert vbuild(house, players=None).pair_groups == {} and vbuild(house, players=None).partners == {SL: SR}
+
+
+def test_the_pair_alone_plays_through_its_own_group_else_both_players_join(house):
+    v = vbuild(house)
+    fail, p, members = E.play_rooms(house, v, [SL])
+    assert fail is None and p.group == SG and p.key == f"pair:{SL}" and members == [SL]
+    assert E.play_target(house, v, [SL], p, members)[0] == SG
+    assert not E.needs_join([SL], p, None, v)
+    assert p not in v.presets and all("pair:" not in s["entity"] for s in v.as_client(None)["speakers"])
+    # its group gone, or none in Music Assistant: the two players are joined, the first leading
+    house.set(SG, "unavailable")
+    for vv in (v, vbuild(house, players=V_PLAYERS[:5])):
+        fail, p, members = E.play_rooms(house, vv, [SL])
+        assert fail is None and p is None and members == [SL]
+        target, found, way = E.play_target(house, vv, [SL], None, [SL])
+        assert target == SL and found is None and way == []
+        assert E.needs_join([SL], None, None, vv)
+    # already joined: nothing to do
+    house.group(SL, [SR])
+    v2 = vbuild(house, players=V_PLAYERS[:5])
+    assert E.existing(house, [SL], v2) == [SL, SR] and not E.needs_join([SL], None, [SL, SR], v2)
+    assert E.in_the_way(house, v2, [SL]) == [], "the pair's own two players are not a group in its way"
+
+
+def test_the_pair_with_another_room_joins_both_its_players_and_stops_its_own_group(house):
+    v = vbuild(house)
+    fail, p, members = E.play_rooms(house, v, [K, SL])
+    assert fail is None and p is None, "a virtual pair is never refused with other rooms"
+    target, found, way = E.play_target(house, v, [K, SL], None, members)
+    assert target == K and found is None and E.needs_join([K, SL], None, None, v)
+    assert v.players_of([K, SL]) == [K, SL, SR]
+    # its own group playing holds its two players: stopped first, never when it is the target
+    house.set(SG, "playing")
+    assert E.groups_in_the_way(house, v, [K, SL], K) == [SG]
+    assert E.groups_in_the_way(house, v, [SL], SG) == [] and E.groups_in_the_way(house, v, [K], K) == []
+    # joined already, in either order: that group
+    house.group(K, [SR, SL])
+    assert E.existing(house, [SL, K], v) == [K, SR, SL]
+    # the second player joined to somebody else's music: that group is in the way, and claimed
+    house.group(K, [K]); house.group(SL, [SL]); house.group(SR, [SR])
+    house.group(LR, [SR])
+    assert E.in_the_way(house, v, [SL]) == [LR]
+    assert LR in E.entangled(house, v, [SL])
+    # the house volume, the slider and the steps: both players, together
+    assert E.volume_players(v, [SL]) == [SL, SR] and E.volume_players(v, [K, SL]) == [K, SL, SR]
+
+
+def test_a_move_off_the_pairs_own_group_hands_its_queue_to_another_room(house):
+    v = vbuild(house)
+    house.set(SG, "playing")
+    assert E.source_of(house, v, SL) == SG and E.source_of(house, v, K) == K
+    assert E.check_transfer(house, v, [K, SL], SG) == (None, None)
+    assert E.transfer_rooms(house, v, [K], SG) >= {K, SL}
+    # moving it to the Kitchen and the Study: the Kitchen leads, both of the Study's players join it
+    assert E.move_plan(house, [SL, K], SG, None, v) == (K, [SL, SR], False)
+    # moving it to the Kitchen alone: the pair's players are left behind and freed
+    house.group(SL, [SR])
+    assert E.stale(house, v, [K], K, SG) == [SL, SR]
+    # the pair alone again, already on its group: there already
+    assert E.check_transfer(house, v, [SL], SG)[0] == {"ok": False, "message": "The music is already on Study."}
+    # its group quiet: the pair itself is the source, and adding a room adds both its players' room
+    house.set(SG, "idle"); house.set(SL, "playing")
+    assert E.source_of(house, v, SL) == SL
+    assert E.move_plan(house, [SL, K], SL, None, v) == (SL, [SR, K], True)
+    # Stop on the pair stops its own group too; Stop All every pair's group and preset's
+    assert E.stop_groups(v, False, [SL]) == [SG] and E.stop_groups(v, False, [K]) == []
+    assert E.stop_groups(v, True) == [EVERY, DOWNG, SG]
+
+
+def test_browse_on_the_pair_plays_as_one(house):
+    v = vbuild(house)
+    assert E.browse_target(house, v, SL) == (SG, []), "through its own group"
+    assert E.browse_target(house, v, K) == (K, [])
+    nog = vbuild(house, players=V_PLAYERS[:5])
+    assert E.browse_target(house, nog, SL) == (SL, [SR]), "else its second player joined first"
+    house.group(SL, [SR])
+    assert E.browse_target(house, nog, SL) == (SL, [])
+    house.group(SL, [SR, K])
+    assert E.browse_target(house, v, SL) == (SL, []), "with other rooms: where it plays"
+    assert E.browse_rooms(house, v, SL) >= {SL, K}
+
+
+def test_the_settings_make_and_take_apart_a_pair(house):
+    players = {K, LR, SL, SR, DECK, SG, DOWNG}
+    opts = {CONF_SPEAKERS: [K, SR, LR], CONF_HOMES: {"u1": SR, "u2": K}}
+    got, err = S.apply(opts, {CONF_PAIRS: [{"players": [SL, SR], "name": " Study Pair "}]}, players, [DOWNG], pairs=True)
+    assert err == {}
+    # one speaker, in the place of the first of the two that was one; a home on the second moves to the room
+    assert got[CONF_SPEAKERS] == [K, SL, LR] and got[CONF_HOMES] == {"u1": SL, "u2": K}
+    assert got[CONF_PAIRS] == [{"players": [SL, SR], "name": "Study Pair"}]
+    # the second player can't come back as a speaker of its own while it is paired
+    assert S.apply(got, {CONF_SPEAKERS: [K, SL, SR]}, players, [DOWNG], pairs=True)[1] == {
+        CONF_SPEAKERS: S.MSG["pair_part"]}
+    # taken apart: the second player is a speaker again, just after the first
+    back, err = S.apply(got, {CONF_PAIRS: []}, players, [DOWNG], pairs=True)
+    assert err == {} and back[CONF_SPEAKERS] == [K, SL, SR, LR] and back[CONF_PAIRS] == []
+    # the room taken off the speakers takes its pair with it
+    gone, err = S.apply(got, {CONF_SPEAKERS: [K, LR]}, players, [DOWNG], pairs=True)
+    assert err == {} and gone[CONF_PAIRS] == [] and gone[CONF_SPEAKERS] == [K, LR]
+    # the refusals, by field
+    def refused(pairs, **kw):
+        return S.apply(opts, {CONF_PAIRS: pairs}, players, [DOWNG], **{"pairs": True, **kw})[1][CONF_PAIRS]
+    assert refused([{"players": [SL, SL]}]) == S.MSG["pair_two"]
+    assert refused([{"players": [SL]}]) == S.MSG["pair_two"]
+    assert refused([{"players": [SL, "media_player.nope"]}]) == S.MSG["not_a_player"]
+    assert refused([{"players": [SL, DOWNG]}]) == S.MSG["pair_group"]
+    assert refused([{"players": [SL, SG]}], ma_groups=[SG]) == S.MSG["pair_group"]
+    assert refused([{"players": [SL, SR]}, {"players": [K, SR]}]) == S.MSG["pair_twice"]
+    assert refused([{"players": [SL, SR], "name": "x" * 61}]) == S.MSG["text"]
+    assert refused("no") == S.MSG["list"] and refused([{"players": [SL, 5]}]) == S.MSG["list"]
+    # a host whose engine doesn't play pairs (HK Frontend in Home Assistant) refuses them
+    assert S.apply(opts, {CONF_PAIRS: []}, players, [DOWNG])[1] == {CONF_PAIRS: S.MSG["no_pairs"]}
+
+
+def test_the_settings_page_lists_the_pairs_and_their_own_group(house):
+    v = vbuild(house, name="Reading Nook")
+    opts = {CONF_SPEAKERS: [K, SL, LR], CONF_PAIRS: [{"players": [SL, SR], "name": "Reading Nook"}]}
+    names = {SL: "Study Left HomePod", SR: "Study Right HomePod", SG: "Study HomePods"}
+    assert S.pairs_page(v, opts, lambda e: names.get(e, e)) == [{
+        "room": SL, "name": "Reading Nook", "shown": "Reading Nook",
+        "players": [{"entity": SL, "name": "Study Left HomePod"}, {"entity": SR, "name": "Study Right HomePod"}],
+        "ma_group": "Study HomePods"}]
+    # unreadable or overlapping pairs are left out, never a failure
+    from hk_core.music.config import virtual_pairs
+    assert virtual_pairs({CONF_PAIRS: [{"players": [SL, SR]}, {"players": [SR, K]}, {"players": [K]}, "x"]}) == [
+        {"players": [SL, SR], "name": ""}]

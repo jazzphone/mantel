@@ -75,7 +75,8 @@ from hk_core.music import settings as S
 from hk_core.music.config import Item, MusicConfig
 from hk_core.music.const import (
     COMMANDS, CONF_CHOOSER, CONF_GROUP, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS,
-    CONF_KEEP_READY, CONF_MEMBERS, CONF_NAME, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME, DEFAULT_VOLUME, NOTE_GROUP,
+    CONF_KEEP_READY, CONF_MEMBERS, CONF_NAME, CONF_ORDER, CONF_PAIRS, CONF_PLAYERS, CONF_SPEAKERS, CONF_VOLUME,
+    DEFAULT_VOLUME, NOTE_GROUP,
     NOTE_PARTIAL, NOTE_PLAY, NOTE_PRESET, NOTE_STOP, NOTE_TRANSFER, SERVICE_PLAY, SERVICE_PLAY_MEDIA, SERVICE_STOP,
     SERVICE_TRANSFER, SERVICE_TRANSPORT, SUB_PLAYLIST, SUB_PRESET, WARM_FIRST, WARM_RETRY, WARM_SOON,
     GROUPS_EVERY,
@@ -187,7 +188,7 @@ def _text(v: Any, limit: int = TEXT_MAX) -> str:
 
 def check_doc(body: Any) -> dict[str, Any]:
     """``house/music`` as Mantel keeps it, checked: {options: {speakers, volume, homes, keep_ready,
-    ignore_announcements}, items: [{kind, key, title, data}], source}. Raises ValueError."""
+    ignore_announcements, pairs?}, items: [{kind, key, title, data}], source}. Raises ValueError."""
     if not isinstance(body, Mapping):
         raise ValueError("house/music is an object")
     out = empty_doc()
@@ -210,6 +211,14 @@ def check_doc(body: Any) -> dict[str, Any]:
             if not isinstance(opts[k], bool):
                 raise ValueError(f"options.{k}: true or false")
             out["options"][k] = opts[k]
+    if CONF_PAIRS in opts:       # VIRTUAL PAIRS (docs/phase4/VIRTUAL-PAIRS.md): [{players: [first, second], name}]
+        pairs = opts[CONF_PAIRS]
+        if not isinstance(pairs, list) or len(pairs) > ITEMS_MAX or not all(
+                isinstance(p, Mapping) and isinstance(p.get(CONF_PLAYERS), list) and len(p[CONF_PLAYERS]) == 2
+                and all(isinstance(x, str) and PLAYER.match(x) for x in p[CONF_PLAYERS]) for p in pairs):
+            raise ValueError("options.pairs: [{players: [two media_players], name}]")
+        out["options"][CONF_PAIRS] = [{CONF_PLAYERS: list(p[CONF_PLAYERS]), CONF_NAME: _text(p.get(CONF_NAME) or "")}
+                                      for p in pairs]
     items = body.get("items", [])
     if not isinstance(items, list) or len(items) > ITEMS_MAX:
         raise ValueError(f"items: at most {ITEMS_MAX}")
@@ -386,6 +395,7 @@ MA_SERVICES: dict[str, frozenset[str]] = {
     "play_media": frozenset({"media_content_id", "media_content_type", "enqueue"}),
 }
 OP_SERVICE = "media_player"        # MusicHost.run's op for one of them
+VOLUME_SERVICES = frozenset({"volume_set", "volume_up", "volume_down", "volume_mute"})
 _PLAYER_ARGS = ("player_id", "queue_id", "target_player", "source_queue_id", "target_queue_id")
 _PLAYER_LISTS = ("child_player_ids", "player_ids")
 
@@ -897,6 +907,12 @@ class MantelMusic:
                 way = [r for r in way if r not in done]
                 if not way and preset is not None:
                     await asyncio.sleep(self.settle)
+            # A VIRTUAL PAIR'S OWN GROUP holding its players while they are to play elsewhere: stopped first
+            busy = E.groups_in_the_way(self.house, cfg, members, target)
+            if busy:
+                await self._call("media_player", "media_stop", {"entity_id": busy})
+                await self._wait(busy, lambda: all(self._state(g) not in ACTIVE for g in busy), STOP_TIMEOUT)
+                await asyncio.sleep(self.settle)
             if way:
                 if not await self._release(way):
                     self._note(NOTE_PRESET if preset else NOTE_GROUP, "Speakers did not release",
@@ -905,15 +921,17 @@ class MantelMusic:
                     return {"ok": False, "message": "The speakers did not release."}
                 if preset is not None:
                     await asyncio.sleep(self.settle)
-            if E.needs_join(rooms, preset, existing):
-                if not await self._join(target, rooms):
-                    missing = [cfg.name_of(r) for r in rooms if r not in self._members(target)]
+            if E.needs_join(rooms, preset, existing, cfg):
+                if not await self._join(target, cfg.players_of(rooms)):
+                    missing = list(dict.fromkeys(cfg.name_of(r) for r in cfg.players_of(rooms)
+                                                 if r not in self._members(target)))
                     self._note(NOTE_GROUP, "Speakers did not group",
                                f"{', '.join(missing) or 'Some rooms'} did not join {cfg.name_of(target)}. Nothing "
                                "is playing -- the group was broken up rather than left wrong.")
                     return {"ok": False, "message": "The speakers did not group."}
             self._clear(NOTE_GROUP, NOTE_PRESET)
-            await self._call("media_player", "volume_set", {"entity_id": members, "volume_level": cfg.volume})
+            await self._call("media_player", "volume_set", {"entity_id": E.volume_players(cfg, members),
+                                                            "volume_level": cfg.volume})
             await self._call("media_player", "shuffle_set", {"entity_id": target, "shuffle": True})
             if self._claims.superseded(stamps):
                 return dict(SUPERSEDED)
@@ -944,6 +962,7 @@ class MantelMusic:
         cfg = self.config
         rooms = list(rooms or [])
         what = f"transfer {source} -> {rooms}"
+        source = E.source_of(self.house, cfg, source)       # a virtual pair playing through its own group: the group
         fail, preset = E.check_transfer(self.house, cfg, rooms, source)
         if fail:
             return self._done(fail, what, rid, t0)
@@ -960,7 +979,7 @@ class MantelMusic:
             raise
 
     async def _move(self, cfg, rooms, source, preset) -> dict[str, Any]:
-        leader, others, adding = E.move_plan(self.house, rooms, source, preset)
+        leader, others, adding = E.move_plan(self.house, rooms, source, preset, cfg)
         if self._state(source) not in ACTIVE:
             if E.already_moved(self.house, leader, others):
                 return {"ok": True, "leader": leader}
@@ -977,10 +996,10 @@ class MantelMusic:
         message = None
         if others:
             await self._call("media_player", "join", {"entity_id": leader, "group_members": others})
-            await self._wait(rooms, lambda: all(r in self._members(leader) for r in others), JOIN_TIMEOUT)
+            await self._wait(others + [leader], lambda: all(r in self._members(leader) for r in others), JOIN_TIMEOUT)
             missing = [r for r in others if r not in self._members(leader)]
             if missing:
-                names = ", ".join(cfg.name_of(r) for r in missing)
+                names = ", ".join(dict.fromkeys(cfg.name_of(r) for r in missing))
                 message = f"{names} did not join."
                 self._note(NOTE_PARTIAL, "Some speakers did not join",
                            f"{names} did not join {cfg.name_of(leader)}. The music moved and is playing there.")
@@ -1011,13 +1030,13 @@ class MantelMusic:
             t.cancel()
         if doomed:
             await asyncio.wait(doomed, timeout=STOP_TIMEOUT)
-        groups = E.stop_groups(cfg, whole)
+        groups = E.stop_groups(cfg, whole, targets)
         if groups:
             await self._call("media_player", "media_stop", {"entity_id": groups})
         await self._call("media_player", "media_stop", {"entity_id": targets})
         quiet = lambda: all(self._state(e) != "playing" for e in targets + groups)  # noqa: E731
         await self._wait(targets + groups, quiet, STOP_TIMEOUT)
-        await self._call("media_player", "unjoin", {"entity_id": targets})
+        await self._call("media_player", "unjoin", {"entity_id": cfg.players_of(targets)})
         res: dict[str, Any] = {"ok": True}
         if whole:
             if await self._wait(targets + groups, quiet, STOP_TIMEOUT):
@@ -1045,7 +1064,8 @@ class MantelMusic:
             elif command in ("volume_up", "volume_down", "volume_set"):
                 current = self._attr(player, "volume_level") if command != "volume_set" else None
                 new = E.new_volume(command, current, level, cfg.volume)
-                ok = await self._call("media_player", "volume_set", {"entity_id": player, "volume_level": new})
+                ok = await self._call("media_player", "volume_set", {"entity_id": E.volume_players(cfg, [player]),
+                                                                     "volume_level": new})
             else:
                 return {"ok": False, "message": f"Unknown command {command}."}
         return {"ok": ok} if ok else {"ok": False, "message": f"{cfg.name_of(player)} did not respond."}
@@ -1060,24 +1080,30 @@ class MantelMusic:
         stamps = self._claims.claim(E.browse_rooms(self.house, cfg, player))
         try:
             async with self._request(stamps):
+                # A VIRTUAL PAIR plays as one: through its own Music Assistant group, else its second player
+                # joined to its first before the item is sent
+                target, join = E.browse_target(self.house, cfg, player)
+                if join and not await self._join(player, [player] + join):
+                    return self._done({"ok": False, "message": f"{cfg.name_of(player)}’s two speakers did not "
+                                       "group."}, what, rid, t0)
                 # Browse starts afresh, as Apple Music does: the queue is replaced, never added to (a
                 # playlist "played" into a shuffled queue was lost among its songs, the owner 2026-10-31)
-                was = self._now_playing(player)
-                ok = await self._call("media_player", "play_media", {"entity_id": player, "media_content_id": content_id,
+                was = self._now_playing(target)
+                ok = await self._call("media_player", "play_media", {"entity_id": target, "media_content_id": content_id,
                                                                      "media_content_type": content_type,
                                                                      "enqueue": "replace"})
                 if not ok:
                     return self._done({"ok": False, "message": "Music Assistant could not play that."}, what, rid, t0)
-                started = await self._wait([player], lambda: self._started_anew(player, was), START_TIMEOUT)
+                started = await self._wait([target], lambda: self._started_anew(target, was), START_TIMEOUT)
         except asyncio.CancelledError:
             if self._was_stopped():
                 return self._done(dict(STOPPED), what, rid, t0)
             raise
         if self._claims.superseded(stamps):
-            return self._done({"ok": True, "leader": player, "superseded": True}, what, rid, t0)
+            return self._done({"ok": True, "leader": target, "superseded": True}, what, rid, t0)
         if not started:
             return self._done({"ok": False, "message": f"It did not start on {cfg.name_of(player)}."}, what, rid, t0)
-        return self._done({"ok": True, "leader": player}, what, rid, t0)
+        return self._done({"ok": True, "leader": target}, what, rid, t0)
 
     async def service(self, service: str, data: dict[str, Any]) -> dict[str, Any]:
         """A page's own ``media_player.<service>`` on Music Assistant speakers (MA_SERVICES), sent as the commands HA's
@@ -1086,6 +1112,8 @@ class MantelMusic:
             q = self._attr(e, "active_queue")
             return q if isinstance(q, str) and q else self.host.pid(e)
         run, client = RUN.get(), self.host.ma
+        if service in VOLUME_SERVICES:       # a virtual pair's volume is both its players', together
+            data = dict(data, entity_id=E.volume_players(self.config, _ids(data.get("entity_id"))))
         try:
             if run is None or client is None:
                 raise PermissionError("no audited music request is running")
@@ -1489,6 +1517,8 @@ class MusicHost:
             "players": [{"entity": e, "name": self._name(e)} for e in self._players(doc)],
             # Music Assistant's groups: the pairs among the speakers, each group's rooms and problems
             **S.groups_page(cfg, self._players(doc)),
+            # VIRTUAL PAIRS: two players as one room, made here (docs/phase4/VIRTUAL-PAIRS.md)
+            "virtual_pairs": S.pairs_page(cfg, opts, self._name), "pairs_here": True,
             "library_ready": self.ma is not None and self.ma.connected.is_set(),
             "ignore_announcements": opts[CONF_IGNORE_ANNOUNCEMENTS],
             "keep_ready": bool(opts[CONF_KEEP_READY]),
@@ -1524,7 +1554,9 @@ class MusicHost:
         if t == "hk_music/settings/set":
             if not isinstance(a["changes"], dict):
                 raise self._refused({"changes": S.MSG["list"]})
-            opts, errors = S.apply(doc["options"], dict(a["changes"]), set(self._players(doc)), groups)
+            g = self.config().groups
+            opts, errors = S.apply(doc["options"], dict(a["changes"]), set(self._players(doc)), groups, pairs=True,
+                                   ma_groups=[e for e in self._players(doc) if g is not None and g.is_group(e)])
             if errors:
                 raise self._refused(errors)
             doc["options"] = opts
@@ -1661,10 +1693,10 @@ class MusicHost:
             return None
         cfg = self.config()
         players = set()
-        speakers = cfg.players()
+        speakers = cfg.ma_players()           # (a virtual pair's second player and its own group with its room)
         if op == OP_SERVICE:                  # the speakers it names (each checked by the gateway), and their queues
             d = a["data"]
-            speakers = _ids(d.get("entity_id")) + _ids(d.get("group_members"))
+            speakers = cfg.players_of(_ids(d.get("entity_id")) + _ids(d.get("group_members")))
             players |= {q for e in speakers for q in [self.engine._attr(e, "active_queue")] if isinstance(q, str) and q}
         for e in speakers:
             try:

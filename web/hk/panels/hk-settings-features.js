@@ -150,7 +150,7 @@
   // Assistant players made one room here. The owner: "If I create a group in
   // Music Assistant of 2 speakers in 1 room, I can't assign them with other
   // speakers ... So I need to be able to virtually pair 2 speakers to appear
-  // as 1 in Mantel."
+  // as 1 ..."
   function virtualPair(d, room) {
     return (d.virtual_pairs || []).filter(function (p) { return p.room === room; })[0] || null;
   }
@@ -563,7 +563,7 @@
                    (pairNote(d) ? ' ' + pairNote(d) : ''),
       emptyText: 'Music Assistant has no other players.',
       rows: L.rows, more: L.more, onChange: function (v) { P.featSet('hk_music', { speakers: v }); } }));
-    if (!d.pairs_here) return;           // (HK Frontend in Home Assistant: its engine plays no pairs)
+    if (!d.pairs_here) return;           // (a host whose engine plays no pairs says so by leaving this out)
     var perr = P.err('f:hk_music:pairs');
     c.appendChild(K.group({ header: 'Speaker Pairs', footer: (perr ? perr + ' ' : '') +
         'Two speakers in one room, such as two HomePods, shown and played as one speaker everywhere. ' +

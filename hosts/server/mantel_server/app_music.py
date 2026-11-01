@@ -120,6 +120,7 @@ def contexts(cfg: dict, states: dict) -> list[dict[str, Any]]:
                 "playing": st.get("s") == "playing", "state": st.get("s") or "unknown",
                 "title": a.get("media_title") or "", "artist": a.get("media_artist") or "", "since": st.get("lc") or 0}
     pairs = {s["entity"] for s in rooms if s.get("pair")}
+    part_of = {p: s["entity"] for s in rooms for p in s.get("parts") or [] if p != s["entity"]}
     for g in presets:
         st = states.get(g["entity"])
         if not _active(g["entity"], states, cfg):
@@ -134,8 +135,9 @@ def contexts(cfg: dict, states: dict) -> list[dict[str, Any]]:
         if eid in seen or not _active(eid, states, cfg):
             continue
         st = states[eid]
-        gm = [e for e in ((st.get("a") or {}).get("group_members") or [])
-              if e in known and e not in groups and not _ignored(dict(states.get(e) or {}, entity_id=e), cfg)]
+        # (hkMusic.fold: a virtual pair's second player is its room, once)
+        gm = list(dict.fromkeys(part_of.get(e, e) for e in ((st.get("a") or {}).get("group_members") or [])))
+        gm = [e for e in gm if e in known and e not in groups and not _ignored(dict(states.get(e) or {}, entity_id=e), cfg)]
         members = gm if len(gm) > 1 else [eid]
         seen.update(members)
         lead = members[0]

@@ -14,6 +14,11 @@ between those steps it asks these rules, which only read the house (`House.state
   * THE REFUSALS, answered before anything is sent (`validate`, `check_play`, `check_transfer`,
     `check_player`, `check_browse`, `stop_plan`).
   * THE LEVELS: the house playlist volume, and the now-playing buttons' steps (`new_volume`).
+  * VIRTUAL PAIRS (docs/phase4/VIRTUAL-PAIRS.md): a pair's second player is folded into its room
+    wherever a group is read (`grouped`), and named beside it wherever players are joined, levelled
+    or freed (`MusicConfig.players_of`); the pair alone plays through Music Assistant's own group of
+    the two when there is one (`MusicConfig.pair_preset`), and that group is stopped, not joined,
+    when the pair plays with other rooms (`groups_in_the_way`).
 
 Every answer is {ok, leader} or {ok: False, message}.
 """
@@ -59,6 +64,13 @@ def available(house: House, entity: str) -> bool:
     return state_of(house, entity) not in (None, *GONE)
 
 
+def grouped(house: House, cfg: MusicConfig | None, entity: str) -> list[str]:
+    """Its group as ROOMS, leader first: a virtual pair's two players are its one room. Players that are
+    not rooms stay as they are (a group with a player no screen shows is still a group)."""
+    gm = members(house, entity)
+    return cfg.fold(gm) if cfg is not None else gm
+
+
 # ------------------------------------------------------------- claiming rooms
 class Claims:
     """THE NEWEST REQUEST WINS: a stamp per room, bumped by every request that claims it."""
@@ -81,7 +93,10 @@ def entangled(house: House, cfg: MusicConfig, rooms: Iterable[str]) -> set[str]:
     """The rooms asked for, plus every room grouped with one of them."""
     out = set(rooms)
     for r in list(out):
-        out.update(m for m in members(house, r) if m in cfg.room_ids)
+        out.update(m for m in grouped(house, cfg, r) if m in cfg.room_ids)
+    for p in cfg.partners.values():          # a pair's second player, grouped elsewhere, brings that group
+        if cfg.room_of(p) in out:
+            out.update(x for x in grouped(house, cfg, p) if x in cfg.room_ids)
     return out
 
 
@@ -96,10 +111,18 @@ def in_the_way(house: House, cfg: MusicConfig, rooms: Iterable[str],
     want = set(rooms)
     out = []
     for r in cfg.room_ids:
-        gm = set(members(house, r))
+        gm = set(grouped(house, cfg, r))
         if len(gm) > 1 and gm & want and gm != keep:
             out.append(r)
     return out
+
+
+def groups_in_the_way(house: House, cfg: MusicConfig, rooms: Iterable[str], target: str) -> list[str]:
+    """A wanted virtual pair's own Music Assistant group, playing or paused while the music is to go
+    elsewhere: STOPPED first, so its two players are free to join -- they cannot join a room while
+    synced in it."""
+    return [g for r, g in cfg.pair_groups.items() if r in set(rooms) and g != target
+            and state_of(house, g) in ACTIVE]
 
 
 def split(house: House, cfg: MusicConfig, way: list[str],
@@ -111,19 +134,19 @@ def split(house: House, cfg: MusicConfig, way: list[str],
     out, seen = [], set()
     for r in way:
         gm = members(house, r)
-        if len(gm) < 2 or gm[0] in seen:
+        if len(grouped(house, cfg, r)) < 2 or gm[0] in seen:
             continue
         seen.add(gm[0])
         leader = gm[0]
-        rest = [m for m in gm if m not in want and m in cfg.room_ids]
+        rest = [m for m in grouped(house, cfg, r) if m not in want and m in cfg.room_ids]
         if rest and leader in cfg.room_ids and state_of(house, leader) == "playing":
             out.append((leader, rest, list(gm)))
     return out
 
 
-def existing(house: House, rooms: list[str]) -> list[str] | None:
-    """The live group whose members are exactly `rooms`, leader first."""
-    want = sorted(rooms)
+def existing(house: House, rooms: list[str], cfg: MusicConfig | None = None) -> list[str] | None:
+    """The live group whose members are exactly `rooms` (a virtual pair: both its players), leader first."""
+    want = sorted(cfg.players_of(rooms) if cfg is not None else rooms)
     for r in rooms:
         gm = members(house, r)
         if len(gm) > 1 and sorted(gm) == want:
@@ -206,7 +229,9 @@ def play_rooms(house: House, cfg: MusicConfig, rooms: list[str]
                ) -> tuple[dict[str, Any] | None, Preset | None, list[str]]:
     """Through a preset's sync group when the rooms are exactly a preset's, else the rooms
     themselves: (a refusal or None, the preset, the rooms that will play)."""
-    preset = cfg.preset_for_rooms(rooms)
+    preset = cfg.preset_for_rooms(rooms) or cfg.pair_preset(rooms)
+    if preset is not None and preset.key.startswith("pair:") and not available(house, preset.group):
+        preset = None               # the pair's own group is gone: its two players are joined instead
     if preset is not None:
         if not available(house, preset.group):
             return {"ok": False, "message": f"{preset.name} is unavailable right now."}, preset, preset.members
@@ -220,7 +245,7 @@ def play_target(house: House, cfg: MusicConfig, rooms: list[str], preset: Preset
     waited may find the rooms grouped under a different leader by the one before it, and
     play_media sent to a group MEMBER plays nowhere useful. (the target, the live group that is
     exactly the rooms or None, the rooms in the way)."""
-    found = existing(house, rooms) if preset is None and len(rooms) > 1 else None
+    found = existing(house, rooms, cfg) if preset is None and len(cfg.players_of(rooms)) > 1 else None
     if preset is not None:
         target = preset.group
     else:
@@ -230,9 +255,12 @@ def play_target(house: House, cfg: MusicConfig, rooms: list[str], preset: Preset
     return target, found, way
 
 
-def needs_join(rooms: list[str], preset: Preset | None, found: list[str] | None) -> bool:
-    """Ad-hoc rooms are joined under their leader, unless they already are that group."""
-    return preset is None and len(rooms) > 1 and not found
+def needs_join(rooms: list[str], preset: Preset | None, found: list[str] | None,
+               cfg: MusicConfig | None = None) -> bool:
+    """Ad-hoc rooms are joined under their leader, unless they already are that group. A virtual pair is
+    two players, so it is joined even alone."""
+    players = cfg.players_of(rooms) if cfg is not None else rooms
+    return preset is None and len(players) > 1 and not found
 
 
 # ------------------------------------------------------------- transfer
@@ -242,11 +270,13 @@ def check_transfer(house: House, cfg: MusicConfig, rooms: list[str],
     fail = validate(house, cfg, rooms)
     if fail:
         return fail, None
-    if source not in cfg.players():
+    if source not in cfg.players() and cfg.pair_of_group(source) is None:
         return unknown_player(source), None
     if state_of(house, source) not in ACTIVE:
         return {"ok": False, "message": f"{cfg.name_of(source)} is not playing."}, None
-    preset = cfg.preset_for_rooms(rooms)
+    preset = cfg.preset_for_rooms(rooms) or cfg.pair_preset(rooms)
+    if preset is not None and preset.key.startswith("pair:") and not available(house, preset.group):
+        preset = None
     if preset is not None and source == preset.group:
         return {"ok": False, "message": f"The music is already on {preset.name}."}, preset
     # ALREADY THERE only when the source plays alone: the source by
@@ -254,29 +284,41 @@ def check_transfer(house: House, cfg: MusicConfig, rooms: list[str],
     # Music page asks to free rooms for a new pick, and what Update asks
     # when rooms are unticked (2026-10-14: it was refused here, "Could
     # not free Master Bedroom +2: The music is already there.")
-    alone = not [m for m in members(house, source) if m != source and m in cfg.room_ids]
+    alone = not [m for m in grouped(house, cfg, source) if m != source and m in cfg.room_ids]
     if preset is None and source in rooms and len(rooms) == 1 and alone:
         return {"ok": False, "message": "The music is already there."}, preset
     return pair_alone(cfg, rooms, preset), preset
 
 
+def source_of(house: House, cfg: MusicConfig, source: str) -> str:
+    """What a move takes the music FROM: a virtual pair playing through its own Music Assistant group is
+    that group (its queue is the group's, and its players leave the group to join others)."""
+    g = cfg.pair_groups.get(source)
+    return g if g is not None and state_of(house, g) in ACTIVE else source
+
+
 def transfer_rooms(house: House, cfg: MusicConfig, rooms: list[str], source: str) -> set[str]:
     """What a move claims: its rooms, the source's group, the source if a room -- entangled."""
-    was = [m for m in members(house, source) if m in cfg.room_ids]
-    return entangled(house, cfg, set(rooms) | set(was)
+    was = [m for m in grouped(house, cfg, source) if m in cfg.room_ids]
+    pair = cfg.pair_of_group(source)
+    return entangled(house, cfg, set(rooms) | set(was) | ({pair} if pair else set())
                      | ({source} if source in cfg.room_ids else set()))
 
 
 def move_plan(house: House, rooms: list[str], source: str,
-              preset: Preset | None) -> tuple[str, list[str], bool]:
-    """THE HOUSE IS READ NOW, holding the rooms: (the leader, the rooms to join to it, whether
-    this ADDS rooms to the source rather than moving its queue)."""
+              preset: Preset | None, cfg: MusicConfig | None = None) -> tuple[str, list[str], bool]:
+    """THE HOUSE IS READ NOW, holding the rooms: (the leader, the PLAYERS to join to it, whether
+    this ADDS rooms to the source rather than moving its queue). A move off a virtual pair's own
+    group leads from another room when there is one: the pair's players are leaving that group."""
     if preset is not None:
         return preset.group, [], False
     adding = source in rooms
-    found = existing(house, rooms)
-    leader = source if adding else (found[0] if found else rooms[0])
-    return leader, [r for r in rooms if r != leader], adding
+    found = existing(house, rooms, cfg)
+    pair = cfg.pair_of_group(source) if cfg is not None else None
+    first = next((r for r in rooms if r != pair), rooms[0])
+    leader = source if adding else (found[0] if found else first)
+    players = cfg.players_of(rooms) if cfg is not None else rooms
+    return leader, [r for r in players if r != leader], adding
 
 
 def already_moved(house: House, leader: str, others: list[str]) -> bool:
@@ -296,8 +338,11 @@ def stale(house: House, cfg: MusicConfig, rooms: list[str], leader: str, source:
     preset's rooms belong to its sync group."""
     if leader not in cfg.room_ids:
         return []
-    return [r for r in cfg.room_ids if r not in rooms and len(members(house, r)) > 1
-            and (source in members(house, r) or set(members(house, r)) & set(rooms))]
+    # a virtual pair's second player is freed too when it was left joined to the source
+    pair, keep = cfg.pair_of_group(source), set(cfg.players_of(rooms))
+    return [r for r in cfg.players_of(cfg.room_ids) if r not in keep and len(members(house, r)) > 1
+            and (source in members(house, r) or (pair is not None and cfg.room_of(r) == pair)
+                 or set(grouped(house, cfg, r)) & set(rooms))]
 
 
 # ------------------------------------------------------------- stop
@@ -310,9 +355,10 @@ def stop_plan(cfg: MusicConfig, rooms: list[str] | None) -> tuple[bool, list[str
     return whole, cfg.room_ids if whole else [r for r in rooms if r in cfg.room_ids]
 
 
-def stop_groups(cfg: MusicConfig, whole: bool) -> list[str]:
-    """Stop All stops the presets' sync groups too."""
-    return [p.group for p in cfg.presets] if whole else []
+def stop_groups(cfg: MusicConfig, whole: bool, rooms: Iterable[str] = ()) -> list[str]:
+    """Stop All stops the presets' sync groups too; stopping a virtual pair stops its own group."""
+    pairs = [g for r, g in cfg.pair_groups.items() if whole or r in set(rooms)]
+    return list(dict.fromkeys(([p.group for p in cfg.presets] if whole else []) + pairs))
 
 
 # ------------------------------------------------------------- levels
@@ -327,6 +373,11 @@ def new_volume(command: str, current: Any, level: float | None, house_volume: fl
     return round(min(1.0, max(0.0, new)), 2)
 
 
+def volume_players(cfg: MusicConfig, players: Iterable[str]) -> list[str]:
+    """Who a volume goes to: a virtual pair is BOTH its players, together (the owner: "volume (both together)")."""
+    return cfg.players_of(players)
+
+
 # ------------------------------------------------------------- browse
 def check_browse(house: House, cfg: MusicConfig, player: str) -> dict[str, Any] | None:
     """One Browse item plays on a known player that is really there (Home Assistant skips an
@@ -336,6 +387,19 @@ def check_browse(house: House, cfg: MusicConfig, player: str) -> dict[str, Any] 
     if not available(house, player):
         return {"ok": False, "message": f"{cfg.name_of(player)} is unavailable right now."}
     return None
+
+
+def browse_target(house: House, cfg: MusicConfig, player: str) -> tuple[str, list[str]]:
+    """Where one Browse item plays, and the players to join to it first: a virtual pair on its own plays
+    through its own Music Assistant group when there is one, else its second player is joined to its
+    first; a pair already playing with other rooms, or already joined, plays where it is."""
+    if player not in cfg.partners or [m for m in grouped(house, cfg, player) if m != player]:
+        return player, []
+    g = cfg.pair_groups.get(player)
+    if g is not None and available(house, g):
+        return g, []
+    partner = cfg.partners[player]
+    return player, ([] if partner in members(house, player) else [partner])
 
 
 def browse_rooms(house: House, cfg: MusicConfig, player: str) -> set[str]:

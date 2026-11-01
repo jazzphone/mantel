@@ -358,7 +358,8 @@ async def test_the_settings_page_needs_configure(off):
     assert {"id": uid, "name": "Owner1"} in page["users"]
     assert [p["entity"] for p in page["players"]] == sorted(
         ["media_player.cody_ma", "media_player.den_ma", "media_player.downstairs_ma", "media_player.garage_ma",
-         "media_player.kitchen_ma"], key=lambda e: page["players"] and next(
+         "media_player.kitchen_ma", "media_player.study_left_ma", "media_player.study_pair_ma",
+         "media_player.study_right_ma"], key=lambda e: page["players"] and next(
             p["name"] for p in page["players"] if p["entity"] == e).casefold())
     assert "media_player.tv" not in json.dumps(page["players"])                     # not a Music Assistant player
     assert page["library_ready"] is True and page["keep_ready"] is False
@@ -1144,3 +1145,150 @@ async def test_music_assistants_groups_are_read_again_and_the_feed_follows(on):
     assert await host.refresh_groups() is True and "media_player.cody_ma" in host.config().pairs
     on.ma.players = "not a list"
     assert await host.refresh_groups() is False and "media_player.cody_ma" in host.config().pairs   # the last stays
+
+
+# ------------------------------------------------------------------------------- virtual pairs (VIRTUAL-PAIRS.md)
+K, D, C = "media_player.kitchen_ma", "media_player.den_ma", "media_player.cody_ma"
+SL, SR, SG = "media_player.study_left_ma", "media_player.study_right_ma", "media_player.study_pair_ma"
+SVC = lambda s, **d: {"kind": "service", "domain": "hk_frontend", "service": s, "data": d,   # noqa: E731
+                      "return_response": True}
+
+
+async def make_pair(env, name="Reading Nook"):
+    """The Owner pairs the Study's two HomePods in Mantel Settings: one speaker, named."""
+    await env.m.user("owner1", "owner")
+    await env.login("owner1", "owner")
+    ws = await env.socket()
+    r = await env.command(ws, id=90, kind="ws", msg={"type": "hk_music/settings/set",
+                                                     "changes": {"pairs": [{"players": [SL, SR], "name": name}]}})
+    assert "error" not in r, r
+    await ws.close()
+    return r["result"]
+
+
+async def test_a_virtual_pair_is_made_in_settings_and_is_one_speaker_in_the_feed(on):
+    await on.connected()
+    page = await make_pair(on)
+    assert [s["entity"] for s in page["speakers"]] == [K, D, C, SL]
+    assert page["speakers"][-1]["name"] == "Reading Nook" and page["pairs_here"] is True
+    assert page["virtual_pairs"] == [{"room": SL, "name": "Reading Nook", "shown": "Reading Nook", "ma_group": None,
+                                      "players": [{"entity": SL, "name": "Study Left Ma"},
+                                                  {"entity": SR, "name": "Study Right Ma"}]}]
+    doc = on.app["settings"].store.get("house", M.MUSIC_DOC).body
+    assert doc["options"]["pairs"] == [{"players": [SL, SR], "name": "Reading Nook"}]
+    ws = await on.socket()
+    _r, ev = await on.subscribe(ws, {"type": "hk_music/subscribe"})
+    by = {s["entity"]: s for s in ev["speakers"]}
+    assert by[SL] == {"name": "Reading Nook", "entity": SL, "parts": [SL, SR]} and SR not in by
+    # its second player can't be a speaker of its own while paired; a bad pair is refused by field
+    r = await on.command(ws, id=2, kind="ws", msg={"type": "hk_music/settings/set", "changes": {"speakers": [K, SL, SR]}})
+    assert json.loads(r["error"]["message"]) == {"speakers": "That speaker is half of a pair. Unpair it first."}
+    r = await on.command(ws, id=3, kind="ws", msg={"type": "hk_music/settings/set",
+                                                   "changes": {"pairs": [{"players": [SL, "media_player.downstairs_ma"]}]}})
+    assert json.loads(r["error"]["message"]) == {"pairs": S_MSG["pair_group"]}
+    # taken apart: two speakers again
+    r = await on.command(ws, id=4, kind="ws", msg={"type": "hk_music/settings/set", "changes": {"pairs": []}})
+    assert [s["entity"] for s in r["result"]["speakers"]] == [K, D, C, SL, SR] and r["result"]["virtual_pairs"] == []
+    assert on.ma.sent() == [], "settings are Mantel's: nothing to Music Assistant"
+    await ws.close()
+
+
+from hk_core.music.settings import MSG as S_MSG  # noqa: E402
+
+
+async def test_play_pause_volume_and_browse_go_to_both_of_a_pairs_players(on):
+    await on.connected()
+    await make_pair(on)
+    await on.login("jamie", "adult")
+    ws = await on.socket()
+    # Browse on the pair: its second player joined to its first, then the item on the first
+    r = await on.command(ws, **SVC("music_play_media", player=SL, media_content_id="library://track/9",
+                                   media_content_type="music"))
+    assert r["result"]["response"] == {"ok": True, "leader": SL}, r
+    assert on.ma.sent() == [
+        ("players/cmd/group_many", {"target_player": "ma-study-l", "child_player_ids": ["ma-study-r"]}),
+        ("player_queues/play_media", {"queue_id": "ma-study-l", "media": ["library://track/9"], "option": "replace"})]
+    # the steps and the slider: both, together; play and pause: the first, which leads the two
+    n = len(on.ma.sent())
+    r = await on.command(ws, id=2, **SVC("music_transport", player=SL, command="volume_up"))
+    assert r["result"]["response"] == {"ok": True}
+    r = await on.command(ws, id=3, kind="service", domain="media_player", service="volume_set",
+                         data={"entity_id": SL, "volume_level": 0.4})
+    assert "error" not in r, r
+    r = await on.command(ws, id=4, **SVC("music_transport", player=SL, command="play_pause"))
+    assert on.ma.sent()[n:] == [
+        ("players/cmd/volume_set", {"player_id": "ma-study-l", "volume_level": 25}),
+        ("players/cmd/volume_set", {"player_id": "ma-study-r", "volume_level": 25}),
+        ("players/cmd/volume_set", {"player_id": "ma-study-l", "volume_level": 40}),
+        ("players/cmd/volume_set", {"player_id": "ma-study-r", "volume_level": 40}),
+        ("players/cmd/play_pause", {"player_id": "ma-study-l"})]
+    # a playlist on the pair and the Kitchen: both of its players join the Kitchen, the house volume on all three
+    n = len(on.ma.sent())
+    r = await on.command(ws, id=5, **play([K, SL]))
+    assert r["result"]["response"] == {"ok": True, "leader": K}, r
+    assert on.ma.sent()[n:] == [
+        ("players/cmd/group_many", {"target_player": "ma-kitchen", "child_player_ids": ["ma-study-l", "ma-study-r"]}),
+        ("players/cmd/volume_set", {"player_id": "ma-kitchen", "volume_level": 30}),
+        ("players/cmd/volume_set", {"player_id": "ma-study-l", "volume_level": 30}),
+        ("players/cmd/volume_set", {"player_id": "ma-study-r", "volume_level": 30}),
+        ("player_queues/shuffle", {"queue_id": "ma-kitchen", "shuffle_enabled": True}),
+        ("player_queues/play_media", {"queue_id": "ma-kitchen", "media": ["library://playlist/1"], "option": "replace"}),
+        ("player_queues/shuffle", {"queue_id": "ma-kitchen", "shuffle_enabled": True})]
+    # Stop on the pair frees both its players
+    n = len(on.ma.sent())
+    r = await on.command(ws, id=6, **SVC("music_stop", rooms=[SL]))
+    assert {a["player_id"] for c, a in on.ma.sent()[n:] if c == "players/cmd/ungroup"} == {"ma-study-l", "ma-study-r"}
+    assert on.fake.sent == []
+    await ws.close()
+
+
+STUDY_GROUP = [dict(MF.ma_player(pid, e), type="group" if e == SG else "player",
+                    group_members=["ma-study-l", "ma-study-r"] if e == SG else [])
+               for e, pid in MF.PID.items() if e != "media_player.downstairs_ma"] + [
+    dict(MF.ma_player("ma-downstairs", "media_player.downstairs_ma"),
+         group_members=["ma-kitchen", "ma-den", "ma-study-l", "ma-study-r"])]
+
+
+async def test_music_assistants_own_group_of_the_pair_plays_it_alone_and_a_preset_holds_it(on):
+    host = on.app["music"]
+    on.ma.players = STUDY_GROUP
+    await on.connected()
+    await make_pair(on)
+    assert await host.refresh_groups() in (True, False) and host.config().pair_groups == {SL: SG}
+    page = host.page()
+    assert page["virtual_pairs"][0]["ma_group"] == "Study Pair Ma"
+    # Downstairs' group holds the Study's two players: the pair is one of its rooms
+    assert page["presets"][0]["members"] == [K, D, SL] and page["presets"][0]["problems"] == []
+    await on.login("jamie", "adult")
+    ws = await on.socket()
+    # the pair alone: through Music Assistant's own group of the two
+    r = await on.command(ws, **play([SL]))
+    assert r["result"]["response"] == {"ok": True, "leader": SG}, r
+    assert on.ma.sent() == [
+        ("players/cmd/volume_set", {"player_id": "ma-study-l", "volume_level": 30}),
+        ("players/cmd/volume_set", {"player_id": "ma-study-r", "volume_level": 30}),
+        ("player_queues/shuffle", {"queue_id": "ma-study-pair", "shuffle_enabled": True}),
+        ("player_queues/play_media", {"queue_id": "ma-study-pair", "media": ["library://playlist/1"],
+                                      "option": "replace"}),
+        ("player_queues/shuffle", {"queue_id": "ma-study-pair", "shuffle_enabled": True})]
+    # the Kitchen added: the music moves off the pair's group to the Kitchen, the pair's players join it
+    n = len(on.ma.sent())
+    r = await on.command(ws, id=2, **SVC("music_transfer", rooms=[SL, K], source=SL))
+    assert r["result"]["response"]["ok"] is True and r["result"]["response"]["leader"] == K, r
+    assert on.ma.sent()[n:n + 2] == [
+        ("player_queues/transfer", {"source_queue_id": "ma-study-pair", "target_queue_id": "ma-kitchen",
+                                    "auto_play": True}),
+        ("players/cmd/group_many", {"target_player": "ma-kitchen", "child_player_ids": ["ma-study-l", "ma-study-r"]})]
+    # the pair, the Kitchen and the Den: exactly Downstairs' rooms, so through its group
+    n = len(on.ma.sent())
+    r = await on.command(ws, id=3, **play([K, D, SL]))
+    assert r["result"]["response"]["leader"] == "media_player.downstairs_ma", r
+    # a playlist on the pair and the Den while the pair's own group plays: that group is stopped first
+    await on.playing(SG)
+    n = len(on.ma.sent())
+    r = await on.command(ws, id=4, **play([D, SL]))
+    assert r["result"]["response"] == {"ok": True, "leader": D}, r
+    sent = on.ma.sent()[n:]
+    assert sent[0] == ("players/cmd/stop", {"player_id": "ma-study-pair"})
+    assert ("players/cmd/group_many", {"target_player": "ma-den", "child_player_ids": ["ma-study-l", "ma-study-r"]}) in sent
+    await ws.close()

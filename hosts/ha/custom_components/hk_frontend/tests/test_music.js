@@ -401,4 +401,22 @@ M._configure(HK_HOUSE);
 ph.states[e('office')].state = 'idle';
 ok('a room that is no pair still has to be active', M.contexts(ph).some(function (c) { return c.kind === 'preset'; }), false);
 
+print('\n=== a virtual pair is one room (docs/phase4/VIRTUAL-PAIRS.md) ===');
+// The Office's two HomePods made one room in Mantel: the right one is no speaker of its own
+var OR = 'media_player.office_right_homepod_ma';
+M._configure(Object.assign({}, HK_HOUSE, { speakers: HK_HOUSE.speakers.map(function (s) {
+  return s.entity === e('office') ? Object.assign({}, s, { parts: [e('office'), OR] }) : s; }) }));
+ok('its second player folds into the room', M.fold([e('kitchen'), OR, e('office')]).join(','), [e('kitchen'), e('office')].join(','));
+ok('  ...and is no speaker', M.known(OR), false);
+var pairOn = group([e('office'), OR], { title: 'P' });
+cx = M.contexts(house(pairOn));
+ok('the pair joined is ONE room, not a group', cx.length + ':' + cx[0].kind + ':' + cx[0].key, '1:room:' + e('office'));
+ok('  ...named as the room', M.label(cx[0]), 'Office');
+cx = M.contexts(house(group([e('kitchen'), OR, e('office')], { title: 'Q' })));
+ok('with the Kitchen: two rooms', cx[0].members.join(','), [e('kitchen'), e('office')].join(','));
+ok('  ...named as two', M.label(cx[0]), 'Kitchen + Office');
+cx = M.contexts(house(group([OR, e('office'), e('loft')], { title: 'R' })));
+ok('its second player leading: still the room, first', cx[0].members.join(','), [e('office'), e('loft')].join(','));
+M._configure(HK_HOUSE);
+
 print('\n' + (fail ? 'FAILURES: ' + fail : 'ALL ' + pass + ' MUSIC MODEL TESTS PASS'));

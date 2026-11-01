@@ -97,6 +97,28 @@ ok('...and once under the list, in words',
    F._.pairNote(pd));
 ok('no pairs, no note', F._.pairNote(md) === '' && F._.pairNote({}) === '');
 
+// A VIRTUAL PAIR (docs/phase4/VIRTUAL-PAIRS.md): two players made one room in Mantel Settings
+var vd = Object.assign({}, md, { pairs_here: true,
+  players: md.players.concat([{ entity: 'media_player.or', name: 'Office Right' }, { entity: 'media_player.sg', name: 'Study Group' }]),
+  groups: { 'media_player.sg': { rooms: [], problems: [] } },
+  virtual_pairs: [{ room: 'media_player.o', name: '', shown: 'Office', ma_group: null,
+                    players: [{ entity: 'media_player.o', name: 'Office' }, { entity: 'media_player.or', name: 'Office Right' }]}] });
+var VL = F._.speakerLists(vd);
+ok('a virtual pair says its two speakers under its name', VL.rows[1].sub === 'Pair: Office + Office Right', VL.rows);
+ok('...and its second player is never offered as a speaker of its own',
+   eq(VL.more.map(function (r) { return r.value; }), ['media_player.den', 'media_player.sg']), VL.more);
+var choices = F._.pairChoices(vd, null).map(function (o) { return o[0]; });
+ok('a new pair is made of players: never a group, nor another pair’s',
+   eq(choices, ['media_player.k', 'media_player.den']), choices);
+ok('...an edited pair offers its own two first',
+   eq(F._.pairChoices(vd, 'media_player.o').map(function (o) { return o[0]; }).slice(0, 2), ['media_player.o', 'media_player.or']));
+ok('saving one pair keeps the others; removing it leaves the rest',
+   eq(F._.pairsAfter(vd, 'media_player.o', { players: ['media_player.o', 'media_player.den'], name: 'Office' }),
+      [{ players: ['media_player.o', 'media_player.den'], name: 'Office' }]) &&
+   eq(F._.pairsAfter(vd, 'media_player.o', null), []) &&
+   eq(F._.pairsAfter(vd, null, { players: ['media_player.k', 'media_player.den'], name: '' }),
+      [{ players: ['media_player.o', 'media_player.or'], name: '' }, { players: ['media_player.k', 'media_player.den'], name: '' }]));
+
 // ------------------------------------------------------------ search
 var s = F.search(feats);
 ok('search finds an installed feature’s settings', s.some(function (e) { return e.label === 'Channels' && e.route === 'features/tv/channels' && e.where === 'Live TV'; }));
