@@ -512,7 +512,8 @@
       var hourly = w && ctx && ctx.forecast ? ctx.forecast(wid, 'hourly') : [];
       if (!hourly.length) return '';
       return '<div class="ckb hrs">' + hourly.slice(0, 5).map(function (h, i) {
-        return '<div>' + esc(i ? hm(new Date(h.datetime)).replace(':00', '') : 'Now') + wxGlyph(h.condition, 18) + '<b>' + esc(deg(h.temperature)) + '</b></div>';
+        // (Now is the temperature now, as beside the time: nowTemp; the later hours the forecast's)
+        return '<div>' + esc(i ? hm(new Date(h.datetime)).replace(':00', '') : 'Now') + wxGlyph(h.condition, 18) + '<b>' + esc(deg(i ? h.temperature : nowTemp(c, w))) + '</b></div>';
       }).join('') + '</div>';
     }
     if (kind === 'sun') {
@@ -619,7 +620,8 @@
       if (s === 'tiny') return tiny('weather', esc(now + ' ' + cond), esc(hl));
       var top = '<div class="wnow">' + wxGlyph(st.state, 44) + '<b>' + esc(now) + '</b><div class="sub2">' + esc(cond) + (hl ? '<br>' + esc(hl) : '') + '</div></div>';
       var hrs = hourly.slice(0, 5).map(function (h, i) {
-        return '<div>' + esc(i ? hm(new Date(h.datetime)).replace(':00', '') : 'Now') + wxGlyph(h.condition, 18) + '<b>' + esc(deg(h.temperature)) + '</b></div>';
+        // (Now is the temperature now, as beside the time: nowTemp; the later hours the forecast's)
+        return '<div>' + esc(i ? hm(new Date(h.datetime)).replace(':00', '') : 'Now') + wxGlyph(h.condition, 18) + '<b>' + esc(deg(i ? h.temperature : nowTemp(c, st))) + '</b></div>';
       }).join('');
       var days = s === 'full' ? rows(daily.slice(1, 4).map(function (x) {
         return [L() ? L().date(new Date(x.datetime), { weekday: 'long' }) : '', deg(x.temperature) + ' / ' + deg(x.templow), 'mdi:weather-' + wxIcon(x.condition)];
