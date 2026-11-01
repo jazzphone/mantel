@@ -189,3 +189,11 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - Kitchen, Living Room and Master Bathroom reloaded and drew their first screen in 1.5-2.8 s. Loft and Master Bedroom were offline (their kiosks unavailable in Home Assistant since 17:39, after drawing 0.1.98); they take 0.1.99 when they're back.
 - iOS app 0.1.99 (1113) uploaded to TestFlight. Mantel Link unchanged at 0.1.8.
 - ci full on 3de9d36f: 31 of 31.
+
+## Mantel 0.1.100 (2026-11-01)
+
+- Every commit since 0.1.99 read first: one ships (the Phase 12 MCP server, f8e2ee96: Assistants (MCP) in Mantel Settings → Advanced, the Audit Log's Through filter); the 0.1.99 record and two date-dependent checks fixed for the release (fc294204) don't. Nothing touches hk_core, web/hk or hosts/ha's component: HK Frontend stays 1.26.0, Mantel Link 0.1.8, no Home Assistant restart.
+- Mantel App 0.1.100 (build c09b72c24144de87, commit fc294204): migration 0028_mcp applied; /healthz?strict=1 ok, Home Assistant connected; Mantel Link and HK Frontend relinked within a second; no "Traceback". The only "ERROR" hits are Music Assistant's `ClientConnectorError` warnings (its own machine refusing the connection), repeating since before the update.
+- `/mcp` on the house through the proxy: the protected-resource metadata names `https://…/mcp`, no credential is 401 with `resource_metadata`, an unknown key is refused. Assistants stay off until the Owner turns them on.
+- Kitchen, Living Room, Master Bedroom and Master Bathroom reloaded (Reload Page) onto the new pages; Kitchen drew its first screen in 3.4 s. Loft was offline, as at 0.1.99.
+- ci full on fc294204: 31 of 31, nothing skipped (the browser checks with Playwright 1.62.1 and its Chromium and WebKit; the Caddy image with Docker). The first full run that day failed three checks that assumed a 24-hour day and Halloween's bats; fixed in fc294204 (a calendar day back; bats only on an occasion that has them).
