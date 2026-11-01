@@ -132,6 +132,30 @@ The container is always unprivileged and Debian 13; the script refuses anything 
 
 Everything on [Install with Docker](Install-Docker.md) applies inside the container, in `/opt/mantel/packaging/compose`: the extra parts, [house commands and passkeys](Install-Docker.md#your-own-additions), and your own reverse proxy.
 
+## Moving from the Home Assistant App
+
+One command makes the container and brings the App's Mantel into it: its people, screens, settings, audit log, files and photos, and its keys, so authenticator apps and the Music Assistant connection keep working.
+
+1. In the App, **Mantel Settings** → **Backups**: **Back Up Now**, then **Download** it, and **Save Keys…** (`mantel-keys.json`). Copy both to the Proxmox host.
+2. Run the script with them. The new Mantel must be the App's version or newer. If the App sits behind your own proxy, keep its name, so passkeys, notifications and the tablets' address keep working:
+
+   ```bash
+   var_restore=mantel-20261101-120000.mbk var_restore_keys=mantel-keys.json \
+   var_tls=own var_proxy_ip=<your proxy's address> var_domain=<the App's name, e.g. mantel.example.com> \
+   bash packaging/lxc/mantel.sh
+   ```
+
+   The backup is checked before the container's Mantel first starts, and restored into it. With no setup code to find, step 6 below is skipped: you sign in as the Owner you were.
+3. Start Mantel ([Finish inside the container](#finish-inside-the-container), steps 1 to 4) and test it before you switch, for example through a second name on your proxy pointed at `http://<container address>:8765` (passkeys only work at the real name; a password and authenticator code do). The App keeps running meanwhile.
+4. What the backup can't bring, because it belongs to the App: in **Mantel Settings** → **Connections**, **Connect to Home Assistant** (the App used Home Assistant's own App credential); the App's options (Read-only, Direct access, its address and proxy) are now `.env`; Home Assistant's sidebar reaches this Mantel through [Mantel Connect](Mantel-Connect.md) (`var_connect=yes`), so tablets that opened Mantel through the sidebar move to its own address; and Mantel Link is linked again. Everyone signs in once.
+5. To switch over, point your proxy at the container (`http://<container address>:8765`) instead of the App, then stop the App. Pointing it back undoes it.
+
+The App keeps changing until you switch. To bring the latest across, make a new backup just before step 5 and restore it from the Proxmox host (this keeps the container's keys file as it is):
+
+```bash
+bash packaging/lxc/mantel.sh restore <id> mantel-20261101-180000.mbk mantel-keys.json
+```
+
 ## Live TV on the iGPU
 
 With an iGPU, the script shares `/dev/dri/renderD128` into the container, adds `compose.gpu.yaml` to `COMPOSE_FILE` and sets `MANTEL_RENDER_GID` in `.env`. Nothing else to do. The container must reach your tuner, and your tablets must reach the container on port 8555 (TCP and UDP). Turning on Live TV itself is in [Music and Cameras](Music-and-Cameras.md).

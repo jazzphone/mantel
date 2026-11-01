@@ -17,6 +17,11 @@ pct enter <id>                            # then: cd /opt/mantel/packaging/compo
 mantel-update                             # inside: update with automatic rollback (registry images)
 bash packaging/lxc/mantel.sh push <id>    # on the host: send a newer checkout and update (a build, or that
                                           # version's published images)
+bash packaging/lxc/mantel.sh restore <id> <backup.mbk> [<mantel-keys.json>]
+                                          # on the host: restore a backup into it, another Mantel's (the HA App's)
+                                          # with its keys file (packaging/compose/restore.sh inside)
+var_restore=<backup.mbk> var_restore_keys=<mantel-keys.json> bash packaging/lxc/mantel.sh
+                                          # create, and restore that backup before Mantel first starts
 ```
 
 The step-by-step guide (inputs, GPU, HTTPS, Connections, Connect, backups, removal) is

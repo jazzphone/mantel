@@ -981,3 +981,88 @@ async def test_a_backup_from_another_mantel_needs_its_keys(app_local, tmp_path):
     assert base64.urlsafe_b64decode((Path(cfg.secrets_dir) / "at_rest.key").read_text().strip()) == oat
     if before is not None:
         assert list(Path(cfg.secrets_dir).glob("at_rest.key.before-restore-*")), "the old key is kept aside"
+
+
+def _keys_json(backup_key: bytes, at_rest: bytes) -> str:
+    return json.dumps({"format": "mantel-keys", "backup_key": base64.urlsafe_b64encode(backup_key).decode(),
+                       "at_rest_key": base64.urlsafe_b64encode(at_rest).decode()})
+
+
+def test_cli_restore_with_another_mantels_keys_file(tmp_path, capsys, target):
+    """Moving from the Home Assistant App to Docker or the LXC: restore.sh checks the App's backup with the App's
+    keys file, and has the image write the two keys out for the host to put in /etc/hk/secrets."""
+    data = make_home(tmp_path)
+    app_secrets = tmp_path / "app-secrets"
+    assert cli_main(["backup", "--data-dir", str(data), "--secrets-dir", str(app_secrets), "--target", str(target)]) == 0
+    capsys.readouterr()
+    backup = sorted(target.glob("*.mbk"))[-1]
+    okey = bk.load_key(app_secrets / "backup.key")[0]
+    oat = bk.atrest.load_or_create_key(app_secrets / "at_rest.key")
+    keys = tmp_path / "mantel-keys.json"
+    keys.write_text(_keys_json(okey, oat))
+    here = tmp_path / "secrets"                      # the new install's own, different keys
+    bk.load_key(here / "backup.key", create=True)
+    fresh, out = tmp_path / "fresh", tmp_path / "out"
+    out.mkdir()
+    # without the keys file this install's own key can't open it
+    assert cli_main(["restore", str(backup), "--data-dir", str(fresh), "--secrets-dir", str(here), "--verify-only"]) == 1
+    assert "wrong_key" in capsys.readouterr().err
+    assert cli_main(["restore", str(backup), "--data-dir", str(fresh), "--secrets-dir", str(here), "--verify-only",
+                     "--keys-file", str(keys), "--write-keys", str(out)]) == 0
+    assert "verify-only: nothing was changed" in capsys.readouterr().out and not fresh.exists()
+    assert bk.atrest.load_or_create_key(out / "at_rest.key") == oat
+    assert bk.load_key(out / "backup.key")[0] == okey
+    assert oct((out / "at_rest.key").stat().st_mode)[-3:] == "600"
+    # and a restore with the keys file alone
+    assert cli_main(["restore", str(backup), "--data-dir", str(fresh), "--secrets-dir", str(here),
+                     "--keys-file", str(keys)]) == 0
+    assert dump(fresh / "mantel.db") == dump(data / "mantel.db")
+    capsys.readouterr()
+    # what isn't a keys file, or isn't there
+    bad = tmp_path / "bad.json"
+    bad.write_text("{}")
+    assert cli_main(["restore", str(backup), "--data-dir", str(tmp_path / "f2"), "--keys-file", str(bad),
+                     "--verify-only"]) == 1
+    assert "keys_invalid" in capsys.readouterr().err
+    assert cli_main(["restore", str(backup), "--data-dir", str(tmp_path / "f2"), "--keys-file",
+                     str(tmp_path / "none.json"), "--verify-only"]) == 1
+    assert "restore failed" in capsys.readouterr().err
+    with pytest.raises(SystemExit):
+        cli_main(["restore", str(backup), "--write-keys", str(out)])
+
+
+async def test_another_mantels_backup_is_refused_where_the_keys_are_read_only(app_local, tmp_path):
+    """Docker and the LXC mount the keys read-only: Restore From Another Mantel put the backup in place and then
+    failed to write the at-rest key, leaving the authenticator apps and saved connections sealed with a key Mantel
+    didn't have, while saying the data was as it was. Now it refuses at the upload, and at the start if it gets
+    that far, before anything is replaced."""
+    m, cfg, _ = app_local
+    await m.user("avery", "owner")
+    await m.sign_in("avery")
+    other = tmp_path / "other"
+    dbmod.Database(other / "data" / "mantel.db")
+    okey = bk.atrest.load_or_create_key(other / "backup.key")
+    oat = bk.atrest.load_or_create_key(other / "at_rest.key")
+    (other / "nas").mkdir()
+    path = bk.create_backup(other / "data", other / "nas", okey)
+    keys = _keys_json(okey, oat).encode()
+    secrets = Path(cfg.secrets_dir)
+    secrets.mkdir(parents=True, exist_ok=True)
+    os.chmod(secrets, 0o500)
+    try:
+        r = await _upload(m, path.read_bytes(), keys)
+        body = await r.json()
+        assert r.status == 400 and body["error"] == "keys_read_only" and "restore.sh" in body["message"], body
+        assert (await (await m.client.get("/api/backup")).json())["pending"] is None
+        # a restore already waiting when the keys turned read-only: nothing is replaced
+        os.chmod(secrets, 0o700)
+        assert (await _upload(m, path.read_bytes(), keys)).status == 200
+        assert (await m.post("/api/backup/restore")).status == 200
+        os.chmod(secrets, 0o500)
+        before = dump(cfg.data_dir / "mantel.db")
+        done = bk.apply_pending(cfg)
+        assert not done["ok"] and "read-only" in done["error"], done
+        assert dump(cfg.data_dir / "mantel.db") == before
+        assert not list(cfg.data_dir.glob("*.before-restore-*"))
+    finally:
+        os.chmod(secrets, 0o700)
