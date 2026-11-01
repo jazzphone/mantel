@@ -53,10 +53,8 @@ The [photo screensaver](Screensaver-and-Idle.md#5-add-the-photo-screensaver) (on
 |---|---|
 | ![Night Mode: the clock a dim red on black](images/saver-clock-night.webp) | ![A mosaic of four photos](images/saver-mosaic.webp) |
 | Night Mode | A mosaic (public-domain photos standing in for yours) |
-| ![Home Energy on the screensaver](images/saver-home-energy.webp) | ![Additional Screens over the clock](images/settings-saver-additional.webp) |
-| [Home Energy](Screensaver-and-Idle.md#home-energy-and-additional-screens) | Additional Screens |
-| ![The Weather screen on the screensaver](images/saver-weather.webp) | |
-| [Weather](Screensaver-and-Idle.md#weather) on the screensaver | |
+| ![Home Energy on the screensaver](images/saver-home-energy.webp) | ![The Weather screen on the screensaver](images/saver-weather.webp) |
+| [Home Energy](Screensaver-and-Idle.md#home-energy-and-additional-screens) | [Weather](Screensaver-and-Idle.md#weather) on the screensaver |
 
 | | |
 |---|---|
@@ -189,8 +187,8 @@ More: [Live Sky](Live-Sky.md).
 | Music | Live TV |
 | ![Clean Areas](images/settings-clean-areas.webp) | ![Alarm PIN](images/settings-alarm-pin.webp) |
 | Clean Areas | Alarm PIN |
-| ![Screensaver Options](images/settings-screensaver.webp) | ![The menu tab’s three sizes](images/menu-tab-sizes.webp) |
-| Screensaver Options | Menu Tab Size |
+| ![The Screensaver editor](images/screensaver-editor.webp) | ![The menu tab’s three sizes](images/menu-tab-sizes.webp) |
+| [Edit Screensaver](Screensaver-and-Idle.md#edit-screensaver) | Menu Tab Size |
 | ![Header & Sidebar](images/settings-header-sidebar.webp) | ![Your Own Dashboards](images/settings-yaml-reference.webp) |
 | Home Assistant Header & Sidebar | Your Own Dashboards |
 | ![Rooms, for all screens](images/settings-rooms.webp) | ![A room’s own settings](images/settings-room.webp) |
@@ -215,7 +213,7 @@ More: [Live Sky](Live-Sky.md).
 | [Status Chips](Status-Chips.md) | [Power Page](Energy.md#power-page-settings) |
 | ![Wall Tablets](images/settings-wall-tablets.webp) | ![One wall tablet's page](images/settings-tablet.webp) |
 | [Wall Tablets](Wall-Tablets.md) | A tablet’s page |
-| ![The screensaver's Clock Style](images/settings-clock-style.webp) | |
-| [Clock Style](Screensaver-and-Idle.md#a-clock) | |
+| ![The big element in the Screensaver editor: the time’s Face, Color, Size and Position](images/screensaver-editor-time.webp) | |
+| [The time’s face](Screensaver-and-Idle.md#a-clock) in the editor | |
 
 More: [HK Settings](HK-Settings.md).

@@ -24,6 +24,8 @@ With nothing tapped, the right side shows the **Screensaver** settings. **Backgr
 
 Tap the time, or whatever is large on the screen. **Shows** is **Time**, **Temperature**, **Date**, **Month** or **None**.
 
+![The big element tapped: its Face, Color, Size and Position on the right](../images/screensaver-editor-time.webp)
+
 - **The Time** has a **Face**, its **Color**, and **24-Hour Time**.
 - **Size**, **Position** and **Align** say how large it is and where it stands.
 - **Depth** is **In Front**, or, where the background allows it, **Behind the Subject** on photos (the photo's subject stands in front of the time, as on the iPhone's Lock Screen), **Behind the Land** or **Planted** on the Landscape (solid figures standing in the meadow).
@@ -37,12 +39,12 @@ Widgets come in kinds, listed on the left: **Circular** and **Rectangular** ones
 
 The row sits **Under the Big Element**, or **Along the Bottom** of the screen, which keeps the middle of a photo, where faces usually are, clear. Tap the row, or a widget in it, and choose under **The Row**. Along the bottom, the bottom corners stand beside the row, or above it where they would meet.
 
-- **Add:** tap a widget, then tap a green place on the screen. There is no dragging, so it works the same on an iPad.
+- **Add:** tap a widget, then tap a green place on the screen. There is no dragging, so it works the same on an iPad. Or tap the round **+** that follows the last widget in the row, or sits under or over a corner's stack: it lists what fits there, and it stays for as long as there is room.
 - **Change:** tap a widget or a card on the screen. Every one has the same **Look**: its **Size** (60 to 160 % of its usual size; the others move to make room), its **Backdrop** (**None**, **Glass** or **Tinted**) and its **Color** (**Auto**, taken from what is behind it as the lock screen does, **White** or **Accent**).
 - **Move:** pick another place under **Where**, or use the Move buttons to change its order.
 - **Remove:** the red **Remove** button at the foot of its settings. Delete does the same from a keyboard.
 
-Tap an empty place, without a widget picked, to see what fits there. A card with nothing to show right now, such as Now Playing with no music or Timers with none running, keeps its place: the editor draws it dotted, with its name and when it shows.
+Tap an empty place, or its **+**, without a widget picked, to see what fits there. A card with nothing to show right now, such as Now Playing with no music or Timers with none running, keeps its place: the editor draws it dotted, with its name and when it shows.
 
 Things line up by what you see, not by their boxes: the top of the time is level with the first words in the top corners, and the bottom corners' last lines sit on one baseline.
 
@@ -58,4 +60,4 @@ Things line up by what you see, not by their boxes: the top of the time is level
 
 A screen that has never saved a layout is drawn exactly as before. **Back to Today's Look**, at the foot of the Screensaver settings, rebuilds a layout from the screen's current settings.
 
-Everything else about the screensaver stays on its page: albums, how long each photo shows, the mosaic, Night Mode, **Starts After**. **Photos, Wallpaper and More** in the editor opens it.
+The editor is the only place to change what the screensaver shows and how it looks: the background, the time and its face, the widgets and the corners, the legibility over photos, and which slides come between the photos. **Screensaver Options** keeps what cannot be laid out on the screen: where the photos come from (a folder, or Mantel Photos), how they show (one at a time or a mosaic, their order, **Each Photo For**, **Slow Zoom**, and how portrait and landscape photos fit), the wallpaper when the background is Wallpaper, the slides and how often they come (**Now and Then**), **Night Mode**, the **Side Pane**, **Starts After** and the other timing, and the entities for automations. The editor's **Photos, Slides and Timing** row opens it (**Choose the Wallpaper, Photos and More**, when the background is Wallpaper). A screen with a saved layout can go back to its old look with **Remove the Layout…** there.

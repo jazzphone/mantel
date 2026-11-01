@@ -6,7 +6,8 @@ keeps a tablet awake.
 ## 5. Add the photo screensaver
 
 The screensaver shows your photos with the time, the weather, what is playing,
-any running timers and the home’s status over them. It is part of HK Frontend
+any running timers and the home’s status over them (you lay out which, and
+where, in [Edit Screensaver](#edit-screensaver)). It is part of HK Frontend
 (nothing to install), and it runs only on a wall tablet: a computer or a phone
 opening the same screen never gets it.
 
@@ -29,7 +30,11 @@ in for one of yours.)*
    unless you turn off **Same as All Screens** and give it its
    own; the row then reads **Just This Screen**.
 
-![Screensaver Options in HK Settings: timing, photos and what shows over them, with the screensaver itself in the preview](images/settings-screensaver.webp)
+**Screensaver Options** keeps what can’t be laid out on the screen: where the
+photos come from and how they show, the slides that come between them, Night
+Mode and the timing. **What shows and how it looks** (the background, the time
+and its face, the widgets and the corners) is set in
+[Edit Screensaver](#edit-screensaver), the first row on the page.
 
 On this page the preview beside the settings shows the screensaver itself, as
 that screen shows it, and changes as you change the options. Only the preview
@@ -70,9 +75,12 @@ uses All Screens’ settings gets its own when you save, starting from them.
   moves out of its way.
 - **Widgets**, in kinds: **Circular** and **Rectangular** (the row: four
   units to a line, two lines at most, as on the iPhone), **Inline**,
-  **Cards** (the corners) and **Along the Bottom**. Tap one, then a green
-  place on the screen; there is no dragging. Tap a widget or a card on the
-  screen for the same **Look** on every one (**Size**, 60 to 160 %;
+  **Cards** (the corners: Weather, Now Playing, Timers, Home Status, Clock)
+  and **Along the Bottom** (the forecast and its readings). Tap
+  one, then a green place on the screen; there is no dragging. A round **+**
+  after the last widget in the row, and under or over a corner’s stack,
+  lists what fits there, for as long as there is room. Tap a widget or a card
+  on the screen for the same **Look** on every one (**Size**, 60 to 160 %;
   **Backdrop**: **None**, **Glass** or **Tinted**; **Color**), **Where**
   and **Remove**.
 - **The row** sits **Under the Big Element** or **Along the Bottom** of the
@@ -85,7 +93,16 @@ uses All Screens’ settings gets its own when you save, starting from them.
   shape, and **Preview** hides the green places.
 - **Save** stores it; **Cancel** and **Undo** (⌘Z) take it back.
   **Back to Today’s Look** rebuilds a layout from the screen’s current
-  settings. A screen that has never saved a layout is drawn as before.
+  settings. A screen that has never saved a layout is drawn as before, and
+  opening the editor starts from how it looks today.
+- **What stays on the Screensaver Options page** is what can’t be laid out:
+  **Photos** (where they come from), **Slideshow** (one at a time or a
+  mosaic, the order, **Each Photo For**, **Slow Zoom**), **Portrait Photos**
+  and **Landscape Photos**, **Forecast When There Are No Photos**, the
+  wallpaper when the background is **Wallpaper**, **Now and Then** (the
+  slides among the photos), **Night Mode**, the **Side Pane** and **Timing**.
+  The editor’s last group of settings links to it. **Remove the Layout…**
+  there gives a screen its old look again.
 
 ### How it behaves
 
@@ -137,11 +154,11 @@ uses All Screens’ settings gets its own when you save, starting from them.
 - Over the photos: the clock and date, the weather, what is playing, running
   timers, and **Home Status** top right (“Home Secured” when the alarm is set
   and everything is shut and locked; otherwise what is open or unlocked;
-  nothing when there is nothing to say). Each can be turned off under **Over
-  the Photos**.
-- **Tap the left or right edge** for the previous or next photo (on
-  **Show: Clock** there is no stepping, even with photos or the Landscapes
-  behind the clock: a tap anywhere closes it). **A tap
+  nothing when there is nothing to say). Each is a widget or a card in
+  [Edit Screensaver](#edit-screensaver): remove it there to turn it off.
+- **Tap the left or right edge** for the previous or next photo (on any
+  background but **Photos** there is no stepping, even with photos or the
+  Landscapes behind the clock: a tap anywhere closes it). **A tap
   anywhere else closes it**, and that tap never presses anything on the
   screen behind; taps are ignored for 3 seconds after, so a second tap cannot
   either.
@@ -155,15 +172,18 @@ uses All Screens’ settings gets its own when you save, starting from them.
 
 ### A clock
 
-**Show: Clock** (beside Photos and Forecast) makes a clock the screensaver,
-full screen. Over the photos or the forecast, the **Clock** row is
-**Corner** (the small clock and date, top left), **Large** (the same clock
-as Show: Clock, centered, in place of the small one) or **Off**.
+A clock is the screensaver when **the time** is the big element in
+[Edit Screensaver](#edit-screensaver): start from **Clock** or
+**Nightstand**, or tap the big element and set **Shows** to **Time**. The time
+can stand over any background, from **Moving Color** and **Black** to **Photos**.
+A small clock and date can also sit in a corner, as the **Clock** card.
 
-![Show: Clock on a wall tablet: one clock face, full screen, over a moving background](images/saver-clock.webp)
+![A clock on a wall tablet: one clock face, full screen, over a moving background](images/saver-clock.webp)
 
-One **Clock Style** serves Show: Clock and a Large clock; its page lists the
-fifteen, with the preview showing the one you pick:
+![The time as the big element in the Screensaver editor: its Face, Color, Size, Position and Align on the right](images/screensaver-editor-time.webp)
+
+One **Face** serves the time wherever it stands; tap the big element in the
+editor and choose among the fifteen, with the screen showing the one you pick:
 
 | Style | Look |
 |---|---|
@@ -185,30 +205,28 @@ fifteen, with the preview showing the one you pick:
 
 ![Six of the clock styles side by side](images/saver-clock-faces.webp)
 
-**Color**, under the style and at the top of its page, offers that
-style's own colors (Classic: White, Warm, Ice Blue, Mint or Rose; Today: By
-Time of Day, or one color). Each style keeps its own, so trying another
-style loses none.
+**Color** offers that face's own colors (Classic: White, Warm, Ice Blue,
+Mint or Rose; Today: By Time of Day, or one color). Each face keeps its own,
+so trying another loses none.
 
-![The Clock Style page in HK Settings: the Color at its top, then the fifteen styles](images/settings-clock-style.webp)
-
-Every style shows the date, and **24-Hour Time** switches them all. On a
+Every face shows the date, and **24-Hour Time** switches them all. On a
 screen left on all night the clock drifts a few percent every five minutes,
 so nothing burns in. The digits are set the way Apple sets a big clock:
 proportional, so a “1” doesn’t leave a gap, with the colon raised to the
 middle of the digits.
 
+**Size**, **Position** and **Align** say how large the time is and where it
+stands, and **Depth** whether it is **In Front** of the background or, on
+photos, **Behind the Subject** (the photo’s subject stands in front of the
+time, as on an iPhone’s Lock Screen). Over photos, **Legibility** sets how
+much the time stands out from them: **Shadow** (a soft shadow under it, 40% to
+begin with) and **Outline** (a dark outline around it, 0 to begin with).
+
 Today carries its own weather and music, so it stands in for the **Weather**
-and **Now Playing** corners while it shows (Home Status and Timers stay).
+and **Now Playing** cards while it shows (Home Status and Timers stay).
 
-A screen's page offers a **Recommended for** its room when its clock isn't
-already the one suggested there, one tap to take it: a bedroom Minimal Arc on
-Black with Night Mode, a bathroom Classic on Black with Night Mode, a kitchen
-Today on Sky Only, a living room Classic on Sky Only, an office Flip on a
-Drifting Gradient, an entry or garage Today on Black, and anywhere else Today
-on Sky Only.
-
-**Night Mode** (with Show: Clock, or a Large clock): **Off**, **At Night**
+**Night Mode** (on **Screensaver Options**, wherever the screensaver shows
+the time large): **Off**, **At Night**
 (**From** and **Until**, 22:00 to 07:00 to begin with, across midnight) or
 **Always**. Like StandBy on an iPhone, the clock and everything over it turn a
 dim red on black and nothing behind the clock is drawn, so a bedroom stays
@@ -216,9 +234,10 @@ dark. It comes and goes on its own, checked every half minute.
 
 ![Night Mode: the clock a dim red on black](images/saver-clock-night.webp)
 
-With Show: Clock:
+Behind the time and everything else:
 
-- **Behind the Clock → Background**: **Black**; **Grain Wash** (two
+- **Background** in Edit Screensaver, with nothing tapped: **Black**; **Moving
+  Color**, whose **Pattern** is **Grain Wash** (two
   colors drifting under fine grain), **Drifting Gradient**, **Aurora**, **Ink
   Swirl** or **Follow the Sky** (the live sky's colors as they are now, a
   soft light drifting across, no stars or weather); **Low Poly** (a light
@@ -227,42 +246,43 @@ With Show: Clock:
   by fine lines); **Forecast** (the forecast's sky and the season's land);
   **Sky Only** (the same live sky -- its clouds, stars, sun, moon, rain and
   snow -- with no land, trees or decorations under it); **Photos** (your
-  photos, below); or **Landscapes** (HK Frontend's own photos, below).
-  Every one but Black moves. Forecast and Sky Only move as the live sky
-  does, and Photos and Landscapes as the photos change. The rest (Grain Wash
-  through Constellation) have **Speed**, how fast (0 holds it still,
+  photos, below); or **HK Landscapes** (HK Frontend's own photos, below).
+  (The editor’s list also has **Landscape** for the forecast’s sky and
+  land, **Soft Photos**, **The Day’s Art**, **Calm Color** and **Paper**.)
+  Every one but Black moves. Landscape and Sky Only move as the live sky
+  does, and Photos and HK Landscapes as the photos change. The Moving Color
+  patterns (Grain Wash through Constellation) have **Speed**, how fast (0 holds it still,
   changing once a minute, for a tablet that runs warm), and **Depth**, how
   strong (the colors, the glow, the relief, how many contours or points).
   They're drawn on the tablet itself and moved smoothly by the browser: a
   new frame about once a second, blended continuously into the last (Low
   Poly's facets are drawn once and its light slides across them;
   Constellation draws up to 30 frames a second), so they cost little.
-- **Over the Clock**: **Weather** (top left), **Now Playing** (bottom left),
-  **Timers** (bottom right), **Home Status** (top right) and the forecast
-  along the bottom, each its own switch: turn them all off for the clock
-  alone. **Music First** and the **Side Pane** work as they do over the
+- **Over the clock**: the **Weather** card (top left), **Now Playing**
+  (bottom left), **Timers** (bottom right), **Home Status** (top right) and
+  the forecast along the bottom, each a widget or a card you add or remove in
+  the editor: remove them all for the clock alone. **Music Full Screen** (in
+  the editor’s **Slides**) and the **Side Pane** work as they do over the
   photos; the clock moves over beside the pane. While the music fills the
-  screen, the small clock and date tell the time above it, top left (with a
-  Large clock over the photos too).
+  screen, the small clock and date tell the time above it, top left.
 - Glass draws its frosted pane from the background itself, the way
   Pre-rendered glass does, never as a live blur.
 
 **Photos behind the clock** are the photos themselves, laid out by the same
-**Photos** settings as the Photo Screensaver: **Layout** (**One at a Time** or
-**Mosaic**, with all of the mosaic’s settings), **Order**, **Each Photo For**,
-**Slow Zoom**, and **Portrait Photos** and **Landscape Photos**. **Darken**
-(0–80%, 35% to begin with) dims them so the clock reads. **Photos: Sharp**
-shows them as they are; **Soft** is the older look, blurred, dimmed copies
-one at a time.
+settings as the Photo Screensaver, on **Screensaver Options**: **Layout**
+(**One at a Time** or **Mosaic**, with all of the mosaic’s settings),
+**Order**, **Each Photo For**, **Slow Zoom**, and **Portrait Photos** and
+**Landscape Photos**. **Darken** (0–80%), set in the editor, dims them so the
+time reads. The **Photos** background shows them as they are; **Soft
+Photos** is the older look, blurred, dimmed copies one at a time.
 
 ### Landscapes
 
-**Behind the Clock → Landscapes** shows fifty photos that come with HK
+The **HK Landscapes** background shows fifty photos that come with HK
 Frontend in place of your own: mountains, lakes, coasts, deserts, canyons,
 forests, waterfalls, snow, the Milky Way and the northern lights. Nothing to
 set up, and nothing of your home on the screen. They change and lay out the
-way your photos do (**Each Photo For**, **Order**, **Layout**, **Darken**,
-**Sharp** or **Soft**).
+way your photos do (**Each Photo For**, **Order** and **Layout**).
 
 ![The Big Serif clock over one of the Landscapes](images/saver-clock-landscapes.webp)
 
@@ -272,23 +292,20 @@ photo's source. To show a set of your own instead, put an `index.json` and
 your pictures in a `landscapes` folder of [your files](Your-Files.md): it is
 read in place of the bundled one.
 
-**Clock Text**, over photos, sets how much the clock stands out from them:
-**Shadow** (a soft shadow under it, 40% to begin with) and **Outline** (a dark
-outline around it, 0 to begin with). The same two sliders are there for a
-**Large** clock over the photos.
-
-In HK Settings' preview, choosing a style redraws the clock where it is, so
-you can compare them one after another.
+In the editor, choosing a face redraws the time where it is, so you can
+compare them one after another.
 
 ### No photos? The forecast
 
 Without photos (none in the folder yet, or a folder that can’t be read), the
 screensaver shows the **forecast** instead, and you can choose it outright:
-**Screensaver Options → Show → Forecast**. Rather have a dark screen when
-there are no photos? Turn off **Forecast When There Are No Photos**. Or have
-both: **Between the Photos → Forecast** brings the forecast round as one of
-the photos every few photos (**A Slide**: every 3, 5, 10 or 20), for as long
-as a photo shows; its sky only moves while it is on screen.
+in Edit Screensaver, **Background → Landscape** (or start from **Forecast**).
+Rather have a dark screen when there are no photos? Turn off **Forecast When
+There Are No Photos** on **Screensaver Options**. Or have both:
+**Now and Then → Forecast** (in the editor, **Slides → The Forecast Between
+Photos**) brings the forecast round as one of the photos every few photos
+(**A Slide**: every 3, 5, 10 or 20), for as long as a photo shows; its sky
+only moves while it is on screen.
 
 ![The forecast screensaver: the live sky over a fall landscape, the clock top left, Home Status top right, and the forecast along the bottom](images/tablet-forecast.webp)
 
@@ -311,9 +328,9 @@ as a photo shows; its sky only moves while it is on screen.
   lights, presents and balloons over whichever season is showing.
 - Along the bottom, the forecast details: today’s conditions, the next 12
   hours and the next 6 days, from the weather set in **HK Settings →
-  Weather**. **Details on the Forecast** turns them off, for the sky and the
-  landscape alone; **Over the Photos → Forecast Along the Bottom** puts them
-  over your photos too.
+  Weather**. They are the **Forecast Details** widget, **Along the Bottom**
+  in Edit Screensaver: remove it for the sky and the landscape alone, or add
+  it over your photos too.
 - The clock and date, Home Status, now playing and timers stay, the last two
   above the forecast.
 - While the screen is dark (the kiosk app’s own screensaver, or the screen
@@ -327,7 +344,7 @@ as a photo shows; its sky only moves while it is on screen.
 
 ### The music
 
-**Between the Photos → Music** brings what’s playing round as a slide of its
+**Now and Then → Music** brings what’s playing round as a slide of its
 own, full screen: the album art, large, over a blurred copy of itself, with
 the song, the artist, the album, the room (and how many more are grouped with
 it), how far into the song, and what’s up next. With **Forecast** on too, the
@@ -342,14 +359,13 @@ two take turns. It only comes while music plays anywhere in the house.
   touch anywhere else closes the screensaver, as always.
 - The clock, the date and the weather stay at the top left; the song sits
   below them, the art on the right.
-- **While Music Plays → Music First** makes the music the screensaver while
-  it plays: it fills the screen in place of the photos (or the forecast) and
-  stays, and the photos (or the forecast) come back 20 seconds after it
-  stops (a pause from its own button keeps it there meanwhile). The
-  screensaver starts straight into the music when something is already
-  playing. With **Show: Clock** or a **Large** clock, the music covers the
-  big clock, so the small clock and date show above the music while it
-  plays.
+- **Music Full Screen** (in Edit Screensaver, under **Slides**) makes the
+  music the screensaver while it plays: it fills the screen in place of the
+  photos (or the forecast) and stays, and the photos (or the forecast) come
+  back 20 seconds after it stops (a pause from its own button keeps it there
+  meanwhile). The screensaver starts straight into the music when something
+  is already playing. Over a clock, the music covers the big time, so the
+  small clock and date show above the music while it plays.
 - The music is the one this screen follows, as the dashboard’s music pages
   do: the one you chose there, or what started playing (this tablet’s room
   first). Up Next and the album’s year come from Music Assistant; other
@@ -420,25 +436,24 @@ value, with the values aligned on the right, in both layouts.
   over the forecast, the sky held still and darkened; over a clock’s own
   background, a dark gradient of its own. It fades in over what’s there.
 - **A tap on it opens the Energy page.**
-- **Home Energy Options** (its row, once it’s on): which rings show (Energy
+- **Home Energy Options** (its row, once it’s on, under **Now and Then**): which rings show (Energy
   always), Right Now’s three, the month and where its cost is heading. The
   preview holds Home Energy while you change them.
 - It skips its turn until it has the day’s numbers (a missing number is a
   dash, never a zero).
 
-**With Show: Photos** it is one of the slides **Between the Photos**: the
-music, the forecast and Home Energy take turns, every **A Slide** photos.
+**Over the photos** it is one of the slides under **Now and Then** on
+**Screensaver Options**: the music, the forecast and Home Energy take turns,
+every **A Slide** photos.
 
-**With Show: Forecast or Clock**, **Additional Screens** bring other screens
-in now and then: **Forecast** (on Show: Clock, unless the forecast is already
-behind the clock), **Music** (only while something plays; Music First covers
-it, so it isn’t listed then), **Weather** (on Show: Clock) and **Home Energy**. **Every** few minutes one
+**Over the Landscape or a clock**, **Now and Then** brings other screens
+in now and then: **Forecast** (over a clock, unless the forecast is already
+behind it), **Music** (only while something plays; Music Full Screen covers
+it, so it isn’t listed then), **Weather** (over a clock) and **Home Energy**. **Every** few minutes one
 fades in, for **Show For**, then the forecast or the clock comes back; with
 more than one on, they take turns. None come while music plays first, in the
 clock’s Night Mode, or while the screen is dark. More screens may join this
 list later.
-
-![All Screens → Screensaver: Additional Screens over the clock (Forecast, Music, Weather and Home Energy)](images/settings-saver-additional.webp)
 
 ![Home Energy Options, with the preview holding Home Energy](images/settings-home-energy-options.webp)
 
@@ -492,10 +507,10 @@ snow, stars and moon, with no land and no decorations.
 - **Weather Options**: Rain, Wind, Next Hours and Coming Days, each on or
   off. The preview holds the weather while you change them.
 
-It is one of the slides **Between the Photos** (with Show: Photos), taking
-its turn with the music, the forecast and Home Energy; and one of the
-**Additional Screens** over the clock (Show: Clock). Over Show: Forecast it
-isn’t offered: the forecast is the weather already. The forecast comes from
+It is one of the slides under **Now and Then** over the photos, taking
+its turn with the music, the forecast and Home Energy; and one of the screens
+that come in now and then over a clock. Over the Landscape it isn’t offered:
+the forecast is the weather already. The forecast comes from
 the weather in Weather (its forecast sensors, if you set them there).
 
 ### The side pane: calendar and music
@@ -670,8 +685,8 @@ work, and you can choose per screen.
 | “Someone is using it” | `binary_sensor.<tablet>_screen_in_use`, made for you, with its window set by Starts After | No sensor for touches (a camera motion sensor, below) |
 | Photos | Images from a Home Assistant media folder | Images and videos from a media folder, Immich, Unsplash, entity pictures, or whole websites |
 | Without photos | The forecast, over the live sky and a landscape of the season (or a dark screen, if you prefer) | Nothing to show until a media source has images |
-| The forecast among the photos | Between the Photos → Forecast: the full forecast every few photos | A weather card over the photos, or a weather web page among them |
-| Over the photos | Clock and date, weather, now playing, timers, Home Status, drawn to match the screens | Any cards, badges or dashboard views; the box can move around; EXIF photo details, a progress bar |
+| The forecast among the photos | Now and Then → Forecast: the full forecast every few photos | A weather card over the photos, or a weather web page among them |
+| Over the photos | Clock and date, weather, now playing, timers, Home Status, drawn to match the screens and laid out in Edit Screensaver | Any cards, badges or dashboard views; the box can move around; EXIF photo details, a progress bar |
 | Effects | Cross-fade; Slow Zoom | Cross-fade; Ken Burns (pan and zoom), with more controls |
 | While it shows | The live sky, card animations and the live camera tile hold still | Its own slideshow |
 | Won’t start over | An open detail sheet, Live TV | An Assist dialog; optionally a Browser Mod pop-up |
@@ -858,11 +873,10 @@ its own (both in [Wall Tablets](Wall-Tablets.md#wall-tablets-settings)).
 
 | Setting | Default | What it does |
 |---|---|---|
+| Edit Screensaver | — | Opens [the editor](#edit-screensaver) for every screen whose **Same as All Screens** is on: what shows and how it looks. |
 | Photos → Screensaver Photos | `media-source://media_source/local/photos` | The media folder every screen’s photo screensaver shows. |
-| The options | Photos · 3 Minutes | The same options as a screen’s [Screensaver Options](Screens.md#screensaver-options), for every screen whose **Same as All Screens** is on, with a live preview: a screen that uses them, else any screen with the screensaver, shown with All Screens' settings either way (the line under it names the screen). Clock Style's preview is the same. |
+| The options | Photos · 3 Minutes | The same options as a screen’s [Screensaver Options](Screens.md#screensaver-options), for every screen whose **Same as All Screens** is on, with a live preview: a screen that uses them, else any screen with the screensaver, shown with All Screens' settings either way (the line under it names the screen). What is left here is what can’t be laid out: the photos, the slides, Night Mode and the timing. |
 | Screens | — | Each screen with the Photo Screensaver on, with **Same as All Screens** or **Just This Screen**. |
-
-![All Screens → Screensaver in HK Settings: Show set to Clock over the Landscapes, with the live preview beside it](images/settings-house-screensaver.webp)
 
 Its address is `#/house/screensaver` in HK Settings; the old
 `#/house/tablets/screensaver` (Wall Tablets → Screensaver, before Screensaver

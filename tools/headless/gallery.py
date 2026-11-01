@@ -288,6 +288,10 @@ await until(() => [...ed.shadowRoot.querySelectorAll('.starter-row')].length >= 
 [...ed.shadowRoot.querySelectorAll('.starter-row')].find((r) => r.textContent.includes('Lock Screen')).click();
 await until(() => ed.shadowRoot.querySelector('.ov').children.length > 0, 60000);
 await pause(12000);"""
+# ...and the big element tapped, so the right-hand side shows its Face, Color, Size, Position and Depth
+SAVER_EDITOR_TIME = SAVER_EDITOR + """
+ed.shadowRoot.querySelector('.ov .big').click();
+await pause(2500);"""
 
 # name -> (path, viewport, signed in, script to run before the shot)
 # The path is one of Mantel's own pages: a screen (SCREEN's, or GRID_SCREEN's, which lays Home out as a Home Grid),
@@ -314,6 +318,7 @@ SHOTS = {
     "home-grid-background": (f"/settings#/screens/{GRID_SCREEN}/home-grid", EDITOR, True,
                              script(GRID_EDITOR + GRID_PREVIEW + GRID_BACKGROUND)),
     "screensaver-editor": (f"/settings#/screens/{SCREEN}/screensaver/editor", DESKTOP, True, script(SAVER_EDITOR)),
+    "screensaver-editor-time": (f"/settings#/screens/{SCREEN}/screensaver/editor", DESKTOP, True, script(SAVER_EDITOR_TIME)),
     "settings-me": ("/settings#/mantel/me", DESKTOP, True, None),
     "settings-people": ("/settings#/mantel/people", DESKTOP, True, None),
     "settings-wall-tablet": ("/settings#/house/tablets/kitchen", DESKTOP, True, SCROLL_TO_SETUP),
