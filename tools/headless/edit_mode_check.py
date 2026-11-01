@@ -1,8 +1,9 @@
-"""Edit mode in a browser: Chromium with a finger and WebKit with a mouse, at a tablet's and a phone's size, on a
-fictional house (gallery.py's), against a real Mantel Server.
+"""Edit mode in a browser: Chromium with a finger and WebKit with a mouse, at a tablet's and a phone's size (the
+tablet Chromium's an Android one's, 1280 x 800, WebKit's an 11" iPad's, 1180 x 820), on a fictional house
+(gallery.py's), against a real Mantel Server.
 
     PLAYWRIGHT_PATH=/path/to/node_modules/playwright-core NODE=/path/to/node \\
-        python tools/headless/edit_mode_check.py [--engine chromium|webkit] [--size 1180x820|390x844] \\
+        python tools/headless/edit_mode_check.py [--engine chromium|webkit] [--size 1180x820|1280x800|390x844] \\
                                                  [--only SECTION ...] [--shots DIRECTORY]
 
 What it checks (edit_mode_check.cjs says each one):
@@ -38,7 +39,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / p) for p in ('tools/headless', 'tools', 'hosts/server', 'tests')]
 
 ENGINES = ('chromium', 'webkit')
-SIZES = ('1180x820', '390x844')
+SIZES = ('1180x820', '1280x800', '390x844')
+# each engine's own devices (2026-11-01: Chromium had the iPad's tablet size)
+ENGINE_SIZES = {'chromium': ('1280x800', '390x844'), 'webkit': ('1180x820', '390x844')}
 SECTIONS = ('who', 'room', 'pages', 'menu', 'cancel', 'conflict', 'bar', 'still', 'frost')
 MAC_CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
@@ -64,8 +67,9 @@ def house(gallery) -> None:
     # a second light in the Living Room's Lights group and a third in the Kitchen's: room pages to carry pills on
     gallery.HOUSE['light.kitchen_island'] = ('kitchen', gallery._light('Island', False))
     gallery.HOUSE['light.living_room_floor'] = ('living_room', gallery._light('Floor Lamp', False))
-    # ...and a Living Room long enough to scroll at a tablet's size (a swipe over its pills scrolls it)
-    for i in range(1, 13):
+    # ...and a Living Room long enough to scroll at a tablet's size (a swipe over its pills scrolls it), the wall
+    # tablets' wide 1280 x 800 too (twelve outlets left it 11 px taller than the window there)
+    for i in range(1, 25):
         gallery.HOUSE[f'switch.living_room_outlet_{i}'] = ('living_room', ('off', {'friendly_name': f'Outlet {i}'}))
     base = {'pages': [], 'headers': {'home': True}, 'menu_custom': True}
     b['em-menu'] = {**base, 'menu': 'open'}
@@ -96,7 +100,7 @@ async def main(argv=None) -> int:
         args.shots.mkdir(parents=True, exist_ok=True)
     failed = 0
     for engine in args.engine or ENGINES:
-        for size in args.size or SIZES:
+        for size in args.size or ENGINE_SIZES[engine]:
             # a fresh house for each run: every run saves, and starts from the same layout
             with tempfile.TemporaryDirectory() as td:
                 app, cookie = await gallery.build(Path(td))

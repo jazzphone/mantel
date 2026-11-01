@@ -31,7 +31,7 @@ def test_quick_is_part_of_full_and_full_adds_the_rest():
     assert {"ha-build", "hk-frontend-py", "hk-frontend-js", "caddy-image"} <= set(full)
     assert [n for n in full if n.startswith("headless-")] == [f"headless-{n}" for n in ci.HEADLESS]
     assert full.index("ha-build") < full.index("hk-frontend-py") < full.index("hk-frontend-js")
-    assert {"edit-mode-check-chromium-1180x820", "edit-mode-check-webkit-390x844"} <= set(full)
+    assert {"edit-mode-check-chromium-1280x800", "edit-mode-check-webkit-1180x820"} <= set(full)
     assert "side-strip-check" in full and "side-strip-check" not in quick
     assert {"page-swipe-check-chromium", "page-swipe-check-webkit"} <= set(full)
     assert not any(n.startswith(("edit-mode", "page-swipe")) for n in quick)

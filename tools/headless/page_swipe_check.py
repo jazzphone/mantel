@@ -1,8 +1,9 @@
 """Swipe Between Pages in Chromium and WebKit, with a finger, on the fictional house (docs/phase11/HOMEVIEW-LOOK.md,
 Phase 0).
 
-Each engine at a tablet held sideways and upright (1180 x 820, 820 x 1180) and a phone upright and sideways
-(390 x 844, 844 x 390), against a real Mantel Server and gallery.py's invented house:
+Each engine at a tablet held sideways and upright and a phone upright and sideways (390 x 844, 844 x 390) --
+Chromium's tablet the wall tablets' (Android WebView in Fully Kiosk, 1280 x 800, 800 x 1280), WebKit's an 11" iPad
+(1180 x 820, 820 x 1180) -- against a real Mantel Server and gallery.py's invented house:
 
 - **bar**: a screen with the tab bar (Swipe Between Pages Automatic). A sideways swipe on a tile goes to the next
   tab's page and back; the highlight is on the page's tab after each, at rest; the page it goes back to (Home, held
@@ -39,7 +40,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / p) for p in ('tools/headless', 'tools', 'hosts/server', 'tests')]
 
 ENGINES = ('chromium', 'webkit')
-SIZES = ('1180x820', '820x1180', '390x844', '844x390')
+SIZES = ('1180x820', '820x1180', '1280x800', '800x1280', '390x844', '844x390')
+# each engine's own devices (2026-11-01: Chromium had the iPad's tablet size, never the wall tablets')
+ENGINE_SIZES = {'chromium': ('1280x800', '800x1280', '390x844', '844x390'),
+                'webkit': ('1180x820', '820x1180', '390x844', '844x390')}
 MAC_CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
 
@@ -90,7 +94,7 @@ async def main(argv=None) -> int:
         args.shots.mkdir(parents=True, exist_ok=True)
     failed = 0
     for engine in engines:
-        for size in args.size or SIZES:
+        for size in args.size or ENGINE_SIZES[engine]:
             with tempfile.TemporaryDirectory() as td:
                 app, cookie = await gallery.build(Path(td))
                 from mantel_server.settings_store import load_model
