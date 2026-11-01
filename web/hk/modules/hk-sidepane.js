@@ -1000,6 +1000,9 @@
       '.ckrow{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"t w" "d s";column-gap:12px;row-gap:8px;align-items:baseline}',
       '.ckrow>.big2{grid-area:t;min-width:0}.ckrow>.ckx{grid-area:w}.ckrow>.ckd{grid-area:d;min-width:0}.ckrow>.ckxs{grid-area:s}.ckrow>.ck2{grid-column:1 / -1}',
       '.ckx{justify-self:end;white-space:nowrap;font:var(--ckw,600) calc(48px*var(--cks,1))/1 var(--hk-font-body,inherit);letter-spacing:calc(-1px*var(--cks,1))}',
+      // (the figures are a <b>, which a browser draws a step BOLDER than the clock's own weight: 56° heavier than the
+      // time it sits beside -- 2026-11-01, the owner. They take the clock's weight, as the time does)
+      '.ckx b{font-weight:inherit}',
       // (the glyph inline, centred on the figures, so the line's baseline is the figures')
       '.ckx .wxg,.ckx hk-icon{display:inline-block;width:.72em;height:.72em;--mdc-icon-size:.72em;vertical-align:-.04em;margin-right:.18em}.ckx .wxg svg{display:block;width:100%;height:100%}',
       '.ckxs{justify-self:end;text-align:right;white-space:nowrap}',
