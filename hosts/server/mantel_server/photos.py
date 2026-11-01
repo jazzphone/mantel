@@ -36,11 +36,12 @@ keeps its own library beside that, so a home can put its photos in Mantel and ch
   hand-set point with an album (``api_show``) and crop and zoom around them; a photo without either is cropped as
   it always was.
 * **Time Behind** (cutout.py; migration 0027). Each photo's subject is cut out once -- on upload, right after its
-  faces, and for photos stored before by ``CutoutBackfill`` (as the faces' backfill) -- and the photo is marked
-  usable only where the cut-out works. A usable photo's mask (``masks/<id>.png``) is counted in the quota and goes
-  into backups with the rest; ``api_show`` hands a screensaver the mask and where the time goes, and an album can
-  be set to show only the photos that qualify. Without the model, nothing changes. And for Photo Titles, the year a
-  photo was taken (its EXIF's, read before the EXIF is dropped) is kept.
+  faces, and for photos stored before by ``CutoutBackfill`` (as the faces' backfill) -- and the photo qualifies
+  only where the cut-out works, by the library's preset (Strict, Standard or Relaxed: ``cutout_preset``, a
+  manager's); the Photos page says why one doesn't. A mask (``masks/<id>.png``) is kept for every photo the loosest
+  preset takes, counted in the quota, and goes into backups with the rest; ``api_show`` hands a screensaver the mask
+  and where the time goes, and an album can be set to show only the photos that qualify. Without the model, nothing
+  changes. And for Photo Titles, the year a photo was taken (its EXIF's, read before the EXIF is dropped) is kept.
 """
 from __future__ import annotations
 
@@ -274,13 +275,43 @@ class PhotoLibrary:
     def count(self) -> int:
         return int(self.db.execute("SELECT COUNT(*) FROM photos").fetchone()[0])
 
+    # TIME BEHIND'S PRESET (2026-11-01, the owner): how strict the cut-outs that qualify are (cutout.PRESETS). Each
+    # photo's share of the frame and confidence are kept, so it applies at once
+    def cutout_preset(self) -> str:
+        row = self.db.execute("SELECT value FROM photo_settings WHERE key='cutout_preset'").fetchone()
+        return row["value"] if row is not None and row["value"] in cutter.PRESETS else cutter.PRESET
+
+    def set_cutout_preset(self, body: object, before: Before = None) -> str:
+        """``{preset: "strict" | "standard" | "relaxed"}``."""
+        if not isinstance(body, dict) or set(body) != {"preset"} or body["preset"] not in cutter.PRESETS:
+            raise PhotoError("bad_preset", "Send {preset: " + ", ".join(cutter.PRESETS) + "}.")
+        if before is not None:
+            before({"before": self.cutout_preset(), "after": body["preset"]})
+        with self.db:
+            self.db.execute("INSERT INTO photo_settings (key, value, updated) VALUES ('cutout_preset', ?, ?) "
+                            "ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated=excluded.updated",
+                            (body["preset"], self.clock()))
+        return self.cutout_preset()
+
+    def qualifies(self, t: str = "") -> tuple[str, list]:
+        """SQL (and its values) true for a photo that qualifies for Time Behind by the library's preset: its mask
+        kept, and its share of the frame and confidence within the preset (``t``: the photos table's alias and a
+        dot). A photo checked before the share was kept qualifies by its confidence until it is checked again
+        (it kept a mask only by Standard)."""
+        rules = cutter.PRESETS[self.cutout_preset()]
+        lo, hi = rules["cover"]
+        return (f"({t}cutout_ok = 1 AND {t}cutout_conf >= ? AND ({t}cutout_cover IS NULL OR "
+                f"{t}cutout_cover BETWEEN ? AND ?))", [rules["sure"], lo, hi])
+
     # -- albums -----------------------------------------------------------------------------------
     def albums(self) -> list[dict]:
+        tb, values = self.qualifies("p.")
         rows = self.db.execute(
             "SELECT a.id, a.name, a.position, a.created, a.updated, COUNT(p.id) AS count, "
-            "COALESCE(SUM(p.bytes), 0) AS bytes, a.depth_only, COALESCE(SUM(p.cutout_ok = 1), 0) AS depth, "
+            f"COALESCE(SUM(p.bytes), 0) AS bytes, a.depth_only, COALESCE(SUM({tb}), 0) AS depth, "
             "(SELECT id FROM photos q WHERE q.album_id = a.id ORDER BY q.created DESC, q.id LIMIT 1) AS cover "
-            "FROM photo_albums a LEFT JOIN photos p ON p.album_id = a.id GROUP BY a.id ORDER BY a.position, a.created")
+            "FROM photo_albums a LEFT JOIN photos p ON p.album_id = a.id GROUP BY a.id ORDER BY a.position, a.created",
+            values)
         return [dict(r, depth_only=bool(r["depth_only"])) for r in rows]
 
     def album(self, album_id: object) -> dict:
@@ -352,9 +383,10 @@ class PhotoLibrary:
 
     def photos(self, album_id: str) -> list[dict]:
         album = self.album(album_id)
-        return [with_cutout(with_focus(dict(r))) for r in self.db.execute(
-            f"SELECT {self._COLS}, faces, focus_x, focus_y, cutout_at, cutout_ok, cutout_conf, cutout_by FROM photos "
-            "WHERE album_id=? ORDER BY created DESC, id", (album["id"],))]
+        rules = cutter.PRESETS[self.cutout_preset()]
+        return [with_cutout(with_focus(dict(r)), rules) for r in self.db.execute(
+            f"SELECT {self._COLS}, faces, focus_x, focus_y, cutout_at, cutout_ok, cutout_conf, cutout_cover, cutout_by "
+            "FROM photos WHERE album_id=? ORDER BY created DESC, id", (album["id"],))]
 
     def photo(self, photo_id: str) -> dict | None:
         row = self.db.execute(f"SELECT {self._COLS} FROM photos WHERE id=?", (photo_id,)).fetchone() \
@@ -412,12 +444,14 @@ class PhotoLibrary:
                 with self.db:
                     self.db.execute("INSERT INTO photos (id, album_id, sha256, name, width, height, bytes, source, "
                                     "created, created_by, faces, faces_at, faces_by, cutout_at, cutout_by, cutout_ok, "
-                                    "cutout_conf, depth_box, taken) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                                    "cutout_conf, cutout_cover, depth_box, taken) "
+                                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                                     (pid, album["id"], sha, row["name"], got.width, got.height, got.size, source,
                                      row["created"], user, json.dumps(got.faces) if checked else None,
                                      self.clock() if checked else None, face_finder.NAME if checked else None,
                                      self.clock() if cut else None, cut.get("by") if cut else None,
                                      int(ok) if cut else None, cut.get("conf") if cut else None,
+                                     cut.get("cover") if cut else None,
                                      json.dumps(cut["box"]) if ok and cut.get("box") else None, got.taken))
             except BaseException:
                 # A thread can't be cancelled: when this add is (an Owner stopped an import, Mantel is stopping), the
@@ -498,22 +532,40 @@ class PhotoLibrary:
     # -- Time Behind: the cut-outs ---------------------------------------------------------------------------
     def uncut(self, skip: Iterable[str] = (), faces_known: bool = True) -> tuple[str, list | None] | None:
         """The newest photo not cut out yet (but those in ``skip``) and its faces -- with ``faces_known``, only among
-        those whose faces have been looked for -- or None. Also one judged by the old rules that kept no mask
-        (``cutout_by`` u2netp: a clear subject the time couldn't be placed behind then; cutout.BY)."""
+        those whose faces have been looked for -- or None. Also one judged by older rules (``cutout_by`` other than
+        cutout.BY: u2netp placed the time behind the head; u2netp/2 kept no share of the frame for the presets)."""
         skip = list(skip)
-        row = self.db.execute("SELECT id, faces FROM photos WHERE (cutout_at IS NULL OR (cutout_ok = 0 AND cutout_by = ?))" +
+        row = self.db.execute("SELECT id, faces FROM photos WHERE (cutout_at IS NULL OR cutout_by IS NOT ?)" +
                               (" AND faces_at IS NOT NULL" if faces_known else "") +
                               f" AND id NOT IN ({','.join('?' * len(skip))}) ORDER BY created DESC LIMIT 1",
-                              [cutter.NAME, *skip]).fetchone()
+                              [cutter.BY, *skip]).fetchone()
         return (row["id"], stored_faces(row["faces"])) if row else None
 
     def cutout_counts(self) -> dict:
-        """``{photos, checked, usable, left, last}`` from the rows (``last``: when the latest was checked)."""
-        r = self.db.execute("SELECT COUNT(*) AS photos, COUNT(cutout_at) AS checked, MAX(cutout_at) AS last, "
-                            "SUM(cutout_ok = 1) AS usable FROM photos").fetchone()
-        photos, checked = int(r["photos"]), int(r["checked"])
-        return {"photos": photos, "checked": checked, "usable": int(r["usable"] or 0), "left": photos - checked,
-                "last": r["last"]}
+        """``{photos, checked, usable, left, last, preset, presets, reasons}`` from the rows: ``usable``, how many
+        qualify by the library's ``preset``; ``presets``, how many would by each; ``reasons``, how many don't and
+        why (cutout.verdict's words); ``checked``/``left``, by the rules of now (cutout.BY: one judged by older rules
+        is checked again, and left meanwhile); ``last``, when the latest was checked."""
+        preset = self.cutout_preset()
+        out = {"photos": 0, "checked": 0, "usable": 0, "left": 0, "last": None, "preset": preset,
+               "presets": dict.fromkeys(cutter.PRESETS, 0), "reasons": {}}
+        for r in self.db.execute("SELECT cutout_at, cutout_by, cutout_ok, cutout_conf, cutout_cover FROM photos"):
+            out["photos"] += 1
+            if r["cutout_at"] is None:
+                out["left"] += 1
+                continue
+            if r["cutout_by"] == cutter.BY:
+                out["checked"] += 1
+            else:
+                out["left"] += 1
+            out["last"] = max(out["last"] or 0, r["cutout_at"])
+            for name, rules in cutter.PRESETS.items():
+                why = cutter.verdict(r["cutout_cover"], r["cutout_conf"], rules, bool(r["cutout_ok"]))
+                out["presets"][name] += why is None
+                if name == preset and why is not None:
+                    out["reasons"][why] = out["reasons"].get(why, 0) + 1
+        out["usable"] = out["presets"][preset]
+        return out
 
     async def store_cutout(self, photo_id: str, got: dict) -> bool:
         """A photo's cut-out stored (the backfill): its row, and a usable one's mask -- counted in the quota; when it
@@ -531,9 +583,10 @@ class PhotoLibrary:
                 mask = box = None
             await asyncio.to_thread(self._write_mask, photo_id, mask)
             with self.db:
-                self.db.execute("UPDATE photos SET cutout_at=?, cutout_by=?, cutout_ok=?, cutout_conf=?, depth_box=?, "
-                                "bytes=bytes-?+? WHERE id=?",
+                self.db.execute("UPDATE photos SET cutout_at=?, cutout_by=?, cutout_ok=?, cutout_conf=?, "
+                                "cutout_cover=?, depth_box=?, bytes=bytes-?+? WHERE id=?",
                                 (self.clock(), got.get("by") or cutter.BY, int(bool(mask)), got.get("conf"),
+                                 got.get("cover"),
                                  json.dumps(box) if mask and box else None, was, len(mask or b""), photo_id))
         return bool(mask)
 
@@ -607,10 +660,13 @@ def stored_box(raw: object) -> list | None:
     return [round(v, 4) for v in (x, y, w, h)]
 
 
-def with_cutout(row: dict) -> dict:
-    """A row with ``cutout_at/_ok/_conf/_by`` -> ``cutout``: None (not checked yet) or ``{ok, conf, by}``."""
-    at, ok, conf, by = (row.pop(k, None) for k in ("cutout_at", "cutout_ok", "cutout_conf", "cutout_by"))
-    row["cutout"] = None if at is None else {"ok": bool(ok), "conf": conf, "by": by}
+def with_cutout(row: dict, rules: dict) -> dict:
+    """A row with ``cutout_at/_ok/_conf/_cover/_by`` -> ``cutout``: None (not checked yet) or ``{ok, why, conf, cover,
+    by}``: ``ok``, it qualifies by ``rules`` (the library's preset); else ``why`` not (cutout.verdict)."""
+    at, ok, conf, cover, by = (row.pop(k, None) for k in ("cutout_at", "cutout_ok", "cutout_conf", "cutout_cover",
+                                                          "cutout_by"))
+    why = None if at is None else cutter.verdict(cover, conf, rules, bool(ok))
+    row["cutout"] = None if at is None else {"ok": why is None, "why": why, "conf": conf, "cover": cover, "by": by}
     return row
 
 
@@ -1233,6 +1289,17 @@ async def api_cutouts(request: web.Request) -> web.Response:
     return _json(200, ok=True, cutouts=status)
 
 
+@guard("manager", audit="photos.cutouts.preset")
+async def api_cutout_preset(request: web.Request) -> web.Response:
+    """Time Behind's preset: how strict the cut-outs that qualify are (Strict, Standard or Relaxed)."""
+    ident = guarded(request)
+    try:
+        _lib(request).set_cutout_preset(await _body(request), before=_first(request, ident, "photos.cutouts.preset"))
+    except PhotoError as exc:
+        return _fail(exc)
+    return _json(200, ok=True, cutouts=request.app["photos_cutouts"].status())
+
+
 @guard("owner", audit="photos.import.cancel")
 async def api_import_cancel(request: web.Request) -> web.Response:
     ident = guarded(request)
@@ -1269,9 +1336,10 @@ async def api_show(request: web.Request) -> web.Response:
     except PhotoError:
         return _nothing()
     only = bool(lib.db.execute("SELECT depth_only FROM photo_albums WHERE id=?", (album["id"],)).fetchone()[0])
-    rows = lib.db.execute("SELECT id, name, width, height, faces, focus_x, focus_y, cutout_at, cutout_ok, depth_box, "
-                          "taken FROM photos WHERE album_id=?" + (" AND cutout_ok = 1" if only else "") +
-                          " ORDER BY created, id", (album["id"],))
+    tb, values = lib.qualifies()                                    # by the library's preset
+    rows = lib.db.execute(f"SELECT id, name, width, height, faces, focus_x, focus_y, cutout_at, {tb} AS tb, depth_box, "
+                          "taken FROM photos WHERE album_id=?" + (f" AND {tb}" if only else "") +
+                          " ORDER BY created, id", [*values, album["id"], *(values if only else [])])
     out = []
     for r in rows:
         item = {"id": r["id"], "title": r["name"], "w": r["width"], "h": r["height"],
@@ -1281,9 +1349,9 @@ async def api_show(request: web.Request) -> web.Response:
         found = stored_faces(r["faces"])
         if found:
             item["faces"] = [[round(float(v), 4) for v in f[:4]] for f in found]
-        # TIME BEHIND: a usable photo's cut-out (the address changes with a new cut-out); each screen decides, with
-        # the photo as it draws it, whether the time goes behind its subject (hk-saver.js). An older one's box, too
-        if r["cutout_ok"]:
+        # TIME BEHIND: a qualifying photo's cut-out (the address changes with a new cut-out); each screen decides,
+        # with the photo as it draws it, whether the time goes behind its subject (hk-saver.js). An older one's box, too
+        if r["tb"]:
             item["depth"] = {"mask": f"/api/photos/{r['id']}/mask?v={int(r['cutout_at'] or 0)}"}
             box = stored_box(r["depth_box"])
             if box is not None:
@@ -1343,6 +1411,7 @@ def register(app: web.Application, hub=None) -> None:
     r.add_delete("/api/photos/import", api_import_cancel)
     r.add_get("/api/photos/faces", api_faces)
     r.add_get("/api/photos/cutouts", api_cutouts)
+    r.add_put("/api/photos/cutouts", api_cutout_preset)
     r.add_put(r"/api/photos/{photo:[0-9a-f]{32}}/focus", api_focus)
     r.add_get(r"/api/photos/{photo:[0-9a-f]{32}}/{size:original|screen|mid|thumb|mask}", serve)
     app["photos_faces"] = FaceBackfill(app)

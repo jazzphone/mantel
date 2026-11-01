@@ -54,6 +54,7 @@ export const STYLE = [
   '.mxview .bot{justify-content:space-between;color:rgba(255,255,255,.7);font-size:13px}',
   '.mxview .pic{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}',
   '.mxview .pic img{max-width:100%;max-height:100%;object-fit:contain}',
+  '.mxview .tbw{flex:none;padding:0 12px;text-align:center;color:rgba(255,255,255,.7);font-size:13px}',
   '.mxview button{border:0;background:none;color:#fff;font:inherit;font-size:17px;padding:8px 10px;border-radius:8px;cursor:pointer}',
   '.mxview button:focus-visible{outline:2px solid #fff}',
   '.mxview button.red{color:#ff453a}',
@@ -260,25 +261,49 @@ function drawFaces(c, d) {
 
 // TIME BEHIND (cutout.py; photos.py CutoutBackfill): how many photos qualify for the screensavers' Photo, Time
 // Behind -- or why it isn't available here (the cut-out model isn't installed, or can't run); while the backfill
-// cuts out the photos added before, the count is read again with the faces'
+// cuts out the photos added before, the count is read again with the faces'. HOW STRICT (2026-11-01, the owner:
+// "a threshold adjustment...or maybe a few presets"): Strict, Standard or Relaxed, each with how many it takes,
+// applied at once (each photo's check is kept); and why the others don't qualify
+const TB_PRESETS = [['strict', 'Strict'], ['standard', 'Standard'], ['relaxed', 'Relaxed']];
+const TB_WHY = { small: 'subject too small', large: 'subject too large', unsure: 'edges unclear',
+  unreadable: 'file couldn’t be read', full: 'no room for its cut-out', again: 'being checked again' };
+function tbWords(p) {
+  const f = p.cutout;
+  if (!f) return 'not checked yet';
+  return f.ok ? 'qualifies' : TB_WHY[f.why] || 'doesn’t qualify';
+}
+function tbReasons(counts) {
+  const list = Object.keys(TB_WHY).filter((k) => counts[k]).map((k) => counts[k].toLocaleString() + ' ' + TB_WHY[k]);
+  return list.length ? ' Those that don’t: ' + list.join(', ') + '.' : '';
+}
 function drawCutouts(c, d) {
   const f = d.cutouts;
   if (!f || !f.photos) return;
-  let row, footer;
+  let rows, footer;
   if (f.state === 'unavailable') {
-    row = T.info('Time Behind', null, 'Not Available Here');
+    rows = [T.info('Time Behind', null, 'Not Available Here')];
     footer = 'Mantel needs its cut-out model to tell where the person or thing in a photo is. Without it, a screensaver set to Time Behind shows the time in front.';
   } else {
     if (FACES_LOOKING.includes(f.state)) pollCutouts();
     const looking = FACES_LOOKING.includes(f.state) || f.left > 0;
-    row = T.info(looking ? 'Cutting Out' : 'Photos That Qualify', null,
-      looking ? f.checked.toLocaleString() + ' of ' + f.photos.toLocaleString() : f.usable.toLocaleString() + ' of ' + plural(f.photos, 'photo'));
+    const counts = f.presets || {};
+    rows = [T.info(looking ? 'Cutting Out' : 'Photos That Qualify', null,
+      looking ? f.checked.toLocaleString() + ' of ' + f.photos.toLocaleString() : f.usable.toLocaleString() + ' of ' + plural(f.photos, 'photo')),
+      K().select({ label: 'How Strict', sub: 'Which photos qualify', fk: 'mx:photos-cutout-preset',
+        options: TB_PRESETS.map(([v, say]) => [v, say + (counts[v] !== undefined ? ' · ' + counts[v].toLocaleString() : '')]),
+        value: f.preset || 'standard',
+        onChange: async (v) => {
+          if (await T.act('photos', () => T.api('PUT', '/api/photos/cutouts', { preset: v }), 'Saved.', 'photos',
+            ...(d.albums || []).map((a) => 'album:' + a.id))) changed();
+        } })];
+    rows[0].setAttribute('data-fk', 'mx:photos-cutouts');
     footer = 'Time Behind draws the time behind the person or thing in a photo. It works on a clear subject, so only those photos qualify: ' +
-      'they are marked in each album, and an album can show only them. The others show the time in front. Each cut-out is kept with its photo, ' +
+      'they are marked in each album, and an album can show only them. The others show the time in front. ' +
+      'Strict takes only the clearest subjects; Relaxed also takes smaller and larger ones, and softer edges.' +
+      (looking ? '' : tbReasons(f.reasons || {})) + ' Each cut-out is kept with its photo, ' +
       'counted in the space for photos, and goes into the backups.' + (looking ? ' The photos added before are cut out in the background, one at a time.' : '');
   }
-  row.setAttribute('data-fk', 'mx:photos-cutouts');
-  c.appendChild(T.group({ header: 'Time Behind', footer }, [row]));
+  c.appendChild(T.group({ header: 'Time Behind', footer }, rows));
 }
 let cutoutsTimer = null;
 function pollCutouts() {
@@ -422,9 +447,12 @@ function drawAlbumTimeBehind(c, d, aid, album, list) {
   const st = d.cutouts || {};
   if (st.state === 'unavailable' && !album.depth_only) return;
   const n = list.filter((p) => p.cutout && p.cutout.ok).length;
+  const why = {};
+  for (const p of list) if (p.cutout && !p.cutout.ok && p.cutout.why) why[p.cutout.why] = (why[p.cutout.why] || 0) + 1;
   c.appendChild(T.group({ header: 'Time Behind', footer: (album.depth_only
       ? 'The screensavers showing this album show only its ' + plural(n, 'photo') + ' that qualify for Time Behind.' + (n ? '' : ' None qualify yet, so they show none.')
-      : plural(n, 'photo') + ' in this album qualify for Time Behind: the screensaver can draw the time behind the person or thing in them. Off: every photo shows, the others with the time in front.') }, [
+      : plural(n, 'photo') + ' in this album qualify for Time Behind: the screensaver can draw the time behind the person or thing in them. Off: every photo shows, the others with the time in front.') +
+      tbReasons(why) + ' Tap a photo to see why it does or doesn’t.' }, [
     K().toggle({ label: 'Only Photos That Qualify', on: !!album.depth_only, fk: 'mx:album-depth-only',
       onChange: (on) => T.act('album', () => T.api('PUT', '/api/photos/albums/' + aid + '/options', { depth_only: on }), 'Saved.', 'photos') })]));
 }
@@ -441,7 +469,7 @@ function drawGrid(c, aid, list) {
       const tb = !!(p.cutout && p.cutout.ok);
       const b = hh('button', { type: 'button', class: 'mxph', 'data-id': p.id, 'data-fk': 'mx:ph:' + p.id,
         'aria-pressed': selecting ? String(selected.has(p.id)) : null,
-        'aria-label': (p.name || 'Photo') + ', ' + p.width + ' by ' + p.height + (tb ? ', qualifies for Time Behind' : '') }, [
+        'aria-label': (p.name || 'Photo') + ', ' + p.width + ' by ' + p.height + (p.cutout ? ', Time Behind: ' + tbWords(p) : '') }, [
         hh('img', { src: thumb(p.id), alt: '', loading: 'lazy', decoding: 'async', draggable: 'false' }), hh('span', { class: 'ck', 'aria-hidden': 'true' })]
         .concat(tb ? [hh('span', { class: 'mxtb', text: 'Time Behind', 'aria-hidden': 'true' })] : []));
       b.addEventListener('click', () => {
@@ -758,11 +786,16 @@ function paintViewer() {
   const keep = hh('button', { type: 'button', text: 'Keep in View', 'data-fk': 'mx:view-keep',
     'aria-label': 'Keep in View: ' + keepWords(p) });
   keep.addEventListener('click', () => { v.keep = true; paintViewer(); });
-  v.el.replaceChildren(
+  // Time Behind's word on this photo, once Mantel can cut photos out
+  const ov = overview(), cut = ov && ov.data && ov.data.cutouts;
+  const tbw = p.cutout || (cut && cut.state !== 'unavailable')
+    ? hh('div', { class: 'tbw', 'data-fk': 'mx:view-tb', text: 'Time Behind: ' + tbWords(p) }) : null;
+  v.el.replaceChildren(...[
     hh('div', { class: 'top' }, [close, hh('span', { class: 't', text: p.name || 'Photo' }), del]),
     hh('div', { class: 'pic' }, [hh('img', { src: screenUrl(p.id), alt: p.name || 'Photo' }), prev, next]),
+    tbw,
     hh('div', { class: 'bot' }, [hh('span', { text: (v.i + 1) + ' of ' + v.list.length }), keep,
-      hh('span', { text: p.width + ' × ' + p.height + ' · ' + size(p.bytes) + (p.source === 'ha' ? ' · from Home Assistant' : '') })]));
+      hh('span', { text: p.width + ' × ' + p.height + ' · ' + size(p.bytes) + (p.source === 'ha' ? ' · from Home Assistant' : '') })])].filter(Boolean));
   // the next one is fetched while this one shows
   if (v.i + 1 < v.list.length) { const im = new Image(); im.src = screenUrl(v.list[v.i + 1].id); }
 }

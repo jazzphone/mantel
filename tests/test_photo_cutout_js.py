@@ -1,6 +1,7 @@
 """Time Behind and Photo Titles on Mantel's side of the page (docs/phase11/HOMEVIEW-LOOK.md, Phase I; decision 14):
 Mantel Settings → Your Files → Photos (web/shim/mantel-photos.js) -- the library's Time Behind count, each photo's
-Time Behind badge, an album's Only Photos That Qualify (what it sends) -- and the shell's listPhotos
+Time Behind badge, How Strict (the preset: what it sends) and why the others don't qualify, an album's Only Photos
+That Qualify (what it sends), the preview's word on each photo -- and the shell's listPhotos
 (web/shim/mantel-shell.js), which hands the screensaver a photo's cut-out under the page's prefix, the album's name
 and the year. Run in node with test_mantel_photos_js.py's stand-in kit: no DOM, no network, no photo."""
 from __future__ import annotations
@@ -22,7 +23,12 @@ STEPS = r"""
 const out = {};
 const LIB = ['mantel', 'files', 'photos'];
 const tb = (c) => groups(c).find((g) => g.header === 'Time Behind') || null;
-out.library = tb((await draw(owner, LIB)).c);
+let drawn = await draw(owner, LIB);
+out.library = tb(drawn.c);
+await drawn.c.find((e) => e.attrs['data-fk'] === 'mx:photos-cutout-preset').attrs.onChange('relaxed');
+await tick(); await tick();
+out.presetSent = sent.splice(0);
+out.changed = 'mantel-photos-changed' in stored;
 const ownerRead = reads['/api/photos'];
 reads['/api/photos'] = Object.assign({}, ownerRead, { cutouts: { photos: 812, checked: 400, usable: 90, left: 412, state: 'running' } });
 out.cutting = tb((await draw(owner, LIB)).c);
@@ -32,10 +38,18 @@ const AID = 'a1a1a1a1a1a1a1a1';
 const unAlbum = groups((await draw(owner, LIB.concat([AID]))).c);
 out.albumWhenUnavailable = unAlbum.map((g) => g.header);
 reads['/api/photos'] = ownerRead;
-let { c } = await draw(owner, LIB.concat([AID]));
+drawn = await draw(owner, LIB.concat([AID]));
+let c = drawn.c;
 out.album = tb(c);
 out.badges = c.all().filter((e) => e.cls.has('mxph')).map((t) => [t.attrs['data-id'], t.attrs['aria-label'],
   t.kids.some((k) => k.cls && k.cls.has('mxtb'))]);
+const viewEl = () => drawn.panel.shadowRoot.find((e) => e.cls.has('mxview'));
+out.view = [];
+for (const i of [0, 1, 3]) {
+  c.all().filter((e) => e.cls.has('mxph'))[i].click();
+  out.view.push((viewEl().find((e) => e.attrs['data-fk'] === 'mx:view-tb') || {}).text || null);
+  viewEl().find((e) => e.attrs['data-fk'] === 'mx:view-done').on.click();
+}
 await c.find((e) => e.attrs['data-fk'] === 'mx:album-depth-only').attrs.onChange(true);
 await tick(); await tick();
 out.sent = sent.splice(0);
@@ -62,24 +76,37 @@ def run(reads):
 
 
 def test_photos_says_which_qualify_marks_them_and_an_album_shows_only_them():
-    lib = dict(LIBRARY, cutouts={"photos": 812, "checked": 812, "usable": 214, "left": 0, "state": "done"})
+    lib = dict(LIBRARY, cutouts={"photos": 812, "checked": 812, "usable": 214, "left": 0, "state": "done",
+                                 "preset": "standard", "presets": {"strict": 120, "standard": 214, "relaxed": 390},
+                                 "reasons": {"small": 400, "unsure": 190, "large": 8}})
     lib["albums"] = [dict(a, depth_only=False, depth=3) for a in lib["albums"]]
     photos = [{"id": p, "album_id": A, "name": f"IMG_{i}.jpg", "width": 4032, "height": 3024, "bytes": 2 << 20,
                "source": "upload", "created": 0, "faces": [], "focus": {"x": None, "y": None, "by": "none"},
-               "cutout": {"ok": i % 2 == 0, "conf": 0.9, "by": "u2netp"} if i < 3 else None}
+               "cutout": {"ok": i % 2 == 0, "why": None if i % 2 == 0 else "small", "conf": 0.9, "cover": 0.2,
+                          "by": "u2netp/3"} if i < 3 else None}
               for i, p in enumerate(P)]
     out = run({"/api/photos": lib, f"/api/photos/albums/{A}/photos": {"ok": True, "album": {"id": A, "name": "Family"}, "photos": photos}})
     assert out["library"]["rows"][0]["label"] == "Photos That Qualify" and out["library"]["rows"][0]["value"] == "214 of 812 photos"
     assert "only those photos qualify" in out["library"]["footer"] and "goes into the backups" in out["library"]["footer"]
+    # How Strict: each preset with how many it takes; why the others don't qualify; a change applies at once
+    preset = out["library"]["rows"][1]
+    assert preset["fk"] == "mx:photos-cutout-preset" and preset["label"] == "How Strict" and preset["value"] == "standard"
+    assert preset["options"] == [["strict", "Strict · 120"], ["standard", "Standard · 214"], ["relaxed", "Relaxed · 390"]]
+    assert "Those that don’t: 400 subject too small, 8 subject too large, 190 edges unclear." in out["library"]["footer"]
+    assert out["presetSent"] == [{"method": "PUT", "path": "/api/photos/cutouts", "body": {"preset": "relaxed"}}]
+    assert out["changed"], "the screens read their albums again"
     assert out["cutting"]["rows"][0]["label"] == "Cutting Out" and out["cutting"]["rows"][0]["value"] == "400 of 812"
     assert out["unavailable"]["rows"][0]["value"] == "Not Available Here" and "time in front" in out["unavailable"]["footer"]
     assert "Time Behind" not in out["albumWhenUnavailable"], "nothing to choose without the model"
     # each photo that qualifies wears the badge, and says so to a screen reader
     assert [(b[0], b[2]) for b in out["badges"]] == [(P[0], True), (P[1], False), (P[2], True), (P[3], False)]
-    assert out["badges"][0][1].endswith(", qualifies for Time Behind") and "Time Behind" not in out["badges"][1][1]
+    assert out["badges"][0][1].endswith(", Time Behind: qualifies")
+    assert out["badges"][1][1].endswith(", Time Behind: subject too small") and "Time Behind" not in out["badges"][3][1]
+    assert out["view"] == ["Time Behind: qualifies", "Time Behind: subject too small", "Time Behind: not checked yet"]
     alb = out["album"]
     assert alb["rows"][0]["fk"] == "mx:album-depth-only" and alb["rows"][0]["label"] == "Only Photos That Qualify"
     assert alb["footer"].startswith("2 photos in this album qualify for Time Behind")
+    assert "Those that don’t: 1 subject too small." in alb["footer"]
     assert out["sent"] == [{"method": "PUT", "path": f"/api/photos/albums/{A}/options", "body": {"depth_only": True}}]
 
 

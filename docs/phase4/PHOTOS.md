@@ -256,6 +256,18 @@ is made here, never on a tablet, by a second model in the same image worker, bes
   the time -- 0.36 of the photo's shorter side tall, 2.4 times as wide, centred on the largest face (else the top of
   the subject), its top no lower than the head's -- overlaps the subject by 10-40 % (a quarter looked for). Faces,
   found just before, put the time behind the head. The numbers are to tune on the house's photos.
+* **How strict: three presets (2026-11-01, the owner: "a threshold adjustment...or maybe a few presets").** The
+  numbers above are **Standard**; **Strict** takes a subject of 12-50 % of the frame, 85 % sure, and **Relaxed** one of
+  4-75 %, 60 % sure (`cutout.PRESETS`; to tune on the house's photos). The library has one preset (`photo_settings`
+  `cutout_preset`, a manager's: Photos → Time Behind → How Strict, each preset with how many photos it takes). Each
+  photo's share of the frame (`cutout_cover`, migration `0029`) and confidence are kept, and a mask for every photo
+  Relaxed takes, so a change applies at once with no cutting again: `PhotoLibrary.qualifies` is the SQL every count,
+  list and screensaver reads by. `cutout.verdict` says why a photo doesn't qualify -- subject too small, too large,
+  edges unclear, the file unreadable, no room for its mask, or being checked again -- and Photos says it under each
+  photo in the preview, to a screen reader on each photo in the grid, and as counts under the library's and each
+  album's Time Behind. Photos judged before (`cutout_by` u2netp/2: no share of the frame, masks only by Standard)
+  are checked again by the backfill, newest first; until then one with its mask still qualifies by its confidence.
+  Each screen's own check (the subject covering 5-35 % of the time where it draws it, `hk-saver.js`) is unchanged.
 * **Data** (migration `0027_photo_cutout.sql`). `cutout_at`, `cutout_by` (`u2netp`), `cutout_ok`, `cutout_conf`,
   `depth_box` (JSON `[x, y, w, h]`, fractions of the upright photo) beside `faces`; a partial index `photos_uncut` for
   the backfill. A usable photo's mask is `masks/<id>.png`: the size of the screen copy, white with the mask in its
@@ -272,7 +284,9 @@ is made here, never on a tablet, by a second model in the same image worker, bes
   Behind)".
 * **REST.** `GET /api/photos/cutouts` (manager): `photos`, `checked`, `usable`, `left`, `state`, and `why` when
   unavailable; the overview carries `cutouts` and each album's `depth_only` and `depth` (how many qualify);
-  `GET /api/photos/albums/<id>/photos` gives each photo's `cutout {ok, conf, by}`; `PUT
+  `GET /api/photos/albums/<id>/photos` gives each photo's `cutout {ok, why, conf, cover, by}` (`ok` by the
+  library's preset); the cut-outs' status carries `preset`, `presets` (how many each takes) and `reasons` (how many
+  don't, and why); `PUT /api/photos/cutouts` `{preset}` (manager, CSRF, audited `photos.cutouts.preset`); `PUT
   /api/photos/albums/<id>/options` `{depth_only}` (manager, CSRF, audited `photos.album.options`);
   `GET /api/photos/<id>/mask` (feature:media, immutable). `api_show` gives a usable photo `depth {mask, box}` (the mask's
   address carries `?v=` its cut-out's time), a photo's `year` when known, and only the qualifying photos when the

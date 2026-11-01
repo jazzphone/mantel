@@ -49,21 +49,21 @@ def test_a_clear_subject_is_usable_wherever_it_sits_and_no_place_is_chosen_here(
 def test_too_small_or_too_large_a_subject_is_not_used():
     tiny = Image.new("L", (960, 720), 0)
     ImageDraw.Draw(tiny).ellipse([460, 340, 500, 380], fill=255)          # a speck
-    assert cutout.judge(grid(tiny), np)["why"] == "size"
+    assert cutout.judge(grid(tiny), np)["why"] == "small"
     big = Image.new("L", (960, 720), 255)
-    ImageDraw.Draw(big).rectangle([0, 0, 960, 120], fill=0)              # a subject filling most of the frame
-    assert cutout.judge(grid(big), np)["why"] == "size"
-    assert cutout.judge(grid(Image.new("L", (960, 720), 0)), np)["why"] == "size", "a landscape with no subject"
+    ImageDraw.Draw(big).rectangle([0, 0, 960, 60], fill=0)               # a subject filling nearly all the frame
+    assert cutout.judge(grid(big), np)["why"] == "large"
+    assert cutout.judge(grid(Image.new("L", (960, 720), 0)), np)["why"] == "small", "a landscape with no subject"
 
 
 def test_an_unsure_mask_is_not_used():
     m = portrait(960, 720)
     soft = Image.eval(m, lambda v: 128 if v else 90)                     # half-sure everywhere it says anything
     got = cutout.judge(grid(soft), np)
-    assert got["why"] in ("unsure", "size") and not got["ok"]
+    assert got["why"] in ("unsure", "small", "large") and not got["ok"]
     fuzzy = Image.blend(m, Image.new("L", m.size, 128), 0.6)              # the subject, but mostly half-sure
     got = cutout.judge(grid(fuzzy), np)
-    assert not got["ok"] and got["conf"] < cutout.SURE
+    assert not got["ok"] and got["conf"] < cutout.LOOSEST["sure"]
 
 
 def test_a_subject_along_the_top_is_still_a_clear_subject_the_screen_decides():
@@ -74,7 +74,41 @@ def test_a_subject_along_the_top_is_still_a_clear_subject_the_screen_decides():
 
 
 def test_judged_by_these_rules():
-    assert cutout.BY == "u2netp/2" and cutout.result(portrait(96, 72), np)["by"] == cutout.BY
+    assert cutout.BY == "u2netp/3" and cutout.result(portrait(96, 72), np)["by"] == cutout.BY
+
+
+# -- the presets (2026-11-01, the owner: "a threshold adjustment...or maybe a few presets") ----------------------------
+def test_the_presets_go_from_strict_to_relaxed_and_standard_is_the_plans():
+    assert list(cutout.PRESETS) == ["strict", "standard", "relaxed"] and cutout.PRESET == "standard"
+    assert cutout.PRESETS["standard"] == {"cover": (0.08, 0.60), "sure": 0.75}
+    s, m, r = (cutout.PRESETS[k] for k in cutout.PRESETS)
+    assert s["cover"][0] > m["cover"][0] > r["cover"][0] and s["cover"][1] < m["cover"][1] < r["cover"][1]
+    assert s["sure"] > m["sure"] > r["sure"]
+    assert cutout.LOOSEST == r, "a mask is kept for whatever Relaxed takes"
+
+
+def test_a_verdict_says_why_a_photo_does_not_qualify():
+    std = cutout.PRESETS["standard"]
+    assert cutout.verdict(0.3, 0.9, std) is None
+    assert cutout.verdict(0.05, 0.9, std) == "small" and cutout.verdict(0.05, 0.9, cutout.PRESETS["relaxed"]) is None
+    assert cutout.verdict(0.7, 0.9, std) == "large"
+    assert cutout.verdict(0.3, 0.7, std) == "unsure" and cutout.verdict(0.3, 0.7, cutout.PRESETS["relaxed"]) is None
+    assert cutout.verdict(0.02, 0.5, std) == "small", "the size first, as before"
+    assert cutout.verdict(None, None, std) == "unreadable"
+    assert cutout.verdict(0.3, 0.9, std, kept=False) == "full", "it would, but Mantel Photos had no room for its mask"
+    # judged before the share of the frame was kept: by the confidence; one with no mask is checked again
+    assert cutout.verdict(None, 0.9, std, kept=True) is None
+    assert cutout.verdict(None, 0.9, std, kept=False) == "again"
+    assert cutout.verdict(None, 0.5, std, kept=False) == "unsure"
+
+
+def test_a_mask_is_kept_for_whatever_the_loosest_preset_takes():
+    small = Image.new("L", (960, 720), 0)
+    ImageDraw.Draw(small).rectangle([400, 300, 560, 520], fill=255)       # about 5 % of the frame
+    got = cutout.judge(grid(small), np)
+    assert got["ok"] and cutout.LOOSEST["cover"][0] <= got["cover"] < cutout.COVER[0], got
+    assert cutout.verdict(got["cover"], got["conf"], cutout.PRESETS["standard"]) == "small"
+    assert cutout.result(small, np)["mask"], "kept, so Relaxed applies at once"
 
 
 def test_the_stored_mask_is_white_with_the_mask_in_its_alpha():
@@ -186,8 +220,8 @@ async def upload(mantel, aid, data, name="photo.jpg"):
 
 
 def row(mantel, pid):
-    return dict(mantel.store.db.execute("SELECT cutout_at, cutout_by, cutout_ok, cutout_conf, depth_box, bytes, taken "
-                                        "FROM photos WHERE id=?", (pid,)).fetchone())
+    return dict(mantel.store.db.execute("SELECT cutout_at, cutout_by, cutout_ok, cutout_conf, cutout_cover, depth_box, "
+                                        "bytes, taken FROM photos WHERE id=?", (pid,)).fetchone())
 
 
 class FakeCutter:
@@ -239,7 +273,8 @@ async def test_an_upload_is_cut_out_after_its_faces_and_a_usable_one_keeps_its_m
     assert r.status == 201, body
     pid = body["photo"]["id"]
     got = row(mantel, pid)
-    assert got["cutout_ok"] == 1 and got["cutout_by"] == "u2netp/2" and got["cutout_at"] is not None
+    assert got["cutout_ok"] == 1 and got["cutout_by"] == "u2netp/3" and got["cutout_at"] is not None
+    assert cutout.COVER[0] <= got["cutout_cover"] <= cutout.COVER[1]
     assert got["cutout_conf"] > cutout.SURE and got["depth_box"] is None, "no place is chosen here: each screen decides"
     lib = mantel.app["photos"]
     mask = lib.path(pid, "mask")
@@ -249,7 +284,8 @@ async def test_an_upload_is_cut_out_after_its_faces_and_a_usable_one_keeps_its_m
     assert got["bytes"] == sizes and lib.usage() == sizes, "the mask counts against the quota"
     # the manager's list carries it (the page's Time Behind badge)
     r, body = await send(mantel, "GET", f"/api/photos/albums/{aid}/photos")
-    assert body["photos"][0]["cutout"] == {"ok": True, "conf": got["cutout_conf"], "by": "u2netp/2"}
+    assert body["photos"][0]["cutout"] == {"ok": True, "why": None, "conf": got["cutout_conf"],
+                                           "cover": got["cutout_cover"], "by": "u2netp/3"}
 
 
 async def test_an_unusable_cut_out_is_marked_checked_and_keeps_no_mask(mantel, fake_cutter):
@@ -260,6 +296,78 @@ async def test_an_unusable_cut_out_is_marked_checked_and_keeps_no_mask(mantel, f
     got = row(mantel, pid)
     assert got["cutout_ok"] == 0 and got["cutout_at"] is not None and got["depth_box"] is None
     assert mantel.app["photos"].path(pid, "mask") is None
+    r, body = await send(mantel, "GET", f"/api/photos/albums/{aid}/photos")
+    assert body["photos"][0]["cutout"]["ok"] is False and body["photos"][0]["cutout"]["why"] == "small"
+
+
+def _small(size):
+    """A subject about 5 % of the frame: Relaxed takes it, Standard and Strict don't."""
+    im = Image.new("L", size, 0)
+    w, h = size
+    ImageDraw.Draw(im).rectangle([w * 0.42, h * 0.42, w * 0.58, h * 0.72], fill=255)
+    return im
+
+
+async def test_the_preset_applies_at_once_to_the_list_the_counts_and_the_screens(mantel, fake_cutter):
+    await sign_in(mantel)
+    aid = await album(mantel)
+    good = (await upload(mantel, aid, picture()))[1]["photo"]["id"]
+    fake_cutter.shape = staticmethod(_small)
+    small = (await upload(mantel, aid, picture(color=(9, 9, 9))))[1]["photo"]["id"]
+    lib = mantel.app["photos"]
+    assert lib.path(small, "mask") is not None, "kept for Relaxed"
+    r, body = await send(mantel, "PUT", f"/api/photos/albums/{aid}/options", {"depth_only": True})
+
+    async def state():
+        _, ov = await send(mantel, "GET", "/api/photos")
+        _, lst = await send(mantel, "GET", f"/api/photos/albums/{aid}/photos")
+        r = await mantel.client.get(f"/api/photos/albums/{aid}/show")
+        shown = (await r.json())["photos"]
+        return (ov["cutouts"], {p["id"]: p["cutout"]["ok"] for p in lst["photos"]},
+                [p["id"] for p in shown if "depth" in p], [a["depth"] for a in ov["albums"] if a["id"] == aid][0])
+
+    cut, ok, shown, depth = await state()
+    assert cut["preset"] == "standard" and cut["usable"] == 1 and cut["presets"] == {"strict": 1, "standard": 1, "relaxed": 2}
+    assert cut["reasons"] == {"small": 1} and ok == {good: True, small: False} and shown == [good] and depth == 1
+
+    r, body = await send(mantel, "PUT", "/api/photos/cutouts", {"preset": "relaxed"})
+    assert r.status == 200 and body["cutouts"]["preset"] == "relaxed" and body["cutouts"]["usable"] == 2
+    cut, ok, shown, depth = await state()
+    assert cut["reasons"] == {} and ok == {good: True, small: True} and sorted(shown) == sorted([good, small]) and depth == 2
+
+    audits = [json.loads(x["target"]) for x in mantel.store.db.execute(
+        "SELECT action, target FROM action_audit WHERE kind='config' ORDER BY id") if x["action"] == "photos.cutouts.preset"]
+    assert audits and audits[-1]["before"] == "standard" and audits[-1]["after"] == "relaxed"
+    for bad in ({"preset": "loose"}, {}, {"preset": "relaxed", "x": 1}, {"preset": 1}):
+        r, body = await send(mantel, "PUT", "/api/photos/cutouts", bad)
+        assert r.status == 400 and body["error"] == "bad_preset", bad
+    r, _ = await send(mantel, "PUT", "/api/photos/cutouts", {"preset": "strict"}, csrf=False)
+    assert r.status in (401, 403)
+    await mantel.user("sam", "adult")
+    await mantel.sign_in("sam")
+    r, _ = await send(mantel, "PUT", "/api/photos/cutouts", {"preset": "strict"})
+    assert r.status in (403, 404)
+    assert lib.cutout_preset() == "relaxed"
+
+
+async def test_photos_judged_by_older_rules_are_checked_again_and_count_meanwhile(mantel, fake_cutter, monkeypatch):
+    aid, ids = await _uncut(mantel, 3, monkeypatch)
+    lib = mantel.app["photos"]
+    await photos.CutoutBackfill(mantel.app, start=0, rest=0).run()
+    # as u2netp/2 left them: no share of the frame; a usable one with its mask, a too-small one with none
+    with mantel.store.db:
+        mantel.store.db.execute("UPDATE photos SET cutout_by='u2netp/2', cutout_cover=NULL")
+        mantel.store.db.execute("UPDATE photos SET cutout_ok=0 WHERE id=?", (ids[0],))
+        mantel.store.db.execute("UPDATE photos SET cutout_ok=0, cutout_conf=NULL WHERE id=?", (ids[1],))
+    st = lib.cutout_counts()
+    assert st["left"] == 3 and st["checked"] == 0 and st["usable"] == 1, "the one with its mask still qualifies"
+    assert st["reasons"] == {"again": 1, "unreadable": 1}
+    fake_cutter.seen.clear()
+    await photos.CutoutBackfill(mantel.app, start=0, rest=0).run()
+    assert len(fake_cutter.seen) == 3 and lib.uncut(faces_known=False) is None
+    assert all(row(mantel, p)["cutout_by"] == "u2netp/3" and row(mantel, p)["cutout_cover"] for p in ids)
+    st = lib.cutout_counts()
+    assert st["left"] == 0 and st["checked"] == 3 and st["usable"] == 3
 
 
 async def test_without_the_model_an_upload_works_and_is_left_for_later(mantel, no_cutter):
@@ -553,9 +661,10 @@ def test_the_migration_keeps_photos_already_there(tmp_path):
         conn.execute("INSERT INTO photo_albums (id, name, position, created, updated) VALUES ('a1a1a1a1a1a1a1a1', 'F', 1, 1, 1)")
         conn.execute("INSERT INTO photos (id, album_id, sha256, name, width, height, bytes, created) "
                      "VALUES (?, 'a1a1a1a1a1a1a1a1', 's', 'x.jpg', 10, 10, 5, 1)", ("1" * 32,))
-    assert 27 in dbm.migrate(conn)
-    got = conn.execute("SELECT name, bytes, cutout_at, cutout_by, cutout_ok, cutout_conf, depth_box, taken FROM photos").fetchone()
-    assert tuple(got) == ("x.jpg", 5, None, None, None, None, None, None)
+    assert {27, 29} <= set(dbm.migrate(conn))
+    got = conn.execute("SELECT name, bytes, cutout_at, cutout_by, cutout_ok, cutout_conf, cutout_cover, depth_box, taken "
+                       "FROM photos").fetchone()
+    assert tuple(got) == ("x.jpg", 5, None, None, None, None, None, None, None)
     assert conn.execute("SELECT depth_only FROM photo_albums").fetchone()[0] == 0
     plan = " ".join(str(r[3]) for r in conn.execute(
         "EXPLAIN QUERY PLAN SELECT id FROM photos WHERE cutout_at IS NULL ORDER BY created DESC LIMIT 1"))

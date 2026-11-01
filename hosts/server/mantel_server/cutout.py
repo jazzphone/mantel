@@ -14,15 +14,20 @@ who or what it is, and nothing leaves the house.
   Check says so).
 * **Only where it works** (``judge``). A cut-out is good on a clear subject (a portrait, a pet, a plant on a plain
   wall) and bad on a group spread across the frame, a busy scene or a landscape with no subject. So each photo is
-  checked once and marked usable only when the subject covers 8-60 % of the frame and the mask is sure of itself
-  (few half-sure pixels). WHERE THE TIME GOES IS NOT DECIDED HERE (2026-10-30, the owner: "the time needs to be at the
-  same spot on the screen... upper center"): the time is always upper centre, and each screen decides, with the
-  photo as it draws it, whether the subject covers 5-35 % of the time there (hk-saver.js) -- then the subject is laid
-  over it; else the time is in front. Photos judged by the old rules (`cutout_by` u2netp: the time placed behind
-  the head, a mask kept only where that worked) are checked again by the backfill.
-* **What is kept.** For a usable photo: the mask as a PNG the size of the screen copy (white, the mask in its 8-bit
-  alpha, so a browser masks with it as it is); for every photo checked, the mask's confidence, the rules it was
-  judged by (``BY``) and when. photos.py stores them.
+  checked once, and qualifies only when the subject covers enough of the frame but not too much, and the mask is sure
+  of itself (few half-sure pixels). HOW STRICT IS THE LIBRARY'S (2026-11-01, the owner: "a threshold adjustment...
+  or maybe a few presets"): Strict, Standard (8-60 %, 75 % sure) or Relaxed (``PRESETS``). Each photo's share of the
+  frame and confidence are kept, and a mask for every photo the loosest preset takes (``judge``'s ``ok``), so a
+  change of preset applies at once, with no cutting again; ``verdict`` says, for a preset, whether a photo qualifies
+  and if not why (too small, too large, unsure). WHERE THE TIME GOES IS NOT DECIDED HERE (2026-10-30, the owner:
+  "the time needs to be at the same spot on the screen... upper center"): the time is always upper center, and each
+  screen decides, with the photo as it draws it, whether the subject covers 5-35 % of the time there (hk-saver.js)
+  -- then the subject is laid over it; else the time is in front. Photos judged by older rules (``cutout_by`` other
+  than ``BY``: u2netp placed the time behind the head; u2netp/2 kept no share of the frame, and masks only by
+  Standard) are checked again by the backfill.
+* **What is kept.** For a photo the loosest preset takes: the mask as a PNG the size of the screen copy (white, the
+  mask in its 8-bit alpha, so a browser masks with it as it is); for every photo checked, the subject's share of the
+  frame, the mask's confidence, the rules it was judged by (``BY``) and when. photos.py stores them.
 * **Where it runs.** In the image worker process (imaging.py, image_work.py), never the server's: on upload, right
   after the faces, on the screen-sized copy; and in the backfill (photos.CutoutBackfill) for photos stored before.
 """
@@ -45,14 +50,22 @@ MODEL_URL = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net
 MODEL_SHA256 = "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8"
 NAME = "u2netp"
 # the rules a photo was judged by, kept as `cutout_by`: "u2netp" placed the time behind the head (2026-10-30 to
-# 0.1.92); "u2netp/2", the time upper centre, decided by each screen
-BY = NAME + "/2"
+# 0.1.92); "u2netp/2", the time upper center, decided by each screen; "u2netp/3" (2026-11-01), the share of the
+# frame kept and a mask for every photo the loosest preset takes
+BY = NAME + "/3"
 SIZE = 320                  # the model's input, square
 MEAN, STD = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
 
-# WHEN A CUT-OUT IS USED (the plan's numbers; to tune on the house's photos)
-COVER = (0.08, 0.60)        # the subject's share of the frame
-SURE = 0.75                 # confidence: the share of the subject and its fringe that is sure (not half-sure)
+# WHEN A CUT-OUT QUALIFIES: the library's preset (photo_settings ``cutout_preset``; to tune on the house's photos).
+# ``cover``: the subject's share of the frame; ``sure``: the share of the subject and its fringe that is sure (not
+# half-sure). Standard is the plan's numbers (2026-10-30)
+PRESETS = {"strict": {"cover": (0.12, 0.50), "sure": 0.85},
+           "standard": {"cover": (0.08, 0.60), "sure": 0.75},
+           "relaxed": {"cover": (0.04, 0.75), "sure": 0.60}}
+PRESET = "standard"
+LOOSEST = {"cover": (min(r["cover"][0] for r in PRESETS.values()), max(r["cover"][1] for r in PRESETS.values())),
+           "sure": min(r["sure"] for r in PRESETS.values())}         # a mask is kept for what this takes
+COVER, SURE = PRESETS[PRESET]["cover"], PRESETS[PRESET]["sure"]
 HALF = (0.2, 0.8)           # a pixel between these is half-sure
 GRID = 96                   # the judging grid's long side, px
 
@@ -102,10 +115,32 @@ def installed() -> bool:
 
 
 # -- judging a mask (pure numpy; tested on synthetic masks) ------------------------------------------------------
+def verdict(cover, conf, rules: dict, kept: bool = True) -> str | None:
+    """Why a checked photo doesn't qualify by ``rules`` (one of PRESETS), or None when it does: ``small`` or ``large``
+    (the subject's share of the frame), ``unsure`` (the mask), ``unreadable`` (no file to cut), ``full`` (it would,
+    but its mask wasn't kept: Mantel Photos was full), ``again`` (judged by rules that kept no share of the frame, and
+    not by Standard: the backfill checks it again)."""
+    if conf is None:
+        return "unreadable"
+    if cover is None:
+        if conf < rules["sure"]:
+            return "unsure"
+        return None if kept else "again"
+    lo, hi = rules["cover"]
+    if cover < lo:
+        return "small"
+    if cover > hi:
+        return "large"
+    if conf < rules["sure"]:
+        return "unsure"
+    return None if kept else "full"
+
+
 def judge(mask, np, faces: list | None = None) -> dict:
-    """A mask (2-D, 0..1, on the judging grid) -> ``{ok, why, cover, conf, overlap, box}``: a clear subject, sure of
-    itself; ``why`` says what failed: ``size`` or ``unsure``. ``overlap`` and ``box`` stay None: where the time goes is
-    each screen's (upper centre; hk-saver.js decides behind or in front). ``faces`` is no longer read."""
+    """A mask (2-D, 0..1, on the judging grid) -> ``{ok, why, cover, conf, overlap, box}``: ``ok``, the loosest
+    preset takes it (its mask is kept; each preset is ``verdict``'s); ``why`` says what failed: ``small``, ``large``
+    or ``unsure``. ``overlap`` and ``box`` stay None: where the time goes is each screen's (upper center; hk-saver.js
+    decides behind or in front). ``faces`` is no longer read."""
     m = np.clip(np.asarray(mask, dtype=np.float32), 0, 1)
     gh, gw = m.shape
     sub = m >= 0.5
@@ -114,13 +149,8 @@ def judge(mask, np, faces: list | None = None) -> dict:
     half = int(((m > HALF[0]) & (m < HALF[1])).sum())
     conf = 1.0 - half / float(max(1, n + half))
     out = {"ok": False, "why": None, "cover": round(cover, 4), "conf": round(conf, 4), "overlap": None, "box": None}
-    if not COVER[0] <= cover <= COVER[1]:
-        out["why"] = "size"
-        return out
-    if conf < SURE:
-        out["why"] = "unsure"
-        return out
-    out["ok"] = True
+    out["why"] = verdict(out["cover"], out["conf"], LOOSEST)
+    out["ok"] = out["why"] is None
     return out
 
 
@@ -144,7 +174,8 @@ def mask_png(alpha_img) -> bytes:
 
 
 def result(alpha_img, np, faces: list | None = None) -> dict:
-    """A mask the size of the photo -> what is stored: judge's answer, ``by`` and, for a usable one, ``mask`` (PNG)."""
+    """A mask the size of the photo -> what is stored: judge's answer, ``by`` and, where the loosest preset takes it,
+    ``mask`` (PNG)."""
     got = judge(grid_of(alpha_img, np), np, faces)
     got["by"] = BY
     got["mask"] = mask_png(alpha_img) if got["ok"] else None
