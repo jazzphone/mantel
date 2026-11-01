@@ -366,8 +366,9 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
           return deep(document).filter((e) => !e.children.length && /^(Time Behind|Titles)$/.test((e.textContent || '').trim())).map((e) => e.textContent.trim());
         });
-        say(sharp ? rows.includes('Time Behind') && rows.includes('Titles') : !rows.includes('Time Behind') && !rows.includes('Titles'),
-            screen + (sharp ? ': its Screensaver page offers Time Behind and Titles' : ': its Screensaver page offers neither'), rows);
+        // (Time Behind and Titles are Edit Screensaver's since 2026-11-01 -- the big time Behind the Subject, the Photo
+        // Title widget: the page keeps what can't be laid out)
+        say(!rows.includes('Time Behind') && !rows.includes('Titles'), screen + ': its Screensaver page offers neither Time Behind nor Titles (the editor does)', rows);
         say(!errors.length, screen + ': no page errors', errors.slice(0, 3));
         if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-settings.png', fullPage: true });
         await ctx.close();
