@@ -5,6 +5,10 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.29.1 - 2026-11-01
+
+- **Screensaver, the Battery and Energy Today widgets:** a layout with either no longer freezes the screensaver. A wall tablet's page stopped and was restarted, and HK Settings' Screensaver page and Edit Screensaver hung once such a layout was saved.
+
 ## 1.29.0 - 2026-11-01
 
 - **Screensaver, Edit Screensaver:** lay the screensaver out on the screen itself (HK Settings → your screen → Screensaver Options → Edit Screensaver, or All Screens → Screensaver). Start from a starter (Photo Frame, Forecast, Big Weather, Lock Screen, Clock, Glance, Month, Day, Nightstand), pick the background, set the big element's face, size, position and depth, and add circular, rectangular, inline, card and bottom-band widgets by tapping one and then a green place, with a Glass or Tinted backdrop if you like. Whatever the big element reaches moves out of its way. Undo, Preview, and Wall Tablet, iPad Upright and Phone shapes; a screen that never saves a layout is drawn as before, and Back to Today's Look rebuilds one from its settings.
