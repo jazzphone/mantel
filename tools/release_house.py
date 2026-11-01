@@ -419,7 +419,7 @@ def release_component(product: str, version: str, dry: bool, github_release: boo
               "diff, restart and verify"
               + (f", then publish to {spec['public']}" if publishes else "")
               + (f" and release v{version}" if github_release else ""))
-        if publishes:
+        if publishes or product == "mantel-link":          # (Mantel Link's house copy is publish.py's build too)
             suites = " and ".join(PUBLISH_SUITES[product])
             print(f"dry run: publish.py --no-tests ({suites} passed in the full run)" if no_tests
                   else f"dry run: publish.py with its tests ({suites} did not both pass in the full run)")
