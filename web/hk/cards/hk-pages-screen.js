@@ -525,7 +525,9 @@
         }
         // the screens of icons
         var self = this;
-        out += '<div class="screens"' + (screens.length > 1 ? ' data-hk-control' : '') + '>';
+        // (more than one: their own sideways swipe; one: none of its own -- a finger's sideways pan is the page swipe's,
+        // where the browser took it for the strip and cancelled the swipe: the owner's Pixel Tablet, 2026-11-01)
+        out += '<div class="screens"' + (screens.length > 1 ? ' data-hk-control' : ' style="touch-action:pan-y pinch-zoom"') + '>';
         screens.forEach(function (sc, k) {
           out += '<div class="screen" data-s="' + k + '">';
           sc.widgets.forEach(function (w) {

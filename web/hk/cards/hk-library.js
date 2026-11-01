@@ -1475,6 +1475,7 @@
           });
           wrap.appendChild(row);
           shelves.appendChild(wrap);
+          if (window.hkCards.fitPanWatch) window.hkCards.fitPanWatch(row);
         });
         // `.children.length`, not `.firstChild`: both are real DOM, but only
         // the first one also reads in tests/dom.js, so the ordering here can

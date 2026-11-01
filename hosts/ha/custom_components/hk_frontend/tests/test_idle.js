@@ -206,4 +206,43 @@ window.hkIdle.now();
 ok('the return from a page goes Home and says so too', location.pathname === '/dashboard-kitchen/0' && returned === 2,
    returned + ' ' + location.pathname);
 
+print('\n=== the tablet\'s Screen changed: the page follows it ===');
+var mv = window.hkIdle._screenMove;
+ok('changed, the page on the old screen: to the new one', mv('kitchen-homeview', 'dashboard-kitchen', 'dashboard-kitchen') === 'kitchen-homeview');
+ok('the first look only remembers', mv('kitchen-homeview', '', 'dashboard-kitchen') === '');
+ok('unchanged: nowhere', mv('dashboard-kitchen', 'dashboard-kitchen', 'dashboard-kitchen') === '');
+ok('a page on some other screen (opened on purpose) stays', mv('kitchen-homeview', 'dashboard-kitchen', 'dashboard-home') === '');
+ok('a screen that is no address: nowhere', mv('../x', 'dashboard-kitchen', 'dashboard-kitchen') === '');
+var assigned = [];
+location.assign = function (u) { assigned.push(u); };
+globalThis.top = globalThis;
+localStorage.removeItem('hk-tablet-screen');
+feed.tablet_items.kitchen.idle_return = true; feed.tablet_items.kitchen.screen = 'dashboard-kitchen';
+location.pathname = '/dashboard-kitchen/home'; location.search = '?hk_tablet=kitchen';
+asUser('kitchen'); HS._apply(feed); window.hkIdle._follow();
+ok('the kitchen tablet seen on its screen: remembered, not moved', assigned.length === 0 &&
+   JSON.parse(localStorage.getItem('hk-tablet-screen')).kitchen === 'dashboard-kitchen', JSON.stringify(assigned));
+feed.tablet_items.kitchen.screen = 'kitchen-homeview'; HS._apply(feed);
+ok('its Screen set to Kitchen HomeView: the page opens it, its query kept', assigned.join() === '/kitchen-homeview/0?hk_tablet=kitchen',
+   JSON.stringify(assigned));
+ok('...and remembers it (the new page does not move again)', JSON.parse(localStorage.getItem('hk-tablet-screen')).kitchen === 'kitchen-homeview');
+assigned = [];
+location.pathname = '/dashboard-home/home';
+feed.tablet_items.kitchen.screen = 'dashboard-kitchen'; HS._apply(feed);
+ok('a page someone took to another screen is left there', assigned.length === 0, JSON.stringify(assigned));
+location.pathname = '/kitchen-homeview/home';
+window.hkIdle.hold('tv', true);
+feed.tablet_items.kitchen.screen = 'kitchen-homeview'; HS._apply(feed);
+location.pathname = '/kitchen-homeview/home';
+feed.tablet_items.kitchen.screen = 'dashboard-wall'; HS._apply(feed);
+ok('held (Live TV): not now', assigned.length === 0, JSON.stringify(assigned));
+window.hkIdle.hold('tv', false);
+globalThis.top = { other: true };
+window.hkIdle._follow();
+ok('a page inside another (a Settings preview) never moves', assigned.length === 0, JSON.stringify(assigned));
+globalThis.top = globalThis;
+window.hkIdle._follow();      // (its own check again, a little later)
+ok('let go: it goes', assigned.join() === '/dashboard-wall/0?hk_tablet=kitchen', JSON.stringify(assigned));
+location.search = '';
+
 print('\n' + (fail ? 'FAILURES: ' + fail : 'ALL ' + pass + ' IDLE TESTS PASS'));

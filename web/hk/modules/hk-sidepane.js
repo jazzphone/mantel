@@ -988,12 +988,13 @@
       // always up on a wall tablet); the slow tablets' Flat the same
       ':host([look="frosted"]) .pane{background:rgba(34,38,56,0.95);-webkit-backdrop-filter:none;backdrop-filter:none}',
       ':host([look="tinted"]) .pane,:host([look="flat"]) .pane{background:rgba(24,24,28,0.93);-webkit-backdrop-filter:none;backdrop-filter:none}',
-      // Bright Glass: the white wash over its light blur, the rim on the page side
-      ':host([look="bright"]) .pane{background:linear-gradient(150deg,rgba(255,255,255,0.30),rgba(255,255,255,0.14));',
-      '  -webkit-backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);backdrop-filter:blur(4px) saturate(1.3) brightness(1.08)}',
-      ':host([look="bright"][side="right"]) .pane{border-left:0;box-shadow:inset 1.5px 0 0 rgba(255,255,255,0.22),-18px 0 44px rgba(0,0,0,.18)}',
-      ':host([look="bright"][side="left"]) .pane{border-right:0;box-shadow:inset -1.5px 0 0 rgba(255,255,255,0.22),18px 0 44px rgba(0,0,0,.18)}',
-      ':host([look="bright"][side="band"]) .pane{border-top:0;box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.22),0 -18px 44px rgba(0,0,0,.18)}',
+      // Bright Glass: the white wash over its light blur, the rim on the page side -- the cards' Brightness
+      // (hk-settings.js brightLook: --hk-pane-plate, --hk-pane-rim, its filter; linked 2026-11-01), these as designed
+      ':host([look="bright"]) .pane{background:var(--hk-pane-plate,linear-gradient(150deg,rgba(255,255,255,0.30),rgba(255,255,255,0.14)));',
+      '  -webkit-backdrop-filter:var(--hk-blur-filter,blur(4px) saturate(1.3) brightness(1.08));backdrop-filter:var(--hk-blur-filter,blur(4px) saturate(1.3) brightness(1.08))}',
+      ':host([look="bright"][side="right"]) .pane{border-left:0;box-shadow:inset 1.5px 0 0 var(--hk-pane-rim,rgba(255,255,255,0.22)),-18px 0 44px rgba(0,0,0,.18)}',
+      ':host([look="bright"][side="left"]) .pane{border-right:0;box-shadow:inset -1.5px 0 0 var(--hk-pane-rim,rgba(255,255,255,0.22)),18px 0 44px rgba(0,0,0,.18)}',
+      ':host([look="bright"][side="band"]) .pane{border-top:0;box-shadow:inset 0 1.5px 0 var(--hk-pane-rim,rgba(255,255,255,0.22)),0 -18px 44px rgba(0,0,0,.18)}',
       ':host([look="bright"]) .pin{text-shadow:0 1px 2px rgba(0,0,0,0.22)}',
       ':host([side="right"]) .pane{border-left:1px solid ' + v('line') + ';box-shadow:-18px 0 44px rgba(0,0,0,.30)}',
       ':host([side="left"]) .pane{border-right:1px solid ' + v('line') + ';box-shadow:18px 0 44px rgba(0,0,0,.30)}',

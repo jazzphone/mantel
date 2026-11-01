@@ -1790,6 +1790,7 @@
             '<div class="hs"><div class="hrs"></div></div><div class="rd" aria-live="polite"></div></hk-plate>';
           var q = this._root.querySelector.bind(this._root);
           this._e = { seg: q('.seg'), hs: q('.hs'), hrs: q('.hrs'), rd: q('.rd') };
+          if (window.hkCards.fitPanWatch) window.hkCards.fitPanWatch(this._e.hs);
           this._e.seg.addEventListener('click', function (e) {
             var b = e.target.closest && e.target.closest('button[data-m]');
             if (!b || b.disabled) return;
