@@ -160,6 +160,45 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       want('...landed: the grid as wide as it came in, never a frame elsewhere, the layer gone', [h1.w, h2, landed.slice(0, 4)],
            /\/home$/.test(h2.path) && h2.w === h1.w && !h2.layers.length && landed.length > 5 &&
            landed.every((x) => x[0] === landed[landed.length - 1][0] && x[1] === h1.w));
+      // A SLIDER IS ITS OWN (2026-11-01, the owner: "horizontal sliders like volume, cause the swipe page to trigger"):
+      // the Music page's volume, drawn by hand and touch-action none, moves; the page stays
+      await page.goto(input.origin + '/pane-swipe/playmusic');
+      await page.waitForFunction(() => window.__mantelReady === true);
+      await page.waitForTimeout(2000);
+      const volAt = () => page.evaluate(() => {
+        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
+        const t = deep(document, '.vol .tk'), b = t && t.getBoundingClientRect();
+        return b && { x: b.left, y: b.top + b.height / 2, w: b.width, v: +getComputedStyle(t).getPropertyValue('--v'), path: location.pathname };
+      });
+      const v0 = await volAt();
+      if (v0) {
+        await page.mouse.move(v0.x + v0.w * 0.2, v0.y); await page.mouse.down();
+        for (let k = 1; k <= 10; k++) { await page.mouse.move(v0.x + v0.w * (0.2 + 0.06 * k), v0.y + 2); await page.waitForTimeout(16); }
+        const moving = await page.evaluate(() => window.hkPageSwipe._.state().why);
+        await page.mouse.up();
+        await page.waitForTimeout(600);
+        const v1 = await volAt();
+        want('dragging the Music page\'s volume: the volume moves, the page does not', [v0, moving, v1],
+             moving === 'its own' && v1 && v1.path === v0.path && v1.v > v0.v + 0.3);
+      } else want('the Music page draws its volume', v0, false);
+      // ...and the thermostat's dial on Home (the owner: "Thermostats may need to be looked at too?")
+      await page.goto(input.origin + '/pane-swipe/home');
+      await page.waitForFunction(() => window.__mantelReady === true);
+      await page.waitForTimeout(2000);
+      const dial = await page.evaluate(() => {
+        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
+        const t = deep(document, 'svg.ring'), b = t && t.getBoundingClientRect();
+        return b && { x: b.left + b.width * 0.15, y: b.top + b.height * 0.55, w: b.width };
+      });
+      if (dial) {
+        await page.mouse.move(dial.x, dial.y); await page.mouse.down();
+        for (let k = 1; k <= 10; k++) { await page.mouse.move(dial.x + dial.w * 0.05 * k, dial.y - 3 * k); await page.waitForTimeout(16); }
+        const owner = await page.evaluate(() => window.hkPageSwipe._.state().why);
+        await page.mouse.up();
+        await page.waitForTimeout(600);
+        const here = await page.evaluate(() => location.pathname);
+        want('turning the thermostat\'s dial sideways: the dial\'s, the page stays', [owner, here], owner === 'its own' && /\/home$/.test(here));
+      } else want('Home draws the thermostat\'s dial', dial, false);
       // DIM (2026-11-01, the owner: "a bit too light to see the text"): a shade over the glass, none unless set
       const shade = (pane) => page.evaluate(() => {
         const p = document.querySelector('hk-side-pane[mode="dash"]'), pane = p && p.shadowRoot.querySelector('.pane');

@@ -323,9 +323,10 @@
       '.dots button{all:unset;width:18px;height:18px;display:grid;place-items:center;cursor:pointer}',
       '.dots button::after{content:"";width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.45)}',
       '.dots button[aria-current="true"]::after{background:#fff}',
-      // (the button is the pill's reach: 44 tall over the pill, the pill at its foot)
+      // (the button is the pill's reach: 44 tall over the pill, the pill at its foot; its drag is up -- pan-x, so a
+      // sideways swipe that starts on it is still the page's: hkDrag.sideways reads none as a control's own)
       '.pill{all:unset;box-sizing:border-box;position:absolute;left:50%;bottom:0;transform:translateX(-50%);display:grid;',
-      '  place-items:end center;width:calc(var(--pw) + 40px);cursor:pointer;touch-action:none}',
+      '  place-items:end center;width:calc(var(--pw) + 40px);cursor:pointer;touch-action:pan-x}',
       '.pill::after{content:"";width:var(--pw);height:var(--ph);border-radius:999px;background:rgba(255,255,255,.85);',
       '  box-shadow:0 1px 4px rgba(0,0,0,.2)}',
       ':host([data-flat]) .pill::after{background:' + v('ink-2') + '}',

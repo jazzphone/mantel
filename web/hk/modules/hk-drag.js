@@ -34,7 +34,8 @@
 //   sideways(path, stop) THE ONE LIST of what moves sideways itself (a block
 //                        that swipes its pages, a slider, the thermostat's
 //                        ring, a field, anything data-hk-control, a row that
-//                        scrolls sideways): true when an element of `path`
+//                        scrolls sideways, a touch-action of none or pan-y):
+//                        true when an element of `path`
 //                        (an event's composedPath, up to `stop`) is one -- a
 //                        swipe that starts there is its, never the page's
 //                        (the page swipe) nor the views' (Home Grid)
@@ -62,11 +63,27 @@
   // its dimmer, any control that drags) and an editable field. Every card
   // that adds a sideways control later carries data-hk-control.
   var SIDEWAYS = '[role="slider"],.ring,.vs,input,select,textarea,[contenteditable="true"],[data-hk-control]';
-  function scrollsSideways(n) {
+  function style(n) {
+    try { return typeof getComputedStyle === 'function' ? getComputedStyle(n) : null; } catch (e) { return null; }
+  }
+  function scrollsSideways(n, cs) {
     if (!(n.scrollWidth > n.clientWidth + 1)) return false;
-    var ox = '';
-    try { ox = typeof getComputedStyle === 'function' ? getComputedStyle(n).overflowX : ''; } catch (e) { ox = ''; }
+    var ox = cs ? cs.overflowX : '';
     return ox === 'auto' || ox === 'scroll';
+  }
+  // ...and anything that says it takes a sideways drag itself (2026-11-01,
+  // the owner: "horizontal sliders like volume, cause the swipe page to
+  // trigger"): touch-action `none` (the Music page's volume, the radar's map)
+  // or `pan-y` (a chart scrubbed by the finger, the thermostat's dial), as
+  // the Home Grid's pager reads it (hk-layout.js pagerControl) -- but not
+  // `pan-y` on what scrolls up and down (a list's sideways swipe is the
+  // page's), nor on a pager's own parts, nor a row that fits (hkCards.fitPan
+  // says `pan-y pinch-zoom`: the page's)
+  function claimsSideways(n, cs) {
+    var t = cs ? cs.touchAction : '';
+    if (t === 'none') return true;
+    if (t !== 'pan-y' || n.hasAttribute('data-pager-part')) return false;
+    return !(cs.overflowY === 'auto' || cs.overflowY === 'scroll');
   }
   function sideways(path, stop) {
     var list = path || [];
@@ -78,7 +95,8 @@
       if (n.matches(SIDEWAYS)) return true;
       // a row that really scrolls sideways (the scenes row, a camera strip):
       // the browser pans it
-      if (scrollsSideways(n)) return true;
+      var cs = style(n);
+      if (claimsSideways(n, cs) || scrollsSideways(n, cs)) return true;
     }
     return false;
   }

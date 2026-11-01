@@ -67,10 +67,11 @@ print('=== what keeps its own swipe (hk-drag.js sideways: the one list) ===');
 function node(name, o) {
   o = o || {};
   var tags = [name].concat(o.cls || []).concat(o.attrs || []);
-  return { nodeType: 1, localName: name, _pages: o.pages, scrollWidth: o.sw || 0, clientWidth: o.cw || 0, overflowX: o.ox || 'visible',
+  return { nodeType: 1, localName: name, _pages: o.pages, scrollWidth: o.sw || 0, clientWidth: o.cw || 0, overflowX: o.ox || 'visible', overflowY: o.oy || 'visible', touchAction: o.ta || 'auto',
+           hasAttribute: function (k) { return tags.indexOf(k) >= 0; },
            matches: function (sel) { return sel.split(',').some(function (s) { return tags.indexOf(s.trim()) >= 0; }); } };
 }
-window.getComputedStyle = function (n) { return { overflowX: n.overflowX, touchAction: 'auto' }; };
+window.getComputedStyle = function (n) { return { overflowX: n.overflowX, overflowY: n.overflowY, touchAction: n.touchAction }; };
 var view = node('hk-grid-view'), tile = node('hk-tile-card');
 ok('a tile: the page\'s', !D.sideways([tile, view], view));
 ok('a block that swipes its pages (more than one): its own', D.sideways([tile, node('hk-pager-card', { pages: [1, 2] }), view], view));
@@ -84,6 +85,13 @@ ok('a row that scrolls sideways (the scenes row, a camera strip)',
    D.sideways([tile, node('div', { sw: 1400, cw: 900, ox: 'auto' }), view], view));
 ok('...but not one with nothing to scroll, nor one that clips', !D.sideways([tile, node('div', { sw: 900, cw: 900, ox: 'auto' }), view], view) &&
    !D.sideways([tile, node('div', { sw: 1400, cw: 900, ox: 'hidden' }), view], view));
+ok('anything that takes a sideways drag itself: touch-action none, pan-y (the Music page\'s volume, a chart, the dial)',
+   D.sideways([node('i'), node('div', { ta: 'none' }), view], view) && D.sideways([node('div', { ta: 'pan-y' }), view], view));
+ok('...but not a row that fits (fitPan: pan-y pinch-zoom), nor auto, manipulation, pan-x', ['pan-y pinch-zoom', 'auto', 'manipulation', 'pan-x', 'pan-x pan-y'].every(function (t) {
+  return !D.sideways([tile, node('div', { ta: t }), view], view); }));
+ok('...nor pan-y on a list that scrolls up and down, nor a pager\'s own parts',
+   !D.sideways([tile, node('div', { ta: 'pan-y', oy: 'auto' }), view], view) &&
+   !D.sideways([tile, node('div', { ta: 'pan-y', attrs: ['data-pager-part'] }), view], view));
 ok('only up to the page: what is around it is not asked', !D.sideways([tile, view, node('input')], view));
 ok('the list is one string, shared', /\[data-hk-control\]/.test(D.SIDEWAYS) && /\.ring/.test(D.SIDEWAYS));
 
