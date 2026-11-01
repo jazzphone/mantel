@@ -5602,6 +5602,15 @@
         } })]));
       }
     }
+    // THE PREVIEW'S GLASS AS ITS SLIDER MOVES (Frost, Blur, Darkness, Bright Glass's Brightness), before anything is
+    // saved -- the frame's hkSettings.previewAmount, as pvPaneDim below
+    pvAmount(key, v) {
+      var col = this.pageEl && this.pageEl.querySelector('.pvcol'), fr = col && col.querySelector('.pvbox iframe');
+      try {
+        var S = fr && fr.contentWindow && fr.contentWindow.hkSettings;
+        if (S && S.previewAmount) S.previewAmount(key, v);
+      } catch (e) { /* not ours */ }
+    }
     // THE PREVIEW'S PANE DIMMED AS THE SLIDER MOVES, before anything is saved (hk-sidepane.js reads the screen's
     // settings again when they come back)
     pvPaneDim(v) {
@@ -6396,15 +6405,17 @@
     // onChange, and on a screen `own`/`house`/`reset` for the inherited
     // pattern (Same as All Screens / Just This Screen, Reset to All Screens).
     glassRows(style, v, skp) {
-      var rows = [], uses = M.amountsFor(style);
+      var self = this, rows = [], uses = M.amountsFor(style);
       // k: v's entry; key: the stored name, when it differs (Darkness is `tint`)
       var amount = function (k, label, key) {
         var a = v[k];
         key = key || k;
         // whose it is in the sub-line, as every other inherited row says it (a
         // gray badge until 2026-10-30)
+        // (the preview's glass follows it as it moves, 2026-11-01, as the Side Pane's Dim does)
         rows.push(K.slider({ label: label, sk: skp + key, value: a.value, unit: '%', step: 5,
-          sub: a.house == null ? null : (a.own ? 'Just This Screen' : 'Same as All Screens'), onChange: a.onChange }));
+          sub: a.house == null ? null : (a.own ? 'Just This Screen' : 'Same as All Screens'),
+          onInput: function (n) { self.pvAmount(key, n); }, onChange: a.onChange }));
         if (a.own) rows.push(K.button({ label: 'Reset to All Screens (' + a.house + '%)', sk: skp + key + ':reset', onClick: a.reset }));
       };
       if (uses.frost) {
@@ -6418,7 +6429,8 @@
       if (uses.blur) amount('blur', 'Blur');
       // BRIGHT GLASS's Strength (2026-10-30), held back by itself over a light
       // background (hkSettings.brightCap)
-      if (uses.bright && v.bright) amount('bright', 'Strength');
+      // ("Brightness" since 2026-11-01: what the owner calls it)
+      if (uses.bright && v.bright) amount('bright', 'Brightness');
       // ...and where it shows (2026-10-30): Home Only (and the Pages screen,
       // 2026-10-31), the other pages in its Blur, or Every Page
       if (uses.bright && v.brightPages) {

@@ -455,7 +455,7 @@ rim, and a slight lift in brightness do the work. Off glyphs are white; lit tile
 | Setting | Key | Values | Default | Where |
 |---|---|---|---|---|
 | Appearance Style | `look.glass` / a screen's `glass` | adds `bright` | unchanged | HK Settings → Appearance → Appearance Style |
-| Strength | `look.bright` / a screen's `bright` | 0–100 | 50 | the same page, under Bright Glass |
+| Brightness (Strength until 2026-11-01) | `look.bright` / a screen's `bright` | 0–100 | 50 | the same page, under Bright Glass; the preview follows it as it moves, and the Side Pane's glass follows it |
 | Blur Mode | `look.glass` `blur`, `blur_pre`, `blur_each` | Bright Glass uses the Blur look's modes | Shared Layer | the same page |
 | Tab Bar | `tab_bar_glass` | adds `bright` | `house` | the screen's Menu Settings |
 
@@ -879,6 +879,9 @@ Reduce Motion: a cross-fade (`fade`, .2 s), the highlight jumps."
 >
 > - It counts as a blur style for the slow-tablet ladder (`HEAVY_LOOKS`).
 > - Text keeps 4.5:1 against the plate drawn over each wallpaper's lightest stop; Strength is capped to hold it.
+> - Past 50 (2026-11-01) the light where no words sit goes on growing with Brightness above the cap: the sheen at the
+>   top left (to 2× its wash), the rim (.40 / .55), the glow (.16) and saturate (1.6) at 100. The Side Pane's glass
+>   (`--hk-pane-plate`, `--hk-pane-rim`) follows the same Brightness; its Dim is still a shade over it.
 > - HK Settings never wears it.
 
 **Rules**, rule 4 gains: "Wallpapers (`hk-wallpapers.js`) are content: their shapes and palettes stay where they

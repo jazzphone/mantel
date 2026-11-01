@@ -1075,7 +1075,7 @@
     if (style === 'flat') return 'Opaque surfaces with no blur, animations or live sky effects. Color, landscape and photo backgrounds remain available in Background. Your other appearance preferences are kept.';
     if (style === 'frosted') t += ' Frost: how milky, 50% is the middle. Tint from Background: each card takes the color of the page behind it instead of one gray.';
     if (isBlur(style)) t += ' Blur: how strong, 50% is 20 px.';
-    if (isBright(style)) t += ' Strength: how bright the glass is, 50% as designed. It holds back by itself where white text would get hard to read.';
+    if (isBright(style)) t += ' Brightness: how bright the glass is, 50% as designed. Behind the words it holds back by itself where white text would get hard to read; past that, the sheen, the rim and the colors coming through go on brightening. The Side Pane’s glass follows it.';
     if (style === 'tinted') t += ' Darkness: how much of the background shows through, 50% is 75% dark. Icon Circles: Dark as the Home app’s, or Light to keep their shape over dark scenery.';
     return t;
   }
