@@ -175,3 +175,16 @@ saved, so A through C can ship before the editor without changing anything on th
 ## Build log
 
 - 2026-11-01: plan written from three code maps (hk-saver.js, the Home Grid editor, settings storage).
+- 2026-11-01, phase A and B (b96e2ac3): the `layout` option, its catalog in two mirrors, `plan()`.
+- 2026-11-01, phase C (455e6d14): layout mode in `hk-saver.js`; `hk-saverwidgets.js` (Sonnet 5.5 agent). The first
+  WebKit runs found the corner cards measured by a width they were given (Home Status pushed aside for nothing), the
+  two sides' cards meeting on an iPad upright (now one stack), and the old corner cards' tablet-sized type on a phone
+  (now in the screen's units).
+- 2026-11-01, phase D: `hk-saver-editor.js` at `#/screens/<path>/screensaver/editor` and `#/house/screensaver/editor`,
+  an "Edit Screensaver" row first on both Screensaver pages; the overlay drawn from the plan the screensaver itself drew
+  by (`hkSaver.layoutInfo`). Checked in WebKit: open, a starter, the big element's page, a widget out and another in by
+  tapping, the three shapes, Save storing the layout.
+
+  Still to do: Phase E (the Screensaver pages around the editor, the guide and its screenshot); the background
+  thumbnails telling Sky Only, Moving Color, Wallpaper and Black apart; Behind the Trees on the landscape; the
+  Legibility sliders for a layout's time; an upright layout of its own.

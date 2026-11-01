@@ -2089,6 +2089,10 @@
         epg.saverPreview = true; epg.saverEnergy = true;
         return epg;
       }
+      if (s === 'screensaver' && sub[1] === 'editor') {
+        return this.saverEditorPage(path, { path: path, title: x.title, back: ['Screensaver Options', base + '/screensaver'],
+          options: M.saverFollows(b) ? this.hs('look.saver') : b.screensaver_options });
+      }
       if (s === 'screensaver') {
         var spg = mk('Screensaver Options', function (c) { self.saverPage(c, x, b, path); });
         spg.saverPreview = true;         // the frame shows the screensaver itself
@@ -3926,9 +3930,36 @@
       c.appendChild(K.group({ header: 'Timing' }, [K.select({ label: 'Starts After', sub: 'Untouched for this long.', value: String(cur.starts_after), sk: 'saver:starts_after',
         options: opts, onChange: function (v) { put('starts_after', Number(v)); } })]));
     }
+    // THE SCREENSAVER EDITOR (2026-11-01, docs/phase12/SCREENSAVER-EDITOR.md): hk-saver-editor.js, loaded the first time it
+    // is opened; one per screen (or All Screens), kept while its page shows. `house`: All Screens' screensaver
+    saverEditorPage(key, o) {
+      var self = this;
+      return {
+        title: 'Edit Screensaver', back: o.back,
+        body: function (c) {
+          var made = function () {
+            if (!self._saverEditors) self._saverEditors = {};
+            var ed = self._saverEditors[key];
+            if (!ed) {
+              ed = document.createElement('hk-saver-editor');
+              self._saverEditors[key] = ed;
+              ed.configure(Object.assign({ panel: self, onCancel: function () { delete self._saverEditors[key]; self.back(o.back[1]); },
+                                           onSaved: function () { delete self._saverEditors[key]; self.back(o.back[1]); } }, o));
+            }
+            c.appendChild(ed);
+          };
+          if (window.customElements.get('hk-saver-editor')) made();
+          else import('/hk/panels/hk-saver-editor.js').then(made, function (e) { c.textContent = 'The editor couldn\u2019t load: ' + (e && e.message || e); });
+        }
+      };
+    }
     saverPage(c, x, b, path) {
       var self = this, house = M.saverFollows(b);
       var cur = M.saverOptions(house ? this.hs('look.saver') : b.screensaver_options);
+      // THE EDITOR (2026-11-01): the whole screensaver laid out on the screen itself
+      c.appendChild(K.group({ footer: house ? 'Editing gives this screen a screensaver of its own, starting from All Screens\u2019.' : null },
+        [K.nav({ label: 'Edit Screensaver', sub: 'The background, the big time and the widgets, on the screen itself', icon: 'mdi:pencil',
+                 href: '#/screens/' + encodeURIComponent(path) + '/screensaver/editor', sk: 'saver:editor' })]));
       c.appendChild(K.group({ footer: house
           ? 'This screen uses the screensaver settings for All Screens (All Screens → Screensaver). Off: it gets its own, starting from these.'
           : 'This screen has its own screensaver settings. On: it uses the settings for All Screens again.' }, [
@@ -4481,6 +4512,9 @@
       var self = this, cur = M.saverOptions(this.hs('look.saver')), boards = this.data.boards || {};
       var savers = Object.keys(boards).filter(function (p) { return boards[p].screensaver; });
       var follow = savers.filter(function (p) { return M.saverFollows(boards[p]); });
+      // THE EDITOR (2026-11-01), for every screen that uses these
+      if (savers.length) c.appendChild(K.group({}, [K.nav({ label: 'Edit Screensaver', sub: 'The background, the big time and the widgets, on a screen itself',
+        icon: 'mdi:pencil', href: '#/house/screensaver/editor', sk: 'saver:editor-house' })]));
       // THE PHOTOS (2026-10-09: on Wall Tablets before): where they come from,
       // in the Photos group's place (2026-10-30: first on the page before) --
       // drawn on every show, as screens with their own may show photos
@@ -5197,6 +5231,10 @@
         // its own settings left the page with no preview at all)
         var withSaver = Object.keys(bd).filter(function (p) { return bd[p].screensaver && bd[p].screensaver_engine !== 'wallpanel'; });
         var pv = withSaver.filter(function (p) { return M.saverFollows(bd[p]); })[0] || withSaver[0];
+        if (sub[0] === 'editor') {
+          return this.saverEditorPage('house', { house: true, path: pv || '', previewPath: pv, title: 'All Screens', back: [title, '#/house/screensaver'],
+            options: this.hs('look.saver') });
+        }
         if (sub[0] === 'clock-style') {
           var hcur = M.saverOptions(this.hs('look.saver'));
           var hpg = mk('Clock Style', function (c) { self.saverStyle(c, hcur, self.saverPutH()); });

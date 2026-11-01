@@ -2951,7 +2951,7 @@
     // A CARD'S SIZE: Home Status, what's playing and the timers are as wide as the place they are given (their width
     // is a variable set here: measuring it would only read it back), as tall as they draw; the clock and the weather
     // as everything they draw (their own box is smaller than what is in it)
-    var GIVEN = { status_card: 58, music_card: 44, timers_card: 30 };
+    var GIVEN = { status_card: 46, music_card: 44, timers_card: 30 };
     var cardSize = function (id, c) {
       if (GIVEN[id]) {
         var inner = c.shadowRoot && c.shadowRoot.querySelector('.sscorner,[style*="position:fixed"]'), ir = inner && inner.getBoundingClientRect();
@@ -5614,6 +5614,14 @@
   })(0);
 
   window.hkSaver = {
+    // THE PLAN IT DREW (2026-11-01, the Screensaver editor's overlay: the zones as the screen places them, never as
+    // the editor guesses): the room, the plan's boxes and the zones, in this page's px; null without a layout
+    layoutInfo: function () {
+      var LM = window.hkSaverLayout;
+      if (!ly || !ly.plan || !LM || !cfg || !cfg.layout || !host) return null;
+      var R = layoutRoom();
+      return { W: R.W, H: R.H, room: R.room, plan: ly.plan, zones: LM.oriented(cfg.layout, R.W, R.H).zones, big: LM.oriented(cfg.layout, R.W, R.H).big };
+    },
     running: function () { return on; },
     covered: function () { return on && !!coveredPage; },
     // the forecast is what is showing (not photos)

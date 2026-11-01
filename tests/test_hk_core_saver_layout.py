@@ -106,3 +106,22 @@ def test_the_pages_catalog_and_checks_are_the_same(tmp_path):
             return e.code
     assert out["verdicts"] == [py_verdict(c) for c in cases]
     assert out["clean"] == SL.layout(GOOD)
+
+
+@pytest.mark.skipif(not JSC.exists(), reason="JavaScriptCore's jsc is macOS's")
+def test_the_editors_starters_and_backgrounds(tmp_path):
+    """hk-saver-editor.js: every starter's layout is one the write takes, and every background it offers is read back
+    as itself (bgOf), so the picker always shows a tick where the screensaver is."""
+    prelude = tmp_path / "prelude.js"
+    prelude.write_text(
+        "var window = this; var HTMLElement = function () {}; var customElements = { get: function () { return null; }, define: function () {} };\n"
+        f"load({json.dumps(str(ROOT / 'web/hk/modules/hk-saverlayout.js'))});\n"
+        f"load({json.dumps(str(ROOT / 'web/hk/panels/hk-saver-editor.js'))});\n"
+        "var E = window.hkSaverEditor, L = window.hkSaverLayout;\n"
+        "print(JSON.stringify({starters: E.STARTERS.map(function (s) { return [s[0], s[3] || L.layoutFrom(s[2])]; }),"
+        " bgs: E.BGS.map(function (b) { return [b[0], E.bgOf(b[3])]; })}));\n")
+    out = json.loads(subprocess.run([str(JSC), str(prelude)], capture_output=True, text=True, check=True, timeout=30).stdout)
+    assert len(out["starters"]) >= 9
+    for name, lay in out["starters"]:
+        assert SL.check(lay) is not None, name
+    assert all(a == b for a, b in out["bgs"]), out["bgs"]
