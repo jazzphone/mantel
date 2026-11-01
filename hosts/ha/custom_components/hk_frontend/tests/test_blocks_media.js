@@ -143,10 +143,11 @@ function () {
   H.section('Music: Presets and One Playlist, read as the Music page reads its playlists');
   var pls = window.hkMusic.playlists();
   var all = Mx.playlistTiles(pls, null);
-  eq('Presets: a tile for each playlist, a playlist with choices standing for each choice',
-     all.map(function (t) { return t.name; }), ['Favorites Mix', 'Christmas', '2020s', '2010s', '2000s']);
-  eq('...a choice names its playlist, a plain one says Playlist', [all[0].artist, all[2].artist], ['Playlist', 'Decades']);
-  eq('...each plays by its key', all.map(function (t) { return t.playlist; }), ['favorites_mix', 'christmas', 'decade_2020s', 'decade_2010s', 'decade_2000s']);
+  eq('Presets: a tile for each playlist, a playlist with choices ONE tile (as the Music page\'s pill)',
+     all.map(function (t) { return t.name; }), ['Favorites Mix', 'Christmas', 'Decades']);
+  eq('...a plain one says Playlist, one with choices how many', [all[0].artist, all[2].artist], ['Playlist', '3 Playlists']);
+  eq('...each plays by its key; the choices are the tile\'s', all.map(function (t) { return t.playlist || t.options.map(function (o) { return o.playlist; }).join(','); }),
+     ['favorites_mix', 'christmas', 'decade_2020s,decade_2010s,decade_2000s']);
   eq('One Playlist: only its own choices', Mx.playlistTiles(pls, 'Decades').map(function (t) { return t.name; }), ['2020s', '2010s', '2000s']);
   eq('...a playlist the house lacks: nothing', Mx.playlistTiles(pls, 'Gone').length, 0);
   var G = window.hkGridCatalog;
@@ -166,7 +167,7 @@ function () {
   mu._render();
   eq('Presets asks the library for nothing', house.ws.length, asks);
   var html = String(mu._root.innerHTML);
-  eq('...the first playlist above, the rest in the grid', (html.match(/data-i="/g) || []).length, 5);
+  eq('...the first playlist above, the rest in the grid', (html.match(/data-i="/g) || []).length, 3);
   ok('...labelled Playlists', html.indexOf('<span class="lab">Playlists</span>') >= 0, html.slice(0, 300));
   window.hkMusic.setFocus('media_player.kitchen_homepod_ma');
   var before = house.calls.length;
@@ -174,6 +175,14 @@ function () {
   var call = house.calls[before];
   eq('a tap: hk_frontend.music_play on the screen\'s speaker', call && [call.domain, call.service, call.data.rooms, call.data.playlist],
      ['hk_frontend', 'music_play', [window.hkMusic.player(client())], 'christmas']);
+  // a tap on Decades: the Music page's sheet of its choices, and the one picked plays
+  var C = window.hkCards, was = C.chooseSheet, asked = null;
+  C.chooseSheet = function (title, list, pick) { asked = [title, list.map(function (o) { return o.name; })]; pick(list[1]); };
+  before = house.calls.length;
+  try { mu._play(all[2], document.createElement('button')); } finally { C.chooseSheet = was; }
+  eq('Decades: the sheet of its choices', asked, ['Decades', ['2020s', '2010s', '2000s']]);
+  call = house.calls[before];
+  eq('...the decade picked plays on the screen\'s speaker', call && [call.service, call.data.playlist], ['music_play', 'decade_2010s']);
   var one = sized('hk-recent-music-card', 'W');
   one._config = { type: 'custom:hk-recent-music-card', show: 'playlist', playlist: 'Decades' };
   one.client = client();

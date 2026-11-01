@@ -3669,16 +3669,21 @@
     return out;
   }
   // THE MUSIC BLOCK'S SHOW (2026-10-31, the owner): Recently Played, the Music page's playlists (its presets, Play
-  // Music's tiles), or one playlist. A playlist with choices (Decades: 2020s, 2010s...) stands for each choice, so
-  // every tile plays at a tap; the playlists are read as the Music page reads them (hkMusic.playlists()).
+  // Music's tiles), or one playlist; the playlists are read as the Music page reads them (hkMusic.playlists()).
+  // A PLAYLIST WITH CHOICES (Decades: 2020s, 2010s...; 2026-11-01, the owner: "1 decades button with the Pop Up like
+  // we do on the Music Page") is ONE tile among the playlists, its choices in the Music page's own sheet at a tap
+  // (`options`); One Playlist of it lays its choices out as tiles, each playing at a tap.
   function playlistTiles(pls, only) {
     var out = [];
     (pls || []).forEach(function (p) {
       if (!p || (only && p.name !== only)) return;
-      if (p.options && p.options.length) p.options.forEach(function (o) {
+      if (p.options && p.options.length && only) p.options.forEach(function (o) {
         out.push({ playlist: o.key, name: o.name, key: p.name + o.name, artist: p.name, icon: p.icon || null });
       });
-      else if (p.key) out.push({ playlist: p.key, name: p.name, key: p.name, artist: 'Playlist', icon: p.icon || null });
+      else if (p.options && p.options.length) {
+        out.push({ name: p.name, key: p.name, artist: p.options.length + ' Playlists', icon: p.icon || null,
+                   options: p.options.map(function (o) { return { playlist: o.key, name: o.name }; }) });
+      } else if (p.key) out.push({ playlist: p.key, name: p.name, key: p.name, artist: 'Playlist', icon: p.icon || null });
     });
     return out;
   }
@@ -3812,6 +3817,7 @@
       return Mu && this.client ? Mu.player(this.client) : null;
     }
     _play(it, el) {
+      if (it.options) { this._choose(it, el); return; }
       if (it.playlist) { this._playList(it, el); return; }
       var Mu = window.hkMusic, player = this._target(), self = this;
       if (!player) { window.hkShell.toast({ message: 'Pick a speaker on the Music page to play ' + it.name + '.' }, this); return; }
@@ -3841,6 +3847,15 @@
       var r = (res && res.response) || {};
       if (!res.ok || r.ok === false) { window.hkShell.toast({ message: 'Could not play ' + it.name + (r.message ? ': ' + r.message : '') }, self); return; }
       if (r.leader && Mu.known(r.leader)) Mu.setFocus(r.leader, { hold: true });
+    });
+  };
+  // ONE OF A PLAYLIST'S CHOICES, picked in the Music page's sheet (hk-music.js _play: hkCards.chooseSheet), then
+  // played as any playlist tile plays
+  HkRecentMusicCard.prototype._choose = function (it, el) {
+    var self = this;
+    if (!C.chooseSheet) return;
+    C.chooseSheet(it.name, it.options.map(function (o) { return { name: o.name, key: o.playlist, icon: it.icon }; }), function (opt) {
+      self._playList({ playlist: opt.key, name: opt.name }, el);
     });
   };
   register('hk-recent-music-card', HkRecentMusicCard, 'HK Recently Played',
