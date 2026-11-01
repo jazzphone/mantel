@@ -2,7 +2,45 @@
 
 On a Proxmox VE server, one script creates a container for Mantel and installs everything in it: an **unprivileged** Debian 13 LXC running the same Docker Compose stack as [Install with Docker](Install-Docker.md), with the host's Intel iGPU shared in for Live TV. The script asks a few questions, shows you what it will do, and changes nothing until you say yes. You then start Mantel inside the container and finish in your browser with [First Run](First-Run.md).
 
-## Before you start
+There are two ways to run it. **One command** works like the [Proxmox VE community scripts](https://community-scripts.org): their engine and menus, Mantel's own scripts, and Mantel running and showing its setup code at the end. **From a checkout** is the original script, which needs nothing from community-scripts and also brings a backup across ([Moving from the Home Assistant App](#moving-from-the-home-assistant-app)).
+
+## One command
+
+On the Proxmox host, as root:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/jazzphone/mantel/main/packaging/proxmox/ct/mantel.sh)"
+```
+
+It opens community-scripts' menu: **Default Settings** makes an unprivileged Debian 13 container with 4 cores, 6 GB of memory and a 32 GB disk, nesting and keyctl on for Docker, and the iGPU shared in when the host has one; **Advanced Settings** lets you change any of it. Then, inside the container, Mantel asks how browsers reach it over HTTPS (the same three choices as below: `internal`, `dns01` or `own`), the name browsers use, and whether to show it in Home Assistant's sidebar through [Mantel Connect](Mantel-Connect.md). It installs Docker and builds Mantel's images (several minutes), and with `internal`, or `own` with your proxy's address, starts Mantel and prints the address and a one-time setup code for [First Run](First-Run.md#with-docker-or-the-lxc). With `dns01` it stops before the first start: put your DNS host's token in with `mantel-secret` (the steps are in `/root/mantel-next-steps.txt` in the container), then start it.
+
+Every question can be answered ahead of time, so it runs unattended too:
+
+```bash
+var_mantel_tls=own var_mantel_proxy_ip=192.0.2.254 var_mantel_domain=mantel.example.com var_mantel_connect=no \
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/jazzphone/mantel/main/packaging/proxmox/ct/mantel.sh)"
+```
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `var_mantel_tls` | asked; `internal` | `internal`, `dns01` or `own` |
+| `var_mantel_domain` | asked; `mantel.home.arpa` (no default with `dns01`) | The name browsers use |
+| `var_mantel_dns` | asked with `dns01`; `cloudflare` | `cloudflare`, `duckdns`, `porkbun`, `route53`, `digitalocean` or `desec` |
+| `var_mantel_proxy_ip` | asked with `own` | Your proxy's IP address, as Mantel sees it |
+| `var_mantel_connect` | asked; `no` | `yes` publishes Mantel Connect's port 8766 |
+| `var_mantel_ref` | `latest` | What to install and follow: `latest` (the newest `v*` release tag, or `main` while there is none), a branch, a tag or a commit |
+
+The usual community-scripts settings apply as well (`var_cpu`, `var_ram`, `var_disk`, `var_brg`, `var_gpu` and the rest).
+
+**Updating:** inside the container, run `update`. It fetches what `var_mantel_ref` points at now, makes a backup, rebuilds, starts the new version and waits until it is healthy, and goes back to the previous version by itself if it isn't. With nothing new, it says so and changes nothing.
+
+**What runs:** the two scripts are Mantel's, in [`packaging/proxmox`](https://github.com/jazzphone/mantel/tree/main/packaging/proxmox); the engine they run on (the menus, creating the container) is community-scripts' own, fetched from [community-scripts/core](https://github.com/community-scripts/core) as their scripts do, and it sends their anonymous install statistics unless you turn diagnostics off in its menu. Mantel's source comes from GitHub with git, into `/opt/mantel`. Read them before you run them as root: `curl -fsSL <the URL above>` shows the first. From a clone of the repository you can also run `bash packaging/proxmox/ct/mantel.sh`, which uses the install script next to it.
+
+Then continue with [Finish inside the container](#finish-inside-the-container) from step 5. A container made this way can also take a backup with `bash packaging/lxc/mantel.sh restore <id> …`, from a checkout on the host.
+
+## From a checkout
+
+### Before you start
 
 You need:
 
@@ -15,7 +53,7 @@ You need:
 | **A Home Assistant user for Mantel** | A dedicated administrator user, for example `mantel-server`. You sign in as it once, on Mantel's Connections page. |
 | **Optional: an Intel iGPU** | Live TV's transcode uses QuickSync when `/dev/dri/renderD128` exists on the host. Without it, the CPU transcodes. |
 
-## What the script does
+### What the script does
 
 On the Proxmox host, and nothing else:
 
@@ -29,7 +67,7 @@ It touches no other container or VM, changes no host setting, edits no firewall 
 
 **Read the scripts before you run them as root.** They are `packaging/lxc/mantel.sh` (the host side) and `packaging/lxc/mantel-install.sh` (the container side). Run them from a copy you have read, never from a pipe.
 
-## Run the script
+### Run the script
 
 1. On the Proxmox host, as root, get the source:
 

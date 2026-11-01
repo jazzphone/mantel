@@ -7,6 +7,8 @@ Debian 13, Docker + the compose stack from `packaging/compose/`). PLAN §7, §8.
 choice is asked at a terminal (Caddy's own CA, your domain through one of six DNS hosts, or your own proxy) and
 is Caddy's own CA without one.
 
+The same install in community-scripts' layout, one curl command with their menus: [`packaging/proxmox`](../proxmox/README.md).
+
 **Read the scripts before running them as root on the Proxmox host.**
 
 ```bash
