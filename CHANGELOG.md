@@ -82,6 +82,11 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.100 - 2026-11-01
+
+- **Assistants (MCP):** an assistant such as Claude Code or Claude Desktop can now help set up the house. It reads your home, changes settings, and builds screens and Home Grid layouts, acting for one person: their role decides what it may do, every change is planned and shown first, the Audit Log shows each one as theirs through the assistant, and each can be undone. Off until the Owner turns it on in Mantel Settings → Advanced → Assistants (MCP); connect with a personal key (home network only) or by signing in from the assistant. It is never given the Alarm PIN, and it controls the house only if the Owner allows it.
+- **Audit Log:** a **Through** filter shows only what assistants did, and each row names the assistant.
+
 ## 0.1.99 - 2026-10-31
 
 - **Virtual Pairs:** pair two Music Assistant speakers in one room in Mantel Settings (Music's speakers), and Mantel shows them as one speaker everywhere: the Music page, Speakers sheets, the Side Pane, the Music and Now Playing blocks, home rooms and Plays On. Playing joins both at play time, so neither is held in a Music Assistant group and the pair can play with any other room. Volume goes to both. A Music Assistant group of exactly the pair's two speakers is used when the pair plays alone, and presets keep working.
