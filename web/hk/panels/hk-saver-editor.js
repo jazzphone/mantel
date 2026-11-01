@@ -102,6 +102,10 @@
     ':host(:not([previewing])) .ov .w:hover,:host(:not([previewing])) .ov .big:hover{outline:2px solid rgba(255,255,255,.55);outline-offset:4px}',
     '.ov [aria-pressed=true]{outline:4px solid var(--hk-tint)!important;outline-offset:5px!important}',
     '.ov .z.want{outline:3px dashed #30d158!important;background:rgba(48,209,88,.18)!important}',
+    // (dragged: what it is, at the pointer; the green place under it, brighter)
+    '.ov .z.want.hover{background:rgba(48,209,88,.45)!important;outline-style:solid!important}',
+    '.dragchip{position:fixed;z-index:20;pointer-events:none;transform:translate(-50%,-130%);padding:8px 14px;border-radius:12px;background:var(--hk-accent,#0a84ff);color:#fff;font-weight:600;font-size:14px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.3)}',
+    '.witem,.ov .w{-webkit-user-select:none;user-select:none}',
     // (the + after what a zone has: round, its sign large)
     ':host(:not([previewing])) .ov .z.plus{border-radius:50%}',
     ':host(:not([previewing])) .ov .z.plus span{font-size:calc(var(--zf,22px) * 2);font-weight:300}',
@@ -278,7 +282,7 @@
       // (plus: the place after what a zone has, while it has room -- a + to tap, or Add Here with a widget picked)
       var zone = function (z, b, plus) {
         var want = self.pick && LM.fits(zs, z, self.pick);
-        var e = place(h('button', { type: 'button', class: 'z' + (want ? ' want' : '') + (plus ? ' plus' : ''), 'aria-pressed': self.sel === z ? 'true' : 'false',
+        var e = place(h('button', { type: 'button', class: 'z' + (want ? ' want' : '') + (plus ? ' plus' : ''), 'data-zone': z, 'aria-pressed': self.sel === z ? 'true' : 'false',
                                     'aria-label': plus ? 'Add to ' + self.zoneName(z) : self.zoneName(z), onclick: (ev) => { ev.stopPropagation(); self.tapZone(z); } },
           [h('span', { text: want ? (plus ? '+' : 'Add Here') : plus ? '+' : self.zoneName(z) })]), b);
         self.ov.appendChild(e);
@@ -290,7 +294,8 @@
         if (!w) return;
         var none = !!(info.empty && info.empty[w.id]);
         self.ov.appendChild(place(h('button', { type: 'button', class: 'w' + (none ? ' empty' : ''), 'aria-pressed': self.sel === z + ':' + i ? 'true' : 'false',
-          'aria-label': LM.CATALOG[w.id][1] + ', ' + self.zoneName(z), onclick: (ev) => { ev.stopPropagation(); self.select(z + ':' + i); } },
+          'aria-label': LM.CATALOG[w.id][1] + ', ' + self.zoneName(z), onclick: (ev) => { ev.stopPropagation(); self.select(z + ':' + i); },
+          onpointerdown: (ev) => self.dragStart(ev, { id: w.id, from: { z: z, i: i } }) },
           none ? [h('span', {}, [document.createTextNode(LM.CATALOG[w.id][1]), h('small', { text: LM.CATALOG[w.id][2] })])] : []), b));
       };
       // the big element, and every place a widget can go: a place with nothing in it is drawn as an outline
@@ -372,6 +377,55 @@
       if (this.hasAttribute('previewing')) this.togglePreview();
       this.redraw();
     }
+    // DRAGGED ONTO THE SCREEN (2026-11-01, the owner: "are we not able to drag items from the picker/editor on the left
+    // side into the areas we want them like HomeGrid?"): a widget from the left, or one on the screen to another place,
+    // with a mouse -- the green places it fits light up, the one under the pointer brighter, and it is put where it is
+    // let go; let go anywhere else and nothing changes. A finger keeps tap, then a green place (a touch on the list
+    // scrolls it). `src`: { id } from the left, { id, from: { z, i } } from the screen
+    dragStart(e, src) {
+      if (e.button !== 0 || e.pointerType === 'touch' || this.busy) return;
+      var self = this, x0 = e.clientX, y0 = e.clientY, chip = null, over = null, armed = false;
+      e.preventDefault();
+      var move = function (ev) {
+        if (!armed) {
+          if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6) return;
+          armed = true;
+          if (self.hasAttribute('previewing')) self.togglePreview();
+          self.pick = src.id; self.sel = null; self.redraw();
+          chip = self.h('div', { class: 'dragchip', text: LM.CATALOG[src.id][1] });
+          self.shadowRoot.appendChild(chip);
+        }
+        chip.style.left = ev.clientX + 'px'; chip.style.top = ev.clientY + 'px';
+        var el = self.shadowRoot.elementFromPoint(ev.clientX, ev.clientY), z = el && el.closest ? el.closest('.z.want') : null;
+        if (over && over !== z) over.classList.remove('hover');
+        over = z;
+        if (z) z.classList.add('hover');
+      };
+      var up = function (ev) {
+        window.removeEventListener('pointermove', move, true); window.removeEventListener('pointerup', up, true); window.removeEventListener('pointercancel', up, true);
+        if (!armed) return;                                   // (a click: tap, as before)
+        if (chip) chip.remove();
+        // (the click that follows a drag is the drag's, not a tap)
+        var eat = function (c) { c.stopPropagation(); c.preventDefault(); };
+        window.addEventListener('click', eat, true);
+        setTimeout(function () { window.removeEventListener('click', eat, true); }, 0);
+        var zone = ev.type === 'pointerup' && over ? over.getAttribute('data-zone') : null;
+        if (!zone) { self.pick = null; self.redraw(); self.say('Let go on a green place to put ' + LM.CATALOG[src.id][1] + ' there.', true); return; }
+        if (src.from) self.moveTo(src.from, zone); else self.tapZone(zone);
+      };
+      window.addEventListener('pointermove', move, true); window.addEventListener('pointerup', up, true); window.addEventListener('pointercancel', up, true);
+    }
+    // a widget on the screen to another place, last in it
+    moveTo(from, z) {
+      this.pick = null;
+      if (from.z === z) { this.redraw(); return; }
+      this.change((o) => {
+        var L = this.T(o).zones, it = L[from.z].splice(from.i, 1)[0];
+        if (!it) return;
+        L[z].push(it); this.sel = z + ':' + (L[z].length - 1);
+      });
+      this.say(LM.CATALOG[this.T().zones[z][this.T().zones[z].length - 1].id][1] + ' moved to ' + this.zoneName(z) + '. Undo (⌘Z) puts it back.', true);
+    }
     remove(z, i) {
       var w = this.T().zones[z][i];
       this.change((o) => { this.T(o).zones[z].splice(i, 1); this.sel = null; });
@@ -434,7 +488,8 @@
             try { var ctl = WG.create(id, { u: 4, back: 'none', color: 'auto' }); ctl.update(client || { states: {} }, new Date(), { title: 'Lake Weekend · 2024' }); pv.appendChild(ctl.el); } catch (e) { /* its name alone */ }
           } else pv.appendChild(h('hk-icon', { icon: { clock_card: 'mdi:clock', music_card: 'mdi:music', timers_card: 'mdi:timer-outline', weather_card: 'mdi:weather-partly-cloudy', status_card: 'mdi:shield-home', forecast_band: 'mdi:weather-cloudy' }[id] || 'mdi:view-grid' }));
           return h('button', { type: 'button', class: 'witem' + (k[0] === 'circular' ? '' : ' wide'), 'aria-pressed': self.pick === id ? 'true' : 'false',
-                               onclick: () => self.pickWidget(id) }, [pv, h('b', { text: c[1] }), h('small', { text: c[2] })]);
+                               onclick: () => self.pickWidget(id), onpointerdown: (ev) => self.dragStart(ev, { id: id }) },
+                   [pv, h('b', { text: c[1] }), h('small', { text: c[2] })]);
         }));
         kids.push(K.group({ header: k[1], footer: k[2] }, [grid]));
       });

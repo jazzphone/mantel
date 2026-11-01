@@ -6466,6 +6466,8 @@
     // HK Settings' preview of a theme (see PREVIEW above)
     preview: preview,
     get previewing() { return PREVIEW; },
+    // a swipe between pages letting go toward `path` (hk-pageswipe.js): its background fades in (above)
+    swipeTo: function (path, ms, ease) { try { return swipeTo(path, ms, ease); } catch (e) { console.error('[hk-sky]', e); return false; } },
     _read: read,                // tests: what the sky reads, pins included
     _planned: function (n, d) { return plannedFor(n, d); },
     // hkSky._surpriseForce('birthday') then hkSkyAt(14) shows a theme on any
@@ -6556,10 +6558,11 @@
     return SH.tags.viewContainer ? deepFind(SH.tags.viewContainer.toUpperCase()) : null;
   }
 
-  function currentView(cfg) {
+  function currentView(cfg, path) {
     if (!cfg || !cfg.views) return null;
     // /<dashboard>/<view>  -- the view segment is either a path or an index
-    var seg = decodeURIComponent((location.pathname.split('/')[2] || '').split('?')[0]);
+    // (`path`: another page's address, a swipe's -- swipeTo)
+    var seg = decodeURIComponent((String(path || location.pathname).split('/')[2] || '').split(/[?#]/)[0]);
     // NO SEGMENT MEANS VIEW 0, which is what Home Assistant itself does with a
     // bare dashboard URL. Without it a dashboard whose first view has
     // `path: null`, opened at /<dashboard> with no view segment, matches
@@ -6578,7 +6581,7 @@
   // null  -> this dashboard has not opted in; do nothing whatsoever
   // false -> opted in, but THIS view wants no sky; tear down
   // object-> mount with these options
-  function resolve() {
+  function resolve(path) {
     var cfg = lovelaceCfg();
     if (!cfg) return null;
     var flat = !!(window.hkSettings && window.hkSettings.rendering && window.hkSettings.rendering().flat);
@@ -6587,7 +6590,7 @@
     // YAML, but no sky on any of its views.
     var M = window.hkCards && window.hkCards.menu;
     if (!flat && M && typeof M.board === 'function' && M.board().sky === false) return false;
-    var v = currentView(cfg);
+    var v = currentView(cfg, path);
     if (!v) return false;
     // FLAT (2026-10-16): its own backgrounds (hk-settings.js flatBackground)
     // -- a color or one still photo, never the live sky
@@ -6786,12 +6789,63 @@
     return !!(HS && HS.lovelacePanel && HS.lovelacePanel() === false);
   }
 
+  // A SWIPE BETWEEN PAGES (2026-11-01, the owner: "make the backgrounds fade between page swipes but ONLY for
+  // swipes ... If the page is tapped, the background should appear instantly"): as the finger lets go toward a page
+  // (hk-pageswipe.js settle), that page's background is painted at once under a still copy of this one, and the copy
+  // fades while the page slides in -- one fade whatever the background is (a palette, a photo, a wallpaper), where
+  // the sky's own layers would each melt at their own pace. Until the page is up, every repaint is the page the
+  // swipe goes to (swiping), and its own repaint, when it is, paints the same. A tap still cuts.
+  var SWIPE = null;
+  function swiping() {
+    if (!SWIPE) return undefined;
+    var here = String(location.pathname).split('/')[2] || '';
+    if (Date.now() > SWIPE.until || here === SWIPE.seg) { SWIPE = null; return undefined; }
+    return SWIPE.path;
+  }
+  // a still copy of the sky over it: its canvases' pictures drawn in, its motion stopped where it was
+  function skyCover(el) {
+    var c = el.cloneNode(true), i;
+    c.classList.add('hk-snap');
+    c.setAttribute('aria-hidden', 'true');
+    c.style.pointerEvents = 'none';
+    el.parentNode.insertBefore(c, el.nextSibling);
+    var a = el.querySelectorAll('canvas'), b = c.querySelectorAll('canvas');
+    for (i = 0; i < a.length && i < b.length; i++) {
+      try { b[i].width = a[i].width; b[i].height = a[i].height; b[i].getContext('2d').drawImage(a[i], 0, 0); } catch (e) { /* a picture it may not read */ }
+    }
+    if (c.getAnimations && el.getAnimations) {
+      var oa = el.getAnimations({ subtree: true }), ca = c.getAnimations({ subtree: true });
+      ca.forEach(function (x, k) {
+        try { if (oa[k] && oa[k].currentTime != null) x.currentTime = oa[k].currentTime; x.pause(); } catch (e) { /* gone */ }
+      });
+    }
+    return c;
+  }
+  function swipeTo(path, ms, ease) {
+    if (!mounted || !mounted.isConnected || !mounted.parentNode || offPanel()) return false;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    var want = resolve(path), client = clientNow(), host = viewContainerEl();
+    if (!want || !client || !host) return false;
+    var cover = skyCover(mounted);
+    SWIPE = { path: path, seg: String(path).split(/[?#]/)[0].split('/')[2] || '', until: Date.now() + 6000 };
+    snapNext = true;
+    window.hkSky.render(client, host, want);
+    var gone = function () { if (cover.parentNode) cover.parentNode.removeChild(cover); };
+    try {
+      var an = cover.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms || 340, easing: ease || 'ease', fill: 'forwards' });
+      an.onfinish = gone;
+      an.oncancel = gone;
+    } catch (e) { gone(); }
+    setTimeout(gone, (ms || 340) + 500);
+    return true;
+  }
+
   function selfRender() {
     if (offPanel()) {
       if (mounted && !mounted.isConnected) teardown();
       return;
     }
-    var want = resolve();
+    var want = resolve(swiping());
     if (want === null) {                          // not opted in: stay out --
       // -- but a sky left behind by a page that HAD one (Settings after a
       // dashboard) is torn down, not kept alive detached.

@@ -3940,6 +3940,9 @@
         return c2.childElementCount > n;
       };
       if (house) photoSrc(c);
+      // (the Side Pane is the screen's own even while its screensaver is All Screens': what this screen shows beside it)
+      if (house) c.appendChild(K.group({ header: 'Side Pane', footer: 'This screen’s Side Pane in the screensaver, set on its Side Pane page: it is the screen’s own even while the rest follows All Screens.' },
+        [this.paneLink(path, 'saver', 'saver:side_pane')]));
       if (!house) {
         this.saverGroups(c, cur, function (k, v) {
           var o = M.saverOptions(cur); if (k && typeof k === 'object') Object.assign(o, k); else o[k] = v;
@@ -4023,14 +4026,42 @@
                                       .map(function (n) { return [String(n), every(n)]; }),
                                     onChange: function (v) { put('forecast_every', Number(v)); } })] : [])));
       } else if ((fc || ck) && enKnown) this.saverExtras(c, cur, put, tog, fc ? 'forecast' : 'clock', mf, energyHref);
+      // THE FORECAST WHERE IT COMES IN (2026-11-01, the owner: "there is no way of setting Big layout for forecast with
+      // Photos"): between the photos, in their place when there are none, now and then over a clock -- a slide's look,
+      // not a layout's (the forecast as the background is laid out in the editor)
+      var fcSlide = photos && !ck && (both || cur.fallback);
+      if (fcSlide && self.saverKnown('forecast_layout')) {
+        var bigFc = cur.forecast_layout === 'big';
+        c.appendChild(K.group({ header: 'The Forecast', footer: 'How the forecast looks where it comes in among the photos, or in their place' +
+            '. Classic: the live sky and the land, today, the next hours and the coming days along the bottom. Big: Big Weather, the temperature or the time very large, standing on the ground.' },
+          [K.previewPick({ label: 'Layout', sk: 'saver:forecast_layout', value: bigFc ? 'big' : 'classic', options: M.FORECAST_LAYOUTS,
+             picture: function (v, w, ht) { return self.saverThumb(w, ht, v === 'big' ? 'weather' : 'forecast', cur); },
+             onChange: function (v) { put('forecast_layout', v); } })].concat(
+            bigFc && self.saverKnown('forecast_big') ? [K.seg({ label: 'Big Number', sk: 'saver:forecast_big', value: cur.forecast_big === 'clock' ? 'clock' : 'temp',
+              options: M.FORECAST_BIG, onChange: function (v) { put('forecast_big', v); } })] : [],
+            bigFc && cur.forecast_big === 'clock' && self.saverKnown('forecast_planted') ? [K.toggle({ label: 'Planted Numerals',
+              sub: 'The time as solid figures standing in the meadow, with shadows from the sky’s sun and grass at their feet.',
+              on: cur.forecast_planted !== false, sk: 'saver:forecast_planted', onChange: function (on) { put('forecast_planted', on); } })] : [],
+            !bigFc ? [tog('Details on the Forecast', 'band', 'Today, the next hours and the coming days along the bottom. Off: the sky and the landscape alone.')] : [])));
+      }
       // NIGHT MODE: the clock dim red on black at night -- a time of day, not a look
       var night = this.clockNightRows(cur, put);
       if (night.length) c.appendChild(K.group({ header: 'Night Mode', footer: 'Wherever the screensaver shows the time large: the Clock, a big time in the editor, Glance and Month.' }, night));
       // THE PANE (the Side Pane's In the Screensaver group since 2026-10-30; its page has it -- this screen's, or All
-      // Screens')
+      // Screens'). ALL SCREENS' NAMES THE SCREENS WITH THEIR OWN (2026-11-01, the owner: "the kitchen keeps showing the
+      // Side Pane for the screensaver, even though it's disabled" -- All Screens' was off, the Kitchen's its own)
+      var panePath = this.panePath(styleHref), bds = this.data.boards || {};
+      var housePane = panePath ? '' : M.paneSaverSummary(this.paneNow(null));
+      var ownPane = panePath ? [] : Object.keys(bds).filter(function (pth) {
+        return !!(bds[pth].screensaver && bds[pth].side_pane && bds[pth].side_pane.saver) && M.paneSaverSummary(self.paneNow(pth)) !== housePane;
+      });
       c.appendChild(K.group({ header: 'Side Pane', footer: 'Sections down one side of the screen — the events, what’s playing, the weather and more — with the ' +
-          (ck ? 'clock' : face ? M.showName(show) + ' face' : fc ? 'forecast' : 'photos or the forecast') + ' beside it. Set on the Side Pane page, with the Dashboard’s.' },
-        [this.paneLink(this.panePath(styleHref), 'saver', 'saver:side_pane')]));
+          (ck ? 'clock' : face ? M.showName(show) + ' face' : fc ? 'forecast' : 'photos or the forecast') + ' beside it. Set on the Side Pane page, with the Dashboard’s.' +
+          (ownPane.length ? ' ' + (ownPane.length === 1 ? 'This screen has' : 'These screens have') + ' a Side Pane of their own in the screensaver, whatever All Screens’ says:' : '') },
+        [this.paneLink(panePath, 'saver', 'saver:side_pane')].concat(ownPane.map(function (pth) {
+          return K.nav({ label: (self.dash(pth) || { title: pth }).title, value: M.paneSaverSummary(self.paneNow(pth)),
+                         href: '#/screens/' + encodeURIComponent(pth) + '/sidepane', sk: 'saver:side_pane:' + pth });
+        }))));
       // BACK TO THE DASHBOARD (hk-saver.js stop): a touch or the switch
       var FADES = [[0, 'Instant'], [500, '0.5 Seconds'], [1000, '1 Second'], [2000, '2 Seconds']];
       var fadeOpts = FADES.concat(FADES.some(function (f) { return f[0] === cur.fade_back; }) ? []

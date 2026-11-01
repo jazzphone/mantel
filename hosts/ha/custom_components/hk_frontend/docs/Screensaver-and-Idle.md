@@ -77,7 +77,8 @@ uses All Screens’ settings gets its own when you save, starting from them.
   units to a line, two lines at most, as on the iPhone), **Inline**,
   **Cards** (the corners: Weather, Now Playing, Timers, Home Status, Clock)
   and **Along the Bottom** (the forecast and its readings). Tap
-  one, then a green place on the screen; there is no dragging. A round **+**
+  one, then a green place on the screen, or with a mouse drag it there (drag
+  one on the screen to move it), as in the Home Grid editor. A round **+**
   after the last widget in the row, and under or over a corner’s stack,
   lists what fits there, for as long as there is room. Tap a widget or a card
   on the screen for the same **Look** on every one (**Size**, 60 to 160 %;
