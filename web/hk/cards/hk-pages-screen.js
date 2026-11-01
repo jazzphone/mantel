@@ -271,7 +271,8 @@
       '  color:' + v('ink') + ';-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}',
       // the screen's background, blurred (fixed: the whole window, under the
       // bar too); not in Flat, where there is nothing to blur
-      '.bg{position:fixed;inset:0;z-index:-1;pointer-events:none;',
+      // (a page swipe moving it wears it on a still layer of its own instead: hk-pageswipe.js, swipeGround below)
+      '.bg{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:calc(1 - var(--hk-ground-hide, 0));',
       '  -webkit-backdrop-filter:' + BG_BLUR + ';backdrop-filter:' + BG_BLUR + '}',
       ':host([data-flat]) .bg{display:none}',
       '.time{position:absolute;left:0;right:0;text-align:center;font-weight:500;line-height:1;letter-spacing:-0.0425em;',
@@ -348,6 +349,8 @@
     class HkPagesScreenCard extends HkBase {
       static get CSS() { return CSS; }
       getCardSize() { return 12; }
+      // THE BLURRED SKY a page swipe wears behind the page while it moves (hk-pageswipe.js ground); none in Flat
+      swipeGround() { return this.hasAttribute('data-flat') ? null : BG_BLUR; }
 
       connectedCallback() {
         super.connectedCallback();

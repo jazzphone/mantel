@@ -59,7 +59,7 @@
   var STANDARD = 'cubic-bezier(.32,.72,0,1)', STANDARD_MS = 340, FADE_MS = 200;
   // the props a swipe sets on a view, given back as they were
   var PROPS = ['transform', 'transition', 'transform-origin', 'position', 'left', 'top', 'width', 'height', 'max-height',
-               'overflow', 'will-change', 'pointer-events', 'opacity'];
+               'overflow', 'will-change', 'pointer-events', 'opacity', '--hk-ground-hide'];
 
   // ------------------------------------------------------------ the rules
   // (pure: the tests hold them, test_pageswipe.js)
@@ -255,26 +255,66 @@
     var N = { item: item, dir: dir, cached: !!p, el: p ? p.el : ghost(item) };
     N.saved = save(N.el);
     if (N.cached && N.el.swipeEnter) { try { N.el.swipeEnter(dir); } catch (e) { /* its own */ } }
-    var r = g.rect, st = N.el.style;
+    // laid out at the room it will have (the Side Pane coming or going: hkSidePane.room), its edge against this one's
+    var r = g.rect, st = N.el.style, P = window.hkSidePane, room = P && P.room ? P.room(item.path) : null;
+    var left = r.left, width = r.width;
+    if (room) { width += room.grow; if (room.side === 'left') left -= room.grow; }
+    N.off = dir > 0 ? r.left + r.width - left : r.left - left - width;
     st.setProperty('position', 'fixed');
-    st.setProperty('left', r.left + 'px');
+    st.setProperty('left', left + 'px');
     st.setProperty('top', g.top + 'px');
-    st.setProperty('width', r.width + 'px');
+    st.setProperty('width', width + 'px');
     st.setProperty(N.cached ? 'max-height' : 'height', Math.max(0, (window.innerHeight || 0) - g.top) + 'px');
     st.setProperty('overflow', 'hidden');
     st.setProperty('pointer-events', 'none');
     st.setProperty('transition', 'none');
     st.setProperty('will-change', 'transform');
     if (g.origin) st.setProperty('transform-origin', g.origin);
-    setX(N.el, dir * g.w, g.base);
+    setX(N.el, N.off, g.base);
     parent.appendChild(N.el);
+    N.ground = ground(g, N.el);
     return N;
   }
   function drop(N) {
     if (!N) return;
+    unground(N.ground);
     if (N.el.parentNode) N.el.parentNode.removeChild(N.el);
     if (N.cached) restore(N.el, N.saved);
   }
+
+  // ------------------------------------------------------------ a page's ground
+  // A PAGE WITH A GROUND OF ITS OWN (the Pages screen's blurred sky, hk-pages-screen.js swipeGround) draws it fixed to
+  // the window -- and a page moving by transform takes its fixed things with it: the blur rode along, a plate with an
+  // edge (2026-11-01, the owner: "the blur going from the Apps Page back to the HomeView seems to follow"). While a
+  // swipe moves the page, its own is hidden (--hk-ground-hide) and a still layer behind the pages wears it, as
+  // strong as the page is on the screen.
+  function groundOf(el) {
+    var q = [el], i = 0;
+    while (i < q.length && i < 4000) {
+      var n = q[i++];
+      if (typeof n.swipeGround === 'function') { try { return n.swipeGround() || null; } catch (e) { return null; } }
+      if (n.shadowRoot) q.push(n.shadowRoot);
+      for (var c = n.firstElementChild; c; c = c.nextElementSibling) q.push(c);
+    }
+    return null;
+  }
+  function ground(g, el, k) {
+    var f = groundOf(el), parent = g.view.parentNode;
+    if (!f || !parent) return null;
+    var d = document.createElement('div');
+    d.className = 'hk-swipe-ground';
+    d.setAttribute('aria-hidden', 'true');
+    d.style.cssText = 'position:fixed;inset:0;pointer-events:none;opacity:' + (k || 0) + ';-webkit-backdrop-filter:' + f + ';backdrop-filter:' + f;
+    parent.insertBefore(d, g.view);
+    el.style.setProperty('--hk-ground-hide', '1');
+    return d;
+  }
+  function shade(d, k, glide) {
+    if (!d) return;
+    d.style.transition = glide ? 'opacity ' + STANDARD_MS + 'ms ' + STANDARD : 'none';
+    d.style.opacity = String(+k.toFixed(3));
+  }
+  function unground(d) { if (d && d.parentNode) d.parentNode.removeChild(d); }
 
   // ------------------------------------------------------------ the gesture
   var G = null, L = null, eatUntil = 0;
@@ -341,7 +381,7 @@
     G.rect = { left: r.left, width: r.width || window.innerWidth || 1 };
     G.w = G.rect.width;
     G.top = Math.max(0, Math.min((window.innerHeight || 0) / 2, r.top + scrolled));
-    if (!G.calm) view.style.setProperty('will-change', 'transform');
+    if (!G.calm) { view.style.setProperty('will-change', 'transform'); G.here = ground(G, view, 1); }
     if (e.pointerType !== 'touch') { try { view.setPointerCapture(e.pointerId); } catch (x) { /* gone */ } }
     // (the cancel sent here is for the card, not for us)
     G.cancelling = true;
@@ -363,9 +403,12 @@
     if (to && !G.nb[dir]) G.nb[dir] = prepare(G, dir, to);
     var N = G.nb[dir], O = G.nb[-dir];
     setX(G.view, x, G.base);
-    if (N) setX(N.el, x + dir * G.w, G.base);
-    if (O) setX(O.el, -dir * G.w, G.base);
+    if (N) setX(N.el, x + N.off, G.base);
+    if (O) setX(O.el, O.off, G.base);
     var T = window.hkTabBar, P = window.hkSidePane, f = to ? Math.min(1, Math.abs(dx) / G.w) : 0, at = (to || G.items[G.at]).path;
+    shade(G.here, 1 - f);
+    if (N) shade(N.ground, f);
+    if (O) shade(O.ground, 0);
     if (T && T.follow) {
       try { T.follow(f, at); } catch (e) { /* not drawn */ }
     }
@@ -400,16 +443,18 @@
     var tr = 'transform ' + STANDARD_MS + 'ms ' + STANDARD;
     g.view.style.setProperty('transition', tr);
     setX(g.view, to ? -dir * g.w : 0, g.base);
+    shade(g.here, to ? 0 : 1, true);
     Object.keys(g.nb).forEach(function (k) {
       var M = g.nb[k];
       if (!M) return;
       M.el.style.setProperty('transition', tr);
-      setX(M.el, M === N ? 0 : +k * g.w, g.base);
+      setX(M.el, M === N ? 0 : M.off, g.base);
+      shade(M.ground, M === N ? 1 : 0, true);
     });
     setTimeout(function () {
       Object.keys(g.nb).forEach(function (k) { if (g.nb[k] !== N) drop(g.nb[k]); });
       if (to) commit(g, to, dir, N);
-      else restore(g.view, g.saved);
+      else { unground(g.here); restore(g.view, g.saved); }
     }, STANDARD_MS + 20);
   }
 
@@ -431,7 +476,11 @@
       L = null;
       land.offs.forEach(function (off) { try { off(); } catch (e) { /* */ } });
       clearTimeout(land.timer);
-      if (N && N.cached) restore(N.el, N.saved);
+      unground(g.here);
+      // (the room it lands in first: the Side Pane says where it is now, so the page takes its place as it is put back)
+      var P = window.hkSidePane;
+      if (el && P && P.sync) { try { P.sync(); } catch (e) { /* not drawn */ } }
+      if (N && N.cached) { unground(N.ground); restore(N.el, N.saved); }
       else drop(N);
       restore(g.view, g.saved);
       if (el && el !== g.view) {
