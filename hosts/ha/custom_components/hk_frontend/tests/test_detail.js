@@ -404,7 +404,9 @@ print('\n=== the chart readout ===');
   var pb = _.scrubPick(db, 0.5, now);
   ok('bars pick the column under the finger, its middle', pb.i === 1 && pb.v === null && Math.abs(pb.f - 0.5) < 1e-9, pb);
   var d0 = new Date(); d0.setHours(14, 0, 0, 0);
-  var hb = { k: 'b', ms: 2 * HR, p: [[+d0 - 24 * HR, 1], [+d0, 2]] };
+  // yesterday's 2 PM by the calendar, not 24 hours back: a day that changes the clocks is 23 or 25 hours long
+  var dy = new Date(d0); dy.setDate(dy.getDate() - 1);
+  var hb = { k: 'b', ms: 2 * HR, p: [[+dy, 1], [+d0, 2]] };
   ok('an hour\'s bar is its span: "2 – 3 PM"', /^2\s–\s3\sPM$/i.test(_.scrubPick(hb, 0, +d0 + 2 * HR).label), _.scrubPick(hb, 0, +d0 + 2 * HR).label);
   ok('the hour still going ends at Now', /^2\sPM\s–\sNow$/i.test(_.scrubPick(hb, 0.9, +d0 + HR / 2).label), _.scrubPick(hb, 0.9, +d0 + HR / 2).label);
   var day = { k: 'b', ms: 7 * 24 * HR, p: [] };

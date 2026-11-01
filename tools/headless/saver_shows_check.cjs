@@ -142,9 +142,11 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           (sr ? [...sr.querySelectorAll('.info > hk-clock-card, .info > hk-weather-strip-card' + (innerWidth < 600 ? ', .info > hk-screensaver-status-card' : ''))] : []).forEach(walk2);
           const corner = cw.length ? { l: Math.min(...cw.map((r) => r.left)), r: Math.max(...cw.map((r) => r.right)), t: Math.min(...cw.map((r) => r.top)), b: Math.max(...cw.map((r) => r.bottom)) } : null;
           const moving = sr ? [...sr.querySelectorAll('.hkf.day .art > *')].flatMap((e) => e.getAnimations()).filter((a) => a.playState === 'running').map((a) => a.animationName) : [];
+          // bats only on an occasion that has them (Halloween); the season's leaves (or petals, snow) every day
+          const flies = sr ? sr.querySelectorAll('.hkf.day .art .fly, .hkf.day .art .flutter').length : 0;
           const wxCard = sr && sr.querySelector('.info > hk-weather-strip-card'), glyph = wxCard && wxCard.shadowRoot && wxCard.shadowRoot.querySelector('svg.hk-wx path, hk-icon.hk-wx');
           const facefoot = sr && sr.querySelector('.ck .hkf.day') ? sr.querySelector('.ck .hkf.day').getBoundingClientRect().bottom : null;
-          return { wd: wdb, dn: dnb, corner, moving, glyphInk: glyph ? getComputedStyle(glyph).fill || getComputedStyle(glyph).color : null, facefoot,
+          return { wd: wdb, dn: dnb, corner, moving, flies, glyphInk: glyph ? getComputedStyle(glyph).fill || getComputedStyle(glyph).color : null, facefoot,
                    texts: out, tm: box('.hkf.weather .tm'), rd: box('.hkf.weather .rd'), np: nr ? { l: nr.left, t: nr.top, r: nr.right, b: nr.bottom } : null, rdRight: inks.length ? Math.max(...inks) : null, W: innerWidth, light: host && host.hasAttribute('cklight') };
         });
         const lum = (c) => { const v = (c.match(/[\d.]+/g) || []).slice(0, 3).map(Number); return (0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]) / 255; };
@@ -157,7 +159,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           const meet = (a, b) => !!(a && b && a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b);
           say(!!m.corner && !!m.wd && !meet(m.corner, m.wd) && !meet(m.corner, m.dn), tag + ': ...the corner’s words clear of the day’s name and its date', [m.corner, m.wd, m.dn]);
           say(!!m.dn && m.dn.b <= m.facefoot + 1, tag + ': ...the date whole on the face', [m.dn, m.facefoot]);
-          say(m.moving.includes('hkf-fall') && m.moving.includes('hkf-fly') && m.moving.includes('hkf-flap'), tag + ': ...its leaves falling, its bats flying', m.moving);
+          say(m.moving.includes('hkf-fall') && (!m.flies || m.moving.includes('hkf-fly') && m.moving.includes('hkf-flap')),
+              tag + ': ...its leaves falling' + (m.flies ? ', its bats flying' : ' (no bats today: not an occasion with them)'), m.moving);
           say(!!m.glyphInk && lum(m.glyphInk) < 0.5, tag + ': ...the weather’s glyph in the dark ink too', m.glyphInk);
         } else {
           const st = m.texts.filter((x) => /Disarmed|Unlocked/.test(x.t)), over = (a, b) => a && b && a.l < b.r && b.l < a.r && a.top < b.b && b.top < a.b;
