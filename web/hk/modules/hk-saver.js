@@ -2865,8 +2865,12 @@
         if (!face || !fr.width) return null;
         // its figures: the union of what the face drew
         var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+        // (what draws: words of its own, a picture -- never only a box around others; Neon's figures are words
+        // with glow inside them, and taking only the innermost things measured its colon, 2026-11-01)
         Array.prototype.forEach.call(face.querySelectorAll('*'), function (n) {
-          if (n.children.length && n.tagName !== 'svg' && n.tagName !== 'SVG') return;
+          var own = /^(svg|SVG|canvas|CANVAS|img|IMG)$/.test(n.tagName) || !n.children.length ||
+            Array.prototype.some.call(n.childNodes, function (t) { return t.nodeType === 3 && t.textContent.trim(); });
+          if (!own || (n.closest && n.closest('svg') && n.tagName.toLowerCase() !== 'svg')) return;
           var q = n.getBoundingClientRect();
           if (!q.width || !q.height) return;
           x0 = Math.min(x0, q.left); y0 = Math.min(y0, q.top); x1 = Math.max(x1, q.right); y1 = Math.max(y1, q.bottom);

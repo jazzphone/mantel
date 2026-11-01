@@ -6,8 +6,14 @@ screensaver block built from them (hk-strategy.js hkSaver), and the screensaver 
 drops (every new Show once became Photos: "they just keep showing photos") fails here. Each Show's face must be the one
 drawn: Glance, Month and Day (ckface on the screensaver), Big Weather (fcbig) and Classic (neither).
 
+The Screensaver editor's saved layouts too (2026-11-01, the saver-lay- screens): the big element, the widgets and the corner
+cards where the plan puts them, at a tablet either way and a phone -- all on the screen, none on another (Lock Screen, the
+wall tablet, Planted, a Clock on a background, a Month); and a Show with no layout never draws one.
+
     PLAYWRIGHT_PATH=/path/to/node_modules/playwright-core NODE=node python tools/headless/saver_shows_check.py [--shots DIR]
         [--shard K/N]
+
+--only TEXT runs just the screens with TEXT in their names (saver-lay-, say), to work on one.
 
 --shard K/N runs every N-th of the runs (each Show at each size), from the K-th: tools/ci.py runs the N parts side by
 side, each with its own server and WebKit (2026-11-01: whole, it was a full run's last ~3 minutes alone).
@@ -22,6 +28,7 @@ ap = argparse.ArgumentParser(description=__doc__)
 ap.add_argument('--node', default=os.environ.get('NODE') or shutil.which('node'))
 ap.add_argument('--shots', type=Path)
 ap.add_argument('--shard', default='1/1', help='K/N: every N-th run, from the K-th')
+ap.add_argument('--only', default='', help='only the screens whose name has this in it (saver-lay-, say), for working on one')
 args = ap.parse_args()
 try:
     shard, shards = (int(x) for x in args.shard.split('/'))
@@ -32,6 +39,11 @@ if not args.node or not os.environ.get('PLAYWRIGHT_PATH'):
     print('saver_shows_check: skipped (needs NODE and PLAYWRIGHT_PATH)')
     raise SystemExit(0)
 import gallery  # noqa: E402
+
+def _layout(big, **zones):
+    """A saved layout (hk_core/settings/saver_layout.py): the big element and, per zone, the widgets' ids."""
+    return {'v': 1, 'big': big, 'zones': {z: [{'id': w} for w in ids] for z, ids in zones.items()}}
+
 
 # screen -> (its Screensaver Options, the face it must draw: ckface's value, 'big', or None for the classic forecast)
 SHOWS = {
@@ -59,6 +71,21 @@ SHOWS = {
     'saver-preview': ({'show': 'clock', 'clock_bg': 'gradient', 'clock_style': 'classic'}, 'preview'),
     # ...and on the Appearance pages the look alone: the screen with a few of its cards, a change there in moments
     'look-preview': ({'show': 'photos'}, 'look'),
+    # THE SCREENSAVER EDITOR'S LAYOUTS (2026-11-01, docs/phase12/SCREENSAVER-EDITOR.md): a screen's saved layout -- a big
+    # element, widgets in zones, the corner cards where the plan puts them -- drawn over its Show, at a tablet either way and
+    # a phone: everything on the screen, nothing on anything else
+    'saver-lay-lock': ({'show': 'forecast', 'layout': _layout({'kind': 'time', 'size': 26, 'pos': 'upper'},
+                        line=['date'], row=['temp', 'aqi', 'timer', 'locks'], bl=['music_card'], tr=['status_card'])}, 'lay-lock'),
+    # (the wall tablet: no photos for a new screen, so Photos falls back to the forecast, and the time must stand in front)
+    'saver-lay-wall': ({'show': 'photos', 'layout': _layout({'kind': 'time', 'size': 40, 'pos': 'top', 'depth': 'behind'},
+                        tl=['weather_card'], tr=['status_card'], bl=['music_card'], br=['timers_card'])}, 'lay-wall'),
+    'saver-lay-planted': ({'show': 'forecast', 'clock_style': 'classic', 'layout': _layout(
+                        {'kind': 'time', 'size': 40, 'pos': 'ground', 'align': 'left', 'depth': 'planted'},
+                        tl=['weather_line'], tr=['status_card'], bl=['music_card'], bottom=['readings'])}, 'lay-planted'),
+    'saver-lay-clock': ({'show': 'clock', 'clock_bg': 'aurora', 'clock_style': 'neon', 'layout': _layout(
+                        {'kind': 'time', 'size': 30, 'pos': 'center'}, line=['date'], tl=['weather_card'], tr=['status_card'],
+                        bl=['music_card'])}, 'lay-clock'),
+    'saver-lay-month': ({'show': 'month', 'layout': _layout({'kind': 'month', 'size': 34, 'pos': 'center'}, tr=['clock_card'])}, 'lay-month'),
 }
 
 
@@ -109,7 +136,7 @@ async def main():
                                                         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=os.environ)
             out, err = await proc.communicate(json.dumps({'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie,
                                                           'shows': {k: v[1] for k, v in SHOWS.items()},
-                                                          'shard': [shard, shards],
+                                                          'shard': [shard, shards], 'only': args.only,
                                                           'shots': str(args.shots) if args.shots else None}).encode())
             print(out.decode())
             if err.strip():

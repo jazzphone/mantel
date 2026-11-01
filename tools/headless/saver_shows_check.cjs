@@ -6,9 +6,9 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
   let fails = 0;
   const say = (ok, what, got) => { if (!ok) fails++; console.log((ok ? 'PASS ' : 'FAIL ') + what + (ok ? '' : '  got ' + JSON.stringify(got))); };
   try {
-    const runs = Object.entries(input.shows).flatMap(([screen, want]) => want === 'tb' ? [[screen, want, 1180, 820], [screen, want, 390, 844]]
+    const runs = Object.entries(input.shows).filter(([screen]) => screen.includes(input.only || '')).flatMap(([screen, want]) => want === 'tb' ? [[screen, want, 1180, 820], [screen, want, 390, 844]]
       : want === 'day-ink' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]]
-      : want === 'big-corners' || want === 'planted' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]] : [[screen, want, 1180, 820]])
+      : want === 'big-corners' || want === 'planted' || /^lay-/.test(want) ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]] : [[screen, want, 1180, 820]])
       // (--shard K/N: every N-th run from the K-th; tools/ci.py runs the N parts side by side)
       .filter((_, i) => !input.shard || i % input.shard[1] === input.shard[0] - 1);
     console.log('saver shows: ' + runs.length + ' runs' + (input.shard && input.shard[1] > 1 ? ' (part ' + input.shard.join(' of ') + ')' : ''));
@@ -28,7 +28,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         const deep = (r, s) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
         const host = document.querySelector('hk-screensaver') || deep(document, '[ckface],[fcbig]')[0] ||
           [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
-        return host ? { face: host.getAttribute('ckface'), big: host.hasAttribute('fcbig') } : null;
+        return host ? { face: host.getAttribute('ckface'), big: host.hasAttribute('fcbig'), lay: host.hasAttribute('lay') } : null;
       });
       if (want === 'tb') {
         // THE WEATHER WITH TIME BEHIND (2026-10-31, the owner: back in the corner, as on Clock): there, with its
@@ -181,6 +181,106 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         await ctx.close();
         continue;
       }
+      if (/^lay-/.test(want)) {
+        const tag = screen + ' ' + W + 'x' + H;
+        // (Planted needs the sky it stands under: pinned, the screensaver started again under it)
+        if (want === 'lay-planted') {
+          await page.evaluate(() => { window.hkSaver.preview(false); window.hkSky._pin({ season: '', land: 'fall', wet: { kind: 'none', rate: 0 }, fog: false, wind: 4, moon: 0.4, elev: 30, azim: 182, cond: 'sunny', cover: 0.1 }); });
+          await page.waitForTimeout(800);
+          await page.evaluate(() => window.hkSaver.preview(true));
+          await page.waitForTimeout(7000);
+        } else await page.waitForTimeout(3000);
+        const m = await page.evaluate(() => {
+          const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
+          const host = deep(document).find((e) => e.tagName === 'HK-SCREENSAVER'), sr = host && host.shadowRoot, lay = sr && sr.querySelector('.lay');
+          if (!sr) return null;
+          const box = (r) => ({ l: r.left, t: r.top, r: r.right, b: r.bottom });
+          const rect = (e) => e ? box(e.getBoundingClientRect()) : null;
+          // the union of the boxes of what is drawn: the words and the pictures under a node (never its container, which a face makes
+          // bigger than its figures; never a <style>'s text)
+          const union = (nodes) => { const q = nodes.filter((r) => r.width > 0 && r.height > 0);
+            return q.length ? { l: Math.min(...q.map((r) => r.left)), t: Math.min(...q.map((r) => r.top)), r: Math.max(...q.map((r) => r.right)), b: Math.max(...q.map((r) => r.bottom)) } : null; };
+          const drawn = (root) => { const q = [], words = [];
+            const walk = (n) => { if (n.nodeType === 3) { if (n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); q.push(rg.getBoundingClientRect()); words.push(n.textContent.trim()); } return; }
+              if (n.nodeType !== 1 || n.tagName === 'STYLE') return;
+              if (/^(svg|canvas|img)$/i.test(n.tagName)) { q.push(n.getBoundingClientRect()); return; }
+              n.childNodes.forEach(walk); };
+            walk(root); return { ink: union(q), text: words.join(' ') }; };
+          // a card's visible inner box: the status, now-playing and timers cards draw in a position:fixed box of their own
+          // (the card element itself is empty of size); the clock and the weather as everything their shadow tree draws
+          const inner = (c) => {
+            const k = c.shadowRoot ? [...c.shadowRoot.querySelectorAll('*')].filter((n) => n.tagName !== 'STYLE') : [];
+            const fixed = /STATUS|NOW|TIMER/.test(c.tagName) ? k.find((n) => getComputedStyle(n).position === 'fixed' && n.getBoundingClientRect().height > 0) : null;
+            return fixed ? rect(fixed) : union(k.map((n) => n.getBoundingClientRect()));
+          };
+          const cards = sr ? [...sr.querySelectorAll('.info > *')].map((c) => ({ tag: c.tagName.toLowerCase().replace(/^hk-|-card$/g, ''), hide: c.hasAttribute('lyhide'), box: c.hasAttribute('lyhide') ? null : inner(c) })) : [];
+          const lybig = lay && lay.querySelector('.lybig'), tbt = sr.querySelector('.ph .tb .tbt');
+          const ws = lay ? [...lay.querySelectorAll('.hksw')].map((e) => ({ id: (e.className.match(/\bw-(\S+)/) || [])[1], cls: e.className, box: rect(e), shown: getComputedStyle(e).display !== 'none' })) : [];
+          // (the box the plan gave the big element: what the widgets and cards are placed around, in this page's px)
+          const info = window.hkSaver.layoutInfo && window.hkSaver.layoutInfo(), pb = info && info.plan && info.plan.big;
+          return { lay: host.hasAttribute('lay'), plan: pb ? { l: pb.x, t: pb.y, r: pb.x + pb.w, b: pb.y + pb.h } : null, tb: host.hasAttribute('tb'), W: innerWidth, H: innerHeight, hasLay: !!lay,
+                   big: lybig ? Object.assign({ box: rect(lybig), spans: lybig.querySelectorAll('span').length, days: [...lybig.querySelectorAll('span')].filter((e) => /^\d{1,2}$/.test(e.textContent.trim())).length,
+                                  figures: lybig.querySelectorAll('.pl .pd .b').length, faces: lybig.querySelectorAll('.face').length },
+                                  lybig.classList.contains('planted') ? { ink: union([...lybig.querySelectorAll('.pd .b')].map((e) => e.getBoundingClientRect())), text: lybig.querySelector('.pd .b') ? 'planted' : '' } : drawn(lybig)) : null,
+                   tbt: tbt ? rect(tbt) : null,
+                   ck: { n: sr.querySelectorAll('.ck').length, own: [...sr.querySelectorAll('.ck .face')].filter((f) => !f.closest('.lay') && f.getBoundingClientRect().width > 0 && getComputedStyle(f).visibility !== 'hidden' && getComputedStyle(f).display !== 'none').length },
+                   ws, cards };
+        });
+        const inScreen = (b) => !!b && b.l >= -1 && b.t >= -1 && b.r <= m.W + 1 && b.b <= m.H + 1;
+        const meet = (a, b) => !!(a && b && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1);
+        say(started && !!m && m.lay && m.hasLay, tag + ': the screensaver draws a layout (the host has lay, with its layer)', m && [m.lay, m.hasLay]);
+        if (!m) { await ctx.close(); continue; }
+        const ink = m.big && m.big.ink, bigOk = !!ink && ink.r - ink.l > 20 && ink.b - ink.t > 10;
+        // (what the others are placed around is the plan's box for the big element, not its figures' text lines, which are taller than the glyphs)
+        const big = m.plan;
+        // (Clock's neon face too: its plan's box was once as wide as its colon -- layoutBig measured only the face's innermost
+        // things, and neon's figures are words with glow inside them -- fixed 2026-11-01, and checked here since)
+        const neon = false;
+        say(!!big && big.b - big.t > 10 && (neon || big.r - big.l > 20), tag + ': ...the plan gives the big element a box', m.plan);
+        // (a little room for the digits: the plan's box was measured on the time as it was, and "12:19" is wider than "11:11")
+        const slack = big ? 3 + 0.05 * (big.r - big.l) : 3;
+        if (want !== 'lay-planted' && !neon) say(bigOk && !!big && ink.l >= big.l - slack && ink.r <= big.r + slack, tag + ': ...drawn in its box (sideways)', [ink, big]);
+        if (want === 'lay-lock') {
+          say(bigOk, tag + ': ...the big time is drawn, with a box', m.big);
+          const row = m.ws.filter((w) => w.shown && /^(temp|aqi|timer|locks)$/.test(w.id));
+          say(row.length === 4 && row.every((w) => inScreen(w.box)), tag + ': ...four widgets in the row, all inside the screen', row.map((w) => [w.id, w.box]));
+          const date = m.ws.find((w) => w.id === 'date');
+          say(!!date && !!big && date.box.b <= big.t + 1, tag + ': ...the date above the big time', date && [date.box, big]);
+          say(row.length > 0 && !!big && row.every((w) => w.box.t >= big.b - 1), tag + ': ...the row below it', [row.map((w) => w.box.t), big]);
+        } else if (want === 'lay-wall') {
+          say(bigOk, tag + ': ...the big time is drawn, with a box', m.big);
+          // (a new screen has no photos: Photos falls back to the forecast, and Behind has nothing to be behind -- the time stands in front)
+          say(!m.tb && !m.tbt && !!m.big && m.big.faces > 0, tag + ': ...with no photos the time stands in front, as a face of its own', [m.tb, m.tbt, m.big && m.big.faces]);
+          const shown = m.cards.filter((c) => !c.hide && c.box);
+          say(m.cards.filter((c) => !c.hide).length === 4 && shown.some((c) => c.tag === 'weather-strip') && shown.some((c) => c.tag === 'screensaver-status'),
+              tag + ': ...the four corner cards the plan names, none left out (the weather and Home Status drawn)', m.cards.map((c) => [c.tag, c.hide, c.box]));
+          say(shown.every((c) => inScreen(c.box)), tag + ': ...every card inside the screen', shown.map((c) => [c.tag, c.box]));
+          say(shown.every((c) => !meet(c.box, big)), tag + ': ...no card on the big time', [shown.map((c) => [c.tag, c.box]), big]);
+          let clash = null;
+          for (let i = 0; i < shown.length; i++) for (let j = i + 1; j < shown.length; j++) if (meet(shown[i].box, shown[j].box)) clash = [shown[i].tag, shown[i].box, shown[j].tag, shown[j].box];
+          say(!clash, tag + ': ...no card on another card', clash);
+        } else if (want === 'lay-planted') {
+          say(!!m.big && m.big.figures > 0, tag + ': ...the planted figures (.pd .b) are drawn', m.big && m.big.figures);
+          const band = m.ws.find((w) => /\bk-band\b/.test(w.cls));
+          if (W > H) say(!!band && !!big && band.box.t >= big.b - 1, tag + ': ...the readings band below the figures', band && [band.box, big]);
+          else say(!!band && inScreen(band.box), tag + ': ...the readings band inside the screen', band && band.box);
+        } else if (want === 'lay-clock') {
+          say(m.ck.n > 0, tag + ': ...the Clock\'s background (.ck) is there', m.ck);
+          say(m.ck.own === 0, tag + ': ...with no face of its own', m.ck);
+          say(!!m.big && m.big.faces > 0 && bigOk && /\d/.test(m.big.text), tag + ': ...the layout\'s own face is the time', m.big);
+        } else if (want === 'lay-month') {
+          const names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+          const days = m.big ? m.big.text : '';
+          say(!!m.big && names.some((n) => days.includes(n)), tag + ': ...the big element has the month\'s name', m.big && m.big.text.slice(0, 40));
+          say(!!m.big && m.big.days >= 28 && m.big.days <= 31, tag + ': ...and its 28-31 days', m.big && m.big.days);
+          const clock = m.cards.find((c) => !c.hide && /clock/.test(c.tag));
+          say(!!clock && !!clock.box && inScreen(clock.box) && !meet(clock.box, big), tag + ': ...the clock card inside the screen, off the month', [clock, big]);
+        }
+        say(!errors.length, tag + ': no page errors', errors.slice(0, 3));
+        if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '.png' });
+        await ctx.close();
+        continue;
+      }
       if (want === 'planted') {
         const tag = screen + ' ' + W + 'x' + H;
         // the sky pinned, the screensaver started again under it
@@ -258,6 +358,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
       }
       const ok = !!got && (want === 'big' ? got.big : want ? got.face === want : !got.face && !got.big);
       say(started && ok, screen + ': the screensaver draws ' + (want || 'the classic forecast'), got);
+      // (2026-11-01: no layout saved, no layout drawn -- the screensaver's own cards and faces, as every Show always had)
+      say(!!got && !got.lay, screen + ': ...with no layout saved, no layout is drawn (the host never gets lay)', got);
       say(!errors.length, screen + ': no page errors', errors.slice(0, 3));
       if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '.png' });
       await ctx.close();
