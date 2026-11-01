@@ -32,8 +32,9 @@ Two Music Assistant players Mantel treats as **one room**, with no group in Musi
 
 Mantel stays aware of real Music Assistant groups (`players/all`, read every 30 s):
 
-1. **Rooms that are exactly a preset's** play through its group, as before. A preset's rooms are read from its group,
-   the pair's two players folded back into the pair; a group holding only one of them is a problem the settings page
+1. **Rooms that are exactly a preset's** play through its group, as before. A preset's rooms are read from its group
+   (a group with dynamic members: from its settings, not the members it holds now), the pair's two players folded
+   back into the pair; a group holding only one of them is a problem the settings page
    names.
 2. **The pair alone, when Music Assistant has a group of exactly its two players**, plays through that group (the
    "Actual Group Pair"): it was made for that room.
