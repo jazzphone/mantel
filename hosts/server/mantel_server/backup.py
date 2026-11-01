@@ -877,6 +877,24 @@ def parse_keys(text: str | bytes) -> dict[str, bytes]:
         raise BackupError("keys_invalid", "that is not a Mantel keys file") from exc
 
 
+# Docker and the LXC mount the keys read-only from the host (/etc/hk/secrets -> /run/secrets): Mantel can't put
+# another Mantel's at-rest key in place itself, and a restore without it loses the authenticator apps and the saved
+# connections. The host's restore.sh does it there, with the keys file, before Mantel starts again.
+KEYS_READ_ONLY = ("Mantel can't change its own keys on this installation: Docker and the LXC keep them read-only in "
+                  "/etc/hk/secrets. Restore this backup on the Mantel machine instead, with its keys file: "
+                  "./restore.sh <backup> <keys file> in packaging/compose, or from the Proxmox host "
+                  "bash packaging/lxc/mantel.sh restore <id> <backup> <keys file>.")
+
+
+def can_replace_at_rest_key(secrets_dir) -> bool:
+    """Whether apply_pending can move the at-rest key aside and write another: the secrets folder (or the folder
+    it would be made in) is writable by this process."""
+    d = (Path(secrets_dir).expanduser() / atrest.KEY_FILE).parent
+    while not d.exists() and d != d.parent:
+        d = d.parent
+    return os.access(d, os.W_OK | os.X_OK)
+
+
 def pending_report(data_dir: Path) -> dict | None:
     """The upload waiting to be restored (its check), or None."""
     p = Path(data_dir).expanduser() / PENDING_DIR / "check.json"
@@ -915,6 +933,8 @@ async def api_upload(request: web.Request) -> web.Response:
                 keys = parse_keys(await part.read(decode=False))
         if not upload.is_file() or upload.stat().st_size == 0:
             raise BackupError("no_file", "choose a backup file (.mbk)")
+        if keys and not can_replace_at_rest_key(b.cfg.secrets_dir):
+            raise BackupError("keys_read_only", KEYS_READ_ONLY)
         key = keys["backup_key"] if keys else load_key(b.key_file, create=False)[0]
         report = await asyncio.get_running_loop().run_in_executor(
             None, lambda: restore(upload, key, data_dir, verify_only=True))
@@ -1004,6 +1024,9 @@ def apply_pending(cfg) -> dict | None:
             keys = {k: base64.urlsafe_b64decode(v.encode()) for k, v in json.loads((pend / "keys.json").read_text()).items()}
         key_file = Path(cfg.backup_key_file or (Path(cfg.secrets_dir) / KEY_FILE)).expanduser()
         key = keys["backup_key"] if keys else load_key(key_file, create=False)[0]
+        if keys and not can_replace_at_rest_key(cfg.secrets_dir):
+            # checked before anything is replaced: the data stays as it was, as the message below says
+            raise BackupError("keys_read_only", KEYS_READ_ONLY)
         report = restore(pend / "upload.mbk", key, data_dir, replace=True)
         if keys:
             # the restored database's sealed values were sealed with the other Mantel's at-rest key
@@ -1112,10 +1135,28 @@ def cli_restore(argv: list[str]) -> int:
     p.add_argument("--replace", action="store_true",
                    help="the data dir already has a database: move it aside (*.before-restore-<time>) first")
     p.add_argument("--verify-only", action="store_true", help="decrypt and check, change nothing")
+    p.add_argument("--keys-file", default=None, metavar="FILE",
+                   help="another Mantel's keys file (Mantel Settings -> Backups -> Save Keys...): its backup key opens "
+                        "the backup, instead of --key-file")
+    p.add_argument("--write-keys", default=None, metavar="DIR",
+                   help="with --keys-file: once the backup checks out, write the keys file's at_rest.key and backup.key "
+                        "into DIR (0600), for the host to put in its secrets folder (packaging/compose/restore.sh)")
     a = p.parse_args(argv)
+    if a.write_keys and not a.keys_file:
+        p.error("--write-keys needs --keys-file")
     try:
-        key, _ = load_key(Path(a.key_file or Path(a.secrets_dir) / KEY_FILE), create=False)
+        keys = parse_keys(Path(a.keys_file).expanduser().read_bytes()) if a.keys_file else None
+        key = keys["backup_key"] if keys else load_key(Path(a.key_file or Path(a.secrets_dir) / KEY_FILE), create=False)[0]
         report = restore(Path(a.file), key, Path(a.data_dir), replace=a.replace, verify_only=a.verify_only)
+        if keys and a.write_keys:
+            out = Path(a.write_keys).expanduser()
+            for name, k in ((atrest.KEY_FILE, keys["at_rest_key"]), (KEY_FILE, keys["backup_key"])):
+                fd = os.open(out / name, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                with os.fdopen(fd, "w") as f:
+                    f.write(base64.urlsafe_b64encode(k).decode() + "\n")
+    except OSError as exc:
+        print(f"mantel-server: restore failed: {exc}", file=sys.stderr)
+        return 1
     except BackupError as exc:
         print(f"mantel-server: restore failed ({exc.code}): {exc}", file=sys.stderr)
         return 1

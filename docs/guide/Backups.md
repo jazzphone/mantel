@@ -21,7 +21,7 @@ Mantel seals some values in its database with the **at-rest key** (`at_rest.key`
 - **Saved Backups** lists them, newest first, each with **Download** and **Delete**. A downloaded backup is still encrypted: it needs the backup key to open.
 - **Save Keys…** saves the backup key and the at-rest key as `mantel-keys.json`. Keep it apart from the backups.
 - **Restore From a Backup…** uploads a `.mbk` file and checks it first: it is opened, its database checked and brought up to this version of Mantel, without changing anything. You see when it was made and what it holds. **Restore and Restart…** then puts it in place: Mantel restarts, puts the backup in place before it opens its database, and starts again. Screens and wall tablets reconnect by themselves. What was there before is moved aside in the data folder (`*.before-restore-<time>`), never deleted, and the result is in the audit log and at the top of the page.
-- **Restore From Another Mantel…** does the same with a backup made elsewhere: choose that Mantel's keys file first, then the backup. Its at-rest key replaces this Mantel's (the old one is kept aside), so the restored authenticator codes and connections keep working.
+- **Restore From Another Mantel…** does the same with a backup made elsewhere: choose that Mantel's keys file first, then the backup. Its at-rest key replaces this Mantel's (the old one is kept aside), so the restored authenticator codes and connections keep working. With Docker or the LXC, Mantel can't change its own keys (they are read-only in `/etc/hk/secrets`), so it refuses here: restore another Mantel's backup on the machine instead, with `restore.sh` ([below](#restore-with-docker-or-the-lxc)).
 
 With no backup folder set (the Home Assistant App, or Docker before you give it one), **Back Up Now** writes to a `backups` folder in Mantel's data and nothing runs at night. The App leaves that folder out of Home Assistant's backups, which already hold everything in it.
 
@@ -110,6 +110,17 @@ It checks the key, every part of the file, and that this version of Mantel can o
 ### Restore with Docker or the LXC
 
 Mantel restores into its data volume only after it has decrypted and checked the whole backup. If any check fails, nothing changes.
+
+**With `restore.sh`.** As root, in `packaging/compose`:
+
+```bash
+./restore.sh /path/to/mantel-20261018-031500.mbk                     # one of this Mantel's own backups
+./restore.sh /path/to/mantel-20261018-031500.mbk mantel-keys.json    # another Mantel's, with its keys file
+```
+
+It checks the whole backup first (with the keys file's backup key, for another Mantel's) and stops there, changing nothing, if it doesn't check out. Then it stops Mantel, puts the keys file's two keys in `/etc/hk/secrets` (the old ones are kept as `*.before-restore-<time>`; that keys file is then this Mantel's, so keep it), restores, and starts Mantel again if it was running. If the restore fails, the old keys go back. In the LXC you can run it from the Proxmox host instead, which copies the files in for you: `bash packaging/lxc/mantel.sh restore <id> <backup> [<keys file>]`.
+
+**By hand:**
 
 1. Put the keys in place. On a rebuilt host, copy your saved `at_rest.key` and `backup.key` into `/etc/hk/secrets` (`root:10001`, mode `0440`) **before** you start.
 2. Stop Mantel:

@@ -12,6 +12,9 @@
 #       mantel-update              # = bash /opt/mantel/packaging/lxc/mantel.sh update
 #   Update, build mode (on the Proxmox host, from a newer checkout; runs mantel-update inside):
 #       bash packaging/lxc/mantel.sh push <ctid>
+#   Restore a backup into the container (on the Proxmox host; another Mantel's, such as the Home Assistant App's,
+#   with its keys file from Mantel Settings -> Backups -> Save Keys...; runs packaging/compose/restore.sh inside):
+#       bash packaging/lxc/mantel.sh restore <ctid> <backup.mbk> [<mantel-keys.json>]
 #
 # What create does, and nothing else:
 #   1. checks the host (root, Proxmox, x86_64) and shows a summary; asks before it changes anything
@@ -44,6 +47,8 @@
 #   var_dns=cloudflare|duckdns|porkbun|route53|digitalocean|desec   dns01's DNS host (asked; default cloudflare)
 #   var_domain=<the name browsers use, e.g. mantel.example.com>   var_tunnel=no|yes (Cloudflare tunnel too)
 #   (tokens are never asked here: after the install, mantel-secret <name>, which the install's last words list)
+#   var_restore=<backup.mbk> var_restore_keys=<mantel-keys.json>   moving from another Mantel (the Home Assistant
+#       App): once installed, that backup is restored into the new container before Mantel first starts (restore below)
 #   (auto = pull this version's published images from ghcr.io/jazzphone when they exist, else build them;
 #    pull = only pull; build = build the images in the container from the pushed source)
 set -euo pipefail
@@ -70,6 +75,8 @@ var_brg="${var_brg:-}"
 var_vlan="${var_vlan:-}"
 var_storage="${var_storage:-}"
 var_template_storage="${var_template_storage:-}"
+var_restore="${var_restore:-}"
+var_restore_keys="${var_restore_keys:-}"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$HERE/../.." && pwd)"
@@ -89,6 +96,9 @@ variables() {
   case "$var_dns" in ""|cloudflare|duckdns|porkbun|route53|digitalocean|desec) ;;
     *) msg_error "var_dns must be cloudflare, duckdns, porkbun, route53, digitalocean or desec" ;; esac
   case "$var_tunnel" in ""|yes|no) ;; *) msg_error "var_tunnel must be yes or no" ;; esac
+  [ -z "$var_restore" ] || [ -f "$var_restore" ] || msg_error "var_restore: no such backup file: $var_restore"
+  [ -z "$var_restore_keys" ] || [ -n "$var_restore" ] || msg_error "var_restore_keys needs var_restore (the backup)"
+  [ -z "$var_restore_keys" ] || [ -f "$var_restore_keys" ] || msg_error "var_restore_keys: no such keys file: $var_restore_keys"
 }
 
 interactive() { [ -t 0 ]; }   # a person at a terminal answers; otherwise the defaults below hold
@@ -246,6 +256,22 @@ push_source() {  # push_source CTID: copy this checkout's source into the contai
   pct exec "$ctid" -- bash -c "mkdir -p ${INSTALL_DIR} && tar -tzf /root/mantel-src.tar.gz >/dev/null && cd ${INSTALL_DIR} && rm -rf ${trees} && tar -xzf /root/mantel-src.tar.gz -C ${INSTALL_DIR} && rm /root/mantel-src.tar.gz"
 }
 
+restore_backup() {  # restore_backup CTID BACKUP [KEYS]: copy them in, run restore.sh there, remove the copies
+  local ctid="$1" backup="$2" keys="${3:-}" rc=0
+  [ -f "$backup" ] || msg_error "no such backup file: $backup"
+  [ -z "$keys" ] || [ -f "$keys" ] || msg_error "no such keys file: $keys"
+  pct exec "$ctid" -- test -f "${INSTALL_DIR}/packaging/compose/restore.sh" \
+    || msg_error "this container's Mantel has no restore.sh yet: update it first (bash packaging/lxc/mantel.sh push $ctid)"
+  msg_info "Restoring $(basename "$backup") into container ${ctid}"
+  pct exec "$ctid" -- install -d -m 0700 /root/mantel-restore
+  pct push "$ctid" "$backup" /root/mantel-restore/backup.mbk --perms 0600
+  [ -z "$keys" ] || pct push "$ctid" "$keys" /root/mantel-restore/mantel-keys.json --perms 0600
+  pct exec "$ctid" -- bash "${INSTALL_DIR}/packaging/compose/restore.sh" /root/mantel-restore/backup.mbk \
+    ${keys:+/root/mantel-restore/mantel-keys.json} || rc=$?
+  pct exec "$ctid" -- rm -rf /root/mantel-restore
+  [ "$rc" = 0 ] || msg_error "the restore did not complete (above); the container's data was not changed"
+}
+
 build_container() {
   local OPTS
   if [ -z "$var_storage" ]; then
@@ -278,7 +304,8 @@ $APP will create ONE new container:
   GPU: $([ "$var_gpu" = yes ] && echo "/dev/dri/renderD128 shared in" || echo "none (CPU transcode)")
   Install mode: ${var_install_mode}$([ "$var_install_mode" = auto ] && echo " (this version's published images if they exist, else built in the container)")   Source: ${REPO_ROOT}
   HTTPS: ${var_tls}$([ -n "$var_dns" ] && echo " through ${var_dns}") for ${var_domain}$([ "$var_tls" = own ] && echo " (your proxy: ${var_proxy_ip:-to be set in .env})")$([ "$var_tunnel" = yes ] && echo ", plus a Cloudflare tunnel")
-  Then it installs Docker and prepares Mantel Server$([ "$var_tls" = own ] && echo " for your proxy" || echo " behind Caddy"). Nothing else on this host changes.
+  Then it installs Docker and prepares Mantel Server$([ "$var_tls" = own ] && echo " for your proxy" || echo " behind Caddy"). Nothing else on this host changes.$([ -n "$var_restore" ] && echo "
+  Then it restores $(basename "$var_restore")$([ -n "$var_restore_keys" ] && echo " with the keys in $(basename "$var_restore_keys")") into the container, before Mantel first starts.")
 EOF
   read -r -p "Proceed? [y/N] " ok; [ "${ok,,}" = "y" ] || msg_error "cancelled"
 
@@ -329,6 +356,7 @@ EOF
   pct exec "$var_ctid" -- env MANTEL_INSTALL_MODE="$var_install_mode" MANTEL_GPU="$var_gpu" MANTEL_CONNECT="$var_connect" \
     MANTEL_TLS="$var_tls" MANTEL_DNS="${var_dns:-cloudflare}" MANTEL_DOMAIN="$var_domain" MANTEL_PROXY_IP="$var_proxy_ip" MANTEL_TUNNEL="$var_tunnel" \
     bash "${INSTALL_DIR}/packaging/lxc/mantel-install.sh"
+  [ -z "$var_restore" ] || restore_backup "$var_ctid" "$var_restore" "$var_restore_keys"
 }
 
 description() {
@@ -342,8 +370,8 @@ Next steps (details: docs/phase3/PACKAGING.md):
      $([ "$var_tls" = dns01 ] && echo "mantel-secret <the DNS host's secret file(s), as the install listed them>   # ${var_dns}")$([ "$var_tunnel" = yes ] && echo "
      mantel-secret cloudflared_token")
      then:  cd ${INSTALL_DIR}/packaging/compose && docker compose up -d --wait
-  3. docker compose logs mantel-server     # a one-time setup code for the first Owner, in a banner
-     (or from this host: pct exec ${var_ctid} -- docker logs mantel-server)
+$(if [ -n "$var_restore" ]; then echo "  3. sign in as the Owner you had: the backup was restored (everyone signs in once at the new Mantel)"; else echo "  3. docker compose logs mantel-server     # a one-time setup code for the first Owner, in a banner
+     (or from this host: pct exec ${var_ctid} -- docker logs mantel-server)"; fi)
   4. $([ "$var_tls" = own ] && echo "point your proxy at http://${ip:-the container}:8765 (docs/OPERATIONS.md: the NPM block), open https://${var_domain}/login" || echo "point ${var_domain} at ${ip:-the container} in your LAN DNS, open https://${var_domain}/login") ("First start"), then
      /admin -> Connections -> "Connect to Home Assistant" (no token file to handle)$([ "$var_tls" = own ] && echo "; and /proxy-check")
 Remove it any time:  pct stop ${var_ctid} && pct destroy ${var_ctid} --purge
@@ -359,6 +387,12 @@ if [ "${1:-}" = "push" ]; then  # host side of an update: send this checkout, th
   pct status "$2" >/dev/null 2>&1 || msg_error "no container $2"
   push_source "$2"
   pct exec "$2" -- mantel-update
+  exit 0
+fi
+if [ "${1:-}" = "restore" ]; then  # a backup (this Mantel's, or another's with its keys file) into the container
+  [ -n "${2:-}" ] && [ -n "${3:-}" ] || msg_error "usage: bash packaging/lxc/mantel.sh restore <ctid> <backup.mbk> [<mantel-keys.json>]"
+  pct status "$2" >/dev/null 2>&1 || msg_error "no container $2"
+  restore_backup "$2" "$3" "${4:-}"
   exit 0
 fi
 build_container
