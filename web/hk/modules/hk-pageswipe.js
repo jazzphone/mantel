@@ -6,6 +6,9 @@
 // tab bar's highlight slides along with it (hk-tabbar.js follow / land), so
 // it is always under the page you are about to land on. The sky or the ground
 // stays still behind: only the views move, by transform.
+// Let go, the background the page lands on (Calendar's, Live TV's) fades in
+// as it slides home (hk-sky.js swipeTo); a tap on a tab still cuts to it. A
+// press on the empty screen under a page shorter than it is the page's too.
 //
 // THE ORDER (the owner's decision 8): the tab bar's tabs, left to right as it
 // shows them (More is not a page); on a page that isn't in it -- a room, a
@@ -146,10 +149,15 @@
     return order({ items: p.items || [], bar: !!p.bar, board: board(), path: location.pathname,
                    pagesScreen: pagesScreen() });
   }
-  function currentView() {
+  function viewSlot() {
     var S = SH(), M = menu();
-    if (!S || !S.viewSlot || !S.view) return null;
-    try { return S.view(S.viewSlot(M && M.panel ? M.panel() : null)) || null; } catch (e) { return null; }
+    if (!S || !S.viewSlot) return null;
+    try { return S.viewSlot(M && M.panel ? M.panel() : null) || null; } catch (e) { return null; }
+  }
+  function currentView() {
+    var S = SH(), slot = viewSlot();
+    if (!slot || !S.view) return null;
+    try { return S.view(slot) || null; } catch (e) { return null; }
   }
   function reduced() {
     try { if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true; } catch (e) { /* none */ }
@@ -218,14 +226,15 @@
   // THE PAGE SAYS touch-action pan-y while the swipe is on here: a sideways
   // drag comes to us as pointer events, an up-and-down one is the browser's
   // (a row that scrolls sideways is a scroller of its own, and keeps its pan)
-  var armed = null, TOUCH = 'pan-y pinch-zoom';
+  // (and its slot: the empty screen under a page shorter than it, below)
+  var armed = null, armedSlot = null, TOUCH = 'pan-y pinch-zoom';
+  function untouch(el) { if (el && el.style.getPropertyValue('touch-action') === TOUCH) el.style.removeProperty('touch-action'); }
   function arm() {
-    var v = on() ? currentView() : null;
-    if (armed && armed !== v) {
-      if (armed.style.getPropertyValue('touch-action') === TOUCH) armed.style.removeProperty('touch-action');
-      armed = null;
-    }
+    var v = on() ? currentView() : null, slot = v ? viewSlot() : null;
+    if (armed && armed !== v) { untouch(armed); armed = null; }
+    if (armedSlot && armedSlot !== slot) { untouch(armedSlot); armedSlot = null; }
     if (v && !armed) { v.style.setProperty('touch-action', TOUCH); armed = v; }
+    if (slot && !armedSlot && !slot.style.getPropertyValue('touch-action')) { slot.style.setProperty('touch-action', TOUCH); armedSlot = slot; }
   }
 
   // ------------------------------------------------------------ the neighbour
@@ -329,12 +338,15 @@
     var view = currentView();
     if (!view) { why = 'no view'; return; }
     var path = e.composedPath ? e.composedPath() : [];
-    // only on the page itself
-    if (path.indexOf(view) < 0) { why = 'off the page'; return; }
+    // only on the page itself -- or the empty screen under a page shorter than it (2026-11-01, the owner: "I get stuck
+    // on the Live TV page ... it isn't letting me swipe": its channels end a third of the way down, and below them is
+    // the view's slot, not the page)
+    var slot = viewSlot(), under = !!slot && path[0] === slot;
+    if (path.indexOf(view) < 0 && !under) { why = 'off the page'; return; }
     var sa = safe();
     if (atEdge(e.clientX, window.innerWidth || 0, sa.left, sa.right)) { why = 'edge'; return; }
     var D = window.hkDrag;
-    if (!D || !D.sideways || D.sideways(path, view)) { why = 'its own'; return; }
+    if (!D || !D.sideways || D.sideways(path, under ? slot : view)) { why = 'its own'; return; }
     var items = list(), nb = neighbours(items, location.pathname, isHere);
     if (nb.at < 0) { why = 'not in the order'; return; }
     var grid = null;
@@ -440,6 +452,9 @@
       else restore(g.view, g.saved);
       return;
     }
+    // (the page's background fades to the one it lands on, with it: hk-sky.js swipeTo -- a tap still cuts)
+    var K = window.hkSky;
+    if (to && K && K.swipeTo) { try { K.swipeTo(to.path, STANDARD_MS, STANDARD); } catch (e) { /* no sky */ } }
     var tr = 'transform ' + STANDARD_MS + 'ms ' + STANDARD;
     g.view.style.setProperty('transition', tr);
     setX(g.view, to ? -dir * g.w : 0, g.base);

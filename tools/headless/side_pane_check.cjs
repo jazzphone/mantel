@@ -199,6 +199,35 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         const here = await page.evaluate(() => location.pathname);
         want('turning the thermostat\'s dial sideways: the dial\'s, the page stays', [owner, here], owner === 'its own' && /\/home$/.test(here));
       } else want('Home draws the thermostat\'s dial', dial, false);
+      // A SHORT PAGE'S EMPTY SCREEN, AND THE BACKGROUND FADING (2026-11-01, the owner: "I get stuck on the Live TV
+      // page"; "make the backgrounds fade between page swipes but ONLY for swipes"): a press under a page shorter than
+      // the screen swipes; let go, the page's background is the next one's under a copy that fades; a tap cuts
+      await page.goto(input.origin + '/pane-swipe/security');
+      await page.waitForFunction(() => window.__mantelReady === true);
+      await page.waitForTimeout(2000);
+      await page.evaluate(() => { const v = window.hkShell.view(window.hkShell.viewSlot(null));
+        ['height', 'min-height', 'max-height'].forEach((k) => v.style.setProperty(k, '300px', 'important')); });
+      await page.waitForTimeout(300);
+      const skies = () => page.evaluate(() => { window.__skies = []; const t0 = performance.now(); const tick = () => {
+        const all = document.querySelectorAll('#hk-sky'); window.__skies.push([all.length, all[1] ? +getComputedStyle(all[1]).opacity : null]);
+        if (performance.now() - t0 < 1200) requestAnimationFrame(tick); }; requestAnimationFrame(tick); });
+      const below = await page.evaluate(() => (document.elementFromPoint(600, 690) || {}).localName);
+      await page.mouse.move(300, 690); await page.mouse.down();
+      for (let k = 1; k <= 12; k++) { await page.mouse.move(300 + 40 * k, 692); await page.waitForTimeout(16); }
+      const went = await page.evaluate(() => !!(window.hkPageSwipe._.state().G || {}).live);
+      await skies();
+      await page.mouse.up();
+      await page.waitForTimeout(1400);
+      const swiped = await page.evaluate(() => ({ path: location.pathname, s: window.__skies }));
+      const covers = swiped.s.filter((x) => x[0] === 2).map((x) => x[1]);
+      want('a press under a short page swipes it', [below, went], went);
+      want('...let go: the background fades (a copy over it, fading out, then gone)', [swiped.path, covers.slice(0, 3), swiped.s.slice(-1)],
+           /\/pages$/.test(swiped.path) && covers.length > 2 && covers[0] > covers[covers.length - 1] && swiped.s[swiped.s.length - 1][0] === 1);
+      await skies();
+      await page.evaluate(() => window.hkCards.navigate('./security', document.body));
+      await page.waitForTimeout(1400);
+      const tapped = await page.evaluate(() => ({ path: location.pathname, most: Math.max(...window.__skies.map((x) => x[0])) }));
+      want('...a tap on a page cuts: no fade', tapped, /\/security$/.test(tapped.path) && tapped.most === 1);
       // DIM (2026-11-01, the owner: "a bit too light to see the text"): a shade over the glass, none unless set
       const shade = (pane) => page.evaluate(() => {
         const p = document.querySelector('hk-side-pane[mode="dash"]'), pane = p && p.shadowRoot.querySelector('.pane');
