@@ -180,3 +180,12 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - The five kiosks reloaded; each drew its first screen in 2.2-3.1 s.
 - iOS app 0.1.98 (1107) uploaded to TestFlight. Mantel Link unchanged at 0.1.8.
 - ci full on 6bab0256: 31 of 31.
+
+## Mantel 0.1.99 and HK Frontend 1.26.0 (2026-10-31)
+
+- Every commit since 0.1.98 read first; all ship: Virtual Pairs (5cb4f4cb, another session), the Side Pane's clock unclipped and Security at Less on one line, the room pages' Home pills, the camera badge's inset, and its CSS snapshot.
+- Mantel App 0.1.99 (build ed61f2463c1c288c, commit 3de9d36f): /healthz?strict=1 ok, Home Assistant connected, Music Assistant 2.10.9 authenticated, no errors in its log.
+- HK Frontend 1.26.0 copied into custom_components (v1.26.0 on GitHub; wiki unchanged); Home Assistant restarted.
+- Kitchen, Living Room and Master Bathroom reloaded and drew their first screen in 1.5-2.8 s. Loft and Master Bedroom were offline (their kiosks unavailable in Home Assistant since 17:39, after drawing 0.1.98); they take 0.1.99 when they're back.
+- iOS app 0.1.99 (1113) uploaded to TestFlight. Mantel Link unchanged at 0.1.8.
+- ci full on 3de9d36f: 31 of 31.
