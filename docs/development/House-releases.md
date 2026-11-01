@@ -198,3 +198,12 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - Kitchen, Living Room, Master Bedroom and Master Bathroom reloaded (Reload Page) onto the new pages; Kitchen drew its first screen in 3.4 s. Loft was offline, as at 0.1.99.
 - ci full on fc294204: 31 of 31, nothing skipped (the browser checks with Playwright 1.62.1 and its Chromium and WebKit; the Caddy image with Docker). The first full run that day failed three checks that assumed a 24-hour day and Halloween's bats; fixed in fc294204 (a calendar day back; bats only on an occasion that has them).
 - iOS app 0.1.100 (1118) uploaded to TestFlight (commit 4c86e0d7; the only local change, the project's development team, signs it).
+
+## Mantel 0.1.101 and HK Frontend 1.27.0 (2026-11-01)
+
+- Every commit since 0.1.100 read first; four ship: the Music block's choices as one tile (e2db60dc), its full-cover Small, scrolling playlists and Choose a Playlist (5cba3955), the Side Pane clock's weather weight (cd4477b6), and Beside the Time's four looks with one temperature on every screen (88c1156d). The 0.1.100 TestFlight record doesn't.
+- Built, checked and staged from a clean checkout of 36697de4: another session's uncommitted Mantel Link and linked-camera edits in the working folder stayed out.
+- Mantel App 0.1.101 (build 260ffd194a79f08a, commit 36697de4): /healthz?strict=1 ok, Home Assistant connected, Music Assistant 2.10.9 authenticated, no "Traceback"; the only warnings are two Music Assistant artwork requests it reset.
+- HK Frontend 1.27.0 copied into custom_components (v1.27.0 on GitHub with its release; wiki unchanged); Home Assistant restarted; Mantel Link and HK Frontend relinked.
+- Kitchen, Living Room, Master Bedroom and Master Bathroom reloaded and drew their first screen in 1.3-3.3 s. Loft was offline, as at 0.1.99 and 0.1.100.
+- ci full on 36697de4: 31 of 31. A first run that day failed because the version files were bumped while it ran.
