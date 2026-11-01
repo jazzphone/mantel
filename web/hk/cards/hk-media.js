@@ -2816,6 +2816,7 @@
       if (ctxs.length > 1) {
         var row = document.createElement('div');
         row.className = 'ctx';
+        if (window.hkCards.fitPanWatch) window.hkCards.fitPanWatch(row);
         ctxs.forEach(function (cx) {
           var info = self._ctxLabel(cx);
           var el = document.createElement('div');

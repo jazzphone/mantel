@@ -4717,6 +4717,17 @@
       else el.style.removeProperty('touch-action');
     });
   };
+  // ...and kept so (fitPanWatch) for a strip that changes size or is filled after it is drawn: a library shelf, the
+  // weather's hours (2026-11-01, the owner's Pixel Tablet: "it barely works" -- a finger's pan over a strip with
+  // nothing to scroll was the browser's, and the page swipe was cancelled)
+  window.hkCards.fitPanWatch = function (el) {
+    if (!el || el.__hkFitWatch) return;
+    el.__hkFitWatch = true;
+    var again = function () { window.hkCards.fitPan(el); };
+    again();
+    try { new ResizeObserver(again).observe(el); } catch (e) { /* none: measured once */ }
+    try { new MutationObserver(again).observe(el, { childList: true, subtree: true }); } catch (e) { /* none */ }
+  };
   window.hkCards.SP = SP;
   window.hkCards.TILE = TILE;
   window.hkCards.CHIP = CHIP;

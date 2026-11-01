@@ -228,6 +228,49 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await page.waitForTimeout(1400);
       const tapped = await page.evaluate(() => ({ path: location.pathname, most: Math.max(...window.__skies.map((x) => x[0])) }));
       want('...a tap on a page cuts: no fade', tapped, /\/security$/.test(tapped.path) && tapped.most === 1);
+      // A WALL TABLET FOLLOWS ITS SCREEN (2026-11-01, the owner: "trying to change the Kitchen Tablet to
+      // Kitchen-HomeView ... doesn't seem to work"): the gallery's Kitchen tablet on its screen; its Screen changed in
+      // the settings, the page opens the new one (hk-idle.js followScreen)
+      await page.goto(input.origin + '/dashboard-home/home?hk_tablet=kitchen');
+      await page.waitForFunction(() => window.__mantelReady === true);
+      await page.waitForTimeout(2000);
+      const tabletSet = (screen) => page.evaluate(async (sc) => {
+        const c = window.hkHostClient.current(), a = (c && c.actions) || c;
+        try { await a.callWS({ type: 'hk_frontend/tablet/set', tablet: 'kitchen', changes: { screen: sc } }); return true; } catch (e) { return String(e); }
+      }, screen);
+      const before = await page.evaluate(() => ({ t: (window.hkSettings.tablet() || {}).screen, seen: localStorage.getItem('hk-tablet-screen') }));
+      const setOk = await tabletSet('pane-home-right');
+      let moved = '';
+      try { await page.waitForURL(/\/pane-home-right/, { timeout: 8000 }); moved = await page.evaluate(() => location.pathname + location.search); } catch (e) { moved = 'stayed'; }
+      want('the Kitchen tablet\'s Screen changed: its page opens the new screen, still the Kitchen tablet', [before, setOk, moved],
+           before.t === 'dashboard-home' && setOk === true && moved === '/pane-home-right/0?hk_tablet=kitchen');
+      await page.waitForFunction(() => window.__mantelReady === true);
+      await tabletSet('dashboard-home');
+      // A FINGER, NOT A MOUSE (2026-11-01, the owner's Pixel Tablet: "I can sort of swipe to the Apps page, but I cant
+      // go anywhere else"): a touch swipe off the Pages screen lands on the next page -- its one screen of icons said
+      // nothing about the sideways pan, so the browser took it for the strip and cancelled the swipe. Chromium only
+      // (a Pixel's web view; touch through the DevTools protocol)
+      if (input.engine === 'chromium') {
+        const tctx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true });
+        await tctx.addCookies([{ name: 'mantel_session', value: input.cookie, url: input.origin }]);
+        await tctx.route('**/*', (route) => new URL(route.request().url()).origin === input.origin ? route.continue() : route.abort());
+        const tp = await tctx.newPage(), cdp = await tctx.newCDPSession(tp);
+        await tp.goto(input.origin + '/pane-swipe/pages');
+        await tp.waitForFunction(() => window.__mantelReady === true);
+        await tp.waitForTimeout(2000);
+        const at = (x) => [{ x, y: Math.round(H * 0.5), id: 1, radiusX: 4, radiusY: 4, force: 1 }];
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(Math.round(W * 0.75)) });
+        for (let k = 1; k <= 14; k++) {
+          await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(Math.round(W * (0.75 - 0.035 * k))) });
+          await tp.waitForTimeout(16);
+        }
+        const tlive = await tp.evaluate(() => !!(window.hkPageSwipe._.state().G || {}).live);
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await tp.waitForTimeout(1500);
+        const tpath = await tp.evaluate(() => location.pathname);
+        want('a finger swipes off the Pages screen to the next page', [tlive, tpath], tlive && /\/security$/.test(tpath));
+        await tctx.close();
+      }
       // DIM (2026-11-01, the owner: "a bit too light to see the text"): a shade over the glass, none unless set
       const shade = (pane) => page.evaluate(() => {
         const p = document.querySelector('hk-side-pane[mode="dash"]'), pane = p && p.shadowRoot.querySelector('.pane');
