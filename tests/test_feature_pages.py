@@ -166,6 +166,7 @@ async def test_live_tv_page_and_save(make_env):
     assert got["configured"] is True and got["host"] == "192.0.2.40" and got["lineup"] is None
     assert got["channels"] == [{"number": "4.1", "name": "NBC"}, {"number": "5.1", "name": "5.1"}]
     assert got["lineup_error"] == FP.TV_MSG["no_lineup"], "no tuner is read for the page"
+    assert got["ha_link"] is False, "the page leaves out HK Frontend's integration"
     got = await save(ws, 2, {"type": "hk_tv/settings/set", "changes": {"names": {"5.1": "CBS"}}})
     assert got["result"]["channels"][1] == {"number": "5.1", "name": "CBS"}
     got = await save(ws, 3, {"type": "hk_tv/settings/set", "changes": {"channels": ["4.1"]}})

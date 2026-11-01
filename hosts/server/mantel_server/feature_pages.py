@@ -320,6 +320,8 @@ class FeaturePages:
         lineup = {c["number"]: c for c in h.tv.lineup}
         networks = {n: (g.get("network") or None) for n, g in h.tv.guide.items()}
         return {
+            # Mantel's own: the page leaves out HK Frontend's integration in Home Assistant (not Live TV's here)
+            "ha_link": False,
             "configured": True, "state": "loaded" if (tv.piece_on() if tv is not None else h.on("live_tv")) else "not_loaded",
             "title": "Live TV", "host": cfg["tuner"], "guide_url": cfg["guide_url"],
             "quality": cfg["quality"],        # Mantel's transcode (live_tv.py go2rtc_source)

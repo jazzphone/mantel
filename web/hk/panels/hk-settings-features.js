@@ -294,7 +294,7 @@
         : 'The channels on every screen’s Live TV page, from the tuner’s own lineup.' }, [
       K.nav({ label: 'Channels', value: tvCount(d), href: '#/features/tv/channels', sk: 'f:hk_tv:channels',
               fk: 'tv:channels' })]));
-    c.appendChild(K.group({ header: 'Picture', footer: '720p is plenty on a wall tablet or a phone. 1080p uses about 40% more of Home Assistant’s processor for each channel being watched.' }, [
+    c.appendChild(K.group({ header: 'Picture', footer: '720p is plenty on a wall tablet or a phone. 1080p uses about 40% more processor for each channel being watched.' }, [
       K.seg({ label: 'Quality', sk: 'f:hk_tv:quality', value: d.quality, options: [['720', '720p'], ['1080', '1080p']],
               onChange: function (v) { set({ quality: v }); } })]));
     c.appendChild(K.group({ header: 'Tuner & Guide', footer: 'The guide is an XMLTV file (from a service such as Schedules Direct, or a program that builds one). With a guide, each channel shows what’s on now and uses the network’s name.' }, [
@@ -302,7 +302,8 @@
                error: P.err('f:hk_tv:host'), onCommit: function (v) { set({ host: v }); } }),
       K.text({ label: 'Guide Address', sk: 'f:hk_tv:guide_url', value: d.guide_url, placeholder: 'None',
                error: P.err('f:hk_tv:guide_url'), onCommit: function (v) { set({ guide_url: v }); } })]));
-    openIn(c, 'Live TV', 'hk_tv');
+    // (a page served from outside Home Assistant says its Live TV has no integration there to open)
+    if (d.ha_link !== false) openIn(c, 'Live TV', 'hk_tv');
   }
   function tvChannels(P, c, d) {
     var L = tvLists(d);

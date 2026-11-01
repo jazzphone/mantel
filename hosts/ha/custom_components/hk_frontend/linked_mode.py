@@ -91,6 +91,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.event import async_call_later
 
 from .const import CONF_MANTEL_LINK, CONF_MANTEL_OWNERS, DOMAIN, SIGNAL_CONFIG
 from .mantel_link import LinkError, MantelLink, Refused, plain_target, ws_url
@@ -997,10 +998,42 @@ class LinkedCamera(LinkedEntity, Camera):
     def __init__(self, linked: Linked, desc: dict[str, Any]) -> None:
         Camera.__init__(self)
         LinkedEntity.__init__(self, linked, desc)
+        self._picked: tuple[Any, ...] | None = None
+        self._repicking: Any = None
 
     @property
     def supported_features(self) -> CameraEntityFeature:
         return CameraEntityFeature.STREAM if self._source() else CameraEntityFeature(0)
+
+    @callback
+    def async_write_ha_state(self) -> None:
+        # Home Assistant picks a camera's player (go2rtc's WebRTC, else HLS) in tasks that can
+        # race, the stale one finishing last: pick again, once it has settled, whenever the camera
+        # comes back or the stream Mantel names changes (Mantel Link's entity.py, the same).
+        super().async_write_ha_state()
+        key = (self.available, self._source())
+        if key != self._picked:
+            self._picked = key
+            if self.available:
+                self._repick()
+
+    @callback
+    def _repick(self) -> None:
+        """The player picked again, two seconds on (after Home Assistant's own picks)."""
+        if self._repicking is not None:
+            self._repicking()
+
+        @callback
+        def again(_now: Any) -> None:
+            self._repicking = None
+            self.hass.async_create_task(self.async_refresh_providers())
+        self._repicking = async_call_later(self.hass, 2, again)
+
+    async def async_will_remove_from_hass(self) -> None:
+        if self._repicking is not None:
+            self._repicking()
+            self._repicking = None
+        await super().async_will_remove_from_hass()
 
     def _source(self) -> str | None:
         src = self._features.get("stream_source")

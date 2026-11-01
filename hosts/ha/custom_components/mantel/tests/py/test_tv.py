@@ -116,3 +116,42 @@ async def test_the_view_answers_only_this_machine_and_only_a_mirrored_channel(ha
     view = tv.TvStreamView(hass)
     req = MagicMock(remote="192.0.2.77")
     assert (await view.get(req, "9.1")).status == 403
+
+
+async def test_a_channel_that_lost_its_webrtc_player_gets_it_back_when_the_link_returns(hass, mantel):
+    """Home Assistant picks a camera's player in tasks that can race; the house's channels were left with
+    none (camera/webrtc refused: "Camera does not support WebRTC") after the link to Mantel came back.
+    Mantel Link picks again, once things settle, whenever the camera comes back or its stream changes."""
+    from datetime import timedelta
+    from homeassistant.components.camera.webrtc import CameraWebRTCProvider, async_register_webrtc_provider
+    from homeassistant.util import dt as dt_util
+    from pytest_homeassistant_custom_component.common import async_fire_time_changed
+
+    class Relay(CameraWebRTCProvider):
+        domain = "relay"
+
+        def async_is_supported(self, stream_source):
+            return stream_source.startswith("http://")
+
+        async def async_handle_async_webrtc_offer(self, camera, offer_sdp, session_id, send_message):
+            pass
+
+        async def async_on_webrtc_candidate(self, session_id, candidate):
+            pass
+
+    from homeassistant.setup import async_setup_component
+    assert await async_setup_component(hass, "camera", {})
+    async_register_webrtc_provider(hass, Relay())
+    mantel.entities = [e for e in mantel.entities if e["unique_id"] != UIDS[CAMERA]] + [_camera()]
+    await linked(hass, mantel)
+    await until(hass, lambda: hass.states.get(CAMERA) is not None)
+    ent = hass.data["camera"].get_entity(CAMERA)
+    await until(hass, lambda: ent._webrtc_provider is not None)
+
+    ent._webrtc_provider = None                    # what the race left on the house
+    await mantel.drop()
+    await until(hass, lambda: hass.states.get(CAMERA).state == "unavailable")
+    await until(hass, lambda: hass.states.get(CAMERA).state == "idle")
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=3))
+    await hass.async_block_till_done()
+    assert ent._webrtc_provider is not None

@@ -18,6 +18,7 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.event import async_call_later
 
 from .const import DOMAIN, HK_DOMAIN
 
@@ -158,10 +159,45 @@ class LinkedCamera(LinkedEntity, Camera):
         LinkedEntity.__init__(self, linked, desc)
         self._art_url: str | None = None
         self._art: bytes | None = None
+        self._picked: tuple[Any, ...] | None = None
+        self._repicking: Any = None
 
     @property
     def supported_features(self) -> CameraEntityFeature:
         return CameraEntityFeature.STREAM if self._tv() or self._source() else CameraEntityFeature(0)
+
+    @callback
+    def async_write_ha_state(self) -> None:
+        # Home Assistant picks a camera's player (go2rtc's WebRTC, else HLS) when the camera is
+        # added and when its STREAM support changes -- in tasks that can race, the stale one
+        # finishing last. Live TV's channels were left with "no WebRTC" after the link to Mantel came
+        # back, and HK's player failed: pick again, once it has settled, whenever the camera comes
+        # back or its stream changes.
+        super().async_write_ha_state()
+        tv = self._tv()
+        key = (self.available, tv and tv["source"], self._source())
+        if key != self._picked:
+            self._picked = key
+            if self.available:
+                self._repick()
+
+    @callback
+    def _repick(self) -> None:
+        """The player picked again, two seconds on (after Home Assistant's own picks)."""
+        if self._repicking is not None:
+            self._repicking()
+
+        @callback
+        def again(_now: Any) -> None:
+            self._repicking = None
+            self.hass.async_create_task(self.async_refresh_providers())
+        self._repicking = async_call_later(self.hass, 2, again)
+
+    async def async_will_remove_from_hass(self) -> None:
+        if self._repicking is not None:
+            self._repicking()
+            self._repicking = None
+        await super().async_will_remove_from_hass()
 
     def _tv(self) -> dict[str, Any] | None:
         from .tv import channel_of
