@@ -321,7 +321,11 @@ class HkControlCard extends HTMLElement {
     if(!f || typeof f.animate !== "function") return;
     if(window.hkSettings?.rendering?.().flat) return;
     try{ if(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; }catch(e){}
-    const an = f.animate([{ transform: "translateX(-100%)" }, { transform: "translateX(0)" }],
+    // ITS WIDTH, NOT A TRANSFORM (2026-11-01, the owner's screen recording: the Home Grid's music block flickering).
+    // A transform runs on the compositor, and Safari then lifts whatever is drawn over that layer -- the transport
+    // keys under it -- into one more layer, decided again at every step: a darker band behind the keys, on and
+    // off four times a second. The width is painted, never a layer; the track holds its layout to itself.
+    const an = f.animate([{ width: "0%" }, { width: "100%" }],
       { duration: P.dur*1000, easing: `steps(${Math.max(1,Math.ceil(P.dur*4))})` });
     an.currentTime = Math.min(P.dur*1000, P.pos*1000 + (Date.now()-P.at));
     this._progAnim = an;
@@ -431,7 +435,7 @@ class HkControlCard extends HTMLElement {
       .compact .glyph{width:38px;height:38px;flex-basis:38px}.compact .glyph hk-icon{width:21px;height:21px;--mdc-icon-size:21px}
       .value{font-size:21px;font-weight:720;letter-spacing:-.35px;margin-left:auto;white-space:nowrap}
       .range-wrap{display:grid;grid-template-columns:minmax(0,1fr);align-items:center;margin-top:14px;touch-action:pan-y;cursor:pointer;-webkit-tap-highlight-color:transparent}
-      .prog-track{height:6px;border-radius:4px;background:${window.hkCards.v('line-strong')};overflow:hidden;margin:2px 0 7px}
+      .prog-track{height:6px;border-radius:4px;background:${window.hkCards.v('line-strong')};overflow:hidden;margin:2px 0 7px;contain:layout paint}
       /* THE FILL SLIDES IN, IT DOES NOT GROW: full width, moved by a transform
          (the track's overflow clips it; its rounded right end is its own).
          Animating width laid the page out again every frame -- 60 style
@@ -1031,7 +1035,7 @@ class HkControlCard extends HTMLElement {
     // 3:26. An animated property beats an inline one for as long as the
     // animation runs, so this costs the advance nothing.
     const pct = dur>0 ? (pos/dur*100).toFixed(2) : 0;
-    const at = `transform:translateX(${(pct-100).toFixed(2)}%)`;
+    const at = `width:${pct}%`;
     const fill = `style="${at}"`;
     // ...and the advance is run once drawn (_progRun), from this position
     // at this moment

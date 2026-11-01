@@ -606,6 +606,25 @@ def _frame(v: Any) -> list[int]:
 
 
 NIGHT_MODES = ("off", "night", "always")
+# THE TOP BAND'S PARTS AND WHERE EACH SITS (2026-11-01, the owner: "the time on the Left, Chips in the Middle, and
+# Weather on the Right"): an ordered list -- the order is left to right within a place -- each part at most once;
+# a part left out is not shown. Absent: the clock and the weather on the left (header_clock / header_weather say
+# whether), the status chips on the right.
+HEADER_PARTS = ("clock", "weather", "chips")
+HEADER_PLACES = ("left", "center", "right")
+
+
+def _header(v: Any) -> list[dict[str, str]]:
+    if not isinstance(v, list) or len(v) > len(HEADER_PARTS):
+        raise GridInvalid("grid")
+    out, seen = [], set()
+    for x in v:
+        if (not isinstance(x, dict) or set(x) != {"k", "at"} or x["k"] not in HEADER_PARTS or x["at"] not in HEADER_PLACES
+                or x["k"] in seen):
+            raise GridInvalid("grid")
+        seen.add(x["k"])
+        out.append({"k": x["k"], "at": x["at"]})
+    return out
 
 
 def _night(v: Any) -> dict[str, Any]:
@@ -626,7 +645,7 @@ def _night(v: Any) -> dict[str, Any]:
 
 def _shape(v: Any) -> dict[str, Any]:
     if not isinstance(v, dict) or set(v) - {"v", "cols", "rows", "frame", "band", "header_clock", "header_weather", "scale", "boxes", "grow",
-                                              "night", "views", "items", "cell", "screen"}:
+                                              "header", "night", "views", "items", "cell", "screen"}:
         raise GridInvalid("grid")
     ver = v.get("v", VERSION)
     if type(ver) is not int or ver != VERSION:         # not True, not 1.0: == alone takes both
@@ -649,6 +668,8 @@ def _shape(v: Any) -> dict[str, Any]:
         out["scale"] = _whole(v["scale"], 50, 100, "grid")
     if "night" in v:
         out["night"] = _night(v["night"])
+    if "header" in v:
+        out["header"] = _header(v["header"])
     if "views" in v:
         views = _whole(v["views"], 1, VIEWS_MAX, "grid")
         if views > 1:

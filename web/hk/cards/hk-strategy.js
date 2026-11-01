@@ -1559,6 +1559,8 @@
       var parts = header.cards || [], chip = parts.find(function (c) { return c.type === 'custom:hk-chips-card'; });
       var band = { type: 'custom:hk-header-card', grid_band: true, show_clock: grid.header_clock !== false,
         show_weather: grid.header_weather !== false, chips: chip || null, hk_band: true };
+      // (where each part sits, 2026-11-01: hk_core home_grid HEADER_PARTS)
+      if (Array.isArray(grid.header)) band.parts = grid.header;
       cards.push(band);
     }
     (grid.items || []).forEach(function (it) {

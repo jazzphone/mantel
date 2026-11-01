@@ -1427,9 +1427,32 @@
       if (this.panel.paneLink) add(K.group({ header: 'Side Pane', footer: 'A pane of sections beside Home (or every page): the grid lays itself in what it leaves. Save this layout first.' },
         [this.panel.paneLink(this.o.path, 'dash', 'grid:side_pane')]));
       add(K.group({ header: 'Header' }, [
-        K.toggle({ label: 'Top Band', sub: 'The clock, weather and status chips', on: this.grid.band, onChange: (v) => config('band', v) }),
-        K.toggle({ label: 'Clock', on: this.grid.header_clock !== false, disabled: !this.grid.band, onChange: (v) => config('header_clock', v) }),
-        K.toggle({ label: 'Weather', on: this.grid.header_weather !== false, disabled: !this.grid.band, onChange: (v) => config('header_weather', v) })]));
+        K.toggle({ label: 'Top Band', sub: 'The clock, weather and status chips', on: this.grid.band, onChange: (v) => config('band', v) })]));
+      // ITS PARTS AND WHERE EACH SITS (2026-11-01, the owner: "the time on the Left, Chips in the Middle, and Weather on
+      // the Right"): Shown in their order, left to right within a place; each row's own Left / Center / Right. A part
+      // taken off the list is not shown. (The layout's `header`; before it, header_clock / header_weather.)
+      if (this.grid.band) {
+        var PARTS = { clock: ['Clock', 'mdi:clock'], weather: ['Weather', 'mdi:weather-partly-cloudy'], chips: ['Status Chips', 'mdi:label-multiple'] };
+        var parts = Array.isArray(this.grid.header) ? this.grid.header.slice()
+          : [{ k: 'clock', at: 'left' }, { k: 'weather', at: 'left' }, { k: 'chips', at: 'right' }].filter((p) =>
+            !(p.k === 'clock' && this.grid.header_clock === false) && !(p.k === 'weather' && this.grid.header_weather === false));
+        var putParts = (list) => {
+          var next = copy(this.grid);
+          next.header = list;
+          delete next.header_clock; delete next.header_weather;
+          this.change(next);
+        };
+        var atOf = (k) => (parts.filter((p) => p.k === k)[0] || {}).at || (k === 'chips' ? 'right' : 'left');
+        var placeCtl = (k) => K.popup({ label: PARTS[k][0] + ' place', value: atOf(k), fk: 'band:' + k,
+          options: [['left', 'Left'], ['center', 'Center'], ['right', 'Right']],
+          onChange: (v) => putParts(parts.map((p) => p.k === k ? { k: k, at: v } : p)) });
+        add(K.listEditor({ fk: 'band-parts', announce: this.say ? this.say.bind(this) : null,
+          shownHeader: 'In the Band', moreHeader: 'Not Shown',
+          shownFooter: 'Each part on the left, in the center or on the right; this order is their order left to right where they share a place.',
+          rows: parts.map((p) => ({ value: p.k, label: PARTS[p.k][0], icon: PARTS[p.k][1], control: placeCtl(p.k) })),
+          more: Object.keys(PARTS).filter((k) => !parts.some((p) => p.k === k)).map((k) => ({ value: k, label: PARTS[k][0], icon: PARTS[k][1] })),
+          onChange: (values) => putParts(values.map((k) => ({ k: k, at: atOf(k) }))) }));
+      }
       var more = h('details', { class: 'screen-settings' }, [h('summary', { text: 'Preview Size and Starters' })]);
       more.open = !!this.screenSettingsOpen;
       more.addEventListener('toggle', () => { this.screenSettingsOpen = more.open; });

@@ -2155,7 +2155,15 @@
       _tap() {
         var p = this._plan(), self = this;
         if (p.sheet) { window.hkShell.moreInfo(p.sheet, this); return; }
-        if (!p.calls.length) return;
+        // NOTHING TO DO, said (2026-11-01, the owner: "Nothing really happens when I tap it"): every lock already
+        // locked, every light already off -- the tap says so in the state's place for a moment
+        if (!p.calls.length) {
+          var a = this._config.action;
+          var none = a === 'lock_up' ? (p.state === 'All Locked' ? 'Already All Locked' : p.state)
+                   : a === 'lights_off' ? 'Already Off' : a === 'garage' ? p.state : '';
+          if (none) this._say('none', none, 2000);
+          return;
+        }
         Promise.all(p.calls.map(function (c) { return self._call(c[0], c[1], c[2]); })).then(function (done) {
           if (done.some(function (x) { return !x; })) self._say('failed', 'Couldn’t Send');
         });

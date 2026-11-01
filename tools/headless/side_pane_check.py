@@ -68,6 +68,8 @@ def screen(pane, grid=False, **extra):
 SCREENS = {
     'pane-home-right': screen({'side': 'right', 'dashboard': {'show': 'home', 'sections': DASH}}, grid=True),
     'pane-home-left': screen({'side': 'left', 'dashboard': {'show': 'home', 'sections': DASH}}, grid=True),
+    # Dim (2026-11-01): a shade over the glass, under the words
+    'pane-home-dim': screen({'side': 'right', 'dim': 'high', 'dashboard': {'show': 'home', 'sections': DASH}}, grid=True),
     'pane-every-page': screen({'side': 'right', 'width': 'standard', 'dashboard': {'show': 'all', 'sections': DASH}}),
     'pane-eight': screen({'side': 'right', 'dashboard': {'show': 'home', 'sections': EIGHT}}, grid=True),
     'pane-saver-right': screen({'side': 'right', 'saver': {'show': 'own', 'sections': SAVER}}, screensaver=True),
@@ -81,6 +83,10 @@ SCREENS = {
         {'kind': 'weather', 'size': 'less'}, {'kind': 'now_playing', 'tap': t}]}}, grid=True) for t in ('panel', 'flip')},
     'pane-art-on': screen({'side': 'right', 'dashboard': {'show': 'home', 'sections': [
         {'kind': 'weather', 'size': 'less'}, {'kind': 'now_playing'}]}}, grid=True),
+    # (2026-11-01) the same with a screensaver: a tap on the cover is its music, full screen
+    'pane-cover': screen({'side': 'right', 'dashboard': {'show': 'home', 'sections': [
+        {'kind': 'weather', 'size': 'less'}, {'kind': 'now_playing'}]}}, grid=True, screensaver=True,
+        screensaver_options={'show': 'clock', 'starts_after': 0}),
     # (2026-10-31, item 43) the Clock section's six looks, A to F, the "Side Pane clock styles" board
     **{f'pane-clock-{k.lower()}': screen({'side': 'right', 'dashboard': {'show': 'home', 'sections': [dict(kind='clock', **look), {'kind': 'weather', 'size': 'less'}]}}, grid=True)
        for k, look in CLOCK_LOOKS.items()},

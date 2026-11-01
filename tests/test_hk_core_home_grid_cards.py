@@ -169,6 +169,18 @@ def test_weather_sky_refuses_non_boolean(value):
     assert errors == {'home_grid': 'grid_option'}
 
 
+def test_the_bands_parts_each_have_a_place_and_an_order():
+    # (2026-11-01, the owner: the time on the left, the chips in the middle, the weather on the right)
+    parts = [{'k': 'clock', 'at': 'left'}, {'k': 'chips', 'at': 'center'}, {'k': 'weather', 'at': 'right'}]
+    assert HG.check({'items': [], 'header': parts})['header'] == parts
+    assert HG.check({'items': [], 'header': []})['header'] == [], "every part off"
+    for bad in ([{'k': 'clock', 'at': 'left'}, {'k': 'clock', 'at': 'right'}], [{'k': 'moon', 'at': 'left'}],
+                [{'k': 'clock', 'at': 'middle'}], [{'k': 'clock'}], {'k': 'clock', 'at': 'left'},
+                [{'k': 'clock', 'at': 'left', 'x': 1}]):
+        with pytest.raises(HG.GridInvalid):
+            HG.check({'items': [], 'header': bad})
+
+
 def test_header_clock_and_weather_are_independent_and_checked():
     grid = HG.check({'items': [], 'header_clock': False, 'header_weather': True})
     assert HG.check(grid) == grid

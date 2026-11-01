@@ -722,6 +722,7 @@
   var unsubCards = null, cards = [];
   var shown = 0, failed = 0, lastPhoto = null;
   var force = false;           // hkSaver.force(true): ignore the user (tests)
+  var asked = false;           // showMusic(): somebody asked for the music full screen -- shown whoever the screensaver is for
 
   function user() { var h = clientNow(); return h && h.user && h.user.name; }
   // this page's wall tablet (1.14, hkSettings.tablet()), its id or ''
@@ -1718,6 +1719,7 @@
   }
   function stop(reason) {
     if (!on) return false;
+    if (asked) { asked = false; force = previewOn; }
     closePanel(false);
     on = false;
     entrance = null;
@@ -5229,6 +5231,21 @@
     // Console / probe helpers. hkSaver.start() shows it now; stop() takes it
     // away (as a touch would, but without writing the switch).
     start: function () { refresh(); return start('manual'); },
+    // THE MUSIC, FULL SCREEN (2026-11-01, the owner: the Side Pane's cover tapped): the screensaver now, on its music
+    // slide; false where it can't (nothing playing, no screensaver on this screen), and nothing changed
+    showMusic: function () {
+      refresh();
+      var ctx = musicNow(clientNow());
+      if (!ctx || !ctx.playing || !cfg) return false;
+      if (!on) {
+        var was = force;
+        asked = force = true;
+        if (!start('music')) { asked = false; force = was; return false; }
+      }
+      if (showMusicSlide(true)) return true;
+      if (startedBy === 'music') stop('manual');
+      return false;
+    },
     stop: function () { return stop('manual'); },
     // as a tap that wakes it would (the switch written): a notification that
     // wakes the screen, one that opens a camera (hk-notify.js)

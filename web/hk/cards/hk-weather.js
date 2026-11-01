@@ -751,6 +751,15 @@
           // Compact band only; page headers and screensaver clocks keep their layout.
           ':host([data-grid-band]){height:60px;container-type:inline-size;container-name:hk-band}',
           '.grid-band{height:60px;display:flex;align-items:center;gap:24px;min-width:0;color:' + C.v('ink') + '}',
+          // THE THREE PLACES: the left and the right sharing the row (the right taking what is left, as the band
+          // always did); with something in the center, two equal sides and the center between them, truly centered
+          '.bz{display:flex;align-items:center;gap:24px;min-width:0;height:60px}',
+          '.bl{flex:0 1 auto}.br{flex:1 1 auto;justify-content:flex-end}',
+          '.grid-band.has-center{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}',
+          '.has-center .bc{justify-content:center}.has-center .bl{justify-content:flex-start}',
+          '.bz:empty{min-width:0}',
+          // (in the left or the center, the weather and the chips their own width, not the row's)
+          '.bl .band-weather,.bc .band-weather{flex:0 1 auto}.bl .band-chips,.bc .band-chips{flex:0 1 auto}',
           '.band-clock{flex:none;max-width:45%;min-width:0}',
           '.band-clock>[data-hk-clock=clock]{min-width:0!important}',
           '.band-weather{flex:1 1 240px;min-width:0;max-width:360px}',
@@ -779,10 +788,28 @@
       _renderBand() {
         var H = window.hkHeader, st = this.client && this.client.states;
         if (!H || !st) return;
+        // WHERE EACH PART SITS (2026-11-01, the owner): the layout's `parts` in order, each left, center or right
+        // (the order is left to right within a place); none given, the clock and the weather on the left and the
+        // chips (Security where the screen has none) on the right, as the band always was
+        var cfg = this._config, parts = Array.isArray(cfg.parts) ? cfg.parts
+          : [{ k: 'clock', at: 'left' }, { k: 'weather', at: 'left' }, { k: 'chips', at: 'right' }].filter(function (p) {
+            return !(p.k === 'clock' && cfg.show_clock === false) && !(p.k === 'weather' && cfg.show_weather === false);
+          });
+        var partsKey = JSON.stringify(parts);
+        if (this._built && this._partsKey !== partsKey) { this._built = false; this._bandChips = null; }
         if (!this._built) {
-          this._root.innerHTML = '<div class="grid-band"><div class="band-clock" role="button" tabindex="0" aria-label="Clock and date"></div>' +
-            '<div class="band-weather" role="button" tabindex="0" aria-label="Weather"></div>' +
-            '<div class="band-security" role="button" tabindex="0" aria-label="Security"></div><div class="band-chips"></div></div>';
+          this._partsKey = partsKey;
+          var EL = { clock: '<div class="band-clock" role="button" tabindex="0" aria-label="Clock and date"></div>',
+                     weather: '<div class="band-weather" role="button" tabindex="0" aria-label="Weather"></div>',
+                     chips: '<div class="band-security" role="button" tabindex="0" aria-label="Security"></div><div class="band-chips"></div>' };
+          var zone = function (at) { return parts.filter(function (p) { return p.at === at; }).map(function (p) { return EL[p.k]; }).join(''); };
+          var center = zone('center');
+          this._root.innerHTML = '<div class="grid-band' + (center ? ' has-center' : '') + '"><div class="bz bl">' + zone('left') + '</div>' +
+            (center ? '<div class="bz bc">' + center + '</div>' : '') + '<div class="bz br">' + zone('right') + '</div>' +
+            // (each part's element exists whether shown or not: the redraw below fills them all)
+            '<div hidden>' + ['clock', 'weather', 'chips'].filter(function (k) { return !parts.some(function (p) { return p.k === k; }); })
+              .map(function (k) { return EL[k]; }).join('') + '</div></div>';
+          var chipsAt = (parts.filter(function (p) { return p.k === 'chips'; })[0] || {}).at || 'right';
           var self = this;
           this._bandClock = this._root.querySelector('.band-clock');
           this._bandWeather = this._root.querySelector('.band-weather');
@@ -796,7 +823,7 @@
           open(this._bandSecurity, function () { self._go('./security'); });
           if (this._config.chips) {
             this._bandChips = C.createCard(Object.assign({}, this._config.chips, {
-              lead: false, align: 'end', pad_top: 0, pad_bottom: 0, pad_left: 0, pad_right: 0, margin: '0'
+              lead: false, align: chipsAt === 'left' ? 'start' : chipsAt === 'center' ? 'center' : 'end', pad_top: 0, pad_bottom: 0, pad_left: 0, pad_right: 0, margin: '0'
             }), this.client);
             this._root.querySelector('.band-chips').appendChild(this._bandChips);
           }
@@ -810,8 +837,8 @@
         C.morph(this._bandSecurity, H.security(st, { line1Size: C.TYPE.headline.size + 'px', lineSize: C.TYPE.caption.size + 'px',
           minHeight: '0px', pad: '0px', shadow: 'none' }));
         if (H.fitWeather) H.fitWeather(this._bandWeather);
-        this._bandClock.style.display = this._config.show_clock === false ? 'none' : '';
-        this._bandWeather.style.display = this._config.show_weather === false ? 'none' : '';
+        this._bandClock.style.display = parts.some(function (p) { return p.k === 'clock'; }) ? '' : 'none';
+        this._bandWeather.style.display = parts.some(function (p) { return p.k === 'weather'; }) ? '' : 'none';
       }
       getCardSize() { return 2; }
       // THE WEATHER FITS WHAT IS LEFT BESIDE THE CLOCK: after each redraw and
@@ -2037,6 +2064,23 @@
           '@container hk-cell (max-height:380px){.wb.XL{grid-template-columns:272px minmax(0,1fr)}.wb.XL .lc{gap:8px}.wb.XL .hrs{padding-top:6px}' +
             '.wb.XL .rds{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:8px}.wb.XL .rds span{grid-template-columns:16px minmax(0,1fr);column-gap:4px}' +
             '.wb.XL .rds b{grid-column:1/-1}.wb.XL .days{gap:6px}}',
+          // LARGE AND EXTRA LARGE FILL THEIR BLOCK (2026-11-01, the owner: "lots of space above and below"): the
+          // temperature as large as the block's height allows, the hours' figures a step up, and the days sharing
+          // the room left under them (Large) or down the right column from its label (Extra Large), each a row
+          // as tall as that room gives it -- the same things, spread, not more of them
+          '.wb.L .tpn,.wb.XL .tpn{font-size:clamp(44px,16cqh,84px);line-height:1}',
+          '.wb.L .hr b,.wb.XL .hr b{font-size:clamp(15px,4.4cqh,21px);line-height:1.2}',
+          '.wb.L .hr svg,.wb.XL .hr svg{width:clamp(24px,6.5cqh,32px);height:auto}',
+          '.wb.XL .rds b{font-size:clamp(15px,4.4cqh,21px);line-height:1.25}',
+          '.wb.L{justify-content:flex-start}',
+          '.wb.L .days,.wb.XL .days{flex:1 1 auto;min-height:0;grid-auto-rows:minmax(20px,1fr);align-content:stretch}',
+          '.wb.L .day,.wb.XL .day{height:auto;min-height:20px;font-size:clamp(13px,3.8cqh,18px)}',
+          '.wb.L .day svg,.wb.XL .day svg{width:clamp(18px,5cqh,26px);height:auto}',
+          '.wb.L .day,.wb.XL .day{grid-template-columns:minmax(52px,auto) clamp(20px,5cqh,26px) 36px minmax(0,1fr) 36px}',
+          '.wb.XL .rc{justify-content:flex-start}',
+          // (the 7-Day label on the place name's baseline, the owner, 2026-11-01: one line box for both, the smaller
+          // label nudged down the 2 px its smaller type sits high)
+          '.wb.XL .place-name,.wb.XL .rc .lab{line-height:22px}.wb.XL .rc .lab{padding-top:2px;margin-bottom:-2px}',
           // BIG TEMPERATURE: the number sized to the block (its height first, its width for a wide one)
           '.wb.big{gap:2px;justify-content:center;align-items:flex-start}',
           '.wb.big .place-name{max-width:100%}',

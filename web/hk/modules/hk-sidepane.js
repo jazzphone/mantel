@@ -310,8 +310,13 @@
   }
 
   // THE CALENDAR'S EVENTS (hkCalendar.load, the Calendar page's own read):
-  // today and the coming days, read again every five minutes
-  var CAL = { evs: null, at: 0, busy: false, days: 0 };
+  // today and the coming days, read again every five minutes.
+  // NEVER STUCK (2026-11-01, the owner: "occasionally the calendar doesn't load"): a read with no answer in LOST
+  // is given up -- one sent as the connection was made again never answers, and kept busy the pane never asked
+  // again -- its late answer ignored; a failed read is tried again after LOST, not at every draw; and no
+  // calendars known yet is no answer to keep for five minutes.
+  var LOST = 30000;
+  var CAL = { evs: null, at: 0, busy: false, days: 0, n: 0, failAt: 0 };
   function calLoad(c, days, done) {
     var K = window.hkCalendar;
     if (!K && !CAL.asked && typeof document !== 'undefined' && document.addEventListener) {
@@ -319,13 +324,19 @@
       CAL.asked = true;
       import(window.hkV ? window.hkV('/hk/cards/hk-calendar.js') : '/hk/cards/hk-calendar.js').then(done, function () { CAL.evs = []; done(); });
     }
-    if (!K || !K.load || !c || CAL.busy || (CAL.evs && Date.now() - CAL.at < 300000 && CAL.days >= days)) return;
-    CAL.busy = true;
+    var now = Date.now();
+    if (CAL.busy && now - CAL.busy > LOST) CAL.busy = false;
+    if (!K || !K.load || !c || CAL.busy || now - CAL.failAt < LOST || (CAL.evs && now - CAL.at < 300000 && CAL.days >= days)) return;
+    var ids = K.ids(c);
+    if (!ids.length) return;
+    var n = ++CAL.n;
+    CAL.busy = now;
     var from = new Date(); from.setHours(0, 0, 0, 0);
     var to = new Date(from.getTime() + Math.max(2, days) * 86400000);
-    K.load(c, K.ids(c), from, to).then(function (got) {
-      CAL.evs = (got && got.evs) || []; CAL.at = Date.now(); CAL.days = Math.max(2, days); CAL.busy = false; done();
-    }, function () { CAL.busy = false; CAL.at = Date.now(); });
+    K.load(c, ids, from, to).then(function (got) {
+      if (n !== CAL.n) return;
+      CAL.evs = (got && got.evs) || []; CAL.at = Date.now(); CAL.days = Math.max(2, days); CAL.busy = false; CAL.failAt = 0; done();
+    }, function () { if (n !== CAL.n) return; CAL.busy = false; CAL.failAt = Date.now(); });
   }
   // (hkCalendar's events: {cal, uid, title, allDay, start, end} -- Dates)
   function evStart(e) { return new Date(e.start); }
@@ -348,14 +359,22 @@
   // read is out is drawn again when it lands, not only the one that sent it)
   var TODO = {};
   function todoOf(c, eid, done, redraw) {
-    var t = TODO[eid] || (TODO[eid] = { sig: null, got: null, busy: false, off: {}, wait: [] });
-    var st = states(c)[eid], sig = st ? st.state + '|' + st.last_updated + '|' + !!done : null;
-    if (c && c.callWS && sig && sig !== t.sig && !t.busy) {
-      t.busy = true; t.sig = sig; t.wait = [];
+    var t = TODO[eid] || (TODO[eid] = { sig: null, got: null, busy: false, off: {}, wait: [], n: 0, failAt: 0 });
+    var st = states(c)[eid], sig = st ? st.state + '|' + st.last_updated + '|' + !!done : null, now = Date.now();
+    // (never stuck, as the calendar: a read unanswered in LOST given up, a failed one asked again after LOST)
+    if (t.busy && now - t.busy > LOST) { t.busy = false; t.sig = null; }
+    if (c && c.callWS && sig && sig !== t.sig && !t.busy && now - t.failAt >= LOST) {
+      var n = ++t.n;
+      t.busy = now; t.sig = sig; t.wait = [];
       var landed = function () { var w = t.wait || []; t.wait = []; w.forEach(function (f) { f(); }); };
       c.callWS({ type: 'hk_frontend/todo/items', entity_id: eid, completed: !!done }).then(function (got) {
-        t.busy = false; t.got = got || null; t.off = {}; redraw(); landed();
-      }, function (e) { t.busy = false; t.got = { items: [], refused: (e && e.code) || 'failed' }; redraw(); landed(); });
+        if (n !== t.n) return;
+        t.busy = false; t.failAt = 0; t.got = got || null; t.off = {}; redraw(); landed();
+      }, function (e) {
+        if (n !== t.n) return;
+        t.busy = false; t.sig = null; t.failAt = Date.now();
+        t.got = t.got && !t.got.refused ? t.got : { items: [], refused: (e && e.code) || 'failed' }; redraw(); landed();
+      });
     } else if (t.busy && redraw && (t.wait || (t.wait = [])).indexOf(redraw) < 0) t.wait.push(redraw);
     return t;
   }
@@ -975,6 +994,11 @@
       ':host([side="right"]) .pane{border-left:1px solid ' + v('line') + ';box-shadow:-18px 0 44px rgba(0,0,0,.30)}',
       ':host([side="left"]) .pane{border-right:1px solid ' + v('line') + ';box-shadow:18px 0 44px rgba(0,0,0,.30)}',
       ':host([side="band"]) .pane{border-top:1px solid ' + v('line') + ';box-shadow:0 -18px 44px rgba(0,0,0,.30)}',
+      // DIM (the pane's Dim, dress() below): a shade over the glass and the album art, under the words
+      ':host([dim]) .pane::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:rgba(0,0,0,var(--pane-dim,0))}',
+      ':host([dim]) .pin{z-index:2}',
+      ':host([dim="low"]){--pane-dim:.16}:host([dim="medium"]){--pane-dim:.3}:host([dim="high"]){--pane-dim:.45}',
+      ':host([mode="saver"]) .pane::before,:host([mode="widget"]) .pane::before{display:none}',
       // IN THE SCREENSAVER: on its pane's own background, under Home Status
       ':host([mode="saver"]) .pane{background:none;-webkit-backdrop-filter:none;backdrop-filter:none;border:0;box-shadow:none}',
       // THE ALBUM ART behind the whole pane while a song plays (_artBg): two
@@ -1170,7 +1194,7 @@
       '.np .tx b{display:block;overflow:hidden;text-overflow:ellipsis}.np .tx i{display:block;font:500 15px/1.3 var(--hk-font-body,inherit);font-style:normal;color:' + v('ink-2') + ';overflow:hidden;text-overflow:ellipsis}',
       '.pp{all:unset;cursor:pointer;flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:' + v('key') + '}',
       '.pp hk-icon{--mdc-icon-size:22px;width:22px;height:22px}',
-      '.cmp .pp{width:30px;height:30px;margin:-4px 0}',
+      '.cmp .pp{width:30px;height:30px}',
       '.trow{display:flex;align-items:center;justify-content:space-between;margin-top:12px}',
       '.tk{all:unset;cursor:pointer;display:grid;place-items:center;width:44px;height:44px;border-radius:50%}.tk hk-icon{--mdc-icon-size:30px;width:30px;height:30px}',
       '.tk:active{background:' + v('key') + '}',
@@ -1458,8 +1482,16 @@
       var sec = t.closest('[data-i]'), s = sec && this._list ? this._list[+sec.getAttribute('data-i')] : null;
       if (!s || s.tap === 'none') return;
       // NOW PLAYING'S OWN TWO (2026-10-31, item 44): the Speakers / Volume / Queue / Browse panel opens in place over
-      // the pane, or the section flips over to it, as the screensaver's player turns (musicPanel)
-      if (s.kind === 'now_playing' && (s.tap === 'panel' || s.tap === 'flip')) { musicPanel(this, 'speakers', s.tap === 'flip' ? sec : null); return; }
+      // the pane, or the section flips over to it, as the screensaver's player turns (musicPanel) -- and Automatic is
+      // the panel (2026-11-01, the owner: a tap on the cover or the song opened the detail sheet; the panel keeps
+      // them on the page). THE COVER at Automatic or Open the Panel is the screensaver's music, full screen (the
+      // owner, the same day: "that would be neat!"); where this screen has none, the panel.
+      if (s.kind === 'now_playing' && (!s.tap || s.tap === 'auto' || s.tap === 'panel' || s.tap === 'flip')) {
+        var Sv = window.hkSaver;
+        if (s.tap !== 'flip' && t.closest('.art') && Sv && Sv.showMusic && Sv.showMusic()) return;
+        musicPanel(this, 'speakers', sec, s.tap === 'flip' ? 'flip' : 'drawer');
+        return;
+      }
       var D = window.hkDetail, ev = t.closest('[data-ev]'), one = t.closest('[data-ent]');
       if (ev && CAL.shown && CAL.shown[+ev.getAttribute('data-ev')]) {
         var K = window.hkCalendar, x = CAL.shown[+ev.getAttribute('data-ev')];
@@ -1550,6 +1582,8 @@
         var st = states(c)[id], HC = C(), a = st && st.attributes;
         var pic = a && !a.restored && !(HC && HC.stale && HC.stale(st)) ? a.entity_picture : null;
         var s = self._stills[id] || (self._stills[id] = { at: 0, n: 0, url: '', busy: false, bad: '', badAt: 0 });
+        // (a picture that neither loads nor fails in LOST is given up, as the calendar's read)
+        if (s.busy && Date.now() - s.at > LOST) s.busy = false;
         if (!pic || s.busy || Date.now() - s.at < 9000) return;
         if (s.bad === pic && Date.now() - s.badAt < 60000) return;
         s.busy = true; s.at = Date.now(); s.n++;
@@ -1612,15 +1646,22 @@
       return '<div class="sec cam2 ring" data-k="door"><div class="live"><div class="slot" data-slot="' + key + '"></div></div>' +
         '<span class="lv">DOORBELL</span><span class="cn">' + esc(nameOf(st, cam)) + ' · Live</span></div>';
     }
-    // THE FORECAST (hkWxForecast, the Weather page's own subscription), one
-    // per kind, kept while the pane shows weather
+    // THE FORECAST: the house's forecast sensor where Configure -> Weather names one (as the weather blocks
+    // read it), else hkWxForecast, the Weather page's own subscription, one per kind, kept while the pane shows
+    // weather -- and asked again at each draw (ensure): after a refusal's wait, or a reconnect that forgot it.
+    // (2026-11-01, the owner: the forecast under the time came only once the Weather page had been opened --
+    // the page's own ask, which the pane then shared; the pane's first had gone unanswered and it never asked again)
     _forecast(c, wid, kind) {
+      var HS = window.hkSettings, sid = HS && HS.get ? HS.get('weather.forecast_' + kind, null) : null;
+      if (sid) return (((states(c)[sid] || {}).attributes || {}).forecast) || [];
       var W = window.hkWxForecast, key = kind + '|' + wid, self = this, port = c && c.subscriptions;
       if (!W || !port) return [];
       var w = this._wx[key];
       if (!w || w.conn !== port) {
         if (w) w.release();
         w = this._wx[key] = W.watch(port, kind, wid, function () { self.redraw(); });
+      } else {
+        w.ensure();
       }
       return w.data() || [];
     }
@@ -1637,7 +1678,7 @@
         var mn = musicOf(c);
         if (mn) c.actions.callService('media_player', act === 'prev' ? 'media_previous_track' : 'media_next_track', {}, { entity_id: mn.key }).catch(function () { /* refused: said by the host */ });
       } else if (act === 'spk' || act === 'brw') {
-        musicPanel(this, act === 'spk' ? 'speakers' : 'browse');
+        musicPanel(this, act === 'spk' ? 'speakers' : 'browse', b.closest('[data-k="now_playing"]'), 'drawer');
       } else if (act === 'todo') {
         // CHECKED OFF: a house command (todo.update_item), struck through
         // until the list says so
@@ -1756,9 +1797,13 @@
   // screensaver's (hk-saver-panel.js) -- Speakers, Volume, Queue, Browse, what
   // plays at its foot -- the pane's own size and place, so it opens where the
   // player is. A tap outside, its X, Escape, a moment after a request has
-  // landed, and the music going close it.
+  // landed, and the music going close it. `how`: 'flip', the section turning
+  // over to it (turnAnim); 'drawer' (2026-11-01, the owner: "the player slides
+  // up to the top and below it is the browse/speaker/volume/queue tabs"), the
+  // whole pane, what plays at its top, rising from where the section was
+  // (drawerAnim)
   var mpnl = null;
-  function musicPanel(pane, tab, from) {
+  function musicPanel(pane, tab, from, how) {
     var P = window.hkSaverPanel, HC = C();
     if (mpnl) { if (mpnl.p.tab() !== tab) mpnl.p.show(tab); else closeMusicPanel(); return; }
     if (!P || !pane || !pane.getBoundingClientRect) return;
@@ -1769,7 +1814,12 @@
     var st = document.createElement('style');
     st.textContent = P.CSS + (HC && HC.shadeCss ? HC.shadeCss('.mpanel') : '') +
       '.scrim{position:fixed;inset:0}.mpanel.pn{position:fixed;border-radius:' + ((HC && HC.R && HC.R.sheet) || 38) + 'px;background:rgb(24,25,29);' +
-      'box-shadow:0 26px 70px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.12)}';
+      'box-shadow:0 26px 70px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.12)}' +
+      // THE DRAWER: the pane itself, what plays first (its cover a size up), the tabs under it
+      '.mpanel.pn.dr{border-radius:0;box-shadow:none}' +
+      '.mpanel.dr .mpmini{order:-1;border-top:0;border-bottom:1px solid rgba(255,255,255,.12);padding:24px 22px 16px}' +
+      '.mpanel.dr .mpmini .ia{width:60px;height:60px;border-radius:10px}.mpanel.dr .mpmini .tx b{font-size:17px}' +
+      '.mpanel.dr .mphd{padding-top:14px}';
     sr.appendChild(st);
     var scrim = document.createElement('div'); scrim.className = 'scrim';
     sr.appendChild(scrim);
@@ -1797,8 +1847,9 @@
         if (m && c.actions) c.actions.callService('media_player', k === 'pp' ? 'media_play_pause' : 'media_next_track', {}, { entity_id: m.key }).catch(function () { /* refused */ });
       }
     });
-    var el = me.p.el, inset = 8;
+    var el = me.p.el, drawer = how === 'drawer', inset = drawer ? 0 : 8;
     el.classList.add('up', 'pn');
+    if (drawer) el.classList.add('dr');
     el.style.cssText = 'left:' + (r.left + inset) + 'px;top:' + (r.top + inset) + 'px;width:' + (r.width - 2 * inset) + 'px;height:' + (r.height - 2 * inset) + 'px';
     sr.appendChild(el);
     me.p.size(r.width - 2 * inset, r.height - 2 * inset, 1);
@@ -1808,12 +1859,14 @@
     window.addEventListener('keydown', me.key);
     document.body.appendChild(host);
     mpnl = me;
-    // FLIPPED OVER (Now Playing's When Tapped, 2026-10-31, item 44): the section turns over to the same panel
-    if (from && from.getBoundingClientRect) {
+    // FLIPPED OVER (Now Playing's When Tapped, 2026-10-31, item 44): the section turns over to the same panel;
+    // or THE DRAWER rises from it
+    if (from && from.getBoundingClientRect && (how === 'flip' || drawer)) {
       var fr = from.getBoundingClientRect();
       me.from = from; me.rect = { left: fr.left, top: fr.top, width: fr.width, height: fr.height };
       me.box = { x: r.left + inset, y: r.top + inset, w: r.width - 2 * inset, h: r.height - 2 * inset };
-      turnAnim(me, true);
+      me.how = how;
+      if (drawer) drawerAnim(me, true); else turnAnim(me, true);
     }
   }
   function closeMusicPanel() {
@@ -1823,8 +1876,33 @@
     clearTimeout(me.doneT);
     window.removeEventListener('keydown', me.key);
     var fin = function () { try { me.p.destroy(); } catch (e) { /* gone */ } me.host.remove(); if (me.from && me.from.isConnected) me.from.style.visibility = ''; };
-    if (me.from) { turnAnim(me, false, fin); return; }
+    if (me.from) { (me.how === 'drawer' ? drawerAnim : turnAnim)(me, false, fin); return; }
     fin();
+  }
+  // THE DRAWER'S RISE: at first only what plays shows, where the section stood (the section hidden under it); it
+  // rises to the pane's top, the tabs and the list opening under it as it goes. Closing, back down the same way.
+  // Transforms and a clip only; at rest under Reduce Motion.
+  function drawerAnim(me, opening, done) {
+    var el = me.p.el, src = me.from, B = me.box, R = me.rect, HC = C();
+    var EASE = (HC && HC.EASE) || { standard: 'ease-out', exit: 'ease-in' };
+    var reduce = (window.hkSettings && window.hkSettings.skyLook && window.hkSettings.skyLook().animations === false) ||
+                 (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    var mini = el.querySelector('.mpmini'), mh = Math.max(mini ? mini.offsetHeight : 0, Math.min(R.height, 140));
+    var dy = Math.max(0, Math.min(B.h - mh, R.top - B.y));
+    var small = { transform: 'translateY(' + Math.round(dy) + 'px)', clipPath: 'inset(0 0 ' + Math.round(Math.max(0, B.h - mh)) + 'px 0)' };
+    var full = { transform: 'none', clipPath: 'inset(0 0 0 0)' };
+    if (me.anim) { try { me.anim.cancel(); } catch (x) { /* done */ } me.anim = null; }
+    var can = !reduce && typeof el.animate === 'function';
+    if (opening) {
+      if (src && src.isConnected) src.style.visibility = 'hidden';
+      if (!can) return;
+      var a = me.anim = el.animate([small, full], { duration: 420, easing: EASE.standard });
+      a.onfinish = function () { if (me.anim === a) me.anim = null; };
+    } else {
+      if (!can) { done(); return; }
+      var b = me.anim = el.animate([full, small], { duration: 320, easing: EASE.exit, fill: 'forwards' });
+      b.onfinish = function () { me.anim = null; done(); };
+    }
   }
   // THE TURN, as the Home Grid's Now Playing block and the screensaver turn the card (hk-media.js _turnAnim): the section
   // to edge-on where it stands, then the panel from edge-on, growing from the section's size to its own; back the same
@@ -1921,6 +1999,9 @@
   function dress(el, up) {
     var g = document.documentElement.getAttribute('data-hk-glass') || 'blur';
     if (el.getAttribute('look') !== lookOf(g)) el.setAttribute('look', lookOf(g));
+    var dim = (paneOf() || {}).dim;
+    if (dim === 'low' || dim === 'medium' || dim === 'high') { if (el.getAttribute('dim') !== dim) el.setAttribute('dim', dim); }
+    else el.removeAttribute('dim');
     var G = window.hkGlass, pane = el.shadowRoot && el.shadowRoot.querySelector('.pane');
     if (!G || !G.pin || !pane) return;
     if (up && g === 'blur_pre') G.pin(pane, PIN_TINT); else G.unpin(pane);
@@ -1982,6 +2063,6 @@
     previewHouse: function (on) { if (HOUSE === !!on) return; HOUSE = !!on; sync(); },
     // tests
     _: { shown: shown, fit: fit, place: place, wants: wants, saverList: saverList, has: has, ringing: ringing, SEC: SEC,
-         publish: publish, musicFlag: musicFlag, NOTES: NOTES, TODO: TODO, CAL: CAL }
+         publish: publish, musicFlag: musicFlag, NOTES: NOTES, TODO: TODO, CAL: CAL, calLoad: calLoad, todoOf: todoOf, LOST: LOST }
   };
 })();

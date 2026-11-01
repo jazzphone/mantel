@@ -71,6 +71,8 @@ def test_a_group_is_whole():
     assert M.pane_group("dashboard", {"show": "home"})["sections"] == DEF["dashboard"]["sections"], "tolerant: filled in"
     assert M.pane_group("side", "middle") is None and M.pane_group("width", "wide") == "wide"
     assert M.pane_group("doorbell", 1) is None and M.pane_group("doorbell", False) is False
+    assert M.pane_group("dim", "medium") == "medium" and M.pane_group("dim", "pitch") is None
+    assert DEF["dim"] == "none" and M.PANE_DIMS == ("none", "low", "medium", "high")
 
 
 # ------------------------------------------------------------------------------------------- the resolution
@@ -114,7 +116,9 @@ def test_all_screens_writes_one_group_at_a_time():
                                                                           "sections": [{"kind": "weather", "size": "tiny"}]}}
     opts2, err = C.apply_house(opts, {"side_pane.side": "right"})
     assert not err and "side" not in opts2["dashboard"]["side_pane"], "only what differs from the default is stored"
-    for path, value in (("side_pane.width", "huge"), ("side_pane.doorbell", "yes"), ("side_pane.saver", {"show": "own"}),
+    opts3, err = C.apply_house({}, {"side_pane.dim": "high"})
+    assert not err and opts3["dashboard"]["side_pane"] == {"dim": "high"}
+    for path, value in (("side_pane.width", "huge"), ("side_pane.dim", "dark"), ("side_pane.doorbell", "yes"), ("side_pane.saver", {"show": "own"}),
                         ("side_pane.dashboard", {"show": "home", "sections": [{"kind": "x"}]}),
                         ("side_pane.dashboard", {"show": "home", "sections": [{"kind": k} for k in M.PANE_SECTIONS[:9]]}),
                         ("side_pane.colour", "red")):

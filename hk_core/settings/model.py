@@ -1933,13 +1933,16 @@ PANE_CHOICES: dict[str, dict[str, tuple[str, ...]]] = {
 PANE_FLAGS_ON: dict[str, tuple[str, ...]] = {"clock": ("ampm",), "now_playing": ("art",)}
 PANE_SIDES = ("right", "left")
 PANE_WIDTHS = {"narrow": 360, "standard": 400, "wide": 480}
+# DIM (2026-11-01, the owner: "with this background, it's just a bit too light to see the text"): a shade over the
+# pane's glass, under its words, on the Dashboard (the screensaver's pane is on the saver's own ground)
+PANE_DIMS = ("none", "low", "medium", "high")
 # On the Dashboard: Off, Home Only, Every Page; in the screensaver: Off,
 # Same as the Dashboard's sections, Its Own Sections
 PANE_SHOWS = ("off", "home", "all")
 PANE_SAVER_SHOWS = ("off", "same", "own")
 PANE_MAX = 8
 # headings (2026-10-30): a small title over each section but the Clock and the Weather (they say what they are)
-PANE_GROUPS = ("side", "width", "dashboard", "saver", "doorbell", "headings")
+PANE_GROUPS = ("side", "width", "dashboard", "saver", "doorbell", "headings", "dim")
 # each kind's own options: the calendar's days (1-7), the camera's and the
 # to-do list's entity, the to-do list's Show Completed
 # (the clock's Flashing Colon: off unless set)
@@ -1953,6 +1956,7 @@ SIDE_PANE_DEFAULTS: dict[str, Any] = {
                                           {"kind": "now_playing", "size": "less", "when": "active"}]},
     "doorbell": True,
     "headings": True,
+    "dim": "none",
 }
 DEFAULTS["side_pane"] = copy.deepcopy(SIDE_PANE_DEFAULTS)
 
@@ -2041,6 +2045,8 @@ def pane_group(name: str, v: Any, strict: bool = False) -> Any:
         return v if v in PANE_SIDES else None
     if name == "width":
         return v if v in PANE_WIDTHS else None
+    if name == "dim":
+        return v if v in PANE_DIMS else None
     if name in ("doorbell", "headings"):
         return v if isinstance(v, bool) else None
     if name not in ("dashboard", "saver") or not isinstance(v, Mapping):

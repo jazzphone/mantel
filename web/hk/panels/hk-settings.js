@@ -5813,8 +5813,11 @@
       // LOOK: SECTION HEADINGS (2026-10-30), a small title over each section
       // but the Clock and the Weather -- and THE DOORBELL (one group since
       // 2026-10-30)
-      c.appendChild(K.group({ header: 'Look', footer: 'Section Headings: a small title, with its icon, over each section — not over the Clock or the Weather, which say what they are. ' +
+      c.appendChild(K.group({ header: 'Look', footer: 'Dim: a shade over the pane’s glass, for its words over a light background. ' +
+          'Section Headings: a small title, with its icon, over each section — not over the Clock or the Weather, which say what they are. ' +
           'The doorbell’s camera is live, for as long as its pop-up shows.' }, [
+        K.seg({ label: 'Dim', sk: 'pane:dim', sub: whose('dim'), value: p.dim || 'none', options: M.PANE_DIMS, stack: !this.hasAttribute('wide'),
+                onChange: function (v) { put('dim', v); } }),
         K.toggle({ label: 'Section Headings', sk: 'pane:headings', sub: whose('headings'), on: p.headings !== false, onChange: function (on) { put('headings', on); } }),
         K.toggle({ label: 'Doorbell', sk: 'pane:doorbell', sub: whose('doorbell') || 'Its camera at the top of the pane while it rings.',
                    on: p.doorbell !== false, onChange: function (on) { put('doorbell', on); } })]));
@@ -5868,7 +5871,7 @@
           'When There’s Something: music playing (or paused, for Hide After a Pause), a timer running, the alarm armed or a door open, a notification. ' +
           'Bottom: at the pane’s foot, under a space — what’s playing, say — in the order they are listed. ' +
           'When Tapped — Automatic: its page where this screen has one, else its detail sheet. A tap on one thing in it — an event, a person, a thermostat — opens that thing’s sheet.' +
-          (s.kind === 'now_playing' ? ' Now Playing also: Open the Panel — Speakers, Volume, Queue and Browse, right in the pane; Flip to the Controls — the section turns over to them.' : '') }, [
+          (s.kind === 'now_playing' ? ' Now Playing’s Automatic is Open the Panel — Speakers, Volume, Queue and Browse, right in the pane; or Flip to the Controls — the section turns over to them.' : '') }, [
         K.seg({ label: 'Size', sk: 'pane:sec:size', value: s.size || 'more', options: M.PANE_SIZES, onChange: function (v) { set('size', v === 'more' ? null : v); } }),
         K.seg({ label: 'Show', sk: 'pane:sec:when', value: s.when || 'always', options: M.PANE_WHEN, stack: true,
                 onChange: function (v) { set('when', v === 'always' ? null : v); } }),

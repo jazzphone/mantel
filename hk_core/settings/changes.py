@@ -856,7 +856,7 @@ def _pane_group(name: str) -> Callable[[Any], Any]:
     def check(v: Any) -> Any:
         got = S.pane_group(name, v, strict=True)
         if got is None:
-            raise Invalid("choice" if name in ("side", "width") else "bool" if name in ("doorbell", "headings") else "side_pane")
+            raise Invalid("choice" if name in ("side", "width", "dim") else "bool" if name in ("doorbell", "headings") else "side_pane")
         return got
     return check
 

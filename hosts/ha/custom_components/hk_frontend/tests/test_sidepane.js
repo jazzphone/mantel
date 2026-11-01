@@ -253,7 +253,8 @@ ok('...Less, a mini player (2026-10-31, the owner\'s pick): the song, then Speak
    less.indexOf('Late Light') < at(less, 'spk') && at(less, 'spk') < at(less, 'prev') && at(less, 'prev') < at(less, 'pp') &&
    at(less, 'pp') < at(less, 'next') && at(less, 'next') < at(less, 'brw') && /class="pp big"/.test(less), less);
 var src = readFile(HK_ROOT + '/frontend/modules/hk-sidepane.js');
-ok('...Speakers and Browse open the screensaver\'s panel over the pane, its four tabs', /musicPanel\(this, act === 'spk' \? 'speakers' : 'browse'\)/.test(src) &&
+// (as a drawer from the section since 2026-11-01: the player risen to the pane's top, the tabs under it)
+ok('...Speakers and Browse open the screensaver\'s panel over the pane, its four tabs', /musicPanel\(this, act === 'spk' \? 'speakers' : 'browse', b\.closest\('\[data-k="now_playing"\]'\), 'drawer'\)/.test(src) &&
    /tabs: \['speakers', 'volume', 'queue', 'browse'\]/.test(src));
 ok('...no volume where the player reports none', !/data-act="vol"/.test(less));
 client.states['media_player.kitchen'].attributes.volume_level = 0.42;
@@ -305,6 +306,46 @@ Promise.resolve().then(function () { return Promise.resolve(); }).then(function 
   ok('a section as a widget: the pane element, widget mode, its one section shown', !!wd && wd.getAttribute('mode') === 'widget' && wd.hasAttribute('on'),
      wd && [wd.getAttribute('mode'), wd.hasAttribute('on')]);
   ok('...nothing for a kind the pane has not', P.section('nope', 'less') === null);
+}).then(function () {
+  // ---- THE FORECAST (2026-11-01, the owner: under the time only once the Weather page had been opened): asked
+  // again at every draw, and the house's forecast sensor first
+  var was = window.hkWxForecast, asked = 0, made = 0, port = {};
+  window.hkWxForecast = { watch: function (conn) { made++; return { conn: conn, data: function () { return []; }, ensure: function () { asked++; }, release: function () {} }; } };
+  // (the element's own method, on a stand-in: the test page does not upgrade custom elements)
+  var Pane = customElements.get('hk-side-pane'), pane = { _wx: {}, redraw: function () {}, _forecast: Pane.prototype._forecast }, cl = { states: { 'sensor.fc': { state: 'ok', attributes: { forecast: [{ datetime: 'x', temperature: 60 }] } } }, subscriptions: port };
+  pane._forecast(cl, 'weather.home', 'hourly'); pane._forecast(cl, 'weather.home', 'hourly');
+  ok('the pane\'s forecast: one watch, asked again at the next draw (after a refusal, or a reconnect)', made === 1 && asked === 1, [made, asked]);
+  SET['weather.forecast_daily'] = 'sensor.fc';
+  var got = pane._forecast(cl, 'weather.home', 'daily');
+  delete SET['weather.forecast_daily'];
+  ok('...the house\'s forecast sensor where Configure -> Weather names one, no subscription', got.length === 1 && got[0].temperature === 60 && made === 1, [got, made]);
+  window.hkWxForecast = was;
+  // ---- NEVER STUCK (2026-11-01, the owner: "occasionally the calendar doesn't load"): a read with no answer given
+  // up after LOST and sent again; a failure asked again after LOST, not at every draw
+  var K0 = window.hkCalendar, reads = 0, saved = JSON.stringify([X.CAL.evs, X.CAL.at]);
+  window.hkCalendar = { ids: function () { return ['calendar.family']; }, load: function () { reads++; return new Promise(function () {}); } };
+  X.CAL.evs = null; X.CAL.busy = false; X.CAL.failAt = 0;
+  X.calLoad({ states: {} }, 3, function () {}); X.calLoad({ states: {} }, 3, function () {});
+  ok('the calendar: one read out at a time', reads === 1, reads);
+  X.CAL.busy = Date.now() - X.LOST - 1;
+  X.calLoad({ states: {} }, 3, function () {});
+  ok('...one unanswered past LOST is given up and asked again', reads === 2, reads);
+  window.hkCalendar = { ids: function () { return []; }, load: function () { reads++; return Promise.resolve({ evs: [] }); } };
+  X.CAL.busy = false;
+  X.calLoad({ states: {} }, 3, function () {});
+  ok('...no calendars known yet: nothing read, nothing kept', reads === 2 && X.CAL.evs === null, [reads, X.CAL.evs]);
+  window.hkCalendar = K0;
+  var sv = JSON.parse(saved); X.CAL.evs = sv[0]; X.CAL.at = sv[1]; X.CAL.busy = false; X.CAL.failAt = 0;
+  var tw = 0, tcl = { states: { 'todo.chores': { state: '2', last_updated: 'a' } }, callWS: function () { tw++; return Promise.reject({ code: 'gone' }); } };
+  X.todoOf(tcl, 'todo.chores', false, function () {});
+  return Promise.resolve().then(function () {}).then(function () {
+    X.todoOf(tcl, 'todo.chores', false, function () {});
+    ok('a to-do list: a failed read is not sent again at once', tw === 1, tw);
+    X.TODO['todo.chores'].failAt = Date.now() - X.LOST - 1;
+    X.todoOf(tcl, 'todo.chores', false, function () {});
+    ok('...but after LOST, with the list unchanged', tw === 2, tw);
+    delete X.TODO['todo.chores'];
+  });
 }).then(function () {
   print(fail ? '  ' + fail + ' SIDE PANE TESTS FAILED' : '  ALL ' + pass + ' SIDE PANE TESTS PASS');
   if (fail) throw new Error(fail + ' failed');

@@ -70,6 +70,19 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         want('the pane in ' + g, m, m && m.look === g && (blurs ? /blur/.test(m.blur) && m.alpha < 0.6 : !/blur/.test(m.blur) && m.alpha > 0.9) && m.titles);
         await shot(page, tag + '-look-' + g);
       }
+      // DIM (2026-11-01, the owner: "a bit too light to see the text"): a shade over the glass, none unless set
+      const shade = (pane) => page.evaluate(() => {
+        const p = document.querySelector('hk-side-pane[mode="dash"]'), pane = p && p.shadowRoot.querySelector('.pane');
+        return pane ? getComputedStyle(pane, '::before').backgroundColor : null;
+      });
+      want('no shade unless Dim is set', await shade(), (await shade()) === null || !/0\.45/.test(await shade()));
+      cur = 'pane-home-dim?hkglass=bright';
+      await page.goto(input.origin + '/pane-home-dim/home?hkglass=bright');
+      await page.waitForFunction(() => window.__mantelReady === true);
+      await page.waitForTimeout(2000);
+      const dimmed = await shade();
+      want('Dim High shades the pane', dimmed, /rgba\(0, 0, 0, 0\.45\)/.test(String(dimmed)));
+      await shot(page, tag + '-dim-high');
     }
     // WHILE A SONG PLAYS THE WHOLE PANE IS ITS ART (2026-10-30): the pane's own ground the art blurred, the music card
     // with no backdrop or box of its own, white words over its lightest part at 4.5:1; a flat tint where the look has
@@ -206,24 +219,38 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         const np = pane.shadowRoot.querySelector('[data-k="now_playing"]');
         if (!host) return { open: false, shown: np ? getComputedStyle(np).visibility : null };
         const mp = host.shadowRoot.querySelector('.mpanel'), r = mp.getBoundingClientRect();
+        const mini = host.shadowRoot.querySelector('.mpmini'), hd = host.shadowRoot.querySelector('.mphd');
         return { open: true, inPane: r.left >= pr.left - 1 && r.right <= pr.right + 1 && r.top >= pr.top - 1 && r.bottom <= pr.bottom + 1,
+                 drawer: mp.classList.contains('dr'), playerFirst: !!(mini && hd && mini.getBoundingClientRect().bottom <= hd.getBoundingClientRect().top + 1),
                  tabs: [...host.shadowRoot.querySelectorAll('.mptabs div')].map((x) => x.textContent.trim()).join('|'), shown: np ? np.style.visibility : null };
       });
-      for (const how of ['panel', 'flip']) {
-        await open('pane-tap-' + how);
+      // (Automatic, When Tapped unset: the drawer too -- 2026-11-01, the owner: a tap on the song opened the detail
+      // sheet; the player rises to the pane's top, the tabs under it)
+      for (const how of ['panel', 'flip', 'auto']) {
+        await open(how === 'auto' ? 'pane-art-on' : 'pane-tap-' + how);
         await page.waitForTimeout(2000);
         await page.evaluate(() => document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('[data-k="now_playing"] .np .tx b').click());
-        if (how === 'flip') { await page.waitForTimeout(140); await shot(page, tag + '-tap-flip-turning'); }
+        if (how !== 'panel') { await page.waitForTimeout(140); await shot(page, tag + '-tap-' + how + '-moving'); }
         await page.waitForTimeout(900);
         const st = await panelState();
         want('Now Playing tapped (' + how + '): the panel open inside the pane, its four tabs' + (how === 'flip' ? ', the section turned away' : ''), st,
-             st.open && st.inPane && /Speakers.*Volume.*Queue.*Browse/i.test(st.tabs) && (how === 'panel' || st.shown === 'hidden'));
+             st.open && st.inPane && /Speakers.*Volume.*Queue.*Browse/i.test(st.tabs) && (how !== 'flip' || st.shown === 'hidden') &&
+             (how === 'flip' || (st.drawer && st.playerFirst)));
         await shot(page, tag + '-tap-' + how);
         await page.keyboard.press('Escape');
         await page.waitForTimeout(1200);
         const back = await panelState();
         want('...Escape closes it' + (how === 'flip' ? ', the section turned back' : ''), back, !back.open && back.shown !== 'hidden');
       }
+      // THE COVER: the screensaver's music, full screen (2026-11-01); a screen with none, the drawer (above)
+      await open('pane-cover');
+      await page.waitForTimeout(2000);
+      await page.evaluate(() => document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('[data-k="now_playing"] .art').click());
+      await page.waitForTimeout(1500);
+      const full = await page.evaluate(() => ({ on: window.hkSaver.running(), music: window.hkSaver.stats().musicSlide }));
+      want('...its cover: the music full screen', full, full.on && full.music);
+      await shot(page, tag + '-tap-cover');
+      await page.evaluate(() => window.hkSaver.stop());
     }
     // THE CLOCK'S SIX LOOKS, A TO F (2026-10-31, item 43; the "Side Pane clock styles" board): each a screen whose Side Pane
     // clock sets its choices, drawn at the screen's own pane. A is today's clock; B right with no AM/PM; C centered,
@@ -340,9 +367,12 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
             Object.assign(el.style, { left: '0px', top: '0px', bottom: '0px', width: '400px' });
             el.show({ list: [{ kind, size }], place: { kind: 'side', w: 400 }, side: 'left' });
             const secs = el.shadowRoot.querySelector('.secs'), k = secs.firstElementChild;
-            return { k: k && (k.dataset.k + ':' + k.dataset.size), h: k ? Math.round(k.getBoundingClientRect().height) : 0, scrolls: secs.scrollHeight > secs.clientHeight + 1 };
+            // (a button cut off by its section: the owner, 2026-11-01, Now Playing's play at Tiny, the pane's last section)
+            const kr = k && k.getBoundingClientRect();
+            const cut = k ? [...k.querySelectorAll('button')].filter((b) => { const r = b.getBoundingClientRect(); return r.height && (r.top < kr.top - 0.5 || r.bottom > kr.bottom + 0.5); }).length : 0;
+            return { k: k && (k.dataset.k + ':' + k.dataset.size), h: k ? Math.round(kr.height) : 0, scrolls: secs.scrollHeight > secs.clientHeight + 1, cut };
           }, [kind, size]);
-          want('alone ' + kind + ' ' + size, got, got.k === kind + ':' + size && got.h > 0 && !got.scrolls);
+          want('alone ' + kind + ' ' + size, got, got.k === kind + ':' + size && got.h > 0 && !got.scrolls && !got.cut);
         }
         await page.waitForTimeout(300);
         if (input.shots) {

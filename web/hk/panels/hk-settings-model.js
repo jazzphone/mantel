@@ -2587,12 +2587,13 @@
   var PANE_WIDTHS = [['narrow', 'Narrow'], ['standard', 'Standard'], ['wide', 'Wide']];
   var PANE_SHOWS = [['off', 'Off'], ['home', 'Home Only'], ['all', 'Every Page']];
   var PANE_SAVER_SHOWS = [['off', 'Off'], ['same', 'Same as the Dashboard'], ['own', 'Its Own Sections']];
-  var PANE_GROUPS = ['side', 'width', 'dashboard', 'saver', 'doorbell', 'headings'];
+  var PANE_DIMS = [['none', 'Off'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']];
+  var PANE_GROUPS = ['side', 'width', 'dashboard', 'saver', 'doorbell', 'headings', 'dim'];
   var PANE_MAX = 8;
   var PANE_DEFAULTS = { side: 'right', width: 'standard',
     dashboard: { show: 'off', sections: [{ kind: 'weather' }, { kind: 'calendar' }, { kind: 'now_playing', when: 'active' }] },
     saver: { show: 'off', sections: [{ kind: 'clock', size: 'tiny' }, { kind: 'calendar' }, { kind: 'now_playing', size: 'less', when: 'active' }] },
-    doorbell: true, headings: true };
+    doorbell: true, headings: true, dim: 'none' };
   function paneCopy(v) { return JSON.parse(JSON.stringify(v)); }
   function paneKind(k) { return PANE_KINDS.filter(function (x) { return x[0] === k; })[0] || null; }
   // a section as stored: More and Always are what absent means
@@ -2780,7 +2781,7 @@
   }
 
   root.hkSettingsModel = {
-    PANE_KINDS: PANE_KINDS, PANE_SIZES: PANE_SIZES, PANE_WHEN: PANE_WHEN, PANE_SIDES: PANE_SIDES, PANE_WIDTHS: PANE_WIDTHS,
+    PANE_KINDS: PANE_KINDS, PANE_SIZES: PANE_SIZES, PANE_WHEN: PANE_WHEN, PANE_SIDES: PANE_SIDES, PANE_WIDTHS: PANE_WIDTHS, PANE_DIMS: PANE_DIMS,
     PANE_SHOWS: PANE_SHOWS, PANE_SAVER_SHOWS: PANE_SAVER_SHOWS, PANE_GROUPS: PANE_GROUPS, PANE_PLACES: PANE_PLACES, PANE_TAPS: PANE_TAPS, paneTaps: paneTaps, PANE_CAMERA_NAMES: PANE_CAMERA_NAMES, CLOCK_FACES: CLOCK_FACES, CLOCK_ALIGNS: CLOCK_ALIGNS, CLOCK_SCALES: CLOCK_SCALES,
     CLOCK_WEIGHTS: CLOCK_WEIGHTS, CLOCK_DATES: CLOCK_DATES, CLOCK_LINES: CLOCK_LINES, CLOCK_BESIDE: CLOCK_BESIDE, CLOCK_BELOW: CLOCK_BELOW, PANE_MAX: PANE_MAX, PANE_DEFAULTS: PANE_DEFAULTS,
     paneKind: paneKind, paneSection: paneSection, paneOf: paneOf, paneGroupSays: paneGroupSays, paneSet: paneSet, paneReset: paneReset,
