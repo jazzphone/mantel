@@ -1853,6 +1853,13 @@
     var here = wants(g.show, isHome()), there = wants(g.show, isHome(toPath));
     return here === there ? 0 : here ? 1 : (dash._built ? -1 : 0);
   }
+  // THE PAGE THERE'S ROOM (2026-11-01, the owner: "the HomeView Grid kind of snaps into place behind the side pane"):
+  // where the pane comes or goes, the page coming in is laid out at the width it will have -- `grow` px wider (the
+  // pane going) or narrower (coming), on the pane's side; null: the same as here
+  function roomFor(toPath) {
+    var k = paneChange(toPath), w = k && dash ? parseFloat(dash.style.width) || dash.getBoundingClientRect().width || 0 : 0;
+    return w ? { side: dash.getAttribute('side'), grow: k * w } : null;
+  }
   function followDraw(p) {
     var de = document.documentElement, k = FOLLOW.going, side = dash && dash.getAttribute('side');
     if (!k || !dash) return;
@@ -2184,11 +2191,13 @@
     KINDS: KINDS, ORDER: ORDER, SIZES: SIZES, WIDTHS: WIDTHS, MAX: MAX,
     // the screensaver's own pane (hk-saver.js): an element it places itself
     create: function (mode) { var el = document.createElement('hk-side-pane'); el.setAttribute('mode', mode || 'saver'); return el; },
-    // THE SETTINGS SLIDER'S DIM while it moves (hk-settings.js pvPaneDim): held a few seconds past the last move,
-    // long enough for the saved setting to come back, then the setting's own again
-    // a swipe between pages (hk-pageswipe.js): how far toward `toPath`, and where it landed (null: back)
+    // a swipe between pages (hk-pageswipe.js): how far toward `toPath`, and where it landed (null: back); the room
+    // the page there will have, so it comes in laid out as it lands
     follow: function (p, toPath) { try { follow(p, toPath); } catch (e) { /* not drawn */ } },
     land: function (path) { try { land(path); } catch (e) { /* not drawn */ } },
+    room: function (toPath) { try { return roomFor(toPath); } catch (e) { return null; } },
+    // THE SETTINGS SLIDER'S DIM while it moves (hk-settings.js pvPaneDim): held a few seconds past the last move,
+    // long enough for the saved setting to come back, then the setting's own again
     dim: function (pct) {
       DIM_HELD = dimPct(pct);
       clearTimeout(DIM_HELD_T);

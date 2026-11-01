@@ -128,6 +128,38 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
            s1.shown && s1.op > 0.2 && s1.op < 0.9 && s1.mid > s0.mid);
       want('...let go: the pane gone, the bar at its new middle without a step back (always forward)', [s2, mids],
            s2.path !== s0.path && !s2.shown && s2.mid > s1.mid && mids.every((m, j) => j === 0 || m >= mids[j - 1] - 1));
+      // BACK FROM THE PAGES SCREEN (2026-11-01, the owner: "the HomeView Grid kind of snaps into place behind the side
+      // pane ... the blur going from the Apps Page back to the HomeView seems to follow"): halfway, Home comes in at the
+      // width it lands at, and the Pages screen's blur is a still layer as strong as the page is on; landed, the grid
+      // is where it was all along (no frame elsewhere) and the layer is gone
+      const gridAt = () => page.evaluate(() => {
+        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
+        const g = deep(document, 'hk-home-grid-view'), root = g && g.shadowRoot.querySelector('#root'), b = root && root.getBoundingClientRect();
+        const ps = deep(document, 'hk-pages-screen-card'), bg = ps && ps.shadowRoot.querySelector('.bg');
+        return { path: location.pathname, w: b ? Math.round(b.width) : null, bg: bg ? +getComputedStyle(bg).opacity : null,
+                 layers: [...document.querySelectorAll('.hk-swipe-ground')].map((d) => +d.style.opacity) };
+      });
+      await page.mouse.move(300, sy); await page.mouse.down();
+      for (let k = 1; k <= 10; k++) { await page.mouse.move(300 + 0.045 * W * k, sy); await page.waitForTimeout(16); }
+      const h1 = await gridAt();
+      await page.evaluate(() => {
+        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
+        window.__landing = []; const t0 = performance.now();
+        const tick = () => {
+          const g = deep(document, 'hk-home-grid-view'), root = g && g.shadowRoot.querySelector('#root'), b = root && root.getBoundingClientRect();
+          if (/\/home$/.test(location.pathname) && b) window.__landing.push([Math.round(b.left), Math.round(b.width)]);
+          if (performance.now() - t0 < 900) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+      await page.mouse.up();
+      await page.waitForTimeout(1200);
+      const h2 = await gridAt(), landed = await page.evaluate(() => window.__landing);
+      want('swiping back from the Pages screen, halfway: Home at its own width, the blur a still layer, the page\'s own hidden', [s2.path, h1],
+           /\/pages$/.test(s2.path) && h1.w && h1.bg === 0 && h1.layers.length === 1 && h1.layers[0] > 0.3 && h1.layers[0] < 0.8);
+      want('...landed: the grid as wide as it came in, never a frame elsewhere, the layer gone', [h1.w, h2, landed.slice(0, 4)],
+           /\/home$/.test(h2.path) && h2.w === h1.w && !h2.layers.length && landed.length > 5 &&
+           landed.every((x) => x[0] === landed[landed.length - 1][0] && x[1] === h1.w));
       // DIM (2026-11-01, the owner: "a bit too light to see the text"): a shade over the glass, none unless set
       const shade = (pane) => page.evaluate(() => {
         const p = document.querySelector('hk-side-pane[mode="dash"]'), pane = p && p.shadowRoot.querySelector('.pane');
