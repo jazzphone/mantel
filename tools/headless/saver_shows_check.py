@@ -7,6 +7,10 @@ drops (every new Show once became Photos: "they just keep showing photos") fails
 drawn: Glance, Month and Day (ckface on the screensaver), Big Weather (fcbig) and Classic (neither).
 
     PLAYWRIGHT_PATH=/path/to/node_modules/playwright-core NODE=node python tools/headless/saver_shows_check.py [--shots DIR]
+        [--shard K/N]
+
+--shard K/N runs every N-th of the runs (each Show at each size), from the K-th: tools/ci.py runs the N parts side by
+side, each with its own server and WebKit (2026-11-01: whole, it was a full run's last ~3 minutes alone).
 
 Without PLAYWRIGHT_PATH or Node it says why and exits 0.
 """
@@ -17,7 +21,13 @@ sys.path[:0] = [str(ROOT / x) for x in ('tools/headless', 'tools', 'hosts/server
 ap = argparse.ArgumentParser(description=__doc__)
 ap.add_argument('--node', default=os.environ.get('NODE') or shutil.which('node'))
 ap.add_argument('--shots', type=Path)
+ap.add_argument('--shard', default='1/1', help='K/N: every N-th run, from the K-th')
 args = ap.parse_args()
+try:
+    shard, shards = (int(x) for x in args.shard.split('/'))
+    assert 1 <= shard <= shards
+except (ValueError, AssertionError):
+    ap.error('--shard is K/N, 1 <= K <= N')
 if not args.node or not os.environ.get('PLAYWRIGHT_PATH'):
     print('saver_shows_check: skipped (needs NODE and PLAYWRIGHT_PATH)')
     raise SystemExit(0)
@@ -99,6 +109,7 @@ async def main():
                                                         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=os.environ)
             out, err = await proc.communicate(json.dumps({'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie,
                                                           'shows': {k: v[1] for k, v in SHOWS.items()},
+                                                          'shard': [shard, shards],
                                                           'shots': str(args.shots) if args.shots else None}).encode())
             print(out.decode())
             if err.strip():

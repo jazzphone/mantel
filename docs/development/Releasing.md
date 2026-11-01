@@ -139,18 +139,28 @@ Mantel Link as components copied into its `config` share, without waiting for a 
 ~/.venvs/mantel/bin/python tools/release_house.py mantel 0.1.77 --dry-run     # every check, nothing changed
 ```
 
-- **Before anything:** the last `tools/ci.py` run must be a green `full` run of HEAD, on `main`, with nothing
-  uncommitted, and `main` must not be behind `origin/main`.
+- **Before anything:** `main`, nothing uncommitted, not behind `origin/main`, and a passed whole `tools/ci.py full`
+  run that speaks for HEAD (`tools/ci.py` keeps them by tree; Building-and-Testing.md, "Local checks"): one of HEAD
+  itself, or of a commit HEAD differs from only in version lines (`bump_version.py`'s three files, the two
+  components' `manifest.json`) and changelogs (`CHANGELOG.md`, the components' `tools/publish/root/CHANGELOG.md`,
+  `House-releases.md`). In the second case `tools/ci.py versions`, everything that reads those files, must pass on
+  HEAD first: seconds, not a second full run. A whole run of HEAD's tree that failed refuses the release until it
+  passes again, and a step rerun with `--only` is never a whole run.
 - **Mantel:** it sets the version, adds `--notes` as a `## X.Y.Z - date` section below `## Unreleased` (which
-  keeps the next public release's notes), commits and pushes, and stages the App with `--replace`. Then, through
+  keeps the next public release's notes), commits, runs `tools/ci.py versions` on that commit (the notes' private
+  words among it), pushes, and stages the App with `--replace`. Then, through
   Home Assistant's websocket, it reloads the App store and updates `local_mantel`, and waits until Mantel answers
   the staged build on `/api/version` and `/healthz?strict=1` is ok. Any "Traceback" or "ERROR" in the App's log
   fails the release.
-- **HK Frontend and Mantel Link:** it sets the manifest version, commits and pushes, builds HK Frontend
-  (`tools/build_ha.py`), and copies the component with `rsync -rt --inplace` (Home Assistant's Samba share
+- **HK Frontend and Mantel Link:** it sets the manifest version, commits, runs `tools/ci.py versions`, pushes,
+  builds the component (HK Frontend with `tools/build_ha.py`, Mantel Link with its `publish.py`, whose layout
+  vendors the `hk_core` modules it imports), and copies it with `rsync -rt --inplace` (Home Assistant's Samba share
   half-fails without `--inplace`; never `--delete`). It checks the copy with `diff -rq`, restarts Home Assistant
   and waits until the new files are served. HK Frontend is then published to `jazzphone/hk-frontend`'s `main` from
-  a fresh clone, untagged.
+  a fresh clone, untagged. A publisher runs its suites in what it builds unless the full run already ran them
+  (`hk-frontend-py` and `hk-frontend-js` for HK Frontend; the main suite, whose `test_mantel_link.py` builds Mantel
+  Link's published layout and runs its suite there, and `hk-frontend-py`, which says Home Assistant's test venv
+  was there, for Mantel Link): then it gets `--no-tests`. `--dry-run` says which.
 - **What it needs:** the private words (`~/.config/mantel/private-words`) for the staging scans; Home Assistant's
   address in `~/.config/mantel/house.json` (`{"ha_url": "http://…:8123"}`) or `$MANTEL_HA_URL`; and a
   long-lived token of a Home Assistant administrator, in the macOS Keychain or in a file only you can read. The
@@ -161,6 +171,35 @@ Mantel Link as components copied into its `config` share, without waiting for a 
   ```
 
   or to `~/.config/mantel/ha_admin_token` with mode `600`.
+
+### What a release takes
+
+Measured on 2026-11-01 on the 18-core Mac, from a clean checkout on the SMB share (other sessions' work
+running beside it; minutes vary with the load):
+
+| Part | Before | Now |
+|---|---|---|
+| `tools/ci.py full` on the release commit | ~7 minutes that day; 258 s here, sorted (the longest step 245 s: the Side Pane's check; then the screensaver Shows', 206 s; 9 steps at once) | 191 s at 14 steps at once, 238 s at 9 (the longest step 184 s; the Shows' in four parts of 45-64 s, the Side Pane's in three) |
+| After the version bump and notes | a second full run (another 4-7 minutes) | `tools/ci.py versions`, 27 s, once per release commit |
+| The pre-push hook, each push of a tree that passed | `quick`, 79 s alone (about 90 s beside other work) | the commit messages' private words, 5 s |
+| HK Frontend's publisher | 108 s (its two suites in the built repository) | 9 s with `--no-tests` |
+| Mantel Link's publisher | 14 s | under a second with `--no-tests` |
+| The house: stage the App, update it, copy the components, restart Home Assistant, check | the rest of that day's 30 minutes, by hand | unchanged by hand; one command with the token (below) |
+
+The 2026-11-01 release of all three products took about 30 minutes, half of it checks run again: two full runs
+(~7 minutes each that day), `quick` on each of three pushes, and HK Frontend's publisher twice (a flaky test, since
+fixed). Done the same way today, the checks are one full run (3-4 minutes), a `versions` run per release commit
+(~30 s each, a few for three products), and nothing on pushes of trees that passed: about 5 minutes, not 15.
+
+**With the admin token** (the owner's to create: a long-lived token of a Home Assistant administrator, in the Keychain
+as above), `tools/release_house.py` does the house steps too, one product per command, each waiting on the house
+instead of a person: it stages the App and updates `local_mantel` through the Supervisor, waits for the staged build
+and strict health, reads the App's log, copies each component with `rsync --inplace` and checks the copy, restarts
+Home Assistant and waits for the new files, publishes HK Frontend, and records it all here and in
+`House-releases.md`, committed and pushed. What it saves is the hand work around those waits (the MCP calls, the
+rsync and diff, watching the restart, writing the record), about 10 minutes of a person's attention per release,
+and the details a hand release has to remember (Mantel Link copied from its built layout, never its folder; `rsync --inplace`, never `--delete`). Without the
+token, `--dry-run` still makes every check.
 
 ## One-time steps for the owner
 

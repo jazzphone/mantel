@@ -32,16 +32,19 @@ prints one table:
 
 ```bash
 ~/.venvs/mantel/bin/python tools/ci.py quick     # about a minute: the main suite (8 workers, pytest-xdist) and the release checks
-~/.venvs/mantel/bin/python tools/ci.py full      # about 2½: also the HA build, HK Frontend's suites, the headless checks
-CI_JOBS=4 ~/.venvs/mantel/bin/python tools/ci.py full    # fewer at once (half the cores, at most 10, unless set)
+~/.venvs/mantel/bin/python tools/ci.py full      # about 3½: also the HA build, HK Frontend's suites, the browser checks
+~/.venvs/mantel/bin/python tools/ci.py versions  # seconds: what reads the version files and changelogs (a release's re-check)
+CI_JOBS=4 ~/.venvs/mantel/bin/python tools/ci.py full    # fewer at once (three quarters of the cores, at most 14, unless set)
 ~/.venvs/mantel/bin/python tools/ci.py full --only js    # only the steps whose name contains "js"
 ~/.venvs/mantel/bin/python tools/ci.py --list            # every step and its tier
 ```
 
-- **Side by side** (2026-10-30; one at a time, full took 24 minutes): the build tools and HK Frontend's build run
-  first; every other step then runs at once with the others, `CI_JOBS` of them (half the cores, at most 10, unless set), the longest first by
+- **Side by side** (2026-10-30; one at a time, full took 24 minutes; 2026-11-01, 13 at once here): the build tools and HK Frontend's build run
+  first; every other step then runs at once with the others, `CI_JOBS` of them (three quarters of the cores, at most 14, unless set), the longest first by
   the last run's times; the CDP checks (`headless-*`) share one fixed DevTools port and run one after another. Edit
-  mode and Swipe Between Pages are a step per engine (and per size for Edit mode), so they run side by side too.
+  mode and Swipe Between Pages are a step per engine (and per size for Edit mode), so they run side by side too,
+  as do the Side Pane's check (a step per size) and the screensaver Shows' (`saver-shows-check-KofN`, every N-th of
+  its runs each, `--shard K/N`): each was once the full run's last few minutes alone.
   The main suite runs on 8 workers (`CI_PYTEST_WORKERS`) where `pytest-xdist` is installed (`pip install -e
   '.[dev]'`); a parametrised test's ids must not depend on random data, or the workers collect different tests.
 - **quick** is the main suite, `check_links`, `check_version`, `package_check --release`, and the private words
@@ -53,13 +56,25 @@ CI_JOBS=4 ~/.venvs/mantel/bin/python tools/ci.py full    # fewer at once (half t
   test (it builds `mantel-caddy:ci`) when Docker is running.
 - Each step ends **passed**, **failed** or **skipped**, and a skip says why (no Docker, no Chrome, no private
   words, no `~/.venvs/hk-ha-test`, no `PLAYWRIGHT_PATH` or `NODE`). A skip is never counted as a pass.
-- The result is written to `.ci/last-run.json` with the commit it ran on and any uncommitted files; a failed
-  step's output goes to `.ci/<step>.log`. The exit status is 0 only when no step failed.
+- **versions** is what reads the version files and the changelogs: `check_links`, `check_version`,
+  `package_check --release`, the private words, and the main suite's files that name a version file or a changelog
+  (`version-tests`). It is what a release runs instead of a second full run (Releasing.md, "House releases").
+- The result is written to `.ci/last-run.json` with the commit and tree it ran on, any uncommitted files, and
+  `only` for a partial run; a failed step's output goes to `.ci/<step>.log`. The exit status is 0 only when no step
+  failed.
+- **Passed runs, by tree.** A whole run (no `--only`) on a clean tree (nothing uncommitted but the Xcode project's
+  signing team) that held still (HEAD and the files the same at its end) is also kept in
+  `.git/mantel-ci/passed.json`, which every worktree shares: a pass beside the tree's other passes, a failure in
+  their place until the tree passes again. The pre-push hook and `tools/release_house.py` read it. A step rerun
+  with `--only` is never a whole run: after a failure, run the whole tier again.
 - It uses `$MANTEL_PY`, else `~/.venvs/mantel`, else `.venv`. The private words come from `HK_PRIVATE`,
   `HK_PRIVATE_FILE`, or `~/.config/mantel/private-words`.
 
 `tools/ci.py --install-hooks` installs two git hooks: **pre-commit** checks the staged files for private words,
-and **pre-push** runs `quick`. Skip the push check deliberately with `git push --no-verify`.
+and **pre-push** runs `quick --skip-passed`: `quick`, unless HEAD's tree, with nothing uncommitted, already passed a
+whole `quick` or `full` run, and then only the private words in the commit messages `origin/main` hasn't got (a
+message is not in the tree). Pushing checked work again, or after an amended message, takes seconds. Skip the push
+check deliberately with `git push --no-verify`.
 
 The installer tests (`tests/test_lxc_installer.py`) need bash 4 or later; macOS has 3.2, so install a newer one
 (`brew install bash`) or they are skipped.
