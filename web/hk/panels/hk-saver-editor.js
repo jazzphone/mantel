@@ -234,12 +234,20 @@
       var n = 0, go = () => {
         var S = this.saver();
         if (!S || typeof S.preview !== 'function') return false;
-        S.preview(true, null, !!this.o.house, copy(this.opts));
+        S.preview(true, null, !!this.o.house, this.still());
         this.box.removeAttribute('data-loading');
         this.overlaySoon();
         return true;
       };
       if (!go()) this.waitT = setInterval(() => { if (go() || ++n > 120) clearInterval(this.waitT); }, 250);
+    }
+    // WHAT THE FRAME IS GIVEN: the options being edited, the slides held back -- the layout is what is being laid
+    // out, and music playing in the house put Music Full Screen over it (2026-11-01, on the house)
+    still() {
+      var o = copy(this.opts);
+      ['music_first', 'music_slide', 'energy_slide', 'weather_slide', 'extra_music', 'extra_forecast'].forEach(function (k) { o[k] = false; });
+      if (o.show === 'both') o.show = 'photos';
+      return o;
     }
     // the places, once the screensaver has drawn them (it plans again as the big element and the cards draw)
     overlaySoon() {
@@ -293,7 +301,8 @@
         if (P.ghosts[z]) zone(z, P.ghosts[z]);
         else if ((self.pick ? LM.fits(zs, z, self.pick) : room(z)) && P.corners[z] && P.corners[z].length) {
           // (after the stack: under a top corner's, over a bottom one's; a + at its side's edge)
-          var last = P.corners[z][P.corners[z].length - 1], up = z[0] === 'b', d = Math.max(40, Math.min(64, info.H * 0.07)), left = z[1] === 'l';
+          // (by where the stack is: a top corner's moved out of the big element's way stands at the bottom)
+          var last = P.corners[z][P.corners[z].length - 1], up = last.y > info.H / 2, d = Math.max(40, Math.min(64, info.H * 0.07)), left = z[1] === 'l';
           zone(z, { x: self.pick ? last.x : left ? last.x : last.x + last.w - d, y: up ? last.y - (self.pick ? 70 : d + 12) : last.y + last.h + 12,
                     w: self.pick ? Math.max(200, last.w) : d, h: self.pick ? 60 : d }, !self.pick);
         }
@@ -480,7 +489,7 @@
       add(K.group({ footer: 'Your albums, the order and timing of the photos, the mosaic, each kind of photo’s fit and focus' + (bg === 'wallpaper' ? ', which wallpaper' : '') +
           ', the slides’ options, Night Mode and when it starts: on the Screensaver page. Everything you see is set here.' },
         [K.nav({ label: bg === 'wallpaper' ? 'Choose the Wallpaper, Photos and More' : 'Photos, Slides and Timing', href: more })]));
-      add(K.group({ header: 'Slides', footer: 'What comes between, every so often.' }, [
+      add(K.group({ header: 'Slides', footer: 'What comes between, every so often. The screen here leaves them out, so the layout stays in view.' }, [
         bg === 'photos' ? K.toggle({ label: 'The Forecast Between Photos', sub: 'Every ' + (o.forecast_every || 10) + ' photos', on: o.show === 'both',
           onChange: function (on) { self.change(function (x) { x.show = on ? 'both' : 'photos'; }); } }) : null,
         K.toggle({ label: 'Music Full Screen', sub: 'While something plays', on: !!o.music_first, onChange: function (on) { self.change(function (x) { x.music_first = on; }); } }),
