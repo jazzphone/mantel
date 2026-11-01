@@ -50,6 +50,8 @@ CADDY_IMAGE = "mantel-caddy:ci"
 # the screensaver's Shows in this many parts side by side, each its own server and WebKit (2026-11-01: one part took
 # ~7 minutes of a full run's ~7 alone; the others end within ~4)
 SAVER_SHARDS = 4
+# Edit mode's sections that depend on the engine, the input or the size (edit_mode_check.py SECTIONS has the rest)
+EDIT_GESTURES = ("bar", "room", "pages", "menu", "still", "frost")
 LOCAL_ONLY = ("apple/Mantel.xcodeproj/project.pbxproj",)    # the signing team: changed here, never committed
 # WHAT A RELEASE CHANGES (2026-11-01). A full run of one commit speaks for another when nothing else differs: only
 # version lines in VERSION_FILES (bump_version.py's files, tools/check_version.py FILES, and the components'
@@ -205,7 +207,11 @@ def steps(build: Build | None = None) -> list[Step]:
     # Edit mode in Chromium (a finger) and WebKit (a mouse), at a tablet's and a phone's size (Playwright's own
     # browsers, no fixed port)
     # (each engine at each size a step of its own, so they run side by side: six minutes together)
-    out += [Step(f"edit-mode-check-{e}-{z}", [py, "tools/headless/edit_mode_check.py", "--engine", e, "--size", z], tier="full",
+    # (who sees Edit, Cancel and the server's changes are the same in every engine and size: once, in WebKit at a
+    # tablet's, the owner's iPad; the gestures they use are the room's and the pages', checked in all four, 2026-11-01)
+    out += [Step(f"edit-mode-check-{e}-{z}", [py, "tools/headless/edit_mode_check.py", "--engine", e, "--size", z,
+                                              *([] if (e, z) == ("webkit", "1180x820") else
+                                                [a for s in EDIT_GESTURES for a in ("--only", s)])], tier="full",
                  timeout=1200, skip=playwright_missing) for e in ("chromium", "webkit") for z in ("1180x820", "390x844")]
     # Edit mode on a Home Grid in WebKit, a finger and a mouse, at a tablet either way and a phone (2026-10-31)
     # (each size a step of its own)

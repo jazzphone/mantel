@@ -430,15 +430,7 @@ def release_component(product: str, version: str, dry: bool, github_release: boo
     recheck()
     git("push", "-q", "--no-verify", "origin", "main")
     with tempfile.TemporaryDirectory(prefix="mantel-house-") as tmp:
-        if product == "hk-frontend":
-            run(sys.executable, "tools/build_ha.py", f"{tmp}/ha", env={"HK_PRIVATE": regex})
-            built = Path(tmp) / "ha/custom_components" / spec["domain"]
-        else:
-            # its published layout: the hk_core modules it imports are vendored inside only there (the component's
-            # own folder has none, and a copy of it left the house's old hk_core/ in place)
-            run(sys.executable, str(src / "tools/publish/publish.py"), f"{tmp}/built", *no_tests,
-                env={"HK_PRIVATE": regex})
-            built = Path(tmp) / "built/custom_components" / spec["domain"]
+        built = house_build(product, tmp, regex, no_tests)
         excludes = [a for x in COPY_EXCLUDES for a in ("--exclude", x)]
         run("rsync", "-rt", "--inplace", *excludes, f"{built}/", f"{dest}/")
         diff = subprocess.run(["diff", "-rq", *[a for x in COPY_EXCLUDES for a in ("-x", x)], str(built), str(dest)],
@@ -464,6 +456,19 @@ def release_component(product: str, version: str, dry: bool, github_release: boo
             lines.append(f"Published to {spec['public']} main as `{git_in(clone, 'rev-parse', '--short', 'HEAD')}`, "
                          + (f"tagged `v{version}` and released on GitHub." if github_release else "untagged."))
     return lines
+
+
+def house_build(product: str, tmp: str, regex: str, no_tests: list[str]) -> Path:
+    """The component as it goes to the house, built in `tmp`: HK Frontend by tools/build_ha.py; Mantel Link by its
+    publish.py, whose layout vendors the hk_core modules it imports (its own folder has none: a copy of that left the
+    house's old hk_core/ in place)."""
+    spec = COMPONENTS[product]
+    if product == "hk-frontend":
+        run(sys.executable, "tools/build_ha.py", f"{tmp}/ha", env={"HK_PRIVATE": regex})
+        return Path(tmp) / "ha/custom_components" / spec["domain"]
+    run(sys.executable, str(ROOT / spec["dir"] / "tools/publish/publish.py"), f"{tmp}/built", *no_tests,
+        env={"HK_PRIVATE": regex})
+    return Path(tmp) / "built/custom_components" / spec["domain"]
 
 
 def commit_only(message: str, *paths: str) -> None:

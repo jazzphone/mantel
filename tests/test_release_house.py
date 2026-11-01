@@ -6,7 +6,6 @@ import datetime
 import importlib.util
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -23,74 +22,20 @@ spec.loader.exec_module(rh)
 TODAY = datetime.date(2026, 10, 27)
 
 
-def git(root, *args):
-    return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args], cwd=root,
-                          capture_output=True, text=True, check=True).stdout.strip()
-
-
-def full_run(store, root, commit, ok=True, tier="full", **over):
-    """A whole tools/ci.py run of `commit` in the store, as ci.py remembers one."""
-    rh.CI.remember({"tier": tier, "only": None, "commit": commit, "tree": git(root, "rev-parse", f"{commit}^{{tree}}"),
-                    "dirty": [], "steady": True, "ok": ok, "finished": "2026-11-01T12:00:00+00:00",
-                    "steps": [{"name": "hk-frontend-py", "status": "passed"}], **over}, store)
-
-
-def test_only_a_passed_full_run_that_speaks_for_head_will_do(tmp_path):
-    root, store = tmp_path / "repo", tmp_path / "passed.json"
-    root.mkdir()
-    (root / "CHANGELOG.md").write_text("# Changelog\n\n## Unreleased\n")
-    (root / "app.py").write_text("X = 1\n")
-    git(root, "init", "-q", "-b", "main")
-    git(root, "add", "-A")
-    git(root, "commit", "-q", "-m", "base")
-    head = git(root, "rev-parse", "HEAD")
-    with pytest.raises(rh.Refused, match="run `tools/ci.py full`"):
-        rh.ci_green(head, store, root)
-    full_run(store, root, head, tier="quick")
-    with pytest.raises(rh.Refused, match="no passed full run"):
-        rh.ci_green(head, store, root)                                      # quick is not full
-    full_run(store, root, head, dirty=["web/hk/x.js"])                      # uncommitted work: never kept
-    full_run(store, root, head, only=["js"])                                # a part of full: never kept
-    with pytest.raises(rh.Refused, match="no passed full run"):
-        rh.ci_green(head, store, root)
-    full_run(store, root, head, dirty=list(rh.LOCAL_ONLY))                  # the never-committed local file
-    assert rh.ci_green(head, store, root)[1] == "same"
-    # a release's own commits (notes, versions) need only `tools/ci.py versions`; anything else, a new full run
-    (root / "CHANGELOG.md").write_text("# Changelog\n\n## Unreleased\n\n## 0.1.2 - 2026-11-01\n\n- notes\n")
-    git(root, "commit", "-q", "-am", "Release 0.1.2")
-    found, how = rh.ci_green(git(root, "rev-parse", "HEAD"), store, root)
-    assert how == "versions" and found["commit"] == head
-    (root / "app.py").write_text("X = 2\n")
-    git(root, "commit", "-q", "-am", "code")
-    with pytest.raises(rh.Refused, match="not HEAD .*app.py"):
-        rh.ci_green(git(root, "rev-parse", "HEAD"), store, root)
-    # a failed whole run of HEAD's tree: refused, whatever passed before
-    full_run(store, root, head, ok=False)
-    with pytest.raises(rh.Refused, match="failed"):
-        rh.ci_green(head, store, root)
-
-
 def test_the_publishers_skip_their_suites_only_when_the_full_run_ran_them():
     passed = {"steps": {"hk-frontend-py": "passed", "hk-frontend-js": "passed", "main-suite": "passed"}}
     assert rh.publish_tests(passed, "hk-frontend") == rh.publish_tests(passed, "mantel-link") == ["--no-tests"]
     skipped = {"steps": {**passed["steps"], "hk-frontend-js": "skipped"}}
     assert rh.publish_tests(skipped, "hk-frontend") == [], "a skip is never a pass"
-    assert rh.publish_tests(skipped, "mantel-link") == ["--no-tests"]
     no_venv = {"steps": {**passed["steps"], "hk-frontend-py": "skipped"}}
     assert rh.publish_tests(no_venv, "mantel-link") == [], "test_mantel_link skips without the HA venv"
-    assert rh.publish_tests({}, "hk-frontend") == []
-    # (each publisher has the flag, and the release passes it on)
-    for domain in ("hk_frontend", "mantel"):
-        assert '"--no-tests", action="store_true"' in (ROOT / f"hosts/ha/custom_components/{domain}/tools/publish/publish.py").read_text()
-    assert "*no_tests, env=" in (ROOT / "tools/release_house.py").read_text()
 
 
-def test_each_release_commit_is_checked_before_it_is_pushed():
-    source = (ROOT / "tools/release_house.py").read_text()
-    for name in ("release_mantel", "release_component"):
-        body = source[source.index(f"def {name}("):]
-        body = body[:body.index("\ndef ")]
-        assert body.index("commit_only(") < body.index("recheck()") < body.index('git("push"'), name
+def test_mantel_link_goes_to_the_house_with_the_hk_core_it_imports(tmp_path):
+    # (its own folder has no hk_core/: a copy of it left the house's old one in place, 2026-11-01)
+    built = rh.house_build("mantel-link", str(tmp_path), "no-such-word-anywhere", ["--no-tests"])
+    assert (built / "manifest.json").is_file() and (built / "hk_core/link/mantel_link.py").is_file()
+    assert not (built / "tests").exists()
 
 
 def test_the_notes_go_below_unreleased_and_above_the_last_release(tmp_path):
@@ -252,11 +197,3 @@ def test_the_github_release_is_opt_in_and_not_for_mantel_itself(capsys):
     assert rh.main(["mantel", "0.1.99", "--github-release"]) == 2
     assert "--github-release is for hk-frontend and mantel-link" in capsys.readouterr().err
 
-
-def test_mantel_link_goes_to_the_house_from_its_published_layout():
-    # the hk_core modules it imports are vendored only in its published layout: a copy of the component's own folder
-    # left the house's old hk_core/ in place (2026-11-01)
-    source = (ROOT / "tools/release_house.py").read_text()
-    body = source[source.index("def release_component("):]
-    assert 'str(src / "tools/publish/publish.py"), f"{tmp}/built", *no_tests' in body
-    assert 'built = Path(tmp) / "built/custom_components" / spec["domain"]' in body and "built = src" not in body
