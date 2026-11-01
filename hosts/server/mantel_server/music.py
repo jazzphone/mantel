@@ -82,7 +82,8 @@ from hk_core.music.const import (
     GROUPS_EVERY,
 )
 from hk_core.music.engine import ACTIVE, STOPPED, SUPERSEDED
-from hk_core.music.groups import CONFIG_READ, Groups, signature, with_configured
+from hk_core.music.groups import (CONFIG_READ, CONFIG_SAVE, CREATE_GROUP, Groups, Write, signature, with_configured,
+                                  write_plan)
 from hk_core.music.queue import QUEUE_MAX
 from hk_core.music.warm import Warmer
 
@@ -107,6 +108,20 @@ PLAYER = re.compile(r"^media_player\.[a-z0-9_]+$")
 KEY = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
 TEXT_MAX = 200
 ITEMS_MAX = 100
+# PRESETS WRITE MUSIC ASSISTANT'S GROUPS (MusicHost.preset_write): a preset saved with this as its group makes a new
+# sync group, named as the preset; its player reaches the speakers list through Home Assistant's music_assistant
+# integration (the entity registry, as every Music Assistant player's id does), waited for this long
+NEW_GROUP = "new"
+NEW_GROUP_WAIT = 20.0
+NEW_GROUP_POLL = 0.25
+GROUP_MSG = {
+    "offline": "Music Assistant isn’t connected, so a new sync group can’t be made. Choose one it has.",
+    "commands_off": "Allow Control of the House is off in Mantel Settings, so Music Assistant’s group can’t be changed.",
+    "forbidden": "Changing Music Assistant’s groups needs configure on Music (Owner or Admin).",
+    "not_a_player": "Every room must be a Music Assistant player.",
+    "pair_group": "This is a speaker pair’s own group in Music Assistant: its rooms are that pair. Choose another group.",
+    "failed": "Music Assistant didn’t take the change. Nothing was saved.",
+}
 
 # Every read this module answers in app["read_routes"] has exactly one rule here (tests/test_music.py).
 ROUTE_RULES: dict[str, str] = {
@@ -426,6 +441,26 @@ class MusicRun:
         return True
 
 
+CONFIG_COMMANDS = frozenset({CREATE_GROUP, CONFIG_SAVE})     # connectors/ma.py MA_CONFIG_COMMANDS
+
+
+class MusicConfigRun:
+    """A music settings save's ONE Music Assistant config write (a new sync group, a group's members), as the MA
+    client's gate (the gateway) sees it: minted only by ``MusicHost.write_ma`` after ``configure`` on settings and
+    music and its audit row, for exactly that command and those args, used once."""
+
+    def __init__(self, principal: Any, audit_id: int, command: str, args: Mapping[str, Any]) -> None:
+        self.principal, self.audit_id = principal, audit_id
+        self.command, self.args = command, json.dumps(dict(args), sort_keys=True, default=str)
+        self.open = audit_id > 0 and command in CONFIG_COMMANDS
+
+    def allow(self, command: str, args: Mapping[str, Any]) -> bool:
+        if not self.open or command != self.command or json.dumps(dict(args), sort_keys=True, default=str) != self.args:
+            return False
+        self.open = False
+        return True
+
+
 # ---------------------------------------------------------------------------- Browse's library read
 # music_assistant.get_library as HA 2026.10 accepts it (the action's fields), and Music Assistant's command per type.
 LIBRARY_COMMAND = {"artist": "artists", "album": "albums", "track": "tracks", "playlist": "playlists",
@@ -693,7 +728,8 @@ _WS_KEYS = {
 
 def classify_ws(inner: dict) -> Any:
     """An ``hk_music/*`` write -> the gateway's Command, or None. ``queue_play``: ``control`` on its player;
-    ``used``: ``control`` on feature music; the settings writes: ``configure`` on settings (HA: require_admin)."""
+    ``used``: ``control`` on feature music; the settings writes: ``configure`` on settings and music, as feature_pages.py
+    asks them (HA: require_admin)."""
     t = inner.get("type")
     if t not in MUSIC_WS:
         return None
@@ -712,7 +748,7 @@ def classify_ws(inner: dict) -> Any:
     elif t == "hk_music/used":
         checks = [Check("control", feature="music")]
     else:
-        checks = [Check("configure", feature="settings")]
+        checks = [Check("configure", feature="settings"), Check("configure", feature="music")]
     frame = {"type": t, **body}
     return Command("ws", t, checks, frame=frame, targets=names or [c.target for c in checks],
                    music={"op": t, "args": body, "return_response": True})
@@ -1565,15 +1601,25 @@ class MusicHost:
             "playlists": [{"id": p.key, "name": p.name, "icon": p.icon, "items": p.items, "chooser": p.chooser,
                            "order": p.order} for p in cfg.playlists],
             "players": [{"entity": e, "name": self._name(e)} for e in self._players(doc)],
-            # Music Assistant's groups: the pairs among the speakers, each group's rooms and problems
-            **S.groups_page(cfg, self._players(doc)),
+            # Music Assistant's groups: the pairs among the speakers, each group's rooms and problems, and whether
+            # its rooms are set from here (a sync group, not a virtual pair's own)
+            **self._groups_page(cfg, doc),
             # VIRTUAL PAIRS: two players as one room, made here (docs/phase4/VIRTUAL-PAIRS.md)
             "virtual_pairs": S.pairs_page(cfg, opts, self._name), "pairs_here": True,
+            # PRESETS WRITE MUSIC ASSISTANT'S GROUPS: a new sync group, and a sync group's rooms, set from here
+            "ma_writes": self.ma_writable(),
             "library_ready": self.ma is not None and self.ma.connected.is_set(),
             "ignore_announcements": opts[CONF_IGNORE_ANNOUNCEMENTS],
             "keep_ready": bool(opts[CONF_KEEP_READY]),
             "keep_ready_last": self.warmer.status(),
         }
+
+    def _groups_page(self, cfg: MusicConfig, doc: dict) -> dict[str, Any]:
+        got = S.groups_page(cfg, self._players(doc))
+        for e, g in got["groups"].items():
+            g["writable"] = cfg.groups is not None and cfg.groups.sync_group(e) is not None \
+                and cfg.pair_of_group(e) is None
+        return got
 
     def _refused(self, errors: Mapping[str, str]) -> MusicRefusal:
         return MusicRefusal("invalid_format", json.dumps(dict(errors)))
@@ -1596,6 +1642,7 @@ class MusicHost:
             raise MusicRefusal("not_set_up", "Music is not added")
         doc = copy.deepcopy(doc)
         items = doc["items"]
+        wrote = False
 
         def sub(key: Any, kind: str) -> dict | None:
             return next((i for i in items if i["key"] == key and i["kind"] == kind), None) if key else None
@@ -1619,9 +1666,17 @@ class MusicHost:
                 raise self._refused({"name": S.MSG["list"]})
             name, group, members = S.text(a["name"]), a["group"], list(dict.fromkeys(a["members"]))
             errors = S.check_preset(name, group, members, list(doc["options"][CONF_SPEAKERS]),
-                                    lambda: self._players(doc))
+                                    lambda: self._players(doc) + [NEW_GROUP])
             if errors:
                 raise self._refused(errors)
+            # MUSIC ASSISTANT KEEPS A PRESET'S ROOMS: a new group made there, or its group's members set there,
+            # before the preset is saved here (refused: nothing is saved)
+            write = self.preset_write(group, name, members)
+            if write is not None:
+                got = await self.write_ma(principal, write, group if group != NEW_GROUP else f"new:{name}")
+                if group == NEW_GROUP:
+                    group = await self._new_group(got, name)
+                wrote = True
             data = S.preset_data(name, group, members)
             if it is None:
                 items.append({"kind": SUB_PRESET, "key": self._new_key(items), "title": name, "data": data})
@@ -1666,7 +1721,110 @@ class MusicHost:
                 raise self._refused({"item": S.MSG["no_item"]})
             items.remove(it)
         self._save(doc, principal, t)
+        if wrote:
+            await self.refresh_groups()     # what Music Assistant now has, read back at once (the usual read)
         return self.page()
+
+    # -- PRESETS WRITE MUSIC ASSISTANT'S GROUPS ------------------------------------------------------------------
+    def ma_writable(self) -> bool:
+        """Music Assistant's groups can be written from here: connected, its player list read, commands on."""
+        client = self.ma
+        return client is not None and client.connected.is_set() and self.ma_players is not None \
+            and self.app.get("gateway") is not None
+
+    def preset_write(self, group: str, name: str, rooms: list[str]) -> Write | None:
+        """What a preset's save sends to Music Assistant (groups.write_plan), or None: its group is not a sync group
+        (or Music Assistant's groups can't be read) -- the rooms chosen here are kept, as before -- or nothing
+        changed. A virtual pair's own group is never written: its rooms are the pair. Refuses by field."""
+        cfg = self.config()
+        g = cfg.groups
+        client = self.ma
+        if g is None or client is None or not client.connected.is_set():
+            if group == NEW_GROUP:
+                raise self._refused({CONF_GROUP: GROUP_MSG["offline"]})
+            return None
+        virtual = {r: [r, p] for r, p in cfg.partners.items()}
+        if group != NEW_GROUP:
+            if cfg.pair_of_group(group) is not None:
+                got = g.rooms_of(group, cfg.room_ids, virtual)
+                if got is not None and set(got.rooms) != set(rooms):
+                    raise self._refused({CONF_MEMBERS: GROUP_MSG["pair_group"]})
+                return None
+            if g.sync_group(group) is None:
+                return None
+        plan = write_plan(g, None if group == NEW_GROUP else group, name, rooms, cfg.room_ids, virtual)
+        if isinstance(plan, str):
+            raise self._refused({CONF_MEMBERS: GROUP_MSG.get(plan, plan)})
+        return plan
+
+    def _may_configure_music(self, identity: Any) -> bool:
+        authz = self.app.get("authz")
+        subject = getattr(identity, "subject", None)
+        if authz is None or subject is None or not getattr(identity, "valid", True):
+            return False
+        try:
+            return all(authz.decide(subject, "configure", None, feature=f).allowed is True for f in ("settings", "music"))
+        except Exception:  # noqa: BLE001 -- a failing rule refuses
+            log.exception("music: configure check failed; refusing")
+            return False
+
+    async def write_ma(self, identity: Any, write: Write, target: str) -> Any:
+        """ONE Music Assistant config write of a settings save, as a config command: ``configure`` on settings and
+        music, commands on (the gateway is the MA client's gate), an audit row first, then the gate lets exactly this
+        write through once (MusicConfigRun). Refused or failed: MusicRefusal by field, nothing saved here."""
+        from .gateway import _error_code
+        audit = self.app.get("audit")
+        principal = identity if hasattr(identity, "identity") else None
+        user = getattr(getattr(identity, "identity", identity), "user", None)
+        who: dict[str, Any] = {"principal": principal}
+        if principal is None:
+            who.update(actor=getattr(user, "id", None), actor_name=getattr(user, "name", None))
+        field = CONF_GROUP if write.command == CREATE_GROUP else CONF_MEMBERS
+        action = f"music_assistant.{write.command}"
+
+        def denied(reason: str) -> None:
+            if audit is not None:
+                audit.record(**who, kind="config", action=action, targets=[target], decision="denied", reason=reason,
+                             result="not_sent")
+
+        if not self._may_configure_music(identity):
+            denied("forbidden")
+            raise MusicRefusal("forbidden", GROUP_MSG["forbidden"])
+        if self.app.get("gateway") is None:
+            denied("commands_disabled")
+            raise self._refused({field: GROUP_MSG["commands_off"]})
+        if audit is None:
+            raise self._refused({field: GROUP_MSG["failed"]})
+        aid = audit.record(**who, kind="config", action=action, targets=[target], decision="allowed",
+                           reason="music_settings")
+        run = MusicConfigRun(identity, aid, write.command, write.args)
+        try:
+            got = await self.ma.config_command(run, write.command, **write.args)
+        except Exception as err:  # noqa: BLE001 -- refused by the gate, or Music Assistant said no: nothing saved
+            log.warning("music: Music Assistant's %s failed: %s", write.command, err)
+            audit.finish(aid, _error_code(err))
+            raise self._refused({field: GROUP_MSG["failed"]}) from None
+        finally:
+            run.open = False
+        audit.finish(aid, "ok")
+        log.info("music: %s sent to Music Assistant (audit %d)", write.command, aid)
+        return got
+
+    async def _new_group(self, got: Any, name: str) -> str:
+        """The speakers-list entity of the sync group Music Assistant just made (its answer: the new player), once
+        Home Assistant's music_assistant integration lists it. Not in time: refused, saying the group exists."""
+        pid = got.get("player_id") if isinstance(got, Mapping) else None
+        loop = asyncio.get_running_loop()
+        end = loop.time() + NEW_GROUP_WAIT
+        while isinstance(pid, str):
+            entity = next((e for e, p in ma_players(self.hub.registry).items() if p == pid), None)
+            if entity is not None:
+                return entity
+            if loop.time() >= end:
+                break
+            await asyncio.sleep(NEW_GROUP_POLL)
+        raise self._refused({CONF_GROUP: f"Music Assistant made the sync group “{name}”, but it isn’t in this "
+                                         "house’s players yet. Choose it as the Sync Group in a moment."})
 
     @staticmethod
     def _new_key(items: list[dict]) -> str:

@@ -43,6 +43,11 @@ Mantel stays aware of real Music Assistant groups (`players/all`, read every 30 
 
 A preset always wins over the ad-hoc join, and the pair's own group is used only for the pair alone.
 
+**Mantel writing a preset's group (2026-11-01, MANTEL-FEATURES.md "Presets write Music Assistant's groups").** A
+preset's rooms set in Mantel go to its sync group as players: the pair as both of its players (a stereo pair as its
+two parts). The pair's own group is never written: its players are the pair, so a preset on it with other rooms is
+refused, and the settings page shows its rooms read-only.
+
 ## Where the decisions are
 
 `hk_core` (Rules.md rule 2): `config.py` (the pairs, `players_of`, `room_of`, the pair's own group), `groups.py`

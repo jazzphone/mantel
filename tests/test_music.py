@@ -1219,7 +1219,7 @@ async def test_a_pair_comes_from_music_assistant_to_the_page_the_feed_and_the_en
     # the preset's rooms are its group's, read from Music Assistant -- not the two it was saved with
     assert page["presets"][0]["members"] == [K, D, C] and page["presets"][0]["from_ma"] is True
     assert page["presets"][0]["problems"] == []
-    assert page["groups"]["media_player.downstairs_ma"] == {"rooms": [K, D, C], "problems": []}
+    assert page["groups"]["media_player.downstairs_ma"] == {"rooms": [K, D, C], "problems": [], "writable": False}
     _r, ev = await on.subscribe(ws, {"type": "hk_music/subscribe"})
     by = {s["entity"]: s for s in ev["speakers"]}
     assert by[C]["pair"] == ["Cody Left", "Cody Right"] and by["media_player.downstairs_ma"]["members"] == [K, D, C]
@@ -1389,4 +1389,203 @@ async def test_music_assistants_own_group_of_the_pair_plays_it_alone_and_a_prese
     sent = on.ma.sent()[n:]
     assert sent[0] == ("players/cmd/stop", {"player_id": "ma-study-pair"})
     assert ("players/cmd/group_many", {"target_player": "ma-den", "child_player_ids": ["ma-study-l", "ma-study-r"]}) in sent
+    await ws.close()
+
+
+# ------------------------------------------------------- presets write Music Assistant's groups (MANTEL-FEATURES.md)
+from hk_core.music import groups as G  # noqa: E402
+from mantel_server.connectors.ma import MA_CONFIG_COMMANDS, _Ticket  # noqa: E402
+
+NEW = "media_player.new_group_ma"
+
+
+def sync(pid, entity, members, *, live=None):
+    """A Music Assistant sync group (its provider: sync_group) with dynamic members, set up with ``members``."""
+    return dict(dynamic(pid, entity, members if live is None else live), provider="sync_group")
+
+
+async def save_preset(ws, rid=70, **msg):
+    await ws.send_json({"type": "settings_write", "id": rid, "msg": {"type": "hk_music/preset/save", **msg}})
+    while True:
+        got = await GF.recv(ws)
+        if got.get("type") == "settings_result" and got.get("id") == rid:
+            return got
+
+
+def config_sent(env):
+    return [(f["command"], f["args"]) for f in env.ma.frames if f.get("command") in MA_CONFIG_COMMANDS]
+
+
+def test_a_presets_write_plan():
+    pids = {K: "ma-kitchen", D: "ma-den", C: "ma-cody", SL: "ma-study-l", SR: "ma-study-r", DG: "ma-downstairs",
+            "media_player.garage_ma": "ma-garage", "media_player.other_ma": "ma-other"}
+    raw = [sync("ma-downstairs", DG, ["ma-kitchen", "ma-garage", "ma-cl"]),
+           {"player_id": "ma-cody", "type": "group", "group_members": ["ma-cl", "ma-cr"]},     # a stereo pair
+           dict(MF.ma_player("ma-other", "media_player.other_ma"), type="group", group_members=["ma-den"])]
+    g = G.Groups.read(raw, pids)
+    rooms, virtual = [K, D, C, SL], {SL: [SL, SR]}
+    # a new group: a pair's players, not the pair; dynamic members, as the house's groups are
+    assert G.write_plan(g, None, "Upstairs", [C, SL], rooms, virtual) == G.Write(
+        G.CREATE_GROUP, {"provider": "sync_group", "name": "Upstairs", "members": ["ma-cl", "ma-cr", "ma-study-l",
+                                                                                     "ma-study-r"], "dynamic": True})
+    # a group's rooms changed: the Garage (no speaker) stays; half of Cody's pair goes with the rest of the rooms
+    assert G.write_plan(g, DG, "Downstairs", [K, D], rooms, virtual) == G.Write(
+        G.CONFIG_SAVE, {"player_id": "ma-downstairs", "values": {"group_members": ["ma-garage", "ma-kitchen", "ma-den"]}})
+    assert G.write_plan(g, DG, "Downstairs", [K, C], rooms, virtual) == G.Write(
+        G.CONFIG_SAVE, {"player_id": "ma-downstairs", "values": {"group_members": ["ma-garage", "ma-kitchen", "ma-cl",
+                                                                                   "ma-cr"]}})
+    assert G.write_plan(g, DG, "Downstairs", [K], rooms, virtual) == G.Write(
+        G.CONFIG_SAVE, {"player_id": "ma-downstairs", "values": {"group_members": ["ma-garage", "ma-kitchen"]}})
+    g2 = G.Groups.read([sync("ma-downstairs", DG, ["ma-kitchen", "ma-den"])], pids)
+    assert G.write_plan(g2, DG, "Main", [D, K], rooms, virtual) is None                # the same rooms: nothing
+    assert G.write_plan(g, "media_player.other_ma", "Other", [K], rooms, virtual) == "not_sync_group"
+    assert G.write_plan(g, None, "New", ["media_player.porch_ma"], rooms, virtual) == "not_a_player"
+
+
+def test_a_config_write_is_its_own_catalog_one_write_once():
+    assert not set(MA_CONFIG_COMMANDS) & set(MA_COMMANDS) and not set(MA_CONFIG_COMMANDS) & set(MA_READS)
+    assert set(MA_CONFIG_COMMANDS) == M.CONFIG_COMMANDS and not M.CONFIG_COMMANDS & M.RUN_COMMANDS
+    save = {"player_id": "ma-downstairs", "values": {"group_members": ["ma-kitchen"]}}
+    frame = {"message_id": "1", "command": "config/players/save", "args": save}
+    with pytest.raises(MaBlocked):
+        check_outgoing(frame)                                         # no ticket: only config_command() sends it
+    with pytest.raises(MaBlocked):
+        check_outgoing(frame, server=True)
+    with pytest.raises(MaBlocked):                                    # a save carries a group's members, nothing else
+        check_outgoing(dict(frame, args={"player_id": "x", "values": {"enabled": False}}), _Ticket("config/players/save"))
+    check_outgoing(frame, _Ticket("config/players/save"))
+    run = M.MusicConfigRun("someone", 9, "config/players/save", save)
+    assert not run.allow("config/players/save", {**save, "values": {"group_members": ["ma-garage"]}})
+    assert not run.allow("players/create_group_player", save)
+    assert run.allow("config/players/save", json.loads(json.dumps(save)))
+    assert not run.allow("config/players/save", save)                # once
+    assert not M.MusicConfigRun("x", 0, "config/players/save", save).allow("config/players/save", save)
+    assert not M.MusicConfigRun("x", 5, "players/cmd/pause", {"player_id": "a"}).allow(
+        "players/cmd/pause", {"player_id": "a"})                       # never a playback command
+    assert not M.MusicRun("x", 5, {"ma-downstairs"}).allow("config/players/save", save)
+
+
+async def test_a_new_preset_makes_a_music_assistant_sync_group_and_reads_back_what_it_has(on, monkeypatch):
+    host = on.app["music"]
+    on.ma.players = [sync("ma-downstairs", DG, ["ma-kitchen", "ma-den"])]
+    on.ma.unavailable = {"ma-cody"}                     # Music Assistant leaves out a player it can't reach
+    await on.connected()
+    await host.refresh_groups()
+    await on.login("owner1", "owner")
+    ws = await on.socket()
+    page = (await on.read(ws, {"type": "hk_music/settings/get"}))["result"]
+    assert page["ma_writes"] is True and page["groups"][DG]["writable"] is True
+    r = await save_preset(ws, name="Upstairs", group="new", members=[D, C])
+    assert "error" not in r, r
+    assert config_sent(on) == [("players/create_group_player", {"provider": "sync_group", "name": "Upstairs",
+                                                                "members": ["ma-den", "ma-cody"], "dynamic": True})]
+    new = next(p for p in r["result"]["presets"] if p["name"] == "Upstairs")
+    # its group is the new player; its rooms what Music Assistant made it, read back at once
+    assert new["group"] == NEW and new["members"] == [D] and new["from_ma"] is True
+    doc = on.app["settings"].store.get("house", M.MUSIC_DOC).body
+    assert {"name": "Upstairs", "group": NEW, "members": [D, C]} in [i["data"] for i in doc["items"]]
+    row = on.audit(kind="config")[-1]
+    assert row["action"] == "music_assistant.players/create_group_player" and row["decision"] == "allowed"
+    assert row["result"] == "ok" and json.loads(row["target"]) == ["new:Upstairs"]
+    # Home Assistant never lists the next one: refused, saying the group was made; the preset is not saved
+    monkeypatch.setattr(M, "NEW_GROUP_WAIT", 0.3)
+    on.ma.new_entity = None
+    r = await save_preset(ws, rid=71, name="Attic", group="new", members=[K])
+    assert r["error"]["code"] == "invalid_format" and "made the sync group “Attic”" in json.loads(r["error"]["message"])["group"]
+    assert "Attic" not in json.dumps(on.app["settings"].store.get("house", M.MUSIC_DOC).body)
+    assert on.ma.sent() == [] and on.fake.sent == [], "no playback command, nothing to HA"
+    await ws.close()
+
+
+async def test_a_presets_rooms_changed_set_its_groups_members_in_music_assistant(on):
+    host = on.app["music"]
+    # Downstairs plays in the Den alone right now; its settings name the Kitchen, the Den and the Garage (no speaker)
+    on.ma.players = [sync("ma-downstairs", DG, [], live=["ma-den"])]
+    on.ma.configured["ma-downstairs"] = ["ma-kitchen", "ma-den", "ma-garage"]
+    await on.connected()
+    await host.refresh_groups()
+    await on.login("owner1", "owner")
+    ws = await on.socket()
+    r = await on.command(ws, kind="ws", msg={"type": "hk_music/preset/save", "item": "pre1", "name": "Downstairs",
+                                             "group": DG, "members": [K, C]})
+    assert "error" not in r, r
+    assert config_sent(on) == [("config/players/save", {"player_id": "ma-downstairs", "values": {
+        "group_members": ["ma-garage", "ma-kitchen", "ma-cody"]}})]
+    assert r["result"]["presets"][0]["members"] == [K, C]                  # read back from Music Assistant
+    assert on.ma.configured["ma-downstairs"] == ["ma-garage", "ma-kitchen", "ma-cody"]
+    assert on.ma.model["ma-downstairs"]["group_members"] == ["ma-den"], "what plays now is not touched"
+    rows = on.audit(kind="config")
+    assert [(x["action"], x["decision"], x["result"]) for x in rows] == [
+        ("music_assistant.config/players/save", "allowed", "ok")]
+    # renamed, the same rooms: nothing sent
+    r = await on.command(ws, id=2, kind="ws", msg={"type": "hk_music/preset/save", "item": "pre1", "name": "Main",
+                                                   "group": DG, "members": [C, K]})
+    assert r["result"]["presets"][0]["name"] == "Main" and len(config_sent(on)) == 1
+    assert on.ma.sent() == [] and on.fake.sent == []
+    await ws.close()
+
+
+async def test_a_virtual_pairs_own_group_is_never_written(on):
+    host = on.app["music"]
+    on.ma.players = [dict(p, provider="sync_group") if p["type"] == "group" else p for p in STUDY_GROUP]
+    await on.connected()
+    await make_pair(on)
+    await host.refresh_groups()
+    assert host.config().pair_groups == {SL: SG} and host.page()["groups"][SG]["writable"] is False
+    await on.login("owner1", "owner")
+    ws = await on.socket()
+    r = await on.command(ws, kind="ws", msg={"type": "hk_music/preset/save", "name": "Nook", "group": SG,
+                                             "members": [SL, K]})
+    assert json.loads(r["error"]["message"]) == {"members": M.GROUP_MSG["pair_group"]}
+    assert config_sent(on) == []
+    await ws.close()
+
+
+async def test_changing_music_assistants_groups_needs_configure_on_music(on):
+    from mantel_server.rbac import Grant
+    host = on.app["music"]
+    on.ma.players = [sync("ma-downstairs", DG, ["ma-kitchen", "ma-den"])]
+    await on.connected()
+    await host.refresh_groups()
+    on.app["rbac"].add_grant(Grant(effect="deny", actions=frozenset({"configure"}), resource_kind="feature",
+                                   resource="music", roles=frozenset({"admin"})))
+    await on.login("ada", "admin")
+    ws = await on.socket()
+    change = {"item": "pre1", "name": "Downstairs", "group": DG, "members": [K, C]}
+    r = await on.command(ws, kind="ws", msg={"type": "hk_music/preset/save", **change})
+    assert r["error"]["code"] == "forbidden" and r["error"]["target"] == "feature:music"
+    r = await save_preset(ws, **change)
+    assert r["error"]["code"] == "forbidden"
+    # the host asks again itself before any write: refused, a denied row, nothing sent
+    uid = on.app["accounts"].db.execute("SELECT id FROM users WHERE username='ada'").fetchone()["id"]
+    ada = SimpleNamespace(subject=on.app["rbac"].subject(user_role="admin", user_id=uid), valid=True,
+                          user=SimpleNamespace(id=uid, name="Ada"))
+    with pytest.raises(M.MusicRefusal) as got:
+        await host.write_ma(ada, host.preset_write(DG, "Downstairs", [K, C]), DG)
+    assert got.value.code == "forbidden"
+    assert [(x["actor"], x["decision"], x["reason"], x["result"]) for x in on.audit(kind="config")] == [
+        (uid, "denied", "forbidden", "not_sent")]
+    assert config_sent(on) == []
+    await ws.close()
+
+
+async def test_with_commands_off_nothing_is_sent_to_music_assistant(off):
+    host = off.app["music"]
+    off.ma.players = [sync("ma-downstairs", DG, ["ma-kitchen", "ma-den"])]
+    await off.connected()
+    await host.refresh_groups()
+    await off.m.user("owner1", "owner")
+    await off.login("owner1", "owner")
+    ws = await off.socket(expect_caps=False)
+    assert host.page()["ma_writes"] is False
+    r = await save_preset(ws, name="Upstairs", group="new", members=[D, C])
+    assert json.loads(r["error"]["message"]) == {"group": M.GROUP_MSG["commands_off"]}
+    r = await save_preset(ws, rid=71, item="pre1", name="Downstairs", group=DG, members=[K, C])
+    assert json.loads(r["error"]["message"]) == {"members": M.GROUP_MSG["commands_off"]}
+    # a change that writes nothing to Music Assistant is still saved
+    r = await save_preset(ws, rid=72, item="pre1", name="Main", group=DG, members=[K, D])
+    assert r["result"]["presets"][0]["name"] == "Main"
+    assert config_sent(off) == [] and off.ma.sent() == []
+    assert [(x["decision"], x["reason"]) for x in off.audit(kind="config")] == [
+        ("denied", "commands_disabled"), ("denied", "commands_disabled")]
     await ws.close()

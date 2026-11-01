@@ -642,18 +642,41 @@
     });
     var rooms = (d.speakers || []).map(function (x) { return x.entity; });
     var groups = (d.players || []).filter(function (x) { return rooms.indexOf(x.entity) < 0; });
+    // MUSIC ASSISTANT'S GROUPS WRITTEN FROM HERE (d.ma_writes: only a server
+    // that writes them says so): a new sync group, and a sync group's rooms
+    var choices = (d.ma_writes ? [['new', 'New Sync Group']] : []).concat(groups.map(function (x) { return [x.entity, x.name]; }));
     c.appendChild(K.group({}, [
       K.text({ label: 'Name', sk: 'f:hk_music:name', value: f.name, placeholder: 'Everywhere', maxlength: 60,
                error: P.err('f:hk_music:name'), onCommit: function (v) { f.name = v; } }),
       K.select({ label: 'Sync Group', sk: 'f:hk_music:group', value: f.group, placeholder: 'Choose',
-                 options: groups.map(function (x) { return [x.entity, x.name]; }), onChange: function (v) { f.group = v; P.render(); } })]));
+                 options: choices, onChange: function (v) {
+                   f.group = v;
+                   var g = v && d.groups ? d.groups[v] : null;
+                   if (g) f.members = g.rooms.slice();
+                   P.render();
+                 } })]));
     if (P.err('f:hk_music:group')) c.appendChild(K.group({ footer: P.err('f:hk_music:group') }, []));
     // ITS ROOMS ARE ITS GROUP'S (hk_core/music/groups.py): read from Music
-    // Assistant, a pair's speakers counted as the pair. Chosen here only when
-    // Music Assistant's groups can't be read.
+    // Assistant, a pair's speakers counted as the pair. Chosen here when
+    // Music Assistant's groups can't be read, or when they are set there from here.
     var ma = f.group && d.groups ? d.groups[f.group] : null;
     var memErr = P.err('f:hk_music:members') ? P.err('f:hk_music:members') + ' ' : '';
-    if (ma) {
+    var writes = d.ma_writes && (f.group === 'new' || (ma && ma.writable));
+    if (writes) {
+      c.appendChild(K.group({ header: 'Rooms', footer: [memErr + (f.group === 'new'
+          ? 'Saving makes this sync group in Music Assistant, with these rooms.'
+          : 'The rooms in Music Assistant’s ' + speakerName(d, f.group) + ' group. Saving changes the group there.')]
+          .concat(ma ? ma.problems : []).join(' ') },
+        (d.speakers || []).map(function (x) {
+          var on = f.members.indexOf(x.entity) >= 0;
+          var pair = (d.pairs || {})[x.entity];
+          return K.check({ label: x.name, sub: [x.floor, pair ? cap(pair.kind) : null].filter(Boolean).join(' · ') || null,
+                           multi: true, on: on, fk: 'music:member:' + x.entity, onClick: function () {
+            f.members = on ? f.members.filter(function (m) { return m !== x.entity; }) : f.members.concat(x.entity);
+            P.render();
+          } });
+        })));
+    } else if (ma) {
       var said = memErr + (ma.rooms.length ? 'The rooms in Music Assistant’s ' + speakerName(d, f.group) + ' group. Change the group there; this follows it.'
                                            : 'None of the speakers in Music Assistant’s ' + speakerName(d, f.group) + ' group are Music’s speakers.');
       c.appendChild(K.group({ header: 'Rooms', footer: [said].concat(ma.problems).join(' ') },
@@ -675,7 +698,7 @@
         })));
     }
     var save = K.button({ label: p ? 'Save Preset' : 'Add Preset', fk: 'music:preset:save', onClick: function () {
-      P.featCall('hk_music', Object.assign({ type: 'hk_music/preset/save', name: f.name, group: f.group, members: ma ? ma.rooms : f.members },
+      P.featCall('hk_music', Object.assign({ type: 'hk_music/preset/save', name: f.name, group: f.group, members: ma && !writes ? ma.rooms : f.members },
                                            p ? { item: p.id } : {}), ['name', 'group', 'members'])
         .then(function (ok) { if (ok) { delete st.forms['preset:' + id]; P.back('#/features/music/presets'); } });
     } });

@@ -21,6 +21,11 @@ a Music Assistant group of exactly its two players is its own group (``group_of`
 A GROUP WITH DYNAMIC MEMBERS (the house's sync groups, 2026-11-01) gives up a room that plays elsewhere and takes one
 added while it plays, so the members it holds now are not its rooms: Everywhere's group once held none. Its rooms are
 the ones its settings name (``with_configured``: ``config/players/get``'s ``values.group_members``), read with the list.
+
+MANTEL WRITES A PRESET'S ROOMS THERE (2026-11-01, docs/phase4/MANTEL-FEATURES.md "Presets write Music Assistant's groups"):
+Music Assistant stays where a preset's rooms are kept. A preset saved with a new group makes one (``CREATE_GROUP``: a sync
+group with dynamic members); a preset's rooms changed set its group's settings (``CONFIG_SAVE``: ``values.group_members``
+only). ``write_plan`` works out what to send; the host sends it (gated, audited) and reads the list again.
 """
 from __future__ import annotations
 
@@ -34,6 +39,8 @@ class MaPlayer:
     name: str
     group: bool                 # a Music Assistant group player (its type is "group")
     members: tuple[str, ...]    # a group's players, by id
+    provider: str = ""          # its provider instance (a sync group's: SYNC_PROVIDER)
+    dynamic: bool = False       # a group whose members change as it plays (``dynamic``)
 
 
 def read_players(raw: Any) -> dict[str, MaPlayer]:
@@ -45,11 +52,18 @@ def read_players(raw: Any) -> dict[str, MaPlayer]:
         pid = p["player_id"]
         members = p.get("group_members") or p.get("group_childs") or []
         out[pid] = MaPlayer(pid, str(p.get("display_name") or p.get("name") or pid), p.get("type") == "group",
-                            tuple(m for m in members if isinstance(m, str)) if isinstance(members, list) else ())
+                            tuple(m for m in members if isinstance(m, str)) if isinstance(members, list) else (),
+                            str(p.get("provider") or ""), dynamic(p))
     return out
 
 
 CONFIG_READ = "config/players/get"      # a player's settings: a group's own rooms are values.group_members
+# Mantel's writes (Music Assistant 2.10.9: controllers/players/controller.py, controllers/config/players.py,
+# providers/sync_group): a new sync group, and a group's settings saved
+CREATE_GROUP = "players/create_group_player"    # {provider, name, members, dynamic} -> the new player (to_dict)
+CONFIG_SAVE = "config/players/save"             # {player_id, values} -> the player's settings, saved
+SYNC_PROVIDER = "sync_group"                    # the sync group provider's instance id
+GROUP_VALUES = frozenset({"group_members", "dynamic_members"})   # the only settings Mantel ever saves
 
 
 def dynamic(p: Any) -> bool:
@@ -120,6 +134,25 @@ class Groups:
         p = self.player(entity)
         return p is not None and p.group
 
+    def sync_group(self, entity: str) -> MaPlayer | None:
+        """Music Assistant's sync group ``entity`` is (one whose rooms Mantel may set), else None."""
+        p = self.player(entity)
+        return p if p is not None and p.group and p.provider == SYNC_PROVIDER else None
+
+    def players_for(self, rooms: Iterable[str], virtual: Mapping[str, Iterable[str]] | None = None) -> list[str] | None:
+        """Rooms as the players a group holds, by id: a stereo pair is its parts (a group can't hold a group), a
+        virtual pair its two players. None when a room is no Music Assistant player."""
+        out: list[str] = []
+        for r in rooms:
+            parts = self.parts(r)
+            if not parts and virtual and r in virtual:
+                parts = [self.pids.get(e) for e in virtual[r]]
+            for pid in parts or [self.pids.get(r)]:
+                if pid is None:
+                    return None
+                out.append(pid)
+        return list(dict.fromkeys(out))
+
     def group_of(self, entities: Iterable[str]) -> str | None:
         """The entity of a Music Assistant group whose players are exactly ``entities`` (a virtual pair's
         own group, "the Actual Group Pair"), or None. With two such groups, the first by entity id."""
@@ -161,6 +194,36 @@ class Groups:
             if m not in claimed:
                 out.problems.append({"code": "not_a_speaker", "player": self.name(m)})
         return out
+
+
+@dataclass(frozen=True)
+class Write:
+    """What a preset's save sends to Music Assistant: ``command`` (CREATE_GROUP or CONFIG_SAVE) and its ``args``."""
+    command: str
+    args: dict[str, Any]
+
+
+def write_plan(groups: Groups, group: str | None, name: str, rooms: list[str], speakers: Iterable[str],
+               virtual: Mapping[str, Iterable[str]] | None = None) -> Write | str | None:
+    """A preset's save, for Music Assistant: a ``Write``, None (nothing to send) or why it can't be (a code).
+    ``group`` None: a new sync group named ``name``, with dynamic members (as the house's are). Otherwise ``group``'s
+    settings get ``rooms``' players; a player in it that is none of ``speakers``' (no screen shows it) stays.
+    Codes: ``not_a_player`` (a room is no Music Assistant player), ``not_sync_group`` (not a sync group: its members
+    are not Mantel's to set)."""
+    want = groups.players_for(rooms, virtual)
+    if want is None:
+        return "not_a_player"
+    if group is None:
+        return Write(CREATE_GROUP, {"provider": SYNC_PROVIDER, "name": name, "members": want, "dynamic": True})
+    g = groups.sync_group(group)
+    if g is None:
+        return "not_sync_group"
+    theirs = {pid for s in speakers for pid in groups.players_for([s], virtual) or []}
+    keep = [m for m in g.members if m not in theirs]
+    members = keep + [m for m in want if m not in keep]
+    if set(members) == set(g.members):
+        return None
+    return Write(CONFIG_SAVE, {"player_id": g.player_id, "values": {"group_members": members}})
 
 
 def kind(parts: list[str]) -> str:
