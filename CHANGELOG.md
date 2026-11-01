@@ -83,6 +83,12 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.106 - 2026-11-01
+
+- **Screensaver, Edit Screensaver is where it is laid out:** the Screensaver pages keep only what can't be laid out: the photos and how they show, the wallpaper, the slides and how often, Night Mode, the Side Pane and the timing. What shows and how it looks (the background, the time, the widgets, Time Behind, the corners) is set in the editor, starting from how it looks today.
+- **Screensaver, adding widgets:** a round **+** follows the row's last widget, and a corner's stack, while there is room; tap it for what fits there.
+- **Screensaver, Save and Cancel:** no longer leave Safari on the screensaver preview, full screen.
+
 ## 0.1.105 - 2026-11-01
 
 - **Screensaver, Edit Screensaver, lined up:** things line up by their letters, not their boxes: the time's top level with the top corners' words, the bottom corners' last lines on one baseline, and Time Behind's figures on the top margin.
