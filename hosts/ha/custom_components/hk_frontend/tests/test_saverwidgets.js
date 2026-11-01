@@ -203,12 +203,31 @@ ok('...at the end, 0:00 and no longer live', [words(tw.el.innerHTML), tw.live], 
 ok('a widget that isn\'t live never says so', [w.live, d.live], [false, false]);
 var eg = make('battery', { u: 8 });
 energyCalls = 0; wakers.length = 0;
+var realNow = Date.now, clock = realNow();
+Date.now = function () { return clock; };
 eg.update(cl, NOW); eg.update(cl, new Date(+NOW + 60000));
 ok('the Energy page\'s sums are read once for a while, not at every update', energyCalls, 1);
 battery = 79;
-wakers[0].requestUpdate();
+__resetTimers();
+wakers[0].requestUpdate(); wakers[0].requestUpdate();
+ok('...a wake reads again a moment later, never from inside the read: one timer, no read yet', [energyCalls, __timerCount()], [1, 1]);
+clock += 1000; __runTimers(); __resetTimers();
 ok('...and when the statistics arrive, read again and drawn (by itself)', [energyCalls, words(eg.el.innerHTML), eg.log.length], [2, '79% HOME', 2]);
+ok('...the same waker each time (one subscriber, not one more on every read)', wakers.length === 2 && wakers[0] === wakers[1], true);
 ok('...the waker says it is connected, until the widget is gone', (function () { var was = wakers[0].isConnected; eg.destroy(); return [was, wakers[0].isConnected]; })(), [true, false]);
+// A SUMMARY THAT WAKES WHOEVER READS IT, at every read (2026-11-01: the house's Battery widget held the page, a wall
+// tablet's screensaver and Settings' preview, in a loop of reads): a read a second at most, and the page breathes
+var plain = window.hkEnergy.summary;
+window.hkEnergy.summary = function (c, waker) { var r = plain(c, waker); waker.requestUpdate(); return r; };
+var lw = make('battery', { u: 8 });
+energyCalls = 0;
+lw.update(cl, NOW);
+var rounds = 0;
+for (; rounds < 5 && __timerCount(); rounds++) { var held = __timerCount(); clock += 1000; __runTimers(); __timers.splice(0, held); }
+ok('...a summary that always wakes: one read, then one a second (not a loop inside a read)', [energyCalls, rounds], [6, 5]);
+lw.destroy(); __resetTimers();
+ok('...gone, it is woken no more', (lw.update(cl, NOW), energyCalls), 6);
+window.hkEnergy.summary = plain; Date.now = realNow;
 battery = 84;
 w.destroy(); d.destroy(); tw.destroy();
 

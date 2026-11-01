@@ -481,13 +481,12 @@
         var H = window.hkEnergy, t = Date.now();
         if (X.quiet) return null;
         if (!H || !H.summary) { need('hk-energy.js'); return null; }
-        if (!en.stale && en.at && t - en.at < (en.val ? ENERGY_TTL : 3000)) return en.val;
+        // (asked again when its sums arrive -- at most once a second: a summary that wakes whoever just read it would
+        // otherwise read again at once, forever, and hold the page; 2026-11-01, the house's Battery widget)
+        if (en.at && t - en.at < (en.stale ? 1000 : en.val ? ENERGY_TTL : 3000)) return en.val;
         en.stale = false; en.at = t;
         try {
-          en.val = H.summary(X.client, {
-            get isConnected() { return !dead; },
-            requestUpdate: wake, redraw: wake
-          }) || null;
+          en.val = H.summary(X.client, waker) || null;
         } catch (e) { console.warn('[hk-saverwidgets]', id, e && e.message); en.val = null; }
         return en.val;
       },
@@ -499,7 +498,15 @@
         return names;
       }
     };
-    function wake() { en.stale = true; if (!busy) again(); }
+    // ONE WAKER for this widget, and its wake a moment later: the summary keeps who it wakes (a new one on each read
+    // was a new subscriber each time), and a wake drawn at once from inside a read never lets the page breathe
+    var wakeT = null, waker = { get isConnected() { return !dead; }, requestUpdate: wake, redraw: wake };
+    function wake() {
+      en.stale = true;
+      if (wakeT || dead) return;
+      // (after the second a read waits for: then the read it wakes for is one that reads)
+      wakeT = setTimeout(function () { wakeT = null; if (!busy) again(); }, Math.max(250, 1000 - (Date.now() - en.at)));
+    }
     if (id === 'next_event' || id === 'event_line') CAL.watchers.push(again);
 
     api.update = function (client, now, ctx) {
@@ -546,6 +553,8 @@
     };
     api.destroy = function () {
       dead = true;
+      clearTimeout(wakeT); wakeT = null;
+      if (window.hkStats && window.hkStats.release) { try { window.hkStats.release(waker); } catch (e) { /* gone */ } }
       if (fc) { fc.release(); fc = null; }
       var i = CAL.watchers.indexOf(again);
       if (i >= 0) CAL.watchers.splice(i, 1);
