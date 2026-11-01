@@ -29,7 +29,8 @@ async def test_owner_command_is_allowed_audited_first_then_sent(gw):
     assert row["id"] == reply["audit_id"] and row["decision"] == "allowed" and row["reason"] == "granted"
     assert row["result"] == "ok" and row["action"] == "light.turn_on" and json.loads(row["target"]) == ["light.kitchen"]
     assert row["role"] == "owner" and row["door"] == "lan" and row["kind"] == "service" and row["source_ip"] == "127.0.0.1"
-    assert "120" not in json.dumps(row)                       # service data is never stored
+    # service data is never stored (its key nor its value: a timestamp may hold the digits 120)
+    assert "brightness" not in json.dumps(row) and 120 not in row.values()
     await ws.close()
 
 
