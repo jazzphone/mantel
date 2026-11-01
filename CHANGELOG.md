@@ -83,6 +83,13 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.105 - 2026-11-01
+
+- **Screensaver, Edit Screensaver, lined up:** things line up by their letters, not their boxes: the time's top level with the top corners' words, the bottom corners' last lines on one baseline, and Time Behind's figures on the top margin.
+- **Screensaver, the same Look for everything:** every widget and card has a **Size** (60 to 160 %), a **Backdrop** (None, Glass or Tinted) and a **Color**; the cards had none before.
+- **Screensaver, the row:** two lines of widgets, **Under the Big Element** or **Along the Bottom** of the screen (clear of the faces in a photo).
+- **Screensaver, cards with nothing to show:** Now Playing with no music and Timers with none running are drawn dotted with their names in the editor, where before they were found only by hovering.
+
 ## 0.1.104 - 2026-11-01
 
 - **Screensaver, the Battery and Energy Today widgets:** a layout with either no longer freezes the screensaver. A wall tablet's page stopped and was restarted, and Settings' Screensaver page and Edit Screensaver hung once such a layout was saved.
