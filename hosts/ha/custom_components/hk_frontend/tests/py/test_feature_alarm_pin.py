@@ -126,7 +126,13 @@ async def test_its_own_panels_are_only_alarm_pin_entries_alarm_panels(hass, alar
 async def test_the_pin_is_never_stored(hass, alarms, frontend):
     await add(hass, ALARM)
     (feat,) = pins(hass)
-    blob = json.dumps(dict(frontend.subentries[feat.entry_id].data))
+    # (the PIN looked for everywhere but inside the hash and the salt: they are random hex, and one in about a
+    # thousand held "4321" -- 2026-11-01)
+    def blank(v):
+        if isinstance(v, dict):
+            return {k: "" if k in ("hash", "salt") else blank(x) for k, x in v.items()}
+        return [blank(x) for x in v] if isinstance(v, list) else v
+    blob = json.dumps(blank(dict(frontend.subentries[feat.entry_id].data)))
     assert "4321" not in blob and '"hash"' in blob
     from custom_components.hk_frontend.diagnostics import async_get_config_entry_diagnostics
     diag = await async_get_config_entry_diagnostics(hass, entry(hass))
