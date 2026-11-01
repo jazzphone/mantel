@@ -82,6 +82,13 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.101 - 2026-11-01
+
+- **Music block:** at Small, the playlist's cover fills the block with play in the middle. Larger sizes hold every playlist and scroll, across at Wide and Extra Large and down at Tall and Large. A playlist with choices, such as Decades, is one tile; a tap opens its choices, and the one picked plays on the block's speaker.
+- **Music block, When Tapped:** Choose a Playlist opens a sheet of every playlist's cover, so one tap from the dashboard starts any playlist.
+- **Side Pane Clock, Beside the Time:** choose how the weather sits beside the time: Large, Quiet, a Chip, or on the Date Line, at Left, Center or Right and at every pane width. The temperature takes the time's weight, and each weather symbol is centered on the figures.
+- **One temperature everywhere:** the Side Pane, the header, the left menu, the screensaver and a thermostat's Outside reading now use the sensors chosen in Settings → Weather (Outside, Feels Like, Humidity, Wind, Gust, UV), as the Weather page and block do, and the weather service's own readings only when none is chosen.
+
 ## 0.1.100 - 2026-11-01
 
 - **Assistants (MCP):** an assistant such as Claude Code or Claude Desktop can now help set up the house. It reads your home, changes settings, and builds screens and Home Grid layouts, acting for one person: their role decides what it may do, every change is planned and shown first, the Audit Log shows each one as theirs through the assistant, and each can be undone. Off until the Owner turns it on in Mantel Settings → Advanced → Assistants (MCP); connect with a personal key (home network only) or by signing in from the assistant. It is never given the Alarm PIN, and it controls the house only if the Owner allows it.
