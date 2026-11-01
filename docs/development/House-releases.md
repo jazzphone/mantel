@@ -207,3 +207,13 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 - HK Frontend 1.27.0 copied into custom_components (v1.27.0 on GitHub with its release; wiki unchanged); Home Assistant restarted; Mantel Link and HK Frontend relinked.
 - Kitchen, Living Room, Master Bedroom and Master Bathroom reloaded and drew their first screen in 1.3-3.3 s. Loft was offline, as at 0.1.99 and 0.1.100.
 - ci full on 36697de4: 31 of 31. A first run that day failed because the version files were bumped while it ran.
+
+## Mantel 0.1.102, HK Frontend 1.28.0 and Mantel Link 0.1.9 (2026-11-01)
+
+- Every commit since 0.1.101 read first; all three ship: the Side Pane's hour strip saying the temperature now at Now (d3cc6cac, another session), Live TV's channel cameras picking Home Assistant's live player again after the link returns with Mantel's Live TV page no longer linking to HK Frontend's integration (3d686df3), and the Side Pane's Dim, music drawer and never-stuck reads, the weather blocks filling their space, the Now Playing block's progress, Lock Up's word and the top band's parts left, center or right (82f8d079).
+- Mantel App 0.1.102 (build d00c6749bd2b0475, commit 313f75be): /healthz?strict=1 ok, Home Assistant connected, Music Assistant 2.10.9 authenticated, Mantel Link and HK Frontend relinked, no "Traceback".
+- HK Frontend 1.28.0 copied into custom_components (diff against the build: only the house's own runtime files); Mantel Link 0.1.9 copied from its published layout (entity.py and the manifest the only differences before; none after); Home Assistant restarted; `/mantel_link/mantel-link.js?v=0.1.9` 200. No errors from either in Home Assistant's log.
+- Live TV checked on the house: before, `camera/webrtc/get_client_config` refused every channel ("Camera does not support WebRTC"). After the restart all four channels answered, and again after the Mantel App was restarted to drop the link (the channels unavailable 9:25:01-9:25:10), the case that broke them that morning.
+- Kitchen, Living Room, Master Bedroom and Master Bathroom reloaded (Mantel's own Reload after its restart) and drew their first screen in 1.4-3.5 s. Loft was offline, as at 0.1.99-0.1.101.
+- HK Frontend v1.28.0 on GitHub with its release, from 1bf80427 (the release commit plus a test-only fix: the Alarm PIN test's random hash had held its PIN, one in about a thousand); Mantel Link v0.1.9 on GitHub with its release (repository still private). Wikis unchanged.
+- ci full on 313f75be: 31 of 31, nothing skipped. iOS app not uploaded to TestFlight for this release.
