@@ -432,7 +432,10 @@ class MediaProxy:
                 return _error(404, "not_found", up.service)
             authz = request.app.get("authz")
             principal = authz.principal(request) if authz is not None else None
-            if not up.authorize(request.app, principal, plan, request):
+            # a screen preview an assistant opened (mcp/preview.py) looks only: Music Assistant's own app and
+            # go2rtc's API would let it act, so neither is reached from one
+            if principal is not None and principal.identity.read_only or \
+                    not up.authorize(request.app, principal, plan, request):
                 stats["refused"] += 1
                 return _error(403, "forbidden", up.service)
             if plan.ws:

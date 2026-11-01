@@ -16,6 +16,7 @@ The first public release of **Mantel**: HK Frontend's screens, inspired by Apple
 - **People and roles:** Owner, Admin, Adult, Child and Guest, with grants per room and feature, and Wall Tablet for a tablet.
 - **Sign-in:** passkeys, passwords with authenticator codes, or Sign in with Home Assistant; stricter rules from away than at home; a fresh sign-in to confirm it is you before anything sensitive.
 - **Commands and the audit log:** commands stay off until the Owner turns on **Allow Control of the House**; each one is checked against the person's and the device's role and written to the audit log before it reaches the house. The alarm asks for its PIN.
+- **Assistants (MCP):** an assistant such as Claude Code or Claude Desktop can read the house, change settings and build screens and Home Grid layouts for one person, with that person's role, every change planned and shown first, audited as theirs through the assistant, and undoable. Off until the Owner turns it on (Mantel Settings → Advanced → Assistants); a personal key or a sign-in, home network by default, never the Alarm PIN. See [Assistants](docs/guide/Assistants.md).
 
 **Wall tablets**
 - A browser enrolled as a wall tablet keeps its own credential and role, whoever walks up to it. Enrolling into a room with no HK tablet adds that tablet too. Each tablet has one page in Mantel Settings: its screen, kiosk app, When Idle, Sleep Screen, the browser signed in as it, and Reload and Clear Cache from Mantel.

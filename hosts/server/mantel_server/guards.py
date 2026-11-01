@@ -97,6 +97,8 @@ def check(request: web.Request, spec: Guard):
         return ident
     if not ident.authenticated:
         raise web.HTTPUnauthorized(text="sign in at /login")
+    if getattr(ident, "read_only", False) and request.method in UNSAFE:
+        raise _refuse("read_only")                  # a screen preview an assistant opened (mcp/preview.py)
     if ident.device is not None and not spec.device_ok:
         raise _refuse("forbidden")
     if spec.who != "signed_in":

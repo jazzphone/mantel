@@ -135,8 +135,8 @@ async def test_a_wall_tablet_alone_is_refused_the_page(admin):
 
 # -- the overview ------------------------------------------------------------------------------------
 @pytest.mark.parametrize("role, expected", [
-    ("owner", ["me", "connections", "general", "people", "devices", "files", "photos", "backups", "roles", "service", "audit", "about", "performance"]),
-    ("admin", ["me", "connections", "general", "people", "devices", "files", "photos", "backups", "audit", "about", "performance"]),
+    ("owner", ["me", "connections", "general", "people", "devices", "files", "photos", "backups", "roles", "service", "assistants", "audit", "about", "performance"]),
+    ("admin", ["me", "connections", "general", "people", "devices", "files", "photos", "backups", "assistants", "audit", "about", "performance"]),
     ("adult", ["me", "about"]), ("child", ["me", "about"]), ("guest", ["me", "about"]), ("wall_tablet", ["me", "about"]),
 ])
 async def test_sections_by_role(admin, role, expected):

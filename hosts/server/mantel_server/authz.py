@@ -182,6 +182,10 @@ class Principal:
     def fresh_factor_at(self) -> float | None:
         return self.identity.fresh_factor_at
 
+    @property
+    def via(self) -> str | None:
+        return self.identity.via
+
 
 class Authz:
     def __init__(self, app: web.Application, hub, rbac_store, clock: Callable[[], float] = time.time) -> None:

@@ -1,4 +1,4 @@
-# Phase 12: Mantel's MCP server — an assistant that can set up the house (plan, 2026-10-31)
+# Phase 12: Mantel's MCP server — an assistant that can set up the house (plan 2026-10-31; built 2026-10-31)
 
 The ask: an **MCP server built into Mantel Server**, so an assistant (Claude Code, Claude Desktop, any MCP client)
 can read the house, **change settings** and **build screens and dashboards**, safely enough to make setting up a
@@ -10,235 +10,242 @@ was done by borrowing the Owner's signed-in browser session and sending the Musi
 frames. That worked *because* Mantel's gateway checked and audited every save, and it is exactly what an MCP
 server should make normal: the same frames, a real credential, a named actor in the audit log.
 
-**Status: plan. Nothing built.** Open questions are at the end.
+**Status: built, all slices (M12.1–M12.7).** Code: `hosts/server/mantel_server/mcp/`. User guide:
+[Assistants](../guide/Assistants.md). Tests: `tests/test_mcp.py`, `tests/test_mantel_settings_assistants.py`.
+The changes made to the first draft after review are listed at the end ("What changed from the first plan").
 
 ## The principle: MCP is another door, not another way in
 
 Mantel already has one path for everything that changes something, and the MCP server adds **no new authority**:
 
-| What | Today's path | The MCP tool sends |
+| What | Today's path | The MCP tool sends (mcp/dispatch.py) |
 |---|---|---|
-| Reads | a page's `read` / `read_subscribe` frame, routed by `app["read_routes"]` | the same read, same RBAC (`view`) |
-| Settings saves | `settings_write {id, msg}` → `settings_result` (settings_store/service.py, hooks.py `SAVE_KINDS`, `WRITE_KEYS`) | the same frame; checked by `hk_core/settings/changes.py`, versioned, in `settings_history` |
-| Music settings | `settings_write` `hk_music/*` → music.py `settings_write` (feature_pages.py routes) | the same |
-| Screens | `POST/PUT/DELETE /api/screens` (screens.py), Owner/Admin, audited first | the same handlers, called in-process |
-| House commands | gateway.py: RBAC on the rooms named, **audit row first**, then forwarded | the same gateway (opt-in, below) |
+| Reads | a page's `read` frame, routed by `app["read_routes"]` | the same frame, to the same `ws_handlers["read"]`, with the person's principal |
+| Settings saves | `settings_write {id, msg}` → `SettingsService.save` (`SAVE_KINDS`, `WRITE_KEYS`, hk_core's checks, RBAC `configure`) | the same `msg`, to the same `SettingsService.save` |
+| Music settings | `settings_write` `hk_music/*` → feature_pages → music.py `settings_write` | the same |
+| Screens | `POST/PUT/DELETE /api/screens` (screens.py) | screens.py's own functions (`add`, `change`, `remove`), which the REST routes now call too |
+| House commands | gateway.py: RBAC on every entity, **audit row first**, then forwarded | `Gateway.handle`, the same frame (opt-in, below) |
 
-So the MCP module is a **translator**: JSON-RPC in, Mantel's existing frames out, answers back. It never touches
-`SettingsStore` directly, never writes a document body whole, never reaches Home Assistant except through the
-gateway. If a save would be refused on the Settings page, it is refused here with the same message.
+So the MCP module is a **translator**: JSON-RPC in, Mantel's existing calls out, answers back. It never writes a
+settings document itself, and never reaches Home Assistant except through the gateway. If a save would be refused
+on the Settings page, it is refused here with the same code, fields and words.
 
 ## Where it lives
 
-- **`hosts/server/mantel_server/mcp/`**, a package beside `settings_store/`:
-  - `transport.py`: MCP's **Streamable HTTP** transport on aiohttp at **`/mcp`** (POST for JSON-RPC; GET for the
-    server→client SSE stream; `Mcp-Session-Id`). The protocol is small (initialize, `tools/list`, `tools/call`,
-    `resources/*`, `prompts/*`, notifications); hand-written on aiohttp it adds **no dependency**, which keeps the
-    App image as it is. (The `mcp` Python SDK is Starlette/ASGI; mounting it would add a second web stack.)
-  - `auth.py`: who is calling (next section).
-  - `tools/`: one module per area (`house.py`, `settings.py`, `screens.py`, `music.py`, `commands.py`,
-    `audit.py`), each a list of `Tool(name, description, input_schema, needs, handler)`.
-  - `dispatch.py`: turns a tool call into the existing frame with an `Identity` and an `Actor`, so RBAC, history
-    and the audit log see one caller, `mcp:<client name>` on behalf of a person.
-- **Doors**: `lan` by default. `tunnel` only if the Owner turns it on (Mantel Settings → Connections → Assistants),
-  and then only with OAuth tokens, never the static key.
-- **Off by default.** Mantel Settings → Connections → **Assistants (MCP)**: on/off, the connected clients, their
-  scopes, last used, Revoke.
+`hosts/server/mantel_server/mcp/`:
+
+| Module | What it is |
+|---|---|
+| `config.py` | the house's switches (below), in the `server_settings` table |
+| `grants.py` | a credential: a person's `mcp` session plus its ceiling (scopes); personal keys |
+| `auth.py` | who is calling `/mcp`: the bearer, its door, its person, its scopes; rate limits |
+| `protocol.py` | `/mcp`: Streamable HTTP, both protocol eras, hand-written on aiohttp (no new dependency) |
+| `dispatch.py` | a tool call as a page's read / save / command; plan, then apply; the audit row first |
+| `plans.py` | the signed plan handle |
+| `tools/` | `house.py`, `settings.py`, `screens.py`, `music.py`, `deploy.py`, `audit.py`, `commands.py` |
+| `resources.py` | resources and prompts |
+| `oauth.py` | signing an assistant in: OAuth 2.1 + PKCE, registration, consent, tokens, revocation |
+| `preview.py` | a screen's read-only preview link |
+| `admin.py` | the REST behind Mantel Settings' page |
+
+Outside the package: `dry_run.py` (planning without writing, below), migration `0028_mcp.sql`
+(`mcp_grants`, `mcp_clients`, `mcp_codes`; `via` on `action_audit` and `settings_history`), `sessions.Identity`
+gains `via` and `read_only`, and `web/shim/settings/assistants.js` is the page.
+
+## The transport: both eras on one endpoint
+
+MCP's current revision (**2026-07-28**) is stateless: no `initialize`, no `Mcp-Session-Id`, no GET stream; every
+request carries its protocol version in `params._meta`, `server/discover` is required, results carry
+`resultType`, list results `ttlMs` and `cacheScope`, and `Mcp-Method` / `Mcp-Name` headers mirror the body.
+Clients in use still speak the handshake era too, so `/mcp` serves both (the spec's "dual-era server"):
+
+- A request with `_meta["io.modelcontextprotocol/protocolVersion"]` is served as 2026-07-28: the headers must
+  match the body (`-32020 HeaderMismatch`, Base64-sentinel `Mcp-Name` decoded first), an unknown version is
+  `-32022` with the supported list, an unknown method is HTTP 404 with `-32601`.
+- `initialize` is answered as the legacy revision it asks for (2025-11-25, 2025-06-18, 2025-03-26), with no
+  session id: none is needed, because nothing is kept between requests. `ping` and `logging/setLevel` answer `{}`.
+- One JSON-RPC message per POST (no batches), every answer `application/json`, notifications `202`. GET and
+  DELETE are `405`. Nothing is ever sent unasked (no sampling, no elicitation, no list changes, so no stream).
+- **Before anything else**: an `Origin` header that isn't Mantel's own address is `403` (DNS rebinding); the body
+  is at most 1 MB of JSON; the caller is authenticated (`401` with `WWW-Authenticate: Bearer
+  resource_metadata="…/.well-known/oauth-protected-resource/mcp"`, RFC 9728); then the rate limit (600
+  requests a minute per assistant).
+
+Verified with the official MCP Python SDK (2.3.0): its `auto` mode negotiates 2026-07-28 through
+`server/discover`, its `legacy` mode 2025-11-25 through `initialize`; tools, resources, prompts, a planned and
+applied change, a refusal as a tool error, and its OAuth client end to end.
 
 ## Who is calling: a person, with a ceiling
 
 An assistant acts **for a person**, never as a role of its own, so RBAC is the person's own and the audit log
-names them. On top of that, each credential carries a **ceiling** (its MCP scopes), so "the Owner's Claude" can be
-weaker than the Owner.
+names them, with `via = mcp:<assistant name>`. Every credential is a `sessions` row of method `mcp` (Me →
+Sessions lists it; its Revoke, "sign out everywhere" and a disabled person end it) plus a grant (`mcp_grants`)
+with its ceiling. A browser cookie, an app's bearer and an assistant's token are never accepted for one another.
 
-**OAuth 2.1 with PKCE (the main way).** MCP's authorization spec is OAuth 2.1, and Mantel already runs that flow
-for the Apple apps (app_auth.py: `/app/authorize`, PKCE S256, refresh families in `sessions`). The MCP server
-reuses it:
+**Only Owners and Admins** may have one, checked when it is made **and on every request** (a person moved to
+Adult loses their assistant's access at once).
 
-1. The client finds Mantel's metadata (`/.well-known/oauth-protected-resource`,
-   `/.well-known/oauth-authorization-server`) and registers itself (dynamic client registration, RFC 7591:
-   a name and a redirect URI, stored in a new `mcp_clients` table).
-2. The browser opens Mantel's sign-in (passkey, password + TOTP, Sign in with HA: every factor Mantel has), then a
-   consent page: **"Allow Claude Code to read the house and change settings as <name>?"** with the scopes as
-   checkboxes.
-3. Tokens: access 15 minutes, refresh rotated on use (the same reuse detection as browsers' sessions). The
-   `sessions` row is method `mcp`, so Settings → Me → Sessions lists it and Revoke ends it.
+**A personal key**: Mantel Settings → Advanced → Assistants → *New Personal Key…* gives
+`mmcp_<16 hex>_<43 base64url>` once (SHA-256 stored, constant-time compare), with scopes and the house's key
+lifetime (30 days by default). Making one needs a fresh sign-in (as adding a passkey does). **Home network only,
+always; never the `commands` scope.**
 
-DPoP (the Apple apps' key binding) is optional here: most MCP clients don't send proofs yet.
+**OAuth 2.1 with PKCE** (M12.5), for clients that sign in:
 
-**A personal key (the fallback).** For clients without OAuth, or a script: Settings → Me → Assistants → *Make a
-key* gives `mmcp_<id>_<secret>` once (stored as SHA-256, like service accounts' `msvc_` credentials), with
-scopes, an expiry (30 days by default) and `lan` only.
+1. `/.well-known/oauth-protected-resource[/mcp]` (RFC 9728) and `/.well-known/oauth-authorization-server`
+   (RFC 8414, with `authorization_response_iss_parameter_supported`).
+2. Registration (RFC 7591, `POST /mcp/oauth/register`): a name and 1–5 redirect URIs, `https` or `http` on
+   loopback only; public clients (`token_endpoint_auth_method: none`). Ten an hour per address, at most 200
+   clients, an unused one forgotten after 30 days. **Client ID Metadata Documents are not offered**
+   (`client_id_metadata_document_supported: false`): fetching a URL a stranger names, from inside a home network,
+   is a server-side request Mantel won't make. Clients fall back to registration, as the spec says.
+3. `/mcp/oauth/authorize`: Mantel's own sign-in first (every factor Mantel has), then a consent page naming the
+   assistant, the person, **the address it returns to**, and the scopes as ticks; `commands` offered only while
+   the house allows it, "from away" only while `mcp_away` is on. Allow is a form POST with the session's CSRF
+   token, audited (`mcp.grant`) before the code is made. The page can't be framed (`frame-ancestors 'none'`,
+   `X-Frame-Options: DENY`), and its CSP's `form-action` names the registered redirect's origin.
+4. `/mcp/oauth/token`: the code (single use, 60 s, bound to client, redirect URI, S256 challenge, scopes) for an
+   access token (15 min) and a refresh token rotated on use (a reused one ends the family and the grant). A
+   `resource` (RFC 8707), when sent, must be this `/mcp`. The redirect carries `iss` (RFC 9207).
+5. `/mcp/oauth/revoke` (RFC 7009).
 
 **MCP scopes (the ceiling):**
 
 | Scope | Allows | Default |
 |---|---|---|
 | `read` | states, rooms, settings, screens, music settings, the library | on |
-| `settings` | settings saves (house, screens' settings, tablets, accessories, music) | on |
-| `screens` | add, rename, copy, remove screens; Home Grid layouts | on |
-| `audit` | read the audit log and settings history | off |
-| `commands` | house commands through the gateway (lights, media, scenes...) | **off** |
-| `restore` | `mantel/settings/restore` (roll a document back) | off |
+| `settings` | settings saves (house, screens' settings, tablets, accessories, music), batches | on |
+| `screens` | add, rename, move, remove screens; Home Grid; export/import; templates; previews | on |
+| `audit` | the audit log and settings history | off |
+| `restore` | `mantel/settings/restore` | off |
+| `commands` | house commands through the gateway (sign-in only, house switch on) | **off** |
 
-The alarm stays out of reach: its commands need the house Alarm PIN, and an assistant is never given it. Role
-changes, people, passkeys, connections' secrets and service accounts get **no tools at all**, whatever the scope.
+The alarm stays out of reach (its commands need the house Alarm PIN; `house_command` refuses the
+`alarm_control_panel` domain and a handful of system ones outright). People, roles, passkeys, connections'
+secrets and service accounts have **no tools at all**.
 
-## The tools
+## The house's switches (Mantel Settings → Advanced → Assistants (MCP))
 
-Names are `area_verb`. Every write tool takes **`dry_run`** (default **true** for the first call in a session's
-change, see "Changing things safely"), returns **what changed** (the diff `settings_history` records) and the new
-version, and takes `expect_version` where the save supports it (board/set, settings/set, accessories), so two
-editors never overwrite each other.
-
-### Reading the house
-
-| Tool | Answers | Built on |
+| Key | Default | |
 |---|---|---|
-| `house_summary` | floors, rooms, counts, the house's screens and tablets, Mantel's version, what's connected | panel/get, hub |
-| `house_find` | entities by name, room, domain or feature (`"kitchen lights"`) | hub registries |
-| `house_states` | current state and the attributes that matter for given entities | hub snapshot |
-| `rooms_list` | rooms with their accessories, in the Home page's order | accessories document |
+| `mcp_enabled` | off | `/mcp` answers at all; off refuses every credential (kept) |
+| `mcp_away` | off | a signed-in assistant allowed "from away" may use the tunnel door; keys never |
+| `mcp_commands` | off | the `commands` scope may be given (sign-in only) and is honoured; needs Allow Control of the House |
+| `mcp_write_rate` | 60 | applied changes per minute per assistant |
+| `mcp_key_days` | 30 | a new key's lifetime (1–365) |
 
-### Settings
+Only an Owner changes them; each change is audited (`mcp.settings`) before it is made and applies to the next
+request. The page also shows the address to connect to, how to connect Claude Code and Claude Desktop, and every
+assistant (an Owner sees everyone's, an Admin their own) with Revoke (`mcp.revoke`). The Audit Log page gains a
+**Through** filter (any / an assistant / none; `GET /api/audit?via=`) and names the assistant on each row.
 
-| Tool | Does | Built on |
-|---|---|---|
-| `settings_get` | one scope's merged settings (`house`, `board/<screen>`, `tablet/<id>`, `music`) with its version | `mantel/settings/get` |
-| `settings_schema` | the keys a scope accepts, their types, allowed values and defaults | `hk_core/settings/model.py` (`BOARD_DEFAULTS`, the `pick` sets) |
-| `settings_change` | `{scope, changes, expect_version?, dry_run}` | `hk_frontend/settings/set`, `board/set`, `tablet/set` |
-| `settings_history` | a document's versions: who, when, which message, the diff | `mantel/settings/history` |
-| `settings_restore` | make a new version from an old one (`restore` scope) | `mantel/settings/restore` |
-| `accessory_set` | name, icon, room, hidden, favorite... for one entity | `hk_frontend/accessory/*`, `hidden/*` |
+## The tools (38)
 
-`settings_schema` is what makes the assistant good at this: it is generated from hk_core's model, so the tool
-descriptions never drift from what the checks accept (a test pins them, as `SAVE_KINDS` is pinned).
+Names are `area_verb`. Each says the scope it needs; `tools/list` lists only the caller's, in a fixed order, with
+`readOnlyHint` / `destructiveHint` / `idempotentHint`. Arguments are checked strictly against the schema (no
+unknown keys) before anything runs.
 
-### Screens and dashboards
+| Area | Tools |
+|---|---|
+| House (`read`) | `house_summary`, `house_find`, `house_states`, `rooms_list` (only what the person may `view`) |
+| Settings | `settings_get`, `settings_schema` (`read`); `settings_change`, `accessory_set` (`settings`); `settings_history` (`audit`); `settings_restore` (`restore`) |
+| Screens (`screens`) | `screens_list`, `screen_get` (`read`); `screen_create`, `screen_rename`, `screen_move`, `screen_remove`, `grid_cards`, `grid_starter`, `grid_set`, `grid_place`, `grid_remove` |
+| Music | `music_settings`, `music_library` (`read`); `music_playlist_save`, `music_preset_save`, `music_item_remove`, `music_pills_order`, `music_settings_set`, `music_relink` (`settings`) |
+| Deploying | `settings_apply` (`settings`); `screen_export`, `screen_import`, `screen_templates`, `screen_from_template`, `screen_preview` (`screens`); `tablet_setup` (`settings`) |
+| Audit / commands | `audit_recent` (`audit`); `house_command` (`commands`) |
 
-| Tool | Does | Built on |
-|---|---|---|
-| `screens_list` | every screen: address, title, who draws it (`mantel`/`ha`), Home Style, which tablets use it | board documents, screens.py |
-| `screen_get` | one screen's whole board, its Home Grid and the menu it shows | `board()` |
-| `screen_create` | `{title, where, copy_from?}` | `POST /api/screens` |
-| `screen_rename` / `screen_move` / `screen_remove` | title, where, delete (refused while a tablet uses it) | screens.py |
-| `grid_cards` | the Home Grid card catalogue: each card's sizes (S…XXL), options and page sources | the card registry the editor reads |
-| `grid_starter` | a starter layout for a screen (by room, by tablet size) | `hk_frontend/grid/starter` |
-| `grid_set` | write a screen's `home_grid` whole: `{v, cols, rows, frame, band, items}` | `board/set` (`changes: {home_grid}`) |
-| `grid_place` / `grid_remove` | add, move or resize one block; remove one | the same, read-modify-write with `expect_version` |
-| `screen_preview` | a PNG of the screen as a tablet draws it | later: see "Previews" |
+`settings_schema` is made from hk_core's own check tables (`changes.HOUSE`, `BOARD`, `TABLET`: each key's kind,
+the choices and entity domains its check closes over) and defaults, so it can't drift from what saves accept
+(a test pins its keys to `changes.BOARD`). An assistant's screens are Mantel's own (`where: mantel`): making or
+removing one in Home Assistant reaches Home Assistant outside the gateway, so those stay Mantel Settings'.
 
-Home Grid's rules (no overlap, inside the grid, a size the card supports, `cols` 6/3/2, `rows` 2–6) are checked
-by hk_core on save, so a bad layout is refused with the field and the reason, and the assistant fixes it. The
-`dry_run` answer includes the checked layout, so it can iterate without writing.
-
-### Music
-
-| Tool | Does | Built on |
-|---|---|---|
-| `music_settings` | speakers, volume, home rooms, presets, pills (with each link's playlist name) | `hk_music/settings/get` |
-| `music_library` | Music Assistant's playlists (and albums, artists) with their `library://` links | `music_assistant/get_library` read |
-| `music_playlist_save` / `music_preset_save` / `music_item_remove` / `music_pills_order` | the Music page's saves | `hk_music/*` settings writes |
-| `music_relink` | pills whose links aren't in the library, with a proposed match by name; `dry_run` then apply | music.py's library check + the saves |
-
-`music_relink` is the 2026-10-31 fix as one tool. `music_settings` flags dead links the way `gone_from_library`
-already does (hk_core/music/engine.py).
-
-### Commands (opt-in, `commands` scope)
-
-`house_command {domain, service, target, data}` through the gateway, with the same refusals as a page. No
-batching, and no alarm. Off until the Owner gives a client the scope.
-
-### Audit (`audit` scope)
-
-`audit_recent {since?, actor?, kind?}`: Mantel's audit rows, so an assistant can answer "what changed this week?"
-and check its own work.
-
-### Resources and prompts
-
-- **Resources** (read-only context a client can attach): `mantel://house`, `mantel://screens/<key>`,
-  `mantel://settings/schema/<scope>`, `mantel://grid/cards`, and the user guide (`docs/guide/*.md`, as Mantel
-  Settings → About → Documentation serves it).
-- **Prompts** (one-click starting points in clients that show them): *Set up a wall tablet*, *Build a Home Grid
-  for a room*, *Copy a screen to another room*, *Fix Music after a library change*, *What changed recently?*
+**Resources**: `mantel://house`, `mantel://screens`, `mantel://screens/{key}`, `mantel://settings/schema/{scope}`,
+`mantel://grid/cards`, `mantel://guide` and `mantel://guide/{page}` (the /docs pages' Markdown). **Prompts**: *Set
+up a wall tablet*, *Build a Home Grid for a room*, *Copy a screen to another room*, *Fix Music after a library
+change*, *What changed recently?*
 
 ## Changing things safely
 
-- **Plan, then apply.** A write tool's first call in a change is a `dry_run`: it returns the diff, the checks'
-  refusals and the versions it read. Applying sends the same arguments with `dry_run: false` and those versions as
-  `expect_version`. If anything moved in between, it is a `conflict` and nothing is written.
-- **Batches are one change.** `settings_apply {changes: [...]}` runs several saves (for example a new screen, its
-  board settings and its Home Grid) as a list: each is checked dry first, then they apply in order. A failure
-  stops the batch and answers which steps landed and how to restore them (settings history). (True all-or-nothing
-  would need a store transaction across documents. Worth it only if this proves to be a real problem.)
-- **Everything is reversible.** Every settings save is a version. The answer to every write includes
-  `{scope, key, version, previous}`, so "undo that" is `settings_restore` to `previous`. Screens removed keep
-  their history.
-- **The audit log says it was an assistant.** `actor` is the person; a new `via` column says `mcp:<client name>`. Mantel Settings → Audit Log can filter on it.
-- **Rate limits**: writes per minute per client (default 60), so a looping agent can't churn the history.
-- **Read-only kill switch**: the App's Read-only option and Allow Control of the House apply exactly as they do
-  to pages. Settings saves still work with commands off, as today.
+- **Plan, then apply, with no session.** Every write tool runs dry first (`dry_run` defaults to true). The change
+  runs exactly as a real one, every check included, up to the one place every settings change ends,
+  `SettingsStore.write` / `remove`. There, inside a plan (`dry_run.py`, a context variable), the store works out
+  the new versions and diffs, **writes nothing** and raises `Planned`, so nothing after it runs either (no publish,
+  no feed), and `audit.config` writes no row. A tool with several saves has each planned and collected. The answer
+  is the diff of every document and a **plan**: a handle the server signs (HMAC, per-process key) naming the tool,
+  a digest of its exact arguments, the grant, the versions read, and ten minutes. Applying is the same call with
+  `dry_run: false` and that plan: other arguments (`plan_mismatch`), another assistant or a forged handle
+  (`plan_invalid`), too late (`plan_expired`) or a document changed meanwhile (`conflict`) is refused and nothing
+  is written. A test checks, tool by tool, that a plan leaves the database byte-for-byte as it was.
+- **The audit row first.** An applied change writes `mcp.<tool>` (the documents, the arguments, `via`) before it
+  runs; no row, no change (`audit_unavailable`). Screens and the gateway write their own rows as well.
+- **Batches are one plan.** `settings_apply {steps: [{tool, arguments}]}` (up to 20) plans every step against the
+  house as it is, shows them together and applies them in order under one plan. A refusal while applying stops
+  it and answers what landed and how to undo it. (A new screen's settings and Home Grid go in its
+  `screen_create`, so a step never depends on an earlier one.)
+- **Everything is reversible.** Every applied change answers `{scope, key, version, previous, undo}`; the undo is
+  `settings_restore` to `previous`. Removed screens keep their history.
+- **Rate limits**: applied changes per minute per assistant (`mcp_write_rate`); requests per minute (600).
+- **The kill switch and Allow Control of the House** apply exactly as they do to pages; settings saves still
+  work with commands off.
 
 ## Making deploying easy
 
-What "easy" means here, and how the tools above get there:
+1. **A new tablet, end to end**: `house_summary` → `screen_create {copy_from}` or `screen_from_template` →
+   `grid_set` → `tablet_setup {tablet, screen}`, which also answers the link a person opens **on the tablet** to
+   enrol it (`/settings#/mantel/devices/enroll/<tablet>`): enrolment trusts a device, so it stays a person's step.
+2. **Screens as files**: `screen_export` (board, Home Grid, per-screen accessory names, and every entity it names
+   with its name and room) and `screen_import` (entities this house lacks matched by domain + name + room, then
+   name alone, or by `mapping`; unmatched ones refuse unless `allow_unmatched`; settings hk_core doesn't take are
+   reported, not kept).
+3. **Templates**: kitchen, hallway, family, nightstand, guest room, living room: Home Grid starter recipes filled
+   from *this* house when used, so a template never carries another house's entities.
+4. **Moving infrastructure**: `music_relink` matches pills whose `library://` links are gone to the library
+   playlist of the pill's name (or its chooser's; accents and case forgiven), when exactly one has it and the pill
+   has one dead link, or by `mapping`; every fix and every link with no match is in the plan.
 
-1. **A new tablet, end to end.** *"Set up the Loft tablet: its own screen, Home Grid, Loft first."* The assistant
-   reads the rooms (`house_summary`), copies the closest screen (`screen_create {copy_from}`), lays out a grid from
-   `grid_starter` and edits it, sets the tablet's settings, and returns an enrolment link for the Owner to open
-   on the tablet (enrolment stays a human step: it trusts a device).
-2. **Screens as files.** `screen_export` returns one screen's board, Home Grid and per-screen accessory names as
-   JSON, and `screen_import` creates a screen from it (checked like any save, entity ids mapped by name and room
-   where the house differs). That makes a **template library** possible (kitchen, nightstand, guest room) and lets
-   a second house start from the first's screens.
-3. **Whole-house setup from a description.** With 1 and 2, a prompt like *"Every room with a tablet gets a Home
-   Grid screen, cameras on the Entry one"* is a batch the assistant plans dry, shows, then applies.
-4. **Moving infrastructure.** Today's case: a service moved and links went stale. Tools like `music_relink`
-   (and later, entity renames after an integration is re-added: `accessory_relink`, matching by name, area and
-   device) turn a migration into one reviewed batch.
+## Previews
 
-## Previews (later)
+On the client side, as preferred: `screen_preview` answers a one-time link (`/mcp/preview/<code>`, five minutes,
+in memory only) that the assistant's own browser opens. It starts a **read-only** browser session (method
+`mcp_preview`, ten minutes, no refresh) for the person and lands on the screen. Read-only is enforced in the
+session middleware and every guard (no unsafe method; no Settings, admin, people, devices, audit, connections,
+backups, `/ma` or `/go2rtc` even to look), on the screen's socket (reads only), in the gateway (no command) and in
+the media proxy. A browser already signed in as that person just opens the screen; one signed in as someone else
+is refused rather than signed out.
 
-`screen_preview` needs a browser on the server. Mantel's own render checks use headless WebKit on the Mac
-(sheet_review.py, tools/headless). Two options, decided when we get there:
+## Slices (all done)
 
-- **In the App image**: Playwright + Chromium adds about 300 MB to the image. Too much for everyone to pay for a
-  developer feature.
-- **On the client side**: the tool returns a one-time URL for the screen at a given frame size (signed, 5 minutes,
-  read-only), and the assistant's own browser opens it. No new weight in Mantel. **Preferred.**
-
-## Slices
-
-| Slice | What | Done when |
+| Slice | What | Checked by |
 |---|---|---|
-| **M12.1** | Transport + personal keys: `/mcp` (initialize, tools/list, tools/call), `mmcp_` keys with scopes, Assistants panel (on/off, keys, Revoke), the audit's `via` | Claude Code connects over the LAN with a key; `house_summary` works; a revoked key is refused |
-| **M12.2** | Read tools + resources: house, rooms, states, settings_get, settings_schema, screens_list, screen_get, music_settings, music_library | an assistant can describe any screen and the music setup accurately |
-| **M12.3** | Settings writes: settings_change, accessory_set, music saves, music_relink, settings_history/restore, dry_run, expect_version, rate limit | the 2026-10-31 relink done with tools alone, visible in the audit as `mcp:` |
-| **M12.4** | Screens + Home Grid: screen_create/rename/move/remove, grid_cards, grid_starter, grid_set/place/remove, settings_apply | a new Home Grid screen built from a prompt, drawn correctly on a tablet |
-| **M12.5** | OAuth 2.1: metadata, dynamic registration, consent page, `mcp` sessions, Settings → Me → Sessions | Claude Desktop connects by signing in, with no key copied |
-| **M12.6** | Deploying: screen_export/import, templates, prompts, the tablet setup flow, preview URLs | a second screen made from the first's export on a fresh Mantel |
-| M12.7 (opt-in) | `house_command` with the `commands` scope; `audit_recent` | off by default; on, refused exactly as a page's commands are |
+| M12.1 | Transport (both eras), keys, Assistants page, the audit's `via` | transport, key, door, revoke, role tests; the SDK in both modes |
+| M12.2 | Read tools, resources, prompts | house/schema/resources tests |
+| M12.3 | Settings and Music writes, plans, `expect_version`, rate limit, history/restore | plan/apply/conflict tests; `music_relink` against a fake library |
+| M12.4 | Screens and Home Grid, `settings_apply` | screen/grid/batch tests |
+| M12.5 | OAuth 2.1 | the flow end to end in tests and with the SDK's OAuth client |
+| M12.6 | Export/import, templates, prompts, tablet setup, previews | export/import/template/preview tests |
+| M12.7 | `house_command` (sign-in + house switch), `audit_recent` | commands and audit tests |
 
-Each slice ships its tests in `hosts/server/tests/` (the transport's JSON-RPC cases; every tool's refusals; a
-pin that every tool maps to a frame in `SAVE_KINDS` / `read_routes`, so nothing bypasses the gateway; scope
-ceilings; door rules) and runs in `tools/ci.py`.
+## Decisions (the open questions)
 
-## Size
-
-| Slices | Rough size |
-|---|---|
-| M12.1–M12.3 (useful: read + settings + music, with keys) | about a week |
-| M12.4 (screens and Home Grid) | 3–4 days |
-| M12.5 (OAuth) | 2–3 days (most of it exists in app_auth.py) |
-| M12.6 (deploying) | about a week, most of it in export/import's entity mapping |
-
-## Open questions
-
-| # | Question | Leaning |
+| # | Question | Decided |
 |---|---|---|
-| 1 | Who may connect an assistant? | Owner and Admin only at first; their ceilings as above |
-| 2 | Tunnel door at all? | Not in M12.1–M12.4; with OAuth only, Owner's choice, after M12.5 |
-| 3 | `dry_run` default true, or a separate `*_plan` tool per write? | default true: one tool per action keeps the list short |
-| 4 | Commands scope ever on for a key (not OAuth)? | no: commands only with a signed-in consent |
-| 5 | Does HK Frontend get the same tools? | no: Mantel only (decision 29); HK Frontend users have HA's own MCP server |
-| 6 | Preview in the image or on the client? | on the client (signed URL) |
+| 1 | Who may connect an assistant? | Owners and Admins, checked on every request |
+| 2 | Tunnel door at all? | Sign-ins only, and only while the Owner turns on `mcp_away` and the grant was allowed away; keys never |
+| 3 | `dry_run` default true, or `*_plan` tools? | Default true, enforced by the signed plan handle |
+| 4 | Commands scope ever on for a key? | No: sign-in consent only, and the house switch |
+| 5 | Does HK Frontend get the same tools? | No (decision 29); HK Frontend users have HA's own MCP server |
+| 6 | Preview in the image or on the client? | On the client (one-time read-only link) |
+
+## What changed from the first plan
+
+- **The transport follows MCP 2026-07-28** (stateless, `server/discover`, header checks) and still answers the
+  `initialize` era; the first draft was written for sessions and a GET stream.
+- **`dry_run` "first call in a session" became a signed plan handle**, since the protocol keeps no session.
+- **Registration only, no Client ID Metadata Documents** (see M12.5), and `resource` / `iss` handled.
+- **Mantel Settings → Advanced → Assistants (MCP)** holds every switch and the list (the first draft split them
+  between Connections and Me).
+- **Every applied change is audited** as `mcp.<tool>`, not only the gateway's commands.
+- **Screens in Home Assistant stay Mantel Settings'** (creating one calls Home Assistant outside the gateway).
+- **Claude Desktop on the home network** connects through its config file (`mcp-remote` with a key); claude.ai's
+  own connectors reach a server from Anthropic's cloud, so they need the tunnel door and a sign-in.
+- **A preview can only look**, and never at Settings.

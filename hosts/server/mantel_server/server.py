@@ -38,7 +38,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
-from . import app_shell, cf_access, guards, hk_cards, live, page_health, performance, server_settings, setup_guide
+from . import app_shell, cf_access, guards, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -61,6 +61,8 @@ POLICY_TICK = 60.0          # seconds between re-checks of what each socket may 
 log = logging.getLogger("mantel.server")
 
 COMMAND_TYPES = frozenset({"call_service", "command", "cmd", "service", "fire_event", "execute", "turn_on", "turn_off"})
+# what a read-only socket (a screen preview, mcp/preview.py) may send besides subscribe/unsubscribe/ping: reads only
+PREVIEW_TYPES = frozenset({"read", "read_subscribe", "read_unsubscribe", "read_api"})
 COMMANDS_DISABLED = {
     "type": "error",
     "code": "commands_disabled",
@@ -124,6 +126,7 @@ class ClientSession:
         # P3.4's per-connection context: the connectors' handlers answer through it, and close() ends
         # every subscription they opened (WebRTC sessions, forecasts, MA events)
         self.ctx = Ctx(send=self.send, identity=principal, live=app.get("live") if app is not None else None)
+        self.read_only = bool(getattr(getattr(principal, "identity", None), "read_only", False))
         self.tasks: set[asyncio.Task] = set()
 
     def spawn(self, coro) -> None:
@@ -181,6 +184,14 @@ class ClientSession:
             await self.send({"type": "error", "code": "invalid_json"}, count=False)
             return
         kind = classify(msg)
+        if self.read_only and kind == "command" or self.read_only and kind == "unknown" and \
+                not (isinstance(msg, dict) and msg.get("type") in PREVIEW_TYPES):
+            # a screen preview an assistant opened (mcp/preview.py) looks and never changes anything
+            err = {"type": "error", "code": "read_only", "message": "this is a preview: it changes nothing"}
+            if isinstance(msg, dict) and "id" in msg:
+                err["id"] = msg["id"]
+            await self.send(err, count=False)
+            return
         if kind == "command":
             gw = self.app.get("gateway") if self.app is not None else None
             if gw is not None and self.principal is not None and isinstance(msg, dict) and msg.get("type") == "command":
@@ -861,6 +872,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     app_shell.register(app, hub)     # phase 10: the web app on a Home Screen, push, and the iPhone/iPad/Mac apps
     # Mantel Settings' General and Home Assistant settings that were start-up options (and their one-time moves)
     server_settings.register(app)
+    mcp.register(app)                # assistants (docs/phase12/MCP-SERVER.md): /mcp, its sign-in, Settings' page
     # a session, a wall tablet or a link credential revoked, from anywhere: what is open as it ends at once (live.py)
     for name in ("sessions", "devices", "service_accounts"):
         if app.get(name) is not None:

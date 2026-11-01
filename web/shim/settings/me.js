@@ -64,7 +64,8 @@ const sessKey = (s) => shortUA(s.user_agent) + '|' + s.door;
 const sessWhere = (s) => (s.door === 'lan' ? 'Home network' : 'Remote');
 const HOW = { ha: 'Signed in with Home Assistant', ingress: 'Home Assistant’s sidebar', password: 'Signed in with a password',
               'password+totp': 'Password and authenticator', passkey: 'Signed in with a passkey', bootstrap: 'First sign-in',
-              legacy: 'Earlier sign-in', 'app-web': 'The Mantel app' };
+              legacy: 'Earlier sign-in', 'app-web': 'The Mantel app', mcp: 'An assistant (Assistants)',
+              mcp_preview: 'An assistant’s screen preview' };
 const sessHow = (s) => HOW[s.method] || s.method + ' sign-in';
 function sessGroups(list) {
   const by = new Map();

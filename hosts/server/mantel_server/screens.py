@@ -136,21 +136,34 @@ def _ha_failed(exc: Exception) -> web.Response:
     raise exc
 
 
-# -- REST -----------------------------------------------------------------------------------------------
-@guard("manager", audit="screen.add")
-async def api_add(request: web.Request) -> web.Response:
-    ident = guarded(request)
-    app = request.app
+class ScreenError(Exception):
+    """A refusal the REST routes answer with ``status`` and the assistant's tools (mcp/tools/screens.py) with ``code``."""
+
+    def __init__(self, status: int, code: str, message: str | None = None) -> None:
+        super().__init__(message or code)
+        self.status, self.code, self.message = status, code, message
+
+
+def _check_audit(request: web.Request | None, app: web.Application, ident: Any, action: str, detail: dict) -> None:
+    try:
+        audit.config(request, ident, action, detail, app=app)
+    except audit.Unavailable:
+        raise ScreenError(503, "audit_unavailable") from None
+
+
+async def add(app: web.Application, ident: Any, body: dict, request: web.Request | None = None, *,
+              changes: dict | None = None) -> dict:
+    """A new screen ``{title, where?, from?}``: its settings copied from ``from`` or a new screen's, then ``changes``
+    (board settings, checked by hk_core as board/set checks them: the assistant's screen_create). Audited first."""
     svc = app["settings"]
-    body = await read_json(request)
     try:
         title = _title(body)
     except ValueError as exc:
-        return error(400, "invalid", message=str(exc))
+        raise ScreenError(400, "invalid", str(exc)) from None
     where = body.get("where", "mantel")
     src = body.get("from")
     if where not in WHERE or (src is not None and (not isinstance(src, str) or svc.store.get("board", src) is None)):
-        return error(400, "invalid", message="where: mantel or ha; from: an existing screen")
+        raise ScreenError(400, "invalid", "where: mantel or ha; from: an existing screen")
     key = free_key(svc.store, title)
     if src is not None:
         board = copy.deepcopy(svc.store.body("board", src))
@@ -158,18 +171,81 @@ async def api_add(request: web.Request) -> web.Response:
         from hk_core.settings import model as SM
         board = SM.new_board("personal", {"dashboard": svc.house_settings()})
     board.update(where=where, title=title)
-    refused = _audit(request, ident, "screen.add", {"screen": key, "title": title, "where": where, "from": src})
-    if refused is not None:
-        return refused
+    if changes:
+        from hk_core.settings import changes as C
+        bad = sorted(set(changes) & {"where", "title"})
+        if bad:
+            raise ScreenError(400, "invalid", f"{bad}: a screen's title and where are its own arguments")
+        board, errors = C.apply_board(board, changes)
+        if errors:
+            raise ScreenError(400, "invalid_format", "; ".join(f"{k}: {v}" for k, v in sorted(errors.items())))
+        board.update(where=where, title=title)
+    _check_audit(request, app, ident, "screen.add", {"screen": key, "title": title, "where": where, "from": src})
     if where == "ha":
         try:
             await _make_ha_dashboard(app, key, title)
-        except (HD.Refused, HD.HaError) as exc:
-            return _ha_failed(exc)
+        except HD.Refused as exc:
+            raise ScreenError(exc.status, exc.state, exc.message) from None
+        except HD.HaError as exc:
+            raise ScreenError(502, "ha_refused", f"Home Assistant refused it: {exc.message or exc.code}.") from None
     svc.store.write([("board", key, board)], actor=actor_of(ident), message="mantel/screen/add")
     svc.publish()
     log.info("screens: %s added %s (%s)", ident.user.name or ident.user.id, key, where)
-    return ok({"key": key, "title": title, "where": where})
+    return {"key": key, "title": title, "where": where}
+
+
+async def change(app: web.Application, ident: Any, key: str, body: dict, request: web.Request | None = None) -> dict:
+    """``{where}`` or ``{title}`` (``remove_ha`` stays the REST route's: it reaches Home Assistant)."""
+    svc = app["settings"]
+    cur = svc.store.get("board", key) if KEY.match(key) else None
+    if cur is None:
+        raise ScreenError(404, "not_found", f"no screen {key!r}")
+    board = copy.deepcopy(cur.body)
+    if set(body) == {"where"} and body["where"] in WHERE:
+        if body["where"] == "ha" and _tablets_on(svc, key):
+            raise ScreenError(409, "tablets", "Wall tablets open this screen in Mantel. Move them to another "
+                                              "screen first, or split it instead.")
+        board["where"] = body["where"]
+        action = "screen.where"
+    elif set(body) == {"title"}:
+        try:
+            board["title"] = _title(body)
+        except ValueError as exc:
+            raise ScreenError(400, "invalid", str(exc)) from None
+        action = "screen.title"
+    else:
+        raise ScreenError(400, "invalid", '{"where": "mantel"|"ha"}, {"title"}, or {"remove_ha": true}')
+    _check_audit(request, app, ident, action, {"screen": key, **body})
+    svc.store.write([("board", key, board)], actor=actor_of(ident), message="mantel/" + action.replace(".", "/"),
+                    expect={("board", key): cur.version})
+    svc.publish()
+    return {"key": key, "where": board.get("where", "mantel"), "title": board.get("title", "")}
+
+
+async def remove(app: web.Application, ident: Any, key: str, request: web.Request | None = None) -> dict:
+    """A screen no wall tablet uses, removed from Mantel (its history kept)."""
+    svc = app["settings"]
+    if not KEY.match(key) or svc.store.get("board", key) is None:
+        raise ScreenError(404, "not_found", f"no screen {key!r}")
+    if _tablets_on(svc, key):
+        raise ScreenError(409, "tablets", "Wall tablets open this screen. Move them to another screen first.")
+    _check_audit(request, app, ident, "screen.remove", {"screen": key})
+    svc.store.remove("board", key, actor=actor_of(ident), message="mantel/screen/remove")
+    svc.publish()
+    return {"key": key, "removed": True}
+
+
+def _answer(exc: ScreenError) -> web.Response:
+    return error(exc.status, exc.code, **({"message": exc.message} if exc.message and exc.message != exc.code else {}))
+
+
+# -- REST -----------------------------------------------------------------------------------------------
+@guard("manager", audit="screen.add")
+async def api_add(request: web.Request) -> web.Response:
+    try:
+        return ok(await add(request.app, guarded(request), await read_json(request), request))
+    except ScreenError as exc:
+        return _answer(exc)
 
 
 @guard("manager", audit=("screen.where", "screen.title", "screen.remove_ha"))
@@ -177,24 +253,10 @@ async def api_put(request: web.Request) -> web.Response:
     ident = guarded(request)
     app, key = request.app, request.match_info["key"]
     svc = app["settings"]
-    cur = svc.store.get("board", key) if KEY.match(key) else None
-    if cur is None:
+    if (svc.store.get("board", key) if KEY.match(key) else None) is None:
         return error(404, "not_found")
     body = await read_json(request)
-    board = copy.deepcopy(cur.body)
-    if set(body) == {"where"} and body["where"] in WHERE:
-        if body["where"] == "ha" and _tablets_on(svc, key):
-            return error(409, "tablets", message="Wall tablets open this screen in Mantel. Move them to another "
-                                                 "screen first, or split it instead.")
-        board["where"] = body["where"]
-        action = "screen.where"
-    elif set(body) == {"title"}:
-        try:
-            board["title"] = _title(body)
-        except ValueError as exc:
-            return error(400, "invalid", message=str(exc))
-        action = "screen.title"
-    elif body == {"remove_ha": True}:
+    if body == {"remove_ha": True}:
         refused = _audit(request, ident, "screen.remove_ha", {"screen": key})
         if refused is not None:
             return refused
@@ -216,15 +278,10 @@ async def api_put(request: web.Request) -> web.Response:
         _forget_reported(app, key)
         svc.publish()
         return ok({"key": key, "removed": gone})
-    else:
-        return error(400, "invalid", message='{"where": "mantel"|"ha"}, {"title"}, or {"remove_ha": true}')
-    refused = _audit(request, ident, action, {"screen": key, **body})
-    if refused is not None:
-        return refused
-    svc.store.write([("board", key, board)], actor=actor_of(ident), message="mantel/" + action.replace(".", "/"),
-                    expect={("board", key): cur.version})
-    svc.publish()
-    return ok({"key": key, "where": board.get("where", "mantel"), "title": board.get("title", "")})
+    try:
+        return ok(await change(app, ident, key, body, request))
+    except ScreenError as exc:
+        return _answer(exc)
 
 
 def _forget_reported(app: web.Application, key: str) -> None:
@@ -325,19 +382,10 @@ async def _repoint_frames(app: web.Application, old: str, new: str, title: str) 
 
 @guard("manager", audit="screen.remove")
 async def api_delete(request: web.Request) -> web.Response:
-    ident = guarded(request)
-    app, key = request.app, request.match_info["key"]
-    svc = app["settings"]
-    if not KEY.match(key) or svc.store.get("board", key) is None:
-        return error(404, "not_found")
-    if _tablets_on(svc, key):
-        return error(409, "tablets", message="Wall tablets open this screen. Move them to another screen first.")
-    refused = _audit(request, ident, "screen.remove", {"screen": key})
-    if refused is not None:
-        return refused
-    svc.store.remove("board", key, actor=actor_of(ident), message="mantel/screen/remove")
-    svc.publish()
-    return ok({"key": key, "removed": True})
+    try:
+        return ok(await remove(request.app, guarded(request), request.match_info["key"], request))
+    except ScreenError as exc:
+        return _answer(exc)
 
 
 def register(app: web.Application) -> None:

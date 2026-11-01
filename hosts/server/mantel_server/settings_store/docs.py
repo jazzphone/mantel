@@ -72,6 +72,7 @@ class Actor:
     role: str | None = None
     device_id: str | None = None
     label: str | None = None
+    via: str | None = None              # an assistant acting for the person (``mcp:<client name>``)
 
     @property
     def id(self) -> str:

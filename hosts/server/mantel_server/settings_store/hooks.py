@@ -67,7 +67,8 @@ def _sides(identity: Any) -> tuple[str | None, str | None, str | None, str | Non
 
 def actor_of(identity: Any, label: str | None = None) -> Actor:
     uid, urole, did, _drole, _door, _fresh = _sides(identity)
-    return Actor(user_id=uid, role=urole, device_id=did, label=label)
+    via = getattr(identity, "via", None) if not isinstance(identity, Mapping) else identity.get("via")
+    return Actor(user_id=uid, role=urole, device_id=did, label=label, via=via if isinstance(via, str) else None)
 
 
 def feature_for(identity: Any, scope: Scope) -> str:

@@ -53,6 +53,8 @@ DOORS = ("lan", "tunnel")            # the doors a session row is stored with
 REQUEST_DOORS = DOORS + ("ha",)
 INGRESS_METHOD = "ingress"
 APP_METHOD = "app"                   # the iPhone/iPad/Mac apps' credential (app_auth.py): never a cookie
+MCP_METHOD = "mcp"                   # an assistant's credential (mcp/auth.py): only ever at /mcp, never a cookie
+PREVIEW_METHOD = "mcp_preview"       # a screen preview an assistant opened (mcp/preview.py): read-only, minutes
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "[::1]", "::1"})
 COOKIE_QUEUE = "mantel_cookie_queue"
@@ -95,6 +97,10 @@ class Identity:
     fresh_factor: str | None = None
     session_id: str | None = None
     csrf: str | None = None
+    # an assistant acting for ``user`` (mcp/: ``mcp:<client name>``): the audit and the settings history say so
+    via: str | None = None
+    # a preview of a screen an assistant opened (mcp/preview.py): it may look, never change anything
+    read_only: bool = False
 
     @property
     def authenticated(self) -> bool:
@@ -254,7 +260,7 @@ class SessionManager:
         return row if self._live(row, self._now(now), None) else None
 
     def rotate(self, refresh_token: str | None, now: float | None = None, door: str | None = None,
-               allow_app: bool = False):
+               allow_app: bool = False, allow_mcp: bool = False):
         """Use a refresh token. Returns (status, value):
 
         ``("ok", (Issued, row))`` new tokens; ``("grace", row)`` a parallel request just after a
@@ -273,6 +279,8 @@ class SessionManager:
             return "invalid", None
         if row["method"] == APP_METHOD and not allow_app:
             return "invalid", None            # an app's family rotates only with its device key (app_auth.py)
+        if row["method"] == MCP_METHOD and not allow_mcp:
+            return "invalid", None            # an assistant's family rotates only at its token endpoint (mcp/oauth.py)
         if rt["used"] is not None:
             if now - rt["used"] <= REFRESH_REUSE_GRACE:
                 return "grace", row
@@ -478,6 +486,10 @@ def identity(request: web.Request) -> Identity:
         # an app's credential is DPoP-bound (app_auth.py) and only good with its device key: never as a cookie
         log.warning("ignored an app credential presented as a cookie (from %s)", request.remote)
         row = None
+    if row is not None and row["method"] == MCP_METHOD:
+        # an assistant's credential is good at /mcp only (mcp/auth.py), never as a browser's cookie
+        log.warning("ignored an assistant's credential presented as a cookie (from %s)", request.remote)
+        row = None
     if row is not None and row["method"] == INGRESS_METHOD:
         # an Ingress session is only good through Ingress (ingress.py resolves those): a copied cookie
         # presented anywhere else is no one
@@ -491,9 +503,17 @@ def identity(request: web.Request) -> Identity:
                      fresh_factor_at=row["fresh_factor_at"] if row is not None else None,
                      fresh_factor=row["fresh_factor"] if row is not None else None,
                      session_id=row["id"] if row is not None else None,
-                     csrf=row["csrf"] if row is not None else device_csrf)
+                     csrf=row["csrf"] if row is not None else device_csrf,
+                     via=_preview_via(row), read_only=row is not None and row["method"] == PREVIEW_METHOD)
     request["identity"] = ident
     return ident
+
+
+def _preview_via(row) -> str | None:
+    """A preview session's ``via`` (mcp/preview.py keeps the assistant's name as its user agent)."""
+    if row is None or row["method"] != PREVIEW_METHOD:
+        return None
+    return "mcp-preview:" + str(row["user_agent"] or "assistant")[:80]
 
 
 def check_csrf(request: web.Request, ident: Identity) -> None:

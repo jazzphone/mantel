@@ -26,7 +26,7 @@ function auditSays(r) {
   try { return say(t); } catch (e) { return null; }
 }
 export function pAudit() {
-  return { title: 'Audit Log', top: true, scope: 'Every house command and every refused request, and every change to settings, people and tablets, newest first: who, at which tablet, what, and the result.', body(c) {
+  return { title: 'Audit Log', top: true, scope: 'Every house command and every refused request, and every change to settings, people and tablets, newest first: who, at which tablet or through which assistant, what, and the result.', body(c) {
     result(c, 'audit');
     const names = load('audit-names', async () => {
       let users = null, devices = null;
@@ -57,13 +57,14 @@ export function pAudit() {
       users ? K().select({ label: 'Who', options: [['', 'Anyone']].concat(users.map((u) => [u.id, `${u.name || u.username} (${roleLabel(u.role)})`])), value: f.actor || '', fk: 'mx:audit:actor', onChange: set('actor') }) : null,
       devices ? K().select({ label: 'Tablet', options: [['', 'Any Tablet']].concat(devices.map((d) => [d.id, d.name + (d.revoked ? ' (revoked)' : '')])), value: f.device || '', fk: 'mx:audit:device', onChange: set('device') }) : null,
       K().select({ label: 'Decision', options: [['', 'Any'], ['allowed', 'Allowed'], ['denied', 'Denied'], ['step_up', 'Needed Confirmation (Older Entries)']], value: f.decision || '', fk: 'mx:audit:decision', onChange: set('decision') }),
+      K().select({ label: 'Through', options: [['', 'Anyone'], ['mcp', 'An Assistant'], ['-', 'No Assistant']], value: f.via || '', fk: 'mx:audit:via', onChange: set('via') }),
       K().select({ label: 'Kind', options: [['', 'Any'], ['service', 'Service Calls'], ['ws', 'Home Assistant Writes'], ['http', 'HTTP'], ['ma', 'Music'], ['config', 'Settings and Accounts'], ['tablet', 'Wall Tablets'], ['system', 'System']], value: f.kind || '', fk: 'mx:audit:kind', onChange: set('kind') }),
       ...range('since', 'From', [['', 'Any Time'], ['3600', 'The Last Hour'], ['86400', 'The Last 24 Hours'], ['604800', 'The Last 7 Days'],
                                  ['2592000', 'The Last 30 Days'], ['custom', 'A Date and Time…']]),
       ...range('until', 'To', [['', 'Now'], ['custom', 'A Date and Time…']]),
       K().select({ label: 'Rows per Page', options: [['25', '25'], ['50', '50'], ['100', '100']], value: f.limit || '25', fk: 'mx:audit:limit', onChange: set('limit') })]));
     const q = new URLSearchParams();
-    for (const k of ['actor', 'device', 'decision', 'kind', 'since', 'until', 'limit']) if (f[k]) q.set(k, f[k]);
+    for (const k of ['actor', 'device', 'decision', 'kind', 'via', 'since', 'until', 'limit']) if (f[k]) q.set(k, f[k]);
     const before = st.stack[st.stack.length - 1];
     if (before) q.set('before', before);
     const got = load('audit', () => api('GET', '/api/audit?' + q.toString()));
@@ -79,7 +80,7 @@ export function pAudit() {
       data.rows.length ? data.rows.map((r) => {
         const says = auditSays(r);
         const cell = info([r.action, says || target(r.target)].filter(Boolean).join(' · '),
-          [fmtFull(r.timestamp), who(r), r.device ? 'at ' + (dname[r.device] || r.device_role || String(r.device).slice(0, 6)) : null,
+          [fmtFull(r.timestamp), who(r), r.via ? 'through ' + String(r.via).replace(/^mcp(-preview)?:/, '') : null, r.device ? 'at ' + (dname[r.device] || r.device_role || String(r.device).slice(0, 6)) : null,
            (r.reason || '').replace(/_/g, ' ') || null, r.step_up ? 'confirmed by ' + r.step_up : null, r.result || null,
            [r.door, r.source_ip].filter(Boolean).join(' ') || null].filter(Boolean).join(' · '),
           r.decision === 'denied' ? 'Denied' : r.decision === 'step_up' ? 'Confirm' : 'Allowed', r.decision === 'denied' ? 'warn' : '');

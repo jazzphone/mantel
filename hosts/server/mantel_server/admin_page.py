@@ -45,7 +45,8 @@ ASSET = PAGE + "/{name}"
 OVERVIEW = "/api/admin/overview"
 ASSETS = {"admin.js": "text/javascript", "admin.css": "text/css"}
 # admin.js imports ../webauthn.js (the passkey helpers shared with /login), served by login_page.py
-SECTIONS = ("me", "connections", "general", "people", "devices", "files", "photos", "backups", "roles", "service", "connect", "audit", "about", "performance")
+SECTIONS = ("me", "connections", "general", "people", "devices", "files", "photos", "backups", "roles", "service", "connect",
+            "assistants", "audit", "about", "performance")
 
 CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
        "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
@@ -82,6 +83,10 @@ def sections_for(request: web.Request, ident: Identity) -> list[str]:
         out.append("general")              # server_settings.py: the same rule
         out.append("performance")          # performance.py: GET /api/performance, managers; shown in About
     authz = request.app.get("authz")
+    # Assistants (MCP): mcp/admin.py's GET, an Owner or Admin on the home network (or HA's sidebar with the home rules)
+    if role in MANAGERS and (ident.door == "lan" or (authz is not None and hasattr(authz, "home_door")
+                                                     and authz.home_door(ident))):
+        out.append("assistants")
     if role == "owner":                    # rbac_store's REST is Owner-only
         out.append("roles")
         # service_accounts' REST: an Owner's own session on the LAN door, or HA's sidebar with the home

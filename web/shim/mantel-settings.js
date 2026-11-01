@@ -3,7 +3,7 @@
 // The panel (web/hk/panels/hk-settings.js) asks its host for pages of its own (hkShell.settingsHost(),
 // "THE HOST'S SETTINGS" there); this is Mantel's answer: Me, People, Roles & Grants, Audit Log, Connections (Home
 // Assistant with Mantel Link, HK Frontend and Mantel Connect; Music Assistant), Your Files (with Photos,
-// mantel-photos.js) and Service Accounts, and Mantel's groups on HK's own wall tablet pages; every one drawn with HK Settings' own kit
+// mantel-photos.js), Service Accounts and Assistants (MCP), and Mantel's groups on HK's own wall tablet pages; every one drawn with HK Settings' own kit
 // (hk-settings-kit.js: iOS Settings, docs/DESIGN.md "HK Settings stays iOS Settings"). Only Mantel loads
 // this file; Home Assistant's build never ships web/shim, so none of it exists in HK Frontend inside HA.
 //
@@ -26,6 +26,7 @@ import { pRoles } from './settings/roles.js';
 import { pFiles, photoTools } from './settings/files.js';
 import { pBackups } from './settings/backups.js';
 import { pService } from './settings/service.js';
+import { pAssistants } from './settings/assistants.js';
 import { pConnect } from './settings/connect.js';
 import { pConnections } from './settings/connections.js';
 import { drawDirect, pressTablets } from './settings/tablets.js';
@@ -49,6 +50,7 @@ const PAGES = [
   ['setup', 'Set Up Mantel', 'mdi:clipboard-check', C.green, 'end', 'Mantel'],
   ['about', 'About', 'mdi:information-outline', C.gray, 'end', 'Mantel'],
   ['service', 'Service Accounts', 'mdi:key-variant', C.brown, 'end', 'Advanced'],
+  ['assistants', 'Assistants (MCP)', 'mdi:robot', C.indigo, 'end', 'Advanced'],
 ];
 // Photos is inside Your Files (#/mantel/files/photos): its old addresses forward there. Devices is each wall tablet's
 // own page now (All Screens, Wall Tablets: extend 'tablet' and 'tablets', below); Mantel Connect is in Connections,
@@ -67,7 +69,7 @@ let lastPage = null;
 // whether the server has house commands on (the hub's capabilities): set by the page that owns the socket
 let commandsOn = () => false;
 export function useCommands(fn) { commandsOn = typeof fn === 'function' ? fn : () => false; }
-const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, backups: pBackups, service: pService, about: pAbout, general: pGeneral,
+const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, backups: pBackups, service: pService, assistants: pAssistants, about: pAbout, general: pGeneral,
                 connect: pConnect, connections: pConnections, audit: pAudit, setup: pSetup };
 
 export const host = {

@@ -7,6 +7,7 @@ import sqlite3
 import time
 from typing import Callable, Iterable, Mapping
 
+from .. import dry_run
 from .docs import Actor, Doc, HISTORY_LIMIT, MAX_DOC, SCOPES, SettingsError, _empty, _stored, diff
 
 # ---------------------------------------------------------------------------------------- store
@@ -55,8 +56,9 @@ class SettingsStore:
         version = (cur.version if cur else self._last_version(scope, key)) + 1
         self.conn.execute(
             "INSERT INTO settings_history (scope, key, version, body, diff, action, message, actor, actor_role, device,"
-            " source, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            (scope, key, version, text, _stored(d), action, message, actor.id, actor.role, actor.device_id, source, now))
+            " source, created, via) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (scope, key, version, text, _stored(d), action, message, actor.id, actor.role, actor.device_id, source, now,
+             actor.via))
         self.conn.execute(
             "INSERT INTO settings_docs (scope, key, version, body, updated, updated_by) VALUES (?,?,?,?,?,?) "
             "ON CONFLICT(scope, key) DO UPDATE SET version=excluded.version, body=excluded.body, "
@@ -77,6 +79,9 @@ class SettingsStore:
         cur = self.get(scope, key)
         if cur is None:
             return False
+        if dry_run.active():
+            dry_run.raise_planned([{"scope": scope, "key": key, "version": cur.version, "next": cur.version + 1,
+                                    "diff": diff(cur.body, {}), "removed": True}])
         with self.conn:
             self._remove_one(cur, actor=actor, message=message, now=float(self.clock()))
         return True
@@ -85,9 +90,9 @@ class SettingsStore:
         """remove()'s two statements, inside the caller's transaction."""
         self.conn.execute(
             "INSERT INTO settings_history (scope, key, version, body, diff, action, message, actor, actor_role,"
-            " device, source, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            " device, source, created, via) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (cur.scope, cur.key, cur.version + 1, "{}", _stored(diff(cur.body, {})), "set", message or "removed",
-             actor.id, actor.role, actor.device_id, None, now))
+             actor.id, actor.role, actor.device_id, None, now, actor.via))
         self.conn.execute("DELETE FROM settings_docs WHERE scope=? AND key=?", (cur.scope, cur.key))
 
     def write(self, changes: Iterable[tuple[str, str, dict]], *, actor: Actor, action: str = "set",
@@ -97,6 +102,8 @@ class SettingsStore:
         documents that actually changed (an unchanged body makes no version)."""
         now = float(self.clock())
         out: list[Doc] = []
+        if dry_run.active():
+            self._plan(list(changes), expect)
         with self.conn:
             for scope, key, body in changes:
                 got = self._write_one(scope, key, body, actor=actor, action=action, message=message, source=source,
@@ -104,6 +111,30 @@ class SettingsStore:
                 if got is not None:
                     out.append(got)
         return out
+
+    def _plan(self, changes: list[tuple[str, str, dict]], expect: Mapping[tuple[str, str], int] | None) -> None:
+        """write() inside a plan (dry_run.py): the same checks as _write_one, nothing written, Planned raised."""
+        docs, seen = [], {}
+        for scope, key, body in changes:
+            if scope not in SCOPES:
+                raise SettingsError("invalid", f"unknown scope {scope!r}")
+            if not isinstance(body, dict):
+                raise SettingsError("invalid", "a settings document is a JSON object")
+            if len(_stored(body).encode()) > MAX_DOC:
+                raise SettingsError("too_big", f"{scope}/{key} would be larger than {MAX_DOC} bytes")
+            cur = self.get(scope, key)
+            version = cur.version if cur else 0
+            wanted = (expect or {}).get((scope, key))
+            if wanted is not None and version != wanted:
+                raise SettingsError("conflict", f"{scope}/{key} changed meanwhile (now version {version})")
+            old = seen.get((scope, key), cur.body if cur else {})
+            d = diff(old, json.loads(_stored(body)))
+            seen[(scope, key)] = body
+            if cur is not None and _empty(d):
+                continue
+            docs.append({"scope": scope, "key": key, "version": version,
+                         "next": (version if cur else self._last_version(scope, key)) + 1, "diff": d, "removed": False})
+        dry_run.raise_planned(docs)
 
     def history(self, scope: str, key: str, limit: int = 50, bodies: bool = False) -> list[dict]:
         limit = max(1, min(int(limit), HISTORY_LIMIT))
@@ -114,7 +145,7 @@ class SettingsStore:
         for r in rows:
             item = {"version": r["version"], "action": r["action"], "message": r["message"], "actor": r["actor"],
                     "actor_role": r["actor_role"], "actor_name": r["actor_name"], "device": r["device"], "source": r["source"], "created": r["created"],
-                    "diff": json.loads(r["diff"])}
+                    "diff": json.loads(r["diff"]), "via": r["via"] if "via" in r.keys() else None}
             if bodies:
                 item["body"] = json.loads(r["body"])
             out.append(item)

@@ -19,6 +19,8 @@ from typing import Any
 
 from aiohttp import web
 
+from . import dry_run
+
 log = logging.getLogger(__name__)
 
 
@@ -43,11 +45,19 @@ def event(request: web.Request | None, ident: Any, action: str, detail: Any, *, 
     device = None if bare else getattr(ident, "device", None)
     row = {"timestamp": app["clock"](), "actor": user.id if user else None, "role": user.role if user else None,
            "device": device.id if device else None, "device_role": device.role if device else None,
-           "action": action, "detail": detail, "door": getattr(ident, "door", None),
+           "action": action, "detail": detail, "door": getattr(ident, "door", None), "via": _via(ident),
            "source_ip": client_ip(request) if request is not None else getattr(ident, "source_ip", None)}
     if reason is not None:
         row["reason"] = reason
     return row
+
+
+def _via(ident: Any) -> str | None:
+    """``mcp:<client>`` when an assistant acts for the person (sessions.Identity.via; a Principal's identity's)."""
+    got = getattr(ident, "via", None)
+    if got is None:
+        got = getattr(getattr(ident, "identity", None), "via", None)
+    return got if isinstance(got, str) and got else None
 
 
 def config(request: web.Request | None, ident: Any, action: str, detail: Any, *,
@@ -57,7 +67,7 @@ def config(request: web.Request | None, ident: Any, action: str, detail: Any, *,
     socket passes its request, a background task its app)."""
     app = app if app is not None else request.app
     audit = app.get("audit")
-    if audit is None:
+    if audit is None or dry_run.active():         # a plan (dry_run.py) changes nothing: there is nothing to record
         return
     try:
         audit.config_event(event(request, ident, action, detail, app=app, reason=reason))

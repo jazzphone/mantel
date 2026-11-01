@@ -15,6 +15,8 @@ STATIC = "a static file or page shell any session (or the sign-in page) loads; t
 LINKED = "linked mode's endpoint: the linked HK Frontend's Service credential (linked.py), not a session"
 PROXY = "the media proxy: its own authorize() (media_proxy.py) checks the session and the service's grant"
 PUBLIC = "public on purpose: health and build checks, which the container and the HA App probe signed out"
+MCP = "an assistant's endpoint: its own bearer credential (mcp/auth.py: a personal key or a signed-in token), not a session"
+MCP_OAUTH = "an assistant's sign-in (mcp/oauth.py): OAuth metadata, registration, a code or refresh token; the consent page asks for the person's own session and CSRF token"
 
 ALLOW = {
     "/api/auth/password": SIGN_IN, "/api/auth/totp/verify": SIGN_IN, "/api/auth/passkey/options": SIGN_IN,
@@ -38,6 +40,10 @@ ALLOW = {
     "/apple-touch-icon.png": STATIC, "/app/art/{name}": STATIC, "/hk/{path}": STATIC, "/web/{path}": STATIC,
     "/static/mdi/{name}": STATIC, "/docs": STATIC, "/docs/": STATIC, "/docs/images/{name}": STATIC,
     "/docs/{page}": STATIC,
+    "/mcp": MCP, "/mcp/preview/{code}": "a screen preview: its one-time code (mcp/preview.py) starts a read-only session",
+    "/.well-known/oauth-protected-resource": MCP_OAUTH, "/.well-known/oauth-protected-resource/mcp": MCP_OAUTH,
+    "/.well-known/oauth-authorization-server": MCP_OAUTH, "/mcp/oauth/register": MCP_OAUTH,
+    "/mcp/oauth/authorize": MCP_OAUTH, "/mcp/oauth/token": MCP_OAUTH, "/mcp/oauth/revoke": MCP_OAUTH,
 }
 
 

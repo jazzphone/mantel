@@ -504,14 +504,15 @@ class Audit:
         with self.db:
             cur = self.db.execute(
                 "INSERT INTO action_audit (timestamp, actor, actor_name, role, device, device_role, kind, action, target, "
-                "decision, reason, sensitive, door, step_up, step_up_age, source_ip, result, result_at) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "decision, reason, sensitive, door, step_up, step_up_age, source_ip, result, result_at, via) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (self.clock(), actor or (u.id if u else None), actor_name or (u.name if u else None),
                  u.role if u else None, d.id if d else None, d.role if d else None, kind,
                  (action or "")[:200] or None, json.dumps(list(targets))[:2000], decision, reason, sensitive,
                  ident.door if ident is not None else None, step_up, step_up_age,
                  principal.source_ip if principal is not None else None,
-                 result, self.clock() if result is not None else None))
+                 result, self.clock() if result is not None else None,
+                 (getattr(ident, "via", None) or None) if ident is not None else None))
         return int(cur.lastrowid)
 
     def finish(self, audit_id: int, result: str) -> None:
@@ -528,14 +529,15 @@ class Audit:
         with self.db:
             self.db.execute(
                 "INSERT INTO action_audit (timestamp, actor, role, device, device_role, kind, action, target, decision, "
-                "reason, door, source_ip) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                "reason, door, source_ip, via) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (event.get("timestamp") or self.clock(), event.get("actor"), event.get("role"), event.get("device"),
                  event.get("device_role"), "config", str(event.get("action"))[:200],
                  json.dumps(event.get("detail"), default=str)[:2000], "allowed",
                  # why it was allowed: the caller's reason, else the role that may make the change (an Admin's
                  # change was written as "owner" before)
                  event.get("reason") or event.get("role") or "owner",
-                 door if door in ("lan", "tunnel", "ha") else None, (event.get("source_ip") or None)))
+                 door if door in ("lan", "tunnel", "ha") else None, (event.get("source_ip") or None),
+                 (event.get("via") or None)))
 
     def rows(self, **where) -> list[dict]:
         sql = "SELECT * FROM action_audit"
@@ -546,9 +548,17 @@ class Audit:
     # -- reading (GET /api/audit) -----------------------------------------------------------------
     def query(self, *, actor: str | None = None, device: str | None = None, decision: str | None = None,
               kind: str | None = None, since: float | None = None, until: float | None = None,
-              before: int | None = None, limit: int = 100) -> tuple[list[dict], int | None]:
-        """Rows newest first, filtered; `before` is the id cursor of the next page (None at the end)."""
+              before: int | None = None, limit: int = 100, via: str | None = None) -> tuple[list[dict], int | None]:
+        """Rows newest first, filtered; `before` is the id cursor of the next page (None at the end). ``via``:
+        ``mcp`` every assistant's rows, ``-`` none of them, or one assistant's ``mcp:<name>``."""
         where, args = [], []
+        if via == "mcp":
+            where.append("via LIKE 'mcp%'")
+        elif via == "-":
+            where.append("via IS NULL")
+        elif via is not None:
+            where.append("via = ?")
+            args.append(via)
         for col, value in (("actor", actor), ("device", device), ("decision", decision), ("kind", kind)):
             if value is not None:
                 where.append(f"{col} = ?")
@@ -672,6 +682,10 @@ class Gateway:
             self.audit.record(principal=principal, kind=_kind(msg), action=None, targets=[], decision="denied",
                               reason="unauthenticated", result="not_sent")
             return await reply(fail("unauthenticated", "the session or device is no longer valid"))
+        if principal.identity.read_only:            # a screen preview (mcp/preview.py) never sends a command
+            self.audit.record(principal=principal, kind=_kind(msg), action=_action(msg), targets=[],
+                              decision="denied", reason="read_only", result="not_sent")
+            return await reply(fail("read_only", "a preview changes nothing"))
         try:
             cmd = classify(msg, self.writes)
             if cmd.kind == "ma":
@@ -1020,6 +1034,10 @@ async def audit_list(request: web.Request) -> web.Response:
             if q[name] not in allowed:
                 return _bad(name)
             kw[name] = q[name]
+    if "via" in q:                 # mcp: every assistant's rows; -: none of them; mcp:<name>: one assistant's
+        if not (q["via"] in ("mcp", "-") or q["via"].startswith("mcp:") and 4 < len(q["via"]) <= 70):
+            return _bad("via")
+        kw["via"] = q["via"]
     for name in ("since", "until"):
         if name in q:
             try:

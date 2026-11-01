@@ -26,6 +26,7 @@
 * [People and Roles](People-and-Roles.md)
 * [Signing In](Signing-In.md)
 * [Commands and Audit](Commands-and-Audit.md)
+* [Assistants (MCP)](Assistants.md)
 * [HK Settings (HK Frontend's wiki)](https://github.com/jazzphone/hk-frontend/wiki/HK-Settings)
 
 **Running it**

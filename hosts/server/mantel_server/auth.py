@@ -32,6 +32,11 @@ STATE_COOKIE = "mantel_oauth_state"
 NEXT_COOKIE = "mantel_login_next"        # where to land after HA sign-in; cleaned again at the callback
 STATE_TTL = 600
 PUBLIC_PATHS = {HA_START, "/auth/callback", "/logout"}
+# what a read-only screen preview (mcp/preview.py) never opens, even to look: Settings and the house's management
+PREVIEW_NEVER = ("/settings", "/hk-settings", "/admin", "/api/admin", "/api/users", "/api/devices", "/api/mcp",
+                 "/api/service-accounts", "/api/audit", "/api/connections", "/api/backup", "/api/account",
+                 "/api/rbac", "/api/settings", "/api/linked", "/api/app/", "/api/performance", "/api/user-files",
+                 "/ma", "/go2rtc", "/docs")
 # Signed out, these pages (and any GET that asks for a document) are sent to /login, with ?next= to
 # come back to; everything else signed out gets a plain 401.
 PAGE_PATHS = ("/", "/dev", "/home")
@@ -108,7 +113,8 @@ def page(title: str, body: str, status: int = 200) -> web.Response:
 # -- middleware -------------------------------------------------------------------------------------
 @web.middleware
 async def require_session(request: web.Request, handler):
-    if request.path in PUBLIC_PATHS or request.path in request.app.get("public_paths", ()):
+    if request.path in PUBLIC_PATHS or request.path in request.app.get("public_paths", ()) or \
+            request.path.startswith(tuple(request.app.get("public_prefixes", ()))):
         return await handler(request)
     ident = sessions.identity(request)
     if not ident.authenticated:
@@ -117,6 +123,9 @@ async def require_session(request: web.Request, handler):
         raise web.HTTPUnauthorized(text="sign in at /login")
     if request.path in ("/ws", "/ws/talk") and request.headers.get("Origin") is None:
         raise web.HTTPForbidden(text="Origin required")  # browsers always send it; the loopback middleware checks its value
+    if ident.read_only and (request.method not in sessions.SAFE_METHODS or request.path.startswith(PREVIEW_NEVER)):
+        # a screen preview an assistant opened (mcp/preview.py): it looks at screens, and nothing else
+        raise web.HTTPForbidden(text='{"error":"read_only"}', content_type="application/json")
     if request.method not in sessions.SAFE_METHODS and request.path.startswith("/api/"):
         sessions.check_csrf(request, ident)
     request["user"] = sessions.legacy_user(ident)
