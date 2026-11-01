@@ -83,6 +83,13 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.103 - 2026-11-01
+
+- **Screensaver, Edit Screensaver:** lay a screen's screensaver out on the screen itself, in a desktop editor like the Home Grid's (Mantel Settings → Screens → your screen → Screensaver Options → Edit Screensaver, or All Screens → Screensaver). Start from one of today's looks (Photo Frame, Forecast, Big Weather, Lock Screen, Clock, Glance, Month, Day, Nightstand), pick the background, set the big time's face, size, position and depth (In Front, Behind the Subject on photos, Behind the Land or Planted on the Landscape), and add circular, rectangular, inline, card and bottom-band widgets by tapping one and then a green place, with a Glass or Tinted backdrop. Whatever the big time reaches moves out of its way, so a large Time Behind no longer runs into Home Status or the forecast. Undo, Preview, the Wall Tablet, iPad Upright and Phone shapes, and an upright layout of its own. A screen that never saves a layout is drawn as before; **Remove the Layout…** on its Screensaver page goes back.
+- **Screensaver, Big Weather with the Clock as the big number:** the time is drawn as solid ivory figures standing in the meadow, their shadows cast by the sky's sun (long in the morning and evening, soft under cloud, none at night), with the season's grass in front of their feet. **Planted Numerals** (Screensaver → Big Number: Clock) turns it off.
+- **Time Behind, How Strict:** Strict, Standard or Relaxed (Mantel Photos → Time Behind), applied at once, and Photos says why a photo doesn't qualify (subject too small, too large, edges unclear).
+- **Side Pane, Dim:** a slider, the preview dimming as it moves; a screen's own pane is no longer lost on its next change. The pane fades and the tab bar moves with the finger between pages, and slides when a page changes. Now Playing's drawer unfolds from the player.
+
 ## 0.1.102 - 2026-11-01
 
 - **Side Pane, Dim:** Off, Low, Medium or High (Side Pane → Look): a shade over the pane's glass and album art, for its words over a light background.
