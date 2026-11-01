@@ -207,7 +207,7 @@ export PLAYWRIGHT_PATH=/path/to/node_modules/playwright-core NODE=$(command -v n
   page moves down so its title is never under the bar. `--shots` keeps the screenshots.
 
 Any page error or console error fails it, except the 404s of what each home supplies itself (SF Pro, the glyphs).
-Without `PLAYWRIGHT_PATH` or `NODE` it prints why and exits 0; `tools/ci.py full` runs it as `edit-mode-check-<engine>-<size>`, four steps side by side.
+Without `PLAYWRIGHT_PATH` or `NODE` it prints why and exits 0; `tools/ci.py full` runs it as `edit-mode-check-<engine>-<size>`, four steps side by side. `who`, `cancel` and `conflict` are the same in every engine and size, so only the WebKit tablet step runs them; the other three run the gesture and layout sections (`ci.py` EDIT_GESTURES).
 
 ### The side strip in WebKit
 
