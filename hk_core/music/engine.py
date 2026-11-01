@@ -10,6 +10,8 @@ between those steps it asks these rules, which only read the house (`House.state
   * WHAT IS IN THE WAY (`in_the_way`, `split`): a group holding a wanted room -- and nothing
     wider; a group that plays on in rooms not picked keeps its music there.
   * WHO LEADS (`existing`, `play_target`, `move_plan`), read once the rooms are held.
+  * NEW SPEAKERS FOR MUSIC THAT PLAYS (`update_plan`, `move_plan`): rooms that overlap the group playing
+    join it and leave it there, and its queue stays put; only a pick that shares no room with it moves the queue.
   * WHAT IS LEFT BEHIND by a move (`stale`), released last.
   * THE REFUSALS, answered before anything is sent (`validate`, `check_play`, `check_transfer`,
     `check_player`, `check_browse`, `stop_plan`).
@@ -30,7 +32,7 @@ from typing import Any
 
 from ..house import House
 from .config import MusicConfig, Playlist, Preset
-from .const import VOLUME_STEP
+from .const import GROUPING, VOLUME_STEP
 from .groups import kind
 
 ACTIVE = ("playing", "paused")
@@ -62,6 +64,11 @@ def members(house: House, entity: str) -> list[str]:
 
 def available(house: House, entity: str) -> bool:
     return state_of(house, entity) not in (None, *GONE)
+
+
+def takes_members(house: House, entity: str) -> bool:
+    """It can be given members and lose them: a room, or Music Assistant's dynamic sync group (set_members)."""
+    return bool(int(attr(house, entity, "supported_features") or 0) & GROUPING)
 
 
 def grouped(house: House, cfg: MusicConfig | None, entity: str) -> list[str]:
@@ -305,14 +312,35 @@ def transfer_rooms(house: House, cfg: MusicConfig, rooms: list[str], source: str
                      | ({source} if source in cfg.room_ids else set()))
 
 
+def update_plan(house: House, cfg: MusicConfig, rooms: list[str], source: str
+                ) -> tuple[list[str], list[str]] | None:
+    """UPDATE IN PLACE (2026-11-01): a Music Assistant group that takes members while it plays (a dynamic sync
+    group: Downstairs, Upstairs, Everywhere) keeps the music when the rooms picked share one with it, a preset's
+    rooms too -- (the PLAYERS to add to it, the players to take out of it), or None: a move. Moving its queue to
+    another group that shares its speakers raced Music Assistant releasing them: Downstairs to Everywhere stopped
+    the music, Everywhere's group left with no members ("An empty group cannot play media"). Adding a speaker to
+    the group playing is Music Assistant's own late join; taking one out, its leader too, keeps the rest playing.
+    A virtual pair's own group plays the pair alone (VIRTUAL-PAIRS.md), and a stereo pair cannot join a group."""
+    if source in cfg.room_ids or cfg.pair_of_group(source) is not None or not takes_members(house, source):
+        return None
+    now = [m for m in grouped(house, cfg, source) if m in cfg.room_ids]
+    if not set(now) & set(rooms) or any(r in cfg.pairs for r in set(now) | set(rooms)):
+        return None
+    have, want = set(members(house, source)), cfg.players_of(rooms)
+    return [p for p in want if p not in have], [p for p in cfg.players_of(now) if p not in want]
+
+
 def move_plan(house: House, rooms: list[str], source: str,
               preset: Preset | None, cfg: MusicConfig | None = None) -> tuple[str, list[str], bool]:
     """THE HOUSE IS READ NOW, holding the rooms: (the leader, the PLAYERS to join to it, whether
-    this ADDS rooms to the source rather than moving its queue). A move off a virtual pair's own
-    group leads from another room when there is one: the pair's players are leaving that group."""
-    if preset is not None:
-        return preset.group, [], False
+    this ADDS rooms to the source rather than moving its queue). A room source still picked keeps
+    the music, a preset's rooms picked too (as `update_plan` keeps a group's): the others join it and
+    `stale` lets the rest go. A move off a virtual pair's own group leads from another room when there
+    is one: the pair's players are leaving that group."""
     adding = source in rooms
+    stereo = cfg is not None and any(r in cfg.pairs for r in rooms)
+    if preset is not None and (not adding or stereo):
+        return preset.group, [], False
     found = existing(house, rooms, cfg)
     pair = cfg.pair_of_group(source) if cfg is not None else None
     first = next((r for r in rooms if r != pair), rooms[0])

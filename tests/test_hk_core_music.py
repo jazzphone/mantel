@@ -13,8 +13,8 @@ from hk_core.house import Device, Entity, Floor, State
 from hk_core.music import announcements as A, checks, engine as E, queue, settings as S
 from hk_core.music.config import Item, MusicConfig
 from hk_core.music.const import (
-    CONF_HOMES, CONF_KEEP_READY, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME, SUB_PLAYLIST, SUB_PRESET, WARM_EVERY,
-    WARM_GAP, WARM_QUIET, WARM_RETRY, WARM_SLOW_PAGE,
+    CONF_HOMES, CONF_KEEP_READY, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME, GROUPING, SUB_PLAYLIST, SUB_PRESET,
+    WARM_EVERY, WARM_GAP, WARM_QUIET, WARM_RETRY, WARM_SLOW_PAGE,
 )
 from hk_core.music.warm import Warmer
 
@@ -253,6 +253,33 @@ def test_a_move_plans_its_leader_and_what_it_leaves_behind(house, cfg):
     assert E.stale(house, cfg, DOWN, DOWNG, OFF) == [], "a preset's rooms belong to its group"
     house.group(LOFT, [EXTRA])
     assert E.already_moved(house, LOFT, [EXTRA])
+    # a preset's rooms picked while a room among them plays: the others join that room, its queue stays
+    house.group(OFF, [OFF])
+    every = cfg.preset_for_rooms(ROOMS)
+    assert E.move_plan(house, ROOMS, OFF, every, cfg) == (OFF, [K, LR, LOFT, EXTRA], True)
+    assert E.stale(house, cfg, ROOMS, OFF, OFF) == []
+
+
+def test_new_speakers_for_a_group_that_plays_update_it_in_place(house, cfg):
+    """Downstairs playing, Everywhere picked: its queue moved to Everywhere's group, which Music Assistant had
+    left with no members, and the music stopped (2026-11-01). Rooms that share one with the group playing
+    join it and leave it instead; nothing moves its queue."""
+    house.set(DOWNG, "playing", supported_features=GROUPING, group_members=[K, LR])
+    house.group(K, [LR])
+    assert E.update_plan(house, cfg, [K, LR, OFF], DOWNG) == ([OFF], []), "added: it joins"
+    assert E.update_plan(house, cfg, [K], DOWNG) == ([], [LR]), "unticked: it leaves"
+    assert E.update_plan(house, cfg, [LR, OFF, LOFT], DOWNG) == ([OFF, LOFT], [K]), "its leader too"
+    # a preset sharing rooms with it: the preset's other rooms join the group playing
+    every = cfg.preset_for_rooms(ROOMS)
+    assert E.check_transfer(house, cfg, ROOMS, DOWNG) == (None, every)
+    assert E.update_plan(house, cfg, ROOMS, DOWNG) == ([OFF, LOFT, EXTRA], [])
+    # no room shared: the queue moves (move_plan's)
+    assert E.update_plan(house, cfg, [OFF, LOFT], DOWNG) is None
+    # a group that cannot take members, and a room (move_plan adds to a room): not this
+    house.set(DOWNG, supported_features=0)
+    assert E.update_plan(house, cfg, ROOMS, DOWNG) is None
+    house.set(OFF, "playing", supported_features=GROUPING)
+    assert E.update_plan(house, cfg, [OFF, LOFT], OFF) is None
 
 
 # ------------------------------------------------------------- the rest
@@ -688,6 +715,14 @@ def test_a_move_off_the_pairs_own_group_hands_its_queue_to_another_room(house):
     house.set(SG, "idle"); house.set(SL, "playing")
     assert E.source_of(house, v, SL) == SL
     assert E.move_plan(house, [SL, K], SL, None, v) == (SL, [SR, K], True)
+    # a group that takes members, playing the Kitchen: the pair joins it with both its players, and leaves so
+    house.set(SL, "idle"); house.group(SL, [SL]); house.group(SR, [SR])
+    house.set(DOWNG, "playing", supported_features=GROUPING, group_members=[K])
+    assert E.update_plan(house, v, [K, SL], DOWNG) == ([SL, SR], [])
+    house.set(DOWNG, group_members=[K, SL, SR])
+    assert E.update_plan(house, v, [K], DOWNG) == ([], [SL, SR])
+    house.set(SG, "playing", supported_features=GROUPING)
+    assert E.update_plan(house, v, [K, SL], SG) is None, "the pair's own group plays the pair alone"
     # Stop on the pair stops its own group too; Stop All every pair's group and preset's
     assert E.stop_groups(v, False, [SL]) == [SG] and E.stop_groups(v, False, [K]) == []
     assert E.stop_groups(v, True) == [EVERY, DOWNG, SG]

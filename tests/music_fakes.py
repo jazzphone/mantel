@@ -218,6 +218,17 @@ class HouseMa(FakeMa):
         if self.react:
             await self.set(entity, s, **attrs)
 
+    def dynamic(self, pid: str) -> bool:
+        """A group that takes members (a dynamic sync group: set_members, as the house's are)."""
+        p = self.model.get(pid) or {}
+        return p.get("type") == "group" and "set_members" in (p.get("supported_features") or [])
+
+    def dynamic_group_of(self, pid: str) -> str | None:
+        """The dynamic sync group a player plays in: one playing or paused first."""
+        holding = [g for g, p in self.model.items() if self.dynamic(g) and pid in (p.get("group_members") or [])]
+        return next((g for g in holding if self.model[g]["playback_state"] in ("playing", "paused")),
+                    holding[0] if holding else None)
+
     async def answer(self, ws, mid, cmd, args) -> None:
         async def ok(result):
             await ws.send_json({"message_id": mid, "result": result, "partial": False})
@@ -261,7 +272,24 @@ class HouseMa(FakeMa):
         e = ENT.get(args.get("player_id") or args.get("queue_id") or args.get("target_player") or
                     args.get("target_queue_id") or "")
         if cmd == "players/cmd/ungroup":
-            await self._set(e, group_members=[])
+            held = self.dynamic_group_of(args["player_id"])
+            if held is not None:            # it leaves the group, which plays on in the rest; it stops
+                rest = [ENT[m] for m in self.model[held]["group_members"] if m != args["player_id"]]
+                await self._set(ENT[held], group_members=rest)
+                for m in rest:
+                    await self._set(m, group_members=rest)
+                await self._set(e, "idle", group_members=[])
+            else:
+                await self._set(e, group_members=[])
+        elif cmd == "players/cmd/group_many" and self.dynamic(PID[e]):
+            # a dynamic sync group takes them while it plays (Music Assistant's late join): they play with it
+            g = self.model[PID[e]]
+            group = [ENT[m] for m in g["group_members"]] + [ENT[c] for c in args["child_player_ids"]
+                                                             if c not in g["group_members"]]
+            await self._set(e, group_members=group)
+            for m in group:
+                await self._set(m, g["playback_state"], group_members=group,
+                                media_content_id=(g.get("current_media") or {}).get("uri"))
         elif cmd == "players/cmd/group_many":
             group = [e] + [ENT[c] for c in args["child_player_ids"]]
             for m in group:

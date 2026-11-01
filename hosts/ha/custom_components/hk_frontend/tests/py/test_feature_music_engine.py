@@ -226,6 +226,28 @@ async def test_move_to_a_preset_goes_to_the_sync_group(music, house):
     assert house.called("transfer_queue")[0]["entity_id"] == DOWNG
 
 
+async def test_new_speakers_for_a_sync_group_that_plays_update_it_in_place(music, house):
+    """Music Assistant's sync groups take and lose rooms as they play: Downstairs
+    playing and Everywhere picked once moved the queue to Everywhere's group,
+    emptied by then, and the music stopped (2026-11-01). The rooms picked join
+    the group playing and the rest leave it; its queue never moves."""
+    from custom_components.hk_frontend.hk_core.music.const import GROUPING
+    house.dynamic.add(DOWNG)
+    house.set(DOWNG, "playing", supported_features=GROUPING, group_members=list(DOWN),
+              media_content_id="q1")
+    for r in DOWN:
+        house.set(r, "playing", group_members=list(DOWN))
+    res = await music.transfer(list(ROOMS), DOWNG)          # Everywhere's rooms
+    assert res == {"ok": True, "leader": DOWNG}
+    assert house.called("join") == [{"entity_id": DOWNG, "group_members": ROOMS[5:]}]
+    assert house.members(DOWNG) == ROOMS and house.state(LOFT) == "playing"
+    res = await music.transfer([K, OFF], DOWNG)
+    assert res == {"ok": True, "leader": DOWNG}
+    assert sorted(house.called("unjoin")[0]["entity_id"]) == sorted(ROOMS[1:5] + ROOMS[6:])
+    assert house.members(DOWNG) == [K, OFF] and house.state(DOWNG) == "playing"
+    assert house.state(LOFT) == "idle" and not house.called("transfer_queue")
+
+
 async def test_transfer_refusals(music, house):
     assert "not playing" in (await music.transfer([LOFT], OFF))["message"]
     house.set(OFF, "playing")
