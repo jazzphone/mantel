@@ -1620,8 +1620,10 @@
       var cfg = this._config || {}, G = window.hkGridCatalog;
       if (typeof cfg.force === 'number') return cfg.force;
       if (typeof cfg.force === 'boolean') return cfg.force ? 0 : -1;        // (an older preview's)
+      // (the house's music speakers, for Music Is Playing with none chosen)
+      var sp = ((cfg.ctx || {}).speakers || []).map(function (s) { return s && s.entity; }).filter(Boolean);
       return G.choose(cfg.item, this.client && this.client.states, this._ringing || false,
-        window.hkSettings && window.hkSettings.get('security.alarm', null));
+        window.hkSettings && window.hkSettings.get('security.alarm', null), undefined, sp);
     }
     // A CHEAP SIGNATURE (2026-10-29): the rule shown and WHICH config this is. It was JSON.stringify of the whole block
     // (its rules, the context) on every push of the house, to compare with the last; a config is set whole and never

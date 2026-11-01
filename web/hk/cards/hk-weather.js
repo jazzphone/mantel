@@ -2016,9 +2016,11 @@
           // tile's Wide had left half of itself bare).
           '.wb.W .hrs{display:none}',
           '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){hk-plate.wb.W.hh{justify-content:space-between}.wb.W .hrs{display:grid;border-top:0;padding-top:0}.wb.W .hr{gap:2px}}',
-          '@container hk-cell (max-height:179px){hk-plate.wb.W.hh{flex-direction:row;align-items:center;gap:14px}' +
+          // (a square cell never: its Wide is the widget's, whatever height it measures -- 2026-11-01, the owner: the grid's
+          // Wide showed less than the picker's. And today's high and low kept: 150 tall has room for them.)
+          '@container hk-cell (max-height:179px) and (not style(--hk-cell-shape: square)){hk-plate.wb.W.hh{flex-direction:row;align-items:center;gap:14px}' +
             '.wb.W.hh .top{flex-direction:column;align-items:flex-start;gap:2px;max-width:40%}' +
-            '.wb.W.hh .tx{align-items:flex-start;text-align:left}.wb.W.hh .tx .sym,.wb.W.hh .tx span{display:none}' +
+            '.wb.W.hh .tx{align-items:flex-start;text-align:left}.wb.W.hh .tx .sym{display:none}' +
             '.wb.W.hh .hrs{display:grid;flex:1;min-width:0;grid-template-columns:repeat(5,minmax(0,1fr));border-top:0;padding:0 0 0 12px;border-left:1px solid ' + RULE + '}' +
             '.wb.W.hh .hr:nth-child(n+6){display:none}.wb.W.hh .hr{gap:2px}}',
           // SMALL (2026-10-31): the place and the temperature, the symbol over

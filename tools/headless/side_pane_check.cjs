@@ -70,6 +70,64 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         want('the pane in ' + g, m, m && m.look === g && (blurs ? /blur/.test(m.blur) && m.alpha < 0.6 : !/blur/.test(m.blur) && m.alpha > 0.9) && m.titles);
         await shot(page, tag + '-look-' + g);
       }
+      // SLIDING OUT AND IN (2026-11-01, the owner: "animate/slide out of the way when I swipe between pages"): Home to
+      // another page, the pane slides off past its edge (drawn while it goes) and the tab bar glides to its new middle;
+      // back Home, the pane slides in
+      cur = 'pane-home-right slide';
+      await page.goto(input.origin + '/pane-home-right/home');
+      await page.waitForFunction(() => window.__mantelReady === true);
+      await page.waitForTimeout(2500);
+      const midway = await page.evaluate(async () => {
+        const p = document.querySelector('hk-side-pane[mode="dash"]');
+        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
+        const tb = deep(document, '#hk-tabbar'), row = tb && tb.shadowRoot && tb.shadowRoot.querySelector('.row');
+        const rx0 = row ? row.getBoundingClientRect().right : null;
+        const to = ((window.hkCards.menu.config().views || []).map((v) => v.path).filter((v) => v && v !== 'home' && v !== 'weather'))[0];
+        window.hkCards.navigate('./' + to, document.body);
+        await new Promise((r) => setTimeout(r, 140));
+        const t = getComputedStyle(p).transform, rx1 = row ? row.getBoundingClientRect().right : null;
+        await new Promise((r) => setTimeout(r, 600));
+        return { to, leaving: t, gone: !p.hasAttribute('on') && !p.hasAttribute('leaving') && getComputedStyle(p).display === 'none',
+                 rx0, rx1, rx2: row ? row.getBoundingClientRect().right : null };
+      });
+      want('leaving Home: the pane slides off (a transform midway), then is gone', midway,
+           midway.to && /matrix/.test(midway.leaving) && midway.leaving !== 'none' && midway.gone);
+      want('...and the tab bar glides to its new middle (between where it was and where it ends)', midway,
+           midway.rx0 !== null && midway.rx1 > midway.rx0 && midway.rx1 < midway.rx2);
+      const back = await page.evaluate(async () => {
+        const p = document.querySelector('hk-side-pane[mode="dash"]');
+        window.hkCards.navigate('./home', document.body);
+        await new Promise((r) => setTimeout(r, 140));
+        const t = getComputedStyle(p).transform;
+        await new Promise((r) => setTimeout(r, 600));
+        return { coming: t, on: p.hasAttribute('on'), rest: getComputedStyle(p).transform };
+      });
+      want('...back Home: it slides in, and rests in place', back, back.on && /matrix/.test(back.coming) && back.rest === 'none');
+      // ...AND WITH THE FINGER (2026-11-01, the owner: "if I swipe half way ... the side pane and navbar should also
+      // move in motion with the page"): halfway, the pane half faded and the bar part way to its new middle; let go,
+      // both finish, and the bar takes its new edges where it already is (no jump)
+      cur = 'pane-swipe';
+      await page.goto(input.origin + '/pane-swipe/home');
+      await page.waitForFunction(() => window.__mantelReady === true);
+      await page.waitForTimeout(2500);
+      const sw = () => page.evaluate(() => {
+        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
+        const p = document.querySelector('hk-side-pane[mode="dash"]'), tb = deep(document, '#hk-tabbar'), row = tb && tb.shadowRoot.querySelector('.row'), rr = row && row.getBoundingClientRect();
+        return { path: location.pathname, op: p ? +getComputedStyle(p).opacity : null, shown: p ? getComputedStyle(p).display !== 'none' : false, mid: rr ? Math.round(rr.left + rr.width / 2) : null };
+      });
+      const s0 = await sw(), sy = 300;
+      await page.mouse.move(700, sy); await page.mouse.down();
+      for (let k = 1; k <= 10; k++) { await page.mouse.move(700 - 36 * k, sy); await page.waitForTimeout(16); }
+      const s1 = await sw();
+      await page.mouse.up();
+      const mids = [];
+      for (let k = 0; k < 14; k++) { await page.waitForTimeout(50); mids.push((await sw()).mid); }
+      await page.waitForTimeout(600);
+      const s2 = await sw();
+      want('swiping off Home, halfway: the pane fading with the finger, the bar part way to its new middle', [s0, s1],
+           s1.shown && s1.op > 0.2 && s1.op < 0.9 && s1.mid > s0.mid);
+      want('...let go: the pane gone, the bar at its new middle without a step back (always forward)', [s2, mids],
+           s2.path !== s0.path && !s2.shown && s2.mid > s1.mid && mids.every((m, j) => j === 0 || m >= mids[j - 1] - 1));
       // DIM (2026-11-01, the owner: "a bit too light to see the text"): a shade over the glass, none unless set
       const shade = (pane) => page.evaluate(() => {
         const p = document.querySelector('hk-side-pane[mode="dash"]'), pane = p && p.shadowRoot.querySelector('.pane');
@@ -82,6 +140,11 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await page.waitForTimeout(2000);
       const dimmed = await shade();
       want('Dim High shades the pane', dimmed, /rgba\(0, 0, 0, 0\.45\)/.test(String(dimmed)));
+      // (a slider since that afternoon: the Settings page's preview follows it as it moves, before it is saved)
+      await page.evaluate(() => window.hkSidePane.dim(20));
+      await page.waitForTimeout(300);
+      const held = await shade();
+      want('...the slider moving: the pane follows it at once', held, /rgba\(0, 0, 0, 0\.2\)/.test(String(held)));
       await shot(page, tag + '-dim-high');
     }
     // WHILE A SONG PLAYS THE WHOLE PANE IS ITS ART (2026-10-30): the pane's own ground the art blurred, the music card

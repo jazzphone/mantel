@@ -271,9 +271,12 @@
     return d.getHours() * 60 + d.getMinutes();
   }
   // ONE CONDITION, or a rule's {all: [...]} (each must hold). `now`: minutes
-  // into the house's day (a test's), else the clock's
-  function matches(when, states, ringing, alarm, now) {
-    if (when && Array.isArray(when.all)) return when.all.length > 0 && when.all.every(function (c) { return matches(c, states, ringing, alarm, now); });
+  // into the house's day (a test's), else the clock's. `speakers`: the house's
+  // music speakers (ctx.speakers' entities): Music Is Playing with no speaker
+  // chosen is any of THEM playing (2026-11-01, the owner: "whenever any music is
+  // playing from any HomePod") -- not a TV or a receiver, which play for hours
+  function matches(when, states, ringing, alarm, now, speakers) {
+    if (when && Array.isArray(when.all)) return when.all.length > 0 && when.all.every(function (c) { return matches(c, states, ringing, alarm, now, speakers); });
     var c = when || {}, st = states || {}, ids = c.entity ? [c.entity] : Object.keys(st);
     if (c.kind === 'time') {
       var a = hhmm(c.from), b = hhmm(c.to), t = now == null ? houseNow() : now;
@@ -283,7 +286,10 @@
     if (c.kind === 'alarm_disarmed') return (c.entity ? ids : alarm ? [alarm] : ids).some(function (id) { return id.split('.')[0] === 'alarm_control_panel' && st[id] && st[id].state === 'disarmed'; });
     var any = function (domain, test) { return ids.some(function (id) { return id.split('.')[0] === domain && st[id] && test(st[id].state); }); };
     if (c.kind === 'entity_state') return !!st[c.entity] && st[c.entity].state === c.state;
-    if (c.kind === 'music_playing') return any('media_player', function (s) { return s === 'playing'; });
+    if (c.kind === 'music_playing') {
+      if (!c.entity && speakers && speakers.length) ids = speakers;
+      return any('media_player', function (s) { return s === 'playing'; });
+    }
     if (c.kind === 'timer_running') return any('timer', function (s) { return s === 'active' || s === 'paused'; }) ||
       !c.entity && !!st['sensor.running_quick_timers'] && Number(st['sensor.running_quick_timers'].state) > 0;
     if (c.kind === 'alarm_armed') return (c.entity ? ids : alarm ? [alarm] : ids).some(function (id) { return id.split('.')[0] === 'alarm_control_panel' && st[id] && /^(armed_|arming|pending|triggered)/.test(st[id].state); });
@@ -308,9 +314,9 @@
     return { base: own, rules: [] };
   }
   // which shows now: -1 the default, else the first rule that holds
-  function choose(item, states, ringing, alarm, now) {
+  function choose(item, states, ringing, alarm, now, speakers) {
     var r = rulesOf(item).rules;
-    for (var i = 0; i < r.length; i++) if (matches(r[i].when, states, ringing, alarm, now)) return i;
+    for (var i = 0; i < r.length; i++) if (matches(r[i].when, states, ringing, alarm, now, speakers)) return i;
     return -1;
   }
 

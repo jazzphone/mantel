@@ -757,7 +757,13 @@ ok('...every mode says what it costs', M.BLUR_MODES.every(function (m) { return 
 (function () {
   ok('Side Pane: twelve kinds, four sizes, eight at most', M.PANE_KINDS.length === 12 && M.PANE_SIZES.length === 4 && M.PANE_MAX === 8 &&
      eq(M.PANE_GROUPS, ['side', 'width', 'dashboard', 'saver', 'doorbell', 'headings', 'dim']));
-  ok('Side Pane: Dim, off unless chosen', M.PANE_DEFAULTS.dim === 'none' && eq(M.PANE_DIMS.map(function (x) { return x[0]; }), ['none', 'low', 'medium', 'high']));
+  // (no pane as read -- an answer that left side_pane_read out: the screen's own groups as stored, 2026-11-01, when a
+  // change built on "none of its own" saved one group alone and the rest of the screen's pane was gone)
+  var fb = M.paneOf({ side: 'right' }, { side_pane: { side: 'left', dashboard: { show: 'home', sections: [{ kind: 'weather' }] } } });
+  ok('Side Pane: a screen with no pane as read keeps its own groups', eq(fb.own, ['side', 'dashboard']) && fb.side === 'left' &&
+     fb.dashboard.sections.length === 1 && eq(M.paneSet(fb, 'width', 'wide', true).side_pane.dashboard, fb.dashboard), fb);
+  ok('Side Pane: Dim, off unless chosen, a percentage up to 60 (its first words read as theirs)', M.PANE_DEFAULTS.dim === 0 && M.PANE_DIM_MAX === 60 &&
+     M.paneDim(35) === 35 && M.paneDim('medium') === 30 && M.paneDim(99) === 60 && M.paneDim('none') === 0);
   var house = { side: 'left', dashboard: { show: 'home', sections: [{ kind: 'weather' }, { kind: 'timers', when: 'active' }] } };
   var hp = M.paneOf(house, null);
   ok('All Screens\': its groups over the defaults, none a screen\'s', hp.side === 'left' && hp.width === 'standard' && hp.doorbell === true &&

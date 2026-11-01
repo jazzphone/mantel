@@ -3750,7 +3750,8 @@
     '.mu.L .last,.mu.XL .last{--big:min(120px, 100cqh - 160px)}',
     '.top .col{display:flex;flex-direction:column;min-width:0;flex:1}',
     '.top .t1{' + C.typeCss('title') + ';line-height:27px;margin-top:2px}',
-    '.top .t2{' + C.typeCss('body') + ';line-height:19px;color:' + C.ACCENTS.pink + '}',
+    // (the second ink, not Music's pink -- 2026-11-01, the owner: "I don't like the Red Playlist Font color")
+    '.top .t2{' + C.typeCss('body') + ';line-height:19px;color:' + C.v('ink-2') + '}',
     '.hr{height:1px;flex:none;margin:14px 0 4px;background:' + C.v('line') + '}',
     '.none{flex:1;display:grid;place-items:center;text-align:center;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}',
     // ON A TILE CELL (196 x 150 a cell): a row fewer
@@ -3818,7 +3819,9 @@
         return cell(it, s === 'W' || s === 'T' ? j : j + 1); }).join('') + '</div></div>';
       var lastBtn = '<button type="button" class="last" data-i="0"' + (last ? ' aria-label="Play ' + esc(last.name) + '"' : ' disabled') + '>' +
                     this._cover(last) + (s === 'S' && last ? '<span class="pl"><hk-icon icon="mdi:play"></hk-icon></span>' : '') + '</button>';
-      var words = last ? '<b class="t1">' + esc(last.name) + '</b><small class="t2">' + esc(last.artist) + '</small>' : '';
+      // (no "Playlist" under a playlist where the label already says Playlists)
+      var sub2 = last && !(lab === 'Playlists' && last.artist === 'Playlist') ? last.artist : '';
+      var words = last ? '<b class="t1">' + esc(last.name) + '</b>' + (sub2 ? '<small class="t2">' + esc(sub2) + '</small>' : '') : '';
       var body;
       if (items && !items.length) body = '<span class="lab">' + lab + '</span><div class="none">' + (tiles ? 'No playlists yet. Add some in HK Settings → Features → Music.' : 'Music played here shows up here.') + '</div>';
       else if (s === 'S') body = '<span class="bg">' + this._cover(last) + '</span><span class="sh"></span>' +

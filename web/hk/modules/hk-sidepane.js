@@ -969,6 +969,10 @@
       ':host{position:fixed;z-index:5;display:none;box-sizing:border-box;color:' + v('ink') + ';font-family:var(--hk-font-body,inherit);',
       '  -webkit-tap-highlight-color:transparent;contain:layout style}',
       ':host([on]){display:block}',
+      // (going: drawn while it slides away, never pressed -- _slide)
+      ':host([leaving]:not([on])){display:block;pointer-events:none}',
+      // (a swipe toward a page that has it: shown under the finger before it is on -- FOLLOW)
+      ':host([peek]:not([on])){display:block;pointer-events:none}',
       ':host([mode="saver"]){position:absolute}',
       // A WIDGET on the Pages screen (Phase J; section() below): one section, filling its slot, no pane of its own
       ':host([mode="widget"]){position:absolute;inset:0}',
@@ -997,7 +1001,6 @@
       // DIM (the pane's Dim, dress() below): a shade over the glass and the album art, under the words
       ':host([dim]) .pane::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:rgba(0,0,0,var(--pane-dim,0))}',
       ':host([dim]) .pin{z-index:2}',
-      ':host([dim="low"]){--pane-dim:.16}:host([dim="medium"]){--pane-dim:.3}:host([dim="high"]){--pane-dim:.45}',
       ':host([mode="saver"]) .pane::before,:host([mode="widget"]) .pane::before{display:none}',
       // IN THE SCREENSAVER: on its pane's own background, under Home Status
       ':host([mode="saver"]) .pane{background:none;-webkit-backdrop-filter:none;backdrop-filter:none;border:0;box-shadow:none}',
@@ -1358,11 +1361,45 @@
     show(o) {
       this._o = o || null;
       var on = !!(o && o.place && o.place.kind !== 'none' && ((o.list && o.list.length) || o.doorbell));
+      var was = this.hasAttribute('on');
       this.toggleAttribute('on', on);
-      if (!on) { this._sig = null; this._park(); return false; }
+      if (!on) { this._sig = null; if (was) this._slide(false); else this._park(); return false; }
       this.setAttribute('side', o.place.kind === 'band' ? 'band' : o.side === 'left' ? 'left' : 'right');
       this._draw();
+      if (!was) this._slide(true);
+      this._shown = true;
       return true;
+    }
+    // SLIDING IN AND OUT (2026-11-01, the owner: "I'd love the Side Pane and tab bar to animate/slide out of the way when
+    // I swipe between pages, instead of just popping into place"): on the Dashboard, a pane that goes slides off past its
+    // own edge -- the page already in its new width under it -- and one that comes slides in from there. A transform
+    // alone (no layout while it moves); the first time it shows, under Reduce Motion, and anywhere but the Dashboard,
+    // as before: at once.
+    _slide(coming) {
+      var self = this, side = this.getAttribute('side');
+      if (this._slideAnim) { try { this._slideAnim.cancel(); } catch (e) { /* done */ } this._slideAnim = null; }
+      this.removeAttribute('leaving');
+      // (the finger already took it there -- a swipe between pages, FOLLOW: nothing more to slide)
+      if (this._followed) { this._followed = false; if (!coming) this._park(); return; }
+      var still = this.getAttribute('mode') !== 'dash' || typeof this.animate !== 'function' || (coming && !this._shown) ||
+        (window.hkSettings && window.hkSettings.skyLook && window.hkSettings.skyLook().animations === false) ||
+        (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      if (still) { if (!coming) this._park(); return; }
+      var away = side === 'band' ? 'translateY(100%)' : side === 'left' ? 'translateX(-100%)' : 'translateX(100%)';
+      var EASE = (C() && C().EASE) || { standard: 'ease-out', exit: 'ease-in' };
+      if (coming) {
+        this._slideAnim = this.animate([{ transform: away }, { transform: 'none' }], { duration: 360, easing: EASE.standard });
+        this._slideAnim.onfinish = function () { self._slideAnim = null; };
+        return;
+      }
+      // (still drawn while it goes: `leaving` keeps it shown, the off pane's taps off)
+      this.setAttribute('leaving', '');
+      var a = this._slideAnim = this.animate([{ transform: 'none' }, { transform: away }], { duration: 300, easing: EASE.exit, fill: 'forwards' });
+      a.onfinish = function () {
+        if (self._slideAnim !== a) return;
+        self._slideAnim = null; self.removeAttribute('leaving'); a.cancel();
+        if (!self.hasAttribute('on')) self._park();
+      };
     }
     redraw() { if (this._o && this.hasAttribute('on')) this._draw(true); }
     // ------------------------------------------------ drawing and the fit
@@ -1732,8 +1769,8 @@
     var all = setting('boards', null), b = all && all[dash];
     return (b && b.side_pane_read) || null;
   }
-  function isHome() {
-    var M = C() && C().menu, here = String(location.pathname).split('/')[2] || '';
+  function isHome(path) {
+    var M = C() && C().menu, here = String(path || location.pathname).split(/[?#]/)[0].split('/')[2] || '';
     var cfg = M && M.config ? M.config() : null, v0 = cfg && cfg.views && cfg.views[0];
     return !here || here === '0' || !!(v0 && v0.path === here);
   }
@@ -1791,7 +1828,85 @@
       if (x[1]) de.style.setProperty(x[0], x[1]); else de.style.removeProperty(x[0]);
     });
     if (l || r || b) de.setAttribute('hk-pane', l ? 'left' : r ? 'right' : 'band'); else de.removeAttribute('hk-pane');
+    // (a swipe that carried the tab bar there already: its edges move now with no glide, and the offset the finger
+    // gave it goes in the same frame -- where it is drawn does not move; FOLLOW below)
+    if (FOLLOW.landed) handOver(de);
     try { window.dispatchEvent(new Event('hk-pane')); } catch (e) { /* no listeners */ }
+  }
+  // WITH THE FINGER (2026-11-01, the owner: "if I swipe half way, the side pane and navbar should also move in motion
+  // with the page ... The Side pane ... may just need a fade out"): hk-pageswipe.js says how far a swipe has gone
+  // toward a page (`follow`, 0..1) and where it lands (`land`, or null: back). Where the pane shows on one page and
+  // not the other, it fades with the finger, drifting a little toward its own edge, and the tab bar moves with it to
+  // the middle it will have (--hk-pane-shift, half the pane's width: hk-tabbar.js .row's `translate`). Let go, both
+  // finish the way the page does; the room itself changes as the page lands, and handOver swaps the bar's offset for
+  // its new edges in the same frame.
+  var FOLLOW = { p: 0, to: null, going: 0, shift: 0, landed: false, tween: 0 };
+  var SWIPE_MS = 300, DRIFT = 28;
+  function stillMotion() {
+    return (window.hkSettings && window.hkSettings.skyLook && window.hkSettings.skyLook().animations === false) ||
+      (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  // +1: the pane goes (here, not there); -1: it comes; 0: no change between the two
+  function paneChange(toPath) {
+    var sp = paneOf(), g = sp && sp.dashboard;
+    if (!g || !dash || dash.getAttribute('side') === 'band') return 0;
+    var here = wants(g.show, isHome()), there = wants(g.show, isHome(toPath));
+    return here === there ? 0 : here ? 1 : (dash._built ? -1 : 0);
+  }
+  function followDraw(p) {
+    var de = document.documentElement, k = FOLLOW.going, side = dash && dash.getAttribute('side');
+    if (!k || !dash) return;
+    var out = k > 0 ? p : 1 - p, sign = side === 'left' ? -1 : 1;
+    dash.style.opacity = String(1 - out);
+    dash.style.transform = 'translateX(' + (sign * out * DRIFT).toFixed(1) + 'px)';
+    // (the bar's middle: half the pane's width toward the pane's side as it goes, back as it comes)
+    de.style.setProperty('--hk-pane-shift', (k * p * FOLLOW.shift).toFixed(1) + 'px');
+  }
+  function follow(p, toPath) {
+    if (stillMotion()) return;
+    if (FOLLOW.to !== toPath) {
+      FOLLOW.to = toPath; FOLLOW.going = paneChange(toPath);
+      // (its width as placed: a pane that is coming is not drawn yet)
+      var w = dash ? parseFloat(dash.style.width) || dash.getBoundingClientRect().width || 0 : 0, side = dash && dash.getAttribute('side');
+      FOLLOW.shift = (side === 'left' ? -1 : 1) * w / 2;
+      if (FOLLOW.going < 0 && dash) dash.setAttribute('peek', '');
+    }
+    cancelAnimationFrame(FOLLOW.tween);
+    FOLLOW.p = Math.max(0, Math.min(1, p || 0));
+    followDraw(FOLLOW.p);
+  }
+  function land(path) {
+    if (!FOLLOW.going) { FOLLOW.to = null; return; }
+    var from = FOLLOW.p, goal = path ? 1 : 0, t0 = 0;
+    FOLLOW.landed = !!path;
+    if (dash) dash._followed = !!path;
+    var step = function (now) {
+      if (!t0) t0 = now;
+      var u = Math.min(1, (now - t0) / SWIPE_MS), e = 1 - Math.pow(1 - u, 3);
+      FOLLOW.p = from + (goal - from) * e;
+      followDraw(FOLLOW.p);
+      if (u < 1) { FOLLOW.tween = requestAnimationFrame(step); return; }
+      if (!path) unfollow();
+    };
+    cancelAnimationFrame(FOLLOW.tween);
+    FOLLOW.tween = requestAnimationFrame(step);
+    // (a page that never lands -- a slow host -- leaves nothing behind)
+    clearTimeout(FOLLOW.giveUp);
+    FOLLOW.giveUp = setTimeout(function () { if (FOLLOW.landed) handOver(document.documentElement); }, 3000);
+  }
+  function handOver(de) {
+    FOLLOW.landed = false;
+    clearTimeout(FOLLOW.giveUp);
+    cancelAnimationFrame(FOLLOW.tween);
+    de.style.setProperty('--hk-pane-glide', '0s');
+    unfollow();
+    requestAnimationFrame(function () { requestAnimationFrame(function () { de.style.removeProperty('--hk-pane-glide'); }); });
+  }
+  function unfollow() {
+    var de = document.documentElement;
+    de.style.removeProperty('--hk-pane-shift');
+    if (dash) { dash.style.opacity = ''; dash.style.transform = ''; dash.removeAttribute('peek'); }
+    FOLLOW.to = null; FOLLOW.going = 0; FOLLOW.p = 0;
   }
   // THE MUSIC'S PANEL OVER THE PANE (Less's Speakers and Browse): the
   // screensaver's (hk-saver-panel.js) -- Speakers, Volume, Queue, Browse, what
@@ -1816,7 +1931,8 @@
       '.scrim{position:fixed;inset:0}.mpanel.pn{position:fixed;border-radius:' + ((HC && HC.R && HC.R.sheet) || 38) + 'px;background:rgb(24,25,29);' +
       'box-shadow:0 26px 70px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.12)}' +
       // THE DRAWER: the pane itself, what plays first (its cover a size up), the tabs under it
-      '.mpanel.pn.dr{border-radius:0;box-shadow:none}' +
+      // (the pane's own material: a dark glass over it, not a solid plate on whatever look the screen has)
+      '.mpanel.pn.dr{border-radius:0;box-shadow:none;background:rgba(18,20,24,.93);-webkit-backdrop-filter:blur(30px) saturate(1.4);backdrop-filter:blur(30px) saturate(1.4)}' +
       '.mpanel.dr .mpmini{order:-1;border-top:0;border-bottom:1px solid rgba(255,255,255,.12);padding:24px 22px 16px}' +
       '.mpanel.dr .mpmini .ia{width:60px;height:60px;border-radius:10px}.mpanel.dr .mpmini .tx b{font-size:17px}' +
       '.mpanel.dr .mphd{padding-top:14px}';
@@ -1887,21 +2003,36 @@
     var EASE = (HC && HC.EASE) || { standard: 'ease-out', exit: 'ease-in' };
     var reduce = (window.hkSettings && window.hkSettings.skyLook && window.hkSettings.skyLook().animations === false) ||
                  (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-    var mini = el.querySelector('.mpmini'), mh = Math.max(mini ? mini.offsetHeight : 0, Math.min(R.height, 140));
-    var dy = Math.max(0, Math.min(B.h - mh, R.top - B.y));
-    var small = { transform: 'translateY(' + Math.round(dy) + 'px)', clipPath: 'inset(0 0 ' + Math.round(Math.max(0, B.h - mh)) + 'px 0)' };
-    var full = { transform: 'none', clipPath: 'inset(0 0 0 0)' };
-    if (me.anim) { try { me.anim.cancel(); } catch (x) { /* done */ } me.anim = null; }
+    // UNFOLDING FROM THE PLAYER (2026-11-01, the owner: "the slide up and down of the media player in the side pane
+    // doesn't look great at all"): the drawer starts as exactly the section's box and opens up and down from it to the
+    // whole pane (a clip), the player's row riding up inside it to the top, the tabs and the list fading in as it
+    // opens. It was a solid box sliding up, the pane bare under it until it got there. Closing, the same backwards.
+    var top = Math.max(0, Math.round(R.top - B.y)), bottom = Math.max(0, Math.round(B.y + B.h - (R.top + R.height)));
+    var inner = el.querySelector('.mpin'), rest = el.querySelectorAll('.mphd,.mpbody,.mpfoot');
+    var small = { clipPath: 'inset(' + top + 'px 0 ' + bottom + 'px 0)' }, full = { clipPath: 'inset(0px 0 0px 0)' };
+    var ride = [{ transform: 'translateY(' + top + 'px)' }, { transform: 'none' }], show = [{ opacity: 0 }, { opacity: 1 }];
+    var stop = function () {
+      (me.anims || []).forEach(function (x) { try { x.cancel(); } catch (e) { /* done */ } });
+      me.anims = []; me.anim = null;
+    };
+    stop();
     var can = !reduce && typeof el.animate === 'function';
+    var run = function (target, frames, o) { var x = target.animate(frames, o); me.anims.push(x); return x; };
     if (opening) {
       if (src && src.isConnected) src.style.visibility = 'hidden';
       if (!can) return;
-      var a = me.anim = el.animate([small, full], { duration: 420, easing: EASE.standard });
-      a.onfinish = function () { if (me.anim === a) me.anim = null; };
+      var o = { duration: 440, easing: EASE.standard };
+      var a = me.anim = run(el, [small, full], o);
+      if (inner) run(inner, ride, o);
+      Array.prototype.forEach.call(rest, function (n) { run(n, show, { duration: 320, delay: 120, easing: 'ease-out', fill: 'backwards' }); });
+      a.onfinish = function () { if (me.anim === a) stop(); };
     } else {
       if (!can) { done(); return; }
-      var b = me.anim = el.animate([full, small], { duration: 320, easing: EASE.exit, fill: 'forwards' });
-      b.onfinish = function () { me.anim = null; done(); };
+      var c = { duration: 340, easing: EASE.standard, fill: 'forwards' };
+      var b = me.anim = run(el, [full, small], c);
+      if (inner) run(inner, ride.slice().reverse(), c);
+      Array.prototype.forEach.call(rest, function (n) { run(n, show.slice().reverse(), { duration: 200, easing: 'ease-in', fill: 'forwards' }); });
+      b.onfinish = function () { stop(); done(); };
     }
   }
   // THE TURN, as the Home Grid's Now Playing block and the screensaver turn the card (hk-media.js _turnAnim): the section
@@ -1983,7 +2114,11 @@
     publish(up && p.kind === 'side' ? sp.side : null, up && p.kind === 'side' ? p.w : 0, up && p.kind === 'band' ? p.h : 0);
     // (a Home Grid takes the band off its own height: hk-layout.js --hk-pane-b)
     bandRoom(up && p.kind === 'band' && !(grid && grid.isConnected) ? p.h : 0);
-    musicFlag(up && list.some(function (x) { return x.kind === 'now_playing'; }) && musicHas(c));
+    // (the pane WILL take the music: up here, or coming up, with a Now Playing section -- whether or not anything
+    // plays yet. Said only once the music was in the pane, the bar came up for the frames between the music starting
+    // and the pane's next draw, the page lost its height and a Home Grid fitted itself smaller, then back: the owner,
+    // 2026-11-01, "the whole dashboard redraws" as the Music block turned into the player)
+    musicFlag(on && p.kind !== 'none' && (g.sections || []).some(function (x) { return x && x.kind === 'now_playing'; }));
   }
   // THE PANE'S MATERIAL is the screen's look (html[data-hk-glass],
   // hk-settings.js; the slow tablets' ladder changes it too): its host's
@@ -1996,12 +2131,15 @@
     if (g === 'bright' || g === 'bright_pre' || g === 'bright_each') return 'bright';
     return 'blur';
   }
+  var DIM_WORDS = { none: 0, low: 16, medium: 30, high: 45 }, DIM_HELD = null, DIM_HELD_T = 0;
+  function dimPct(v) { return typeof v === 'string' ? (DIM_WORDS[v] || 0) : Math.max(0, Math.min(60, Number(v) || 0)); }
   function dress(el, up) {
     var g = document.documentElement.getAttribute('data-hk-glass') || 'blur';
     if (el.getAttribute('look') !== lookOf(g)) el.setAttribute('look', lookOf(g));
-    var dim = (paneOf() || {}).dim;
-    if (dim === 'low' || dim === 'medium' || dim === 'high') { if (el.getAttribute('dim') !== dim) el.setAttribute('dim', dim); }
-    else el.removeAttribute('dim');
+    // (how much, 0-60 %: Off / Low / Medium / High its first hours; the Settings slider's own while it moves)
+    var dim = DIM_HELD !== null ? DIM_HELD : dimPct((paneOf() || {}).dim);
+    if (dim > 0) { el.setAttribute('dim', ''); el.style.setProperty('--pane-dim', String(dim / 100)); }
+    else { el.removeAttribute('dim'); el.style.removeProperty('--pane-dim'); }
     var G = window.hkGlass, pane = el.shadowRoot && el.shadowRoot.querySelector('.pane');
     if (!G || !G.pin || !pane) return;
     if (up && g === 'blur_pre') G.pin(pane, PIN_TINT); else G.unpin(pane);
@@ -2046,6 +2184,17 @@
     KINDS: KINDS, ORDER: ORDER, SIZES: SIZES, WIDTHS: WIDTHS, MAX: MAX,
     // the screensaver's own pane (hk-saver.js): an element it places itself
     create: function (mode) { var el = document.createElement('hk-side-pane'); el.setAttribute('mode', mode || 'saver'); return el; },
+    // THE SETTINGS SLIDER'S DIM while it moves (hk-settings.js pvPaneDim): held a few seconds past the last move,
+    // long enough for the saved setting to come back, then the setting's own again
+    // a swipe between pages (hk-pageswipe.js): how far toward `toPath`, and where it landed (null: back)
+    follow: function (p, toPath) { try { follow(p, toPath); } catch (e) { /* not drawn */ } },
+    land: function (path) { try { land(path); } catch (e) { /* not drawn */ } },
+    dim: function (pct) {
+      DIM_HELD = dimPct(pct);
+      clearTimeout(DIM_HELD_T);
+      DIM_HELD_T = setTimeout(function () { DIM_HELD = null; soon(); }, 6000);
+      soon();
+    },
     // ONE SECTION AS A WIDGET (the Pages screen, Phase J): drawn as the pane draws it, filling the slot it's put in
     section: function (kind, size, slot) {
       if (!SEC[kind]) return null;

@@ -977,7 +977,10 @@
           var whole = {};
           Object.keys(changes).forEach(function (k) { if (k.indexOf('.') < 0) whole[k] = changes[k]; });
           d.boards[path] = Object.assign({}, d.boards[path] || {}, whole);
-        }, function (r) { if (r && r.board) d.boards[path] = r.board; });
+        // (over what the page had, not in its place: an answer without a key the page reads -- side_pane_read, the
+        // screen's Side Pane as read -- must not take it away; one server's answer once had none, and the next Side
+        // Pane change saved its one group alone, 2026-11-01)
+        }, function (r) { if (r && r.board) d.boards[path] = Object.assign({}, d.boards[path] || {}, r.board); });
     }
     // A FEATURE'S OWN SETTINGS (hk-settings-features.js): read with its
     // `<id>/settings/get`, kept here while the page is open, read
@@ -5750,6 +5753,15 @@
         } })]));
       }
     }
+    // THE PREVIEW'S PANE DIMMED AS THE SLIDER MOVES, before anything is saved (hk-sidepane.js reads the screen's
+    // settings again when they come back)
+    pvPaneDim(v) {
+      var col = this.pageEl && this.pageEl.querySelector('.pvcol'), fr = col && col.querySelector('.pvbox iframe');
+      try {
+        var P = fr && fr.contentWindow && fr.contentWindow.hkSidePane;
+        if (P && P.dim) P.dim(v);
+      } catch (e) { /* not ours */ }
+    }
     paneNow(path) {
       var b = path ? (this.data.boards || {})[path] : null;
       return M.paneOf((this.data.settings || {}).side_pane, b);
@@ -5816,8 +5828,10 @@
       c.appendChild(K.group({ header: 'Look', footer: 'Dim: a shade over the pane’s glass, for its words over a light background. ' +
           'Section Headings: a small title, with its icon, over each section — not over the Clock or the Weather, which say what they are. ' +
           'The doorbell’s camera is live, for as long as its pop-up shows.' }, [
-        K.seg({ label: 'Dim', sk: 'pane:dim', sub: whose('dim'), value: p.dim || 'none', options: M.PANE_DIMS, stack: !this.hasAttribute('wide'),
-                onChange: function (v) { put('dim', v); } }),
+        // (a slider, 2026-11-01, the owner: "why isn't this a slider?" -- the preview's pane follows it as it moves,
+        // and it is saved once, let go)
+        K.slider({ label: 'Dim', sk: 'pane:dim', sub: whose('dim'), value: M.paneDim(p.dim), min: 0, max: M.PANE_DIM_MAX, step: 5, unit: '%',
+                   onInput: function (v) { self.pvPaneDim(v); }, onChange: function (v) { put('dim', v); } }),
         K.toggle({ label: 'Section Headings', sk: 'pane:headings', sub: whose('headings'), on: p.headings !== false, onChange: function (on) { put('headings', on); } }),
         K.toggle({ label: 'Doorbell', sk: 'pane:doorbell', sub: whose('doorbell') || 'Its camera at the top of the pane while it rings.',
                    on: p.doorbell !== false, onChange: function (on) { put('doorbell', on); } })]));

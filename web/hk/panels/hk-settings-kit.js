@@ -548,7 +548,7 @@
       r.setAttribute('aria-valuetext', say(r.value));
     };
     paint();
-    r.addEventListener('input', paint);
+    r.addEventListener('input', function () { paint(); if (o.onInput) o.onInput(Number(r.value)); });
     r.addEventListener('change', function () { o.onChange(Number(r.value)); });
     return h('div', { class: 'cell slider', 'data-sk': o.sk }, [
       h('div', { class: 'top' }, [label(o.label, o.sub, lid), o.badge ? h('span', { class: 'badge', text: o.badge }) : null, out]), r]);

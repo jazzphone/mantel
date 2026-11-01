@@ -32,6 +32,17 @@ function ok(n, c, d) { if (c) { pass++; print('  PASS  ' + n); } else { fail++; 
 
 // ---- the catalog
 var G = window.hkGridCatalog;
+// MUSIC IS PLAYING with no speaker chosen: any of the house's music speakers (ctx.speakers), never a TV -- 2026-11-01
+(function () {
+  var st = { 'media_player.kitchen_homepod': { state: 'paused' }, 'media_player.loft_homepod': { state: 'playing' },
+             'media_player.living_room_tv': { state: 'playing' } }, mp = { kind: 'music_playing' };
+  var sp = ['media_player.kitchen_homepod', 'media_player.loft_homepod'];
+  ok('Music Is Playing, Any Speaker: a speaker of the house\'s playing holds', G.matches(mp, st, false, null, 0, sp) === true);
+  st['media_player.loft_homepod'].state = 'idle';
+  ok('...a TV playing does not', G.matches(mp, st, false, null, 0, sp) === false);
+  ok('...one speaker chosen: only it', G.matches({ kind: 'music_playing', entity: 'media_player.kitchen_homepod' }, st, false, null, 0, sp) === false);
+  ok('...with no speakers known, any player (as before)', G.matches(mp, st, false, null, 0) === true);
+})();
 ok('the catalog is loaded', !!G && typeof G.config === 'function');
 ok('the size classes are hk-base.js\'s', JSON.stringify(G.SIZES) === JSON.stringify(window.hkCards.HOME_GRID.sizes));
 var ctx = { cameras: ['camera.front_door', 'camera.yard'], climate: ['climate.hallway'], rooms: ['kitchen'], weather: 'weather.home' };

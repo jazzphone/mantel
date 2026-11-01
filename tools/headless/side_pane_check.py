@@ -68,6 +68,8 @@ def screen(pane, grid=False, **extra):
 SCREENS = {
     'pane-home-right': screen({'side': 'right', 'dashboard': {'show': 'home', 'sections': DASH}}, grid=True),
     'pane-home-left': screen({'side': 'left', 'dashboard': {'show': 'home', 'sections': DASH}}, grid=True),
+    # (2026-11-01) swiping between pages: the pane and the tab bar's place go with the finger
+    'pane-swipe': screen({'side': 'right', 'dashboard': {'show': 'home', 'sections': DASH}}, grid=True, swipe_pages='on'),
     # Dim (2026-11-01): a shade over the glass, under the words
     'pane-home-dim': screen({'side': 'right', 'dim': 'high', 'dashboard': {'show': 'home', 'sections': DASH}}, grid=True),
     'pane-every-page': screen({'side': 'right', 'width': 'standard', 'dashboard': {'show': 'all', 'sections': DASH}}),

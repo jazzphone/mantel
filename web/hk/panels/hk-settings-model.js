@@ -2587,13 +2587,15 @@
   var PANE_WIDTHS = [['narrow', 'Narrow'], ['standard', 'Standard'], ['wide', 'Wide']];
   var PANE_SHOWS = [['off', 'Off'], ['home', 'Home Only'], ['all', 'Every Page']];
   var PANE_SAVER_SHOWS = [['off', 'Off'], ['same', 'Same as the Dashboard'], ['own', 'Its Own Sections']];
-  var PANE_DIMS = [['none', 'Off'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']];
+  // DIM, 0 to PANE_DIM_MAX percent (settings.py; Off / Low / Medium / High for its first hours, read as these)
+  var PANE_DIM_MAX = 60, PANE_DIM_WORDS = { none: 0, low: 16, medium: 30, high: 45 };
+  function paneDim(v) { return typeof v === 'string' ? (PANE_DIM_WORDS[v] || 0) : Math.max(0, Math.min(PANE_DIM_MAX, Math.round(Number(v) || 0))); }
   var PANE_GROUPS = ['side', 'width', 'dashboard', 'saver', 'doorbell', 'headings', 'dim'];
   var PANE_MAX = 8;
   var PANE_DEFAULTS = { side: 'right', width: 'standard',
     dashboard: { show: 'off', sections: [{ kind: 'weather' }, { kind: 'calendar' }, { kind: 'now_playing', when: 'active' }] },
     saver: { show: 'off', sections: [{ kind: 'clock', size: 'tiny' }, { kind: 'calendar' }, { kind: 'now_playing', size: 'less', when: 'active' }] },
-    doorbell: true, headings: true, dim: 'none' };
+    doorbell: true, headings: true, dim: 0 };
   function paneCopy(v) { return JSON.parse(JSON.stringify(v)); }
   function paneKind(k) { return PANE_KINDS.filter(function (x) { return x[0] === k; })[0] || null; }
   // a section as stored: More and Always are what absent means
@@ -2615,6 +2617,12 @@
     var h = paneCopy(PANE_DEFAULTS);
     PANE_GROUPS.forEach(function (g) { if (house && house[g] !== undefined && house[g] !== null) h[g] = paneCopy(house[g]); });
     h.own = [];
+    // (no pane as read: the screen's own groups as stored, never "none of its own" -- a change built on that saved
+    // its one group alone and the rest of the screen's pane was gone, 2026-11-01)
+    var own = b && b.side_pane;
+    if (own && typeof own === 'object') PANE_GROUPS.forEach(function (g) {
+      if (own[g] !== undefined && own[g] !== null) { h[g] = paneCopy(own[g]); h.own.push(g); }
+    });
     return h;
   }
   // whose a group is, on a screen ('' for All Screens)
@@ -2781,7 +2789,7 @@
   }
 
   root.hkSettingsModel = {
-    PANE_KINDS: PANE_KINDS, PANE_SIZES: PANE_SIZES, PANE_WHEN: PANE_WHEN, PANE_SIDES: PANE_SIDES, PANE_WIDTHS: PANE_WIDTHS, PANE_DIMS: PANE_DIMS,
+    PANE_KINDS: PANE_KINDS, PANE_SIZES: PANE_SIZES, PANE_WHEN: PANE_WHEN, PANE_SIDES: PANE_SIDES, PANE_WIDTHS: PANE_WIDTHS, PANE_DIM_MAX: PANE_DIM_MAX, paneDim: paneDim,
     PANE_SHOWS: PANE_SHOWS, PANE_SAVER_SHOWS: PANE_SAVER_SHOWS, PANE_GROUPS: PANE_GROUPS, PANE_PLACES: PANE_PLACES, PANE_TAPS: PANE_TAPS, paneTaps: paneTaps, PANE_CAMERA_NAMES: PANE_CAMERA_NAMES, CLOCK_FACES: CLOCK_FACES, CLOCK_ALIGNS: CLOCK_ALIGNS, CLOCK_SCALES: CLOCK_SCALES,
     CLOCK_WEIGHTS: CLOCK_WEIGHTS, CLOCK_DATES: CLOCK_DATES, CLOCK_LINES: CLOCK_LINES, CLOCK_BESIDE: CLOCK_BESIDE, CLOCK_BELOW: CLOCK_BELOW, PANE_MAX: PANE_MAX, PANE_DEFAULTS: PANE_DEFAULTS,
     paneKind: paneKind, paneSection: paneSection, paneOf: paneOf, paneGroupSays: paneGroupSays, paneSet: paneSet, paneReset: paneReset,

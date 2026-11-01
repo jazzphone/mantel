@@ -365,10 +365,12 @@
     setX(G.view, x, G.base);
     if (N) setX(N.el, x + dir * G.w, G.base);
     if (O) setX(O.el, -dir * G.w, G.base);
-    var T = window.hkTabBar;
+    var T = window.hkTabBar, P = window.hkSidePane, f = to ? Math.min(1, Math.abs(dx) / G.w) : 0, at = (to || G.items[G.at]).path;
     if (T && T.follow) {
-      try { T.follow(to ? Math.min(1, Math.abs(dx) / G.w) : 0, (to || G.items[G.at]).path); } catch (e) { /* not drawn */ }
+      try { T.follow(f, at); } catch (e) { /* not drawn */ }
     }
+    // (the Side Pane and the bar's place with the finger too, where the pane shows on one page and not the other)
+    if (P && P.follow) P.follow(f, at);
   }
 
   function onUp(e) {
@@ -386,8 +388,9 @@
     if (!g || !g.live) return;
     eatUntil = Date.now() + EAT_MS;
     var dir = (go || dx || g.dx) < 0 ? 1 : -1, to = go ? g.items[g.at + dir] || null : null;
-    var T = window.hkTabBar;
+    var T = window.hkTabBar, P = window.hkSidePane;
     try { if (T && T.land) T.land(to ? to.path : null); } catch (e) { /* not drawn */ }
+    if (P && P.land) P.land(to ? to.path : null);
     var N = to ? g.nb[dir] || null : null;
     if (g.calm) {
       if (to) fadeOut(g, to, dir);

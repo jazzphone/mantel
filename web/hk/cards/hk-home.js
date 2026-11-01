@@ -2265,7 +2265,10 @@
         '.qs button.add{background:' + window.hkCards.ACCENTS.orange + ';color:#fff}.qs button.add hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
         '.qs button:active{transform:scale(0.95)}.qs button:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
         // (Wide with none: the row runs the block's width, each a pill)
-        '.gt.wide .qs button{max-width:none}'
+        '.gt.wide .qs button{max-width:none}',
+        // (round, whatever room they get: a share of the row narrower than their height made them tall ovals --
+        // 2026-11-01, the owner. Only Wide's are pills.)
+        '.gt:not(.wide) .qs button{flex:0 1 var(--stop);height:auto;aspect-ratio:1;min-width:0}'
       ].join('');
     }
     getCardSize() { return 1; }

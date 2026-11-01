@@ -537,7 +537,13 @@ class SettingsService:
             raise SettingsError("invalid_format", fields=errors)
         got = self._store([("board", dash, new)], actor, msg,
                           expect={("board", dash): cur.version if opened is None else opened})
-        return {"board": self.store.body("board", dash), "version": got[0].version if got else cur.version}
+        # AS READ (resolved), as panel/get sends every screen and HK Frontend's board/set answers: the page keeps this
+        # answer as the screen. Sent as stored it had no side_pane_read, so the settings page forgot which Side Pane
+        # groups the screen sets, and its next change saved that one group alone -- the rest of the screen's pane
+        # gone (the owner, 2026-11-01: "it deleted my whole side pane configuration")
+        read = SM.boards(stored_of(self.store)).get(dash)
+        return {"board": read if read is not None else self.store.body("board", dash),
+                "version": got[0].version if got else cur.version}
 
     async def _tablet_set(self, identity, actor, msg):
         tid = msg["tablet"]

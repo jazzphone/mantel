@@ -309,6 +309,24 @@ def test_rbac_may_configure(who, scope, ok):
     assert S.rbac_may_configure(clock=lambda: 1.0)(who, scope) is ok
 
 
+async def test_a_screens_save_is_answered_as_read_so_its_side_pane_groups_survive_the_next_change(store):
+    # (2026-11-01, the owner: setting the Side Pane's Dim on one screen "deleted my whole side pane configuration":
+    # board/set's answer was the stored document, without side_pane_read, and the settings page, which keeps the
+    # answer as the screen, saved its next change as that one group alone)
+    await seeded(store)
+    svc = S.SettingsService(store, S.SettingsHooks(may_configure=S.rbac_may_configure(clock=lambda: 1_000_000.0)), S.load_model())
+    own = {"side": "left", "dashboard": {"show": "home", "sections": [{"kind": "weather"}, {"kind": "calendar"}]}}
+    got = await svc.save(OWNER, {"type": "hk_frontend/board/set", "dashboard": "dashboard-kitchen", "changes": {"side_pane": own}})
+    read = got["board"]["side_pane_read"]
+    assert read["own"] == ["side", "dashboard"] and read["dashboard"] == own["dashboard"], "answered as read, its own groups named"
+    # what the page then saves for one more group: the groups the answer says are the screen's, and the new one
+    mine = {g: read[g] for g in read["own"]}
+    got = await svc.save(OWNER, {"type": "hk_frontend/board/set", "dashboard": "dashboard-kitchen",
+                                 "changes": {"side_pane": {**mine, "dim": "medium"}}})
+    assert got["board"]["side_pane_read"]["own"] == ["side", "dashboard", "dim"]
+    assert got["board"]["side_pane_read"]["dashboard"]["sections"] == own["dashboard"]["sections"], "nothing of the pane lost"
+
+
 async def test_owner_and_admin_save_house_wide_adults_only_their_own(svc, store):
     got = await svc.save(OWNER, {"type": "hk_frontend/settings/set", "changes": {"look.glass": "clear"}})
     assert got["settings"]["look"]["glass"] == "clear"

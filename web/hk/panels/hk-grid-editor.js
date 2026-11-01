@@ -1670,7 +1670,8 @@
         return;
       }
       if (c.kind !== 'after_sunset') rows.push(K.select({ label: 'Watch', value: c.entity || '',
-        options: (c.kind === 'entity_state' ? [] : [['', 'Automatic']]).concat(this.choices({ music_playing: 'speaker', timer_running: 'timer', alarm_armed: 'alarm',
+        // (Music Is Playing's Automatic is any of the house's speakers -- not a TV -- 2026-11-01: say so)
+        options: (c.kind === 'entity_state' ? [] : [['', c.kind === 'music_playing' ? 'Any Speaker' : 'Automatic']]).concat(this.choices({ music_playing: 'speaker', timer_running: 'timer', alarm_armed: 'alarm',
           alarm_disarmed: 'alarm', doorbell: 'doorbell' }[c.kind] || 'entity').filter((op) => op[0] !== 'tablet_room')),
         onChange: (v) => set('entity', v) }));
       if (c.kind === 'entity_state') rows.push(K.text({ label: 'Is', value: c.state, maxlength: 80, onCommit: (v) => set('state', v) }));
@@ -1754,6 +1755,15 @@
         var doc = fw.document, cell = doc.createElement('div'); cell.className = 'cell'; cell.setAttribute('size', sz);
         Object.assign(cell.style, { width: width + 'px', height: height + 'px', position: 'fixed', inset: '0', containerType: 'size', containerName: 'hk-cell' });
         cell.style.setProperty('--hk-cell-w', (width + gap) / z[0] - gap + 'px'); cell.style.setProperty('--hk-cell-h', (height + gap) / z[1] - gap + 'px');
+        // (a square grid's cell as the grid gives it -- hk-layout.js: its inset, its inner corners, and that it is square,
+        // which the blocks ask by style(); the preview had none of them, so a block could look unlike its place on the grid)
+        var sq = this.grid && this.grid.cell === 'square';
+        cell.style.setProperty('--hk-block-pad', sq ? '18px' : '14px');
+        ['t', 'r', 'b', 'l'].forEach(function (s) { cell.style.setProperty('--hk-pad-' + s, 'var(--hk-block-pad)'); });
+        if (sq) {
+          cell.style.setProperty('--hk-cell-shape', 'square');
+          cell.style.setProperty('--hk-inner-radius', 'max(12px, calc(var(--hk-block-radius, 34px) - var(--hk-block-pad)))');
+        }
         var view = doc.createElement('hk-home-grid-view');
         Object.assign(view.style, { display: 'block', width: width + 'px', height: height + 'px', position: 'fixed', inset: '0' });
         var it = { id: 'preview', card: box.dataset.previewCard, size: sz, at: [0, 0], opts: this.previewOptions(box.dataset.previewCard) };

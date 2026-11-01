@@ -1934,8 +1934,11 @@ PANE_FLAGS_ON: dict[str, tuple[str, ...]] = {"clock": ("ampm",), "now_playing": 
 PANE_SIDES = ("right", "left")
 PANE_WIDTHS = {"narrow": 360, "standard": 400, "wide": 480}
 # DIM (2026-11-01, the owner: "with this background, it's just a bit too light to see the text"): a shade over the
-# pane's glass, under its words, on the Dashboard (the screensaver's pane is on the saver's own ground)
-PANE_DIMS = ("none", "low", "medium", "high")
+# pane's glass, under its words, on the Dashboard (the screensaver's pane is on the saver's own ground) -- how much,
+# 0 to PANE_DIM_MAX percent (a slider: the owner, the same day, "why isn't this a slider?"). It was Off / Low / Medium
+# / High for its first hours: those read as their percentages.
+PANE_DIM_MAX = 60
+PANE_DIM_WORDS = {"none": 0, "low": 16, "medium": 30, "high": 45}
 # On the Dashboard: Off, Home Only, Every Page; in the screensaver: Off,
 # Same as the Dashboard's sections, Its Own Sections
 PANE_SHOWS = ("off", "home", "all")
@@ -1956,7 +1959,7 @@ SIDE_PANE_DEFAULTS: dict[str, Any] = {
                                           {"kind": "now_playing", "size": "less", "when": "active"}]},
     "doorbell": True,
     "headings": True,
-    "dim": "none",
+    "dim": 0,
 }
 DEFAULTS["side_pane"] = copy.deepcopy(SIDE_PANE_DEFAULTS)
 
@@ -2046,7 +2049,9 @@ def pane_group(name: str, v: Any, strict: bool = False) -> Any:
     if name == "width":
         return v if v in PANE_WIDTHS else None
     if name == "dim":
-        return v if v in PANE_DIMS else None
+        if isinstance(v, str):
+            return PANE_DIM_WORDS.get(v)
+        return _whole(v, 0, PANE_DIM_MAX)
     if name in ("doorbell", "headings"):
         return v if isinstance(v, bool) else None
     if name not in ("dashboard", "saver") or not isinstance(v, Mapping):

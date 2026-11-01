@@ -444,7 +444,11 @@
       // Assistant's sidebar), clear of an iPhone's home indicator
       '.row{position:fixed;left:calc(' + EDGE_L + ' + ' + GUTTER + 'px);right:calc(' + GUTTER + 'px + ' + EDGE_R + ');',
       '  bottom:' + LIFT_CSS + ';display:none;justify-content:center;',
-      '  align-items:center;gap:' + GAP + 'px;pointer-events:none;transition:transform .34s ' + EASE + ',bottom .3s ' + EASE + '}',
+      // (left and right too: the Side Pane coming or going moves the page's edge, and the bar glides to its new middle
+      // rather than jumping there -- 2026-11-01, the owner, swiping between pages: "jarring is always the issue")
+      '  align-items:center;gap:' + GAP + 'px;pointer-events:none;transition:transform .34s ' + EASE + ',bottom .3s ' + EASE + ',left var(--hk-pane-glide,.34s) ' + EASE + ',right var(--hk-pane-glide,.34s) ' + EASE + ';',
+      // (...and with the finger, during a swipe between pages: hk-sidepane.js FOLLOW)
+      '  translate:var(--hk-pane-shift,0px) 0}',
       '.root.on .row{display:flex}',
       '.root.gone .row{transform:translateY(calc(100% + 8px + ' + LIFT_CSS + '))}',
       '.root.small .row{justify-content:space-between}',
