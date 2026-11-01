@@ -115,10 +115,12 @@ MA_COMMANDS: dict[str, frozenset[str]] = {
 # SERVER-ONLY READS (Phase 4: music.py's Keep Playlists Ready, hk_core/music/warm.py). Reads Mantel itself
 # makes and a page never can (``ma/read`` goes through ``read``, which knows MA_READS only): a forced
 # refresh of a library playlist's songs (Music Assistant asks the streaming service again and re-caches
-# them; nothing in the library or on a player changes) and the playlists played in the last week.
+# them; nothing in the library or on a player changes) and the playlists played in the last week. And a group's
+# settings (music.py's refresh_groups): the rooms a sync group with dynamic members is set up with (groups.py).
 MA_SERVER_READS: dict[str, frozenset[str]] = {
     "music/playlists/playlist_tracks": _ITEM | {"force_refresh"},
     "music/recently_played_items": frozenset({"limit", "media_types", "played_after_timestamp"}),
+    "config/players/get": frozenset({"player_id"}),
 }
 
 

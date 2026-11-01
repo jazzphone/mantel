@@ -253,6 +253,13 @@ screen stays on that group. A room that plays, still picked, keeps its music the
 not (`move_plan`): the others join it. Only a pick that shares no room with what plays moves the queue, as before. A
 virtual pair's own group, a stereo pair and a group that cannot take members are moved as before.
 
+**A preset's rooms are its group's settings (2026-11-01).** Since such a group's members change as it plays, a
+preset's rooms are read from the group's settings in Music Assistant (`config/players/get`'s `values.group_members`, a
+server-only read beside `players/all`, every 30 s; `groups.with_configured`), not from the members it holds now: a
+room added in place no longer joins the preset, and an emptied group no longer loses its rooms. Before a preset's
+group plays, it is made its rooms again (`engine.preset_plan`): the rooms it gave up are grouped back onto it (an
+empty group cannot play), and rooms it took while it played are ungrouped; those are not in its own way.
+
 **Not on Mantel (documented gaps).**
 - **The failure notifications** HA raises (`music_play_failed`, `speaker_group_failed`, ...: HK's Speakers picker
   shows them): Mantel logs them and lists them in `/api/music/status` (`notes`), but does not create HA
