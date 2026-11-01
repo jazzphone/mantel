@@ -671,7 +671,9 @@
       if (s === 'less') {
         var gist = [lockLine, open.length ? n(open.length, 'window', 'windows') : '', doors.length ? n(doors.length, 'door', 'doors') : '']
           .filter(Boolean).join(' · ');
-        return box('security', s, head('security') + top + (gist ? '<div class="sub2">' + esc(gist) + '</div>' : ''));
+        // ONE LINE (2026-10-31, the owner: two lines "doesn't look great"): the state, and what is open at its right
+        return box('security', s, head('security') + '<div class="r2 big">' + icon(KINDS.security[1], ' class="shield"') + '<span class="tx">' + esc(state) + '</span>' +
+          (gist ? '<span class="v2 sub2">' + esc(gist) + '</span>' : '') + '</div>');
       }
       var list = locks.slice(0, s === 'full' ? 8 : 4).map(function (id) { var x = states(c)[id] || {}; return [nameOf(x, id), x.state === 'unlocked' ? 'Unlocked' : x.state === 'locked' ? 'Locked' : String(x.state || ''), x.state === 'unlocked' ? 'mdi:lock-open-variant' : 'mdi:lock', x.state === 'unlocked' ? 'warn' : '', id]; });
       // (More: the windows only when one is open; Full, the whole picture, says so either way)
@@ -984,6 +986,9 @@
       '.ckd{display:flex;justify-content:space-between;align-items:baseline;gap:4px 12px;flex-wrap:wrap}.ckd>*{white-space:nowrap}.ckd .sun{margin-left:auto}',
       // (a narrow pane: the date short, "Sat, Oct 31", so the sunset keeps its place at the right of it)
       '.sec[data-k="clock"]{container-type:inline-size}.ckd .ds{display:none}',
+      // (the digits pulled back by their side bearing reach past the section's edge -- beside the page a section has
+      // no side padding, and its clip cut the 8's left side off: 2026-10-31, the owner. The clock is never scrolled)
+      '.sec[data-k="clock"]:not(.grow){overflow:visible}',
       // THE WEATHER BESIDE THE TIME (besideWeather): two rows on two baselines (2026-10-31, the owner: the date and the
       // sky "should line up") -- the time and the temperature, their figures on one baseline (the temperature two
       // thirds of the time's size, so it sits lower rather than growing heavy); the date and the sky on the next. The
@@ -1048,6 +1053,8 @@
       '.r2 .v2{margin-left:auto;color:' + v('ink-2') + ';font-weight:500;white-space:nowrap}',
       '.r2.warn .v2,.r2.heat hk-icon{color:#ff9f0a}.r2.cool hk-icon{color:#64d2ff}',
       '.r2.big{font-size:22px}.r2.big hk-icon{--mdc-icon-size:30px;width:30px;height:30px;color:#30b0c7}',
+      // (Security at Less: what is open at the right, on the state's baseline, at the second line's size)
+      '.r2.big .v2.sub2{align-self:baseline;font:500 15px/1.3 var(--hk-font-body,inherit);flex:none}.r2.big:has(.v2) .tx{align-self:baseline}',
       '.cd{font-variant-numeric:tabular-nums;color:#ff9f0a}',
       // A TIMER'S ROW: the ring (the pause) at the left, the time over its name, the red Stop at the right
       '.tmr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"r t s" "r n s";column-gap:12px;align-items:center;--ring:56px}',

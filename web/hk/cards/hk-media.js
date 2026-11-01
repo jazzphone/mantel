@@ -1370,7 +1370,8 @@
       // joined to it. A Music Assistant sync group reports None (its own
       // friendly name already says "Downstairs") and a single room reports an
       // empty list -- both fall through to the bare name.
-      var g = a.group_members || [];
+      // (a virtual pair's two players are one room: hkMusic.fold)
+      var g = M && M.fold ? M.fold(a.group_members || []) : (a.group_members || []);
       if (g.length > 1) {
         // NAME THE ROOMS, don't just count them: hkMusic's short name, the
         // one the picker's pills use ("Kitchen"), rather than the entity's
@@ -2561,7 +2562,8 @@
       if (t.length === 1 && t[0] === src) return false;
       // Nor has "make the group exactly what it already is" -- the same
       // short-circuit the integration makes for a group that already exists.
-      var gm = ((st.attributes || {}).group_members || []).slice().sort();
+      var gm = (window.hkMusic && window.hkMusic.fold ? window.hkMusic.fold((st.attributes || {}).group_members || [])
+                : ((st.attributes || {}).group_members || []).slice()).sort();
       if (gm.length && gm.length === t.length) {
         var want = t.slice().sort();
         var same = true;

@@ -849,8 +849,10 @@
       // screen's (hkSettings.tileStyle: its own, else All Screens'). A
       // regular pill stays as it is: wide and short, centred reads badly.
       if (!this.hasAttribute('size') && !this.hasAttribute('data-group-fill')) {
-        var HS = window.hkSettings, tall = layout === 'tall' || layout === 'climate_tall';
-        var centred = cfg.tile ? cfg.tile === 'centred' : tall && !!HS && typeof HS.tileStyle === 'function' && HS.tileStyle() === 'centred';
+        // (the room pages' Tall pills are the Home app's, whatever the Tile Style: Centred is HomeView's, for the Home
+        // Grid alone -- 2026-10-31, the owner: "The HomeView styling is really just for the Main dashboard page...
+        // and the Pages Screen". A Home Grid block hands its tiles `tile` itself)
+        var centred = cfg.tile === 'centred';
         if (centred) this.setAttribute('tile', 'centred'); else this.removeAttribute('tile');
       }
       // (a Centred tile draws every glyph bare, lit in its own colour, each

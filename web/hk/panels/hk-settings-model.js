@@ -316,7 +316,7 @@
   // Tinted's icon circles (look.well, a screen's well)
   var TINT_WELLS = [['dark', 'Dark'], ['light', 'Light']];
   // TILE STYLE (look.tile_style, a screen's tile_style; 2026-10-30): the Home
-  // Grid's tiles and the room pages' Tall pills (settings.py TILE_STYLES)
+  // Grid's tiles; the room pages keep the Home app's Tall pills (2026-10-31) (settings.py TILE_STYLES)
   // Automatic (the default): Centred on square cells, Home on tiles and the room pages
   var TILE_STYLES = [['auto', 'Automatic'], ['home', 'Home'], ['centred', 'Centered']];
   // BRIGHT GLASS ON (look.bright_pages, a screen's bright_pages; settings.py BRIGHT_PAGES)

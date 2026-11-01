@@ -3704,10 +3704,17 @@
   var MUSIC_HOLD = 45000;
 
   var hkMusic = (function () {
-    var byEntity = {};
+    var byEntity = {}, partOf = {};
+    // A VIRTUAL PAIR (2026-10-31, docs/phase4/VIRTUAL-PAIRS.md): two Music
+    // Assistant players made one room in Mantel Settings. Its `parts` are
+    // both players, the room first; the second is folded into the room
+    // wherever a group's members are read, so it is one speaker everywhere.
     function index() {
-      byEntity = {};
-      MUSIC.speakers.forEach(function (s) { byEntity[s.entity] = s; });
+      byEntity = {}; partOf = {};
+      MUSIC.speakers.forEach(function (s) {
+        byEntity[s.entity] = s;
+        (s.parts || []).forEach(function (p) { if (p !== s.entity) partOf[p] = s.entity; });
+      });
     }
     index();
     // `seen`: the contexts already playing when this focus was chosen, by
@@ -3727,6 +3734,12 @@
     var conn = null, writer = null, writing = 0, attachEpoch = 0, closers = [];
 
     function known(e) { return !!(e && byEntity[e]); }
+    // players as rooms, in their order: a pair's second player is its room, once
+    function fold(list) {
+      var out = [];
+      (list || []).forEach(function (e) { var r = partOf[e] || e; if (out.indexOf(r) < 0) out.push(r); });
+      return out;
+    }
     function isGroup(e) { return !!(byEntity[e] && byEntity[e].members); }
     function rooms() { return MUSIC.speakers.filter(function (s) { return !s.members; }); }
     function presets() { return MUSIC.speakers.filter(function (s) { return !!s.members; }); }
@@ -3811,7 +3824,7 @@
         if (seen[r.entity]) return;
         var st = states[r.entity];
         if (!active(st)) return;
-        var gm = ((st.attributes || {}).group_members || []).filter(function (e) {
+        var gm = fold((st.attributes || {}).group_members || []).filter(function (e) {
           return known(e) && !isGroup(e) && !ignored(states[e]);
         });
         var members = gm.length > 1 ? gm : [r.entity];
@@ -4041,7 +4054,7 @@
 
     return {
       speakers: function () { return MUSIC.speakers.slice(); },
-      rooms: rooms, presets: presets, known: known, isGroup: isGroup,
+      rooms: rooms, presets: presets, known: known, isGroup: isGroup, fold: fold,
       nameOf: nameOf, home: home, ignored: ignored, active: active, contexts: contexts, streams: streams, resolve: resolve,
       player: function (client) { return resolve(client).player; },
       label: label, setFocus: setFocus, release: release, attach: attach,

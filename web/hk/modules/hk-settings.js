@@ -453,7 +453,7 @@
   }
   // TILE STYLE, for this screen (2026-10-30): its own when it sets one (not
   // null), else All Screens' -- 'home' (the Home app's layout) or 'centred'
-  // (HomeView's): the Home Grid's tiles and the room pages' Tall pills
+  // (HomeView's): the Home Grid's tiles (the room pages keep the Home app's Tall pills, 2026-10-31)
   // ...or 'auto' (Automatic, the default: Centred on square cells -- the Home
   // Grid's own to say -- and Home elsewhere)
   function tileStyle() {

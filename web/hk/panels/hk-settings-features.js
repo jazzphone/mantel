@@ -130,16 +130,54 @@
   function speakerLists(d) {
     var groups = (d.presets || []).map(function (p) { return p.group; });
     var have = (d.speakers || []).map(function (x) { return x.entity; });
+    // a virtual pair's second player is its room's, never a speaker of its own
+    var seconds = (d.virtual_pairs || []).map(function (p) { return p.players[1].entity; });
     return {
       rows: (d.speakers || []).map(function (x) {
-        var pair = (d.pairs || {})[x.entity];
+        var pair = (d.pairs || {})[x.entity], vp = virtualPair(d, x.entity);
         return { value: x.entity, label: x.name,
-                 sub: [x.floor, x.player && x.player !== x.name ? x.player : null,
-                       pair ? cap(pair.kind) + ': ' + pair.parts.join(' + ') : null].filter(Boolean).join(' · ') || null };
+                 sub: [x.floor, vp ? null : (x.player && x.player !== x.name ? x.player : null),
+                       pair ? cap(pair.kind) + ': ' + pair.parts.join(' + ') : null,
+                       vp ? 'Pair: ' + vp.players.map(function (p) { return p.name; }).join(' + ') : null]
+                   .filter(Boolean).join(' · ') || null };
       }),
-      more: (d.players || []).filter(function (p) { return have.indexOf(p.entity) < 0 && groups.indexOf(p.entity) < 0; })
-        .map(function (p) { return { value: p.entity, label: p.name, sub: p.entity }; })
+      more: (d.players || []).filter(function (p) {
+        return have.indexOf(p.entity) < 0 && groups.indexOf(p.entity) < 0 && seconds.indexOf(p.entity) < 0;
+      }).map(function (p) { return { value: p.entity, label: p.name, sub: p.entity }; })
     };
+  }
+  // VIRTUAL PAIRS (2026-10-31, docs/phase4/VIRTUAL-PAIRS.md): two Music
+  // Assistant players made one room here. The owner: "If I create a group in
+  // Music Assistant of 2 speakers in 1 room, I can't assign them with other
+  // speakers ... So I need to be able to virtually pair 2 speakers to appear
+  // as 1 in Mantel."
+  function virtualPair(d, room) {
+    return (d.virtual_pairs || []).filter(function (p) { return p.room === room; })[0] || null;
+  }
+  // the players a pair can be made of: the speakers and the other players,
+  // never a group (Music Assistant's or a preset's), nor another pair's
+  function pairChoices(d, room) {
+    var groups = (d.presets || []).map(function (p) { return p.group; }).concat(Object.keys(d.groups || {}),
+                                                                                 Object.keys(d.pairs || {}));
+    var taken = [];
+    (d.virtual_pairs || []).forEach(function (p) {
+      if (p.room !== room) p.players.forEach(function (x) { taken.push(x.entity); });
+    });
+    var mine = virtualPair(d, room), out = [];
+    (mine ? mine.players : []).forEach(function (x) { out.push([x.entity, x.name]); });
+    (d.speakers || []).concat(d.players || []).forEach(function (x) {
+      if (groups.indexOf(x.entity) >= 0 || taken.indexOf(x.entity) >= 0) return;
+      if (out.some(function (o) { return o[0] === x.entity; })) return;
+      out.push([x.entity, x.player && x.player !== x.name ? x.name + ' (' + x.player + ')' : x.name]);
+    });
+    return out;
+  }
+  // the pairs after this one is saved ({players, name}) or removed (null)
+  function pairsAfter(d, room, one) {
+    var out = (d.virtual_pairs || []).filter(function (p) { return p.room !== room; })
+      .map(function (p) { return { players: p.players.map(function (x) { return x.entity; }), name: p.name || '' }; });
+    if (one) out.push(one);
+    return out;
   }
   function cap(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
   // A PAIR (hk_core/music/groups.py): a Music Assistant group picked as one
@@ -173,6 +211,7 @@
             ['Tuner Address', 'page/live_tv', 'live tv hdhomerun ip host'],
             ['Guide Address', 'page/live_tv', 'live tv xmltv schedule epg']],
     hk_music: [['Speakers', 'features/music/speakers', 'music rooms hk music speaker order'],
+               ['Speaker Pairs', 'features/music/speakers', 'music pair two homepods stereo left right one room'],
                ['Home Rooms', 'features/music/homes', 'music tablet user room home'],
                ['House Volume', 'page/music', 'music playlist volume'],
                ['Presets', 'features/music/presets', 'music sync group everywhere downstairs'],
@@ -524,6 +563,54 @@
                    (pairNote(d) ? ' ' + pairNote(d) : ''),
       emptyText: 'Music Assistant has no other players.',
       rows: L.rows, more: L.more, onChange: function (v) { P.featSet('hk_music', { speakers: v }); } }));
+    if (!d.pairs_here) return;           // (HK Frontend in Home Assistant: its engine plays no pairs)
+    var perr = P.err('f:hk_music:pairs');
+    c.appendChild(K.group({ header: 'Speaker Pairs', footer: (perr ? perr + ' ' : '') +
+        'Two speakers in one room, such as two HomePods, shown and played as one speaker everywhere. ' +
+        'They’re grouped each time they play, so each stays free to join other rooms.' },
+      (d.virtual_pairs || []).map(function (p) {
+        return K.nav({ label: p.shown, sub: p.players.map(function (x) { return x.name; }).join(' + ') +
+                                            (p.ma_group ? ' · Also a Music Assistant group' : ''),
+                       href: '#/features/music/pairs/' + encodeURIComponent(p.room), fk: 'music:pair:' + p.room });
+      }).concat([K.nav({ label: 'Pair Two Speakers', href: '#/features/music/pairs/new', icon: 'mdi:plus-circle-outline',
+                         fk: 'music:pair:new' })])));
+  }
+  function musicPair(P, c, d, room) {
+    var st = P.feat('hk_music');
+    var p = room === 'new' ? null : virtualPair(d, room);
+    if (room !== 'new' && !p) { c.appendChild(K.group({ footer: 'That pair is gone.' }, [])); return; }
+    var f = form(st, 'pair:' + room, function () {
+      return p ? { name: p.name || '', a: p.players[0].entity, b: p.players[1].entity } : { name: '', a: '', b: '' };
+    });
+    var opts = pairChoices(d, p ? p.room : null);
+    var err = P.err('f:hk_music:pairs');
+    c.appendChild(K.group({ footer: 'Without a name, the pair is named by the first speaker’s area, as every room is.' }, [
+      K.text({ label: 'Name', sk: 'f:hk_music:pair_name', value: f.name, placeholder: 'Its area’s name', maxlength: 60,
+               onCommit: function (v) { f.name = v; } })]));
+    c.appendChild(K.group({ header: 'Speakers', footer: (err ? err + ' ' : '') +
+        'The first is the room: its place in the speaker list, its floor and its home rooms. ' +
+        'Volume goes to both together; play and pause go to the first, which leads the two.' +
+        (p && p.ma_group ? ' Music Assistant also has a group of these two, ' + p.ma_group +
+         ': the pair plays through it when it plays alone, and as its two speakers with other rooms.' : '') }, [
+      K.select({ label: 'First', sk: 'f:hk_music:pair_a', value: f.a, placeholder: 'Choose', options: opts.filter(function (o) { return o[0] !== f.b; }),
+                 onChange: function (v) { f.a = v; P.render(); } }),
+      K.select({ label: 'Second', sk: 'f:hk_music:pair_b', value: f.b, placeholder: 'Choose', options: opts.filter(function (o) { return o[0] !== f.a; }),
+                 onChange: function (v) { f.b = v; P.render(); } })]));
+    c.appendChild(K.group({}, [K.button({ label: p ? 'Save Pair' : 'Pair Speakers', fk: 'music:pair:save',
+      disabled: !f.a || !f.b || f.a === f.b, onClick: function () {
+        P.featSet('hk_music', { pairs: pairsAfter(d, p ? p.room : null, { players: [f.a, f.b], name: f.name }) }, ['pairs'])
+          .then(function (ok) { if (ok) { delete st.forms['pair:' + room]; P.back('#/features/music/speakers'); } });
+      } })]));
+    if (!p) return;
+    c.appendChild(K.group({}, [K.button({ label: 'Unpair', destructive: true, fk: 'music:pair:rm', onClick: function () {
+      K.confirm(P.shadowRoot, { title: 'Unpair “' + p.shown + '”?', destructive: true, ok: 'Unpair',
+        message: 'Both speakers stay, as two speakers of their own.' })
+        .then(function (yes) {
+          if (!yes) return;
+          P.featSet('hk_music', { pairs: pairsAfter(d, p.room, null) }, ['pairs'])
+            .then(function (ok) { if (ok) { delete st.forms['pair:' + room]; P.back('#/features/music/speakers'); } });
+        });
+    } })]));
   }
   function musicHomes(P, c, d) {
     var opts = [['', 'No Home Room']].concat((d.speakers || []).map(function (x) { return [x.entity, x.name]; }));
@@ -1785,7 +1872,7 @@
   function page(P, parts) {
     var t = byRoute(parts[0]);
     if (!t) return null;
-    if (t[0] === 'music' && ['speakers', 'homes', 'presets', 'playlists'].indexOf(parts[1]) < 0) return null;
+    if (t[0] === 'music' && ['speakers', 'pairs', 'homes', 'presets', 'playlists'].indexOf(parts[1]) < 0) return null;
     var route = t[0], domain = t[1], name = t[2], sub = parts.slice(1);
     var base = '#/features/' + route;
     var feats = P.data.features || {};
@@ -1816,6 +1903,12 @@
     if (route === 'music') {
       var back = ['Music', base];
       if (sub[0] === 'speakers') return mk('Speakers', withData(function (c, d) { musicSpeakers(P, c, d); }), back);
+      if (sub[0] === 'pairs' && sub[1]) {
+        var vr = decodeURIComponent(sub[1]);
+        var vp = virtualPair(P.feat(domain).data || {}, vr);
+        return mk(vr === 'new' ? 'Pair Two Speakers' : (vp ? vp.shown : 'Pair'), withData(function (c, d) { musicPair(P, c, d, vr); }),
+                  ['Speakers', base + '/speakers']);
+      }
       if (sub[0] === 'homes') return mk('Home Rooms', withData(function (c, d) { musicHomes(P, c, d); }), back);
       if (sub[0] === 'presets' && sub[1]) {
         var pid = decodeURIComponent(sub[1]);
@@ -1897,7 +1990,7 @@
   root.hkSettingsFeatures = {
     LIST: LIST, listed: listed, stateOf: stateOf, page: page, use: use, addHref: addHref, search: search, musicTop: musicTop,
     integrationHref: integrationHref, SCOPE: SCOPE, WHAT: WHAT, dndRows: dndRows, dndSummary: dndSummary,
-    _: { tvLists: tvLists, tvCount: tvCount, speakerLists: speakerLists, speakerName: speakerName, pairNote: pairNote, playlistSub: playlistSub, vacuumSub: vacuumSub, vacuumsAfter: vacuumsAfter,
+    _: { tvLists: tvLists, tvCount: tvCount, speakerLists: speakerLists, speakerName: speakerName, pairNote: pairNote, pairChoices: pairChoices, pairsAfter: pairsAfter, playlistSub: playlistSub, vacuumSub: vacuumSub, vacuumsAfter: vacuumsAfter,
          roomLists: roomLists, roomCount: roomCount, energyFound: energyFound, sectionsAfter: sectionsAfter,
          batteriesStored: batteriesStored, stayLabel: stayLabel, notifySummary: notifySummary, whenControl: whenControl,
          cooldownLabel: cooldownLabel, wakesOf: wakesOf, trigWord: trigWord }

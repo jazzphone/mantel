@@ -6509,7 +6509,7 @@
         })));
     }
     // TILE STYLE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase B): the Home
-    // Grid's tiles and the room pages' Tall pills in the Home app's layout or
+    // Grid's tiles in the Home app's layout (the room pages' Tall pills always are, 2026-10-31) or
     // Centred, HomeView's -- All Screens', or a screen's own (b, path) with
     // Same as All Screens / Just This Screen and its Reset
     tileStyleRows(b, path) {
