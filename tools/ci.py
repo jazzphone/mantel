@@ -81,7 +81,7 @@ class Step:
     timeout: float = 1800
     # HOW IT RUNS BESIDE THE OTHERS (2026-10-30: one at a time, full took 24 minutes on an 18-core Mac): `first`
     # steps run before everything, in order (the build tools, HK Frontend's build its suites run in); the rest run
-    # side by side (CI_JOBS at once: half the cores, at most 10, unless set), except that steps sharing a `lane` run one after another in it
+    # side by side (CI_JOBS at once: three quarters of the cores, at most 14, unless set), except that steps sharing a `lane` run one after another in it
     # (the CDP checks share one fixed DevTools port)
     first: bool = False
     lane: str = ""
@@ -344,8 +344,9 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
     except (OSError, ValueError, KeyError, TypeError):
         was = {}
     jobs.sort(key=lambda job: -sum(was.get(s.name, 60) for s in job))
-    # (10 at once on this 18-core Mac: full in about 2.5 minutes, every check steady; half the cores elsewhere)
-    width = max(1, int(os.environ.get("CI_JOBS") or min(10, max(2, (os.cpu_count() or 4) // 2))))
+    # (13 at once on this 18-core Mac: the browser checks mostly wait, so the cores were two-thirds idle at 9 and
+    # the run waited on width, not CPU -- 2026-11-01, 238 s at 9, 191 s at 14, every check steady and no slower)
+    width = max(1, int(os.environ.get("CI_JOBS") or min(14, max(2, (os.cpu_count() or 4) * 3 // 4))))
     with concurrent.futures.ThreadPoolExecutor(max_workers=width) as pool:
         for f in [pool.submit(lambda job=job: [one(s) for s in job]) for job in jobs]:
             f.result()

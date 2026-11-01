@@ -32,15 +32,15 @@ prints one table:
 
 ```bash
 ~/.venvs/mantel/bin/python tools/ci.py quick     # about a minute: the main suite (8 workers, pytest-xdist) and the release checks
-~/.venvs/mantel/bin/python tools/ci.py full      # about 4: also the HA build, HK Frontend's suites, the browser checks
+~/.venvs/mantel/bin/python tools/ci.py full      # about 3½: also the HA build, HK Frontend's suites, the browser checks
 ~/.venvs/mantel/bin/python tools/ci.py versions  # seconds: what reads the version files and changelogs (a release's re-check)
-CI_JOBS=4 ~/.venvs/mantel/bin/python tools/ci.py full    # fewer at once (half the cores, at most 10, unless set)
+CI_JOBS=4 ~/.venvs/mantel/bin/python tools/ci.py full    # fewer at once (three quarters of the cores, at most 14, unless set)
 ~/.venvs/mantel/bin/python tools/ci.py full --only js    # only the steps whose name contains "js"
 ~/.venvs/mantel/bin/python tools/ci.py --list            # every step and its tier
 ```
 
-- **Side by side** (2026-10-30; one at a time, full took 24 minutes): the build tools and HK Frontend's build run
-  first; every other step then runs at once with the others, `CI_JOBS` of them (half the cores, at most 10, unless set), the longest first by
+- **Side by side** (2026-10-30; one at a time, full took 24 minutes; 2026-11-01, 13 at once here): the build tools and HK Frontend's build run
+  first; every other step then runs at once with the others, `CI_JOBS` of them (three quarters of the cores, at most 14, unless set), the longest first by
   the last run's times; the CDP checks (`headless-*`) share one fixed DevTools port and run one after another. Edit
   mode and Swipe Between Pages are a step per engine (and per size for Edit mode), so they run side by side too,
   as do the Side Pane's check (a step per size) and the screensaver Shows' (`saver-shows-check-KofN`, every N-th of
