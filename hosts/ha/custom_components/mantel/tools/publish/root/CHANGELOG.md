@@ -5,6 +5,10 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 0.1.9 - 2026-11-01
+
+- **Live TV:** the channels play again after the link to Mantel drops and comes back. Each channel camera picks Home Assistant's live player again once the link has settled (Home Assistant's own picks could leave it with none, and every channel then failed to start).
+
 ## 0.1.8 - 2026-10-29
 
 - The code Mantel Link shares with HK Frontend (the link to Mantel, the doorbell's talk-back, page headers) is one copy, kept in step with HK Frontend's.
