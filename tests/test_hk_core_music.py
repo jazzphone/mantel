@@ -10,7 +10,7 @@ import asyncio
 import pytest
 
 from hk_core.house import Device, Entity, Floor, State
-from hk_core.music import announcements as A, checks, engine as E, queue, settings as S
+from hk_core.music import announcements as A, checks, engine as E, groups as G, queue, settings as S
 from hk_core.music.config import Item, MusicConfig
 from hk_core.music.const import (
     CONF_HOMES, CONF_KEEP_READY, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME, GROUPING, SUB_PLAYLIST, SUB_PRESET,
@@ -280,6 +280,21 @@ def test_new_speakers_for_a_group_that_plays_update_it_in_place(house, cfg):
     assert E.update_plan(house, cfg, ROOMS, DOWNG) is None
     house.set(OFF, "playing", supported_features=GROUPING)
     assert E.update_plan(house, cfg, [OFF, LOFT], OFF) is None
+
+
+def test_a_presets_group_is_made_its_rooms_again_before_it_plays(house, cfg):
+    """A group with dynamic members gives up rooms that play elsewhere (Everywhere's held none: Music Assistant
+    cannot play an empty group) and keeps rooms added to it while it played."""
+    down = cfg.preset_for_rooms(DOWN)
+    assert E.preset_plan(house, cfg, down) == ([], []), "a group that cannot take members: as it is"
+    house.set(DOWNG, "idle", supported_features=GROUPING, group_members=[])
+    assert E.preset_plan(house, cfg, down) == (DOWN, [])
+    house.set(DOWNG, "playing", group_members=[K, LR, OFF])
+    house.group(K, [LR, OFF])
+    assert E.preset_plan(house, cfg, down) == ([], [OFF])
+    # its own rooms are not in its way while it holds the Office: the Office is taken out instead
+    target, found, way = E.play_target(house, cfg, DOWN, down, DOWN)
+    assert target == DOWNG and way == []
 
 
 # ------------------------------------------------------------- the rest
@@ -785,3 +800,23 @@ def test_the_settings_page_lists_the_pairs_and_their_own_group(house):
     from hk_core.music.config import virtual_pairs
     assert virtual_pairs({CONF_PAIRS: [{"players": [SL, SR]}, {"players": [SR, K]}, {"players": [K]}, "x"]}) == [
         {"players": [SL, SR], "name": ""}]
+
+
+async def test_a_dynamic_groups_rooms_are_the_ones_its_settings_name():
+    """Its members now change as it plays; its settings keep its rooms. One that cannot be read keeps what it holds."""
+    raw = [{"player_id": "sg1", "type": "group", "supported_features": ["set_members"], "group_members": []},
+           {"player_id": "sg2", "type": "group", "supported_features": [], "group_members": ["a"]},
+           {"player_id": "sg3", "type": "group", "supported_features": ["set_members"], "group_members": ["b"]},
+           {"player_id": "a", "type": "player", "supported_features": ["set_members"], "group_members": []}]
+    asked = []
+
+    async def read(pid):
+        asked.append(pid)
+        if pid == "sg3":
+            raise ConnectionError
+        return {"values": {"group_members": {"key": "group_members", "value": ["a", "b"]}}}
+    got = await G.with_configured(raw, read)
+    assert asked == ["sg1", "sg3"], "only the groups whose members change"
+    assert [p["group_members"] for p in got] == [["a", "b"], ["a"], ["b"], []]
+    assert raw[0]["group_members"] == [], "the list read is left as it was"
+    assert G.configured_members({"values": {}}) is None and G.configured_members(None) is None

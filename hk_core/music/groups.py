@@ -17,10 +17,14 @@ rooms chosen for them, and no speaker is a pair.
 A VIRTUAL PAIR (2026-10-31, docs/phase4/VIRTUAL-PAIRS.md) is two players Mantel makes one room, with no
 group in Music Assistant: its parts are folded back into it the same way (``rooms_of``'s ``virtual``), and
 a Music Assistant group of exactly its two players is its own group (``group_of``), used for it alone.
+
+A GROUP WITH DYNAMIC MEMBERS (the house's sync groups, 2026-11-01) gives up a room that plays elsewhere and takes one
+added while it plays, so the members it holds now are not its rooms: Everywhere's group once held none. Its rooms are
+the ones its settings name (``with_configured``: ``config/players/get``'s ``values.group_members``), read with the list.
 """
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -42,6 +46,39 @@ def read_players(raw: Any) -> dict[str, MaPlayer]:
         members = p.get("group_members") or p.get("group_childs") or []
         out[pid] = MaPlayer(pid, str(p.get("display_name") or p.get("name") or pid), p.get("type") == "group",
                             tuple(m for m in members if isinstance(m, str)) if isinstance(members, list) else ())
+    return out
+
+
+CONFIG_READ = "config/players/get"      # a player's settings: a group's own rooms are values.group_members
+
+
+def dynamic(p: Any) -> bool:
+    """A Music Assistant group whose members change as it plays (dynamic members: set_members)."""
+    return isinstance(p, Mapping) and p.get("type") == "group" and "set_members" in (p.get("supported_features") or [])
+
+
+def configured_members(conf: Any) -> list[str] | None:
+    """The members a group's settings name (``config/players/get``'s answer), or None when it names none."""
+    v = ((conf or {}).get("values") or {}).get("group_members") if isinstance(conf, Mapping) else None
+    v = v.get("value") if isinstance(v, Mapping) else v
+    return [m for m in v if isinstance(m, str)] if isinstance(v, list) else None
+
+
+async def with_configured(raw: Any, read: Callable[[str], Awaitable[Any]]) -> Any:
+    """Music Assistant's player list with each dynamic group's members as its settings name them, read with ``read``
+    (player id -> its settings). A group whose settings cannot be read keeps the members it holds now."""
+    if not isinstance(raw, list):
+        return raw
+    out = []
+    for p in raw:
+        if dynamic(p):
+            try:
+                got = configured_members(await read(p["player_id"]))
+            except Exception:  # noqa: BLE001 -- the members it holds now stay
+                got = None
+            if got is not None:
+                p = {**p, "group_members": got}
+        out.append(p)
     return out
 
 

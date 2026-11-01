@@ -257,7 +257,8 @@ def play_target(house: House, cfg: MusicConfig, rooms: list[str], preset: Preset
         target = preset.group
     else:
         target = found[0] if found else rooms[0]
-    keep = set(preset.members) if preset else None
+    # a preset's group holding rooms it took while it played is not in its own way (`preset_plan` trims it)
+    keep = (set(grouped(house, cfg, preset.group)) or set(preset.members)) if preset else None
     way = [] if found else in_the_way(house, cfg, members_, keep)
     return target, found, way
 
@@ -328,6 +329,17 @@ def update_plan(house: House, cfg: MusicConfig, rooms: list[str], source: str
         return None
     have, want = set(members(house, source)), cfg.players_of(rooms)
     return [p for p in want if p not in have], [p for p in cfg.players_of(now) if p not in want]
+
+
+def preset_plan(house: House, cfg: MusicConfig, preset: Preset | None) -> tuple[list[str], list[str]]:
+    """A PRESET'S GROUP, about to play, made its rooms again: (the PLAYERS to give back to it, the players to take out).
+    A group with dynamic members gives up a room that plays elsewhere (Everywhere's held none, and Music Assistant
+    cannot play an empty group) and keeps the rooms added to it while it played (`update_plan`). Given back while it
+    is quiet, rooms are only noted, and it takes them when it plays."""
+    if preset is None or preset.key.startswith("pair:") or not takes_members(house, preset.group):
+        return [], []
+    have, want = members(house, preset.group), cfg.players_of(preset.members)
+    return [p for p in want if p not in have], [p for p in have if p not in want and cfg.room_of(p) is not None]
 
 
 def move_plan(house: House, rooms: list[str], source: str,

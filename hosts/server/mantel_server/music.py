@@ -82,7 +82,7 @@ from hk_core.music.const import (
     GROUPS_EVERY,
 )
 from hk_core.music.engine import ACTIVE, STOPPED, SUPERSEDED
-from hk_core.music.groups import Groups, signature
+from hk_core.music.groups import CONFIG_READ, Groups, signature, with_configured
 from hk_core.music.queue import QUEUE_MAX
 from hk_core.music.warm import Warmer
 
@@ -929,6 +929,7 @@ class MantelMusic:
                                f"{', '.join(missing) or 'Some rooms'} did not join {cfg.name_of(target)}. Nothing "
                                "is playing -- the group was broken up rather than left wrong.")
                     return {"ok": False, "message": "The speakers did not group."}
+            await self._fill(target, *E.preset_plan(self.house, cfg, preset))
             self._clear(NOTE_GROUP, NOTE_PRESET)
             await self._call("media_player", "volume_set", {"entity_id": E.volume_players(cfg, members),
                                                             "volume_level": cfg.volume})
@@ -988,6 +989,8 @@ class MantelMusic:
                 return {"ok": True, "leader": leader}
             return {"ok": False, "message": f"{cfg.name_of(source)} is not playing."}
         if not adding:
+            if preset is not None and leader == preset.group:
+                await self._fill(leader, *E.preset_plan(self.house, cfg, preset))
             moving = self._attr(source, "media_content_id")
             await self._call("music_assistant", "transfer_queue",
                              {"entity_id": leader, "source_player": source, "auto_play": True})
@@ -1017,6 +1020,16 @@ class MantelMusic:
         if message:
             res["message"] = message
         return res
+
+    async def _fill(self, group: str, add: list[str], out: list[str]) -> None:
+        """A preset's group made its rooms again (engine.preset_plan) before it plays. Not refused here: its rooms are
+        checked once it plays."""
+        if add:
+            await self._call("media_player", "join", {"entity_id": group, "group_members": add})
+            await self._wait(add + [group], lambda: all(p in self._members(group) for p in add), JOIN_TIMEOUT)
+        if out:
+            await self._call("media_player", "unjoin", {"entity_id": out})
+            await self._wait(out + [group], lambda: not set(out) & set(self._members(group)), RELEASE_TIMEOUT)
 
     async def _update(self, cfg, group, add, out) -> dict[str, Any]:
         """UPDATE IN PLACE (engine.update_plan): the rooms picked join the group that plays and the rest leave it;
@@ -1311,6 +1324,7 @@ class MusicHost:
             return False
         if not isinstance(raw, list):
             return False
+        raw = await with_configured(raw, lambda pid: client.server_read(CONFIG_READ, player_id=pid))
         old, self.ma_players = self.ma_players, raw
         changed = old is None or signature(old) != signature(raw)
         if changed and self._subs:

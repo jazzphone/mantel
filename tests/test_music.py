@@ -651,6 +651,37 @@ async def test_a_preset_that_shares_rooms_with_the_group_playing_updates_it_in_p
     await ws.close()
 
 
+async def test_a_presets_rooms_are_its_groups_settings_and_an_emptied_group_is_given_them_back(on):
+    """Music Assistant had left Everywhere's group with no members (it gives up rooms that play elsewhere), so
+    Everywhere read no rooms and could not play (2026-11-01). Its rooms are its settings'; given back before it
+    plays. A group holding a room it took while it played is not in its own way: that room is taken out."""
+    host = on.app["music"]
+    on.ma.players = [dynamic("ma-downstairs", DG, [])]
+    on.ma.configured["ma-downstairs"] = ["ma-kitchen", "ma-den"]
+    await on.connected()
+    await host.refresh_groups()
+    assert host.page()["presets"][0]["members"] == [K, D] and host.page()["presets"][0]["from_ma"] is True
+    assert ("config/players/get", {"player_id": "ma-downstairs"}) in [(f["command"], f["args"]) for f in on.ma.frames]
+    await on.login("jamie", "adult")
+    ws = await on.socket()
+    r = await on.command(ws, **play([K, D]))
+    assert r["result"]["response"] == {"ok": True, "leader": DG}, r
+    sent = on.ma.sent()
+    assert sent[0] == ("players/cmd/group_many", {"target_player": "ma-downstairs",
+                                                  "child_player_ids": ["ma-kitchen", "ma-den"]}), sent
+    assert ("player_queues/play_media", {"queue_id": "ma-downstairs", "media": ["library://playlist/1"],
+                                         "option": "replace"}) in sent
+    # Cody's Room added while it plays, then Downstairs played again: Cody's Room leaves; nothing is released
+    await group_playing(on, DG, [K, D, C])
+    n = len(on.ma.sent())
+    r = await on.command(ws, id=2, **play([K, D]))
+    assert r["result"]["response"] == {"ok": True, "leader": DG}, r
+    sent = on.ma.sent()[n:]
+    assert sent[0] == ("players/cmd/ungroup", {"player_id": "ma-cody"}), sent
+    assert not [c for c, a in sent if c in ("players/cmd/pause", "player_queues/transfer")], sent
+    await ws.close()
+
+
 async def test_rbac_on_the_rooms_and_nothing_sent_when_refused(on):
     await on.connected()
     await on.m.user("cody", "child")

@@ -248,6 +248,18 @@ async def test_new_speakers_for_a_sync_group_that_plays_update_it_in_place(music
     assert house.state(LOFT) == "idle" and not house.called("transfer_queue")
 
 
+async def test_a_presets_emptied_sync_group_is_given_its_rooms_before_it_plays(music, house):
+    """A sync group with dynamic members gives up rooms that play elsewhere;
+    Music Assistant cannot play it empty (Everywhere, 2026-11-01)."""
+    from custom_components.hk_frontend.hk_core.music.const import GROUPING
+    house.dynamic.add(DOWNG)
+    house.set(DOWNG, "idle", supported_features=GROUPING, group_members=[])
+    res = await music.play(list(DOWN), key(music, "Favorites Mix"))
+    assert res["ok"] and res["leader"] == DOWNG
+    assert house.called("join")[0] == {"entity_id": DOWNG, "group_members": list(DOWN)}
+    assert house.when("join")[0] < house.when("ma_play_media")[0]
+
+
 async def test_transfer_refusals(music, house):
     assert "not playing" in (await music.transfer([LOFT], OFF))["message"]
     house.set(OFF, "playing")

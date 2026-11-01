@@ -54,7 +54,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_state_change_event
 
 from ...hk_core.music import config as C, engine as E
-from ...hk_core.music.groups import Groups, signature
+from ...hk_core.music.groups import CONFIG_READ, Groups, signature, with_configured
 from ...hk_core.music.config import Item, Playlist, Preset, Room  # noqa: F401 -- names callers import here
 from ...hk_core.music.engine import ACTIVE, GONE, STOPPED, SUPERSEDED  # noqa: F401
 from ...house import HaHouse
@@ -154,6 +154,7 @@ class MusicManager:
             return False
         if not isinstance(raw, list):
             return False
+        raw = await with_configured(raw, lambda pid: mass.send_command(CONFIG_READ, player_id=pid))
         old, self.ma_players = self.ma_players, raw
         return old is None or signature(old) != signature(raw)
 
@@ -410,6 +411,9 @@ class MusicManager:
                                f"{cfg.name_of(target)}. Nothing is playing -- the group was "
                                "broken up rather than left wrong. Try again, or pick one room.")
                     return {"ok": False, "message": "The speakers did not group."}
+            # A PRESET'S GROUP made its rooms again first (engine.preset_plan):
+            # an emptied one cannot play at all.
+            await self._fill(target, *E.preset_plan(self.house, cfg, preset))
             self._clear(NOTE_GROUP, NOTE_PRESET)
             # THE HOUSE PLAYLIST VOLUME, on the ROOMS -- a sync group SCALES its
             # members instead of leveling them (measured).
@@ -506,6 +510,8 @@ class MusicManager:
                 return {"ok": True, "leader": leader}      # already done
             return {"ok": False, "message": f"{cfg.name_of(source)} is not playing."}
         if not adding:
+            if preset is not None and leader == preset.group:
+                await self._fill(leader, *E.preset_plan(self.house, cfg, preset))
             moving = self._attr(source, "media_content_id")
             await self._call("music_assistant", "transfer_queue",
                              {"entity_id": leader, "source_player": source,
@@ -547,6 +553,18 @@ class MusicManager:
         if message:
             res["message"] = message
         return res
+
+    async def _fill(self, group: str, add: list[str], out: list[str]) -> None:
+        """A preset's group made its rooms again (engine.preset_plan) before
+        it plays. Not refused here: its rooms are checked once it plays."""
+        if add:
+            await self._call("media_player", "join", {"entity_id": group, "group_members": add})
+            await self._wait(add + [group], lambda: all(p in self._members(group) for p in add),
+                             JOIN_TIMEOUT)
+        if out:
+            await self._call("media_player", "unjoin", {"entity_id": out})
+            await self._wait(out + [group], lambda: not set(out) & set(self._members(group)),
+                             RELEASE_TIMEOUT)
 
     async def _update(self, cfg: MusicConfig, group: str, add: list[str],
                       out: list[str]) -> dict[str, Any]:
