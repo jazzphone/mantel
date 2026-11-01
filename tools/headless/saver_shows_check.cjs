@@ -190,6 +190,12 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           await page.evaluate(() => window.hkSaver.preview(true));
           await page.waitForTimeout(7000);
         } else await page.waitForTimeout(3000);
+        if (want === 'lay-energy') {
+          // (a page held by a loop of reads answers nothing: asked with a time limit, never waited on forever)
+          const alive = await Promise.race([page.evaluate(() => new Promise((r) => setTimeout(() => r(true), 50))), new Promise((r) => setTimeout(() => r(false), 8000))]);
+          say(alive, tag + ': the Battery, Inside, Energy Today and Solar widgets: the page answers', alive);
+          if (!alive) { await ctx.close().catch(() => {}); continue; }
+        }
         const m = await page.evaluate(() => {
           const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
           const host = deep(document).find((e) => e.tagName === 'HK-SCREENSAVER'), sr = host && host.shadowRoot, lay = sr && sr.querySelector('.lay');
@@ -219,7 +225,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           // (the box the plan gave the big element: what the widgets and cards are placed around, in this page's px)
           const info = window.hkSaver.layoutInfo && window.hkSaver.layoutInfo(), pb = info && info.plan && info.plan.big;
           const land = lay && lay.querySelector('.lyland'), lst = land && getComputedStyle(land);
-          return { lay: host.hasAttribute('lay'), plan: pb ? { l: pb.x, t: pb.y, r: pb.x + pb.w, b: pb.y + pb.h } : null, tb: host.hasAttribute('tb'), W: innerWidth, H: innerHeight, hasLay: !!lay,
+          return { lay: host.hasAttribute('lay'), plan: pb ? { l: pb.x, t: pb.y, r: pb.x + pb.w, b: pb.y + pb.h } : null, prow: info && info.plan ? info.plan.row : null, pm: info && info.plan ? info.plan.m : null, tb: host.hasAttribute('tb'), W: innerWidth, H: innerHeight, hasLay: !!lay,
                    big: lybig ? Object.assign({ box: rect(lybig), spans: lybig.querySelectorAll('span').length, days: [...lybig.querySelectorAll('span')].filter((e) => /^\d{1,2}$/.test(e.textContent.trim())).length,
                                   figures: lybig.querySelectorAll('.pl .pd .b').length, faces: lybig.querySelectorAll('.face').length },
                                   lybig.classList.contains('planted') ? { ink: union([...lybig.querySelectorAll('.pd .b')].map((e) => e.getBoundingClientRect())), text: lybig.querySelector('.pd .b') ? 'planted' : '' } : drawn(lybig)) : null,
@@ -270,6 +276,10 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           say(m.ck.n > 0, tag + ': ...the Clock\'s background (.ck) is there', m.ck);
           say(m.ck.own === 0, tag + ': ...with no face of its own', m.ck);
           say(!!m.big && m.big.faces > 0 && bigOk && /\d/.test(m.big.text), tag + ': ...the layout\'s own face is the time', m.big);
+        } else if (want === 'lay-energy') {
+          const R = m.prow, lines = R ? [...new Set(R.items.map((it) => Math.round(it.y)))] : [];
+          say(!!R && R.items.length === 5 && lines.length === 2, tag + ': ...five widgets on two lines', R && R.items);
+          say(!!R && R.at === 'bottom' && Math.abs(Math.max(...R.items.map((it) => it.y + it.h)) - (H - m.pm)) <= 1, tag + ': ...along the bottom, on its margin', [R, m.pm]);
         } else if (want === 'lay-behind') {
           // BEHIND THE LAND: the land again, over the time and no bigger than it (never a second full-screen layer)
           say(!!m.land && /land-[a-z0-9-]+\.webp/.test(m.land.img) && m.land.after, tag + ': ...the land drawn again over the time', m.land);

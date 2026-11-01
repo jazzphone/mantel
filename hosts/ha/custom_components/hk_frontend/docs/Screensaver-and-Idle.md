@@ -68,11 +68,19 @@ uses All Screens’ settings gets its own when you save, starting from them.
   **Align** and **Depth** (**In Front**, **Behind the Subject** on photos,
   **Behind the Land** or **Planted** on the Landscape). Everything it reaches
   moves out of its way.
-- **Widgets**, in kinds: **Circular** and **Rectangular** (under the big
-  element, as on the iPhone), **Inline**, **Cards** (the corners) and
-  **Along the Bottom**. Tap one, then a green place on the screen; there is
-  no dragging. Tap it on the screen for its **Backdrop** (**None**,
-  **Glass** or **Tinted**), **Color**, **Where** and **Remove**.
+- **Widgets**, in kinds: **Circular** and **Rectangular** (the row: four
+  units to a line, two lines at most, as on the iPhone), **Inline**,
+  **Cards** (the corners) and **Along the Bottom**. Tap one, then a green
+  place on the screen; there is no dragging. Tap a widget or a card on the
+  screen for the same **Look** on every one (**Size**, 60 to 160 %;
+  **Backdrop**: **None**, **Glass** or **Tinted**; **Color**), **Where**
+  and **Remove**.
+- **The row** sits **Under the Big Element** or **Along the Bottom** of the
+  screen, which keeps the middle of a photo clear.
+- A card with nothing to show now (Now Playing with no music, Timers with
+  none running) keeps its place, drawn dotted with its name. Things line up
+  by what you see: the time's top with the top corners' words, the bottom
+  corners on one baseline.
 - **Wall Tablet**, **iPad Upright** and **Phone** show the layout at each
   shape, and **Preview** hides the green places.
 - **Save** stores it; **Cancel** and **Undo** (⌘Z) take it back.

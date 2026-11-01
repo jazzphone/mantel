@@ -44,7 +44,12 @@ def test_a_layout_that_checks_is_stored_whole():
     {"v": 1, "big": {"kind": "moon"}},
     {"v": 1, "zones": {"side": []}},                                       # the pane is the Side Pane's
     {"v": 1, "zones": {"row": [{"id": "music_card"}]}},                    # a card in the row
-    {"v": 1, "zones": {"row": [{"id": "temp"}, {"id": "next_event"}, {"id": "aqi"}, {"id": "locks"}]}},   # 5 units
+    {"v": 1, "zones": {"row": [{"id": "temp"}, {"id": "next_event"}, {"id": "aqi"}, {"id": "locks"},
+                               {"id": "next_hours"}, {"id": "humidity"}, {"id": "sunset"}]}},              # 9 units: two lines of four
+    {"v": 1, "zones": {"row": [{"id": "temp", "size": 40}]}},              # smaller than a widget goes
+    {"v": 1, "zones": {"row": [{"id": "temp", "size": 100.5}]}},
+    {"v": 1, "row_at": "middle"},
+    {"v": 1, "upright": {"row_at": "top"}},
     {"v": 1, "zones": {"tl": [{"id": "clock_card"}, {"id": "weather_card"}, {"id": "status_card"}]}},     # 3 in a corner
     {"v": 1, "zones": {"line": [{"id": "nope"}]}},
     {"v": 1, "zones": {"line": [{"id": "date", "back": "frosted"}]}},
@@ -58,17 +63,33 @@ def test_the_write_refuses_a_layout_that_does_not_check(bad):
 
 def test_the_read_keeps_what_it_can_and_never_costs_the_other_options():
     stored = {"show": "clock", "clock_style": "neon",
-              "layout": {"v": 1, "big": {"kind": "time", "size": 99},
-                         "zones": {"row": [{"id": "temp"}, {"id": "next_event"}, {"id": "aqi"}, {"id": "locks"}],
+              "layout": {"v": 1, "big": {"kind": "time", "size": 99}, "row_at": "sideways",
+                         "zones": {"row": [{"id": "temp"}, {"id": "next_event"}, {"id": "aqi"}, {"id": "locks"},
+                                           {"id": "next_hours"}, {"id": "humidity"}, {"id": "sunset"}],
                                    "tl": [{"id": "from_a_newer_build"}, {"id": "clock_card"}], "side": []}}}
     got = M.saver_options(stored)
     assert got["show"] == "clock" and got["clock_style"] == "neon"
     lay = got["layout"]
     assert lay["big"]["size"] == SL.BIG_DEFAULT["size"]                    # the bad value is the default
-    assert [w["id"] for w in lay["zones"]["row"]] == ["temp", "next_event", "aqi"]   # what fits
+    assert [w["id"] for w in lay["zones"]["row"]] == ["temp", "next_event", "aqi", "locks", "next_hours", "humidity"]   # what fits
+    assert lay["row_at"] == "under"
     assert [w["id"] for w in lay["zones"]["tl"]] == ["clock_card"]
     assert M.saver_options({"layout": {"v": 9}})["layout"] is None
     assert M.saver_options({"layout": "a layout"})["layout"] is None
+
+
+def test_every_widget_and_card_has_a_size_and_the_row_a_place():
+    """2026-11-01, the owner: "Lots of options for users on size and scale... around all the elements"; the row "all
+    the way at the bottom"; more than one line of widgets."""
+    got = C._saver_options({"layout": {"v": 1, "row_at": "bottom", "zones": {
+        "row": [{"id": "temp", "size": 120}, {"id": "aqi", "size": 100}, {"id": "next_event"}, {"id": "locks"}, {"id": "sunset"}],
+        "br": [{"id": "status_card", "size": 80, "back": "glass"}]}, "upright": {"row_at": "under"}}})["layout"]
+    assert got["row_at"] == "bottom" and got["upright"] == {"row_at": "under"}
+    assert got["zones"]["row"][0] == {"id": "temp", "back": "none", "color": "auto", "size": 120}
+    assert "size" not in got["zones"]["row"][1]                            # 100 is a widget's usual: not stored
+    assert len(got["zones"]["row"]) == 5                                   # a second line
+    assert got["zones"]["br"][0] == {"id": "status_card", "back": "glass", "color": "auto", "size": 80}
+    assert M.saver_options({"layout": {"v": 1}})["layout"]["row_at"] == "under"
 
 
 def test_all_screens_checks_the_same_way():
@@ -82,6 +103,8 @@ def test_the_pages_catalog_and_checks_are_the_same(tmp_path):
     """hk-saverlayout.js against saver_layout.py: the widgets and their kinds, the zones, the big element's choices,
     and the same verdict on the same layouts."""
     cases = [GOOD, {"v": 2}, {"v": 1, "zones": {"row": [{"id": "music_card"}]}}, {"v": 1, "big": {"size": 44}},
+             {"v": 1, "row_at": "bottom", "zones": {"row": [{"id": "temp", "size": 160}, {"id": "aqi", "size": 59}]}},
+             {"v": 1, "row_at": "bottom", "zones": {"row": [{"id": "temp", "size": 160}]}, "upright": {"row_at": "under"}},
              {"v": 1, "big": {"size": 45}}, {"v": 1, "zones": {"tl": [{"id": "date"}, {"id": "clock_card"}]}}]
     prelude = tmp_path / "prelude.js"
     prelude.write_text(
@@ -89,13 +112,14 @@ def test_the_pages_catalog_and_checks_are_the_same(tmp_path):
         f"load({json.dumps(str(ROOT / 'web/hk/modules/hk-saverlayout.js'))});\n"
         "var L = window.hkSaverLayout, cases = " + json.dumps(cases) + ";\n"
         "var kinds = {}; Object.keys(L.CATALOG).forEach(function (k) { kinds[k] = L.CATALOG[k][0]; });\n"
-        "print(JSON.stringify({kinds: kinds, zones: L.ZONES, big: L.BIG, def: L.BIG_DEFAULT, backs: L.BACKS, colors: L.COLORS,\n"
+        "print(JSON.stringify({kinds: kinds, zones: L.ZONES, big: L.BIG, def: L.BIG_DEFAULT, backs: L.BACKS, colors: L.COLORS, size: L.ITEM_SIZE, rowat: L.ROW_AT,\n"
         "  verdicts: cases.map(function (c) { return L.check(c); }), clean: L.clean(cases[0])}));\n")
     out = json.loads(subprocess.run([str(JSC), str(prelude)], capture_output=True, text=True, check=True, timeout=30).stdout)
     assert out["kinds"] == SL.CATALOG
     assert {z: (list(t), r) for z, (t, r) in SL.ZONES.items()} == {z: (v[0], v[1]) for z, v in out["zones"].items()}
     assert out["big"] == {"kinds": list(SL.BIG_KINDS), "size": list(SL.BIG_SIZE), "pos": list(SL.BIG_POS),
                           "align": list(SL.BIG_ALIGN), "depth": list(SL.BIG_DEPTH)}
+    assert out["size"] == list(SL.ITEM_SIZE) and out["rowat"] == list(SL.ROW_AT)
     assert out["def"] == SL.BIG_DEFAULT and out["backs"] == list(SL.BACKS) and out["colors"] == list(SL.COLORS)
 
     def py_verdict(c):

@@ -17,14 +17,19 @@ var hit = function (a, b) { return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y
 
 print('=== the checks ===');
 ok('no layout: nothing to check', L.check(null), null);
-ok('a version this build doesn\'t know, a card in the row, five units in the row: refused',
+ok('a version this build doesn\'t know, a card in the row, nine units in the row (two lines of four): refused',
    [L.check({ v: 2 }), L.check({ v: 1, zones: { row: [{ id: 'music_card' }] } }),
-    L.check({ v: 1, zones: { row: [{ id: 'temp' }, { id: 'next_event' }, { id: 'aqi' }, { id: 'locks' }] } })], ['saver_layout', 'saver_layout', 'saver_layout']);
-var cl = L.clean({ v: 1, big: { size: 99, kind: 'month' }, zones: { row: [{ id: 'temp' }, { id: 'next_event' }, { id: 'aqi' }, { id: 'locks' }], tl: [{ id: 'nope' }, { id: 'clock_card' }] } });
-ok('the read keeps what it can: the month, the default size, what fits in the row and the corner',
-   [cl.big.kind, cl.big.size, ids(cl.zones.row), ids(cl.zones.tl)], ['month', 24, ['temp', 'next_event', 'aqi'], ['clock_card']]);
-ok('fits: room in a zone for one more of a kind', [L.fits({ row: [{ id: 'temp' }, { id: 'aqi' }] }, 'row', 'next_event'), L.fits({ row: [{ id: 'temp' }, { id: 'aqi' }, { id: 'locks' }] }, 'row', 'next_event'),
-   L.fits({}, 'bottom', 'temp'), L.fits({}, 'tl', 'date')], [true, false, false, true]);
+    L.check({ v: 1, zones: { row: [{ id: 'temp' }, { id: 'next_event' }, { id: 'aqi' }, { id: 'locks' }, { id: 'next_hours' }, { id: 'humidity' }, { id: 'sunset' }] } })], ['saver_layout', 'saver_layout', 'saver_layout']);
+var cl = L.clean({ v: 1, big: { size: 99, kind: 'month' }, row_at: 'sideways', zones: { row: [{ id: 'temp' }, { id: 'next_event' }, { id: 'aqi' }, { id: 'locks' }, { id: 'next_hours' }, { id: 'humidity' }, { id: 'sunset' }], tl: [{ id: 'nope' }, { id: 'clock_card' }] } });
+ok('the read keeps what it can: the month, the default size, what fits in the row and the corner, the row under the big element',
+   [cl.big.kind, cl.big.size, ids(cl.zones.row), ids(cl.zones.tl), cl.row_at], ['month', 24, ['temp', 'next_event', 'aqi', 'locks', 'next_hours', 'humidity'], ['clock_card'], 'under']);
+ok('fits: room in a zone for one more of a kind', [L.fits({ row: [{ id: 'temp' }, { id: 'aqi' }] }, 'row', 'next_event'),
+   L.fits({ row: [{ id: 'temp' }, { id: 'aqi' }, { id: 'locks' }, { id: 'next_event' }, { id: 'humidity' }] }, 'row', 'next_hours'),
+   L.fits({ row: [{ id: 'temp' }, { id: 'aqi' }, { id: 'locks' }, { id: 'next_event' }, { id: 'humidity' }, { id: 'sunset' }, { id: 'solar' }] }, 'row', 'next_hours'),
+   L.fits({}, 'bottom', 'temp'), L.fits({}, 'tl', 'date')], [true, true, false, false, true]);
+ok('a size on a widget or a card: kept, its usual 100 not stored, outside 60-160 refused',
+   [L.clean({ v: 1, zones: { br: [{ id: 'status_card', size: 80 }], row: [{ id: 'temp', size: 100 }] } }).zones.br[0].size, 'size' in L.clean({ v: 1, zones: { row: [{ id: 'temp', size: 100 }] } }).zones.row[0],
+    L.check({ v: 1, zones: { row: [{ id: 'temp', size: 59 }] } }), L.check({ v: 1, row_at: 'bottom', upright: { row_at: 'under' } })], [80, false, 'saver_layout', null]);
 
 print('=== today\'s options as a layout ===');
 var tb = L.layoutFrom({ show: 'photos', time_behind: true, tb_size: 40, tb_top: 6 });
@@ -88,6 +93,39 @@ var ups = [];
 Object.keys(upr.corners).forEach(function (z) { upr.corners[z].forEach(function (c) { ups.push(c); }); });
 ok('upright, wide cards: nothing on anything else, nothing on the time',
    [ups.some(function (a, i) { return ups.some(function (b, j) { return i < j && hit(a, b); }); }), ups.some(function (c) { return hit(c, upr.col); })], [false, false]);
+
+// TWO LINES, AND THE ROW ALONG THE BOTTOM (2026-11-01, the owner: "I should be able to put more than one... I may want
+// it all the way at the bottom and not below the clock... as that tends to be where faces are in pictures")
+var two = { v: 1, big: { kind: 'time', size: 26, pos: 'top', align: 'center', depth: 'front' }, row_at: 'under',
+  zones: { line: [], row: [{ id: 'temp' }, { id: 'aqi' }, { id: 'next_event' }, { id: 'locks', size: 120 }], tl: [], tr: [], bl: [], br: [], bottom: [] } };
+var T2 = L.plan(room, L.oriented(two, 1280, 800), { big: bigOf(26) }, { w: 1280, h: 800 });
+ok('a fifth unit starts a second line, under the first; a widget its own size',
+   [T2.row.items[3].y > T2.row.items[0].y + T2.row.items[0].h, Math.round(T2.row.items[3].h / T2.row.items[0].h * 100)], [true, 120]);
+ok('...each line centered under the time', Math.round(T2.row.items[3].x + T2.row.items[3].w / 2), 640);
+var dn = JSON.parse(JSON.stringify(two));
+dn.row_at = 'bottom';
+dn.zones.bl = [{ id: 'music_card' }]; dn.zones.br = [{ id: 'status_card' }];
+var D = L.plan(room, L.oriented(dn, 1280, 800), { big: bigOf(26), widget: function (id) { return { music_card: { w: 400, h: 90 }, status_card: { w: 420, h: 40 } }[id]; } }, { w: 1280, h: 800 });
+var foot = 800 - D.m, lowest = Math.max.apply(null, D.row.items.map(function (it) { return it.y + it.h; }));
+ok('along the bottom: on the bottom margin, in the middle of the screen, the time\'s column without it',
+   [Math.round(lowest), Math.round(D.row.box.x + D.row.box.w / 2), D.row.at, D.col.h < T2.col.h], [Math.round(foot), 640, 'bottom', true]);
+var dcs = [].concat(D.corners.bl || [], D.corners.br || []);
+ok('...the bottom corners clear of it', dcs.length === 2 && dcs.every(function (c) { return !hit(c, D.row.box); }), true);
+ok('...on a phone too, where they would meet: over it', (function () {
+  var P2 = L.plan({ x: 0, y: 0, w: 390, h: 844 }, L.oriented(dn, 390, 844), { big: bigOf(26), widget: function (id) { return { music_card: { w: 180, h: 60 }, status_card: { w: 170, h: 30 } }[id]; } }, { w: 390, h: 844 });
+  var cs = [].concat(P2.corners.bl || [], P2.corners.br || []);
+  return cs.length > 0 && cs.every(function (c) { return !hit(c, P2.row.box) && c.y + c.h <= P2.row.box.y; });
+})(), true);
+// LINED UP BY THEIR INK (2026-11-01, the owner's green lines: "alignment is key here"): the time's figures' top on the
+// top corners' words' top, the bottom corners' words on one line, whatever room each box has above and below
+var ink = { v: 1, big: { kind: 'time', size: 30, pos: 'top', align: 'center', depth: 'front' }, row_at: 'under',
+  zones: { line: [], row: [], tl: [{ id: 'date' }], tr: [{ id: 'status_card' }], bl: [{ id: 'weather_card' }], br: [{ id: 'status_line' }], bottom: [] } };
+var sizes = { date: { w: 240, h: 30, t: 7, b: 6 }, status_card: { w: 300, h: 44, t: 11, b: 9 }, weather_card: { w: 260, h: 60, t: 4, b: 16 }, status_line: { w: 300, h: 30, t: 8, b: 5 } };
+var I = L.plan(room, L.oriented(ink, 1280, 800), { big: { w: 520, h: 236, base: 200, t: 18, b: 3 }, widget: function (id) { return sizes[id]; } }, { w: 1280, h: 800 });
+var topInk = [I.big.y + 18, I.corners.tl[0].y + 7, I.corners.tr[0].y + 11].map(Math.round);
+var footInk = [I.corners.bl[0].y + I.corners.bl[0].h - 16, I.corners.br[0].y + I.corners.br[0].h - 5].map(Math.round);
+ok('the time\'s ink, the top left\'s and the top right\'s on one line: the margin', topInk, [I.m, I.m, I.m].map(Math.round));
+ok('...the bottom corners\' ink on one line: the bottom margin', footInk, [800 - I.m, 800 - I.m].map(Math.round));
 
 print(fail ? 'FAIL ' + fail + ' SAVER ZONES TESTS' : 'ALL ' + pass + ' SAVER ZONES TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

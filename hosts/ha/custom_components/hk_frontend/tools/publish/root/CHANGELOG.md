@@ -5,6 +5,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+- **Screensaver, Edit Screensaver:** every widget and card has the same Look: a **Size** (60 to 160 %), a **Backdrop** (None, Glass or Tinted) and a **Color**. The row holds two lines of widgets and sits **Under the Big Element** or **Along the Bottom**. A card with nothing to show now (no music, no timer) is drawn dotted with its name in the editor, where before it was found only by hovering. Things line up by their letters: the time's top with the top corners' words, the bottom corners on one baseline, and Time Behind's figures on the top margin.
 ## 1.29.1 - 2026-11-01
 
 - **Screensaver, the Battery and Energy Today widgets:** a layout with either no longer freezes the screensaver. A wall tablet's page stopped and was restarted, and HK Settings' Screensaver page and Edit Screensaver hung once such a layout was saved.

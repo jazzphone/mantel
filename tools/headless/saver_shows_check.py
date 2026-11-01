@@ -87,6 +87,11 @@ SHOWS = {
                         bl=['music_card'])}, 'lay-clock'),
     'saver-lay-month': ({'show': 'month', 'layout': _layout({'kind': 'month', 'size': 34, 'pos': 'center'}, tr=['clock_card'])}, 'lay-month'),
     # (behind the land, 2026-11-01: the land drawn again over the time, in a box the time's size)
+    # (2026-11-01: a layout with the Battery widget held the page -- the house's wall tablets died and Settings froze --
+    # the Energy page's sums waking the widget that had just read them, at once, forever; the row on two lines, along the
+    # bottom, a card with Glass)
+    'saver-lay-energy': ({'show': 'photos', 'layout': dict(_layout({'kind': 'time', 'size': 30, 'pos': 'top'},
+                          row=['battery', 'inside', 'energy_today', 'solar', 'temp'], tr=['status_card']), row_at='bottom')}, 'lay-energy'),
     'saver-lay-behind': ({'show': 'forecast', 'layout': _layout({'kind': 'time', 'size': 34, 'pos': 'upper', 'depth': 'behind'},
                           tr=['status_card'])}, 'lay-behind'),
 }

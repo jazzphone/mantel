@@ -100,6 +100,11 @@
     ':host(:not([previewing])) .ov .w:hover,:host(:not([previewing])) .ov .big:hover{outline:2px solid rgba(255,255,255,.55);outline-offset:4px}',
     '.ov [aria-pressed=true]{outline:4px solid var(--hk-tint)!important;outline-offset:5px!important}',
     '.ov .z.want{outline:3px dashed #30d158!important;background:rgba(48,209,88,.18)!important}',
+    // (a card with nothing to show now -- no music, no timer -- still has its place: drawn as one, with its name and
+    // when it shows; the owner, 2026-11-01: "I had no idea they were there until I hovered over them")
+    ':host(:not([previewing])) .ov .w.empty{outline:2px dashed rgba(255,255,255,.7);outline-offset:3px;background:rgba(0,0,0,.18)}',
+    ':host(:not([previewing])) .ov .w.empty span{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:calc(var(--zf,22px) * .8);font-weight:600;text-align:center;line-height:1.15;text-shadow:0 1px 4px rgba(0,0,0,.7);pointer-events:none}',
+    ':host(:not([previewing])) .ov .w.empty small{font-size:.78em;font-weight:500;opacity:.85}',
     '.ov .moved{position:absolute;pointer-events:none;font-size:calc(var(--zf,22px) * .8);font-weight:600;color:#000;background:#ffd60a;border-radius:8px;padding:4px 10px;white-space:nowrap}',
     ':host([previewing]) .ov{pointer-events:none}:host([previewing]) .ov .moved{display:none}',
     // THE LIBRARY
@@ -249,14 +254,16 @@
         var want = self.pick && LM.fits(zs, z, self.pick);
         var e = place(h('button', { type: 'button', class: 'z' + (want ? ' want' : ''), 'aria-pressed': self.sel === z ? 'true' : 'false',
                                     'aria-label': LM.ZONE_NAMES[z], onclick: (ev) => { ev.stopPropagation(); self.tapZone(z); } },
-          [h('span', { text: want ? 'Add Here' : LM.ZONE_NAMES[z] })]), b);
+          [h('span', { text: want ? 'Add Here' : self.zoneName(z) })]), b);
         self.ov.appendChild(e);
       };
       var item = function (z, i, b) {
         var w = zs[z][i];
         if (!w) return;
-        self.ov.appendChild(place(h('button', { type: 'button', class: 'w', 'aria-pressed': self.sel === z + ':' + i ? 'true' : 'false',
-          'aria-label': LM.CATALOG[w.id][1] + ', ' + LM.ZONE_NAMES[z], onclick: (ev) => { ev.stopPropagation(); self.select(z + ':' + i); } }), b));
+        var none = !!(info.empty && info.empty[w.id]);
+        self.ov.appendChild(place(h('button', { type: 'button', class: 'w' + (none ? ' empty' : ''), 'aria-pressed': self.sel === z + ':' + i ? 'true' : 'false',
+          'aria-label': LM.CATALOG[w.id][1] + ', ' + self.zoneName(z), onclick: (ev) => { ev.stopPropagation(); self.select(z + ':' + i); } },
+          none ? [h('span', {}, [document.createTextNode(LM.CATALOG[w.id][1]), h('small', { text: LM.CATALOG[w.id][2] })])] : []), b));
       };
       // the big element, and every place a widget can go: a place with nothing in it is drawn as an outline
       if (P.big) this.ov.appendChild(place(h('button', { type: 'button', class: 'big', 'aria-pressed': this.sel === 'big' ? 'true' : 'false',
@@ -264,7 +271,9 @@
       if (zs.line.length) item('line', 0, P.line); else if (this.T().big.kind !== 'none') zone('line', P.line);
       if (zs.row.length) {
         P.row.items.forEach(function (it) { item('row', it.i, it); });
-        if (this.pick && LM.fits(zs, 'row', this.pick)) zone('row', { x: P.row.box.x + P.row.box.w + 12, y: P.row.box.y, w: 110, h: P.row.box.h });
+        // (one more: after the last, on its line -- a place as big as a widget, not a sliver beside the row)
+        var last = P.row.items[P.row.items.length - 1];
+        if (this.pick && LM.fits(zs, 'row', this.pick) && last) zone('row', { x: last.x + last.w + 14, y: last.y, w: Math.max(last.h, 90), h: last.h });
       } else if (this.T().big.kind !== 'none') zone('row', P.row.box);
       ['tl', 'tr', 'bl', 'br'].forEach(function (z) {
         (P.corners[z] || []).forEach(function (b) { item(z, b.i, b); });
@@ -314,6 +323,8 @@
       }
       this.select(z);
     }
+    // a zone's name: the row says where it is
+    zoneName(z) { return z === 'row' && (this.T().row_at === 'bottom') ? 'The Row, Along the Bottom' : LM.ZONE_NAMES[z]; }
     takes(z) { return LM.ZONES[z][0].map(function (k) { return { circular: 'circular', rectangular: 'rectangular', inline: 'inline', card: 'card', band: 'band' }[k]; }).join(' or ') + ' widgets'; }
     pickWidget(id) {
       var z = this.sel && LM.ZONES[this.sel] ? this.sel : null;
@@ -511,19 +522,24 @@
     widgetPage(z, i) {
       var K = this.K, self = this, w = this.T().zones[z][i], add = (n) => this.sidebar.appendChild(n);
       if (!w) { this.sel = null; return this.screenPage(); }
-      var c = LM.CATALOG[w.id], isCard = c[0] === 'card' || w.id === 'forecast_band';
+      var c = LM.CATALOG[w.id], isBand = w.id === 'forecast_band';
       var set = function (k) { return function (v) { self.change(function (x) { self.T(x).zones[z][i][k] = v; }); }; };
-      add(this.head('mdi:view-grid', c[1], c[2] + ' · ' + LM.ZONE_NAMES[z]));
-      if (!isCard) add(K.group({ header: 'Look', footer: 'Auto takes its color from what is behind it, as the lock screen does.' }, [
+      add(this.head('mdi:view-grid', c[1], c[2] + ' · ' + this.zoneName(z)));
+      // THE SAME LOOK FOR EVERYTHING (2026-11-01, the owner: "Its strange that some things get design elements and
+      // others don't"): a widget's or a card's size, its backdrop and its color
+      if (!isBand) add(K.group({ header: 'Look', footer: 'Auto takes its color from what is behind it, as the lock screen does. Size is against its usual size; the others move to make room.' }, [
+        K.slider({ label: 'Size', value: w.size || 100, min: LM.ITEM_SIZE[0], max: LM.ITEM_SIZE[1], step: 5, unit: '%',
+                   onChange: function (v) { self.change(function (x) { var it = self.T(x).zones[z][i]; if (v === 100) delete it.size; else it.size = v; }); } }),
         K.seg({ label: 'Backdrop', value: w.back, options: [['none', 'None'], ['glass', 'Glass'], ['tint', 'Tinted']], onChange: set('back') }),
         K.seg({ label: 'Color', value: w.color, options: [['auto', 'Auto'], ['white', 'White'], ['accent', 'Accent']], onChange: set('color') })]));
+      if (z === 'row') add(this.rowAt());
       if (w.id === 'music_card') add(K.group({ header: 'While Music Plays' }, [K.toggle({ label: 'Music Full Screen', sub: 'Off: here, in its place', on: !!this.opts.music_first,
         onChange: function (on) { self.change(function (x) { x.music_first = on; }); } })]));
       // its place: any other that takes it
       var zs = this.T().zones, places = Object.keys(LM.ZONES).filter(function (zz) { return zz === z || LM.fits(zs, zz, w.id); });
       var list = zs[z];
       add(K.group({ header: 'Place' }, [
-        places.length > 1 ? K.select({ label: 'Where', value: z, options: places.map(function (zz) { return [zz, LM.ZONE_NAMES[zz]]; }), onChange: function (to) {
+        places.length > 1 ? K.select({ label: 'Where', value: z, options: places.map(function (zz) { return [zz, self.zoneName(zz)]; }), onChange: function (to) {
           self.change(function (x) { var it = self.T(x).zones[z].splice(i, 1)[0]; self.T(x).zones[to].push(it); self.sel = to + ':' + (self.T(x).zones[to].length - 1); });
         } }) : null,
         list.length > 1 && i > 0 ? K.button({ label: z === 'row' || z === 'line' ? 'Move Left' : 'Move Toward the Edge', onClick: function () {
@@ -532,12 +548,21 @@
           self.change(function (x) { var l = self.T(x).zones[z], t = l[i + 1]; l[i + 1] = l[i]; l[i] = t; self.sel = z + ':' + (i + 1); }); } }) : null]));
       add(K.group({}, [K.button({ label: 'Remove ' + c[1], destructive: true, onClick: function () { self.remove(z, i); } })]));
     }
+    // WHERE THE ROW GOES (2026-11-01, the owner: "I may want it all the way at the bottom and not below the clock...
+    // as that tends to be where faces are in pictures")
+    rowAt() {
+      var K = this.K, self = this;
+      return K.group({ header: 'The Row', footer: 'Along the Bottom keeps the middle of a photo clear; the bottom corners stand beside the row, or above it where they would meet.' }, [
+        K.seg({ label: 'Where', value: this.T().row_at || 'under', options: [['under', 'Under the Big Element'], ['bottom', 'Along the Bottom']],
+                onChange: function (v) { self.change(function (x) { self.T(x).row_at = v; }); } })]);
+    }
     zonePage(z) {
       var K = this.K, self = this, h = this.h, add = (n) => this.sidebar.appendChild(n), zs = this.T().zones;
-      add(this.head('mdi:plus', LM.ZONE_NAMES[z], 'Takes ' + this.takes(z)));
+      add(this.head('mdi:plus', this.zoneName(z), 'Takes ' + this.takes(z)));
+      if (z === 'row') add(this.rowAt());
       var fit = Object.keys(LM.CATALOG).filter(function (id) { return LM.fits(zs, z, id); });
       if (!fit.length) { add(h('p', { class: 'note', text: 'This place is full. Remove something from it first.' })); return; }
-      add(K.group({ header: 'Add', footer: z === 'row' ? 'Four circular widgets, or two rectangular, or one rectangular and two circular: as on the iPhone.' : null },
+      add(K.group({ header: 'Add', footer: z === 'row' ? 'Two lines of four: a circular widget is one, a rectangular two, as on the iPhone. A fifth starts the second line.' : null },
         fit.map(function (id) { return K.button({ label: LM.CATALOG[id][1], onClick: function () {
           self.change(function (x) { self.T(x).zones[z].push(W(id)); self.sel = z + ':' + (self.T(x).zones[z].length - 1); });
         } }); })));

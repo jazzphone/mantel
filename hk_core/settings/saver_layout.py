@@ -31,7 +31,8 @@ CATALOG: dict[str, str] = {
 # The pane down the side is the Side Pane's, with settings of its own: not a zone.
 ZONES: dict[str, tuple[tuple[str, ...], int]] = {
     "line": (("inline",), 1),
-    "row": (("circular", "rectangular"), 4),
+    # (two lines of four units: the owner, 2026-11-01, "I should be able to put more than one")
+    "row": (("circular", "rectangular"), 8),
     # (two each: today's top left holds the clock over the weather; a third would never fit beside a big time)
     "tl": (("card", "inline"), 2), "tr": (("card", "inline"), 2),
     "bl": (("card",), 2), "br": (("card",), 2),
@@ -48,6 +49,12 @@ BIG_DEFAULT = {"kind": "time", "size": 24, "pos": "top", "align": "center", "dep
 
 BACKS = ("none", "glass", "tint")
 COLORS = ("auto", "white", "accent")
+# a widget's or a card's own size, % of its usual (2026-11-01, the owner: "Lots of options for users on size and
+# scale... around all the elements"); stored only when it isn't 100
+ITEM_SIZE = (60, 160)
+# where the row of widgets goes: under the big element, or along the bottom of the screen (the owner: "I may want it
+# all the way at the bottom and not below the clock... as that tends to be where faces are in pictures")
+ROW_AT = ("under", "bottom")
 
 
 class LayoutInvalid(ValueError):
@@ -79,24 +86,27 @@ def _big(v: Any, strict: bool) -> dict[str, Any]:
     return out
 
 
-def _widget(v: Any, strict: bool) -> dict[str, str] | None:
+def _widget(v: Any, strict: bool) -> dict[str, Any] | None:
     if not isinstance(v, dict) or v.get("id") not in CATALOG:
         if strict:
             raise LayoutInvalid()
         return None
-    out = {"id": v["id"], "back": "none", "color": "auto"}
+    out: dict[str, Any] = {"id": v["id"], "back": "none", "color": "auto"}
     for k, val in v.items():
         if k == "id":
             continue
         if (k == "back" and val in BACKS) or (k == "color" and val in COLORS):
             out[k] = val
+        elif k == "size" and _int(val) and ITEM_SIZE[0] <= val <= ITEM_SIZE[1]:
+            if val != 100:
+                out[k] = val
         elif strict:
             raise LayoutInvalid()
     return out
 
 
-def _zones(v: Any, strict: bool) -> dict[str, list[dict[str, str]]]:
-    out: dict[str, list[dict[str, str]]] = {z: [] for z in ZONES}
+def _zones(v: Any, strict: bool) -> dict[str, list[dict[str, Any]]]:
+    out: dict[str, list[dict[str, Any]]] = {z: [] for z in ZONES}
     if not isinstance(v, dict):
         if strict:
             raise LayoutInvalid()
@@ -126,7 +136,7 @@ def _zones(v: Any, strict: bool) -> dict[str, list[dict[str, str]]]:
 def _upright(v: Any, strict: bool) -> dict[str, Any] | None:
     if v is None:
         return None
-    if not isinstance(v, dict) or any(k not in ("big", "zones") for k in v):
+    if not isinstance(v, dict) or any(k not in ("big", "zones", "row_at") for k in v):
         if strict:
             raise LayoutInvalid()
         return None
@@ -135,7 +145,17 @@ def _upright(v: Any, strict: bool) -> dict[str, Any] | None:
         out["big"] = _big(v["big"], strict)
     if "zones" in v:
         out["zones"] = _zones(v["zones"], strict)
+    if "row_at" in v:
+        out["row_at"] = _row_at(v["row_at"], strict)
     return out
+
+
+def _row_at(v: Any, strict: bool) -> str:
+    if v in ROW_AT:
+        return v
+    if strict:
+        raise LayoutInvalid()
+    return ROW_AT[0]
 
 
 def _layout(v: Any, strict: bool) -> dict[str, Any] | None:
@@ -143,10 +163,10 @@ def _layout(v: Any, strict: bool) -> dict[str, Any] | None:
         if strict:
             raise LayoutInvalid()
         return None
-    if strict and any(k not in ("v", "big", "zones", "upright") for k in v):
+    if strict and any(k not in ("v", "big", "zones", "row_at", "upright") for k in v):
         raise LayoutInvalid()
     return {"v": VERSION, "big": _big(v.get("big", {}), strict), "zones": _zones(v.get("zones", {}), strict),
-            "upright": _upright(v.get("upright"), strict)}
+            "row_at": _row_at(v.get("row_at", ROW_AT[0]), strict), "upright": _upright(v.get("upright"), strict)}
 
 
 def check(v: Any) -> dict[str, Any] | None:

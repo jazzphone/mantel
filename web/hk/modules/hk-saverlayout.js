@@ -55,7 +55,7 @@
   // the side is the Side Pane's, with settings of its own: not a zone
   var ZONES = {
     line: [['inline'], 1],
-    row: [['circular', 'rectangular'], 4],
+    row: [['circular', 'rectangular'], 8],          // (two lines of four units)
     tl: [['card', 'inline'], 2], tr: [['card', 'inline'], 2],
     bl: [['card'], 2], br: [['card'], 2],
     bottom: [['band'], 1]
@@ -69,6 +69,8 @@
   };
   var BIG_DEFAULT = { kind: 'time', size: 24, pos: 'top', align: 'center', depth: 'front' };
   var BACKS = ['none', 'glass', 'tint'], COLORS = ['auto', 'white', 'accent'];
+  // a widget's or a card's own size, % of its usual (stored only when it isn't 100); where the row goes
+  var ITEM_SIZE = [60, 160], ROW_AT = ['under', 'bottom'], ROW_LINE = 4;
 
   // ------------------------------------------------------------ the checks (saver_layout.py's, mirrored)
   function Bad() {}
@@ -92,6 +94,7 @@
     Object.keys(v).forEach(function (k) {
       if (k === 'id') return;
       if ((k === 'back' && BACKS.indexOf(v[k]) >= 0) || (k === 'color' && COLORS.indexOf(v[k]) >= 0)) out[k] = v[k];
+      else if (k === 'size' && isInt(v[k]) && v[k] >= ITEM_SIZE[0] && v[k] <= ITEM_SIZE[1]) { if (v[k] !== 100) out.size = v[k]; }
       else if (strict) throw new Bad();
     });
     return out;
@@ -117,16 +120,23 @@
   }
   function upright(v, strict) {
     if (v == null) return null;
-    if (!obj(v) || Object.keys(v).some(function (k) { return k !== 'big' && k !== 'zones'; })) { if (strict) throw new Bad(); return null; }
+    if (!obj(v) || Object.keys(v).some(function (k) { return k !== 'big' && k !== 'zones' && k !== 'row_at'; })) { if (strict) throw new Bad(); return null; }
     var out = {};
     if ('big' in v) out.big = big(v.big, strict);
     if ('zones' in v) out.zones = zones(v.zones, strict);
+    if ('row_at' in v) out.row_at = rowAt(v.row_at, strict);
     return out;
+  }
+  function rowAt(v, strict) {
+    if (ROW_AT.indexOf(v) >= 0) return v;
+    if (strict) throw new Bad();
+    return ROW_AT[0];
   }
   function read(v, strict) {
     if (!obj(v) || v.v !== VERSION) { if (strict) throw new Bad(); return null; }
-    if (strict && Object.keys(v).some(function (k) { return ['v', 'big', 'zones', 'upright'].indexOf(k) < 0; })) throw new Bad();
-    return { v: VERSION, big: big(v.big || {}, strict), zones: zones(v.zones || {}, strict), upright: upright(v.upright, strict) };
+    if (strict && Object.keys(v).some(function (k) { return ['v', 'big', 'zones', 'row_at', 'upright'].indexOf(k) < 0; })) throw new Bad();
+    return { v: VERSION, big: big(v.big || {}, strict), zones: zones(v.zones || {}, strict),
+             row_at: rowAt('row_at' in v ? v.row_at : ROW_AT[0], strict), upright: upright(v.upright, strict) };
   }
   // a stored layout as this build draws it (what it doesn't know is left out), or null
   function clean(v) { return read(v, false); }
@@ -150,7 +160,7 @@
     o = o || {};
     var on = function (k) { return o[k] !== false; };
     var W = function (id) { return { id: id, back: 'none', color: 'auto' }; };
-    var L = { v: VERSION, big: Object.assign({}, BIG_DEFAULT), zones: {}, upright: null };
+    var L = { v: VERSION, big: Object.assign({}, BIG_DEFAULT), zones: {}, row_at: 'under', upright: null };
     Object.keys(ZONES).forEach(function (z) { L.zones[z] = []; });
     var z = L.zones, show = o.show || 'photos', b = L.big;
     var corners = function (tl) {
@@ -204,7 +214,8 @@
   // the layout for a screen this shape: upright (taller than wide) takes `upright`'s parts where it has its own
   function oriented(L, W, H) {
     var up = H > W && L && L.upright;
-    return { big: Object.assign({}, L.big, up && up.big), zones: (up && up.zones) || L.zones };
+    return { big: Object.assign({}, L.big, up && up.big), zones: (up && up.zones) || L.zones,
+             row_at: (up && up.row_at) || L.row_at || 'under' };
   }
 
   // ------------------------------------------------------------ the plan
@@ -214,8 +225,12 @@
   var BAND = { forecast_band: 15, readings: 10 };
   //   room     {x, y, w, h}: where the layout draws (the screen less the Side Pane)
   //   O        oriented(): { big, zones }
-  //   measure  { big: {w, h, base} | null -- the big element as drawn (base: its baseline, from its top);
-  //              widget(id) -> {w, h} | null -- a widget as drawn } -- sizes this file can't know (faces, fonts)
+  //   measure  { big: {w, h, base, t, b} | null -- the big element as drawn (base: its baseline, from its top);
+  //              widget(id) -> {w, h, t, b} | null -- a widget as drawn } -- sizes this file can't know (faces, fonts).
+  //              t and b: how far its ink is inside its box, at the top and the bottom (a line's room above and
+  //              below its letters): THINGS LINE UP BY THEIR INK (2026-11-01, the owner: "alignment is key here...
+  //              not a lot of things align correctly") -- the big element's top with the top corners' first, the
+  //              bottom corners' last on one line
   //   screen   {w, h}: the whole screen (the land covers it, for On the Ground)
   // -> { u, m, col, big, line, row: {box, items}, corners: {tl: [...], ...}, bottom, moved: [{zone, i, to}] }
   //    every box {x, y, w, h}; ghosts (an empty zone the editor shows) are flagged; a hidden card is in `moved`
@@ -232,15 +247,28 @@
     };
     var hasBig = b.kind !== 'none' && !!measure.big && measure.big.w > 0;
     var bigS = hasBig ? measure.big : { w: 0, h: 0, base: 0 };
-    var lineH = zs.line.length ? size(zs.line[0].id).h : 0, lineW = zs.line.length ? size(zs.line[0].id).w : 0;
+    var lineS = zs.line.length ? size(zs.line[0].id) : null, lineH = lineS ? lineS.h : 0, lineW = lineS ? lineS.w : 0;
     var unit = 13 * u, rgap = 3 * u;
-    var units = zs.row.reduce(function (n, w) { return n + (UNITS[CATALOG[w.id][0]] || 1); }, 0);
-    var rowH = zs.row.length ? unit : 0, rowW = zs.row.length ? units * unit + (zs.row.length - 1) * rgap : 0;
+    // THE ROW: each widget its units wide, times its own size, in lines of four units (a fifth starts a second line);
+    // under the big element, or along the bottom of the screen (O.row_at)
+    var rowLines = [], cur = null;
+    zs.row.forEach(function (w, i) {
+      var n = UNITS[CATALOG[w.id][0]] || 1, k = (w.size || 100) / 100;
+      if (!cur || cur.units + n > ROW_LINE) { cur = { units: 0, items: [], w: 0, h: 0 }; rowLines.push(cur); }
+      var it = { i: i, w: (n === 2 ? 2 * unit + rgap : unit) * k, h: unit * k };
+      cur.units += n; cur.w += (cur.items.length ? rgap : 0) + it.w; cur.h = Math.max(cur.h, it.h);
+      cur.items.push(it);
+    });
+    var rowH = rowLines.reduce(function (n, L, j) { return n + (j ? rgap : 0) + L.h; }, 0);
+    var rowW = rowLines.reduce(function (n, L) { return Math.max(n, L.w); }, 0);
+    var rowDown = O.row_at === 'bottom';
     var bandH = zs.bottom.length ? (BAND[zs.bottom[0].id] || 10) * u : 0;
-    var colH = (lineH ? lineH + gap : 0) + bigS.h + (rowH ? 1.4 * gap + rowH : 0);
-    var colW = Math.max(bigS.w, rowW, lineW);
+    var colH = (lineH ? lineH + gap : 0) + bigS.h + (rowH && !rowDown ? 1.4 * gap + rowH : 0);
+    var colW = Math.max(bigS.w, rowDown ? 0 : rowW, lineW);
+    // (the column's first thing's ink on the top margin, as the top corners' are)
+    var inkTop = lineH ? (lineS.t || 0) : (bigS.t || 0);
     var top;
-    if (b.pos === 'top') top = room.y + m;
+    if (b.pos === 'top') top = room.y + m - inkTop;
     else if (b.pos === 'upper') top = room.y + room.h * 0.3 - colH / 2;
     else if (b.pos === 'lower') top = room.y + room.h * 0.64 - colH / 2;
     else if (b.pos === 'ground') {
@@ -249,33 +277,38 @@
       var ground = screen.h - 1600 * k * 0.32;
       top = ground - (bigS.base || bigS.h * 0.8) - (lineH ? lineH + gap : 0);
     } else top = room.y + room.h * 0.48 - colH / 2;
-    top = Math.max(room.y + m, Math.min(room.y + room.h - m - colH - (bandH ? bandH + gap : 0), top));
+    top = Math.max(room.y + m - inkTop, Math.min(room.y + room.h - m - colH - (bandH ? bandH + gap : 0), top));
     var cx = b.align === 'left' ? room.x + m + colW / 2 : b.align === 'right' ? room.x + room.w - m - colW / 2 : room.x + room.w / 2;
     var P = { u: u, m: m, gap: gap, moved: [], corners: {} };
     P.col = { x: cx - colW / 2, y: top, w: colW, h: colH };
     P.big = hasBig ? { x: cx - bigS.w / 2, y: top + (lineH ? lineH + gap : 0), w: bigS.w, h: bigS.h } : null;
     P.line = lineH ? { x: cx - lineW / 2, y: top, w: lineW, h: lineH }
                    : { x: cx - 20 * u, y: top - 3.6 * u - gap, w: 40 * u, h: 3.6 * u, ghost: true };
-    var rowBox = rowH ? { x: cx - rowW / 2, y: top + colH - rowH, w: rowW, h: rowH }
-                      : { x: cx - 27 * u, y: top + colH + 1.4 * gap, w: 54 * u, h: unit, ghost: true };
-    var x = rowBox.x;
-    P.row = { box: rowBox, items: zs.row.map(function (w, i) {
-      var wd = (UNITS[CATALOG[w.id][0]] || 1) === 2 ? 2 * unit + rgap : unit, it = { i: i, x: x, y: rowBox.y, w: wd, h: unit };
-      x += wd + rgap;
-      return it;
-    }) };
+    var foot0 = room.y + room.h - m - (bandH ? bandH + gap : 0), mid = room.x + room.w / 2;
+    var rowBox = rowDown ? (rowH ? { x: mid - rowW / 2, y: foot0 - rowH, w: rowW, h: rowH }
+                                 : { x: mid - 27 * u, y: foot0 - unit, w: 54 * u, h: unit, ghost: true })
+                         : (rowH ? { x: cx - rowW / 2, y: top + colH - rowH, w: rowW, h: rowH }
+                                 : { x: cx - 27 * u, y: top + colH + 1.4 * gap, w: 54 * u, h: unit, ghost: true });
+    var items = [], ry = rowBox.y;
+    rowLines.forEach(function (L) {
+      var x = rowBox.x + (rowBox.w - L.w) / 2;
+      L.items.forEach(function (it) { items.push({ i: it.i, x: x, y: ry + (L.h - it.h) / 2, w: it.w, h: it.h }); x += it.w + rgap; });
+      ry += L.h + rgap;
+    });
+    P.row = { box: rowBox, at: rowDown ? 'bottom' : 'under', items: items };
     P.bottom = bandH ? { x: room.x + m, y: room.y + room.h - m - bandH, w: room.w - 2 * m, h: bandH }
                      : { x: room.x + m, y: room.y + room.h - m - 10 * u, w: room.w - 2 * m, h: 10 * u, ghost: true };
     // the corners, stacked from the edges; one the column reaches goes to the other end of its side
     var pad = 1.5 * u, colBox = { x: P.col.x - pad, y: P.col.y - pad, w: P.col.w + 2 * pad, h: P.col.h + 2 * pad };
     var hit = function (a, c) { return !(a.x + a.w <= c.x || c.x + c.w <= a.x || a.y + a.h <= c.y || c.y + c.h <= a.y); };
-    var foot = room.y + room.h - m - (bandH ? bandH + gap : 0);
-    // each corner's cards, as wide and tall as they are, at their side's edge
+    var foot = foot0;
+    // each corner's cards, as wide and tall as they are, at their side's edge (a card's own size is in what is
+    // measured: the screensaver draws it that size)
     var stacks = { tl: [], tr: [], bl: [], br: [] }, movers = [];
     ['tl', 'tr', 'bl', 'br'].forEach(function (zone) {
       zs[zone].forEach(function (w, i) {
         var sz = size(w.id);
-        stacks[zone].push({ zone: zone, i: i, w: sz.w, h: sz.h, x: zone[1] === 'l' ? room.x + m : room.x + room.w - m - sz.w });
+        stacks[zone].push({ zone: zone, i: i, w: sz.w, h: sz.h, t: sz.t || 0, b: sz.b || 0, x: zone[1] === 'l' ? room.x + m : room.x + room.w - m - sz.w });
       });
     });
     // stacked from the edge at one end: the two sides apart -- or, where a card of one side would reach one of the
@@ -283,15 +316,27 @@
     var place = function (end) {
       var L = stacks[end + 'l'], R = stacks[end + 'r'];
       var down = end === 't', start = down ? room.y + m : foot;
+      // (the first from the edge by its ink: its letters on the margin, not the room above them)
       var run = function (list, y) {
-        list.forEach(function (c) { if (down) { c.y = y; y += c.h + gap; } else { c.y = y - c.h; y = c.y - gap; } });
+        list.forEach(function (c, j) {
+          if (down) { c.y = y - (j ? 0 : c.t); y = c.y + c.h + gap; } else { c.y = y - c.h + (j ? 0 : c.b); y = c.y - gap; }
+        });
         return y;
       };
       run(L, start); run(R, start);
       var clash = L.some(function (a) { return R.some(function (b) { return hit(a, b); }); });
       if (clash) run(R, run(L, start));
     };
-    place('t'); place('b');
+    // (the row along the bottom: the bottom corners beside it, or over it where they would meet)
+    var placeB = function () {
+      foot = foot0;
+      place('b');
+      if (rowDown && rowH && ['bl', 'br'].some(function (z) { return stacks[z].some(function (c) { return hit(c, rowBox); }); })) {
+        foot = rowBox.y - gap;
+        place('b');
+      }
+    };
+    place('t'); placeB();
     // a card the column reaches goes to the other end of its side, after what is there
     ['tl', 'tr', 'bl', 'br'].forEach(function (zone) {
       stacks[zone] = stacks[zone].filter(function (c) {
@@ -300,7 +345,7 @@
       });
     });
     movers.forEach(function (c) { var other = (c.zone[0] === 't' ? 'b' : 't') + c.zone[1]; c.to = other; stacks[other].push(c); });
-    if (movers.length) { place('t'); place('b'); }
+    if (movers.length) { place('t'); placeB(); }
     ['tl', 'tr', 'bl', 'br'].forEach(function (end) {
       stacks[end].forEach(function (c) {
         if (c.to && hasBig && hit(c, colBox)) { P.moved.push({ zone: c.zone, i: c.i, to: null }); return; }
@@ -315,13 +360,13 @@
       var taken = P.moved.some(function (mv) { return mv.to === zone; });
       if (taken) return;
       var w = 24 * u, h = 7 * u, left = zone[1] === 'l';
-      P.ghosts[zone] = { x: left ? room.x + m : room.x + room.w - m - w, y: zone[0] === 't' ? room.y + m : foot - h, w: w, h: h, ghost: true };
+      P.ghosts[zone] = { x: left ? room.x + m : room.x + room.w - m - w, y: zone[0] === 't' ? room.y + m : foot0 - h, w: w, h: h, ghost: true };
     });
     return P;
   }
 
   window.hkSaverLayout = {
     VERSION: VERSION, CATALOG: CATALOG, ZONES: ZONES, ZONE_NAMES: ZONE_NAMES, UNITS: UNITS, BIG: BIG, BIG_DEFAULT: BIG_DEFAULT,
-    BACKS: BACKS, COLORS: COLORS, clean: clean, check: check, fits: fits, layoutFrom: layoutFrom, oriented: oriented, plan: plan
+    BACKS: BACKS, COLORS: COLORS, ITEM_SIZE: ITEM_SIZE, ROW_AT: ROW_AT, ROW_LINE: ROW_LINE, clean: clean, check: check, fits: fits, layoutFrom: layoutFrom, oriented: oriented, plan: plan
   };
 })();

@@ -33,14 +33,18 @@ Everything the big element reaches moves out of its way, and the editor says so 
 
 ### Widgets
 
-Widgets come in kinds, listed on the left: **Circular** and **Rectangular** ones go under the big element, four to a row, as on the iPhone; **Inline** ones are a line of words above it or in a top corner; **Cards** (Now Playing, Timers, Weather, Home Status, Clock) go in the corners; and **Along the Bottom** are the forecast details and the readings.
+Widgets come in kinds, listed on the left: **Circular** and **Rectangular** ones go in the row, four units to a line and two lines at most (a circular widget is one unit, a rectangular two), as on the iPhone; **Inline** ones are a line of words above the big element or in a top corner; **Cards** (Now Playing, Timers, Weather, Home Status, Clock) go in the corners; and **Along the Bottom** are the forecast details and the readings.
+
+The row sits **Under the Big Element**, or **Along the Bottom** of the screen, which keeps the middle of a photo, where faces usually are, clear. Tap the row, or a widget in it, and choose under **The Row**. Along the bottom, the bottom corners stand beside the row, or above it where they would meet.
 
 - **Add:** tap a widget, then tap a green place on the screen. There is no dragging, so it works the same on an iPad.
-- **Change:** tap a widget on the screen. Its **Backdrop** is **None**, **Glass** or **Tinted**, and its **Color** is **Auto** (taken from what is behind it, as the lock screen does), **White** or **Accent**.
+- **Change:** tap a widget or a card on the screen. Every one has the same **Look**: its **Size** (60 to 160 % of its usual size; the others move to make room), its **Backdrop** (**None**, **Glass** or **Tinted**) and its **Color** (**Auto**, taken from what is behind it as the lock screen does, **White** or **Accent**).
 - **Move:** pick another place under **Where**, or use the Move buttons to change its order.
 - **Remove:** the red **Remove** button at the foot of its settings. Delete does the same from a keyboard.
 
-Tap an empty green place, without a widget picked, to see what fits there.
+Tap an empty place, without a widget picked, to see what fits there. A card with nothing to show right now, such as Now Playing with no music or Timers with none running, keeps its place: the editor draws it dotted, with its name and when it shows.
+
+Things line up by what you see, not by their boxes: the top of the time is level with the first words in the top corners, and the bottom corners' last lines sit on one baseline.
 
 ### Three shapes and Preview
 
