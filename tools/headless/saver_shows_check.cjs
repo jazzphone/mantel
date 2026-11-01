@@ -8,7 +8,11 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
   try {
     const runs = Object.entries(input.shows).flatMap(([screen, want]) => want === 'tb' ? [[screen, want, 1180, 820], [screen, want, 390, 844]]
       : want === 'day-ink' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]]
-      : want === 'big-corners' || want === 'planted' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]] : [[screen, want, 1180, 820]]);
+      : want === 'big-corners' || want === 'planted' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]] : [[screen, want, 1180, 820]])
+      // (--shard K/N: every N-th run from the K-th; tools/ci.py runs the N parts side by side)
+      .filter((_, i) => !input.shard || i % input.shard[1] === input.shard[0] - 1);
+    console.log('saver shows: ' + runs.length + ' runs' + (input.shard && input.shard[1] > 1 ? ' (part ' + input.shard.join(' of ') + ')' : ''));
+    say(runs.length > 0, 'this part has runs to make', runs.length);
     for (const [screen, want, W, H] of runs) {
       const ctx = await browser.newContext({ viewport: { width: W, height: H } });
       await ctx.addCookies([{ name: 'mantel_session', value: input.cookie, url: input.origin }]);

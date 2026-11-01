@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -34,6 +35,37 @@ def test_quick_is_part_of_full_and_full_adds_the_rest():
     assert "side-strip-check" in full and "side-strip-check" not in quick
     assert {"page-swipe-check-chromium", "page-swipe-check-webkit"} <= set(full)
     assert not any(n.startswith(("edit-mode", "page-swipe")) for n in quick)
+    # `versions`: what reads the version files and changelogs, a release's re-check; never in quick or full itself
+    versions = [s.name for s in ci.select(steps, "versions")]
+    assert versions == ["check-links", "check-version", "package-check", "private-words", "version-tests"]
+    assert "version-tests" not in full
+
+
+def test_the_long_browser_checks_run_in_parts_side_by_side():
+    # (2026-11-01) saver-shows-check alone was a full run's last ~3 minutes; side-pane-check ~4 minutes
+    full = {s.name: s for s in ci.select(ci.steps(), "full")}
+    shards = [n for n in full if n.startswith("saver-shows-check")]
+    assert shards == [f"saver-shows-check-{i}of{ci.SAVER_SHARDS}" for i in range(1, ci.SAVER_SHARDS + 1)]
+    assert [full[n].cmd[-2:] for n in shards] == [["--shard", f"{i}/{ci.SAVER_SHARDS}"] for i in range(1, ci.SAVER_SHARDS + 1)]
+    assert all(not full[n].lane for n in shards)
+    panes = [n for n in full if n.startswith("side-pane-check")]
+    assert [full[n].cmd[-2:] for n in panes] == [["--size", z] for z in ("1180x820", "820x1180", "390x844")]
+    # the browser half makes every N-th run from the K-th, and a part with none fails
+    cjs = (ROOT / "tools/headless/saver_shows_check.cjs").read_text()
+    assert ".filter((_, i) => !input.shard || i % input.shard[1] === input.shard[0] - 1)" in cjs
+    assert "say(runs.length > 0," in cjs
+
+
+def test_versions_reads_the_tests_that_read_a_version_file_or_a_changelog():
+    readers = ci.version_readers()
+    assert {"tests/test_check_version.py", "tests/test_release_house.py", "tests/test_publish_release.py",
+            "tests/test_mantel_link.py"} <= set(readers)
+    assert "tests/test_hk_core_side_pane.py" not in readers
+    # bump_version's files are tools/check_version.py's
+    spec = importlib.util.spec_from_file_location("cv", ROOT / "tools/check_version.py")
+    cv = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cv)
+    assert set(cv.FILES) <= set(ci.VERSION_FILES)
 
 
 def test_edit_mode_check_skips_saying_why_without_playwright(monkeypatch, tmp_path):
@@ -95,7 +127,145 @@ def test_the_hooks_check_staged_words_and_run_quick_before_a_push(tmp_path):
     assert set(written) == {"pre-commit", "pre-push"}
     assert all(p.stat().st_mode & 0o111 for p in written.values())
     assert "tools/check_private.py --staged" in written["pre-commit"].read_text()
-    assert "tools/ci.py quick" in written["pre-push"].read_text()
+    push = written["pre-push"].read_text()
+    assert "tools/ci.py quick --skip-passed" in push
+    # (a worktree whose ci.py predates --skip-passed runs quick whole: the hooks are every worktree's)
+    assert push.rstrip().endswith('tools/ci.py quick </dev/null')
+
+
+# ---- the passed runs, by tree (2026-11-01)
+
+def record(tree="t1", ok=True, tier="full", **over):
+    return {"tier": tier, "only": None, "commit": "c-" + tree, "tree": tree, "dirty": [], "steady": True, "ok": ok,
+            "finished": "2026-11-01T12:00:00+00:00", "steps": [{"name": "main-suite", "status": "passed" if ok else "failed"}],
+            **over}
+
+
+def test_only_a_whole_run_on_a_clean_steady_tree_is_remembered(tmp_path):
+    store = tmp_path / "passed.json"
+    for bad in ({"only": ["js"]}, {"steady": False}, {"dirty": ["web/hk/x.js"]}, {"tree": ""}):
+        assert not ci.remember(record(**bad), store), bad
+    assert ci.passed_runs(store) == []
+    assert ci.remember(record(dirty=list(ci.LOCAL_ONLY)), store)        # the never-committed local file
+    assert ci.passed_tree("t1", store)["steps"] == {"main-suite": "passed"}
+    assert ci.passed_tree("t2", store) is None
+
+
+def test_a_failure_takes_the_trees_passes_away_until_it_passes_again(tmp_path):
+    store = tmp_path / "passed.json"
+    ci.remember(record("t1"), store)
+    ci.remember(record("t1", tier="quick"), store)
+    ci.remember(record("t2"), store)
+    assert {r["tier"] for r in ci.passed_runs(store) if r["tree"] == "t1"} == {"full", "quick"}
+    ci.remember(record("t1", ok=False, tier="quick"), store)
+    assert ci.passed_tree("t1", store) is None and ci.failed_tree("t1", store)["tier"] == "quick"
+    assert ci.passed_tree("t2", store)
+    ci.remember(record("t1", tier="quick"), store)
+    assert ci.failed_tree("t1", store) is None and ci.passed_tree("t1", store)["tier"] == "quick"
+    # a `versions` pass never stands for quick (the hook's skip)
+    ci.remember(record("t3", tier="versions"), store)
+    assert ci.passed_tree("t3", store) is None and ci.passed_tree("t3", store, ("versions",))
+
+
+def test_the_record_says_its_tree_and_whether_it_held_still(tmp_path):
+    rec = ci.run([fake("ok")], "quick", record_dir=tmp_path, echo=lambda s: None, only=["ok"])
+    assert rec["only"] == ["ok"] and len(rec["tree"]) == 40 and isinstance(rec["steady"], bool)
+    assert not (tmp_path / "passed.json").exists()               # no store: tests never touch the real one
+
+
+def test_the_hook_checks_only_the_messages_of_a_tree_that_passed(tmp_path, monkeypatch):
+    store = tmp_path / "passed.json"
+    monkeypatch.setattr(ci, "store_path", lambda: store)
+    monkeypatch.setattr(ci, "git_state", lambda root=ci.ROOT: ("c-t1", "t1", list(ci.LOCAL_ONLY)))
+    ran = []
+    monkeypatch.setattr(ci, "run", lambda chosen, tier, **kw: ran.append(([s.name for s in chosen], kw["only"])) or
+                        {"ok": True, "tier": tier, "commit": "c-t1", "dirty": [], "steps": []})
+    monkeypatch.setattr(ci, "table", lambda record: "")
+    assert ci.main(["quick", "--skip-passed"]) == 0
+    assert ran[-1][0] == [s.name for s in ci.select(ci.steps(), "quick")] and ran[-1][1] is None   # nothing passed yet
+    ci.remember(record("t1", tier="full"), store)
+    assert ci.main(["quick", "--skip-passed"]) == 0
+    assert ran[-1] == (["private-words"], ["private-words"])
+    assert ci.main(["quick"]) == 0 and len(ran[-1][0]) > 1, "without the flag, quick is whole"
+    monkeypatch.setattr(ci, "git_state", lambda root=ci.ROOT: ("c-t1", "t1", ["web/hk/x.js"]))
+    assert ci.main(["quick", "--skip-passed"]) == 0 and len(ran[-1][0]) > 1, "uncommitted work is checked whole"
+    assert ci.main(["full", "--skip-passed"]) == 2
+
+
+def repo(tmp_path) -> Path:
+    """A throwaway repository with a version file, a manifest, a changelog and some code."""
+    root = tmp_path / "repo"
+    files = {"pyproject.toml": '[project]\nname = "x"\nversion = "0.1.1"\n',
+             "packaging/ha-app/config.yaml": 'name: X\nversion: "0.1.1"\nslug: x\n',
+             "hosts/ha/custom_components/hk_frontend/manifest.json": '{\n  "domain": "hk",\n  "version": "1.0.0"\n}\n',
+             "CHANGELOG.md": "# Changelog\n\n## Unreleased\n", "app.py": "X = 1\n"}
+    for name, text in files.items():
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(text)
+    git(root, "init", "-q", "-b", "main")
+    commit(root, "base")
+    return root
+
+
+def git(root, *args):
+    return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args], cwd=root,
+                          capture_output=True, text=True, check=True).stdout.strip()
+
+
+def commit(root, message):
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "--allow-empty", "-m", message)
+    return git(root, "rev-parse", "HEAD")
+
+
+def edit(root, name, old, new):
+    path = root / name
+    path.write_text(path.read_text().replace(old, new))
+
+
+def test_a_run_speaks_for_a_commit_that_changed_only_versions_and_changelogs(tmp_path):
+    root = repo(tmp_path)
+    base = git(root, "rev-parse", "HEAD")
+    assert ci.beyond_versions(base, base, root) is None
+    edit(root, "pyproject.toml", '"0.1.1"', '"0.1.2"')
+    edit(root, "packaging/ha-app/config.yaml", '"0.1.1"', '"0.1.2"')
+    edit(root, "hosts/ha/custom_components/hk_frontend/manifest.json", '"1.0.0"', '"1.1.0"')
+    edit(root, "CHANGELOG.md", "## Unreleased\n", "## Unreleased\n\n## 0.1.2 - 2026-11-01\n\n- [Anything](nowhere.md)\n")
+    bumped = commit(root, "Release 0.1.2")
+    assert ci.beyond_versions(base, bumped, root) is None
+    # more than a version line in a version file, or any other file, and it no longer does
+    edit(root, "hosts/ha/custom_components/hk_frontend/manifest.json", '"domain": "hk"', '"domain": "other"')
+    more = commit(root, "a manifest's other key")
+    assert "manifest.json changed more than its version" in ci.beyond_versions(base, more, root)
+    git(root, "reset", "-q", "--hard", bumped)
+    edit(root, "app.py", "1", "2")
+    code = commit(root, "code")
+    assert "1 other file changed (app.py)" == ci.beyond_versions(base, code, root)
+    assert "cannot compare" in ci.beyond_versions("f" * 40, code, root)
+
+
+def test_the_full_run_that_speaks_for_a_commit(tmp_path):
+    root, store = repo(tmp_path), tmp_path / "passed.json"
+    base = git(root, "rev-parse", "HEAD")
+    tree = lambda c: git(root, "rev-parse", f"{c}^{{tree}}")                     # noqa: E731
+    assert ci.full_run_for(base, store, root) == (None, "no passed full run: run `tools/ci.py full` first")
+    ci.remember(record(tree(base), commit=base), store)
+    ci.remember(record(tree(base), tier="quick", commit=base), store)
+    assert ci.full_run_for(base, store, root)[1] == "same"
+    edit(root, "CHANGELOG.md", "## Unreleased\n", "## Unreleased\n\n- notes\n")
+    notes = commit(root, "notes")
+    found, how = ci.full_run_for(notes, store, root)
+    assert how == "versions" and found["commit"] == base
+    same_tree = commit(root, "the same tree, another message")
+    assert ci.full_run_for(same_tree, store, root)[1] == "versions", "a new message: `versions` checks it"
+    edit(root, "app.py", "1", "2")
+    code = commit(root, "code")
+    found, why = ci.full_run_for(code, store, root)
+    assert found is None and f"not HEAD {code[:9]}" in why and "app.py" in why
+    # a whole run of HEAD's tree that failed outweighs an older pass of a commit it differs from only in versions
+    ci.remember(record(tree(notes), ok=False, tier="versions", commit=notes), store)
+    found, why = ci.full_run_for(notes, store, root)
+    assert found is None and "`tools/ci.py versions` must pass on it again" in why
 
 
 @pytest.mark.parametrize("workflow", ["tests.yml", "release.yml"])

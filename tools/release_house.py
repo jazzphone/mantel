@@ -7,8 +7,11 @@
     ... --dry-run                                              # every check, nothing written or sent
     tools/release_house.py hk-frontend 1.12.0 --github-release # also tag it and make its GitHub release (off by default)
 
-Every product starts the same way: tools/ci.py's last run must be a green `full` run of HEAD (with nothing
-uncommitted but LOCAL_ONLY), on main, not behind origin/main. Then:
+Every product starts the same way: on main, nothing uncommitted but LOCAL_ONLY, not behind origin/main, and a
+passed whole `tools/ci.py full` run that speaks for HEAD (tools/ci.py's passed runs, kept by tree): one of HEAD
+itself, or of a commit HEAD differs from only in version lines and changelogs (ci.py VERSION_FILES, CHANGELOGS:
+what a release commits) -- then `tools/ci.py versions`, what reads those files, must pass on HEAD first, instead of a
+second full run. Each release commit the tool makes passes `versions` before it is pushed. Then:
 
 * mantel: set the version (bump_version.py), add the release notes as a section below CHANGELOG.md's
   "## Unreleased", commit and push; stage the App into the local apps share (stage_ha_app.py --replace); through
@@ -18,7 +21,8 @@ uncommitted but LOCAL_ONLY), on main, not behind origin/main. Then:
 * hk-frontend / mantel-link: set the manifest version, commit and push; build (HK Frontend: tools/build_ha.py)
   and copy the component into the config share with rsync --inplace, never --delete (HA's Samba share half-fails
   without --inplace); check the copy with diff; restart Home Assistant and wait until it serves the new files.
-  HK Frontend is then published to jazzphone/hk-frontend's main from a fresh clone (publish.py --commit --push).
+  HK Frontend is then published to jazzphone/hk-frontend's main from a fresh clone (publish.py --commit --push),
+  with --no-tests when the full run ran the suites publish.py would run again (PUBLISH_SUITES).
 
 With --github-release (hk-frontend and mantel-link only; never by default) the component's public repository
 (jazzphone/hk-frontend, jazzphone/mantel-link: a fresh clone, publish.py --commit --push --release) also gets the tag
@@ -56,7 +60,6 @@ PRIVATE_FILE = CONFIG / "private-words"
 APPS_SHARE = Path("/Volumes/local_apps/mantel")
 CONFIG_SHARE = Path("/Volumes/config/custom_components")
 RECORD = ROOT / "docs/development/House-releases.md"
-LOCAL_ONLY = ("apple/Mantel.xcodeproj/project.pbxproj",)    # the signing team: changed here, never committed
 APP_SLUG = "local_mantel"
 COMPONENTS = {
     "hk-frontend": {"dir": "hosts/ha/custom_components/hk_frontend", "domain": "hk_frontend",
@@ -64,6 +67,12 @@ COMPONENTS = {
     "mantel-link": {"dir": "hosts/ha/custom_components/mantel", "domain": "mantel",
                     "served": "/mantel_link/mantel-link.js?v={version}", "public": "jazzphone/mantel-link"},
 }
+# THE PUBLISHERS' SUITES, ALREADY RUN (2026-11-01). publish.py runs the component's suites in the repository it
+# builds; the full run that speaks for HEAD ran the same: HK Frontend's two in tools/build_ha.py's build, which is
+# publish.py's own plan and build; Mantel Link's in the main suite's tests/test_mantel_link.py, which builds its
+# published layout and runs the suite there -- or skips without Home Assistant's test venv, which hk-frontend-py
+# needs as well, so its pass says the venv was there. Both passed: --no-tests.
+PUBLISH_SUITES = {"hk-frontend": ("hk-frontend-py", "hk-frontend-js"), "mantel-link": ("main-suite", "hk-frontend-py")}
 COPY_EXCLUDES = ("tests", "docs", "tools", "README.md", "__pycache__")
 VERSION = re.compile(r"^\d+\.\d+\.\d+$")
 
@@ -75,8 +84,13 @@ class Refused(Exception):
 def _load(name: str):
     spec = importlib.util.spec_from_file_location(f"mantel_{name}", ROOT / f"tools/{name}.py")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module          # (ci.py's dataclasses look their module up there)
     spec.loader.exec_module(module)
     return module
+
+
+CI = _load("ci")                     # tools/ci.py: its passed runs, and what a release commit may change
+LOCAL_ONLY = CI.LOCAL_ONLY           # the signing team: changed here, never committed
 
 
 def run(*cmd: str, cwd: Path = ROOT, env: dict | None = None, quiet: bool = False) -> str:
@@ -94,25 +108,31 @@ def git(*args: str) -> str:
 
 # ---------------------------------------------------------------- checks before anything changes
 
-def ci_green(record_path: Path, head: str) -> None:
-    """The last tools/ci.py run was `full`, passed, ran on HEAD, and nothing but LOCAL_ONLY was uncommitted."""
-    try:
-        record = json.loads(record_path.read_text())
-    except (OSError, ValueError):
-        raise Refused("no tools/ci.py record: run `tools/ci.py full` first") from None
-    if record.get("tier") != "full":
-        raise Refused(f"the last check run was `{record.get('tier')}`, not `full`")
-    if not record.get("ok"):
-        failed = [s["name"] for s in record.get("steps", []) if s.get("status") == "failed"]
-        raise Refused(f"the last full run failed: {', '.join(failed)}")
-    if record.get("commit") != head:
-        raise Refused(f"the last full run was on {str(record.get('commit'))[:9]}, not HEAD {head[:9]}")
-    extra = [p for p in record.get("dirty", []) if p not in LOCAL_ONLY]
-    if extra:
-        raise Refused(f"the last full run had uncommitted changes: {', '.join(extra[:5])}")
+def ci_green(head: str, store: Path | None = None, root: Path = ROOT) -> tuple[dict, str]:
+    """The passed whole full run that speaks for HEAD, and how: "same" (it ran on HEAD) or "versions" (HEAD differs
+    from its commit only in versions and changelogs: `tools/ci.py versions` must pass on HEAD first). tools/ci.py
+    keeps only whole runs on a clean, unchanging tree, and a failed run of a tree takes its passes away."""
+    found, how = CI.full_run_for(head, store or CI.store_path(), root)
+    if found is None:
+        raise Refused(how)
+    return found, how
 
 
-def preflight(record_path: Path = ROOT / ".ci/last-run.json") -> str:
+def recheck(store: Path | None = None) -> None:
+    """`tools/ci.py versions` on HEAD (the private words in what is committed and in the new commit messages, the
+    versions, the links, the package, and the main suite's files that read a version file or a changelog), unless it
+    already passed on this very commit."""
+    head, tree, _ = CI.git_state(ROOT)
+    done = CI.passed_tree(tree, store or CI.store_path(), ("versions",))
+    if done and done["commit"] == head:
+        print(f"tools/ci.py versions passed on HEAD already ({done['finished']}).")
+        return
+    start = time.monotonic()
+    run(CI.python(), "tools/ci.py", "versions", quiet=True)
+    print(f"tools/ci.py versions passed on HEAD ({time.monotonic() - start:.0f} s).")
+
+
+def preflight(store: Path | None = None) -> tuple[str, dict]:
     if git("rev-parse", "--abbrev-ref", "HEAD") != "main":
         raise Refused("not on main")
     status = run("git", "status", "--porcelain", quiet=True)            # not stripped: " M" starts a line
@@ -123,8 +143,20 @@ def preflight(record_path: Path = ROOT / ".ci/last-run.json") -> str:
     if git("rev-list", "--count", "HEAD..origin/main") != "0":
         raise Refused("main is behind origin/main: merge it and run the checks again")
     head = git("rev-parse", "HEAD")
-    ci_green(record_path, head)
-    return head
+    found, how = ci_green(head, store)
+    if how == "same":
+        print(f"The full run of HEAD passed ({found['finished']}).")
+    else:
+        print(f"The full run of {found['commit'][:9]} ({found['finished']}) speaks for HEAD {head[:9]}: only versions "
+              "and changelogs changed since. Checking what reads them (tools/ci.py versions) ...")
+        recheck(store)
+    return head, found
+
+
+def publish_tests(found: dict, product: str) -> list[str]:
+    """publish.py's --no-tests when the full run that speaks for HEAD ran its suites (PUBLISH_SUITES), else nothing."""
+    steps = found.get("steps", {})
+    return ["--no-tests"] if all(steps.get(n) == "passed" for n in PUBLISH_SUITES[product]) else []
 
 
 def private_regex() -> str:
@@ -312,12 +344,12 @@ async def restart_and_wait(house: House, served: str) -> None:
 
 def release_mantel(version: str, notes: str, dry: bool) -> list[str]:
     today = datetime.date.today()
-    head = preflight()
+    head, _ = preflight()
     regex = private_regex()
     url, token = ha_url(), ("" if dry else ha_token())
     print(f"Mantel {version} from {head[:9]} to {url}")
     if dry:
-        print("dry run: would bump, add the notes, commit, push, stage, update and verify")
+        print("dry run: would bump, add the notes, commit, check it (tools/ci.py versions), push, stage, update and verify")
         run(sys.executable, "tools/stage_ha_app.py", "--dry-run", env={"HK_PRIVATE": regex})
         return []
     _load("bump_version").set_version(version)
@@ -325,7 +357,8 @@ def release_mantel(version: str, notes: str, dry: bool) -> list[str]:
     run(sys.executable, "tools/check_version.py", "--tag", f"v{version}")
     commit_only(f"Release {version} to the house", "CHANGELOG.md", *_load("check_version").FILES)
     commit = git("rev-parse", "HEAD")
-    git("push", "-q", "--no-verify", "origin", "main")       # HEAD's full run passed; this commit only versions
+    recheck()                                                 # the notes and the version, before they leave
+    git("push", "-q", "--no-verify", "origin", "main")       # the full run speaks for it, and `versions` passed
     out = run(sys.executable, "tools/stage_ha_app.py", str(APPS_SHARE), "--replace", env={"HK_PRIVATE": regex})
     build = re.search(r"\(build (\S+),", out).group(1)
 
@@ -369,10 +402,12 @@ def _load_path(name: str, path: Path):
 def release_component(product: str, version: str, dry: bool, github_release: bool = False) -> list[str]:
     today = datetime.date.today()
     spec = COMPONENTS[product]
-    head = preflight()
+    head, found = preflight()
     regex = private_regex()
     url, token = ha_url(), ("" if dry else ha_token())
     src = ROOT / spec["dir"]
+    no_tests = publish_tests(found, product)
+    publishes = product == "hk-frontend" or github_release
     dest = CONFIG_SHARE / spec["domain"]
     if not dest.parent.is_dir():
         raise Refused(f"{dest.parent} is not mounted")
@@ -380,12 +415,19 @@ def release_component(product: str, version: str, dry: bool, github_release: boo
     if github_release:
         check_github_release(product, version)
     if dry:
-        print("dry run: would set the manifest version, commit, push, build, copy, diff, restart and verify"
-              + (f", then publish to {spec['public']} and release v{version}" if github_release else ""))
+        print("dry run: would set the manifest version, commit, check it (tools/ci.py versions), push, build, copy, "
+              "diff, restart and verify"
+              + (f", then publish to {spec['public']}" if publishes else "")
+              + (f" and release v{version}" if github_release else ""))
+        if publishes:
+            suites = " and ".join(PUBLISH_SUITES[product])
+            print(f"dry run: publish.py --no-tests ({suites} passed in the full run)" if no_tests
+                  else f"dry run: publish.py with its tests ({suites} did not both pass in the full run)")
         return []
     set_manifest_version(src / "manifest.json", version)
     commit_only(f"{product} {version} to the house", f"{spec['dir']}/manifest.json")
     commit = git("rev-parse", "HEAD")
+    recheck()
     git("push", "-q", "--no-verify", "origin", "main")
     with tempfile.TemporaryDirectory(prefix="mantel-house-") as tmp:
         if product == "hk-frontend":
@@ -408,13 +450,13 @@ def release_component(product: str, version: str, dry: bool, github_release: boo
         asyncio.run(go())
         lines = [f"{product} {version}, commit `{commit[:7]}`, copied with rsync --inplace; diff -rq shows no "
                  "difference.", f"Home Assistant restarted and serves `{spec['served'].format(version=version)}`."]
-        if product == "hk-frontend" or github_release:
+        if publishes:
             name = "HK Frontend" if product == "hk-frontend" else "Mantel Link"
             clone = Path(tmp) / "public"
             run("git", "clone", "-q", f"https://github.com/{spec['public']}.git", str(clone))
             run(sys.executable, str(src / "tools/publish/publish.py"), str(clone),
                 "--commit", f"{name} {version} (from mantel {commit[:7]})", "--push",
-                *(["--release"] if github_release else []), env={"HK_PRIVATE": regex})
+                *(["--release"] if github_release else []), *no_tests, env={"HK_PRIVATE": regex})
             lines.append(f"Published to {spec['public']} main as `{git_in(clone, 'rev-parse', '--short', 'HEAD')}`, "
                          + (f"tagged `v{version}` and released on GitHub." if github_release else "untagged."))
     return lines
