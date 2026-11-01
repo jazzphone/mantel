@@ -9,7 +9,10 @@ way it is documented -- every rule below is one the engine is written around:
     member; a lone room reports [];
   * media_player.join returns success even for a member it could not take
     (`stubborn` rooms), so only reading group_members back tells you;
-  * a sync group player reports group_members None;
+  * a sync group player reports group_members None -- one in `dynamic` (Music
+    Assistant's dynamic members, as the house's are since 2026-11) reports its
+    rooms, takes rooms that join it while it plays, and a room that leaves it
+    stops;
   * music_assistant.play_media only returns once playback has started
     (`slow_start` delays it; `dead` rooms never start);
   * transfer_queue moves the queue AND its content id to the leader.
@@ -100,6 +103,7 @@ class FakeHouse:
         self.slow_unjoin = 0.0
         self.slow_transfer = 0.0
         self.lagging: set[str] = set()     # rooms that do not follow their sync group
+        self.dynamic: set[str] = set()     # sync groups that take and lose rooms as they play
         self.library = [{"name": "Favorites Mix", "uri": "library://playlist/147"},
                         {"name": "Country Hits", "uri": "library://playlist/124"}]
         for e in ROOMS:
@@ -154,6 +158,12 @@ class FakeHouse:
             take = [m for m in call.data["group_members"] if m not in self.stubborn]
             for m in take:
                 self._leave(m)
+            if leader in self.dynamic:
+                gm = self.members(leader) + [m for m in take if m not in self.members(leader)]
+                self.set(leader, group_members=gm)
+                for m in gm:
+                    self.set(m, self.state(leader), group_members=gm)
+                return
             self.group(leader, list(dict.fromkeys(self.members(leader) or [leader])) + take)
 
         @rec("unjoin")
@@ -238,6 +248,10 @@ class FakeHouse:
                                   supports_response=SupportsResponse.ONLY)
 
     def _leave(self, e: str) -> None:
+        for g in self.dynamic:
+            if e in self.members(g):
+                self.set(g, group_members=[m for m in self.members(g) if m != e])
+                self.set(e, "idle")
         gm = self.members(e)
         if len(gm) > 1:
             rest = [m for m in gm if m != e]

@@ -583,6 +583,74 @@ async def test_transfer_stop_transport_browse_and_queue_play(on):
     await ws.close()
 
 
+DG, UG = "media_player.downstairs_ma", "media_player.study_pair_ma"
+
+
+def dynamic(pid, entity, members):
+    """A Music Assistant sync group with dynamic members, as the house's are: it takes and loses members as it plays."""
+    return dict(MF.ma_player(pid, entity), type="group", group_members=list(members),
+                supported_features=["volume_set", "volume_mute", "pause", "set_members"])
+
+
+async def group_playing(env, group, rooms):
+    """A sync group plays in `rooms`, which Music Assistant reports grouped."""
+    await env.playing(group, media_content_id="library://playlist/1")
+    await env.ma.set(group, group_members=rooms)
+    for r in rooms:
+        await env.playing(r, media_content_id="library://playlist/1", group_members=rooms)
+    await wait_for(lambda: env.app["hub"].store.states[group]["a"].get("group_members") == rooms)
+
+
+async def test_new_speakers_for_a_group_that_plays_update_it_in_place(on):
+    """Downstairs playing and Everywhere picked moved the queue to Everywhere's group, which Music Assistant had left
+    with no members, and the music stopped (2026-11-01). Now the rooms picked join the group playing and the rooms
+    unticked leave it; only a pick that shares no room with it moves the queue."""
+    on.ma.players = [dynamic("ma-downstairs", DG, ["ma-kitchen", "ma-den"])]
+    await on.connected()
+    await group_playing(on, DG, [K, D])
+    await on.login("jamie", "adult")
+    ws = await on.socket()
+    r = await on.command(ws, **SVC("music_transfer", rooms=[K, D, C], source=DG))
+    assert r["result"]["response"] == {"ok": True, "leader": DG}, r
+    assert on.ma.sent() == [("players/cmd/group_many", {"target_player": "ma-downstairs",
+                                                        "child_player_ids": ["ma-cody"]})]
+    # the Den unticked: it leaves, and the music plays on in the Kitchen and Cody's Room
+    r = await on.command(ws, id=2, **SVC("music_transfer", rooms=[K, C], source=DG))
+    assert r["result"]["response"] == {"ok": True, "leader": DG}, r
+    assert on.ma.sent()[1:] == [("players/cmd/ungroup", {"player_id": "ma-den"})]
+    states = on.app["hub"].store.states
+    assert states[DG]["s"] == "playing" and states[DG]["a"]["group_members"] == [K, C]
+    # no room shared: the queue moves, as before
+    r = await on.command(ws, id=3, **SVC("music_transfer", rooms=[D], source=DG))
+    assert r["result"]["response"] == {"ok": True, "leader": D}, r
+    assert on.ma.sent()[2:] == [("player_queues/transfer", {"source_queue_id": "ma-downstairs",
+                                                            "target_queue_id": "ma-den", "auto_play": True})]
+    assert on.fake.sent == []
+    await ws.close()
+
+
+async def test_a_preset_that_shares_rooms_with_the_group_playing_updates_it_in_place(on):
+    """Upstairs (the Den and Cody's Room) playing, the Downstairs preset picked: the Kitchen joins Upstairs' group
+    and Cody's Room leaves it, rather than the queue moving to Downstairs' group."""
+    doc = json.loads(json.dumps(MF.DOC))
+    doc["items"].append({"kind": "preset", "key": "pre2", "title": "Upstairs",
+                         "data": {"name": "Upstairs", "group": UG, "members": [D, C]}})
+    on.app["settings"].store.write([("house", M.MUSIC_DOC, doc)], actor=Actor(label="test"))
+    on.ma.players = [dynamic("ma-downstairs", DG, ["ma-kitchen", "ma-den"]),
+                     dynamic("ma-study-pair", UG, ["ma-den", "ma-cody"])]
+    await on.connected()
+    await group_playing(on, UG, [D, C])
+    await on.login("jamie", "adult")
+    ws = await on.socket()
+    r = await on.command(ws, **SVC("music_transfer", rooms=[K, D], source=UG))
+    assert r["result"]["response"] == {"ok": True, "leader": UG}, r
+    assert on.ma.sent() == [("players/cmd/group_many", {"target_player": "ma-study-pair",
+                                                        "child_player_ids": ["ma-kitchen"]}),
+                            ("players/cmd/ungroup", {"player_id": "ma-cody"})]
+    assert on.app["hub"].store.states[UG]["a"]["group_members"] == [D, K]
+    await ws.close()
+
+
 async def test_rbac_on_the_rooms_and_nothing_sent_when_refused(on):
     await on.connected()
     await on.m.user("cody", "child")
@@ -1110,7 +1178,6 @@ CODY_PAIR = [{"player_id": "ma-kitchen", "display_name": "Kitchen", "type": "pla
 
 
 async def test_a_pair_comes_from_music_assistant_to_the_page_the_feed_and_the_engine(on):
-    K, D, C = "media_player.kitchen_ma", "media_player.den_ma", "media_player.cody_ma"
     on.ma.players = CODY_PAIR
     await on.connected()
     await on.login("owner1", "owner")

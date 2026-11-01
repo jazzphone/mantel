@@ -242,6 +242,17 @@ failed-start timeout (20 seconds), maximum lifetime (120 seconds), or disconnect
 suppression only; no audio or automation changes are made. The feed filters markers to permitted players.
 Fictional lifecycle, feed and no-command tests pass; live speaker/display acceptance remains after deployment.
 
+**New speakers for music that plays update it in place (2026-11-01).** The house's Music Assistant sync groups have
+dynamic members (`set_members`): their configured rooms are only a preset, and a room that plays somewhere else leaves
+them. Downstairs playing and Everywhere picked moved the queue (`player_queues/transfer`) to Everywhere's group, which
+had no members left by then (MA: "An empty group cannot play media"), and the music stopped. Now
+(`hk_core/music/engine.py` `update_plan`, both hosts' `_update`): when such a group plays and the rooms picked share
+one with it, a preset's rooms too, the new rooms join it (`players/cmd/group_many` onto the group) and the unticked
+ones leave it (`players/cmd/ungroup`, its leader too: MA hands the session on); the queue stays where it is and the
+screen stays on that group. A room that plays, still picked, keeps its music the same way, a preset's rooms picked or
+not (`move_plan`): the others join it. Only a pick that shares no room with what plays moves the queue, as before. A
+virtual pair's own group, a stereo pair and a group that cannot take members are moved as before.
+
 **Not on Mantel (documented gaps).**
 - **The failure notifications** HA raises (`music_play_failed`, `speaker_group_failed`, ...: HK's Speakers picker
   shows them): Mantel logs them and lists them in `/api/music/status` (`notes`), but does not create HA
