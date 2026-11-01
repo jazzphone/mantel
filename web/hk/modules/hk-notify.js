@@ -70,7 +70,12 @@
   }
   // what this screen does with notification n:
   //   show | wake | wait-pop | drop:<why>
+  // HUSHED: a preview's frame (?hk_preview=..., Settings' and the Screensaver editor's) shows the screen, not the
+  // house's news -- the editor turns them on with its Slides & Notifications (hush(false)); 2026-11-01, the owner:
+  // "It would be nice if the editor didn't show things like notifications"
+  var hushed = (function () { try { return /[?&]hk_preview=/.test(String(location.search)); } catch (e) { return false; } })();
   function decide(n, c) {
+    if (hushed) return 'drop:hushed';
     var b = c.board;
     if (!b) return 'drop:not-a-screen';
     if (b.notify === false) return 'drop:off';
@@ -580,6 +585,8 @@
     shown: function () { return stack.map(function (it) { return it.n; }); },
     clear: clearAll,
     dismissId: dismissId,
+    // true: none shown (and those up cleared), false: as the screen decides
+    hush: function (on) { hushed = !!on; if (hushed) clearAll(); return hushed; },
     _: { CSS: CSS, decide: decide, chimes: chimes, dndOn: dndOn, inWindow: inWindow, ago: ago, target: target, route: route,
          state: function () { return { stack: stack, fan: fan, black: black, layer: layer }; } }
   };

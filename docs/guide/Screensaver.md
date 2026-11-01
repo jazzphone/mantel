@@ -54,6 +54,8 @@ Things line up by what you see, not by their boxes: the top of the time is level
 
 **Preview** hides the green places and shows the screensaver alone; **Edit** brings them back.
 
+The screen in the editor leaves out the slides (music full screen, the forecast, Weather, Home Energy) and the house's notifications, so the layout stays in view. **Slides & Notifications**, beside the shapes, turns them on for the preview; it is off each time the editor opens and changes nothing that is saved.
+
 ### Save, Undo and going back
 
 **Save** stores the layout for the screen. Everything stays a draft until then, and **Cancel** asks before it throws a draft away. **Undo** (⌘Z or Ctrl+Z) takes back the last change, one at a time.

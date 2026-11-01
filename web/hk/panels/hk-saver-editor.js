@@ -87,6 +87,8 @@
     '.pills{display:flex;background:var(--hk-fill);border-radius:9px;padding:2px;gap:2px}',
     '.pills button{border:0;background:none;border-radius:7px;min-height:32px;padding:0 12px;color:var(--hk-label);font:inherit;font-size:14px;cursor:pointer}',
     '.pills button[aria-pressed=true]{background:var(--hk-cell);box-shadow:0 1px 3px rgba(0,0,0,.18);font-weight:600}',
+    '.bar .extras{border:0;border-radius:9px;min-height:36px;padding:0 14px;background:var(--hk-fill);color:var(--hk-label);font:inherit;font-size:14px;cursor:pointer}',
+    '.bar .extras[aria-pressed=true]{background:var(--hk-accent,#0a84ff);color:#fff;font-weight:600}',
     '.note{font-size:13px;color:var(--hk-label2);line-height:1.5;margin:0 0 10px}',
     '.framebox{position:relative;overflow:hidden;margin:0 auto;border-radius:14px;background:#000;outline:1px solid var(--hk-sep);flex:none}',
     '.framebox[data-loading]::after{content:"Loading the screensaver…";position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;font-size:15px;color:#ccc;background:#111}',
@@ -199,7 +201,14 @@
       this.sidebar = h('aside', { class: 'sidebar', 'aria-label': 'Settings for what is chosen', tabindex: '0' });
       this.ui.appendChild(h('div', { class: 'work' }, [this.palette, this.stage, this.sidebar]));
       this.devBar = h('div', { class: 'pills', role: 'group', 'aria-label': 'Screen shape' });
-      this.stage.appendChild(h('div', { class: 'bar' }, [this.devBar]));
+      // SLIDES & NOTIFICATIONS (2026-11-01, the owner: "Just offer a toggle to turn these things off (have them off by
+      // default)"): the music, weather and energy slides and the house's banners, in this preview only
+      this.extras = false;
+      this.extrasButton = h('button', { type: 'button', class: 'extras', 'aria-pressed': 'false', text: 'Slides & Notifications: Off',
+        title: 'Show the slides (music, the forecast, weather, Home Energy) and the house’s notifications in this preview',
+        onclick: () => { this.extras = !this.extras; this.extrasButton.setAttribute('aria-pressed', String(this.extras));
+                         this.extrasButton.textContent = 'Slides & Notifications: ' + (this.extras ? 'On' : 'Off'); this.preview(); } });
+      this.stage.appendChild(h('div', { class: 'bar' }, [this.devBar, this.extrasButton]));
       this.stage.appendChild(h('p', { class: 'note', text: 'The screensaver itself, as this screen will show it. Tap something on it to change it; tap a widget on the left, then a green place, to add one. Nothing here acts on the house.' }));
       this.box = h('div', { class: 'framebox', 'data-loading': 'yes' }); this.stage.appendChild(this.box);
       this.frame = h('div', { class: 'frame' }); this.box.appendChild(this.frame);
@@ -235,6 +244,8 @@
         var S = this.saver();
         if (!S || typeof S.preview !== 'function') return false;
         S.preview(true, null, !!this.o.house, this.still());
+        // (the house's notifications too: hushed in the frame unless asked for)
+        try { var N = this.iframe.contentWindow.hkNotify; if (N && N.hush) N.hush(!this.extras); } catch (e) { /* not yet */ }
         this.box.removeAttribute('data-loading');
         this.overlaySoon();
         return true;
@@ -242,9 +253,11 @@
       if (!go()) this.waitT = setInterval(() => { if (go() || ++n > 120) clearInterval(this.waitT); }, 250);
     }
     // WHAT THE FRAME IS GIVEN: the options being edited, the slides held back -- the layout is what is being laid
-    // out, and music playing in the house put Music Full Screen over it (2026-11-01, on the house)
+    // out, and music playing in the house put Music Full Screen over it (2026-11-01, on the house) -- unless Slides &
+    // Notifications is on (this.extras: the preview's alone, never saved; off each time the editor opens)
     still() {
       var o = copy(this.opts);
+      if (this.extras) return o;
       ['music_first', 'music_slide', 'energy_slide', 'weather_slide', 'extra_music', 'extra_forecast'].forEach(function (k) { o[k] = false; });
       if (o.show === 'both') o.show = 'photos';
       return o;

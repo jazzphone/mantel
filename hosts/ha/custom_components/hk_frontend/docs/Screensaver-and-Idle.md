@@ -90,7 +90,9 @@ uses All Screens’ settings gets its own when you save, starting from them.
   by what you see: the time's top with the top corners' words, the bottom
   corners on one baseline.
 - **Wall Tablet**, **iPad Upright** and **Phone** show the layout at each
-  shape, and **Preview** hides the green places.
+  shape, and **Preview** hides the green places. The screen in the editor
+  leaves out the slides and the house's notifications; **Slides &
+  Notifications** turns them on for the preview (it is off each time).
 - **Save** stores it; **Cancel** and **Undo** (⌘Z) take it back.
   **Back to Today’s Look** rebuilds a layout from the screen’s current
   settings. A screen that has never saved a layout is drawn as before, and
