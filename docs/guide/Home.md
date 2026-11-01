@@ -29,6 +29,7 @@ Using HK Frontend inside Home Assistant? Mantel can run beside it or take over f
 
 - [Arrange a Page](Arrange-a-Page.md): Edit mode, to move tiles, the menu, the tab bar and the rooms in place
 - [Home Grid](Home-Grid.md): a tablet's Home page in fixed blocks, laid out in the desktop editor
+- [Screensaver](Screensaver.md): the Screensaver editor, to lay out the time, widgets and background on the screen itself
 - [Music and Cameras](Music-and-Cameras.md)
 - [Photos](Photos.md)
 - [iPhone, iPad and Mac Apps](iPhone-and-Mac-Apps.md)

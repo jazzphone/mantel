@@ -1174,6 +1174,7 @@
     '.lay > *{position:absolute}',
     '.lay .lybig{color:var(--tint);white-space:nowrap;line-height:1;font-family:var(--hk-saver-font,-apple-system,system-ui,sans-serif);text-shadow:0 2px 24px rgba(0,0,0,.22)}',
     '.lay .lybig.measuring{visibility:hidden}',
+    '.lay .lyland{background-repeat:no-repeat;pointer-events:none}',
     ':host([lay][muslide]) .lay,:host([lay][enslide]) .lay,:host([lay][wxslide]) .lay{opacity:0}',
     ':host([cklight]:not([cknight])) .lay{--tint:#1c1c1e}',
     ':host([cklight]:not([cknight])) .lay .lybig{text-shadow:none}',
@@ -2980,6 +2981,12 @@
       }
     }, { w: R.W, h: R.H });
     ly.plan = P;
+    // OVER PHOTOS, its own Shadow and Outline (Clock's, ckFx: the photo under it can be anything)
+    if (ly.big && ly.big.el && !ly.big.planted) {
+      var overPhotos = cfg.show === 'photos' || cfg.show === 'both' || (cfg.show === 'clock' && (cfg.clock_bg === 'photos' || cfg.clock_bg === 'landscapes'));
+      var fx = overPhotos ? ckFx(cfg) : 'none';
+      ly.big.el.style.filter = fx !== 'none' ? fx : '';
+    }
     // the big element where the plan says (Planted stands where the land puts it; Behind is Time Behind's)
     if (big && P.big) {
       if (big.behind) {
@@ -2993,6 +3000,11 @@
         else { ly.big.el.style.left = P.big.x + 'px'; ly.big.el.style.top = P.big.y + 'px'; }
       }
     }
+    // BEHIND THE LAND (2026-11-01): the land drawn again over the big element -- its sky is clear, so what stands in the
+    // sky still shows and the hills and the trees come in front -- in a box the big element's size, never the screen's
+    var landOn = O.big.depth === 'behind' && O.big.kind !== 'none' && fscene && fscene.landShown && !!fscene.landShown() &&
+      (cfg.show === 'forecast' || (cfg.show === 'clock' && cfg.clock_bg === 'forecast'));
+    layoutLand(landOn && P.big && ly.big ? P.big : null, R);
     // the widgets
     var put = function (ctl, box) {
       if (!ctl || !ctl.el) return;
@@ -3048,6 +3060,20 @@
         st.top = b.y.toFixed(1) + 'px';
       }
     });
+  }
+  function layoutLand(box, R) {
+    if (!box) { if (ly.land) { ly.land.remove(); ly.land = null; } return; }
+    if (!ly.land) { ly.land = document.createElement('div'); ly.land.className = 'lyland'; }
+    if (ly.big && ly.big.el && ly.land.previousSibling !== ly.big.el) ly.layer.insertBefore(ly.land, ly.big.el.nextSibling);
+    // (where hk-sky.js's .land draws it: cover, center bottom, of the 2560 x 1600 art)
+    var k = Math.max(R.W / 2560, R.H / 1600), aw = 2560 * k, ah = 1600 * k, ax = (R.W - aw) / 2, ay = R.H - ah, pad = 4;
+    var sky = root.querySelector('#hk-sky'), b = sky ? (sky.style.getPropertyValue('--landB') || '1') : '1';
+    var st = ly.land.style;
+    st.left = (box.x - pad) + 'px'; st.top = (box.y - pad) + 'px'; st.width = (box.w + 2 * pad) + 'px'; st.height = (box.h + 2 * pad) + 'px';
+    st.backgroundImage = 'url("/hk/sky/' + fscene.landShown() + '")';
+    st.backgroundSize = aw + 'px ' + ah + 'px';
+    st.backgroundPosition = (ax - box.x + pad) + 'px ' + (ay - box.y + pad) + 'px';
+    st.filter = 'brightness(' + b + ')';
   }
   // the photo's title, for the Photo Title widget: the album and the year, as Titles drew them
   var lyPhoto = null;

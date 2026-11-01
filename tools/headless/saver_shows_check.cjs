@@ -218,11 +218,13 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           const ws = lay ? [...lay.querySelectorAll('.hksw')].map((e) => ({ id: (e.className.match(/\bw-(\S+)/) || [])[1], cls: e.className, box: rect(e), shown: getComputedStyle(e).display !== 'none' })) : [];
           // (the box the plan gave the big element: what the widgets and cards are placed around, in this page's px)
           const info = window.hkSaver.layoutInfo && window.hkSaver.layoutInfo(), pb = info && info.plan && info.plan.big;
+          const land = lay && lay.querySelector('.lyland'), lst = land && getComputedStyle(land);
           return { lay: host.hasAttribute('lay'), plan: pb ? { l: pb.x, t: pb.y, r: pb.x + pb.w, b: pb.y + pb.h } : null, tb: host.hasAttribute('tb'), W: innerWidth, H: innerHeight, hasLay: !!lay,
                    big: lybig ? Object.assign({ box: rect(lybig), spans: lybig.querySelectorAll('span').length, days: [...lybig.querySelectorAll('span')].filter((e) => /^\d{1,2}$/.test(e.textContent.trim())).length,
                                   figures: lybig.querySelectorAll('.pl .pd .b').length, faces: lybig.querySelectorAll('.face').length },
                                   lybig.classList.contains('planted') ? { ink: union([...lybig.querySelectorAll('.pd .b')].map((e) => e.getBoundingClientRect())), text: lybig.querySelector('.pd .b') ? 'planted' : '' } : drawn(lybig)) : null,
                    tbt: tbt ? rect(tbt) : null,
+                   land: land ? { box: rect(land), img: lst.backgroundImage, after: !!(lybig && lybig.compareDocumentPosition(land) & 4) } : null,
                    ck: { n: sr.querySelectorAll('.ck').length, own: [...sr.querySelectorAll('.ck .face')].filter((f) => !f.closest('.lay') && f.getBoundingClientRect().width > 0 && getComputedStyle(f).visibility !== 'hidden' && getComputedStyle(f).display !== 'none').length },
                    ws, cards };
         });
@@ -268,6 +270,11 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           say(m.ck.n > 0, tag + ': ...the Clock\'s background (.ck) is there', m.ck);
           say(m.ck.own === 0, tag + ': ...with no face of its own', m.ck);
           say(!!m.big && m.big.faces > 0 && bigOk && /\d/.test(m.big.text), tag + ': ...the layout\'s own face is the time', m.big);
+        } else if (want === 'lay-behind') {
+          // BEHIND THE LAND: the land again, over the time and no bigger than it (never a second full-screen layer)
+          say(!!m.land && /land-[a-z0-9-]+\.webp/.test(m.land.img) && m.land.after, tag + ': ...the land drawn again over the time', m.land);
+          say(!!m.land && !!big && m.land.box.r - m.land.box.l <= big.r - big.l + 12 && m.land.box.b - m.land.box.t <= big.b - big.t + 12,
+              tag + ': ...in a box the time\'s size', m.land && [m.land.box, big]);
         } else if (want === 'lay-month') {
           const names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
           const days = m.big ? m.big.text : '';

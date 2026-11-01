@@ -16,6 +16,7 @@
 * [Wall Tablets](Wall-Tablets.md)
 * [Arrange a Page (Edit mode)](Arrange-a-Page.md)
 * [Home Grid](Home-Grid.md)
+* [Screensaver](Screensaver.md)
 * [Music and Cameras](Music-and-Cameras.md)
 * [Photos](Photos.md)
 * [iPhone, iPad and Mac Apps](iPhone-and-Mac-Apps.md)

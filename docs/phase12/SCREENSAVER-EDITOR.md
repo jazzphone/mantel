@@ -168,9 +168,8 @@ saved, so A through C can ship before the editor without changing anything on th
 
 ## Open questions for later
 
-- When the editor has shipped, should the Screensaver pages keep today's per-Show groups (under "More Options"), or
-  only When and Edit Screensaver?
-- A "Same as Sideways" upright layout first; its own upright layout later (Phase D2)?
+- When the editor has shipped a release, should the Screensaver pages keep today's per-Show groups, or only When and
+  Edit Screensaver? For now they stay, and a page with a layout says which of them it overrides.
 
 ## Build log
 
@@ -185,6 +184,10 @@ saved, so A through C can ship before the editor without changing anything on th
   by (`hkSaver.layoutInfo`). Checked in WebKit: open, a starter, the big element's page, a widget out and another in by
   tapping, the three shapes, Save storing the layout.
 
-  Still to do: Phase E (the Screensaver pages around the editor, the guide and its screenshot); the background
-  thumbnails telling Sky Only, Moving Color, Wallpaper and Black apart; Behind the Trees on the landscape; the
-  Legibility sliders for a layout's time; an upright layout of its own.
+- 2026-11-01, the layout check (a3bf3ada): five layouts in saver_shows_check at three sizes (Sonnet 5.5 agent). It
+  found the Neon face planned at its colon's width; fixed (a face's figures measured by what holds words or a picture).
+- 2026-11-01, phase E and the polish: each background's own picture in the editor; Shadow and Outline for a layout's
+  big element over photos; **Behind the Land** (the land drawn again over the big element in a box its size: the sky
+  shows through, the hills and trees come in front -- Upper shows the most of it); **Upright Screens: Its Own** (edits
+  made while iPad Upright or Phone shows go to the upright layout); the Screensaver pages saying what a layout takes
+  the place of, with Remove the Layout; the guide's Edit Screensaver section and its screenshot (Sonnet 5.5 agent).

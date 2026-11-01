@@ -3953,13 +3953,24 @@
         }
       };
     }
+    // THE EDITOR'S ROW, first on a Screensaver page; with a layout saved, what of the page it takes the place of, and the
+    // way back (the Show drawn as it was)
+    saverEditRow(c, href, cur, put, note) {
+      var self = this, lay = !!(cur && cur.layout);
+      c.appendChild(K.group({ footer: lay ? 'Laid out in the editor: the big time and the widgets are set there. Below, the corner cards, the Large clock, Time Behind\u2019s size and the Forecast\u2019s Layout don\u2019t apply while it has a layout.' : note },
+        [K.nav({ label: 'Edit Screensaver', sub: 'The background, the big time and the widgets, on the screen itself', icon: 'mdi:pencil', href: href, sk: 'saver:editor' })]
+          .concat(lay && put ? [K.button({ label: 'Remove the Layout\u2026', destructive: true, fk: 'saver:layout-off', onClick: function () {
+            K.confirm(self.shadowRoot, { title: 'Remove the Layout?', message: 'The screensaver is drawn as its Show was before the editor. Its other settings stay.', ok: 'Remove', destructive: true })
+              .then(function (yes) { if (yes) put('layout', null); });
+          } })] : [])));
+    }
     saverPage(c, x, b, path) {
       var self = this, house = M.saverFollows(b);
       var cur = M.saverOptions(house ? this.hs('look.saver') : b.screensaver_options);
       // THE EDITOR (2026-11-01): the whole screensaver laid out on the screen itself
-      c.appendChild(K.group({ footer: house ? 'Editing gives this screen a screensaver of its own, starting from All Screens\u2019.' : null },
-        [K.nav({ label: 'Edit Screensaver', sub: 'The background, the big time and the widgets, on the screen itself', icon: 'mdi:pencil',
-                 href: '#/screens/' + encodeURIComponent(path) + '/screensaver/editor', sk: 'saver:editor' })]));
+      this.saverEditRow(c, '#/screens/' + encodeURIComponent(path) + '/screensaver/editor', cur, house ? null : function (k, v) {
+        var o = M.saverOptions(cur); o[k] = v; return self.setB(path, { screensaver_options: self.saverOut(o) });
+      }, house ? 'Editing gives this screen a screensaver of its own, starting from All Screens\u2019.' : null);
       c.appendChild(K.group({ footer: house
           ? 'This screen uses the screensaver settings for All Screens (All Screens → Screensaver). Off: it gets its own, starting from these.'
           : 'This screen has its own screensaver settings. On: it uses the settings for All Screens again.' }, [
@@ -4513,8 +4524,7 @@
       var savers = Object.keys(boards).filter(function (p) { return boards[p].screensaver; });
       var follow = savers.filter(function (p) { return M.saverFollows(boards[p]); });
       // THE EDITOR (2026-11-01), for every screen that uses these
-      if (savers.length) c.appendChild(K.group({}, [K.nav({ label: 'Edit Screensaver', sub: 'The background, the big time and the widgets, on a screen itself',
-        icon: 'mdi:pencil', href: '#/house/screensaver/editor', sk: 'saver:editor-house' })]));
+      if (savers.length) this.saverEditRow(c, '#/house/screensaver/editor', cur, this.saverPutH(), null);
       // THE PHOTOS (2026-10-09: on Wall Tablets before): where they come from,
       // in the Photos group's place (2026-10-30: first on the page before) --
       // drawn on every show, as screens with their own may show photos

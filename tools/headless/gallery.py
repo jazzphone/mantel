@@ -281,6 +281,14 @@ const opacity = ed.sidebar.querySelector('input[type=range]'); opacity.value = '
 opacity.dispatchEvent(new Event('input')); opacity.dispatchEvent(new Event('change'));
 await pause(800);"""
 
+# the Screensaver editor (Settings -> a screen -> Screensaver Options -> Edit Screensaver): the Lock Screen starter laid
+# out, once the screensaver inside it has drawn its sky and its widgets
+SAVER_EDITOR = """const ed = await until(() => deep(document, 'hk-saver-editor').find((e) => e.shadowRoot && e.shadowRoot.querySelector('.starter-row') && e.shadowRoot.querySelector('.ov')));
+await until(() => [...ed.shadowRoot.querySelectorAll('.starter-row')].length >= 9);
+[...ed.shadowRoot.querySelectorAll('.starter-row')].find((r) => r.textContent.includes('Lock Screen')).click();
+await until(() => ed.shadowRoot.querySelector('.ov').children.length > 0, 60000);
+await pause(12000);"""
+
 # name -> (path, viewport, signed in, script to run before the shot)
 # The path is one of Mantel's own pages: a screen (SCREEN's, or GRID_SCREEN's, which lays Home out as a Home Grid),
 # /settings... or /login.
@@ -305,6 +313,7 @@ SHOTS = {
                          script(GRID_EDITOR + GRID_PREVIEW + GRID_PICKER)),
     "home-grid-background": (f"/settings#/screens/{GRID_SCREEN}/home-grid", EDITOR, True,
                              script(GRID_EDITOR + GRID_PREVIEW + GRID_BACKGROUND)),
+    "screensaver-editor": (f"/settings#/screens/{SCREEN}/screensaver/editor", DESKTOP, True, script(SAVER_EDITOR)),
     "settings-me": ("/settings#/mantel/me", DESKTOP, True, None),
     "settings-people": ("/settings#/mantel/people", DESKTOP, True, None),
     "settings-wall-tablet": ("/settings#/house/tablets/kitchen", DESKTOP, True, SCROLL_TO_SETUP),

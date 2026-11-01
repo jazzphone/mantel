@@ -49,7 +49,8 @@
       : b === 'landscapes' ? 'landscapes' : b === 'black' ? 'black' : 'color';
   }
   // saverThumb's names for a background's small picture
-  function thumbOf(id) { return { photos: 'photos', landscape: 'forecast', dayart: 'day', calm: 'glance', paper: 'month' }[id] || 'clock'; }
+  // (a clock background's own picture -- bg:<clock_bg> -- so Sky Only, Moving Color, Wallpaper and Black look like themselves)
+  function thumbOf(id, o) { return { photos: 'photos', landscape: 'forecast', dayart: 'day', calm: 'glance', paper: 'month' }[id] || (o && o.clock_bg ? 'bg:' + o.clock_bg : 'clock'); }
   // TODAY'S SHOWS, AS STARTERS: [name, what it is, its options, its layout (else today's, layoutFrom)]
   function W(id) { return { id: id, back: 'none', color: 'auto' }; }
   function zonesOf(o) { var z = { line: [], row: [], tl: [], tr: [], bl: [], br: [], bottom: [] }; Object.keys(o).forEach(function (k) { z[k] = o[k].map(W); }); return z; }
@@ -162,6 +163,13 @@
     say(text, ok) { this.message.textContent = text || ''; this.message.classList.toggle('ok', !!ok); }
     saver() { try { return this.iframe && this.iframe.contentWindow && this.iframe.contentWindow.hkSaver; } catch (e) { return null; } }
     L() { return this.opts.layout; }
+    // THE LAYOUT BEING EDITED: the sideways one, or -- with upright screens laid out on their own, and an upright shape
+    // shown -- the upright one (hk-saverlayout.js oriented)
+    upright() { var d = DEVICES[this.device]; return d[3] > d[2]; }
+    T(o) {
+      var L = (o || this.opts).layout;
+      return this.upright() && L.upright && L.upright.big && L.upright.zones ? L.upright : L;
+    }
 
     // ------------------------------------------------------------ the frame
     draw() {
@@ -200,7 +208,7 @@
     devices() {
       var h = this.h;
       this.devBar.replaceChildren.apply(this.devBar, DEVICES.map((d, i) => h('button', { type: 'button', text: d[1], 'aria-pressed': i === this.device ? 'true' : 'false',
-        onclick: () => { this.device = i; this.devices(); this.fit(); this.overlaySoon(); } })));
+        onclick: () => { this.device = i; this.devices(); this.fit(); this.redraw(); this.overlaySoon(); } })));
     }
     fit() {
       if (!this.box) return;
@@ -253,11 +261,11 @@
       // the big element, and every place a widget can go: a place with nothing in it is drawn as an outline
       if (P.big) this.ov.appendChild(place(h('button', { type: 'button', class: 'big', 'aria-pressed': this.sel === 'big' ? 'true' : 'false',
         'aria-label': 'The big element', onclick: (ev) => { ev.stopPropagation(); this.select('big'); } }), P.big));
-      if (zs.line.length) item('line', 0, P.line); else if (this.L().big.kind !== 'none') zone('line', P.line);
+      if (zs.line.length) item('line', 0, P.line); else if (this.T().big.kind !== 'none') zone('line', P.line);
       if (zs.row.length) {
         P.row.items.forEach(function (it) { item('row', it.i, it); });
         if (this.pick && LM.fits(zs, 'row', this.pick)) zone('row', { x: P.row.box.x + P.row.box.w + 12, y: P.row.box.y, w: 110, h: P.row.box.h });
-      } else if (this.L().big.kind !== 'none') zone('row', P.row.box);
+      } else if (this.T().big.kind !== 'none') zone('row', P.row.box);
       ['tl', 'tr', 'bl', 'br'].forEach(function (z) {
         (P.corners[z] || []).forEach(function (b) { item(z, b.i, b); });
         if (P.ghosts[z]) zone(z, P.ghosts[z]);
@@ -299,9 +307,9 @@
     tapZone(z) {
       if (this.pick) {
         var id = this.pick;
-        if (!LM.fits(this.L().zones, z, id)) { this.say('That doesn’t fit there: ' + LM.ZONE_NAMES[z] + ' takes ' + this.takes(z) + '.'); return; }
+        if (!LM.fits(this.T().zones, z, id)) { this.say('That doesn’t fit there: ' + LM.ZONE_NAMES[z] + ' takes ' + this.takes(z) + '.'); return; }
         this.pick = null;
-        this.change((o) => { o.layout.zones[z].push(W(id)); this.sel = z + ':' + (o.layout.zones[z].length - 1); });
+        this.change((o) => { this.T(o).zones[z].push(W(id)); this.sel = z + ':' + (this.T(o).zones[z].length - 1); });
         return;
       }
       this.select(z);
@@ -309,16 +317,16 @@
     takes(z) { return LM.ZONES[z][0].map(function (k) { return { circular: 'circular', rectangular: 'rectangular', inline: 'inline', card: 'card', band: 'band' }[k]; }).join(' or ') + ' widgets'; }
     pickWidget(id) {
       var z = this.sel && LM.ZONES[this.sel] ? this.sel : null;
-      if (z && LM.fits(this.L().zones, z, id)) { this.change((o) => { o.layout.zones[z].push(W(id)); this.sel = z + ':' + (o.layout.zones[z].length - 1); }); return; }
+      if (z && LM.fits(this.T().zones, z, id)) { this.change((o) => { this.T(o).zones[z].push(W(id)); this.sel = z + ':' + (this.T(o).zones[z].length - 1); }); return; }
       if (this.pick === id) { this.pick = null; this.redraw(); return; }
-      if (!Object.keys(LM.ZONES).some((zz) => LM.fits(this.L().zones, zz, id))) { this.say('No room for ' + LM.CATALOG[id][1] + ': remove something from a place that takes ' + LM.CATALOG[id][0] + ' widgets first.'); return; }
+      if (!Object.keys(LM.ZONES).some((zz) => LM.fits(this.T().zones, zz, id))) { this.say('No room for ' + LM.CATALOG[id][1] + ': remove something from a place that takes ' + LM.CATALOG[id][0] + ' widgets first.'); return; }
       this.pick = id; this.sel = null; this.say('Tap a green place on the screen to put ' + LM.CATALOG[id][1] + ' there.', true);
       if (this.hasAttribute('previewing')) this.togglePreview();
       this.redraw();
     }
     remove(z, i) {
-      var w = this.L().zones[z][i];
-      this.change((o) => { o.layout.zones[z].splice(i, 1); this.sel = null; });
+      var w = this.T().zones[z][i];
+      this.change((o) => { this.T(o).zones[z].splice(i, 1); this.sel = null; });
       if (w) this.say(LM.CATALOG[w.id][1] + ' removed. Undo (⌘Z) puts it back.', true);
     }
     keys(e) {
@@ -365,7 +373,7 @@
       kids.push(K.group({ header: 'Starters', footer: 'Each of today’s screensavers as a layout you can change. Your albums, timing and other settings stay.' },
         STARTERS.map(function (st) {
           var thumb = h('span', { class: 'thumb' }), o = Object.assign({}, self.opts, st[2]);
-          try { var t = self.panel.saverThumb(72, 45, thumbOf(bgOf(o)), o); if (t) thumb.appendChild(t); } catch (e) { /* a plain one */ }
+          try { var t = self.panel.saverThumb(72, 45, thumbOf(bgOf(o), o), o); if (t) thumb.appendChild(t); } catch (e) { /* a plain one */ }
           return h('button', { type: 'button', class: 'starter-row', onclick: () => self.starter(st) }, [thumb, h('span', { class: 'st' }, [h('b', { text: st[0] }), h('small', { text: st[1] })])]);
         })));
       var client = null;
@@ -398,6 +406,8 @@
     // ------------------------------------------------------------ the inspector
     head(icon, title, sub) {
       var h = this.h;
+      var L = this.opts.layout, upr = this.upright() && L.upright && L.upright.big && L.upright.zones;
+      if (upr && this.sel) sub = sub + ' \u00b7 Upright Layout';
       return h('div', { class: 'insp-head' }, [h('hk-icon', { icon: icon }), h('div', {}, [h('h2', { text: title }), h('p', { text: sub })]),
         this.sel ? h('button', { class: 'done', type: 'button', text: 'Done', onclick: () => this.select(null) }) : null]);
     }
@@ -417,17 +427,18 @@
       add(K.group({ header: 'Background', footer: 'What is behind everything. Photos, the Forecast and the Clock are the same screensaver with a different background.' },
         BGS.map(function (b) {
           var thumb = null;
-          try { thumb = self.panel.saverThumb(64, 40, thumbOf(b[0]), Object.assign({}, o, b[3])); } catch (e) { /* none */ }
+          try { var ob = Object.assign({}, o, b[3]); if (b[0] === 'color' && bgOf(o) === 'color') ob.clock_bg = o.clock_bg; thumb = self.panel.saverThumb(64, 40, thumbOf(b[0], ob), ob); } catch (e) { /* none */ }
           return K.check({ label: b[1], sub: b[2], on: bg === b[0], thumb: thumb || undefined, onClick: function () {
             self.change(function (x) {
               var keepBoth = b[0] === 'photos' && x.show === 'both';
               Object.assign(x, b[3]);
               if (keepBoth) x.show = 'both';
-              // what the big element can't do over this background, it stops doing
-              var B = x.layout.big;
-              if (B.depth === 'planted' && b[0] !== 'landscape') B.depth = 'front';
-              if (B.depth === 'behind' && b[0] !== 'photos') B.depth = 'front';
-              if (B.pos === 'ground' && b[0] !== 'landscape') B.pos = 'lower';
+              // what the big element can't do over this background, it stops doing (sideways and upright)
+              [x.layout.big].concat(x.layout.upright && x.layout.upright.big ? [x.layout.upright.big] : []).forEach(function (B) {
+                if (B.depth === 'planted' && b[0] !== 'landscape') B.depth = 'front';
+                if (B.depth === 'behind' && b[0] !== 'photos' && b[0] !== 'landscape') B.depth = 'front';
+                if (B.pos === 'ground' && b[0] !== 'landscape') B.pos = 'lower';
+              });
             });
           } });
         })));
@@ -448,12 +459,19 @@
         K.toggle({ label: 'Music Full Screen', sub: 'While something plays', on: !!o.music_first, onChange: function (on) { self.change(function (x) { x.music_first = on; }); } }),
         K.toggle({ label: 'Home Energy', on: !!o.energy_slide, onChange: function (on) { self.change(function (x) { x.energy_slide = on; }); } }),
         K.toggle({ label: 'Weather', on: !!o.weather_slide, onChange: function (on) { self.change(function (x) { x.weather_slide = on; }); } })]));
+      var L0 = o.layout, own = !!(L0.upright && L0.upright.big && L0.upright.zones);
+      add(K.group({ header: 'Upright Screens', footer: own ? 'An iPad held upright and a phone have a layout of their own: show iPad Upright or Phone above to change it.'
+          : 'An iPad held upright and a phone show this same layout, fitted to their shape.' }, [
+        K.seg({ label: 'Layout', value: own ? 'own' : 'same', options: [['same', 'Same as Sideways'], ['own', 'Its Own']], stack: true, onChange: function (v) {
+          self.change(function (x) { x.layout.upright = v === 'own' ? { big: copy(x.layout.big), zones: copy(x.layout.zones) } : null; });
+          if (v === 'own' && !self.upright()) { self.device = 1; self.devices(); self.fit(); self.redraw(); self.overlaySoon(); }
+        } })]));
       add(K.group({ header: 'Layout', footer: 'Today’s Look puts back how this screensaver was laid out before the editor. Without a layout it is drawn exactly as before.' }, [
         K.button({ label: 'Back to Today’s Look', onClick: function () { self.change(function (x) { x.layout = LM.layoutFrom(Object.assign({}, x, { layout: null })); }); } })]));
     }
     bigPage() {
-      var K = this.K, M = this.M, self = this, o = this.opts, B = o.layout.big, bg = bgOf(o), add = (n) => this.sidebar.appendChild(n);
-      var set = function (k) { return function (v) { self.change(function (x) { x.layout.big[k] = v; }); }; };
+      var K = this.K, M = this.M, self = this, o = this.opts, B = this.T(o).big, bg = bgOf(o), add = (n) => this.sidebar.appendChild(n);
+      var set = function (k) { return function (v) { self.change(function (x) { self.T(x).big[k] = v; }); }; };
       add(this.head('mdi:clock', 'The Big Element', 'What the screen is about'));
       add(K.group({ footer: 'The time, the temperature, the date or the month, very large.' },
         [K.seg({ label: 'Shows', value: B.kind, options: BIG_KINDS, stack: true, onChange: set('kind') })]));
@@ -469,22 +487,32 @@
       }
       var pos = [['top', 'Top'], ['upper', 'Upper'], ['center', 'Center'], ['lower', 'Lower']].concat(bg === 'landscape' ? [['ground', 'On the Ground']] : []);
       var depth = [['front', 'In Front']].concat(bg === 'photos' && B.kind === 'time' ? [['behind', 'Behind the Subject']] : [])
+        .concat(bg === 'landscape' ? [['behind', 'Behind the Land']] : [])
         .concat(bg === 'landscape' && B.kind === 'time' ? [['planted', 'Planted']] : []);
       add(K.group({ header: 'Size and Place', footer: 'Everything else moves out of its way: nothing is ever drawn over it.' }, [
         K.slider({ label: 'Size', value: B.size, min: LM.BIG.size[0], max: LM.BIG.size[1], unit: '%', onChange: set('size') }),
         K.seg({ label: 'Position', value: B.pos, options: pos, stack: true, onChange: set('pos') }),
-        B.depth === 'behind' ? null : K.seg({ label: 'Align', value: B.align, options: [['left', 'Left'], ['center', 'Center'], ['right', 'Right']], onChange: set('align') })]));
-      if (depth.length > 1) add(K.group({ header: 'Depth', footer: B.depth === 'behind' ? 'The photo’s subject stands in front of the time, where a photo has a usable cut-out; otherwise the time is in front. It stays centered.'
+        B.depth === 'behind' && bg === 'photos' ? null : K.seg({ label: 'Align', value: B.align, options: [['left', 'Left'], ['center', 'Center'], ['right', 'Right']], onChange: set('align') })]));
+      // (over photos -- yours, soft, or HK's own -- a soft shadow and an outline keep it readable: Clock's Text Shadow and Outline)
+      if (bg === 'photos' || bg === 'soft' || bg === 'landscapes') add(K.group({ header: 'Legibility', footer: 'Over a busy photo: a soft shadow under it, and an outline around it.' }, [
+        K.slider({ label: 'Shadow', value: o.clock_text_shadow, min: 0, max: 100, step: 5, unit: '%', onChange: function (v) { self.change(function (x) { x.clock_text_shadow = v; }); } }),
+        K.slider({ label: 'Outline', value: o.clock_text_outline, min: 0, max: 100, step: 5, unit: '%', onChange: function (v) { self.change(function (x) { x.clock_text_outline = v; }); } })]));
+      if (depth.length > 1) add(K.group({ header: 'Depth', footer: B.depth === 'behind' && bg === 'landscape' ? 'The hills and the trees stand in front of its foot: Upper shows the most of it, Center the least.' : B.depth === 'behind' ? 'The photo’s subject stands in front of the time, where a photo has a usable cut-out; otherwise the time is in front. It stays centered.'
           : B.depth === 'planted' ? 'Solid figures standing in the meadow, their shadows cast by the sky’s sun.' : 'Behind: the photo’s subject in front of it, as on the iPhone’s lock screen.' },
         [K.seg({ label: 'Stands', value: B.depth, options: depth, stack: true, onChange: function (v) {
-          self.change(function (x) { x.layout.big.depth = v; if (v === 'planted') { x.layout.big.pos = 'ground'; x.forecast_planted = true; } });
+          self.change(function (x) {
+            self.T(x).big.depth = v;
+            if (v === 'planted') { self.T(x).big.pos = 'ground'; x.forecast_planted = true; }
+            // (behind the land, only what stands in the sky shows: low, it would be gone)
+            if (v === 'behind' && bg === 'landscape' && ['lower', 'ground', 'center'].indexOf(self.T(x).big.pos) >= 0) self.T(x).big.pos = 'upper';
+          });
         } })]));
     }
     widgetPage(z, i) {
-      var K = this.K, self = this, w = this.L().zones[z][i], add = (n) => this.sidebar.appendChild(n);
+      var K = this.K, self = this, w = this.T().zones[z][i], add = (n) => this.sidebar.appendChild(n);
       if (!w) { this.sel = null; return this.screenPage(); }
       var c = LM.CATALOG[w.id], isCard = c[0] === 'card' || w.id === 'forecast_band';
-      var set = function (k) { return function (v) { self.change(function (x) { x.layout.zones[z][i][k] = v; }); }; };
+      var set = function (k) { return function (v) { self.change(function (x) { self.T(x).zones[z][i][k] = v; }); }; };
       add(this.head('mdi:view-grid', c[1], c[2] + ' · ' + LM.ZONE_NAMES[z]));
       if (!isCard) add(K.group({ header: 'Look', footer: 'Auto takes its color from what is behind it, as the lock screen does.' }, [
         K.seg({ label: 'Backdrop', value: w.back, options: [['none', 'None'], ['glass', 'Glass'], ['tint', 'Tinted']], onChange: set('back') }),
@@ -492,26 +520,26 @@
       if (w.id === 'music_card') add(K.group({ header: 'While Music Plays' }, [K.toggle({ label: 'Music Full Screen', sub: 'Off: here, in its place', on: !!this.opts.music_first,
         onChange: function (on) { self.change(function (x) { x.music_first = on; }); } })]));
       // its place: any other that takes it
-      var zs = this.L().zones, places = Object.keys(LM.ZONES).filter(function (zz) { return zz === z || LM.fits(zs, zz, w.id); });
+      var zs = this.T().zones, places = Object.keys(LM.ZONES).filter(function (zz) { return zz === z || LM.fits(zs, zz, w.id); });
       var list = zs[z];
       add(K.group({ header: 'Place' }, [
         places.length > 1 ? K.select({ label: 'Where', value: z, options: places.map(function (zz) { return [zz, LM.ZONE_NAMES[zz]]; }), onChange: function (to) {
-          self.change(function (x) { var it = x.layout.zones[z].splice(i, 1)[0]; x.layout.zones[to].push(it); self.sel = to + ':' + (x.layout.zones[to].length - 1); });
+          self.change(function (x) { var it = self.T(x).zones[z].splice(i, 1)[0]; self.T(x).zones[to].push(it); self.sel = to + ':' + (self.T(x).zones[to].length - 1); });
         } }) : null,
         list.length > 1 && i > 0 ? K.button({ label: z === 'row' || z === 'line' ? 'Move Left' : 'Move Toward the Edge', onClick: function () {
-          self.change(function (x) { var l = x.layout.zones[z], t = l[i - 1]; l[i - 1] = l[i]; l[i] = t; self.sel = z + ':' + (i - 1); }); } }) : null,
+          self.change(function (x) { var l = self.T(x).zones[z], t = l[i - 1]; l[i - 1] = l[i]; l[i] = t; self.sel = z + ':' + (i - 1); }); } }) : null,
         list.length > 1 && i < list.length - 1 ? K.button({ label: z === 'row' || z === 'line' ? 'Move Right' : 'Move Away from the Edge', onClick: function () {
-          self.change(function (x) { var l = x.layout.zones[z], t = l[i + 1]; l[i + 1] = l[i]; l[i] = t; self.sel = z + ':' + (i + 1); }); } }) : null]));
+          self.change(function (x) { var l = self.T(x).zones[z], t = l[i + 1]; l[i + 1] = l[i]; l[i] = t; self.sel = z + ':' + (i + 1); }); } }) : null]));
       add(K.group({}, [K.button({ label: 'Remove ' + c[1], destructive: true, onClick: function () { self.remove(z, i); } })]));
     }
     zonePage(z) {
-      var K = this.K, self = this, h = this.h, add = (n) => this.sidebar.appendChild(n), zs = this.L().zones;
+      var K = this.K, self = this, h = this.h, add = (n) => this.sidebar.appendChild(n), zs = this.T().zones;
       add(this.head('mdi:plus', LM.ZONE_NAMES[z], 'Takes ' + this.takes(z)));
       var fit = Object.keys(LM.CATALOG).filter(function (id) { return LM.fits(zs, z, id); });
       if (!fit.length) { add(h('p', { class: 'note', text: 'This place is full. Remove something from it first.' })); return; }
       add(K.group({ header: 'Add', footer: z === 'row' ? 'Four circular widgets, or two rectangular, or one rectangular and two circular: as on the iPhone.' : null },
         fit.map(function (id) { return K.button({ label: LM.CATALOG[id][1], onClick: function () {
-          self.change(function (x) { x.layout.zones[z].push(W(id)); self.sel = z + ':' + (x.layout.zones[z].length - 1); });
+          self.change(function (x) { self.T(x).zones[z].push(W(id)); self.sel = z + ':' + (self.T(x).zones[z].length - 1); });
         } }); })));
     }
   }

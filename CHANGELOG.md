@@ -26,6 +26,7 @@ The first public release of **Mantel**: HK Frontend's screens, inspired by Apple
 - HK's pages drawn with HK's own code, without Lovelace: Home, a page per room, Lights, Climate, Security, Cameras, Music, Energy and the **Power** page (the grid, the sun, a house battery and the cars right now), Weather, Live TV and more, over the live sky.
 - **Home Grid:** a tablet's Home page laid out in fixed blocks in a desktop editor, with starter layouts, pages, conditional blocks, layout history and copying to another screen. A **Now Playing** block turns over to **Speakers** or **Browse**.
 - **Edit mode** (**Edit Page**): arrange a page in place: drag tiles, make them Tall, and reorder the menu, the tab bar and the rooms.
+- **Edit Screensaver:** lay a screen's screensaver out on the screen itself: start from a look (Photo Frame, Lock Screen, Clock and more), pick the background, set the big time's face, size and place, and add widgets by tapping one and then a green place. Whatever the time reaches moves out of its way. See [Screensaver](docs/guide/Screensaver.md).
 - A phone has its own **Tabs in Bar** (2 to 4).
 - **Notifications** on the screens, in the Mantel app, in a browser, or through Home Assistant's Companion app.
 

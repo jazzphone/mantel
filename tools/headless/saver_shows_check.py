@@ -86,6 +86,9 @@ SHOWS = {
                         {'kind': 'time', 'size': 30, 'pos': 'center'}, line=['date'], tl=['weather_card'], tr=['status_card'],
                         bl=['music_card'])}, 'lay-clock'),
     'saver-lay-month': ({'show': 'month', 'layout': _layout({'kind': 'month', 'size': 34, 'pos': 'center'}, tr=['clock_card'])}, 'lay-month'),
+    # (behind the land, 2026-11-01: the land drawn again over the time, in a box the time's size)
+    'saver-lay-behind': ({'show': 'forecast', 'layout': _layout({'kind': 'time', 'size': 34, 'pos': 'upper', 'depth': 'behind'},
+                          tr=['status_card'])}, 'lay-behind'),
 }
 
 

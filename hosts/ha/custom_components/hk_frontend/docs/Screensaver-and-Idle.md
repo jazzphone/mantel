@@ -46,6 +46,39 @@ view. **Import into a New Album** (an Owner’s) makes the album, copies the
 folder into it and, once the import is done, shows it on every screen.
 Nothing changes until you tap it.
 
+### Edit Screensaver
+
+![The Screensaver editor in HK Settings: starters on the left, the screensaver in the middle, its settings on the right](images/screensaver-editor.webp)
+
+**Edit Screensaver** lays the screensaver out on the screen itself, as
+[Home Grid](Home-Grid.md) does for the Home page. Open **HK Settings → your
+screen → Screensaver Options → Edit Screensaver**, or **All Screens →
+Screensaver → Edit Screensaver** for every screen. It needs a wide window
+(a computer or an iPad), and Home Assistant admin permission. A screen that
+uses All Screens’ settings gets its own when you save, starting from them.
+
+- **Starters** are today’s screensavers as layouts you can change: Photo
+  Frame, Forecast, Big Weather, Lock Screen, Clock, Glance, Month, Day and
+  Nightstand. Your albums, timing and other options stay.
+- **Background**, with nothing tapped: **Photos**, **Landscape**, **Sky
+  Only**, **Moving Color**, **Wallpaper**, **HK Landscapes**, **Soft
+  Photos**, **The Day’s Art**, **Calm Color**, **Paper** or **Black**.
+- **The big element** (tap it): the **Time**, **Temperature**, **Date** or
+  **Month**, or **None**. Choose its face, color, **Size**, **Position**,
+  **Align** and **Depth** (**In Front**, **Behind the Subject** on photos,
+  **Behind the Land** or **Planted** on the Landscape). Everything it reaches
+  moves out of its way.
+- **Widgets**, in kinds: **Circular** and **Rectangular** (under the big
+  element, as on the iPhone), **Inline**, **Cards** (the corners) and
+  **Along the Bottom**. Tap one, then a green place on the screen; there is
+  no dragging. Tap it on the screen for its **Backdrop** (**None**,
+  **Glass** or **Tinted**), **Color**, **Where** and **Remove**.
+- **Wall Tablet**, **iPad Upright** and **Phone** show the layout at each
+  shape, and **Preview** hides the green places.
+- **Save** stores it; **Cancel** and **Undo** (⌘Z) take it back.
+  **Back to Today’s Look** rebuilds a layout from the screen’s current
+  settings. A screen that has never saved a layout is drawn as before.
+
 ### How it behaves
 
 - It starts once the screen has been left alone for **Starts After** (3
