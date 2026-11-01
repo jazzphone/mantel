@@ -58,6 +58,18 @@ HS._apply({ configured: true, weather: { entity: 'weather.home', place: 'HOME' }
             clock: { time: null, date: null } });
 ok('the same answer again is not a change', HS.version === v0 + 1 && seen === 1);
 ok('the answer is cached for the next page load', JSON.parse(localStorage.getItem('hk_settings')).weather.entity === 'weather.home');
+// THE WEATHER NOW (2026-11-01): Settings' sensor for each reading when it reads, else the entity's attribute
+var wxs = { 'weather.home': { state: 'cloudy', attributes: { temperature: 56, apparent_temperature: 54, humidity: 80, wind_speed: 4 } } };
+ok('no outside sensor: the weather entity\'s temperature', HS.nowTemp(wxs) === 56 && HS.nowRead(wxs, 'humidity') === 80);
+HS._apply({ configured: true, weather: { entity: 'weather.home', outside: 'sensor.out', humidity: 'sensor.hum' }, clock: { time: null, date: null } });
+ok('an outside sensor that reads wins', HS.nowTemp(Object.assign({ 'sensor.out': st('65.4') }, wxs)) === 65.4);
+ok('an outside sensor that does not read falls back', HS.nowTemp(Object.assign({ 'sensor.out': st('unavailable') }, wxs)) === 56);
+ok('an outside sensor not here falls back', HS.nowTemp(wxs) === 56);
+ok('humidity from its sensor; feels like from the entity', HS.nowRead(Object.assign({ 'sensor.hum': st('71') }, wxs), 'humidity') === 71 &&
+   HS.nowRead(wxs, 'feels_like') === 54);
+ok('nothing at all is null', HS.nowTemp({}) === null);
+HS._apply({ configured: true, weather: { entity: 'weather.home', place: 'HOME' }, sky: { moon: 'sensor.moon' },
+            clock: { time: null, date: null } });
 ok('unknown keys are ignored', (HS._apply({ weather: { nonsense: 1 } }), HS.get('weather.nonsense')) === undefined);
 // the dashboard items arrive whole, keyed by the dashboards' own url paths
 // THE HOUSE'S CUSTOM CHIPS and PAGES arrive whole (a merge that dropped the

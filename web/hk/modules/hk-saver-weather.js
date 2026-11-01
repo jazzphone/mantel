@@ -457,6 +457,9 @@
       freshness();
       if (!w || /^(unavailable|unknown)$/.test(w.state)) return false;
       hd.states = client.states;
+      // (the temperature now the outside sensor's when Settings names one: hkSettings.nowTemp)
+      var HS = window.hkSettings, t0 = HS && HS.nowTemp ? HS.nowTemp(client.states, w.entity_id) : null;
+      if (t0 != null) w = Object.assign({}, w, { attributes: Object.assign({}, w.attributes, { temperature: t0 }) });
       var v = view(w, forecast('hourly'), forecast('daily'), Date.now(), hide);
       freshness();
       if (v.t == null) return false;

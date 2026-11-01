@@ -2683,7 +2683,8 @@
   var CLOCK_DATES = [['full', 'Full'], ['short', 'Short'], ['off', 'Off']];
   var CLOCK_LINES = [['auto', 'Automatic'], ['none', 'None'], ['sunset', 'Sunset'], ['weather', 'Weather']];
   // the weather beside the time, as the menu's header has it (2026-10-31, the owner)
-  var CLOCK_BESIDE = [['none', 'None'], ['weather', 'Weather']];
+  // ...in a look of its own (2026-11-01, the owner): Large, Quiet, a Chip, or on the Date Line
+  var CLOCK_BESIDE = [['none', 'None'], ['weather', 'Weather, Large'], ['quiet', 'Weather, Quiet'], ['chip', 'Weather Chip'], ['date', 'Weather on the Date Line']];
   // ...and under it at More (2026-10-31, the owner)
   var CLOCK_BELOW = [['auto', 'Sunset'], ['hours', 'Next Hours'], ['sun', 'Sun'], ['moon', 'Moon'], ['conditions', 'Conditions']];
   var CLOCK_ABSENT = { face: 'digital', align: 'left', scale: 'medium', weight: 'semibold', date: 'full', line: 'auto', beside: 'none', below: 'auto', ampm: true, colon: false };

@@ -1853,8 +1853,9 @@
       _readings() {
         if (!this._rd) return;
         var h = this.client || { states: {} }, id = this._parts()[1].readings, s = h.states[id] || {}, a = s.attributes || {};
-        var wx = h.states[setting('weather.entity', null) || firstOfDomain(h, 'weather')];
-        var out = wx && wx.attributes && wx.attributes.temperature != null ? Math.round(wx.attributes.temperature) + '°' : '—';
+        var HS = window.hkSettings, wid = setting('weather.entity', null) || firstOfDomain(h, 'weather'), wx = h.states[wid];
+        var ot = HS && HS.nowTemp ? HS.nowTemp(h.states, wid) : wx && wx.attributes ? wx.attributes.temperature : null;
+        var out = ot != null ? Math.round(ot) + '°' : '—';
         var NAME = { heat_cool: 'Auto', auto: 'Auto', heat: 'Heat', cool: 'Cool', off: 'Off', dry: 'Dry', fan_only: 'Fan', on: 'On', low: 'Low', medium: 'Medium', high: 'High' };
         var word = function (m) { return NAME[m] || String(m).replace(/_/g, ' ').replace(/^./, function (c) { return c.toUpperCase(); }); };
         var seg = function (label, list, cur, kind) {

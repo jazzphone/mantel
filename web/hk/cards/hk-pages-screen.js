@@ -405,7 +405,8 @@
         var notes = [];
         try { notes = window.hkNotify && window.hkNotify.shown ? window.hkNotify.shown() : []; } catch (e) { notes = []; }
         var wx = HS && HS.weatherId ? HS.weatherId(states) : null, ws = wx && states[wx];
-        var t = ws && ws.attributes ? Number(ws.attributes.temperature) : NaN;
+        var t = HS && HS.nowTemp ? HS.nowTemp(states, wx) : ws && ws.attributes ? Number(ws.attributes.temperature) : NaN;
+        if (t == null) t = NaN;
         var person = null, uid = client.user && client.user.id;
         if (uid) {
           Object.keys(states).forEach(function (id) {

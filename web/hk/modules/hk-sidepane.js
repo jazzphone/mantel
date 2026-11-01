@@ -29,7 +29,7 @@
 //
 // THE ROOM IT TAKES (publish): its width on its side of <html>, as
 // --hk-pane-l / --hk-pane-r and html[hk-pane], and the word 'hk-pane' --
-// hk-menu.js narrows the page by it, hk-tabbar.js centres the bar beside it,
+// hk-menu.js narrows the page by it, hk-tabbar.js centers the bar beside it,
 // the Home Grid lays itself in what is left (hk-layout.js). Always its Width
 // (Narrow 360, Standard 400, Wide 480), beside a Home Grid too (2026-10-30). A tablet held upright gets a band under the page, its sections side
 // by side (276 px; 198 on a narrower one); a phone never.
@@ -171,7 +171,39 @@
     try { if (H && H.wxSvg) return '<span class="wxg">' + H.wxSvg(cond, px) + '</span>'; } catch (e) { /* Material's */ }
     return icon('mdi:weather-' + wxIcon(cond));
   }
+  // A GLYPH TRIMMED TO ITS INK (2026-11-01, the owner: the glyph beside the temperature "just thrown there"): every
+  // weather symbol sits in its 120 x 120 design square at a place and size of its own, so a box of one size put each
+  // one's ink somewhere else. Measured once per symbol (an unseen copy's getBBox), its viewBox becomes its ink, and
+  // the box it is drawn in (CSS) fits and centers it the same way whatever the symbol.
+  var INK = {};
+  function inkGlyph(cond, px) {
+    var html = wxGlyph(cond, px), m = /viewBox="([^"]+)"/.exec(html);
+    if (!m || typeof document === 'undefined' || !document.body) return html;
+    var key = html.replace(/ style="[^"]*"/, '');
+    if (!(key in INK)) {
+      INK[key] = null;
+      try {
+        var tmp = document.createElement('div');
+        tmp.style.cssText = 'position:absolute;left:-9999px;top:0;width:120px;height:120px;visibility:hidden';
+        tmp.innerHTML = html;
+        document.body.appendChild(tmp);
+        var b = tmp.querySelector('svg').getBBox();
+        tmp.remove();
+        if (b && b.width > 0 && b.height > 0) INK[key] = [b.x, b.y, b.width, b.height].map(function (n) { return Math.round(n * 10) / 10; }).join(' ');
+      } catch (e) { /* drawn as it comes */ }
+    }
+    return INK[key] ? html.replace(m[0], 'viewBox="' + INK[key] + '"') : html;
+  }
   function deg(v) { var n = num(v); return n == null ? '–' : Math.round(n) + '°'; }
+  // THE TEMPERATURE NOW, as the Weather block and page read it (hk-weather.js _nowTemp): Settings' outside sensor
+  // when it names one and it reads, else the weather service's (2026-11-01, the owner: the pane said 56° beside a
+  // block's 65°, the pane reading only the service's)
+  function nowTemp(c, st) {
+    var HS = window.hkSettings;
+    if (HS && HS.nowTemp) return HS.nowTemp(states(c), st && st.entity_id);
+    var out = setting('weather.outside', null), o = out && states(c)[out], v = o ? num(o.state) : null;   // (read by name: kept)
+    return v !== null ? v : attr(st, 'temperature');
+  }
   function ago(t) {
     var s = Math.max(0, Math.round((Date.now() - t) / 1000));
     return s < 60 ? s + ' s' : s < 3600 ? Math.round(s / 60) + ' min' : Math.round(s / 3600) + ' hr';
@@ -427,19 +459,27 @@
   // the weather line: "64° Partly Cloudy" (the weather section's own reading); nothing while it has none
   function clockWeather(c) {
     var id = setting('weather.entity', null) || domainIds(c, 'weather')[0], st = id && (states(c)[id] || WX_LAST[id]);
-    return st ? esc(deg(attr(st, 'temperature')) + ' ' + condName(st.state)) : '';
+    return st ? esc(deg(nowTemp(c, st)) + ' ' + condName(st.state)) : '';
   }
   // THE WEATHER BESIDE THE TIME (2026-10-31, the owner: "like we do for the left side bar menu"): the condition's glyph
   // and the temperature at the right of the time, the condition and today's high under them, as the menu's header
   // draws them (hk-menu.js); nothing until the weather is here
-  function besideWeather(c, ctx) {
+  // ...IN THE LOOK CHOSEN (2026-11-01, the owner: "give the user the choice"): `weather` Large, two thirds of the time
+  // in its weight; `quiet` half the time, regular, the glyph in the date's gray; `chip` a small pill level with the
+  // time; `date` on the date's line at the date's size, the time's row its own. Left puts it at the right, Right
+  // mirrors it, Center stacks it under the time.
+  function besideWeather(c, ctx, look) {
     var id = setting('weather.entity', null) || domainIds(c, 'weather')[0], st = id && (states(c)[id] || WX_LAST[id]);
     if (!st) return '';
     var daily = ctx && ctx.forecast ? ctx.forecast(id, 'daily') : [], d0 = daily[0] || {};
-    var cond = condName(st.state), hi = d0.temperature != null ? 'H:' + deg(d0.temperature) : '';
+    var cond = condName(st.state), hi = d0.temperature != null ? 'H:' + deg(d0.temperature) : '', t = esc(deg(nowTemp(c, st)));
+    var hl = hi ? '<span class="hl"> \u00b7 ' + esc(hi) + '</span>' : '';
+    if (look === 'date') return { look: look, wt: '', sky: '<div class="sub2 ckxs dl2">' + inkGlyph(st.state, 18) + '<b>' + t + '</b><span class="cn"> ' + esc(cond) + '</span>' + hl + '</div>' };
+    if (look === 'chip') return { look: look, wt: '<div class="ckx chip"><span class="pill">' + inkGlyph(st.state, 20) + '<b>' + t + '</b></span></div>',
+                                  sky: '<div class="sub2 ckxs">' + esc(cond) + hl + '</div>' };
     // (two parts, each in its own place in the clock's grid: the temperature beside the time, the sky beside the date)
-    return { wt: '<div class="ckx">' + wxGlyph(st.state, 34) + '<b>' + esc(deg(attr(st, 'temperature'))) + '</b></div>',
-             sky: '<div class="sub2 ckxs">' + esc(cond) + (hi ? '<span class="hl"> \u00b7 ' + esc(hi) + '</span>' : '') + '</div>' };
+    return { look: look, wt: '<div class="ckx' + (look === 'quiet' ? ' q' : '') + '">' + inkGlyph(st.state, 34) + '<b>' + t + '</b></div>',
+             sky: '<div class="sub2 ckxs">' + esc(cond) + hl + '</div>' };
   }
 
   // UNDER THE TIME (2026-10-31, the owner: at More the sunset "just kind of blends in ... something that spans the whole
@@ -504,9 +544,14 @@
       var a = (w && w.attributes) || {}, cols = [];
       var setT = Date.parse(attr(sun, 'next_setting')), riseT = Date.parse(attr(sun, 'next_rising'));
       if (isFinite(setT) && isFinite(riseT)) cols.push(setT < riseT ? ['mdi:weather-sunset', hm(new Date(setT)), 'Sunset'] : ['mdi:weather-sunset-up', hm(new Date(riseT)), 'Sunrise']);
-      if (num(a.wind_speed) != null) cols.push(['mdi:weather-windy', Math.round(num(a.wind_speed)) + (a.wind_speed_unit ? ' ' + a.wind_speed_unit : ''), 'Wind']);
-      if (num(a.humidity) != null) cols.push(['mdi:water-percent', Math.round(num(a.humidity)) + '%', 'Humidity']);
-      if (num(a.uv_index) != null) cols.push(['mdi:white-balance-sunny', String(Math.round(num(a.uv_index))), 'UV']);
+      // (wind, humidity and UV from Settings -> Weather's sensors when it names them, as the Weather page: hkSettings.nowRead)
+      var HS = window.hkSettings, rd = function (k, at) { return HS && HS.nowRead ? HS.nowRead(st, k, wid) : num(a[at]); };
+      var windId = setting('weather.wind', null), windU = windId && st[windId] && num(st[windId].state) !== null
+        ? attr(st[windId], 'unit_of_measurement') : a.wind_speed_unit, wind = rd('wind', 'wind_speed'), hum = rd('humidity', 'humidity');
+      if (wind != null) cols.push(['mdi:weather-windy', Math.round(wind) + (windU ? ' ' + windU : ''), 'Wind']);
+      if (hum != null) cols.push(['mdi:water-percent', Math.round(hum) + '%', 'Humidity']);
+      var uv = rd('uv', 'uv_index');
+      if (uv != null) cols.push(['mdi:white-balance-sunny', String(Math.round(uv)), 'UV']);
       if (!cols.length) return '';
       return '<div class="ckb ckrd" style="--n:' + cols.length + '">' + cols.map(function (x) {
         return '<div>' + icon(x[0]) + '<b>' + esc(x[1]) + '</b><span>' + esc(x[2]) + '</span></div>'; }).join('') + '</div>';
@@ -531,7 +576,7 @@
       // More; None is no second line at all)
       var set = attr(states(c)['sun.sun'], 'next_setting'), sunText = set ? 'Sunset ' + esc(hm(new Date(set))) : '';
       // (the weather beside the time: at Less and More, a digital or stacked face -- and then not its second line too)
-      var wxBy = o.beside === 'weather' && (s === 'less' || s === 'more') && o.face !== 'analog' ? besideWeather(c, ctx) : '';
+      var wxBy = o.beside !== 'none' && (s === 'less' || s === 'more') && o.face !== 'analog' ? besideWeather(c, ctx, o.beside) : '';
       var extra = o.line === 'sunset' ? sunText : o.line === 'weather' && !wxBy ? clockWeather(c) : '';
       var second = extra ? '<div class="sub2 ck2">' + extra + '</div>' : '';
       if (s === 'full') {
@@ -557,7 +602,7 @@
       if (wxBy) {
         // (the date's line without the second line, which runs the whole width under both)
         var dateLine = dl || sun ? '<div class="sub2 ckd">' + dl + (sun && o.date === 'full' ? '<span class="ds">' + esc(dateShort(d)) + '</span>' : '') + sun + '</div>' : '<div class="ckd"></div>';
-        return box('clock', s, '<div class="ckrow">' + main + wxBy.wt + dateLine + wxBy.sky + second + under + '</div>', (cls + ' ckby').trim());
+        return box('clock', s, '<div class="ckrow ckw-' + wxBy.look + '">' + main + wxBy.wt + dateLine + wxBy.sky + second + under + '</div>', (cls + ' ckby').trim());
       }
       return box('clock', s, main + line + under, cls.trim());
     },
@@ -570,7 +615,7 @@
       var cond = condName(st.state);
       var daily = ctx.forecast(id, 'daily'), hourly = s === 'more' || s === 'full' ? ctx.forecast(id, 'hourly') : [];
       var d0 = daily[0] || {}, hl = d0.temperature != null ? 'H:' + deg(d0.temperature) + ' L:' + deg(d0.templow) : '';
-      var now = deg(attr(st, 'temperature'));
+      var now = deg(nowTemp(c, st));
       if (s === 'tiny') return tiny('weather', esc(now + ' ' + cond), esc(hl));
       var top = '<div class="wnow">' + wxGlyph(st.state, 44) + '<b>' + esc(now) + '</b><div class="sub2">' + esc(cond) + (hl ? '<br>' + esc(hl) : '') + '</div></div>';
       var hrs = hourly.slice(0, 5).map(function (h, i) {
@@ -769,8 +814,7 @@
       if (s === 'tiny') { var r0 = row(ids[0]), a0 = attr(st[ids[0]], 'hvac_action'); return tiny('climate', esc(r0[0] + ' ' + deg(attr(st[ids[0]], 'current_temperature'))), esc(a0 ? String(a0).replace(/^\w/, function (x) { return x.toUpperCase(); }) : '')); }
       var list = ids.slice(0, { less: 2, more: 4, full: 8 }[s]).map(row);
       if (s === 'full') {
-        var out = setting('weather.outside', null), w = setting('weather.entity', null) || domainIds(c, 'weather')[0];
-        var t = out ? (st[out] || {}).state : attr(st[w], 'temperature');
+        var w = setting('weather.entity', null) || domainIds(c, 'weather')[0], t = nowTemp(c, st[w]);
         if (t != null) list.push(['Outside', deg(t), 'mdi:home-thermometer']);
       }
       return box('climate', s, head('climate') + lst(rows(list)), 'shrink');
@@ -1003,13 +1047,39 @@
       // (the figures are a <b>, which a browser draws a step BOLDER than the clock's own weight: 56° heavier than the
       // time it sits beside -- 2026-11-01, the owner. They take the clock's weight, as the time does)
       '.ckx b{font-weight:inherit}',
-      // (the glyph inline, centred on the figures, so the line's baseline is the figures')
-      '.ckx .wxg,.ckx hk-icon{display:inline-block;width:.72em;height:.72em;--mdc-icon-size:.72em;vertical-align:-.04em;margin-right:.18em}.ckx .wxg svg{display:block;width:100%;height:100%}',
+      // (the time's row ends at its figures' baseline, and the temperature's: the date sits the row gap under them,
+      // not under the room a line of 48 px figures keeps below them -- 2026-11-01, the owner, on the mock-ups)
+      '.ckrow>.big2,.ckrow>.ckx:not(.chip){text-box:trim-end cap alphabetic}.ckrow{row-gap:10px}',
+      // (...and the first section's, whose top is trimmed to the figures' cap already: both ends)
+      ':host(:not([mode="widget"]):not([mode="saver"]):not([side="band"])) .secs>.sec[data-k="clock"]:first-child .ckrow>.big2{text-box:trim-both cap alphabetic}',
+      // QUIET: half the time's size, regular, the glyph in the date's gray
+      '.ckx.q{font-weight:400;font-size:calc(34px*var(--cks,1));letter-spacing:0}.ckrow:has(.big2.less)>.ckx.q{font-size:calc(26px*var(--cks,1))}',
+      '.ckx.q .wxg,.ckx.q hk-icon{opacity:.75}',
+      // A CHIP: a small pill, level with the time's middle
+      '.ckrow>.ckx.chip,.ckrow:has(.big2.less)>.ckx.chip{align-self:center;font:600 calc(20px*var(--cks,1))/1 var(--hk-font-body,inherit);letter-spacing:0}',
+      '.ckx.chip .pill{display:inline-block;padding:9px 14px;border-radius:999px;background:' + v('line') + ';text-box:trim-both cap alphabetic;white-space:nowrap}',
+      '.ckx.chip .wxg,.ckx.chip hk-icon{--gh:1.05em;--gg:.3em}',
+      // ON THE DATE LINE: the time has its row to itself; the weather at the date's size, on the date's line
+      '.ckrow.ckw-date{grid-template-areas:"t t" "d s"}.cka-right .ckrow.ckw-date{grid-template-areas:"t t" "s d"}',
+      '.ckxs.dl2{color:' + v('ink-2') + '}.ckxs.dl2 b{font-weight:600;color:' + v('ink') + ';margin-right:.25em}',
+      '.ckxs.dl2 .wxg,.ckxs.dl2 hk-icon{--gh:1.15em;--gg:.3em;opacity:.85}',
+      '.cka-center .ckrow.ckw-date{grid-template-areas:"t" "d" "s"}',
+      // (a narrow pane: the date and the temperature keep the line; the sky's words go -- centered, it has a line of its own)
+      '@container (max-width:340px){.ckby:not(.cka-center) .dl2 .cn{display:none}}',
+      // (the glyph inline, centered on the figures, so the line's baseline is the figures')
+      // (centered on the figures: the glyph's drawing sits low in its box -- its ink measured 5 px under the digits' at 36 px,
+      // 2026-11-01, the owner: "the glyph/icon sitting too low" -- so the box is raised by that, a seventh of the size)
+      // THE GLYPH'S BOX, every look the same way (its ink is the viewBox: inkGlyph): --gh tall, wider than tall so a wide
+      // symbol is as tall as a square one, its middle on the middle of the figures' caps (SF's cap height, .705 em),
+      // --gg from the figures. A Material stand-in (no glyphs uploaded) keeps its own padding.
+      '.ckx .wxg,.ckx hk-icon,.dl2 .wxg,.dl2 hk-icon{--gh:.82em;--gg:.24em;display:inline-block;width:calc(var(--gh) * 1.3);height:var(--gh);--mdc-icon-size:var(--gh);',
+      '  vertical-align:calc(.3525em - var(--gh) / 2);margin-right:var(--gg);flex:none}',
+      '.ckx .wxg svg,.dl2 .wxg svg{display:block;width:100%!important;height:100%!important;vertical-align:0!important}',
       '.ckxs{justify-self:end;text-align:right;white-space:nowrap}',
       '.ckrow:has(.big2.less)>.ckx{font-size:calc(36px*var(--cks,1))}',
       // (a narrow pane: the high goes, then the date's long form -- the time keeps its room)
       '@container (max-width:300px){.ckxs .hl{display:none}}',
-      // (the time at the right: the weather at the left, mirrored -- 2026-10-31, the owner; centred: under the time)
+      // (the time at the right: the weather at the left, mirrored -- 2026-10-31, the owner; centered: under the time)
       '.cka-right .ckrow{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"w t" "s d"}',
       '.cka-right .ckx,.cka-right .ckxs{justify-self:start;text-align:left}',
       '.cka-center .ckrow{grid-template-columns:1fr;grid-template-areas:"t" "d" "w" "s";justify-items:center}.cka-center .ckx,.cka-center .ckxs{justify-self:center;text-align:center}',

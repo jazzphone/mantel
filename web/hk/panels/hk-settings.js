@@ -338,7 +338,7 @@
     '.ph.bare{margin-bottom:20px}',
     '.scope{margin:0 0 24px;font-size:15px;line-height:20px;color:var(--hk-label2)}',
     // A SCREEN'S NAME, with its pencil (renaming the dashboard): the pencil
-    // beside the title, centred on its line; the field the same size as the
+    // beside the title, centered on its line; the field the same size as the
     // title it replaces, Save and Cancel beside it
     '.tline{display:flex;align-items:center;gap:12px;min-width:0}',
     '.tline h1.lt{min-width:0;overflow-wrap:anywhere}',
@@ -5895,7 +5895,7 @@
         c.appendChild(K.group({ header: 'Look', footer: 'Face — Stacked: the hours over the minutes, as StandBy has them. Analog: the Analog Numbers face, small, with the time and date beside it. ' +
             'AM/PM shows only on a 12-hour clock. The colon flashes only where animations are on (not under Reduce Motion, Animations Off or Flat). ' +
             'Second Line — Automatic: the date, with the sunset beside it at More. ' +
-            'Beside the Time — Weather: the temperature and the sky beside the time, as the menu’s header has them (at Less and More; under the time when it is centred). ' +
+            'Beside the Time — the temperature and the sky beside the time (at Less and More; under the time when it is centered): Large, two thirds of the time’s size; Quiet, half its size and lighter; a Chip, a small pill; or on the Date Line, at the date’s size. ' +
             'Under the Time, at More — Sunset: the sunset beside the date. Next Hours: the coming hours’ weather. Sun: the day’s arc from sunrise to sunset, with the sun on it. Moon: tonight’s moon and when it is next full or new. Conditions: the sunset or sunrise, wind, humidity and UV.' }, [
           K.seg({ label: 'Face', sk: 'pane:clock:face', value: s.face || 'digital', options: M.CLOCK_FACES, onChange: function (v) { set('face', v === 'digital' ? null : v); } }),
           K.seg({ label: 'Alignment', sk: 'pane:clock:align', value: s.align || 'left', options: M.CLOCK_ALIGNS, onChange: function (v) { set('align', v === 'left' ? null : v); } }),
@@ -5905,7 +5905,7 @@
           K.toggle({ label: 'Flashing Colon', sk: 'pane:clock:colon', on: !!s.colon, onChange: function (on) { set('colon', on || null); } }),
           K.seg({ label: 'Date', sk: 'pane:clock:date', value: s.date || 'full', options: M.CLOCK_DATES, onChange: function (v) { set('date', v === 'full' ? null : v); } }),
           pick('Second Line', 'pane:clock:line', 'line', M.CLOCK_LINES, 'auto'),
-          K.seg({ label: 'Beside the Time', sk: 'pane:clock:beside', value: s.beside || 'none', options: M.CLOCK_BESIDE, onChange: function (v) { set('beside', v === 'none' ? null : v); } }),
+          pick('Beside the Time', 'pane:clock:beside', 'beside', M.CLOCK_BESIDE, 'none'),
           pick('Under the Time', 'pane:clock:below', 'below', M.CLOCK_BELOW, 'auto')]));
       }
       if (s.kind === 'camera' || s.kind === 'todo') {
@@ -6536,7 +6536,7 @@
         var a = v[k];
         key = key || k;
         // whose it is in the sub-line, as every other inherited row says it (a
-        // grey badge until 2026-10-30)
+        // gray badge until 2026-10-30)
         rows.push(K.slider({ label: label, sk: skp + key, value: a.value, unit: '%', step: 5,
           sub: a.house == null ? null : (a.own ? 'Just This Screen' : 'Same as All Screens'), onChange: a.onChange }));
         if (a.own) rows.push(K.button({ label: 'Reset to All Screens (' + a.house + '%)', sk: skp + key + ':reset', onClick: a.reset }));

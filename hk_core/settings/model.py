@@ -1922,7 +1922,9 @@ PANE_CHOICES: dict[str, dict[str, tuple[str, ...]]] = {
               "scale": ("medium", "small", "large"), "weight": ("semibold", "light", "regular", "bold"),
               "date": ("full", "short", "off"), "line": ("auto", "none", "sunset", "weather"),
               # ...and the weather beside the time, as the menu's header has it (2026-10-31, the owner)
-              "beside": ("none", "weather"),
+              # ...in the look the owner chose (2026-11-01: "give the user the choice"): Large (two thirds of the
+              # time, its weight), Quiet (half, regular), a Chip, or on the Date Line at the date's size
+              "beside": ("none", "weather", "quiet", "chip", "date"),
               # ...and under the time at More, a strip the clock's width (2026-10-31, the owner): Automatic is today's
               # sunset beside the date; the next hours, the sun's day, the moon or the conditions
               "below": ("auto", "hours", "sun", "moon", "conditions")}}

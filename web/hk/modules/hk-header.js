@@ -385,34 +385,12 @@
   // ----------------------------------------------------------- WEATHER
   // Glyph + `78° • Partly Cloudy` + `Feels 79° • 75% Humidity • 5 mph Wind`.
   //
-  // ONE DATA SOURCE: the weather ENTITY's attributes, not a provider's own
-  // sensors (`sensor.openweathermap_apparent_temperature` / `_humidity` /
-  // `_wind_speed`). They are not two sources: MEASURED with OpenWeatherMap,
-  // both come from the same config entry in the same update tick, the sensors
-  // are the raw values and the attributes are the same values pre-rounded by
-  // the integration, and after Math.round() the two produce the IDENTICAL
-  // string --
-  //
-  //     entity  feels 79.0    hum 74  wind 4.61
-  //     sensors feels 78.584  hum 74  wind 4.6080887
-  //     both -> "Feels 79° • 74% Humidity • 5 mph Wind"
-  //
-  // Attributes, not the sensors, for two reasons that outlast any one
-  // provider's values:
-  //
-  //   * `temperature` / `apparent_temperature` / `humidity` / `wind_speed` are
-  //     the WEATHER PLATFORM's contract, not OpenWeatherMap's names. They are
-  //     provider-neutral; hardcoding `sensor.openweathermap_*` into a shared
-  //     module would tie every screen to one provider, and houses do change
-  //     provider.
-  //   * it drops three entity-id dependencies to none. An entity rename is a
-  //     silent-breakage trap.
-  //
-  // COST, stated: `apparent_temperature` is an optional attribute of the
-  // weather platform. If a future provider omits it the Feels line drops out
-  // -- the `!== null` guard below already handles that without breaking the
-  // rest. If gusts, dew point or UV are ever wanted on this strip they exist
-  // ONLY as sensors, and that is the case for revisiting this.
+  // ONE DATA SOURCE PER READING, the Weather page's (2026-11-01): the sensor Settings -> Weather names for it
+  // (Outside, Feels Like, Humidity, Wind), else the weather ENTITY's own attribute -- `temperature`,
+  // `apparent_temperature`, `humidity`, `wind_speed`, the weather platform's provider-neutral contract
+  // (hkSettings.nowRead). Until then this strip read the attributes only, so a house with an outside sensor saw
+  // one temperature here and another on the Weather page and its block. An optional attribute a provider omits
+  // drops its part of the Feels line; the `!== null` guards below handle that.
   function weather(states, o) {
     o = o || {};
     var glyph = o.glyph || '50px';
@@ -440,14 +418,17 @@
     var wid = (o.entity && states[o.entity]) ? o.entity : (S() ? S().weatherId(states) : null);
     var w = (wid && states[wid]) || {};
     var a = w.attributes || {};
-    var temp = num(a.temperature);
+    // (the outside sensor first, as the Weather page: hkSettings.nowTemp)
+    var temp = S() && S().nowTemp ? S().nowTemp(states, wid) : num(a.temperature);
     var outsideTemp = temp !== null ? Math.round(temp) + '\u00b0' : '--\u00b0';
     var condition = esc(w.state ? conditionName(w.state) : 'Weather');
     var night = isNight(states);
 
-    var feels = num(a.apparent_temperature);
-    var humidity = a.humidity;
-    var wind = num(a.wind_speed);
+    // (each from its sensor when Settings -> Weather names one, as the Weather page: hkSettings.nowRead)
+    var R = S() && S().nowRead ? function (k, at) { return S().nowRead(states, k, wid); } : function (k, at) { return num(a[at]); };
+    var feels = R('feels_like', 'apparent_temperature');
+    var humidity = R('humidity', 'humidity');
+    var wind = R('wind', 'wind_speed');
 
     var bits = [];
     if (feels !== null) bits.push('Feels ' + Math.round(feels) + '°');

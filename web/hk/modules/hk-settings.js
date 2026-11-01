@@ -8,6 +8,8 @@
 //
 //   hkSettings.get('weather.entity')          one value (or a fallback)
 //   hkSettings.weatherId(states)              the weather entity to read
+//   hkSettings.nowTemp(states, wid)           the temperature now: the outside sensor, else the weather's
+//   hkSettings.nowRead(states, key, wid)      outside / feels_like / humidity / wind / gust / uv the same way
 //   hkSettings.clock(states)                  { time: 'HH:MM', date: 'YYYY-MM-DD' }
 //   hkSettings.moon(states)                   0..1 phase fraction
 //   hkSettings.seasonName(states)             'Halloween' | 'Thanksgiving' | 'Christmas' | ''
@@ -1406,6 +1408,21 @@
     return ids[0] || null;
   }
 
+  // THE WEATHER NOW, one number on every screen (2026-11-01, the owner: the Side Pane said 56° beside the
+  // Weather block's 65°): the sensor Settings -> Weather names for it, when it reads, as the Weather page reads
+  // it -- else the weather entity's own attribute (wid, else weatherId). A number, or null.
+  var NOW_ATTR = { outside: 'temperature', feels_like: 'apparent_temperature', humidity: 'humidity', wind: 'wind_speed',
+                   gust: 'wind_gust_speed', uv: 'uv_index' };
+  function nowRead(states, key, wid) {
+    states = states || {};
+    var n = function (x) { return x != null && x !== '' && isFinite(Number(x)) ? Number(x) : null; };
+    var sid = get('weather.' + key), s = sid && states[sid], v = s ? n(s.state) : null;
+    if (v !== null) return v;
+    var w = states[wid || weatherId(states)];
+    return w && w.attributes ? n(w.attributes[NOW_ATTR[key]]) : null;
+  }
+  function nowTemp(states, wid) { return nowRead(states, 'outside', wid); }
+
   // THE CALENDARS: the chosen ones, in their order, that exist -- or, when
   // none is chosen, every calendar in the house, A to Z. And each one's
   // colour: its own, else the next of CAL_COLORS by its place in the list.
@@ -1765,6 +1782,8 @@
       });
     },
     weatherId: weatherId,
+    nowTemp: nowTemp,
+    nowRead: nowRead,
     weatherPage: weatherPage,
     radarNative: radarNative,
     radarPlan: radarPlan,
