@@ -205,7 +205,9 @@
                      // the HomeView-style faces (settings.py, 2026-10-30)
                      forecast_layout: 'classic', photo_titles: false, time_behind: false, day_look: 'auto',
                      // Big Weather's number, Time Behind's size, place and darkening (settings.py, 2026-10-31)
-                     forecast_big: 'temp', tb_size: 24, tb_top: 6, tb_dim: 0 } },
+                     forecast_big: 'temp', tb_size: 24, tb_top: 6, tb_dim: 0,
+                     // Big Weather's time planted in the meadow (settings.py, 2026-11-01)
+                     forecast_planted: true } },
     // The Calendar page and the screensaver's calendar pane (All Screens ->
     // Calendar): the calendars shown, in order (empty: every calendar), and
     // each one's colour (a page pill colour)

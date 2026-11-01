@@ -4021,6 +4021,10 @@
                big && (fc || both || cur.fallback) && self.saverKnown('forecast_big') ? [K.seg({ label: 'Big Number', sk: 'saver:forecast_big',
                  value: cur.forecast_big === 'clock' ? 'clock' : 'temp', options: M.FORECAST_BIG,
                  onChange: function (v) { put('forecast_big', v); } })] : [],
+               // ...the time planted in the meadow (2026-11-01, the owner): on by default; off, as it drew before
+               big && (fc || both || cur.fallback) && cur.forecast_big === 'clock' && self.saverKnown('forecast_planted') ? [K.toggle({
+                 label: 'Planted Numerals', sub: 'The time as solid figures standing in the meadow, with shadows from the sky’s sun and grass at their feet.',
+                 on: cur.forecast_planted !== false, sk: 'saver:forecast_planted', onChange: function (on) { put('forecast_planted', on); } })] : [],
                // the details ON the forecast, wherever a forecast can show
                (fc || both || cur.fallback) && !big ? [tog('Details on the Forecast', 'band',
                  'On the forecast: today, the next hours and the coming days along the bottom. Off: the sky and the landscape alone.')] : [])));

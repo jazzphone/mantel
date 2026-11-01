@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+- **Screensaver, Big Weather with the Clock as the big number:** the time is drawn as solid ivory figures standing in the meadow. Their shadows follow the sun in the sky (long in the morning and evening, short at midday, soft under cloud, none at night), and grass from the season's meadow grows in front of their feet. The feet now stand on the meadow on every screen, upright too. **Planted Numerals** (Screensaver → Big Number: Clock) turns it off for the time as before.
+
 ## 1.28.0 - 2026-11-01
 
 - **Side Pane, Dim:** Off, Low, Medium or High (Side Pane → Look): a shade over the pane's glass and album art, for its words over a light background.

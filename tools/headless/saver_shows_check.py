@@ -41,6 +41,9 @@ SHOWS = {
     # beside the readings, the same margin each side -- held sideways, upright and on a phone
     'saver-daylight': ({'show': 'day', 'day_look': 'light'}, 'day-ink'),
     'saver-bigcorners': ({'show': 'forecast', 'forecast_layout': 'big'}, 'big-corners'),
+    # THE PLANTED NUMERALS (2026-11-01): Big Weather's time standing in the meadow -- its feet on the land's ground line,
+    # the sun's shadow by day and none at night, the grass in front, clear of the readings and what plays
+    'saver-planted': ({'show': 'forecast', 'forecast_layout': 'big', 'forecast_big': 'clock'}, 'planted'),
     # Settings' preview, just what is changing (2026-10-31): the screensaver alone in the frame on its pages, a change
     # shown in place, the screen again once they are left
     'saver-preview': ({'show': 'clock', 'clock_bg': 'gradient', 'clock_style': 'classic'}, 'preview'),
@@ -103,4 +106,7 @@ async def main():
             return proc.returncode
 
 
-raise SystemExit(asyncio.run(main()))
+# (guarded: the server's picture worker starts with spawn, which imports this file again as its main module -- unguarded,
+# the whole check ran a second time inside the worker, 2026-11-01)
+if __name__ == '__main__':
+    raise SystemExit(asyncio.run(main()))

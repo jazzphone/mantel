@@ -29,8 +29,8 @@
 // translate, rotate and scale, which the compositor runs without the page;
 // none under Flat, Reduce Motion or a still preview.
 //
-//   hkSaverFaces.mount(layer, { kind, client, h24, weather, look, clocks, onReadings })
-//     -> { setClient(c), night(on), destroy(), kind }
+//   hkSaverFaces.mount(layer, { kind, client, h24, weather, look, clocks, onReadings, big, planted, sky })
+//     -> { setClient(c), night(on), light(s), destroy(), kind }
 //   kind: 'glance' | 'month' | 'day' | 'weather'; look (Day): 'auto' |
 //   'light' | 'dark'; clocks: window.hkSaverClock (Glance's clock); onReadings(n) (Big Weather): how many
 //   readings its bottom row has, whenever that changes
@@ -157,6 +157,18 @@
     // the music's picture is from the left (2026-10-31, the owner); upright, there is no room beside it, and it sits
     // one row above them on the same margin, 4 units clear
     '@container (aspect-ratio >= 1){.hkf.weather.np .rd{left:calc(40cqw + 2.4cqmin);display:flex;justify-content:flex-end;gap:9.8cqmin}}',
+    // THE PLANTED NUMERALS (plant() below): the time as ivory figures standing in the meadow, their shadows on it.
+    // Every box is placed in px by plant(); only what is the same on every screen is here
+    '.hkf.weather .pl{position:absolute;inset:0;pointer-events:none;text-shadow:none}',
+    '.hkf.weather .pl > .ps,.hkf.weather .pl > .pc,.hkf.weather .pl > .pd{position:absolute;inset:0}',
+    '.hkf.weather .pl .b{position:absolute;left:0;top:0;transform-origin:0 0}',
+    '.hkf.weather .pl .fx{position:absolute;inset:0}',
+    '.hkf.weather .pl .t{position:absolute;left:0;top:0;font-weight:600;line-height:1;white-space:nowrap;text-shadow:none}',
+    '.hkf.weather .pl .pf .t{color:transparent;-webkit-background-clip:text;background-clip:text}',
+    '.hkf.weather .pl .probe{visibility:hidden}',
+    '.hkf.weather.planted .tp{display:none}',
+    // (Night Mode's red wash: no sun to cast a shadow)
+    '.hkf.night .pl .ps{display:none}',
     // NIGHT MODE (hk-saver.js): the ground goes (it is a .ckbg), what is on it turns white for the red wash
     '.hkf.night{color:#fff}.hkf.night .hd,.hkf.night .g,.hkf.night .g .wd,.hkf.night .big{color:#fff}.hkf.night .art{display:none}'
   ].join('\n');
@@ -283,6 +295,244 @@
 
   // ------------------------------------------------------------ the faces
   // each: build(root, inner, x) -> paint(date, dataChanged)
+  // ------------------------------------------------------------ the planted numerals
+  // THE PLANTED NUMERALS (2026-11-01, the owner: "physical numerals standing in the landscape"; the plan and the
+  // mock-up: docs/artwork-handoff/grounded-clock/): Big Weather's time as solid ivory figures on the meadow, lit by
+  // the scene's own sun. Over a landscape only (hk-saver.js hands the sky's reading in: light()); without one, and
+  // with Planted Numerals off, the time is drawn as before.
+  //   - THE GROUND: one camera fitted to the land (hk-sky.js .land: 2560 x 1600, cover, center bottom). The feet
+  //     on the art's ground line (68 % down), the eye level at 57.5 % (above the meadow's far edge, at the hills'
+  //     feet), the focal length the art's drawn width, the vanishing point the middle of the face. Fractions of
+  //     the art, so it holds on every screen and crop -- upright too (the old 58cqmin floor stood them in the trees)
+  //   - THE SUN'S SHADOW: a copy of the figures laid on that ground. hk-sky places the sun by azimuth (90 at the
+  //     left edge, 180 ahead, 270 at the right), so its direction is phi = azimuth - 180 round the viewer, at its
+  //     real elevation; on the ground and through the camera that is one homography (castH), a matrix3d. Longer as
+  //     the sun sinks (castLength), crisp at the feet and softer away from them, clipped to the meadow; faded by
+  //     cloud, gone with the sun. A second, faint one from high overhead is the sky's (the only one at night)
+  //   - CONTACT: each figure's own foot mirrored flat onto the grass, three layers tightening to the stroke
+  //   - THE FIGURES: ivory with a thin side toward the vanishing point, lit when the sun is on that side; their
+  //     color the light's -- the land's own dusk transform at dusk, moonlit at night, flatter under cloud
+  // WHAT IT COSTS: nothing moves. Drawn again when the minute, the sky's reading or the face's size changes; the
+  // projected copies are composited layers the size of the time (about 2 MB each on a 1.5x tablet).
+  var ART_W = 2560, ART_H = 1600;
+  var PL_GROUND = 0.68, PL_HORIZON = 0.575, PL_TREES = 0.6325, PL_FOCAL = 1.0;
+  var PL_IVORY = [239, 231, 214];
+  // each season's meadow (land-<season>-<light>.webp, its mean by the figures' feet), and the land's dusk: a color
+  // matrix of its day, fitted from the art (rows r, g, b: [r, g, b, offset])
+  var PL_MEADOW = {
+    fall: { day: [188, 123, 56], dusk: [104, 65, 51], night: [20, 23, 25],
+            m: [[0.469, 0.178, 0.057, -9.236], [0.127, 0.347, 0.059, -5.134], [0.142, 0.135, 0.315, -9.587]],
+            n: [[0.056, 0.046, 0.022, 2.806], [0.026, 0.074, 0.035, 6.576], [0.039, 0.073, 0.131, 1.388]] },
+    summer: { day: [119, 131, 56], dusk: [73, 59, 42], night: [15, 21, 23],
+              m: [[0.472, 0.174, 0.059, -9.105], [0.128, 0.344, 0.058, -4.942], [0.159, 0.114, 0.317, -9.029]],
+              n: [[0.074, 0.018, 0.025, 2.868], [0.03, 0.073, 0.035, 6.226], [0.033, 0.078, 0.131, 1.59]] },
+    spring: { day: [147, 152, 71], dusk: [91, 71, 54], night: [18, 24, 27],
+              m: [[0.468, 0.176, 0.06, -9.046], [0.126, 0.348, 0.058, -5.137], [0.144, 0.131, 0.317, -9.559]],
+              n: [[0.073, 0.02, 0.026, 2.705], [0.032, 0.072, 0.036, 6.056], [0.038, 0.074, 0.128, 1.603]] },
+    winter: { day: [213, 216, 226], dusk: [142, 110, 120], night: [29, 36, 54],
+              m: [[0.452, 0.205, 0.045, -8.651], [0.126, 0.358, 0.051, -5.299], [0.132, 0.147, 0.306, -8.666]],
+              n: [[0.078, 0.02, 0.039, -0.363], [0.046, 0.066, 0.031, 5.106], [0.044, 0.068, 0.128, 1.473]] }
+  };
+  // THE GRASS IN FRONT (Codex's art, 2026-11-01: docs/artwork-handoff/grounded-clock/): a 3600 x 200 strip per
+  // season, day-lit, at twice the land's density -- its row 140 the ground line, its left edge 60 art px before the
+  // time, shown to 60 art px past it and faded out there. Drawn into a canvas the time's width (never the whole
+  // strip), through the land's own dusk or night matrix (m, n) and its cloud dimming, as the land showing is lit
+  var PL_STRIP = { w: 3600, h: 200, ground: 140, lead: 60 };
+  var plStrips = {};
+  function plStrip(season, then) {
+    var e = plStrips[season];
+    if (!e) {
+      e = plStrips[season] = { img: new Image(), ok: false, wait: [] };
+      e.img.onload = function () { e.ok = true; e.wait.splice(0).forEach(function (f) { try { f(); } catch (x) { /* gone */ } }); };
+      e.img.onerror = function () { e.wait = []; };                      // no art: no grass, the rest as it is
+      e.img.src = SKY + 'fg-meadow-' + season + '.webp';
+    }
+    if (!e.ok && then && e.wait.indexOf(then) < 0) e.wait.push(then);
+    return e.ok ? e.img : null;
+  }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function smooth(a, b, v) { v = clamp((v - a) / (b - a), 0, 1); return v * v * (3 - 2 * v); }
+  function mixc(a, b, t) { return a.map(function (v, i) { return v + (b[i] - v) * t; }); }
+  function mulc(a, k) { return a.map(function (v, i) { return v * (Array.isArray(k) ? k[i] : k); }); }
+  function rgb(c, a) {
+    c = c.map(function (v) { return Math.round(clamp(v, 0, 255)); });
+    return a == null ? 'rgb(' + c + ')' : 'rgba(' + c + ',' + (+a).toFixed(3) + ')';
+  }
+  // the land's frame on a face W x H, and the camera on it
+  function plGeometry(W, H) {
+    var k = Math.max(W / ART_W, H / ART_H), Aw = ART_W * k, Ah = ART_H * k, top = H - Ah, cqmin = Math.min(W, H) / 100;
+    var fs = (W >= H ? 40 : 30) * cqmin;
+    return { W: W, H: H, k: k, fs: fs, left: 4.9 * cqmin, ls: -0.04 * fs, cx: W / 2, f: PL_FOCAL * Aw,
+             yG: top + PL_GROUND * Ah, yH: top + PL_HORIZON * Ah, yT: top + PL_TREES * Ah };
+  }
+  // the light on the figures, from the sky's reading (hk-sky.js read(): elev, azim, cover)
+  function plLight(s, season) {
+    var M = PL_MEADOW[season] || PL_MEADOW.fall;
+    var e = Number(s.elev) || 0, phi = ((Number(s.azim) || 180) - 180) * Math.PI / 180, cover = clamp(Number(s.cover) || 0, 0, 1);
+    var sunUp = smooth(-1, 6, e), clouds = smooth(0.3, 0.95, cover), direct = sunUp * (1 - 0.9 * clouds);
+    var tDay = smooth(0, 10, e), tDusk = smooth(-10, -2, e);
+    var day = mixc(PL_IVORY, mulc(PL_IVORY, [1, 0.93, 0.82]), smooth(22, 3, e) * (1 - clouds) * 0.55);
+    var dusk = mixc(M.m.map(function (r) { return r[0] * PL_IVORY[0] + r[1] * PL_IVORY[1] + r[2] * PL_IVORY[2] + r[3]; }), mulc(PL_IVORY, 0.64), 0.5);
+    var face = mixc(mulc(PL_IVORY, [0.4, 0.43, 0.5]), mixc(dusk, day, tDay), tDusk);
+    face = mixc(face, mulc(face, [0.9, 0.91, 0.93]), clouds);                      // a gray day: flatter, cooler
+    face = mulc(face, 1 - 0.1 * direct * Math.max(0, Math.cos(phi)));            // the sun ahead: the fronts in shade
+    var meadow = mixc(M.night, mixc(M.dusk, M.day, tDay), tDusk);
+    var sideLit = Math.max(0, Math.sin(phi)) * Math.cos(e * Math.PI / 180) * direct;
+    var side = mixc(mulc(face, 0.74 + 0.36 * sideLit - (Math.sin(phi) < 0 ? 0.07 * direct : 0)), meadow, 0.12);
+    return { e: e, phi: phi, direct: direct, clouds: clouds, face: face, meadow: meadow, side: side,
+             shade: mixc([34, 24, 10], [26, 18, 26], 1 - tDay),
+             cast: 0.72 * direct, sky: 0.12 + 0.22 * clouds * sunUp, contact: 0.62 + 0.18 * clouds - 0.14 * (1 - tDusk) };
+  }
+  // where a point t px up the figures' plane lands on the ground: x' = cx + ((x - cx) - t*a) / k,
+  // y' = yH + D / k, k = 1 - t*b -- a homography of the plane (a 3 x 3 on screen px)
+  function castH(g, cot, phi) {
+    var a = cot * Math.sin(phi), b = cot * Math.cos(phi) / g.f, D = g.yG - g.yH, c = g.cx * b + a;
+    return [[1, c, -g.yG * c], [0, g.yH * b, g.yH * (1 - b * g.yG) + D], [0, b, 1 - b * g.yG]];
+  }
+  // the shadow's length on the ground, in heights: cot(elevation), eased to 2.6 near the horizon, never reaching
+  // the camera (its far end at least 42 % of the way there), never running much past half the face sideways
+  function castLength(g, e, phi, tTop) {
+    var cot = 2.6 * Math.tanh((1 / Math.tan(Math.max(e, 0.5) * Math.PI / 180)) / 2.6);
+    var cp = Math.cos(phi), sp = Math.sin(phi);
+    if (cp > 0) cot = Math.min(cot, 0.58 * g.f / (tTop * cp));
+    for (var i = 0; i < 6 && Math.abs(tTop * cot * sp / (1 - tTop * cot * cp / g.f)) > 0.55 * g.W; i++) cot *= 0.85;
+    return cot;
+  }
+  function mul3(A, B) {
+    var C = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    for (var i = 0; i < 3; i++) for (var j = 0; j < 3; j++) for (var k = 0; k < 3; k++) C[i][j] += A[i][k] * B[k][j];
+    return C;
+  }
+  // a 3 x 3 homography as CSS (matrix3d is column-major)
+  function m3d(M) {
+    return 'matrix3d(' + [M[0][0], M[1][0], 0, M[2][0], M[0][1], M[1][1], 0, M[2][1], 0, 0, 1, 0, M[0][2], M[1][2], 0, M[2][2]]
+      .map(function (v) { return +v.toFixed(7); }).join(',') + ')';
+  }
+  // the figures drawn, their shadows and their ground, into .pl, for the time `text` on a face W x H
+  function plant(pl, text, W, H, s, season, again) {
+    var g = plGeometry(W, H), L = plLight(s, season);
+    pl.textContent = '';
+    var t = function (parent, cls) {
+      var e = el('div', 't' + (cls ? ' ' + cls : ''), text);
+      e.style.fontSize = g.fs.toFixed(2) + 'px';
+      e.style.letterSpacing = g.ls.toFixed(2) + 'px';
+      parent.appendChild(e);
+      return e;
+    };
+    // the type's own numbers: its line box, its baseline in it, its cap height
+    var probe = t(pl, 'probe'), base0 = el('i');
+    base0.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+    probe.appendChild(base0);
+    var box = probe.getBoundingClientRect(), base = base0.getBoundingClientRect().top - box.top;
+    var bw = Math.ceil(box.width) + 2, bh = Math.ceil(box.height);
+    pl.removeChild(probe);
+    if (!bw || !bh || !(base > 0)) return false;              // not laid out (hidden): drawn when it is
+    var cap = base * 0.72;
+    try {
+      var cv = document.createElement('canvas').getContext('2d');
+      cv.font = '600 ' + g.fs.toFixed(2) + 'px ' + FONT;
+      var m = cv.measureText('8');
+      if (m && m.actualBoundingBoxAscent > 0) cap = m.actualBoundingBoxAscent;
+    } catch (e) { /* the estimate */ }
+    var X = g.left, Y = g.yG - base;                          // the box; its baseline on the ground line
+    var boxed = function (parent) {
+      var b = el('div', 'b');
+      b.style.left = X.toFixed(2) + 'px'; b.style.top = Y.toFixed(2) + 'px';
+      b.style.width = bw + 'px'; b.style.height = bh + 'px';
+      parent.appendChild(b);
+      return b;
+    };
+    var foot = (bh - base) / bh * 100;                        // the baseline, % up from the box's foot
+    // the shadows, clipped to the meadow
+    var ps = el('div', 'ps');
+    ps.style.clipPath = 'inset(' + g.yT.toFixed(1) + 'px 0 0 0)';
+    pl.appendChild(ps);
+    var project = function (H3, alpha, blurNear, blurFar, reach) {
+      var M = mul3(mul3([[1, 0, -X], [0, 1, -Y], [0, 0, 1]], H3), [[1, 0, X], [0, 1, Y], [0, 0, 1]]);
+      [[blurNear, 1, 0.08, reach * 0.5], [blurFar, 0.75, 0, reach]].forEach(function (p) {
+        var b = boxed(ps), fx = el('div', 'fx');
+        b.style.transform = m3d(M);
+        fx.style.filter = 'blur(' + p[0].toFixed(2) + 'px)';
+        var a1 = foot + p[2] * cap / bh * 100, a2 = Math.min(100, foot + p[3] * cap / bh * 100);
+        var mask = 'linear-gradient(to top,#000 ' + foot.toFixed(2) + '%,' + (p[2] ? '#000 ' + a1.toFixed(2) + '%,' : '') + 'transparent ' + a2.toFixed(2) + '%)';
+        fx.style.webkitMaskImage = mask; fx.style.maskImage = mask;
+        b.appendChild(fx);
+        t(fx).style.color = rgb(L.shade, alpha * p[1]);
+      });
+    };
+    project(castH(g, 0.55, 0), L.sky, 1.5 + 6 * L.clouds, g.fs * (0.05 + 0.05 * L.clouds), 0.9);
+    if (L.cast > 0.02) project(castH(g, castLength(g, L.e, L.phi, base), L.phi), L.cast, 0.6 + 4 * L.clouds, g.fs * (0.016 + 0.05 * L.clouds), 1.15);
+    // the feet on the grass
+    var pc = el('div', 'pc');
+    pl.appendChild(pc);
+    [[0.06, -0.55, 1, 1], [0.12, -0.35, Math.max(2, g.fs * 0.008), 0.7], [0.3, -0.14, Math.max(4, g.fs * 0.018), 0.45]].forEach(function (p) {
+      var b = boxed(pc), fx = el('div', 'fx');
+      b.style.transformOrigin = '0 ' + base.toFixed(2) + 'px';
+      b.style.transform = 'scaleY(' + p[1] + ')';
+      b.style.filter = 'blur(' + p[2].toFixed(1) + 'px)';
+      fx.style.clipPath = 'inset(' + (base - p[0] * cap).toFixed(1) + 'px 0 0 0)';
+      b.appendChild(fx);
+      t(fx).style.color = rgb(L.shade, L.contact * p[3]);
+    });
+    // the figures: a thin side toward the vanishing point, then the face
+    var pd = el('div', 'pd');
+    pl.appendChild(pd);
+    var vx = g.cx - (X + bw / 2), vy = g.yH - (g.yG - cap / 2), vl = Math.sqrt(vx * vx + vy * vy) || 1;
+    var depth = Math.max(2, Math.round(g.fs * 0.022)), stack = [];
+    for (var i = 1; i <= depth; i++) stack.push((vx / vl * i).toFixed(2) + 'px ' + (vy / vl * i).toFixed(2) + 'px 0 ' + rgb(mixc(L.side, mulc(L.side, 0.78), i / depth)));
+    var side = t(boxed(pd));
+    side.style.color = rgb(L.side);
+    side.style.textShadow = stack.join(',');
+    var fb = boxed(pd);
+    fb.className += ' pf';
+    var face = t(fb), top = (base - cap) / bh * 100, b0 = (base - 0.16 * cap) / bh * 100, b1 = base / bh * 100;
+    face.style.backgroundImage =
+      'linear-gradient(' + (Math.sin(L.phi) < 0 ? 'to right' : 'to left') + ',' + rgb([255, 248, 232], 0.1 * L.direct) + ',rgba(255,248,232,0) 55%,' + rgb([0, 0, 0], 0.06 * L.direct) + '),' +
+      'linear-gradient(to bottom,' + rgb(mulc(L.face, 1.04)) + ' ' + top.toFixed(1) + '%,' + rgb(L.face) + ' ' + b0.toFixed(1) + '%,' +
+      rgb(mixc(mulc(L.face, 0.82), L.meadow, 0.14)) + ' ' + b1.toFixed(1) + '%)';
+    face.style.opacity = '0.97';
+    // the grass in front of the feet, lit as the land showing is
+    var img = plStrip(season, again);
+    if (img) {
+      var r = clamp(g.fs / g.k / 640, 0.55, 1), sc = g.k * r / 2;          // strip px to face px (640: the reference figures)
+      var lead = PL_STRIP.lead * 2 * sc, x0 = X - lead, cw = Math.min(bw + 2 * lead, PL_STRIP.w * sc), ch = PL_STRIP.h * sc;
+      var dpr = Math.min(2, window.devicePixelRatio || 1), cvs = el('canvas', 'pg');
+      cvs.width = Math.max(1, Math.round(cw * dpr)); cvs.height = Math.max(1, Math.round(ch * dpr));
+      cvs.style.cssText = 'position:absolute;left:' + x0.toFixed(2) + 'px;top:' + (g.yG - PL_STRIP.ground * sc).toFixed(2) + 'px;width:' + cw.toFixed(2) + 'px;height:' + ch.toFixed(2) + 'px';
+      try {
+        var c2 = cvs.getContext('2d');
+        c2.drawImage(img, 0, 0, cw / sc, PL_STRIP.h, 0, 0, cvs.width, cvs.height);
+        var light = window.hkSky && window.hkSky._land ? window.hkSky._land.light(L.e) : (L.e > 6 ? 'day' : L.e > -7 ? 'dusk' : 'night');
+        var Mx = light === 'night' ? (PL_MEADOW[season] || PL_MEADOW.fall).n : light === 'dusk' ? (PL_MEADOW[season] || PL_MEADOW.fall).m : null;
+        // the land's cloud dimming (hk-sky.js scene().update: --landB), and the sun's shadow falling toward us
+        var dim = (1 - 0.3 * clamp(((Number(s.cover) || 0) - 0.4) / 0.6, 0, 1) - (s.wet && s.wet.rate > 0 ? 0.08 : 0)) *
+                  (1 - 0.35 * L.cast * Math.max(0, Math.cos(L.phi)));
+        if (Mx || dim < 0.995) {
+          var id = c2.getImageData(0, 0, cvs.width, cvs.height), px = id.data;
+          for (var q = 0; q < px.length; q += 4) {
+            if (!px[q + 3]) continue;
+            var R0 = px[q], G0 = px[q + 1], B0 = px[q + 2];
+            if (Mx) {
+              px[q] = Mx[0][0] * R0 + Mx[0][1] * G0 + Mx[0][2] * B0 + Mx[0][3];
+              px[q + 1] = Mx[1][0] * R0 + Mx[1][1] * G0 + Mx[1][2] * B0 + Mx[1][3];
+              px[q + 2] = Mx[2][0] * R0 + Mx[2][1] * G0 + Mx[2][2] * B0 + Mx[2][3];
+            }
+            px[q] *= dim; px[q + 1] *= dim; px[q + 2] *= dim;
+          }
+          c2.putImageData(id, 0, 0);
+        }
+        // faded out over its last 60 art px
+        var fade = c2.createLinearGradient(cvs.width - lead * dpr, 0, cvs.width, 0);
+        fade.addColorStop(0, 'rgba(0,0,0,0)'); fade.addColorStop(1, 'rgba(0,0,0,1)');
+        c2.globalCompositeOperation = 'destination-out';
+        c2.fillStyle = fade;
+        c2.fillRect(cvs.width - lead * dpr, 0, lead * dpr, cvs.height);
+        pl.appendChild(cvs);
+      } catch (e) { /* no canvas: no grass */ }
+    }
+    return true;
+  }
+
   var BUILD = {};
 
   BUILD.glance = function (r, inn, x) {
@@ -387,15 +637,25 @@
 
   BUILD.weather = function (r, inn, x) {
     inn.appendChild(el('div', 'wash'));
-    var cn = el('div', 'cn'), tm = el('div', 'tm'), tpb = el('div', 'tp'), tp = el('span', 'tpn'), rd = el('div', 'rd');
+    var cn = el('div', 'cn'), tm = el('div', 'tm'), tpb = el('div', 'tp'), tp = el('span', 'tpn'), rd = el('div', 'rd'), pl = el('div', 'pl');
     tpb.appendChild(tp);
-    inn.append(cn, tm, tpb, rd);
-    var key = null;
+    inn.append(pl, cn, tm, tpb, rd);
+    var key = null, plKey = null;
+    // (the grass's art arrived after the figures were drawn: drawn again with it)
+    x.replant = function () { plKey = null; x.paint(); };
     var bigClock = x.big === 'clock';
     if (bigClock) r.className += ' bigclock';
     return function (d) {
       // (the big number the time: the temperature takes the time's place, top right)
       if (bigClock) put(tp, hm(d, x.h24)); else put(tm, hm(d, x.h24));
+      // THE PLANTED NUMERALS: the time standing in the meadow, while the sky's reading says there is one
+      var s = bigClock && x.planted ? x.sky : null;
+      if (s) {
+        var W = r.clientWidth, H = r.clientHeight, txt = hm(d, x.h24), season = x.season(s);
+        var pk = [txt, W, H, Math.round(s.elev * 2), Math.round(s.azim), Math.round((s.cover || 0) * 50), season].join('|');
+        if (pk !== plKey) plKey = W && H && plant(pl, txt, W, H, s, season, x.replant) ? pk : null;
+      } else if (plKey !== null || pl.firstChild) { pl.textContent = ''; plKey = null; }
+      r.classList.toggle('planted', plKey !== null);
       var c = x.client(), np = !!playing(c && c.states);
       if (/\bnp\b/.test(r.className) !== np) r.className = r.className.replace(/ np\b/g, '') + (np ? ' np' : '');
       var w = x.weather(), k = w ? JSON.stringify([w.temp, w.cond, w.hi, w.lo, w.sunset && w.sunset.getTime(), w.wind, w.humidity, w.aqi, d.getHours() >= 12]) : '';
@@ -441,6 +701,12 @@
     var x = {
       h24: !!opts.h24, look: opts.look || 'auto', big: opts.big === 'clock' ? 'clock' : 'temp', clocks: opts.clocks || window.hkSaverClock || null, still: !!opts.still, parts: [],
       onReadings: typeof opts.onReadings === 'function' ? opts.onReadings : null,
+      // Big Weather's time planted in the meadow (opts.planted, on unless false) and the sky's reading it is lit by
+      planted: opts.planted !== false, sky: opts.sky || null,
+      season: function (s) {
+        var K = window.hkSky && window.hkSky._land;
+        try { return (K && K.season(client, s)) || 'fall'; } catch (e) { return 'fall'; }
+      },
       client: function () { return client; },
       // the weather now, today's high and low from the daily forecast (hkWxForecast, shared with the cards)
       weather: function () {
@@ -459,12 +725,18 @@
     };
     var tick = BUILD[kind](root, inn, x);
     var paint = function () { if (!dead) { try { tick(new Date()); } catch (e) { console.warn('[hk-saverfaces]', kind, e && e.message); } } };
+    x.paint = paint;
     paint();
     // once a minute, on the minute (a preview: drawn once)
     var tS = null, tT = null;
     if (!opts.still) tS = setTimeout(function () { paint(); tT = setInterval(paint, 60000); }, 60000 - Date.now() % 60000);
+    // (the planted numerals are placed in px: drawn again when the face's size changes)
+    var ro = kind === 'weather' && typeof ResizeObserver === 'function' ? new ResizeObserver(function () { paint(); }) : null;
+    if (ro) ro.observe(root);
     return {
       kind: kind,
+      // Big Weather: the sky's reading (hk-sky.js read(): elev, azim, cover), or null where there is no landscape
+      light: function (s) { x.sky = s || null; paint(); },
       setClient: function (c) {
         client = c;
         x.parts.forEach(function (p) { if (p && p.setClient) p.setClient(c); });
@@ -477,6 +749,7 @@
       destroy: function () {
         dead = true;
         clearTimeout(tS); clearInterval(tT);
+        if (ro) ro.disconnect();
         if (fc) { fc.release(); fc = null; }
         x.parts.forEach(function (p) { if (p && p.destroy) { try { p.destroy(); } catch (e) { /* gone */ } } });
         if (root.parentNode) root.parentNode.removeChild(root);
@@ -485,5 +758,6 @@
   }
 
   window.hkSaverFaces = { KINDS: KINDS.slice(), mount: mount, _: { monthGrid: monthGrid, occasionOf: occasionOf, playing: playing, dayDark: dayDark, hm: hm,
+    plGeometry: plGeometry, plLight: plLight, castH: castH, castLength: castLength,
     motionOf: motionOf, groundOf: groundOf, luminance: luminance, inkOn: inkOn, inkFor: inkFor, CSS: CSS } };
 })();

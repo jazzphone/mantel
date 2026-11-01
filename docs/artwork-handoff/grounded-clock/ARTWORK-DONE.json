@@ -1,0 +1,100 @@
+{
+  "status": "complete",
+  "request": "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/ARTWORK-REQUEST.md",
+  "assets": [
+    {
+      "season": "fall",
+      "path": "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/fg-meadow-fall.png",
+      "width": 3600,
+      "height": 200,
+      "mode": "RGBA",
+      "transparency": {
+        "transparent_fraction": 0.7798652777777778,
+        "rows_0_29_max_alpha": 0,
+        "rows_185_199_max_alpha": 0,
+        "coverage_rows_70_109": 0.028090277777777777,
+        "coverage_rows_110_139": 0.17716666666666667
+      },
+      "sha256": "3e2422adef15112be9856542c866f43515743ec7962b581550728314190dee52"
+    },
+    {
+      "season": "winter",
+      "path": "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/fg-meadow-winter.png",
+      "width": 3600,
+      "height": 200,
+      "mode": "RGBA",
+      "transparency": {
+        "transparent_fraction": 0.7402069444444445,
+        "rows_0_29_max_alpha": 0,
+        "rows_185_199_max_alpha": 0,
+        "coverage_rows_70_109": 0.028090277777777777,
+        "coverage_rows_110_139": 0.21768518518518518
+      },
+      "sha256": "a118d099268d6a2fc73dabaf4adb5e71142be6de3556b2304474ad24d9870da0"
+    },
+    {
+      "season": "spring",
+      "path": "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/fg-meadow-spring.png",
+      "width": 3600,
+      "height": 200,
+      "mode": "RGBA",
+      "transparency": {
+        "transparent_fraction": 0.7620680555555556,
+        "rows_0_29_max_alpha": 0,
+        "rows_185_199_max_alpha": 0,
+        "coverage_rows_70_109": 0.028090277777777777,
+        "coverage_rows_110_139": 0.2241388888888889
+      },
+      "sha256": "433bbab5ef3ddf8780043280a09347fa5ff7889591a5eed90e3270609d358e66"
+    },
+    {
+      "season": "summer",
+      "path": "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/fg-meadow-summer.png",
+      "width": 3600,
+      "height": 200,
+      "mode": "RGBA",
+      "transparency": {
+        "transparent_fraction": 0.7667833333333334,
+        "rows_0_29_max_alpha": 0,
+        "rows_185_199_max_alpha": 0,
+        "coverage_rows_70_109": 0.028090277777777777,
+        "coverage_rows_110_139": 0.20974074074074073
+      },
+      "sha256": "226eef888ccb2f00b695592436a79c9e61848f84aaf460c239c811731d5155c2"
+    }
+  ],
+  "composite": "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/composite-placement.png",
+  "previews": [
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/preview-fall-zoom.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/preview-fall.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/preview-spring-zoom.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/preview-spring.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/preview-summer-zoom.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/preview-summer.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/preview-winter-zoom.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/preview-winter.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/review-fall-black-200.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/review-fall-half.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/review-fall-night.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/review-fall-white-200.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/review-spring-black-200.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/review-spring-half.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/review-spring-white-200.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/review-summer-black-200.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/review-summer-half.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/review-summer-white-200.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/review-winter-black-200.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/review-winter-half.png",
+    "/Volumes/data/mantel/docs/artwork-handoff/grounded-clock/output/review-winter-white-200.png"
+  ],
+  "checks": [
+    "check_assets.py: all PASS for fall, winter, spring, summer (56 PASS; no FAIL or SKIP)",
+    "Visually inspected all eight full-scene and numeral-foot preview images; checked readable numeral feet, meadow palette, scale, organic texture, varied clumps and gaps.",
+    "Visually inspected every season at 50 percent native strip size over its meadow.",
+    "Visually inspected the entire width of all four strips at 200 percent on flat black and flat white using segmented review sheets; no obvious matte halos.",
+    "Visually inspected fall preview darkened to approximately 12 percent brightness with a slight blue bias; no light edge fringe.",
+    "Visually inspected exact 2560x1600 lossless-reference placement composite; strip at half size, art x46, top y1018, row140 at art y1088.",
+    "Confirmed SHA-256 unchanged for all 100 pre-existing handoff files outside output; no production edits or commits."
+  ],
+  "notes": "Day-only foreground cutouts; no digits or cast shadows are baked into these assets. Built-in image_gen supplied original plant artwork; output/work/ contains generated sources, exact prompts and preparation/review scripts. Cropped and resampled generated artwork into the exact strip frame, preserved shared upper silhouettes, recolored detailed upper grass for spring/summer, and bled real plant RGB into transparent pixels for straight alpha. Draw at half size with left x46 and top y1018 in the 2560x1600 reference frame. Winter has a deliberately irregular snowy lip. Checker full-scene previews expose existing hidden RGB streaks in the landscape files transparent sky because the checker flattens RGBA with convert(RGB); these are outside the foreground assets. The exact placement composite retains landscape transparency. Assets are ready for Claude to integrate; live screensaver integration and device verification are outside this artwork request."
+}

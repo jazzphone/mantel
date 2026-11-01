@@ -307,5 +307,34 @@ lay = layerWith();
 U.photoFaces(lay, PH, L, U.readCfg({ show: 'clock', clock_bg: 'photos', clock_photo_soft: true, photo_titles: true, time_behind: true }));
 ok('Clock on Soft photos with both saved on: the photo alone (the clock stays the clock)', lay.children.map(function (e) { return e.className; }), ['fg', 'phscrim']);
 
+// THE PLANTED NUMERALS (2026-11-01, hk-saverfaces.js plant()): Big Weather's time standing in the meadow, its
+// shadow cast by the scene's sun through one camera fitted to the land
+print('=== the planted numerals ===');
+ok('Planted Numerals: on unless off', [U.readCfg({}).forecast_planted, U.readCfg({ forecast_planted: false }).forecast_planted, U.readCfg({ forecast_planted: 'no' }).forecast_planted], [true, false, true]);
+var rnd = function (p) { return p.map(function (v) { return Math.round(v * 100) / 100; }); };
+var G = FU.plGeometry(1280, 800), GU = FU.plGeometry(820, 1180), GW = FU.plGeometry(1920, 1080);
+ok('the feet on the land\'s ground line (68 % of the art) at 16:10, upright and 16:9 -- not in the trees upright',
+   [Math.round(G.yG * 10) / 10, Math.round(GU.yG * 10) / 10, Math.round(GW.yG * 10) / 10, GU.yG > GU.yT, G.yH < G.yT], [544, 802.4, 696, true, true]);
+ok('the figures as Big Weather sets them: 40cqmin sideways, 30 upright, 4.9 in from the left', rnd([G.fs, GU.fs, G.left]), [320, 246, 39.2]);
+var apply = function (H3, x, y) { var w = H3[2][0] * x + H3[2][1] * y + H3[2][2]; return [(H3[0][0] * x + H3[0][1] * y + H3[0][2]) / w, (H3[1][0] * x + H3[1][1] * y + H3[1][2]) / w]; };
+var morning = FU.castH(G, 2, (128 - 180) * Math.PI / 180), noon = FU.castH(G, 1.7, 0), evening = FU.castH(G, 2, (238 - 180) * Math.PI / 180);
+ok('the shadow is attached: every foot stays where it is', [rnd(apply(morning, 100, 544)), rnd(apply(noon, 400, 544)), rnd(apply(evening, 600, 544))], [[100, 544], [400, 544], [600, 544]]);
+var top = function (H3) { return apply(H3, 300, 544 - 230); };
+ok('...and falls away from the sun: right in the morning, left in the evening, toward us at noon',
+   [top(morning)[0] > 300, top(evening)[0] < 300, top(noon)[1] > 544, top(morning)[1] > 544], [true, true, true, true]);
+var len = function (e, az) { return FU.castLength(G, e, (az - 180) * Math.PI / 180, 275); };
+ok('longer as the sun sinks, eased to a limit near the horizon', [len(30, 200) < len(14, 200), len(14, 200) < len(3, 200), len(0.2, 200) <= 2.6], [true, true, true]);
+ok('...never reaching the camera (its far end at least 42 % of the way there)', 1 - 275 * len(1, 180) / G.f >= 0.42 - 1e-9, true);
+var sun = function (elev, azim, cover) { return FU.plLight({ elev: elev, azim: azim, cover: cover }, 'fall'); };
+ok('the sun\'s shadow: strong on a clear day, faint under cloud, none at night', [sun(30, 180, 0.1).cast > 0.6, sun(24, 160, 0.85).cast < 0.15, sun(-25, 300, 0).cast], [true, true, 0]);
+ok('the feet on the grass at every light; the sky\'s soft shadow stronger under cloud', [sun(-25, 300, 0).contact > 0.4, sun(24, 160, 0.85).sky > sun(24, 160, 0.1).sky], [true, true]);
+ok('the figures dimmer by night than by day, and readable (never under a third)', [sun(-25, 300, 0).face[0] < sun(30, 180, 0.1).face[0], sun(-25, 300, 0).face[0] > 85], [true, true]);
+ok('the side face lit by an afternoon sun on its side, in shade in the morning', sun(20, 230, 0.1).side[0] > sun(20, 130, 0.1).side[0], true);
+var lp = document.createElement('div'), cp = F.mount(lp, { kind: 'weather', big: 'clock', planted: false, sky: { elev: 30, azim: 180, cover: 0.1 }, client: client });
+var plOf = function (n) { return walk(n).filter(function (e) { return /(^| )pl( |$)/.test(e.className || ''); })[0]; };
+ok('Planted Numerals off: nothing planted, the time as before', [plOf(lp).children.length, /planted/.test(lp.children[0].className)], [0, false]);
+ok('...and the face takes the sky\'s reading as it changes', typeof cp.light, 'function');
+cp.destroy();
+
 print(fail ? 'FAIL ' + fail + ' SAVER FACES TESTS' : 'ALL ' + pass + ' SAVER FACES TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

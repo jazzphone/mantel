@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Grounded Clock Mockup</title>
+<style>
+:root{--bg:#f3f1ec;--fg:#1d1d1f;--mut:#6b6b70;--line:#dcd8cf;--chip:#fff;--chipOn:#1d1d1f;--chipOnFg:#fff;--acc:#a35a1c}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#131313;--fg:#f2f2f2;--mut:#a1a1a6;--line:#34332f;--chip:#1e1e1e;--chipOn:#f2f2f2;--chipOnFg:#131313;--acc:#e3a15c;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#131313;--fg:#f2f2f2;--mut:#a1a1a6;--line:#34332f;--chip:#1e1e1e;--chipOn:#f2f2f2;--chipOnFg:#131313;--acc:#e3a15c;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif}
+main{max-width:1180px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h2{font-size:17px;margin:36px 0 6px;text-wrap:balance}
+.sheets{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-top:12px}
+.sheets figure{margin:0;min-width:0}
+.sheets img{width:100%;height:auto;border-radius:6px;display:block}
+.sheets figcaption{font-size:12px;color:var(--mut);margin-top:6px}
+button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+h1{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
+.sub{color:var(--mut);margin:0 0 16px;max-width:760px}
+.ctl{display:flex;flex-wrap:wrap;gap:10px 22px;margin:0 0 14px;align-items:center}
+.grp{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.grp>b{font-size:12px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin-right:4px}
+button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--chip);color:var(--fg);border-radius:999px;padding:5px 11px;cursor:pointer;min-height:32px}
+button[aria-pressed="true"]{background:var(--chipOn);color:var(--chipOnFg);border-color:var(--chipOn)}
+.frame{position:relative;overflow:hidden;border-radius:10px;background:#000;margin:0 auto;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.notes{color:var(--mut);font-size:13px;margin-top:12px;max-width:820px}
+.notes code{font-size:12px}
+.readout{font:12px/1.4 ui-monospace,"SF Mono",Menlo,monospace;color:var(--mut);margin-top:8px;white-space:pre-wrap}
+body.bare main{padding:0;max-width:none}
+body.bare .after-chrome{display:none}
+body.bare .chrome{display:none}
+body.bare .frame{border-radius:0;box-shadow:none}
+
+/* ---- the stage: one screen, drawn at its own pixel size, scaled to fit */
+#stage{position:absolute;left:0;top:0;transform-origin:0 0;overflow:hidden;
+  --font:"SF Pro","SF Pro Display",-apple-system,system-ui,"Roboto",sans-serif}
+#stage>*,.layer>*,.layer{position:absolute;left:0;top:0}
+#stage img{width:100%;height:100%;display:block}
+.wash{inset:0;width:100%;height:100%;background:linear-gradient(180deg,rgba(4,12,30,.18),rgba(4,12,30,0) 30%,rgba(4,12,30,0) 62%,rgba(4,12,30,.28))}
+.t{position:absolute;left:0;top:0;font-weight:600;line-height:1;white-space:nowrap;font-family:var(--font);font-variant-numeric:normal}
+.layer{inset:0;width:100%;height:100%;pointer-events:none}
+.cast,.contact{position:absolute;transform-origin:0 0}
+.cast .fx,.contact .fx{position:absolute;inset:0}
+.digits .side,.digits .face{position:absolute}
+.digits .face .t{color:transparent;-webkit-background-clip:text;background-clip:text}
+.grass{inset:0;width:100%;height:100%;background-repeat:no-repeat;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+.guides{inset:0;width:100%;height:100%;display:none;overflow:visible}
+body.showguides .guides{display:block}
+#stage .before{display:none}
+body.showbefore #stage .before{display:block}
+body.showbefore .after{visibility:hidden}
+</style>
+</head>
+<body>
+<main>
+  <div class="chrome">
+    <h1>Grounded clock: the Big Weather time</h1>
+    <p class="sub">Mockup only: none of this is in the production screensaver. The sky and the meadow are the real
+      screensaver's, captured in WebKit (Forecast, Layout: Big, the time as the big number). The numerals, their shadows
+      and the grass in front are drawn live on top, from the same sun inputs hk-sky uses.</p>
+    <div class="ctl">
+      <div class="grp" id="g-light"><b>Light</b></div>
+      <div class="grp" id="g-time"><b>Time</b></div>
+      <div class="grp" id="g-size"><b>Screen</b></div>
+      <div class="grp" id="g-view"><b>View</b></div>
+    </div>
+  </div>
+  <div class="frame" id="frame"><div id="stage"></div></div>
+  <div class="chrome">
+    <div class="readout" id="readout"></div>
+    <p class="notes">The grass in front of the bases is the stand-in that needs no new art: blade-shaped cut-outs of the
+      meadow itself, so it matches every season and light by construction. The Codex artwork replaces it with detailed
+      blades, seed heads and a few leaves. Guides show the ground line (orange), the camera horizon (blue), the tree
+      line (green), the vanishing point, and where hk-sky draws the sun.</p>
+  </div>
+  <section class="chrome after-chrome">
+    <h2>Every light, time and screen</h2>
+    <p class="notes">Rendered in WebKit from this page: rows are morning, midday, sunset, cloudy and night; columns are
+      1:11, 8:53 and 12:48. Tap one to open it full size.</p>
+    <div class="sheets">
+      <figure><a href="review/sheet-1280x800.webp" target="_blank" rel="noopener"><img loading="lazy" src="review/sheet-1280x800.webp" alt="Contact sheet, 1280 by 800"></a><figcaption>Wall tablet, 1280 × 800</figcaption></figure>
+      <figure><a href="review/sheet-1180x820.webp" target="_blank" rel="noopener"><img loading="lazy" src="review/sheet-1180x820.webp" alt="Contact sheet, 1180 by 820"></a><figcaption>iPad sideways, 1180 × 820</figcaption></figure>
+      <figure><a href="review/sheet-1920x1080.webp" target="_blank" rel="noopener"><img loading="lazy" src="review/sheet-1920x1080.webp" alt="Contact sheet, 1920 by 1080"></a><figcaption>16:9, 1920 × 1080</figcaption></figure>
+      <figure><a href="review/sheet-820x1180.webp" target="_blank" rel="noopener"><img loading="lazy" src="review/sheet-820x1180.webp" alt="Contact sheet, 820 by 1180"></a><figcaption>iPad upright, 820 × 1180</figcaption></figure>
+      <figure><a href="review/sheet-390x844.webp" target="_blank" rel="noopener"><img loading="lazy" src="review/sheet-390x844.webp" alt="Contact sheet, 390 by 844"></a><figcaption>Phone, 390 × 844</figcaption></figure>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+  'use strict';
+  // --- what the captures were taken at (hkSky._pin): hk-sky's own inputs
+  var LIGHTS = {
+    morning: { name: 'Morning', elev: 14, azim: 128, cover: 0.10, glow: [21.1, 60.8] },
+    midday: { name: 'Midday', elev: 30, azim: 182, cover: 0.10, glow: [51.1, 48.0] },
+    sunset: { name: 'Sunset', elev: 3, azim: 238, cover: 0.15, glow: [82.2, 69.6] },
+    cloudy: { name: 'Cloudy', elev: 24, azim: 160, cover: 0.85, glow: [38.9, 52.8] },
+    night: { name: 'Night', elev: -25, azim: 300, cover: 0.05, glow: null }
+  };
+  var SIZES = [[1280, 800, 'Wall tablet 16:10'], [1180, 820, 'iPad sideways'], [1920, 1080, '16:9'],
+               [820, 1180, 'iPad upright'], [390, 844, 'Phone']];
+  var TIMES = ['1:11', '8:53', '12:48', '10:07', 'now'];
+
+  // --- the land (hk-sky.js .land: cover, center bottom, 2560 x 1600) and where things are on it, as art fractions
+  var ART_W = 2560, ART_H = 1600;
+  var GROUND = 0.68;      // the numerals' feet (Big Weather's 32 % up from the art's foot)
+  var HORIZON = 0.575;    // the camera's eye level: above the meadow's far edge, at the hills' feet
+  var TREES = 0.6325;     // the meadow's far edge, at the foot of the tree line
+  var FOCAL = 1.0;        // focal length, as a fraction of the art's drawn width (about 53 deg across)
+  // --- the numerals' material
+  var IVORY = [239, 231, 214];
+  var MEADOW = { day: [188, 123, 56], dusk: [104, 65, 51], night: [20, 23, 25] };    // land-fall-*: the meadow's mean
+  var DUSK_M = [[0.464, 0.192, -0.002, -7.387], [0.128, 0.341, 0.076, -5.512], [0.145, 0.175, 0.246, -11.365]];
+
+  var q = new URLSearchParams(location.search);
+  var st = { light: q.get('light') || 'morning', time: q.get('time') || '8:53', size: +(q.get('size') || 0),
+             shadow: q.get('shadow') !== '0', grass: q.get('grass') !== '0', scene: q.get('scene') !== '0', guides: q.get('guides') === '1', before: q.get('before') === '1' };
+  if (q.get('bare') === '1') document.body.classList.add('bare');
+
+  // ---------------------------------------------------------------- helpers
+  function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+  function sm(a, b, x) { x = clamp((x - a) / (b - a), 0, 1); return x * x * (3 - 2 * x); }
+  function mix(a, b, t) { return a.map(function (v, i) { return v + (b[i] - v) * t; }); }
+  function mul(a, k) { return a.map(function (v, i) { return v * (Array.isArray(k) ? k[i] : k); }); }
+  function rgb(c, a) { c = c.map(function (v) { return Math.round(clamp(v, 0, 255)); }); return a == null ? 'rgb(' + c + ')' : 'rgba(' + c + ',' + (+a).toFixed(3) + ')'; }
+  function matApply(M, c) { return M.map(function (r) { return r[0] * c[0] + r[1] * c[1] + r[2] * c[2] + r[3]; }); }
+  function rng(seed) { var s = seed >>> 0; return function () { s = (s + 0x6D2B79F5) >>> 0; var t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function el(tag, cls, parent) { var e = document.createElement(tag); if (cls) e.className = cls; if (parent) parent.appendChild(e); return e; }
+  function timeText(t) { if (t !== 'now') return t; var d = new Date(), h = d.getHours() % 12 || 12; return h + ':' + String(d.getMinutes()).padStart(2, '0'); }
+
+  // 3x3 homography helpers
+  function mm(A, B) { var C = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; for (var i = 0; i < 3; i++) for (var j = 0; j < 3; j++) for (var k = 0; k < 3; k++) C[i][j] += A[i][k] * B[k][j]; return C; }
+  function tr(x, y) { return [[1, 0, x], [0, 1, y], [0, 0, 1]]; }
+  function m3d(M) {  // a 2D homography as CSS matrix3d (column-major)
+    return 'matrix3d(' + [M[0][0], M[1][0], 0, M[2][0], M[0][1], M[1][1], 0, M[2][1], 0, 0, 1, 0, M[0][2], M[1][2], 0, M[2][2]]
+      .map(function (v) { return +v.toFixed(7); }).join(',') + ')';
+  }
+
+  // ---------------------------------------------------------------- geometry
+  function geometry(W, H) {
+    var k = Math.max(W / ART_W, H / ART_H), Aw = ART_W * k, Ah = ART_H * k, ay0 = H - Ah, ax0 = (W - Aw) / 2;
+    var cqmin = Math.min(W, H) / 100, wide = W >= H;
+    var fs = (wide ? 40 : 30) * cqmin;          // Big Weather's time: 40cqmin sideways, 30 upright
+    return { W: W, H: H, k: k, Aw: Aw, Ah: Ah, ax0: ax0, ay0: ay0, fs: fs, left: 4.9 * cqmin, ls: -0.04 * fs,
+             yG: ay0 + GROUND * Ah, yH: ay0 + HORIZON * Ah, yT: ay0 + TREES * Ah, cx: W / 2, f: FOCAL * Aw };
+  }
+  // the type's own numbers: where its baseline falls in a line box, and each figure's ink
+  var measurer = null;
+  function metrics(text, g) {
+    if (!measurer) { measurer = el('div', null, document.body); measurer.style.cssText = 'position:absolute;left:-99999px;top:0;visibility:hidden'; }
+    measurer.innerHTML = '';
+    var t = el('div', 't', measurer);
+    t.style.cssText = 'position:absolute;left:0;top:0;font-size:' + g.fs + 'px;letter-spacing:' + g.ls + 'px;font-family:' + getComputedStyle(document.getElementById('stage')).getPropertyValue('--font');
+    var spans = text.split('').map(function (ch) { var s = el('span', null, t); s.textContent = ch; return s; });
+    var probe = el('i', null, t); probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+    var box = t.getBoundingClientRect(), base = probe.getBoundingClientRect().top - box.top;
+    var cv = document.createElement('canvas').getContext('2d');
+    cv.font = '600 ' + g.fs + 'px ' + t.style.fontFamily;
+    var cap = cv.measureText('8').actualBoundingBoxAscent;
+    var glyphs = spans.map(function (s, i) {
+      var r = s.getBoundingClientRect(), m = cv.measureText(text[i]);
+      return { ch: text[i], x0: r.left - box.left - m.actualBoundingBoxLeft, x1: r.left - box.left + m.actualBoundingBoxRight,
+               top: base - m.actualBoundingBoxAscent, bot: base + m.actualBoundingBoxDescent };
+    });
+    return { w: box.width, h: box.height, base: base, cap: cap, glyphs: glyphs,
+             ink0: Math.min.apply(null, glyphs.map(function (q) { return q.x0; })), ink1: Math.max.apply(null, glyphs.map(function (q) { return q.x1; })) };
+  }
+
+  // ---------------------------------------------------------------- light
+  // The scene's sun, as hk-sky places it: azimuth 90 at the left edge, 180 straight ahead, 270 at the right -- a
+  // direction around the viewer (phi = azimuth - 180), at the sun's real elevation. That direction is laid on the
+  // ground plane and seen through the meadow's camera; it is never a screen rotation.
+  function lighting(L) {
+    var e = L.elev, phi = (L.azim - 180) * Math.PI / 180;
+    var sunUp = sm(-1, 6, e), clouds = sm(0.3, 0.95, L.cover);
+    var direct = sunUp * (1 - 0.9 * clouds);                       // the sun's share of the light
+    var tDay = sm(0, 10, e), tDusk = sm(-10, -2, e);
+    // the face: ivory under the scene's light -- the land's own dusk transform, held readable; moonlight at night
+    var day = mix(IVORY, mul(IVORY, [1.0, 0.93, 0.82]), sm(22, 3, e) * (1 - clouds) * 0.55);
+    var dusk = mix(matApply(DUSK_M, IVORY), mul(IVORY, 0.64), 0.5);
+    var night = mul(IVORY, [0.40, 0.43, 0.50]);
+    var face = mix(night, mix(dusk, day, tDay), tDusk);
+    face = mix(face, mul(face, [0.9, 0.91, 0.93]), clouds);          // a gray day: flatter and cooler
+    face = mul(face, 1 - 0.1 * direct * Math.max(0, Math.cos(phi)));      // the sun ahead: the fronts a little in shade
+    var meadow = mix(MEADOW.night, mix(MEADOW.dusk, MEADOW.day, tDay), tDusk);
+    var sideLit = Math.max(0, Math.sin(phi)) * Math.cos(e * Math.PI / 180) * direct;   // a right-hand side face, sun on the right
+    var sideMul = 0.74 + 0.36 * sideLit - 0.07 * direct * (Math.sin(phi) < 0 ? 1 : 0);
+    return { e: e, phi: phi, direct: direct, clouds: clouds, sunUp: sunUp, face: face, meadow: meadow,
+             side: mix(mul(face, sideMul), meadow, 0.12), shade: mix([34, 24, 10], [26, 18, 26], 1 - tDay),
+             cast: 0.72 * direct, amb: 0.12 + 0.22 * clouds * sunUp, contact: 0.62 + 0.18 * clouds - 0.14 * (1 - tDusk) };
+  }
+  // where a point at height t (px above the feet) on the numerals' plane lands on the ground: one homography
+  //   k(t) = 1 - t*beta,  x' = cx + ((x - cx) - t*alpha) / k,  y' = yH + D / k
+  function castH(g, cot, phi) {
+    var a = cot * Math.sin(phi), b = cot * Math.cos(phi) / g.f, D = g.yG - g.yH, c = g.cx * b + a;
+    return [[1, c, -g.yG * c], [0, g.yH * b, g.yH * (1 - b * g.yG) + D], [0, b, 1 - b * g.yG]];
+  }
+  // how long: longer as the sun sinks, eased to a limit near the horizon; never reaching the camera; never
+  // running off much past the screen's width
+  function castLength(g, L, m) {
+    var LMAX = 2.6, cot = LMAX * Math.tanh((1 / Math.tan(Math.max(L.e, 0.5) * Math.PI / 180)) / LMAX);
+    var tTop = m.base;                           // the line box's top, above the feet
+    var cp = Math.cos(L.phi), sp = Math.sin(L.phi);
+    if (cp > 0) cot = Math.min(cot, (1 - 0.42) * g.f / (tTop * cp));
+    for (var i = 0; i < 6; i++) {
+      var kk = 1 - tTop * cot * cp / g.f, run = Math.abs(tTop * cot * sp / kk);
+      if (run <= 0.55 * g.W) break;
+      cot *= 0.85;
+    }
+    return cot;
+  }
+
+  // ---------------------------------------------------------------- the grass in front (the no-new-art stand-in)
+  function grassMask(g, m, L0, seed, set) {
+    var u = m.cap, r = rng(seed), paths = [];
+    var x0 = L0 + m.ink0 - 0.03 * u, x1 = L0 + m.ink1 + 0.03 * u, yb = g.yG;
+    // density along the line: slow noise with real gaps, so it is never a strip
+    var knots = [], n = Math.ceil((x1 - x0) / (0.35 * u)) + 2;
+    for (var i = 0; i < n; i++) knots.push(r());
+    function dens(x) { var p = (x - x0) / (0.35 * u), i = Math.floor(p), f = p - i, a = knots[clamp(i, 0, n - 1)], b = knots[clamp(i + 1, 0, n - 1)];
+      return a + (b - a) * (f * f * (3 - 2 * f)); }
+    function blade(x, h, w, lean) {
+      var by = yb + (0.012 + r() * 0.02) * u, tx = x + lean * h, ty = by - h;
+      var c1x = x - w * 0.5 + lean * h * 0.35, c1y = by - h * 0.55, c2x = x + w * 0.5 + lean * h * 0.45, c2y = by - h * 0.5;
+      paths.push('M' + (x - w / 2).toFixed(1) + ' ' + by.toFixed(1) + 'Q' + c1x.toFixed(1) + ' ' + c1y.toFixed(1) + ' ' + tx.toFixed(1) + ' ' + ty.toFixed(1) +
+                 'Q' + c2x.toFixed(1) + ' ' + c2y.toFixed(1) + ' ' + (x + w / 2).toFixed(1) + ' ' + by.toFixed(1) + 'Z');
+    }
+    var step = 0.008 * u;
+    for (var x = x0; x < x1; x += step * (0.6 + r() * 0.8)) {
+      var d = dens(x);
+      if (d < 0.4 || r() > (set ? 0.5 : 0.62)) continue;                        // the gaps
+      var tall = d > 0.8 && r() < 0.12;
+      var h = (tall ? 0.06 + r() * 0.025 : 0.026 + r() * 0.036 * d) * u;      // mostly a low fringe; a few tufts
+      blade(x, h, (0.008 + r() * 0.007) * u, (r() - 0.5) * 0.9);
+    }
+    // a handful of taller, finer clusters, never more than ~9 % of the figures' height
+    var stems = Math.round((x1 - x0) / (0.9 * u));
+    for (var s = 0; s < stems; s++) {
+      var sx = x0 + r() * (x1 - x0); if (dens(sx) < 0.5) continue;
+      for (var c = 0, nc = 2 + Math.floor(r() * 3); c < nc; c++)
+        blade(sx + (r() - 0.5) * 0.02 * u, (0.065 + r() * 0.03) * u, (0.005 + r() * 0.003) * u, (r() - 0.5) * 0.7);
+    }
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + g.W + '" height="' + g.H + '" viewBox="0 0 ' + g.W + ' ' + g.H + '"><path fill="#fff" d="' + paths.join('') + '"/></svg>';
+    return 'url("data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg) + '")';
+  }
+
+  // ---------------------------------------------------------------- draw
+  function draw() {
+    var S = SIZES[st.size], W = S[0], H = S[1], g = geometry(W, H), L0 = LIGHTS[st.light], Lt = lighting(L0);
+    var text = timeText(st.time), m = metrics(text, g);
+    var stage = document.getElementById('stage'), frame = document.getElementById('frame');
+    var mainEl = frame.parentElement, cs = getComputedStyle(mainEl);
+    var avail = document.body.classList.contains('bare') ? W : mainEl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    var s = Math.min(1, avail / W, (document.body.classList.contains('bare') ? H : Math.max(320, innerHeight - 40)) / H);
+    frame.style.width = (W * s) + 'px'; frame.style.height = (H * s) + 'px';
+    stage.style.width = W + 'px'; stage.style.height = H + 'px'; stage.style.transform = 'scale(' + s + ')';
+    stage.innerHTML = '';
+    var tag = st.light + '-' + W + 'x' + H;
+    if (st.scene) { var scene = el('img', 'scene', stage); scene.src = 'img/scene-' + tag + '.webp'; scene.alt = ''; }
+    var after = el('div', 'layer after', stage);
+    if (st.scene) el('div', 'wash', after);
+
+    // the time's box: its left as Big Weather's, its baseline on the ground line
+    var L = g.left, T = g.yG - m.base;
+    function textEl(parent, cls) {
+      var t = el('div', 't' + (cls ? ' ' + cls : ''), parent);
+      t.textContent = text;
+      t.style.fontSize = g.fs + 'px'; t.style.letterSpacing = g.ls + 'px';
+      return t;
+    }
+    var boxW = Math.ceil(m.w + 2), boxH = Math.ceil(m.h);
+    function boxed(parent, cls) {
+      var b = el('div', cls, parent);
+      b.style.left = L + 'px'; b.style.top = T + 'px'; b.style.width = boxW + 'px'; b.style.height = boxH + 'px';
+      return b;
+    }
+    var dBase = boxH - m.base;     // from the box's foot up to the baseline
+
+    // ---- 2. the cast shadows, clipped to the meadow (never on the trees)
+    var sh = el('div', 'layer', after);
+    sh.style.clipPath = 'inset(' + g.yT.toFixed(1) + 'px 0 0 0)';
+    function projected(H3, alpha, blurNear, blurFar, reach) {
+      // near: crisp, at the feet; far: softer and fading -- two copies of the real figures, one homography
+      var M = mm(mm(tr(-L, -T), H3), tr(L, T));
+      [[blurNear, 1, 0.08, reach * 0.5], [blurFar, 0.75, 0.0, reach]].forEach(function (p, i) {
+        var c = boxed(sh, 'cast');
+        c.style.transform = m3d(M);
+        var fx = el('div', 'fx', c);
+        fx.style.filter = 'blur(' + p[0].toFixed(2) + 'px)';
+        var a0 = dBase / boxH * 100, a1 = (dBase + p[2] * m.cap) / boxH * 100, a2 = (dBase + p[3] * m.cap) / boxH * 100;
+        var mask = 'linear-gradient(to top,#000 ' + a0.toFixed(2) + '%,#000 ' + a1.toFixed(2) + '%,transparent ' + Math.min(100, a2).toFixed(2) + '%)';
+        if (i === 1) mask = 'linear-gradient(to top,#000 ' + a0.toFixed(2) + '%,transparent ' + Math.min(100, a2).toFixed(2) + '%)';
+        fx.style.webkitMaskImage = fx.style.maskImage = mask;
+        var t = textEl(fx);
+        t.style.color = rgb(Lt.shade, alpha * p[1]);
+      });
+    }
+    if (st.shadow) {
+      // the sky's own soft shadow: always a little, more under cloud (light from high and ahead)
+      projected(castH(g, 0.55, 0), Lt.amb, 1.5 + 6 * Lt.clouds, g.fs * (0.05 + 0.05 * Lt.clouds), 0.9);
+      // the sun's: only while it is up and not behind cloud
+      if (Lt.cast > 0.02) {
+        var cot = castLength(g, Lt, m);
+        projected(castH(g, cot, Lt.phi), Lt.cast, 0.6 + 4 * Lt.clouds, g.fs * (0.016 + 0.05 * Lt.clouds), 1.15);
+        castH._last = { cot: cot };
+      } else castH._last = null;
+    }
+
+    // ---- 3. contact shadows: the figures' own feet, mirrored flat onto the ground and softened
+    if (st.shadow) {
+      [[0.06, -0.55, 1.0, 1], [0.12, -0.35, Math.max(2, g.fs * 0.008), 0.7], [0.3, -0.14, Math.max(4, g.fs * 0.018), 0.45]].forEach(function (p) {
+        var c = boxed(after, 'contact');
+        c.style.transformOrigin = '0 ' + m.base + 'px';
+        c.style.transform = 'scaleY(' + p[1] + ')';
+        c.style.filter = 'blur(' + p[2].toFixed(1) + 'px)';
+        var fx = el('div', 'fx', c);
+        fx.style.clipPath = 'inset(' + (m.base - p[0] * m.cap).toFixed(1) + 'px 0 0 0)';
+        textEl(fx).style.color = rgb(Lt.shade, Lt.contact * p[3]);
+      });
+    }
+
+    // ---- 3. the numerals: an ivory face, and a thin side toward the vanishing point
+    var dg = el('div', 'layer digits', after);
+    var cxText = L + (m.ink0 + m.ink1) / 2, cyText = g.yG - m.cap / 2;
+    var vx = g.cx - cxText, vy = g.yH - cyText, vl = Math.hypot(vx, vy) || 1;
+    vx /= vl; vy /= vl;
+    var depth = Math.max(2, Math.round(g.fs * 0.022)), stack = [];
+    for (var i = 1; i <= depth; i++) {
+      var c = mix(Lt.side, mul(Lt.side, 0.78), i / depth);
+      stack.push((vx * i).toFixed(2) + 'px ' + (vy * i).toFixed(2) + 'px 0 ' + rgb(c));
+    }
+    var side = textEl(boxed(dg, 'side'));
+    side.style.color = rgb(Lt.side);
+    side.style.textShadow = stack.join(',');
+    var face = textEl(boxed(dg, 'face'));
+    var top = (m.base - m.cap) / boxH * 100, b0 = (m.base - 0.16 * m.cap) / boxH * 100, b1 = m.base / boxH * 100;
+    var lit = Lt.direct;
+    var hiSide = Math.sin(Lt.phi) < 0 ? 'to right' : 'to left';       // brighter toward the sun's side
+    face.style.backgroundImage =
+      'linear-gradient(' + hiSide + ',' + rgb([255, 248, 232], 0.10 * lit) + ',rgba(255,248,232,0) 55%,' + rgb([0, 0, 0], 0.06 * lit) + '),' +
+      'linear-gradient(to bottom,' + rgb(mul(Lt.face, 1.04)) + ' ' + top.toFixed(1) + '%,' + rgb(Lt.face) + ' ' + b0.toFixed(1) + '%,' +
+      rgb(mix(mul(Lt.face, 0.82), Lt.meadow, 0.14)) + ' ' + b1.toFixed(1) + '%)';
+    face.style.opacity = 0.97;
+
+    // ---- 4. the grass in front of the feet (stand-in: the meadow itself, cut into blades)
+    if (st.grass) {
+      [[911, 0, 0.82], [577, 1, 1.06]].forEach(function (p) {
+        var gr = el('div', 'grass', after);
+        gr.style.backgroundImage = 'url("img/scene-' + tag + '.webp")';
+        // texture from a little nearer in the meadow: coarser, as blades in front are
+        gr.style.backgroundSize = W + 'px ' + H + 'px';
+        gr.style.backgroundPosition = '0 ' + (-0.035 * m.cap).toFixed(1) + 'px';
+        var mk = grassMask(g, m, L, p[0], p[1]);
+        gr.style.webkitMaskImage = gr.style.maskImage = mk;
+        gr.style.webkitMaskSize = gr.style.maskSize = W + 'px ' + H + 'px';
+        var shade = 1 - 0.35 * Lt.cast * Math.max(0, Math.cos(Lt.phi));
+        gr.style.filter = 'brightness(' + (p[2] * shade).toFixed(3) + ')';
+      });
+    }
+
+    // ---- 5. the screensaver's own words over everything
+    if (!st.scene) { stage.parentElement.style.background = 'transparent'; window.__drawn = true; return; }
+    var ov = el('img', 'overlay', stage); ov.src = 'img/overlay-' + tag + '.webp'; ov.alt = '';
+    var bf = el('img', 'before', stage); bf.src = 'img/now-' + tag + '.webp'; bf.alt = '';
+
+    // ---- guides
+    var gs = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    gs.setAttribute('class', 'guides'); gs.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    var gl = '';
+    function line(y, c, lab) { gl += '<line x1="0" x2="' + W + '" y1="' + y + '" y2="' + y + '" stroke="' + c + '" stroke-width="1.5" stroke-dasharray="8 6"/>' +
+      '<text x="' + (W - 8) + '" y="' + (y - 5) + '" fill="' + c + '" font-size="13" text-anchor="end" font-family="system-ui">' + lab + '</text>'; }
+    line(g.yG, '#ff9f0a', 'ground line (feet)'); line(g.yH, '#64d2ff', 'camera horizon'); line(g.yT, '#30d158', 'tree line');
+    gl += '<circle cx="' + g.cx + '" cy="' + g.yH + '" r="5" fill="#64d2ff"/>';
+    if (L0.glow) gl += '<circle cx="' + (L0.glow[0] / 100 * W) + '" cy="' + (L0.glow[1] / 100 * H) + '" r="14" fill="none" stroke="#ffd60a" stroke-width="2"/><text x="' + (L0.glow[0] / 100 * W) + '" y="' + (L0.glow[1] / 100 * H - 20) + '" fill="#ffd60a" font-size="13" text-anchor="middle" font-family="system-ui">hk-sky sun</text>';
+    gs.innerHTML = gl;
+    stage.appendChild(gs);
+
+    var last = castH._last;
+    document.getElementById('readout').textContent =
+      S[2] + ' ' + W + 'x' + H + '  ·  ' + L0.name + ': sun ' + L0.elev + '° up, azimuth ' + L0.azim + '°, cloud ' + Math.round(L0.cover * 100) + '%\n' +
+      'figures ' + g.fs.toFixed(0) + 'px, cap height ' + m.cap.toFixed(0) + 'px, feet at y ' + g.yG.toFixed(0) + ', horizon ' + g.yH.toFixed(0) + '\n' +
+      'direct sun ' + Lt.direct.toFixed(2) + (last ? ', shadow length ' + last.cot.toFixed(2) + '× the height (on the ground)' : ', no sun shadow') +
+      ', contact ' + Lt.contact.toFixed(2);
+    document.body.classList.toggle('showguides', st.guides);
+    document.body.classList.toggle('showbefore', st.before);
+    window.__drawn = true;
+  }
+
+  // ---------------------------------------------------------------- controls
+  function chip(group, label, pressed, on) {
+    var b = el('button', null, document.getElementById(group));
+    b.type = 'button'; b.textContent = label; b.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+    b.addEventListener('click', on);
+    return b;
+  }
+  function controls() {
+    ['g-light', 'g-time', 'g-size', 'g-view'].forEach(function (id) { var gp = document.getElementById(id); while (gp.children.length > 1) gp.removeChild(gp.lastChild); });
+    Object.keys(LIGHTS).forEach(function (k) { chip('g-light', LIGHTS[k].name, st.light === k, function () { st.light = k; refresh(); }); });
+    TIMES.forEach(function (t) { chip('g-time', t === 'now' ? 'Now' : t, st.time === t, function () { st.time = t; refresh(); }); });
+    SIZES.forEach(function (s, i) { chip('g-size', s[2], st.size === i, function () { st.size = i; refresh(); }); });
+    chip('g-view', 'Before', st.before, function () { st.before = !st.before; refresh(); });
+    chip('g-view', 'Shadows', st.shadow, function () { st.shadow = !st.shadow; refresh(); });
+    chip('g-view', 'Grass', st.grass, function () { st.grass = !st.grass; refresh(); });
+    chip('g-view', 'Guides', st.guides, function () { st.guides = !st.guides; refresh(); });
+  }
+  function refresh() { controls(); draw(); }
+  window.addEventListener('resize', function () { draw(); });
+  setInterval(function () { if (st.time === 'now') draw(); }, 30000);
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(refresh);
+})();
+</script>
+</body>
+</html>

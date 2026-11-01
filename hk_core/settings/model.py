@@ -1718,6 +1718,10 @@ SAVER_CHOICES.update({"clock_style": SAVER_CLOCK_STYLES, "forecast_layout": SAVE
 SAVER_FORECAST_BIG = ("temp", "clock")
 SAVER_DEFAULTS.update({"forecast_big": "temp", "tb_size": 24, "tb_top": 6, "tb_dim": 0})
 SAVER_CHOICES.update({"forecast_big": SAVER_FORECAST_BIG})
+# BIG WEATHER'S PLANTED NUMERALS (2026-11-01, the owner): the time as ivory figures standing in the meadow, their
+# shadows cast by the scene's sun, grass in front of their feet (hk-saverfaces.js plant()). On by the owner's choice
+# -- unlike the options above, it changes how a saved screen draws; off draws the time as before.
+SAVER_DEFAULTS.update({"forecast_planted": True})
 # ALL SCREENS' screensaver options (All Screens -> Screensaver): a screen
 # whose own `screensaver_options` is null uses these (resolved()).
 DEFAULTS["look"]["saver"] = dict(SAVER_DEFAULTS)

@@ -2148,6 +2148,8 @@
   // Big Weather's number; Time Behind's size, place and darkening (settings.py, 2026-10-31)
   var FORECAST_BIG = [['temp', 'Temperature'], ['clock', 'Clock']];
   Object.assign(SAVER_DEFAULTS, { forecast_big: 'temp', tb_size: 24, tb_top: 6, tb_dim: 0 });
+  // Big Weather's time planted in the meadow (settings.py, 2026-11-01)
+  Object.assign(SAVER_DEFAULTS, { forecast_planted: true });
   CLOCK_STYLES.push(['liquid', 'Liquid', 'Soft, glossy numerals that drift slowly over a pastel gradient'],
                     ['giant', 'Giant Numerals', 'An analog clock with 12, 3, 6 and 9 drawn huge on a strong color'],
                     ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft color']);

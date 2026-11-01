@@ -8,7 +8,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
   try {
     const runs = Object.entries(input.shows).flatMap(([screen, want]) => want === 'tb' ? [[screen, want, 1180, 820], [screen, want, 390, 844]]
       : want === 'day-ink' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]]
-      : want === 'big-corners' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]] : [[screen, want, 1180, 820]]);
+      : want === 'big-corners' || want === 'planted' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]] : [[screen, want, 1180, 820]]);
     for (const [screen, want, W, H] of runs) {
       const ctx = await browser.newContext({ viewport: { width: W, height: H } });
       await ctx.addCookies([{ name: 'mantel_session', value: input.cookie, url: input.origin }]);
@@ -174,6 +174,49 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         }
         say(!errors.length, tag + ': no page errors', errors.slice(0, 3));
         if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '.png' });
+        await ctx.close();
+        continue;
+      }
+      if (want === 'planted') {
+        const tag = screen + ' ' + W + 'x' + H;
+        // the sky pinned, the screensaver started again under it
+        const under = async (sky) => {
+          await page.evaluate((sky) => { window.hkSaver.preview(false); window.hkSky._pin(Object.assign({ season: '', land: 'fall', wet: { kind: 'none', rate: 0 }, fog: false, wind: 4, moon: 0.4 }, sky)); }, sky);
+          await page.waitForTimeout(800);
+          await page.evaluate(() => window.hkSaver.preview(true));
+          await page.waitForTimeout(7000);
+          return page.evaluate(() => {
+            const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
+            const all = deep(document), face = all.find((e) => e.classList && e.classList.contains('hkf') && e.classList.contains('weather'));
+            if (!face) return null;
+            const box = (e) => { if (!e) return null; const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; };
+            const fr = face.getBoundingClientRect(), g = window.hkSaverFaces._.plGeometry(face.clientWidth, face.clientHeight);
+            const t = face.querySelector('.pl .pd .pf .t'), probe = document.createElement('i');
+            let base = null;
+            if (t) { probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline'; t.appendChild(probe); base = probe.getBoundingClientRect().top - fr.top; probe.remove(); }
+            const np = all.find((e) => e.tagName === 'HK-SCREENSAVER-NOW-CARD' && e.getBoundingClientRect().height > 0);
+            const seen = (e) => { for (let n = e; n && n !== face; n = n.parentElement) { const c = getComputedStyle(n); if (c.visibility !== 'visible' || c.display === 'none' || +c.opacity < 0.9) return false; } return true; };
+            return { planted: face.classList.contains('planted'), faceSeen: !!t && seen(t) && /gradient/.test(getComputedStyle(t).backgroundImage), old: getComputedStyle(face.querySelector('.tp')).display, text: t && t.textContent,
+                     boxes: Math.max(...[...face.querySelectorAll('.pl .b')].map((e) => e.offsetHeight)) / g.fs, base: base, ground: g.yG, cast: face.querySelectorAll('.pl .ps .b').length, contact: face.querySelectorAll('.pl .pc .b').length,
+                     grass: box(face.querySelector('.pl canvas.pg')), figures: box(t), rd: box(face.querySelector('.rd')), np: box(np) };
+          });
+        };
+        const day = await under({ elev: 30, azim: 182, cond: 'sunny', cover: 0.1 });
+        if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '-day.png' });
+        say(started && !!day && day.planted && day.old === 'none' && /^\d{1,2}:\d\d$/.test(day.text || ''), tag + ': Big Weather\'s time planted in the meadow, the old one gone', day && [day.planted, day.old, day.text]);
+        say(!!day && day.faceSeen, tag + ': ...its ivory front face drawn (never hidden by a rule of the screensaver\'s)', day && day.faceSeen);
+        say(!!day && day.boxes > 0.8 && day.boxes < 1.4, tag + ': ...every layer the time\'s own size, never the screen\'s (each projected one is a composited layer)', day && day.boxes);
+        say(!!day && day.base != null && Math.abs(day.base - day.ground) <= 1, tag + ': ...its baseline on the land\'s ground line', day && [day.base, day.ground]);
+        say(!!day && day.cast === 4 && day.contact === 3, tag + ': ...the sun\'s and the sky\'s shadows, and the feet on the grass', day && [day.cast, day.contact]);
+        say(!!day && !!day.grass && day.grass.t < day.ground && day.grass.b > day.ground, tag + ': ...the grass across its feet', day && [day.grass, day.ground]);
+        const clear = (a, b) => !a || !b || a.b <= b.t + 1 || b.b <= a.t + 1 || a.r <= b.l + 1 || b.r <= a.l + 1;
+        say(!!day && clear(day.grass, day.rd) && clear(day.figures, day.rd) && clear(day.grass, day.np) && clear(day.figures, day.np),
+            tag + ': ...clear of the readings and what plays', day && [day.figures, day.grass, day.rd, day.np]);
+        const night = await under({ elev: -25, azim: 300, cond: 'clear-night', cover: 0.05 });
+        if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '-night.png' });
+        say(!!night && night.planted && night.cast === 2 && night.contact === 3, tag + ': at night, no sun\'s shadow (the sky\'s faint one and the feet\'s only)', night && [night.cast, night.contact]);
+        await page.evaluate(() => window.hkSky._pin(null));
+        say(!errors.length, tag + ': no page errors', errors.slice(0, 3));
         await ctx.close();
         continue;
       }

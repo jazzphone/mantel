@@ -217,6 +217,8 @@
       // Big Weather's number (2026-10-31): the temperature or the time; Time Behind's figures, their size and
       // height (% of the shorter side; % down) and the photo darkened under them (Photos and Both)
       forecast_big: raw.forecast_big === 'clock' ? 'clock' : 'temp',
+      // ...the time planted in the meadow, lit by the scene's sun (2026-11-01, hk-saverfaces.js plant()): on unless off
+      forecast_planted: raw.forecast_planted !== false,
       tb_size: n(raw.tb_size, 12, 40, 24), tb_top: n(raw.tb_top, 0, 50, 6), tb_dim: n(raw.tb_dim, 0, 80, 0),
       extra_music: raw.extra_music === true,
       extra_forecast: raw.extra_forecast === true,
@@ -685,6 +687,8 @@
   // THE FORECAST (1.3): the live sky over the season's land (hkSky.scene),
   // with the forecast band -- when a screen asks for it, or has no photos
   var mode = 'photos', fscene = null, fband = null, fTick = null, fSig = '';
+  // the forecast sky's last reading (hk-sky.js read()), for Big Weather's planted time: null without a landscape
+  var fSky = null;
   // THE CALENDAR PANE (option `calendar`): its element, its scroller, the
   // card in it, its width now, and the timer that scrolls it back to today
   var paneEl = null, paneSc = null, paneCard = null, paneW = 0, paneResetT = null;
@@ -2580,6 +2584,7 @@
       var k = had.querySelector('#hk-sky');
       if (!k || k.classList.contains('skyonly') === skyOnly) return;
       if (fscene) { try { fscene.destroy(); } catch (e) { /* gone with the element */ } fscene = null; }
+      fSky = null;
       had.remove();
     }
     var fc = document.createElement('div');
@@ -2627,13 +2632,14 @@
     setAttr(host, 'fcbig', want);
     var fc = root.querySelector('.fc');
     // (its big number changed -- the temperature or the time: drawn again)
-    if (bigCtl && (!want || bigFor !== cfg.forecast_big)) { try { bigCtl.destroy(); } catch (e) { /* gone */ } bigCtl = null; }
+    if (bigCtl && (!want || bigFor !== cfg.forecast_big + '|' + cfg.forecast_planted)) { try { bigCtl.destroy(); } catch (e) { /* gone */ } bigCtl = null; }
     if (!want || !fc || bigCtl) return;
     var run = ++bigRun;
     facesModule().then(function (F) {
       if (!F || run !== bigRun || !on || !fc.isConnected || bigCtl) return;
-      bigFor = cfg.forecast_big;
+      bigFor = cfg.forecast_big + '|' + cfg.forecast_planted;
       bigCtl = F.mount(fc, { kind: 'weather', h24: cfg.clock_24, big: cfg.forecast_big, weather: weatherEntity(), client: clientNow(),
+                             planted: cfg.forecast_planted, sky: fSky,
                              onReadings: function (n) { if (host) host.setAttribute('fcn', String(n)); } });
     });
   }
@@ -2921,6 +2927,7 @@
     if (host) { host.removeAttribute('fcbig'); host.removeAttribute('fcn'); }
     if (fTick) { clearInterval(fTick); fTick = null; }
     if (fscene) { try { fscene.destroy(); } catch (e) { /* gone with the element */ } fscene = null; }
+    fSky = null;
     if (fband) cards = cards.filter(function (c) { return c !== fband; });
     fband = null; fSig = ''; mode = 'photos'; fcShowing = false; sinceFc = 0;
   }
@@ -5031,7 +5038,9 @@
       var sig = (sun ? sun.last_updated : '') + '|' + (w ? w.last_updated : '') + '|' + Math.floor(Date.now() / 600000);
       if (force || sig !== fSig) {
         fSig = sig;
-        try { fscene.update(h); } catch (e) { console.warn('[hk-saver] forecast sky', e); }
+        try { fSky = fscene.update(h) || null; } catch (e) { console.warn('[hk-saver] forecast sky', e); }
+        // Big Weather's planted time is lit by the same reading
+        if (bigCtl && bigCtl.light) bigCtl.light(fSky);
       }
     }
     var F = window.fully, dark = !!document.hidden || black();
