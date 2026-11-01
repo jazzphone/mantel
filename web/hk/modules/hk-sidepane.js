@@ -958,6 +958,10 @@
       ':host(:not([mode="widget"]):not([mode="saver"]):not([side="band"])) .secs>.sec[data-k="clock"]:first-child .big2{text-box:trim-start cap alphabetic}',
       ':host([mode="widget"]) .secs>.sec{flex:1 1 auto}',
       '.secs{display:flex;flex-direction:column;gap:12px;flex:1 1 auto;min-height:0;overflow:hidden}',
+      // (...room at its sides for what reaches a little past a section's edge -- the clock's digits pulled back by
+      // their side bearing: this column's clip still cut the 8 and the 9, 2026-10-31, the owner -- given back by a
+      // margin, so nothing moves)
+      ':host(:not([mode="widget"])) .secs{padding:0 8px;margin:0 -8px}',
       ':host([side="band"]) .secs{flex-direction:row;align-items:stretch}',
       ':host([side="band"]) .secs>.sec{flex:1 1 0;min-width:0}',
       '.secs>*{flex:none}',
