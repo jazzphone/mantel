@@ -205,14 +205,15 @@ def steps(build: Build | None = None) -> list[Step]:
                  skip=lambda: None if chrome() else "no Chrome or Chromium (set CHROME)", lane="devtools")
             for n in HEADLESS]     # one at a time: each uses a fixed DevTools port
     # Edit mode in Chromium (a finger) and WebKit (a mouse), at a tablet's and a phone's size (Playwright's own
-    # browsers, no fixed port)
+    # browsers, no fixed port); Chromium's tablet the wall tablets' 1280 x 800, WebKit's an 11" iPad's 1180 x 820
     # (each engine at each size a step of its own, so they run side by side: six minutes together)
     # (who sees Edit, Cancel and the server's changes are the same in every engine and size: once, in WebKit at a
     # tablet's, the owner's iPad; the gestures they use are the room's and the pages', checked in all four, 2026-11-01)
     out += [Step(f"edit-mode-check-{e}-{z}", [py, "tools/headless/edit_mode_check.py", "--engine", e, "--size", z,
                                               *([] if (e, z) == ("webkit", "1180x820") else
                                                 [a for s in EDIT_GESTURES for a in ("--only", s)])], tier="full",
-                 timeout=1200, skip=playwright_missing) for e in ("chromium", "webkit") for z in ("1180x820", "390x844")]
+                 timeout=1200, skip=playwright_missing)
+            for e, z in (("chromium", "1280x800"), ("chromium", "390x844"), ("webkit", "1180x820"), ("webkit", "390x844"))]
     # Edit mode on a Home Grid in WebKit, a finger and a mouse, at a tablet either way and a phone (2026-10-31)
     # (each size a step of its own)
     out += [Step(f"grid-edit-check-{z}", [py, "tools/headless/grid_edit_check.py", "--size", z], tier="full",

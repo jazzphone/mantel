@@ -186,7 +186,7 @@ The screenshot gallery uses the same driver; see [Screenshots](Screenshots.md).
 `tools/headless/edit_mode_check.py` (with its `.cjs`) checks Edit mode on the gallery's fictional house against a
 real Mantel Server, with Playwright: Chromium with a finger (CDP touch events: a hold of about 300 ms picks a pill
 up, a quick swipe scrolls the page and picks nothing up) and WebKit with a mouse, each at a tablet's size
-(1180 × 820) and a phone's (390 × 844).
+(Chromium the Android wall tablets' 1280 × 800, WebKit an 11" iPad's 1180 × 820) and a phone's (390 × 844).
 
 ```bash
 export PLAYWRIGHT_PATH=/path/to/node_modules/playwright-core NODE=$(command -v node)
@@ -223,7 +223,8 @@ foot below its reserve (or, without a strip, the bar inside the insets); `--shot
 
 `tools/headless/page_swipe_check.py` (with its `.cjs`) swipes on the fictional house's screens in Chromium (a finger:
 CDP touch events, so the browser's own touch-action and scrolling) and WebKit (pointer events with pointerType touch at
-the element under the point; a mouse for the side menu's edge), at 1180 × 820, 820 × 1180, 390 × 844 and 844 × 390: a
+the element under the point; a mouse for the side menu's edge), at a tablet either way (Chromium the wall tablets'
+1280 × 800 and 800 × 1280, WebKit an iPad's 1180 × 820 and 820 × 1180) and a phone either way (390 × 844, 844 × 390): a
 swipe on a tile turns the page and back, the tab bar's highlight on the page's tab after each (and following down a
 rail); one on the scenes row, a slider or a block that swipes its pages does not; a Home Grid turns its views first
 and lands on its last view coming back; from the left 24 px the side menu opens; Off turns nothing; an up-and-down
