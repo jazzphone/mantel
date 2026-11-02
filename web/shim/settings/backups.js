@@ -2,7 +2,7 @@
 // the backups to download, the two keys as one file, and Restore -- an upload checked first, put in place when
 // Mantel starts again. Owners and Admins see it; only the Owner acts.
 import { mantelUrl } from '../base.js';
-import { act, api, ask, forget, hh, kb, load, me, redraw, ROUTE, ui } from './core.js';
+import { act, api, ApiError, ask, forget, hh, kb, load, me, redraw, ROUTE, ui } from './core.js';
 import { button, failed, group, info, pending, result } from './kit.js';
 
 const when = (iso) => (iso ? new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Never');
@@ -10,6 +10,15 @@ const ago = (t) => {
   const d = (Date.now() / 1000 - t) / 86400;
   return d < 1 ? 'today' : d < 2 ? 'yesterday' : Math.floor(d) + ' days ago';
 };
+// what a backup holds, as people count it (backup.py _contents): "8 people · 10 screens · 241 photos · …"
+export function holds(ct) {
+  if (!ct) return '';
+  const n = (v, one, many) => v + ' ' + (v === 1 ? one : many);
+  const parts = [n(ct.people || 0, 'person', 'people'), n(ct.screens || 0, 'screen', 'screens'),
+                 n(ct.tablets || 0, 'wall tablet', 'wall tablets'), n(ct.photos || 0, 'photo', 'photos')];
+  if (ct.files) parts.push(n(ct.files, 'file', 'files') + ' (' + kb(ct.files_size || 0) + ')');
+  return parts.join(' · ');
+}
 // a file the browser saves: a link it follows, or what the page made itself
 function save(href, name) {
   const a = hh('a', { href, download: name || '' });
@@ -30,7 +39,8 @@ export function pBackups() {
     const b = got.data, st = b.status || {};
     if (b.restored) {
       c.appendChild(group({}, [info(b.restored.ok ? 'Restored' : 'The Restore Didn’t Work',
-        b.restored.ok ? 'The backup of ' + when(b.restored.created) + ' was put in place when Mantel started. What was here before is kept aside in the data folder.'
+        b.restored.ok ? 'The backup of ' + when(b.restored.created) + ' was put in place when Mantel started' +
+          (b.restored.contents ? ': ' + holds(b.restored.contents) : '') + '. What was here before is kept aside in the data folder.'
           : (b.restored.error || 'Mantel started with its data as it was.'), null, b.restored.ok ? '' : 'warn')]));
       if (b.restored.ok && b.restored.control_off) c.appendChild(group({}, [info('Control of the House Is Off',
         'It was on in the backup. Turn it on in General when you are ready: Mantel asks you to sign in again first.', null, 'warn')]));
@@ -89,10 +99,23 @@ export function pBackups() {
   } };
 }
 
+// a backup on its way up, then being checked: the Restore group says how far it is (ui.backupUpload)
+function drawUpload(c, up) {
+  const pct = up.total ? Math.min(100, Math.floor((up.sent / up.total) * 100)) : 0;
+  const rows = up.phase === 'upload'
+    ? [info('Uploading ' + up.name, pct + '% · ' + kb(up.sent) + ' of ' + kb(up.total), null),
+       hh('div', { class: 'cell mxbar' }, [hh('progress', { max: String(up.total || 1), value: String(up.sent), 'aria-label': 'Upload progress' })])]
+    : [info('Checking the Backup…', 'Opening it and checking its database and files against this version of Mantel. A large backup takes a minute or two; nothing changes yet.', null)];
+  c.appendChild(group({ header: 'Restore', footer: up.phase === 'upload'
+    ? 'Keep this page open until the upload is done. Through your own proxy, a large backup needs its upload limit raised (in Nginx Proxy Manager: client_max_body_size 4g;).'
+    : 'Next you see what the backup holds, and restore it or cancel.' }, rows));
+}
+
 function drawRestore(c, b) {
+  if (ui.backupUpload) return drawUpload(c, ui.backupUpload);
   const p = b.pending;
   if (p) {
-    const what = `Made ${when(p.created)} · ${p.tables} tables, ${p.rows} rows, ${p.files} files · ${kb(p.size)}` +
+    const what = `Made ${when(p.created)} · ${p.contents ? holds(p.contents) : p.tables + ' tables, ' + p.rows + ' rows, ' + p.files + ' files'} · ${kb(p.size)}` +
       (p.migrated && p.migrated.length ? ' · brought up to this version of Mantel' : '') + (p.other_keys ? ' · with another Mantel’s keys' : '');
     // (a restore never turns control of the house on by itself: backup.py _control_off)
     const control = p.control_was_on ? ' Allow Control of the House was on in this backup: it stays off after the restore, until you turn it on in General.' : '';
@@ -110,11 +133,32 @@ function drawRestore(c, b) {
   const chosen = { keys: null };
   const send = () => {
     if (!file.files.length) return;
+    const f = file.files[0];
     const fd = new FormData();
-    fd.append('file', file.files[0], file.files[0].name);
+    fd.append('file', f, f.name);
     if (chosen.keys) fd.append('keys', chosen.keys, chosen.keys.name);
-    act('backups', () => api('POST', '/api/backup/restore/upload', fd), 'Backup checked. Restore it below, or cancel.', 'backups')
-      .finally(() => { file.value = ''; });
+    const up = ui.backupUpload = { phase: 'upload', sent: 0, total: f.size, name: f.name };
+    let drawn = 0;
+    const onProgress = (sent, total) => {
+      if (sent === null) up.phase = 'check';
+      else { up.sent = sent; up.total = total; }
+      const now = Date.now();
+      if (sent === null || now - drawn > 250) { drawn = now; redraw(); }
+    };
+    redraw();
+    act('backups', async () => {
+      try {
+        return await api('POST', '/api/backup/restore/upload', fd, { onProgress });
+      } catch (e) {
+        // a proxy that refuses a large upload answers 413, or drops it: say where the limit is
+        if (e instanceof ApiError && (e.status === 413 || (e.status === 0 && up.phase === 'upload'))) {
+          throw new ApiError(e.status, { message: 'The backup didn’t reach Mantel' + (e.status === 413 ? ' (too large for the way in)' : '') +
+            '. Through your own proxy, raise its upload limit (in Nginx Proxy Manager, Advanced: client_max_body_size 4g;), or open Mantel by its address on your network and restore there.' });
+        }
+        throw e;
+      }
+    }, 'Backup checked. Restore it below, or cancel.', 'backups')
+      .finally(() => { ui.backupUpload = null; file.value = ''; redraw(); });
   };
   file.addEventListener('change', send);
   keys.addEventListener('change', () => {

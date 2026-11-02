@@ -76,9 +76,39 @@ export function messageFor(status, data, step) {
   }
   if (step === 'passkey' && (status === 400 || status === 401)) return 'That passkey was not accepted.';
   if (step === 'restore' && data && typeof data.message === 'string' && data.message) return data.message;
+  if (step === 'restore' && (status === 413 || !status)) {
+    return 'The backup didn\u2019t reach Mantel' + (status === 413 ? ' (too large for the way in)' : '') + '. Through your own ' +
+      'proxy, raise its upload limit (in Nginx Proxy Manager, Advanced: client_max_body_size 4g;), or open Mantel by its ' +
+      'address on your network and restore there.';
+  }
   if (!status) return 'Could not reach Mantel. Check the connection and try again.';
   return 'Sign-in did not work (the server answered ' + status + '). Try again.';
 }
+
+// First start's restore: when the backup was made, and what it holds (backup.py _contents)
+const when = (iso) => { const d = iso ? new Date(iso) : null; return d && !isNaN(d) ? d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'your Mantel'; };
+export function holdsText(ct) {
+  const n = (v, one, many) => (v || 0) + ' ' + (v === 1 ? one : many);
+  return [n(ct.people, 'person', 'people'), n(ct.screens, 'screen', 'screens'), n(ct.tablets, 'wall tablet', 'wall tablets'),
+          n(ct.photos, 'photo', 'photos')].join(', ');
+}
+
+// A large upload whose progress the page shows: onProgress(sent, total), then onProgress(null, null) once sent
+function sendWithProgress(url, body, onProgress) {
+  return new Promise((resolve, reject) => {
+    const x = new globalThis.XMLHttpRequest();
+    x.open('POST', url);
+    x.withCredentials = true;
+    x.setRequestHeader('Accept', 'application/json');
+    x.upload.addEventListener('progress', (e) => { if (e.lengthComputable) onProgress(e.loaded, e.total); });
+    x.upload.addEventListener('load', () => onProgress(null, null));
+    x.addEventListener('load', () => resolve({ status: x.status, json: async () => JSON.parse(x.responseText) }));
+    x.addEventListener('error', () => reject(new TypeError('network')));
+    x.addEventListener('abort', () => reject(new TypeError('aborted')));
+    x.send(body);
+  });
+}
+const mb = (n) => (n / 1048576).toFixed(n >= 104857600 ? 0 : 1) + ' MB';
 
 // The sign-in steps, without the DOM. Each resolves to an outcome:
 //   { kind: 'done', data } | { kind: 'totp', pending } | { kind: 'restart', message } | { kind: 'error', message, code, methods }
@@ -129,7 +159,7 @@ export function signIn({ fetchImpl, base = '', credentials } = {}) {
       return fail(r, 'setup');
     },
     // First start, Restore From a Backup: the setup code first (the server checks it before reading on)
-    async restore(token, file, keys) {
+    async restore(token, file, keys, onProgress) {
       if (!token) return fail({ status: 400, data: { error: 'bootstrap_token_invalid' } }, 'restore');
       if (!file) return fail({ status: 400, data: { error: 'no_file' } }, 'restore');
       const form = new FormData();
@@ -138,9 +168,11 @@ export function signIn({ fetchImpl, base = '', credentials } = {}) {
       if (keys) form.append('keys', keys, keys.name || 'mantel-keys.json');
       let res;
       try {
-        res = await doFetch(base + '/api/bootstrap/restore', {
-          method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' }, body: form,
-        });
+        res = onProgress && !fetchImpl && globalThis.XMLHttpRequest
+          ? await sendWithProgress(base + '/api/bootstrap/restore', form, onProgress)
+          : await doFetch(base + '/api/bootstrap/restore', {
+            method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' }, body: form,
+          });
       } catch (e) {
         return fail({ status: 0, data: null }, 'restore');
       }
@@ -370,15 +402,20 @@ export function start(doc = globalThis.document, win = globalThis.window) {
       ev.preventDefault();
       run(async () => {
         const files = (id) => { const f = $(id).files; return f && f.length ? f[0] : null; };
-        say('Checking the backup\u2026', true);
-        const r = await flow.restore($('restore-token').value.trim(), files('restore-file'), files('restore-keys'));
+        say('Uploading the backup\u2026', true);
+        const onProgress = (sent, total) => {
+          if (sent === null) say('Checking the backup: opening it and checking its database and files. A large backup takes a minute or two\u2026', true);
+          else say('Uploading the backup: ' + Math.floor((sent / total) * 100) + '% (' + mb(sent) + ' of ' + mb(total) + ')\u2026', true);
+        };
+        const r = await flow.restore($('restore-token').value.trim(), files('restore-file'), files('restore-keys'), onProgress);
         if (r.kind !== 'done') {
           say(r.message);
           restoreForm.setAttribute('aria-invalid', 'true');
           return;
         }
         restoreForm.hidden = true;
-        say('Restoring the backup of ' + (r.data.created || 'your Mantel') + '. Mantel is restarting\u2026', true);
+        say('Restoring the backup of ' + when(r.data.created) + (r.data.contents ? ' (' + holdsText(r.data.contents) + ')' : '') +
+            '. Mantel is restarting\u2026', true);
         for (let i = 0; i < 90; i++) {
           await new Promise((ok) => setTimeout(ok, 2000));
           if (i > 1 && !(await flow.setupOpen()) && (await flow.answering())) {

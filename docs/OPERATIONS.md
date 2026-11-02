@@ -135,7 +135,8 @@ location / {
     proxy_set_header X-Ingress-Path "";
     proxy_read_timeout 1h;
     proxy_buffering off;
-    client_max_body_size 12m;
+    proxy_request_buffering off;
+    client_max_body_size 4g;      # a backup with photos, restored in Mantel Settings
 }
 ```
 
