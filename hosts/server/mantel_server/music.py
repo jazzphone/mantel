@@ -1398,7 +1398,12 @@ class MusicHost:
             self._sent.pop(sid, None)
 
         async def recheck() -> bool:      # live.py: the music feature, decided again (a role lowered, a grant removed)
-            return await may_feature(self.hooks, ctx.identity, "music")
+            if not await may_feature(self.hooks, ctx.identity, "music"):
+                return False
+            # ...and the feed built again: a speaker this person's view of was removed leaves their screens now, not
+            # at the next push for some other reason (sent only if it differs from what they have: _sent)
+            await self._push_one(sid)
+            return True
         unsubscribe.recheck = recheck              # type: ignore[attr-defined]
         return unsubscribe
 

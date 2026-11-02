@@ -1412,3 +1412,31 @@ async def test_music_stopped_after_a_pause_stays_paused_on_the_screens(on):
     await on.ma.set(D, "idle")
     assert host.resumes.players(time.monotonic()) == []
     await ws.close()
+
+
+async def test_the_feed_is_rebuilt_at_the_policy_tick_when_a_view_on_a_speaker_is_removed(off):
+    """MED-16: the tick asked only whether the person may still use music; a speaker whose view was taken away kept
+    its name and entity id on their screens until the next push for some other reason."""
+    await off.m.user("cody", "child")
+    uid = off.app["accounts"].db.execute("SELECT id FROM users WHERE username='cody'").fetchone()["id"]
+    off.app["rbac"].set_scopes("user", uid, ["cody_room", "kitchen"])
+    await off.login("cody", "child")
+    ws = await off.socket(expect_caps=False)
+    _res, ev = await off.subscribe(ws, {"type": "hk_music/subscribe"})
+    assert [s["entity"] for s in ev["speakers"]] == ["media_player.kitchen_ma", "media_player.cody_ma"]
+    off.app["rbac"].set_scopes("user", uid, ["cody_room"])               # the Kitchen is no longer theirs
+    await off.app["live"].check(why="policy_tick")                       # (server.py's once-a-minute tick)
+    ev2 = None
+    while ev2 is None:
+        got = await asyncio.wait_for(GF.recv(ws), 3)
+        if got.get("type") == "read_event" and got.get("id") == 60:
+            ev2 = got["event"]
+    assert [s["entity"] for s in ev2["speakers"]] == ["media_player.cody_ma"]
+    assert "media_player.kitchen_ma" not in json.dumps(ev2)
+    # and a tick that finds nothing changed sends nothing
+    await off.app["live"].check(why="policy_tick")
+    with pytest.raises(asyncio.TimeoutError):
+        while True:
+            got = await GF.recv(ws, timeout=0.5)
+            assert not (got.get("type") == "read_event" and got.get("id") == 60), got
+    await ws.close()
