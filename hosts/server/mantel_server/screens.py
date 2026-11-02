@@ -180,6 +180,8 @@ async def add(app: web.Application, ident: Any, body: dict, request: web.Request
         if errors:
             raise ScreenError(400, "invalid_format", "; ".join(f"{k}: {v}" for k, v in sorted(errors.items())))
         board.update(where=where, title=title)
+    if where == "ha" and HD.read_only(app):             # a dashboard in Home Assistant: the kill switch (SRV-12)
+        raise ScreenError(409, "read_only", HD.READ_ONLY_WORDS)
     _check_audit(request, app, ident, "screen.add", {"screen": key, "title": title, "where": where, "from": src})
     if where == "ha":
         try:
@@ -257,6 +259,8 @@ async def api_put(request: web.Request) -> web.Response:
         return error(404, "not_found")
     body = await read_json(request)
     if body == {"remove_ha": True}:
+        if HD.read_only(app):
+            return error(409, "read_only", message=HD.READ_ONLY_WORDS)
         refused = _audit(request, ident, "screen.remove_ha", {"screen": key})
         if refused is not None:
             return refused
@@ -363,6 +367,8 @@ async def _repoint_frames(app: web.Application, old: str, new: str, title: str) 
     base = HD.direct_base(app["cfg"])
     if not base:
         return {"state": "direct_access_off"}
+    if HD.read_only(app):                               # the screen splits in Mantel; Home Assistant's frames stay
+        return {"state": "read_only", "message": HD.READ_ONLY_WORDS}
 
     async def work(sess: HD.HaSession, data: dict) -> list[str]:
         done = []

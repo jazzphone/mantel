@@ -127,6 +127,42 @@ async def test_remove_ha_only_removes_hk_s_generated_dashboard(mantel, ha):
     assert store(mantel).get("board", "dashboard-kitchen") is not None, "Mantel's screen stays"
 
 
+async def test_the_read_only_kill_switch_changes_no_dashboard_in_home_assistant(mantel, ha):
+    """SRV-12 (third audit pass): with --read-only an Admin could still create and delete Home Assistant dashboards
+    through the pinned administrator connection. Rules.md rule 3: with the kill switch the house stays read-only."""
+    await owner(mantel)
+    await call(mantel, "POST", "/api/screens", {"title": "Tablet Two", "where": "ha"})     # made before the switch
+    mantel.app["cfg"].read_only = True
+    rows = lambda: len(mantel.app["audit"].rows(kind="config"))        # noqa: E731
+    before, sent, dashboards = rows(), len(ha.frames), dict(ha.dashboards)
+    # a Webpage dashboard for a screen
+    st, body = await call(mantel, "PUT", "/api/admin/screens/dashboard-loft/ha-dashboard", {"on": True})
+    assert st == 409 and body["error"] == "read_only"
+    # HK's generated dashboard for a new Home Assistant screen: refused, no screen made
+    st, body = await call(mantel, "POST", "/api/screens", {"title": "Tablet Three", "where": "ha"})
+    assert st == 409 and body["error"] == "read_only" and store(mantel).get("board", "tablet-three") is None
+    # ... and removing one
+    st, body = await call(mantel, "PUT", "/api/screens/tablet-two", {"remove_ha": True})
+    assert st == 409 and body["error"] == "read_only"
+    assert ha.dashboards == dashboards and len(ha.frames) == sent and rows() == before, "nothing asked, nothing audited"
+    # a screen for Mantel is Mantel's own settings, not Home Assistant's; the page still lists dashboards
+    st, body = await call(mantel, "POST", "/api/screens", {"title": "Study Desk"})
+    assert st == 200 and store(mantel).get("board", "study-desk") is not None
+    assert (await mantel.get("/api/admin/ha-dashboards")).status == 200
+    # a split changes Mantel's settings and leaves Home Assistant's frames alone
+    await call(mantel, "POST", "/api/screens/study-desk/split", {"title": "Study Two"})
+    assert not [f for f in ha.frames[sent:] if f["type"].startswith(("lovelace/dashboards/create", "lovelace/config/save",
+                                                                       "lovelace/dashboards/update", "lovelace/dashboards/delete"))]
+
+    # the connection itself: one place a write is sent from
+    async def body(sess):
+        await sess.call("lovelace/dashboards/create", url_path="mantel-x", title="X", icon="mdi:home",
+                        show_in_sidebar=True, require_admin=False)
+    with pytest.raises(HD.Refused) as refused:
+        await HD._open(mantel.app, BASE, body)
+    assert refused.value.state == "read_only" and "mantel-x" not in {d["url_path"] for d in ha.dashboards.values()}
+
+
 async def test_remove_a_screen(mantel, ha):
     await owner(mantel)
     s = store(mantel)
