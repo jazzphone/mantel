@@ -152,8 +152,20 @@ function update_script() {
     exit 1
   fi
   msg_ok "Updated ${APP} to $(mantel_version)"
+  mantel_commands
   msg_ok "Updated successfully!"
   exit
+}
+
+# Commands a newer release brings to a container installed before them (mantel-install.sh writes them at install):
+# mantel-setup came with 0.1.113.
+function mantel_commands() {
+  local bin="${MANTEL_SBIN:-/usr/local/sbin}"
+  if [[ -f "${MANTEL_DIR}/packaging/lxc/mantel-setup.sh" && ! -e "${bin}/mantel-setup" ]]; then
+    printf '#!/usr/bin/env bash\nexec bash %s/packaging/lxc/mantel-setup.sh "$@"\n' "${MANTEL_DIR}" > "${bin}/mantel-setup"
+    chmod 0750 "${bin}/mantel-setup"
+    msg_ok "New command: mantel-setup (how browsers reach ${APP}: a name, your domain's certificate, your proxy)"
+  fi
 }
 
 start
