@@ -118,7 +118,13 @@ Almost nothing, by design. Over the link Mantel can only:
 Talk-back plays a clip only on the speaker Mantel names, after Mantel's own
 checks and audit. Mantel Link's credential is a Mantel Service credential
 limited to the link; it is never logged or shown in diagnostics, and an Owner
-revokes it in **Mantel Settings → Service Accounts** (under Advanced).
+revokes it in **Mantel Settings → Service Accounts** (under Advanced). Pairing
+Mantel Link again revokes the credential it used before.
+
+When Mantel refuses the credential (it was revoked), Mantel Link says so once,
+tries again less and less often, and Home Assistant asks you to
+**re-authenticate** it: enter a new pairing code (or a Service credential). HK
+Frontend, linked to Mantel, shows a **Repairs** issue instead.
 
 ## Linked mode and the bridge
 

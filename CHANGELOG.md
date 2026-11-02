@@ -9,6 +9,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - Screensaver: the **Today** face's song line is centered under the time, a long title cut short with an ellipsis; **What's Playing** (under the time's **Face**, and under **Clock Style** in Settings) turns that line off.
 - Home Grid: a Music block's **Plays On** can be one of your presets (a group); it couldn't be saved since 0.1.111. A refused save names the blocks to check.
 - Side Pane: the small speaker sits on the volume slider's line.
+- Mantel Link: a revoked credential asks you to re-authenticate in Home Assistant (a pairing code) instead of retrying every 30 seconds for good; HK Frontend raises a Repairs issue. Pairing again revokes the old credential. The App no longer withdraws Home Assistant's credential before its replacement is accepted.
+- The weather forecast, notifications and music on the screens resume by themselves after Home Assistant restarts (they stayed frozen until a reload); one failing part of Mantel no longer takes the whole Home Assistant connection down.
 - Home Grid: a Room block's glyphs are as large as its tiles allow (they were a fixed small size), and a Wide Room's row is the Home app's pill, never stretched or cut.
 
 ## 0.1.112 - 2026-11-01
