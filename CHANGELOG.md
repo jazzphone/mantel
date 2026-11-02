@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Changed**
+- Doorbell: talking is push-to-talk done properly. The doorbell's talk session opens with the sheet, so a press is live at once and the first word isn't lost; the visitor stays heard, lowered, while you talk; the button says Connecting, Talking, who else is talking, Can't Reach the Doorbell or Needs HTTPS (it used to vanish on plain http); and only one person talks at a time, everyone else's button saying who. Needs Mantel Link 0.1.11 for the session to stay open between holds.
+
 ## 0.1.113 - 2026-11-02
 
 **Fixed**

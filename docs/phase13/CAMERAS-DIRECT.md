@@ -1,6 +1,6 @@
 # Phase 13: cameras without Home Assistant in the middle (plan, 2026-11-02)
 
-**Status: plan, waiting on the owner's answers to the decisions below.**
+**Status: building (decisions answered 2026-11-02; see the build log).**
 
 ## The ask (the owner, 2026-11-02)
 
@@ -154,8 +154,7 @@ already the shortest path, so it stays.
 - **Ready before the press.** The talkback session opens when the doorbell sheet opens, kept warm while it shows,
   so the first word isn't clipped and the press doesn't wait on the chain. The 120 s cap stays, and closing the
   sheet ends the session.
-- **Hold, or tap to latch.** Hold to talk as today, or tap once to keep talking with your hands free, then tap
-  again to stop.
+- **Hold to talk**, as today. Tap to latch was offered and declined (decision 6, 2026-11-02).
 - **A conversation, not a walkie-talkie.** The visitor's audio keeps playing while you talk, lowered, with the
   browser's echo cancellation on. That stops the door from hearing itself.
 - **Clear states on the button:** Connecting, Talking, Someone Else Is Talking (with the tablet's name), Can't Reach
@@ -250,7 +249,7 @@ user plus an API key):
 |---|---|---|
 | 0 | The owner answers the decisions. Check the house's console firmware: the public API needs Protect 7.2.105+, the same floor as HA's integration. Confirm on the console how an API key belongs to its maker (does disabling the user revoke it?). Measure today's press-to-sound and ring-to-sheet on the house. | session |
 | 1 | The HTTPS check: the About row, tablets reporting their secure context, the notes on the doorbell and camera pages, Needs HTTPS on the sheet. Works on every mode and can release alone. | Sonnet 5.5 high, from a written spec |
-| 2 | Push-to-talk on the card: the warm session, tap to latch, the visitor ducked under echo cancellation, the button's states, one talker at a time (the relay and Link keep a per-speaker lock). Released on today's HA path first. | session |
+| 2 | Push-to-talk on the card: the warm session, hold to talk, the visitor ducked under echo cancellation, the button's states, one talker at a time (the relay and Link keep a per-speaker lock). Released on today's HA path first. | session |
 | 3 | Sources: the registry, `camera.mantel_*` ids, dispatch in `authz.py` and `camera_still.py`, go2rtc stream registration, the signaling shape for go2rtc, a spike playing one Protect camera on iPad Safari and the wall tablet | session (RBAC and ids: delicate) |
 | 4 | Protect connector: the settings page, the pinned trust, discovery, RTSPS into go2rtc, snapshots, the events websocket into `rules.py`, health, matching to HA cameras and Video From; each camera's Notify For from its own detection or its motion, and Turn On in Protect | session, with a Sonnet 5.5 high agent for the API client and its tests against recorded payloads |
 | 5 | Direct talk: `talk_live.py` split into core and HA wrapper, PyAV in the server image, Mantel opening the talkback session itself; measure press-to-sound and ring-to-sheet against phase 0's numbers | session (audio timing is delicate) |
@@ -266,13 +265,13 @@ one (`ask-before-playing-sound` memory).
 
 | # | Question | Recommendation |
 |---|---|---|
-| 1 | Build the direct path for Docker and LXC only, with the HA App staying on HA? | Yes |
-| 2 | A camera that both HA and Protect know shows once, with Video From defaulting to Direct? | Yes |
+| 1 | Build the direct path for Docker and LXC only, with the HA App staying on HA? | Yes (**decided**, the owner, 2026-11-02) |
+| 2 | A camera that both HA and Protect know shows once, with Video From defaulting to Direct? | Yes (**decided**, the owner, 2026-11-02) |
 | 3 | No detection of our own: the camera's smart types, or its motion, or a linked HA sensor for RTSP | **Decided** (the owner, 2026-11-02) |
-| 4 | **Turn On in Protect** for a supported type that is off, or leave Protect's settings to Protect's app entirely? | Offer the button; it only sets the camera's own setting |
-| 5 | Talk goes direct on Docker and LXC, with Link's path kept for the HA App? | Yes |
-| 6 | Tap to latch beside hold to talk, and the visitor heard while you talk? | Yes |
-| 7 | Sign-in: an API key required (made as a local "Mantel" user), with a local user and password only under Advanced, off until a feature needs it? | Yes |
+| 4 | **Turn On in Protect** for a supported type that is off, or leave Protect's settings to Protect's app entirely? | Offer the button; it only sets the camera's own setting (**decided**, the owner, 2026-11-02) |
+| 5 | Talk goes direct on Docker and LXC, with Link's path kept for the HA App? | Yes (**decided**, the owner, 2026-11-02) |
+| 6 | Tap to latch beside hold to talk, and the visitor heard while you talk? | **Decided:** hold only, the visitor heard (the owner, 2026-11-02) |
+| 7 | Sign-in: an API key required (made as a local "Mantel" user), with a local user and password only under Advanced, off until a feature needs it? | Yes (**decided**, the owner, 2026-11-02) |
 
 ## Sources
 
@@ -285,6 +284,16 @@ one (`ask-before-playing-sound` memory).
   source. Event payload schemas, rate limits and zone access are also unconfirmed. Phase 2 records real payloads
   from the house's console first.
 
+## Timings
+
+| | Today (HA App, through Mantel Link) | Direct (Docker / LXC) |
+|---|---|---|
+| Press to sound at the door | not yet measured: needs a press at the door (the owner's OK each time) | phase 5 |
+| Ring to the sheet on a wall tablet | not yet measured: needs a ring | phase 5 |
+
+Mantel's log already says how long a press waited for the doorbell to listen ("live talk on ... listening N ms
+after the ticket"); the log since the 0.1.113 restart has no talk in it yet.
+
 ## Build log
 
 - 2026-11-02: plan written from a map of Mantel's camera path and the deployment modes, plus research on Protect's
@@ -292,3 +301,10 @@ one (`ask-before-playing-sound` memory).
 - 2026-11-02: the owner's follow-up. No detection of Mantel's own (the camera's smart types, or its motion);
   push-to-talk and the HTTPS check added as phases 1, 2 and 5, ahead of the direct path. Signing in to UniFi: an API
   key made as a local Mantel user, with a local user and password as an Advanced option.
+- 2026-11-02: phase 0. The owner's answers: decisions 1, 2, 4, 5 and 7 as recommended; decision 6 is **hold only**
+  (no tap to latch), with the visitor heard while you talk. The house's console is a UNVR G2 Pro on Protect 7.3.70
+  (the public API needs 7.2.105). The owner is making the local Mantel user and its API key. Today's timings need a
+  ring and a press at the door, so they wait for the owner (see "Timings" below).
+- 2026-11-02: phase 2 built: the warm session (opened with the sheet; each hold its own talkspurt and RTP stream,
+  nothing between), hold only, the door ducked under echo cancellation, the button's states, and one talker at a
+  time (talk_live.py's Floor in Home Assistant, the relay's floor with the tablets' names in Mantel).

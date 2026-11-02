@@ -233,7 +233,7 @@ async def run(token: str) -> dict:
                     await scmd.close()
                 bins = [f for f in stand.frames if isinstance(f, bytes)]
                 texts = [f for f in stand.frames if not isinstance(f, bytes)]
-                check(got["said"] == [{"id": 1, "live": True}] and got["sent"] == 10 and len(bins) == 10
+                check(got["said"] == [{"id": 1, "ready": True, "warm": False}] and got["sent"] == 10 and len(bins) == 10
                       and all(b_[0] == StandInTalkLive.HID and len(b_) == 1 + 1920 * 2 for b_ in bins)
                       and texts == [{"type": "auth", "access_token": StandInTalkLive.TOKEN},
                                     {"id": 1, "type": "mantel/talk/live", "entity_id": speaker, "rate": 48000},
