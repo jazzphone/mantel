@@ -16,7 +16,7 @@
 //     again, smaller, into a canvas of its own (the Pre-rendered blur's idea)
 //   - burn-in: the face drifts a few percent every five minutes
 //
-//   hkSaverClock.mount(el, { style, h24, bg, motion, client, face, timeOnly })
+//   hkSaverClock.mount(el, { style, h24, bg, motion, client, face, timeOnly, music })
 //   (face: false -- the background alone; timeOnly -- the time without its date: the Screensaver editor's layout)
 //     -> { setClient(c), destroy() }    el: the layer to draw into
 (function () {
@@ -158,6 +158,9 @@
     '.f-today .wx .c{font-weight:500;opacity:.8}',
     '.f-today .np{display:flex;align-items:center;gap:1.2cqw;margin-top:2cqw;max-width:60cqw;font-size:2.1cqw;font-weight:600}',
     '.f-today .np img,.f-today .np .ph{width:4.6cqw;height:4.6cqw;border-radius:.8cqw;object-fit:cover;flex:none;box-shadow:0 .4cqw 1.2cqw rgba(0,0,0,.35);background:#333}',
+    // (its words ellipsized inside the line's width: a long title spilled past it to the right, and the line, centered
+    // by its box, read as off center -- the owner, 2026-11-01)
+    '.f-today .np>div{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}',
     '.f-today .np .a{font-weight:500;opacity:.75}',
     '.f-today .np .bars{display:flex;gap:.25cqw;align-items:flex-end;height:1.6cqw}',
     '.f-today .np .bars i{width:.35cqw;background:var(--cktoday,#64d2ff);border-radius:.2cqw;animation:ckbar 1.1s ease-in-out infinite alternate}',
@@ -331,6 +334,7 @@
       var playing = Object.keys(states).filter(function (k) { return k.indexOf('media_player.') === 0 && states[k].state === 'playing' && !(window.hkMusic && window.hkMusic.ignored(states[k])) && (states[k].attributes || {}).media_title; })
         .sort(function (p1, p2) { return String(states[p2].last_changed).localeCompare(String(states[p1].last_changed)); })[0];
       var m = playing && states[playing], mk = m ? m.attributes.media_title + '|' + (m.attributes.media_artist || '') + '|' + (m.attributes.entity_picture || '') : '';
+      if (!x.music) mk = '';
       if (mk !== npKey) {
         npKey = mk;
         if (!m) { np.innerHTML = ''; np.style.display = 'none'; }
@@ -1179,7 +1183,7 @@
     layer.appendChild(root);
     var client = opts.client || null;
     var ctx = {
-      h24: !!opts.h24, glass: null, vars: color[2], weather: opts.weather || null, ground: grounded,
+      h24: !!opts.h24, glass: null, vars: color[2], weather: opts.weather || null, ground: grounded, music: opts.music !== false,
       // the box it fills (the layer: a block's, or the screen beside a pane -- never the window's own)
       box: function () { return { w: layer.clientWidth || window.innerWidth || 1180, h: layer.clientHeight || window.innerHeight || 820 }; },
       client: function () { return client; },

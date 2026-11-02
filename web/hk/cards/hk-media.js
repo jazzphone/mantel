@@ -3833,12 +3833,22 @@
       var Mu = window.hkMusic, player = this._target(), self = this;
       if (!player) { window.hkShell.toast({ message: 'Pick a speaker on the Music page to play ' + it.name + '.' }, this); return; }
       if (el.classList.contains('busy')) return;
+      // A PRESET (its Plays On, 2026-11-01) is its rooms, never a player: the cover plays on the first, then the rest
+      // join it -- as the Music page plays a library item on a set of rooms (hk-music.js playTarget)
+      var pre = Mu.presets && Mu.presets().filter(function (x) { return x.entity === player; })[0];
+      var first = pre ? pre.members[0] : player, rest = pre && pre.members.length > 1 ? pre.members.slice() : null;
+      if (!first) { window.hkShell.toast({ message: 'That group has no speakers.' }, this); return; }
       el.classList.add('busy');
-      this._callResp('hk_frontend', 'music_play_media', { player: player, media_content_id: it.uri, media_content_type: 'music' }).then(function (res) {
+      this._callResp('hk_frontend', 'music_play_media', { player: first, media_content_id: it.uri, media_content_type: 'music' }).then(function (res) {
         el.classList.remove('busy');
         var r = (res && res.response) || {};
         if (!res.ok || r.ok === false) { window.hkShell.toast({ message: 'Could not play ' + it.name + (r.message ? ': ' + r.message : '') }, self); return; }
-        if (Mu.setFocus) Mu.setFocus(player);
+        if (Mu.setFocus) Mu.setFocus(first);
+        if (rest) self._callResp('hk_frontend', 'music_transfer', { rooms: rest, source: first }).then(function (r2) {
+          var a = (r2 && r2.response) || {};
+          if (!r2.ok || a.ok === false) window.hkShell.toast({ message: 'Playing on ' + Mu.nameOf(first) + ' only: the others didn’t join.' }, self);
+          else if (a.leader && Mu.known(a.leader)) Mu.setFocus(a.leader);
+        });
         // played: it is the last now
         self._due = 0;
       });

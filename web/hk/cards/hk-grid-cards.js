@@ -468,6 +468,9 @@
       // of a standard pill card... not stretch itself out", DESIGN.md: Half is the Home app's button): rows the
       // pill's own 70 px, from the top, as many as fit
       '.tiles.half{grid-template-rows:repeat(var(--rows,2),' + PILL_H + 'px);align-content:start}',
+      // ...scrolling, a Wide Room's: a pill's height each, the rest under them -- or the height there is, when the foot
+      // line leaves less (~62 px on 150 px tiles): one whole row in sight, never one cut through
+      '.tiles.scrolling.half{grid-template-rows:none;grid-auto-rows:min(' + PILL_H + 'px,100%)}',
       '.tiles.scrolling{grid-template-rows:none;grid-auto-rows:calc((100% - var(--scroll-gaps,' + GAP + 'px))/var(--rows,2));align-content:start;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-width:none}',
       '.tiles.scrolling::-webkit-scrollbar{display:none}',
       '.tiles.scrolling .slot{touch-action:pan-x pan-y}',
@@ -534,15 +537,19 @@
         var h = this.client, size = this._size(), area = this._area();
         if (!h || !h.states || !area) return { area: area, size: size, tiles: [], status: '', name: '' };
         var parts = roomParts(h, area), name = (h.areas[area] || {}).name || area, status = roomLine(h, area, parts, size);
+        // A WIDE ROOM'S ROW is the Home app's pill (2026-11-01, the owner: "half cards need to be fixed here like we did on
+        // the Accessories card"): 70 px from the top, the glyph beside the words, never a Centred tile squeezed into a
+        // short row (stretched to 86 px, or cut through its second line at 62)
+        var half = size === 'W';
         if (this._config.accessory_display === 'scroll') {
-          return { area: area, size: size, scroll: true, more: 0, name: name, status: status,
+          return { area: area, size: size, scroll: true, half: half, more: 0, name: name, status: status,
                    tiles: parts.all.map(function (c) { return pill(c, ['light', 'switch', 'input_boolean', 'fan'].indexOf(dom(c.entity)) >= 0); }) };
         }
         // (the foot line's room, when it pages: hk-layout.js leaves a paged room its own dots)
         var places = fit(size, this._height() - (this.hasAttribute('data-grid-pager') ? 24 : 0));
         var total = parts.lights.length + (speakerOf(h, parts.speakers) ? 1 : 0), more = total > places;
         return { area: area, size: size, parts: parts, tiles: layout(parts, size, Math.max(0, places - (more ? 1 : 0)), h),
-                 more: more ? total - Math.max(0, places - 1) : 0, name: name, status: status };
+                 more: more ? total - Math.max(0, places - 1) : 0, name: name, status: status, half: half };
       }
       _sigOf() {
         var p = this._plan();
@@ -648,6 +655,9 @@
             slot.setAttribute('role', 'listitem');
             // (Wide: a row of the room's regular pills -- a thermostat's too, whose tall tile was cut above the foot line)
             var cfg = Object.assign({}, t, p.half ? { size: 'regular', tile: 'home' } : tall ? { size: 'tall' } : { size: 'regular' }, p.color ? { block_color: true } : {});
+            // (Centred: every glyph the tile's own size, bare, as an Accessories block's Full -- a room's pills kept the
+            // room page's icon size and well, so a Room block's glyphs were a third the size: the owner, 2026-11-01)
+            if (centred) { delete cfg.icon_size; delete cfg.bare_icon; delete cfg.well_background; }
             var el = C.createCard(cfg, h);
             if (tall) el.setAttribute('size', 'S');
             el.setAttribute('data-group-fill', '');

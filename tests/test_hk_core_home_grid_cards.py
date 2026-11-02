@@ -274,3 +274,19 @@ def test_a_camera_blocks_name_is_automatic_shown_or_hidden(name):
 def test_a_camera_name_that_is_not_one_is_refused(name):
     _, errors = write({"id": "c", "card": "camera", "size": "L", "at": [0, 0], "opts": {"name": name}})
     assert errors == {"home_grid": "grid_option"}
+
+
+# ------------------------------------------------------------ music: Plays On
+# (2026-11-01, the owner: a group chosen in a Music block's Plays On could not be saved -- since presets became Mantel's
+# own lists of rooms the editor offers them by their "preset:<key>" id, which the check took for a bad entity id)
+@pytest.mark.parametrize("speaker", ["media_player.kitchen", "preset:01JX4Q8N2W", "preset:downstairs_1"])
+def test_a_music_block_plays_on_a_speaker_or_a_preset(speaker):
+    b, errors = write({"id": "m1", "card": "music", "size": "W", "at": [0, 0], "opts": {"speaker": speaker}})
+    assert errors == {} and b["home_grid"]["items"][0]["opts"] == {"speaker": speaker}
+
+
+@pytest.mark.parametrize("speaker", ["light.kitchen", "preset:", "preset:a b", "preset:x\n", "group:kitchen",
+                                     "preset:" + "x" * 129, 7])
+def test_a_music_block_plays_on_nothing_else(speaker):
+    _, errors = write({"id": "m1", "card": "music", "size": "W", "at": [0, 0], "opts": {"speaker": speaker}})
+    assert errors == {"home_grid": "grid_option"}

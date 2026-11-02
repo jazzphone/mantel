@@ -2897,7 +2897,7 @@
       day_look: o.day_look, forecast_big: o.forecast_big, forecast_planted: o.forecast_planted !== false, layout: o.layout || null, tb_size: o.tb_size, tb_top: o.tb_top, tb_dim: o.tb_dim,
       // the clocks (hk-saverclock.js; hk-saver.js readCfg checks them)
       clock: o.clock !== false, clock_over: o.clock_over, clock_style: o.clock_style, clock_bg: o.clock_bg,
-      clock_motion: o.clock_motion, clock_24: o.clock_24 === true, clock_colors: o.clock_colors, clock_speed: o.clock_speed, clock_depth: o.clock_depth,
+      clock_motion: o.clock_motion, clock_24: o.clock_24 === true, clock_today_music: o.clock_today_music !== false, clock_colors: o.clock_colors, clock_speed: o.clock_speed, clock_depth: o.clock_depth,
       clock_night: o.clock_night, clock_night_from: o.clock_night_from, clock_night_to: o.clock_night_to,
       // a Wallpaper behind the clock (2026-10-31; hk-saverclock.js draws it, hkWallpapers checks both)
       clock_wallpaper: o.clock_wallpaper, clock_wallpaper_color: o.clock_wallpaper_color,

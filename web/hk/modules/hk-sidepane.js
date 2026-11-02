@@ -1208,7 +1208,9 @@
       '.npp i{display:block;height:100%;background:' + v('ink') + ';transform-origin:left center}',
       '@keyframes npp{to{transform:scaleX(1)}}',
       '@media (prefers-reduced-motion:reduce){.npp i{animation:none!important}}',
-      '.vol hk-icon{--mdc-icon-size:20px;width:20px;height:20px;color:' + v('ink-2') + ';flex:none}.vol hk-icon.lo{--mdc-icon-size:14px;width:14px;height:14px}',
+      // (each speaker a centered box: hk-icon's own box is inline, so the small one sat on its text line, below the
+      // slider's -- the owner, 2026-11-01)
+      '.vol hk-icon{--mdc-icon-size:20px;width:20px;height:20px;color:' + v('ink-2') + ';flex:none;display:flex;align-items:center;justify-content:center}.vol hk-icon.lo{--mdc-icon-size:14px;width:14px;height:14px}',
       '.vol input{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:44px;background:transparent;margin:0;touch-action:pan-y;cursor:pointer}',
       '.vol input::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:' + v('line-strong') + '}',
       '.vol input::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}',

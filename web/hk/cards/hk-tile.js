@@ -563,14 +563,18 @@
                                  well: '.well', icon: '.icon', name: '.name', sub: ['.label', '.room'] }),
     // (...a thermostat has no glyph: its reading is the glyph, as in its tall tile)
     ':host([tile=centred]) .card.climate_tall .well,:host([tile=centred]) .card.climate .well{display:none}',
-    // ...and in a short place (under 124 px: a Room block's Wide tiles above
-    // its foot line) one step smaller, so the glyph and the two lines still
-    // stand apart (the widget mock-up's Room, 2026-10-31)
+    // ...and in a short place (under 124 px: a Large Room block's tiles under
+    // its name) smaller, so the glyph and the two lines still stand apart (the
+    // widget mock-up's Room, 2026-10-31) -- the glyph as large as the height
+    // leaves, 46 % of it, 40 to 56 px, the name under it (2026-11-01, the
+    // owner: a Room block's icons were "tiny" beside the Accessories block's,
+    // one fixed 40 px on its 107 px tiles)
     '@container hk-cell (max-height:124px){' +
-      ':host([tile=centred]) .well{width:46px !important;height:46px !important;top:29% !important}' +
-      ':host([tile=centred]) .icon{width:40px !important;height:40px !important}' +
-      ':host([tile=centred]) .name{top:53% !important;font-size:15px !important;line-height:19px !important}' +
-      ':host([tile=centred]) .label,:host([tile=centred]) .room{top:calc(53% + 19px) !important;font-size:13px !important;line-height:17px !important}}',
+      ':host([tile=centred]){--hk-cg:clamp(40px,46cqh,56px)}' +
+      ':host([tile=centred]) .well{width:calc(var(--hk-cg) + 6px) !important;height:calc(var(--hk-cg) + 6px) !important;top:30% !important}' +
+      ':host([tile=centred]) .icon{width:var(--hk-cg) !important;height:var(--hk-cg) !important}' +
+      ':host([tile=centred]) .name{top:calc(30% + var(--hk-cg) / 2 + 5px) !important;font-size:15px !important;line-height:19px !important}' +
+      ':host([tile=centred]) .label,:host([tile=centred]) .room{top:calc(30% + var(--hk-cg) / 2 + 24px) !important;font-size:13px !important;line-height:17px !important}}',
     // A SCENE BLOCK AT WIDE (2026-10-31, the widget mock-up; the owner: "the
     // glyph at the tiles' 58 px beside its name and what it does"): the glyph
     // at a Centred tile's size on the block's inset, the name and what the

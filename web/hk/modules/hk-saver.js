@@ -154,6 +154,7 @@
       clock_night_from: /^\d\d:\d\d$/.test(raw.clock_night_from || '') ? raw.clock_night_from : '22:00',
       clock_night_to: /^\d\d:\d\d$/.test(raw.clock_night_to || '') ? raw.clock_night_to : '07:00',
       clock_24: raw.clock_24 === true,
+      clock_today_music: raw.clock_today_music !== false,
       // each face's color: the style's own (hk-saverclock.js checks the id)
       clock_color: raw.clock_colors && typeof raw.clock_colors === 'object' && typeof raw.clock_colors[raw.clock_style] === 'string'
         ? raw.clock_colors[raw.clock_style] : '',
@@ -2817,6 +2818,15 @@
           if (c.nodeType !== 3 || !c.textContent.trim() || !seen()) continue;
           var w = wordsInk(c, cs);
           if (!w) continue;
+          // (only what shows: words cut off by a box that hides its overflow -- Today's long song title, ellipsized --
+          // measured their whole length, so the face's box ran past them and the time sat left of center, the
+          // owner, 2026-11-01)
+          for (var a = n; a && a.nodeType === 1; a = a.parentNode) {
+            if (getComputedStyle(a).overflowX === 'visible') continue;
+            var ab = a.getBoundingClientRect();
+            w.x0 = Math.max(w.x0, ab.left); w.x1 = Math.min(w.x1, ab.right);
+          }
+          if (!(w.x1 > w.x0)) continue;
           x0 = Math.min(x0, w.x0); x1 = Math.max(x1, w.x1); y0 = Math.min(y0, w.y0); wy1 = Math.max(wy1, w.y1);
         }
       });
@@ -2930,7 +2940,7 @@
   function deg(v) { return v == null || !isFinite(v) ? '—' : Math.round(v) + '°'; }
   // THE BIG ELEMENT: made (or kept) for what the layout asks, and its size as drawn -- {w, h, base} -- or null
   function layoutBig(b, R, u) {
-    var key = [b.kind, b.depth, b.size, b.align, cfg.clock_style, cfg.clock_color, cfg.clock_24, R.room.w, R.room.h, cfg.show, mode, !!fcShowing].join('|');
+    var key = [b.kind, b.depth, b.size, b.align, cfg.clock_style, cfg.clock_color, cfg.clock_24, cfg.clock_today_music, R.room.w, R.room.h, cfg.show, mode, !!fcShowing].join('|');
     // (Behind only while photos show: over the forecast between them, or with no photos, the time stands in front)
     var behindPhotos = b.kind === 'time' && b.depth === 'behind' && photoOpts(cfg).behind && mode === 'photos' && !fcShowing;
     var planted = b.kind === 'time' && b.depth === 'planted' && cfg.show === 'forecast' && !!fSky;
@@ -2978,7 +2988,7 @@
         el2.className = 'lybig measuring';
         el2.style.cssText = 'left:0;top:0;width:' + R.room.w + 'px;height:' + R.room.h + 'px;container-type:size';
         big.ctl = C.mount(el2, { style: cfg.clock_style, h24: cfg.clock_24, color: cfg.clock_color, bg: 'none', ground: false, scrim: false,
-                                timeOnly: true, client: client, minutely: !ANALOG[cfg.clock_style] });
+                                timeOnly: true, music: cfg.clock_today_music, client: client, minutely: !ANALOG[cfg.clock_style] });
         big.scale = 0;
       }
       if (!big.scale) {
@@ -3311,7 +3321,7 @@
       if (!C || (face && !F)) { layer.remove(); if (mode === 'clock') { mode = 'photos'; host.removeAttribute('ckgen'); host.removeAttribute('ckface'); enterForecast(); } return; }
       ckCtl = face
         ? F.mount(layer, { kind: cfg.show, h24: cfg.clock_24, weather: weatherEntity(), look: cfg.day_look, clocks: C, client: clientNow(), groundOnly: !!cfg.layout })
-        : C.mount(layer, { style: cfg.clock_style, h24: cfg.clock_24, color: cfg.clock_color, bg: bg, motion: cfg.clock_motion, face: !cfg.layout,
+        : C.mount(layer, { style: cfg.clock_style, h24: cfg.clock_24, music: cfg.clock_today_music, color: cfg.clock_color, bg: bg, motion: cfg.clock_motion, face: !cfg.layout,
                            speed: cfg.clock_speed, depth: cfg.clock_depth, weather: weatherEntity(),
                            // a Wallpaper: its night version while the sun is down, as the dashboard's After Sunset
                            wallpaper: bg === 'wallpaper' ? { id: cfg.clock_wallpaper, color: cfg.clock_wallpaper_color, night: sunDown() } : null,
@@ -3350,7 +3360,7 @@
   // the options but the clock's face (its style, 24-hour)
   function sansClock(c) {
     var o = {};
-    Object.keys(c || {}).forEach(function (k) { if (['clock_style', 'clock_24', 'clock_color', 'clock_speed', 'clock_depth', 'clock_night', 'clock_night_from', 'clock_night_to', 'clock_text_shadow', 'clock_text_outline'].indexOf(k) < 0) o[k] = c[k]; });
+    Object.keys(c || {}).forEach(function (k) { if (['clock_style', 'clock_24', 'clock_today_music', 'clock_color', 'clock_speed', 'clock_depth', 'clock_night', 'clock_night_from', 'clock_night_to', 'clock_text_shadow', 'clock_text_outline'].indexOf(k) < 0) o[k] = c[k]; });
     return JSON.stringify(o);
   }
   function remountClock() {

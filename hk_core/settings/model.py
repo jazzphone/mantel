@@ -1638,6 +1638,9 @@ SAVER_DEFAULTS: dict[str, Any] = {
     # (SAVER_CLOCK_BGS) that moves slowly or changes once a minute (still)
     "clock_over": "corner", "clock_style": "classic", "clock_bg": "gradient", "clock_motion": "slow",
     "clock_24": False,
+    # the Today face's line of what's playing under its weather (2026-11-01, the owner: "I don't see a place to
+    # actually turn this off"): on as it always was
+    "clock_today_music": True,
     # A WALLPAPER BEHIND THE CLOCK (2026-10-31, the owner: "offer the current backgrounds and the new backgrounds
     # from the HomeView screen in the Clock Screensaver Background selection"): clock_bg "wallpaper" -- one of
     # WALLPAPERS, the twelve drawn ones or a motion theme in its colour (WALLPAPER_COLORS or "#rrggbb"); its

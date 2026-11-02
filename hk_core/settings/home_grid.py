@@ -335,6 +335,17 @@ def _music_playlist(v: Any) -> str:
     return v
 
 
+# A PRESET as a music block's Plays On (2026-11-01): since presets became Mantel's own lists of rooms they are offered
+# by their id ("preset:<key>", hk_core/music/config.py PRESET_ID), never a media_player of their own
+MUSIC_PRESET = re.compile(r"^preset:[A-Za-z0-9_-]{1,128}\Z")
+
+
+def _music_speaker(v: Any) -> str:
+    if isinstance(v, str) and MUSIC_PRESET.match(v):
+        return v
+    return _domain("media_player")(v)
+
+
 def _tap_target(v: Any) -> str:
     if v not in TAP_TARGETS:
         raise GridInvalid("grid_option")
@@ -372,7 +383,7 @@ OPTION_KINDS = {
     "music_show": _music_show,
     "music_playlist": _music_playlist,
     # where a music block's tap plays (2026-10-31, the owner): a speaker or a speaker group, else this screen's music
-    "music_speaker": _domain("media_player"),
+    "music_speaker": _music_speaker,
     "todo": _domain("todo"),
     "camera_follow": _camera_follow,
     "select": _domain("input_select", "select"),

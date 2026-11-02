@@ -3801,6 +3801,12 @@
                            thumb: self.saverThumb(64, 44, 'clock:' + st[0], cur),
                            onClick: function () { put('clock_style', st[0]); } });
         })));
+      // Today's line of what's playing, under its weather (2026-11-01, the owner: "I don't see a place to turn this off")
+      if ((cur.clock_style || 'classic') === 'today') {
+        c.appendChild(K.group({ footer: 'Today shows the song playing in the house under its weather, while something plays.' },
+          [K.toggle({ label: 'What’s Playing', sk: 'saver:clock_today_music', on: cur.clock_today_music !== false,
+                      onChange: function (on) { put('clock_today_music', on); } })]));
+      }
     }
     // THE SCREENSAVER'S FACES, SMALL (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I): a picture of a Show or a
     // clock face for Clock Style's rows and Show's strip -- the face itself, drawn once (still) at a 1180 x 820

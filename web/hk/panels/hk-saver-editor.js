@@ -108,7 +108,11 @@
     '.witem,.ov .w{-webkit-user-select:none;user-select:none}',
     // (the + after what a zone has: round, its sign large)
     ':host(:not([previewing])) .ov .z.plus{border-radius:50%}',
-    ':host(:not([previewing])) .ov .z.plus span{font-size:calc(var(--zf,22px) * 2);font-weight:300}',
+    // (drawn, not a "+" in the font: a glyph sits on the font's own math axis, off the middle of its line -- the owner,
+    // 2026-11-01: "Plus signs aren't aligned in the center of any of the circles")
+    ':host(:not([previewing])) .ov .z.plus span{font-size:0}',
+    ':host(:not([previewing])) .ov .z.plus span::before,:host(:not([previewing])) .ov .z.plus span::after{content:"";position:absolute;left:50%;top:50%;width:min(44%,calc(var(--zf,22px) * 1.5));height:max(2px,calc(var(--zf,22px) * .09));border-radius:9px;background:currentColor;box-shadow:0 1px 4px rgba(0,0,0,.45);transform:translate(-50%,-50%)}',
+    ':host(:not([previewing])) .ov .z.plus span::after{transform:translate(-50%,-50%) rotate(90deg)}',
     ':host([previewing]) .ov .z{display:none}',
     // (a card with nothing to show now -- no music, no timer -- still has its place: drawn as one, with its name and
     // when it shows; the owner, 2026-11-01: "I had no idea they were there until I hovered over them")
@@ -284,7 +288,7 @@
         var want = self.pick && LM.fits(zs, z, self.pick);
         var e = place(h('button', { type: 'button', class: 'z' + (want ? ' want' : '') + (plus ? ' plus' : ''), 'data-zone': z, 'aria-pressed': self.sel === z ? 'true' : 'false',
                                     'aria-label': plus ? 'Add to ' + self.zoneName(z) : self.zoneName(z), onclick: (ev) => { ev.stopPropagation(); self.tapZone(z); } },
-          [h('span', { text: want ? (plus ? '+' : 'Add Here') : plus ? '+' : self.zoneName(z) })]), b);
+          [h('span', { text: plus ? '' : want ? 'Add Here' : self.zoneName(z) })]), b);
         self.ov.appendChild(e);
       };
       // ...room for one more of any kind the zone takes
@@ -587,7 +591,10 @@
                      onChange: function (v) { self.change(function (x) { x.clock_style = v; }); } }),
           colors.length ? K.select({ label: 'Color', value: (o.clock_colors || {})[o.clock_style] || colors[0][0], options: colors,
                      onChange: function (v) { self.change(function (x) { x.clock_colors = Object.assign({}, x.clock_colors || {}); x.clock_colors[x.clock_style] = v; }); } }) : null,
-          K.toggle({ label: '24-Hour Time', on: !!o.clock_24, onChange: function (on) { self.change(function (x) { x.clock_24 = on; }); } })]));
+          K.toggle({ label: '24-Hour Time', on: !!o.clock_24, onChange: function (on) { self.change(function (x) { x.clock_24 = on; }); } }),
+          // (Today's line of what's playing, under its weather: the owner, 2026-11-01, "I don't see a place to turn this off")
+          o.clock_style === 'today' ? K.toggle({ label: 'What’s Playing', on: o.clock_today_music !== false,
+                     onChange: function (on) { self.change(function (x) { x.clock_today_music = on; }); } }) : null]));
       }
       var pos = [['top', 'Top'], ['upper', 'Upper'], ['center', 'Center'], ['lower', 'Lower']].concat(bg === 'landscape' ? [['ground', 'On the Ground']] : []);
       var depth = [['front', 'In Front']].concat(bg === 'photos' && B.kind === 'time' ? [['behind', 'Behind the Subject']] : [])

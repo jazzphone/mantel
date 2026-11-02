@@ -170,7 +170,9 @@
     var hasSub = o.sub != null && o.sub !== '';
     var svg = '<svg viewBox="0 0 100 100" aria-hidden="true">' + circle('.3', c * arc);
     if (o.frac != null) svg += circle(null, c * arc * clamp(o.frac, 0, 1));
-    svg += T(50, hasSub || o.subs ? 53 : 58, big, 700, o.main);
+    // (a temperature's digits are what is centered, its degree sign hanging after them, as the Lock Screen's gauges have
+    // it: centered whole, "56°" sat left in its ring -- the owner, 2026-11-01. Half the sign's advance, ~0.38 em)
+    svg += T(/°$/.test(String(o.main)) ? (50 + big * 0.19).toFixed(1) : 50, hasSub || o.subs ? 53 : 58, big, 700, o.main);
     if (hasSub) svg += T(50, 74, String(o.sub).length <= 4 ? 14 : String(o.sub).length <= 6 ? 12 : 10, 600, o.sub, '.85');
     if (o.subs) svg += T(31, 90, 13, 600, o.subs[0], '.85') + T(69, 90, 13, 600, o.subs[1], '.85');
     return svg + '</svg>';
