@@ -341,6 +341,10 @@ class ProtectConnector:
         if t is None:
             return False
         pid, kind, mine = t
+        if kind not in self.available(pid):
+            # not one Notify For offers (the motion of a camera with smart detection): left as it was, so a
+            # notification someone set up on Home Assistant's motion sensor keeps working, and nothing is injected
+            return False
         if kind not in self.notify_for(pid):
             return True
         return not mine and self.direct_preferred(pid)

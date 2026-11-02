@@ -398,7 +398,8 @@ async def test_a_ring_at_a_matched_doorbell_notifies_once_whichever_source(rig, 
     await pick(r, FRONT)
     host, sent = notifications(r, [
         {"id": "n_bell", "entity": "event.front_door_doorbell", "when": "any", "pop": "doorbell", "title": "", "message": ""},
-        {"id": "n_person", "entity": "binary_sensor.front_door_person_detected", "when": "on", "title": "", "message": ""}])
+        {"id": "n_person", "entity": "binary_sensor.front_door_person_detected", "when": "on", "title": "", "message": ""},
+        {"id": "n_motion", "entity": "binary_sensor.front_door_motion", "when": "on", "title": "", "message": ""}])
     await host.reload()
     await console.push("add", {"id": "ev1", "type": "ring", "start": 1793623188000, "end": 1793623198000, "device": FRONT})
     await until(lambda: len(sent) == 1, "the ring notified")
@@ -428,6 +429,14 @@ async def test_a_ring_at_a_matched_doorbell_notifies_once_whichever_source(rig, 
     conn.stream.connected = False
     hub.ha.on_change(hub.store.apply_event({"c": {"event.front_door_doorbell": {"+": {"s": "2026-11-02T13:01:00.000+00:00", "lc": 5.0}}}}))
     await until(lambda: len(sent) == 4, "HA's ring notified while the socket is down")
+    # the motion of a camera with smart detection isn't one Notify For offers: Home Assistant's own sensor of it
+    # notifies as it always did, socket up or not, and the console's motion events add nothing
+    conn.stream.connected = True
+    await console.push("add", {"id": "ev4", "type": "motion", "start": 1793623400000, "device": FRONT})
+    await asyncio.sleep(0.2)
+    assert len(sent) == 4
+    hub.ha.on_change(hub.store.apply_event({"c": {"binary_sensor.front_door_motion": {"+": {"s": "on", "lc": 6.0}}}}))
+    await until(lambda: len(sent) == 5 and sent[-1]["entity"] == "binary_sensor.front_door_motion", "HA's motion notified")
 
 
 async def test_an_unmatched_doorbell_pops_up_and_its_detections_are_sensors(rig, console):
