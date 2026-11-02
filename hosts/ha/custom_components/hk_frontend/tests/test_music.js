@@ -380,6 +380,17 @@ var gh = house(group([e('office'), e('loft')], { title: 'Music' }));
 ok('suppressed group leader is not reintroduced via member', M.contexts(gh)[0].key, e('loft'));
 M._configure(HK_HOUSE);
 
+print('\n=== music stopped after a pause reads as paused (hk_core/music/resume.py) ===');
+var held = { 'media_player.office_homepod_ma': { state: 'idle', gm: [e('office'), e('loft')], title: 'G' },
+             'media_player.loft_homepod_ma': { state: 'idle', gm: [e('office'), e('loft')] } };
+ok('an idle group is no music', M.contexts(house(held)).length, 0);
+M._configure(Object.assign({}, HK_HOUSE, { resumable: [e('office'), e('loft')] }));
+cx = M.contexts(house(held));
+ok('the integration\'s resumable players are paused music', cx.map(function (c) {
+  return c.kind + ':' + c.key + ':' + c.state + ':' + c.playing + ':' + c.members.length; }).join(','),
+   'group:' + e('office') + ':paused:false:2');
+M._configure(HK_HOUSE);
+
 print('\n=== a sync group playing on its own rooms\' players is nothing to the screens ===');
 var everyOn = { 'media_player.homepods_2': { gm: null, title: 'F' } };
 ok('a Music Assistant group whose rooms are idle claims nothing', M.contexts(house(everyOn)).length, 0);

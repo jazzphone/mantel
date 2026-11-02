@@ -85,9 +85,15 @@ def _ignored(st: dict | None, cfg: dict) -> bool:
             or re.match(r"^https?://[^/]+/api/tts_proxy/", cid) is not None)
 
 
+def _held(eid: str, st: dict | None, cfg: dict) -> bool:
+    """hkMusic.held: music Music Assistant stopped after a pause (hk_core/music/resume.py) reads as paused."""
+    return st is not None and st.get("s") == "idle" and eid in (cfg.get("resumable") or [])
+
+
 def _active(eid: str, states: dict, cfg: dict) -> bool:
     st = states.get(eid)
-    return st is not None and not _ignored(dict(st, entity_id=eid), cfg) and st.get("s") in ("playing", "paused")
+    return st is not None and not _ignored(dict(st, entity_id=eid), cfg) and (
+        st.get("s") in ("playing", "paused") or _held(eid, st, cfg))
 
 
 def contexts(cfg: dict, states: dict) -> list[dict[str, Any]]:
@@ -104,7 +110,7 @@ def contexts(cfg: dict, states: dict) -> list[dict[str, Any]]:
     def ctx(key: str, kind: str, members: list[str], st: dict) -> dict[str, Any]:
         a = st.get("a") or {}
         return {"key": key, "kind": kind, "leader": members[0], "members": members,
-                "playing": st.get("s") == "playing", "state": st.get("s") or "unknown",
+                "playing": st.get("s") == "playing", "state": "paused" if _held(key, st, cfg) else st.get("s") or "unknown",
                 "title": a.get("media_title") or "", "artist": a.get("media_artist") or "", "since": st.get("lc") or 0}
     part_of = {p: s["entity"] for s in rooms for p in s.get("parts") or [] if p != s["entity"]}
     for r in rooms:

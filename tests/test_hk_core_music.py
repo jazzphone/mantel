@@ -748,3 +748,29 @@ def test_the_settings_page_lists_the_pairs_and_their_own_group(house):
     from hk_core.music.config import virtual_pairs
     assert virtual_pairs({CONF_PAIRS: [{"players": [SL, SR]}, {"players": [SR, K]}, {"players": [K]}, "x"]}) == [
         {"players": [SL, SR], "name": ""}]
+
+
+# ------------------------------------------------------------- music stopped after a pause (resume.py)
+def test_music_assistants_stop_after_a_pause_is_kept_for_the_screens():
+    """Music Assistant stops a queue paused for 30 s; the song was gone from the Music page (2026-11-01)."""
+    from hk_core.music.resume import HOLD, STOP_AFTER, Resumes
+    r = Resumes()
+    assert r.state(K, "playing", 0) is False and r.state(K, "paused", 10) is False
+    assert r.state(K, "paused", 20) is False, "a paused player's other changes keep when it paused"
+    assert r.state(K, "idle", 40) is True and r.players(40) == [K]
+    assert r.state(K, "idle", 50) is False and r.players(50) == [K], "still idle: still resumable"
+    assert r.state(K, "playing", 60) is True and r.players(60) == [], "playing again: done"
+    # a stop long after the pause is a person's (or the end of the queue): nothing kept
+    r.state(LR, "paused", 0)
+    assert r.state(LR, "idle", STOP_AFTER + 1) is False and r.players(STOP_AFTER + 1) == []
+    # idle without a pause: nothing; off or away: gone
+    assert r.state(OFF, "idle", 0) is False
+    r.state(OFF, "paused", 0); r.state(OFF, "idle", 30)
+    assert r.state(OFF, "unavailable", 31) is True and r.players(31) == []
+    # paused again, and the hold runs out
+    r.state(EXTRA, "paused", 0); r.state(EXTRA, "idle", 30)
+    assert r.state(EXTRA, "paused", 40) is True and r.players(40) == []
+    r.state(EXTRA, "idle", 50)
+    assert r.players(50 + HOLD) == [EXTRA] and r.players(51 + HOLD) == []
+    r.state(LOFT, "paused", 0); r.state(LOFT, "idle", 1)
+    assert r.clear() is True and r.players(2) == [] and r.clear() is False

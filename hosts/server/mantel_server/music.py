@@ -83,6 +83,7 @@ from hk_core.music.const import (
 )
 from hk_core.music.engine import ACTIVE, STOPPED, SUPERSEDED
 from hk_core.music.groups import Groups, signature
+from hk_core.music.resume import Resumes
 from hk_core.music.queue import QUEUE_MAX
 from hk_core.music.warm import Warmer
 
@@ -1210,6 +1211,8 @@ class MusicHost:
         authz = app.get("authz")
         self.house = MantelHouse(hub.store, hub.registry, tz=(lambda: authz.tz) if authz is not None else "UTC")
         self.announcements = Announcements(self.house, hub.registry, self.config, self.push)
+        # MUSIC STOPPED AFTER A PAUSE (hk_core/music/resume.py): the screens show it paused, so play resumes it
+        self.resumes = Resumes()
         self.engine = MantelMusic(self)
         # THE SPEAKERS' STATES FROM MUSIC ASSISTANT (music_states.py): while it is configured here, what the pages,
         # the app and the engine's waits read for a Music Assistant speaker is Music Assistant's, never HA's
@@ -1310,8 +1313,16 @@ class MusicHost:
 
     def on_change(self, changed: set[str]) -> None:
         """A state change wakes the engine's waits on it. The feed does not follow states (as HA's: it is the
-        configuration, re-sent when it or the areas and floors it is named from change)."""
+        configuration, re-sent when it or the areas and floors it is named from change) -- but for the music Music
+        Assistant stopped after a pause (``resumable``), which it lists."""
         self.announcements.state(changed)
+        now, kept = time.monotonic(), False
+        for e in changed:
+            if e.startswith("media_player."):
+                st = self.house.state(e)
+                kept = self.resumes.state(e, st.state if st else None, now) or kept
+        if kept:
+            self.push()
         for ents, cb in list(self._watchers.values()):
             if ents & changed:
                 try:
@@ -1349,6 +1360,7 @@ class MusicHost:
         cfg = self.config()
         raw = cfg.as_client(None)
         raw["announcements"] = self.announcements.players() if cfg.ignore_announcements else []
+        raw["resumable"] = self.resumes.players(time.monotonic())
         names = music_players(raw)
         ok = await allowed_ids(self.hooks, identity, "view", sorted(names))
         out = music_config(raw, ok)
@@ -1773,6 +1785,7 @@ class MusicHost:
         await self.states.stop()
         self.warmer.stop()
         self.announcements.reset()
+        self.resumes.clear()
         if self._groups_task is not None:
             self._groups_task.cancel()
             self._groups_task = None

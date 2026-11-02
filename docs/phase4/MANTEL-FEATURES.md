@@ -262,6 +262,15 @@ Music Assistant still stops a queue paused for 30 seconds (`player_queues/pause`
 - **Music Assistant's groups** are still read (`players/all`, every 30 s) for stereo pairs, a virtual pair's own
   group, Stop All (`MusicConfig.ma_groups`: one started elsewhere plays in the rooms) and an announcement's rooms.
 
+**Paused music stays paused (2026-11-01).** Music Assistant stops a queue paused for 30 seconds, keeping its song and
+position, and a stopped AirPlay leader keeps its group; but a stopped player reads `idle`, so the Music page showed
+nothing playing and its play button started the first playlist. `hk_core/music/resume.py` `Resumes`: a player that
+goes `paused` -> `idle` within 45 seconds is resumable for four hours, until it plays, pauses again or goes off or
+away. Both hosts feed it every speaker state (Mantel: `MusicHost.on_change`; HA: `state_changed`) and list them in
+the feed (`resumable`, cut to the person's players like `announcements`); hkMusic reads them as paused
+(`hkMusic.held`), as does the app (`app_music.contexts`). Play is the usual `play_pause` on the leader: Music
+Assistant resumes the queue at its `resume_pos`.
+
 **Not on Mantel (documented gaps).**
 - **The failure notifications** HA raises (`music_play_failed`, `speaker_group_failed`, ...: HK's Speakers picker
   shows them): Mantel logs them and lists them in `/api/music/status` (`notes`), but does not create HA

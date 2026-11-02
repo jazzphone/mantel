@@ -1384,3 +1384,31 @@ async def test_music_assistants_own_group_of_the_pair_plays_it_alone(on):
     join = ("players/cmd/group_many", {"target_player": "ma-den", "child_player_ids": ["ma-study-l", "ma-study-r"]})
     assert join in sent and sent.index(("players/cmd/stop", {"player_id": "ma-study-pair"})) < sent.index(join)
     await ws.close()
+
+
+async def test_music_stopped_after_a_pause_stays_paused_on_the_screens(on):
+    """Music Assistant stops a queue paused for 30 s (keeping its song and where it was); the Music page then showed
+    nothing playing, and play started the first playlist (2026-11-01). The feed lists such a room as `resumable`,
+    and play is a play_pause on it: Music Assistant resumes its queue."""
+    import time
+    host = on.app["music"]
+    await on.connected()
+    await on.playing(K, media_content_id="library://playlist/1")
+    await on.ma.set(K, "paused")
+    await wait_for(lambda: on.app["hub"].store.states[K]["s"] == "paused")
+    await on.ma.set(K, "idle")
+    await wait_for(lambda: on.app["hub"].store.states[K]["s"] == "idle")
+    assert host.resumes.players(time.monotonic()) == [K]
+    await on.login("jamie", "adult")
+    ws = await on.socket()
+    _r, ev = await on.subscribe(ws, {"type": "hk_music/subscribe"})
+    assert ev["resumable"] == [K]
+    r = await on.command(ws, id=2, **SVC("music_transport", player=K, command="play_pause"))
+    assert r["result"]["response"] == {"ok": True}, r
+    assert on.ma.sent() == [("players/cmd/play_pause", {"player_id": "ma-kitchen"})]
+    await wait_for(lambda: on.app["hub"].store.states[K]["s"] == "playing")
+    assert host.resumes.players(time.monotonic()) == [], "playing again: no longer held"
+    # a room stopped long after its pause (or never paused) is not held
+    await on.ma.set(D, "idle")
+    assert host.resumes.players(time.monotonic()) == []
+    await ws.close()

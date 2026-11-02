@@ -117,3 +117,25 @@ async def test_resumed_music_reappears_without_waiting_for_idle(hass, music):
     hass.states.async_set(K, "playing", song)
     await hass.async_block_till_done()
     assert not tracker.players()
+
+
+async def test_music_stopped_after_a_pause_is_listed_for_the_screens(hass, music):
+    """Music Assistant stops a queue paused for 30 s; the screens keep it as paused (hk_core/music/resume.py)."""
+    import time
+
+    from homeassistant.helpers.dispatcher import async_dispatcher_connect
+
+    from custom_components.hk_frontend.features.music.const import SIGNAL_CONFIG
+    told = []
+    async_dispatcher_connect(hass, SIGNAL_CONFIG, lambda: told.append(1))
+    mgr = music_entry(hass).runtime_data
+    hass.states.async_set(K, "playing", {"media_title": "Song"})
+    hass.states.async_set(K, "paused", {"media_title": "Song"})
+    await hass.async_block_till_done()
+    assert mgr.resumes.players(time.monotonic()) == [] and not told
+    hass.states.async_set(K, "idle", {"media_title": "Song"})
+    await hass.async_block_till_done()
+    assert mgr.resumes.players(time.monotonic()) == [K] and told, "listed, and the screens told"
+    hass.states.async_set(K, "playing", {"media_title": "Song"})
+    await hass.async_block_till_done()
+    assert mgr.resumes.players(time.monotonic()) == []

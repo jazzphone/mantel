@@ -29,6 +29,7 @@ every call to Music Assistant's integration.
 """
 from __future__ import annotations
 
+import time
 from datetime import timedelta
 from typing import Any
 
@@ -49,6 +50,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from ...const import DOMAIN
 from ...hk_core.music import queue
 from ...hk_core.music.queue import QUEUE_MAX
+from ...hk_core.music.resume import Resumes
 from .. import MUSIC, TITLES, Feature, entries, item_data, loaded, unique_id
 from . import settings_ws
 from .const import (
@@ -186,6 +188,7 @@ def ws_music_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConn
         payload = mgr.config.as_client(user_id) if mgr else {"configured": False}
         if mgr:
             payload["announcements"] = mgr.announcements.players()
+            payload["resumable"] = mgr.resumes.players(time.monotonic())
         connection.send_message(websocket_api.event_message(msg["id"], payload))
 
     connection.subscriptions[msg["id"]] = async_dispatcher_connect(hass, SIGNAL_CONFIG, send)
@@ -201,6 +204,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: Feature) -> bool:
     mgr.announcements = Announcements(hass, lambda: mgr.config)
     mgr.announcements.start()
     entry.async_on_unload(mgr.announcements.stop)
+    # MUSIC STOPPED AFTER A PAUSE (hk_core/music/resume.py): the screens show it paused, so play resumes it
+    mgr.resumes = Resumes()
+
+    @callback
+    def stopped(event: Any) -> None:
+        e = event.data.get("entity_id") or ""
+        new = event.data.get("new_state")
+        if e.startswith("media_player.") and mgr.resumes.state(e, new.state if new else None, time.monotonic()):
+            async_dispatcher_send(hass, SIGNAL_CONFIG)
+
+    entry.async_on_unload(hass.bus.async_listen("state_changed", stopped))
     # Keep Playlists Ready (warm.py): runs only while its switch is on
     mgr.warmer = PlaylistWarmer(
         hass, entry, lambda: [u for p in mgr.config.playlists for u in p.items])

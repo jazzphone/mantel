@@ -433,6 +433,7 @@ def music_players(payload: Any) -> set[str]:
         if isinstance(f, dict):
             out |= {v for v in f.get("entities") or [] if isinstance(v, str)}
     out |= {v for v in payload.get("announcements") or [] if isinstance(v, str)}
+    out |= {v for v in payload.get("resumable") or [] if isinstance(v, str)}
     return out
 
 
@@ -471,6 +472,8 @@ def music_config(payload: Any, ok: set[str]) -> dict:
            "ignore_announcements": payload.get("ignore_announcements")}
     if "announcements" in payload:
         out["announcements"] = [p for p in payload.get("announcements") or [] if p in ok]
+    if "resumable" in payload:              # music stopped after a pause (hk_core/music/resume.py)
+        out["resumable"] = [p for p in payload.get("resumable") or [] if p in ok]
     return out
 
 

@@ -73,7 +73,9 @@ speaker:
     **Playing on** names. A long list scrolls within itself, so the player
     under it always stays on screen. Then the artwork, the song, progress, and the
     controls: **Speakers** (the HomePod), previous, play or pause, next,
-    **Queue**, the volume and Up Next.
+    **Queue**, the volume and Up Next. Paused music stays on the page for up
+    to four hours, and play picks it up where it was, even after Music
+    Assistant has stopped it (it stops anything paused for 30 seconds).
   - **Speakers** (or **Change**) turns what is playing over to the speakers
     panel, the same one the screensaver has. **What’s ticked is where it
     plays**: the ticks start on the rooms playing, and a tap ticks or

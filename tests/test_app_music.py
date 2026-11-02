@@ -70,6 +70,13 @@ def test_contexts_group_the_house_as_the_screens_do():
     got = app_music.contexts(cfg, states)
     assert [(c["key"], c["kind"]) for c in got] == [(C, "group")] and "preset" not in got[0]
     assert got[0]["members"] == [C, K]
+    # music Music Assistant stopped after a pause (hk_core/music/resume.py) reads as paused
+    states = {K: st("idle", media_title="Song 3", group_members=[K, D]), D: st("idle", group_members=[K, D])}
+    assert app_music.contexts(cfg, states) == []
+    cfg["resumable"] = [K, D]
+    got = app_music.contexts(cfg, states)
+    assert [(c["key"], c["state"], c["playing"], c["members"]) for c in got] == [(K, "paused", False, [K, D])]
+    cfg.pop("resumable")
     # an announcement is not music, with Ignore Announcements on
     cfg["ignore_announcements"] = True
     states = {C: st("playing", media_content_id="media-source://tts/x")}

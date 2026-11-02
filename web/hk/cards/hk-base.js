@@ -3695,7 +3695,7 @@
   // `hk_music/subscribe` websocket command -- now, and again whenever
   // anything is edited, with no reload. Until it arrives everything resolves
   // to "nothing", which every card already draws.
-  var MUSIC = { configured: false, speakers: [], floors: [], playlists: [], home: null };
+  var MUSIC = { configured: false, speakers: [], floors: [], playlists: [], home: null, resumable: [] };
 
   var MUSIC_KEY = 'hk_music_focus';
   // Longer than the slowest measured playlist start (12.7s) with room for a
@@ -3756,7 +3756,12 @@
         a.media_content_type === 'announcement' || id.indexOf('media-source://tts/') === 0 ||
         /^https?:\/\/[^/]+\/api\/tts_proxy\//.test(id);
     }
-    function active(st) { return !!st && !ignored(st) && (st.state === 'playing' || st.state === 'paused'); }
+    function active(st) { return !!st && !ignored(st) && (st.state === 'playing' || st.state === 'paused' || held(st)); }
+    // MUSIC STOPPED AFTER A PAUSE (2026-11-01, hk_core/music/resume.py): Music
+    // Assistant stops a queue paused for 30 s, keeping its song and where it
+    // was; the integration lists those players (`resumable`), and they read
+    // as paused here, so the Music page keeps the song and play resumes it.
+    function held(st) { return !!st && st.state === 'idle' && MUSIC.resumable.indexOf(st.entity_id) >= 0; }
 
     // localStorage is only the FIRST PAINT, before the server answers. It can
     // throw (private mode, blocked storage) and may be empty; both are fine.
@@ -3788,7 +3793,7 @@
         var a = (st && st.attributes) || {};
         return {
           key: key, kind: kind, leader: members[0], members: members,
-          playing: !!st && st.state === 'playing', state: st ? st.state : 'unknown',
+          playing: !!st && st.state === 'playing', state: st ? (held(st) ? 'paused' : st.state) : 'unknown',
           title: a.media_title || '', artist: a.media_artist || '',
           image: a.entity_picture_local || a.entity_picture || null,
           since: Date.parse(st && st.last_changed) || 0,
@@ -3962,6 +3967,7 @@
         home: (cfg && cfg.home) || null,
         ignore_announcements: !!(cfg && cfg.ignore_announcements),
         announcements: (cfg && cfg.announcements) || [],
+        resumable: (cfg && cfg.resumable) || [],
         volume: cfg && cfg.volume,
         library: (cfg && cfg.library_entry) || null
       };
