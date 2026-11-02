@@ -754,3 +754,37 @@ async def test_a_channel_no_longer_allowed_ends_at_the_next_tick(rig):
     await server.tick_once(r.env.app, r.env.app["hub"])
     assert r.tv.sessions == {}
     await ws.close()
+
+
+async def _write_tv(r, **live):
+    host = r.app["features"]
+    body = F.check_settings({**host.settings, "live_tv": {**host.settings["live_tv"], **live}})
+    r.app["settings"].store.write([("house", F.FEATURES_DOC, body)], actor=Actor(label="test"))
+    await host.reload()
+
+
+async def test_a_backup_from_the_ha_app_turns_live_tv_on_once_where_mantel_has_go2rtc(rig):
+    """The owner's LXC (2026-11-02): the HA App's backup brought Live TV in off (HK Frontend ran it there), and the
+    page said to add it in Home Assistant. The first start with Mantel's own go2rtc turns it on, once."""
+    r = await rig()
+    host = r.app["features"]
+    await _write_tv(r, enabled=False, go2rtc_once=False)
+    assert not host.on("live_tv")
+    await host._live_tv_once()
+    assert host.on("live_tv") and host.settings["live_tv"]["go2rtc_once"] is True and r.tv.runs()
+    # turned off afterwards, it stays off
+    await _write_tv(r, enabled=False)
+    await host._live_tv_once()
+    assert not host.on("live_tv")
+
+
+async def test_without_go2rtc_or_a_tuner_live_tv_is_left_as_it_is(rig):
+    r = await rig(go2rtc=False)
+    host = r.app["features"]
+    await _write_tv(r, enabled=False, go2rtc_once=False)
+    await host._live_tv_once()
+    assert not host.on("live_tv") and host.settings["live_tv"]["go2rtc_once"] is False
+    r2 = await rig()
+    await _write_tv(r2, enabled=False, go2rtc_once=False, tuner="")
+    await r2.app["features"]._live_tv_once()
+    assert not r2.app["features"].on("live_tv")

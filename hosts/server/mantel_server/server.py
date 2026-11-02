@@ -306,6 +306,8 @@ async def loopback_only(request: web.Request, handler):
     # a paired Connect App reaches Mantel by whatever address it was given (mutual TLS is the defence
     # against rebinding there); the browser's own host rides in X-Forwarded-Host (ingress.origin_ok)
     allowed = allowed or request.get("connect_peer") is not None
+    # Mantel Link by address on that listener: a machine with its own proof, never a browser (it refuses an Origin)
+    allowed = allowed or bool(request.get("link_direct"))
     if not allowed:  # container mode adds the public name (--public-url / --allow-host); loopback otherwise
         raise web.HTTPForbidden(text="bad Host")
     origin = request.headers.get("Origin")

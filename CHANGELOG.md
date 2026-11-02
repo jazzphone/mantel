@@ -4,14 +4,22 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **Mantel Link by Mantel's address**, with no name, DNS or proxy in between: `https://<Mantel's address>:8766`, Mantel Connect's own port, with Mantel's own certificate. Pairing (protocol v3) hands Mantel Link Mantel's certificate authority inside Mantel's proof, and the credential sealed under the pairing code, so a look-alike can neither swap the authority nor read the credential; Mantel Link then trusts that authority alone. Mantel's name with a public certificate works as before. Mantel Settings → Connections → Mantel in Home Assistant shows the address with a pairing code. Needs Mantel Connect's port (`compose.connect.yaml`, the LXC install's question) and Mantel Link 0.1.12; HK Frontend linked to the same address uses Mantel Link's.
+
+**Changed**
+- Restoring a backup shows its progress: the upload's percentage, then **Checking the Backup…**, then what it holds (people, screens, wall tablets, photos, files), before you restore it and once it is restored; on First start too. A backup that never reaches Mantel (a proxy's upload limit) says so and where to raise it.
+- Docker and the LXC: Caddy takes a backup of up to 4 GB on the two restore paths (12 MB elsewhere, as before), so a backup with photos restores at `https://<address>`; the guide's Nginx Proxy Manager settings now allow it too (`client_max_body_size 4g`).
+
+**Fixed**
+- Docker and the LXC: **Live TV** after moving from the Home Assistant App. The App's backup brought it in off (HK Frontend ran it there) and nothing turned it on, so the page said to add it in Home Assistant. Mantel's first start with its own go2rtc and a tuner now turns it on, once.
+
 ## 0.1.116 - 2026-11-02
 
 **Added**
 - First start: **Restore From a Backup** on the sign-in page of a new Mantel, beside creating the Owner. The setup code, the backup and (from another Mantel, such as the Home Assistant App) its keys file: Mantel checks the backup, restarts with it, and its people sign in as before. No account to make first, and no script on the host.
 
 **Changed**
-- Restoring a backup shows its progress: the upload's percentage, then **Checking the Backup…**, then what it holds (people, screens, wall tablets, photos, files), before you restore it and once it is restored; on First start too. A backup that never reaches Mantel (a proxy's upload limit) says so and where to raise it.
-- Docker and the LXC: Caddy takes a backup of up to 4 GB on the two restore paths (12 MB elsewhere, as before), so a backup with photos restores at `https://<address>`; the guide's Nginx Proxy Manager settings now allow it too (`client_max_body_size 4g`).
 - Docker and the LXC: **Restore From Another Mantel** works there now. Their keys are read-only, so it used to refuse and point to `restore.sh`; now it keeps this Mantel's keys and seals the backup's secrets again with them (authenticator apps, alarm codes, alert channels, saved connections).
 
 ## 0.1.115 - 2026-11-02

@@ -5,6 +5,8 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+- **Mantel by its address:** Mantel's address on your network at its own link port (`https://<address>:8766`, shown in Mantel Settings with the pairing code) works without a name, DNS or proxy. Pairing hands Mantel Link Mantel's own certificate authority inside Mantel's proof, and the credential sealed under the code; Mantel Link then trusts that authority alone for the link. An address that is an IP, or on port 8766, pairs this way at once; another whose certificate isn't a public one falls back to it. Reconfigure takes a pairing code for a new address. Needs Mantel 0.1.117 or newer.
+
 ## 0.1.11 - 2026-11-02
 
 - **Versions:** Mantel Link tells Mantel its own version and HK Frontend's when it connects, for Mantel's update check (About → Updates). Needs Mantel 0.1.114 or newer; an older Mantel ignores it.

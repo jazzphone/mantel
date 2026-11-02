@@ -6,9 +6,9 @@ Mantel Link its import path. Mantel Link passes its own domain and protocol 2 (c
 from .hk_core.link.mantel_link import (BACKOFF, DOMAIN, HASSIO_NET, HELLO_TIMEOUT, LINK_HEADER, MAX_MSG, PATH,
                                        PROTOCOL, TIMEOUT, LinkError, LinkTimeout, Listener, MantelLink,
                                        NotConnected, ProtocolMismatch, Refused, TargetRefused, app_hostname,
-                                       internal_ip, plain_target, probe, system_resolver, ws_url)
+                                       internal_ip, pinned_tls, plain_target, probe, system_resolver, ws_url)
 
 __all__ = ["BACKOFF", "DOMAIN", "HASSIO_NET", "HELLO_TIMEOUT", "LINK_HEADER", "MAX_MSG", "PATH", "PROTOCOL",
            "TIMEOUT", "LinkError", "LinkTimeout", "Listener", "MantelLink", "NotConnected", "ProtocolMismatch",
-           "Refused", "TargetRefused", "app_hostname", "internal_ip", "plain_target", "probe", "system_resolver",
-           "ws_url"]
+           "Refused", "TargetRefused", "app_hostname", "internal_ip", "pinned_tls", "plain_target", "probe",
+           "system_resolver", "ws_url"]

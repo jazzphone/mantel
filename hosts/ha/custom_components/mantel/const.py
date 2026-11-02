@@ -16,6 +16,7 @@ PROTOCOL = 2
 # .storage/core.config_entries in plain text, like every integration's secrets)
 CONF_URL = "url"          # Mantel's address: https://host[:port] (http only inside this machine / the App network)
 CONF_TOKEN = "token"      # a Mantel Service credential (scope `linked`); never shown again, logged or in diagnostics
+CONF_CA = "ca"            # Mantel's own CA certificate, pinned (pairing v3: Mantel by its address); not a secret
 # who owns what, as Mantel last said: {"house": "ha"|"mantel", "tablets": [ids],
 # "bridge": "hk_frontend"|"mantel"}; kept so a restart without Mantel keeps it
 CONF_OWNERS = "owners"

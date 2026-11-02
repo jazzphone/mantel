@@ -46,7 +46,7 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import entity_sources
 
-from .const import CONF_OWNERS, CONF_TOKEN, CONF_URL, DOMAIN, HK_DOMAIN, NAME, PROTOCOL
+from .const import CONF_CA, CONF_OWNERS, CONF_TOKEN, CONF_URL, DOMAIN, HK_DOMAIN, NAME, PROTOCOL
 from .entity import MANUFACTURER
 from .mantel_link import LinkError, MantelLink, Refused
 
@@ -63,13 +63,13 @@ TAKE_POLL = 0.25
 
 # ------------------------------------------------------------ the entry's data
 def link_of(entry: ConfigEntry | None) -> dict[str, str] | None:
-    """The entry's link -- {"url", "token"} -- or None."""
+    """The entry's link -- {"url", "token", "ca"?} (ca: Mantel's CA, pinned) -- or None."""
     if entry is None:
         return None
-    url, token = entry.data.get(CONF_URL), entry.data.get(CONF_TOKEN)
+    url, token, ca = entry.data.get(CONF_URL), entry.data.get(CONF_TOKEN), entry.data.get(CONF_CA)
     if not isinstance(url, str) or not url.strip() or not isinstance(token, str) or not token.strip():
         return None
-    return {"url": url.strip(), "token": token.strip()}
+    return {"url": url.strip(), "token": token.strip(), **({"ca": ca} if isinstance(ca, str) and ca else {})}
 
 
 def owners_of(raw: Any) -> dict[str, Any]:
@@ -154,7 +154,7 @@ class Bridge:
         # live_tv: this side has Live TV's transcode (tv.py), so Mantel may play its channels here
         self.link = MantelLink(async_get_clientsession(hass), link["url"], link["token"], self,
                                domain=DOMAIN, protocol=PROTOCOL, features=("bridge", "live_tv"),
-                               frames=self.frames(), on_auth_failed=self.on_auth_failed,
+                               frames=self.frames(), on_auth_failed=self.on_auth_failed, ca=link.get("ca"),
                                **({"timeout": timeout} if timeout is not None else {}))
         self.descs: dict[str, dict[str, Any]] = {}          # unique id -> Mantel's descriptor (all of them)
         self.entities: dict[str, Any] = {}                   # unique id -> the entity added

@@ -42,7 +42,7 @@ You need Mantel itself first ([Install](Install.md)) and Home Assistant
 |---|---|---|
 | The Home Assistant App | The App tells Home Assistant, with a credential made for Mantel Link | **Discovered: Mantel → Add**, confirm |
 | Docker or the Proxmox container | Mantel announces itself on your network (`_mantel._tcp`) with no credential | In Mantel: **Mantel Settings → Connections → Home Assistant → Mantel Link → Make a Pairing Code**. In Home Assistant: **Discovered: Mantel → Add**, and enter the code |
-| Anything | By hand | **Add Integration → Mantel Link**: Mantel's `https://` address, and a pairing code or a Service credential |
+| Anything | By hand | **Add Integration → Mantel Link**: Mantel's `https://` address (its name, or [its address and link port](#by-mantels-address-with-mantels-own-certificate)), and a pairing code or a Service credential |
 
 A pairing code works once, for ten minutes. Both sides prove they know it, so
 a look-alike on your network can't hand Home Assistant a credential. Both
@@ -68,6 +68,24 @@ needs the `announce` service (`compose.announce.yaml`) or the host's own
 avahi. Without either, add Mantel Link by hand. Home Assistant must also trust
 Mantel's certificate: a certificate from Caddy's own authority is refused
 until you trust it where Home Assistant runs.
+
+### By Mantel's address, with Mantel's own certificate
+
+With Mantel on Docker or the Proxmox container, Home Assistant can also reach Mantel by its address on your
+network, with no name, DNS or proxy in between: `https://<Mantel's address>:8766`, Mantel Connect's own port
+(on when you answered yes to Mantel Connect at the install, or with `compose.connect.yaml`). Mantel Settings shows
+the address under **Connections → Mantel in Home Assistant** when you make a pairing code.
+
+That port's certificate comes from Mantel's own certificate authority, which no public authority vouches for, so
+the pairing carries it: Mantel's answer holds its authority inside the proof only the code can make, and the
+credential sealed with a key from the code. A look-alike on your network can neither put its own authority there
+nor read the credential. Mantel Link keeps the authority and trusts it alone for the link from then on (Mantel 0.1.117
+and Mantel Link 0.1.12 or newer). HK Frontend, linked to the same address, uses it too.
+
+- **"That address uses Mantel's own certificate, but isn't Mantel's link port"**: use the address Mantel
+  Settings shows, ending in `:8766`, or Mantel's name with its public certificate.
+- If Mantel's address changes (a new DHCP lease), give Mantel Link the new one with **Reconfigure** and a new
+  pairing code. A fixed address (a DHCP reservation) saves you that.
 
 Plain `http://` is accepted only for the Mantel App on the same machine (its
 address on Home Assistant's internal App network, such as

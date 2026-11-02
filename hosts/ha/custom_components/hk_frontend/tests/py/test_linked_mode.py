@@ -412,3 +412,16 @@ async def test_configure_links_and_unlinks(hass, frontend, mantel):
     assert LINK not in e.data and OWNERS not in e.data
     await until(hass, lambda: _linked_now(hass) is None
                 and hass.states.get("switch.hk_frontend_seasonal_decorations").state == "on")
+
+
+async def test_hk_frontend_pins_mantel_link_s_ca_for_the_same_address(hass):
+    """Mantel by its address (Mantel Link's pairing v3, 2026-11-02): HK Frontend linked to the same address uses the
+    CA Mantel Link pinned; another address, or a Mantel Link without one, pins nothing."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.hk_frontend.linked_mode import pinned_ca
+    ca = "-----BEGIN CERTIFICATE-----\nfictional\n-----END CERTIFICATE-----\n"
+    MockConfigEntry(domain="mantel", data={"url": "https://192.0.2.10:8766", "token": "t", "ca": ca}).add_to_hass(hass)
+    assert pinned_ca(hass, "https://192.0.2.10:8766/") == ca
+    assert pinned_ca(hass, "wss://192.0.2.10:8766/linked/ws") == ca
+    assert pinned_ca(hass, "https://mantel.example.com") is None
+    assert pinned_ca(None, "https://192.0.2.10:8766") is None

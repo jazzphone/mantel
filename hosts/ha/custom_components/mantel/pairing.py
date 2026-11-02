@@ -10,21 +10,33 @@ Protocol v2 (Mantel's audit, T2): the request also carries ``address``, the addr
 (``wrong_address``: a look-alike at another address passing the exchange on), and Mantel Link checks that Mantel's
 proof names the address it used. Never v1: an older Mantel answers ``malformed``, which says "Update Mantel first".
 
+Protocol v3 (2026-11-02): Mantel by its address on the network, at Mantel Connect's listener, whose certificate is
+from Mantel's own CA. That certificate can't be checked before pairing, so v3 pairs over TLS that checks nothing and
+asks the exchange to make up for it: Mantel's answer carries its CA certificate inside its proof (a look-alike can't
+put its own there without the code) and the credential sealed with a key from the code (a look-alike in the middle
+can't read it). The CA is kept with the entry and pinned from then on (hk_core's mantel_link.pinned_tls). Mantel Link
+uses v3 only when the address's certificate isn't a public one; a Mantel that pins elsewhere says so
+(``pin_elsewhere``).
+
 aiohttp only, no Home Assistant import. Never logs the code or the credential.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import re
 import secrets
+import ssl
 from ipaddress import ip_address
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 import aiohttp
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 VERSION = 2                                       # never 1: no downgrade to a proof without the address
+PINNED = 3                                        # Mantel's own CA, handed over and pinned
 PATH = "/linked/pair"
 ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"      # Mantel's codes (mantel_connect/protocol.py)
 GROUPS, GROUP_LEN = 4, 5
@@ -37,7 +49,9 @@ NAME = "Home Assistant - Mantel Link"
 class PairingFailed(Exception):
     """`code`: invalid_code (wrong, spent or expired), rate_limited, not_mantel (the answer did not prove
     it came from the Mantel that made the code, at this address), wrong_address (Mantel says the address isn't its
-    own), mantel_too_old (Mantel knows only protocol v1: update Mantel first), cannot_connect."""
+    own), mantel_too_old (Mantel knows only protocol v1: update Mantel first), certificate (the address's
+    certificate isn't a public one: pair pinned), pin_elsewhere (Mantel pins its own certificate only at its link
+    address), cannot_connect."""
 
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
@@ -95,28 +109,59 @@ def pair_url(address: str) -> str:
     return urlunsplit((scheme, parts.netloc, PATH, "", ""))
 
 
+def _unverified() -> ssl.SSLContext:
+    """v3's first contact: TLS that checks no certificate (the exchange itself proves who answered)."""
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
+def _open_token(key: bytes, nonce: str, address: str, sealed: Any) -> str | None:
+    """v3: the credential Mantel sealed with the code's key (Mantel's linked_pairing.seal_token), or None."""
+    if not isinstance(sealed, str):
+        return None
+    try:
+        raw = base64.urlsafe_b64decode(sealed.encode())
+        k = hmac.new(key, f"mantel-link-pair-v3|token|{nonce}".encode(), hashlib.sha256).digest()
+        return AESGCM(k).decrypt(raw[:12], raw[12:], address.encode()).decode()
+    except Exception:  # noqa: BLE001 -- not sealed with this code: not the Mantel that made it
+        return None
+
+
 async def pair(session: aiohttp.ClientSession, address: str, code: str, *, name: str = NAME,
-               timeout: float = 15.0, host_header: str | None = None, connect_to: str | None = None) -> dict[str, Any]:
-    """Trade a pairing code for {"token", "instance"}. PairingFailed otherwise. `connect_to`/`host_header`:
-    the checked internal address for a plain http App hostname (as the link connects)."""
+               timeout: float = 15.0, host_header: str | None = None, connect_to: str | None = None,
+               pinned: bool = False) -> dict[str, Any]:
+    """Trade a pairing code for {"token", "instance"} (and with `pinned`, protocol v3, "ca": Mantel's CA to pin).
+    PairingFailed otherwise. `connect_to`/`host_header`: the checked internal address for a plain http App hostname
+    (as the link connects)."""
     raw = normalize(code)
     if raw is None:
         raise PairingFailed("invalid_code", "That isn't a Mantel pairing code (four groups of five letters and digits).")
     where = normalize_address(address)
     if where is None:
         raise PairingFailed("cannot_connect", "not an http(s) address")
+    if pinned and not where.startswith("https://"):
+        raise PairingFailed("cannot_connect", "pinning needs an https address")
+    v = PINNED if pinned else VERSION
     key, code_id, nonce = _key(raw), raw[:GROUP_LEN], secrets.token_hex(16)
-    body = {"v": VERSION, "code_id": code_id, "nonce": nonce, "name": name, "address": where,
-            "proof": _mac(key, "mantel-link-pair-v2", "client", code_id, nonce, name, where)}
+    body = {"v": v, "code_id": code_id, "nonce": nonce, "name": name, "address": where,
+            "proof": _mac(key, f"mantel-link-pair-v{v}", "client", code_id, nonce, name, where)}
     url = connect_to or pair_url(address)
     headers = {"Host": host_header} if host_header else None
+    tls = {"ssl": _unverified()} if pinned else {}
     try:
-        async with session.post(url, json=body, headers=headers, timeout=aiohttp.ClientTimeout(total=timeout)) as r:
+        async with session.post(url, json=body, headers=headers, timeout=aiohttp.ClientTimeout(total=timeout),
+                                **tls) as r:
             try:
                 got = await r.json(content_type=None)
             except ValueError:
                 got = None
             status = r.status
+    except aiohttp.ClientConnectorCertificateError:
+        # not a public certificate (Mantel's own, at its address): the caller pairs pinned instead
+        raise PairingFailed("certificate", "Mantel's certificate isn't a public one") from None
     except (aiohttp.ClientError, TimeoutError, OSError) as err:
         raise PairingFailed("cannot_connect", f"could not reach Mantel ({type(err).__name__})") from None
     if status != 200 or not isinstance(got, dict):
@@ -125,6 +170,8 @@ async def pair(session: aiohttp.ClientSession, address: str, code: str, *, name:
         if status == 400 and code_ == "malformed":
             # our request is well formed: only a Mantel that knows v1 alone says this. Never retried as v1.
             raise PairingFailed("mantel_too_old", "That Mantel pairs only by protocol v1. Update Mantel first.")
+        if status == 400 and code_ == "pin_elsewhere":
+            raise PairingFailed("pin_elsewhere", str((err or {}).get("message") or "Use Mantel's link address."))
         if status == 403 and code_ == "wrong_address":
             raise PairingFailed("wrong_address", "Mantel says that address isn't its own.")
         if status in (403, 400) and code_ == "invalid_code":
@@ -132,12 +179,16 @@ async def pair(session: aiohttp.ClientSession, address: str, code: str, *, name:
         if status == 429:
             raise PairingFailed("rate_limited", "Too many tries. Wait a little and try again.")
         raise PairingFailed("cannot_connect", f"Mantel answered HTTP {status}")
-    token, instance, proof = got.get("token"), got.get("instance"), got.get("proof")
-    if not (got.get("v") == VERSION and got.get("address") == where and isinstance(token, str) and token
-            and isinstance(instance, str) and isinstance(proof, str)):
-        raise PairingFailed("not_mantel", "The answer was not a Mantel pairing (v2) for this address.")
-    expected = _mac(key, "mantel-link-pair-v2", "server", code_id, nonce, where, instance,
-                    hashlib.sha256(token.encode()).hexdigest())
+    instance, proof, ca = got.get("instance"), got.get("proof"), got.get("ca")
+    token = _open_token(key, nonce, where, got.get("token_sealed")) if pinned else got.get("token")
+    if not (got.get("v") == v and got.get("address") == where and isinstance(token, str) and token
+            and isinstance(instance, str) and isinstance(proof, str)
+            and (not pinned or (isinstance(ca, str) and "BEGIN CERTIFICATE" in ca))):
+        raise PairingFailed("not_mantel", f"The answer was not a Mantel pairing (v{v}) for this address.")
+    digest = hashlib.sha256(token.encode()).hexdigest()
+    expected = (_mac(key, "mantel-link-pair-v3", "server", code_id, nonce, where, instance, digest,
+                     hashlib.sha256(ca.encode()).hexdigest()) if pinned
+                else _mac(key, "mantel-link-pair-v2", "server", code_id, nonce, where, instance, digest))
     if not hmac.compare_digest(expected, proof):
         raise PairingFailed("not_mantel", "The answer did not prove it came from the Mantel that made the code.")
-    return {"token": token, "instance": instance}
+    return {"token": token, "instance": instance, **({"ca": ca} if pinned else {})}

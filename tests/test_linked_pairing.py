@@ -248,3 +248,118 @@ async def test_a_pairing_with_no_earlier_link_revokes_nothing_and_a_credential_f
     assert accounts.verify(hk_token, "linked") is not None
     assert not [a for a in accounts.list() if a["revoked"] is not None]
     await ws.close()
+
+
+# -- v3: Mantel's own certificate, pinned (Mantel Link by address, on Mantel Connect's listener) -----------------------
+LINK = "https://192.0.2.10:8766"
+CA = "-----BEGIN CERTIFICATE-----\nfictional\n-----END CERTIFICATE-----\n"
+
+
+def body_v3(code: str, address=LINK, name: str = "Home Assistant - Mantel Link"):
+    raw = CP.normalize_code(code)
+    nonce = secrets.token_hex(16)
+    key = LP.code_key(raw)
+    return {"v": 3, "code_id": raw[:5], "nonce": nonce, "name": name, "address": address,
+            "proof": LP.client_proof(key, raw[:5], nonce, name, address, 3)}, key, nonce
+
+
+def open_token(key: bytes, nonce: str, address: str, sealed: str) -> str:
+    import base64
+
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    raw = base64.urlsafe_b64decode(sealed)
+    return AESGCM(LP.token_key(key, nonce)).decrypt(raw[:12], raw[12:], address.encode()).decode()
+
+
+def test_mantel_s_link_address_is_one_of_its_own():
+    class Cfg:
+        public_url, connect_address = "https://mantel.example.com", "192.0.2.10:8766"
+    assert LINK in LP.own_addresses(Cfg(), None)
+
+
+async def test_v3_hands_over_the_ca_in_the_proof_and_the_credential_sealed_under_the_code(make_env):
+    """The owner (2026-11-02): Mantel Link by address, with no name, DNS or proxy in between. Mantel's CA comes in
+    its proof (a look-alike can't swap its own in without the code) and the credential sealed under the code (a
+    look-alike in the middle can't read it); Mantel Link pins the CA from then on."""
+    env = await make_env()
+    code = await _code(env)
+    body, key, nonce = body_v3(code)
+    p = env.app["linked_pairing"]
+    out = p.pair(body, "192.0.2.20", {LINK}, pinned_ca=CA, link_address=LINK)
+    assert out["v"] == 3 and out["ca"] == CA and out["address"] == LINK and "token" not in out
+    token = open_token(key, nonce, LINK, out["token_sealed"])
+    inst = env.app["linked"].instance
+    assert out["proof"] == LP.server_proof(key, body["code_id"], nonce, inst, token, LINK, CA)
+    assert out["proof"] != LP.server_proof(key, body["code_id"], nonce, inst, token, LINK), "v2's proof differs"
+    assert env.app["service_accounts"].verify(token, "linked") is not None
+
+
+async def test_v3_elsewhere_names_the_link_address_and_spends_nothing(make_env):
+    env = await make_env()
+    code = await _code(env)
+    body, _, _ = body_v3(code, here(env))
+    r = await pair(env, body)                     # Mantel's ordinary listener: no CA to pin there
+    out = await r.json()
+    assert r.status == 400 and out["error"]["code"] == "pin_elsewhere", out
+    assert (await (await env.m.get("/api/linked/pair")).json())["pending"] is not None, "the code is not spent"
+    # a v3 proof is v3's own: the v2 label doesn't pass for it
+    body2, _, _ = body_v3(code)
+    body2["proof"] = LP.client_proof(LP.code_key(CP.normalize_code(code)), body2["code_id"], body2["nonce"], body2["name"],
+                                     LINK)
+    try:
+        env.app["linked_pairing"].pair(body2, "192.0.2.20", {LINK}, pinned_ca=CA)
+    except LP.PairError as exc:
+        assert exc.code == "invalid_code"
+    else:
+        raise AssertionError("a v2-labelled proof passed for v3")
+
+
+def test_mantel_link_straight_to_the_listener_is_the_lan_door_from_home_only():
+    from aiohttp.test_utils import make_mocked_request
+
+    from mantel_server import authz
+
+    def door(peer):
+        req = make_mocked_request("GET", "/linked/ws", transport=type("T", (), {
+            "get_extra_info": lambda self, k, d=None: (peer, 1234) if k == "peername" else d})())
+        req["link_direct"] = True
+        return authz.resolve_door(req)
+    assert door("192.168.1.20") == "lan" and door("10.1.2.3") == "lan"
+    assert door("1.1.1.1") == "tunnel" and door(None) == "tunnel"       # an internet address (not a documentation one)
+
+
+async def test_the_connect_listener_s_real_certificate_passes_mantel_link_s_pinned_check(tmp_path):
+    """What Home Assistant does (hk_core's mantel_link.pinned_tls, Python's strict X.509 checks): a handshake with
+    Mantel Connect's real listener certificate, trusting Mantel's CA alone, for the listener's name."""
+    import asyncio
+    import ssl
+
+    from hk_core.link.mantel_link import LINK_SERVER_NAME, pinned_context
+    from mantel_server.connect_pairing import Pki
+
+    pki = Pki(tmp_path / "connect")
+    pki.ensure()
+
+    async def serve(reader, writer):
+        writer.write(b"ok")
+        await writer.drain()
+        writer.close()
+    server = await asyncio.start_server(serve, "127.0.0.1", 0, ssl=pki.ssl_context())
+    port = server.sockets[0].getsockname()[1]
+    try:
+        reader, writer = await asyncio.open_connection("127.0.0.1", port, ssl=pinned_context(pki.ca_pem),
+                                                       server_hostname=LINK_SERVER_NAME)
+        assert await reader.read(2) == b"ok"
+        writer.close()
+        other = Pki(tmp_path / "other")
+        other.ensure()
+        try:
+            await asyncio.open_connection("127.0.0.1", port, ssl=pinned_context(other.ca_pem),
+                                          server_hostname=LINK_SERVER_NAME)
+        except ssl.SSLCertVerificationError:
+            pass
+        else:
+            raise AssertionError("another Mantel's CA was accepted")
+    finally:
+        server.close()
+        await server.wait_closed()

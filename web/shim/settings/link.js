@@ -156,7 +156,8 @@ function drawLinkPairing(c) {
   if (code) {
     const left = code.expires - nowS();
     c.appendChild(group({ header: 'Pairing Code', footer: 'Valid once, for ' + (left > 0 ? Math.ceil(left / 60) + ' min' : 'no longer: it expired') +
-      '. In Home Assistant: Settings, Devices & Services. Open Mantel (Discovered), or Add Integration, Mantel Link with this Mantel’s address, and enter the code.' },
+      '. In Home Assistant: Settings, Devices & Services. Open Mantel (Discovered), or Add Integration, Mantel Link with this Mantel’s address, and enter the code.' +
+      (code.link_address ? ' Or use its address on your network, ' + code.link_address + ': Mantel Link then trusts Mantel’s own certificate, with no name, DNS or proxy in between.' : '') },
       [secretCell(code.code, 'link-pairing-code'), copyButton(code.code, 'Copy Code'),
        button('Withdraw This Code', async () => { await act('link', () => api('DELETE', '/api/linked/pair')); delete shown.linkPair; redraw(); }, { destructive: true, fk: 'mx:link-withdraw' })]));
     return;

@@ -97,6 +97,17 @@ def _is_loopback(peer: str | None) -> bool:
         return False
 
 
+def _global_peer(peer: str | None) -> bool:
+    """The socket peer itself is an internet address (not private, loopback or link-local)."""
+    try:
+        ip = ip_address((peer or "").split("%", 1)[0])
+    except ValueError:
+        return True                                       # unknown: never the LAN door
+    if ip.version == 6 and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    return ip.is_global
+
+
 def _global_client(request: web.Request) -> bool:
     """The forwarded client is an internet address (not private, loopback or link-local)."""
     try:
@@ -119,6 +130,10 @@ def resolve_door(request: web.Request) -> str:
     if any(k in h for k in CF_HEADERS):
         return "tunnel"
     from . import direct, proxy_trust
+    if getattr(request, "get", None) is not None and request.get("link_direct"):
+        # Mantel Link straight to Mantel Connect's listener (connect_pairing.LINK_PATHS): no proxy stamps a door, the
+        # socket peer decides -- a home address is the LAN door, an internet one never
+        return "tunnel" if _global_peer(request.remote) else "lan"
     if direct.builtin_https(request):
         # the App's built-in HTTPS listener (direct.py): no proxy stamps a door, the socket peer decides.
         # A stricter claim from the client is still honoured.

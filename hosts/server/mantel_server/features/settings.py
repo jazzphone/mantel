@@ -22,7 +22,9 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "sleep": {"enabled": False},
     "clean_areas": {"enabled": False, "options": {}},
     "energy": {"enabled": False, "options": {}},
-    "live_tv": {"enabled": False, "tuner": "", "guide_url": "", "channels": [], "names": {}, "quality": "720"},
+    # `go2rtc_once`: Mantel has started with its own go2rtc and turned Live TV on for it, once (host._live_tv_once)
+    "live_tv": {"enabled": False, "tuner": "", "guide_url": "", "channels": [], "names": {}, "quality": "720",
+                "go2rtc_once": False},
     # All Tablets' alerts and scheduled restart (feature_watch.TabletWatch), with the house settings' own
     # `tablets` choices (alert_offline, alert_charging, alert_restart, restart, restart_times)
     "tablets": {"enabled": False},

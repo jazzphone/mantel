@@ -85,9 +85,9 @@ async def test_discovered_on_the_network_confirmed_with_a_code(hass, monkeypatch
 
     async def fake_pair(hass_, url, code):
         seen["pair"] = (url, code)
-        return (TOKEN, None) if code == "ABCDE-FGHJK-MNPQR-STVWX" else (None, "invalid_code")
+        return ({"token": TOKEN}, None) if code == "ABCDE-FGHJK-MNPQR-STVWX" else (None, "invalid_code")
 
-    async def fake_link(hass_, url, token):
+    async def fake_link(hass_, url, token, ca=None):
         seen["link"] = (url, token)
         return {"protocol": 2, "instance": INSTANCE}, None
     monkeypatch.setattr(CF, "try_pair", fake_pair)

@@ -66,7 +66,8 @@ async def test_the_feature_import_brings_each_added_feature_over():
         "an item keeps its stored fields only (no page decorations, no id-less item)"
     tv = got["live_tv"]
     assert tv == {"enabled": False, "tuner": "192.0.2.40", "guide_url": "http://192.0.2.41/xmltv.xml",
-                  "channels": ["4.1"], "names": {"4.1": "NBC"}, "quality": "720"}, "Mantel's own guide fetch stays off"
+                  "channels": ["4.1"], "names": {"4.1": "NBC"}, "quality": "720", "go2rtc_once": False}, \
+        "Mantel's own guide fetch stays off"
     assert got["linked"] == F.DEFAULTS["linked"] and got["sleep"] == F.DEFAULTS["sleep"]
     assert F.check_settings(got) == got
 
