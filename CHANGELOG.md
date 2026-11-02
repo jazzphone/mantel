@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- Mantel's screens and Mantel Settings no longer send you to "HK Settings": an empty Live TV or Music card, an accessory's sheet, the radar map, the room order in Edit mode, an empty Energy page and a refused alarm command now say **Mantel Settings** (where those pages are, under the same names). The YAML Reference's note about Existing Dashboards, which Mantel's Add Screen doesn't have, is left out.
+
 ## 0.1.117 - 2026-11-02
 
 **Added**
@@ -17,7 +20,6 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 **Fixed**
 - Docker and the LXC: **Live TV** after moving from the Home Assistant App. The App's backup brought it in off (HK Frontend ran it there) and nothing turned it on, so the page said to add it in Home Assistant. Mantel's first start with its own go2rtc and a tuner now turns it on, once.
-- Mantel's screens and Mantel Settings no longer send you to "HK Settings": an empty Live TV or Music card, an accessory's sheet, the radar map, the room order in Edit mode, an empty Energy page and a refused alarm command now say **Mantel Settings** (where those pages are, under the same names). The YAML Reference's note about Existing Dashboards, which Mantel's Add Screen doesn't have, is left out.
 
 ## 0.1.116 - 2026-11-02
 
