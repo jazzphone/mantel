@@ -113,14 +113,17 @@ case "$*" in
   "compose config --images") printf '%s\\n' $FAKE_IMAGES ;;
   "pull "*) [ "$2" != "$FAKE_PULL_FAILS" ] ;;
   "compose up -d --wait --wait-timeout 180") [ -z "$FAKE_UP_FAILS" ] ;;
-  "compose exec "*) [ -z "$FAKE_EXEC_FAILS" ] ;;
+  "compose up -d --wait --wait-timeout 180 --pull never") [ -z "$FAKE_ROLLBACK_FAILS" ] ;;
+  "compose exec "*) [ -z "$FAKE_EXEC_FAILS" ] && echo "backup written: /backups/mantel-20261101-031500.mbk (4096 bytes)" ;;
 esac
 """
 
 
-def _run_update(tmp_path, images, pull_fails="", up_fails="", exec_fails=""):
+def _run_update(tmp_path, images, pull_fails="", up_fails="", exec_fails="", rollback_fails="", env_file=""):
     work = tmp_path / "compose"
     work.mkdir(parents=True)
+    if env_file:
+        (work / ".env").write_text(env_file)
     shutil.copy(ROOT / "packaging/compose/update.sh", work / "update.sh")
     bindir = tmp_path / "bin"
     bindir.mkdir()
@@ -128,7 +131,8 @@ def _run_update(tmp_path, images, pull_fails="", up_fails="", exec_fails=""):
     (bindir / "docker").chmod(0o755)
     log = tmp_path / "docker.log"
     env = {"PATH": f"{bindir}:/usr/bin:/bin", "FAKE_LOG": str(log), "FAKE_IMAGES": " ".join(images),
-           "FAKE_PULL_FAILS": pull_fails, "FAKE_UP_FAILS": up_fails, "FAKE_EXEC_FAILS": exec_fails}
+           "FAKE_PULL_FAILS": pull_fails, "FAKE_UP_FAILS": up_fails, "FAKE_EXEC_FAILS": exec_fails,
+           "FAKE_ROLLBACK_FAILS": rollback_fails}
     r = subprocess.run(["bash", str(work / "update.sh")], env=env, capture_output=True, text=True)
     return r, log.read_text().splitlines()
 
@@ -165,6 +169,25 @@ def test_update_stops_before_restarting_when_a_pull_fails_and_rolls_back_when_un
     r, calls = _run_update(tmp_path / "3", ["mantel-server:local", "mantel-transcode:local", "mantel-caddy:local"])
     assert r.returncode == 0 and not any(c.startswith("pull ") for c in calls)
     assert "no image comes from a registry" in r.stdout
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="no bash")
+def test_update_that_cannot_roll_back_prints_the_restore_command_for_its_own_backup(tmp_path):
+    """DEP-16 (audit, third pass): when the new version migrated and then failed its health check, the old image
+    refused the database (schema_too_new), the rollback's `up` failed under set -e and update.sh exited with no
+    words (the LXC wrapper then said the old version "is running again"). Now it says Mantel is NOT running,
+    prints the exact restore.sh command for the backup it made, and exits 3."""
+    server = "ghcr.io/jazzphone/mantel-server:0.1.99"
+    r, calls = _run_update(tmp_path / "1", [server], up_fails="1", rollback_fails="1", env_file="MANTEL_BACKUP_DIR=/srv/mantel-backups\n")
+    assert r.returncode == 3, r.stdout + r.stderr
+    assert "NOT running" in r.stdout and "schema_too_new" in r.stdout and "rolled back; see" not in r.stdout
+    assert "./restore.sh /srv/mantel-backups/mantel-20261101-031500.mbk" in r.stdout
+    # the default backups folder is ./backups beside the compose file
+    r, _ = _run_update(tmp_path / "2", [server], up_fails="1", rollback_fails="1")
+    assert r.returncode == 3 and "./restore.sh ./backups/mantel-20261101-031500.mbk" in r.stdout
+    # a rollback that works is still a plain failure (1), as before
+    r, _ = _run_update(tmp_path / "3", [server], up_fails="1")
+    assert r.returncode == 1 and "rolled back; see" in r.stdout and "NOT running" not in r.stdout
 
 
 @pytest.mark.skipif(shutil.which("caddy") is None, reason="caddy not installed")
