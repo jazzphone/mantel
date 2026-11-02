@@ -8,7 +8,8 @@ drawn: Glance, Month and Day (ckface on the screensaver), Big Weather (fcbig) an
 
 The Screensaver editor's saved layouts too (2026-11-01, the saver-lay- screens): the big element, the widgets and the corner
 cards where the plan puts them, at a tablet either way and a phone -- all on the screen, none on another (Lock Screen, the
-wall tablet, Planted, a Clock on a background, a Month); and a Show with no layout never draws one.
+wall tablet, Planted, a Clock on a background, a Month); the screensaver's own corners under the music slide, the layout's
+after it; and a Show with no layout never draws one.
 
     PLAYWRIGHT_PATH=/path/to/node_modules/playwright-core NODE=node python tools/headless/saver_shows_check.py [--shots DIR]
         [--shard K/N]
@@ -94,6 +95,12 @@ SHOWS = {
                           row=['battery', 'inside', 'energy_today', 'solar', 'temp'], tr=['status_card']), row_at='bottom')}, 'lay-energy'),
     'saver-lay-behind': ({'show': 'forecast', 'layout': _layout({'kind': 'time', 'size': 34, 'pos': 'upper', 'depth': 'behind'},
                           tr=['status_card'])}, 'lay-behind'),
+    # (UNDER A SLIDE, 2026-11-01, the owner's wall tablets: Time Behind with the date, the weather and what plays at the bottom
+    # left, Home Status at the bottom right -- under the music the time was gone and the weather ran into Up Next. The
+    # screensaver's own corners under it, the layout's again after it)
+    'saver-lay-slides': ({'show': 'both', 'music_slide': True, 'music_first': True, 'forecast_layout': 'big',
+                          'layout': _layout({'kind': 'time', 'size': 35, 'pos': 'top', 'depth': 'behind'}, tl=['date'],
+                                            bl=['weather_card', 'music_card'], br=['status_card', 'timers_card'])}, 'lay-slides'),
 }
 
 
@@ -137,7 +144,7 @@ async def main():
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td), real_model=True)
         async with TestServer(app) as server:
-            await photos_for(server, cookie, ('saver-timebehind', 'saver-clockphotos', 'saver-clocksoft'))
+            await photos_for(server, cookie, ('saver-timebehind', 'saver-clockphotos', 'saver-clocksoft', 'saver-lay-slides'))
             if args.shots:
                 args.shots.mkdir(parents=True, exist_ok=True)
             proc = await asyncio.create_subprocess_exec(args.node, str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE,

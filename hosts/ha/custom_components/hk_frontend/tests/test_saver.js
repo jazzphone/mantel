@@ -129,6 +129,18 @@ var c = U.readCfg({ user: 'T', entity: SW, starts_after: 0, each_photo: 20, orde
 ok('0 means only the switch starts it', c.starts_after === 0);
 ok('options read as given', c.each_photo === 20 && c.order === 'sorted' && c.fill === false && c.zoom === true);
 ok('only HK cards are drawn over the photos', c.cards.length === 1 && c.cards[0].type === 'custom:hk-clock-card', c.cards);
+// A LAYOUT'S CARDS (2026-11-01): the ones it places, and the corner clock and weather always -- hidden until a slide
+// covers the layout, when the screensaver's own corners tell the time (the owner's wall tablet: under the music it was gone)
+var lc = U.readCfg({ cards: [{ type: 'custom:hk-clock-card', time_size: '150px' }, { type: 'custom:hk-weather-strip-card' },
+                             { type: 'custom:hk-screensaver-status-card' }],
+                     layout: { v: 1, big: { kind: 'time', size: 35, pos: 'top', depth: 'behind' },
+                               zones: { tl: [{ id: 'date' }], bl: [{ id: 'weather_card' }, { id: 'music_card' }], br: [{ id: 'status_card' }] } } });
+ok('a layout keeps the corner clock and weather, in their order', lc.cards.map(function (x) { return x.type.replace('custom:hk-', ''); }).join() ===
+   'clock-card,weather-strip-card,screensaver-now-card,screensaver-status-card', lc.cards);
+ok('...the clock it doesn\'t place spare, as the screen had it; the weather it places, not', lc.cards[0].ly_spare === true &&
+   lc.cards[0].time_size === '150px' && !lc.cards[1].ly_spare && !lc.cards[3].ly_spare, lc.cards);
+ok('...a corner clock the screen didn\'t have: a corner\'s own sizes', U.readCfg({ cards: [], layout: { v: 1, big: { kind: 'none' }, zones: {} } })
+   .cards[0].time_size === '150px');
 var d = U.readCfg({});
 ok('defaults: 180 s, 30 s, random, filled, no zoom, the house photos',
    d.starts_after === 180 && d.each_photo === 30 && d.order === 'random' && d.fill && !d.zoom &&

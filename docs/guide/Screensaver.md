@@ -18,7 +18,7 @@ A screensaver is a background, one big element, and widgets around it. The **Sta
 
 ### The background
 
-With nothing tapped, the right side shows the **Screensaver** settings. **Background** is what is behind everything: **Photos**, **Landscape** (the live sky over the season's land), **Sky Only**, **Moving Color**, **Wallpaper**, **HK Landscapes**, **Soft Photos**, **The Day's Art**, **Calm Color**, **Paper** or **Black**. Each has the few options that go with it, such as a Moving Color pattern or how much to darken photos. Under **Slides** are the screens that come between now and then: the forecast between photos, music full screen, Home Energy and Weather.
+With nothing tapped, the right side shows the **Screensaver** settings. **Background** is what is behind everything: **Photos**, **Landscape** (the live sky over the season's land), **Sky Only**, **Moving Color**, **Wallpaper**, **HK Landscapes**, **Soft Photos**, **The Day's Art**, **Calm Color**, **Paper** or **Black**. Each has the few options that go with it, such as a Moving Color pattern or how much to darken photos. Under **Slides** are the screens that come between now and then: the forecast between photos, music full screen, Home Energy and Weather. While a slide shows, the layout steps aside and the slide has the screensaver's usual corners: the time, the date and the weather at the top left and Home Status at the top right (Big Weather and Home Energy tell the time themselves). The layout comes back with the next photo.
 
 ### The big element
 

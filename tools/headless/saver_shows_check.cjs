@@ -190,6 +190,59 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           await page.evaluate(() => window.hkSaver.preview(true));
           await page.waitForTimeout(7000);
         } else await page.waitForTimeout(3000);
+        if (want === 'lay-slides') {
+          // UNDER THE MUSIC: the layout steps aside -- the time, the date and the weather at the top left, Home Status at the top
+          // right, none on the slide's words -- and once the slide has gone the layout's places again
+          const corners = () => page.evaluate(() => {
+            const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
+            const host = deep(document).find((e) => e.tagName === 'HK-SCREENSAVER'), sr = host && host.shadowRoot;
+            if (!sr) return null;
+            const box = (r) => ({ l: r.left, t: r.top, r: r.right, b: r.bottom });
+            const card = (sel) => {
+              const c = sr.querySelector('.info > ' + sel);
+              if (!c || c.hasAttribute('lyhide') || getComputedStyle(c).display === 'none' || Number(getComputedStyle(c).opacity) < 0.99) return null;
+              // (what it draws: its words and pictures, never its boxes -- the clock's is as wide as the old corner, 600 px)
+              const q = [], walk = (n) => {
+                if (n.nodeType === 3) { if (n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); q.push(rg.getBoundingClientRect()); } return; }
+                if ((n.nodeType !== 1 && n.nodeType !== 11) || n.tagName === 'STYLE') return;
+                if (/^(svg|canvas|img)$/i.test(n.tagName || '')) { q.push(n.getBoundingClientRect()); return; }
+                // (its own tree and what it slots: the clock draws in an hk-plate, its words slotted in)
+                if (n.shadowRoot) n.shadowRoot.childNodes.forEach(walk);
+                n.childNodes.forEach(walk);
+              };
+              walk(c);
+              const k = q.filter((r) => r.width > 0 && r.height > 0);
+              return k.length ? { l: Math.min(...k.map((r) => r.left)), t: Math.min(...k.map((r) => r.top)), r: Math.max(...k.map((r) => r.right)), b: Math.max(...k.map((r) => r.bottom)) } : null;
+            };
+            const words = [...sr.querySelectorAll('.mu .mcol > *')].filter((n) => n.textContent.trim() && n.getBoundingClientRect().height > 0).map((n) => box(n.getBoundingClientRect()));
+            return { off: host.hasAttribute('lyoff'), mu: host.hasAttribute('muslide'), W: innerWidth, H: innerHeight, words,
+                     clock: card('hk-clock-card'), weather: card('hk-weather-strip-card'), status: card('hk-screensaver-status-card') };
+          });
+          const meet = (a, b) => !!(a && b && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1);
+          await page.evaluate(() => window.hkSaver._.music.show(true));
+          await page.waitForTimeout(3600);
+          const u = await corners();
+          if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '-music.png' });
+          say(started && !!u && u.mu && u.off, tag + ': the music slide over a layout: the layout steps aside', u && [u.mu, u.off]);
+          if (u) {
+            say(!!u.clock && u.clock.l < u.W * 0.2 && u.clock.b < u.H / 2, tag + ': ...the corner clock tells the time, at the top left', u.clock);
+            say(!!u.weather && !!u.clock && u.weather.t >= u.clock.b - 1 && u.weather.b < u.H / 2, tag + ': ...the weather under it', [u.weather, u.clock]);
+            say(!!u.status && u.status.r > u.W * 0.8 && u.status.b < u.H / 2, tag + ': ...Home Status at the top right', u.status);
+            // (at a tablet: on a phone the slide and the corners were never drawn for each other, with a layout or without)
+            const hit = [u.clock, u.weather, u.status].find((c) => u.words.some((w) => meet(c, w)));
+            if (Math.min(W, H) >= 600) say(u.words.length > 0 && !hit, tag + ': ...none on the slide\u2019s words', [hit, u.words]);
+          }
+          await page.evaluate(() => window.hkSaver._.music.hide());
+          await page.waitForTimeout(3600);
+          const a = await corners();
+          say(!!a && !a.mu && !a.off && !a.clock, tag + ': after it the layout again: no corner clock (Time Behind tells it)', a && [a.mu, a.off, a.clock]);
+          say(!!a && !!a.weather && !!a.status && a.weather.t > a.H / 2 && a.weather.l < a.W * 0.2 && a.status.t > a.H / 2 && a.status.r > a.W * 0.8,
+              tag + ': ...the weather at the bottom left, Home Status at the bottom right, where it put them', a && [a.weather, a.status]);
+          say(!errors.length, tag + ': no page errors', errors.slice(0, 3));
+          if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '.png' });
+          await ctx.close();
+          continue;
+        }
         if (want === 'lay-energy') {
           // (a page held by a loop of reads answers nothing: asked with a time limit, never waited on forever)
           const alive = await Promise.race([page.evaluate(() => new Promise((r) => setTimeout(() => r(true), 50))), new Promise((r) => setTimeout(() => r(false), 8000))]);
