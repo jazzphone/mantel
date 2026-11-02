@@ -101,6 +101,10 @@
       "title": "Some Home Assistant admins can't save HK settings",
       "description": "HK's settings are Mantel's while HK Frontend is linked and Mantel runs the house. {count} Home Assistant admin account(s) aren't linked to a person in Mantel, so a change they make on HK's dashboards is refused. An Owner links them in Mantel Settings: Connections, Mantel in Home Assistant, People, Home Assistant Users. This message clears itself once they are linked."
     },
+    "mantel_credential_refused": {
+      "title": "Mantel refused HK Frontend's credential",
+      "description": "HK Frontend is linked to Mantel, but Mantel answered HTTP {status} to the link's Service credential, so it was probably revoked in Mantel Settings (Service Accounts). HK Frontend tries again every few minutes. Make a new credential, then Configure, Linked to Mantel Server, and enter it. This message clears itself once the link connects."
+    },
     "theme_missing": {
       "title": "HK Kiosk theme not loaded",
       "description": "The HK pages draw their colors, font and glass from the HK Kiosk theme. HK Frontend loads it itself, and this time it could not (the log says why). You can load it from configuration.yaml instead:\n\n1. In configuration.yaml, under `frontend:`, add `themes: !include_dir_merge_named themes` (skip this if you already load themes from a folder).\n2. Create `/config/themes/hk_kiosk.yaml` containing the single line `!include ../custom_components/hk_frontend/theme/hk_kiosk_theme.yaml`\n3. Developer tools → YAML → **Themes** (or restart).\n\nThis message clears itself once the theme loads."

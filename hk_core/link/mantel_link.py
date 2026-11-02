@@ -35,7 +35,7 @@ socket drops, so a service call never hangs. The link reconnects by itself:
 1 s, doubling to 30 s between tries, back to 1 s after a connection that got as
 far as hello. A refused credential (401/403, 2026-11-01) is another matter: it
 is logged once, `on_auth_failed(status)` is told once (the integration starts
-its re-authentication / Repairs issue), and the retries slow to 60 s, doubling
+its re-authentication / Repairs issue), and the retries slow down: 30 s, doubling
 to 10 minutes, until one connection gets through. The credential is never
 logged.
 
@@ -63,7 +63,7 @@ LINK_HEADER = "X-Mantel-Link"
 TIMEOUT = 10.0            # a forwarded call's answer
 HELLO_TIMEOUT = 10.0      # the first frame after connecting
 BACKOFF = (1.0, 30.0)
-AUTH_BACKOFF = (60.0, 600.0)   # between tries while the credential is refused (a revoked one is not coming back)
+AUTH_BACKOFF = (30.0, 600.0)   # between tries while the credential is refused (a revoked one is not coming back)
 MAX_MSG = 4 << 20
 
 _LOGGER = logging.getLogger(__name__)
@@ -201,7 +201,7 @@ class MantelLink:
                  domain: str = DOMAIN, protocol: int = PROTOCOL, features: tuple[str, ...] = (),
                  frames: dict[str, Callable[[dict[str, Any]], Any]] | None = None,
                  on_auth_failed: Callable[[int], Any] | None = None,
-                 auth_backoff: tuple[float, float] = AUTH_BACKOFF) -> None:
+                 auth_backoff: tuple[float, float] | None = None) -> None:
         self._session, self.url, self._token = session, ws_url(url), token
         # who is calling and how it speaks; `frames`: the server frame types
         # beyond protocol 1's this integration handles (each gets the frame)
@@ -212,7 +212,7 @@ class MantelLink:
         self.listener = listener
         self.timeout, self.backoff, self.hello_timeout = timeout, backoff, hello_timeout
         # told once when Mantel refuses the credential (401/403); asking again after a connection that got through
-        self.on_auth_failed, self.auth_backoff = on_auth_failed, auth_backoff
+        self.on_auth_failed, self.auth_backoff = on_auth_failed, auth_backoff or AUTH_BACKOFF
         self.auth_failed = False      # refused, and no connection has got through since
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._pending: dict[int, asyncio.Future] = {}

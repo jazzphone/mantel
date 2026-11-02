@@ -300,7 +300,8 @@ async def test_a_slow_mantel_fails_the_call_in_time(hass, base, mantel):
 
 
 # ------------------------------------------------------------ linked: the connection
-async def test_it_reconnects_and_a_call_while_away_fails_clearly(hass, base, mantel):
+async def test_it_reconnects_and_a_call_while_away_fails_clearly(hass, base, mantel, monkeypatch):
+    _fast_auth_retries(monkeypatch)
     e = await _linked(hass, mantel)
     linked = _linked_now(hass)
     linked.link.backoff = (0.05, 0.1)
@@ -332,17 +333,32 @@ async def test_it_reconnects_and_a_call_while_away_fails_clearly(hass, base, man
     await _unload(hass, e)
 
 
-async def test_a_refused_credential_is_retried_and_never_logged(hass, base, mantel, caplog):
+def _fast_auth_retries(monkeypatch):
+    """The link waits 30 s (doubling) between tries while Mantel refuses its credential; a test waits 50 ms."""
+    import custom_components.hk_frontend.hk_core.link.mantel_link as core
+    monkeypatch.setattr(core, "AUTH_BACKOFF", (0.05, 0.1))
+
+
+async def test_a_refused_credential_is_retried_slowly_raises_one_repairs_issue_and_is_never_logged(
+        hass, base, mantel, caplog, monkeypatch):
+    """2026-11-01 (audit 3, LINK-5): one warning and one Repairs issue, in place of a warning every 30 s for good."""
+    from homeassistant.helpers import issue_registry as ir
+    _fast_auth_retries(monkeypatch)
     caplog.set_level(logging.DEBUG)
     bad = "msvc_ffeeddccbbaa9988_" + "Z" * 43
     e = await _linked(hass, mantel, token=bad, wait=False)
     linked = _linked_now(hass)
     linked.link.backoff = (0.02, 0.05)
-    await until(hass, lambda: linked.link.attempts >= 2)
+    await until(hass, lambda: linked.link.attempts >= 3)
     assert linked.link.last_error == "HTTP 401" and not linked.link.connected
     assert hass.states.get(BLACK) is None
-    assert "refused the link (HTTP 401)" in caplog.text
+    assert caplog.text.count("refused the link (HTTP 401)") == 1, "once, not on every try"
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, "mantel_credential_refused")
+    assert issue is not None and issue.translation_placeholders == {"status": "401"} and not issue.is_fixable
     assert bad not in caplog.text and bad not in repr(linked.link)
+    mantel.token = bad                      # the credential is right now: the link comes up and the issue clears
+    await until(hass, lambda: linked.link.connected)
+    assert ir.async_get(hass).async_get_issue(DOMAIN, "mantel_credential_refused") is None
     from custom_components.hk_frontend.diagnostics import async_get_config_entry_diagnostics
     diag = await async_get_config_entry_diagnostics(hass, e)
     assert bad not in str(diag) and diag["linked"]["url"] == mantel.url and diag["linked"]["linked"] is True

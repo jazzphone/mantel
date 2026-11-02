@@ -105,6 +105,7 @@ MIRROR = "mantel_settings"
 MIRROR_STORE = "hk_frontend.mantel_settings"
 MIRROR_VERSION = 1
 ISSUE_UNLINKED = "mantel_admins_unlinked"   # Repairs: Home Assistant admins who can't save HK's settings
+ISSUE_REFUSED = "mantel_credential_refused"  # Repairs: Mantel refused the link's credential (revoked or wrong)
 # the features' actions: while Mantel runs the house, Mantel's engines run them (its linked_actions.py), so
 # they are forwarded under the same names (feature `actions`); otherwise HA's own run them, as always
 # the features' reads HK's dashboards make (Live TV's channels, music, Clean Areas, the snooze and page-header feeds,
@@ -425,6 +426,7 @@ class Linked:
         # `settings`: this release keeps Mantel's settings for its dashboards (on_settings)
         self.link = MantelLink(async_get_clientsession(hass), link["url"], link["token"], self,
                                features=("bridge", "settings", "actions", "reads"),
+                               on_auth_failed=self.on_auth_failed,
                                frames={"settings": self.on_settings, "page_frame": self.on_page_frame},
                                **({"timeout": timeout} if timeout is not None else {}))
         self._store: Store = mirror_store(hass)
@@ -617,7 +619,16 @@ class Linked:
     def start(self) -> None:
         self.entry.async_create_background_task(self.hass, self.link.run(), "hk_frontend: link to Mantel Server")
 
+    @callback
+    def on_auth_failed(self, status: int) -> None:
+        """Mantel refused the link's credential (2026-11-01, audit 3): a Repairs issue says so once, in place of a
+        warning every 30 s; it clears itself when a connection gets through (or the link is removed)."""
+        ir.async_create_issue(self.hass, DOMAIN, ISSUE_REFUSED, is_fixable=False, is_persistent=False,
+                              severity=ir.IssueSeverity.ERROR, translation_key=ISSUE_REFUSED,
+                              translation_placeholders={"status": str(status)})
+
     async def stop(self) -> None:
+        ir.async_delete_issue(self.hass, DOMAIN, ISSUE_REFUSED)
         if self._unwait is not None:
             self._unwait()
             self._unwait = None
@@ -724,6 +735,7 @@ class Linked:
     @callback
     def on_connected(self, connected: bool) -> None:
         if connected:
+            ir.async_delete_issue(self.hass, DOMAIN, ISSUE_REFUSED)
             self.entry.async_create_background_task(self.hass, self._report(), "hk_frontend: report to Mantel")
             self._resubscribe()
         else:
