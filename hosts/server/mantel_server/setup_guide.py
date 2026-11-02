@@ -139,6 +139,16 @@ async def house_config(app: web.Application) -> dict | None:
     return out
 
 
+def address_host(cfg: Any) -> tuple[str, bool]:
+    """(the public address's host, whether it is an IP address). Docker and the LXC start at the machine's address with
+    Mantel's own certificate (mantel-setup's "try"); About -> Secure Connection (about.py) asks the same question."""
+    host = (urlparse(getattr(cfg, "public_url", "") or "").hostname or "").strip("[]")
+    try:
+        return host, bool(host) and bool(ip_address(host))
+    except ValueError:
+        return host, False
+
+
 def _count_people(app: web.Application) -> tuple[int, int]:
     """(people besides Owners, Owners): accounts a person signs in with, not tablets or services."""
     users = [u for u in app["accounts"].list_users() if not u["disabled"] and u["role"] not in ("wall_tablet", "service")]
@@ -263,11 +273,7 @@ async def steps(app: web.Application, me: dict) -> dict:
     devices = [d for d in app["devices"].list() if d["revoked"] is None] if "devices" in app else []
     # Docker and the LXC start at this machine's address with Mantel's own certificate (mantel-setup's "try"): it works,
     # but browsers warn and passkeys are off there. A name is set on the machine, not here: the way is shown.
-    host = (urlparse(getattr(cfg, "public_url", "") or "").hostname or "").strip("[]")
-    try:
-        at_address = bool(host) and bool(ip_address(host))
-    except ValueError:
-        at_address = False
+    host, at_address = address_host(cfg)
     step("address", not at_address,
          f"Mantel answers at {cfg.public_url.rstrip('/') if how == 'container' else ''}." if not at_address else
          f"Mantel answers at https://{host}, with its own certificate: browsers warn until you trust it, and passkeys "

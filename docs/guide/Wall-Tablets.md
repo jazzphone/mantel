@@ -143,7 +143,7 @@ A browser gives the microphone only to a secure page: one opened by an `https://
 - **Mantel** shows how people reach Mantel: its own built-in HTTPS, behind your own proxy, Home Assistant's sidebar (Home Assistant's own address and certificate decide there), or plain HTTP.
 - **Wall Tablets**, for an Owner or Admin, lists each tablet whose page last said it isn't secure, with the address it opened. Each page tells Mantel every minute, so the list is current within one, even after Mantel restarts. A tablet that hasn't been heard from in 24 hours isn't listed.
 
-The fix for a listed tablet is to open Mantel by its `https://` name, not its IP address, in Fully Kiosk's **Start URL**. The camera pop-ups in HK Settings carry a note ("Talking at the door needs HTTPS") while this screen or any wall tablet isn't secure.
+The fix for a listed tablet is to open Mantel by its `https://` name, not its IP address, in Fully Kiosk's **Start URL**. On Docker and the Proxmox LXC, Mantel starts at the machine's own address with its own certificate and has no name yet: run `mantel-setup` on it to give it one (Mantel Settings → **Set Up Mantel** → **Address and HTTPS**, and [Install with Proxmox LXC](Install-Proxmox-LXC.md) say how), and the page points there instead of saying it again. The camera pop-ups in HK Settings carry a note ("Talking at the door needs HTTPS") while this screen or any wall tablet isn't secure.
 
 ## Reload and Clear Cache from Mantel
 

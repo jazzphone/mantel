@@ -130,8 +130,22 @@ async def test_about_says_how_it_is_reached_but_not_who_is_insecure(mantel):
     await m.user("ada", "adult")
     await m.sign_in("ada")
     got = await (await m.get(A.PATH)).json()
-    assert got["access"]["mode"] in A.MODES and set(got["access"]) == {"mode", "public_url"}
+    assert got["access"]["mode"] in A.MODES and set(got["access"]) == {"mode", "public_url", "at_address"}
     assert "tablets" not in got and "origin" not in json.dumps(got)
+
+
+async def test_about_says_when_mantel_is_still_at_its_address(mantel):
+    """Docker and the LXC start at the machine's address (mantel-setup's "try"): the same fact Set Up Mantel's Address and
+    HTTPS step goes by (setup_guide.address_host), so About points to that step instead of explaining it again."""
+    m = mantel
+    await m.user("ada", "adult")
+    await m.sign_in("ada")
+    cfg = m.app["cfg"]
+    assert (await (await m.get(A.PATH)).json())["access"]["at_address"] is False
+    object.__setattr__(cfg, "public_url", "https://192.0.2.10/")
+    assert (await (await m.get(A.PATH)).json())["access"]["at_address"] is True
+    object.__setattr__(cfg, "public_url", "https://mantel.example.com/")
+    assert (await (await m.get(A.PATH)).json())["access"]["at_address"] is False
 
 
 async def _tablet_report(m, name, **frame):
