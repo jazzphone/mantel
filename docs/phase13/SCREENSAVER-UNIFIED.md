@@ -1,6 +1,7 @@
 # Phase 13: one screensaver (plan, 2026-11-02)
 
-**Status: plan, waiting on the owner's answers to the decisions below.** It follows the Screensaver editor
+**Status: decisions answered by the owner on 2026-11-02; the mock-up is waiting on the owner's OK before building.** The
+mock-up is a private claude.ai artifact: https://claude.ai/artifact/WGMhLYgvrFpBEYsLB17hEN (interactive). It follows the Screensaver editor
 (`docs/phase12/SCREENSAVER-EDITOR.md`), which is on the house in 0.1.113 / 1.35.0.
 
 ## The ask (the owner, 2026-11-02)
@@ -346,16 +347,20 @@ Also fixed in this phase:
 
 ## Decisions for the owner
 
-| # | Question | Recommendation |
+| # | Question | Answer (the owner, 2026-11-02) |
 |---|---|---|
-| 1 | Planted becomes a face on the Landscape instead of a depth? | Yes |
-| 2 | Tapping a Look keeps the Info; replacing everything becomes a separate "Start Over from This Look"? | Yes |
-| 3 | The classic HK cards (Now Playing, Timers, weather, status) on the screensaver replaced by the pieces' Card shape, without their controls? | Yes |
-| 4 | The slide corner's time follows the Look's face color and font, or one fixed corner style? | Follow the Look |
-| 5 | Every screen through one renderer, so screens with no saved layout may shift slightly? | Yes, after the phase 4 shots |
-| 6 | Big Weather's slide corner: Date and House Status only, since it already shows a time or temperature? | Yes |
-| 7 | Pieces that show people (Who's Home) or cameras (Camera, Last Ring) stay off until placed, since anyone walking by sees a screensaver? | Yes |
-| 8 | Any pieces to add to or drop from the glance catalog before building? | The owner's list |
+| 1 | Planted becomes a face on the Landscape instead of a depth? | **Yes** |
+| 2 | Tapping a Look keeps the Info; replacing everything becomes a separate "Start Over from This Look"? | **Yes** |
+| 3 | The classic HK cards (Now Playing, Timers, weather, status) on the screensaver replaced by the pieces' Card shape, without their controls? | **Yes** |
+| 4 | The slide corner's time follows the Look's face color and font, or one fixed corner style? | **Follow the Look** (Flip and Analog, which have no text form, use Classic's) |
+| 5 | Every screen through one renderer, so screens with no saved layout may shift slightly? | **Yes, after the phase 4 shots** |
+| 6 | Big Weather's slide corner: Date and House Status only, since it already shows a time or temperature? | **Yes** |
+| 7 | Pieces that show people (Who's Home) or cameras (Camera, Last Ring) stay off until placed, since anyone walking by sees a screensaver? | **Yes** |
+| 8 | Any pieces to add to or drop from the glance catalog before building? | **Build it as listed** (all three waves) |
+
+One detail the mock-up settled: a placed piece a new Look has no place for (the Month has no row) **waits in Info**,
+listed as waiting, and comes back with a Look that has the place, instead of being dropped. A piece whose zone can't
+take its new shape still moves to the nearest zone that can.
 
 ## Rules that still hold
 
@@ -374,3 +379,6 @@ Also fixed in this phase:
   patches).
 - 2026-11-02: the glance catalog (about thirty more pieces in three waves) and the rules every piece follows, from
   the owner's "almost like an iPhone lock screen".
+- 2026-11-02, phase 0: the mock-up (Looks that keep the Info, Look/Info/Slides/Timing, a piece in each shape, the
+  grouped library with the glance catalog, the slide corner on all five slides at three sizes); the owner answered the
+  eight decisions with the recommendations.
