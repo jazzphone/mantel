@@ -90,7 +90,13 @@ already the shortest path, so it stays.
   - HA cameras keep `camera.<id>`;
   - direct ones are `camera.mantel_<slug>`; an HA entity with the same id is refused at setup and named, not
     shadowed.
-- `authz.py` and `camera_still.py` dispatch on the source.
+- `camera_still.py` dispatches on the source. `authz.py` needs no dispatch: the camera rules key on the entity id
+  and its area, and a direct camera's registry entry carries its area, so one rule decides every camera.
+- **Where a source is kept** (built in phase 3, `cameras_direct.py`): the house document `cameras_direct` holds
+  everything but the URLs. The stream and still URLs (Protect's token, an RTSP camera's password) are sealed, one
+  file per camera, beside the Connections page's credentials (`connections/camera-<slug>.connection`).
+- **An id HA gains later** is HA's: the direct camera is set aside and its status says `conflict`, naming HA's
+  entity, until one is renamed.
 - **The same camera twice.** HA's unifiprotect device identifiers carry the Protect camera's id and MAC. When a
   direct Protect camera matches an HA camera, Mantel shows one camera, with **Video From: Direct / Home Assistant**,
   defaulting to Direct. Areas and names come from HA when it has the camera; otherwise they are set in Mantel.
@@ -338,4 +344,13 @@ after the ticket"); the log since the 0.1.113 restart has no talk in it yet.
   `talk_direct.py` lets the relay talk at a Protect doorbell itself (`DirectTalkLink`, a drop-in for Home
   Assistant's socket). PyAV (av 19.0.2) joins the server image: **about 92 MB** (av 38 MB, its ffmpeg libraries
   54 MB; the arm64 image measured 811 MB with it).
+- 2026-11-02: phase 3 built (`hosts/server/mantel_server/cameras_direct.py`, Docker and LXC only). The source
+  registry with its Python API for phases 4 and 6 (`DirectCameras.put`, `.remove`, `.sources`,
+  `.set_still_provider`) and a manager-only `GET /api/cameras/direct` without URLs. URLs are sealed beside the
+  Connections credentials, never in the settings document. Each source is `camera.mantel_<slug>` in an overlay
+  beside Live TV's, with its area in the registry. An id HA has is refused and named; one HA gains later is HA's
+  (`conflict`). Video: `mantel_cam_<slug>_high` in go2rtc on demand, relayed like Live TV's and stopped after the
+  last viewer. Stills: go2rtc's `frame.jpeg` of the low stream, with a hook for Protect's snapshot (phase 4).
+  RBAC is unchanged and tested on direct cameras: area grants, an entity deny, Child and Guest, the tunnel's
+  camera switch, other connections' sessions and the caps. Nothing visible yet.
 
