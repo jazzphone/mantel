@@ -420,3 +420,63 @@ def test_a_fresh_worktree_orders_its_steps_by_every_worktrees_times(tmp_path):
     ci.run([fake("a")], "full", record_dir=tmp_path / "one", echo=lambda s: None, shared_times=shared)
     ci.run([fake("b")], "full", record_dir=tmp_path / "two", echo=lambda s: None, shared_times=shared)
     assert set(ci.read_times(shared)) == {"a", "b"}, "the second worktree knows the first one's step"
+
+
+# ---- how long the steps take (2026-11-02: the Shows' check grew ~13x in one commit and no run said so)
+
+def test_a_check_in_parts_is_cut_again_as_it_grows_but_holds_still_near_its_target():
+    assert ci.next_parts([290, 280, 289, 285, 244, 246, 225, 254]) == ci.MAX_PARTS      # 2113 s: 15 wanted, 12 at most
+    assert ci.next_parts([140, 150, 160, 155]) == 4, "near the target: the count (in each part's name and key) holds"
+    assert ci.next_parts([200, 210]) == 2 and ci.next_parts([240, 250]) == 4
+    assert ci.next_parts([60] * 8) == 4, "much faster: fewer parts, fewer servers and browsers"
+    assert ci.next_parts([30, 30]) == ci.MIN_PARTS
+
+
+def test_the_steps_take_the_count_of_parts_their_timing_gives():
+    names = lambda parts: [s.name for s in ci.steps(parts=parts) if s.family == "saver-shows-check"]  # noqa: E731
+    assert names(None) == [f"saver-shows-check-{i}of{ci.SAVER_SHARDS}" for i in range(1, ci.SAVER_SHARDS + 1)]
+    twelve = [s for s in ci.steps(parts={"saver-shows-check": 12}) if s.family]
+    assert [s.name for s in twelve][-1] == "saver-shows-check-12of12" and twelve[2].cmd[-2:] == ["--shard", "3/12"]
+
+
+def results(**secs):
+    return [ci.Result(n, "passed", float(t)) for n, t in secs.items()]
+
+
+def test_a_step_much_slower_than_its_last_runs_is_named_but_not_a_busy_machine():
+    history = {n: [100.0] * 5 for n in "abcdef"}
+    said = ci.timing_warnings(results(a=100, b=105, c=98, d=110, e=102, f=230), history)
+    assert len(said) == 1 and said[0].startswith("f: 230 s, 2.2x its usual 100 s")
+    assert ci.timing_warnings(results(a=200, b=210, c=190, d=205, e=200, f=200), history) == [], \
+        "every step twice as slow is the machine, not the checks"
+    said = ci.timing_warnings(results(a=200, b=210, c=190, d=205, e=200, f=460), history)
+    assert len(said) == 1 and said[0].startswith("f: 460 s") and "(the other steps at 2.0x)" in said[0]
+    assert ci.timing_warnings(results(a=100, b=100, c=100, d=100, e=100, f=125), history) == [], "noise"
+    assert ci.timing_warnings(results(new=100), history) == [], "no history yet: nothing to compare with"
+
+
+def test_a_step_past_the_budget_says_what_to_do():
+    said = ci.timing_warnings(results(long=300), {})
+    assert said == [f"long: 300 s, past the {ci.STEP_BUDGET} s one step may take: run it in parts (--shard K/N, as "
+                    "saver_shows_check.py does) or cut its fixed waits"]
+    fam = {f"s-{i}of2": "s" for i in (1, 2)}
+    assert "runs in 4 parts next time, not 2" in ci.timing_warnings(results(**{"s-1of2": 300, "s-2of2": 290}), {}, fam,
+                                                                     {"s": 4})[0]
+    full = {f"s-{i}of{ci.MAX_PARTS}": "s" for i in range(1, ci.MAX_PARTS + 1)}
+    said = ci.timing_warnings(results(**{n: 300 for n in full}), {}, full, {"s": ci.MAX_PARTS})
+    assert len(said) == ci.MAX_PARTS and "the most: cut its fixed waits or its runs" in said[0]
+
+
+def test_a_run_keeps_each_steps_times_and_a_checks_next_count_of_parts(tmp_path):
+    timing = tmp_path / "common/timing.json"
+    parts = [ci.Step(f"p-{i}of2", [sys.executable, "-c", "import time; time.sleep(0.2)"], family="p") for i in (1, 2)]
+    for _ in range(3):
+        rec = ci.run([fake("a"), *parts], "full", record_dir=tmp_path / "rec", echo=lambda s: None, timing=timing)
+        assert rec["warnings"] == []
+    got = ci.read_timing(timing)
+    assert len(got["history"]["a"]) == 3 and len(got["history"]["p-1of2"]) == 3
+    assert got["parts"] == {"p": ci.MIN_PARTS}, "two quick parts: as few as may be"
+    ci.run([fake("a"), parts[0]], "full", record_dir=tmp_path / "rec", echo=lambda s: None, timing=timing)
+    assert ci.read_timing(timing)["parts"] == {"p": ci.MIN_PARTS}, "a part alone (--only) says nothing of the whole"
+    timing.write_text("{not json")
+    assert ci.read_timing(timing) == {"history": {}, "parts": {}}

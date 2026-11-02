@@ -46,8 +46,17 @@ CI_JOBS=4 ~/.venvs/mantel/bin/python tools/ci.py full    # fewer at once (three 
   the last run's times (kept in `.git/mantel-ci/step-times.json` too, so a fresh worktree has them; a step never
   timed counts as the longest); the CDP checks (`headless-*`) share one fixed DevTools port and run one after
   another. Edit mode and Swipe Between Pages are a step per engine and size, so they run side by side too, as do
-  the Side Pane's check (a step per size) and the screensaver Shows' (`saver-shows-check-KofN`, eight parts, every
-  N-th of its runs each, `--shard K/N`): each was once the full run's last few minutes alone.
+  the Side Pane's check (a step per size) and the screensaver Shows' (`saver-shows-check-KofN`, every N-th of its
+  runs each, `--shard K/N`): each was once the full run's last few minutes alone.
+- **How long a step may take** (2026-11-02: one commit made the Shows' check ~13 times longer, and no run said so).
+  A check run in parts is cut into as many as keep its longest part near 150 s (`ci.py` `PART_TARGET`; 2 to 12
+  parts, the count kept in `.git/mantel-ci/timing.json`). The count holds still while the longest part stays
+  between half and one and a half times that, since it is part of each part's name and key, and a run of only some
+  parts (`--only`) never changes it. Under the table, **Slower than it should be** names each step past 240 s
+  (`STEP_BUDGET`) and each step much slower than its own last ten passes. Every step is measured against the run's
+  own pace, so a busy machine slowing everything flags nothing. Each line says what to do: run the check in parts,
+  cut its fixed waits, or look at what the change added. A warning never fails the run; read it before you push the
+  change that caused it.
   The main suite runs on 8 workers (`CI_PYTEST_WORKERS`) where `pytest-xdist` is installed (`pip install -e
   '.[dev]'`); a parametrized test's ids must not depend on random data, or the workers collect different tests.
 - **quick** is the main suite, `check_links`, `check_version`, `package_check --release`, and the private words

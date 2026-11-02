@@ -59,10 +59,17 @@ MAC_CHROME = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 HEADLESS = ("client_smoke", "gateway_page_check", "admin_page_check", "settings_viewports", "ingress_smoke",
             "grid_blocks_check", "grid_music_turn_check")
 CADDY_IMAGE = "mantel-caddy:ci"
-# the screensaver's Shows in this many parts side by side, each its own server and WebKit (2026-11-01: one part took
-# ~7 minutes of a full run's ~7 alone; the others end within ~4. 2026-11-02: every Look under every slide made each of
-# four parts ~510 s, the full run's last five minutes alone)
+# the screensaver's Shows in parts side by side, each its own server and WebKit (2026-11-01: one part took ~7 minutes
+# of a full run's ~7 alone; the others end within ~4. 2026-11-02: every Look under every slide made each of four parts
+# ~510 s, the full run's last five minutes alone). This many until a run has timed them; then next_parts' count.
 SAVER_SHARDS = 8
+# HOW LONG A STEP MAY TAKE (2026-11-02: the Shows' check grew from ~150 s to ~2000 s in one commit and nothing said so).
+# A check in parts is cut again so its longest part stays near PART_TARGET (next_parts), between MIN_PARTS and
+# MAX_PARTS; any step past STEP_BUDGET, or much slower than its own last runs, is named under the table (timing_warnings).
+PART_TARGET = 150
+MIN_PARTS, MAX_PARTS = 2, 12
+STEP_BUDGET = 240
+HISTORY = 10                                   # each step's last passed times kept (timing.json)
 # Swipe Between Pages: each engine's sizes (page_swipe_check.py ENGINE_SIZES), each a step of its own (2026-11-02: an
 # engine's four were ~140 s together)
 PAGE_SWIPE = {"chromium": ("1280x800", "800x1280", "390x844", "844x390"),
@@ -122,6 +129,8 @@ class Step:
     inputs: tuple[str, ...] | Callable[[], tuple[str, ...]] = ()
     # what it runs with besides the tree (env_print's kinds): part of its key
     needs: tuple[str, ...] = ()
+    # one part of a check run in parts (`--shard K/N`): the check's name, its parts counted by next_parts
+    family: str = ""
 
 
 @dataclass
@@ -212,8 +221,10 @@ def check_inputs(script: str, engine: str = "webkit") -> dict:
             "needs": ("py", "chrome", "mac") if engine == "cdp" else PLAYWRIGHT + (("chrome",) * (engine == "chromium"))}
 
 
-def steps(build: Build | None = None) -> list[Step]:
+def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> list[Step]:
+    """Every step; a check in parts in `parts`' count of them (timing.json's), else its default."""
     build = build or Build()
+    shows = (parts or {}).get("saver-shows-check", SAVER_SHARDS)
     py = python()
     out = [
         # esbuild, pinned (tools/package.json): the image and HK Frontend builds minify with it, and the suite
@@ -283,11 +294,11 @@ def steps(build: Build | None = None) -> list[Step]:
     out.append(Step("looks-check", [py, "tools/headless/looks_check.py"], tier="full", timeout=900,
                     skip=playwright_missing, **check_inputs("tools/headless/looks_check.py")))
     # the screensaver's Shows the way a house starts them: a screen's settings -> the strategy -> the screensaver
-    # (in SAVER_SHARDS parts side by side, each every SAVER_SHARDS-th of its runs)
-    out += [Step(f"saver-shows-check-{i}of{SAVER_SHARDS}", [py, "tools/headless/saver_shows_check.py", "--shard",
-                                                           f"{i}/{SAVER_SHARDS}"], tier="full", timeout=900,
+    # (in `shows` parts side by side, each every `shows`-th of its runs)
+    out += [Step(f"saver-shows-check-{i}of{shows}", [py, "tools/headless/saver_shows_check.py", "--shard",
+                                                    f"{i}/{shows}"], tier="full", timeout=900, family="saver-shows-check",
                  skip=playwright_missing, **check_inputs("tools/headless/saver_shows_check.py"))
-            for i in range(1, SAVER_SHARDS + 1)]
+            for i in range(1, shows + 1)]
     out.append(Step("caddy-image", ["sh", "-c",
                     f"docker build -q -f packaging/docker/caddy.Dockerfile -t {CADDY_IMAGE} packaging/docker && "
                     f'"{py}" -m pytest -q -p no:cacheprovider tests/test_packaging.py -k caddy_image'],
@@ -362,7 +373,7 @@ def say(text: str):
 def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Callable[[str], None] = say,
         after: Callable[[Step, Result], None] | None = None, only: list[str] | None = None,
         store: Path | None = None, step_store: Path | None = None, reuse: bool = True, build: Build | None = None,
-        root: Path = ROOT, shared_times: Path | None = None) -> dict:
+        root: Path = ROOT, shared_times: Path | None = None, timing: Path | None = None) -> dict:
     """Run the steps and write the record; with `store`, a whole run (no `only`) is also remembered there. With
     `step_store`, each step with a key (step_keys, at the start) that passed is remembered there by it, and one that
     failed forgets it; and with `reuse`, a step whose key passed before is not run: it is unchanged."""
@@ -434,6 +445,8 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
         "finished": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
         "ok": not any(r.status == "failed" for r in results),
         "steps": [vars(r) for r in results],
+        # (what took longer than it should: timing_warnings, with `timing` the history it compares with)
+        "warnings": keep_timing(chosen, results, timing) if timing else [],
     }
     (record_dir / "last-run.json").write_text(json.dumps(record, indent=2) + "\n")
     times = {**was, **{r.name: round(r.seconds, 1) for r in results if r.status in ("passed", "failed")}}
@@ -782,6 +795,98 @@ def step_times(record_dir: Path) -> dict[str, float]:
     return {}
 
 
+# ---------------------------------------------------------------- how long the steps take (2026-11-02)
+# THE CHECKS GREW UNSEEN. One commit made the screensaver Shows' check every Look under every slide at four sizes (~150
+# runs, each with seconds of fixed waits): four parts of ~510 s, the full run ten minutes, and no run said why. Now a
+# check in parts is cut into more of them as it grows (next_parts), and a step that got much slower than its own last
+# runs, or that is past STEP_BUDGET, is named under the table. Each kept in timing.json beside the passed runs.
+
+def read_timing(path: Path | None) -> dict:
+    """{"history": {step: [its last passed seconds]}, "parts": {check: how many parts}}, empty where unknown."""
+    try:
+        got = json.loads(path.read_text()) if path else {}
+    except (OSError, ValueError):
+        got = {}
+    hist = got.get("history") if isinstance(got, dict) else None
+    parts = got.get("parts") if isinstance(got, dict) else None
+    return {"history": {k: [float(x) for x in v if isinstance(x, (int, float))] for k, v in hist.items()
+                        if isinstance(v, list)} if isinstance(hist, dict) else {},
+            "parts": {k: int(v) for k, v in parts.items() if isinstance(v, int) and MIN_PARTS <= v <= MAX_PARTS}
+            if isinstance(parts, dict) else {}}
+
+
+def next_parts(seconds: list[float], target: float = PART_TARGET, lo: int = MIN_PARTS, hi: int = MAX_PARTS) -> int:
+    """How many parts a check should run in next, from its parts' seconds this run: the same while its longest part is
+    within half and one and a half times `target` (so the count, part of each part's name and key, holds still), else
+    enough for parts of about `target`."""
+    n, longest = len(seconds), max(seconds)
+    if longest > target * 1.5 or (longest < target / 2 and n > lo):
+        return max(lo, min(hi, -(-int(sum(seconds)) // int(target))))
+    return n
+
+
+def _median(xs: list[float]) -> float:
+    xs = sorted(xs)
+    return (xs[(len(xs) - 1) // 2] + xs[len(xs) // 2]) / 2
+
+
+def timing_warnings(results: list[Result], history: dict[str, list[float]], families: dict[str, str] | None = None,
+                    nxt: dict[str, int] | None = None, budget: float = STEP_BUDGET) -> list[str]:
+    """The steps that took longer than they should, each said with what to do. A whole run on a busy machine is slower
+    in every step: each step is measured against the run's own pace (the median of its steps' times over their usual).
+    `families`: each part's check; `nxt`: each check's count of parts for the next run."""
+    families, nxt = families or {}, nxt or {}
+    now = {f: sum(v == f for v in families.values()) for f in set(families.values())}
+    ran = [r for r in results if r.status == "passed" and r.seconds >= 5]
+    usual = {r.name: _median(history[r.name][-HISTORY:]) for r in ran if len(history.get(r.name, [])) >= 3}
+    ratios = {n: r.seconds / usual[n] for r in ran if (n := r.name) in usual and usual[n] > 0}
+    pace = max(1.0, _median(list(ratios.values()))) if len(ratios) >= 5 else 1.0
+    out = []
+    for r in ran:
+        fam = families.get(r.name, "")
+        if r.seconds > budget * pace:
+            if not fam:
+                how = "run it in parts (--shard K/N, as saver_shows_check.py does) or cut its fixed waits"
+            elif nxt.get(fam, now[fam]) > now[fam]:
+                how = f"{fam} runs in {nxt[fam]} parts next time, not {now[fam]}"
+            elif now[fam] >= MAX_PARTS:
+                how = f"{fam} is in {now[fam]} parts already, the most: cut its fixed waits or its runs"
+            else:
+                how = f"its parts are uneven: {fam} deals its runs out in turn; give it a fairer split"
+            out.append(f"{r.name}: {r.seconds:.0f} s, past the {budget:.0f} s one step may take"
+                       + (f" (the machine ran at {pace:.1f}x its usual pace)" if pace > 1.05 else "") + f": {how}")
+        elif r.name in ratios and ratios[r.name] > 1.5 * pace and r.seconds - usual[r.name] * pace > 30:
+            out.append(f"{r.name}: {r.seconds:.0f} s, {ratios[r.name] / pace:.1f}x its usual {usual[r.name]:.0f} s"
+                       f" (the other steps at {pace:.1f}x): what did this change add to it?")
+    return out
+
+
+def keep_timing(chosen: list[Step], results: list[Result], path: Path) -> list[str]:
+    """This run's timing warnings; and each passed step's time added to its history, and each check that ran all its
+    parts given its next count (next_parts). Every worktree's runs share the file: one at a time, under a lock."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    by = {r.name: r for r in results}
+    families = {s.name: s.family for s in chosen if s.family}
+    with open(path.with_suffix(".lock"), "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        timing = read_timing(path)
+        hist, parts = timing["history"], timing["parts"]
+        for fam in sorted(set(families.values())):
+            got = [by[n] for n, f in families.items() if f == fam and n in by]
+            # (every part, each "KofN": a part run alone, with --only, says nothing of the whole)
+            whole = {int(m.group(1)) for n, f in families.items() if f == fam and (m := re.search(r"of(\d+)$", n))}
+            if got and whole == {len(got)} and all(r.status in ("passed", "failed") for r in got):
+                parts[fam] = next_parts([r.seconds for r in got])
+        warnings = timing_warnings(results, hist, families, parts)
+        for r in results:
+            if r.status == "passed":
+                hist[r.name] = (hist.get(r.name, []) + [round(r.seconds, 1)])[-HISTORY:]
+        tmp = path.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_text(json.dumps({"history": hist, "parts": parts}, indent=1, sort_keys=True) + "\n")
+        tmp.replace(path)
+    return warnings
+
+
 def table(record: dict) -> str:
     rows = [f"{'step':<36} {'result':<9} {'time':>7}  note"]
     for s in record["steps"]:
@@ -791,6 +896,8 @@ def table(record: dict) -> str:
                 + (f"{counts['unchanged']} unchanged, " if counts["unchanged"] else "")
                 + f"{counts['failed']} failed, {counts['skipped']} skipped on {record['commit'][:9]}"
                 + (f" ({len(record['dirty'])} uncommitted)" if record["dirty"] else ""))
+    if record.get("warnings"):
+        rows += ["Slower than it should be:", *(f"  {w}" for w in record["warnings"])]
     return "\n".join(rows)
 
 
@@ -876,7 +983,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"installed {path}")
         return 0
     build = Build()
-    all_steps = steps(build)
+    timing = store_path().with_name("timing.json")
+    all_steps = steps(build, read_timing(timing)["parts"])
     if args.list:
         for s in all_steps:
             print(f"{s.tier:<8} {s.name}" + ("  (also in versions)" if s.versions and s.tier != "versions" else ""))
@@ -911,7 +1019,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Mantel checks, {args.tier}: {len(chosen)} steps")
     try:
         record = run(chosen, args.tier, after=after, only=only, store=store, step_store=step_store_path(),
-                     reuse=not (args.all or args.only), build=build, shared_times=store.with_name("step-times.json"))
+                     reuse=not (args.all or args.only), build=build, shared_times=store.with_name("step-times.json"),
+                     timing=timing)
     finally:
         build.clean()
     print(table(record))
