@@ -13,6 +13,10 @@
 
 {
 	admin off
+	# A browser sends no name (SNI) to an address, and behind Docker's port mapping Caddy can't tell which address it
+	# was: without this, https://<the LXC's address> (mantel-setup's "try", MANTEL_HOSTNAME an IP) failed the handshake.
+	# With a name, browsers send it and this changes nothing.
+	default_sni {$MANTEL_HOSTNAME}
 	# Only cloudflared (fixed address on the tunnel network) may tell us a client's real address, and it
 	# says it in Cf-Connecting-Ip (set by Cloudflare's edge; a browser can't). From anyone else the client
 	# is the socket's peer.
