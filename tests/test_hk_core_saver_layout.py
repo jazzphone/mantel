@@ -28,26 +28,97 @@ def test_no_layout_draws_as_each_show_always_has():
 
 def test_a_layout_that_checks_is_stored_whole():
     got = C._saver_options({"layout": GOOD})["layout"]
+    assert got["v"] == 2                                                   # a v1 layout is stored as v2
     assert got["big"] == {"kind": "time", "size": 40, "pos": "top", "align": "center", "depth": "behind"}
-    assert [w["id"] for w in got["zones"]["row"]] == ["temp", "next_event", "aqi"]
-    assert got["zones"]["row"][0] == {"id": "temp", "back": "glass", "color": "auto"}
+    assert [(w["piece"], w["shape"]) for w in got["zones"]["row"]] == [("weather", "circular"), ("events", "rectangular"), ("readings", "circular")]
+    assert got["zones"]["row"][0] == {"piece": "weather", "shape": "circular", "back": "glass", "color": "auto"}
+    assert got["zones"]["row"][2]["opts"] == {"reading": "aqi"}
+    assert got["zones"]["tr"][0] == {"piece": "status", "shape": "card", "back": "none", "color": "auto"}   # v1's white: the ink
     assert got["upright"] == {"big": {"kind": "time", "size": 30, "pos": "top", "align": "center", "depth": "front"}}
     assert set(got["zones"]) == set(SL.ZONES)
+    assert "row_size" not in got and "ink" not in got and "accents" not in got
+
+
+V2 = {"v": 2, "row_size": 150, "ink": "black", "accents": False, "big": {"kind": "time"},
+      "zones": {"row": [{"piece": "weather", "shape": "circular"}, {"piece": "readings", "shape": "circular", "opts": {"reading": "wind"}, "size": 200}],
+                "tl": [{"piece": "time", "shape": "card", "size": 180}], "bl": [{"piece": "music", "shape": "inline", "color": "accent"}]}}
+
+
+MAIL = {"entity": "binary_sensor.mailbox", "op": "is", "value": "on"}
+
+
+@pytest.mark.parametrize("show,ok", [
+    (MAIL, True), ({"entity": "sensor.home_battery_power", "op": "above", "value": 0}, True),
+    ({"entity": "sensor.freezer", "op": "below", "value": -10.5}, True), ({"entity": "lock.front", "op": "not", "value": "locked"}, True),
+    ({"entity": "mailbox", "op": "is", "value": "on"}, False), ({"entity": "binary_sensor.mailbox", "op": "equals", "value": "on"}, False),
+    ({"entity": "binary_sensor.mailbox", "op": "is", "value": ""}, False), ({"entity": "binary_sensor.mailbox", "op": "is", "value": True}, False),
+    ({"entity": "binary_sensor.mailbox", "op": "is"}, False), ({"entity": "binary_sensor.mailbox", "op": "is", "value": "x" * 65}, False),
+])
+def test_a_piece_can_show_only_when(show, ok):
+    """2026-11-02, the owner: "if I want to show an entity on the screen for example, Mail Box...it only shows when the
+    Mail Has Arrived? Or if the House Battery is charging?" -- a condition on one entity, on any piece."""
+    lay = {"v": 2, "zones": {"tl": [{"piece": "status", "shape": "inline", "show": show}]}}
+    if ok:
+        assert C._saver_options({"layout": lay})["layout"]["zones"]["tl"][0]["show"] == show
+    else:
+        with pytest.raises(C.Invalid):
+            C._saver_options({"layout": lay})
+
+
+@pytest.mark.skipif(not JSC.exists(), reason="JavaScriptCore's jsc is macOS's")
+def test_the_condition_is_met_as_the_house_is(tmp_path):
+    prelude = tmp_path / "met.js"
+    prelude.write_text(
+        "var window = this;\n"
+        f"load({json.dumps(str(ROOT / 'web/hk/modules/hk-saverlayout.js'))});\n"
+        "var L = window.hkSaverLayout, st = {'binary_sensor.mailbox': {state: 'on'}, 'sensor.battery_power': {state: '1250'},\n"
+        "  'sensor.gone': {state: 'unavailable'}, 'sensor.mode': {state: 'Charging'}};\n"
+        "print(JSON.stringify([L.met(null, st), L.met({entity: 'binary_sensor.mailbox', op: 'is', value: 'on'}, st),\n"
+        "  L.met({entity: 'binary_sensor.mailbox', op: 'not', value: 'on'}, st), L.met({entity: 'sensor.battery_power', op: 'above', value: 0}, st),\n"
+        "  L.met({entity: 'sensor.battery_power', op: 'below', value: '1000'}, st), L.met({entity: 'sensor.mode', op: 'is', value: 'charging'}, st),\n"
+        "  L.met({entity: 'sensor.gone', op: 'not', value: 'on'}, st), L.met({entity: 'sensor.nowhere', op: 'not', value: 'on'}, st)]));\n")
+    out = json.loads(subprocess.run([str(JSC), str(prelude)], capture_output=True, text=True, check=True, timeout=30).stdout)
+    # (an entity the screen can't read, or one unavailable, never shows the piece: absent isn't "not")
+    assert out == [True, True, False, True, False, True, False, False]
+
+
+def test_a_v2_layout_one_row_size_one_ink_and_sizes_to_200():
+    """2026-11-02, the owner on the mock-up: circular widgets in sync ("one common size and let the user decide if
+    they want one bigger"); a little color and black or white, the same for the whole screen; up to 200%."""
+    got = C._saver_options({"layout": V2})["layout"]
+    assert got["row_size"] == 150 and got["ink"] == "black" and got["accents"] is False
+    assert "size" not in got["zones"]["row"][0] and got["zones"]["row"][1]["size"] == 200
+    assert got["zones"]["tl"][0]["size"] == 180
+    assert got["zones"]["bl"][0]["color"] == "accent"
+    # the row's room is in units times size: four circulars at 200% fill both lines, a fifth doesn't fit
+    four = [{"piece": "weather", "shape": "circular"}] * 4
+    assert SL.check({"v": 2, "row_size": 200, "zones": {"row": four}})
+    with pytest.raises(SL.LayoutInvalid):
+        SL.check({"v": 2, "row_size": 200, "zones": {"row": four + [{"piece": "timers", "shape": "circular"}]}})
 
 
 @pytest.mark.parametrize("bad", [
-    {"v": 2},                                                              # a version this build doesn't know
+    {"v": 3},                                                              # a version this build doesn't know
     {"v": True},
     {"v": 1, "extra": 1},
+    {"v": 1, "ink": "black"},                                              # v2's keys only in v2
+    {"v": 2, "ink": "gray"},
+    {"v": 2, "row_size": 210},
+    {"v": 2, "accents": "yes"},
     {"v": 1, "big": {"size": 60}},                                         # bigger than the screen allows
     {"v": 1, "big": {"size": True}},
     {"v": 1, "big": {"kind": "moon"}},
     {"v": 1, "zones": {"side": []}},                                       # the pane is the Side Pane's
     {"v": 1, "zones": {"row": [{"id": "music_card"}]}},                    # a card in the row
+    {"v": 2, "zones": {"row": [{"piece": "music", "shape": "card"}]}},
+    {"v": 2, "zones": {"line": [{"piece": "date", "shape": "circular"}]}}, # a shape the piece hasn't
+    {"v": 2, "zones": {"row": [{"piece": "readings", "shape": "circular", "opts": {"reading": "pollen"}}]}},
+    {"v": 2, "zones": {"row": [{"piece": "nope", "shape": "circular"}]}},
     {"v": 1, "zones": {"row": [{"id": "temp"}, {"id": "next_event"}, {"id": "aqi"}, {"id": "locks"},
                                {"id": "next_hours"}, {"id": "humidity"}, {"id": "sunset"}]}},              # 9 units: two lines of four
     {"v": 1, "zones": {"row": [{"id": "temp", "size": 40}]}},              # smaller than a widget goes
     {"v": 1, "zones": {"row": [{"id": "temp", "size": 100.5}]}},
+    {"v": 2, "zones": {"row": [{"piece": "weather", "shape": "circular", "size": 201}]}},
     {"v": 1, "row_at": "middle"},
     {"v": 1, "upright": {"row_at": "top"}},
     {"v": 1, "zones": {"tl": [{"id": "clock_card"}, {"id": "weather_card"}, {"id": "status_card"}]}},     # 3 in a corner
@@ -71,11 +142,15 @@ def test_the_read_keeps_what_it_can_and_never_costs_the_other_options():
     assert got["show"] == "clock" and got["clock_style"] == "neon"
     lay = got["layout"]
     assert lay["big"]["size"] == SL.BIG_DEFAULT["size"]                    # the bad value is the default
-    assert [w["id"] for w in lay["zones"]["row"]] == ["temp", "next_event", "aqi", "locks", "next_hours", "humidity"]   # what fits
+    assert [w["piece"] for w in lay["zones"]["row"]] == ["weather", "events", "readings", "status", "weather", "readings"]   # what fits
     assert lay["row_at"] == "under"
-    assert [w["id"] for w in lay["zones"]["tl"]] == ["clock_card"]
+    assert [(w["piece"], w["shape"]) for w in lay["zones"]["tl"]] == [("time", "card")]
     assert M.saver_options({"layout": {"v": 9}})["layout"] is None
     assert M.saver_options({"layout": "a layout"})["layout"] is None
+    # a v2 layout's unknown ink is auto, an unknown piece is left out, an unknown option dropped
+    lay2 = M.saver_options({"layout": {"v": 2, "ink": "gray", "zones": {"row": [{"piece": "pollen", "shape": "circular"},
+                            {"piece": "readings", "shape": "circular", "opts": {"reading": "pollen"}}]}}})["layout"]
+    assert "ink" not in lay2 and lay2["zones"]["row"] == [{"piece": "readings", "shape": "circular", "back": "none", "color": "auto"}]
 
 
 def test_every_widget_and_card_has_a_size_and_the_row_a_place():
@@ -85,10 +160,10 @@ def test_every_widget_and_card_has_a_size_and_the_row_a_place():
         "row": [{"id": "temp", "size": 120}, {"id": "aqi", "size": 100}, {"id": "next_event"}, {"id": "locks"}, {"id": "sunset"}],
         "br": [{"id": "status_card", "size": 80, "back": "glass"}]}, "upright": {"row_at": "under"}}})["layout"]
     assert got["row_at"] == "bottom" and got["upright"] == {"row_at": "under"}
-    assert got["zones"]["row"][0] == {"id": "temp", "back": "none", "color": "auto", "size": 120}
-    assert "size" not in got["zones"]["row"][1]                            # 100 is a widget's usual: not stored
+    assert got["zones"]["row"][0] == {"piece": "weather", "shape": "circular", "back": "none", "color": "auto", "size": 120}
+    assert "size" not in got["zones"]["row"][1]                            # 100 was v1's usual: the row's size now
     assert len(got["zones"]["row"]) == 5                                   # a second line
-    assert got["zones"]["br"][0] == {"id": "status_card", "back": "glass", "color": "auto", "size": 80}
+    assert got["zones"]["br"][0] == {"piece": "status", "shape": "card", "back": "glass", "color": "auto", "size": 80}
     assert M.saver_options({"layout": {"v": 1}})["layout"]["row_at"] == "under"
 
 
@@ -100,26 +175,34 @@ def test_all_screens_checks_the_same_way():
 
 @pytest.mark.skipif(not JSC.exists(), reason="JavaScriptCore's jsc is macOS's")
 def test_the_pages_catalog_and_checks_are_the_same(tmp_path):
-    """hk-saverlayout.js against saver_layout.py: the widgets and their kinds, the zones, the big element's choices,
-    and the same verdict on the same layouts."""
-    cases = [GOOD, {"v": 2}, {"v": 1, "zones": {"row": [{"id": "music_card"}]}}, {"v": 1, "big": {"size": 44}},
+    """hk-saverlayout.js against saver_layout.py: the pieces, their shapes and options, the zones, the v1 map, the big
+    element's choices, and the same verdict and the same reading of the same layouts."""
+    cases = [GOOD, V2, {"v": 3}, {"v": 1, "zones": {"row": [{"id": "music_card"}]}}, {"v": 1, "big": {"size": 44}},
              {"v": 1, "row_at": "bottom", "zones": {"row": [{"id": "temp", "size": 160}, {"id": "aqi", "size": 59}]}},
              {"v": 1, "row_at": "bottom", "zones": {"row": [{"id": "temp", "size": 160}]}, "upright": {"row_at": "under"}},
-             {"v": 1, "big": {"size": 45}}, {"v": 1, "zones": {"tl": [{"id": "date"}, {"id": "clock_card"}]}}]
+             {"v": 1, "big": {"size": 45}}, {"v": 1, "zones": {"tl": [{"id": "date"}, {"id": "clock_card"}]}},
+             {"v": 2, "row_size": 200, "zones": {"row": [{"piece": "weather", "shape": "circular"}] * 5}},
+             {"v": 2, "zones": {"row": [{"piece": "readings", "shape": "circular", "opts": {"reading": "pollen"}}]}},
+             {"v": 2, "ink": "white", "zones": {"bl": [{"piece": "music", "shape": "inline"}]}},
+             {"v": 2, "zones": {"tl": [{"piece": "status", "shape": "inline", "show": MAIL}]}},
+             {"v": 2, "zones": {"tl": [{"piece": "status", "shape": "inline", "show": {"entity": "mailbox", "op": "is", "value": "on"}}]}}]
     prelude = tmp_path / "prelude.js"
     prelude.write_text(
         "var window = this;\n"
         f"load({json.dumps(str(ROOT / 'web/hk/modules/hk-saverlayout.js'))});\n"
         "var L = window.hkSaverLayout, cases = " + json.dumps(cases) + ";\n"
-        "var kinds = {}; Object.keys(L.CATALOG).forEach(function (k) { kinds[k] = L.CATALOG[k][0]; });\n"
-        "print(JSON.stringify({kinds: kinds, zones: L.ZONES, big: L.BIG, def: L.BIG_DEFAULT, backs: L.BACKS, colors: L.COLORS, size: L.ITEM_SIZE, rowat: L.ROW_AT,\n"
-        "  verdicts: cases.map(function (c) { return L.check(c); }), clean: L.clean(cases[0])}));\n")
+        "var pieces = {}; Object.keys(L.PIECES).forEach(function (k) { pieces[k] = [L.PIECES[k][0], L.PIECES[k][1]]; });\n"
+        "print(JSON.stringify({pieces: pieces, zones: L.ZONES, v1: L.V1, big: L.BIG, def: L.BIG_DEFAULT, backs: L.BACKS, colors: L.COLORS,\n"
+        "  size: L.ITEM_SIZE, rowat: L.ROW_AT, inks: L.INKS, shapes: L.SHAPES,\n"
+        "  verdicts: cases.map(function (c) { return L.check(c); }), clean: cases.map(function (c) { return L.clean(c); })}));\n")
     out = json.loads(subprocess.run([str(JSC), str(prelude)], capture_output=True, text=True, check=True, timeout=30).stdout)
-    assert out["kinds"] == SL.CATALOG
+    assert out["pieces"] == {p: [list(sh), {k: list(c) for k, c in o.items()}] for p, (sh, o) in SL.PIECES.items()}
     assert {z: (list(t), r) for z, (t, r) in SL.ZONES.items()} == {z: (v[0], v[1]) for z, v in out["zones"].items()}
+    assert {k: [p, s] + ([o] if o else []) for k, (p, s, o) in SL.V1.items()} == out["v1"]
     assert out["big"] == {"kinds": list(SL.BIG_KINDS), "size": list(SL.BIG_SIZE), "pos": list(SL.BIG_POS),
                           "align": list(SL.BIG_ALIGN), "depth": list(SL.BIG_DEPTH)}
-    assert out["size"] == list(SL.ITEM_SIZE) and out["rowat"] == list(SL.ROW_AT)
+    assert out["size"] == list(SL.ITEM_SIZE) and out["rowat"] == list(SL.ROW_AT) and out["inks"] == list(SL.INKS)
+    assert out["shapes"] == list(SL.SHAPES)
     assert out["def"] == SL.BIG_DEFAULT and out["backs"] == list(SL.BACKS) and out["colors"] == list(SL.COLORS)
 
     def py_verdict(c):
@@ -129,7 +212,7 @@ def test_the_pages_catalog_and_checks_are_the_same(tmp_path):
         except SL.LayoutInvalid as e:
             return e.code
     assert out["verdicts"] == [py_verdict(c) for c in cases]
-    assert out["clean"] == SL.layout(GOOD)
+    assert out["clean"] == [SL.layout(c) for c in cases]
 
 
 @pytest.mark.skipif(not JSC.exists(), reason="JavaScriptCore's jsc is macOS's")

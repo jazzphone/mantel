@@ -52,7 +52,8 @@
   // (a clock background's own picture -- bg:<clock_bg> -- so Sky Only, Moving Color, Wallpaper and Black look like themselves)
   function thumbOf(id, o) { return { photos: 'photos', landscape: 'forecast', dayart: 'day', calm: 'glance', paper: 'month' }[id] || (o && o.clock_bg ? 'bg:' + o.clock_bg : 'clock'); }
   // TODAY'S SHOWS, AS STARTERS: [name, what it is, its options, its layout (else today's, layoutFrom)]
-  function W(id) { return { id: id, back: 'none', color: 'auto' }; }
+  // (a starter's widgets are v1 ids, read as pieces when the layout is; a catalog id is `piece.shape`)
+  function W(id) { return id.indexOf('.') > 0 && window.hkSaverLayout ? window.hkSaverLayout.item(id) : { id: id, back: 'none', color: 'auto' }; }
   function zonesOf(o) { var z = { line: [], row: [], tl: [], tr: [], bl: [], br: [], bottom: [] }; Object.keys(o).forEach(function (k) { z[k] = o[k].map(W); }); return z; }
   var STARTERS = [
     ['Photo Frame', 'Your photos, the time behind them', { show: 'photos' },
@@ -156,7 +157,7 @@
       ]).then(() => {
         LM = window.hkSaverLayout; WG = window.hkSaverWidgets;
         // a screen with no layout yet opens on what it shows today
-        if (!this.opts.layout) this.opts.layout = LM.layoutFrom(this.opts);
+        this.opts.layout = (this.opts.layout && LM.clean(this.opts.layout)) || LM.layoutFrom(this.opts);
         this.initial = JSON.stringify(this.opts);
       });
     }
@@ -296,11 +297,11 @@
       var item = function (z, i, b) {
         var w = zs[z][i];
         if (!w) return;
-        var none = !!(info.empty && info.empty[w.id]);
+        var none = !!(info.empty && info.empty[LM.idOf(w)]), wid = LM.idOf(w);
         self.ov.appendChild(place(h('button', { type: 'button', class: 'w' + (none ? ' empty' : ''), 'aria-pressed': self.sel === z + ':' + i ? 'true' : 'false',
-          'aria-label': LM.CATALOG[w.id][1] + ', ' + self.zoneName(z), onclick: (ev) => { ev.stopPropagation(); self.select(z + ':' + i); },
-          onpointerdown: (ev) => self.dragStart(ev, { id: w.id, from: { z: z, i: i } }) },
-          none ? [h('span', {}, [document.createTextNode(LM.CATALOG[w.id][1]), h('small', { text: LM.CATALOG[w.id][2] })])] : []), b));
+          'aria-label': LM.CATALOG[wid][1] + ', ' + self.zoneName(z), onclick: (ev) => { ev.stopPropagation(); self.select(z + ':' + i); },
+          onpointerdown: (ev) => self.dragStart(ev, { id: wid, from: { z: z, i: i } }) },
+          none ? [h('span', {}, [document.createTextNode(LM.CATALOG[wid][1]), h('small', { text: LM.CATALOG[wid][2] })])] : []), b));
       };
       // the big element, and every place a widget can go: a place with nothing in it is drawn as an outline
       if (P.big) this.ov.appendChild(place(h('button', { type: 'button', class: 'big', 'aria-pressed': this.sel === 'big' ? 'true' : 'false',
@@ -312,8 +313,8 @@
         // anything to add another"): a + as big as a widget after the last, on its line -- or under the row, a line full
         var last = P.row.items[P.row.items.length - 1];
         if (last && (this.pick ? LM.fits(zs, 'row', this.pick) : room('row'))) {
-          var units = zs.row.reduce(function (n, w) { return n + (LM.UNITS[LM.CATALOG[w.id][0]] || 1); }, 0);
-          var full = units % LM.ROW_LINE === 0, d = last.h;
+          var units = zs.row.reduce(function (n, w) { return n + LM.unitsOf(w, self.opts.layout.row_size); }, 0);
+          var full = units % LM.ROW_LINE < 1e-9, d = last.h;
           zone('row', full ? { x: P.row.box.x + P.row.box.w / 2 - d / 2, y: P.row.box.y + P.row.box.h + 14, w: d, h: d }
                            : { x: last.x + last.w + 14, y: last.y, w: d, h: d }, true);
         }
@@ -428,12 +429,12 @@
         if (!it) return;
         L[z].push(it); this.sel = z + ':' + (L[z].length - 1);
       });
-      this.say(LM.CATALOG[this.T().zones[z][this.T().zones[z].length - 1].id][1] + ' moved to ' + this.zoneName(z) + '. Undo (⌘Z) puts it back.', true);
+      this.say(LM.CATALOG[LM.idOf(this.T().zones[z][this.T().zones[z].length - 1])][1] + ' moved to ' + this.zoneName(z) + '. Undo (⌘Z) puts it back.', true);
     }
     remove(z, i) {
       var w = this.T().zones[z][i];
       this.change((o) => { this.T(o).zones[z].splice(i, 1); this.sel = null; });
-      if (w) this.say(LM.CATALOG[w.id][1] + ' removed. Undo (⌘Z) puts it back.', true);
+      if (w) this.say(LM.CATALOG[LM.idOf(w)][1] + ' removed. Undo (⌘Z) puts it back.', true);
     }
     keys(e) {
       var path = e.composedPath ? e.composedPath() : [e.target];
@@ -488,9 +489,10 @@
         var ids = Object.keys(LM.CATALOG).filter(function (id) { return LM.CATALOG[id][0] === k[0]; });
         var grid = h('div', { class: 'wgrid' }, ids.map(function (id) {
           var c = LM.CATALOG[id], pv = h('span', { class: 'pv' });
-          if (WG && WG.has(id)) {
-            try { var ctl = WG.create(id, { u: 4, back: 'none', color: 'auto' }); ctl.update(client || { states: {} }, new Date(), { title: 'Lake Weekend · 2024' }); pv.appendChild(ctl.el); } catch (e) { /* its name alone */ }
-          } else pv.appendChild(h('hk-icon', { icon: { clock_card: 'mdi:clock', music_card: 'mdi:music', timers_card: 'mdi:timer-outline', weather_card: 'mdi:weather-partly-cloudy', status_card: 'mdi:shield-home', forecast_band: 'mdi:weather-cloudy' }[id] || 'mdi:view-grid' }));
+          var pc = LM.item(id);
+          if (WG && WG.has(pc.piece, pc.shape)) {
+            try { var ctl = WG.create(pc.piece, pc.shape, { u: 4, back: 'none', color: 'auto' }); ctl.update(client || { states: {} }, new Date(), { title: 'Lake Weekend · 2024' }); pv.appendChild(ctl.el); } catch (e) { /* its name alone */ }
+          } else pv.appendChild(h('hk-icon', { icon: { 'time.card': 'mdi:clock', 'music.card': 'mdi:music', 'timers.card': 'mdi:timer-outline', 'weather.card': 'mdi:weather-partly-cloudy', 'status.card': 'mdi:shield-home', 'weather.band': 'mdi:weather-cloudy' }[id] || 'mdi:view-grid' }));
           return h('button', { type: 'button', class: 'witem' + (k[0] === 'circular' ? '' : ' wide'), 'aria-pressed': self.pick === id ? 'true' : 'false',
                                onclick: () => self.pickWidget(id), onpointerdown: (ev) => self.dragStart(ev, { id: id }) },
                    [pv, h('b', { text: c[1] }), h('small', { text: c[2] })]);
@@ -504,7 +506,7 @@
     starter(st) {
       this.change((o) => {
         Object.assign(o, st[2]);
-        o.layout = st[3] ? copy(st[3]) : LM.layoutFrom(o);
+        o.layout = st[3] ? LM.clean(copy(st[3])) : LM.layoutFrom(o);
         this.sel = null; this.pick = null;
       });
       this.say(st[0] + ' laid out. Undo (⌘Z) puts back what you had.', true);
@@ -622,7 +624,7 @@
     widgetPage(z, i) {
       var K = this.K, self = this, w = this.T().zones[z][i], add = (n) => this.sidebar.appendChild(n);
       if (!w) { this.sel = null; return this.screenPage(); }
-      var c = LM.CATALOG[w.id], isBand = w.id === 'forecast_band';
+      var wid = LM.idOf(w), c = LM.CATALOG[wid], isBand = w.shape === 'band';
       var set = function (k) { return function (v) { self.change(function (x) { self.T(x).zones[z][i][k] = v; }); }; };
       add(this.head('mdi:view-grid', c[1], c[2] + ' · ' + this.zoneName(z)));
       // THE SAME LOOK FOR EVERYTHING (2026-11-01, the owner: "Its strange that some things get design elements and
@@ -631,12 +633,12 @@
         K.slider({ label: 'Size', value: w.size || 100, min: LM.ITEM_SIZE[0], max: LM.ITEM_SIZE[1], step: 5, unit: '%',
                    onChange: function (v) { self.change(function (x) { var it = self.T(x).zones[z][i]; if (v === 100) delete it.size; else it.size = v; }); } }),
         K.seg({ label: 'Backdrop', value: w.back, options: [['none', 'None'], ['glass', 'Glass'], ['tint', 'Tinted']], onChange: set('back') }),
-        K.seg({ label: 'Color', value: w.color, options: [['auto', 'Auto'], ['white', 'White'], ['accent', 'Accent']], onChange: set('color') })]));
+        K.seg({ label: 'Color', value: w.color, options: [['auto', 'Auto'], ['accent', 'Accent']], onChange: set('color') })]));
       if (z === 'row') add(this.rowAt());
-      if (w.id === 'music_card') add(K.group({ header: 'While Music Plays' }, [K.toggle({ label: 'Music Full Screen', sub: 'Off: here, in its place', on: !!this.opts.music_first,
+      if (wid === 'music.card') add(K.group({ header: 'While Music Plays' }, [K.toggle({ label: 'Music Full Screen', sub: 'Off: here, in its place', on: !!this.opts.music_first,
         onChange: function (on) { self.change(function (x) { x.music_first = on; }); } })]));
       // its place: any other that takes it
-      var zs = this.T().zones, places = Object.keys(LM.ZONES).filter(function (zz) { return zz === z || LM.fits(zs, zz, w.id); });
+      var zs = this.T().zones, places = Object.keys(LM.ZONES).filter(function (zz) { return zz === z || LM.fits(zs, zz, wid); });
       var list = zs[z];
       add(K.group({ header: 'Place' }, [
         places.length > 1 ? K.select({ label: 'Where', value: z, options: places.map(function (zz) { return [zz, self.zoneName(zz)]; }), onChange: function (to) {

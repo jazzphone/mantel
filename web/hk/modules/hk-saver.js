@@ -221,7 +221,7 @@
       // ...the time planted in the meadow, lit by the scene's sun (2026-11-01, hk-saverfaces.js plant()): on unless off
       forecast_planted: raw.forecast_planted !== false,
       // THE LAYOUT (2026-11-01, the Screensaver editor's; hk-saverlayout.js): none draws as each Show always has
-      layout: raw.layout && typeof raw.layout === 'object' && raw.layout.v === 1 ? raw.layout : null,
+      layout: raw.layout && typeof raw.layout === 'object' && (raw.layout.v === 1 || raw.layout.v === 2) ? raw.layout : null,
       tb_size: n(raw.tb_size, 12, 40, 24), tb_top: n(raw.tb_top, 0, 50, 6), tb_dim: n(raw.tb_dim, 0, 80, 0),
       extra_music: raw.extra_music === true,
       extra_forecast: raw.extra_forecast === true,
@@ -255,36 +255,28 @@
     'custom:hk-weather-strip-card': { variant: 'inline', main_size: '36px', glyph_size: '60px', temp_gap: '36px', icon_gap: '12px',
                                       color: 'rgba(255,255,255,0.95)', margin: '-4px 0px 0px 20px', layer: true }
   };
-  function layoutIds(L) {
-    var out = [];
-    [L.zones, L.upright && L.upright.zones].forEach(function (zs) {
-      Object.keys(zs || {}).forEach(function (z) { (zs[z] || []).forEach(function (w) { if (w && out.indexOf(w.id) < 0) out.push(w.id); }); });
-    });
-    return out;
-  }
   function layoutCfg(c) {
     var L = c.layout;
     if (!L) return c;
-    var ids = layoutIds(L), byType = {}, b = L.big || {};
+    var byType = {}, b = L.big || {};
     c.cards.forEach(function (x) { byType[x.type] = x; });
-    // (the corner clock and weather always: under a slide -- the music, the forecast, the weather, Home Energy -- the
-    // screensaver's own corners come back, the time among them, as without a layout; hidden otherwise unless placed)
-    c.cards = Object.keys(LAYOUT_CARDS).filter(function (id) { return ids.indexOf(id) >= 0 || id === 'clock_card' || id === 'weather_card'; }).map(function (id) {
+    // EVERY PLACED PIECE IS hkSaverWidgets' (2026-11-02, phase 13: Now Playing, Timers, the weather and Home Status
+    // are the pieces' Card shape, drawn in the pieces' style; the owner: "Yes"). The screensaver's own corner clock and
+    // weather and Home Status stay, hidden, for the slides' corners until the shared slide corner (phase 2) takes their place
+    c.cards = ['clock_card', 'weather_card', 'status_card'].map(function (id) {
       var t = LAYOUT_CARDS[id], card = byType[t] || Object.assign({ type: t }, LAYOUT_CARD_CONF[t] || {});
-      // (one the layout doesn't place: hidden from the start, until a slide)
-      return ids.indexOf(id) >= 0 ? card : Object.assign({}, card, { ly_spare: true });
+      return Object.assign({}, card, { ly_spare: true });
     });
     c.clock_large = false;
     c.time_behind = b.kind === 'time' && b.depth === 'behind';
     if (c.time_behind && b.size) c.tb_size = b.size;
-    // THE FORECAST AS THE BACKGROUND is the layout's: classic, its details where the layout has them. AS A SLIDE --
-    // between the photos, in their place, now and then over a clock -- its own Layout and Details (2026-11-01, the
-    // owner: "there is no way of setting Big layout for forecast with Photos")
+    // THE FORECAST AS THE BACKGROUND is the layout's: classic, its details a piece (Weather, Band) where the layout has
+    // them. AS A SLIDE -- between the photos, in their place, now and then over a clock -- its own Layout and Details
+    // (2026-11-01, the owner: "there is no way of setting Big layout for forecast with Photos")
     var fcBack = c.show === 'forecast' || (c.show === 'clock' && (c.clock_bg === 'forecast' || c.clock_bg === 'skyonly'));
-    var bandHere = ids.indexOf('forecast_band') >= 0;
-    if (fcBack) { c.forecast_layout = 'classic'; c.band = c.band_photos = bandHere; }
-    else c.band_photos = bandHere;
-    c.photo_titles = false;                  // (a widget of the layout's: photo_title)
+    if (fcBack) { c.forecast_layout = 'classic'; c.band = c.band_photos = false; }
+    else c.band_photos = false;
+    c.photo_titles = false;                  // (a piece of the layout's: Photo Title)
     return c;
   }
   // Whether THIS browser gets the screensaver: the dashboard asks for one,
@@ -1199,11 +1191,6 @@
     // (Big Weather among the photos, or in their place, tells the time itself: the layout's big element and widgets
     // step aside while it shows, as they do for the music)
     ':host([lay][fcbig][fcslide]) .lay,:host([lay][fcbig][forecast]) .lay{opacity:0}',
-    // (a corner card's backdrop: the widgets' Glass and Tinted -- a static fill, never a backdrop-filter)
-    '.lay .lyplate{position:absolute;--sw-ink:var(--tint)}',
-    '.lay .lyplate.c-white{--sw-ink:#fff}.lay .lyplate.c-accent{--sw-ink:var(--hk-accent,#ffb38a)}',
-    '.lay .lyplate.b-glass{background:rgba(255,255,255,.16);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}',
-    '.lay .lyplate.b-tint{background:rgba(0,0,0,.38);background:color-mix(in srgb,var(--sw-ink) 20%,rgba(0,0,0,.38))}',
     ':host([cklight]:not([cknight])) .lay .lybig{text-shadow:none}',
     ':host([lay]:not([lyoff])) .info,:host([lay][pside][pane]:not([lyoff])) .info{left:0;top:0;right:0;bottom:0;width:auto;padding:0;display:block}',
     ':host([lay]:not([lyoff])) .info > hk-clock-card,:host([lay]:not([lyoff])) .info > hk-weather-strip-card{position:absolute}',
@@ -2588,7 +2575,14 @@
     var it = ph.item, before = lay.querySelector('.phscrim');
     var po = photoOpts(c);
     // (the layout's Photo Title widget says this photo's album and year)
-    if (ly && (lyPhoto = it)) layoutSoon();
+    if (ly && (lyPhoto = it)) {
+      // (and its luminance, for the screen's ink: read once the photo has loaded)
+      lyPhotoLum = null;
+      var im0 = ph.img;
+      if (im0 && im0.complete) lyPhotoLum = photoLum(im0);
+      else if (im0 && im0.addEventListener) im0.addEventListener('load', function () { if (ly) { lyPhotoLum = photoLum(im0); layoutSoon(); } }, { once: true });
+      layoutSoon();
+    }
     if (po.titles && (it.album || it.year)) {
       var ttl = document.createElement('div'), tt = document.createElement('div');
       ttl.className = 'ttl'; tt.className = 'tt';
@@ -2718,6 +2712,10 @@
   // no-photos fallback) by `band`; over the photos by `band_photos`.
   function bandWanted() {
     if (!on || !cfg || muShowing || enShowing || wxShowing) return false;
+    // (a layout's forecast as the background -- Show: Forecast, or Photos with none to show -- has its details as a piece
+    // of its own, the Weather band, if it has them at all: the old band's today, its rules and its scrim were drawn over
+    // the layout's pieces, 2026-11-02. As a slide the forecast is the slide's, band and all)
+    if (cfg.layout && !fcShowing) return false;
     // (Big Weather is the forecast's details itself)
     return fcVisible() ? cfg.band !== false && !bigWanted() : cfg.band_photos === true;
   }
@@ -2798,7 +2796,7 @@
   // line are on one baseline, whatever hangs below it), or the pictures' foot where there are no words
   // (`hidden`: count what is hidden too -- the big element's face is measured unseen)
   function inkOf(node, hidden) {
-    var x0 = 1e9, y0 = 1e9, x1 = -1e9, wy1 = -1e9, py1 = -1e9;
+    var x0 = 1e9, y0 = 1e9, x1 = -1e9, wy1 = -1e9, py1 = -1e9, lineH = 0, bigPy1 = -1e9;
     var walk = function (r) {
       Array.prototype.forEach.call(r.querySelectorAll('*'), function (n) {
         if (n.shadowRoot) walk(n.shadowRoot);
@@ -2812,6 +2810,8 @@
           var q = n.getBoundingClientRect();
           if (!q.width || !q.height || !seen()) return;
           x0 = Math.min(x0, q.left); x1 = Math.max(x1, q.right); y0 = Math.min(y0, q.top); py1 = Math.max(py1, q.bottom);
+          // (a picture taller than lines of words -- a song's art -- is what a card's foot is, not a glyph hanging on a line)
+          if (q.height > 2.2 * lineH && lineH) bigPy1 = Math.max(bigPy1, q.bottom); else if (!lineH) pics.push(q);
           return;
         }
         for (var c = n.firstChild; c; c = c.nextSibling) {
@@ -2828,11 +2828,15 @@
           }
           if (!(w.x1 > w.x0)) continue;
           x0 = Math.min(x0, w.x0); x1 = Math.max(x1, w.x1); y0 = Math.min(y0, w.y0); wy1 = Math.max(wy1, w.y1);
+          lineH = Math.max(lineH, parseFloat(cs.fontSize) || 0);
         }
       });
     };
+    var pics = [];
     walk(node.shadowRoot || node);
-    var y1 = wy1 > -1e9 ? wy1 : py1;
+    // (pictures met before any words: judged once the words' size is known)
+    pics.forEach(function (q) { if (lineH && q.height > 2.2 * lineH) bigPy1 = Math.max(bigPy1, q.bottom); });
+    var y1 = wy1 > -1e9 ? Math.max(wy1, bigPy1) : py1;
     return x1 > x0 && y1 > y0 ? { x0: x0, y0: y0, x1: x1, y1: y1 } : null;
   }
   function layoutModules() {
@@ -2899,7 +2903,6 @@
         Array.prototype.slice.call(c.style).forEach(function (p) { if (/^--hk-ss-|^--hk-ink$/.test(p) || p === 'left' || p === 'top') c.style.removeProperty(p); });
         c.removeAttribute('lyhide');
       });
-      Object.keys(ly.plates || {}).forEach(function (id) { ly.plates[id].remove(); delete ly.plates[id]; });
     }
     // each card's config for now: a corner's own sizes, or the layout's (cardConf)
     cards.forEach(function (c) {
@@ -3029,36 +3032,71 @@
     var bh = el2.offsetHeight, bi = inkOf(el2), br2 = el2.getBoundingClientRect();
     return { w: el2.offsetWidth, h: bh, base: bh * 0.85, t: bi ? Math.max(0, bi.y0 - br2.top) : 0, b: bi ? Math.max(0, br2.bottom - bi.y1) : 0 };
   }
+  // THE SCREEN'S INK (2026-11-02, the owner: "change the colors based on luminance for whatever is in the
+  // background... I don't want some widgets being white and some being black on the screen at the same time"): one ink
+  // for every piece -- the layout's White or Black, or Auto: dark on a light ground (a light face's, [cklight]; a
+  // light photo's, by its luminance), else white
+  var lyPhotoLum = null;
+  function photoLum(img) {
+    try {
+      if (!img || !img.naturalWidth) return null;
+      var cv = document.createElement('canvas'); cv.width = cv.height = 8;
+      var x = cv.getContext('2d');
+      x.drawImage(img, 0, 0, 8, 8);
+      var d = x.getImageData(0, 0, 8, 8).data, sum = 0;
+      for (var i = 0; i < d.length; i += 4) sum += (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
+      return sum / (d.length / 4);
+    } catch (e) { return null; }         // (a photo from another host can't be read: white, as before)
+  }
+  function layoutInk(L) {
+    var want = L.ink || 'auto';
+    if (want !== 'auto') return want;
+    if (host && host.hasAttribute('cknight')) return 'white';
+    if (host && host.hasAttribute('cklight')) return 'black';
+    var photos = mode === 'photos' && !fcShowing;
+    if (photos && lyPhotoLum != null) {
+      var dim = (photoOpts(cfg).dim || cfg.clock_photo_dim || 0) / 100;
+      return lyPhotoLum * (1 - dim) > 0.62 ? 'black' : 'white';
+    }
+    return 'white';
+  }
   // THE PLAN, and everything put where it says
   function layoutDraw() {
     var LM = window.hkSaverLayout, WG = window.hkSaverWidgets;
     if (!ly || !LM || !root || !cfg || !cfg.layout) return;
-    var R = layoutRoom(), O = LM.oriented(cfg.layout, R.W, R.H), u = Math.min(R.room.w, R.room.h) / 100, zs = O.zones;
-    // the widgets this shape has (made once each, updated with the house)
+    var L = LM.clean(cfg.layout);
+    if (!L) return;
+    var R = layoutRoom(), O = LM.oriented(L, R.W, R.H), u = Math.min(R.room.w, R.room.h) / 100, zs = O.zones;
+    // the screen's one ink, and its accents
+    var ink = layoutInk(L);
+    if (ly.layer.getAttribute('data-ink') !== ink) ly.layer.setAttribute('data-ink', ink);
+    ly.layer.style.setProperty('--lay-ink', ink === 'black' ? '#161616' : '#ffffff');
+    setAttr(ly.layer, 'data-acc', L.accents !== false);
+    // the pieces this shape has (made once each, updated with the house)
     var want = {}, client = clientNow(), now = new Date();
+    var ctx = { title: layoutTitle(), music: client ? musicOf(musicNow(client), client) : null };
     Object.keys(zs).forEach(function (z) {
       zs[z].forEach(function (w, i) {
-        if (LAYOUT_CARDS[w.id] || w.id === 'forecast_band') return;
-        // (its own size: its unit, times its size)
-        var wu = u * (w.size || 100) / 100;
-        var k = z + ':' + i + ':' + w.id + ':' + w.back + ':' + w.color + ':' + wu.toFixed(2);
-        want[k] = 1;
-        if (!ly.widgets[k] && WG) {
+        // (its own size, else the row's one size: its unit, times its size)
+        var k = (w.size || (z === 'row' ? O.row_size : 100) || 100) / 100, wu = u * k;
+        var key = [z, i, w.piece, w.shape, w.back, w.color, JSON.stringify(w.opts || {}), wu.toFixed(2)].join(':');
+        want[key] = 1;
+        if (!ly.widgets[key] && WG) {
           try {
-            ly.widgets[k] = WG.create(w.id, { u: wu, back: w.back, color: w.color, h24: cfg.clock_24, weather: weatherEntity() });
-            ly.layer.appendChild(ly.widgets[k].el);
-          } catch (e) { console.warn('[hk-saver] widget', w.id, e && e.message); }
+            ly.widgets[key] = WG.create(w.piece, w.shape, { u: wu, back: w.back, color: w.color, h24: cfg.clock_24, weather: weatherEntity(), opts: w.opts || {} });
+            if (ly.widgets[key]) ly.layer.appendChild(ly.widgets[key].el);
+          } catch (e) { console.warn('[hk-saver] piece', w.piece, w.shape, e && e.message); }
         }
-        var ctl = ly.widgets[k];
-        if (ctl) { try { ctl.update(client, now, { title: layoutTitle() }); } catch (e) { /* its own data */ } ctl.zone = z; ctl.i = i; }
+        var ctl = ly.widgets[key];
+        if (ctl) { try { ctl.update(client, now, ctx); } catch (e) { /* its own data */ } ctl.zone = z; ctl.i = i; }
       });
     });
-    // a timer running: its ring and its time each second, the widgets alone (nothing else moves)
+    // a timer running: its ring and its time each second, the pieces alone (nothing else moves)
     var live = Object.keys(ly.widgets).some(function (k) { return want[k] && ly.widgets[k].live; });
     if (live && !ly.secT) ly.secT = setInterval(function () {
       if (!ly) return;
       var h = clientNow(), t = new Date();
-      Object.keys(ly.widgets).forEach(function (k) { var c = ly.widgets[k]; if (c.live) { try { c.update(h, t, { title: layoutTitle() }); } catch (e) { /* its own */ } } });
+      Object.keys(ly.widgets).forEach(function (k) { var c = ly.widgets[k]; if (c.live) { try { c.update(h, t, { title: layoutTitle(), music: h ? musicOf(musicNow(h), h) : null }); } catch (e) { /* its own */ } } });
     }, 1000);
     else if (!live && ly.secT) { clearInterval(ly.secT); ly.secT = null; }
     Object.keys(ly.widgets).forEach(function (k) {
@@ -3067,61 +3105,57 @@
       if (ly.widgets[k].el && ly.widgets[k].el.parentNode) ly.widgets[k].el.remove();
       delete ly.widgets[k];
     });
-    // (under a slide the widgets keep their words and their places; nothing is placed until it has gone)
+    // (under a slide the pieces keep their words and their places; nothing is placed until it has gone)
     layoutSlides();
     if (host.hasAttribute('lyoff')) return;
+    // (the corner cards kept for the slides: hidden again once a slide has gone)
+    cards.forEach(function (c) { if (!c.hasAttribute('lyhide')) c.setAttribute('lyhide', ''); });
     var widgetAt = function (z, i) {
       var hit = null;
       Object.keys(ly.widgets).forEach(function (k) { var c = ly.widgets[k]; if (c.zone === z && c.i === i) hit = c; });
       return hit;
     };
-    // the corner cards: which is where, and its size as drawn
-    var cardOf = {};
-    cards.forEach(function (c) {
-      var t = c.__hkSaverConf && c.__hkSaverConf.type;
-      Object.keys(LAYOUT_CARDS).forEach(function (id) { if (LAYOUT_CARDS[id] === t) cardOf[id] = c; });
-    });
-    // A CARD'S SIZE: Home Status, what's playing and the timers are as wide as the place they are given (their width
-    // is a variable set here: measuring it would only read it back), as tall as they draw; the clock and the weather
-    // as everything they draw (their own box is smaller than what is in it)
-    // ...and its ink inside that box (t, b: the plan lines things up by it); a card with nothing to show (no music, no
-    // timer, nothing to say) keeps its place at its usual size, and the editor draws that place: `empty`
-    var GIVEN = { status_card: 46, music_card: 44, timers_card: 30 };
-    ly.empty = {};
-    var itemSize = function (id) {
-      var k = 1;
-      Object.keys(zs).forEach(function (z) { zs[z].forEach(function (w) { if (w.id === id && w.size) k = w.size / 100; }); });
-      return k;
-    };
-    var cardSize = function (id, c) {
-      var k = itemSize(id);
-      if (GIVEN[id]) {
-        var inner = c.shadowRoot && c.shadowRoot.querySelector('.sscorner,[style*="position:fixed"]'), ir = inner && inner.getBoundingClientRect();
-        if (!(ir && ir.height)) { ly.empty[id] = true; return { w: GIVEN[id] * u * k, h: (id === 'status_card' ? 5 : 8) * u * k }; }
-        var gi = inkOf(inner);
-        return { w: GIVEN[id] * u * k, h: ir.height, t: gi ? Math.max(0, gi.y0 - ir.top) : 0, b: gi ? Math.max(0, ir.bottom - gi.y1) : 0 };
-      }
-      // (the clock and the weather: everything they draw, and their ink in it)
-      var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-      Array.prototype.forEach.call((c.shadowRoot || c).querySelectorAll('*'), function (n) {
-        var q = n.getBoundingClientRect();
-        if (!q.width || !q.height) return;
-        x0 = Math.min(x0, q.left); y0 = Math.min(y0, q.top); x1 = Math.max(x1, q.right); y1 = Math.max(y1, q.bottom);
+    // WHAT IS PLANNED: a piece whose condition is met (w.show: the owner's "only shows when the Mail Has Arrived"), a fact shown once (rule 5: the face, the big element or the piece placed first keeps it), and a
+    // "shows when..." piece only while it shows -- ON THE TABLET IT COLLAPSES (rule 4), and the plan changes only when
+    // one comes or goes; the editor's preview keeps its place, drawn dotted there ([empty])
+    var claimed = LM.claims(O, cfg);
+    ly.claims = claimed; ly.empty = {};
+    var planned = {};
+    Object.keys(zs).forEach(function (z) {
+      planned[z] = [];
+      zs[z].forEach(function (w, i) {
+        // (gone: nothing to show, or its condition -- "only when the mail has arrived" -- not met)
+        var c = widgetAt(z, i), gone = (c && c.showing === false) || !LM.met(w.show, client && client.states);
+        if (gone) ly.empty[z + ':' + i] = LM.idOf(w);
+        if (claimed[z + ':' + i] || (gone && !previewOn)) { if (c) c.el.style.display = 'none'; return; }
+        // (in the editor's preview its place is kept, drawn by the editor's dotted outline: the piece itself draws nothing)
+        if (c) c.el.style.visibility = gone ? 'hidden' : '';
+        planned[z].push(Object.assign({}, w, { __i: i }));
       });
-      if (!(x1 > x0)) { ly.empty[id] = true; return null; }
-      var ci = inkOf(c);
-      return { w: x1 - x0, h: y1 - y0, t: ci ? Math.max(0, ci.y0 - y0) : 0, b: ci ? Math.max(0, y1 - ci.y1) : 0 };
-    };
+    });
+    var OP = Object.assign({}, O, { zones: planned });
     var big = layoutBig(O.big, R, u);
-    var P = LM.plan(R.room, O, {
+    var P = LM.plan(R.room, OP, {
       big: big,
-      widget: function (id) {
-        if (cardOf[id]) return cardSize(id, cardOf[id]);
-        var found = null;
-        Object.keys(zs).forEach(function (z) { zs[z].forEach(function (w, i) { if (w.id === id && !found) { var c = widgetAt(z, i); if (c && c.measure) found = c.measure(); if (found && c.el && WG && WG.kind(w.id) === 'inline') { var r = c.el.getBoundingClientRect(), wi = r.height ? inkOf(c.el) : null; if (wi) { found.t = Math.max(0, wi.y0 - r.top); found.b = Math.max(0, r.bottom - wi.y1); } } } }); });
+      widget: function (w, z) {
+        var c = widgetAt(z, w.__i), found = c && c.measure ? c.measure() : null;
+        if (found && c.el && w.shape === 'inline') {
+          var r = c.el.getBoundingClientRect(), wi = r.height ? inkOf(c.el) : null;
+          if (wi) { found.t = Math.max(0, wi.y0 - r.top); found.b = Math.max(0, r.bottom - wi.y1); }
+        }
+        // (a card: as tall as it draws, its ink inside that)
+        if (found && c.el && w.shape === 'card') {
+          var r2 = c.el.getBoundingClientRect();
+          if (r2.height) { var ci = inkOf(c.el); found.h = r2.height; found.w = Math.max(found.w || 0, r2.width); if (ci) { found.t = Math.max(0, ci.y0 - r2.top); found.b = Math.max(0, r2.bottom - ci.y1); } }
+        }
         return found;
       }
     }, { w: R.W, h: R.H });
+    // (the plan's indexes are the planned pieces': back to each zone's own)
+    var back = function (z, i) { return planned[z][i] ? planned[z][i].__i : i; };
+    P.row.items.forEach(function (it) { it.i = back('row', it.i); });
+    Object.keys(P.corners).forEach(function (z) { P.corners[z].forEach(function (bx) { bx.i = back(z, bx.i); }); });
+    P.moved.forEach(function (mv) { mv.i = back(mv.zone, mv.i); });
     ly.plan = P;
     // OVER PHOTOS, its own Shadow and Outline (Clock's, ckFx: the photo under it can be anything)
     if (ly.big && ly.big.el && !ly.big.planted) {
@@ -3148,82 +3182,29 @@
     var landOn = O.big.depth === 'behind' && O.big.kind !== 'none' && fscene && fscene.landShown && !!fscene.landShown() &&
       (cfg.show === 'forecast' || (cfg.show === 'clock' && cfg.clock_bg === 'forecast'));
     layoutLand(landOn && P.big && ly.big ? P.big : null, R);
-    // the widgets
+    // the pieces
     var put = function (ctl, box) {
       if (!ctl || !ctl.el) return;
       if (!box) { ctl.el.style.display = 'none'; return; }
       ctl.el.style.display = '';
       ctl.el.style.left = box.x.toFixed(1) + 'px'; ctl.el.style.top = box.y.toFixed(1) + 'px';
+      // (a card is as tall as it draws, and stands at its side's edge: only where it goes)
+      if (ctl.shape === 'card') { ctl.el.style.width = ''; ctl.el.style.height = ''; return; }
       ctl.el.style.width = box.w.toFixed(1) + 'px'; ctl.el.style.height = box.h.toFixed(1) + 'px';
     };
-    if (zs.line.length) put(widgetAt('line', 0), P.line.ghost ? null : P.line);
+    if (planned.line.length) put(widgetAt('line', planned.line[0].__i), P.line.ghost ? null : P.line);
     P.row.items.forEach(function (it) { put(widgetAt('row', it.i), it); });
-    if (zs.bottom.length && zs.bottom[0].id !== 'forecast_band') put(widgetAt('bottom', 0), P.bottom.ghost ? null : P.bottom);
-    var placed = {};
+    if (planned.bottom.length) put(widgetAt('bottom', planned.bottom[0].__i), P.bottom.ghost ? null : P.bottom);
     ['tl', 'tr', 'bl', 'br'].forEach(function (z) {
       (P.corners[z] || []).forEach(function (box) {
-        var w = zs[z][box.i];
-        if (!w) return;
-        if (cardOf[w.id]) { placed[w.id] = { box: box, left: (box.x + box.w / 2) < R.W / 2 }; return; }
-        put(widgetAt(z, box.i), box);
+        var c = widgetAt(z, box.i);
+        if (!c) return;
+        // (a card on the right: its right edge on the margin, however wide it drew)
+        if (c.shape === 'card' && box.x + box.w / 2 > R.W / 2 && c.el.offsetWidth) box = Object.assign({}, box, { x: box.x + box.w - c.el.offsetWidth });
+        put(c, box);
       });
     });
     P.moved.forEach(function (mv) { if (mv.to === null) { var c = widgetAt(mv.zone, mv.i); if (c) put(c, null); } });
-    // the cards: through their own variables (fixed, against the screensaver), or placed (the clock, the weather);
-    // each its own size (its config's sizes times it), color and backdrop, as a widget has
-    var itemOf = function (id) { var f = null; Object.keys(zs).forEach(function (z) { zs[z].forEach(function (w) { if (w.id === id) f = w; }); }); return f; };
-    var INK = { white: ['#fff', 'rgba(255,255,255,.82)'], accent: ['var(--hk-accent,#ffb38a)', 'var(--hk-accent,#ffb38a)'] };
-    Object.keys(cardOf).forEach(function (id) {
-      var c = cardOf[id], at = placed[id], w = itemOf(id) || {};
-      setAttr(c, 'lyhide', !at);
-      if (!at) return;
-      var b = at.box, st = c.style, k = (w.size || 100) / 100, conf0 = c.__hkSaverConf;
-      if (conf0 && conf0.__lyK !== k && id !== 'status_card') {
-        conf0.__lyK = k;
-        try { c.setConfig(cardConf(conf0, String(conf0.type || '').replace(/^custom:/, ''))); } catch (e) { /* as it was */ }
-      }
-      var ink = INK[w.color];
-      ['--hk-ss-ink', '--hk-ss-ink-2', '--hk-ink'].forEach(function (v, j) { if (ink) st.setProperty(v, ink[j ? 1 : 0]); else st.removeProperty(v); });
-      if (id === 'status_card') {
-        st.setProperty('--hk-ss-status-top', b.y.toFixed(1) + 'px');
-        st.setProperty('--hk-ss-status-right', (R.W - b.x - b.w).toFixed(1) + 'px');
-        st.setProperty('--hk-ss-status-width', b.w.toFixed(1) + 'px');
-        // (its lines in the layout's units: a corner's words, not the old corner's 36 px)
-        st.setProperty('--hk-ss-status-l1', (3.2 * u * k).toFixed(1) + 'px');
-        st.setProperty('--hk-ss-status-l2', (2.4 * u * k).toFixed(1) + 'px');
-        var conf = c.__hkSaverConf;
-        if (conf && (!!conf.__lyLeft !== at.left || conf.__lyK !== k)) { conf.__lyLeft = at.left; conf.__lyK = k; try { c.setConfig(cardConf(conf, 'hk-screensaver-status-card')); } catch (e) { /* as it was */ } }
-      } else if (id === 'music_card') {
-        st.setProperty('--hk-ss-now-left', b.x.toFixed(1) + 'px');
-        st.setProperty('--hk-ss-now-bottom', (R.H - b.y - b.h).toFixed(1) + 'px');
-        st.setProperty('--hk-ss-now-max', b.w.toFixed(1) + 'px');
-        // (its picture and words in the layout's units: the old corner's 104 px picture left a phone no room for the song)
-        st.setProperty('--hk-ss-np-art', (12 * u * k).toFixed(1) + 'px');
-        st.setProperty('--hk-ss-np-title', (3.4 * u * k).toFixed(1) + 'px');
-        st.setProperty('--hk-ss-np-artist', (2.6 * u * k).toFixed(1) + 'px');
-        st.setProperty('--hk-ss-np-gap', (2 * u * k).toFixed(1) + 'px');
-      } else if (id === 'timers_card') {
-        st.setProperty('--hk-ss-timers-left', at.left ? b.x.toFixed(1) + 'px' : 'auto');
-        st.setProperty('--hk-ss-timers-right', at.left ? 'auto' : (R.W - b.x - b.w).toFixed(1) + 'px');
-        st.setProperty('--hk-ss-timers-bottom', (R.H - b.y - b.h).toFixed(1) + 'px');
-        st.setProperty('--hk-ss-timers-max', b.w.toFixed(1) + 'px');
-      } else {
-        st.left = (at.left ? b.x : b.x + b.w - (c.offsetWidth || b.w)).toFixed(1) + 'px';
-        st.top = b.y.toFixed(1) + 'px';
-      }
-    });
-    // A BACKDROP behind a card (Glass or Tinted, as a widget's): a plate where its ink is, with room around it
-    var plates = ly.plates || (ly.plates = {});
-    Object.keys(cardOf).forEach(function (id) {
-      var w = itemOf(id), at = placed[id], pl = plates[id];
-      var want2 = at && w && w.back && w.back !== 'none' && !ly.empty[id] ? inkOf(cardOf[id]) : null;
-      if (!want2) { if (pl) { pl.remove(); delete plates[id]; } return; }
-      if (!pl) { pl = plates[id] = document.createElement('div'); ly.layer.insertBefore(pl, ly.layer.firstChild); }
-      var hr = host.getBoundingClientRect(), pad = 2.2 * u * ((w.size || 100) / 100);
-      pl.className = 'lyplate b-' + w.back + ' c-' + (w.color || 'auto');
-      pl.style.cssText = 'left:' + (want2.x0 - hr.left - pad).toFixed(1) + 'px;top:' + (want2.y0 - hr.top - pad).toFixed(1) + 'px;width:' +
-        (want2.x1 - want2.x0 + 2 * pad).toFixed(1) + 'px;height:' + (want2.y1 - want2.y0 + 2 * pad).toFixed(1) + 'px;border-radius:' + (pad * 1.4).toFixed(1) + 'px';
-    });
   }
   function layoutLand(box, R) {
     if (!box) { if (ly.land) { ly.land.remove(); ly.land = null; } return; }
@@ -5816,8 +5797,11 @@
       var LM = window.hkSaverLayout;
       if (!ly || !ly.plan || !LM || !cfg || !cfg.layout || !host) return null;
       var R = layoutRoom();
-      var O = LM.oriented(cfg.layout, R.W, R.H);
-      return { W: R.W, H: R.H, room: R.room, plan: ly.plan, zones: O.zones, big: O.big, row_at: O.row_at, empty: Object.assign({}, ly.empty) };
+      var O = LM.oriented(LM.clean(cfg.layout), R.W, R.H), empty = {};
+      // (empty: a "shows when..." piece with nothing to show, by its catalog id; claims: who shows a fact a piece would)
+      Object.keys(ly.empty || {}).forEach(function (k) { empty[ly.empty[k]] = true; });
+      return { W: R.W, H: R.H, room: R.room, plan: ly.plan, zones: O.zones, big: O.big, row_at: O.row_at, row_size: O.row_size, empty: empty,
+               emptyAt: Object.assign({}, ly.empty), claims: Object.assign({}, ly.claims) };
     },
     running: function () { return on; },
     covered: function () { return on && !!coveredPage; },

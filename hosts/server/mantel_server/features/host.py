@@ -448,9 +448,17 @@ class FeatureHost:
         s = self.screen(tid)
         if s is None:
             return
-        s.touch = self.now()
+        # A TOUCH ON THE SCREENSAVER'S OWN CONTROLS (saver: the music's Skip, Browse, Speakers, the volume) keeps the
+        # sleep away and nothing more, as Home Assistant's integration has it (Manager.saver_touched): counted as a
+        # touch of the screen it marked the screen in use, and an in-use screen takes its screensaver down -- every
+        # tap on the music slide's buttons went back to the dashboard (the owner, 2026-11-02)
         if saver:
-            s.saver_touch = s.touch
+            s.saver_touch = self.now()
+            eng = self.engines.get(tid)
+            if eng is not None:
+                eng.evaluate()
+            return
+        s.touch = self.now()
         self.update_in_use(tid)
         eng = self.engines.get(tid)
         if eng is not None:
