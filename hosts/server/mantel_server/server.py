@@ -32,7 +32,7 @@ import aiohttp
 from aiohttp import WSCloseCode, WSMsgType, web
 
 from . import about, frame_origins, music
-from . import accounts, alarm_pin, auth, connect_pairing, devices, gateway, health, ingress, live_tv, pins, rbac_store, readproxy, sessions, settings_store
+from . import accounts, alarm_pin, auth, cameras_direct, connect_pairing, devices, gateway, health, ingress, live_tv, pins, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
                linked_reads, linked_settings, people_ha, screens,
                linked_actions, login_page, phones, supervisor_discovery,
@@ -887,6 +887,9 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     linked_house.register(app, hub)
     # Live TV served by Mantel where it has its own go2rtc (--go2rtc-url); otherwise HA's stays the interim
     live_tv.register(app, hub, hooks)
+    # direct camera sources (docs/phase13/CAMERAS-DIRECT.md phase 3): camera.mantel_* through Mantel's own go2rtc;
+    # after Live TV, so its signaling wraps Live TV's wrapper. Without --go2rtc-url (the HA App) nothing is installed
+    cameras_direct.register(app, hub, hooks)
     # the home's own files (fonts, glyphs, photos; Owner/Admin upload) and the nightly encrypted
     # backup (off unless --backup-target is set)
     user_files.register(app, hub)
