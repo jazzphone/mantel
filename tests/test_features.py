@@ -244,20 +244,27 @@ async def test_a_state_change_sets_off_a_notification_on_every_screen(make_env):
     await ws.close()
 
 
-async def test_only_a_person_who_may_configure_notifications_mutes_one_and_the_audit_row_comes_first(make_env):
+async def test_only_a_person_who_may_control_notifications_mutes_one_and_the_audit_row_comes_first(make_env):
     """SRV-9 (third audit pass): any signed-in person, a Guest included, muted a notification category (smoke, say)
-    for the whole house for 24 hours, with no audit row. A mute is a notification setting: it needs configure on
-    Notifications, and no row, no change."""
+    for the whole house for 24 hours, with no audit row. A mute is house-wide: it needs control of the Notifications
+    feature (an Adult, Owner or Admin by default; the sheet's Mute stays an Adult's), and no row, no change."""
     env = await make_env(settings={"notifications": {"enabled": True, "items": [DOOR_ITEM], "options": {}}})
     key = f"n_door:{DOOR}"
-    for who, role in (("guest1", "guest"), ("kid1", "child"), ("adult1", "adult")):
+    await env.login("adult1", "adult")
+    ws = await env.socket(expect_caps=False)
+    await ws.send_json({"type": "notify_mute", "id": 9, "key": key, "seconds": 3600})
+    assert (await GF.recv(ws))["result"]["until"] > 0, "an Adult mutes, as the notification sheet offers"
+    await ws.close()
+    env.host.notifier.mutes.clear()
+    assert len(env.audit(kind="config")) == 1
+    for who, role in (("guest1", "guest"), ("kid1", "child")):
         await env.login(who, role)
         ws = await env.socket(expect_caps=False)
         await ws.send_json({"type": "notify_mute", "id": 1, "key": key, "seconds": 86400})
         got = await GF.recv(ws)
         assert got["error"] == {"code": "forbidden"}, role
         await ws.close()
-    assert not env.host.notifier.mutes and env.audit(kind="config") == []
+    assert not env.host.notifier.mutes and len(env.audit(kind="config")) == 1, "the Adult's row only"
     await env.login("admin1", "admin")
     ws = await env.socket(expect_caps=False)
     broken = env.app["audit"].config_event
@@ -268,7 +275,7 @@ async def test_only_a_person_who_may_configure_notifications_mutes_one_and_the_a
     env.app["audit"].config_event = broken
     await ws.send_json({"type": "notify_mute", "id": 3, "key": key, "seconds": 86400})
     assert (await GF.recv(ws))["result"]["until"] > 0
-    [row] = env.audit(kind="config")
+    row = env.audit(kind="config")[-1]
     assert row["action"] == "notify.mute" and json.loads(row["target"]) == {"key": key, "seconds": 86400}
     await ws.close()
 

@@ -1106,6 +1106,16 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
             await host.set_photos(tid, msg["photos"])
         await ctx.send({"type": "screen_result", "id": rid, "result": {"changed": changed}})
 
+    def _may_mute(identity: Any) -> bool:
+        authz, subject = host.app.get("authz"), getattr(identity, "subject", None)
+        if authz is None or subject is None:
+            return False
+        try:
+            return authz.decide(subject, "control", None, feature="notifications").allowed is True
+        except Exception:  # noqa: BLE001 -- a failing rule refuses
+            log.exception("notify_mute: the control check failed; refusing")
+            return False
+
     async def notify_mute(ctx: Ctx, msg: dict) -> None:
         rid, key, secs = msg.get("id"), msg.get("key"), msg.get("seconds", 3600)
         if not _principal_ok(ctx.identity):
@@ -1113,10 +1123,11 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
         if not isinstance(key, str) or not 0 < len(key) <= 200 or isinstance(secs, bool) or not isinstance(secs, int) \
                 or not 0 <= secs <= 86400 or set(msg) - {"type", "id", "key", "seconds"}:
             return await ctx.send({"type": "notify_mute_result", "id": rid, "error": {"code": "invalid"}})
-        # A mute is house-wide (the key names the category, not the person), so it is a notification setting: a
-        # person who may configure Notifications only (a Guest muted smoke for a day, SRV-9, third audit pass). The
+        # A mute is house-wide (the key names the category, not the person): `control` on the Notifications feature --
+        # an Adult, an Owner or an Admin by default, a Child or a wall tablet only by a grant (a Guest muted smoke for a
+        # day, SRV-9, third audit pass; configure alone took the notification sheet's Mute from every Adult). The
         # audit row first: no row, no change.
-        if host.pages is None or not host.pages.may_configure(ctx.identity, "notifications"):
+        if not _may_mute(ctx.identity):
             return await ctx.send({"type": "notify_mute_result", "id": rid, "error": {"code": "forbidden"}})
         try:
             audit.config(None, ctx.identity, "notify.mute", {"key": key, "seconds": secs}, app=host.app)
