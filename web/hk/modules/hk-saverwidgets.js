@@ -125,6 +125,7 @@
     '.hksw .evs{flex:1;min-width:0;display:flex;flex-direction:column;gap:0}',
     '.hksw .ev1{flex:1;min-width:0;display:flex}',
     '.hksw .ev{display:flex;align-items:center;min-width:0}',
+    '.hksw .ev + .ev{margin-top:calc(var(--u) * .8)}',
     '.hksw .ev > div{min-width:0;overflow:hidden;text-overflow:ellipsis}',
     '.hksw .ev .e1{font-size:calc(var(--u) * 2.2);line-height:1.2;font-weight:700;overflow:hidden;text-overflow:ellipsis}',
     '.hksw .ev .e2{font-size:calc(var(--u) * 1.8);line-height:1.2;opacity:.8;overflow:hidden;text-overflow:ellipsis}',
@@ -150,7 +151,10 @@
     '.hksw .tod .tw svg{width:calc(var(--u) * 5);height:calc(var(--u) * 5)}',
     '.hksw .tod .s1{margin-top:calc(var(--u) * .4);font-size:calc(var(--u) * 2.2);line-height:1.2;opacity:.8}',
     '.hksw .sep{flex:none;align-self:stretch;width:1px;margin:calc(var(--u) * 1.6) 0;background:currentColor;opacity:.2}',
-    '.hksw .fc{flex:1;min-width:0;text-align:center;line-height:1.25}',
+    '.hksw .fcs{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;align-content:flex-start;height:calc(var(--u) * 11);overflow:hidden;column-gap:calc(var(--u) * .8)}',
+    '.hksw .fcs .sep{height:calc(var(--u) * 9.4);margin:calc(var(--u) * .8) calc(var(--u) * .8)}',
+    '.hksw .fc{flex:1 0 calc(var(--u) * 6.4);min-width:0;height:calc(var(--u) * 11);display:flex;flex-direction:column;justify-content:center;text-align:center;line-height:1.25;white-space:nowrap}',
+    '.hksw .fc.dy{flex-basis:calc(var(--u) * 9.6)}',
     '.hksw .fc .t{opacity:.8;font-size:calc(var(--u) * 2.1)}',
     '.hksw .fc svg{width:calc(var(--u) * 4.2);height:calc(var(--u) * 4.2);margin:calc(var(--u) * .4) auto}',
     '.hksw .fc .v{font-size:calc(var(--u) * 2.5)}',
@@ -184,6 +188,7 @@
   ].join('\n');
   var cssIn = false;
   // one style for the page (a caller with a shadow root of its own puts hkSaverWidgets.CSS in it)
+  var docSheet = null, sheets = [];
   function ensureCss() {
     var host = document.head || document.body || null;
     if (cssIn || !host || !host.appendChild) return;
@@ -191,7 +196,26 @@
     st.setAttribute('data-hk-saverwidgets', '');
     st.textContent = CSS;
     host.appendChild(st);
+    docSheet = st;
     cssIn = true;
+  }
+  // A SHEET FOR A SHADOW ROOT (the screensaver's layer, its slide corner, the editor): kept up to date as the glance
+  // groups' files add their own rules (addCss) -- one sheet per root however many files, never a copy that misses the
+  // rules of a file loaded after it was made
+  function sheet() {
+    var st = document.createElement('style');
+    st.setAttribute('data-hk-saverwidgets', '');
+    st.textContent = CSS;
+    sheets = sheets.filter(function (x) { return x.isConnected !== false; });
+    sheets.push(st);
+    return st;
+  }
+  function addCss(more) {
+    if (!more || CSS.indexOf(more) >= 0) return;
+    CSS += '\n' + more;
+    window.hkSaverWidgets.CSS = CSS;
+    if (docSheet) docSheet.textContent = CSS;
+    sheets.forEach(function (st) { st.textContent = CSS; });
   }
 
   // ------------------------------------------------------------ small helpers
@@ -540,7 +564,14 @@
     var out = {};
     given = given || {};
     Object.keys(d.opts).forEach(function (k) {
-      var choices = d.opts[k], def = d.defaults[k] !== undefined ? d.defaults[k] : choices[0], v = given[k];
+      var choices = d.opts[k], v = given[k];
+      // (an option that is words, 1 to 40 characters, or a picked entity of the domains it names: GLANCE-SPEC.md)
+      if (choices === 'text') { out[k] = typeof v === 'string' && v.trim() ? v.slice(0, 40) : (d.defaults[k] || ''); return; }
+      if (typeof choices === 'string' && choices.indexOf('entity:') === 0) {
+        out[k] = typeof v === 'string' && /^[a-z_]+\.[a-z0-9_]+$/.test(v) && choices.slice(7).split(',').indexOf(v.split('.')[0]) >= 0 ? v : (d.defaults[k] || '');
+        return;
+      }
+      var def = d.defaults[k] !== undefined ? d.defaults[k] : choices[0];
       if (Array.isArray(def)) {
         out[k] = def.map(function (x, i) { return Array.isArray(v) && choices.indexOf(v[i]) >= 0 ? v[i] : x; });
       } else {
@@ -631,15 +662,19 @@
             .filter(function (e) { return e.d && dayKey(e.d) > today && !seen[dayKey(e.d)] && (seen[dayKey(e.d)] = true); })
             .sort(function (p, q) { return dayKey(p.d) - dayKey(q.d); }).slice(0, 4)
             .map(function (e) {
-              return { t: DAYS[new Date(e.d[0], e.d[1], e.d[2]).getDay()].slice(0, 3), c: e.f.condition || '', hi: round(num(e.f.temperature)), lo: round(num(e.f.templow)) };
+              return { t: DAYS[new Date(e.d[0], e.d[1], e.d[2]).getDay()].slice(0, 3), c: e.f.condition || '', hi: deg(num(e.f.temperature)), lo: deg(num(e.f.templow)) };
             });
           return { main: w ? deg(w.temp) : DASH, says: w ? w.says || '' : '', cond: w ? w.cond : '', night: night(t), tf: fahr(X, w && w.temp, w && w.unit), hrs: hrs, days: days };
         },
         draw: function (s) {
           var col = function (c, v) { return '<div class="fc"><div class="t">' + esc(c.t) + '</div>' + (c.c ? wxGlyph(c.c, c.n) : '<svg viewBox="0 0 24 24" aria-hidden="true"></svg>') + '<div class="v">' + v + '</div></div>'; };
+          // (the hours and the days in one row that wraps out of sight: where the screen is too narrow for them all -- a
+          // phone -- the last go first, the days, and never squeezed into each other, 2026-11-02)
           return '<div class="tod"><div class="tw"><div class="big">' + esc(s.main) + '</div>' + (s.cond ? wxGlyph(s.cond, s.night) : '') + '</div><div class="s1">' + esc(s.says || ' ') + '</div></div>' +
+            '<div class="fcs">' +
             (s.hrs.length ? '<div class="sep"></div>' + s.hrs.map(function (c) { return col(c, esc(c.v)); }).join('') : '') +
-            (s.days.length ? '<div class="sep"></div>' + s.days.map(function (c) { return col(c, esc(c.hi) + ' <i>' + esc(c.lo) + '</i>'); }).join('') : '');
+            (s.days.length ? '<div class="sep"></div>' + s.days.map(function (c) { return col(c, esc(c.hi) + ' <i>' + esc(c.lo) + '</i>').replace('class="fc"', 'class="fc dy"'); }).join('') : '') +
+            '</div>';
         },
         w: function () { return 80; },
         h: function () { return 15; },
@@ -647,7 +682,7 @@
           main: '64°', says: 'Cloudy', cond: 'cloudy', night: false, tf: 64,
           hrs: [{ t: '3 PM', c: 'partlycloudy', n: false, v: '67°' }, { t: '4 PM', c: 'partlycloudy', n: false, v: '66°' }, { t: '5 PM', c: 'cloudy', n: false, v: '62°' },
                 { t: '6 PM', c: 'cloudy', n: true, v: '59°' }, { t: '7 PM', c: 'rainy', n: true, v: '57°' }, { t: '8 PM', c: 'rainy', n: true, v: '56°' }],
-          days: [{ t: 'Tue', c: 'rainy', hi: '61', lo: '52' }, { t: 'Wed', c: 'partlycloudy', hi: '66', lo: '50' }, { t: 'Thu', c: 'sunny', hi: '70', lo: '51' }, { t: 'Fri', c: 'sunny', hi: '72', lo: '54' }]
+          days: [{ t: 'Tue', c: 'rainy', hi: '61°', lo: '52°' }, { t: 'Wed', c: 'partlycloudy', hi: '66°', lo: '50°' }, { t: 'Thu', c: 'sunny', hi: '70°', lo: '51°' }, { t: 'Fri', c: 'sunny', hi: '72°', lo: '54°' }]
         }
       }
     }
@@ -1211,12 +1246,12 @@
   }
 
   window.hkSaverWidgets = {
-    PIECES: PIECES, SHAPES: SHAPES, has: has, define: define, create: create, sample: sample, CSS: CSS,
+    PIECES: PIECES, SHAPES: SHAPES, has: has, define: define, create: create, sample: sample, CSS: CSS, sheet: sheet, addCss: addCss,
     // (the v1 ids: what the old callers asked for)
     IDS: Object.keys(V1), V1: V1, kind: function (id) { return V1[id] ? V1[id][1] : null; },
     _: { ring: ring, miniRing: miniRing, bar: bar, wxGlyph: wxGlyph, nextEvent: nextEvent, nextEvents: nextEvents, eventWhen: eventWhen, sunNext: sunNext, homeWords: homeWords,
          cal: CAL, tm: tm, esc: esc, num: num, clamp: clamp, deg: deg, when: when, cut: cut, DASH: DASH, DOT: DOT, lines: lines, inl: inl, accStyle: accStyle, ramp: ramp, tempAcc: tempAcc,
-         aqiAcc: aqiAcc, optsOf: optsOf, familyOf: familyOf, timerRows: timerRows, readingOf: readingOf, hourName: hourName, clockText: clockText,
+         aqiAcc: aqiAcc, eventAcc: eventAcc, optsOf: optsOf, familyOf: familyOf, timerRows: timerRows, readingOf: readingOf, hourName: hourName, clockText: clockText,
          ACC: { green: GREEN, amber: AMBER, red: RED, yellow: YELLOW, orange: ORANGE } }
   };
 })();
