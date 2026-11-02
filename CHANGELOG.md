@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.116 - 2026-11-02
+
 **Added**
 - First start: **Restore From a Backup** on the sign-in page of a new Mantel, beside creating the Owner. The setup code, the backup and (from another Mantel, such as the Home Assistant App) its keys file: Mantel checks the backup, restarts with it, and its people sign in as before. No account to make first, and no script on the host.
 
