@@ -1,7 +1,7 @@
 # Phase 13: one screensaver (plan, 2026-11-02)
 
-**Status: built (2026-11-02), every phase on main; not released -- the owner's OK on the phase 4 before / after
-comes first, and 0.1.114 waits for the other sessions.** The mock-up was approved on 2026-11-02 ("Ok this all looks
+**Status: built (2026-11-02), every phase on main; the owner OK'd the phase 4 before / after ("Looks good",
+2026-11-02). Not released: 0.1.114 waits for the other sessions.** The mock-up was approved on 2026-11-02 ("Ok this all looks
 good"), with decisions 9 to 11. The
 mock-up is a private claude.ai artifact: https://claude.ai/artifact/WGMhLYgvrFpBEYsLB17hEN (interactive). It follows the Screensaver editor
 (`docs/phase12/SCREENSAVER-EDITOR.md`), which is on the house in 0.1.113 / 1.35.0.
