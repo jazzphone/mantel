@@ -1,6 +1,6 @@
 # Phase 14: system alerts and the update check (plan, 2026-11-02)
 
-**Status: plan. Nothing built; the decisions below are open.**
+**Status: plan. Nothing built; the owner answered the decisions on 2026-11-02.**
 
 ## The ask (the owner, 2026-11-02)
 
@@ -59,7 +59,7 @@ sent), whether a clear is sent, and whether it's on by default for a new channel
 
 | Group | Kind | Level | Hold | Clear message | On by default |
 |---|---|---|---|---|---|
-| Connections | `ha.lost`: Home Assistant not connected | Critical | 2 min | Yes: "Home Assistant is back" | Yes |
+| Connections | `ha.lost`: Home Assistant not connected | Critical | 5 min | Yes: "Home Assistant is back" | Yes |
 | Connections | `ma.lost`: Music Assistant not connected | Warning | 5 min | Yes | Yes |
 | Connections | `protect.lost`: UniFi Protect's events not connected (after phase 13) | Warning | 5 min | Yes | Yes |
 | Connections | `protect.cert`: Protect's certificate changed, connection stopped (phase 13) | Critical | none | When it's trusted again | Yes |
@@ -96,7 +96,8 @@ is one entry and one `raise` call.
   only if still down.
 - **Batching.** Alerts within 20 seconds of each other go to a channel as one message ("3 alerts").
 - **Quiet hours** (per channel, with `dnd.hhmm`): Info and Warning wait and go out as one message when quiet hours
-  end, leaving out whatever cleared in the meantime. Critical always goes through.
+  end, leaving out whatever cleared in the meantime. Whether Critical goes through anyway is the channel's own
+  switch, **Critical Alerts Ignore Quiet Hours** (on for a new channel), so each person decides for their channel.
 - **Delivery.** Each channel has its own queue on the server's loop. A failed send retries after 10 s, 1 min and
   5 min, then gives up and counts toward `channel.failing`. A slow or failing channel never holds up another.
 - **The log.** The last 30 days of raises, clears and which channels took them, in `alert_log`, shown in
@@ -114,7 +115,7 @@ returned, logged or audited: the page shows only the last four characters.
 | **Notifiarr** | The **global** API key, plus the numeric Discord channel ID it posts to | `notifiarr.com` only (the passthrough API, `X-api-Key`) | Integration keys don't work for passthrough. Confirm the payload (`notification`, `discord.ids.channel`, `discord.text`) against Notifiarr's docs while building. |
 | **Telegram** | A bot token from @BotFather, then **Find My Chat**: you send the bot `/start`, Mantel reads `getUpdates` and lists the chats it sees, and you pick one (a group works) | `api.telegram.org` only (`sendMessage`, `parse_mode: HTML`, escaped) | The bot only speaks when spoken to first, which the setup handles. |
 | **Email** | Server, port (587 STARTTLS, 465 TLS, 25 or 2525), user, password, From, one or more To | Any server the Owner types | Standard library `smtplib` in a thread, no new dependency. The certificate is verified. "None" (no TLS) only for a server on the LAN, with a warning. Plain text. The page notes Gmail and iCloud need an app password. |
-| **Apprise** | One or more Apprise URLs | Anywhere the URL says | Owner only, under Advanced. The optional extra `mantel[apprise]`. Without it the choice says it isn't installed (decision 3). |
+| **Apprise** | One or more Apprise URLs | Anywhere the URL says | Owner only, under Advanced. A dependency in all three installs, pinned in `requirements.lock` and the App's `requirements.txt` (decision 3). |
 | **Mantel apps** | Nothing to set up: see below | The relay and APNs, Web Push, the Companion app | End to end for the Mantel app. Lists who gets them. |
 
 **What a message says:** "Mantel · Home Assistant disconnected", one or two lines of what and since when, the
@@ -132,7 +133,7 @@ your mail provider can read the text, while the Mantel app's alerts are sealed.
   them under one System thread, apart from the doorbell and leaks.
 - **iPhone and iPad.** A small app change: the Notification Service Extension reads `category` and sets the thread
   and interruption level. It ships in the next TestFlight build.
-- **The Mac.** Not wired today: `PushRegistrar` in `MantelMacApp.swift` is a stub ("Notifications on the Mac are
+- **The Mac (last, slice 14.10).** Not wired today: `PushRegistrar` in `MantelMacApp.swift` is a stub ("Notifications on the Mac are
   optional (§9) and not wired yet"). It needs:
   - remote-notification registration;
   - the push entitlement in the Mac app's profile (Developer ID or App Store, whichever it ships as);
@@ -232,11 +233,11 @@ To save on usage:
 | 14.3 | System alerts in the apps: the recipients rule, the Me switch, `category: "system"`, the iPhone extension change | S server + S app | 14.0; a TestFlight build |
 | 14.4 | Telegram (with Find My Chat) and Notifiarr | S | 14.1 |
 | 14.5 | Email (SMTP) | S–M | 14.1 |
-| 14.6 | Apprise as the optional extra; in the images per decision 3 | S | 14.1 |
+| 14.6 | Apprise, a dependency in all three installs | S | 14.1 |
 | 14.7 | More sources: `disk.low`, `token.expiring`, `push.failing`, `link.lost`, Security; the heartbeat URL | M | 14.0 |
-| 14.8 | Notifications on the Mac app: registration, entitlement, extension | M | 14.3; the Mac app's signing |
-| 14.9 | Protect's alerts | S | phase 13's connector |
-| 14.10 | The guide (`docs/guide/Alerts.md`, Updates in About's page), screenshots, the MCP tools | S | all |
+| 14.8 | Protect's alerts | S | phase 13's connector |
+| 14.9 | The guide (`docs/guide/Alerts.md`, Updates in About's page), screenshots, the MCP tools | S | 14.0–14.8 |
+| 14.10 | **Last:** notifications on the Mac app (registration, entitlement, extension) and its part of the guide | M | 14.3; the Mac app's signing |
 
 **The first release:** 14.0, 14.1 and 14.2 together: Discord with the main alerts and the update check. Every
 later slice adds a channel or sources without changing what's already there.
@@ -259,15 +260,15 @@ later slice adds a channel or sources without changing what's already there.
 
 | # | Question | Recommendation |
 |---|---|---|
-| 1 | Call it **Alerts**, as its own page in Mantel Settings, beside Connections and Backups? | Yes. "Notifications" stays the accessories' word. |
-| 2 | Who gets system alerts in the apps: Owners and Admins who turn it on, on by default for the Owner? | Yes |
-| 3 | Apprise: built into the LXC and Docker images, an optional extra for the HA App, or left out? | Built into all three: a few MB of pure Python, and the page keeps it under Advanced |
-| 4 | "Backup finished" off by default (a daily message), with a failure or a stale backup always on? | Yes. Turn it on per channel if you want it. |
-| 5 | The holds: 2 minutes for Home Assistant, 5 for the others? | Yes, adjustable under Advanced |
-| 6 | The update check on by default (one GitHub call a day per product, nothing about the house sent)? | Yes, with the switch in About |
-| 7 | Critical alerts break through quiet hours? | Yes |
-| 8 | The heartbeat URL for "Mantel is down", in 14.7? | Yes: it's the only way to hear about Mantel itself |
-| 9 | The Mac app's notifications (14.8) in this phase, or after the Mac app's distribution is settled? | In this phase, after 14.3, if the Mac app's profile can take the push entitlement |
+| 1 | Call it **Alerts**, as its own page in Mantel Settings, beside Connections and Backups? | **Decided:** yes |
+| 2 | Who gets system alerts in the apps? | **Decided:** Owners and Admins who turn it on, on by default for the Owner |
+| 3 | Apprise in all three installs? | **Decided:** yes, a pinned dependency. What it costs: a few MB (Apprise with `requests`, `requests-oauthlib`, `markdown`, `PyYAML`, `click`), one more project's releases to follow when pinning, and a URL that can send anywhere, which is why it's Owner only and under Advanced |
+| 4 | "Backup finished" off by default, with a failure or a stale backup always on? | **Decided:** yes, on per channel if wanted |
+| 5 | The holds? | **Decided:** 5 minutes for every connection, Home Assistant included; adjustable under Advanced |
+| 6 | The update check on by default? | **Decided:** yes, with the switch in About |
+| 7 | Critical alerts through quiet hours? | **Decided:** the person setting up the channel chooses: a switch per channel, on for a new one |
+| 8 | The heartbeat URL for "Mantel is down"? | **Decided:** yes, in 14.7, off until a URL is set |
+| 9 | When the Mac app's notifications come | **Decided:** last (14.10). Everything it needs is in this repo: `apple/MantelMac`, `MantelKit`, `make_project.py`, and the Mac section of `docs/phase10/APPLE-APPS.md` |
 
 ## Sources
 
