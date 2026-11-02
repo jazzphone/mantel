@@ -159,9 +159,10 @@ def preflight(store: Path | None = None) -> tuple[str, dict]:
 
 
 def publish_tests(found: dict, product: str) -> list[str]:
-    """publish.py's --no-tests when the full run that speaks for HEAD ran its suites (PUBLISH_SUITES), else nothing."""
+    """publish.py's --no-tests when the full run that speaks for HEAD ran its suites (PUBLISH_SUITES), else nothing.
+    (A suite unchanged in that run passed on the same inputs earlier: tools/ci.py's step keys.)"""
     steps = found.get("steps", {})
-    return ["--no-tests"] if all(steps.get(n) == "passed" for n in PUBLISH_SUITES[product]) else []
+    return ["--no-tests"] if all(steps.get(n) in ("passed", "unchanged") for n in PUBLISH_SUITES[product]) else []
 
 
 def private_regex() -> str:

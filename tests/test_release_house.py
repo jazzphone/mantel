@@ -29,6 +29,8 @@ def test_the_publishers_skip_their_suites_only_when_the_full_run_ran_them():
     assert rh.publish_tests(skipped, "hk-frontend") == [], "a skip is never a pass"
     no_venv = {"steps": {**passed["steps"], "hk-frontend-py": "skipped"}}
     assert rh.publish_tests(no_venv, "mantel-link") == [], "test_mantel_link skips without the HA venv"
+    carried = {"steps": {**passed["steps"], "hk-frontend-py": "unchanged"}}
+    assert rh.publish_tests(carried, "hk-frontend") == ["--no-tests"], "an unchanged suite passed on the same inputs"
 
 
 def test_mantel_link_goes_to_the_house_with_the_hk_core_it_imports(tmp_path):
