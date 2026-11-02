@@ -61,6 +61,12 @@ detail recorded here: the URLs are sealed files beside the Connections page's cr
 settings document, and an id Home Assistant gains later is HA's (reported as ``conflict``) rather than shadowed.
 Not yet here: "Video From" for a camera both HA and Protect know, and the events (phase 4).
 
+2026-11-02: phase 6 (RTSP cameras, camera_setup.py) is this registry's first writer. It added ``sensors`` to the
+source ({motion, person, doorbell}: the Home Assistant binary sensors or events a person linked to the camera, which
+has no HA device to carry them), ``sensor_links()`` for the House port's ``camera_links`` (the notification rules read
+it in place of a device: hk_core/notifications/accessories.py), ``on_links`` (the notifications look again when they
+change) and ``testing`` (the Add Camera page's temporary streams, which ``reap`` leaves alone while a test runs).
+
 Wiring (server.wire, after live_tv.register)::
 
     cameras_direct.register(app, hub, hooks)
@@ -97,6 +103,8 @@ PLATFORM = "mantel_camera"
 SECRET_PREFIX = "camera-"                   # connections/<this><slug>.connection: the sealed URLs
 SOURCES = ("protect", "rtsp")
 DETECTIONS = ("motion", "person", "vehicle", "animal", "package", "ring")
+SENSOR_ROLES = ("motion", "person", "doorbell")     # the HA sensors a camera can be LINKED to (phase 6)
+SENSOR_ID = re.compile(r"^(binary_sensor|event)\.[a-z0-9_]{1,200}$")
 QUALITIES = ("high", "low")
 STOP_GRACE_S = 5.0
 TICK_S = 30.0
@@ -165,15 +173,24 @@ class DirectSource:
     detections: tuple[str, ...] = ()
     low: bool = False
     still: bool = False
+    # LINKED HA SENSORS (phase 6, 2026-11-02): ((role, entity id), ...) in SENSOR_ROLES' order. A direct camera has
+    # no Home Assistant device to carry its motion, person and doorbell sensors, so the person who set it up says
+    # which ones they are; the notification rules read them as `camera_links` (house.MantelHouse). Entity ids, not
+    # secrets, so they live in the document with the rest.
+    sensors: tuple[tuple[str, str], ...] = ()
 
     @property
     def entity_id(self) -> str:
         return entity_id_of(self.slug)
 
+    @property
+    def links(self) -> dict[str, str]:
+        return dict(self.sensors)
+
     def public(self) -> dict[str, Any]:
         return {"slug": self.slug, "name": self.name, "source": self.source, "area_id": self.area_id,
                 "protect_id": self.protect_id, "speaker": self.speaker, "detections": list(self.detections),
-                "low": self.low, "still": self.still}
+                "low": self.low, "still": self.still, "sensors": dict(self.sensors)}
 
     @classmethod
     def from_doc(cls, d: Mapping[str, Any]) -> "DirectSource | None":
@@ -199,7 +216,7 @@ def check_source(source: Mapping[str, Any]) -> tuple[DirectSource, CameraSecret 
     if not isinstance(source, Mapping):
         raise SourceError("source", "a camera source is an object")
     extra = set(source) - {"slug", "name", "area_id", "source", "streams", "still", "protect_id", "speaker",
-                           "detections"}
+                           "detections", "sensors"}
     if extra:
         raise SourceError(sorted(extra)[0], f"unknown fields: {', '.join(sorted(extra))}")
     slug = source.get("slug")
@@ -224,8 +241,15 @@ def check_source(source: Mapping[str, Any]) -> tuple[DirectSource, CameraSecret 
     if not isinstance(det, (list, tuple)) or any(d not in DETECTIONS for d in det):
         raise SourceError("detections", f"detections: any of {', '.join(DETECTIONS)}")
     detections = tuple(d for d in DETECTIONS if d in det)
+    linked = source.get("sensors") or {}
+    if not isinstance(linked, Mapping) or set(linked) - set(SENSOR_ROLES) \
+            or any(not isinstance(v, str) or not SENSOR_ID.match(v) for v in linked.values() if v is not None):
+        raise SourceError("sensors", f"sensors: {{{', '.join(SENSOR_ROLES)}}}, each a binary_sensor or event entity id")
+    sensors = tuple((r, linked[r]) for r in SENSOR_ROLES if linked.get(r))
+    if len({v for _, v in sensors}) != len(sensors):
+        raise SourceError("sensors", "sensors: one sensor cannot be two of a camera's")
     src = DirectSource(slug=slug, name=name.strip(), source=kind, area_id=area, protect_id=pid, speaker=speaker,
-                       detections=detections)
+                       detections=detections, sensors=sensors)
     streams = source.get("streams")
     if streams is None:
         if source.get("still") is not None:
@@ -276,6 +300,12 @@ class DirectCameras:
         self.go2rtc = Go2rtc(go2rtc_api_url(app.get("cfg")), lambda: app.get("http"))
         self.local = LocalEntities(hub, lambda: app["clock"]() if "clock" in app else time.time(), flag=FLAG)
         self.conflicts: dict[str, str] = {}                  # entity id -> the HA entity that has it (status)
+        self._links: dict[str, tuple[str, str]] = {}         # linked sensor -> (camera, role): sensor_links()
+        self.on_links: Callable[[], None] | None = None      # the notifications look again when these change
+        # the Add Camera page's Test (camera_setup.try_stream): its temporary streams, which the tick's reap must not
+        # take mid-test (but does take after a crash left one), and the one test allowed at a time
+        self.testing: set[str] = set()
+        self.testing_lock = asyncio.Lock()
         self._secrets: dict[str, CameraSecret] = {}
         self.unreadable: dict[str, str] = {}                 # slug -> why its sealed file did not open
         self.sessions: dict[str, CamSession] = {}
@@ -430,7 +460,28 @@ class DirectCameras:
         self._sync_registry()
         if changed:
             self.hub.on_change(changed)
+        self._sync_links(mine)
         return changed
+
+    def _sync_links(self, mine: list[DirectSource]) -> None:
+        """The linked sensors of the cameras this overlay serves (not one set aside for Home Assistant's). The
+        notifications are told when they change: what a category watches, and which camera a sensor's
+        notification takes its snapshot from, depend on them."""
+        links = {eid: (s.entity_id, role) for s in mine for role, eid in s.sensors}
+        if links == self._links:
+            return
+        self._links = links
+        if self.on_links is not None:
+            try:
+                self.on_links()
+            except Exception:  # noqa: BLE001 -- the notifications' bug never breaks a camera change
+                log.exception("cameras: the notifications could not take the linked sensors")
+
+    def sensor_links(self) -> dict[str, tuple[str, str]]:
+        """{sensor entity id: (camera entity id, "motion" | "person" | "doorbell")} for the cameras served now:
+        the House port's ``camera_links`` (house.MantelHouse), which hk_core's notification rules read in place of
+        a Home Assistant device (hk_core/notifications/accessories.py)."""
+        return dict(self._links)
 
     def _sync_registry(self) -> None:
         registry = getattr(self.hub, "registry", None)
@@ -681,7 +732,7 @@ class DirectCameras:
         except (aiohttp.ClientError, asyncio.TimeoutError, Go2rtcError) as exc:
             self.error = f"{type(exc).__name__}: {exc}"[:200]
             return
-        busy = {n for n in got if self._busy(n)} | set(self._stop_timers)
+        busy = {n for n in got if self._busy(n)} | set(self._stop_timers) | self.testing
         for name in got:
             if name.startswith(STREAM_PREFIX) and name not in busy:
                 await self._drop(name)
@@ -769,6 +820,14 @@ def register(app: web.Application, hub: Any, hooks: Any = None, cam_hooks: Direc
     hooks = Hooks.coerce(hooks)
     cams = DirectCameras(app, hub, hooks, cam_hooks)
     app["cameras_direct"] = cams
+
+    def links_changed() -> None:
+        """The linked sensors changed (phase 6): the notifications work out what they watch again (they read the
+        links through the House port, features/host.py ``_camera_links``)."""
+        feats = app.get("features")
+        if feats is not None:
+            feats.notifier.refresh()
+    cams.on_links = links_changed
     routes = read_routes(app)
     base = {t: routes.get(t) for t in (CONFIG, OFFER, CANDIDATE)}
 

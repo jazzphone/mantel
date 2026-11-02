@@ -271,6 +271,64 @@ channel's camera. See HK Frontend's
 [Live TV](https://github.com/jazzphone/hk-frontend/wiki/Live-TV) for the page
 itself.
 
+### RTSP cameras
+
+In Docker and the Proxmox container, Mantel can play a camera that speaks RTSP
+(most IP cameras, a Frigate restream) itself, with no Home Assistant in the
+middle. It uses the same go2rtc as Live TV. Open **Mantel Settings → Cameras**
+and press **Add Camera**.
+
+| Box | What to type |
+|---|---|
+| **Name** | What the camera is called. Its id is `camera.mantel_` and the name, in lowercase (`camera.mantel_driveway`). If Home Assistant already has that id, Mantel says so and names Home Assistant's entity: give the camera another name. |
+| **Area** | One of Home Assistant's areas, or none. People see the camera the way they see any camera in that area (Roles & Grants), so give it the area its people already have. |
+| **RTSP Address** | The camera's address, `rtsp://192.0.2.50:554/stream1`; the camera's manual gives the path. `rtsps://` works too. |
+| **Sub-Stream (Optional)** | A second, smaller stream some cameras offer. Mantel draws the stills from it. |
+| **User Name** and **Password** | The camera's RTSP login. Type them here, not in the address (Mantel refuses an address with a login in it). |
+
+Press **Test** before you add the camera. Mantel connects to the camera for a
+few seconds and shows a picture from it, or says what it could not do:
+
+| Mantel says | What to check |
+|---|---|
+| It could not reach the camera | The address and port, that the camera is on, and that Mantel's machine can reach it (the camera on another network or VLAN needs a route). |
+| The camera refused the user name or password | Both boxes. Many cameras have a separate RTSP login in their own settings. |
+| The camera's video is H.265 (or another codec a browser cannot play) | In the camera's own settings, set the video to **H.264**, or use its second stream if it has one in H.264. |
+| The camera has no stream at that address | The end of the address (the path). |
+| No picture came in time | The camera answers but sends nothing: try its other stream, or restart it. |
+
+**Who can.** An Owner or an Admin. Away from the home network they are asked to
+confirm it is them first, as for a change to a connection.
+
+**Where the login goes.** The user name and password are sealed in Mantel's data
+folder beside the Connections credentials, and are included in an encrypted
+backup. Mantel never shows them again: a saved camera's boxes say **Saved**, and
+a box left blank when you change a camera keeps what is saved (**Remove the Saved
+Sign-In** drops it). They are never in the Audit Log, which records who added,
+changed or removed a camera and the address's host, never the path or the login.
+
+**Notify For.** A camera has no Home Assistant device, so Mantel cannot tell
+which sensors belong to it. You can say: **Motion**, **Person** and **Doorbell**
+each take any binary sensor or event from Home Assistant, such as Frigate's
+`binary_sensor.driveway_person_occupancy`. Names that begin with the camera's
+are suggested, and a sensor you cannot see is not on the list. A linked sensor
+counts as that camera's in the notifications you set up in HK's Notifications:
+
+- the notification carries this camera's picture, and opens its live view;
+- a **Doorbell** link rings the **Doorbells** notification, with the doorbell
+  pop-up;
+- a **Person** or **Motion** link is the camera's trigger in **Cameras**.
+
+The notifications themselves are still turned on in Notifications. Mantel has no
+motion detection of its own, so **without Home Assistant there is nothing to
+link**, and the page says so; the camera still plays.
+
+**In the Home Assistant App** there is no go2rtc of Mantel's own, so **Cameras**
+has no Add Camera. It says that cameras come from Home Assistant and links to
+Home Assistant's
+[Generic Camera](https://www.home-assistant.io/integrations/generic/)
+integration, which adds an RTSP camera there; it then appears in Mantel by itself.
+
 ## Troubleshooting
 
 **The Music page shows no rooms.** Check **Mantel Settings → Connections**:
@@ -281,6 +339,10 @@ with no rooms they may see gets an empty page.
 network.** Mantel can't reach Music Assistant's web app, or the person may not
 control music. If you run your own proxy, make sure it does not add its own
 Content-Security-Policy header. See [Troubleshooting](Troubleshooting.md).
+
+**Add Camera is missing.** Mantel runs as a Home Assistant App (add RTSP cameras
+in Home Assistant, with Generic Camera), or was started without its go2rtc
+(`--go2rtc-url`; Docker and the container set it).
 
 **A camera stays on its still.** The person's role may not view it live, or
 they are away and **Cameras from Outside** is off. Mantel's log names a

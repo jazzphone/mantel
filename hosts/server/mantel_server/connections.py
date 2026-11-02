@@ -582,9 +582,11 @@ def status(app: web.Application, kind: str) -> dict:
 
 
 # -- REST ----------------------------------------------------------------------------------------------------
-def edit_rule(request: web.Request, ident: Identity) -> str:
-    """'ok' | 'fresh' (a fresh factor is needed first) | 'owner_only'."""
-    if ident.user is None or ident.device is not None or ident.user.role != "owner":
+def edit_rule(request: web.Request, ident: Identity, *, admins: bool = False) -> str:
+    """'ok' | 'fresh' (a fresh factor is needed first) | 'owner_only'. ``admins``: an Admin changes it too (the
+    cameras' setup, camera_setup.py, 2026-11-02: an Admin adds a camera, but from away from home asks for the same
+    fresh factor an Owner's change to a connection does); the door and freshness rules are the same."""
+    if ident.user is None or ident.device is not None or ident.user.role not in (("owner", "admin") if admins else ("owner",)):
         return "owner_only"
     if ident.door == "lan":
         return "ok"

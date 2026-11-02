@@ -37,7 +37,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_reads, linked_settings, people_ha, screens,
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
-from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
+from . import camera_setup, default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
 from . import app_shell, cf_access, guards, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
@@ -890,6 +890,9 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # direct camera sources (docs/phase13/CAMERAS-DIRECT.md phase 3): camera.mantel_* through Mantel's own go2rtc;
     # after Live TV, so its signaling wraps Live TV's wrapper. Without --go2rtc-url (the HA App) nothing is installed
     cameras_direct.register(app, hub, hooks)
+    # ...and Mantel Settings' Cameras page for them (Add Camera, Test, linked sensors). On every Mantel: under the HA
+    # App it says the cameras are Home Assistant's
+    camera_setup.register(app)
     # the home's own files (fonts, glyphs, photos; Owner/Admin upload) and the nightly encrypted
     # backup (off unless --backup-target is set)
     user_files.register(app, hub)

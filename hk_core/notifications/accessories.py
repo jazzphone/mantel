@@ -1,12 +1,23 @@
 """WHAT A NOTIFICATION WATCHES, found in the house: an accessory's name and kind, the camera on
 its device, a category's accessories, the Cameras category's pairs.
 
+A camera that is on a Home Assistant device finds its sensors there (its own person or motion
+detection, its doorbell press). A Mantel DIRECT camera (an RTSP camera set up in Mantel Settings,
+docs/phase13/CAMERAS-DIRECT.md phase 6) has no device, so the person who set it up LINKS its sensors
+(Motion, Person, Doorbell: any binary sensor or event, Frigate's for one) and the house reports them
+as ``camera_links``. That one mapping stands in for the device wherever the code below would have
+asked "what is on this sensor's device": ``camera_for`` (a sensor's camera: its snapshot, its live
+sheet), ``trigger_for`` (a camera's sensor), ``kind`` (a linked sensor is that kind whatever its
+device class says: a Doorbell link rings the Doorbells notification, with its pop-up). Nothing else
+changed: the rules read kinds and cameras from here, as they did.
+
 Alarm PIN's panels come from the host (they are HK's own settings, not the house's): `pins` is
 a callable answering {panel: the alarm it stands in front of}, asked only when an alarm is
 involved.
 """
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -15,6 +26,19 @@ from . import rules
 from .const import OWN_PLATFORM
 
 Pins = Callable[[], Mapping[str, str]]
+
+# a linked sensor's role -> the kind it counts as (rules.kind_of's words)
+LINK_KINDS = {"motion": "motion", "person": "person", "doorbell": "doorbell"}
+
+
+def links(house: House) -> Mapping[str, tuple[str, str]]:
+    """The house's camera links, {sensor: (camera, role)}; {} where it has none (a House written before they
+    were, or Home Assistant's, whose cameras have devices)."""
+    got = getattr(house, "camera_links", None)
+    if not callable(got):
+        return {}
+    out = got()
+    return out if isinstance(out, Mapping) else {}
 
 
 def no_pins() -> Mapping[str, str]:
@@ -47,7 +71,11 @@ def _rank(cam: str) -> tuple[int, str]:
 
 def camera_for(house: House, entity_id: str) -> str | None:
     """The camera on the same device (a camera's own detection sensor), the
-    best channel first; None when there is none."""
+    best channel first; the camera a sensor is linked to (a direct camera has no
+    device); None when there is none."""
+    linked = links(house).get(entity_id)
+    if linked is not None and house.entity(linked[0]) is not None:
+        return linked[0]                        # told so: a direct camera has no device
     ent = house.entity(entity_id)
     if ent is None or not ent.device_id:
         return None
@@ -89,6 +117,9 @@ def kind(house: House, entity_id: str, entry: Entity | None = None,
     a state -- the house starting) its registry entry's. `states`: the
     house's states already read, when many are asked at once."""
     domain, oid = entity_id.split(".", 1)
+    linked = links(house).get(entity_id)
+    if linked is not None and linked[1] in LINK_KINDS:
+        return LINK_KINDS[linked[1]]
     st = states.get(entity_id) if states is not None else house.state(entity_id)
     dc = st.attributes.get("device_class") if st is not None else None
     if dc is None and entry is not None:
@@ -98,7 +129,12 @@ def kind(house: House, entity_id: str, entry: Entity | None = None,
 
 def trigger_for(house: House, camera: str) -> str | None:
     """The sensor a camera's notification goes off on, suggested: its own
-    device's person detection, else its doorbell, motion or presence."""
+    device's person detection, else its doorbell, motion or presence (a direct
+    camera: the same order among the sensors linked to it)."""
+    told = [(TRIGGER_KINDS.index(LINK_KINDS[role]), not eid.startswith("binary_sensor."), eid)
+            for eid, (cam, role) in links(house).items() if cam == camera and role in LINK_KINDS]
+    if told:
+        return min(told)[2]
     ent = house.entity(camera)
     if ent is None or not ent.device_id:
         return None
@@ -135,6 +171,9 @@ def describe(house: House, entity_id: str) -> dict[str, Any]:
     st = house.state(entity_id)
     domain, oid = entity_id.split(".", 1)
     k = rules.kind_of(domain, st.attributes.get("device_class") if st else None, oid)
+    told = links(house).get(entity_id)
+    if told is not None and told[1] in LINK_KINDS:
+        k = LINK_KINDS[told[1]]
     cam = camera_for(house, entity_id) if domain != "camera" else entity_id
     name = name_of(house, entity_id)
     when = rules.default_when(k)
@@ -222,3 +261,46 @@ def about(house: House, item: dict[str, Any]) -> dict[str, Any]:
             "when": cat[3].get("when") or rules.default_when(k), "camera": None, "event": False,
             "title": title, "message": message, "icon": icon, "tint": tint,
             "important": bool(cat[3].get("important")), "missing": False}
+
+
+# SUGGESTING A DIRECT CAMERA'S SENSORS: it has no device to find them on, so they are found by name -- the sensors
+# whose name begins with the camera's ("Driveway" -> Frigate's "Driveway Person Occupancy"), by what each is.
+LINK_ROLES = ("motion", "person", "doorbell")
+_ROLE_OF_KIND = {"person": "person", "doorbell": "doorbell", "motion": "motion", "presence": "motion"}
+
+
+def suggest_links(house: House, camera_name: str, taken: Mapping[str, str] | None = None) -> dict[str, str | None]:
+    """For a camera named `camera_name`: the sensor to suggest for each role (Motion, Person, Doorbell), or None.
+    A sensor qualifies when it is a binary sensor or an event the house shows (``usable``) whose name begins with
+    the camera's, as a whole word, and none already linked to another camera (`taken`: {sensor: the camera it is
+    linked to}). A binary sensor is preferred to an event (it has an off as well), as ``trigger_for`` does."""
+    want = " ".join(str(camera_name or "").lower().split())
+    out: dict[str, str | None] = {r: None for r in LINK_ROLES}
+    if not want:
+        return out
+    found: dict[str, list[tuple[bool, str]]] = {r: [] for r in LINK_ROLES}
+    for e in house.entities():
+        if e.domain not in ("binary_sensor", "event") or not usable(e) or (taken or {}).get(e.entity_id):
+            continue
+        st = house.state(e.entity_id)
+        names = {" ".join(name_of(house, e.entity_id).lower().split())}
+        if st is not None:
+            names.add(" ".join(str(st.name).lower().split()))
+        if not any(n == want or n.startswith(want + " ") for n in names):
+            continue
+        dc = (st.attributes.get("device_class") if st is not None else None) or e.device_class or e.original_device_class
+        oid = e.entity_id.split(".", 1)[1]
+        role = _ROLE_OF_KIND.get(rules.kind_of(e.domain, dc, oid))
+        # Frigate's person sensor is an occupancy sensor ("Driveway Person Occupancy"): by the device class alone it
+        # is presence, so the words of its name say what it senses
+        words = set(re.split(r"[^a-z0-9]+", (oid + " " + " ".join(names)).lower()))
+        if role in (None, "motion") and words & {"person", "people"}:
+            role = "person"
+        elif role is None and "motion" in words:
+            role = "motion"
+        if role:
+            found[role].append((e.domain != "binary_sensor", e.entity_id))
+    for role, got in found.items():
+        if got:
+            out[role] = min(got)[1]
+    return out
