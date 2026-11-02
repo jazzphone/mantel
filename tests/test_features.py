@@ -564,6 +564,27 @@ async def test_clean_areas_runs_as_the_person_who_asked(make_env):
     await ws.close()
 
 
+async def test_the_clean_areas_coverage_lists_only_the_vacuums_a_person_may_view(make_env):
+    """SRV-5 (third audit pass): ``mantel/clean_areas/coverage`` answered every vacuum's id and rooms to any
+    signed-in person; its sibling, the picker's subscribe, already cut them to the vacuums the subject may view."""
+    env = await make_env(commands=True, settings={"clean_areas": {"enabled": True}})
+    await env.login("guest1", "guest")
+    ws = await env.socket()
+    await ws.send_json({"type": "read", "id": 1, "msg": {"type": "mantel/clean_areas/coverage"}})
+    got = (await GF.recv(ws))["result"]
+    assert got == {"configured": True, "offered": [], "coverage": []}, got
+    await ws.send_json({"type": "read_subscribe", "id": 2, "msg": {"type": "hk_clean_areas/subscribe"}})
+    await GF.recv(ws)
+    assert (await GF.recv(ws))["event"]["areas"] == [], "the two reads agree"
+    await ws.close()
+    await env.login("owner1", "owner")
+    ws = await env.socket()
+    await ws.send_json({"type": "read", "id": 1, "msg": {"type": "mantel/clean_areas/coverage"}})
+    got = (await GF.recv(ws))["result"]
+    assert got["offered"] == ["kitchen"] and [v["vacuum"] for v in got["coverage"]] == [VACUUM]
+    await ws.close()
+
+
 async def test_clean_areas_with_commands_off_answers_the_plan_and_sends_nothing(make_env):
     env = await make_env(settings={"clean_areas": {"enabled": True}})
     await env.login("owner1", "owner")

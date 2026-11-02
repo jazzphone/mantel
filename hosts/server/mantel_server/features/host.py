@@ -839,6 +839,22 @@ class FeatureHost:
         return plan
 
     # -- Clean Areas' area picker (hk_clean_areas/subscribe, answered by Mantel) --------------------
+    async def coverage_for(self, identity: Any) -> dict[str, Any]:
+        """``clean_coverage`` for one subject: only the vacuums they may ``view`` (as the picker's ``area_offer``),
+        and the areas those reach. ``mantel/clean_areas/coverage`` answered every vacuum's id and rooms to any
+        signed-in person, a Guest included (third audit pass, SRV-5)."""
+        from ..connectors import allowed_ids
+        opts = self.settings["clean_areas"]["options"]
+        every = CA.coverage(self.house, opts)
+        ok = await allowed_ids(self.hooks, identity, "view", [v["vacuum"] for v in every])  # type: ignore[arg-type]
+        seen = [v for v in every if v["vacuum"] in ok]
+        reach: list[str] = []
+        for v in seen:
+            if v["taking_part"]:
+                reach += [a for a in v["areas"] if a not in reach]
+        chosen = list(opts.get("areas") or [])
+        return {"offered": [a for a in chosen if a in reach] if chosen else reach, "coverage": seen}
+
     async def area_offer(self, identity: Any) -> dict[str, Any]:
         """HA's ``hk_clean_areas/subscribe`` body, {configured, areas}, from hk_core's Clean Areas over
         Mantel's House: the areas the picker offers (``clean_areas.offered``), reached only through
@@ -1023,7 +1039,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
             raise Forbidden("sign in to see the vacuums")
         if not host.on("clean_areas"):
             return {"configured": False, "offered": [], "coverage": []}
-        return {"configured": True, **host.clean_coverage()}
+        return {"configured": True, **await host.coverage_for(ctx.identity)}
 
     # HK's area picker (hk-area-select-card), exactly as it subscribes to HA: answered here from hk_core's
     # Clean Areas over Mantel's House, never forwarded. Starting a clean is a COMMAND (the page's
