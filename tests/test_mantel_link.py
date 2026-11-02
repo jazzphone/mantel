@@ -65,11 +65,12 @@ def test_mantel_link_s_public_repository_builds_clean(tmp_path):
     assert not [d for d in dests if d.startswith("custom_components/mantel/") and
                 d.split("/")[2] in ("tests", "tools", "docs")]
     # the shared code is vendored INSIDE the component (hassfest: no top-level package beside it): only the link
-    # package, imported relatively, and nothing of hk_core that needs more than that
+    # package and live talk's core (hk_core/talk, 2026-11-02), imported relatively, and nothing of hk_core that
+    # needs more than that
     core = sorted(d for d in dests if "/hk_core/" in d)
     assert core == sorted(f"custom_components/mantel/hk_core/{n}" for n in (
         "__init__.py", "link/__init__.py", "link/mantel_link.py", "link/page_headers.py", "link/talk.py",
-        "link/talk_live.py"))
+        "link/talk_live.py", "talk/__init__.py", "talk/core.py"))
     import re
     absolute = re.compile(r"^\s*(?:from|import)\s+(?:hk_core|custom_components)\b", re.M)
     assert not [d for s, d in pairs if d.startswith("custom_components/") and d.endswith(".py")

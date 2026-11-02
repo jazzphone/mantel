@@ -4,7 +4,7 @@ it pushes to the repository's origin -- creating jazzphone/mantel-link on GitHub
 step (docs/phase9/MANTEL-LINK.md 9.9).
 
     custom_components/mantel/   what HACS installs (no tests, tools, docs), with hk_core/ (the few shared modules
-                                it needs: hk_core/link/, the link client and the talk and page-header code HK
+                                it needs: hk_core/link/ and hk_core/talk/, the link client and the talk and page-header code HK
                                 Frontend also uses) vendored inside, imported relatively (hassfest: nothing
                                 top-level beside the component)
     tests/  docs/               beside it
@@ -41,7 +41,7 @@ HK_PUBLISHER = os.path.join(os.path.dirname(COMPONENT), "hk_frontend", "tools", 
 # custom_components/mantel/hk_core/ (HK Frontend vendors all of hk_core the same way)
 MANTEL = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(COMPONENT))))
 CORE = os.path.join(MANTEL, "hk_core")
-CORE_PARTS = ("__init__.py", "link")
+CORE_PARTS = ("__init__.py", "link", "talk")      # talk: live talk's core (hk_core/talk/core.py), which link/talk_live.py imports
 
 
 def hk_publisher():
