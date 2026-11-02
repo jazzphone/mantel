@@ -69,7 +69,16 @@
     playin: [['inline'], {}, 'Playing In', ['playin'], 'media'],
     thisday: [['inline'], {}, 'On This Day', ['thisday'], 'media'],
     camera: [['rectangular', 'card'], {camera: 'entity:camera'}, 'Camera', ['camera'], 'cameras'],
-    ring: [['inline', 'card'], {}, 'Last Ring', ['ring'], 'cameras']
+    ring: [['inline', 'card'], {}, 'Last Ring', ['ring'], 'cameras'],
+    // wave C: one entity picked, with a suggested default
+    alarm: [['inline', 'circular'], {entity: 'entity:sensor'}, 'Phone Alarm', ['alarm'], 'picked'],
+    trash: [['inline', 'circular'], {entity: 'entity:calendar,sensor'}, 'Trash Day', ['trash'], 'picked'],
+    pollen: [['inline', 'circular'], {entity: 'entity:sensor'}, 'Pollen', ['pollen'], 'picked'],
+    appliance: [['inline', 'circular', 'rectangular'], {entity: 'entity:sensor,binary_sensor', entity2: 'entity:sensor,binary_sensor'}, 'Appliances', ['appliance'], 'picked'],
+    leak: [['inline', 'card'], {}, 'Leak and Smoke', ['leak'], 'picked'],
+    travel: [['inline', 'circular', 'rectangular'], {entity: 'entity:sensor', entity2: 'entity:sensor'}, 'Travel Time', ['travel'], 'picked'],
+    price: [['inline'], {entity: 'entity:sensor,input_number,number'}, 'Price', ['price'], 'picked'],
+    sensor: [['inline', 'circular', 'rectangular'], {entity: 'entity:sensor,binary_sensor,input_number,number,input_boolean,switch,climate,lock,cover,device_tracker', entity2: 'entity:sensor,binary_sensor,input_number,number,input_boolean,switch,climate,lock,cover,device_tracker', name: 'text', min: 'text', max: 'text'}, 'Any Sensor', ['sensor'], 'sensor']
   };
   var SHAPES = ['inline', 'circular', 'rectangular', 'card', 'band'];
   var SHAPE_NAMES = { inline: 'Inline', circular: 'Circular', rectangular: 'Rectangular', card: 'Card', band: 'Band' };
@@ -113,6 +122,15 @@
     'camera.rectangular': 'A camera’s still', 'camera.card': 'A camera’s still', 'ring.inline': 'After the doorbell rings',
     'ring.card': 'After the doorbell rings'
   };
+  // (wave C's words)
+  Object.assign(WORDS, {
+    'alarm.inline': 'While an alarm is set', 'alarm.circular': 'While an alarm is set', 'trash.inline': 'The day before and the day of',
+    'trash.circular': 'The day before and the day of', 'pollen.inline': 'The pollen level', 'pollen.circular': 'The pollen level',
+    'appliance.inline': 'While running, and an hour after', 'appliance.circular': 'While running, and an hour after', 'appliance.rectangular': 'While running, and an hour after',
+    'leak.inline': 'While one is tripped', 'leak.card': 'While one is tripped', 'travel.inline': 'Minutes to a place',
+    'travel.circular': 'Minutes to a place', 'travel.rectangular': 'Minutes to a place', 'price.inline': 'The energy price',
+    'sensor.inline': 'Any entity you pick', 'sensor.circular': 'Any entity you pick', 'sensor.rectangular': 'Any entity you pick'
+  });
   var CATALOG = {};
   function catalog() {
     CATALOG = {};
@@ -330,6 +348,9 @@
     var out = {}, seen = {}, zs = O.zones, b = O.big || {};
     var faceHas = b.kind === 'time' ? FACE_FACTS[(cfg || {}).clock_style] || [] : [];
     var faceName = { today: 'the Today face' }[(cfg || {}).clock_style];
+    // (Glance, Month and the Day face drawing their own words -- no big element of the layout's: what they show)
+    var SHOW_FACTS = { glance: ['time', 'weather', 'music', 'date'], month: ['time', 'date'], day: ['date'] };
+    if (b.kind === 'none' && SHOW_FACTS[(cfg || {}).show]) { faceHas = SHOW_FACTS[cfg.show]; faceName = 'the ' + { glance: 'Glance', month: 'Month', day: 'Day' }[cfg.show] + ' face'; }
     Object.keys(ZONES).forEach(function (z) {
       (zs[z] || []).forEach(function (w, i) {
         var facts = (PIECES[w.piece] || [])[3] || [];

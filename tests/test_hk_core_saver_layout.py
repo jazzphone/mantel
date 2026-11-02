@@ -148,7 +148,7 @@ def test_the_read_keeps_what_it_can_and_never_costs_the_other_options():
     assert M.saver_options({"layout": {"v": 9}})["layout"] is None
     assert M.saver_options({"layout": "a layout"})["layout"] is None
     # a v2 layout's unknown ink is auto, an unknown piece is left out, an unknown option dropped
-    lay2 = M.saver_options({"layout": {"v": 2, "ink": "gray", "zones": {"row": [{"piece": "pollen", "shape": "circular"},
+    lay2 = M.saver_options({"layout": {"v": 2, "ink": "gray", "zones": {"row": [{"piece": "from_a_newer_build", "shape": "circular"},
                             {"piece": "readings", "shape": "circular", "opts": {"reading": "pollen"}}]}}})["layout"]
     assert "ink" not in lay2 and lay2["zones"]["row"] == [{"piece": "readings", "shape": "circular", "back": "none", "color": "auto"}]
 

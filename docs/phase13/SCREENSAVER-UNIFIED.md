@@ -428,3 +428,7 @@ take its new shape still moves to the nearest zone that can.
   time, so it stands in front); Planted a face (decision 1), Classic where there is no meadow, Big Weather's planted
   numerals following it; Darken the photos' own with a layout; Night Mode with a layout; the Day's Art under a layout;
   Soft Photos blurred (the editor never wrote `clock_photo_soft`); Legibility over the Landscape too.
+- 2026-11-02, phase 1b, wave C: Phone Alarm, Trash Day, Pollen, Appliances, Leak and Smoke, Travel Time and Price (each
+  with a suggested default, `hkSaverWidgets._.picked.suggest`, the editor's too), and Any Sensor (its own state words,
+  ring ends from its options, its device class or the entity), two Sonnet 5.5 agents. The glance catalog is complete:
+  35 new pieces and Next Event's Card, each in its own group's file.

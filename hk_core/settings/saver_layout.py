@@ -20,6 +20,8 @@ from typing import Any
 
 VERSION = 2
 
+# Any Sensor's entities: what a wall tablet can show as a state
+ANY_ENTITY = "entity:sensor,binary_sensor,input_number,number,input_boolean,switch,climate,lock,cover,device_tracker"
 # World Clock's cities (IANA), its city and city2
 CITIES: tuple[str, ...] = (
     "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Rome", "Europe/Madrid", "Europe/Athens",
@@ -73,6 +75,15 @@ PIECES: dict[str, tuple[tuple[str, ...], dict[str, tuple[str, ...]]]] = {
     "thisday": (("inline",), {}),
     "camera": (("rectangular", "card"), {"camera": "entity:camera"}),
     "ring": (("inline", "card"), {}),
+    # wave C: one entity picked, with a suggested default
+    "alarm": (("inline", "circular"), {"entity": "entity:sensor"}),
+    "trash": (("inline", "circular"), {"entity": "entity:calendar,sensor"}),
+    "pollen": (("inline", "circular"), {"entity": "entity:sensor"}),
+    "appliance": (("inline", "circular", "rectangular"), {"entity": "entity:sensor,binary_sensor", "entity2": "entity:sensor,binary_sensor"}),
+    "leak": (("inline", "card"), {}),
+    "travel": (("inline", "circular", "rectangular"), {"entity": "entity:sensor", "entity2": "entity:sensor"}),
+    "price": (("inline",), {"entity": "entity:sensor,input_number,number"}),
+    "sensor": (("inline", "circular", "rectangular"), {"entity": ANY_ENTITY, "entity2": ANY_ENTITY, "name": "text", "min": "text", "max": "text"}),
 }
 SHAPES = ("inline", "circular", "rectangular", "card", "band")
 # [zone] -> (the shapes it takes, its room). The row's room is in units: a circular piece is one, a rectangular two,
