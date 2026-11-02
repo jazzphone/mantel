@@ -182,9 +182,12 @@ class Message:
     snap: str | None = None
     camera: str | None = None
     id: str | None = None
+    category: str | None = None        # "system": a system alert (docs/phase14/SYSTEM-ALERTS.md), its own thread
+    level: str | None = None           # a system alert's: info (passive), warning, critical (time-sensitive)
 
     def web_payload(self) -> bytes:
-        out = {"title": self.title, "body": self.body, "tag": self.tag, "url": self.url, "important": self.important}
+        out = {"title": self.title, "body": self.body, "tag": self.tag, "url": self.url, "important": self.important,
+               "category": self.category}
         return json.dumps({k: v for k, v in out.items() if v is not None}, separators=(",", ":")).encode()
 
     @classmethod
@@ -216,6 +219,7 @@ class Pusher:
         self.tasks: set[asyncio.Task] = set()
         self.log: list[dict] = []          # the last few deliveries
         self.http = None                   # the HTTP session to send with (default: the app's)
+        self.listeners: list[Callable[[dict[str, int]], None]] = []    # each delivery's counts (push.failing)
 
     # -- the VAPID key (app_crypto.made_key_path) ------------------------------------------------------------
     def vapid(self):
@@ -299,6 +303,11 @@ class Pusher:
             # "unreachable" (an outage) and "skipped" leave the target as it was
             counts[result] = counts.get(result, 0) + 1
         self.log = (self.log + [{"at": time.time(), "title": msg.title, **counts}])[-20:]
+        for cb in self.listeners:
+            try:
+                cb(counts)
+            except Exception:  # noqa: BLE001
+                log.exception("push listener failed")
         return counts
 
     def forget_app(self, app_id: str) -> None:

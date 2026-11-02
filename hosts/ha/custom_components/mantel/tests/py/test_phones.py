@@ -24,11 +24,11 @@ def a_phone(hass):
 
 async def test_phones_are_reported_and_followed(hass, mantel):
     await linked(hass, mantel)
-    await until(hass, lambda: mantel.reports)
-    assert mantel.reports[-1]["phones"] == []
+    await until(hass, lambda: [r for r in mantel.reports if "phones" in r])
+    assert [r for r in mantel.reports if "phones" in r][-1]["phones"] == []
     a_phone(hass)
-    await until(hass, lambda: mantel.reports[-1]["phones"])
-    assert mantel.reports[-1]["phones"] == [{"service": PHONE, "name": "Avery's iPhone"}], "Companion-app phones only"
+    await until(hass, lambda: [r for r in mantel.reports if "phones" in r][-1]["phones"])
+    assert [r for r in mantel.reports if "phones" in r][-1]["phones"] == [{"service": PHONE, "name": "Avery's iPhone"}], "Companion-app phones only"
 
 
 async def test_a_phone_notification_is_carried_out_and_nothing_else(hass, mantel):

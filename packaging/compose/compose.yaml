@@ -104,6 +104,8 @@ services:
       # connections always come from this address. Without it every request counts as the tunnel door.
       MANTEL_TRUSTED_PROXY: 172.31.251.2
       MANTEL_BACKUP_TARGET: ${MANTEL_BACKUP_TARGET:-}
+      # how this stack was installed (the LXC's installer sets lxc): Mantel Settings -> About says how to update it
+      MANTEL_INSTALL: ${MANTEL_INSTALL:-}
       # first start only: seeds for Mantel Settings -> General (House Default Screen, Sign-Ins from Away Last);
       # once Settings holds a value these are ignored. Empty = the built-in default.
       MANTEL_DEFAULT_SCREEN: ${MANTEL_DEFAULT_SCREEN:-}

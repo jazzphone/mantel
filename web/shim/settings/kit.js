@@ -68,6 +68,11 @@ const STYLE = [
   '.mxbk{display:flex;gap:18px;margin-left:auto;flex:none}',
   '.mxlink{border:0;background:none;padding:6px 0;font:inherit;font-size:17px;color:var(--hk-tint);cursor:pointer}',
   '.mxlink.red{color:var(--hk-red)}',
+  // a channel's status dot (alerts.js): green sent, red failing, gray off or never sent
+  '.mxdot{flex:none;width:22px;height:22px;display:flex;align-items:center;justify-content:center}',
+  ".mxdot::before{content:'';width:10px;height:10px;border-radius:50%;background:var(--hk-gray)}",
+  '.mxdot.ok::before{background:var(--hk-green)}',
+  '.mxdot.bad::before{background:var(--hk-red)}',
   '.mxdlg .mxin{display:block;box-sizing:border-box;width:calc(100% - 32px);height:36px;margin:0 16px 16px;padding:0 10px;border:0;',
   '  border-radius:8px;background:var(--hk-fill);color:var(--hk-label);font:inherit;font-size:17px;text-align:center;letter-spacing:.2em;outline:none}',
   '.mxdlg .mxin:focus{box-shadow:0 0 0 2px var(--hk-tint)}',
