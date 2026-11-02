@@ -97,7 +97,7 @@ async def test_signed_out_and_unpermitted_people_never_reach_the_upstream(env):
     ("GET", "/go2rtc/api/frame.jpeg"), ("GET", "/go2rtc/api/frame.jpeg?src=bad%20name"),
     ("GET", "/go2rtc/api/frame.jpeg?src=camera.front&src=camera.back"),
     ("GET", "/go2rtc/api/frame.jpeg?src=camera.front&url=http://evil"),
-    ("POST", "/go2rtc/api/webrtc?dst=camera.front"), ("GET", "/go2rtc/api/ws?src=camera.front"),
+    ("POST", "/go2rtc/api/webrtc?dst=camera.front"), ("POST", "/go2rtc/api/webrtc?src=camera.front"), ("GET", "/go2rtc/api/ws?src=camera.front"),
     ("GET", "/go2rtc/api/hls/segment.ts?id=../x"),
 ])
 async def test_only_the_allowlisted_paths_exist(env, method, path):
@@ -187,7 +187,7 @@ async def test_go2rtc_cameras_follow_live_view_and_live_tv_must_be_registered(en
     assert (await m.client.get("/go2rtc/video-stream.js")).status == 200
 
 
-async def test_go2rtc_signaling_socket_and_whep_post(env):
+async def test_go2rtc_signaling_socket(env):
     m, _, g2 = env
     await m.as_role("owner")
     m.app["go2rtc_streams"].allow("tv_4_1", "live_tv")
@@ -197,13 +197,19 @@ async def test_go2rtc_signaling_socket_and_whep_post(env):
         assert got["src"] == "tv_4_1" and "fictional" in got["got"]
         await ws.send_bytes(b"\x01\x02\x03")
         assert (await ws.receive(timeout=5)).data == b"\x03\x02\x01"
+
+
+async def test_whep_post_is_not_served_because_mantel_could_not_end_its_session(env):
+    """MED-10: a WHEP offer starts a peer connection go2rtc keeps up for as long as the viewer's end does; the
+    media never passes through Mantel, so a revoked person's session could not be ended. Nothing in Mantel's own
+    pages posts to ``api/webrtc`` (they use the camera offers over the hub socket, which are counted and
+    re-checked), so it is not served at all."""
+    m, _, g2 = env
+    await m.as_role("owner")
+    m.app["go2rtc_streams"].allow("tv_4_1", "live_tv")
     r = await m.client.post("/go2rtc/api/webrtc?src=tv_4_1", data=b"v=0 offer", headers=m.csrf())
-    assert r.status == 201 and (await r.text()) == "v=0 answer for v=0 offer"
-    assert g2.hits[-1][3] == b"v=0 offer"
-    for h in FORBIDDEN_UPSTREAM_HEADERS:
-        assert h not in g2.hits[-1][2], h
-    r = await m.client.post("/go2rtc/api/webrtc?src=tv_4_1", data=b"x" * (2 << 20), headers=m.csrf())
-    assert r.status == 413
+    assert r.status == 404
+    assert g2.hits == []
 
 
 async def test_an_unreachable_upstream_says_so_without_its_address(tmp_path, monkeypatch):
@@ -288,3 +294,82 @@ async def test_through_ingress_the_prefix_is_kept(tmp_path, monkeypatch):
         await m.client.close()
         await ma.server.close()
         m.store.db.close()
+
+
+# -- MED-10: what streams through the proxy ends with the person's access -------------------------------------
+async def _drain(r, seconds: float) -> int:
+    """Chunks the viewer still receives over ``seconds``: ends when the stream does (or is cut)."""
+    got = 0
+    loop = asyncio.get_running_loop()
+    end = loop.time() + seconds
+    while loop.time() < end:
+        try:
+            chunk = await asyncio.wait_for(r.content.readany(), timeout=end - loop.time())
+        except (asyncio.TimeoutError, aiohttp.ClientError):
+            break
+        if not chunk:
+            break
+        got += 1
+    return got
+
+
+async def test_an_open_camera_stream_ends_when_the_session_does(env, monkeypatch):
+    m, _, g2 = env
+    monkeypatch.setattr(media_proxy, "RECHECK", 0.1)
+    await m.as_role("owner")
+    r = await m.client.get("/go2rtc/api/stream.mjpeg?src=camera.front_door")
+    assert r.status == 200
+    assert await _drain(r, 0.3) >= 3                     # it flows
+    # the stream is in the registry of long-lived connections, as its person
+    assert [e.kind for e in m.app["live"].entries() if e.kind.startswith("media_proxy")] == ["media_proxy:go2rtc"]
+    m.store.db.execute("DELETE FROM sessions")
+    m.store.db.commit()
+    after = await _drain(r, 3.0)
+    assert after < 20, "the stream kept delivering after the session was gone"
+    assert g2.cut or g2.sent < 400                       # and go2rtc's side was dropped too
+    r.close()
+    assert [e for e in m.app["live"].entries() if e.kind.startswith("media_proxy")] == []
+
+
+async def test_a_revocation_ends_an_open_stream_at_once(env):
+    m, _, g2 = env
+    await m.as_role("owner")                             # RECHECK stays 60 s: only the registry can end it
+    r = await m.client.get("/go2rtc/api/stream.mjpeg?src=camera.front_door")
+    assert await _drain(r, 0.2) >= 2
+    entry = next(e for e in m.app["live"].entries() if e.kind == "media_proxy:go2rtc")
+    m.store.db.execute("DELETE FROM sessions")
+    m.store.db.commit()
+    assert await m.app["live"].revoke(*entry.subject_keys) >= 1
+    assert await _drain(r, 2.0) < 20
+    r.close()
+
+
+async def test_a_stream_ends_when_the_grant_for_that_camera_does(env, monkeypatch):
+    """The policy tick's check: the person is still signed in, but may no longer see that camera."""
+    m, _, _ = env
+    await m.as_role("owner")
+    r = await m.client.get("/go2rtc/api/stream.mjpeg?src=camera.front_door")
+    assert await _drain(r, 0.2) >= 2
+    monkeypatch.setattr(m.app["authz"], "may_view", lambda principal, entity: False)
+    assert await m.app["live"].check() >= 1
+    assert await _drain(r, 2.0) < 20
+    r.close()
+
+
+async def test_an_hls_id_is_only_good_for_the_stream_it_was_issued_for(env):
+    m, _, g2 = env
+    await m.as_role("owner")
+    r = await m.client.get("/go2rtc/api/stream.m3u8?src=camera.front_door")
+    playlist = await r.text()
+    assert r.status == 200 and "#EXTM3U" in playlist
+    sid = playlist.split("id=")[1].split()[0]
+    assert (await m.client.get(f"/go2rtc/api/hls/playlist.m3u8?id={sid}")).status == 200
+    assert (await m.client.get(f"/go2rtc/api/hls/segment.ts?id={sid}&n=3")).status == 200
+    # an id Mantel never saw issued is refused (it was not handed out for any stream this person may watch)
+    hits = len(g2.hits)
+    assert (await m.client.get("/go2rtc/api/hls/playlist.m3u8?id=sessneverissued1")).status == 403
+    assert len(g2.hits) == hits
+    # someone else who may not view that camera cannot use its id, even though signed in
+    await m.as_role("child")
+    assert (await m.client.get(f"/go2rtc/api/hls/playlist.m3u8?id={sid}")).status == 403
+    assert (await m.client.get(f"/go2rtc/api/hls/segment.ts?id={sid}&n=3")).status == 403

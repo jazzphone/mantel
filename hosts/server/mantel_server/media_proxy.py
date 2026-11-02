@@ -16,7 +16,9 @@ RULES (docs/phase3/PACKAGING.md "Music Assistant and go2rtc through Mantel"):
   stream (``Go2rtcStreams``): a stream registered as a camera's needs that camera's live view
   (authz.may_view, the same rule as the WebRTC signaling); a Live TV stream needs a signed-in person or
   device (as the Live TV guide does); an unknown stream is refused. Long-lived sockets are re-checked
-  every ``RECHECK`` seconds and closed when the session, the device or the grant is gone.
+  every ``RECHECK`` seconds and closed when the session, the device or the grant is gone; so is every answer
+  that streams (a camera's MJPEG or MP4, HLS segments), cut off at its person's revocation (``live.py``) or
+  at the next ``RECHECK``.
 * **Nothing about the upstream reaches the page.** Requests go out with a short allowlist of headers
   (never Mantel's cookies, ``Authorization``, ``Origin`` or the forwarding headers); answers come back
   with a short allowlist (never ``Set-Cookie``, ``Server``, the upstream's own CSP); a redirect to the
@@ -28,8 +30,10 @@ RULES (docs/phase3/PACKAGING.md "Music Assistant and go2rtc through Mantel"):
 * **Prefix-aware.** Through HA's Ingress the page's prefix comes first (``<prefix>/ma/``); redirects
   are moved under it by ingress.py, and the rewritten addresses carry it.
 
-go2rtc's paths are the viewing ones only (its WebRTC/MSE socket, the WHEP-style ``POST /api/webrtc``,
-the frame, MP4/HLS/MJPEG streams and its two player modules); stream management (``/api/streams``),
+go2rtc's paths are the viewing ones only (its WebRTC/MSE socket, the frame, MP4/HLS/MJPEG streams and its two
+player modules; not the WHEP-style ``POST /api/webrtc``: its peer connection runs between go2rtc and the
+viewer, past Mantel, so a revoked person's could not be ended; Mantel's own pages use the camera offers over
+their socket, which are counted and re-checked); stream management (``/api/streams``),
 configuration, restart, logs and its own web pages are never reachable. Stream SETUP is Live TV's job
 (features.py, go2rtc's API from the server side); it tells this module which stream is what with
 ``app["go2rtc_streams"].allow(src, "live_tv")`` / ``.allow(src, "camera", entity_id)``.
@@ -40,6 +44,7 @@ import asyncio
 import json
 import logging
 import re
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any, Callable
 from urllib.parse import quote, urlsplit
@@ -83,8 +88,10 @@ MA_DENY = re.compile(r"^(?:api|api-docs|jsonrpc)(?:/|$)")
 # -- go2rtc: viewing only.
 SRC = re.compile(r"^[A-Za-z0-9_.:-]{1,64}$")
 HLS_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+HLS_ID_IN_PLAYLIST = re.compile(r"[?&]id=([A-Za-z0-9_-]{1,64})")
+MAX_PLAYLIST = 256 << 10            # go2rtc's master playlist: a few lines
 G_WS = {"api/ws": frozenset({"src", "media"})}
-G_POST = {"api/webrtc": frozenset({"src"})}
+G_POST: dict[str, frozenset] = {}      # no WHEP: see the module doc
 G_GET = {
     "api/frame.jpeg": frozenset({"src", "width", "height", "w", "h", "cache"}),
     "api/stream.mp4": frozenset({"src", "mp4", "duration", "media"}),
@@ -318,6 +325,20 @@ class MusicAssistant(Upstream):
 
 class Go2rtc(Upstream):
     name, prefix, service = "go2rtc", GO2RTC, "go2rtc"
+    HLS_KEEP = 1024                          # HLS session ids remembered with the stream each was issued for
+
+    def __init__(self, base: "str | Callable[[], str]") -> None:
+        super().__init__(base)
+        self.hls: OrderedDict[str, str] = OrderedDict()
+
+    def learn_hls(self, src: str, playlist: str) -> None:
+        """go2rtc's master playlist (``api/stream.m3u8?src=``) names the HLS session it made for this
+        person; remember which stream it is for, so the session id is only good for that one."""
+        for m in HLS_ID_IN_PLAYLIST.finditer(playlist):
+            self.hls[m.group(1)] = src
+            self.hls.move_to_end(m.group(1))
+        while len(self.hls) > self.HLS_KEEP:
+            self.hls.popitem(last=False)
 
     def plan(self, request: web.Request, tail: str) -> Plan | None:
         if is_ws_upgrade(request):
@@ -351,11 +372,15 @@ class Go2rtc(Upstream):
         if plan.path in ("video-rtc.js", "video-stream.js"):
             return True                       # go2rtc's player modules: static code, nothing of the house
         if plan.path.startswith("api/hls/"):
-            # an HLS id is go2rtc's own random session id, handed out only in the answer to an
-            # authorised stream.m3u8; the person must still be signed in
-            ident = principal.identity
-            return ident.user is not None or ident.device is not None
-        src = request.query.get("src", "")
+            # an HLS id is go2rtc's own random session id, handed out in the answer to a stream.m3u8 (that was
+            # authorized for its src); it is good for that src's viewers only, so each request asks the same
+            # question the playlist did. An id Mantel did not see issued (or forgot) is refused.
+            src = self.hls.get(request.query.get("id", ""))
+            if src is None:
+                return False
+            self.hls.move_to_end(request.query["id"])
+        else:
+            src = request.query.get("src", "")
         return app["go2rtc_streams"].may(app.get("authz"), principal, src)
 
 
@@ -442,10 +467,10 @@ class MediaProxy:
                 if request.headers.get("Origin") is None:
                     return _error(403, "origin_required", up.service)   # loopback_only checked its value
                 return await self.relay(request, up, plan, principal)
-            return await self.forward(request, up, plan)
+            return await self.forward(request, up, plan, principal)
         return handle
 
-    async def forward(self, request: web.Request, up: Upstream, plan: Plan) -> web.StreamResponse:
+    async def forward(self, request: web.Request, up: Upstream, plan: Plan, principal: Any = None) -> web.StreamResponse:
         stats = self.stats[up.name]
         body = None
         if request.method == "POST":
@@ -480,20 +505,78 @@ class MediaProxy:
                     stats["served"] += 1
                     return web.Response(status=r.status, body=text.encode(charset, errors="surrogateescape"),
                                         headers=_resp_headers(r.headers))
+                if isinstance(up, Go2rtc) and plan.path == "api/stream.m3u8" and r.status == 200 \
+                        and request.method == "GET":
+                    raw = await read_body(r.content, MAX_PLAYLIST)
+                    if len(raw) > MAX_PLAYLIST:
+                        stats["upstream_errors"] += 1
+                        return _error(502, "upstream_answer_too_large", up.service)
+                    up.learn_hls(request.query.get("src", ""), raw.decode("utf-8", errors="replace"))
+                    stats["served"] += 1
+                    return web.Response(status=r.status, body=raw, headers=_resp_headers(r.headers))
                 resp = web.StreamResponse(status=r.status, headers=_resp_headers(r.headers))
                 if r.content_length is not None and "Content-Encoding" not in r.headers:
                     resp.content_length = r.content_length
                 await resp.prepare(request)
-                if request.method != "HEAD":
-                    async for chunk in r.content.iter_chunked(CHUNK):
-                        await resp.write(chunk)
-                await resp.write_eof()
-                stats["served"] += 1
-                return resp
+                if request.method == "HEAD":
+                    await resp.write_eof()
+                    stats["served"] += 1
+                    return resp
+                return await self.pump(request, up, plan, principal, r, resp)
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as exc:
             stats["upstream_errors"] += 1
             log.warning("%s did not answer %s (%s)", up.service, plan.path or "/", type(exc).__name__)
             return _error(502, "upstream_unavailable", up.service)
+
+    async def pump(self, request: web.Request, up: Upstream, plan: Plan, principal: Any, r: aiohttp.ClientResponse,
+                   resp: web.StreamResponse) -> web.StreamResponse:
+        """The upstream's answer to the person, chunk by chunk (a camera's MJPEG or MP4 may never end). Like a
+        relayed socket it is one of live.py's long-lived connections: a revocation, the policy tick or its own
+        ``RECHECK`` cuts it off (the upstream's side too) when the session, the device or the grant is gone."""
+        from . import live
+        stats = self.stats[up.name]
+        registry = live.of(request.app)
+        authz = request.app.get("authz")
+        cut = False
+
+        async def close(why: str) -> None:
+            nonlocal cut
+            cut = True
+            if why != live.SHUTDOWN:
+                log.info("closing a %s stream (%s)", up.service, why)
+            r.close()                                  # go2rtc's side
+            if request.transport is not None:
+                request.transport.close()              # the person's
+
+        def recheck() -> bool:
+            return up.authorize(request.app, principal, plan, request)
+        entry = registry.add(f"media_proxy:{up.name}", principal, close, recheck=recheck) \
+            if registry is not None else None
+
+        async def watch() -> None:                     # the session, the device and the grant, again and again
+            while True:
+                await asyncio.sleep(RECHECK)
+                if authz is None or principal is None or not authz.refresh(principal) \
+                        or not up.authorize(request.app, principal, plan, request):
+                    await close("no_longer_allowed")
+                    return
+        watcher = asyncio.create_task(watch())
+        try:
+            async for chunk in r.content.iter_chunked(CHUNK):
+                await resp.write(chunk)
+            await resp.write_eof()
+            stats["served"] += 1
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError):
+            # the headers are out: the person left, the upstream dropped, or it was cut off here. There is no
+            # answer left to give; the connection ends.
+            if not cut:
+                log.debug("a %s stream ended early", up.service, exc_info=True)
+        finally:
+            watcher.cancel()
+            await asyncio.gather(watcher, return_exceptions=True)
+            if entry is not None:
+                entry.forget()
+        return resp
 
     async def sign_in(self, request: web.Request, up: "MusicAssistant", upstream, ws, rewrite) -> bool:
         """ma_page.py: authenticate this socket to MA with the page token, then give the page MA's

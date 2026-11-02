@@ -34,10 +34,13 @@ the address itself (``hk_frontend/art/sign`` is answered in the page, mantel-hos
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import contextvars
+import ipaddress
 import logging
 import re
 import socket
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Iterator
 
 import aiohttp
 from aiohttp import web
@@ -55,6 +58,7 @@ PICTURE_ATTRS = ("entity_picture", "entity_picture_local")
 HA_PROXY = "/api/media_player_proxy/"
 REMOTE_PATH = "/api/media/art"
 RENDERS = 2                                      # pictures scaled at once (a thread each)
+FETCHES = 8                                      # covers fetched at once from anywhere, every tablet together (8 MB each)
 SAFE_HEADERS = {"X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; sandbox"}
 SCALED = {"Cache-Control": "private, max-age=86400", **SAFE_HEADERS}
 
@@ -114,6 +118,45 @@ def strip_tokens(entity_id: str, row: Any) -> Any:
     return {**row, "a": {k: v for k, v in attrs.items() if k not in drop}}
 
 
+# -- the addresses that were checked are the ones connected to (DNS rebinding) -------------------------------------
+# hk_core's ``vet`` resolves a name and judges what it got; aiohttp would then resolve it again to connect, and a
+# name with a zero TTL can answer a public address to the first and a private one to the second. So the session
+# Mantel fetches covers with has a resolver that answers only from what ``vet`` returned for that name: ``Scaled.pin``
+# says it for the request in hand (a context variable: each fetch is its own task), and any name nobody vetted is
+# refused. The URL, its Host header and the TLS server name are untouched: only the address dialed is chosen.
+_PINNED: contextvars.ContextVar[tuple[str, tuple[str, ...]] | None] = contextvars.ContextVar("art_pinned", default=None)
+
+
+class PinnedResolver(aiohttp.abc.AbstractResolver):
+    async def resolve(self, host: str, port: int = 0, family: int = socket.AF_INET) -> list[dict]:
+        pinned = _PINNED.get()
+        if pinned is None or pinned[0] != host.lower():
+            raise OSError(f"{host} was not checked for artwork")
+        out = []
+        for addr in pinned[1]:
+            version = ipaddress.ip_address(addr).version
+            fam = socket.AF_INET6 if version == 6 else socket.AF_INET
+            if family not in (socket.AF_UNSPEC, fam):
+                continue
+            out.append({"hostname": host, "host": addr, "port": port, "family": fam, "proto": 0,
+                        "flags": socket.AI_NUMERICHOST})
+        if not out:
+            raise OSError(f"{host} has no checked address of that kind")
+        return out
+
+    async def close(self) -> None:
+        return None
+
+
+@contextlib.contextmanager
+def pin(host: str, addresses: list[str]) -> Iterator[None]:
+    token = _PINNED.set((host.lower(), tuple(addresses)))
+    try:
+        yield
+    finally:
+        _PINNED.reset(token)
+
+
 class Scaled:
     """The scaled covers: hk_core's cache (most recently used, bounded by bytes) and one job per (address, size) at
     a time -- tablets that ask for the same cover while it is fetched wait for that one fetch."""
@@ -124,7 +167,9 @@ class Scaled:
         self.cache = art_resize.Cache()
         self._flying: dict[tuple, asyncio.Future] = {}
         self._renders = asyncio.Semaphore(RENDERS)
+        self._fetching = asyncio.Semaphore(FETCHES)
         self.fetches = 0
+        self.pin = pin
 
     async def run(self, fn: Callable, *args):
         """``fn`` in a thread, a few at a time (hk_core's ``render`` is CPU work: it must not stop the loop)."""
@@ -139,8 +184,9 @@ class Scaled:
         if job is None:
             async def go():
                 try:
-                    self.fetches += 1
-                    return await make()
+                    async with self._fetching:      # (each distinct address is up to 8 MB from somewhere else)
+                        self.fetches += 1
+                        return await make()
                 finally:
                     self._flying.pop(key, None)
             job = self._flying[key] = asyncio.ensure_future(go())
@@ -173,7 +219,11 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
     def web_session() -> aiohttp.ClientSession:
         """Our own session for covers on other hosts: no cookies kept, nothing of Mantel's attached."""
         if scaled.session is None:
-            scaled.session = aiohttp.ClientSession(cookie_jar=aiohttp.DummyCookieJar())
+            # (Scaled.pin: the connector dials only what the check saw. No kept connections either: one made to a
+            # home-network address for MA's /imageproxy/ must not carry a later request for the same name)
+            scaled.session = aiohttp.ClientSession(
+                cookie_jar=aiohttp.DummyCookieJar(),
+                connector=aiohttp.TCPConnector(resolver=PinnedResolver(), use_dns_cache=False, force_close=True))
         return scaled.session
 
     async def close_session(_app: web.Application) -> None:
@@ -244,7 +294,7 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
         size = 1000 if not size else size
         try:
             got = await scaled.once((address, size), lambda: art_fetch.async_fetch(
-                address, size, scaled.cache, web_session(), scaled.resolve, scaled.run))
+                address, size, scaled.cache, web_session(), scaled.resolve, scaled.run, scaled.pin))
         except art_resize.Refused as exc:
             log.info("artwork for %s refused: %s", entity_id, exc)
             return camera_still._error(415, "artwork_unsupported")
@@ -273,7 +323,7 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
         size = 300 if size is None else size
         try:
             got = await scaled.once((address, size), lambda: art_fetch.async_fetch(
-                address, size, scaled.cache, web_session(), scaled.resolve, scaled.run))
+                address, size, scaled.cache, web_session(), scaled.resolve, scaled.run, scaled.pin))
         except art_resize.Refused as exc:
             log.info("remote artwork refused: %s", exc)
             return camera_still._error(415, "artwork_unsupported")
