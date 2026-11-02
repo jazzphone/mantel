@@ -740,6 +740,69 @@ async def test_a_signed_in_assistant_from_away_only_when_both_allow(mantel):
     assert (await rpc.call("tools/list", headers={"X-Mantel-Door": "tunnel"}))[0] == 403
 
 
+async def _consent(m, scopes=("read", "settings", "restore"), decision="allow", away=True):
+    """A registered assistant's consent form POST (what the page's Allow button sends)."""
+    reg = await m.client.post("/mcp/oauth/register", json={"client_name": "Claude",
+                                                           "redirect_uris": ["https://assistant.example/cb"]})
+    cid = (await reg.json())["client_id"]
+    challenge = base64.urlsafe_b64encode(hashlib.sha256(secrets.token_urlsafe(48).encode()).digest()).rstrip(b"=").decode()
+    q = {"response_type": "code", "client_id": cid, "redirect_uri": "https://assistant.example/cb",
+         "code_challenge": challenge, "code_challenge_method": "S256", "state": "s", "scope": " ".join(scopes)}
+    page = await m.client.get("/mcp/oauth/authorize", params=q, allow_redirects=False)
+    data = list({**q, "csrf": m.cookie("mantel_csrf"), "decision": decision}.items())
+    data += [("grant_scope", s) for s in scopes] + ([("away", "1")] if away else [])
+    return page, await m.client.post("/mcp/oauth/authorize", data=data, allow_redirects=False), q
+
+
+async def test_connecting_an_assistant_needs_the_fresh_sign_in_a_personal_key_needs(mantel):
+    """SRV-1 (third audit pass): the consent issued a 30-day, refreshable credential (settings, restore, ...), from
+    away too, to a session whose sign-in was ten minutes old, while ``POST /api/mcp/keys`` (the same kind of
+    credential) answered ``step_up_required``. A stale session is shown Sign In Again, not the form; nothing is
+    audited or issued; signing in again comes back to the same request."""
+    m = mantel
+    house(m)
+    await owner(m)
+    await turn_on(m, mcp_away=True)
+    m.now[0] += 600
+    r = await m.client.post("/api/mcp/keys", json={"name": "Key"}, headers=m.headers())
+    assert r.status == 403 and (await r.json())["error"] == "step_up_required"        # the control
+    page, r, q = await _consent(m)
+    text = await page.text()
+    assert page.status == 403 and "Sign In Again" in text and "grant_scope" not in text and "Allow<" not in text
+    assert r.status == 403 and "Sign In Again" in await r.text()
+    assert not audits(m, "mcp.grant")
+    assert m.app["store"].db.execute("SELECT COUNT(*) FROM mcp_codes").fetchone()[0] == 0
+    # Sign In Again ends this session and lands on the sign-in page, which returns to this very consent request
+    page, r, q = await _consent(m, decision="signin_again")
+    assert r.status == 303 and r.headers["Location"].startswith("/login?next=/mcp/oauth/authorize%3F")
+    assert (await m.client.get("/api/me")).status == 401
+    # a fresh sign-in is allowed to connect it
+    await m.sign_in("olive")
+    page, r, q = await _consent(m)
+    assert page.status == 200 and "Allow" in await page.text()
+    assert r.status == 302 and "code=" in r.headers["Location"] and len(audits(m, "mcp.grant")) == 1
+
+
+async def test_an_assistant_that_may_control_the_house_needs_a_fresh_sign_in_even_where_something_vouches(mantel, monkeypatch):
+    """SRV-1: ``commands`` asks for a fresh factor on every door, as Allow Control of the House does; a sidebar HA
+    vouches for (``is_fresh_to_add_factor``) is enough for the other scopes only."""
+    from mantel_server.mcp import oauth as O
+    m = mantel
+    house(m)
+    await owner(m)
+    await turn_on(m, mcp_away=True)
+    monkeypatch.setattr(O, "offered", lambda request: [*O.SCOPES])
+    m.now[0] += 600
+    monkeypatch.setattr(O, "is_fresh_to_add_factor", lambda request, ident: True)       # HA vouches for the person
+    _, r, _ = await _consent(m, scopes=("read", "commands"))
+    assert r.status == 403 and "control the house" in await r.text() and not audits(m, "mcp.grant")
+    _, r, _ = await _consent(m, scopes=("read", "settings"))
+    assert r.status == 302 and len(audits(m, "mcp.grant")) == 1
+    await m.sign_in("olive")                                                             # and a fresh sign-in does both
+    _, r, _ = await _consent(m, scopes=("read", "commands"))
+    assert r.status == 302 and len(audits(m, "mcp.grant")) == 2
+
+
 # -- commands and the audit ------------------------------------------------------------------------------------------
 async def test_commands_only_by_consent_and_through_the_gateway(mantel):
     house(mantel)

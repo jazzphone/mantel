@@ -14,6 +14,10 @@ The client finds its way by itself:
    Mantel has). The consent page names the assistant and the person, with the scopes as ticks; ``commands`` is
    offered only while the house allows it (``mcp_commands`` and Allow Control of the House), "from away" only while
    ``mcp_away`` is on. Allow is a form POST with the session's CSRF token, audited (``mcp.grant``) before the code.
+   It asks what a personal key asks (``POST /api/mcp/keys``): a sign-in within the last five minutes, as adding a
+   passkey does (``accounts.require_fresh_to_add_factor``), and for ``commands``, wherever the person is, a fresh
+   sign-in whatever vouches for them (as Allow Control of the House does). A stale session is shown a Sign In Again
+   button, not the form: a 30-day, refreshable credential is a way in (third audit pass, SRV-1).
 4. ``POST /mcp/oauth/token``: the code (single use, 60 seconds, bound to the client, redirect URI, PKCE S256
    challenge and the ticked scopes) for an access token (15 minutes) and a refresh token (rotated on use; a reused
    one ends the family, sessions.rotate). The ``resource`` asked for, when sent (RFC 8707), must be this ``/mcp``:
@@ -40,6 +44,8 @@ from urllib.parse import urlencode, urlparse
 from aiohttp import web
 
 from .. import audit, sessions
+from ..accounts import STEP_UP_WINDOW, is_fresh_to_add_factor
+from ..login_page import login_url
 from .grants import DEFAULT_SCOPES, MANAGERS, SCOPES, GrantError, clean_scopes
 
 log = logging.getLogger("mantel.mcp")
@@ -234,6 +240,25 @@ def offered(request: web.Request) -> list[str]:
     return out
 
 
+STALE = ("Connecting an assistant gives it a way in for 30 days, so it needs a sign-in from the last five minutes.")
+STALE_COMMANDS = ("Connecting an assistant that may control the house needs a sign-in from the last five minutes.")
+
+
+def _hidden(p: dict) -> str:
+    return "".join(f"<input type=hidden name={k} value='{html.escape(v or '', quote=True)}'>"
+                   for k, v in p.items() if k in FIELDS)
+
+
+def _sign_in_again(ident, p: dict, why: str) -> web.Response:
+    """The page a stale session sees instead of the consent form: Sign In Again ends this session and comes back
+    to this very request after the sign-in (``authorize_post``, ``decision=signin_again``)."""
+    csrf = html.escape(ident.csrf or "", quote=True)
+    body = (f"<p>{html.escape(why)}</p><form method=post action='{AUTHORIZE}'>{_hidden(p)}"
+            f"<input type=hidden name=csrf value='{csrf}'>"
+            "<button name=decision value=signin_again>Sign In Again</button></form>")
+    return _page("Sign In Again", body, 403)
+
+
 async def authorize_page(request: web.Request) -> web.StreamResponse:
     p, answer = _params(request, request.query)
     if answer is not None:
@@ -246,7 +271,6 @@ async def authorize_page(request: web.Request) -> web.StreamResponse:
         return _page("Can’t Connect Here", "<p>This browser is a wall tablet. Connect assistants from your own "
                                            "computer.</p>", 403)
     if ident.user is None:
-        from ..login_page import login_url
         raise web.HTTPFound(login_url(request.path_qs), headers={"Cache-Control": "no-store"})
     if ident.user.role not in MANAGERS:
         return _page("Can’t Connect", "<p>Only an Owner or an Admin may connect an assistant to Mantel.</p>", 403)
@@ -254,6 +278,8 @@ async def authorize_page(request: web.Request) -> web.StreamResponse:
     s = request.app["mcp_settings"]
     if door != "lan" and not s.get("mcp_away"):
         return _page("Home Network Only", "<p>Connect assistants on the home network.</p>", 403)
+    if not is_fresh_to_add_factor(request, ident):
+        return _sign_in_again(ident, p, STALE)
     asked = [x for x in (p["scope"] or "").split() if x in SCOPES] or list(DEFAULT_SCOPES)
     offer = offered(request)
     who = html.escape(ident.user.name or ident.user.username or "you")
@@ -262,8 +288,7 @@ async def authorize_page(request: web.Request) -> web.StreamResponse:
         f" {html.escape(SCOPE_WORDS[x])}</label>" for x in offer)
     away = ("<label class=tick><input type=checkbox name=away value=1> Also from away (outside the home "
             "network)</label>") if s.get("mcp_away") else ""
-    hidden = "".join(f"<input type=hidden name={k} value='{html.escape(v or '', quote=True)}'>"
-                     for k, v in p.items() if k in FIELDS)
+    hidden = _hidden(p)
     body = (f"<div class=card><p><b>{html.escape(p['client_name'])}</b> asks to connect to Mantel as</p><h2>{who}</h2>"
             f"<p class=small>It returns to <b>{html.escape(urlparse(p['redirect_uri']).netloc)}</b>. Allow it only if "
             "you just started connecting this assistant yourself.</p>"
@@ -293,12 +318,17 @@ async def authorize_post(request: web.Request) -> web.StreamResponse:
         return _page("Assistants Are Off", "<p>An Owner turns them on in Mantel Settings.</p>", 403)
     ident = sessions.identity(request)
     if ident.user is None or ident.device is not None:
-        from ..login_page import login_url
         raise web.HTTPFound(login_url(AUTHORIZE + "?" + urlencode({k: v for k, v in p.items() if v and k in FIELDS})))
     if not ident.csrf or not hmac.compare_digest(str(form.get("csrf") or ""), ident.csrf):
         return _page("Can’t Connect", "<p>The page was out of date. Start again from the assistant.</p>", 403)
     if ident.user.role not in MANAGERS:
         return _page("Can’t Connect", "<p>Only an Owner or an Admin may connect an assistant.</p>", 403)
+    if form.get("decision") == "signin_again":
+        # the stale session ends and the person signs in, then lands on the consent page again (SRV-1)
+        to = login_url(AUTHORIZE + "?" + urlencode({k: v for k, v in p.items() if v and k in FIELDS}))
+        resp = web.Response(status=303, headers={"Location": to, "Cache-Control": "no-store"})
+        sessions.end_session(request, resp, "consent_sign_in_again")
+        return resp
     if form.get("decision") != "allow":
         _redirect(request, p["redirect_uri"], p["state"], error="access_denied", error_description="declined")
     s = request.app["mcp_settings"]
@@ -311,6 +341,14 @@ async def authorize_post(request: web.Request) -> web.StreamResponse:
     except GrantError:
         return _page("Nothing Ticked", "<p>Tick at least one thing the assistant may do. Start again from the "
                                        "assistant.</p>", 400)
+    # A credential that lasts 30 days and refreshes is a way in as this person: the fresh sign-in a personal key
+    # asks (POST /api/mcp/keys). `commands` also asks it wherever the person is, even from Home Assistant's
+    # sidebar, as turning on Allow Control of the House does (third audit pass, SRV-1).
+    if "commands" in scopes:
+        if not ident.fresh_within(STEP_UP_WINDOW, request.app["clock"]()):
+            return _sign_in_again(ident, {**p, "scope": " ".join(scopes)}, STALE_COMMANDS)
+    elif not is_fresh_to_add_factor(request, ident):
+        return _sign_in_again(ident, {**p, "scope": " ".join(scopes)}, STALE)
     away = bool(form.get("away")) and bool(s.get("mcp_away"))
     try:
         audit.config(request, ident, "mcp.grant", {"client": p["client_id"], "name": p["client_name"],

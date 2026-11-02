@@ -596,6 +596,49 @@ async def test_revoking_the_device_ends_the_tablet_at_once(mk):
     assert m.app["authz"].refresh(principal) is False and principal.valid is False
 
 
+# -- the People form asks what the REST routes ask (the audit's third pass, SRV-3) -------------------------
+async def test_the_people_form_links_an_owner_only_with_a_fresh_factor_when_the_sidebar_does_not_vouch(mk):
+    """SRV-3: under Away Rules (``ha_door_rules: tunnel``) the sidebar session carries no fresh factor, and the
+    form made an Owner, or a wall tablet, of any HA user, where ``PUT /api/people/ha`` answered
+    ``step_up_required``. A Child or an unlink needs nothing more than before."""
+    m = await mk(rules="tunnel")
+    m.store.link(OWNER_HA, "owner", "Fictional Owner")
+    await m.page()
+    origin = {"Origin": str(m.client.make_url("")).rstrip("/")}
+    form = {"csrf": m.jar["mantel_csrf"], "ha_user_id": STRANGER_HA, "action": "link"}
+    for role in ("owner", "admin"):
+        r = await m.request("POST", "/ingress/people", {**m.ha(), **origin}, data={**form, "role": role})
+        assert r.status == 403 and "Confirm it is you" in await r.text(), role
+        assert m.store.get_link(STRANGER_HA) is None, role
+    assert [r for r in m.app["audit"].rows(kind="config") if r["action"] == "ingress.link"] == []
+    r = await m.request("POST", "/ingress/people", {**m.ha(), **origin},
+                        data={"csrf": m.jar["mantel_csrf"], "ha_user_id": TABLET_HA, "action": "tablet", "room": "kitchen"})
+    assert ingress.tablet_link(m.store.db, TABLET_HA) is None and r.status in (403, 409)
+    # the REST route for the same act asks for the factor too (the second pass's AUTH-1), so the two agree
+    person = m.store.db.execute("SELECT id FROM users LIMIT 1").fetchone()["id"]
+    r = await m.request("PUT", "/api/people/ha", {**m.ha(), **origin, "X-CSRF-Token": m.jar["mantel_csrf"]},
+                        json={"ha_user": STRANGER_HA, "user_id": person})
+    assert r.status == 403 and (await r.json())["error"] == "step_up_required"
+    # a Child signs in as no one who can manage: the form asks nothing more of it than it did
+    r = await m.request("POST", "/ingress/people", {**m.ha(), **origin}, data={**form, "role": "child"})
+    assert r.status == 303 and m.store.get_link(STRANGER_HA)["role"] == "child"
+    # after a fresh sign-in (the session's factor within five minutes) the Owner link goes through
+    sid = m.store.db.execute("SELECT id FROM sessions WHERE method = 'ingress' ORDER BY created DESC").fetchone()["id"]
+    m.app["sessions"].mark_fresh(sid, "passkey")
+    r = await m.request("POST", "/ingress/people", {**m.ha(), **origin}, data={**form, "role": "owner"})
+    assert r.status == 303 and m.store.get_link(STRANGER_HA)["role"] == "owner"
+
+
+async def test_the_people_form_still_links_an_admin_where_the_sidebar_vouches_for_the_person(mk):
+    m = await mk(rules="trusted")
+    m.store.link(OWNER_HA, "owner", "Fictional Owner")
+    await m.page()
+    origin = {"Origin": str(m.client.make_url("")).rstrip("/")}
+    form = {"csrf": m.jar["mantel_csrf"], "ha_user_id": STRANGER_HA, "role": "admin", "action": "link"}
+    r = await m.request("POST", "/ingress/people", {**m.ha(), **origin}, data=form)
+    assert r.status == 303 and m.store.get_link(STRANGER_HA)["role"] == "admin"
+
+
 def test_package_check_pins_panel_admin_false(tmp_path):
     import sys
     sys.path.insert(0, str(ROOT / "tools"))

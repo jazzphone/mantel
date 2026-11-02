@@ -802,6 +802,20 @@ async def people_get(request: web.Request) -> web.Response:
     return _page("People", body)
 
 
+def _needs_fresh(request: web.Request, ident, role: str, back: str, *, new_way_in: bool = False) -> web.Response | None:
+    """The People form's link to an Owner or Admin (or as a wall tablet) asks what ``PUT /api/people/ha`` and
+    ``POST /api/users`` ask: a fresh sign-in (``accounts.require_fresh_to_grant``; HA's own sidebar counts as fresh
+    where it vouches for the person). A page saying so, not the REST route's JSON. Third audit pass, SRV-3: the
+    form asked for nothing, so a stale Owner cookie from away made a new Owner here."""
+    from .accounts import require_fresh_to_grant
+    try:
+        require_fresh_to_grant(request, ident, role, new_way_in=new_way_in)
+    except web.HTTPForbidden:
+        return _page("Not changed", "<p>Confirm it is you first: this needs a sign-in within the last five minutes. "
+                                    "Sign out, sign in again, and link it then.</p>" + back, 403)
+    return None
+
+
 @guard("manager", audit=("ingress.link", "ingress.unlink", "ingress.link_tablet", "ingress.unlink_tablet"))
 async def people_post(request: web.Request) -> web.Response:
     if not is_ingress(request):
@@ -830,6 +844,8 @@ async def people_post(request: web.Request) -> web.Response:
         if action == "unlink":
             unlink_tablet(request.app, target, ident.user, request=request, ident=ident)
             raise web.HTTPSeeOther(base + "/ingress/people")
+        if (stale := _needs_fresh(request, ident, "tablet", back, new_way_in=True)) is not None:
+            return stale
         ha_name = None
         try:
             ha_name = ((await request.app["ha_directory"].user(target)) or {}).get("name")
@@ -850,6 +866,8 @@ async def people_post(request: web.Request) -> web.Response:
         if not others:
             return _page("Not changed", "<p>Mantel always keeps at least one Owner.</p>"
                          f"<p><a href='{html.escape(base)}/ingress/people'>Back</a></p>", 409)
+    if action == "link" and (stale := _needs_fresh(request, ident, role, back)) is not None:
+        return stale
     if action == "link":
         name = None
         try:
