@@ -60,10 +60,12 @@ class Rig:
             if m.get("type") == "read_result" and m.get("id") == rid:
                 return m
 
-    async def offer(self, ws, rid, eid="camera.mantel_front"):
+    async def offer(self, ws, rid, eid="camera.mantel_front", quality=None):
         """An offer that plays: its three events (session, answer, candidate) and every frame received."""
-        await ws.send_json({"type": "read_subscribe", "id": rid,
-                            "msg": {"type": "camera/webrtc/offer", "entity_id": eid, "offer": OFFER_SDP}})
+        msg = {"type": "camera/webrtc/offer", "entity_id": eid, "offer": OFFER_SDP}
+        if quality is not None:
+            msg["mantel_quality"] = quality
+        await ws.send_json({"type": "read_subscribe", "id": rid, "msg": msg})
         frames, events = [], []
         while len(events) < 3:
             m = await GF.recv(ws)
@@ -532,3 +534,86 @@ async def test_a_direct_cameras_still_comes_from_go2rtc_and_is_shared(rig):
     r.go2rtc.fail_patch = True
     resp = await r.env.m.get("/api/camera/camera.mantel_front/still")
     assert resp.status == 502 and (await resp.json())["error"] == "camera_unavailable"
+
+
+# -- which stream plays (2026-11-02, the owner: low for tiles, high for pop-ups) ------------------------------------
+def test_each_quality_plays_its_stream_or_the_nearest_one():
+    full = D.CameraSecret("camera-x", "rtsp://h/high", "rtsp://h/low", None, "rtsp://h/medium")
+    assert [full.url(q)[0] for q in ("low", "medium", "high", "bogus")] == ["low", "medium", "high", "high"]
+    main_only = D.CameraSecret("camera-y", "rtsp://h/high")
+    assert [main_only.url(q)[0] for q in ("low", "medium", "high")] == ["high", "high", "high"]
+    two = D.CameraSecret("camera-z", "rtsp://h/high", "rtsp://h/low")
+    assert [two.url(q)[0] for q in ("low", "medium", "high")] == ["low", "high", "high"]
+
+
+def test_the_hint_is_taken_off_before_anything_else_reads_the_offer():
+    from mantel_server.connectors import split_quality
+    msg = {"type": "camera/webrtc/offer", "entity_id": "camera.x", "offer": "v=0", "mantel_quality": "low"}
+    assert split_quality(msg) == ({"type": "camera/webrtc/offer", "entity_id": "camera.x", "offer": "v=0"}, "low")
+    assert split_quality({**msg, "mantel_quality": "huge"})[1] is None
+    assert split_quality({"type": "x"}) == ({"type": "x"}, None)
+
+
+async def test_a_tile_plays_the_low_stream_and_a_pop_up_the_high_one(rig):
+    r = await rig()
+    await r.cams.put(porch_cam(streams={"high": PROTECT_HIGH, "low": PROTECT_LOW}))
+    await r.cams.put(kitchen_cam())
+    ws = await r.socket("owner1", "owner")
+    await r.offer(ws, 2, quality="low")
+    assert r.go2rtc.offers[-1][0] == "mantel_cam_front_low"
+    await r.offer(ws, 3, quality="high")
+    assert r.go2rtc.offers[-1][0] == "mantel_cam_front_high"
+    await r.offer(ws, 4)                                         # an older page says nothing: a pop-up's
+    assert r.go2rtc.offers[-1][0] == "mantel_cam_front_high"
+    await r.offer(ws, 5, eid="camera.mantel_kitchen", quality="low")
+    assert r.go2rtc.offers[-1][0] == "mantel_cam_kitchen_high", "no low stream: the main one"
+    await ws.close()
+
+
+async def test_home_assistant_never_sees_the_hint():
+    """The camera connector (Home Assistant's cameras, every mode) takes the hint off before its own checks: Home
+    Assistant's schema refuses an unknown key."""
+    from mantel_server.connectors.camera import CameraSignaling
+    from mantel_server.connectors import Ctx
+    sent = []
+
+    class Proxy:
+        async def subscribe(self, msg, relay):
+            sent.append(msg)
+            return 7
+
+    sig = CameraSignaling(lambda: Proxy(), {"may_view": lambda ident, eid: True})
+    ctx = Ctx(identity=None, state={}, send=None) if "send" in Ctx.__dataclass_fields__ else Ctx(identity=None, state={})
+    await sig.offer(ctx, {"type": "camera/webrtc/offer", "entity_id": "camera.porch", "offer": "v=0",
+                          "mantel_quality": "low"}, lambda ev: None)
+    assert sent == [{"type": "camera/webrtc/offer", "entity_id": "camera.porch", "offer": "v=0"}]
+
+
+def test_a_card_asks_mantels_client_for_the_stream_and_home_assistants_gets_the_offer_as_it_is(tmp_path):
+    """client.cameraOffer exists only where the host has it (Mantel's port, mantel-client.js); HK Frontend inside
+    Home Assistant has none, and its offers stay Home Assistant's own shape."""
+    import shutil
+    import subprocess
+    from pathlib import Path
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    root = Path(__file__).resolve().parent.parent
+    script = tmp_path / "t.cjs"
+    script.write_text(f"""
+const vm = require('vm'), fs = require('fs');
+const g = {{ console }}; g.window = g; g.globalThis = g; vm.createContext(g);
+vm.runInContext(fs.readFileSync({str(root / 'web/client/hk-client.js')!r}, 'utf8'), g);
+const offer = {{ type: 'camera/webrtc/offer', entity_id: 'camera.x', offer: 'v=0' }};
+const mantel = g.hkClient.create({{ cameraOffer: (m, q) => Object.assign({{}}, m, {{ mantel_quality: q }}) }});
+const ha = g.hkClient.create({{}});
+console.log(JSON.stringify({{ mantel: mantel.cameraOffer(offer, 'low'), ha: typeof ha.cameraOffer }}));
+""")
+    out = subprocess.run(["node", str(script)], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    got = json.loads(out.stdout.strip().splitlines()[-1])
+    assert got == {"mantel": {"type": "camera/webrtc/offer", "entity_id": "camera.x", "offer": "v=0", "mantel_quality": "low"},
+                   "ha": "undefined"}
+    shim = (root / "web/shim/mantel-client.js").read_text()
+    assert "port.cameraOffer = function (msg, quality)" in shim and "mantel_quality" in shim
+    for f in ("web/hk/shell/hk-view-host.js", "web/hk/cards/hk-cameras.js"):
+        assert "cameraOffer" in (root / f).read_text() and "mantel_quality" not in (root / f).read_text(), f

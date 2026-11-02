@@ -363,6 +363,11 @@
     });
     Object.defineProperty(port, 'subscriptions', { get: function () { return global.hkClient.subscriptions(snapshot.connection); } });
     port.bindStateIcon = function (element, state) { element.stateObj = state; };
+    // WHICH STREAM A CAMERA PLAYS (2026-11-02, the owner: low for tiles, high for pop-ups): Mantel's own cameras
+    // play the stream the card asks for (connectors.split_quality, which also takes it off before Home Assistant)
+    port.cameraOffer = function (msg, quality) {
+      return Object.assign({}, msg, { mantel_quality: quality === 'low' || quality === 'medium' ? quality : 'high' });
+    };
     // ACTIONS ONLY WHEN THE SERVER SAYS SO. On a server whose operator turned the command gateway on,
     // the socket's `capabilities` frame says `commands: true`, and this port then gets `actions`
     // that send gateway `command` messages over the hub socket (nothing else: the snapshot's own

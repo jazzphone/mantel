@@ -624,7 +624,8 @@ class ProtectConnector:
                                 "protect_id": cam.id, "speaker": cam.has_speaker,
                                 "detections": [k for k in D.DETECTIONS if k in kinds_of(cam) or k == "motion"]}
         if streams is not None:
-            body["streams"] = {"high": str(streams["high"]), "low": str(streams["low"]) if streams.get("low") else None}
+            body["streams"] = {q: (str(streams[q]) if streams.get(q) else None) for q in ("low", "medium")}
+            body["streams"]["high"] = str(streams["high"])   # tiles play low (or medium), pop-ups high (2026-11-02)
         return body
 
     async def _follow(self, src: D.DirectSource, cam: pa.Camera, client: pa.ProtectClient) -> None:
@@ -633,8 +634,8 @@ class ProtectConnector:
         try:
             got = await client.rtsps_streams(cam.id, create=False)
             have = self.cams.secret(src.slug)
-            if got.get("high") and (have is None or (str(got["high"]), str(got.get("low")) if got.get("low") else None)
-                                    != (have.high, have.low)):
+            now = tuple(str(got[q]) if got.get(q) else None for q in ("high", "medium", "low"))
+            if got.get("high") and (have is None or now != (have.high, have.medium, have.low)):
                 streams = got
         except pa.ProtectError as err:
             log.info("protect: the streams of %s were not read (%s)", src.slug, err.kind)
@@ -662,7 +663,7 @@ class ProtectConnector:
     async def pick(self, pid: str, area_id: str | None, actor: Any) -> D.DirectSource:
         client = self._need()
         cam = await client.camera(pid)
-        streams = await client.rtsps_streams(pid, create=True)
+        streams = await client.rtsps_streams(pid, create=True, qualities=("high", "medium", "low"))
         if not streams.get("high"):
             raise pa.ProtectApiError(200, "the camera has no high-quality stream")
         taken = {s.slug for s in self.cams.sources()}

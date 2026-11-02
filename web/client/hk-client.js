@@ -10,8 +10,11 @@
   // host's socket is down (undefined when the host cannot say).
   var DATA = ['states', 'entities', 'devices', 'areas', 'floors', 'services',
               'config', 'locale', 'language', 'user', 'themes', 'connected', 'subscriptions'];
+  // cameraOffer(msg, quality): a host that serves cameras of its own in more than one quality adds to a camera's
+  // WebRTC offer which one the card draws ('low' a tile, 'high' a pop-up; 2026-11-02). A host without it (Home
+  // Assistant, whose schema refuses an unknown key) has none, and the offer goes as it is.
   var METHODS = ['formatEntityState', 'formatEntityAttributeValue', 'formatEntityAttributeName',
-                 'callWS', 'bindStateIcon'];
+                 'callWS', 'bindStateIcon', 'cameraOffer'];
   // WRITES AND READS ARE TOLD APART AT THE PORT. Every WebSocket message the shared frontend
   // sends that changes something (the house, HK's settings, a registry, a user's data) is one
   // of these, and goes through `client.actions.callWS`. `client.callWS` is the read path and

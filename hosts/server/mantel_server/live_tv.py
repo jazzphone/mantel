@@ -69,7 +69,8 @@ from urllib.parse import urlsplit
 import aiohttp
 from aiohttp import web
 
-from .connectors import Ctx, Forbidden, Hooks, Route, allowed_ids, may_feature, read_routes, resolve, ws_handlers
+from .connectors import (Ctx, Forbidden, Hooks, Route, allowed_ids, may_feature, read_routes, resolve, split_quality,
+                         ws_handlers)
 from .guards import guard
 
 log = logging.getLogger("mantel.live_tv")
@@ -1005,6 +1006,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None, tv_hooks: LiveTv
         return handler
 
     async def offer(ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):
+        msg, _ = split_quality(msg)                # a channel has one transcode; the camera connector drops it too
         if tv.ours(msg):
             return await tv.offer(ctx, msg, on_event)
         base = camera.get(OFFER)

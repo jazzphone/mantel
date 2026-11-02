@@ -92,6 +92,14 @@
   // Lovelace's container types that HK's strategy and cards use, drawn by HK, and the one picture
   // card HK's camera cards make (hk-cameras.js: the Cameras page's tiles, the camera strip's live
   // tile), drawn by HK's hk-picture-entity below.
+  // WHICH STREAM (2026-11-02, the owner: "Low quality for Tiles/Mosaic/Camera Page, High Quality for Pop ups"). Home
+  // Assistant's offer names the camera only; a host whose own cameras have more than one stream lets the card say
+  // which it draws (client.cameraOffer). A host without it gets the offer as it is.
+  function offerMsg(cl, entity, sdp, quality) {
+    var m = { type: 'camera/webrtc/offer', entity_id: entity, offer: sdp };
+    return cl && typeof cl.cameraOffer === 'function' ? cl.cameraOffer(m, quality) : m;
+  }
+
   var BUILT_IN = {
     'grid': 'hk-view-grid',
     'vertical-stack': 'hk-view-stack',
@@ -925,7 +933,7 @@
                   try { console.warn('[hk-picture-entity] ' + entity + ': no live view (' + (m.code || '') + ' ' + (m.message || '') + ')'); } catch (e) { /* no console */ }
                   self._again();
                 }
-              }, { type: 'camera/webrtc/offer', entity_id: entity, offer: sdp });
+              }, offerMsg(cl, entity, sdp, 'low'));
             }).then(function (unsub) {
               if (typeof unsub !== 'function') return;
               if (alive()) { self._unsub = unsub; return; }

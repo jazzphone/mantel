@@ -420,6 +420,13 @@ its gain is the video's one hop fewer, which waits on the house's move to the LX
   takes the floor (Home Assistant's Floor and Mantel's relay both cut) and closed after 30 s of quiet; confirmed at
   the door: 0.42-0.45 s press to sound, the whole tone heard.
 
+- 2026-11-02, the owner's follow-up: tiles play a camera's low-quality stream, pop-ups and full screen its
+  high-quality one. A page served by Mantel says which (`mantel_quality` on the offer, through Mantel's client's
+  `cameraOffer`, so nothing in HK Frontend's build names Mantel), every server layer takes the key off before Home
+  Assistant, and Mantel's own cameras play that stream or the nearest one (Protect: high, medium, low; RTSP: high and
+  an optional low). RTSP cameras gained a **Snapshot Address** (the camera's own picture URL, with its login as HTTP
+  Basic): stills come from it, else the low stream, else the high one. Protect's stills were already its snapshots.
+
 ## Still to try on the house
 
 - After 0.1.114 and Mantel Link 0.1.11: the doorbell sheet's push-to-talk on a wall tablet and on the iPad (the warm
@@ -430,4 +437,5 @@ its gain is the video's one hop fewer, which waits on the house's move to the LX
   the owner's OK first); talking at the door through Mantel (sound at the door: the owner's OK first); ring to sheet
   on a wall tablet.
 - Whether a UniFi API key dies with its user, once a local Mantel user exists.
-
+- Tiles on the low stream and pop-ups on the high one, on a wall tablet (the house's Front Door: high 1600x1200;
+  Protect makes the medium and low streams on picking).
