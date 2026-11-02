@@ -308,3 +308,10 @@ Every Mantel release here is tagged `vX.Y.Z` on its release commit once the hous
 - `tools/ci.py full` 36 of 37 on 4de92db0: the main suite's event-loop timing test (`test_a_large_your_files_photo_upload_does_not_freeze_the_event_loop`) measured 26 ms against 20 ms under the full run's load; it passed three times alone and the main suite passed whole on a rerun. Release commit a5d9e06f, `ci.py versions` 5 of 5. The images didn't change, so no build-only run first.
 - Released by hand through the Home Assistant connection: the App's build is 0.1.114's (e14732d35d314adb; the fix is in the LXC scripts). The App had been stopped since 13:09 (from Home Assistant, not by this release), and the update left it stopped; started at 13:40, /healthz?strict=1 ok with Home Assistant connected. No tablet or proxy request reached it after the start; why it was stopped is not yet known (asked the owner).
 - Tagged v0.1.115 and published: release workflow run 41502809802, then the GitHub Release v0.1.115.
+
+## Mantel 0.1.116 (2026-11-02)
+
+- What ships: First start's **Restore From a Backup** and another Mantel's backup restored on Docker and the LXC by sealing its secrets again with this Mantel's own key (15ef52b2). Asked for by the owner on the first fresh LXC install. The only change since v0.1.115 besides that release's records.
+- `tools/ci.py full` 36 of 37 on 15ef52b2: `side-pane-check-1180x820` failed once on a WebKit page error (`icons.json` "due to access control checks") and passed on its rerun. Release commit 64c81f89, `ci.py versions` 5 of 5. The images didn't change, so no build-only run first.
+- The house: the owner stopped the Mantel App on purpose (moving to the LXC). It was updated to 0.1.116 and left stopped, so this release was not run on the house; the checks and the published images stand for it.
+- Tagged v0.1.116 and published: release workflow run 41513780587, then the GitHub Release v0.1.116.
