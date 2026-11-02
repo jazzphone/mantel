@@ -85,6 +85,7 @@ Use **Show** to narrow it:
 | **Tablet** | One wall tablet |
 | **Decision** | **Allowed** or **Denied** |
 | **Kind** | See below |
+| **Through** | **Anyone**, **An Assistant** or **No Assistant** ([Assistants](Assistants.md)) |
 | **From**, **To** | A time range |
 | **Rows per Page** | 25, 50 or 100 |
 
@@ -123,7 +124,8 @@ A change that can't be recorded isn't made: Mantel answers **The audit log is un
 
 ### From the API
 
-Owners and Admins can read the same log over the API: `GET /api/audit`, with `actor`, `device`, `decision`, `kind`, `since` and `until` (seconds since 1970), `limit` (1 to 500) and `before` (the `next` value from the last page).
+Owners and Admins can read the same log over the API: `GET /api/audit`, with `actor`, `device`, `decision`, `kind`, `since` and `until` (seconds since 1970), `limit` (1 to 500), `via` (`mcp` for any assistant, `mcp:<name>` for one, `-` for none) and `before` (the `next` value from the
+last page).
 
 ## See also
 

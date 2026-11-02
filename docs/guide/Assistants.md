@@ -40,7 +40,7 @@ For Claude Desktop, add Mantel to `claude_desktop_config.json` through the `mcp-
 
 ### By signing in
 
-A client that can sign in, such as Claude Code, needs only the address. When it first connects, it opens Mantel in your browser. Sign in, and Mantel asks **Allow \<assistant\> to connect as \<you\>?**, showing the address it will return to and what it may do, as ticks. Allow it only if you just started connecting that assistant yourself. A signed-in assistant can also be allowed **from away** and to **control the house**, when the Owner allows those.
+A client that can sign in, such as Claude Code, needs only the address. When it first connects, it opens Mantel in your browser. Sign in, and Mantel shows *\<assistant\> asks to connect to Mantel as \<you\>*, with the address it will return to and what it may do, as ticks, and **Allow** and **Cancel**. Allow it only if you just started connecting that assistant yourself. A signed-in assistant can also be allowed **from away** and to **control the house**, when the Owner allows those.
 
 ### What an assistant may do
 
@@ -80,6 +80,7 @@ In the **Audit Log**, **Through** → **An Assistant** shows only what assistant
 ## Security
 
 - An assistant's access is a sign-in of the person's own, with a ceiling. Mantel checks the person, their role and the assistant's ticks on every request.
+- Connecting one, with a personal key or by signing in, needs a fresh sign-in (as adding a passkey does): a browser left signed in can't connect an assistant on its own.
 - A personal key works on the home network only, and never controls the house. A key shown once can't be shown again.
 - A signed-in assistant gets a token that lasts 15 minutes and is renewed as it is used; a stolen renewal token used twice ends the sign-in. Its tokens work only at `/mcp`, never as a browser's sign-in.
 - Mantel never reaches Home Assistant for an assistant except through the same checked, audited path a screen's button uses.

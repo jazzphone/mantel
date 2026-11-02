@@ -75,6 +75,14 @@ Mantel also answers only to its own host names, and refuses a request whose `Ori
 
 A wall tablet's credential is a random secret in a cookie, stored as a hash. It changes every 24 hours, a copied one is caught (the tablet is revoked when the old secret turns up again), it works only on the home network, and it can be revoked in one step. Enrolling is possible only from the home network. See [Wall Tablets](Wall-Tablets.md#how-the-tablets-credential-works).
 
+### Assistants (MCP)
+
+An assistant ([Assistants](Assistants.md)) acts for one person, with a ceiling: its ticks, and never more than the
+person's role. Connecting one, by a personal key or by signing in, needs a fresh sign-in, as adding a passkey does.
+Its tokens work only at `/mcp`, never as a browser's sign-in; a personal key works on the home network only and never
+controls the house; a house command from an assistant goes through the same classify, roles and audit as a screen's
+button, and the Audit Log says which assistant sent it. See [Assistants → Security](Assistants.md#security).
+
 ## Cross-site requests and page security
 
 - **CSRF.** Every change through Mantel's API needs a `X-CSRF-Token` header that matches the session. The sign-in endpoints accept only JSON with an `Origin` header, so an ordinary web form can't post to them. Mantel's live connection (its WebSocket) needs an `Origin` too.

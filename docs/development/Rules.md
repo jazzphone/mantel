@@ -8,7 +8,9 @@ that breaks it fails the main suite. [Architecture](Architecture.md) explains th
 The shared frontend talks only to `HKClient` and the host shell. Nothing in `web/` names Home Assistant's object
 (`hass`) outside `web/shim/` (Mantel's adapter) and `hosts/ha/frontend/` (Home Assistant's). Home Assistant's
 element names and frontend events appear only in the host-shell adapters. `hk_core/` never imports
-`homeassistant`, and imports only itself, relatively.
+`homeassistant`, and imports only itself, relatively, with one exception: the Home Assistant side of the link that
+Mantel Link and HK Frontend share (`hk_core/link/talk.py`, `talk_live.py` and `page_headers.py`), which only those
+integrations load; the boundary test lists them.
 
 **Checked by** `tests/test_boundaries.py` and `tests/test_shell_boundary.py`.
 
@@ -64,7 +66,8 @@ to build when they find private network addresses, keys or tokens.
 
 Every route Mantel Server serves says who may call it with `@guard(...)` (`guards.py`): who (a session, a person, an
 Owner or Admin, an Owner), whether a wall tablet's session may, from which door, and how fresh the sign-in must be.
-A route with its own check (sign-in, the app's DPoP routes, `/linked/*`, the media proxy, static files, health) is
+A route with its own check (sign-in, the app's DPoP routes, `/linked/*`, an assistant's `/mcp` and its OAuth sign-in, the media proxy,
+static files, health) is
 on the test's short list instead, with its reason. Every route that changes something names the audit action it
 writes, or says why it writes none. The row goes through `audit.config`, before the change: no row, no change
 (503 `audit_unavailable`).

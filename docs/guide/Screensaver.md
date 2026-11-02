@@ -26,7 +26,7 @@ Tap the time, or whatever is large on the screen. **Shows** is **Time**, **Tempe
 
 ![The big element tapped: its Face, Color, Size and Position on the right](../images/screensaver-editor-time.webp)
 
-- **The Time** has a **Face**, its **Color**, and **24-Hour Time**.
+- **The Time** has a **Face**, its **Color**, and **24-Hour Time**. The **Today** face also draws the weather and, while something plays, the song under the time; **What's Playing** turns that line off (also under **Clock Style** in Settings).
 - **Size**, **Position** and **Align** say how large it is and where it stands.
 - **Depth** is **In Front**, or, where the background allows it, **Behind the Subject** on photos (the photo's subject stands in front of the time, as on the iPhone's Lock Screen), **Behind the Land** or **Planted** on the Landscape (solid figures standing in the meadow).
 - Over photos, **Legibility** adds a soft shadow and an outline so the time reads on a busy picture.

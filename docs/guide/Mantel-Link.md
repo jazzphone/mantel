@@ -12,7 +12,6 @@ Mantel Link's own documentation has every detail:
 [Setup](https://github.com/jazzphone/mantel-link/blob/main/docs/Setup.md),
 [Actions](https://github.com/jazzphone/mantel-link/blob/main/docs/Actions.md),
 [How it works](https://github.com/jazzphone/mantel-link/blob/main/docs/How-It-Works.md).
-<!-- RELEASE: the public repository jazzphone/mantel-link must exist (built by hosts/ha/custom_components/mantel/tools/publish/publish.py; nothing is pushed yet) before these links and the HACS steps below work. -->
 
 ## Do you need it?
 

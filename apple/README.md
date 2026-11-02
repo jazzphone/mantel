@@ -100,7 +100,7 @@ player is gone.
   column (NATIVE-FEEL.md item 7). `HouseWebView.playerScript`.
 - **Sheets:** the app's player and App Settings are form sheets in a regular-width window, full-height sheets on a
   phone. The share sheet is a popover from the page's top on an iPad.
-- **Setup** is one centred column on a wide window.
+- **Setup** is one centered column on a wide window.
 - **Pointer and keyboard:** the player's buttons and the ⋯ button light under the iPad's pointer (the page's own
   hover is WebKit's); ⌘R reloads the page, ⌘, opens App Settings.
 - **Widgets:** Favorites in Small, Medium, Large and Extra Large (the iPad's, 4×4 tiles); Now Playing in Small,

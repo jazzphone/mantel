@@ -1,10 +1,10 @@
 # Updating
 
-Each way of running Mantel updates its own way: the Home Assistant App through Home Assistant, Docker with `./update.sh`, and the Proxmox LXC with `mantel-update`. The Docker and LXC updates check that the new version starts healthy and go back to the previous images by themselves if it doesn't. Whichever you use, **make a backup first**: Mantel updates its database when a new version starts, and the database only moves forward.
+Each way of running Mantel updates its own way: the Home Assistant App through Home Assistant, Docker with `./update.sh`, and the Proxmox LXC with `update` (one-command install) or `mantel-update` (made from a checkout). The Docker and LXC updates check that the new version starts healthy and go back to the previous images by themselves if it doesn't. Whichever you use, **make a backup first**: Mantel updates its database when a new version starts, and the database only moves forward.
 
 ## Before every update
 
-1. **Make a backup.** In the App, a Home Assistant backup (the update dialog can make it for you). With Docker or the LXC, a Mantel backup: `docker compose exec mantel-server mantel backup --target /backups`. See [Backups](Backups.md). (`./update.sh` and `mantel-update` make this backup themselves, see below; by hand it is for a build from source.)
+1. **Make a backup.** In the App, a Home Assistant backup (the update dialog can make it for you). With Docker or the LXC, a Mantel backup: `docker compose exec mantel-server mantel backup --target /backups`. See [Backups](Backups.md). (`./update.sh`, `update` and `mantel-update` make this backup themselves, see below; by hand it is for a build from source.)
 2. **Read the release notes** for anything you need to do: [CHANGELOG.md](https://github.com/jazzphone/mantel/blob/main/CHANGELOG.md) has a section for each version. In the App, Home Assistant shows the same notes in the update dialog.
 3. **Pick a quiet moment.** Open screens reconnect by themselves after the restart, which takes up to a minute or so.
 
@@ -42,7 +42,7 @@ If you [built the App from source](Install.md#build-the-app-from-source):
 
 ### Published images
 
-Each release publishes `ghcr.io/jazzphone/mantel-server`, `ghcr.io/jazzphone/mantel-transcode` and `ghcr.io/jazzphone/mantel-caddy`, tagged with its version (for example `:0.1.36`, the same number as the Home Assistant App's) and `:latest` ([Install with Docker → Get the images](Install-Docker.md#5-get-the-images)). How you update depends on what `.env` names:
+Each release publishes `ghcr.io/jazzphone/mantel-server`, `ghcr.io/jazzphone/mantel-transcode` and `ghcr.io/jazzphone/mantel-caddy`, tagged with its version (for example `:0.1.112`, the same number as the Home Assistant App's) and `:latest` ([Install with Docker → Get the images](Install-Docker.md#5-get-the-images)). How you update depends on what `.env` names:
 
 - **A version** (recommended): put the new version in all three `MANTEL_*_IMAGE` lines in `.env`, then run `./update.sh`.
 - **`:latest`**: just run `./update.sh`; it pulls whatever the newest release is.
@@ -91,13 +91,21 @@ An older Mantel can't open a database a newer one has already updated. If the ne
 
 ## Proxmox LXC
 
-Inside the container (`pct enter <id>`):
+**A container made by the one-command install** ([Install in a Proxmox LXC](Install-Proxmox-LXC.md)): inside it (`pct enter <id>`), run
+
+```bash
+update
+```
+
+It follows the newest release tag (or what `var_mantel_ref` named), skips a release whose images aren't published yet, makes a backup, starts the new version, waits until it is healthy, and goes back to the previous version by itself if it isn't. With nothing new, it says so and changes nothing.
+
+**A container made from a checkout:** inside it, run
 
 ```bash
 mantel-update
 ```
 
-With published images in `.env`, it runs `./update.sh` (above). In **build mode** (the default), the new source comes from the Proxmox host. On the host, from an updated copy of the repository you have read:
+With published images in `.env`, it runs `./update.sh` (above). In **build mode**, the new source comes from the Proxmox host. On the host, from an updated copy of the repository you have read:
 
 ```bash
 cd mantel

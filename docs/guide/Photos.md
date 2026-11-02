@@ -51,7 +51,7 @@ to 200 MB, and all photos from 100 MB to 1 TB.
 1. Turns it upright, as the camera recorded it.
 2. **Removes all metadata**: the GPS location, the camera, the date and every
    other EXIF and XMP field. The bytes you uploaded are not kept.
-3. Converts wide-gamut colour to standard colour, and puts transparent areas
+3. Converts wide-gamut color to standard color, and puts transparent areas
    on black.
 4. Saves three sizes:
 
@@ -71,7 +71,7 @@ that heads aren't cut off, Mantel finds where the faces are in each photo, once,
 and the screensavers crop and zoom around them.
 
 - **Only where, never who.** Mantel finds boxes around faces. It doesn't
-  recognise anyone, and it keeps no face data beyond those boxes. It all
+  recognize anyone, and it keeps no face data beyond those boxes. It all
   happens on your Mantel server; nothing is sent anywhere.
 - **New photos** are checked as they're uploaded. **Photos already in Mantel**
   are checked in the background, one at a time, starting a minute after Mantel

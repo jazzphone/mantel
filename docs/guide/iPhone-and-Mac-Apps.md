@@ -103,7 +103,7 @@ use the same list, and show only what your role lets you see.
 
 A menu bar app, native on macOS:
 
-- **Music**: Now Playing over the cover's colours, the rooms it plays in,
+- **Music**: Now Playing over the cover's colors, the rooms it plays in,
   progress, transport and volume; **Speakers** (presets and rooms, a volume
   each, **Update** and **Stop**), **Up Next**, and **Browse** (your home's
   playlists, then Music Assistant's library). The same player opens wide in a

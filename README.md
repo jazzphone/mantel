@@ -57,7 +57,7 @@ Mantel draws HK Frontend’s pages with HK’s own code: Home, a page per room, 
 <img src="docs/images/home-grid.webp" width="49%" alt="A wall display's Home page as a Home Grid of fixed blocks">
 </p>
 
-**[Home Grid](docs/guide/Home-Grid.md)** lays a tablet's Home page out in fixed blocks, arranged in a desktop editor; a Now Playing block turns over to choose speakers or browse the library. **[Edit mode](docs/guide/Arrange-a-Page.md)** arranges any page in place: drag tiles, make them tall, and reorder the menu, the tab bar and the rooms.
+**[Home Grid](docs/guide/Home-Grid.md)** lays a tablet's Home page out in fixed blocks, arranged in a desktop editor; a Now Playing block turns over to choose speakers or browse the library. **[Edit mode](docs/guide/Arrange-a-Page.md)** arranges the room pages, Home, Lights, Climate, Water, Security and Vacuums in place: drag tiles, make them tall, and reorder the menu, the tab bar and the rooms.
 
 <p align="center">
 <img src="docs/images/home-grid-speakers.webp" width="49%" alt="A Now Playing block turned over to Speakers">

@@ -129,7 +129,7 @@ Then you sign in again. A session belongs to the door it started on: a session f
 
 **Mantel Settings** → **Me** → **My Sessions** lists the browsers signed in as you, one row per kind of browser (for example **Safari on Mac**, at home or remote), with how many sessions it has and when one was last used. This browser is first.
 
-A browser that signs in again replaces its own last session rather than adding another, so the list stays short. Mantel recognises the browser by a random id cookie that holds nothing else.
+A browser that signs in again replaces its own last session rather than adding another, so the list stays short. Mantel recognizes the browser by a random id cookie that holds nothing else.
 
 - Tap a row to see its sessions (how each signed in, its address, since when and until when), each with **Sign Out**, and **Sign Out All** for the lot. Use it for a lost phone.
 - **Sign Out Everywhere Else** signs out every other browser at once. This one stays signed in, and so does the Mantel app.

@@ -24,6 +24,7 @@ Using HK Frontend inside Home Assistant? Mantel can run beside it or take over f
 - [Wall Tablets](Wall-Tablets.md)
 - [Commands and Audit](Commands-and-Audit.md)
 - [Security Model](Security-Model.md)
+- [Assistants (MCP)](Assistants.md): let an assistant set up screens and tablets for you
 
 ## Screens and features
 

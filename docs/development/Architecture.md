@@ -224,7 +224,7 @@ frame with the time to first draw, each with the heap, the sockets reopened (`hu
 refreshes (`registryRefreshed()`, bumped by `registry-sync.js` each time the page reads the registry again). `page_health.py` logs them and keeps the last 24 hours
 per tablet or person in `RING`: memory only, bounded (`PER_SCREEN` samples, `SCREENS` screens). `ClientSession.pump`
 times each flush and send into `performance.STATS`, with the HA event rate; `GET /api/performance`
-(`@guard("manager")`, so never a tablet's session) summarises both for **About** → **Performance** (the `performance`
+(`@guard("manager")`, so never a tablet's session) summarizes both for **About** → **Performance** (the `performance`
 section of `/api/admin/overview`, `web/shim/settings/performance.js`).
 
 The frame rate is sampled by HK's own `web/hk/modules/hk-fps.js` (the dashboard's one sampler, which HK Frontend uses

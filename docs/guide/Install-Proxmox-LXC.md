@@ -77,7 +77,7 @@ It touches no other container or VM, changes no host setting, edits no firewall 
    cd mantel
    ```
 
-   To pin the script that runs as root to a release you can read, check out its tag: `git checkout v0.1.36` (each release's tag; see [CHANGELOG.md](https://github.com/jazzphone/mantel/blob/main/CHANGELOG.md)).
+   To pin the script that runs as root to a release you can read, check out its tag: `git checkout v0.1.112` (each release's tag; see [CHANGELOG.md](https://github.com/jazzphone/mantel/blob/main/CHANGELOG.md)).
 
 2. Read the two scripts:
 
