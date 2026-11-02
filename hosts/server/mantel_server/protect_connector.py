@@ -238,17 +238,51 @@ def match_cameras(cams: Iterable[pa.Camera], registry: Any, states: Mapping[str,
                 continue
             speakers = sorted((e["entity_id"] for e in ents if e["entity_id"].startswith("media_player.")),
                               key=lambda x: ("speaker" not in x, x))
-            kinds: dict[str, list[str]] = {}
-            for e in ents:
-                eid = e["entity_id"]
-                st = states.get(eid) or {}
-                dc = (st.get("a") or {}).get("device_class") or e.get("device_class") or e.get("original_device_class")
-                k = detection_kind(eid, dc)
-                if k is not None:
-                    kinds.setdefault(k, []).append(eid)
             out[cam.id] = Match(d["id"], camera_ents[0]["entity_id"], speakers[0] if speakers else None,
-                                {k: tuple(sorted(v)) for k, v in kinds.items()})
+                                _kinds(ents, states))
             break
+    return out
+
+
+def _kinds(ents: Iterable[Mapping[str, Any]], states: Mapping[str, Any]) -> dict[str, tuple[str, ...]]:
+    kinds: dict[str, list[str]] = {}
+    for e in ents:
+        eid = e["entity_id"]
+        st = states.get(eid) or {}
+        dc = (st.get("a") or {}).get("device_class") or e.get("device_class") or e.get("original_device_class")
+        k = detection_kind(eid, dc)
+        if k is not None:
+            kinds.setdefault(k, []).append(eid)
+    return {k: tuple(sorted(v)) for k, v in kinds.items()}
+
+
+def camera_less_detections(cams: Iterable[pa.Camera], registry: Any, states: Mapping[str, Any],
+                           matched: Mapping[str, Match]) -> dict[str, dict[str, tuple[str, ...]]]:
+    """{protect id: {kind: Home Assistant's entities}} for a camera whose device Home Assistant has but whose camera
+    entities are all turned off there (the house's indoor cameras, 2026-11-02: Loft, Office, Living Room, Crawl Space
+    and Kitchen), while its detection sensors are still on. Picked in Mantel such a camera is Mantel's own
+    (``camera.mantel_*``, with Mantel's detection entities), so without this both its sensors and Home Assistant's
+    would notify each event: Home Assistant's are held back while Mantel's events socket is up (``takes``)."""
+    devices = [d for d in (getattr(registry, "device_entries", None) or []) if isinstance(d, Mapping)
+               and d.get("id") and not d.get("disabled_by")]
+    by_dev: dict[str, list[Mapping[str, Any]]] = {}
+    for e in getattr(registry, "entity_entries", None) or []:
+        if isinstance(e, Mapping) and e.get("device_id") and not e.get("disabled_by"):
+            by_dev.setdefault(e["device_id"], []).append(e)
+    out: dict[str, dict[str, tuple[str, ...]]] = {}
+    for cam in cams:
+        if cam.id in matched:
+            continue
+        mac = norm_mac(cam.mac)
+        for d in devices:
+            pairs = [p for p in list(d.get("connections") or []) + list(d.get("identifiers") or [])
+                     if isinstance(p, (list, tuple)) and len(p) == 2]
+            if not any((mac and len(mac) == 12 and norm_mac(p[1]) == mac) or str(p[1]) == cam.id for p in pairs):
+                continue
+            kinds = _kinds(by_dev.get(d["id"], []), states)
+            if kinds:
+                out[cam.id] = kinds
+                break
     return out
 
 
@@ -341,6 +375,10 @@ class ProtectConnector:
         if t is None:
             return False
         pid, kind, mine = t
+        if mine is None:
+            # Home Assistant's sensor of a camera Mantel has as its own (camera_less_detections): Mantel's own
+            # detection entity speaks for it while the events socket is up; if it is down, Home Assistant's does
+            return kind in self.available(pid) and self.connected
         if kind not in self.available(pid):
             # not one Notify For offers (the motion of a camera with smart detection): left as it was, so a
             # notification someone set up on Home Assistant's motion sensor keeps working, and nothing is injected
@@ -358,12 +396,20 @@ class ProtectConnector:
         aliases = {self.matches[pid].camera: src.slug for pid, src in picked.items()
                    if pid in self.matches and self.video_from(pid) == "direct"}
         self.cams.set_matches(matched, aliases)
-        takes: dict[str, tuple[str, str, bool]] = {}
+        takes: dict[str, tuple[str, str, bool | None]] = {}
         for pid, m in self.matches.items():
             if pid in picked:
                 for kind, eids in m.kinds.items():
                     for eid in eids:
                         takes[eid] = (pid, kind, False)
+        if reg is not None:
+            # Home Assistant's sensors of a picked camera whose HA camera is turned off (None: see takes)
+            for pid, kinds in camera_less_detections(list(self.cameras.values()), reg, self.hub.store.states,
+                                                     self.matches).items():
+                if pid in picked:
+                    for kind, eids in kinds.items():
+                        for eid in eids:
+                            takes[eid] = (pid, kind, None)
         changed = self._sync_overlay(picked, takes)
         self._takes = takes
         self._sync_speakers(picked)

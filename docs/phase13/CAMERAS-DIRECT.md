@@ -400,3 +400,9 @@ after the ticket"); the log since the 0.1.113 restart has no talk in it yet.
   only in the probe (see the RTSP section), so the fake go2rtc answers as it does. Linked sensors reach `rules.py`
   through `House.camera_links()` and `accessories.py`'s device lookups. Open: the page's picker is a plain pop-up
   list (no search) and Test tries the main stream and the sub-stream with the same login.
+- 2026-11-02: phase 4 checked against the house's real data (read-only): the connector's MAC match finds 9 of the 14
+  cameras in Home Assistant, the doorbell with its speaker (`media_player.front_door_camera_speaker`). The other 5
+  (Loft, Office, Living Room, Crawl Space, Kitchen) have their camera entities turned off in Home Assistant but their
+  detection sensors on; picked in Mantel they are Mantel's own cameras, and Home Assistant's sensors of them are now
+  held back while Mantel's events socket is up, so a person is one notification, not two (`camera_less_detections`).
+

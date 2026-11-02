@@ -578,3 +578,38 @@ async def test_the_key_never_leaves(rig, console, caplog):
     texts.append(repr(conn.record) + repr(conn.client) + repr(conn.stream))
     no_key("\n".join(texts))
     assert "FictionalHighToken" not in "\n".join(texts[:4])
+
+
+async def test_a_camera_whose_ha_camera_is_off_notifies_once_from_mantels_own_sensor(rig, console):
+    """The house's indoor cameras (2026-11-02): Home Assistant has their device, its camera entities turned off and
+    its detection sensors on. Picked in Mantel the camera is Mantel's own; Home Assistant's person sensor must not
+    notify the same person a second time while Mantel's events socket is up, and must when it is down."""
+    r = await rig()
+    hub = r.app["hub"]
+    loft_dev = {"id": "dev_loft", "name": "Loft", "area_id": "kitchen", "connections": [["mac", "02:00:c0:ff:ee:02"]],
+                "identifiers": []}
+    hub.store.apply_event({"a": {"binary_sensor.loft_person_detected": {
+        "s": "off", "a": {"friendly_name": "Loft Person detected"}, "lc": 1.0, "lu": 1.0}}})
+    hub.registry.load(GF.HOUSE_AREAS, [loft_dev], GF.HOUSE_ENTITIES + [
+        {"entity_id": "camera.loft_high_resolution_channel", "device_id": "dev_loft", "platform": "unifiprotect",
+         "disabled_by": "user"},
+        {"entity_id": "binary_sensor.loft_person_detected", "device_id": "dev_loft", "platform": "unifiprotect"}])
+    hub.ha.on_registry()
+    conn = await connected(r, console)
+    await pick(r, LOFT, area_id="kitchen")
+    assert LOFT not in conn.matches, "no camera of Home Assistant's to show it as"
+    host, sent = notifications(r, [
+        {"id": "n_mine", "entity": "binary_sensor.mantel_loft_person_detected", "when": "on", "title": "", "message": ""},
+        {"id": "n_ha", "entity": "binary_sensor.loft_person_detected", "when": "on", "title": "", "message": ""}])
+    await host.reload()
+    await console.push("add", {"id": "ev1", "type": "smartDetectZone", "smartDetectTypes": ["person"],
+                               "start": 1793623200000, "device": LOFT})
+    await until(lambda: len(sent) == 1, "Mantel's sensor notified")
+    hub.ha.on_change(hub.store.apply_event({"c": {"binary_sensor.loft_person_detected": {"+": {"s": "on", "lc": 2.0}}}}))
+    await asyncio.sleep(0.1)
+    assert len(sent) == 1 and sent[0]["entity"] == "binary_sensor.mantel_loft_person_detected"
+    conn.stream.connected = False
+    hub.ha.on_change(hub.store.apply_event({"c": {"binary_sensor.loft_person_detected": {"+": {"s": "off", "lc": 3.0}}}}))
+    hub.ha.on_change(hub.store.apply_event({"c": {"binary_sensor.loft_person_detected": {"+": {"s": "on", "lc": 4.0}}}}))
+    await until(lambda: len(sent) == 2 and sent[-1]["entity"] == "binary_sensor.loft_person_detected",
+                "Home Assistant's notified while the socket is down")
