@@ -1,6 +1,7 @@
 # Phase 13: one screensaver (plan, 2026-11-02)
 
-**Status: decisions answered by the owner on 2026-11-02; the mock-up is waiting on the owner's OK before building.** The
+**Status: the mock-up approved by the owner on 2026-11-02 ("Ok this all looks good"), with decisions 9 to 11; being
+built.** The
 mock-up is a private claude.ai artifact: https://claude.ai/artifact/WGMhLYgvrFpBEYsLB17hEN (interactive). It follows the Screensaver editor
 (`docs/phase12/SCREENSAVER-EDITOR.md`), which is on the house in 0.1.113 / 1.35.0.
 
@@ -283,6 +284,9 @@ photos, or the land and trees on the Landscape.
   for the Temperature, Date and Month too. The 5 to 35% coverage check uses the face's ink box from `inkOf`.
   Behind the Land already works this way. When a photo has no usable cut-out, the time stays in front for that
   photo, as it does today.
+- **The land's coverage too** (found on a phone on its side, 844 x 390, 2026-11-02): Behind the Land on a short, wide
+  screen hid nearly all of the time under the trees. The same 5 to 35% rule decides it: past it, the time stands in
+  front.
 - **Planted becomes a face**, offered on the Landscape: the ivory numerals standing in the meadow. A face is
   something you pick, while a depth is where something stands, so the Face list stays honest (decision 1).
 - **Every face option applies at both depths:** Face, Color, 24-hour, Size, Position, Align, Shadow and Outline.
@@ -357,6 +361,9 @@ Also fixed in this phase:
 | 6 | Big Weather's slide corner: Date and House Status only, since it already shows a time or temperature? | **Yes** |
 | 7 | Pieces that show people (Who's Home) or cameras (Camera, Last Ring) stay off until placed, since anyone walking by sees a screensaver? | **Yes** |
 | 8 | Any pieces to add to or drop from the glance catalog before building? | **Build it as listed** (all three waves) |
+| 9 | (the owner, on the mock-up) Circular widgets in sync? | **One size for the row**, every piece in it the same; one piece made bigger only on purpose (its own Size) |
+| 10 | (the owner) Color, and black or white? | **Accents** (a little meaningful color: rings, glyphs, dots), on by default; **Ink**: Auto, White or Black for the whole screen. Auto picks black or white from the background's luminance, once for every piece, card and band on the screen, never some white and some black |
+| 11 | (the owner) Up to 200%? | **Yes**: a piece's Size is 60 to 200%; a bigger one takes more of the row, which reflows |
 
 One detail the mock-up settled: a placed piece a new Look has no place for (the Month has no row) **waits in Info**,
 listed as waiting, and comes back with a Look that has the place, instead of being dropped. A piece whose zone can't
@@ -382,3 +389,15 @@ take its new shape still moves to the nearest zone that can.
 - 2026-11-02, phase 0: the mock-up (Looks that keep the Info, Look/Info/Slides/Timing, a piece in each shape, the
   grouped library with the glance catalog, the slide corner on all five slides at three sizes); the owner answered the
   eight decisions with the recommendations.
+- 2026-11-02: the owner approved the mock-up, adding decisions 9 to 11 (one row size, accents and one ink for the
+  screen, sizes to 200%). The pieces' contract: `docs/phase13/PIECES-SPEC.md`.
+- 2026-11-02, phase 1: the pieces. Layout v2 in both mirrors (a piece in a shape; the row's one size; the screen's one
+  ink, Auto from the background's luminance; the accents; sizes to 200%; **Show When...**, a condition on one entity,
+  on any piece, the owner's "Mail Box... only shows when the Mail Has Arrived"); v1 read and written as v2; one
+  renderer for every shape, the Card shapes replacing HK's corner cards (Sonnet 5.5 agent, from `PIECES-SPEC.md`);
+  claiming; "shows when" pieces collapse on the tablet. WebKit found: the forecast's own band drawn over a layout (now
+  off with a layout), cards a fixed 30 u wide (now as wide as their words, 24 to 44 u), Home Status's alarm twice, the
+  lock's circle without its ring, a card's art hanging under the margin (pictures taller than its words now count for
+  its foot). The layout checks now run a phone on its side too (844 x 390, the owner: "What about landscape phone").
+  Also fixed: Mantel's server took a touch on the music slide's buttons for the screen in use, which took the
+  screensaver down (the owner: "it kills the screensaver and goes back to the dashboard").
