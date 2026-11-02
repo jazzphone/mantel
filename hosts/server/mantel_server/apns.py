@@ -142,10 +142,16 @@ class Apns:
         if conf is None:
             log.info("APNs is not configured (no %s / %s); the app's notification was not sent", KEY_FILE, CONF_FILE)
             return "skipped"
+        topic = conf["topic"]
+        if row.get("platform") == "mac":     # the menu bar app's own bundle id (apns.json "mac_topic")
+            topic = conf.get("mac_topic") if isinstance(conf.get("mac_topic"), str) and conf.get("mac_topic") else None
+            if topic is None:
+                log.info("APNs: no mac_topic in %s; the Mac app's notification was not sent", CONF_FILE)
+                return "skipped"
         device_key = app_crypto.unb64u(row["p256dh"])
         payload = build_payload(msg, device_key)
         host = HOSTS["sandbox" if row.get("env") == "sandbox" else "production"]
-        headers = {"authorization": "bearer " + self.provider_token(conf), "apns-topic": conf["topic"],
+        headers = {"authorization": "bearer " + self.provider_token(conf), "apns-topic": topic,
                    "apns-push-type": "alert", "apns-priority": "10" if msg.important else "5",
                    "content-type": "application/json"}
         if msg.tag and self.secret is not None:

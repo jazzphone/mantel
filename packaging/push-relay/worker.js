@@ -1,7 +1,7 @@
 // The Mantel push relay: a Cloudflare Worker holding the APNs key so that no house has to
 // (docs/phase10/APPLE-APPS.md §13, decision M10-2 revised 2026-10-19).
 //
-//   POST /v1/register  (the phone)  {token, env, house_key} -> {handle}
+//   POST /v1/register  (the phone)  {token, env, house_key, platform?} -> {handle}   platform: "ios" (default) | "mac"
 //       token: the APNs device token (hex); env: "sandbox" | "production"; house_key: the house's identity key
 //       (P-256, x963, base64url) as the app pinned it. The handle works for that house only.
 //   POST /v1/send      (a house, signed) {handle, payload, priority?, collapse_id?, push_type?}
@@ -16,7 +16,7 @@
 // in X-Mantel-Signature, with X-Mantel-House (its key's fingerprint), X-Mantel-Time (unix seconds, ±300) and
 // X-Mantel-Nonce (used once). The relay checks it against the key the handle was registered for.
 // Limits: 120 sends a minute per house, 30 per handle, 20 registrations a minute per address; payload ≤ 4 KB.
-// Secrets: APNS_KEY (the .p8 PEM). Vars: APNS_KEY_ID, APNS_TEAM_ID, APNS_TOPIC. D1: DB (schema.sql).
+// Secrets: APNS_KEY (the .p8 PEM). Vars: APNS_KEY_ID, APNS_TEAM_ID, APNS_TOPIC, APNS_TOPIC_MAC. D1: DB (schema.sql).
 
 const SKEW = 300;
 const LIMITS = { house: 120, handle: 30, register: 20 };
@@ -114,6 +114,7 @@ async function register(request, env, now) {
   const [body] = await readJson(request);
   if (!body) return fail(400, 'bad_json');
   const { token, env: apnsEnv, house_key: houseX963 } = body;
+  const platform = body.platform === 'mac' ? 'mac' : 'ios';     // the Mac menu bar app has its own topic
   if (typeof token !== 'string' || !/^[0-9a-f]{64,200}$/.test(token)) return fail(400, 'bad_token');
   if (!(apnsEnv in APNS)) return fail(400, 'bad_env');
   let fp;
@@ -121,8 +122,9 @@ async function register(request, env, now) {
   const handle = b64u(crypto.getRandomValues(new Uint8Array(32)));
   const dedupe = hex(await sha256(`${token}|${fp}`));
   await env.DB.prepare('DELETE FROM handles WHERE dedupe = ?1').bind(dedupe).run();
-  await env.DB.prepare('INSERT INTO handles (hash, dedupe, token, env, house_fp, house_key, created) VALUES (?1,?2,?3,?4,?5,?6,?7)')
-    .bind(hex(await sha256(handle)), dedupe, token, apnsEnv, fp, houseX963, now).run();
+  await env.DB.prepare('INSERT INTO handles (hash, dedupe, token, env, house_fp, house_key, created, platform) ' +
+                       'VALUES (?1,?2,?3,?4,?5,?6,?7,?8)')
+    .bind(hex(await sha256(handle)), dedupe, token, apnsEnv, fp, houseX963, now, platform).run();
   return json({ handle, house: fp }, 201);
 }
 
@@ -138,8 +140,10 @@ async function send(request, env, now) {
   if (!payload || typeof payload !== 'object' || !payload.aps) return fail(400, 'bad_payload');
   const data = JSON.stringify(payload);
   if (data.length > 4096) return fail(413, 'too_large');
+  const topic = row.platform === 'mac' ? env.APNS_TOPIC_MAC : env.APNS_TOPIC;
+  if (!topic) return fail(503, 'platform_not_configured');
   const pushType = body.push_type === 'background' ? 'background' : 'alert';
-  const headers = { authorization: `bearer ${await providerToken(env, now)}`, 'apns-topic': env.APNS_TOPIC,
+  const headers = { authorization: `bearer ${await providerToken(env, now)}`, 'apns-topic': topic,
                     'apns-push-type': pushType, 'apns-priority': body.priority === 5 || pushType === 'background' ? '5' : '10',
                     'content-type': 'application/json' };
   if (typeof body.collapse_id === 'string' && body.collapse_id) headers['apns-collapse-id'] = body.collapse_id.slice(0, 64);

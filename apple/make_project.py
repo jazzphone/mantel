@@ -6,7 +6,8 @@ folder needs no change here; this script only says which folders and settings ma
 are derived from names, so the output is the same every run (a clean diff).
 
 Targets: Mantel (iPhone/iPad app), MantelWidgets (widgets, the music Live Activity, Control Center controls),
-MantelNotificationService (opens sealed notifications), MantelMac (the menu bar app). All link MantelKit (a local
+MantelNotificationService (opens sealed notifications), MantelMac (the menu bar app) with its own
+MantelMacNotificationService (the Mac's copy of that extension). All link MantelKit (a local
 Swift package). Signing: automatic with your team (DEVELOPMENT_TEAM, from MANTEL_TEAM_ID); the Mac app with the team once MAC_TEAM_SIGNING is on.
 """
 from __future__ import annotations
@@ -67,6 +68,14 @@ EXT = {"SKIP_INSTALL": "YES", "APPLICATION_EXTENSION_API_ONLY": "YES",
 # cannot carry a group.* App Group.). False signs it to run locally (Config/Mac.entitlements: sandbox and network only, the login keychain).
 MAC_TEAM_SIGNING = True
 PREFIX = "com.jazzphone.mantel"     # the App Group is group.<PREFIX>
+# Notifications on the Mac (docs/phase14/SYSTEM-ALERTS.md slice 14.10). The push entitlement
+# (com.apple.developer.aps-environment) is in Config/MacTeam.entitlements only: a Mac signed to run locally cannot carry it
+# (it needs a provisioning profile), so the app then asks for nothing and its menu says notifications need the signed build.
+# The Mac's Notification Service Extension reads the notification key from the shared Keychain group, which only the
+# team-signed build has (Config/MacExtension.entitlements); signed locally it is sandboxed and finds another key.
+MAC_APS = {"Debug": {"MANTEL_APS_ENVIRONMENT": "development"}, "Release": {"MANTEL_APS_ENVIRONMENT": "production"}}
+MAC_EXTENSION_SIGNING = ({"CODE_SIGN_ENTITLEMENTS": "Config/MacExtension.entitlements"} if MAC_TEAM_SIGNING else
+                         {"CODE_SIGN_ENTITLEMENTS": "Config/Mac.entitlements", "CODE_SIGN_IDENTITY": "-"})
 
 TARGETS = [
     {"name": "Mantel", "type": "com.apple.product-type.application", "product": "Mantel.app",
@@ -88,8 +97,17 @@ TARGETS = [
      "product": "MantelNotificationService.appex", "folders": ["MantelNotificationService"],
      "settings": {**IOS, **EXT, "PRODUCT_BUNDLE_IDENTIFIER": f"{PREFIX}.ios.notifications",
                   "INFOPLIST_FILE": "Config/NotificationService-Info.plist"}},
+    {"name": "MantelMacNotificationService", "type": "com.apple.product-type.app-extension",
+     "product": "MantelMacNotificationService.appex", "folders": ["MantelMacNotificationService"],
+     "settings": {"SDKROOT": "macosx", "MACOSX_DEPLOYMENT_TARGET": "15.0", "SKIP_INSTALL": "YES",
+                  "APPLICATION_EXTENSION_API_ONLY": "YES", "ENABLE_HARDENED_RUNTIME": "YES",
+                  "PRODUCT_BUNDLE_IDENTIFIER": f"{PREFIX}.mac.notifications",
+                  "INFOPLIST_FILE": "Config/MacNotificationService-Info.plist",
+                  # in Contents/PlugIns/<name>.appex/Contents/MacOS: the app's Frameworks are four levels up
+                  "LD_RUNPATH_SEARCH_PATHS": "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks",
+                  **MAC_EXTENSION_SIGNING}},
     {"name": "MantelMac", "type": "com.apple.product-type.application", "product": "MantelMac.app",
-     "folders": ["MantelMac", "Common"],
+     "folders": ["MantelMac", "Common"], "embeds": ["MantelMacNotificationService"], "config_settings": MAC_APS,
      "settings": {"SDKROOT": "macosx", "MACOSX_DEPLOYMENT_TARGET": "15.0", "PRODUCT_BUNDLE_IDENTIFIER": f"{PREFIX}.mac",
                   "INFOPLIST_FILE": "Config/Mac-Info.plist",
                   "PRODUCT_NAME": "Mantel", "LD_RUNPATH_SEARCH_PATHS": "$(inherited) @executable_path/../Frameworks",

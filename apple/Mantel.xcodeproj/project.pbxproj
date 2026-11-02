@@ -28,9 +28,22 @@
 			isa = PBXBuildFile;
 			productRef = "30425A3669D260DB964B30BC";
 		};
+		7A8E0FD65D4D3F84E1567A9D = {
+			isa = PBXBuildFile;
+			productRef = "76D9AE99A7F699450DEFEDBF";
+		};
 		9C437AF3FD035FF1251E60C4 = {
 			isa = PBXBuildFile;
 			fileRef = "8497C56FB2574DD2F7C91BCD";
+			settings = {
+				ATTRIBUTES = (
+					RemoveHeadersOnCopy,
+				);
+			};
+		};
+		A0CBDC29CD91B9D86BBC6538 = {
+			isa = PBXBuildFile;
+			fileRef = "431BEF1A8F2025DCE2FB9901";
 			settings = {
 				ATTRIBUTES = (
 					RemoveHeadersOnCopy,
@@ -44,6 +57,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		4C4EA6BAAEDA2497252CC85F = {
+			isa = PBXContainerItemProxy;
+			containerPortal = "98F54143AB4E86B28C3AFEE0";
+			proxyType = 1;
+			remoteGlobalIDString = E6FDC537D2ACABE64A55F3F4;
+			remoteInfo = MantelMacNotificationService;
+		};
 		7A5FD38E7F432786D107557E = {
 			isa = PBXContainerItemProxy;
 			containerPortal = "98F54143AB4E86B28C3AFEE0";
@@ -61,6 +81,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		02515676493C3C190FFEB2EF = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A0CBDC29CD91B9D86BBC6538,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		DD6EB9C98ED649AFDED1A2F6 = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -101,6 +132,13 @@
 			path = NotificationService-Info.plist;
 			sourceTree = "<group>";
 		};
+		431BEF1A8F2025DCE2FB9901 = {
+			isa = PBXFileReference;
+			explicitFileType = wrapper.app-extension;
+			includeInIndex = 0;
+			path = MantelMacNotificationService.appex;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
 		4BC5467A6F70ABEE0AA656CC = {
 			isa = PBXFileReference;
 			lastKnownFileType = text.plist.entitlements;
@@ -126,6 +164,12 @@
 			path = Widgets-Info.plist;
 			sourceTree = "<group>";
 		};
+		8F54CA10FA419BA3F1CC7B11 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.xml;
+			path = MacNotificationService-Info.plist;
+			sourceTree = "<group>";
+		};
 		907314A2D49EE1F7FAE43122 = {
 			isa = PBXFileReference;
 			explicitFileType = wrapper.application;
@@ -139,6 +183,12 @@
 			includeInIndex = 0;
 			path = Mantel.app;
 			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		9D775EBD38A508F2BD0BCD91 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.entitlements;
+			path = MacExtension.entitlements;
+			sourceTree = "<group>";
 		};
 		C13DC35249442A9641F00545 = {
 			isa = PBXFileReference;
@@ -158,6 +208,11 @@
 		00BA1E5B7EB2B0F853DAF4BD = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Shared;
+			sourceTree = "<group>";
+		};
+		1BFE923B4B9219E44C865372 = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MantelMacNotificationService;
 			sourceTree = "<group>";
 		};
 		2674F0AC27A4F8C67C9282B2 = {
@@ -188,6 +243,14 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		0562C53AA7616D001CB5836D = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				"7A8E0FD65D4D3F84E1567A9D",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		11C5BBFE9AA309B118ACD7B3 = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -229,6 +292,7 @@
 				"93B1A103898DD3D7ED1ACC55",
 				"391CF619CDF99E42D29CDDB9",
 				"8497C56FB2574DD2F7C91BCD",
+				"431BEF1A8F2025DCE2FB9901",
 				"907314A2D49EE1F7FAE43122",
 			);
 			name = Products;
@@ -240,6 +304,7 @@
 				AC410F2B010314D1B17A641E,
 				"2674F0AC27A4F8C67C9282B2",
 				C1C4DBB452B26804ABD50B68,
+				"1BFE923B4B9219E44C865372",
 				B0BDCCBE0D6AA0AA056943B4,
 				E16996C7A68A293D7494746A,
 				"00BA1E5B7EB2B0F853DAF4BD",
@@ -254,6 +319,8 @@
 				"4BC5467A6F70ABEE0AA656CC",
 				"038C5C30035114F8BE5F82BC",
 				E045AE1E4FFB04C86F55B351,
+				"9D775EBD38A508F2BD0BCD91",
+				"8F54CA10FA419BA3F1CC7B11",
 				"2B83598D7C07F824848D7A04",
 				C13DC35249442A9641F00545,
 				"7B335BEFF41273BE6C9ACC44",
@@ -313,6 +380,29 @@
 			productReference = "8497C56FB2574DD2F7C91BCD";
 			productType = com.apple.product-type.app-extension;
 		};
+		E6FDC537D2ACABE64A55F3F4 = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E17FB187A20F05E93404F87B;
+			buildPhases = (
+				"41F510F0CA821E8BC3CDE280",
+				"0562C53AA7616D001CB5836D",
+				"98E4EA30B23C484A6207AE60",
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				"1BFE923B4B9219E44C865372",
+			);
+			name = MantelMacNotificationService;
+			packageProductDependencies = (
+				"76D9AE99A7F699450DEFEDBF",
+			);
+			productName = MantelMacNotificationService;
+			productReference = "431BEF1A8F2025DCE2FB9901";
+			productType = com.apple.product-type.app-extension;
+		};
 		ED953AEBD523FAE3A16F4350 = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = "2DD3798A993063E9691A9F62";
@@ -320,10 +410,12 @@
 				"800971859367C5553761FE9E",
 				D5A238D4B6E1D73B5A97C3DB,
 				"1572FA78162412A7C98825A2",
+				"02515676493C3C190FFEB2EF",
 			);
 			buildRules = (
 			);
 			dependencies = (
+				"33E63C73A17304BFC88E4D75",
 			);
 			fileSystemSynchronizedGroups = (
 				C1C4DBB452B26804ABD50B68,
@@ -396,6 +488,7 @@
 				F01B3BD1D0991B8475944315,
 				"53A6A88DB5B28891B90DD46F",
 				"9F1B663141C6A1AF3733EA85",
+				E6FDC537D2ACABE64A55F3F4,
 				ED953AEBD523FAE3A16F4350,
 			);
 		};
@@ -423,6 +516,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		98E4EA30B23C484A6207AE60 = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EA9CA86FFD074B496F6C17FF = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -434,6 +534,13 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		1EF54250A2B247F9CD03A1B7 = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		41F510F0CA821E8BC3CDE280 = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -464,6 +571,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		33E63C73A17304BFC88E4D75 = {
+			isa = PBXTargetDependency;
+			target = E6FDC537D2ACABE64A55F3F4;
+			targetProxy = "4C4EA6BAAEDA2497252CC85F";
+		};
 		5C3560ADF3F3D2C45B5096DB = {
 			isa = PBXTargetDependency;
 			target = "53A6A88DB5B28891B90DD46F";
@@ -509,6 +621,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Mantel;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MANTEL_APS_ENVIRONMENT = production;
 				MARKETING_VERSION = 0.1.86;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jazzphone.mantel.mac;
 				PRODUCT_NAME = Mantel;
@@ -532,6 +645,35 @@
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
+		};
+		4DFB16CD612349AAD679F787 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/MacExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/MacNotificationService-Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Mantel;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.86;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jazzphone.mantel.mac.notifications;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = -Onone;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
 		};
 		8743BCAE6775D9F51576233B = {
 			isa = XCBuildConfiguration;
@@ -580,6 +722,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Mantel;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MANTEL_APS_ENVIRONMENT = development;
 				MARKETING_VERSION = 0.1.86;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jazzphone.mantel.mac;
@@ -654,6 +797,33 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
+		};
+		D728711A2D6E1AC926E3BCCE = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/MacExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf-with-dsym;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/MacNotificationService-Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Mantel;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.86;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jazzphone.mantel.mac.notifications;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
 		};
 		D750014486B32D69B7FE60F0 = {
 			isa = XCBuildConfiguration;
@@ -795,6 +965,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		E17FB187A20F05E93404F87B = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				"4DFB16CD612349AAD679F787",
+				D728711A2D6E1AC926E3BCCE,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -811,6 +990,11 @@
 			productName = MantelKit;
 		};
 		6899BFF4C465288850CCF5F6 = {
+			isa = XCSwiftPackageProductDependency;
+			package = "4FF15B936B8851E2CAA578B9";
+			productName = MantelKit;
+		};
+		76D9AE99A7F699450DEFEDBF = {
 			isa = XCSwiftPackageProductDependency;
 			package = "4FF15B936B8851E2CAA578B9";
 			productName = MantelKit;

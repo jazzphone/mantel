@@ -86,29 +86,32 @@ def _origin(url: str) -> str:
 
 # -- storage --------------------------------------------------------------------------------------
 class Targets:
-    COLS = "id, user_id, kind, endpoint, p256dh, auth, app_id, env, name, created, last_ok, failures"
+    COLS = "id, user_id, kind, endpoint, p256dh, auth, app_id, env, name, created, last_ok, failures, platform"
 
     def __init__(self, db: sqlite3.Connection, clock: Callable[[], float] = time.time) -> None:
         self.db = db
         self.clock = clock
 
     def add(self, user_id: str, kind: str, endpoint: str, p256dh: str, auth: str | None = None, *,
-            name: str | None = None, app_id: str | None = None, env: str | None = None) -> str:
+            name: str | None = None, app_id: str | None = None, env: str | None = None,
+            platform: str | None = None) -> str:
         """Add (or move to this person, refreshing the keys) one target; returns its id."""
         now = self.clock()
         with self.db:
             row = self.db.execute("SELECT id FROM push_targets WHERE endpoint = ?", (endpoint,)).fetchone()
             if row is not None:
                 self.db.execute("UPDATE push_targets SET user_id=?, kind=?, p256dh=?, auth=?, app_id=?, env=?, name=?, "
-                                "failures=0 WHERE id=?", (user_id, kind, p256dh, auth, app_id, env, name, row["id"]))
+                                "platform=?, failures=0 WHERE id=?",
+                                (user_id, kind, p256dh, auth, app_id, env, name, platform, row["id"]))
                 return row["id"]
             count = self.db.execute("SELECT COUNT(*) FROM push_targets WHERE user_id = ?", (user_id,)).fetchone()[0]
             if count >= TARGETS_PER_USER:       # the oldest goes: a person does not have 20 live browsers
                 self.db.execute("DELETE FROM push_targets WHERE id = (SELECT id FROM push_targets WHERE user_id = ? "
                                 "ORDER BY COALESCE(last_ok, created) LIMIT 1)", (user_id,))
             tid = secrets.token_hex(12)
-            self.db.execute("INSERT INTO push_targets (id, user_id, kind, endpoint, p256dh, auth, app_id, env, name, created) "
-                            "VALUES (?,?,?,?,?,?,?,?,?,?)", (tid, user_id, kind, endpoint, p256dh, auth, app_id, env, name, now))
+            self.db.execute("INSERT INTO push_targets (id, user_id, kind, endpoint, p256dh, auth, app_id, env, name, created, "
+                            "platform) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                            (tid, user_id, kind, endpoint, p256dh, auth, app_id, env, name, now, platform))
             return tid
 
     def remove(self, target_id: str, user_id: str | None = None) -> bool:

@@ -364,4 +364,27 @@ Screenshots (`tools/headless/gallery.py`, seeded with fictional channels): `sett
 Left as designed: the MCP `alerts_test` follows the MCP's rules (a planned change, the Owner's, audited) rather than
 the REST route's away-from-home fresh factor.
 
-**14.10, the Mac.** (below, when it lands)
+**14.10, the Mac.** `apple/MantelMac/PushRegistrar.swift` (authorization, `registerForRemoteNotifications`, the
+token and the notification key to `/api/app/push/register` as `platform: "mac"`; sandbox or production from the build's
+own `aps-environment`; Stop Sending To in Mantel Settings respected; the ⋯ menu says Notifications On, Turn On
+Notifications, Off in System Settings, or Need the Signed Build), a tapped notification opening its page in the browser,
+and a Notification Service Extension for the Mac (`apple/MantelMacNotificationService`, the sealed `"m"` opened with
+MantelKit's `thread`/`interruption`), built by `make_project.py` and embedded. The push entitlement is in
+`MacTeam.entitlements` only; the local ad-hoc build carries none and says so. APNs' topic is each app's bundle id, so
+the target keeps its platform (migration `0032_push_platform`, `apns.json` `mac_topic`) and the relay its handle's
+(`handles.platform`, `APNS_TOPIC_MAC`). Built: `xcodebuild -scheme MantelMac CODE_SIGNING_ALLOWED=NO` (the extension
+embedded), the iPhone app and its extension for the Simulator; MantelKit's tests; `tests/test_apns_tag.py` and the
+relay's tests. **Unverified:** a team-signed build, a real token and a real push on a Mac; the Time Sensitive
+entitlement isn't in the Mac's profile (Critical arrives as an ordinary notification until it is).
+
+**Waiting on the owner:**
+1. Sign in to the team in Xcode, run `MANTEL_TEAM_ID=<id> python3 apple/make_project.py`, and build `MantelMac` with
+   `-allowProvisioningUpdates` (`MAC_TEAM_SIGNING` on): Xcode makes the App IDs `com.jazzphone.mantel.mac` (with Push
+   Notifications) and `com.jazzphone.mantel.mac.notifications` and their profiles. For other Macs: a Developer ID (and
+   notarized) or Mac App Store profile for both.
+2. The push relay: `ALTER TABLE handles ADD COLUMN platform TEXT NOT NULL DEFAULT 'ios';` on its D1 database, then deploy
+   the worker (`APNS_TOPIC_MAC` is in `wrangler.toml`). A house that sends directly adds `"mac_topic":
+   "com.jazzphone.mantel.mac"` to `apns.json`.
+3. A TestFlight build of the iPhone app for its extension's System thread.
+4. A first Send Test to a real Telegram, Notifiarr, mail server and Apprise service.
+5. The release (0.1.114 with Mantel Link 0.1.11), when the owner says.

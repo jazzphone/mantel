@@ -206,7 +206,7 @@ row is too narrow. I have not looked at it on a phone or iPad this session, so t
   (`MPNowPlayingInfoCenter.playbackState` exists on macOS only), so the keyboard's play/pause key could drive
   the house speakers. Verify on the current macOS before promising it.
 - **Favorites** as toggles and sliders, the same list as the phone's widgets.
-- Notifications on the Mac too (same relay), optional.
+- **Notifications on the Mac too** (same relay, optional; built in phase 14, slice 14.10: see "Mac notifications" under §12). The app registers for them only in the team-signed build, which carries the push entitlement; a Mac signed to run locally cannot, and its menu says so.
 - "Open Mantel" opens the full screens in a window (a WKWebView) or in the browser.
 - Distribution: notarized with Developer ID (outside the Mac App Store) or the Mac App Store; same developer
   account either way.
@@ -313,14 +313,79 @@ two lines); edits to shared files are small and listed in the commits.
 **The Mac app, 2026-10-19 (evening).** Signing: Avery's Mac Studio is registered to the team (Avery's yes; Xcode
 registered it with `-allowProvisioningDeviceRegistration`). Xcode's Mac profile is the team's wildcard one, which cannot
 carry a `group.*` App Group, and macOS then asks at every launch whether Mantel may "access data from other apps"; so the
-Mac's App Group is the team-prefixed `TEAMID0000.com.jazzphone.mantel` (allowed on macOS without a profile; the Mac
-has no extensions to share with). Its Keychain items are in the data-protection keychain under the shared group
+Mac's App Group is the team-prefixed `TEAMID0000.com.jazzphone.mantel` (allowed on macOS without a profile; the Mac's
+notification extension shares it, slice 14.10). Its Keychain items are in the data-protection keychain under the shared group
 (`kSecUseDataProtectionKeychain`), so rebuilt apps no longer ask for the login keychain. `MAC_TEAM_SIGNING` in
 `make_project.py` switches back to local signing. **The play/pause key** (`NowPlayingKeys`: `MPNowPlayingInfoCenter`'s
 state and song from the person's speaker, `MPRemoteCommandCenter`'s commands as gateway commands, no audio) is built
 but **not seen working**: nothing here could press a media key (no Accessibility for scripts, none in computer use) and
 MediaRemote's own answer is closed to other apps since macOS 15.4. It is off by default; the menu's "Play/Pause Key
 Controls the House (Try It)" turns it on for Avery to press once: kept if the speaker answers, taken out if not.
+
+**Mac notifications, 2026-11-02 (phase 14, slice 14.10).** The system alerts of phase 14 (`docs/phase14/SYSTEM-ALERTS.md`)
+and the accessories' notifications reach the Mac app the way they reach the phone: sealed to a notification key the Mac
+keeps, opened by a Notification Service Extension. What is in the repo:
+
+- **Registration** (`MantelMac/PushRegistrar.swift`, replacing the stub). Signed in, the app asks the system for alert,
+  sound and badge, calls `NSApplication.registerForRemoteNotifications`, and gives the token and `NotificationKey.publicKey()`
+  to `MantelClient.registerPush` (the iPhone's call: through the relay when the house uses one, else directly) at
+  `/api/app/push/register`. The sandbox or production service is read from the build's own `com.apple.developer.aps-environment`
+  entitlement (`SecTaskCopyValueForEntitlement`), not from `DEBUG`. The menu's ⋯ shows the state: **Notifications On**;
+  **Turn On Notifications** (the same `resume: true` as the iPhone's, so it registers again after **Stop Sending to…** in Mantel
+  Settings → Me → Notifications; the app never undoes that by itself); **Notifications Are Off in System Settings…** (opens
+  System Settings → Notifications); or, with no push entitlement, **Notifications Need the Signed Build**, disabled, and
+  nothing is asked or registered. The person can also turn them off in macOS (System Settings → Notifications → Mantel).
+- **The extension** (`MantelMacNotificationService/`, bundle id `com.jazzphone.mantel.mac.notifications`, embedded in
+  `Mantel.app/Contents/PlugIns`). The iPhone extension's code for the Mac: `SealedNotification.open` with the app's key, then the
+  title and body, `threadIdentifier` from `Content.thread` (every system alert in one System thread), `interruptionLevel` from
+  `Content.interruption`, `mantel_url` and `mantel_entity` in `userInfo`, and the camera snapshot attached. Copied rather than
+  shared: the iPhone extension is a separate target and `MantelKit` is the wrong home for UserNotifications code. If the
+  extension never ran (an unsigned or locally signed Mac), `NotificationHandler.willPresent` opens the sealed notification
+  in the app, as the iPhone's `AppDelegate` does.
+- **A tap** (`NotificationHandler.didReceive`) takes the sealed `url` (`/settings#/mantel/alerts` for a system alert) and opens it
+  in the browser through a web session on the house (`SessionModel.webSessionURL(next:)`), as the menu's **Open Mantel in the
+  Browser** does. The Mac app has no web view of its own, so there is no "Open Mantel" window to open it in. Anything that is
+  not a path on the house opens `/home`.
+- **Signing** (`make_project.py`, `MAC_TEAM_SIGNING`):
+
+| | Team-signed (`MAC_TEAM_SIGNING = True`, the default) | Signed to run locally (`False`) |
+|---|---|---|
+| App entitlements | `Config/MacTeam.entitlements`: sandbox, network client, the team-prefixed App Group, the shared Keychain group, **`com.apple.developer.aps-environment`** = `$(MANTEL_APS_ENVIRONMENT)` (`development` in Debug, `production` in Release) | `Config/Mac.entitlements`: sandbox and network client only |
+| Extension entitlements | `Config/MacExtension.entitlements`: sandbox, network client, the same App Group and Keychain group (no push entitlement: extensions don't carry one) | `Config/Mac.entitlements`; no shared group, so the extension finds a different key and leaves the notification as Apple carried it |
+| Notifications | registered and opened | none: the menu says it needs the signed build |
+
+  Not added: the Time Sensitive capability (`com.apple.developer.usernotifications.time-sensitive`). The iPhone app has it; it
+  has not been checked against a Mac profile. Without it macOS shows a Critical alert as an ordinary one (the sealed level is still
+  `timeSensitive`); adding the key to `MacTeam.entitlements` is the whole change once an Apple account shows the capability on
+  the Mac App ID.
+
+**What the owner's Apple account must have for the Mac** (nothing here can do these):
+
+1. **An App ID for `com.jazzphone.mantel.mac`** (Certificates, Identifiers & Profiles → Identifiers → macOS) with **Push
+   Notifications** on, and one for `com.jazzphone.mantel.mac.notifications` (the extension; no capability of its own). With
+   `-allowProvisioningUpdates`, Xcode creates both from the entitlements the first time the team-signed Mac app builds, and adds
+   Push Notifications to the first. The team's wildcard Mac profile (which signs the app today) cannot carry the push
+   entitlement, so the first build after this slice makes an explicit profile for each.
+2. **Distribution profiles with the entitlement**: a Developer ID profile (Developer ID Application certificate; the
+   app is notarized, outside the store) or a Mac App Store profile (Mac App Distribution), for both App IDs. A Debug build on the
+   Mac registered to the team (it is) uses a development profile and the sandbox push service; the Release/Developer ID/App
+   Store build is `production`.
+3. **The APNs key is the same.** A token-based APNs key (`.p8`) belongs to the team and is valid for every App ID in it, for the
+   sandbox and production services. No new key.
+4. **The topic is not the same: each app's is its own bundle id.** The Mac app registers with `platform: "mac"`
+   (`MantelClient.registerPush`, in the relay's `/v1/register` body and in `/api/app/push/register`); the house keeps it on
+   the target (`push_targets.platform`, migration 0032) and sends a Mac's notifications with `apns.json`'s `mac_topic`
+   (none set: the Mac's are kept and not sent, never sent to the iPhone's topic, where Apple would call the token gone);
+   the relay keeps it on the handle (`handles.platform`) and sends with `APNS_TOPIC_MAC`
+   (`com.jazzphone.mantel.mac` in `wrangler.toml`; unset: 503 `platform_not_configured`). A relay already running needs
+   `ALTER TABLE handles ADD COLUMN platform TEXT NOT NULL DEFAULT 'ios';` before the new worker is deployed.
+
+**Built here:** the generated project builds `MantelMac` with the extension embedded, unsigned (`CODE_SIGNING_ALLOWED=NO`), and
+in a copy with `MAC_TEAM_SIGNING = False` (ad hoc: the app and the extension are signed, sandboxed, with no push entitlement);
+the iPhone `Mantel` scheme and `MantelNotificationService` still build for the Simulator; `swift test` in `MantelKit` passes.
+**Not verified:** a team-signed build (no profile with Push Notifications exists yet), a real token, a real push, the extension
+running on macOS, the menu items by eye, a tap opening the browser, the Mac's data-protection Keychain group shared by the app and
+the extension.
 
 Merging notes: migrations renumbered 0016 (push) and 0017 (app) at the merge, after Mantel Link's 0015; `features.Feed.taps`, `sessions.APP_METHOD`,
 `ingress.inject_base`'s Home Screen block and `user_data` `favorites` are the edits to shared files.

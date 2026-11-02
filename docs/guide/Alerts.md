@@ -169,7 +169,7 @@ System alerts also go to the Mantel app on iPhone and iPad, and to web browsers 
 - **How they look.** On the phone, system alerts are grouped in their own **System** thread, apart from the doorbell and leaks. **Critical** alerts are time-sensitive: they can come through a Focus. **Warning** alerts arrive as an ordinary notification. **Info** alerts are passive: they go to the notification list without lighting the screen or making a sound. A "back" message replaces its "lost" one.
 - **The list.** **Mantel Settings** → **Alerts** → **Mantel Apps** lists who gets them and how many devices that is.
 - **Companion app phones** get them too, through Home Assistant, but they can't carry **Home Assistant Disconnected** or **Mantel Link Not Answering**: the message would go through the very thing that is down.
-- **The Mac app** doesn't show notifications yet.
+- **The Mac app** shows them too, in the same System group, once notifications are on in its ⋯ menu ([iPhone and Mac Apps](iPhone-and-Mac-Apps.md)).
 
 ## History
 
@@ -242,4 +242,4 @@ What a channel needs to send (a webhook, a token, a password) is saved sealed in
 | Nothing for a problem you know about | Check the channel's events and **Minimum Level**, and its **Quiet Hours**. Then look in **History**: **Not sent** says it was held or nobody wanted it. A problem that lasted less than its hold is never sent. |
 | Telegram: **Find My Chat** finds nothing | Send the bot `/start` in the chat, then try again. |
 | Email says to use an app password | Gmail and iCloud need one. See [Email](#email). |
-| Alerts go to the Mantel app but not the Mac | The Mac app doesn't show notifications yet. |
+| Alerts go to the Mantel app but not the Mac | Turn on notifications in the Mac app's ⋯ menu. A build that says **Notifications Need the Signed Build** can't get them. |

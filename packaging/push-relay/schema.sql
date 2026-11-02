@@ -9,8 +9,10 @@ CREATE TABLE IF NOT EXISTS handles (
   house_fp  TEXT NOT NULL,
   house_key TEXT NOT NULL,
   created   INTEGER NOT NULL,
-  last_sent INTEGER
+  last_sent INTEGER,
+  platform  TEXT NOT NULL DEFAULT 'ios' CHECK (platform IN ('ios', 'mac'))   -- which app's topic (APNS_TOPIC[_MAC])
 );
+-- a relay made before the Mac app: ALTER TABLE handles ADD COLUMN platform TEXT NOT NULL DEFAULT 'ios';
 CREATE INDEX IF NOT EXISTS handles_house ON handles(house_fp);
 -- each signed request's nonce once, for ten minutes
 CREATE TABLE IF NOT EXISTS nonces (

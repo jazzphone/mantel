@@ -240,6 +240,9 @@ async def push_register(request: web.Request) -> web.Response:
     except ValueError:
         return error(400, "invalid_json")
     token, handle, key, env = body.get("token"), body.get("handle"), body.get("key"), body.get("env", "production")
+    platform = body.get("platform", "ios")
+    if platform not in ("ios", "mac"):
+        return error(400, "invalid", message="platform: ios or mac")
     if isinstance(handle, str) and token is None:
         # through the push relay (apns.Relay): the handle the phone got from the relay for this house
         if not RELAY_HANDLE.match(handle):
@@ -267,7 +270,7 @@ async def push_register(request: web.Request) -> web.Response:
                                               "Turn them on again in the app.")
     cred = st.credential(ident.session_id)
     tid = request.app["pusher"].targets.add(ident.user.id, "apns", token, key, None, name=cred["name"],
-                                            app_id=ident.session_id, env=env)
+                                            app_id=ident.session_id, env=env, platform=platform)
     return ok({"id": tid}, status=201)
 
 
