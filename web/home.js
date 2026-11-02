@@ -129,7 +129,16 @@ mark('states');
 
 // HA's frontend keeps /<dashboard>/<view>; so does this page (HK reads the first segment).
 // (hkV: the build's ?v= on an address put together here, shim/base.js)
-const imp = (u) => import(hkV(u)).catch((e) => console.error('[mantel] could not load', u, e));
+// (a file that didn't come is asked for again, twice, at an address of its own: a browser keeps a failed module's
+// answer for its address; the third audit pass, 2026-11-01)
+const imp = async (u) => {
+  for (let n = 0; ; n++) {
+    try { return await (n ? import(hkV(u) + (hkV(u).includes('?') ? '&' : '?') + 'retry=' + n) : import(hkV(u))); } catch (e) {
+      if (n >= 2) { console.error('[mantel] could not load', u, e); return undefined; }
+      await new Promise((r) => setTimeout(r, 1000 * 2 ** n));
+    }
+  }
+};
 for (const m of ['modules/hk-settings.js', 'iconset/hk-icons.js', 'modules/tesla-viewport.js', 'modules/hk-tap.js',
                  'modules/hk-header.js', 'modules/hk-loader.js', 'cards/hk-strategy.js']) await imp('/hk/' + m);
 // ONLY THE CARDS A SCREEN USES (2026-10-29): the other card files are hk-loader.js's to import, the first time

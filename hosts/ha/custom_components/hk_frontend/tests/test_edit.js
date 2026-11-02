@@ -563,6 +563,45 @@ function () {
   });
 },
 function () {
+  // (the third audit pass, 2026-11-01: the second Done sent its first save with the version read at the start, and the
+  // server rightly called it a conflict)
+  H.section('Done failed part-way, then Done again: each save with the version the last answer gave');
+  location.pathname = '/dashboard-hall/home';
+  var h = who(true), v = viewOf(HOME), kit = groupNamed(v, 'Kitchen'), den = groupNamed(v, 'Den');
+  E.enter(h, { viewEl: v });
+  var a = tileOf(kit, 'switch.kitchen_coffee'), b = tileOf(kit, 'light.kitchen_cans');
+  var p = centre(a); down(kit, a, 'mouse'); move(kit, p[0] - 9, p[1]);
+  var to = centre(b); move(kit, to[0], to[1]); up(kit, to[0], to[1]);
+  a = tileOf(den, 'light.den_reading'); b = tileOf(den, 'light.den_lamp');
+  p = centre(a); down(den, a, 'mouse'); move(den, p[0] - 9, p[1]);
+  to = centre(b); move(den, to[0], to[1]); up(den, to[0], to[1]);
+  var d1 = E.done();
+  h.reads[0].res({ versions: { accessories: 'v1' } });
+  return settle().then(function () {
+    h.sent[0].res({ entities: [], version: 'v2' });
+    return settle();
+  }).then(function () {
+    h.sent[1].rej({ code: 'unavailable', message: 'the connection dropped' });
+    return d1;
+  }).then(function (r) {
+    eq('the first Done fails part-way, still editing', [r, !!E.active()], ['failed', true]);
+    var d2 = E.done();
+    return settle().then(function () {
+      eq('Done again: the first save carries the version its own answer gave, not the one read at the start',
+         [h.sent[2].msg.area_id, h.sent[2].msg.expect_version], ['kitchen', 'v2']);
+      h.sent[2].res({ entities: [], version: 'v3' });
+      return settle();
+    }).then(function () {
+      eq('...and the next the one after it', [h.sent[3].msg.area_id, h.sent[3].msg.expect_version], ['den', 'v3']);
+      h.sent[3].res({ entities: [], version: 'v4' });
+      return d2;
+    });
+  }).then(function (r) {
+    eq('...saved, out of Edit mode', [r, E.active()], ['saved', null]);
+    location.pathname = '/dashboard-hall/room-kitchen';
+  });
+},
+function () {
   H.section('someone else changed it meanwhile: "This page changed", Reload or Save Anyway');
   var h = who(true), v = viewOf(KITCHEN), lights = groupNamed(v, 'Lights');
   function drag() {

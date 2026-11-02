@@ -67,7 +67,7 @@ One file per backup, named `mantel-YYYYmmdd-HHMMSS.mbk` (the time in UTC), encry
 
 | Inside | |
 |---|---|
-| The database | A consistent snapshot, safe to make while Mantel runs, checked before it is packed |
+| The database | A consistent snapshot, safe to make while Mantel runs, checked before it is packed. It holds Mantel Settings' **General** too: a restore brings back **Allow Control of the House** as it was in the backup, so check it after restoring another Mantel's backup |
 | Your files and Mantel Photos | Apple's font and glyphs you uploaded, and the screensavers' photos |
 | The saved connections | Home Assistant's and Music Assistant's, still sealed with `at_rest.key` |
 | [Mantel Connect](Mantel-Connect.md)'s certificates | Its own certificate authority and keys, so a paired Connect App keeps working after a restore |

@@ -868,7 +868,10 @@
     if (!saves.length) { leave(true); return Promise.resolve('nothing'); }
     busy(s, true);
     say('Saving…');
-    s.saving = s.versions.then(function (ver) { return send(s, saves, Object.assign({}, ver), false); });
+    // (one version per document for the whole session, kept as each save answers: a Done that failed part-way, done
+    // again, sent its first saves with the versions read as editing began -- the server rightly called that a
+    // conflict, and Reload threw the arrangement away; the third audit pass, 2026-11-01)
+    s.saving = s.versions.then(function (ver) { if (!s.ver) s.ver = Object.assign({}, ver); return send(s, saves, s.ver, false); });
     return s.saving;
   }
   function send(s, saves, ver, anyway) {
