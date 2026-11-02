@@ -566,6 +566,7 @@ class FeatureHost:
     # -- running -------------------------------------------------------------------------------------
     async def start(self) -> None:
         await self.reload()
+        await self._live_tv_once()
         svc = self.app.get("settings")
         if svc is not None:
             first = [True]
@@ -582,6 +583,24 @@ class FeatureHost:
         if self.on("live_tv"):
             self.spawn(self._tv_loop())
         self.started = True
+
+    async def _live_tv_once(self) -> None:
+        """Mantel with its own go2rtc (Docker, the LXC) serves Live TV, and the feature import turns it on there. A
+        backup restored from the HA App, where HK Frontend ran it, brings it in off, and nothing on the page turns it
+        on (the owner's LXC, 2026-11-02: the Live TV page said to add it in Home Assistant). So the first start with
+        its own go2rtc and a tuner turns it on, once (``go2rtc_once``): turned off after that, it stays off."""
+        tv = self.settings["live_tv"]
+        if tv.get("go2rtc_once") or not tv.get("tuner") or not getattr(self.app.get("cfg"), "go2rtc_url", ""):
+            return
+        body = copy.deepcopy(self.settings)
+        body["live_tv"].update(enabled=True, go2rtc_once=True)
+        try:
+            self.write_doc(FEATURES_DOC, check_settings(body), message="Live TV on: Mantel runs its own go2rtc")
+        except Exception:  # noqa: BLE001 -- Live TV stays as it was; the next start tries again
+            log.exception("could not turn Live TV on for Mantel's own go2rtc")
+            return
+        log.info("Live TV: on, served by Mantel's own go2rtc (once, the first start with it)")
+        await self.reload()
 
     async def stop(self) -> None:
         if self._feed_unsub:
@@ -811,7 +830,8 @@ class FeatureHost:
         out: dict[str, dict[str, Any]] = {}
         for fid, kind, name in COMPANIONS:
             got = (items.get(kind) or [{"entry_id": f"mantel_{kind}", "title": name}]) if kind in added else []
-            out[fid] = {"name": name, "kind": kind, "installed": True,
+            # `own`: Mantel adds and removes it itself (feature_pages feature/set), not Home Assistant's HK Frontend
+            out[fid] = {"name": name, "kind": kind, "installed": True, "own": True,
                         "entries": [{"entry_id": i["entry_id"], "title": i.get("title") or name, "state": "loaded"}
                                     for i in got]}
         return out

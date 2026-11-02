@@ -199,6 +199,17 @@ def test_the_zeroconf_announcement_file_and_its_avahi_form(tmp_path):
     assert announce.main(["--check", "--file", str(tmp_path / "none.json")]) == 1
 
 
+def test_the_announcement_carries_mantel_s_link_address_when_it_has_one(tmp_path):
+    """Mantel Connect's listener runs: Home Assistant can link at Mantel's address, pinning Mantel's own certificate
+    (linked_pairing v3), so the announcement says where. Not an https address with a port: left out."""
+    path = tmp_path / "announce.json"
+    body = announce.write(path, "0" * 32, "https://mantel.example.com", link="https://192.0.2.10:8766")
+    assert body["link"] == "https://192.0.2.10:8766" and announce.read(path) == body
+    assert "link=https://192.0.2.10:8766" in announce.avahi_service(body)
+    for bad in ("", "http://192.0.2.10:8766", "https://192.0.2.10", "nonsense"):
+        assert "link" not in announce.write(path, "0" * 32, "https://mantel.example.com", link=bad), bad
+
+
 def test_the_entrypoint_turns_discovery_on_in_each_mode(tmp_path):
     env = {"MANTEL_PUBLIC_URL": "https://mantel.example.com/"}
     args, _ = entrypoint.plan([], env, options_path=tmp_path / "none")

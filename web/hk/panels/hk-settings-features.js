@@ -272,11 +272,38 @@
     }
     c.appendChild(K.group({}, [K.info({ label: 'Loading…' })]));
   }
+  // A host whose features are its own (panel/get's `own`): Add and Remove here, saved in that host's feature
+  // settings (`<id>/feature/set`), the page's data read again after. In Home Assistant, the integration's Add feature.
+  function own(P, domain) {
+    var f = P && P.data && (P.data.features || {})[domain];
+    return !!(f && f.own);
+  }
+  function setFeature(P, domain, on) {
+    return P.ws({ type: domain + '/feature/set', enabled: on }).then(function (ok) {
+      if (!ok) return;
+      if (P.feats) delete P.feats[domain];
+      return P.reload().then(function () { P.render(true); });
+    });
+  }
   // not added yet: what it does and the way to add it
-  function notAdded(c, name, what, domain) {
+  function notAdded(c, name, what, domain, P) {
+    if (own(P, domain)) {
+      c.appendChild(K.group({ footer: what }, [
+        K.button({ label: 'Add ' + name, fk: 'feat:add:' + domain, onClick: function () { setFeature(P, domain, true); } })]));
+      return;
+    }
     c.appendChild(K.group({ footer: what }, [
       K.nav({ label: 'Add ' + name, sub: haPlace('Devices & Services → HK Frontend → Add feature'), href: addHref(domain),
               icon: 'mdi:plus-circle-outline', fk: 'feat:add:' + domain })]));
+  }
+  // added, on such a host: Remove, at the foot of the feature's own page (its settings are kept for Add again)
+  function removeRow(P, c, name, domain) {
+    if (!own(P, domain)) return;
+    c.appendChild(K.group({ footer: 'Takes ' + name + ' off every screen. Its settings are kept, for when you add it again.' }, [
+      K.button({ label: 'Remove ' + name, destructive: true, fk: 'feat:remove:' + domain, onClick: function () {
+        K.confirm(P.shadowRoot, { title: 'Remove ' + name + '?', message: 'It comes off every screen. Its settings are kept.',
+                                  destructive: true, ok: 'Remove' }).then(function (yes) { if (yes) setFeature(P, domain, false); });
+      } })]));
   }
   function openIn(c, name, domain, sub) {
     c.appendChild(K.group({}, [K.nav({ label: name, sub: sub || 'In ' + haPlace('Devices & Services'), href: integrationHref(domain),
@@ -517,11 +544,11 @@
   function musicTop(P, c) {
     var feats = P.data.features || {}, state = stateOf(feats, 'hk_music');
     if (state === 'missing') return;
-    if (state === 'not_added') { notAdded(c, (feats.hk_music || {}).name || 'Music', WHAT.hk_music, 'hk_music'); return; }
+    if (state === 'not_added') { notAdded(c, (feats.hk_music || {}).name || 'Music', WHAT.hk_music, 'hk_music', P); return; }
     var st = P.feat('hk_music');
     if (!st.data) { waiting(c, st, 'Music', 'hk_music'); return; }
     var d = st.data;
-    if (d.configured === false) { notAdded(c, 'Music', WHAT.hk_music, 'hk_music'); return; }
+    if (d.configured === false) { notAdded(c, 'Music', WHAT.hk_music, 'hk_music', P); return; }
     var homes = Object.keys(d.homes || {}).filter(function (u) { return (d.users || []).some(function (x) { return x.id === u; }); }).length;
     c.appendChild(K.group({ header: 'Speakers', footer: 'The rooms music plays in. A wall tablet’s signed-in user starts in its own home room.' }, [
       K.nav({ label: 'Speakers', value: String((d.speakers || []).length), href: '#/features/music/speakers', fk: 'music:speakers' }),
@@ -1434,7 +1461,7 @@
       return mk('Battery', withData(function (c, d) { energyBattery(P, c, d, bk); }), ['Batteries', '#/features/energy/batteries']);
     }
     if (sub[0] === 'batteries') return mk('Batteries', withData(function (c, d) { energyBatteries(P, c, d); }), back);
-    return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { energyMain(P, c, d); }) };
+    return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { energyMain(P, c, d); removeRow(P, c, name, domain); }) };
   }
 
   // ---- NOTIFICATIONS (features/notifications): the list, each one, the
@@ -1858,13 +1885,13 @@
       return function (c) {
         var st = P.feat(domain);
         if (!st.data) { waiting(c, st, (feats[domain] || {}).name || name, domain); return; }
-        if (st.data.configured === false) { notAdded(c, (feats[domain] || {}).name || name, WHAT[domain], domain); return; }
+        if (st.data.configured === false) { notAdded(c, (feats[domain] || {}).name || name, WHAT[domain], domain, P); return; }
         fn(c, st.data);
       };
     };
     if (state !== 'added') {
       return { title: name, top: true, scope: SCOPE[domain], body: function (c) {
-        notAdded(c, (feats[domain] || {}).name || name, WHAT[domain], domain);
+        notAdded(c, (feats[domain] || {}).name || name, WHAT[domain], domain, P);
       } };
     }
     if (route === 'tv') {
@@ -1874,7 +1901,7 @@
         return mk(ch ? ch.name : num, withData(function (c, d) { tvChannel(P, c, d, num); }), ['Channels', base + '/channels']);
       }
       if (sub[0] === 'channels') return mk('Channels', withData(function (c, d) { tvChannels(P, c, d); }));
-      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { tvMain(P, c, d); }) };
+      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { tvMain(P, c, d); removeRow(P, c, name, domain); }) };
     }
     if (route === 'music') {
       var back = ['Music', base];
@@ -1909,7 +1936,7 @@
       if (sub[0] === 'add') return mk('Add PIN', withData(function (c, d) { alarmAdd(P, c, d); }));
       if (sub[0] && sub[1] === 'pin') return mk('Change PIN', withData(function (c, d) { alarmPin(P, c, d, sub[0]); }));
       if (sub[0] && sub[1] === 'alarm') return mk('Protects', withData(function (c, d) { alarmPick(P, c, d, sub[0]); }));
-      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { alarmMain(P, c, d); }) };
+      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { alarmMain(P, c, d); removeRow(P, c, name, domain); }) };
     }
     if (route === 'energy') return energyPage(P, sub, mk, withData, name, domain);
     if (route === 'notify') {
@@ -1938,11 +1965,11 @@
         var nit = notifyItemOf(P.feat(domain).data, nid);
         return mk(nit ? notifyTitle(nit) : 'Notification', withData(function (c, d) { notifyItem(P, c, d, nid); }), nback);
       }
-      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { notifyMain(P, c, d); }) };
+      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { notifyMain(P, c, d); removeRow(P, c, name, domain); }) };
     }
     if (route === 'clean') {
       if (sub[0] === 'rooms') return mk('Rooms', withData(function (c, d) { cleanRooms(P, c, d); }));
-      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { cleanMain(P, c, d); }) };
+      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { cleanMain(P, c, d); removeRow(P, c, name, domain); }) };
     }
     return null;
   }

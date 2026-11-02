@@ -27,11 +27,12 @@ def hassio(fake, token=TOKEN, instance=INSTANCE):
                              slug="local_mantel", uuid="0123")
 
 
-def zeroconf(url="https://mantel.example.com", instance=INSTANCE):
+def zeroconf(url="https://mantel.example.com", instance=INSTANCE, link=None):
     return ZeroconfServiceInfo(ip_address=ip_address("192.0.2.20"), ip_addresses=[ip_address("192.0.2.20")],
                                port=443, hostname="mantel.local.", type="_mantel._tcp.local.",
                                name=f"Mantel {instance[:6]}._mantel._tcp.local.",
-                               properties={"instance": instance, "url": url, "path": "/linked/ws", "version": ""})
+                               properties={"instance": instance, "url": url, "path": "/linked/ws", "version": "",
+                                           **({"link": link} if link else {})})
 
 
 def test_the_manifest_asks_for_mantel_s_announcements():
@@ -85,9 +86,9 @@ async def test_discovered_on_the_network_confirmed_with_a_code(hass, monkeypatch
 
     async def fake_pair(hass_, url, code):
         seen["pair"] = (url, code)
-        return (TOKEN, None) if code == "ABCDE-FGHJK-MNPQR-STVWX" else (None, "invalid_code")
+        return ({"token": TOKEN}, None) if code == "ABCDE-FGHJK-MNPQR-STVWX" else (None, "invalid_code")
 
-    async def fake_link(hass_, url, token):
+    async def fake_link(hass_, url, token, ca=None):
         seen["link"] = (url, token)
         return {"protocol": 2, "instance": INSTANCE}, None
     monkeypatch.setattr(CF, "try_pair", fake_pair)
@@ -122,3 +123,29 @@ async def test_announcements_that_are_not_mantel_s(hass):
     bad = HassioServiceInfo(config={"url": "http://local-mantel:8099"}, name="Mantel", slug="local_mantel", uuid="1")
     r = await hass.config_entries.flow.async_init("mantel", context={"source": config_entries.SOURCE_HASSIO}, data=bad)
     assert r["reason"] == "invalid_discovery"
+
+
+async def test_a_discovered_mantel_s_link_address_is_preferred(hass, monkeypatch):
+    """Mantel announces its link address (Mantel Connect's listener): the discovered entry links there, pinning
+    Mantel's own certificate, with no name, DNS or proxy in between. Still confirmed with a pairing code."""
+    from custom_components.mantel import config_flow as CF
+    seen = {}
+
+    async def fake_pair(hass_, url, code):
+        seen["pair"] = url
+        return {"token": TOKEN, "ca": "fictional CA"}, None
+
+    async def fake_link(hass_, url, token, ca=None):
+        seen["link"] = (url, ca)
+        return {"protocol": 2, "instance": INSTANCE}, None
+    monkeypatch.setattr(CF, "try_pair", fake_pair)
+    monkeypatch.setattr(CF, "try_link", fake_link)
+    from custom_components.mantel import bridge as B
+    monkeypatch.setattr(B.Bridge, "start", lambda self: None)
+    r = await hass.config_entries.flow.async_init("mantel", context={"source": config_entries.SOURCE_ZEROCONF},
+                                                  data=zeroconf(link="https://192.0.2.10:8766"))
+    assert r["description_placeholders"]["url"] == "https://192.0.2.10:8766"
+    r = await hass.config_entries.flow.async_configure(r["flow_id"], {"code": "ABCDE-FGHJK-MNPQR-STVWX"})
+    assert r["type"] is FlowResultType.CREATE_ENTRY
+    assert r["data"] == {"url": "https://192.0.2.10:8766", "token": TOKEN, "ca": "fictional CA"}
+    assert seen == {"pair": "https://192.0.2.10:8766", "link": ("https://192.0.2.10:8766", "fictional CA")}

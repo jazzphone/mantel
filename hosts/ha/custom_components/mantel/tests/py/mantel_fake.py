@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from pathlib import Path
 from typing import Any
 
 from aiohttp import web
@@ -68,6 +69,46 @@ def entities() -> list[dict[str, Any]]:
     ]
 
 
+def own_ca(name: str = "mantel-connect"):
+    """A CA and a listener certificate it issued for `name` (Mantel Connect's): (CA PEM, the server's SSLContext)."""
+    import datetime as dt
+    import ssl
+    import tempfile
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import NameOID
+    now = dt.datetime.now(dt.timezone.utc)
+
+    def cert(subject, issuer, pub, signer, ca, san=None):
+        # as Mantel's Pki makes them (Python's strict X.509 checks want the key identifiers)
+        b = (x509.CertificateBuilder().subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, subject)]))
+             .issuer_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, issuer)])).public_key(pub)
+             .serial_number(x509.random_serial_number()).not_valid_before(now - dt.timedelta(minutes=5))
+             .not_valid_after(now + dt.timedelta(days=2))
+             .add_extension(x509.BasicConstraints(ca=ca, path_length=0 if ca else None), True)
+             .add_extension(x509.SubjectKeyIdentifier.from_public_key(pub), False))
+        if ca:
+            b = b.add_extension(x509.KeyUsage(False, False, False, False, False, True, True, False, False), True)
+        else:
+            b = (b.add_extension(x509.KeyUsage(True, False, False, False, False, False, False, False, False), True)
+                 .add_extension(x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.SERVER_AUTH]), False)
+                 .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(signer.public_key()), False))
+        if san:
+            b = b.add_extension(x509.SubjectAlternativeName([x509.DNSName(san)]), False)
+        return b.sign(signer, hashes.SHA256())
+    ca_key, srv_key = ec.generate_private_key(ec.SECP256R1()), ec.generate_private_key(ec.SECP256R1())
+    ca = cert("Fictional Mantel CA", "Fictional Mantel CA", ca_key.public_key(), ca_key, True)
+    srv = cert("Mantel Connect", "Fictional Mantel CA", srv_key.public_key(), ca_key, False, san=name)
+    d = Path(tempfile.mkdtemp())
+    (d / "srv.pem").write_bytes(srv.public_bytes(serialization.Encoding.PEM))
+    (d / "srv.key").write_bytes(srv_key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                                                      serialization.NoEncryption()))
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.load_cert_chain(str(d / "srv.pem"), str(d / "srv.key"))
+    return ca.public_bytes(serialization.Encoding.PEM).decode(), ctx
+
+
 class FakeMantel:
     def __init__(self, token: str = TOKEN) -> None:
         self.token = token
@@ -94,18 +135,23 @@ class FakeMantel:
     pair_version = 2                 # 1: an older Mantel, which knows only v1 (anything else is "malformed")
     own_address: str | None = None   # the addresses this Mantel calls its own (None: the one it listens on)
     signs_address: str | None = None # sign the answer for another address than the one asked (a relay's trick)
+    ca_pem: str | None = None        # pinned (start(pinned=True)): its own CA, as Mantel Connect's listener
+    swap_ca: str | None = None       # hand over this CA instead of its own (a look-alike's trick)
 
     async def pair(self, request: web.Request) -> web.StreamResponse:
         import hashlib, hmac as _hmac, re as _re
         body = await request.json()
         self.received.append({"type": "pair", **{k: body.get(k) for k in ("v", "code_id", "name", "address")}})
-        if body.get("v") != 1 and (self.pair_version == 1 or body.get("v") != 2):
+        if body.get("v") == 3 and self.ca_pem is None:
+            return web.json_response({"error": {"code": "pin_elsewhere", "message": "Use https://192.0.2.10:8766."}},
+                                     status=400)
+        if body.get("v") != 1 and (self.pair_version == 1 or body.get("v") not in (2, 3)):
             return web.json_response({"error": {"code": "malformed", "message": "no"}}, status=400)
         raw = _re.sub(r"[\s-]", "", self.code or "").upper()
         key = hashlib.sha256(b"mantel-link-pair-v1|key|" + raw.encode()).digest()
         mac = lambda *p: _hmac.new(key, "|".join(p).encode(), hashlib.sha256).hexdigest()  # noqa: E731
-        v2 = body["v"] == 2
-        label = "mantel-link-pair-v2" if v2 else "mantel-link-pair-v1"
+        v2, v3 = body["v"] in (2, 3), body["v"] == 3
+        label = f"mantel-link-pair-v{body['v']}"
         addr = [body.get("address")] if v2 else []
         if not raw or body.get("code_id") != raw[:5] or body.get("proof") != mac(
                 label, "client", body["code_id"], body["nonce"], body["name"], *addr):
@@ -114,19 +160,37 @@ class FakeMantel:
             return web.json_response({"error": {"code": "wrong_address", "message": "no"}}, status=403)
         self.code = None
         signed = [self.signs_address or body["address"]] if v2 else []
+        if v3:
+            import base64, secrets as _secrets
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+            ca = self.ca_pem
+            proof = mac(label, "server", body["code_id"], body["nonce"], *signed, INSTANCE,
+                        hashlib.sha256(self.token.encode()).hexdigest(), hashlib.sha256(ca.encode()).hexdigest())
+            k = _hmac.new(key, f"mantel-link-pair-v3|token|{body['nonce']}".encode(), hashlib.sha256).digest()
+            iv = _secrets.token_bytes(12)
+            sealed = base64.urlsafe_b64encode(iv + AESGCM(k).encrypt(iv, self.token.encode(), signed[0].encode())).decode()
+            return web.json_response({"v": 3, "instance": INSTANCE, "address": signed[0], "ca": self.swap_ca or ca,
+                                      "token_sealed": sealed, "proof": ("0" * 64) if self.lie else proof})
         proof = mac(label, "server", body["code_id"], body["nonce"], *signed, INSTANCE,
                     hashlib.sha256(self.token.encode()).hexdigest())
         return web.json_response({"v": body["v"], "token": self.token, "instance": INSTANCE,
                                   **({"address": signed[0]} if v2 else {}),
                                   "proof": ("0" * 64) if self.lie else proof})
 
-    async def start(self) -> "FakeMantel":
+    async def start(self, pinned: bool = False) -> "FakeMantel":
+        """`pinned`: HTTPS with a certificate from its own CA, for the name Mantel Connect's listener has, as Mantel
+        by its address (pairing v3)."""
         app = web.Application()
         app.router.add_get("/linked/ws", self.handler)
         app.router.add_post("/linked/pair", self.pair)
         self.server = TestServer(app, host="127.0.0.1")
-        await self.server.start_server()
-        self.url = f"http://127.0.0.1:{self.server.port}"
+        if pinned:
+            self.ca_pem, ctx = own_ca()
+            await self.server.start_server(ssl=ctx)
+            self.url = f"https://127.0.0.1:{self.server.port}"
+        else:
+            await self.server.start_server()
+            self.url = f"http://127.0.0.1:{self.server.port}"
         return self
 
     async def handler(self, request: web.Request) -> web.StreamResponse:

@@ -266,3 +266,19 @@ def test_a_source_push_removes_what_the_new_version_deleted(tmp_path):
     assert sorted(p.name for p in (install / "hosts/server/migrations").iterdir()) == ["0016_push.sql"]
     assert (install / "packaging/compose/.env").read_text() == "KEEP=1\n"
     assert (install / "packaging/compose/backups/mantel-1.mbk").is_file()
+
+
+def test_update_turns_the_announcer_on_once_and_off_keeps_it_out(tmp_path):
+    """0.1.117: Home Assistant finds Mantel by itself (compose.announce.yaml). An older container gets the announcer
+    at its next update, once; MANTEL_ANNOUNCER=off in .env takes it out and keeps it out."""
+    r, env = _update(tmp_path, 0)
+    assert r.returncode == 0, r.stdout + r.stderr
+    text = env.read_text()
+    assert "COMPOSE_FILE=compose.yaml:compose.announce.yaml" in text and "MANTEL_ANNOUNCER=on" in text
+    t2 = tmp_path / "second"
+    t2.mkdir()
+    r, env = _update(t2, 0)
+    env.write_text(env.read_text().replace("MANTEL_ANNOUNCER=on", "MANTEL_ANNOUNCER=off"))
+    r = subprocess.run([BASH, "-c", f'source "{MANTEL_SH}"; INSTALL_DIR="$1"; update_script', "_", str(t2)],
+                       capture_output=True, text=True)
+    assert "compose.announce.yaml" not in env.read_text().split("COMPOSE_FILE=", 1)[1].splitlines()[0]

@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Mantel Link",
-        "description": "Link Home Assistant to Mantel. Mantel's address is {https}, or {http} only for the Mantel App on this machine ({app_url}). Then a pairing code from Mantel Settings, Connections, Mantel in Home Assistant, or a Mantel Service credential (Mantel Settings, Service Accounts).",
+        "description": "Link Home Assistant to Mantel. Mantel's address is {https}, or {http} only for the Mantel App on this machine ({app_url}). Then a pairing code from Mantel Settings, Connections, Mantel in Home Assistant, or a Mantel Service credential (Mantel Settings, Service Accounts). Its address on your network works too, at Mantel's own link port, 8766: Mantel Settings shows it under Connections, Mantel in Home Assistant.",
         "data": {
           "url": "Mantel's address",
           "code": "Pairing code",
@@ -12,9 +12,10 @@
       },
       "reconfigure": {
         "title": "Mantel Link",
-        "description": "A new address or credential. Leave the credential empty to keep the saved one.",
+        "description": "A new address or credential. Leave the credential empty to keep the saved one. A new address on Mantel's own link port needs a new pairing code.",
         "data": {
           "url": "Mantel's address",
+          "code": "Pairing code",
           "token": "Service credential"
         }
       },
@@ -50,7 +51,8 @@
       "invalid_code": "Mantel did not accept that pairing code. Make a new one in Mantel Settings.",
       "rate_limited": "Too many tries. Wait a few minutes and try again.",
       "not_mantel": "That address answered, but it couldn't prove it is the Mantel that made the code.",
-      "wrong_address": "Mantel says that isn't its address, so something else may be answering for it. Enter Mantel's own address, as Mantel Settings shows it, and make a new pairing code if this one has run out."
+      "wrong_address": "Mantel says that isn't its address, so something else may be answering for it. Enter Mantel's own address, as Mantel Settings shows it, and make a new pairing code if this one has run out.",
+      "pin_elsewhere": "That address uses Mantel's own certificate, but isn't Mantel's link port. Use the link address Mantel Settings shows (Connections, Mantel in Home Assistant), or Mantel's name."
     },
     "abort": {
       "already_configured": "This Mantel is already linked.",

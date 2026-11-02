@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+- **HK Settings → Features on Mantel:** Add and Remove each feature there, in Mantel's own settings (in Home Assistant, Add feature stays HK Frontend's).
+- **Linked mode by Mantel's address:** linked to the address Mantel Link pinned (Mantel's own link port), HK Frontend uses the same certificate authority Mantel Link pinned, so its link needs no name, DNS or proxy either.
 - **Host words:** the shared screens name their settings through the host (`hkShell.settingsName()`, `settingsPlace()`), so Mantel says Mantel Settings where they send someone to them. In Home Assistant every text reads as before: HK Settings.
 
 ## 1.36.0 - 2026-11-02

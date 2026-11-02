@@ -184,7 +184,7 @@ async def test_every_piece_is_off_until_the_settings_turn_it_on(make_env):
 
 def test_the_settings_are_checked():
     assert F.check_settings(None) == F.DEFAULTS
-    for bad in ({"music": {}}, {"sleep": {"enabled": "yes"}}, {"linked": {"entry_id": "a b"}},
+    for bad in ({"radio": {}}, {"music": {"enabled": "yes"}}, {"sleep": {"enabled": "yes"}}, {"linked": {"entry_id": "a b"}},
                 {"linked": {"backlights": {"hall": "switch.x"}}}, {"live_tv": {"guide_url": "file:///etc/passwd"}},
                 {"notifications": {"items": [{"entity": DOOR}]}}, {"energy": {"options": []}}, {"sleep": {"x": 1}}):
         with pytest.raises(ValueError):

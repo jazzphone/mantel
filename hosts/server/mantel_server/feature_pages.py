@@ -85,6 +85,11 @@ SAVES: dict[str, tuple[str, frozenset, frozenset]] = {
     "hk_music/playlist/save": ("music", frozenset({"name", "items"}), frozenset({"item", "icon", "chooser", "order"})),
     "hk_music/playlists/order": ("music", frozenset({"ids"}), frozenset()),
     "hk_music/item/remove": ("music", frozenset({"item"}), frozenset()),
+    # Add and Remove on Mantel itself (2026-11-02, the owner: "I would hate for a user to set up Mantel and not have
+    # access to enable the features it has"): the piece's switch in Mantel's feature settings
+    **{f"{fid}/feature/set": (piece, frozenset({"enabled"}), frozenset()) for fid, piece in (
+        ("hk_notify", "notifications"), ("hk_clean_areas", "clean_areas"), ("hk_energy", "energy"),
+        ("hk_tv", "live_tv"), ("hk_music", "music"), ("hk_alarm_pin", "alarm_pin"))},
     # the Alarm PIN: Mantel's keypad table (alarm_pin.py "HK Settings' Alarm PIN page")
     "hk_alarm_pin/settings/set": ("alarm_pin", frozenset({"entry_id", "changes"}), frozenset()),
     "hk_alarm_pin/add": ("alarm_pin", frozenset({"alarm"}), frozenset({"pin", "pin_again", "arm_required"})),
@@ -341,6 +346,8 @@ class FeaturePages:
             raise PageError("invalid_format", fields={**{k: "required" for k in sorted(missing)},
                                                       **{k: "unexpected" for k in sorted(extra)}})
         self.need(identity, piece)
+        if t.endswith("/feature/set"):
+            return await self.feature_set(identity, t, piece, msg["enabled"])
         if piece in ("notifications", "clean_areas", "energy") and not self.host.on(piece):
             raise PageError("not_set_up", f"{TITLES[piece]} is off in Mantel's feature settings")
         if t == "hk_notify/test":
@@ -368,6 +375,26 @@ class FeaturePages:
             self.host.write_doc(FEATURES_DOC, body, identity, t)
             await self.host.reload()
         return {**await self.page(piece), **extra_answer}
+
+    async def feature_set(self, identity: Any, t: str, piece: str, enabled: Any) -> dict[str, Any]:
+        """Add or Remove a feature on Mantel itself: its piece's switch in Mantel's feature settings, audited as
+        every save there. Removing also takes it out of what the import read from Home Assistant (``ha.added``), so
+        a feature HA had added is gone from Mantel's screens too; a new import brings it back. Live TV's once-only
+        turn-on for Mantel's own go2rtc (host._live_tv_once) is spent either way: the choice stands."""
+        if not isinstance(enabled, bool):
+            raise PageError("invalid_format", fields={"enabled": "true or false"})
+        from .features import FEATURES_DOC, check_settings
+        settings = copy.deepcopy(self.host.settings)
+        settings[piece]["enabled"] = enabled
+        if piece == "live_tv":
+            settings["live_tv"]["go2rtc_once"] = True
+        if not enabled:
+            settings["ha"]["added"] = [k for k in settings["ha"]["added"] if k != piece]
+        body = check_settings(settings)
+        if body != self.host.settings:
+            self.host.write_doc(FEATURES_DOC, body, identity, t)
+            await self.host.reload()
+        return {"feature": piece, "added": piece in self.host.client_added()}
 
     async def music_save(self, identity: Any, t: str, msg: dict[str, Any]) -> dict[str, Any]:
         """HK Settings' music saves on Mantel's ``house/music`` (music.py), refused by field as HA's were."""

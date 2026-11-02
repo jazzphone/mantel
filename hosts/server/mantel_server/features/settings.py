@@ -15,17 +15,24 @@ FEATURE_ACTOR = "mantel:features"
 FEATURE_ACTOR_NAME = "Mantel features"
 FEATURES_DOC = "mantel_features"        # house/<this>: the pieces and their settings
 MUTES_DOC = "notify_mutes"              # house/<this>: Mute 1 Hour, {"mutes": {key: until (epoch s)}}
-PIECES = ("notifications", "linked", "sleep", "clean_areas", "energy", "live_tv", "tablets")
+PIECES = ("notifications", "linked", "sleep", "clean_areas", "energy", "live_tv", "tablets", "music", "alarm_pin")
 DEFAULTS: dict[str, dict[str, Any]] = {
     "notifications": {"enabled": False, "options": {}, "items": []},
     "linked": {"enabled": False, "entry_id": None, "backlight": False, "backlights": {}},
     "sleep": {"enabled": False},
     "clean_areas": {"enabled": False, "options": {}},
     "energy": {"enabled": False, "options": {}},
-    "live_tv": {"enabled": False, "tuner": "", "guide_url": "", "channels": [], "names": {}, "quality": "720"},
+    # `go2rtc_once`: Mantel has started with its own go2rtc and turned Live TV on for it, once (host._live_tv_once)
+    "live_tv": {"enabled": False, "tuner": "", "guide_url": "", "channels": [], "names": {}, "quality": "720",
+                "go2rtc_once": False},
     # All Tablets' alerts and scheduled restart (feature_watch.TabletWatch), with the house settings' own
     # `tablets` choices (alert_offline, alert_charging, alert_restart, restart, restart_times)
     "tablets": {"enabled": False},
+    # Music and the Alarm PIN, added on Mantel itself (HK Settings -> Features -> Add, feature_pages "feature/set"):
+    # their settings and engines are elsewhere (music.py's house/music, alarm_pin.py's table); this only says
+    # they are added, as the import's ``ha.added`` does for a feature Home Assistant had
+    "music": {"enabled": False},
+    "alarm_pin": {"enabled": False},
     # NOT A PIECE: what the feature import read from Home Assistant (import_features): the HK features HA
     # had added (``added``, HA's kinds), their items ({kind: [{entry_id, title}]}) and where from. Music,
     # Alarm PIN and Live TV's channel cameras still run in HA: the screens are told they are added from this.

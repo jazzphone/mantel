@@ -12,7 +12,9 @@
   * Discovered on the network (`async_step_zeroconf`, `_mantel._tcp`): Mantel's
     https address and instance id, NO credential (the announcement is not
     authenticated); confirmed with a pairing code from Mantel Settings.
-  * Reconfigure: a new address or credential (left empty, the saved one stays).
+  * Reconfigure: a new address or credential (left empty, the saved one stays), or a pairing code.
+  * Mantel by its address (2026-11-02): an https address whose certificate isn't a public one (Mantel's own, at
+    https://<address>:8766) pairs by protocol v3, and the entry keeps Mantel's CA to pin (CONF_CA).
 
 ONE MANTEL, ONE ENTRY: the entry's unique id is the instance id Mantel says in
 its hello and announcements (not a secret). A second Mantel is refused (not
@@ -22,6 +24,7 @@ its new credential to the entry it set up).
 from __future__ import annotations
 
 import logging
+from ipaddress import ip_address
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -32,7 +35,7 @@ from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import CONF_TOKEN, CONF_URL, DOMAIN, NAME, PROTOCOL, URL_PLACEHOLDERS
+from .const import CONF_CA, CONF_TOKEN, CONF_URL, DOMAIN, NAME, PROTOCOL, URL_PLACEHOLDERS
 from .mantel_link import LinkError, plain_target, probe, ws_url
 from .pairing import PairingFailed, pair, pair_url
 
@@ -54,13 +57,14 @@ async def check_url(address: str) -> str | None:
     return {"mantel_url_insecure": "url_insecure", "mantel_url_not_internal": "url_not_internal"}.get(bad or "", bad)
 
 
-async def try_link(hass, url: str, token: str) -> tuple[dict[str, Any] | None, str | None]:
-    """(Mantel's hello, None) or (None, error key)."""
+async def try_link(hass, url: str, token: str, ca: str | None = None) -> tuple[dict[str, Any] | None, str | None]:
+    """(Mantel's hello, None) or (None, error key). `ca`: Mantel's CA, pinned."""
     bad = await check_url(url)
     if bad:
         return None, bad
     try:
-        hello = await probe(async_get_clientsession(hass), url, token, domain=DOMAIN, protocol=PROTOCOL)
+        hello = await probe(async_get_clientsession(hass), url, token, domain=DOMAIN, protocol=PROTOCOL,
+                            **({"ca": ca} if ca else {}))
     except LinkError as err:
         _LOGGER.debug("%s: the test link failed: %s", NAME, err.message)
         return None, {"invalid_auth": "invalid_auth", "protocol": "mantel_too_old",
@@ -68,8 +72,25 @@ async def try_link(hass, url: str, token: str) -> tuple[dict[str, Any] | None, s
     return hello, None
 
 
-async def try_pair(hass, url: str, code: str) -> tuple[str | None, str | None]:
-    """(a Service credential, None) or (None, error key): the pairing code traded at Mantel."""
+LINK_PORT = 8766            # Mantel Connect's listener, where Mantel pins its own certificate (pairing v3)
+
+
+def pinned_first(url: str) -> bool:
+    """An https address that can only be Mantel's own certificate: an IP address (public certificates name names) or
+    Mantel's link port. Paired by v3 straight away, with no publicly-checked handshake that is bound to fail first."""
+    parts = urlsplit(url.strip())
+    if parts.scheme.lower() not in ("https", "wss") or not parts.hostname:
+        return False
+    try:
+        ip_address(parts.hostname)
+        return True
+    except ValueError:
+        return parts.port == LINK_PORT
+
+
+async def try_pair(hass, url: str, code: str) -> tuple[dict[str, Any] | None, str | None]:
+    """({"token", "ca"?}, None) or (None, error key): the pairing code traded at Mantel. An https address whose
+    certificate isn't a public one is paired again by v3, which hands over Mantel's CA to pin."""
     bad = await check_url(url)
     if bad:
         return None, bad
@@ -84,13 +105,28 @@ async def try_pair(hass, url: str, code: str) -> tuple[str | None, str | None]:
         host = f"[{ip}]" if ":" in ip else ip
         how = {"connect_to": urlunsplit(("http", f"{host}:{parts.port}" if parts.port else host, parts.path, "", "")),
                "host_header": parts.netloc}
+    session = async_get_clientsession(hass)
     try:
-        got = await pair(async_get_clientsession(hass), url, code, **how)
+        if pinned_first(url):
+            got = await pair(session, url, code, pinned=True)
+        else:
+            try:
+                got = await pair(session, url, code, **how)
+            except PairingFailed as err:
+                if err.code != "certificate":
+                    raise
+                got = await pair(session, url, code, pinned=True)
     except PairingFailed as err:
         _LOGGER.debug("%s: pairing failed: %s", NAME, err.message)
         return None, {"invalid_code": "invalid_code", "rate_limited": "rate_limited", "not_mantel": "not_mantel",
-                      "wrong_address": "wrong_address", "mantel_too_old": "mantel_too_old"}.get(err.code, "cannot_connect")
-    return got["token"], None
+                      "wrong_address": "wrong_address", "mantel_too_old": "mantel_too_old",
+                      "pin_elsewhere": "pin_elsewhere"}.get(err.code, "cannot_connect")
+    return {"token": got["token"], **({CONF_CA: got["ca"]} if got.get("ca") else {})}, None
+
+
+def _without_ca(data: Any) -> dict[str, Any]:
+    """The entry's data without its pinned CA (a new pairing or address brings its own, or none)."""
+    return {k: v for k, v in dict(data).items() if k != CONF_CA}
 
 
 class MantelFlow(ConfigFlow, domain=DOMAIN):
@@ -114,31 +150,33 @@ class MantelFlow(ConfigFlow, domain=DOMAIN):
             url = user_input[CONF_URL].strip()
             code = (user_input.get(CONF_CODE) or "").strip()
             token = (user_input.get(CONF_TOKEN) or "").strip()
-            err = None
+            err, ca = None, None
             if code:
-                token, err = await try_pair(self.hass, url, code)
+                got, err = await try_pair(self.hass, url, code)
+                token, ca = (got or {}).get("token"), (got or {}).get(CONF_CA)
             elif not token:
                 err = "code_or_token"
             if not err:
-                hello, err = await try_link(self.hass, url, token)
+                hello, err = await try_link(self.hass, url, token, ca)
             if err:
                 errors["base"] = err
             else:
-                return await self._create(url, token, hello)
+                return await self._create(url, token, hello, ca)
         return self.async_show_form(step_id="user", data_schema=vol.Schema({
             vol.Required(CONF_URL, default=(user_input or {}).get(CONF_URL, "")): str,
             vol.Optional(CONF_CODE): str,
             vol.Optional(CONF_TOKEN): str,
         }), errors=errors, description_placeholders=URL_PLACEHOLDERS)
 
-    async def _create(self, url: str, token: str, hello: dict[str, Any] | None) -> ConfigFlowResult:
+    async def _create(self, url: str, token: str, hello: dict[str, Any] | None, ca: str | None = None) -> ConfigFlowResult:
         instance = (hello or {}).get("instance")
+        data = {CONF_URL: url, CONF_TOKEN: token, **({CONF_CA: ca} if ca else {})}
         if isinstance(instance, str) and instance:
             await self.async_set_unique_id(instance, raise_on_progress=False)
-            self._abort_if_unique_id_configured(updates={CONF_URL: url, CONF_TOKEN: token})
+            self._abort_if_unique_id_configured(updates=data)
         if (other := self._one_mantel(instance)) is not None:
             return other
-        return self.async_create_entry(title="Mantel", data={CONF_URL: url, CONF_TOKEN: token})
+        return self.async_create_entry(title="Mantel", data=data)
 
     # ---- discovered from the HA App (the Supervisor)
     async def async_step_hassio(self, discovery_info: HassioServiceInfo) -> ConfigFlowResult:
@@ -173,10 +211,15 @@ class MantelFlow(ConfigFlow, domain=DOMAIN):
     # ---- discovered on the network (zeroconf: no credential, a pairing code confirms it)
     async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
         props = discovery_info.properties or {}
-        instance, url = props.get("instance"), props.get("url")
+        instance, url, link = props.get("instance"), props.get("url"), props.get("link")
         if not (isinstance(instance, str) and len(instance) == 32 and isinstance(url, str)
                 and url.startswith("https://")):
             return self.async_abort(reason="invalid_discovery")
+        # Mantel's link address, when it announces one: linked there, Mantel's own certificate is pinned (pairing
+        # v3), with no name, DNS or proxy in between. The announcement is no more trusted for it: the pairing code
+        # still proves who answers, and Mantel refuses an address that isn't its own
+        if isinstance(link, str) and link.startswith("https://") and pinned_first(link):
+            url = link
         await self.async_set_unique_id(instance)
         # An announcement is unauthenticated, and the instance id in it is no secret (anyone on the network
         # hears it): an entry never follows an announced address, or a look-alike would be handed the link's
@@ -192,16 +235,18 @@ class MantelFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         url = self._found[CONF_URL]
         if user_input is not None:
-            token, err = await try_pair(self.hass, url, (user_input.get(CONF_CODE) or "").strip())
+            got, err = await try_pair(self.hass, url, (user_input.get(CONF_CODE) or "").strip())
+            token, ca = (got or {}).get("token"), (got or {}).get(CONF_CA)
             hello = None
             if not err:
-                hello, err = await try_link(self.hass, url, token)
+                hello, err = await try_link(self.hass, url, token, ca)
             if not err and (hello or {}).get("instance") != self.unique_id:
                 err = "another_mantel"
             if err:
                 errors["base"] = err
             else:
-                return self.async_create_entry(title="Mantel", data={CONF_URL: url, CONF_TOKEN: token})
+                return self.async_create_entry(title="Mantel", data={CONF_URL: url, CONF_TOKEN: token,
+                                                                     **({CONF_CA: ca} if ca else {})})
         return self.async_show_form(step_id="zeroconf_confirm", errors=errors,
                                     data_schema=vol.Schema({vol.Required(CONF_CODE): str}),
                                     description_placeholders={"url": url, **URL_PLACEHOLDERS})
@@ -218,14 +263,15 @@ class MantelFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             code = (user_input.get(CONF_CODE) or "").strip()
             token = (user_input.get(CONF_TOKEN) or "").strip()
-            err = None
+            err, ca = None, entry.data.get(CONF_CA)
             if code:
-                token, err = await try_pair(self.hass, url, code)
+                got, err = await try_pair(self.hass, url, code)
+                token, ca = (got or {}).get("token"), (got or {}).get(CONF_CA)
             elif not token:
                 err = "code_or_token"
             hello = None
             if not err:
-                hello, err = await try_link(self.hass, url, token)
+                hello, err = await try_link(self.hass, url, token, ca)
             if not err:
                 instance = (hello or {}).get("instance")
                 if entry.unique_id and instance and instance != entry.unique_id:
@@ -233,7 +279,8 @@ class MantelFlow(ConfigFlow, domain=DOMAIN):
             if err:
                 errors["base"] = err
             else:
-                return self.async_update_reload_and_abort(entry, data_updates={CONF_TOKEN: token})
+                return self.async_update_reload_and_abort(entry, data={**_without_ca(entry.data), CONF_TOKEN: token,
+                                                                       **({CONF_CA: ca} if ca else {})})
         return self.async_show_form(step_id="reauth_confirm", data_schema=vol.Schema({
             vol.Optional(CONF_CODE): str,
             vol.Optional(CONF_TOKEN): str,
@@ -244,8 +291,16 @@ class MantelFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             url = user_input[CONF_URL].strip()
+            code = (user_input.get(CONF_CODE) or "").strip()
             token = (user_input.get(CONF_TOKEN) or "").strip() or entry.data[CONF_TOKEN]
-            hello, err = await try_link(self.hass, url, token)
+            # the pinned CA goes with the address it was paired at; a new address pins again with a pairing code
+            ca, err = (entry.data.get(CONF_CA) if url == entry.data.get(CONF_URL) else None), None
+            if code:
+                got, err = await try_pair(self.hass, url, code)
+                token, ca = (got or {}).get("token"), (got or {}).get(CONF_CA)
+            hello = None
+            if not err:
+                hello, err = await try_link(self.hass, url, token, ca)
             if err:
                 errors["base"] = err
             else:
@@ -253,8 +308,10 @@ class MantelFlow(ConfigFlow, domain=DOMAIN):
                 if entry.unique_id and instance and instance != entry.unique_id:
                     errors["base"] = "another_mantel"
                 else:
-                    return self.async_update_reload_and_abort(entry, data_updates={CONF_URL: url, CONF_TOKEN: token})
+                    return self.async_update_reload_and_abort(entry, data={**_without_ca(entry.data), CONF_URL: url,
+                                                                           CONF_TOKEN: token, **({CONF_CA: ca} if ca else {})})
         return self.async_show_form(step_id="reconfigure", data_schema=vol.Schema({
             vol.Required(CONF_URL, default=entry.data.get(CONF_URL, "")): str,
+            vol.Optional(CONF_CODE): str,
             vol.Optional(CONF_TOKEN): str,
         }), errors=errors, description_placeholders=URL_PLACEHOLDERS)

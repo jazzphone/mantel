@@ -20,7 +20,10 @@ this module is what it talks to. mantel_connect/protocol.py explains the pairing
 * **Identity.** A request on this listener that passes the check above is a *paired Connect* request; for
   ingress.py it is as if the Supervisor's Ingress proxy sent it (``is_ingress``): the signed-in HA user in
   ``X-Remote-User-*`` is believed, the 'ha' door's rules (``--ha-door-rules``) apply, the first-Owner
-  bootstrap and the people page work. The headers are believed from nothing else, ever; ingress.py is
+  bootstrap and the people page work.
+* **Mantel Link by address** (``LINK_PATHS``): ``/linked/pair`` and ``/linked/ws`` are answered here without a client
+  certificate too, each with its own proof (a pairing code, a Service credential). Mantel Link pins this listener's
+  CA (linked_pairing.py, protocol v3), so it reaches Mantel by its address with no name, DNS or proxy in between. The headers are believed from nothing else, ever; ingress.py is
   untouched in its rules (one added condition in ``is_ingress``).
 * **Audit.** Starting, completing, failing (known code, wrong proof; burned), renewing and revoking are
   rows in the audit log (kind ``config``); no code, key or certificate is ever written to a log or row.
@@ -510,6 +513,9 @@ class Connect:
 
 
 # -- the listener -----------------------------------------------------------------------------------------
+LINK_PATHS = ("/linked/pair", "/linked/ws")     # Mantel Link's, answered here without a client certificate
+
+
 def is_connect_request(request: web.Request) -> bool:
     mgr: Connect | None = request.app.get("connect")
     if mgr is None or mgr.ssl_ctx is None or request.transport is None:
@@ -580,6 +586,11 @@ async def middleware(request: web.Request, handler):
     if path == protocol.PAIR_PATH:
         return await pair_route(request)
     der = peer_der(request)
+    if path in LINK_PATHS and not der:
+        # Mantel Link straight to this listener, pinning Mantel's CA (linked_pairing v3): no client certificate, its
+        # own proof instead (the pairing code, then the Service credential); authz.resolve_door decides its door
+        request["link_direct"] = True
+        return await handler(request)
     row = mgr.authenticate(der, request.remote)
     if row is None:
         gone = mgr.revoked_cert(der)

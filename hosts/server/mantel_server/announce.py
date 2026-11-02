@@ -13,7 +13,9 @@ home network:
 * **The announcer** (``python -m mantel_server.announce --file /data/announce.json``; compose's ``announce``
   service, the same image, on the host's network) reads that file and answers mDNS for
   ``<name>._mantel._tcp.local.``: the port of Mantel's address, TXT ``instance``, ``url`` (Mantel's https
-  address, the one Mantel Link uses: its certificate's name), ``path`` and ``version``. It follows the file.
+  address, the one Mantel Link uses: its certificate's name), ``path`` and ``version``, and ``link`` when Mantel
+  Connect's listener runs (``https://<address>:8766``: Mantel Link links there, pinning Mantel's own certificate,
+  with no name, DNS or proxy in between; linked_pairing.py protocol v3). It follows the file.
 
 The instance id is Mantel Link's config entry's unique id, so a second announcement never makes a second entry.
 Needs the ``zeroconf`` library (Home Assistant's own); without it the announcer says so and stops.
@@ -35,16 +37,24 @@ TYPE = "_mantel._tcp.local."
 PATH = "/linked/ws"
 
 
-def announcement(instance: str, url: str, version: str = "") -> dict[str, str]:
-    """What the file holds (and the TXT record carries)."""
+def announcement(instance: str, url: str, version: str = "", link: str = "") -> dict[str, str]:
+    """What the file holds (and the TXT record carries). `link`: Mantel's link address (an https address with its
+    port), left out when there is none or it isn't one."""
     parts = urlsplit(url)
     if parts.scheme != "https" or not parts.hostname:
         raise ValueError("Mantel is announced only at an https address")
-    return {"instance": instance, "url": f"https://{parts.netloc}", "version": version}
+    body = {"instance": instance, "url": f"https://{parts.netloc}", "version": version}
+    try:
+        lp = urlsplit(link) if link else None
+        if lp is not None and lp.scheme == "https" and lp.hostname and lp.port:
+            body["link"] = f"https://{lp.netloc}"
+    except ValueError:
+        pass
+    return body
 
 
-def write(path: Path, instance: str, url: str, version: str = "") -> dict[str, str]:
-    body = announcement(instance, url, version)
+def write(path: Path, instance: str, url: str, version: str = "", link: str = "") -> dict[str, str]:
+    body = announcement(instance, url, version, link)
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
@@ -56,7 +66,8 @@ def write(path: Path, instance: str, url: str, version: str = "") -> dict[str, s
 def read(path: Path) -> dict[str, str] | None:
     try:
         body = json.loads(Path(path).read_text())
-        return announcement(str(body["instance"]), str(body["url"]), str(body.get("version") or ""))
+        return announcement(str(body["instance"]), str(body["url"]), str(body.get("version") or ""),
+                            str(body.get("link") or ""))
     except (OSError, ValueError, KeyError, TypeError):
         return None
 
@@ -67,7 +78,8 @@ def service_info(body: dict[str, str], addresses: list[str] | None = None, host:
     parts = urlsplit(body["url"])
     host = host or socket.gethostname().split(".")[0]
     name = f"Mantel {body['instance'][:6]}.{TYPE}"
-    props = {"instance": body["instance"], "url": body["url"], "path": PATH, "version": body.get("version") or ""}
+    props = {"instance": body["instance"], "url": body["url"], "path": PATH, "version": body.get("version") or "",
+             **({"link": body["link"]} if body.get("link") else {})}
     return ServiceInfo(TYPE, name, port=parts.port or 443, properties=props, server=f"{host}.local.",
                        parsed_addresses=addresses or local_addresses())
 
@@ -125,7 +137,7 @@ def avahi_service(body: dict[str, str]) -> str:
     port = urlsplit(body["url"]).port or 443
     txt = "".join(f"\n    <txt-record>{escape(k)}={escape(v)}</txt-record>"
                   for k, v in (("instance", body["instance"]), ("url", body["url"]), ("path", PATH),
-                               ("version", body.get("version") or "")))
+                               ("version", body.get("version") or ""), *((("link", body["link"]),) if body.get("link") else ())))
     return (f'<?xml version="1.0" standalone="no"?>\n<!DOCTYPE service-group SYSTEM "avahi-service.dtd">\n'
             f'<service-group>\n  <name>Mantel {escape(body["instance"][:6])}</name>\n  <service>\n'
             f'    <type>_mantel._tcp</type>\n    <port>{port}</port>{txt}\n  </service>\n</service-group>\n')

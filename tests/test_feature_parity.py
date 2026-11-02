@@ -66,7 +66,8 @@ async def test_the_feature_import_brings_each_added_feature_over():
         "an item keeps its stored fields only (no page decorations, no id-less item)"
     tv = got["live_tv"]
     assert tv == {"enabled": False, "tuner": "192.0.2.40", "guide_url": "http://192.0.2.41/xmltv.xml",
-                  "channels": ["4.1"], "names": {"4.1": "NBC"}, "quality": "720"}, "Mantel's own guide fetch stays off"
+                  "channels": ["4.1"], "names": {"4.1": "NBC"}, "quality": "720", "go2rtc_once": False}, \
+        "Mantel's own guide fetch stays off"
     assert got["linked"] == F.DEFAULTS["linked"] and got["sleep"] == F.DEFAULTS["sleep"]
     assert F.check_settings(got) == got
 
@@ -202,7 +203,7 @@ async def test_panel_get_lists_the_features_in_has_shape(make_env):
     await ws.send_json({"type": "read", "id": 3, "msg": {"type": "hk_frontend/panel/get"}})
     feats = (await GF.recv(ws))["result"]["features"]
     assert list(feats) == ["hk_music", "hk_alarm_pin", "hk_clean_areas", "hk_tv", "hk_energy", "hk_notify"]
-    assert feats["hk_tv"] == {"name": "Live TV", "kind": "live_tv", "installed": True,
+    assert feats["hk_tv"] == {"name": "Live TV", "kind": "live_tv", "installed": True, "own": True,
                               "entries": [{"entry_id": ITEM["live_tv"], "title": "Live TV", "state": "loaded"}]}
     assert feats["hk_clean_areas"]["entries"] == [{"entry_id": "mantel_clean_areas", "title": "Clean Areas",
                                                     "state": "loaded"}]
