@@ -113,6 +113,10 @@ SHOWS = {
     'saver-lay-slides': ({'show': 'both', 'music_slide': True, 'music_first': True, 'forecast_layout': 'big',
                           'layout': _layout({'kind': 'time', 'size': 35, 'pos': 'top', 'depth': 'behind'}, tl=['date'],
                                             bl=['weather_card', 'music_card'], br=['status_card', 'timers_card'])}, 'lay-slides'),
+    # BEHIND WITH ANY FACE (phase 13, phase 3): Photos, a layout's Neon time behind the drawn person -- the face itself, the
+    # subject's twin over it, never Time Behind's own figures
+    'saver-lay-tb': ({'show': 'photos', 'clock_style': 'neon', 'layout': _pieces({'kind': 'time', 'size': 30, 'pos': 'top', 'depth': 'behind'},
+                      tl=['date.inline'], tr=['status.inline'])}, 'lay-tb'),
     # THE GLANCE CATALOG (phase 13, phase 1b; the plan's rule 7: every piece in this check at least once, at every size):
     # wave A -- the sky's four gauges and two more on two lines, Countdown above the time, the alert and the rest of today's
     # events in the top corners, another city's time and the sun at the bottom
@@ -167,7 +171,7 @@ async def main():
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td), real_model=True)
         async with TestServer(app) as server:
-            await photos_for(server, cookie, ('saver-timebehind', 'saver-clockphotos', 'saver-clocksoft', 'saver-lay-slides'))
+            await photos_for(server, cookie, ('saver-timebehind', 'saver-clockphotos', 'saver-clocksoft', 'saver-lay-slides', 'saver-lay-tb'))
             if args.shots:
                 args.shots.mkdir(parents=True, exist_ok=True)
             proc = await asyncio.create_subprocess_exec(args.node, str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE,

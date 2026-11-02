@@ -415,3 +415,16 @@ take its new shape still moves to the nearest zone that can.
   screens (an iPhone's Now Playing: the art, then the song and its buttons on its edges) and at its own scale (a phone
   on its side). A layout keeps none of HK's corner cards. WebKit found a loop to fix first: a failed load of the
   pieces' files asked again on its own failure and spun the page.
+- 2026-11-02, phase 1b, wave B: Security, Doors and Windows, Garage, Climate, Lights On, Vacuum, Notifications and
+  Package (Home); Who's Home (People); Grid and EV (Energy); Up Next, Playing In and On This Day (Media); Camera and Last
+  Ring (Cameras), four Sonnet 5.5 agents in parallel. People and camera pieces are declared off until placed
+  (decision 7). On This Day needed the day a photo was taken: the server keeps it now (`taken_on`, migration 0030),
+  read from the EXIF at upload; existing photos can't be filled from their stored copies (the upload re-encodes them
+  without EXIF), so the day comes from a camera-style file name, or from sending the photo again. Notifications counts
+  from the moment the screensaver comes up; Up Next shares the music slide's read.
+- 2026-11-02, phase 3: the time. Behind with any face on photos (the layout's own face, the subject's twin over it,
+  fading and zooming with its photo, weighed on the face's own box; on a Mosaic or a photo with no cut-out the time
+  stands in front); Behind the Land with the same coverage rule (a phone on its side: the land would hide 78% of the
+  time, so it stands in front); Planted a face (decision 1), Classic where there is no meadow, Big Weather's planted
+  numerals following it; Darken the photos' own with a layout; Night Mode with a layout; the Day's Art under a layout;
+  Soft Photos blurred (the editor never wrote `clock_photo_soft`); Legibility over the Landscape too.

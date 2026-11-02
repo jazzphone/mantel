@@ -32,7 +32,8 @@ var C = window.hkSaverClock, U = C._, M = window.hkSettingsModel;
 print('=== the styles ===');
 ok('the styles: Today, the flagship, first; Analog Numbers among them, the HomeView-style three last (2026-10-30)',
    C.STYLES.length === 19 && C.STYLES[0][0] === 'today' && C.STYLES.some(function (s) { return s[0] === 'numbers'; }) && C.STYLES.map(function (s) { return s[0]; }).slice(-3).join() === 'liquid,giant,scattered', true);
-ok('...the same as HK Settings lists, in order', C.STYLES.map(function (s) { return s[0]; }).join(), M.CLOCK_STYLES.map(function (s) { return s[0]; }).join());
+// (but Planted, phase 13: a face the Landscape plants in its meadow -- hk-saverfaces.js plant(), not this file's)
+ok('...the same as HK Settings lists, in order', C.STYLES.map(function (s) { return s[0]; }).join(), M.CLOCK_STYLES.map(function (s) { return s[0]; }).filter(function (s) { return s !== 'planted'; }).join());
 ok('the generated backgrounds are HK Settings’ less Forecast and Photos',
    C.BGS.map(function (b) { return b[0]; }).join(), M.CLOCK_BGS.filter(function (b) { return b[0] !== 'forecast' && b[0] !== 'skyonly' && b[0] !== 'photos' && b[0] !== 'landscapes'; }).map(function (b) { return b[0]; }).join());
 

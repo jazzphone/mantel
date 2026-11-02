@@ -92,6 +92,7 @@
     '.hkf.day .art .pk{position:absolute;left:19.5%;top:68%;width:22cqmin;height:20cqmin;transform:translate(-50%,-50%)}',
     // (clear of the screensaver's corner where its words would meet them: hk-saver.js dayFit)
     '.hkf.day .wd{translate:0 var(--hk-day-push,0px)}',
+    '.hkf.day.artonly .wd,.hkf.day.artonly .dn{display:none}',
     '.hkf.day .dn{translate:0 var(--hk-day-push-dn,0px);scale:var(--hk-day-scale,1);transform-origin:50% 0}',
     // (a face nearly square -- beside the Side Pane -- has its date wider than the pumpkin's room at its left: the
     // pumpkin in the corner under it, right)
@@ -727,7 +728,10 @@
       }
     };
     // (groundOnly: the face's ground and nothing on it -- the Screensaver editor's layout puts its own things there)
-    var tick = opts.groundOnly ? function () {} : BUILD[kind](root, inn, x);
+    // (...the Day face's art is its ground too: drawn under a layout, its words left out -- phase 13, the Day's Art was
+    // blank under a layout)
+    var tick = opts.groundOnly && kind !== 'day' ? function () {} : BUILD[kind](root, inn, x);
+    if (opts.groundOnly && kind === 'day') root.classList.add('artonly');
     var paint = function () { if (!dead) { try { tick(new Date()); } catch (e) { console.warn('[hk-saverfaces]', kind, e && e.message); } } };
     x.paint = paint;
     paint();
