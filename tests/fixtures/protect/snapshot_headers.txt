@@ -1,0 +1,23 @@
+HTTP/2 200 
+server: nginx
+date: Mon, 02 Nov 2026 12:52:22 GMT
+content-type: image/jpeg
+content-length: 405376
+cross-origin-resource-policy: same-site
+origin-agent-cluster: ?1
+x-download-options: noopen
+x-permitted-cross-domain-policies: none
+vary: Origin
+ratelimit: "10-in-1sec"; r=9; t=1
+ratelimit-policy: "10-in-1sec"; q=10; w=1; pk=:AAAAAAAAAAAAAAAA:
+cache-control: private, max-age=3600
+etag: W/"62f80-EXAMPLEEXAMPLEEXAMPLEEXAMPLE"
+access-control-allow-credentials: false
+access-control-expose-headers: Content-Disposition, Content-Range, Filename, Location, Range, Upload-Length, Upload-Offset, X-Connection-Type, X-Csrf-Token, X-File-Id, X-Token-Expire-Time, X-Updated-Csrf-Token
+referrer-policy: no-referrer
+strict-transport-security: max-age=15552000; includeSubDomains
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-frame-options: SAMEORIGIN
+x-xss-protection: 1; mode=block
+x-robots-tag: noindex
