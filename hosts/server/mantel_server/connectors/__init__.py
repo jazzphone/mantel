@@ -118,7 +118,7 @@ class Ctx:
     closed: bool = False
     # live.py: each subscription kept is an entry of the app's registry (kind: its message type), so a revocation,
     # the policy tick and commands turned off reach it. An unsubscribe may carry ``recheck`` (async () -> bool:
-    # may it go on?) and ``needs_commands``. None (a bare Ctx in a test): rechecked through server.recheck_streams.
+    # may it go on?) and ``needs_commands``. None (a bare Ctx in a test): not rechecked.
     live: Any = None
     _entries: dict = field(default_factory=dict)     # key -> its live.Entry
 

@@ -740,10 +740,11 @@ async def ws_endpoint(request: web.Request) -> web.StreamResponse:
                 await ws.close(code=WSCloseCode.POLICY_VIOLATION, message=b"credential revoked")
                 return
 
-    watcher = asyncio.create_task(recheck())
-    # live.py: a revoked credential (service_accounts.revoke) ends the link at once, not at its own recheck
+    # live.py: a revoked credential (service_accounts.revoke) ends the link at once, and the policy tick looks at it
+    # again every minute. The socket's own timer is only for an app without a registry (a bare one in a test).
     from . import live as live_mod
     registry_live = live_mod.of(request.app)
+    watcher = asyncio.create_task(recheck()) if registry_live is None else None
 
     async def close(why: str) -> None:
         if why == live_mod.SHUTDOWN:
@@ -779,7 +780,8 @@ async def ws_endpoint(request: web.Request) -> web.StreamResponse:
         registry.clients.discard(client)
         if entry is not None:
             entry.forget()
-        watcher.cancel()
+        if watcher is not None:
+            watcher.cancel()
         for fn in list(linked.on_disconnect):
             try:
                 await _maybe_await(fn(client))

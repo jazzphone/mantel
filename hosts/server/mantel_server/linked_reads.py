@@ -16,9 +16,9 @@ linked to the Home Assistant user whose page asked (``ha_links``), so roles deci
   cannot read Mantel's own data as a person (their saved data, settings history, Mantel Photos, cameras).
 * An HA user linked to nobody is refused in words (``not_linked``), as a save is.
 * One page context per (link, HA user); all of its subscriptions end when the link closes. HK Frontend asks
-  again for what it had open when it reconnects. The policy tick re-checks each context as it does a page socket
-  (``recheck``, and live.py's walk): an HA user unlinked, a person disabled or the user linked to someone else ends
-  its subscriptions (at once when people_ha or ingress unlinks it); a role change applies to them at once.
+  again for what it had open when it reconnects. live.py's walk (a revocation, and the policy tick) re-checks
+  each context as it does a page socket: an HA user unlinked, a person disabled or the user linked to someone
+  else ends its subscriptions (at once when people_ha or ingress unlinks it); a role change applies to them at once.
 * At most ``MAX_CONTEXTS`` (32) HA users' contexts per link: past it a new one is refused (``too_many``).
 """
 from __future__ import annotations
@@ -105,21 +105,6 @@ class LinkedReads:
             await ctx.close()
         except Exception:  # noqa: BLE001 -- already gone
             log.debug("linked reads: a page context ended badly", exc_info=True)
-
-    async def recheck(self, authz: Any) -> list[Any]:
-        """The policy tick (server.tick_once): each context's person read again, as a page socket's session is.
-        Unlinked, disabled or linked to someone else: its subscriptions end. The contexts still open."""
-        live = []
-        for key, ctx in list(self.ctxs.items()):
-            if ctx.closed:
-                self.ctxs.pop(key, None)
-                continue
-            if authz is not None and hasattr(ctx.identity, "gate") and not authz.refresh(ctx.identity):
-                log.info("linked reads: ending a dashboard's reads whose Home Assistant user is no longer linked")
-                await self._end(key)
-                continue
-            live.append(ctx)
-        return live
 
     async def page(self, client: Any, msg: dict[str, Any]) -> Any:
         """One ``page`` frame: the read, unsubscribe or subscription, handed to Mantel's own handlers. Their
