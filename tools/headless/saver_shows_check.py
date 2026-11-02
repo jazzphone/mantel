@@ -142,7 +142,44 @@ SHOWS = {
                              row=['vacuum.circular', 'package.circular', 'notify.circular', 'climate.circular', 'upnext.rectangular'],
                              tl=['climate.inline', 'doors.inline'], bl=['playin.inline'], bottom=[],
                              line=['who.inline'])}, 'lay-pieces'),
+    # ...wave C: one entity picked (the suggested default, none being picked here), Any Sensor on a picked entity, the photo's title
+    'saver-lay-glance-c': ({'show': 'photos', 'photo_titles': True, 'layout': _pieces({'kind': 'time', 'size': 22, 'pos': 'top'},
+                            line=['title.inline'], row=['alarm.circular', 'trash.circular', 'pollen.circular', 'travel.circular',
+                                                        'appliance.rectangular', 'sensor.circular?entity=lock.back_door'],
+                            tl=['price.inline', 'travel.inline'], tr=['leak.inline', 'sensor.inline?entity=lock.front_door'],
+                            bl=['appliance.inline', 'alarm.inline'], br=['leak.card'])}, 'lay-pieces'),
 }
+
+
+# EVERY LOOK, EVERY SLIDE, AT EVERY SIZE (phase 13, phase 6; the plan's "Done": saver_shows_check over every Look x slide x
+# three sizes, phones not skipped): the editor's own Looks (hk-saver-editor.js LOOKS, applyLook + lookLayout -- so what is
+# checked is what the owner picks), each with every slide on. One screen a Look steps through its slides with the editor's
+# See a Slide (hkSaver.previewSlide); a second has the Forecast's Big layout, for the Forecast, Big slide
+def look_shows():
+    import subprocess
+    jsc = Path('/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc')
+    if not jsc.exists():
+        return {}
+    pre = ("var window = this; var HTMLElement = function () {}; var customElements = { get: function () { return null; }, define: function () {} };\n"
+           f"load({json.dumps(str(ROOT / 'web/hk/modules/hk-saverlayout.js'))});\n"
+           f"load({json.dumps(str(ROOT / 'web/hk/panels/hk-saver-editor.js'))});\n"
+           "var E = window.hkSaverEditor;\n"
+           "print(JSON.stringify(E.LOOKS.map(function (look) { var o = { show: 'photos', layout: E.lookLayout(look) }; E.applyLook(o, look, false); return [look.id, o]; })));\n")
+    with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False) as f:
+        f.write(pre)
+    try:
+        looks = json.loads(subprocess.run([str(jsc), f.name], capture_output=True, text=True, check=True, timeout=30).stdout)
+    finally:
+        os.unlink(f.name)
+    out = {}
+    for lid, o in looks:
+        slides = dict(o, extra_music=True, weather_slide=True, energy_slide=True, extra_forecast=True)
+        out[f'saver-look-{lid}'] = (slides, 'look-slides')
+        out[f'saver-look-{lid}-fb'] = (dict(slides, forecast_layout='big'), 'look-fb')
+    return out
+
+
+SHOWS.update(look_shows())
 
 
 async def photos_for(server, cookie, screens):
@@ -185,7 +222,8 @@ async def main():
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td), real_model=True)
         async with TestServer(app) as server:
-            await photos_for(server, cookie, ('saver-timebehind', 'saver-clockphotos', 'saver-clocksoft', 'saver-lay-slides', 'saver-lay-tb'))
+            await photos_for(server, cookie, ('saver-timebehind', 'saver-clockphotos', 'saver-clocksoft', 'saver-lay-slides', 'saver-lay-tb')
+                             + tuple(k for k in SHOWS if k.startswith('saver-look-photo')))
             if args.shots:
                 args.shots.mkdir(parents=True, exist_ok=True)
             proc = await asyncio.create_subprocess_exec(args.node, str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE,

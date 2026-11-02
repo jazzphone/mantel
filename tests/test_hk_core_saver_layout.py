@@ -251,3 +251,14 @@ def test_the_editors_looks_and_backgrounds(tmp_path):
     planted = {t["id"]: t for t in out["taps"]}["planted"]
     assert planted["face"] == "planted" and planted["show"] == "forecast"
     assert {t["id"]: t for t in out["taps"]}["bigweather"]["big"]["kind"] == "temp"
+
+
+def test_every_piece_is_in_the_webkit_check():
+    """The plan's rule 7 (docs/phase13/SCREENSAVER-UNIFIED.md): every piece appears in saver_shows_check at least once --
+    in a layout of its own screens, or a Look's (hk-saver-editor.js LOOKS), or as a first layout's widget."""
+    import re
+    check = (ROOT / "tools/headless/saver_shows_check.py").read_text()
+    src = check + (ROOT / "web/hk/panels/hk-saver-editor.js").read_text()
+    seen = set(re.findall(r"'([a-z]+)\.(?:inline|circular|rectangular|card|band)", src))
+    seen |= {p for v1, (p, _, _) in SL.V1.items() if re.search(r"'%s'" % v1, check)}
+    assert not set(SL.PIECES) - seen, sorted(set(SL.PIECES) - seen)

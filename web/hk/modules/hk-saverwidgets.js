@@ -169,6 +169,10 @@
     '.hksw .cd.ti{padding:calc(var(--u) * .4)}',
     '.hksw .cd.ti .ct + div{margin-top:calc(var(--u) * .6)}',
     '.hksw .cd > div{overflow:hidden;text-overflow:ellipsis}',
+    // (a big number never needs an ellipsis: its row draws the round figures' overshoot below the baseline, which a
+    // line-height of 1 leaves outside the box -- the owner: "the temp is being clipped")
+    '.hksw .cd > .big,.hksw .cd > .cw{overflow:visible}',
+    '.hksw.k-card.b-none{overflow:visible}',
     '.hksw .cd .big{font-size:calc(var(--u) * 8.5);font-weight:700;line-height:1;letter-spacing:-.01em;margin-left:-.05em}',
     // (the Time's card: large figures, thin as the lock screen's time, and its date under them; at 150 % the old corner
     // clock's 150 px on an 800 px tablet -- the size a screen with no saved layout gets, hk-saver.js autoLayout)

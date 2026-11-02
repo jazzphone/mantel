@@ -9,7 +9,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     const runs = Object.entries(input.shows).filter(([screen]) => screen.includes(input.only || '')).flatMap(([screen, want]) => want === 'tb' ? [[screen, want, 1180, 820], [screen, want, 390, 844]]
       : want === 'day-ink' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]]
       // (a layout also on a phone on its side, 844 x 390: the least height of all -- the owner, 2026-11-02, "What about landscape phone")
-      : /^lay-/.test(want) ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844], [screen, want, 844, 390]]
+      : /^lay-/.test(want) || want === 'look-slides' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844], [screen, want, 844, 390]]
+      : want === 'look-fb' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]]
       : want === 'big-corners' || want === 'planted' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]] : [[screen, want, 1180, 820]])
       // (--shard K/N: every N-th run from the K-th; tools/ci.py runs the N parts side by side)
       .filter((_, i) => !input.shard || i % input.shard[1] === input.shard[0] - 1);
@@ -185,6 +186,70 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         }
         say(!errors.length, tag + ': no page errors', errors.slice(0, 3));
         if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '.png' });
+        await ctx.close();
+        continue;
+      }
+      if (want === 'look-slides' || want === 'look-fb') {
+        const tag = screen + ' ' + W + 'x' + H;
+        await page.waitForTimeout(3000);
+        // what is on the screen now: the layout's pieces (shown, held, boxes), the big element's box, the slide corner's parts
+        const look = () => page.evaluate(() => {
+          const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
+          const host = deep(document).find((e) => e.tagName === 'HK-SCREENSAVER'), sr = host && host.shadowRoot;
+          if (!sr) return null;
+          const box = (r) => ({ l: r.left, t: r.top, r: r.right, b: r.bottom });
+          const ink = (e) => { const q = []; const walk = (n) => { if (n.nodeType === 3) { if (n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); const r = rg.getBoundingClientRect(); if (r.width > 0) q.push(r); } return; }
+            if (n.nodeType !== 1 || n.tagName === 'STYLE') return; if (/^(svg|img)$/i.test(n.tagName)) { const r = n.getBoundingClientRect(); if (r.width > 0) q.push(r); return; } n.childNodes.forEach(walk); }; walk(e);
+            return q.length ? { l: Math.min(...q.map((r) => r.left)), t: Math.min(...q.map((r) => r.top)), r: Math.max(...q.map((r) => r.right)), b: Math.max(...q.map((r) => r.bottom)) } : null; };
+          const lay = sr.querySelector('.lay'), lo = lay ? Number(getComputedStyle(lay).opacity) : 0;
+          const pieces = lay ? [...lay.querySelectorAll('.hksw')].filter((e) => getComputedStyle(e).display !== 'none' && getComputedStyle(e).visibility !== 'hidden').map((e) => ({ id: (e.className.match(/\bp-(\S+)/) || [])[1] + '.' + (e.className.match(/\bk-(\S+)/) || [])[1], ink: ink(e) })).filter((p) => p.ink) : [];
+          const info = window.hkSaver.layoutInfo && window.hkSaver.layoutInfo(), pb = info && info.plan && info.plan.big;
+          const corner = {}; ['time', 'date', 'weather', 'status'].forEach((k) => { const e = sr.querySelector('.scn .hksw.p-' + k); corner[k] = e && getComputedStyle(e).display !== 'none' && host.hasAttribute('scorner') ? ink(e) : null; });
+          const words = [...sr.querySelectorAll('.mu.top .mcol > *, .mu .mcol > *')].filter((n) => n.textContent.trim() && n.getBoundingClientRect().height > 0 && Number(getComputedStyle(sr.querySelector('.mu')).opacity) > 0.5).map((n) => box(n.getBoundingClientRect()));
+          const oldClock = [...sr.querySelectorAll('.info > hk-clock-card')].some((e) => getComputedStyle(e).display !== 'none' && Number(getComputedStyle(e).opacity) > 0.05);
+          const fcb = sr.querySelector('.fc .hkf'), bigWx = !!(host.hasAttribute('fcbig') && fcb && fcb.getBoundingClientRect().width > 0);
+          const fcWords = fcb ? [...fcb.querySelectorAll('*')].filter((e) => !e.children.length && e.textContent.trim() && e.getBoundingClientRect().width > 0).map((e) => box(e.getBoundingClientRect())) : [];
+          return { oldClock, bigWx, fcWords, lay: host.hasAttribute('lay'), layShown: lo > 0.5 && !host.hasAttribute('lyoff'), off: host.hasAttribute('lyoff'), scorner: host.hasAttribute('scorner'), pieces, big: pb ? { l: pb.x, t: pb.y, r: pb.x + pb.w, b: pb.y + pb.h } : null, corner, words, W: innerWidth, H: innerHeight };
+        });
+        const inScr = (b) => !!b && b.l >= -1 && b.t >= -1 && b.r <= W + 1 && b.b <= H + 1;
+        const meet = (a, b) => !!(a && b && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1);
+        const SHOWS_OF = { music: ['music'], forecast: ['weather'], forecast_big: ['weather', 'time'], weather: ['weather', 'readings'], energy: ['energy'] };
+        const slides = want === 'look-fb' ? ['forecast'] : [null, 'music', 'forecast', 'weather', 'energy'];
+        for (const sl of slides) {
+          const shown = await page.evaluate((sl) => window.hkSaver.previewSlide ? window.hkSaver.previewSlide(sl) : false, sl);
+          await page.waitForTimeout(sl ? 2600 : 600);
+          const m = await look();
+          const t2 = tag + (sl ? ' under ' + (want === 'look-fb' ? 'forecast, big' : sl) : '');
+          if (!m) { say(false, t2 + ': the screensaver is up', m); continue; }
+          if (!sl) {
+            // THE LOOK ITSELF: every piece on the screen, none on the big element, none on another (the owner: "Things need to
+            // line up correctly and look well placed")
+            say(m.lay && m.layShown, t2 + ': the Look draws through its layout', [m.lay, m.layShown]);
+            say(m.pieces.every((p) => inScr(p.ink)), t2 + ': ...every piece inside the screen', m.pieces.filter((p) => !inScr(p.ink)));
+            say(!m.big || m.pieces.every((p) => !meet(p.ink, m.big)), t2 + ': ...none on the big element', [m.pieces.filter((p) => meet(p.ink, m.big)).map((p) => [p.id, p.ink]), m.big]);
+            let clash = null;
+            for (let i = 0; i < m.pieces.length; i++) for (let j = i + 1; j < m.pieces.length; j++) if (meet(m.pieces[i].ink, m.pieces[j].ink)) clash = [m.pieces[i].id, m.pieces[i].ink, m.pieces[j].id, m.pieces[j].ink];
+            say(!clash, t2 + ': ...none on another', clash);
+            if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '.png' });
+            continue;
+          }
+          // A SLIDE: the layout steps aside; the slide corner adds what the slide lacks, nothing it has
+          if (!shown) { say(true, t2 + ': (not shown here: ' + sl + ' has nothing to show in this house)', shown); continue; }
+          const key = want === 'look-fb' ? 'forecast_big' : sl;
+          const want4 = ['time', 'date', 'weather', 'status'].filter((k) => SHOWS_OF[key].indexOf(k) < 0);
+          say(m.scorner && !m.layShown, t2 + ': the layout steps aside, the slide corner is up', [m.scorner, m.layShown]);
+          say(['time', 'date', 'weather', 'status'].every((k) => !!m.corner[k] === (want4.indexOf(k) >= 0)), t2 + ': ...its corner adds ' + want4.join(', ') + ' and nothing else',
+              Object.keys(m.corner).filter((k) => m.corner[k]));
+          say(want4.every((k) => !m.corner[k] || inScr(m.corner[k])), t2 + ': ...inside the screen', m.corner);
+          // (2026-11-02: the old corner clock came back over the forecast's corner on a clock; Big drew the Classic forecast)
+          say(!m.oldClock, t2 + ': ...and no old corner clock beside it', m.oldClock);
+          if (want === 'look-fb') say(m.bigWx, t2 + ': ...Big Weather is drawn', m.bigWx);
+          if (want === 'look-fb') say(!want4.some((k) => m.fcWords.some((w) => meet(m.corner[k], w))), t2 + ': ...none of the corner on its words', [m.corner, m.fcWords.filter((w) => want4.some((k) => meet(m.corner[k], w)))]);
+          if (sl === 'music') say(!want4.some((k) => m.words.some((w) => meet(m.corner[k], w))), t2 + ': ...none of it on the song\u2019s words', [m.corner, m.words]);
+          if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '-' + (want === 'look-fb' ? 'forecast-big' : sl) + '.png' });
+        }
+        await page.evaluate(() => window.hkSaver.previewSlide && window.hkSaver.previewSlide(null));
+        say(!errors.length, tag + ': no page errors', errors.slice(0, 3));
         await ctx.close();
         continue;
       }

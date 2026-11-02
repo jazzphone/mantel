@@ -292,6 +292,10 @@ await pause(12000);"""
 SAVER_EDITOR_TIME = SAVER_EDITOR + """
 ed.shadowRoot.querySelector('.ov .big').click();
 await pause(2500);"""
+# ...and a piece tapped (phase 13): its page, its shapes drawn, its Size, Backdrop, Color and Show
+SAVER_EDITOR_PIECE = SAVER_EDITOR + """
+[...ed.shadowRoot.querySelectorAll('.ov .w')].find((w) => /weather|Weather/.test(w.getAttribute('aria-label') || '')).click();
+await pause(2500);"""
 
 # name -> (path, viewport, signed in, script to run before the shot)
 # The path is one of Mantel's own pages: a screen (SCREEN's, or GRID_SCREEN's, which lays Home out as a Home Grid),
@@ -319,6 +323,7 @@ SHOTS = {
                              script(GRID_EDITOR + GRID_PREVIEW + GRID_BACKGROUND)),
     "screensaver-editor": (f"/settings#/screens/{SCREEN}/screensaver/editor", DESKTOP, True, script(SAVER_EDITOR)),
     "screensaver-editor-time": (f"/settings#/screens/{SCREEN}/screensaver/editor", DESKTOP, True, script(SAVER_EDITOR_TIME)),
+    "screensaver-editor-piece": (f"/settings#/screens/{SCREEN}/screensaver/editor", DESKTOP, True, script(SAVER_EDITOR_PIECE)),
     "settings-me": ("/settings#/mantel/me", DESKTOP, True, None),
     "settings-people": ("/settings#/mantel/people", DESKTOP, True, None),
     "settings-wall-tablet": ("/settings#/house/tablets/kitchen", DESKTOP, True, SCROLL_TO_SETUP),

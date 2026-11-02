@@ -1244,7 +1244,14 @@
     '.scn .scs{position:absolute;top:var(--m);display:flex;flex-direction:column;gap:var(--g)}',
     '.scn .scs.tl{left:var(--m);align-items:flex-start}.scn .scs.tr{right:var(--m);align-items:flex-end}',
     '.scn .scs > *{position:relative}',
+    // (Big Weather as a slide tells the weather and the time on its own top line, on its 7.3-unit margin: what the corner
+    // adds stands under them, on the same margin, where its own screen puts Home Status)
+    ':host([fcbig][fcslide]:not([pane])) .scn .scs{top:13.1vmin}',
+    ':host([fcbig][fcslide]:not([pane])) .scn .scs.tl{left:7.3vmin}:host([fcbig][fcslide]:not([pane])) .scn .scs.tr{right:7.3vmin}',
     ':host([scorner]) .info > *:not([muonly]){opacity:0!important;transition:opacity ' + CROSSFADE_MS + 'ms ease}',
+    // (with a layout the slide corner tells the time: the old corner clock kept for under the music never comes back
+    // over it -- the forecast over a clock drew both, 2026-11-02)
+    ':host([lay][scorner]) .info > [muonly]{display:none!important}',
     // THE LAYOUT (2026-11-01, the Screensaver editor's): its big element and widgets in .lay, under the corner cards;
     // the cards placed where its plan puts them (layoutDraw), whatever the Show's own rules said -- shown or not by
     // the plan alone ([lyhide]), and gone with the rest under a slide that covers them
@@ -2826,7 +2833,9 @@
   // clock (Behind the Clock: Forecast keeps the forecast's own details)
   var bigCtl = null, bigRun = 0, bigFor = '';
   // (with a layout too, where the forecast is a slide: layoutCfg made it Classic where the forecast is the background)
-  function bigWanted() { return !!(cfg && cfg.forecast_layout === 'big' && cfg.show !== 'clock' && !FACE_SHOWS[cfg.show]); }
+  // (a layout: the forecast as a slide over any Look takes the Slides section's Classic / Big -- layoutCfg made it
+  // Classic where the forecast is the background)
+  function bigWanted() { return !!(cfg && cfg.forecast_layout === 'big' && (cfg.layout || (cfg.show !== 'clock' && !FACE_SHOWS[cfg.show]))); }
   function bigWeather() {
     if (!root || !host) return;
     var want = bigWanted();
@@ -4172,6 +4181,7 @@
     if (!on || !root || !host || mode === 'forecast') return false;
     var gen = mode === 'clock';
     buildForecast();
+    bigWeather();
     if (exOutT) { clearTimeout(exOutT); exOutT = null; }
     host.removeAttribute('fcout');
     fcShowing = true;

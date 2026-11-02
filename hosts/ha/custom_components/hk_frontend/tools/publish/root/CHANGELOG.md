@@ -5,6 +5,11 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+- **Screensaver, one screensaver:** the editor's starters are **Looks** that keep what you placed (**Start Over from This Look** replaces it all); the right side is always **Look**, **Info**, **Slides** and **Timing**. Widgets and cards are **pieces** in a few shapes (Inline, Circular, Rectangular, Card, Band), Size 60 to 200%, one size for the row, one **Ink** for the screen (Auto: black or white from the background) and **Color Accents**; any piece can **Show When** an entity is, is not, is above or is below a value. A fact is drawn once.
+- **Screensaver, 35 more pieces:** Countdown, World Clock, Rain Soon, Weather Alert, UV, Wind, Pressure, Feels Like, Moon, Sun, Security, Doors and Windows, Garage, Climate, Lights On, Vacuum, Notifications, Package, Who's Home, Grid, EV, Up Next, Playing In, On This Day, Camera, Last Ring, Phone Alarm, Trash Day, Pollen, Appliances, Leak and Smoke, Travel Time, Price and Any Sensor (people and cameras off until placed).
+- **Screensaver, slides:** one slide corner adds only the time, date, weather and Home Status a slide lacks; slides over every background; the music slide laid out for a phone and an upright iPad.
+- **Screensaver, the time:** behind the photo's subject with any face, behind the land where it leaves the time readable; **Planted** a face; Night Mode, the Day's Art and Soft Photos with a layout; a screen with no saved layout draws through the same path (Big Weather and Month keep their own faces).
+- **Screensaver:** the Day face's name sits on its numeral; Glance's weather stands under its clock, on its edge.
 - **Doorbell, talking:** the talk session opens with the sheet, so a press is live at once; the visitor stays heard, lowered, while you talk; the button says Connecting, Talking, who else is talking, Can't Reach the Doorbell or Needs HTTPS (on plain http it used to vanish); one person talks at a time, and everyone else's button says who.
 - **HK Settings, camera pop-ups:** a note, "Talking at the door needs HTTPS", while this screen (or, in Mantel, any wall tablet) isn't a secure page, since a browser gives the microphone only to one. The host can say where to look (`notes.secure`).
 
