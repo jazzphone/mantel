@@ -5620,6 +5620,12 @@
         if (P && P.dim) P.dim(v);
       } catch (e) { /* not ours */ }
     }
+    // the glass's Dim now (a screen's own, else All Screens'), where a pane taking its own Dim starts
+    glassDimNow(path) {
+      var b = path ? (this.data.boards || {})[path] : null, look = ((this.data.settings || {}).look) || {};
+      var v = b && b.bright_dim != null && b.bright_dim !== '' ? b.bright_dim : look.bright_dim;
+      return typeof v === 'number' ? v : 0;
+    }
     paneNow(path) {
       var b = path ? (this.data.boards || {})[path] : null;
       return M.paneOf((this.data.settings || {}).side_pane, b);
@@ -5683,16 +5689,20 @@
       // LOOK: SECTION HEADINGS (2026-10-30), a small title over each section
       // but the Clock and the Weather -- and THE DOORBELL (one group since
       // 2026-10-30)
-      c.appendChild(K.group({ header: 'Look', footer: 'Dim: a shade over the pane’s glass, for its words over a light background. ' +
+      // DIM: Same as the Glass (2026-11-01, the default: Bright Glass's Dim), else the pane's own (a slider,
+      // 2026-11-01, the owner: "why isn't this a slider?" -- the preview's pane follows it as it moves, and it is
+      // saved once, let go)
+      var dimLinked = p.dim === M.PANE_DIM_GLASS || p.dim == null;
+      var dimRows = [K.toggle({ label: 'Dim Same as the Glass', sk: 'pane:dim_glass', sub: whose('dim') || 'Bright Glass’s Dim, under Appearance', on: dimLinked,
+                                onChange: function (on) { put('dim', on ? M.PANE_DIM_GLASS : self.glassDimNow(path)); } })];
+      if (!dimLinked) dimRows.push(K.slider({ label: 'Dim', sk: 'pane:dim', value: M.paneDim(p.dim), min: 0, max: M.PANE_DIM_MAX, step: 5, unit: '%',
+                                              onInput: function (v) { self.pvPaneDim(v); }, onChange: function (v) { put('dim', v); } }));
+      c.appendChild(K.group({ header: 'Look', footer: 'Dim: a shade over the pane’s glass, for its words over a light background — the same as Bright Glass’s Dim, or its own. ' +
           'Section Headings: a small title, with its icon, over each section — not over the Clock or the Weather, which say what they are. ' +
-          'The doorbell’s camera is live, for as long as its pop-up shows.' }, [
-        // (a slider, 2026-11-01, the owner: "why isn't this a slider?" -- the preview's pane follows it as it moves,
-        // and it is saved once, let go)
-        K.slider({ label: 'Dim', sk: 'pane:dim', sub: whose('dim'), value: M.paneDim(p.dim), min: 0, max: M.PANE_DIM_MAX, step: 5, unit: '%',
-                   onInput: function (v) { self.pvPaneDim(v); }, onChange: function (v) { put('dim', v); } }),
+          'The doorbell’s camera is live, for as long as its pop-up shows.' }, dimRows.concat([
         K.toggle({ label: 'Section Headings', sk: 'pane:headings', sub: whose('headings'), on: p.headings !== false, onChange: function (on) { put('headings', on); } }),
         K.toggle({ label: 'Doorbell', sk: 'pane:doorbell', sub: whose('doorbell') || 'Its camera at the top of the pane while it rings.',
-                   on: p.doorbell !== false, onChange: function (on) { put('doorbell', on); } })]));
+                   on: p.doorbell !== false, onChange: function (on) { put('doorbell', on); } })])));
       // A SCREEN'S ONE RESET: every group it owns back to All Screens'
       if (path && p.own.length) {
         c.appendChild(K.group({ footer: 'Every setting above follows All Screens → Side Pane again.' }, [
@@ -6121,6 +6131,7 @@
         tint: { on: !!look.frost_tint, onChange: function (on) { self.setH({ 'look.frost_tint': on }); } },
         blur: { value: look.blur, onChange: function (v) { self.setH({ 'look.blur': v }); } },
         bright: { value: typeof look.bright === 'number' ? look.bright : 50, onChange: function (v) { self.setH({ 'look.bright': v }); } },
+        brightDim: { value: typeof look.bright_dim === 'number' ? look.bright_dim : 0, onChange: function (v) { self.setH({ 'look.bright_dim': v }); } },
         brightPages: { value: look.bright_pages === 'all' ? 'all' : 'home', onChange: function (v) { self.setH({ 'look.bright_pages': v }); } },
         dark: { value: typeof look.tint === 'number' ? look.tint : 50, onChange: function (v) { self.setH({ 'look.tint': v }); } },
         well: { value: look.well || 'dark', onChange: function (v) { self.setH({ 'look.well': v }); } }
@@ -6263,6 +6274,11 @@
       var wOwn = b.well === 'dark' || b.well === 'light', wHouse = look.well || 'dark';
       app = app.concat(this.glassRows(gl.effective, {
         frost: amt('frost'), blur: amt('blur'), dark: amt('tint'), bright: amt('bright'),
+        brightDim: (function () {
+          var own = b.bright_dim != null && b.bright_dim !== '', house = typeof look.bright_dim === 'number' ? look.bright_dim : 0;
+          return { value: own ? Number(b.bright_dim) : house, own: own, house: house,
+                   onChange: function (v) { set({ bright_dim: v }); }, reset: function () { set({ bright_dim: null }); } };
+        })(),
         brightPages: (function () {
           var own = b.bright_pages === 'home' || b.bright_pages === 'all', house = look.bright_pages === 'all' ? 'all' : 'home';
           return { value: own ? b.bright_pages : house, own: own, house: house,
@@ -6429,8 +6445,16 @@
       if (uses.blur) amount('blur', 'Blur');
       // BRIGHT GLASS's Strength (2026-10-30), held back by itself over a light
       // background (hkSettings.brightCap)
-      // ("Brightness" since 2026-11-01: what the owner calls it)
-      if (uses.bright && v.bright) amount('bright', 'Brightness');
+      if (uses.bright && v.bright) amount('bright', 'Strength');
+      // ...and its DIM (2026-11-01, the owner: like the Side Pane's): a shade over the cards, the chips and the bars,
+      // 0-60 %; the Side Pane's follows it unless it has its own
+      if (uses.bright && v.brightDim) {
+        var bd = v.brightDim;
+        rows.push(K.slider({ label: 'Dim', sk: skp + 'bright_dim', value: bd.value, min: 0, max: M.BRIGHT_DIM_MAX, step: 5, unit: '%',
+          sub: bd.house == null ? null : (bd.own ? 'Just This Screen' : 'Same as All Screens'),
+          onInput: function (n) { self.pvAmount('bright_dim', n); }, onChange: bd.onChange }));
+        if (bd.own) rows.push(K.button({ label: 'Reset to All Screens (' + bd.house + '%)', sk: skp + 'bright_dim:reset', onClick: bd.reset }));
+      }
       // ...and where it shows (2026-10-30): Home Only (and the Pages screen,
       // 2026-10-31), the other pages in its Blur, or Every Page
       if (uses.bright && v.brightPages) {

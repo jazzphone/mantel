@@ -230,6 +230,12 @@ def _amount(v: Any) -> int:
     return int(round(v))
 
 
+def _bright_dim(v: Any) -> int:
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v <= S.BRIGHT_DIM_MAX:
+        raise Invalid("bright_dim")
+    return int(round(v))
+
+
 def _saver_options(v: Any) -> dict[str, Any]:
     got = S.saver_options(v)
     if got is None:
@@ -728,6 +734,7 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "look.blur": _amount,
     "look.tint": _amount,
     "look.bright": _amount,
+    "look.bright_dim": _bright_dim,
     "look.well": _choice(S.WELLS),
     "look.tile_style": _choice(S.TILE_STYLES),
     "look.bright_pages": _choice(S.BRIGHT_PAGES),
@@ -1204,6 +1211,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "blur": _amount_or_none,
     "tint": _amount_or_none,
     "bright": _amount_or_none,
+    "bright_dim": lambda v: None if v is None else _bright_dim(v),
     "well": _choice(S.WELLS, none=True),
     "tile_style": _choice(S.TILE_STYLES, none=True),
     "bright_pages": _choice(S.BRIGHT_PAGES, none=True),

@@ -186,7 +186,7 @@
     // live cameras rest while another window has the focus (hk-cameras.js
     // CAM_FOCUS) -- behind the screensaver they always rest
     cameras: { order: [], live: true, focus_pause: true },
-    look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, bright: 50, well: 'dark', frost_tint: false, tile_style: 'auto', bright_pages: 'home', details: true, browse_view: 'music-browse', sky_switch: null,
+    look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, bright: 50, bright_dim: 0, well: 'dark', frost_tint: false, tile_style: 'auto', bright_pages: 'home', details: true, browse_view: 'music-browse', sky_switch: null,
             photos: 'media-source://media_source/local/photos', page_pills: {}, page_accents: {},
             // FLAT COLORS (settings.py flat_colors; resolveFlatColors)
             flat_colors: { accent: 'auto', off_tint: 'auto', pages: 'accent' }, flat_page_colors: {},
@@ -223,7 +223,7 @@
     side_pane: { side: 'right', width: 'standard',
                  dashboard: { show: 'off', sections: [{ kind: 'weather' }, { kind: 'calendar' }, { kind: 'now_playing', when: 'active' }] },
                  saver: { show: 'off', sections: [{ kind: 'clock', size: 'tiny' }, { kind: 'calendar' }, { kind: 'now_playing', size: 'less', when: 'active' }] },
-                 doorbell: true, headings: true, dim: 0 },
+                 doorbell: true, headings: true, dim: 'glass' },
     // Browse Music (HK Settings -> Features -> Music). The Discover rows arrive as
     // the queries themselves (settings.py discover_rows); these are its
     // default five.
@@ -547,23 +547,16 @@
   // the wash and the lift together. CAPPED: never past where white text on
   // the plate falls under 4.5:1 over the light stop (brightCap) -- so on a
   // light background the glass holds back by itself.
-  // ...AND PAST IT (2026-11-01, the owner: a slider for "how bright" -- over
-  // the Wallpapers the cap stopped Strength near 57 %, the slider's top half
-  // did nothing): the light that lands where no text sits goes on growing
-  // with the slider as real glass catches more of it -- the sheen at the top
-  // left (BRIGHT.wash[0]), the rim, the glow, the colors coming through
-  // (saturate) -- while the wash under the words stays at the cap. Under 50
-  // they stay as designed.
+  // DIM (look.bright_dim / a screen's bright_dim, 0-BRIGHT_DIM_MAX %, 0 as
+  // designed; 2026-11-01, the owner: like the Side Pane's Dim): a shade over
+  // the glass, under the words -- the cards, the chips, the floating plates,
+  // the bars (--hk-bright-shade: the tab bar's and the side menu's own
+  // plates), and the Side Pane's when its Dim is Same as the Glass
+  // (--hk-bright-dim). Only darker, so the cap's 4.5:1 only grows.
   var BRIGHT = {
     wash: [0.24, 0.09, 0.05], chip: [0.30, 0.12, 0.07], lift: 0.08, mix: 0.07,
     rim: 'inset 0 0 0 1.5px rgba(255,255,255,0.22), inset 0 1.5px 0 rgba(255,255,255,0.30)',
     glow: 'inset 0 0 24px rgba(255,255,255,0.06)', shadow: '0 6px 20px rgba(40,0,60,0.10)',
-    // past 50, at 100: the rim's two lines, the glow and saturate() at these
-    // (brightLight), the sheen the slider's own
-    rimTo: [0.40, 0.55], glowTo: 0.16, satTo: 1.6,
-    // the Side Pane's plate (hk-sidepane.js, --hk-pane-plate): the bar's,
-    // its top the sheen, its foot the wash under the words
-    pane: [0.30, 0.14],
     well: 'rgba(255,255,255,0.16)', glyph: 'rgba(255,255,255,0.94)', textShadow: '0 1px 2px rgba(0,0,0,0.18)',
     // a sheet or a pop-up: a deep tint under a white sheen, over its heavier
     // blur held down a little, the rim; a control set into it .14. It was
@@ -577,6 +570,7 @@
     // a bar (the tab bar's, the Edit mode bar)
     bar: 'linear-gradient(150deg, rgba(255,255,255,0.30), rgba(255,255,255,0.14))', barShadow: '0 10px 30px rgba(0,0,0,0.18)'
   };
+  var BRIGHT_DIM_MAX = 60;
   function isBright(g) { return g === 'bright' || g === 'bright_pre' || g === 'bright_each'; }
   function rgbOf(s) {
     s = String(s || '').trim();
@@ -622,58 +616,56 @@
     return st.every(function (x) { return rgbOf(x); }) ? st : null;
   }
   function rgba(c, a) { return 'rgba(' + c.map(function (v) { return Math.round(v); }).join(', ') + ', ' + a + ')'; }
-  // `kl`: the sheen's own (the slider's, past the cap), else `k`
-  function brightWash(alphas, k, light, kl) {
-    var w = function (i) { return 'rgba(255, 255, 255, ' + +(alphas[i] * (i === 0 && kl !== undefined ? kl : k)).toFixed(3) + ')'; };
+  function brightWash(alphas, k, light) {
+    var w = function (i) { return 'rgba(255, 255, 255, ' + +(alphas[i] * k).toFixed(3) + ')'; };
     var mix = light ? rgba(light, BRIGHT.mix) : 'rgba(255, 255, 255, 0)';
     return 'linear-gradient(' + mix + ', ' + mix + '), linear-gradient(160deg, ' + w(0) + ' 0%, ' + w(1) + ' 45%, ' + w(2) + ')';
   }
   // the look's variables at Strength `n` (capped by `stops`, the sky's), in
-  // a mode ('each': every plate blurs itself)
-  // the light where no words sit, at Strength `n`: e 0 at 50 and under, 1 at 100
-  function brightLight(n) {
-    // (alphas as BRIGHT writes them, 0.30 not 0.3: at 50 the very strings it had)
-    var e = Math.max(0, Math.min(1, (n - 50) / 50)), at = function (a, b) { return (a + (b - a) * e).toFixed(2); };
-    var edge = 'rgba(255,255,255,' + at(0.22, BRIGHT.rimTo[0]) + ')';
-    return {
-      edge: edge, rim: 'inset 0 0 0 1.5px ' + edge + ', inset 0 1.5px 0 rgba(255,255,255,' + at(0.30, BRIGHT.rimTo[1]) + ')',
-      glow: 'inset 0 0 24px rgba(255,255,255,' + at(0.06, BRIGHT.glowTo) + ')', sat: +at(1.3, BRIGHT.satTo)
-    };
-  }
-  function brightLook(n, stops, each) {
-    // kl: the sheen -- the capped wash, and past 50 what the cap held back
-    var light = lightStop(stops), held = Math.min(n, brightCap(stops)), k = held / 50, L = brightLight(n);
-    var kl = k + Math.max(0, n - Math.max(50, held)) / 50;
-    var filter = 'blur(4px) saturate(' + L.sat + ') brightness(' + +(1 + BRIGHT.lift * k).toFixed(3) + ')';
+  // a mode ('each': every plate blurs itself), at Dim `dim` (%)
+  function brightLook(n, stops, each, dim) {
+    var light = lightStop(stops), k = Math.min(n, brightCap(stops)) / 50;
+    var filter = 'blur(4px) saturate(1.3) brightness(' + +(1 + BRIGHT.lift * k).toFixed(3) + ')';
     // --sub: the light stop 30 % into white .78 (color-mix's arithmetic,
     // worked out here: a wall tablet's WebView may not have color-mix)
     var l = light || [255, 255, 255], sa = 0.3 + 0.7 * 0.78;
     var sub = rgba(l.map(function (v) { return (0.3 * v + 0.7 * 0.78 * 255) / sa; }), +sa.toFixed(3));
-    var out = { '--hk-glass-plate': brightWash(BRIGHT.wash, k, light, kl), '--hk-chip-plate': brightWash(BRIGHT.chip, k, light, kl),
+    var out = { '--hk-glass-plate': brightWash(BRIGHT.wash, k, light), '--hk-chip-plate': brightWash(BRIGHT.chip, k, light),
                 '--hk-chip-backdrop': 'none', '--hk-blur-filter': filter,
                 '--hk-look-edge': '1px solid transparent', '--hk-look-edge-color': 'transparent',
-                '--hk-look-shadow': L.rim + ', ' + L.glow + ', ' + BRIGHT.shadow,
+                '--hk-look-shadow': BRIGHT.rim + ', ' + BRIGHT.glow + ', ' + BRIGHT.shadow,
                 '--hk-look-well': BRIGHT.well, '--hk-look-glyph-off': BRIGHT.glyph, '--hk-look-sub': sub,
                 '--hk-look-text-shadow': BRIGHT.textShadow,
                 '--hk-glass-plate-sheet': BRIGHT.setIn,
                 '--hk-sheet-plate': BRIGHT.sheet, '--hk-sheet-backdrop': BRIGHT.sheetBlur,
                 '--hk-sheet-edge': '1px solid transparent', '--hk-sheet-shadow': BRIGHT.rim + ', ' + BRIGHT.sheetShadow,
-                '--hk-float-plate': brightWash(BRIGHT.chip, k, light, kl), '--hk-float-backdrop': filter,
-                // THE SIDE PANE LINKED (2026-11-01, the owner): its glass the
-                // cards' Strength, its own Dim still a shade over it
-                '--hk-pane-plate': 'linear-gradient(150deg, rgba(255,255,255,' + +(BRIGHT.pane[0] * kl).toFixed(3) + '), rgba(255,255,255,' +
-                  +(BRIGHT.pane[1] * k).toFixed(3) + '))', '--hk-pane-rim': L.edge,
+                '--hk-float-plate': brightWash(BRIGHT.chip, k, light), '--hk-float-backdrop': filter,
                 // the tab bar's plate, worn by the bars that aren't the tab
                 // bar's own (the Edit mode bar)
                 '--hk-bar-plate': BRIGHT.bar, '--hk-bar-backdrop': filter, '--hk-bar-edge': '1px solid transparent',
                 '--hk-bar-shadow': BRIGHT.rim + ', ' + BRIGHT.barShadow };
     if (each) { out['--hk-glass-backdrop'] = filter; out['--hk-chip-backdrop'] = filter; }
+    var d = Math.max(0, Math.min(BRIGHT_DIM_MAX, Number(dim) || 0)) / 100;
+    if (d > 0) {
+      var shade = 'linear-gradient(rgba(0, 0, 0, ' + d + '), rgba(0, 0, 0, ' + d + '))';
+      ['--hk-glass-plate', '--hk-chip-plate', '--hk-float-plate', '--hk-bar-plate'].forEach(function (k) { out[k] = shade + ', ' + out[k]; });
+      out['--hk-bright-shade'] = shade;
+      out['--hk-bright-dim'] = String(d);
+    }
     return out;
   }
-  LOOKS.bright = function () { return brightLook(amount('bright'), skyStops(), false); };
+  // this page's Dim: the slider's while it moves, this screen's own, else
+  // All Screens'
+  function brightDim() {
+    var v = HELD.hasOwnProperty('bright_dim') ? HELD.bright_dim : null, b = boardHere();
+    if (v === null) v = b && b.bright_dim != null && b.bright_dim !== '' ? b.bright_dim : get('look.bright_dim', 0);
+    var n = Number(v);
+    return isFinite(n) ? Math.max(0, Math.min(BRIGHT_DIM_MAX, Math.round(n))) : 0;
+  }
+  LOOKS.bright = function () { return brightLook(amount('bright'), skyStops(), false, brightDim()); };
   // (the shared layers wearing the picture, as blur_pre is blur's)
   LOOKS.bright_pre = function () { return LOOKS.bright(); };
-  LOOKS.bright_each = function () { return brightLook(amount('bright'), skyStops(), true); };
+  LOOKS.bright_each = function () { return brightLook(amount('bright'), skyStops(), true, brightDim()); };
   // looks taken out, worn as the one that replaced them (settings.py
   // RETIRED_GLASS) -- a cached copy from before may still name one
   var RETIRED = { blur_baked: 'blur_pre' };
@@ -686,8 +678,8 @@
                    '--hk-look-glyph-off', '--hk-look-sub', '--hk-look-text-shadow',
                    '--hk-sheet-plate', '--hk-sheet-backdrop', '--hk-sheet-edge', '--hk-sheet-shadow',
                    '--hk-bar-plate', '--hk-bar-backdrop', '--hk-bar-edge', '--hk-bar-shadow',
-                   // ...and the Side Pane's (2026-11-01)
-                   '--hk-pane-plate', '--hk-pane-rim'];
+                   // ...and its Dim (2026-11-01)
+                   '--hk-bright-shade', '--hk-bright-dim'];
   // A PREVIEW ON ONE SCREEN: ?hkglass=clear|frosted|tinted|blur|blur_pre|blur_each|bright|bright_pre|bright_each on the URL
   // (or hkSettings.previewGlass(), which the test probe uses) wears that look
   // on this page only, without changing the house's setting or the cache.
@@ -1825,6 +1817,10 @@
       }
       applyLook();
     },
+    // Bright Glass's Dim on this page, 0 when it doesn't wear Bright Glass
+    // (the Side Pane's Same as the Glass)
+    brightDim: function () { return isBright(glass()) ? brightDim() : 0; },
+    BRIGHT_DIM_MAX: BRIGHT_DIM_MAX,
     previewGlass: function (mode) {
       glassPreview = LOOKS[mode] ? mode : null;
       applyLook();
