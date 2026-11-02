@@ -97,9 +97,12 @@ already the shortest path, so it stays.
   file per camera, beside the Connections page's credentials (`connections/camera-<slug>.connection`).
 - **An id HA gains later** is HA's: the direct camera is set aside and its status says `conflict`, naming HA's
   entity, until one is renamed.
-- **The same camera twice.** HA's unifiprotect device identifiers carry the Protect camera's id and MAC. When a
-  direct Protect camera matches an HA camera, Mantel shows one camera, with **Video From: Direct / Home Assistant**,
-  defaulting to Direct. Areas and names come from HA when it has the camera; otherwise they are set in Mantel.
+- **The same camera twice.** HA's unifiprotect camera devices carry the camera's MAC as a `connections` pair
+  (`[["mac", "f4:e2:..."]]`, the house's registry, 2026-11-02; their `identifiers` are empty, only the NVR has one), so
+  Mantel matches by MAC (and by the Protect id, should a device ever carry it). When a direct Protect camera matches
+  an HA camera, Mantel shows one camera, with **Video From: Direct / Home Assistant**, defaulting to Direct. Areas
+  and names come from HA when it has the camera; otherwise they are set in Mantel. (As built, phase 4: Direct makes
+  HA's entity id an alias of the direct source for its signaling and stills; RBAC is still HA's entity's.)
 - **Stills:** direct cameras use Protect's `snapshot` (`highQuality` for full screen), or go2rtc's `frame.jpeg` for
   RTSP. They share fetches as today.
 - **Video:** go2rtc streams are registered through the runtime API and offered over the same WebRTC signaling
@@ -113,7 +116,8 @@ already the shortest path, so it stays.
 2. **Trust.** The console's self-signed certificate is pinned on first connect. The page shows its fingerprint, and
    a changed certificate stops the connection and says so.
 3. **Cameras.**
-   - Mantel lists the console's cameras with their stills and picks the ones to use.
+   - Mantel lists the console's cameras with their stills and picks the ones to use. Disconnect removes the picked cameras with
+     the key (as built, phase 4).
    - It requests their RTSPS streams (`POST /v1/cameras/{id}/rtsps-stream`) and registers each in go2rtc as
      `rtspx://host:7441/<token>`, with no SRTP.
    - High quality is for full screen and the low channel for tiles.
@@ -122,6 +126,12 @@ already the shortest path, so it stays.
      current status line pattern.
    - Ring, motion and smart detections become Mantel's own event kinds, feeding `rules.py` beside the HA kinds.
      Doorbells, notifications and Live Camera Follows then work without an HA automation.
+   - As built (phase 4): a camera HA doesn't have gets Mantel's own detection sensors on its device
+     (`binary_sensor.mantel_<slug>_person_detected`, `..._motion`, `event.mantel_<slug>_doorbell`, ...), named so
+     `rules.kind_of` reads them, so every existing rule applies with no new kind. A camera HA has too has its events
+     stand in for HA's own entities of that kind (`Notifier.inject`), and HA's own change of them is held back while
+     the direct source is preferred (Video From Direct and the socket up), so one event is one notification.
+     Notify For applies to both sources.
 5. **What each camera reports: the camera's own detection, nothing of Mantel's.**
    - A camera whose model supports smart detection (its feature flags list the types) gives Person, Vehicle and
      Animal, plus Package on a doorbell. Mantel uses whichever types are on in Protect.
@@ -353,4 +363,15 @@ after the ticket"); the log since the 0.1.113 restart has no talk in it yet.
   last viewer. Stills: go2rtc's `frame.jpeg` of the low stream, with a hook for Protect's snapshot (phase 4).
   RBAC is unchanged and tested on direct cameras: area grants, an entity deny, Child and Guest, the tunnel's
   camera switch, other connections' sessions and the caps. Nothing visible yet.
-
+- 2026-11-02: phase 4 built (`protect_connector.py`, Mantel Settings → Connections → UniFi Protect, Docker and LXC
+  only) with phase 5's wiring: Connect's four checks with protect_api's errors, the pin shown and held to, a changed
+  certificate trusted only by an Owner and only as the console presents it (audited), the optional local user sealed
+  and unused, health on the page; discovery with stills through Mantel, picks into cameras_direct, the list followed
+  every 5 minutes (renames, removals, new stream tokens, read only) and a token asked again when go2rtc can't play;
+  Protect's snapshot as the stills (`highQuality` above 960 px wide, shared 2 s). Matching is by MAC (HA's camera
+  devices have no identifiers); a matched camera shows once and Video From Direct aliases HA's entity id to the
+  direct source, its RBAC unchanged (tested: area grant, deny, Child, Guest, the tunnel's switch). Events: Mantel's
+  own detection sensors for an unmatched camera, injection under HA's entity ids for a matched one, never both
+  (tested). Notify For and Turn On in Protect; `app["direct_talk"]` with HA's speaker of a matched doorbell or
+  `media_player.mantel_<slug>_speaker`. Not tried against the house's console from this session: the console's
+  address isn't recorded where the session could read it.

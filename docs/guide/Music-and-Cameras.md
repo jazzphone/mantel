@@ -260,6 +260,91 @@ speaker. Hold it and speak, and let go when you're done.
   recorded message. In the Home Assistant App it goes through Mantel Link
   (0.1.11 or later keeps the session open between holds).
 
+### UniFi Protect (Docker and the LXC)
+
+On Docker and the Proxmox container, Mantel can talk to your UniFi Protect
+console itself: its cameras, their stills, the doorbell and its speaker, and
+what each camera detects, with no Home Assistant in the middle. In the Home
+Assistant App there is nothing to set up: cameras come from Home Assistant's
+[UniFi Protect integration](https://www.home-assistant.io/integrations/unifiprotect/),
+and **Mantel Settings → Connections → UniFi Protect** says so.
+
+**Connect.** In UniFi OS, make a local user named Mantel (Admins & Users),
+sign in to UniFi OS as that user, and make an API key there: **Settings →
+Control Plane → Integrations → Create API Key**. Your own account then never
+signs in for Mantel. Then, in **Mantel Settings → Connections → UniFi
+Protect**, type the console's address (for example `unifi.local`) and paste
+the key. **Test** checks without saving; **Connect** checks and saves. The
+checks run in order, and the first that fails says what to fix:
+
+1. the address answers as a UniFi OS console running Protect (asked without
+   the key, so the key goes nowhere else);
+2. its certificate (see Trust, below);
+3. the key works;
+4. UniFi Protect is 7.2.105 or later.
+
+The key is kept sealed in Mantel's data and is never shown again. Whether a
+key stops working when its UniFi OS user is removed isn't confirmed yet, so
+**to cut Mantel off, delete the key** in UniFi OS (and press Disconnect here).
+Only an Owner connects, replaces or disconnects; Admins see the status.
+
+**Advanced: a local user.** Off by default. It takes a local UniFi OS user
+and password (a UI.com cloud account or an account with MFA can't be used),
+keeps them sealed beside the key, and uses them for nothing yet: the API key
+is all Mantel needs today.
+
+**Trust.** The console's certificate is its own, so Mantel trusts it the first
+time you connect and shows its fingerprint. From then on every connection is
+held to it. If the certificate changes (a replaced or reset console, or
+something else answering at that address), Mantel stops talking to the
+console and the page shows the new fingerprint. Compare it with the one UniFi
+OS shows; an Owner may then **Trust This Certificate**, which is recorded in
+the Audit Log. If you didn't replace the console, don't.
+
+**The status** shows the console's name, the Protect version, how Mantel
+signs in, the events connection and when the console last spoke.
+
+**Picking cameras.** **Cameras** lists the console's cameras with their
+stills. Open one and turn on **Use in Mantel**: Mantel asks the console for
+its streams and the camera plays through Mantel's own go2rtc, its stills
+coming from the console. A camera renamed in Protect follows; one removed
+from Protect leaves Mantel. Mantel reads the console's list every five
+minutes and when you connect.
+
+**A camera Home Assistant has too** shows once, as Home Assistant's camera,
+with its name and room. Its page has **Video From**:
+
+| Video From | Where its video and stills come from |
+|---|---|
+| Direct (the default) | The console, through Mantel's go2rtc |
+| Home Assistant | Home Assistant, as before |
+
+Who may see it doesn't change either way: it is Home Assistant's camera, and
+its rooms, grants and denies decide, as for every camera. A camera Home
+Assistant doesn't have becomes `camera.mantel_<name>`; pick its room on its
+page.
+
+**Notify For.** Each camera lists what it detects itself: the doorbell's
+ring, and its person, vehicle, animal or package detection, or **Motion** for
+a camera without smart detection. Mantel detects nothing of its own. Turn
+off what shouldn't notify; what does becomes notifications and the doorbell
+pop-up by **Notifications** (Doorbells, Packages, Cameras), exactly as Home
+Assistant's sensors do. A type the camera can do but that is off in Protect
+shows **Turn On in Protect**, which turns on only that camera's own setting
+(Owner or Admin, in the Audit Log). Zones, sensitivity and privacy masks stay
+in UniFi Protect's app.
+
+For a camera Home Assistant has too, each event notifies once: while Video
+From is Direct and the console's events connection is up, the console's
+event stands in for Home Assistant's sensor and Home Assistant's copy is held
+back; otherwise Home Assistant's sensors notify, as before.
+
+**Talking at the door.** Mantel talks to a Protect doorbell itself. Its
+speaker is Home Assistant's (for a camera Home Assistant has) or Mantel's own
+`media_player.mantel_<name>_speaker`, shown on the camera's page. Name it as
+the speaker in HK's doorbell pop-up settings; who may talk is decided as
+before (**camera.talk**). Talking needs HTTPS.
+
 ### Live TV
 
 In the Home Assistant App, Mantel serves the channels and Mantel Link
