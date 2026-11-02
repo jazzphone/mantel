@@ -2,7 +2,7 @@
 
 All notable changes to Mantel are listed here. Versions follow [semantic versioning](https://semver.org); the Home Assistant App, the Docker images and the Python package share one version number.
 
-## Unreleased
+## 0.1.113 - 2026-11-02
 
 **Fixed**
 - Screensaver editor: the **+** in each empty place is centered in its circle, and a Temperature widget's figure in its ring.
