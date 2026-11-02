@@ -152,7 +152,10 @@ Mantel Link as components copied into its `config` share, without waiting for a 
   Home Assistant's websocket, it reloads the App store and updates `local_mantel`, and waits until Mantel answers
   the staged build on `/api/version` and `/healthz?strict=1` is ok. Any "Traceback" or "ERROR" in the App's log
   fails the release. Then it tags the release commit `vX.Y.Z` and pushes the tag (a tag that exists already refuses
-  the release before anything changes).
+  the release before anything changes), and publishes it: it runs the release workflow from the tag with `publish`
+  on (the Docker images, the App images and the `ha-apps` branch), waits for it, and once it succeeds makes the
+  GitHub Release `vX.Y.Z` with the version's `CHANGELOG.md` section as its notes. A failed run makes no Release; fix
+  it and run the workflow again from the tag. `--no-publish` stops after the tag.
 - **Every Mantel house release is tagged**, with the tool or by hand. The Proxmox LXC's `update`
   ([`packaging/proxmox`](../../packaging/proxmox/README.md)) follows the newest `v*` tag, so a tag means "on the
   house and healthy", and an untagged release never reaches the LXC installs. Released by hand (through the Home
@@ -166,6 +169,20 @@ Mantel Link as components copied into its `config` share, without waiting for a 
 
   Never move or reuse a tag; a fix is the next version. HK Frontend and Mantel Link keep their own tags in their
   public repositories (`--github-release`).
+- **Every Mantel house release is published too**, with the tool or by hand, so the Home Assistant App repository,
+  the Docker images and the Proxmox LXC get what the house got. By hand, after the tag (the run takes about 20
+  minutes; the Release waits until it succeeds):
+
+  ```bash
+  gh workflow run release.yml -R jazzphone/mantel --ref v0.1.111 -f publish=true
+  gh run watch <run id> -R jazzphone/mantel --exit-status
+  gh release create v0.1.111 -R jazzphone/mantel --title "Mantel 0.1.111" --notes-file notes.md --verify-tag
+  ```
+
+  `notes.md` is the version's `CHANGELOG.md` section. An HK Frontend release made alongside goes out with
+  `publish.py <clone of jazzphone/hk-frontend> --commit "HK Frontend X.Y.Z (from mantel <commit>)" --push --release
+  --wiki <clone of its Wiki>`, and the Wiki clone is then pushed by hand (`git push origin HEAD`): `publish.py`
+  commits the Wiki but doesn't push it.
 - **HK Frontend and Mantel Link:** it sets the manifest version, commits, runs `tools/ci.py versions`, pushes,
   builds the component (HK Frontend with `tools/build_ha.py`, Mantel Link with its `publish.py`, whose layout
   vendors the `hk_core` modules it imports), and copies it with `rsync -rt --inplace` (Home Assistant's Samba share

@@ -2,7 +2,7 @@
 
 What `tools/release_house.py` put on the house, newest last, with the checks it made. Earlier releases are recorded in the audits' pages.
 
-Every Mantel release here is tagged `vX.Y.Z` on its release commit once the house runs it healthy, by the tool or by hand ([Releasing.md](Releasing.md#house-releases)): the Proxmox LXC's `update` follows the newest tag. Tagged from 0.1.109 on.
+Every Mantel release here is tagged `vX.Y.Z` on its release commit once the house runs it healthy, by the tool or by hand ([Releasing.md](Releasing.md#house-releases)): the Proxmox LXC's `update` follows the newest tag. Tagged from 0.1.109 on. From 0.1.111 on each is published as well: the release workflow from the tag (the Docker images, the App images, the `ha-apps` branch) and the GitHub Release.
 
 ## Mantel 0.1.77 (2026-10-26)
 

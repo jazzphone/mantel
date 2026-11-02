@@ -19,7 +19,10 @@ second full run. Each release commit the tool makes passes `versions` before it 
   /api/version answers the staged build and /healthz?strict=1 is ok (through the App's Ingress); fail on any
   "Traceback" or "ERROR" in the App's log. Then, with the house running it, tag the release commit v<version> and
   push the tag: the Proxmox LXC's `update` (packaging/proxmox) follows the newest v* tag, so a tag means "on the
-  house and healthy". A tag that exists already refuses the release before anything changes.
+  house and healthy". A tag that exists already refuses the release before anything changes. Then it publishes
+  (unless --no-publish): .github/workflows/release.yml run from the tag with publish on (the Docker images and the
+  App images on ghcr.io, and the ha-apps branch Home Assistant installs from), waited for, and once it succeeds the
+  GitHub Release v<version>, its notes the version's CHANGELOG.md section.
 * hk-frontend / mantel-link: set the manifest version, commit and push; build (HK Frontend: tools/build_ha.py;
   Mantel Link: its publish.py, whose layout vendors the hk_core modules it imports) and copy the component into the config share with rsync --inplace, never --delete (HA's Samba share half-fails
   without --inplace); check the copy with diff; restart Home Assistant and wait until it serves the new files.
@@ -365,7 +368,53 @@ def tag_release(version: str, commit: str) -> str:
     return tag
 
 
-def release_mantel(version: str, notes: str, dry: bool) -> list[str]:
+def changelog_section(changelog: Path, version: str) -> str:
+    """The body of CHANGELOG.md's `## X.Y.Z` (or `## [X.Y.Z]`) section, without its heading."""
+    m = re.search(rf"^## \[?{re.escape(version)}\]?[^\n]*\n(.*?)(?=^## |\Z)", changelog.read_text(), re.M | re.S)
+    if not m or not m.group(1).strip():
+        raise Refused(f"no section '## {version}' with notes in {changelog.name}")
+    return m.group(1).strip() + "\n"
+
+
+RELEASE_FOOTER = """
+**Install or update:** the Home Assistant App from `https://github.com/jazzphone/mantel#ha-apps`; Docker with the
+images `ghcr.io/jazzphone/mantel-server`, `mantel-transcode` and `mantel-caddy` tagged `{version}` (`./update.sh`);
+the Proxmox LXC with `update` in the container. See [Updating](https://github.com/jazzphone/mantel/blob/main/docs/guide/Updating.md).
+"""
+
+
+def publish_release(version: str, notes: str, wait_s: float = 120) -> list[str]:
+    """Run release.yml from the tag with publish on, wait for it, then make the GitHub Release. A failed run makes
+    no Release: the house and the tag stand, and the run can be run again from the tag (Releasing.md)."""
+    tag = f"v{version}"
+    run("gh", "workflow", "run", "release.yml", "--ref", tag, "-f", "publish=true", quiet=True)
+    run_id = url = ""
+    deadline = time.monotonic() + wait_s
+    while not run_id and time.monotonic() < deadline:
+        time.sleep(5)
+        listed = json.loads(run("gh", "run", "list", "--workflow", "release.yml", "--branch", tag, "-L", "1",
+                                "--json", "databaseId,url", quiet=True) or "[]")
+        if listed:
+            run_id, url = str(listed[0]["databaseId"]), listed[0]["url"]
+    if not run_id:
+        raise Refused(f"the release workflow for {tag} did not start: run it from the tag by hand (Releasing.md)")
+    print(f"release workflow {url}: waiting (about 20 minutes)")
+    if subprocess.run(["gh", "run", "watch", run_id, "--exit-status", "--interval", "30"], cwd=ROOT,
+                      capture_output=True).returncode != 0:
+        raise Refused(f"the release workflow failed ({url}): nothing was published past the tag; "
+                      "fix it and run it again from the tag")
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as f:
+        f.write(notes + RELEASE_FOOTER.format(version=version))
+    try:
+        run("gh", "release", "create", tag, "--title", f"Mantel {version}", "--notes-file", f.name, "--verify-tag",
+            quiet=True)
+    finally:
+        os.unlink(f.name)
+    return [f"Published: the release workflow ({url}) pushed the images and the ha-apps branch; "
+            f"GitHub Release `{tag}` made."]
+
+
+def release_mantel(version: str, notes: str, dry: bool, publish: bool = True) -> list[str]:
     today = datetime.date.today()
     head, _ = preflight()
     check_tag_free(version)
@@ -374,7 +423,7 @@ def release_mantel(version: str, notes: str, dry: bool) -> list[str]:
     print(f"Mantel {version} from {head[:9]} to {url}")
     if dry:
         print("dry run: would bump, add the notes, commit, check it (tools/ci.py versions), push, stage, update, "
-              f"verify, and tag v{version}")
+              f"verify, and tag v{version}" + (", then publish it and make its GitHub Release" if publish else ""))
         run(sys.executable, "tools/stage_ha_app.py", "--dry-run", env={"HK_PRIVATE": regex})
         return []
     _load("bump_version").set_version(version)
@@ -393,7 +442,8 @@ def release_mantel(version: str, notes: str, dry: bool) -> list[str]:
 
     result = asyncio.run(go())
     tag = tag_release(version, commit)                        # only once the house runs it, healthy
-    return [f"Mantel {result['version']}, commit `{commit[:7]}`, build `{build}`, tagged `{tag}`.",
+    published = publish_release(version, changelog_section(ROOT / "CHANGELOG.md", version)) if publish else []
+    return [f"Mantel {result['version']}, commit `{commit[:7]}`, build `{build}`, tagged `{tag}`.", *published,
             f"Strict health ok; Home Assistant connected for {result['health']['upstream']['home_assistant']['connected_for_s']} s.",
             "No \"Traceback\" or \"ERROR\" in the App's log."]
 
@@ -523,6 +573,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--github-release", action="store_true",
                     help="hk-frontend, mantel-link: also publish the public repository, tag v<version> and make its "
                          "GitHub release (needs the version's section in the component's CHANGELOG.md); off by default")
+    ap.add_argument("--no-publish", action="store_true",
+                    help="mantel: put it on the house and tag it, but don't publish it (the release workflow and the "
+                         "GitHub Release); publish it later from the tag (Releasing.md)")
     args = ap.parse_args(argv)
     if not VERSION.match(args.version):
         print("the version is X.Y.Z", file=sys.stderr)
@@ -536,7 +589,7 @@ def main(argv: list[str] | None = None) -> int:
             notes = args.notes.read_text() if args.notes else ""
             if not notes.strip() and not args.dry_run:
                 raise Refused("a Mantel release needs --notes")
-            lines = release_mantel(args.version, notes, args.dry_run)
+            lines = release_mantel(args.version, notes, args.dry_run, publish=not args.no_publish)
             title = f"Mantel {args.version}"
         else:
             lines = release_component(args.product, args.version, args.dry_run, args.github_release)

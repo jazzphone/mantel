@@ -137,3 +137,16 @@ def test_ci_installs_the_pinned_versions_the_images_ship(workflow):
     lines = out.splitlines()
     assert lines and all(re.fullmatch(r"[A-Za-z0-9_.\-]+(\[[a-z,]+\])?==[^\s;]+( ;.*)?", ln) for ln in lines), \
         [ln for ln in lines if not re.fullmatch(r"[A-Za-z0-9_.\-]+==\S+", ln)][:3]
+
+
+def test_every_job_that_builds_the_web_app_installs_esbuild_first():
+    """0.1.111's release run failed in its first job: build_static.py minifies with esbuild (since 2026-10-29), and
+    the runner had none. The suite, the App stagers and the add-on repository all build the web app."""
+    text = WORKFLOW.read_text()
+    for job, step in (("version", "python -m pytest"), ("app-images", 'python "${{ matrix.app.stager }}"'),
+                      ("ha-apps", "python tools/publish_ha_apps.py")):
+        start = text.index(f"\n  {job}:\n")
+        body = text[start:text.index(step, start)]
+        assert "npm ci --prefix tools" in body, f"{job} runs {step} without esbuild"
+    tests = (ROOT / ".github/workflows/tests.yml").read_text()
+    assert tests.index("npm ci --prefix tools") < tests.index("python -m pytest")

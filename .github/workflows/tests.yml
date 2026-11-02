@@ -42,6 +42,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      # esbuild, the minifier build_static.py runs on every .js and .css file (tools/package.json pins it)
+      - run: npm ci --prefix tools --no-audit --no-fund
       # test what ships: the images install packaging/docker/requirements.lock. pip will not mix hashes with an
       # editable install, so the same versions go in as a constraints file (pins only, the hashes left out)
       - run: sed -e 's/ *\\$//' -e '/^ *--hash=/d' -e '/^ *#/d' packaging/docker/requirements.lock > "$RUNNER_TEMP/constraints.txt"

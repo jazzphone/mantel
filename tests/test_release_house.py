@@ -230,3 +230,64 @@ def test_the_release_is_tagged_only_after_the_house_runs_it():
     body = source[source.index("def release_mantel"):source.index("def check_github_release")]
     assert body.index("check_tag_free(version)") < body.index("set_version(version)"), "refused before anything changes"
     assert body.index("asyncio.run(go())") < body.index("tag_release(version, commit)")
+
+
+# ---- publishing: the release workflow from the tag, then the GitHub Release (unless --no-publish)
+
+def test_the_release_notes_are_the_versions_changelog_section(tmp_path):
+    log = tmp_path / "CHANGELOG.md"
+    log.write_text("# Changelog\n\n## Unreleased\n\n## 0.1.99 - 2026-11-01\n\n- **A:** one.\n- **B:** two.\n\n"
+                   "## 0.1.98 - 2026-10-31\n\n- older\n")
+    assert rh.changelog_section(log, "0.1.99") == "- **A:** one.\n- **B:** two.\n"
+    assert rh.changelog_section(log, "0.1.98") == "- older\n"
+    with pytest.raises(rh.Refused, match="no section '## 0.1.97'"):
+        rh.changelog_section(log, "0.1.97")
+
+
+class _Watch:
+    def __init__(self, code):
+        self.returncode = code
+
+
+def _publishing(monkeypatch, watch_code: int, listed: str = '[{"databaseId": 7, "url": "https://example.com/run/7"}]'):
+    calls = []
+
+    def fake_run(*cmd, **kw):
+        calls.append(cmd)
+        return listed if cmd[:3] == ("gh", "run", "list") else ""
+    monkeypatch.setattr(rh, "run", fake_run)
+    monkeypatch.setattr(rh.time, "sleep", lambda s: None)
+    monkeypatch.setattr(rh.subprocess, "run", lambda cmd, **kw: calls.append(tuple(cmd)) or _Watch(watch_code))
+    return calls
+
+
+def test_publishing_runs_the_workflow_from_the_tag_then_makes_the_release(monkeypatch):
+    calls = _publishing(monkeypatch, 0)
+    lines = rh.publish_release("0.1.99", "- notes\n")
+    assert calls[0] == ("gh", "workflow", "run", "release.yml", "--ref", "v0.1.99", "-f", "publish=true")
+    assert calls[1][:3] == ("gh", "run", "list") and "--branch" in calls[1] and "v0.1.99" in calls[1]
+    assert calls[2] == ("gh", "run", "watch", "7", "--exit-status", "--interval", "30")
+    assert calls[3][:4] == ("gh", "release", "create", "v0.1.99") and "--verify-tag" in calls[3]
+    assert "GitHub Release `v0.1.99`" in lines[0]
+
+
+def test_a_failed_workflow_makes_no_release(monkeypatch):
+    calls = _publishing(monkeypatch, 1)
+    with pytest.raises(rh.Refused, match="the release workflow failed"):
+        rh.publish_release("0.1.99", "- notes\n")
+    assert not any(c[:3] == ("gh", "release", "create") for c in calls)
+
+
+def test_a_workflow_that_never_starts_is_refused(monkeypatch):
+    calls = _publishing(monkeypatch, 0, listed="[]")
+    with pytest.raises(rh.Refused, match="did not start"):
+        rh.publish_release("0.1.99", "- notes\n", wait_s=0.01)
+    assert not any(c[:3] == ("gh", "release", "create") for c in calls)
+
+
+def test_publishing_comes_after_the_tag_and_can_be_left_out():
+    source = (ROOT / "tools/release_house.py").read_text()
+    body = source[source.index("def release_mantel"):source.index("def check_github_release")]
+    assert body.index("tag_release(version, commit)") < body.index("publish_release(version")
+    assert 'ap.add_argument("--no-publish", action="store_true"' in source
+    assert "publish=not args.no_publish" in source

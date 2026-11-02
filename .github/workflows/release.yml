@@ -88,6 +88,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      # esbuild, the minifier build_static.py runs on every .js and .css file (tools/package.json pins it)
+      - run: npm ci --prefix tools --no-audit --no-fund
       # test what ships: the images install packaging/docker/requirements.lock. pip will not mix hashes with an
       # editable install, so the same versions go in as a constraints file (pins only, the hashes left out)
       - run: sed -e 's/ *\\$//' -e '/^ *--hash=/d' -e '/^ *#/d' packaging/docker/requirements.lock > "$RUNNER_TEMP/constraints.txt"
@@ -118,6 +120,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # esbuild, the minifier build_static.py runs on every .js and .css file (tools/package.json pins it)
+      - run: npm ci --prefix tools --no-audit --no-fund
       # staging runs the private-content scan and stops on any finding
       - run: python "${{ matrix.app.stager }}" "$RUNNER_TEMP/app"
         env:
@@ -213,6 +220,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # esbuild, the minifier build_static.py runs on every .js and .css file (tools/package.json pins it)
+      - run: npm ci --prefix tools --no-audit --no-fund
       # a dry run may take CHANGELOG.md's Unreleased section; a release needs its own (check_version --tag)
       - env:
           VERSION: ${{ needs.version.outputs.version }}
