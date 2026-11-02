@@ -118,7 +118,7 @@ Mantel restores into its data volume only after it has decrypted and checked the
 ./restore.sh /path/to/mantel-20261018-031500.mbk mantel-keys.json    # another Mantel's, with its keys file
 ```
 
-It checks the whole backup first (with the keys file's backup key, for another Mantel's) and stops there, changing nothing, if it doesn't check out. Then it stops Mantel, puts the keys file's two keys in `/etc/hk/secrets` (the old ones are kept as `*.before-restore-<time>`; that keys file is then this Mantel's, so keep it), restores, and starts Mantel again if it was running. If the restore fails, the old keys go back. In the LXC you can run it from the Proxmox host instead, which copies the files in for you: `bash packaging/lxc/mantel.sh restore <id> <backup> [<keys file>]`.
+It checks the whole backup first (with the keys file's backup key, for another Mantel's) and stops there, changing nothing, if it doesn't check out. Then it stops Mantel, puts the keys file's two keys in `/etc/hk/secrets` (the old ones are kept as `*.before-restore-<time>`; that keys file is then this Mantel's, so keep it), restores, and starts Mantel again if it was running. If the restore fails or is interrupted (Ctrl-C), the old keys go back and Mantel starts again. In the LXC you can run it from the Proxmox host instead, which copies the files in for you: `bash packaging/lxc/mantel.sh restore <id> <backup> [<keys file>]`.
 
 **By hand:**
 
@@ -152,6 +152,7 @@ If the restore stops with an error, it names it, for example `restore failed (wr
 |---|---|
 | `key_missing`, `key_invalid` | No usable `backup.key` in `/etc/hk/secrets` |
 | `wrong_key` | The file is fine, but this isn't the key it was made with |
+| `wrong_at_rest_key` | The backup's sealed values (authenticator secrets, the Alarm PIN, saved connections) don't open with this Mantel's `at_rest.key`: put the backup's own `at_rest.key` in place (another Mantel's keys file has it). Only if that key is lost for good, `--skip-at-rest-check` restores anyway, and everyone sets up their authenticator app again |
 | `corrupt`, `not_a_backup` | The file is damaged, cut short or not a Mantel backup |
 | `schema_too_new` | The backup comes from a newer Mantel |
 | `data_dir_not_fresh` | There is already a database: add `--replace` |

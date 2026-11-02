@@ -154,6 +154,8 @@ Mantel shows Music Assistant's page through its own address (`/ma/`). Check that
 | `target_missing` | The backup folder doesn't exist inside the container: mount your NAS, or check `MANTEL_BACKUP_DIR`. |
 | `write_failed` | Mantel can't write there: the folder must belong to uid 10001 (`chown 10001:10001`). |
 | `restore failed (wrong_key)` | The `backup.key` isn't the one this backup was made with. |
+| `restore failed (wrong_at_rest_key)` | The `at_rest.key` in `/etc/hk/secrets` isn't the backup's: see [Backups](Backups.md#restore-with-docker-or-the-lxc). |
+| `totp_unreadable` at sign-in | Your authenticator secret doesn't open with this Mantel's `at_rest.key` (a restore with the wrong one): restore with the right key, or an Owner removes the authenticator from your account. |
 
 More in [Backups](Backups.md).
 

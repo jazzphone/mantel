@@ -32,7 +32,16 @@ var_mantel_tls=own var_mantel_proxy_ip=192.0.2.254 var_mantel_domain=mantel.exam
 
 The usual community-scripts settings apply as well (`var_cpu`, `var_ram`, `var_disk`, `var_brg`, `var_gpu` and the rest).
 
-**Updating:** inside the container, run `update`. It fetches what `var_mantel_ref` points at now, makes a backup, rebuilds, starts the new version and waits until it is healthy, and goes back to the previous version by itself if it isn't. With nothing new, it says so and changes nothing.
+**Updating:** inside the container, run `update`. It fetches what `var_mantel_ref` points at now, skips a release whose images aren't published yet, makes a backup, rebuilds, starts the new version and waits until it is healthy, and goes back to the previous version by itself if it isn't; `.env` is put back as it was whenever an update doesn't finish. With nothing new, it says so and changes nothing; on a checkout newer than the newest release (made from `main`), it says so and stays. If going back fails too (a new version that already updated the database), it says Mantel is not running and prints the `./restore.sh` line for the backup it made before the update.
+
+**Pinned to a release:** the command above runs the scripts from `main`, and they install the newest release. To run exactly one release's scripts, name its tag in both places:
+
+```bash
+export var_mantel_ref=v0.1.112
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/jazzphone/mantel/$var_mantel_ref/packaging/proxmox/ct/mantel.sh)"
+```
+
+That container then stays on that release (`update` follows `var_mantel_ref`). community-scripts' engine is fetched at a fixed commit of [community-scripts/core](https://github.com/community-scripts/core); `COMMUNITY_SCRIPTS_URL` and `COMMUNITY_SCRIPTS_CORE_URL` override where the scripts and the engine come from.
 
 **What runs:** the two scripts are Mantel's, in [`packaging/proxmox`](https://github.com/jazzphone/mantel/tree/main/packaging/proxmox); the engine they run on (the menus, creating the container) is community-scripts' own, fetched from [community-scripts/core](https://github.com/community-scripts/core) as their scripts do, and it sends their anonymous install statistics unless you turn diagnostics off in its menu. Mantel's source comes from GitHub with git, into `/opt/mantel`. Read them before you run them as root: `curl -fsSL <the URL above>` shows the first. From a clone of the repository you can also run `bash packaging/proxmox/ct/mantel.sh`, which uses the install script next to it.
 

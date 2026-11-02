@@ -11,6 +11,11 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - Side Pane: the small speaker sits on the volume slider's line.
 - Mantel Link: a revoked credential asks you to re-authenticate in Home Assistant (a pairing code) instead of retrying every 30 seconds for good; HK Frontend raises a Repairs issue. Pairing again revokes the old credential. The App no longer withdraws Home Assistant's credential before its replacement is accepted.
 - The weather forecast, notifications and music on the screens resume by themselves after Home Assistant restarts (they stayed frozen until a reload); one failing part of Mantel no longer takes the whole Home Assistant connection down.
+- Cameras: an open camera stream ends when the person's access does (it kept playing).
+- Proxmox LXC: `update` skips a release whose images aren't published yet, puts `.env` back when an update doesn't finish, doesn't go back to an older release, and says so plainly (with the restore line) when going back fails too; `var_mantel_ref=<branch>` works. Mantel Settings → About shows the version on Docker and the LXC.
+- Backups: a restore refuses a backup whose sealed values don't open with this Mantel's `at_rest.key` (`wrong_at_rest_key`), instead of leaving every authenticator sign-in failing; `restore.sh` puts the old keys back if it is interrupted.
+- Artwork from the internet is fetched only from the address Mantel checked; at most 8 at once.
+- Security: `pyasn1` 0.6.5.
 - Home Grid: a Room block's glyphs are as large as its tiles allow (they were a fixed small size), and a Wide Room's row is the Home app's pill, never stretched or cut.
 
 ## 0.1.112 - 2026-11-01
