@@ -115,7 +115,7 @@
   function readCfg(raw) {
     if (!raw || typeof raw !== 'object') return null;
     var n = function (v, lo, hi, d) { v = Number(v); return isFinite(v) && v >= lo && v <= hi ? v : d; };
-    return layoutCfg({
+    return layoutCfg(autoLayout(raw, {
       user: typeof raw.user === 'string' ? raw.user : '',
       // 1.14: the wall tablet it runs on (hkSettings.tablet()); '' -- by user
       tablet: typeof raw.tablet === 'string' && /^[a-z0-9_]{0,40}$/.test(raw.tablet) ? raw.tablet : '',
@@ -195,11 +195,12 @@
       // WHAT PLAYS, BIG: a slide among the photos (with the forecast, they
       // take turns) or over the forecast while music plays; and the music
       // in the pane down the right (under the calendar when both are on)
-      music_slide: raw.music_slide === true,
+      // (one key for Music Full Screen, phase 13: an older music_slide is music_first)
+      music_slide: false,
       music_pane: raw.music_pane === true,
       // MUSIC FIRST: while music plays it fills the screen, over the photos
       // or the forecast, until MU_GRACE after it stops
-      music_first: raw.music_first === true,
+      music_first: raw.music_first === true || raw.music_slide === true,
       // HOME ENERGY (2026-10-14, hk-saver-energy.js): a slide among the
       // photos, or one of the additional screens; and what it leaves out
       energy_slide: raw.energy_slide === true,
@@ -237,7 +238,7 @@
       cards: Array.isArray(raw.cards) ? raw.cards.filter(function (c) {
         return c && typeof c.type === 'string' && /^custom:hk-[a-z0-9-]+$/.test(c.type);
       }) : []
-    });
+    }));
   }
   // THE LAYOUT'S OPTIONS (2026-11-01, the Screensaver editor; docs/phase12/SCREENSAVER-EDITOR.md): with a layout, the
   // options it takes the place of are read from it -- the corner cards are the ones it places, Time Behind is its big
@@ -259,6 +260,63 @@
     'custom:hk-weather-strip-card': { variant: 'inline', main_size: '36px', glyph_size: '60px', temp_gap: '36px', icon_gap: '12px',
                                       color: 'rgba(255,255,255,0.95)', margin: '-4px 0px 0px 20px', layer: true }
   };
+  // ONE RENDERER (2026-11-02, phase 13, phase 4; decision 5: "Every screen through one renderer"): a screen with no
+  // saved layout draws through the layout path too, with the layout its options make (hkSaverLayout.layoutFrom, the
+  // editor's own starting point) -- its corners the pieces', its slides with the slide corner. Glance, Month and the Day
+  // face keep their own words (their hand-made date and month): the layout made for them leaves its big element to the
+  // face. Until hk-saverlayout.js has come (it is asked for here, then the screen read again) the screen draws as it
+  // always did
+  var autoAsked = false;
+  function autoLayout(raw, c) {
+    if (!c || c.layout) return c;
+    // (BIG WEATHER keeps its own face -- its glassy temperature, its readings with their glyphs, its small time over
+    // Home Status -- the owner's favorite, as Glance, Month and the Day face keep their own words; a layout the editor
+    // saves for the Landscape draws it with the pieces)
+    if (c.show === 'forecast' && c.forecast_layout === 'big') return c;
+    // (...and Month, whose page tells the time at its top right where the corner's Home Status would stand)
+    if (c.show === 'month') return c;
+    var LM = window.hkSaverLayout;
+    if (!LM || !LM.layoutFrom) {
+      if (!autoAsked && typeof window.fetch === 'function') {
+        autoAsked = true;
+        // (the screen read again once it has come: the same options, a layout now -- so not the same read)
+        try { import('/hk/modules/hk-saverlayout.js').then(function () { if (window.hkSaverLayout) { lastRaw = null; refresh(); } }, function () { /* the old way */ }); } catch (e) { /* the old way */ }
+      }
+      return c;
+    }
+    var has = function (t) { return (Array.isArray(raw.cards) ? raw.cards : []).some(function (x) { return x && x.type === 'custom:' + t; }); };
+    var o = Object.assign({}, c, { clock_over: raw.clock_over, clock: has('hk-clock-card') || c.clock_large, weather: has('hk-weather-strip-card'),
+                                   music: has('hk-screensaver-now-card'), timers: has('hk-timer-strip-card'), status: has('hk-screensaver-status-card') });
+    var L = LM.clean(LM.layoutFrom(o));
+    if (FACE_SHOWS[c.show]) L.big = Object.assign({}, L.big, { kind: 'none' });
+    // (Clock over sharp photos with Time Behind on: behind, as Photos has it)
+    if (c.show === 'clock' && c.clock_bg === 'photos' && !c.clock_photo_soft && raw.time_behind === true) {
+      L.big = Object.assign({}, L.big, { kind: 'time', depth: 'behind', size: Math.max(12, Math.min(44, c.tb_size || 24)), pos: (c.tb_top || 0) <= 12 ? 'top' : (c.tb_top || 0) <= 30 ? 'upper' : 'center' });
+    }
+    // (the Day face: its corner clock top left, smaller, the weather a line under it -- as the face was drawn for)
+    if (c.show === 'day') {
+      var tc = L.zones.tr.filter(function (w) { return w.piece === 'time'; })[0], wc = L.zones.br.filter(function (w) { return w.piece === 'weather'; })[0];
+      if (tc) { L.zones.tr = L.zones.tr.filter(function (w) { return w !== tc; }); L.zones.tl.unshift(Object.assign({}, tc, { size: 60 })); }
+      if (wc && L.zones.tl.length < 2) { L.zones.br = L.zones.br.filter(function (w) { return w !== wc; }); L.zones.tl.push(Object.assign({}, wc, { shape: 'inline', size: 110 })); }
+    }
+    // ...as the screen looked: its corners' weather and Home Status were a line each, large; its photo's title large at
+    // the bottom right (Titles)
+    Object.keys(L.zones).forEach(function (z) {
+      L.zones[z] = L.zones[z].map(function (w) {
+        if ((w.piece === 'weather' || w.piece === 'status') && w.shape === 'card') return Object.assign({}, w, { shape: 'inline', size: 120 });
+        if (w.piece === 'time' && w.shape === 'card' && !FACE_SHOWS[c.show]) return Object.assign({}, w, { size: 150 });
+        return w;
+      });
+    });
+    // (Glance, Month and the Day face had Home Status at the top right whatever else was there)
+    if (FACE_SHOWS[c.show] && o.status && !L.zones.tr.some(function (w) { return w.piece === 'status'; }) && L.zones.tr.length < 2)
+      L.zones.tr.push({ piece: 'status', shape: 'inline', back: 'none', color: 'auto', size: 120 });
+    var title = L.zones.line.filter(function (w) { return w.piece === 'title'; })[0];
+    if (title && L.zones.br.length < 2) { L.zones.line = L.zones.line.filter(function (w) { return w !== title; }); L.zones.br.push(Object.assign({}, title, { size: 200 })); }
+    c.layout = L;
+    c.layoutAuto = true;
+    return c;
+  }
   function layoutCfg(c) {
     var L = c.layout;
     if (!L) return c;
@@ -3129,7 +3187,8 @@
     if (!ly.big) {
       var el = document.createElement('div');
       el.className = 'lybig';
-      ly.layer.appendChild(el);
+      // (under every piece: the subject's twin goes right over it, and the pieces over both)
+      ly.layer.insertBefore(el, ly.layer.querySelector('.hksw'));
       ly.big = { key: key, el: el, ctl: null, kind: b.kind, planted: planted };
     }
     var big = ly.big, el2 = big.el, fs = b.size * u, client = clientNow();
@@ -3385,6 +3444,8 @@
       });
     });
     P.moved.forEach(function (mv) { if (mv.to === null) { var c = widgetAt(mv.zone, mv.i); if (c) put(c, null); } });
+    // (the Day face's own words clear of the corner's, once the pieces are where they go)
+    if (cfg.show === 'day') requestAnimationFrame(dayFit);
   }
   // BEHIND THE PHOTO'S SUBJECT, ANY FACE (2026-11-02, phase 13, phase 3; the owner: "Every clock styling option works
   // with the time both in front of the photo's subject and behind it"): the order is the photo, the face, then the
@@ -3439,7 +3500,7 @@
   function cutFollow(L0, tw) {
     if (!tw) return;
     tw.style.transition = L0.style.transition;
-    tw.style.zIndex = L0.style.zIndex;
+    // (no z-index of its photo's: its place in the layer -- after the face, before the pieces -- is its height)
     if (L0.classList.contains('zoom') !== tw.classList.contains('zoom')) {
       if (L0.classList.contains('zoom')) { void tw.offsetWidth; tw.classList.add('zoom'); } else tw.classList.remove('zoom');
     }
@@ -3572,7 +3633,7 @@
       if (run !== ckRun || !on || !layer.isConnected) return;
       if (!C || (face && !F)) { layer.remove(); if (mode === 'clock') { mode = 'photos'; host.removeAttribute('ckgen'); host.removeAttribute('ckface'); enterForecast(); } return; }
       ckCtl = face
-        ? F.mount(layer, { kind: cfg.show, h24: cfg.clock_24, weather: weatherEntity(), look: cfg.day_look, clocks: C, client: clientNow(), groundOnly: !!cfg.layout })
+        ? F.mount(layer, { kind: cfg.show, h24: cfg.clock_24, weather: weatherEntity(), look: cfg.day_look, clocks: C, client: clientNow(), groundOnly: !!cfg.layout && !cfg.layoutAuto })
         : C.mount(layer, { style: cfg.clock_style, h24: cfg.clock_24, music: cfg.clock_today_music, color: cfg.clock_color, bg: bg, motion: cfg.clock_motion, face: !cfg.layout,
                            speed: cfg.clock_speed, depth: cfg.clock_depth, weather: weatherEntity(),
                            // a Wallpaper: its night version while the sun is down, as the dashboard's After Sunset
@@ -3630,8 +3691,10 @@
   // forecast and its background hidden; ckCtl.night holds the painter).
   var nightT = null;
   function minsOf(hhmm) { var p = String(hhmm || '').split(':'); return (+p[0] || 0) * 60 + (+p[1] || 0); }
+  var nightPreview = null;           // the editor's Day / Night (previewNight): null follows the clock
   function nightNow(d, c) {
     c = c || cfg;
+    if (previewOn && nightPreview !== null) return nightPreview;
     if (!c || c.clock_night === 'off') return false;
     if (c.clock_night === 'always') return true;
     d = d || new Date();
@@ -3658,8 +3721,14 @@
   function cornerInk(withStatus) {
     var info = root && root.querySelector('.info'), box = null;
     if (!info) return null;
-    [].forEach.call(info.querySelectorAll(':scope > hk-clock-card, :scope > hk-weather-strip-card' + (withStatus ? ', :scope > hk-screensaver-status-card' : '')), function (card) {
-      if (!card.shadowRoot || getComputedStyle(card).display === 'none') return;
+    // (the corner's words: the old cards', or a layout's pieces at the top -- phase 13, the Day face drawn with a layout)
+    var lay = root.querySelector('.lay'), H = (host && host.clientHeight) || window.innerHeight || 800;
+    var pieces = lay ? [].filter.call(lay.querySelectorAll('.hksw.p-time, .hksw.p-weather' + (withStatus ? ', .hksw.p-status' : '')), function (e) {
+      var r = e.getBoundingClientRect(); return r.height > 0 && r.top < H / 2 && getComputedStyle(e).display !== 'none';
+    }) : [];
+    [].forEach.call(info.querySelectorAll(':scope > hk-clock-card, :scope > hk-weather-strip-card' + (withStatus ? ', :scope > hk-screensaver-status-card' : '')), function (card) { pieces.push(card); });
+    pieces.forEach(function (card) {
+      if (getComputedStyle(card).display === 'none') return;
       var walk = function (n) {
         if (n.nodeType === 3) {
           if (!n.textContent.trim()) return;
@@ -3670,7 +3739,7 @@
         }
         [].forEach.call(n.childNodes || [], walk);
       };
-      walk(card.shadowRoot);
+      walk(card.shadowRoot || card);
     });
     return box;
   }
@@ -6095,6 +6164,22 @@
   window.hkSaver = {
     // THE PLAN IT DREW (2026-11-01, the Screensaver editor's overlay: the zones as the screen places them, never as
     // the editor guesses): the room, the plan's boxes and the zones, in this page's px; null without a layout
+    // THE EDITOR'S SEE A SLIDE AND DAY / NIGHT (phase 13): in the preview only -- a slide shown now, with its slide
+    // corner (null: none), and Night Mode on or off whatever the hour (null: as the clock says). Nothing is saved
+    previewSlide: function (kind) {
+      if (!on || !previewOn) return false;
+      if (muShowing) hideMusicSlide();
+      if (wxShowing) hideWeatherSlide();
+      if (enShowing) hideEnergySlide();
+      if (fcShowing && mode !== 'forecast') hideForecastExtra();
+      exKind = '';
+      if (exT) { clearTimeout(exT); exT = null; }
+      var ok = kind === 'music' ? showMusicSlide() : kind === 'weather' ? showWeatherSlide() : kind === 'energy' ? showEnergySlide()
+             : kind === 'forecast' ? showForecastExtra() : false;
+      if (ok) exKind = kind;
+      return !!ok;
+    },
+    previewNight: function (v) { nightPreview = v === true ? true : v === false ? false : null; nightCheck(); return nightPreview; },
     layoutInfo: function () {
       var LM = window.hkSaverLayout;
       if (!ly || !ly.plan || !LM || !cfg || !cfg.layout || !host) return null;
@@ -6125,7 +6210,7 @@
         if (previewOn && on && v) setTimeout(restartPreview, 0);
       }
       previewOn = !!v;
-      if (!previewOn) lastPh = null;
+      if (!previewOn) { lastPh = null; nightPreview = null; }
       force = previewOn;
       refresh();
       if (previewOn && !on) start('preview');

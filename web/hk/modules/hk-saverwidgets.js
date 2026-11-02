@@ -167,6 +167,10 @@
     '.hksw .cd.ti .ct + div{margin-top:calc(var(--u) * .6)}',
     '.hksw .cd > div{overflow:hidden;text-overflow:ellipsis}',
     '.hksw .cd .big{font-size:calc(var(--u) * 8.5);font-weight:700;line-height:1;letter-spacing:-.01em;margin-left:-.05em}',
+    // (the Time's card: large figures, thin as the lock screen's time, and its date under them; at 150 % the old corner
+    // clock's 150 px on an 800 px tablet -- the size a screen with no saved layout gets, hk-saver.js autoLayout)
+    '.hksw .cd.tc .big{font-size:calc(var(--u) * 12);font-weight:500;letter-spacing:-.03em}',
+    '.hksw .cd.tc .s1{font-size:calc(var(--u) * 3.2);margin-top:calc(var(--u) * .8)}',
     '.hksw .cd .big + .s1, .hksw .cd .cw + .s1{margin-top:calc(var(--u) * .8)}',
     '.hksw .cd .cl{font-weight:600}',
     '.hksw .cd .cw{display:flex;align-items:center;justify-content:space-between}',
@@ -286,7 +290,7 @@
     for (var i = 0; i < AQIC.length; i++) if (a <= AQIC[i][0]) return [AQIC[i][1], AQIC[i][2]];
     return null;
   }
-  var GREEN = ['#5fd38a', '#1f8a4c'], AMBER = ['#ffb340', '#b36b00'], RED = ['#ff6b5e', '#c4261a'], YELLOW = ['#ffd166', '#c98a00'], ORANGE = ['#ffa24d', '#c25e00'];
+  var GREEN = ['#5fd38a', '#1f8a4c'], AMBER = ['#ffb340', '#b36b00'], RED = ['#ff6b5e', '#c4261a'], YELLOW = ['#ffd166', '#8a5d00'], ORANGE = ['#ffa24d', '#c25e00'];
   // the style attribute a part with a color of its own carries
   function accStyle(p) { return p ? ' style="--sw-acc:' + p[0] + ';--sw-acc-d:' + p[1] + '"' : ''; }
 
@@ -307,7 +311,7 @@
     wind: '<path d="M3 8h11a3 3 0 1 0-3-3h2a1 1 0 1 1 1 1H3zm0 4h15a3 3 0 1 1-3 3h2a1 1 0 1 0 1-1H3zm0 4h7v2H3z"/>'
   };
   // each glyph's own color, by what the sky is doing (the sun warm, rain blue, cloud a cool gray, the moon pale)
-  var GCOL = { sun: YELLOW, moon: ['#d6dcff', '#5560a8'], partly: ['#ffd98a', '#c98a00'], partlynight: ['#d6dcff', '#5560a8'], cloud: ['#cdd8e4', '#617689'],
+  var GCOL = { sun: YELLOW, moon: ['#d6dcff', '#5560a8'], partly: ['#ffd98a', '#8a5d00'], partlynight: ['#d6dcff', '#5560a8'], cloud: ['#cdd8e4', '#617689'],
                fog: ['#c3ced8', '#6c7b88'], rain: ['#82c3ff', '#2a74c8'], snow: ['#c4e8ff', '#4a8fbf'], bolt: YELLOW, wind: ['#a8ded3', '#2f8f7e'] };
   var WXG = { sunny: 'sun', 'clear-night': 'moon', partlycloudy: 'partly', cloudy: 'cloud', fog: 'fog', rainy: 'rain', pouring: 'rain', hail: 'rain',
               snowy: 'snow', 'snowy-rainy': 'snow', lightning: 'bolt', 'lightning-rainy': 'bolt', windy: 'wind', 'windy-variant': 'wind', exceptional: 'cloud' };
@@ -773,7 +777,7 @@
         // the time over the date
         read: function (X) { return { time: tm(X.now, X.h24), date: DAYS[X.now.getDay()] + ', ' + MONTHS[X.now.getMonth()] + ' ' + X.now.getDate(), font: timeFont(X) }; },
         draw: function (s) {
-          return '<div class="cd"><div class="big"' + (s.font ? ' style="font-family:' + esc(s.font) + '"' : '') + '>' + esc(s.time) + '</div><div class="s1">' + esc(s.date) + '</div></div>';
+          return '<div class="cd tc"><div class="big"' + (s.font ? ' style="font-family:' + esc(s.font) + '"' : '') + '>' + esc(s.time) + '</div><div class="s1">' + esc(s.date) + '</div></div>';
         },
         h: function () { return 17.1; },
         sample: { time: '7:42', date: 'Monday, November 2', font: '' }

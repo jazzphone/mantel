@@ -285,7 +285,7 @@ print(JSON.stringify(r));
     assert "until 18:00" in out["active_24"]
     assert "Tornado Warning until 2:30 PM" in out["extreme"][0][1] and "Wind Advisory" not in out["extreme"][0][1]
     assert out["sev"]["Extreme"] == ["#ff6b5e", "#c4261a"] and out["sev"]["Severe"] == ["#ffa24d", "#c25e00"]
-    assert out["sev"]["Moderate"] == ["#ffd166", "#c98a00"] and out["sev"]["Minor"] == ["#8ad8c0", "#2f8f7e"]
+    assert out["sev"]["Moderate"] == ["#ffd166", "#8a5d00"] and out["sev"]["Minor"] == ["#8ad8c0", "#2f8f7e"]
     assert out["sev"]["Unknown"] == out["sev"]["blank"] == ["#ffb340", "#b36b00"]
     assert out["sev"]["Extreme_card"] == "#ff6b5e" and out["sev"]["Minor_card"] == "#8ad8c0"
     assert "Special Statement" in out["noend"][0][1] and "until" not in out["noend"][0][1] and "Active alert" in out["noend"][1][1]

@@ -1837,6 +1837,10 @@ def saver_options(v: Any, legacy: Any = None) -> dict[str, Any] | None:
             if not isinstance(val, bool):
                 return None
             out[k] = val
+    # ONE KEY FOR MUSIC FULL SCREEN (2026-11-02, phase 13: "One home per option"): the editor's Music Full Screen
+    # (music_first) and Settings' Music slide (music_slide) are one choice -- what plays takes the screen while it plays
+    if out["music_slide"]:
+        out["music_first"], out["music_slide"] = True, False
     # an old Wallpaper behind the clock ("petals_violet", 2026-10-31): its art in its own preset (item 45)
     if out["clock_wallpaper"] in WALLPAPER_LEGACY:
         out["clock_wallpaper"], out["clock_wallpaper_color"] = WALLPAPER_LEGACY[out["clock_wallpaper"]]

@@ -38,18 +38,22 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         // temperature, upper left -- and never over the time's figures
         const tb = await page.evaluate(() => {
           const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
-          const sr = host && host.shadowRoot, t = sr && sr.querySelector('.ph .tb .tbt'), w = sr && sr.querySelector('.info hk-weather-strip-card');
+          // (phase 13: the layout's own face behind the subject, the weather a piece of the layout's)
+          const sr = host && host.shadowRoot, t = sr && sr.querySelector('.lay .lybig'), w = sr && sr.querySelector('.lay .hksw.p-weather');
           const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height }; };
           const ink = (e) => { const g = []; const walk = (n) => { if (!n) return; if (n.nodeType === 3) { const rg = document.createRange(); rg.selectNodeContents(n); const r = rg.getBoundingClientRect(); if (r.width > 0 && n.textContent.trim()) g.push(r); } (n.shadowRoot ? [...n.shadowRoot.childNodes] : []).concat([...n.childNodes]).forEach(walk); }; walk(e);
             return g.length ? { l: Math.min(...g.map((r) => r.left)), r: Math.max(...g.map((r) => r.right)), t: Math.min(...g.map((r) => r.top)), b: Math.max(...g.map((r) => r.bottom)), text: (e.shadowRoot || e).textContent.replace(/\s+/g, ' ').trim().slice(0, 60) } : null; };
-          const U = window.hkSaver && window.hkSaver._, g = U && t ? U.glyphBox(innerWidth, innerHeight, t.textContent) : null;
-          return host ? { tb: host.hasAttribute('tb'), time: t ? box(t) : null, figures: g, weather: w ? Object.assign(box(w), { ink: ink(w) }) : null, W: innerWidth } : null;
+          const info = window.hkSaver.layoutInfo && window.hkSaver.layoutInfo(), pb = info && info.plan && info.plan.big;
+          const g = pb ? [pb.x, pb.y, pb.w, pb.h] : null;
+          return host ? { tb: host.hasAttribute('lay') && !!(t && t.querySelector('.face')) && !sr.querySelector('.ph .tb .tbt'), cut: !!sr.querySelector('.lay .lycut'), time: t ? box(t) : null, figures: g,
+                          weather: w ? Object.assign(box(w), { ink: ink(w) }) : null, W: innerWidth } : null;
         });
-        say(started && !!tb && tb.tb && !!tb.time, screen + ' ' + W + 'x' + H + ': Photos with the time on them', tb);
+        say(started && !!tb && tb.tb && !!tb.time && tb.cut, screen + ' ' + W + 'x' + H + ': Photos with the time on them: the layout\'s face, the subject\'s twin over it', tb);
         const wx = tb && tb.weather, ink = wx && wx.ink, g = tb && tb.figures;
         say(!!wx && wx.h > 0 && !!ink && /\d°/.test(ink.text), screen + ' ' + W + 'x' + H + ': the weather is there, with its temperature', wx);
-        say(!!ink && ink.l <= 60 && ink.t <= 70, screen + ' ' + W + 'x' + H + ': ...in the upper-left corner', ink);
-        say(!!ink && !!g && (ink.b <= g[1] + 1 || ink.r <= g[0] + 1), screen + ' ' + W + 'x' + H + ': ...clear of the time\'s figures', [ink, g]);
+        // (in a corner: the upper left beside a time that leaves it room, else the plan's other end of its side -- phase 13)
+        say(!!ink && ink.l <= 0.15 * W && (ink.t <= 70 || ink.b >= H - 0.2 * H), screen + ' ' + W + 'x' + H + ': ...in a corner at the left', ink);
+        say(!!ink && !!g && (ink.b <= g[1] + 1 || ink.r <= g[0] + 1 || ink.t >= g[1] + g[3] - 1), screen + ' ' + W + 'x' + H + ': ...clear of the time\'s figures', [ink, g]);
         say(!errors.length, screen + ' ' + W + 'x' + H + ': no page errors', errors.slice(0, 3));
         if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '.png' });
         // ...and in its Settings preview (the screen's Screensaver page)
@@ -135,7 +139,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
             const p = n.parentElement, cs = getComputedStyle(p); let op = 1; for (let e = p; e && e.nodeType === 1; e = e.parentElement || (e.getRootNode && e.getRootNode().host)) op *= Number(getComputedStyle(e).opacity);
             if (r.width > 0 && op > 0.05) out.push({ t: n.textContent.trim().slice(0, 30), c: cs.color, l: r.left, r: r.right, top: r.top, b: r.bottom }); }
             (n.shadowRoot ? [...n.shadowRoot.childNodes] : []).concat([...(n.childNodes || [])]).forEach(walk); };
-          walk(sr && sr.querySelector('.info'));
+          walk(sr && (sr.querySelector('.lay') || sr.querySelector('.info')));
           const box = (sel) => { const e = sr && sr.querySelector(sel), r = e && e.getBoundingClientRect(); return r ? { l: r.left, t: r.top, r: r.right, b: r.bottom } : null; };
           const now = sr && sr.querySelector('.info hk-screensaver-now-card'), nc = now && now.shadowRoot && now.shadowRoot.querySelector('.sscorner img,.sscorner .ph');
           const nr = nc && nc.getBoundingClientRect();
@@ -146,12 +150,12 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           if (dnb) { const h = dnb.b - dnb.t; dnb.t += h * 0.2; dnb.b = dnb.t + h * 0.65; }
           const cw = []; const walk2 = (n) => { if (!n) return; if (n.nodeType === 3 && n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); const r = rg.getBoundingClientRect(); if (r.width > 0) cw.push(r); }
             (n.shadowRoot ? [...n.shadowRoot.childNodes] : []).concat([...(n.childNodes || [])]).forEach(walk2); };
-          (sr ? [...sr.querySelectorAll('.info > hk-clock-card, .info > hk-weather-strip-card' + (innerWidth < 600 ? ', .info > hk-screensaver-status-card' : ''))] : []).forEach(walk2);
+          (sr ? [...sr.querySelectorAll('.lay .hksw.p-time, .lay .hksw.p-weather' + (innerWidth < 600 ? ', .lay .hksw.p-status' : ''))] : []).forEach(walk2);
           const corner = cw.length ? { l: Math.min(...cw.map((r) => r.left)), r: Math.max(...cw.map((r) => r.right)), t: Math.min(...cw.map((r) => r.top)), b: Math.max(...cw.map((r) => r.bottom)) } : null;
           const moving = sr ? [...sr.querySelectorAll('.hkf.day .art > *')].flatMap((e) => e.getAnimations()).filter((a) => a.playState === 'running').map((a) => a.animationName) : [];
           // bats only on an occasion that has them (Halloween); the season's leaves (or petals, snow) every day
           const flies = sr ? sr.querySelectorAll('.hkf.day .art .fly, .hkf.day .art .flutter').length : 0;
-          const wxCard = sr && sr.querySelector('.info > hk-weather-strip-card'), glyph = wxCard && wxCard.shadowRoot && wxCard.shadowRoot.querySelector('svg.hk-wx path, hk-icon.hk-wx');
+          const wxCard = sr && sr.querySelector('.lay .hksw.p-weather'), glyph = wxCard && wxCard.querySelector('svg');
           const facefoot = sr && sr.querySelector('.ck .hkf.day') ? sr.querySelector('.ck .hkf.day').getBoundingClientRect().bottom : null;
           return { wd: wdb, dn: dnb, corner, moving, flies, glyphInk: glyph ? getComputedStyle(glyph).fill || getComputedStyle(glyph).color : null, facefoot,
                    texts: out, tm: box('.hkf.weather .tm'), rd: box('.hkf.weather .rd'), np: nr ? { l: nr.left, t: nr.top, r: nr.right, b: nr.bottom } : null, rdRight: inks.length ? Math.max(...inks) : null, W: innerWidth, light: host && host.hasAttribute('cklight') };
@@ -475,18 +479,19 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         const sharp = want === 'clock-tb';
         const tb = await page.evaluate(() => {
           const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
-          return host ? { tb: host.hasAttribute('tb'), ckmode: host.hasAttribute('ckmode'), time: !!host.shadowRoot.querySelector('.ph .tb .tbt') } : null;
+          // (phase 13: the layout's face; the subject's twin over it on sharp photos, none on soft ones)
+          return host ? { ckmode: host.hasAttribute('ckmode'), face: !!host.shadowRoot.querySelector('.lay .lybig .face'), cut: [...host.shadowRoot.querySelectorAll('.lay .lycut')].length > 0 } : null;
         });
-        say(started && !!tb && tb.ckmode && tb.tb === sharp && tb.time === sharp,
+        say(started && !!tb && tb.ckmode && tb.face && tb.cut === sharp,
             screen + (sharp ? ': Clock on sharp photos with Time Behind saved on draws it' : ': Clock on Soft photos with Time Behind saved on: the clock, no time on the photos'), tb);
         if (sharp) {
-          // ...as bright as on Photos (2026-10-31, the owner: "the clock is dim"): over the photos' dark wash, not under it
+          // ...as bright as on Photos (2026-10-31, the owner: "the clock is dim"): the layout's face over the photos' dark wash
           const lift = await page.evaluate(() => {
-            const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph .tb'));
-            const tbx = host && host.shadowRoot.querySelector('.ph .tb'), ph = tbx && tbx.closest('.ph');
-            return tbx ? { tb: Number(getComputedStyle(tbx).zIndex) || 0, wash: Number(getComputedStyle(ph, '::after').zIndex) || 0, op: getComputedStyle(tbx).opacity } : null;
+            const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.lay'));
+            const lay = host && host.shadowRoot.querySelector('.lay'), ph = host && host.shadowRoot.querySelector('.ph');
+            return lay ? { lay: Number(getComputedStyle(lay).zIndex) || 0, wash: ph ? Number(getComputedStyle(ph, '::after').zIndex) || 0 : 0, op: getComputedStyle(lay).opacity } : null;
           });
-          say(!!lift && lift.tb > lift.wash && lift.op === '1', screen + ': the time over the photos\' dark wash, at full strength', lift);
+          say(!!lift && lift.lay > lift.wash && lift.op === '1', screen + ': the time over the photos\' dark wash, at full strength', lift);
           if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '.png' });
         }
         await page.evaluate(() => window.hkSaver && window.hkSaver.preview && window.hkSaver.preview(false));
@@ -506,8 +511,10 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
       }
       const ok = !!got && (want === 'big' ? got.big : want ? got.face === want : !got.face && !got.big);
       say(started && ok, screen + ': the screensaver draws ' + (want || 'the classic forecast'), got);
-      // (2026-11-01: no layout saved, no layout drawn -- the screensaver's own cards and faces, as every Show always had)
-      say(!!got && !got.lay, screen + ': ...with no layout saved, no layout is drawn (the host never gets lay)', got);
+      // ONE RENDERER (phase 13, phase 4): a screen with no layout saved draws through the layout its options make -- but Big
+      // Weather (the owner's favorite) and Month (its own time where the corner's Home Status would stand) keep their own face
+      if (want === 'big' || want === 'month') say(!!got && !got.lay, screen + ': ...' + (want === 'big' ? 'Big Weather' : 'Month') + ' keeps its own face, no layout drawn', got);
+      else say(!!got && got.lay, screen + ': ...with no layout saved, drawn through the layout its options make (one renderer)', got);
       say(!errors.length, screen + ': no page errors', errors.slice(0, 3));
       if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '.png' });
       await ctx.close();

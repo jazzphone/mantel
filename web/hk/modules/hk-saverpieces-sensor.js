@@ -188,7 +188,7 @@
     var g = key === 'lock' ? lockGlyph(open) : GLYPH[key];
     return g ? '<svg class="a" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">' + g + '</svg>' : '<i class="dot a"></i>';
   }
-  // an mdi icon name's words -> a glyph (whole words of the name: "mdi:mailbox-open" has mailbox, "mdi:block-helper" does not have lock)
+  // an mdi icon name's words -> a glyph (whole words of the name: a mailbox icon's name has "mailbox"; a block icon's has no "lock")
   function words(list) { return new RegExp('(?:^|-)(?:' + list + ')(?:-|$)'); }
   var ICONS = [
     [words('thermometer|temperature|thermostat'), 'thermo'], [words('water|humidity|drop|raindrop'), 'drop'], [words('battery'), 'battery'],

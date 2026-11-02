@@ -432,3 +432,12 @@ take its new shape still moves to the nearest zone that can.
   with a suggested default, `hkSaverWidgets._.picked.suggest`, the editor's too), and Any Sensor (its own state words,
   ring ends from its options, its device class or the entity), two Sonnet 5.5 agents. The glance catalog is complete:
   35 new pieces and Next Event's Card, each in its own group's file.
+- 2026-11-02, phase 4: one renderer. A screen with no saved layout draws through the layout its options make
+  (`layoutFrom()` at read time, made to look as the screen did: its one-line weather and Home Status, its large corner
+  clock, its photo's title at the bottom right; Glance and the Day face keep their own words, the layout leaving its big
+  element to them and claiming what they show). Big Weather (the owner's favorite) and Month (its own time where the
+  corner's Home Status would stand) keep their own faces: they draw as they always have. The old corner cards are gone
+  with a layout; their CSS stays only for those two and for the moment before `hk-saverlayout.js` has loaded. The
+  before/after WebKit shots for the owner: https://claude.ai/artifact/N5Kxj6Es2nACSnTvK5WPmz. Also: Music Full Screen
+  one key (`music_slide` reads as `music_first`); the editor's See a Slide and Day / Night (`hkSaver.previewSlide`,
+  `previewNight`).

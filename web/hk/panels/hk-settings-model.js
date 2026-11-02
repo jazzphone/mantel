@@ -2129,6 +2129,8 @@
     Object.keys(SAVER_DEFAULTS).forEach(function (k) {
       out[k] = o && Object.prototype.hasOwnProperty.call(o, k) ? o[k] : SAVER_DEFAULTS[k];
     });
+    // (one key for Music Full Screen, settings.py's: music_slide is music_first now -- phase 13)
+    if (out.music_slide === true) { out.music_first = true; out.music_slide = false; }
     return out;
   }
   // THE HOMEVIEW-STYLE FACES (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I; settings.py's block of the same
