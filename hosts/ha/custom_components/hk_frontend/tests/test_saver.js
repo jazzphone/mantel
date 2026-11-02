@@ -155,7 +155,8 @@ ok('nonsense timing falls back', U.readCfg({ starts_after: -5, each_photo: 'x' }
 ok('no block, no screensaver', U.readCfg(null) === null && U.readCfg('x') === null);
 // THE MUSIC: a slide, and the pane's
 ok('the music: off by default, on only when asked', d.music_slide === false && d.music_pane === false &&
-   U.readCfg({ music_slide: true, music_pane: true }).music_slide === true && U.readCfg({ music_pane: 'yes' }).music_pane === false);
+   // (one key for Music Full Screen, phase 13: an older music_slide reads as music_first)
+   U.readCfg({ music_slide: true, music_pane: true }).music_first === true && U.readCfg({ music_pane: 'yes' }).music_pane === false);
 ok('the pane is up for the calendar, the music, or both', !U.paneOf(d) && U.paneOf({ calendar: true }) && U.paneOf({ music_pane: true }) &&
    U.paneOf({ calendar: true, music_pane: true }) && !U.paneOf(null));
 // THE SIDE PANE'S SCREENSAVER GROUP (2026-10-30, hk-sidepane.js): the pane

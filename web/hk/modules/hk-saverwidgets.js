@@ -160,6 +160,9 @@
     '.hksw .fc .v{font-size:calc(var(--u) * 2.5)}',
     '.hksw .fc .v i{font-style:normal;opacity:.6}',
     // card: about 30 u wide, as tall as it draws, from one left edge
+    // (a card with no backdrop has no padding: its words and its art on the margin, as every other piece's -- 2026-11-02, the
+    // owner: the music "pushed to the right" of the weather under it. With a backdrop, the backdrop's edge is on the margin)
+    '.hksw.k-card.b-none{padding:0;min-width:0}',
     '.hksw.k-card{width:max-content;min-width:calc(var(--u) * 24);max-width:calc(var(--u) * 44);padding:calc(var(--u) * 2);border-radius:calc(var(--u) * 2.2);flex-direction:column;align-items:stretch;justify-content:flex-start;overflow:hidden}',
     '.hksw .cd{box-sizing:border-box;min-width:0;width:100%}',
     // (a card with a title has 2.4 u around it, not 2)

@@ -296,7 +296,7 @@
     // (the Day face: its corner clock top left, smaller, the weather a line under it -- as the face was drawn for)
     if (c.show === 'day') {
       var tc = L.zones.tr.filter(function (w) { return w.piece === 'time'; })[0], wc = L.zones.br.filter(function (w) { return w.piece === 'weather'; })[0];
-      if (tc) { L.zones.tr = L.zones.tr.filter(function (w) { return w !== tc; }); L.zones.tl.unshift(Object.assign({}, tc, { size: 60 })); }
+      if (tc) { L.zones.tr = L.zones.tr.filter(function (w) { return w !== tc; }); L.zones.tl.unshift(Object.assign({}, tc, { size: 100 })); }
       if (wc && L.zones.tl.length < 2) { L.zones.br = L.zones.br.filter(function (w) { return w !== wc; }); L.zones.tl.push(Object.assign({}, wc, { shape: 'inline', size: 110 })); }
     }
     // ...as the screen looked: its corners' weather and Home Status were a line each, large; its photo's title large at
@@ -3362,9 +3362,15 @@
         // (gone: nothing to show, or its condition -- "only when the mail has arrived" -- not met)
         var c = widgetAt(z, i), gone = (c && (c.showing === false || c.blank)) || !LM.met(w.show, client && client.states);
         if (gone) ly.empty[z + ':' + i] = LM.idOf(w);
-        if (claimed[z + ':' + i] || (gone && !previewOn)) { if (c) c.el.style.display = 'none'; return; }
+        // (...the editor keeps its place, dotted, where you can see it is there; any other screen, a Settings preview too,
+        // closes up -- 2026-11-02, an empty title held Home Status off the bottom corners' one line in the preview's shots)
+        var editing = previewOn && !!previewOver;
+        // (no column without a big element of the layout's own: a Month's, or a face's that draws its own words -- the line
+        // and the row wait, as the editor says)
+        if ((z === 'line' || z === 'row') && (O.big.kind === 'month' || (O.big.kind === 'none' && FACE_SHOWS[cfg.show]))) { if (c) c.el.style.display = 'none'; return; }
+        if (claimed[z + ':' + i] || (gone && !editing)) { if (c) c.el.style.display = 'none'; return; }
         // (in the editor's preview its place is kept, drawn by the editor's dotted outline: the piece itself draws nothing)
-        if (c) c.el.style.visibility = gone ? 'hidden' : '';
+        if (c) { c.el.style.display = ''; c.el.style.visibility = gone ? 'hidden' : ''; }
         planned[z].push(Object.assign({}, w, { __i: i }));
       });
     });
@@ -3453,6 +3459,11 @@
   // the same picture masked by its cut-out, laid out as the photo is (its fit, focus, zoom and Darken), fading with it
   // (reveal) and zooming with it (Slow Zoom). The subject comes in front only where it covers 5 to 35 % of the face's
   // own box (its ink, from the plan) -- else, on a Mosaic, or on a photo with no cut-out, the time stands in front.
+  // the big element a layout asks for ('none' leaves it to a face that draws its own words: Glance, Month, the Day face)
+  function layoutBigKind() {
+    var L = cfg && cfg.layout, b = L && (window.hkSaverLayout ? (window.hkSaverLayout.clean(L) || {}).big : L.big);
+    return (b && b.kind) || 'time';
+  }
   function cutWanted() {
     if (!ly || !ly.big || !ly.plan || !ly.plan.big || !cfg || !cfg.layout) return false;
     var b = (window.hkSaverLayout ? window.hkSaverLayout.clean(cfg.layout) : cfg.layout).big || {};
@@ -3633,7 +3644,7 @@
       if (run !== ckRun || !on || !layer.isConnected) return;
       if (!C || (face && !F)) { layer.remove(); if (mode === 'clock') { mode = 'photos'; host.removeAttribute('ckgen'); host.removeAttribute('ckface'); enterForecast(); } return; }
       ckCtl = face
-        ? F.mount(layer, { kind: cfg.show, h24: cfg.clock_24, weather: weatherEntity(), look: cfg.day_look, clocks: C, client: clientNow(), groundOnly: !!cfg.layout && !cfg.layoutAuto })
+        ? F.mount(layer, { kind: cfg.show, h24: cfg.clock_24, weather: weatherEntity(), look: cfg.day_look, clocks: C, client: clientNow(), groundOnly: !!cfg.layout && layoutBigKind() !== 'none' })
         : C.mount(layer, { style: cfg.clock_style, h24: cfg.clock_24, music: cfg.clock_today_music, color: cfg.clock_color, bg: bg, motion: cfg.clock_motion, face: !cfg.layout,
                            speed: cfg.clock_speed, depth: cfg.clock_depth, weather: weatherEntity(),
                            // a Wallpaper: its night version while the sun is down, as the dashboard's After Sunset
@@ -3710,7 +3721,8 @@
     // (the Day face by the time of day: the corners' words follow its light and dark)
     if (cfg && window.hkSaverFaces && host.hasAttribute('ckface')) setAttr(host, 'cklight', faceLight(window.hkSaverFaces));
     dayFit();
-    if (dark && exKind) exHide();
+    // (...but in the editor's preview Night leaves a slide shown with See a Slide where it is)
+    if (dark && exKind && !previewOn) exHide();
     if (ckCtl && ckCtl.night) ckCtl.night(dark);
   }
   // THE DAY FACE AND THE CORNER (2026-10-31): where the corner's words (the time, the date, the weather) would meet
