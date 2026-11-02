@@ -151,7 +151,21 @@ Mantel Link as components copied into its `config` share, without waiting for a 
   words among it), pushes, and stages the App with `--replace`. Then, through
   Home Assistant's websocket, it reloads the App store and updates `local_mantel`, and waits until Mantel answers
   the staged build on `/api/version` and `/healthz?strict=1` is ok. Any "Traceback" or "ERROR" in the App's log
-  fails the release.
+  fails the release. Then it tags the release commit `vX.Y.Z` and pushes the tag (a tag that exists already refuses
+  the release before anything changes).
+- **Every Mantel house release is tagged**, with the tool or by hand. The Proxmox LXC's `update`
+  ([`packaging/proxmox`](../../packaging/proxmox/README.md)) follows the newest `v*` tag, so a tag means "on the
+  house and healthy", and an untagged release never reaches the LXC installs. Released by hand (through the Home
+  Assistant connection, without the tool), tag the release commit (the one that sets the version) once the house
+  runs it healthy, and push only the tag:
+
+  ```bash
+  git tag -a v0.1.110 -m "Mantel 0.1.110" <release commit>
+  git push origin refs/tags/v0.1.110
+  ```
+
+  Never move or reuse a tag; a fix is the next version. HK Frontend and Mantel Link keep their own tags in their
+  public repositories (`--github-release`).
 - **HK Frontend and Mantel Link:** it sets the manifest version, commits, runs `tools/ci.py versions`, pushes,
   builds the component (HK Frontend with `tools/build_ha.py`, Mantel Link with its `publish.py`, whose layout
   vendors the `hk_core` modules it imports), and copies it with `rsync -rt --inplace` (Home Assistant's Samba share

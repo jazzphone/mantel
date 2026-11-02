@@ -17,7 +17,9 @@ second full run. Each release commit the tool makes passes `versions` before it 
   "## Unreleased", commit and push; stage the App into the local apps share (stage_ha_app.py --replace); through
   Home Assistant's websocket (supervisor/api), reload the store and update `local_mantel`; wait until Mantel's
   /api/version answers the staged build and /healthz?strict=1 is ok (through the App's Ingress); fail on any
-  "Traceback" or "ERROR" in the App's log.
+  "Traceback" or "ERROR" in the App's log. Then, with the house running it, tag the release commit v<version> and
+  push the tag: the Proxmox LXC's `update` (packaging/proxmox) follows the newest v* tag, so a tag means "on the
+  house and healthy". A tag that exists already refuses the release before anything changes.
 * hk-frontend / mantel-link: set the manifest version, commit and push; build (HK Frontend: tools/build_ha.py;
   Mantel Link: its publish.py, whose layout vendors the hk_core modules it imports) and copy the component into the config share with rsync --inplace, never --delete (HA's Samba share half-fails
   without --inplace); check the copy with diff; restart Home Assistant and wait until it serves the new files.
@@ -342,14 +344,37 @@ async def restart_and_wait(house: House, served: str) -> None:
 
 # ---------------------------------------------------------------- the releases
 
+def check_tag_free(version: str) -> None:
+    """A Mantel release's tag v<version> is not here or on GitHub yet."""
+    tag = f"v{version}"
+    if git("tag", "-l", tag):
+        raise Refused(f"the tag {tag} exists here already")
+    r = subprocess.run(["git", "ls-remote", "--tags", "origin", f"refs/tags/{tag}"], cwd=ROOT,
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        raise Refused(f"cannot ask origin for its tags: {r.stderr.strip()[:200]}")
+    if r.stdout.strip():
+        raise Refused(f"origin has the tag {tag} already")
+
+
+def tag_release(version: str, commit: str) -> str:
+    """Tag the release commit v<version> (annotated) and push only that tag."""
+    tag = f"v{version}"
+    git("tag", "-a", tag, "-m", f"Mantel {version}", commit)
+    git("push", "-q", "--no-verify", "origin", f"refs/tags/{tag}")
+    return tag
+
+
 def release_mantel(version: str, notes: str, dry: bool) -> list[str]:
     today = datetime.date.today()
     head, _ = preflight()
+    check_tag_free(version)
     regex = private_regex()
     url, token = ha_url(), ("" if dry else ha_token())
     print(f"Mantel {version} from {head[:9]} to {url}")
     if dry:
-        print("dry run: would bump, add the notes, commit, check it (tools/ci.py versions), push, stage, update and verify")
+        print("dry run: would bump, add the notes, commit, check it (tools/ci.py versions), push, stage, update, "
+              f"verify, and tag v{version}")
         run(sys.executable, "tools/stage_ha_app.py", "--dry-run", env={"HK_PRIVATE": regex})
         return []
     _load("bump_version").set_version(version)
@@ -367,7 +392,8 @@ def release_mantel(version: str, notes: str, dry: bool) -> list[str]:
             return await update_app(house, build)
 
     result = asyncio.run(go())
-    return [f"Mantel {result['version']}, commit `{commit[:7]}`, build `{build}`.",
+    tag = tag_release(version, commit)                        # only once the house runs it, healthy
+    return [f"Mantel {result['version']}, commit `{commit[:7]}`, build `{build}`, tagged `{tag}`.",
             f"Strict health ok; Home Assistant connected for {result['health']['upstream']['home_assistant']['connected_for_s']} s.",
             "No \"Traceback\" or \"ERROR\" in the App's log."]
 

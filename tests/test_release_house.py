@@ -197,3 +197,36 @@ def test_the_github_release_is_opt_in_and_not_for_mantel_itself(capsys):
     assert rh.main(["mantel", "0.1.99", "--github-release"]) == 2
     assert "--github-release is for hk-frontend and mantel-link" in capsys.readouterr().err
 
+
+
+# ---- Mantel's own releases are tagged v<version> once the house runs them (the LXC's `update` follows the tags)
+
+def test_a_mantel_release_needs_a_free_tag(monkeypatch):
+    local: list[str] = []
+    monkeypatch.setattr(rh, "git", lambda *a: "\n".join(local) if a[:2] == ("tag", "-l") else "")
+    _ls_remote(monkeypatch, "")
+    rh.check_tag_free("0.1.99")
+    _ls_remote(monkeypatch, "abc\trefs/tags/v0.1.99\n")
+    with pytest.raises(rh.Refused, match="origin has the tag v0.1.99 already"):
+        rh.check_tag_free("0.1.99")
+    _ls_remote(monkeypatch, "", code=128)
+    with pytest.raises(rh.Refused, match="cannot ask origin"):
+        rh.check_tag_free("0.1.99")
+    local.append("v0.1.99")
+    with pytest.raises(rh.Refused, match="exists here already"):
+        rh.check_tag_free("0.1.99")
+
+
+def test_the_tag_is_annotated_on_the_release_commit_and_pushed_alone(monkeypatch):
+    calls = []
+    monkeypatch.setattr(rh, "git", lambda *a: calls.append(a) or "")
+    assert rh.tag_release("0.1.99", "abc123") == "v0.1.99"
+    assert calls == [("tag", "-a", "v0.1.99", "-m", "Mantel 0.1.99", "abc123"),
+                     ("push", "-q", "--no-verify", "origin", "refs/tags/v0.1.99")]
+
+
+def test_the_release_is_tagged_only_after_the_house_runs_it():
+    source = (ROOT / "tools/release_house.py").read_text()
+    body = source[source.index("def release_mantel"):source.index("def check_github_release")]
+    assert body.index("check_tag_free(version)") < body.index("set_version(version)"), "refused before anything changes"
+    assert body.index("asyncio.run(go())") < body.index("tag_release(version, commit)")
