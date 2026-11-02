@@ -133,7 +133,8 @@ Home Assistant fetches remote art through HA's own session without the address p
 
 | Check | Result |
 |---|---|
-| `tools/ci.py full` on the merged tree, Playwright 1.62.0 | FINAL_RESULT |
+| `tools/ci.py full` on the merged tree, Playwright 1.62.0 | 35 passed, 1 failed: side-pane-check-1180x820, a navigation interrupted by the wall tablet's own redirect (a load flake: it passed twice alone, and in the run before the last merge, which was 36 of 36) |
+| The last merge's own breakage, caught by the run before | SRV-4's cut failed closed for an Owner where no feature host was attached (the headless checks' houses): client_smoke and the four Edit mode checks failed; fixed (the cut asks the app's own authz) and pinned by `test_settings_store.py::test_an_owners_screen_socket_is_told_everything_it_names` |
 | Main suite | in the run above; 4322+ tests on the merged branches before the last merge |
 | New regression tests | about 70, each checked to fail before its fix (the subsystem branches' reports; the few exceptions are new drift checks) |
 | Browser probes (headless Chrome): a sheet file blocked then reachable; an overlapping confirm and Escape; hostile names in every view (the audit); listener growth over 66 sheet opens | recover; Escape heard; nothing injected; no growth |
