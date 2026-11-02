@@ -319,13 +319,22 @@ one (`ask-before-playing-sound` memory).
 
 ## Timings
 
-| | Today (HA App, through Mantel Link) | Direct (Docker / LXC) |
-|---|---|---|
-| Press to sound at the door | not yet measured: needs a press at the door (the owner's OK each time) | phase 5 |
-| Ring to the sheet on a wall tablet | not yet measured: needs a ring | phase 5 |
+Measured at the house on 2026-11-02 with the owner's OK. **Press to sound** is a 1 s 1 kHz tone sent as a tablet's
+held button would send it, timed until the tone is heard in the doorbell's own microphone stream (decoded on this
+Mac). That stream's own delay is in every number alike, so the numbers compare paths; they aren't absolute. **Ring
+to sheet** was taken from screenshots of the Master Bathroom tablet every half second (±0.5 s).
 
-Mantel's log already says how long a press waited for the doorbell to listen ("live talk on ... listening N ms
-after the ticket"); the log since the 0.1.113 restart has no talk in it yet.
+| | Today (HA App, through Mantel Link 0.1.10) | Direct (Mantel's own, `hk_core/talk/core.py`) |
+|---|---|---|
+| Press to sound, first press after a talk session is handed out | 1.30 s, half the tone lost | first version: nothing heard; now (lead-in): **0.92 s**, 0.86 of 1 s heard |
+| Press to sound, the session already streaming | 0.43-0.64 s, all heard | first version (a new stream per hold): 0.77-1.5 s, 0.06-0.7 of 1 s heard; now (one stream per session): **0.42-0.45 s, all heard** |
+| Ring to Mantel (the console's own delay) | 2.03 s (Home Assistant's event) | 2.02 s (the public events socket) |
+| Ring to sheet on a wall tablet | **~3.9 s** to the sheet, ~4.5 s to live video (out of the screensaver) | the same event timing; the sheet's own part (~1.9 s here) is measured again on the LXC |
+
+What it changed: a Protect doorbell loses the start of every NEW audio stream, so live talk now keeps one stream per
+session, silence between holds, cut the moment another session takes the floor (core.py's docstring). Today's path
+gets the same through Mantel Link 0.1.11. The direct path's ring-to-sheet is the same as today's on the event side;
+its gain is the video's one hop fewer, which waits on the house's move to the LXC to be measured.
 
 ## Build log
 
@@ -405,4 +414,9 @@ after the ticket"); the log since the 0.1.113 restart has no talk in it yet.
   (Loft, Office, Living Room, Crawl Space, Kitchen) have their camera entities turned off in Home Assistant but their
   detection sensors on; picked in Mantel they are Mantel's own cameras, and Home Assistant's sensors of them are now
   held back while Mantel's events socket is up, so a person is one notification, not two (`camera_less_detections`).
+- 2026-11-02: both doorbell timings measured (see Timings). The beeps showed that a Protect doorbell loses the
+  start of every new audio stream, so phase 2's "a new stream per hold, nothing between" was wrong. The core now
+  keeps one stream per session with a 400 ms silent lead-in, silence between holds, cut the moment another session
+  takes the floor (Home Assistant's Floor and Mantel's relay both cut) and closed after 30 s of quiet; confirmed at
+  the door: 0.42-0.45 s press to sound, the whole tone heard.
 
