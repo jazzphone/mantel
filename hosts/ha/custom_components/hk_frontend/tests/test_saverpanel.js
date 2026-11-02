@@ -65,10 +65,10 @@ ok('Music page, other rooms ticked: the next pick plays there, the music keeps i
    /Your next pick plays on <b>Loft<\/b>; <b>Piano Man<\/b> keeps playing on Living Room, Kitchen and Office\./.test(c5) && /<b>Update<\/b>: <b>Piano Man<\/b> moves to Loft/.test(c5), c5);
 var c6 = U.ticksCaption(group, [LR, K, O, L], 'Piano Man', true, nm);
 ok('...all its rooms and one more: the next pick replaces it', /Your next pick plays on <b>Living Room, Kitchen, Office and Loft<\/b>, in place of <b>Piano Man<\/b>\./.test(c6), c6);
-// A PICK ON THE TICKS (the screensaver's Browse): a preset's exact rooms
-// play on its sync group, else the first room and the rest brought in
+// A PICK ON THE TICKS (the screensaver's Browse): the first room, and the
+// rest brought in (a preset's rooms too)
 var PRE = [{ entity: 'grp_down', members: [LR, K] }];
-ok('a pick on a preset\'s exact rooms: its sync group, nothing to bring in', JSON.stringify(U.playTarget([K, LR], PRE)) === JSON.stringify({ player: 'grp_down', then: null }));
+ok('a pick on a preset\'s exact rooms: the first, then all of them (its id is no player)', JSON.stringify(U.playTarget([K, LR], PRE)) === JSON.stringify({ player: K, then: [K, LR] }));
 ok('...on other rooms: the first, then all of them', JSON.stringify(U.playTarget([L, G], PRE)) === JSON.stringify({ player: L, then: [L, G] }));
 ok('...on one room: just it', JSON.stringify(U.playTarget([G], PRE)) === JSON.stringify({ player: G, then: null }));
 ok('names are escaped', !/<i>/.test(U.ticksCaption(group, ['<i>x'], '<i>song', true, function (rs) { return rs.join(' and '); })));
@@ -76,8 +76,8 @@ ok('names are escaped', !/<i>/.test(U.ticksCaption(group, ['<i>x'], '<i>song', t
 // THE GROUP'S VOLUME, one rule (2026-10-31): the Music page's slider and a Small Now Playing block's Speakers sheet
 ok('the rule is exported', window.hkSaverPanel.volumeCalls === U.volumeCalls);
 ok('a group: every room in one call', JSON.stringify(U.volumeCalls({ key: LR, kind: 'group', members: group }, [], 0.4)) === JSON.stringify([{ entity_id: group, volume_level: 0.4 }]));
-var vpre = U.volumeCalls({ key: 'grp_down', kind: 'preset', members: [LR, K] }, PRE, 0.5);
-ok('a preset: its group, then its rooms', vpre.length === 2 && vpre[0].entity_id === 'grp_down' && JSON.stringify(vpre[1].entity_id) === JSON.stringify([LR, K]));
+var vpre = U.volumeCalls({ key: LR, kind: 'group', preset: 'Downstairs', members: [LR, K] }, PRE, 0.5);
+ok('a preset\'s rooms: every room in one call, never its id', JSON.stringify(vpre) === JSON.stringify([{ entity_id: [LR, K], volume_level: 0.5 }]));
 ok('one room: that room', JSON.stringify(U.volumeCalls({ key: K, kind: 'room', members: [K] }, [], 0.2)) === JSON.stringify([{ entity_id: K, volume_level: 0.2 }]));
 
 print('\n' + (fail ? fail + ' FAILED, ' : 'ALL ') + pass + ' SAVER PANEL TESTS PASS');

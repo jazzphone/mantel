@@ -128,11 +128,13 @@ ok('  ...and they are the Main Floor 5', DOWN.every(function(e){return c._sel.ha
 c = card('Everywhere');
 ok('Everywhere seeds all 9', c._sel.size === 9);
 
-print('\n=== rule 1: selection == preset -> sync group option ===');
+print('\n=== a preset is its rooms: the join path, never a sync group ===');
 c = card('Kitchen'); c._preset(CFG.presets[1]);
-ok('Downstairs preset -> its sync group', c._target() === 'media_player.downstairs_homepods_downstairs', 'got '+c._target());
+ok('Downstairs preset -> null (its rooms joined)', c._target() === null, 'got '+c._target());
+ok('  ...and its five rooms are the destination', c._targets().length === 5 &&
+   DOWN.every(function (e) { return c._targets().indexOf(e) >= 0; }), JSON.stringify(c._targets()));
 c._preset(CFG.presets[0]);
-ok('Everywhere preset -> its sync group', c._target() === 'media_player.homepods_2', 'got '+c._target());
+ok('Everywhere preset -> null', c._target() === null, 'got '+c._target());
 
 print('\n=== rule 2: exactly one speaker -> that option ===');
 c = card('Kitchen'); c._clear(); c._toggle(ent('loft'));
@@ -157,7 +159,7 @@ ok('  ...6 selected', c._sel.size === 6);
 print('\n=== all 9 by hand == Everywhere (set equality, not preset memory) ===');
 c = card('Kitchen'); c._clear();
 ALL.forEach(function(e){ c._toggle(e); });
-ok('hand-picking all 9 -> Everywhere', c._target() === 'media_player.homepods_2', 'got '+c._target());
+ok('hand-picking all 9 -> null, as Everywhere', c._target() === null, 'got '+c._target());
 
 print('\n=== preset toggles off ===');
 c = card('Kitchen'); c._preset(CFG.presets[1]);
@@ -223,8 +225,8 @@ var c7=(function(){
      'media_player.master_bedroom_homepod_ma','media_player.master_bathroom_homepod_ma',
      'media_player.guest_bedroom_homepod_ma']}};
   cc.hass=focusOf({states:fillKnown(st), callService:function(){}}); return cc;})();
-ok('a live group equal to Downstairs -> resolves to the SYNC GROUP',
-   c7._target()==='media_player.downstairs_homepods_downstairs', 'got '+c7._target());
+ok('a live group equal to Downstairs -> its rooms, never the sync group',
+   c7._target()===null && c7._targets().length===5, 'got '+c7._target());
 
 print('\n=== every press is ONE call: the rooms, in tap order, and the playlist ===');
 // The three rules -- a preset's sync group, one room, a new join -- and
@@ -270,8 +272,8 @@ c._play(pl);
 ok('a preset: one call carrying its five rooms',
    calls.length === 1 && calls[0][1].rooms.slice().sort().join() === DOWN.slice().sort().join(),
    JSON.stringify(calls));
-ok('  ...while the screen holds on the preset\'s SYNC GROUP, which is where it will play',
-   window.hkMusic.focus() === 'media_player.downstairs_homepods_downstairs',
+ok('  ...while the screen holds on its first room, which leads it',
+   window.hkMusic.focus() === ent('kitchen'),
    window.hkMusic.focus());
 
 print('\n=== the third pill state: which rooms are actually playing ===');
@@ -450,22 +452,14 @@ var L = function (x) { return c._ctxLabel(x); };
 var office = cx.filter(function (x) { return x.title === 'Cornerman'; })[0];
 ok('two rooms read as "A + B"', L(office).name.indexOf(' + ') > 0, L(office).name);
 ok('  ...and key on the leader', L(office).key === ent('office'), L(office).key);
-// A context whose rooms ARE a preset's rooms IS that preset -- pointing the
-// selector at a room because it happens to be group_members[0] would downgrade
-// a real MA sync group to an ad-hoc join.
+// A context whose rooms ARE a preset's rooms is named as that preset, and keys
+// on its leader: a preset is its rooms (no Music Assistant sync group plays it).
 c = houseOf([{ members: DOWN, title: 'x', artist: 'y' }], 'Downstairs');
-c.hass.states['media_player.downstairs_homepods_downstairs'].state = 'playing';
 var dl = c._ctxLabel(c._contexts()[0]);
-ok('a playing sync group is named as the preset', dl.name === 'Downstairs', dl.name);
-ok('  ...and keys on the SYNC GROUP, not a room',
-   dl.key === 'media_player.downstairs_homepods_downstairs', dl.key);
-// ...but the same five rooms JOINED AD HOC are not the preset:
-// the sync group is idle, and pointing the screen at it would show an idle
-// player while five rooms play.
-c = houseOf([{ members: DOWN, title: 'x', artist: 'y' }], 'Downstairs');
-var adhoc = c._ctxLabel(c._contexts()[0]);
-ok('an ad-hoc join of the same rooms keys on its leader',
-   adhoc.key === ent('kitchen') && adhoc.name === 'Kitchen +4', adhoc.key + ' ' + adhoc.name);
+ok('a preset\'s rooms joined are named as the preset', dl.name === 'Downstairs', dl.name);
+ok('  ...and key on their leader', dl.key === ent('kitchen'), dl.key);
+c.hass.states['media_player.downstairs_homepods_downstairs'].state = 'playing';
+ok('  ...whatever its old sync group says', c._ctxLabel(c._contexts()[0]).key === ent('kitchen'));
 // Beyond two rooms the name is "A +N" -- a five-room list does not fit.
 c = houseOf([{ members: [ent('office'), ent('loft'), ent('extra_room')], title: 't', artist: 'a' }], 'Office');
 ok('three rooms read as "A +2"', c._ctxLabel(c._contexts()[0]).name === 'Office +2',
@@ -724,8 +718,8 @@ ok('a speaker lost after confirmation invalidates play',
    c._requestValid(requestedBefore) === false);
 c = card('Downstairs');
 gone(c, ['media_player.downstairs_homepods_downstairs']);
-ok('an unavailable preset group invalidates play even when rooms are online',
-   c._requestValid(DOWN) === false);
+ok('a preset plays on its rooms: its old group gone takes nothing away',
+   c._requestValid(DOWN) === true);
 
 // The whole selection going away must not leave a play target behind.
 c = card('Office');
@@ -809,11 +803,11 @@ c._sel = new Set([ent('loft'), ent('office')]);
 ok('selection contains the playing room -> ADD', c._adding() === true);
 c._sel = new Set([ent('office')]);
 ok('selection without it -> MOVE', c._adding() === false);
-// A PRESET resolves to its sync-group player, so _targets and _sel differ on
-// purpose. Reading _sel here would say "Add" while the script did a move.
+// A PRESET is its rooms: with the playing room among them it is an ADD, its
+// queue staying put (no Music Assistant group to move it to).
 c = xfer('Kitchen', [ent('kitchen')]);
 c._sel = new Set(DOWN);                       // Downstairs, which contains the kitchen
-ok('a preset is judged on _targets, not _sel', c._adding() === false,
+ok('a preset holding the playing room -> ADD', c._adding() === true,
    'targets=' + JSON.stringify(c._targets()));
 
 // --- a lit button must never do nothing ------------------------------------

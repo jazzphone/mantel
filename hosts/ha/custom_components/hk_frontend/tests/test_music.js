@@ -81,15 +81,17 @@ ok('  ...with both rooms', cx[0].members.join(','), [e('office'), e('loft')].joi
 ok('  ...named as both', M.label(cx[0]), 'Office + Loft');
 cx = M.contexts(house(group([e('office'), e('loft'), e('extra_room')])));
 ok('three rooms read "A +2"', M.label(cx[0]), 'Office +2');
-// A sync group is recognised by ITS OWN state.
-var syncOn = merge(group(DOWN), { 'media_player.downstairs_homepods_downstairs': { gm: null, title: 'C' } });
-cx = M.contexts(house(syncOn));
-ok('a playing sync group is the preset', cx.length + ':' + cx[0].kind + ':' + cx[0].key,
-   '1:preset:' + DOWNG);
-ok('  ...named as the preset', M.label(cx[0]), 'Downstairs');
+// A PRESET IS ITS ROOMS (2026-11-01): no Music Assistant group plays it, so
+// its rooms joined are a group keyed on their leader, named by the preset.
 cx = M.contexts(house(group(DOWN)));
-ok('the same rooms joined AD HOC are not the preset',
-   cx[0].kind + ':' + cx[0].key, 'group:' + e('kitchen'));
+ok('a preset\'s rooms joined are one group, keyed on its leader',
+   cx.length + ':' + cx[0].kind + ':' + cx[0].key, '1:group:' + e('kitchen'));
+ok('  ...named as the preset', M.label(cx[0]) + ':' + cx[0].preset, 'Downstairs:Downstairs');
+var syncOn = merge(group(DOWN), { 'media_player.downstairs_homepods_downstairs': { gm: null, title: 'C' } });
+ok('  ...and a Music Assistant group playing is never a context of its own',
+   M.contexts(house(syncOn)).map(function (c) { return c.kind + ':' + c.key; }).join(','), 'group:' + e('kitchen'));
+cx = M.contexts(house(group(DOWN.slice(0, 3))));
+ok('rooms that are not exactly a preset\'s are not named by it', String(cx[0].preset) + ':' + M.label(cx[0]), 'undefined:Kitchen +2');
 // A stale group must not hide a room that is really playing on its own.
 var stale = { 'media_player.downstairs_homepods_downstairs': { state: 'paused', gm: null },
               'media_player.kitchen_homepod_ma': { title: 'D' } };
@@ -378,28 +380,9 @@ var gh = house(group([e('office'), e('loft')], { title: 'Music' }));
 ok('suppressed group leader is not reintroduced via member', M.contexts(gh)[0].key, e('loft'));
 M._configure(HK_HOUSE);
 
-print('\n=== a pair room counts in a playing preset (hk_core/music/groups.py) ===');
-// The Office is a STEREO PAIR: a Music Assistant group picked as one speaker.
-// It plays in Everywhere by its own two players, which no screen sees, while
-// its group player sits idle.
-M._configure(Object.assign({}, HK_HOUSE, { speakers: HK_HOUSE.speakers.map(function (s) {
-  return s.entity === e('office') ? Object.assign({}, s, { pair: ['Office Left', 'Office Right'] }) : s;
-}) }));
+print('\n=== a sync group playing on its own rooms\' players is nothing to the screens ===');
 var everyOn = { 'media_player.homepods_2': { gm: null, title: 'F' } };
-ROOMS.forEach(function (r) { if (r !== e('office')) everyOn[r] = { gm: [] }; });
-var ph = house(everyOn);
-ph.states[EVERY].attributes.media_content_id = 'library://playlist/1';
-cx = M.contexts(ph);
-ok('the preset holds the idle pair', cx.map(function (c) { return c.kind + ':' + c.key + ':' + c.members.length; }).join(','),
-   'preset:' + EVERY + ':9');
-ph.states[e('office')].state = 'paused';
-ok('  ...and a stale pause on its group player', M.contexts(ph)[0].kind, 'preset');
-ph.states[e('office')].state = 'playing';
-ph.states[e('office')].attributes.media_content_id = 'library://playlist/9';
-ok('the pair playing something else is not in it', M.contexts(ph).some(function (c) { return c.kind === 'preset'; }), false);
-M._configure(HK_HOUSE);
-ph.states[e('office')].state = 'idle';
-ok('a room that is no pair still has to be active', M.contexts(ph).some(function (c) { return c.kind === 'preset'; }), false);
+ok('a Music Assistant group whose rooms are idle claims nothing', M.contexts(house(everyOn)).length, 0);
 
 print('\n=== a virtual pair is one room (docs/phase4/VIRTUAL-PAIRS.md) ===');
 // The Office's two HomePods made one room in Mantel: the right one is no speaker of its own

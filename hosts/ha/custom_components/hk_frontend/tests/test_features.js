@@ -72,14 +72,15 @@ ok('...counted of the reachable', F._.roomCount(rd) === '1 of 3');
 // ------------------------------------------------------------ music
 var md = { speakers: [{ entity: 'media_player.k', name: 'Kitchen', floor: 'Main', player: 'Kitchen HomePod' },
                       { entity: 'media_player.o', name: 'Office', floor: null, player: 'Office' }],
-           presets: [{ id: 'p1', name: 'Everywhere', group: 'media_player.all', members: ['media_player.k', 'media_player.o'] }],
+           presets: [{ id: 'p1', name: 'Everywhere', members: ['media_player.k', 'media_player.o'] }],
            players: [{ entity: 'media_player.k', name: 'Kitchen HomePod' }, { entity: 'media_player.o', name: 'Office' },
                      { entity: 'media_player.all', name: 'All HomePods' }, { entity: 'media_player.den', name: 'Den HomePod' }] };
 var SL = F._.speakerLists(md);
 ok('Speakers: in their order, named by area, the player’s own name under it when different',
    eq(SL.rows.map(function (r) { return [r.value, r.label, r.sub]; }),
       [['media_player.k', 'Kitchen', 'Main · Kitchen HomePod'], ['media_player.o', 'Office', null]]), SL.rows);
-ok('...More: the other players, never a preset’s sync group', eq(SL.more.map(function (r) { return r.value; }), ['media_player.den']));
+ok('...More: the other players (a preset has no player of its own)',
+   eq(SL.more.map(function (r) { return r.value; }), ['media_player.all', 'media_player.den']), SL.more);
 ok('a room is named by its speaker’s area, else the player’s name, else its id',
    F._.speakerName(md, 'media_player.k') === 'Kitchen' && F._.speakerName(md, 'media_player.den') === 'Den HomePod' &&
    F._.speakerName(md, 'media_player.x') === 'media_player.x');
@@ -93,20 +94,20 @@ ok('a pair says so under its name, with its two speakers',
    PL.rows[1].sub === 'Stereo pair: Office Left + Office Right' && PL.rows[0].sub === 'Main · Kitchen HomePod', PL.rows);
 ok('...and once under the list, in words',
    F._.pairNote(pd) === 'Office is a stereo pair in Music Assistant (Office Left + Office Right), so it’s one room here. ' +
-   'It plays on its own through its group, and with other rooms through a preset whose Music Assistant group holds all of it.',
+   'It plays on its own. To play it with other rooms, pair its two speakers here instead.',
    F._.pairNote(pd));
 ok('no pairs, no note', F._.pairNote(md) === '' && F._.pairNote({}) === '');
 
 // A VIRTUAL PAIR (docs/phase4/VIRTUAL-PAIRS.md): two players made one room in Mantel Settings
 var vd = Object.assign({}, md, { pairs_here: true,
   players: md.players.concat([{ entity: 'media_player.or', name: 'Office Right' }, { entity: 'media_player.sg', name: 'Study Group' }]),
-  groups: { 'media_player.sg': { rooms: [], problems: [] } },
+  groups: { 'media_player.sg': { rooms: [], problems: [] }, 'media_player.all': { rooms: [], problems: [] } },
   virtual_pairs: [{ room: 'media_player.o', name: '', shown: 'Office', ma_group: null,
                     players: [{ entity: 'media_player.o', name: 'Office' }, { entity: 'media_player.or', name: 'Office Right' }]}] });
 var VL = F._.speakerLists(vd);
 ok('a virtual pair says its two speakers under its name', VL.rows[1].sub === 'Pair: Office + Office Right', VL.rows);
 ok('...and its second player is never offered as a speaker of its own',
-   eq(VL.more.map(function (r) { return r.value; }), ['media_player.den', 'media_player.sg']), VL.more);
+   eq(VL.more.map(function (r) { return r.value; }), ['media_player.all', 'media_player.den', 'media_player.sg']), VL.more);
 var choices = F._.pairChoices(vd, null).map(function (o) { return o[0]; });
 ok('a new pair is made of players: never a group, nor another pair’s',
    eq(choices, ['media_player.k', 'media_player.den']), choices);

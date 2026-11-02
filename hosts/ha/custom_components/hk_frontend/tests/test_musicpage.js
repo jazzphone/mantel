@@ -26,9 +26,9 @@ ok('...and "Living Room +3" when even that does not fit', U.fitNames(rooms, 150,
 ok('...two names joined with "and"', U.fitNames(['Kitchen', 'Loft'], 1000, w) === 'Kitchen and Loft');
 
 // WHERE A LIBRARY ITEM PLAYS, nothing playing
-var presets = [{ name: 'Downstairs', entity: 'media_player.down', members: ['k', 'lr'] }];
+var presets = [{ name: 'Downstairs', entity: 'preset:p1', members: ['k', 'lr'] }];
 var t = U.playTarget(['lr', 'k'], presets);
-ok('a preset\'s rooms: its own group, nothing to bring in after', t.player === 'media_player.down' && t.then === null, t);
+ok('a preset\'s rooms: the first, then all of them (its id is no player)', t.player === 'lr' && JSON.stringify(t.then) === '["lr","k"]', t);
 t = U.playTarget(['loft'], presets);
 ok('one room: that room', t.player === 'loft' && t.then === null);
 t = U.playTarget(['office', 'loft'], presets);
@@ -40,9 +40,9 @@ var c1 = { key: 'k', kind: 'room', members: ['k'] };
 ok('one room: that room', JSON.stringify(U.volumeCalls(c1, presets, 0.3)) === '[{"entity_id":"k","volume_level":0.3}]');
 var cg = { key: 'lr', kind: 'group', members: ['lr', 'k', 'o'] };
 ok('an ad-hoc group: every member in one call', JSON.stringify(U.volumeCalls(cg, presets, 0.4)) === '[{"entity_id":["lr","k","o"],"volume_level":0.4}]');
-var cp = { key: 'media_player.down', kind: 'preset', members: ['k', 'lr'] };
+var cp = { key: 'k', kind: 'group', preset: 'Downstairs', members: ['k', 'lr'] };
 var vp = U.volumeCalls(cp, presets, 0.5);
-ok('a preset: the group, then its rooms', vp.length === 2 && vp[0].entity_id === 'media_player.down' && JSON.stringify(vp[1].entity_id) === '["k","lr"]', vp);
+ok('a preset\'s rooms: every room in one call, never its id', vp.length === 1 && JSON.stringify(vp[0].entity_id) === '["k","lr"]', vp);
 ok('nothing playing: no calls', U.volumeCalls(null, presets, 0.5).length === 0);
 
 // THE FIRST LAYOUT IS NOT ANIMATED (2026-10-13): built with no column count
