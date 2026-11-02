@@ -172,6 +172,41 @@ async def test_totp_enrol_then_password_needs_the_code(mantel):
     assert replay.status == 401 and (await replay.json())["error"] == "invalid_code"
 
 
+async def test_a_seed_the_at_rest_key_cannot_open_is_refused_clearly_never_a_500(mantel, caplog):
+    """DEP-11 (audit, third pass): data restored beside another at_rest.key left every authenticator-app user with
+    an uncaught InvalidTag at the second factor, a 500 from the sign-in step (and the step-up and the enrolment)."""
+    from mantel_server.accounts import TotpUnreadable
+    await mantel.user("jordan", "adult")
+    await mantel.sign_in("jordan")
+    secret = (await (await mantel.post("/api/auth/totp/enroll")).json())["secret"]
+    seed = seed_of(secret)
+    assert (await mantel.post("/api/auth/totp/enroll/confirm", {"code": totp(seed, mantel.now[0])})).status == 200
+    acc = mantel.app["accounts"]
+    uid = acc.find_username("jordan")["id"]
+    right_box = acc.box
+    acc.box = SecretBox(key=os.urandom(32))                       # the data now sits beside another Mantel's key
+    with pytest.raises(TotpUnreadable):
+        acc.totp_check(uid, "123456")
+    # step-up (signed in) and the second factor of a new sign-in: a clear refusal
+    r = await mantel.post("/api/auth/totp/step-up", {"code": "123456"})
+    body = await r.json()
+    assert r.status == 503 and body["error"] == "totp_unreadable" and "at_rest.key" in body["message"], body
+    mantel.forget_cookies()
+    mantel.now[0] += 60
+    r, first = await mantel.sign_in("jordan")
+    assert first["next"] == "totp"
+    with caplog.at_level("ERROR", logger="mantel.accounts"):
+        r = await mantel.post("/api/auth/totp/verify", {"pending": first["pending"], "code": "123456"}, csrf=False)
+    body = await r.json()
+    assert r.status == 503 and body["error"] == "totp_unreadable", body
+    assert "mantel_session" not in r.cookies
+    assert any("does not open with this Mantel's at-rest key" in rec.getMessage() for rec in caplog.records)
+    # it was not a wrong code: nothing was counted against the person, and the right key brings it back
+    acc.box = right_box
+    r = await mantel.post("/api/auth/totp/verify", {"pending": first["pending"], "code": totp(seed, mantel.now[0])}, csrf=False)
+    assert r.status == 200
+
+
 async def test_tunnel_refuses_a_password_alone(mantel):
     await mantel.user("jordan", "adult")
     r, body = await mantel.sign_in("jordan", tunnel=True)

@@ -32,7 +32,9 @@ STUBS = {
     "id": '#!/bin/sh\n[ "$1" = -u ] && { echo 0; exit 0; }\nexec /usr/bin/id "$@"\n',
     "chown": "#!/bin/sh\nexit 0\n",
     # install -o root -g 10001 -m 0440 SRC DST
-    "install": '#!/bin/sh\nfor a; do src=$dst; dst=$a; done\ncp "$src" "$dst" && chmod 0440 "$dst"\n',
+    "install": '#!/bin/sh\nfor a; do src=$dst; dst=$a; done\n'
+               '[ -n "$FAIL_INSTALL" ] && case "$dst" in *backup.key) exit 1 ;; esac\n'
+               'cp "$src" "$dst" && chmod 0440 "$dst"\n',
 }
 
 
@@ -65,7 +67,7 @@ def restore(stack: Path, *args: str, **env: str) -> tuple[subprocess.CompletedPr
     log = stack / "log"
     log.write_text("")
     path = f"{_bin(stack, STUBS)}:{os.environ['PATH']}"
-    clean = {k: v for k, v in os.environ.items() if k not in ("RUNNING", "FAIL_VERIFY", "FAIL_RESTORE", "MANTEL_SECRETS_DIR")}
+    clean = {k: v for k, v in os.environ.items() if k not in ("RUNNING", "FAIL_VERIFY", "FAIL_RESTORE", "FAIL_INSTALL", "MANTEL_SECRETS_DIR")}
     r = subprocess.run(["bash", str(stack / "compose/restore.sh"), *args], capture_output=True, text=True,
                        env={**clean, "PATH": path, "LOG": str(log), **env})
     return r, log.read_text().splitlines()
@@ -110,6 +112,19 @@ def test_a_failed_restore_puts_the_old_keys_back_and_starts_mantel_again(stack):
     assert keys(stack) == ("OLD-AT-REST", "OLD-BACKUP")
     assert not list((stack / "secrets").glob("*.before-restore-*"))
     assert " up " in calls[-1]
+
+
+def test_keys_half_swapped_when_the_script_stops_are_put_back_and_mantel_starts_again(stack):
+    """DEP-11 (audit, third pass): only a failed restore put the old keys back. A set -e exit between moving the
+    first key aside and the restore (a failed install of the second key, Ctrl-C, a closed terminal) left the new
+    at_rest.key beside the old data and Mantel stopped."""
+    r, calls = restore(stack, str(stack / "app.mbk"), str(stack / "mantel-keys.json"), RUNNING="1", FAIL_INSTALL="1")
+    assert r.returncode != 0
+    assert keys(stack) == ("OLD-AT-REST", "OLD-BACKUP"), "both old keys are back"
+    assert not list((stack / "secrets").glob("*.before-restore-*"))
+    assert not any("--replace" in c for c in calls), "the data was never touched"
+    assert " up " in calls[-1] and "--force-recreate" not in calls[-1], "Mantel runs again, as it was"
+    assert all(not d.exists() for d in work_dirs(calls))
 
 
 def test_its_own_backup_on_a_new_install_keeps_the_keys_and_leaves_mantel_stopped(stack):
