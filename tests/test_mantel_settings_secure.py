@@ -28,12 +28,13 @@ window.hkSettingsKit = {
   check: row('check'), confirm: async () => true, h: (tag, attrs) => ({ _text: (attrs && attrs.text) || '' }),
 };
 const reads = JSON.parse(readFileSync(process.argv[3], 'utf8'));
+let live = reads;      // a case may answer some reads its own way
 const asked = [];
 globalThis.fetch = async (u) => {
   const path = String(u);
   asked.push(path);
-  if (!(path in reads)) throw new Error('unexpected ' + path);
-  return { ok: true, status: 200, json: async () => reads[path] };
+  if (!(path in live)) throw new Error('unexpected ' + path);
+  return { ok: true, status: 200, json: async () => live[path] };
 };
 const m = await import(process.argv[2]);
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -56,6 +57,7 @@ for (const [name, c] of Object.entries(cases)) {
   globalThis.isSecureContext = c.secure;
   globalThis.location = { origin: c.origin, hostname: new URL(c.origin).hostname, hash: '', search: '', pathname: '/settings' };
   asked.length = 0;
+  live = { ...reads, ...(c.reads || {}) };
   out[name] = { about: await draw(c.me, ['mantel', 'about']), secure: await draw(c.me, ['mantel', 'about', 'secure']), asked: asked.slice() };
 }
 // the address against the public one, in words
@@ -82,6 +84,11 @@ def about(mode, public_url):
             "access": {"mode": mode, "public_url": public_url}}
 
 
+ADDRESS = "https://192.0.2.10"
+STEP = {"id": "address", "title": "Address and HTTPS", "state": "todo", "optional": True,
+        "detail": "Mantel answers at https://192.0.2.10, with its own certificate: browsers warn until you trust it, and passkeys "
+                  "are off at an address. Give Mantel a name, and a certificate browsers trust, on the machine it runs on.",
+        "how": "mantel-setup", "how_note": "In the Proxmox LXC's console, run mantel-setup: a name on your network."}
 NAME = "https://mantel.example.com"
 LAN = "http://192.168.1.20:8080"
 OWNER = overview("owner", ["me", "about", "performance"])
@@ -105,6 +112,11 @@ def got(tmp_path_factory):
              "owner_on_name": {"me": OWNER, "secure": True, "origin": NAME},
              "adult_on_name": {"me": ADULT, "secure": True, "origin": NAME},
              "adult_on_ip": {"me": ADULT, "secure": False, "origin": LAN}}
+    at_address = {"/api/about": {**about("proxy", ADDRESS + "/"), "access": {"mode": "proxy", "public_url": ADDRESS + "/", "at_address": True}},
+                  "/api/setup": {"steps": [STEP], "can_edit": True}}
+    cases["owner_at_address"] = {"me": OWNER, "secure": False, "origin": "http://192.0.2.10", "reads": at_address}
+    cases["owner_on_the_address"] = {"me": {**OWNER, "setup": {"open": False}}, "secure": True, "origin": ADDRESS, "reads": at_address}
+    cases["adult_at_address"] = {"me": ADULT, "secure": False, "origin": "http://192.0.2.10", "reads": at_address}
     run = subprocess.run(["node", str(d / "script.mjs"), str(d / "mantel-settings.mjs"), str(d / "reads.json"), json.dumps(cases), str(d / "settings/secure.mjs")],
                          capture_output=True, text=True, timeout=60)
     assert run.returncode == 0, run.stderr
@@ -169,6 +181,25 @@ def test_anyone_else_never_asks_for_the_tablets_and_sees_no_list(got):
         assert "/api/about/secure" not in got[who]["asked"]
         assert not any(g["header"] == "Wall Tablets" for g in got[who]["secure"]["groups"])
     assert "/api/about/secure" in got["owner_on_name"]["asked"]
+
+
+def test_at_its_address_the_page_points_to_set_up_mantel_instead_of_saying_it_again(got):
+    fix = "Run mantel-setup on the machine Mantel runs on to give it one"
+    for who in ("owner_at_address", "adult_at_address"):
+        page = got[who]["secure"]
+        assert fix in group(page["groups"], "This Screen")["footer"], "the fix names mantel-setup, not a second explanation"
+    owner = got["owner_on_the_address"]["secure"]
+    addr = group(owner["groups"], "Address")
+    [row] = addr["rows"]
+    assert row["href"] == "#/mantel/setup/step/address" and row["label"] == "Address and HTTPS" and row["value"] == "mantel-setup"
+    assert row["sub"] == STEP["detail"], "the step's own words and facts"
+    assert addr["footer"] == STEP["how_note"]
+    assert "/api/setup" in got["owner_on_the_address"]["asked"]
+    adult = group(got["adult_at_address"]["secure"]["groups"], "Address")
+    assert adult["rows"] == [] and "mantel-setup" in adult["footer"] and "/api/setup" not in got["adult_at_address"]["asked"]
+    assert not any(g["header"] == "Address" for g in got["owner_on_name"]["secure"]["groups"]), "with a name there is nothing to add"
+    by = {r["label"]: r for r in group(owner["groups"], "This Screen")["rows"]}
+    assert by["Address"]["sub"] is None, "Mantel's own address is the public one: an IP address is the right one to use"
 
 
 def test_the_address_against_the_public_one(got):
