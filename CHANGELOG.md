@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.118 - 2026-11-02
+
 **Fixed**
 - Mantel's screens and Mantel Settings no longer send you to "HK Settings": an empty Live TV or Music card, an accessory's sheet, the radar map, the room order in Edit mode, an empty Energy page and a refused alarm command now say **Mantel Settings** (where those pages are, under the same names). The YAML Reference's note about Existing Dashboards, which Mantel's Add Screen doesn't have, is left out.
 
