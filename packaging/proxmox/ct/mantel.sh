@@ -7,7 +7,7 @@
 # or with "latest", the files come from main), and the engine from the community-scripts/core commit below. Set
 # COMMUNITY_SCRIPTS_URL / COMMUNITY_SCRIPTS_CORE_URL to use others (a fork, a newer engine you have read).
 _mantel_ref="${var_mantel_ref:-latest}"
-[[ "$_mantel_ref" == "latest" ]] && _mantel_ref="main"
+if [[ "$_mantel_ref" == "latest" ]]; then _mantel_ref="main"; fi
 export COMMUNITY_SCRIPTS_URL="${COMMUNITY_SCRIPTS_URL:-https://raw.githubusercontent.com/jazzphone/mantel/${_mantel_ref}/packaging/proxmox}"
 export COMMUNITY_SCRIPTS_CORE_URL="${COMMUNITY_SCRIPTS_CORE_URL:-https://raw.githubusercontent.com/community-scripts/core/09fac1952f6050395aae8e6ecc9d4900c5c180d2}"
 _cs_boot="${COMMUNITY_SCRIPTS_CORE_DIR:-$(dirname "${BASH_SOURCE[0]}")/../../core}/core/build.func"
