@@ -209,6 +209,19 @@ Built with the settings kit (`kit.js`) like Connections and Backups:
 - **MCP** (phase 12). Read-only `alerts_recent` and `updates_status` tools. A `alerts_test` tool counts as a change
   under the MCP's rules.
 
+## How it's built (models and effort, the owner, 2026-11-02)
+
+To save on usage:
+
+- **The building session runs Opus 5.5 at Medium effort.** It writes the center, makes the design calls and
+  reviews what agents bring back.
+- **Agents run Sonnet 5.5 at High effort** (`model: "sonnet"`, `effort: "high"`). That covers each sender, the
+  Settings page, the update check, the tests, the guide and the screenshots, each with a brief that names its files
+  and what done looks like.
+- **Opus 5.5 for an agent only when it really needs it.** The one likely case is the security review of 14.1 and
+  14.5: sealed secrets, the outbound host checks, audit-first, and nothing secret in a response or log. Say why in a
+  line when choosing it.
+
 ## Slices
 
 | Slice | What | Size | Needs |
