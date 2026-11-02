@@ -35,7 +35,8 @@ export function testSays(r) {
   const bits = [];
   if (r.video) bits.push(r.video + ' video');
   if (r.audio) bits.push(r.audio + ' audio');
-  return 'It works: ' + (bits.join(' and ') || 'a picture') + (r.low ? ', and the sub-stream' : '') + '.';
+  return 'It works: ' + (bits.join(' and ') || 'a picture') + (r.low ? ', and the low-quality stream' : '') +
+    (r.snapshot ? ', and the snapshot address (the picture below)' : '') + '.';
 }
 
 export function pCameras(sub) {
@@ -102,7 +103,8 @@ function pCamera(slug) {
 
     if (cam) {
       const rows = [info('Status', STATE_NOTE[cam.state] || null, STATE_WORDS[cam.state] || cam.state, cam.state === 'ok' ? '' : 'warn'),
-                    info('Address', cam.low_address ? 'And a sub-stream, for the pictures' : null, cam.address ? cam.address.replace(/^rtsps?:\/\//, '') : '—'),
+                    info('Address', [cam.low_address ? 'A low-quality stream for tiles' : null, cam.snapshot_address ? 'A snapshot address for pictures' : null]
+                      .filter(Boolean).join(' · ') || null, cam.address ? cam.address.replace(/^rtsps?:\/\//, '') : '—'),
                     info('Sign-In', null, cam.has_login ? 'Saved' : 'None'),
                     info('Id', null, cam.entity_id)];
       if (cam.sessions) rows.push(info('Watching Now', null, String(cam.sessions)));
@@ -114,16 +116,19 @@ function pCamera(slug) {
       K().select({ label: 'Area', options: [['', 'None']].concat(page.areas.map((a) => [a.id, a.name])), value: d.area_id, fk: 'mx:' + form + ':area',
                    onChange: (v) => { d.area_id = v; } }),
     ]));
-    c.appendChild(group({ header: 'Address', footer: 'The camera’s RTSP address, such as rtsp://192.0.2.50:554/stream1 (its manual gives the path). Type the user name and password in their own boxes, not in the address. The sub-stream is a second, smaller stream some cameras offer: Mantel draws the stills from it. ' +
+    c.appendChild(group({ header: 'Address', footer: 'The camera’s RTSP addresses, such as rtsp://192.0.2.50:554/stream1 (its manual gives the paths). The high-quality stream plays in pop-ups and full screen; the low-quality one (a camera’s sub-stream) on tiles, the camera strip and the Cameras page, and without one they play the high-quality stream. The snapshot address is the camera’s own picture URL (http:// or https://); without one the pictures come from the low-quality stream, else the high-quality one. Type the user name and password in their own boxes, not in the addresses: the camera’s login goes with all three (to the snapshot address as HTTP Basic). ' +
         (cam ? 'Leave a box blank to keep what is saved; it is never shown again.' : 'They stay sealed in Mantel’s data and are never shown again.') }, [
-      field(form, 'address', 'RTSP Address', { type: 'url', maxlength: 2048, inputmode: 'url', placeholder: cam ? 'Saved: ' + (cam.address || '') : 'rtsp://192.0.2.50:554/stream1', autocomplete: 'off' }),
-      field(form, 'low_address', 'Sub-Stream (Optional)', { type: 'url', maxlength: 2048, inputmode: 'url', placeholder: cam && cam.low_address ? 'Saved: leave blank to keep' : 'rtsp://192.0.2.50:554/stream2', autocomplete: 'off' }),
+      field(form, 'address', 'High-Quality Stream', { type: 'url', maxlength: 2048, inputmode: 'url', placeholder: cam ? 'Saved: ' + (cam.address || '') : 'rtsp://192.0.2.50:554/stream1', autocomplete: 'off' }),
+      field(form, 'low_address', 'Low-Quality Stream (Optional)', { type: 'url', maxlength: 2048, inputmode: 'url', placeholder: cam && cam.low_address ? 'Saved: leave blank to keep' : 'rtsp://192.0.2.50:554/stream2', autocomplete: 'off' }),
+      field(form, 'snapshot_address', 'Snapshot Address (Optional)', { type: 'url', maxlength: 2048, inputmode: 'url', placeholder: cam && cam.snapshot_address ? 'Saved: leave blank to keep' : 'http://192.0.2.50/snapshot.jpg', autocomplete: 'off' }),
       field(form, 'username', 'User Name', { maxlength: 200, placeholder: cam && cam.has_login ? 'Saved' : 'None', autocomplete: 'off' }),
       field(form, 'password', 'Password', { type: 'password', maxlength: 400, placeholder: cam && cam.has_login ? 'Saved' : 'None', autocomplete: 'off' }),
     ].concat(cam && cam.has_login ? [K().check({ label: 'Remove the Saved Sign-In', sub: 'The camera needs no user name or password', on: !!d.clear_login,
                                                  fk: 'mx:' + form + ':clear', onClick: () => { d.clear_login = !d.clear_login; redraw(); } })] : [])
-      .concat(cam && cam.low_address ? [K().check({ label: 'Remove the Sub-Stream', on: !!d.drop_low,
-                                                    fk: 'mx:' + form + ':droplow', onClick: () => { d.drop_low = !d.drop_low; redraw(); } })] : [])));
+      .concat(cam && cam.low_address ? [K().check({ label: 'Remove the Low-Quality Stream', on: !!d.drop_low,
+                                                    fk: 'mx:' + form + ':droplow', onClick: () => { d.drop_low = !d.drop_low; redraw(); } })] : [])
+      .concat(cam && cam.snapshot_address ? [K().check({ label: 'Remove the Snapshot Address', on: !!d.drop_snap,
+                                                         fk: 'mx:' + form + ':dropsnap', onClick: () => { d.drop_snap = !d.drop_snap; redraw(); } })] : [])));
 
     drawTest(c, form, cam, d);
     drawNotifyFor(c, form, cam, d, page, kept);
@@ -160,10 +165,10 @@ const forgetSensors = () => { for (const k of Object.keys(cache)) if (k.startsWi
 // what the boxes say, as the route takes it: a blank box on a saved camera is left out, so it keeps what is saved
 export function bodyOf(d, cam, withSensors) {
   const body = { name: (d.name || '').trim(), area_id: d.area_id || null };
-  for (const k of ['address', 'low_address']) {
+  for (const k of ['address', 'low_address', 'snapshot_address']) {
     const v = (d[k] || '').trim();
     if (v || !cam) body[k] = v;
-    else if (k === 'low_address' && d.drop_low) body[k] = '';
+    else if ((k === 'low_address' && d.drop_low) || (k === 'snapshot_address' && d.drop_snap)) body[k] = '';
   }
   if (d.username) body.username = d.username;
   if (d.password) body.password = d.password;

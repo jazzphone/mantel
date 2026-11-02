@@ -72,6 +72,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         app.keys.attach(model)
         music.attach(model)
         MusicActivityController.shared.keys = app.keys
+        // notifications (PushRegistrar.swift): a tapped one opens its page in the browser, as the menu's
+        // "Open Mantel in the Browser" does
+        NotificationHandler.shared.open = { [weak self] path in
+            guard let self, let url = await self.model.webSessionURL(next: path) else { return }
+            NSWorkspace.shared.open(url)
+        }
+        NotificationHandler.shared.install()
         // the speaker's song and state for the media keys and the menu's icon: the summary, every 20 seconds
         timer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
             Task { @MainActor in
@@ -79,6 +86,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 await self.model.refresh()
             }
         }
+    }
+
+    /// Apple's token for this Mac's notifications (asked for in PushRegistrar.register once signed in).
+    func application(_ application: NSApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Task { await PushRegistrar.shared.didRegister(token: deviceToken) }
+    }
+
+    func application(_ application: NSApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        Task { await PushRegistrar.shared.didFail(error) }
     }
 
     /// A `mantel://pair` link clicked in Mantel Settings (or anywhere): pair with that house. `mantel://music`,
@@ -120,10 +136,4 @@ struct MenuLabel: View {
     var keys: NowPlayingKeys?
     func follow(_ playing: EntityState?, house: House) async { keys?.follow(playing) }
     func end() async { keys?.follow(nil) }
-}
-
-/// Notifications on the Mac are optional (§9) and not wired yet.
-@MainActor final class PushRegistrar {
-    static let shared = PushRegistrar()
-    func register(client: MantelClient) async {}
 }

@@ -8,10 +8,12 @@ an audit row, the settings document or an exception -- only the sealed file hold
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 
 import pytest
+from aiohttp import web
 
 import gateway_fakes as GF
 from hk_core.notifications import accessories as NA, banner as NB, rules as NR, settings as NS
@@ -652,3 +654,61 @@ def test_the_house_without_links_is_what_it_was():
     # a link to a camera the house no longer has finds none
     gone = Linked(states=[State("binary_sensor.a", "off", {})], entities=[Entity("binary_sensor.a")])
     assert NA.camera_for(gone, "binary_sensor.a") is None
+
+
+# -- the snapshot address (2026-11-02, the owner) ---------------------------------------------------------------------
+class SnapshotCamera:
+    """A camera's own snapshot URL on this machine: a JPEG, behind HTTP Basic with the camera's login."""
+    JPEG = b"\xff\xd8fictional-snapshot\xff\xd9"
+
+    def __init__(self):
+        self.asked = 0
+
+    async def handler(self, request):
+        self.asked += 1
+        import base64 as b64
+        want = "Basic " + b64.b64encode(f"{USER}:{PASSWORD}".encode()).decode()
+        if request.headers.get("Authorization") != want:
+            return web.Response(status=401)
+        return web.Response(body=self.JPEG, content_type="image/jpeg")
+
+
+async def test_a_snapshot_address_gives_the_pictures_with_the_cameras_login(rig, caplog):
+    from aiohttp.test_utils import TestServer
+    caplog.set_level(logging.DEBUG)
+    cam_http = SnapshotCamera()
+    app = web.Application()
+    app.router.add_get("/snap.jpg", cam_http.handler)
+    async with TestServer(app, host="127.0.0.1") as server:
+        snap = str(server.make_url("/snap.jpg")) + f"?token={PATH_TOKEN}"
+        r = await rig()
+        api = Api(r)
+        await r.env.login("owner1", "owner")
+        # a login typed into it is refused, as for the streams
+        status, body = await api.call("POST", API, camera(snapshot_address=snap.replace("http://", f"http://{USER}:x@")))
+        assert status == 422 and body["field"] == "snapshot_address" and body["error"] == "login_in_address"
+        status, body = await api.call("POST", API, camera(snapshot_address="ftp://192.0.2.31/x.jpg"))
+        assert status == 422 and body["field"] == "snapshot_address"
+        # Test fetches it with the camera's login and shows that picture
+        status, body = await api.call("POST", API + "/test", camera(snapshot_address=snap))
+        assert status == 200 and body["result"]["snapshot"] is True, body
+        assert body["result"]["still"].endswith(base64.b64encode(SnapshotCamera.JPEG).decode())
+        status, body = await api.call("POST", API + "/test", camera(snapshot_address=snap, password="wrong"))
+        assert status == 422 and body["error"] == "auth" and "Basic" in body["message"]
+        # saved: the stills come from it
+        status, body = await api.call("POST", API, camera(snapshot_address=snap))
+        assert status == 201 and body["camera"]["snapshot_address"].startswith("http://127.0.0.1:")
+        assert r.cams.secret("driveway").still.startswith(f"http://{USER}:{ENCODED}@127.0.0.1:")
+        frames = len(r.go2rtc.frames)
+        resp = await r.env.m.get("/api/camera/camera.mantel_driveway/still")
+        assert resp.status == 200 and await resp.read() == SnapshotCamera.JPEG
+        assert len(r.go2rtc.frames) == frames, "no frame from go2rtc: the snapshot address answered"
+        # a change that leaves it blank keeps it; "" removes it, and the stills come from the streams again
+        status, body = await api.call("PUT", API + "/driveway", {"name": "Driveway"})
+        assert status == 200 and r.cams.secret("driveway").still
+        status, body = await api.call("PUT", API + "/driveway", {"name": "Driveway", "snapshot_address": ""})
+        assert status == 200 and body["camera"]["snapshot_address"] is None and r.cams.secret("driveway").still is None
+        # (the fake camera's and the fake go2rtc's own access logs show what they were asked: theirs, not Mantel's)
+        caplog.records[:] = [rec for rec in caplog.records if rec.name != "aiohttp.access"]
+        said = everything_said(r, api, caplog)
+        assert not [s for s in SECRETS if s in said], [s for s in SECRETS if s in said]

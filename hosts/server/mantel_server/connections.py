@@ -469,6 +469,12 @@ class Connections:
             return Current(kind, "install", url, token)
         return None
 
+    def expiring(self) -> list[tuple[str, str, float | None]]:
+        """(kind, name, when its credential expires) for each saved connection (the alerts' token.expiring; only MA's
+        sign-in tokens say when today)."""
+        names = {"ha": "Home Assistant", "ma": "Music Assistant"}
+        return [(k, names.get(k, k), rec.expires) for k, rec in self.own.items() if rec is not None]
+
     def ha_token(self) -> str:
         cur = self.current("ha")
         return cur.token if cur is not None else ""

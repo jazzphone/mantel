@@ -96,7 +96,8 @@ _KEYS = {"call_service": {"id", "type", "service", "data", "targets"},
          "settings_write": {"id", "type", "ha_user", "msg"},
          "page": {"id", "type", "ha_user", "frame"}}
 # a report's parts (protocol 2), each checked by its own key
-_REPORT_KEYS = frozenset({"hk_frontend", "phones", "hk_dashboards"})
+_REPORT_KEYS = frozenset({"hk_frontend", "phones", "hk_dashboards", "versions"})
+_VERSION = re.compile(r"^[0-9][0-9A-Za-z.+-]{0,31}$")
 _BOARD = re.compile(r"^[a-z0-9_-]{1,80}$")
 _PHONE = re.compile(r"^mobile_app_[a-z0-9_]{1,80}$")
 _POPUP_KEYS = frozenset({"popup", "dashboards", "users"})
@@ -532,6 +533,15 @@ class Linked:
                     for p in phones)):
                 raise LinkedError("invalid", "report.phones: [{service: mobile_app_..., name}]")
             client.report["phones"] = [{"service": p["service"], "name": p["name"]} for p in phones]
+        versions = report.get("versions")
+        if versions is not None:
+            # the integrations' installed versions (Mantel Link's own, HK Frontend's): the update check compares them
+            # with their latest releases (alerts/updates.py). Sent as a report of its own, so an older Mantel that
+            # refuses the key loses nothing else
+            if (not isinstance(versions, Mapping) or set(versions) - {"mantel", "hk_frontend"} or not all(
+                    isinstance(v, str) and _VERSION.match(v) for v in versions.values())):
+                raise LinkedError("invalid", "report.versions: {mantel?, hk_frontend?} version strings")
+            client.report["versions"] = {k: str(v) for k, v in versions.items()}
         boards = report.get("hk_dashboards")
         if boards is not None:
             # HK Frontend's dashboards in Home Assistant (linked_settings.py: where each screen is drawn)

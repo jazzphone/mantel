@@ -493,6 +493,7 @@ class Audit:
     def __init__(self, conn: sqlite3.Connection, clock: Callable[[], float] = time.time) -> None:
         self.db = conn
         self.clock = clock
+        self.listeners: list[Callable[[dict], None]] = []    # each config row written (the alerts' config.changed)
 
     def record(self, *, principal: Principal | None, kind: str, action: str | None, targets: Iterable[str],
                decision: str, reason: str, sensitive: str | None = None, step_up: str | None = None,
@@ -538,6 +539,11 @@ class Audit:
                  event.get("reason") or event.get("role") or "owner",
                  door if door in ("lan", "tunnel", "ha") else None, (event.get("source_ip") or None),
                  (event.get("via") or None)))
+        for cb in self.listeners:
+            try:
+                cb(event)
+            except Exception:  # noqa: BLE001 -- the row is written; a listener never undoes it
+                log.exception("audit listener failed")
 
     def rows(self, **where) -> list[dict]:
         sql = "SELECT * FROM action_audit"

@@ -42,6 +42,19 @@ enum AnyCodableValue: Decodable {
     #expect(throws: (any Error).self) { try f.sealed.open(with: P256.KeyAgreement.PrivateKey()) }
 }
 
+@Test func aSystemAlertHasItsOwnThreadAndItsLevelsInterruption() throws {
+    let lost = SealedNotification.Content(title: "Home Assistant disconnected", tag: "system:ha.lost:",
+                                          category: "system", level: "critical")
+    #expect(lost.isSystem && lost.thread == "mantel.system" && lost.interruption == .timeSensitive)
+    let update = SealedNotification.Content(title: "Mantel 0.1.115 is available", category: "system", level: "info")
+    #expect(update.interruption == .passive)
+    let door = SealedNotification.Content(title: "Front Door", tag: "door", important: true)
+    #expect(!door.isSystem && door.thread == "door" && door.interruption == .timeSensitive)
+    let json = Data(#"{"title":"Backup failed","category":"system","level":"warning"}"#.utf8)
+    let decoded = try JSONDecoder().decode(SealedNotification.Content.self, from: json)
+    #expect(decoded.isSystem && decoded.interruption == .active)
+}
+
 @Test func helloProvesThePinnedHouse() throws {
     let f = try Fixture.load()
     _ = try f.hello.verify(fingerprint: f.hello.fingerprint, nonce: f.hello.nonce!)

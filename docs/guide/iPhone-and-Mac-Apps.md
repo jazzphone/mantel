@@ -112,9 +112,78 @@ A menu bar app, native on macOS:
 - **The play/pause key** can control your speaker. It is off until you try it
   from the menu (**Try It**); if your speaker answers, it stays on.
 - The **⋯** menu switches between homes, if you paired more than one.
+- **Notifications**, the same ones your iPhone gets: an accessory's, and
+  Mantel's own [system alerts](Alerts.md) if you are an Owner or Admin with
+  **System Alerts** on in **Mantel Settings → Me**. See
+  [Notifications on the Mac](#notifications-on-the-mac).
 
 The Mac app pairs with the same code: open its `mantel://pair` link on the
 Mac.
+
+### Notifications on the Mac
+
+<!-- RELEASE: Mac notifications need the team-signed Mac build with push, and the push relay redeployed with APNS_TOPIC_MAC (APPLE-APPS.md "Mac notifications"). Don't publish this section until a Mac has received one. -->
+
+Once you are signed in, the Mac app asks macOS to allow notifications, and
+registers with your Mantel the way the iPhone app does. Your Mantel seals each
+notification to a key only that Mac holds, so Apple and the push relay see
+only that something arrived. A small extension inside the app opens it and
+shows the real words. See [Push Notifications](Push-Notifications.md) for how
+they travel.
+
+- **System alerts** (Home Assistant disconnected, a backup failed, a new
+  version) arrive for Owners and Admins who turn on **System Alerts** in
+  **Mantel Settings → Me**. They stack together as **System** in Notification
+  Center, apart from the doorbell and leak alerts. Info alerts arrive quietly,
+  without a banner. A Critical alert looks like any other on the Mac.
+- **Tap a notification** and your browser opens at the right page of Mantel
+  Settings (for a system alert, **Alerts**), signed in as you.
+- **The ⋯ menu** shows where it stands: **Notifications On**, or **Turn On
+  Notifications** if you stopped them (below) or the app could not register. If
+  you said no when macOS asked, it reads **Notifications Are Off in System
+  Settings…** and takes you to **System Settings → Notifications**.
+- **Turn them off** in macOS (**System Settings → Notifications → Mantel**),
+  or from Mantel: **Mantel Settings → Me → Notifications → Stop Sending to**
+  *your Mac*…. The app stays signed in but doesn't register again by itself;
+  choose **Turn On Notifications** in the ⋯ menu to have them back.
+
+**Notifications need the signed build.** macOS lets an app receive them only
+if it is signed by an Apple developer team with Push Notifications on the
+app's identifier. The Mac app you [build yourself](#build-the-apps-yourself)
+is signed that way (`MAC_TEAM_SIGNING` is on in `apple/make_project.py`).
+A Mac build signed only to run locally (`MAC_TEAM_SIGNING = False`) works
+without them, and its menu says **Notifications Need the Signed Build**.
+
+**What your Apple Developer account needs** to build it with notifications:
+
+1. In Xcode, **Settings → Apple Accounts**, sign in to your team's account. Use
+   `MANTEL_TEAM_ID` when you write the project, as above, and build **MantelMac**
+   with `-allowProvisioningUpdates`:
+
+   ```bash
+   xcodebuild -project apple/Mantel.xcodeproj -scheme MantelMac -destination 'platform=macOS' -allowProvisioningUpdates build
+   ```
+
+   The first build creates two identifiers in your account, `com.jazzphone.mantel.mac`
+   (the app, with **Push Notifications**) and `com.jazzphone.mantel.mac.notifications`
+   (the extension), and a profile for each. (Under your own Apple account, use your
+   own prefix, as above.) The team's wildcard Mac profile can't carry push, so
+   Xcode makes explicit ones.
+2. A build you hand to other Macs needs a **Developer ID** profile (and the
+   app notarized) or a **Mac App Store** profile for the same two identifiers.
+   Archive the **MantelMac** scheme in Xcode (**Product → Archive**) and
+   **Distribute App**. A build run from Xcode on your own Mac uses Apple's
+   sandbox push service; the distributed build uses the production one, and the
+   app reads which from its own signature.
+3. **The push key is the one your iPhone app uses.** An APNs key belongs to
+   your team and works for every identifier in it. What differs is Apple's
+   *topic*: it is the receiving app's bundle id, so the Mac app's is
+   `com.jazzphone.mantel.mac`, not the iPhone app's `.ios`. Mantel sends the Mac's
+   notifications with that topic: through the push relay, or, sending
+   directly, with `mac_topic` in `apns.json`. Your
+   [own relay](Push-Notifications.md#run-your-own) needs `APNS_TOPIC_MAC`.
+4. Allow notifications when the Mac app asks, then check the ⋯ menu says
+   **Notifications On**.
 
 ## Build the apps yourself
 

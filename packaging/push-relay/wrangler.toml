@@ -9,6 +9,7 @@ workers_dev = true
 APNS_KEY_ID = "KEYID00000"
 APNS_TEAM_ID = "TEAMID0000"
 APNS_TOPIC = "com.jazzphone.mantel.ios"
+APNS_TOPIC_MAC = "com.jazzphone.mantel.mac"
 
 # APNS_KEY (the .p8, PEM) is a secret: `wrangler secret put APNS_KEY < apns_key.p8`; never in this file.
 

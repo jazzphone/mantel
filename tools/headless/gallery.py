@@ -229,6 +229,17 @@ SCROLL_TO_SETUP = """(() => { const find = (root) => { for (const el of root.que
   if (el.tagName === 'H2' && el.textContent.trim().toUpperCase() === 'SETUP') return el; } return null; };
   const h = find(document); if (h) h.scrollIntoView({ block: 'start' }); })()"""
 
+# a channel's page around Quiet Hours (the minimum level above it, its setup below)
+SCROLL_TO_QUIET = """(() => { const find = (root) => { for (const el of root.querySelectorAll('*')) {
+  if (el.shadowRoot) { const got = find(el.shadowRoot); if (got) return got; }
+  if (el.tagName === 'H2' && el.textContent.trim().toUpperCase() === 'QUIET HOURS') return el; } return null; };
+  const h = find(document); if (h) h.scrollIntoView({ block: 'center' }); })()"""
+# Me, from System Alerts down
+SCROLL_TO_SYSTEM_ALERTS = """(() => { const find = (root) => { for (const el of root.querySelectorAll('*')) {
+  if (el.shadowRoot) { const got = find(el.shadowRoot); if (got) return got; }
+  if (el.tagName === 'H2' && el.textContent.trim().toUpperCase() === 'SYSTEM ALERTS') return el; } return null; };
+  const h = find(document); if (h) h.scrollIntoView({ block: 'center' }); })()"""
+
 # a script for a shot: async JS that may wait for the page (until) and look inside shadow roots (deep)
 JS_HELPERS = """const deep = (r, s) => [...r.querySelectorAll('*')].flatMap(e => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -336,6 +347,12 @@ SHOTS = {
     "settings-connections-ma": ("/settings#/mantel/connections/ma", DESKTOP, True, None),
     "settings-connections-ha": ("/settings#/mantel/connections/ha", DESKTOP, True, None),
     "settings-phone": ("/settings", PHONE, True, None),
+    "settings-alerts": ("/settings#/mantel/alerts", DESKTOP, True, None),
+    "settings-alerts-channel": ("/settings#/mantel/alerts/channel/{discord}", DESKTOP, True, None),
+    "settings-alerts-email": ("/settings#/mantel/alerts/channel/{email}", DESKTOP, True, SCROLL_TO_QUIET),
+    "settings-me-system-alerts": ("/settings#/mantel/me", DESKTOP, True, SCROLL_TO_SYSTEM_ALERTS),
+    "settings-alerts-history": ("/settings#/mantel/alerts/history", DESKTOP, True, None),
+    "settings-about-updates": ("/settings#/mantel/about", DESKTOP, True, None),
     "login": ("/login", DESKTOP, False, None),
     "login-phone": ("/login", PHONE, False, None),
 }
@@ -502,7 +519,56 @@ async def build(base: Path, showcase: bool = False, real_model: bool = False):
                                  for eid, (_, (s, a)) in HOUSE.items()}})
     stand_in_music(app)
     await seed_people(app, owner.user.id)
+    if showcase:
+        seed_alerts(app)
     return app, cookie
+
+
+def seed_alerts(app) -> None:
+    """Mantel Settings -> Alerts, as a house that set it up: two channels (a Discord channel that has sent, an email
+    that is quiet at night), a week of what was sent, and an update waiting. Written through the alerts' own stores;
+    the secrets are made up and sealed like any other (nothing is sent: the center's loop is not running here)."""
+    from mantel_server import about, alerts
+    from mantel_server.alerts.updates import newer
+    import os
+    os.environ.setdefault("MANTEL_INSTALL", "lxc")      # About says how to update this install: one line, not both
+    a = app["alerts"]
+    app["gallery_alert_ids"] = {}
+    discord = a.channels.add("discord", "Family Discord", events=alerts.catalog.defaults(), min_level="info", quiet={},
+                             config={}, secret={"url": "https://discord.com/api/webhooks/123456789012345678/"
+                                                       "fictional-token-AbCdEfGhIjKlMnOpQrStUv", "main": "https://discord.com/api/webhooks/123456789012345678/"
+                                                       "fictional-token-AbCdEfGhIjKlMnOpQrStUv"})
+    mail_events = [e for e in alerts.catalog.defaults() if not e.startswith(("tablet.", "update."))] + ["backup.ok"]
+    email = a.channels.add("email", "Email", events=mail_events, min_level="warning",
+                           quiet={"on": True, "from": "22:00", "to": "07:00", "critical": True},
+                           config={"host": "smtp.example.com", "port": 587, "security": "starttls", "user": "maple@example.com",
+                                   "from": "mantel@example.com", "to": ["maple@example.com"]},
+                           # as email.clean keeps it: the server and user it was typed for, and no hint ("main")
+                           secret={"password": "fictional-app-password", "host": "smtp.example.com",
+                                   "user": "maple@example.com"})
+    a.channels.sent(discord)
+    a.channels.sent(email)
+    app["gallery_alert_ids"].update(discord=discord, email=email)
+    log = a.log
+    now = NOW
+    rows = [(25 * 3600, "backup.ok", "", "info", True, "Backup finished", "mantel-20261101-031500.mbk (48.2 MB).", [email]),
+            (18 * 3600, "tablet.offline", "kitchen", "warning", True, "Kitchen tablet is offline",
+             "Its kiosk app hasn't been heard from for 10 minutes. It may be off the Wi-Fi, or behind the lock screen after a restart.", [discord, "app"]),
+            (17.8 * 3600, "tablet.offline", "kitchen", "warning", False, "Kitchen tablet is back", "", [discord, "app"]),
+            (9 * 3600, "ma.lost", "", "warning", True, "Music Assistant disconnected",
+             "Mantel can't reach Music Assistant. Music on the screens won't play or show what's on.", [discord, email, "app"]),
+            (8.9 * 3600, "ma.lost", "", "warning", False, "Music Assistant is back", "Mantel is connected to Music Assistant again.", [discord, email, "app"]),
+            (3 * 3600, "backup.failed", "", "critical", True, "Backup failed", "The backup folder is full.", [discord, email, "app"]),
+            (2.2 * 3600, "backup.failed", "", "critical", False, "Backups work again", "The next backup finished: mantel-20261102-063000.mbk.", [discord, email, "app"]),
+            (30 * 60, "update.mantel", "", "info", True, "Mantel 0.1.114 is available", "In Home Assistant: Settings → Add-ons → Mantel → Update.", [discord, "app"])]
+    for ago, kind, key, level, up, title, body, to in rows:
+        log.add(now - ago, kind, key, level, up, title, body, to)
+    have = about.release().get("version") or "0.1.113"
+    parts = have.split(".")
+    want = ".".join(parts[:-1] + [str(int(parts[-1]) + 1)]) if parts[-1].isdigit() else have
+    assert newer(want, have)
+    a.settings.set("updates_state", {"latest": {"mantel": {"version": want, "date": now - 3600, "url": "https://github.com/jazzphone/mantel/releases"}},
+                                     "checked_at": now - 1800, "error": None})
 
 
 def stand_in_music(app) -> None:
@@ -592,6 +658,7 @@ async def shoot(out: Path, only: list[str] | None, system_font: bool = False) ->
             for name, (path, (w, h), signed_in, script) in SHOTS.items():
                 if only and name not in only:
                     continue
+                path = path.format(**app.get("gallery_alert_ids", {})) if "{" in path else path
                 async with Browser(width=w, height=h, port=9381) as b:
                     await b.restrict_origin(origin)
                     await b.send("Emulation.setFocusEmulationEnabled", enabled=True)    # a window in front: cameras play, the sky moves

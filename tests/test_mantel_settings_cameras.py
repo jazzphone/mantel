@@ -137,12 +137,12 @@ def got(tmp_path_factory):
             "GET " + api: {"body": state(cameras=[])}, "GET " + api + "/sensors": {"body": SENSORS},
             "POST " + api + "/test": {"body": {"ok": True, "result": {"ok": True, "video": "H264", "audio": "PCMA", "low": False, "still": STILL}}},
             "POST " + api: {"status": 201, "body": {"ok": True, "camera": cam("driveway", "Driveway")}}},
-            "steps": [{"set": {"Name": "Driveway", "RTSP Address": f"rtsp://{HOST}:554/stream1", "User Name": "viewer", "Password": "Fictional-Pw"}},
+            "steps": [{"set": {"Name": "Driveway", "High-Quality Stream": f"rtsp://{HOST}:554/stream1", "User Name": "viewer", "Password": "Fictional-Pw"}},
                       {"press": "Use Suggested Sensors"}, {"press": "Test", "shot": "after_test"}, {"press": "Add Camera"}]},
         "test_fails": {"me": OWNER, "route": ["cameras", "add"], "live": {
             "GET " + api: {"body": state(cameras=[])}, "GET " + api + "/sensors": {"body": SENSORS},
             "POST " + api + "/test": {"status": 422, "body": {"error": "auth", "message": "The camera refused the user name or password."}}},
-            "steps": [{"set": {"RTSP Address": f"rtsp://{HOST}:554/x"}}, {"press": "Test", "shot": "after_test"}]},
+            "steps": [{"set": {"High-Quality Stream": f"rtsp://{HOST}:554/x"}}, {"press": "Test", "shot": "after_test"}]},
         # a saved camera: its boxes say Saved, nothing is read back; a change leaves the blank ones out; Delete
         "saved": {"me": OWNER, "route": ["cameras", "driveway"], "live": {
             "GET " + api: {"body": state()}, "GET " + api + "/sensors": {"body": SENSORS},
@@ -218,10 +218,10 @@ def test_add_camera_is_filled_tested_and_added_with_the_login_sent_once(got):
     res = got["add"]
     p = res["page"]
     assert p["title"] == "Add Camera" and p["back"] == ["Cameras", "#/mantel/cameras"]
-    assert labels(p) == ["Name", "Area", "RTSP Address", "Sub-Stream (Optional)", "User Name", "Password", "Test", "Motion", "Person", "Doorbell",
+    assert labels(p) == ["Name", "Area", "High-Quality Stream", "Low-Quality Stream (Optional)", "Snapshot Address (Optional)", "User Name", "Password", "Test", "Motion", "Person", "Doorbell",
                          "Use Suggested Sensors", "Add Camera"]
     by = {r["label"]: r for r in rows(p)}
-    assert by["Password"]["type"] == "password" and by["RTSP Address"]["type"] == "url"
+    assert by["Password"]["type"] == "password" and by["High-Quality Stream"]["type"] == "url"
     assert [o[1] for o in by["Area"]["options"]] == ["None", "Porch", "Kitchen"]
     # a sensor already linked to another camera is not on offer; one with an area says it
     assert [o[1] for o in by["Motion"]["options"]] == ["None", "Driveway Motion (Porch)", "Driveway Person"]
@@ -229,7 +229,7 @@ def test_add_camera_is_filled_tested_and_added_with_the_login_sent_once(got):
     assert "Frigate" in foot and "doorbell pop-up" in foot and "Sensors whose names begin with the camera’s are suggested" in foot
     # Test sent what was typed, with no sensors, and showed the picture
     sent = body_of(res, "Test", "POST")
-    assert sent == {"name": "Driveway", "area_id": None, "address": f"rtsp://{HOST}:554/stream1", "low_address": "", "username": "viewer",
+    assert sent == {"name": "Driveway", "area_id": None, "address": f"rtsp://{HOST}:554/stream1", "low_address": "", "snapshot_address": "", "username": "viewer",
                     "password": "Fictional-Pw"}, "Test sends the boxes and no sensors"
     shot = got["add"]["after_test"]
     flash = [g for g in shot["groups"] if isinstance(g, dict) and g.get("tag") == "p"]
@@ -238,7 +238,7 @@ def test_add_camera_is_filled_tested_and_added_with_the_login_sent_once(got):
     assert img["attrs"]["src"] == "data:image/jpeg;base64,/9j/AAAA"
     # Add Camera sent the boxes and the suggested Motion sensor
     sent = body_of(res, "Add Camera", "POST")
-    assert sent == {"name": "Driveway", "area_id": None, "address": f"rtsp://{HOST}:554/stream1", "low_address": "", "username": "viewer",
+    assert sent == {"name": "Driveway", "area_id": None, "address": f"rtsp://{HOST}:554/stream1", "low_address": "", "snapshot_address": "", "username": "viewer",
                     "password": "Fictional-Pw", "sensors": {"motion": "binary_sensor.driveway_motion", "person": None, "doorbell": None}}
     assert res["Add Camera"]["hash"] == "#/mantel/cameras/driveway", "then its own page"
 
@@ -256,7 +256,7 @@ def test_a_saved_cameras_page_never_shows_its_login_and_a_change_leaves_blank_bo
     assert p["title"] == "Camera"
     by = {r["label"]: r for r in rows(p)}
     assert by["Address"]["value"] == f"{HOST}:554" and by["Sign-In"]["value"] == "Saved" and by["Id"]["value"] == "camera.mantel_driveway"
-    assert by["User Name"]["placeholder"] == "Saved" and by["Password"]["placeholder"] == "Saved" and by["RTSP Address"]["placeholder"] == f"Saved: rtsp://{HOST}:554"
+    assert by["User Name"]["placeholder"] == "Saved" and by["Password"]["placeholder"] == "Saved" and by["High-Quality Stream"]["placeholder"] == f"Saved: rtsp://{HOST}:554"
     assert "Remove the Saved Sign-In" in by and by["Person"]["value"] == "binary_sensor.driveway_person"
     assert "Fictional-Pw" not in json.dumps(p) and "viewer" not in json.dumps(p)
     sent = body_of(res, "Save", "PUT")
@@ -277,10 +277,10 @@ def test_without_home_assistant_the_page_says_there_is_no_motion_source(got):
 
 def test_what_the_page_sends(got):
     b = got["_body"]
-    assert b["new"] == {"name": "Driveway", "area_id": "porch", "address": "rtsp://h/s", "low_address": "", "username": "u", "password": "p",
+    assert b["new"] == {"name": "Driveway", "area_id": "porch", "address": "rtsp://h/s", "low_address": "", "snapshot_address": "", "username": "u", "password": "p",
                         "sensors": {"motion": "binary_sensor.m", "person": None, "doorbell": None}}
     assert b["saved_blank"] == {"name": "Driveway", "area_id": None, "sensors": {"motion": None, "person": None, "doorbell": None}}
     assert b["saved_changed"] == {"name": "D", "area_id": None, "address": "rtsp://h/new", "low_address": "", "password": "new", "clear_login": True,
                                   "sensors": {"motion": None, "person": None, "doorbell": None}}, "a saved camera always sends its sensors"
     assert "sensors" not in b["no_ha"], "without Home Assistant a new camera sends none"
-    assert got["_says"] == ["It works: H264 video and PCMA audio, and the sub-stream.", "It works: H264 video."]
+    assert got["_says"] == ["It works: H264 video and PCMA audio, and the low-quality stream.", "It works: H264 video."]

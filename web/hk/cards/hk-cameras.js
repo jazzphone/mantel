@@ -2832,7 +2832,12 @@
                 console.error('[hk-doorbell] camera refused WebRTC:', m.code, m.message);
                 self._again();
               }
-            }, { type: 'camera/webrtc/offer', entity_id: entity, offer: offer.sdp })
+            }, (function () {
+              // WHICH STREAM (2026-11-02): a pop-up plays a camera's high-quality stream, where the host's own
+              // cameras have more than one (client.cameraOffer; a host without it gets the offer as it is)
+              var m = { type: 'camera/webrtc/offer', entity_id: entity, offer: offer.sdp };
+              return cl && typeof cl.cameraOffer === 'function' ? cl.cameraOffer(m, c.quality || 'high') : m;
+            })())
               .then(function (unsub) {
                 if (alive()) { self._unsub = unsub; return; }
                 var r = unsub();

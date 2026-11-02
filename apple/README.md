@@ -11,7 +11,8 @@ code only where the system needs it. The house decides everything; the apps ask.
 | `Shared/` | App Intents (Siri, Shortcuts, widget and Live Activity buttons) and the Live Activity's attributes and artwork cache, shared by the app and the widget extension |
 | `MantelWidgets/` | Favorites and Now Playing widgets, the music Live Activity (Apple Music's layout), Control Center controls |
 | `MantelNotificationService/` | Opens the house's sealed notifications and attaches the snapshot |
-| `MantelMac/` | The menu bar app, native SwiftUI: the house's music player (Now Playing over the cover's colors, Speakers, Up Next, Browse) in the menu and wide in a window, the favorites as tiles, favorites as toggles and chosen on the Mac, setup in its own window, the play/pause key (off until tried) |
+| `MantelMac/` | The menu bar app, native SwiftUI: the house's music player (Now Playing over the cover's colors, Speakers, Up Next, Browse) in the menu and wide in a window, the favorites as tiles, favorites as toggles and chosen on the Mac, setup in its own window, the play/pause key (off until tried), notifications (`PushRegistrar.swift`) |
+| `MantelMacNotificationService/` | The Mac's copy of that extension: opens the sealed notification with the app's key (the shared Keychain group, so team-signed builds only) |
 | `Config/` | Info.plists and entitlements |
 | `make_project.py` | Writes `Mantel.xcodeproj` (folders, not files: add a `.swift` file and it is in) |
 
@@ -139,6 +140,24 @@ Pair by opening its link with the app (the app takes `mantel://pair`; the link w
 open -a /tmp/mantel-dd-mac/Build/Products/Debug/Mantel.app "$(cat /tmp/mantel-mac-dev/pair.txt)"
 ```
 
+Notifications on the Mac (phase 14, slice 14.10; `MantelMac/PushRegistrar.swift` and `MantelMacNotificationService/`): the app
+registers for remote notifications once signed in, and only a team-signed build can: `Config/MacTeam.entitlements` carries
+`com.apple.developer.aps-environment` (`development` in Debug, `production` in Release), which needs a provisioning profile
+with Push Notifications for `com.jazzphone.mantel.mac` (`-allowProvisioningUpdates` makes it; the first build after this
+change replaces the wildcard profile with explicit ones for the app and for `com.jazzphone.mantel.mac.notifications`).
+`MAC_TEAM_SIGNING = False` in `make_project.py` signs the app and the extension ad hoc to run locally with
+`Config/Mac.entitlements` (no push entitlement): it builds and runs, and the menu says **Notifications Need the Signed
+Build**. Build without signing to check that it compiles:
+
+```bash
+xcodebuild -project apple/Mantel.xcodeproj -scheme MantelMac -destination 'platform=macOS' -derivedDataPath /tmp/mantel-dd-mac CODE_SIGNING_ALLOWED=NO build
+```
+
+A tapped notification opens its page in the browser (a web session on the house, then the path). The Mac app registers as
+`platform: "mac"`, and the house and the push relay send its notifications with the Mac app's own APNs topic
+(`com.jazzphone.mantel.mac`: `apns.json` `mac_topic`, the relay's `APNS_TOPIC_MAC`; docs/phase10/APPLE-APPS.md, "Mac
+notifications").
+
 `mantel://music`, `mantel://favorites` and `mantel://setup` open those windows. The player is native SwiftUI on the
 apps' music door (`/api/app/music…`, `hosts/server/mantel_server/app_music.py`); a Mantel without it (older, or music
 still on Home Assistant's engine) gets the menu's plain now-playing controls. The ⋯ menu switches between paired
@@ -209,6 +228,8 @@ opens the push on the phone ("Front Door / Unlocked by Ann").
 - **The shared Keychain group and App Group on a device.** The Mac app is team-signed; its App Group is the
   team-prefixed one (`<TEAM>.com.jazzphone.mantel`), as the team's wildcard Mac
   profile cannot carry `group.com.jazzphone.mantel` (APPLE-APPS.md §12).
+- **Mac notifications**: the Push Notifications capability on the Mac app's identifier and a profile that carries it
+  (Developer ID or Mac App Store for distribution); see "The Mac app" above.
 - **Critical alerts** need Apple's separate entitlement; not used.
 
 ## TestFlight

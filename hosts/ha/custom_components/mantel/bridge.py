@@ -105,6 +105,21 @@ def hk_report(hass: HomeAssistant) -> dict[str, bool]:
             "linked": any(isinstance(e.data.get("mantel_link"), Mapping) for e in entries)}
 
 
+async def versions(hass: HomeAssistant) -> dict[str, str]:
+    """Mantel Link's installed version and HK Frontend's, when it is here (Mantel's update check compares them
+    with their latest releases)."""
+    from homeassistant.loader import IntegrationNotFound, async_get_integration
+    out: dict[str, str] = {}
+    for domain in (DOMAIN, HK_DOMAIN) if hk_entries(hass) else (DOMAIN,):    # HK Frontend set up here, not only on disk
+        try:
+            got = (await async_get_integration(hass, domain)).version
+        except IntegrationNotFound:
+            continue
+        if got:
+            out[domain] = str(got)
+    return out
+
+
 def active_for(hass: HomeAssistant, owners: Mapping[str, Any]) -> bool:
     """Does Mantel Link mirror? It holds the bridge, or there is no HK Frontend."""
     return owners_of(owners)["bridge"] == "mantel" or not hk_entries(hass)
@@ -331,6 +346,10 @@ class Bridge:
                                                           "phones": phones(self.hass)}})
         except LinkError as err:
             _LOGGER.debug("%s: Mantel did not take the report: %s", NAME, err.message)
+        try:   # on its own: a Mantel from before the update check refuses the key, and nothing else is lost
+            await self.link.request("report", {"report": {"versions": await versions(self.hass)}})
+        except LinkError as err:
+            _LOGGER.debug("%s: Mantel did not take the versions: %s", NAME, err.message)
 
     @staticmethod
     def _checked(d: Any) -> dict[str, Any] | None:

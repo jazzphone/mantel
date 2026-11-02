@@ -29,7 +29,7 @@ from typing import Any, Callable
 
 from ..ha_client import SIGNALING_TYPES, CommandBlocked, check_outgoing
 from ..readproxy import ReadProxy
-from . import Ctx, Forbidden, Hooks, Route, read_routes, resolve
+from . import Ctx, Forbidden, Hooks, Route, read_routes, resolve, split_quality
 
 log = logging.getLogger("mantel.camera")
 
@@ -119,6 +119,7 @@ class CameraSignaling:
                                             "candidate": msg.get("candidate")})
 
     async def offer(self, ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):
+        msg, _ = split_quality(msg)                # a Mantel page's stream hint: Home Assistant's camera has one stream
         entity_id = await self._gate(ctx, msg)
         check_signaling(msg)
         if not isinstance(msg.get("offer"), str):

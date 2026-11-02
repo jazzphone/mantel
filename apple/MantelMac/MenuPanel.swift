@@ -10,6 +10,7 @@ struct MenuPanel: View {
     @EnvironmentObject private var model: SessionModel
     @EnvironmentObject private var app: MacApp
     @EnvironmentObject private var music: MusicModel
+    @ObservedObject private var push = PushRegistrar.shared
     @Environment(\.openWindow) private var openWindow
     @AppStorage("panelTab") private var tab = Tab.music
     @State private var pane: PlayerPane?
@@ -90,6 +91,7 @@ struct MenuPanel: View {
                 app.mediaKeys = v
                 app.keys.follow(model.summary?.now_playing)
             }))
+            notifications
             if model.houses.count > 1 {
                 Menu("Switch Mantel") {
                     ForEach(model.houses, id: \.id) { h in
@@ -105,6 +107,23 @@ struct MenuPanel: View {
         } label: { Image(systemName: "ellipsis.circle") }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             .foregroundStyle(.white.opacity(0.8))
+    }
+
+    /// This Mac's notifications from the house (PushRegistrar): on, or the one thing that turns them on.
+    @ViewBuilder private var notifications: some View {
+        switch push.status {
+        case .on:
+            Button("Notifications On") {}.disabled(true)
+        case .needsSignedBuild:
+            Button("Notifications Need the Signed Build") {}.disabled(true)
+        case .registering:
+            Button("Turning On Notifications…") {}.disabled(true)
+        case .denied:
+            Button("Notifications Are Off in System Settings…") { PushRegistrar.openSystemSettings() }
+        case .unknown, .stopped, .failed:
+            Button("Turn On Notifications") { Task { await push.requestAndRegister(resume: true) } }
+            if case .failed(let why) = push.status { Text(why) }
+        }
     }
 
     @ViewBuilder private var notSignedIn: some View {

@@ -43,7 +43,7 @@ let apple = { status: 200, body: '' };
 const appleKey = await ecKey();
 const env = {
   DB: d1(), APNS_KEY: await pem(appleKey.privateKey), APNS_KEY_ID: 'KEYID12345', APNS_TEAM_ID: 'TEAM123456',
-  APNS_TOPIC: 'com.example.mantel.ios', __now: () => now,
+  APNS_TOPIC: 'com.example.mantel.ios', APNS_TOPIC_MAC: 'com.example.mantel.mac', __now: () => now,
   __fetch: async (url, init) => { sent.push({ url, init }); return new Response(apple.body, { status: apple.status }); },
 };
 const call = (path, body, headers = {}, method = 'POST') => worker.fetch(new Request('https://relay.example' + path, {
@@ -107,6 +107,19 @@ await test('the house sends through the relay; Apple gets the payload with the t
   assert.deepEqual(JSON.parse(Buffer.from(unb64u(h)).toString()), { alg: 'ES256', kid: 'KEYID12345' });
   assert.equal(JSON.parse(Buffer.from(unb64u(c)).toString()).iss, 'TEAM123456');
   assert.ok(await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, appleKey.publicKey, unb64u(s), enc.encode(`${h}.${c}`)));
+});
+
+await test("the Mac app's handle goes to the Mac app's own topic", async () => {
+  const r = await call('/v1/register', { token: 'cd'.repeat(32), env: 'sandbox', house_key: house.key, platform: 'mac' });
+  assert.equal(r.status, 201);
+  const mac = (await r.json()).handle;
+  assert.equal((await signedCall(house, '/v1/send', { handle: mac, payload })).status, 200);
+  assert.equal(sent.at(-1).init.headers['apns-topic'], 'com.example.mantel.mac');
+  const topic = env.APNS_TOPIC_MAC;
+  delete env.APNS_TOPIC_MAC;                                       // a relay not set up for the Mac: says so, keeps it
+  assert.equal((await signedCall(house, '/v1/send', { handle: mac, payload })).status, 503);
+  env.APNS_TOPIC_MAC = topic;
+  await signedCall(house, '/v1/forget', { handle: mac });
 });
 
 await test('another house cannot use the handle, even signing correctly with its own key', async () => {

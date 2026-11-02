@@ -20,13 +20,19 @@ sign-in within the step-up window (the guard's ``fresh="away"``), exactly what a
 * ``PUT    API/{slug}``         a camera changed
 * ``DELETE API/{slug}``         a camera removed
 
-**What is typed.** ``{name, area_id, address, low_address, username, password, clear_login, sensors}``:
+**What is typed.** ``{name, area_id, address, low_address, snapshot_address, username, password, clear_login,
+sensors}``:
 
 * ``address`` is ``rtsp://`` or ``rtsps://``, host[:port]/path, and NO user info: a user name and password typed into
   the address are refused (``login_in_address``) so the page's two fields are the only way they get in. ``low_address``
   is an optional sub-stream, the stills' (cameras_direct draws them from ``low`` when it has one); it takes the same
   login. The login goes into the URL only here, as the camera is handed to ``put``, and from there only inside the
   sealed file phase 3 keeps. Percent-encoded, so a password with ``@`` or ``/`` in it still works.
+* WHICH STREAM WHERE (2026-11-02, the owner): ``address`` is the camera's high-quality stream, which pop-ups and full
+  screen play; ``low_address`` its low-quality sub-stream, which tiles, the mosaic and the Cameras page play (without
+  one they play the main stream). ``snapshot_address`` is the camera's own snapshot URL (``http(s)://``, a JPEG; the
+  same login, sent as HTTP Basic): the stills come from it, else from a frame of the sub-stream, else of the main
+  stream. Blank keeps the saved one; ``""`` sent on purpose clears it.
 * ``username`` / ``password`` are SECRET. An answer, a log line, an audit row and an exception never hold them or
   the address's path (the path can carry a token on some cameras): a camera is shown by ``scheme://host[:port]`` and
   whether it has a login. On a change a blank user name or password KEEPS the saved one, and a blank address keeps the
@@ -128,6 +134,49 @@ def check_address(text: Any, field: str = "address") -> str:
     if not parts.hostname or port == -1:
         raise SetupError(field, "address_invalid", "That is not an RTSP address. It looks like rtsp://192.0.2.50:554/stream1.")
     return parts.scheme.lower() + url[len(parts.scheme):]
+
+
+def check_snapshot(text: Any) -> str:
+    """A snapshot URL as typed: ``http://`` or ``https://``, a host, a path, and NO user info (the login is the camera's)."""
+    url = text.strip() if isinstance(text, str) else ""
+    bad = "That is not a snapshot address. It looks like http://192.0.2.50/snapshot.jpg."
+    if not url or len(url) > D.MAX_URL or any(ord(c) < 33 or ord(c) == 127 for c in url) or "#" in url:
+        raise SetupError("snapshot_address", "snapshot_invalid", bad)
+    parts = urlsplit(url)
+    if parts.scheme.lower() not in ("http", "https"):
+        raise SetupError("snapshot_address", "snapshot_invalid", "The snapshot address starts with http:// or https://.")
+    if "@" in parts.netloc:
+        raise SetupError("snapshot_address", "login_in_address", "Leave the user name and password out of the address: type them in their own boxes.")
+    try:
+        port = parts.port
+    except ValueError:
+        port = -1
+    if not parts.hostname or port == -1:
+        raise SetupError("snapshot_address", "snapshot_invalid", bad)
+    return parts.scheme.lower() + url[len(parts.scheme):]
+
+
+async def try_snapshot(app: web.Application, url: str) -> dict[str, Any]:
+    """Fetch the snapshot URL once: {"ok": True, "still"} or {"ok": False, "code", "message"}. Never the URL in either."""
+    http = app.get("http")
+    own = http is None
+    if own:
+        http = aiohttp.ClientSession()
+    try:
+        async with http.get(url, timeout=aiohttp.ClientTimeout(total=TEST_BUDGET_S), allow_redirects=False) as r:
+            ctype = r.headers.get("Content-Type", "").split(";")[0].strip().lower()
+            if r.status in (401, 403):
+                return {"ok": False, "code": "auth", "message": "The snapshot address refused the user name or password "
+                        "(Mantel sends them as HTTP Basic; a camera that only takes Digest can't be used here)."}
+            body = await r.content.read(4 * 1024 * 1024 + 1)
+            if r.status != 200 or not ctype.startswith("image/") or not body or len(body) > 4 * 1024 * 1024:
+                return {"ok": False, "code": "other", "message": "The snapshot address didn't answer with a picture."}
+            return {"ok": True, "still": f"data:{ctype};base64,{base64.b64encode(body).decode()}"}
+    except (aiohttp.ClientError, asyncio.TimeoutError, OSError):
+        return {"ok": False, "code": "unreachable", "message": "Mantel can't reach the snapshot address."}
+    finally:
+        if own:
+            await http.close()
 
 
 def with_login(url: str, username: str, password: str) -> str:
@@ -316,12 +365,14 @@ def camera_json(request: web.Request, cams: D.DirectCameras, s: Mapping[str, Any
     out = {k: s[k] for k in ("slug", "entity_id", "name", "source", "area_id", "state", "conflict", "sessions", "low")}
     area = app["hub"].registry.areas.get(s["area_id"]) if s["area_id"] else None
     out.update({"area_name": area, "editable": s["source"] == "rtsp", "address": None, "low_address": None,
+                "snapshot_address": None,
                 "has_login": False, "sensors": {}})
     if s["source"] == "rtsp":
         sec = cams.secret(s["slug"])
         if sec is not None:
             out["address"] = address_of(sec.high)
             out["low_address"] = address_of(sec.low) if sec.low else None
+            out["snapshot_address"] = address_of(sec.still) if sec.still else None
             out["has_login"] = bool(split_login(sec.high)[1] or split_login(sec.high)[2])
     for role, eid in (src.sensors if src is not None else ()):
         seen = _may_see(request, eid)
@@ -431,6 +482,7 @@ def read_camera(request: web.Request, body: Mapping[str, Any], cams: D.DirectCam
     # the saved address and login, to keep what is left blank
     keep_bare, keep_user, keep_pw = (split_login(sec.high) if sec is not None else ("", "", ""))
     keep_low = split_login(sec.low)[0] if sec is not None and sec.low else ""
+    keep_snap = split_login(sec.still)[0] if sec is not None and sec.still else ""
     address = _text(body, "address", D.MAX_URL).strip()
     address = check_address(address) if address or not keep_bare else keep_bare
     if "low_address" in body:
@@ -438,6 +490,11 @@ def read_camera(request: web.Request, body: Mapping[str, Any], cams: D.DirectCam
         low = check_address(low, "low_address") if low else ""
     else:
         low = keep_low
+    if "snapshot_address" in body:
+        snap = _text(body, "snapshot_address", D.MAX_URL).strip()
+        snap = check_snapshot(snap) if snap else ""
+    else:
+        snap = keep_snap
     username, password = _text(body, "username", 200), _text(body, "password", 400)
     if body.get("clear_login") is True:
         user, pw = "", ""
@@ -447,8 +504,8 @@ def read_camera(request: web.Request, body: Mapping[str, Any], cams: D.DirectCam
         raise SetupError("username", "username_required", "Type the user name that goes with the password.")
     streams = {"high": with_login(address, user, pw), "low": with_login(low, user, pw) if low else None}
     src: dict[str, Any] = {"slug": slug or "", "name": name, "area_id": area, "source": "rtsp", "streams": streams}
-    if sec is not None and sec.still:
-        src["still"] = sec.still
+    if snap:
+        src["still"] = with_login(snap, user, pw)
     sensors = _sensors(request, body, slug, old.links if old else {})
     if sensors is None:
         sensors = old.links if old else {}
@@ -508,15 +565,19 @@ async def _test_body(request: web.Request, cams: D.DirectCameras, body: Mapping[
     if cams.testing_lock.locked():
         raise SetupError("address", "busy", "Another camera is being tried. Wait a moment.", 409)
     async with cams.testing_lock:
-        first = asyncio.create_task(try_stream(cams, src["streams"]["high"]))
+        snap = asyncio.create_task(try_snapshot(request.app, src["still"])) if src.get("still") else None
+        first = asyncio.create_task(try_stream(cams, src["streams"]["high"], picture=snap is None))
         second = asyncio.create_task(try_stream(cams, src["streams"]["low"], picture=False)) if src["streams"]["low"] else None
         got = await first
         low = await second if second is not None else None
+        shot = await snap if snap is not None else None
     if not got["ok"]:
         return got
     if low is not None and not low["ok"]:
         return {**low, "message": "The sub-stream: " + low["message"][0].lower() + low["message"][1:]}
-    return {**got, "low": low is not None}
+    if shot is not None and not shot["ok"]:
+        return shot
+    return {**got, "low": low is not None, "snapshot": shot is not None, **({"still": shot["still"]} if shot else {})}
 
 
 @guard("manager", fresh="away", no_audit="tries an address from this server and keeps nothing")
@@ -536,6 +597,7 @@ def _detail(request: web.Request, src: Mapping[str, Any], cams: D.DirectCameras)
     """What an audit row says of a camera: never the login, the path or the sealed URL."""
     return {"slug": src["slug"], "name": src["name"], "area_id": src["area_id"],
             "address": address_of(src["streams"]["high"]), "sub_stream": bool(src["streams"]["low"]),
+            "snapshot": bool(src.get("still")),
             "login": bool(split_login(src["streams"]["high"])[1]), "sensors": dict(src["sensors"])}
 
 
@@ -550,6 +612,8 @@ def _changed(old: Any, src: Mapping[str, Any], body: Mapping[str, Any]) -> list[
         out.append("address")
     if "low_address" in body:
         out.append("sub_stream")
+    if "snapshot_address" in body:
+        out.append("snapshot")
     if body.get("username") or body.get("clear_login") is True:
         out.append("user_name")
     if body.get("password") or body.get("clear_login") is True:

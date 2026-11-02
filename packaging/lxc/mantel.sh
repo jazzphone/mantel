@@ -186,6 +186,7 @@ update_script() {
   [ -d "$INSTALL_DIR/packaging/compose" ] || msg_error "no Mantel installation found in $INSTALL_DIR"
   msg_info "Updating Mantel (the previous images stay tagged for automatic rollback)"
   cd "$INSTALL_DIR/packaging/compose"
+  grep -q '^MANTEL_INSTALL=' .env 2>/dev/null || printf '%s\n' "MANTEL_INSTALL=lxc" >> .env   # an LXC from before About knew
   if [ "$(grep -c '^MANTEL_SERVER_IMAGE=ghcr' .env 2>/dev/null || true)" -gt 0 ]; then
     # follow_source_version rewrites the image pins before the images are pulled; any way out but success (a pull
     # that fails because the release is not published yet, a version that won't start, Ctrl-C) puts them back, so

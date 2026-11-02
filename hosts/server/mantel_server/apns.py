@@ -79,12 +79,17 @@ def http2_missing() -> str | None:
 def build_payload(msg: Any, device_key: bytes) -> dict:
     """The APNs payload for one notification: a generic visible alert, the real one sealed to the phone. The tag is
     sealed too: the extension groups by it (threadIdentifier), so ``aps`` has no ``thread-id``."""
+    category = getattr(msg, "category", None)
     inner = {"title": msg.title, "body": msg.body, "entity": msg.entity, "snap": msg.snap, "camera": msg.camera,
-             "tag": msg.tag, "url": msg.url, "important": msg.important, "id": msg.id}
+             "tag": msg.tag, "url": msg.url, "important": msg.important, "id": msg.id, "category": category,
+             "level": getattr(msg, "level", None)}
     sealed = app_crypto.seal_for_device(json.dumps({k: v for k, v in inner.items() if v is not None},
                                                    separators=(",", ":")).encode(), device_key)
+    level = "time-sensitive" if msg.important else "active"
+    if category == "system":           # a system alert: Critical breaks through Focus, Info waits in the summary
+        level = {"critical": "time-sensitive", "info": "passive"}.get(getattr(msg, "level", None) or "", "active")
     aps: dict[str, Any] = {"alert": {"title": "Mantel", "body": "New notification"}, "mutable-content": 1,
-                           "sound": "default", "interruption-level": "time-sensitive" if msg.important else "active"}
+                           "sound": "default", "interruption-level": level}
     if msg.entity:
         aps["category"] = "MANTEL_ACCESSORY"
     return {"aps": aps, "m": sealed}
@@ -137,10 +142,16 @@ class Apns:
         if conf is None:
             log.info("APNs is not configured (no %s / %s); the app's notification was not sent", KEY_FILE, CONF_FILE)
             return "skipped"
+        topic = conf["topic"]
+        if row.get("platform") == "mac":     # the menu bar app's own bundle id (apns.json "mac_topic")
+            topic = conf.get("mac_topic") if isinstance(conf.get("mac_topic"), str) and conf.get("mac_topic") else None
+            if topic is None:
+                log.info("APNs: no mac_topic in %s; the Mac app's notification was not sent", CONF_FILE)
+                return "skipped"
         device_key = app_crypto.unb64u(row["p256dh"])
         payload = build_payload(msg, device_key)
         host = HOSTS["sandbox" if row.get("env") == "sandbox" else "production"]
-        headers = {"authorization": "bearer " + self.provider_token(conf), "apns-topic": conf["topic"],
+        headers = {"authorization": "bearer " + self.provider_token(conf), "apns-topic": topic,
                    "apns-push-type": "alert", "apns-priority": "10" if msg.important else "5",
                    "content-type": "application/json"}
         if msg.tag and self.secret is not None:

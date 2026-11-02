@@ -29,3 +29,15 @@ onnxruntime==1.31.0
 flatbuffers==25.12.19
 packaging==26.3
 protobuf==7.36.2
+# System alerts' Apprise channel (alerts/channels/apprise_.py): one URL to ntfy, Pushover, Slack, Matrix and ~100 more.
+# Pure Python (wheels for every platform); its own dependencies follow.
+apprise==2.1.0
+requests==2.34.2
+requests-oauthlib==2.0.0
+oauthlib==4.0.1
+urllib3==2.8.0
+charset-normalizer==3.5.2
+certifi==2026.10.23
+click==8.5.0
+markdown==3.11.2
+PyYAML==6.0.3

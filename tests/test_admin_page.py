@@ -135,8 +135,8 @@ async def test_a_wall_tablet_alone_is_refused_the_page(admin):
 
 # -- the overview ------------------------------------------------------------------------------------
 @pytest.mark.parametrize("role, expected", [
-    ("owner", ["me", "connections", "cameras", "general", "people", "devices", "files", "photos", "backups", "roles", "service", "assistants", "audit", "about", "performance"]),
-    ("admin", ["me", "connections", "cameras", "general", "people", "devices", "files", "photos", "backups", "assistants", "audit", "about", "performance"]),
+    ("owner", ["me", "connections", "cameras", "general", "people", "devices", "files", "photos", "backups", "alerts", "roles", "service", "assistants", "audit", "about", "performance"]),
+    ("admin", ["me", "connections", "cameras", "general", "people", "devices", "files", "photos", "backups", "alerts", "assistants", "audit", "about", "performance"]),
     ("adult", ["me", "about"]), ("child", ["me", "about"]), ("guest", ["me", "about"]), ("wall_tablet", ["me", "about"]),
 ])
 async def test_sections_by_role(admin, role, expected):
@@ -165,7 +165,7 @@ async def test_the_tunnel_door_loses_service_accounts(admin):
     issued = admin.app["sessions"].create(uid, "tunnel", "passkey")
     admin.client.session.cookie_jar.update_cookies({"mantel_session": issued.access, "mantel_csrf": issued.csrf})
     got = await sections(admin, tunnel=True)
-    assert got == ["me", "connections", "cameras", "general", "people", "devices", "files", "photos", "backups", "roles", "audit", "about", "performance"]
+    assert got == ["me", "connections", "cameras", "general", "people", "devices", "files", "photos", "backups", "alerts", "roles", "audit", "about", "performance"]
 
 
 async def test_the_audit_section_follows_the_configure_grant(admin):

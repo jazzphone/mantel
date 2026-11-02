@@ -217,7 +217,9 @@ public actor MantelClient {
     /// it, an app the person stopped in Mantel Settings (`push_off`) does not register again by itself.
     /// Returns false when it did not register for that reason.
     @discardableResult
-    public func registerPush(token: Data, key: Data, sandbox: Bool, resume: Bool = false) async throws -> Bool {
+    /// `platform`: "ios" (the iPhone and iPad app) or "mac" (the menu bar app): Apple's topic is each app's own bundle id.
+    public func registerPush(token: Data, key: Data, sandbox: Bool, resume: Bool = false,
+                             platform: String = "ios") async throws -> Bool {
         let hexToken = token.map { String(format: "%02x", $0) }.joined()
         let env = sandbox ? "sandbox" : "production"
         if !resume, try await me().push_off == true { return false }
@@ -227,16 +229,19 @@ public actor MantelClient {
             req.httpMethod = "POST"
             req.timeoutInterval = 15
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.httpBody = try JSONSerialization.data(withJSONObject: ["token": hexToken, "env": env, "house_key": houseKey])
+            req.httpBody = try JSONSerialization.data(withJSONObject: ["token": hexToken, "env": env, "house_key": houseKey,
+                                                                       "platform": platform])
             let (data, resp) = try await session.data(for: req)
             guard (resp as? HTTPURLResponse)?.statusCode == 201,
                   let got = try? JSONDecoder().decode(RelayRegistration.self, from: data),
                   got.house == house.fingerprint else { throw APIError(error: "relay_refused") }
             _ = try await raw("POST", "/api/app/push/register", body: PushRegistration(handle: got.handle, token: nil,
-                                                                                    key: Base64URL.encode(key), env: nil, resume: resume))
+                                                                                    key: Base64URL.encode(key), env: nil, resume: resume,
+                                                                                    platform: platform))
         } else if push?.direct == true {
             _ = try await raw("POST", "/api/app/push/register", body: PushRegistration(handle: nil, token: hexToken,
-                                                                                    key: Base64URL.encode(key), env: env, resume: resume))
+                                                                                    key: Base64URL.encode(key), env: env, resume: resume,
+                                                                                    platform: platform))
         } else {
             throw APIError(error: "no_push", message: "This Mantel does not send notifications to the app yet.")
         }
@@ -294,7 +299,8 @@ public struct CommandResult: Codable, Sendable {
 
 struct FavoritesBody: Codable { let favorites: [String] }
 struct RelayRegistration: Codable { let handle: String; let house: String }
-struct PushRegistration: Codable { let handle: String?; let token: String?; let key: String; let env: String?; let resume: Bool }
+struct PushRegistration: Codable { let handle: String?; let token: String?; let key: String; let env: String?; let resume: Bool
+                                   let platform: String }
 struct EntitiesBody: Codable { let entities: [EntityChoice] }
 struct WebSessionBody: Codable { let url: String }
 

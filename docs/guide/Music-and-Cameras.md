@@ -258,7 +258,13 @@ speaker. Hold it and speak, and let go when you're done.
   tablet may talk on the doorbell named in HK's pop-up settings.
 - Live talk works with UniFi Protect doorbells. Other speakers get the
   recorded message. In the Home Assistant App it goes through Mantel Link
-  (0.1.11 or later keeps the session open between holds).
+  (0.1.11 or later keeps the session open between holds). In Docker or the
+  Proxmox container, with **UniFi Protect** connected (below), Mantel talks
+  to the doorbell itself, with no Home Assistant in between.
+- Your first hold on a pop-up reaches the door a little later than the next
+  ones (about 0.9 s against 0.45 s, measured at a G4 Doorbell Pro): the
+  doorbell needs a moment to pick up a new audio stream, so Mantel keeps the
+  stream going between holds while the pop-up is open.
 
 ### UniFi Protect (Docker and the LXC)
 
@@ -307,7 +313,10 @@ signs in, the events connection and when the console last spoke.
 **Picking cameras.** **Cameras** lists the console's cameras with their
 stills. Open one and turn on **Use in Mantel**: Mantel asks the console for
 its streams and the camera plays through Mantel's own go2rtc, its stills
-coming from the console. A camera renamed in Protect follows; one removed
+coming from the console's own snapshots. Tiles (the camera strip, the
+mosaic, the Cameras page, rooms) play the camera's low-quality stream and
+pop-ups and full screen its high-quality one, so a wall of tiles doesn't pull
+every camera at full resolution. A camera renamed in Protect follows; one removed
 from Protect leaves Mantel. Mantel reads the console's list every five
 minutes and when you connect.
 
@@ -367,12 +376,14 @@ and press **Add Camera**.
 |---|---|
 | **Name** | What the camera is called. Its id is `camera.mantel_` and the name, in lowercase (`camera.mantel_driveway`). If Home Assistant already has that id, Mantel says so and names Home Assistant's entity: give the camera another name. |
 | **Area** | One of Home Assistant's areas, or none. People see the camera the way they see any camera in that area (Roles & Grants), so give it the area its people already have. |
-| **RTSP Address** | The camera's address, `rtsp://192.0.2.50:554/stream1`; the camera's manual gives the path. `rtsps://` works too. |
-| **Sub-Stream (Optional)** | A second, smaller stream some cameras offer. Mantel draws the stills from it. |
-| **User Name** and **Password** | The camera's RTSP login. Type them here, not in the address (Mantel refuses an address with a login in it). |
+| **High-Quality Stream** | The camera's main stream, `rtsp://192.0.2.50:554/stream1`; the camera's manual gives the path. `rtsps://` works too. Pop-ups and full screen play it. |
+| **Low-Quality Stream (Optional)** | The camera's smaller second stream (its sub-stream). Tiles, the camera strip, the mosaic and the Cameras page play it; without one they play the high-quality stream. |
+| **Snapshot Address (Optional)** | The camera's own picture URL, `http://192.0.2.50/snapshot.jpg` (`https://` works too). The stills come from it; without one they come from the low-quality stream, else the high-quality one. |
+| **User Name** and **Password** | The camera's login, used for all three addresses (sent to the snapshot address as HTTP Basic; a camera whose snapshot only takes Digest can't use it here). Type them here, not in an address (Mantel refuses an address with a login in it). |
 
-Press **Test** before you add the camera. Mantel connects to the camera for a
-few seconds and shows a picture from it, or says what it could not do:
+Press **Test** before you add the camera. Mantel connects to the camera's
+streams for a few seconds (and fetches its snapshot address, when it has one)
+and shows a picture from it, or says what it could not do:
 
 | Mantel says | What to check |
 |---|---|

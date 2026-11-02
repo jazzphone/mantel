@@ -38,7 +38,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import camera_setup, default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
-from . import app_shell, cf_access, guards, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
+from . import alerts, app_shell, cf_access, guards, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -908,6 +908,8 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     media_proxy.register(app, hub)
     proxy_check.register(app, hub)
     app_shell.register(app, hub)     # phase 10: the web app on a Home Screen, push, and the iPhone/iPad/Mac apps
+    # phase 14: system alerts (Mantel Settings -> Alerts; after the backups, the features and the pusher it hears)
+    alerts.register(app, hub)
     # Mantel Settings' General and Home Assistant settings that were start-up options (and their one-time moves)
     server_settings.register(app)
     mcp.register(app)                # assistants (docs/phase12/MCP-SERVER.md): /mcp, its sign-in, Settings' page
@@ -1096,6 +1098,8 @@ async def house_tz(app: web.Application, hub: Hub, attempts: int | None = None) 
             if isinstance(got, dict):
                 # latitude and country set the defaults a house has not chosen (hemisphere, US-only themes)
                 settings_model.set_house_place(got.get("latitude"), got.get("country"))
+            if isinstance(got, dict) and isinstance(got.get("location_name"), str):
+                _set(app, "house_name", got["location_name"][:64])     # the house's name in system alerts
             tz = got.get("time_zone") if isinstance(got, dict) else None
             if isinstance(tz, str) and tz:
                 if authz.set_tz(tz, "home_assistant"):

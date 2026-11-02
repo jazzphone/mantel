@@ -177,6 +177,7 @@ class Accounts:
         self.box = box
         self.clock = clock
         self.hasher = hasher or PasswordHasher()  # Argon2id, t=3, m=64 MiB, p=4 (RFC 9106 second choice)
+        self.on_failure: list = []          # each failed sign-in, told nothing about it (the alerts' signin.failures)
         self.rp_id = rp_id
         self.rp_name = rp_name
         self.by_ip = AttemptLimiter(IP_FAILURES, FAILURE_WINDOW, clock)
@@ -261,6 +262,11 @@ class Accounts:
         return max(waits)
 
     def record_failure(self, ip: str | None, account: str | None, user_id: str | None = None) -> None:
+        for cb in self.on_failure:
+            try:
+                cb()
+            except Exception:  # noqa: BLE001
+                log.exception("sign-in failure listener failed")
         self.by_ip.fail(f"ip:{ip}")
         if account:
             self.by_account.fail(f"acct:{account.lower()}")

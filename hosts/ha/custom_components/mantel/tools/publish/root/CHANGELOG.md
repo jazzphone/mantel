@@ -5,7 +5,7 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
-- **Doorbell talk:** a talk session can stay open between holds (each hold is its own stream, nothing is sent between them), and one person talks at a time on a doorbell: the others are told who.
+- **Doorbell talk:** a talk session can stay open between holds, keeping one audio stream to the doorbell so the start of each hold is heard (a UniFi Protect doorbell loses the start of every new stream), and one person talks at a time on a doorbell: the others are told who, and the stream of whoever spoke before is closed first.
 
 ## 0.1.10 - 2026-11-02
 
