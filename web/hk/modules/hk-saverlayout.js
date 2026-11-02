@@ -279,6 +279,19 @@
     return used + unitsOf({ shape: c[0] }, rowSize) <= Z[1] + 1e-9;
   }
 
+  // ------------------------------------------------------------ the slides (phase 2)
+  // EACH SLIDE SAYS WHAT IT SHOWS (2026-11-02, the owner: "A slide needs only the Time, Date, Weather and House Status,
+  // and only where they apply: the Weather slide needs no extra weather"); the slide corner adds the rest of the four
+  var SLIDES = {
+    music: { name: 'Music', shows: ['music'] },
+    forecast: { name: 'Forecast, Classic', shows: ['weather'] },
+    forecast_big: { name: 'Forecast, Big', shows: ['weather', 'time'] },
+    weather: { name: 'Weather', shows: ['weather', 'readings'] },
+    energy: { name: 'Home Energy', shows: ['energy'] }
+  };
+  var CORNER = ['time', 'date', 'weather', 'status'];
+  function cornerFor(slide) { var s = SLIDES[slide]; return s ? CORNER.filter(function (f) { return s.shows.indexOf(f) < 0; }) : []; }
+
   // ------------------------------------------------------------ claiming (rule 5)
   // A FACT SHOWN ONCE (2026-11-02, the plan's rule 5): a face, the big element or a piece placed first that shows a
   // fact hides another piece showing it, and the editor says which shows it. -> { 'zone:i': 'the Today face' }
@@ -521,6 +534,7 @@
     VERSION: VERSION, PIECES: PIECES, SHAPES: SHAPES, SHAPE_NAMES: SHAPE_NAMES, V1: V1, CATALOG: CATALOG, ZONES: ZONES, ZONE_NAMES: ZONE_NAMES,
     UNITS: UNITS, BIG: BIG, BIG_DEFAULT: BIG_DEFAULT, BACKS: BACKS, COLORS: COLORS, ITEM_SIZE: ITEM_SIZE, ROW_AT: ROW_AT, ROW_LINE: ROW_LINE,
     INKS: INKS, clean: clean, check: check, fits: fits, layoutFrom: layoutFrom, oriented: oriented, plan: plan, claims: claims,
+    SLIDES: SLIDES, cornerFor: cornerFor,
     idOf: idOf, item: item, unitsOf: unitsOf, SHOW_OPS: SHOW_OPS, met: met, filesOf: filesOf, CITIES: CITIES,
     // every group's file, for the editor's library
     FILES: Object.keys(PIECES).map(function (p) { return PIECES[p][4]; }).filter(function (f, i, a) { return f && a.indexOf(f) === i; })

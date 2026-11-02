@@ -46,6 +46,18 @@ def _layout(big, **zones):
     return {'v': 1, 'big': big, 'zones': {z: [{'id': w} for w in ids] for z, ids in zones.items()}}
 
 
+def _pieces(big, **zones):
+    """A v2 layout (phase 13): per zone, its pieces as 'piece.shape' (with any options after a '?': 'readings.circular?reading=aqi')."""
+    def one(w):
+        ps, _, q = w.partition('?')
+        piece, shape = ps.split('.')
+        out = {'piece': piece, 'shape': shape}
+        if q:
+            out['opts'] = dict(kv.split('=') for kv in q.split('&'))
+        return out
+    return {'v': 2, 'big': big, 'zones': {z: [one(w) for w in ws] for z, ws in zones.items()}}
+
+
 # screen -> (its Screensaver Options, the face it must draw: ckface's value, 'big', or None for the classic forecast)
 SHOWS = {
     'saver-glance': ({'show': 'glance'}, 'glance'),
@@ -101,6 +113,17 @@ SHOWS = {
     'saver-lay-slides': ({'show': 'both', 'music_slide': True, 'music_first': True, 'forecast_layout': 'big',
                           'layout': _layout({'kind': 'time', 'size': 35, 'pos': 'top', 'depth': 'behind'}, tl=['date'],
                                             bl=['weather_card', 'music_card'], br=['status_card', 'timers_card'])}, 'lay-slides'),
+    # THE GLANCE CATALOG (phase 13, phase 1b; the plan's rule 7: every piece in this check at least once, at every size):
+    # wave A -- the sky's four gauges and two more on two lines, Countdown above the time, the alert and the rest of today's
+    # events in the top corners, another city's time and the sun at the bottom
+    'saver-lay-glance-a': ({'show': 'forecast', 'layout': _pieces({'kind': 'time', 'size': 20, 'pos': 'top'},
+                            line=['countdown.inline'], row=['uv.circular', 'wind.circular', 'pressure.circular', 'feels.circular',
+                                                            'rain.rectangular', 'moon.circular', 'sun.circular'],
+                            tl=['alert.card'], tr=['events.card'], bl=['world.inline'],
+                            br=['sun.inline'])}, 'lay-pieces'),
+    'saver-lay-glance-a2': ({'show': 'clock', 'clock_bg': 'aurora', 'layout': _pieces({'kind': 'time', 'size': 24, 'pos': 'upper'},
+                             row=['world.rectangular', 'rain.circular', 'moon.circular', 'sun.rectangular', 'world.circular?city=America/New_York'],
+                             tl=['moon.inline'], tr=['rain.inline'], bl=['alert.inline'], br=['events.rectangular'])}, 'lay-pieces'),
 }
 
 

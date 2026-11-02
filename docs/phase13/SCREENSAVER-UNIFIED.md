@@ -401,3 +401,17 @@ take its new shape still moves to the nearest zone that can.
   its foot). The layout checks now run a phone on its side too (844 x 390, the owner: "What about landscape phone").
   Also fixed: Mantel's server took a touch on the music slide's buttons for the screen in use, which took the
   screensaver down (the owner: "it kills the screensaver and goes back to the dashboard").
+- 2026-11-02, phase 1b, wave A: Countdown, World Clock, Next Event's Card (Time and Calendar), Rain Soon, Weather Alert,
+  UV, Wind and Gusts, Pressure, Feels Like, Moon and Sun (Weather and Sky), two Sonnet 5.5 agents in parallel from
+  `GLANCE-SPEC.md`, each group in a file of its own the screensaver loads where a layout uses it. Reviewed against the
+  rules and on a sheet of every piece in every shape (white ink over a photo, with Glass, black ink on a light ground):
+  fixed the Weather band's days running into each other on a narrow screen (its columns now wrap out of sight, the
+  days first), Next Event's two rows touching, a group's styles missing from the screensaver's shadow root (one sheet,
+  kept up to date), options that are words dropped by the renderer.
+- 2026-11-02, phase 2: the slide corner. Each slide declares what it shows (`hkSaverLayout.SLIDES`); one corner, drawn
+  by the pieces' renderer, adds the time (in the Look's face's font and color), the date, the weather and House Status
+  only where the slide lacks them; the old corner cards step aside under every slide; the Weather and Home Energy
+  slides keep their own time and date unseen; slides over every background but the photos; the music slide on upright
+  screens (an iPhone's Now Playing: the art, then the song and its buttons on its edges) and at its own scale (a phone
+  on its side). A layout keeps none of HK's corner cards. WebKit found a loop to fix first: a failed load of the
+  pieces' files asked again on its own failure and spun the page.
