@@ -9,6 +9,7 @@ import json
 import re
 from typing import Any, Callable, Iterable, Mapping
 
+from hk_core.settings import home_grid as HG
 from hk_core.settings import model as SM
 
 from .. import accessories as ACC
@@ -20,6 +21,66 @@ from .model import ThinModel, load_model
 from .store import SettingsStore
 
 log = logging.getLogger("mantel.settings")
+
+# Home Assistant's entity domains: a string in a free-form card that begins with one and has the shape of an entity
+# id is read as an entity (a version "1.2" or a file "a.b" is not)
+_DOMAINS = frozenset("""alarm_control_panel automation binary_sensor button calendar camera climate counter cover
+    device_tracker event fan group humidifier image input_boolean input_button input_datetime input_number input_select
+    input_text lawn_mower light lock media_player notify number person remote scene schedule script select sensor siren
+    sun switch text timer todo update vacuum valve water_heater weather zone""".split())
+_ENTITY = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+\Z")
+
+
+def _named_in(obj: Any) -> set[str]:
+    """Every entity id a free-form card (a custom chip's YAML, a pop-up's cards) names, anywhere in it."""
+    out: set[str] = set()
+    stack = [obj]
+    while stack:
+        v = stack.pop()
+        if isinstance(v, str):
+            if _ENTITY.match(v) and v.split(".")[0] in _DOMAINS:
+                out.add(v)
+        elif isinstance(v, dict):
+            stack.extend(v.values())
+        elif isinstance(v, list):
+            stack.extend(v)
+    return out
+
+
+def _popup_ids(p: Mapping[str, Any]) -> set[str]:
+    out = {p[k] for k in ("entity", "speaker", "stream") if isinstance(p.get(k), str) and p[k]}
+    out |= {e for e in p.get("entities") or [] if isinstance(e, str)}
+    return out | _named_in(p.get("cards"))
+
+
+def _accessory_ids(acc: Mapping[str, Any]) -> set[str]:
+    out: set[str] = set()
+    for eid, v in (acc.get("entities") or {}).items():
+        out.add(eid)
+        if isinstance(v, dict):
+            out |= {e for e in v.get("fav_with") or [] if isinstance(e, str)}
+    for key in ("rooms", "pages", "scenes"):
+        for ids in (acc.get(key) or {}).values():
+            out |= {e for e in ids or [] if isinstance(e, str)} if isinstance(ids, list) else set()
+    return out
+
+
+def _cut_accessories(acc: Mapping[str, Any], ok: set[str]) -> dict[str, Any]:
+    """The accessories document with only what concerns things the subject may view: an accessory's settings
+    (and the others it shows with), a room's tile order, a category page's order. ``into`` names rooms, not things."""
+    out = {k: v for k, v in acc.items() if k not in ("entities", "rooms", "pages", "scenes")}
+    out["entities"] = {eid: ({**v, "fav_with": [e for e in v["fav_with"] if e in ok]} if isinstance(v, dict) and
+                             isinstance(v.get("fav_with"), list) else v)
+                       for eid, v in (acc.get("entities") or {}).items() if eid in ok}
+    for eid, v in out["entities"].items():
+        if isinstance(v, dict) and v.get("fav_with") == []:
+            out["entities"][eid] = {k: x for k, x in v.items() if k != "fav_with"}
+    for key in ("rooms", "pages", "scenes"):
+        if key in acc:
+            cut = {k: [e for e in ids if e in ok] for k, ids in (acc.get(key) or {}).items() if isinstance(ids, list)}
+            out[key] = {k: ids for k, ids in cut.items() if ids}
+    return out
+
 
 def _slug(text: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", str(text or "").lower().replace("'", "").replace("’", "")).strip("-")
@@ -160,8 +221,51 @@ class SettingsService:
         (settings.as_client), with the person's own values over the house's (``personal`` says which)."""
         found = self.kind_lists()
         self.kinds_sent = found
-        return self._with_kinds(self._with_features(self._personalise(self._base_feed(), self.personal(identity)),
-                                                    identity), identity, found)
+        return self._for(identity, self._base_feed(), self.personal(identity), found)
+
+    def _for(self, identity: Any, base: dict, personal: Mapping[str, Any], found: Any) -> dict:
+        """One subject's frame from the house's: their own values, the features' part, the kinds, and what they
+        may see of what names a thing (``_cut_to_viewable``)."""
+        payload = self._with_kinds(self._with_features(self._personalise(base, personal), identity), identity, found)
+        return payload if identity is None else self._cut_to_viewable(payload, identity)
+
+    # -- what the feed names that a person may not view (the third audit pass, SRV-4) ----------------
+    def _cut_to_viewable(self, payload: dict, identity: Any) -> dict:
+        """The frame went to every screen of every person with each screen's Home Grid blocks' entities, the Owner's
+        names for accessories, and custom chips' cards, so a Child was told that ``camera.nursery`` exists and what
+        the Owner calls it. Cut to what this subject may ``view`` (as ``kinds`` is): a block arrives without the
+        entity it names (``home_grid.only_viewable``: its place stays), an accessory's settings, a room's order and
+        a chip or a pop-up that names one are left out. The subject's own screens draw as before: the states the
+        socket sends them never held what they may not view. In-process listeners (identity None) get it all."""
+        boards = payload.get("boards") if isinstance(payload.get("boards"), dict) else {}
+        acc = payload.get("accessories") if isinstance(payload.get("accessories"), dict) else {}
+        chips = [c for c in payload.get("custom_chips") or [] if isinstance(c, dict)]
+        pops = [p for p in payload.get("popups") or [] if isinstance(p, dict)]
+        ids: set[str] = set()
+        for b in boards.values():
+            ids |= HG.entity_ids(b.get("home_grid") if isinstance(b, dict) else None)
+        ids |= _accessory_ids(acc)
+        for c in chips:
+            ids |= _named_in(c.get("card"))
+        for p in pops:
+            ids |= _popup_ids(p)
+        if not ids:
+            return payload
+        ok = self._visible(identity, ids)
+        ok = set() if ok is None else ok                  # fail closed: it could not be asked, nothing is named
+        out = dict(payload)
+        if boards:
+            out["boards"] = {path: ({**b, "home_grid": HG.only_viewable(b["home_grid"], ok)}
+                                    if isinstance(b, dict) and b.get("home_grid") else b)
+                             for path, b in boards.items()}
+        if acc:
+            out["accessories"] = _cut_accessories(acc, ok)
+        if "custom_chips" in payload:
+            out["custom_chips"] = [c for c in payload["custom_chips"]
+                                   if not (isinstance(c, dict) and _named_in(c.get("card")) - ok)]
+        if "popups" in payload:
+            out["popups"] = [p for p in payload["popups"] if not (isinstance(p, dict) and _popup_ids(p) - ok)]
+        return out
 
     # -- Status & Chips: what each kind counts (HA: kinds.Tracker, settings.as_client's `kinds`) ----------
     def kind_lists(self) -> dict[str, list[str]] | None:
@@ -370,8 +474,7 @@ class SettingsService:
             try:
                 if uid not in mine:
                     mine[uid] = self.personal(identity)
-                payload = self._with_kinds(self._with_features(self._personalise(base, mine[uid]), identity),
-                                           identity, found)
+                payload = self._for(identity, base, mine[uid], found)
                 if identity is not None:
                     d = self._digest(payload)
                     if d is not None and self._sent.get(sid) == d:
