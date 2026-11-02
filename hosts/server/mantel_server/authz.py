@@ -413,7 +413,11 @@ class Authz:
     def may_still(self, principal: Any, entity_id: str) -> bool:
         """A camera still (``GET /api/camera/<entity>/still``): the live-view policy. The subject may
         ``view`` the camera and ``camera.live`` is allowed; the door's camera rules (the tunnel's
-        ``tunnel_cameras``) refuse as they do for live view. Exactly True or False."""
+        ``tunnel_cameras``) refuse as they do for live view. Exactly True or False.
+
+        A direct camera (``camera.mantel_*``, cameras_direct.py, 2026-11-02) is decided here exactly as Home
+        Assistant's: the rules key on the entity id and its area, and its registry entry carries its area. Nothing
+        dispatches on the source here, on purpose: one rule for every camera."""
         if not isinstance(principal, Principal) or not principal.valid or not isinstance(entity_id, str):
             return False
         if not ENTITY_ID.match(entity_id) or not entity_id.startswith("camera."):

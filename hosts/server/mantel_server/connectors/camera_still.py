@@ -23,6 +23,11 @@ camera rules. So:
   that one fetch: five wall tablets showing the same camera cost Home Assistant one request every few seconds,
   not five. Each request is still decided by the policy first (the copy is never a way round it), and the
   browser still gets ``Cache-Control: no-store``.
+* **Direct cameras** (2026-11-02, cameras_direct.py: ``camera.mantel_*`` where Mantel has its own go2rtc). The
+  route dispatches on the source after the same policy check: a direct camera's picture is
+  ``DirectCameras.still`` (its source's still provider, its own still URL, or go2rtc's frame), shared the same
+  way; Home Assistant's cameras are unchanged. A direct camera's ``entity_picture`` is Mantel's route already, and
+  ``shape`` versions it like any other.
 """
 from __future__ import annotations
 
@@ -262,6 +267,19 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
         params = {}
         if width is not None and height is not None:      # HA ignores one without the other
             params = {"width": str(width), "height": str(height)}
+        direct = request.app.get("cameras_direct")
+        if direct is not None and direct.owns(entity_id):
+            # A DIRECT CAMERA (cameras_direct.py, 2026-11-02): decided above by the same policy; its picture comes
+            # from its own source (a still provider, its still URL, or go2rtc's frame), shared the same way
+            try:
+                body, ctype = await shared.get(("direct", entity_id, params.get("width"), params.get("height")),
+                                               lambda: direct.still(entity_id, width if params else None,
+                                                                    height if params else None))
+            except StillRefused as exc:
+                return _error(exc.status, exc.code)
+            stats["served"] += 1
+            return web.Response(body=body, headers={"Content-Type": ctype, "Cache-Control": "no-store",
+                                                    "X-Content-Type-Options": "nosniff"})
         cfg = request.app["cfg"]
         url = f"{cfg.ha_url.rstrip('/')}/api/camera_proxy/{entity_id}"
         # (the policy above decided for THIS request; what is shared is only the picture HA gave a moment ago)

@@ -4,6 +4,7 @@ one was seen to behave (checked against the transcode image's go2rtc 1.9.9 on 20
   PATCH  /api/streams?name&src   adds the stream in memory, 200 (an ``exec:`` source is refused, 400)
   DELETE /api/streams?src        removes it, then answers 400 (it cannot write its read-only config)
   GET    /api/streams            {name: {"producers": [{"url"}], "consumers": [...]}}
+  GET    /api/frame.jpeg?src     one JPEG of a stream it has (404 otherwise); the query is recorded
   GET    /api/ws?src             WebSocket: {"type":"webrtc/offer","value":sdp} -> webrtc/answer + one
                                  webrtc/candidate; client webrtc/candidate frames are recorded
 
@@ -16,6 +17,7 @@ import json
 from aiohttp import WSMsgType, web
 
 ANSWER = "v=0\r\no=- 1 1 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\na=group:BUNDLE 0 1\r\n"
+FRAME = b"\xff\xd8fictional frame\xff\xd9"
 CANDIDATE = "candidate:1 1 udp 2130706431 192.0.2.10 8555 typ host"
 
 
@@ -27,6 +29,7 @@ class FakeGo2rtc:
         self.candidates: list[tuple[str, str]] = []
         self.open: dict[str, int] = {}
         self.fail_patch = False
+        self.frames: list[dict[str, str]] = []
 
     def app(self) -> web.Application:
         app = web.Application()
@@ -35,6 +38,7 @@ class FakeGo2rtc:
         app.router.add_delete("/api/streams", self.delete)
         app.router.add_get("/api/streams", self.list)
         app.router.add_get("/api/ws", self.ws)
+        app.router.add_get("/api/frame.jpeg", self.frame)
         return app
 
     async def patch(self, request: web.Request) -> web.Response:
@@ -58,6 +62,12 @@ class FakeGo2rtc:
     async def list(self, _request: web.Request) -> web.Response:
         return web.json_response({n: {"producers": [{"url": s}], "consumers": [{}] * self.open.get(n, 0)}
                                   for n, s in self.streams.items()})
+
+    async def frame(self, request: web.Request) -> web.Response:
+        self.frames.append(dict(request.query))
+        if request.query.get("src", "") not in self.streams:
+            return web.Response(status=404, text="stream not found")
+        return web.Response(body=FRAME, content_type="image/jpeg")
 
     async def ws(self, request: web.Request) -> web.WebSocketResponse:
         name = request.query.get("src", "")
