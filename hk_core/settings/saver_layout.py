@@ -20,8 +20,18 @@ from typing import Any
 
 VERSION = 2
 
+# World Clock's cities (IANA), its city and city2
+CITIES: tuple[str, ...] = (
+    "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Rome", "Europe/Madrid", "Europe/Athens",
+    "Europe/Istanbul", "Europe/Moscow", "Africa/Cairo", "Africa/Johannesburg", "Asia/Dubai", "Asia/Kolkata",
+    "Asia/Bangkok", "Asia/Singapore", "Asia/Hong_Kong", "Asia/Shanghai", "Asia/Tokyo", "Asia/Seoul",
+    "Australia/Sydney", "Pacific/Auckland", "Pacific/Honolulu", "America/Anchorage", "America/Los_Angeles",
+    "America/Denver", "America/Chicago", "America/New_York", "America/Toronto", "America/Mexico_City",
+    "America/Sao_Paulo", "America/Argentina/Buenos_Aires", "Atlantic/Reykjavik",
+)
 # THE PIECES (2026-11-02, phase 13: docs/phase13/PIECES-SPEC.md): one per fact, each in a few shapes, drawn by one
-# renderer (web/hk/modules/hk-saverwidgets.js). [piece] -> (its shapes, its options: {key: choices}). A shape is where
+# renderer (web/hk/modules/hk-saverwidgets.js). [piece] -> (its shapes, its options: {key: choices, or "text" -- 1 to
+# 40 characters -- or "entity:<domain>,<domain>" -- one entity of those domains}). A shape is where
 # it can go: inline, a line of words; circular, one unit of the row; rectangular, two; card, a corner's; band, along
 # the bottom.
 PIECES: dict[str, tuple[tuple[str, ...], dict[str, tuple[str, ...]]]] = {
@@ -32,9 +42,20 @@ PIECES: dict[str, tuple[tuple[str, ...], dict[str, tuple[str, ...]]]] = {
     "status": (("inline", "circular", "rectangular", "card"), {}),
     "music": (("inline", "card"), {}),
     "timers": (("circular", "card"), {}),
-    "events": (("inline", "rectangular"), {}),
+    "events": (("inline", "rectangular", "card"), {}),
     "energy": (("circular", "rectangular"), {"reading": ("battery", "solar")}),
     "title": (("inline",), {}),
+    # THE GLANCE CATALOG (phase 1b, docs/phase13/GLANCE-SPEC.md), wave A: data the screensaver already reads
+    "countdown": (("inline", "circular"), {"match": "text"}),
+    "world": (("inline", "circular", "rectangular"), {"city": CITIES, "city2": CITIES}),
+    "rain": (("inline", "circular", "rectangular"), {}),
+    "alert": (("inline", "card"), {}),
+    "uv": (("circular",), {}),
+    "wind": (("circular",), {}),
+    "pressure": (("circular",), {}),
+    "feels": (("circular",), {}),
+    "moon": (("inline", "circular"), {}),
+    "sun": (("inline", "circular", "rectangular"), {}),
 }
 SHAPES = ("inline", "circular", "rectangular", "card", "band")
 # [zone] -> (the shapes it takes, its room). The row's room is in units: a circular piece is one, a rectangular two,
@@ -122,6 +143,17 @@ def _big(v: Any, strict: bool) -> dict[str, Any]:
     return out
 
 
+def _opt_ok(spec: Any, v: Any) -> bool:
+    """A piece's option: one of its choices, words (1 to 40 characters), or an entity of the domains it names."""
+    if isinstance(spec, tuple):
+        return v in spec
+    if spec == "text":
+        return isinstance(v, str) and 0 < len(v.strip()) and len(v) <= 40
+    if isinstance(spec, str) and spec.startswith("entity:"):
+        return isinstance(v, str) and bool(ENTITY_RE.match(v)) and v.split(".")[0] in spec[7:].split(",")
+    return False
+
+
 def _show(v: Any) -> bool:
     """A piece's condition: {entity, op, value} -- shown while the entity's state is (not) the value, or above or below
     it."""
@@ -170,7 +202,7 @@ def _widget(v: Any, strict: bool, zone: str) -> dict[str, Any] | None:
             out["show"] = {"entity": val["entity"], "op": val["op"], "value": val["value"]}
         elif k == "opts" and isinstance(val, dict):
             choices = PIECES[piece][1]
-            good = {o: c for o, c in val.items() if o in choices and c in choices[o]}
+            good = {o: c for o, c in val.items() if o in choices and _opt_ok(choices[o], c)}
             if strict and len(good) != len(val):
                 raise LayoutInvalid()
             if good:

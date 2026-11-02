@@ -156,6 +156,9 @@
         window.hkSaverWidgets ? null : import('/hk/modules/hk-saverwidgets.js')
       ]).then(() => {
         LM = window.hkSaverLayout; WG = window.hkSaverWidgets;
+        // every glance group's pieces, for the library (each on its own: a file that fails leaves its pieces out)
+        return Promise.all((LM.FILES || []).map(function (f) { return import('/hk/modules/hk-saverpieces-' + f + '.js').catch(function () { return null; }); }));
+      }).then(() => {
         // a screen with no layout yet opens on what it shows today
         this.opts.layout = (this.opts.layout && LM.clean(this.opts.layout)) || LM.layoutFrom(this.opts);
         this.initial = JSON.stringify(this.opts);

@@ -8,6 +8,8 @@ load(HK_ROOT + '/frontend/modules/hk-header.js');
 load(HK_ROOT + '/frontend/cards/hk-weather.js');
 load(HK_ROOT + '/frontend/modules/hk-saverlayout.js');
 load(HK_ROOT + '/frontend/modules/hk-saverwidgets.js');
+// (the glance groups' files: every piece the catalog lists is drawn by the renderer or one of them, phase 1b)
+window.hkSaverLayout.FILES.forEach(function (f) { load(HK_ROOT + '/frontend/modules/hk-saverpieces-' + f + '.js'); });
 var pass = 0, fail = 0;
 function ok(name, got, want) {
   var g = JSON.stringify(got), w = JSON.stringify(want);

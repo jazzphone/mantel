@@ -196,7 +196,7 @@ def test_the_pages_catalog_and_checks_are_the_same(tmp_path):
         "  size: L.ITEM_SIZE, rowat: L.ROW_AT, inks: L.INKS, shapes: L.SHAPES,\n"
         "  verdicts: cases.map(function (c) { return L.check(c); }), clean: cases.map(function (c) { return L.clean(c); })}));\n")
     out = json.loads(subprocess.run([str(JSC), str(prelude)], capture_output=True, text=True, check=True, timeout=30).stdout)
-    assert out["pieces"] == {p: [list(sh), {k: list(c) for k, c in o.items()}] for p, (sh, o) in SL.PIECES.items()}
+    assert out["pieces"] == {p: [list(sh), {k: list(c) if isinstance(c, tuple) else c for k, c in o.items()}] for p, (sh, o) in SL.PIECES.items()}
     assert {z: (list(t), r) for z, (t, r) in SL.ZONES.items()} == {z: (v[0], v[1]) for z, v in out["zones"].items()}
     assert {k: [p, s] + ([o] if o else []) for k, (p, s, o) in SL.V1.items()} == out["v1"]
     assert out["big"] == {"kinds": list(SL.BIG_KINDS), "size": list(SL.BIG_SIZE), "pos": list(SL.BIG_POS),

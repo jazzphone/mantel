@@ -129,19 +129,14 @@ var c = U.readCfg({ user: 'T', entity: SW, starts_after: 0, each_photo: 20, orde
 ok('0 means only the switch starts it', c.starts_after === 0);
 ok('options read as given', c.each_photo === 20 && c.order === 'sorted' && c.fill === false && c.zoom === true);
 ok('only HK cards are drawn over the photos', c.cards.length === 1 && c.cards[0].type === 'custom:hk-clock-card', c.cards);
-// A LAYOUT'S CARDS (2026-11-01; phase 13, 2026-11-02): the corner cards a layout places are the pieces' Card shape now
-// (hk-saverwidgets.js), never HK's cards; the screensaver's own corner clock, weather and Home Status stay, hidden, for
-// the slides' corners (the owner's wall tablet: under the music the time was gone) until the shared slide corner
+// A LAYOUT'S CARDS (2026-11-01; phase 13, 2026-11-02): the corner cards a layout places are the pieces' Card shape
+// (hk-saverwidgets.js), and under a slide the slide corner tells the time, the date, the weather and House Status: a
+// layout keeps none of HK's corner cards (the music's own extras aside)
 var lc = U.readCfg({ cards: [{ type: 'custom:hk-clock-card', time_size: '150px' }, { type: 'custom:hk-weather-strip-card' },
                              { type: 'custom:hk-screensaver-status-card' }],
                      layout: { v: 1, big: { kind: 'time', size: 35, pos: 'top', depth: 'behind' },
                                zones: { tl: [{ id: 'date' }], bl: [{ id: 'weather_card' }, { id: 'music_card' }], br: [{ id: 'status_card' }] } } });
-ok('a layout keeps the corner clock, weather and Home Status for the slides, in their order', lc.cards.map(function (x) { return x.type.replace('custom:hk-', ''); }).join() ===
-   'clock-card,weather-strip-card,screensaver-status-card', lc.cards);
-ok('...all of them spare (the layout\'s own are pieces), each as the screen had it', lc.cards.every(function (x) { return x.ly_spare === true; }) &&
-   lc.cards[0].time_size === '150px', lc.cards);
-ok('...a corner clock the screen didn\'t have: a corner\'s own sizes', U.readCfg({ cards: [], layout: { v: 2, big: { kind: 'none' }, zones: {} } })
-   .cards[0].time_size === '150px');
+ok('a layout keeps none of the corner cards: its own are pieces, the slides have their corner', lc.cards.length === 0, lc.cards);
 var d = U.readCfg({});
 ok('defaults: 180 s, 30 s, random, filled, no zoom, the house photos',
    d.starts_after === 180 && d.each_photo === 30 && d.order === 'random' && d.fill && !d.zoom &&
@@ -228,9 +223,12 @@ ok('...the music, the forecast, the weather and Home Energy take turns, in that 
    U.slideOf(W4, true, 'forecast', true, true) === 'weather' && U.slideOf(W4, true, 'weather', true, true) === 'energy' &&
    U.slideOf(W4, true, 'energy', true, true) === 'music');
 ok('...the weather without a reading yet: skipped', U.slideOf(W4, false, 'forecast', true, false) === 'energy');
-ok('...an additional screen over the clock, not over the forecast',
+// (phase 13, 2026-11-02: slides are overlays -- the Weather over the forecast's Landscape too, and over Glance, Month and
+// the Day face, where it was offered and never came)
+ok('...an additional screen over every background but the photos',
    JSON.stringify(U.extrasOf({ show: 'clock', clock_bg: 'gradient', extra_forecast: true, weather_slide: true, energy_slide: true })) === '["forecast","weather","energy"]' &&
-   JSON.stringify(U.extrasOf({ show: 'forecast', weather_slide: true, energy_slide: true })) === '["energy"]');
+   JSON.stringify(U.extrasOf({ show: 'forecast', weather_slide: true, energy_slide: true })) === '["weather","energy"]' &&
+   ['glance', 'month', 'day'].every(function (sh) { return JSON.stringify(U.extrasOf({ show: sh, weather_slide: true, energy_slide: true })) === '["weather","energy"]'; }));
 ok('...they take turns, round and round', U.turnOf(['forecast', 'music', 'energy'], ['forecast', 'energy'], '') === 'forecast' &&
    U.turnOf(['forecast', 'music', 'energy'], ['forecast', 'energy'], 'forecast') === 'energy' &&
    U.turnOf(['forecast', 'music', 'energy'], ['forecast', 'energy'], 'energy') === 'forecast' &&

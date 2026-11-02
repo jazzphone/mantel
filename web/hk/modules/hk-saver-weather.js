@@ -39,6 +39,7 @@
   var PARTS = ['rain', 'wind', 'hours', 'days'];
 
   var CSS = [
+    '.wx[nocorner] .wxt,.wx[nocorner] .wxd{visibility:hidden}',
     // ONE LAYER FOR GOOD, hidden by its opacity alone (2026-10-19), as Home
     // Energy's (.en): with visibility:hidden after each fade out the layer
     // and its whole sky (70 layers at 1920 x 1200, headless) were dropped
@@ -309,6 +310,9 @@
     var el = document.createElement('div');
     el.className = 'wx';
     el.setAttribute('aria-hidden', 'true');
+    // (corner: false -- the screensaver's slide corner tells the time, the date and the weather: this one's own words keep
+    // their room, unseen, so what is under them stays where it was drawn; its freshness line still shows. Phase 13)
+    if (opts.corner === false) el.setAttribute('nocorner', '');
     el.innerHTML = '<style>' + CSS + '</style><div class="wxsky"></div><div class="wxwash"></div><div class="wxin">' +
       '<div class="wxcorner"><div class="wxt"></div><div class="wxd"></div><div class="wxfresh"></div></div><div class="wxalert"></div><div class="wxbody"></div><div class="foot"></div></div>';
     var inn = el.querySelector('.wxin');

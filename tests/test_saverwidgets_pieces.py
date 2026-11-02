@@ -183,7 +183,7 @@ print(JSON.stringify({ errors: errors, got: got, texts: texts, none: W.sample('w
     t = out["texts"]
     assert "64°" in t["weather_inline"] and "Cloudy" in t["weather_inline"]
     assert "H 72°" in t["weather_card"] and "L 55°" in t["weather_card"]
-    assert t["weather_band"].count('class="fc"') == 10                       # six hours and four days
+    assert t["weather_band"].count('class="fc"') + t["weather_band"].count('class="fc dy"') == 10                       # six hours and four days
     assert "Night Harbor" in t["music_card"] and "The Fictional Trio" in t["music_card"] and "<img" not in t["music_card"]
     assert "Night Harbor" in t["music_inline"]
     assert "4:12" in t["timers_circ"] and "Pasta" in t["timers_card"]
@@ -307,7 +307,7 @@ r.warns = WARNS;
 print(JSON.stringify(r));
 """, before=SMALL_HOUSE + CTX + FAKES)
     assert out["warns"] == []
-    assert out["band"].count('class="fc"') == 10
+    assert out["band"].count('class="fc"') + out["band"].count('class="fc dy"') == 10
     assert "64°" in out["band"] and "Cloudy" in out["band"] and "8 PM" in out["band"] and "Tue" in out["band"] and "Fri" in out["band"]
     assert "Mon" not in out["band"]                                         # today is the Today block, not a day
     assert sorted(out["band_calls"]) == ["daily|weather.home", "hourly|weather.home"]

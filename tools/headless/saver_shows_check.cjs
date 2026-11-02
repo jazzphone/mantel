@@ -220,7 +220,13 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
             const words = [...sr.querySelectorAll('.mu .mcol > *')].filter((n) => n.textContent.trim() && n.getBoundingClientRect().height > 0).map((n) => box(n.getBoundingClientRect()));
             // (the layout's own pieces: the corner cards are pieces now, phase 13)
             const piece = (p) => { const e = [...sr.querySelectorAll('.lay .hksw.k-card.p-' + p)].find((x) => getComputedStyle(x).display !== 'none'); return e && Number(getComputedStyle(sr.querySelector('.lay')).opacity) > 0.99 ? box(e.getBoundingClientRect()) : null; };
+            // THE SLIDE CORNER (phase 13, phase 2): the pieces over the slide, each only where the slide lacks it
+            const sc = (p) => { const e = sr.querySelector('.scn .hksw.p-' + p); if (!e || getComputedStyle(e).display === 'none' || !host.hasAttribute('scorner')) return null;
+              const q = [...e.querySelectorAll('*')].filter((n) => n.childNodes.length && [...n.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim())).map((n) => { const rg = document.createRange(); rg.selectNodeContents(n); return rg.getBoundingClientRect(); }).filter((r) => r.width > 0);
+              return q.length ? { l: Math.min(...q.map((r) => r.left)), t: Math.min(...q.map((r) => r.top)), r: Math.max(...q.map((r) => r.right)), b: Math.max(...q.map((r) => r.bottom)) } : null; };
+            const oldShown = [...sr.querySelectorAll('.info > *')].filter((c) => !c.hasAttribute('muonly') && Number(getComputedStyle(c).opacity) > 0.01 && getComputedStyle(c).display !== 'none').map((c) => c.tagName.toLowerCase());
             return { off: host.hasAttribute('lyoff'), mu: host.hasAttribute('muslide'), W: innerWidth, H: innerHeight, words, pw: piece('weather'), ps: piece('status'),
+                     st: sc('time'), sd: sc('date'), sw: sc('weather'), ss: sc('status'), oldShown,
                      clock: card('hk-clock-card'), weather: card('hk-weather-strip-card'), status: card('hk-screensaver-status-card') };
           });
           const meet = (a, b) => !!(a && b && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1);
@@ -230,15 +236,16 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '-music.png' });
           say(started && !!u && u.mu && u.off, tag + ': the music slide over a layout: the layout steps aside', u && [u.mu, u.off]);
           if (u) {
-            // (a phone on its side: the old corner clock is a tablet's size there -- phase 13's phase 2, the shared slide corner, draws
-            // it in the screen's units; until then these two are its work, not checked at 844 x 390)
-            const later = W > H && H < 500;
-            if (!later) say(!!u.clock && u.clock.l < u.W * 0.2 && u.clock.b < u.H / 2, tag + ': ...the corner clock tells the time, at the top left', u.clock);
-            if (!later) say(!!u.weather && !!u.clock && u.weather.t >= u.clock.b - 1 && u.weather.b < u.H / 2, tag + ': ...the weather under it', [u.weather, u.clock]);
-            say(!!u.status && u.status.r > u.W * 0.8 && u.status.b < u.H / 2, tag + ': ...Home Status at the top right', u.status);
+            say(!!u.st && u.st.l < u.W * 0.25 && u.st.b < u.H / 2, tag + ': ...the slide corner tells the time, at the top left', u.st);
+            say(!!u.sd && !!u.st && u.sd.t >= u.st.b - 1 && Math.abs(u.sd.l - u.st.l) <= 2, tag + ': ...the date under it, on its left edge', [u.sd, u.st]);
+            say(!!u.sw && !!u.sd && u.sw.t >= u.sd.b - 1, tag + ': ...the weather under that (the music slide has none of its own)', [u.sw, u.sd]);
+            say(!!u.ss && u.ss.r > u.W * 0.75 && u.ss.b < u.H / 2, tag + ': ...House Status at the top right', u.ss);
+            say(!!u.st && !!u.ss && Math.abs(u.st.t - u.ss.t) < (u.st.b - u.st.t), tag + ': ...the two corners\' first words level with each other', [u.st, u.ss]);
+            say(u.oldShown.length === 0, tag + ': ...and none of the old corner cards', u.oldShown);
             // (at a tablet: on a phone the slide and the corners were never drawn for each other, with a layout or without)
-            const hit = [u.clock, u.weather, u.status].find((c) => u.words.some((w) => meet(c, w)));
-            if (Math.min(W, H) >= 600) say(u.words.length > 0 && !hit, tag + ': ...none on the slide\u2019s words', [hit, u.words]);
+            // (every size now, phones too: the slide is laid out under the corner -- phase 13)
+            const hit = [u.st, u.sd, u.sw, u.ss].find((c) => u.words.some((w) => meet(c, w)));
+            say(u.words.length > 0 && !hit, tag + ': ...none on the slide\u2019s words', [hit, u.words]);
           }
           // THE MUSIC'S BUTTONS ACT AND LEAVE IT UP (2026-11-02, the owner: "when touching the buttons on the Music Slide... skip,
           // browse, speaker... it kills the screensaver and goes back to the dashboard"): a finger on Next, Speakers and Browse
@@ -301,7 +308,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           const lybig = lay && lay.querySelector('.lybig'), tbt = sr.querySelector('.ph .tb .tbt');
           // (the screen's one ink: what each piece's words are drawn in, and the layer's own opacity)
           const inkOfPiece = (e) => { const t = [...e.querySelectorAll('*')].find((n) => n.childNodes.length && [...n.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim())); const cs = t ? getComputedStyle(t) : null; return cs ? [cs.color, cs.opacity, getComputedStyle(e).opacity] : null; };
-          const ws = lay ? [...lay.querySelectorAll('.hksw')].map((e) => ({ ink: inkOfPiece(e), layInk: lay.getAttribute('data-ink'), id: (e.className.match(/\bw-(\S+)/) || [])[1], piece: (e.className.match(/\bp-(\S+)/) || [])[1], shape: (e.className.match(/\bk-(\S+)/) || [])[1], cls: e.className, box: rect(e), shown: getComputedStyle(e).display !== 'none' })) : [];
+          const ws = lay ? [...lay.querySelectorAll('.hksw')].map((e) => ({ ink: inkOfPiece(e), layInk: lay.getAttribute('data-ink'), id: (e.className.match(/\bw-(\S+)/) || [])[1], piece: (e.className.match(/\bp-(\S+)/) || [])[1], shape: (e.className.match(/\bk-(\S+)/) || [])[1], cls: e.className, box: rect(e), shown: getComputedStyle(e).display !== 'none', held: getComputedStyle(e).visibility === 'hidden' })) : [];
           // (the box the plan gave the big element: what the widgets and cards are placed around, in this page's px)
           const info = window.hkSaver.layoutInfo && window.hkSaver.layoutInfo(), pb = info && info.plan && info.plan.big;
           const land = lay && lay.querySelector('.lyland'), lst = land && getComputedStyle(land);
@@ -379,6 +386,19 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           say(!!m.land && /land-[a-z0-9-]+\.webp/.test(m.land.img) && m.land.after, tag + ': ...the land drawn again over the time', m.land);
           say(!!m.land && !!big && m.land.box.r - m.land.box.l <= big.r - big.l + 12 && m.land.box.b - m.land.box.t <= big.b - big.t + 12,
               tag + ': ...in a box the time\'s size', m.land && [m.land.box, big]);
+        } else if (want === 'lay-pieces') {
+          // EVERY PIECE DRAWN WELL PLACED (the plan's rule 7; the owner: "Things need to line up correctly and look well placed"):
+          // each piece that shows is on the screen, off the big time and off every other piece
+          // (a "shows when..." piece with nothing to show holds its place, unseen, in the editor's preview: not counted)
+          const shown = m.ws.filter((w) => w.shown && !w.held && w.box && w.box.r - w.box.l > 0 && !/\bk-band\b/.test(w.cls));
+          say(shown.length >= 4, tag + ': ...the glance pieces are drawn', shown.map((w) => w.piece + '.' + w.shape));
+          say(shown.every((w) => inScreen(w.box)), tag + ': ...every one inside the screen', shown.filter((w) => !inScreen(w.box)).map((w) => [w.piece, w.box]));
+          say(shown.every((w) => !meet(w.box, big)), tag + ': ...none on the big time', shown.filter((w) => meet(w.box, big)).map((w) => [w.piece, w.box, big]));
+          let clash = null;
+          for (let i = 0; i < shown.length; i++) for (let j = i + 1; j < shown.length; j++) if (meet(shown[i].box, shown[j].box)) clash = [shown[i].piece, shown[i].box, shown[j].piece, shown[j].box];
+          say(!clash, tag + ': ...none on another', clash);
+          const empty = shown.filter((w) => w.ink === null && w.shape !== 'circular');
+          say(empty.length === 0, tag + ': ...each with words in it', empty.map((w) => w.piece + '.' + w.shape));
         } else if (want === 'lay-month') {
           const names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
           const days = m.big ? m.big.text : '';
