@@ -10055,7 +10055,7 @@
       if (!item) {
         return { title: 'Your Own Dashboards', back: ['Advanced', '#/advanced'],
           scope: 'What a dashboard you write yourself can use. Open one, copy it, and paste it into the dashboard’s YAML.', body: function (c) {
-            // a host with pages of its own (Mantel) adds screens its own way, with no Existing Dashboards
+            // a host with pages of its own adds screens its own way, with no Existing Dashboards
             c.appendChild(K.group({ footer: self.host() ? '' : 'Easier still: HK Settings → Screens → Add Screen → Existing Dashboards gives a dashboard ' +
                 'its menu, its screensaver and Hide Home Assistant Header & Sidebar, with nothing written.' }, wiki('')));
             M.YAML_REF.forEach(function (g) {
