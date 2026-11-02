@@ -281,14 +281,14 @@ const opacity = ed.sidebar.querySelector('input[type=range]'); opacity.value = '
 opacity.dispatchEvent(new Event('input')); opacity.dispatchEvent(new Event('change'));
 await pause(800);"""
 
-# the Screensaver editor (Settings -> a screen -> Screensaver Options -> Edit Screensaver): the Lock Screen starter laid
-# out, once the screensaver inside it has drawn its sky and its widgets
-SAVER_EDITOR = """const ed = await until(() => deep(document, 'hk-saver-editor').find((e) => e.shadowRoot && e.shadowRoot.querySelector('.starter-row') && e.shadowRoot.querySelector('.ov')));
-await until(() => [...ed.shadowRoot.querySelectorAll('.starter-row')].length >= 9);
-[...ed.shadowRoot.querySelectorAll('.starter-row')].find((r) => r.textContent.includes('Lock Screen')).click();
+# the Screensaver editor (Settings -> a screen -> Screensaver Options -> Edit Screensaver): the Lock Screen Look tapped, once the
+# screensaver inside it has drawn its sky and its pieces
+SAVER_EDITOR = """const ed = await until(() => deep(document, 'hk-saver-editor').find((e) => e.shadowRoot && e.shadowRoot.querySelector('.lk') && e.shadowRoot.querySelector('.ov')));
+await until(() => [...ed.shadowRoot.querySelectorAll('.lk')].length >= 10);
+[...ed.shadowRoot.querySelectorAll('.lk')].find((r) => r.textContent.includes('Lock Screen')).click();
 await until(() => ed.shadowRoot.querySelector('.ov').children.length > 0, 60000);
 await pause(12000);"""
-# ...and the big element tapped, so the right-hand side shows its Face, Color, Size, Position and Depth
+# ...and the big element tapped, so the right-hand side shows the Look's Face, Color, Size, Position and Depth
 SAVER_EDITOR_TIME = SAVER_EDITOR + """
 ed.shadowRoot.querySelector('.ov .big').click();
 await pause(2500);"""

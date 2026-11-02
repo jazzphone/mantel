@@ -216,19 +216,38 @@ def test_the_pages_catalog_and_checks_are_the_same(tmp_path):
 
 
 @pytest.mark.skipif(not JSC.exists(), reason="JavaScriptCore's jsc is macOS's")
-def test_the_editors_starters_and_backgrounds(tmp_path):
-    """hk-saver-editor.js: every starter's layout is one the write takes, and every background it offers is read back
-    as itself (bgOf), so the picker always shows a tick where the screensaver is."""
+def test_the_editors_looks_and_backgrounds(tmp_path):
+    """hk-saver-editor.js (phase 13, phase 5): every Look's own pieces are a v2 layout the write takes; every background it
+    offers is read back as itself (bgOf), so the picker always shows a tick where the screensaver is; and a Look tapped on a
+    screen changes the Look only -- the zones, the row's size, the ink and the accents stay -- and is read back as that Look."""
     prelude = tmp_path / "prelude.js"
     prelude.write_text(
         "var window = this; var HTMLElement = function () {}; var customElements = { get: function () { return null; }, define: function () {} };\n"
         f"load({json.dumps(str(ROOT / 'web/hk/modules/hk-saverlayout.js'))});\n"
         f"load({json.dumps(str(ROOT / 'web/hk/panels/hk-saver-editor.js'))});\n"
         "var E = window.hkSaverEditor, L = window.hkSaverLayout;\n"
-        "print(JSON.stringify({starters: E.STARTERS.map(function (s) { return [s[0], s[3] || L.layoutFrom(s[2])]; }),"
+        "var mine = L.clean({ v: 2, big: { kind: 'time' }, row_size: 80, ink: 'black', accents: false, zones: { line: [], row: [{ piece: 'weather', shape: 'circular' }], tl: [],\n"
+        "  tr: [{ piece: 'status', shape: 'inline' }], bl: [], br: [], bottom: [] }, upright: null });\n"
+        "var taps = E.LOOKS.map(function (look) {\n"
+        "  var o = { show: 'photos', clock_style: 'neon', clock_bg: 'gradient', layout: JSON.parse(JSON.stringify(mine)) };\n"
+        "  E.applyLook(o, look, false);\n"
+        "  return { id: look.id, now: E.lookOf(o), bg: E.bgOf(o), want: look.bg, zones: JSON.stringify(o.layout.zones) === JSON.stringify(mine.zones),\n"
+        "           keeps: o.layout.row_size === 80 && o.layout.ink === 'black' && o.layout.accents === false, big: o.layout.big, face: o.clock_style, show: o.show };\n"
+        "});\n"
+        "print(JSON.stringify({looks: E.LOOKS.map(function (l) { return [l.n, E.lookLayout(l)]; }), taps: taps,\n"
         " bgs: E.BGS.map(function (b) { return [b[0], E.bgOf(b[3])]; })}));\n")
     out = json.loads(subprocess.run([str(JSC), str(prelude)], capture_output=True, text=True, check=True, timeout=30).stdout)
-    assert len(out["starters"]) >= 9
-    for name, lay in out["starters"]:
+    assert [n for n, _ in out["looks"]] == ["Photo Frame", "Lock Screen", "Forecast", "Big Weather", "Planted", "Clock", "Glance", "Month", "Day", "Nightstand"]
+    for name, lay in out["looks"]:
+        assert lay["v"] == 2, name
         assert SL.check(lay) is not None, name
+        assert SL.check(SL.layout(lay)) is not None, name
     assert all(a == b for a, b in out["bgs"]), out["bgs"]
+    for t in out["taps"]:
+        assert t["now"] == t["id"], t                      # (each Look is read back as itself)
+        assert t["bg"] == t["want"], t
+        assert t["zones"] and t["keeps"], t                # (the Info stays: the pieces, the row's size, the ink and the accents)
+        assert t["big"]["depth"] in ("front", "behind"), t
+    planted = {t["id"]: t for t in out["taps"]}["planted"]
+    assert planted["face"] == "planted" and planted["show"] == "forecast"
+    assert {t["id"]: t for t in out["taps"]}["bigweather"]["big"]["kind"] == "temp"

@@ -2095,12 +2095,6 @@
             K.nav({ label: 'Wall Tablets', href: '#/house/tablets' })]));
         });
       }
-      if (s === 'screensaver' && sub[1] === 'clock-style') {
-        var cpg = mk('Clock Style', function (c) { self.saverStyle(c, M.saverOptions(b.screensaver_options), self.saverPutB(path)); },
-                     ['Screensaver Options', base + '/screensaver']);
-        cpg.saverPreview = true;
-        return cpg;
-      }
       if (s === 'screensaver' && sub[1] === 'weather') {
         var wpg = mk('Weather', function (c) { self.saverWeather(c, M.saverOptions(b.screensaver_options), self.saverPutB(path)); },
                      ['Screensaver Options', base + '/screensaver']);
@@ -2113,7 +2107,8 @@
         epg.saverPreview = true; epg.saverEnergy = true;
         return epg;
       }
-      if (s === 'screensaver' && sub[1] === 'editor') {
+      // (the Clock Style page is the editor's now, Look -> Big -> Face: its old address opens the editor)
+      if (s === 'screensaver' && (sub[1] === 'editor' || sub[1] === 'clock-style')) {
         return this.saverEditorPage(path, { path: path, title: x.title, back: ['Screensaver Options', base + '/screensaver'],
           options: M.saverFollows(b) ? this.hs('look.saver') : b.screensaver_options });
       }
@@ -4032,7 +4027,8 @@
             : 'Slides among the photos: the forecast' + (mf ? '' : ', what’s playing') + (wxKnown ? ', the weather' : '') + (enKnown ? ', and Home Energy.' : '.') }, [
           K.toggle({ label: 'Forecast', sub: 'The forecast over the live sky, as one of the photos. Its sky only moves while it is on screen.',
                      on: both, sk: 'saver:slide_forecast', onChange: function (on) { put('show', on ? 'both' : 'photos'); } })
-        ].concat(muKnown && !mf ? [tog('Music', 'music_slide', 'What’s playing, full screen: the album art, the song and what’s up next, with buttons for the previous or next song.')] : [],
+        // (one key for Music Full Screen, phase 13: the editor's and this page's are the same choice -- music_first)
+        ].concat(muKnown ? [tog('Music Full Screen', 'music_first', 'While something plays: the album art, the song and what’s up next, with buttons for the previous or next song.')] : [],
                  wxKnown ? this.weatherRows(cur, tog, weatherHref) : [],
                  enKnown ? this.energyRows(cur, tog, energyHref) : [],
                  turns.length ? [K.select({ label: 'A Slide', sk: 'saver:forecast_every', value: String(cur.forecast_every),
@@ -5052,15 +5048,10 @@
         // its own settings left the page with no preview at all)
         var withSaver = Object.keys(bd).filter(function (p) { return bd[p].screensaver && bd[p].screensaver_engine !== 'wallpanel'; });
         var pv = withSaver.filter(function (p) { return M.saverFollows(bd[p]); })[0] || withSaver[0];
-        if (sub[0] === 'editor') {
+        // (the Clock Style page is the editor's now, Look -> Big -> Face: its old address opens the editor)
+        if (sub[0] === 'editor' || sub[0] === 'clock-style') {
           return this.saverEditorPage('house', { house: true, path: pv || '', previewPath: pv, title: 'All Screens', back: [title, '#/house/screensaver'],
             options: this.hs('look.saver') });
-        }
-        if (sub[0] === 'clock-style') {
-          var hcur = M.saverOptions(this.hs('look.saver'));
-          var hpg = mk('Clock Style', function (c) { self.saverStyle(c, hcur, self.saverPutH()); });
-          if (pv) { hpg.preview = pv; hpg.saverPreview = true; hpg.saverHouse = true; }
-          return hpg;
         }
         if (sub[0] === 'weather') {
           var wcur = M.saverOptions(this.hs('look.saver'));

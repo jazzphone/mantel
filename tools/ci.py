@@ -228,6 +228,9 @@ def steps(build: Build | None = None) -> list[Step]:
     # the screensaver's HomeView-style faces and Time Behind in WebKit, a tablet either way and a phone (2026-10-30)
     out.append(Step("saver-faces-check", [py, "tools/headless/saver_faces_check.py"], tier="full", timeout=600,
                     skip=playwright_missing))
+    # the Screensaver editor in WebKit (phase 13): Looks that keep the Info, the four sections, a piece's page, the library
+    out.append(Step("saver-editor-check", [py, "tools/headless/saver_editor_check.py"], tier="full", timeout=900,
+                    skip=playwright_missing))
     # the Side Pane in WebKit: beside Home on each side, Every Page, the screensaver, each section alone (2026-10-30)
     # (each size a step of its own, 2026-11-01: together they were the full run's longest step, ~4 minutes)
     out += [Step(f"side-pane-check-{z}", [py, "tools/headless/side_pane_check.py", "--size", z], tier="full", timeout=900,

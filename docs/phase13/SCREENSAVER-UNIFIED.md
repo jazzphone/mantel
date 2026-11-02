@@ -441,3 +441,16 @@ take its new shape still moves to the nearest zone that can.
   before/after WebKit shots for the owner: https://claude.ai/artifact/N5Kxj6Es2nACSnTvK5WPmz. Also: Music Full Screen
   one key (`music_slide` reads as `music_first`); the editor's See a Slide and Day / Night (`hkSaver.previewSlide`,
   `previewNight`).
+- 2026-11-02, the owner on the phase 4 shots ("Alignment is pretty crucial here"), fixed: a card with no backdrop had
+  its padding, so the music sat 2 u inside the margin the weather under it was on (now on the margin; a backdrop's edge
+  is on the margin); a Settings preview kept the place of a piece with nothing to show, which held Home Status off the
+  bottom corners' one line (only the editor keeps places now); the Day face's name stood a line above its numeral and
+  met the corners (now on its numeral, the corner clock its usual size); Glance's weather took the music's cell when
+  nothing played and stood a third of the way across (each in its own cell, the weather on the clock's left edge, the
+  page's margin the pieces' 6 %).
+- 2026-11-02, phase 5: the editor (`EDITOR-SPEC.md`, a Sonnet 5.5 agent): Looks that keep the Info (a piece the Look has
+  no place for waits, and Start Over from This Look), the four sections (Look, Info, Slides, Timing) with `applies()`,
+  the grouped library with search, a piece's page (its shapes drawn, Its Own Size, its options with the suggested
+  entity, Show When), See a Slide and Day / Night, the phone on its side, one Reset; the Clock Style pages open the
+  editor; Settings' Music is Music Full Screen (`music_first`). Glance, Month and Day's Looks leave the big element to
+  their faces' own words. A WebKit check of the editor (`saver_editor_check`) in `ci.py full`.
