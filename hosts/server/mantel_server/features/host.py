@@ -23,7 +23,7 @@ from hk_core.screensaver import rules as SS
 from hk_core.settings import model as SM
 from hk_core.sleep import engine as SE
 
-from .. import feature_pages, notify_snaps
+from .. import audit, feature_pages, notify_snaps
 from ..connectors import Ctx, deny_read, Forbidden, may_feature, read_routes, Route, ws_handlers
 from ..feature_watch import CalendarLook, TabletWatch
 from ..guards import guard
@@ -1113,7 +1113,16 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
         if not isinstance(key, str) or not 0 < len(key) <= 200 or isinstance(secs, bool) or not isinstance(secs, int) \
                 or not 0 <= secs <= 86400 or set(msg) - {"type", "id", "key", "seconds"}:
             return await ctx.send({"type": "notify_mute_result", "id": rid, "error": {"code": "invalid"}})
-        until = host.notifier.set_mute(key, secs, ctx.identity)     # muting only makes the house quieter
+        # A mute is house-wide (the key names the category, not the person), so it is a notification setting: a
+        # person who may configure Notifications only (a Guest muted smoke for a day, SRV-9, third audit pass). The
+        # audit row first: no row, no change.
+        if host.pages is None or not host.pages.may_configure(ctx.identity, "notifications"):
+            return await ctx.send({"type": "notify_mute_result", "id": rid, "error": {"code": "forbidden"}})
+        try:
+            audit.config(None, ctx.identity, "notify.mute", {"key": key, "seconds": secs}, app=host.app)
+        except audit.Unavailable:
+            return await ctx.send({"type": "notify_mute_result", "id": rid, "error": {"code": "audit_unavailable"}})
+        until = host.notifier.set_mute(key, secs, ctx.identity)
         await ctx.send({"type": "notify_mute_result", "id": rid, "result": {"until": until}})
 
     async def clean_run(ctx: Ctx, msg: dict) -> None:
