@@ -1804,6 +1804,8 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
     hooks = Hooks.coerce(hooks)
     host = MusicHost(app, hub, hooks)
     app["music"] = host
+    if app.get("settings") is not None:         # a restore of house/music (settings_restore) is heard like a save
+        app["settings"].after_restore["house/music"] = host.changed
 
     ha = getattr(hub, "ha", None)
     if ha is not None:

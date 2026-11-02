@@ -966,6 +966,38 @@ async def test_music_relink_matches_gone_links_by_name(mantel):
     assert not err and [f["pill"] for f in plan["fixes"]] == ["p2"]
 
 
+async def test_a_music_change_can_be_looked_up_and_undone_as_it_says(mantel):
+    """SRV-7 (third audit pass): every music_* change answers an undo (settings_restore of house/music), but
+    house/music was not in HOUSE_DOCS, so its history and its restore were always refused."""
+    token, _ = await setup(mantel, scopes=["read", "settings", "audit", "restore"])
+    mantel.app["ma"] = FakeMa([{"uri": "library://playlist/71", "name": "Dinner"}])
+    store = mantel.app["settings"].store
+    store.write([("house", "music", {"options": {"speakers": [], "volume": 0.3, "homes": {}},
+                                     "items": [pill("p1", "Dinner", ["library://playlist/7"])]})], actor=Actor(label="t"))
+    rpc = Rpc(mantel, token)
+    plan, err = await rpc.tool("music_relink")
+    done, err = await rpc.tool("music_relink", dry_run=False, plan=plan["plan"])
+    assert not err and done["changes"][0]["key"] == "music"
+    undo = done["changes"][0]["undo"]
+    assert undo == {"tool": "settings_restore", "scope": "house", "key": "music", "version": 1}
+    for args in ({"scope": "music"}, {"scope": "house", "key": "music"}):
+        got, err = await rpc.tool("settings_history", **args)
+        assert not err and got["key"] == "music" and [h["version"] for h in got["history"]] == [2, 1], (args, got)
+    assert store.body("house", "music")["items"][0]["data"]["items"] == ["library://playlist/71"]
+    heard = []
+    assert "house/music" in mantel.app["settings"].after_restore, "Music follows a restore, as it follows a save"
+    mantel.app["settings"].after_restore["house/music"] = lambda: heard.append(True)
+    plan, err = await rpc.tool("settings_restore", scope="music", version=undo["version"])
+    assert not err, plan
+    got, err = await rpc.tool("settings_restore", scope="music", version=undo["version"], dry_run=False, plan=plan["plan"])
+    assert not err and got["result"]["restored_from"] == 1 and heard == [True], got
+    assert store.body("house", "music")["items"][0]["data"]["items"] == ["library://playlist/7"]
+    # a version that is no Music document is not put back (restore runs the same check)
+    from mantel_server.settings_store import SettingsError
+    with pytest.raises(SettingsError):
+        mantel.app["settings"].model.check_document("house", "music", {"options": {"volume": 7}})
+
+
 def test_relink_plan_rules():
     from mantel_server.mcp.tools.music import relink_plan
     lib = [{"uri": "library://playlist/1", "name": "Café Mix"}, {"uri": "library://playlist/2", "name": "Rain"}]

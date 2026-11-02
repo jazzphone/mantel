@@ -110,6 +110,8 @@ class SettingsService:
         self.kinds_sent: dict[str, list[str]] | None = None      # the lists the screens were last sent
         # told after every publish, whoever subscribes (linked_settings.py: a linked HK Frontend's mirror)
         self.watchers: list[Callable[[], None]] = []
+        # a document's owner told when a restore put an older version back ("house/music": Music follows it)
+        self.after_restore: dict[str, Callable[[], None]] = {}
         # where a screen is drawn besides Mantel, for HK Settings' list (linked_settings.place): {text, icon} or None
         self.place: Callable[[str], dict | None] | None = None
 
@@ -740,6 +742,12 @@ class SettingsService:
         got = self.store.restore(scope.kind, scope.key, version, actor=actor, message=msg["type"], normalise=normalise)
         if got:
             self.publish(user_only=scope.key if scope.kind == "user" else None)
+            follow = self.after_restore.get(str(scope))
+            if follow is not None:
+                try:
+                    follow()
+                except Exception:  # noqa: BLE001 -- the restore is stored; say so in the log, not as its error
+                    log.exception("%s: following a restore failed", scope)
         d = self.store.get(scope.kind, scope.key)
         return {"scope": scope.kind, "key": scope.key, "version": d.version if d else 0, "restored_from": version,
                 "changed": got is not None}
