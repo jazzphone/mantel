@@ -32,6 +32,8 @@ export function pBackups() {
       c.appendChild(group({}, [info(b.restored.ok ? 'Restored' : 'The Restore Didn’t Work',
         b.restored.ok ? 'The backup of ' + when(b.restored.created) + ' was put in place when Mantel started. What was here before is kept aside in the data folder.'
           : (b.restored.error || 'Mantel started with its data as it was.'), null, b.restored.ok ? '' : 'warn')]));
+      if (b.restored.ok && b.restored.control_off) c.appendChild(group({}, [info('Control of the House Is Off',
+        'It was on in the backup. Turn it on in General when you are ready: Mantel asks you to sign in again first.', null, 'warn')]));
     }
     // ---- the state
     const last = b.backups[0];
@@ -92,10 +94,12 @@ function drawRestore(c, b) {
   if (p) {
     const what = `Made ${when(p.created)} · ${p.tables} tables, ${p.rows} rows, ${p.files} files · ${kb(p.size)}` +
       (p.migrated && p.migrated.length ? ' · brought up to this version of Mantel' : '') + (p.other_keys ? ' · with another Mantel’s keys' : '');
+    // (a restore never turns control of the house on by itself: backup.py _control_off)
+    const control = p.control_was_on ? ' Allow Control of the House was on in this backup: it stays off after the restore, until you turn it on in General.' : '';
     c.appendChild(group({ header: 'Restore', footer: 'Mantel restarts to put it in place; screens and wall tablets reconnect by themselves within a minute. What is here now is moved aside in the data folder, not deleted. You may need to sign in again.' }, [
       info('Checked and Ready', what, null),
       button('Restore and Restart…', async () => {
-        if (!(await ask({ title: 'Restore this backup?', message: 'Everything Mantel keeps goes back to how it was on ' + when(p.created) + '. Mantel restarts now.', ok: 'Restore', destructive: true }))) return;
+        if (!(await ask({ title: 'Restore this backup?', message: 'Everything Mantel keeps goes back to how it was on ' + when(p.created) + '. Mantel restarts now.' + control, ok: 'Restore', destructive: true }))) return;
         if (await act('backups', () => api('POST', '/api/backup/restore'), 'Restoring. Mantel is restarting…')) waitForRestart();
       }, { destructive: true, fk: 'mx:backup-restore' }),
       button('Cancel', () => act('backups', () => api('DELETE', '/api/backup/restore'), 'Restore cancelled.', 'backups'), { fk: 'mx:backup-cancel' })]));

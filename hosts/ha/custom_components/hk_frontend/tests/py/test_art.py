@@ -202,12 +202,14 @@ async def test_the_whole_body_is_read_not_just_the_first_chunk():
     assert await art.read_limited(_Chunked(body, 1378), 50_000) is None, "over the limit"
 
 
-async def test_the_view_serves_only_pixels_and_says_so(hass, hass_client, aioclient_mock):
+async def test_the_view_serves_only_pixels_and_says_so(hass, hass_client, aioclient_mock, monkeypatch):
     """Through the real view, authenticated as a screen: an SVG upstream is
     415, a BMP comes back a JPEG, and every answer carries nosniff and a
     sandboxing CSP (a path opened as a page runs nothing)."""
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession
     from homeassistant.setup import async_setup_component
     pytest.importorskip("PIL.Image")
+    monkeypatch.setattr(art, "_pinned_session", lambda hass: async_get_clientsession(hass))   # the mocked web
     assert await async_setup_component(hass, "http", {})
     art.async_register(hass)
     svg_url, bmp_url = "https://x.test/a.svg", "https://x.test/b.bmp"
@@ -275,3 +277,40 @@ async def test_dot_segments_never_leave_the_imageproxy(hass, aioclient_mock):
     assert await art.async_fetch(hass, "http://192.0.2.53:8095/imageproxy/../private/snapshot.png", 0,
                                  art.Cache(), session=s) is None
     assert aioclient_mock.call_count == 0, "never asked"
+
+
+# ------------------------------------------------------------ the addresses checked are the ones dialed
+# (the third audit pass, 2026-11-02: HK Frontend's covers went through Home Assistant's shared session, which looked the
+# name up again to connect -- a name answering a public address to the check and a home-network one to the connect)
+async def test_the_cover_session_dials_only_the_addresses_checked_for_that_name():
+    import socket
+    r = art.PinnedResolver()
+    with art.pin("X.test", ["93.184.216.34"]):
+        got = await r.resolve("x.test", 443, socket.AF_UNSPEC)
+        assert [a["host"] for a in got] == ["93.184.216.34"]
+        with pytest.raises(OSError):
+            await r.resolve("router.lan", 80, socket.AF_UNSPEC)          # a name nobody checked
+    with pytest.raises(OSError):
+        await r.resolve("x.test", 443, socket.AF_UNSPEC)                 # outside the fetch that checked it
+
+
+async def test_the_view_fetches_through_the_pinned_session_with_each_hop_pinned(hass, hass_client, aioclient_mock,
+                                                                                  monkeypatch):
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession
+    from homeassistant.setup import async_setup_component
+    pytest.importorskip("PIL.Image")
+    asked, pinned = [], []
+    real_pin = art.pin
+
+    def spy(host, addrs):
+        pinned.append((host, list(addrs)))
+        return real_pin(host, addrs)
+    monkeypatch.setattr(art, "_pinned_session", lambda hass: asked.append(1) or async_get_clientsession(hass))
+    monkeypatch.setattr(art, "pin", spy)
+    assert await async_setup_component(hass, "http", {})
+    art.async_register(hass)
+    aioclient_mock.get(MZ, content=_jpeg(100, 100), headers={"Content-Type": "image/jpeg"})
+    client = await hass_client()
+    r = await client.get(art.art_path(MZ, 300))
+    assert r.status == 200 and asked, "the view's covers go through the pinned session"
+    assert pinned == [("is1-ssl.mzstatic.com", ["17.253.1.1"])], pinned

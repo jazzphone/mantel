@@ -40,7 +40,9 @@ function statsFor(msg) {
   msg.statistic_ids.forEach(function (id) {
     // The tile's own statistic ends the fortnight on 4.3 kWh; its peers on 2.3.
     var base = id === 'sensor.downstairs_ac_utility' ? 3 : 1, rows = [];
-    for (var i = 0; i < 14; i++) rows.push({ start: t0 + i * 864e5, change: base + i / 10 });
+    // (each a calendar day from the start, not 24 h apart: across a change of the clocks -- 2026-11-01 -- a day is 23
+    // or 25 hours, and the fortnight's last row missed today's midnight)
+    for (var i = 0; i < 14; i++) { var d = new Date(t0); d.setDate(d.getDate() + i); rows.push({ start: d.getTime(), change: base + i / 10 }); }
     out[id] = rows;
   });
   return out;

@@ -93,6 +93,7 @@ struct HouseWebView: UIViewRepresentable {
           menu: (id) => window.webkit.messageHandlers.mantel.postMessage({ type: 'menu', id: String(id || '') }),
           tone: (light) => window.webkit.messageHandlers.mantel.postMessage({ type: 'tone', light: !!light }),
           player: () => window.webkit.messageHandlers.mantel.postMessage({ type: 'player' }),
+          notifications: \(PushRegistrar.isOn ? "true" : "false"),
         });
         """
         // NOT A WEBSITE: no callout or selection on the screens (fields keep theirs), no double-tap or pinch zoom

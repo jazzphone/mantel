@@ -13,6 +13,11 @@ final class PushRegistrar {
     private(set) var lastError: String?
     /// The person chose Turn On Notifications: register even if they stopped this app in Mantel Settings.
     private var resume = false
+    /// Whether this phone's notifications are on and registered with the house: the screens then leave the house's
+    /// notifications to the phone (HouseWebView's bridge `notifications`; hk-notify.js draws no banner of its own).
+    nonisolated static let onKey = "MantelPushOn"
+    nonisolated static var isOn: Bool { UserDefaults.standard.bool(forKey: onKey) }
+    private func setOn(_ on: Bool) { UserDefaults.standard.set(on, forKey: Self.onKey) }
 
     func register(client: MantelClient) async {
         self.client = client
@@ -27,7 +32,7 @@ final class PushRegistrar {
         #endif
         let ok = (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])) ?? false
         print("Mantel push: notifications allowed: \(ok)")
-        guard ok else { return }
+        guard ok else { setOn(false); return }
         UIApplication.shared.registerForRemoteNotifications()
     }
 
@@ -43,6 +48,7 @@ final class PushRegistrar {
                                                      resume: resume)
             resume = false
             lastError = nil
+            setOn(done)
             print(done ? "Mantel push: registered with the house" : "Mantel push: stopped in Mantel Settings; not registering")
         } catch {
             lastError = error.localizedDescription
@@ -52,6 +58,7 @@ final class PushRegistrar {
 
     func didFail(_ error: Error) async {
         lastError = error.localizedDescription
+        setOn(false)
         print("Mantel push: APNs registration failed: \(error)")
     }
 }

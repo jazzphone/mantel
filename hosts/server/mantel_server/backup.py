@@ -452,6 +452,32 @@ def rotate(target: Path, keep_daily: int, keep_weekly: int, keep: Path | None = 
 
 
 # -- restoring --------------------------------------------------------------------------------------
+# A RESTORE NEVER TURNS HOUSE CONTROL ON (the third audit pass, 2026-11-02, the owner): a backup holds Mantel Settings'
+# General, Allow Control of the House included, and restoring one -- another Mantel's above all -- brought control back
+# on with nobody asked. The restored database has it off; turning it on is the Owner's, in General, with a fresh
+# sign-in (server_settings.py), as on a first start.
+def _control_on(db: Path) -> bool:
+    try:
+        con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+        try:
+            row = con.execute("SELECT value FROM server_settings WHERE key = 'commands_enabled'").fetchone()
+        finally:
+            con.close()
+        return bool(row) and json.loads(row[0]) is True
+    except (sqlite3.Error, ValueError):
+        return False
+
+
+def _control_off(db: Path, now: datetime) -> None:
+    con = sqlite3.connect(db)
+    try:
+        with con:
+            con.execute("UPDATE server_settings SET value = ?, source = 'restore', set_by = NULL, updated = ? "
+                        "WHERE key = 'commands_enabled'", (json.dumps(False), now.timestamp()))
+    finally:
+        con.close()
+
+
 @dataclass
 class RestoreReport:
     schema: int
@@ -461,6 +487,9 @@ class RestoreReport:
     migrated: list
     replaced: list
     verified_only: bool
+    # Allow Control of the House was on in the backup: a restore never turns it on by itself (it is put in place off,
+    # and the Owner turns it on in General, with the fresh sign-in that asks for)
+    control_was_on: bool = False
 
     def as_dict(self) -> dict:
         return self.__dict__.copy()
@@ -660,12 +689,15 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
                                    connections=stage / "unpacked" / CONNECTIONS_DIR)
         for p in staged_db.parent.glob(DB_NAME + "-*"):
             p.unlink()
+        control_was_on = _control_on(staged_db)
         files_tree = stage / "unpacked" / FILES_DIR
         report = RestoreReport(schema=int(manifest.get("schema", 0)), created=str(meta.get("created", "")),
                                tables=manifest.get("tables", {}), files=nfiles, migrated=migrated, replaced=[],
-                               verified_only=verify_only)
+                               verified_only=verify_only, control_was_on=control_was_on)
         if verify_only:
             return report
+        if control_was_on:
+            _control_off(staged_db, now)
         # -- the swap: preconditions are settled; move the old aside, the new in --------------------
         suffix = ".before-restore-" + now.astimezone(timezone.utc).strftime("%Y%m%d-%H%M%S")
         moved: list[tuple[Path, Path]] = []
@@ -1016,7 +1048,7 @@ async def api_upload(request: web.Request) -> web.Response:
         os.chmod(kf, 0o600)
     check = {"created": report.created, "schema": report.schema, "tables": len(report.tables),
              "rows": sum(report.tables.values()), "files": report.files, "migrated": report.migrated,
-             "other_keys": bool(keys), "size": upload.stat().st_size}
+             "other_keys": bool(keys), "size": upload.stat().st_size, "control_was_on": report.control_was_on}
     (pend / "check.json").write_text(json.dumps(check))
     audit.config(request, guarded(request), "backup.restore_upload", {"created": report.created, "other_keys": bool(keys)})
     return ok(check)
@@ -1123,7 +1155,7 @@ def apply_pending(cfg) -> dict | None:
                 log.error("restored the backup of %s, but %s (the data it replaced is at %s)",
                           check.get("created"), msg, report.replaced)
                 return result
-        result.update(ok=True, replaced=report.replaced, migrated=report.migrated)
+        result.update(ok=True, replaced=report.replaced, migrated=report.migrated, control_off=report.control_was_on)
         log.warning("restored the backup of %s; the data it replaced is at %s", check.get("created"), report.replaced)
     except (BackupError, OSError, sqlite3.Error, ValueError, KeyError) as exc:
         result.update(ok=False, error=str(exc)[:300])
@@ -1262,4 +1294,7 @@ def cli_restore(argv: list[str]) -> int:
     else:
         print(f"restored into {a.data_dir}" + (f"; the old files are at {', '.join(report.replaced)}" if report.replaced else ""))
         print("Start Mantel Server now. Sealed values (TOTP seeds) need the at_rest.key that went with this data.")
+        if report.control_was_on:
+            print("Allow Control of the House was on in the backup; it is off now. An Owner turns it on in Mantel "
+                  "Settings → General.")
     return 0

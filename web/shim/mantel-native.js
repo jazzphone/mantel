@@ -16,6 +16,9 @@
   // THE PLAYER: the app's own Now Playing (iPhone), in place of the Music page's sheet -- HK's music cards ask the
   // host for one by a name of HK's own (hk-music.js _sheet, hk-media.js's bar)
   if (typeof N.player === 'function') global.hkHostPlayer = () => N.player();
+  // THE PHONE'S OWN NOTIFICATIONS: with the app's notifications on and registered with the house, every notification
+  // reaches it as the phone's own banner -- the page draws none of its own (hk-notify.js decide, hkHostNotifies)
+  global.hkHostNotifies = () => N.notifications === true;
 
   // a command that changes something, not one that reads (music_assistant.get_queue, get_library)
   const READ = /(^|\.)get_/;

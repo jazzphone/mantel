@@ -46,6 +46,8 @@ var n = { title: 'Front Door', important: false, saver: 'important', dnd: null }
 ok('a screen that allows them shows it', N.decide(n, ctx()) === 'show');
 ok('not a screen of HK Frontend', N.decide(n, ctx({ board: null })) === 'drop:not-a-screen');
 ok('Allow Notifications off', N.decide(n, ctx({ board: { notify: false } })) === 'drop:off');
+ok('the iPhone app shows it as the phone\'s own: no banner on the page', N.decide(n, ctx({ native: true })) === 'drop:native');
+ok('...even an Important one or a test', N.decide(Object.assign({}, n, { important: true, test: true }), ctx({ native: true })) === 'drop:native');
 ok('editing the dashboard', N.decide(n, ctx({ editing: true })) === 'drop:editing');
 // (2026-11-01: a preview's frame shows the screen, not the house's news -- the Screensaver editor's Slides &
 // Notifications turns them on)

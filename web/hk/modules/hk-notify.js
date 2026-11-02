@@ -76,6 +76,9 @@
   var hushed = (function () { try { return /[?&]hk_preview=/.test(String(location.search)); } catch (e) { return false; } })();
   function decide(n, c) {
     if (hushed) return 'drop:hushed';
+    // THE PHONE SHOWS IT (2026-11-02, the owner, on the iPhone app with its notifications on): the same notification
+    // comes as the phone's own, so the page's banner would be a second one -- drawn under the app's strip besides
+    if (c.native) return 'drop:native';
     var b = c.board;
     if (!b) return 'drop:not-a-screen';
     if (b.notify === false) return 'drop:off';
@@ -156,7 +159,9 @@
     var h = currentClient();
     return { board: board(), editing: editing(), asleep: asleep(), saver: saverOn(), now: new Date(), dash: seg(),
              user: h && h.user ? h.user.id : null,
-             states: h ? h.states : {}, popOpen: popOpen, popWould: popWould };
+             states: h ? h.states : {}, popOpen: popOpen, popWould: popWould,
+             // (a host that shows the house's notifications itself: Mantel's iPhone and iPad app with them on)
+             native: typeof window.hkHostNotifies === 'function' && window.hkHostNotifies() === true };
   }
 
   // ------------------------------------------------------------- the host

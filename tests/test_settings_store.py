@@ -1128,6 +1128,36 @@ def _naming_house(store):
     return items
 
 
+def test_a_screens_own_lists_and_custom_pages_name_only_what_its_person_may_view(store):
+    """SRV-4's remainder (2026-11-02): a screen's camera, scene, favorite and chip lists and a custom page's cards went
+    to every screen as written, so a Child's tablet learned `camera.nursery` existed. Each entity the person may not
+    view is left out; the lists' other tokens and the page's other cards stay."""
+    store.write([
+        ("board", "dashboard-kids", {"title": "Kids", "cameras_custom": True, "cameras": ["camera.nursery", "camera.yard"],
+                                     "favorites": ["light.kitchen_main", "lock.safe_room"],
+                                     "chips": ["security", "lock.safe_room", "light.kitchen_main"]}),
+    ], actor=S.Actor(label="t"))
+    seen = {"light.kitchen_main", "camera.yard"}
+    host = types.SimpleNamespace(hooks=types.SimpleNamespace(may_read=lambda who, kind, ids: [
+        i for i in ids if who is OWNER or i in seen]), client_part=lambda identity: {})
+    svc = S.SettingsService(store, S.SettingsHooks(may_configure=lambda identity, scope: True), S.load_model())
+    svc.features = host
+    page = {"path": "p-den", "title": "Den", "icon": "", "view": {"cards": [
+        {"type": "vertical-stack", "cards": [{"type": "tile", "entity": "camera.nursery"}, {"type": "tile", "entity": "light.kitchen_main"}]},
+        {"type": "entities", "entities": ["lock.safe_room", {"entity": "light.kitchen_main"}]},
+        {"type": "picture-glance", "camera_image": "camera.nursery"}]}}
+    svc._items = lambda kind, _orig=svc._items: [page] if kind == "custom_pages" else _orig(kind)
+    full, kid = json.dumps(svc.feed_payload(OWNER)), svc.feed_payload(CHILD)
+    assert "camera.nursery" in full and "lock.safe_room" in full
+    b = kid["boards"]["dashboard-kids"]
+    assert b["cameras"] == ["camera.yard"] and b["favorites"] == ["light.kitchen_main"]
+    assert b["chips"] == ["security", "light.kitchen_main"], "a chip kind stays"
+    [p] = [p for p in kid["custom_pages"] if p["path"] == "p-den"]
+    assert p["view"]["cards"] == [{"type": "vertical-stack", "cards": [{"type": "tile", "entity": "light.kitchen_main"}]},
+                                  {"type": "entities", "entities": [{"entity": "light.kitchen_main"}]}]
+    assert "camera.nursery" not in json.dumps(kid) and "lock.safe_room" not in json.dumps(kid)
+
+
 def test_a_settings_feed_names_only_what_its_person_may_view(store):
     """SRV-4 (third audit pass): ``hk_frontend/settings/subscribe`` sent a Child every screen's Home Grid entity ids, the
     Owner's own names for accessories the Child cannot view, and custom chips' cards. Cut to what the subject may

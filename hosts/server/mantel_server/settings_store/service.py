@@ -53,6 +53,42 @@ def _popup_ids(p: Mapping[str, Any]) -> set[str]:
     return out | _named_in(p.get("cards"))
 
 
+# a screen's own lists that name things among other tokens (a chip kind, `chip:<key>`, a category): each entity in them
+# is one the screen shows (hk_core/settings/model.py board)
+_BOARD_LISTS = ("cameras", "scenes", "favorites", "chips_extra", "chips")
+
+
+def _is_entity(v: Any) -> bool:
+    return isinstance(v, str) and bool(_ENTITY.match(v)) and v.split(".")[0] in _DOMAINS
+
+
+def _board_ids(b: Mapping[str, Any]) -> set[str]:
+    return {v for k in _BOARD_LISTS for v in (b.get(k) or []) if _is_entity(v)} if isinstance(b, Mapping) else set()
+
+
+def _cut_board(b: Mapping[str, Any], ok: set[str]) -> dict[str, Any]:
+    out = dict(b)
+    for k in _BOARD_LISTS:
+        if isinstance(b.get(k), list):
+            out[k] = [v for v in b[k] if not _is_entity(v) or v in ok]
+    return out
+
+
+def _cut_cards(card: Any, ok: set[str]) -> Any:
+    """A free-form card (a custom page's) with what it names that the subject may not view left out: each card of a
+    stack or each row of an entities list that still names one goes, the rest stay as written."""
+    if isinstance(card, list):
+        kept = [_cut_cards(c, ok) for c in card]
+        return [c for c in kept if not (_named_in(c) - ok)]
+    if not isinstance(card, dict):
+        return card
+    return {k: (_cut_cards(v, ok) if k in ("cards", "entities", "card") else v) for k, v in card.items()}
+
+
+def _page_ids(p: Mapping[str, Any]) -> set[str]:
+    return _named_in((p.get("view") or {}).get("cards")) if isinstance(p, Mapping) else set()
+
+
 def _accessory_ids(acc: Mapping[str, Any]) -> set[str]:
     out: set[str] = set()
     for eid, v in (acc.get("entities") or {}).items():
@@ -244,8 +280,12 @@ class SettingsService:
         chips = [c for c in payload.get("custom_chips") or [] if isinstance(c, dict)]
         pops = [p for p in payload.get("popups") or [] if isinstance(p, dict)]
         ids: set[str] = set()
+        pages = [p for p in payload.get("custom_pages") or [] if isinstance(p, dict)]
         for b in boards.values():
             ids |= HG.entity_ids(b.get("home_grid") if isinstance(b, dict) else None)
+            ids |= _board_ids(b)
+        for p in pages:
+            ids |= _page_ids(p)
         ids |= _accessory_ids(acc)
         for c in chips:
             ids |= _named_in(c.get("card"))
@@ -257,9 +297,15 @@ class SettingsService:
         ok = set() if ok is None else ok                  # fail closed: it could not be asked, nothing is named
         out = dict(payload)
         if boards:
-            out["boards"] = {path: ({**b, "home_grid": HG.only_viewable(b["home_grid"], ok)}
-                                    if isinstance(b, dict) and b.get("home_grid") else b)
+            out["boards"] = {path: (_cut_board({**b, "home_grid": HG.only_viewable(b["home_grid"], ok)}
+                                               if b.get("home_grid") else b, ok) if isinstance(b, dict) else b)
                              for path, b in boards.items()}
+        if pages:
+            # (a custom page keeps its place and title; a card on it naming what the subject may not view is left out,
+            # as its state never reaches them anyway -- SRV-4's remainder, 2026-11-02)
+            out["custom_pages"] = [({**p, "view": {**p["view"], "cards": _cut_cards(p["view"].get("cards") or [], ok)}}
+                                    if isinstance(p.get("view"), dict) else p) if isinstance(p, dict) else p
+                                   for p in payload["custom_pages"]]
         if acc:
             out["accessories"] = _cut_accessories(acc, ok)
         if "custom_chips" in payload:

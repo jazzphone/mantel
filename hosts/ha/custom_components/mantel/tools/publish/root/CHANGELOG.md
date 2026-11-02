@@ -5,6 +5,12 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 0.1.10 - 2026-11-02
+
+- **Re-authentication:** when Mantel refuses Mantel Link's credential (it was revoked), Home Assistant asks you to re-authenticate it with a new pairing code (or a credential), and the link retries less and less often until then, instead of every 30 seconds for good.
+- **Pairing again** revokes the credential Mantel Link used before, so only one is live.
+- A configuration check no longer logs that the link was lost.
+
 ## 0.1.9 - 2026-11-01
 
 - **Live TV:** the channels play again after the link to Mantel drops and comes back. Each channel camera picks Home Assistant's live player again once the link has settled (Home Assistant's own picks could leave it with none, and every channel then failed to start).

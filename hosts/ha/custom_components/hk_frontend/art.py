@@ -38,10 +38,15 @@ and the view. The names the tests and talk.py use are re-exported here.
 """
 from __future__ import annotations
 
+import contextlib
+import contextvars
 from datetime import timedelta
+import ipaddress
 import logging
 import socket
+from typing import Iterator
 
+import aiohttp
 from aiohttp import web
 import voluptuous as vol
 
@@ -73,6 +78,57 @@ async def _addresses(hass: HomeAssistant, host: str, port: int) -> set[str]:
     return {i[4][0] for i in infos}
 
 
+# THE ADDRESSES CHECKED ARE THE ONES CONNECTED TO (DNS rebinding; Mantel's media_art.py PinnedResolver, the third
+# audit pass, 2026-11-02): hk_core's ``vet`` resolves a name and judges what it got, and Home Assistant's shared
+# session would resolve it again to connect -- a name with a zero TTL could answer a public address to the first and
+# a home-network one to the second. Covers are fetched with a session of their own whose resolver answers only from
+# what ``vet`` returned for that name (a context variable: each fetch is its own task), and no kept connections.
+_PINNED: contextvars.ContextVar[tuple[str, tuple[str, ...]] | None] = contextvars.ContextVar("hk_art_pinned", default=None)
+_SESSION = "hk_frontend_art_session"
+
+
+class PinnedResolver(aiohttp.abc.AbstractResolver):
+    async def resolve(self, host: str, port: int = 0, family: int = socket.AF_INET) -> list[dict]:
+        pinned = _PINNED.get()
+        if pinned is None or pinned[0] != host.lower():
+            raise OSError(f"{host} was not checked for artwork")
+        out = []
+        for addr in pinned[1]:
+            fam = socket.AF_INET6 if ipaddress.ip_address(addr).version == 6 else socket.AF_INET
+            if family not in (socket.AF_UNSPEC, fam):
+                continue
+            out.append({"hostname": host, "host": addr, "port": port, "family": fam, "proto": 0,
+                        "flags": socket.AI_NUMERICHOST})
+        if not out:
+            raise OSError(f"{host} has no checked address of that kind")
+        return out
+
+    async def close(self) -> None:
+        return None
+
+
+@contextlib.contextmanager
+def pin(host: str, addresses: list[str]) -> Iterator[None]:
+    token = _PINNED.set((host.lower(), tuple(addresses)))
+    try:
+        yield
+    finally:
+        _PINNED.reset(token)
+
+
+def _pinned_session(hass: HomeAssistant) -> aiohttp.ClientSession:
+    session = hass.data.get(_SESSION)
+    if session is None or session.closed:
+        session = hass.data[_SESSION] = aiohttp.ClientSession(
+            cookie_jar=aiohttp.DummyCookieJar(),
+            connector=aiohttp.TCPConnector(resolver=PinnedResolver(), use_dns_cache=False, force_close=True))
+
+        async def _close(_event) -> None:
+            await session.close()
+        hass.bus.async_listen_once("homeassistant_stop", _close)
+    return session
+
+
 def _dot_segments(path: str) -> bool:
     return _fetch.dot_segments(path)
 
@@ -90,11 +146,12 @@ async def async_fetch(hass: HomeAssistant, url: str, size: int, cache: Cache,
                       session=None) -> tuple[bytes, str] | None:
     """(body, type) to serve, None when there is nothing there (not an image
     at all, an error, too long). Raises Refused -- see render()."""
-    if session is None:
-        from homeassistant.helpers.aiohttp_client import async_get_clientsession
-        session = async_get_clientsession(hass)
+    # (a session handed in -- the tests' -- is used as it is; covers otherwise go through the pinned one)
+    pinned = session is None
+    if pinned:
+        session = _pinned_session(hass)
     return await _fetch.async_fetch(url, size, cache, session, lambda host, port: _addresses(hass, host, port),
-                                    hass.async_add_executor_job)
+                                    hass.async_add_executor_job, pin=pin if pinned else None)
 
 
 def async_register(hass: HomeAssistant) -> Cache:
