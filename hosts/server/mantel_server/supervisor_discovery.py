@@ -11,8 +11,8 @@ and the Supervisor hands it to Mantel Link's ``async_step_hassio`` (HA's discove
 
 * **The credential** is a Service account Mantel makes for this: "Mantel Link - App discovery", scope
   ``linked`` only. It is **rotated whenever the App announces**: the one it made last time is revoked and
-  removed first (it is Mantel's own, so it doesn't pile up under Service Accounts; the audit row says which), so
-  at most one is ever live. Home Assistant updates Mantel Link's entry from the new announcement (the same
+  removed once the new one is posted and remembered (2026-11-01: not before; a Supervisor that refuses leaves the
+  old one working). It is Mantel's own, so it doesn't pile up under Service Accounts; the audit row says which. Home Assistant updates Mantel Link's entry from the new announcement (the same
   instance id), so a link set up from the discovery follows. Revocable like any other (Mantel Settings,
   Service Accounts).
 * **Not needed, not made**: when Mantel Link last connected with another live credential (set up by hand: a
@@ -22,7 +22,7 @@ and the Supervisor hands it to Mantel Link's ``async_step_hassio`` (HA's discove
   locally, ``<repo hash>-mantel`` from a repository), from the Supervisor (``/addons/self/info``), so Mantel Link's
   plain ``http://`` check (resolves into 172.30.32.0/23) accepts it.
 * **Withdrawn** with the App: the Supervisor drops an App's discoveries when it is uninstalled. The previous
-  announcement is deleted before a new one is made.
+  announcement is deleted after the new one is posted.
 * What Mantel remembers (``linked_house``, key ``supervisor_discovery``): the account id and the discovery's
   uuid. Never the credential. Failure only logs: the App works without it (Mantel Link can be added by hand).
 """
@@ -70,35 +70,33 @@ async def announce(app: Any, *, http: aiohttp.ClientSession | None = None) -> di
         url = f"http://{hostname}:{int(getattr(cfg, 'port', 8099))}"
         app[APP_URL] = url                     # one of Mantel's own addresses, announced or not (pairing v2)
         before = owners.remembered(KEY) or {}
-        if before.get("uuid"):
-            async with http.delete(f"{base}/discovery/{before['uuid']}", headers=headers) as r:
-                await r.read()
-        if before.get("account"):
-            try:
-                accounts.revoke(before["account"], reason="rotated")
-                with accounts.db:
-                    accounts.db.execute("DELETE FROM service_accounts WHERE id = ?", (before["account"],))
-            except Exception:  # noqa: BLE001 -- already gone
-                pass
         from .linked import LINK_ACCOUNT_KEY
         by_hand = (owners.remembered(LINK_ACCOUNT_KEY) or {}).get("account")
         if by_hand and by_hand != before.get("account") and accounts.live(by_hand):
+            await _withdraw(http, base, headers, accounts, before)
             owners.remember(KEY, {})
             log.warning("App discovery: Mantel Link is set up with its own credential; nothing to announce")
             return None
+        # 2026-11-01 (audit 3, LINK-1): the new credential is made, posted and remembered before the old announcement
+        # and account go. Home Assistant holds the old credential until the new one reaches it, so a Supervisor that
+        # says no (or a connection that drops) must leave Mantel Link on a credential that still works.
         account, token = accounts.create(ACCOUNT_NAME, ["linked"], by="mantel:app")
-        instance = (lk.instance if lk is not None else None) or owners.instance_id()
-        body = {"service": SERVICE, "config": {"url": url, "token": token, "instance": instance}}
-        async with http.post(f"{base}/discovery", json=body, headers=headers) as r:
-            got = await r.json(content_type=None) if r.content_type == "application/json" else {}
-            status = r.status
+        try:
+            instance = (lk.instance if lk is not None else None) or owners.instance_id()
+            body = {"service": SERVICE, "config": {"url": url, "token": token, "instance": instance}}
+            async with http.post(f"{base}/discovery", json=body, headers=headers) as r:
+                got = await r.json(content_type=None) if r.content_type == "application/json" else {}
+                status = r.status
+        except BaseException:
+            accounts.revoke(account.id)         # nothing was recorded: no unrecorded `linked` account stays live
+            raise
         if status != 200:
             accounts.revoke(account.id)
             log.warning("App discovery: the Supervisor answered HTTP %s; not announced (is hassio_api on?)", status)
-            owners.remember(KEY, {})
-            return None
+            return None                         # what was remembered (and Home Assistant holds) is still good
         uuid = ((got or {}).get("data") or {}).get("uuid")
         owners.remember(KEY, {"account": account.id, "uuid": uuid, "url": url})
+        await _withdraw(http, base, headers, accounts, before)
         audit = app.get("audit")
         if audit is not None:
             audit.config_event({"timestamp": app["clock"](), "actor": "mantel:app", "role": "service",
@@ -113,6 +111,25 @@ async def announce(app: Any, *, http: aiohttp.ClientSession | None = None) -> di
     finally:
         if own:
             await http.close()
+
+
+async def _withdraw(http: aiohttp.ClientSession, base: str, headers: dict[str, str], accounts: Any,
+                    before: dict[str, Any]) -> None:
+    """Take down the announcement and account remembered from the last start (each best effort: the Supervisor may
+    have dropped the discovery already, and the account may be gone)."""
+    if before.get("uuid"):
+        try:
+            async with http.delete(f"{base}/discovery/{before['uuid']}", headers=headers) as r:
+                await r.read()
+        except (aiohttp.ClientError, OSError, TimeoutError) as err:
+            log.warning("App discovery: could not withdraw the old announcement (%s)", type(err).__name__)
+    if before.get("account"):
+        try:
+            accounts.revoke(before["account"], reason="rotated")
+            with accounts.db:
+                accounts.db.execute("DELETE FROM service_accounts WHERE id = ?", (before["account"],))
+        except Exception:  # noqa: BLE001 -- already gone
+            pass
 
 
 def register(app: Any) -> None:

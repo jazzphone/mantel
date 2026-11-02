@@ -19,6 +19,9 @@ class FakeSupervisor:
     def __init__(self):
         self.posts, self.deletes, self.auth = [], [], []
         self.n = 0
+        self.post_status = 200          # 2026-11-01: what /discovery answers (500: the Supervisor is unwell)
+        self.drop_post = False          # ... or the connection drops mid-post
+        self.events: list[str] = []     # "post" / "delete" in the order the Supervisor saw them
 
     async def info(self, request):
         self.auth.append(request.headers.get("Authorization"))
@@ -27,11 +30,18 @@ class FakeSupervisor:
     async def post(self, request):
         self.auth.append(request.headers.get("Authorization"))
         self.posts.append(await request.json())
+        self.events.append("post")
+        if self.drop_post:
+            request.transport.close()
+            return web.Response()
+        if self.post_status != 200:
+            return web.json_response({"result": "error"}, status=self.post_status)
         self.n += 1
         return web.json_response({"result": "ok", "data": {"uuid": f"uuid-{self.n}"}})
 
     async def delete(self, request):
         self.deletes.append(request.match_info["uuid"])
+        self.events.append("delete")
         return web.json_response({"result": "ok"})
 
     async def start(self):
@@ -91,6 +101,73 @@ async def test_the_app_announces_mantel_with_a_rotated_credential(make_env, tmp_
         from aiohttp.test_utils import make_mocked_request
         req = make_mocked_request("POST", "/linked/pair", headers={"Host": "local-mantel:8099"}, app=env.app)
         assert "http://local-mantel:8099" in request_addresses(req)
+    finally:
+        await sup.server.close()
+
+
+async def _announced_once(make_env, tmp_path):
+    env = await make_env()
+    sup = FakeSupervisor()
+    url = await sup.start()
+    token_file = tmp_path / "ha_token"
+    token_file.write_text(SUP + "\n")
+    cfg = env.app["cfg"]
+    object.__setattr__(cfg, "supervisor_url", url)
+    object.__setattr__(cfg, "token_file", token_file)
+    object.__setattr__(cfg, "port", 8099)
+    await SD.announce(env.app)
+    return env, sup, sup.posts[-1]["config"]["token"]
+
+
+def _live(accounts):
+    return [a for a in accounts.list() if a["revoked"] is None]
+
+
+async def test_a_rotation_makes_and_posts_the_new_credential_before_it_takes_the_old_one_away(make_env, tmp_path):
+    """2026-11-01 (audit 3, LINK-1): the old announcement and account went first, so a Supervisor that said no
+    left Mantel Link on a dead credential (a 401 loop). The new one is posted and remembered first."""
+    env, sup, tok1 = await _announced_once(make_env, tmp_path)
+    try:
+        sup.events.clear()
+        await SD.announce(env.app)
+        assert sup.events == ["post", "delete"], "the new announcement goes up before the old one comes down"
+        tok2 = sup.posts[-1]["config"]["token"]
+        accounts = env.app["service_accounts"]
+        assert accounts.verify(tok1, "linked") is None and accounts.verify(tok2, "linked") is not None
+        assert env.app["linked_owners"].remembered(SD.KEY)["uuid"] == "uuid-2"
+    finally:
+        await sup.server.close()
+
+
+async def test_a_supervisor_that_refuses_the_new_announcement_leaves_the_old_credential_alone(make_env, tmp_path):
+    env, sup, tok1 = await _announced_once(make_env, tmp_path)
+    try:
+        accounts, owners = env.app["service_accounts"], env.app["linked_owners"]
+        before = dict(owners.remembered(SD.KEY))
+        sup.post_status = 500
+        sup.deletes.clear()
+        assert await SD.announce(env.app) is None
+        assert sup.deletes == [], "the announcement Home Assistant holds is not withdrawn"
+        assert accounts.verify(tok1, "linked") is not None, "Mantel Link's credential still works"
+        assert owners.remembered(SD.KEY) == before
+        assert len(_live(accounts)) == 1, "the credential made for the refused announcement is revoked"
+    finally:
+        await sup.server.close()
+
+
+async def test_a_dropped_connection_mid_post_leaves_no_unrecorded_account_and_the_old_credential_alone(make_env, tmp_path):
+    env, sup, tok1 = await _announced_once(make_env, tmp_path)
+    try:
+        accounts, owners = env.app["service_accounts"], env.app["linked_owners"]
+        before = dict(owners.remembered(SD.KEY))
+        sup.drop_post = True
+        sup.deletes.clear()
+        assert await SD.announce(env.app) is None
+        assert sup.deletes == []
+        assert accounts.verify(tok1, "linked") is not None
+        assert owners.remembered(SD.KEY) == before
+        live = _live(accounts)
+        assert [a["id"] for a in live] == [before["account"]], "the new account is not left live and unrecorded"
     finally:
         await sup.server.close()
 
