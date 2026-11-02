@@ -1184,6 +1184,25 @@ async def test_a_childs_screen_socket_is_not_told_what_it_cannot_view(mantel):
     assert [i["id"] for i in items] == ["cam", "th", "sc", "ac", "w", "r", "pg"], "every block keeps its place"
 
 
+async def test_an_owners_screen_socket_is_told_everything_it_names(mantel):
+    """SRV-4's other side, end to end: the Owner may view everything, so the cut takes nothing from them (a cut that
+    failed closed for everyone emptied the Owner's accessory orders and pop-ups, and Edit mode never saw its save)."""
+    from test_mcp import house
+    house(mantel)
+    _naming_house(mantel.app["settings"].store)
+    await mantel.user("boss", "owner")
+    await mantel.sign_in("boss")
+    ws = await mantel.client.ws_connect("/ws")
+    try:
+        await ws.send_json({"type": "read_subscribe", "id": 3, "msg": {"type": "hk_frontend/settings/subscribe"}})
+        frames = [json.loads((await ws.receive(timeout=5)).data) for _ in range(2)]
+    finally:
+        await ws.close()
+    text = json.dumps(frames)
+    for named in ("camera.porch", "Nursery Camera Secret Name", "lock.safe_room"):
+        assert named in text, named
+
+
 async def test_the_published_feed_is_cut_for_each_person_too(store):
     _naming_house(store)
     host = types.SimpleNamespace(hooks=types.SimpleNamespace(may_read=lambda who, kind, ids: [

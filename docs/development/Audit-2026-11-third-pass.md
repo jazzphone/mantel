@@ -10,13 +10,13 @@ an interrupted pass can resume.
 
 ## Checkpoint
 
-**State:** the owner's list is fixed and on `main` (`af89330e`). Six subsystem audits reported (server security,
-Home Assistant link, media, deployment, browser code, docs). Fixes run on their own branches, one per subsystem, and are
-merged here as they pass; the register below says which.
+**State:** done. The owner's list and every register row are fixed or deferred with a reason; the fixes are on `main`.
+Final regression below.
 
-**To resume:** every register row not marked Fixed, Deferred or Not a defect is open. Run the checks with
+**To resume a later pass:** start from "Outstanding items" at the foot of this page. Run the checks with
 `python3 tools/ci.py full` (with `PLAYWRIGHT_PATH` set to a `playwright-core` 1.62.0, the version whose browsers are in
-`~/Library/Caches/ms-playwright`, and `NODE`); a worktree's headless checks need `PYTHONPATH` set to the worktree.
+`~/Library/Caches/ms-playwright`, and `NODE`); a worktree's checks need `PYTHONPATH` set to the worktree and the main
+checkout's `tools/node_modules` (esbuild).
 
 ## Baseline (before any change, `facbfdf6`)
 
@@ -34,9 +34,9 @@ merged here as they pass; the register below says which.
    routes, MCP, settings feed); Home Assistant and Mantel Link; media (music, photos, cameras, art); deployment,
    migrations and backups; browser code; docs against code. **Done.**
 3. The owner's list (below). **Done.**
-4. Fix in severity order, a regression test per fix checked to fail before it, a branch per subsystem. **In progress.**
-5. Docs reconciled with the code. **In progress.**
-6. Final regression and readiness review.
+4. Fix in severity order, a regression test per fix checked to fail before it, a branch per subsystem. **Done.**
+5. Docs reconciled with the code. **Done.**
+6. Final regression and readiness review. **Done** (below).
 
 ## The owner's list (2026-11-01)
 
@@ -106,3 +106,72 @@ problem; **P3** minor.
   test pins them.
 - Migrations 0025 to 0029 upgrade a 0.1.75 database to a schema identical to a fresh build; an interrupted one rolls
   back.
+
+## Architecture assessment
+
+The second pass's picture still holds: one aiohttp server with a read-only `subscribe_entities` copy of Home Assistant,
+per-client filtered diffs, a separate command path (classify, RBAC, audit row, then `HaCommander`), the settings store
+over `hk_core`, Mantel Link's `/linked/ws`, and the live registry (`live.py`) that rechecks every long-lived connection.
+The window's big refactors were sound: `features/` and `settings_store/` lost no check, `hk_core/link/` replaced two
+copies of the link with one, and the `hk-detail.js` split lost no handler.
+
+The findings repeat the earlier passes' lesson once more, **a new door to an old thing, checked less than the old
+door**: assistants (MCP OAuth, previews, resources), the Ingress People form and the user routes each granted what the
+REST route they paralleled refused (SRV-1, 2, 3, 6, 8); go2rtc's HTTP streams sat outside the live registry the
+WebSocket relay was in (MED-10); new reads skipped a sibling's `view` filter (SRV-4, 5). The fixes close them by rule,
+not by route where they could: `require_fresh_to_grant` is the one rule for granting a role that can sign in as Owner
+or Admin; previews are an allow-list, and a test makes every new read route choose a side; every streamed answer goes
+through the live registry. The second theme is **failure handling at the edges**: a hook's exception ending the HA
+connection (LINK-2), subscriptions lost on reconnect (LINK-4), a credential retired before its successor was accepted
+(LINK-1), a module fetch that never retried (WEB-11), `update` leaving `.env` changed (DEP-10).
+
+Remaining technical debt: very large single files remain (`hk-settings.js`, `hk-saver.js`, `hk-grid-cards.js`,
+`hk-media.js`); the settings feed's free-form board keys are sent unfiltered (SRV-4's remainder); HK Frontend inside
+Home Assistant fetches remote art through HA's own session without the address pin (SRV-10's remainder).
+
+## Test results (final)
+
+| Check | Result |
+|---|---|
+| `tools/ci.py full` on the merged tree, Playwright 1.62.0 | FINAL_RESULT |
+| Main suite | in the run above; 4322+ tests on the merged branches before the last merge |
+| New regression tests | about 70, each checked to fail before its fix (the subsystem branches' reports; the few exceptions are new drift checks) |
+| Browser probes (headless Chrome): a sheet file blocked then reachable; an overlapping confirm and Escape; hostile names in every view (the audit); listener growth over 66 sheet opens | recover; Escape heard; nothing injected; no growth |
+| Docker image builds, the LXC on Proxmox, the Apple apps in Xcode, a real Home Assistant, a real Music Assistant | not run: no Docker daemon build in this pass, no Proxmox, no Xcode build, production and the house are out of bounds |
+
+## Performance
+
+- The hub's fan-out, a synthetic 5,000-entity house, 50 screens, 200 changes per event: median 9.3 ms per event
+  (0.93 µs per changed entity per screen), against the second pass's 8.6 ms; no regression.
+- LINK-3 removes a full page-headers read in Home Assistant on every automation run (about every 3 s on a busy house
+  while a screen is subscribed). MED-14 bounds remote art fetches to 8 at once (up to 8 MB each).
+
+## Security assessment
+
+Verified controls (the audits' lists, with tests): Allow Control of the House and the kill switch on every start;
+audit-before-change; RBAC person ∩ tablet, deny by default; MCP OAuth's PKCE, exact redirects, single-use codes and
+refresh rotation; `house_command` through the gateway; pairing v2; backups' archive checks; migrations 0025 to 0029; no
+DOM XSS with hostile names in any view; CSP without inline handlers.
+
+Resolved: the register's Fixed rows (4 P1, 22 P2 and the P3s). Behavior that changed on purpose: making someone an
+Owner or Admin, adding one, linking a Home Assistant user or enabling an account needs a fresh sign-in on every door;
+muting a notification needs control of Notifications (Adults keep it, Guests and Children don't by default); a play
+that would regroup a room the person can't control is refused; pairing Mantel Link again revokes its old credential
+(so two Home Assistants can't both pair one Mantel); go2rtc's WHEP route is not served.
+
+Untested assumptions: real Home Assistant, Supervisor, Music Assistant, Cloudflare and Proxmox (fakes and the scratch
+Home Assistant only); the community-scripts engine at its pinned commit; screen previews in a real browser.
+
+Unresolved at P0 or P1: none.
+
+## Outstanding items
+
+- SRV-4's remainder: custom pages' cards and free-form board keys (`cameras_custom`, `favorites`, `chips_extra`) in
+  the settings feed.
+- SRV-10's remainder: HK Frontend's art fetch inside Home Assistant has the range checks but not the address pin.
+- SRV-12b: a restore could ask the Owner before it brings Allow Control of the House back on.
+- DOC-15: whether the apps' TestFlight is open is the owner's to say.
+- MED-15: photo files with no row are left (a restore can bring rows and files of different times).
+- Not built: Mute 1 Hour on the iOS app's notifications (the dead button was removed).
+- Releases: Mantel's server, Mantel Link (0.1.9) and HK Frontend (1.34.0) all changed; nothing here was released to
+  the house or tagged.

@@ -51,6 +51,9 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
         store = SettingsStore(conn, app.get("clock", time.time) if hasattr(app, "get") else time.time)
     service = SettingsService(store, hooks, model)
     service.hiding = lambda: app.get("hiding") if hasattr(app, "get") else None
+    # (who may view what, asked of the app's own authz when no feature host hands the read hook over: the feed's cut,
+    # SRV-4, failed closed for an Owner too where the features host wasn't attached -- the headless checks' houses)
+    service.authz = lambda: app.get("authz") if hasattr(app, "get") else None
     app["settings"] = service
 
     async def feed(ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):

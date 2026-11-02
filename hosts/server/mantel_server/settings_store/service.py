@@ -287,6 +287,8 @@ class SettingsService:
         that cannot be asked (fail closed: no lists at all)."""
         host = self.features
         check = getattr(getattr(host, "hooks", None), "may_read", None)
+        if check is None and callable(getattr(self, "authz", None)):
+            check = getattr(self.authz(), "may_read", None)
         if check is None or identity is None:
             return None
         try:
