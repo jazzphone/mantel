@@ -230,6 +230,36 @@ ends its session.
 | Stills and album art, fetched by Mantel | Home Assistant's camera tokens |
 | | Home Assistant's own address or credential |
 
+### Talking at the door
+
+The doorbell pop-up has a **Hold to talk** button when its camera has a
+speaker. Hold it and speak, and let go when you're done.
+
+- **Ready before you press.** The doorbell's talk session opens with the
+  pop-up, so your first word isn't lost. Nothing reaches the doorbell until
+  you hold the button.
+- **A conversation, not a walkie-talkie.** The visitor stays heard while you
+  talk, turned down, and the tablet's echo cancellation keeps the door from
+  hearing itself. (On an iPad the door's sound stays at its volume; Safari
+  doesn't let a page turn a video down.)
+- **What the button says:**
+
+  | Button | Meaning |
+  |---|---|
+  | Hold to talk | Ready. |
+  | Connecting… | The microphone or the doorbell isn't ready yet (the first press on a pop-up opens the microphone). |
+  | Talking — release to stop | Your words are heard at the door as you speak. |
+  | Talk — release to send | The doorbell couldn't take live talk, so your words are recorded and played at the door when you let go. |
+  | *Kitchen* is talking | Someone else is talking at the door. One person talks at a time. |
+  | Can't reach the doorbell | The talk session couldn't open. A press still tries, and records the message if it must. |
+  | Needs HTTPS | The page isn't secure, so the browser gives it no microphone. See **Mantel Settings → About → Secure Connection**. |
+
+- **Who may talk** is set by roles, as before (**camera.talk**): every wall
+  tablet may talk on the doorbell named in HK's pop-up settings.
+- Live talk works with UniFi Protect doorbells. Other speakers get the
+  recorded message. In the Home Assistant App it goes through Mantel Link
+  (0.1.11 or later keeps the session open between holds).
+
 ### Live TV
 
 In the Home Assistant App, Mantel serves the channels and Mantel Link

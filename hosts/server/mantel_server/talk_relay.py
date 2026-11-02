@@ -38,6 +38,21 @@ On Mantel (only while the operator turned commands on):
    A ticket never used is written ``error:ticket_unused`` (at the next issue or policy tick).
 
 Nothing of the stream is stored or logged (counts and the duration only).
+
+WARM SESSIONS AND ONE TALKER (2026-11-02, docs/phase13/CAMERAS-DIRECT.md "Proper" push-to-talk). The card now
+opens its socket when the doorbell sheet opens and keeps it across holds (talk_live.py's first event says
+``warm``; the relay passes that on), so a press waits on nothing. A socket that never carried a word is written
+``ok:not_used``. The doorbell has one speaker, and every Mantel tablet reaches Home Assistant as Mantel's one user,
+so the relay keeps the FLOOR itself, with the tablets' own names: the first stream whose audio arrives holds it
+until it has been quiet FLOOR_QUIET seconds (longer than talk_live.py takes to end a talkspurt, so Home
+Assistant has let go first); anyone else's audio meanwhile is dropped and they are told ``{busy: <name>}`` once,
+and every other open stream on that speaker hears ``{talker: <name>}`` and then ``{talker: null}``. Home
+Assistant's own ``talker`` events (someone talking outside Mantel) are passed on while no Mantel stream holds the
+floor; its ``busy`` always.
+
+DIRECT (2026-11-02, phase 5): on Docker and the LXC, a doorbell Mantel reaches itself (``app["direct_talk"]``,
+talk_direct.py) gets a ``DirectTalkLink`` instead of Home Assistant's socket: same interface, same decisions here,
+and Mantel opens Protect's talkback session and encodes the audio itself.
 """
 from __future__ import annotations
 
@@ -69,11 +84,22 @@ BURST_S = 1.0               # seconds of audio that may arrive at once (Wi-Fi bu
 MAX_MSG = talk_frame_max(max(TALK_RATES)) + 1      # the largest frame the socket reads
 CLOSE_POLICY = 1008
 PRECONNECT_MAX = 4          # unused tickets that hold a connecting Home Assistant socket, in all (one per person or device)
+FLOOR_QUIET = 2.0           # seconds without audio before the talker lets go of the floor (talk_live.py: 0.2 + 0.8 s)
 
 
 def _who(principal: Principal) -> tuple:
     ident = principal.identity
     return (ident.session_id, ident.user.id if ident.user else None, ident.device.id if ident.device else None)
+
+
+def _name(principal: Principal) -> str:
+    """Who is talking, as the other tablets' buttons say it: the tablet's name, or the person's."""
+    ident = principal.identity
+    if ident.device is not None and ident.device.name:
+        return ident.device.name[:60]
+    if ident.user is not None and (ident.user.name or ident.user.username):
+        return (ident.user.name or ident.user.username)[:60]
+    return "Someone"
 
 
 def _keys(principal: Principal) -> frozenset:
@@ -126,6 +152,10 @@ class Stream:
     started: float = field(default_factory=time.monotonic)
     issued: float = 0.0                 # when the gateway issued its ticket (monotonic)
     subscribed: float | None = None     # when Home Assistant took the subscription
+    sid: int | None = None              # the page's subscription id, once Home Assistant listens (told then)
+    name: str = "Someone"
+    last_audio: float = 0.0             # loop time of its last frame sent on (the floor)
+    told_busy: bool = False
 
 
 class TalkRelay:
@@ -140,6 +170,8 @@ class TalkRelay:
         self.tasks: set[asyncio.Task] = set()
         self.ticket_ttl = TICKET_TTL
         self.max_session = MAX_SESSION
+        self.holders: dict[str, Stream] = {}        # speaker -> the stream holding its floor
+        self.floor_quiet = FLOOR_QUIET
 
     @property
     def commander(self) -> Any:
@@ -159,7 +191,7 @@ class TalkRelay:
         commander = self.commander
         if commander is not None and hasattr(commander, "talk_link") and self._may_preconnect(ticket.keys):
             try:
-                ticket.link = commander.talk_link(speaker, LIKELY_RATE, CommandTicket(audit_id, "talk"))
+                ticket.link = self._link(commander, speaker, LIKELY_RATE, audit_id)
                 self._spawn(self._preconnect(ticket.link))
                 # an unused ticket's socket goes when the ticket does, not at the next policy tick
                 asyncio.get_running_loop().call_later(self.ticket_ttl + 0.5, self.sweep)
@@ -167,6 +199,14 @@ class TalkRelay:
                 ticket.link = None              # _run refuses it as before
         self.tickets[token] = ticket
         return {"ticket": token, "expires_in": int(self.ticket_ttl)}
+
+    def _link(self, commander, speaker: str, rate: int, audit_id: int):
+        """The doorbell's side of a talk: Mantel's own (talk_direct.py) where it reaches the doorbell itself,
+        else Home Assistant's socket through Mantel Link. Commands must be on either way (the caller checked)."""
+        direct = self.app.get("direct_talk")
+        if direct is not None and direct.handles(speaker):
+            return direct.link(speaker, rate)
+        return commander.talk_link(speaker, rate, CommandTicket(audit_id, "talk"))
 
     def _may_preconnect(self, keys: frozenset) -> bool:
         held = [t.keys for t in self.tickets.values() if t.link is not None]
@@ -255,6 +295,58 @@ class TalkRelay:
                        for c in talk_checks(stream.speaker))
         return registry.add("talk", stream.principal, close, recheck=recheck, needs_commands=True)
 
+    # -- the floor ----------------------------------------------------------------------------------
+    def _tell(self, stream: Stream, event: dict) -> None:
+        if stream.sid is not None and not stream.ws.closed:
+            self._spawn(stream.ws.send_json({"id": stream.sid, "type": "event", "event": event}))
+
+    def _tell_others(self, stream: Stream, event: dict) -> None:
+        for s in list(self.streams):
+            if s is not stream and s.speaker == stream.speaker:
+                self._tell(s, event)
+
+    def claim(self, stream: Stream, now: float) -> bool:
+        """May this stream's audio go to the doorbell now? (see WARM SESSIONS AND ONE TALKER)"""
+        holder = self.holders.get(stream.speaker)
+        if holder is not None and holder is not stream:
+            if now - holder.last_audio < self.floor_quiet and holder in self.streams:
+                if not stream.told_busy:
+                    stream.told_busy = True
+                    self._tell(stream, {"busy": holder.name})
+                return False
+            self.release(holder)
+        stream.last_audio = now
+        if holder is not stream:
+            self.holders[stream.speaker] = stream
+            stream.told_busy = False
+            self._tell_others(stream, {"talker": stream.name})
+            self._check_floor(stream)
+        return True
+
+    def _check_floor(self, stream: Stream) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+
+        def check() -> None:
+            if self.holders.get(stream.speaker) is not stream:
+                return
+            if loop.time() - stream.last_audio >= self.floor_quiet:
+                self.release(stream)
+            else:
+                loop.call_later(self.floor_quiet / 4, check)
+        loop.call_later(self.floor_quiet, check)
+
+    def release(self, stream: Stream) -> None:
+        if self.holders.get(stream.speaker) is not stream:
+            return
+        del self.holders[stream.speaker]
+        for s in self.streams:
+            if s.speaker == stream.speaker:
+                s.told_busy = False
+        self._tell_others(stream, {"talker": None})
+
     # -- the policy tick ---------------------------------------------------------------------------
     async def tick(self) -> None:
         """Expired tickets get their result; a stream whose session or device ended is closed."""
@@ -325,14 +417,14 @@ class TalkRelay:
         try:
             link, ticket.link = ticket.link, None
             if link is None:
-                link = commander.talk_link(ticket.speaker, rate, CommandTicket(ticket.audit_id, "talk"))
+                link = self._link(commander, ticket.speaker, rate, ticket.audit_id)
             elif link.rate != rate:
                 link.set_rate(rate)
         except CommandBlocked as exc:
             if link is not None:
                 await link.close()
             return await refuse("not_allowed", str(exc)[:200], "refused:blocked")
-        stream = Stream(ws, principal, ticket.speaker, issued=ticket.issued)
+        stream = Stream(ws, principal, ticket.speaker, issued=ticket.issued, name=_name(principal))
         for k in keys:
             self.active[k] = stream
         self.streams.add(stream)
@@ -348,10 +440,13 @@ class TalkRelay:
             await ws.send_json({"id": sid, "type": "result", "success": True, "result": None})
             stream.subscribed = time.monotonic()
             result = await self._pump(ws, link, sid, rate, stream)
+            if result == "ok" and not link.frames:
+                result = "ok:not_used"           # a warm socket nobody talked on
             log.info("live talk on %s: %.1f s, %d frames, %d dropped (%s)", ticket.speaker,
                      time.monotonic() - stream.started, link.frames, stream.dropped, result)
             return result, stream.close_code
         finally:
+            self.release(stream)
             self.streams.discard(stream)
             if entry is not None:
                 entry.forget()
@@ -378,8 +473,19 @@ class TalkRelay:
                     now = time.monotonic()
                     log.info("live talk on %s listening %.0f ms after the ticket (the doorbell took %.0f ms)",
                              stream.speaker, (now - stream.issued) * 1000, (now - (stream.subscribed or now)) * 1000)
-                    await ws.send_json({"id": sid, "type": "event", "event": {
-                        "handler_id": CLIENT_HID, "rate": link.info.get("rate"), "codec": link.info.get("codec")}})
+                    ready = {"handler_id": CLIENT_HID, "rate": link.info.get("rate"), "codec": link.info.get("codec")}
+                    if link.info.get("warm"):
+                        ready["warm"] = True
+                    await ws.send_json({"id": sid, "type": "event", "event": ready})
+                    stream.sid = sid
+                    holder = self.holders.get(stream.speaker)
+                    if holder is not None and holder is not stream:
+                        await ws.send_json({"id": sid, "type": "event", "event": {"talker": holder.name}})
+                elif "talker" in ev and (ev["talker"] is None or isinstance(ev["talker"], str)):
+                    if self.holders.get(stream.speaker) is None:      # someone outside Mantel
+                        await ws.send_json({"id": sid, "type": "event", "event": {"talker": (ev["talker"] or None) and ev["talker"][:60]}})
+                elif isinstance(ev.get("busy"), str):
+                    await ws.send_json({"id": sid, "type": "event", "event": {"busy": ev["busy"][:60]}})
                 elif isinstance(ev.get("error"), str):
                     stream.error = stream.error or "error:ha_failed"
                     await ws.send_json({"id": sid, "type": "event", "event": {"error": ev["error"][:200]}})
@@ -392,7 +498,8 @@ class TalkRelay:
                     if n <= 0 or data[0] != CLIENT_HID or n % 2 or n > frame_max:
                         stream.close_code = CLOSE_POLICY
                         return "refused:bad_frame"
-                    if link.handler_id is None or not bucket.take(n, loop.time()):
+                    if link.handler_id is None or not self.claim(stream, loop.time()) \
+                            or not bucket.take(n, loop.time()):
                         stream.dropped += 1
                         continue
                     await link.send_audio(bytes(data[1:]))

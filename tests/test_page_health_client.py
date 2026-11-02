@@ -48,6 +48,10 @@ const sent = [];
 const hub = { reconnects: 0, tell: (type, body) => sent.push({ type, ...body }) };
 const out = {};
 
+// a tablet opened by its IP address over plain http: not a secure context (the browser's word, and the address it used)
+globalThis.isSecureContext = false;
+globalThis.location = { origin: 'http://192.168.1.20:8080', pathname: '/home' };
+
 // the dashboard: its marks are ms after its module began, which itself began at module_start ms
 const health = m.pageHealth(hub, 'home', { module_start: 400, rendered: 1900 });
 hub.reconnects = 3;
@@ -61,6 +65,9 @@ listeners.pagehide();
 const s = m.pageHealth(hub, 'settings');
 s.drawn();
 out.settings = sent.splice(0);
+globalThis.isSecureContext = true;                         // the same page by its name over https, a minute later
+globalThis.location = { origin: 'https://mantel.example.com', pathname: '/home' };
+out.settingsBeat = (tick(), sent.splice(0));
 out.keys = Object.keys(store);
 
 // the frame rate: ~20 s after load, then hourly; waits for a calm, lit page
@@ -134,6 +141,17 @@ def test_the_load_frame_says_what_device_it_is(got):
     assert load["platform"] == "iPad"                      # iPad Safari says Macintosh; the touch points give it away
     assert (load["memory_gb"], load["cores"], load["sw"], load["sh"], load["dpr"]) == (4, 6, 1180, 820, 2)
     assert got["platforms"] == ["iPad", "Mac", "iPad", "iPhone", "Android", "Windows", "Linux", "Other"]
+
+
+def test_the_load_and_beat_frames_say_whether_the_page_is_secure_and_by_what_address(got):
+    load, beat = got["home"][0], next(f for f in got["home"] if f["event"] == "beat")
+    for frame in (load, beat, got["settings"][0]):
+        assert frame["secure"] is False and frame["origin"] == "http://192.168.1.20:8080"
+    other = [f for f in got["home"] if f["event"] == "draw"][0]
+    assert "secure" not in other, "only the load and the beat say it"
+    [again] = got["settingsBeat"]
+    assert (again["event"], again["secure"], again["origin"]) == ("beat", True, "https://mantel.example.com"), \
+        "the beat says it again, so a restarted server learns it within a minute"
 
 
 def test_the_draw_frame_sums_the_startup_download_with_the_encoded_size_for_cached_files(got):

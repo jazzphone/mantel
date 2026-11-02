@@ -1,6 +1,6 @@
 # Phase 13: cameras without Home Assistant in the middle (plan, 2026-11-02)
 
-**Status: plan, waiting on the owner's answers to the decisions below.**
+**Status: building (decisions answered 2026-11-02; see the build log).**
 
 ## The ask (the owner, 2026-11-02)
 
@@ -90,7 +90,13 @@ already the shortest path, so it stays.
   - HA cameras keep `camera.<id>`;
   - direct ones are `camera.mantel_<slug>`; an HA entity with the same id is refused at setup and named, not
     shadowed.
-- `authz.py` and `camera_still.py` dispatch on the source.
+- `camera_still.py` dispatches on the source. `authz.py` needs no dispatch: the camera rules key on the entity id
+  and its area, and a direct camera's registry entry carries its area, so one rule decides every camera.
+- **Where a source is kept** (built in phase 3, `cameras_direct.py`): the house document `cameras_direct` holds
+  everything but the URLs. The stream and still URLs (Protect's token, an RTSP camera's password) are sealed, one
+  file per camera, beside the Connections page's credentials (`connections/camera-<slug>.connection`).
+- **An id HA gains later** is HA's: the direct camera is set aside and its status says `conflict`, naming HA's
+  entity, until one is renamed.
 - **The same camera twice.** HA's unifiprotect device identifiers carry the Protect camera's id and MAC. When a
   direct Protect camera matches an HA camera, Mantel shows one camera, with **Video From: Direct / Home Assistant**,
   defaulting to Direct. Areas and names come from HA when it has the camera; otherwise they are set in Mantel.
@@ -154,8 +160,7 @@ already the shortest path, so it stays.
 - **Ready before the press.** The talkback session opens when the doorbell sheet opens, kept warm while it shows,
   so the first word isn't clipped and the press doesn't wait on the chain. The 120 s cap stays, and closing the
   sheet ends the session.
-- **Hold, or tap to latch.** Hold to talk as today, or tap once to keep talking with your hands free, then tap
-  again to stop.
+- **Hold to talk**, as today. Tap to latch was offered and declined (decision 6, 2026-11-02).
 - **A conversation, not a walkie-talkie.** The visitor's audio keeps playing while you talk, lowered, with the
   browser's echo cancellation on. That stops the door from hearing itself.
 - **Clear states on the button:** Connecting, Talking, Someone Else Is Talking (with the tablet's name), Can't Reach
@@ -250,7 +255,7 @@ user plus an API key):
 |---|---|---|
 | 0 | The owner answers the decisions. Check the house's console firmware: the public API needs Protect 7.2.105+, the same floor as HA's integration. Confirm on the console how an API key belongs to its maker (does disabling the user revoke it?). Measure today's press-to-sound and ring-to-sheet on the house. | session |
 | 1 | The HTTPS check: the About row, tablets reporting their secure context, the notes on the doorbell and camera pages, Needs HTTPS on the sheet. Works on every mode and can release alone. | Sonnet 5.5 high, from a written spec |
-| 2 | Push-to-talk on the card: the warm session, tap to latch, the visitor ducked under echo cancellation, the button's states, one talker at a time (the relay and Link keep a per-speaker lock). Released on today's HA path first. | session |
+| 2 | Push-to-talk on the card: the warm session, hold to talk, the visitor ducked under echo cancellation, the button's states, one talker at a time (the relay and Link keep a per-speaker lock). Released on today's HA path first. | session |
 | 3 | Sources: the registry, `camera.mantel_*` ids, dispatch in `authz.py` and `camera_still.py`, go2rtc stream registration, the signaling shape for go2rtc, a spike playing one Protect camera on iPad Safari and the wall tablet | session (RBAC and ids: delicate) |
 | 4 | Protect connector: the settings page, the pinned trust, discovery, RTSPS into go2rtc, snapshots, the events websocket into `rules.py`, health, matching to HA cameras and Video From; each camera's Notify For from its own detection or its motion, and Turn On in Protect | session, with a Sonnet 5.5 high agent for the API client and its tests against recorded payloads |
 | 5 | Direct talk: `talk_live.py` split into core and HA wrapper, PyAV in the server image, Mantel opening the talkback session itself; measure press-to-sound and ring-to-sheet against phase 0's numbers | session (audio timing is delicate) |
@@ -266,13 +271,13 @@ one (`ask-before-playing-sound` memory).
 
 | # | Question | Recommendation |
 |---|---|---|
-| 1 | Build the direct path for Docker and LXC only, with the HA App staying on HA? | Yes |
-| 2 | A camera that both HA and Protect know shows once, with Video From defaulting to Direct? | Yes |
+| 1 | Build the direct path for Docker and LXC only, with the HA App staying on HA? | Yes (**decided**, the owner, 2026-11-02) |
+| 2 | A camera that both HA and Protect know shows once, with Video From defaulting to Direct? | Yes (**decided**, the owner, 2026-11-02) |
 | 3 | No detection of our own: the camera's smart types, or its motion, or a linked HA sensor for RTSP | **Decided** (the owner, 2026-11-02) |
-| 4 | **Turn On in Protect** for a supported type that is off, or leave Protect's settings to Protect's app entirely? | Offer the button; it only sets the camera's own setting |
-| 5 | Talk goes direct on Docker and LXC, with Link's path kept for the HA App? | Yes |
-| 6 | Tap to latch beside hold to talk, and the visitor heard while you talk? | Yes |
-| 7 | Sign-in: an API key required (made as a local "Mantel" user), with a local user and password only under Advanced, off until a feature needs it? | Yes |
+| 4 | **Turn On in Protect** for a supported type that is off, or leave Protect's settings to Protect's app entirely? | Offer the button; it only sets the camera's own setting (**decided**, the owner, 2026-11-02) |
+| 5 | Talk goes direct on Docker and LXC, with Link's path kept for the HA App? | Yes (**decided**, the owner, 2026-11-02) |
+| 6 | Tap to latch beside hold to talk, and the visitor heard while you talk? | **Decided:** hold only, the visitor heard (the owner, 2026-11-02) |
+| 7 | Sign-in: an API key required (made as a local "Mantel" user), with a local user and password only under Advanced, off until a feature needs it? | Yes (**decided**, the owner, 2026-11-02) |
 
 ## Sources
 
@@ -285,6 +290,16 @@ one (`ask-before-playing-sound` memory).
   source. Event payload schemas, rate limits and zone access are also unconfirmed. Phase 2 records real payloads
   from the house's console first.
 
+## Timings
+
+| | Today (HA App, through Mantel Link) | Direct (Docker / LXC) |
+|---|---|---|
+| Press to sound at the door | not yet measured: needs a press at the door (the owner's OK each time) | phase 5 |
+| Ring to the sheet on a wall tablet | not yet measured: needs a ring | phase 5 |
+
+Mantel's log already says how long a press waited for the doorbell to listen ("live talk on ... listening N ms
+after the ticket"); the log since the 0.1.113 restart has no talk in it yet.
+
 ## Build log
 
 - 2026-11-02: plan written from a map of Mantel's camera path and the deployment modes, plus research on Protect's
@@ -292,3 +307,50 @@ one (`ask-before-playing-sound` memory).
 - 2026-11-02: the owner's follow-up. No detection of Mantel's own (the camera's smart types, or its motion);
   push-to-talk and the HTTPS check added as phases 1, 2 and 5, ahead of the direct path. Signing in to UniFi: an API
   key made as a local Mantel user, with a local user and password as an Advanced option.
+- 2026-11-02: phase 0. The owner's answers: decisions 1, 2, 4, 5 and 7 as recommended; decision 6 is **hold only**
+  (no tap to latch), with the visitor heard while you talk. The house's console is a UNVR G2 Pro on Protect 7.3.70
+  (the public API needs 7.2.105). The owner is making the local Mantel user and its API key. Today's timings need a
+  ring and a press at the door, so they wait for the owner (see "Timings" below).
+- 2026-11-02: phase 2 built: the warm session (opened with the sheet; each hold its own talkspurt and RTP stream,
+  nothing between), hold only, the door ducked under echo cancellation, the button's states, and one talker at a
+  time (talk_live.py's Floor in Home Assistant, the relay's floor with the tablets' names in Mantel).
+- 2026-11-02: phase 3 spike passed. The public API (the owner's local Mantel user's key) lists the house's 14
+  cameras, all with smart detection on (Front Door the one with a speaker). Front Door's RTSPS `high` channel is
+  H.264 1600x1200 with **Opus** audio beside AAC, so go2rtc relays it to WebRTC untouched (`rtspx://`, no ffmpeg).
+  The stack's own go2rtc image (`transcode`, go2rtc 1.9.9) played it over WebRTC in Chromium and WebKit, on the
+  owner's iPad in Safari with sound, and on the Master Bathroom wall tablet (Android 16, pushed there with Kiosk
+  Satellite's `open_url` and put back with `close_url`), the owner confirming the sound.
+- 2026-11-02: what the console says about the public API. A bad key is `401 {"error":{"code":401,"message":"Unauthorized"}}`.
+  Requests are rate-limited per key, `ratelimit-policy: "10-in-1sec"` (a fast second snapshot got `429`), so the
+  client paces itself. `GET /v1/cameras/{id}/snapshot` is ~400 KB at 1600x1200. The events socket
+  (`/v1/subscribe/events`) sends `{"type": "add"|"update", "item": {"id", "modelKey": "event", "type": "motion",
+  "start" (ms), "device": <camera id>}}`; an `add` reached us about 3.4 s after its `start`. Models in the house:
+  UVC G4 Doorbell Pro, G4 Pro, G5 Flex, G6 Bullet, G6 Turret. The house's key was made under the owner's own
+  admin account (no Mantel user yet), so whether a key dies with its user is still open: until a console shows
+  it, the setup page says to revoke Mantel by deleting its key.
+- 2026-11-02, 12:56 UTC: a real ring (the owner, chime off). Protect's public events socket delivered
+  `{"type": "add", "item": {"type": "ring", "start", "end" (start + 10 s), "device"}}` **2.02 s** after the ring's own
+  `start`; Home Assistant's `event.front_door_camera_doorbell` changed at **2.03 s**, 12 ms later. So the direct
+  event path does not make the doorbell sheet come up sooner: the console's own ~2 s is most of it, and whatever
+  ring-to-sheet gains Docker/LXC has come from the sheet's side (no HA hop for the video), measured in phase 5. A
+  person at the door came as `smartDetectZone` `["person"]`, then updates adding `"face"` and its `end`, each
+  update sent two or three times.
+
+- 2026-11-02: phase 1 built: wall tablets send `secure` and `origin` with their `load` and `beat` frames (`page_health.py`),
+  About gets a Secure Connection row and page (`about.py`, `GET /api/about/secure` for managers, `settings/secure.js`),
+  and the camera pop-ups in HK Settings carry the note; the doorbell sheet's own Needs HTTPS state is left to phase 2.
+- 2026-11-02: phase 5, first part: live talk's core (the Pacer, the encoder, the Floor) moved to
+  `hk_core/talk/core.py` with nothing of Home Assistant's (Mantel Link vendors it beside `link/`), and
+  `talk_direct.py` lets the relay talk at a Protect doorbell itself (`DirectTalkLink`, a drop-in for Home
+  Assistant's socket). PyAV (av 19.0.2) joins the server image: **about 92 MB** (av 38 MB, its ffmpeg libraries
+  54 MB; the arm64 image measured 811 MB with it).
+- 2026-11-02: phase 3 built (`hosts/server/mantel_server/cameras_direct.py`, Docker and LXC only). The source
+  registry with its Python API for phases 4 and 6 (`DirectCameras.put`, `.remove`, `.sources`,
+  `.set_still_provider`) and a manager-only `GET /api/cameras/direct` without URLs. URLs are sealed beside the
+  Connections credentials, never in the settings document. Each source is `camera.mantel_<slug>` in an overlay
+  beside Live TV's, with its area in the registry. An id HA has is refused and named; one HA gains later is HA's
+  (`conflict`). Video: `mantel_cam_<slug>_high` in go2rtc on demand, relayed like Live TV's and stopped after the
+  last viewer. Stills: go2rtc's `frame.jpeg` of the low stream, with a hook for Protect's snapshot (phase 4).
+  RBAC is unchanged and tested on direct cameras: area grants, an entity deny, Child and Guest, the tunnel's
+  camera switch, other connections' sessions and the caps. Nothing visible yet.
+

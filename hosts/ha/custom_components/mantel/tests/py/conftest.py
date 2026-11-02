@@ -36,7 +36,7 @@ if os.path.isdir(_CORE) and not os.path.isdir(os.path.join(COMPONENT, "hk_core")
     os.makedirs(os.path.join(_made, "hk_core"))
     for _name in os.listdir(COMPONENT):
         os.symlink(os.path.join(COMPONENT, _name), os.path.join(_made, _name))
-    for _name in ("__init__.py", "link"):
+    for _name in ("__init__.py", "link", "talk"):
         os.symlink(os.path.join(os.path.abspath(_CORE), _name), os.path.join(_made, "hk_core", _name))
 else:
     os.symlink(COMPONENT, os.path.join(_ROOT, "custom_components", "mantel"))

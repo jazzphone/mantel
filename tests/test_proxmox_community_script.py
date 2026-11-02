@@ -281,3 +281,21 @@ def test_a_failed_update_that_cannot_roll_back_says_so_and_prints_the_restore_co
     # healthy after the rollback: the old words, no restore command
     r = update(install, FAKE_UPDATE_RC="1", FAKE_HEALTH="healthy")
     assert r.returncode == 1 and "Mantel 0.1.9 is running again" in r.stderr and "restore.sh" not in r.stdout
+
+
+def test_an_update_adds_mantel_setup_to_a_container_made_before_it(engine, tmp_path):
+    """The owner's first LXC was installed from 0.1.112, before mantel-setup: the update that brings the script also
+    brings the command, once, and leaves one that is there alone."""
+    mantel = tmp_path / "opt-mantel"
+    (mantel / "packaging/lxc").mkdir(parents=True)
+    (mantel / "packaging/lxc/mantel-setup.sh").write_text("echo setup\n")
+    sbin = tmp_path / "sbin"
+    sbin.mkdir()
+    r = call(engine, "mantel_commands", MANTEL_DIR=str(mantel), MANTEL_SBIN=str(sbin))
+    assert r.returncode == 0, r.stderr
+    cmd = sbin / "mantel-setup"
+    assert f"exec bash {mantel}/packaging/lxc/mantel-setup.sh" in cmd.read_text() and os.access(cmd, os.X_OK)
+    assert "New command: mantel-setup" in r.stdout
+    cmd.write_text("mine\n")
+    r = call(engine, "mantel_commands", MANTEL_DIR=str(mantel), MANTEL_SBIN=str(sbin))
+    assert cmd.read_text() == "mine\n" and "New command" not in r.stdout

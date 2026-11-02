@@ -33,7 +33,8 @@ ok('a failed connection retries with back-off', /RETRY_MS\[Math\.min\(n - 1/.tes
 print('\n=== sound ===');
 ok('the video starts muted (autoplay always allows that)', /v\.muted = true;\n\s*v\.autoplay = true;/.test(body));
 ok('a refused unmute mutes again and keeps playing', /self\._blocked = true;\n\s*v\.muted = true;/.test(body));
-ok('the door is muted while talking', /_audible\(\) \{ return this\._wantSound && !this\._blocked && !this\._talk; \}/.test(body));
+ok('the door is lowered, not muted, while talking (decision 6)', /_audible\(\) \{ return this\._wantSound && !this\._blocked; \}/.test(body) &&
+   /v\.volume = Math\.min\(v\.volume, TALK_DUCK\)/.test(body));
 
 // A video that fades in from 'playing' while the still vanishes at once
 // leaves a dark flash between them (plain in a 60 fps capture of a tablet).
@@ -83,41 +84,38 @@ ok('an invisible sheet takes no taps; its dim swallows them',
 ok('no -webkit-mask-image on the live box (it blanks the sheet on a tablet)', !/mask-image/.test(src.replace(/\/\/.*$/mg, '')));
 
 print('\n=== talk ===');
-ok('the button exists only on a secure page with a microphone and a speaker',
-   /c\.speaker && window\.isSecureContext && navigator\.mediaDevices/.test(body));
-ok('a short press is not sent', /s\.secs = \(performance\.now\(\) - s\.recT0\) \/ 1000;\n\s*s\.cancel = cancel \|\| s\.secs \* 1000 < TALK_MIN_MS/.test(body));
+ok('the button is drawn with a speaker on a secure page with a microphone, and off (Needs HTTPS) on an insecure one',
+   /this\._talkHttps = !window\.isSecureContext;\n\s*if \(c\.speaker && \(this\._talkHttps \|\| \(navigator\.mediaDevices &&/.test(body));
+ok('a short press is not sent', /s\.secs = \(performance\.now\(\) - s\.recT0\) \/ 1000;\n\s*s\.cancel = s\.cancel \|\| cancel \|\| s\.secs \* 1000 < TALK_MIN_MS/.test(body));
 // "Release to send" at the press, before the mic has opened, loses the
 // first words: the clip that reaches the doorbell is cut short.
-ok('the button says Wait until the recorder is really running',
-   /this\._talkUi\('wait'\);\n\s*navigator\.mediaDevices\.getUserMedia/.test(body) &&
-   /rec\.start\(\);\n\s*s\.recT0 = performance\.now\(\);[\s\S]{0,160}this\._talkUi\('rec'\);/.test(body));
+ok('the button says Connecting until the microphone is really running',
+   /this\._talkUi\('wait'\);\n\s*navigator\.mediaDevices\.getUserMedia/.test(body) && /mode === 'wait' \? 'Connecting…'/.test(body));
 
 print('\n=== live talk (talk_live.py) ===');
 // Main-thread stalls on a tablet (97-181 ms, at times over a second) starve
 // HA's cushion, so the sender lives in a Worker with its own socket.
 ok('a Worker with its own authenticated websocket sends the words: [handler id][16-bit PCM]',
    /type: 'auth', access_token: d\.token/.test(src) && /type: 'hk_frontend\/talk\/live', entity_id: d\.entity_id, rate: d\.rate/.test(src) &&
-   /out\[0\] = s\.hid; out\.set\(pcm, 1\);/.test(src) && /token: live\.token\(\)/.test(body) && /Promise\.all\(\[this\._actxMod, act\.liveSocket\(this\._config\.speaker\)\]\)/.test(body));
+   /out\[0\] = hid; out\.set\(pcm, 1\);/.test(src) && /token: live\.token\(\)/.test(body) && /act\.liveSocket\(c\.speaker\)/.test(body));
 ok('the worklet posts straight to the worker (a MessageChannel): the page is not in the path',
-   /node\.port\.postMessage\(\{ port: ch\.port1 \}, \[ch\.port1\]\)/.test(body) && /port: ch\.port2 \}, \[ch\.port2\]\)/.test(body) &&
+   /node\.port\.postMessage\(\{ port: ch\.port1 \}, \[ch\.port1\]\)/.test(body) && /cmd: 'port', port: ch\.port2 \}, \[ch\.port2\]\)/.test(body) &&
    /if \(this\.out\) this\.out\.postMessage\(this\.b\.buffer/.test(src));
-ok('letting go before the subscription opened still stops it', /if \(stopped\[d\.key\]\) \{ d\.port\.close\(\); return; \}/.test(src));
 ok('the worker (and its socket) goes with the sheet', /if \(this\._tw\) \{ this\._tw\.terminate\(\); this\._tw = null; \}/.test(body));
 ok('the PCM comes from an AudioWorklet in 40 ms chunks, off the main thread',
    /registerProcessor\('hk-pcm-tap', P\)/.test(src) && /chunk: Math\.round\(ctx\.sampleRate \/ 25\)/.test(body));
-ok('nothing is queued before the doorbell listens (a backlog is a delay that never goes away)',
-   /if \(!s\.hid \|\| !ws \|\| ws\.readyState !== 1\) return;/.test(src));
-ok('the button stays Wait until the doorbell listens, then says it is live',
-   /s\.live = true;\n\s*clearTimeout\(s\.liveT\);\n\s*self\._talkUi\('live'\);/.test(body));
+ok('nothing is sent unless the button is held and the doorbell listens (a backlog is a delay that never goes away)',
+   /if \(!talking \|\| !hid \|\| !ws \|\| ws\.readyState !== 1\) return;/.test(src));
 ok('a clip is recorded all along and sent only if live failed',
    /if \(s\.live && !s\.liveFailed\) \{\s*\/\/ already heard at the door/.test(body) && /rec\.start\(\);/.test(body));
-ok('letting go unsubscribes (the server plays out its buffer)', /_talkEnd\(cancel\) \{[\s\S]{0,600}this\._liveStop\(s\);/.test(body));
-ok('the audio context starts inside the press (a gesture) and closes with the sheet',
-   /_talkStart\(\) \{[\s\S]{0,300}this\._audioCtx\(\);/.test(body) && /_talkAbort\(\) \{[\s\S]{0,700}this\._actx\.close\(\)/.test(body));
-ok('live: false keeps the recorded message', /if \(this\._config\.live === false\) \{ this\._talkUi\('rec'\); return; \}/.test(body));
+ok('letting go stops sending (the server plays out its buffer)', /_talkEnd\(cancel\) \{[\s\S]{0,700}this\._liveStop\(s\);/.test(body));
+ok('the audio context is resumed inside the press (a gesture) and closes with the sheet',
+   /_talkStart\(\) \{[\s\S]{0,700}var ctx = this\._audioCtx\(\);[^\n]*\n\s*if \(ctx && ctx\.state === 'suspended'\) ctx\.resume\(\)/.test(body) &&
+   /_talkAbort\(\) \{[\s\S]{0,900}this\._actx\.close\(\)/.test(body));
+ok('live: false keeps the recorded message', /if \(this\._config\.live === false \|\| this\._liveOff\) \{ s\.fail\(\); return; \}/.test(body));
 ok('the mic stays open for the next hold, and closes with the sheet',
    /if \(mic && mic\.active\) \{ this\._talkRecord\(s, mic\); return; \}/.test(body) &&
-   /_talkAbort\(\) \{[\s\S]{0,400}this\._stopTracks\(this\._mic\);\s*\/\/ the sheet closed: mic off\n\s*this\._mic = null;/.test(body));
+   /_talkAbort\(\) \{[\s\S]{0,700}this\._stopTracks\(this\._mic\);\s*\/\/ the sheet closed: mic off\n\s*this\._mic = null;/.test(body));
 ok('a mic that opens after the sheet closed is stopped at once',
    /if \(!self\.isConnected\) \{ self\._stopTracks\(stream\); return; \}/.test(body));
 ok('sending does not close the mic', !/_talkSend\(s\) \{[\s\S]{0,200}_stopTracks/.test(body));
@@ -127,18 +125,18 @@ ok('the clip goes to talk.py for the configured speaker',
    /'\/api\/hk_frontend\/talk\?entity_id=' \+ encodeURIComponent\(c\.speaker\)/.test(body) && /act \? act\.request\(url, init\)/.test(body));
 ok('recording keeps the voice processing on (unlike the mic test)',
    /echoCancellation: true, noiseSuppression: true, autoGainControl: true/.test(body));
+ok('the doorbell session opens with the sheet (_start), not at the press', /_start\(\) \{\n\s*this\._talkWarm\(\);/.test(body));
 
-// LIVE OR A CLIP, NEVER BOTH -- DRIVEN, NOT READ. If a slow doorbell only
-// flips a flag and the label and leaves the live session opening, then when
-// it answers the worker streams the words while the button says "release to
+// THE WARM SESSION, LIVE OR A CLIP (never both), ONE TALKER -- DRIVEN, NOT
+// READ. If a slow doorbell only flips a flag and the label, then when it
+// answers the worker streams the words while the button says "release to
 // send", and release sends the clip too: the door hears the message twice.
-// A regex over the source can pin exactly that code, so this drives the real
-// card through presses, with stand-ins for what jsc lacks (mic, recorder,
-// audio graph, worker), and counts what reaches the door: the worker's
-// `start`/`stop`s and talk.py POSTs.
-print('\n=== live OR a clip, never both (driven) ===');
+// This drives the real card through presses, with stand-ins for what jsc
+// lacks (mic, recorder, audio graph, worker), and counts what reaches the
+// door: the worker's `open`/`talk`/`close` and talk.py POSTs.
+print('\n=== the warm session, live OR a clip, one talker (driven) ===');
 (function () {
-  var now = 0, workers = [], posts = [], track = { stop: function () { this.stopped = true; } };
+  var now = 0, workers = [], posts = [], track = { stop: function () { this.stopped = true; } }, mics = 0;
   var saved = { performance: globalThis.performance, URL: globalThis.URL };
   globalThis.performance = { now: function () { return now; } };
   var U = function () {};
@@ -147,7 +145,7 @@ print('\n=== live OR a clip, never both (driven) ===');
   globalThis.Blob = globalThis.Blob || function (parts, o) { this.type = (o || {}).type || ''; };
   window.isSecureContext = true;
   var stream = { active: true, getTracks: function () { return [track]; } };
-  globalThis.navigator = { mediaDevices: { getUserMedia: function () { return Promise.resolve(stream); } } };
+  globalThis.navigator = { mediaDevices: { getUserMedia: function () { mics++; return Promise.resolve(stream); } } };
   function Rec() { this.state = 'inactive'; this.mimeType = 'audio/webm'; }
   Rec.isTypeSupported = function (m) { return m === 'audio/webm;codecs=opus'; };
   Rec.prototype.start = function () { this.state = 'recording'; };
@@ -158,14 +156,13 @@ print('\n=== live OR a clip, never both (driven) ===');
   };
   window.MediaRecorder = Rec;
   function node() { return { connect: function () {}, disconnect: function () { this.gone = true; } }; }
-  var moduleGate = null;         // set to hold addModule open (a slow first press)
   function AC() {
-    this.state = 'running'; this.sampleRate = 48000; this.destination = {};
-    this.audioWorklet = { addModule: function () { return moduleGate || Promise.resolve(); } };
+    this.state = 'suspended'; this.sampleRate = 48000; this.destination = {};
+    this.audioWorklet = { addModule: function () { return Promise.resolve(); } };
   }
   AC.prototype.createMediaStreamSource = function () { return node(); };
   AC.prototype.createGain = function () { var n = node(); n.gain = {}; return n; };
-  AC.prototype.resume = function () { return Promise.resolve(); };
+  AC.prototype.resume = function () { this.state = 'running'; return Promise.resolve(); };
   AC.prototype.close = function () { this.state = 'closed'; };
   window.AudioContext = AC;
   window.AudioWorkletNode = function () { var n = node(); n.port = { postMessage: function () {} }; return n; };
@@ -183,70 +180,129 @@ print('\n=== live OR a clip, never both (driven) ===');
     return d;
   }
   function cmds(w, c) { return w ? w.msgs.filter(function (m) { return m.cmd === c; }) : []; }
-  function liveTimer() { return __timers.filter(function (t) { return t && t.ms === 1500; })[0]; }
+  function talks(w) { return cmds(w, 'talk').map(function (m) { return m.on; }); }
+  function timer(ms) { return __timers.filter(function (t) { return t && t.ms === ms; })[0]; }
+  function opened(d) { d._talkWarm(); drainMicrotasks(); }           // the sheet opens (_start)
   function press(d) { d._talkStart(); drainMicrotasks(); }
   function release(d, at) { now = at; d._talkEnd(false); drainMicrotasks(); }
+  function say(d, m) { m.id = d._warm ? d._warm.key : m.id; d._tw.onmessage({ data: m }); drainMicrotasks(); }
 
   var d = card(), lbl = function () { return d._talkBtn.querySelector('.lbl').textContent; };
-  ok('the talk button is drawn (a secure page, a mic, a recorder, a speaker)', !!d._talkBtn);
+  ok('the talk button is drawn (a secure page, a mic, a recorder, a speaker)', !!d._talkBtn && lbl() === 'Hold to talk');
+  __resetTimers(); now = 0;
+  opened(d);
+  var w = workers[0];
+  ok('the sheet opening opens the doorbell session, before any press and with no microphone',
+     cmds(w, 'open').length === 1 && cmds(w, 'open')[0].rate === 48000 && cmds(w, 'open')[0].token === 'T' && mics === 0, w && w.msgs);
+  opened(d);
+  ok('...once', cmds(w, 'open').length === 1);
 
   // A: the doorbell is slow to listen.
-  __resetTimers(); now = 0;
   press(d);
-  var s = d._talk, w = workers[0];
-  ok('a press asks the worker to open the live session', cmds(w, 'start').length === 1 && cmds(w, 'start')[0].key === s.key);
-  ok('...and says Wait until the doorbell listens', lbl() === 'Wait…', lbl());
-  now = 1500; liveTimer().fn();
-  ok('no answer in 1.5 s: the live session is STOPPED, not left opening',
-     s.liveFailed === true && cmds(w, 'stop').length === 1 && cmds(w, 'stop')[0].key === s.key, w.msgs);
-  ok('...its audio graph is taken down', s.nodes === null);
-  ok('...and the button says the words go as a clip', lbl() === 'Talk — release to send', lbl());
-  w.onmessage({ data: { id: s.key, live: true } });          // the doorbell answers late
-  ok('a late answer is ignored: the press stays a clip', !s.live && lbl() === 'Talk — release to send');
+  var s = d._talk;
+  ok('a press before the doorbell listens says Connecting', lbl() === 'Connecting…', lbl());
+  ok('...and the microphone opens at the press (once per sheet), into the worker',
+     mics === 1 && cmds(w, 'port').length === 1);
+  now = 1500; timer(1500).fn();
+  ok('no answer in 1.5 s: the press goes as a clip, and nothing is sent live',
+     s.liveFailed === true && talks(w).indexOf(true) < 0 && lbl() === 'Talk — release to send', [talks(w), lbl()]);
+  say(d, { ready: true, warm: true });                    // the doorbell answers late
+  ok('a late answer does not make that press live', !s.live && talks(w).indexOf(true) < 0);
   release(d, 3000);
   ok('release sends the clip, once', posts.length === 1 && /entity_id=media_player\.door/.test(posts[0]), posts);
-  ok('...and no second stop (live was already closed)', cmds(w, 'stop').length === 1);
+  ok('...and the session stays open for the next hold', cmds(w, 'close').length === 0 && cmds(w, 'open').length === 1);
 
-  // B: the doorbell listens in time.
+  // B: the doorbell is listening: a press is live at once.
   __resetTimers(); now = 10000;
+  var v = d._video; v.volume = 1;
   press(d);
   var s2 = d._talk;
-  ok('the next press reuses the mic and the worker', workers.length === 1 && cmds(w, 'start').length === 2);
-  w.onmessage({ data: { id: s2.key, live: true } });
-  ok('the doorbell listens in time: the press is live', s2.live === true && lbl() === 'Talking — release to stop', lbl());
-  ok('...and the 1.5 s give-up is cancelled', !liveTimer());
+  ok('a press on a warm session is live at once: no wait, no new session',
+     s2.live === true && talks(w).slice(-1)[0] === true && lbl() === 'Talking — release to stop' && !timer(1500) &&
+     cmds(w, 'open').length === 1 && mics === 1, [lbl(), talks(w)]);
+  ok('...the door is lowered, not muted, while you talk', v.volume === 0.3 && v.muted !== true || v.volume === 0.3, [v.volume, v.muted]);
   release(d, 13000);
-  ok('release stops the live session and sends NO clip', cmds(w, 'stop').length === 2 && posts.length === 1, posts);
+  ok('release stops sending and sends NO clip', talks(w).slice(-1)[0] === false && posts.length === 1, posts);
+  ok('...and the door is as loud as before', v.volume === 1, v.volume);
 
-  // C: a live session that fails mid-sentence.
+  // C: a session that fails mid-sentence.
   __resetTimers(); now = 20000;
   press(d);
   var s3 = d._talk;
-  w.onmessage({ data: { id: s3.key, live: true } });
-  w.onmessage({ data: { id: s3.key, error: 'talkback failed' } });
-  ok('a live session that fails mid-sentence is stopped at once', s3.liveFailed === true && cmds(w, 'stop').length === 3);
+  say(d, { error: 'talkback failed' });
+  ok('a live session that fails mid-sentence stops sending at once', s3.liveFailed === true && talks(w).slice(-1)[0] === false);
   release(d, 23000);
   ok('...and the clip (the whole message) goes instead', posts.length === 2, posts);
+  ok('...and the session opens again a second later', !!timer(1000));
+  timer(1000).fn(); drainMicrotasks();
+  ok('...reopened', cmds(w, 'open').length === 2 && d._warm && !d._warm.ready);
+  say(d, { ready: true, warm: true });
 
-  // D: closing the sheet.
+  // D: someone else is talking.
+  say(d, { talker: 'Kitchen' });
+  ok('someone else talking: the button says who', lbl() === 'Kitchen is talking', lbl());
+  __resetTimers(); press(d);
+  ok('...and a press does nothing', d._talk == null && talks(w).slice(-1)[0] === false);
+  say(d, { talker: null });
+  ok('...until they let go', lbl() === 'Hold to talk', lbl());
+
+  // E: two presses at once, and the other was first.
+  __resetTimers(); now = 30000;
+  press(d);
+  say(d, { busy: 'Hall' });
+  ok('beaten to the door: this press ends, sends no clip, and says who is talking',
+     d._talk == null && posts.length === 2 && talks(w).slice(-1)[0] === false && lbl() === 'Hall is talking', [posts, lbl()]);
+  say(d, { talker: null });
+
+  // F: an older server (no `warm`) ends its session at each release, as before: the next opens at once.
+  say(d, { error: 'socket closed', closed: true });
+  __timers.filter(Boolean).forEach(function (t) { if (t.ms === 1000) t.fn(); }); drainMicrotasks();
+  say(d, { ready: true, warm: false });
+  __resetTimers(); now = 40000;
+  press(d); release(d, 42000);
+  ok('an older server: the session is let go at the release and a fresh one opened',
+     cmds(w, 'close').length === 1 && cmds(w, 'open').length === 4 && posts.length === 2, [cmds(w, 'close').length, cmds(w, 'open').length]);
+
+  // G: closing the sheet.
   var ctx = d._actx;
   d.isConnected = false; d.disconnectedCallback();
-  ok('closing the sheet: mic off, audio context closed, worker (and its socket) gone',
-     track.stopped === true && ctx.state === 'closed' && w.dead === true && d._mic === null);
+  ok('closing the sheet: session closed, mic off, audio context closed, worker gone',
+     cmds(w, 'close').length === 2 && track.stopped === true && ctx.state === 'closed' && w.dead === true && d._mic === null);
 
-  // E: given up on before the worker was even asked -- it never is.
-  var d2 = card(), gate = {}, w2;
-  gate.p = new Promise(function (res) { gate.open = res; });
-  moduleGate = gate.p;
-  __resetTimers(); now = 30000;
+  // H: a speaker that is not a UniFi Protect doorbell: the clip only, nothing reopened.
+  var d2 = card(), lbl2 = function () { return d2._talkBtn.querySelector('.lbl').textContent; };
+  __resetTimers(); now = 50000;
+  opened(d2);
+  var w2 = workers[workers.length - 1];
+  d2._tw.onmessage({ data: { id: d2._warm.key, error: 'media_player.door is not a UniFi Protect speaker', code: 'not_supported' } });
+  drainMicrotasks();
+  ok('not a Protect speaker: no retry', !timer(1000) && d2._liveOff === true && lbl2() === 'Hold to talk');
   press(d2);
-  w2 = workers[workers.length - 1];
-  ok('(the worklet module is still loading: nothing asked yet)', cmds(w2, 'start').length === 0);
-  now = 31500; liveTimer().fn();
-  gate.open(); drainMicrotasks();
-  ok('given up before it opened: the worker is never asked to start', cmds(w2, 'start').length === 0, w2.msgs);
-  moduleGate = null;
+  ok('...and a press records a clip at once', lbl2() === 'Talk — release to send' && talks(w2).length === 0, lbl2());
+  release(d2, 52000);
+  ok('...which is sent', posts.length === 3);
   d2.isConnected = false; d2.disconnectedCallback();
+
+  // I: a doorbell that cannot be reached says so, and keeps trying.
+  var d3 = card(), lbl3 = function () { return d3._talkBtn.querySelector('.lbl').textContent; };
+  __resetTimers();
+  opened(d3);
+  d3._tw.onmessage({ data: { id: d3._warm.key, error: 'socket closed', closed: true } });
+  drainMicrotasks();
+  ok('a doorbell that never listened: Can’t reach the doorbell, and another try a second later',
+     lbl3() === 'Can’t reach the doorbell' && !!timer(1000), lbl3());
+  d3.isConnected = false; d3.disconnectedCallback();
+
+  // J: an insecure page.
+  window.isSecureContext = false;
+  var d4 = card(), before = mics;
+  __resetTimers();
+  opened(d4);
+  ok('on plain http the button is drawn off, saying Needs HTTPS', !!d4._talkBtn &&
+     d4._talkBtn.querySelector('.lbl').textContent === 'Needs HTTPS' && d4._talkBtn.getAttribute('aria-disabled') === 'true');
+  press(d4);
+  ok('...a press asks for no microphone and opens no session', mics === before && d4._talk == null && !d4._warm);
+  window.isSecureContext = true;
 
   globalThis.performance = saved.performance;
   globalThis.URL = saved.URL;

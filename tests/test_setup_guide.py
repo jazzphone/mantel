@@ -226,3 +226,19 @@ async def test_the_house_step_shows_only_while_hk_frontend_is_in_home_assistant(
     assert step["state"] == "done" and step["route"] == "#/mantel/connections/ha/moving/advanced"
     monkeypatch.setattr(reg, "clients_of", lambda d: [])
     assert "house" not in by_id(await (await mantel.get("/api/setup")).json())
+
+
+async def test_a_container_at_its_address_is_shown_mantel_setup(mantel):
+    """Docker and the LXC start at the machine's address with Mantel's own certificate (mantel-setup's "try"): the
+    Address and HTTPS step says what that means and how to give Mantel a name; with a name it is done. Not shown
+    where there is nothing to set (the dev server here, the Home Assistant App)."""
+    await owner(mantel)
+    cfg = mantel.app["cfg"]
+    assert "address" not in by_id(await (await mantel.get("/api/setup")).json())
+    object.__setattr__(cfg, "public_url", "https://192.0.2.10/")
+    step = by_id(await (await mantel.get("/api/setup")).json())["address"]
+    assert step["state"] == "todo" and step["optional"] and step["can_skip"]
+    assert step["how"] == "mantel-setup" and "passkeys are off" in step["detail"] and "mantel-setup" in step["how_note"]
+    object.__setattr__(cfg, "public_url", "https://mantel.example.com/")
+    step = by_id(await (await mantel.get("/api/setup")).json())["address"]
+    assert step["state"] == "done" and step["how"] is None and "https://mantel.example.com" in step["detail"]

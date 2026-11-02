@@ -2279,10 +2279,13 @@
   // TALK: hold and speak, and the words stream live to `speaker` (a UniFi
   // Protect doorbell, through talk_live.py) -- or, anywhere that cannot,
   // they are recorded and played through talk.py when the button is let go.
-  // A press is one or the other, never both (see s.fail in _liveStart). The
+  // A press is one or the other, never both (see s.fail in _talkRecord). The
   // microphone needs a secure page (https), so on plain http the button is
-  // not drawn at all. While the button is held the door's sound is muted, so
-  // the tablet does not record its own speaker.
+  // drawn off, saying Needs HTTPS. While the button is held the door's sound
+  // is lowered, not muted, and echo cancellation keeps the tablet from
+  // sending the door its own voice back (_duck). The doorbell's session is
+  // warm from the moment the sheet opens (_talkWarm), and one person talks at
+  // a time: everyone else's button says who (talk_live.py's Floor).
 
   // LIVE TALK (talk_live.py): how long a press waits for the doorbell to
   // start listening before it goes on as a clip instead.
@@ -2320,62 +2323,71 @@
   // runs dry and the door hears it. So the worklet posts straight to this
   // worker through a MessageChannel, and the worker holds its own
   // authenticated websocket to HA: nothing the page does can get between
-  // the microphone and the doorbell. One socket per open sheet, one
-  // subscription per hold.
+  // the microphone and the doorbell.
+  //
+  // A WARM SESSION (2026-11-02, docs/phase13/CAMERAS-DIRECT.md): one socket
+  // and one subscription, opened when the sheet opens (`open`), not at the
+  // press, so a press waits on nothing. The microphone's port (`port`)
+  // stays attached; `talk` on/off is the button, and nothing is sent while
+  // it is off. `close` lets go. To the page: {ready, warm} once the doorbell
+  // listens, {talker} when someone else takes or leaves the door, {busy}
+  // when this one's words were refused for theirs, {error, code} (and
+  // {closed}) when the session is gone.
   var TALK_WORKER = [
-    "var ws = null, ready = null, subs = {}, stopped = {}, nextId = 1;",
+    "var ws = null, key = 0, hid = 0, talking = false, port = null;",
+    "function close() {",
+    "  var w = ws; ws = null; talking = false;",
+    "  if (w) {",
+    "    try { if (w.readyState === 1 && hid) w.send(JSON.stringify({ id: 3, type: 'unsubscribe_events', subscription: 2 })); } catch (x) { /* closing */ }",
+    "    try { w.close(); } catch (x) { /* closed */ }",
+    "  }",
+    "  hid = 0;",
+    "}",
     "function open(d) {",
-    "  ready = new Promise(function (res, rej) {",
-    "    ws = new WebSocket(d.url);",
-    "    ws.onmessage = function (e) {",
-    "      var m = JSON.parse(e.data), s;",
-    "      if (m.type === 'auth_required') ws.send(JSON.stringify({ type: 'auth', access_token: d.token }));",
-    "      else if (m.type === 'auth_ok') res();",
-    "      else if (m.type === 'auth_invalid') rej(new Error('not signed in'));",
-    "      else if (m.type === 'result' && !m.success && (s = subs[m.id])) {",
-    "        postMessage({ id: s.key, error: (m.error && m.error.message) || 'refused' });",
-    "        delete subs[m.id];",
-    "      } else if (m.type === 'event' && (s = subs[m.id])) {",
-    "        var ev = m.event || {};",
-    "        if (ev.handler_id) { s.hid = ev.handler_id; postMessage({ id: s.key, live: true }); }",
-    "        else if (ev.error) postMessage({ id: s.key, error: ev.error });",
-    "      }",
-    "    };",
-    "    ws.onclose = function () {",
-    "      rej(new Error('socket closed'));",
-    "      for (var k in subs) postMessage({ id: subs[k].key, error: 'socket closed' });",
-    "      subs = {}; ws = null; ready = null;",
-    "    };",
-    "  });",
-    "  return ready;",
+    "  close();",
+    "  var k = key = d.key, w = ws = new WebSocket(d.url);",
+    "  w.onmessage = function (e) {",
+    "    if (ws !== w) return;",
+    "    var m = JSON.parse(e.data);",
+    "    if (m.type === 'auth_required') w.send(JSON.stringify({ type: 'auth', access_token: d.token }));",
+    "    else if (m.type === 'auth_ok') w.send(JSON.stringify({ id: 2, type: 'hk_frontend/talk/live', entity_id: d.entity_id, rate: d.rate }));",
+    "    else if (m.type === 'auth_invalid') { postMessage({ id: k, error: 'not signed in' }); close(); }",
+    "    else if (m.type === 'result' && m.id === 2 && !m.success) {",
+    "      postMessage({ id: k, error: (m.error && m.error.message) || 'refused', code: (m.error && m.error.code) || '' });",
+    "      close();",
+    "    } else if (m.type === 'event' && m.id === 2) {",
+    "      var ev = m.event || {};",
+    "      if (ev.handler_id) { hid = ev.handler_id; postMessage({ id: k, ready: true, warm: ev.warm === true }); }",
+    "      else if ('talker' in ev) postMessage({ id: k, talker: ev.talker || null });",
+    "      else if (ev.busy) postMessage({ id: k, busy: ev.busy });",
+    "      else if (ev.error) postMessage({ id: k, error: ev.error });",
+    "    }",
+    "  };",
+    "  w.onclose = function () {",
+    "    if (ws !== w) return;",
+    "    ws = null; hid = 0; talking = false;",
+    "    postMessage({ id: k, error: 'socket closed', closed: true });",
+    "  };",
     "}",
     "onmessage = function (e) {",
     "  var d = e.data;",
-    "  if (d.cmd === 'start') {",
-    "    (ws && ready ? ready : open(d)).then(function () {",
-    "      if (stopped[d.key]) { d.port.close(); return; }",
-    "      var id = ++nextId, s = subs[id] = { key: d.key, port: d.port, hid: 0 };",
-    "      d.port.onmessage = function (m) {",
-    "        if (!s.hid || !ws || ws.readyState !== 1) return;",
-    "        var pcm = new Uint8Array(m.data), out = new Uint8Array(pcm.length + 1);",
-    "        out[0] = s.hid; out.set(pcm, 1);",
-    "        ws.send(out);",
-    "      };",
-    "      ws.send(JSON.stringify({ id: id, type: 'hk_frontend/talk/live', entity_id: d.entity_id, rate: d.rate }));",
-    "    }, function (err) { postMessage({ id: d.key, error: String(err && err.message || err) }); });",
-    "  } else if (d.cmd === 'stop') {",
-    "    stopped[d.key] = true;",
-    "    for (var k in subs) {",
-    "      if (subs[k].key !== d.key) continue;",
-    "      try { subs[k].port.close(); } catch (x) { /* closed */ }",
-    "      if (ws && ws.readyState === 1)",
-    "        ws.send(JSON.stringify({ id: ++nextId, type: 'unsubscribe_events', subscription: +k }));",
-    "      delete subs[k];",
-    "    }",
-    "  }",
+    "  if (d.cmd === 'open') open(d);",
+    "  else if (d.cmd === 'port') {",
+    "    if (port) { try { port.close(); } catch (x) { /* closed */ } }",
+    "    port = d.port;",
+    "    port.onmessage = function (m) {",
+    "      if (!talking || !hid || !ws || ws.readyState !== 1) return;",
+    "      var pcm = new Uint8Array(m.data), out = new Uint8Array(pcm.length + 1);",
+    "      out[0] = hid; out.set(pcm, 1);",
+    "      ws.send(out);",
+    "    };",
+    "  } else if (d.cmd === 'talk') talking = !!d.on && !!hid;",
+    "  else if (d.cmd === 'close') close();",
     "};"
   ].join('\n');
   var TALK_MIN_MS = 600;       // shorter than this is a tap: "Hold to talk"
+  var TALK_DUCK = 0.3;         // the door's sound while you talk: heard, lowered (echo cancellation does the rest)
+  var WARM_RETRY_MS = [1000, 3000, 10000, 30000];
   var VOL_KEY = 'hk-tv-volume';
   var FULLY_MUSIC = 3;         // Android STREAM_MUSIC, for Fully's setAudioVolume
   var TALK_MAX_MS = 30000;
@@ -2490,6 +2502,7 @@
         // Held, but the microphone is not open yet: nothing said now is kept.
         '.talk.wait{background:rgba(255,159,10,.85)}',
         '.talk.busy{color:rgba(255,255,255,.75)}',
+        '.talk.off{opacity:.6}',
         '.talk .dot{display:none;width:10px;height:10px;border-radius:5px;background:#fff;',
         '  animation:hk-db-pulse 1s ease-in-out infinite}',
         '.talk.rec .dot{display:block}',
@@ -2698,8 +2711,11 @@
           bar.append(vol);
         }
       }
-      if (c.speaker && window.isSecureContext && navigator.mediaDevices &&
-          navigator.mediaDevices.getUserMedia && window.MediaRecorder) {
+      // NEEDS HTTPS (2026-11-02): a browser gives the microphone only to a secure page. The button used to
+      // vanish on plain http with nothing to say why; it is drawn off now, and a tap says where to look.
+      this._talkHttps = !window.isSecureContext;
+      if (c.speaker && (this._talkHttps || (navigator.mediaDevices &&
+          navigator.mediaDevices.getUserMedia && window.MediaRecorder))) {
         var t = document.createElement('button');
         t.className = 'talk';
         t.innerHTML = '<hk-icon icon="mdi:microphone"></hk-icon><span class="dot"></span><span class="lbl"></span>';
@@ -2721,7 +2737,7 @@
     }
 
     // ------------------------------------------------------------ sound
-    _audible() { return this._wantSound && !this._blocked && !this._talk; }
+    _audible() { return this._wantSound && !this._blocked; }       // talking ducks the door, it no longer mutes it (_duck)
 
     _applySound(fromTap) {
       var v = this._video, self = this;
@@ -2756,6 +2772,7 @@
 
     // ------------------------------------------------------------ webrtc
     _start() {
+      this._talkWarm();                          // the doorbell's talk session, while the video comes up
       // SIGNALING THROUGH THE CLIENT: the client config and our candidates are reads
       // (client.callWS: in HA the frontend's callWS, the same frame on the same socket), the
       // offer a read-only subscription on the client's port (on its allowlist). Viewing a
@@ -2891,16 +2908,27 @@
     }
 
     // ------------------------------------------------------------ talk
+    // THE BUTTON SAYS WHERE THINGS STAND (2026-11-02): Connecting while the
+    // microphone or the doorbell is not ready yet, Talking while your words
+    // go live, who else is talking when someone is, Can't Reach the Doorbell
+    // when the warm session could not open (a press still tries, with the clip
+    // as the net), and Needs HTTPS on a page that may not have a microphone.
     _talkUi(mode) {
       var t = this._talkBtn;
       if (!t) return;
+      if (mode === 'idle') {
+        mode = this._talkHttps ? 'https' : this._talker ? 'other' : this._warmFail ? 'unreachable' : 'idle';
+      }
       t.classList.toggle('rec', mode === 'rec' || mode === 'live');
       t.classList.toggle('wait', mode === 'wait');
-      t.classList.toggle('busy', mode === 'busy');
+      t.classList.toggle('busy', mode === 'busy' || mode === 'other' || mode === 'https' || mode === 'unreachable');
+      t.classList.toggle('off', mode === 'https' || mode === 'other');
+      t.setAttribute('aria-disabled', mode === 'https' || mode === 'other' ? 'true' : 'false');
       t.querySelector('.lbl').textContent =
         mode === 'live' ? 'Talking — release to stop' :
-        mode === 'rec' ? 'Talk — release to send' : mode === 'wait' ? 'Wait…' :
-        mode === 'busy' ? 'Sending…' : 'Hold to talk';
+        mode === 'rec' ? 'Talk — release to send' : mode === 'wait' ? 'Connecting…' :
+        mode === 'busy' ? 'Sending…' : mode === 'other' ? this._talker + ' is talking' :
+        mode === 'https' ? 'Needs HTTPS' : mode === 'unreachable' ? 'Can’t reach the doorbell' : 'Hold to talk';
     }
 
     _flash(text) {
@@ -2912,26 +2940,129 @@
       this._flashT = setTimeout(function () { m.classList.remove('on'); }, 1800);
     }
 
+    // THE DOOR IS HEARD WHILE YOU TALK, LOWERED (decision 6, 2026-11-02): a
+    // conversation, not a walkie-talkie. The microphone runs with the
+    // browser's echo cancellation, which takes the tablet's own speaker out
+    // of what it hears, and the door's sound drops to TALK_DUCK so the
+    // canceller has little to do. (iPad Safari will not set a video's
+    // volume: there the door stays as loud, and the canceller does it all.)
+    _duck(on) {
+      var v = this._video;
+      if (!v) return;
+      if (on && this._duckFrom == null) { this._duckFrom = v.volume; v.volume = Math.min(v.volume, TALK_DUCK); }
+      else if (!on && this._duckFrom != null) { v.volume = this._duckFrom; this._duckFrom = null; }
+    }
+
+    // THE WARM SESSION (2026-11-02): the doorbell's talk session opens when
+    // the sheet does, so a press waits on nothing -- not on the client's
+    // socket, the auth, Protect handing out a session or the encoder -- and
+    // the first word is not clipped. It stays open while the sheet shows
+    // (talk_live.py's 120 s limit closes it, and it opens again), and it
+    // goes when the sheet closes (_talkAbort). Nothing reaches the doorbell
+    // until the button is held. The microphone itself still opens at the
+    // first press (once per sheet): opening it earlier would put an Android
+    // tablet's sound into call mode for the whole visit.
+    _talkWarm() {
+      var c = this._config, act = this.client && this.client.actions, self = this;
+      if (!this._talkBtn || this._talkHttps || c.live === false || this._liveOff) return;
+      if (this._warm || this._warmT || !this.isConnected) return;
+      var ctx = this._audioCtx(), worker = ctx && act && act.liveSocket && this._talkWorker();
+      if (!worker) { this._liveOff = true; return; }
+      var w = this._warm = { key: (this._talkKey = (this._talkKey || 0) + 1), ready: false };
+      Promise.resolve().then(function () { return act.liveSocket(c.speaker); }).then(function (live) {
+        if (self._warm !== w) return;
+        worker.postMessage({ cmd: 'open', key: w.key, url: live.url, token: live.token(),
+                             entity_id: c.speaker, rate: ctx.sampleRate });
+      }).catch(function (err) {
+        if (self._warm !== w) return;
+        // refused quietly (Mantel: no grant, commands off; or no live talk on this host): the clip is all there is
+        self._warm = null;
+        self._liveOff = true;
+        console.warn('[hk-doorbell] live talk:', err && (err.message || err.code || err));
+        self._talkUi('idle');
+      });
+    }
+
+    _warmMsg(d) {
+      var w = this._warm, s = this._talk;
+      if (!w || w.key !== d.id) return;
+      if (d.ready) {
+        w.ready = true; w.warm = d.warm;
+        this._warmFail = false; this._warmTries = 0;
+        if (s && !s.ended && !s.liveFailed && s.talking) this._liveGo(s);
+        else if (!s) this._talkUi('idle');
+        return;
+      }
+      if ('talker' in d) {
+        this._talker = d.talker;
+        if (!s) this._talkUi('idle');
+        return;
+      }
+      if (d.busy) {
+        // pressed at the same moment as someone else, and they were first: their words go, not these (nor a clip)
+        this._talker = d.busy;
+        if (s && !s.ended) { s.cancel = true; s.busy = true; this._talkEnd(true); }
+        this._flash(d.busy + ' is talking');
+        return;
+      }
+      if (d.error) {
+        this._warm = null;
+        if (s && s.fail) s.fail(d.error);
+        if (d.code === 'not_supported' || d.code === 'unknown_command') {
+          this._liveOff = true;                  // not a UniFi Protect doorbell (or no live talk): the clip only
+        } else {
+          this._warmFail = !w.ready;             // never listened: say so; a session that ends is simply opened again
+          this._rewarm(w.ready ? 0 : (this._warmTries = (this._warmTries || 0) + 1));
+        }
+        this._talker = null;
+        if (!this._talk) this._talkUi('idle');
+      }
+    }
+
+    _rewarm(tries) {
+      var self = this;
+      clearTimeout(this._warmT);
+      this._warmT = setTimeout(function () {
+        self._warmT = null;
+        // while a press is on, the next session waits for its release (_talkSend)
+        if (!self._talk) self._talkWarm();
+      }, WARM_RETRY_MS[Math.min(Math.max(tries - 1, 0), WARM_RETRY_MS.length - 1)]);
+    }
+
+    _talkClose() {
+      clearTimeout(this._warmT);
+      this._warmT = null;
+      this._warm = null;
+      if (this._tw) this._tw.postMessage({ cmd: 'close' });
+    }
+
     // THE MICROPHONE OPENS ONCE PER SHEET. Opening it takes a moment (half a
     // second or more on a tablet), so a button that says "Release to send"
     // at the press loses the first words: clips of 0.8-1.3 s reach the
-    // doorbell. The button says "Wait..." until the words will really be
+    // doorbell. The button says "Connecting…" until the words will really be
     // heard, and the stream stays open until the sheet closes (disconnect ->
     // _stop -> _talkAbort), so every hold after the first starts at the
     // press.
     //
     // LIVE, WITH THE CLIP AS A NET. The words stream to the doorbell as they
-    // are spoken (talk_live.py: raw PCM over the websocket, paced into the
-    // doorbell's own talkback stream). A MediaRecorder clip of the same
+    // are spoken (talk_live.py: raw PCM over the warm session, paced into
+    // the doorbell's own talkback stream). A MediaRecorder clip of the same
     // words is kept all the while; if the live session cannot open, or
     // fails mid-sentence, release sends the clip through talk.py instead. A
     // speaker that is not a UniFi Protect doorbell only ever gets the clip.
+    // HOLD ONLY (decision 6, 2026-11-02): no tap to latch.
     _talkStart() {
+      if (this._talkHttps) {
+        this._flash('Talking at the door needs HTTPS: open this page by its https:// address');
+        return;
+      }
+      if (this._talker) { this._flash(this._talker + ' is talking'); return; }
       if (this._talk || this._sending) return;
       var self = this;
       var s = this._talk = { t0: performance.now(), chunks: [] };
-      this._applySound(false);                   // mutes the door while held
-      this._audioCtx();                          // inside the press: allowed to run
+      this._duck(true);
+      var ctx = this._audioCtx();                // inside the press: allowed to run
+      if (ctx && ctx.state === 'suspended') ctx.resume().catch(function () {});
       var mic = this._mic;
       if (mic && mic.active) { this._talkRecord(s, mic); return; }
       this._talkUi('wait');
@@ -2941,13 +3072,14 @@
           if (!self.isConnected) { self._stopTracks(stream); return; }
           self._stopTracks(self._mic);
           self._mic = stream;                     // kept for the next hold
+          self._micNodes = null;
           if (s.ended || self._talk !== s) return;
           self._talkRecord(s, stream);
         })
         .catch(function (err) {
           if (self._talk === s) self._talk = null;
+          self._duck(false);
           self._talkUi('idle');
-          self._applySound(false);
           self._flash(err && err.name === 'NotAllowedError'
             ? 'The microphone is not allowed' : 'No microphone');
           console.error('[hk-doorbell] microphone', err);
@@ -2964,12 +3096,31 @@
       rec.start();
       s.recT0 = performance.now();
       s.maxT = setTimeout(function () { self._talkEnd(false); }, TALK_MAX_MS);
-      if (this._config.live === false) { this._talkUi('rec'); return; }
-      // Still "Wait..." until the doorbell is listening (a moment on the first
-      // press; the session is remembered after that) -- or, if it will not
-      // listen within LIVE_WAIT_MS, go on as a clip. Through s.fail, which
-      // also shuts the live session: see there. (_liveStart below defines it
-      // before anything else, so it exists before this can fire.)
+      // GIVING UP ON LIVE STOPS IT. Flipping the flags and the label alone is
+      // not enough: the session given up on may still be opening, and when it
+      // answers the words would stream while the button says "release to
+      // send"; on release the clip would go too, and the door would hear the
+      // message twice. So the live half stops sending here, and a press is
+      // live OR a clip, never both. What already played before a
+      // MID-SENTENCE failure is the one overlap left, by design: the clip is
+      // the whole message.
+      s.fail = function (why) {
+        if (s.liveFailed) return;
+        s.liveFailed = true;
+        if (why) console.warn('[hk-doorbell] live talk:', why);
+        self._liveStop(s);
+        if (self._talk === s && !s.ended) self._talkUi('rec');
+      };
+      if (this._config.live === false || this._liveOff) { s.fail(); return; }
+      if (!this._warm) {                         // (re)opening: the press waits for it, as long as the host says
+        clearTimeout(this._warmT);
+        this._warmT = null;
+        this._talkWarm();
+      }
+      var w = this._warm;
+      if (!w || !this._micTap(stream)) { s.fail('not available here'); return; }
+      s.talking = true;
+      if (w.ready) { this._liveGo(s); return; }
       this._talkUi('wait');
       // A HOST WITH MORE STEPS TO THE DOORBELL says how long to wait (actions.liveWaitMs): through Mantel a
       // press also passes its gateway and a socket of its own, and 1.5 s gave up on live there (2026-10-22)
@@ -2978,7 +3129,36 @@
       s.liveT = setTimeout(function () {
         if (!s.live && !s.ended) s.fail('not listening after ' + wait + ' ms');
       }, wait);
-      this._liveStart(s, stream);
+    }
+
+    // the microphone into the worker, once per microphone: the worklet posts 40 ms of PCM to the worker
+    // directly (the page is not in the path), and the worker passes it on only while the button is held
+    _micTap(stream) {
+      if (this._micNodes) return true;
+      var ctx = this._audioCtx(), worker = this._tw, self = this;
+      if (!ctx || !worker || !this._actxMod) return false;
+      this._actxMod.then(function () {
+        if (self._mic !== stream || self._micNodes) return;
+        var src = ctx.createMediaStreamSource(stream);
+        var node = new AudioWorkletNode(ctx, 'hk-pcm-tap',
+          { processorOptions: { chunk: Math.round(ctx.sampleRate / 25) } });   // 40 ms
+        var mute = ctx.createGain();
+        mute.gain.value = 0;                      // pulled by the graph, never heard
+        src.connect(node); node.connect(mute); mute.connect(ctx.destination);
+        var ch = new MessageChannel();
+        node.port.postMessage({ port: ch.port1 }, [ch.port1]);
+        worker.postMessage({ cmd: 'port', port: ch.port2 }, [ch.port2]);
+        self._micNodes = [src, node, mute];
+      }).catch(function (err) { var s = self._talk; if (s && s.fail) s.fail(err && err.message); });
+      return true;
+    }
+
+    _liveGo(s) {
+      if (!this._tw || s.ended || s.liveFailed) return;
+      s.live = true;
+      clearTimeout(s.liveT);
+      this._tw.postMessage({ cmd: 'talk', on: true });
+      this._talkUi('live');
     }
 
     _audioCtx() {
@@ -2987,8 +3167,13 @@
       if (!this._actx || this._actx.state === 'closed') {
         try { this._actx = new AC(); } catch (e) { return null; }
         this._actxMod = null;
+        this._micNodes = null;
       }
-      if (this._actx.state === 'suspended') this._actx.resume().catch(function () {});
+      if (!this._actxMod) {
+        var url = URL.createObjectURL(new Blob([PCM_TAP], { type: 'application/javascript' }));
+        this._actxMod = this._actx.audioWorklet.addModule(url);
+        this._actxMod.catch(function () { /* the press says so */ });
+      }
       return this._actx;
     }
 
@@ -2999,82 +3184,20 @@
       try {
         w = new Worker(URL.createObjectURL(new Blob([TALK_WORKER], { type: 'application/javascript' })));
       } catch (e) { return null; }
-      w.onmessage = function (e) {
-        var d = e.data || {}, s = self._talk;
-        if (!s || s.key !== d.id) return;
-        if (d.error) { s.fail(d.error); return; }
-        if (d.live && !s.liveFailed && !s.ended) {
-          s.live = true;
-          clearTimeout(s.liveT);
-          self._talkUi('live');
-        }
+      w.onmessage = function (e) { self._warmMsg(e.data || {}); };
+      w.onerror = function () {
+        var s = self._talk;
+        if (s && s.fail) s.fail('worker');
+        self._warm = null; self._liveOff = true;
       };
-      w.onerror = function () { var s = self._talk; if (s && s.fail) s.fail('worker'); };
       this._tw = w;
       return w;
     }
 
-    _liveStart(s, stream) {
-      // THE LIVE SOCKET IS A WRITE: its address and credentials come from the client's action
-      // port, asked for this speaker (HA: the frontend's websocket and token, refreshed when
-      // expired; Mantel: its /ws/talk and a one-time ticket the gateway issued for this speaker,
-      // or refused quietly so the clip goes).
-      var self = this, ctx = this._audioCtx(), act = this.client && this.client.actions;
-      // GIVING UP ON LIVE CLOSES IT. Flipping the flags and the label alone is
-      // not enough: the session given up on may still be opening -- a first
-      // press waits on a new socket, auth, and Protect handing out a talkback
-      // session -- and when it answers, the worker would start streaming the
-      // words anyway while the button says "release to send"; on release the
-      // clip would go too, and the door would hear the message twice. So the
-      // live half is stopped here (the worker unsubscribes, or never
-      // subscribes if it has not yet), so a press is live OR a clip, never
-      // both. What already played before a MID-SENTENCE failure is the one
-      // overlap left, by design: the clip is the whole message.
-      s.fail = function (why) {
-        if (s.liveFailed) return;
-        s.liveFailed = true;
-        if (why) console.warn('[hk-doorbell] live talk:', why);
-        self._liveStop(s);
-        if (self._talk === s && !s.ended) self._talkUi('rec');
-      };
-      var worker = ctx && act && this._talkWorker();
-      if (!worker) { s.fail('not available here'); return; }
-      if (!this._actxMod) {
-        var url = URL.createObjectURL(new Blob([PCM_TAP], { type: 'application/javascript' }));
-        this._actxMod = ctx.audioWorklet.addModule(url);
-      }
-      Promise.all([this._actxMod, act.liveSocket(this._config.speaker)])
-        .then(function (r) {
-          var live = r[1];
-          if (s.ended || s.liveFailed) return;
-          var src = ctx.createMediaStreamSource(stream);
-          var node = new AudioWorkletNode(ctx, 'hk-pcm-tap',
-            { processorOptions: { chunk: Math.round(ctx.sampleRate / 25) } });   // 40 ms
-          var mute = ctx.createGain();
-          mute.gain.value = 0;                    // pulled by the graph, never heard
-          src.connect(node); node.connect(mute); mute.connect(ctx.destination);
-          s.nodes = [src, node, mute];
-          // The worklet talks to the worker directly: the page is not in the
-          // path. The worker sends nothing until the doorbell listens, so
-          // nothing said before the button turned red is queued (a backlog
-          // would be a delay that never goes away).
-          var ch = new MessageChannel();
-          node.port.postMessage({ port: ch.port1 }, [ch.port1]);
-          s.key = self._talkKey = (self._talkKey || 0) + 1;
-          s.worker = worker;
-          worker.postMessage({ cmd: 'start', key: s.key, url: live.url, token: live.token(),
-                               entity_id: self._config.speaker, rate: ctx.sampleRate,
-                               port: ch.port2 }, [ch.port2]);
-          if (s.ended) self._liveStop(s);         // let go while it was opening
-        }).catch(function (err) { s.fail(err && (err.message || err.code || err)); });
-    }
-
     _liveStop(s) {
       clearTimeout(s.liveT);
-      (s.nodes || []).forEach(function (n) { try { n.disconnect(); } catch (e) { /* gone */ } });
-      s.nodes = null;
-      // Unsubscribing is "let go": the server plays out what it holds.
-      if (s.worker && s.key) { s.worker.postMessage({ cmd: 'stop', key: s.key }); s.worker = null; }
+      if (s.talking && this._tw) this._tw.postMessage({ cmd: 'talk', on: false });
+      s.talking = false;
     }
 
     _talkEnd(cancel) {
@@ -3084,13 +3207,13 @@
       clearTimeout(s.maxT);
       if (!s.rec) {                              // released before the mic opened
         this._talk = null;
+        this._duck(false);
         this._talkUi('idle');
-        this._applySound(false);
         if (!cancel) this._flash('Wait for the red button, then talk');
         return;
       }
       s.secs = (performance.now() - s.recT0) / 1000;
-      s.cancel = cancel || s.secs * 1000 < TALK_MIN_MS;
+      s.cancel = s.cancel || cancel || s.secs * 1000 < TALK_MIN_MS;
       this._liveStop(s);
       try { s.rec.stop(); } catch (e) { this._talkSend(s); }
     }
@@ -3108,21 +3231,29 @@
         this._liveStop(s);
         if (s.rec && s.rec.state !== 'inactive') { try { s.rec.stop(); } catch (e) { /* stopped */ } }
       }
+      this._talkClose();
+      this._duck(false);
       this._stopTracks(this._mic);               // the sheet closed: mic off
       this._mic = null;
+      this._micNodes = null;
       if (this._actx) { try { this._actx.close(); } catch (e) { /* closed */ } }
       this._actx = null; this._actxMod = null;
       // Its socket closing ends any session on the server too.
       if (this._tw) { this._tw.terminate(); this._tw = null; }
+      this._talker = null; this._warmFail = false; this._warmTries = 0;
     }
 
     _talkSend(s) {
       var self = this, c = this._config, act = this.client && this.client.actions;
       if (this._talk === s) this._talk = null;
-      this._applySound(false);
+      this._duck(false);
+      // A SESSION FROM AN OLDER SERVER (no `warm`) ends at each release, as it always did: open the next now
+      var w = this._warm;
+      if (w && w.ready && !w.warm && s.live) { this._talkClose(); this._talkWarm(); }
+      else if (!w && !this._warmT && !this._liveOff) this._talkWarm();
       if (s.cancel) {
         this._talkUi('idle');
-        if (this.isConnected) this._flash('Hold to talk');
+        if (this.isConnected && !s.busy) this._flash('Hold to talk');
         return;
       }
       if (s.live && !s.liveFailed) {             // already heard at the door

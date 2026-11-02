@@ -5,6 +5,8 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+- **Doorbell talk:** a talk session can stay open between holds (each hold is its own stream, nothing is sent between them), and one person talks at a time on a doorbell: the others are told who.
+
 ## 0.1.10 - 2026-11-02
 
 - **Re-authentication:** when Mantel refuses Mantel Link's credential (it was revoked), Home Assistant asks you to re-authenticate it with a new pairing code (or a credential), and the link retries less and less often until then, instead of every 30 seconds for good.

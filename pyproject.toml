@@ -17,7 +17,8 @@ dependencies = ["aiohttp>=3.9", "argon2-cffi>=25.1", "cryptography>=50.0", "weba
                 "Pillow>=11.0",   # Your files photos and Mantel Photos are re-encoded (user_files.py, photos.py)
                 "pillow-heif>=0.18",   # iPhone HEIC/HEIF photos (re-encoded to JPEG)
                 "numpy>=2.0", "onnxruntime>=1.20",   # Mantel Photos' focus points: where faces are (faces.py, YuNet)
-                "zeroconf>=0.140"]   # Docker/LXC: Mantel announced as _mantel._tcp (announce.py; the App uses the Supervisor)
+                "zeroconf>=0.140",   # Docker/LXC: Mantel announced as _mantel._tcp (announce.py; the App uses the Supervisor)
+                "av>=14.0"]   # Docker/LXC: talking at a UniFi Protect doorbell directly (hk_core/talk/core.py: Opus over RTP)
 
 [project.urls]
 Homepage = "https://github.com/jazzphone/mantel"

@@ -12,7 +12,18 @@ On the Proxmox host, as root:
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/jazzphone/mantel/main/packaging/proxmox/ct/mantel.sh)"
 ```
 
-It opens community-scripts' menu: **Default Settings** makes an unprivileged Debian 13 container with 4 cores, 6 GB of memory and a 32 GB disk, nesting and keyctl on for Docker, and the iGPU shared in when the host has one; **Advanced Settings** lets you change any of it. Then, inside the container, Mantel asks how browsers reach it over HTTPS (the same three choices as below: `internal`, `dns01` or `own`), the name browsers use, and whether to show it in Home Assistant's sidebar through [Mantel Connect](Mantel-Connect.md). It installs Docker and builds Mantel's images (several minutes), and with `internal`, or `own` with your proxy's address, starts Mantel and prints the address and a one-time setup code for [First Run](First-Run.md#with-docker-or-the-lxc). With `dns01` it stops before the first start: put your DNS host's token in with `mantel-secret` (the steps are in `/root/mantel-next-steps.txt` in the container), then start it.
+It opens community-scripts' menu: **Default Settings** makes an unprivileged Debian 13 container with 4 cores, 6 GB of memory and a 32 GB disk, nesting and keyctl on for Docker, and the iGPU shared in when the host has one; **Advanced Settings** lets you change any of it. Inside the container it asks whether to show Mantel in Home Assistant's sidebar through [Mantel Connect](Mantel-Connect.md), installs Docker and builds Mantel's images (several minutes), then asks how browsers should reach Mantel:
+
+| Choice | What you need | Mantel's address |
+|---|---|---|
+| **1. Try it now** (Enter) | Nothing | `https://<the container's address>`, with Mantel's own certificate: your browser warns the first time (continue to the page), and passkeys are off at an address |
+| **2. A name on your network** | A name, e.g. `mantel.home.arpa`, that your home's DNS points at the container | `https://<that name>`, with Mantel's own certificate (trust it once on each device: [OPERATIONS.md](../OPERATIONS.md#https-four-ways)) |
+| **3. Your own domain** | The name, and your DNS host's API token, typed in (it isn't shown) | `https://<your name>`, with a real certificate |
+| **4. Your own reverse proxy** | Your proxy's address | `https://<your name>` through your proxy, which sends it to `http://<the container's address>:8765` |
+
+Whatever you choose, **Mantel starts**, and the last screen shows its address and a one-time setup code for [First Run](First-Run.md#with-docker-or-the-lxc). If a choice still needs something you don't have yet (the token, the proxy's address), press Enter past it: Mantel starts on **Try it now**, and you finish later.
+
+**Changing it later:** in the container's console (`pct enter <id>`, or the console in Proxmox), run `mantel-setup`. It asks the same question, shows what you have now as the default, writes the settings and the token's secret file, and starts Mantel again on the new address. Mantel Settings → **Set Up Mantel** → **Address and HTTPS** says the same while Mantel is on its address.
 
 Every question can be answered ahead of time, so it runs unattended too:
 
@@ -23,8 +34,8 @@ var_mantel_tls=own var_mantel_proxy_ip=192.0.2.254 var_mantel_domain=mantel.exam
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `var_mantel_tls` | asked; `internal` | `internal`, `dns01` or `own` |
-| `var_mantel_domain` | asked; `mantel.home.arpa` (no default with `dns01`) | The name browsers use |
+| `var_mantel_tls` | asked; `try` | `try` (1), `internal` (2), `dns01` (3) or `own` (4). A DNS token is always typed, never preset |
+| `var_mantel_domain` | asked; `mantel.home.arpa` with `internal` | The name browsers use (not with `try`) |
 | `var_mantel_dns` | asked with `dns01`; `cloudflare` | `cloudflare`, `duckdns`, `porkbun`, `route53`, `digitalocean` or `desec` |
 | `var_mantel_proxy_ip` | asked with `own` | Your proxy's IP address, as Mantel sees it |
 | `var_mantel_connect` | asked; `no` | `yes` publishes Mantel Connect's port 8766 |
@@ -45,7 +56,7 @@ That container then stays on that release (`update` follows `var_mantel_ref`). c
 
 **What runs:** the two scripts are Mantel's, in [`packaging/proxmox`](https://github.com/jazzphone/mantel/tree/main/packaging/proxmox); the engine they run on (the menus, creating the container) is community-scripts' own, fetched from [community-scripts/core](https://github.com/community-scripts/core) as their scripts do, and it sends their anonymous install statistics unless you turn diagnostics off in its menu. Mantel's source comes from GitHub with git, into `/opt/mantel`. Read them before you run them as root: `curl -fsSL <the URL above>` shows the first. From a clone of the repository you can also run `bash packaging/proxmox/ct/mantel.sh`, which uses the install script next to it.
 
-Then continue with [Finish inside the container](#finish-inside-the-container) from step 5. A container made this way can also take a backup with `bash packaging/lxc/mantel.sh restore <id> …`, from a checkout on the host.
+Then open the address it printed. With choice 2 or 3, point the name at the container in your home's DNS first; with 4, point your proxy at it and open `/proxy-check` as the Owner ([Your own reverse proxy](Install-Docker.md#your-own-reverse-proxy)). A container made this way can also take a backup with `bash packaging/lxc/mantel.sh restore <id> …`, from a checkout on the host.
 
 ## From a checkout
 

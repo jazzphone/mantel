@@ -20,7 +20,9 @@
 ``name``, the ``screens`` it shows (where its frame rate was drawn, then where it opens), its latest ``fps`` with
 ``fps_screen``, ``fps_style``, ``fps_sig`` (the style and the sky and camera settings it was drawn with, a short
 word; null from a sample taken before the ladder) and ``fps_at``, and its ``platform``, ``memory_gb`` and ``cores``:
-what HK Settings recommends a lighter look from (a screen's Appearance; mantel-settings.js ``tabletHealth``).
+what HK Settings recommends a lighter look from (a screen's Appearance; mantel-settings.js ``tabletHealth``). Each
+row also says (2026-11-02) whether the tablet's page is a ``secure`` context (true, false, or null before it has said),
+for the note HK Settings' camera pop-ups show where talking at the door needs HTTPS (page_health.py SECURE CONTEXT).
 
 Numbers only, in memory only, nothing audited (a read)."""
 from __future__ import annotations
@@ -152,6 +154,7 @@ def tablets(app: web.Application) -> list[dict]:
     from .sessions import Device
     mgr = app.get("devices")
     out = []
+    secure = {r["id"]: r["secure"] for r in page_health.RING.secure_reports()}
     for device_id, kept in sorted(page_health.TABLETS.latest.items()):
         row = mgr.get(device_id) if mgr is not None else None
         if row is None or row["revoked"] is not None:
@@ -164,7 +167,8 @@ def tablets(app: web.Application) -> list[dict]:
         out.append({"name": row["name"], "screens": list(dict.fromkeys(s for s in (kept.get("fps_screen"), start) if s)),
                     "fps": kept.get("fps"), "fps_screen": kept.get("fps_screen") or None,
                     "fps_style": kept.get("fps_style") or None, "fps_sig": kept.get("fps_sig") or None, "fps_at": kept.get("fps_at"),
-                    "platform": dev.get("platform"), "memory_gb": dev.get("memory_gb"), "cores": dev.get("cores")})
+                    "platform": dev.get("platform"), "memory_gb": dev.get("memory_gb"), "cores": dev.get("cores"),
+                    "secure": secure.get(device_id)})
     return out
 
 

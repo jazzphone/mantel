@@ -25,7 +25,9 @@ import asyncio
 import json
 import logging
 import time
+from ipaddress import ip_address
 from typing import Any
+from urllib.parse import urlparse
 
 from aiohttp import web
 
@@ -46,6 +48,7 @@ STEPS = (
     ("people", "The Household", False),
     ("protect", "Protect the Owner", False),
     ("alarm", "Alarm PIN", False),
+    ("address", "Address and HTTPS", True),
     ("tablets", "Wall Tablets", True),
     ("music", "Music Assistant", True),
     ("link", "Mantel Link", True),
@@ -134,6 +137,16 @@ async def house_config(app: web.Application) -> dict | None:
     if cache is not None:
         cache["config"] = (now, out)
     return out
+
+
+def address_host(cfg: Any) -> tuple[str, bool]:
+    """(the public address's host, whether it is an IP address). Docker and the LXC start at the machine's address with
+    Mantel's own certificate (mantel-setup's "try"); About -> Secure Connection (about.py) asks the same question."""
+    host = (urlparse(getattr(cfg, "public_url", "") or "").hostname or "").strip("[]")
+    try:
+        return host, bool(host) and bool(ip_address(host))
+    except ValueError:
+        return host, False
 
 
 def _count_people(app: web.Application) -> tuple[int, int]:
@@ -258,6 +271,18 @@ async def steps(app: web.Application, me: dict) -> dict:
          shown=bool(panels))
 
     devices = [d for d in app["devices"].list() if d["revoked"] is None] if "devices" in app else []
+    # Docker and the LXC start at this machine's address with Mantel's own certificate (mantel-setup's "try"): it works,
+    # but browsers warn and passkeys are off there. A name is set on the machine, not here: the way is shown.
+    host, at_address = address_host(cfg)
+    step("address", not at_address,
+         f"Mantel answers at {cfg.public_url.rstrip('/') if how == 'container' else ''}." if not at_address else
+         f"Mantel answers at https://{host}, with its own certificate: browsers warn until you trust it, and passkeys "
+         "are off at an address. Give Mantel a name, and a certificate browsers trust, on the machine it runs on.",
+         None, shown=how == "container", how="mantel-setup" if at_address else None,
+         how_note="In the Proxmox LXC's console, run mantel-setup: a name on your network, your own domain with a real "
+                  "certificate, or your own proxy. With Docker, set MANTEL_HOSTNAME and the HTTPS lines in .env "
+                  "(Install with Docker, HTTPS), then docker compose up -d --wait.")
+
     step("tablets", bool(devices), f"{len(devices)} enrolled." if devices else
          "Optional. On each tablet, sign in and choose Make This a Wall Tablet.", "#/house/tablets")
 
