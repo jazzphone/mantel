@@ -10,7 +10,8 @@ import { drawImport } from './connections.js';
 const STEP_ICON = { ha: ['mdi:home-assistant', C.blue], home: ['mdi:home', C.orange], screens: ['mdi:monitor-dashboard', C.teal],
                     people: ['mdi:account', C.blue], protect: ['mdi:shield-key', C.indigo], alarm: ['mdi:shield-lock', C.red],
                     tablets: ['mdi:tablet', C.teal], music: ['mdi:music', C.pink], link: ['mdi:link-variant', C.orange],
-                    files: ['mdi:folder', C.purple], commands: ['mdi:lightning-bolt', C.green], house: ['mdi:transfer', C.orange] };
+                    files: ['mdi:folder', C.purple], commands: ['mdi:lightning-bolt', C.green], house: ['mdi:transfer', C.orange],
+                    address: ['mdi:lock', C.green] };
 const STEP_SAYS = { done: 'Done', todo: 'To Do', skipped: 'Later' };
 export const setupOpen = () => !!(me && me.setup && me.setup.open);
 const setupRead = () => load('setup', () => api('GET', '/api/setup'));
@@ -57,7 +58,7 @@ function pSetupStep(id) {
     if (got.err) { failed(c, got.err); return; }
     if (!s) { failed(c, 'That step isn’t part of this Mantel’s setup.'); return; }
     c.appendChild(group({ footer: s.detail }, [info('Status', s.optional ? 'Optional' : null, STEP_SAYS[s.state], s.state === 'todo' ? 'warn' : '')]));
-    if (s.how && s.state !== 'done') c.appendChild(group({ header: 'How', footer: 'An Owner turns them on in General (Allow Control of the House), after confirming it is them. The server’s kill switch can keep them off whatever that says.' }, [secretCell(s.how, 'mx-setup-how')]));
+    if (s.how && s.state !== 'done') c.appendChild(group({ header: 'How', footer: s.how_note || 'An Owner turns them on in General (Allow Control of the House), after confirming it is them. The server’s kill switch can keep them off whatever that says.' }, [secretCell(s.how, 'mx-setup-how')]));
     const rows = [];
     if (s.route) rows.push(K().nav({ label: s.state === 'done' ? 'Open' : 'Do It Now', href: s.route, fk: 'mx:setup:go:' + id }));
     const edit = got.data.can_edit;

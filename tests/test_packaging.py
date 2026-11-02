@@ -1044,3 +1044,12 @@ def test_the_lock_pins_a_pyasn1_without_the_quadratic_attestation_parsing():
     assert m, "pyasn1 is pinned with hashes"
     assert tuple(int(x) for x in m.groups()[:3]) >= (0, 6, 5)
     assert m.group(4).count("--hash=") == 2          # the wheel and the sdist, as pip-compile writes them
+
+
+def test_caddy_serves_an_address_with_no_name_sent():
+    """mantel-setup's "try" makes MANTEL_HOSTNAME the LXC's address. A browser sends no SNI to an address, and behind
+    Docker's port mapping Caddy can't see which address was dialed, so the handshake failed until default_sni named it
+    (checked with Caddy 2.10.2: no certificate without it, Mantel's with it)."""
+    text = (ROOT / "packaging/compose/caddy/Caddyfile").read_text()
+    globals_block = text[text.index("\n{\n"):text.index("\n}\n", text.index("\n{\n"))]
+    assert "default_sni {$MANTEL_HOSTNAME}" in globals_block
