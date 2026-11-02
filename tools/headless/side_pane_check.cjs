@@ -29,8 +29,13 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
     const page = await context.newPage();
     const errors = [];
     let cur = '';
-    // (the browser's benign "ResizeObserver loop" note is no error, as the other checks have it)
-    page.on('pageerror', (e) => { if (!/ResizeObserver loop/.test(e.message)) errors.push(cur + ': ' + e.message); });
+    // (the browser's benign "ResizeObserver loop" note is no error, as the other checks have it; nor is WebKit's
+    // word for one of this page's own loads it cancelled when the check moved on, "<same-origin URL> due to access
+    // control checks": the page catches that fetch (ha-elements.js), and it failed this check about every other run)
+    const cancelled = (m) => /due to access control checks\.?$/.test(m) && m.indexOf(new URL(input.origin).host + '/') >= 0;
+    page.on('pageerror', (e) => {
+      if (!/ResizeObserver loop/.test(e.message) && !cancelled(e.message)) errors.push(cur + ': ' + e.message);
+    });
     page.setDefaultTimeout(20000);
     const open = async (scr, view) => {
       cur = scr + '/' + (view || 'home');
