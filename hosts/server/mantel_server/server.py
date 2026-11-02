@@ -63,6 +63,27 @@ log = logging.getLogger("mantel.server")
 COMMAND_TYPES = frozenset({"call_service", "command", "cmd", "service", "fire_event", "execute", "turn_on", "turn_off"})
 # what a read-only socket (a screen preview, mcp/preview.py) may send besides subscribe/unsubscribe/ping: reads only
 PREVIEW_TYPES = frozenset({"read", "read_subscribe", "read_unsubscribe", "read_api"})
+# ... and which reads: a screen's own, an ALLOW-list (third audit pass, SRV-2: a preview, minted by a key with only
+# `screens`, could ask `mantel/settings/history` and every other read route, as the Owner it draws for). What the
+# screen pages ask (HK Frontend's cards, the shim): the settings feed, the page headers and snoozes, the house's
+# music, the clean areas, energy and Live TV guide, the camera signaling, history and logbook, calendars.
+PREVIEW_READS = frozenset({
+    "camera/webrtc/candidate", "camera/webrtc/get_client_config", "camera/webrtc/offer", "config/entity_registry/get",
+    "energy/get_prefs", "energy/info", "frontend/get_themes", "frontend/get_user_data", "frontend/subscribe_user_data",
+    "get_config", "history/history_during_period", "hk_clean_areas/subscribe", "hk_frontend/events/subscribe",
+    "hk_frontend/page_headers/subscribe", "hk_frontend/settings/subscribe", "hk_frontend/snooze/subscribe",
+    "hk_frontend/todo/items", "hk_music/queue", "hk_music/subscribe", "hk_notify/snap/sign", "hk_tv/channels",
+    "logbook/get_events", "mantel/clean_areas/coverage", "mantel/energy/plan", "mantel/live_tv/guide",
+    "media_player/browse_media", "media_player/search_media", "media_source/browse_media",
+    "media_source/resolve_media", "music_assistant/get_library", "music_assistant/get_queue", "music_assistant/search",
+    "persistent_notification/subscribe", "recorder/statistics_during_period", "weather/subscribe_forecast"})
+# Reads a preview never makes, listed so that every read route is placed on one list or the other (tests/test_mcp.py
+# fails for a new read that is on neither): Settings' own documents and history, the editors', the imports'.
+PREVIEW_READS_NEVER = frozenset({
+    "hk_alarm_pin/settings/get", "hk_clean_areas/settings/get", "hk_energy/settings/get", "hk_energy/sources",
+    "hk_frontend/grid/starter", "hk_frontend/hidden/get", "hk_frontend/panel/get", "hk_frontend/setup/check",
+    "hk_music/settings/get", "hk_music/settings/library", "hk_notify/settings/get", "hk_tv/settings/get",
+    "mantel/energy/sources", "mantel/page_headers/get", "mantel/settings/get", "mantel/settings/history"})
 COMMANDS_DISABLED = {
     "type": "error",
     "code": "commands_disabled",
@@ -191,6 +212,13 @@ class ClientSession:
             if isinstance(msg, dict) and "id" in msg:
                 err["id"] = msg["id"]
             await self.send(err, count=False)
+            return
+        if self.read_only and kind in ("read", "read_subscribe") and isinstance(msg, dict) and \
+                not (isinstance(msg.get("msg"), dict) and msg["msg"].get("type") in PREVIEW_READS):
+            # a screen preview reads what a screen draws from, not the rest of the house's management
+            await self.send({"type": "read_result", "id": msg.get("id"),
+                             "error": {"code": "read_only", "message": "a preview reads what its screen shows only"}},
+                            count=False)
             return
         if kind == "command":
             gw = self.app.get("gateway") if self.app is not None else None

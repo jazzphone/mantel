@@ -13,6 +13,7 @@ import hashlib
 import hmac
 import html
 import logging
+import re
 import secrets
 import time
 from urllib.parse import quote, unquote, urlparse
@@ -32,11 +33,30 @@ STATE_COOKIE = "mantel_oauth_state"
 NEXT_COOKIE = "mantel_login_next"        # where to land after HA sign-in; cleaned again at the callback
 STATE_TTL = 600
 PUBLIC_PATHS = {HA_START, "/auth/callback", "/logout"}
-# what a read-only screen preview (mcp/preview.py) never opens, even to look: Settings and the house's management
-PREVIEW_NEVER = ("/settings", "/hk-settings", "/admin", "/api/admin", "/api/users", "/api/devices", "/api/mcp",
-                 "/api/service-accounts", "/api/audit", "/api/connections", "/api/backup", "/api/account",
-                 "/api/rbac", "/api/settings", "/api/linked", "/api/app/", "/api/performance", "/api/user-files",
-                 "/ma", "/go2rtc", "/docs")
+# What a read-only screen preview (mcp/preview.py) may fetch: an ALLOW-list of what a screen's page draws itself from
+# (its page, Mantel's and HK's files, the registry and fixtures it loads, the pictures and stills a card shows) and
+# nothing else. It was a list of what a preview never opens, and every route added since (Sessions, People, Faces,
+# Alarm PINs, Set Up, Push targets, passkeys, phones...) was open to it: a preview made by a key with only `screens`
+# read what the Owner's own session reads (third audit pass, SRV-2). A new route is closed to previews until it is
+# listed here, and tests/test_mcp.py's route walk fails until it is.
+PREVIEW_PATHS = frozenset({
+    "/", "/home", "/ws", "/api/session", "/api/me", "/api/registry", "/api/fixtures", "/api/hk-cards", "/api/services",
+    "/api/photos/screens", "/api/media/art", "/sw.js", "/manifest.webmanifest", "/apple-touch-icon.png"})
+PREVIEW_PREFIXES = ("/hk/", "/web/", "/static/mdi/", "/app/art/", "/api/camera/", "/api/media/", "/api/person/",
+                    "/api/image/serve/", "/api/notify/snap/")
+PREVIEW_PATTERNS = (
+    re.compile(r"^/api/photo/[^/]+$"),                                          # a photo a card shows
+    re.compile(r"^/api/photos/albums/[0-9a-f]{16}/show$"),                       # a screen's album
+    re.compile(r"^/api/photos/[0-9a-f]{32}/(?:screen|mid|thumb)$"),              # its pictures (never the original)
+    re.compile(r"^/[^/]+/home$"),                                               # the page itself, and its other views
+    re.compile(r"^/[A-Za-z0-9_]+-[A-Za-z0-9_-]*/[A-Za-z0-9_-]+$"))
+
+
+def preview_allows(path: str) -> bool:
+    """Whether a read-only screen preview may GET ``path`` (``PREVIEW_PATHS`` and its kin)."""
+    return path in PREVIEW_PATHS or path.startswith(PREVIEW_PREFIXES) or any(p.match(path) for p in PREVIEW_PATTERNS)
+
+
 # Signed out, these pages (and any GET that asks for a document) are sent to /login, with ?next= to
 # come back to; everything else signed out gets a plain 401.
 PAGE_PATHS = ("/", "/dev", "/home")
@@ -123,7 +143,7 @@ async def require_session(request: web.Request, handler):
         raise web.HTTPUnauthorized(text="sign in at /login")
     if request.path in ("/ws", "/ws/talk") and request.headers.get("Origin") is None:
         raise web.HTTPForbidden(text="Origin required")  # browsers always send it; the loopback middleware checks its value
-    if ident.read_only and (request.method not in sessions.SAFE_METHODS or request.path.startswith(PREVIEW_NEVER)):
+    if ident.read_only and (request.method not in sessions.SAFE_METHODS or not preview_allows(request.path)):
         # a screen preview an assistant opened (mcp/preview.py): it looks at screens, and nothing else
         raise web.HTTPForbidden(text='{"error":"read_only"}', content_type="application/json")
     if request.method not in sessions.SAFE_METHODS and request.path.startswith("/api/"):

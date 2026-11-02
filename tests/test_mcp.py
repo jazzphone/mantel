@@ -952,6 +952,73 @@ async def test_a_preview_opens_screens_only(mantel):
     assert r.status == 200
 
 
+async def _open_preview(mantel, scopes=("screens",)):
+    token, _ = await setup(mantel, scopes=list(scopes))
+    link, err = await Rpc(mantel, token).tool("screen_preview", screen="dashboard-kitchen")
+    assert not err
+    mantel.forget_cookies()
+    await mantel.client.get(urlparse(link["url"]).path, allow_redirects=False)
+
+
+async def test_a_preview_reaches_only_what_a_screen_draws_from(mantel):
+    """SRV-2 (third audit pass): a preview, minted by a key with only `screens`, was a read-only browser session as
+    the Owner that was refused a list of settings routes and reached every other: Sessions, People, Faces, Alarm
+    PINs, Set Up, Push targets, passkeys, phones, default screens, features. Now an allow-list."""
+    await _open_preview(mantel)
+    for path in ("/api/sessions", "/api/phones", "/api/people/ha", "/api/default-screens", "/api/default-screen",
+                 "/api/photos/faces", "/api/photos", "/api/photos/cutouts", "/api/photos/import", "/api/alarm/pins",
+                 "/api/setup", "/api/auth/passkeys", "/api/push/targets", "/api/features/settings",
+                 "/api/features/status", "/api/entities", "/api/areas", "/api/stats", "/api/about", "/api/performance/tablets",
+                 "/api/settings/import", "/api/live_tv/status", "/api/music/status", "/api/devices", "/dev",
+                 "/api/rbac/roles", "/api/account/pin", "/ws/talk", "/api/user-files"):
+        r = await mantel.client.get(path, allow_redirects=False)
+        assert r.status == 403, (path, r.status)
+    for path in ("/dashboard-kitchen/home", "/dashboard-kitchen/lights", "/api/me", "/api/session", "/api/registry",
+                 "/api/fixtures", "/api/hk-cards", "/api/services", "/api/photos/screens"):
+        r = await mantel.client.get(path, allow_redirects=False)
+        assert r.status == 200, (path, r.status)
+    # a change is refused wherever it goes (the session middleware), the same for the page's own routes
+    assert (await mantel.client.post("/api/photos/screens/dashboard-kitchen", json={}, headers=mantel.headers())).status == 403
+
+
+async def test_a_previews_socket_reads_only_what_its_screen_draws_from(mantel):
+    """SRV-2: the socket took `read` of any route: `mantel/settings/history` with bodies, Settings' documents."""
+    await _open_preview(mantel)
+    ws = await mantel.client.ws_connect("/ws")
+    try:
+        for i, inner in enumerate(({"type": "mantel/settings/history", "scope": "house", "key": "settings", "limit": 5,
+                                    "bodies": True}, {"type": "mantel/settings/get", "scope": "house", "key": "settings"},
+                                   {"type": "hk_frontend/hidden/get"}, {"type": "hk_music/settings/library"},
+                                   {"type": "hk_frontend/panel/get"}), 1):
+            await ws.send_json({"type": "read", "id": i, "msg": inner})
+            reply = json.loads((await ws.receive(timeout=5)).data)
+            assert reply["id"] == i and reply["error"]["code"] == "read_only", (inner, reply)
+        await ws.send_json({"type": "read_subscribe", "id": 9, "msg": {"type": "mantel/settings/history", "scope": "house"}})
+        reply = json.loads((await ws.receive(timeout=5)).data)
+        assert reply["id"] == 9 and reply["error"]["code"] == "read_only"
+        # what the screen itself reads is answered (a subscription's first frame, or its own error: never read_only)
+        await ws.send_json({"type": "read_subscribe", "id": 10, "msg": {"type": "hk_frontend/settings/subscribe"}})
+        first = json.loads((await ws.receive(timeout=5)).data)
+        assert first.get("error", {}).get("code") != "read_only", first
+    finally:
+        await ws.close()
+
+
+async def test_a_screens_reads_and_a_previews_never_reads_do_not_overlap():
+    from mantel_server.server import PREVIEW_READS, PREVIEW_READS_NEVER
+    assert not PREVIEW_READS & PREVIEW_READS_NEVER
+    assert not any(t.startswith("mantel/settings") or t.endswith("/settings/get") or "setup" in t for t in PREVIEW_READS)
+
+
+async def test_every_read_a_house_registers_is_a_screens_or_not_a_previews(mantel):
+    """SRV-2: a new read is closed to previews until it is placed on one of the two lists."""
+    from mantel_server import readproxy
+    from mantel_server.connectors import read_routes
+    from mantel_server.server import PREVIEW_READS, PREVIEW_READS_NEVER
+    every = set(read_routes(mantel.app)) | set(readproxy.READ_ALLOWED) | set(readproxy.MANTEL_READS)
+    assert not every - (PREVIEW_READS | PREVIEW_READS_NEVER), sorted(every - (PREVIEW_READS | PREVIEW_READS_NEVER))
+
+
 async def test_the_consent_page_cannot_be_framed_and_says_where_it_returns(mantel):
     house(mantel)
     await owner(mantel)
