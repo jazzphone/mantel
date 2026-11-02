@@ -69,7 +69,7 @@ Things an assistant can do in one conversation:
 - **Fix Music after a move:** when Music Assistant's library changes and playlist pills stop working, it matches each one again by name and lists any it couldn't match.
 - **Answer "what changed this week?"** from the audit log.
 
-An assistant can also open a **preview** of a screen in its own browser, to look at what it built. The preview link works once, for five minutes, and the screen it opens can't change anything or open Mantel Settings.
+An assistant can also open a **preview** of a screen in its own browser, to look at what it built. The preview link works once, for five minutes, and the screen it opens can't change anything or open Mantel Settings: it reaches only what a screen draws from, never people, sessions, devices or the audit log. An assistant's resources (`mantel://…`) answer to the same ticks as its tools.
 
 ## See and end an assistant
 
@@ -80,7 +80,7 @@ In the **Audit Log**, **Through** → **An Assistant** shows only what assistant
 ## Security
 
 - An assistant's access is a sign-in of the person's own, with a ceiling. Mantel checks the person, their role and the assistant's ticks on every request.
-- Connecting one, with a personal key or by signing in, needs a fresh sign-in (as adding a passkey does): a browser left signed in can't connect an assistant on its own.
+- Connecting one, with a personal key or by signing in, needs a fresh sign-in (as adding a passkey does): a browser left signed in can't connect an assistant on its own; Mantel shows **Sign In Again** first. An assistant that may **control the house** needs one even in Home Assistant's sidebar.
 - A personal key works on the home network only, and never controls the house. A key shown once can't be shown again.
 - A signed-in assistant gets a token that lasts 15 minutes and is renewed as it is used; a stolen renewal token used twice ends the sign-in. Its tokens work only at `/mcp`, never as a browser's sign-in.
 - Mantel never reaches Home Assistant for an assistant except through the same checked, audited path a screen's button uses.

@@ -93,7 +93,7 @@ When Mantel runs inside Home Assistant (the [Mantel App](Install.md), or [Mantel
 ## Change a role, or disable someone
 
 1. Open **Mantel Settings** → **People** and select the person.
-2. Choose a new **Role**. It applies at their next command, and to what their open screens show within a minute.
+2. Choose a new **Role**. It applies at their next command, and to what their open screens show within a minute. Making someone an **Owner** or **Admin**, adding one, linking a Home Assistant user, or enabling a disabled account asks you to confirm it is you with a fresh sign-in, on every page that can do it.
 3. To lock someone out, select **Disable…**. Their sessions end at once and they can't sign in until you select **Enable**.
 
 Some limits:

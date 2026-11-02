@@ -30,7 +30,7 @@ Mantel Server sends a command to the house only while house commands are on. The
 in Mantel Settings (General → Allow Control of the House, `server_settings.py`) after a fresh sign-in, and the change
 is audited before it is applied. `--commands-enabled` is only the value for the very first start. The kill switch
 (`--read-only`, `MANTEL_READ_ONLY`, the App's `read_only`) is a start-up option no client message, REST call or
-setting can override: with it, the house stays read-only. Every command is classified, checked against the person's and
+setting can override: with it, the house stays read-only, and Mantel adds and removes no Home Assistant dashboard. Every command is classified, checked against the person's and
 the device's role, refused where roles deny, and written to the audit log **before** anything is sent. The only
 code a house command asks for is the house Alarm PIN, and only for the alarm.
 

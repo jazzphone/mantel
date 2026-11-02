@@ -353,8 +353,9 @@ and reads exactly what it sends to Home Assistant, and HA's build is byte-identi
   own state) and nothing is sent. Any other service call is refused with commands off, or goes to the
   gateway with them on, exactly as before.
 - **RBAC** is the server's, unchanged: `screen_report` only as `may_speak_for` says (the tablet's user, an
-  admin, anyone for a tablet with no user, or a wall-tablet device in the tablet's room); `notify_mute` any
-  signed-in person.
+  admin, anyone for a tablet with no user, or a wall-tablet device in the tablet's room); `notify_mute`
+  `control` on the Notifications feature (an Adult, Owner or Admin by default), audited (`notify.mute`) first
+  (the third audit pass: it was any signed-in person, a Guest muting smoke for a day).
 - **The photos are reported** (since the Phase 4 ports): when HK turns its photo switch on or off (the
   photo screensaver came up / went away), the page also sends `screen_report {tablet, photos}`, so Mantel's
   `ScreenState.photos` (what the Sleep Screen and linked HA read) follows the page too. A refusal leaves the

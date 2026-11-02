@@ -86,7 +86,15 @@ By role, with the starting roles (see [People and Roles](People-and-Roles.md)):
 | Wall tablet | Yes, on every tablet | Its own room's |
 
 An Owner can narrow any of these with an ordinary deny grant, for example to
-keep a Child off the Music page.
+keep a Child off the Music page. Playing never moves a room that isn't yours:
+if a room you may use is playing together with one you may not, Mantel says so
+and changes nothing, rather than taking that room out of its group.
+
+**Playlists' covers:** each playlist on the Music page, the Music block and the
+playlists sheet shows the picture of the first of its Music Assistant items that
+has one (the playlist's or album's own, else its first song's album), looked up
+in the background and kept for six hours; a playlist with none keeps its color
+and glyph. (HK Frontend, inside Home Assistant, shows the color and glyph.)
 
 **Presets** (a name for rooms that often play together, set in Mantel
 Settings) are offered when the person may see every room in them. A preset
