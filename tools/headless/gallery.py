@@ -538,7 +538,9 @@ def seed_alerts(app) -> None:
                            quiet={"on": True, "from": "22:00", "to": "07:00", "critical": True},
                            config={"host": "smtp.example.com", "port": 587, "security": "starttls", "user": "maple@example.com",
                                    "from": "mantel@example.com", "to": ["maple@example.com"]},
-                           secret={"password": "fictional-app-password", "main": "fictional-app-password"})
+                           # as email.clean keeps it: the server and user it was typed for, and no hint ("main")
+                           secret={"password": "fictional-app-password", "host": "smtp.example.com",
+                                   "user": "maple@example.com"})
     a.channels.sent(discord)
     a.channels.sent(email)
     app["gallery_alert_ids"].update(discord=discord, email=email)
