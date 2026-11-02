@@ -199,6 +199,20 @@ function regionalTag(config) {
   try { return Intl.DateTimeFormat.supportedLocalesOf([lang + '-' + cc]).length ? lang + '-' + cc : lang; } catch (e) { return lang; }
 }
 
+// WHAT A REFUSED OR FAILED COMMAND SAYS (the gateway's error codes, gateway.py; the hub's own `unavailable`)
+const DENIED_TEXT = {
+  alarm_pin_not_set: 'No Alarm PIN is set in Mantel yet (HK Settings, Alarm PIN)',
+  unavailable: 'Couldn’t reach Mantel. Try again in a moment.',
+  unauthenticated: 'You’re signed out. Reload to sign in again.',
+  step_up_required: 'Sign in again to do that.',
+  audit_unavailable: 'Not sent: Mantel couldn’t write it to the Audit Log.',
+};
+const DENIED_ROLES = ['forbidden', 'read_only', 'not_allowed', undefined];
+export function deniedText(code) {
+  if (DENIED_TEXT[code]) return DENIED_TEXT[code];
+  return DENIED_ROLES.indexOf(code) >= 0 ? 'Not allowed' : 'That didn’t work. Try again.';
+}
+
 export class Host {
   constructor({ hub, registry, fixtures, user, config, themes }) {
     this.hub = hub;
@@ -282,14 +296,18 @@ export class Host {
     // what was refused is noted and shown the same way as a refusal here.
     window.addEventListener('hk-command-refused', (e) => {
       this.refused.push((e.detail && e.detail.what) || 'command');
+      if (this.refused.length > 50) this.refused.splice(0, this.refused.length - 50);
       toast('Commands are disabled in Mantel (read-only)');
     });
-    // With the gateway on (P3.3): a command the server's roles refused (no PIN is ever asked: decision 25).
+    // With the gateway on (P3.3): a command the server's roles refused (no PIN is ever asked: decision 25), or one that
+    // failed -- each in its own words (every one said "Not allowed", a dropped connection too: the third audit pass,
+    // 2026-11-01). Both lists keep the last 50.
     this.denied = [];
     window.addEventListener('hk-command-denied', (e) => {
       const d = e.detail || {};
       this.denied.push({ what: d.what, reason: d.reason });
-      toast(d.code === 'alarm_pin_not_set' ? 'No Alarm PIN is set in Mantel yet (HK Settings, Alarm PIN)' : 'Not allowed');
+      if (this.denied.length > 50) this.denied.splice(0, this.denied.length - 50);
+      toast(deniedText(d.code));
     });
     if (typeof window.hkMantelClient.useScreens === 'function') {
       window.hkMantelClient.useScreens({

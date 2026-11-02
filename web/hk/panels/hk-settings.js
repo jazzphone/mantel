@@ -707,6 +707,10 @@
       s.innerHTML = '<div class="loading">Loading…</div>';
       ensureFont();
       var v = stamp(this._panel);
+      // (asked for again, a little later each time and at an address of its own, when a file didn't come: it showed
+      // "couldn't load" until a reload; the third audit pass, 2026-11-01)
+      this._bootTry = (this._bootTry || 0) + 1;
+      if (this._bootTry > 1) v += '&retry=' + this._bootTry;
       try {
         await Promise.all([import('/hk/panels/hk-settings-model.js?v=' + v), import('/hk/panels/hk-settings-kit.js?v=' + v),
                            import('/hk/panels/hk-settings-features.js?v=' + v), import('/hk/modules/hk-settings.js?v=' + v),
@@ -716,7 +720,10 @@
                            // (the grid editor's palette presses go through hk-drag.js)
                            import('/hk/cards/hk-grid-catalog.js?v=' + v).then(function () { return import('/hk/panels/hk-grid-editor.js?v=' + v); })]);
       } catch (e) {
-        s.innerHTML = '<div class="loading">HK settings couldn’t load: ' + String(e && e.message || e) + '</div>';
+        var again = this._bootTry < 5;
+        s.innerHTML = '<div class="loading"></div>';
+        s.firstChild.textContent = 'HK settings couldn’t load: ' + String(e && e.message || e) + (again ? '. Trying again…' : '');
+        if (again) setTimeout(function () { if (self.isConnected) self.boot(); }, 1000 * Math.pow(2, this._bootTry - 1));
         return;
       }
       M = window.hkSettingsModel; K = window.hkSettingsKit; h = K.h; F = window.hkSettingsFeatures; F.use(K);

@@ -40,7 +40,8 @@ MANTEL_CONNECT_ADDRESS=192.0.2.10:8766
 ```
 
 Then `docker compose up -d --wait`. The Proxmox installer does this when you
-run it with `var_connect=yes`. By hand, start Mantel with `--connect`.
+run it with `var_mantel_connect=yes` (the one-command install) or `var_connect=yes` (from a
+checkout). By hand, start Mantel with `--connect`.
 
 This adds one published TLS port, 8766, and nothing else.
 

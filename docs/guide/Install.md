@@ -13,7 +13,7 @@ Mantel Server runs beside your Home Assistant and serves HK's home screens from 
 | **Connecting to Home Assistant** | Automatic (the App's own credential) | On the **Connections** page after the first start | The same as Docker |
 | **HTTPS** | Home Assistant's own | Included (Caddy), or your own reverse proxy | The same as Docker |
 | **Live TV** | Played by Home Assistant's go2rtc, through Mantel Link | Served by Mantel through its own go2rtc | The same, with QuickSync on the iGPU |
-| **Updates** | Through Home Assistant | `./update.sh` | `mantel-update` |
+| **Updates** | Through Home Assistant | `./update.sh` | `update` (or `mantel-update` from a checkout) |
 | **Backups** | Inside Home Assistant's backups | Mantel's own nightly encrypted backups | The same as Docker |
 | **Install guide** | [below](#install-the-home-assistant-app) | [Install with Docker](Install-Docker.md) | [Install in a Proxmox LXC](Install-Proxmox-LXC.md) |
 
@@ -113,7 +113,7 @@ Restart the App after you change an option.
 
 ### In Mantel Settings
 
-Several options used to be App options. They now live in Mantel Settings, so they work the same on the App, Docker and the LXC. When Mantel updates, it copies each old value across once. After that the value in Mantel Settings wins, and the old option is only a first-start value. The old options stay on the Configuration tab for one release, marked "(moved)", and do nothing after that copy.
+Several options used to be App options. They now live in Mantel Settings, so they work the same on the App, Docker and the LXC. When Mantel updates, it copies each old value across once. After that the value in Mantel Settings wins, and the old option is only a first-start value. The old options stay on the Configuration tab, marked "(moved)", until a later release removes them; they do nothing after that copy.
 
 | Setting | Where | What it does |
 |---|---|---|

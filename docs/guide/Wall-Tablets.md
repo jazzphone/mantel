@@ -20,7 +20,7 @@ Enrolling a browser links it to the tablet by room: you pick the tablet, and the
 
 ## Before you start
 
-- Nothing to add first. When you enroll, pick one of HK's wall tablets, or **A New Tablet** and its Home Assistant area: Mantel adds that HK tablet for you (Owners and Admins), so its idle return, screensaver and black screen work at once. Its screen and behaviour are in **Mantel Settings** → **All Screens** → **Wall Tablets** afterwards.
+- Nothing to add first. When you enroll, pick one of HK's wall tablets, or **A New Tablet** and its Home Assistant area: Mantel adds that HK tablet for you (Owners and Admins), so its idle return, screensaver and black screen work at once. Its screen and behavior are in **Mantel Settings** → **All Screens** → **Wall Tablets** afterwards.
 - The tablet must be **on your home network**. Enrolling from outside the home is refused, and a tablet's credential never works from outside.
 - You need someone who can enroll: an **Owner** or **Admin**, or a **Wall Tablet** account made for this tablet ([below](#with-a-wall-tablet-account)).
 - A kiosk app on the tablet, such as **Fully Kiosk Browser** or **Kiosk Satellite**, or any browser.

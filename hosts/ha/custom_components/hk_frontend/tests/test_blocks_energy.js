@@ -6,6 +6,9 @@
 // sample house of test_energysums.js (tests/fixtures/sample_energy.json); the
 // rest with a fictional house. Nothing here names a real one.
 if (typeof HK_ROOT === 'undefined') throw new Error('run tests/run blocks_energy');
+// the day's hours drawn are "now"'s: pinned to noon (fixed_clock.js), so hours still to come exist whatever the real
+// hour is (run after 23:00, Power W had none, and the half-ink check failed: the third audit pass, 2026-11-01)
+load(HK_ROOT + '/tests/fixed_clock.js');
 load(HK_ROOT + '/tests/dom.js');
 load(HK_ROOT + '/tests/card_harness.js');
 window.customCards = [];

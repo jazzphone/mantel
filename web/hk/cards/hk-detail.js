@@ -2666,14 +2666,31 @@
       SENSE_CSS = K.SENSE_CSS; sinceText = K.sinceText; spansOf = K.spansOf; trendOf = K.trendOf;
       wire();
     }
-    function loadSheets() {
+    // ONE FILE THAT DIDN'T COME (a tablet's Wi-Fi waking, Mantel restarting) left every detail sheet dead until a reload
+    // (the third audit pass, 2026-11-01): the ones still missing are asked for again, a little later each time, at an
+    // address of their own -- a browser keeps a failed module's answer for its address
+    var SHEET_TRIES = 6;
+    function loadSheets(n) {
+      n = n || 0;
       var have = window.hkSheets || {};
       var missing = SHEETS.filter(function (file) { return !have[sheetKey(file)]; });
-      if (!missing.length) { runSheets(); return; }
+      if (!missing.length) {
+        try { runSheets(); } catch (err) { console.error('[hk-detail] the sheets did not start', err); }
+        return;
+      }
       // (window.hkV: Mantel's build's ?v= on an address put together here, web/shim/base.js)
-      Promise.all(missing.map(function (file) { var u = '/hk/sheets/' + file; return import(window.hkV ? window.hkV(u) : u); }))
-        .then(runSheets)
-        .catch(function (err) { console.error('[hk-detail] the sheets did not start', err); });
+      Promise.all(missing.map(function (file) {
+        var u = '/hk/sheets/' + file;
+        var got = n ? import((window.hkV ? window.hkV(u) : u) + ((window.hkV ? window.hkV(u) : u).indexOf('?') < 0 ? '?' : '&') + 'retry=' + n)
+                    : import(window.hkV ? window.hkV(u) : u);
+        return got.catch(function (err) { return err; });
+      })).then(function (got) {
+        var err = got.filter(function (r) { return r instanceof Error; })[0];
+        if (!err) { loadSheets(n); return; }
+        if (n + 1 >= SHEET_TRIES) { console.error('[hk-detail] the sheets did not start', err); return; }
+        console.warn('[hk-detail] a sheet did not load (' + err.message + '); again shortly');
+        setTimeout(function () { loadSheets(n + 1); }, Math.min(1000 * Math.pow(2, n), 15000));
+      });
     }
 
     // ================================================================ POP-UPS

@@ -200,6 +200,8 @@ A **service account** is a credential for a machine, not a person: no password, 
 | **Roles & Grants** | Yes | No | No |
 | **Service Accounts**, Connections' **Sidebar (Mantel Connect)** (when Connect is on) | Yes, on the home network | No | No |
 | **Audit Log** | Yes | Yes | No |
+| **Backups** | Yes | Read only (only an Owner backs up, saves the keys or restores) | No |
+| **Assistants (MCP)** | Yes, on the home network | Yes, on the home network | No |
 | **Connections** | Yes | Read only | No |
 | **About** | Yes | Yes | Yes |
 

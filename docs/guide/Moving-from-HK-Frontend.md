@@ -96,7 +96,6 @@ checked against the person's role and written to the
 
 ## 4. Link HK Frontend and add Mantel Link
 
-<!-- RELEASE: HK Frontend 1.9.0 (the release with "Linked to Mantel" and the bridge hand-over) must be published in HACS, and Mantel Link must be installable (jazzphone/mantel-link public), before this step works for anyone. -->
 
 1. **Update HK Frontend** to its latest release in HACS and restart Home
    Assistant.

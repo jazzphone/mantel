@@ -48,10 +48,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         let center = UNUserNotificationCenter.current()
         center.delegate = self
-        // the notification's actions (§5): open the accessory, mute it for an hour (the Notifier's mutes)
+        // the notification's actions (§5): open the accessory. (Mute 1 Hour is not built: its button was shown and did
+        // nothing, the third audit pass, 2026-11-01; docs/guide/iPhone-and-Mac-Apps.md "Not built yet")
         let open = UNNotificationAction(identifier: "OPEN", title: "Open", options: [.foreground])
-        let mute = UNNotificationAction(identifier: "MUTE_HOUR", title: "Mute 1 Hour", options: [])
-        center.setNotificationCategories([UNNotificationCategory(identifier: "MANTEL_ACCESSORY", actions: [open, mute],
+        center.setNotificationCategories([UNNotificationCategory(identifier: "MANTEL_ACCESSORY", actions: [open],
                                                                  intentIdentifiers: [], options: [])])
         return true
     }

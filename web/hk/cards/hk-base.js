@@ -1628,11 +1628,16 @@
         '<button data-yes>Confirm</button></div></div>';
       dialogMount(_sheet);
     } else dialogMount(_sheet);
+    // (a second confirm over an open one: the first's Escape listener is taken off first -- it was left behind and
+    // swallowed every Escape on the page from then on; the third audit pass, 2026-11-01)
+    if (_sheet._esc) document.removeEventListener('keydown', _sheet._esc, true);
     var close = function () {
       _sheet.removeAttribute('data-open');
       document.removeEventListener('keydown', esc, true);
+      if (_sheet._esc === esc) _sheet._esc = null;
     };
     var esc = function (e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+    _sheet._esc = esc;
     // Rebound every time: the handler closes over THIS call's onOk.
     _sheet.querySelector('[data-no]').onclick = function () {
       close();

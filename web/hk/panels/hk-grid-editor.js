@@ -1699,7 +1699,7 @@
       Object.keys(client.states).forEach(function (id) {
         var st = client.states[id], a = Object.assign({}, st.attributes), state = st.state;
         if (id.startsWith('climate.')) { state = 'heat_cool'; Object.assign(a, { current_temperature: 71, target_temp_low: 68, target_temp_high: 74, hvac_action: 'idle' }); }
-        if (id.startsWith('media_player.')) { state = 'playing'; Object.assign(a, { media_title: 'A Favourite Song', media_artist: 'Sample Artist', media_album_name: 'Sample Album', media_duration: 240, media_position: 82, media_position_updated_at: stamp, volume_level: .4 }); }
+        if (id.startsWith('media_player.')) { state = 'playing'; Object.assign(a, { media_title: 'A Favorite Song', media_artist: 'Sample Artist', media_album_name: 'Sample Album', media_duration: 240, media_position: 82, media_position_updated_at: stamp, volume_level: .4 }); }
         if (id.startsWith('weather.')) { state = 'partlycloudy'; Object.assign(a, { temperature: 72, apparent_temperature: 74, humidity: 52, wind_speed: 8, wind_speed_unit: 'mph' }); }
         if (id.startsWith('light.')) { state = 'on'; a.brightness = 180; }
         if (id.startsWith('person.')) state = 'home';

@@ -46,7 +46,7 @@ CI_JOBS=4 ~/.venvs/mantel/bin/python tools/ci.py full    # fewer at once (three 
   as do the Side Pane's check (a step per size) and the screensaver Shows' (`saver-shows-check-KofN`, every N-th of
   its runs each, `--shard K/N`): each was once the full run's last few minutes alone.
   The main suite runs on 8 workers (`CI_PYTEST_WORKERS`) where `pytest-xdist` is installed (`pip install -e
-  '.[dev]'`); a parametrised test's ids must not depend on random data, or the workers collect different tests.
+  '.[dev]'`); a parametrized test's ids must not depend on random data, or the workers collect different tests.
 - **quick** is the main suite, `check_links`, `check_version`, `package_check --release`, and the private words
   in what is committed and in the commit messages `origin/main` hasn't got.
 - **full** adds the HA build, HK Frontend's Python and JavaScript suites in it, the headless checks one at a time,

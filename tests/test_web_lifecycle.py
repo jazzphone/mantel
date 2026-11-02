@@ -211,3 +211,57 @@ def test_hk_detail_loads_every_sheet_file_and_nothing_in_cards_is_one():
     assert listed and len(listed) == len(set(listed))
     assert sorted(p.name for p in (WEB / "hk/sheets").glob("*.js")) == sorted(listed)
     assert not list((WEB / "hk/cards").glob("hk-sheet-*.js"))
+
+
+# ------------------------------------------------------------ the third pass (docs/development/Audit-2026-11-third-pass.md)
+def test_a_sheet_file_that_did_not_come_is_asked_for_again():
+    """WEB-11: one failed fetch of a web/hk/sheets/ file left every detail sheet dead until a reload (measured in headless
+    Chrome: the file blocked while the page loaded, then reachable -- hkDetail never started). The ones still missing
+    are asked for again, later each time, at an address of their own (a browser keeps a failed module's answer for its
+    address); so are the page's own modules (home.js) and HK Settings' (hk-settings.js boot)."""
+    detail = text("web/hk/cards/hk-detail.js")
+    load = detail[detail.index("function loadSheets(n)"):]
+    load = load[:load.index("\n    }\n")]
+    assert "'retry=' + n" in load and "setTimeout(function () { loadSheets(n + 1); }" in load and "SHEET_TRIES" in load
+    assert "import(window.hkV ? window.hkV(u) : u)" in load      # the first try at the build's own address
+    home = text("web/home.js")
+    imp = home[home.index("const imp = async (u) =>"):]
+    assert "'retry=' + n" in imp[:600] and "setTimeout" in imp[:600]
+    settings = text("web/hk/panels/hk-settings.js")
+    boot = settings[settings.index("    async boot() {"):]
+    boot = boot[:boot.index("M = window.hkSettingsModel")]
+    assert "'&retry=' + this._bootTry" in boot and "self.boot()" in boot
+    assert "innerHTML = '<div class=\"loading\">HK settings couldn" not in boot   # the browser's words as text, not HTML
+
+
+def test_a_failed_command_is_said_in_its_own_words_not_not_allowed(tmp_path):
+    """WEB-12: every refused or failed command said "Not allowed" -- a dropped connection, a signed-out page, an audit
+    log that couldn't be written, Home Assistant's own errors too."""
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    shutil.copy(WEB / "shim/mantel-host.js", tmp_path / "mantel-host.mjs")
+    shutil.copy(WEB / "shim/base.js", tmp_path / "base.mjs")
+    host = (tmp_path / "mantel-host.mjs").read_text().replace("from './base.js'", "from './base.mjs'")
+    (tmp_path / "mantel-host.mjs").write_text(host)
+    probe = tmp_path / "probe.mjs"
+    probe.write_text("globalThis.window = globalThis; globalThis.location = { pathname: '/x/y', origin: 'http://h' };\n"
+                     "const { deniedText } = await import('./mantel-host.mjs');\n"
+                     "console.log(JSON.stringify(['forbidden', 'read_only', undefined, 'unavailable', 'unauthenticated',"
+                     " 'audit_unavailable', 'step_up_required', 'service_not_found', 'alarm_pin_not_set'].map(deniedText)));\n")
+    out = subprocess.run(["node", str(probe)], capture_output=True, text=True, cwd=tmp_path, timeout=60)
+    assert out.returncode == 0, out.stderr
+    said = json.loads(out.stdout.strip().splitlines()[-1])
+    assert said[:3] == ["Not allowed"] * 3
+    assert all(s != "Not allowed" for s in said[3:]), said
+    assert "reach Mantel" in said[3] and "signed out" in said[4] and "Audit Log" in said[5] and "No Alarm PIN" in said[8]
+
+
+def test_a_second_confirm_over_an_open_one_leaves_no_escape_listener_behind():
+    """WEB-13: hkCards.confirmSheet's sheet is one element; a second confirm over an open one re-bound its buttons, and
+    the first call's capture-phase Escape listener was never taken off -- every Escape on the page was swallowed from
+    then on (measured in headless Chrome: a window keydown listener stopped hearing Escape)."""
+    base = text("web/hk/cards/hk-base.js")
+    fn = base[base.index("var close = function () {\n      _sheet.removeAttribute('data-open');") - 400:]
+    fn = fn[:fn.index("return _sheet;")]
+    assert "if (_sheet._esc) document.removeEventListener('keydown', _sheet._esc, true);" in fn
+    assert "_sheet._esc = esc;" in fn

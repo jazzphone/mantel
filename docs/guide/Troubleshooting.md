@@ -111,7 +111,7 @@ Mantel decides whether a request comes from your home network (the LAN door) or 
 - **With your own proxy**, `MANTEL_TRUSTED_PROXY` (Docker) or `trusted_proxies` (the App) must be your proxy's address **as Mantel sees it**, and the proxy must send `X-Mantel-Door` together with the **door key**. Open `https://mantel.example.com/proxy-check` as the Owner: it shows the address it saw and what is missing.
 - **With the App's built-in HTTPS**, the tablet must reach the Home Assistant machine **directly** on your network. Through the router's port forwarding it arrives from the wrong address and gets the remote rules.
 
-Wall-tablet sign-in and enrolment work only on the LAN door (`403 lan_only` otherwise). See [Wall Tablets](Wall-Tablets.md).
+Wall-tablet sign-in and enrollment work only on the LAN door (`403 lan_only` otherwise). See [Wall Tablets](Wall-Tablets.md).
 
 ### "Wall tablets are off for the sidebar" (the App)
 
@@ -133,7 +133,7 @@ The message and the audit row say why, for example `no_grant` (the role doesn't 
 
 ### The alarm keypad says "try again in N min"
 
-After 5 wrong Alarm PINs in a row, that tablet or browser is locked out of the keypad for 15 minutes, even with the right PIN. It survives a restart. Wait for it to pass. **Alarm PIN not set** means nobody has set the house Alarm PIN yet: set it in **Mantel Settings** → **Security** (under **Pages**) → **Change PIN**.
+After 5 wrong Alarm PINs in a row, that tablet or browser is locked out of the keypad for 15 minutes, even with the right PIN. It survives a restart. Wait for it to pass. **No Alarm PIN is set in Mantel yet** means nobody has set the house Alarm PIN yet: set it in **Mantel Settings** → **Security** (under **Pages**) → **Change PIN**.
 
 ## Music and Live TV
 
@@ -159,7 +159,7 @@ More in [Backups](Backups.md).
 
 ## Reporting a problem
 
-When you report a problem, include:
+Report problems on [GitHub's issue tracker](https://github.com/jazzphone/mantel/issues); a security problem privately instead, as [SECURITY.md](https://github.com/jazzphone/mantel/blob/main/SECURITY.md) says. When you report a problem, include:
 
 - how you run Mantel (App, Docker or LXC) and its version (**Mantel Settings** → **About**),
 - what you did, what you expected, and what happened,
@@ -167,4 +167,3 @@ When you report a problem, include:
 
 Check the log lines before you paste them anywhere. Mantel never logs a token, but your names and addresses may appear.
 
-<!-- RELEASE: link the issue tracker (https://github.com/jazzphone/mantel/issues) and SECURITY.md's reporting address once the repository is public. -->

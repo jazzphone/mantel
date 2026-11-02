@@ -75,7 +75,7 @@
   function actionsOn(port, hub) {
     function settle(body, what, reply) {
       if (reply && reply.type === 'step_up_required') {
-        emit('hk-command-denied', { what: what.what, reason: reply.reason });
+        emit('hk-command-denied', { what: what.what, reason: reply.reason, code: 'step_up_required' });
         return Promise.reject(fail('step_up_required', reply.reason, { reason: reply.reason }));
       }
       if (reply && reply.error) {

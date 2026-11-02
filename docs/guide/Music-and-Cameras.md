@@ -109,8 +109,8 @@ Music Assistant group, so each stays free to join other rooms. Volume goes to
 both together; play and pause go to the first, which leads the pair. If Music
 Assistant also has a group of exactly those two speakers, the pair plays
 through it when it plays on its own; with other rooms its two speakers join
-them instead (a preset whose rooms are exactly the ones chosen still plays
-through its own group). Unpair it on the same page to have two speakers again.
+them instead. (A preset is only a name for rooms: no Music Assistant group
+plays it.) Unpair it on the same page to have two speakers again.
 
 ### Playing needs house commands on
 

@@ -4,13 +4,26 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
-The first public release of **Mantel**: HK Frontend's screens, inspired by Apple's Home app, served from a server of their own beside Home Assistant. It ships with **Mantel Link** 0.1.8 (Home Assistant's side of Mantel, from HACS) and alongside **HK Frontend** 1.16 (HK inside Home Assistant), built from the same code. The [user guide](docs/guide/Home.md) covers all of it; [HK Frontend and Mantel](docs/guide/HK-Frontend-and-Mantel.md) compares the products.
+**Fixed**
+- Screensaver editor: the **+** in each empty place is centered in its circle, and a Temperature widget's figure in its ring.
+- Screensaver: the **Today** face's song line is centered under the time, a long title cut short with an ellipsis; **What's Playing** (under the time's **Face**, and under **Clock Style** in Settings) turns that line off.
+- Home Grid: a Music block's **Plays On** can be one of your presets (a group); it couldn't be saved since 0.1.111. A refused save names the blocks to check.
+- Side Pane: the small speaker sits on the volume slider's line.
+- Home Grid: a Room block's glyphs are as large as its tiles allow (they were a fixed small size), and a Wide Room's row is the Home app's pill, never stretched or cut.
+
+## 0.1.112 - 2026-11-01
+
+- **Releases are published:** from this release on, each one also goes out as a GitHub Release, as Docker images on ghcr.io (`mantel-server`, `mantel-transcode`, `mantel-caddy`) and as the Home Assistant App repository (`https://github.com/jazzphone/mantel#ha-apps`); the Proxmox LXC's `update` follows the release tags. 0.1.112 is the first, and carries 0.1.111's changes below (0.1.111 itself was not published).
+
+### What the first public release holds
+
+The first public release of **Mantel**: HK Frontend's screens, inspired by Apple's Home app, served from a server of their own beside Home Assistant. It ships with **Mantel Link** 0.1.9 (Home Assistant's side of Mantel, from HACS) and alongside **HK Frontend** 1.34.0 (HK inside Home Assistant), built from the same code. The [user guide](docs/guide/Home.md) covers all of it; [HK Frontend and Mantel](docs/guide/HK-Frontend-and-Mantel.md) compares the products.
 
 **Running it**
 - **Three ways to run it:** the Home Assistant App (Home Assistant OS or Supervised; in Home Assistant's sidebar, optionally at its own address too), Docker Compose with Caddy or your own reverse proxy, or a Proxmox LXC made by a script. All three run the same server.
 - **Set Up Mantel:** a first-run checklist in Mantel Settings, each step worked out from the house (Home Assistant, your home, screens, the household, the Owner's sign-in, the Alarm PIN, moving the house from HK Frontend, house commands), each opening the page that does it.
 - **Backups:** inside Home Assistant's backups for the App; nightly encrypted backups, checked before a restore, with Docker and the LXC.
-- **Updating** through Home Assistant, `./update.sh` or `mantel-update`.
+- **Updating** through Home Assistant, `./update.sh`, or `update` in the LXC.
 
 **People and access**
 - **People and roles:** Owner, Admin, Adult, Child and Guest, with grants per room and feature, and Wall Tablet for a tablet.
@@ -51,7 +64,7 @@ The first public release of **Mantel**: HK Frontend's screens, inspired by Apple
 - **iPhone Duo: edge to edge, the tab bar in the side strip.** The app's page runs under the Duo's strip of system controls (its camera, the time and Wi-Fi down the right edge) as a native app's does, the sky and the screensaver filling the display, and keeps its content clear of the strip; it was a black band. The tab bar becomes a rail in the strip's empty foot, below the system's items (**Menu → Tab Bar → Use the Side Strip**, on by default), the tabs that don't fit in More. A phone held sideways keeps its page clear of its Dynamic Island the same way, in the app and in a Home Screen web app.
 - Home Grid: swipe cards page with a mouse, a wheel or a trackpad; shared blur reaches cards inside swipe blocks; starter layouts stay inside Screen Settings while editing; fixed tall-tile proportions with a per-screen scale; six-by-two room and scene groups; person portraits load through Mantel and fall back to initials; room and scene groups take their own background color, opacity and blur.
 - Group controls show in the Lights and accessory lists without double-counting their members.
-- Ignore Announcements recognises Home Assistant service calls in Mantel, Music Assistant speakers included.
+- Ignore Announcements recognizes Home Assistant service calls in Mantel, Music Assistant speakers included.
 - Importing HK's settings from a Home Assistant without HK Frontend says there is nothing to import.
 - Revoked tablets, Service accounts and Connect pairings leave their lists after 30 days, or at once with Clear List; the Audit Log keeps them. The App no longer leaves a revoked "App discovery" credential behind at every restart, and makes none when Mantel Link was set up by hand.
 - The Audit Log's From and To say Any Time, Now or the last hour, day, week or month.
@@ -82,10 +95,6 @@ Reliability:
 - Docker and LXC: browser notifications and pairing the iPhone, iPad and Mac apps work (their keys live in the data folder, and in backups).
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
-
-## 0.1.112 - 2026-11-01
-
-- **Releases are published:** from this release on, each one also goes out as a GitHub Release, as Docker images on ghcr.io (`mantel-server`, `mantel-transcode`, `mantel-caddy`) and as the Home Assistant App repository (`https://github.com/jazzphone/mantel#ha-apps`); the Proxmox LXC's `update` follows the release tags. 0.1.112 is the first, and carries 0.1.111's changes below (0.1.111 itself was not published).
 
 ## 0.1.111 - 2026-11-01
 
@@ -186,18 +195,18 @@ Reliability:
 
 ## 0.1.97 - 2026-10-31
 
-- **Glyphs at HomeView's size:** Centred tiles draw their glyphs about 15 % larger, near Apple's (about 30 % of the tile). Square cells are now recognised however small they come out (beside the Side Pane on a 1280 x 800 tablet they had the shorter tile's smaller glyph), which also fixes the calendar, camera, timers and weather blocks there.
+- **Glyphs at HomeView's size:** Centered tiles draw their glyphs about 15 % larger, near Apple's (about 30 % of the tile). Square cells are now recognized however small they come out (beside the Side Pane on a 1280 x 800 tablet they had the shorter tile's smaller glyph), which also fixes the calendar, camera, timers and weather blocks there.
 - **Side Pane:** the Clock can show the weather beside the time, as the menu's header does (Beside the Time). The calendar lists events under their day (Today, Tomorrow, the weekday) with only the time under each. The space above the time matches the space at the side.
 - **Screensaver:** Big Weather's big number can be the temperature or the time (Big Number), and it now stands on the landscape's ground with a soft shadow. Home Energy over the Forecast blurs the landscape behind it. Time Behind has Time Size, Time Height and Darken.
 - **Music block:** Presets is now Playlists, and a Plays On option picks the speaker or speaker group a tap plays on.
 - **Music First over the Forecast:** the time, the date and the weather show in the corner again while the music covers a Big forecast or its details (they were hidden unless the Forecast's Layout was Classic).
-- **Fixes:** the radar's full-screen X is clear of the iPhone Duo's side strip; the Music page no longer says "Could not open that: no client" while it connects; the camera block lands exactly on each camera instead of a few pixels to the right; the Pages screen fades in once laid out instead of jumping; More's Calendar shows its glyph in the list, and its date sits upright and centred in the icon.
+- **Fixes:** the radar's full-screen X is clear of the iPhone Duo's side strip; the Music page no longer says "Could not open that: no client" while it connects; the camera block lands exactly on each camera instead of a few pixels to the right; the Pages screen fades in once laid out instead of jumping; More's Calendar shows its glyph in the list, and its date sits upright and centered in the icon.
 
 ## 0.1.96 - 2026-10-31
 
 - **Music without Home Assistant:** with Music Assistant connected, the speakers' state, covers, commands, Browse, search and Up Next come from Music Assistant directly, so music keeps working while Home Assistant restarts.
 - **Covers and faces that fail:** never the broken-image "?". A cover that can't load shows the music note (never the previous song's art), a person keeps their last good picture, and an unavailable player shows its placeholder.
-- **Backgrounds in any colour:** one combined picker holds the Wallpapers (Ribbons, Petals, Shards, Pinwheel) and the six motion themes, with one Color list and Motion under it. The Clock screensaver uses the same picker.
+- **Backgrounds in any color:** one combined picker holds the Wallpapers (Ribbons, Petals, Shards, Pinwheel) and the six motion themes, with one Color list and Motion under it. The Clock screensaver uses the same picker.
 - **Side Pane clock:** Face, Alignment (Left, Center, Right), Text Size, Weight, AM/PM, Flashing Colon, Date and Second Line, on All Screens or per screen.
 - **Side Pane Now Playing:** an Album Art Background switch, and When Tapped opens Speakers, Volume, Browse and Queue in place or flips to the controls.
 - **Side Pane Camera:** the still loads and refreshes every 10 seconds, with a Name option (hidden by default).
@@ -206,21 +215,21 @@ Reliability:
 
 ## 0.1.95 - 2026-10-31
 
-- **Motion themes:** six new animated Wallpaper backgrounds (Aurora, Beams, Blobs, Dots, Meteors and Waves), each in any colour you pick, with presets; still under Flat or Reduce Motion. The Clock screensaver's Background offers the Wallpapers and motion themes too.
+- **Motion themes:** six new animated Wallpaper backgrounds (Aurora, Beams, Blobs, Dots, Meteors and Waves), each in any color you pick, with presets; still under Flat or Reduce Motion. The Clock screensaver's Background offers the Wallpapers and motion themes too.
 - **Every block does something when tapped:** each Home Grid block opens its sheet or its page, with a When Tapped option.
 - **Card picker:** every block is listed (To-do, Energy Rings, On Now and the rest), each size chip previews that size, and a card with no room can be dropped over the blocks it replaces, with Undo.
 - **Names you give accessories win everywhere:** Security's Recent Activity, Left On, the Doors and leak lines, On Now and the Side Pane. A new **Also rename in Home Assistant** switch under an accessory's name renames it there too (the name only, never the entity id).
 - **Music:** playing a song, album, artist or playlist from Browse replaces the queue, as Apple Music does, and only counts as started once the new music plays.
 - **Day screensaver:** the corner clock and weather stay clear of the day and date, leaves fall and bats fly, the corner clock keeps its own minute, and the weather icon takes the face's dark ink.
-- **Layout fixes:** banners centre on the whole screen, over a Side Pane's edge too; the header's clock glow and chips' shadows are no longer clipped; sideways rows run under a side rail or the iPhone Duo's strip to the screen's edge; the Pages screen's Rooms folder has a proper top inset and, on a phone, is as wide as it can be with names on two lines; a camera block's name can be shown or hidden.
+- **Layout fixes:** banners center on the whole screen, over a Side Pane's edge too; the header's clock glow and chips' shadows are no longer clipped; sideways rows run under a side rail or the iPhone Duo's strip to the screen's edge; the Pages screen's Rooms folder has a proper top inset and, on a phone, is as wide as it can be with names on two lines; a camera block's name can be shown or hidden.
 - **Settings, Advanced:** the font and glyphs are checked in Your Files instead of reported Missing, and Show in Sidebar appears only in Home Assistant.
 
 ## 0.1.94 - 2026-10-31
 
 - **Home Grid blocks as widgets:** every block is redrawn after the HomeView widget mock-ups, at each of its sizes: Calendar (Small, Tall, Large, the month at Extra Large) and a new **To-do** block; the Thermostat's Big Number and its modes; Weather (Wide shows the next hours); Now Playing, Recently Played and Live TV; Timers (the ring is the pause, with a red Stop); Who's Home; the Vacuum's big keys and rooms to tick; Doors, Security, Power, Water and Battery; and new **Energy Rings** and **On Now** blocks. Scenes and Accessories gain Height and Color; every control reaches a finger's 44 px.
 - **Edit mode on the Home Grid itself:** drag, resize, remove and add blocks right on the dashboard.
-- **Centred tiles** draw their glyphs bare and large, as HomeView does; an Accessory block says its chosen Line Under Name.
-- **More and Rooms** in the tab bar are app icons in their colours, in a bigger sheet on a tablet.
+- **Centered tiles** draw their glyphs bare and large, as HomeView does; an Accessory block says its chosen Line Under Name.
+- **More and Rooms** in the tab bar are app icons in their colors, in a bigger sheet on a tablet.
 - **The Side Pane:** Now Playing at Less is a mini player (Speakers and Browse beside its volume) and at More shows the song's progress; Security says only what is open; Who's Home is spread evenly; its Clock is lined up.
 - **Screensaver:** Time Behind's weather is back in the top-left corner; Clock's time is bright over a dimmed photo; light faces such as Day use dark ink; the Day art moves gently (still under Flat or Reduce Motion); the Forecast's corners no longer overlap.
 - **Settings previews:** the screensaver preview is the screensaver alone at the screen's size, each change shown as it is made, without reloading a dashboard; the Appearance pages preview the look with a few of the screen's cards; All Screens' Appearance and Side Pane pages get previews too.
@@ -229,7 +238,7 @@ Reliability:
 
 ## 0.1.93 - 2026-10-30
 
-- **Time Behind, one place for the time:** the time is always upper centre, the same spot and size on every photo; the photo's subject comes over it only where it covers part of the time, otherwise the time is in front. The weather sits under the time, centred, instead of beside it; on a phone it fits the screen, and the photo's title and what's playing no longer overlap.
+- **Time Behind, one place for the time:** the time is always upper center, the same spot and size on every photo; the photo's subject comes over it only where it covers part of the time, otherwise the time is in front. The weather sits under the time, centered, instead of beside it; on a phone it fits the screen, and the photo's title and what's playing no longer overlap.
 - **Home Grid blocks, tidied at all five sizes:** every block now has the same inset from its edges (14 px on tiles, 18 on square cells, more in a Square screen's corners), pills inside a block follow its corners, and blocks with fewer things than spaces fill themselves instead of leaving empty rows. Fixed: the Thermostat XL dial running out of its column, the Tall clock's AM/PM cut off, the Scenes block's extra bottom space, the Vacuum L/XL card stuck at the top of its block, Now Playing Tall's corner buttons, and Weather XL's two columns not lining up.
 - **The Vacuum block on square cells (HomeView)** reads like the blocks beside it: round controls at the top, the name and "Docked · 92%" at the foot.
 - **A button added among accessories** (button or input_button) gets a second line, "Tap", like the accessories beside it.
@@ -254,8 +263,8 @@ Reliability:
 
 ## 0.1.90 - 2026-10-30
 
-- **Looks:** eight complete setups for a screen (HomeView, Flat, Performance, Holiday Whimsy, Active Weather, Calming Backgrounds, Night & Bedside, Photo Frame), each setting the colours and accent, the background and sky, the tiles, the Side Pane, swiping, the screensaver and a layout for the screen's shape. A screen's **Looks** page lists every change as was → becomes; **Layout + Look** in the Home Grid editor sets the layout too; one Undo puts it all back.
-- **Square tiles look like HomeView's by themselves:** Tile Style **Automatic** (the new default) centres the icon above the name on square cells and keeps the Home layout elsewhere. Square grids offer **2 to 6 columns**.
+- **Looks:** eight complete setups for a screen (HomeView, Flat, Performance, Holiday Whimsy, Active Weather, Calming Backgrounds, Night & Bedside, Photo Frame), each setting the colors and accent, the background and sky, the tiles, the Side Pane, swiping, the screensaver and a layout for the screen's shape. A screen's **Looks** page lists every change as was → becomes; **Layout + Look** in the Home Grid editor sets the layout too; one Undo puts it all back.
+- **Square tiles look like HomeView's by themselves:** Tile Style **Automatic** (the new default) centers the icon above the name on square cells and keeps the Home layout elsewhere. Square grids offer **2 to 6 columns**.
 - **Wallpaper Motion:** Off, Slow, Medium or Fast; it stops when hidden, under the black screen and with Reduce Motion.
 - **The Side Pane** takes the screen's glass (blurred in Blur and Bright Glass), has no headings (a thin line between sections) and a live preview on its settings page.
 - **Bright Glass sheets and pop-ups** are readable over every wallpaper: a deeper tint, the page dimmed behind, room icons in white circles.
@@ -264,7 +273,7 @@ Reliability:
 
 ## 0.1.89 - 2026-10-30
 
-- **A HomeView-style look, every part of it an option** (a screen looks as it did until you pick something): square cells on any screen and a **Square** (3 × 3) screen type; HomeView-style starters, with **Home with Pane** recommended for a landscape tablet; **Centred** tiles; a **Big Number** thermostat; an **Analog Numbers** clock; a **Cameras** face of up to nine stills; **Bright Glass** and twelve **Wallpapers** of our own that tint the tiles, on every surface but Mantel Settings.
+- **A HomeView-style look, every part of it an option** (a screen looks as it did until you pick something): square cells on any screen and a **Square** (3 × 3) screen type; HomeView-style starters, with **Home with Pane** recommended for a landscape tablet; **Centered** tiles; a **Big Number** thermostat; an **Analog Numbers** clock; a **Cameras** face of up to nine stills; **Bright Glass** and twelve **Wallpapers** of our own that tint the tiles, on every surface but Mantel Settings.
 - **Swipe Between Pages:** a sideways swipe goes to the next or the previous page of the tab bar, the highlight following; a Home Grid turns its own views first, and rows that scroll sideways keep their swipe (**Menu → Gestures**).
 - **Side Pane:** one per screen, of the sections you pick (Clock, Weather, Calendar, Now Playing, Security, Camera, Timers, Energy, Climate, Who's Home, To-do, Notifications) at four sizes, beside Home, every page or the screensaver, on the left or the right. It takes over the screensaver's pane and Now Playing's side pane, with their settings.
 - **The Pages screen:** after Home, an iPad-style home screen of Mantel's pages as large icons (live ones for Calendar and Weather, badges, a Rooms folder), a way around without a tab bar.
@@ -361,7 +370,7 @@ Reliability:
   Every change's row is written before the change, so nothing changes without one.
 - **Tighter wall-tablet access.** An Owner or Admin signed in at a wall tablet can no longer reach the roles, feature, settings-import or status pages. Mantel Connect can be managed from a trusted Home Assistant sidebar, as Service credentials can.
 - **No more false migration warning.** The migration check compares the database's actual structure instead of file checksums, so the house no longer logs "migration changed after it was applied" on every start. A real schema difference still warns and names the table or index.
-- **Smaller files, same behaviour.** The detail sheets, Mantel's feature host, the settings store and the Mantel Settings page are each split into smaller files. Nothing you see changes.
+- **Smaller files, same behavior.** The detail sheets, Mantel's feature host, the settings store and the Mantel Settings page are each split into smaller files. Nothing you see changes.
 
 ## 0.1.76 - 2026-10-26
 
@@ -391,9 +400,9 @@ Local Home Assistant App update for the house.
 - Home Grid editor: the icon at the top of the Screen and block settings sits in the middle of its square.
 - Detail sheets, reviewed at every size (two phones upright and on their side, iPad upright and on its side, the large iPad, the car) in Safari's engine, every kind of sheet:
   - On a phone held sideways, nothing scrolls any more: the alarm's keypad sits beside its code field and arm buttons; the timer's ring beside its buttons and week; an automation's controls beside its week; the water heater's ring beside its modes and readings, as the thermostat's; a person's day beside the map. The humidifier's slider, which had gone missing there, is back.
-  - On a phone held sideways, a control and what is beside it sit centred as one group (a shade, an awning, a light's colours, the vacuum), not the control against the left edge; a door's day strip runs to the edge.
-  - On a small iPhone (an SE), the media and sensor sheets fit: the sheet takes 20 px above and below, and the cover is a step smaller. A colour light's favourites fit across.
-  - The camera's X sits as far from the top as from the right, and its volume slider is easier to catch. The event's colour dots take a larger tap.
+  - On a phone held sideways, a control and what is beside it sit centered as one group (a shade, an awning, a light's colors, the vacuum), not the control against the left edge; a door's day strip runs to the edge.
+  - On a small iPhone (an SE), the media and sensor sheets fit: the sheet takes 20 px above and below, and the cover is a step smaller. A color light's favorites fit across.
+  - The camera's X sits as far from the top as from the right, and its volume slider is easier to catch. The event's color dots take a larger tap.
   - The water heater's mode names no longer break mid-word.
 - `tools/headless/sheet_review.py`: every kind of detail sheet at eight screen sizes in WebKit, measured for fit, scrolling, balance, the X and tap sizes, with contact sheets to look over.
 
@@ -408,8 +417,8 @@ Local Home Assistant App update for the house.
 - Home Grid: **Views** (Screen → Views): up to four whole layouts on one screen, a swipe apart, with dots to tap; a swipe on a block that swipes its own pages stays the block's. Phone, Landscape gets a StandBy starter of two views.
 - A phone held sideways has the side rail its screen asks for (Tab Bar Position Left or Right); only a narrow window keeps the bar along the bottom.
 - Home Grid: **Night Mode** (Screen → Night): the screen one dim red on black, at night between two times or always, as StandBy has it. Home only.
-- A Home Grid beside a tab bar rail that rests small (Start Small) or hides centres on the whole screen; the rail's room comes back as it opens.
-- Detail sheets on a short screen (a phone on its side, the car): each sheet is the screen's height, the control on the left at full height with what it reads and its buttons centred beside it. The thermostat's ring sits beside its modes and fan; media's cover beside the track; a sensor's reading beside its chart; an event beside its day. Nothing scrolls. Tablet and phone sheets are unchanged.
+- A Home Grid beside a tab bar rail that rests small (Start Small) or hides centers on the whole screen; the rail's room comes back as it opens.
+- Detail sheets on a short screen (a phone on its side, the car): each sheet is the screen's height, the control on the left at full height with what it reads and its buttons centered beside it. The thermostat's ring sits beside its modes and fan; media's cover beside the track; a sensor's reading beside its chart; an event beside its day. Nothing scrolls. Tablet and phone sheets are unchanged.
 
 ## 0.1.72 - 2026-10-24
 

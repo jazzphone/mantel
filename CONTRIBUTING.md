@@ -21,16 +21,14 @@ That's the main suite, offline, no Home Assistant needed. [Building and Testing]
 
 ## Keep personal details out
 
-`tools/check_private.py` refuses words you list, such as your name, your domain or your home's network, in tracked files and commit messages. The list stays outside the repository. Install it as a pre-commit hook:
+`tools/check_private.py` refuses words you list, such as your name, your domain or your home's network, in tracked files and commit messages. The list stays outside the repository. Install it, with the pre-push checks, as git hooks:
 
 ```bash
 printf '%s\n' 'your-surname' 'yourdomain\.com' '192\.168\.1\.' > ~/.config/mantel/private-words
-cat > .git/hooks/pre-commit <<'HOOK'
-#!/bin/sh
-HK_PRIVATE_FILE=~/.config/mantel/private-words exec python3 tools/check_private.py
-HOOK
-chmod +x .git/hooks/pre-commit
+python3 tools/ci.py --install-hooks
 ```
+
+The pre-commit hook checks only what you stage (`--staged`), so a local, never-committed edit doesn't block a commit.
 
 Use made-up names and the documentation address ranges (`192.0.2.x`, `example.com`) in tests, docs and screenshots.
 
