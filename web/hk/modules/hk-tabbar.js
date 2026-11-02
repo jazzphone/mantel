@@ -465,7 +465,8 @@
       // white. Its sheets (More, Rooms) a heavier blur under a white .22.
       // (a little darker under the wash, 2026-10-30: over a light page -- the
       // Climate page's teal -- its names were hard to read)
-      '.bright .g{background:linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),rgba(14,18,30,0.30);border-color:transparent;',
+      // (the look's Dim over it, 2026-11-01: --hk-bright-shade, hk-settings.js brightLook)
+      '.bright .g{background:var(--hk-bright-shade,linear-gradient(transparent,transparent)),linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),rgba(14,18,30,0.30);border-color:transparent;',
       '  -webkit-backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);',
       '  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.22),inset 0 1.5px 0 rgba(255,255,255,0.30),0 10px 30px rgba(0,0,0,0.18)}',
       '.bright .tab.here::before,.bright .it.here{background:rgba(255,255,255,0.92)}',

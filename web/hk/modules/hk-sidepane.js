@@ -988,13 +988,12 @@
       // always up on a wall tablet); the slow tablets' Flat the same
       ':host([look="frosted"]) .pane{background:rgba(34,38,56,0.95);-webkit-backdrop-filter:none;backdrop-filter:none}',
       ':host([look="tinted"]) .pane,:host([look="flat"]) .pane{background:rgba(24,24,28,0.93);-webkit-backdrop-filter:none;backdrop-filter:none}',
-      // Bright Glass: the white wash over its light blur, the rim on the page side -- the cards' Brightness
-      // (hk-settings.js brightLook: --hk-pane-plate, --hk-pane-rim, its filter; linked 2026-11-01), these as designed
-      ':host([look="bright"]) .pane{background:var(--hk-pane-plate,linear-gradient(150deg,rgba(255,255,255,0.30),rgba(255,255,255,0.14)));',
-      '  -webkit-backdrop-filter:var(--hk-blur-filter,blur(4px) saturate(1.3) brightness(1.08));backdrop-filter:var(--hk-blur-filter,blur(4px) saturate(1.3) brightness(1.08))}',
-      ':host([look="bright"][side="right"]) .pane{border-left:0;box-shadow:inset 1.5px 0 0 var(--hk-pane-rim,rgba(255,255,255,0.22)),-18px 0 44px rgba(0,0,0,.18)}',
-      ':host([look="bright"][side="left"]) .pane{border-right:0;box-shadow:inset -1.5px 0 0 var(--hk-pane-rim,rgba(255,255,255,0.22)),18px 0 44px rgba(0,0,0,.18)}',
-      ':host([look="bright"][side="band"]) .pane{border-top:0;box-shadow:inset 0 1.5px 0 var(--hk-pane-rim,rgba(255,255,255,0.22)),0 -18px 44px rgba(0,0,0,.18)}',
+      // Bright Glass: the white wash over its light blur, the rim on the page side
+      ':host([look="bright"]) .pane{background:linear-gradient(150deg,rgba(255,255,255,0.30),rgba(255,255,255,0.14));',
+      '  -webkit-backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);backdrop-filter:blur(4px) saturate(1.3) brightness(1.08)}',
+      ':host([look="bright"][side="right"]) .pane{border-left:0;box-shadow:inset 1.5px 0 0 rgba(255,255,255,0.22),-18px 0 44px rgba(0,0,0,.18)}',
+      ':host([look="bright"][side="left"]) .pane{border-right:0;box-shadow:inset -1.5px 0 0 rgba(255,255,255,0.22),18px 0 44px rgba(0,0,0,.18)}',
+      ':host([look="bright"][side="band"]) .pane{border-top:0;box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.22),0 -18px 44px rgba(0,0,0,.18)}',
       ':host([look="bright"]) .pin{text-shadow:0 1px 2px rgba(0,0,0,0.22)}',
       ':host([side="right"]) .pane{border-left:1px solid ' + v('line') + ';box-shadow:-18px 0 44px rgba(0,0,0,.30)}',
       ':host([side="left"]) .pane{border-right:1px solid ' + v('line') + ';box-shadow:18px 0 44px rgba(0,0,0,.30)}',
@@ -2140,13 +2139,19 @@
     return 'blur';
   }
   var DIM_WORDS = { none: 0, low: 16, medium: 30, high: 45 }, DIM_HELD = null, DIM_HELD_T = 0;
+  // ('glass': Same as the Glass, dress() below)
   function dimPct(v) { return typeof v === 'string' ? (DIM_WORDS[v] || 0) : Math.max(0, Math.min(60, Number(v) || 0)); }
   function dress(el, up) {
     var g = document.documentElement.getAttribute('data-hk-glass') || 'blur';
     if (el.getAttribute('look') !== lookOf(g)) el.setAttribute('look', lookOf(g));
     // (how much, 0-60 %: Off / Low / Medium / High its first hours; the Settings slider's own while it moves)
-    var dim = DIM_HELD !== null ? DIM_HELD : dimPct((paneOf() || {}).dim);
-    if (dim > 0) { el.setAttribute('dim', ''); el.style.setProperty('--pane-dim', String(dim / 100)); }
+    // SAME AS THE GLASS (2026-11-01, the default, the owner: linked, with an opt-out): Bright Glass's Dim, as the
+    // page wears it (hk-settings.js --hk-bright-dim: none where the page isn't in Bright Glass) -- a variable, so
+    // the glass's slider moving in Settings moves it too
+    var own = (paneOf() || {}).dim, linked = DIM_HELD === null && (own === 'glass' || own === undefined || own === null);
+    var dim = DIM_HELD !== null ? DIM_HELD : dimPct(own);
+    if (linked) { el.setAttribute('dim', ''); el.style.setProperty('--pane-dim', 'var(--hk-bright-dim, 0)'); }
+    else if (dim > 0) { el.setAttribute('dim', ''); el.style.setProperty('--pane-dim', String(dim / 100)); }
     else { el.removeAttribute('dim'); el.style.removeProperty('--pane-dim'); }
     var G = window.hkGlass, pane = el.shadowRoot && el.shadowRoot.querySelector('.pane');
     if (!G || !G.pin || !pane) return;

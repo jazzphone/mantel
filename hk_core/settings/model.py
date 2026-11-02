@@ -1273,6 +1273,9 @@ DEFAULTS: dict[str, dict[str, Any]] = {
              # the white wash and the lift (50 as designed), capped where
              # white text would fall under 4.5:1 (hk-settings.js brightCap)
              "bright": 50,
+             # ...and its Dim (2026-11-01, the owner: like the Side Pane's):
+             # a shade over the glass and the bars, 0 to BRIGHT_DIM_MAX %
+             "bright_dim": 0,
              # The detail sheets (hk-detail.js), after the Home app's, in
              # place of HA's more-info dialog on the dashboards, and the view
              # a speaker's sheet opens with "Browse Music" (a view path on the
@@ -1334,6 +1337,8 @@ TILE_STYLES = ("auto",) + HG.TILE_STYLES
 # BRIGHT GLASS ON (look.bright_pages, a screen's bright_pages; 2026-10-30, the owner: "should we only use Bright
 # Glass on the main page?"): Home only (the default), the other pages in its Blur; or every page
 BRIGHT_PAGES = ("home", "all")
+# Bright Glass's Dim (look.bright_dim, a screen's bright_dim): 0 to this, in %, as the Side Pane's (PANE_DIM_MAX)
+BRIGHT_DIM_MAX = 60
 # Looks that were tried and taken out, read as the one that replaced them:
 # Baked (blur_baked, each surface its own slice of the picture) cost more
 # than it saved and went on 2026-10-10 -- Pre-rendered is the same picture.
@@ -1543,6 +1548,7 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
         sk["wallpaper_motion"] = "off"
     br = amount_or_none(out["look"].get("bright"))
     out["look"]["bright"] = DEFAULTS["look"]["bright"] if br is None else br
+    out["look"]["bright_dim"] = bright_dim_or_none(out["look"].get("bright_dim")) or 0
     # each over its own defaults: a partly stored object is still whole, and
     # a stored false stays false
     wx = out["weather"]
@@ -1948,8 +1954,10 @@ PANE_WIDTHS = {"narrow": 360, "standard": 400, "wide": 480}
 # DIM (2026-11-01, the owner: "with this background, it's just a bit too light to see the text"): a shade over the
 # pane's glass, under its words, on the Dashboard (the screensaver's pane is on the saver's own ground) -- how much,
 # 0 to PANE_DIM_MAX percent (a slider: the owner, the same day, "why isn't this a slider?"). It was Off / Low / Medium
-# / High for its first hours: those read as their percentages.
+# / High for its first hours: those read as their percentages. "glass" (2026-11-01, the default since: the owner,
+# linked with an opt-out): Same as the Glass -- Bright Glass's Dim (look.bright_dim) where the page wears it.
 PANE_DIM_MAX = 60
+PANE_DIM_GLASS = "glass"
 PANE_DIM_WORDS = {"none": 0, "low": 16, "medium": 30, "high": 45}
 # On the Dashboard: Off, Home Only, Every Page; in the screensaver: Off,
 # Same as the Dashboard's sections, Its Own Sections
@@ -1971,7 +1979,7 @@ SIDE_PANE_DEFAULTS: dict[str, Any] = {
                                           {"kind": "now_playing", "size": "less", "when": "active"}]},
     "doorbell": True,
     "headings": True,
-    "dim": 0,
+    "dim": PANE_DIM_GLASS,
 }
 DEFAULTS["side_pane"] = copy.deepcopy(SIDE_PANE_DEFAULTS)
 
@@ -2061,6 +2069,8 @@ def pane_group(name: str, v: Any, strict: bool = False) -> Any:
     if name == "width":
         return v if v in PANE_WIDTHS else None
     if name == "dim":
+        if v == PANE_DIM_GLASS:
+            return v
         if isinstance(v, str):
             return PANE_DIM_WORDS.get(v)
         return _whole(v, 0, PANE_DIM_MAX)
@@ -2466,8 +2476,8 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # All Screens.
     "flat": None, "flat_theme": None,
     "glass": "house", "frost": None, "blur": None, "tint": None, "well": None, "frost_tint": None, "sky": True, "car": False,
-    # Bright Glass's Strength, this screen's own (None: All Screens')
-    "bright": None,
+    # Bright Glass's Strength, this screen's own (None: All Screens'), and its Dim
+    "bright": None, "bright_dim": None,
     # its own Tile Style (TILE_STYLES; None: All Screens')
     "tile_style": None,
     "bright_pages": None,
@@ -2622,6 +2632,12 @@ SCREEN_PRESETS: dict[str, dict[str, Any]] = {
 }
 
 
+def bright_dim_or_none(v: Any) -> int | None:
+    """Bright Glass's Dim (0-BRIGHT_DIM_MAX %), or None: not set, follow All Screens'."""
+    n = amount_or_none(v)
+    return None if n is None else min(n, BRIGHT_DIM_MAX)
+
+
 def amount_or_none(v: Any) -> int | None:
     """A look amount (0-100 %), or None: not set, follow the house's."""
     if v is None or v == "" or isinstance(v, bool):
@@ -2723,6 +2739,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["well"] = d.get("well") if d.get("well") in WELLS else None
     out["frost_tint"] = d.get("frost_tint") if isinstance(d.get("frost_tint"), bool) else None
     out["bright"] = amount_or_none(d.get("bright"))
+    out["bright_dim"] = bright_dim_or_none(d.get("bright_dim"))
     out["tile_style"] = d.get("tile_style") if d.get("tile_style") in TILE_STYLES else None
     out["bright_pages"] = d.get("bright_pages") if d.get("bright_pages") in BRIGHT_PAGES else None
     # The screen's own Sky / Background: each flag stored as anything but a
