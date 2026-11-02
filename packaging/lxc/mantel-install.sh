@@ -93,7 +93,12 @@ cat > /usr/local/bin/mantel-update <<'EOS'
 #!/usr/bin/env bash
 exec bash /opt/mantel/packaging/lxc/mantel.sh update
 EOS
-chmod 0750 /usr/local/sbin/mantel-secret; chmod 0755 /usr/local/bin/mantel-update
+# how browsers reach Mantel (its address and HTTPS), changed any time after the install
+cat > /usr/local/sbin/mantel-setup <<'EOS'
+#!/usr/bin/env bash
+exec bash /opt/mantel/packaging/lxc/mantel-setup.sh "$@"
+EOS
+chmod 0750 /usr/local/sbin/mantel-secret /usr/local/sbin/mantel-setup; chmod 0755 /usr/local/bin/mantel-update
 
 msg_info "Settings file ${COMPOSE_DIR}/.env (settings only; keeps yours if it exists)"
 if [ ! -f "$COMPOSE_DIR/.env" ]; then

@@ -30,8 +30,9 @@ var_gpu="${var_gpu:-yes}"
 var_nesting="${var_nesting:-1}"
 var_keyctl="${var_keyctl:-1}"
 
-# Mantel's own questions, asked inside the container by install/mantel-install.sh unless set here
-export var_mantel_tls="${var_mantel_tls:-}"            # internal | dns01 | own
+# Mantel's own questions, asked inside the container unless set here (how browsers reach it: mantel-setup, which the
+# install runs and which can be run again any time; try needs nothing and is the default)
+export var_mantel_tls="${var_mantel_tls:-}"            # try | internal | dns01 | own
 export var_mantel_domain="${var_mantel_domain:-}"      # the name browsers use, e.g. mantel.example.com
 export var_mantel_dns="${var_mantel_dns:-}"            # dns01: cloudflare | duckdns | porkbun | route53 | digitalocean | desec
 export var_mantel_proxy_ip="${var_mantel_proxy_ip:-}"  # own: your reverse proxy's address, as Mantel sees it
@@ -159,7 +160,8 @@ start
 build_container
 description
 
-HOST_NAME="$(pct exec "$CTID" -- sed -n 's/^MANTEL_HOSTNAME=//p' /opt/mantel/packaging/compose/.env 2>/dev/null || true)"
+ENV_OF() { pct exec "$CTID" -- sed -n "s/^$1=//p" /opt/mantel/packaging/compose/.env 2>/dev/null | tail -1; }
+HOST_NAME="$(ENV_OF MANTEL_HOSTNAME)"
 RUNNING="$(pct exec "$CTID" -- docker ps -q --filter name=^mantel-server$ 2>/dev/null || true)"
 msg_ok "Completed successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
@@ -168,13 +170,15 @@ if [[ -n "$RUNNING" ]]; then
   echo -e "${INFO}${YW}Open it and choose \"First start\":${CL}"
   echo -e "${GATEWAY}${BGN}https://${HOST_NAME:-${IP}}/login${CL}"
   [[ -n "$CODE" ]] && echo -e "${INFO}${YW}One-time setup code (valid one hour):${CL} ${BGN}${CODE}${CL}"
-  echo -e "${INFO}${YW}A new code any time: pct exec ${CTID} -- docker exec mantel-server mantel bootstrap${CL}"
-  if pct exec "$CTID" -- grep -q '^MANTEL_TLS_SNIPPET=./caddy/tls-internal.caddy' /opt/mantel/packaging/compose/.env 2>/dev/null; then
-    echo -e "${INFO}${YW}First point ${HOST_NAME} at ${IP} in your home's DNS, and trust Mantel's own certificate authority on each device (docs: Install on Proxmox).${CL}"
-  elif [[ -n "$(pct exec "$CTID" -- grep '^COMPOSE_FILE=.*byo-proxy' /opt/mantel/packaging/compose/.env 2>/dev/null || true)" ]]; then
+  if [[ "$HOST_NAME" == "$IP" ]]; then
+    echo -e "${INFO}${YW}Your browser warns about Mantel's own certificate the first time: continue to the page.${CL}"
+  elif [[ "$(ENV_OF COMPOSE_FILE)" == *byo-proxy* ]]; then
     echo -e "${INFO}${YW}First point your proxy at http://${IP}:8765 (WebSockets on) and ${HOST_NAME} at your proxy; then open /proxy-check as the Owner.${CL}"
+  else
+    echo -e "${INFO}${YW}First point ${HOST_NAME} at ${IP} in your home's DNS.${CL}"
   fi
+  echo -e "${INFO}${YW}A name, your own certificate or your proxy, any time: in the container's console, run${CL} ${BGN}mantel-setup${CL}"
+  echo -e "${INFO}${YW}A new setup code: pct exec ${CTID} -- docker exec mantel-server mantel bootstrap${CL}"
 else
-  echo -e "${INFO}${YW}Mantel is installed but not started yet: it needs your DNS host's token or your proxy's address.${CL}"
-  echo -e "${INFO}${YW}Finish inside the container (pct enter ${CTID}): the steps are in /root/mantel-next-steps.txt${CL}"
+  echo -e "${INFO}${YW}Mantel didn't start. In the container (pct enter ${CTID}): cd /opt/mantel/packaging/compose && docker compose logs --tail 50${CL}"
 fi
