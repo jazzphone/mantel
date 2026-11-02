@@ -5,6 +5,9 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 0.1.11 - 2026-11-02
+
+- **Versions:** Mantel Link tells Mantel its own version and HK Frontend's when it connects, for Mantel's update check (About → Updates). Needs Mantel 0.1.114 or newer; an older Mantel ignores it.
 - **Doorbell talk:** a talk session can stay open between holds, keeping one audio stream to the doorbell so the start of each hold is heard (a UniFi Protect doorbell loses the start of every new stream), and one person talks at a time on a doorbell: the others are told who, and the stream of whoever spoke before is closed first.
 
 ## 0.1.10 - 2026-11-02

@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.36.0 - 2026-11-02
+
 - **Screensaver, one screensaver:** the editor's starters are **Looks** that keep what you placed (**Start Over from This Look** replaces it all); the right side is always **Look**, **Info**, **Slides** and **Timing**. Widgets and cards are **pieces** in a few shapes (Inline, Circular, Rectangular, Card, Band), Size 60 to 200%, one size for the row, one **Ink** for the screen (Auto: black or white from the background) and **Color Accents**; any piece can **Show When** an entity is, is not, is above or is below a value. A fact is drawn once.
 - **Screensaver, 35 more pieces:** Countdown, World Clock, Rain Soon, Weather Alert, UV, Wind, Pressure, Feels Like, Moon, Sun, Security, Doors and Windows, Garage, Climate, Lights On, Vacuum, Notifications, Package, Who's Home, Grid, EV, Up Next, Playing In, On This Day, Camera, Last Ring, Phone Alarm, Trash Day, Pollen, Appliances, Leak and Smoke, Travel Time, Price and Any Sensor (people and cameras off until placed).
 - **Screensaver, slides:** one slide corner adds only the time, date, weather and Home Status a slide lacks; slides over every background; the music slide laid out for a phone and an upright iPad.
