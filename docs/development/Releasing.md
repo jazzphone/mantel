@@ -146,6 +146,13 @@ Mantel Link as components copied into its `config` share, without waiting for a 
   `House-releases.md`). In the second case `tools/ci.py versions`, everything that reads those files, must pass on
   HEAD first: seconds, not a second full run. A whole run of HEAD's tree that failed refuses the release until it
   passes again, and a step rerun with `--only` is never a whole run.
+- **That full run is short when the browser code didn't change** (2026-11-02). A browser check or HK Frontend
+  suite whose inputs are as they were when it passed is **unchanged**: not run again, counted as its pass
+  (Building-and-Testing.md, "Local checks"). So for a release of a few commits to Python outside the server, shell,
+  packaging, docs or tests, `tools/ci.py full` is the main suite and the release checks, about two minutes; a change
+  to `web/`, `hk_core/` or `hosts/server/mantel_server/` runs the browser checks again (about five and a half
+  minutes on a quiet machine). `tools/ci.py full --plan` says beforehand which steps will run; `--all` runs every
+  step. HK Frontend's publisher takes an unchanged suite as run (`--no-tests`).
 - **Mantel:** it sets the version, adds `--notes` as a `## X.Y.Z - date` section below `## Unreleased` (which
   keeps the next public release's notes), commits, runs `tools/ci.py versions` on that commit (the notes' private
   words among it), pushes, and stages the App with `--replace`. Then, through
@@ -211,6 +218,7 @@ running beside it; minutes vary with the load):
 | Part | Before | Now |
 |---|---|---|
 | `tools/ci.py full` on the release commit | ~7 minutes that day; 258 s here, sorted (the longest step 245 s: the Side Pane's check; then the screensaver Shows', 206 s; 9 steps at once) | 191 s at 14 steps at once, 238 s at 9 (the longest step 184 s; the Shows' in four parts of 45-64 s, the Side Pane's in three) |
+| ...2026-11-02, after every Look under every slide joined the Shows' check | 630 s (four Shows parts of ~510 s each, started late on old times) | `full --all` 318 s (eight Shows parts of 225-290 s, Swipe Between Pages a step per size, step times shared by worktrees); `full` after commits outside the browser checks' inputs: 94 s, every browser check and HK Frontend suite unchanged |
 | After the version bump and notes | a second full run (another 4-7 minutes) | `tools/ci.py versions`, 27 s, once per release commit |
 | The pre-push hook, each push of a tree that passed | `quick`, 79 s alone (about 90 s beside other work) | the commit messages' private words, 5 s |
 | HK Frontend's publisher | 108 s (its two suites in the built repository) | 9 s with `--no-tests` |
