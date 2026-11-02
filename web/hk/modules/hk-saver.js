@@ -246,7 +246,13 @@
   // (a card the layout places that the screen's own list doesn't have: as the strategy would make it, hk-strategy.js SAVER_CARDS)
   var LAYOUT_CARD_CONF = {
     'custom:hk-timer-strip-card': { entity: 'sensor.running_quick_timers', scale: 1.6, fixed: true },
-    'custom:hk-screensaver-now-card': { music: true }
+    'custom:hk-screensaver-now-card': { music: true },
+    // (...and the corner clock and weather, which tell the time under a slide even where the layout has neither)
+    'custom:hk-clock-card': { time_size: '150px', ampm_size: '40px', date_size: '40px', time_line_height: '1', date_format: 'monthday',
+                              date_gap: '4px', gap: '8px', color: 'rgba(255,255,255,0.95)', ampm_color: 'rgba(255,255,255,0.70)',
+                              date_color: 'rgba(255,255,255,0.85)', margin: '0px 0px 0px 20px', clip: false, layer: true },
+    'custom:hk-weather-strip-card': { variant: 'inline', main_size: '36px', glyph_size: '60px', temp_gap: '36px', icon_gap: '12px',
+                                      color: 'rgba(255,255,255,0.95)', margin: '-4px 0px 0px 20px', layer: true }
   };
   function layoutIds(L) {
     var out = [];
@@ -260,9 +266,12 @@
     if (!L) return c;
     var ids = layoutIds(L), byType = {}, b = L.big || {};
     c.cards.forEach(function (x) { byType[x.type] = x; });
-    c.cards = Object.keys(LAYOUT_CARDS).filter(function (id) { return ids.indexOf(id) >= 0; }).map(function (id) {
-      var t = LAYOUT_CARDS[id];
-      return byType[t] || Object.assign({ type: t }, LAYOUT_CARD_CONF[t] || {});
+    // (the corner clock and weather always: under a slide -- the music, the forecast, the weather, Home Energy -- the
+    // screensaver's own corners come back, the time among them, as without a layout; hidden otherwise unless placed)
+    c.cards = Object.keys(LAYOUT_CARDS).filter(function (id) { return ids.indexOf(id) >= 0 || id === 'clock_card' || id === 'weather_card'; }).map(function (id) {
+      var t = LAYOUT_CARDS[id], card = byType[t] || Object.assign({ type: t }, LAYOUT_CARD_CONF[t] || {});
+      // (one the layout doesn't place: hidden from the start, until a slide)
+      return ids.indexOf(id) >= 0 ? card : Object.assign({}, card, { ly_spare: true });
     });
     c.clock_large = false;
     c.time_behind = b.kind === 'time' && b.depth === 'behind';
@@ -1180,7 +1189,11 @@
     '.lay .lybig{color:var(--tint);white-space:nowrap;line-height:1;font-family:var(--hk-saver-font,-apple-system,system-ui,sans-serif);text-shadow:0 2px 24px rgba(0,0,0,.22)}',
     '.lay .lybig.measuring{visibility:hidden}',
     '.lay .lyland{background-repeat:no-repeat;pointer-events:none}',
-    ':host([lay][muslide]) .lay,:host([lay][enslide]) .lay,:host([lay][wxslide]) .lay{opacity:0}',
+    // UNDER A SLIDE ([lyoff], layoutSlides: the music, the forecast, the weather, Home Energy) the layout steps aside
+    // altogether -- its big element, its widgets and its places for the cards -- and the corners are the screensaver's own,
+    // as the slides were drawn for: the time, the date and the weather at the top left, Home Status at the top right
+    // (2026-11-01, the owner's wall tablet: under the music the time was gone and the weather ran into Up Next)
+    ':host([lay][lyoff]) .lay{opacity:0}',
     ':host([cklight]:not([cknight])) .lay{--tint:#1c1c1e}',
     // (Big Weather among the photos, or in their place, tells the time itself: the layout's big element and widgets
     // step aside while it shows, as they do for the music)
@@ -1191,10 +1204,10 @@
     '.lay .lyplate.b-glass{background:rgba(255,255,255,.16);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}',
     '.lay .lyplate.b-tint{background:rgba(0,0,0,.38);background:color-mix(in srgb,var(--sw-ink) 20%,rgba(0,0,0,.38))}',
     ':host([cklight]:not([cknight])) .lay .lybig{text-shadow:none}',
-    ':host([lay]) .info,:host([lay][pside][pane]) .info{left:0;top:0;right:0;bottom:0;width:auto;padding:0;display:block}',
-    ':host([lay]) .info > hk-clock-card,:host([lay]) .info > hk-weather-strip-card{position:absolute}',
-    ':host([lay]) .info > *:not([lyhide]){display:block!important}',
-    ':host([lay]) .info > [lyhide]{display:none!important}',
+    ':host([lay]:not([lyoff])) .info,:host([lay][pside][pane]:not([lyoff])) .info{left:0;top:0;right:0;bottom:0;width:auto;padding:0;display:block}',
+    ':host([lay]:not([lyoff])) .info > hk-clock-card,:host([lay]:not([lyoff])) .info > hk-weather-strip-card{position:absolute}',
+    ':host([lay]:not([lyoff])) .info > *:not([lyhide]){display:block!important}',
+    ':host([lay]:not([lyoff])) .info > [lyhide]{display:none!important}',
     // the forecast: no photo layers; the sky under everything; the band along
     // the bottom (the corner rows rise above it: --hk-ss-corner-bottom); the
     // band carries today's conditions, so the weather line leaves the clock
@@ -1663,6 +1676,7 @@
           el.__hkSaverConf = c;
           // (the corner clock under a big one: there only under the music)
           if (c.music_only) el.setAttribute('muonly', '');
+          if (c.ly_spare) el.setAttribute('lyhide', '');
           el.setConfig(cardConf(c, tag));
           feedCard(el, h);
           // IN THE ORDER WRITTEN, whenever each one is defined: a page
@@ -1695,7 +1709,7 @@
     });
     if (paneUp && tag === 'hk-screensaver-status-card') { conf.line1_size = '22px'; conf.line_size = '16px'; conf.align = 'left'; }
     if (paneUp && tag === 'hk-timer-strip-card') conf.scale = Math.round(1.15 * scaleOf() * 100) / 100;
-    if (cfg && cfg.layout) {
+    if (cfg && cfg.layout && !(host && host.hasAttribute('lyoff'))) {
       if (tag === 'hk-clock-card' || tag === 'hk-weather-strip-card') conf.margin = '0px';
       // (the layout's Clock card is a small time, a corner's: the big one is the big element)
       // (each times its own size in the layout: c.__lyK, set where the layout places it)
@@ -2735,6 +2749,7 @@
     if (want) buildBand();
     if (want) host.setAttribute('band', ''); else host.removeAttribute('band');
     if (on && cfg && cfg.band_photos === true) host.setAttribute('bandph', ''); else host.removeAttribute('bandph');
+    layoutSlides();
   }
   // (the music slide over it hides it)
   function fcVisible() { return (mode === 'forecast' || fcShowing) && !muShowing && !enShowing && !wxShowing; }
@@ -2856,7 +2871,36 @@
     if (ly.layer && ly.layer.parentNode) ly.layer.remove();
     cards.forEach(function (c) { c.removeAttribute('lyhide'); c.style.removeProperty('left'); c.style.removeProperty('top'); });
     ly = null;
-    if (host) host.removeAttribute('lay');
+    if (host) { host.removeAttribute('lay'); host.removeAttribute('lyoff'); }
+  }
+  // UNDER A SLIDE: the music, the forecast among the photos or over a clock, the weather, Home Energy -- or Big Weather
+  // in the photos' place, which tells the time itself. Every slide's coming and going passes updateBand(), which asks here.
+  function layoutCovered() {
+    return !!ly && (muShowing || enShowing || wxShowing || fcShowing || (mode === 'forecast' && host.hasAttribute('fcbig')));
+  }
+  function layoutSlides() {
+    if (!ly || !host) return;
+    var off = layoutCovered();
+    if (off === host.hasAttribute('lyoff')) return;
+    setAttr(host, 'lyoff', off);
+    if (off) {
+      // the layout's places and looks taken off the cards (their own variables, a corner's colors, the plates)
+      cards.forEach(function (c) {
+        Array.prototype.slice.call(c.style).forEach(function (p) { if (/^--hk-ss-|^--hk-ink$/.test(p) || p === 'left' || p === 'top') c.style.removeProperty(p); });
+        c.removeAttribute('lyhide');
+      });
+      Object.keys(ly.plates || {}).forEach(function (id) { ly.plates[id].remove(); delete ly.plates[id]; });
+    }
+    // each card's config for now: a corner's own sizes, or the layout's (cardConf)
+    cards.forEach(function (c) {
+      var conf = c.__hkSaverConf;
+      if (conf) { try { c.setConfig(cardConf(conf, String(conf.type || '').replace(/^custom:/, ''))); } catch (e) { /* as it was */ } }
+    });
+    // ...back where the plan puts them at once, and again once they have drawn at their sizes
+    if (!off) { layoutDraw(); layoutSoon(); }
+    // the cards fade in where they now are, with the slide, as the layout fades the other way (never a jump across the screen)
+    var info = root && root.querySelector('.info');
+    if (info && info.animate && !reducedMotion()) { try { info.animate([{ opacity: 0 }, { opacity: 1 }], { duration: CROSSFADE_MS, easing: 'ease' }); } catch (e) { /* shown */ } }
   }
   // drawn again soon, once for everything that asks at the same moment
   function layoutSoon() {
@@ -3013,6 +3057,9 @@
       if (ly.widgets[k].el && ly.widgets[k].el.parentNode) ly.widgets[k].el.remove();
       delete ly.widgets[k];
     });
+    // (under a slide the widgets keep their words and their places; nothing is placed until it has gone)
+    layoutSlides();
+    if (host.hasAttribute('lyoff')) return;
     var widgetAt = function (z, i) {
       var hit = null;
       Object.keys(ly.widgets).forEach(function (k) { var c = ly.widgets[k]; if (c.zone === z && c.i === i) hit = c; });
@@ -3112,16 +3159,6 @@
       });
     });
     P.moved.forEach(function (mv) { if (mv.to === null) { var c = widgetAt(mv.zone, mv.i); if (c) put(c, null); } });
-    // BIG WEATHER AS A SLIDE (among the photos, or in their place): the cards where Big Weather puts them -- the
-    // layout's own places for them taken off while it shows, put back with the next plan after it
-    if (host.hasAttribute('fcbig') && (fcShowing || mode === 'forecast')) {
-      cards.forEach(function (c) {
-        Array.prototype.slice.call(c.style).forEach(function (p) { if (/^--hk-ss-|^--hk-ink$/.test(p) || p === 'left' || p === 'top') c.style.removeProperty(p); });
-        c.removeAttribute('lyhide');
-      });
-      Object.keys(ly.plates || {}).forEach(function (id) { ly.plates[id].remove(); delete ly.plates[id]; });
-      return;
-    }
     // the cards: through their own variables (fixed, against the screensaver), or placed (the clock, the weather);
     // each its own size (its config's sizes times it), color and backdrop, as a widget has
     var itemOf = function (id) { var f = null; Object.keys(zs).forEach(function (z) { zs[z].forEach(function (w) { if (w.id === id) f = w; }); }); return f; };
