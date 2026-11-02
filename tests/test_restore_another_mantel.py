@@ -84,9 +84,11 @@ async def test_another_mantels_backup_is_sealed_again_where_the_keys_are_read_on
         r = await _upload(m, path.read_bytes(), keys)
         check = await r.json()
         assert r.status == 200 and check["other_keys"] and check["reseal"], check
+        # what it holds, as the Owner counts it (the page shows it before and after)
+        assert check["contents"] == {"people": 1, "screens": 0, "tablets": 0, "photos": 0, "files": 0, "files_size": 0}
         assert (await m.post("/api/backup/restore")).status == 200
         done = bk.apply_pending(cfg)
-        assert done["ok"] and done["resealed"] == 5, done
+        assert done["ok"] and done["resealed"] == 5 and done["contents"]["people"] == 1, done
     finally:
         os.chmod(secrets, 0o700)
     assert _opens_with(cfg.data_dir, own) == SEALED_VALUES

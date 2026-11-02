@@ -547,3 +547,16 @@ def test_js_first_start_restore_sends_the_setup_code_first():
                                        ["/api/bootstrap/restore", "POST", ["token", "file"]],
                                        ["/api/bootstrap/restore", "POST", ["token", "file"]]]
     assert all(s[3] is None for s in out[5]), "the browser sets the multipart boundary itself"
+
+
+@pytest.mark.skipif(NODE is None, reason="node is not installed")
+def test_js_first_start_restore_says_where_a_refused_upload_stopped():
+    """The owner's 280 MB backup never reached Mantel through Nginx Proxy Manager: the page says to raise the proxy's
+    upload limit (or restore at the address), and counts what a restored backup holds."""
+    out = node_module("""
+      out.push(m.messageFor(413, null, 'restore'), m.messageFor(0, null, 'restore'));
+      out.push(m.holdsText({ people: 8, screens: 10, tablets: 1, photos: 241 }));
+    """)
+    assert "too large" in out[0] and "client_max_body_size 4g;" in out[0]
+    assert "didn\u2019t reach Mantel" in out[1] and "too large" not in out[1]
+    assert out[2] == "8 people, 10 screens, 1 wall tablet, 241 photos"

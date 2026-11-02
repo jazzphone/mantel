@@ -194,7 +194,7 @@ Everything on [Install with Docker](Install-Docker.md) applies inside the contai
 
 ## Moving from the Home Assistant App
 
-**The simplest way:** install with [one command](#one-command), then open Mantel's address and, under **First start**, choose **Restore From a Backup**: the setup code the install showed, the App's backup and its keys file (the App's **Mantel Settings** → **Backups**: **Back Up Now**, **Download**, **Save Keys…**). Mantel restarts with the App's people, screens and settings, and you sign in as before. The new Mantel must be the App's version or newer.
+**The simplest way:** install with [one command](#one-command), then open Mantel's address and, under **First start**, choose **Restore From a Backup**: the setup code the install showed, the App's backup and its keys file (the App's **Mantel Settings** → **Backups**: **Back Up Now**, **Download**, **Save Keys…**). Mantel restarts with the App's people, screens and settings, and you sign in as before. The new Mantel must be the App's version or newer. Then connect Home Assistant in **Mantel Settings** → **Connections** (the App reached it through the Supervisor, so there is no saved connection to bring): rooms, devices, cameras and your screens' contents come from it. Restore at the container's own address, or behind your own proxy raise its upload limit first ([Nginx Proxy Manager](Install-Docker.md#your-own-reverse-proxy): `client_max_body_size 4g;`): a backup with photos is hundreds of MB.
 
 From a checkout, one command makes the container and brings the App's Mantel into it: its people, screens, settings, audit log, files and photos, and its keys, so authenticator apps and the Music Assistant connection keep working.
 

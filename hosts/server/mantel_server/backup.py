@@ -468,6 +468,30 @@ def _control_on(db: Path) -> bool:
         return False
 
 
+def _contents(db: Path, files_tree: Path) -> dict:
+    """What a backup holds, as the Owner would count it: people, screens, wall tablets, photos and Your Files."""
+    out = {"people": 0, "screens": 0, "tablets": 0, "photos": 0, "files": 0, "files_size": 0}
+    try:
+        con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+        try:
+            for key, sql in (("people", "SELECT count(*) FROM users"),
+                             ("screens", "SELECT count(*) FROM settings_docs WHERE scope = 'board'"),
+                             ("tablets", "SELECT count(*) FROM settings_docs WHERE scope = 'tablet'"),
+                             ("photos", "SELECT count(*) FROM photos")):
+                with contextlib.suppress(sqlite3.Error):
+                    out[key] = con.execute(sql).fetchone()[0]
+        finally:
+            con.close()
+    except sqlite3.Error:
+        pass
+    if files_tree.is_dir():
+        for f in files_tree.rglob("*"):
+            if f.is_file():
+                out["files"] += 1
+                out["files_size"] += f.stat().st_size
+    return out
+
+
 def _control_off(db: Path, now: datetime) -> None:
     con = sqlite3.connect(db)
     try:
@@ -491,6 +515,7 @@ class RestoreReport:
     # and the Owner turns it on in General, with the fresh sign-in that asks for)
     control_was_on: bool = False
     resealed: int = 0           # values sealed again with this Mantel's at-rest key (reseal_to)
+    contents: dict | None = None  # _contents: people, screens, wall tablets, photos, Your Files
 
     def as_dict(self) -> dict:
         return self.__dict__.copy()
@@ -760,7 +785,8 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
         files_tree = stage / "unpacked" / FILES_DIR
         report = RestoreReport(schema=int(manifest.get("schema", 0)), created=str(meta.get("created", "")),
                                tables=manifest.get("tables", {}), files=nfiles, migrated=migrated, replaced=[],
-                               verified_only=verify_only, control_was_on=control_was_on)
+                               verified_only=verify_only, control_was_on=control_was_on,
+                               contents=_contents(staged_db, files_tree))
         if verify_only:
             return report
         if reseal_to is not None:
@@ -1123,7 +1149,7 @@ async def stage_upload(b: "Backups", reader, first=None) -> dict:
     check = {"created": report.created, "schema": report.schema, "tables": len(report.tables),
              "rows": sum(report.tables.values()), "files": report.files, "migrated": report.migrated,
              "other_keys": bool(keys), "reseal": reseal_mode, "size": upload.stat().st_size,
-             "control_was_on": report.control_was_on}
+             "control_was_on": report.control_was_on, "contents": report.contents}
     (pend / "check.json").write_text(json.dumps(check))
     return check
 
@@ -1272,7 +1298,7 @@ def apply_pending(cfg) -> dict | None:
             report = restore(pend / "upload.mbk", key, data_dir, replace=True, at_rest_key=keys["at_rest_key"],
                              reseal_to=own_box(cfg.secrets_dir))
             result.update(ok=True, replaced=report.replaced, migrated=report.migrated,
-                          control_off=report.control_was_on, resealed=report.resealed)
+                          control_off=report.control_was_on, resealed=report.resealed, contents=report.contents)
             log.warning("restored the backup of %s with its values sealed again with this Mantel's key; the data it "
                         "replaced is at %s", check.get("created"), report.replaced)
             return result
@@ -1307,7 +1333,8 @@ def apply_pending(cfg) -> dict | None:
                 log.error("restored the backup of %s, but %s (the data it replaced is at %s)",
                           check.get("created"), msg, report.replaced)
                 return result
-        result.update(ok=True, replaced=report.replaced, migrated=report.migrated, control_off=report.control_was_on)
+        result.update(ok=True, replaced=report.replaced, migrated=report.migrated, control_off=report.control_was_on,
+                      contents=report.contents)
         log.warning("restored the backup of %s; the data it replaced is at %s", check.get("created"), report.replaced)
     except (BackupError, OSError, sqlite3.Error, ValueError, KeyError) as exc:
         result.update(ok=False, error=str(exc)[:300])
