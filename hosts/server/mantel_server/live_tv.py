@@ -201,6 +201,23 @@ class Go2rtc:
             got = await r.json(content_type=None)
         return got if isinstance(got, dict) else {}
 
+    async def frame(self, name: str, params: Mapping[str, str] | None = None,
+                    max_bytes: int = 20 * 1024 * 1024) -> tuple[bytes, str]:
+        """One JPEG of a stream (``GET /api/frame.jpeg?src=``: go2rtc's ffmpeg decodes a keyframe, scaled by
+        ``width``/``height`` when given). For cameras_direct.py's stills. (body, content type)."""
+        self.calls.append(("FRAME", name))
+        async with self.session().get(f"{self.base}/api/frame.jpeg", params={"src": name, **dict(params or {})},
+                                      timeout=aiohttp.ClientTimeout(total=15), allow_redirects=False) as r:
+            ctype = r.headers.get("Content-Type", "").split(";")[0].strip().lower()
+            if r.status != 200 or not ctype.startswith("image/"):
+                raise Go2rtcError(f"go2rtc gave no frame ({r.status})")
+            body = bytearray()
+            async for chunk in r.content.iter_chunked(64 * 1024):
+                body += chunk
+                if len(body) > max_bytes:
+                    raise Go2rtcError("go2rtc's frame is too large")
+            return bytes(body), ctype
+
     async def connect(self, name: str) -> aiohttp.ClientWebSocketResponse:
         url = self.base.replace("http", "ws", 1) + "/api/ws"
         return await self.session().ws_connect(url, params={"src": name}, heartbeat=30,
@@ -266,8 +283,10 @@ class LocalEntities:
     Home Assistant's copy of the same id changes or vanishes (a linked mirror, a reconnect's replace_all)
     ours is put back in the same callback, before any page's view is flushed."""
 
-    def __init__(self, hub: Any, clock: Callable[[], float] = time.time) -> None:
-        self.hub, self.clock = hub, clock
+    def __init__(self, hub: Any, clock: Callable[[], float] = time.time, flag: str = "mantel_live_tv") -> None:
+        # ``flag`` marks this overlay's registry entries (2026-11-02, cameras_direct.py's overlay beside Live TV's):
+        # each overlay drops only its own entries when it merges, so the two never drop each other's
+        self.hub, self.clock, self.flag = hub, clock, flag
         self.mine: dict[str, dict[str, Any]] = {}
         self.registry: dict[str, dict[str, Any]] = {}
 
@@ -279,8 +298,8 @@ class LocalEntities:
         st, changed = self._store(), set()
         for eid in list(self.mine):
             if eid not in want:
-                del self.mine[eid]
-                if eid in st:
+                ours = self.mine.pop(eid)
+                if st.get(eid) is ours:          # only our own copy: a state Home Assistant put there stays
                     del st[eid]
                 changed.add(eid)
         for eid, (state, attrs) in want.items():
@@ -307,11 +326,37 @@ class LocalEntities:
 
     def merged_entities(self, ha_entities: list[dict]) -> list[dict] | None:
         """HA's entity registry plus ours (HA's own entry wins for an id it has); None if unchanged."""
-        base = [e for e in ha_entities if not e.get("mantel_live_tv")]
+        base = [e for e in ha_entities if not e.get(self.flag)]
         have = {e.get("entity_id") for e in base}
         extra = [dict(e) for eid, e in sorted(self.registry.items()) if eid not in have]
         merged = base + extra
         return None if merged == ha_entities else merged
+
+
+async def relay_go2rtc(sess: Any, on_event: Callable[[dict], None]) -> None:
+    """go2rtc's answer and candidates, as HA's camera/webrtc/offer events. ``sess`` has go2rtc's socket (``ws``)
+    and ``ended``; Live TV's sessions and cameras_direct.py's relay with it alike."""
+    try:
+        async for m in sess.ws:
+            if m.type != aiohttp.WSMsgType.TEXT:
+                break
+            try:
+                d = json.loads(m.data)
+            except ValueError:
+                continue
+            t, v = d.get("type"), d.get("value")
+            if t == "webrtc/answer" and isinstance(v, str):
+                on_event({"type": "answer", "answer": v})
+            elif t == "webrtc/candidate" and isinstance(v, str):
+                on_event({"type": "candidate", "candidate": {"candidate": v, "sdpMLineIndex": 0}})
+            elif t == "error":
+                on_event({"type": "error", "code": "webrtc_offer_failed", "message": str(v)[:200]})
+    except (aiohttp.ClientError, asyncio.TimeoutError):
+        pass
+    except asyncio.CancelledError:
+        return
+    if not sess.ended:                       # go2rtc ended it (the tuner or camera went away): the card retries
+        on_event({"type": "error", "code": "webrtc_offer_failed", "message": "the stream ended"})
 
 
 # ------------------------------------------------------------------------------------- sessions
@@ -725,28 +770,7 @@ class MantelLiveTv:
         return unsubscribe
 
     async def _relay(self, sess: TvSession, on_event: Callable[[dict], None]) -> None:
-        """go2rtc's answer and candidates, as HA's camera/webrtc/offer events."""
-        try:
-            async for m in sess.ws:
-                if m.type != aiohttp.WSMsgType.TEXT:
-                    break
-                try:
-                    d = json.loads(m.data)
-                except ValueError:
-                    continue
-                t, v = d.get("type"), d.get("value")
-                if t == "webrtc/answer" and isinstance(v, str):
-                    on_event({"type": "answer", "answer": v})
-                elif t == "webrtc/candidate" and isinstance(v, str):
-                    on_event({"type": "candidate", "candidate": {"candidate": v, "sdpMLineIndex": 0}})
-                elif t == "error":
-                    on_event({"type": "error", "code": "webrtc_offer_failed", "message": str(v)[:200]})
-        except (aiohttp.ClientError, asyncio.TimeoutError):
-            pass
-        except asyncio.CancelledError:
-            return
-        if not sess.ended:                       # go2rtc ended it (the tuner went away): the card retries
-            on_event({"type": "error", "code": "webrtc_offer_failed", "message": "the stream ended"})
+        await relay_go2rtc(sess, on_event)
 
     async def candidate(self, ctx: Ctx, msg: dict) -> None:
         from .readproxy import ReadBlocked
