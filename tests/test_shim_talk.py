@@ -93,7 +93,7 @@ def test_the_shared_card_is_unchanged():
     cams = (ROOT / "web/hk/cards/hk-cameras.js").read_text()
     assert "var url = '/api/hk_frontend/talk?entity_id=' + encodeURIComponent(c.speaker);" in cams
     assert "body_b64" not in cams and "content_type" not in cams
-    assert "act.liveSocket(this._config.speaker)" in cams          # the one change: the speaker is named
+    assert "act.liveSocket(c.speaker)" in cams                      # the one change: the speaker is named
     assert "access_token: d.token" in cams and "type: 'hk_frontend/talk/live', entity_id: d.entity_id" in cams
 
 

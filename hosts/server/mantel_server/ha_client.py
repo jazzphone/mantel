@@ -578,6 +578,7 @@ class HaTalkLink:
         if self.handler_id is None and isinstance(hid, int) and not isinstance(hid, bool) and 0 < hid < 256:
             self.handler_id = hid
             self.info = {k: ev.get(k) for k in ("rate", "codec")}
+            self.info["warm"] = ev.get("warm") is True       # talk_live.py's warm session (2026-11-02)
         return ev
 
     async def send_audio(self, pcm: bytes) -> bool:

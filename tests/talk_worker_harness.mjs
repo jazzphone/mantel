@@ -1,7 +1,8 @@
 // Runs HK's doorbell talk Worker -- the exact TALK_WORKER source from web/hk/cards/hk-cameras.js -- in
-// node against a live-talk socket, as the card drives it (_liveStart / _liveStop): `start` with the
-// url and token liveSocket() gave, PCM chunks from the worklet over a MessageChannel every 40 ms once
-// the doorbell listens, then `stop` (let go). Used by tests/test_talk_live.py (against Mantel's /ws/talk
+// node against a live-talk socket, as the card drives it (_talkWarm, _micTap, _liveGo / _liveStop,
+// _talkClose): `open` with the url and token liveSocket() gave (the warm session, before any press),
+// the microphone's `port`, `talk` on once the doorbell listens and PCM chunks over a MessageChannel every
+// 40 ms, `talk` off (let go), then `close`. Used by tests/test_talk_live.py (against Mantel's /ws/talk
 // with a stand-in Home Assistant) and tools/e2e/talk_e2e.py (against the scratch Home Assistant).
 //
 //   node talk_worker_harness.mjs <hk-cameras.js> <ws url> <token> <cookie header> <origin> <speaker> <rate> <frames>
@@ -32,14 +33,19 @@ vm.runInContext(worker, ctx);
 
 const ch = new MessageChannel();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-ctx.onmessage({ data: { cmd: 'start', key: 1, url, token, entity_id: speaker, rate: Number(rate), port: ch.port2 } });
+ctx.onmessage({ data: { cmd: 'open', key: 1, url, token, entity_id: speaker, rate: Number(rate) } });
+ctx.onmessage({ data: { cmd: 'port', port: ch.port2 } });
 let live = false;
 for (let i = 0; i < 100 && !live; i++) {
   await sleep(20);
-  live = said.some((m) => m.live) || said.some((m) => m.error);
+  live = said.some((m) => m.ready) || said.some((m) => m.error);
 }
 let sent = 0;
-if (said.some((m) => m.live)) {
+if (said.some((m) => m.ready)) {
+  const early = new Int16Array(Math.round(Number(rate) / 25));   // before the press: never sent
+  ch.port1.postMessage(early.buffer, [early.buffer]);
+  await sleep(40);
+  ctx.onmessage({ data: { cmd: 'talk', on: true } });
   const chunk = Math.round(Number(rate) / 25);           // 40 ms, as the worklet posts
   for (let i = 0; i < Number(frames); i++) {
     const pcm = new Int16Array(chunk);
@@ -50,7 +56,11 @@ if (said.some((m) => m.live)) {
   }
 }
 await sleep(100);
-ctx.onmessage({ data: { cmd: 'stop', key: 1 } });           // let go
+ctx.onmessage({ data: { cmd: 'talk', on: false } });        // let go
+const late = new Int16Array(Math.round(Number(rate) / 25));     // after the release: never sent
+ch.port1.postMessage(late.buffer, [late.buffer]);
+await sleep(100);
+ctx.onmessage({ data: { cmd: 'close' } });                  // the sheet closed
 await sleep(400);
 ch.port1.close();
 process.stdout.write(JSON.stringify({ said, sent }) + '\n', () => process.exit(0));
