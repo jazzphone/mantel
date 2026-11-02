@@ -3,6 +3,8 @@ client always connects from 127.0.0.1), and fictional Music Assistant and go2rtc
 what reached them. No real service is contacted."""
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
 from dataclasses import dataclass, field
 
@@ -38,6 +40,8 @@ class Upstream:
     server: TestServer | None = None
     commands: list = field(default_factory=list)   # MA socket commands received
     revoked: set = field(default_factory=set)      # tokens MA no longer accepts
+    sent: int = 0                                  # go2rtc's mjpeg stand-in: chunks written to the viewer
+    cut: bool = False                              # ...and whether the viewer's side was dropped
 
     @property
     def url(self) -> str:
@@ -170,11 +174,41 @@ def go2rtc_app(up: Upstream) -> web.Application:
         await record(request)
         return web.Response(body=b"\xff\xd8 fictional jpeg", content_type="image/jpeg")
 
+    async def mjpeg(request):
+        """A camera's stream: a chunk every 50 ms until the viewer leaves (or 20 s: a test that forgets to close)."""
+        await record(request)
+        resp = web.StreamResponse(headers={"Content-Type": "multipart/x-mixed-replace; boundary=frame"})
+        await resp.prepare(request)
+        up.sent = 0
+        try:
+            for _ in range(400):
+                await resp.write(b"--frame\r\nfictional jpeg\r\n")
+                up.sent += 1
+                await asyncio.sleep(0.05)
+        except (ConnectionResetError, asyncio.CancelledError):
+            up.cut = True
+            raise
+        return resp
+
+    async def m3u8(request):
+        """go2rtc's master playlist: an HLS session id of its own for this stream."""
+        await record(request)
+        sid = "sess" + hashlib.sha1(request.query.get("src", "").encode()).hexdigest()[:12]
+        return web.Response(text=f"#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhls/playlist.m3u8?id={sid}\n",
+                            content_type="application/vnd.apple.mpegurl")
+
+    async def hls(request):
+        await record(request)
+        return web.Response(body=b"fictional segment", content_type="video/mp2t")
+
     async def anything(request):
         await record(request)
         return web.json_response({"must": "never be reached"})
 
     app.router.add_get("/api/ws", ws)
+    app.router.add_get("/api/stream.mjpeg", mjpeg)
+    app.router.add_get("/api/stream.m3u8", m3u8)
+    app.router.add_get("/api/hls/{name}", hls)
     app.router.add_post("/api/webrtc", webrtc)
     app.router.add_get("/api/frame.jpeg", frame)
     app.router.add_get("/video-stream.js", frame)
