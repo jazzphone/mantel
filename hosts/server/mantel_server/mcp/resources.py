@@ -3,6 +3,11 @@
 Resources answer through the same tools (and so the same RBAC): ``mantel://house``, ``mantel://screens``,
 ``mantel://screens/{key}``, ``mantel://settings/schema/{scope}``, ``mantel://grid/cards``, and the user guide as
 Mantel's /docs serves it (``mantel://guide/{page}``: its Markdown, the same for everyone).
+
+They answer through the same SCOPES too: a resource needs what its tool needs (:func:`needs_of`), is listed only to
+an assistant that has it and is refused to one that has not. They were read and listed with no scope check, so a key
+given only ``audit`` read ``mantel://house`` and every screen (third audit pass, SRV-6). The guide is Mantel's
+documentation, the same for everyone, and needs ``read`` as the rest of the house's context does.
 """
 from __future__ import annotations
 
@@ -29,6 +34,31 @@ TEMPLATES = [
 ]
 
 
+def tool_of(uri: str) -> str | None:
+    """The tool a resource is answered through (None: the guide, or no such resource)."""
+    if uri == "mantel://house":
+        return "house_summary"
+    if uri == "mantel://screens":
+        return "screens_list"
+    if uri.startswith("mantel://screens/"):
+        return "screen_get"
+    if uri == "mantel://grid/cards":
+        return "grid_cards"
+    if uri.startswith("mantel://settings/schema/"):
+        return "settings_schema"
+    return None
+
+
+def needs_of(uri: str) -> str | None:
+    """The scope reading ``uri`` needs: its tool's, ``read`` for the guide, None for no such resource."""
+    name = tool_of(uri)
+    if name is not None:
+        from .tools import all_tools
+        tool = next((t for t in all_tools() if t.name == name), None)
+        return tool.needs if tool is not None else None
+    return "read" if uri == "mantel://guide" or uri.startswith("mantel://guide/") else None
+
+
 def _docs(app):
     from ..docs_pages import Docs
     cfg = app["cfg"]
@@ -42,15 +72,27 @@ def guide_pages(app) -> list[str]:
 
 
 def listing(caller) -> list[dict]:
+    """The resources this assistant's scopes let it read."""
     out = [{"uri": u, "name": u.split("://", 1)[1], "title": t, "description": d, "mimeType": "application/json"}
            for u, t, d in STATIC]
     out.append({"uri": "mantel://guide", "name": "guide", "title": "User guide",
                 "description": "The user guide's pages", "mimeType": "application/json"})
-    return out
+    return [r for r in out if caller.has(needs_of(r["uri"]) or "")]
+
+
+def example_uri(template: dict) -> str:
+    return template["uriTemplate"].replace("{key}", "x").replace("{page}", "x")
+
+
+def templates(caller) -> list[dict]:
+    return [t for t in TEMPLATES if caller.has(needs_of(example_uri(t)) or "")]
 
 
 async def read_resource(caller, uri: str) -> dict:
     from .tools import house, screens, settings
+    need = needs_of(uri)
+    if need is not None and not caller.has(need):
+        raise ToolError("forbidden", f"reading {uri} needs the {need!r} scope, which this assistant was not given")
     if uri == "mantel://house":
         body: Any = await house.house_summary(caller, {})
     elif uri == "mantel://screens":

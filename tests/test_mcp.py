@@ -382,6 +382,42 @@ async def test_resources_and_prompts(mantel):
     assert "error" in body, "a required argument"
 
 
+async def test_resources_answer_to_the_scopes_of_the_tools_behind_them(mantel):
+    """SRV-6 (third audit pass): resources/list and resources/read applied no scope check, so a key given only
+    `audit` read mantel://house, every screen and the Home Grid catalogue."""
+    token, _ = await setup(mantel, scopes=["audit"])
+    rpc = Rpc(mantel, token)
+    got, err = await rpc.tool("house_summary")
+    assert err is True or got.get("error"), "the control: the tool itself is refused"
+    st, body = await rpc.call("resources/list")
+    assert body["result"]["resources"] == [], "nothing is listed that cannot be read"
+    st, body = await rpc.call("resources/templates/list")
+    assert body["result"]["resourceTemplates"] == []
+    for uri in ("mantel://house", "mantel://screens", "mantel://screens/dashboard-kitchen", "mantel://grid/cards",
+                "mantel://settings/schema/house", "mantel://guide", "mantel://guide/Mantel"):
+        st, body = await rpc.call("resources/read", {"uri": uri})
+        assert "error" in body and "scope" in body["error"]["message"], uri
+    read_token, _ = await make_key(mantel, name="Reader", scopes=["read"])
+    rpc = Rpc(mantel, read_token)
+    st, body = await rpc.call("resources/list")
+    assert {"mantel://house", "mantel://screens", "mantel://guide"} <= {r["uri"] for r in body["result"]["resources"]}
+    st, body = await rpc.call("resources/read", {"uri": "mantel://screens/dashboard-kitchen"})
+    assert "result" in body
+
+
+async def test_every_resource_maps_to_a_scope_its_tool_needs():
+    from mantel_server.mcp import resources as R
+    from mantel_server.mcp.grants import SCOPES
+    from mantel_server.mcp.tools import all_tools
+    needs = {t.name: t.needs for t in all_tools()}
+    uris = [u for u, _, _ in R.STATIC] + ["mantel://guide", "mantel://guide/Mantel"] + [R.example_uri(t) for t in R.TEMPLATES]
+    for uri in uris:
+        assert R.needs_of(uri) in SCOPES, uri
+        if R.tool_of(uri) is not None:
+            assert R.needs_of(uri) == needs[R.tool_of(uri)], uri
+    assert R.needs_of("mantel://nothing") is None
+
+
 # -- plan, then apply -------------------------------------------------------------------------------------------------
 async def test_a_plan_writes_nothing_and_applying_it_does(mantel):
     token, _ = await setup(mantel)
