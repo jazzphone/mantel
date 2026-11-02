@@ -9,6 +9,7 @@ curl, through `COMMUNITY_SCRIPTS_URL`, which `ct/mantel.sh` sets to this folder 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/jazzphone/mantel/main/packaging/proxmox/ct/mantel.sh)"
 update        # inside the container: the newest release tag (or main), with a backup and automatic rollback
+mantel-setup  # inside the container: how browsers reach Mantel (its address, a name, your domain's certificate, your proxy)
 ```
 
 The install clones the repository into `/opt/mantel` and runs the same in-container installer as

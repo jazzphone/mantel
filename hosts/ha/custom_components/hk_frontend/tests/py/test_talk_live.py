@@ -76,6 +76,49 @@ def test_letting_go_plays_out_what_is_left_without_counting_underruns():
     assert p.drained() and p.underruns == 0
 
 
+def test_a_warm_session_ends_a_talkspurt_once_let_go_and_waits_for_the_next():
+    p = talk_live.Pacer(RATE)
+    p.push(pcm(talk_live.PREBUFFER_MS))
+    assert p.ready()
+    for _ in range(talk_live.PREBUFFER_MS // talk_live.FRAME_MS):
+        p.pop()
+    assert not p.ended()
+    for _ in range(talk_live.SPURT_END_MS // talk_live.FRAME_MS - 1):
+        p.pop()
+        assert not p.ended(), "a short gap mid-sentence is still the same talkspurt"
+    p.pop()
+    assert p.ended()
+    p.rest()
+    p.push(pcm(talk_live.PREBUFFER_MS - 20))
+    assert not p.ready(), "the next hold waits for a whole cushion again"
+    p.push(pcm(20))
+    assert p.ready() and not p.ended()
+
+
+class Seat:
+    def __init__(self, name):
+        self.name, self.heard, self.told_busy = name, [], False
+
+    def tell(self, event):
+        self.heard.append(event)
+
+
+def test_one_talker_at_a_time_and_everyone_else_is_told_who():
+    floor, a, b, c = talk_live.Floor(), Seat("Kitchen"), Seat("Hall"), Seat("Phone")
+    floor.join(a); floor.join(b)
+    assert floor.claim(a) and floor.claim(a)
+    assert b.heard == [{"talker": "Kitchen"}] and a.heard == []
+    assert not floor.claim(b) and not floor.claim(b)
+    assert b.heard[-1] == {"busy": "Kitchen"} and b.heard.count({"busy": "Kitchen"}) == 1, "told once"
+    floor.join(c)
+    assert c.heard == [{"talker": "Kitchen"}], "a sheet opened mid-talk knows at once"
+    floor.release(a)
+    assert b.heard[-1] == {"talker": None} and c.heard[-1] == {"talker": None}
+    assert floor.claim(b) and a.heard[-1] == {"talker": "Hall"}
+    floor.leave(b)
+    assert floor.holder is None and a.heard[-1] == {"talker": None}, "a closed sheet lets go"
+
+
 @pytest.mark.enable_socket
 def test_a_live_stream_is_steady_rtp_opus_at_real_time(socket_enabled):
     """The real encoder and muxer, to a UDP port on this machine."""
@@ -116,6 +159,56 @@ def test_a_live_stream_is_steady_rtp_opus_at_real_time(socket_enabled):
     assert {b[3] - a[3] for a, b in zip(head, head[1:])} == {960}, "20 ms per packet (48 kHz RTP clock)"
     span = got[-1][0] - got[0][0]
     assert 0.9 < span < 1.35, "paced at real time, not sent in a burst"   # a burst is near 0; a busy Mac runs late
+
+
+@pytest.mark.enable_socket
+def test_a_warm_session_is_one_stream_per_hold_and_nothing_between(socket_enabled):
+    """Two holds on one subscription: two RTP streams (each its own SSRC),
+    and not a packet in the pause between them."""
+    pytest.importorskip("av")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("127.0.0.1", 0))
+    sock.settimeout(0.3)
+    got, stop = [], threading.Event()
+
+    def rx():
+        while not stop.is_set():
+            try:
+                got.append((time.monotonic(), sock.recvfrom(4096)[0]))
+            except socket.timeout:
+                pass
+
+    reader = threading.Thread(target=rx, daemon=True)
+    reader.start()
+    talk = talk_live.LiveTalk(talk_live.Target(f"rtp://127.0.0.1:{sock.getsockname()[1]}", "opus", 24000), RATE)
+    spurts = []
+    talk.on_spurt = spurts.append
+    talk.start()
+    time.sleep(0.3)                                    # warm: nothing sent before a word
+    assert got == []
+
+    def hold(secs):
+        t0, n, chunk = time.monotonic(), 0, RATE // 25
+        while n < RATE * secs:
+            talk.feed(pcm(40, 6000))
+            n += chunk
+            time.sleep(max(0, t0 + n / RATE - time.monotonic()))
+
+    hold(0.4)
+    time.sleep((talk_live.PREBUFFER_MS + talk_live.SPURT_END_MS) / 1000 + 0.3)
+    between = len(got)
+    time.sleep(0.4)
+    assert len(got) == between, "nothing between holds"
+    hold(0.4)
+    talk.finish()
+    talk._thread.join(5)
+    time.sleep(0.2)
+    stop.set()
+    reader.join(1)
+    sock.close()
+    assert talk.error is None and spurts == [True, False, True, False]
+    ssrcs = {struct.unpack(">I", d[8:12])[0] for _, d in got}
+    assert len(ssrcs) == 2, "each hold is a stream of its own"
 
 
 async def test_only_a_unifi_protect_speaker_is_a_target(hass):

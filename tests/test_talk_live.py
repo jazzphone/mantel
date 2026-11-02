@@ -36,6 +36,7 @@ class FakeHa:
         self.live = 0                                # connections still open
         self.refuse: dict[str, str] = {}             # entity -> HA's error message (not_supported)
         self.fail_after: int | None = None           # send {"error"} after this many frames
+        self.warm = False                            # talk_live.py's warm session (2026-11-02) says so
         self.server = None
         # the subscriptions this Home Assistant has: Mantel Link's (talk_live.py) and HK Frontend's; any other
         # type is HA's own unknown_command, as a real HA answers
@@ -76,7 +77,8 @@ class FakeHa:
                     else:
                         await ws.send_json({"id": msg["id"], "type": "result", "success": True, "result": None})
                         await ws.send_json({"id": msg["id"], "type": "event",
-                                            "event": {"handler_id": HA_HID, "rate": 24000, "codec": "opus"}})
+                                            "event": {"handler_id": HA_HID, "rate": 24000, "codec": "opus",
+                                                      **({"warm": True} if self.warm else {})}})
                 elif msg.get("type") == "unsubscribe_events":
                     await ws.send_json({"id": msg["id"], "type": "result", "success": True, "result": None})
             elif m.type == WSMsgType.BINARY:
@@ -414,7 +416,7 @@ async def test_the_page_going_away_lets_go_on_home_assistant(gw, ha):
     hub, ws, aid = await _live(gw, ha)
     await ws.close()
     await until(lambda: gw.audit(id=aid)[0]["result"] is not None)
-    assert gw.audit(id=aid)[0]["result"] == "ok"
+    assert gw.audit(id=aid)[0]["result"] == "ok:not_used"          # a warm sheet nobody talked on
     assert ha.conns[0][-1] == {"id": 2, "type": "unsubscribe_events", "subscription": 1}
     await hub.close()
 
@@ -619,7 +621,7 @@ async def test_a_refusal_other_than_unknown_is_final(gw, ha):
     assert [m.get("type") for m in ha.conns[-1] if isinstance(m, dict)] == ["auth", "mantel/talk/live"]
 
 
-# -- HK's own Worker, unchanged, against /ws/talk --------------------------------------------------------
+# -- HK's own Worker against /ws/talk (the warm session's protocol since 2026-11-02) --------------------------------------------------------
 async def run_worker(env, token, frames=5, rate=48000, speaker=SPEAKER):
     import shutil
     from pathlib import Path
@@ -644,7 +646,7 @@ async def test_hks_own_talk_worker_streams_through_mantel(gw, ha):
     hub = await gw.socket()
     reply = await ticket(gw, hub)
     got = await run_worker(gw, reply["result"]["ticket"], frames=5)
-    assert got["said"] == [{"id": 1, "live": True}] and got["sent"] == 5
+    assert got["said"] == [{"id": 1, "ready": True, "warm": False}] and got["sent"] == 5
     assert await until(lambda: len(ha.conns) == 1 and isinstance(ha.conns[0][-1], dict)
                        and ha.conns[0][-1].get("type") == "unsubscribe_events")
     frames = ha.binaries()
@@ -660,7 +662,8 @@ async def test_hks_worker_falls_back_when_live_cannot_start(gw, ha):
     hub = await gw.socket()
     reply = await ticket(gw, hub)
     got = await run_worker(gw, reply["result"]["ticket"])
-    assert got["sent"] == 0 and got["said"][0] == {"id": 1, "error": f"{SPEAKER} is not a UniFi Protect speaker"}
+    assert got["sent"] == 0 and got["said"][0] == {"id": 1, "error": f"{SPEAKER} is not a UniFi Protect speaker",
+                                                   "code": "not_supported"}
     got = await run_worker(gw, "spent-or-forged")                               # auth_invalid
     assert got["sent"] == 0 and got["said"] and "error" in got["said"][0]       # the card: s.fail -> the clip
     r = await gw.command(hub, id=7, **talk())                                    # and the clip still goes
@@ -745,4 +748,54 @@ async def test_a_ticket_that_expired_gives_its_early_socket_to_the_next_ticket(g
     relay.tickets[first].expires = 0                         # the first one ran out
     third = (await ticket(gw, hub))["result"]["ticket"]
     assert first not in relay.tickets and relay.tickets[third].link is not None
+    await hub.close()
+
+
+# -- the floor: one talker at a time (2026-11-02) --------------------------------------------------
+class _Socket:
+    closed = False
+
+    def __init__(self):
+        self.sent = []
+
+    async def send_json(self, m):
+        self.sent.append(m)
+
+
+async def test_one_talker_at_a_time_and_the_other_tablets_are_told_who():
+    relay = talk_relay.TalkRelay(web.Application(), audit=None, authz=None)
+    relay.floor_quiet = 0.2
+    kitchen, hall = (talk_relay.Stream(_Socket(), None, SPEAKER, name=n, sid=2) for n in ("Kitchen", "Hall"))
+    garage = talk_relay.Stream(_Socket(), None, "media_player.garage", name="Garage", sid=2)
+    relay.streams |= {kitchen, hall, garage}
+    loop = asyncio.get_running_loop()
+    assert relay.claim(kitchen, loop.time()) and relay.claim(kitchen, loop.time())
+    assert not relay.claim(hall, loop.time()) and not relay.claim(hall, loop.time())
+    await asyncio.sleep(0)
+    events = lambda s: [m["event"] for m in s.ws.sent]          # noqa: E731
+    assert events(hall) == [{"talker": "Kitchen"}, {"busy": "Kitchen"}], "told once, not per frame"
+    assert events(kitchen) == [] and events(garage) == [], "another doorbell is another floor"
+    assert await until(lambda: events(hall)[-1] == {"talker": None}, timeout=1), "quiet: the floor is free"
+    assert relay.claim(hall, loop.time())
+    await asyncio.sleep(0)
+    assert events(kitchen) == [{"talker": "Hall"}]
+    relay.release(hall)                                          # its sheet closed
+    await asyncio.sleep(0)
+    assert events(kitchen)[-1] == {"talker": None} and SPEAKER not in relay.holders
+
+
+async def test_a_warm_session_is_said_so_to_the_page_and_an_old_one_is_not(gw, ha):
+    hub, ws, aid = await _live(gw, ha)                           # an older Mantel Link: no `warm`
+    await ws.close()
+    await hub.close()
+    ha.warm = True
+    add_speaker(gw)
+    await gw.login("avery", "owner")
+    hub = await gw.socket()
+    reply = await ticket(gw, hub)
+    ws = await open_talk(gw, reply["result"]["ticket"])
+    assert (await recv(ws))["type"] == "auth_ok"
+    assert (await subscribe(ws))["success"] is True
+    assert (await recv(ws))["event"] == {"handler_id": 1, "rate": 24000, "codec": "opus", "warm": True}
+    await ws.close()
     await hub.close()

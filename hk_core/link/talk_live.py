@@ -40,6 +40,28 @@ camera's rate itself.
 
 Only UniFi Protect speakers can do this. For anything else (or if the
 session cannot open) the card falls back to talk.py's clip.
+
+A WARM SESSION (2026-11-02, docs/phase13/CAMERAS-DIRECT.md "Proper"
+push-to-talk). The card opens its subscription when the doorbell sheet
+opens, not at the press, so a press no longer waits on the chain (the
+socket, the auth, Protect's session, the encoder) and the first word is not
+clipped. Nothing reaches the doorbell until audio does: each hold is a
+TALKSPURT, with its own encoder and RTP stream opened at its first
+PREBUFFER_MS and closed once the pacer has been dry for SPURT_END_MS (the
+button let go and the cushion played out). Between holds nothing is sent,
+not even silence, so several open sheets never put streams side by side on
+the doorbell's one port. The first event says `warm: true`; a card that sees
+it keeps the subscription across holds, an older one unsubscribes at each
+release as before (and an older server, without `warm`, gets that too).
+
+ONE TALKER AT A TIME (the Floor). The doorbell has one speaker. The first
+session whose audio arrives holds the floor for its talkspurt; any other
+session's audio meanwhile is dropped, and it is told `{busy: <name>}` once.
+Every other open session hears `{talker: <name>}` when the floor is taken and
+`{talker: null}` when it is free again, so the button can say who is talking
+before anyone presses. The name is the Home Assistant user's (for Mantel,
+whose tablets share one user, Mantel's relay keeps a floor of its own with
+the tablets' names in front of this one).
 """
 from __future__ import annotations
 
@@ -62,6 +84,7 @@ PREBUFFER_MS = 200        # the jitter a tablet on Wi-Fi needs; the whole delay 
 MAX_BUFFER_MS = 500       # beyond this, drop the oldest: never let the delay grow
 FADE_MS = 5               # the ramp either side of a gap, so it does not click
 MAX_SESSION_S = 120       # a stuck button must not hold the doorbell open
+SPURT_END_MS = 800        # dry this long (the button let go): the talkspurt ends, the stream closes
 RATES = (8000, 16000, 22050, 24000, 32000, 44100, 48000, 88200, 96000)
 CODECS = {"opus": ("libopus", "rtp"), "aac": ("aac", "adts")}
 
@@ -98,6 +121,8 @@ class Pacer:
         self.gaps = 0
         self.dropped_ms = 0.0
         self._rate = rate
+        self._frame_ms = frame_ms
+        self._quiet = 0                 # silent frames since it ran dry (SPURT_END_MS)
 
     def push(self, pcm: bytes) -> None:
         with self._lock:
@@ -135,12 +160,14 @@ class Pacer:
             if self._dry:
                 if len(self._buf) >= self._pre or (self.closing and self._buf):
                     self._dry = False
+                    self._quiet = 0
                     take = min(n, len(self._buf))
                     out = self._ramp(bytes(self._buf[:take]), down=False) + bytes(n - take)
                     del self._buf[:take]
                     return out
                 if not self.closing:
                     self.underruns += 1
+                    self._quiet += 1
                 return bytes(n)
             if len(self._buf) >= n:
                 out = bytes(self._buf[:n])
@@ -153,7 +180,23 @@ class Pacer:
                 self.underruns += 1
                 self.gaps += 1
                 self._dry = True
+                self._quiet = 1
             return out
+
+    def ended(self) -> bool:
+        """The talkspurt is over: dry for SPURT_END_MS (a warm session's button
+        was let go and what it held has played)."""
+        with self._lock:
+            return self._dry and self._quiet * self._frame_ms >= SPURT_END_MS
+
+    def rest(self) -> None:
+        """Between talkspurts: nothing in hand, and the next one waits for a
+        whole PREBUFFER_MS again."""
+        with self._lock:
+            self._buf.clear()
+            self.started = False
+            self._dry = False
+            self._quiet = 0
 
     def drained(self) -> bool:
         with self._lock:
@@ -179,6 +222,8 @@ class LiveTalk:
     _thread: threading.Thread | None = None
     _t0: float = field(default_factory=time.monotonic)
     on_error: object = None        # called from the thread with the message
+    on_spurt: object = None        # called from the thread: True when a talkspurt's stream opens, False when it closes
+    spurts: int = 0
 
     def __post_init__(self) -> None:
         self.pacer = Pacer(self.in_rate)
@@ -203,6 +248,9 @@ class LiveTalk:
     def _run(self, open_output) -> None:
         try:
             self._stream(open_output)
+            if not self.pacer.closing and not self._stop.is_set():
+                # the time limit, with the subscription still open: a warm card opens another
+                raise TimeoutError(f"the {MAX_SESSION_S} s limit")
         except Exception as err:  # noqa: BLE001 - reported to the screen
             self.error = str(err) or type(err).__name__
             _LOGGER.warning("live talk to %s failed: %s", self.target.url, self.error)
@@ -218,6 +266,28 @@ class LiveTalk:
 
         encoder, fmt = CODECS[self.target.codec]
         opener = open_output or (lambda: av.open(self.target.url, "w", format=fmt, timeout=5))
+        deadline = time.monotonic() + MAX_SESSION_S
+        while not self._stop.is_set() and time.monotonic() < deadline:
+            if not self.pacer.ready():
+                if self.pacer.closing:
+                    break                          # let go before a word arrived
+                self._stop.wait(0.005)
+                continue
+            self.spurts += 1
+            if self.on_spurt:
+                self.on_spurt(True)
+            try:
+                self._spurt(av, opener, encoder, deadline)
+            finally:
+                if self.on_spurt:
+                    self.on_spurt(False)
+            if self.pacer.closing:
+                break
+            self.pacer.rest()                      # warm: wait for the next hold
+
+    def _spurt(self, av, opener, encoder, deadline: float) -> None:
+        """One talkspurt: its own stream, from the first PREBUFFER_MS until the
+        pacer is drained (unsubscribed) or has been dry SPURT_END_MS (let go)."""
         with opener() as out:
             st = out.add_stream(encoder, rate=self.target.rate)
             st.layout = "mono"
@@ -226,17 +296,9 @@ class LiveTalk:
             pts = 0
             tick = FRAME_MS / 1000
             nxt = None
-            deadline = time.monotonic() + MAX_SESSION_S
             while not self._stop.is_set():
                 now = time.monotonic()
-                if now > deadline:
-                    break
-                if not self.pacer.ready():
-                    if self.pacer.closing:
-                        break                      # let go before a word arrived
-                    self._stop.wait(0.005)
-                    continue
-                if self.pacer.drained():
+                if now > deadline or self.pacer.drained() or self.pacer.ended():
                     break
                 frame = av.AudioFrame(format="s16", layout="mono", samples=samples)
                 frame.planes[0].update(self.pacer.pop())
@@ -259,8 +321,65 @@ class LiveTalk:
                     out.mux(packet)
 
 
+class Floor:
+    """One talker at a time on one speaker (see ONE TALKER AT A TIME above).
+
+    Members are the open sessions on the speaker, each with a `name` and a
+    `tell(event)`. Pure bookkeeping on the event loop."""
+
+    def __init__(self) -> None:
+        self.members: list = []
+        self.holder = None
+
+    def join(self, member) -> None:
+        self.members.append(member)
+        if self.holder is not None:
+            member.tell({"talker": self.holder.name})
+
+    def leave(self, member) -> None:
+        if member in self.members:
+            self.members.remove(member)
+        self.release(member)
+
+    def claim(self, member) -> bool:
+        """May this member's audio go to the doorbell now?"""
+        if self.holder is member:
+            return True
+        if self.holder is not None:
+            if not getattr(member, "told_busy", False):
+                member.told_busy = True
+                member.tell({"busy": self.holder.name})
+            return False
+        self.holder = member
+        member.told_busy = False
+        self._tell_others(member, {"talker": member.name})
+        return True
+
+    def release(self, member) -> None:
+        if self.holder is not member:
+            return
+        self.holder = None
+        for m in self.members:
+            m.told_busy = False
+        self._tell_others(member, {"talker": None})
+
+    def _tell_others(self, member, event: dict) -> None:
+        for m in list(self.members):
+            if m is not member:
+                m.tell(event)
+
+
 TARGET_TTL_S = 300
 _targets: dict[str, tuple[float, Target]] = {}
+_floors: dict[str, Floor] = {}
+
+
+@dataclass(eq=False)
+class _Member:
+    """An open session on the Floor, as the floor sees it."""
+    name: str
+    tell: object
+    told_busy: bool = False
 
 
 async def async_cached_target(hass: HomeAssistant, entity_id: str) -> Target:
@@ -316,10 +435,25 @@ def async_register(hass: HomeAssistant, domain: str) -> None:
             connection.send_error(msg["id"], "not_supported", f"codec {target.codec}")
             return
         talk = LiveTalk(target, msg["rate"])
+        entity_id = msg["entity_id"]
+        floor = _floors.setdefault(entity_id, Floor())
+        user = getattr(connection, "user", None)
+
+        def tell(event: dict) -> None:
+            if connection.subscriptions.get(msg["id"]) is done:
+                connection.send_event(msg["id"], event)
+
+        member = _Member(getattr(user, "name", None) or "Someone", tell)
 
         @callback
         def on_audio(_hass, _conn, payload: bytes) -> None:
-            talk.feed(payload[: len(payload) - len(payload) % 2])
+            if floor.claim(member):
+                talk.feed(payload[: len(payload) - len(payload) % 2])
+
+        @callback
+        def spurt(started: bool) -> None:
+            if not started:
+                floor.release(member)
 
         handler_id, unregister = connection.async_register_binary_handler(on_audio)
 
@@ -328,6 +462,9 @@ def async_register(hass: HomeAssistant, domain: str) -> None:
             # Unsubscribe (the button let go) or the socket closed.
             unregister()
             talk.finish()
+            floor.leave(member)
+            if not floor.members and _floors.get(entity_id) is floor:
+                del _floors[entity_id]
 
         @callback
         def failed(message: str) -> None:
@@ -337,10 +474,12 @@ def async_register(hass: HomeAssistant, domain: str) -> None:
                 connection.send_event(msg["id"], {"error": message})
 
         talk.on_error = lambda m: hass.loop.call_soon_threadsafe(failed, m)
+        talk.on_spurt = lambda started: hass.loop.call_soon_threadsafe(spurt, started)
         connection.subscriptions[msg["id"]] = done
         talk.start()
         connection.send_result(msg["id"])
-        connection.send_event(msg["id"], {"handler_id": handler_id,
-                                          "rate": target.rate, "codec": target.codec})
+        connection.send_event(msg["id"], {"handler_id": handler_id, "rate": target.rate,
+                                          "codec": target.codec, "warm": True})
+        floor.join(member)                         # says who is talking, if anyone is
 
     websocket_api.async_register_command(hass, ws_live)
