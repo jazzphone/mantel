@@ -121,23 +121,30 @@ HS._apply({ configured: true, look: { glass: 'bright_each' } });
 ok('Each Card: every plate and chip blurs itself with the bright filter',
    lv('--hk-glass-backdrop') === 'blur(4px) saturate(1.3) brightness(1.08)' && vars().back === lv('--hk-glass-backdrop'));
 HS._apply({ configured: true, look: { glass: 'bright_pre', bright: 100 } });
-ok('Strength 100: twice the wash, twice the lift, the colors through it at saturate(1.6)', /0\.48\) 0%, rgba\(255, 255, 255, 0\.18\) 45%, rgba\(255, 255, 255, 0\.1\)\)$/.test(vars().plate) &&
-   lv('--hk-blur-filter') === 'blur(4px) saturate(1.6) brightness(1.16)' && !lv('--hk-glass-backdrop'), [vars().plate, lv('--hk-blur-filter')]);
-ok('...the rim and glow at their brightest; the Side Pane\'s plate the same Strength', /^inset 0 0 0 1\.5px rgba\(255,255,255,0\.40\), inset 0 1\.5px 0 rgba\(255,255,255,0\.55\), inset 0 0 24px rgba\(255,255,255,0\.16\)/.test(lv('--hk-look-shadow')) &&
-   lv('--hk-pane-plate') === 'linear-gradient(150deg, rgba(255,255,255,0.6), rgba(255,255,255,0.28))' && lv('--hk-pane-rim') === 'rgba(255,255,255,0.40)',
-   [lv('--hk-look-shadow'), lv('--hk-pane-plate')]);
-HS._apply({ configured: true, look: { glass: 'bright', bright: 50 } });
-ok('Strength 50: the rim, glow and pane as designed', lv('--hk-look-shadow').indexOf('inset 0 0 0 1.5px rgba(255,255,255,0.22), inset 0 1.5px 0 rgba(255,255,255,0.30), inset 0 0 24px rgba(255,255,255,0.06)') === 0 &&
-   lv('--hk-pane-plate') === 'linear-gradient(150deg, rgba(255,255,255,0.3), rgba(255,255,255,0.14))', [lv('--hk-look-shadow'), lv('--hk-pane-plate')]);
-HS.previewAmount('bright', 100);
-ok('a slider moving (previewAmount): worn at once, before it is saved', lv('--hk-blur-filter') === 'blur(4px) saturate(1.6) brightness(1.16)', lv('--hk-blur-filter'));
-HS._apply({ configured: true, look: { glass: 'bright', bright: 50 } });
-ok('...and held over the saved one until it has had time to come back', lv('--hk-blur-filter') === 'blur(4px) saturate(1.6) brightness(1.16)', lv('--hk-blur-filter'));
-HS.previewAmount('bright', null);
-ok('...let go: the saved one', lv('--hk-blur-filter') === 'blur(4px) saturate(1.3) brightness(1.08)', lv('--hk-blur-filter'));
+ok('Strength 100: twice the wash, twice the lift', /0\.48\) 0%, rgba\(255, 255, 255, 0\.18\) 45%, rgba\(255, 255, 255, 0\.1\)\)$/.test(vars().plate) &&
+   lv('--hk-blur-filter') === 'blur(4px) saturate(1.3) brightness(1.16)' && !lv('--hk-glass-backdrop'), [vars().plate, lv('--hk-blur-filter')]);
 HS._apply({ configured: true, look: { glass: 'bright', bright: 0 } });
 ok('Strength 0: the bare glass -- no wash, no lift', /0\) 0%, rgba\(255, 255, 255, 0\) 45%, rgba\(255, 255, 255, 0\)\)$/.test(vars().plate) &&
    lv('--hk-blur-filter') === 'blur(4px) saturate(1.3) brightness(1)', vars().plate);
+HS._apply({ configured: true, look: { glass: 'bright', bright: 50 } });
+ok('Dim 0 (as designed): no shade, nothing for the bars or the Side Pane', vars().plate.indexOf('rgba(0, 0, 0,') < 0 &&
+   !lv('--hk-bright-shade') && !lv('--hk-bright-dim') && HS.brightDim() === 0, vars().plate);
+HS._apply({ configured: true, look: { glass: 'bright', bright: 50, bright_dim: 30 } });
+ok('Dim 30: a shade over the plates, the chips, the floating plates and the Edit mode bar',
+   ['--hk-glass-plate', '--hk-chip-plate', '--hk-float-plate', '--hk-bar-plate'].every(function (k) { return lv(k).indexOf('linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), ') === 0; }),
+   lv('--hk-glass-plate'));
+ok('...the tab bar\'s and the side menu\'s (--hk-bright-shade) and the Side Pane\'s Same as the Glass (--hk-bright-dim)',
+   lv('--hk-bright-shade') === 'linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3))' && lv('--hk-bright-dim') === '0.3' && HS.brightDim() === 30);
+HS._apply({ configured: true, look: { glass: 'bright', bright_dim: 90 } });
+ok('...never past 60', lv('--hk-bright-dim') === '0.6', lv('--hk-bright-dim'));
+HS._apply({ configured: true, look: { glass: 'bright', bright_dim: 30 }, boards: { '': { bright_dim: 10 } } });
+ok('...a screen\'s own Dim wins', lv('--hk-bright-dim') === '0.1', lv('--hk-bright-dim'));
+HS.previewAmount('bright_dim', 45);
+ok('the Settings slider moving (previewAmount): worn at once, before it is saved', lv('--hk-bright-dim') === '0.45', lv('--hk-bright-dim'));
+HS.previewAmount('bright_dim', null);
+ok('...let go: the saved one again', lv('--hk-bright-dim') === '0.1', lv('--hk-bright-dim'));
+HS._apply({ configured: true, look: { glass: 'blur', bright_dim: 30 } });
+ok('...not Bright Glass: no shade, and the Side Pane\'s Same as the Glass is none', !lv('--hk-bright-shade') && !lv('--hk-bright-dim') && HS.brightDim() === 0);
 HS._apply({ configured: true, look: { glass: 'bright', bright: 50 }, boards: { '': { bright: 25 } } });
 ok('a screen\'s own Strength wins', /0\.12\) 0%/.test(vars().plate), vars().plate);
 
@@ -156,11 +163,6 @@ var capLight = HS.brightCap(['#16325e', '#2c5f9c', '#5f95cf', '#9cc2e6']);
 ok('the sky moves (a light day sky): the look follows it, the wash held back to the cap', capLight < 50 &&
    /rgba\(156, 194, 230, 0\.07\)/.test(vars().plate) && vars().plate.indexOf('rgba(255, 255, 255, 0.24)') < 0, [capLight, vars().plate]);
 ok('...a sky too light for white text even bare: the cap is 0, the bare glass', capLight === 0 || HS.brightContrast('#9cc2e6', '#9cc2e6', capLight) >= 4.5, capLight);
-HS._apply({ configured: true, look: { glass: 'bright', bright: 100 } });
-ok('...Strength 100 over it: the wash under the words still held, the sheen and the rim brighter where no words sit',
-   /0\.07\)\), linear-gradient\(160deg, rgba\(255, 255, 255, 0\.24\) 0%, rgba\(255, 255, 255, 0\) 45%, rgba\(255, 255, 255, 0\)\)$/.test(vars().plate) &&
-   lv('--hk-pane-rim') === 'rgba(255,255,255,0.40)', [vars().plate, lv('--hk-pane-rim')]);
-HS._apply({ configured: true, look: { glass: 'bright' } });
 ok('...a dark one: no cap', HS.brightCap(['#05070e', '#05070e', '#05070e', '#05070e']) === 100 && HS.brightCap(null) === 100);
 sky(['#16325e', '#2c5f9c', '#5f95cf', '#9cc2e6']);
 window.dispatchEvent(new Event('hk-sky-paint'));

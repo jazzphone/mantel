@@ -438,6 +438,19 @@ def test_a_wallpaper_behind_the_screensavers_clock():
         assert M.saver_options(bad) is None, bad
 
 
+def test_bright_glass_dim():
+    # (2026-11-01, the owner: like the Side Pane's Dim) 0-60 %, 0 as designed; All Screens' or a screen's own
+    assert M.merged({})["look"]["bright_dim"] == 0 and M.BRIGHT_DIM_MAX == 60
+    new, err = C.apply_house({}, {"look.bright_dim": 30})
+    assert err == {} and M.merged(new)["look"]["bright_dim"] == 30
+    for bad in (61, -5, True, "30"):
+        assert C.apply_house({}, {"look.bright_dim": bad})[1] == {"look.bright_dim": "bright_dim"}, bad
+    assert M.merged({"dashboard": {"look": {"bright_dim": 90}}})["look"]["bright_dim"] == 60
+    b, err = C.apply_board({}, {"bright_dim": 15})
+    assert err == {} and M.board(b)["bright_dim"] == 15
+    assert M.board({})["bright_dim"] is None and M.board(C.apply_board(b, {"bright_dim": None})[0])["bright_dim"] is None
+
+
 def test_bright_glass_on_home_only_by_default():
     # (2026-10-30) Bright Glass on Home, the other pages in its Blur; or on every page; a screen's own or All Screens'
     assert M.merged({})["look"]["bright_pages"] == "home"

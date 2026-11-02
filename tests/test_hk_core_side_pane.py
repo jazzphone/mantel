@@ -75,7 +75,8 @@ def test_a_group_is_whole():
     assert M.pane_group("dim", 35) == 35 and M.pane_group("dim", 0) == 0 and M.pane_group("dim", "medium") == 30
     for bad in (61, -5, 12.5, True, "pitch", None):
         assert M.pane_group("dim", bad) is None, bad
-    assert DEF["dim"] == 0 and M.PANE_DIM_MAX == 60
+    # (2026-11-01) Same as the Glass, the default since: Bright Glass's Dim
+    assert DEF["dim"] == "glass" and M.pane_group("dim", "glass") == "glass" and M.PANE_DIM_MAX == 60
 
 
 # ------------------------------------------------------------------------------------------- the resolution

@@ -1075,7 +1075,7 @@
     if (style === 'flat') return 'Opaque surfaces with no blur, animations or live sky effects. Color, landscape and photo backgrounds remain available in Background. Your other appearance preferences are kept.';
     if (style === 'frosted') t += ' Frost: how milky, 50% is the middle. Tint from Background: each card takes the color of the page behind it instead of one gray.';
     if (isBlur(style)) t += ' Blur: how strong, 50% is 20 px.';
-    if (isBright(style)) t += ' Brightness: how bright the glass is, 50% as designed. Behind the words it holds back by itself where white text would get hard to read; past that, the sheen, the rim and the colors coming through go on brightening. The Side Pane’s glass follows it.';
+    if (isBright(style)) t += ' Strength: how bright the glass is, 50% as designed. It holds back by itself where white text would get hard to read. Dim: a shade over the cards, the chips and the tab bar, as the Side Pane’s Dim — the Side Pane follows it unless it has its own.';
     if (style === 'tinted') t += ' Darkness: how much of the background shows through, 50% is 75% dark. Icon Circles: Dark as the Home app’s, or Light to keep their shape over dark scenery.';
     return t;
   }
@@ -2210,7 +2210,7 @@
                             'sky_landscape', 'sky_landscape_look', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light', 'sky_flat_pages', 'sky_flat_image_look', 'sky_flat_page_image_looks', 'sky_image_look',
                             'flat_colors', 'flat_page_colors',
                             // Bright Glass's Strength and the Wallpaper (2026-10-30)
-                            'bright', 'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion', 'sky_wallpaper_color'], true],
+                            'bright', 'bright_dim', 'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion', 'sky_wallpaper_color'], true],
     ['behavior', 'Now Playing, Side Pane, Pop-ups & Notifications', ['popups', 'notify', 'notify_saver', 'notify_dnd', 'now_playing', 'timer_bar', 'bar_all_pages',
                               'np_style', 'np_side', 'np_bar', 'np_bar_phone', 'side_pane'], true],
     ['idle', 'Screensaver', ['screensaver', 'screensaver_options', 'screensaver_engine', 'wallpanel_options'], true],
@@ -2592,7 +2592,8 @@
   var PANE_SHOWS = [['off', 'Off'], ['home', 'Home Only'], ['all', 'Every Page']];
   var PANE_SAVER_SHOWS = [['off', 'Off'], ['same', 'Same as the Dashboard'], ['own', 'Its Own Sections']];
   // DIM, 0 to PANE_DIM_MAX percent (settings.py; Off / Low / Medium / High for its first hours, read as these)
-  var PANE_DIM_MAX = 60, PANE_DIM_WORDS = { none: 0, low: 16, medium: 30, high: 45 };
+  // ...or 'glass' (2026-11-01, the default): Same as the Glass, Bright Glass's Dim (BRIGHT_DIM_MAX, look.bright_dim)
+  var PANE_DIM_MAX = 60, PANE_DIM_WORDS = { none: 0, low: 16, medium: 30, high: 45 }, PANE_DIM_GLASS = 'glass', BRIGHT_DIM_MAX = 60;
   function paneDim(v) { return typeof v === 'string' ? (PANE_DIM_WORDS[v] || 0) : Math.max(0, Math.min(PANE_DIM_MAX, Math.round(Number(v) || 0))); }
   var PANE_GROUPS = ['side', 'width', 'dashboard', 'saver', 'doorbell', 'headings', 'dim'];
   var PANE_MAX = 8;
@@ -2793,7 +2794,7 @@
   }
 
   root.hkSettingsModel = {
-    PANE_KINDS: PANE_KINDS, PANE_SIZES: PANE_SIZES, PANE_WHEN: PANE_WHEN, PANE_SIDES: PANE_SIDES, PANE_WIDTHS: PANE_WIDTHS, PANE_DIM_MAX: PANE_DIM_MAX, paneDim: paneDim,
+    PANE_KINDS: PANE_KINDS, PANE_SIZES: PANE_SIZES, PANE_WHEN: PANE_WHEN, PANE_SIDES: PANE_SIDES, PANE_WIDTHS: PANE_WIDTHS, PANE_DIM_MAX: PANE_DIM_MAX, PANE_DIM_GLASS: PANE_DIM_GLASS, BRIGHT_DIM_MAX: BRIGHT_DIM_MAX, paneDim: paneDim,
     PANE_SHOWS: PANE_SHOWS, PANE_SAVER_SHOWS: PANE_SAVER_SHOWS, PANE_GROUPS: PANE_GROUPS, PANE_PLACES: PANE_PLACES, PANE_TAPS: PANE_TAPS, paneTaps: paneTaps, PANE_CAMERA_NAMES: PANE_CAMERA_NAMES, CLOCK_FACES: CLOCK_FACES, CLOCK_ALIGNS: CLOCK_ALIGNS, CLOCK_SCALES: CLOCK_SCALES,
     CLOCK_WEIGHTS: CLOCK_WEIGHTS, CLOCK_DATES: CLOCK_DATES, CLOCK_LINES: CLOCK_LINES, CLOCK_BESIDE: CLOCK_BESIDE, CLOCK_BELOW: CLOCK_BELOW, PANE_MAX: PANE_MAX, PANE_DEFAULTS: PANE_DEFAULTS,
     paneKind: paneKind, paneSection: paneSection, paneOf: paneOf, paneGroupSays: paneGroupSays, paneSet: paneSet, paneReset: paneReset,

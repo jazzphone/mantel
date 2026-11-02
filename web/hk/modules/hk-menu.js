@@ -581,7 +581,8 @@
       // the look's light blur (hkCards.BLUR.bright), the rim down its edge;
       // the page you're on a white pill, its name and icon the accent's,
       // deepened to read on white
-      '.root.bright .mat{background:linear-gradient(150deg,rgba(255,255,255,0.30),rgba(255,255,255,0.14));',
+      // (the look's Dim over it, 2026-11-01: --hk-bright-shade, hk-settings.js brightLook)
+      '.root.bright .mat{background:var(--hk-bright-shade,linear-gradient(transparent,transparent)),linear-gradient(150deg,rgba(255,255,255,0.30),rgba(255,255,255,0.14));',
       '  -webkit-backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);',
       '  border-right:0;box-shadow:inset -1.5px 0 0 rgba(255,255,255,0.22)}',
       // ...but open OVER the page (not docked beside it) it is a sheet: its

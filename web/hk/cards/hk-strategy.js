@@ -3109,6 +3109,8 @@
                     // (2026-10-30) the Wallpaper, and Bright Glass's Strength
                     // (hk-settings.js applies the look live, as frost's)
                     sky_wallpaper: 1, sky_wallpaper_night: 1, sky_wallpaper_motion: 1, sky_wallpaper_color: 1, bright: 1,
+                    // ...and its Dim (2026-11-01)
+                    bright_dim: 1,
                     // (a Look's Undo is the settings page's to read)
                     look_undo: 1,
                     // ...and the Side Pane: hk-sidepane.js reads it live and
