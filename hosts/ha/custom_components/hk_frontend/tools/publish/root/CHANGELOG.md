@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.37.0 - 2026-11-02
+
 - **HK Settings → Features on Mantel:** Add and Remove each feature there, in Mantel's own settings (in Home Assistant, Add feature stays HK Frontend's).
 - **Linked mode by Mantel's address:** linked to the address Mantel Link pinned (Mantel's own link port), HK Frontend uses the same certificate authority Mantel Link pinned, so its link needs no name, DNS or proxy either.
 

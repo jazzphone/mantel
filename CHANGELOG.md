@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.117 - 2026-11-02
+
 **Added**
 - **Mantel Link by Mantel's address**, with no name, DNS or proxy in between: `https://<Mantel's address>:8766`, Mantel Connect's own port, with Mantel's own certificate. Pairing (protocol v3) hands Mantel Link Mantel's certificate authority inside Mantel's proof, and the credential sealed under the pairing code, so a look-alike can neither swap the authority nor read the credential; Mantel Link then trusts that authority alone. Mantel's name with a public certificate works as before. Mantel Settings → Connections → Mantel in Home Assistant shows the address with a pairing code. Needs Mantel Connect's port (`compose.connect.yaml`, the LXC install's question) and Mantel Link 0.1.12; HK Frontend linked to the same address uses Mantel Link's.
 - Proxmox LXC: **Home Assistant finds Mantel by itself** (Mantel Link's **Discovered: Mantel**): the install turns the network announcer on (`compose.announce.yaml`), and `update` does once for a container installed before it (`MANTEL_ANNOUNCER=off` in `.env` keeps it off). The announcement carries the link address when Mantel Connect's port is on, and a discovered Mantel is linked there, still confirmed with a pairing code.
