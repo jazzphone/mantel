@@ -830,7 +830,8 @@ class FeatureHost:
         out: dict[str, dict[str, Any]] = {}
         for fid, kind, name in COMPANIONS:
             got = (items.get(kind) or [{"entry_id": f"mantel_{kind}", "title": name}]) if kind in added else []
-            out[fid] = {"name": name, "kind": kind, "installed": True,
+            # `own`: Mantel adds and removes it itself (feature_pages feature/set), not Home Assistant's HK Frontend
+            out[fid] = {"name": name, "kind": kind, "installed": True, "own": True,
                         "entries": [{"entry_id": i["entry_id"], "title": i.get("title") or name, "state": "loaded"}
                                     for i in got]}
         return out

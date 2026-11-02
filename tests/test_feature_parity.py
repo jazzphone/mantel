@@ -203,7 +203,7 @@ async def test_panel_get_lists_the_features_in_has_shape(make_env):
     await ws.send_json({"type": "read", "id": 3, "msg": {"type": "hk_frontend/panel/get"}})
     feats = (await GF.recv(ws))["result"]["features"]
     assert list(feats) == ["hk_music", "hk_alarm_pin", "hk_clean_areas", "hk_tv", "hk_energy", "hk_notify"]
-    assert feats["hk_tv"] == {"name": "Live TV", "kind": "live_tv", "installed": True,
+    assert feats["hk_tv"] == {"name": "Live TV", "kind": "live_tv", "installed": True, "own": True,
                               "entries": [{"entry_id": ITEM["live_tv"], "title": "Live TV", "state": "loaded"}]}
     assert feats["hk_clean_areas"]["entries"] == [{"entry_id": "mantel_clean_areas", "title": "Clean Areas",
                                                     "state": "loaded"}]
