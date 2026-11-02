@@ -1432,3 +1432,64 @@ async def test_stop_all_within_a_pause_s_window_leaves_nothing_to_resume(on):
         await wait_for(lambda: on.app["hub"].store.states[K]["s"] == "idle")
         assert host.resumes.players(time.monotonic()) == [], stop
     await ws.close()
+
+
+async def scoped(env, name, *areas):
+    """A child who may control only the rooms in `areas`."""
+    await env.m.user(name, "child")
+    uid = env.app["accounts"].db.execute("SELECT id FROM users WHERE username=?", (name,)).fetchone()["id"]
+    env.app["rbac"].set_scopes("user", uid, list(areas))
+    await env.login(name, "child")
+
+
+async def test_a_request_sends_only_to_the_rooms_it_was_approved_on(on, monkeypatch):
+    """SRV-11: the engine's gate allowed Music Assistant commands on every speaker of the house, not the rooms the
+    gateway approved. A run's players are the approved rooms, their virtual-pair partners and groups."""
+    made = []
+    real = M.MusicRun
+
+    class Spy(real):
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            made.append(self)
+
+    monkeypatch.setattr(M, "MusicRun", Spy)
+    await make_pair(on)
+    await on.connected()
+    await scoped(on, "cody", "cody_room", "study")
+    ws = await on.socket()
+    for svc, want in ((SVC("music_stop", rooms=[C]), {"ma-cody"}),
+                      (SVC("music_transport", player=C, command="volume_up"), {"ma-cody"}),
+                      (SVC("music_play", rooms=[C], playlist="pl1"), {"ma-cody"}),
+                      (SVC("music_stop", rooms=[SL]), {"ma-study-l", "ma-study-r"})):
+        made.clear()
+        r = await on.command(ws, id=2, **svc)
+        assert "error" not in r, r
+        assert [set(run.players) for run in made] == [want], svc
+    await ws.close()
+
+
+async def test_a_play_that_would_regroup_a_room_the_person_cannot_control_is_refused_whole(on):
+    """SRV-11: Cody's Room playing with the Kitchen; a child who may control only their own room plays something
+    there. Releasing the group (or moving the Kitchen's music on without them) would act on a room that is not
+    theirs: refused, nothing sent. A person who controls both is served as before."""
+    await on.connected()
+    await group_playing(on, K, [K, C])
+    await scoped(on, "cody", "cody_room")
+    ws = await on.socket()
+    n = len(on.ma.sent())
+    r = await on.command(ws, id=2, **play([C]))
+    assert r["error"]["code"] == "forbidden" and "Kitchen" in r["error"]["message"], r
+    r = await on.command(ws, id=3, **SVC("music_transfer", rooms=[C], source=C))
+    assert r["error"]["code"] == "forbidden" and "Kitchen" in r["error"]["message"], r
+    assert on.ma.sent()[n:] == [], "nothing reached Music Assistant"
+    assert [a["result"] for a in on.audit(action="hk_frontend.music_play")][-1].startswith("error:forbidden")
+    await ws.close()
+    # control of both rooms: Cody's Room leaves the group, which plays on in the Kitchen
+    await scoped(on, "cody2", "cody_room", "kitchen")
+    ws = await on.socket()
+    r = await on.command(ws, id=2, **play([C]))
+    assert r["result"]["response"]["ok"] is True, r
+    sent = on.ma.sent()[n:]
+    assert ("players/cmd/ungroup", {"player_id": "ma-cody"}) in sent and "players/cmd/stop" not in json.dumps(sent), sent
+    await ws.close()

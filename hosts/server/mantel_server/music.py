@@ -1685,6 +1685,8 @@ class MusicHost:
         if m.get("op") == SERVICE_STOP and not (m.get("args") or {}).get("rooms"):
             names = list(cfg.room_ids)
         out = list(dict.fromkeys(names))
+        if cmd.music is not None:
+            cmd.music["approved"] = out       # what the gateway will have decided on: all MusicHost.run may send to
         keep = [c for c in cmd.checks if c.entity_id is None]
         if not out and keep == cmd.checks:
             return cmd
@@ -1704,11 +1706,15 @@ class MusicHost:
             return None
         cfg = self.config()
         players = set()
-        speakers = cfg.ma_players()           # (a virtual pair's second player and its own group with its room)
         if op == OP_SERVICE:                  # the speakers it names (each checked by the gateway), and their queues
             d = a["data"]
             speakers = cfg.players_of(_ids(d.get("entity_id")) + _ids(d.get("group_members")))
-            players |= {q for e in speakers for q in [self.engine._attr(e, "active_queue")] if isinstance(q, str) and q}
+        else:                                 # the rooms the gateway approved, not every speaker in the house
+            names = list(music.get("approved") or [])
+            speakers = E.own_players(cfg, names, op == SERVICE_STOP and not a.get("rooms"))
+            if op in (SERVICE_PLAY, SERVICE_TRANSFER):
+                speakers += self._others(principal, op, cfg, a)
+        players |= {q for e in speakers for q in [self.engine._attr(e, "active_queue")] if isinstance(q, str) and q}
         for e in speakers:
             try:
                 players.add(self.pid(e))
@@ -1746,6 +1752,22 @@ class MusicHost:
             raise MusicRefusal("home_assistant_error", str(res.get("message") or "The request failed."))
         return {"context": {"id": f"mantel-audit-{audit_id}"},
                 "response": res if music.get("return_response") else None}
+
+    def _others(self, principal: Any, op: str, cfg: MusicConfig, a: dict) -> list[str]:
+        """THE ROOMS A PLAY OR A MOVE REGROUPS BUT NEVER NAMED (the rest of a group it takes a room from): the person
+        needs control of them too, else the request is refused whole -- nothing is sent -- rather than moving,
+        pausing or releasing a room that is not theirs."""
+        others = E.others_in_the_way(self.house, cfg, a["rooms"], a.get("source") if op == SERVICE_TRANSFER else None)
+        gw = self.app.get("gateway")
+        action = f"{DOMAIN}.{op}"
+        blocked = [r for r in others if gw is None or not gw.authz.decide(
+            principal.subject, action, r, ctx=gw.authz.context()).allowed]
+        if blocked:
+            names = ", ".join(dict.fromkeys(cfg.name_of(r) for r in blocked))
+            named = ", ".join(dict.fromkeys(cfg.name_of(r) for r in a["rooms"]))
+            raise MusicRefusal("forbidden", f"{names} is playing together with {named} and is not yours to control, "
+                                            "so nothing was changed. Ask for it to be stopped first.")
+        return cfg.players_of(others)
 
     # -- the import -------------------------------------------------------------------------------------------
     async def import_from_ha(self, panel: Any, read: Callable[[dict], Any], actor: Any, source: str | None) -> bool:
