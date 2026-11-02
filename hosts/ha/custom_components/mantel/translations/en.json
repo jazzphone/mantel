@@ -28,6 +28,14 @@
         "data": {
           "code": "Pairing code"
         }
+      },
+      "reauth_confirm": {
+        "title": "Mantel Link needs a new credential",
+        "description": "Mantel refused the credential Mantel Link had for {url}, so it may have been revoked in Mantel Settings. Make a pairing code in Mantel Settings (Connections, Mantel in Home Assistant, Make a Pairing Code) and enter it here, or enter a new Service credential (Mantel Settings, Service Accounts).",
+        "data": {
+          "code": "Pairing code",
+          "token": "Or a Service credential"
+        }
       }
     },
     "error": {
@@ -49,7 +57,8 @@
       "single_instance_allowed": "Mantel Link is already set up.",
       "reconfigure_successful": "Mantel Link was updated.",
       "another_mantel_linked": "Home Assistant is already linked to another Mantel.",
-      "invalid_discovery": "That announcement didn't describe a Mantel."
+      "invalid_discovery": "That announcement didn't describe a Mantel.",
+      "reauth_successful": "Mantel Link has a working credential again."
     },
     "flow_title": "{name}"
   },

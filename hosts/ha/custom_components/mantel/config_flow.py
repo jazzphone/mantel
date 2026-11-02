@@ -206,6 +206,39 @@ class MantelFlow(ConfigFlow, domain=DOMAIN):
                                     data_schema=vol.Schema({vol.Required(CONF_CODE): str}),
                                     description_placeholders={"url": url, **URL_PLACEHOLDERS})
 
+    # ---- Mantel refused the saved credential (revoked in Mantel Settings, or never followed an App's new one):
+    # Home Assistant asks for a new one, by a pairing code (as at setup) or a pasted Service credential
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        entry = self._get_reauth_entry()
+        errors: dict[str, str] = {}
+        url = entry.data[CONF_URL]
+        if user_input is not None:
+            code = (user_input.get(CONF_CODE) or "").strip()
+            token = (user_input.get(CONF_TOKEN) or "").strip()
+            err = None
+            if code:
+                token, err = await try_pair(self.hass, url, code)
+            elif not token:
+                err = "code_or_token"
+            hello = None
+            if not err:
+                hello, err = await try_link(self.hass, url, token)
+            if not err:
+                instance = (hello or {}).get("instance")
+                if entry.unique_id and instance and instance != entry.unique_id:
+                    err = "another_mantel"
+            if err:
+                errors["base"] = err
+            else:
+                return self.async_update_reload_and_abort(entry, data_updates={CONF_TOKEN: token})
+        return self.async_show_form(step_id="reauth_confirm", data_schema=vol.Schema({
+            vol.Optional(CONF_CODE): str,
+            vol.Optional(CONF_TOKEN): str,
+        }), errors=errors, description_placeholders={"url": url, **URL_PLACEHOLDERS})
+
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         entry = self._get_reconfigure_entry()
         errors: dict[str, str] = {}

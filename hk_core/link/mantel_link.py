@@ -33,8 +33,10 @@ Requests are answered by id; one not answered in `timeout` seconds fails with
 LinkTimeout, and every request in flight fails with NotConnected the moment the
 socket drops, so a service call never hangs. The link reconnects by itself:
 1 s, doubling to 30 s between tries, back to 1 s after a connection that got as
-far as hello. A refused credential (401/403) keeps retrying at that pace too --
-the fix is in Configure, which reloads the entry anyway. The credential is never
+far as hello. A refused credential (401/403, 2026-11-01) is another matter: it
+is logged once, `on_auth_failed(status)` is told once (the integration starts
+its re-authentication / Repairs issue), and the retries slow to 60 s, doubling
+to 10 minutes, until one connection gets through. The credential is never
 logged.
 
 No Home Assistant import here (aiohttp only), so it is tested on its own.
@@ -61,6 +63,7 @@ LINK_HEADER = "X-Mantel-Link"
 TIMEOUT = 10.0            # a forwarded call's answer
 HELLO_TIMEOUT = 10.0      # the first frame after connecting
 BACKOFF = (1.0, 30.0)
+AUTH_BACKOFF = (60.0, 600.0)   # between tries while the credential is refused (a revoked one is not coming back)
 MAX_MSG = 4 << 20
 
 _LOGGER = logging.getLogger(__name__)
@@ -196,7 +199,9 @@ class MantelLink:
                  timeout: float = TIMEOUT, backoff: tuple[float, float] = BACKOFF,
                  hello_timeout: float = HELLO_TIMEOUT, resolver: Resolver | None = None,
                  domain: str = DOMAIN, protocol: int = PROTOCOL, features: tuple[str, ...] = (),
-                 frames: dict[str, Callable[[dict[str, Any]], Any]] | None = None) -> None:
+                 frames: dict[str, Callable[[dict[str, Any]], Any]] | None = None,
+                 on_auth_failed: Callable[[int], Any] | None = None,
+                 auth_backoff: tuple[float, float] = AUTH_BACKOFF) -> None:
         self._session, self.url, self._token = session, ws_url(url), token
         # who is calling and how it speaks; `frames`: the server frame types
         # beyond protocol 1's this integration handles (each gets the frame)
@@ -206,6 +211,9 @@ class MantelLink:
         self._resolver = resolver
         self.listener = listener
         self.timeout, self.backoff, self.hello_timeout = timeout, backoff, hello_timeout
+        # told once when Mantel refuses the credential (401/403); asking again after a connection that got through
+        self.on_auth_failed, self.auth_backoff = on_auth_failed, auth_backoff
+        self.auth_failed = False      # refused, and no connection has got through since
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._pending: dict[int, asyncio.Future] = {}
         self._ids = itertools.count(1)
@@ -220,12 +228,13 @@ class MantelLink:
     # ---- the loop
     async def run(self) -> None:
         delay = self.backoff[0]
+        auth_delay: float | None = None
         while not self._closing:
-            reached = False
+            reached = refused = False
             try:
                 reached = await self._connect_once()
             except asyncio.CancelledError:
-                self._drop("the link was stopped")
+                self._drop("the link was stopped", quiet=True)
                 raise
             except TargetRefused as err:
                 self.last_error = err.code
@@ -235,9 +244,8 @@ class MantelLink:
             except aiohttp.WSServerHandshakeError as err:
                 self.last_error = f"HTTP {err.status}"
                 if err.status in (401, 403):
-                    _LOGGER.warning("%s: Mantel Server at %s refused the link (HTTP %s): check the "
-                                    "Service credential and that Home Assistant reaches it on the LAN door",
-                                    self.domain, self.url, err.status)
+                    refused = True
+                    self._refused(err.status)
                 else:
                     _LOGGER.warning("%s: Mantel Server at %s answered HTTP %s", self.domain, self.url, err.status)
             except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError) as err:
@@ -248,10 +256,32 @@ class MantelLink:
                     self._drop("the link to Mantel Server dropped")
             if self._closing:
                 break
+            if refused:                  # a refused credential does not fix itself: slow right down
+                auth_delay = self.auth_backoff[0] if auth_delay is None else min(auth_delay * 2, self.auth_backoff[1])
+                await asyncio.sleep(auth_delay)
+                continue
+            auth_delay = None
             if reached:
                 delay = self.backoff[0]
             await asyncio.sleep(delay)
             delay = min(delay * 2, self.backoff[1])
+
+    def _refused(self, status: int) -> None:
+        """Mantel refused the credential. The first time in a row: a warning and the hook; then quiet."""
+        if self.auth_failed:
+            _LOGGER.debug("%s: Mantel Server at %s still refuses the credential (HTTP %s)", self.domain, self.url, status)
+            return
+        self.auth_failed = True
+        _LOGGER.warning("%s: Mantel Server at %s refused the link (HTTP %s): the Service credential was revoked or "
+                        "is wrong, or Home Assistant does not reach Mantel on the LAN door. Pair again; trying again "
+                        "every few minutes meanwhile", self.domain, self.url, status)
+        if self.on_auth_failed is not None:
+            try:
+                result = self.on_auth_failed(status)
+                if asyncio.iscoroutine(result):
+                    asyncio.ensure_future(result)
+            except Exception:  # noqa: BLE001 -- the integration's hook never ends the link
+                _LOGGER.exception("%s: the credential-refused hook failed", self.domain)
 
     async def _connect_once(self) -> bool:
         """One connection, until it ends. True if it got as far as hello."""
@@ -305,6 +335,7 @@ class MantelLink:
         self.hello = {k: v for k, v in hello.items() if k != "entities"}
         self._ws = ws
         self.connected = True
+        self.auth_failed = False
         self.last_error = None
         _LOGGER.info("%s: linked to Mantel Server at %s", self.domain, self.url)
         # who owns which tablet first: the entities are taken by it
@@ -351,7 +382,8 @@ class MantelLink:
         except Exception:  # noqa: BLE001 -- one bad entity never ends the link
             _LOGGER.exception("%s: a linked entity update failed", self.domain)
 
-    def _drop(self, why: str) -> None:
+    def _drop(self, why: str, quiet: bool = False) -> None:
+        """The link is down. `quiet`: a deliberate stop (close, unload, a probe's hang-up), not a lost link."""
         was = self.connected
         self.connected = False
         self._ws = None
@@ -360,7 +392,8 @@ class MantelLink:
                 fut.set_exception(NotConnected(why))
         self._pending.clear()
         if was:
-            _LOGGER.warning("%s: %s; reconnecting", self.domain, why)
+            if not quiet:
+                _LOGGER.warning("%s: %s; reconnecting", self.domain, why)
             self._safe(self.listener.on_connected, False)
 
     # ---- requests
@@ -389,7 +422,7 @@ class MantelLink:
     async def close(self) -> None:
         self._closing = True
         ws = self._ws
-        self._drop("the link was stopped")
+        self._drop("the link was stopped", quiet=True)
         if ws is not None and not ws.closed:
             await ws.close()
 

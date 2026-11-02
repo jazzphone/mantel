@@ -139,7 +139,7 @@ class Bridge:
         # live_tv: this side has Live TV's transcode (tv.py), so Mantel may play its channels here
         self.link = MantelLink(async_get_clientsession(hass), link["url"], link["token"], self,
                                domain=DOMAIN, protocol=PROTOCOL, features=("bridge", "live_tv"),
-                               frames=self.frames(),
+                               frames=self.frames(), on_auth_failed=self.on_auth_failed,
                                **({"timeout": timeout} if timeout is not None else {}))
         self.descs: dict[str, dict[str, Any]] = {}          # unique id -> Mantel's descriptor (all of them)
         self.entities: dict[str, Any] = {}                   # unique id -> the entity added
@@ -154,6 +154,15 @@ class Bridge:
         self._pending_owners: dict[str, Any] | None = None
         self._unwait: Any = None
         self.waiting: set[str] = set()                       # entities HK Frontend has not let go of yet
+
+    @callback
+    def on_auth_failed(self, status: int) -> None:
+        """Mantel refused the credential (revoked in Mantel Settings, or the App announced a new one that never
+        reached this entry): Home Assistant's re-authentication asks for a pairing code, instead of the link
+        retrying every 30 s for good (2026-11-01, audit 3)."""
+        _LOGGER.info("%s: Mantel refused the credential (HTTP %s); re-authentication started "
+                     "(Settings, Devices & services)", NAME, status)
+        self.entry.async_start_reauth(self.hass)
 
     def frames(self) -> dict[str, Any]:
         """Server frame types beyond protocol 1's that this side handles: a notification for a phone (9.7)."""
