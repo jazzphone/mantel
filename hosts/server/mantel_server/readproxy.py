@@ -151,8 +151,18 @@ def check_calendar(entity_id: object, start: object, end: object) -> None:
             raise ReadBlocked("calendar start/end must be ISO dates")
 
 
+class _Sub:
+    """One subscription a consumer holds: what to ask Home Assistant again, who hears it, and which connection
+    (``gen``) and Home Assistant id (``ha_id``) it is live on now."""
+    __slots__ = ("msg", "on_event", "ha_id", "gen")
+
+    def __init__(self, msg: dict, on_event: Callable[[dict], None], ha_id: int, gen: int) -> None:
+        self.msg, self.on_event, self.ha_id, self.gen = msg, on_event, ha_id, gen
+
+
 class ReadProxy:
     check = staticmethod(check_read)       # what request/subscribe accept (a subclass may narrow it)
+    RESUBSCRIBE_BACKOFF = (1.0, 2.0, 5.0, 10.0, 30.0)     # seconds between tries while Home Assistant is away
 
     def __init__(self, ha_url: str, token: str, ws_url: str | None = None) -> None:
         self.base_url = ha_url.rstrip("/")
@@ -164,7 +174,13 @@ class ReadProxy:
         self._lock = asyncio.Lock()
         self._next = 0
         self._pending: dict[int, asyncio.Future] = {}
-        self._subs: dict[int, Callable[[dict], None]] = {}
+        self._subs: dict[int, Callable[[dict], None]] = {}      # Home Assistant's id -> who hears it (this connection)
+        # 2026-11-01 (audit 3, LINK-4): what each consumer subscribed to, by the handle subscribe() gave back. Kept
+        # across a lost socket and asked again on the next one; the socket's own _subs are not.
+        self._defs: dict[int, _Sub] = {}
+        self._gen = 0                                           # the connection number (a new one per _connect)
+        self._resub: asyncio.Task | None = None
+        self._closed = False
         self.rx_bytes = 0
         self.sent_types: list[str] = []
 
@@ -191,31 +207,91 @@ class ReadProxy:
             if (await ws.receive_json()).get("type") != "auth_ok":
                 raise RuntimeError("Home Assistant rejected the token")
             self._ws = ws
-            self._reader = asyncio.create_task(self._read(ws))
+            self._gen += 1
+            self._reader = asyncio.create_task(self._read(ws, self._gen))
 
-    async def _read(self, ws: aiohttp.ClientWebSocketResponse) -> None:
+    async def _read(self, ws: aiohttp.ClientWebSocketResponse, gen: int) -> None:
         try:
             async for m in ws:
                 if m.type != aiohttp.WSMsgType.TEXT:
                     break
                 self.rx_bytes += len(m.data)
-                data = json.loads(m.data)
-                mid = data.get("id")
-                if data.get("type") == "result" and mid in self._pending:
-                    fut = self._pending.pop(mid)
-                    if not fut.done():
-                        if data.get("success"):
-                            fut.set_result(data.get("result"))
-                        else:
-                            fut.set_exception(RuntimeError((data.get("error") or {}).get("code", "error")))
-                elif data.get("type") == "event" and mid in self._subs:
-                    self._subs[mid](data["event"])
+                try:
+                    data = json.loads(m.data)
+                    mid = data.get("id")
+                    if data.get("type") == "result" and mid in self._pending:
+                        fut = self._pending.pop(mid)
+                        if not fut.done():
+                            if data.get("success"):
+                                fut.set_result(data.get("result"))
+                            else:
+                                fut.set_exception(RuntimeError((data.get("error") or {}).get("code", "error")))
+                    elif data.get("type") == "event" and mid in self._subs:
+                        self._subs[mid](data["event"])
+                except Exception as exc:  # noqa: BLE001 -- one bad frame or consumer is not every subscription
+                    log.warning("a frame from Home Assistant could not be handled (%s)", type(exc).__name__,
+                                exc_info=True)
         finally:
             for fut in self._pending.values():
                 if not fut.done():
                     fut.set_exception(ConnectionError("Home Assistant connection closed"))
             self._pending.clear()
-            self._subs.clear()
+            if gen == self._gen:              # not a newer connection's: those subscriptions are live
+                self._subs.clear()
+                self._kick_resubscribe()
+
+    def _kick_resubscribe(self) -> None:
+        """Ask Home Assistant again for every subscription that is not live on the current connection, in a task of
+        its own (nothing else may ask the proxy for anything: a wall tablet only listens)."""
+        if self._closed or not self._defs or (self._resub is not None and not self._resub.done()):
+            return
+        try:
+            self._resub = asyncio.get_running_loop().create_task(self._resubscribe())
+        except RuntimeError:                  # no loop (closing down)
+            pass
+
+    def _live(self, d: _Sub) -> bool:
+        return d.gen == self._gen and self._ws is not None and not self._ws.closed
+
+    async def _resubscribe(self) -> None:
+        tries = 0
+        while not self._closed:
+            stale = [(h, d) for h, d in self._defs.items() if not self._live(d)]
+            if not stale:
+                return
+            try:
+                await self._connect()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 -- Home Assistant is still away (or the credential is not set yet)
+                delay = self.RESUBSCRIBE_BACKOFF[min(tries, len(self.RESUBSCRIBE_BACKOFF) - 1)]
+                if tries == 0:
+                    log.info("Home Assistant is away (%s); %d subscription(s) will be asked for again", type(exc).__name__,
+                             len(stale))
+                tries += 1
+                await asyncio.sleep(delay)
+                continue
+            for handle, d in stale:
+                if self._defs.get(handle) is not d or self._live(d):
+                    continue                  # ended meanwhile, or a request already brought it back
+                try:
+                    d.ha_id, d.gen = await self._start_sub(d.msg, d.on_event)
+                except asyncio.CancelledError:
+                    raise
+                except RuntimeError as exc:   # Home Assistant answered no (an entity that is gone): drop it
+                    log.warning("Home Assistant refused %s again (%s); dropped", d.msg.get("type"), exc)
+                    self._defs.pop(handle, None)
+                except Exception:  # noqa: BLE001 -- the socket dropped again: the next pass connects and tries again
+                    break
+                else:
+                    if self._defs.get(handle) is not d:       # ended while it was being asked for
+                        await self._end_ha(d)
+            else:
+                tries = 0
+                continue
+            delay = self.RESUBSCRIBE_BACKOFF[min(tries, len(self.RESUBSCRIBE_BACKOFF) - 1)]
+            tries += 1
+            await asyncio.sleep(delay)
 
     async def _send(self, msg: dict) -> int:
         await self._connect()
@@ -234,8 +310,8 @@ class ReadProxy:
         self._pending[mid] = fut
         return await asyncio.wait_for(fut, 30)
 
-    async def subscribe(self, msg: dict, on_event: Callable[[dict], None]) -> int:
-        self.check(msg)
+    async def _start_sub(self, msg: dict, on_event: Callable[[dict], None]) -> tuple[int, int]:
+        """Ask Home Assistant for one subscription on the current connection -> (its id there, the connection)."""
         await self._connect()
         mid = self._next + 1                       # reserve the id before the events can arrive
         self._subs[mid] = on_event
@@ -244,19 +320,35 @@ class ReadProxy:
             assert got == mid
             fut = asyncio.get_running_loop().create_future()
             self._pending[mid] = fut
+            gen = self._gen
             await asyncio.wait_for(fut, 30)
         except BaseException:
             self._subs.pop(mid, None)
             raise
+        return mid, gen
+
+    async def subscribe(self, msg: dict, on_event: Callable[[dict], None]) -> int:
+        """-> a handle for ``unsubscribe``. The subscription outlives the socket: when Home Assistant's connection
+        drops, it is asked for again on the next one (2026-11-01, audit 3: a wall tablet's forecast froze)."""
+        self.check(msg)
+        mid, gen = await self._start_sub(msg, on_event)
+        self._defs[mid] = _Sub(msg, on_event, mid, gen)          # the handle is the first id; it never changes
+        if not self._live(self._defs[mid]):                      # the socket dropped before this was filed
+            self._kick_resubscribe()
         return mid
 
+    async def _end_ha(self, d: _Sub) -> None:
+        self._subs.pop(d.ha_id, None)
+        if self._live(d):
+            try:
+                await self._send({"type": "unsubscribe_events", "subscription": d.ha_id})
+            except Exception:
+                pass
+
     async def unsubscribe(self, mid: int) -> None:
-        if self._subs.pop(mid, None) is None:
-            return
-        try:
-            await self._send({"type": "unsubscribe_events", "subscription": mid})
-        except Exception:
-            pass
+        d = self._defs.pop(mid, None)
+        if d is not None:
+            await self._end_ha(d)
 
     async def read_hk_settings(self) -> Any:
         """HK's settings as HK Settings reads them (hk_frontend/panel/get): the settings import's one read."""
@@ -282,6 +374,9 @@ class ReadProxy:
             return await r.json()
 
     async def close(self) -> None:
+        self._closed = True
+        if self._resub is not None:
+            self._resub.cancel()
         if self._ws is not None:
             await self._ws.close()
         if self._http is not None:
