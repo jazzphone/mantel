@@ -56,6 +56,23 @@ PIECES: dict[str, tuple[tuple[str, ...], dict[str, tuple[str, ...]]]] = {
     "feels": (("circular",), {}),
     "moon": (("inline", "circular"), {}),
     "sun": (("inline", "circular", "rectangular"), {}),
+    # wave B: data HK reads on its other pages
+    "security": (("inline", "circular"), {}),
+    "doors": (("inline", "circular", "rectangular"), {"when": ("always", "open")}),
+    "garage": (("inline", "circular"), {"when": ("always", "open")}),
+    "climate": (("inline", "circular", "rectangular"), {}),
+    "lights": (("inline", "circular"), {}),
+    "vacuum": (("inline", "circular"), {}),
+    "notify": (("inline", "circular", "rectangular"), {}),
+    "package": (("inline", "circular"), {}),
+    "who": (("inline", "circular", "rectangular"), {"person": "entity:person"}),
+    "grid": (("inline", "circular"), {}),
+    "ev": (("inline", "circular"), {}),
+    "upnext": (("inline", "rectangular"), {}),
+    "playin": (("inline",), {}),
+    "thisday": (("inline",), {}),
+    "camera": (("rectangular", "card"), {"camera": "entity:camera"}),
+    "ring": (("inline", "card"), {}),
 }
 SHAPES = ("inline", "circular", "rectangular", "card", "band")
 # [zone] -> (the shapes it takes, its room). The row's room is in units: a circular piece is one, a rectangular two,

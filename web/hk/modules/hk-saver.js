@@ -138,7 +138,10 @@
       // the forecast (the corner one is a card), one style for both, and
       // what is behind Show: Clock
       clock_large: raw.clock !== false && raw.clock_over === 'large',
-      clock_style: typeof raw.clock_style === 'string' ? raw.clock_style : 'classic',
+      // PLANTED IS A FACE (2026-11-02, phase 13, decision 1): the ivory numerals standing in the Landscape's meadow;
+      // where there is no meadow -- a clock of its own, over photos -- it is Classic, whose figures they are
+      clock_style: raw.clock_style === 'planted' ? 'classic' : typeof raw.clock_style === 'string' ? raw.clock_style : 'classic',
+      clock_planted: raw.clock_style === 'planted',
       clock_bg: CLOCK_BGS.indexOf(raw.clock_bg) >= 0 ? raw.clock_bg : 'gradient',
       clock_motion: raw.clock_motion === 'still' ? 'still' : 'slow',
       // a Wallpaper behind it (2026-10-31): which, and a motion theme's colour
@@ -219,7 +222,8 @@
       // height (% of the shorter side; % down) and the photo darkened under them (Photos and Both)
       forecast_big: raw.forecast_big === 'clock' ? 'clock' : 'temp',
       // ...the time planted in the meadow, lit by the scene's sun (2026-11-01, hk-saverfaces.js plant()): on unless off
-      forecast_planted: raw.forecast_planted !== false,
+      // (...and Big Weather's time stands in the meadow while the face is Planted: one home for the choice)
+      forecast_planted: raw.clock_style === 'planted' || raw.forecast_planted !== false,
       // THE LAYOUT (2026-11-01, the Screensaver editor's; hk-saverlayout.js): none draws as each Show always has
       layout: raw.layout && typeof raw.layout === 'object' && (raw.layout.v === 1 || raw.layout.v === 2) ? raw.layout : null,
       tb_size: n(raw.tb_size, 12, 40, 24), tb_top: n(raw.tb_top, 0, 50, 6), tb_dim: n(raw.tb_dim, 0, 80, 0),
@@ -266,8 +270,9 @@
     // aside, which only its slide shows)
     c.cards = c.cards.filter(function (x) { return x && x.music_only; });
     c.clock_large = false;
-    c.time_behind = b.kind === 'time' && b.depth === 'behind';
-    if (c.time_behind && b.size) c.tb_size = b.size;
+    // BEHIND WITH ANY FACE (phase 13, phase 3): the layout's own face, the photo's subject cut out over it (layoutCut) --
+    // never Time Behind's own figures, which knew one face. Its Darken is the photos' now (--ph-dim, layoutCut)
+    c.time_behind = false;
     // THE FORECAST AS THE BACKGROUND is the layout's: classic, its details a piece (Weather, Band) where the layout has
     // them. AS A SLIDE -- between the photos, in their place, now and then over a clock -- its own Layout and Details
     // (2026-11-01, the owner: "there is no way of setting Big layout for forecast with Photos")
@@ -1190,12 +1195,26 @@
     '.lay .lybig{color:var(--tint);white-space:nowrap;line-height:1;font-family:var(--hk-saver-font,-apple-system,system-ui,sans-serif);text-shadow:0 2px 24px rgba(0,0,0,.22)}',
     '.lay .lybig.measuring{visibility:hidden}',
     '.lay .lyland{background-repeat:no-repeat;pointer-events:none}',
+    // (the subject's twin over the layout's face: laid out, faded and zoomed as its photo is -- layoutCut)
+    '.lay .lycut{position:absolute;inset:0;opacity:0;transition:opacity ' + CROSSFADE_MS + 'ms ease;transform-origin:var(--org,var(--pos,50% 50%));scale:var(--zm,1);pointer-events:none}',
+    '.lay .lycut.top{opacity:1}',
+    '.lay .lycut.zoom{animation:hk-saver-zoom var(--zd,33s) linear forwards}',
+    '.lay .lycut img{position:absolute;inset:0;width:100%;height:100%;object-fit:var(--fit,cover);object-position:var(--pos,50% 50%);',
+    '  -webkit-mask-size:var(--fit,cover);mask-size:var(--fit,cover);-webkit-mask-position:var(--pos,50% 50%);mask-position:var(--pos,50% 50%);',
+    '  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;filter:brightness(calc(1 - var(--ph-dim,0)))}',
+    '.lay .lycut[pw] img{width:calc(100% - var(--hk-pane-w,0px))}',
+    ':host([ckphotos]) .lay .lycut img{filter:brightness(calc(1 - var(--hk-ckdim,.35)))}',
+    '@media (prefers-reduced-motion:reduce){.lay .lycut.zoom{animation:none}}',
+    // DARKEN IS THE PHOTOS' (phase 3): with a layout, the photos' wash at --ph-dim, whatever is in front of them
+    ':host([lay][phdim]:not([ckphotos])) .ph::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:rgba(0,0,0,var(--ph-dim,0))}',
     // UNDER A SLIDE ([lyoff], layoutSlides: the music, the forecast, the weather, Home Energy) the layout steps aside
     // altogether -- its big element, its widgets and its places for the cards -- and the corners are the screensaver's own,
     // as the slides were drawn for: the time, the date and the weather at the top left, Home Status at the top right
     // (2026-11-01, the owner's wall tablet: under the music the time was gone and the weather ran into Up Next)
     ':host([lay][lyoff]) .lay{opacity:0}',
     ':host([cklight]:not([cknight])) .lay{--tint:#1c1c1e}',
+    // (Night Mode over a layout: its pieces and its time the night's dim ink, as the clock's own face goes)
+    ':host([cknight]) .lay{--lay-ink:#9a9aa2 !important;--tint:#9a9aa2;filter:brightness(.7)}',
     // (Big Weather among the photos, or in their place, tells the time itself: the layout's big element and widgets
     // step aside while it shows, as they do for the music)
     ':host([lay][fcbig][fcslide]) .lay,:host([lay][fcbig][forecast]) .lay{opacity:0}',
@@ -2128,6 +2147,8 @@
               if (dp) it.depth = dp;
               if (typeof p.album === 'string' && p.album) it.album = p.album.slice(0, 80);
               if (typeof p.year === 'number' && isFinite(p.year) && p.year >= 1900 && p.year <= 2100) it.year = Math.round(p.year);
+              // (the day it was taken, where the server knows it: On This Day, phase 13)
+              if (typeof p.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(p.date)) it.date = p.date;
               out.push(it);
             }
           });
@@ -2317,6 +2338,8 @@
     next.style.transition = first || !old ? 'none' : '';
     next.classList.add('top');
     displayLayer = next;
+    // (the subject's twin over the layout's face, in step: phase 3)
+    if (ly) { layoutCut(); cutsFollow(); }
     var timer;
     var done = fadeDone = function () {
       if (fadeDone !== done) return;
@@ -2337,6 +2360,7 @@
       }
       next.style.zIndex = '1';
       fadeDone = null;
+      if (ly) cutsFollow();
     };
     if (isFlat()) done(); else timer = setTimeout(done, first || !old ? 0 : CROSSFADE_MS + 100);
   }
@@ -2588,6 +2612,8 @@
   }
   function photoFaces(lay, ph, L, c) {
     c = c || cfg;
+    // (the photo this layer shows, for the layout's cut-out: layoutCut)
+    lay.__ph = ph; lay.__fit = L && L.fit ? L.fit.fit : 'cover';
     lay.querySelectorAll('.tb,.ttl').forEach(function (n) { n.remove(); });
     if (!c || !ph || !ph.item) return;
     var it = ph.item, before = lay.querySelector('.phscrim');
@@ -2989,8 +3015,13 @@
   var pieceFiles = {};
   function pieceFile(f) {
     if (pieceFiles[f]) return;
-    pieceFiles[f] = import('/hk/modules/hk-saverpieces-' + f + '.js').then(layoutSoon)
+    pieceFiles[f] = import('/hk/modules/hk-saverpieces-' + f + '.js').then(function () { if (f === 'home') piecesStarted(); layoutSoon(); })
       .catch(function (e) { console.warn('[hk-saver] pieces', f, e && e.message); });
+  }
+  // THE SCREENSAVER HAS COME UP: what "since" means to the pieces that count what arrives (Notifications)
+  function piecesStarted() {
+    var H = window.hkSaverWidgets && window.hkSaverWidgets._ && window.hkSaverWidgets._.home;
+    if (H && H.reset) { try { H.reset(); } catch (e) { /* its own */ } }
   }
   function enterLayout() {
     leaveLayout();
@@ -3005,6 +3036,9 @@
       if (!ly || ly.run !== run || !on || !got[0]) return;
       // (the widgets' look: their sheet in this shadow tree, which the document's can't reach)
       if (got[1] && got[1].CSS) { var css = got[1].sheet ? got[1].sheet() : document.createElement('style'); if (!got[1].sheet) css.textContent = got[1].CSS; layer.appendChild(css); }
+      // (the layout's groups' files at once: Notifications counts from the moment the screensaver comes up)
+      if (got[0] && got[0].filesOf) got[0].filesOf(got[0].clean(cfg.layout)).forEach(pieceFile);
+      piecesStarted();
       layoutDraw();
       // the widgets' words on the minute; the cards' sizes once they have drawn
       ly.minuteT = setTimeout(function tickMinute() {
@@ -3013,6 +3047,9 @@
         ly.minuteT = setTimeout(tickMinute, 60000 - Date.now() % 60000 + 50);
       }, 60000 - Date.now() % 60000 + 50);
       setTimeout(layoutSoon, 1200);
+      // NIGHT MODE with a layout, whatever is behind it
+      nightCheck();
+      if (!nightT) nightT = setInterval(nightCheck, 30000);
       if (typeof ResizeObserver === 'function') { ly.ro = new ResizeObserver(layoutSoon); ly.ro.observe(host); }
     });
   }
@@ -3084,17 +3121,11 @@
   function deg(v) { return v == null || !isFinite(v) ? '—' : Math.round(v) + '°'; }
   // THE BIG ELEMENT: made (or kept) for what the layout asks, and its size as drawn -- {w, h, base} -- or null
   function layoutBig(b, R, u) {
-    var key = [b.kind, b.depth, b.size, b.align, cfg.clock_style, cfg.clock_color, cfg.clock_24, cfg.clock_today_music, R.room.w, R.room.h, cfg.show, mode, !!fcShowing].join('|');
+    var key = [b.kind, b.depth, b.size, b.align, cfg.clock_style, !!cfg.clock_planted, cfg.clock_color, cfg.clock_24, cfg.clock_today_music, R.room.w, R.room.h, cfg.show, mode, !!fcShowing].join('|');
     // (Behind only while photos show: over the forecast between them, or with no photos, the time stands in front)
-    var behindPhotos = b.kind === 'time' && b.depth === 'behind' && photoOpts(cfg).behind && mode === 'photos' && !fcShowing;
-    var planted = b.kind === 'time' && b.depth === 'planted' && cfg.show === 'forecast' && !!fSky;
+    var planted = b.kind === 'time' && (b.depth === 'planted' || cfg.clock_planted) && (cfg.show === 'forecast' || (cfg.show === 'clock' && cfg.clock_bg === 'forecast')) && !!fSky;
     if (ly.big && ly.big.key !== key) layoutBigOff();
     if (b.kind === 'none') return null;
-    // Behind the photo's subject: Time Behind's own figures (photoFaces), here only measured
-    if (behindPhotos) {
-      var gb = glyphBox(R.room.w, R.room.h, timeNow(), { tb_size: b.size, tb_top: 6 });
-      return { w: gb[2], h: gb[3], base: gb[3], behind: true };
-    }
     if (!ly.big) {
       var el = document.createElement('div');
       el.className = 'lybig';
@@ -3215,7 +3246,9 @@
     setAttr(ly.layer, 'data-acc', L.accents !== false);
     // the pieces this shape has (made once each, updated with the house)
     var want = {}, client = clientNow(), now = new Date();
-    var ctx = { title: layoutTitle(), music: client ? musicOf(musicNow(client), client) : null };
+    // (the photo showing: its title, and its year and date for On This Day -- only while photos show)
+    var photoNow = mode === 'photos' && !fcShowing && lyPhoto ? { year: lyPhoto.year || null, date: lyPhoto.date || null } : null;
+    var ctx = { title: layoutTitle(), music: client ? musicOf(musicNow(client), client) : null, photo: photoNow };
     Object.keys(zs).forEach(function (z) {
       zs[z].forEach(function (w, i) {
         // (its own size, else the row's one size: its unit, times its size)
@@ -3268,7 +3301,7 @@
       planned[z] = [];
       zs[z].forEach(function (w, i) {
         // (gone: nothing to show, or its condition -- "only when the mail has arrived" -- not met)
-        var c = widgetAt(z, i), gone = (c && c.showing === false) || !LM.met(w.show, client && client.states);
+        var c = widgetAt(z, i), gone = (c && (c.showing === false || c.blank)) || !LM.met(w.show, client && client.states);
         if (gone) ly.empty[z + ':' + i] = LM.idOf(w);
         if (claimed[z + ':' + i] || (gone && !previewOn)) { if (c) c.el.style.display = 'none'; return; }
         // (in the editor's preview its place is kept, drawn by the editor's dotted outline: the piece itself draws nothing)
@@ -3302,20 +3335,14 @@
     ly.plan = P;
     // OVER PHOTOS, its own Shadow and Outline (Clock's, ckFx: the photo under it can be anything)
     if (ly.big && ly.big.el && !ly.big.planted) {
-      var overPhotos = cfg.show === 'photos' || cfg.show === 'both' || (cfg.show === 'clock' && (cfg.clock_bg === 'photos' || cfg.clock_bg === 'landscapes'));
+      // (...and over the Landscape, as busy a ground as a photo: Legibility wherever the background is -- phase 13)
+      var overPhotos = cfg.show === 'photos' || cfg.show === 'both' || cfg.show === 'forecast' || (cfg.show === 'clock' && (cfg.clock_bg === 'photos' || cfg.clock_bg === 'landscapes' || cfg.clock_bg === 'forecast'));
       var fx = overPhotos ? ckFx(cfg) : 'none';
       ly.big.el.style.filter = fx !== 'none' ? fx : '';
     }
     // the big element where the plan says (Planted stands where the land puts it; Behind is Time Behind's)
     if (big && P.big) {
-      if (big.behind) {
-        // Time Behind's height: its figures' top where the plan put the big element's (glyphBox, inverted)
-        var g = tbGeom({ tb_size: O.big.size, tb_top: 6 }), m = Math.min(R.room.w, R.room.h);
-        cfg.tb_size = O.big.size;
-        // (above 0 where the line's room above the figures is more than the margin: the figures' top on the margin)
-        cfg.tb_top = Math.max(-30, Math.min(50, (P.big.y - (m * g.line - big.h) / 2) / R.room.h * 100));
-        tbLook(cfg);
-      } else if (ly.big && !big.fixed) {
+      if (ly.big && !big.fixed) {
         if (ly.big.scale) { ly.big.el.style.left = (P.big.x - ly.big.off.x) + 'px'; ly.big.el.style.top = (P.big.y - ly.big.off.y) + 'px'; }
         else { ly.big.el.style.left = P.big.x + 'px'; ly.big.el.style.top = P.big.y + 'px'; }
       }
@@ -3324,7 +3351,17 @@
     // sky still shows and the hills and the trees come in front -- in a box the big element's size, never the screen's
     var landOn = O.big.depth === 'behind' && O.big.kind !== 'none' && fscene && fscene.landShown && !!fscene.landShown() &&
       (cfg.show === 'forecast' || (cfg.show === 'clock' && cfg.clock_bg === 'forecast'));
-    layoutLand(landOn && P.big && ly.big ? P.big : null, R);
+    // (...where the land leaves enough of the time to read: past 35 % of its box, the time stands in front -- a phone on
+    // its side hid nearly all of it under the trees, 2026-11-02)
+    var landBox = landOn && P.big && ly.big ? P.big : null;
+    ly.landShare = null;
+    if (landBox) { var lsh = ly.landShare = landShare(landBox, R); if (lsh === undefined || lsh > TB_COVER[1]) landBox = null; }
+    layoutLand(landBox, R);
+    // the photos' Darken, whatever stands in front of them (Photos and Both; Clock on Photos has its own)
+    var phd = (cfg.show === 'photos' || cfg.show === 'both') ? (cfg.tb_dim || 0) / 100 : 0;
+    setAttr(host, 'phdim', phd > 0);
+    host.style.setProperty('--ph-dim', String(phd));
+    layoutCut();
     // the pieces
     var put = function (ctl, box) {
       if (!ctl || !ctl.el) return;
@@ -3348,6 +3385,97 @@
       });
     });
     P.moved.forEach(function (mv) { if (mv.to === null) { var c = widgetAt(mv.zone, mv.i); if (c) put(c, null); } });
+  }
+  // BEHIND THE PHOTO'S SUBJECT, ANY FACE (2026-11-02, phase 13, phase 3; the owner: "Every clock styling option works
+  // with the time both in front of the photo's subject and behind it"): the order is the photo, the face, then the
+  // subject cut out of the photo over the face. Each photo layer has a twin here, after the face and before the pieces:
+  // the same picture masked by its cut-out, laid out as the photo is (its fit, focus, zoom and Darken), fading with it
+  // (reveal) and zooming with it (Slow Zoom). The subject comes in front only where it covers 5 to 35 % of the face's
+  // own box (its ink, from the plan) -- else, on a Mosaic, or on a photo with no cut-out, the time stands in front.
+  function cutWanted() {
+    if (!ly || !ly.big || !ly.plan || !ly.plan.big || !cfg || !cfg.layout) return false;
+    var b = (window.hkSaverLayout ? window.hkSaverLayout.clean(cfg.layout) : cfg.layout).big || {};
+    var on2 = cfg.show === 'photos' || cfg.show === 'both' || (cfg.show === 'clock' && cfg.clock_bg === 'photos' && !cfg.clock_photo_soft);
+    return on2 && b.kind !== 'none' && b.depth === 'behind' && mode === 'photos' && !fcShowing && !(moState && displayLayer === moState.layer);
+  }
+  function layoutCut() {
+    if (!ly || !root) return;
+    var want = cutWanted(), layers = root.querySelectorAll('.ph');
+    ly.cuts = ly.cuts || [];
+    Array.prototype.forEach.call(layers, function (L0, i) {
+      var tw = ly.cuts[i], ph = L0.__ph, d = ph && cleanDepth(ph.item);
+      if (!want || !d || !ph.w || !ph.h) { if (tw) tw.style.display = 'none'; return; }
+      if (!tw) {
+        tw = ly.cuts[i] = document.createElement('div');
+        tw.className = 'lycut';
+        tw.appendChild(document.createElement('img'));
+        tw.firstChild.alt = '';
+      }
+      // (after the face, before the pieces)
+      if (tw.previousSibling !== ly.big.el && ly.big.el.parentNode === ly.layer) ly.layer.insertBefore(tw, ly.big.el.nextSibling);
+      var im = tw.firstChild, m = 'url("' + d.mask + '")';
+      if (im.getAttribute('src') !== ph.url) {
+        im.style.setProperty('-webkit-mask-image', m); im.style.setProperty('mask-image', m);
+        im.src = ph.url;
+      }
+      // as the photo is laid out: its fit and focus, its zoom, beside any pane
+      ['--pos', '--fit', '--zm', '--org', '--zd'].forEach(function (v) { var x = L0.style.getPropertyValue(v); if (x) tw.style.setProperty(v, x); else tw.style.removeProperty(v); });
+      setAttr(tw, 'pw', L0.hasAttribute('pw'));
+      cutFollow(L0, tw);
+      // weighed on the face's own box, where the plan put it
+      var R = layoutRoomOf(), pb = ly.plan.big, pos = String(L0.style.getPropertyValue('--pos') || '50% 50%').split(/\s+/).map(function (v) { var n = parseFloat(v); return isFinite(n) ? n / 100 : 0.5; });
+      var fit = L0.__fit || 'cover', g = [pb.x - R.room.x, pb.y - R.room.y, pb.w, pb.h];
+      var key = [d.mask, Math.round(R.room.w), Math.round(R.room.h), fit, pos.join(' '), g.map(Math.round).join(',')].join('|');
+      if (tw.__key === key && tw.__share !== undefined) { tw.style.display = behindAt(tw.__share) ? '' : 'none'; return; }
+      tw.__key = key; tw.style.display = 'none';
+      tbShare(d.mask, drawnRect(ph.w, ph.h, R.room.w, R.room.h, fit, pos[0], pos[1] == null ? 0.5 : pos[1]), g, key, function (share) {
+        if (tw.__key !== key) return;
+        tw.__share = share;
+        tw.style.display = behindAt(share) ? '' : 'none';
+      });
+    });
+  }
+  // a twin follows its photo's layer: shown with it, fading as it fades (the same transition), zooming as it zooms
+  function cutFollow(L0, tw) {
+    if (!tw) return;
+    tw.style.transition = L0.style.transition;
+    tw.style.zIndex = L0.style.zIndex;
+    if (L0.classList.contains('zoom') !== tw.classList.contains('zoom')) {
+      if (L0.classList.contains('zoom')) { void tw.offsetWidth; tw.classList.add('zoom'); } else tw.classList.remove('zoom');
+    }
+    tw.classList.toggle('top', L0.classList.contains('top'));
+  }
+  function cutsFollow() {
+    if (!ly || !ly.cuts || !root) return;
+    Array.prototype.forEach.call(root.querySelectorAll('.ph'), function (L0, i) { cutFollow(L0, ly.cuts[i]); });
+  }
+  // HOW MUCH OF A BOX THE LAND COVERS (its art's alpha, laid out as hk-sky.js's .land draws it: cover, center bottom, of
+  // the 2560 x 1600 art): the share at half or more, weighed once per land, screen and box; undefined until it is known
+  var landShares = {};
+  function landShare(box, R) {
+    var file = fscene && fscene.landShown && fscene.landShown();
+    if (!file) return undefined;
+    var key = [file, Math.round(R.W), Math.round(R.H), Math.round(box.x), Math.round(box.y), Math.round(box.w), Math.round(box.h)].join('|');
+    if (key in landShares) return landShares[key];
+    landShares[key] = undefined;
+    if (typeof Image === 'undefined') { landShares[key] = null; return null; }
+    var img = new Image();
+    img.onload = function () {
+      var share = null;
+      try {
+        var k = Math.max(R.W / 2560, R.H / 1600), aw = 2560 * k, ah = 1600 * k, ax = (R.W - aw) / 2, ay = R.H - ah;
+        var cw = 96, ch = Math.max(8, Math.round(cw * box.h / Math.max(1, box.w))), s2 = cw / Math.max(1, box.w);
+        var cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+        var x = cv.getContext('2d');
+        x.drawImage(img, (ax - box.x) * s2, (ay - box.y) * s2, aw * s2, ah * s2);
+        share = coverShare(x.getImageData(0, 0, cw, ch).data);
+      } catch (e) { share = null; }
+      landShares[key] = share;
+      layoutSoon();
+    };
+    img.onerror = function () { landShares[key] = null; };
+    img.src = '/hk/sky/' + file;
+    return undefined;
   }
   function layoutLand(box, R) {
     if (!box) { if (ly.land) { ly.land.remove(); ly.land = null; } return; }
@@ -3512,7 +3640,9 @@
   }
   function nightCheck() {
     if (!host) return;
-    var dark = !!(ckCtl && on) && nightNow();
+    // (a layout's too: over the photos or the Landscape there is no clock of the clock's own, and Night Mode did
+    // nothing -- phase 13)
+    var dark = !!((ckCtl || ly) && on) && nightNow();
     setAttr(host, 'cknight', dark);
     // (the Day face by the time of day: the corners' words follow its light and dark)
     if (cfg && window.hkSaverFaces && host.hasAttribute('ckface')) setAttr(host, 'cklight', faceLight(window.hkSaverFaces));
@@ -4321,6 +4451,7 @@
                        image: str(mi && mi.image) || str(mi && mi.album && mi.album.image) } : null;
       var y = cm && (cm.year || (cm.album && cm.album.year));
       mus.year = y ? String(y) : '';
+      upNextPiece(d, mus.next);
       mus.views.forEach(function (v) { drawMusic(v, v.d); });
       if (muShowing) layoutMusic();
       paneStack();
@@ -4329,8 +4460,14 @@
       // not Music Assistant: no Up Next (its place let go)
       if (mus.nextFor !== sig) return;
       mus.nextBusy = false;
+      upNextPiece(d, null);
       mus.views.forEach(function (v) { drawMusic(v, v.d); });
     });
+  }
+  // (the layout's Up Next piece hears the slide's read: one ask per song, phase 13)
+  function upNextPiece(d, next) {
+    var M = window.hkSaverWidgets && window.hkSaverWidgets._ && window.hkSaverWidgets._.media;
+    if (M && M.setNext) { try { M.setNext(d.key, next ? { title: next.title, artist: next.artist } : null, { title: d.title, artist: d.artist }); } catch (e) { /* its own read */ } }
   }
   // THE NEXT SONG'S COVER: Music Assistant looks a song up only as it starts,
   // so the queue's next song has none (seen on every queue). Its search
@@ -5966,7 +6103,7 @@
       // (empty: a "shows when..." piece with nothing to show, by its catalog id; claims: who shows a fact a piece would)
       Object.keys(ly.empty || {}).forEach(function (k) { empty[ly.empty[k]] = true; });
       return { W: R.W, H: R.H, room: R.room, plan: ly.plan, zones: O.zones, big: O.big, row_at: O.row_at, row_size: O.row_size, empty: empty,
-               emptyAt: Object.assign({}, ly.empty), claims: Object.assign({}, ly.claims) };
+               emptyAt: Object.assign({}, ly.empty), claims: Object.assign({}, ly.claims), landShare: ly.landShare };
     },
     running: function () { return on; },
     covered: function () { return on && !!coveredPage; },

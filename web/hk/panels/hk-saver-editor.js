@@ -30,7 +30,8 @@
     ['color', 'Moving Color', 'Aurora, gradients, ink and patterns', { show: 'clock', clock_bg: 'aurora' }],
     ['wallpaper', 'Wallpaper', 'HK’s wallpapers', { show: 'clock', clock_bg: 'wallpaper' }],
     ['landscapes', 'HK Landscapes', 'Photographs of mountains and lakes', { show: 'clock', clock_bg: 'landscapes' }],
-    ['soft', 'Soft Photos', 'Your photos, blurred and dimmed', { show: 'clock', clock_bg: 'photos' }],
+    // (blurred: the key it always meant to write -- phase 13, Soft Photos never blurred)
+    ['soft', 'Soft Photos', 'Your photos, blurred and dimmed', { show: 'clock', clock_bg: 'photos', clock_photo_soft: true }],
     ['dayart', 'The Day’s Art', 'Occasions and the seasons', { show: 'day' }],
     ['calm', 'Calm Color', 'Glance’s quiet ground', { show: 'glance' }],
     ['paper', 'Paper', 'Month’s page', { show: 'month' }],

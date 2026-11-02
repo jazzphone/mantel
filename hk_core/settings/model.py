@@ -1716,6 +1716,8 @@ SAVER_SHOWS = ("photos", "both", "forecast", "clock")
 # how the screensaver drew before, so a screen saved earlier draws exactly as it did.
 SAVER_SHOWS += ("glance", "month", "day")
 SAVER_CLOCK_STYLES += ("liquid", "giant", "scattered")
+# Planted (2026-11-02, phase 13, decision 1): a face, offered on the Landscape -- the ivory numerals in its meadow
+SAVER_CLOCK_STYLES += ("planted",)
 SAVER_FORECAST_LAYOUTS = ("classic", "big")
 SAVER_DAY_LOOKS = ("auto", "light", "dark")
 SAVER_DEFAULTS.update({"forecast_layout": "classic", "photo_titles": False, "time_behind": False, "day_look": "auto"})

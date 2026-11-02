@@ -1145,7 +1145,11 @@
         }
       } finally { busy = false; }
       api.live = !!spec.live;
+      // (blank: a line of words with nothing to say -- a lone dash, no reading of its fact on this house -- which the
+      // screensaver leaves out as it does a "shows when..." piece with nothing to show; a circle keeps its dash, a gauge waiting)
+      var says = shape === 'inline' && def.text ? String(def.text(spec) || '').trim() : null;
       api.showing = !spec.off;
+      api.blank = shape === 'inline' && (says === '' || says === DASH);
       var key = JSON.stringify(spec);
       if (key === drawn) return false;
       drawn = key;

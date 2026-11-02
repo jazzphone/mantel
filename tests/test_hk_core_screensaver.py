@@ -291,6 +291,8 @@ def test_the_settings_pages_model_offers_the_same(tmp_path):
     out = json.loads(subprocess.run([str(JSC_), str(prelude)], capture_output=True, text=True, check=True, timeout=30).stdout)
     assert out["defaults"] == M.SAVER_DEFAULTS
     assert set(out["shows"]) | {"both"} == set(M.SAVER_SHOWS)
-    assert out["styles"] == list(M.SAVER_CLOCK_STYLES) == out["faces"]
-    assert set(out["colors"]) == set(M.SAVER_CLOCK_STYLES)
+    # (Planted, phase 13: a face the Landscape plants in its meadow -- hk-saverfaces.js plant(), not the clock's own)
+    clock_faces = [s for s in M.SAVER_CLOCK_STYLES if s != "planted"]
+    assert out["styles"] == list(M.SAVER_CLOCK_STYLES) and out["faces"] == clock_faces
+    assert set(out["colors"]) == set(clock_faces)
     assert tuple(out["layouts"]) == M.SAVER_FORECAST_LAYOUTS and tuple(out["looks"]) == M.SAVER_DAY_LOOKS

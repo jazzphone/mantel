@@ -227,6 +227,10 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
             const oldShown = [...sr.querySelectorAll('.info > *')].filter((c) => !c.hasAttribute('muonly') && Number(getComputedStyle(c).opacity) > 0.01 && getComputedStyle(c).display !== 'none').map((c) => c.tagName.toLowerCase());
             return { off: host.hasAttribute('lyoff'), mu: host.hasAttribute('muslide'), W: innerWidth, H: innerHeight, words, pw: piece('weather'), ps: piece('status'),
                      st: sc('time'), sd: sc('date'), sw: sc('weather'), ss: sc('status'), oldShown,
+                     // BEHIND WITH ANY FACE (phase 3): the layout's own face, the subject's twin over it, never Time Behind's figures
+                     face: !!sr.querySelector('.lay .lybig .face'), tbt: [...sr.querySelectorAll('.ph .tb .tbt')].filter((e) => e.getBoundingClientRect().width > 0).length,
+                     cuts: [...sr.querySelectorAll('.lay .lycut')].map((e) => ({ shown: getComputedStyle(e).display !== 'none', src: !!(e.firstChild && e.firstChild.getAttribute('src')),
+                       mask: /url/.test((e.firstChild && (e.firstChild.style.maskImage || e.firstChild.style.webkitMaskImage)) || ''), after: !!(e.previousElementSibling && e.previousElementSibling.classList.contains('lybig')) })),
                      clock: card('hk-clock-card'), weather: card('hk-weather-strip-card'), status: card('hk-screensaver-status-card') };
           });
           const meet = (a, b) => !!(a && b && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1);
@@ -268,6 +272,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           await page.waitForTimeout(3600);
           const a = await corners();
           say(!!a && !a.mu && !a.off && !a.clock, tag + ': after it the layout again: no corner clock (Time Behind tells it)', a && [a.mu, a.off, a.clock]);
+          say(!!a && a.face && a.tbt === 0, tag + ': ...behind the photo\'s subject, the layout\'s own face (never Time Behind\'s figures)', a && [a.face, a.tbt]);
           say(!!a && !!a.pw && !!a.ps && a.pw.t > a.H / 2 && a.pw.l < a.W * 0.2 && a.ps.t > a.H / 2 && a.ps.r > a.W * 0.8 && !a.weather && !a.status,
               tag + ': ...the weather at the bottom left, Home Status at the bottom right, where it put them (pieces, the old cards hidden)', a && [a.pw, a.ps, a.weather, a.status]);
           say(!errors.length, tag + ': no page errors', errors.slice(0, 3));
@@ -308,6 +313,10 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           const lybig = lay && lay.querySelector('.lybig'), tbt = sr.querySelector('.ph .tb .tbt');
           // (the screen's one ink: what each piece's words are drawn in, and the layer's own opacity)
           const inkOfPiece = (e) => { const t = [...e.querySelectorAll('*')].find((n) => n.childNodes.length && [...n.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim())); const cs = t ? getComputedStyle(t) : null; return cs ? [cs.color, cs.opacity, getComputedStyle(e).opacity] : null; };
+          const cuts = lay ? [...lay.querySelectorAll('.lycut')].map((e) => ({ shown: getComputedStyle(e).display !== 'none', src: !!(e.firstChild && e.firstChild.getAttribute('src')),
+            after: !!(e.previousElementSibling && e.previousElementSibling.classList.contains('lybig')) })) : [];
+          const phs = [...sr.querySelectorAll('.ph')].map((l) => !!l.__ph);
+          const tbt2 = [...sr.querySelectorAll('.ph .tb .tbt')].filter((e) => e.getBoundingClientRect().width > 0).length;
           const ws = lay ? [...lay.querySelectorAll('.hksw')].map((e) => ({ ink: inkOfPiece(e), layInk: lay.getAttribute('data-ink'), id: (e.className.match(/\bw-(\S+)/) || [])[1], piece: (e.className.match(/\bp-(\S+)/) || [])[1], shape: (e.className.match(/\bk-(\S+)/) || [])[1], cls: e.className, box: rect(e), shown: getComputedStyle(e).display !== 'none', held: getComputedStyle(e).visibility === 'hidden' })) : [];
           // (the box the plan gave the big element: what the widgets and cards are placed around, in this page's px)
           const info = window.hkSaver.layoutInfo && window.hkSaver.layoutInfo(), pb = info && info.plan && info.plan.big;
@@ -319,7 +328,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
                    tbt: tbt ? rect(tbt) : null,
                    land: land ? { box: rect(land), img: lst.backgroundImage, after: !!(lybig && lybig.compareDocumentPosition(land) & 4) } : null,
                    ck: { n: sr.querySelectorAll('.ck').length, own: [...sr.querySelectorAll('.ck .face')].filter((f) => !f.closest('.lay') && f.getBoundingClientRect().width > 0 && getComputedStyle(f).visibility !== 'hidden' && getComputedStyle(f).display !== 'none').length },
-                   ws, cards };
+                   ws, cards, cuts, phs, tbt2, face: !!(lay && lay.querySelector('.lybig .face')) };
         });
         const inScreen = (b) => !!b && b.l >= -1 && b.t >= -1 && b.r <= m.W + 1 && b.b <= m.H + 1;
         const meet = (a, b) => !!(a && b && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1);
@@ -383,9 +392,16 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           say(!!R && R.at === 'bottom' && Math.abs(Math.max(...R.items.map((it) => it.y + it.h)) - (H - m.pm)) <= 1, tag + ': ...along the bottom, on its margin', [R, m.pm]);
         } else if (want === 'lay-behind') {
           // BEHIND THE LAND: the land again, over the time and no bigger than it (never a second full-screen layer)
-          say(!!m.land && /land-[a-z0-9-]+\.webp/.test(m.land.img) && m.land.after, tag + ': ...the land drawn again over the time', m.land);
-          say(!!m.land && !!big && m.land.box.r - m.land.box.l <= big.r - big.l + 12 && m.land.box.b - m.land.box.t <= big.b - big.t + 12,
+          // (...where the land leaves enough of the time to read: past 35 % of its box it stands in front -- phase 3)
+          const share = await page.evaluate(() => (window.hkSaver.layoutInfo() || {}).landShare);
+          if (typeof share === 'number' && share > 0.35) say(!m.land, tag + ': ...the land would hide the time (' + Math.round(share * 100) + '%): the time stands in front', m.land);
+          else say(!!m.land && /land-[a-z0-9-]+\.webp/.test(m.land.img) && m.land.after, tag + ': ...the land drawn again over the time', [m.land, share]);
+          if (m.land) say(!!m.land && !!big && m.land.box.r - m.land.box.l <= big.r - big.l + 12 && m.land.box.b - m.land.box.t <= big.b - big.t + 12,
               tag + ': ...in a box the time\'s size', m.land && [m.land.box, big]);
+        } else if (want === 'lay-tb') {
+          say(m.phs.some(Boolean), tag + ': ...a photo is up', m.phs);
+          say(m.face && m.tbt2 === 0, tag + ': ...the layout\'s own face (Neon), never Time Behind\'s figures', [m.face, m.tbt2]);
+          say(m.cuts.length > 0 && m.cuts.every((c) => c.after) && m.cuts.some((c) => c.src), tag + ': ...the subject\'s twin right over the face, with the photo', m.cuts);
         } else if (want === 'lay-pieces') {
           // EVERY PIECE DRAWN WELL PLACED (the plan's rule 7; the owner: "Things need to line up correctly and look well placed"):
           // each piece that shows is on the screen, off the big time and off every other piece
