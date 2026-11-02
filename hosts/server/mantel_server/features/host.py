@@ -80,7 +80,8 @@ class FeatureHost:
         self.app, self.hub, self.hooks = app, hub, hooks
         self._publishing = False                     # inside _sync_client's own settings-feed publish
         self.caller = FeatureCaller(app, self.acting_entities)
-        self.house = MantelHouse(hub.store, hub.registry, tz=self._tz, caller=self.caller, now=self.now)
+        self.house = MantelHouse(hub.store, hub.registry, tz=self._tz, caller=self.caller, now=self.now,
+                                 links=self._camera_links)
         self.own_house = OverlayHouse(self.house, self.own_state)
         self.feed = Feed()
         self.screens: dict[str, ScreenState] = {}
@@ -120,6 +121,12 @@ class FeatureHost:
         # hk_clean_areas/subscribe: id -> [identity, on_event, last body sent]
         self._area_subs: dict[int, list] = {}
         self._area_n = 0
+
+    def _camera_links(self) -> dict[str, tuple[str, str]]:
+        """The sensors linked to Mantel's direct cameras (camera_setup.py), for the House port's ``camera_links``:
+        read when asked, since cameras_direct is installed after the features are."""
+        cams = self.app.get("cameras_direct")
+        return cams.sensor_links() if cams is not None else {}
 
     # -- clocks and settings ------------------------------------------------------------------------
     def now(self) -> datetime:
@@ -441,9 +448,17 @@ class FeatureHost:
         s = self.screen(tid)
         if s is None:
             return
-        s.touch = self.now()
+        # A TOUCH ON THE SCREENSAVER'S OWN CONTROLS (saver: the music's Skip, Browse, Speakers, the volume) keeps the
+        # sleep away and nothing more, as Home Assistant's integration has it (Manager.saver_touched): counted as a
+        # touch of the screen it marked the screen in use, and an in-use screen takes its screensaver down -- every
+        # tap on the music slide's buttons went back to the dashboard (the owner, 2026-11-02)
         if saver:
-            s.saver_touch = s.touch
+            s.saver_touch = self.now()
+            eng = self.engines.get(tid)
+            if eng is not None:
+                eng.evaluate()
+            return
+        s.touch = self.now()
         self.update_in_use(tid)
         eng = self.engines.get(tid)
         if eng is not None:

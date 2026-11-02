@@ -26,6 +26,8 @@ Same semantics as ``HaHouse``, with the differences HA's wire format forces (eac
   ``device_class`` or ``original_device_class`` (only the per-entity ``get`` does): those read None
   unless the registry entry has them. Feature code reads a state's attributes first for all three.
 * ``area_name`` falls back to the area id when an area has no name (the Registry's own rule).
+* ``camera_links`` (added 2026-11-02, the cameras' phase 6) answers the sensors linked to Mantel's direct cameras,
+  from ``links`` (the server passes ``cameras_direct``'s); Home Assistant's House answers {}.
 """
 from __future__ import annotations
 
@@ -97,9 +99,11 @@ class MantelHouse:
     """``hk_core.house.House`` over the hub's StateStore and Registry (see the module docstring)."""
 
     def __init__(self, store, registry, *, tz: Callable[[], str] | str = "UTC", caller: Caller | None = None,
-                 now: Callable[[], datetime] | None = None) -> None:
+                 now: Callable[[], datetime] | None = None,
+                 links: Callable[[], Mapping[str, tuple[str, str]]] | None = None) -> None:
         self._store = store
         self._registry = registry
+        self._links = links
         self._tz = tz if callable(tz) else (lambda: tz)
         self.caller = caller
         self._now = now or (lambda: datetime.now(timezone.utc))
@@ -150,6 +154,13 @@ class MantelHouse:
     def device_entities(self, device_id: str) -> list[Entity]:
         self._index()
         return [entity_view(e) for e in self._by_device.get(device_id, [])]
+
+    def camera_links(self) -> dict[str, tuple[str, str]]:
+        """The sensors linked to Mantel's direct cameras (cameras_direct.DirectCameras.sensor_links): a direct
+        camera has no Home Assistant device to carry its motion, person and doorbell sensors, so the notification
+        rules read them here instead (hk_core/notifications/accessories.py). {} where Mantel has no direct cameras."""
+        got = self._links() if self._links is not None else None
+        return dict(got) if got else {}
 
     def area_ids(self) -> set[str]:
         return set(self._registry.areas)

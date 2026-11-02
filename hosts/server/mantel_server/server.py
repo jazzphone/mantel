@@ -37,7 +37,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_reads, linked_settings, people_ha, screens,
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
-from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
+from . import camera_setup, default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
 from . import app_shell, cf_access, guards, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
@@ -894,6 +894,9 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # into cameras_direct, their events into the notifications, the doorbell's talk (app["direct_talk"]); only where
     # cameras_direct runs (GET /api/protect says so under the HA App)
     protect_connector.register(app, hub)
+    # ...and Mantel Settings' Cameras page for them (Add Camera, Test, linked sensors). On every Mantel: under the HA
+    # App it says the cameras are Home Assistant's
+    camera_setup.register(app)
     # the home's own files (fonts, glyphs, photos; Owner/Admin upload) and the nightly encrypted
     # backup (off unless --backup-target is set)
     user_files.register(app, hub)

@@ -6,7 +6,9 @@
 // and so do the time's face, colors and 24-hour time. A layout holds what had no option: what the big element is,
 // its size, place and depth, and the widgets in each zone.
 //
-// CATALOG and ZONES are mirrored by hk_core/settings/saver_layout.py, kept equal by a test; clean() is its
+// v2 (2026-11-02, phase 13: docs/phase13/PIECES-SPEC.md): a widget is a PIECE in a SHAPE ({piece, shape, size, back,
+// color, opts}); the row has one size (row_size), the screen one ink (ink) and its accents (accents); a v1 layout is read
+// as v2. PIECES, ZONES and V1 are mirrored by hk_core/settings/saver_layout.py, kept equal by a test; clean() is its
 // layout() (the read's: keeps what it can) and check() its check() (the write's: all or nothing).
 //
 // plan() places everything, as pure arithmetic on sizes it is given, so the screensaver and the editor's overlay
@@ -22,42 +24,62 @@
   'use strict';
   if (window.hkSaverLayout) return;
 
-  var VERSION = 1;
-  // [id] -> [kind, name, what it shows] (the kinds: hk_core/settings/saver_layout.py CATALOG)
-  var CATALOG = {
-    temp: ['circular', 'Temperature', 'Now, with today’s range'],
-    aqi: ['circular', 'Air Quality', 'AQI on its scale'],
-    humidity: ['circular', 'Humidity', 'Outside'],
-    inside: ['circular', 'Inside', 'The house’s temperature'],
-    battery: ['circular', 'Home Battery', 'Its charge'],
-    solar: ['circular', 'Solar', 'Producing now'],
-    timer: ['circular', 'Timer', 'Time left'],
-    locks: ['circular', 'Locks', 'Locked or not'],
-    sunset: ['circular', 'Sunset', 'The next sunrise or sunset'],
-    next_event: ['rectangular', 'Up Next', 'Your next event'],
-    next_hours: ['rectangular', 'Next Hours', 'The forecast'],
-    home_status: ['rectangular', 'Home Status', 'Security, doors and locks'],
-    energy_today: ['rectangular', 'Energy Today', 'Used and made'],
-    date: ['inline', 'Date', 'The weekday and the date'],
-    weather_line: ['inline', 'Weather', 'The condition and temperature'],
-    status_line: ['inline', 'Home Status', 'In one line'],
-    event_line: ['inline', 'Up Next', 'Your next event'],
-    photo_title: ['inline', 'Photo Title', 'The album and the year'],
-    clock_card: ['card', 'Clock', 'A small time'],
-    music_card: ['card', 'Now Playing', 'While something plays'],
-    timers_card: ['card', 'Timers', 'While a timer runs'],
-    weather_card: ['card', 'Weather', 'The temperature and condition'],
-    status_card: ['card', 'Home Status', 'As a card'],
-    forecast_band: ['band', 'Forecast Details', 'Today, the hours and the days'],
-    readings: ['band', 'Readings', 'Sunset, wind, humidity and AQI']
+  var VERSION = 2;
+  // THE PIECES (2026-11-02, phase 13: docs/phase13/PIECES-SPEC.md): one per fact, each in a few shapes, drawn by
+  // hk-saverwidgets.js. [piece] -> [its shapes, its options {key: choices}, its name, the facts it shows]
+  // (hk_core/settings/saver_layout.py PIECES: the shapes and options)
+  var PIECES = {
+    weather: [['inline', 'circular', 'rectangular', 'card', 'band'], {}, 'Weather', ['weather']],
+    readings: [['circular', 'rectangular', 'band'], { reading: ['humidity', 'aqi', 'inside', 'sunset', 'wind'] }, 'Readings', ['readings']],
+    date: [['inline'], {}, 'Date', ['date']],
+    time: [['inline', 'card'], {}, 'Time', ['time']],
+    status: [['inline', 'circular', 'rectangular', 'card'], {}, 'House Status', ['status']],
+    music: [['inline', 'card'], {}, 'Music', ['music']],
+    timers: [['circular', 'card'], {}, 'Timers', ['timers']],
+    events: [['inline', 'rectangular'], {}, 'Next Event', ['calendar']],
+    energy: [['circular', 'rectangular'], { reading: ['battery', 'solar'] }, 'Energy', ['energy']],
+    title: [['inline'], {}, 'Photo Title', ['title']]
   };
-  // [zone] -> [the kinds it takes, its room]; the row's room is in units (circular 1, rectangular 2). The pane down
-  // the side is the Side Pane's, with settings of its own: not a zone
+  var SHAPES = ['inline', 'circular', 'rectangular', 'card', 'band'];
+  var SHAPE_NAMES = { inline: 'Inline', circular: 'Circular', rectangular: 'Rectangular', card: 'Card', band: 'Band' };
+  // THE FIRST LAYOUTS' WIDGETS (v1, 2026-11-01), each a piece in a shape now: [piece, shape, opts]
+  var V1 = {
+    temp: ['weather', 'circular'], aqi: ['readings', 'circular', { reading: 'aqi' }], humidity: ['readings', 'circular', { reading: 'humidity' }],
+    inside: ['readings', 'circular', { reading: 'inside' }], sunset: ['readings', 'circular', { reading: 'sunset' }],
+    battery: ['energy', 'circular', { reading: 'battery' }], solar: ['energy', 'circular', { reading: 'solar' }], timer: ['timers', 'circular'],
+    locks: ['status', 'circular'], next_event: ['events', 'rectangular'], next_hours: ['weather', 'rectangular'], home_status: ['status', 'rectangular'],
+    energy_today: ['energy', 'rectangular'], date: ['date', 'inline'], weather_line: ['weather', 'inline'], status_line: ['status', 'inline'],
+    event_line: ['events', 'inline'], photo_title: ['title', 'inline'], clock_card: ['time', 'card'], music_card: ['music', 'card'],
+    timers_card: ['timers', 'card'], weather_card: ['weather', 'card'], status_card: ['status', 'card'], forecast_band: ['weather', 'band'],
+    readings: ['readings', 'band']
+  };
+  // THE CATALOG the editor lists: one entry per piece in a shape, `piece.shape` -> [shape, name, what it shows]
+  // (a piece's own words where it has them: the v1 widgets' names, which the owner knows)
+  var WORDS = {
+    'weather.inline': 'The condition and temperature', 'weather.circular': 'Now, with today’s range', 'weather.rectangular': 'Now and the next hours',
+    'weather.card': 'Today, high and low', 'weather.band': 'Today, the hours and the days', 'readings.circular': 'One reading: humidity, AQI, inside, sunset or wind',
+    'readings.rectangular': 'Two readings', 'readings.band': 'Sunset, wind, humidity and AQI', 'date.inline': 'The weekday and the date',
+    'time.inline': 'A small time', 'time.card': 'A small time over the date', 'status.inline': 'In one line', 'status.circular': 'Locked or not',
+    'status.rectangular': 'Security, doors and locks', 'status.card': 'The alarm and what’s open', 'music.inline': 'While something plays',
+    'music.card': 'Now Playing, while something plays', 'timers.circular': 'The next to end', 'timers.card': 'While a timer runs',
+    'events.inline': 'Your next event', 'events.rectangular': 'Your next two events', 'energy.circular': 'The home battery, or solar',
+    'energy.rectangular': 'Used and made today', 'title.inline': 'The album and the year'
+  };
+  var CATALOG = {};
+  function catalog() {
+    CATALOG = {};
+    Object.keys(PIECES).forEach(function (p) {
+      PIECES[p][0].forEach(function (sh) { CATALOG[p + '.' + sh] = [sh, PIECES[p][2], WORDS[p + '.' + sh] || '']; });
+    });
+  }
+  catalog();
+  // [zone] -> [the shapes it takes, its room]; the row's room is in units (circular 1, rectangular 2, times the piece's
+  // size). The pane down the side is the Side Pane's, with settings of its own: not a zone
   var ZONES = {
     line: [['inline'], 1],
     row: [['circular', 'rectangular'], 8],          // (two lines of four units)
     tl: [['card', 'inline'], 2], tr: [['card', 'inline'], 2],
-    bl: [['card'], 2], br: [['card'], 2],
+    bl: [['card', 'inline'], 2], br: [['card', 'inline'], 2],
     bottom: [['band'], 1]
   };
   var ZONE_NAMES = { line: 'Above the Big Element', row: 'Under the Big Element', tl: 'Top Left', tr: 'Top Right',
@@ -68,9 +90,36 @@
     align: ['left', 'center', 'right'], depth: ['front', 'behind', 'planted']
   };
   var BIG_DEFAULT = { kind: 'time', size: 24, pos: 'top', align: 'center', depth: 'front' };
-  var BACKS = ['none', 'glass', 'tint'], COLORS = ['auto', 'white', 'accent'];
-  // a widget's or a card's own size, % of its usual (stored only when it isn't 100); where the row goes
-  var ITEM_SIZE = [60, 160], ROW_AT = ['under', 'bottom'], ROW_LINE = 4;
+  var BACKS = ['none', 'glass', 'tint'], COLORS = ['auto', 'accent'];
+  // a piece's own size, % of its usual (60-200: 2026-11-02, the owner: "we probably should allow up to a 200% size
+  // increase"); the row's one size (ROW_SIZE: "It would look weird if all them varied in sizes"); where the row goes
+  var ITEM_SIZE = [60, 200], ROW_AT = ['under', 'bottom'], ROW_LINE = 4;
+  // THE SCREEN'S INK: every piece white or black together, Auto from the background (the owner: "I don't want some
+  // widgets being white and some being black on the screen at the same time")
+  var INKS = ['auto', 'white', 'black'];
+  // SHOWN ONLY WHEN... (2026-11-02, the owner: "Mail Box... it only shows when the Mail Has Arrived? Or if the House
+  // Battery is charging?"): any piece can carry a condition on one entity, {entity, op, value}; while it isn't met the
+  // piece is left out and the rest close up around it (met())
+  var SHOW_OPS = ['is', 'not', 'above', 'below'], ENTITY_RE = /^[a-z_]+\.[a-z0-9_]+$/;
+  function showOk(v) {
+    return obj(v) && Object.keys(v).sort().join() === 'entity,op,value' && typeof v.entity === 'string' && ENTITY_RE.test(v.entity) &&
+      SHOW_OPS.indexOf(v.op) >= 0 && ((typeof v.value === 'string' && v.value.length > 0 && v.value.length <= 64) || (typeof v.value === 'number' && isFinite(v.value)));
+  }
+  // whether a piece's condition is met by the house's states now (no condition: always). An entity the screen can't
+  // read, or one unavailable, never shows it: absent is not the same as "not"
+  function met(show, states) {
+    if (!show) return true;
+    var st = states && states[show.entity];
+    if (!st || st.state === 'unavailable' || st.state === 'unknown') return false;
+    var s = String(st.state), v = show.value;
+    if (show.op === 'above' || show.op === 'below') {
+      var a = parseFloat(s), b = typeof v === 'number' ? v : parseFloat(v);
+      if (!isFinite(a) || !isFinite(b)) return false;
+      return show.op === 'above' ? a > b : a < b;
+    }
+    var same = s.toLowerCase() === String(v).toLowerCase() || (isFinite(parseFloat(s)) && parseFloat(s) === (typeof v === 'number' ? v : parseFloat(v)));
+    return show.op === 'is' ? same : !same;
+  }
 
   // ------------------------------------------------------------ the checks (saver_layout.py's, mirrored)
   function Bad() {}
@@ -88,18 +137,47 @@
     });
     return out;
   }
-  function widget(v, strict) {
-    if (!obj(v) || !Object.prototype.hasOwnProperty.call(CATALOG, v.id)) { if (strict) throw new Bad(); return null; }
-    var out = { id: v.id, back: 'none', color: 'auto' };
+  // a piece's id in the catalog, and the piece for an id
+  function idOf(w) { return w ? w.piece + '.' + w.shape : ''; }
+  function item(id, extra) {
+    var at = String(id).indexOf('.');
+    var w = { piece: id.slice(0, at), shape: id.slice(at + 1), back: 'none', color: 'auto' };
+    return Object.assign(w, extra || {});
+  }
+  // the room a piece takes in the row: its shape's units times its size (its own, else the row's)
+  function unitsOf(w, rowSize) { return (UNITS[w.shape] || 1) * (w.size || rowSize || 100) / 100; }
+  function widget(v, strict, zone) {
+    if (!obj(v)) { if (strict) throw new Bad(); return null; }
+    if ('id' in v && !('piece' in v)) {                  // a v1 widget: its piece and shape now
+      var m = Object.prototype.hasOwnProperty.call(V1, v.id) ? V1[v.id] : null;
+      if (!m) { if (strict) throw new Bad(); return null; }
+      var nv = { piece: m[0], shape: m[1] };
+      Object.keys(v).forEach(function (k) { if (k !== 'id') nv[k] = v[k]; });
+      if (m[2]) nv.opts = Object.assign({}, m[2]);
+      if (nv.color === 'white') nv.color = 'auto';
+      if (nv.size === 100) delete nv.size;            // (v1's usual size: the row's one size now)
+      v = nv;
+    }
+    var P = Object.prototype.hasOwnProperty.call(PIECES, v.piece) ? PIECES[v.piece] : null;
+    if (!P || P[0].indexOf(v.shape) < 0) { if (strict) throw new Bad(); return null; }
+    var out = { piece: v.piece, shape: v.shape, back: 'none', color: 'auto' };
     Object.keys(v).forEach(function (k) {
-      if (k === 'id') return;
-      if ((k === 'back' && BACKS.indexOf(v[k]) >= 0) || (k === 'color' && COLORS.indexOf(v[k]) >= 0)) out[k] = v[k];
-      else if (k === 'size' && isInt(v[k]) && v[k] >= ITEM_SIZE[0] && v[k] <= ITEM_SIZE[1]) { if (v[k] !== 100) out.size = v[k]; }
+      if (k === 'piece' || k === 'shape') return;
+      var val = v[k];
+      if ((k === 'back' && BACKS.indexOf(val) >= 0) || (k === 'color' && COLORS.indexOf(val) >= 0)) out[k] = val;
+      else if (k === 'size' && isInt(val) && val >= ITEM_SIZE[0] && val <= ITEM_SIZE[1]) { if (val !== 100 || zone === 'row') out.size = val; }
+      else if (k === 'show' && showOk(val)) out.show = { entity: val.entity, op: val.op, value: val.value };
+      else if (k === 'opts' && obj(val)) {
+        var good = {}, n = 0;
+        Object.keys(val).forEach(function (o) { if (P[1][o] && P[1][o].indexOf(val[o]) >= 0) { good[o] = val[o]; n++; } });
+        if (strict && n !== Object.keys(val).length) throw new Bad();
+        if (n) out.opts = good;
+      }
       else if (strict) throw new Bad();
     });
     return out;
   }
-  function zones(v, strict) {
+  function zones(v, strict, rowSize) {
     var out = {};
     Object.keys(ZONES).forEach(function (z) { out[z] = []; });
     if (!obj(v)) { if (strict) throw new Bad(); return out; }
@@ -108,22 +186,22 @@
       if (!ZONES[z] || !Array.isArray(items)) { if (strict) throw new Bad(); return; }
       var used = 0;
       items.forEach(function (it) {
-        var w = widget(it, strict);
+        var w = widget(it, strict, z);
         if (!w) return;
-        var kind = CATALOG[w.id][0], need = UNITS[kind] || 1;
-        if (ZONES[z][0].indexOf(kind) < 0 || used + need > ZONES[z][1]) { if (strict) throw new Bad(); return; }
+        var need = z === 'row' ? unitsOf(w, rowSize) : 1;
+        if (ZONES[z][0].indexOf(w.shape) < 0 || used + need > ZONES[z][1] + 1e-9) { if (strict) throw new Bad(); return; }
         used += need;
         out[z].push(w);
       });
     });
     return out;
   }
-  function upright(v, strict) {
+  function upright(v, strict, rowSize) {
     if (v == null) return null;
     if (!obj(v) || Object.keys(v).some(function (k) { return k !== 'big' && k !== 'zones' && k !== 'row_at'; })) { if (strict) throw new Bad(); return null; }
     var out = {};
     if ('big' in v) out.big = big(v.big, strict);
-    if ('zones' in v) out.zones = zones(v.zones, strict);
+    if ('zones' in v) out.zones = zones(v.zones, strict, rowSize);
     if ('row_at' in v) out.row_at = rowAt(v.row_at, strict);
     return out;
   }
@@ -133,10 +211,23 @@
     return ROW_AT[0];
   }
   function read(v, strict) {
-    if (!obj(v) || v.v !== VERSION) { if (strict) throw new Bad(); return null; }
-    if (strict && Object.keys(v).some(function (k) { return ['v', 'big', 'zones', 'row_at', 'upright'].indexOf(k) < 0; })) throw new Bad();
-    return { v: VERSION, big: big(v.big || {}, strict), zones: zones(v.zones || {}, strict),
-             row_at: rowAt('row_at' in v ? v.row_at : ROW_AT[0], strict), upright: upright(v.upright, strict) };
+    if (!obj(v) || (v.v !== 1 && v.v !== VERSION)) { if (strict) throw new Bad(); return null; }
+    var keys = ['v', 'big', 'zones', 'row_at', 'upright'].concat(v.v === VERSION ? ['row_size', 'ink', 'accents'] : []);
+    if (strict && Object.keys(v).some(function (k) { return keys.indexOf(k) < 0; })) throw new Bad();
+    var two = v.v === VERSION;
+    var rs = two && 'row_size' in v ? v.row_size : 100;
+    if (!(isInt(rs) && rs >= ITEM_SIZE[0] && rs <= ITEM_SIZE[1])) { if (strict) throw new Bad(); rs = 100; }
+    var ink = two && 'ink' in v ? v.ink : 'auto';
+    if (INKS.indexOf(ink) < 0) { if (strict) throw new Bad(); ink = 'auto'; }
+    var acc = two && 'accents' in v ? v.accents : true;
+    if (typeof acc !== 'boolean') { if (strict) throw new Bad(); acc = true; }
+    var out = { v: VERSION, big: big(v.big || {}, strict), zones: zones(v.zones || {}, strict, rs),
+                row_at: rowAt('row_at' in v ? v.row_at : ROW_AT[0], strict), upright: upright(v.upright, strict, rs) };
+    // (each stored only when it isn't the usual)
+    if (rs !== 100) out.row_size = rs;
+    if (ink !== 'auto') out.ink = ink;
+    if (!acc) out.accents = false;
+    return out;
   }
   // a stored layout as this build draws it (what it doesn't know is left out), or null
   function clean(v) { return read(v, false); }
@@ -145,12 +236,39 @@
     if (v == null) return null;
     try { read(v, true); return null; } catch (e) { if (e instanceof Bad) return 'saver_layout'; throw e; }
   }
-  // the room left in a zone, for one more of `id`
-  function fits(zs, zone, id) {
+  // the room left in a zone, for one more of `id` (a catalog id, piece.shape) -- in the row, at the row's size
+  function fits(zs, zone, id, rowSize) {
     var Z = ZONES[zone], c = CATALOG[id];
     if (!Z || !c || Z[0].indexOf(c[0]) < 0) return false;
-    var used = (zs[zone] || []).reduce(function (n, w) { return n + (UNITS[(CATALOG[w.id] || [''])[0]] || 1); }, 0);
-    return used + (UNITS[c[0]] || 1) <= Z[1];
+    if (zone !== 'row') return (zs[zone] || []).length + 1 <= Z[1];
+    var used = (zs.row || []).reduce(function (n, w) { return n + unitsOf(w, rowSize); }, 0);
+    return used + unitsOf({ shape: c[0] }, rowSize) <= Z[1] + 1e-9;
+  }
+
+  // ------------------------------------------------------------ claiming (rule 5)
+  // A FACT SHOWN ONCE (2026-11-02, the plan's rule 5): a face, the big element or a piece placed first that shows a
+  // fact hides another piece showing it, and the editor says which shows it. -> { 'zone:i': 'the Today face' }
+  // cfg: the screensaver's options (the face is clock_style)
+  var FACE_FACTS = { today: ['weather', 'music'] };
+  function claims(O, cfg) {
+    var out = {}, seen = {}, zs = O.zones, b = O.big || {};
+    var faceHas = b.kind === 'time' ? FACE_FACTS[(cfg || {}).clock_style] || [] : [];
+    var faceName = { today: 'the Today face' }[(cfg || {}).clock_style];
+    Object.keys(ZONES).forEach(function (z) {
+      (zs[z] || []).forEach(function (w, i) {
+        var facts = (PIECES[w.piece] || [])[3] || [];
+        var by = null;
+        if (facts.length && facts.every(function (f) { return faceHas.indexOf(f) >= 0; })) by = faceName;
+        else if (b.kind === 'temp' && w.piece === 'weather' && (w.shape === 'inline' || w.shape === 'circular')) by = 'the big temperature';
+        else if (b.kind === 'time' && w.piece === 'time') by = 'the big time';
+        // (the same piece, shape and options twice: Battery and Solar are one piece with two readings, both shown)
+        var same = idOf(w) + JSON.stringify(w.opts || {});
+        if (!by && seen[same]) by = 'the ' + PIECES[w.piece][2] + ' already placed';
+        if (by) out[z + ':' + i] = by;
+        else seen[same] = true;
+      });
+    });
+    return out;
   }
 
   // ------------------------------------------------------------ today's options as a layout
@@ -159,7 +277,7 @@
   function layoutFrom(o) {
     o = o || {};
     var on = function (k) { return o[k] !== false; };
-    var W = function (id) { return { id: id, back: 'none', color: 'auto' }; };
+    var W = function (id) { return widget({ id: id }, false, null); };
     var L = { v: VERSION, big: Object.assign({}, BIG_DEFAULT), zones: {}, row_at: 'under', upright: null };
     Object.keys(ZONES).forEach(function (z) { L.zones[z] = []; });
     var z = L.zones, show = o.show || 'photos', b = L.big;
@@ -215,18 +333,18 @@
   function oriented(L, W, H) {
     var up = H > W && L && L.upright;
     return { big: Object.assign({}, L.big, up && up.big), zones: (up && up.zones) || L.zones,
-             row_at: (up && up.row_at) || L.row_at || 'under' };
+             row_at: (up && up.row_at) || L.row_at || 'under', row_size: L.row_size || 100 };
   }
 
   // ------------------------------------------------------------ the plan
   // A card's size when it isn't measured, in units (1 = 1 % of the room's shorter side): [w, h]
-  var CARD = { clock_card: [18, 6], music_card: [34, 8], timers_card: [24, 8], weather_card: [26, 5], status_card: [32, 5],
-               date: [32, 3.6], weather_line: [26, 3.6], status_line: [32, 3.6], event_line: [30, 3.6], photo_title: [28, 3.6] };
-  var BAND = { forecast_band: 15, readings: 10 };
+  var CARD = { 'time.card': [18, 8], 'music.card': [34, 10], 'timers.card': [28, 10], 'weather.card': [28, 10], 'status.card': [32, 10],
+               'date.inline': [32, 3.6], 'weather.inline': [26, 3.6], 'status.inline': [32, 3.6], 'events.inline': [30, 3.6], 'title.inline': [28, 3.6] };
+  var BAND = { 'weather.band': 15, 'readings.band': 10 };
   //   room     {x, y, w, h}: where the layout draws (the screen less the Side Pane)
   //   O        oriented(): { big, zones }
   //   measure  { big: {w, h, base, t, b} | null -- the big element as drawn (base: its baseline, from its top);
-  //              widget(id) -> {w, h, t, b} | null -- a widget as drawn } -- sizes this file can't know (faces, fonts).
+  //              widget(w, zone, i) -> {w, h, t, b} | null -- a piece as drawn } -- sizes this file can't know (faces, fonts).
   //              t and b: how far its ink is inside its box, at the top and the bottom (a line's room above and
   //              below its letters): THINGS LINE UP BY THEIR INK (2026-11-01, the owner: "alignment is key here...
   //              not a lot of things align correctly") -- the big element's top with the top corners' first, the
@@ -239,30 +357,30 @@
     measure = measure || {};
     screen = screen || { w: room.w, h: room.h };
     var u = Math.min(room.w, room.h) / 100, m = 6 * u, gap = 2.2 * u, zs = O.zones, b = O.big;
-    var size = function (id) {
-      var got = measure.widget && measure.widget(id);
+    var size = function (w, zone, i) {
+      var got = measure.widget && measure.widget(w, zone, i);
       if (got && got.w && got.h) return got;
-      var c = CARD[id] || [26, 5];
-      return { w: c[0] * u, h: c[1] * u };
+      var c = CARD[idOf(w)] || [26, 5], k = (w.size || 100) / 100;
+      return { w: c[0] * u * k, h: c[1] * u * k };
     };
     var hasBig = b.kind !== 'none' && !!measure.big && measure.big.w > 0;
     var bigS = hasBig ? measure.big : { w: 0, h: 0, base: 0 };
-    var lineS = zs.line.length ? size(zs.line[0].id) : null, lineH = lineS ? lineS.h : 0, lineW = lineS ? lineS.w : 0;
+    var lineS = zs.line.length ? size(zs.line[0], 'line', 0) : null, lineH = lineS ? lineS.h : 0, lineW = lineS ? lineS.w : 0;
     var unit = 13 * u, rgap = 3 * u;
     // THE ROW: each widget its units wide, times its own size, in lines of four units (a fifth starts a second line);
     // under the big element, or along the bottom of the screen (O.row_at)
     var rowLines = [], cur = null;
     zs.row.forEach(function (w, i) {
-      var n = UNITS[CATALOG[w.id][0]] || 1, k = (w.size || 100) / 100;
+      var n = unitsOf(w, O.row_size), k = (w.size || O.row_size || 100) / 100;
       if (!cur || cur.units + n > ROW_LINE) { cur = { units: 0, items: [], w: 0, h: 0 }; rowLines.push(cur); }
-      var it = { i: i, w: (n === 2 ? 2 * unit + rgap : unit) * k, h: unit * k };
+      var it = { i: i, w: ((UNITS[w.shape] || 1) === 2 ? 2 * unit + rgap : unit) * k, h: unit * k };
       cur.units += n; cur.w += (cur.items.length ? rgap : 0) + it.w; cur.h = Math.max(cur.h, it.h);
       cur.items.push(it);
     });
     var rowH = rowLines.reduce(function (n, L, j) { return n + (j ? rgap : 0) + L.h; }, 0);
     var rowW = rowLines.reduce(function (n, L) { return Math.max(n, L.w); }, 0);
     var rowDown = O.row_at === 'bottom';
-    var bandH = zs.bottom.length ? (BAND[zs.bottom[0].id] || 10) * u : 0;
+    var bandH = zs.bottom.length ? (BAND[idOf(zs.bottom[0])] || 10) * u * ((zs.bottom[0].size || 100) / 100) : 0;
     var colH = (lineH ? lineH + gap : 0) + bigS.h + (rowH && !rowDown ? 1.4 * gap + rowH : 0);
     var colW = Math.max(bigS.w, rowDown ? 0 : rowW, lineW);
     // (the column's first thing's ink on the top margin, as the top corners' are)
@@ -307,7 +425,7 @@
     var stacks = { tl: [], tr: [], bl: [], br: [] }, movers = [];
     ['tl', 'tr', 'bl', 'br'].forEach(function (zone) {
       zs[zone].forEach(function (w, i) {
-        var sz = size(w.id);
+        var sz = size(w, zone, i);
         stacks[zone].push({ zone: zone, i: i, w: sz.w, h: sz.h, t: sz.t || 0, b: sz.b || 0, x: zone[1] === 'l' ? room.x + m : room.x + room.w - m - sz.w });
       });
     });
@@ -366,7 +484,9 @@
   }
 
   window.hkSaverLayout = {
-    VERSION: VERSION, CATALOG: CATALOG, ZONES: ZONES, ZONE_NAMES: ZONE_NAMES, UNITS: UNITS, BIG: BIG, BIG_DEFAULT: BIG_DEFAULT,
-    BACKS: BACKS, COLORS: COLORS, ITEM_SIZE: ITEM_SIZE, ROW_AT: ROW_AT, ROW_LINE: ROW_LINE, clean: clean, check: check, fits: fits, layoutFrom: layoutFrom, oriented: oriented, plan: plan
+    VERSION: VERSION, PIECES: PIECES, SHAPES: SHAPES, SHAPE_NAMES: SHAPE_NAMES, V1: V1, CATALOG: CATALOG, ZONES: ZONES, ZONE_NAMES: ZONE_NAMES,
+    UNITS: UNITS, BIG: BIG, BIG_DEFAULT: BIG_DEFAULT, BACKS: BACKS, COLORS: COLORS, ITEM_SIZE: ITEM_SIZE, ROW_AT: ROW_AT, ROW_LINE: ROW_LINE,
+    INKS: INKS, clean: clean, check: check, fits: fits, layoutFrom: layoutFrom, oriented: oriented, plan: plan, claims: claims,
+    idOf: idOf, item: item, unitsOf: unitsOf, SHOW_OPS: SHOW_OPS, met: met
   };
 })();

@@ -115,7 +115,8 @@ def test_every_guard_on_a_change_names_its_audit_or_why_not(tmp_path):
 
 def test_a_guard_spec_refuses_a_contradiction():
     import pytest
-    for bad in ({"who": "admin"}, {"who": "owner", "door": "tunnel"}, {"who": "manager", "fresh": "away"},
+    for bad in ({"who": "admin"}, {"who": "owner", "door": "tunnel"}, {"who": "person", "fresh": "away"},
                 {"who": "signed_in", "device_ok": False}, {"who": "owner", "audit": ("x",), "no_audit": "why"}):
         with pytest.raises(ValueError):
             Guard(**bad)
+    Guard("manager", fresh="away", audit="camera.rtsp.add")      # the cameras' setup: an Admin changes it too (2026-11-02)

@@ -4,7 +4,12 @@ one was seen to behave (checked against the transcode image's go2rtc 1.9.9 on 20
   PATCH  /api/streams?name&src   adds the stream in memory, 200 (an ``exec:`` source is refused, 400)
   DELETE /api/streams?src        removes it, then answers 400 (it cannot write its read-only config)
   GET    /api/streams            {name: {"producers": [{"url"}], "consumers": [...]}}
-  GET    /api/frame.jpeg?src     one JPEG of a stream it has (404 otherwise); the query is recorded
+  GET    /api/streams?src&video=all&audio=all
+                                 the PROBE (the cameras' Test, camera_setup.py; checked 2026-11-02): the stream's
+                                 producer with its medias and its url WITH the credentials in it, or 500 with go2rtc's
+                                 reason as plain text ("streams: wrong user/pass", ...)
+  GET    /api/frame.jpeg?src     one JPEG of a stream it has (404 otherwise); the query is recorded. A stream it could
+                                 not open answers 200 with an EMPTY body (go2rtc 1.9.9 does, whatever went wrong)
   GET    /api/ws?src             WebSocket: {"type":"webrtc/offer","value":sdp} -> webrtc/answer + one
                                  webrtc/candidate; client webrtc/candidate frames are recorded
 
@@ -30,6 +35,14 @@ class FakeGo2rtc:
         self.open: dict[str, int] = {}
         self.fail_patch = False
         self.frames: list[dict[str, str]] = []
+        # the probe: a stream whose url holds one of these words answers 500 with that reason (and a frame of
+        # nothing); one that holds a word of `silent` has a frame of nothing; `medias` is what a healthy one carries
+        self.patched: list[tuple[str, str]] = []              # every stream put in: (name, src), for what was sent
+        self.probe_fail: dict[str, str] = {}
+        self.silent: set[str] = set()
+        self.medias = ["video, recvonly, H264", "audio, recvonly, PCMA"]
+        self.probes: list[dict[str, str]] = []
+        self.probe_delay = 0.0
 
     def app(self) -> web.Application:
         app = web.Application()
@@ -47,6 +60,7 @@ class FakeGo2rtc:
         if self.fail_patch or src.startswith("exec:") or not name:
             return web.Response(status=400)
         self.streams[name] = src
+        self.patched.append((name, src))
         return web.Response(status=200)
 
     async def put(self, request: web.Request) -> web.Response:
@@ -59,14 +73,32 @@ class FakeGo2rtc:
         self.streams.pop(name, None)
         return web.Response(status=400, text="open /config/go2rtc.yaml: read-only file system")
 
-    async def list(self, _request: web.Request) -> web.Response:
+    async def list(self, request: web.Request) -> web.Response:
+        if "src" in request.query:
+            return await self.probe(request)
         return web.json_response({n: {"producers": [{"url": s}], "consumers": [{}] * self.open.get(n, 0)}
                                   for n, s in self.streams.items()})
 
+    async def probe(self, request: web.Request) -> web.Response:
+        self.probes.append(dict(request.query))
+        url = self.streams.get(request.query.get("src", ""))
+        if url is None:
+            return web.Response(status=404, text="stream not found")
+        if self.probe_delay:
+            await asyncio.sleep(self.probe_delay)
+        for word, reason in self.probe_fail.items():
+            if word in url:
+                return web.Response(status=500, text=reason + "\n", content_type="text/plain")
+        return web.json_response({"producers": [{"id": 1, "format_name": "rtsp", "url": url, "medias": list(self.medias)}],
+                                  "consumers": None})
+
     async def frame(self, request: web.Request) -> web.Response:
         self.frames.append(dict(request.query))
-        if request.query.get("src", "") not in self.streams:
+        url = self.streams.get(request.query.get("src", ""))
+        if url is None:
             return web.Response(status=404, text="stream not found")
+        if any(w in url for w in self.silent) or any(w in url for w in self.probe_fail):
+            return web.Response(status=200, body=b"")
         return web.Response(body=FRAME, content_type="image/jpeg")
 
     async def ws(self, request: web.Request) -> web.WebSocketResponse:

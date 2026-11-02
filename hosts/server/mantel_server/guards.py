@@ -28,7 +28,7 @@ The checks are the ones the routes made by hand before, kept where they were:
     has no LAN door); ``lan``: the LAN door only.
 ``fresh``
     ``never``; ``away``: a fresh factor unless on the LAN door or a trusted HA sidebar (``connections.edit_rule``,
-    Owner routes only); ``always``: a fresh factor within the step-up window (``accounts.require_fresh``);
+    Owner routes, and a manager's where an Admin may change it too: the cameras' setup); ``always``: a fresh factor within the step-up window (``accounts.require_fresh``);
     ``add_factor``: what adding a sign-in method asks (``accounts.require_fresh_to_add_factor``: HA's trusted
     sidebar counts as fresh).
 ``audit``
@@ -72,8 +72,8 @@ class Guard:
     def __post_init__(self) -> None:
         if self.who not in WHO or self.door not in DOORS or self.fresh not in FRESH:
             raise ValueError(f"bad guard {self}")
-        if self.fresh == "away" and self.who != "owner":
-            raise ValueError("fresh='away' is the Owner's rule (connections.edit_rule)")
+        if self.fresh == "away" and self.who not in ("owner", "manager"):
+            raise ValueError("fresh='away' is the Owner's or a manager's rule (connections.edit_rule)")
         if self.who == "signed_in" and not self.device_ok:
             raise ValueError("who='signed_in' takes any session: device_ok=True")
         if self.audit and self.no_audit:
@@ -120,7 +120,7 @@ def check(request: web.Request, spec: Guard):
         spec.first(request)         # the request's own check (its origin, its kind), before asking for a fresh factor
     if spec.fresh == "away":
         from .connections import edit_rule
-        if edit_rule(request, ident) != "ok":
+        if edit_rule(request, ident, admins=spec.who == "manager") != "ok":
             raise _refuse("step_up_required")
     elif spec.fresh == "always":
         require_fresh(request, ident)
