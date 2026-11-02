@@ -202,6 +202,11 @@ function () {
   });
   // WHEN TAPPED: the Music page by default; Choose a Playlist, the playlists' sheet, Decades asking which next
   eq('a tap on the plate: the Music page', sm._tapTarget()[0], { page: 'playmusic' });
+  // ...its Plays On a preset: the speaker's sheet opens on the preset's first room, never on the preset
+  sm._config = { type: 'custom:hk-recent-music-card', show: 'presets', speaker: 'media_player.downstairs_homepods_downstairs' };
+  eq('a tap, Plays On a preset: the sheet of its first room', sm._tapTarget()[1], { sheet: 'media_player.kitchen_homepod_ma' });
+  sm._config = { type: 'custom:hk-recent-music-card', show: 'presets', speaker: 'media_player.office_homepod_ma' };
+  eq('...a room: its own sheet', sm._tapTarget()[1], { sheet: 'media_player.office_homepod_ma' });
   sm._config = { type: 'custom:hk-recent-music-card', show: 'presets', tap: 'playlists', speaker: 'media_player.kitchen_homepod_ma' };
   var D = window.hkDetail, opened = null, closed = 0, wasOpen = D && D.open, wasClose = D && D.close;
   window.hkDetail = Object.assign({}, D || {}, { open: function (id, src, opts) { opened = [id, src, opts]; return true; }, close: function () { closed++; } });

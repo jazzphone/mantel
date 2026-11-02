@@ -3823,7 +3823,10 @@
     // so the block starts any of them -- else the Music page, else the speaker's sheet (hk-base.js openTarget)
     _tapTarget() {
       if ((this._config || {}).tap === 'playlists') return [{ run: this._choosePlaylist.bind(this) }];
-      var p = this._target();
+      var p = this._target(), Mu = window.hkMusic;
+      // (a preset is its rooms, never a player a sheet opens on: its first room's, as _play and _playList play it)
+      var pre = p && Mu && Mu.presets && Mu.presets().filter(function (x) { return x.entity === p; })[0];
+      if (pre) p = pre.members[0] || null;
       return [{ page: 'playmusic' }, p && { sheet: p }];
     }
     _play(it, el) {
