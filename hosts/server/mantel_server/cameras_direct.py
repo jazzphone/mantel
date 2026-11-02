@@ -59,7 +59,18 @@ page is unchanged: a direct camera is an ordinary camera entity to it.
 WebRTC on the owner's iPad and a wall tablet). The design matches the plan's "Camera sources" with two choices of
 detail recorded here: the URLs are sealed files beside the Connections page's credentials rather than in the
 settings document, and an id Home Assistant gains later is HA's (reported as ``conflict``) rather than shadowed.
-Not yet here: "Video From" for a camera both HA and Protect know, and the events (phase 4).
+
+2026-11-02, phase 4 (protect_connector.py): **a camera Home Assistant has too** (decision 2). The connector matches a
+picked Protect camera to Home Assistant's camera of the same device (its MAC) and tells this module
+(``set_matches``): a matched source never becomes ``camera.mantel_<slug>`` (the camera shows once, as Home
+Assistant's entity, with HA's name and area), and where its **Video From** is Direct, Home Assistant's entity id is
+an *alias* of the source: its signaling and its still are answered HERE, from Mantel's go2rtc and the source's
+still provider, exactly as a ``camera.mantel_*`` one is. RBAC does not move: the route's policy check and the
+signaling's ``may_view`` are asked about Home Assistant's entity id, its area and its denies, as before; only where
+the picture comes from changes (``serves``). Each unmatched source's registry entry names a device of its own
+(``mantel_cam_<slug>``), so the connector's detection sensors sit on the same device as the camera and the
+notifications' camera association (``accessories.camera_for``) finds it. A go2rtc failure on a source's stream is
+told to ``on_stream_failed`` (the connector fetches Protect's stream token again).
 
 2026-11-02: phase 6 (RTSP cameras, camera_setup.py) is this registry's first writer. It added ``sensors`` to the
 source ({motion, person, doorbell}: the Home Assistant binary sensors or events a person linked to the camera, which
@@ -138,6 +149,11 @@ class CameraConflict(SourceError):
 
 def entity_id_of(slug: str) -> str:
     return ENTITY_PREFIX + slug
+
+
+def device_of(slug: str) -> str:
+    """The device a direct camera's entities share (its camera, and phase 4's detection sensors and speaker)."""
+    return f"mantel_cam_{slug}"
 
 
 def stream_name(slug: str, quality: str = "high") -> str:
@@ -314,6 +330,9 @@ class DirectCameras:
         self._stop_timers: dict[str, asyncio.TimerHandle] = {}
         self._stills_busy: dict[str, int] = {}               # stream -> stills being drawn from it
         self.still_providers: dict[str, StillProvider] = {}
+        self.matched: dict[str, str] = {}                    # slug -> Home Assistant's camera it is (no overlay entity)
+        self.aliases: dict[str, str] = {}                    # HA's camera entity -> slug: Video From Direct
+        self.on_stream_failed: Callable[[DirectSource], None] | None = None
         self._tasks: set[asyncio.Task] = set()
         self.error: str | None = None
         self.log: list[dict[str, Any]] = []
@@ -376,6 +395,34 @@ class DirectCameras:
         self._files().delete(SECRET_PREFIX + slug)
         self.sync_states()
         return True
+
+    def set_matches(self, matched: Mapping[str, str], aliases: Mapping[str, str]) -> None:
+        """PHASE 4'S MATCH (decision 2): ``matched`` {slug: Home Assistant's camera entity} are sources Home Assistant
+        has as well (they leave the overlay: one camera, Home Assistant's); ``aliases`` {HA's entity: slug} are the
+        ones whose Video From is Direct (their video and stills come from here, under HA's entity id). A session on
+        an alias that went away ends (the page's card retries, and plays from Home Assistant)."""
+        self.matched = {k: v for k, v in matched.items() if isinstance(k, str) and isinstance(v, str)}
+        self.aliases = {k: v for k, v in aliases.items() if self.matched.get(v) == k}
+        self.sync_states()
+        for eid in {s.camera for s in self.sessions.values()} - set(self.local.mine) - set(self.aliases):
+            self.spawn(self.end_camera(eid))
+
+    def serves(self, entity_id: Any) -> DirectSource | None:
+        """The source whose picture this camera entity is, now: a ``camera.mantel_*`` this overlay has, or Home
+        Assistant's camera whose Video From is Direct (an alias). None for every other camera."""
+        if not isinstance(entity_id, str):
+            return None
+        if self.owns(entity_id):
+            return self.source(entity_id)
+        slug = self.aliases.get(entity_id)
+        if slug is None:
+            return None
+        return next((s for s in self.sources() if s.slug == slug), None)
+
+    def _slug_of(self, entity_id: str) -> str | None:
+        if entity_id.startswith(ENTITY_PREFIX):
+            return entity_id[len(ENTITY_PREFIX):]
+        return self.aliases.get(entity_id) or next((s for s, e in self.matched.items() if e == entity_id), None)
 
     def set_still_provider(self, source: str, provider: StillProvider | None) -> None:
         """PHASE 4'S HOOK: where a source's stills come from instead of go2rtc's frame (Protect's own snapshot,
@@ -440,13 +487,15 @@ class DirectCameras:
         return out
 
     def registry_entries(self, srcs: list[DirectSource]) -> dict[str, dict[str, Any]]:
-        return {s.entity_id: {"entity_id": s.entity_id, "platform": PLATFORM, "device_id": None, "area_id": s.area_id,
+        return {s.entity_id: {"entity_id": s.entity_id, "platform": PLATFORM, "device_id": device_of(s.slug), "area_id": s.area_id,
                               "name": None, "original_name": s.name, FLAG: True} for s in srcs}
 
     def sync_states(self) -> set[str]:
         """The overlay and the registry made exactly the sources Home Assistant does not have."""
         srcs, mine, conflicts = self.sources(), [], {}
         for s in srcs:
+            if s.slug in self.matched:
+                continue                                     # Home Assistant's camera (phase 4): shown once, as HA's
             who = self.ha_has(s.entity_id)
             if who is not None:
                 conflicts[s.entity_id] = who
@@ -518,10 +567,11 @@ class DirectCameras:
 
     # -- signaling ------------------------------------------------------------------------------------------
     def ours(self, msg: dict) -> bool:
-        return self.owns(msg.get("entity_id"))
+        return self.serves(msg.get("entity_id")) is not None
 
     async def _gate(self, ctx: Ctx, entity_id: str) -> DirectSource:
-        src = self.source(entity_id) if self.owns(entity_id) else None
+        # the camera's own may_view, asked about the entity id the page named (an alias: Home Assistant's), always
+        src = self.serves(entity_id)
         if src is None:
             raise Forbidden("not a direct camera")
         if await resolve(self.hooks.may_view(ctx.identity, entity_id)) is not True:
@@ -551,13 +601,14 @@ class DirectCameras:
         ctx.state["direct_cam_starting"] = ctx.state.get("direct_cam_starting", 0) + 1
         self.starting += 1
         try:
-            return await self._start(ctx, src, sdp, mine, on_event)
+            return await self._start(ctx, src, sdp, mine, on_event, msg["entity_id"])
         finally:
             ctx.state["direct_cam_starting"] -= 1
             self.starting -= 1
 
-    async def _ensure(self, src: DirectSource, quality: str) -> str:
-        """The camera's stream set up in go2rtc (PATCH: memory only) and registered with the /go2rtc/ gate."""
+    async def _ensure(self, src: DirectSource, quality: str, camera: str | None = None) -> str:
+        """The camera's stream set up in go2rtc (PATCH: memory only) and registered with the /go2rtc/ gate as
+        ``camera``'s (the entity the page asked for: an alias is Home Assistant's, decided by its own may_view)."""
         secret = self.secret(src.slug)
         url = (secret.low if quality == "low" else secret.high) if secret is not None else None
         if not url:
@@ -566,21 +617,23 @@ class DirectCameras:
         self._cancel_stop(name)
         await self.go2rtc.put_stream(name, url)
         self.streams[name] = src.slug
-        self._proxy_gate(name, True, src.entity_id)
+        self._proxy_gate(name, True, camera or src.entity_id)
         return name
 
     async def _start(self, ctx: Ctx, src: DirectSource, sdp: str, mine: dict[str, CamSession],
-                     on_event: Callable[[dict], None]):
+                     on_event: Callable[[dict], None], camera: str | None = None):
+        camera = camera or src.entity_id
         name = stream_name(src.slug, "high")
         try:
-            name = await self._ensure(src, "high")
+            name = await self._ensure(src, "high", camera)
             ws = await self.go2rtc.connect(name)
         except (aiohttp.ClientError, asyncio.TimeoutError, Go2rtcError) as exc:
             self.error = f"{type(exc).__name__}: {exc}"[:200]
             log.warning("cameras: go2rtc unavailable for %s (%s)", src.slug, self.error)
             self._schedule_stop(name)
+            self._stream_failed(src)
             raise ConnectionError("the camera's stream is unavailable") from exc
-        sess = CamSession(secrets.token_hex(16), src.entity_id, name, ws)
+        sess = CamSession(secrets.token_hex(16), camera, name, ws)
         self.sessions[sess.id] = mine[sess.id] = sess
         try:
             await ws.send_json({"type": "webrtc/offer", "value": sdp})
@@ -650,7 +703,7 @@ class DirectCameras:
         streams removed."""
         for sess in [s for s in self.sessions.values() if s.camera == entity_id]:
             await self._end(sess)
-        slug = entity_id[len(ENTITY_PREFIX):]
+        slug = self._slug_of(entity_id)
         for name in [n for n, s in self.streams.items() if s == slug]:
             await self._drop(name)
 
@@ -660,7 +713,7 @@ class DirectCameras:
         provider, else its own still URL, else go2rtc's frame of its low stream (its high one when it has none).
         camera_still.StillRefused when there is none."""
         from .connectors.camera_still import StillRefused, read_image
-        src = self.source(entity_id) if self.owns(entity_id) else None
+        src = self.serves(entity_id)
         if src is None:
             raise StillRefused(404, "unknown_camera")
         provider = self.still_providers.get(src.source)
@@ -677,11 +730,13 @@ class DirectCameras:
         name = stream_name(src.slug, quality)
         self._stills_busy[name] = self._stills_busy.get(name, 0) + 1
         try:
-            name = await self._ensure(src, quality)
+            name = await self._ensure(src, quality, entity_id)
             params = {"width": str(width), "height": str(height)} if width and height else {}
             return await self.go2rtc.frame(name, params)
         except (aiohttp.ClientError, asyncio.TimeoutError, Go2rtcError, ConnectionError) as exc:
             log.info("cameras: no still for %s (%s)", src.slug, type(exc).__name__)
+            if not isinstance(exc, ConnectionError):
+                self._stream_failed(src)
             raise StillRefused(502, "camera_unavailable") from exc
         finally:
             self._stills_busy[name] -= 1
@@ -689,6 +744,15 @@ class DirectCameras:
                 del self._stills_busy[name]
             if name in self.streams and not self._busy(name):
                 self._schedule_stop(name)
+
+    def _stream_failed(self, src: DirectSource) -> None:
+        """go2rtc could not play the source: its URL may be stale (Protect's token changes): phase 4 asks again."""
+        hook = self.on_stream_failed
+        if hook is not None:
+            try:
+                hook(src)
+            except Exception:  # noqa: BLE001 -- the page's error is the same either way
+                log.exception("cameras: the stream-failure hook failed")
 
     # -- streams' lifetime -------------------------------------------------------------------------------------
     def _busy(self, name: str) -> bool:
@@ -746,7 +810,7 @@ class DirectCameras:
     async def tick(self) -> None:
         self.sync_states()
         # a camera removed, or set aside for Home Assistant's: its sessions end
-        for eid in {s.camera for s in self.sessions.values()} - set(self.local.mine):
+        for eid in {s.camera for s in self.sessions.values()} - set(self.local.mine) - set(self.aliases):
             await self.end_camera(eid)
         # go2rtc is asked only where there are direct cameras (or streams of theirs): a house without them never
         # touches it from here, as Live TV reaps only while it runs
@@ -791,12 +855,14 @@ class DirectCameras:
         """For GET /api/cameras/direct (Owner/Admin): never a URL, a token or go2rtc's address."""
         out = []
         for s in self.sources():
-            state = "conflict" if s.entity_id in self.conflicts else \
+            state = "matched" if s.slug in self.matched else \
+                "conflict" if s.entity_id in self.conflicts else \
                 "unreadable" if s.slug in self.unreadable else \
                 "ok" if s.entity_id in self.local.mine else "off"
             out.append({**s.public(), "entity_id": s.entity_id, "state": state,
-                        "conflict": self.conflicts.get(s.entity_id),
-                        "sessions": sum(1 for x in self.sessions.values() if x.camera == s.entity_id)})
+                        "conflict": self.conflicts.get(s.entity_id), "matched": self.matched.get(s.slug),
+                        "video_direct": s.slug in self.aliases.values(),
+                        "sessions": sum(1 for x in self.sessions.values() if self._slug_of(x.camera) == s.slug)})
         return {"runs": True, "cameras": out, "streams": sorted(self.streams), "error": self.error,
                 "log": list(self.log[-20:])}
 

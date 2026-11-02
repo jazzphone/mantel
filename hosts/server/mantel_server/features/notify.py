@@ -1,5 +1,16 @@
 """Notifications on Mantel: ``Notifier`` follows the hub's changes, asks ``banner.goes_off`` what each sets off and
-sends the payload to the screens' feed (Mute 1 Hour, snapshots, the Wake the Screen call)."""
+sends the payload to the screens' feed (Mute 1 Hour, snapshots, the Wake the Screen call).
+
+DIRECT CAMERA EVENTS (2026-11-02, docs/phase13/CAMERAS-DIRECT.md phase 4, protect_connector.py): ``direct`` is the
+UniFi Protect connector where Mantel reaches the console itself. Its events reach this one engine two ways, so the
+rules (Goes Off When, the Doorbells pop-up, Not Again For, Mute 1 Hour) are the ones Home Assistant's entities have:
+
+* a camera Home Assistant does not have: Mantel's own detection sensors (``binary_sensor.mantel_<slug>_*``,
+  ``event.mantel_<slug>_doorbell``) change in the hub like any entity, and come in through ``on_change``;
+* a camera Home Assistant has too: ``inject`` sets off what Home Assistant's own entity of that kind would, keyed to
+  HA's entity id, and ``direct.takes(eid)`` holds back HA's own change of it while the direct source is preferred
+  (Video From Direct and the events socket up), so one ring is one notification, never two. ``takes`` also holds
+  back a kind the camera's Notify For leaves out, whichever source it came from."""
 from __future__ import annotations
 
 from collections import deque
@@ -29,6 +40,7 @@ class Notifier:
         self.mutes: dict[str, float] = {}
         self.sent: deque = deque(maxlen=LOG_KEEP)
         self.known: set[str] = set()
+        self.direct: Any = None             # protect_connector.ProtectConnector: takes(eid) -> bool
 
     def configure(self, cfg: Mapping[str, Any]) -> None:
         self.opts = NB.options({**dict(cfg.get("options") or {}), "items": list(cfg.get("items") or [])})
@@ -64,10 +76,22 @@ class Notifier:
         for eid in sorted(changed & set(self.cache)):
             old, new = self.cache.get(eid), h.state(eid)
             self.cache[eid] = new
+            if self.direct is not None and self.direct.takes(eid):
+                continue                    # the direct source speaks for it (inject), or Notify For leaves it out
             fired = NB.goes_off(h, self.items, self.watched, eid, old, new, last=self.last, mute=self.mutes,
                                 now=self.host.monotonic(), epoch=self.host.epoch())
             for item in fired:
                 self.deliver(item, new, eid)
+
+    def inject(self, eid: str, old: State | None, new: State | None) -> list[dict[str, Any]]:
+        """A direct camera's event as the change of Home Assistant's entity ``eid`` it stands for (the module
+        docstring): the same rules decide; the hub's own copy of ``eid`` is not touched."""
+        if not self.host.on("notifications") or eid not in self.cache:
+            return []
+        h = self.host.house
+        fired = NB.goes_off(h, self.items, self.watched, eid, old, new, last=self.last, mute=self.mutes,
+                            now=self.host.monotonic(), epoch=self.host.epoch())
+        return [self.deliver(item, new, eid) for item in fired]
 
     def deliver(self, item: dict[str, Any], new: State | None, eid: str) -> dict[str, Any]:
         payload = NB.build(self.host.house, self.opts, item, new, eid=eid)

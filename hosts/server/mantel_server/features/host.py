@@ -622,7 +622,8 @@ class FeatureHost:
 
     # -- notification snapshots ------------------------------------------------------------------------
     def can_snap(self) -> bool:
-        return self.hooks.take_snapshot is not None or self.hooks.ha_token is not None
+        return self.hooks.take_snapshot is not None or self.hooks.ha_token is not None \
+            or getattr(self, "app", {}).get("cameras_direct") is not None
 
     async def take_snapshot(self, camera: str) -> str | None:
         """The camera's picture now, kept (notify_snaps.SnapStore); its id, or None (the notification
@@ -630,8 +631,12 @@ class FeatureHost:
         if not notify_snaps.CAMERA_ID.match(camera):
             return None
         try:
+            direct = self.app.get("cameras_direct")
             if self.hooks.take_snapshot is not None:
                 got = await self.hooks.take_snapshot(camera)
+            elif direct is not None and direct.serves(camera) is not None:
+                # a direct camera, or HA's whose Video From is Direct (phase 4): its own still, not Home Assistant's
+                got = await direct.still(camera)
             elif self.hooks.ha_token is not None:
                 cfg = self.app["cfg"]
                 got = await notify_snaps.take_from_ha(self.app, cfg.ha_url, self.hooks.ha_token(), camera)

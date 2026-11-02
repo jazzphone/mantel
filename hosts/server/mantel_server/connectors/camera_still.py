@@ -268,7 +268,8 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
         if width is not None and height is not None:      # HA ignores one without the other
             params = {"width": str(width), "height": str(height)}
         direct = request.app.get("cameras_direct")
-        if direct is not None and direct.owns(entity_id):
+        if direct is not None and direct.serves(entity_id) is not None:
+            # (also Home Assistant's camera whose Video From is Direct, phase 4: the same policy decided above)
             # A DIRECT CAMERA (cameras_direct.py, 2026-11-02): decided above by the same policy; its picture comes
             # from its own source (a still provider, its still URL, or go2rtc's frame), shared the same way
             try:
