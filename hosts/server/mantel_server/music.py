@@ -767,6 +767,8 @@ class MantelMusic:
         path (the request's MusicRun). Reports instead of raising: a failed step is a logged False."""
         run = RUN.get()
         client = self.host.ma
+        if service == "media_stop":
+            self.host.stopping(data.get("entity_id"))
         try:
             if run is None or client is None:
                 raise PermissionError("no audited music request is running")
@@ -1329,6 +1331,15 @@ class MusicHost:
                     cb()
                 except Exception:  # noqa: BLE001
                     log.exception("music: a wait failed")
+
+    def stopping(self, entities: Any) -> None:
+        """A stop WE send: those players (and the group each leads) are forgotten by the resumes, and the idle that
+        follows is not Music Assistant's stop after a pause (hk_core/music/resume.py)."""
+        ids = [entities] if isinstance(entities, str) else list(entities or [])
+        for e in list(ids):
+            ids += E.members(self.house, e)
+        if self.resumes.ours(ids, time.monotonic()):
+            self.push()
 
     def on_registry(self) -> None:
         if self._subs:

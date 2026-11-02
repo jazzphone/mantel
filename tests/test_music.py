@@ -1412,3 +1412,23 @@ async def test_music_stopped_after_a_pause_stays_paused_on_the_screens(on):
     await on.ma.set(D, "idle")
     assert host.resumes.players(time.monotonic()) == []
     await ws.close()
+
+
+async def test_stop_all_within_a_pause_s_window_leaves_nothing_to_resume(on):
+    """Stop All, or any Stop, soon after a pause read as Music Assistant's own stop and left the room shown as
+    paused for four hours (MED-11, 2026-11-01): a stop Mantel sends is no one's to resume."""
+    import time
+    host = on.app["music"]
+    await on.connected()
+    await on.login("jamie", "adult")
+    ws = await on.socket()
+    for stop in (SVC("music_stop"), SVC("music_stop", rooms=[K]),
+                 SVC("music_transport", player=K, command="stop")):
+        await on.playing(K, media_content_id="library://playlist/1")
+        await on.ma.set(K, "paused")
+        await wait_for(lambda: on.app["hub"].store.states[K]["s"] == "paused")
+        r = await on.command(ws, id=2, **stop)
+        assert r["result"]["response"]["ok"] is True, r
+        await wait_for(lambda: on.app["hub"].store.states[K]["s"] == "idle")
+        assert host.resumes.players(time.monotonic()) == [], stop
+    await ws.close()

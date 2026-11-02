@@ -774,3 +774,25 @@ def test_music_assistants_stop_after_a_pause_is_kept_for_the_screens():
     assert r.players(50 + HOLD) == [EXTRA] and r.players(51 + HOLD) == []
     r.state(LOFT, "paused", 0); r.state(LOFT, "idle", 1)
     assert r.clear() is True and r.players(2) == [] and r.clear() is False
+
+
+def test_a_stop_the_host_sends_is_not_music_assistants_stop_after_a_pause():
+    """Stop All within 45 s of a pause left the room paused (resumable) for four hours (MED-11, 2026-11-01)."""
+    from hk_core.music.resume import HOLD, OURS_WINDOW, Resumes
+    r = Resumes()
+    r.state(K, "paused", 100)
+    assert r.ours([K], 119) is False, "paused, not yet resumable: nothing dropped"
+    assert r.state(K, "paused", 119.5) is False, "(the pause echoed once more after the stop was sent)"
+    assert r.state(K, "idle", 120) is False and r.players(120) == [], "the host's own stop is no one's to resume"
+    # Music Assistant's own stop, with no stop of ours: still resumable
+    r.state(LR, "paused", 100)
+    assert r.state(LR, "idle", 130) is True and r.players(130) == [LR]
+    # a person's Stop on a resumable room forgets it
+    assert r.ours([LR], 200) is True and r.players(200) == []
+    assert r.state(LR, "idle", 201) is False and r.players(201) == []
+    # our stop is old news after the window: a later pause and idle count again
+    r.ours([OFF], 0)
+    r.state(OFF, "paused", 100)
+    assert r.state(OFF, "idle", 100 + OURS_WINDOW + 1) is True and r.players(101 + OURS_WINDOW) == [OFF]
+    assert r.players(HOLD + 200) == []
+    assert r.ours([EXTRA], 5) is False and r.clear() is False
