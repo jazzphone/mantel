@@ -86,7 +86,7 @@ def dot_segments(path: str) -> bool:
 
 
 def _plain(ip):
-    """An IPv4 address written as IPv6 (::ffff:10.0.0.1) is judged as the IPv4 address it is."""
+    """An IPv4 address written as IPv6 (::ffff:a.b.c.d) is judged as the IPv4 address it is."""
     mapped = getattr(ip, "ipv4_mapped", None)
     return mapped if mapped is not None else ip
 
