@@ -52,7 +52,24 @@
     pressure: [['circular'], {}, 'Pressure', ['pressure'], 'weather'],
     feels: [['circular'], {}, 'Feels Like', ['feels'], 'weather'],
     moon: [['inline', 'circular'], {}, 'Moon', ['moon'], 'weather'],
-    sun: [['inline', 'circular', 'rectangular'], {}, 'Sun', ['sun'], 'weather']
+    sun: [['inline', 'circular', 'rectangular'], {}, 'Sun', ['sun'], 'weather'],
+    // wave B: data HK reads on its other pages
+    security: [['inline', 'circular'], {}, 'Security', ['security'], 'home'],
+    doors: [['inline', 'circular', 'rectangular'], {when: ['always', 'open']}, 'Doors and Windows', ['doors'], 'home'],
+    garage: [['inline', 'circular'], {when: ['always', 'open']}, 'Garage', ['garage'], 'home'],
+    climate: [['inline', 'circular', 'rectangular'], {}, 'Climate', ['climate'], 'home'],
+    lights: [['inline', 'circular'], {}, 'Lights On', ['lights'], 'home'],
+    vacuum: [['inline', 'circular'], {}, 'Vacuum', ['vacuum'], 'home'],
+    notify: [['inline', 'circular', 'rectangular'], {}, 'Notifications', ['notify'], 'home'],
+    package: [['inline', 'circular'], {}, 'Package', ['package'], 'home'],
+    who: [['inline', 'circular', 'rectangular'], {person: 'entity:person'}, 'Who\u2019s Home', ['people'], 'people'],
+    grid: [['inline', 'circular'], {}, 'Grid', ['grid'], 'energy'],
+    ev: [['inline', 'circular'], {}, 'EV', ['ev'], 'energy'],
+    upnext: [['inline', 'rectangular'], {}, 'Up Next', ['upnext'], 'media'],
+    playin: [['inline'], {}, 'Playing In', ['playin'], 'media'],
+    thisday: [['inline'], {}, 'On This Day', ['thisday'], 'media'],
+    camera: [['rectangular', 'card'], {camera: 'entity:camera'}, 'Camera', ['camera'], 'cameras'],
+    ring: [['inline', 'card'], {}, 'Last Ring', ['ring'], 'cameras']
   };
   var SHAPES = ['inline', 'circular', 'rectangular', 'card', 'band'];
   var SHAPE_NAMES = { inline: 'Inline', circular: 'Circular', rectangular: 'Rectangular', card: 'Card', band: 'Band' };
@@ -82,7 +99,19 @@
     'world.circular': 'A small dial', 'world.rectangular': 'Two cities', 'rain.inline': 'When rain is coming', 'rain.circular': 'The chance of rain',
     'rain.rectangular': 'A bar per hour', 'alert.inline': 'While one is active', 'alert.card': 'The alert', 'uv.circular': 'The UV index',
     'wind.circular': 'Wind and gusts', 'pressure.circular': 'The pressure', 'feels.circular': 'What it feels like', 'moon.inline': 'The phase',
-    'moon.circular': 'The moon drawn', 'sun.inline': 'The next sunrise or sunset', 'sun.circular': 'The day’s arc', 'sun.rectangular': 'The day’s length'
+    'moon.circular': 'The moon drawn', 'sun.inline': 'The next sunrise or sunset', 'sun.circular': 'The day’s arc', 'sun.rectangular': 'The day’s length',
+    'security.inline': 'The alarm’s state', 'security.circular': 'The alarm’s state', 'doors.inline': 'What’s open',
+    'doors.circular': 'What’s open', 'doors.rectangular': 'What’s open', 'garage.inline': 'The garage door',
+    'garage.circular': 'The garage door', 'climate.inline': 'Heating or cooling, inside', 'climate.circular': 'Heating or cooling, inside',
+    'climate.rectangular': 'Heating or cooling, inside', 'lights.inline': 'How many lights are on', 'lights.circular': 'How many lights are on',
+    'vacuum.inline': 'While it cleans', 'vacuum.circular': 'While it cleans', 'notify.inline': 'What’s arrived',
+    'notify.circular': 'What’s arrived', 'notify.rectangular': 'What’s arrived', 'package.inline': 'After a package is seen',
+    'package.circular': 'After a package is seen', 'who.inline': 'Who’s home', 'who.circular': 'Who’s home',
+    'who.rectangular': 'Who’s home', 'grid.inline': 'Importing or exporting', 'grid.circular': 'Importing or exporting',
+    'ev.inline': 'The car’s charge', 'ev.circular': 'The car’s charge', 'upnext.inline': 'The next song',
+    'upnext.rectangular': 'The next song', 'playin.inline': 'Where the music plays', 'thisday.inline': 'Over a photo from this day',
+    'camera.rectangular': 'A camera’s still', 'camera.card': 'A camera’s still', 'ring.inline': 'After the doorbell rings',
+    'ring.card': 'After the doorbell rings'
   };
   var CATALOG = {};
   function catalog() {
