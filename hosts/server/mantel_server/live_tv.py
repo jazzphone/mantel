@@ -151,7 +151,13 @@ def go2rtc_api_url(cfg: Any) -> str:
 
 
 class Go2rtcError(Exception):
-    pass
+    """go2rtc refused or could not do something. ``status`` is its HTTP status and ``detail`` the text it gave, when
+    there was one: ``detail`` is go2rtc's own words and can hold a stream's address, so it is never put in the
+    message, a log line or an answer (camera_setup.classify only reads it)."""
+
+    def __init__(self, message: str = "", *, status: int | None = None, detail: str = "") -> None:
+        super().__init__(message)
+        self.status, self.detail = status, detail
 
 
 class Go2rtc:
@@ -201,16 +207,37 @@ class Go2rtc:
             got = await r.json(content_type=None)
         return got if isinstance(got, dict) else {}
 
+    async def probe(self, name: str, timeout: float = 10.0) -> list[str]:
+        """Ask go2rtc to open a stream and say what it carries (``GET /api/streams?src=<name>&video=all&audio=all``,
+        checked against go2rtc 1.9.9 on 2026-11-02). Answers the medias of its producers ("video, recvonly, H264",
+        "audio, recvonly, PCMA"); a stream that cannot be opened is 500 with go2rtc's reason as plain text
+        ("streams: wrong user/pass", "dial tcp ...: connection refused"), raised as Go2rtcError with that text as its
+        ``detail``. NOT ``frame.jpeg``: go2rtc answers that 200 with an empty body whatever went wrong, and keeps the
+        reason in its log. The answer's JSON also holds each producer's url, with its user name and password: only the
+        ``medias`` are read, the rest dropped here."""
+        self.calls.append(("PROBE", name))
+        async with self.session().get(f"{self.base}/api/streams", params={"src": name, "video": "all", "audio": "all"},
+                                      timeout=aiohttp.ClientTimeout(total=timeout), allow_redirects=False) as r:
+            if r.status != 200:
+                raise Go2rtcError(f"go2rtc could not open the stream ({r.status})", status=r.status,
+                                  detail=(await r.text())[:500])
+            got = await r.json(content_type=None)
+        out: list[str] = []
+        for p in (got.get("producers") if isinstance(got, dict) else None) or []:
+            if isinstance(p, dict):
+                out += [m for m in (p.get("medias") or []) if isinstance(m, str)]
+        return out
+
     async def frame(self, name: str, params: Mapping[str, str] | None = None,
-                    max_bytes: int = 20 * 1024 * 1024) -> tuple[bytes, str]:
+                    max_bytes: int = 20 * 1024 * 1024, timeout: float = 15.0) -> tuple[bytes, str]:
         """One JPEG of a stream (``GET /api/frame.jpeg?src=``: go2rtc's ffmpeg decodes a keyframe, scaled by
         ``width``/``height`` when given). For cameras_direct.py's stills. (body, content type)."""
         self.calls.append(("FRAME", name))
         async with self.session().get(f"{self.base}/api/frame.jpeg", params={"src": name, **dict(params or {})},
-                                      timeout=aiohttp.ClientTimeout(total=15), allow_redirects=False) as r:
+                                      timeout=aiohttp.ClientTimeout(total=timeout), allow_redirects=False) as r:
             ctype = r.headers.get("Content-Type", "").split(";")[0].strip().lower()
             if r.status != 200 or not ctype.startswith("image/"):
-                raise Go2rtcError(f"go2rtc gave no frame ({r.status})")
+                raise Go2rtcError(f"go2rtc gave no frame ({r.status})", status=r.status)
             body = bytearray()
             async for chunk in r.content.iter_chunked(64 * 1024):
                 body += chunk

@@ -235,12 +235,29 @@ user plus an API key):
 ### RTSP cameras (Mantel Settings → Cameras → Add Camera)
 
 - **Name, area and RTSP URL.** The user name and password are separate fields kept as a secret, never in the shown
-  URL or in logs.
+  URL or in logs. (Built in phase 6, `camera_setup.py`.) An address with a login in it is refused, so the two fields
+  are the only way in; the login goes into the URL only inside the sealed file phase 3 keeps, percent-encoded. A saved
+  camera is shown by `scheme://host[:port]` (never the path, which can carry a token on some cameras), and its login
+  boxes say Saved: a blank box on a change keeps what is saved. An optional sub-stream is the stills' `low`, with the
+  same login.
 - **Test** draws a still from go2rtc before saving, and states plainly what it couldn't play (codec, auth,
-  unreachable).
+  unreachable). go2rtc 1.9.9 answers `frame.jpeg` with **200 and an empty body** whatever went wrong and keeps the
+  reason in its log, so the reason comes from the probe, `GET /api/streams?src=&video=all&audio=all`, which answers
+  500 with it as plain text ("streams: wrong user/pass", "dial tcp ...: connection refused") and, on success, the
+  producers' medias (which is where H.265-only video is caught: not H.264 means `codec`). The probe's JSON also holds
+  the stream's URL with the login in it, so only the medias are read. Mantel's words are fixed text: go2rtc's are
+  classified and dropped.
 - **Motion, Person, Doorbell:** pick any HA `binary_sensor` or `event` entity, with today's picker
   (`accessories.py`'s suggestion pattern; Frigate's sensors work here too). Without HA there is no motion source,
-  and the page says so.
+  and the page says so. **How they reach the notification rules:** the rules ask a camera's HA device for its sensors
+  (`camera_for`, `trigger_for`); a direct camera has none, so the House port gained `camera_links()` (`{sensor:
+  (camera, role)}`, from `DirectCameras.sensor_links()`), and `accessories.py` reads it in those same places and in
+  `kind()`: a linked sensor is that kind (a Doorbell link is `doorbell`, whatever its device class says), so the
+  Doorbells category (with `pop: doorbell`), the Cameras category's trigger and the snapshot all follow without a
+  second mapping. The links are stored on the source (`sensors`, with `detections` mirroring the roles).
+- **Who and when.** Owner or Admin. Changes, and the Test (which makes Mantel dial an address), need the fresh
+  sign-in `connections.edit_rule` asks away from home, with Admins let in (`edit_rule(admins=True)`, the guard's
+  `fresh="away"` for a manager).
 
 ### Where it runs
 
@@ -353,4 +370,11 @@ after the ticket"); the log since the 0.1.113 restart has no talk in it yet.
   last viewer. Stills: go2rtc's `frame.jpeg` of the low stream, with a hook for Protect's snapshot (phase 4).
   RBAC is unchanged and tested on direct cameras: area grants, an entity deny, Child and Guest, the tunnel's
   camera switch, other connections' sessions and the caps. Nothing visible yet.
-
+- 2026-11-02: phase 6 built (`hosts/server/mantel_server/camera_setup.py`, `web/shim/settings/cameras.js`): Mantel
+  Settings → Cameras on Docker and the LXC, and under the HA App a page that says cameras come from HA's Generic
+  Camera, with a link and no add button. Routes under `/api/cameras/rtsp` (page, sensors, test, add, change, remove),
+  Owner/Admin, `fresh="away"`, audited as `camera.rtsp.add|edit|remove` (the host and which parts changed, never a
+  login or path). Checked against a real go2rtc 1.9.9 (`mantel-transcode:spike`) with a test RTSP server: failures show
+  only in the probe (see the RTSP section), so the fake go2rtc answers as it does. Linked sensors reach `rules.py`
+  through `House.camera_links()` and `accessories.py`'s device lookups. Open: the page's picker is a plain pop-up
+  list (no search) and Test tries the main stream and the sub-stream with the same login.

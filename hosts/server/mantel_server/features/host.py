@@ -80,7 +80,8 @@ class FeatureHost:
         self.app, self.hub, self.hooks = app, hub, hooks
         self._publishing = False                     # inside _sync_client's own settings-feed publish
         self.caller = FeatureCaller(app, self.acting_entities)
-        self.house = MantelHouse(hub.store, hub.registry, tz=self._tz, caller=self.caller, now=self.now)
+        self.house = MantelHouse(hub.store, hub.registry, tz=self._tz, caller=self.caller, now=self.now,
+                                 links=self._camera_links)
         self.own_house = OverlayHouse(self.house, self.own_state)
         self.feed = Feed()
         self.screens: dict[str, ScreenState] = {}
@@ -120,6 +121,12 @@ class FeatureHost:
         # hk_clean_areas/subscribe: id -> [identity, on_event, last body sent]
         self._area_subs: dict[int, list] = {}
         self._area_n = 0
+
+    def _camera_links(self) -> dict[str, tuple[str, str]]:
+        """The sensors linked to Mantel's direct cameras (camera_setup.py), for the House port's ``camera_links``:
+        read when asked, since cameras_direct is installed after the features are."""
+        cams = self.app.get("cameras_direct")
+        return cams.sensor_links() if cams is not None else {}
 
     # -- clocks and settings ------------------------------------------------------------------------
     def now(self) -> datetime:

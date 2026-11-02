@@ -64,6 +64,10 @@ class HaHouse:
         reg = er.async_get(self._hass)
         return [_entity(e) for e in er.async_entries_for_device(reg, device_id, include_disabled_entities=True)]
 
+    def camera_links(self) -> dict[str, tuple[str, str]]:
+        """No direct cameras in Home Assistant (hk_core/house.py): a camera's sensors are on its device."""
+        return {}
+
     def area_ids(self) -> set[str]:
         return set(ar.async_get(self._hass).areas)
 
