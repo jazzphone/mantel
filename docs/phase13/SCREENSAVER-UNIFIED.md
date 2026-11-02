@@ -130,6 +130,130 @@ in sizes, instead of 25 ids. Every piece is drawn by one renderer (`hk-saverwidg
   piece and shape (`temp` → Weather/circular, `status_card` → House Status/card...). Saves write v2. The
   Python/JS parity test covers the new catalog.
 
+## More pieces: a lock screen for the house
+
+The owner, the same day: "if there are more Cards/Widgets... that we could implement, we should... Think of what
+you would potentially want to see at a quick glance for a Screensaver Dashboard. It's almost like an iPhone lock
+screen!"
+
+Today's ten pieces become a starting point. The catalog below adds about thirty more, each something worth a glance
+from across the room. Every one is drawn from data HK already reads somewhere, or from one entity the owner picks.
+
+### Glance catalog
+
+**Time and Calendar**
+
+| Piece | Inline | Circular | Rectangular | Card | Shows | Wave |
+|---|---|---|---|---|---|---|
+| Next Event | next event | -- | next two | the rest of today | always | A |
+| Countdown | Beach trip in 12 days | days left | -- | -- | always | A |
+| World Clock | London 12:42 | a small dial | two cities | -- | always | A |
+| Phone Alarm | Alarm 6:30 | the alarm time | -- | -- | while an alarm is set | C |
+| To-Do | 3 to do | count | the top three | the list | when the list has items | B |
+| Trash Day | Trash tomorrow | the bin | -- | -- | the day before and the day of | C |
+
+**Weather and Sky**
+
+| Piece | Inline | Circular | Rectangular | Card | Shows | Wave |
+|---|---|---|---|---|---|---|
+| Rain Soon | Rain at 3 PM | the chance | a bar per hour | -- | when rain is coming | A |
+| Weather Alert | Wind Advisory until 6 | -- | -- | the alert | while one is active | A |
+| UV, Wind and Gusts, Pressure, Feels Like | -- | one each | -- | -- | always | A |
+| Moon | Waxing Gibbous | the phase | -- | -- | always | A |
+| Sun | Sunset 5:12 | an arc (sunset today) | day length | -- | always | A |
+| Pollen | Pollen High | the level | -- | -- | always, once a sensor is picked | C |
+
+**Home**
+
+| Piece | Inline | Circular | Rectangular | Card | Shows | Wave |
+|---|---|---|---|---|---|---|
+| Security | Armed Away | the alarm's state | -- | -- | always | B |
+| Doors and Windows | 2 open | count | names | -- | always, or when something is open | B |
+| Garage | Garage open | the door | -- | -- | always, or when open | B |
+| Climate | Heating to 70° | inside, ringed to the target | two zones | -- | always | B |
+| Lights On | 6 lights on | count | -- | -- | always | B |
+| Vacuum | Vacuuming the Kitchen | battery | -- | -- | while running or stuck | B |
+| Appliances (washer, dryer, dishwasher) | Dryer done | time left | two | -- | while running, and for an hour after done | C |
+| Leak and Smoke | Water at the Laundry | -- | -- | the alert | while one is tripped | C |
+| Notifications | the latest | count | the latest two | -- | when there are unread | B |
+| Package | Package at the door | the box | -- | -- | after a doorbell's package detection | B |
+
+**People and Travel**
+
+| Piece | Inline | Circular | Rectangular | Card | Shows | Wave |
+|---|---|---|---|---|---|---|
+| Who's Home | Everyone's home | one person | everyone | -- | always (decision 7) | B |
+| Travel Time | Work 24 min | minutes | two places | -- | always, once a sensor is picked | C |
+
+**Energy**
+
+| Piece | Inline | Circular | Rectangular | Card | Shows | Wave |
+|---|---|---|---|---|---|---|
+| Grid | Exporting 2.1 kW | import or export | -- | -- | always | B |
+| EV | Car 80% | charge | -- | -- | always | B |
+| Price | Peak until 7 PM | -- | -- | -- | always, once a sensor is picked | C |
+
+**Media and Photos**
+
+| Piece | Inline | Circular | Rectangular | Card | Shows | Wave |
+|---|---|---|---|---|---|---|
+| Up Next | next song | -- | the next two | -- | while music plays | B |
+| Playing In | Kitchen, Living Room | -- | -- | -- | while music plays | B |
+| On This Day | 3 years ago today | -- | -- | -- | over a photo from this day | B |
+
+**Cameras** (decision 7)
+
+| Piece | Inline | Circular | Rectangular | Card | Shows | Wave |
+|---|---|---|---|---|---|---|
+| Camera | -- | -- | its still | its still, larger | always | B |
+| Last Ring | Doorbell 4:02 PM | -- | -- | the ring's snapshot | for 30 minutes after a ring | B |
+
+**Any Sensor.** The owner picks any entity the screen may read, with its name, icon and unit.
+
+| Shape | What it draws |
+|---|---|
+| Inline | its name and state |
+| Circular | its value ringed between a min and a max |
+| Rectangular | two sensors |
+
+This is the escape hatch for everything else (wave C).
+
+**The waves:**
+
+- **A** uses data the screensaver already reads, such as `hkWxReadings`, the forecast, alerts, `sun.sun` and the
+  calendars.
+- **B** uses data HK reads on its other pages, such as the alarm, covers, locks, climate, lights, vacuums, to-dos,
+  people, Mantel's notifications, energy, Music Assistant and cameras.
+- **C** needs one entity picked, with a suggested default the way `accessories.py` suggests a camera's trigger.
+
+### The rules every piece follows
+
+A piece is added only if it meets all of these, so the catalog can keep growing without the editor getting clunky
+again:
+
+1. **Declared once, in both mirrors**, with these fields:
+   - its shapes;
+   - its one data source;
+   - the facts it shows (for claiming);
+   - when it shows;
+   - what wakes a redraw;
+   - what it needs picked;
+   - its sample reading for the library.
+2. **Drawn by the one renderer**, in `--u`, with the same Size, Backdrop and Color. Nothing a piece draws animates,
+   and nothing uses `backdrop-filter`.
+3. **One read per source, shared.** Two pieces on the same entity read it once. A piece never wakes another (the
+   0.1.104 freeze).
+4. **"Shows when..." pieces keep their place in the editor**, drawn dotted with when they show, as Now Playing is
+   today. On the tablet they collapse. The plan reflows only when one comes or goes, never on a tick.
+5. **Facts are claimed.** A face, a slide or another piece that already shows a fact hides the duplicate, and the
+   editor says which one shows it.
+6. **The screen's role decides the data.** A piece reads only what the wall tablet's role may read. Pieces that
+   show people or cameras are off until the owner places them (decision 7).
+7. **Every piece appears in `saver_shows_check`** at least once, at the three sizes.
+
+The library groups the pieces as above, with a search field. Each piece shows its shapes, and its sample reading
+comes from the house where it can.
+
 ## Slides: the slide corner
 
 Each slide declares `shows: {time, date, weather, status, music}` next to where it is defined. One function picks
@@ -206,8 +330,9 @@ Also fixed in this phase:
 
 | | What | Who |
 |---|---|---|
-| 0 | A mock-up artifact: the Looks gallery, Look/Info/Slides/Timing, a piece's shapes, the slide corner on all five slides. The owner answers the decisions. | session (Opus) |
+| 0 | A mock-up artifact: the Looks gallery, Look/Info/Slides/Timing, a piece's shapes, the grouped library with the glance catalog, the slide corner on all five slides. The owner answers the decisions. | session (Opus) |
 | 1 | Pieces: the v2 catalog in both mirrors, the v1 → v2 read, one renderer and unit system, the Card shapes replacing HK cards, one weather source, the claiming rule; unit and parity tests | Sonnet 5.5 high for the renderer, from a written spec; the session for the model |
+| 1b | The glance catalog, wave by wave (A, then B, then C), each piece to the rules above; Any Sensor's picker | Sonnet 5.5 high agents in parallel, one per group, from written per-piece specs; the session reviews each against the rules |
 | 2 | Slides: `shows` declarations, the shared slide corner, the Weather and Energy slides' own corners removed, slides on every background, the phone music slide | session |
 | 3 | The time: Behind with any face and with Temperature, Date and Month; Planted as a face; options at every depth; Darken; Night Mode, the Day's Art and Soft Photos under a layout | session (the cut-out ordering is delicate) |
 | 4 | One renderer: `layoutFrom()` at read time for screens with no layout; delete the per-Show corner rules, `ly_spare`, `lyoff` and the seven hide rules; before/after WebKit shots of every old Show | session, a Sonnet agent for the shots |
@@ -229,6 +354,8 @@ Also fixed in this phase:
 | 4 | The slide corner's time follows the Look's face color and font, or one fixed corner style? | Follow the Look |
 | 5 | Every screen through one renderer, so screens with no saved layout may shift slightly? | Yes, after the phase 4 shots |
 | 6 | Big Weather's slide corner: Date and House Status only, since it already shows a time or temperature? | Yes |
+| 7 | Pieces that show people (Who's Home) or cameras (Camera, Last Ring) stay off until placed, since anyone walking by sees a screensaver? | Yes |
+| 8 | Any pieces to add to or drop from the glance catalog before building? | The owner's list |
 
 ## Rules that still hold
 
@@ -245,3 +372,5 @@ Also fixed in this phase:
 
 - 2026-11-02: plan written from two code maps (the screensaver's pieces, slides, depths and editor; the last week's
   patches).
+- 2026-11-02: the glance catalog (about thirty more pieces in three waves) and the rules every piece follows, from
+  the owner's "almost like an iPhone lock screen".
