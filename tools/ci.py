@@ -119,7 +119,7 @@ class Step:
     timeout: float = 1800
     # HOW IT RUNS BESIDE THE OTHERS (2026-10-30: one at a time, full took 24 minutes on an 18-core Mac): `first`
     # steps run before everything, in order (the build tools, HK Frontend's build its suites run in); the rest run
-    # side by side (CI_JOBS at once: three quarters of the cores, at most 14, unless set), except that steps sharing a `lane` run one after another in it
+    # side by side (CI_JOBS at once: four more than the cores, at most 22, unless set), except that steps sharing a `lane` run one after another in it
     # (the CDP checks share one fixed DevTools port)
     first: bool = False
     lane: str = ""
@@ -428,7 +428,9 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
     jobs.sort(key=lambda job: -sum(0 if s.name in carried else was.get(s.name, new) for s in job))
     # (13 at once on this 18-core Mac: the browser checks mostly wait, so the cores were two-thirds idle at 9 and
     # the run waited on width, not CPU -- 2026-11-01, 238 s at 9, 191 s at 14, every check steady and no slower)
-    width = max(1, int(os.environ.get("CI_JOBS") or min(14, max(2, (os.cpu_count() or 4) * 3 // 4))))
+    # (2026-11-02, 22 at once here: `full --all` 224 s, not 326 s at 14; ~4 of 18 cores busy, a third of the memory
+    # free at worst. The browser checks mostly wait, so the run waited on width: their seconds add up to ~3900)
+    width = max(1, int(os.environ.get("CI_JOBS") or min(22, max(2, (os.cpu_count() or 4) + 4))))
     with concurrent.futures.ThreadPoolExecutor(max_workers=width) as pool:
         for f in [pool.submit(lambda job=job: [one(s) for s in job]) for job in jobs]:
             f.result()
@@ -446,7 +448,8 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
         "ok": not any(r.status == "failed" for r in results),
         "steps": [vars(r) for r in results],
         # (what took longer than it should: timing_warnings, with `timing` the history it compares with)
-        "warnings": keep_timing(chosen, results, timing) if timing else [],
+        "warnings": keep_timing(chosen, results, timing, whole=tier == "full" and not only and bool(results)
+                                and all(r.status == "passed" for r in results)) if timing else [],
     }
     (record_dir / "last-run.json").write_text(json.dumps(record, indent=2) + "\n")
     times = {**was, **{r.name: round(r.seconds, 1) for r in results if r.status in ("passed", "failed")}}
@@ -840,7 +843,7 @@ def timing_warnings(results: list[Result], history: dict[str, list[float]], fami
     ran = [r for r in results if r.status == "passed" and r.seconds >= 5]
     usual = {r.name: _median(history[r.name][-HISTORY:]) for r in ran if len(history.get(r.name, [])) >= 3}
     ratios = {n: r.seconds / usual[n] for r in ran if (n := r.name) in usual and usual[n] > 0}
-    pace = max(1.0, _median(list(ratios.values()))) if len(ratios) >= 5 else 1.0
+    pace = run_pace(results, history)
     out = []
     for r in ran:
         fam = families.get(r.name, "")
@@ -861,9 +864,32 @@ def timing_warnings(results: list[Result], history: dict[str, list[float]], fami
     return out
 
 
-def keep_timing(chosen: list[Step], results: list[Result], path: Path) -> list[str]:
-    """This run's timing warnings; and each passed step's time added to its history, and each check that ran all its
-    parts given its next count (next_parts). Every worktree's runs share the file: one at a time, under a lock."""
+def total_warnings(totals: dict[str, float], history: dict[str, list[float]], pace: float) -> list[str]:
+    """A check in parts, or the whole run, that grew: each part stays short as the parts multiply, but the run waits
+    on how many steps it may run at once (CI_JOBS), so their sum is what it takes. (Each total: all its steps' seconds.)"""
+    out = []
+    for name, secs in totals.items():
+        past = history.get(name, [])[-HISTORY:]
+        if len(past) >= 3 and (usual := _median(past)) > 0 and secs > 1.3 * usual * pace and secs - usual * pace > 60:
+            out.append(f"{name}: {secs:.0f} s in all, {secs / usual / pace:.1f}x its usual {usual:.0f} s"
+                       f"{f' (the machine at {pace:.1f}x)' if pace > 1.05 else ''}: what did this change add to it?")
+    return out
+
+
+def run_pace(results: list[Result], history: dict[str, list[float]]) -> float:
+    """How much slower than usual the machine ran this run: the median of its steps' times over their usual, 1 at least."""
+    ratios = [r.seconds / _median(history[r.name][-HISTORY:]) for r in results if r.status == "passed" and r.seconds >= 5
+              and len(history.get(r.name, [])) >= 3 and _median(history[r.name][-HISTORY:]) > 0]
+    return max(1.0, _median(ratios)) if len(ratios) >= 5 else 1.0
+
+
+WHOLE = "(every full step)"                   # timing.json's history of whole full runs' total seconds
+
+
+def keep_timing(chosen: list[Step], results: list[Result], path: Path, whole: bool = False) -> list[str]:
+    """This run's timing warnings; and each passed step's time added to its history, each check that ran all its parts
+    given its next count (next_parts) and its total kept, and, for a `whole` full run (every step run and passed), the
+    run's total. Every worktree's runs share the file: one at a time, under a lock."""
     path.parent.mkdir(parents=True, exist_ok=True)
     by = {r.name: r for r in results}
     families = {s.name: s.family for s in chosen if s.family}
@@ -871,13 +897,18 @@ def keep_timing(chosen: list[Step], results: list[Result], path: Path) -> list[s
         fcntl.flock(lock, fcntl.LOCK_EX)
         timing = read_timing(path)
         hist, parts = timing["history"], timing["parts"]
+        totals = {WHOLE: sum(r.seconds for r in results)} if whole else {}
         for fam in sorted(set(families.values())):
             got = [by[n] for n, f in families.items() if f == fam and n in by]
             # (every part, each "KofN": a part run alone, with --only, says nothing of the whole)
-            whole = {int(m.group(1)) for n, f in families.items() if f == fam and (m := re.search(r"of(\d+)$", n))}
-            if got and whole == {len(got)} and all(r.status in ("passed", "failed") for r in got):
+            count = {int(m.group(1)) for n, f in families.items() if f == fam and (m := re.search(r"of(\d+)$", n))}
+            if got and count == {len(got)} and all(r.status in ("passed", "failed") for r in got):
                 parts[fam] = next_parts([r.seconds for r in got])
-        warnings = timing_warnings(results, hist, families, parts)
+                if all(r.status == "passed" for r in got):
+                    totals[fam] = sum(r.seconds for r in got)
+        warnings = timing_warnings(results, hist, families, parts) + total_warnings(totals, hist, run_pace(results, hist))
+        for name, secs in totals.items():
+            hist[name] = (hist.get(name, []) + [round(secs, 1)])[-HISTORY:]
         for r in results:
             if r.status == "passed":
                 hist[r.name] = (hist.get(r.name, []) + [round(r.seconds, 1)])[-HISTORY:]

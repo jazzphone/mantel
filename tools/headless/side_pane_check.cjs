@@ -246,6 +246,10 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
            before.t === 'dashboard-home' && setOk === true && moved === '/pane-home-right/0?hk_tablet=kitchen');
       await page.waitForFunction(() => window.__mantelReady === true);
       await tabletSet('dashboard-home');
+      // (the page follows its tablet back too, when the change reaches it: once there, so that follow can't land in the
+      // middle of the next page.goto -- 2026-11-02, 22 steps at once: "interrupted by another navigation")
+      await page.waitForURL(/\/dashboard-home/, { timeout: 8000 }).catch(() => {});
+      await page.waitForFunction(() => window.__mantelReady === true);
       // A FINGER, NOT A MOUSE (2026-11-01, the owner's Pixel Tablet: "I can sort of swipe to the Apps page, but I cant
       // go anywhere else"): a touch swipe off the Pages screen lands on the next page -- its one screen of icons said
       // nothing about the sideways pan, so the browser took it for the strip and cancelled the swipe. Chromium only

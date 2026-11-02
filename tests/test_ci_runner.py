@@ -480,3 +480,19 @@ def test_a_run_keeps_each_steps_times_and_a_checks_next_count_of_parts(tmp_path)
     assert ci.read_timing(timing)["parts"] == {"p": ci.MIN_PARTS}, "a part alone (--only) says nothing of the whole"
     timing.write_text("{not json")
     assert ci.read_timing(timing) == {"history": {}, "parts": {}}
+
+
+def test_a_check_whose_parts_multiplied_or_a_whole_run_that_grew_is_named(tmp_path):
+    # (its parts stay short as they multiply; the run waits on the sum, CI_JOBS at a time)
+    history = {"shows": [1500.0] * 4, ci.WHOLE: [3800.0] * 4}
+    said = ci.total_warnings({"shows": 2600, ci.WHOLE: 4000}, history, 1.0)
+    assert said == ["shows: 2600 s in all, 1.7x its usual 1500 s: what did this change add to it?"]
+    assert ci.total_warnings({"shows": 2600}, history, 1.8) == [], "a busy machine"
+    assert ci.total_warnings({"new": 9000}, history, 1.0) == [], "no history yet"
+    timing = tmp_path / "timing.json"
+    parts = [ci.Step(f"p-{i}of2", [sys.executable, "-c", "pass"], family="p") for i in (1, 2)]
+    ci.run([fake("a"), *parts], "full", record_dir=tmp_path / "rec", echo=lambda s: None, timing=timing)
+    hist = ci.read_timing(timing)["history"]
+    assert {"p", ci.WHOLE} <= set(hist)
+    ci.run([fake("a")], "full", record_dir=tmp_path / "rec", echo=lambda s: None, timing=timing, only=["a"])
+    assert len(ci.read_timing(timing)["history"][ci.WHOLE]) == 1, "an --only run is not the whole"

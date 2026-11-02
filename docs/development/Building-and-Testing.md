@@ -36,13 +36,13 @@ prints one table:
 ~/.venvs/mantel/bin/python tools/ci.py full --all    # every step, whatever passed before
 ~/.venvs/mantel/bin/python tools/ci.py full --plan   # which steps would run and which are unchanged; runs none
 ~/.venvs/mantel/bin/python tools/ci.py versions  # seconds: what reads the version files and changelogs (a release's re-check)
-CI_JOBS=4 ~/.venvs/mantel/bin/python tools/ci.py full    # fewer at once (three quarters of the cores, at most 14, unless set)
+CI_JOBS=4 ~/.venvs/mantel/bin/python tools/ci.py full    # fewer at once (four more than the cores, at most 22, unless set: the browser checks mostly wait)
 ~/.venvs/mantel/bin/python tools/ci.py full --only js    # only the steps whose name contains "js"
 ~/.venvs/mantel/bin/python tools/ci.py --list            # every step and its tier
 ```
 
 - **Side by side** (2026-10-30; one at a time, full took 24 minutes; 2026-11-01, 13 at once here): the build tools and HK Frontend's build run
-  first; every other step then runs at once with the others, `CI_JOBS` of them (three quarters of the cores, at most 14, unless set), the longest first by
+  first; every other step then runs at once with the others, `CI_JOBS` of them (four more than the cores, at most 22, unless set: the browser checks mostly wait), the longest first by
   the last run's times (kept in `.git/mantel-ci/step-times.json` too, so a fresh worktree has them; a step never
   timed counts as the longest); the CDP checks (`headless-*`) share one fixed DevTools port and run one after
   another. Edit mode and Swipe Between Pages are a step per engine and size, so they run side by side too, as do
@@ -53,7 +53,9 @@ CI_JOBS=4 ~/.venvs/mantel/bin/python tools/ci.py full    # fewer at once (three 
   parts, the count kept in `.git/mantel-ci/timing.json`). The count holds still while the longest part stays
   between half and one and a half times that, since it is part of each part's name and key, and a run of only some
   parts (`--only`) never changes it. Under the table, **Slower than it should be** names each step past 240 s
-  (`STEP_BUDGET`) and each step much slower than its own last ten passes. Every step is measured against the run's
+  (`STEP_BUDGET`) and each step much slower than its own last ten passes; also a check in parts whose parts add up
+  to much more than usual, and a whole full run whose steps do (more parts keep each part short, but the run waits
+  on their sum, `CI_JOBS` at a time). Every step is measured against the run's
   own pace, so a busy machine slowing everything flags nothing. Each line says what to do: run the check in parts,
   cut its fixed waits, or look at what the change added. A warning never fails the run; read it before you push the
   change that caused it.
