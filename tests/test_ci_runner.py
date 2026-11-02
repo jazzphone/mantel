@@ -413,3 +413,10 @@ def test_a_step_never_timed_starts_among_the_longest(tmp_path):
     finally:
         del os.environ["CI_JOBS"]
     assert seen == ["new", "long", "short"] or seen == ["long", "new", "short"]
+
+
+def test_a_fresh_worktree_orders_its_steps_by_every_worktrees_times(tmp_path):
+    shared = tmp_path / "common/step-times.json"
+    ci.run([fake("a")], "full", record_dir=tmp_path / "one", echo=lambda s: None, shared_times=shared)
+    ci.run([fake("b")], "full", record_dir=tmp_path / "two", echo=lambda s: None, shared_times=shared)
+    assert set(ci.read_times(shared)) == {"a", "b"}, "the second worktree knows the first one's step"

@@ -362,7 +362,7 @@ def say(text: str):
 def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Callable[[str], None] = say,
         after: Callable[[Step, Result], None] | None = None, only: list[str] | None = None,
         store: Path | None = None, step_store: Path | None = None, reuse: bool = True, build: Build | None = None,
-        root: Path = ROOT) -> dict:
+        root: Path = ROOT, shared_times: Path | None = None) -> dict:
     """Run the steps and write the record; with `store`, a whole run (no `only`) is also remembered there. With
     `step_store`, each step with a key (step_keys, at the start) that passed is remembered there by it, and one that
     failed forgets it; and with `reuse`, a step whose key passed before is not run: it is unchanged."""
@@ -410,8 +410,9 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
     # (the longest first, by each step's last time, so a long one doesn't end the run alone: kept in step-times.json,
     # not last-run.json, which a quick, versions or --only run replaces -- 2026-11-01, a full run after them waited
     # 90 s on a long step started last)
-    # (a step never timed yet counts as the longest: 2026-11-02, eight new saver parts would have started last)
-    was = step_times(record_dir)
+    # (a step never timed yet counts as the longest: 2026-11-02, eight new saver parts would have started last; and
+    # `shared_times`, every worktree's, first: a release's fresh worktree had none, and started the longest steps last)
+    was = {**step_times(record_dir), **(read_times(shared_times) if shared_times else {})}
     new = max(was.values(), default=60)
     jobs.sort(key=lambda job: -sum(0 if s.name in carried else was.get(s.name, new) for s in job))
     # (13 at once on this 18-core Mac: the browser checks mostly wait, so the cores were two-thirds idle at 9 and
@@ -437,6 +438,11 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
     (record_dir / "last-run.json").write_text(json.dumps(record, indent=2) + "\n")
     times = {**was, **{r.name: round(r.seconds, 1) for r in results if r.status in ("passed", "failed")}}
     (record_dir / "step-times.json").write_text(json.dumps(times, indent=1, sort_keys=True) + "\n")
+    if shared_times:
+        shared_times.parent.mkdir(parents=True, exist_ok=True)
+        tmp = shared_times.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_text(json.dumps({**read_times(shared_times), **times}, indent=1, sort_keys=True) + "\n")
+        tmp.replace(shared_times)
     if store:
         remember(record, store)
     if step_store and keys:
@@ -759,6 +765,13 @@ def remember_steps(record: dict, keys: dict[str, str], store: Path, keep: int = 
     return True
 
 
+def read_times(path: Path) -> dict[str, float]:
+    try:
+        return {str(k): float(v) for k, v in json.loads(path.read_text()).items()}
+    except (OSError, ValueError, TypeError, AttributeError):
+        return {}
+
+
 def step_times(record_dir: Path) -> dict[str, float]:
     """Each step's seconds the last time it ran (or, before step-times.json, the last run's)."""
     for name, read in (("step-times.json", lambda d: d), ("last-run.json", lambda d: {x["name"]: x["seconds"] for x in d["steps"]})):
@@ -898,7 +911,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Mantel checks, {args.tier}: {len(chosen)} steps")
     try:
         record = run(chosen, args.tier, after=after, only=only, store=store, step_store=step_store_path(),
-                     reuse=not (args.all or args.only), build=build)
+                     reuse=not (args.all or args.only), build=build, shared_times=store.with_name("step-times.json"))
     finally:
         build.clean()
     print(table(record))

@@ -294,8 +294,9 @@ async def test_garbage_from_home_assistant_does_not_end_the_reader():
         await fake.server.close()
 
 
-async def test_a_socket_that_drops_during_the_first_registry_load_reconnects_promptly():
+async def test_a_socket_that_drops_during_the_first_registry_load_reconnects_promptly(caplog):
     """The pending registry requests used to wait out their 60 s timeout after the socket was gone."""
+    caplog.set_level("WARNING", logger="mantel.ha")
     fake = FakeHA(drop_at_list=2)
     url = await fake.start()
     c = HaClient(url, "tok", StateStore(), Registry(), lambda s: None)
@@ -306,7 +307,9 @@ async def test_a_socket_that_drops_during_the_first_registry_load_reconnects_pro
             if fake.connections >= 2:
                 break
         assert fake.connections >= 2, "reconnected after the 1 s backoff, not after a 60 s wait"
-        assert c.last_error is not None
+        # (the drop, as it was told: last_error itself is cleared again once the new socket is in, which a loaded
+        # machine reached before the next look -- 2026-11-02, beside the browser checks)
+        assert any("HA connection lost" in r.getMessage() for r in caplog.records)
     finally:
         task.cancel()
         await fake.server.close()
