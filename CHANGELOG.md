@@ -4,6 +4,12 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- First start: **Restore From a Backup** on the sign-in page of a new Mantel, beside creating the Owner. The setup code, the backup and (from another Mantel, such as the Home Assistant App) its keys file: Mantel checks the backup, restarts with it, and its people sign in as before. No account to make first, and no script on the host.
+
+**Changed**
+- Docker and the LXC: **Restore From Another Mantel** works there now. Their keys are read-only, so it used to refuse and point to `restore.sh`; now it keeps this Mantel's keys and seals the backup's secrets again with them (authenticator apps, alarm codes, alert channels, saved connections).
+
 ## 0.1.115 - 2026-11-02
 
 **Fixed**

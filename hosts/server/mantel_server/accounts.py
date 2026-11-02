@@ -571,6 +571,25 @@ class Accounts:
         return self.db.execute("SELECT 1 FROM bootstrap_tokens WHERE expires > ? LIMIT 1",
                                (self.clock(),)).fetchone() is not None
 
+    def bootstrap_token_valid(self, token: object) -> bool:
+        """The setup code is the one waiting, unexpired, and no Owner exists (First start's restore checks it
+        before it reads the upload, and spends it with spend_bootstrap_token once the backup checked out)."""
+        if not isinstance(token, str) or not token or self.owner_exists():
+            return False
+        return self.db.execute("SELECT 1 FROM bootstrap_tokens WHERE hash = ? AND expires > ?",
+                               (token_hash(token), self.clock())).fetchone() is not None
+
+    def spend_bootstrap_token(self, token: str) -> None:
+        """Spend the setup code for a restore at First start: exactly once, and only while no Owner exists."""
+        with self.db:
+            cur = self.db.execute("DELETE FROM bootstrap_tokens WHERE hash = ? AND expires > ?",
+                                  (token_hash(token), self.clock()))
+            if cur.rowcount != 1:
+                raise PolicyError("bootstrap_token_invalid", "the setup token is wrong, used or expired")
+            if self.owner_exists():
+                raise PolicyError("bootstrap_closed", "an Owner already exists")
+            self.db.execute("DELETE FROM bootstrap_tokens")
+
     async def redeem_bootstrap(self, token: object, username: object, name: object, password: object) -> str:
         if self.owner_exists():
             raise PolicyError("bootstrap_closed", "an Owner already exists")

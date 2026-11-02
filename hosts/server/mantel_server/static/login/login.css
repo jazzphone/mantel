@@ -49,6 +49,7 @@ input {
 }
 #code { font: 600 24px/1 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .3em; text-align: center; }
 input[aria-invalid="true"] { border-color: var(--bad); }
+input[type="file"] { font-size: 15px; padding: 11px 12px; }
 
 .btn {
   display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; padding: 0 16px;

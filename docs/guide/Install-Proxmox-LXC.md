@@ -194,7 +194,9 @@ Everything on [Install with Docker](Install-Docker.md) applies inside the contai
 
 ## Moving from the Home Assistant App
 
-One command makes the container and brings the App's Mantel into it: its people, screens, settings, audit log, files and photos, and its keys, so authenticator apps and the Music Assistant connection keep working.
+**The simplest way:** install with [one command](#one-command), then open Mantel's address and, under **First start**, choose **Restore From a Backup**: the setup code the install showed, the App's backup and its keys file (the App's **Mantel Settings** → **Backups**: **Back Up Now**, **Download**, **Save Keys…**). Mantel restarts with the App's people, screens and settings, and you sign in as before. The new Mantel must be the App's version or newer.
+
+From a checkout, one command makes the container and brings the App's Mantel into it: its people, screens, settings, audit log, files and photos, and its keys, so authenticator apps and the Music Assistant connection keep working.
 
 1. In the App, **Mantel Settings** → **Backups**: **Back Up Now**, then **Download** it, and **Save Keys…** (`mantel-keys.json`). Copy both to the Proxmox host.
 2. Run the script with them. The new Mantel must be the App's version or newer. If the App sits behind your own proxy, keep its name, so passkeys, notifications and the tablets' address keep working:

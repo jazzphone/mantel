@@ -10,9 +10,9 @@
 #    nothing: a wrong key, a damaged file or a backup from a newer Mantel stops it here
 # 2. stops mantel-server
 # 3. with a keys file: moves at_rest.key and backup.key aside in the secrets folder (*.before-restore-<time>) and
-#    puts the keys file's in their place (root:10001 0440). Mantel can't do this itself (Settings -> Restore From
-#    Another Mantel): the secrets are mounted read-only, and without the other Mantel's at-rest key the restored
-#    authenticator apps and saved connections can't be opened
+#    puts the keys file's in their place (root:10001 0440), so the keys file is this Mantel's from then on. (In the
+#    browser -- Settings -> Restore From Another Mantel, or First start's Restore From a Backup -- Mantel keeps its own
+#    read-only keys instead and seals the backup's secrets again with them.)
 # 4. restores (--replace: what was in the data volume is moved aside, never deleted); on failure, and when this
 #    script is interrupted (Ctrl-C, a closed terminal), the old keys go back and Mantel starts again
 # 5. starts Mantel again if it was running (docker compose up -d --wait); a new install that was never started

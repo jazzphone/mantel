@@ -490,6 +490,7 @@ class RestoreReport:
     # Allow Control of the House was on in the backup: a restore never turns it on by itself (it is put in place off,
     # and the Owner turns it on in General, with the fresh sign-in that asks for)
     control_was_on: bool = False
+    resealed: int = 0           # values sealed again with this Mantel's at-rest key (reseal_to)
 
     def as_dict(self) -> dict:
         return self.__dict__.copy()
@@ -598,6 +599,68 @@ def check_at_rest_key(conn: sqlite3.Connection, connections: Path | None, at_res
                 why=f"This Mantel's at-rest key does not open the {what} sealed in the backup")) from None
 
 
+# Every value Mantel seals with its at-rest key, and the associated data it is sealed with. reseal() goes through
+# all of them; tests/test_backup.py fails when a new .seal( call appears in a file not listed here.
+SEALED_COLUMNS = (   # (table, its key column, the sealed column, the associated data with {} for the key)
+    ("totp_credentials", "user_id", "seed_enc", "totp:{}"),
+    ("totp_credentials", "user_id", "pending_enc", "totp:{}"),
+    ("alarm_pins", "entity", "ha_code", "alarm_ha_code:{}"),
+    ("alert_channels", "id", "sealed", "alert-channel:{}"),
+)
+SEALED_SETTINGS = (("alert_settings", "heartbeat", "alert-heartbeat"),)   # (table, key, aad): JSON, "sealed" in base64
+SEALED_FILES = "connection:{}"     # connections/<kind>.connection (connections.SealedFiles): Home Assistant, Music
+                                   # Assistant, Protect, the door key, cameras, wall tablets' direct links
+SEALING_MODULES = ("accounts.py", "alarm_pin.py", "connections.py", "alerts/store.py", "alerts/__init__.py")
+
+
+def reseal(db_path: Path, connections: Path | None, old: bytes, new: "atrest.SecretBox") -> int:
+    """Open every sealed value of a restored backup with the other Mantel's at-rest key (``old``) and seal it again
+    with this Mantel's (``new``), in place. For a Mantel whose keys can't be replaced (Docker and the LXC mount them
+    read-only): its own keys stay, and the backup's authenticator apps, alarm codes, alert channels and saved
+    connections open with them. Returns how many values were sealed again; raises BackupError wrong_at_rest_key."""
+    box_old = atrest.SecretBox(key=bytes(old))
+
+    def again(blob: bytes, aad: str) -> bytes:
+        try:
+            return new.seal(box_old.open(bytes(blob), aad), aad)
+        except (InvalidTag, atrest.SecretKeyError):
+            raise BackupError("wrong_at_rest_key", WRONG_AT_REST.format(
+                why="The keys file's at-rest key does not open a value sealed in the backup")) from None
+
+    count = 0
+    conn = sqlite3.connect(str(db_path))
+    try:
+        for table, key_col, col, aad in SEALED_COLUMNS:
+            try:
+                rows = conn.execute(f"SELECT {key_col}, {col} FROM {table} WHERE {col} IS NOT NULL").fetchall()
+            except sqlite3.OperationalError:
+                continue                                  # an older backup without that table
+            for k, blob in rows:
+                conn.execute(f"UPDATE {table} SET {col} = ? WHERE {key_col} = ?", (again(blob, aad.format(k)), k))
+                count += 1
+        for table, key, aad in SEALED_SETTINGS:
+            try:
+                row = conn.execute(f"SELECT value FROM {table} WHERE key = ?", (key,)).fetchone()
+            except sqlite3.OperationalError:
+                continue
+            value = json.loads(row[0]) if row else None
+            if isinstance(value, dict) and value.get("sealed"):
+                value["sealed"] = base64.b64encode(again(base64.b64decode(value["sealed"]), aad)).decode()
+                conn.execute(f"UPDATE {table} SET value = ? WHERE key = ?", (json.dumps(value), key))
+                count += 1
+        resealed_files = []
+        if connections is not None and connections.is_dir():
+            for f in sorted(connections.glob("*.connection")):
+                resealed_files.append((f, again(f.read_bytes(), SEALED_FILES.format(f.name[:-len(".connection")]))))
+        conn.commit()
+    finally:
+        conn.close()
+    for f, blob in resealed_files:                         # only once every value opened: all or nothing
+        f.write_bytes(blob)
+        count += 1
+    return count
+
+
 def verify_database(path: Path, manifest: dict, migrations_folder: Path = dbmod.MIGRATIONS, *,
                     at_rest_key: "bytes | Path | None" = None, connections: Path | None = None) -> list[int]:
     """Check a restored database file and bring it to this build's schema. Returns the migrations applied now.
@@ -646,12 +709,16 @@ def verify_database(path: Path, manifest: dict, migrations_folder: Path = dbmod.
 
 def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, verify_only: bool = False,
             now: datetime | None = None, migrations_folder: Path = dbmod.MIGRATIONS,
-            at_rest_key: "bytes | Path | None" = None) -> RestoreReport:
+            at_rest_key: "bytes | Path | None" = None,
+            reseal_to: "atrest.SecretBox | None" = None) -> RestoreReport:
     """Decrypt, check, and (unless ``verify_only``) move a backup into ``data_dir``.
     Refuses a data dir that already has a database unless ``replace`` (then the old files are moved aside).
     ``at_rest_key``: the key this Mantel will open the backup's sealed values with (bytes, or the key file's path);
     given, a backup its key does not open is refused (wrong_at_rest_key), not restored into a Mantel that could
-    not sign its authenticator-app users in."""
+    not sign its authenticator-app users in. ``reseal_to`` (with ``at_rest_key`` the other Mantel's key, as bytes):
+    the backup's sealed values are sealed again with this box's key before they are put in place (reseal)."""
+    if reseal_to is not None and not isinstance(at_rest_key, (bytes, bytearray)):
+        raise ValueError("reseal_to needs the backup's own at-rest key as bytes")
     backup, data_dir = Path(backup).expanduser(), Path(data_dir).expanduser()
     now = now or datetime.now(timezone.utc)
     if not backup.is_file():
@@ -696,6 +763,8 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
                                verified_only=verify_only, control_was_on=control_was_on)
         if verify_only:
             return report
+        if reseal_to is not None:
+            report.resealed = reseal(staged_db, stage / "unpacked" / CONNECTIONS_DIR, bytes(at_rest_key), reseal_to)
         if control_was_on:
             _control_off(staged_db, now)
         # -- the swap: preconditions are settled; move the old aside, the new in --------------------
@@ -981,14 +1050,8 @@ def parse_keys(text: str | bytes) -> dict[str, bytes]:
 
 
 # Docker and the LXC mount the keys read-only from the host (/etc/hk/secrets -> /run/secrets): Mantel can't put
-# another Mantel's at-rest key in place itself, and a restore without it loses the authenticator apps and the saved
-# connections. The host's restore.sh does it there, with the keys file, before Mantel starts again.
-KEYS_READ_ONLY = ("Mantel can't change its own keys on this installation: Docker and the LXC keep them read-only in "
-                  "/etc/hk/secrets. Restore this backup on the Mantel machine instead, with its keys file: "
-                  "./restore.sh <backup> <keys file> in packaging/compose, or from the Proxmox host "
-                  "bash packaging/lxc/mantel.sh restore <id> <backup> <keys file>.")
-
-
+# another Mantel's at-rest key in place there. Then a restore with that Mantel's keys file seals the backup's values
+# again with this Mantel's own key (reseal) instead, and both of its keys stay as they are.
 def can_replace_at_rest_key(secrets_dir) -> bool:
     """Whether apply_pending can move the at-rest key aside and write another: the secrets folder (or the folder
     it would be made in) is writable by this process."""
@@ -996,6 +1059,15 @@ def can_replace_at_rest_key(secrets_dir) -> bool:
     while not d.exists() and d != d.parent:
         d = d.parent
     return os.access(d, os.W_OK | os.X_OK)
+
+
+def own_box(secrets_dir) -> "atrest.SecretBox":
+    """This Mantel's own at-rest key, to seal a restored backup's values again with (BackupError when unreadable)."""
+    path = Path(secrets_dir).expanduser() / atrest.KEY_FILE
+    try:
+        return atrest.SecretBox(key=atrest.load_or_create_key(path))
+    except (atrest.SecretKeyError, OSError) as exc:
+        raise BackupError("key_invalid", f"this Mantel's at-rest key could not be read: {exc}") from exc
 
 
 def pending_report(data_dir: Path) -> dict | None:
@@ -1007,26 +1079,23 @@ def pending_report(data_dir: Path) -> dict | None:
         return None
 
 
-@guard("owner", fresh="always", audit="backup.restore_upload")
-async def api_upload(request: web.Request) -> web.Response:
-    """Restore, step one: the .mbk (and, from another Mantel, its keys file) uploaded and checked -- opened,
-    its database checked and migrated to this build in a staging folder -- changing nothing. Its report is
-    kept with it until Restore and Restart, or Cancel."""
-    from . import audit
-    from .guards import ident as guarded
-    from .sessions import error, ok
-    b: Backups = request.app["backups"]
+async def stage_upload(b: "Backups", reader, first=None) -> dict:
+    """Restore, step one, for Settings and First start: read the multipart upload (``file``: the .mbk; ``keys``:
+    another Mantel's keys file), then check it -- opened, its database checked and migrated to this build in a
+    staging folder -- changing nothing. The upload and its check wait in the pending folder for apply_pending.
+    ``first(part)``, when given, is shown each part before it is read, and may refuse it. Raises BackupError."""
     data_dir = Path(b.cfg.data_dir).expanduser()
     pend = data_dir / PENDING_DIR
     shutil.rmtree(pend, ignore_errors=True)
     pend.mkdir(mode=0o700, parents=True)
     upload, keys = pend / "upload.mbk", None
     try:
-        reader = await request.multipart()
         while True:
             part = await reader.next()
             if part is None:
                 break
+            if first is not None:
+                await first(part)
             if part.name == "file":
                 with open(upload, "wb") as f:
                     os.chmod(upload, 0o600)
@@ -1036,19 +1105,15 @@ async def api_upload(request: web.Request) -> web.Response:
                 keys = parse_keys(await part.read(decode=False))
         if not upload.is_file() or upload.stat().st_size == 0:
             raise BackupError("no_file", "choose a backup file (.mbk)")
-        if keys and not can_replace_at_rest_key(b.cfg.secrets_dir):
-            raise BackupError("keys_read_only", KEYS_READ_ONLY)
         key = keys["backup_key"] if keys else load_key(b.key_file, create=False)[0]
-        # the at-rest key the restored data will be read with: the other Mantel's (it replaces ours) or our own
+        # the at-rest key the backup's values are sealed with: the other Mantel's (from its keys file) or our own
         at_rest = keys["at_rest_key"] if keys else Path(b.cfg.secrets_dir).expanduser() / atrest.KEY_FILE
+        reseal_mode = bool(keys) and not can_replace_at_rest_key(b.cfg.secrets_dir)
+        if reseal_mode:
+            own_box(b.cfg.secrets_dir)                           # it must be readable, to seal again with
         report = await asyncio.get_running_loop().run_in_executor(
             None, lambda: restore(upload, key, data_dir, verify_only=True, at_rest_key=at_rest))
-    except BackupError as exc:
-        shutil.rmtree(pend, ignore_errors=True)
-        msg = ("This backup was made by another Mantel, or with another key: add that Mantel's keys file."
-               if exc.code in ("wrong_key", "key_missing") else str(exc))
-        return error(400, exc.code, message=msg)
-    except Exception:
+    except BaseException:
         shutil.rmtree(pend, ignore_errors=True)
         raise
     if keys:
@@ -1057,10 +1122,81 @@ async def api_upload(request: web.Request) -> web.Response:
         os.chmod(kf, 0o600)
     check = {"created": report.created, "schema": report.schema, "tables": len(report.tables),
              "rows": sum(report.tables.values()), "files": report.files, "migrated": report.migrated,
-             "other_keys": bool(keys), "size": upload.stat().st_size, "control_was_on": report.control_was_on}
+             "other_keys": bool(keys), "reseal": reseal_mode, "size": upload.stat().st_size,
+             "control_was_on": report.control_was_on}
     (pend / "check.json").write_text(json.dumps(check))
-    audit.config(request, guarded(request), "backup.restore_upload", {"created": report.created, "other_keys": bool(keys)})
+    return check
+
+
+def upload_error(exc: BackupError):
+    from .sessions import error
+    msg = ("This backup was made by another Mantel, or with another key: add that Mantel's keys file."
+           if exc.code in ("wrong_key", "key_missing") else str(exc))
+    return error(400, exc.code, message=msg)
+
+
+@guard("owner", fresh="always", audit="backup.restore_upload")
+async def api_upload(request: web.Request) -> web.Response:
+    """Restore, step one: the .mbk (and, from another Mantel, its keys file) uploaded and checked, changing
+    nothing. Its report is kept with it until Restore and Restart, or Cancel."""
+    from . import audit
+    from .guards import ident as guarded
+    from .sessions import ok
+    b: Backups = request.app["backups"]
+    try:
+        check = await stage_upload(b, await request.multipart())
+    except BackupError as exc:
+        return upload_error(exc)
+    audit.config(request, guarded(request), "backup.restore_upload", {"created": check["created"],
+                                                                      "other_keys": check["other_keys"]})
     return ok(check)
+
+
+async def api_first_start_restore(request: web.Request) -> web.Response:
+    """First start, Restore From a Backup: while Mantel has no Owner, the setup code (first in the form, checked
+    before anything is read past it) and a backup (and its keys file, from another Mantel) restore it in one step:
+    checked, put in place at the restart that follows, the code spent. The backup's people sign in afterwards."""
+    from .accounts import PolicyError, accounts_of, limited, require_origin
+    from .sessions import client_ip, error, ok
+    require_origin(request)
+    acc = accounts_of(request)
+    ip = client_ip(request)
+    wait = acc.retry_after(ip, None)
+    if wait > 0:
+        return limited(wait)
+    if acc.owner_exists():
+        return error(410, "bootstrap_closed", message="an Owner already exists")
+    b: Backups = request.app["backups"]
+    token: list[str] = []
+
+    async def first(part) -> None:
+        if not token:
+            if part.name != "token":
+                raise BackupError("bootstrap_token_invalid", "the setup code comes first")
+            got = (await part.read(decode=True)).decode(errors="replace").strip()
+            if not acc.bootstrap_token_valid(got):
+                raise BackupError("bootstrap_token_invalid", "the setup code is wrong, used or expired")
+            token.append(got)
+
+    try:
+        check = await stage_upload(b, await request.multipart(), first=first)
+    except BackupError as exc:
+        if exc.code == "bootstrap_token_invalid":
+            acc.record_failure(ip, None)
+            return error(401, exc.code)
+        return upload_error(exc)
+    if not token:
+        shutil.rmtree(Path(b.cfg.data_dir).expanduser() / PENDING_DIR, ignore_errors=True)
+        return error(401, "bootstrap_token_invalid")
+    try:
+        acc.spend_bootstrap_token(token[0])
+    except PolicyError as exc:
+        shutil.rmtree(Path(b.cfg.data_dir).expanduser() / PENDING_DIR, ignore_errors=True)
+        return error(401 if exc.code == "bootstrap_token_invalid" else 410, exc.code)
+    log.warning("first start: restoring the backup of %s (restarting)", check["created"])
+    (Path(b.cfg.data_dir).expanduser() / PENDING_DIR / "go").write_text("1")
+    restart_soon(request.app)
+    return ok({**check, "restarting": True})
 
 
 @guard("owner", fresh="always", audit="backup.restore")
@@ -1129,10 +1265,17 @@ def apply_pending(cfg) -> dict | None:
             keys = {k: base64.urlsafe_b64decode(v.encode()) for k, v in json.loads((pend / "keys.json").read_text()).items()}
         key_file = Path(cfg.backup_key_file or (Path(cfg.secrets_dir) / KEY_FILE)).expanduser()
         key = keys["backup_key"] if keys else load_key(key_file, create=False)[0]
-        if keys and not can_replace_at_rest_key(cfg.secrets_dir):
-            # checked before anything is replaced: the data stays as it was, as the message below says
-            raise BackupError("keys_read_only", KEYS_READ_ONLY)
         ar = Path(cfg.secrets_dir).expanduser() / atrest.KEY_FILE
+        if keys and (check.get("reseal") or not can_replace_at_rest_key(cfg.secrets_dir)):
+            # this Mantel's keys can't be replaced (or weren't, when it was checked): the backup's values are sealed
+            # again with its own at-rest key instead, and both keys stay
+            report = restore(pend / "upload.mbk", key, data_dir, replace=True, at_rest_key=keys["at_rest_key"],
+                             reseal_to=own_box(cfg.secrets_dir))
+            result.update(ok=True, replaced=report.replaced, migrated=report.migrated,
+                          control_off=report.control_was_on, resealed=report.resealed)
+            log.warning("restored the backup of %s with its values sealed again with this Mantel's key; the data it "
+                        "replaced is at %s", check.get("created"), report.replaced)
+            return result
         staged_key = None
         if keys:
             # the restored database's sealed values were sealed with the other Mantel's at-rest key. It is written
@@ -1197,6 +1340,8 @@ def register(app: web.Application, hub=None) -> None:
     app.router.add_post("/api/backup/restore/upload", api_upload)
     app.router.add_post("/api/backup/restore", api_restore)
     app.router.add_delete("/api/backup/restore", api_cancel)
+    app.router.add_post("/api/bootstrap/restore", api_first_start_restore)
+    app.setdefault("public_paths", set()).add("/api/bootstrap/restore")
     if not backups.enabled:
         return
 

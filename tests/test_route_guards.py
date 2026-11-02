@@ -22,6 +22,8 @@ ALLOW = {
     "/api/auth/password": SIGN_IN, "/api/auth/totp/verify": SIGN_IN, "/api/auth/passkey/options": SIGN_IN,
     "/api/auth/passkey/verify": SIGN_IN, "/api/bootstrap": SIGN_IN, "/login": SIGN_IN, "/login/ha": SIGN_IN,
     "/auth/callback": SIGN_IN, "/logout": SIGN_IN, "/ingress/bootstrap": SIGN_IN,
+    "/api/bootstrap/restore": "First start's Restore From a Backup: the one-time setup code, checked before the upload "
+                              "is read, and only while no Owner exists (backup.api_first_start_restore)",
     "/auth/connection/callback": "Connect to Home Assistant's OAuth return: its signed single-use state, made by an "
                                  "Owner's guarded /api/connections/ha/oauth/start",
     "/app/authorize": "the app's sign-in page: the person signs in there (app_auth.py)",

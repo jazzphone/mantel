@@ -79,7 +79,8 @@ OWN_PATHS = frozenset({"/ingress/bootstrap"})           # open to an unlinked HA
 # Sign-in routes make no sense through Ingress (HA already signed the person in) and would start
 # sessions on a door they do not know: refused there.
 SIGN_IN_PATHS = frozenset({"/login", "/auth/callback", "/api/auth/password", "/api/auth/totp/verify",
-                           "/api/auth/passkey/options", "/api/auth/passkey/verify", "/api/bootstrap"})
+                           "/api/auth/passkey/options", "/api/auth/passkey/verify", "/api/bootstrap",
+                           "/api/bootstrap/restore"})
 SIGN_IN_PREFIX = "/login/"          # the page's assets and /login/ha (login_page.py, auth.py)
 BOOTSTRAP_TTL = 600
 WARN_EVERY = 300.0

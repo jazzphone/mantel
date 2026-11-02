@@ -3,6 +3,7 @@
 //   passkey            POST /api/auth/passkey/options {}  ->  navigator.credentials.get  ->  /verify
 //   password (+ code)  POST /api/auth/password  ->  ok | {next: 'totp', pending}  ->  /api/auth/totp/verify
 //   Home Assistant     a plain link to login/ha (the server's OAuth start), works without JavaScript
+//   first start        POST /api/bootstrap (a new Owner), or POST /api/bootstrap/restore (a backup, multipart)
 // Nothing is stored: the pending token lives in a variable until the code step ends. The pure parts
 // (safeNext, messageFor, retryText, baseFrom, signIn) are exported for tests; the DOM part runs only
 // in a page.
@@ -65,11 +66,16 @@ export function messageFor(status, data, step) {
     case 'password_too_simple': return 'That password repeats too few characters. Pick a longer, varied one.';
     case 'password_contains_name': return 'The password must not contain the user name.';
     case 'username_invalid': return 'User names are 1 to 64 letters, digits, dots, dashes or underscores.';
+    case 'no_file': return 'Choose the backup file (.mbk).';
+    case 'wrong_key': case 'key_missing':
+      return 'This backup was made by another Mantel, or with another key: add that Mantel\u2019s keys file.';
+    case 'keys_invalid': return 'That is not a Mantel keys file. Use the one Save Keys\u2026 made.';
     case 'json_required': case 'invalid_json': case 'origin_required':
       return 'This browser sent an incomplete request. Reload the page and try again.';
     default: break;
   }
   if (step === 'passkey' && (status === 400 || status === 401)) return 'That passkey was not accepted.';
+  if (step === 'restore' && data && typeof data.message === 'string' && data.message) return data.message;
   if (!status) return 'Could not reach Mantel. Check the connection and try again.';
   return 'Sign-in did not work (the server answered ' + status + '). Try again.';
 }
@@ -107,11 +113,41 @@ export function signIn({ fetchImpl, base = '', credentials } = {}) {
         return false;
       }
     },
+    // Mantel answers again (after a restart)
+    async answering() {
+      try {
+        const res = await doFetch(base + '/api/bootstrap', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        return res.status === 200;
+      } catch (e) {
+        return false;
+      }
+    },
     async bootstrap(token, username, name, password) {
       if (!token || !username || !password) return fail({ status: 400, data: { error: 'username_and_password_required' } });
       const r = await post('/api/bootstrap', { token, username, name: name || username, password });
       if (r.status === 200 && r.data && r.data.ok) return { kind: 'done', data: r.data };
       return fail(r, 'setup');
+    },
+    // First start, Restore From a Backup: the setup code first (the server checks it before reading on)
+    async restore(token, file, keys) {
+      if (!token) return fail({ status: 400, data: { error: 'bootstrap_token_invalid' } }, 'restore');
+      if (!file) return fail({ status: 400, data: { error: 'no_file' } }, 'restore');
+      const form = new FormData();
+      form.append('token', token);
+      form.append('file', file, file.name || 'backup.mbk');
+      if (keys) form.append('keys', keys, keys.name || 'mantel-keys.json');
+      let res;
+      try {
+        res = await doFetch(base + '/api/bootstrap/restore', {
+          method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' }, body: form,
+        });
+      } catch (e) {
+        return fail({ status: 0, data: null }, 'restore');
+      }
+      let data = null;
+      try { data = await res.json(); } catch (e) { data = null; }
+      if (res.status === 200 && data && data.ok) return { kind: 'done', data };
+      return fail({ status: res.status, data }, 'restore');
     },
     async password(username, password) {
       if (!username || !password) return fail({ status: 400, data: { error: 'username_and_password_required' } });
@@ -313,6 +349,49 @@ export function start(doc = globalThis.document, win = globalThis.window) {
       els.code.focus();
     });
   });
+
+  // First start, Restore From a Backup: one step, then Mantel restarts with the backup's people; this page waits
+  // for it to answer again (no Owner open any more) and offers the sign-in
+  const restoreForm = $('restore-form');
+  if (els.setupForm && restoreForm) {
+    $('setup-restore').addEventListener('click', () => {
+      els.setupForm.hidden = true;
+      restoreForm.hidden = false;
+      say('');
+      $('restore-token').value = $('setup-token').value;
+      $('restore-token').focus();
+    });
+    $('restore-back').addEventListener('click', () => {
+      restoreForm.hidden = true;
+      els.setupForm.hidden = false;
+      say('');
+    });
+    restoreForm.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      run(async () => {
+        const files = (id) => { const f = $(id).files; return f && f.length ? f[0] : null; };
+        say('Checking the backup\u2026', true);
+        const r = await flow.restore($('restore-token').value.trim(), files('restore-file'), files('restore-keys'));
+        if (r.kind !== 'done') {
+          say(r.message);
+          restoreForm.setAttribute('aria-invalid', 'true');
+          return;
+        }
+        restoreForm.hidden = true;
+        say('Restoring the backup of ' + (r.data.created || 'your Mantel') + '. Mantel is restarting\u2026', true);
+        for (let i = 0; i < 90; i++) {
+          await new Promise((ok) => setTimeout(ok, 2000));
+          if (i > 1 && !(await flow.setupOpen()) && (await flow.answering())) {
+            say('Restored. Sign in with your Mantel account.', true);
+            showPasswordStep();
+            els.user.focus();
+            return;
+          }
+        }
+        say('Mantel is taking long to restart. Reload this page in a minute; its log says what happened.');
+      });
+    });
+  }
 
   // First start: while no Owner exists, offer the one-time setup; the new Owner then lands on Connections
   if (els.setupForm) {
