@@ -2851,6 +2851,14 @@
     }
     return lyLoad;
   }
+  // A GLANCE GROUP'S FILE (hk-saverpieces-<group>.js, phase 1b): loaded the first time a layout places one of its
+  // pieces, then the layout drawn again
+  var pieceFiles = {};
+  function pieceFile(f) {
+    if (pieceFiles[f]) return;
+    pieceFiles[f] = import('/hk/modules/hk-saverpieces-' + f + '.js').then(layoutSoon)
+      .catch(function (e) { console.warn('[hk-saver] pieces', f, e && e.message); });
+  }
   function enterLayout() {
     leaveLayout();
     if (!root || !cfg || !cfg.layout) return;
@@ -3081,6 +3089,8 @@
         var k = (w.size || (z === 'row' ? O.row_size : 100) || 100) / 100, wu = u * k;
         var key = [z, i, w.piece, w.shape, w.back, w.color, JSON.stringify(w.opts || {}), wu.toFixed(2)].join(':');
         want[key] = 1;
+        // (a glance piece whose group's file hasn't come yet: asked for, drawn once it lands)
+        if (WG && !WG.has(w.piece, w.shape)) { var gf = LM.PIECES[w.piece] && LM.PIECES[w.piece][4]; if (gf) pieceFile(gf); return; }
         if (!ly.widgets[key] && WG) {
           try {
             ly.widgets[key] = WG.create(w.piece, w.shape, { u: wu, back: w.back, color: w.color, h24: cfg.clock_24, weather: weatherEntity(), opts: w.opts || {} });

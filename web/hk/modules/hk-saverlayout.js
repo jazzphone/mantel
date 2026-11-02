@@ -28,6 +28,8 @@
   // THE PIECES (2026-11-02, phase 13: docs/phase13/PIECES-SPEC.md): one per fact, each in a few shapes, drawn by
   // hk-saverwidgets.js. [piece] -> [its shapes, its options {key: choices}, its name, the facts it shows]
   // (hk_core/settings/saver_layout.py PIECES: the shapes and options)
+  // World Clock's cities (IANA)
+  var CITIES = ['Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Europe/Rome', 'Europe/Madrid', 'Europe/Athens', 'Europe/Istanbul', 'Europe/Moscow', 'Africa/Cairo', 'Africa/Johannesburg', 'Asia/Dubai', 'Asia/Kolkata', 'Asia/Bangkok', 'Asia/Singapore', 'Asia/Hong_Kong', 'Asia/Shanghai', 'Asia/Tokyo', 'Asia/Seoul', 'Australia/Sydney', 'Pacific/Auckland', 'Pacific/Honolulu', 'America/Anchorage', 'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York', 'America/Toronto', 'America/Mexico_City', 'America/Sao_Paulo', 'America/Argentina/Buenos_Aires', 'Atlantic/Reykjavik'];
   var PIECES = {
     weather: [['inline', 'circular', 'rectangular', 'card', 'band'], {}, 'Weather', ['weather']],
     readings: [['circular', 'rectangular', 'band'], { reading: ['humidity', 'aqi', 'inside', 'sunset', 'wind'] }, 'Readings', ['readings']],
@@ -36,9 +38,21 @@
     status: [['inline', 'circular', 'rectangular', 'card'], {}, 'House Status', ['status']],
     music: [['inline', 'card'], {}, 'Music', ['music']],
     timers: [['circular', 'card'], {}, 'Timers', ['timers']],
-    events: [['inline', 'rectangular'], {}, 'Next Event', ['calendar']],
+    events: [['inline', 'rectangular', 'card'], {}, 'Next Event', ['calendar'], 'time'],
     energy: [['circular', 'rectangular'], { reading: ['battery', 'solar'] }, 'Energy', ['energy']],
-    title: [['inline'], {}, 'Photo Title', ['title']]
+    title: [['inline'], {}, 'Photo Title', ['title']],
+    // THE GLANCE CATALOG (phase 1b, docs/phase13/GLANCE-SPEC.md), wave A: data the screensaver already reads. The 5th field
+    // is the file that draws it (hk-saverpieces-<group>.js), loaded only where a layout places one
+    countdown: [['inline', 'circular'], { match: 'text' }, 'Countdown', ['countdown'], 'time'],
+    world: [['inline', 'circular', 'rectangular'], { city: CITIES, city2: CITIES }, 'World Clock', ['world'], 'time'],
+    rain: [['inline', 'circular', 'rectangular'], {}, 'Rain Soon', ['rain'], 'weather'],
+    alert: [['inline', 'card'], {}, 'Weather Alert', ['alert'], 'weather'],
+    uv: [['circular'], {}, 'UV', ['uv'], 'weather'],
+    wind: [['circular'], {}, 'Wind and Gusts', ['wind'], 'weather'],
+    pressure: [['circular'], {}, 'Pressure', ['pressure'], 'weather'],
+    feels: [['circular'], {}, 'Feels Like', ['feels'], 'weather'],
+    moon: [['inline', 'circular'], {}, 'Moon', ['moon'], 'weather'],
+    sun: [['inline', 'circular', 'rectangular'], {}, 'Sun', ['sun'], 'weather']
   };
   var SHAPES = ['inline', 'circular', 'rectangular', 'card', 'band'];
   var SHAPE_NAMES = { inline: 'Inline', circular: 'Circular', rectangular: 'Rectangular', card: 'Card', band: 'Band' };
@@ -63,7 +77,12 @@
     'status.rectangular': 'Security, doors and locks', 'status.card': 'The alarm and what’s open', 'music.inline': 'While something plays',
     'music.card': 'Now Playing, while something plays', 'timers.circular': 'The next to end', 'timers.card': 'While a timer runs',
     'events.inline': 'Your next event', 'events.rectangular': 'Your next two events', 'energy.circular': 'The home battery, or solar',
-    'energy.rectangular': 'Used and made today', 'title.inline': 'The album and the year'
+    'energy.rectangular': 'Used and made today', 'title.inline': 'The album and the year', 'events.card': 'The rest of today',
+    'countdown.inline': 'Days to an event', 'countdown.circular': 'The days left', 'world.inline': 'Another city’s time',
+    'world.circular': 'A small dial', 'world.rectangular': 'Two cities', 'rain.inline': 'When rain is coming', 'rain.circular': 'The chance of rain',
+    'rain.rectangular': 'A bar per hour', 'alert.inline': 'While one is active', 'alert.card': 'The alert', 'uv.circular': 'The UV index',
+    'wind.circular': 'Wind and gusts', 'pressure.circular': 'The pressure', 'feels.circular': 'What it feels like', 'moon.inline': 'The phase',
+    'moon.circular': 'The moon drawn', 'sun.inline': 'The next sunrise or sunset', 'sun.circular': 'The day’s arc', 'sun.rectangular': 'The day’s length'
   };
   var CATALOG = {};
   function catalog() {
@@ -146,6 +165,21 @@
   }
   // the room a piece takes in the row: its shape's units times its size (its own, else the row's)
   function unitsOf(w, rowSize) { return (UNITS[w.shape] || 1) * (w.size || rowSize || 100) / 100; }
+  // a piece's option: one of its choices, words (1 to 40 characters), or an entity of the domains it names
+  function optOk(spec, v) {
+    if (Array.isArray(spec)) return spec.indexOf(v) >= 0;
+    if (spec === 'text') return typeof v === 'string' && v.trim().length > 0 && v.length <= 40;
+    if (typeof spec === 'string' && spec.indexOf('entity:') === 0) return typeof v === 'string' && ENTITY_RE.test(v) && spec.slice(7).split(',').indexOf(v.split('.')[0]) >= 0;
+    return false;
+  }
+  // the files a layout's pieces are drawn by, beyond the renderer's own (hk-saverpieces-<group>.js)
+  function filesOf(L) {
+    var out = [];
+    [L && L.zones, L && L.upright && L.upright.zones].forEach(function (zs) {
+      Object.keys(zs || {}).forEach(function (z) { (zs[z] || []).forEach(function (w) { var f = PIECES[w.piece] && PIECES[w.piece][4]; if (f && out.indexOf(f) < 0) out.push(f); }); });
+    });
+    return out;
+  }
   function widget(v, strict, zone) {
     if (!obj(v)) { if (strict) throw new Bad(); return null; }
     if ('id' in v && !('piece' in v)) {                  // a v1 widget: its piece and shape now
@@ -169,7 +203,7 @@
       else if (k === 'show' && showOk(val)) out.show = { entity: val.entity, op: val.op, value: val.value };
       else if (k === 'opts' && obj(val)) {
         var good = {}, n = 0;
-        Object.keys(val).forEach(function (o) { if (P[1][o] && P[1][o].indexOf(val[o]) >= 0) { good[o] = val[o]; n++; } });
+        Object.keys(val).forEach(function (o) { if (P[1][o] && optOk(P[1][o], val[o])) { good[o] = val[o]; n++; } });
         if (strict && n !== Object.keys(val).length) throw new Bad();
         if (n) out.opts = good;
       }
@@ -487,6 +521,8 @@
     VERSION: VERSION, PIECES: PIECES, SHAPES: SHAPES, SHAPE_NAMES: SHAPE_NAMES, V1: V1, CATALOG: CATALOG, ZONES: ZONES, ZONE_NAMES: ZONE_NAMES,
     UNITS: UNITS, BIG: BIG, BIG_DEFAULT: BIG_DEFAULT, BACKS: BACKS, COLORS: COLORS, ITEM_SIZE: ITEM_SIZE, ROW_AT: ROW_AT, ROW_LINE: ROW_LINE,
     INKS: INKS, clean: clean, check: check, fits: fits, layoutFrom: layoutFrom, oriented: oriented, plan: plan, claims: claims,
-    idOf: idOf, item: item, unitsOf: unitsOf, SHOW_OPS: SHOW_OPS, met: met
+    idOf: idOf, item: item, unitsOf: unitsOf, SHOW_OPS: SHOW_OPS, met: met, filesOf: filesOf, CITIES: CITIES,
+    // every group's file, for the editor's library
+    FILES: Object.keys(PIECES).map(function (p) { return PIECES[p][4]; }).filter(function (f, i, a) { return f && a.indexOf(f) === i; })
   };
 })();
