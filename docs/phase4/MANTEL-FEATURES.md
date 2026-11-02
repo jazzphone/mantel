@@ -211,10 +211,10 @@ the bridge always sent `null`.
 
 **RBAC.** Reads: feature `music`; only the players the subject may `view` (a preset when its sync group or all
 its rooms are viewable; a hidden or nonexistent queue answers `not_found`); the settings page needs `configure` on
-settings (and music, for the saves; HA: `require_admin`). Actions (`classify_service` / `classify_ws`, called from `gateway.classify`):
+settings (HA: `require_admin`). Actions (`classify_service` / `classify_ws`, called from `gateway.classify`):
 `control` on feature `music` and `hk_frontend.music_*` on every room/source/player the call names; Stop All names
 every room and a preset's group is checked as its rooms (`MusicHost.expand`); `queue_play` is
-`media_player.play_media` on its player; the settings writes are `configure` on settings and music. This also fixes the
+`media_player.play_media` on its player; the settings writes are `configure` on settings. This also fixes the
 fallback: through the gateway those service calls used to be `configure` on settings (Owner/Admin only), and the
 settings writes `control` on music (any Adult). **Wall tablets** get a house grant of `view`/`control` on feature
 `music` (`authz.HOUSE_GRANTS`; recorded for Avery's review): HK's Music page on every tablet, its speakers still
@@ -259,34 +259,6 @@ server-only read beside `players/all`, every 30 s; `groups.with_configured`), no
 room added in place no longer joins the preset, and an emptied group no longer loses its rooms. Before a preset's
 group plays, it is made its rooms again (`engine.preset_plan`): the rooms it gave up are grouped back onto it (an
 empty group cannot play), and rooms it took while it played are ungrouped; those are not in its own way.
-
-**Presets write Music Assistant's groups (2026-11-01).** Music Assistant stays where a preset's rooms are kept;
-Mantel now writes there too. In HK Settings' preset form (Mantel's page says `ma_writes`: Music Assistant connected,
-its groups read, commands on), the Sync Group menu offers **New Sync Group**, and a sync group's rooms are ticked
-there (`groups[...].writable`). On `hk_music/preset/save`, before the preset is saved (`MusicHost.preset_write`,
-`groups.write_plan`):
-- **A new group** (`group: "new"`): `players/create_group_player` `{provider: "sync_group", name: the preset's,
-  members, dynamic: true}` (MA 2.10.9 drops members that are unavailable or can't group with the first). The new
-  player reaches the speakers list through HA's music_assistant integration, as every MA player's id does (the entity
-  registry); Mantel waits up to 20 s for it and saves the preset on it. Not in time: refused, saying the group was
-  made, so it can be chosen in a moment.
-- **A sync group's rooms changed**: `config/players/save` `{player_id, values: {group_members}}`, nothing else. A
-  player in the group that is no speaker of Music's stays. A group that plays keeps its live members (MA changes them
-  only while it is dormant); the preset's next play gives it its rooms (`preset_plan`). The same rooms: nothing sent.
-- Then the list is read again at once (the usual 30-second read, early), so the page shows what Music Assistant made.
-
-**Who and how.** `configure` on settings **and** music (feature_pages.py asks both; the gateway's `classify_ws` now
-too, and `MusicHost.write_ma` asks again before writing). A write is a **config command**, not a playback one: its
-own catalog (`connectors/ma.py` `MA_CONFIG_COMMANDS`, sent only by `MaClient.config_command`; a page's `ma` command
-can never name one; a save carries only `group_members`/`dynamic_members`), an audit row first (kind `config`,
-action `music_assistant.<command>`, target the group or `new:<name>`, its result after), then the gateway lets exactly
-that one write through once (`MusicConfigRun`; not `RUN_COMMANDS`/`MusicRun`). Refused or failed: refused by field,
-nothing saved. **Commands off**: no gateway, so nothing is sent; a save that would write is refused ("Allow Control
-of the House is off") with a denied audit row, and a save that writes nothing (a rename) is saved as before.
-**Pairs**: a stereo pair's group is a room, never a preset's (refused as before); a virtual pair's own group is never
-written (its rooms are the pair; a different set is refused). A group that is not a sync group (another provider) is
-not Mantel's to set: its preset keeps the rooms chosen for it, as before. **Deleting a preset never deletes its
-group** (the form says so; remove it in Music Assistant). MA's `players/remove_group_player` is not in any catalog.
 
 **Not on Mantel (documented gaps).**
 - **The failure notifications** HA raises (`music_play_failed`, `speaker_group_failed`, ...: HK's Speakers picker

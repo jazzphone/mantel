@@ -158,10 +158,6 @@ class HouseMa(FakeMa):
         self._players: list | None = None
         # a group's settings (config/players/get): {group id: the members it is set up with}; else what it holds now
         self.configured: dict[str, list[str]] = {}
-        # PRESETS WRITE MUSIC ASSISTANT'S GROUPS: the entity HA's music_assistant integration gives a group Mantel
-        # makes (None: HA never lists it), and the players Music Assistant leaves out of a new group (unavailable)
-        self.new_entity: str | None = "media_player.new_group_ma"
-        self.unavailable: set[str] = set()
 
     # players/all's answer, when a test gives one (hk_core/music/groups.py: pairs, the presets' rooms): what it says
     # about a player is that player's from then on
@@ -248,30 +244,6 @@ class HouseMa(FakeMa):
             pid = args["player_id"]
             return await ok({"player_id": pid, "provider": "sync_group", "values": {"group_members": {
                 "key": "group_members", "value": self.configured.get(pid, self.model[pid].get("group_members"))}}})
-        if cmd == "players/create_group_player":
-            # Music Assistant 2.10.9's sync group provider: available members only, a new id, dynamic as asked; HA's
-            # integration then lists it (the hub's registry, as an entity registry update would)
-            pid = f"syncgroup_fictnew{sum(1 for x in self.model if x.startswith('syncgroup_')) + 1}"
-            members = [m for m in args["members"] if m in self.model and m not in self.unavailable]
-            self.model[pid] = dict(ma_player(pid, "x.x"), display_name=args["name"], type="group", provider="sync_group",
-                                   group_members=list(members),
-                                   supported_features=["volume_set", "set_members"] if args["dynamic"] else ["volume_set"])
-            self.configured[pid] = list(members)
-            if self.hub is not None and self.new_entity:
-                self.hub.registry.load(AREAS, [], self.hub.registry.entity_entries + [
-                    {"entity_id": self.new_entity, "area_id": None, "platform": "music_assistant", "unique_id": pid,
-                     "config_entry_id": MA_ENTRY}], FLOORS)
-            return await ok(self.model[pid])
-        if cmd == "config/players/save":
-            pid = args["player_id"]
-            if pid not in self.model:
-                return await ws.send_json({"message_id": mid, "error_code": 999,
-                                           "details": f"No config found for player id {pid}"})
-            if "group_members" in args["values"]:
-                self.configured[pid] = list(args["values"]["group_members"])
-                if not self.dynamic(pid):          # a static group's members are its settings'
-                    self.model[pid]["group_members"] = list(args["values"]["group_members"])
-            return await ok({"player_id": pid, "provider": "sync_group", "values": {}})
         if cmd.startswith("music/") and cmd.endswith("/library_items"):
             return await ok(library_answer(cmd, args))
         if cmd == "player_queues/get_active_queue":

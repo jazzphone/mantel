@@ -28,12 +28,6 @@ gate said yes. tests/test_connectors_ma.py pins all of it against a fake MA serv
 Phase 4 (music.py, Mantel's music engine): the gate is the gateway, which lets a music request's ``MusicRun``
 through for the engine's own commands on the house's speakers; and two SERVER-ONLY reads (MA_SERVER_READS, Keep
 Playlists Ready's forced refresh) are sent only by ``server_read`` / ``send_command``, never by ``ma/read``.
-
-CONFIG COMMANDS (2026-11-01, music.py "Presets write Music Assistant's groups"): MA_CONFIG_COMMANDS, a catalog of their
-own -- a new sync group, a group's settings saved -- sent only by ``config_command``, only when the gate allows that
-identity exactly that command (the gateway: a music settings save's MusicConfigRun, after RBAC and the audit row). A
-page can never name one: the gateway's ``ma`` commands are MA_COMMANDS only. A settings save carries only a group's
-members (CONFIG_VALUES).
 """
 from __future__ import annotations
 
@@ -130,15 +124,6 @@ MA_SERVER_READS: dict[str, frozenset[str]] = {
 }
 
 
-# CONFIG COMMANDS (Music Assistant 2.10.9's scope config_players_write): sent ONLY through config_command(), ONLY when
-# the gate allows. Never MA_COMMANDS: the gateway's page-sent ``ma`` commands can't name these.
-MA_CONFIG_COMMANDS: dict[str, frozenset[str]] = {
-    "players/create_group_player": frozenset({"provider", "name", "members", "dynamic"}),
-    "config/players/save": frozenset({"player_id", "values"}),
-}
-CONFIG_VALUES = frozenset({"group_members", "dynamic_members"})     # the only settings a save may carry
-
-
 class MaBlocked(Exception):
     """Something tried to send MA a frame outside the allowlists."""
 
@@ -221,18 +206,6 @@ def check_outgoing(frame: dict, ticket: _Ticket | None = None, *, server: bool =
         extra = set(args) - MA_COMMANDS[command]
         if extra:
             raise MaBlocked(f"{command!r} may not carry {sorted(extra)}")
-        ticket.used = True
-        return
-    if command in MA_CONFIG_COMMANDS:
-        if ticket is None or ticket.used or ticket.command != command:
-            raise MaBlocked(f"{command!r} is a config command; only config_command() may send it, when the gate allows")
-        extra = set(args) - MA_CONFIG_COMMANDS[command]
-        if extra:
-            raise MaBlocked(f"{command!r} may not carry {sorted(extra)}")
-        values = args.get("values")
-        if command == "config/players/save" and (not isinstance(values, dict) or not values
-                                                 or set(values) - CONFIG_VALUES):
-            raise MaBlocked(f"{command!r} saves only {sorted(CONFIG_VALUES)}")
         ticket.used = True
         return
     raise MaBlocked(f"refusing to send {command!r} to Music Assistant")
@@ -492,16 +465,6 @@ class MaClient:
         """Send an MA command, ONLY if the gate allows `identity` this command. Refused -> nothing sent."""
         if command not in MA_COMMANDS:
             raise MaBlocked(f"{command!r} is not in the Music Assistant command catalog")
-        gate = self.gate if self.gate is not None else REFUSE_ALL
-        if await resolve(gate.allow(identity, command, dict(args))) is not True:
-            raise CommandRefused(f"{command!r} refused by the gate")
-        return await self._call(command, args, _Ticket(command))
-
-    async def config_command(self, identity: Any, command: str, **args: Any) -> Any:
-        """Send an MA config command (MA_CONFIG_COMMANDS), ONLY if the gate allows `identity` it. Refused -> nothing
-        sent."""
-        if command not in MA_CONFIG_COMMANDS:
-            raise MaBlocked(f"{command!r} is not in the Music Assistant config command catalog")
         gate = self.gate if self.gate is not None else REFUSE_ALL
         if await resolve(gate.allow(identity, command, dict(args))) is not True:
             raise CommandRefused(f"{command!r} refused by the gate")

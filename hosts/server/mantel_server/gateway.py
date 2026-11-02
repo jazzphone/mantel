@@ -644,14 +644,10 @@ class Gateway:
     # The Music Assistant command gate (connectors.Hooks.ma_gate): an MA command is allowed only
     # with the one-shot ticket this gateway minted for exactly that principal, command and args.
     def allow(self, identity: Any, command: str, args: dict) -> bool:
-        from .music import MusicConfigRun, MusicRun
+        from .music import MusicRun
         if isinstance(identity, MusicRun):
             # one music request's steps (music.py): minted in _forward below after RBAC and the audit
             # row, open only while that request runs, for its own commands on the house's speakers only
-            return identity.allow(command, args) is True
-        if isinstance(identity, MusicConfigRun):
-            # a music settings save's one Music Assistant config write (music.py MusicHost.write_ma): minted after
-            # configure on settings and music and its audit row, for exactly that command and args, once
             return identity.allow(command, args) is True
         queue = self._ma_tickets.get(id(identity)) or []
         key = json.dumps(args, sort_keys=True, default=str)
