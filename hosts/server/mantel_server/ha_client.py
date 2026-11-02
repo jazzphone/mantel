@@ -139,6 +139,21 @@ class HaClient:
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._first_event = True
         self._retarget = asyncio.Event()     # connections.py: new address/credential, reconnect now
+        self._hook_errors: set[tuple[str, str]] = set()   # (hook, exception type) already logged: once, not per event
+
+    def _call_hook(self, name: str, fn: Callable, *args) -> None:
+        """Call one of the hooks (on_change, on_registry, ...) without letting it end the reader and the HA
+        connection (2026-11-01, audit 3): an exception is logged once per hook and exception type, then at debug."""
+        try:
+            fn(*args)
+        except Exception as exc:  # noqa: BLE001 -- a downstream hook is not the HA connection
+            key = (name, type(exc).__name__)
+            if key in self._hook_errors:
+                log.debug("hook %s raised %s: %s", name, type(exc).__name__, exc)
+            else:
+                self._hook_errors.add(key)
+                log.warning("hook %s raised %s: %s (logged once per exception type; the connection stays up)",
+                            name, type(exc).__name__, exc, exc_info=True)
 
     def retarget(self, ws_url: str, token: str) -> None:
         """A new Home Assistant address and/or credential (the Connections page, hot apply). The open
@@ -242,7 +257,7 @@ class HaClient:
                 self._reg_subs.clear()
                 self._service_sub = None
                 if self.on_disconnect:
-                    self.on_disconnect()
+                    self._call_hook("on_disconnect", self.on_disconnect)
                 self._ws = None
 
     async def _first_registries(self) -> None:
@@ -252,7 +267,7 @@ class HaClient:
         Not ``on_registry``: that one tells every open page too, and a page redraws on it."""
         await self._load_registries()
         if self.on_registries_loaded:
-            self.on_registries_loaded()
+            self._call_hook("on_registries_loaded", self.on_registries_loaded)
 
     async def _load_registries(self, only: set[str] | None = None) -> None:
         """Load the registries named by event type in `only` (all when None)."""
@@ -276,23 +291,43 @@ class HaClient:
                 continue
             try:
                 await self._load_registries(changed)
-                if self.on_registry:
-                    self.on_registry()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 log.warning("registry reload failed: %s", exc)
                 self._reg_dirty |= changed
                 self._reg_wake.set()
+                continue
+            if self.on_registry:         # a hook's own error is not a failed reload (that reloaded in a loop)
+                self._call_hook("on_registry", self.on_registry)
 
     async def _read(self, ws: aiohttp.ClientWebSocketResponse) -> None:
-        async for msg in ws:
-            if msg.type == aiohttp.WSMsgType.TEXT:
-                size = len(msg.data)
-                self.rx.add(size)
-                self.handle(json.loads(msg.data), size)
-            elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
-                break
+        try:
+            async for msg in ws:
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    size = len(msg.data)
+                    self.rx.add(size)
+                    try:
+                        data = json.loads(msg.data)
+                        if not isinstance(data, dict):
+                            raise ValueError("not an object")
+                        self.handle(data, size)
+                    except Exception as exc:  # noqa: BLE001 -- one bad frame is not the connection (2026-11-01)
+                        key = ("frame", type(exc).__name__)
+                        if key not in self._hook_errors:
+                            self._hook_errors.add(key)
+                            log.warning("a frame from Home Assistant could not be handled (%s: %s); the connection "
+                                        "stays up (logged once per exception type)", type(exc).__name__, exc,
+                                        exc_info=True)
+                elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
+                    break
+        finally:
+            # The socket is gone: what waits for an answer (the first registry load) fails now, not after its
+            # 60 s timeout (2026-11-01, audit 3).
+            for fut in list(self._pending.values()):
+                if not fut.done():
+                    fut.set_exception(ConnectionError("Home Assistant closed the connection"))
+            self._pending.clear()
 
     def handle(self, data: dict, size: int = 0) -> None:
         kind = data.get("type", "?")
@@ -311,8 +346,9 @@ class HaClient:
             if self.on_service and data.get("domain") in ("tts", "media_player", "music_assistant"):
                 args = data.get("service_data") or {}
                 if isinstance(args, dict):
-                    self.on_service({"domain": data.get("domain"), "service": data.get("service"),
-                                     "service_data": {k: args[k] for k in ("entity_id", "media_player_entity_id", "announce") if k in args}})
+                    self._call_hook("on_service", self.on_service, {
+                        "domain": data.get("domain"), "service": data.get("service"),
+                        "service_data": {k: args[k] for k in ("entity_id", "media_player_entity_id", "announce") if k in args}})
         elif kind == "event" and mid in self._reg_subs:
             self._reg_dirty.add(self._reg_subs[mid])
             self._reg_wake.set()
@@ -333,7 +369,7 @@ class HaClient:
                 if self.ready.is_set() and not first_event:
                     self.entity_updates += len(touched)
                     self.updates_by_entity.update(touched)
-                self.on_change(touched)
+                self._call_hook("on_change", self.on_change, touched)
 
 
 # ------------------------------------------------------------------------------ P3.3: the command path

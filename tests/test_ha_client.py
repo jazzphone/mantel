@@ -172,3 +172,141 @@ def test_service_events_are_target_only_and_never_commands():
     assert len(got) == 1
     with pytest.raises(CommandBlocked):
         check_outgoing({"type": "call_service", "domain": "tts", "service": "speak"})
+
+
+# ---- 2026-11-01 (audit 3, LINK-2, LINK-6): a hook that raises, and a socket that drops while the registries load
+
+class FakeHA:
+    """A Home Assistant socket that greets, authenticates, answers the registry lists and subscriptions, and then
+    plays `script(ws, sub_id)` after `subscribe_entities`. `drop_at_list` closes the socket on that numbered
+    `config/` request (HA restarting while the registries are read)."""
+
+    def __init__(self, script=None, drop_at_list=None):
+        self.script, self.drop_at_list = script, drop_at_list
+        self.connections = 0
+        self.lists = 0
+
+    async def handler(self, request):
+        from aiohttp import web
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        self.connections += 1
+        await ws.send_json({"type": "auth_required", "ha_version": "2099.1.0"})
+        await ws.receive_json()
+        await ws.send_json({"type": "auth_ok", "ha_version": "2099.1.0"})
+        async for m in ws:
+            d = m.json()
+            if d["type"].startswith("config/"):
+                self.lists += 1
+                if self.drop_at_list is not None and self.lists >= self.drop_at_list:
+                    await ws.close()
+                    break
+                await ws.send_json({"id": d["id"], "type": "result", "success": True, "result": []})
+            elif d["type"] == "subscribe_entities":
+                await ws.send_json({"id": d["id"], "type": "result", "success": True, "result": None})
+                if self.script:
+                    asyncio.get_running_loop().create_task(self.script(ws, d["id"]))
+            elif d["type"] == "subscribe_events":
+                await ws.send_json({"id": d["id"], "type": "result", "success": True, "result": None})
+        return ws
+
+    async def start(self):
+        from aiohttp import web
+        from aiohttp.test_utils import TestServer
+        app = web.Application()
+        app.router.add_get("/api/websocket", self.handler)
+        self.server = TestServer(app, host="127.0.0.1")
+        await self.server.start_server()
+        return f"http://127.0.0.1:{self.server.port}"
+
+
+async def test_a_hook_that_raises_does_not_take_the_connection_down(caplog):
+    """One bad entity in a downstream hook used to end the reader, drop the HA socket and reconnect forever."""
+    async def script(ws, sub):
+        await ws.send_json({"id": sub, "type": "event", "event": {"a": {"sensor.odd": {"s": "1", "a": {}, "lc": 1.0}}}})
+        for n in range(2, 6):
+            await asyncio.sleep(0.05)
+            await ws.send_json({"id": sub, "type": "event", "event": {"c": {"sensor.odd": {"+": {"s": str(n), "lc": float(n)}}}}})
+
+    fake = FakeHA(script)
+    url = await fake.start()
+    seen: list[set] = []
+
+    def hook(changed):
+        seen.append(set(changed))
+        if len(seen) >= 2:
+            raise KeyError("a downstream hook trips on this entity")
+
+    store = StateStore()
+    c = HaClient(url, "tok", store, Registry(), hook, registry_debounce=0.05)
+    task = asyncio.create_task(c.run())
+    try:
+        await asyncio.wait_for(c.ready.wait(), 5)
+        await asyncio.sleep(0.6)
+        assert fake.connections == 1, "one connection: a hook error is not a lost HA connection"
+        assert c.connected.is_set()
+        assert len(seen) == 5, "the later events still reach the hook"
+        assert store.states["sensor.odd"]["s"] == "5"
+        warned = [r for r in caplog.records if r.levelname == "WARNING" and "hook" in r.getMessage()]
+        assert len(warned) == 1, "logged once per hook and exception type, not once per event"
+    finally:
+        task.cancel()
+        await fake.server.close()
+
+
+async def test_a_registry_hook_that_raises_is_called_once_and_not_retried_in_a_loop():
+    c = HaClient("http://x", "t", StateStore(), Registry(), lambda s: None, registry_debounce=0.01)
+    calls = []
+
+    async def no_reload(only=None):
+        pass
+
+    def bad():
+        calls.append(1)
+        raise ValueError("registry hook trips")
+
+    c._load_registries = no_reload
+    c.on_registry = bad
+    watcher = asyncio.create_task(c._watch_registries())
+    try:
+        c._reg_dirty.add("area_registry_updated")
+        c._reg_wake.set()
+        await asyncio.sleep(0.3)
+        assert calls == [1], "the failed hook is not a failed reload: the registries are not marked dirty again"
+    finally:
+        watcher.cancel()
+
+
+async def test_garbage_from_home_assistant_does_not_end_the_reader():
+    async def script(ws, sub):
+        await ws.send_str("{not json")
+        await ws.send_json({"id": sub, "type": "event", "event": {"a": {"sensor.ok": {"s": "1", "a": {}, "lc": 1.0}}}})
+
+    fake = FakeHA(script)
+    url = await fake.start()
+    c = HaClient(url, "tok", StateStore(), Registry(), lambda s: None)
+    task = asyncio.create_task(c.run())
+    try:
+        await asyncio.wait_for(c.ready.wait(), 5)
+        assert fake.connections == 1 and "sensor.ok" in c.store.states
+    finally:
+        task.cancel()
+        await fake.server.close()
+
+
+async def test_a_socket_that_drops_during_the_first_registry_load_reconnects_promptly():
+    """The pending registry requests used to wait out their 60 s timeout after the socket was gone."""
+    fake = FakeHA(drop_at_list=2)
+    url = await fake.start()
+    c = HaClient(url, "tok", StateStore(), Registry(), lambda s: None)
+    task = asyncio.create_task(c.run())
+    try:
+        for _ in range(60):
+            await asyncio.sleep(0.1)
+            if fake.connections >= 2:
+                break
+        assert fake.connections >= 2, "reconnected after the 1 s backoff, not after a 60 s wait"
+        assert c.last_error is not None
+    finally:
+        task.cancel()
+        await fake.server.close()
