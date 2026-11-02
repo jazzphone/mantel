@@ -258,7 +258,13 @@ speaker. Hold it and speak, and let go when you're done.
   tablet may talk on the doorbell named in HK's pop-up settings.
 - Live talk works with UniFi Protect doorbells. Other speakers get the
   recorded message. In the Home Assistant App it goes through Mantel Link
-  (0.1.11 or later keeps the session open between holds).
+  (0.1.11 or later keeps the session open between holds). In Docker or the
+  Proxmox container, with **UniFi Protect** connected (below), Mantel talks
+  to the doorbell itself, with no Home Assistant in between.
+- Your first hold on a pop-up reaches the door a little later than the next
+  ones (about 0.9 s against 0.45 s, measured at a G4 Doorbell Pro): the
+  doorbell needs a moment to pick up a new audio stream, so Mantel keeps the
+  stream going between holds while the pop-up is open.
 
 ### UniFi Protect (Docker and the LXC)
 
