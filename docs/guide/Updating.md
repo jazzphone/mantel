@@ -10,6 +10,34 @@ Each way of running Mantel updates its own way: the Home Assistant App through H
 
 You can see which version you run on **Mantel Settings** → **About**.
 
+## The update check
+
+Mantel can't install its own updates, but it can notice that a new release is out and tell you how to apply it. It never installs, restarts or changes anything by itself.
+
+![Mantel Settings → About, with Updates: a new version, how to update, and the Check for Updates switch](../images/settings-about-updates.webp)
+
+**What it checks.** Ten minutes after it starts, and then once a day, Mantel asks GitHub for the latest release of:
+
+- **Mantel** (`jazzphone/mantel`), compared with the version you run;
+- **Mantel Link** (`jazzphone/mantel-link`) and **HK Frontend** (`jazzphone/hk-frontend`), when you have them installed.
+
+That is three short questions a day, with no account, no token and nothing about your house in them. GitHub sees your address, as any website you visit does. Drafts and pre-releases are ignored.
+
+**What you see.** **Mantel Settings** → **About** has an **Updates** section for Owners and Admins:
+
+- When a newer version is out, **Mantel 0.1.115 Is Available** (for example), with the date it was released and how to update **this** install: *In Home Assistant: Settings → Add-ons → Mantel → Update* for the App, *Run `update` in the container's console* for the LXC, *Run `docker compose pull && docker compose up -d`* for Docker. **Release Notes** opens the release on GitHub. Mantel Link and HK Frontend are updated in HACS.
+- When you are up to date, each product says **Up to Date**.
+- **Last Check** says when Mantel last asked. If it couldn't get an answer, it says **Couldn't check** and when. An offline house isn't an emergency, so that is not an alert.
+- **Check Now** (Owner) asks right away.
+
+**Check for Updates** is the switch. It is on by default. Turn it off, and Mantel never contacts GitHub; About then says nothing about new versions. Only an Owner can change it, and from outside the home network Mantel asks the Owner to [confirm it is you](Signing-In.md#confirm-it-is-you) first.
+
+**The alert.** A new release also raises one **Info** alert, once for each new version, to the [alert channels](Alerts.md#the-update-alert) that have the **Updates** events on. It clears when the new version is installed.
+
+**Mantel Link** tells Mantel its version, and HK Frontend's, when it connects. That needs **Mantel Link 0.1.11 or newer**: an older one shows as unknown in About, and Mantel doesn't check it until you update it in HACS.
+
+**Not covered:** the iPhone and Mac apps. They update through TestFlight or the App Store, which tell you themselves ([iPhone, iPad and Mac Apps](iPhone-and-Mac-Apps.md)).
+
 ## Home Assistant App
 
 If you installed the App from Mantel's repository ([Install](Install.md#add-the-repository-and-install)), Home Assistant offers each new release:

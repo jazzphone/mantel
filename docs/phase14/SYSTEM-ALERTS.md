@@ -347,4 +347,21 @@ under `alert-heartbeat`, called every 5 minutes (60 s–1 h), off until set (Adv
 Admins), `alerts_test` (a planned change, the Owner's, audited `mcp.alerts_test`). The guide: `docs/guide/Alerts.md`
 and the update check in `Updating.md`.
 
+Screenshots (`tools/headless/gallery.py`, seeded with fictional channels): `settings-alerts`, `-alerts-channel`,
+`-alerts-email`, `-alerts-history`, `-about-updates`, `-me-system-alerts`.
+
+**The security review (Opus 5.5) of 14.1 and 14.5** found no critical issue; what it found is fixed:
+- an Email channel could be pointed at another server and keep the saved password (it would log in there): the
+  password is sealed with the server and user it was typed for, and a changed server or user asks for it again, at
+  save and before each send;
+- the heartbeat's Turn Off didn't (an empty `{}` kept the URL); the heartbeat refuses loopback, private, link-local
+  and `.local` hosts, and its hint is the service's host name, never the end of its key;
+- a password has no hint at all (its last four characters were shown to Admins);
+- Apprise's own debug logging can carry a service URL: its logger is held at WARNING;
+- Notifiarr's error words had the key removed after trimming (now before);
+- a long answer could be read only in part (the transport reads to the end, up to 1 MB);
+- the running marker is written every 5 minutes, not every 15 seconds.
+Left as designed: the MCP `alerts_test` follows the MCP's rules (a planned change, the Owner's, audited) rather than
+the REST route's away-from-home fresh factor.
+
 **14.10, the Mac.** (below, when it lands)

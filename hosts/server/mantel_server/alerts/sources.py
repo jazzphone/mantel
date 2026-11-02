@@ -129,7 +129,10 @@ class Watch:
                 step()
             except Exception:  # noqa: BLE001 -- one source never stops the rest
                 log.exception("alerts: %s look failed", step.__name__)
-        beat(self.app["cfg"].data_dir, self.clock())
+        now = self.clock()
+        if now - getattr(self, "beaten", -1e18) >= 300:      # the running marker: every 5 minutes is enough
+            self.beaten = now
+            beat(self.app["cfg"].data_dir, now)
 
     def home_assistant(self) -> None:
         hub = self.app.get("hub")

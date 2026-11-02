@@ -222,13 +222,16 @@ async def test_the_heartbeat_is_sealed_and_called(env):
     status, body = await env.call("PUT", "/api/alerts/settings", {"heartbeat": {"url": url, "every": 300}})
     assert status == 200 and body["heartbeat"]["on"] is True and url not in json.dumps(body)
     raw = env.store.db.execute("SELECT value FROM alert_settings WHERE key = 'heartbeat'").fetchone()[0]
-    assert "hc-ping" not in raw
+    assert "6f1c2a8e" not in raw and "hc-ping.com" in raw                  # the service shown, never its key
     await env.app["alerts"].heartbeat()
     assert env.posts[-1][0] == url
     status, body = await env.call("PUT", "/api/alerts/settings", {"heartbeat": {"url": "http://hc-ping.com/x"}})
     assert status == 400
-    status, body = await env.call("PUT", "/api/alerts/settings", {"heartbeat": {"on": False}})
-    assert status == 200 and body["heartbeat"]["on"] is False
+    status, body = await env.call("PUT", "/api/alerts/settings", {"heartbeat": {}})       # the page's Turn Off
+    assert status == 200 and body["heartbeat"]["on"] is False and env.app["alerts"].heartbeat_url() is None
+    for inside in ("https://127.0.0.1/ping", "https://169.254.169.254/x", "https://10.0.0.5/x", "https://nas.local/x"):
+        status, _ = await env.call("PUT", "/api/alerts/settings", {"heartbeat": {"url": inside}})
+        assert status == 400, inside
 
 
 # -- the MCP tools (phase 12's rules) --------------------------------------------------------------------------------

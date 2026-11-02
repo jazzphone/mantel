@@ -67,7 +67,13 @@ def http_transport(session_of: Callable[[], Any]) -> Transport:
         try:
             async with http.request(method, url, data=body if body else None, headers=headers,
                                     allow_redirects=False, timeout=ClientTimeout(total=TIMEOUT)) as resp:
-                return resp.status, dict(resp.headers), await resp.content.read(READ_MAX)
+                body = b""
+                while len(body) < READ_MAX:                # the whole answer, up to READ_MAX
+                    chunk = await resp.content.read(READ_MAX - len(body))
+                    if not chunk:
+                        break
+                    body += chunk
+                return resp.status, dict(resp.headers), body
         except (ClientError, asyncio.TimeoutError, OSError) as exc:
             raise ChannelError(f"couldn't reach {urlsplit(url).hostname} ({type(exc).__name__})") from None
     return transport

@@ -36,6 +36,19 @@ HEARTBEAT_AAD = "alert-heartbeat"
 THROUGH_HA = ("ha.lost", "link.lost")    # what the Companion app can't carry: it goes through them
 
 
+def public_host(host: str) -> bool:
+    """The heartbeat calls a service on the internet: not this machine, the home network or a cloud's metadata."""
+    import ipaddress
+    host = host.rstrip(".").lower()
+    if not host or host == "localhost" or host.endswith((".localhost", ".invalid", ".local")):
+        return False
+    try:
+        ip = ipaddress.ip_address(host.strip("[]"))
+    except ValueError:
+        return True
+    return ip.is_global
+
+
 class Alerts:
     def __init__(self, app: web.Application, *, clock=None, box: atrest.SecretBox | None = None,
                  transport=None) -> None:
@@ -177,8 +190,8 @@ class Alerts:
     def clean_heartbeat(self, v: Any) -> dict:
         """{url, every}: an https URL (healthchecks.io, Uptime Kuma's push monitor, Notifiarr), or {} to turn it off.
         A blank URL keeps the saved one."""
-        if not isinstance(v, dict):
-            return {}
+        if not isinstance(v, dict) or not v or v.get("on") is False:
+            return {}                                   # off (the page's Turn Off sends {})
         url = text(v.get("url"), 512)
         if not url and v.get("on") is not False:
             url = self.heartbeat_url() or ""
@@ -186,7 +199,7 @@ class Alerts:
             return {}
         from urllib.parse import urlsplit
         host = urlsplit(url).hostname or ""
-        if not host_ok(url, (host,)) or host in ("localhost",) or host.endswith(".invalid"):
+        if not host_ok(url, (host,)) or not public_host(host):
             raise Invalid("invalid_heartbeat", "The heartbeat needs an https:// address (healthchecks.io, Uptime "
                                                "Kuma's push monitor, ...).")
         every = v.get("every")
@@ -195,13 +208,14 @@ class Alerts:
         return {"url": url, "every": every}
 
     def save_heartbeat(self, hb: dict) -> None:
+        from urllib.parse import urlsplit
         if not hb:
             self.settings.set("heartbeat", {})
             return
         sealed = self.box.seal(hb["url"].encode(), HEARTBEAT_AAD)
         import base64
         self.settings.set("heartbeat", {"sealed": base64.b64encode(sealed).decode(), "every": hb["every"],
-                                        "hint": hb["url"][-4:]})
+                                        "hint": urlsplit(hb["url"]).hostname})     # the service, never its key
         self.heartbeat_last = {}
 
     def heartbeat_url(self) -> str | None:

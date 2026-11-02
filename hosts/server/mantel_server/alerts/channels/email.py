@@ -103,12 +103,16 @@ def clean(config: dict, secret: dict | None, old: dict | None) -> tuple[dict, di
     pw = (secret or {}).get("password")
     pw = pw if isinstance(pw, str) else ""
     if not pw and old and isinstance(old.get("password"), str):
+        # the saved password is kept only for the server and user it was typed for: never sent to a new one
+        if (old.get("host"), old.get("user")) != (cfg["host"], cfg["user"]):
+            raise Invalid("password_needed", "Enter the password again: the server or user changed.")
         pw = old["password"]
     if control(pw) or len(pw) > 256:
         raise Invalid("invalid_password", "The password can't have line breaks in it.")
     if cfg["user"] and not pw:
         raise Invalid("invalid_password", "Enter the password (Gmail and iCloud need an app password).")
-    return cfg, ({"password": pw, "main": pw} if pw else {})
+    # no "main": the page shows no hint of a password, not even its last characters
+    return cfg, ({"password": pw, "host": cfg["host"], "user": cfg["user"]} if pw else {})
 
 
 def build(cfg: dict, msg: Message) -> EmailMessage:
@@ -189,6 +193,8 @@ async def send(transport: Transport, config: dict, secret: dict | None, msg: Mes
     pw = pw if isinstance(pw, str) else ""
     if control(pw) or (cfg["user"] and not pw):
         raise ChannelError("the saved password is missing; enter it again", permanent=True)
+    if pw and ((secret or {}).get("host"), (secret or {}).get("user")) != (cfg["host"], cfg["user"]):
+        raise ChannelError("the saved password belongs to another server; enter it again", permanent=True)
     message = build(cfg, msg)
     try:
         await asyncio.to_thread(deliver, cfg, pw, message)

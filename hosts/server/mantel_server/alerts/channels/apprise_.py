@@ -12,10 +12,14 @@ but is imported only here, when used, so a Mantel without it still starts and th
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 
 from ..center import ChannelError, Message
 from . import Invalid, Transport
+
+# Apprise's plugins log their requests' errors at debug, and those carry the service URL with its token in it
+logging.getLogger("apprise").setLevel(logging.WARNING)
 
 KIND = "apprise"
 NAME = "Apprise"

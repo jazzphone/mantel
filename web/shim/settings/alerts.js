@@ -340,7 +340,7 @@ function drawHeartbeat(c, page) {
   if (can) {
     if (d.every === undefined) d.every = String(hb.every || 300);
     const opts = BEATS.concat(BEATS.includes(Number(d.every)) ? [] : [Number(d.every)]).sort((a, b) => a - b).map((s) => [String(s), 'Every ' + minutes(s)]);
-    rows.push(field('alert-heartbeat', 'url', 'Address', { type: 'password', maxlength: 512, placeholder: hb.on && hb.hint ? '…' + hb.hint : 'https://hc-ping.com/…' }));
+    rows.push(field('alert-heartbeat', 'url', 'Address', { type: 'password', maxlength: 512, placeholder: hb.on && hb.hint ? 'Saved (' + hb.hint + ')' : 'https://hc-ping.com/…' }));
     rows.push(choose('alert-heartbeat', 'every', 'Call', opts, d.every));
     rows.push(button(hb.on ? 'Save' : 'Turn On', async () => {
       const url = (d.url || '').trim();

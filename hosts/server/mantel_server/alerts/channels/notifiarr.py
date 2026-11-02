@@ -89,7 +89,7 @@ async def send(transport: Transport, config: dict, secret: dict | None, msg: Mes
     if 200 <= status < 300:
         reply = json_of(body)
         if reply.get("result") == "error":            # the passthrough's own answer: {"result": "error", "reason"}
-            reason = str(reply.get("reason") or "")[:120].replace(key, "")
+            reason = str(reply.get("reason") or "").replace(key, "")[:120]
             raise ChannelError("Notifiarr refused it" + (f": {reason}" if reason else ""), permanent=True)
         return
     if status == 429:

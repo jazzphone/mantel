@@ -326,8 +326,8 @@ def names(s: FakeSMTP) -> list[str]:
 def test_email_checks_every_setting_at_save():
     cfg, secret = mail.clean(CFG, {"password": "app-pass"}, None)
     assert cfg == {**CFG, "to": ["a@example.com", "b@example.com"]} and secret == {"password": "app-pass",
-                                                                                   "main": "app-pass"}
-    assert mail.clean(CFG, {}, {"password": "kept"})[1]["password"] == "kept"
+                                                                                   "host": CFG["host"], "user": CFG["user"]}
+    assert mail.clean(CFG, {}, {"password": "kept", "host": CFG["host"], "user": CFG["user"]})[1]["password"] == "kept"
     assert mail.clean({**CFG, "user": ""}, {}, None)[1] == {}                          # no login, no password
     assert mail.clean({**CFG, "port": "465", "security": ""}, {"password": "x"}, None)[0]["security"] == "tls"
     assert mail.clean({**CFG, "from": "Mantel <alerts@example.com>", "to": "a@example.com, b@example.com"},
@@ -367,7 +367,7 @@ def test_email_refuses_a_line_break_in_any_field():
 
 
 async def test_email_starttls_verifies_the_certificate_logs_in_and_sends_plain_text(smtp):
-    await mail.send(Fake(), CFG, {"password": "app-pass"}, msg(title="Mantel · A\nBcc: x@example.com tablet"))
+    await mail.send(Fake(), CFG, {"password": "app-pass", "host": CFG["host"], "user": CFG["user"]}, msg(title="Mantel · A\nBcc: x@example.com tablet"))
     [s] = smtp.made
     assert s.args[:2] == ("smtp.example.com", 587) and s.args[3] == 20.0
     assert names(s) == ["ehlo", "starttls", "ehlo", "login", "send_message", "quit"]
@@ -383,7 +383,7 @@ async def test_email_starttls_verifies_the_certificate_logs_in_and_sends_plain_t
 
 
 async def test_email_tls_uses_the_ssl_class_and_none_on_the_lan_skips_tls_and_login(smtp):
-    await mail.send(Fake(), {**CFG, "port": 465, "security": "tls"}, {"password": "p"}, msg())
+    await mail.send(Fake(), {**CFG, "port": 465, "security": "tls"}, {"password": "p", "host": CFG["host"], "user": CFG["user"]}, msg())
     [s] = smtp.made
     assert isinstance(s, FakeSSL) and names(s) == ["login", "send_message", "quit"]
     assert s.args[4].verify_mode == ssl.CERT_REQUIRED
@@ -396,9 +396,9 @@ async def test_email_tls_uses_the_ssl_class_and_none_on_the_lan_skips_tls_and_lo
 async def test_email_refuses_tampered_saved_settings_before_connecting(smtp):
     for cfg in ({**CFG, "security": "none"}, {**CFG, "host": "x\r\ny"}, {**CFG, "to": ["a@example.com\nBcc: z@e.com"]},
                 {**CFG, "port": 22}, {}):
-        assert (await fails(mail.send(Fake(), cfg, {"password": "p"}, msg()))).permanent
+        assert (await fails(mail.send(Fake(), cfg, {"password": "p", "host": CFG["host"], "user": CFG["user"]}, msg()))).permanent
     assert (await fails(mail.send(Fake(), CFG, {}, msg()))).permanent                     # the password is gone
-    assert (await fails(mail.send(Fake(), CFG, {"password": "p\nq"}, msg()))).permanent
+    assert (await fails(mail.send(Fake(), CFG, {"password": "p\nq", "host": CFG["host"], "user": CFG["user"]}, msg()))).permanent
     assert smtp.made == []
 
 
@@ -420,14 +420,14 @@ async def test_email_refuses_tampered_saved_settings_before_connecting(smtp):
 ])
 async def test_email_failures_are_words_and_never_hold_the_password(smtp, fail, words, permanent):
     smtp.fail = dict(fail)
-    err = await fails(mail.send(Fake(), CFG, {"password": "pw-secret"}, msg()))
+    err = await fails(mail.send(Fake(), CFG, {"password": "pw-secret", "host": CFG["host"], "user": CFG["user"]}, msg()))
     assert words in err.message and err.permanent is permanent
     assert "pw-secret" not in err.message and "pw-secret" not in str(err)
 
 
 async def test_email_a_failed_quit_does_not_fail_a_sent_message(smtp):
     smtp.fail = {"quit": smtplib.SMTPServerDisconnected("gone")}
-    await mail.send(Fake(), CFG, {"password": "p"}, msg())
+    await mail.send(Fake(), CFG, {"password": "p", "host": CFG["host"], "user": CFG["user"]}, msg())
     assert smtp.made[0].sent is not None
 
 
@@ -555,3 +555,13 @@ async def test_a_batch_of_three_goes_to_discord_as_one_embed(tmp_path):
         assert t.json["allowed_mentions"] == {"parse": []} and channels.get(cid)["last_ok"] == now[0]
     finally:
         store.db.close()
+
+
+async def test_a_saved_password_never_goes_to_another_server():
+    _, secret = mail.clean(CFG, {"password": "app-pass"}, None)
+    with pytest.raises(Invalid) as moved:
+        mail.clean({**CFG, "host": "smtp.attacker.example"}, {}, secret)
+    assert moved.value.code == "password_needed"
+    assert mail.clean(CFG, {}, secret)[1]["password"] == "app-pass"         # same server: kept
+    with pytest.raises(ChannelError):                                       # a row changed behind Mantel's back
+        await mail.send(None, {**CFG, "host": "smtp.attacker.example"}, secret, msg())
