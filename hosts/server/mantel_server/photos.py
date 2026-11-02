@@ -54,6 +54,7 @@ import logging
 import os
 import re
 import secrets
+import stat
 import time
 import unicodedata
 from dataclasses import dataclass, field
@@ -92,6 +93,8 @@ SIZES = {"original": ("originals", ".jpg", "image/jpeg"),
 LIMITS = {"quota_mb": (100, 1_048_576, 4096), "file_mb": (1, 200, 40)}      # (lowest, highest, default)
 ALBUM_MAX = 200
 ALBUM_PHOTOS_MAX = 20_000
+TEMP_AGE = 24 * 3600                # a half-written file this old belongs to no upload still running
+TEMP_NAME = re.compile(r"^\.[0-9a-f]{32}\.(?:jpg|webp|png)\.[0-9a-f]{8}\.tmp$")     # what _write names its temp file
 BATCH_MAX = 2000
 IMPORT_MAX = 5000
 IMPORT_DEPTH = 4
@@ -167,6 +170,33 @@ class PhotoLibrary:
             d.mkdir(parents=True, exist_ok=True)
             with contextlib.suppress(OSError):
                 os.chmod(d, 0o700)
+
+    def sweep_temp(self, now: float | None = None) -> list[Path]:
+        """Remove the ``.<name>.<hex>.tmp`` files a kill left in the picture folders (``_write`` makes one for every
+        file and renames it into place). Only ones older than TEMP_AGE, so a write in progress is never touched, and
+        only a plain file with exactly that name: a photo's own file never has it. (Files no row names are not
+        touched here: a restore may have brought the rows and the files from different times.)"""
+        now = time.time() if now is None else now      # (file times are the disk's, not the app clock's)
+        gone: list[Path] = []
+        for folder, _, _ in SIZES.values():
+            d = self.root / folder
+            try:
+                names = [n for n in os.listdir(d) if TEMP_NAME.match(n)]
+            except OSError:
+                continue
+            for n in names:
+                p = d / n
+                try:
+                    st = p.lstat()
+                    if not stat.S_ISREG(st.st_mode) or now - st.st_mtime < TEMP_AGE:
+                        continue
+                    p.unlink()
+                    gone.append(p)
+                except OSError as exc:
+                    log.warning("could not remove the leftover %s: %s", p, exc)
+        if gone:
+            log.warning("removed %d half-written photo file(s) an interrupted write left", len(gone))
+        return gone
 
     def path(self, photo_id: str, size: str) -> Path | None:
         if size not in SIZES or not PHOTO_ID.match(photo_id or ""):
@@ -491,6 +521,7 @@ class PhotoLibrary:
         target = self.album(album_id)
         moved, skipped, seen = [], [], set()
         async with self.lock:
+            have = self.db.execute("SELECT COUNT(*) FROM photos WHERE album_id=?", (target["id"],)).fetchone()[0]
             for pid in ids:                     # worked out first (one picture once per album), then written
                 row = self.db.execute("SELECT album_id, sha256 FROM photos WHERE id=?", (pid,)).fetchone()
                 if row is None or row["album_id"] == target["id"]:
@@ -500,6 +531,8 @@ class PhotoLibrary:
                     continue
                 seen.add(row["sha256"])
                 moved.append(pid)
+            if have + len(moved) > ALBUM_PHOTOS_MAX:           # (as add: an album holds at most this many)
+                raise PhotoError("album_full", f"An album holds at most {ALBUM_PHOTOS_MAX:,} photos.", 409)
             if moved and before is not None:
                 before({"ids": moved, "album": target["id"], "count": len(moved)})
             with self.db:
@@ -1418,6 +1451,8 @@ def register(app: web.Application, hub=None) -> None:
     app["photos_cutouts"] = CutoutBackfill(app)
 
     async def begin(_app: web.Application) -> None:
+        # what a killed write left (before anything can be writing): a file the size of a photo each
+        await asyncio.to_thread(lib.sweep_temp)
         _app["photos_faces"].start()
         _app["photos_cutouts"].start()
 

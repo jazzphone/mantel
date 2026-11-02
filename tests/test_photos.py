@@ -736,3 +736,71 @@ async def test_cancelling_an_add_while_its_files_are_written_leaves_none_behind(
     assert done.is_set() and task.cancelled()
     left = [p.name for p in lib.root.rglob("*") if p.is_file()]
     assert lib.count() == 0 and left == [], f"files no photo row owns: {left}"
+
+
+
+# -- MED-15 (third audit pass) -------------------------------------------------------------------------------------
+async def test_moving_photos_cannot_fill_an_album_past_the_cap_adding_has(mantel, monkeypatch):
+    await owner(mantel)
+    monkeypatch.setattr(photos, "ALBUM_PHOTOS_MAX", 3)
+    aid, other = await album(mantel), await album(mantel, "Other")
+    ids = [(await upload(mantel, aid, picture(color=(i * 40, 0, 0))))[1]["photo"]["id"] for i in range(3)]
+    kept = [(await upload(mantel, other, picture(color=(0, 90 + i * 40, 0))))[1]["photo"]["id"] for i in range(2)]
+    r, body = await send(mantel, "POST", "/api/photos/move", {"ids": ids[:2], "album": other})     # 2 + 2 > 3
+    assert r.status == 409 and body["error"] == "album_full"
+    r, body = await send(mantel, "GET", f"/api/photos/albums/{other}/photos")
+    assert sorted(p["id"] for p in body["photos"]) == sorted(kept)                                  # nothing moved
+    assert [a for a, _ in audits(mantel, "photos.move")] == []                                       # nor written down
+    r, body = await send(mantel, "POST", "/api/photos/move", {"ids": ids[:1], "album": other})     # 2 + 1 = 3 fits
+    assert r.status == 200 and body["moved"] == ids[:1]
+
+
+def _stale(path: Path, age: float) -> Path:
+    path.write_bytes(b"half a photo")
+    when = time.time() - age
+    os.utime(path, (when, when))
+    return path
+
+
+def _leftovers(root: Path, age: float) -> dict[str, Path]:
+    """The folders' files after a kill: a temp file of each kind of write, a real photo's file and look-alikes."""
+    pid = "ab" * 16
+    out = {}
+    for folder, ext in (("originals", ".jpg"), ("screen", ".jpg"), ("thumbs", ".webp"), ("masks", ".png")):
+        (root / folder).mkdir(parents=True, exist_ok=True)
+        out[f"tmp:{folder}"] = _stale(root / folder / f".{pid}{ext}.1a2b3c4d.tmp", age)
+        out[f"photo:{folder}"] = _stale(root / folder / f"{pid}{ext}", age)                   # a row names this one
+    out["lookalike"] = _stale(root / "originals" / ".keep.tmp", age)
+    out["lookalike2"] = _stale(root / "originals" / f".{pid}.jpg.1a2b3c4d.tmp.bak", age)
+    return out
+
+
+def test_half_written_files_older_than_a_day_are_swept_and_nothing_else(tmp_path):
+    lib = photos.PhotoLibrary(tmp_path / "photos", None)
+    old = _leftovers(tmp_path / "photos", 2 * 86400)
+    gone = lib.sweep_temp()
+    assert sorted(p.name for p in gone) == sorted(p.name for k, p in old.items() if k.startswith("tmp:"))
+    for key, path in old.items():
+        assert path.exists() == (not key.startswith("tmp:")), key        # a photo's own file, or a look-alike: kept
+    # a write that is going on now (or a few hours ago) is not touched
+    fresh = _leftovers(tmp_path / "photos2", 3600)
+    assert photos.PhotoLibrary(tmp_path / "photos2", None).sweep_temp() == []
+    assert all(p.exists() for p in fresh.values())
+
+
+async def test_a_start_up_sweeps_the_half_written_files_of_a_kill(tmp_path):
+    """The sweep runs when the server starts, before anything can be writing."""
+    old = _leftovers(tmp_path / "data" / "photos", 3 * 86400)
+    from aiohttp.test_utils import TestClient
+    from argon2 import PasswordHasher
+    from mantel_server.config import Config
+    from mantel_server.server import build_app
+    from mantel_server.store import Store
+    cfg = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "secrets", port=0)
+    store = Store(cfg.data_dir / "mantel.db")
+    app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False, clock=lambda: 1_000_000.0)
+    app["accounts"].hasher = PasswordHasher(time_cost=1, memory_cost=8, parallelism=1)
+    async with TestClient(TestServer(app)):
+        for key, path in old.items():
+            assert path.exists() == (not key.startswith("tmp:")), key
+    store.db.close()
