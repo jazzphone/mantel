@@ -1391,8 +1391,7 @@
         var rest = names.length > CAP ? (' +' + (names.length - CAP)) : '';
         return label + '  ·  ' + shown + rest;
       }
-      // A sync group by its preset name ("DOWNSTAIRS"), not its entity's
-      // friendly_name ("DOWNSTAIRS HOMEPODS DOWNSTAIRS").
+      // A known speaker by its own name, not its entity's friendly_name.
       var own = (M && M.known(p.entity_id) && M.nameOf(p.entity_id)) || a.friendly_name || '';
       return label + '  ·  ' + String(own).toUpperCase();
     }
@@ -1910,14 +1909,11 @@
   // sit with the area pills. It also reads better: pick rooms, pick music,
   // one gesture.
   //
-  // HOW A SELECTION BECOMES A PLAYER (the whole design, in three rules):
-  //   1. selection == a preset's set  -> that preset's player, which is a
-  //      REAL MUSIC ASSISTANT SYNC GROUP. Presets such as Everywhere and
-  //      Downstairs keep using MA's own saved sync, which is the best sync
-  //      available.
-  //   2. selection == exactly one speaker -> that speaker.
-  //   3. anything else (an ad-hoc subset of 2+) -> a temporary join of
-  //      those speakers.
+  // HOW A SELECTION BECOMES A PLAYER (the whole design, in two rules):
+  //   1. selection == exactly one speaker -> that speaker.
+  //   2. anything else (2+, a preset's rooms too) -> a join of those
+  //      speakers. A preset is a name for its rooms (2026-11-01): no Music
+  //      Assistant sync group plays it, since one cannot pause.
   class HkSpeakerPickerCard extends HkBase {
     static get CSS() {
       return [
@@ -2227,18 +2223,13 @@
         return s2.state + ':' + ((a.group_members || []).length) + ':' +
           (s2.state === 'playing' || s2.state === 'paused' ? (a.media_title || '') : '');
       }).join(',');
-      // A preset's own entity (its availability dims the pill) and each
-      // context's artwork and artist (drawn in the context row) are inputs
-      // too; neither moves a room's state.
-      var presets = this._presets().map(function (p) {
-        var s3 = p.entity && h.states[p.entity];
-        return s3 ? s3.state : '-';
-      }).join(',');
+      // Each context's artwork and artist (drawn in the context row) are
+      // inputs too; they do not move a room's state.
       var ctx = this._contexts().map(function (c) {
         return (c.image || '') + '~' + (c.artist || '');
       }).join(',');
       return r.player + ':' + r.reason + '|' + (src || '-') + '|' +
-             (st ? st.state : '-') + '|' + rooms + '|' + presets + '|' + ctx +
+             (st ? st.state : '-') + '|' + rooms + '|' + ctx +
              (musicMissing() ? '|no-music' : '');
     }
 
@@ -2259,11 +2250,8 @@
     // WHICH SPEAKERS ARE CARRYING *THIS PAGE'S* AUDIO.
     //
     // Not "what is selected" -- the pills already say that -- but what the
-    // player at the top of the page is actually coming out of. For a preset
-    // that is the preset's own rooms, because a Music Assistant sync group
-    // reports `group_members: []` on the group entity while its ROOMS report
-    // all of its members. For a room it is that room plus whatever is
-    // joined to it.
+    // player at the top of the page is actually coming out of: that room
+    // plus whatever is joined to it.
     _hereSet() {
       var out = {}, h = this.client, cfg = this._config;
       if (!h || !cfg) return out;
@@ -2316,14 +2304,10 @@
     // WHAT TO CALL A CONTEXT, and -- the load-bearing half -- which selector
     // option names it.
     //
-    // A context whose rooms are exactly a preset's rooms IS that preset, and
-    // must be named and selected as one: `Downstairs` resolves to a real MA
-    // sync group, and pointing the selector at `Kitchen` because kitchen
-    // happens to be group_members[0] would silently downgrade it to an ad-hoc
-    // join.
-    //
-    // Otherwise the leader's own option, which every room has -- which is why
-    // this feature needs no second selector entity at all.
+    // A context whose rooms are exactly a preset's rooms is named as that
+    // preset (hkMusic.label); its key is still its leader's, which every
+    // room has -- which is why this feature needs no second selector entity
+    // at all.
     _ctxLabel(ctx) {
       return { name: window.hkMusic ? window.hkMusic.label(ctx) : ctx.key,
                key: ctx.key };
@@ -2483,12 +2467,10 @@
       this._render();
     }
 
-    // The three rules from the header. Returns the PLAYER for rules 1 and 2
-    // -- a preset's sync group, or the one room -- or null for rule 3, which
-    // needs the join path.
+    // The rules from the header. Returns the PLAYER for one room, or null
+    // for two or more, which need the join path -- a preset's rooms too: its
+    // id is no player (hk_core/music/config.py).
     _target() {
-      var ps = this._presets();
-      for (var i = 0; i < ps.length; i++) if (this._same(ps[i].entities)) return ps[i].entity || null;
       if (this._sel.size === 1) {
         var only = Array.from(this._sel)[0];
         var s = this._speakers().filter(function (x) { return x.entity === only; })[0];
@@ -2497,20 +2479,11 @@
       return null;
     }
 
-    // THE DESTINATION, as a list with the leader first. One shape for all
-    // three rules, which is what lets hk_frontend.music_transfer have one path:
-    //   preset      -> [its sync group entity]
+    // THE DESTINATION, as a list with the leader first. One shape for every
+    // rule, which is what lets hk_frontend.music_transfer have one path:
     //   one speaker -> [that speaker]
-    //   ad-hoc 2+   -> [leader, other, ...]
-    // A preset's group entity comes from the configured presets
-    // (`presets[].entity`): its `entities` are the MEMBERS, and transferring to
-    // five rooms one at a time is not what "Everywhere" means -- MA's own sync
-    // group is the better player and the whole point of rule 1.
+    //   2+ (a preset's rooms too) -> [leader, other, ...]
     _targets() {
-      var ps = this._presets();
-      for (var i = 0; i < ps.length; i++) {
-        if (this._same(ps[i].entities)) return ps[i].entity ? [ps[i].entity] : null;
-      }
       return this._sel.size ? Array.from(this._sel) : null;
     }
 
@@ -2528,11 +2501,8 @@
     //   contains it  ->  ADD    keep playing there, extend into the rest
     //   does not     ->  MOVE   take it out of there and put it elsewhere
     //
-    // Read off _targets(), NOT off _sel, because _targets is what the script
-    // receives and the script makes the same decision from the same list. For
-    // a preset those differ on purpose -- _sel holds the member rooms while
-    // _targets is the single sync-group player -- so testing _sel here would
-    // label a preset "Add" while the script performed a move.
+    // Read off _targets(), the list the script receives, so both make the
+    // same decision from the same list.
     _adding() {
       var t = this._targets(), src = this._source();
       return !!src && !!t && t.indexOf(src) >= 0;
@@ -2581,7 +2551,7 @@
       var src = this._source(), t = this._targets();
       var guess = t.indexOf(src) >= 0 ? src : t[0];
       // The SELECTION, not the resolved targets: the integration decides
-      // whether it is a preset's sync group, one room or a join.
+      // whether it is one room or a join.
       this._request('transfer', { rooms: Array.from(this._sel), source: src }, guess, op);
     }
 
@@ -2717,8 +2687,8 @@
       var op = this._playOp = (this._playOp || 0) + 1;
       var targets = this._targets();
       this._lastPlaylist = pl;
-      // ONE CALL. Which of the three rules this selection is -- a preset's
-      // sync group, one room, or a new join -- and everything each needs
+      // ONE CALL. Which rule this selection is -- one room, or a join (a
+      // preset's rooms too) -- and everything each needs
       // (releasing what is in the way, joining, the home volume) is the
       // integration's business (music.py), where it is tested and where
       // each room is locked while it is being changed. This card only says
@@ -2889,8 +2859,7 @@
             function () { self._preset(p); }, pPlay);
           // A preset is a shortcut to its rooms; with none of them there it
           // is a shortcut to nothing.
-          if (!p.entity || !self._available(p.entity) ||
-              !list.length || !list.every(function (e) { return self._available(e); })) {
+          if (!list.length || !list.every(function (e) { return self._available(e); })) {
             pe.style.opacity = '0.35';
             pe.style.pointerEvents = 'none';
             pe.setAttribute('tabindex', '-1');

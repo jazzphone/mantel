@@ -115,7 +115,7 @@ async def test_a_feature_that_is_off_refuses_its_saves(make_env):
     ws = await owner_socket(env)
     assert (await save(ws, 1, {"type": "hk_notify/settings/set", "changes": {"stay": 60}}))["error"]["code"] == "not_set_up"
     # Music with no settings in Mantel yet: nothing to change (Music Assistant isn't in Mantel here)
-    assert (await save(ws, 2, {"type": "hk_music/preset/save", "name": "x", "group": "media_player.x",
+    assert (await save(ws, 2, {"type": "hk_music/preset/save", "name": "x",
                                "members": []}))["error"]["code"] == "not_set_up"
     await ws.close()
 

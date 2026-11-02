@@ -56,14 +56,14 @@ def announced(domain: Any, service: Any, args: Mapping[str, Any]) -> list[str]:
 
 
 def hidden(cfg: MusicConfig, source: str, aliases: set[str]) -> set[str] | None:
-    """The players an announcement on `source` hides: its twins and, for a preset's sync group,
+    """The players an announcement on `source` hides: its twins and, for a Music Assistant group,
     its rooms. None when it is not a media player or touches none of the house's players."""
     if not source.startswith("media_player."):
         return None
     players = set(aliases)
-    preset = cfg.preset_for_group(source)
-    if preset:
-        players.update(preset.members)
+    got = cfg.groups.rooms_of(source, cfg.room_ids) if cfg.groups is not None else None
+    if got is not None:
+        players.update(got.rooms)
     if not players.intersection(cfg.players()):
         return None
     return players

@@ -1,30 +1,22 @@
-"""SPEAKERS MADE OF SEVERAL PLAYERS, and the presets' rooms, as Music Assistant has them.
+"""SPEAKERS MADE OF SEVERAL PLAYERS, as Music Assistant has them.
 
 A stereo pair (2026-10-30: the Office's two HomePods, each panned left or right by its own DSP) is a
 Music Assistant sync group of two players, picked as ONE speaker. Music Assistant cannot put a group
-inside another group, so a preset's group holds the pair's two players themselves -- and Home
-Assistant shows neither: they are hidden from it, and a sync group's player reports no members there.
-So both are read from Music Assistant's own player list (``players/all``, the host's client):
+inside another group, and Home Assistant shows neither of its players: they are hidden from it, and a
+sync group's player reports no members there. So a pair is read from Music Assistant's own player list
+(``players/all``, the host's client): a speaker whose player is a group is a PAIR, one room, its players
+its PARTS. With no player list (Music Assistant not reachable yet) there is no Groups, and no speaker is a
+pair.
 
-  * a speaker whose player is a group is a PAIR: one room, its players its PARTS;
-  * a preset's rooms are its group's members, a pair's parts folded back into the pair. A group
-    holding only some of a pair's parts, or a player that is no speaker, is a PROBLEM the settings
-    page says (``problem_text``).
-
-With no player list (Music Assistant not reachable yet) there is no Groups: the presets keep the
-rooms chosen for them, and no speaker is a pair.
+A PRESET IS MANTEL'S OWN (2026-11-01): a name and its rooms, with no Music Assistant group (config.py).
 
 A VIRTUAL PAIR (2026-10-31, docs/phase4/VIRTUAL-PAIRS.md) is two players Mantel makes one room, with no
 group in Music Assistant: its parts are folded back into it the same way (``rooms_of``'s ``virtual``), and
 a Music Assistant group of exactly its two players is its own group (``group_of``), used for it alone.
-
-A GROUP WITH DYNAMIC MEMBERS (the house's sync groups, 2026-11-01) gives up a room that plays elsewhere and takes one
-added while it plays, so the members it holds now are not its rooms: Everywhere's group once held none. Its rooms are
-the ones its settings name (``with_configured``: ``config/players/get``'s ``values.group_members``), read with the list.
 """
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Iterable, Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -46,39 +38,6 @@ def read_players(raw: Any) -> dict[str, MaPlayer]:
         members = p.get("group_members") or p.get("group_childs") or []
         out[pid] = MaPlayer(pid, str(p.get("display_name") or p.get("name") or pid), p.get("type") == "group",
                             tuple(m for m in members if isinstance(m, str)) if isinstance(members, list) else ())
-    return out
-
-
-CONFIG_READ = "config/players/get"      # a player's settings: a group's own rooms are values.group_members
-
-
-def dynamic(p: Any) -> bool:
-    """A Music Assistant group whose members change as it plays (dynamic members: set_members)."""
-    return isinstance(p, Mapping) and p.get("type") == "group" and "set_members" in (p.get("supported_features") or [])
-
-
-def configured_members(conf: Any) -> list[str] | None:
-    """The members a group's settings name (``config/players/get``'s answer), or None when it names none."""
-    v = ((conf or {}).get("values") or {}).get("group_members") if isinstance(conf, Mapping) else None
-    v = v.get("value") if isinstance(v, Mapping) else v
-    return [m for m in v if isinstance(m, str)] if isinstance(v, list) else None
-
-
-async def with_configured(raw: Any, read: Callable[[str], Awaitable[Any]]) -> Any:
-    """Music Assistant's player list with each dynamic group's members as its settings name them, read with ``read``
-    (player id -> its settings). A group whose settings cannot be read keeps the members it holds now."""
-    if not isinstance(raw, list):
-        return raw
-    out = []
-    for p in raw:
-        if dynamic(p):
-            try:
-                got = configured_members(await read(p["player_id"]))
-            except Exception:  # noqa: BLE001 -- the members it holds now stay
-                got = None
-            if got is not None:
-                p = {**p, "group_members": got}
-        out.append(p)
     return out
 
 

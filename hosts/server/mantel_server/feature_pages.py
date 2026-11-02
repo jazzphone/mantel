@@ -81,7 +81,7 @@ SAVES: dict[str, tuple[str, frozenset, frozenset]] = {
     "hk_tv/settings/set": ("live_tv", frozenset({"changes"}), frozenset()),
     # Music's settings: house/music (music.py MusicHost.settings_write), Music Assistant or not
     "hk_music/settings/set": ("music", frozenset({"changes"}), frozenset()),
-    "hk_music/preset/save": ("music", frozenset({"name", "group", "members"}), frozenset({"item"})),
+    "hk_music/preset/save": ("music", frozenset({"name", "members"}), frozenset({"item"})),
     "hk_music/playlist/save": ("music", frozenset({"name", "items"}), frozenset({"item", "icon", "chooser", "order"})),
     "hk_music/playlists/order": ("music", frozenset({"ids"}), frozenset()),
     "hk_music/item/remove": ("music", frozenset({"item"}), frozenset()),
@@ -141,7 +141,7 @@ def music_page(res: Any) -> dict[str, Any]:
         "volume": res.get("volume") if isinstance(res.get("volume"), (int, float)) else None,
         "homes": {str(k)[:64]: (v if isinstance(v, str) and ENTITY.match(v) else None) for k, v in homes.items()},
         "users": rows(res.get("users"), ("id", "name")),
-        "presets": rows(res.get("presets"), ("id", "name", "group", "group_name", "members")),
+        "presets": rows(res.get("presets"), ("id", "name", "members")),
         "playlists": rows(res.get("playlists"), ("id", "name", "icon", "items", "chooser", "order")),
         "players": rows(res.get("players"), ("entity", "name")),
         "library_ready": bool(res.get("library_ready")),

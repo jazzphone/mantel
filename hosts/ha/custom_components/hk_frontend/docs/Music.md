@@ -13,28 +13,25 @@ moved to other rooms, added to more rooms, or stopped everywhere.
 - Each speaker in an **area**. The area names its pill on the screens
   (“Kitchen,” not “Kitchen HomePod”), and the area’s **floor** groups the
   pills. Rename an area and every screen follows.
-- Optional: **sync groups** made in Music Assistant, for rooms that should
-  always play together (say, the whole downstairs).
 
 ## Set it up
 
 1. Add the feature: **HK Frontend → Add feature → Music**. It asks nothing.
 2. Select the gear on the new **Music** item:
-   - **Speakers (rooms)**: the Music Assistant players, one per room. Leave
-     sync groups out here; they are presets (next step). The one exception is
-     a **stereo pair** (see below): pick its Music Assistant group as the
-     room's speaker.
+   - **Speakers (rooms)**: the Music Assistant players, one per room. For a
+     **stereo pair** (see below), pick its Music Assistant group as the room's
+     speaker.
    - **House playlist volume**: the volume every room is set to when a
      playlist starts (default 35%).
    - Then **Each tablet’s room**: one dropdown per person who signs in. A wall
      tablet signs in as its own user, so this is how a tablet knows the room
      it hangs in. Its Music page starts on that room.
 3. Optional: select **Add music preset** at the top of HK Frontend’s page for
-   each sync group.
-   Give it a name, pick the Music Assistant sync group player, and tick the
-   rooms it plays in. Once Music Assistant answers, the rooms are read from the
-   group there instead, and change when the group does; the ticks count only
-   while it can’t be reached. (HK Settings shows the group’s own rooms.)
+   rooms that often play together (say, the whole downstairs). Give it a name
+   and tick its rooms. Picking it on a screen picks those rooms; they play in
+   step, grouped under one of them, and pause like any room. No Music
+   Assistant group is needed: a Music Assistant sync group can’t pause, so a
+   pause on one stops the music.
 4. Select **Add music playlist** for each pill you want under Your Playlists on the Music page:
    - **Name** and **Icon** (default `mdi:playlist-music`).
    - **Playlists**: one or more playlists from your Music Assistant library.
@@ -54,12 +51,9 @@ own. Pick that group as the room’s speaker. HK reads its two speakers from
 Music Assistant (they can stay hidden from Home Assistant), shows it as one
 room, and says so under **Speakers** in HK Settings.
 
-Music Assistant can’t put a group inside another group, so a preset’s group
-holds the pair’s two speakers themselves. Put **both** in it; HK counts them
-as the one room, and the preset shows **Check** when a group holds only one.
-A pair plays on its own through its group, and with other rooms through a
-preset. Other rooms with a pair, outside a preset, are refused with a
-message saying which presets hold it.
+Music Assistant can’t put a group inside another group, so a stereo pair
+plays on its own, through its group. Other rooms with a pair are refused with
+a message saying so, and a preset can’t hold a pair with other rooms.
 
 ## What you see
 
@@ -93,8 +87,7 @@ speaker:
 
     **Reset** puts the ticks back on where it plays, and **Stop** stops it.
     The line above the buttons says what each will do, including a room
-    that has to stop something else first. The exact rooms of a preset play
-    through its sync group. **Volume** has a slider for each room, and
+    that has to stop something else first. **Volume** has a slider for each room, and
     **Queue** shows what is up next in Music Assistant (tap one to jump to
     it).
   - **With nothing playing**, Speakers picks where the next music plays: your
@@ -154,10 +147,10 @@ speaker:
 
 | Setting | Default | What it does |
 |---|---|---|
-| Speakers | None | The rooms music plays in: Music Assistant players, one per room. Each is named by its area and grouped by floor; within a floor, in the order you drag them. A preset’s sync group can’t also be a room. A stereo pair’s group can, and says so. |
+| Speakers | None | The rooms music plays in: Music Assistant players, one per room. Each is named by its area and grouped by floor; within a floor, in the order you drag them. A stereo pair’s group can be a room, and says so. |
 | Home Rooms | None | For each Home Assistant user, the room they start in when they play music. A wall tablet signs in as its own user, so this is where each tablet hangs. |
 | House Volume | 35% | The volume every room is set to when a playlist starts. |
-| Presets & Playlists → Presets | None | A Music Assistant sync group and the rooms it plays in (**Name**, **Sync Group**, **Rooms**, read from the group in Music Assistant). Choosing exactly those rooms on a screen plays through the group, in step. **Check** marks a group holding half a stereo pair, or a speaker that isn’t one of Music’s. |
+| Presets & Playlists → Presets | None | A name for rooms that often play together (**Name**, **Rooms**). Choosing it on a screen picks those rooms; they play in step, grouped under one of them. |
 | Presets & Playlists → Playlists | None | The pills under Your Playlists on the Music page, in order (**Name**, **Icon**, **Chooser**, and the library playlists it **Plays**, as one queue). Pills with the same Chooser become one pill that asks which. |
 | Keep Playlists Ready | Off | Refreshes Music Assistant’s copy of your playlists’ songs in the background, so they open and start at once: the playlists your pills play, plus the ones played in the last week (not Music Assistant’s own). Every 2½ hours, one playlist at a time, never while someone is using Music, and later when the streaming service is refusing requests. Under the switch: when it last ran and how many are ready. |
 | Browse → Categories | All shown | Music Assistant’s categories under **Library** on the Music page’s Browse side: Artists, Albums, Songs, Playlists, Radio, Podcasts, Audiobooks. Untick the ones nobody opens. |
@@ -176,7 +169,7 @@ songs, Newest albums, Albums at random.
 **HK Settings → Pages → Music** holds these; the gear on the Music item
 under **Settings → Devices & services → HK Frontend** has the first three, and
 **Add music preset** and **Add music playlist** at the top of that page add
-the others. Deleting a preset leaves the group in Music Assistant; deleting a
+the others. Deleting a preset leaves its rooms as they are; deleting a
 playlist pill leaves the playlists in your library.
 
 ![The Music settings on the HK Settings page](images/settings-music.webp)
@@ -264,12 +257,12 @@ rooms.
 ### `hk_frontend.music_play`
 
 Plays one of your playlist pills on a set of rooms: each room is set to the
-house volume, shuffle is turned on, and the rooms are grouped. If the rooms
-are exactly a preset’s rooms, it plays through the preset’s sync group.
+house volume, shuffle is turned on, and the rooms are grouped under the first
+of them (a preset’s rooms too).
 
 | Field | Required | Description |
 |---|---|---|
-| `rooms` | yes | Room players: the speakers chosen under Speakers (not a preset’s group). |
+| `rooms` | yes | Room players: the speakers chosen under Speakers. |
 | `playlist` | yes | The playlist’s id (below). |
 
 ```yaml
@@ -301,7 +294,7 @@ on (refused only when the source already plays alone).
 | Field | Required | Description |
 |---|---|---|
 | `rooms` | yes | Where the music should be. |
-| `source` | yes | The player the music is on now: a room or a preset’s sync group. |
+| `source` | yes | The player the music is on now: a room. |
 
 ```yaml
 action: hk_frontend.music_transfer
@@ -315,7 +308,7 @@ data:
 ### `hk_frontend.music_stop`
 
 Stops and ungroups rooms. With no rooms, it stops the whole house, including
-every preset’s sync group.
+every Music Assistant group.
 
 | Field | Required | Description |
 |---|---|---|
@@ -332,7 +325,7 @@ Play/pause, skip, stop or change the volume on one player.
 
 | Field | Required | Description |
 |---|---|---|
-| `player` | yes | A room, or a preset’s sync group. |
+| `player` | yes | A room. |
 | `command` | yes | `play_pause`, `next`, `previous`, `stop`, `volume_up`, `volume_down` or `volume_set`. |
 | `level` | for `volume_set` | 0 to 1. |
 
@@ -352,7 +345,7 @@ the item is actually playing.
 
 | Field | Required | Description |
 |---|---|---|
-| `player` | yes | A room, or a preset’s sync group. |
+| `player` | yes | A room. |
 | `media_content_id` | yes | A library URI, for example `library://album/42`. |
 | `media_content_type` | yes | The media type, for example `album`, `playlist`, `track` or `radio`. |
 
@@ -380,8 +373,6 @@ data:
   arrive. Opening it again within those hours is instant. Starting one waits
   the same way before the music begins; **Keep Playlists Ready** (Settings)
   keeps your playlists fetched ahead so neither waits.
-- **Presets are not checked against Music Assistant.** If you change a sync
-  group’s rooms in Music Assistant, edit the preset too.
 - **Every request is logged** in one line: who, what, where and how long. To
   see them all, turn on debug logging:
 

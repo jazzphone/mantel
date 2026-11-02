@@ -90,27 +90,14 @@ def _active(eid: str, states: dict, cfg: dict) -> bool:
     return st is not None and not _ignored(dict(st, entity_id=eid), cfg) and st.get("s") in ("playing", "paused")
 
 
-def _elsewhere(pair: str, group: dict | None, states: dict) -> bool:
-    """hkMusic.elsewhere: a pair room (hk_core/music/groups.py) is in a playing preset's group by its own players,
-    while its own group player sits idle -- so it is out of the preset only when that player is PLAYING something
-    else (a stale `paused` must not hide it)."""
-    st = states.get(pair) or {}
-    if st.get("s") != "playing":
-        return False
-    mine = (st.get("a") or {}).get("media_content_id")
-    theirs = ((group or {}).get("a") or {}).get("media_content_id")
-    return bool(mine and theirs and mine != theirs)
-
-
 def contexts(cfg: dict, states: dict) -> list[dict[str, Any]]:
-    """EVERY SEPARATE THING THE HOUSE IS PLAYING, as hkMusic.contexts (hk-base.js) derives it: a preset (a sync group
-    active with ALL its rooms active -- a pair room counts unless it plays something else), an ad-hoc group keyed by
-    its leader (group_members[0]), or one room."""
+    """EVERY SEPARATE THING THE HOUSE IS PLAYING, as hkMusic.contexts (hk-base.js) derives it: a group keyed by its
+    leader (group_members[0]), its `preset` the name of the preset whose rooms it is exactly, or one room. A preset is
+    its rooms (hk_core/music/config.py): its id is no player."""
     speakers = cfg.get("speakers") or []
     presets = [s for s in speakers if s.get("members")]
     rooms = [s for s in speakers if not s.get("members")]
-    known = {s["entity"] for s in speakers}
-    groups = {s["entity"] for s in presets}
+    known = {s["entity"] for s in rooms}
     seen: set[str] = set()
     out: list[dict[str, Any]] = []
 
@@ -119,17 +106,7 @@ def contexts(cfg: dict, states: dict) -> list[dict[str, Any]]:
         return {"key": key, "kind": kind, "leader": members[0], "members": members,
                 "playing": st.get("s") == "playing", "state": st.get("s") or "unknown",
                 "title": a.get("media_title") or "", "artist": a.get("media_artist") or "", "since": st.get("lc") or 0}
-    pairs = {s["entity"] for s in rooms if s.get("pair")}
     part_of = {p: s["entity"] for s in rooms for p in s.get("parts") or [] if p != s["entity"]}
-    for g in presets:
-        st = states.get(g["entity"])
-        if not _active(g["entity"], states, cfg):
-            continue
-        if any(m in seen or (_elsewhere(m, st, states) if m in pairs else not _active(m, states, cfg))
-               for m in g["members"]):
-            continue
-        seen.update(g["members"])
-        out.append(ctx(g["entity"], "preset", list(g["members"]), st))
     for r in rooms:
         eid = r["entity"]
         if eid in seen or not _active(eid, states, cfg):
@@ -137,11 +114,15 @@ def contexts(cfg: dict, states: dict) -> list[dict[str, Any]]:
         st = states[eid]
         # (hkMusic.fold: a virtual pair's second player is its room, once)
         gm = list(dict.fromkeys(part_of.get(e, e) for e in ((st.get("a") or {}).get("group_members") or [])))
-        gm = [e for e in gm if e in known and e not in groups and not _ignored(dict(states.get(e) or {}, entity_id=e), cfg)]
+        gm = [e for e in gm if e in known and not _ignored(dict(states.get(e) or {}, entity_id=e), cfg)]
         members = gm if len(gm) > 1 else [eid]
         seen.update(members)
         lead = members[0]
-        out.append(ctx(lead, "group" if len(members) > 1 else "room", members, states.get(lead) or st))
+        c = ctx(lead, "group" if len(members) > 1 else "room", members, states.get(lead) or st)
+        pre = next((p for p in presets if len(members) > 1 and sorted(p["members"]) == sorted(members)), None)
+        if pre is not None:
+            c["preset"] = pre.get("name")
+        out.append(c)
     return out
 
 

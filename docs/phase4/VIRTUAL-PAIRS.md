@@ -8,8 +8,9 @@ the appropriate time."
 ## What there was
 
 A **stereo pair** (0.1.90, `hk_core/music/groups.py`) is a Music Assistant sync group of two players picked as one
-speaker. Music Assistant cannot put a group inside another group, so such a room plays on its own or through a preset
-whose own Music Assistant group holds both of its players; with any other room it is refused (`engine.pair_alone`).
+speaker. Music Assistant cannot put a group inside another group, so such a room plays on its own; with any other room
+it is refused (`engine.pair_alone`). (Until 2026-11-01 it could also play through a preset whose own Music Assistant
+group held both of its players. Presets are Mantel's own now, with no group: docs/phase4/MANTEL-FEATURES.md.)
 
 ## What a virtual pair is
 
@@ -32,21 +33,19 @@ Two Music Assistant players Mantel treats as **one room**, with no group in Musi
 
 Mantel stays aware of real Music Assistant groups (`players/all`, read every 30 s):
 
-1. **Rooms that are exactly a preset's** play through its group, as before. A preset's rooms are read from its group
-   (a group with dynamic members: from its settings, not the members it holds now), the pair's two players folded
-   back into the pair; a group holding only one of them is a problem the settings page
-   names.
+1. **A preset** is its rooms, a virtual pair among them as one room: joined like any other pick (3). No Music
+   Assistant group plays it (2026-11-01: a sync group cannot pause).
 2. **The pair alone, when Music Assistant has a group of exactly its two players**, plays through that group (the
    "Actual Group Pair"): it was made for that room.
 3. **Anything else** joins the players ad hoc: the pair's two and the other rooms'. If the pair's own group is
    playing, it is stopped first, so its players are free to join; a move from it hands its queue on as any move does.
 
-A preset always wins over the ad-hoc join, and the pair's own group is used only for the pair alone.
+The pair's own group is used only for the pair alone.
 
 ## Where the decisions are
 
 `hk_core` (Rules.md rule 2): `config.py` (the pairs, `players_of`, `room_of`, the pair's own group), `groups.py`
-(`group_of`, a preset's rooms with the pairs folded), `engine.py` (what is in the way, who leads, what joins, the
+(`group_of`), `engine.py` (what is in the way, who leads, what joins, the
 volume's players, Browse's target) and `settings.py` (the check and the save). Mantel's engine (music.py) runs the
 steps. HK Frontend's engine in Home Assistant keeps working as before; it does not offer virtual pairs (the settings
 check refuses them there), since its steps are not built for them.

@@ -35,12 +35,15 @@ async def test_house_volume_is_set_on_the_rooms(music, house):
     assert vol["volume_level"] == 0.35
 
 
-async def test_a_preset_plays_through_its_sync_group(music, house):
+async def test_a_preset_plays_as_its_rooms_joined(music, house):
+    """A PRESET IS ITS ROOMS (2026-11-01): a Music Assistant sync group cannot
+    pause (a pause stopped the music and broke the group up), so no group
+    plays a preset -- its rooms are joined under the first, as any pick is."""
     res = await music.play(list(DOWN), key(music, "Favorites Mix"))
-    assert res["ok"] and res["leader"] == DOWNG
-    assert house.called("ma_play_media")[0]["entity_id"] == DOWNG
-    assert not house.called("join")
-    # levelled on the ROOMS -- a sync group scales its members instead
+    assert res == {"ok": True, "leader": K}
+    assert house.members(K) == list(DOWN)
+    assert house.called("ma_play_media")[0]["entity_id"] == K
+    assert DOWNG not in str(house.calls), "the group saved with it is no player of its"
     assert sorted(house.called("volume_set")[0]["entity_id"]) == sorted(DOWN)
 
 
@@ -219,45 +222,22 @@ async def test_add_in_either_tap_order(music, house):
     assert res["leader"] == OFF and not house.called("transfer_queue")
 
 
-async def test_move_to_a_preset_goes_to_the_sync_group(music, house):
+async def test_move_to_a_presets_rooms_joins_them_under_the_first(music, house):
     house.set(OFF, "playing", media_content_id="q1")
     res = await music.transfer(list(DOWN), OFF)
-    assert res["leader"] == DOWNG
-    assert house.called("transfer_queue")[0]["entity_id"] == DOWNG
+    assert res["leader"] == K
+    assert house.called("transfer_queue")[0]["entity_id"] == K
+    assert house.members(K) == list(DOWN) and DOWNG not in str(house.calls)
 
 
-async def test_new_speakers_for_a_sync_group_that_plays_update_it_in_place(music, house):
-    """Music Assistant's sync groups take and lose rooms as they play: Downstairs
-    playing and Everywhere picked once moved the queue to Everywhere's group,
-    emptied by then, and the music stopped (2026-11-01). The rooms picked join
-    the group playing and the rest leave it; its queue never moves."""
-    from custom_components.hk_frontend.hk_core.music.const import GROUPING
-    house.dynamic.add(DOWNG)
-    house.set(DOWNG, "playing", supported_features=GROUPING, group_members=list(DOWN),
-              media_content_id="q1")
-    for r in DOWN:
-        house.set(r, "playing", group_members=list(DOWN))
-    res = await music.transfer(list(ROOMS), DOWNG)          # Everywhere's rooms
-    assert res == {"ok": True, "leader": DOWNG}
-    assert house.called("join") == [{"entity_id": DOWNG, "group_members": ROOMS[5:]}]
-    assert house.members(DOWNG) == ROOMS and house.state(LOFT) == "playing"
-    res = await music.transfer([K, OFF], DOWNG)
-    assert res == {"ok": True, "leader": DOWNG}
-    assert sorted(house.called("unjoin")[0]["entity_id"]) == sorted(ROOMS[1:5] + ROOMS[6:])
-    assert house.members(DOWNG) == [K, OFF] and house.state(DOWNG) == "playing"
-    assert house.state(LOFT) == "idle" and not house.called("transfer_queue")
-
-
-async def test_a_presets_emptied_sync_group_is_given_its_rooms_before_it_plays(music, house):
-    """A sync group with dynamic members gives up rooms that play elsewhere;
-    Music Assistant cannot play it empty (Everywhere, 2026-11-01)."""
-    from custom_components.hk_frontend.hk_core.music.const import GROUPING
-    house.dynamic.add(DOWNG)
-    house.set(DOWNG, "idle", supported_features=GROUPING, group_members=[])
-    res = await music.play(list(DOWN), key(music, "Favorites Mix"))
-    assert res["ok"] and res["leader"] == DOWNG
-    assert house.called("join")[0] == {"entity_id": DOWNG, "group_members": list(DOWN)}
-    assert house.when("join")[0] < house.when("ma_play_media")[0]
+async def test_a_preset_sharing_a_room_with_the_music_joins_it_in_place(music, house):
+    """NEW SPEAKERS FOR MUSIC THAT PLAYS: the preset's other rooms join the room
+    playing, whose queue stays put."""
+    house.group(K, [LR])
+    house.set(K, "playing", media_content_id="q1"), house.set(LR, "playing")
+    res = await music.transfer(list(DOWN), K)
+    assert res["leader"] == K and not house.called("transfer_queue")
+    assert sorted(house.members(K)) == sorted(DOWN)
 
 
 async def test_transfer_refusals(music, house):
@@ -303,11 +283,11 @@ async def test_a_move_whose_queue_never_arrives_is_reported(music, house):
 # ------------------------------------------------------------------ stop
 async def test_stop_everything(music, house):
     house.group(K, [LR])
-    house.set(K, "playing"), house.set(LR, "playing"), house.set(DOWNG, "playing")
+    house.set(K, "playing"), house.set(LR, "playing")
     res = await music.stop()
     assert res == {"ok": True}
     assert all(house.state(r) == "idle" for r in ROOMS)
-    assert house.state(DOWNG) == "idle" and house.members(K) == []
+    assert house.members(K) == []
 
 
 async def test_stop_some_rooms_leaves_the_rest(music, house):
@@ -356,8 +336,8 @@ async def test_transport_refuses_an_unknown_player(music, house):
     assert (await music.transport("media_player.tv", "next"))["ok"] is False
 
 
-async def test_a_preset_group_is_a_valid_transport_player(music, house):
-    assert (await music.transport(DOWNG, "next"))["ok"]
+async def test_a_presets_old_group_is_no_transport_player(music, house):
+    assert (await music.transport(DOWNG, "next"))["ok"] is False
 
 
 # ------------------------------------------------------------ browse item
@@ -394,15 +374,15 @@ async def test_a_replaced_request_never_touches_the_house(music, house):
     assert not house.called("join"), "the replaced request built a group anyway"
 
 
-async def test_replaying_a_playing_preset_keeps_its_sync_group(music, house):
-    """Downstairs playing reports all five rooms grouped; pressing another
-    playlist for Downstairs must not pull those rooms out of their own group."""
+async def test_replaying_a_playing_preset_keeps_its_rooms_joined(music, house):
+    """Downstairs playing as its five rooms: another playlist for Downstairs
+    plays on the group that is exactly them, never pulling them apart."""
+    house.group(K, list(DOWN))
     for r in DOWN:
-        house.set(r, "playing", group_members=list(DOWN))
-    house.set(DOWNG, "playing")
+        house.set(r, "playing")
     res = await music.play(list(DOWN), key(music, "Christmas"))
-    assert res["ok"] and res["leader"] == DOWNG
-    assert not house.called("unjoin") and not house.called("media_pause")
+    assert res == {"ok": True, "leader": K}
+    assert not house.called("unjoin") and not house.called("media_pause") and not house.called("join")
 
 
 async def test_a_playlist_that_left_the_library_is_refused_not_played(music, house, hass):
@@ -432,23 +412,6 @@ async def test_the_library_check_never_blocks_music_on_its_own(music, house):
 
 
 # ------------------------------------------------------- the lock and Stop
-async def test_a_preset_waits_the_settle_after_releasing_its_rooms(music, house):
-    """The settle after a release: MA reports a released room free before it
-    is, and the sync group about to play regroups that very room."""
-    music.settle = 0.2
-    house.group(K, [OFF])                          # Kitchen, a Downstairs room, is taken
-    res = await music.play(list(DOWN), key(music, "Favorites Mix"))
-    assert res["ok"] and res["leader"] == DOWNG
-    released, played = house.when("unjoin")[-1], house.when("ma_play_media")[0]
-    assert played - released >= 0.19, "the sync group played the instant its rooms were freed"
-
-
-async def test_a_preset_with_nothing_to_release_does_not_wait(music, house):
-    music.settle = 5                               # would time the test out if it waited
-    res = await asyncio.wait_for(music.play(list(DOWN), key(music, "Favorites Mix")), 2)
-    assert res["ok"]
-
-
 async def test_the_leader_is_read_once_the_rooms_are_free(music, house):
     """A request that waited for its rooms builds on what it finds THEN: here
     someone grouped them under the Loft meanwhile, so the Loft leads and no
@@ -513,22 +476,3 @@ async def test_a_shutdown_still_cancels(music, house):
     with pytest.raises(asyncio.CancelledError):
         await req
     assert music._running == {}
-
-
-async def test_a_preset_checks_every_room_joined(music, house, hass):
-    """The settle is a margin; the proof is every member playing once the
-    sync group does. A room that did not follow is named, and the rest of
-    the music is left alone."""
-    house.lagging.add(K)
-    res = await music.play(list(DOWN), key(music, "Favorites Mix"))
-    assert res["ok"] and res["leader"] == DOWNG
-    assert "kitchen" in res["message"] and "did not join" in res["message"]
-    assert len(house.called("ma_play_media")) == 1, "the group was not restarted"
-    from homeassistant.components import persistent_notification as pn
-    note = pn._async_get_or_create_notifications(hass).get("music_preset_failed")
-    assert note and "kitchen" in note["message"] and "Downstairs" in note["message"]
-
-
-async def test_a_preset_whose_rooms_all_play_says_nothing_more(music, house):
-    res = await music.play(list(DOWN), key(music, "Favorites Mix"))
-    assert res == {"ok": True, "leader": DOWNG}

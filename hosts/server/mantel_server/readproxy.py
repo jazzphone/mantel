@@ -445,7 +445,11 @@ def music_config(payload: Any, ok: set[str]) -> dict:
         return {"configured": False}
     speakers = []
     for s in payload.get("speakers") or []:
-        if not isinstance(s, dict) or s.get("entity") not in ok:
+        if not isinstance(s, dict):
+            continue
+        # a preset (its id is no player) is viewable when all of its rooms are
+        rooms = s.get("members") if isinstance(s.get("members"), list) else None
+        if s.get("entity") not in ok and not (rooms and all(m in ok for m in rooms)):
             continue
         one = {"name": s.get("name"), "entity": s["entity"]}
         if isinstance(s.get("members"), list):                 # a preset (a group of speakers)

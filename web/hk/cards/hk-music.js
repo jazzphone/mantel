@@ -27,8 +27,8 @@
 // music card). Nothing playing: the rooms picked in Speakers, this screen's
 // own room until then -- a per-screen choice, never written to the house
 // (the Play Music picker's rule). A playlist is hk_frontend.music_play on those
-// rooms; a library item is music_play_media on one player (a preset's group,
-// or the one room), then music_transfer for the other rooms of an ad-hoc set.
+// rooms; a library item is music_play_media on one player (the one room, or
+// the first of a set: a preset's too), then music_transfer for the others.
 (function () {
   'use strict';
 
@@ -108,12 +108,10 @@
     if (names.length > 1 && width(txt) > room) txt = names[0] + ' +' + (names.length - 1);
     return txt;
   }
-  // WHERE A LIBRARY ITEM PLAYS, nothing playing: a preset's own group when
-  // the rooms are exactly its rooms, the one room, or the first of an ad-hoc
-  // set -- and the rooms to bring in after it (music_transfer)
-  function playTarget(rooms, presets) {
-    var same = function (a, b) { return a.length === b.length && a.every(function (r) { return b.indexOf(r) >= 0; }); };
-    for (var i = 0; i < presets.length; i++) if (presets[i].entity && same(rooms, presets[i].members)) return { player: presets[i].entity, then: null };
+  // WHERE A LIBRARY ITEM PLAYS, nothing playing: the one room, or the first
+  // of a set (a preset's too: its id is no player) -- and the rooms to bring
+  // in after it (music_transfer)
+  function playTarget(rooms) {
     return { player: rooms[0] || null, then: rooms.length > 1 ? rooms.slice() : null };
   }
   // THE GROUP'S VOLUME (the room card's rule, hk-control.js): the panel's own (hk-saver-panel.js volumeCalls, which
@@ -558,9 +556,9 @@
     _nextLabel() { return this._nextSet() ? this._roomsLabel(this._nextRooms) : this._label(); }
     _player() {
       var c = this._ctx();
-      if (this._nextSet()) return playTarget(this._nextRooms, this._M() ? this._M().presets() : []).player;
+      if (this._nextSet()) return playTarget(this._nextRooms).player;
       if (c) return c.key;
-      return playTarget(this._targetRooms(), this._M() ? this._M().presets() : []).player;
+      return playTarget(this._targetRooms()).player;
     }
 
     _sigOf() {
@@ -1163,7 +1161,7 @@
       this._askThenPlay(rooms, function () {
         self._busyPl = pl.name; self._refreshPlaylists(true);
         self._toast('Starting ' + name + '…');
-        var guess = playTarget(rooms, Mu.presets()).player;
+        var guess = playTarget(rooms).player;
         if (guess && Mu.known(guess)) Mu.setFocus(guess, { hold: true });
         self._callResp('hk_frontend', 'music_play', { rooms: rooms, playlist: key }).then(function (res) {
           var r = (res && res.response) || {};
@@ -1176,7 +1174,7 @@
       });
     }
     // A LIBRARY ITEM: on what plays; nothing playing, on the rooms picked --
-    // one player first (a preset's group, the room, or the first of a set),
+    // one player first (the room, or the first of a set),
     // then the others brought in
     _playNode(node) {
       var c = this._ctx(), self = this, Mu = this._M();
@@ -1190,10 +1188,10 @@
         var keep = c.members.filter(function (r) { return rooms.indexOf(r) < 0; });
         if (!keep.length) t = { player: c.key, then: rooms.length > c.members.length ? rooms.slice() : null };
         else {
-          t = playTarget(rooms, Mu.presets());
+          t = playTarget(rooms);
           if (c.members.some(function (r) { return rooms.indexOf(r) >= 0; })) free = { rooms: keep, source: c.key };
         }
-      } else t = playTarget(rooms, Mu.presets());
+      } else t = playTarget(rooms);
       if (!t.player) return;
       var label = this._roomsLabel(rooms);
       var go = function () {

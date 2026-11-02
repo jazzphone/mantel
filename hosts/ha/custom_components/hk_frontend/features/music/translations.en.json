@@ -8,19 +8,17 @@
       "step": {
         "user": {
           "title": "Add a preset",
-          "description": "A Music Assistant sync group, and the rooms it plays in. Home Assistant can’t read a sync group’s rooms, so they are picked here.",
+          "description": "A name for rooms that often play together. Picking it plays on its rooms, joined under one of them.",
           "data": {
             "name": "Name",
-            "group": "Music Assistant sync group",
             "members": "Its rooms"
           }
         },
         "reconfigure": {
           "title": "Edit preset",
-          "description": "A Music Assistant sync group, and the rooms it plays in.",
+          "description": "A name for rooms that often play together.",
           "data": {
             "name": "Name",
-            "group": "Music Assistant sync group",
             "members": "Its rooms"
           }
         }
@@ -29,7 +27,7 @@
         "no_name": "Give it a name.",
         "no_members": "Pick the rooms it plays in.",
         "not_a_speaker": "Every room must be one of the configured speakers.",
-        "group_is_room": "Pick the sync group player, not a room."
+        "pair_alone": "A stereo pair plays on its own, so it can’t be in a preset with other rooms."
       },
       "abort": {
         "reconfigure_successful": "Saved.",
@@ -87,7 +85,7 @@
       "step": {
         "music": {
           "title": "Music",
-          "description": "Whole-home music through Music Assistant: the speakers each room plays on, sync-group presets, and playlist pills, for the Music page and for automations. It starts empty: choose the speakers with its gear (or in HK Settings), then add presets and playlists with Add music preset and Add music playlist."
+          "description": "Whole-home music through Music Assistant: the speakers each room plays on, presets of rooms that play together, and playlist pills, for the Music page and for automations. It starts empty: choose the speakers with its gear (or in HK Settings), then add presets and playlists with Add music preset and Add music playlist."
         },
         "music_options": {
           "title": "Speakers and volume",
@@ -97,7 +95,7 @@
             "volume": "House playlist volume"
           },
           "data_description": {
-            "speakers": "Music Assistant players, one per room. Sync groups are added as presets, not here.",
+            "speakers": "Music Assistant players, one per room.",
             "volume": "Every room a playlist plays in is set to this."
           }
         },
@@ -107,15 +105,14 @@
         }
       },
       "error": {
-        "music_no_speakers": "Pick at least one speaker.",
-        "music_group_is_room": "A sync group can’t also be a room. Add it as a preset instead."
+        "music_no_speakers": "Pick at least one speaker."
       }
     }
   },
   "services": {
     "music_play": {
       "name": "Play music",
-      "description": "Play a configured playlist on a set of rooms: a preset’s sync group, one room, or a new group.",
+      "description": "Play a configured playlist on a set of rooms: one room, or a group of them (a preset’s rooms too).",
       "fields": {
         "rooms": {
           "name": "Rooms",
@@ -157,7 +154,7 @@
       "fields": {
         "player": {
           "name": "Player",
-          "description": "A room or a preset’s group."
+          "description": "A room."
         },
         "command": {
           "name": "Command",
@@ -175,7 +172,7 @@
       "fields": {
         "player": {
           "name": "Player",
-          "description": "A room or a preset’s group."
+          "description": "A room."
         },
         "media_content_id": {
           "name": "Item",

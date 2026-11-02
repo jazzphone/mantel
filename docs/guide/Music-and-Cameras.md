@@ -88,11 +88,12 @@ By role, with the starting roles (see [People and Roles](People-and-Roles.md)):
 An Owner can narrow any of these with an ordinary deny grant, for example to
 keep a Child off the Music page.
 
-**Presets** (Music Assistant sync groups) are offered when the person may see
-the group, or every room in it. A preset's rooms are read from its group in
-Music Assistant, and a **stereo pair** (a Music Assistant group of two
-speakers, picked as one room's speaker) counts as one room in them; see
-HK Frontend's [Music](https://github.com/jazzphone/hk-frontend/wiki/Music#stereo-pairs). Up Next for a speaker you may not see answers
+**Presets** (a name for rooms that often play together, set in Mantel
+Settings) are offered when the person may see every room in them. A preset
+plays on its rooms, joined under one of them, so it pauses like any room. A
+**stereo pair** (a Music Assistant group of two speakers, picked as one
+room's speaker) plays on its own; see HK Frontend's
+[Music](https://github.com/jazzphone/hk-frontend/wiki/Music#stereo-pairs). Up Next for a speaker you may not see answers
 as if it did not exist.
 
 ### Speaker pairs

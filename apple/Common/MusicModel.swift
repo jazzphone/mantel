@@ -103,7 +103,7 @@ final class MusicModel: ObservableObject {
         return state?.player(entity)?.attributes.volume_level ?? 0
     }
     /// The music's volume: its leader's (a preset's group's).
-    var volume: Double { context.map { volume(of: $0.kind == "preset" ? $0.key : $0.leader) } ?? 0 }
+    var volume: Double { context.map { volume(of: $0.leader) } ?? 0 }
 
     // MARK: - the buttons (the Music page's requests)
 

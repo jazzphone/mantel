@@ -2,7 +2,7 @@
 
 Settings -> Devices & services -> HK Frontend (items of the house's entry,
 once Music is added):
-  * ADD MUSIC PRESET      a Music Assistant sync group and its rooms;
+  * ADD MUSIC PRESET      a name and its rooms;
   * ADD MUSIC PLAYLIST    a pill: a name, an icon, one or more library
                           playlists played as one queue, optionally sitting
                           behind a CHOOSER pill with others (one Decades pill
@@ -28,7 +28,7 @@ from ...hk_core.music import checks
 from ...hk_core.music.checks import playlist_errors, preset_errors, speakers_errors  # noqa: F401 -- shared
 from ...house import HaHouse
 from .const import (
-    CONF_CHOOSER, CONF_GROUP, CONF_ICON, CONF_ITEMS, CONF_MEMBERS, CONF_NAME, CONF_ORDER,
+    CONF_CHOOSER, CONF_ICON, CONF_ITEMS, CONF_MEMBERS, CONF_NAME, CONF_ORDER,
     CONF_SPEAKERS, CONF_VOLUME,
 )
 
@@ -44,11 +44,10 @@ def ma_players(multiple: bool = False, include: list[str] | None = None,
     return sel.EntitySelector(sel.EntitySelectorConfig(**cfg))
 
 
-def speakers_schema(groups: list[str]) -> vol.Schema:
-    """Configure's first page: the speakers (never a preset's group) and the
-    house volume in percent."""
+def speakers_schema() -> vol.Schema:
+    """Configure's first page: the speakers and the house volume in percent."""
     return vol.Schema({
-        vol.Required(CONF_SPEAKERS): ma_players(multiple=True, exclude=groups),
+        vol.Required(CONF_SPEAKERS): ma_players(multiple=True),
         vol.Required(CONF_VOLUME): sel.NumberSelector(sel.NumberSelectorConfig(
             min=0, max=100, step=1, unit_of_measurement="%",
             mode=sel.NumberSelectorMode.SLIDER)),
@@ -109,12 +108,8 @@ class _Sub(ConfigSubentryFlow):
 
 
 class PresetFlow(_Sub):
-    """A Music Assistant sync group and the rooms it plays in.
-
-    The rooms are ASKED FOR because Home Assistant cannot read them: a sync
-    group player reports group_members None. To find them, play on the
-    group and watch which speakers wake.
-    """
+    """A name for rooms that often play together: played as any pick of them is, joined under one of
+    them (no Music Assistant group: a sync group cannot pause)."""
 
     async def _form(self, step, user_input, sub):
         rooms = self._rooms()
@@ -122,14 +117,11 @@ class PresetFlow(_Sub):
         if user_input is not None:
             name = (user_input.get(CONF_NAME) or "").strip()
             members = list(user_input.get(CONF_MEMBERS) or [])
-            group = user_input.get(CONF_GROUP)
-            errors = preset_errors(name, group, members, rooms)
+            errors = preset_errors(name, members, rooms)
             if not errors:
-                return self._finish(sub, name, {CONF_NAME: name, CONF_GROUP: group,
-                                                CONF_MEMBERS: members})
+                return self._finish(sub, name, {CONF_NAME: name, CONF_MEMBERS: members})
         schema = vol.Schema({
             vol.Required(CONF_NAME): sel.TextSelector(),
-            vol.Required(CONF_GROUP): ma_players(exclude=rooms),
             vol.Required(CONF_MEMBERS): ma_players(multiple=True, include=rooms),
         })
         suggested = user_input or (dict(sub.data) if sub else {})

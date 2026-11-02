@@ -12,7 +12,7 @@ from homeassistant.helpers import area_registry as ar, floor_registry as fr
 from homeassistant.helpers import entity_registry as er
 
 from conftest import DOMAIN, FakeConnection, add_feature, entry, feature_entries, feature_gear, update_feature
-from music_sample_house import DOWNG, EVERY, K, LOFT, OFF, ROOMS, music_entry
+from music_sample_house import DOWNG, K, LOFT, OFF, ROOMS, music_entry
 from music_sample_house import house, music  # noqa: F401 -- the fixtures
 
 ACTIONS = {"music_play", "music_transfer", "music_stop", "music_transport", "music_play_media"}
@@ -115,10 +115,10 @@ async def test_its_gear_refuses_nonsense(hass, music):
     r = await submit(hass, r, {"speakers": [], "volume": 35})
     # the feature item's flows share one error table: Music's codes carry its prefix
     assert r["errors"] == {"speakers": "music_no_speakers"}
-    # A preset's sync group is not even OFFERED as a room: the picker excludes
-    # it, so HA's own schema refuses it before this flow's check is reached.
+    # Only Music Assistant's players are offered: HA's own schema refuses any
+    # other before this flow's check is reached.
     with pytest.raises(InvalidData):
-        await submit(hass, r, {"speakers": [K, DOWNG], "volume": 35})
+        await submit(hass, r, {"speakers": [K, "light.kitchen"], "volume": 35})
 
 
 async def test_its_gear_keeps_what_it_does_not_show(hass, music):
@@ -153,17 +153,15 @@ async def test_add_and_edit_a_preset(hass, music):
                                                         context={"source": "user"})
     assert r["step_id"] == "user"
     r = await hass.config_entries.subentries.async_configure(
-        r["flow_id"], {"name": "Upstairs", "group": "media_player.upstairs_group",
-                       "members": [OFF, LOFT]})
-    assert r["type"] == "create_entry"
+        r["flow_id"], {"name": "Upstairs", "members": [OFF, LOFT]})
+    assert r["type"] == "create_entry" and r["data"] == {"name": "Upstairs", "members": [OFF, LOFT]}
     assert [p.name for p in music.config.presets][-1] == "Upstairs"
     sub = next(s for s in e.subentries.values() if s.title == "Upstairs")
     assert sub.subentry_type == "preset" and sub.subentry_id in entry(hass).subentries, "an item of the house"
     r = await hass.config_entries.subentries.async_init(
         (e.house.entry_id, "preset"), context={"source": "reconfigure", "subentry_id": sub.subentry_id})
     r = await hass.config_entries.subentries.async_configure(
-        r["flow_id"], {"name": "Top Floor", "group": "media_player.upstairs_group",
-                       "members": [OFF, LOFT]})
+        r["flow_id"], {"name": "Top Floor", "members": [OFF, LOFT]})
     assert r["reason"] == "reconfigure_successful"
     assert e.subentries[sub.subentry_id].title == "Top Floor"
 
@@ -174,16 +172,13 @@ async def test_preset_validation(hass, music):
     r = await hass.config_entries.subentries.async_init((e.house.entry_id, "preset"),
                                                         context={"source": "user"})
     r = await hass.config_entries.subentries.async_configure(
-        r["flow_id"], {"name": "X", "group": "media_player.g", "members": []})
+        r["flow_id"], {"name": "X", "members": []})
     assert r["errors"] == {"members": "no_members"}
-    # A room is not offered as the group, nor a non-speaker as a member: the
-    # pickers exclude them, so HA's schema refuses before the flow's checks.
+    # A non-speaker is not offered as a member: the picker excludes it, so
+    # HA's schema refuses before the flow's checks.
     with pytest.raises(InvalidData):
         await hass.config_entries.subentries.async_configure(
-            r["flow_id"], {"name": "X", "group": K, "members": [OFF]})
-    with pytest.raises(InvalidData):
-        await hass.config_entries.subentries.async_configure(
-            r["flow_id"], {"name": "X", "group": "media_player.g", "members": ["media_player.tv"]})
+            r["flow_id"], {"name": "X", "members": ["media_player.tv"]})
 
 
 async def test_its_items_are_presets_and_playlists_only(hass, music, frontend):
@@ -293,12 +288,14 @@ async def test_screens_get_floors_names_choosers_and_their_own_home(hass, music,
     assert other.sent[-1]["event"]["home"] is None, "and nobody else does"
     assert cfg["configured"] is True
     names = {s["entity"]: s["name"] for s in cfg["speakers"]}
-    assert names[K] == "Kitchen" and names[DOWNG] == "Downstairs"
+    down = next(s for s in cfg["speakers"] if s["name"] == "Downstairs")
+    assert names[K] == "Kitchen" and down["entity"].startswith("preset:") and DOWNG not in names
     assert cfg["floors"][0]["name"] == "Main Floor" and K in cfg["floors"][0]["entities"]
     assert any(f["name"] == "Upstairs" and OFF in f["entities"] for f in cfg["floors"])
     decades = next(p for p in cfg["playlists"] if p["name"] == "Decades")
     assert [o["name"] for o in decades["options"]][:2] == ["2020s", "2010s"]
-    assert cfg["speakers"][0]["entity"] == EVERY and cfg["speakers"][0]["members"] == ROOMS
+    assert cfg["speakers"][0]["name"] == "Everywhere" and cfg["speakers"][0]["members"] == ROOMS
+    assert cfg["speakers"][0]["entity"].startswith("preset:"), "a preset's id is no player (its old group's)"
     # a change reaches the screen without a reload
     before = len(conn.sent)
     r = await music_page(hass, e)

@@ -12,8 +12,7 @@
 //             go, or the music moves -- and RESET puts the ticks back on
 //             where it plays. Update is the Play Music page's own request,
 //             hk_frontend.music_transfer -- the rooms that should end up
-//             playing, and where the music is now -- so a preset's set of
-//             rooms still plays on Music Assistant's sync group, and the
+//             playing, and where the music is now -- and the
 //             engine (features/music/music.py) does the joining, the moving
 //             and the letting go. (It replaced Add and Transfer: one rule,
 //             "what's ticked is where it plays".)
@@ -89,24 +88,17 @@
     return { update: ticks.length && !same(ticks, members) ? ticks.slice() : null, added: added, dropped: dropped,
              moves: ticks.length > 0 && dropped.length === members.length };
   }
-  // A PICK ON THESE ROOMS: one player first -- a preset's sync group when
-  // they are exactly its rooms, else the first room -- and the rest brought
-  // in after (hk-music.js has the same rule for its own picks)
-  function playTarget(rooms, presets) {
-    for (var i = 0; i < presets.length; i++) if (presets[i].entity && same(rooms, presets[i].members)) return { player: presets[i].entity, then: null };
+  // A PICK ON THESE ROOMS: the first room first, and the rest brought in
+  // after -- a preset's too: its id is no player (hk-music.js has the same
+  // rule for its own picks)
+  function playTarget(rooms) {
     return { player: rooms[0] || null, then: rooms.length > 1 ? rooms.slice() : null };
   }
   // THE GROUP'S VOLUME (the room card's rule, hk-control.js; moved here from hk-music.js 2026-10-31, so the
   // Music page's slider and a Small Now Playing block's Speakers sheet are one rule): one room, the room;
-  // an ad-hoc group, every member in one call; a preset's sync group, the group then its rooms (the group
-  // scales them, the rooms level it)
+  // a group, every member in one call
   function volumeCalls(ctx, presets, level) {
     if (!ctx) return [];
-    if (ctx.kind === 'preset') {
-      var p = presets.filter(function (x) { return x.entity === ctx.key; })[0];
-      var mem = (p && p.members) || ctx.members;
-      return [{ entity_id: ctx.key, volume_level: level }, { entity_id: mem, volume_level: level }];
-    }
     if (ctx.members.length > 1) return [{ entity_id: ctx.members.slice(), volume_level: level }];
     return [{ entity_id: ctx.key, volume_level: level }];
   }
@@ -570,13 +562,12 @@
         var v = mine && (S.drag && S.drag.key === k || t < mine.until) ? mine.val : (typeof a.volume_level === 'number' ? a.volume_level : null);
         return { k: k, v: v };
       });
-      // THE GROUP'S, first: a preset's own level, else the rooms' average
+      // THE GROUP'S, first: the rooms' average
       if (o.group && c && rows.length > 1) {
         var gm = S.vols[GROUP], gv = gm && (S.drag && S.drag.key === GROUP || t < gm.until) ? gm.val : null;
         if (gv === null) {
-          var pa = (h[c.key] || {}).attributes || {}, known = rows.filter(function (r) { return r.v !== null; });
-          gv = c.kind === 'preset' && typeof pa.volume_level === 'number' ? pa.volume_level
-             : known.length ? known.reduce(function (n, r) { return n + r.v; }, 0) / known.length : null;
+          var known = rows.filter(function (r) { return r.v !== null; });
+          gv = known.length ? known.reduce(function (n, r) { return n + r.v; }, 0) / known.length : null;
         }
         rows.unshift({ k: GROUP, v: gv, name: label(c), group: true });
       }
@@ -736,7 +727,7 @@
       var rooms = ticksNow(), keep = c.members.filter(function (r) { return rooms.indexOf(r) < 0; }), t, free = null;
       if (!keep.length) t = { player: c.key, then: rooms.length > c.members.length ? rooms.slice() : null };
       else {
-        t = playTarget(rooms, m.presets ? m.presets() : []);
+        t = playTarget(rooms);
         if (c.members.some(function (r) { return rooms.indexOf(r) >= 0; })) free = { rooms: keep, source: c.key };
       }
       if (!t.player) return;

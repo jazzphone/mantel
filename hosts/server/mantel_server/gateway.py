@@ -718,7 +718,7 @@ class Gateway:
             cmd = music.route(cmd)          # a plain media_player call on Music Assistant speakers: to Music Assistant
         engine = self._music_engine(cmd)
         if engine is not None:
-            cmd = engine.expand(cmd)        # Stop All: every room; a preset's group: its rooms
+            cmd = engine.expand(cmd)        # Stop All: every room
         ctx = self.authz.context()
         decisions = [(c, (self.authz.decide_talk if c.talk else self.authz.decide)(
                           subject, c.action, c.entity_id, feature=c.feature, ctx=ctx)) for c in cmd.checks]

@@ -11,20 +11,19 @@ from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 from .checks import playlist_errors, preset_errors, speakers_errors
-from .config import MusicConfig, Preset, virtual_pairs
+from .config import MusicConfig, virtual_pairs
 from .groups import kind, problem_text
 from .const import (
-    CONF_CHOOSER, CONF_GROUP, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS, CONF_KEEP_READY,
+    CONF_CHOOSER, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS, CONF_KEEP_READY,
     CONF_MEMBERS, CONF_NAME, CONF_ORDER, CONF_PAIRS, CONF_PLAYERS, CONF_SPEAKERS, CONF_VOLUME,
 )
 
 MSG = {
     "no_speakers": "Choose at least one speaker.",
-    "group_is_room": "A sync group can’t also be a room: add it as a preset.",
     "no_name": "Give it a name.",
     "no_members": "Choose the rooms it plays in.",
     "not_a_speaker": "Every room must be one of the speakers.",
-    "group_room": "Choose the sync group’s own player, not a room.",
+    "pair_alone": "A stereo pair plays on its own, so it can’t be in a preset with other rooms.",
     "no_items": "Choose at least one playlist.",
     "not_in_library": "That playlist isn’t in the Music Assistant library.",
     "volume": "Choose 0 to 100 %.",
@@ -37,7 +36,7 @@ MSG = {
     "text": "That text is too long.",
     "pair_two": "Choose two different speakers.",
     "pair_twice": "A speaker can be in only one pair.",
-    "pair_group": "Choose two speakers, not a Music Assistant group or a preset’s sync group.",
+    "pair_group": "Choose two speakers, not a Music Assistant group.",
     "pair_part": "That speaker is half of a pair. Unpair it first.",
     "no_pairs": "Speaker pairs are set up in Mantel Settings.",
 }
@@ -47,11 +46,8 @@ DEFAULT_ICON = "mdi:playlist-music"
 
 
 def say(codes: Mapping[str, str]) -> dict[str, str]:
-    """A check's codes, in words (a preset's group that is a room says so its own way)."""
-    out = {}
-    for k, v in codes.items():
-        out[k] = MSG["group_room"] if (k == CONF_GROUP and v == "group_is_room") else MSG.get(v, v)
-    return out
+    """A check's codes, in words."""
+    return {k: MSG.get(v, v) for k, v in codes.items()}
 
 
 def text(v: Any) -> str:
@@ -59,11 +55,10 @@ def text(v: Any) -> str:
 
 
 def apply(options: Mapping[str, Any], changes: Mapping[str, Any], players: set[str],
-          groups: list[str], pairs: bool = False,
-          ma_groups: Iterable[str] = ()) -> tuple[dict[str, Any], dict[str, str]]:
+          pairs: bool = False, ma_groups: Iterable[str] = ()) -> tuple[dict[str, Any], dict[str, str]]:
     """The options after `changes` (speakers in order, volume 0..1, homes {user: room or None},
     keep_ready and ignore_announcements on/off, the virtual pairs), and the refusals by field.
-    `players`: the music server's players and whatever is chosen; `groups`: the presets' sync groups;
+    `players`: the music server's players and whatever is chosen;
     `pairs`: whether this host plays virtual pairs (Mantel's engine does); `ma_groups`: the players
     that are Music Assistant groups (never half of a pair: a group cannot join another player)."""
     opts, errors = dict(options), {}
@@ -79,7 +74,7 @@ def apply(options: Mapping[str, Any], changes: Mapping[str, Any], players: set[s
             errors[CONF_SPEAKERS] = MSG["not_a_player"]
         elif CONF_PAIRS not in changes and set(sp) & seconds:
             errors[CONF_SPEAKERS] = MSG["pair_part"]
-        elif e := speakers_errors(list(dict.fromkeys(sp)), groups):
+        elif e := speakers_errors(list(dict.fromkeys(sp))):
             errors.update(say(e))
         else:
             opts[CONF_SPEAKERS] = list(dict.fromkeys(sp))
@@ -92,7 +87,7 @@ def apply(options: Mapping[str, Any], changes: Mapping[str, Any], players: set[s
         if not pairs:
             errors[CONF_PAIRS] = MSG["no_pairs"]
         else:
-            got, why = check_pairs(changes[CONF_PAIRS], players, set(groups) | set(ma_groups))
+            got, why = check_pairs(changes[CONF_PAIRS], players, set(ma_groups))
             if why:
                 errors[CONF_PAIRS] = MSG[why]
             else:
@@ -200,7 +195,7 @@ def pairs_page(cfg: MusicConfig, options: Mapping[str, Any], name: Callable[[str
 def groups_page(cfg: MusicConfig, players: Iterable[str]) -> dict[str, Any]:
     """What the page says about Music Assistant's groups (groups.py): ``ma_groups`` (the player list
     was read), ``pairs`` {speaker: {parts: [names], kind}} and, for each of ``players`` that is a
-    group (a preset's choices), ``groups`` {entity: {rooms, problems: [words]}}."""
+    group (never half of a virtual pair), ``groups`` {entity: {rooms, problems: [words]}}."""
     g = cfg.groups
     if g is None:
         return {"ma_groups": False, "pairs": {}, "groups": {}}
@@ -218,26 +213,18 @@ def problems(cfg: MusicConfig, found: Iterable[Mapping[str, Any]]) -> list[str]:
     return [problem_text(p, cfg.name_of(str(p.get("room") or ""))) for p in found]
 
 
-def preset_extra(cfg: MusicConfig, p: Preset) -> dict[str, Any]:
-    """A preset's line on the page, beyond its name, group and rooms."""
-    return {"from_ma": p.from_ma, "problems": problems(cfg, p.problems)}
-
-
 # ------------------------------------------------------------- a preset
-def check_preset(name: str, group: str, members: list[str], rooms: list[str],
-                 players: Callable[[], Iterable[str]]) -> dict[str, str]:
-    """A preset save's refusals: the shared check, then its name's length, then a group that is
-    one of the music server's players (`players`, asked only when it comes to that)."""
-    errors = say(preset_errors(name, group, members, rooms))
+def check_preset(name: str, members: list[str], rooms: list[str], pairs: Iterable[str] = ()) -> dict[str, str]:
+    """A preset save's refusals: the shared check, then its name's length."""
+    errors = say(preset_errors(name, members, rooms, pairs))
     if not errors and len(name) > TEXT_MAX:
         errors[CONF_NAME] = MSG["text"]
-    if not errors and group not in players():
-        errors[CONF_GROUP] = MSG["not_a_player"]
     return errors
 
 
-def preset_data(name: str, group: str, members: list[str]) -> dict[str, Any]:
-    return {CONF_NAME: name, CONF_GROUP: group, CONF_MEMBERS: members}
+def preset_data(name: str, members: list[str]) -> dict[str, Any]:
+    """A preset as it is stored: a name and its rooms (a group saved with an older one is dropped)."""
+    return {CONF_NAME: name, CONF_MEMBERS: members}
 
 
 # ------------------------------------------------------------- a playlist

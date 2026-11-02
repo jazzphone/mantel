@@ -13,7 +13,7 @@ from hk_core.house import Device, Entity, Floor, State
 from hk_core.music import announcements as A, checks, engine as E, groups as G, queue, settings as S
 from hk_core.music.config import Item, MusicConfig
 from hk_core.music.const import (
-    CONF_HOMES, CONF_KEEP_READY, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME, GROUPING, SUB_PLAYLIST, SUB_PRESET,
+    CONF_HOMES, CONF_KEEP_READY, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME, SUB_PLAYLIST, SUB_PRESET,
     WARM_EVERY, WARM_GAP, WARM_QUIET, WARM_RETRY, WARM_SLOW_PAGE,
 )
 from hk_core.music.warm import Warmer
@@ -144,10 +144,14 @@ def test_rooms_are_named_and_floored_from_the_house(cfg):
 def test_presets_widest_first_playlists_in_order(cfg):
     assert [p.name for p in cfg.presets] == ["Everywhere", "Downstairs"]
     assert [p.name for p in cfg.playlists] == ["Favorites", "Country", "1980s", "1990s", "Empty"]
-    assert cfg.preset_for_rooms(reversed(DOWN)).group == DOWNG
-    assert cfg.preset_for_group(EVERY).name == "Everywhere"
-    assert cfg.players() == [EVERY, DOWNG] + cfg.room_ids
-    assert cfg.name_of(DOWNG) == "Downstairs" and cfg.name_of("media_player.tv") == "media_player.tv"
+    # A PRESET IS ITS ROOMS: the group saved with it (before presets were Mantel's own) is no player of its
+    down = cfg.presets[1]
+    assert down.members == DOWN and down.group is None and down.id == "preset:p_down"
+    assert cfg.players() == cfg.room_ids
+    assert cfg.name_of(down.id) == "Downstairs" and cfg.name_of(DOWNG) == DOWNG
+    assert cfg.name_of("media_player.tv") == "media_player.tv"
+    speakers = cfg.as_client(None)["speakers"]
+    assert speakers[1] == {"name": "Downstairs", "entity": "preset:p_down", "members": DOWN}
 
 
 def test_a_screen_gets_floors_choosers_and_only_its_own_real_home(cfg):
@@ -176,12 +180,14 @@ def test_refusals_answer_before_anything_is_sent(house, cfg):
     assert house.calls == []
 
 
-def test_a_preset_plays_through_its_group_unless_the_group_is_gone(house, cfg):
-    fail, p, members = E.play_rooms(house, cfg, [LR, K])
-    assert fail is None and p.group == DOWNG and members == DOWN
-    assert E.play_rooms(house, cfg, [OFF, LOFT]) == (None, None, [OFF, LOFT])
+def test_a_preset_plays_as_its_rooms(house, cfg):
+    """No Music Assistant group plays a preset: a sync group cannot pause, so a pause stopped the music and broke
+    the group up (2026-11-01). Its rooms are joined under the first of them, as any pick is."""
+    assert E.play_rooms(house, cfg, [LR, K]) == (None, None, [LR, K])
     house.set(DOWNG, "unavailable")
-    assert "Downstairs is unavailable" in E.play_rooms(house, cfg, DOWN)[0]["message"]
+    assert E.play_rooms(house, cfg, DOWN) == (None, None, DOWN), "its old group's state is nothing to it"
+    target, found, way = E.play_target(house, cfg, DOWN, None, DOWN)
+    assert target == K and found is None and way == [] and E.needs_join(DOWN, None, None)
 
 
 def test_a_link_gone_from_the_library_is_found(cfg):
@@ -198,7 +204,7 @@ def test_what_is_in_the_way_and_nothing_wider(house, cfg):
     assert E.in_the_way(house, cfg, [OFF, LOFT]) == []
     house.group(OFF, [EXTRA])
     assert sorted(E.in_the_way(house, cfg, [OFF, LOFT])) == sorted([OFF, EXTRA])
-    # the preset's own sync group is left standing
+    # a group that is to be left standing (a virtual pair's own) is not in the way
     house.group(K, [LR])
     assert E.in_the_way(house, cfg, DOWN, keep=set(DOWN)) == []
     assert E.entangled(house, cfg, [OFF]) == {OFF, EXTRA}
@@ -220,8 +226,6 @@ def test_who_leads_is_the_live_group_whatever_the_tap_order(house, cfg):
     assert not E.needs_join([LOFT, OFF], None, found)
     target, found, way = E.play_target(house, cfg, [EXTRA, K], None, [EXTRA, K])
     assert target == EXTRA and found is None and E.needs_join([EXTRA, K], None, found)
-    p = cfg.preset_for_rooms(DOWN)
-    assert E.play_target(house, cfg, DOWN, p, DOWN)[0] == DOWNG and not E.needs_join(DOWN, p, None)
 
 
 # ------------------------------------------------------------- moving music
@@ -231,7 +235,7 @@ def test_transfer_refusals(house, cfg):
     assert E.check_transfer(house, cfg, [OFF], OFF)[0]["message"] == "The music is already there."
     assert "knows" in E.check_transfer(house, cfg, [LOFT], "media_player.tv")[0]["message"]
     house.set(DOWNG, "playing")
-    assert "already on Downstairs" in E.check_transfer(house, cfg, DOWN, DOWNG)[0]["message"]
+    assert "knows" in E.check_transfer(house, cfg, DOWN, DOWNG)[0]["message"], "a Music Assistant group is no room"
     # the leader alone, while it leads a group: let the others go
     house.group(OFF, [LOFT])
     assert E.check_transfer(house, cfg, [OFF], OFF) == (None, None)
@@ -241,7 +245,7 @@ def test_a_move_plans_its_leader_and_what_it_leaves_behind(house, cfg):
     house.set(OFF, "playing", media_content_id="q1")
     assert E.move_plan(house, [LOFT, OFF], OFF, None) == (OFF, [LOFT], True), "add: no queue moves"
     assert E.move_plan(house, [LOFT, EXTRA], OFF, None) == (LOFT, [EXTRA], False)
-    assert E.move_plan(house, DOWN, OFF, cfg.preset_for_rooms(DOWN)) == (DOWNG, [], False)
+    assert E.move_plan(house, DOWN, OFF, None, cfg) == (K, [LR], False), "a preset's rooms: the first leads"
     assert E.transfer_rooms(house, cfg, [LOFT], OFF) == {LOFT, OFF}
     assert not E.arrived(house, LOFT, "q1")
     house.set(LOFT, "playing", media_content_id="other")
@@ -250,51 +254,18 @@ def test_a_move_plans_its_leader_and_what_it_leaves_behind(house, cfg):
     assert E.arrived(house, LOFT, "q1")
     house.group(OFF, [EXTRA])
     assert E.stale(house, cfg, [LOFT], LOFT, OFF) == [OFF, EXTRA]
-    assert E.stale(house, cfg, DOWN, DOWNG, OFF) == [], "a preset's rooms belong to its group"
+    assert E.stale(house, cfg, DOWN, DOWNG, OFF) == [], "a group that is no room keeps its players"
     house.group(LOFT, [EXTRA])
     assert E.already_moved(house, LOFT, [EXTRA])
-    # a preset's rooms picked while a room among them plays: the others join that room, its queue stays
+    # NEW SPEAKERS FOR MUSIC THAT PLAYS: a preset's rooms picked while a room among them plays -- the others
+    # join that room and its queue stays; unticked rooms leave it (stale)
     house.group(OFF, [OFF])
-    every = cfg.preset_for_rooms(ROOMS)
-    assert E.move_plan(house, ROOMS, OFF, every, cfg) == (OFF, [K, LR, LOFT, EXTRA], True)
+    assert E.check_transfer(house, cfg, ROOMS, OFF) == (None, None)
+    assert E.move_plan(house, ROOMS, OFF, None, cfg) == (OFF, [K, LR, LOFT, EXTRA], True)
     assert E.stale(house, cfg, ROOMS, OFF, OFF) == []
-
-
-def test_new_speakers_for_a_group_that_plays_update_it_in_place(house, cfg):
-    """Downstairs playing, Everywhere picked: its queue moved to Everywhere's group, which Music Assistant had
-    left with no members, and the music stopped (2026-11-01). Rooms that share one with the group playing
-    join it and leave it instead; nothing moves its queue."""
-    house.set(DOWNG, "playing", supported_features=GROUPING, group_members=[K, LR])
-    house.group(K, [LR])
-    assert E.update_plan(house, cfg, [K, LR, OFF], DOWNG) == ([OFF], []), "added: it joins"
-    assert E.update_plan(house, cfg, [K], DOWNG) == ([], [LR]), "unticked: it leaves"
-    assert E.update_plan(house, cfg, [LR, OFF, LOFT], DOWNG) == ([OFF, LOFT], [K]), "its leader too"
-    # a preset sharing rooms with it: the preset's other rooms join the group playing
-    every = cfg.preset_for_rooms(ROOMS)
-    assert E.check_transfer(house, cfg, ROOMS, DOWNG) == (None, every)
-    assert E.update_plan(house, cfg, ROOMS, DOWNG) == ([OFF, LOFT, EXTRA], [])
-    # no room shared: the queue moves (move_plan's)
-    assert E.update_plan(house, cfg, [OFF, LOFT], DOWNG) is None
-    # a group that cannot take members, and a room (move_plan adds to a room): not this
-    house.set(DOWNG, supported_features=0)
-    assert E.update_plan(house, cfg, ROOMS, DOWNG) is None
-    house.set(OFF, "playing", supported_features=GROUPING)
-    assert E.update_plan(house, cfg, [OFF, LOFT], OFF) is None
-
-
-def test_a_presets_group_is_made_its_rooms_again_before_it_plays(house, cfg):
-    """A group with dynamic members gives up rooms that play elsewhere (Everywhere's held none: Music Assistant
-    cannot play an empty group) and keeps rooms added to it while it played."""
-    down = cfg.preset_for_rooms(DOWN)
-    assert E.preset_plan(house, cfg, down) == ([], []), "a group that cannot take members: as it is"
-    house.set(DOWNG, "idle", supported_features=GROUPING, group_members=[])
-    assert E.preset_plan(house, cfg, down) == (DOWN, [])
-    house.set(DOWNG, "playing", group_members=[K, LR, OFF])
-    house.group(K, [LR, OFF])
-    assert E.preset_plan(house, cfg, down) == ([], [OFF])
-    # its own rooms are not in its way while it holds the Office: the Office is taken out instead
-    target, found, way = E.play_target(house, cfg, DOWN, down, DOWN)
-    assert target == DOWNG and way == []
+    house.group(OFF, [K, LR, LOFT])
+    assert E.move_plan(house, [OFF, K], OFF, None, cfg) == (OFF, [K], True)
+    assert E.stale(house, cfg, [OFF, K], OFF, OFF) == [LR, LOFT]
 
 
 # ------------------------------------------------------------- the rest
@@ -311,26 +282,29 @@ def test_stop_and_the_buttons(house, cfg):
     assert E.stop_plan(cfg, None) == (True, cfg.room_ids)
     assert E.stop_plan(cfg, [OFF, "media_player.tv"]) == (False, [OFF])
     assert E.stop_plan(cfg, ["media_player.tv"])[1] == []
-    assert E.stop_groups(cfg, True) == [EVERY, DOWNG] and E.stop_groups(cfg, False) == []
+    assert E.stop_groups(cfg, True) == [] and E.stop_groups(cfg, False) == [], "no Music Assistant groups read"
     assert E.new_volume("volume_up", 0.98, None, 0.35) == 1.0
     assert E.new_volume("volume_down", 0.02, None, 0.35) == 0.0
     assert E.new_volume("volume_up", None, None, 0.35) == 0.05
     assert E.new_volume("volume_set", 0.9, None, 0.35) == 0.35
     assert E.new_volume("volume_set", 0.9, 0.555, 0.35) == 0.56
-    assert E.check_player(cfg, DOWNG) is None and E.check_player(cfg, "media_player.tv")["ok"] is False
+    assert E.check_player(cfg, K) is None and E.check_player(cfg, DOWNG)["ok"] is False
+    assert E.check_player(cfg, "preset:p_down")["ok"] is False, "a preset's id is no player"
     house.set(OFF, "unavailable")
     assert "unavailable" in E.check_browse(house, cfg, OFF)["message"]
-    assert E.browse_rooms(house, cfg, DOWNG) == set(DOWN)
+    assert E.browse_rooms(house, cfg, K) == {K}
     assert house.calls == []
 
 
 # ------------------------------------------------------------- the forms and the settings page
 def test_the_shared_checks():
-    assert checks.speakers_errors([], []) == {"speakers": "no_speakers"}
-    assert checks.speakers_errors([K, DOWNG], [DOWNG]) == {"speakers": "group_is_room"}
-    assert checks.preset_errors("", DOWNG, DOWN, ROOMS) == {"name": "no_name"}
-    assert checks.preset_errors("D", K, DOWN, ROOMS) == {"group": "group_is_room"}
-    assert checks.preset_errors("D", DOWNG, ["media_player.tv"], ROOMS) == {"members": "not_a_speaker"}
+    assert checks.speakers_errors([]) == {"speakers": "no_speakers"}
+    assert checks.speakers_errors([K, DOWNG]) == {}, "a Music Assistant group may be a speaker (it plays alone)"
+    assert checks.preset_errors("", DOWN, ROOMS) == {"name": "no_name"}
+    assert checks.preset_errors("D", [], ROOMS) == {"members": "no_members"}
+    assert checks.preset_errors("D", ["media_player.tv"], ROOMS) == {"members": "not_a_speaker"}
+    assert checks.preset_errors("D", [K, OFF], ROOMS, pairs=[OFF]) == {"members": "pair_alone"}
+    assert checks.preset_errors("D", [OFF], ROOMS, pairs=[OFF]) == {}
     assert checks.playlist_errors("P", ["library://playlist/9"], {"library://playlist/1"}) == {"items": "not_in_library"}
     assert checks.playlist_errors("P", ["library://playlist/9"], None) == {}, "an unreadable library refuses nothing"
 
@@ -338,29 +312,24 @@ def test_the_shared_checks():
 def test_settings_changes_are_checked_by_field(house):
     opts = {CONF_SPEAKERS: [K, OFF], CONF_VOLUME: 0.35, CONF_HOMES: {"u1": OFF, "u2": K}}
     players = {K, OFF, LOFT, DOWNG}
-    new, errors = S.apply(opts, {CONF_SPEAKERS: [K, LOFT, K], CONF_VOLUME: 0.456}, players, [DOWNG])
+    new, errors = S.apply(opts, {CONF_SPEAKERS: [K, LOFT, K], CONF_VOLUME: 0.456}, players)
     assert errors == {} and new[CONF_SPEAKERS] == [K, LOFT] and new[CONF_VOLUME] == 0.46
     assert new[CONF_HOMES] == {"u2": K}, "a home that is no longer a speaker is no home"
     assert opts[CONF_SPEAKERS] == [K, OFF], "the stored options are not changed in place"
     _, errors = S.apply(opts, {"nope": 1, CONF_VOLUME: True, CONF_KEEP_READY: "yes",
-                               CONF_SPEAKERS: [DOWNG], CONF_HOMES: {"u1": LOFT}}, players, [DOWNG])
+                               CONF_SPEAKERS: ["media_player.tv"], CONF_HOMES: {"u1": LOFT}}, players)
     assert errors == {"nope": S.MSG["unknown"], CONF_VOLUME: S.MSG["volume"], CONF_KEEP_READY: S.MSG["on_off"],
-                      CONF_SPEAKERS: S.MSG["group_is_room"], CONF_HOMES: S.MSG["homes"]}
-    new, _ = S.apply(opts, {CONF_HOMES: {"u1": None, "u3": K}}, players, [])
+                      CONF_SPEAKERS: S.MSG["not_a_player"], CONF_HOMES: S.MSG["homes"]}
+    new, _ = S.apply(opts, {CONF_HOMES: {"u1": None, "u3": K}}, players)
     assert new[CONF_HOMES] == {"u2": K, "u3": K}
 
 
-def test_a_preset_save_asks_for_the_players_only_when_it_must():
-    asked = []
-
-    def players():
-        asked.append(1)
-        return {DOWNG}
-    assert S.check_preset("", DOWNG, DOWN, ROOMS, players) == {"name": S.MSG["no_name"]} and not asked
-    assert S.check_preset("x" * 61, DOWNG, DOWN, ROOMS, players) == {"name": S.MSG["text"]} and not asked
-    assert S.check_preset("D", K, DOWN, ROOMS, players) == {"group": S.MSG["group_room"]}
-    assert S.check_preset("D", EVERY, DOWN, ROOMS, players) == {"group": S.MSG["not_a_player"]} and asked
-    assert S.check_preset("D", DOWNG, DOWN, ROOMS, players) == {}
+def test_a_preset_save_is_a_name_and_its_rooms():
+    assert S.check_preset("", DOWN, ROOMS) == {"name": S.MSG["no_name"]}
+    assert S.check_preset("x" * 61, DOWN, ROOMS) == {"name": S.MSG["text"]}
+    assert S.check_preset("D", [K, OFF], ROOMS, [OFF]) == {"members": S.MSG["pair_alone"]}
+    assert S.check_preset("D", DOWN, ROOMS) == {}
+    assert S.preset_data("D", DOWN) == {"name": "D", "members": DOWN}, "no group: none plays it"
 
 
 def test_a_playlist_save_goes_last_or_keeps_its_place():
@@ -488,7 +457,7 @@ def test_which_calls_are_announcements_and_what_they_hide(cfg):
     assert A.announced("media_player", "play_media", {"entity_id": K}) == []
     assert A.released("media_player", "media_play", {"entity_id": K}) == [K]
     assert A.released("media_player", "play_media", {"entity_id": K, "announce": True}) == []
-    assert A.hidden(cfg, DOWNG, {DOWNG}) == {DOWNG, *DOWN}
+    assert A.hidden(cfg, DOWNG, {DOWNG}) is None, "a group no list of Music Assistant's names"
     assert A.hidden(cfg, "media_player.porch", {"media_player.porch"}) is None
     assert A.hidden(cfg, "tts.piper", {K}) is None
     assert A.content(State(K, "playing", {"media_title": "Song"})) == (None, "Song", None)
@@ -497,7 +466,7 @@ def test_which_calls_are_announcements_and_what_they_hide(cfg):
 
 # ------------------------------------------------------------- Music Assistant's groups: pairs
 # The Office is a STEREO PAIR (2026-10-30): a Music Assistant group of two HomePods hidden from the
-# house, picked as one speaker. The presets' groups hold its two players themselves.
+# house, picked as one speaker. Music Assistant's other groups hold its two players themselves.
 from hk_core.music import groups as G  # noqa: E402
 
 PIDS = {K: "ap_k", LR: "ap_lr", OFF: "sg_office", LOFT: "ap_loft", EXTRA: "ap_x",
@@ -523,7 +492,7 @@ MA_PLAYERS = ma(
 
 @pytest.fixture
 def pcfg(house):
-    """The house with Music Assistant's groups read: the presets' chosen rooms are stale on purpose."""
+    """The house with Music Assistant's groups read: the presets' rooms differ from their old groups' on purpose."""
     opts = {CONF_SPEAKERS: list(ROOMS), CONF_VOLUME: 0.35, CONF_HOMES: {}}
     items = [preset("p_down", "Downstairs", DOWNG, [K]), preset("p_every", "Everywhere", EVERY, [K, LR]),
              preset("p_half", "Half", "media_player.half", [LOFT])]
@@ -547,55 +516,44 @@ def test_a_speaker_that_is_a_group_is_a_pair(pcfg):
     assert G.kind(["a", "b"]) == "stereo pair" and G.kind(["a", "b", "c"]) == "speaker group"
 
 
-def test_a_presets_rooms_are_its_groups_with_the_pair_folded_back(pcfg):
+def test_a_presets_rooms_are_its_own_whatever_music_assistant_has(house, pcfg):
+    """A PRESET IS MANTEL'S (2026-11-01): the rooms saved with it, never its old group's."""
     by = {p.key: p for p in pcfg.presets}
-    # in the speakers' order, the Office's two players counted once, as the Office
-    assert by["p_every"].members == [K, LR, OFF, LOFT, EXTRA] and by["p_every"].from_ma
-    assert by["p_down"].members == [K, LR] and not by["p_down"].problems
-    assert pcfg.preset_for_rooms([LOFT, OFF, K, LR, EXTRA]).key == "p_every"
-    # half of the pair, and a player that is no speaker: said, and the rest still counted
-    half = by["p_half"]
-    assert half.members == [LOFT] and half.from_ma
-    assert half.problems == [{"code": "part", "room": OFF, "in": ["Office Left HomePod"], "out": ["Office Right HomePod"]},
-                             {"code": "not_a_speaker", "player": "Deck Speaker"}]
-    words = S.preset_extra(pcfg, half)["problems"]
-    assert words[0].startswith("Office Left HomePod is in this group without Office Right HomePod, so Study")
-    assert "Deck Speaker is in this group but isn’t one of Music’s speakers" in words[1]
+    assert by["p_every"].members == [K, LR] and by["p_down"].members == [K] and by["p_half"].members == [LOFT]
+    assert all(p.group is None for p in pcfg.presets)
+    # Music Assistant's groups that are no room: Stop All stops them, and an announcement on one hides its rooms
+    assert pcfg.ma_groups == [DOWNG, EVERY, "media_player.half"]
+    assert E.stop_groups(pcfg, True) == [DOWNG, EVERY, "media_player.half"] and E.stop_groups(pcfg, False) == []
+    assert A.hidden(pcfg, DOWNG, {DOWNG}) == {DOWNG, K, LR}
+    assert DOWNG in pcfg.ma_players() and DOWNG not in pcfg.players()
 
 
-def test_without_music_assistants_groups_the_chosen_rooms_stand(house, cfg):
-    assert cfg.pairs == {} and cfg.groups is None
-    assert [p.members for p in cfg.presets] == [ROOMS, DOWN] and not any(p.from_ma for p in cfg.presets)
-    # a group Music Assistant knows nothing of keeps its chosen rooms too
-    g = G.Groups.read(ma(("ap_k", "Kitchen", "player", [])), {K: "ap_k"})
-    built = MusicConfig.build(house, {CONF_SPEAKERS: list(ROOMS)}, ITEMS, groups=g)
-    assert [p.members for p in built.presets] == [ROOMS, DOWN]
+def test_without_music_assistants_groups_the_presets_rooms_stand(house, cfg):
+    assert cfg.pairs == {} and cfg.groups is None and cfg.ma_groups == []
+    assert [p.members for p in cfg.presets] == [ROOMS, DOWN]
+    # a room no longer a speaker leaves its presets
+    built = MusicConfig.build(house, {CONF_SPEAKERS: [K, OFF]}, ITEMS)
+    assert {p.name: p.members for p in built.presets} == {"Everywhere": [K, OFF], "Downstairs": [K]}
 
 
-def test_a_pair_plays_alone_or_through_a_preset(house, pcfg):
+def test_a_stereo_pair_plays_alone(house, pcfg):
     fail, preset_, rooms = E.play_rooms(house, pcfg, [K, OFF])
     assert preset_ is None and fail == {"ok": False, "message":
-        "Study is a stereo pair, so it plays with other rooms only through a preset: Everywhere."}
+        "Study is a stereo pair, so it plays on its own."}
     assert E.play_rooms(house, pcfg, [OFF]) == (None, None, [OFF])
-    assert E.play_rooms(house, pcfg, [K, LR, OFF, LOFT, EXTRA])[0] is None
-    assert E.play_rooms(house, pcfg, [K, LR]) [0] is None
+    assert E.play_rooms(house, pcfg, [K, LR]) == (None, None, [K, LR])
     # moving music onto the pair and another room: the same refusal, before anything is sent
     house.set(K, "playing")
     fail, _ = E.check_transfer(house, pcfg, [OFF, LOFT], K)
     assert "Study is a stereo pair" in fail["message"]
     assert E.check_transfer(house, pcfg, [OFF], K) == (None, None)
-    # a pair no preset holds all of
-    lone = MusicConfig.build(house, {CONF_SPEAKERS: list(ROOMS)}, [], groups=G.Groups.read(MA_PLAYERS, PIDS))
-    assert E.play_rooms(house, lone, [OFF, K])[0]["message"] == (
-        "Study is a stereo pair, so it plays on its own, or with other rooms through a preset whose "
-        "Music Assistant group holds all of it.")
 
 
 def test_the_settings_page_says_what_music_assistant_has(pcfg):
     page = S.groups_page(pcfg, [DOWNG, EVERY, "media_player.half", OFF, K])
     assert page["ma_groups"] is True
     assert page["pairs"] == {OFF: {"parts": ["Office Left HomePod", "Office Right HomePod"], "kind": "stereo pair"}}
-    # every group a preset could use, never the pair itself, never a single player
+    # every group, never the pair itself, never a single player
     assert set(page["groups"]) == {DOWNG, EVERY, "media_player.half"}
     assert page["groups"][EVERY] == {"rooms": [K, LR, OFF, LOFT, EXTRA], "problems": []}
     assert len(page["groups"]["media_player.half"]["problems"]) == 2
@@ -660,10 +618,8 @@ def test_music_assistants_own_group_of_the_two_is_found_and_presets_fold_the_pai
     assert g.group_of([SL, "media_player.unknown"]) is None
     assert v.pair_groups == {SL: SG} and v.name_of(SG) == "Study"
     by = {p.key: p for p in v.presets}
-    assert by["p_every"].members == [K, SL, LR] and by["p_every"].from_ma and not by["p_every"].problems
-    half = vbuild(house, items=[preset("p_half", "Half", "media_player.half", [K])]).presets[0]
-    assert half.members == [K] and half.problems == [
-        {"code": "part", "room": SL, "in": ["Study Left HomePod"], "out": ["Study Right HomePod"]}]
+    assert by["p_every"].members == [K], "a preset's rooms are its own, not its old group's"
+    assert SG not in v.ma_groups and DOWNG in v.ma_groups, "the pair's own group is the pair's, not Stop All's"
     # without Music Assistant's players: still one room, joined at play time, no group of its own
     assert vbuild(house, players=None).pair_groups == {} and vbuild(house, players=None).partners == {SL: SR}
 
@@ -730,17 +686,9 @@ def test_a_move_off_the_pairs_own_group_hands_its_queue_to_another_room(house):
     house.set(SG, "idle"); house.set(SL, "playing")
     assert E.source_of(house, v, SL) == SL
     assert E.move_plan(house, [SL, K], SL, None, v) == (SL, [SR, K], True)
-    # a group that takes members, playing the Kitchen: the pair joins it with both its players, and leaves so
-    house.set(SL, "idle"); house.group(SL, [SL]); house.group(SR, [SR])
-    house.set(DOWNG, "playing", supported_features=GROUPING, group_members=[K])
-    assert E.update_plan(house, v, [K, SL], DOWNG) == ([SL, SR], [])
-    house.set(DOWNG, group_members=[K, SL, SR])
-    assert E.update_plan(house, v, [K], DOWNG) == ([], [SL, SR])
-    house.set(SG, "playing", supported_features=GROUPING)
-    assert E.update_plan(house, v, [K, SL], SG) is None, "the pair's own group plays the pair alone"
-    # Stop on the pair stops its own group too; Stop All every pair's group and preset's
+    # Stop on the pair stops its own group too; Stop All every Music Assistant group
     assert E.stop_groups(v, False, [SL]) == [SG] and E.stop_groups(v, False, [K]) == []
-    assert E.stop_groups(v, True) == [EVERY, DOWNG, SG]
+    assert E.stop_groups(v, True) == [DOWNG, EVERY, "media_player.half", SG]
 
 
 def test_browse_on_the_pair_plays_as_one(house):
@@ -759,33 +707,33 @@ def test_browse_on_the_pair_plays_as_one(house):
 def test_the_settings_make_and_take_apart_a_pair(house):
     players = {K, LR, SL, SR, DECK, SG, DOWNG}
     opts = {CONF_SPEAKERS: [K, SR, LR], CONF_HOMES: {"u1": SR, "u2": K}}
-    got, err = S.apply(opts, {CONF_PAIRS: [{"players": [SL, SR], "name": " Study Pair "}]}, players, [DOWNG], pairs=True)
+    got, err = S.apply(opts, {CONF_PAIRS: [{"players": [SL, SR], "name": " Study Pair "}]}, players, pairs=True, ma_groups=[DOWNG])
     assert err == {}
     # one speaker, in the place of the first of the two that was one; a home on the second moves to the room
     assert got[CONF_SPEAKERS] == [K, SL, LR] and got[CONF_HOMES] == {"u1": SL, "u2": K}
     assert got[CONF_PAIRS] == [{"players": [SL, SR], "name": "Study Pair"}]
     # the second player can't come back as a speaker of its own while it is paired
-    assert S.apply(got, {CONF_SPEAKERS: [K, SL, SR]}, players, [DOWNG], pairs=True)[1] == {
+    assert S.apply(got, {CONF_SPEAKERS: [K, SL, SR]}, players, pairs=True, ma_groups=[DOWNG])[1] == {
         CONF_SPEAKERS: S.MSG["pair_part"]}
     # taken apart: the second player is a speaker again, just after the first
-    back, err = S.apply(got, {CONF_PAIRS: []}, players, [DOWNG], pairs=True)
+    back, err = S.apply(got, {CONF_PAIRS: []}, players, pairs=True, ma_groups=[DOWNG])
     assert err == {} and back[CONF_SPEAKERS] == [K, SL, SR, LR] and back[CONF_PAIRS] == []
     # the room taken off the speakers takes its pair with it
-    gone, err = S.apply(got, {CONF_SPEAKERS: [K, LR]}, players, [DOWNG], pairs=True)
+    gone, err = S.apply(got, {CONF_SPEAKERS: [K, LR]}, players, pairs=True, ma_groups=[DOWNG])
     assert err == {} and gone[CONF_PAIRS] == [] and gone[CONF_SPEAKERS] == [K, LR]
     # the refusals, by field
     def refused(pairs, **kw):
-        return S.apply(opts, {CONF_PAIRS: pairs}, players, [DOWNG], **{"pairs": True, **kw})[1][CONF_PAIRS]
+        return S.apply(opts, {CONF_PAIRS: pairs}, players, **{"pairs": True, "ma_groups": [DOWNG], **kw})[1][CONF_PAIRS]
     assert refused([{"players": [SL, SL]}]) == S.MSG["pair_two"]
     assert refused([{"players": [SL]}]) == S.MSG["pair_two"]
     assert refused([{"players": [SL, "media_player.nope"]}]) == S.MSG["not_a_player"]
     assert refused([{"players": [SL, DOWNG]}]) == S.MSG["pair_group"]
-    assert refused([{"players": [SL, SG]}], ma_groups=[SG]) == S.MSG["pair_group"]
+    assert refused([{"players": [SL, SG]}], ma_groups=[SG, DOWNG]) == S.MSG["pair_group"]
     assert refused([{"players": [SL, SR]}, {"players": [K, SR]}]) == S.MSG["pair_twice"]
     assert refused([{"players": [SL, SR], "name": "x" * 61}]) == S.MSG["text"]
     assert refused("no") == S.MSG["list"] and refused([{"players": [SL, 5]}]) == S.MSG["list"]
     # a host whose engine doesn't play pairs (HK Frontend in Home Assistant) refuses them
-    assert S.apply(opts, {CONF_PAIRS: []}, players, [DOWNG])[1] == {CONF_PAIRS: S.MSG["no_pairs"]}
+    assert S.apply(opts, {CONF_PAIRS: []}, players)[1] == {CONF_PAIRS: S.MSG["no_pairs"]}
 
 
 def test_the_settings_page_lists_the_pairs_and_their_own_group(house):
@@ -800,23 +748,3 @@ def test_the_settings_page_lists_the_pairs_and_their_own_group(house):
     from hk_core.music.config import virtual_pairs
     assert virtual_pairs({CONF_PAIRS: [{"players": [SL, SR]}, {"players": [SR, K]}, {"players": [K]}, "x"]}) == [
         {"players": [SL, SR], "name": ""}]
-
-
-async def test_a_dynamic_groups_rooms_are_the_ones_its_settings_name():
-    """Its members now change as it plays; its settings keep its rooms. One that cannot be read keeps what it holds."""
-    raw = [{"player_id": "sg1", "type": "group", "supported_features": ["set_members"], "group_members": []},
-           {"player_id": "sg2", "type": "group", "supported_features": [], "group_members": ["a"]},
-           {"player_id": "sg3", "type": "group", "supported_features": ["set_members"], "group_members": ["b"]},
-           {"player_id": "a", "type": "player", "supported_features": ["set_members"], "group_members": []}]
-    asked = []
-
-    async def read(pid):
-        asked.append(pid)
-        if pid == "sg3":
-            raise ConnectionError
-        return {"values": {"group_members": {"key": "group_members", "value": ["a", "b"]}}}
-    got = await G.with_configured(raw, read)
-    assert asked == ["sg1", "sg3"], "only the groups whose members change"
-    assert [p["group_members"] for p in got] == [["a", "b"], ["a"], ["b"], []]
-    assert raw[0]["group_members"] == [], "the list read is left as it was"
-    assert G.configured_members({"values": {}}) is None and G.configured_members(None) is None

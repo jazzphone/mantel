@@ -156,8 +156,6 @@ class HouseMa(FakeMa):
         self.qs = {pid: {"queue_id": pid, "active": True, "shuffle_enabled": False, "repeat_mode": "off",
                          "current_index": 2, "items": 9, "current_item": None} for pid in PID.values()}
         self._players: list | None = None
-        # a group's settings (config/players/get): {group id: the members it is set up with}; else what it holds now
-        self.configured: dict[str, list[str]] = {}
 
     # players/all's answer, when a test gives one (hk_core/music/groups.py: pairs, the presets' rooms): what it says
     # about a player is that player's from then on
@@ -240,10 +238,6 @@ class HouseMa(FakeMa):
                             else list(self.model.values()))
         if cmd == "player_queues/all":
             return await ok(list(self.qs.values()))
-        if cmd == "config/players/get":
-            pid = args["player_id"]
-            return await ok({"player_id": pid, "provider": "sync_group", "values": {"group_members": {
-                "key": "group_members", "value": self.configured.get(pid, self.model[pid].get("group_members"))}}})
         if cmd.startswith("music/") and cmd.endswith("/library_items"):
             return await ok(library_answer(cmd, args))
         if cmd == "player_queues/get_active_queue":

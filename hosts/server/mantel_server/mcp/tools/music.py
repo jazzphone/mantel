@@ -68,7 +68,7 @@ async def music_playlist_save(caller, args: dict) -> dict:
 
 
 async def music_preset_save(caller, args: dict) -> dict:
-    body = {k: args[k] for k in ("name", "group", "members", "item") if k in args}
+    body = {k: args[k] for k in ("name", "members", "item") if k in args}
     return await change(caller, "music_preset_save", args, _music_save(caller, "hk_music/preset/save", body))
 
 
@@ -172,10 +172,10 @@ TOOLS = [
           "order": {"type": "number"}},
          music_playlist_save, needs="settings", required=("name", "items"), write=True),
     Tool("music_preset_save", "Save a speaker preset",
-         "Add a preset (no `item`) or change one: its name, Music Assistant group player and member rooms. Planned first.",
-         {"item": PILL, "name": {"type": "string", "maxLength": 80}, "group": {"type": "string", "maxLength": 255},
+         "Add a preset (no `item`) or change one: its name and member rooms. Planned first.",
+         {"item": PILL, "name": {"type": "string", "maxLength": 80},
           "members": {"type": "array", "items": {"type": "string", "maxLength": 255}, "maxItems": 50}},
-         music_preset_save, needs="settings", required=("name", "group", "members"), write=True),
+         music_preset_save, needs="settings", required=("name", "members"), write=True),
     Tool("music_item_remove", "Remove a pill or preset", "Remove a playlist pill or a preset. Planned first.",
          {"item": PILL}, music_item_remove, needs="settings", required=("item",), write=True, destructive=True),
     Tool("music_pills_order", "Order the playlist pills", "The playlist pills in this order (their ids). Planned first.",

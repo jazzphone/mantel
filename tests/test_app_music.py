@@ -49,53 +49,31 @@ def play(**over):
 
 # ------------------------------------------------------------------------------------------- what plays
 def test_contexts_group_the_house_as_the_screens_do():
-    cfg = {"speakers": [{"name": "Downstairs", "entity": "media_player.downstairs_ma",
-                         "members": ["media_player.kitchen_ma", "media_player.den_ma"]},
-                        {"name": "Kitchen", "entity": "media_player.kitchen_ma"}, {"name": "Den", "entity": "media_player.den_ma"},
-                        {"name": "Cody's Room", "entity": "media_player.cody_ma"}]}
+    K, D, C = "media_player.kitchen_ma", "media_player.den_ma", "media_player.cody_ma"
+    cfg = {"speakers": [{"name": "Downstairs", "entity": "preset:pre1", "members": [K, D]},
+                        {"name": "Kitchen", "entity": K}, {"name": "Den", "entity": D},
+                        {"name": "Cody's Room", "entity": C}]}
     def st(s, **a):
         return {"s": s, "a": a, "lc": 5.0}
-    # a preset playing with all its rooms: one context; a room on its own: another
-    states = {"media_player.downstairs_ma": st("playing", media_title="Song 1"), "media_player.kitchen_ma": st("playing"),
-              "media_player.den_ma": st("playing"), "media_player.cody_ma": st("paused", media_title="Song 2")}
+    # a preset's rooms playing joined: one group, keyed by its leader and named by the preset; a room on its own
+    states = {K: st("playing", media_title="Song 1", group_members=[K, D]), D: st("playing", group_members=[K, D]),
+              C: st("paused", media_title="Song 2")}
     got = app_music.contexts(cfg, states)
-    assert [(c["key"], c["kind"], c["members"]) for c in got] == [
-        ("media_player.downstairs_ma", "preset", ["media_player.kitchen_ma", "media_player.den_ma"]),
-        ("media_player.cody_ma", "room", ["media_player.cody_ma"])]
+    assert [(c["key"], c["kind"], c["members"]) for c in got] == [(K, "group", [K, D]), (C, "room", [C])]
+    assert got[0]["preset"] == "Downstairs" and "preset" not in got[1]
     assert got[0]["playing"] and got[0]["title"] == "Song 1" and not got[1]["playing"]
-    # a stale group whose room went quiet claims nothing; an ad-hoc join is keyed by its leader
-    states["media_player.den_ma"] = st("idle")
-    states["media_player.kitchen_ma"] = st("playing", group_members=["media_player.cody_ma", "media_player.kitchen_ma"])
+    # a preset's id is no player: it is never a context of its own
+    states["preset:pre1"] = st("playing")
+    assert [c["key"] for c in app_music.contexts(cfg, states)] == [K, C]
+    # a group that is not exactly a preset's rooms is no preset; an ad-hoc join is keyed by its leader
+    states = {K: st("playing", group_members=[C, K]), C: st("playing", group_members=[C, K]), D: st("idle")}
     got = app_music.contexts(cfg, states)
-    assert [(c["key"], c["kind"]) for c in got] == [("media_player.cody_ma", "group")]
-    assert got[0]["members"] == ["media_player.cody_ma", "media_player.kitchen_ma"]
+    assert [(c["key"], c["kind"]) for c in got] == [(C, "group")] and "preset" not in got[0]
+    assert got[0]["members"] == [C, K]
     # an announcement is not music, with Ignore Announcements on
     cfg["ignore_announcements"] = True
-    states = {"media_player.cody_ma": st("playing", media_content_id="media-source://tts/x")}
+    states = {C: st("playing", media_content_id="media-source://tts/x")}
     assert app_music.contexts(cfg, states) == []
-
-
-def test_a_pair_counts_in_a_playing_preset_unless_it_plays_something_else():
-    """A pair room (hk_core/music/groups.py) is in a preset by its own players: its group player sits idle."""
-    K, C, G = "media_player.kitchen_ma", "media_player.cody_ma", "media_player.downstairs_ma"
-    cfg = {"speakers": [{"name": "Downstairs", "entity": G, "members": [K, C]},
-                        {"name": "Kitchen", "entity": K}, {"name": "Cody's Room", "entity": C, "pair": ["L", "R"]}]}
-
-    def st(s, **a):
-        return {"s": s, "a": a, "lc": 5.0}
-    states = {G: st("playing", media_content_id="library://playlist/1"), K: st("playing"), C: st("idle")}
-    got = app_music.contexts(cfg, states)
-    assert [(c["key"], c["kind"], c["members"]) for c in got] == [(G, "preset", [K, C])]
-    # a stale pause on the pair's own group player does not hide it either
-    states[C] = st("paused", media_content_id="library://playlist/7")
-    assert [c["kind"] for c in app_music.contexts(cfg, states)] == ["preset"]
-    # the pair PLAYING something else is not in the preset: two things play
-    states[C] = st("playing", media_content_id="library://playlist/7")
-    assert [(c["key"], c["kind"]) for c in app_music.contexts(cfg, states)] == [(K, "room"), (C, "room")]
-    # a room that is no pair still has to be active itself
-    cfg["speakers"][2].pop("pair")
-    states[C] = st("idle")
-    assert [(c["key"], c["kind"]) for c in app_music.contexts(cfg, states)] == [(K, "room")]
 
 
 # ------------------------------------------------------------------------------------------- the routes
@@ -105,7 +83,7 @@ async def test_the_app_reads_the_music_and_sets_its_speaker(house):
     await playing(m, "media_player.den_ma", media_title="Song 3", media_artist="Band", volume_level=0.4)
     r, got = await phone.call("GET", "/api/app/music")
     assert r.status == 200 and got["configured"] is True, got
-    assert [s["entity"] for s in got["speakers"]][:1] == ["media_player.downstairs_ma"]
+    assert [s["entity"] for s in got["speakers"]][:1] == ["preset:pre1"]
     den = [p for p in got["players"] if p["entity"] == "media_player.den_ma"][0]
     assert den["state"] == "playing" and den["attributes"]["media_title"] == "Song 3"
     assert den["attributes"]["volume_level"] == 0.4 and den["name"]

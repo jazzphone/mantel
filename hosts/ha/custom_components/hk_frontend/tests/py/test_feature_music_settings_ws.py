@@ -65,9 +65,10 @@ async def test_the_page_is_the_house_as_configured(hass, music):
     assert p["configured"] and [s["entity"] for s in p["speakers"]] == ROOMS
     assert p["volume"] == 0.35
     assert {x["name"] for x in p["presets"]} == {"Everywhere", "Downstairs"}
+    assert all(set(x) == {"id", "name", "members"} for x in p["presets"]), "a name and its rooms: no group"
     assert len(p["playlists"]) == 11 and p["playlists"][0]["name"] == "Favorites Mix"
     players = {x["entity"] for x in p["players"]}
-    assert set(ROOMS) <= players and {EVERY, DOWNG} <= players, "choices: the speakers and the groups"
+    assert set(ROOMS) <= players, "choices: Music Assistant's players"
     assert any(u["name"] == "Admin" for u in p["users"])
 
 
@@ -81,7 +82,6 @@ async def test_speakers_in_order_and_what_goes_with_them(hass, music):
     assert entry(hass).options["speakers"][:2] == [OFF, K]
     assert entry(hass).options["homes"] == {}, "a home room that is no longer a speaker goes"
     assert _why(await _call(hass, conn, "set", changes={"speakers": []}), "speakers") == "Choose at least one speaker."
-    assert "sync group" in _why(await _call(hass, conn, "set", changes={"speakers": [K, EVERY]}), "speakers")
     assert "Music Assistant player" in _why(await _call(hass, conn, "set", changes={"speakers": ["media_player.tv"]}), "speakers")
     assert entry(hass).options["speakers"][:2] == [OFF, K], "a refusal changes nothing"
 
@@ -102,21 +102,15 @@ async def test_volume_and_home_rooms(hass, music):
 
 async def test_presets_add_edit_and_remove(hass, music):
     conn = await _admin(hass)
-    r = await _call(hass, conn, "preset", name=" Upstairs ", group="media_player.upstairs_group", members=[OFF, LOFT])
-    assert "Music Assistant player" in _why(r, "group"), "the group must be a player the house has"
-    from homeassistant.helpers import entity_registry as er
-    # registered BEFORE its state, or the registry picks ..._2 (the id is taken)
-    er.async_get(hass).async_get_or_create("media_player", "music_assistant", "ups", suggested_object_id="upstairs_group")
-    hass.states.async_set("media_player.upstairs_group", "idle")
-    r = await _call(hass, conn, "preset", name=" Upstairs ", group="media_player.upstairs_group", members=[OFF, LOFT])
+    r = await _call(hass, conn, "preset", name=" Upstairs ", members=[OFF, LOFT])
     assert r["success"], r
     p = [x for x in r["result"]["presets"] if x["name"] == "Upstairs"][0]
     assert p["members"] == [OFF, LOFT]
-    assert _why(await _call(hass, conn, "preset", name="", group=EVERY, members=[K]), "name") == "Give it a name."
-    assert _why(await _call(hass, conn, "preset", name="X", group=EVERY, members=[]), "members") == "Choose the rooms it plays in."
-    assert _why(await _call(hass, conn, "preset", name="X", group=EVERY, members=[EVERY]), "members") == "Every room must be one of the speakers."
-    assert "not a room" in _why(await _call(hass, conn, "preset", name="X", group=K, members=[OFF]), "group")
-    r = await _call(hass, conn, "preset", item=p["id"], name="Up", group="media_player.upstairs_group", members=[LOFT])
+    assert dict(entry(hass).subentries[p["id"]].data) == {"name": "Upstairs", "members": [OFF, LOFT]}
+    assert _why(await _call(hass, conn, "preset", name="", members=[K]), "name") == "Give it a name."
+    assert _why(await _call(hass, conn, "preset", name="X", members=[]), "members") == "Choose the rooms it plays in."
+    assert _why(await _call(hass, conn, "preset", name="X", members=[EVERY]), "members") == "Every room must be one of the speakers."
+    r = await _call(hass, conn, "preset", item=p["id"], name="Up", members=[LOFT])
     assert r["success"] and [x for x in r["result"]["presets"] if x["id"] == p["id"]][0]["name"] == "Up"
     assert entry(hass).subentries[p["id"]].title == "Up"
     r = await _call(hass, conn, "remove", item=p["id"])
@@ -188,7 +182,7 @@ def test_a_playlist_order_is_a_finite_number():
             schema({**base, "order": bad})
 
 
-async def test_a_pair_and_the_presets_rooms_come_from_music_assistant(hass, music):
+async def test_a_pair_comes_from_music_assistant_and_the_presets_rooms_stay_their_own(hass, music):
     """The Office is a STEREO PAIR (hk_core/music/groups.py): a Music Assistant group picked as one speaker,
     its two players hidden from Home Assistant. Read through the client HA's integration holds."""
     from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -227,7 +221,5 @@ async def test_a_pair_and_the_presets_rooms_come_from_music_assistant(hass, musi
     assert Mass.asked[:1] == ["players/all"]
     assert p["ma_groups"] is True and p["pairs"] == {OFF: {"parts": ["Office Left", "Office Right"], "kind": "stereo pair"}}
     by = {x["name"]: x for x in p["presets"]}
-    assert by["Everywhere"]["members"] == ROOMS and by["Everywhere"]["from_ma"] is True
-    assert by["Downstairs"]["members"] == ROOMS[:5] and len(by["Downstairs"]["problems"]) == 1
-    assert by["Downstairs"]["problems"][0].startswith("Office Left is in this group without Office Right")
-    assert got["ok"] is False and "is a stereo pair, so it plays with other rooms only through a preset: Everywhere" in got["message"]
+    assert by["Everywhere"]["members"] == ROOMS and by["Downstairs"]["members"] == ROOMS[:5]
+    assert got["ok"] is False and "is a stereo pair, so it plays on its own" in got["message"]

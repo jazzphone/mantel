@@ -3,9 +3,11 @@
 Built from the feature's options (speakers, volume, each user's home room) and its items
 (presets, playlists). Room names and floors come from the house (each speaker's area and that
 area's floor), so there is nothing to type for them and renaming an area renames its pill.
-With Music Assistant's player list (groups.py), a speaker that is a group is a pair and a
-preset's rooms are its group's own. A VIRTUAL PAIR (docs/phase4/VIRTUAL-PAIRS.md) is two players
-made one room here: its first player is the room, its second plays with it (``partners``).
+With Music Assistant's player list (groups.py), a speaker that is a group is a pair. A PRESET is the
+host's own: a name and its rooms, played as any pick of rooms is, joined under one of them -- no Music Assistant group
+(2026-11-01: a sync group cannot pause, so a pause stopped the music and broke the group up). A VIRTUAL PAIR
+(docs/phase4/VIRTUAL-PAIRS.md) is two players made one room here: its first player is the room, its second
+plays with it (``partners``).
 """
 from __future__ import annotations
 
@@ -16,7 +18,7 @@ from typing import Any, NamedTuple
 from ..house import House, area_of
 from .groups import Groups
 from .const import (
-    CONF_CHOOSER, CONF_GROUP, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS, CONF_MEMBERS,
+    CONF_CHOOSER, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS, CONF_MEMBERS,
     CONF_NAME, CONF_ORDER, CONF_PAIRS, CONF_PLAYERS, CONF_SPEAKERS, CONF_VOLUME, DEFAULT_VOLUME, SUB_PLAYLIST,
     SUB_PRESET,
 )
@@ -33,14 +35,19 @@ class Room:
     index: int = 0          # the order the options listed it
 
 
+PRESET_ID = "preset:"          # a preset's id on the screens: no player, its rooms are
+
+
 @dataclass
 class Preset:
     key: str
     name: str
-    group: str
     members: list[str]
-    from_ma: bool = False       # its rooms are its group's, read from Music Assistant
-    problems: list[dict[str, Any]] = field(default_factory=list)    # groups.GroupRooms.problems
+    group: str | None = None    # a virtual pair's own Music Assistant group (``pair_preset``); a preset has none
+
+    @property
+    def id(self) -> str:
+        return self.group or f"{PRESET_ID}{self.key}"
 
 
 @dataclass
@@ -74,6 +81,7 @@ class MusicConfig:
     groups: Groups | None = None
     partners: dict[str, str] = field(default_factory=dict)        # a virtual pair's room -> its second player
     pair_groups: dict[str, str] = field(default_factory=dict)     # a virtual pair's room -> MA's group of the two
+    ma_groups: list[str] = field(default_factory=list)             # Music Assistant's other groups (Stop All's)
 
     # ---- VIRTUAL PAIRS: the second player folded into its room, and back out for Music Assistant
     def room_of(self, entity: str) -> str | None:
@@ -100,15 +108,17 @@ class MusicConfig:
         if len(rooms) != 1 or rooms[0] not in self.pair_groups:
             return None
         r = rooms[0]
-        return Preset(f"pair:{r}", self.name_of(r), self.pair_groups[r], [r], from_ma=True)
+        return Preset(f"pair:{r}", self.name_of(r), [r], self.pair_groups[r])
 
     def pair_of_group(self, group: str) -> str | None:
         """The virtual pair whose own Music Assistant group ``group`` is."""
         return next((r for r, g in self.pair_groups.items() if g == group), None)
 
     def ma_players(self) -> list[str]:
-        """Every player a request's steps may send to: the commands', the pairs' second players, their groups."""
-        return list(dict.fromkeys(self.players() + list(self.partners.values()) + list(self.pair_groups.values())))
+        """Every player a request's steps may send to: the commands', the pairs' second players, their groups, and
+        Music Assistant's groups (Stop All stops them)."""
+        return list(dict.fromkeys(self.players() + list(self.partners.values()) + list(self.pair_groups.values())
+                                  + self.ma_groups))
 
     @property
     def room_ids(self) -> list[str]:
@@ -119,30 +129,17 @@ class MusicConfig:
             if r.entity == entity:
                 return r.name
         for p in self.presets:
-            if p.group == entity:
+            if p.id == entity:
                 return p.name
         room = self.room_of(entity) or self.pair_of_group(entity)
         return self.name_of(room) if room and room != entity else entity
 
     def players(self) -> list[str]:
-        """Every player a command may name: the presets' groups and the rooms."""
-        return [p.group for p in self.presets] + self.room_ids
-
-    def preset_for_rooms(self, rooms: Iterable[str]) -> Preset | None:
-        want = set(rooms)
-        for p in self.presets:
-            if set(p.members) == want:
-                return p
-        return None
-
-    def preset_for_group(self, group: str) -> Preset | None:
-        return next((p for p in self.presets if p.group == group), None)
+        """Every player a command may name: the rooms (a preset is its rooms)."""
+        return self.room_ids
 
     def playlist(self, key: str | None) -> Playlist | None:
         return next((p for p in self.playlists if p.key == key), None)
-
-    def presets_with(self, room: str) -> list[Preset]:
-        return [p for p in self.presets if room in p.members]
 
     @classmethod
     def build(cls, house: House, options: Mapping[str, Any], items: Iterable[Item],
@@ -150,8 +147,7 @@ class MusicConfig:
         """The configuration from the feature's options and items, named and floored from the
         house. `library_entry`: where the host's library answers from (HA: Music Assistant's
         loaded config entry), or None. `groups`: Music Assistant's players (groups.Groups), or
-        None when they cannot be read -- then no speaker is a pair and every preset keeps the
-        rooms chosen for it."""
+        None when they cannot be read -- then no speaker is a pair."""
         opts = options
         cfg = cls(ignore_announcements=opts.get(CONF_IGNORE_ANNOUNCEMENTS, True),
                   volume=float(opts.get(CONF_VOLUME, DEFAULT_VOLUME)),
@@ -190,18 +186,15 @@ class MusicConfig:
                 g = groups.group_of(two)
                 if g is not None:
                     cfg.pair_groups[r] = g
+            cfg.ma_groups = [e for e in sorted(groups.pids) if groups.is_group(e) and e not in speakers
+                             and e not in cfg.pair_groups.values()]
         for item in items:
             d = item.data
             if item.kind == SUB_PRESET:
-                p = Preset(item.key, d.get(CONF_NAME) or item.title, d[CONF_GROUP], list(d.get(CONF_MEMBERS) or []))
-                # ITS ROOMS ARE ITS GROUP'S: Music Assistant's members, a pair's players folded
-                # back into the pair -- the rooms chosen for it only while those cannot be read
-                got = groups.rooms_of(p.group, speakers, virtual) if groups is not None else None
-                if got is not None:
-                    p.problems = got.problems
-                    if got.rooms:
-                        p.members, p.from_ma = got.rooms, True
-                cfg.presets.append(p)
+                # its rooms are the ones saved with it (a group named by a preset saved before presets were
+                # the host's own is left unread)
+                members = [m for m in d.get(CONF_MEMBERS) or [] if m in speakers]
+                cfg.presets.append(Preset(item.key, d.get(CONF_NAME) or item.title, members))
             elif item.kind == SUB_PLAYLIST:
                 cfg.playlists.append(Playlist(
                     item.key, d.get(CONF_NAME) or item.title,
@@ -240,10 +233,10 @@ class MusicConfig:
             # read at runtime so a re-added MA cannot strand the page.
             "library_entry": self.library_entry,
             "configured": True,
-            # a pair room says so (its players' names): a preset playing through
-            # its group holds it even while the pair's own group player is idle
-            "speakers": [{"name": p.name, "entity": p.group, "members": p.members}
-                         for p in self.presets]
+            # a preset is its rooms: its id is no player (the screens play its rooms); a pair room
+            # says so (its players' names)
+            "speakers": [{"name": p.name, "entity": p.id, "members": p.members}
+                         for p in self.presets if p.members]
                         + [dict({"name": r.name, "entity": r.entity},
                                 **({"pair": self.pairs[r.entity]} if r.entity in self.pairs else {}),
                                 # a virtual pair's two players: the screens fold the second into the room

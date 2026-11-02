@@ -120,8 +120,8 @@ All of it lives in Mantel's host adapter and server. The shared frontend (`web/h
   `playlists/order` are writes or side effects, the gateway's business, and commands stay off.
   - **What the feed keeps:** `configured`, `library_entry` (Music Assistant's config entry id, for
     Browse), `playlists` (names, icons, keys), `volume`, `ignore_announcements`, and the players the
-    person may `view`: speakers and presets (a preset whose group player is hidden goes; a visible
-    preset loses the hidden members), floors (empty ones go) and `announcements`. Any other key HA
+    person may `view`: speakers and presets (a preset is kept when all its rooms are viewable, or its
+    own id is; a kept preset loses the hidden members), floors (empty ones go) and `announcements`. Any other key HA
     adds is dropped.
   - **`home` is always null.** HA answers as Mantel's own HA user, so the per-user home room HA works
     out is that user's, not the person's. The page draws without it (no room preselected) until

@@ -15,9 +15,6 @@ CONF_KEEP_READY = "keep_ready"  # keep the playlists' songs fetched (warm.py); o
 CONF_PAIRS = "pairs"            # VIRTUAL PAIRS (docs/phase4/VIRTUAL-PAIRS.md): [{players: [first, second], name}]
 CONF_PLAYERS = "players"        # a pair's two players: the first is the room, the second plays with it
 
-# ---- a player's supported_features (HA's MediaPlayerEntityFeature)
-GROUPING = 524288               # it takes members: a room, or Music Assistant's dynamic sync group (set_members)
-
 # ---- item (subentry) types: stored with every preset and playlist, so they
 # keep these names
 SUB_PRESET = "preset"
@@ -25,8 +22,7 @@ SUB_PLAYLIST = "playlist"
 
 # ---- preset data
 CONF_NAME = "name"
-CONF_GROUP = "group"            # the Music Assistant SYNC GROUP player
-CONF_MEMBERS = "members"        # its rooms -- HA cannot read them from MA
+CONF_MEMBERS = "members"        # its rooms: the host's own (no Music Assistant group plays a preset)
 
 # ---- playlist data
 CONF_ICON = "icon"

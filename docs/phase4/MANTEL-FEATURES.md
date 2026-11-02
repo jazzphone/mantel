@@ -209,11 +209,11 @@ settings, keyed by Mantel user; or, until then, the one HA had for the HA user t
 device's room. It is sent only if the person may view that speaker. HA's own answer was Mantel's HA user's, so
 the bridge always sent `null`.
 
-**RBAC.** Reads: feature `music`; only the players the subject may `view` (a preset when its sync group or all
-its rooms are viewable; a hidden or nonexistent queue answers `not_found`); the settings page needs `configure` on
+**RBAC.** Reads: feature `music`; only the players the subject may `view` (a preset when all its rooms are
+viewable; a hidden or nonexistent queue answers `not_found`); the settings page needs `configure` on
 settings (HA: `require_admin`). Actions (`classify_service` / `classify_ws`, called from `gateway.classify`):
 `control` on feature `music` and `hk_frontend.music_*` on every room/source/player the call names; Stop All names
-every room and a preset's group is checked as its rooms (`MusicHost.expand`); `queue_play` is
+every room (`MusicHost.expand`); `queue_play` is
 `media_player.play_media` on its player; the settings writes are `configure` on settings. This also fixes the
 fallback: through the gateway those service calls used to be `configure` on settings (Owner/Admin only), and the
 settings writes `control` on music (any Adult). **Wall tablets** get a house grant of `view`/`control` on feature
@@ -242,23 +242,25 @@ failed-start timeout (20 seconds), maximum lifetime (120 seconds), or disconnect
 suppression only; no audio or automation changes are made. The feed filters markers to permitted players.
 Fictional lifecycle, feed and no-command tests pass; live speaker/display acceptance remains after deployment.
 
-**New speakers for music that plays update it in place (2026-11-01).** The house's Music Assistant sync groups have
-dynamic members (`set_members`): their configured rooms are only a preset, and a room that plays somewhere else leaves
-them. Downstairs playing and Everywhere picked moved the queue (`player_queues/transfer`) to Everywhere's group, which
-had no members left by then (MA: "An empty group cannot play media"), and the music stopped. Now
-(`hk_core/music/engine.py` `update_plan`, both hosts' `_update`): when such a group plays and the rooms picked share
-one with it, a preset's rooms too, the new rooms join it (`players/cmd/group_many` onto the group) and the unticked
-ones leave it (`players/cmd/ungroup`, its leader too: MA hands the session on); the queue stays where it is and the
-screen stays on that group. A room that plays, still picked, keeps its music the same way, a preset's rooms picked or
-not (`move_plan`): the others join it. Only a pick that shares no room with what plays moves the queue, as before. A
-virtual pair's own group, a stereo pair and a group that cannot take members are moved as before.
+**Presets are Mantel's own (2026-11-01).** A preset is a name and its rooms, saved in `house/music`, and is
+played as any pick of rooms is: joined under the first of them (`players/cmd/group_many`). No Music Assistant group
+plays it. The house's presets had played through Music Assistant sync groups, and those cannot pause: Music
+Assistant 2.10.9 sends a sync group no pause (`PlayerFeature.PAUSE` is not among the features it takes from its
+members), so a pause became a stop, and an explicit stop dissolves the group. Their members also drifted as they
+played (a room that plays elsewhere leaves; an emptied group cannot play). A room's own pause is a HomePod's.
+Music Assistant still stops a queue paused for 30 seconds (`player_queues/pause`'s `_watch_pause`).
 
-**A preset's rooms are its group's settings (2026-11-01).** Since such a group's members change as it plays, a
-preset's rooms are read from the group's settings in Music Assistant (`config/players/get`'s `values.group_members`, a
-server-only read beside `players/all`, every 30 s; `groups.with_configured`), not from the members it holds now: a
-room added in place no longer joins the preset, and an emptied group no longer loses its rooms. Before a preset's
-group plays, it is made its rooms again (`engine.preset_plan`): the rooms it gave up are grouped back onto it (an
-empty group cannot play), and rooms it took while it played are ungrouped; those are not in its own way.
+- **The settings** (`hk_music/preset/save {item?, name, members}`): no group. A group saved with a preset before
+  is dropped at the next save and never read (`check_doc`, `MusicConfig.build`). A stereo pair can't be in a preset
+  with other rooms (it plays on its own); a virtual pair can.
+- **The screens** get each preset as `{name, entity: "preset:<key>", members}`: its id is for choosing it, never
+  for a command (`hkMusic`'s play targets and the Play Music page's join path use its rooms). A group of rooms that
+  is exactly a preset's is named by it (`hkMusic.label`).
+- **New speakers for music that plays** join it in place (`engine.move_plan`): a pick that still holds the room
+  playing (a preset's rooms too) joins the others to it and lets the unticked rooms go (`stale`); its queue stays.
+  Only a pick without that room moves the queue (`player_queues/transfer`).
+- **Music Assistant's groups** are still read (`players/all`, every 30 s) for stereo pairs, a virtual pair's own
+  group, Stop All (`MusicConfig.ma_groups`: one started elsewhere plays in the rooms) and an announcement's rooms.
 
 **Not on Mantel (documented gaps).**
 - **The failure notifications** HA raises (`music_play_failed`, `speaker_group_failed`, ...: HK's Speakers picker

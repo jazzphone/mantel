@@ -120,7 +120,6 @@ MA_COMMANDS: dict[str, frozenset[str]] = {
 MA_SERVER_READS: dict[str, frozenset[str]] = {
     "music/playlists/playlist_tracks": _ITEM | {"force_refresh"},
     "music/recently_played_items": frozenset({"limit", "media_types", "played_after_timestamp"}),
-    "config/players/get": frozenset({"player_id"}),
 }
 
 

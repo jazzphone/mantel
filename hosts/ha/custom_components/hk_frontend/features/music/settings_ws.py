@@ -8,7 +8,7 @@ at a time:
                                                   homes ({user id: speaker or null}),
                                                   keep_ready (true/false)
     hk_music/settings/library                  -> the library's playlists [{uri, name}]
-    hk_music/preset/save {item?, name, group, members}   (item: the preset's id; none adds one)
+    hk_music/preset/save {item?, name, members}   (item: the preset's id; none adds one)
     hk_music/playlist/save {item?, name, icon, items, chooser, order}
     hk_music/playlists/order {ids}             -> the pills' order
     hk_music/item/remove {item}                -> a preset or a playlist gone
@@ -44,7 +44,7 @@ from ...hk_core.music import settings as S
 from ...hk_core.music.settings import MSG, TEXT_MAX  # noqa: F401 -- names callers read here
 from .. import MUSIC, Feature, async_update, entries
 from .const import (
-    CONF_GROUP, CONF_HOMES, CONF_KEEP_READY, CONF_IGNORE_ANNOUNCEMENTS, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME,
+    CONF_HOMES, CONF_KEEP_READY, CONF_IGNORE_ANNOUNCEMENTS, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME,
     DEFAULT_VOLUME, SIGNAL_CONFIG, SUB_PLAYLIST, SUB_PRESET,
 )
 from .flows import library, playlist_errors, preset_errors, speakers_errors  # noqa: F401
@@ -64,17 +64,12 @@ def _name(hass: HomeAssistant, eid: str) -> str:
     return (ent.name or ent.original_name or eid) if ent else eid
 
 
-def _groups(entry: Feature) -> list[str]:
-    return [str(s.data[CONF_GROUP]) for s in entry.subentries.values()
-            if s.subentry_type == SUB_PRESET and s.data.get(CONF_GROUP)]
-
-
 def _players(hass: HomeAssistant, entry: Feature) -> list[str]:
     """Music Assistant's players, and whatever is already chosen."""
     reg = er.async_get(hass)
     ma = {e.entity_id for e in reg.entities.values()
           if e.platform == "music_assistant" and e.domain == "media_player" and not e.disabled_by}
-    chosen = set(entry.options.get(CONF_SPEAKERS) or []) | set(_groups(entry))
+    chosen = set(entry.options.get(CONF_SPEAKERS) or [])
     return sorted(ma | chosen, key=lambda x: _name(hass, x).casefold())
 
 
@@ -102,8 +97,7 @@ async def page(hass: HomeAssistant) -> dict[str, Any]:
         "volume": float(entry.options.get(CONF_VOLUME, DEFAULT_VOLUME)),
         "homes": dict(entry.options.get(CONF_HOMES) or {}),
         "users": await _users(hass),
-        "presets": [{"id": p.key, "name": p.name, "group": p.group, "group_name": _name(hass, p.group),
-                     "members": p.members, **S.preset_extra(cfg, p)} for p in cfg.presets],
+        "presets": [{"id": p.key, "name": p.name, "members": p.members} for p in cfg.presets],
         "playlists": [{"id": p.key, "name": p.name, "icon": p.icon, "items": p.items,
                        "chooser": p.chooser, "order": p.order} for p in cfg.playlists],
         "players": [{"entity": e, "name": _name(hass, e)} for e in _players(hass, entry)],
@@ -132,7 +126,7 @@ _say = S.say
 def apply(hass: HomeAssistant, entry: Feature, changes: dict[str, Any]
           ) -> tuple[dict[str, Any], dict[str, str]]:
     """The options after `changes`, and the refusals by field (hk_core.music.settings.apply)."""
-    return S.apply(entry.options, changes, set(_players(hass, entry)), _groups(entry))
+    return S.apply(entry.options, changes, set(_players(hass, entry)))
 
 
 @websocket_api.websocket_command({vol.Required("type"): "hk_music/settings/get"})
@@ -181,7 +175,6 @@ _text = S.text
     vol.Required("type"): "hk_music/preset/save",
     vol.Optional("item"): vol.Any(None, str),
     vol.Required("name"): str,
-    vol.Required("group"): str,
     vol.Required("members"): [str],
 })
 @websocket_api.require_admin
@@ -195,13 +188,13 @@ async def ws_preset_save(hass: HomeAssistant, connection, msg: dict[str, Any]) -
     if msg.get("item") and sub is None:
         _refused(connection, msg["id"], {"item": MSG["no_item"]})
         return
-    name, group, members = _text(msg["name"]), msg["group"], list(dict.fromkeys(msg["members"]))
-    errors = S.check_preset(name, group, members, list(entry.options.get(CONF_SPEAKERS) or []),
-                            lambda: _players(hass, entry))
+    name, members = _text(msg["name"]), list(dict.fromkeys(msg["members"]))
+    errors = S.check_preset(name, members, list(entry.options.get(CONF_SPEAKERS) or []),
+                            MusicConfig.from_entry(hass, entry).pairs)
     if errors:
         _refused(connection, msg["id"], errors)
         return
-    data = S.preset_data(name, group, members)
+    data = S.preset_data(name, members)
     if sub is None:
         hass.config_entries.async_add_subentry(entry.house, ConfigSubentry(
             data=MappingProxyType(data), subentry_type=SUB_PRESET, title=name, unique_id=None))

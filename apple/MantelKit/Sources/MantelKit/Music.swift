@@ -117,9 +117,10 @@ public struct MusicState: Codable, Sendable, Equatable {
     public func player(_ entity: String) -> Player? { players.first { $0.entity == entity } }
     public func name(_ entity: String) -> String { speakers.first { $0.entity == entity }?.name ?? player(entity)?.name ?? entity }
 
-    /// hkMusic.label: a preset's name; "Kitchen + Loft" at two; "Kitchen +3" beyond; one room's name.
+    /// hkMusic.label: a preset's name (rooms that are exactly its); "Kitchen + Loft" at two; "Kitchen +3" beyond; one
+    /// room's name.
     public func label(_ c: MusicContext) -> String {
-        if c.kind == "preset" { return name(c.key) }
+        if let p = c.preset { return p }
         let n = c.members.count
         if n == 2 { return name(c.members[0]) + " + " + name(c.members[1]) }
         return n > 2 ? name(c.leader) + " +\(n - 1)" : name(c.leader)
@@ -142,18 +143,14 @@ public struct MusicState: Codable, Sendable, Equatable {
         return [p]
     }
 
-    /// The volume calls for what plays (hk-music.js volumeCalls): a preset's group then its rooms; several rooms
-    /// together; or one room.
+    /// The volume calls for what plays (hk-saver-panel.js volumeCalls): several rooms together, or one room.
     public func volumeTargets(_ c: MusicContext) -> [[String]] {
-        if c.kind == "preset" {
-            let members = presets.first { $0.entity == c.key }?.members ?? c.members
-            return [[c.key], members]
-        }
-        return [c.members.count > 1 ? c.members : [c.key]]
+        [c.members.count > 1 ? c.members : [c.key]]
     }
 }
 
-/// One separate thing the house plays (hkMusic.contexts): a preset, an ad-hoc group (keyed by its leader), or a room.
+/// One separate thing the house plays (hkMusic.contexts): a group (keyed by its leader; `preset` names the preset whose
+/// rooms it is exactly -- a preset is its rooms, its id no player), or a room.
 public struct MusicContext: Codable, Sendable, Hashable, Identifiable {
     public var id: String { key }
     public let key: String
@@ -164,6 +161,7 @@ public struct MusicContext: Codable, Sendable, Hashable, Identifiable {
     public let state: String
     public var title: String = ""
     public var artist: String = ""
+    public var preset: String?
 }
 
 /// `GET /api/app/music/queue`: the songs from the one playing on.

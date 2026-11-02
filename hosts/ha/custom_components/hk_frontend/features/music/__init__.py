@@ -53,7 +53,7 @@ from .. import MUSIC, TITLES, Feature, entries, item_data, loaded, unique_id
 from . import settings_ws
 from .const import (
     ATTR_COMMAND, ATTR_LEVEL, ATTR_PLAYER, ATTR_PLAYLIST, ATTR_ROOMS, ATTR_SOURCE, COMMANDS,
-    CONF_GROUP, CONF_HOMES, CONF_MEMBERS, CONF_SPEAKERS, CONF_VOLUME, DEFAULT_VOLUME, SERVICE_PLAY,
+    CONF_HOMES, CONF_MEMBERS, CONF_SPEAKERS, CONF_VOLUME, DEFAULT_VOLUME, SERVICE_PLAY,
     SERVICE_PLAY_MEDIA, SERVICE_STOP, SERVICE_TRANSFER, SERVICE_TRANSPORT, SIGNAL_CONFIG,
     GROUPS_EVERY, SUB_PLAYLIST, SUB_PRESET, WARM_SOON,
 )
@@ -66,9 +66,9 @@ PLATFORMS: list = []
 RELOAD = False          # the engine reads the feature on every request
 ITEM_TYPES = (SUB_PRESET, SUB_PLAYLIST)
 # The fields that hold entity ids, which an entity rename follows (rename.py):
-# the room players, each user's home room, and a preset's group and rooms.
+# the room players, each user's home room, and a preset's rooms.
 RENAME = {"options": (CONF_SPEAKERS, CONF_HOMES)}
-RENAME_ITEMS = {SUB_PRESET: (CONF_GROUP, CONF_MEMBERS)}
+RENAME_ITEMS = {SUB_PRESET: (CONF_MEMBERS,)}
 
 NO_HOME = "none"
 
@@ -282,14 +282,12 @@ class ReconfigureSteps:
     async def async_step_music_options(self, user_input: dict[str, Any] | None = None
                                        ) -> SubentryFlowResult:
         opts = self._feature.options
-        groups = [str(s.data[CONF_GROUP]) for s in self._feature.subentries.values()
-                  if s.subentry_type == SUB_PRESET and s.data.get(CONF_GROUP)]
         errors: dict[str, str] = {}
         if user_input is not None:
             speakers = list(user_input.get(CONF_SPEAKERS) or [])
             # the integration's options flows share one error table: Music's
             # codes carry its prefix there
-            errors = {k: f"music_{v}" for k, v in speakers_errors(speakers, groups).items()}
+            errors = {k: f"music_{v}" for k, v in speakers_errors(speakers).items()}
             if not errors:
                 self._music_opts = {CONF_SPEAKERS: speakers,
                                     CONF_VOLUME: round(float(user_input[CONF_VOLUME]) / 100, 2)}
@@ -300,7 +298,7 @@ class ReconfigureSteps:
         }
         return self.async_show_form(
             step_id="music_options", errors=errors,
-            data_schema=self.add_suggested_values_to_schema(speakers_schema(groups), suggested))
+            data_schema=self.add_suggested_values_to_schema(speakers_schema(), suggested))
 
     async def async_step_music_homes(self, user_input: dict[str, Any] | None = None
                                      ) -> SubentryFlowResult:

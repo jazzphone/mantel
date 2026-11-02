@@ -18,7 +18,7 @@ def fixture(monkeypatch):
         {'entity_id': 'media_player.native', 'device_id': 'native', 'platform': 'apple_tv', 'unique_id': '11:22:33:44:55:66'},
         {'entity_id': 'media_player.ma', 'platform': 'music_assistant', 'unique_id': 'ap112233445566'},
         {'entity_id': 'media_player.other', 'platform': 'music_assistant', 'unique_id': 'apffffffffffff'}])
-    cfg = NS(ignore_announcements=True, players=lambda: ['media_player.ma', 'media_player.other'], preset_for_group=lambda s: None)
+    cfg = NS(ignore_announcements=True, players=lambda: ['media_player.ma', 'media_player.other'], groups=None, room_ids=[])
     changes = []
     tracker = Announcements(NS(state=states.get), reg, lambda: cfg, lambda: changes.append(tracker.players()))
     return tracker, states, cfg, changes

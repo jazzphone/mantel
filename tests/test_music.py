@@ -259,7 +259,7 @@ async def test_the_feed_is_per_person_and_answered_by_mantel(off):
     assert "error" not in res
     assert ev["configured"] is True and ev["home"] == "media_player.den_ma"
     assert ev["library_entry"] == MF.MA_ENTRY and ev["announcements"] == []
-    assert [s["entity"] for s in ev["speakers"]] == ["media_player.downstairs_ma", "media_player.kitchen_ma",
+    assert [s["entity"] for s in ev["speakers"]] == ["preset:pre1", "media_player.kitchen_ma",
                                                      "media_player.den_ma", "media_player.cody_ma"]
     assert ev["floors"] == [{"name": "Main Floor", "entities": ["media_player.kitchen_ma", "media_player.den_ma"]},
                             {"name": "Upstairs", "entities": ["media_player.cody_ma"]}]
@@ -460,8 +460,7 @@ async def test_commands_off_refuse_every_music_action_and_nothing_reaches_music_
     for i, body in enumerate([play(["media_player.kitchen_ma"]),
                               {"kind": "ws", "msg": {"type": "hk_music/queue_play", "entity_id": "media_player.kitchen_ma",
                                                      "item_id": "qi-3"}},
-                              {"kind": "ws", "msg": {"type": "hk_music/preset/save", "name": "x", "group": "media_player.a",
-                                                     "members": []}}], 1):
+                              {"kind": "ws", "msg": {"type": "hk_music/preset/save", "name": "x", "members": []}}], 1):
         await ws.send_json({"type": "command", "id": i, **body})
         reply = await GF.recv(ws)
         assert reply["code"] == "commands_disabled"
@@ -503,19 +502,28 @@ async def test_play_a_playlist_on_two_rooms_sends_exactly_these_ma_commands(on):
     await ws.close()
 
 
-async def test_a_preset_plays_through_its_sync_group(on):
+async def test_a_preset_plays_as_its_rooms_joined(on):
+    """A PRESET IS ITS ROOMS (2026-11-01): Music Assistant's sync groups cannot pause (a pause stopped the music and
+    broke the group up), so the Downstairs preset's rooms are joined under the first of them, as any pick is."""
     await on.connected()
     await on.login("jamie", "adult")
     ws = await on.socket()
     reply = await on.command(ws, **play(["media_player.kitchen_ma", "media_player.den_ma"]))
-    assert reply["result"]["response"] == {"ok": True, "leader": "media_player.downstairs_ma"}, reply
+    assert reply["result"]["response"] == {"ok": True, "leader": "media_player.kitchen_ma"}, reply
     assert on.ma.sent() == [
+        ("players/cmd/group_many", {"target_player": "ma-kitchen", "child_player_ids": ["ma-den"]}),
         ("players/cmd/volume_set", {"player_id": "ma-kitchen", "volume_level": 30}),
         ("players/cmd/volume_set", {"player_id": "ma-den", "volume_level": 30}),
-        ("player_queues/shuffle", {"queue_id": "ma-downstairs", "shuffle_enabled": True}),
-        ("player_queues/play_media", {"queue_id": "ma-downstairs", "media": ["library://playlist/1"],
+        ("player_queues/shuffle", {"queue_id": "ma-kitchen", "shuffle_enabled": True}),
+        ("player_queues/play_media", {"queue_id": "ma-kitchen", "media": ["library://playlist/1"],
                                       "option": "replace"}),
-        ("player_queues/shuffle", {"queue_id": "ma-downstairs", "shuffle_enabled": True})]
+        ("player_queues/shuffle", {"queue_id": "ma-kitchen", "shuffle_enabled": True})]
+    assert "ma-downstairs" not in json.dumps(on.ma.sent()), "the group saved with it is no player of its"
+    # paused: the Kitchen leads, so the pause is a HomePod's own, not a sync group's (which stops)
+    n = len(on.ma.sent())
+    r = await on.command(ws, id=2, **SVC("music_transport", player="media_player.kitchen_ma", command="play_pause"))
+    assert r["result"]["response"] == {"ok": True}, r
+    assert on.ma.sent()[n:] == [("players/cmd/play_pause", {"player_id": "ma-kitchen"})]
     await ws.close()
 
 
@@ -537,6 +545,7 @@ async def test_a_playlist_gone_from_the_library_is_refused_not_played(on):
 async def test_transfer_stop_transport_browse_and_queue_play(on):
     hub = on.app["hub"]
     await on.connected()
+    await on.app["music"].refresh_groups()          # Music Assistant's groups: Stop All stops them
     await on.playing("media_player.kitchen_ma", media_content_id="library://playlist/1", volume_level=0.5)
     await on.login("jamie", "adult")
     ws = await on.socket()
@@ -574,7 +583,7 @@ async def test_transfer_stop_transport_browse_and_queue_play(on):
     r = await on.command(ws, id=5, **svc("music_stop"))
     assert r["result"]["response"] == {"ok": True}
     stops = on.ma.sent()[n:]
-    assert ("players/cmd/stop", {"player_id": "ma-downstairs"}) in stops            # Stop All: the presets' groups
+    assert ("players/cmd/stop", {"player_id": "ma-downstairs"}) in stops            # Stop All: Music Assistant's groups
     assert {a["player_id"] for c, a in stops if c == "players/cmd/stop"} == {"ma-downstairs", "ma-kitchen", "ma-den",
                                                                               "ma-cody"}
     assert {a["player_id"] for c, a in stops if c == "players/cmd/ungroup"} == {"ma-kitchen", "ma-den", "ma-cody"}
@@ -601,84 +610,68 @@ async def group_playing(env, group, rooms):
     await wait_for(lambda: env.app["hub"].store.states[group]["a"].get("group_members") == rooms)
 
 
-async def test_new_speakers_for_a_group_that_plays_update_it_in_place(on):
-    """Downstairs playing and Everywhere picked moved the queue to Everywhere's group, which Music Assistant had left
-    with no members, and the music stopped (2026-11-01). Now the rooms picked join the group playing and the rooms
-    unticked leave it; only a pick that shares no room with it moves the queue."""
-    on.ma.players = [dynamic("ma-downstairs", DG, ["ma-kitchen", "ma-den"])]
+async def test_new_speakers_for_music_that_plays_join_it_in_place(on):
+    """NEW SPEAKERS FOR MUSIC THAT PLAYS (2026-11-01): the rooms picked join the room playing and the rooms unticked
+    leave it, its queue staying put; only a pick without it moves the queue."""
     await on.connected()
-    await group_playing(on, DG, [K, D])
+    await group_playing(on, K, [K, D])
     await on.login("jamie", "adult")
     ws = await on.socket()
-    r = await on.command(ws, **SVC("music_transfer", rooms=[K, D, C], source=DG))
-    assert r["result"]["response"] == {"ok": True, "leader": DG}, r
-    assert on.ma.sent() == [("players/cmd/group_many", {"target_player": "ma-downstairs",
-                                                        "child_player_ids": ["ma-cody"]})]
+    r = await on.command(ws, **SVC("music_transfer", rooms=[K, D, C], source=K))
+    assert r["result"]["response"] == {"ok": True, "leader": K}, r
+    sent = on.ma.sent()
+    assert sent and all(c == "players/cmd/group_many" and a["target_player"] == "ma-kitchen" for c, a in sent), sent
+    assert "ma-cody" in sent[-1][1]["child_player_ids"]
     # the Den unticked: it leaves, and the music plays on in the Kitchen and Cody's Room
-    r = await on.command(ws, id=2, **SVC("music_transfer", rooms=[K, C], source=DG))
-    assert r["result"]["response"] == {"ok": True, "leader": DG}, r
-    assert on.ma.sent()[1:] == [("players/cmd/ungroup", {"player_id": "ma-den"})]
-    states = on.app["hub"].store.states
-    assert states[DG]["s"] == "playing" and states[DG]["a"]["group_members"] == [K, C]
+    n = len(on.ma.sent())
+    r = await on.command(ws, id=2, **SVC("music_transfer", rooms=[K, C], source=K))
+    assert r["result"]["response"] == {"ok": True, "leader": K}, r
+    sent = on.ma.sent()[n:]
+    assert ("players/cmd/ungroup", {"player_id": "ma-den"}) in sent and "player_queues/transfer" not in json.dumps(sent)
     # no room shared: the queue moves, as before
-    r = await on.command(ws, id=3, **SVC("music_transfer", rooms=[D], source=DG))
+    n = len(on.ma.sent())
+    r = await on.command(ws, id=3, **SVC("music_transfer", rooms=[D], source=K))
     assert r["result"]["response"] == {"ok": True, "leader": D}, r
-    assert on.ma.sent()[2:] == [("player_queues/transfer", {"source_queue_id": "ma-downstairs",
-                                                            "target_queue_id": "ma-den", "auto_play": True})]
+    assert on.ma.sent()[n] == ("player_queues/transfer", {"source_queue_id": "ma-kitchen", "target_queue_id": "ma-den",
+                                                          "auto_play": True})
     assert on.fake.sent == []
     await ws.close()
 
 
-async def test_a_preset_that_shares_rooms_with_the_group_playing_updates_it_in_place(on):
-    """Upstairs (the Den and Cody's Room) playing, the Downstairs preset picked: the Kitchen joins Upstairs' group
-    and Cody's Room leaves it, rather than the queue moving to Downstairs' group."""
+async def test_a_preset_that_shares_rooms_with_the_music_playing_joins_it_in_place(on):
+    """Upstairs (the Den and Cody's Room) playing, the Downstairs preset picked: the Kitchen joins the Den, which
+    keeps the music, and Cody's Room leaves -- no queue moves."""
     doc = json.loads(json.dumps(MF.DOC))
-    doc["items"].append({"kind": "preset", "key": "pre2", "title": "Upstairs",
-                         "data": {"name": "Upstairs", "group": UG, "members": [D, C]}})
+    doc["items"].append({"kind": "preset", "key": "pre2", "title": "Upstairs", "data": {"name": "Upstairs",
+                                                                                        "members": [D, C]}})
     on.app["settings"].store.write([("house", M.MUSIC_DOC, doc)], actor=Actor(label="test"))
-    on.ma.players = [dynamic("ma-downstairs", DG, ["ma-kitchen", "ma-den"]),
-                     dynamic("ma-study-pair", UG, ["ma-den", "ma-cody"])]
     await on.connected()
-    await group_playing(on, UG, [D, C])
+    await group_playing(on, D, [D, C])
     await on.login("jamie", "adult")
     ws = await on.socket()
-    r = await on.command(ws, **SVC("music_transfer", rooms=[K, D], source=UG))
-    assert r["result"]["response"] == {"ok": True, "leader": UG}, r
-    assert on.ma.sent() == [("players/cmd/group_many", {"target_player": "ma-study-pair",
-                                                        "child_player_ids": ["ma-kitchen"]}),
-                            ("players/cmd/ungroup", {"player_id": "ma-cody"})]
-    assert on.app["hub"].store.states[UG]["a"]["group_members"] == [D, K]
+    r = await on.command(ws, **SVC("music_transfer", rooms=[K, D], source=D))
+    assert r["result"]["response"] == {"ok": True, "leader": D}, r
+    sent = on.ma.sent()
+    assert sent[0] == ("players/cmd/group_many", {"target_player": "ma-den", "child_player_ids": ["ma-kitchen"]}), sent
+    assert ("players/cmd/ungroup", {"player_id": "ma-cody"}) in sent and "player_queues/transfer" not in json.dumps(sent)
     await ws.close()
 
 
-async def test_a_presets_rooms_are_its_groups_settings_and_an_emptied_group_is_given_them_back(on):
-    """Music Assistant had left Everywhere's group with no members (it gives up rooms that play elsewhere), so
-    Everywhere read no rooms and could not play (2026-11-01). Its rooms are its settings'; given back before it
-    plays. A group holding a room it took while it played is not in its own way: that room is taken out."""
+async def test_a_presets_rooms_are_its_own_and_music_assistants_groups_are_stop_alls(on):
+    """A preset's rooms are the ones saved with it, whatever its old group holds; Music Assistant's groups are read
+    only for Stop All (one started elsewhere plays in the rooms) and an announcement's rooms."""
     host = on.app["music"]
     on.ma.players = [dynamic("ma-downstairs", DG, [])]
-    on.ma.configured["ma-downstairs"] = ["ma-kitchen", "ma-den"]
     await on.connected()
     await host.refresh_groups()
-    assert host.page()["presets"][0]["members"] == [K, D] and host.page()["presets"][0]["from_ma"] is True
-    assert ("config/players/get", {"player_id": "ma-downstairs"}) in [(f["command"], f["args"]) for f in on.ma.frames]
-    await on.login("jamie", "adult")
+    assert host.page()["presets"] == [{"id": "pre1", "name": "Downstairs", "members": [K, D]}]
+    assert "config/players/get" not in [f["command"] for f in on.ma.frames]
+    assert host.config().ma_groups == [DG]
+    await on.login("jamie", "owner")
     ws = await on.socket()
-    r = await on.command(ws, **play([K, D]))
-    assert r["result"]["response"] == {"ok": True, "leader": DG}, r
-    sent = on.ma.sent()
-    assert sent[0] == ("players/cmd/group_many", {"target_player": "ma-downstairs",
-                                                  "child_player_ids": ["ma-kitchen", "ma-den"]}), sent
-    assert ("player_queues/play_media", {"queue_id": "ma-downstairs", "media": ["library://playlist/1"],
-                                         "option": "replace"}) in sent
-    # Cody's Room added while it plays, then Downstairs played again: Cody's Room leaves; nothing is released
-    await group_playing(on, DG, [K, D, C])
-    n = len(on.ma.sent())
-    r = await on.command(ws, id=2, **play([K, D]))
-    assert r["result"]["response"] == {"ok": True, "leader": DG}, r
-    sent = on.ma.sent()[n:]
-    assert sent[0] == ("players/cmd/ungroup", {"player_id": "ma-cody"}), sent
-    assert not [c for c, a in sent if c in ("players/cmd/pause", "player_queues/transfer")], sent
+    r = await on.command(ws, **SVC("music_stop"))
+    assert r["result"]["response"] == {"ok": True}, r
+    assert ("players/cmd/stop", {"player_id": "ma-downstairs"}) in on.ma.sent()
     await ws.close()
 
 
@@ -696,11 +689,11 @@ async def test_rbac_on_the_rooms_and_nothing_sent_when_refused(on):
     assert r["error"]["code"] == "forbidden", "Stop All names every room: not all of them are Cody's"
     r = await on.command(ws, id=3, kind="service", domain="hk_frontend", service="music_transport",
                          data={"player": "media_player.downstairs_ma", "command": "stop"})
-    assert r["error"]["code"] == "forbidden", "a preset's group is checked as its rooms"
+    assert r["error"]["code"] == "forbidden", "a Music Assistant group is no room of Cody's"
     r = await on.command(ws, id=4, **play(["media_player.cody_ma"]))
     assert r["result"]["response"]["ok"] is True                                  # their own room
     r = await on.command(ws, id=5, kind="ws", msg={"type": "hk_music/preset/save", "name": "Mine",
-                                                   "group": "media_player.downstairs_ma", "members": ["media_player.cody_ma"]})
+                                                   "members": ["media_player.cody_ma"]})
     assert r["error"]["code"] == "forbidden", "the music settings need configure (HA: require_admin)"
     assert {c for c, _a in on.ma.sent()} <= {"players/cmd/volume_set", "player_queues/shuffle", "player_queues/play_media"}
     assert all(a.get("player_id", a.get("queue_id")) == "ma-cody" for _c, a in on.ma.sent())
@@ -753,9 +746,12 @@ async def test_settings_saves_go_to_mantels_store_and_the_feed(on):
                                                    "items": ["library://playlist/404"]})
     assert json.loads(r["error"]["message"]) == {"items": "That playlist isn’t in the Music Assistant library."}
     r = await on.command(ws, id=7, kind="ws", msg={"type": "hk_music/preset/save", "item": "pre1", "name": "Main",
-                                                   "group": "media_player.downstairs_ma",
                                                    "members": ["media_player.kitchen_ma", "media_player.den_ma"]})
-    assert r["result"]["presets"][0]["name"] == "Main"
+    assert r["result"]["presets"][0] == {"id": "pre1", "name": "Main",
+                                         "members": ["media_player.kitchen_ma", "media_player.den_ma"]}
+    item = on.app["settings"].store.get("house", M.MUSIC_DOC).body["items"][0]
+    assert item["data"] == {"name": "Main", "members": ["media_player.kitchen_ma", "media_player.den_ma"]}, \
+        "the group it was saved with before is dropped"
     hist = on.app["settings"].store.history("house", M.MUSIC_DOC)
     assert hist[0]["actor"] is not None and hist[0]["message"] == "hk_music/preset/save"
     assert on.ma.sent() == [] and on.fake.sent == [], "settings are Mantel's: nothing to MA or HA"
@@ -1216,21 +1212,17 @@ async def test_a_pair_comes_from_music_assistant_to_the_page_the_feed_and_the_en
     page = (await on.read(ws, {"type": "hk_music/settings/get"}))["result"]
     assert page["ma_groups"] is True
     assert page["pairs"] == {C: {"parts": ["Cody Left", "Cody Right"], "kind": "stereo pair"}}
-    # the preset's rooms are its group's, read from Music Assistant -- not the two it was saved with
-    assert page["presets"][0]["members"] == [K, D, C] and page["presets"][0]["from_ma"] is True
-    assert page["presets"][0]["problems"] == []
+    # the preset's rooms are the two it was saved with, not its old group's
+    assert page["presets"][0] == {"id": "pre1", "name": "Downstairs", "members": [K, D]}
     assert page["groups"]["media_player.downstairs_ma"] == {"rooms": [K, D, C], "problems": []}
     _r, ev = await on.subscribe(ws, {"type": "hk_music/subscribe"})
     by = {s["entity"]: s for s in ev["speakers"]}
-    assert by[C]["pair"] == ["Cody Left", "Cody Right"] and by["media_player.downstairs_ma"]["members"] == [K, D, C]
-    # the pair with another room, outside a preset: refused before anything is sent
+    assert by[C]["pair"] == ["Cody Left", "Cody Right"] and by["preset:pre1"]["members"] == [K, D]
+    # the pair with another room: refused before anything is sent (a stereo pair plays on its own)
     reply = await on.command(ws, **play([K, C]))
     assert reply["result"]["response"] == {"ok": False, "message":
-        "Cody's Room is a stereo pair, so it plays with other rooms only through a preset: Downstairs."}, reply
+        "Cody's Room is a stereo pair, so it plays on its own."}, reply
     assert on.ma.sent() == []
-    # the three rooms are the preset: played through its group
-    reply = await on.command(ws, id=2, **play([K, D, C]))
-    assert reply["result"]["response"]["leader"] == "media_player.downstairs_ma", reply
     await ws.close()
 
 
@@ -1266,6 +1258,7 @@ async def make_pair(env, name="Reading Nook"):
 
 async def test_a_virtual_pair_is_made_in_settings_and_is_one_speaker_in_the_feed(on):
     await on.connected()
+    await on.app["music"].refresh_groups()          # Music Assistant's groups: never half of a pair
     page = await make_pair(on)
     assert [s["entity"] for s in page["speakers"]] == [K, D, C, SL]
     assert page["speakers"][-1]["name"] == "Reading Nook" and page["pairs_here"] is True
@@ -1347,7 +1340,7 @@ STUDY_GROUP = [dict(MF.ma_player(pid, e), type="group" if e == SG else "player",
          group_members=["ma-kitchen", "ma-den", "ma-study-l", "ma-study-r"])]
 
 
-async def test_music_assistants_own_group_of_the_pair_plays_it_alone_and_a_preset_holds_it(on):
+async def test_music_assistants_own_group_of_the_pair_plays_it_alone(on):
     host = on.app["music"]
     on.ma.players = STUDY_GROUP
     await on.connected()
@@ -1355,8 +1348,8 @@ async def test_music_assistants_own_group_of_the_pair_plays_it_alone_and_a_prese
     assert await host.refresh_groups() in (True, False) and host.config().pair_groups == {SL: SG}
     page = host.page()
     assert page["virtual_pairs"][0]["ma_group"] == "Study Pair Ma"
-    # Downstairs' group holds the Study's two players: the pair is one of its rooms
-    assert page["presets"][0]["members"] == [K, D, SL] and page["presets"][0]["problems"] == []
+    # Downstairs' old group holds the Study's two players: nothing to its rooms, which are its own
+    assert page["presets"][0]["members"] == [K, D]
     await on.login("jamie", "adult")
     ws = await on.socket()
     # the pair alone: through Music Assistant's own group of the two
@@ -1377,16 +1370,17 @@ async def test_music_assistants_own_group_of_the_pair_plays_it_alone_and_a_prese
         ("player_queues/transfer", {"source_queue_id": "ma-study-pair", "target_queue_id": "ma-kitchen",
                                     "auto_play": True}),
         ("players/cmd/group_many", {"target_player": "ma-kitchen", "child_player_ids": ["ma-study-l", "ma-study-r"]})]
-    # the pair, the Kitchen and the Den: exactly Downstairs' rooms, so through its group
+    # the pair, the Kitchen and the Den: joined under the Kitchen, never through Downstairs' old group
     n = len(on.ma.sent())
     r = await on.command(ws, id=3, **play([K, D, SL]))
-    assert r["result"]["response"]["leader"] == "media_player.downstairs_ma", r
+    assert r["result"]["response"]["leader"] == K, r
+    assert "ma-downstairs" not in json.dumps(on.ma.sent()[n:])
     # a playlist on the pair and the Den while the pair's own group plays: that group is stopped first
     await on.playing(SG)
     n = len(on.ma.sent())
     r = await on.command(ws, id=4, **play([D, SL]))
     assert r["result"]["response"] == {"ok": True, "leader": D}, r
     sent = on.ma.sent()[n:]
-    assert sent[0] == ("players/cmd/stop", {"player_id": "ma-study-pair"})
-    assert ("players/cmd/group_many", {"target_player": "ma-den", "child_player_ids": ["ma-study-l", "ma-study-r"]}) in sent
+    join = ("players/cmd/group_many", {"target_player": "ma-den", "child_player_ids": ["ma-study-l", "ma-study-r"]})
+    assert join in sent and sent.index(("players/cmd/stop", {"player_id": "ma-study-pair"})) < sent.index(join)
     await ws.close()

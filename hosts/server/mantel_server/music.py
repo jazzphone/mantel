@@ -74,7 +74,7 @@ from hk_core.music import queue as Q
 from hk_core.music import settings as S
 from hk_core.music.config import Item, MusicConfig
 from hk_core.music.const import (
-    COMMANDS, CONF_CHOOSER, CONF_GROUP, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS,
+    COMMANDS, CONF_CHOOSER, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS,
     CONF_KEEP_READY, CONF_MEMBERS, CONF_NAME, CONF_ORDER, CONF_PAIRS, CONF_PLAYERS, CONF_SPEAKERS, CONF_VOLUME,
     DEFAULT_VOLUME, NOTE_GROUP,
     NOTE_PARTIAL, NOTE_PLAY, NOTE_PRESET, NOTE_STOP, NOTE_TRANSFER, SERVICE_PLAY, SERVICE_PLAY_MEDIA, SERVICE_STOP,
@@ -82,7 +82,7 @@ from hk_core.music.const import (
     GROUPS_EVERY,
 )
 from hk_core.music.engine import ACTIVE, STOPPED, SUPERSEDED
-from hk_core.music.groups import CONFIG_READ, Groups, signature, with_configured
+from hk_core.music.groups import Groups, signature
 from hk_core.music.queue import QUEUE_MAX
 from hk_core.music.warm import Warmer
 
@@ -111,7 +111,7 @@ ITEMS_MAX = 100
 # Every read this module answers in app["read_routes"] has exactly one rule here (tests/test_music.py).
 ROUTE_RULES: dict[str, str] = {
     "hk_music/subscribe": "feature:music; per person/device: only the players the subject may view (a preset when "
-                          "its group or all its rooms are viewable); `home` the person's home room, else the wall "
+                          "all its rooms are viewable); `home` the person's home room, else the wall "
                           "tablet's room; display-only announcement markers. Bridge to HA while Mantel's engine is off",
     "hk_music/queue": "view the media player (media_player.* only), else not_found; limit 1..100; from Music "
                       "Assistant's queue; items {id, title, artist, duration, image}, token-carrying images dropped. "
@@ -230,11 +230,11 @@ def check_doc(body: Any) -> dict[str, Any]:
         seen.add(it["key"])
         d = it.get("data") if isinstance(it.get("data"), Mapping) else {}
         if it["kind"] == SUB_PRESET:
+            # (a group saved with a preset before presets were Mantel's own is dropped: none plays it)
             members = d.get(CONF_MEMBERS)
-            if not isinstance(d.get(CONF_GROUP), str) or not PLAYER.match(d[CONF_GROUP]) or not isinstance(members, list) \
-                    or not all(isinstance(m, str) and PLAYER.match(m) for m in members):
-                raise ValueError("a preset: {name, group, members}")
-            data = {CONF_NAME: _text(d.get(CONF_NAME, "")), CONF_GROUP: d[CONF_GROUP], CONF_MEMBERS: list(members)}
+            if not isinstance(members, list) or not all(isinstance(m, str) and PLAYER.match(m) for m in members):
+                raise ValueError("a preset: {name, members}")
+            data = {CONF_NAME: _text(d.get(CONF_NAME, "")), CONF_MEMBERS: list(members)}
         else:
             uris = d.get(CONF_ITEMS)
             order = d.get(CONF_ORDER, 0)
@@ -271,7 +271,7 @@ def import_page(page: Any, source: str | None = None) -> dict[str, Any] | None:
     items = []
     for p in page.get("presets") or []:
         one = {"kind": SUB_PRESET, "key": p.get("id"), "title": p.get("name"),
-               "data": {CONF_NAME: p.get("name"), CONF_GROUP: p.get("group"), CONF_MEMBERS: p.get("members")}} \
+               "data": {CONF_NAME: p.get("name"), CONF_MEMBERS: p.get("members")}} \
             if isinstance(p, Mapping) else None
         items.append(one)
     for p in page.get("playlists") or []:
@@ -684,7 +684,7 @@ _WS_KEYS = {
     "hk_music/queue_play": ({"entity_id", "item_id"}, set()),
     "hk_music/used": (set(), set()),
     "hk_music/settings/set": ({"changes"}, set()),
-    "hk_music/preset/save": ({"name", "group", "members"}, {"item"}),
+    "hk_music/preset/save": ({"name", "members"}, {"item"}),
     "hk_music/playlist/save": ({"name", "items"}, {"item", "icon", "chooser", "order"}),
     "hk_music/playlists/order": ({"ids"}, set()),
     "hk_music/item/remove": ({"item"}, set()),
@@ -896,7 +896,7 @@ class MantelMusic:
             target, existing, way = E.play_target(self.house, cfg, rooms, preset, members)
             split = E.split(self.house, cfg, way, set(members))
             for leader, rest, _gm in split:
-                moved = await self._move(cfg, rest, leader, cfg.preset_for_rooms(rest))
+                moved = await self._move(cfg, rest, leader, None)
                 if not moved.get("ok"):
                     self._note(NOTE_PRESET if preset else NOTE_GROUP, "Speakers did not release",
                                f"The music in {', '.join(cfg.name_of(r) for r in rest)} could not keep playing "
@@ -929,7 +929,6 @@ class MantelMusic:
                                f"{', '.join(missing) or 'Some rooms'} did not join {cfg.name_of(target)}. Nothing "
                                "is playing -- the group was broken up rather than left wrong.")
                     return {"ok": False, "message": "The speakers did not group."}
-            await self._fill(target, *E.preset_plan(self.house, cfg, preset))
             self._clear(NOTE_GROUP, NOTE_PRESET)
             await self._call("media_player", "volume_set", {"entity_id": E.volume_players(cfg, members),
                                                             "volume_level": cfg.volume})
@@ -980,17 +979,12 @@ class MantelMusic:
             raise
 
     async def _move(self, cfg, rooms, source, preset) -> dict[str, Any]:
-        plan = E.update_plan(self.house, cfg, rooms, source)
-        if plan is not None:
-            return await self._update(cfg, source, *plan)
         leader, others, adding = E.move_plan(self.house, rooms, source, preset, cfg)
         if self._state(source) not in ACTIVE:
             if E.already_moved(self.house, leader, others):
                 return {"ok": True, "leader": leader}
             return {"ok": False, "message": f"{cfg.name_of(source)} is not playing."}
         if not adding:
-            if preset is not None and leader == preset.group:
-                await self._fill(leader, *E.preset_plan(self.house, cfg, preset))
             moving = self._attr(source, "media_content_id")
             await self._call("music_assistant", "transfer_queue",
                              {"entity_id": leader, "source_player": source, "auto_play": True})
@@ -1019,49 +1013,6 @@ class MantelMusic:
         res: dict[str, Any] = {"ok": True, "leader": leader}
         if message:
             res["message"] = message
-        return res
-
-    async def _fill(self, group: str, add: list[str], out: list[str]) -> None:
-        """A preset's group made its rooms again (engine.preset_plan) before it plays. Not refused here: its rooms are
-        checked once it plays."""
-        if add:
-            await self._call("media_player", "join", {"entity_id": group, "group_members": add})
-            await self._wait(add + [group], lambda: all(p in self._members(group) for p in add), JOIN_TIMEOUT)
-        if out:
-            await self._call("media_player", "unjoin", {"entity_id": out})
-            await self._wait(out + [group], lambda: not set(out) & set(self._members(group)), RELEASE_TIMEOUT)
-
-    async def _update(self, cfg, group, add, out) -> dict[str, Any]:
-        """UPDATE IN PLACE (engine.update_plan): the rooms picked join the group that plays and the rest leave it;
-        its queue never moves. Added first, so the group is never left empty."""
-        if self._state(group) not in ACTIVE:
-            return {"ok": False, "message": f"{cfg.name_of(group)} is not playing."}
-        self._clear(NOTE_TRANSFER)
-        notes = []
-        if add:
-            await self._call("media_player", "join", {"entity_id": group, "group_members": add})
-            await self._wait(add + [group], lambda: all(p in self._members(group) for p in add), JOIN_TIMEOUT)
-            missing = list(dict.fromkeys(cfg.name_of(p) for p in add if p not in self._members(group)))
-            if missing:
-                notes.append(f"{', '.join(missing)} did not join.")
-                self._note(NOTE_PARTIAL, "Some speakers did not join",
-                           f"{', '.join(missing)} did not join {cfg.name_of(group)}. The music is playing there.")
-            else:
-                self._clear(NOTE_PARTIAL)
-        if out:
-            await self._call("media_player", "unjoin", {"entity_id": out})
-            gone = lambda p: p not in self._members(group) and len(self._members(p)) <= 1  # noqa: E731
-            await self._wait(out + [group], lambda: all(gone(p) for p in out), RELEASE_TIMEOUT)
-            stuck = list(dict.fromkeys(cfg.name_of(p) for p in out if not gone(p)))
-            if stuck:
-                notes.append(f"{', '.join(stuck)} did not leave.")
-            # only a speaker out on its own: a pause to one still synced is the whole group's
-            loud = [p for p in out if gone(p) and self._state(p) == "playing"]
-            if loud:
-                await self._call("media_player", "media_pause", {"entity_id": loud})
-        res: dict[str, Any] = {"ok": True, "leader": group}
-        if notes:
-            res["message"] = " ".join(notes)
         return res
 
     async def stop(self, rooms: list[str] | None = None) -> dict[str, Any]:
@@ -1271,7 +1222,7 @@ class MusicHost:
         self._sid = itertools.count(1)
         self._sent: dict[int, Any] = {}
         self.started = False
-        # MUSIC ASSISTANT'S PLAYER LIST (hk_core/music/groups.py: pairs, and the presets' rooms), as
+        # MUSIC ASSISTANT'S PLAYER LIST (hk_core/music/groups.py: pairs, and its groups), as
         # refresh_groups last read it; None until it could be. Read every GROUPS_EVERY while running.
         self.ma_players = None
         self._groups_task: asyncio.Task | None = None
@@ -1324,7 +1275,6 @@ class MusicHost:
             return False
         if not isinstance(raw, list):
             return False
-        raw = await with_configured(raw, lambda pid: client.server_read(CONFIG_READ, player_id=pid))
         old, self.ma_players = self.ma_players, raw
         changed = old is None or signature(old) != signature(raw)
         if changed and self._subs:
@@ -1401,9 +1351,6 @@ class MusicHost:
         raw["announcements"] = self.announcements.players() if cfg.ignore_announcements else []
         names = music_players(raw)
         ok = await allowed_ids(self.hooks, identity, "view", sorted(names))
-        for p in cfg.presets:            # a preset its rooms make viewable (its sync group has no room)
-            if p.group not in ok and p.members and all(m in ok for m in p.members):
-                ok.add(p.group)
         out = music_config(raw, ok)
         home = self.home_for(identity, cfg)
         out["home"] = home if home in ok else None
@@ -1530,8 +1477,7 @@ class MusicHost:
     def _players(self, doc: dict) -> list[str]:
         ent = {e.get("entity_id"): e for e in self.hub.registry.entity_entries}
         ma = {e for e in ma_players(self.hub.registry) if not (ent.get(e) or {}).get("disabled_by")}
-        groups = [i["data"][CONF_GROUP] for i in doc["items"] if i["kind"] == SUB_PRESET]
-        chosen = set(doc["options"][CONF_SPEAKERS]) | set(groups)
+        chosen = set(doc["options"][CONF_SPEAKERS])
         return sorted(ma | chosen, key=lambda x: self._name(x).casefold())
 
     def page(self, start: bool = False) -> dict[str, Any]:
@@ -1560,8 +1506,7 @@ class MusicHost:
             "volume": float(opts[CONF_VOLUME]), "homes": homes,
             "users": sorted(({"id": p["id"], "name": p.get("name") or p.get("username") or p["id"]} for p in people),
                             key=lambda u: str(u["name"]).casefold()),
-            "presets": [{"id": p.key, "name": p.name, "group": p.group, "group_name": self._name(p.group),
-                         "members": p.members, **S.preset_extra(cfg, p)} for p in cfg.presets],
+            "presets": [{"id": p.key, "name": p.name, "members": p.members} for p in cfg.presets],
             "playlists": [{"id": p.key, "name": p.name, "icon": p.icon, "items": p.items, "chooser": p.chooser,
                            "order": p.order} for p in cfg.playlists],
             "players": [{"entity": e, "name": self._name(e)} for e in self._players(doc)],
@@ -1600,12 +1545,11 @@ class MusicHost:
         def sub(key: Any, kind: str) -> dict | None:
             return next((i for i in items if i["key"] == key and i["kind"] == kind), None) if key else None
 
-        groups = [i["data"][CONF_GROUP] for i in items if i["kind"] == SUB_PRESET]
         if t == "hk_music/settings/set":
             if not isinstance(a["changes"], dict):
                 raise self._refused({"changes": S.MSG["list"]})
             g = self.config().groups
-            opts, errors = S.apply(doc["options"], dict(a["changes"]), set(self._players(doc)), groups, pairs=True,
+            opts, errors = S.apply(doc["options"], dict(a["changes"]), set(self._players(doc)), pairs=True,
                                    ma_groups=[e for e in self._players(doc) if g is not None and g.is_group(e)])
             if errors:
                 raise self._refused(errors)
@@ -1614,15 +1558,14 @@ class MusicHost:
             it = sub(a.get("item"), SUB_PRESET)
             if a.get("item") and it is None:
                 raise self._refused({"item": S.MSG["no_item"]})
-            if not isinstance(a["name"], str) or not isinstance(a["group"], str) or not isinstance(a["members"], list) \
+            if not isinstance(a["name"], str) or not isinstance(a["members"], list) \
                     or not all(isinstance(m, str) for m in a["members"]):
                 raise self._refused({"name": S.MSG["list"]})
-            name, group, members = S.text(a["name"]), a["group"], list(dict.fromkeys(a["members"]))
-            errors = S.check_preset(name, group, members, list(doc["options"][CONF_SPEAKERS]),
-                                    lambda: self._players(doc))
+            name, members = S.text(a["name"]), list(dict.fromkeys(a["members"]))
+            errors = S.check_preset(name, members, list(doc["options"][CONF_SPEAKERS]), self.config().pairs)
             if errors:
                 raise self._refused(errors)
-            data = S.preset_data(name, group, members)
+            data = S.preset_data(name, members)
             if it is None:
                 items.append({"kind": SUB_PRESET, "key": self._new_key(items), "title": name, "data": data})
             else:
@@ -1708,8 +1651,7 @@ class MusicHost:
         return cmd
 
     def expand(self, cmd: Any) -> Any:
-        """The checks Mantel's engine adds, knowing the configuration: Stop All names every room; a preset's
-        sync group (which has no room) is checked as its rooms."""
+        """The checks Mantel's engine adds, knowing the configuration: Stop All names every room."""
         from .gateway import Check
         m = cmd.music or {}
         if m.get("op") == OP_SERVICE:         # a plain media_player call: its own checks, as for HA's
@@ -1719,11 +1661,7 @@ class MusicHost:
         names = [c.entity_id for c in cmd.checks if c.entity_id]
         if m.get("op") == SERVICE_STOP and not (m.get("args") or {}).get("rooms"):
             names = list(cfg.room_ids)
-        out: list[str] = []
-        for n in names:
-            p = cfg.preset_for_group(n)
-            out += p.members if p is not None else [n]
-        out = list(dict.fromkeys(out))
+        out = list(dict.fromkeys(names))
         keep = [c for c in cmd.checks if c.entity_id is None]
         if not out and keep == cmd.checks:
             return cmd
