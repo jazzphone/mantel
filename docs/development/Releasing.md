@@ -218,7 +218,7 @@ running beside it; minutes vary with the load):
 | Part | Before | Now |
 |---|---|---|
 | `tools/ci.py full` on the release commit | ~7 minutes that day; 258 s here, sorted (the longest step 245 s: the Side Pane's check; then the screensaver Shows', 206 s; 9 steps at once) | 191 s at 14 steps at once, 238 s at 9 (the longest step 184 s; the Shows' in four parts of 45-64 s, the Side Pane's in three) |
-| ...2026-11-02, after every Look under every slide joined the Shows' check | 630 s (four Shows parts of ~510 s each, started late on old times) | `full --all` 318 s (eight Shows parts of 225-290 s, Swipe Between Pages a step per size, step times shared by worktrees); `full` after commits outside the browser checks' inputs: 94 s, every browser check and HK Frontend suite unchanged |
+| ...2026-11-02, after every Look under every slide joined the Shows' check | 630 s (four Shows parts of ~510 s each, started late on old times) | `full --all` 313-326 s (the Shows in eight parts of 225-290 s, then twelve of 157-202 s, which ci.py chose from those times; Swipe Between Pages a step per size; step times shared by worktrees; the run waits on 14 steps at a time, not on its longest step); `full` after commits outside the browser checks' inputs: 94 s, every browser check and HK Frontend suite unchanged |
 | After the version bump and notes | a second full run (another 4-7 minutes) | `tools/ci.py versions`, 27 s, once per release commit |
 | The pre-push hook, each push of a tree that passed | `quick`, 79 s alone (about 90 s beside other work) | the commit messages' private words, 5 s |
 | HK Frontend's publisher | 108 s (its two suites in the built repository) | 9 s with `--no-tests` |

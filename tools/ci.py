@@ -119,7 +119,7 @@ class Step:
     timeout: float = 1800
     # HOW IT RUNS BESIDE THE OTHERS (2026-10-30: one at a time, full took 24 minutes on an 18-core Mac): `first`
     # steps run before everything, in order (the build tools, HK Frontend's build its suites run in); the rest run
-    # side by side (CI_JOBS at once: four more than the cores, at most 22, unless set), except that steps sharing a `lane` run one after another in it
+    # side by side (CI_JOBS at once: three quarters of the cores, at most 14, unless set), except that steps sharing a `lane` run one after another in it
     # (the CDP checks share one fixed DevTools port)
     first: bool = False
     lane: str = ""
@@ -428,9 +428,9 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
     jobs.sort(key=lambda job: -sum(0 if s.name in carried else was.get(s.name, new) for s in job))
     # (13 at once on this 18-core Mac: the browser checks mostly wait, so the cores were two-thirds idle at 9 and
     # the run waited on width, not CPU -- 2026-11-01, 238 s at 9, 191 s at 14, every check steady and no slower)
-    # (2026-11-02, 22 at once here: `full --all` 224 s, not 326 s at 14; ~4 of 18 cores busy, a third of the memory
-    # free at worst. The browser checks mostly wait, so the run waited on width: their seconds add up to ~3900)
-    width = max(1, int(os.environ.get("CI_JOBS") or min(22, max(2, (os.cpu_count() or 4) + 4))))
+    # (2026-11-02, CI_JOBS=22 here: `full --all` in 218-224 s, not ~320 s at 14, ~4 of 18 cores busy -- but two of
+    # three runs failed on load flakes (a WebKit page error, the main suite's timing), each a whole rerun. 14 stays)
+    width = max(1, int(os.environ.get("CI_JOBS") or min(14, max(2, (os.cpu_count() or 4) * 3 // 4))))
     with concurrent.futures.ThreadPoolExecutor(max_workers=width) as pool:
         for f in [pool.submit(lambda job=job: [one(s) for s in job]) for job in jobs]:
             f.result()
@@ -858,7 +858,9 @@ def timing_warnings(results: list[Result], history: dict[str, list[float]], fami
                 how = f"its parts are uneven: {fam} deals its runs out in turn; give it a fairer split"
             out.append(f"{r.name}: {r.seconds:.0f} s, past the {budget:.0f} s one step may take"
                        + (f" (the machine ran at {pace:.1f}x its usual pace)" if pace > 1.05 else "") + f": {how}")
-        elif r.name in ratios and ratios[r.name] > 1.5 * pace and r.seconds - usual[r.name] * pace > 30:
+        # (twice its usual: the main suite and HK Frontend's suites slow more than the waiting browser checks on a
+        # busy machine, 2026-11-02 -- 2x at a 1.1x pace; the Shows' check that grew unseen was 3.4x)
+        elif r.name in ratios and ratios[r.name] > 2 * pace and r.seconds - usual[r.name] * pace > 30:
             out.append(f"{r.name}: {r.seconds:.0f} s, {ratios[r.name] / pace:.1f}x its usual {usual[r.name]:.0f} s"
                        f" (the other steps at {pace:.1f}x): what did this change add to it?")
     return out
