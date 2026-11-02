@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sqlite3
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -432,3 +433,20 @@ def test_the_hourly_log_line_says_the_tick_and_the_history(caplog):
     with caplog.at_level(logging.INFO, logger="mantel.performance"):
         performance.log_summary({"store": store})
     assert "minute tick 12.5 ms" in caplog.text and "settings history 1 versions" in caplog.text
+
+
+async def test_the_tablets_route_says_whether_each_page_is_secure(mantel):
+    """2026-11-02: HK Settings' camera pop-ups note that talking at the door needs HTTPS while a wall tablet's page said
+    it is not a secure context; null before a tablet has said (page_health.py SECURE CONTEXT)."""
+    m = mantel
+    await m.user("jo", "owner")
+    await m.sign_in("jo")
+    ids = {}
+    for name in ("Kitchen", "Hall"):
+        ids[name] = (await (await m.post("/api/devices/enroll", {"name": name, "room": name.lower()})).json())["device"]["id"]
+        m.forget_cookies()
+        await m.sign_in("jo")
+        PH.RING.add(tablet(name, ids[name]), IPAD, now=time.time())
+    PH.RING.add(tablet("Kitchen", ids["Kitchen"]), {"event": "beat", "secure": False, "origin": "http://192.168.1.20"}, now=time.time())
+    rows = {r["name"]: r for r in (await (await m.get("/api/performance/tablets")).json())["tablets"]}
+    assert rows["Kitchen"]["secure"] is False and rows["Hall"]["secure"] is None

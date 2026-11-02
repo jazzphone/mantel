@@ -64,8 +64,8 @@ def constants(path: Path) -> dict[str, object]:
 
 # ------------------------------------------------------------------------------------------ live talk: the rates
 def test_the_live_talk_rates_are_the_same_in_the_gateway_and_in_home_assistant():
-    rates = constants(CORE / "link/talk_live.py")["RATES"]
-    assert tuple(HC.TALK_RATES) == tuple(rates), "ha_client.TALK_RATES and hk_core/link/talk_live.py RATES differ"
+    rates = constants(CORE / "talk/core.py")["RATES"]             # live talk's core (2026-11-02)
+    assert tuple(HC.TALK_RATES) == tuple(rates), "ha_client.TALK_RATES and hk_core/talk/core.py RATES differ"
     for side in (ML, HKF):                                        # both integrations only re-export the shared file
         assert "RATES" in (side / "talk_live.py").read_text()
 

@@ -158,7 +158,7 @@ function update_script() {
 }
 
 # Commands a newer release brings to a container installed before them (mantel-install.sh writes them at install):
-# mantel-setup came with 0.1.113.
+# mantel-setup came with 0.1.114.
 function mantel_commands() {
   local bin="${MANTEL_SBIN:-/usr/local/sbin}"
   if [[ -f "${MANTEL_DIR}/packaging/lxc/mantel-setup.sh" && ! -e "${bin}/mantel-setup" ]]; then

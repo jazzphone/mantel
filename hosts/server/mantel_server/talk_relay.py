@@ -49,6 +49,10 @@ Assistant has let go first); anyone else's audio meanwhile is dropped and they a
 and every other open stream on that speaker hears ``{talker: <name>}`` and then ``{talker: null}``. Home
 Assistant's own ``talker`` events (someone talking outside Mantel) are passed on while no Mantel stream holds the
 floor; its ``busy`` always.
+
+DIRECT (2026-11-02, phase 5): on Docker and the LXC, a doorbell Mantel reaches itself (``app["direct_talk"]``,
+talk_direct.py) gets a ``DirectTalkLink`` instead of Home Assistant's socket: same interface, same decisions here,
+and Mantel opens Protect's talkback session and encodes the audio itself.
 """
 from __future__ import annotations
 
@@ -187,7 +191,7 @@ class TalkRelay:
         commander = self.commander
         if commander is not None and hasattr(commander, "talk_link") and self._may_preconnect(ticket.keys):
             try:
-                ticket.link = commander.talk_link(speaker, LIKELY_RATE, CommandTicket(audit_id, "talk"))
+                ticket.link = self._link(commander, speaker, LIKELY_RATE, audit_id)
                 self._spawn(self._preconnect(ticket.link))
                 # an unused ticket's socket goes when the ticket does, not at the next policy tick
                 asyncio.get_running_loop().call_later(self.ticket_ttl + 0.5, self.sweep)
@@ -195,6 +199,14 @@ class TalkRelay:
                 ticket.link = None              # _run refuses it as before
         self.tickets[token] = ticket
         return {"ticket": token, "expires_in": int(self.ticket_ttl)}
+
+    def _link(self, commander, speaker: str, rate: int, audit_id: int):
+        """The doorbell's side of a talk: Mantel's own (talk_direct.py) where it reaches the doorbell itself,
+        else Home Assistant's socket through Mantel Link. Commands must be on either way (the caller checked)."""
+        direct = self.app.get("direct_talk")
+        if direct is not None and direct.handles(speaker):
+            return direct.link(speaker, rate)
+        return commander.talk_link(speaker, rate, CommandTicket(audit_id, "talk"))
 
     def _may_preconnect(self, keys: frozenset) -> bool:
         held = [t.keys for t in self.tickets.values() if t.link is not None]
@@ -405,7 +417,7 @@ class TalkRelay:
         try:
             link, ticket.link = ticket.link, None
             if link is None:
-                link = commander.talk_link(ticket.speaker, rate, CommandTicket(ticket.audit_id, "talk"))
+                link = self._link(commander, ticket.speaker, rate, ticket.audit_id)
             elif link.rate != rate:
                 link.set_rate(rate)
         except CommandBlocked as exc:

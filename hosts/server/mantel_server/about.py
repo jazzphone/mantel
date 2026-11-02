@@ -7,6 +7,16 @@ Music Assistant, the integrations linked in Home Assistant). Read on every reque
 * **The version** comes from ``RELEASE.json`` at the image root, written by ``tools/stage_ha_app.py`` (the App's
   ``version`` from packaging/ha-app/config.yaml, the commit, the build id, when it was staged). In a checkout
   without it, the App's config.yaml says the version and the commit is ``dev``.
+
+SECURE CONNECTION (2026-11-02, docs/phase13/CAMERAS-DIRECT.md "The HTTPS check"): a browser gives the microphone only
+to a secure page, so talking at the door needs HTTPS. ``/api/about`` says how browsers reach this Mantel
+(``access.mode``, one of ``MODES``) and the public address it was told (``access.public_url``, empty when there is
+none; it is the address people already type, not a secret; ``access.at_address``, true when that address is an IP
+address, Docker's and the LXC's start before ``mantel-setup`` gives Mantel a name, which Set Up Mantel's "Address and
+HTTPS" step (setup_guide.py) explains and the page points to rather than saying again), and each screen works out for itself whether it is a
+secure context. ``GET /api/about/secure`` (an Owner or Admin, never a wall tablet's session) adds the wall tablets
+whose pages said, in their ``load`` and ``beat`` frames (page_health.py), that they are not: their names and
+addresses are for the people who manage the house, so they are not in ``/api/about``.
 """
 from __future__ import annotations
 
@@ -18,11 +28,17 @@ from typing import Any
 
 from aiohttp import web
 
+from . import setup_guide
 from .config import REPO
 from .guards import guard
 
 RELEASE = "RELEASE.json"
 PATH = "/api/about"
+SECURE_PATH = "/api/about/secure"
+# how browsers reach Mantel, for the Secure Connection row: Mantel's own HTTPS (the App's direct access with
+# direct_tls "acme"), the home's own proxy in front of it (Caddy in the compose stack, or the App's direct access on
+# plain HTTP), Home Assistant's sidebar (Ingress: HA's own scheme and certificate), or plain HTTP
+MODES = ("builtin_https", "proxy", "ha_sidebar", "http")
 _STARTED = time.time()
 _VERSION = re.compile(r'^version:\s*"?([0-9A-Za-z.+-]{1,32})"?\s*$', re.M)
 
@@ -52,6 +68,19 @@ def install_kind(cfg: Any) -> str:
         str(getattr(cfg, "ha_url", "")).startswith("http://supervisor/") else "Container"
 
 
+def access_mode(cfg: Any) -> str:
+    """How browsers reach this Mantel (``MODES``), from the same settings ``__main__`` describes them by.
+
+    The HA App's direct access (``direct_port``) is the address a tablet should use, so it names the mode even though
+    the sidebar works too; without it the App is only its sidebar. A container is behind a proxy exactly when it was
+    given an https public address (parse_args refuses a non-loopback listener without one), else plain HTTP."""
+    if getattr(cfg, "direct_port", 0):
+        return "builtin_https" if getattr(cfg, "direct_tls", "") == "acme" else "proxy"
+    if install_kind(cfg) == "Home Assistant App" or getattr(cfg, "connect", False):
+        return "ha_sidebar"
+    return "proxy" if str(getattr(cfg, "public_url", "")).startswith("https://") else "http"
+
+
 def about(app: web.Application, now: float | None = None) -> dict[str, Any]:
     now = time.time() if now is None else now
     hub, cfg = app.get("hub"), app.get("cfg")
@@ -77,8 +106,25 @@ def about(app: web.Application, now: float | None = None) -> dict[str, Any]:
                             "configured": ma is not None},
         "linked": clients,
         "commands": bool(getattr(cfg, "commands_enabled", False)),
+        "access": {"mode": access_mode(cfg), "public_url": str(getattr(cfg, "public_url", "") or ""),
+                   "at_address": install_kind(cfg) == "Container" and setup_guide.address_host(cfg)[1]},
         "docs": "/docs",
     }
+
+
+def insecure_tablets(app: web.Application, now: float | None = None) -> list[dict[str, Any]]:
+    """The enrolled wall tablets whose latest report (page_health.RING, the last 24 hours) says their page is not a
+    secure context: ``{name, origin, last_seen}``, by name. A tablet that is revoked or forgotten is left out, and so
+    is one that never said (a page from before the report)."""
+    from . import page_health
+    mgr = app.get("devices")
+    out = []
+    for r in page_health.RING.secure_reports(now):
+        row = mgr.get(r["id"]) if mgr is not None else None
+        if row is None or row["revoked"] is not None or r["secure"]:
+            continue
+        out.append({"name": row["name"], "origin": r["origin"], "last_seen": r["last_seen"]})
+    return sorted(out, key=lambda t: t["name"].lower())
 
 
 @guard("signed_in")
@@ -86,5 +132,12 @@ async def api_about(request: web.Request) -> web.Response:
     return web.json_response(about(request.app), headers={"Cache-Control": "no-store"})
 
 
+@guard("manager")
+async def api_about_secure(request: web.Request) -> web.Response:
+    now = time.time()
+    return web.json_response({"now": now, "tablets": insecure_tablets(request.app, now)}, headers={"Cache-Control": "no-store"})
+
+
 def register(app: web.Application) -> None:
     app.router.add_get(PATH, api_about)
+    app.router.add_get(SECURE_PATH, api_about_secure)

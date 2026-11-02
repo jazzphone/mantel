@@ -314,4 +314,28 @@ after the ticket"); the log since the 0.1.113 restart has no talk in it yet.
   The stack's own go2rtc image (`transcode`, go2rtc 1.9.9) played it over WebRTC in Chromium and WebKit, on the
   owner's iPad in Safari with sound, and on the Master Bathroom wall tablet (Android 16, pushed there with Kiosk
   Satellite's `open_url` and put back with `close_url`), the owner confirming the sound.
+- 2026-11-02: what the console says about the public API. A bad key is `401 {"error":{"code":401,"message":"Unauthorized"}}`.
+  Requests are rate-limited per key, `ratelimit-policy: "10-in-1sec"` (a fast second snapshot got `429`), so the
+  client paces itself. `GET /v1/cameras/{id}/snapshot` is ~400 KB at 1600x1200. The events socket
+  (`/v1/subscribe/events`) sends `{"type": "add"|"update", "item": {"id", "modelKey": "event", "type": "motion",
+  "start" (ms), "device": <camera id>}}`; an `add` reached us about 3.4 s after its `start`. Models in the house:
+  UVC G4 Doorbell Pro, G4 Pro, G5 Flex, G6 Bullet, G6 Turret. The house's key was made under the owner's own
+  admin account (no Mantel user yet), so whether a key dies with its user is still open: until a console shows
+  it, the setup page says to revoke Mantel by deleting its key.
+- 2026-11-02, 12:56 UTC: a real ring (the owner, chime off). Protect's public events socket delivered
+  `{"type": "add", "item": {"type": "ring", "start", "end" (start + 10 s), "device"}}` **2.02 s** after the ring's own
+  `start`; Home Assistant's `event.front_door_camera_doorbell` changed at **2.03 s**, 12 ms later. So the direct
+  event path does not make the doorbell sheet come up sooner: the console's own ~2 s is most of it, and whatever
+  ring-to-sheet gains Docker/LXC has come from the sheet's side (no HA hop for the video), measured in phase 5. A
+  person at the door came as `smartDetectZone` `["person"]`, then updates adding `"face"` and its `end`, each
+  update sent two or three times.
+
+- 2026-11-02: phase 1 built: wall tablets send `secure` and `origin` with their `load` and `beat` frames (`page_health.py`),
+  About gets a Secure Connection row and page (`about.py`, `GET /api/about/secure` for managers, `settings/secure.js`),
+  and the camera pop-ups in HK Settings carry the note; the doorbell sheet's own Needs HTTPS state is left to phase 2.
+- 2026-11-02: phase 5, first part: live talk's core (the Pacer, the encoder, the Floor) moved to
+  `hk_core/talk/core.py` with nothing of Home Assistant's (Mantel Link vendors it beside `link/`), and
+  `talk_direct.py` lets the relay talk at a Protect doorbell itself (`DirectTalkLink`, a drop-in for Home
+  Assistant's socket). PyAV (av 19.0.2) joins the server image: **about 92 MB** (av 38 MB, its ffmpeg libraries
+  54 MB; the arm64 image measured 811 MB with it).
 

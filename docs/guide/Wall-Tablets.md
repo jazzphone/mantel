@@ -135,6 +135,16 @@ The top of the page has Mantel's own numbers: how long it takes to build and sen
 
 **A lighter screen for a slow tablet.** Each tablet also measures how many frames a second it draws (5 seconds, while nobody is touching it and the screen is lit). When one draws fewer than 45 on a screen, that screen's **Appearance** suggests one change, for example *"Kitchen Tablet draws 38 frames a second with Blur. Glass looks almost the same and is lighter."* The button changes that screen only, and **Use Flat** is beside it. The suggestions go in order of what costs the most: the style (**Blur**, **Frosted** or **Tinted** to **Glass**), then **Rain & Snow**, **Moving Things** in front of the cards, **Animations**, and a camera playing live. After you take one, nothing more is suggested until the tablet has measured again (up to an hour later) and is still under 45. **All Screens** → **Appearance** lists each screen with a suggestion. Nothing changes until you tap one.
 
+### Talking at the door needs HTTPS
+
+A browser gives the microphone only to a secure page: one opened by an `https://` name with a certificate the tablet trusts. Opened by an IP address, or over plain `http://`, the doorbell pop-up leaves its talk button out and says nothing. **Mantel Settings** → **About** → **Secure Connection** says whether it will work:
+
+- **This Screen** shows whether the screen you're looking at is a secure page, and the address it was opened by. If Mantel has a public address, it says so when this screen is on an IP address or on `http://` instead.
+- **Mantel** shows how people reach Mantel: its own built-in HTTPS, behind your own proxy, Home Assistant's sidebar (Home Assistant's own address and certificate decide there), or plain HTTP.
+- **Wall Tablets**, for an Owner or Admin, lists each tablet whose page last said it isn't secure, with the address it opened. Each page tells Mantel every minute, so the list is current within one, even after Mantel restarts. A tablet that hasn't been heard from in 24 hours isn't listed.
+
+The fix for a listed tablet is to open Mantel by its `https://` name, not its IP address, in Fully Kiosk's **Start URL**. On Docker and the Proxmox LXC, Mantel starts at the machine's own address with its own certificate and has no name yet: run `mantel-setup` on it to give it one (Mantel Settings → **Set Up Mantel** → **Address and HTTPS**, and [Install with Proxmox LXC](Install-Proxmox-LXC.md) say how), and the page points there instead of saying it again. The camera pop-ups in HK Settings carry a note ("Talking at the door needs HTTPS") while this screen or any wall tablet isn't secure.
+
 ## Reload and Clear Cache from Mantel
 
 An Owner can let Mantel reach a tablet's kiosk app directly (Kiosk Satellite, or Fully Kiosk Browser with its Remote Administration on):
