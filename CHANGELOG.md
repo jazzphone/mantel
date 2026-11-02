@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- Proxmox LXC: Mantel follows a change of the container's address (a new DHCP lease, a static address set after the install). It was published only on the address the install saw, so it stopped (with your own proxy) or answered on the old address. The new address now replaces the old one at each start of the container (`mantel-address.service`), on `update` and on `mantel-setup`. The install log no longer says Mantel isn't running when the Proxmox install starts it.
+
 ## 0.1.114 - 2026-11-02
 
 **Changed**

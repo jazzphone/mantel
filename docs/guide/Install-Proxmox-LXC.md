@@ -25,6 +25,8 @@ Whatever you choose, **Mantel starts**, and the last screen shows its address an
 
 **Changing it later:** in the container's console (`pct enter <id>`, or the console in Proxmox), run `mantel-setup`. It asks the same question, shows what you have now as the default, writes the settings and the token's secret file, and starts Mantel again on the new address. Mantel Settings → **Set Up Mantel** → **Address and HTTPS** says the same while Mantel is on its address.
 
+**If the container's address changes** (a new DHCP lease, or a static address you set after the install), Mantel follows it: at each start of the container, and on `update` or `mantel-setup`, the new address replaces the old one in its settings and Mantel starts again there. Your proxy or your DNS still points at the old address until you change it there, so give the container a fixed address (a DHCP reservation in your router, or a static address in Proxmox) before you point anything at it.
+
 Every question can be answered ahead of time, so it runs unattended too:
 
 ```bash

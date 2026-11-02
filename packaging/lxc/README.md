@@ -18,6 +18,7 @@ pct enter <id>                            # then: cd /opt/mantel/packaging/compo
                                           # browser: /login "First start" (that code), then Mantel Settings -> Connections
 mantel-update                             # inside: update with automatic rollback (registry images)
 mantel-setup                              # inside: how browsers reach Mantel (try, a name, your domain, your proxy)
+                                          # (a changed container address is followed at boot: mantel-address.service)
 bash packaging/lxc/mantel.sh push <id>    # on the host: send a newer checkout and update (a build, or that
                                           # version's published images)
 bash packaging/lxc/mantel.sh restore <id> <backup.mbk> [<mantel-keys.json>]

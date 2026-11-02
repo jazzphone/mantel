@@ -54,7 +54,7 @@ msg_info "Installing Mantel (Docker, keys, settings and images; building them ta
 if [[ "${ENABLE_GPU:-${var_gpu:-no}}" == "yes" && -c /dev/dri/renderD128 ]]; then GPU=yes; else GPU=no; fi
 LAN_IP="$(hostname -I | awk '{print $1}')"
 MANTEL_INSTALL_MODE="auto" MANTEL_GPU="$GPU" MANTEL_CONNECT="$CONNECT" MANTEL_TLS="internal" MANTEL_DNS="cloudflare" \
-  MANTEL_DOMAIN="$LAN_IP" MANTEL_PROXY_IP="" MANTEL_TUNNEL="no" \
+  MANTEL_DOMAIN="$LAN_IP" MANTEL_PROXY_IP="" MANTEL_TUNNEL="no" MANTEL_STARTS_IT="yes" \
   bash /opt/mantel/packaging/lxc/mantel-install.sh >/root/mantel-install.log 2>&1 || {
   cat /root/mantel-install.log
   msg_error "Mantel's installer failed (above; also in /root/mantel-install.log)"

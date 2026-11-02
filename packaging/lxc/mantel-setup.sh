@@ -4,6 +4,11 @@
 #
 #   mantel-setup              ask, change packaging/compose/.env and the secret files, start Mantel again
 #   mantel-setup --install    the same without the start (the LXC install starts Mantel itself afterwards)
+#   mantel-setup --address    only follow a changed container address, starting Mantel again if it changed (at boot,
+#                             mantel-address.service); with --install too it changes .env alone (`update` starts it)
+#
+# Every run first follows the container's address: one changed since the install (a new DHCP lease, a static address
+# set later) is put everywhere .env had the old one, which Mantel's published ports and allowed hosts depend on.
 #
 # Four ways (docs/guide/Install-Proxmox-LXC.md):
 #   try       https://<this container's address>, with Mantel's own certificate: works with nothing else, the
@@ -21,7 +26,10 @@ COMPOSE_DIR="${MANTEL_COMPOSE_DIR:-/opt/mantel/packaging/compose}"
 SECRETS_DIR="${MANTEL_SECRETS_DIR:-/etc/hk/secrets}"
 ENV_FILE="$COMPOSE_DIR/.env"
 RESTART=yes
-[ "${1:-}" = "--install" ] && RESTART=no
+ADDRESS_ONLY=no
+for arg in "$@"; do
+  case "$arg" in --install) RESTART=no ;; --address) ADDRESS_ONLY=yes ;; *) ;; esac
+done
 
 say()  { printf '%s\n' "$*"; }
 die()  { printf 'mantel-setup: %s\n' "$*" >&2; exit 1; }
@@ -49,9 +57,47 @@ dns_secrets() {  # the secret files each DNS host's Caddy snippet reads (as mant
   esac
 }
 
+this_address() {  # the container's address now: the one its default route leaves from, else its first one
+  if [ -n "${MANTEL_HOST_IP:-}" ]; then echo "$MANTEL_HOST_IP"; return; fi
+  local a
+  a="$(ip -4 -o route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p')"
+  [ -n "$a" ] || a="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  echo "$a"
+}
+
+follow_address() {  # follow_address OLD NEW: NEW wherever .env's address settings had OLD (MANTEL_TRUSTED_PROXY is the proxy's)
+  local old_re key value moved
+  old_re="$(printf '%s' "$1" | sed 's/\./\\./g')"
+  for key in MANTEL_HOSTNAME MANTEL_ALLOW_HOSTS MANTEL_HTTP_BIND MANTEL_CONNECT_ADDRESS; do
+    value="$(env_get "$key")"
+    [ -n "$value" ] || continue
+    moved="$(printf '%s' "$value" | sed -E "s/(^|[^0-9.])${old_re}([^0-9.]|$)/\1$2\2/g")"
+    if [ "$moved" != "$value" ]; then set_env "$key" "$moved"; fi
+  done
+}
+
 LAN_IP="$(env_get MANTEL_LAN_IP)"
-[ -n "$LAN_IP" ] || LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+HERE="$(this_address)"
+MOVED=no
+if [ -n "$HERE" ] && [ "$HERE" != "$LAN_IP" ]; then
+  if [ -n "$LAN_IP" ]; then
+    say "This container's address changed: ${LAN_IP} -> ${HERE}. Mantel follows it."
+    follow_address "$LAN_IP" "$HERE"
+    MOVED=yes
+  fi
+  set_env MANTEL_LAN_IP "$HERE"
+  LAN_IP="$HERE"
+fi
 [ -n "$LAN_IP" ] || die "MANTEL_LAN_IP is not set in $ENV_FILE"
+
+if [ "$ADDRESS_ONLY" = yes ]; then
+  if [ "$MOVED" = yes ] && [ "$RESTART" = yes ]; then
+    say "Starting Mantel again at its new address..."
+    cd "$COMPOSE_DIR"
+    docker compose up -d --wait --wait-timeout 300 --remove-orphans
+  fi
+  exit 0
+fi
 
 current_mode() {
   local files snippet

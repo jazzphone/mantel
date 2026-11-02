@@ -2,7 +2,7 @@
 # Runs INSIDE the Mantel container (mantel.sh executes it with pct exec). Debian 13, as root.
 # Installs Docker + Compose, prepares the secret folder and .env, and pulls this version's published images
 # (ghcr.io/jazzphone/mantel-*:<version>), or builds them from the copied source when they are not published.
-# It does NOT start Mantel (printed at the end). Home Assistant is connected afterwards in the browser
+# It does NOT start Mantel (printed at the end; the Proxmox install, MANTEL_STARTS_IT=yes, starts it itself). Home Assistant is connected afterwards in the browser
 # (/admin -> Connections), so no token file has to be handled.
 # Idempotent: running it again keeps your .env and secret files.
 set -euo pipefail
@@ -99,6 +99,8 @@ cat > /usr/local/sbin/mantel-setup <<'EOS'
 exec bash /opt/mantel/packaging/lxc/mantel-setup.sh "$@"
 EOS
 chmod 0750 /usr/local/sbin/mantel-secret /usr/local/sbin/mantel-setup; chmod 0755 /usr/local/bin/mantel-update
+# at each boot, after Docker: a container address changed since the install is followed (mantel-setup --address)
+bash "$INSTALL_DIR/packaging/lxc/mantel-address.sh" install
 
 msg_info "Settings file ${COMPOSE_DIR}/.env (settings only; keeps yours if it exists)"
 if [ ! -f "$COMPOSE_DIR/.env" ]; then
@@ -177,6 +179,12 @@ fi
 if [ "$MODE" = "build" ]; then
   msg_info "Building the images from the copied source (several minutes)"
   ( cd "$COMPOSE_DIR" && docker compose build ) || warn "the build failed. If it names a sha256:0000 digest, pin the base images (docs/phase3/PACKAGING.md), then run: cd $COMPOSE_DIR && docker compose build"
+fi
+
+# the Proxmox install (packaging/proxmox/install) asks how browsers reach Mantel and starts it itself
+if [ "${MANTEL_STARTS_IT:-no}" = yes ]; then
+  printf '\nInstalled. The Proxmox install asks how browsers reach Mantel (mantel-setup) and starts it next.\n'
+  exit 0
 fi
 
 cat <<EOF

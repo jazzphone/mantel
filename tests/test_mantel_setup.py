@@ -2,7 +2,8 @@
 
 Every install starts on "try" (this container's address, Mantel's own certificate), so Mantel always comes up. The
 other ways rewrite .env's HTTPS lines and keep the rest (the GPU, Mantel Connect); a DNS token is typed hidden into its
-secret file or the saved one kept; a missing token or proxy address stays on "try" and says so. Run against a copy of
+secret file or the saved one kept; a missing token or proxy address stays on "try" and says so. A container address
+changed since the install is followed (at boot through mantel-address.service, and by `update`). Run against a copy of
 .env with stand-ins for docker, id and chown. Needs bash 4 or later (Proxmox has 5)."""
 import os
 import pty
@@ -16,7 +17,9 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SETUP = ROOT / "packaging/lxc/mantel-setup.sh"
+ADDRESS_UNIT = ROOT / "packaging/lxc/mantel-address.sh"
 IP = "192.0.2.10"
+NEW_IP = "192.0.2.51"
 
 
 def _bash4() -> str | None:
@@ -60,7 +63,8 @@ def lxc(tmp_path):
 def environ(lxc: Path, **extra: str) -> dict:
     clean = {k: v for k, v in os.environ.items() if not k.startswith("MANTEL_")}
     return {**clean, "PATH": f"{lxc / 'bin'}:{os.environ['PATH']}", "DOCKER_LOG": str(lxc / "docker.log"),
-            "MANTEL_COMPOSE_DIR": str(lxc / "compose"), "MANTEL_SECRETS_DIR": str(lxc / "secrets"), **extra}
+            "MANTEL_COMPOSE_DIR": str(lxc / "compose"), "MANTEL_SECRETS_DIR": str(lxc / "secrets"),
+            "MANTEL_HOST_IP": IP, **extra}
 
 
 def setup(lxc: Path, *args: str, **answers: str) -> subprocess.CompletedProcess:
@@ -193,3 +197,52 @@ def test_at_a_terminal_a_typo_asks_again_and_the_token_is_typed_hidden(lxc):
 def test_a_domain_without_a_name_says_so(lxc):
     r = setup(lxc, MANTEL_TLS="dns01", MANTEL_DNS="cloudflare")
     assert r.returncode == 1 and "a name is needed for dns01" in r.stderr
+
+
+def test_a_changed_address_is_followed_everywhere_and_mantel_starts_there(lxc):
+    """The owner's LXC, 2026-11-02: its address changed after the install (.253 to .51), and Mantel, published only
+    on the old one (own proxy), stopped (Docker exit 128). Every run follows the container's address now."""
+    assert setup(lxc, MANTEL_TLS="own", MANTEL_DOMAIN="mantel.example.com", MANTEL_PROXY_IP="192.0.2.254").returncode == 0
+    with (lxc / "compose/.env").open("a") as f:
+        f.write(f"MANTEL_CONNECT_ADDRESS={IP}:8766\n")
+    (lxc / "docker.log").unlink()
+    r = setup(lxc, "--address", MANTEL_HOST_IP=NEW_IP)
+    assert r.returncode == 0, r.stderr
+    e = env_of(lxc)
+    assert e["MANTEL_LAN_IP"] == NEW_IP and e["MANTEL_ALLOW_HOSTS"] == NEW_IP and e["MANTEL_HTTP_BIND"] == NEW_IP
+    assert e["MANTEL_CONNECT_ADDRESS"] == f"{NEW_IP}:8766"
+    assert e["MANTEL_TRUSTED_PROXY"] == "192.0.2.254", "the proxy's address is not this container's"
+    assert e["MANTEL_HOSTNAME"] == "mantel.example.com"
+    assert f"address changed: {IP} -> {NEW_IP}" in r.stdout
+    assert any("compose up -d --wait" in c for c in docker_calls(lxc))
+
+
+def test_on_try_the_address_in_the_name_follows_too(lxc):
+    r = setup(lxc, MANTEL_TLS="try", MANTEL_HOST_IP=NEW_IP)
+    assert r.returncode == 0, r.stderr
+    e = env_of(lxc)
+    assert e["MANTEL_HOSTNAME"] == NEW_IP and e["MANTEL_LAN_IP"] == NEW_IP
+    assert f"https://{NEW_IP}/login" in r.stdout
+
+
+def test_at_boot_an_unchanged_address_does_nothing(lxc):
+    before = (lxc / "compose/.env").read_text()
+    r = setup(lxc, "--address")
+    assert r.returncode == 0 and r.stdout == "", r.stdout + r.stderr
+    assert docker_calls(lxc) == [] and (lxc / "compose/.env").read_text() == before
+
+
+def test_an_update_follows_the_address_without_starting_mantel(lxc):
+    r = setup(lxc, "--address", "--install", MANTEL_HOST_IP=NEW_IP)
+    assert r.returncode == 0, r.stderr
+    assert env_of(lxc)["MANTEL_ALLOW_HOSTS"] == NEW_IP and docker_calls(lxc) == [], "the update starts it"
+
+
+def test_the_boot_service_runs_mantel_setup_after_docker(tmp_path):
+    r = subprocess.run([BASH, str(ADDRESS_UNIT), "install"], capture_output=True, text=True,
+                       env={**os.environ, "MANTEL_SYSTEMD_DIR": str(tmp_path)})
+    assert r.returncode == 0, r.stderr
+    unit = (tmp_path / "mantel-address.service").read_text()
+    assert "After=network-online.target docker.service" in unit
+    assert "ExecStart=/bin/bash /opt/mantel/packaging/lxc/mantel-setup.sh --address" in unit
+    assert "WantedBy=multi-user.target" in unit
