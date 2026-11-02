@@ -128,6 +128,20 @@ SHOWS = {
     'saver-lay-glance-a2': ({'show': 'clock', 'clock_bg': 'aurora', 'layout': _pieces({'kind': 'time', 'size': 24, 'pos': 'upper'},
                              row=['world.rectangular', 'rain.circular', 'moon.circular', 'sun.rectangular', 'world.circular?city=America/New_York'],
                              tl=['moon.inline'], tr=['rain.inline'], bl=['alert.inline'], br=['events.rectangular'])}, 'lay-pieces'),
+    # ...wave B: the house's state, its people, its energy, its music and its cameras
+    'saver-lay-glance-b': ({'show': 'forecast', 'layout': _pieces({'kind': 'time', 'size': 20, 'pos': 'top'},
+                            line=['security.inline'], row=['doors.circular', 'garage.circular', 'climate.circular', 'lights.circular',
+                                                            'climate.rectangular', 'grid.circular', 'ev.circular'],
+                            tl=['notify.inline', 'vacuum.inline'], tr=['who.rectangular'], bl=['upnext.inline', 'playin.inline'],
+                            br=['package.inline', 'thisday.inline'])}, 'lay-pieces'),
+    'saver-lay-glance-b2': ({'show': 'clock', 'clock_bg': 'aurora', 'layout': _pieces({'kind': 'time', 'size': 22, 'pos': 'upper'},
+                             row=['security.circular', 'who.circular', 'doors.rectangular', 'notify.rectangular', 'camera.rectangular'],
+                             tl=['ring.inline', 'garage.inline'], tr=['lights.inline', 'grid.inline'], bl=['camera.card'],
+                             br=['ring.card'], line=['ev.inline'])}, 'lay-pieces'),
+    'saver-lay-glance-b3': ({'show': 'photos', 'layout': _pieces({'kind': 'time', 'size': 22, 'pos': 'top'},
+                             row=['vacuum.circular', 'package.circular', 'notify.circular', 'climate.circular', 'upnext.rectangular'],
+                             tl=['climate.inline', 'doors.inline'], bl=['playin.inline'], bottom=[],
+                             line=['who.inline'])}, 'lay-pieces'),
 }
 
 

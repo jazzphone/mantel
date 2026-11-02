@@ -3301,7 +3301,7 @@
       planned[z] = [];
       zs[z].forEach(function (w, i) {
         // (gone: nothing to show, or its condition -- "only when the mail has arrived" -- not met)
-        var c = widgetAt(z, i), gone = (c && c.showing === false) || !LM.met(w.show, client && client.states);
+        var c = widgetAt(z, i), gone = (c && (c.showing === false || c.blank)) || !LM.met(w.show, client && client.states);
         if (gone) ly.empty[z + ':' + i] = LM.idOf(w);
         if (claimed[z + ':' + i] || (gone && !previewOn)) { if (c) c.el.style.display = 'none'; return; }
         // (in the editor's preview its place is kept, drawn by the editor's dotted outline: the piece itself draws nothing)
