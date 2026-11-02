@@ -47,6 +47,7 @@ class PageHeaders:
         self._ids = itertools.count(1)
         self._task: asyncio.Task | None = None
         self._soon: asyncio.TimerHandle | None = None
+        self._auto_state: dict[str, str | None] = {}     # automation id -> the state string last seen
 
     # -- the one copy ---------------------------------------------------------------------------------------------
     async def refresh(self) -> None:
@@ -98,6 +99,24 @@ class PageHeaders:
         return out
 
     # -- when to read again ---------------------------------------------------------------------------------------
+    def automations_switched(self, changed: set[str]) -> bool:
+        """True when an automation among `changed` was switched (its state string differs from the last one seen,
+        or it is new or gone). 2026-11-01 (audit 3): every run updates `last_triggered`, an attribute-only change,
+        and each of those read the whole schedule from Home Assistant."""
+        switched = False
+        states = getattr(getattr(self.hub, "ha", None), "store", None)
+        states = getattr(states, "states", {})
+        for eid in changed:
+            if not (isinstance(eid, str) and eid.startswith("automation.")):
+                continue
+            state = (states.get(eid) or {}).get("s")
+            if eid not in self._auto_state or self._auto_state[eid] != state:
+                self._auto_state[eid] = state
+                switched = True
+            if state is None:
+                self._auto_state.pop(eid, None)     # gone: a later arrival is a change again, and nothing piles up
+        return switched
+
     def soon(self) -> None:
         """An automation switched, the registries changed: read again shortly (once for a burst)."""
         if not self._subs:
@@ -172,7 +191,7 @@ def register(app: web.Application, hub: Any) -> PageHeaders:
 
         def on_change(changed: set[str]) -> None:
             first_change(changed)
-            if any(isinstance(e, str) and e.startswith("automation.") for e in changed):
+            if ph.automations_switched(changed):
                 ph.soon()
 
         def on_registry() -> None:

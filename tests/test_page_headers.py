@@ -96,3 +96,34 @@ async def test_a_subscription_carrying_anything_is_refused(make_env):
     got = await next_event(ws, 9)
     assert got.get("error", {}).get("code") in ("not_allowed", "invalid")
     await ws.close()
+
+
+async def test_an_automation_that_only_ran_is_not_read_again_but_one_that_switched_is(make_env, monkeypatch):
+    """2026-11-01 (audit 3, LINK-3): every run of an automation updates `last_triggered`, an attribute-only change,
+    and each one scheduled a full read of the schedule from Home Assistant. Only a state change reads again."""
+    monkeypatch.setattr(PH, "SOON_S", 0.05)
+    env = await make_env()
+    env.app["hub"].readproxy = link = MantelLink([YARD])
+    ha = env.app["hub"].ha
+
+    def put(state, **attrs):
+        ha.store.states["automation.yard"] = {"s": state, "a": attrs, "lc": 1.0, "lu": 1.0}
+
+    put("on", last_triggered="2026-11-01T01:00:00")
+    await env.login("owner1", "owner")
+    ws = await env.socket(expect_caps=False)
+    assert (await feed(env, ws))["lights"]["schedule"] == [YARD]
+    ha.on_change({"automation.yard"})                 # the first sighting of this automation's state
+    await asyncio.sleep(0.2)
+    reads = len(link.asked)
+    for n in range(3):                                # it ran three more times: same state, new last_triggered
+        put("on", last_triggered=f"2026-11-01T0{n + 2}:00:00")
+        ha.on_change({"automation.yard"})
+    await asyncio.sleep(0.3)
+    assert len(link.asked) == reads, "attribute-only updates schedule no read"
+    put("off", last_triggered="2026-11-01T05:00:00")  # an Owner turned it off
+    link.schedule = []
+    ha.on_change({"automation.yard"})
+    got = await next_event(ws)
+    assert got["lights"]["schedule"] == [] and len(link.asked) == reads + 1
+    await ws.close()
