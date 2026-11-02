@@ -102,8 +102,8 @@ already the shortest path, so it stays.
 
 ### UniFi Protect connector (Mantel Settings → Connections → UniFi Protect)
 
-1. **Address and API key.** The key is made in Protect: Settings → Control Plane → Integrations. It is a full-admin
-   key, so it is stored like the other secrets and never shown again.
+1. **Signing in: an API key, with a local Mantel user as an option.** See "Signing in to UniFi" below. Whatever is
+   entered is stored like the other secrets and never shown again.
 2. **Trust.** The console's self-signed certificate is pinned on first connect. The page shows its fingerprint, and
    a changed certificate stops the connection and says so.
 3. **Cameras.**
@@ -185,6 +185,48 @@ A browser gives the microphone only to a secure page: HTTPS with a certificate t
 
 The check can ship on its own before the direct path, because it fixes a silent failure in today's path too.
 
+### Signing in to UniFi
+
+The owner, 2026-11-02: "we need to be able to determine proper login for UniFi - Either through a user creating a
+user for mantel that we login with, or if there is an api/token option - or both."
+
+Protect offers both, and HA's own integration supports both (an API-key-only mode, and full access with a local
+user plus an API key):
+
+| | API key | Local user and password |
+|---|---|---|
+| What it reaches | The public Integration API: cameras, RTSPS streams, snapshots, the events websocket, talkback sessions, PTZ, each camera's smart-detect types | The private API that uiprotect grew up on: everything the Protect app sees, such as zones, plate text and face names |
+| Stability | Supported and versioned. HA's integration is moving onto it. | Undocumented, and can change with a firmware update. uiprotect takes no new private-API features. |
+| Made where | UniFi OS: Settings → Control Plane → Integrations → Create API Key | UniFi OS: Admins & Users → a **local** admin. A UI.com cloud account and MFA aren't supported. |
+| Scope | A full-admin key. There is no read-only key. | Whatever role the local user is given |
+| Revoking | Delete the key | Disable or delete the user |
+
+**The plan: an API key, required, with a local user as an option.**
+
+- **The API key is all Mantel needs.** Every phase of this plan, talk included, runs on the public API.
+- **The setup page recommends a dedicated local user named "Mantel":**
+  1. Make the local user in UniFi OS.
+  2. Sign in to UniFi OS as that user.
+  3. Make the API key there.
+
+  The owner's own account then never signs in on Mantel's behalf, and disabling the Mantel user cuts Mantel off.
+  Phase 0 confirms on the house's console that a key really belongs to the user who made it and dies with that
+  user. If it doesn't, the page says plainly to delete the key instead.
+- **Local user and password, optional, under Advanced.**
+  - Offered only for what the public API lacks. Nothing in this plan needs it today, so it stays off until a feature
+    does.
+  - It takes a local user only, and says that cloud accounts and MFA can't be used.
+  - It is never the only way in.
+- **Checks on Connect:**
+  - the address answers as a UniFi OS console;
+  - the certificate is pinned (step 2);
+  - the key works (`GET /v1/meta/info` or the cameras list);
+  - the Protect version is 7.2.105 or later.
+
+  Each failure says what to fix: wrong address, key refused, Protect too old, or the certificate changed.
+- **Health under Connections** shows the console's name, the Protect version, which sign-in is in use, and when the
+  events socket last spoke.
+
 ### RTSP cameras (Mantel Settings → Cameras → Add Camera)
 
 - **Name, area and RTSP URL.** The user name and password are separate fields kept as a secret, never in the shown
@@ -206,7 +248,7 @@ The check can ship on its own before the direct path, because it fixes a silent 
 
 | | What | Who |
 |---|---|---|
-| 0 | The owner answers the decisions. Check the house's console firmware: the public API needs Protect 7.2.105+, the same floor as HA's integration. Measure today's press-to-sound and ring-to-sheet on the house. | session |
+| 0 | The owner answers the decisions. Check the house's console firmware: the public API needs Protect 7.2.105+, the same floor as HA's integration. Confirm on the console how an API key belongs to its maker (does disabling the user revoke it?). Measure today's press-to-sound and ring-to-sheet on the house. | session |
 | 1 | The HTTPS check: the About row, tablets reporting their secure context, the notes on the doorbell and camera pages, Needs HTTPS on the sheet. Works on every mode and can release alone. | Sonnet 5.5 high, from a written spec |
 | 2 | Push-to-talk on the card: the warm session, tap to latch, the visitor ducked under echo cancellation, the button's states, one talker at a time (the relay and Link keep a per-speaker lock). Released on today's HA path first. | session |
 | 3 | Sources: the registry, `camera.mantel_*` ids, dispatch in `authz.py` and `camera_still.py`, go2rtc stream registration, the signaling shape for go2rtc, a spike playing one Protect camera on iPad Safari and the wall tablet | session (RBAC and ids: delicate) |
@@ -230,6 +272,7 @@ one (`ask-before-playing-sound` memory).
 | 4 | **Turn On in Protect** for a supported type that is off, or leave Protect's settings to Protect's app entirely? | Offer the button; it only sets the camera's own setting |
 | 5 | Talk goes direct on Docker and LXC, with Link's path kept for the HA App? | Yes |
 | 6 | Tap to latch beside hold to talk, and the visitor heard while you talk? | Yes |
+| 7 | Sign-in: an API key required (made as a local "Mantel" user), with a local user and password only under Advanced, off until a feature needs it? | Yes |
 
 ## Sources
 
@@ -247,4 +290,5 @@ one (`ask-before-playing-sound` memory).
 - 2026-11-02: plan written from a map of Mantel's camera path and the deployment modes, plus research on Protect's
   public API, go2rtc and Frigate.
 - 2026-11-02: the owner's follow-up. No detection of Mantel's own (the camera's smart types, or its motion);
-  push-to-talk and the HTTPS check added as phases 1, 2 and 5, ahead of the direct path.
+  push-to-talk and the HTTPS check added as phases 1, 2 and 5, ahead of the direct path. Signing in to UniFi: an API
+  key made as a local Mantel user, with a local user and password as an Advanced option.
