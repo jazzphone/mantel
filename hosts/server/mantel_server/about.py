@@ -11,7 +11,9 @@ Music Assistant, the integrations linked in Home Assistant). Read on every reque
 SECURE CONNECTION (2026-11-02, docs/phase13/CAMERAS-DIRECT.md "The HTTPS check"): a browser gives the microphone only
 to a secure page, so talking at the door needs HTTPS. ``/api/about`` says how browsers reach this Mantel
 (``access.mode``, one of ``MODES``) and the public address it was told (``access.public_url``, empty when there is
-none; it is the address people already type, not a secret), and each screen works out for itself whether it is a
+none; it is the address people already type, not a secret; ``access.at_address``, true when that address is an IP
+address, Docker's and the LXC's start before ``mantel-setup`` gives Mantel a name, which Set Up Mantel's "Address and
+HTTPS" step (setup_guide.py) explains and the page points to rather than saying again), and each screen works out for itself whether it is a
 secure context. ``GET /api/about/secure`` (an Owner or Admin, never a wall tablet's session) adds the wall tablets
 whose pages said, in their ``load`` and ``beat`` frames (page_health.py), that they are not: their names and
 addresses are for the people who manage the house, so they are not in ``/api/about``.
@@ -26,6 +28,7 @@ from typing import Any
 
 from aiohttp import web
 
+from . import setup_guide
 from .config import REPO
 from .guards import guard
 
@@ -103,7 +106,8 @@ def about(app: web.Application, now: float | None = None) -> dict[str, Any]:
                             "configured": ma is not None},
         "linked": clients,
         "commands": bool(getattr(cfg, "commands_enabled", False)),
-        "access": {"mode": access_mode(cfg), "public_url": str(getattr(cfg, "public_url", "") or "")},
+        "access": {"mode": access_mode(cfg), "public_url": str(getattr(cfg, "public_url", "") or ""),
+                   "at_address": install_kind(cfg) == "Container" and setup_guide.address_host(cfg)[1]},
         "docs": "/docs",
     }
 
