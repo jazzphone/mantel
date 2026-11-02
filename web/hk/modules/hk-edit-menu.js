@@ -277,7 +277,7 @@
     else if (home) s += ', and Home’s room sections.';
     else if (pages) s += ', and the room sections on Lights, Climate, Water and the other pages that group by room.';
     else s += '.';
-    if (!home) s += ' Home lists its rooms its own way (HK Settings → Rooms).';
+    if (!home) s += ' Home lists its rooms its own way (' + window.hkShell.settingsPlace('Rooms') + ').';
     if (!pages) s += ' The pages that group by room keep them by floor.';
     s += b.rooms_custom ? ' It is this screen’s own room order.'
                         : ' It is All Screens’ room order: every screen whose Rooms are Same as All Screens follows it.';

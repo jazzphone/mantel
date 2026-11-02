@@ -3795,7 +3795,7 @@
       var sub2 = last && !(lab === 'Playlists' && last.artist === 'Playlist') ? last.artist : '';
       var words = last ? '<b class="t1">' + esc(last.name) + '</b>' + (sub2 ? '<small class="t2">' + esc(sub2) + '</small>' : '') : '';
       var body;
-      if (items && !items.length) body = '<span class="lab">' + lab + '</span><div class="none">' + (tiles ? 'No playlists yet. Add some in HK Settings → Features → Music.' : 'Music played here shows up here.') + '</div>';
+      if (items && !items.length) body = '<span class="lab">' + lab + '</span><div class="none">' + (tiles ? 'No playlists yet. Add some in ' + window.hkShell.settingsPlace('Features → Music') + '.' : 'Music played here shows up here.') + '</div>';
       else if (s === 'S') body = '<span class="bg">' + this._cover(last) + '</span><span class="sh"></span>' +
         (last ? '<button type="button" class="go" data-i="0" aria-label="Play ' + esc(last.name) + '"><hk-icon icon="mdi:play"></hk-icon></button>' : '') +
         '<div class="ft">' + words + '</div>';
@@ -3894,7 +3894,7 @@
     var Mu = window.hkMusic, tiles = playlistTiles(Mu && Mu.playlists ? Mu.playlists() : [], null), self = this, D = window.hkDetail;
     var el = this._root.querySelector('hk-plate') || this;
     if (!tiles.length) {
-      window.hkShell.toast({ message: 'No playlists yet. Add some in HK Settings → Features → Music.' }, this);
+      window.hkShell.toast({ message: 'No playlists yet. Add some in ' + window.hkShell.settingsPlace('Features → Music') + '.' }, this);
       return;
     }
     var sp = this._config && this._config.speaker;
@@ -4109,7 +4109,7 @@
       if (!list.length) {
         this._root.innerHTML = '<hk-plate class="tv" data-hk-role="card"><div class="none"></div></hk-plate>';
         this._root.querySelector('.none').textContent = !this._channels ? '' : this._configured
-          ? 'No channels yet. Add some in HK Settings → Features → Live TV.' : 'Add Live TV to show its channels here.';
+          ? 'No channels yet. Add some in ' + window.hkShell.settingsPlace('Features → Live TV') + '.' : 'Add Live TV to show its channels here.';
         return;
       }
       var plate = document.createElement('hk-plate');

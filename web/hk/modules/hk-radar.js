@@ -952,9 +952,9 @@
         credits();
         paintTimeline();
         if (!S.home || !S.A) {
-          message(plan.reason === 'zone' ? 'Choose a zone for the map in HK Settings.' :
+          message(plan.reason === 'zone' ? 'Choose a zone for the map in ' + window.hkShell.settingsName() + '.' :
                   plan.reason === 'location' ? 'Home Assistant has no location for this home.' :
-                  'Choose a radar provider in HK Settings → Weather → Radar Map: Automatic can’t tell which country this place is in.', false);
+                  'Choose a radar provider in ' + window.hkShell.settingsPlace('Weather → Radar Map') + ': Automatic can’t tell which country this place is in.', false);
           say('');
           return;
         }

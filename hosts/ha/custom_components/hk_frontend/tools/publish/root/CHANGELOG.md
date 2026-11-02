@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+- **Host words:** the shared screens name their settings through the host (`hkShell.settingsName()`, `settingsPlace()`), so Mantel says Mantel Settings where they send someone to them. In Home Assistant every text reads as before: HK Settings.
+
 ## 1.36.0 - 2026-11-02
 
 - **Screensaver, one screensaver:** the editor's starters are **Looks** that keep what you placed (**Start Over from This Look** replaces it all); the right side is always **Look**, **Info**, **Slides** and **Timing**. Widgets and cards are **pieces** in a few shapes (Inline, Circular, Rectangular, Card, Band), Size 60 to 200%, one size for the row, one **Ink** for the screen (Auto: black or white from the background) and **Color Accents**; any piece can **Show When** an entity is, is not, is above or is below a value. A fact is drawn once.

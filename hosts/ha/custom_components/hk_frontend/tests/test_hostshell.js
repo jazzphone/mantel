@@ -272,19 +272,24 @@ ok('the HA shell back', S.kind === 'ha' && S.panel() === panel);
 // as they are, and its wiki. (Mantel's answers: tests/test_mantel_product_name.py)
 function same(name, got, want) { ok(name, JSON.stringify(got) === JSON.stringify(want), got); }
 same('in HA the product is HK Frontend', S.productName(), 'HK Frontend');
+same('...its settings are HK Settings', [S.settingsName(), S.settingsPlace('Features → Live TV')],
+     ['HK Settings', 'HK Settings → Features → Live TV']);
 same('...a place in HA\'s settings is said as it is', S.haPlace('Devices & Services → HK Frontend → Add feature'),
      'Devices & Services → HK Frontend → Add feature');
 same('...and a thing of HA\'s own as it is', S.haName('HK Frontend device'), 'HK Frontend device');
 same('...the docs are HK Frontend\'s wiki', [S.docsUrl('Sleep-Screen'), S.docsUrl('Your-Own-Dashboard', 'live-tv')],
      ['https://github.com/jazzphone/hk-frontend/wiki/Sleep-Screen', 'https://github.com/jazzphone/hk-frontend/wiki/Your-Own-Dashboard#live-tv']);
-S.use({ kind: 'test', productName: function () { return 'Elsewhere'; }, haPlace: function (p) { return 'Home Assistant → ' + p; },
+S.use({ kind: 'test', productName: function () { return 'Elsewhere'; }, settingsName: function () { return 'Elsewhere Settings'; }, haPlace: function (p) { return 'Home Assistant → ' + p; },
         haName: function (n) { return n + ' in Home Assistant'; }, docsUrl: function () { return null; } });
 same('a host names the product its own way', [S.productName(), S.haPlace('A → B'), S.haName('X'), S.docsUrl('Sleep-Screen')],
      ['Elsewhere', 'Home Assistant → A → B', 'X in Home Assistant', null]);
-S.use({ kind: 'test', productName: function () { throw new Error('boom'); }, haPlace: function () { throw new Error('boom'); },
+same('...and its settings, a place in them said with that name', [S.settingsName(), S.settingsPlace('A → B')],
+     ['Elsewhere Settings', 'Elsewhere Settings → A → B']);
+S.use({ kind: 'test', productName: function () { throw new Error('boom'); }, settingsName: function () { throw new Error('boom'); }, haPlace: function () { throw new Error('boom'); },
         haName: function () { throw new Error('boom'); }, docsUrl: function () { throw new Error('boom'); } });
 same('a throwing host leaves HK\'s own words, and no docs link', [S.productName(), S.haPlace('A → B'), S.haName('X'), S.docsUrl('Sleep-Screen')],
      ['HK Frontend', 'A → B', 'X', null]);
+same('...its settings HK Settings', [S.settingsName(), S.settingsPlace('A → B')], ['HK Settings', 'HK Settings → A → B']);
 S.use(window.hkHAShell);
 
 // HOME ASSISTANT IN HK'S MENU (haNav, haNavigate, openHaMenu): in Home Assistant the section is its own sidebar and a

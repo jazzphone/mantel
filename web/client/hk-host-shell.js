@@ -160,6 +160,12 @@
     // HK Frontend in Home Assistant, the host's own name elsewhere (Mantel).
     // Labels only: no saved value or key ever carries it.
     productName: function () { return 'HK Frontend'; },
+    // THE SETTINGS' NAME where HK's screens send someone to them ("Add some
+    // in HK Settings → Features → Live TV"): HK Settings in Home Assistant,
+    // the host's own settings elsewhere (Mantel Settings, which holds HK's
+    // pages under the same names). settingsPlace(path) says a place in them.
+    settingsName: function () { return 'HK Settings'; },
+    settingsPlace: function (path) { return this.settingsName() + ' \u2192 ' + path; },
     // A PLACE IN HOME ASSISTANT'S OWN SETTINGS, as HK's texts give it (HK
     // Frontend's integration: 'Devices & Services → HK Frontend → Add
     // feature'): Home Assistant says it as it is; a host outside it says the
@@ -190,7 +196,7 @@
   // the capabilities a throwing host answers no to (not null)
   var FALSE = { hostDetail: 1, openHostDetail: 1, hostToast: 1, openHaMenu: 1 };
   // and the words a throwing host leaves as HK's own (the defaults')
-  var WORDS = { productName: 1, haPlace: 1, haName: 1 };
+  var WORDS = { productName: 1, settingsName: 1, settingsPlace: 1, haPlace: 1, haName: 1 };
   var impl = NONE, tags = Object.assign({}, NONE.tags), events = Object.assign({}, NONE.events);
   function get(name) { return impl[name] !== undefined ? impl[name] : NONE[name]; }
 
@@ -223,7 +229,7 @@
   ['root', 'overlayRoot', 'main', 'mainRoot', 'drawer', 'sidebar', 'resolver', 'panel', 'dashboard',
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
    'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'haNav', 'haNavigate', 'openHaMenu', 'hostMenu', 'settingsHost', 'holdWrites', 'menuButton',
-   'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'photoSource', 'listPhotos', 'artSized', 'productName', 'haPlace',
+   'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'photoSource', 'listPhotos', 'artSized', 'productName', 'settingsName', 'settingsPlace', 'haPlace',
    'haName', 'docsUrl', 'notHouseCameraPlatforms', 'tabletRoom', 'atTablet'].forEach(function (name) {
     shell[name] = function () {
       try { return get(name).apply(shell, arguments); } catch (e) {

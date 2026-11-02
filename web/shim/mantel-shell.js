@@ -223,6 +223,8 @@
     // HK's screens and settings say Mantel where they speak of themselves; HK Frontend stays the name of
     // the integration in Home Assistant, whose settings are Home Assistant's (haPlace)
     productName: () => 'Mantel',
+    // HK Settings is Mantel Settings here (/hk-settings forwards to /settings), its pages under the same names
+    settingsName: () => 'Mantel Settings',
     haPlace: (path) => 'Home Assistant → ' + path,
     haName: (name) => name + ' in Home Assistant',
     // Mantel Link's cameras are Live TV's channels (once the house's Live TV is Mantel's): not the house's

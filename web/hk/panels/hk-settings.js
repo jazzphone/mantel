@@ -829,7 +829,7 @@
       }
       return this._host;
     }
-    title() { var x = this.host(); return (x && x.title) || 'HK Settings'; }
+    title() { var x = this.host(); return (x && x.title) || window.hkShell.settingsName(); }
     hostScreenBase() { var x = this.host(); return (x && typeof x.screenBase === 'string') ? x.screenBase : ''; }
     hostNote(key) { var x = this.host(); return (x && x.notes && x.notes[key]) || null; }
     // the page an empty address shows: Overview, or the host's first
@@ -10055,7 +10055,8 @@
       if (!item) {
         return { title: 'Your Own Dashboards', back: ['Advanced', '#/advanced'],
           scope: 'What a dashboard you write yourself can use. Open one, copy it, and paste it into the dashboard’s YAML.', body: function (c) {
-            c.appendChild(K.group({ footer: 'Easier still: HK Settings → Screens → Add Screen → Existing Dashboards gives a dashboard ' +
+            // a host with pages of its own (Mantel) adds screens its own way, with no Existing Dashboards
+            c.appendChild(K.group({ footer: self.host() ? '' : 'Easier still: HK Settings → Screens → Add Screen → Existing Dashboards gives a dashboard ' +
                 'its menu, its screensaver and Hide Home Assistant Header & Sidebar, with nothing written.' }, wiki('')));
             M.YAML_REF.forEach(function (g) {
               c.appendChild(K.group({ header: g.header, footer: g.footer }, g.items.map(function (it) {

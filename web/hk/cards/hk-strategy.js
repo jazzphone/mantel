@@ -2665,7 +2665,7 @@
     }
     if (!body.length) {
       body.push({ type: 'markdown', content: 'Nothing to show yet: add devices in Home Assistant’s Energy settings, ' +
-        'or on HK Settings → Features → Energy.' });
+        'or on ' + window.hkShell.settingsPlace('Features → Energy') + '.' });
     }
     var title = P.title || 'Energy';
     var bar = titleBar(title);

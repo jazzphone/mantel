@@ -214,7 +214,7 @@ function regionalTag(config) {
 
 // WHAT A REFUSED OR FAILED COMMAND SAYS (the gateway's error codes, gateway.py; the hub's own `unavailable`)
 const DENIED_TEXT = {
-  alarm_pin_not_set: 'No Alarm PIN is set in Mantel yet (HK Settings, Alarm PIN)',
+  alarm_pin_not_set: 'No Alarm PIN is set in Mantel yet (Mantel Settings, Alarm PIN)',
   unavailable: 'Couldn’t reach Mantel. Try again in a moment.',
   unauthenticated: 'You’re signed out. Reload to sign in again.',
   step_up_required: 'Sign in again to do that.',

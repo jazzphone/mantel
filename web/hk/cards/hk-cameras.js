@@ -3490,7 +3490,7 @@
         var e = document.createElement('div');
         e.className = 'tv-empty';
         e.textContent = this._configured
-          ? 'No channels yet. Add some in HK Settings → Features → Live TV.'
+          ? 'No channels yet. Add some in ' + window.hkShell.settingsPlace('Features → Live TV') + '.'
           : 'Add Live TV (' + window.hkShell.haPlace('HK Frontend → Add feature') + ') to show channels here.';
         this._root.append(e);
         return;
