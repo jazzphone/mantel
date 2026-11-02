@@ -1440,3 +1440,173 @@ async def test_the_feed_is_rebuilt_at_the_policy_tick_when_a_view_on_a_speaker_i
             got = await GF.recv(ws, timeout=0.5)
             assert not (got.get("type") == "read_event" and got.get("id") == 60), got
     await ws.close()
+
+
+async def test_stop_all_within_a_pause_s_window_leaves_nothing_to_resume(on):
+    """Stop All, or any Stop, soon after a pause read as Music Assistant's own stop and left the room shown as
+    paused for four hours (MED-11, 2026-11-01): a stop Mantel sends is no one's to resume."""
+    import time
+    host = on.app["music"]
+    await on.connected()
+    await on.login("jamie", "adult")
+    ws = await on.socket()
+    for stop in (SVC("music_stop"), SVC("music_stop", rooms=[K]),
+                 SVC("music_transport", player=K, command="stop")):
+        await on.playing(K, media_content_id="library://playlist/1")
+        await on.ma.set(K, "paused")
+        await wait_for(lambda: on.app["hub"].store.states[K]["s"] == "paused")
+        r = await on.command(ws, id=2, **stop)
+        assert r["result"]["response"]["ok"] is True, r
+        await wait_for(lambda: on.app["hub"].store.states[K]["s"] == "idle")
+        assert host.resumes.players(time.monotonic()) == [], stop
+    await ws.close()
+
+
+async def scoped(env, name, *areas):
+    """A child who may control only the rooms in `areas`."""
+    await env.m.user(name, "child")
+    uid = env.app["accounts"].db.execute("SELECT id FROM users WHERE username=?", (name,)).fetchone()["id"]
+    env.app["rbac"].set_scopes("user", uid, list(areas))
+    await env.login(name, "child")
+
+
+async def test_a_request_sends_only_to_the_rooms_it_was_approved_on(on, monkeypatch):
+    """SRV-11: the engine's gate allowed Music Assistant commands on every speaker of the house, not the rooms the
+    gateway approved. A run's players are the approved rooms, their virtual-pair partners and groups."""
+    made = []
+    real = M.MusicRun
+
+    class Spy(real):
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            made.append(self)
+
+    monkeypatch.setattr(M, "MusicRun", Spy)
+    await make_pair(on)
+    await on.connected()
+    await scoped(on, "cody", "cody_room", "study")
+    ws = await on.socket()
+    for svc, want in ((SVC("music_stop", rooms=[C]), {"ma-cody"}),
+                      (SVC("music_transport", player=C, command="volume_up"), {"ma-cody"}),
+                      (SVC("music_play", rooms=[C], playlist="pl1"), {"ma-cody"}),
+                      (SVC("music_stop", rooms=[SL]), {"ma-study-l", "ma-study-r"})):
+        made.clear()
+        r = await on.command(ws, id=2, **svc)
+        assert "error" not in r, r
+        assert [set(run.players) for run in made] == [want], svc
+    await ws.close()
+
+
+async def test_a_play_that_would_regroup_a_room_the_person_cannot_control_is_refused_whole(on):
+    """SRV-11: Cody's Room playing with the Kitchen; a child who may control only their own room plays something
+    there. Releasing the group (or moving the Kitchen's music on without them) would act on a room that is not
+    theirs: refused, nothing sent. A person who controls both is served as before."""
+    await on.connected()
+    await group_playing(on, K, [K, C])
+    await scoped(on, "cody", "cody_room")
+    ws = await on.socket()
+    n = len(on.ma.sent())
+    r = await on.command(ws, id=2, **play([C]))
+    assert r["error"]["code"] == "forbidden" and "Kitchen" in r["error"]["message"], r
+    r = await on.command(ws, id=3, **SVC("music_transfer", rooms=[C], source=C))
+    assert r["error"]["code"] == "forbidden" and "Kitchen" in r["error"]["message"], r
+    assert on.ma.sent()[n:] == [], "nothing reached Music Assistant"
+    assert [a["result"] for a in on.audit(action="hk_frontend.music_play")][-1].startswith("error:forbidden")
+    await ws.close()
+    # control of both rooms: Cody's Room leaves the group, which plays on in the Kitchen
+    await scoped(on, "cody2", "cody_room", "kitchen")
+    ws = await on.socket()
+    r = await on.command(ws, id=2, **play([C]))
+    assert r["result"]["response"]["ok"] is True, r
+    sent = on.ma.sent()[n:]
+    assert ("players/cmd/ungroup", {"player_id": "ma-cody"}) in sent and "players/cmd/stop" not in json.dumps(sent), sent
+    await ws.close()
+
+
+def covers_doc():
+    """Playlists to cover: one on a playlist whose songs have the pictures, a choice of two (the first a dead link, the
+    second an album with a proxied picture), one on a link Music Assistant has never heard of."""
+    doc = json.loads(json.dumps(MF.DOC))
+    doc["items"] = [i for i in doc["items"] if i["kind"] != "playlist"] + [
+        {"kind": "playlist", "key": "pl_songs", "title": "Songs", "data": {
+            "name": "Songs", "icon": "mdi:coffee", "items": ["library://playlist/1"], "order": 1.0}},
+        {"kind": "playlist", "key": "pl_a", "title": "Dead then album", "data": {
+            "name": "Dead then album", "icon": "mdi:a", "chooser": "Mixes",
+            "items": ["library://playlist/99", "library://album/3"], "order": 2.0}},
+        {"kind": "playlist", "key": "pl_b", "title": "Plain", "data": {
+            "name": "Plain", "icon": "mdi:b", "chooser": "Mixes", "items": ["library://radio/r1"], "order": 3.0}},
+        {"kind": "playlist", "key": "pl_none", "title": "Nothing", "data": {
+            "name": "Nothing", "icon": "mdi:n", "items": ["library://playlist/98"], "order": 4.0}}]
+    return doc
+
+
+async def test_a_playlist_pill_gets_the_artwork_of_what_it_is_built_with(on):
+    """The owner (2026-11-01): the Music card's playlists pull the artwork of the playlists and albums they are built
+    with. The feed goes out at once without pictures; the lookups run in the background and the feed follows."""
+    on.app["settings"].store.write([("house", M.MUSIC_DOC, covers_doc())], actor=Actor(label="test"))
+    on.ma.tracks_of[("library", "1")] = [{"item_id": "s1"},
+                                         {"item_id": "s2", "album": dict(MF.ALBUMS[2])}]       # album 3: a proxied picture
+    host = on.app["music"]
+    await on.connected()
+    await on.login("jamie", "adult")
+    ws = await on.socket()
+    _r, ev = await on.subscribe(ws, {"type": "hk_music/subscribe"})
+    pills = {p["name"]: p for p in ev["playlists"]}
+    assert set(pills) == {"Songs", "Mixes", "Nothing"} and not any("image" in p for p in pills.values()), pills
+    assert [f for f in on.ma.sent(commands_only=False) if f[0] == "music/item_by_uri"] == [], "nothing asked yet"
+    assert await host.refresh_covers() is True
+    got = await GF.recv(ws)
+    assert got["type"] == "read_event", got
+    pills = {p["name"]: p for p in got["event"]["playlists"]}
+    proxied =f"/ma/imageproxy/{MF.PROXY_ID}?size=256"
+    assert pills["Songs"]["image"] == proxied, "the first song with an album picture"
+    assert pills["Mixes"]["image"] == proxied and pills["Mixes"]["options"] == [
+        {"name": "Dead then album", "key": "pl_a", "image": proxied}, {"name": "Plain", "key": "pl_b"}], \
+        "a dead link is passed over; the album's own picture; a choice with none is drawn plain"
+    assert "image" not in pills["Nothing"]
+    # Mantel's own /ma image path (the page's art proxy), never Music Assistant's own address
+    images = [p["image"] for p in pills.values() if "image" in p]
+    assert images and all(i.startswith("/ma/imageproxy/") for i in images), images
+    assert "://" not in json.dumps(images)
+    # kept: a second look asks Music Assistant for nothing, and the feed is not sent again
+    n = len(on.ma.frames)
+    assert await host.refresh_covers() is False
+    assert [f for f in on.ma.frames[n:] if f["command"].startswith("music/")] == []
+    # the pictures expire (hk_core/music/covers.py COVER_TTL) and are asked for again; a read that fails keeps them
+    from hk_core.music.covers import COVER_TTL
+    clock = host.covers._clock
+    host.covers._clock = lambda: clock() + COVER_TTL + 1
+    on.ma.tracks_of[("library", "1")] = [{"item_id": "s1"}]
+    n = len(on.ma.frames)
+    assert await host.refresh_covers() is True, "the Songs' pictures are gone from Music Assistant now"
+    got = await GF.recv(ws)
+    assert "image" not in {p["name"]: p for p in got["event"]["playlists"]}["Songs"]
+    assert any(f["command"] == "music/item_by_uri" for f in on.ma.frames[n:])
+    await ws.close()
+
+
+async def test_a_saved_playlist_is_looked_up_in_the_background_and_the_feed_follows(on, monkeypatch):
+    """The feed answers at once; a playlist saved in the settings is looked up by the background loop a moment later
+    (hk_core/music/const.py COVERS_SOON) and the feed is sent again with its cover."""
+    monkeypatch.setattr(M, "COVERS_FIRST", 0)
+    monkeypatch.setattr(M, "COVERS_SOON", 0)
+    on.ma.tracks_of[("library", "2")] = [{"item_id": "s9", "album": dict(MF.ALBUMS[2])}]
+    host = on.app["music"]
+    host._covers_task.cancel()
+    host._covers_task = asyncio.get_running_loop().create_task(host._covers_loop())
+    await on.connected()
+    await on.m.user("owner1", "owner")
+    await on.login("owner1", "owner")
+    ws = await on.socket()
+    _r, ev = await on.subscribe(ws, {"type": "hk_music/subscribe"})
+    assert ev["playlists"] and not any("image" in p for p in ev["playlists"])
+    r = await on.command(ws, id=5, kind="ws", msg={"type": "hk_music/playlist/save", "name": "Albums",
+                                                   "items": ["library://playlist/2"]})
+    assert "error" not in r, r
+    for _ in range(6):
+        got = await GF.recv(ws)
+        mine = [p for p in (got.get("event") or {}).get("playlists", []) if p["name"] == "Albums"]
+        if mine and "image" in mine[0]:
+            break
+    assert mine and mine[0]["image"] == f"/ma/imageproxy/{MF.PROXY_ID}?size=256", got
+    await ws.close()

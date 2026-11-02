@@ -139,3 +139,18 @@ async def test_music_stopped_after_a_pause_is_listed_for_the_screens(hass, music
     hass.states.async_set(K, "playing", {"media_title": "Song"})
     await hass.async_block_till_done()
     assert mgr.resumes.players(time.monotonic()) == []
+
+
+async def test_a_stop_the_engine_sends_is_not_music_assistants_stop_after_a_pause(hass, music):
+    """Stop All soon after a pause read as Music Assistant's own stop: the room stayed paused on the screens for four
+    hours (MED-11, 2026-11-01). A media_stop the engine sends makes the idle that follows its own."""
+    import time
+
+    mgr = music_entry(hass).runtime_data
+    hass.states.async_set(K, "playing", {"media_title": "Song"})
+    hass.states.async_set(K, "paused", {"media_title": "Song"})
+    await hass.async_block_till_done()
+    await mgr._call("media_player", "media_stop", {"entity_id": [K]})      # (no player answers here: the mark is made)
+    hass.states.async_set(K, "idle", {"media_title": "Song"})
+    await hass.async_block_till_done()
+    assert mgr.resumes.players(time.monotonic()) == []

@@ -79,9 +79,10 @@ from hk_core.music.const import (
     DEFAULT_VOLUME, NOTE_GROUP,
     NOTE_PARTIAL, NOTE_PLAY, NOTE_PRESET, NOTE_STOP, NOTE_TRANSFER, SERVICE_PLAY, SERVICE_PLAY_MEDIA, SERVICE_STOP,
     SERVICE_TRANSFER, SERVICE_TRANSPORT, SUB_PLAYLIST, SUB_PRESET, WARM_FIRST, WARM_RETRY, WARM_SOON,
-    GROUPS_EVERY,
+    GROUPS_EVERY, COVERS_EVERY, COVERS_FIRST, COVERS_READ_TIMEOUT, COVERS_SOON,
 )
 from hk_core.music.engine import ACTIVE, STOPPED, SUPERSEDED
+from hk_core.music.covers import Covers
 from hk_core.music.groups import Groups, signature
 from hk_core.music.resume import Resumes
 from hk_core.music.queue import QUEUE_MAX
@@ -767,6 +768,8 @@ class MantelMusic:
         path (the request's MusicRun). Reports instead of raising: a failed step is a logged False."""
         run = RUN.get()
         client = self.host.ma
+        if service == "media_stop":
+            self.host.stopping(data.get("entity_id"))
         try:
             if run is None or client is None:
                 raise PermissionError("no audited music request is running")
@@ -1229,6 +1232,10 @@ class MusicHost:
         # refresh_groups last read it; None until it could be. Read every GROUPS_EVERY while running.
         self.ma_players = None
         self._groups_task: asyncio.Task | None = None
+        # THE PLAYLISTS' COVERS (hk_core/music/covers.py): looked up in the background, never in the feed's way
+        self.covers = Covers(self._read_ma, _item_image)
+        self._covers_task: asyncio.Task | None = None
+        self._covers_wake = asyncio.Event()
 
     # -- what it runs on ----------------------------------------------------------------------------------
     @property
@@ -1284,6 +1291,39 @@ class MusicHost:
             self.push()
         return changed
 
+    async def _read_ma(self, command: str, **args: Any) -> Any:
+        client = self.ma
+        if client is None:
+            raise ConnectionError("Music Assistant is not connected")
+        async with asyncio.timeout(COVERS_READ_TIMEOUT):
+            return await client.read(command, **args)
+
+    async def refresh_covers(self) -> bool:
+        """The playlists' covers, looked up again where they expired (a read: no gate, no audit). True when a cover
+        changed -- the screens' feed is then re-sent."""
+        client = self.ma
+        if client is None or not client.connected.is_set() or self.doc() is None:
+            return False
+        try:
+            changed = await self.covers.refresh(self.config().playlists)
+        except Exception:  # noqa: BLE001 -- the covers are an extra; the feed goes on without
+            log.exception("music: the playlists' covers could not be looked up")
+            return False
+        if changed and self._subs:
+            self.push()
+        return changed
+
+    async def _covers_loop(self) -> None:
+        await asyncio.sleep(COVERS_FIRST)
+        while True:
+            self._covers_wake.clear()
+            await self.refresh_covers()
+            try:
+                await asyncio.wait_for(self._covers_wake.wait(), COVERS_EVERY)
+            except TimeoutError:
+                continue
+            await asyncio.sleep(COVERS_SOON)          # (a run of saves is one look)
+
     async def _groups_loop(self) -> None:
         while True:
             await self.refresh_groups()
@@ -1330,6 +1370,15 @@ class MusicHost:
                 except Exception:  # noqa: BLE001
                     log.exception("music: a wait failed")
 
+    def stopping(self, entities: Any) -> None:
+        """A stop WE send: those players (and the group each leads) are forgotten by the resumes, and the idle that
+        follows is not Music Assistant's stop after a pause (hk_core/music/resume.py)."""
+        ids = [entities] if isinstance(entities, str) else list(entities or [])
+        for e in list(ids):
+            ids += E.members(self.house, e)
+        if self.resumes.ours(ids, time.monotonic()):
+            self.push()
+
     def on_registry(self) -> None:
         if self._subs:
             self.push()      # a renamed area renames its pill; a moved area moves floors (sent only if changed)
@@ -1358,7 +1407,7 @@ class MusicHost:
         if self.doc() is None:
             return {"configured": False}
         cfg = self.config()
-        raw = cfg.as_client(None)
+        raw = cfg.as_client(None, self.covers.images(cfg.playlists))
         raw["announcements"] = self.announcements.players() if cfg.ignore_announcements else []
         raw["resumable"] = self.resumes.players(time.monotonic())
         names = music_players(raw)
@@ -1641,6 +1690,7 @@ class MusicHost:
         """The music settings changed (a save, an import): the screens hear it, the warmer follows."""
         if self._subs:
             self.push()
+        self._covers_wake.set()
         if self.started:
             self.warmer.follow(WARM_SOON)
 
@@ -1679,6 +1729,8 @@ class MusicHost:
         if m.get("op") == SERVICE_STOP and not (m.get("args") or {}).get("rooms"):
             names = list(cfg.room_ids)
         out = list(dict.fromkeys(names))
+        if cmd.music is not None:
+            cmd.music["approved"] = out       # what the gateway will have decided on: all MusicHost.run may send to
         keep = [c for c in cmd.checks if c.entity_id is None]
         if not out and keep == cmd.checks:
             return cmd
@@ -1698,11 +1750,15 @@ class MusicHost:
             return None
         cfg = self.config()
         players = set()
-        speakers = cfg.ma_players()           # (a virtual pair's second player and its own group with its room)
         if op == OP_SERVICE:                  # the speakers it names (each checked by the gateway), and their queues
             d = a["data"]
             speakers = cfg.players_of(_ids(d.get("entity_id")) + _ids(d.get("group_members")))
-            players |= {q for e in speakers for q in [self.engine._attr(e, "active_queue")] if isinstance(q, str) and q}
+        else:                                 # the rooms the gateway approved, not every speaker in the house
+            names = list(music.get("approved") or [])
+            speakers = E.own_players(cfg, names, op == SERVICE_STOP and not a.get("rooms"))
+            if op in (SERVICE_PLAY, SERVICE_TRANSFER):
+                speakers += self._others(principal, op, cfg, a)
+        players |= {q for e in speakers for q in [self.engine._attr(e, "active_queue")] if isinstance(q, str) and q}
         for e in speakers:
             try:
                 players.add(self.pid(e))
@@ -1741,6 +1797,22 @@ class MusicHost:
         return {"context": {"id": f"mantel-audit-{audit_id}"},
                 "response": res if music.get("return_response") else None}
 
+    def _others(self, principal: Any, op: str, cfg: MusicConfig, a: dict) -> list[str]:
+        """THE ROOMS A PLAY OR A MOVE REGROUPS BUT NEVER NAMED (the rest of a group it takes a room from): the person
+        needs control of them too, else the request is refused whole -- nothing is sent -- rather than moving,
+        pausing or releasing a room that is not theirs."""
+        others = E.others_in_the_way(self.house, cfg, a["rooms"], a.get("source") if op == SERVICE_TRANSFER else None)
+        gw = self.app.get("gateway")
+        action = f"{DOMAIN}.{op}"
+        blocked = [r for r in others if gw is None or not gw.authz.decide(
+            principal.subject, action, r, ctx=gw.authz.context()).allowed]
+        if blocked:
+            names = ", ".join(dict.fromkeys(cfg.name_of(r) for r in blocked))
+            named = ", ".join(dict.fromkeys(cfg.name_of(r) for r in a["rooms"]))
+            raise MusicRefusal("forbidden", f"{names} is playing together with {named} and is not yours to control, "
+                                            "so nothing was changed. Ask for it to be stopped first.")
+        return cfg.players_of(others)
+
     # -- the import -------------------------------------------------------------------------------------------
     async def import_from_ha(self, panel: Any, read: Callable[[dict], Any], actor: Any, source: str | None) -> bool:
         """The feature import's music part (features.FeatureHost.import_from_ha): HA's music settings, read once,
@@ -1775,6 +1847,7 @@ class MusicHost:
         # Keep Playlists Ready follows the connection too: its loop ends when Music Assistant goes, and was
         # started only at start() and on a settings save, so one connected later never warmed anything
         self.states.connection_changed()
+        self._covers_wake.set()
         if self.started:
             self.warmer.follow(WARM_SOON)
             asyncio.get_running_loop().create_task(self.refresh_groups())
@@ -1784,6 +1857,7 @@ class MusicHost:
         self.states.start()
         self.warmer.follow()
         self._groups_task = asyncio.get_running_loop().create_task(self._groups_loop())
+        self._covers_task = asyncio.get_running_loop().create_task(self._covers_loop())
 
     async def stop(self) -> None:
         self.started = False
@@ -1791,9 +1865,11 @@ class MusicHost:
         self.warmer.stop()
         self.announcements.reset()
         self.resumes.clear()
-        if self._groups_task is not None:
-            self._groups_task.cancel()
-            self._groups_task = None
+        for name in ("_groups_task", "_covers_task"):
+            task = getattr(self, name)
+            if task is not None:
+                task.cancel()
+                setattr(self, name, None)
 
 
 # ------------------------------------------------------------------------------------------- register

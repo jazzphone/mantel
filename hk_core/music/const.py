@@ -94,3 +94,11 @@ WARM_RECENT_DAYS = 7      # ...played within this many days
 # MUSIC ASSISTANT'S GROUPS (groups.py): how often a host reads its player list again (and at once
 # when the settings page opens). A group changed in Music Assistant shows within this long.
 GROUPS_EVERY = 30
+
+# PLAYLIST COVERS (covers.py): a host looks them up after it has started (COVERS_FIRST: Music Assistant settles first),
+# a moment after the playlists change (COVERS_SOON: a run of saves is one look) and every COVERS_EVERY (what expired,
+# or could not be read, is asked again).
+COVERS_FIRST = 5
+COVERS_SOON = 2
+COVERS_EVERY = 600
+COVERS_READ_TIMEOUT = 30  # seconds one Music Assistant read may take

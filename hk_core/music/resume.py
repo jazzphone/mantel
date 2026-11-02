@@ -10,17 +10,25 @@ goes from ``paused`` to ``idle`` within ``STOP_AFTER`` seconds was stopped by Mu
 RESUMABLE for ``HOLD`` seconds, until it plays, pauses again or goes off or away. The feed lists them
 (``resumable``) and the screens show them as paused (hk-base.js hkMusic.active), so play (``play_pause`` on the
 leader) resumes the song where it was. Nothing here sends anything.
+
+But a person's Stop, or Stop All, within those seconds of a pause reads the same (paused, then idle), so the host
+tells ``ours`` which players IT is stopping: they are forgotten, and the idle that follows within ``OURS_WINDOW``
+seconds is ours, not Music Assistant's (MED-11: Stop All left the room shown as paused for four hours).
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 STOP_AFTER = 45             # seconds: Music Assistant's stop comes 30 s into the pause (a margin for its checks)
 HOLD = 4 * 3600             # seconds a screen keeps offering it
+OURS_WINDOW = 10            # seconds after the host sent a stop in which a player's idle is the host's own
 
 
 class Resumes:
     def __init__(self) -> None:
         self._paused: dict[str, float] = {}     # player -> when it paused
         self._held: dict[str, float] = {}       # player -> when Music Assistant stopped it
+        self._ours: dict[str, float] = {}       # player -> when the host sent it a stop
 
     def state(self, entity: str, state: str | None, now: float) -> bool:
         """A player's state now; True when the resumable players changed."""
@@ -29,6 +37,9 @@ class Resumes:
             return self._held.pop(entity, None) is not None
         paused = self._paused.pop(entity, None)
         if state == "idle":
+            sent = self._ours.get(entity)
+            if sent is not None and now - sent <= OURS_WINDOW:
+                return self._held.pop(entity, None) is not None     # the host's own stop: nothing to resume
             if entity in self._held:
                 return False                    # (an idle player's other changes: still resumable)
             if paused is not None and now - paused <= STOP_AFTER:
@@ -36,6 +47,19 @@ class Resumes:
                 return True
             return False
         return self._held.pop(entity, None) is not None
+
+    def ours(self, entities: Iterable[str], now: float) -> bool:
+        """The host is stopping these players: forget them, and the idle that follows is not Music Assistant's;
+        True when a resumable player was dropped."""
+        dropped = False
+        for e in entities:
+            self._ours[e] = now
+            self._paused.pop(e, None)
+            dropped = self._held.pop(e, None) is not None or dropped
+        for e, at in list(self._ours.items()):
+            if now - at > OURS_WINDOW:
+                del self._ours[e]
+        return dropped
 
     def players(self, now: float) -> list[str]:
         """The resumable players, oldest gone."""
@@ -49,4 +73,5 @@ class Resumes:
         had = bool(self._held)
         self._paused.clear()
         self._held.clear()
+        self._ours.clear()
         return had

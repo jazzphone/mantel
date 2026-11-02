@@ -51,6 +51,7 @@ from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import Context, Event, HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_state_change_event
 
 from ...hk_core.music import config as C, engine as E
@@ -67,7 +68,7 @@ from .warm import mass_client
 CALLER: ContextVar[Context | None] = ContextVar("hk_music_caller", default=None)
 from .const import (  # noqa: E402
     JOIN_SETTLE, JOIN_TIMEOUT, NOTE_GROUP, NOTE_PARTIAL, NOTE_PLAY, NOTE_PRESET,
-    NOTE_STOP, NOTE_TRANSFER, PAUSE_TIMEOUT, RELEASE_TIMEOUT, START_TIMEOUT,
+    NOTE_STOP, SIGNAL_CONFIG, NOTE_TRANSFER, PAUSE_TIMEOUT, RELEASE_TIMEOUT, START_TIMEOUT,
     STOP_TIMEOUT, TRANSFER_TIMEOUT,
 )
 
@@ -188,6 +189,8 @@ class MusicManager:
         in the context of the action that asked (CALLER), so the logbook says
         who started the music.
         """
+        if service == "media_stop":
+            self._stopping(data.get("entity_id"))
         try:
             await self.hass.services.async_call(domain, service, data, blocking=True,
                                                 context=CALLER.get())
@@ -195,6 +198,18 @@ class MusicManager:
             _LOGGER.warning("music: %s.%s %s failed: %s", domain, service, data, err)
             return False
         return True
+
+    def _stopping(self, entities: Any) -> None:
+        """A stop WE send: those players (and the group each leads) are forgotten by the resumes, and the idle that
+        follows is not Music Assistant's stop after a pause (hk_core/music/resume.py)."""
+        resumes = getattr(self, "resumes", None)
+        if resumes is None:
+            return
+        ids = [entities] if isinstance(entities, str) else list(entities or [])
+        for e in list(ids):
+            ids += self._members(e)
+        if resumes.ours(ids, time.monotonic()):
+            async_dispatcher_send(self.hass, SIGNAL_CONFIG)
 
     async def _wait(self, entities: Iterable[str], pred: Callable[[], bool],
                     timeout: float) -> bool:

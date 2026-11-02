@@ -774,3 +774,84 @@ def test_music_assistants_stop_after_a_pause_is_kept_for_the_screens():
     assert r.players(50 + HOLD) == [EXTRA] and r.players(51 + HOLD) == []
     r.state(LOFT, "paused", 0); r.state(LOFT, "idle", 1)
     assert r.clear() is True and r.players(2) == [] and r.clear() is False
+
+
+def test_a_stop_the_host_sends_is_not_music_assistants_stop_after_a_pause():
+    """Stop All within 45 s of a pause left the room paused (resumable) for four hours (MED-11, 2026-11-01)."""
+    from hk_core.music.resume import HOLD, OURS_WINDOW, Resumes
+    r = Resumes()
+    r.state(K, "paused", 100)
+    assert r.ours([K], 119) is False, "paused, not yet resumable: nothing dropped"
+    assert r.state(K, "paused", 119.5) is False, "(the pause echoed once more after the stop was sent)"
+    assert r.state(K, "idle", 120) is False and r.players(120) == [], "the host's own stop is no one's to resume"
+    # Music Assistant's own stop, with no stop of ours: still resumable
+    r.state(LR, "paused", 100)
+    assert r.state(LR, "idle", 130) is True and r.players(130) == [LR]
+    # a person's Stop on a resumable room forgets it
+    assert r.ours([LR], 200) is True and r.players(200) == []
+    assert r.state(LR, "idle", 201) is False and r.players(201) == []
+    # our stop is old news after the window: a later pause and idle count again
+    r.ours([OFF], 0)
+    r.state(OFF, "paused", 100)
+    assert r.state(OFF, "idle", 100 + OURS_WINDOW + 1) is True and r.players(101 + OURS_WINDOW) == [OFF]
+    assert r.players(HOLD + 200) == []
+    assert r.ours([EXTRA], 5) is False and r.clear() is False
+
+
+# ------------------------------------------------------------- playlist covers (covers.py)
+async def test_a_playlists_cover_is_its_first_item_with_a_picture_asked_once_and_kept():
+    from hk_core.music.config import Playlist
+    from hk_core.music.covers import COVER_RETRY, COVER_TTL, Covers
+    asked, now = [], [0.0]
+    items = {"a://playlist/1": {"item_id": "1", "provider": "a", "media_type": "playlist"},        # no picture of its own
+             "a://album/2": {"item_id": "2", "provider": "a", "media_type": "album", "image": "/img/album2"},
+             "a://album/3": {"item_id": "3", "provider": "a", "media_type": "album", "image": "/img/album3"},
+             "a://playlist/4": {"item_id": "4", "provider": "a", "media_type": "playlist"},
+             "a://playlist/5": {"item_id": "5", "provider": "a", "media_type": "playlist"}}
+    songs = {"1": [{"image": None}, {"image": None, "album": {"image": "/img/song-album"}}], "4": [{"image": None}],
+             "5": [{"image": "/img/song-own"}]}
+    broken = set()
+
+    async def read(command, **args):
+        asked.append((command, args.get("uri") or args.get("item_id")))
+        if command == "music/item_by_uri":
+            if args["uri"] in broken or args["uri"] not in items:
+                raise ConnectionError("no")
+            return items[args["uri"]]
+        return songs[args["item_id"]]
+
+    covers = Covers(read, lambda item: item.get("image") if isinstance(item, dict) else None, lambda: now[0])
+    pls = [Playlist("p1", "One", "mdi:a", ["a://playlist/1", "a://album/2"]),      # its songs' album first
+           Playlist("p2", "Two", "mdi:b", ["a://playlist/4", "a://album/3", "a://album/2"]),   # empty, then the album
+           Playlist("p3", "Three", "mdi:c", ["a://playlist/5"]),                  # a song's own picture
+           Playlist("p4", "Four", "mdi:d", ["a://playlist/gone", "a://playlist/4"])]   # nothing, nothing, nothing
+    assert covers.images(pls) == {}, "nothing is asked until a refresh"
+    assert await covers.refresh(pls) is True
+    assert covers.images(pls) == {"p1": "/img/song-album", "p2": "/img/album3", "p3": "/img/song-own"}
+    # the items after the first with a picture are never asked for
+    assert ("music/item_by_uri", "a://album/2") not in asked
+    n = len(asked)
+    assert await covers.refresh(pls) is False and len(asked) == n, "kept: a second refresh asks for nothing new"
+    # an item that could not be read is asked again after COVER_RETRY, not before
+    broken.add("a://playlist/1")
+    now[0] = COVER_RETRY - 1
+    assert await covers.refresh(pls) is False and len(asked) == n
+    # past COVER_TTL everything is asked again; one Music Assistant cannot answer for keeps the picture it had
+    now[0] = COVER_TTL + 1
+    assert await covers.refresh(pls) is False
+    assert covers.images(pls)["p1"] == "/img/song-album" and len(asked) > n
+    # a playlist that no longer holds an item forgets it
+    await covers.refresh([pls[2]])
+    assert covers.images(pls) == {"p3": "/img/song-own"}
+
+
+def test_the_clients_playlists_carry_a_cover_where_there_is_one(cfg):
+    plain = cfg.as_client(None)["playlists"]
+    assert all("image" not in p for p in plain) and all("image" not in o for p in plain for o in p.get("options", []))
+    got = cfg.as_client(None, {"pl_fav": "/ma/imageproxy/aa", "pl_90s": "/ma/imageproxy/dd"})["playlists"]
+    assert got[0] == {"name": "Favorites", "icon": plain[0]["icon"], "key": "pl_fav", "image": "/ma/imageproxy/aa"}
+    assert "image" not in got[1], "no cover: the screen draws its gradient"
+    decades = got[2]
+    assert decades["image"] == "/ma/imageproxy/dd", "the choices' pill: its first choice that has a picture"
+    assert decades["options"] == [{"name": "1980s", "key": "pl_80s"},
+                                  {"name": "1990s", "key": "pl_90s", "image": "/ma/imageproxy/dd"}]

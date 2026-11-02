@@ -147,3 +147,35 @@ def test_the_power_pictures_folder_from_the_settings_feed_is_moved_under_the_pre
     assert got["other"]["energy"]["power"]["art"] == "/local/art/"
     assert got["none"] == {"added": []}
     assert got["global"] == PREFIX + "/hk/power-house/"
+
+
+def test_the_playlists_covers_in_the_music_feed_are_moved_under_the_prefix(tmp_path):
+    """A playlist pill's picture is Mantel's /ma image path (music.py covers): through Ingress the prefix goes in front
+    (shim/mantel-host.js withMusicBase); a web address, or no prefix, is left alone."""
+    import json
+    import shutil
+    import subprocess
+
+    import pytest
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    served = dict(served_files())["shim/mantel-host.js"]
+    assert "raw(withMusicBase(p))" in served                           # the music feed goes through it
+    (tmp_path / "host.mjs").write_text(served)
+    (tmp_path / "run.mjs").write_text("""
+      import { withMusicBase } from './host.mjs';
+      const feed = () => ({ configured: true, playlists: [
+        { name: 'A', key: 'a', image: '/ma/imageproxy/ab?size=256' }, { name: 'B', key: 'b' },
+        { name: 'C', image: 'https://img.example/c.jpg', options: [{ name: 'C1', key: 'c1', image: '/ma/imageproxy/cd?size=256' }, { name: 'C2', key: 'c2' }] }] });
+      const base = %s;
+      console.log(JSON.stringify({ moved: withMusicBase(feed(), base), direct: withMusicBase(feed(), ''),
+        other: withMusicBase({ configured: false }, base) }));""" % json.dumps(PREFIX))
+    out = subprocess.run(["node", str(tmp_path / "run.mjs")], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    got = json.loads(out.stdout)
+    a, b, c = got["moved"]["playlists"]
+    assert a["image"] == PREFIX + "/ma/imageproxy/ab?size=256" and "image" not in b
+    assert c["image"] == "https://img.example/c.jpg" and c["options"][0]["image"] == PREFIX + "/ma/imageproxy/cd?size=256"
+    assert "image" not in c["options"][1]
+    assert got["direct"]["playlists"][0]["image"] == "/ma/imageproxy/ab?size=256"
+    assert got["other"] == {"configured": False}

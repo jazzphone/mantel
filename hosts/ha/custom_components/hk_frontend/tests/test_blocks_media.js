@@ -202,6 +202,11 @@ function () {
   });
   // WHEN TAPPED: the Music page by default; Choose a Playlist, the playlists' sheet, Decades asking which next
   eq('a tap on the plate: the Music page', sm._tapTarget()[0], { page: 'playmusic' });
+  // ...its Plays On a preset: the speaker's sheet opens on the preset's first room, never on the preset
+  sm._config = { type: 'custom:hk-recent-music-card', show: 'presets', speaker: 'media_player.downstairs_homepods_downstairs' };
+  eq('a tap, Plays On a preset: the sheet of its first room', sm._tapTarget()[1], { sheet: 'media_player.kitchen_homepod_ma' });
+  sm._config = { type: 'custom:hk-recent-music-card', show: 'presets', speaker: 'media_player.office_homepod_ma' };
+  eq('...a room: its own sheet', sm._tapTarget()[1], { sheet: 'media_player.office_homepod_ma' });
   sm._config = { type: 'custom:hk-recent-music-card', show: 'presets', tap: 'playlists', speaker: 'media_player.kitchen_homepod_ma' };
   var D = window.hkDetail, opened = null, closed = 0, wasOpen = D && D.open, wasClose = D && D.close;
   window.hkDetail = Object.assign({}, D || {}, { open: function (id, src, opts) { opened = [id, src, opts]; return true; }, close: function () { closed++; } });
@@ -238,6 +243,56 @@ function () {
     eq('...and once it plays, the sheet goes', [played, closed], [true, 1]);
     if (D) window.hkDetail = D;
   });
+},
+function () {
+  H.section('Music: a playlist\'s cover is the picture of what it is built with, the gradient and glyph otherwise');
+  var covered = HK_HOUSE.playlists.map(function (p) { return JSON.parse(JSON.stringify(p)); });
+  covered[0].image = '/ma/imageproxy/aa?size=256';                      // Favorites Mix
+  covered[2].options[1].image = 'https://img.example/2010s.jpg';         // Decades: its 2010s only
+  covered[2].image = covered[2].options[1].image;                        // (Mantel gives the pill its first choice's)
+  window.hkMusic._configure(Object.assign({}, HK_HOUSE, { playlists: covered }));
+  // (innerHTML does not parse in this harness: the covers the page would find are stood in, one button each)
+  var stand = function (card, n) {
+    card._root.querySelectorAll = function (sel) {
+      if (sel !== '[data-i]') return [];
+      return Array.from({ length: n }, function (_, i) {
+        return { getAttribute: function () { return String(i); }, addEventListener: function () {}, classList: { add: function () {}, contains: function () { return false; } },
+                 querySelector: function (q) { return q === '.cvr' ? { cover: i } : null; } };
+      });
+    };
+  };
+  try {
+    var tiles = Mx.playlistTiles(window.hkMusic.playlists(), null);
+    eq('the tiles carry the pill\'s picture, the choices theirs', [tiles[0].image, tiles[1].image, tiles[2].image, tiles[2].options.map(function (o) { return o.image; })],
+       ['/ma/imageproxy/aa?size=256', null, 'https://img.example/2010s.jpg', [null, 'https://img.example/2010s.jpg', null]]);
+    eq('One Playlist\'s choices: each its own', Mx.playlistTiles(window.hkMusic.playlists(), 'Decades').map(function (t) { return t.image; }),
+       [null, 'https://img.example/2010s.jpg', null]);
+    // THE BLOCK: every cover with a picture is drawn with it (its glyph kept for when it fails), the rest stay gradients
+    var drawn = [], blk = sized('hk-recent-music-card', 'L');
+    blk._config = { type: 'custom:hk-recent-music-card', show: 'presets' };
+    blk.client = client();
+    blk._artImage = function (url, box, icon, size) { drawn.push([url, /icon="hk:star-fill"/.test(icon) || /icon="hk:timer-sand"/.test(icon)]); };
+    stand(blk, 3);
+    blk._render();
+    eq('the block draws the pictures it has, with the playlist\'s own glyph behind', drawn.slice().sort(), [['/ma/imageproxy/aa?size=256', true], ['https://img.example/2010s.jpg', true]].sort());
+    var html = String(blk._root.innerHTML);
+    ok('...the cover without one keeps its gradient and glyph', html.indexOf('hk:christmas-tree') >= 0 && html.indexOf('--c1:') >= 0, html.slice(0, 300));
+    // THE SHEET: the same, and a choice opened in place shows its own (else the pill's)
+    drawn = [];
+    var sh = sized('hk-music-playlists-card', null);
+    sh._config = { type: 'custom:hk-music-playlists-card' };
+    sh.client = client();
+    sh._artImage = function (url) { drawn.push(url); };
+    stand(sh, 3);
+    sh._render();
+    eq('the playlists\' sheet draws them too', drawn, ['/ma/imageproxy/aa?size=256', 'https://img.example/2010s.jpg']);
+    drawn = [];
+    sh._open = 'Decades';
+    stand(sh, 3);
+    sh._render();
+    eq('...a pill opened: its choices, each its own picture (none, the gradient)', drawn, ['https://img.example/2010s.jpg']);
+  } finally { window.hkMusic._configure(HK_HOUSE); }
+  eq('no pictures from the server: the plain tiles, as before', Mx.playlistTiles(window.hkMusic.playlists(), null).map(function (t) { return t.image; }), [null, null, null]);
 },
 function () {
   H.section('Live TV: the page\'s channels, a tile each, a tap plays it full screen');

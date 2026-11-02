@@ -305,6 +305,27 @@ def transfer_rooms(house: House, cfg: MusicConfig, rooms: list[str], source: str
                      | ({source} if source in cfg.room_ids else set()))
 
 
+def own_players(cfg: MusicConfig, named: Iterable[str], whole: bool = False) -> list[str]:
+    """THE PLAYERS A REQUEST MAY SEND TO for what it names (the host checked each name): those, a virtual pair's
+    second player and its own Music Assistant group; Stop All also Music Assistant's other groups."""
+    named = list(named)
+    out = list(named)
+    for r in named:
+        if r in cfg.room_ids:
+            out += cfg.players_of([r]) + ([cfg.pair_groups[r]] if r in cfg.pair_groups else [])
+    return list(dict.fromkeys(out + (cfg.ma_groups if whole else [])))
+
+
+def others_in_the_way(house: House, cfg: MusicConfig, rooms: Iterable[str], source: str | None = None) -> list[str]:
+    """The rooms a play or a move NEVER NAMED but regroups: the group each room it names (and a move's source)
+    is in -- released, split off to keep playing, or left behind (``in_the_way``, ``split``, ``stale``). Whoever
+    asks needs control of them too."""
+    rooms = list(rooms)
+    got = transfer_rooms(house, cfg, rooms, source) if source else entangled(house, cfg, rooms)
+    named = set(cfg.players_of(rooms)) | {source}
+    return [r for r in cfg.room_ids if r in got and r not in named]
+
+
 def move_plan(house: House, rooms: list[str], source: str,
               preset: Preset | None, cfg: MusicConfig | None = None) -> tuple[str, list[str], bool]:
     """THE HOUSE IS READ NOW, holding the rooms: (the leader, the PLAYERS to join to it, whether

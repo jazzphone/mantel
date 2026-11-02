@@ -208,8 +208,10 @@ class MusicConfig:
         cfg.playlists.sort(key=lambda p: (p.order, p.name))
         return cfg
 
-    def as_client(self, user_id: str | None) -> dict[str, Any]:
-        """What a screen needs, in the shape hkMusic (cards/hk-base.js) reads."""
+    def as_client(self, user_id: str | None, covers: Mapping[str, str] | None = None) -> dict[str, Any]:
+        """What a screen needs, in the shape hkMusic (cards/hk-base.js) reads. ``covers``: playlist key -> its
+        picture (covers.py), for the pills that have one; a pill with none is drawn without."""
+        covers = covers or {}
         floors: list[dict[str, Any]] = []
         for r in self.rooms:
             label = r.floor or "Other"
@@ -224,9 +226,11 @@ class MusicConfig:
                 if c is None:
                     c = choosers[p.chooser] = {"name": p.chooser, "icon": p.icon, "options": []}
                     pills.append(c)
-                c["options"].append({"name": p.name, "key": p.key})
+                c["options"].append(dict({"name": p.name, "key": p.key}, **_cover(covers, p.key)))
+                if p.key in covers and "image" not in c:       # (the choices' pill: its first choice's picture)
+                    c["image"] = covers[p.key]
             else:
-                pills.append({"name": p.name, "icon": p.icon, "key": p.key})
+                pills.append(dict({"name": p.name, "icon": p.icon, "key": p.key}, **_cover(covers, p.key)))
         home = self.homes.get(user_id or "")
         return {
             # Music Assistant's live config entry, for Browse's get_library --
@@ -248,6 +252,10 @@ class MusicConfig:
             "volume": self.volume,
             "ignore_announcements": self.ignore_announcements,
         }
+
+
+def _cover(covers: Mapping[str, str], key: str) -> dict[str, str]:
+    return {"image": covers[key]} if covers.get(key) else {}
 
 
 def virtual_pairs(options: Mapping[str, Any]) -> list[dict[str, Any]]:
