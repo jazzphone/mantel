@@ -83,6 +83,10 @@ Reliability:
 - Backups: a backup made by hand deletes no older ones; a database-only restore keeps your photos; leftovers of an interrupted backup are cleaned up.
 - Push notifications survive an internet outage, and stop at an app that was signed out.
 
+## 0.1.112 - 2026-11-01
+
+- **Releases are published:** from this release on, each one also goes out as a GitHub Release, as Docker images on ghcr.io (`mantel-server`, `mantel-transcode`, `mantel-caddy`) and as the Home Assistant App repository (`https://github.com/jazzphone/mantel#ha-apps`); the Proxmox LXC's `update` follows the release tags. 0.1.112 is the first, and carries 0.1.111's changes below (0.1.111 itself was not published).
+
 ## 0.1.111 - 2026-11-01
 
 - **Appearance, Bright Glass's Dim:** the slider is Strength again, as before 1.33.0 (no brightening past the cap), and Bright Glass gains a Dim (0 to 60 %), like the Side Pane's: a shade over the cards, the chips, the tab bar and the side menu. The Side Pane's Dim is Same as the Glass by default, with its own slider when that's off. The Settings preview follows the sliders as they move.
