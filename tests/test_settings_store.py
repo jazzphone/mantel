@@ -18,6 +18,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from argon2 import PasswordHasher
 
 from connector_fakes import HA_TOKEN, FakeHa
+from hk_core.settings import home_grid as HG
 from hk_core.settings import model as M
 from mantel_server import readproxy, settings_store as S
 from mantel_server.connectors import Ctx, Forbidden, Hooks
@@ -1095,6 +1096,106 @@ def test_a_person_cannot_keep_what_the_house_would_be_refused():
     assert mine
     out, ok = model.apply_user({}, {"look.glass": house["look"]["glass"]}, house)
     assert ok == {} and out["look"]["glass"] == house["look"]["glass"]
+
+
+def _naming_house(store):
+    """Screens, accessories, chips and a pop-up that name things (camera.porch, lock.safe_room, scene.secret...)."""
+    items = [
+        {"id": "cam", "card": "camera", "size": "L", "at": [0, 0], "opts": {"entity": "camera.porch"}},
+        {"id": "th", "card": "thermostat", "size": "S", "at": [2, 0], "opts": {"entity": "climate.loft"}},
+        {"id": "sc", "card": "scenes", "size": "W", "at": [3, 0], "opts": {"scenes": ["scene.evening", "scene.secret"]}},
+        {"id": "ac", "card": "accessories", "size": "W", "at": [0, 2],
+         "opts": {"accessories": [{"entity": "light.kitchen_main"}, {"entity": "lock.safe_room"}]}},
+        {"id": "w", "card": "weather", "size": "S", "at": [2, 1], "when": {"kind": "entity_state", "entity": "lock.safe_room",
+                                                                          "state": "unlocked"}, "fallback": {"card": "clock"}},
+        {"id": "r", "card": "clock", "size": "S", "at": [3, 1], "rules": [
+            {"when": {"all": [{"kind": "entity_state", "entity": "lock.safe_room", "state": "locked"}]}, "card": "weather"},
+            {"when": {"kind": "after_sunset"}, "card": "battery"}]},
+        {"id": "pg", "card": "scene", "size": "S", "at": [4, 1], "opts": {"scene": "scene.secret"}}]
+    store.write([
+        ("board", "dashboard-security", {"title": "Security", "home_style": "grid", "home_grid": {
+            "v": 1, "cols": 6, "rows": 4, "frame": [1280, 800], "band": True, "items": items}}),
+        ("house", "accessories", {"entities": {"camera.porch": {"names": {"*": "Nursery Camera Secret Name"}},
+                                               "light.kitchen_main": {"name": "Main", "fav_with": ["lock.safe_room"]}},
+                                  "rooms": {"kitchen": ["lock.safe_room", "light.kitchen_main"]}, "into": {},
+                                  "pages": {"security": ["camera.porch"]}}),
+        ("house", "custom_chips", {"items": [
+            {"key": "c1", "name": "Safe", "after": "end", "card": {"type": "x", "entity": "lock.safe_room"}},
+            {"key": "c2", "name": "Mail", "after": "end", "card": {"type": "conditional", "conditions": [
+                {"entity": "light.kitchen_main", "state": "on"}], "card": {"type": "y", "title": "v1.2"}}}]}),
+        ("house", "popups", {"items": [{"hash": "door", "name": "Door", "kind": "camera", "entity": "camera.porch"}]}),
+    ], actor=S.Actor(label="t"))
+    return items
+
+
+def test_a_settings_feed_names_only_what_its_person_may_view(store):
+    """SRV-4 (third audit pass): ``hk_frontend/settings/subscribe`` sent a Child every screen's Home Grid entity ids, the
+    Owner's own names for accessories the Child cannot view, and custom chips' cards. Cut to what the subject may
+    ``view``: a block arrives without the entity (its place stays, so the grid is whole), the rest is left out."""
+    items = _naming_house(store)
+    seen = {"light.kitchen_main", "climate.loft", "scene.evening"}          # what the person may view
+    host = types.SimpleNamespace(hooks=types.SimpleNamespace(may_read=lambda who, kind, ids: [
+        i for i in ids if who is OWNER or i in seen]), client_part=lambda identity: {})
+    svc = S.SettingsService(store, S.SettingsHooks(may_configure=lambda identity, scope: True), S.load_model())
+    svc.features = host
+    full = svc.feed_payload(OWNER)
+    assert [i["id"] for i in full["boards"]["dashboard-security"]["home_grid"]["items"]] == [i["id"] for i in items]
+    assert "Nursery Camera Secret Name" in json.dumps(full) and "lock.safe_room" in json.dumps(full)
+    mine = svc.feed_payload(CHILD)
+    text = json.dumps(mine)
+    for secret in ("camera.porch", "Nursery Camera Secret Name", "lock.safe_room", "scene.secret", "Safe"):
+        assert secret not in text, secret
+    grid = mine["boards"]["dashboard-security"]["home_grid"]
+    by = {i["id"]: i for i in grid["items"]}
+    assert list(by) == [i["id"] for i in items], "every block keeps its place"
+    assert by["cam"]["card"] == "camera" and "opts" not in by["cam"]
+    assert by["th"]["opts"] == {"entity": "climate.loft"}
+    assert by["sc"]["opts"] == {"scenes": ["scene.evening"]}
+    assert by["ac"]["opts"] == {"accessories": [{"entity": "light.kitchen_main"}]}
+    assert by["w"]["card"] == "clock" and "when" not in by["w"] and "fallback" not in by["w"]
+    assert [r["card"] for r in by["r"]["rules"]] == ["battery"]
+    assert "opts" not in by["pg"]
+    assert HG.layout(grid)["items"] == grid["items"], "what arrives is still a layout the screens read"
+    assert mine["accessories"]["entities"] == {"light.kitchen_main": {"name": "Main"}}
+    assert mine["accessories"]["rooms"] == {"kitchen": ["light.kitchen_main"]} and mine["accessories"]["pages"] == {}
+    assert [c["key"] for c in mine["custom_chips"]] == ["c2"] and mine["popups"] == []
+    # a person whose views can't be asked is told nothing that names a thing
+    svc.features = None
+    assert "camera.porch" not in json.dumps(svc.feed_payload(CHILD)) and svc.feed_payload(None)["custom_chips"]
+
+
+async def test_a_childs_screen_socket_is_not_told_what_it_cannot_view(mantel):
+    """SRV-4 end to end: the real subscribe a Child's screen sends, through the app's own RBAC."""
+    from test_mcp import house
+    house(mantel)
+    _naming_house(mantel.app["settings"].store)
+    await mantel.user("kid", "child")
+    await mantel.sign_in("kid")
+    ws = await mantel.client.ws_connect("/ws")
+    try:
+        await ws.send_json({"type": "read_subscribe", "id": 3, "msg": {"type": "hk_frontend/settings/subscribe"}})
+        frames = [json.loads((await ws.receive(timeout=5)).data) for _ in range(2)]
+    finally:
+        await ws.close()
+    text = json.dumps(frames)
+    for secret in ("camera.porch", "Nursery Camera Secret Name", "lock.safe_room", "scene.secret"):
+        assert secret not in text, secret
+    items = frames[1]["event"]["boards"]["dashboard-security"]["home_grid"]["items"]
+    assert [i["id"] for i in items] == ["cam", "th", "sc", "ac", "w", "r", "pg"], "every block keeps its place"
+
+
+async def test_the_published_feed_is_cut_for_each_person_too(store):
+    _naming_house(store)
+    host = types.SimpleNamespace(hooks=types.SimpleNamespace(may_read=lambda who, kind, ids: [
+        i for i in ids if who is OWNER or i == "light.kitchen_main"]), client_part=lambda identity: {})
+    svc = S.SettingsService(store, S.SettingsHooks(may_configure=lambda identity, scope: True), S.load_model())
+    svc.features = host
+    owner_heard, child_heard = Feed(), Feed()
+    svc.subscribe_feed(OWNER, owner_heard)
+    svc.subscribe_feed(CHILD, child_heard)
+    await svc.save(OWNER, {"type": "hk_frontend/settings/set", "changes": {"look.glass": "blur"}})
+    assert len(child_heard.events) == 2 and "camera.porch" not in json.dumps(child_heard.events)
+    assert "camera.porch" in json.dumps(owner_heard.events[-1])
 
 
 async def test_one_stored_screen_with_a_bad_grid_does_not_take_the_feed_down(store):

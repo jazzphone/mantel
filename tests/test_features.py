@@ -239,7 +239,44 @@ async def test_a_state_change_sets_off_a_notification_on_every_screen(make_env):
     change(env.app, DOOR, "on")
     with pytest.raises(asyncio.TimeoutError):
         await next_event(ws, timeout=0.3)
-    assert env.audit() == [], "notifications call nothing in the house"
+    assert env.audit(kind="command") == [], "notifications call nothing in the house"
+    assert [r["action"] for r in env.audit(kind="config")] == ["notify.mute"], "the mute is audited, as a setting"
+    await ws.close()
+
+
+async def test_only_a_person_who_may_control_notifications_mutes_one_and_the_audit_row_comes_first(make_env):
+    """SRV-9 (third audit pass): any signed-in person, a Guest included, muted a notification category (smoke, say)
+    for the whole house for 24 hours, with no audit row. A mute is house-wide: it needs control of the Notifications
+    feature (an Adult, Owner or Admin by default; the sheet's Mute stays an Adult's), and no row, no change."""
+    env = await make_env(settings={"notifications": {"enabled": True, "items": [DOOR_ITEM], "options": {}}})
+    key = f"n_door:{DOOR}"
+    await env.login("adult1", "adult")
+    ws = await env.socket(expect_caps=False)
+    await ws.send_json({"type": "notify_mute", "id": 9, "key": key, "seconds": 3600})
+    assert (await GF.recv(ws))["result"]["until"] > 0, "an Adult mutes, as the notification sheet offers"
+    await ws.close()
+    env.host.notifier.mutes.clear()
+    assert len(env.audit(kind="config")) == 1
+    for who, role in (("guest1", "guest"), ("kid1", "child")):
+        await env.login(who, role)
+        ws = await env.socket(expect_caps=False)
+        await ws.send_json({"type": "notify_mute", "id": 1, "key": key, "seconds": 86400})
+        got = await GF.recv(ws)
+        assert got["error"] == {"code": "forbidden"}, role
+        await ws.close()
+    assert not env.host.notifier.mutes and len(env.audit(kind="config")) == 1, "the Adult's row only"
+    await env.login("admin1", "admin")
+    ws = await env.socket(expect_caps=False)
+    broken = env.app["audit"].config_event
+    env.app["audit"].config_event = lambda event: (_ for _ in ()).throw(RuntimeError("disk full"))
+    await ws.send_json({"type": "notify_mute", "id": 2, "key": key, "seconds": 86400})
+    assert (await GF.recv(ws))["error"] == {"code": "audit_unavailable"}
+    assert not env.host.notifier.mutes, "no row, no change"
+    env.app["audit"].config_event = broken
+    await ws.send_json({"type": "notify_mute", "id": 3, "key": key, "seconds": 86400})
+    assert (await GF.recv(ws))["result"]["until"] > 0
+    row = env.audit(kind="config")[-1]
+    assert row["action"] == "notify.mute" and json.loads(row["target"]) == {"key": key, "seconds": 86400}
     await ws.close()
 
 
@@ -561,6 +598,27 @@ async def test_clean_areas_runs_as_the_person_who_asked(make_env):
     assert got["result"]["ok"] is True and env.fake.sent == ["vacuum.clean_area"]
     row = env.audit(action="vacuum.clean_area")[0]
     assert row["role"] == "owner" and row["actor"] != F.FEATURE_ACTOR, "the person's own rights and name"
+    await ws.close()
+
+
+async def test_the_clean_areas_coverage_lists_only_the_vacuums_a_person_may_view(make_env):
+    """SRV-5 (third audit pass): ``mantel/clean_areas/coverage`` answered every vacuum's id and rooms to any
+    signed-in person; its sibling, the picker's subscribe, already cut them to the vacuums the subject may view."""
+    env = await make_env(commands=True, settings={"clean_areas": {"enabled": True}})
+    await env.login("guest1", "guest")
+    ws = await env.socket()
+    await ws.send_json({"type": "read", "id": 1, "msg": {"type": "mantel/clean_areas/coverage"}})
+    got = (await GF.recv(ws))["result"]
+    assert got == {"configured": True, "offered": [], "coverage": []}, got
+    await ws.send_json({"type": "read_subscribe", "id": 2, "msg": {"type": "hk_clean_areas/subscribe"}})
+    await GF.recv(ws)
+    assert (await GF.recv(ws))["event"]["areas"] == [], "the two reads agree"
+    await ws.close()
+    await env.login("owner1", "owner")
+    ws = await env.socket()
+    await ws.send_json({"type": "read", "id": 1, "msg": {"type": "mantel/clean_areas/coverage"}})
+    got = (await GF.recv(ws))["result"]
+    assert got["offered"] == ["kitchen"] and [v["vacuum"] for v in got["coverage"]] == [VACUUM]
     await ws.close()
 
 

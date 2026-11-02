@@ -562,3 +562,23 @@ def test_the_cells_faces_and_styles_are_the_mirrors(tmp_path):
     # ...and hk-base.js's square cell is the same
     base = (ROOT / "web/hk/cards/hk-base.js").read_text()
     assert "HOME_GRID.square = { w: TILE.w, h: 196, gap: 13, edge: 14 };" in base
+
+
+# ------------------------------------------------------------ what a person may see of a layout (third audit pass, SRV-4)
+def test_a_layout_is_cut_to_the_entities_a_person_may_view():
+    g = grid(block("cam", "camera", "L", [0, 0], opts={"entity": "camera.porch"}),
+             block("sc", "scenes", "W", [3, 0], opts={"scenes": ["scene.evening", "scene.secret"], "color": True}),
+             block("w", "weather", "S", [2, 1], when={"kind": "entity_state", "entity": "lock.safe", "state": "on"},
+                   fallback={"card": "clock"}),
+             block("pg", "camera", "S", [4, 1], pages={"source": "list", "list": [
+                 {"opts": {"entity": "camera.porch"}}, {"opts": {"entity": "camera.garden"}}]}))
+    g = HG.check(g)
+    assert HG.entity_ids(g) == {"camera.porch", "scene.evening", "scene.secret", "lock.safe", "camera.garden"}
+    cut = HG.only_viewable(g, {"scene.evening", "camera.garden"})
+    by = {i["id"]: i for i in cut["items"]}
+    assert "opts" not in by["cam"] and by["cam"]["at"] == [0, 0], "the block keeps its place, without the entity"
+    assert by["sc"]["opts"] == {"scenes": ["scene.evening"], "color": True}
+    assert by["w"]["card"] == "clock" and "when" not in by["w"], "a condition on something unseen never holds"
+    assert by["pg"]["pages"]["list"] == [{"opts": {}}, {"opts": {"entity": "camera.garden"}}]
+    assert HG.only_viewable(g, HG.entity_ids(g)) == g and "camera.porch" in json.dumps(g), "the layout itself is untouched"
+    assert HG.layout(cut)["items"] == cut["items"]

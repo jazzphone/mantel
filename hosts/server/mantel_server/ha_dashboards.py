@@ -22,6 +22,11 @@ REST (Mantel Settings, a screen's page; Owner and Admin, CSRF like every state-c
   ``.update``, ``.remove`` with the url_path); no audit row, no change. It changes HA's configuration, not
   the house, so ``commands_enabled`` does not gate it.
 
+**The kill switch.** With ``--read-only`` (``MANTEL_READ_ONLY``, the App's ``read_only``) Mantel changes nothing in
+Home Assistant, and Home Assistant's dashboards are its configuration: every write here is refused
+(``read_only``, 409), before its audit row and again in :meth:`HaSession.call`, the one place a write is sent from.
+The reads (the list on a screen's page) still work. Rules.md rule 3; the third audit pass, SRV-12.
+
 **Safety.** The App's HA connection is an HA administrator (the Supervisor's user), so this module has its own
 short connection per request, never the hub's read-only one or the command path, and ``check_frame`` pins what
 it may send: the reads it needs, ``create`` only under ``mantel-``, ``config/save`` only of an iframe strategy
@@ -83,6 +88,16 @@ ALLOWED: dict[str, frozenset[str]] = {
     "lovelace/dashboards/delete": frozenset({"dashboard_id"}),
     "lovelace/config/save": frozenset({"url_path", "config"}),
 }
+
+
+WRITES = frozenset({"lovelace/dashboards/create", "lovelace/dashboards/update", "lovelace/dashboards/delete",
+                    "lovelace/config/save"})
+READ_ONLY_WORDS = ("This Mantel was started read-only (the read_only option, MANTEL_READ_ONLY or --read-only), so it "
+                   "changes nothing in Home Assistant, dashboards included.")
+
+
+def read_only(app: web.Application) -> bool:
+    return bool(getattr(app["cfg"], "read_only", False))
 
 
 class Blocked(Exception):
@@ -181,8 +196,8 @@ def check_frame(frame: dict, base: str, ours: set[str], created: set[str], hk: A
 class HaSession:
     """One short WebSocket connection to HA on Mantel's own credential; every frame passes ``check_frame``."""
 
-    def __init__(self, ws: aiohttp.ClientWebSocketResponse, base: str) -> None:
-        self.ws, self.base = ws, base
+    def __init__(self, ws: aiohttp.ClientWebSocketResponse, base: str, read_only: bool = False) -> None:
+        self.ws, self.base, self.read_only = ws, base, read_only
         self.ours: set[str] = set()
         self.created: set[str] = set()
         # HK's own dashboards (screens.py): addresses this connection may create, ids read here whose config is
@@ -196,6 +211,8 @@ class HaSession:
         self._next += 1
         frame = {"id": self._next, "type": kind, **kw}
         check_frame(frame, self.base, self.ours, self.created, self)
+        if self.read_only and kind in WRITES:
+            raise Refused("read_only", READ_ONLY_WORDS, 409)
         await self.ws.send_str(json.dumps(frame))
         while True:
             m = await self.ws.receive()
@@ -224,7 +241,7 @@ async def _open(app: web.Application, base: str, body):
                     await ws.send_json({"type": "auth", "access_token": token})
                     if (await ws.receive_json()).get("type") != "auth_ok":
                         raise ConnectionError("Home Assistant refused Mantel's credential")
-                    return await body(HaSession(ws, base))
+                    return await body(HaSession(ws, base, read_only(app)))
     except (Refused, Blocked):
         raise
     except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ConnectionError, ValueError) as exc:
@@ -374,6 +391,8 @@ async def api_put(request: web.Request) -> web.Response:
     key = request.match_info["key"]
     if not SCREEN.match(key):
         return error(404, "not_found")
+    if read_only(app):                                  # before the audit row: nothing is asked of Home Assistant
+        return error(409, "read_only", message=READ_ONLY_WORDS)
     try:
         want = _body(app, key, await read_json(request))
     except LookupError:

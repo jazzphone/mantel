@@ -157,3 +157,44 @@ async def test_moving_a_tablet_to_another_ha_user_does_not_revoke_it(mantel):
     r = await m.client.put(f"/api/devices/{dev}/ha-user", json={"ha_user": "b" * 32}, headers=m.headers())
     revoked = m.store.db.execute("SELECT revoked FROM devices WHERE id = ?", (dev,)).fetchone()[0]
     assert r.status == 200 and revoked is None, f"AUTH-6: {r.status} {await r.json()}; the tablet revoked: {revoked}"
+
+
+# -- the third audit pass (SRV-8): a role that signs in as an Owner or Admin asks for the fresh factor ----------
+async def test_a_role_change_to_owner_or_admin_or_a_re_enabled_account_needs_the_fresh_factor(mantel):
+    """SRV-8: ``PATCH /api/users/{id}`` made an HA-linked account Owner (or re-enabled it) and ``POST /api/users``
+    made an Owner with a known password, with a ten-minute-old sign-in; linking the same HA user to a person asked
+    for a fresh factor. One rule, ``accounts.require_fresh_to_grant``, for all of them."""
+    m = mantel
+    await m.user("avery", "owner")
+    await m.sign_in("avery")
+    ha_adult = m.store.link(HA_X, "adult", "Fictional HA Visitor")
+    pat = await m.user("pat", "adult")
+    off = await m.user("quinn", "guest")
+    assert (await m.client.patch(f"/api/users/{off}", json={"disabled": True}, headers=m.headers())).status == 200
+    m.now[0] += 600                                                # the sign-in is ten minutes old: not fresh
+    h = m.headers()
+    before = len(m.app["audit"].rows(kind="config"))
+    for uid, body in ((ha_adult, {"role": "owner"}), (pat, {"role": "admin"}), (off, {"disabled": False})):
+        r = await m.client.patch(f"/api/users/{uid}", json=body, headers=h)
+        assert r.status == 403 and (await r.json())["error"] == "step_up_required", (uid, body, r.status)
+    for role in ("owner", "admin"):
+        r = await m.client.post("/api/users", json={"username": f"new-{role}", "name": "N", "role": role,
+                                                    "password": "correct horse battery staple 99"}, headers=h)
+        assert r.status == 403 and (await r.json())["error"] == "step_up_required", role
+    assert m.store.get_link(HA_X)["role"] == "adult" and m.app["accounts"].find_username("new-owner") is None
+    assert m.app["accounts"].get_user(pat)["role"] == "adult" and m.app["accounts"].get_user(off)["disabled"]
+    assert len(m.app["audit"].rows(kind="config")) == before        # no row, no change
+    # what widens nothing needs nothing more than before: a rename, a Child, a lower role
+    assert (await m.client.patch(f"/api/users/{pat}", json={"name": "Pat P"}, headers=h)).status == 200
+    assert (await m.client.patch(f"/api/users/{pat}", json={"role": "child"}, headers=h)).status == 200
+    r = await m.client.post("/api/users", json={"username": "kid", "name": "K", "role": "child",
+                                                "password": "correct horse battery staple 99"}, headers=h)
+    assert r.status == 201
+    # a fresh sign-in does them
+    await m.sign_in("avery")
+    h = m.headers()
+    assert (await m.client.patch(f"/api/users/{ha_adult}", json={"role": "owner"}, headers=h)).status == 200
+    assert (await m.client.patch(f"/api/users/{off}", json={"disabled": False}, headers=h)).status == 200
+    r = await m.client.post("/api/users", json={"username": "new-admin", "name": "N", "role": "admin",
+                                                "password": "correct horse battery staple 99"}, headers=h)
+    assert r.status == 201

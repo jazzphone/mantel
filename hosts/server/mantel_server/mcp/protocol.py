@@ -227,7 +227,7 @@ async def run_method(caller: Caller, kind: str, version: str, msg: dict) -> tupl
         result = {"resources": R.listing(caller)}
         cacheable = True
     elif method == "resources/templates/list":
-        result = {"resourceTemplates": R.TEMPLATES}
+        result = {"resourceTemplates": R.templates(caller)}
         cacheable = True
     elif method == "resources/read":
         uri = params.get("uri")

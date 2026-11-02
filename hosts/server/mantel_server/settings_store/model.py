@@ -190,6 +190,12 @@ class ThinModel:
             raise SettingsError(err.code, f"{scope}/{key} is not plain JSON of a sane size") from err
         if scope == "house" and key == "settings" and not all(isinstance(v, dict) for v in body.values()):
             raise SettingsError("invalid", "house settings are sections of values")
+        if scope == "house" and key == "music":                      # Music's own checks (music.check_doc)
+            from ..music import check_doc
+            try:
+                check_doc(body)
+            except ValueError as err:
+                raise SettingsError("invalid", f"house/music is not a Music document ({err})") from err
 
 
 class HkCoreModel(ThinModel):

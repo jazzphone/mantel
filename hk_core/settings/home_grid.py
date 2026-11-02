@@ -13,6 +13,7 @@ starter() fills a new layout from the house: concept A (Tap Weight) or C (Glance
 """
 from __future__ import annotations
 
+import copy
 import re
 from typing import Any, Mapping
 
@@ -750,6 +751,129 @@ def layout(v: Any) -> dict[str, Any] | None:
         ids.add(it["id"])
         taken |= here
         items.append(it)
+    out["items"] = items
+    return out
+
+
+# ------------------------------------------------------------ what a person may see of a layout
+# The settings feed sends every person every screen's layout. A block names the things it shows (a camera, a
+# thermostat, the scenes a block lists); a person who may not view one of them (a Child and the porch camera) must
+# not be told it exists by the layout (third audit pass, SRV-4). `only_viewable` cuts a layout down to the entities
+# `ok` holds, so the block arrives without the entity instead of breaking the grid: its option is left out and the
+# card does what it does with none (the first camera, no scenes row, its automatic place). Pure.
+_ENTITY_KINDS = frozenset({"entity", "scene", "speaker", "climate", "alarm", "camera", "weather", "vacuum", "todo",
+                           "select", "music_speaker"})
+_LIST_KINDS = frozenset({"scenes", "calendars", "cameras"})
+
+
+def _opt_ids(card: str, opts: Any) -> set[str]:
+    out: set[str] = set()
+    kinds = (CATALOG.get(card) or {}).get("opts") or {}
+    for name, value in (opts if isinstance(opts, dict) else {}).items():
+        kind = kinds.get(name)
+        if kind in _ENTITY_KINDS and isinstance(value, str) and ENTITY_ID.match(value):
+            out.add(value)
+        elif kind in _LIST_KINDS and isinstance(value, list):
+            out |= {v for v in value if isinstance(v, str) and ENTITY_ID.match(v)}
+        elif kind == "accessories" and isinstance(value, list):
+            out |= {e["entity"] for e in value if isinstance(e, dict) and isinstance(e.get("entity"), str)}
+    return out
+
+
+def _cut_opts(card: str, opts: Any, ok: Any) -> dict[str, Any]:
+    kinds = (CATALOG.get(card) or {}).get("opts") or {}
+    out: dict[str, Any] = {}
+    for name, value in (opts if isinstance(opts, dict) else {}).items():
+        kind = kinds.get(name)
+        if kind in _ENTITY_KINDS and isinstance(value, str) and ENTITY_ID.match(value):
+            if value in ok:
+                out[name] = value
+        elif kind in _LIST_KINDS and isinstance(value, list):
+            kept = [v for v in value if not (isinstance(v, str) and ENTITY_ID.match(v)) or v in ok]
+            if kept:
+                out[name] = kept
+        elif kind == "accessories" and isinstance(value, list):
+            kept = [e for e in value if not isinstance(e, dict) or e.get("entity") in ok]
+            if kept:
+                out[name] = kept
+        else:
+            out[name] = value
+    return out
+
+
+def _variant_parts(v: Mapping[str, Any]) -> list[tuple[str, Any]]:
+    """The (card, opts) pairs of a block or variant: its own, and each page of its list."""
+    card = v.get("card")
+    pages = v.get("pages") if isinstance(v.get("pages"), dict) else {}
+    return [(card, v.get("opts"))] + [(card, p.get("opts")) for p in pages.get("list") or [] if isinstance(p, dict)]
+
+
+def _conditions_of(when: Any) -> list[dict[str, Any]]:
+    if isinstance(when, dict) and isinstance(when.get("all"), list):
+        return [c for c in when["all"] if isinstance(c, dict)]
+    return [when] if isinstance(when, dict) else []
+
+
+def entity_ids(grid: Any) -> set[str]:
+    """Every entity a layout names: blocks' options, their pages', fallbacks', rules', and conditions'."""
+    out: set[str] = set()
+    for it in (grid.get("items") if isinstance(grid, dict) else None) or []:
+        if not isinstance(it, dict):
+            continue
+        variants = [it] + ([it["fallback"]] if isinstance(it.get("fallback"), dict) else []) + \
+            [r for r in it.get("rules") or [] if isinstance(r, dict)]
+        for v in variants:
+            for card, opts in _variant_parts(v):
+                out |= _opt_ids(card, opts)
+        for when in [it.get("when")] + [r.get("when") for r in it.get("rules") or [] if isinstance(r, dict)]:
+            out |= {c["entity"] for c in _conditions_of(when) if isinstance(c.get("entity"), str)}
+    return out
+
+
+def _cut_variant(v: Mapping[str, Any], ok: Any) -> dict[str, Any]:
+    out = {k: copy.deepcopy(x) for k, x in v.items() if k not in ("opts", "pages")}
+    card = v.get("card")
+    opts = _cut_opts(card, v.get("opts"), ok)
+    if opts:
+        out["opts"] = opts
+    if isinstance(v.get("pages"), dict):
+        pages = copy.deepcopy(v["pages"])
+        if isinstance(pages.get("list"), list):
+            pages["list"] = [{**p, "opts": _cut_opts(card, p.get("opts"), ok)} if isinstance(p, dict) else p
+                             for p in pages["list"]]
+        out["pages"] = pages
+    return out
+
+
+def only_viewable(grid: Any, ok: Any) -> Any:
+    """The layout with every entity not in ``ok`` taken out (a copy). A condition naming one can never hold for a
+    person who cannot see it: a block's older ``when`` shows its fallback, and a rule with such a condition is left
+    out. A block that was only that entity arrives with its options gone, not removed: the grid keeps its place."""
+    if not isinstance(grid, dict) or not isinstance(grid.get("items"), list):
+        return grid
+    out = {k: copy.deepcopy(v) for k, v in grid.items() if k != "items"}
+    items = []
+    for it in grid["items"]:
+        if not isinstance(it, dict):
+            items.append(it)
+            continue
+        hidden_when = any(isinstance(c.get("entity"), str) and c["entity"] not in ok
+                          for c in _conditions_of(it.get("when")))
+        if hidden_when and isinstance(it.get("fallback"), dict):
+            new = {k: copy.deepcopy(v) for k, v in it.items() if k not in ("card", "opts", "pages", "when", "fallback")}
+            new.update(_cut_variant(it["fallback"], ok))
+        else:
+            new = _cut_variant(it, ok)
+            if isinstance(it.get("fallback"), dict):
+                new["fallback"] = _cut_variant(it["fallback"], ok)
+            if isinstance(it.get("rules"), list):
+                kept = [_cut_variant(r, ok) for r in it["rules"] if isinstance(r, dict) and not any(
+                    isinstance(c.get("entity"), str) and c["entity"] not in ok for c in _conditions_of(r.get("when")))]
+                if kept:
+                    new["rules"] = kept
+                else:
+                    new.pop("rules", None)
+        items.append(new)
     out["items"] = items
     return out
 

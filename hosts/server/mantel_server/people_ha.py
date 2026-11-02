@@ -29,7 +29,7 @@ from typing import Any
 from aiohttp import web
 
 from . import audit, live
-from .accounts import read_json, require_fresh_to_add_factor
+from .accounts import read_json, require_fresh_to_grant
 from .guards import guard
 from .guards import ident as guarded
 from .sessions import error, ok
@@ -163,7 +163,7 @@ async def api_put(request: web.Request) -> web.Response:
     if uid is not None:
         # a link is a new way to sign in as the person ("Sign in with Home Assistant", HA's sidebar), so it asks
         # what adding a passkey or an authenticator asks: a fresh sign-in, unless HA's own sidebar vouches
-        require_fresh_to_add_factor(request, ident)
+        require_fresh_to_grant(request, ident, person["role"], new_way_in=True)
     if ident.user.role != "owner" and "owner" in ((cur["role"] if cur else None), (person["role"] if person else None)):
         return error(403, "owner_only", message="Only an Owner links or unlinks an Owner.")
     if cur is not None and cur["role"] == "owner" and (uid is None or person["role"] != "owner") and not _owners_left(db, cur["id"]):

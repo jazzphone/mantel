@@ -382,6 +382,42 @@ async def test_resources_and_prompts(mantel):
     assert "error" in body, "a required argument"
 
 
+async def test_resources_answer_to_the_scopes_of_the_tools_behind_them(mantel):
+    """SRV-6 (third audit pass): resources/list and resources/read applied no scope check, so a key given only
+    `audit` read mantel://house, every screen and the Home Grid catalogue."""
+    token, _ = await setup(mantel, scopes=["audit"])
+    rpc = Rpc(mantel, token)
+    got, err = await rpc.tool("house_summary")
+    assert err is True or got.get("error"), "the control: the tool itself is refused"
+    st, body = await rpc.call("resources/list")
+    assert body["result"]["resources"] == [], "nothing is listed that cannot be read"
+    st, body = await rpc.call("resources/templates/list")
+    assert body["result"]["resourceTemplates"] == []
+    for uri in ("mantel://house", "mantel://screens", "mantel://screens/dashboard-kitchen", "mantel://grid/cards",
+                "mantel://settings/schema/house", "mantel://guide", "mantel://guide/Mantel"):
+        st, body = await rpc.call("resources/read", {"uri": uri})
+        assert "error" in body and "scope" in body["error"]["message"], uri
+    read_token, _ = await make_key(mantel, name="Reader", scopes=["read"])
+    rpc = Rpc(mantel, read_token)
+    st, body = await rpc.call("resources/list")
+    assert {"mantel://house", "mantel://screens", "mantel://guide"} <= {r["uri"] for r in body["result"]["resources"]}
+    st, body = await rpc.call("resources/read", {"uri": "mantel://screens/dashboard-kitchen"})
+    assert "result" in body
+
+
+async def test_every_resource_maps_to_a_scope_its_tool_needs():
+    from mantel_server.mcp import resources as R
+    from mantel_server.mcp.grants import SCOPES
+    from mantel_server.mcp.tools import all_tools
+    needs = {t.name: t.needs for t in all_tools()}
+    uris = [u for u, _, _ in R.STATIC] + ["mantel://guide", "mantel://guide/Mantel"] + [R.example_uri(t) for t in R.TEMPLATES]
+    for uri in uris:
+        assert R.needs_of(uri) in SCOPES, uri
+        if R.tool_of(uri) is not None:
+            assert R.needs_of(uri) == needs[R.tool_of(uri)], uri
+    assert R.needs_of("mantel://nothing") is None
+
+
 # -- plan, then apply -------------------------------------------------------------------------------------------------
 async def test_a_plan_writes_nothing_and_applying_it_does(mantel):
     token, _ = await setup(mantel)
@@ -740,6 +776,69 @@ async def test_a_signed_in_assistant_from_away_only_when_both_allow(mantel):
     assert (await rpc.call("tools/list", headers={"X-Mantel-Door": "tunnel"}))[0] == 403
 
 
+async def _consent(m, scopes=("read", "settings", "restore"), decision="allow", away=True):
+    """A registered assistant's consent form POST (what the page's Allow button sends)."""
+    reg = await m.client.post("/mcp/oauth/register", json={"client_name": "Claude",
+                                                           "redirect_uris": ["https://assistant.example/cb"]})
+    cid = (await reg.json())["client_id"]
+    challenge = base64.urlsafe_b64encode(hashlib.sha256(secrets.token_urlsafe(48).encode()).digest()).rstrip(b"=").decode()
+    q = {"response_type": "code", "client_id": cid, "redirect_uri": "https://assistant.example/cb",
+         "code_challenge": challenge, "code_challenge_method": "S256", "state": "s", "scope": " ".join(scopes)}
+    page = await m.client.get("/mcp/oauth/authorize", params=q, allow_redirects=False)
+    data = list({**q, "csrf": m.cookie("mantel_csrf"), "decision": decision}.items())
+    data += [("grant_scope", s) for s in scopes] + ([("away", "1")] if away else [])
+    return page, await m.client.post("/mcp/oauth/authorize", data=data, allow_redirects=False), q
+
+
+async def test_connecting_an_assistant_needs_the_fresh_sign_in_a_personal_key_needs(mantel):
+    """SRV-1 (third audit pass): the consent issued a 30-day, refreshable credential (settings, restore, ...), from
+    away too, to a session whose sign-in was ten minutes old, while ``POST /api/mcp/keys`` (the same kind of
+    credential) answered ``step_up_required``. A stale session is shown Sign In Again, not the form; nothing is
+    audited or issued; signing in again comes back to the same request."""
+    m = mantel
+    house(m)
+    await owner(m)
+    await turn_on(m, mcp_away=True)
+    m.now[0] += 600
+    r = await m.client.post("/api/mcp/keys", json={"name": "Key"}, headers=m.headers())
+    assert r.status == 403 and (await r.json())["error"] == "step_up_required"        # the control
+    page, r, q = await _consent(m)
+    text = await page.text()
+    assert page.status == 403 and "Sign In Again" in text and "grant_scope" not in text and "Allow<" not in text
+    assert r.status == 403 and "Sign In Again" in await r.text()
+    assert not audits(m, "mcp.grant")
+    assert m.app["store"].db.execute("SELECT COUNT(*) FROM mcp_codes").fetchone()[0] == 0
+    # Sign In Again ends this session and lands on the sign-in page, which returns to this very consent request
+    page, r, q = await _consent(m, decision="signin_again")
+    assert r.status == 303 and r.headers["Location"].startswith("/login?next=/mcp/oauth/authorize%3F")
+    assert (await m.client.get("/api/me")).status == 401
+    # a fresh sign-in is allowed to connect it
+    await m.sign_in("olive")
+    page, r, q = await _consent(m)
+    assert page.status == 200 and "Allow" in await page.text()
+    assert r.status == 302 and "code=" in r.headers["Location"] and len(audits(m, "mcp.grant")) == 1
+
+
+async def test_an_assistant_that_may_control_the_house_needs_a_fresh_sign_in_even_where_something_vouches(mantel, monkeypatch):
+    """SRV-1: ``commands`` asks for a fresh factor on every door, as Allow Control of the House does; a sidebar HA
+    vouches for (``is_fresh_to_add_factor``) is enough for the other scopes only."""
+    from mantel_server.mcp import oauth as O
+    m = mantel
+    house(m)
+    await owner(m)
+    await turn_on(m, mcp_away=True)
+    monkeypatch.setattr(O, "offered", lambda request: [*O.SCOPES])
+    m.now[0] += 600
+    monkeypatch.setattr(O, "is_fresh_to_add_factor", lambda request, ident: True)       # HA vouches for the person
+    _, r, _ = await _consent(m, scopes=("read", "commands"))
+    assert r.status == 403 and "control the house" in await r.text() and not audits(m, "mcp.grant")
+    _, r, _ = await _consent(m, scopes=("read", "settings"))
+    assert r.status == 302 and len(audits(m, "mcp.grant")) == 1
+    await m.sign_in("olive")                                                             # and a fresh sign-in does both
+    _, r, _ = await _consent(m, scopes=("read", "commands"))
+    assert r.status == 302 and len(audits(m, "mcp.grant")) == 2
+
+
 # -- commands and the audit ------------------------------------------------------------------------------------------
 async def test_commands_only_by_consent_and_through_the_gateway(mantel):
     house(mantel)
@@ -867,6 +966,38 @@ async def test_music_relink_matches_gone_links_by_name(mantel):
     assert not err and [f["pill"] for f in plan["fixes"]] == ["p2"]
 
 
+async def test_a_music_change_can_be_looked_up_and_undone_as_it_says(mantel):
+    """SRV-7 (third audit pass): every music_* change answers an undo (settings_restore of house/music), but
+    house/music was not in HOUSE_DOCS, so its history and its restore were always refused."""
+    token, _ = await setup(mantel, scopes=["read", "settings", "audit", "restore"])
+    mantel.app["ma"] = FakeMa([{"uri": "library://playlist/71", "name": "Dinner"}])
+    store = mantel.app["settings"].store
+    store.write([("house", "music", {"options": {"speakers": [], "volume": 0.3, "homes": {}},
+                                     "items": [pill("p1", "Dinner", ["library://playlist/7"])]})], actor=Actor(label="t"))
+    rpc = Rpc(mantel, token)
+    plan, err = await rpc.tool("music_relink")
+    done, err = await rpc.tool("music_relink", dry_run=False, plan=plan["plan"])
+    assert not err and done["changes"][0]["key"] == "music"
+    undo = done["changes"][0]["undo"]
+    assert undo == {"tool": "settings_restore", "scope": "house", "key": "music", "version": 1}
+    for args in ({"scope": "music"}, {"scope": "house", "key": "music"}):
+        got, err = await rpc.tool("settings_history", **args)
+        assert not err and got["key"] == "music" and [h["version"] for h in got["history"]] == [2, 1], (args, got)
+    assert store.body("house", "music")["items"][0]["data"]["items"] == ["library://playlist/71"]
+    heard = []
+    assert "house/music" in mantel.app["settings"].after_restore, "Music follows a restore, as it follows a save"
+    mantel.app["settings"].after_restore["house/music"] = lambda: heard.append(True)
+    plan, err = await rpc.tool("settings_restore", scope="music", version=undo["version"])
+    assert not err, plan
+    got, err = await rpc.tool("settings_restore", scope="music", version=undo["version"], dry_run=False, plan=plan["plan"])
+    assert not err and got["result"]["restored_from"] == 1 and heard == [True], got
+    assert store.body("house", "music")["items"][0]["data"]["items"] == ["library://playlist/7"]
+    # a version that is no Music document is not put back (restore runs the same check)
+    from mantel_server.settings_store import SettingsError
+    with pytest.raises(SettingsError):
+        mantel.app["settings"].model.check_document("house", "music", {"options": {"volume": 7}})
+
+
 def test_relink_plan_rules():
     from mantel_server.mcp.tools.music import relink_plan
     lib = [{"uri": "library://playlist/1", "name": "Café Mix"}, {"uri": "library://playlist/2", "name": "Rain"}]
@@ -887,6 +1018,73 @@ async def test_a_preview_opens_screens_only(mantel):
         assert r.status == 403, path
     r = await mantel.client.get("/dashboard-kitchen/home", allow_redirects=False)
     assert r.status == 200
+
+
+async def _open_preview(mantel, scopes=("screens",)):
+    token, _ = await setup(mantel, scopes=list(scopes))
+    link, err = await Rpc(mantel, token).tool("screen_preview", screen="dashboard-kitchen")
+    assert not err
+    mantel.forget_cookies()
+    await mantel.client.get(urlparse(link["url"]).path, allow_redirects=False)
+
+
+async def test_a_preview_reaches_only_what_a_screen_draws_from(mantel):
+    """SRV-2 (third audit pass): a preview, minted by a key with only `screens`, was a read-only browser session as
+    the Owner that was refused a list of settings routes and reached every other: Sessions, People, Faces, Alarm
+    PINs, Set Up, Push targets, passkeys, phones, default screens, features. Now an allow-list."""
+    await _open_preview(mantel)
+    for path in ("/api/sessions", "/api/phones", "/api/people/ha", "/api/default-screens", "/api/default-screen",
+                 "/api/photos/faces", "/api/photos", "/api/photos/cutouts", "/api/photos/import", "/api/alarm/pins",
+                 "/api/setup", "/api/auth/passkeys", "/api/push/targets", "/api/features/settings",
+                 "/api/features/status", "/api/entities", "/api/areas", "/api/stats", "/api/about", "/api/performance/tablets",
+                 "/api/settings/import", "/api/live_tv/status", "/api/music/status", "/api/devices", "/dev",
+                 "/api/rbac/roles", "/api/account/pin", "/ws/talk", "/api/user-files"):
+        r = await mantel.client.get(path, allow_redirects=False)
+        assert r.status == 403, (path, r.status)
+    for path in ("/dashboard-kitchen/home", "/dashboard-kitchen/lights", "/api/me", "/api/session", "/api/registry",
+                 "/api/fixtures", "/api/hk-cards", "/api/services", "/api/photos/screens"):
+        r = await mantel.client.get(path, allow_redirects=False)
+        assert r.status == 200, (path, r.status)
+    # a change is refused wherever it goes (the session middleware), the same for the page's own routes
+    assert (await mantel.client.post("/api/photos/screens/dashboard-kitchen", json={}, headers=mantel.headers())).status == 403
+
+
+async def test_a_previews_socket_reads_only_what_its_screen_draws_from(mantel):
+    """SRV-2: the socket took `read` of any route: `mantel/settings/history` with bodies, Settings' documents."""
+    await _open_preview(mantel)
+    ws = await mantel.client.ws_connect("/ws")
+    try:
+        for i, inner in enumerate(({"type": "mantel/settings/history", "scope": "house", "key": "settings", "limit": 5,
+                                    "bodies": True}, {"type": "mantel/settings/get", "scope": "house", "key": "settings"},
+                                   {"type": "hk_frontend/hidden/get"}, {"type": "hk_music/settings/library"},
+                                   {"type": "hk_frontend/panel/get"}), 1):
+            await ws.send_json({"type": "read", "id": i, "msg": inner})
+            reply = json.loads((await ws.receive(timeout=5)).data)
+            assert reply["id"] == i and reply["error"]["code"] == "read_only", (inner, reply)
+        await ws.send_json({"type": "read_subscribe", "id": 9, "msg": {"type": "mantel/settings/history", "scope": "house"}})
+        reply = json.loads((await ws.receive(timeout=5)).data)
+        assert reply["id"] == 9 and reply["error"]["code"] == "read_only"
+        # what the screen itself reads is answered (a subscription's first frame, or its own error: never read_only)
+        await ws.send_json({"type": "read_subscribe", "id": 10, "msg": {"type": "hk_frontend/settings/subscribe"}})
+        first = json.loads((await ws.receive(timeout=5)).data)
+        assert first.get("error", {}).get("code") != "read_only", first
+    finally:
+        await ws.close()
+
+
+async def test_a_screens_reads_and_a_previews_never_reads_do_not_overlap():
+    from mantel_server.server import PREVIEW_READS, PREVIEW_READS_NEVER
+    assert not PREVIEW_READS & PREVIEW_READS_NEVER
+    assert not any(t.startswith("mantel/settings") or t.endswith("/settings/get") or "setup" in t for t in PREVIEW_READS)
+
+
+async def test_every_read_a_house_registers_is_a_screens_or_not_a_previews(mantel):
+    """SRV-2: a new read is closed to previews until it is placed on one of the two lists."""
+    from mantel_server import readproxy
+    from mantel_server.connectors import read_routes
+    from mantel_server.server import PREVIEW_READS, PREVIEW_READS_NEVER
+    every = set(read_routes(mantel.app)) | set(readproxy.READ_ALLOWED) | set(readproxy.MANTEL_READS)
+    assert not every - (PREVIEW_READS | PREVIEW_READS_NEVER), sorted(every - (PREVIEW_READS | PREVIEW_READS_NEVER))
 
 
 async def test_the_consent_page_cannot_be_framed_and_says_where_it_returns(mantel):

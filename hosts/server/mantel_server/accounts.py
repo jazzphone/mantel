@@ -32,6 +32,7 @@ import secrets
 import sqlite3
 import struct
 from collections import defaultdict, deque
+from typing import Any
 from urllib.parse import quote, urlencode, urlparse
 
 from aiohttp import web
@@ -818,10 +819,33 @@ def require_fresh_to_add_factor(request: web.Request, ident: Identity) -> None:
     too: a factor added by whoever holds a stolen cookie would let them confirm it is them from then on.
     Home Assistant's sidebar, where HA itself vouches for the person (authz.ha_trusted), counts as fresh, as
     it does for Connections (connections.edit_rule)."""
+    if not is_fresh_to_add_factor(request, ident):
+        require_fresh(request, ident)
+
+
+def is_fresh_to_add_factor(request: web.Request, ident: Identity) -> bool:
+    """What :func:`require_fresh_to_add_factor` asks, as an answer (a page that shows the person how to sign in
+    again instead of a JSON refusal)."""
     authz = request.app.get("authz")
     if ident.door == "ha" and authz is not None and authz.ha_trusted(ident):
-        return
-    require_fresh(request, ident)
+        return True
+    return ident.fresh_within(STEP_UP_WINDOW, request.app["clock"]())
+
+
+def grants_a_manager_role(role: Any) -> bool:
+    return role in MANAGERS
+
+
+def require_fresh_to_grant(request: web.Request, ident: Identity, role: Any, *, new_way_in: bool = False) -> None:
+    """One rule for every change that gives someone a way to sign in as an Owner or an Admin (a new account, a
+    role, a re-enabled account, a Home Assistant user linked to a person, a merge): the fresh sign-in adding a
+    passkey asks (:func:`require_fresh_to_add_factor`). Third audit pass, SRV-3/SRV-8: each route had its own
+    check, so a stale Owner cookie from away, which could not add a passkey, could still make a new Owner by the
+    People form or ``PATCH /api/users``. ``new_way_in``: the change adds a way in as any role (an HA link: "Sign
+    in with Home Assistant"), so it asks even for a Child. Routes call this and nothing else, so the rule is
+    fixed in one place."""
+    if new_way_in or grants_a_manager_role(role):
+        require_fresh_to_add_factor(request, ident)
 
 
 @guard("person", device_ok=True, fresh="add_factor",
@@ -1006,6 +1030,7 @@ async def users_create(request: web.Request) -> web.Response:
     role = body.get("role")
     if role == "owner" and ident.user.role != "owner":
         return error(403, "forbidden")
+    require_fresh_to_grant(request, ident, role)     # a new Owner or Admin: what adding a passkey asks (SRV-8)
     acc = accounts_of(request)
     if not isinstance(body.get("password"), str):
         return error(400, "password_required")
@@ -1043,6 +1068,12 @@ async def users_update(request: web.Request) -> web.Response:
         return error(400, "invalid")
     if ident.user.role != "owner" and "owner" in (row["role"], new_role):
         return error(403, "forbidden")
+    # a role that signs in as an Owner or Admin, or an account coming back (a disabled Owner or Admin, or an HA
+    # account whose link still stands): the fresh sign-in adding a passkey asks (SRV-8)
+    if new_role != row["role"]:
+        require_fresh_to_grant(request, ident, new_role)
+    if row["disabled"] and not disabled:
+        require_fresh_to_grant(request, ident, new_role, new_way_in=True)
     losing_owner = row["role"] == "owner" and not row["disabled"] and (new_role != "owner" or disabled)
     if losing_owner and acc.db.execute("SELECT COUNT(*) FROM users WHERE role = 'owner' AND disabled = 0").fetchone()[0] <= 1:
         return error(409, "last_owner")

@@ -11,8 +11,10 @@ SCOPES = ("house", "board", "tablet", "user")
 # house documents: the house-wide settings sections, the Setup Assistant's flag, the house's own
 # content (pop-ups, custom pages, custom chips), accessories' settings, and the catalog (the model's
 # choice lists HK Settings lays its controls out with; read-only, from the import until hk_core's
-# model supplies them).
-HOUSE_DOCS = ("settings", "setup", "popups", "custom_pages", "custom_chips", "accessories", "catalog")
+# model supplies them), and Music's (music.py: speakers, volume, homes, presets and playlist pills). Music's was
+# missing, so its history and restore were refused as an unknown document, though every music_* change an assistant
+# makes answers how to undo it (third audit pass, SRV-7).
+HOUSE_DOCS = ("settings", "setup", "popups", "custom_pages", "custom_chips", "accessories", "catalog", "music")
 CATALOG_KEYS = ("choices", "presets", "chip_kinds", "page_kinds", "scene_pages", "shelves")
 # The house settings' sections (settings.py DEFAULTS, the HA component, 2026-10-18).
 HOUSE_SECTIONS = ("status_rows", "headers", "security", "clock", "weather", "sky", "idle", "tablets", "car",

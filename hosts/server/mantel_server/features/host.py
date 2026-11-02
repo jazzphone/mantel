@@ -23,7 +23,7 @@ from hk_core.screensaver import rules as SS
 from hk_core.settings import model as SM
 from hk_core.sleep import engine as SE
 
-from .. import feature_pages, notify_snaps
+from .. import audit, feature_pages, notify_snaps
 from ..connectors import Ctx, deny_read, Forbidden, may_feature, read_routes, Route, ws_handlers
 from ..feature_watch import CalendarLook, TabletWatch
 from ..guards import guard
@@ -839,6 +839,22 @@ class FeatureHost:
         return plan
 
     # -- Clean Areas' area picker (hk_clean_areas/subscribe, answered by Mantel) --------------------
+    async def coverage_for(self, identity: Any) -> dict[str, Any]:
+        """``clean_coverage`` for one subject: only the vacuums they may ``view`` (as the picker's ``area_offer``),
+        and the areas those reach. ``mantel/clean_areas/coverage`` answered every vacuum's id and rooms to any
+        signed-in person, a Guest included (third audit pass, SRV-5)."""
+        from ..connectors import allowed_ids
+        opts = self.settings["clean_areas"]["options"]
+        every = CA.coverage(self.house, opts)
+        ok = await allowed_ids(self.hooks, identity, "view", [v["vacuum"] for v in every])  # type: ignore[arg-type]
+        seen = [v for v in every if v["vacuum"] in ok]
+        reach: list[str] = []
+        for v in seen:
+            if v["taking_part"]:
+                reach += [a for a in v["areas"] if a not in reach]
+        chosen = list(opts.get("areas") or [])
+        return {"offered": [a for a in chosen if a in reach] if chosen else reach, "coverage": seen}
+
     async def area_offer(self, identity: Any) -> dict[str, Any]:
         """HA's ``hk_clean_areas/subscribe`` body, {configured, areas}, from hk_core's Clean Areas over
         Mantel's House: the areas the picker offers (``clean_areas.offered``), reached only through
@@ -1023,7 +1039,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
             raise Forbidden("sign in to see the vacuums")
         if not host.on("clean_areas"):
             return {"configured": False, "offered": [], "coverage": []}
-        return {"configured": True, **host.clean_coverage()}
+        return {"configured": True, **await host.coverage_for(ctx.identity)}
 
     # HK's area picker (hk-area-select-card), exactly as it subscribes to HA: answered here from hk_core's
     # Clean Areas over Mantel's House, never forwarded. Starting a clean is a COMMAND (the page's
@@ -1090,6 +1106,16 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
             await host.set_photos(tid, msg["photos"])
         await ctx.send({"type": "screen_result", "id": rid, "result": {"changed": changed}})
 
+    def _may_mute(identity: Any) -> bool:
+        authz, subject = host.app.get("authz"), getattr(identity, "subject", None)
+        if authz is None or subject is None:
+            return False
+        try:
+            return authz.decide(subject, "control", None, feature="notifications").allowed is True
+        except Exception:  # noqa: BLE001 -- a failing rule refuses
+            log.exception("notify_mute: the control check failed; refusing")
+            return False
+
     async def notify_mute(ctx: Ctx, msg: dict) -> None:
         rid, key, secs = msg.get("id"), msg.get("key"), msg.get("seconds", 3600)
         if not _principal_ok(ctx.identity):
@@ -1097,7 +1123,17 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
         if not isinstance(key, str) or not 0 < len(key) <= 200 or isinstance(secs, bool) or not isinstance(secs, int) \
                 or not 0 <= secs <= 86400 or set(msg) - {"type", "id", "key", "seconds"}:
             return await ctx.send({"type": "notify_mute_result", "id": rid, "error": {"code": "invalid"}})
-        until = host.notifier.set_mute(key, secs, ctx.identity)     # muting only makes the house quieter
+        # A mute is house-wide (the key names the category, not the person): `control` on the Notifications feature --
+        # an Adult, an Owner or an Admin by default, a Child or a wall tablet only by a grant (a Guest muted smoke for a
+        # day, SRV-9, third audit pass; configure alone took the notification sheet's Mute from every Adult). The
+        # audit row first: no row, no change.
+        if not _may_mute(ctx.identity):
+            return await ctx.send({"type": "notify_mute_result", "id": rid, "error": {"code": "forbidden"}})
+        try:
+            audit.config(None, ctx.identity, "notify.mute", {"key": key, "seconds": secs}, app=host.app)
+        except audit.Unavailable:
+            return await ctx.send({"type": "notify_mute_result", "id": rid, "error": {"code": "audit_unavailable"}})
+        until = host.notifier.set_mute(key, secs, ctx.identity)
         await ctx.send({"type": "notify_mute_result", "id": rid, "result": {"until": until}})
 
     async def clean_run(ctx: Ctx, msg: dict) -> None:
