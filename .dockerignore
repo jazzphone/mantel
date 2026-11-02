@@ -29,6 +29,7 @@ packaging/compose
 packaging/lxc
 packaging/ha-app
 !packaging/ha-app/DOCS.md
+!packaging/ha-app/config.yaml
 packaging/mantel-connect
 tools/headless
 tools/testha

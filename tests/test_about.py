@@ -59,3 +59,41 @@ def test_how_it_runs():
     App = type("C", (), {"supervisor_url": "http://supervisor", "ha_url": "http://supervisor/core"})
     Box = type("C", (), {"supervisor_url": "", "ha_url": "http://ha.home.example:8123"})
     assert A.install_kind(App()) == "Home Assistant App" and A.install_kind(Box()) == "Container"
+
+
+def test_a_docker_or_lxc_image_says_its_version_too(tmp_path, monkeypatch):
+    """DEP-14 (audit, third pass): the Docker and LXC images had no RELEASE.json (only the App's stager wrote one) and
+    no packaging/ha-app/config.yaml to fall back on, so About showed no version. The Dockerfile's release stage
+    runs tools/write_release.py: the MANTEL_VERSION build argument, or config.yaml's version when none is given."""
+    import importlib.util
+    from pathlib import Path
+
+    import pytest
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location("write_release", root / "tools/write_release.py")
+    wr = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(wr)
+    (tmp_path / "BUILD_ID").write_text("0123456789abcdef\n")
+    config = tmp_path / "config.yaml"
+    config.write_text('name: Mantel\nversion: "1.2.3"\nslug: mantel\n')
+    sha = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
+    # the release's own version wins; the commit is the short one the App's stager writes
+    assert wr.main([str(tmp_path / "a/RELEASE.json"), "--build-id-file", str(tmp_path / "BUILD_ID"), "--version", "2.0.0",
+                    "--commit", sha, "--config", str(config)]) == 0
+    got = json.loads((tmp_path / "a/RELEASE.json").read_text())
+    assert got == {"version": "2.0.0", "commit": "a1b2c3d", "build": "0123456789abcdef", "staged": None}
+    # the same keys tools/stage_ha_app.py writes, and about.release() reads it
+    monkeypatch.setattr(A, "REPO", tmp_path / "a")
+    import mantel_server.health as H
+    monkeypatch.setattr(H, "REPO", tmp_path / "a")
+    (tmp_path / "a/BUILD_ID").write_text("0123456789abcdef\n")
+    assert A.release()["version"] == "2.0.0" and A.release()["commit"] == "a1b2c3d"
+    # a local build has no version argument and no commit: config.yaml says the version
+    assert wr.main([str(tmp_path / "b/RELEASE.json"), "--build-id-file", str(tmp_path / "BUILD_ID"), "--version", "",
+                    "--commit", "unknown", "--config", str(config)]) == 0
+    got = json.loads((tmp_path / "b/RELEASE.json").read_text())
+    assert got["version"] == "1.2.3" and got["commit"] == "unknown"
+    # no usable version at all is an error, never an image that says nothing
+    with pytest.raises(SystemExit):
+        wr.main([str(tmp_path / "c/RELEASE.json"), "--build-id-file", str(tmp_path / "BUILD_ID"), "--config", str(tmp_path / "none.yaml")])
+    assert not (tmp_path / "c/RELEASE.json").exists()

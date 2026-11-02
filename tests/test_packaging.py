@@ -1019,3 +1019,28 @@ def test_the_app_image_copies_its_files_with_explicit_modes():
     packaging/docker/Dockerfile has --chmod=0755 for exactly this; the App's now has it too."""
     lines = [line for line in (ROOT / "packaging/ha-app/Dockerfile").read_text().splitlines() if line.startswith("COPY app ") or " app /app" in line]
     assert lines and all(line.startswith("COPY --chmod=0755 ") for line in lines), lines
+
+
+def test_the_image_carries_a_release_json_made_from_the_releases_version():
+    """DEP-14 (audit, third pass): Docker and LXC images had no /app/RELEASE.json, so Mantel Settings -> About showed no
+    version. The Dockerfile's release stage writes it (tools/write_release.py) from the MANTEL_VERSION build argument
+    that release.yml passes, falling back to packaging/ha-app/config.yaml for a local build; the base stage copies it
+    to /app, and .dockerignore lets config.yaml into the build context."""
+    text = (ROOT / "packaging/docker/Dockerfile").read_text()
+    stage = text[text.index("AS release"):text.index("AS deps")]
+    assert "ARG MANTEL_VERSION=" in stage and "tools/write_release.py /out/RELEASE.json" in stage
+    assert '--version "${MANTEL_VERSION}"' in stage and "COPY packaging/ha-app/config.yaml" in stage
+    assert "COPY --chmod=0755 --from=release /out/RELEASE.json /app/RELEASE.json" in text
+    assert (ROOT / "tools/write_release.py").is_file()
+    assert "MANTEL_VERSION=${{ needs.version.outputs.version }}" in (ROOT / ".github/workflows/release.yml").read_text()
+    assert "!packaging/ha-app/config.yaml" in (ROOT / ".dockerignore").read_text().splitlines()
+
+
+def test_the_lock_pins_a_pyasn1_without_the_quadratic_attestation_parsing():
+    """DEP-15 (audit, third pass): pyasn1 0.6.4 (pulled in by webauthn's attestation parsing) is affected by
+    CVE-2026-119194 to -119197, quadratic CPU on crafted input; 0.6.5 fixes them. The pin stays at or above it, hashed."""
+    lock = (ROOT / "packaging/docker/requirements.lock").read_text()
+    m = re.search(r"^pyasn1==(\d+)\.(\d+)\.(\d+) \\\n((?:    --hash=sha256:[0-9a-f]{64}(?: \\)?\n)+)", lock, re.M)
+    assert m, "pyasn1 is pinned with hashes"
+    assert tuple(int(x) for x in m.groups()[:3]) >= (0, 6, 5)
+    assert m.group(4).count("--hash=") == 2          # the wheel and the sdist, as pip-compile writes them
