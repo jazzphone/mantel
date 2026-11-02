@@ -150,3 +150,43 @@ async def test_a_body_over_the_limit_is_nothing_and_the_whole_body_is_read():
                 yield body[i:i + 1378]
     assert await fetch.read_limited(Chunks(), 10_000_000) == body
     assert await fetch.read_limited(Chunks(), 50_000) is None
+
+
+
+async def test_addresses_that_carry_another_address_are_never_artwork():
+    """SRV-10: Python's ``is_global`` calls 64:ff9b::a9fe:a9fe (NAT64's 169.254.169.254) global, and the others
+    "not global", which the /imageproxy/ exception for the home network would then take."""
+    def at(addr):
+        async def resolve_(host, port):
+            return {addr}
+        return resolve_
+    for addr in ("64:ff9b::a9fe:a9fe", "64:ff9b::808:808", "64:ff9b:1::a9fe:a9fe", "::ffff:169.254.169.254",
+                 "2002:a9fe:a9fe::1", "2001:0:4136:e378:8000:63bf:3fff:fdd2", "fec0::1", "::a9fe:a9fe", "0.1.2.3",
+                 "fe80::1", "ff02::1"):
+        for path in ("/a.jpg", "/imageproxy/8f48"):
+            assert not await fetch.allowed("http://x.test" + path, at(addr)), (addr, path)
+    # an IPv4 address written as IPv6 is judged as the IPv4 address it is
+    assert await fetch.allowed("http://x.test/a.jpg", at("::ffff:93.184.216.34"))
+    assert not await fetch.allowed("http://x.test/a.jpg", at("::ffff:10.0.0.1"))
+    assert await fetch.allowed("http://x.test/imageproxy/a", at("::ffff:10.0.0.1"))
+
+    async def mixed(host, port):                                         # one bad address among good ones spoils it
+        return {"93.184.216.34", "64:ff9b::a9fe:a9fe"}
+    assert not await fetch.allowed(MZ, mixed)
+
+
+async def test_a_fetch_connects_to_the_addresses_it_checked_on_every_hop():
+    import contextlib
+    pinned = []
+
+    @contextlib.contextmanager
+    def pin(host, addrs):
+        pinned.append((host, list(addrs), "open"))
+        yield
+        pinned.append((host, list(addrs), "closed"))
+    web = Web({"https://x.test/r2": (302, "text/plain", b"", {"Location": MZ}),
+               MZ: (200, "image/jpeg", img((1000, 1000)), {})})
+    got = await fetch.async_fetch("https://x.test/r2", 300, resize.Cache(), web, resolve, run_inline, pin)
+    assert got
+    assert pinned == [("x.test", ["93.184.216.34"], "open"), ("x.test", ["93.184.216.34"], "closed"),
+                      ("is1-ssl.mzstatic.com", ["17.253.1.1"], "open"), ("is1-ssl.mzstatic.com", ["17.253.1.1"], "closed")]

@@ -390,3 +390,89 @@ async def test_a_remote_cover_needs_a_session_that_may_use_media(env, web_):
     env.app["media_art_scaled"].cache = media_art.art_resize.Cache()
     r = await env.get(remote(CDN))
     assert r.status == 404 and web_.asked == [] and env.app["media_art"]["refused"] == 1
+
+
+
+# -- SRV-10: the address checked is the address connected to ----------------------------------------------
+async def test_a_name_that_changes_its_answer_between_the_check_and_the_connect_is_dialed_as_checked(
+        env, monkeypatch):
+    """DNS rebinding: ``rebind.test`` answers 127.0.0.1 (the home network: fine for MA's /imageproxy/) to the first
+    lookup and ::1, where nothing listens, to every later one. The fetch must dial what it checked. (No real DNS:
+    ``socket.getaddrinfo`` is the stand-in; the server is on this machine.)"""
+    import socket
+    answers: list[str] = []
+    real = socket.getaddrinfo
+
+    def getaddrinfo(host, port, *args, **kw):
+        if host != "rebind.test":
+            return real(host, port, *args, **kw)
+        answers.append(host)
+        if len(answers) == 1:
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", port))]
+        return [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::1", port, 0, 0))]
+    monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo)
+
+    seen = []
+
+    async def cover(request):
+        seen.append(request.headers["Host"])
+        return web.Response(body=picture(), content_type="image/jpeg")
+    app = web.Application()
+    app.router.add_get("/imageproxy/{name}", cover)
+    async with TestServer(app) as cdn:
+        await login(env, "avery", "owner")
+        scaled = env.app["media_art_scaled"]
+        assert scaled.session is None                                    # the real session, made by the first fetch
+        r = await env.get(remote(f"http://rebind.test:{cdn.port}/imageproxy/x"))
+        assert r.status == 200 and Image.open(io.BytesIO(await r.read())).size == (300, 300)
+        assert seen == [f"rebind.test:{cdn.port}"]                       # (the Host header is the name's)
+        assert len(answers) == 1, "the name was looked up again to connect"
+
+
+async def test_the_fetching_session_dials_only_what_was_checked():
+    import socket
+    resolver = media_art.PinnedResolver()
+    with pytest.raises(OSError):
+        await resolver.resolve("never.vetted.test", 443)                 # nobody checked it
+    with media_art.pin("Cdn.Example.test", ["93.184.216.34", "2606:2800:220:1::1"]):
+        got = await resolver.resolve("cdn.example.test", 443, socket.AF_UNSPEC)
+        assert [(a["host"], a["port"]) for a in got] == [("93.184.216.34", 443), ("2606:2800:220:1::1", 443)]
+        assert [a["host"] for a in await resolver.resolve("cdn.example.test", 443, socket.AF_INET)] == ["93.184.216.34"]
+        with pytest.raises(OSError):
+            await resolver.resolve("other.test", 443)                    # another name, same request: not that one
+    with pytest.raises(OSError):
+        await resolver.resolve("cdn.example.test", 443)                  # and nothing outlives the request
+
+
+async def test_a_cover_on_a_nat64_address_is_refused_even_on_the_proxy_path(env):
+    await login(env, "avery", "owner")
+    scaled = env.app["media_art_scaled"]
+
+    async def resolve(host, port):
+        return {"64:ff9b::a9fe:a9fe"}                                    # = 169.254.169.254 through a NAT64 gateway
+    scaled.resolve = resolve
+    scaled.session = FakeWeb({})
+    for url in ("http://metadata.test/latest/meta-data", "http://metadata.test/imageproxy/x"):
+        assert (await env.get(remote(url))).status == 404
+    assert scaled.session.asked == []
+
+
+# -- MED-14: no more than a few covers are fetched at once ----------------------------------------------------
+async def test_distinct_covers_are_not_all_fetched_at_the_same_time():
+    scaled = media_art.Scaled()
+    running = peak = 0
+    gate = asyncio.Event()
+
+    async def make():
+        nonlocal running, peak
+        running += 1
+        peak = max(peak, running)
+        await gate.wait()
+        running -= 1
+        return (b"x", "image/jpeg")
+    jobs = [asyncio.ensure_future(scaled.once((f"https://x.test/{i}", 300), make)) for i in range(40)]
+    await asyncio.sleep(0.05)
+    assert peak == media_art.FETCHES
+    gate.set()
+    assert [await j for j in jobs] == [(b"x", "image/jpeg")] * 40
+    assert peak == media_art.FETCHES and scaled.fetches == 40
