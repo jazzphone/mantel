@@ -1275,6 +1275,14 @@
         if (open && p.options) html += '<div class="opts">' + p.options.map(function (o, j) { return '<div class="opt" data-opt="' + i + ':' + j + '">' + esc(o.name) + '</div>'; }).join('') + '</div>';
       });
       el.innerHTML = html + '</div>';
+      // A PLAYLIST'S COVER (2026-11-01): the picture of what it is built with, in the tile's well; none, the glyph
+      el.querySelectorAll('[data-pl]').forEach(function (t) {
+        var p = pls[+t.getAttribute('data-pl')], well = t.querySelector('.well');
+        if (!p || !p.image || !well) return;
+        well.classList.add('pic');
+        well.addEventListener('error', function () { well.classList.remove('pic'); }, true);
+        self._artImage(p.image, well, '<hk-icon icon="' + esc(p.icon || 'mdi:playlist-music') + '"></hk-icon>', 150);
+      });
     }
     // "PLAYS ON <rooms>" (or, picked, "Next plays on" white with its X): one
     // button, in Your Playlists' heading and in the trail's row

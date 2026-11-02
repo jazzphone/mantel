@@ -3643,17 +3643,19 @@
   // A PLAYLIST WITH CHOICES (Decades: 2020s, 2010s...; 2026-11-01, the owner: "1 decades button with the Pop Up like
   // we do on the Music Page") is ONE tile among the playlists, its choices in the Music page's own sheet at a tap
   // (`options`); One Playlist of it lays its choices out as tiles, each playing at a tap.
+  // A PLAYLIST'S COVER (2026-11-01, the owner): Mantel sends a pill with the picture of what it is built with
+  // (`image`, music.py covers), drawn as the tile's cover; a pill with none keeps the gradient and its icon
   function playlistTiles(pls, only) {
     var out = [];
     (pls || []).forEach(function (p) {
       if (!p || (only && p.name !== only)) return;
       if (p.options && p.options.length && only) p.options.forEach(function (o) {
-        out.push({ playlist: o.key, name: o.name, key: p.name + o.name, artist: p.name, icon: p.icon || null });
+        out.push({ playlist: o.key, name: o.name, key: p.name + o.name, artist: p.name, icon: p.icon || null, image: o.image || null });
       });
       else if (p.options && p.options.length) {
-        out.push({ name: p.name, key: p.name, artist: p.options.length + ' Playlists', icon: p.icon || null,
-                   options: p.options.map(function (o) { return { playlist: o.key, name: o.name }; }) });
-      } else if (p.key) out.push({ playlist: p.key, name: p.name, key: p.name, artist: 'Playlist', icon: p.icon || null });
+        out.push({ name: p.name, key: p.name, artist: p.options.length + ' Playlists', icon: p.icon || null, image: p.image || null,
+                   options: p.options.map(function (o) { return { playlist: o.key, name: o.name, image: o.image || null }; }) });
+      } else if (p.key) out.push({ playlist: p.key, name: p.name, key: p.name, artist: 'Playlist', icon: p.icon || null, image: p.image || null });
     });
     return out;
   }
@@ -3801,11 +3803,11 @@
       else body = '<div class="top">' + lastBtn + '<div class="col"><span class="lab">' + lab + '</span>' + words + '</div></div><div class="hr"></div>' + grid;
       this._root.innerHTML = '<hk-plate class="mu ' + s + '" data-hk-role="card">' + body + '</hk-plate>';
       var plate = this._root.querySelector('hk-plate');
-      if (s === 'S' && last && last.image) this._artImage(last.image, this._root.querySelector('.bg .cvr'), '<hk-icon icon="mdi:music"></hk-icon>', 600);
+      if (s === 'S' && last && last.image) this._artImage(last.image, this._root.querySelector('.bg .cvr'), '<hk-icon icon="' + esc(last.icon || 'mdi:music') + '"></hk-icon>', 600);
       this._root.querySelectorAll('[data-i]').forEach(function (b) {
         var it = list[+b.getAttribute('data-i')];
         if (!it) return;
-        if (it.image && b.querySelector('.cvr')) self._artImage(it.image, b.querySelector('.cvr'), '<hk-icon icon="mdi:music"></hk-icon>', 300);
+        if (it.image && b.querySelector('.cvr')) self._artImage(it.image, b.querySelector('.cvr'), '<hk-icon icon="' + esc(it.icon || 'mdi:music') + '"></hk-icon>', 300);
         if (s === 'S') b._busyOn = plate;            // (Small's busy look is the whole block's)
         b.addEventListener('click', function (e) { e.stopPropagation(); self._play(it, b); });
       });
@@ -3942,7 +3944,7 @@
       var Mu = window.hkMusic, all = playlistTiles(Mu && Mu.playlists ? Mu.playlists() : [], null), self = this;
       var open = this._open ? all.filter(function (t) { return t.name === self._open && t.options; })[0] : null;
       if (this._open && !open) this._open = null;
-      var list = open ? open.options.map(function (o) { return { playlist: o.playlist, name: o.name, key: open.name + o.name, artist: open.name, icon: open.icon }; }) : all;
+      var list = open ? open.options.map(function (o) { return { playlist: o.playlist, name: o.name, key: open.name + o.name, artist: open.name, icon: open.icon, image: o.image || null }; }) : all;
       var html = (open ? '<button type="button" class="bk" data-back><hk-icon icon="mdi:chevron-left"></hk-icon>Playlists</button>' +
                          '<div class="hd">' + esc(open.name) + '</div>' : '') +
         '<div class="pls">' + list.map(function (it, i) {
@@ -3955,6 +3957,7 @@
       if (back) back.addEventListener('click', function () { self._open = null; self.redraw(); });
       this._root.querySelectorAll('[data-i]').forEach(function (b) {
         var it = list[+b.getAttribute('data-i')];
+        if (it.image && b.querySelector('.cvr')) self._artImage(it.image, b.querySelector('.cvr'), '<hk-icon icon="' + esc(it.icon || 'mdi:music') + '"></hk-icon>', 300);
         b.addEventListener('click', function (e) { e.stopPropagation(); self._pick(it, b); });
       });
     }

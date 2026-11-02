@@ -45,6 +45,19 @@ export function withArtBase(p, base = (typeof window !== 'undefined' && window._
   return Object.assign({}, p, { energy: Object.assign({}, p.energy, { power: Object.assign({}, power, { art: base + art }) }) });
 }
 
+// THE PLAYLISTS' COVERS THROUGH HA'S SIDEBAR (2026-11-01): a pill's `image` in the music feed (hk_music/subscribe) is
+// Mantel's /ma image path, as Browse's pictures are; under the Ingress prefix the prefix goes in front here. Anything
+// else (a web address, which the art route fetches) is as it came.
+const MA_IMAGE = /^\/ma\/imageproxy[?/]/;
+export function withMusicBase(p, base = (typeof window !== 'undefined' && window.__mantelBase) || '') {
+  if (!base || !p || !Array.isArray(p.playlists)) return p;
+  const moved = (x) => (x && typeof x.image === 'string' && MA_IMAGE.test(x.image) ? Object.assign({}, x, { image: base + x.image }) : x);
+  return Object.assign({}, p, { playlists: p.playlists.map((pl) => {
+    const one = moved(pl);
+    return one && Array.isArray(one.options) ? Object.assign({}, one, { options: one.options.map(moved) }) : one;
+  }) });
+}
+
 // Writes are never sent. Reads go to the server, which has its own allowlist.
 const WRITE_WORDS = /(^|\/|_)(set|save|remove|delete|add|update|create|call_service|order|favorite|touch|black|seen|mute|test|sign|queue|play|transfer|talk|offer|candidate)(_|\/|$)/;
 
@@ -488,6 +501,7 @@ export class Host {
     }
     // the settings feed names no HA switch for a tablet on Mantel: the screens' own are named here
     if (msg.type === 'hk_frontend/settings/subscribe') { const raw = cb; cb = (p) => raw(withArtBase(this._withScreens(p))); }
+    if (msg.type === 'hk_music/subscribe') { const raw = cb; cb = (p) => raw(withMusicBase(p)); }
     // HK's per-person user data (the Music page's speaker) is Mantel's own, per person or tablet (user_data.py):
     // the value first, then every change. Any other key, or a server without it, stays the stand-in (no value).
     if (msg.type === 'frontend/subscribe_user_data') {

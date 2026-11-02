@@ -460,6 +460,9 @@
         '.yp .it.cat.on{background:#fff;color:#1c1c1e}',
         '.yp .it.cat.on hk-icon,.yp .it.cat.on .txt{color:#1c1c1e}',
         '.yp .it.cat.busy{opacity:.55}',
+        // A PLAYLIST WITH A PICTURE (what it is built with; the Music block's covers): the well is its cover
+        '.yp .well.pic{position:relative;border-radius:' + window.hkCards.R.inner + 'px;overflow:hidden}',
+        '.yp .well.pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}',
         '.yp .opts{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:8px}',
         '.yp .opt{height:36px;padding:0 16px;border-radius:18px;display:flex;align-items:center;font-size:14px;font-weight:600;cursor:pointer;',
         '  color:' + window.hkCards.v('ink') + ';border:1.5px solid ' + window.hkCards.v('mark') + ';box-sizing:border-box}',

@@ -87,5 +87,28 @@ ok('nothing playing: no calls', U.volumeCalls(null, presets, 0.5).length === 0);
   delete window.hkSaver;
 })();
 
+// A PLAYLIST'S COVER IN YOUR PLAYLISTS (2026-11-01): the picture of what it is built with fills the tile's well;
+// a playlist with none keeps its glyph
+(function () {
+  var card = new (customElements.get('hk-music-card'))(), drawn = [];
+  var pls = [{ name: 'Morning', icon: 'mdi:coffee', key: 'a', image: '/ma/imageproxy/aa?size=256' }, { name: 'Evening', icon: 'mdi:moon', key: 'b' }];
+  card._M = function () { return { playlists: function () { return pls; } }; };
+  card._ctx = function () { return { members: [], title: '' }; };
+  card._nextSet = function () { return false; };
+  card._label = card._nextLabel = function () { return ''; };
+  card._artImage = function (url, box, icon, size) { drawn.push([url, box.className, /icon="mdi:coffee"/.test(icon), size]); };
+  var el = card._playlistsEl();
+  // (innerHTML does not parse in this harness: the tiles the page would find are stood in)
+  var tiles = pls.map(function (p, i) {
+    var well = { className: 'well', classList: { add: function (c) { well.className += ' ' + c; }, remove: function () {} }, addEventListener: function () {} };
+    return { getAttribute: function () { return String(i); }, querySelector: function (sel) { return sel === '.well' ? well : null; } };
+  });
+  el.querySelectorAll = function (sel) { return sel === '[data-pl]' ? tiles : []; };
+  card._refreshPlaylists(true);
+  ok('Your Playlists: the playlist with a picture draws it in its well, the glyph kept for when it fails',
+     JSON.stringify(drawn) === JSON.stringify([['/ma/imageproxy/aa?size=256', 'well pic', true, 150]]), drawn);
+  ok('...the one without is not drawn: its glyph stays', drawn.length === 1);
+})();
+
 print('\n' + (fail ? fail + ' FAILED, ' : 'ALL ') + pass + ' MUSIC PAGE TESTS PASS');
 if (fail) throw new Error(fail + ' failed');
