@@ -162,8 +162,12 @@ class PairError(Exception):
 class LinkPairing:
     """The pending code (in memory) and the exchange."""
 
-    def __init__(self, accounts: Any, clock=time.time, audit=None, instance=lambda: None) -> None:
+    def __init__(self, accounts: Any, clock=time.time, audit=None, instance=lambda: None,
+                 previous=lambda: None) -> None:
         self.accounts, self.clock, self.audit, self.instance = accounts, clock, audit, instance
+        # `previous()`: the id of the Service account Mantel Link last connected with (linked.LINK_ACCOUNT_KEY), which
+        # a new pairing replaces (2026-11-01, audit 3): it is revoked, so at most one pairing credential is live
+        self.previous = previous
         self._code: dict[str, Any] | None = None      # {id, key, created, expires, by, attempts}
         self.ip_fails = Window(IP_FAILS, IP_WINDOW)
         self.all_fails = Window(ALL_FAILS, ALL_WINDOW)
@@ -262,11 +266,15 @@ class LinkPairing:
             raise PairError(403, "wrong_address", "Mantel Link reached Mantel at an address that isn't Mantel's own. "
                             "Use Mantel's own address, as Mantel Settings shows it.")
         self._code = None                                     # spent, before anything else can use it
+        old = self._superseded()
         # the row first, naming the credential about to be made (no row: no credential, and a new code is needed)
         account, token = self.accounts.create(body["name"], ["linked"], by=f"pairing:{c['by']}", before=lambda sid, name, scopes:
                                               self._audit_first(c["by"], "owner", "linked.pair_ok",
                                                                 {"ip": ip, "account": sid, "name": body["name"], "v": v,
-                                                                 **({"address": address} if v == 2 else {})}))
+                                                                 **({"address": address} if v == 2 else {}),
+                                                                 **({"revoked": old} if old else {})}))
+        if old and old != getattr(account, "id", None):
+            self.accounts.revoke(old, reason="re-paired")         # (named in the row above)
         instance = self.instance() or ""
         aid = getattr(account, "id", None) or (account.get("id") if isinstance(account, dict) else None)
         self.paired.append({"at": now, "account": aid, "name": body["name"]})
@@ -275,6 +283,15 @@ class LinkPairing:
         proof = server_proof(c["key"], body["code_id"], body["nonce"], instance, token, address)
         return {"v": v, "token": token, "instance": instance, **({"address": address} if v == 2 else {}),
                 "proof": proof}
+
+    def _superseded(self) -> str | None:
+        """The earlier pairing's (or any) credential Mantel Link is still known by, when it is live."""
+        try:
+            old = self.previous()
+            return old if isinstance(old, str) and old and self.accounts.live(old) else None
+        except Exception:  # noqa: BLE001 -- nothing known: nothing to replace
+            log.debug("linked: the earlier Mantel Link credential could not be looked up", exc_info=True)
+            return None
 
     def _count(self, peer: str) -> None:
         now = self.clock()
@@ -357,8 +374,13 @@ def register(app: web.Application) -> LinkPairing:
         lk = app.get("linked")
         return getattr(lk, "instance", None)
 
+    def previous() -> str | None:
+        from .linked import LINK_ACCOUNT_KEY
+        owners = app.get("linked_owners")
+        return ((owners.remembered(LINK_ACCOUNT_KEY) or {}).get("account") if owners is not None else None)
+
     p = LinkPairing(app["service_accounts"], lambda: app["clock"](),
-                    (lambda event: app["audit"].config_event(event)) if audit is not None else None, instance)
+                    (lambda event: app["audit"].config_event(event)) if audit is not None else None, instance, previous)
     app["linked_pairing"] = p
     app.setdefault("public_paths", set()).add(PATH)
     app.router.add_post(PATH, pair_route)

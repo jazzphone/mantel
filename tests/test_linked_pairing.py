@@ -197,3 +197,54 @@ async def test_v2_needs_a_normalised_address_and_v1_still_pairs(make_env):
     out = await r.json()
     assert r.status == 200 and out["v"] == 1 and "address" not in out
     assert out["proof"] == LP.server_proof(key, old["code_id"], nonce, env.app["linked"].instance, out["token"])
+
+
+async def _paired_and_connected(env, as_domain="mantel"):
+    r = await env.m.client.post("/api/linked/pair", headers=env.m.headers())
+    got = await r.json()
+    body, _key, _nonce = body_for(got["code"])
+    out = await (await pair(env, body)).json()
+    env.m.client.session.headers.pop("Origin", None)
+    ws = await env.m.client.ws_connect("/linked/ws", headers={"Authorization": f"Bearer {out['token']}",
+                                                                "X-Mantel-Link": f"domain={as_domain}; protocol=2"})
+    env.m.client.session.headers["Origin"] = env.m.origin
+    await ws.receive_json(timeout=5)
+    return out["token"], ws
+
+
+async def test_pairing_again_revokes_the_credential_mantel_link_last_connected_with(make_env):
+    """2026-11-01 (audit 3, LINK-10): each pairing made a new `linked` account and none was ever revoked."""
+    env = await make_env()
+    await env.login("owner1", "owner")
+    accounts = env.app["service_accounts"]
+    first, ws1 = await _paired_and_connected(env)
+    live_before = [a for a in accounts.list() if a["revoked"] is None]
+    assert len(live_before) == 1
+    # Mantel Link is paired again (its entry removed and set up anew, or a re-authentication)
+    r = await env.m.client.post("/api/linked/pair", headers=env.m.headers())
+    body, _key, _nonce = body_for((await r.json())["code"])
+    out = await (await pair(env, body)).json()
+    second = out["token"]
+    assert accounts.verify(first, "linked") is None, "the superseded credential is revoked"
+    assert accounts.verify(second, "linked") is not None
+    assert [a["id"] for a in accounts.list() if a["revoked"] is None] != [a["id"] for a in live_before]
+    revoked = [a for a in accounts.list() if a["revoked"] is not None]
+    assert [a["id"] for a in revoked] == [live_before[0]["id"]] and revoked[0]["revoked_reason"] == "re-paired"
+    rows = [r for r in env.audit(kind="config") if r["action"] == "linked.pair_ok"]
+    assert json.loads(rows[-1]["target"])["revoked"] == live_before[0]["id"] and "revoked" not in rows[0]["target"]
+    assert first not in repr(rows) and second not in repr(rows)
+    await ws1.close()
+
+
+async def test_a_pairing_with_no_earlier_link_revokes_nothing_and_a_credential_for_another_domain_is_left(make_env):
+    env = await make_env()
+    await env.login("owner1", "owner")
+    accounts = env.app["service_accounts"]
+    # HK Frontend's link (domain hk_frontend) is not Mantel Link's: it is never the one remembered
+    hk_token, ws = await _paired_and_connected(env, as_domain="hk_frontend")
+    r = await env.m.client.post("/api/linked/pair", headers=env.m.headers())
+    body, _key, _nonce = body_for((await r.json())["code"])
+    assert (await pair(env, body)).status == 200
+    assert accounts.verify(hk_token, "linked") is not None
+    assert not [a for a in accounts.list() if a["revoked"] is not None]
+    await ws.close()
