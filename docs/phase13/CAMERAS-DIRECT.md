@@ -292,3 +292,6 @@ one (`ask-before-playing-sound` memory).
 - 2026-11-02: the owner's follow-up. No detection of Mantel's own (the camera's smart types, or its motion);
   push-to-talk and the HTTPS check added as phases 1, 2 and 5, ahead of the direct path. Signing in to UniFi: an API
   key made as a local Mantel user, with a local user and password as an Advanced option.
+- 2026-11-02: phase 1 built: wall tablets send `secure` and `origin` with their `load` and `beat` frames (`page_health.py`),
+  About gets a Secure Connection row and page (`about.py`, `GET /api/about/secure` for managers, `settings/secure.js`),
+  and the camera pop-ups in HK Settings carry the note; the doorbell sheet's own Needs HTTPS state is left to phase 2.

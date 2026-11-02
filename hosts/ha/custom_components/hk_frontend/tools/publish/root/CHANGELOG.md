@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+- **HK Settings, camera pop-ups:** a note, "Talking at the door needs HTTPS", while this screen (or, in Mantel, any wall tablet) isn't a secure page, since a browser gives the microphone only to one. The host can say where to look (`notes.secure`).
+
 ## 1.35.0 - 2026-11-02
 
 - **Screensaver editor:** the **+** in each empty place is centered in its circle, and a Temperature widget's figure in its ring.

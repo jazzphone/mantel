@@ -21,6 +21,12 @@
 // one sampler, not two; its `fps` frame also says the screen and the style it was drawn with (`screen`, `style`) and the
 // sky and camera settings on it (`sig`, "blur:a1w1r1f0c1"), which HK Settings' "a lighter look for a slow tablet" -- one
 // step at a time -- reads (GET /api/performance/tablets).
+//
+// SECURE CONTEXT (2026-11-02, docs/phase13/CAMERAS-DIRECT.md "The HTTPS check"): the `load` and `beat` frames also say
+// whether this page is a secure context (window.isSecureContext: HTTPS with a certificate the browser trusts, or
+// localhost -- the only pages a browser gives the microphone to) and the address it loaded from (location.origin), so
+// Mantel Settings -> About -> Secure Connection can name the wall tablets that cannot talk at the door. The beat
+// says them again every minute, so a restarted server has them back within one.
 const COUNT = '__mantelRegistryRefreshes';
 
 // the page read the registry again (bump this where it does)
@@ -57,13 +63,15 @@ export function pageHealth(hub, page = 'home', marks = null) {
     } catch (e) { /* no resource timing */ }
     return { dl_bytes: bytes, dl_files: files };
   };
+  // whether the microphone could be had here, and by what address (see SECURE CONTEXT above)
+  const where = () => ({ secure: typeof window.isSecureContext === 'boolean' ? window.isSecureContext : null, origin: (typeof location !== 'undefined' && location.origin) || null });
   let before = null;
   try { before = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { before = null; }
   const prev = !before ? 'none' : before.closed ? 'clean' : 'died';
-  hub.tell('page_health', { event: 'load', prev, prev_heap: before && before.heap, prev_up: before && before.up, ...heap(), ...counts(), ...device() });
+  hub.tell('page_health', { event: 'load', prev, prev_heap: before && before.heap, prev_up: before && before.up, ...heap(), ...counts(), ...device(), ...where() });
   const beat = () => { const h = heap(); keep({ heap: h.heap, up: up(), closed: false }); return h; };
   beat();
-  const timer = setInterval(() => { const h = beat(); hub.tell('page_health', { event: 'beat', up: up(), ...h, ...counts() }); }, 60000);
+  const timer = setInterval(() => { const h = beat(); hub.tell('page_health', { event: 'beat', up: up(), ...h, ...counts(), ...where() }); }, 60000);
   window.addEventListener('pagehide', () => keep({ ...heap(), up: up(), closed: true }));
   // THE FRAME RATE: HK's one sampler (/hk/modules/hk-fps.js: 5 s of requestAnimationFrame, only when the page is idle
   // and lit). The dashboard's is the one hk-loader starts -- each sample is told, with the screen and the style it was
