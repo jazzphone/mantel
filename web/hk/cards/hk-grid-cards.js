@@ -464,6 +464,10 @@
       '  grid-template-rows:repeat(var(--rows,2),minmax(0,1fr));gap:' + GAP + 'px;flex:1;min-height:0}',
       // ...or scrolling: as many rows showing as the block has, the rest
       // under them -- up and down is the room's, sideways the pager's
+      // ...or HALF (an Accessories block's Height, 2026-11-01, the owner: "Half Height cards should be the height
+      // of a standard pill card... not stretch itself out", DESIGN.md: Half is the Home app's button): rows the
+      // pill's own 70 px, from the top, as many as fit
+      '.tiles.half{grid-template-rows:repeat(var(--rows,2),' + PILL_H + 'px);align-content:start}',
       '.tiles.scrolling{grid-template-rows:none;grid-auto-rows:calc((100% - var(--scroll-gaps,' + GAP + 'px))/var(--rows,2));align-content:start;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-width:none}',
       '.tiles.scrolling::-webkit-scrollbar{display:none}',
       '.tiles.scrolling .slot{touch-action:pan-x pan-y}',
@@ -610,6 +614,7 @@
         e.tiles.style.setProperty('--rows', String(rows));
         e.tiles.style.setProperty('--scroll-gaps', ((rows - 1) * GAP) + 'px');
         e.tiles.classList.toggle('scrolling', !!p.scroll);
+        e.tiles.classList.toggle('half', !!p.half);
         if (e.name.textContent !== (p.name || 'Room')) e.name.textContent = p.name || 'Room';
         if (e.st.textContent !== (p.status || '')) e.st.textContent = p.status || '';
         var path = this._roomPath(p.area);
@@ -894,9 +899,13 @@
       // four, XL six; Half, the Home app's pill, twice as many rows. The grid
       // takes as many as are chosen, never an empty row (as Scenes does:
       // hk-chip.js scenesPlan). Color: each one lit on its own color.
+      // (Half's rows the pill's 70 px, 2026-11-01, never stretched: as many as
+      // the block's height holds -- four in a Large block on square cells,
+      // three on 150 px tiles)
       _plan() {
         var client = this.client, size = this._size(), cfg = this._config, half = cfg.height === 'half';
         var cell = C.HOME_GRID.sizes[size] || [2, 2], cols = cell[0], rows = cell[1] * (half ? 2 : 1);
+        if (half) rows = Math.max(1, Math.min(rows, this._halfRows()));
         var entries = (cfg.accessories || []).slice(0, cols * rows), n = entries.length;
         if (n <= cols) { cols = Math.max(1, n); rows = 1; } else rows = Math.ceil(n / cols);
         var tiles = entries.map(function (entry) {
@@ -910,6 +919,11 @@
         });
         return { area: null, size: size, tiles: tiles, more: 0, name: cfg.title || 'Accessories', empty: 'Choose accessories in the editor',
                  head: false, cols: cols, rows: rows, half: half, centred: !half, color: !!cfg.color };
+      }
+      // how many 70 px rows the tiles' place holds (the block less its inset, before it is laid out)
+      _halfRows() {
+        var t = this._e && this._e.tiles, room = t && t.clientHeight ? t.clientHeight : this._height() - 36;
+        return Math.floor((room + GAP) / (PILL_H + GAP));
       }
       _render() {
         super._render();

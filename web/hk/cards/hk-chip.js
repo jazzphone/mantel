@@ -1439,6 +1439,10 @@
     // (hk-cell), so a Centred tile takes the sizes for the room it has.
     // Color: each on a gradient of its own color (hk-tile.js block_color).
     // The tiles 8 px apart, as the mock-up's (a widget's tight grid).
+    // HALF (2026-11-01, the owner: "Half Height cards should be the height of
+    // a standard pill card... not stretch itself out", DESIGN.md: Half is the
+    // Home app's button): rows the pill's own 70 px (TILE.h), from the top,
+    // and only the rows the block's height holds (_halfFit).
     _grid(plan) {
       if (this._el) { if (this._el.parentNode === this) this.removeChild(this._el); this._el = null; }
       if (!this._box) {
@@ -1447,7 +1451,8 @@
       }
       var box = this._box, client = this.client;
       box.style.cssText = C0().plate('card') + ';box-sizing:border-box;padding:var(--hk-pad-t,12px) var(--hk-pad-r,12px) calc(var(--hk-pad-b,12px) + var(--hk-pager-safe,0px)) var(--hk-pad-l,12px);display:grid;width:100%;height:100%;gap:' + BLOCK_GAP + 'px;' +
-        'grid-template-columns:repeat(' + plan.cols + ',minmax(0,1fr));grid-template-rows:repeat(' + plan.rows + ',minmax(0,1fr));overflow:hidden;--hk-pill:100%';
+        'grid-template-columns:repeat(' + plan.cols + ',minmax(0,1fr));grid-template-rows:repeat(' + plan.rows + ',' + (plan.half ? C0().TILE.h + 'px' : 'minmax(0,1fr)') + ');' +
+        (plan.half ? 'align-content:start;' : '') + 'overflow:hidden;--hk-pill:100%';
       delete box._hkGroupBase; C0().groupSurface(box, plan.surface);
       while (box.firstChild) box.removeChild(box.firstChild);
       this._tiles = plan.pills.map(function (pill) {
@@ -1462,7 +1467,23 @@
         if (client) t.hkSetClient(client);
         return t;
       });
+      this._halfPlan = plan.half ? plan : null;
+      if (plan.half && !this._halfRO && typeof ResizeObserver === 'function') {
+        var self = this;
+        this._halfRO = new ResizeObserver(function () { self._halfFit(); });
+        this._halfRO.observe(box);
+      }
+      this._halfFit();
       this._glass();
+    }
+    // Half's rows that fit: the rest of the scenes out of sight, never a row cut through
+    _halfFit() {
+      var plan = this._halfPlan, box = this._box;
+      if (!plan || !box || !box.clientHeight) return;
+      var cs = getComputedStyle(box), room = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      var H = C0().TILE.h, fit = Math.max(1, Math.min(plan.rows, Math.floor((room + BLOCK_GAP) / (H + BLOCK_GAP))));
+      box.style.gridTemplateRows = 'repeat(' + fit + ',' + H + 'px)';
+      Array.prototype.forEach.call(box.children, function (slot, i) { slot.style.display = i < fit * plan.cols ? '' : 'none'; });
     }
   }
 
