@@ -99,7 +99,7 @@ from aiohttp import web
 
 from . import atrest
 from . import connections as C
-from .connectors import Ctx, Forbidden, Hooks, Route, read_routes, resolve
+from .connectors import Ctx, Forbidden, Hooks, Route, read_routes, resolve, split_quality
 from .guards import guard
 from .live_tv import CANDIDATE, CONFIG, ICE_SERVERS, MAX_SDP, OFFER, Go2rtc, Go2rtcError, LocalEntities, \
     go2rtc_api_url, relay_go2rtc
@@ -116,7 +116,10 @@ SOURCES = ("protect", "rtsp")
 DETECTIONS = ("motion", "person", "vehicle", "animal", "package", "ring")
 SENSOR_ROLES = ("motion", "person", "doorbell")     # the HA sensors a camera can be LINKED to (phase 6)
 SENSOR_ID = re.compile(r"^(binary_sensor|event)\.[a-z0-9_]{1,200}$")
-QUALITIES = ("high", "low")
+QUALITIES = ("high", "medium", "low")
+# WHICH STREAM PLAYS (2026-11-02, the owner): the page says what it draws (connectors.split_quality); a camera without
+# that stream plays the nearest one it has. No hint (an older page) is a pop-up's: high.
+PREFER = {"high": ("high", "medium", "low"), "medium": ("medium", "high", "low"), "low": ("low", "medium", "high")}
 STOP_GRACE_S = 5.0
 TICK_S = 30.0
 MAX_SESSIONS = 64                           # connectors/camera.py's MAX_OFFERS
@@ -224,6 +227,15 @@ class CameraSecret:
     high: str = field(repr=False)
     low: str | None = field(default=None, repr=False)
     still: str | None = field(default=None, repr=False)
+    medium: str | None = field(default=None, repr=False)      # Protect's medium channel (2026-11-02)
+
+    def url(self, quality: str) -> tuple[str, str]:
+        """(quality, url) of the stream to play for ``quality``: that one, else the nearest the camera has."""
+        for q in PREFER.get(quality, PREFER["high"]):
+            u = getattr(self, q)
+            if u:
+                return q, u
+        return "high", self.high
 
 
 def check_source(source: Mapping[str, Any]) -> tuple[DirectSource, CameraSecret | None]:
@@ -272,15 +284,17 @@ def check_source(source: Mapping[str, Any]) -> tuple[DirectSource, CameraSecret 
             raise SourceError("still", "still: give it with the streams")
         return src, None
     if not isinstance(streams, Mapping) or set(streams) - set(QUALITIES):
-        raise SourceError("streams", "streams: {high, low}")
+        raise SourceError("streams", "streams: {high, medium, low}")
     high = _url(streams.get("high"), _STREAM_URL, "streams.high")
-    low = streams.get("low")
+    low, medium = streams.get("low"), streams.get("medium")
     low = None if low is None else _url(low, _STREAM_URL, "streams.low")
+    medium = None if medium is None else _url(medium, _STREAM_URL, "streams.medium")
     if kind == "protect":
         high, low = protect_source(high), (protect_source(low) if low else None)
+        medium = protect_source(medium) if medium else None
     still = source.get("still")
     still = None if still is None else _url(still, _STILL_URL, "still")
-    secret = CameraSecret(SECRET_PREFIX + slug, high, low, still)
+    secret = CameraSecret(SECRET_PREFIX + slug, high, low, still, medium)
     return replace(src, low=low is not None, still=still is not None), secret
 
 
@@ -374,7 +388,7 @@ class DirectCameras:
             self._files().save(secret)
             self._secrets[src.slug] = secret
             self.unreadable.pop(src.slug, None)
-            if changed is not None and (changed.high, changed.low) != (secret.high, secret.low):
+            if changed is not None and (changed.high, changed.medium, changed.low) != (secret.high, secret.medium, secret.low):
                 await self.end_camera(src.entity_id)      # its streams play the old URLs: set up again on the next offer
         current[src.slug] = src
         self._write(current.values(), actor or Actor(label="cameras"), f"camera {src.slug} set")
@@ -585,8 +599,10 @@ class DirectCameras:
         await self._gate(ctx, msg["entity_id"])
         return {"configuration": {"iceServers": json.loads(json.dumps(ICE_SERVERS))}, "getCandidatesUpfront": False}
 
-    async def offer(self, ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):
+    async def offer(self, ctx: Ctx, msg: dict, on_event: Callable[[dict], None], quality: str | None = None):
         from .readproxy import ReadBlocked
+        msg, hint = split_quality(msg)
+        quality = quality or hint or "high"
         if set(msg) - {"type", "id", "entity_id", "offer"}:
             raise ReadBlocked("an offer carries entity_id and offer only")
         sdp = msg.get("offer")
@@ -601,7 +617,7 @@ class DirectCameras:
         ctx.state["direct_cam_starting"] = ctx.state.get("direct_cam_starting", 0) + 1
         self.starting += 1
         try:
-            return await self._start(ctx, src, sdp, mine, on_event, msg["entity_id"])
+            return await self._start(ctx, src, sdp, mine, on_event, msg["entity_id"], quality)
         finally:
             ctx.state["direct_cam_starting"] -= 1
             self.starting -= 1
@@ -610,9 +626,9 @@ class DirectCameras:
         """The camera's stream set up in go2rtc (PATCH: memory only) and registered with the /go2rtc/ gate as
         ``camera``'s (the entity the page asked for: an alias is Home Assistant's, decided by its own may_view)."""
         secret = self.secret(src.slug)
-        url = (secret.low if quality == "low" else secret.high) if secret is not None else None
-        if not url:
+        if secret is None or not secret.high:
             raise ConnectionError("this camera's stream is not set up")
+        quality, url = secret.url(quality)
         name = stream_name(src.slug, quality)
         self._cancel_stop(name)
         await self.go2rtc.put_stream(name, url)
@@ -621,11 +637,11 @@ class DirectCameras:
         return name
 
     async def _start(self, ctx: Ctx, src: DirectSource, sdp: str, mine: dict[str, CamSession],
-                     on_event: Callable[[dict], None], camera: str | None = None):
+                     on_event: Callable[[dict], None], camera: str | None = None, quality: str = "high"):
         camera = camera or src.entity_id
-        name = stream_name(src.slug, "high")
+        name = stream_name(src.slug, quality)
         try:
-            name = await self._ensure(src, "high", camera)
+            name = await self._ensure(src, quality, camera)
             ws = await self.go2rtc.connect(name)
         except (aiohttp.ClientError, asyncio.TimeoutError, Go2rtcError) as exc:
             self.error = f"{type(exc).__name__}: {exc}"[:200]
@@ -725,8 +741,9 @@ class DirectCameras:
         if secret is None:
             raise StillRefused(502, "camera_unavailable")
         if secret.still:
+            # the camera's own snapshot URL (a login in it is sent as HTTP Basic; never logged)
             return await read_image(self.app, secret.still, {}, None, f"camera still for {entity_id}")
-        quality = "low" if secret.low else "high"
+        quality, _ = secret.url("low")             # no snapshot URL: a frame of the sub-stream, else the main one
         name = stream_name(src.slug, quality)
         self._stills_busy[name] = self._stills_busy.get(name, 0) + 1
         try:
@@ -908,8 +925,9 @@ def register(app: web.Application, hub: Any, hooks: Any = None, cam_hooks: Direc
         return handler
 
     async def offer(ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):
+        msg, quality = split_quality(msg)          # the page's stream hint: ours to use, nobody else's to see
         if cams.ours(msg):
-            return await cams.offer(ctx, msg, on_event)
+            return await cams.offer(ctx, msg, on_event, quality)
         b = base.get(OFFER)
         if b is None or b.subscribe is None:
             raise ConnectionError("unavailable")
