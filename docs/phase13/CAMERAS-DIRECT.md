@@ -1,6 +1,6 @@
 # Phase 13: cameras without Home Assistant in the middle (plan, 2026-11-02)
 
-**Status: building (decisions answered 2026-11-02; see the build log).**
+**Status: built (phases 0-7, 2026-11-02; `tools/ci.py full` 36/36). Not released: it goes to the house with 0.1.114 and Mantel Link 0.1.11. What only the house can still show is under "Still to try on the house".**
 
 ## The ask (the owner, 2026-11-02)
 
@@ -419,4 +419,15 @@ its gain is the video's one hop fewer, which waits on the house's move to the LX
   keeps one stream per session with a 400 ms silent lead-in, silence between holds, cut the moment another session
   takes the floor (Home Assistant's Floor and Mantel's relay both cut) and closed after 30 s of quiet; confirmed at
   the door: 0.42-0.45 s press to sound, the whole tone heard.
+
+## Still to try on the house
+
+- After 0.1.114 and Mantel Link 0.1.11: the doorbell sheet's push-to-talk on a wall tablet and on the iPad (the warm
+  session, the button's states, two tablets at once). The card was driven in tests only.
+- On the LXC (or Docker with the console on the LAN): Connect UniFi Protect and compare the fingerprint with UniFi OS;
+  pick Front Door (it matches Home Assistant's `camera.front_door_camera_high_resolution_channel`; picking makes one
+  POST, `rtsps-stream`, to the console); one ring makes one pop-up; Video From both ways; Turn On in Protect (a PATCH:
+  the owner's OK first); talking at the door through Mantel (sound at the door: the owner's OK first); ring to sheet
+  on a wall tablet.
+- Whether a UniFi API key dies with its user, once a local Mantel user exists.
 
