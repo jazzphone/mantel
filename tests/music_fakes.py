@@ -152,6 +152,7 @@ class HouseMa(FakeMa):
         self.react = True
         # (provider, item id) of playlists whose songs MA cannot read: the streaming service refused its sign-in
         self.signed_out: set[tuple[str, str]] = set()
+        self.tracks_of: dict[tuple[str, str], list] = {}        # (provider, item_id) -> a playlist's songs
         self.model = {pid: ma_player(pid, e) for e, pid in PID.items()}
         self.qs = {pid: {"queue_id": pid, "active": True, "shuffle_enabled": False, "repeat_mode": "off",
                          "current_index": 2, "items": 9, "current_item": None} for pid in PID.values()}
@@ -266,7 +267,8 @@ class HouseMa(FakeMa):
             if (args.get("provider_instance_id_or_domain"), args.get("item_id")) in self.signed_out:
                 return await ws.send_json({"message_id": mid, "error_code": 6,          # LoginFailed
                                            "details": "Login failed. Please check your credentials and try again."})
-            return await ok([{"item_id": "t"}] * 3)
+            return await ok(self.tracks_of.get((args.get("provider_instance_id_or_domain"), args.get("item_id")),
+                                               [{"item_id": "t"}] * 3))
         if cmd == "music/recently_played_items":
             return await ok([{"item_id": "1", "provider": "library", "media_type": "playlist"}])
         e = ENT.get(args.get("player_id") or args.get("queue_id") or args.get("target_player") or

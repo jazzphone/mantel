@@ -79,9 +79,10 @@ from hk_core.music.const import (
     DEFAULT_VOLUME, NOTE_GROUP,
     NOTE_PARTIAL, NOTE_PLAY, NOTE_PRESET, NOTE_STOP, NOTE_TRANSFER, SERVICE_PLAY, SERVICE_PLAY_MEDIA, SERVICE_STOP,
     SERVICE_TRANSFER, SERVICE_TRANSPORT, SUB_PLAYLIST, SUB_PRESET, WARM_FIRST, WARM_RETRY, WARM_SOON,
-    GROUPS_EVERY,
+    GROUPS_EVERY, COVERS_EVERY, COVERS_FIRST, COVERS_READ_TIMEOUT, COVERS_SOON,
 )
 from hk_core.music.engine import ACTIVE, STOPPED, SUPERSEDED
+from hk_core.music.covers import Covers
 from hk_core.music.groups import Groups, signature
 from hk_core.music.resume import Resumes
 from hk_core.music.queue import QUEUE_MAX
@@ -1231,6 +1232,10 @@ class MusicHost:
         # refresh_groups last read it; None until it could be. Read every GROUPS_EVERY while running.
         self.ma_players = None
         self._groups_task: asyncio.Task | None = None
+        # THE PLAYLISTS' COVERS (hk_core/music/covers.py): looked up in the background, never in the feed's way
+        self.covers = Covers(self._read_ma, _item_image)
+        self._covers_task: asyncio.Task | None = None
+        self._covers_wake = asyncio.Event()
 
     # -- what it runs on ----------------------------------------------------------------------------------
     @property
@@ -1285,6 +1290,39 @@ class MusicHost:
         if changed and self._subs:
             self.push()
         return changed
+
+    async def _read_ma(self, command: str, **args: Any) -> Any:
+        client = self.ma
+        if client is None:
+            raise ConnectionError("Music Assistant is not connected")
+        async with asyncio.timeout(COVERS_READ_TIMEOUT):
+            return await client.read(command, **args)
+
+    async def refresh_covers(self) -> bool:
+        """The playlists' covers, looked up again where they expired (a read: no gate, no audit). True when a cover
+        changed -- the screens' feed is then re-sent."""
+        client = self.ma
+        if client is None or not client.connected.is_set() or self.doc() is None:
+            return False
+        try:
+            changed = await self.covers.refresh(self.config().playlists)
+        except Exception:  # noqa: BLE001 -- the covers are an extra; the feed goes on without
+            log.exception("music: the playlists' covers could not be looked up")
+            return False
+        if changed and self._subs:
+            self.push()
+        return changed
+
+    async def _covers_loop(self) -> None:
+        await asyncio.sleep(COVERS_FIRST)
+        while True:
+            self._covers_wake.clear()
+            await self.refresh_covers()
+            try:
+                await asyncio.wait_for(self._covers_wake.wait(), COVERS_EVERY)
+            except TimeoutError:
+                continue
+            await asyncio.sleep(COVERS_SOON)          # (a run of saves is one look)
 
     async def _groups_loop(self) -> None:
         while True:
@@ -1369,7 +1407,7 @@ class MusicHost:
         if self.doc() is None:
             return {"configured": False}
         cfg = self.config()
-        raw = cfg.as_client(None)
+        raw = cfg.as_client(None, self.covers.images(cfg.playlists))
         raw["announcements"] = self.announcements.players() if cfg.ignore_announcements else []
         raw["resumable"] = self.resumes.players(time.monotonic())
         names = music_players(raw)
@@ -1647,6 +1685,7 @@ class MusicHost:
         """The music settings changed (a save, an import): the screens hear it, the warmer follows."""
         if self._subs:
             self.push()
+        self._covers_wake.set()
         if self.started:
             self.warmer.follow(WARM_SOON)
 
@@ -1803,6 +1842,7 @@ class MusicHost:
         # Keep Playlists Ready follows the connection too: its loop ends when Music Assistant goes, and was
         # started only at start() and on a settings save, so one connected later never warmed anything
         self.states.connection_changed()
+        self._covers_wake.set()
         if self.started:
             self.warmer.follow(WARM_SOON)
             asyncio.get_running_loop().create_task(self.refresh_groups())
@@ -1812,6 +1852,7 @@ class MusicHost:
         self.states.start()
         self.warmer.follow()
         self._groups_task = asyncio.get_running_loop().create_task(self._groups_loop())
+        self._covers_task = asyncio.get_running_loop().create_task(self._covers_loop())
 
     async def stop(self) -> None:
         self.started = False
@@ -1819,9 +1860,11 @@ class MusicHost:
         self.warmer.stop()
         self.announcements.reset()
         self.resumes.clear()
-        if self._groups_task is not None:
-            self._groups_task.cancel()
-            self._groups_task = None
+        for name in ("_groups_task", "_covers_task"):
+            task = getattr(self, name)
+            if task is not None:
+                task.cancel()
+                setattr(self, name, None)
 
 
 # ------------------------------------------------------------------------------------------- register

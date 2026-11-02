@@ -1493,3 +1493,92 @@ async def test_a_play_that_would_regroup_a_room_the_person_cannot_control_is_ref
     sent = on.ma.sent()[n:]
     assert ("players/cmd/ungroup", {"player_id": "ma-cody"}) in sent and "players/cmd/stop" not in json.dumps(sent), sent
     await ws.close()
+
+
+def covers_doc():
+    """Playlists to cover: one on a playlist whose songs have the pictures, a choice of two (the first a dead link, the
+    second an album with a proxied picture), one on a link Music Assistant has never heard of."""
+    doc = json.loads(json.dumps(MF.DOC))
+    doc["items"] = [i for i in doc["items"] if i["kind"] != "playlist"] + [
+        {"kind": "playlist", "key": "pl_songs", "title": "Songs", "data": {
+            "name": "Songs", "icon": "mdi:coffee", "items": ["library://playlist/1"], "order": 1.0}},
+        {"kind": "playlist", "key": "pl_a", "title": "Dead then album", "data": {
+            "name": "Dead then album", "icon": "mdi:a", "chooser": "Mixes",
+            "items": ["library://playlist/99", "library://album/3"], "order": 2.0}},
+        {"kind": "playlist", "key": "pl_b", "title": "Plain", "data": {
+            "name": "Plain", "icon": "mdi:b", "chooser": "Mixes", "items": ["library://radio/r1"], "order": 3.0}},
+        {"kind": "playlist", "key": "pl_none", "title": "Nothing", "data": {
+            "name": "Nothing", "icon": "mdi:n", "items": ["library://playlist/98"], "order": 4.0}}]
+    return doc
+
+
+async def test_a_playlist_pill_gets_the_artwork_of_what_it_is_built_with(on):
+    """The owner (2026-11-01): the Music card's playlists pull the artwork of the playlists and albums they are built
+    with. The feed goes out at once without pictures; the lookups run in the background and the feed follows."""
+    on.app["settings"].store.write([("house", M.MUSIC_DOC, covers_doc())], actor=Actor(label="test"))
+    on.ma.tracks_of[("library", "1")] = [{"item_id": "s1"},
+                                         {"item_id": "s2", "album": dict(MF.ALBUMS[2])}]       # album 3: a proxied picture
+    host = on.app["music"]
+    await on.connected()
+    await on.login("jamie", "adult")
+    ws = await on.socket()
+    _r, ev = await on.subscribe(ws, {"type": "hk_music/subscribe"})
+    pills = {p["name"]: p for p in ev["playlists"]}
+    assert set(pills) == {"Songs", "Mixes", "Nothing"} and not any("image" in p for p in pills.values()), pills
+    assert [f for f in on.ma.sent(commands_only=False) if f[0] == "music/item_by_uri"] == [], "nothing asked yet"
+    assert await host.refresh_covers() is True
+    got = await GF.recv(ws)
+    assert got["type"] == "read_event", got
+    pills = {p["name"]: p for p in got["event"]["playlists"]}
+    proxied =f"/ma/imageproxy/{MF.PROXY_ID}?size=256"
+    assert pills["Songs"]["image"] == proxied, "the first song with an album picture"
+    assert pills["Mixes"]["image"] == proxied and pills["Mixes"]["options"] == [
+        {"name": "Dead then album", "key": "pl_a", "image": proxied}, {"name": "Plain", "key": "pl_b"}], \
+        "a dead link is passed over; the album's own picture; a choice with none is drawn plain"
+    assert "image" not in pills["Nothing"]
+    # Mantel's own /ma image path (the page's art proxy), never Music Assistant's own address
+    images = [p["image"] for p in pills.values() if "image" in p]
+    assert images and all(i.startswith("/ma/imageproxy/") for i in images), images
+    assert "://" not in json.dumps(images)
+    # kept: a second look asks Music Assistant for nothing, and the feed is not sent again
+    n = len(on.ma.frames)
+    assert await host.refresh_covers() is False
+    assert [f for f in on.ma.frames[n:] if f["command"].startswith("music/")] == []
+    # the pictures expire (hk_core/music/covers.py COVER_TTL) and are asked for again; a read that fails keeps them
+    from hk_core.music.covers import COVER_TTL
+    clock = host.covers._clock
+    host.covers._clock = lambda: clock() + COVER_TTL + 1
+    on.ma.tracks_of[("library", "1")] = [{"item_id": "s1"}]
+    n = len(on.ma.frames)
+    assert await host.refresh_covers() is True, "the Songs' pictures are gone from Music Assistant now"
+    got = await GF.recv(ws)
+    assert "image" not in {p["name"]: p for p in got["event"]["playlists"]}["Songs"]
+    assert any(f["command"] == "music/item_by_uri" for f in on.ma.frames[n:])
+    await ws.close()
+
+
+async def test_a_saved_playlist_is_looked_up_in_the_background_and_the_feed_follows(on, monkeypatch):
+    """The feed answers at once; a playlist saved in the settings is looked up by the background loop a moment later
+    (hk_core/music/const.py COVERS_SOON) and the feed is sent again with its cover."""
+    monkeypatch.setattr(M, "COVERS_FIRST", 0)
+    monkeypatch.setattr(M, "COVERS_SOON", 0)
+    on.ma.tracks_of[("library", "2")] = [{"item_id": "s9", "album": dict(MF.ALBUMS[2])}]
+    host = on.app["music"]
+    host._covers_task.cancel()
+    host._covers_task = asyncio.get_running_loop().create_task(host._covers_loop())
+    await on.connected()
+    await on.m.user("owner1", "owner")
+    await on.login("owner1", "owner")
+    ws = await on.socket()
+    _r, ev = await on.subscribe(ws, {"type": "hk_music/subscribe"})
+    assert ev["playlists"] and not any("image" in p for p in ev["playlists"])
+    r = await on.command(ws, id=5, kind="ws", msg={"type": "hk_music/playlist/save", "name": "Albums",
+                                                   "items": ["library://playlist/2"]})
+    assert "error" not in r, r
+    for _ in range(6):
+        got = await GF.recv(ws)
+        mine = [p for p in (got.get("event") or {}).get("playlists", []) if p["name"] == "Albums"]
+        if mine and "image" in mine[0]:
+            break
+    assert mine and mine[0]["image"] == f"/ma/imageproxy/{MF.PROXY_ID}?size=256", got
+    await ws.close()
