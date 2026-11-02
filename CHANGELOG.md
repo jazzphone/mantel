@@ -7,6 +7,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 **Changed**
 - Doorbell: talking is push-to-talk done properly. The doorbell's talk session opens with the sheet, so a press is live at once and the first word isn't lost; the visitor stays heard, lowered, while you talk; the button says Connecting, Talking, who else is talking, Can't Reach the Doorbell or Needs HTTPS (it used to vanish on plain http); and only one person talks at a time, everyone else's button saying who. Needs Mantel Link 0.1.11 for the session to stay open between holds.
 
+**Added**
+- Mantel Settings → About → **Secure Connection**: whether this screen is a secure page (the microphone, and so talking at the door, needs HTTPS), how Mantel is reached (built-in HTTPS, behind your own proxy, Home Assistant's sidebar or plain HTTP), and the address in use against the public one. An Owner or Admin also sees each wall tablet whose page isn't secure, with the fix (open Mantel by its `https://` name in Fully Kiosk's Start URL). Wall tablets' pages now tell Mantel their `isSecureContext` and address with their health reports. The camera pop-ups in HK Settings note that talking at the door needs HTTPS while a screen isn't secure.
+
 ## 0.1.113 - 2026-11-02
 
 **Fixed**

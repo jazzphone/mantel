@@ -63,6 +63,7 @@ const NOTES = {
     'settings too. Anything else that needs Home Assistant to be written (tablets as Home Assistant devices, accessory ' +
     'setup flows) is read-only here; saving one says why it was refused.',
   screen_remove: 'A screen is removed from its Where, below.',
+  secure: 'See Settings → About → Secure Connection.',
 };
 
 let lastPage = null;

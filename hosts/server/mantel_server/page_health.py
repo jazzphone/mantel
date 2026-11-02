@@ -29,7 +29,15 @@ THE LADDER (2026-10-29): the suggestion is one step at a time (the style, then t
 things, its animations, a camera playing live), and a number only counts for the settings it was drawn with. So an
 ``fps`` frame also says its ``sig``, a short word for them (``blur:a1w1r1f0c1``: the style, then 1 or 0 for animations,
 weather, rain and snow, moving things in front, a live camera), kept as ``fps_sig``. A summary kept before this has none
-(and HK Settings then uses it for the first step only, by its style)."""
+(and HK Settings then uses it for the first step only, by its style).
+
+SECURE CONTEXT (2026-11-02, docs/phase13/CAMERAS-DIRECT.md "The HTTPS check"): a browser gives the microphone only to a
+secure page (HTTPS with a certificate it trusts, or localhost), and on plain HTTP the doorbell sheet's talk button is
+silently not drawn. So the ``load`` and ``beat`` frames also say ``secure`` (``window.isSecureContext``, a bool) and
+``origin`` (``location.origin``: ``http(s)://host[:port]``, 200 characters at most, anything else dropped and the
+secure flag kept). The latest of each is kept on the screen's ring entry (memory only, no migration), and the beat
+repeats them every minute so a restart of the server learns them again within one. About -> Secure Connection
+(about.py) lists the wall tablets whose latest report says not secure; ``RING.secure_reports`` is what it reads."""
 from __future__ import annotations
 
 import json
@@ -56,6 +64,8 @@ WRITE_EVERY = 600.0      # a tablet's stored summary is written at most this oft
 SCREEN = re.compile(r"^[A-Za-z0-9_-]{1,100}$")      # the screen an fps frame was drawn on (a dashboard's path)
 STYLES = ("flat", "clear", "frosted", "tinted", "blur", "blur_pre", "blur_each",      # ...and its style
           "bright", "bright_pre", "bright_each")                                         # (Bright Glass, 2026-10-30)
+ORIGIN = re.compile(r"^https?://(?:[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*|\[[0-9A-Fa-f:.]+\])(?::\d{1,5})?$")      # location.origin
+ORIGIN_MAX = 200
 SIG = re.compile(r"^(?:flat|clear|frosted|tinted|blur|blur_pre|blur_each|bright|bright_pre|bright_each):[a-z0-9]{1,24}$")      # ...and what else was on it
 
 
@@ -81,6 +91,16 @@ def _style(v: Any) -> str:
 
 def _sig(v: Any) -> str:
     return v if isinstance(v, str) and SIG.match(v) else ""
+
+
+def _secure(v: Any) -> bool | None:
+    return v if isinstance(v, bool) else None
+
+
+def _origin(v: Any) -> str | None:
+    """What a page says its address is, or None: ``http(s)://host[:port]`` only (no path, query, user or spaces), so
+    nothing a page sends can be anything but an address when it is shown to a manager."""
+    return v if isinstance(v, str) and len(v) <= ORIGIN_MAX and ORIGIN.fullmatch(v) else None
 
 
 def _device(msg: dict) -> dict | None:
@@ -186,6 +206,9 @@ class Ring:
                 del self.screens[min(self.screens, key=lambda k: self.screens[k]["last"])]
             e = self.screens[key] = {"kind": kind, "name": name, "last": now, "samples": deque(maxlen=PER_SCREEN)}
         e["name"], e["last"] = name, now
+        secure = _secure(msg.get("secure")) if msg.get("event") in ("load", "beat") else None
+        if secure is not None:       # a page from before this says nothing, and leaves what was said as it was
+            e["secure"], e["origin"] = secure, _origin(msg.get("origin"))
         up = _num(msg.get("up"))
         s = {"t": now, "event": msg.get("event"), "page": msg.get("page") if msg.get("page") in PAGES else None,
              "heap": _num(msg.get("heap")), "first_draw": _count(msg.get("first_draw")),
@@ -210,6 +233,16 @@ class Ring:
         s = e["samples"]
         while s and s[0]["t"] < now - KEEP:
             s.popleft()
+
+    def secure_reports(self, now: float | None = None) -> list[dict]:
+        """Each wall tablet (never a person's browser) that has said whether its page is a secure context in the last
+        24 hours: ``{id, name, secure, origin, last_seen}``, the latest report of each. The caller drops the tablets
+        that are no longer enrolled."""
+        now = self.clock() if now is None else now
+        return [{"id": key.split(":", 1)[1], "name": e["name"], "secure": e["secure"], "origin": e.get("origin"),
+                 "last_seen": e["last"]}
+                for key, e in self.screens.items()
+                if e["kind"] == "tablet" and "secure" in e and e["last"] >= now - KEEP]
 
     def sample_count(self, ctx: Ctx) -> int:
         who = self._key(ctx)

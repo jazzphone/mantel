@@ -330,3 +330,12 @@ after the ticket"); the log since the 0.1.113 restart has no talk in it yet.
   person at the door came as `smartDetectZone` `["person"]`, then updates adding `"face"` and its `end`, each
   update sent two or three times.
 
+- 2026-11-02: phase 1 built: wall tablets send `secure` and `origin` with their `load` and `beat` frames (`page_health.py`),
+  About gets a Secure Connection row and page (`about.py`, `GET /api/about/secure` for managers, `settings/secure.js`),
+  and the camera pop-ups in HK Settings carry the note; the doorbell sheet's own Needs HTTPS state is left to phase 2.
+- 2026-11-02: phase 5, first part: live talk's core (the Pacer, the encoder, the Floor) moved to
+  `hk_core/talk/core.py` with nothing of Home Assistant's (Mantel Link vendors it beside `link/`), and
+  `talk_direct.py` lets the relay talk at a Protect doorbell itself (`DirectTalkLink`, a drop-in for Home
+  Assistant's socket). PyAV (av 19.0.2) joins the server image: **about 92 MB** (av 38 MB, its ffmpeg libraries
+  54 MB; the arm64 image measured 811 MB with it).
+

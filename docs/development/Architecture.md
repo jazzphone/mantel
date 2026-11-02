@@ -235,6 +235,14 @@ too); its `fps` frame names the screen, the style and a short signature of the s
 ladder (`M.slowRecommend`, `M.LADDER`) goes style, Rain & Snow, Moving Things in front, Animations, a live camera, and
 a sample counts only while the screen's settings still read as its signature, so each step waits for the next sample.
 
+The `load` and `beat` frames also say whether the page is a secure context (`secure`, `window.isSecureContext`) and the
+address it loaded from (`origin`, validated as `http(s)://host[:port]`), kept as the latest per tablet on its ring entry.
+A browser gives the microphone only to a secure page, so talking at the door needs HTTPS: **About** → **Secure
+Connection** (`web/shim/settings/secure.js`) shows this screen's own `isSecureContext`, `about.access_mode` (built-in
+HTTPS, behind your own proxy, Home Assistant's sidebar, or plain HTTP) and the address in use against `public_url`, and for
+managers `GET /api/about/secure` lists the enrolled wall tablets that said they are not secure. `GET
+/api/performance/tablets` carries each tablet's `secure` for HK Settings' camera pop-ups (`talkNote()`).
+
 ## Long-lived connections
 
 A route is checked once, when it is called. A connection that stays open is checked again for as long as it is
