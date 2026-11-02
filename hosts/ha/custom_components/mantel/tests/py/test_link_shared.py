@@ -31,7 +31,8 @@ def test_mantel_link_vendors_only_the_shared_code_it_uses():
     if not os.path.isdir(core):
         pytest.skip("the Mantel repository's layout: hk_core/ is the repository's own")
     kept = lambda folder: sorted(f for f in os.listdir(folder) if f != "__pycache__")  # noqa: E731
-    assert kept(core) == ["__init__.py", "link"]
+    assert kept(core) == ["__init__.py", "link", "talk"]          # talk: live talk's core (2026-11-02)
+    assert kept(os.path.join(core, "talk")) == ["__init__.py", "core.py"]
     assert kept(os.path.join(core, "link")) == sorted([f"{n}.py" for n in SHARED] + ["__init__.py"])
 
 

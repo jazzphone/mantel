@@ -517,6 +517,23 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   ok('...and while the tablet draws 45 or more', /Recommended/.test(text(draw(go('#/screens/dashboard-k/appearance')).box)), false);
   reports[0].fps = 38.2;
   ok('a host with reports shows none under This Device', /for This Device/.test(text(draw(go('#/screens/dashboard-k')).box)), false);
+  // TALKING AT THE DOOR NEEDS HTTPS (2026-11-02): a camera pop-up's page says so while this screen, or a wall tablet the host heard from, isn't secure
+  pg.data.popups = [{ hash: 'front-door', name: 'Front Door', kind: 'camera', entity: 'camera.porch', speaker: '', stream: '', close_after: 60, dashboards: [], item: 'sub-cam' }];
+  var talk = function () { return /Talking at the door needs HTTPS\. ([^|]*)/.exec(text(draw(go('#/popups/front-door')).box)); };
+  ok('a camera pop-up draws', draw(go('#/popups/front-door')).err, null);
+  ok('...no note while this screen and every tablet are secure', talk(), null);
+  reports[0].secure = true;
+  ok('...nor when the tablets say they are', talk(), null);
+  reports[0].secure = false;
+  ok('...a note when a wall tablet says it is not (and the fix, with no page of the host\'s to point to)', talk() && talk()[1].trim(), 'Open Home Assistant by its https:// address.');
+  pg._host.notes = { secure: 'See Settings → About → Secure Connection.' };
+  ok('...the host says where to look', talk() && talk()[1].trim(), 'See Settings → About → Secure Connection.');
+  reports[0].secure = null;
+  window.isSecureContext = false;
+  ok('...and when this screen is not secure, whatever the tablets say', !!talk(), true);
+  window.isSecureContext = true;
+  ok('...or the tablets have not said', talk(), null);
+  delete reports[0].secure;
   // THE LADDER, one step at a time: a sample speaks only for what was on the screen when it was drawn
   var Mo = window.hkSettingsModel, kb = boards['dashboard-k'], sample = function (fps, cams) {
     return { name: 'Kitchen Tablet', screens: ['dashboard-k'], fps: fps, fps_screen: 'dashboard-k', fps_style: 'x', fps_at: Date.now() / 1000 - 60,
