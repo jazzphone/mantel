@@ -38,6 +38,8 @@ from aiohttp import web
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
+from cryptography.exceptions import InvalidTag
+
 from . import audit, live
 from .atrest import KEY_FILE, SecretBox
 from .guards import guard
@@ -73,6 +75,10 @@ class PolicyError(ValueError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+class TotpUnreadable(Exception):
+    """A sealed authenticator-app seed that this Mantel's at-rest key does not open."""
 
 
 # -- passwords ------------------------------------------------------------------------------------
@@ -344,6 +350,18 @@ class Accounts:
                             (user_id, sealed, self.clock()))
         return b32(seed), otpauth_uri(seed, account)
 
+    def _open_seed(self, sealed: bytes, user_id: str) -> bytes:
+        """The seed behind a sealed value. A key that does not open it (the data came from another Mantel with
+        another at_rest.key, or the key file was replaced) is not a wrong code: it raises TotpUnreadable, which the
+        routes turn into a clear refusal, never a 500."""
+        try:
+            return self.box.open(sealed, f"totp:{user_id}")
+        except InvalidTag as exc:
+            log.error("the authenticator-app seed of user %s does not open with this Mantel's at-rest key: this data "
+                      "came from a Mantel with another at_rest.key. Put that key back (Backups.md: restore with the "
+                      "keys file of the Mantel that made the data)", user_id)
+            raise TotpUnreadable(user_id) from exc
+
     def totp_check(self, user_id: str, code: object, confirm: bool = False, before=None) -> bool:
         """Verify a code (consuming its time step) against the confirmed seed. ``confirm``: against the seed
         waiting to be confirmed instead (a first one, or a replacement), which it confirms; never the confirmed
@@ -356,7 +374,7 @@ class Accounts:
         if not confirm:
             if row["confirmed"] is None:
                 return False
-            seed = self.box.open(row["seed_enc"], f"totp:{user_id}")
+            seed = self._open_seed(row["seed_enc"], user_id)
             counter = totp_match(seed, code, now, row["last_counter"])
             if counter is None:
                 return False
@@ -365,7 +383,7 @@ class Accounts:
                                       (counter, user_id, counter))
             return cur.rowcount == 1
         if row["pending_enc"] is not None:                      # a replacement: it takes the working one's place
-            seed = self.box.open(row["pending_enc"], f"totp:{user_id}")
+            seed = self._open_seed(row["pending_enc"], user_id)
             counter = totp_match(seed, code, now)
             if counter is None:
                 return False
@@ -378,7 +396,7 @@ class Accounts:
             return cur.rowcount == 1
         if row["confirmed"] is not None:
             return False
-        seed = self.box.open(row["seed_enc"], f"totp:{user_id}")
+        seed = self._open_seed(row["seed_enc"], user_id)
         counter = totp_match(seed, code, now, row["last_counter"])
         if counter is None:
             return False
@@ -710,6 +728,14 @@ async def password_sign_in(request: web.Request) -> web.Response:
     return signed_in(request, row, "password")
 
 
+def totp_unreadable() -> web.Response:
+    """The second factor cannot be checked: the seed is sealed with an at-rest key this Mantel does not have. Not
+    a wrong code (no failure is counted) and not a crash: the person is told what is wrong."""
+    return error(503, "totp_unreadable", message="Your authenticator app's secret can't be opened by this Mantel "
+                 "(the data came from a Mantel with another at_rest.key). Ask the Owner to restore that key, or sign "
+                 "in another way.")
+
+
 async def totp_verify(request: web.Request) -> web.Response:
     """Second step of a password sign-in."""
     require_origin(request)
@@ -730,7 +756,11 @@ async def totp_verify(request: web.Request) -> web.Response:
     wait = acc.retry_after(ip, user["username"])
     if wait > 0:
         return limited(wait)
-    if not acc.totp_check(user["id"], body.get("code")):
+    try:
+        good = acc.totp_check(user["id"], body.get("code"))
+    except TotpUnreadable:
+        return totp_unreadable()
+    if not good:
         acc.pending_failed(pending)
         acc.record_failure(ip, user["username"], user["id"])
         return error(401, "invalid_code")
@@ -816,8 +846,12 @@ async def totp_enroll_confirm(request: web.Request) -> web.Response:
     if wait > 0:
         return limited(wait)
     row = acc.get_user(ident.user.id)
-    if not acc.totp_check(ident.user.id, body.get("code"), confirm=True,
-                          before=lambda: audit.config(request, ident, "account.totp.add", who(row))):
+    try:
+        good = acc.totp_check(ident.user.id, body.get("code"), confirm=True,
+                              before=lambda: audit.config(request, ident, "account.totp.add", who(row)))
+    except TotpUnreadable:
+        return totp_unreadable()
+    if not good:
         acc.record_failure(ip, ident.user.username)
         return error(400, "invalid_code")
     return ok({"totp": True})
@@ -832,7 +866,11 @@ async def totp_step_up(request: web.Request) -> web.Response:
     wait = acc.retry_after(ip, ident.user.username)
     if wait > 0:
         return limited(wait)
-    if not acc.totp_check(ident.user.id, body.get("code")):
+    try:
+        good = acc.totp_check(ident.user.id, body.get("code"))
+    except TotpUnreadable:
+        return totp_unreadable()
+    if not good:
         acc.record_failure(ip, ident.user.username)
         return error(401, "invalid_code")
     request.app["sessions"].mark_fresh(ident.session_id, "totp")

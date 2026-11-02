@@ -61,6 +61,12 @@ case "${CONNECT,,}" in y | yes) CONNECT=yes ;; *) CONNECT=no ;; esac
 
 REF="${var_mantel_ref:-latest}"
 
+# A branch of the clone exists only as origin/<branch> (the clone made one local branch, main), so a bare branch
+# name does not check out; a tag or a commit does.
+mantel_checkout() {  # mantel_checkout REF
+  git checkout --quiet --detach "origin/$1" >/dev/null 2>&1 || git checkout --quiet --detach "$1" >/dev/null 2>&1
+}
+
 msg_info "Fetching Mantel"
 $STD git clone --filter=blob:none https://github.com/jazzphone/mantel.git /opt/mantel
 cd /opt/mantel
@@ -69,7 +75,7 @@ if [[ "$REF" == "latest" ]]; then
   TAG="$(git tag -l 'v[0-9]*' --sort=-v:refname | head -1)"
   [[ -z "$TAG" ]] || $STD git checkout --quiet --detach "$TAG"
 else
-  $STD git checkout --quiet --detach "$REF" || { msg_error "No such branch, tag or commit: ${REF} (var_mantel_ref)"; exit 64; }
+  mantel_checkout "$REF" || { msg_error "No such branch, tag or commit: ${REF} (var_mantel_ref)"; exit 64; }
 fi
 VERSION="$(sed -n 's/^version: *"\{0,1\}\([0-9][0-9A-Za-z.+-]*\)"\{0,1\} *$/\1/p' packaging/ha-app/config.yaml | head -1)"
 msg_ok "Fetched Mantel ${VERSION} ($(git rev-parse --short HEAD))"

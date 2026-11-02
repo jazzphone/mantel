@@ -113,14 +113,17 @@ case "$*" in
   "compose config --images") printf '%s\\n' $FAKE_IMAGES ;;
   "pull "*) [ "$2" != "$FAKE_PULL_FAILS" ] ;;
   "compose up -d --wait --wait-timeout 180") [ -z "$FAKE_UP_FAILS" ] ;;
-  "compose exec "*) [ -z "$FAKE_EXEC_FAILS" ] ;;
+  "compose up -d --wait --wait-timeout 180 --pull never") [ -z "$FAKE_ROLLBACK_FAILS" ] ;;
+  "compose exec "*) [ -z "$FAKE_EXEC_FAILS" ] && echo "backup written: /backups/mantel-20261101-031500.mbk (4096 bytes)" ;;
 esac
 """
 
 
-def _run_update(tmp_path, images, pull_fails="", up_fails="", exec_fails=""):
+def _run_update(tmp_path, images, pull_fails="", up_fails="", exec_fails="", rollback_fails="", env_file=""):
     work = tmp_path / "compose"
     work.mkdir(parents=True)
+    if env_file:
+        (work / ".env").write_text(env_file)
     shutil.copy(ROOT / "packaging/compose/update.sh", work / "update.sh")
     bindir = tmp_path / "bin"
     bindir.mkdir()
@@ -128,7 +131,8 @@ def _run_update(tmp_path, images, pull_fails="", up_fails="", exec_fails=""):
     (bindir / "docker").chmod(0o755)
     log = tmp_path / "docker.log"
     env = {"PATH": f"{bindir}:/usr/bin:/bin", "FAKE_LOG": str(log), "FAKE_IMAGES": " ".join(images),
-           "FAKE_PULL_FAILS": pull_fails, "FAKE_UP_FAILS": up_fails, "FAKE_EXEC_FAILS": exec_fails}
+           "FAKE_PULL_FAILS": pull_fails, "FAKE_UP_FAILS": up_fails, "FAKE_EXEC_FAILS": exec_fails,
+           "FAKE_ROLLBACK_FAILS": rollback_fails}
     r = subprocess.run(["bash", str(work / "update.sh")], env=env, capture_output=True, text=True)
     return r, log.read_text().splitlines()
 
@@ -165,6 +169,25 @@ def test_update_stops_before_restarting_when_a_pull_fails_and_rolls_back_when_un
     r, calls = _run_update(tmp_path / "3", ["mantel-server:local", "mantel-transcode:local", "mantel-caddy:local"])
     assert r.returncode == 0 and not any(c.startswith("pull ") for c in calls)
     assert "no image comes from a registry" in r.stdout
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="no bash")
+def test_update_that_cannot_roll_back_prints_the_restore_command_for_its_own_backup(tmp_path):
+    """DEP-16 (audit, third pass): when the new version migrated and then failed its health check, the old image
+    refused the database (schema_too_new), the rollback's `up` failed under set -e and update.sh exited with no
+    words (the LXC wrapper then said the old version "is running again"). Now it says Mantel is NOT running,
+    prints the exact restore.sh command for the backup it made, and exits 3."""
+    server = "ghcr.io/jazzphone/mantel-server:0.1.99"
+    r, calls = _run_update(tmp_path / "1", [server], up_fails="1", rollback_fails="1", env_file="MANTEL_BACKUP_DIR=/srv/mantel-backups\n")
+    assert r.returncode == 3, r.stdout + r.stderr
+    assert "NOT running" in r.stdout and "schema_too_new" in r.stdout and "rolled back; see" not in r.stdout
+    assert "./restore.sh /srv/mantel-backups/mantel-20261101-031500.mbk" in r.stdout
+    # the default backups folder is ./backups beside the compose file
+    r, _ = _run_update(tmp_path / "2", [server], up_fails="1", rollback_fails="1")
+    assert r.returncode == 3 and "./restore.sh ./backups/mantel-20261101-031500.mbk" in r.stdout
+    # a rollback that works is still a plain failure (1), as before
+    r, _ = _run_update(tmp_path / "3", [server], up_fails="1")
+    assert r.returncode == 1 and "rolled back; see" in r.stdout and "NOT running" not in r.stdout
 
 
 @pytest.mark.skipif(shutil.which("caddy") is None, reason="caddy not installed")
@@ -996,3 +1019,28 @@ def test_the_app_image_copies_its_files_with_explicit_modes():
     packaging/docker/Dockerfile has --chmod=0755 for exactly this; the App's now has it too."""
     lines = [line for line in (ROOT / "packaging/ha-app/Dockerfile").read_text().splitlines() if line.startswith("COPY app ") or " app /app" in line]
     assert lines and all(line.startswith("COPY --chmod=0755 ") for line in lines), lines
+
+
+def test_the_image_carries_a_release_json_made_from_the_releases_version():
+    """DEP-14 (audit, third pass): Docker and LXC images had no /app/RELEASE.json, so Mantel Settings -> About showed no
+    version. The Dockerfile's release stage writes it (tools/write_release.py) from the MANTEL_VERSION build argument
+    that release.yml passes, falling back to packaging/ha-app/config.yaml for a local build; the base stage copies it
+    to /app, and .dockerignore lets config.yaml into the build context."""
+    text = (ROOT / "packaging/docker/Dockerfile").read_text()
+    stage = text[text.index("AS release"):text.index("AS deps")]
+    assert "ARG MANTEL_VERSION=" in stage and "tools/write_release.py /out/RELEASE.json" in stage
+    assert '--version "${MANTEL_VERSION}"' in stage and "COPY packaging/ha-app/config.yaml" in stage
+    assert "COPY --chmod=0755 --from=release /out/RELEASE.json /app/RELEASE.json" in text
+    assert (ROOT / "tools/write_release.py").is_file()
+    assert "MANTEL_VERSION=${{ needs.version.outputs.version }}" in (ROOT / ".github/workflows/release.yml").read_text()
+    assert "!packaging/ha-app/config.yaml" in (ROOT / ".dockerignore").read_text().splitlines()
+
+
+def test_the_lock_pins_a_pyasn1_without_the_quadratic_attestation_parsing():
+    """DEP-15 (audit, third pass): pyasn1 0.6.4 (pulled in by webauthn's attestation parsing) is affected by
+    CVE-2026-119194 to -119197, quadratic CPU on crafted input; 0.6.5 fixes them. The pin stays at or above it, hashed."""
+    lock = (ROOT / "packaging/docker/requirements.lock").read_text()
+    m = re.search(r"^pyasn1==(\d+)\.(\d+)\.(\d+) \\\n((?:    --hash=sha256:[0-9a-f]{64}(?: \\)?\n)+)", lock, re.M)
+    assert m, "pyasn1 is pinned with hashes"
+    assert tuple(int(x) for x in m.groups()[:3]) >= (0, 6, 5)
+    assert m.group(4).count("--hash=") == 2          # the wheel and the sdist, as pip-compile writes them

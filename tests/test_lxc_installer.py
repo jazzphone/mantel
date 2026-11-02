@@ -153,6 +153,41 @@ def test_version_pinned_images_follow_the_source_version(tmp_path):
     assert re.fullmatch(r"\d+\.\d+\.\d+\n", real.stdout)
 
 
+def _update(tmp_path, update_sh_exit: int) -> tuple[subprocess.CompletedProcess, Path]:
+    """update_script in an install whose source says 0.2.0 and whose .env pins 0.1.40; update.sh is a stand-in."""
+    compose = tmp_path / "packaging/compose"
+    compose.mkdir(parents=True)
+    (tmp_path / "packaging/ha-app").mkdir(parents=True)
+    (tmp_path / "packaging/ha-app/config.yaml").write_text('name: Mantel\nversion: "0.2.0"\n')
+    env = compose / ".env"
+    env.write_text("MANTEL_HOSTNAME=mantel.example.com\n"
+                   "MANTEL_SERVER_IMAGE=ghcr.io/jazzphone/mantel-server:0.1.40\n"
+                   "MANTEL_CADDY_IMAGE=ghcr.io/jazzphone/mantel-caddy:0.1.40\n")
+    (compose / "update.sh").write_text(f"#!/usr/bin/env bash\ngrep -q ':0.2.0' .env || exit 99\nexit {update_sh_exit}\n")
+    r = subprocess.run([BASH, "-c", f'source "{MANTEL_SH}"; INSTALL_DIR="$1"; update_script', "_", str(tmp_path)],
+                       capture_output=True, text=True)
+    return r, env
+
+
+@pytest.mark.parametrize("update_sh_exit", [1, 3])
+def test_a_failed_update_puts_the_image_pins_back(tmp_path, update_sh_exit):
+    """DEP-10 (audit, third pass): `update` rewrote .env's image pins to the new version before the images were
+    pulled and never put them back when the pull failed (a tag is pushed some minutes before its images exist, and
+    v0.1.111's run failed), while update.sh said "nothing was changed". Any failure now restores .env."""
+    r, env = _update(tmp_path, update_sh_exit)
+    assert r.returncode == update_sh_exit, r.stdout + r.stderr          # update.sh did see the new pins (it exits 99 if not)
+    assert ":0.1.40" in env.read_text() and ":0.2.0" not in env.read_text()
+    assert "image pins are back as they were" in r.stderr
+    assert not (tmp_path / "packaging/compose/.env.before-update").exists()
+
+
+def test_a_successful_update_keeps_the_new_pins_and_leaves_no_copy(tmp_path):
+    r, env = _update(tmp_path, 0)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert ":0.2.0" in env.read_text() and ":0.1.40" not in env.read_text()
+    assert not (tmp_path / "packaging/compose/.env.before-update").exists()
+
+
 def test_the_default_install_mode_pulls_published_images_and_falls_back_to_a_build():
     text = MANTEL_SH.read_text()
     assert 'var_install_mode="${var_install_mode:-auto}"' in text

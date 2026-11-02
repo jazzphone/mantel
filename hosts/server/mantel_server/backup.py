@@ -516,9 +516,64 @@ def _unpack(payload: Path, out: Path) -> tuple[dict, int]:
     return manifest, files
 
 
-def verify_database(path: Path, manifest: dict, migrations_folder: Path = dbmod.MIGRATIONS) -> list[int]:
+WRONG_AT_REST = ("{why}. The backup was made by a Mantel with another at_rest.key: put that key where this Mantel "
+                 "reads it first (or restore with that Mantel's keys file: Mantel Settings -> Backups -> Save Keys...). "
+                 "Without it every authenticator-app sign-in and saved connection would fail")
+
+
+def _at_rest_box(at_rest_key: "bytes | Path") -> "atrest.SecretBox | None":
+    """The box to try sealed values with: the key itself, or the key file this Mantel reads (None when the file
+    does not exist yet). Raises BackupError for a key file that cannot be read."""
+    if isinstance(at_rest_key, (bytes, bytearray)):
+        return atrest.SecretBox(key=bytes(at_rest_key))
+    path = Path(at_rest_key).expanduser()
+    if not path.exists():
+        return None
+    try:
+        return atrest.SecretBox(key=atrest.load_or_create_key(path))
+    except atrest.SecretKeyError as exc:
+        raise BackupError("key_invalid", str(exc)) from exc
+
+
+def check_at_rest_key(conn: sqlite3.Connection, connections: Path | None, at_rest_key: "bytes | Path") -> None:
+    """Whether the at-rest key opens what the backup holds sealed with its own: one authenticator-app seed
+    (``totp:<user>``), one alarm code, one saved connection. A key that opens none of them would let the restore
+    "pass" and every second-factor sign-in fail afterwards. Raises BackupError wrong_at_rest_key."""
+    sealed: list[tuple[str, bytes, str]] = []        # (what, value, associated data)
+    for what, sql, aad in (
+            ("authenticator-app seeds", "SELECT user_id AS k, seed_enc AS v FROM totp_credentials LIMIT 1", "totp:{}"),
+            ("a pending authenticator app", "SELECT user_id AS k, pending_enc AS v FROM totp_credentials "
+                                            "WHERE pending_enc IS NOT NULL LIMIT 1", "totp:{}"),
+            ("alarm codes", "SELECT entity AS k, ha_code AS v FROM alarm_pins WHERE ha_code IS NOT NULL LIMIT 1",
+             "alarm_ha_code:{}")):
+        try:
+            row = conn.execute(sql).fetchone()
+        except sqlite3.Error:
+            continue                                  # an older backup without that table has nothing sealed there
+        if row is not None and row["v"]:
+            sealed.append((what, bytes(row["v"]), aad.format(row["k"])))
+    if connections is not None and connections.is_dir():
+        for f in sorted(connections.glob("*.connection"))[:1]:
+            sealed.append(("saved connections", f.read_bytes(), "connection:" + f.name[:-len(".connection")]))
+    if not sealed:
+        return
+    box = _at_rest_box(at_rest_key)
+    if box is None:
+        raise BackupError("wrong_at_rest_key", WRONG_AT_REST.format(
+            why=f"This Mantel has no at-rest key yet ({Path(at_rest_key).expanduser()}), and the backup holds sealed values"))
+    for what, blob, aad in sealed:
+        try:
+            box.open(blob, aad)
+        except (InvalidTag, atrest.SecretKeyError):
+            raise BackupError("wrong_at_rest_key", WRONG_AT_REST.format(
+                why=f"This Mantel's at-rest key does not open the {what} sealed in the backup")) from None
+
+
+def verify_database(path: Path, manifest: dict, migrations_folder: Path = dbmod.MIGRATIONS, *,
+                    at_rest_key: "bytes | Path | None" = None, connections: Path | None = None) -> list[int]:
     """Check a restored database file and bring it to this build's schema. Returns the migrations applied now.
-    Raises BackupError."""
+    With ``at_rest_key`` (the key itself, or the file this Mantel reads it from) a sealed value in the backup
+    (``connections``: the unpacked connections folder) must open with it. Raises BackupError."""
     known = {m.version: m for m in dbmod.discover(migrations_folder)}
     conn = sqlite3.connect(str(path))
     conn.row_factory = sqlite3.Row
@@ -547,6 +602,8 @@ def verify_database(path: Path, manifest: dict, migrations_folder: Path = dbmod.
             if have["tables"].get(table) != rows:
                 raise BackupError("database_invalid", f"table {table} has {have['tables'].get(table)} rows; "
                                                       f"the manifest says {rows}")
+        if at_rest_key is not None:
+            check_at_rest_key(conn, connections, at_rest_key)
         applied = dbmod.migrate(conn, migrations_folder)         # an older backup must come up to this build
         conn.commit()
         conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
@@ -559,9 +616,13 @@ def verify_database(path: Path, manifest: dict, migrations_folder: Path = dbmod.
 
 
 def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, verify_only: bool = False,
-            now: datetime | None = None, migrations_folder: Path = dbmod.MIGRATIONS) -> RestoreReport:
+            now: datetime | None = None, migrations_folder: Path = dbmod.MIGRATIONS,
+            at_rest_key: "bytes | Path | None" = None) -> RestoreReport:
     """Decrypt, check, and (unless ``verify_only``) move a backup into ``data_dir``.
-    Refuses a data dir that already has a database unless ``replace`` (then the old files are moved aside)."""
+    Refuses a data dir that already has a database unless ``replace`` (then the old files are moved aside).
+    ``at_rest_key``: the key this Mantel will open the backup's sealed values with (bytes, or the key file's path);
+    given, a backup its key does not open is refused (wrong_at_rest_key), not restored into a Mantel that could
+    not sign its authenticator-app users in."""
     backup, data_dir = Path(backup).expanduser(), Path(data_dir).expanduser()
     now = now or datetime.now(timezone.utc)
     if not backup.is_file():
@@ -595,7 +656,8 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
         if manifest.get("format") != FORMAT:
             raise BackupError("corrupt", "the backup's manifest is not a Mantel manifest")
         staged_db = stage / "unpacked" / DB_NAME
-        migrated = verify_database(staged_db, manifest, migrations_folder)
+        migrated = verify_database(staged_db, manifest, migrations_folder, at_rest_key=at_rest_key,
+                                   connections=stage / "unpacked" / CONNECTIONS_DIR)
         for p in staged_db.parent.glob(DB_NAME + "-*"):
             p.unlink()
         files_tree = stage / "unpacked" / FILES_DIR
@@ -936,8 +998,10 @@ async def api_upload(request: web.Request) -> web.Response:
         if keys and not can_replace_at_rest_key(b.cfg.secrets_dir):
             raise BackupError("keys_read_only", KEYS_READ_ONLY)
         key = keys["backup_key"] if keys else load_key(b.key_file, create=False)[0]
+        # the at-rest key the restored data will be read with: the other Mantel's (it replaces ours) or our own
+        at_rest = keys["at_rest_key"] if keys else Path(b.cfg.secrets_dir).expanduser() / atrest.KEY_FILE
         report = await asyncio.get_running_loop().run_in_executor(
-            None, lambda: restore(upload, key, data_dir, verify_only=True))
+            None, lambda: restore(upload, key, data_dir, verify_only=True, at_rest_key=at_rest))
     except BackupError as exc:
         shutil.rmtree(pend, ignore_errors=True)
         msg = ("This backup was made by another Mantel, or with another key: add that Mantel's keys file."
@@ -1027,16 +1091,38 @@ def apply_pending(cfg) -> dict | None:
         if keys and not can_replace_at_rest_key(cfg.secrets_dir):
             # checked before anything is replaced: the data stays as it was, as the message below says
             raise BackupError("keys_read_only", KEYS_READ_ONLY)
-        report = restore(pend / "upload.mbk", key, data_dir, replace=True)
+        ar = Path(cfg.secrets_dir).expanduser() / atrest.KEY_FILE
+        staged_key = None
         if keys:
-            # the restored database's sealed values were sealed with the other Mantel's at-rest key
-            ar = Path(cfg.secrets_dir).expanduser() / atrest.KEY_FILE
-            if ar.exists():
-                os.replace(ar, ar.with_name(ar.name + ".before-restore-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")))
+            # the restored database's sealed values were sealed with the other Mantel's at-rest key. It is written
+            # beside ours first, so a folder that turns out unwritable fails here, with the data still as it was
             ar.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            fd = os.open(ar, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            staged_key = ar.with_name(ar.name + ".restoring")
+            fd = os.open(staged_key, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
             with os.fdopen(fd, "w") as f:
                 f.write(base64.urlsafe_b64encode(keys["at_rest_key"]).decode())
+        try:
+            report = restore(pend / "upload.mbk", key, data_dir, replace=True,
+                             at_rest_key=keys["at_rest_key"] if keys else ar)
+        except BaseException:
+            if staged_key is not None:
+                staged_key.unlink(missing_ok=True)
+            raise
+        if staged_key is not None:
+            # the data is in place: the key must follow, or its sealed values never open
+            try:
+                if ar.exists():
+                    os.replace(ar, ar.with_name(ar.name + ".before-restore-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")))
+                os.replace(staged_key, ar)
+            except OSError as exc:
+                staged_key.unlink(missing_ok=True)
+                msg = (f"the backup's data is in place, but its at-rest key could not be written to {ar}: {exc}. Put "
+                       "at_rest.key from the backup's keys file there, or its authenticator-app sign-ins and saved "
+                       "connections will not open")
+                result.update(ok=False, error=msg[:300], replaced=report.replaced)
+                log.error("restored the backup of %s, but %s (the data it replaced is at %s)",
+                          check.get("created"), msg, report.replaced)
+                return result
         result.update(ok=True, replaced=report.replaced, migrated=report.migrated)
         log.warning("restored the backup of %s; the data it replaced is at %s", check.get("created"), report.replaced)
     except (BackupError, OSError, sqlite3.Error, ValueError, KeyError) as exc:
@@ -1138,6 +1224,10 @@ def cli_restore(argv: list[str]) -> int:
     p.add_argument("--keys-file", default=None, metavar="FILE",
                    help="another Mantel's keys file (Mantel Settings -> Backups -> Save Keys...): its backup key opens "
                         "the backup, instead of --key-file")
+    p.add_argument("--skip-at-rest-check", action="store_true",
+                   help="do not check that this Mantel's at-rest key (or the keys file's) opens the backup's sealed values "
+                        "(authenticator-app seeds, saved connections): only for a backup whose at_rest.key is lost, "
+                        "knowing those values will not open")
     p.add_argument("--write-keys", default=None, metavar="DIR",
                    help="with --keys-file: once the backup checks out, write the keys file's at_rest.key and backup.key "
                         "into DIR (0600), for the host to put in its secrets folder (packaging/compose/restore.sh)")
@@ -1147,7 +1237,10 @@ def cli_restore(argv: list[str]) -> int:
     try:
         keys = parse_keys(Path(a.keys_file).expanduser().read_bytes()) if a.keys_file else None
         key = keys["backup_key"] if keys else load_key(Path(a.key_file or Path(a.secrets_dir) / KEY_FILE), create=False)[0]
-        report = restore(Path(a.file), key, Path(a.data_dir), replace=a.replace, verify_only=a.verify_only)
+        at_rest = None if a.skip_at_rest_check else (
+            keys["at_rest_key"] if keys else Path(a.secrets_dir).expanduser() / atrest.KEY_FILE)
+        report = restore(Path(a.file), key, Path(a.data_dir), replace=a.replace, verify_only=a.verify_only,
+                         at_rest_key=at_rest)
         if keys and a.write_keys:
             out = Path(a.write_keys).expanduser()
             for name, k in ((atrest.KEY_FILE, keys["at_rest_key"]), (KEY_FILE, keys["backup_key"])):

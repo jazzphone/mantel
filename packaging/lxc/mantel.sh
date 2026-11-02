@@ -169,11 +169,32 @@ follow_source_version() {  # follow_source_version ENV_FILE CONFIG_YAML
     rm -f "$1.bak"
 }
 
+ENV_KEPT=""
+restore_env_unless_updated() {  # EXIT trap: .env goes back to what it was unless the update succeeded
+  local rc=$?
+  if [ -n "$ENV_KEPT" ] && [ -f "$ENV_KEPT" ]; then
+    if [ "$rc" -ne 0 ]; then
+      mv -f "$ENV_KEPT" "${ENV_KEPT%.before-update}" && echo "    .env's image pins are back as they were (the update did not complete)" >&2
+    else
+      rm -f "$ENV_KEPT"
+    fi
+  fi
+  ENV_KEPT=""
+}
+
 update_script() {
   [ -d "$INSTALL_DIR/packaging/compose" ] || msg_error "no Mantel installation found in $INSTALL_DIR"
   msg_info "Updating Mantel (the previous images stay tagged for automatic rollback)"
   cd "$INSTALL_DIR/packaging/compose"
   if [ "$(grep -c '^MANTEL_SERVER_IMAGE=ghcr' .env 2>/dev/null || true)" -gt 0 ]; then
+    # follow_source_version rewrites the image pins before the images are pulled; any way out but success (a pull
+    # that fails because the release is not published yet, a version that won't start, Ctrl-C) puts them back, so
+    # "nothing was changed" is true and the next update starts from the version that is running
+    cp -p .env .env.before-update
+    ENV_KEPT="$PWD/.env.before-update"
+    trap restore_env_unless_updated EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
     follow_source_version .env "$INSTALL_DIR/packaging/ha-app/config.yaml"
     bash ./update.sh                       # registry images: pull, up --wait, roll back on failure
   else
@@ -185,14 +206,24 @@ update_script() {
     done
     docker compose build --pull
     # a backup first, as update.sh makes: the new image migrates the database, which the rollback can't undo
+    local made="" backup="" name dir
     if [ -n "$(docker compose ps -q mantel-server 2>/dev/null || true)" ]; then
-      docker compose exec -T mantel-server mantel backup --target /backups \
+      made="$(docker compose exec -T mantel-server mantel backup --target /backups)" \
         || msg_error "the backup failed; nothing was restarted. Fix it (Backups.md) or make one by hand, then run this again"
+      printf '%s\n' "$made"
+      name="$(printf '%s\n' "$made" | sed -n 's#^backup written: .*/\([^/ ]*\.mbk\) (.*#\1#p' | tail -1)"
+      dir="$(sed -n 's/^MANTEL_BACKUP_DIR=//p' .env 2>/dev/null | tail -1 || true)"
+      [ -z "$name" ] || backup="${dir:-./backups}/$name"
     fi
     docker compose up -d --wait --wait-timeout 180 || {
       msg_info "not healthy: rolling back"
       MANTEL_SERVER_IMAGE=mantel-rollback/mantel-server:previous MANTEL_TRANSCODE_IMAGE=mantel-rollback/go2rtc:previous \
-        docker compose up -d --wait --wait-timeout 180 --pull never
+        docker compose up -d --wait --wait-timeout 180 --pull never || {
+        echo "    the previous version did not start either: the new one probably migrated the database, which the old image refuses (schema_too_new)" >&2
+        echo "    Mantel is NOT running. Restore the backup made just before this update, as root, from $PWD:" >&2
+        echo "        ./restore.sh ${backup:-<your latest backup>}" >&2
+        exit 3
+      }
       exit 1
     }
   fi

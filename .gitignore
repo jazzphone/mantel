@@ -57,3 +57,6 @@ apple/**/project.xcworkspace/
 /build/
 # build tools (tools/package.json: npm ci --prefix tools)
 tools/node_modules/
+
+# macOS SMB delete markers (a file removed on the shared volume leaves one behind)
+.smbdelete*

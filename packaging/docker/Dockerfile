@@ -66,6 +66,21 @@ RUN find /out/web -type f \( -name '*.js' -o -name '*.css' -o -name '*.json' -o 
       -size +1k -exec gzip -9 -k -n {} +
 
 
+# ---- release: RELEASE.json for Mantel Settings -> About (2026-11-01) ---------------------------------
+# The Home Assistant App gets its RELEASE.json from tools/stage_ha_app.py; this image had none, so About showed no
+# version. MANTEL_VERSION is the release's own (release.yml passes it); a local build, such as the LXC's
+# `docker compose build`, has none and takes packaging/ha-app/config.yaml's version, the one number every package
+# shares. A separate stage, so a new version never invalidates the static stage's cache.
+FROM ${PYTHON_IMAGE} AS release
+ARG MANTEL_VERSION=
+ARG VCS_REF=unknown
+WORKDIR /src
+COPY tools/write_release.py tools/write_release.py
+COPY packaging/ha-app/config.yaml packaging/ha-app/config.yaml
+COPY --from=static /out/BUILD_ID BUILD_ID
+RUN python tools/write_release.py /out/RELEASE.json --build-id-file BUILD_ID --version "${MANTEL_VERSION}" --commit "${VCS_REF}"
+
+
 # ---- deps: a virtualenv holding only the third-party dependencies -------------------------------
 FROM ${PYTHON_IMAGE} AS deps
 ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
@@ -135,6 +150,7 @@ COPY --chmod=0755 packaging/ha-app/DOCS.md /app/help/Mantel.md
 COPY --chmod=0755 --from=static /out/web /app/web
 COPY --chmod=0755 --from=static /out/BUILD_ID /app/BUILD_ID
 COPY --chmod=0755 --from=static /out/static-manifest.json /app/static-manifest.json
+COPY --chmod=0755 --from=release /out/RELEASE.json /app/RELEASE.json
 COPY --chmod=0755 packaging/docker/entrypoint.py /app/entrypoint.py
 # `mantel <command>`: an admin command inside the RUNNING container (docker compose exec mantel-server
 # mantel bootstrap), through the entrypoint so the container's own settings fill in --data-dir, the HA

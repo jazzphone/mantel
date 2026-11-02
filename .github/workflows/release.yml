@@ -196,6 +196,7 @@ jobs:
           push: ${{ needs.version.outputs.publish == 'true' }}
           build-args: |
             VCS_REF=${{ github.sha }}
+            MANTEL_VERSION=${{ needs.version.outputs.version }}
           tags: |
             ${{ env.REGISTRY }}/${{ matrix.image }}:${{ needs.version.outputs.version }}
             ${{ env.REGISTRY }}/${{ matrix.image }}:latest

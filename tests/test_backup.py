@@ -90,11 +90,29 @@ def dump(path: Path) -> dict:
         conn.close()
 
 
-def make_home(tmp_path, name="data", *, files=True, big=0) -> Path:
+def seal_with(data: Path, at_rest: bytes) -> None:
+    """Seal what fill_every_table put in the sealed columns (authenticator-app seeds, the alarm's own code) and a
+    saved connection with ``at_rest``, as a Mantel that had that key would have."""
+    box = bk.atrest.SecretBox(key=at_rest)
+    conn = sqlite3.connect(str(data / "mantel.db"))
+    for user_id, seed, pending in conn.execute("SELECT user_id, seed_enc, pending_enc FROM totp_credentials").fetchall():
+        conn.execute("UPDATE totp_credentials SET seed_enc = ?, pending_enc = ? WHERE user_id = ?",
+                     (box.seal(b"seed", f"totp:{user_id}"), box.seal(b"seed2", f"totp:{user_id}"), user_id))
+    for (entity,) in conn.execute("SELECT entity FROM alarm_pins").fetchall():
+        conn.execute("UPDATE alarm_pins SET ha_code = ? WHERE entity = ?", (box.seal(b"1234", f"alarm_ha_code:{entity}"), entity))
+    conn.commit()
+    conn.close()
+    (data / "connections").mkdir(exist_ok=True)
+    (data / "connections" / "ha.connection").write_bytes(box.seal(b"{}", "connection:ha"))
+
+
+def make_home(tmp_path, name="data", *, files=True, big=0, at_rest: bytes | None = None) -> Path:
     data = tmp_path / name
     database = dbmod.Database(data / "mantel.db")
     fill_every_table(database.conn)
     database.close()
+    if at_rest is not None:
+        seal_with(data, at_rest)
     if files:
         (data / "user-files" / "hk" / "fonts").mkdir(parents=True)
         (data / "user-files" / "hk" / "fonts" / "Dummy.ttf").write_bytes(b"dummy font bytes")
@@ -571,8 +589,8 @@ def test_a_create_rotates_after_success_only(tmp_path, key, target):
 
 # -- the CLI -----------------------------------------------------------------------------------------
 def test_cli_backup_and_restore(tmp_path, capsys, target):
-    data = make_home(tmp_path)
     secrets = tmp_path / "secrets"
+    data = make_home(tmp_path, at_rest=bk.atrest.load_or_create_key(secrets / "at_rest.key"))
     assert cli_main(["backup", "--data-dir", str(data), "--secrets-dir", str(secrets), "--target", str(target)]) == 0
     err = capsys.readouterr().err
     assert "created a new backup key" in err and "COPY IT" in err
@@ -991,8 +1009,8 @@ def _keys_json(backup_key: bytes, at_rest: bytes) -> str:
 def test_cli_restore_with_another_mantels_keys_file(tmp_path, capsys, target):
     """Moving from the Home Assistant App to Docker or the LXC: restore.sh checks the App's backup with the App's
     keys file, and has the image write the two keys out for the host to put in /etc/hk/secrets."""
-    data = make_home(tmp_path)
     app_secrets = tmp_path / "app-secrets"
+    data = make_home(tmp_path, at_rest=bk.atrest.load_or_create_key(app_secrets / "at_rest.key"))
     assert cli_main(["backup", "--data-dir", str(data), "--secrets-dir", str(app_secrets), "--target", str(target)]) == 0
     capsys.readouterr()
     backup = sorted(target.glob("*.mbk"))[-1]
