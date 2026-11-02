@@ -308,3 +308,10 @@ after the ticket"); the log since the 0.1.113 restart has no talk in it yet.
 - 2026-11-02: phase 2 built: the warm session (opened with the sheet; each hold its own talkspurt and RTP stream,
   nothing between), hold only, the door ducked under echo cancellation, the button's states, and one talker at a
   time (talk_live.py's Floor in Home Assistant, the relay's floor with the tablets' names in Mantel).
+- 2026-11-02: phase 3 spike passed. The public API (the owner's local Mantel user's key) lists the house's 14
+  cameras, all with smart detection on (Front Door the one with a speaker). Front Door's RTSPS `high` channel is
+  H.264 1600x1200 with **Opus** audio beside AAC, so go2rtc relays it to WebRTC untouched (`rtspx://`, no ffmpeg).
+  The stack's own go2rtc image (`transcode`, go2rtc 1.9.9) played it over WebRTC in Chromium and WebKit, on the
+  owner's iPad in Safari with sound, and on the Master Bathroom wall tablet (Android 16, pushed there with Kiosk
+  Satellite's `open_url` and put back with `close_url`), the owner confirming the sound.
+
