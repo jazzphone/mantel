@@ -211,10 +211,15 @@ class MantelFlow(ConfigFlow, domain=DOMAIN):
     # ---- discovered on the network (zeroconf: no credential, a pairing code confirms it)
     async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
         props = discovery_info.properties or {}
-        instance, url = props.get("instance"), props.get("url")
+        instance, url, link = props.get("instance"), props.get("url"), props.get("link")
         if not (isinstance(instance, str) and len(instance) == 32 and isinstance(url, str)
                 and url.startswith("https://")):
             return self.async_abort(reason="invalid_discovery")
+        # Mantel's link address, when it announces one: linked there, Mantel's own certificate is pinned (pairing
+        # v3), with no name, DNS or proxy in between. The announcement is no more trusted for it: the pairing code
+        # still proves who answers, and Mantel refuses an address that isn't its own
+        if isinstance(link, str) and link.startswith("https://") and pinned_first(link):
+            url = link
         await self.async_set_unique_id(instance)
         # An announcement is unauthenticated, and the instance id in it is no secret (anyone on the network
         # hears it): an entry never follows an announced address, or a look-alike would be handed the link's

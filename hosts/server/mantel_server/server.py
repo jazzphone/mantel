@@ -871,8 +871,11 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
         async def write_announcement(_app):
             from . import announce
             try:
-                body = announce.write(cfg.announce_file, _app["linked_owners"].instance_id(), cfg.public_url)
-                log.info("announce: wrote %s for the zeroconf announcer (%s)", cfg.announce_file, body["url"])
+                from .linked_pairing import link_address
+                body = announce.write(cfg.announce_file, _app["linked_owners"].instance_id(), cfg.public_url,
+                                      link=link_address(_app) or "")
+                log.info("announce: wrote %s for the zeroconf announcer (%s%s)", cfg.announce_file, body["url"],
+                         f", link {body['link']}" if body.get("link") else "")
             except (OSError, ValueError) as err:
                 log.warning("announce: not announcing Mantel by zeroconf: %s", err)
         app.on_startup.append(write_announcement)

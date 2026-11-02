@@ -144,6 +144,11 @@ if [ ! -f "$COMPOSE_DIR/.env" ]; then
     printf '%s\n' "MANTEL_CONNECT_ADDRESS=${lan_ip}:8766" >> "$COMPOSE_DIR/.env"
     msg_ok "Mantel Connect: compose.connect.yaml enabled (port 8766); pair it after the first start"
   fi
+  # Home Assistant finds Mantel by itself (Mantel Link's "Discovered: Mantel"): the announcer, on the host's network
+  # (compose.announce.yaml). MANTEL_ANNOUNCER=off in .env takes it out again at the next update.
+  add_compose_file compose.announce.yaml
+  printf '%s\n' "MANTEL_ANNOUNCER=on" >> "$COMPOSE_DIR/.env"
+  msg_ok "Announced on your network for Home Assistant's Mantel Link (compose.announce.yaml)"
   chmod 0640 "$COMPOSE_DIR/.env"
   # the nightly backup's folder (MANTEL_BACKUP_DIR defaults to ./backups): Docker would create it root-owned,
   # and the server runs as uid 10001

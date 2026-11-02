@@ -65,7 +65,11 @@ since anyone can announce Mantel's name.
 
 In Docker, multicast doesn't leave Docker's own networks, so the announcement
 needs the `announce` service (`compose.announce.yaml`) or the host's own
-avahi. Without either, add Mantel Link by hand. Home Assistant must also trust
+avahi. The Proxmox container turns the announcer on (at the install, and once
+at the first `update` of a container installed before it; `MANTEL_ANNOUNCER=off`
+in its `.env` keeps it off). With Mantel Connect's port on, the announcement
+also carries Mantel's [link address](#by-mantels-address-with-mantels-own-certificate),
+and a discovered Mantel is linked there. Without either, add Mantel Link by hand. Home Assistant must also trust
 Mantel's certificate: a certificate from Caddy's own authority is refused
 until you trust it where Home Assistant runs.
 
