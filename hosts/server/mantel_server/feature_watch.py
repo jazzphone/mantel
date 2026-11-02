@@ -176,7 +176,20 @@ class TabletWatch:
                 self.host.spawn(self._banner(a.title, a.message))
             else:
                 self.up.pop(nid, None)
+            self._system_alert(a)
         return got
+
+    def _system_alert(self, a: A.Alert) -> None:
+        """The same alert to Mantel Settings → Alerts' channels (docs/phase14/SYSTEM-ALERTS.md), held already."""
+        alerts = self.host.app.get("alerts") if getattr(self.host, "app", None) is not None else None
+        if alerts is None:
+            return
+        from .alerts import sources
+        name = str((self.tabs().get(a.tablet) or {}).get("name") or a.tablet)
+        try:
+            sources.tablet_alert(alerts.center, a, name)
+        except Exception:  # noqa: BLE001 -- the banner went; the channels are extra
+            log.exception("tablet alert to the alert center failed")
 
     async def _banner(self, title: str, message: str) -> None:
         """An Important banner on the screens (HA's Watch._banner), the notification way."""

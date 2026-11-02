@@ -1,6 +1,6 @@
 # Phase 14: system alerts and the update check (plan, 2026-11-02)
 
-**Status: plan. Nothing built; the owner answered the decisions on 2026-11-02.**
+**Status: built on 2026-11-02 (14.0–14.9 on main; 14.10, the Mac, last). See the Build log. Not released.**
 
 ## The ask (the owner, 2026-11-02)
 
@@ -283,4 +283,85 @@ later slice adds a channel or sources without changing what's already there.
 
 ## Build log
 
-(empty)
+All of it on 2026-11-02, by one session (Opus 5.5, Medium) with Sonnet 5.5 agents for the senders, the Settings page,
+the update check and the guide, and an Opus 5.5 agent for the security review of 14.1 and 14.5. Not released: the
+house runs none of it until the next release.
+
+**14.0, the catalog and the center.** `mantel_server/alerts/`: `catalog.py` (every kind in the table above, its
+words, hold, `needs` and `start_grace`), `center.py` (holds, flapping, causes, the start grace, batching, quiet hours
+with the per-channel Critical switch, one outbox and task per channel, retries 10 s / 1 min / 5 min, a 429's
+`retry_after`, `channel.failing` after three give-ups and never to that channel, the log), `store.py` (migration
+`0031_alerts.sql`: `alert_channels`, `alert_log`, `alert_settings`; secrets sealed under `alert-channel:<id>`),
+`sources.py` (a look every 15 s at HA, MA, Mantel Link, Protect, the backups, the disks and the credentials; events
+from `Backups.listeners`, `TabletWatch.check`, the running marker `.mantel-running` for `mantel.started/crashed`). The
+house's name comes from HA's `get_config` (`location_name`). Tests: `tests/test_alerts_center.py` (20, on a fake
+clock), `tests/test_alerts_sources.py` (10).
+
+**14.1, Discord, the page, the API.** `channels/discord.py` (webhook hosts checked at save and before each send,
+`allowed_mentions: {parse: []}`, an embed colored by level, 429), `api.py` (the endpoints above; Owner-only writes
+with `fresh="away"`, never a wall tablet, CSRF, audit first: `alerts.channel.saved|deleted|tested`,
+`alerts.settings.saved`, `alerts.me.saved`; secrets never returned, only the last four characters as `hint`; a
+channel whose secret doesn't open after a restore says `needs_secret`). `web/shim/settings/alerts.js` (Channels, a
+channel's page, Mantel Apps, History, Advanced) at `#/mantel/alerts`, `admin_page` section `alerts` for Owners and
+Admins. Tests: `tests/test_alerts_api.py` (roles, step-up, audit-first, CSRF, the wall tablet, no secret in any
+response, log line, audit row or `alert_log`), `tests/test_alerts_settings.py` (the page in node).
+
+**14.2, the update check.** `alerts/updates.py`: GitHub's latest release of the three repos, 10 minutes after a start
+and daily at a random minute, the switch (`PUT /api/updates`, Owner, audited `updates.settings.saved`), Check Now,
+"Couldn't check" without an alert, `update.<product>` once per version and cleared when installed (a newer release
+while one is up replaces it quietly: `Center.forget`). About shows it (`about.js`). The versions of Mantel Link and HK
+Frontend come from Mantel Link's new `report` `versions` (`bridge.versions`, sent as a report of its own so an older
+Mantel refuses only that), so **Mantel Link 0.1.11** is needed before they're compared; until then they show as
+unknown. LXC and Docker are told apart by `MANTEL_INSTALL` (the LXC installer sets `lxc`; plain Docker sets nothing and
+gets both lines). Tests: `tests/test_updates.py` (55).
+
+**14.3, the apps.** The center's `app` outbox: Owners and Admins with System Alerts on (`user_data` key
+`system_alerts`, on by default for the Owner; Me's switch, `GET/PUT /api/alerts/me`), each alert on its own through
+`Pusher.deliver` with `push.Message(category="system", level=...)`; APNs' `interruption-level` by level (Critical
+time-sensitive, Info passive). The Companion app's phones too (`phones.deliver`), except `ha.lost` and `link.lost`.
+The iPhone's Notification Service Extension reads `category`/`level` through MantelKit's `Content.thread` (one
+`mantel.system` thread) and `Content.interruption`; MantelKit test `aSystemAlertHasItsOwnThreadAndItsLevelsInterruption`.
+**Unverified:** on a real phone; it ships in the next TestFlight build.
+
+**14.4–14.6, Telegram, Notifiarr, email, Apprise.** `channels/telegram.py` (`sendMessage`, HTML escaped, Find My Chat
+through `getUpdates`), `channels/notifiarr.py`, `channels/email.py` (`smtplib` in a thread, the certificate verified,
+"none" only for a LAN host, CR/LF refused), `channels/apprise_.py` (Owner only under Advanced; `apprise==2.1.0` pinned
+in `pyproject.toml`, `packaging/docker/requirements.lock` with hashes, `packaging/ha-app/requirements.txt`). Notifiarr:
+its own passthrough reference (<https://notifiarr.wiki/pages/integrations/passthrough/>) gives the payload
+(`notification{update,name,event}`, `discord{color,text{title,description,footer},ids{channel}}`), but its documented
+URL takes an integration key; the global key in `X-api-Key` is Apprise's endpoint
+`https://notifiarr.com/api/v1/notification/apprise`, which is what Mantel posts to. Tests:
+`tests/test_alerts_channels.py` (59). **Unverified:** no live call to Telegram, Notifiarr, an SMTP server or an
+Apprise service; the first Send Test with a real account is the proof.
+
+**14.7, more sources and the heartbeat.** `disk.low` (the data and backup folders), `token.expiring`
+(`Connections.expiring`: MA's sign-in tokens), `push.failing` (`Pusher.listeners`; outages don't count), `link.lost`
+(only once Mantel Link was seen or paired, and only while HA is up), `signin.failures` (`Accounts.on_failure`),
+`config.changed` (`Audit.listeners`, named in words, never the row's detail). The heartbeat: an https URL sealed
+under `alert-heartbeat`, called every 5 minutes (60 s–1 h), off until set (Advanced).
+
+**14.8, Protect.** Phase 13's connector is on main, so `protect.lost` (set up, and its events socket down) and
+`protect.cert` (`error_kind == "certificate_changed"`) are read from `app["protect"].status()`.
+
+**14.9, the guide and the MCP.** `mcp/tools/alerts.py`: `alerts_recent` and `updates_status` (read, Owners and
+Admins), `alerts_test` (a planned change, the Owner's, audited `mcp.alerts_test`). The guide: `docs/guide/Alerts.md`
+and the update check in `Updating.md`.
+
+Screenshots (`tools/headless/gallery.py`, seeded with fictional channels): `settings-alerts`, `-alerts-channel`,
+`-alerts-email`, `-alerts-history`, `-about-updates`, `-me-system-alerts`.
+
+**The security review (Opus 5.5) of 14.1 and 14.5** found no critical issue; what it found is fixed:
+- an Email channel could be pointed at another server and keep the saved password (it would log in there): the
+  password is sealed with the server and user it was typed for, and a changed server or user asks for it again, at
+  save and before each send;
+- the heartbeat's Turn Off didn't (an empty `{}` kept the URL); the heartbeat refuses loopback, private, link-local
+  and `.local` hosts, and its hint is the service's host name, never the end of its key;
+- a password has no hint at all (its last four characters were shown to Admins);
+- Apprise's own debug logging can carry a service URL: its logger is held at WARNING;
+- Notifiarr's error words had the key removed after trimming (now before);
+- a long answer could be read only in part (the transport reads to the end, up to 1 MB);
+- the running marker is written every 5 minutes, not every 15 seconds.
+Left as designed: the MCP `alerts_test` follows the MCP's rules (a planned change, the Owner's, audited) rather than
+the REST route's away-from-home fresh factor.
+
+**14.10, the Mac.** (below, when it lands)

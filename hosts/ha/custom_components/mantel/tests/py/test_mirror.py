@@ -150,8 +150,8 @@ async def test_dormant_while_hk_frontend_holds_the_bridge(hass, mantel):
     e = await linked(hass, mantel)
     bridge = e.runtime_data
     assert bridge.state == "dormant"
-    await until(hass, lambda: mantel.reports)
-    assert mantel.reports[-1] == {"hk_frontend": {"installed": True, "loaded": False, "linked": True}, "phones": []}
+    await until(hass, lambda: [r for r in mantel.reports if "phones" in r])
+    assert [r for r in mantel.reports if "phones" in r][-1] == {"hk_frontend": {"installed": True, "loaded": False, "linked": True}, "phones": []}
     await hass.async_block_till_done()
     assert all(hass.states.get(x) is None for x in ALL)
     assert all(er.async_get(hass).async_get(x) is None for x in ALL)

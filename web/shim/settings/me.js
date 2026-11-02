@@ -1,7 +1,7 @@
 // settings/me.js -- Mantel Settings, Me: sign-in, passkeys, authenticator, PIN, password, notifications, apps, sessions.
 import { mantelUrl, base as BASE } from '../base.js';
 import {
-  act, ago, api, ask, ERRORS, fmt, forget, hh, K, load, me, panel, redraw, refreshMe, roleLabel, ROUTE, shortUA,
+  act, ago, api, ask, can, ERRORS, fmt, forget, hh, K, load, me, panel, redraw, refreshMe, roleLabel, ROUTE, shortUA,
   shown, ui
 } from './core.js';
 import {
@@ -48,6 +48,7 @@ export function pMe(sub) {
         : info('Make This Browser a Wall Tablet', null, 'Home Network Only')]));
     }
     drawNotifications(c);
+    drawSystemAlerts(c);
     drawApps(c);
     drawPasskeys(c);
     drawTotp(c);
@@ -168,6 +169,18 @@ function drawNotifications(c) {
   }
   c.appendChild(group({ header: 'Notifications', footer: 'The house’s notifications on your phone or computer, as well as on the screens. Only what you may see.' }, rows));
   if (acts.length) c.appendChild(group({}, acts));
+}
+// SYSTEM ALERTS (alerts/api.py, docs/phase14/SYSTEM-ALERTS.md): Mantel's own alerts on this person's Mantel apps and
+// browsers. Owners and Admins only (the Alerts section); an Owner has it on until it is turned off.
+function drawSystemAlerts(c) {
+  if (!can('alerts') || !['owner', 'admin'].includes(me.user.role)) return;
+  const got = load('myalerts', () => api('GET', '/api/alerts/me'));
+  if (!got) { pending(c); return; }
+  if (got.err) { failed(c, got.err); return; }
+  c.appendChild(group({ header: 'System Alerts', footer: 'Mantel’s own alerts (Home Assistant disconnected, a backup failed, an update) on your Mantel apps and browsers. Where else they go is in Alerts.' }, [
+    K().toggle({ label: 'System Alerts', on: got.data.system_alerts, fk: 'mx:system-alerts',
+      onChange: (on) => act('me', () => api('PUT', '/api/alerts/me', { system_alerts: on }), on ? 'System alerts turned on.' : 'System alerts turned off.', 'myalerts', 'alerts') }),
+    nav('Alerts', 'alerts', { icon: 'mdi:bell-ring' })]));
 }
 // APPS (app_auth.py; docs/phase10/APPLE-APPS.md §2): Mantel for iPhone, iPad and Mac signed in as this person, and
 // the pairing QR code (a one-time code, ten minutes, home network only) that signs a new one in without typing.

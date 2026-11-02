@@ -37,6 +37,40 @@ public struct SealedNotification: Codable, Equatable, Sendable {
         public let url: String?
         public let important: Bool?
         public let id: String?
+        /// "system": one of Mantel's own alerts (docs/phase14/SYSTEM-ALERTS.md), not an accessory's.
+        public let category: String?
+        /// A system alert's level: "info", "warning" or "critical".
+        public let level: String?
+
+        public init(title: String, body: String? = nil, entity: String? = nil, snap: String? = nil, camera: String? = nil,
+                    tag: String? = nil, url: String? = nil, important: Bool? = nil, id: String? = nil,
+                    category: String? = nil, level: String? = nil) {
+            self.title = title; self.body = body; self.entity = entity; self.snap = snap; self.camera = camera
+            self.tag = tag; self.url = url; self.important = important; self.id = id
+            self.category = category; self.level = level
+        }
+
+        public var isSystem: Bool { category == "system" }
+
+        /// The thread it is grouped in: every system alert in one System thread, apart from the doorbell and leaks;
+        /// an accessory's by its tag.
+        public var thread: String? { isSystem ? Self.systemThread : tag }
+        public static let systemThread = "mantel.system"
+
+        public enum Interruption: Sendable { case passive, active, timeSensitive }
+
+        /// How it interrupts: a system alert by its level (Critical through Focus, Info quietly in the summary), an
+        /// accessory's Important ones time-sensitive.
+        public var interruption: Interruption {
+            if isSystem {
+                switch level {
+                case "critical": return .timeSensitive
+                case "info": return .passive
+                default: return .active
+                }
+            }
+            return important == true ? .timeSensitive : .active
+        }
     }
 
     public enum OpenError: Error { case version, key, box }

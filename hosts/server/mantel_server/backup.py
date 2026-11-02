@@ -805,6 +805,7 @@ class Backups:
         self.audit = audit
         self.tz = tz or (lambda: cfg.house_tz)
         self.status: dict = {"last_ok": None, "last_error": None, "last_file": None, "last_attempt": None}
+        self.listeners: list = []          # each run's result (the alert center: backup.ok, backup.failed)
         self._lock: asyncio.Lock | None = None
         self.task: asyncio.Task | None = None
 
@@ -853,10 +854,18 @@ class Backups:
                 self.status.update(last_error=str(exc), last_error_code=getattr(exc, "code", "error"))
                 log.error("backup failed: %s", exc)
                 self._record("backup.failed", {"error": str(exc)[:300]})
-                return {"ok": False, "error": str(exc)}
+                return self._told({"ok": False, "error": str(exc)})
             self.status.update(last_ok=self.clock(), last_error=None, last_error_code=None, last_file=path.name)
             self._record("backup.ok", {"file": path.name})
-            return {"ok": True, "file": path.name}
+            return self._told({"ok": True, "file": path.name})
+
+    def _told(self, result: dict) -> dict:
+        for cb in self.listeners:
+            try:
+                cb(result)
+            except Exception:  # noqa: BLE001 -- a listener never changes the backup's own result
+                log.exception("backup listener failed")
+        return result
 
     def _record(self, action: str, detail: dict) -> None:
         if self.audit is not None:

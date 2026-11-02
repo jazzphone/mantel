@@ -152,6 +152,7 @@ fi
 set_env() {  # set_env KEY VALUE: replace KEY's line in .env, or add it
   if grep -q "^$1=" "$COMPOSE_DIR/.env"; then sed -i "s|^$1=.*|$1=$2|" "$COMPOSE_DIR/.env"; else printf '%s=%s\n' "$1" "$2" >> "$COMPOSE_DIR/.env"; fi
 }
+set_env MANTEL_INSTALL lxc   # About (the update check) tells the LXC from plain Docker by this
 pull_published() {  # this version's three published images; all of them or none
   [ -n "$VERSION" ] || { warn "no version found in packaging/ha-app/config.yaml"; return 1; }
   local image
