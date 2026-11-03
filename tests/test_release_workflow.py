@@ -93,7 +93,7 @@ def test_arm64_builds_natively_and_the_digests_are_merged(wf):
     assert "org.opencontainers.image.revision=${{ github.sha }}" in build["labels"]
     merge = wf["jobs"]["docker-merge"]
     assert set(merge["needs"]) == {"version", "docker-images"}
-    script = [s["run"] for s in merge["steps"] if "run" in s][0]
+    script = [s["run"] for s in merge["steps"] if "imagetools create" in s.get("run", "")][0]
     assert 'imagetools create -t "$IMAGE:$VERSION"' in script and ":latest" not in script
     assert "-eq 2" in script                                    # both platforms or nothing
 
@@ -165,8 +165,21 @@ def test_the_images_stage_guards_before_publishing():
     step = TEXT[TEXT.index("            images)\n"):TEXT.index("            promote)\n")]
     assert "check_version.py --staged --print" in step
     assert 'git ls-remote --tags origin "refs/tags/v$version"' in step
-    assert 'compare/main...$GITHUB_SHA' in step and "identical" in step and "behind" in step
+    assert "git/ref/heads/main" in step and 'compare/$main_sha...$GITHUB_SHA' in step and "identical" in step and "behind" in step
     assert 'if [ "$REF_TYPE" = tag ]' in step                    # images come before the tag, from a branch
+
+
+def test_a_rerun_of_an_old_images_run_never_pushes_over_a_tagged_version(wf):
+    """Security review 2026-11-03: "Re-run failed jobs" reuses the version job's outputs, so its guards don't run
+    again; each job that pushes an X.Y.Z tag in stage=images asks origin for the tag itself, right before."""
+    for job in ("app-images", "docker-merge"):
+        steps = wf["jobs"][job]["steps"]
+        guard = [i for i, s in enumerate(steps) if 'refs/tags/v$VERSION' in s.get("run", "")]
+        push = [i for i, s in enumerate(steps) if str(s.get("uses", "")).startswith("docker/build-push")
+                or "imagetools create" in s.get("run", "")]
+        assert guard and push and guard[0] < push[0], job
+        assert steps[guard[0]]["if"] == ("needs.version.outputs.stage == 'images' && "
+                                          "needs.version.outputs.publish == 'true'")
 
 
 def test_promote_verifies_the_images_run_before_it_retags():
@@ -175,7 +188,8 @@ def test_promote_verifies_the_images_run_before_it_retags():
     assert "check_version.py --tag" in step
     verify = TEXT[TEXT.index("  verify-images:"):TEXT.index("  latest:")]
     for check in (".path", ".head_sha", '= "$GITHUB_SHA"', ".conclusion", "Docker manifest $image",
-                  "org.opencontainers.image.revision", "linux/amd64 linux/arm64", "{{json .Image}}"):
+                  "org.opencontainers.image.revision", "linux/amd64 linux/arm64", "{{json .Image}}",
+                  "The main suite (Linux)", "mantel-app-aarch64 mantel-connect-app-amd64"):
         assert check in verify, check
 
 

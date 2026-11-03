@@ -116,7 +116,8 @@ jobs:
                   exit 1
                 fi
                 # 3. the commit is on main: a commit nobody pushed to main publishes nothing
-                status="$(gh api "repos/$GITHUB_REPOSITORY/compare/main...$GITHUB_SHA" --jq .status)"
+                main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+                status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$main_sha...$GITHUB_SHA" --jq .status)"
                 if [ "$status" != identical ] && [ "$status" != behind ]; then
                   echo "::error::$GITHUB_SHA is not on main ($status): push it to main first"
                   exit 1
@@ -209,6 +210,16 @@ jobs:
       - run: python "${{ matrix.app.stager }}" "$RUNNER_TEMP/app"
         env:
           HK_PRIVATE: ${{ secrets.HK_PRIVATE }}
+      # stage=images: the version must still be untagged right before a push ("Re-run failed jobs" on an old images
+      # run reuses the version job's outputs and would skip its guards)
+      - if: needs.version.outputs.stage == 'images' && needs.version.outputs.publish == 'true'
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          if [ -n "$(git ls-remote --tags "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/v$VERSION")" ]; then
+            echo "::error::v$VERSION is tagged: an images run never pushes over a tagged version"
+            exit 1
+          fi
       # (the aarch64 pair under emulation: they are small, under 1.1 minutes)
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -318,6 +329,16 @@ jobs:
       matrix:
         image: [mantel-server, mantel-transcode, mantel-caddy]
     steps:
+      # stage=images: the version must still be untagged right before a push ("Re-run failed jobs" on an old images
+      # run reuses the version job's outputs and would skip its guards)
+      - if: needs.version.outputs.stage == 'images' && needs.version.outputs.publish == 'true'
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          if [ -n "$(git ls-remote --tags "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/v$VERSION")" ]; then
+            echo "::error::v$VERSION is tagged: an images run never pushes over a tagged version"
+            exit 1
+          fi
       - uses: actions/download-artifact@v4
         with:
           path: ${{ runner.temp }}/digests
@@ -363,6 +384,12 @@ jobs:
           [ "$(jq -r .conclusion <<<"$run")" = success ] || { echo "::error::run $IMAGES_RUN did not succeed"; exit 1; }
           jobs="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$IMAGES_RUN/jobs?per_page=100" --jq '.jobs[] | "\(.conclusion)\t\(.name)"')"
           if grep -v -E '^(success|skipped)'$'\t' <<<"$jobs"; then echo "::error::a job of run $IMAGES_RUN did not succeed"; exit 1; fi
+          grep -qx "success"$'\t'"The main suite (Linux)" <<<"$jobs" || { echo "::error::run $IMAGES_RUN's Linux suite did not pass"; exit 1; }
+          for image in mantel-app-amd64 mantel-app-aarch64 mantel-connect-app-amd64 mantel-connect-app-aarch64; do
+            rev="$(docker buildx imagetools inspect "$REGISTRY/$image:$VERSION" --format '{{json .Image}}' |
+                   jq -r '.config.Labels["org.opencontainers.image.revision"] // ""')"
+            [ "$rev" = "$GITHUB_SHA" ] || { echo "::error::$image:$VERSION is revision '$rev', not $GITHUB_SHA"; exit 1; }
+          done
           for image in $DOCKER_IMAGES; do
             grep -qx "success"$'\t'"Docker manifest $image" <<<"$jobs" || { echo "::error::run $IMAGES_RUN pushed no $image manifest"; exit 1; }
             info="$(docker buildx imagetools inspect "$REGISTRY/$image:$VERSION" --format '{{json .Image}}')"
@@ -371,7 +398,7 @@ jobs:
               [ "$rev" = "$GITHUB_SHA" ] || { echo "::error::$image:$VERSION $platform is revision '$rev', not $GITHUB_SHA"; exit 1; }
             done
           done
-          echo "Run $IMAGES_RUN built $GITHUB_SHA; $DOCKER_IMAGES $VERSION are there for amd64 and arm64" >> "$GITHUB_STEP_SUMMARY"
+          echo "Run $IMAGES_RUN built $GITHUB_SHA and its suite passed; the App images and $DOCKER_IMAGES $VERSION (amd64, arm64) are this commit" >> "$GITHUB_STEP_SUMMARY"
 
   latest:
     # `latest` follows the release only from a tag: stage=all once the suite and every image passed, stage=promote
