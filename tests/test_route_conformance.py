@@ -116,7 +116,6 @@ async def test_an_owner_is_shown_the_secret_house_so_the_search_can_see_a_leak(m
     assert any("Vault Room Secret" in f for f in found) and any("lock.vault_door" in f for f in found), found
 
 
-@pytest.mark.xfail(strict=True, reason="any session reads GET /api/stats (found by the table; fixed next)")
 @pytest.mark.parametrize("role", ["child", "adult"])
 async def test_the_busiest_entities_and_every_screens_counters_are_for_managers_only(mantel, role):
     """``GET /api/stats`` gave any session, a Child included, the 15 busiest entity ids and every screen's counters

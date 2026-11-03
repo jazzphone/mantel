@@ -517,7 +517,7 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `GET /api/fixtures` | signed_in | none | none | yes |  |  |
 | `GET /api/hk-cards` | signed_in | none | none | yes |  |  |
 | `GET /api/registry` | signed_in | view | none | yes |  |  |
-| `GET /api/stats` | signed_in | view | none |  |  |  |
+| `GET /api/stats` | manager | admin | none |  |  |  |
 | `GET /dev` | signed_in | none | none |  |  |  |
 | `GET /hk-settings` | signed_in | none | none |  |  |  |
 | `GET /hk/{path}` | own: static | none | bounded:one file under HK's frontend or Your Files | yes | a static file or page shell any session (or the sign-in page) loads; the data behind it is guarded |  |

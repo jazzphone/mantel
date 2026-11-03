@@ -2311,7 +2311,7 @@
  "GET /api/stats": {
   "audit": [],
   "csrf": "-",
-  "device_ok": true,
+  "device_ok": false,
   "door": "any",
   "first": false,
   "fresh": "never",
@@ -2320,10 +2320,10 @@
   "module": "mantel_server.server",
   "no_audit": null,
   "preview": false,
-  "reads": "view",
+  "reads": "admin",
   "reads_why": null,
   "stream": "none",
-  "who": "signed_in"
+  "who": "manager"
  },
  "GET /api/updates": {
   "audit": [],

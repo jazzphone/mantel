@@ -388,7 +388,7 @@ async def api_areas(request: web.Request) -> web.Response:
                               for a, n in sorted(reg.areas.items(), key=lambda kv: kv[1])])
 
 
-@guards.guard("signed_in", reads="view")      # filters nothing: the route table found it (fixed next)
+@guards.guard("manager", reads="admin")     # the busiest entities and every screen: no page reads it (decision 3)
 async def api_stats(request: web.Request) -> web.Response:
     hub: Hub = request.app["hub"]
     ha = hub.ha
