@@ -165,3 +165,20 @@ async def test_a_manager_signed_in_at_a_wall_tablet_manages_only_their_own_sessi
     assert r.status == 403
     assert mantel.app["sessions"].get(sid)["revoked"] is None
 
+
+
+async def test_an_assistant_tests_an_alert_channel_only_from_home(mantel):
+    """MCP parity (route_table R10): ``POST /api/alerts/channels/{id}/test`` is the Owner's with a fresh factor away from
+    home; an assistant has no fresh factor, so its ``alerts_test`` works on the LAN door only (decision 4)."""
+    from test_mcp import Rpc, house, oauth, owner, turn_on
+    house(mantel)
+    await owner(mantel)
+    await turn_on(mantel, mcp_away=True)
+    _, tokens, _, _ = await oauth(mantel, away=True)
+    rpc = Rpc(mantel, tokens["access_token"])
+    st, body = await rpc.call("tools/call", {"name": "alerts_test", "arguments": {"channel": "none-such"}},
+                              headers={"X-Mantel-Door": "tunnel"})
+    assert st == 200 and body["result"]["isError"], body
+    assert body["result"]["structuredContent"]["error"] == "lan_only", body
+    st, body = await rpc.call("tools/call", {"name": "alerts_test", "arguments": {"channel": "none-such"}})
+    assert body["result"]["structuredContent"]["error"] != "lan_only", body     # home: as before (no such channel)

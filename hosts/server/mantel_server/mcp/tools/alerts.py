@@ -71,5 +71,5 @@ TOOLS = [
          "counts as a change: plan it, then apply. The Owner's.",
          {"channel": {"type": "string", "maxLength": 32}}, alerts_test, needs="settings", required=("channel",),
          write=True, idempotent=True,
-         like="POST /api/alerts/channels/{id}/test", who="owner"),
+         like="POST /api/alerts/channels/{id}/test", who="owner", door="lan"),
 ]
