@@ -123,3 +123,25 @@ def test_bump_leaves_an_unreleased_section_below_released_ones(tree):
 def test_the_checks_job_runs_it():
     text = (ROOT / ".github/workflows/tests.yml").read_text()
     assert "python tools/check_version.py" in text
+
+
+def test_staged_needs_the_versions_own_section_and_no_tag(tree, capsys):
+    """release.yml's stage=images pushes a version's images before its tag: the notes must be there already."""
+    assert cv.problems(None, tree, staged=True) == []
+    assert cv.main(["--root", str(tree), "--staged", "--print"]) == 0
+    assert capsys.readouterr().out.strip() == "0.1.35"
+    bump.set_version("0.1.36", tree)          # only "## Unreleased" speaks for 0.1.36
+    assert [line for line in cv.problems(None, tree, staged=True) if "no section for 0.1.36" in line]
+    assert cv.problems(None, tree) == []      # without --staged the section isn't asked for
+    assert cv.main(["--root", str(tree), "--staged", "--print"]) == 1
+
+
+def test_staged_still_needs_the_files_to_agree(tree):
+    (tree / "pyproject.toml").write_text((tree / "pyproject.toml").read_text().replace(
+        'version = "0.1.35"', 'version = "0.1.34"'))
+    assert any("pyproject.toml" in line for line in cv.problems(None, tree, staged=True))
+
+
+def test_the_images_stage_runs_it_staged():
+    text = (ROOT / ".github/workflows/release.yml").read_text()
+    assert 'python tools/check_version.py --staged --print' in text
