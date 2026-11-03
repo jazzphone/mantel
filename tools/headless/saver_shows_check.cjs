@@ -5,6 +5,60 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
   const browser = await pw.webkit.launch({ headless: true });
   let fails = 0;
   const say = (ok, what, got) => { if (!ok) fails++; console.log((ok ? 'PASS ' : 'FAIL ') + what + (ok ? '' : '  got ' + JSON.stringify(got))); };
+  // WAITING AS LONG AS THE PAGE NEEDS (2026-11-02): each run waited fixed seconds (2 s, 4 s, 2.6 s a slide ...), most of
+  // the ~2100 s the check took. settle(ceiling) returns once the screensaver is still -- nothing in flight on the network
+  // or the socket, no transition or finite animation running, every picture loaded, the fonts in, and what is drawn the
+  // same (its elements, the host's attributes, its layers' opacity and display) for QUIET ms (a call's `quiet`), not
+  // before its `floor` -- and never later than the old fixed wait, its ceiling. SAVER_SETTLE=probe waits each ceiling
+  // out and says when it would have been still, what still moved, and any change after it was (for setting QUIET and
+  // the floors); SAVER_SETTLE=fixed waits the ceilings, as before. (Most of the time left is the screensaver's own
+  // fades -- 4 s in, 3 s between slides -- which a check of what they end on has to wait out.)
+  const MODE = process.env.SAVER_SETTLE || 'quiet', QUIET = Number(process.env.SAVER_QUIET || 1000), POLL = 120;
+  const still = () => {
+    const deep = (r, out) => { for (const e of r.querySelectorAll('*')) { out.push(e); if (e.shadowRoot) { out.roots.push(e.shadowRoot); deep(e.shadowRoot, out); } } return out; };
+    const all = deep(document, Object.assign([], { roots: [] }));
+    const host = all.find((e) => e.tagName === 'HK-SCREENSAVER'), sr = host && host.shadowRoot;
+    const anims = new Set([...document.getAnimations(), ...all.roots.flatMap((r) => (r.getAnimations ? r.getAnimations() : []))]);
+    const busy = [...anims].filter((a) => a.playState === 'running' && (a.effect && a.effect.getComputedTiming().endTime !== Infinity)).length;
+    const imgs = all.filter((e) => e.tagName === 'IMG' && e.getAttribute('src') && !e.complete).length;
+    const layers = sr ? [...sr.querySelectorAll('.lay,.info,.info > *,.mu,.ph,.scn,.ck,.fc,.lycut,.lybig,.hksw')].map((e) => {
+      const cs = getComputedStyle(e); return e.className + ':' + cs.display + ':' + cs.visibility + ':' + Number(cs.opacity).toFixed(2); }).join('|') : '';
+    const what = [...anims].filter((a) => a.playState === 'running' && (a.effect && a.effect.getComputedTiming().endTime !== Infinity)).map((a) => {
+      const t = a.effect.target, tm = a.effect.getComputedTiming();
+      return (a.animationName || a.transitionProperty || a.id || 'js') + '@' + (t ? t.tagName.toLowerCase() + '.' + String(t.className).split(' ')[0] : '?') + ' ' + Math.round(tm.endTime) + 'ms at ' + Math.round(a.currentTime); });
+    return { busy, imgs, fonts: document.fonts.status, what,
+             key: [location.href, all.length, host ? [...host.attributes].map((a) => a.name + '=' + a.value).join(' ') : '-', layers].join('#') };
+  };
+  const quiet = (page) => {
+    let inflight = 0, net = Date.now();
+    page.on('request', () => { inflight++; net = Date.now(); });
+    const done = () => { inflight = Math.max(0, inflight - 1); net = Date.now(); };
+    page.on('requestfinished', done); page.on('requestfailed', done);
+    page.on('websocket', (ws) => ws.on('framereceived', () => { net = Date.now(); }));
+    return async (ceiling, { quiet: Q = QUIET, floor = 0 } = {}) => {
+      const where = ((new Error().stack.split('\n')[2] || '').match(/:(\d+):\d+\)?$/) || [])[1];
+      if (MODE === 'fixed') return page.waitForTimeout(ceiling);
+      const t0 = Date.now();
+      let last = null, since = t0, quietAt = null, changed = 0, why = '', lastWhat = [];
+      for (;;) {
+        const now = Date.now(), f = await page.evaluate(still).catch(() => null);
+        if (!f || f.key !== last) {
+          if (MODE === 'probe' && quietAt !== null && last && f) {
+            const a = last.split('#'), b = f.key.split('#');
+            console.log('SETTLE-CHANGE line ' + where + ' at ' + (now - t0) + ': ' + a.map((x, i) => x === b[i] ? '' : i === 3 ? x.split('|').filter((y) => !b[3].split('|').includes(y)).join('|') + ' -> ' + b[3].split('|').filter((y) => !x.split('|').includes(y)).join('|') : x + ' -> ' + b[i]).filter(Boolean).join(' ; ').slice(0, 600));
+          }
+          last = f && f.key; since = now; changed = now - t0;
+        }
+        lastWhat = (f && f.what) || [];
+        why = !f ? 'no page' : f.busy ? f.busy + ' animating' : f.imgs ? f.imgs + ' pictures loading' : f.fonts !== 'loaded' ? 'fonts'
+          : inflight ? inflight + ' requests' : now - net < Q ? 'network' : now - since < Q ? 'changing' : now - t0 < floor ? 'floor' : '';
+        if (!why && quietAt === null) quietAt = now - t0;
+        if ((!why && MODE !== 'probe') || now - t0 >= ceiling) break;
+        await page.waitForTimeout(POLL);
+      }
+      if (MODE === 'probe') console.log('SETTLE line ' + where + ' ceiling ' + ceiling + ' still at ' + quietAt + ' last change ' + changed + (quietAt === null ? ' (' + why + ')' : '') + (lastWhat.length ? ' ANIM ' + lastWhat.join(', ') : ''));
+    };
+  };
   try {
     const runs = Object.entries(input.shows).filter(([screen]) => screen.includes(input.only || '')).flatMap(([screen, want]) => want === 'tb' ? [[screen, want, 1180, 820], [screen, want, 390, 844]]
       : want === 'day-ink' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]]
@@ -23,10 +77,13 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
       await ctx.route('**/*', (r) => new URL(r.request().url()).origin === input.origin ? r.continue() : r.abort());
       const page = await ctx.newPage(), errors = [];
       page.on('pageerror', (e) => { if (!/ResizeObserver loop/.test(e.message)) errors.push(e.message); });
+      const settle = quiet(page);
       await page.goto(input.origin + '/' + screen + '/home');
       await page.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 });
-      await page.waitForTimeout(2000);
+      await settle(2000, { quiet: 600 });          // (still at ~0.9 s; never a change after, 150 of 150 runs)
       const started = await page.evaluate(() => !!(window.hkSaver && window.hkSaver.preview && (window.hkSaver.preview(true), true)));
+      // (a fixed wait: the screensaver fades in over 4 s, and ~3.3 s in it takes 5 elements away after a second of
+      // stillness -- probed 2026-11-02, 42 of 150 runs; nothing quieter tells when that is done)
       await page.waitForTimeout(4000);
       const got = await page.evaluate(() => {
         const deep = (r, s) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
@@ -63,7 +120,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           // (its preview column shows beside the page on a wide window)
           await page.setViewportSize({ width: 1440, height: 1000 });
           await page.goto(input.origin + '/settings#/screens/' + screen + '/screensaver');
-          await page.waitForTimeout(9000);
+          await settle(9000);
           if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-settings-preview.png' });
         }
         await ctx.close();
@@ -88,7 +145,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           const fr = deep(document).find((e) => e.tagName === 'IFRAME'); fr.__mark = 1; fr.contentWindow.__mark = 1; });
         if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-appearance.png' });
         await page.goto(input.origin + '/settings#/screens/' + screen + '/accent');
-        await page.waitForTimeout(800);
+        await settle(800);
         const was = (await frame()).accent, pick = was === 'green' ? 'blue' : 'green';
         await page.locator('[data-fk*="' + pick + '"]').first().click();
         const t0 = Date.now(), got = await until((v) => v.accent === pick, 5000), ms = Date.now() - t0;
@@ -121,7 +178,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         await btn.scrollIntoViewIfNeeded(); await btn.click();
         const t0 = Date.now(), got = await until((v) => v.night === 'always', 3000), ms = Date.now() - t0;
         say(!!got && got.night === 'always' && ms < 1000, screen + ': ...a change shows there at once (' + ms + ' ms)', got);
-        await page.waitForTimeout(2500);
+        await page.waitForTimeout(2500);                // (the save comes back ~1.8 s in, after a still second)
         const after = await frame();
         say(!!after && after.same && after.doc && after.on, screen + ': ...in place: the same frame and page after the save comes back, still showing', after);
         if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-settings.png' });
@@ -191,7 +248,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
       }
       if (want === 'look-slides' || want === 'look-fb') {
         const tag = screen + ' ' + W + 'x' + H;
-        await page.waitForTimeout(3000);
+        await settle(3000, { floor: 2400 });          // (2 of 70 runs took one more element ~2.1-2.3 s in)
         // what is on the screen now: the layout's pieces (shown, held, boxes), the big element's box, the slide corner's parts
         const look = () => page.evaluate(() => {
           const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
@@ -217,7 +274,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         const slides = want === 'look-fb' ? ['forecast'] : [null, 'music', 'forecast', 'weather', 'energy'];
         for (const sl of slides) {
           const shown = await page.evaluate((sl) => window.hkSaver.previewSlide ? window.hkSaver.previewSlide(sl) : false, sl);
-          await page.waitForTimeout(sl ? 2600 : 600);
+          await settle(sl ? 2600 : 600);
           const m = await look();
           const t2 = tag + (sl ? ' under ' + (want === 'look-fb' ? 'forecast, big' : sl) : '');
           if (!m) { say(false, t2 + ': the screensaver is up', m); continue; }
@@ -258,10 +315,10 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         // (Planted needs the sky it stands under: pinned, the screensaver started again under it)
         if (want === 'lay-planted') {
           await page.evaluate(() => { window.hkSaver.preview(false); window.hkSky._pin({ season: '', land: 'fall', wet: { kind: 'none', rate: 0 }, fog: false, wind: 4, moon: 0.4, elev: 30, azim: 182, cond: 'sunny', cover: 0.1 }); });
-          await page.waitForTimeout(800);
+          await settle(800);
           await page.evaluate(() => window.hkSaver.preview(true));
-          await page.waitForTimeout(7000);
-        } else await page.waitForTimeout(3000);
+          await settle(7000);
+        } else await settle(3000, { quiet: 600 });    // (still at ~0.6 s; never a change after, 56 of 56)
         if (want === 'lay-slides') {
           // UNDER THE MUSIC: the layout steps aside -- the time, the date and the weather at the top left, Home Status at the top
           // right, none on the slide's words -- and once the slide has gone the layout's places again
@@ -304,7 +361,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           });
           const meet = (a, b) => !!(a && b && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1);
           await page.evaluate(() => window.hkSaver._.music.show(true));
-          await page.waitForTimeout(3600);
+          await settle(3600);
           const u = await corners();
           if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '-music.png' });
           say(started && !!u && u.mu && u.off, tag + ': the music slide over a layout: the layout steps aside', u && [u.mu, u.off]);
@@ -330,15 +387,15 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
             }, act);
             if (!at) { say(false, tag + ': ...the music slide has its ' + act + ' button', null); continue; }
             await page.touchscreen.tap(at.x, at.y);
-            await page.waitForTimeout(900);
+            await settle(900);
             const still = await page.evaluate(() => window.hkSaver.running() && document.querySelector('hk-screensaver') !== null);
             say(still, tag + ': ...a finger on the music\u2019s ' + act + ' button leaves the screensaver up', still);
             // (a panel it opened: closed by a tap beside it, which is never a wake)
             await page.evaluate(() => { try { window.hkSaver._.music.panel(null); } catch (e) { /* none */ } });
-            await page.waitForTimeout(300);
+            await settle(300);
           }
           await page.evaluate(() => window.hkSaver._.music.hide());
-          await page.waitForTimeout(3600);
+          await settle(3600);
           const a = await corners();
           say(!!a && !a.mu && !a.off && !a.clock, tag + ': after it the layout again: no corner clock (Time Behind tells it)', a && [a.mu, a.off, a.clock]);
           say(!!a && a.face && a.tbt === 0, tag + ': ...behind the photo\'s subject, the layout\'s own face (never Time Behind\'s figures)', a && [a.face, a.tbt]);
@@ -502,9 +559,9 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         // the sky pinned, the screensaver started again under it
         const under = async (sky) => {
           await page.evaluate((sky) => { window.hkSaver.preview(false); window.hkSky._pin(Object.assign({ season: '', land: 'fall', wet: { kind: 'none', rate: 0 }, fog: false, wind: 4, moon: 0.4 }, sky)); }, sky);
-          await page.waitForTimeout(800);
+          await settle(800);
           await page.evaluate(() => window.hkSaver.preview(true));
-          await page.waitForTimeout(7000);
+          await settle(7000);
           return page.evaluate(() => {
             const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
             const all = deep(document), face = all.find((e) => e.classList && e.classList.contains('hkf') && e.classList.contains('weather'));
@@ -561,7 +618,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         }
         await page.evaluate(() => window.hkSaver && window.hkSaver.preview && window.hkSaver.preview(false));
         await page.goto(input.origin + '/settings#/screens/' + screen + '/screensaver');
-        await page.waitForTimeout(5000);
+        await settle(5000);
         const rows = await page.evaluate(() => {
           const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
           return deep(document).filter((e) => !e.children.length && /^(Time Behind|Titles)$/.test((e.textContent || '').trim())).map((e) => e.textContent.trim());

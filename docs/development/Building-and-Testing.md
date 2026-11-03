@@ -60,6 +60,12 @@ CI_JOBS=22 ~/.venvs/mantel/bin/python tools/ci.py full --all  # ~220 s, not ~320
   own pace, so a busy machine slowing everything flags nothing. Each line says what to do: run the check in parts,
   cut its fixed waits, or look at what the change added. A warning never fails the run; read it before you push the
   change that caused it.
+- **Waiting on the page, not the clock** (2026-11-02). The screensaver Shows' check (`saver_shows_check.cjs`
+  `settle`) waits until the screensaver is still (nothing on the network, no fade running, its pictures and fonts in,
+  what it draws unchanged a moment), never longer than the fixed wait it replaced: 1,822 s in all, not 2,163 s, the
+  same 1,502 checks passing. Most of what is left is the screensaver's own fades (4 s in, 3 s between slides), which a
+  check of what they end on must wait out. `SAVER_SETTLE=probe` keeps the old waits and says, for each, when the page
+  was still and anything that changed after it; `SAVER_SETTLE=fixed` is the old check.
   The main suite runs on 8 workers (`CI_PYTEST_WORKERS`) where `pytest-xdist` is installed (`pip install -e
   '.[dev]'`); a parametrized test's ids must not depend on random data, or the workers collect different tests.
 - **quick** is the main suite, `check_links`, `check_version`, `package_check --release`, and the private words
