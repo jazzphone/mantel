@@ -234,6 +234,10 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
              timeout=300, first=True),
         # (on 8 workers where pytest-xdist is installed: about a minute, not four)
         Step("main-suite", lambda: [py, "-m", "pytest", "-q", "-p", "no:cacheprovider", *xdist_args(py)], env=private_env()),
+        # TypeScript on every web file that opts in with // @ts-check (phase 18, Part C; its own pinned folder)
+        Step("types-js", [py, "tools/typecheck/check.py"], timeout=300,
+             skip=lambda: None if shutil.which("npm") and (os.environ.get("NODE") or shutil.which("node"))
+             else "no npm or node (Node.js)"),
         Step("check-links", [py, "tools/check_links.py"], timeout=300, versions=True),
         Step("check-version", [py, "tools/check_version.py"], timeout=300, versions=True),
         Step("package-check", [py, "tools/package_check.py", "--release"], timeout=600, versions=True),
