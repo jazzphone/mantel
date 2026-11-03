@@ -131,9 +131,9 @@ def check_args(tool: Tool, args: Any) -> dict:
 
 def all_tools() -> list[Tool]:
     """Every tool, in the order tools/list gives them (deterministic, for the clients' caches)."""
-    from . import alerts, audit, commands, deploy, house, music, screens, settings
+    from . import alerts, audit, commands, deploy, house, music, screens, settings, timeline
     out: list[Tool] = []
-    for m in (house, settings, screens, music, deploy, audit, alerts, commands):
+    for m in (house, settings, screens, music, deploy, audit, alerts, timeline, commands):
         out.extend(m.TOOLS)
     names = [t.name for t in out]
     assert len(names) == len(set(names)), "tool names are unique"

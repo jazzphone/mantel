@@ -262,8 +262,15 @@ class Timeline:
         kind = C.change(m.family, domain, prev[0], s, detection=m.detection)
         if kind is None:
             return
-        if m.family == "arrival" and self.person_user.get(eid) in self.private_people():
-            return                                   # Keep My Arrivals Private: not recorded at all
+        if m.family == "arrival":
+            # who it is, looked up now (a link made since the last refresh counts: Opus review 4)
+            found = self._people({eid})
+            if found:
+                self.person_user[eid] = found[eid]
+            else:
+                self.person_user.pop(eid, None)
+            if self.person_user.get(eid) in self.private_people():
+                return                               # Keep My Arrivals Private: not recorded at all
         late = self.clock() - lc > LATE_S
         self.state_row(eid, m, kind, lc, s, late=late, attrs=st.get("a") or {})
 
@@ -391,7 +398,8 @@ class Timeline:
             title = W.title("refused", verb, m.label, {"device": dev} if dev else {})
             r = Row(src=f"au:{row.get('id')}:{t}", at=float(row.get("timestamp") or self.clock()), family="refused",
                     kind=verb, level="warning", entity=t, area=m.area, title=title,
-                    search=W.search_words("refused", verb, m.label, None, title),
+                    # (the device's name is not searched: it can be a person's, "Emma's iPad": review 13)
+                    search=W.search_words("refused", verb, m.label, None, W.title("refused", verb, m.label, {})),
                     detail={"family": m.family, "reason": str(row.get("reason") or "")[:40]},
                     actor=row.get("actor"), actor_name=row.get("actor_name"), device=row.get("device"),
                     device_name=dev, how=how_of(row), audit_id=row.get("id"))
@@ -424,16 +432,24 @@ class Timeline:
     # -- system rows ----------------------------------------------------------------------------------------------
     def on_alert(self, item: Any) -> None:
         """The alert center's listener: each raise and clear it sends."""
-        if not self.on("system"):
+        if not self.on("system") or item.kind == "house.digest":      # (the digest isn't one of its own rows)
             return
         at = float(getattr(item, "at", None) or self.clock())
         lid = getattr(item, "log_id", 0)
         src = f"al:{lid}" if lid else f"al:{item.kind}:{item.key}:{at}"
         title = str(getattr(item, "title", "") or item.kind)[:200]
         lvl = "warning" if getattr(item, "level", "info") in ("warning", "critical") and item.up else "info"
+        # searched by the kind's own words, without its facts (a tablet's name can be a person's: review 13)
+        try:
+            from ..alerts import catalog
+            k = catalog.kind(item.kind)
+            plain = k.words({}, up=bool(item.up))[0] if k is not None else item.kind.replace(".", " ")
+        except Exception:  # noqa: BLE001
+            plain = str(item.kind).replace(".", " ")
         self.push(Row(src=src, at=at, family="system", kind=("raised" if item.up else "cleared"), level=lvl,
-                      title=title, search=W.search_words("system", "", title, None, title),
-                      detail={"alert": item.kind, "up": bool(item.up)}))
+                      title=title, search=W.search_words("system", "", plain, None, plain),
+                      detail={"alert": item.kind, "key": str(getattr(item, "key", "") or ""),
+                              "up": bool(item.up)}))
 
     def on(self, family: str) -> bool:
         fams = self.settings.get("families") or {}
@@ -553,6 +569,8 @@ class Timeline:
             self.last.setdefault(eid, v)
 
     def save_seen(self) -> None:
+        if not self.members or not self._loaded:
+            return                                   # nothing seen yet (before Home Assistant's first states)
         keep = {eid: [s, at] for eid, (s, at) in self.last.items() if eid in self.members}
         try:
             self.settings.set("seen", keep)
@@ -576,12 +594,24 @@ class Timeline:
             private = self.private_people()
             if private:
                 self.rows.person_arrivals(private)
+            self.forget_gone()
             self.save_seen()
         except Exception:  # noqa: BLE001
             log.exception("timeline: pruning failed")
         if gone:
             log.info("timeline: %d rows older than %d days deleted", gone, days)
         return gone
+
+    def forget_gone(self) -> None:
+        """Decision 18 for whatever the trigger couldn't reach (a row still queued, a command still remembered, when
+        the person was removed): rows of a person who no longer exists lose the name, their arrivals go."""
+        with self.db:
+            self.db.execute("DELETE FROM timeline_events WHERE family = 'arrival' AND person IS NOT NULL "
+                            "AND person NOT IN (SELECT id FROM users)")
+            self.db.execute("UPDATE timeline_events SET person = NULL WHERE person IS NOT NULL "
+                            "AND person NOT IN (SELECT id FROM users)")
+            self.db.execute("UPDATE timeline_events SET actor = NULL, actor_name = 'A former member' "
+                            "WHERE actor IS NOT NULL AND length(actor) = 32 AND actor NOT IN (SELECT id FROM users)")
 
     def pic_path(self, pid: str, at: float) -> Path | None:
         if self.folder is None:
@@ -623,6 +653,8 @@ class Timeline:
             except OSError:
                 log.warning("timeline: its pictures folder couldn't be made")
         loop = asyncio.get_running_loop()
+        if not self._loaded:
+            self.load()
         self.prune()
         self.tasks.append(loop.create_task(self.writer()))
 

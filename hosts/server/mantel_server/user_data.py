@@ -66,9 +66,9 @@ TIMELINE_SUMMARY = "timeline_summary"
 KEYS: dict[str, tuple[int, Callable[[Any], bool]]] = {
     "hk_music_focus": (512, _music_focus),
     FAVORITES: (FAVORITES_MAX * 132, _favorites),
-    TIMELINE_PRIVATE: (8, _switch),
-    TIMELINE_SUMMARY: (8, _switch),
 }
+# (the two timeline switches are NOT socket keys: they change only through PUT /api/timeline/me, which refuses a
+# tablet's session, writes the audit row first and deletes past arrivals -- Opus review 3)
 
 
 class Refused(Exception):

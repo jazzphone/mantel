@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from typing import Any, Callable
 
@@ -84,8 +85,14 @@ class Viewer:
         self.user = getattr(ident, "user", None)
         self.device = getattr(ident, "device", None)
         self.role = getattr(self.user, "role", None)
-        self.limited = self.user is None and self.device is not None
-        self.manager = self.role in MANAGERS
+        # a wall tablet alone, or a Wall Tablet ACCOUNT (an older stand-in, or a Home Assistant user given that
+        # role): the limited view (Opus review 5)
+        self.limited = (self.user is None and self.device is not None) or self.role == "wall_tablet"
+        # System and Refused rows, and audit ids, are the managers' at their own screens only, as the alerts they
+        # mirror are (never a tablet's session: Opus review 2)
+        self.manager = self.role in MANAGERS and self.device is None
+        # a screen preview an assistant opened, or an assistant itself: rows only, never a picture (decision 19)
+        self.assistant = bool(getattr(ident, "read_only", False)) or str(getattr(ident, "via", "") or "").startswith("mcp")
         self._view: dict[str, bool] = {}
         self._still: dict[str, bool] = {}
         self._history: dict[str, bool] = {}
@@ -95,8 +102,10 @@ class Viewer:
         self.wall_families = frozenset(f for f in (fams if isinstance(fams, list) else C.WALL_FAMILIES)
                                        if f in C.WALL_FAMILIES)
         pics_on = wall.get("pictures") if isinstance(wall, dict) else None
-        self.pictures = not self.limited or (self.device is not None and isinstance(pics_on, list)
-                                             and self.device.id in pics_on)
+        # pictures: not to an assistant; at a wall tablet (alone, or someone signed in at it) only where the Owner
+        # turned them on for that tablet (person ∩ tablet: the more private reading, Opus review 10)
+        tablet_ok = self.device is not None and isinstance(pics_on, list) and self.device.id in pics_on
+        self.pictures = not self.assistant and (tablet_ok if (self.device is not None or self.limited) else True)
 
     @property
     def valid(self) -> bool:
@@ -132,11 +141,7 @@ class Viewer:
             self._still[camera] = got
         return got
 
-    def names_for(self, entity: str | None) -> bool:
-        if self.user is None or self.role not in NAMES_ROLES:
-            return False
-        if entity is None:
-            return self.manager
+    def may_history(self, entity: str) -> bool:
         got = self._history.get(entity)
         if got is None:
             try:
@@ -146,13 +151,20 @@ class Viewer:
             self._history[entity] = got
         return got
 
+    def names_for(self, entity: str | None) -> bool:
+        if self.user is None or self.role not in NAMES_ROLES or self.limited:
+            return False
+        if entity is None:
+            return self.manager
+        return self.may_history(entity)
+
     @property
     def may_search(self) -> bool:
         return not self.limited
 
     @property
     def may_names(self) -> bool:
-        return self.user is not None and self.role in NAMES_ROLES
+        return self.user is not None and self.role in NAMES_ROLES and not self.limited
 
     def families(self) -> tuple[str, ...]:
         """The families this viewer could see at all."""
@@ -166,7 +178,8 @@ class Viewer:
         if fam not in C.FAMILIES:
             return False
         if fam in C.MANAGER_ONLY:
-            return self.manager
+            entity = row.get("entity")
+            return self.manager and (not entity or self.may_view(entity))
         if self.limited:
             if fam not in self.wall_families:
                 return False
@@ -176,7 +189,9 @@ class Viewer:
         if fam == "arrival":
             if row.get("person") is None and self.role not in NAMES_ROLES:
                 return False
-            return bool(entity) and self.may_view(entity)
+            # where someone was is location history: `history` of the person too, so the tunnel's locations switch
+            # applies (Opus review 1)
+            return bool(entity) and self.may_view(entity) and self.may_history(entity)
         if not entity:
             return False
         if fam in C.CAMERA_FAMILIES and entity.startswith("camera."):
@@ -414,8 +429,10 @@ async def api_pic(request: web.Request) -> web.Response:
     body = pics.read(pid)
     if body is None:
         return nothing
+    # a shared screen keeps nothing in its browser's cache (a sign-out or a revoke must take it away: review 11)
+    cache = "no-store" if viewer.device is not None else "private, max-age=3600"
     return web.Response(body=body, content_type="image/jpeg",
-                        headers={"Cache-Control": "private, max-age=86400", "X-Content-Type-Options": "nosniff"})
+                        headers={"Cache-Control": cache, "X-Content-Type-Options": "nosniff"})
 
 
 # -- settings ----------------------------------------------------------------------------------------------------------
@@ -460,7 +477,7 @@ def settings_json(app: Any, request: web.Request | None = None) -> dict:
             "overrides": s.get("overrides") or {}, "retention_days": s.get("retention_days"),
             "retentions": list(RETENTIONS), "pictures": s.get("pictures"), "frames": list(FRAMES),
             "budgets_mb": list(BUDGETS_MB), "wall": s.get("wall"), "wall_families": list(C.WALL_FAMILIES),
-            "digest": s.get("digest"), "members": members, "candidates": candidates(app),
+            "digest": s.get("digest"), "backup_pictures": s.get("backup_pictures") is True, "members": members, "candidates": candidates(app),
             "usage": pics.status() if pics is not None else None, "rows": tl.rows.count(),
             "tablets": devices, "can_edit": rule != "owner_only", "needs_fresh": rule == "fresh"}
 
@@ -510,7 +527,11 @@ def clean_settings(body: dict, cur: dict) -> dict:
             if _hhmm(merged.get(k), (-1, -1)) == (-1, -1):
                 raise BadQuery("invalid_digest")
         out["digest"] = {"at": merged["at"], "from": merged["from"]}
-    if not out or set(body) - {"families", "retention_days", "pictures", "wall", "digest"}:
+    if "backup_pictures" in body:
+        if not isinstance(body["backup_pictures"], bool):
+            raise BadQuery("invalid_backup_pictures")
+        out["backup_pictures"] = body["backup_pictures"]
+    if not out or set(body) - {"families", "retention_days", "pictures", "wall", "digest", "backup_pictures"}:
         raise BadQuery("invalid")
     return out
 
@@ -535,7 +556,25 @@ async def api_settings_put(request: web.Request) -> web.Response:
     return ok(settings_json(request.app, request))
 
 
-def clean_overrides(body: Any, members_ok: Callable[[str], bool]) -> dict:
+PLAIN_FAMILIES = ("door", "window")        # what an Owner may file a plain sensor under by hand
+
+
+def natural_family(app: Any, eid: str) -> str | None:
+    """The family an entity has by itself (its domain and class), before any override."""
+    hub = app["hub"]
+    e = (getattr(hub.registry, "entries", {}) or {}).get(eid) or {}
+    st = hub.store.states.get(eid) or {}
+    dc = e.get("device_class") or e.get("original_device_class") or (st.get("a") or {}).get("device_class")
+    domain, _, oid = eid.partition(".")
+    got = C.family_of(domain, oid, dc, motion_only=True)
+    return got[0] if got else None
+
+
+def clean_overrides(body: Any, natural: Callable[[str], str | None]) -> dict:
+    """The Owner's overrides. Recording can be switched off for anything; ON only for an entity that has a family
+    by itself, or a plain binary sensor (filed as a door or a window). A family can never be changed for an entity
+    that has one: a camera's detection re-filed as a door would escape the camera rules, a tracker filed as an
+    arrival would escape Keep My Arrivals Private (Opus review 7)."""
     if not isinstance(body, dict) or not isinstance(body.get("overrides"), dict):
         raise BadQuery("invalid_overrides")
     src = body["overrides"]
@@ -551,8 +590,11 @@ def clean_overrides(body: Any, members_ok: Callable[[str], bool]) -> dict:
             raise BadQuery("invalid_overrides")
         o: dict[str, Any] = {"record": v["record"]}
         fam = v.get("family")
+        own = natural(eid)
+        if v["record"] and own is None and not eid.startswith("binary_sensor."):
+            raise BadQuery("invalid_overrides")
         if fam is not None:
-            if fam not in C.FAMILIES or fam in C.MANAGER_ONLY:
+            if fam not in PLAIN_FAMILIES or not eid.startswith("binary_sensor.") or own not in (None, *PLAIN_FAMILIES):
                 raise BadQuery("invalid_overrides")
             o["family"] = fam
         label = v.get("label")
@@ -570,7 +612,7 @@ async def api_overrides_put(request: web.Request) -> web.Response:
     body = await read_json(request)
     tl = tl_of(request.app)
     try:
-        got = clean_overrides(body, lambda e: True)
+        got = clean_overrides(body, lambda e: natural_family(request.app, e))
     except BadQuery as exc:
         return error(exc.status, exc.code)
     audit.config(request, guarded(request), "timeline.overrides.saved", {"entities": len(got)})
@@ -607,12 +649,23 @@ def _switch(db, user_id: str, key: str) -> bool:
     return r is not None and r[0].strip() == "true"
 
 
+def _matched(app: Any, user_id: str) -> bool:
+    """Is one of Home Assistant's people this person (its user is linked to them)? Otherwise their arrivals can't be
+    told apart (Me says so)."""
+    tl = tl_of(app)
+    try:
+        people = tl._people({eid for eid, m in tl.members.items() if m.family == "arrival"})
+    except Exception:  # noqa: BLE001
+        return False
+    return user_id in people.values()
+
+
 def me_json(app: Any, user: Any) -> dict:
     from ..user_data import TIMELINE_PRIVATE, TIMELINE_SUMMARY
     db = app["store"].db
     authz = app.get("authz")
     return {"private": _switch(db, user.id, TIMELINE_PRIVATE), "summary": _switch(db, user.id, TIMELINE_SUMMARY),
-            "may_private": user.role != "child", "arrivals": int(db.execute(
+            "may_private": user.role != "child", "matched": _matched(app, user.id), "arrivals": int(db.execute(
                 "SELECT COUNT(*) FROM timeline_events WHERE family = 'arrival' AND person = ?", (user.id,)).fetchone()[0]),
             "tz": getattr(authz, "tz", None)}
 
@@ -633,19 +686,17 @@ async def api_me_put(request: web.Request) -> web.Response:
     if "private" in body and user.role == "child":
         return error(403, "owner_decides")
     audit.config(request, ident, "timeline.me.saved", dict(body))
-    data = request.app.get("user_data")
-    for key, field in ((TIMELINE_PRIVATE, "private"), (TIMELINE_SUMMARY, "summary")):
-        if field in body:
-            if data is not None:
-                data.set(f"u:{user.id}", key, body[field])
-            else:
-                db = request.app["store"].db
-                with db:
-                    db.execute("INSERT INTO user_data (subject, key, value, updated) VALUES (?,?,?,?) ON CONFLICT"
-                               "(subject, key) DO UPDATE SET value = excluded.value, updated = excluded.updated",
-                               (f"u:{user.id}", key, json.dumps(body[field]), request.app["clock"]()))
+    db = request.app["store"].db
+    with db:
+        for key, field in ((TIMELINE_PRIVATE, "private"), (TIMELINE_SUMMARY, "summary")):
+            if field in body:
+                db.execute("INSERT INTO user_data (subject, key, value, updated) VALUES (?,?,?,?) ON CONFLICT"
+                           "(subject, key) DO UPDATE SET value = excluded.value, updated = excluded.updated",
+                           (f"u:{user.id}", key, json.dumps(body[field]), request.app["clock"]()))
     if body.get("private") is True:
-        tl_of(request.app).rows.person_arrivals([user.id])     # (the page asked first)
+        tl = tl_of(request.app)
+        tl.flush()                                              # an arrival still queued goes too (review 12)
+        tl.rows.person_arrivals([user.id])                      # (the page asked first)
     return ok(me_json(request.app, user))
 
 
@@ -653,7 +704,9 @@ async def api_me_put(request: web.Request) -> web.Response:
 async def api_clear_mine(request: web.Request) -> web.Response:
     ident = guarded(request)
     audit.config(request, ident, "timeline.presence.cleared", {})
-    n = tl_of(request.app).rows.person_arrivals([ident.user.id])
+    tl = tl_of(request.app)
+    tl.flush()
+    n = tl.rows.person_arrivals([ident.user.id])
     return ok({"deleted": n})
 
 
@@ -703,7 +756,31 @@ def register_live(app: Any) -> None:
     read_routes(app)["timeline/subscribe"] = Route(subscribe=subscribe)
 
 
+class QuietAccess(logging.Filter):
+    """The web server's access log prints each request's URL. For the Timeline that would be a search word
+    (``?q=emma``) or a picture's id, which no log line may carry ("Privacy in logs"): a timeline URL is logged without
+    its query string and its picture id."""
+    PIC = re.compile(r"(/api/timeline/pic/)[^\s\"?]+")
+    QUERY = re.compile(r"(/api/timeline[^\s\"?]*)\?[^\s\"]*")
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            text = record.getMessage()
+        except Exception:  # noqa: BLE001
+            return True
+        if "/api/timeline" in text:
+            record.msg, record.args = self.QUERY.sub(r"\1?-", self.PIC.sub(r"\1-", text)), ()
+        return True
+
+
+def quiet_access_log() -> None:
+    lg = logging.getLogger("aiohttp.access")
+    if not any(isinstance(f, QuietAccess) for f in lg.filters):
+        lg.addFilter(QuietAccess())
+
+
 def register(app: web.Application, tl: Any) -> None:
+    quiet_access_log()
     r = app.router
     r.add_get("/api/timeline", api_find)
     r.add_delete("/api/timeline", api_clear)

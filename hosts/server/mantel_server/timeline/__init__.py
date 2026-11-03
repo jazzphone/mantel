@@ -44,6 +44,9 @@ def register(app: web.Application, hub: Any) -> Timeline:
     audit_log = app.get("audit")
     if audit_log is not None and hasattr(audit_log, "commands"):
         audit_log.commands.append(tl.on_command)
+    backups = app.get("backups")
+    if backups is not None and hasattr(backups, "timeline_pictures"):
+        backups.timeline_pictures = lambda: tl.settings.get("backup_pictures") is True
     alerts = app.get("alerts")
     if alerts is not None:
         alerts.center.listeners.append(tl.on_alert)

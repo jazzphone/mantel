@@ -69,6 +69,7 @@ DEFAULTS: dict[str, Any] = {
     "pictures": {"budget_mb": 500, "frames": 2},
     "wall": {"families": ["door", "lock", "garage", "alarm", "doorbell", "detection"], "pictures": []},
     "digest": {"at": "07:00", "from": "21:00"},
+    "backup_pictures": False,           # Settings → Backups → Include Timeline Pictures
 }
 
 
