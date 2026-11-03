@@ -1,6 +1,6 @@
 # Phase 16: features on by default (plan, 2026-11-03)
 
-**Status: built 2026-11-03 (16.0-16.4); release in progress. Every decision answered by the owner on 2026-11-03 (all recommendations accepted).**
+**Status: built and released 2026-11-03: Mantel 0.1.121 with HK Frontend 1.41.0, on the house (Music turned on by itself there). Every decision answered by the owner on 2026-11-03 (all recommendations accepted).**
 
 ## The ask (the owner, earlier; approved, not built)
 
@@ -455,6 +455,12 @@ scratch Home Assistant run in "Verification" wasn't done: it is HK Frontend's (t
 room map, no Energy settings, no tuner), and Docker was off. The full-app tests in `tests/test_features_auto.py` stand
 for it (a real Mantel app, a fake clock, fake Energy reads and tuner, the commander fake recording zero calls).
 
+- **16.5, the release** (decision 16): every commit since v0.1.120 read; `tools/ci.py full` 51 of 51 on d10c2d3a; release
+  commit 1a4a4973 (`versions` 5 of 5); tagged v0.1.121, workflow run 41732488607, the GitHub Release; `update` on the
+  LXC (healthy, strict health 200); HK Frontend 1.41.0 copied, Home Assistant restarted, published and tagged v1.41.0.
+  By hand: phase 15's flow wasn't on main (it waits for this record). On the house Mantel turned **Music** on by itself
+  two looks after the start; the other three were on already.
+
 **Expected to stay unverified until the owner's house:**
 - The exact fields Home Assistant's HDHomeRun integration puts in its device registry row (`configuration_url`,
   `identifiers`, `manufacturer`); the scratch Home Assistant has no tuner. The tests use a fixture shaped like Home
@@ -466,5 +472,6 @@ for it (a real Mantel app, a fake clock, fake Energy reads and tuner, the comman
   running (`test_turning_live_tv_on_at_run_time_starts_its_guide`).
 
 **Waiting on the owner:**
-1. The release, if decision 16 isn't yes (Mantel with HK Frontend; the tag).
-2. A look at the house after the release: which features turned on, and whether the HDHomeRun's address was found.
+1. A look at the house: Music turned on by itself (Advanced -> Features says when and why, and the alert went to the
+   channels that take it). Clean Areas, Energy and Live TV were already on, so whether the HDHomeRun's registry row
+   carries an address stays unseen until a house without a saved tuner.
