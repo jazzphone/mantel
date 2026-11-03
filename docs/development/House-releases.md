@@ -338,3 +338,12 @@ Every Mantel release here is tagged `vX.Y.Z` on its release commit once the hous
 - The house (the Proxmox LXC): the hand-applied go2rtc.yaml (the stereo fix, now in the release) reverted, then `update` over SSH: 0.1.118 -> 0.1.119, build `1fc59e0e910989d6`; all three services healthy, `/healthz?strict=1` 200, no "Traceback" or "ERROR"; Mantel Link reconnected within seconds; the five wall tablets reporting. The stopped HA App staged to 0.1.119 too.
 - HK Frontend 1.39.0 copied (diff clean), Home Assistant restarted; published to jazzphone/hk-frontend, tagged v1.39.0 with its GitHub Release, the Wiki pushed (Music.md). HK Frontend is still linked to the stopped App (`ws://local-mantel:8099`) until the owner relinks it to the LXC.
 - Mantel Link unchanged at 0.1.12.
+
+## Mantel 0.1.120 and HK Frontend 1.40.0 (2026-11-03)
+
+- What ships (every commit since v0.1.119 read): Live TV's sound and picture starting together (the first 1.2 s dropped on every video template; measured with a flash-and-beep test broadcast through the house's go2rtc: audio 0.8 to 1 s late at the start before, 0.12 s and within 0.05 s by 9 s after; 5d9427d1); the screensaver's people over the time fading with their photo, a zoomed whole portrait staying centered, the slide corner below each slide's own words (74d89d84); Align (Auto, Left, Center, Right) for a piece's words, Home Status without its Title, a titled card with no backdrop on the margin (9fa14c39); and 0.1.119's release record.
+- `tools/ci.py full` on the release tree (9fa14c39 + the version bump): 50 passed, the Caddy image test skipped (Docker not running here; nothing in it touches the image). The first `versions` run failed on a tools/node_modules symlink to the main checkout (its @esbuild unreadable over the share); the release tree got its own `npm ci`. Release commit d81a674d, `ci.py versions` 5 of 5.
+- Tagged v0.1.120 and published: release workflow run 41643065587, then the GitHub Release v0.1.120.
+- The house (the Proxmox LXC): `update` over SSH, 0.1.119 -> 0.1.120, build `0c27b5713597835c`; all three services healthy, `/healthz?strict=1` 200, no "Traceback" or "ERROR"; Mantel Link reconnected; the five wall tablets reporting; go2rtc.yaml carries the `-ss 1.2` templates. The stopped HA App staged to 0.1.120 too.
+- HK Frontend 1.40.0 copied (diff clean), Home Assistant restarted; published to jazzphone/hk-frontend, tagged v1.40.0 with its GitHub Release (the Wiki had no changes). Still linked to the stopped App until the owner relinks it.
+- Mantel Link unchanged at 0.1.12.
