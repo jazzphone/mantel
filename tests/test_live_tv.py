@@ -162,6 +162,17 @@ def test_the_go2rtc_templates_mantel_names_exist():
     assert "deinterlace_vaapi" in yaml and "h264_vaapi" in yaml          # Proof 4's pipeline
 
 
+def test_live_tv_s_sound_is_mixed_to_stereo_for_the_browser():
+    """The owner's LXC (2026-11-02): broadcast 5.1 AC-3 stopped libopus (go2rtc's own `opus` kept the channels), so
+    every channel's ffmpeg died at once and no picture came. go2rtc.yaml overrides `opus` with a stereo mix-down, and
+    a channel's source asks for that `opus`."""
+    import re
+    yaml = (Path(__file__).resolve().parent.parent / "packaging/compose/go2rtc/go2rtc.yaml").read_text()
+    m = re.search(r'^  opus: "([^"]+)"$', yaml, re.M)
+    assert m and "-c:a libopus" in m.group(1) and "-ac:a 2" in m.group(1) and "-ar:a 48000" in m.group(1)
+    assert L.go2rtc_source("http://tuner.example/auto/v4.1").endswith("#audio=opus")
+
+
 def test_viewers_expire_like_has():
     v = L.Viewers()
     assert v.set("device:k", {"name": "Kitchen", "person": None, "screen": "Kitchen"}, "4.1", 0.0)
@@ -515,6 +526,75 @@ async def test_mantels_entities_win_over_has_copy(rig):
     assert r.state("sensor.tv_nbc_now") is mine and r.state("camera.tv_nbc")["s"] == "idle"
     assert hub.registry.entries["camera.tv_nbc"]["platform"] == "hk_frontend"
     assert set(GF.STATES) <= set(hub.store.states), "HA's own states are untouched"
+
+
+async def _play(r, ws, rid):
+    """One offer for NBC (4.1); the events until the answer (or the error)."""
+    await ws.send_json({"type": "read_subscribe", "id": rid,
+                        "msg": {"type": "camera/webrtc/offer", "entity_id": "camera.tv_nbc", "offer": OFFER_SDP}})
+    while True:
+        m = await GF.recv(ws)
+        if m.get("id") == rid and ("error" in m or m.get("event", {}).get("type") == "answer"):
+            return m
+
+
+def _on_the_gpu(r):
+    r.tv.hardware, r.tv.hardware_checked = "vaapi", False      # as compose.gpu.yaml's --live-tv-hardware vaapi
+
+
+async def test_the_gpu_is_checked_once_on_the_first_play(rig):
+    r = await rig()
+    _on_the_gpu(r)
+    ws = await r.socket("owner1", "owner")
+    assert "error" not in await _play(r, ws, 1)
+    assert [q["src"] for q in r.go2rtc.probes] == ["mantel_tv_4_1"], "go2rtc opened it once before the page did"
+    assert r.go2rtc.streams["mantel_tv_4_1"].endswith("#input=mantel_tv_in_vaapi#video=mantel_tv_720_vaapi#audio=opus")
+    assert "error" not in await _play(r, ws, 2)
+    assert len(r.go2rtc.probes) == 1, "checked once a start, not on every play"
+    st = r.tv.status()
+    assert (st["hardware"], st["gpu_failed"]) == ("vaapi", None)
+    await ws.close()
+
+
+async def test_a_gpu_that_fails_falls_back_to_the_cpu_and_says_why(rig):
+    r = await rig()
+    _on_the_gpu(r)
+    # what go2rtc 1.9.9 answered on the house's LXC for a VAAPI pipeline that could not run (2026-11-02), with the
+    # tuner's address in it as ffmpeg gives it
+    r.go2rtc.probe_fail = {"_vaapi": f"streams: exec/rtsp[mpeg2video @ 0x62eb0ff55cc0] Invalid frame dimensions 0x0. "
+                                     f"Error opening input file http://{r.tuner_addr}/auto/v4.1"}
+    ws = await r.socket("owner1", "owner")
+    got = await _play(r, ws, 1)
+    assert "error" not in got, "the page plays, on the CPU"
+    assert r.go2rtc.streams["mantel_tv_4_1"].endswith("#input=mantel_tv_in#video=mantel_tv_720#audio=opus")
+    st = r.tv.status()
+    assert st["hardware"] == "cpu" and "Invalid frame dimensions 0x0" in st["gpu_failed"]
+    assert r.tuner_addr not in json.dumps(st) and "0x62eb" not in st["gpu_failed"]
+    probes = len(r.go2rtc.probes)
+    assert "error" not in await _play(r, ws, 2)
+    assert len(r.go2rtc.probes) == probes, "the CPU until Mantel restarts: no more checks"
+    assert all("_vaapi" not in src for _, src in r.go2rtc.patched[-1:])
+    await ws.close()
+
+
+async def test_when_the_cpu_fails_too_it_was_not_the_gpu(rig):
+    r = await rig()
+    _on_the_gpu(r)
+    r.go2rtc.probe_fail = {"auto/v4.1": "streams: exec/rtsp Error opening input: Server returned 503 Service Unavailable"}
+    ws = await r.socket("owner1", "owner")
+    await _play(r, ws, 1)
+    st = r.tv.status()
+    assert (st["hardware"], st["gpu_failed"]) == ("vaapi", None), "a busy tuner is no reason to leave the GPU"
+    assert r.go2rtc.streams["mantel_tv_4_1"].endswith("#video=mantel_tv_720_vaapi#audio=opus")
+    assert r.tv.hardware_checked is False, "the next play checks again"
+    await ws.close()
+
+
+def test_the_gpu_reason_names_no_address():
+    got = L.gpu_reason("streams: exec/rtsp[h264_vaapi @ 0x5a4acaf10580] No VA display found for device "
+                       "/dev/dri/renderD128. rtsp://127.0.0.1:8554/57afa4c6 from 192.0.2.7:5004")
+    assert got.startswith("[h264_vaapi] No VA display found") and "127.0.0.1" not in got and "192.0.2.7" not in got
+    assert L.gpu_reason("") == "the GPU pipeline did not start"
 
 
 async def test_streams_nobody_uses_are_reaped(rig):
