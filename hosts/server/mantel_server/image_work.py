@@ -426,6 +426,25 @@ def make_variant(src: str | Path, edge: int = MID_EDGE) -> bytes:
         raise PhotoError("photo_invalid", "That picture couldn’t be read.", 415) from exc
 
 
+def shrink(data: bytes, edge: int = 640, quality: int = 70) -> bytes:
+    """A camera's picture made small for the House Timeline (docs/phase19/HOUSE-TIMELINE.md "Pictures"): JPEG,
+    ``edge`` px on its long side, ``quality``. Run through ``imaging.run`` (the image worker decodes, not the loop).
+    PhotoError when it can't be read."""
+    from PIL import Image
+    try:
+        with Image.open(io.BytesIO(data)) as im:
+            if im.format == "JPEG":
+                im.draft("RGB", (edge, edge))
+            im.load()
+            img = im.convert("RGB") if im.mode != "RGB" else im
+            img.thumbnail((edge, edge), Image.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, "JPEG", quality=int(quality), **_jpeg_options())
+            return buf.getvalue()
+    except Exception as exc:  # noqa: BLE001
+        raise PhotoError("photo_invalid", "That picture couldn’t be read.", 415) from exc
+
+
 # -- Your Files: one photo ----------------------------------------------------------------------------------------
 def sniff_image(data: bytes) -> str | None:
     if data[:3] == b"\xff\xd8\xff":

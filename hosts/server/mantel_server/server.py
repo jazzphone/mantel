@@ -38,7 +38,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import camera_setup, default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
-from . import alerts, app_shell, cf_access, guards, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
+from . import alerts, app_shell, timeline, cf_access, guards, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -83,7 +83,8 @@ PREVIEW_READS_NEVER = frozenset({
     "hk_alarm_pin/settings/get", "hk_clean_areas/settings/get", "hk_energy/settings/get", "hk_energy/sources",
     "hk_frontend/grid/starter", "hk_frontend/hidden/get", "hk_frontend/panel/get", "hk_frontend/setup/check",
     "hk_music/settings/get", "hk_music/settings/library", "hk_notify/settings/get", "hk_tv/settings/get",
-    "mantel/energy/sources", "mantel/page_headers/get", "mantel/settings/get", "mantel/settings/history"})
+    "mantel/energy/sources", "mantel/page_headers/get", "mantel/settings/get", "mantel/settings/history",
+    "timeline/subscribe"})
 COMMANDS_DISABLED = {
     "type": "error",
     "code": "commands_disabled",
@@ -115,12 +116,20 @@ class Hub:
         self.registry_feed = RegistryFeed(self)       # the `registry` frames (registry_feed.py)
         self.registry_push_delay = PUSH_DELAY
         self.registry_bodies = RegistryBodies()       # /api/registry's bodies, by filtered digest
+        # what else hears every batch, after the sessions (the House Timeline's tap): each must be cheap and never
+        # wait for the disk; one that raises is logged and the others still run
+        self.taps: list = []
 
     def on_change(self, changed: set[str]) -> None:
         performance.STATS.events(len(changed))
         for s in self.sessions:
             if s.view.on_change(changed):
                 s.wake.set()
+        for tap in self.taps:
+            try:
+                tap(changed)
+            except Exception:  # noqa: BLE001 -- a tap never breaks the hub
+                log.exception("a hub tap failed (%d changes)", len(changed))
 
     def on_registry(self) -> None:
         for s in self.sessions:
@@ -917,6 +926,8 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     app_shell.register(app, hub)     # phase 10: the web app on a Home Screen, push, and the iPhone/iPad/Mac apps
     # phase 14: system alerts (Mantel Settings -> Alerts; after the backups, the features and the pusher it hears)
     alerts.register(app, hub)
+    # phase 19: the House Timeline (after the alerts, the Protect connector, the backups and the audit it hears)
+    timeline.register(app, hub)
     # Mantel Settings' General and Home Assistant settings that were start-up options (and their one-time moves)
     server_settings.register(app)
     mcp.register(app)                # assistants (docs/phase12/MCP-SERVER.md): /mcp, its sign-in, Settings' page

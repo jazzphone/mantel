@@ -51,11 +51,23 @@ def _favorites(value: Any) -> bool:
             and all(isinstance(v, str) and len(v) <= 128 and ENTITY.match(v) is not None for v in value))
 
 
+def _switch(value: Any) -> bool:
+    return isinstance(value, bool)
+
+
+# the House Timeline's own switches in Me (docs/phase19/HOUSE-TIMELINE.md "Who sees what", "The morning digest"):
+# Keep My Arrivals Private (an adult's; a child's is ignored: the Owner decides) and Morning Summary (the apps)
+TIMELINE_PRIVATE = "timeline_private"
+TIMELINE_SUMMARY = "timeline_summary"
+
+
 # key -> (largest JSON text in bytes, shape check). Add a key here only when HK's code uses it, and to
 # USER_DATA_KEYS in web/shim/mantel-client.js (a test pins the two lists together).
 KEYS: dict[str, tuple[int, Callable[[Any], bool]]] = {
     "hk_music_focus": (512, _music_focus),
     FAVORITES: (FAVORITES_MAX * 132, _favorites),
+    TIMELINE_PRIVATE: (8, _switch),
+    TIMELINE_SUMMARY: (8, _switch),
 }
 
 

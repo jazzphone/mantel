@@ -320,6 +320,9 @@ class ProtectConnector:
         self._run: asyncio.Task | None = None
         self.events_log: deque = deque(maxlen=LOG_KEEP)
         self.talk = DirectTalk()
+        # every event of a picked camera, before what notifies is decided (the House Timeline records what happened,
+        # not what was notified)
+        self.listeners: list[Callable[[pa.ProtectEvent], None]] = []
 
     # -- small reads ----------------------------------------------------------------------------------------
     def _store(self) -> Any:
@@ -505,12 +508,32 @@ class ProtectConnector:
             self.recompute()
 
     # -- events -------------------------------------------------------------------------------------------------
+    def speaks_for(self, entity_id: str) -> bool:
+        """Is this one of Home Assistant's detection entities of a camera whose events Mantel takes from Protect
+        itself now (Video From Direct and the events socket up)? Then Protect's event is the record and Home
+        Assistant's own change of the entity isn't (the House Timeline: one detection is one row, never two). Unlike
+        ``takes`` it doesn't depend on Notify For."""
+        t = self._takes.get(entity_id)
+        if t is None:
+            return False
+        pid, _kind, mine = t
+        if mine:
+            return True
+        if mine is None:
+            return self.connected
+        return self.direct_preferred(pid)
+
     def on_event(self, ev: pa.ProtectEvent) -> None:
         if ev.kind not in NOTIFY_KINDS:
             return
         src = self.picked().get(ev.camera_id)
         if src is None:
             return
+        for cb in self.listeners:
+            try:
+                cb(ev)
+            except Exception:  # noqa: BLE001 -- a listener never stops the notifications
+                log.exception("protect: an event listener failed (%s)", ev.kind)
         self.events_log.append({"at": round(self.clock(), 1), "camera": src.slug, "kind": ev.kind, "active": ev.active})
         m = self.matches.get(ev.camera_id) if src.slug in self.cams.matched else None
         if m is not None:

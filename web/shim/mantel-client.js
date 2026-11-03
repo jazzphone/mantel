@@ -210,7 +210,7 @@
   // own per person (or per tablet), not Home Assistant's: sent as `user_data_set`, on every server, commands on
   // or off, never a command and never forwarded. Exactly user_data.KEYS (a test pins the two lists together);
   // any other key goes the way it did (the gateway, or refused when commands are off).
-  var USER_DATA_KEYS = ['hk_music_focus', 'favorites'];
+  var USER_DATA_KEYS = ['hk_music_focus', 'favorites', 'timeline_private', 'timeline_summary'];
   var screens = null;             // the host adapter's {owns(entityId), set(entityId, on), reported(tablet, black)}
   function useScreens(host) { screens = host || null; }
   var TABLET_ID = /^[a-z0-9_]{1,40}$/;
