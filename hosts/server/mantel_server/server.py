@@ -383,9 +383,22 @@ async def api_entities(request: web.Request) -> web.Response:
 
 @guards.guard("signed_in", reads="view")
 async def api_areas(request: web.Request) -> web.Response:
+    """The areas with what this person may view in each (the route table, 2026-11-03: it listed every area and its
+    count to any session, a Child's too). An Owner or Admin sees every area, as before."""
+    from .accounts import MANAGERS
     reg = request.app["hub"].registry
-    return web.json_response([{"id": a, "name": n, "entities": len(reg.by_area.get(a, ()))}
-                              for a, n in sorted(reg.areas.items(), key=lambda kv: kv[1])])
+    ident = guards.ident(request)
+    manager = ident.device is None and ident.user is not None and ident.user.role in MANAGERS
+    gate = None if manager else request_gate(request)
+    out = []
+    for a, n in sorted(reg.areas.items(), key=lambda kv: kv[1]):
+        ids = reg.by_area.get(a, ())
+        if gate is not None:
+            ids = [e for e in ids if gate.visible(e)]
+            if not ids:
+                continue
+        out.append({"id": a, "name": n, "entities": len(ids)})
+    return web.json_response(out)
 
 
 @guards.guard("manager", reads="admin")     # the busiest entities and every screen: no page reads it (decision 3)

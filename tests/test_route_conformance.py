@@ -79,7 +79,6 @@ async def leaks(m, rows, secrets=SECRETS) -> list[str]:
     return out
 
 
-@pytest.mark.xfail(strict=True, reason="GET /api/areas lists every area to a Child (found by the table; fixed next)")
 async def test_a_child_reads_nothing_it_may_not_view_from_any_view_read(mantel):
     secret_house(mantel)
     await mantel.user("kid", "child")
