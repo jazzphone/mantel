@@ -118,7 +118,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       const sw = () => page.evaluate(() => {
         const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
         const p = document.querySelector('hk-side-pane[mode="dash"]'), tb = deep(document, '#hk-tabbar'), row = tb && tb.shadowRoot.querySelector('.row'), rr = row && row.getBoundingClientRect();
-        return { path: location.pathname, op: p ? +getComputedStyle(p).opacity : null, shown: p ? getComputedStyle(p).display !== 'none' : false, mid: rr ? Math.round(rr.left + rr.width / 2) : null };
+        return { path: location.pathname, op: p ? +getComputedStyle(p).opacity : null, shown: p ? getComputedStyle(p).display !== 'none' : false, mid: rr ? Math.round(rr.left + rr.width / 2) : null,
+                 rootShift: document.documentElement.style.getPropertyValue('--hk-pane-shift'), barShift: tb ? tb.style.getPropertyValue('--hk-pane-shift') : '' };
       });
       const s0 = await sw(), sy = 300;
       await page.mouse.move(700, sy); await page.mouse.down();
@@ -131,6 +132,9 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       const s2 = await sw();
       want('swiping off Home, halfway: the pane fading with the finger, the bar part way to its new middle', [s0, s1],
            s1.shown && s1.op > 0.2 && s1.op < 0.9 && s1.mid > s0.mid);
+      // (the bar's offset on the bar, never on <html>: there every frame of a swipe restyled the whole document --
+      // 2026-11-02, the owner's Kitchen tablet, "stutter" swiping between Home and the Pages screen)
+      want('...the bar\'s offset set on the bar alone, not on <html>', s1, !s1.rootShift && !!s1.barShift);
       want('...let go: the pane gone, the bar at its new middle without a step back (always forward)', [s2, mids],
            s2.path !== s0.path && !s2.shown && s2.mid > s1.mid && mids.every((m, j) => j === 0 || m >= mids[j - 1] - 1));
       // BACK FROM THE PAGES SCREEN (2026-11-01, the owner: "the HomeView Grid kind of snaps into place behind the side

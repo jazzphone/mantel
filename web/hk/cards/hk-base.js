@@ -3749,6 +3749,15 @@
     function rooms() { return MUSIC.speakers.filter(function (s) { return !s.members; }); }
     function presets() { return MUSIC.speakers.filter(function (s) { return !!s.members; }); }
     function nameOf(e) { return (byEntity[e] && byEntity[e].name) || e; }
+    // WHO LEADS A PICK of rooms nothing plays on yet (hk_core MusicConfig.leader_of): the first of the house's
+    // preferred leaders among them, else the first that is not an announcement room, else the first. A library
+    // item plays there, then the others join it (2026-11-02: an announcement to the leader plays on its whole group)
+    function leader(list) {
+      list = list || [];
+      var ann = MUSIC.announce_rooms || [];
+      var best = (MUSIC.leaders || []).filter(function (r) { return list.indexOf(r) >= 0; })[0];
+      return best || list.filter(function (r) { return ann.indexOf(r) < 0; })[0] || list[0] || null;
+    }
     // THIS USER'S room -- each wall tablet signs in as its own user, and the
     // integration's options map users to rooms.
     function home() { return known(MUSIC.home) ? MUSIC.home : null; }
@@ -3972,6 +3981,8 @@
         home: (cfg && cfg.home) || null,
         ignore_announcements: !!(cfg && cfg.ignore_announcements),
         announcements: (cfg && cfg.announcements) || [],
+        leaders: (cfg && cfg.leaders) || [],
+        announce_rooms: (cfg && cfg.announce_rooms) || [],
         resumable: (cfg && cfg.resumable) || [],
         volume: cfg && cfg.volume,
         library: (cfg && cfg.library_entry) || null
@@ -4051,7 +4062,7 @@
     return {
       speakers: function () { return MUSIC.speakers.slice(); },
       rooms: rooms, presets: presets, known: known, isGroup: isGroup, fold: fold,
-      nameOf: nameOf, home: home, ignored: ignored, active: active, contexts: contexts, streams: streams, resolve: resolve,
+      nameOf: nameOf, leader: leader, home: home, ignored: ignored, active: active, contexts: contexts, streams: streams, resolve: resolve,
       player: function (client) { return resolve(client).player; },
       label: label, setFocus: setFocus, release: release, attach: attach,
       onChange: onChange, focus: function () { return focus.key; },

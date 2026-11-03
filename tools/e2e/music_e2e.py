@@ -12,7 +12,8 @@ records every frame and moves the players' states as HA's music_assistant integr
   queue jump and a preset save are refused (``commands_disabled``) and Music Assistant receives no command.
 * **Phase B, commands enabled**: the same press plays the playlist with exactly the Music Assistant commands
   HA's integration would send; the audit row is written first; a Child is refused another room's speaker
-  and nothing is sent for it.
+  and nothing is sent for it; with the Kitchen made an announcement room, the same press regroups the rooms
+  under the other room (who leads a pick).
 
 Evidence: ``<temp>/music_e2e.json`` (printed path). Nothing here can reach a real house: there is no HA
 connection, and the only Music Assistant is the fake on 127.0.0.1.
@@ -139,6 +140,25 @@ async def phase(tmp: Path, commands: bool) -> dict:
             reply = await recv(ws, lambda m: m.get("id") == 4)
             check(reply.get("error", {}).get("code") == "forbidden" and len(fake.sent()) == n,
                   "[B] a Child is refused another room's speaker; nothing sent")
+            await ws.close()
+            # WHO LEADS (2026-11-02): the Kitchen made an announcement room, the same press regroups the two under
+            # the Cody room -- Music Assistant plays an announcement to a group's leader in every room of it
+            await sign_in("owner1")
+            ws = await client.ws_connect("/ws")
+            await ws.send_json({"type": "command", "id": 5, "kind": "ws",
+                                "msg": {"type": "hk_music/settings/set",
+                                        "changes": {"announce_rooms": ["media_player.kitchen_ma"]}}})
+            reply = await recv(ws, lambda m: m.get("id") == 5)
+            check(reply.get("result", {}).get("announce_rooms") == ["media_player.kitchen_ma"],
+                  "[B] the Owner marks the Kitchen an announcement room")
+            n = len(fake.sent())
+            await ws.send_json({"type": "command", "id": 6, **body})
+            reply = await recv(ws, lambda m: m.get("id") == 6)
+            check(reply.get("result", {}).get("response") == {"ok": True, "leader": "media_player.cody_ma"},
+                  "[B] the playlist plays again, led by the room that is not announced to")
+            joins = [a for c, a in fake.sent()[n:] if c == "players/cmd/group_many"]
+            check(joins == [{"target_player": "ma-cody", "child_player_ids": ["ma-kitchen"]}],
+                  "[B] the group the Kitchen led is joined again under the Cody room")
             await ws.close()
         out["ma_frames"] = fake.frames
     await ma_server.close()

@@ -39,8 +39,9 @@ function short(e){return e.split('.')[1].replace('_homepod_ma','');}
 function leaderAfter(c){
   calls=[];
   c._play(HK_HOUSE.playlists[0]);
-  // ONE CALL, the rooms IN TAP ORDER: the integration makes the first the
-  // leader of a new group (music.py), so the order sent IS the leader rule.
+  // ONE CALL, the rooms IN TAP ORDER: with no Group Leaders set, the
+  // integration makes the first the leader of a new group (hk_core
+  // MusicConfig.leader_of), so the order sent is the leader rule then.
   var g=calls.filter(function(x){return x.svc==='hk_frontend.music_play';})[0];
   return g ? g.data.rooms.map(short) : ['(nothing sent)'];
 }

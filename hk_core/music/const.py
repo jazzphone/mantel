@@ -14,6 +14,8 @@ CONF_IGNORE_ANNOUNCEMENTS = "ignore_announcements"
 CONF_KEEP_READY = "keep_ready"  # keep the playlists' songs fetched (warm.py); off by default
 CONF_PAIRS = "pairs"            # VIRTUAL PAIRS (docs/phase4/VIRTUAL-PAIRS.md): [{players: [first, second], name}]
 CONF_PLAYERS = "players"        # a pair's two players: the first is the room, the second plays with it
+CONF_LEADERS = "leaders"        # GROUP LEADERS: the rooms that lead a pick, best first (engine.lead)
+CONF_ANNOUNCE_ROOMS = "announce_rooms"  # rooms Home Assistant announces to: never a pick's leader while another can be
 
 # ---- item (subentry) types: stored with every preset and playlist, so they
 # keep these names

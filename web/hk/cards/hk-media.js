@@ -3838,10 +3838,11 @@
       var Mu = window.hkMusic, player = this._target(), self = this;
       if (!player) { window.hkShell.toast({ message: 'Pick a speaker on the Music page to play ' + it.name + '.' }, this); return; }
       if (el.classList.contains('busy')) return;
-      // A PRESET (its Plays On, 2026-11-01) is its rooms, never a player: the cover plays on the first, then the rest
-      // join it -- as the Music page plays a library item on a set of rooms (hk-music.js playTarget)
+      // A PRESET (its Plays On, 2026-11-01) is its rooms, never a player: the cover plays on the room that leads
+      // (hkMusic.leader), then the rest join it -- as the Music page plays a library item on a set of rooms
+      // (hk-music.js playTarget)
       var pre = Mu.presets && Mu.presets().filter(function (x) { return x.entity === player; })[0];
-      var first = pre ? pre.members[0] : player, rest = pre && pre.members.length > 1 ? pre.members.slice() : null;
+      var first = pre ? (Mu.leader ? Mu.leader(pre.members) : pre.members[0]) : player, rest = pre && pre.members.length > 1 ? pre.members.slice() : null;
       if (!first) { window.hkShell.toast({ message: 'That group has no speakers.' }, this); return; }
       el.classList.add('busy');
       this._callResp('hk_frontend', 'music_play_media', { player: first, media_content_id: it.uri, media_content_type: 'music' }).then(function (res) {

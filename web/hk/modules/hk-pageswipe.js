@@ -21,7 +21,8 @@
 // swipe_pages, else All Screens' menu.swipe_pages) -- Automatic is on where a
 // tab bar shows, or where the screen has its Pages screen (`pages_screen`);
 // On, everywhere; Off. Never in Edit mode (HK's or Home Assistant's), with a
-// detail sheet, a pop-up (an address #hash), the menu or the bar's More open,
+// detail sheet, a pop-up that covers the page (an address #hash; not the
+// docked bar, hkPopup.docked), the menu or the bar's More open,
 // or while the screensaver or the black screen shows; never off the page
 // itself (HK Settings, the editor's preview, the bar, a sheet).
 //
@@ -36,7 +37,8 @@
 //
 // THE NUMBERS are the grid's views': it starts past START px sideways at
 // RATIO times the vertical (hkDrag.classify); it lands past TURN of the width,
-// or on a flick over FLICK px/ms; past the first and the last page it gives
+// or on a flick over FLICK px/ms (the last FLICK_WINDOW ms of its moves, none
+// if it rested REST ms before it lifted); past the first and the last page it gives
 // GIVE of the travel and springs back. Lands on `standard` (.34 s); Reduce
 // Motion (or Flat's motion off): nothing follows the finger, the page
 // cross-fades (`fade`, .2 s) and the highlight jumps.
@@ -45,12 +47,15 @@
 // .peek(): Home and the last four pages): put in the slot beside the page,
 // fixed to the screen, fed the newest client. A page it doesn't hold shows
 // its title on the page's ground while the swipe moves, and is built as it
-// lands -- never during the drag. A tablet the slow-tablet ladder has flagged
+// lands -- never during the drag. Beside the page it wears `hk-swipe-peek`
+// (its pop-ups wait for it to land, hk-popup.js), and `hk-swipe-landed` says
+// when it has. A tablet the slow-tablet ladder has flagged
 // (hk-fps.js: under SLOW_FPS with what it shows now) gets that plain plate
 // for every page, and the glass when it lands.
 //
 // FOLLOWED BY POINTER EVENTS, captured only for a mouse (a touch is the
-// target's own until it ends: WebKit kept a captured touch, hk-menu.js); the
+// target's own until it ends: WebKit kept a captured touch, hk-menu.js -- and
+// heard on that element too, should a card draw it away mid-swipe); the
 // page says touch-action pan-y while the swipe is on here, so a sideways drag
 // comes here and an up-and-down one stays the browser's scroll.
 (function () {
@@ -58,7 +63,7 @@
   if (window.hkPageSwipe) return;
 
   var EDGE = 24, START = 10, RATIO = 1.4, TURN = 0.2, FLICK = 0.5, FLICK_MIN = 30, GIVE = 1 / 3;
-  var EAT_MS = 350, FLICK_WINDOW = 100, LAND_WAIT = 5000, SLOW_FPS = 45;
+  var EAT_MS = 350, FLICK_WINDOW = 100, REST = 60, LAND_WAIT = 5000, SLOW_FPS = 45;
   var STANDARD = 'cubic-bezier(.32,.72,0,1)', STANDARD_MS = 340, FADE_MS = 200;
   // the props a swipe sets on a view, given back as they were
   var PROPS = ['transform', 'transition', 'transform-origin', 'position', 'left', 'top', 'width', 'height', 'max-height',
@@ -109,11 +114,15 @@
     if (Math.abs(dx) > width * TURN) return true;
     return Math.abs(dx) > FLICK_MIN && Math.abs(v || 0) > FLICK && (v < 0) === (dx < 0);
   }
-  // the speed of the last FLICK_WINDOW ms of [t, x] samples
-  function speed(pts) {
+  // THE FLICK'S SPEED (px/ms): the last FLICK_WINDOW ms of the finger's [t, x] moves, from the move at or just past
+  // the window's start (a busy tablet hands moves over far apart: one alone in the window measured nothing). The
+  // lift (`up`, its time) is no sample: it comes where the last move was, and counted, it slowed every quick flick
+  // under FLICK (2026-11-02, the owner: "inconsistent"); a finger that rested REST ms before it lifted flicked nothing
+  function speed(pts, up) {
     if (!pts || pts.length < 2) return 0;
     var last = pts[pts.length - 1], first = last;
-    for (var i = pts.length - 1; i >= 0; i--) { if (last[0] - pts[i][0] > FLICK_WINDOW) break; first = pts[i]; }
+    if (up != null && up - last[0] > REST) return 0;
+    for (var i = pts.length - 2; i >= 0; i--) { first = pts[i]; if (last[0] - first[0] >= FLICK_WINDOW) break; }
     var dt = last[0] - first[0];
     return dt > 0 ? (last[1] - first[1]) / dt : 0;
   }
@@ -177,7 +186,10 @@
     var M = menu(), p = null;
     try { p = M && M.panel ? M.panel() : null; } catch (e) { p = null; }
     if (p && p.lovelace && p.lovelace.editMode) return 'edit';
-    if (location.hash && location.hash.length > 1) return 'popup';
+    // (a pop-up that covers the page; the docked bar -- Now Playing, the timers -- covers nothing, and the page swipes
+    // on under it: 2026-11-02, the owner, the bar up on the Calendar and every swipe refused, turning its months)
+    var PU = window.hkPopup;
+    if (location.hash && location.hash.length > 1 && !(PU && typeof PU.docked === 'function' && PU.docked(location.hash))) return 'popup';
     var D = window.hkDetail, ds = null;
     try { ds = D && D._ && D._.state ? D._.state() : null; } catch (e) { ds = null; }
     if (ds && ds.el && !ds.closing) return 'sheet';
@@ -263,6 +275,8 @@
     }
     var N = { item: item, dir: dir, cached: !!p, el: p ? p.el : ghost(item) };
     N.saved = save(N.el);
+    // (beside the page, not it: its pop-ups wait for it to land -- hk-popup.js peeking)
+    N.el.setAttribute('hk-swipe-peek', '');
     if (N.cached && N.el.swipeEnter) { try { N.el.swipeEnter(dir); } catch (e) { /* its own */ } }
     // laid out at the room it will have (the Side Pane coming or going: hkSidePane.room), its edge against this one's
     var r = g.rect, st = N.el.style, P = window.hkSidePane, room = P && P.room ? P.room(item.path) : null;
@@ -286,6 +300,7 @@
   }
   function drop(N) {
     if (!N) return;
+    N.el.removeAttribute('hk-swipe-peek');
     unground(N.ground);
     if (N.el.parentNode) N.el.parentNode.removeChild(N.el);
     if (N.cached) restore(N.el, N.saved);
@@ -330,9 +345,26 @@
   // why the last press was not the page's (the check reads it: hk-pageswipe state())
   var why = '';
 
+  // THE FINGER'S OWN ELEMENT, DRAWN AWAY: a card that draws itself again under a finger (the Calendar, as the Now
+  // Playing bar rose and the page made room) takes the touch's target out of the page -- and a finger's events go on
+  // to that element, out of the document, never reaching ours: the swipe was lost (2026-11-02, the first swipe on the
+  // Calendar, in WebKit). So they are heard on it too, and taken from there once it is gone
+  var held = null;
+  function onLost(e) {
+    if (!G || e.pointerId !== G.id || (e.target && e.target.isConnected !== false)) return;
+    if (e.type === 'pointermove') onMove(e); else onUp(e);
+  }
+  function hold(t) {
+    if (held === t) return;
+    if (held) ['pointermove', 'pointerup', 'pointercancel'].forEach(function (k) { held.removeEventListener(k, onLost); });
+    held = t && typeof t.addEventListener === 'function' ? t : null;
+    if (held) ['pointermove', 'pointerup', 'pointercancel'].forEach(function (k) { held.addEventListener(k, onLost); });
+  }
+
   function onDown(e) {
     if (G && G.live) { if (e.pointerId !== G.id) settle(0, 0); return; }      // a second finger: let it go
     G = null;
+    hold(null);
     why = L ? 'landing' : (e.pointerType === 'mouse' && e.button !== 0) || e.isPrimary === false ? 'button' : blocked();
     if (why) return;
     var view = currentView();
@@ -356,6 +388,7 @@
     var t = e.timeStamp || Date.now();
     G = { id: e.pointerId, type: e.pointerType, x0: e.clientX, y0: e.clientY, view: view, target: path[0] || null,
           items: items, at: nb.at, grid: grid, live: false, pts: [[t, e.clientX]], dx: 0, nb: {} };
+    if (e.pointerType !== 'mouse') hold(path[0]);
   }
 
   function onMove(e) {
@@ -369,8 +402,11 @@
       if (k === 'scroll') { G = null; return; }
       begin(e);
     }
-    G.pts.push([e.timeStamp || Date.now(), e.clientX]);
-    if (G.pts.length > 30) G.pts.splice(0, G.pts.length - 30);
+    // (each move the tablet coalesced into this one: the flick's speed from all of them)
+    var all = null;
+    try { all = e.getCoalescedEvents ? e.getCoalescedEvents() : null; } catch (x) { all = null; }
+    (all && all.length ? all : [e]).forEach(function (m) { G.pts.push([m.timeStamp || e.timeStamp || Date.now(), m.clientX]); });
+    if (G.pts.length > 40) G.pts.splice(0, G.pts.length - 40);
     follow(dx);
   }
 
@@ -431,15 +467,17 @@
   function onUp(e) {
     if (!G || e.pointerId !== G.id || G.cancelling) return;
     if (!G.live) { G = null; return; }
-    G.pts.push([e.timeStamp || Date.now(), e.clientX]);
-    var dx = e.clientX - G.x0;
-    settle(e.type === 'pointerup' && lands(dx, G.w, speed(G.pts)) ? dx : 0, dx);
+    // (the lift a sample only where it moved past the last move)
+    var dx = e.clientX - G.x0, t = e.timeStamp || Date.now(), last = G.pts[G.pts.length - 1];
+    if (!last || e.clientX !== last[1]) G.pts.push([t, e.clientX]);
+    settle(e.type === 'pointerup' && lands(dx, G.w, speed(G.pts, t)) ? dx : 0, dx);
   }
 
   // LET GO: lands on the page that way (`go`: the finger's dx), or goes back
   function settle(go, dx) {
     var g = G;
     G = null;
+    hold(null);
     if (!g || !g.live) return;
     eatUntil = Date.now() + EAT_MS;
     var dir = (go || dx || g.dx) < 0 ? 1 : -1, to = go ? g.items[g.at + dir] || null : null;
@@ -495,7 +533,7 @@
       // (the room it lands in first: the Side Pane says where it is now, so the page takes its place as it is put back)
       var P = window.hkSidePane;
       if (el && P && P.sync) { try { P.sync(); } catch (e) { /* not drawn */ } }
-      if (N && N.cached) { unground(N.ground); restore(N.el, N.saved); }
+      if (N && N.cached) { unground(N.ground); restore(N.el, N.saved); N.el.removeAttribute('hk-swipe-peek'); }
       else drop(N);
       restore(g.view, g.saved);
       if (el && el !== g.view) {
@@ -503,6 +541,8 @@
         if (g.calm) fadeIn(el);
       }
       setTimeout(arm, 0);
+      // (the page it landed on is the page now: what waited for that -- hk-popup.js -- looks again)
+      try { window.dispatchEvent(new CustomEvent('hk-swipe-landed', { detail: { el: el || null } })); } catch (e) { /* none */ }
     };
     if (host && host.onView) {
       land.offs.push(host.onView(function (el, view, cfg, info) { done(info && info.path === viewSeg(to.path) ? el : null); }));
@@ -580,7 +620,7 @@
     arm: arm,
     _: { enabled: enabled, order: order, neighbours: neighbours, atEdge: atEdge, travel: travel, lands: lands, speed: speed,
          viewSeg: viewSeg, ghost: ghost, slow: slow,
-         NUMBERS: { EDGE: EDGE, START: START, RATIO: RATIO, TURN: TURN, FLICK: FLICK, FLICK_MIN: FLICK_MIN, GIVE: GIVE,
+         NUMBERS: { EDGE: EDGE, START: START, RATIO: RATIO, TURN: TURN, FLICK: FLICK, FLICK_MIN: FLICK_MIN, GIVE: GIVE, REST: REST,
                     STANDARD_MS: STANDARD_MS, FADE_MS: FADE_MS, SLOW_FPS: SLOW_FPS },
          state: function () { return { G: G, L: L, why: why }; } }
   };

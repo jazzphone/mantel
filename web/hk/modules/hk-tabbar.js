@@ -1634,11 +1634,16 @@
     // `path`, drawn on the tab you are on and held there (slide-from), so
     // the landing starts from where it is (S.hereBox). Not folded, nor too
     // tight for a capsule, nor with Reduce Motion (it jumps as it lands).
+    // (the two tabs' boxes measured once a swipe, not each frame: read after the frame's writes, each one laid the
+    // document out again -- 2026-11-02)
+    var followBoxes = null;
     function follow(k, path) {
       if (!S.on || S.mode !== 'full' || S.tight || calm()) return false;
       var here = S.pill.querySelector('.tab.here'), to = tabOf(path);
       if (!here || !to) return false;
-      var home = boxOf(here), box = between(home, boxOf(to), k), o = offsetsOf(box, home);
+      var fb = followBoxes;
+      if (!fb || fb.here !== here || fb.to !== to) fb = followBoxes = { here: here, to: to, a: boxOf(here), b: boxOf(to) };
+      var home = fb.a, box = between(home, fb.b, k), o = offsetsOf(box, home);
       here.classList.add('slide-from');
       here.style.setProperty('--hx', o.hx + 'px');
       here.style.setProperty('--hy', o.hy + 'px');
@@ -1651,6 +1656,7 @@
     // where it was, the swipe let go short)
     var landT = 0;
     function land(path) {
+      followBoxes = null;
       if (!S.root) return;
       S.landing = path || null;
       S.pill.querySelectorAll('.tab').forEach(function (el) {

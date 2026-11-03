@@ -527,6 +527,38 @@ async def test_a_preset_plays_as_its_rooms_joined(on):
     await ws.close()
 
 
+async def test_the_house_says_who_leads_not_the_order_the_rooms_came_in(on):
+    """2026-11-02: the rooms come in A to Z (or tap) order, and eleven HomePods joined under a bedroom's HomePod, the first.
+    Home Assistant announces to that HomePod, and Music Assistant plays an announcement to a sync leader on its whole
+    group. The Owner names the rooms that lead and the rooms announced to (Mantel Settings → Pages → Music → Group Leaders)."""
+    await on.connected()
+    await on.login("owner1", "owner")
+    ws = await on.socket()
+    cody, den, kitchen = "media_player.cody_ma", "media_player.den_ma", "media_player.kitchen_ma"
+    r = await on.command(ws, kind="ws", msg={"type": "hk_music/settings/set",
+                                             "changes": {"leaders": [den], "announce_rooms": [cody]}})
+    assert r["result"]["leaders"] == [den] and r["result"]["announce_rooms"] == [cody], r
+    opts = on.app["settings"].store.get("house", M.MUSIC_DOC).body["options"]
+    assert opts["leaders"] == [den] and opts["announce_rooms"] == [cody]
+    _res, ev = await on.subscribe(ws, {"type": "hk_music/subscribe"}, rid=61)
+    assert ev["leaders"] == [den] and ev["announce_rooms"] == [cody], "the screens' rule (hkMusic.leader)"
+    r = await on.command(ws, id=2, kind="ws", msg={"type": "hk_music/settings/set",
+                                                   "changes": {"announce_rooms": ["media_player.garage_ma"]}})
+    assert json.loads(r["error"]["message"]) == {"announce_rooms": "Every room must be one of the speakers."}
+    # an announcement room first: the next room that is not one leads
+    reply = await on.command(ws, id=3, **play([cody, kitchen]))
+    assert reply["result"]["response"] == {"ok": True, "leader": kitchen}, reply
+    assert on.ma.sent()[0] == ("players/cmd/group_many", {"target_player": "ma-kitchen", "child_player_ids": ["ma-cody"]})
+    await on.command(ws, id=4, **SVC("music_stop"))
+    # a preferred leader among the rooms leads, wherever it is in the list
+    n = len(on.ma.sent())
+    reply = await on.command(ws, id=5, **play([cody, kitchen, den]))
+    assert reply["result"]["response"]["leader"] == den, reply
+    joins = [a for c, a in on.ma.sent()[n:] if c == "players/cmd/group_many"]
+    assert joins == [{"target_player": "ma-den", "child_player_ids": ["ma-cody", "ma-kitchen"]}], on.ma.sent()[n:]
+    await ws.close()
+
+
 async def test_a_playlist_gone_from_the_library_is_refused_not_played(on):
     await on.connected()
     await on.login("jamie", "adult")
@@ -1313,18 +1345,19 @@ async def test_play_pause_volume_and_browse_go_to_both_of_a_pairs_players(on):
         ("players/cmd/volume_set", {"player_id": "ma-study-l", "volume_level": 40}),
         ("players/cmd/volume_set", {"player_id": "ma-study-r", "volume_level": 40}),
         ("players/cmd/play_pause", {"player_id": "ma-study-l"})]
-    # a playlist on the pair and the Kitchen: both of its players join the Kitchen, the house volume on all three
+    # a playlist on the pair and the Kitchen: the pair is playing, so it keeps leading (engine.lead) and the Kitchen
+    # joins its first player beside its second; the house volume on all three
     n = len(on.ma.sent())
     r = await on.command(ws, id=5, **play([K, SL]))
-    assert r["result"]["response"] == {"ok": True, "leader": K}, r
+    assert r["result"]["response"] == {"ok": True, "leader": SL}, r
     assert on.ma.sent()[n:] == [
-        ("players/cmd/group_many", {"target_player": "ma-kitchen", "child_player_ids": ["ma-study-l", "ma-study-r"]}),
+        ("players/cmd/group_many", {"target_player": "ma-study-l", "child_player_ids": ["ma-kitchen", "ma-study-r"]}),
         ("players/cmd/volume_set", {"player_id": "ma-kitchen", "volume_level": 30}),
         ("players/cmd/volume_set", {"player_id": "ma-study-l", "volume_level": 30}),
         ("players/cmd/volume_set", {"player_id": "ma-study-r", "volume_level": 30}),
-        ("player_queues/shuffle", {"queue_id": "ma-kitchen", "shuffle_enabled": True}),
-        ("player_queues/play_media", {"queue_id": "ma-kitchen", "media": ["library://playlist/1"], "option": "replace"}),
-        ("player_queues/shuffle", {"queue_id": "ma-kitchen", "shuffle_enabled": True})]
+        ("player_queues/shuffle", {"queue_id": "ma-study-l", "shuffle_enabled": True}),
+        ("player_queues/play_media", {"queue_id": "ma-study-l", "media": ["library://playlist/1"], "option": "replace"}),
+        ("player_queues/shuffle", {"queue_id": "ma-study-l", "shuffle_enabled": True})]
     # Stop on the pair frees both its players
     n = len(on.ma.sent())
     r = await on.command(ws, id=6, **SVC("music_stop", rooms=[SL]))
