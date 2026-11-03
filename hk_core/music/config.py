@@ -7,7 +7,9 @@ With Music Assistant's player list (groups.py), a speaker that is a group is a p
 host's own: a name and its rooms, played as any pick of rooms is, joined under one of them -- no Music Assistant group
 (2026-11-01: a sync group cannot pause, so a pause stopped the music and broke the group up). A VIRTUAL PAIR
 (docs/phase4/VIRTUAL-PAIRS.md) is two players made one room here: its first player is the room, its second
-plays with it (``partners``).
+plays with it (``partners``). WHO LEADS A PICK (``leader_of``) is a house setting: the preferred leaders, best first,
+then the first room that is not an announcement room (2026-11-02: eleven HomePods joined under a bedroom's HomePod, the
+first alphabetically, and an announcement to it, which Music Assistant plays on its whole group, went to every room).
 """
 from __future__ import annotations
 
@@ -18,9 +20,9 @@ from typing import Any, NamedTuple
 from ..house import House, area_of
 from .groups import Groups
 from .const import (
-    CONF_CHOOSER, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS, CONF_MEMBERS,
-    CONF_NAME, CONF_ORDER, CONF_PAIRS, CONF_PLAYERS, CONF_SPEAKERS, CONF_VOLUME, DEFAULT_VOLUME, SUB_PLAYLIST,
-    SUB_PRESET,
+    CONF_ANNOUNCE_ROOMS, CONF_CHOOSER, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS, CONF_LEADERS,
+    CONF_MEMBERS, CONF_NAME, CONF_ORDER, CONF_PAIRS, CONF_PLAYERS, CONF_SPEAKERS, CONF_VOLUME, DEFAULT_VOLUME,
+    SUB_PLAYLIST, SUB_PRESET,
 )
 
 NO_FLOOR_LEVEL = 999        # a room with no floor (or a floor with no level) sorts last
@@ -82,6 +84,8 @@ class MusicConfig:
     partners: dict[str, str] = field(default_factory=dict)        # a virtual pair's room -> its second player
     pair_groups: dict[str, str] = field(default_factory=dict)     # a virtual pair's room -> MA's group of the two
     ma_groups: list[str] = field(default_factory=list)             # Music Assistant's other groups (Stop All's)
+    leaders: list[str] = field(default_factory=list)               # the rooms that lead a pick, best first
+    announce_rooms: list[str] = field(default_factory=list)        # rooms Home Assistant announces to
 
     # ---- VIRTUAL PAIRS: the second player folded into its room, and back out for Music Assistant
     def room_of(self, entity: str) -> str | None:
@@ -109,6 +113,14 @@ class MusicConfig:
             return None
         r = rooms[0]
         return Preset(f"pair:{r}", self.name_of(r), [r], self.pair_groups[r])
+
+    def leader_of(self, rooms: Iterable[str]) -> str | None:
+        """WHO LEADS A NEW GROUP of ``rooms`` (none of them playing): the first of the house's preferred leaders among
+        them, else the first that is not an announcement room, else the first. Music Assistant plays an announcement
+        to a group's leader on its whole group, so a room Home Assistant announces to leads only on its own."""
+        rooms = list(rooms)
+        best = next((r for r in self.leaders if r in rooms), None)
+        return best or next((r for r in rooms if r not in self.announce_rooms), rooms[0] if rooms else None)
 
     def pair_of_group(self, group: str) -> str | None:
         """The virtual pair whose own Music Assistant group ``group`` is."""
@@ -175,6 +187,8 @@ class MusicConfig:
         rooms.sort(key=lambda r: (r.level, r.index))
         cfg.rooms = rooms
         cfg.groups = groups
+        cfg.leaders = [r for r in dict.fromkeys(opts.get(CONF_LEADERS) or []) if r in cfg.room_ids]
+        cfg.announce_rooms = [r for r in dict.fromkeys(opts.get(CONF_ANNOUNCE_ROOMS) or []) if r in cfg.room_ids]
         speakers = [r for r in opts.get(CONF_SPEAKERS) or [] if r not in cfg.partners.values()]
         virtual = {r: [r, p] for r, p in cfg.partners.items()}
         if groups is not None:
@@ -251,6 +265,9 @@ class MusicConfig:
             "home": home if home in self.room_ids else None,
             "volume": self.volume,
             "ignore_announcements": self.ignore_announcements,
+            # who leads a pick of rooms (leader_of): a library item plays on that room first, then the others join it
+            "leaders": list(self.leaders),
+            "announce_rooms": list(self.announce_rooms),
         }
 
 

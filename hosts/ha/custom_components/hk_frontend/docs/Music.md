@@ -151,6 +151,7 @@ speaker:
 |---|---|---|
 | Speakers | None | The rooms music plays in: Music Assistant players, one per room. Each is named by its area and grouped by floor; within a floor, in the order you drag them. A stereo pair’s group can be a room, and says so. |
 | Home Rooms | None | For each Home Assistant user, the room they start in when they play music. A wall tablet signs in as its own user, so this is where each tablet hangs. |
+| Group Leaders | Automatic | Which room leads when rooms play together; the others play in step with it. **Lead First**: the rooms that lead, best first (drag to order). **Announcement Rooms**: the rooms Home Assistant speaks to, such as a bedtime reminder. Music Assistant plays an announcement to a group's leader in every room of the group, so these lead only when no other room picked can, and a room already playing keeps leading when rooms join it unless it is one of these. With none chosen, the first room picked leads. |
 | House Volume | 35% | The volume every room is set to when a playlist starts. |
 | Presets & Playlists → Presets | None | A name for rooms that often play together (**Name**, **Rooms**). Choosing it on a screen picks those rooms; they play in step, grouped under one of them. |
 | Presets & Playlists → Playlists | None | The pills under Your Playlists on the Music page, in order (**Name**, **Icon**, **Chooser**, and the library playlists it **Plays**, as one queue). Pills with the same Chooser become one pill that asks which. |

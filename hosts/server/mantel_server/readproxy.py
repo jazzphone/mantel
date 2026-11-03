@@ -535,7 +535,8 @@ def music_players(payload: Any) -> set[str]:
 def music_config(payload: Any, ok: set[str]) -> dict:
     """hk_music/subscribe's event (hk_core MusicConfig.as_client + `announcements`) cut down to the
     players in ``ok``. Kept: `configured`, `library_entry` (Music Assistant's config entry id, for
-    Browse), `playlists` (names, icons and keys), `volume`, `ignore_announcements`. `home` is always
+    Browse), `playlists` (names, icons and keys), `volume`, `ignore_announcements`, `leaders` and
+    `announce_rooms` (who leads a pick: only the players in ``ok``). `home` is always
     None: HA answers as Mantel's own HA user, so its home room is not this person's (Phase 4)."""
     if not isinstance(payload, dict) or not payload.get("configured"):
         return {"configured": False}
@@ -569,6 +570,9 @@ def music_config(payload: Any, ok: set[str]) -> dict:
         out["announcements"] = [p for p in payload.get("announcements") or [] if p in ok]
     if "resumable" in payload:              # music stopped after a pause (hk_core/music/resume.py)
         out["resumable"] = [p for p in payload.get("resumable") or [] if p in ok]
+    for k in ("leaders", "announce_rooms"):  # who leads a pick (MusicConfig.leader_of; hkMusic.leader)
+        if isinstance(payload.get(k), list):
+            out[k] = [p for p in payload[k] if p in ok]
     return out
 
 

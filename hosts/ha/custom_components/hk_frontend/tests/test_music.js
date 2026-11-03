@@ -413,4 +413,18 @@ cx = M.contexts(house(group([OR, e('office'), e('loft')], { title: 'R' })));
 ok('its second player leading: still the room, first', cx[0].members.join(','), [e('office'), e('loft')].join(','));
 M._configure(HK_HOUSE);
 
+print('\n=== who leads a pick (hk_core MusicConfig.leader_of) ===');
+// 2026-11-02: eleven HomePods were joined under the first, A to Z, and the
+// announcements Home Assistant sends that room played in every room
+var pick = [e('loft'), e('office'), e('kitchen')];
+ok('nothing set: the first room', M.leader(pick), e('loft'));
+M._configure(Object.assign({}, HK_HOUSE, { announce_rooms: [e('loft')] }));
+ok('an announcement room first: the next room', M.leader(pick), e('office'));
+ok('  ...alone, it plays where it is', M.leader([e('loft')]), e('loft'));
+M._configure(Object.assign({}, HK_HOUSE, { leaders: [e('living_room'), e('kitchen')], announce_rooms: [e('loft')] }));
+ok('the house\'s leaders, best first, wherever they are in the pick', M.leader(pick), e('kitchen'));
+ok('  ...the best of them picked', M.leader(pick.concat(e('living_room'))), e('living_room'));
+ok('none picked: an empty answer', M.leader([]), null);
+M._configure(HK_HOUSE);
+
 print('\n' + (fail ? 'FAILURES: ' + fail : 'ALL ' + pass + ' MUSIC MODEL TESTS PASS'));

@@ -9,8 +9,11 @@ between those steps it asks these rules, which only read the house (`House.state
   * WHAT A REQUEST CLAIMS (`entangled`): the rooms it asks for and every room grouped with them.
   * WHAT IS IN THE WAY (`in_the_way`, `split`): a group holding a wanted room -- and nothing
     wider; a group that plays on in rooms not picked keeps its music there.
-  * WHO LEADS (`existing`, `play_target`, `move_plan`), read once the rooms are held. A PRESET is its rooms,
-    joined under one of them as any pick is: no Music Assistant group plays it (config.py).
+  * WHO LEADS (`existing`, `lead`, `play_target`, `move_plan`), read once the rooms are held. A PRESET is its rooms,
+    joined under one of them as any pick is: no Music Assistant group plays it (config.py). Never simply the
+    first room sent (the rooms come in tap or name order): the live group that is exactly the pick keeps its
+    leader, then a room of the pick already playing leads, else the house's choice (`MusicConfig.leader_of`:
+    its preferred leaders, never an announcement room while another can lead).
   * NEW SPEAKERS FOR MUSIC THAT PLAYS (`move_plan`): rooms picked with the one playing join it, and its queue
     stays put; only a pick without it moves the queue.
   * WHAT IS LEFT BEHIND by a move (`stale`), released last.
@@ -239,6 +242,20 @@ def play_rooms(house: House, cfg: MusicConfig, rooms: list[str]
     return pair_alone(cfg, rooms, None), None, rooms
 
 
+def lead(house: House, cfg: MusicConfig, rooms: list[str]) -> str:
+    """WHO LEADS A NEW GROUP of `rooms` for new music: a room of the pick already playing (or paused) that leads
+    only rooms of the pick -- the others join it where it is -- unless it is a room Home Assistant announces to;
+    else the house's choice (`MusicConfig.leader_of`). A group that also holds rooms not picked keeps its music
+    there (`split`), so its leader is no reason to lead."""
+    pick = set(rooms)
+    for r in rooms:
+        gm = grouped(house, cfg, r)
+        if state_of(house, r) in ACTIVE and (not gm or gm[0] == r) and set(gm) <= pick \
+                and r not in cfg.announce_rooms:
+            return r
+    return cfg.leader_of(rooms) or rooms[0]
+
+
 def play_target(house: House, cfg: MusicConfig, rooms: list[str], preset: Preset | None,
                 members_: list[str]) -> tuple[str, list[str] | None, list[str]]:
     """WHO LEADS, read once the rooms are held -- not when the request arrived: a request that
@@ -246,10 +263,12 @@ def play_target(house: House, cfg: MusicConfig, rooms: list[str], preset: Preset
     play_media sent to a group MEMBER plays nowhere useful. (the target, the live group that is
     exactly the rooms or None, the rooms in the way)."""
     found = existing(house, rooms, cfg) if preset is None and len(cfg.players_of(rooms)) > 1 else None
+    if found and found[0] in cfg.announce_rooms and lead(house, cfg, rooms) != found[0]:
+        found = None                # (a group an announcement room leads is joined again, under another)
     if preset is not None:
         target = preset.group
     else:
-        target = found[0] if found else rooms[0]
+        target = found[0] if found else lead(house, cfg, rooms)
     keep = set(preset.members) if preset else None
     way = [] if found else in_the_way(house, cfg, members_, keep)
     return target, found, way
@@ -330,15 +349,22 @@ def move_plan(house: House, rooms: list[str], source: str,
               preset: Preset | None, cfg: MusicConfig | None = None) -> tuple[str, list[str], bool]:
     """THE HOUSE IS READ NOW, holding the rooms: (the leader, the PLAYERS to join to it, whether
     this ADDS rooms to the source rather than moving its queue). A room source still picked keeps
-    the music, a preset's rooms picked too: the others join it and `stale` lets the rest go. A move
-    off a virtual pair's own group leads from another room when there is one: the pair's players are
-    leaving that group."""
+    the music, a preset's rooms picked too: the others join it and `stale` lets the rest go. Else the
+    queue moves to the live group that is exactly the rooms, or to the house's choice of leader
+    (`MusicConfig.leader_of`). A move off a virtual pair's own group leads from another room when there
+    is one: the pair's players are leaving that group. An ANNOUNCEMENT ROOM playing on its own does not
+    keep the music when rooms are added to it: its queue moves to the room that leads, and it joins
+    that room (an announcement to a group's leader plays on its whole group)."""
     adding = source in rooms
     if preset is not None:
         return preset.group, [], False
     found = existing(house, rooms, cfg)
     pair = cfg.pair_of_group(source) if cfg is not None else None
-    first = next((r for r in rooms if r != pair), rooms[0])
+    pick = [r for r in rooms if r != pair] or rooms
+    first = (cfg.leader_of(pick) if cfg is not None else None) or pick[0]
+    if adding and cfg is not None and source in cfg.announce_rooms and first != source \
+            and len(members(house, source)) <= 1:
+        adding = False
     leader = source if adding else (found[0] if found else first)
     players = cfg.players_of(rooms) if cfg is not None else rooms
     return leader, [r for r in players if r != leader], adding

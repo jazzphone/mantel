@@ -190,7 +190,7 @@ def _text(v: Any, limit: int = TEXT_MAX) -> str:
 
 def check_doc(body: Any) -> dict[str, Any]:
     """``house/music`` as Mantel keeps it, checked: {options: {speakers, volume, homes, keep_ready,
-    ignore_announcements, pairs?}, items: [{kind, key, title, data}], source}. Raises ValueError."""
+    ignore_announcements, pairs?, leaders?, announce_rooms?}, items: [{kind, key, title, data}], source}. Raises ValueError."""
     if not isinstance(body, Mapping):
         raise ValueError("house/music is an object")
     out = empty_doc()
@@ -213,6 +213,12 @@ def check_doc(body: Any) -> dict[str, Any]:
             if not isinstance(opts[k], bool):
                 raise ValueError(f"options.{k}: true or false")
             out["options"][k] = opts[k]
+    for k in S.ROOM_LISTS:       # GROUP LEADERS and ANNOUNCEMENT ROOMS: speakers, in order (MusicConfig.leader_of)
+        if k in opts:
+            v = opts[k]
+            if not isinstance(v, list) or len(v) > ITEMS_MAX or not all(isinstance(x, str) and PLAYER.match(x) for x in v):
+                raise ValueError(f"options.{k}: media_player entity ids")
+            out["options"][k] = list(dict.fromkeys(v))
     if CONF_PAIRS in opts:       # VIRTUAL PAIRS (docs/phase4/VIRTUAL-PAIRS.md): [{players: [first, second], name}]
         pairs = opts[CONF_PAIRS]
         if not isinstance(pairs, list) or len(pairs) > ITEMS_MAX or not all(
@@ -1582,6 +1588,8 @@ class MusicHost:
             "virtual_pairs": S.pairs_page(cfg, opts, self._name), "pairs_here": True,
             "library_ready": self.ma is not None and self.ma.connected.is_set(),
             "ignore_announcements": opts[CONF_IGNORE_ANNOUNCEMENTS],
+            # WHO LEADS A PICK (MusicConfig.leader_of): the rooms that lead, best first; the rooms announced to
+            "leaders": list(cfg.leaders), "announce_rooms": list(cfg.announce_rooms),
             "keep_ready": bool(opts[CONF_KEEP_READY]),
             "keep_ready_last": self.warmer.status(),
         }

@@ -243,7 +243,7 @@ suppression only; no audio or automation changes are made. The feed filters mark
 Fictional lifecycle, feed and no-command tests pass; live speaker/display acceptance remains after deployment.
 
 **Presets are Mantel's own (2026-11-01).** A preset is a name and its rooms, saved in `house/music`, and is
-played as any pick of rooms is: joined under the first of them (`players/cmd/group_many`). No Music Assistant group
+played as any pick of rooms is: joined under one of them (`players/cmd/group_many`; who leads, below). No Music Assistant group
 plays it. The house's presets had played through Music Assistant sync groups, and those cannot pause: Music
 Assistant 2.10.9 sends a sync group no pause (`PlayerFeature.PAUSE` is not among the features it takes from its
 members), so a pause became a stop, and an explicit stop dissolves the group. Their members also drifted as they
@@ -259,6 +259,26 @@ Music Assistant still stops a queue paused for 30 seconds (`player_queues/pause`
 - **New speakers for music that plays** join it in place (`engine.move_plan`): a pick that still holds the room
   playing (a preset's rooms too) joins the others to it and lets the unticked rooms go (`stale`); its queue stays.
   Only a pick without that room moves the queue (`player_queues/transfer`).
+- **Who leads a pick (2026-11-02).** Never simply the first room sent: the rooms arrive in tap or name order, and on
+  2026-11-02 all eleven HomePods joined under a bedroom's HomePod, first alphabetically. Home Assistant announces to that
+  HomePod (a bedtime reminder, a clip, a door reminder), and Music Assistant 2.10.9's announcement to a
+  sync leader stops the group's queue and plays the clip on every member, so they went to the whole house. The rule
+  (`engine.lead`, `play_target`, `move_plan`; `MusicConfig.leader_of`): the live group that is exactly the pick keeps
+  its leader; else a room of the pick already playing that leads only rooms of the pick; else the first of the house's
+  **Group Leaders** among the rooms (`house/music` `options.leaders`, best first); else the first room that is not an
+  **Announcement Room** (`options.announce_rooms`); else the first. An announcement room never keeps leading while
+  another room can: a live group it leads is joined again under the room that leads, and music it plays on its own
+  moves (`player_queues/transfer`) to that room when rooms are added. The screens play a library item on
+  `hkMusic.leader(rooms)` (the feed's `leaders` and `announce_rooms`) before the others join it.
+  Mantel Settings → Pages → Music → Group Leaders sets both lists (`hk_music/settings/set {leaders, announce_rooms}`).
+- **A pick Mantel formed stays grouped when its music stops elsewhere** (not changed, 2026-11-02). Mantel's Stop
+  ungroups what it stops (`media_player.unjoin` → `players/cmd/ungroup`). A stop from Home Assistant, the Home app or
+  Music Assistant's own stop of a queue paused for 30 s leaves the group: Paused music stays paused (below) needs that
+  group to resume it, and Mantel sends commands only for an audited request (the gateway's `MusicRun`), so ungrouping
+  on its own would need a system principal and an audit of its own. With an announcement room no longer leading, a
+  standing group no longer carries an announcement to every room: Music Assistant 2.10.9 takes a synced member out
+  of its group for the clip and puts it back after (`announcements.py` `_prepare_for_announcement` /
+  `_restore_after_announcement`); only a leader's announcement is played on the whole group.
 - **Music Assistant's groups** are still read (`players/all`, every 30 s) for stereo pairs, a virtual pair's own
   group, Stop All (`MusicConfig.ma_groups`: one started elsewhere plays in the rooms) and an announcement's rooms.
 

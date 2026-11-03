@@ -112,7 +112,8 @@
   // of a set (a preset's too: its id is no player) -- and the rooms to bring
   // in after it (music_transfer)
   function playTarget(rooms) {
-    return { player: rooms[0] || null, then: rooms.length > 1 ? rooms.slice() : null };
+    var Mu = window.hkMusic;
+    return { player: (Mu && Mu.leader ? Mu.leader(rooms) : rooms[0]) || null, then: rooms.length > 1 ? rooms.slice() : null };
   }
   // THE GROUP'S VOLUME (the room card's rule, hk-control.js): the panel's own (hk-saver-panel.js volumeCalls, which
   // a Small Now Playing block's Speakers sheet uses too)
