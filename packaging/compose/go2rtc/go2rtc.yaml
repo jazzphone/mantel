@@ -32,6 +32,11 @@ ffmpeg:
   mantel_tv_in_vaapi: "-vaapi_device /dev/dri/renderD128 -hwaccel vaapi -hwaccel_output_format vaapi -probesize 1500000 -analyzeduration 1000000 -fflags +genpts+discardcorrupt -i {input}"
   mantel_tv_720_vaapi: "-vf deinterlace_vaapi,scale_vaapi=w=1280:h=720 -c:v h264_vaapi -profile:v high -level:v 4.1 -b:v 3000k -maxrate 3500k -bufsize 3000k -g 30 -keyint_min 30 -bf 0"
   mantel_tv_1080_vaapi: "-vf deinterlace_vaapi -c:v h264_vaapi -profile:v high -level:v 4.1 -b:v 6000k -maxrate 7000k -bufsize 6000k -g 30 -keyint_min 30 -bf 0"
+  # OPUS IN STEREO (2026-11-02): go2rtc's own `opus` (#audio=opus) keeps the source's channels, and libopus can't
+  # encode 5.1 that way ("Invalid channel layout 5.1(side) for specified mapping family -1"). Broadcast TV is often
+  # 5.1 AC-3, so on the owner's LXC every channel's ffmpeg stopped at once and the player retried every two seconds
+  # with no picture. WebRTC carries stereo Opus at most: everything is mixed down to two channels (mono goes up).
+  opus: "-c:a libopus -application:a lowdelay -min_comp 0 -frame_duration 20 -page_duration 20 -ar:a 48000 -ac:a 2"
 streams: {}
 log:
   level: info

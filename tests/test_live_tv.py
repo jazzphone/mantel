@@ -162,6 +162,17 @@ def test_the_go2rtc_templates_mantel_names_exist():
     assert "deinterlace_vaapi" in yaml and "h264_vaapi" in yaml          # Proof 4's pipeline
 
 
+def test_live_tv_s_sound_is_mixed_to_stereo_for_the_browser():
+    """The owner's LXC (2026-11-02): broadcast 5.1 AC-3 stopped libopus (go2rtc's own `opus` kept the channels), so
+    every channel's ffmpeg died at once and no picture came. go2rtc.yaml overrides `opus` with a stereo mix-down, and
+    a channel's source asks for that `opus`."""
+    import re
+    yaml = (Path(__file__).resolve().parent.parent / "packaging/compose/go2rtc/go2rtc.yaml").read_text()
+    m = re.search(r'^  opus: "([^"]+)"$', yaml, re.M)
+    assert m and "-c:a libopus" in m.group(1) and "-ac:a 2" in m.group(1) and "-ar:a 48000" in m.group(1)
+    assert L.go2rtc_source("http://tuner.example/auto/v4.1").endswith("#audio=opus")
+
+
 def test_viewers_expire_like_has():
     v = L.Viewers()
     assert v.set("device:k", {"name": "Kitchen", "person": None, "screen": "Kitchen"}, "4.1", 0.0)

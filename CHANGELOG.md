@@ -8,6 +8,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - Mantel Settings → Advanced → **Features**: every feature with an on/off switch, what it needs and where its settings are. Each feature's own page keeps its Add and Remove (Music's page has Remove too now).
 
 **Fixed**
+- Docker and the LXC: **Live TV plays.** A channel broadcast in 5.1 surround (most of them) stopped the transcoder at once, because go2rtc's Opus audio for browsers can't carry 5.1; the player retried every two seconds with no picture. The sound is mixed down to stereo now (`packaging/compose/go2rtc/go2rtc.yaml`).
 - Sign in with Home Assistant: when Home Assistant refuses (a user that can only sign in from the local network, or an inactive one), the page says Home Assistant's own reason instead of only that it couldn't confirm who you are.
 - Docker and the LXC: Mantel's address (`/`) opens the screens, not the developer's page (`/dev`), which the image no longer carries. The Home Assistant App never had it.
 - Mantel's screens point to where a feature's settings are: its page under Pages (Live TV, Energy, Music; Vacuums for Clean Areas), not a Features section the settings no longer have.
