@@ -3754,8 +3754,9 @@
     // item plays there, then the others join it (2026-11-02: an announcement to the leader plays on its whole group)
     function leader(list) {
       list = list || [];
-      var best = MUSIC.leaders.filter(function (r) { return list.indexOf(r) >= 0; })[0];
-      return best || list.filter(function (r) { return MUSIC.announce_rooms.indexOf(r) < 0; })[0] || list[0] || null;
+      var ann = MUSIC.announce_rooms || [];
+      var best = (MUSIC.leaders || []).filter(function (r) { return list.indexOf(r) >= 0; })[0];
+      return best || list.filter(function (r) { return ann.indexOf(r) < 0; })[0] || list[0] || null;
     }
     // THIS USER'S room -- each wall tablet signs in as its own user, and the
     // integration's options map users to rooms.
