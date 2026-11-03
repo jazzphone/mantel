@@ -65,6 +65,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
       // (a layout also on a phone on its side, 844 x 390: the least height of all -- the owner, 2026-11-02, "What about landscape phone")
       : /^lay-/.test(want) || want === 'look-slides' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844], [screen, want, 844, 390]]
       : want === 'look-fb' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]]
+      : want === 'tb-fade' ? [[screen, want, 1180, 820]]
       : want === 'big-corners' || want === 'planted' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]] : [[screen, want, 1180, 820]])
       // (--shard K/N: every N-th run from the K-th; tools/ci.py runs the N parts side by side)
       .filter((_, i) => !input.shard || i % input.shard[1] === input.shard[0] - 1);
@@ -91,6 +92,38 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
         return host ? { face: host.getAttribute('ckface'), big: host.hasAttribute('fcbig'), lay: host.hasAttribute('lay') } : null;
       });
+      if (want === 'tb-fade') {
+        const tag = screen + ' ' + W + 'x' + H;
+        await page.waitForTimeout(3000);
+        // the cut-outs as they show now: each one's opacity times its picture's, and which photo it is
+        const cuts = () => page.evaluate(() => { const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
+          return [...host.shadowRoot.querySelectorAll('.lay .lycut')].filter((t) => getComputedStyle(t).display !== 'none').map((t) => {
+            const im = t.querySelector('img'); return { src: (im && im.getAttribute('src') || '').slice(-24), a: Number(getComputedStyle(t).opacity) * Number(getComputedStyle(im).opacity), dbg: [t.className, getComputedStyle(t).opacity, getComputedStyle(im).opacity, t.style.transition, im.style.opacity, t.style.display] }; }); });
+        // the photo on show: a portrait's drawn middle against the screen's
+        const shown = () => page.evaluate(() => { const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
+          const L = host.shadowRoot.querySelector('.ph.top'), im = L && L.querySelector('img.fg'); if (!im || !im.naturalWidth) return null;
+          const r = im.getBoundingClientRect(); return { portrait: im.naturalHeight > im.naturalWidth, cx: (r.left + r.right) / 2, W: innerWidth, fit: getComputedStyle(im).objectFit, zm: L.style.getPropertyValue('--zm') }; });
+        let sawFade = 0, sawPortrait = 0;
+        for (let turn = 0; turn < 4; turn++) {
+          const s0 = await shown();
+          if (s0 && s0.portrait) { sawPortrait++; say(Math.abs(s0.cx - s0.W / 2) <= 2, tag + ': a zoomed whole portrait (Zoom ' + s0.zm + ') in the middle of the screen', s0); }
+          const before = (await cuts()).filter((c) => c.a > 0.95);
+          await page.evaluate(() => window.hkSaver.next());
+          await page.waitForTimeout(60);
+          await page.waitForTimeout(1140);
+          const mid = await cuts();
+          // (the outgoing people fade as their photo is covered: no longer solid, not yet gone)
+          before.forEach((b) => { const m = mid.find((c) => c.src === b.src); sawFade++; say(!!m && m.a < 0.9 && m.a > 0.08, tag + ': the outgoing photo\u2019s cut-out fades with it', [b, m]); });
+          // (an incoming one never pops in whole)
+          mid.filter((c) => !before.some((b) => b.src === c.src)).forEach((c) => say(c.a < 0.9 && (c.a > 0.08 || Number(c.dbg[2]) < 0.05), tag + ': ...and the incoming one comes in with its photo, not at once', c));
+          await page.waitForTimeout(4000);
+          if (input.shots && turn < 2) await page.screenshot({ path: input.shots + '/' + screen + '-' + turn + '.png' });
+        }
+        say(sawFade > 0 && sawPortrait > 0, tag + ': ...seen: a cut-out fading, and the portrait', [sawFade, sawPortrait]);
+        say(!errors.length, tag + ': no page errors', errors.slice(0, 3));
+        await ctx.close();
+        continue;
+      }
       if (want === 'tb') {
         // THE WEATHER WITH TIME BEHIND (2026-10-31, the owner: back in the corner, as on Clock): there, with its
         // temperature, upper left -- and never over the time's figures
@@ -287,11 +320,22 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           const pieces = lay ? [...lay.querySelectorAll('.hksw')].filter((e) => getComputedStyle(e).display !== 'none' && getComputedStyle(e).visibility !== 'hidden').map((e) => ({ id: (e.className.match(/\bp-(\S+)/) || [])[1] + '.' + (e.className.match(/\bk-(\S+)/) || [])[1], ink: ink(e) })).filter((p) => p.ink) : [];
           const info = window.hkSaver.layoutInfo && window.hkSaver.layoutInfo(), pb = info && info.plan && info.plan.big;
           const corner = {}; ['time', 'date', 'weather', 'status'].forEach((k) => { const e = sr.querySelector('.scn .hksw.p-' + k); corner[k] = e && getComputedStyle(e).display !== 'none' && host.hasAttribute('scorner') ? ink(e) : null; });
+          // (the slide's own words and small pictures: the forecast's, the Weather slide's, Home Energy's)
+          const own = (sel) => [...sr.querySelectorAll(sel)].find((e) => !e.closest('.lay, .ck, .face, .hkf, .scn'));
+          const layer = host.hasAttribute('enslide') ? own('.en') : host.hasAttribute('wxslide') ? own('.wx') : host.hasAttribute('fcslide') ? own('.fc') : null;
+          const marks = [];
+          if (layer) (function walk(n) {
+            if (n.nodeType === 3) { if (n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); const r = rg.getBoundingClientRect(); if (r.width > 0 && r.height > 0) marks.push(box(r)); } return; }
+            if (n.nodeType !== 1 || n.tagName === 'STYLE') return;
+            const cs = getComputedStyle(n); if (cs.display === 'none' || cs.visibility === 'hidden' || (n !== layer && Number(cs.opacity) === 0)) return;
+            if (/^(svg|img|canvas)$/i.test(n.tagName)) { const q = n.getBoundingClientRect(); if (q.width > 0 && q.width < innerWidth / 3 && q.height < innerHeight / 3) marks.push(box(q)); return; }
+            if (n.shadowRoot) walk(n.shadowRoot); n.childNodes.forEach(walk);
+          })(layer);
           const words = [...sr.querySelectorAll('.mu.top .mcol > *, .mu .mcol > *')].filter((n) => n.textContent.trim() && n.getBoundingClientRect().height > 0 && Number(getComputedStyle(sr.querySelector('.mu')).opacity) > 0.5).map((n) => box(n.getBoundingClientRect()));
           const oldClock = [...sr.querySelectorAll('.info > hk-clock-card')].some((e) => getComputedStyle(e).display !== 'none' && Number(getComputedStyle(e).opacity) > 0.05);
           const fcb = sr.querySelector('.fc .hkf'), bigWx = !!(host.hasAttribute('fcbig') && fcb && fcb.getBoundingClientRect().width > 0);
           const fcWords = fcb ? [...fcb.querySelectorAll('*')].filter((e) => !e.children.length && e.textContent.trim() && e.getBoundingClientRect().width > 0).map((e) => box(e.getBoundingClientRect())) : [];
-          return { oldClock, bigWx, fcWords, lay: host.hasAttribute('lay'), layShown: lo > 0.5 && !host.hasAttribute('lyoff'), off: host.hasAttribute('lyoff'), scorner: host.hasAttribute('scorner'), pieces, big: pb ? { l: pb.x, t: pb.y, r: pb.x + pb.w, b: pb.y + pb.h } : null, corner, words, W: innerWidth, H: innerHeight };
+          return { oldClock, bigWx, fcWords, marks, layerFound: !!layer, lay: host.hasAttribute('lay'), layShown: lo > 0.5 && !host.hasAttribute('lyoff'), off: host.hasAttribute('lyoff'), scorner: host.hasAttribute('scorner'), pieces, big: pb ? { l: pb.x, t: pb.y, r: pb.x + pb.w, b: pb.y + pb.h } : null, corner, words, W: innerWidth, H: innerHeight };
         });
         const inScr = (b) => !!b && b.l >= -1 && b.t >= -1 && b.r <= W + 1 && b.b <= H + 1;
         const meet = (a, b) => !!(a && b && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1);
@@ -325,6 +369,9 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           say(want4.every((k) => !m.corner[k] || inScr(m.corner[k])), t2 + ': ...inside the screen', m.corner);
           // (2026-11-02: the old corner clock came back over the forecast's corner on a clock; Big drew the Classic forecast)
           say(!m.oldClock, t2 + ': ...and no old corner clock beside it', m.oldClock);
+          // (2026-11-03, the owner: "Sometimes the Widgets... overlap or collide with the Slides")
+          if (sl !== 'music') say(m.layerFound && !want4.some((k) => m.marks.some((w) => meet(m.corner[k], w))), t2 + ': ...none of the corner on the slide\u2019s own words',
+              [m.layerFound, want4.filter((k) => m.marks.some((w) => meet(m.corner[k], w))).map((k) => [k, m.corner[k], m.marks.filter((w) => meet(m.corner[k], w)).slice(0, 2)])]);
           if (want === 'look-fb') say(m.bigWx, t2 + ': ...Big Weather is drawn', m.bigWx);
           if (want === 'look-fb') say(!want4.some((k) => m.fcWords.some((w) => meet(m.corner[k], w))), t2 + ': ...none of the corner on its words', [m.corner, m.fcWords.filter((w) => want4.some((k) => meet(m.corner[k], w)))]);
           if (own && m.corner.time) {

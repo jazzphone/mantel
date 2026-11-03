@@ -70,6 +70,9 @@ SHOWS = {
     # (the owner on 0.1.118: "sometimes the clock is off center when set to behind faces" -- the Today face, its song and
     # weather under the time)
     'saver-timebehind-today': ({'show': 'photos', 'time_behind': True, 'clock_style': 'today', 'clock_today_music': True}, 'tb'),
+    # (2026-11-03, the owner's recordings: the people over the time stayed solid while the rest crossfaded, and a zoomed
+    # whole portrait sat off center) -- two photos with people, one a portrait with them at its left, Portrait Zoom 140 %
+    'saver-tb-fade': ({'show': 'photos', 'time_behind': True, 'portrait_fill': False, 'portrait_zoom': 140, 'each_photo': 60}, 'tb-fade'),
     # 26 (2026-10-30): the photo options where they apply -- Clock on sharp photos offers Time Behind and draws it;
     # on Soft photos neither (left on from Photos, it couldn't be turned off from Clock)
     'saver-clockphotos': ({'show': 'clock', 'clock_bg': 'photos', 'time_behind': True}, 'clock-tb'),
@@ -217,6 +220,22 @@ async def photos_for(server, cookie, screens):
         for screen in screens:
             async with http.put(base + f'/api/photos/screens/{screen}', json={'album': aid}, headers=h) as r:
                 assert r.status == 200, await r.text()
+        # (the fade's album: that photo again, and a portrait with its person at the left)
+        async with http.post(base + '/api/photos/albums', json={'name': 'Two Ways'}, headers=h) as r:
+            aid2 = (await r.json())['album']['id']
+        im2 = Image.new('RGB', (900, 1200))
+        d2 = ImageDraw.Draw(im2)
+        for y in range(1200):
+            d2.line([(0, y), (900, y)], fill=(int(120 + 80 * y / 1200), int(170 - 60 * y / 1200), int(210 - 110 * y / 1200)))
+        d2.ellipse([150, 260, 370, 540], fill=(214, 168, 140))
+        d2.rounded_rectangle([40, 600, 480, 1260], radius=110, fill=(110, 40, 60))
+        buf2 = io.BytesIO(); im2.save(buf2, 'JPEG', quality=88)
+        for name, data in (('person.jpg', buf.getvalue()), ('portrait.jpg', buf2.getvalue())):
+            fd = FormData(); fd.add_field('file', data, filename=name, content_type='image/jpeg')
+            async with http.post(base + f'/api/photos/albums/{aid2}/upload', data=fd, headers=h) as r:
+                assert r.status == 201, await r.text()
+        async with http.put(base + '/api/photos/screens/saver-tb-fade', json={'album': aid2}, headers=h) as r:
+            assert r.status == 200, await r.text()
 
 
 async def main():

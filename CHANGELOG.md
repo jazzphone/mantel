@@ -13,6 +13,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - Proxmox LXC: the install uses the GPU for Live TV only when it's Intel (QuickSync, the only GPU the image has a driver for); an AMD or NVIDIA GPU leaves Live TV on the CPU, with a note saying so.
 
 **Fixed**
+- Screensaver: with the time behind the photo's people, the people over the time fade with their photo. The outgoing ones stayed solid while the rest of the screen changed, then vanished; the incoming ones popped in at the start.
+- Screensaver: a whole portrait photo zoomed in (Portrait Photos → Zoom) stays in the middle of the screen. It grew from its faces, so one with them to a side sat off center; it still zooms toward them where it runs past the screen, never showing its edge.
+- Screensaver: the slide corner stays clear of each slide's own words: it drops below Big Weather's top lines, the Weather slide's and Home Energy's.
 - Screensaver: the time stays where Position and Align put it. Measured once as its face first drew, it could sit off center (and push a top corner's piece to the bottom) once the face showed another song or other figures; it's put back on its place by what it shows at every draw.
 - Screensaver editor: nothing on the screen overlaps. A piece another one shows stacks past what is already in its place instead of over it, a band shown by the face draws no second box over the corners, and a dotted place's words stay inside it. A dragged piece lands on the place it covers, not only the one under the pointer.
 - Docker and the LXC: **Live TV plays.** A channel broadcast in 5.1 surround (most of them) stopped the transcoder at once, because go2rtc's Opus audio for browsers can't carry 5.1; the player retried every two seconds with no picture. The sound is mixed down to stereo now (`packaging/compose/go2rtc/go2rtc.yaml`).

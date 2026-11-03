@@ -103,6 +103,24 @@ def test_a_point_set_by_hand_wins_and_a_zoom_shrinks_the_window():
     assert near(out["originContain"]["ox"], (425 + 187.5) / 1600, 1e-3)
 
 
+def test_a_zoomed_whole_portrait_stays_centered_and_never_shows_its_edge():
+    """The owner, 2026-11-03: "Sometimes, portraits photos aren't in the center of the screen" -- a whole portrait zoomed
+    in grew from its faces, so one with its faces to a side sat off center."""
+    out = run("""
+      // a 3:4 portrait whole on 1600 x 1000 (750 x 1000, from 425), its faces at a quarter across, near the top
+      out.fits = U.faceOrigin(0.25, 0.2, 3000, 4000, 1600, 1000, 'contain', 0.5, 0.5, 1.4);
+      // ...at 200 %: 1500 wide still fits across; 2000 tall runs past: toward the faces, its top never inside the frame
+      out.tall = U.faceOrigin(0.25, 0.05, 3000, 4000, 1600, 1000, 'contain', 0.5, 0.5, 2);
+      out.none = U.faceOrigin(0.25, 0.2, 3000, 4000, 1600, 1000, 'contain', 0.5, 0.5, 1);
+    """)
+    assert near(out["fits"]["ox"], 0.5, 1e-3), "across, it fits: from its own middle"
+    assert out["fits"]["oy"] < 0.5, "down, 1400 tall runs past 1000: toward the faces"
+    # zoomed 2x about oy: its top at oy*1000*(1-2) <= 0 and its foot at oy*1000 + (1000 - oy*1000)*2 >= 1000
+    oy = out["tall"]["oy"] * 1000
+    assert oy * (1 - 2) <= 0.5 and oy + (1000 - oy) * 2 >= 999.5
+    assert near(out["none"]["ox"], (425 + 187.5) / 1600, 1e-3), "no zoom: as before"
+
+
 def test_clean_focus_drops_what_isnt_sound():
     out = run("""
       out.ok = U.cleanFocus({ focus: [0.1, 0.9], faces: [[0.1, 0.1, 0.2, 0.2, 0.98]] });

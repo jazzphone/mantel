@@ -671,9 +671,20 @@
   // where the photo's point (cx, cy) lands in a cw x ch frame, the photo
   // drawn at `fit` (cover or contain) with alignment fx, fy: the zoom's
   // origin, so a zoom closes in on the faces -> {ox, oy}, fractions
-  function faceOrigin(cx, cy, iw, ih, cw, ch, fit, fx, fy) {
+  // WITH ITS ZOOM `zm` (2026-11-03, the owner: "Sometimes, portraits photos aren't in the center of the screen"): along a
+  // side where the zoomed photo still fits the frame -- a whole portrait, across -- it grows from its own middle and
+  // stays centered; where it runs past the frame, toward the faces but never so far that its edge comes inside it
+  function faceOrigin(cx, cy, iw, ih, cw, ch, fit, fx, fy, zm) {
     var s = (fit === 'contain' ? Math.min : Math.max)(cw / iw, ch / ih), dw = iw * s, dh = ih * s;
-    return { ox: Math.max(0, Math.min(1, ((cw - dw) * fx + cx * dw) / cw)), oy: Math.max(0, Math.min(1, ((ch - dh) * fy + cy * dh) / ch)) };
+    var axis = function (c, a, d, frame) {
+      var x0 = (frame - d) * a, o = x0 + c * d, z = zm || 1;
+      if (z > 1) {
+        if (d * z <= frame + 0.5) o = x0 + d / 2;
+        else o = Math.max(x0 * z / (z - 1), Math.min((x0 + d) * z / (z - 1) - frame / (z - 1), o));
+      }
+      return Math.max(0, Math.min(1, o / frame));
+    };
+    return { ox: axis(cx, fx, dw, cw), oy: axis(cy, fy, dh, ch) };
   }
   // the blurred copy's blur is its size: drawn this many pixels wide and
   // scaled up -- 50 % is the 24 px it always was; 0 % the 96 px copy itself
@@ -1269,6 +1280,7 @@
     // (the subject's twin over the layout's face: laid out, faded and zoomed as its photo is -- layoutCut)
     '.lay .lycut{position:absolute;inset:0;opacity:0;transition:opacity ' + CROSSFADE_MS + 'ms ease;transform-origin:var(--org,var(--pos,50% 50%));scale:var(--zm,1);pointer-events:none}',
     '.lay .lycut.top{opacity:1}',
+    '.lay .lycut img{transition:opacity ' + CROSSFADE_MS + 'ms ease}',
     '.lay .lycut.zoom{animation:hk-saver-zoom var(--zd,33s) linear forwards}',
     '.lay .lycut img{position:absolute;inset:0;width:100%;height:100%;object-fit:var(--fit,cover);object-position:var(--pos,50% 50%);',
     '  -webkit-mask-size:var(--fit,cover);mask-size:var(--fit,cover);-webkit-mask-position:var(--pos,50% 50%);mask-position:var(--pos,50% 50%);',
@@ -2650,7 +2662,7 @@
         ax = alignOf(kv.cx, Math.min(1, W / k1 / ph.w)); ay = alignOf(kv.cy, Math.min(1, H / k1 / ph.h));
         lay.pos = (ax * 100).toFixed(2) + '% ' + (ay * 100).toFixed(2) + '%';
       }
-      var o = faceOrigin(kv.cx, kv.cy, ph.w, ph.h, W, H, fit.fit, ax, ay);
+      var o = faceOrigin(kv.cx, kv.cy, ph.w, ph.h, W, H, fit.fit, ax, ay, zm);
       org = (o.ox * 100).toFixed(2) + '% ' + (o.oy * 100).toFixed(2) + '%';
     }
     el.style.setProperty('--fit', fit.fit);
@@ -2910,7 +2922,7 @@
     if (!host || !root) return;
     var key = slideNow(), LM = window.hkSaverLayout, WG = window.hkSaverWidgets;
     setAttr(host, 'scorner', !!key);
-    if (!key) return;
+    if (!key) { if (scn) scn.key = null; return; }
     // (the pieces' files asked for once: a load that fails is not asked again from here -- asking again on its failure
     // spun the page, 2026-11-02, the harness's forecast slide; the 0.1.104 rule: nothing wakes itself)
     if (!LM || !WG) {
@@ -2931,6 +2943,8 @@
       scn = { el: el, tl: tl, tr: tr, p: {}, u: 0, minT: null };
     }
     cornerDraw(key);
+    // (and once the slide has come in and drawn its words: what it shows is laid out as it fades in)
+    if (scn.key !== key) { scn.key = key; clearTimeout(scn.againT); scn.againT = setTimeout(function () { if (scn && slideNow() === key) cornerDraw(key); }, CROSSFADE_MS + 150); }
     if (!scn.minT) scn.minT = setTimeout(function tick() { if (!scn) return; scn.minT = setTimeout(tick, 60000 - Date.now() % 60000 + 50); if (slideNow()) cornerDraw(slideNow()); },
                                          60000 - Date.now() % 60000 + 50);
   }
@@ -2970,8 +2984,52 @@
       if (!ink || !(k1 > 0)) return;
       st.style.marginTop = -((ink.y0 - st.getBoundingClientRect().top) / k1) + 'px';
     });
+    // CLEAR OF THE SLIDE'S OWN WORDS (2026-11-03, the owner: "Sometimes the Widgets... overlap or collide with the
+    // Slides"): each side's stack drops below whatever of the slide it would meet -- Big Weather's two lines at the top,
+    // the Weather slide's and Home Energy's own -- by the words and small pictures the slide shows (the music's words
+    // move under the corner instead: layoutMusic)
+    var sl = key === 'energy' ? enCtl && enCtl.el : key === 'weather' ? wxCtl && wxCtl.el : key === 'forecast' || key === 'forecast_big' ? root.querySelector('.fc') : null;
+    if (sl && k1 > 0) {
+      var marks = slideMarks(sl), gap1 = 1.6 * u * k1;
+      [scn.tl, scn.tr].forEach(function (st) {
+        for (var n = 0; n < 4; n++) {
+          var b = st.getBoundingClientRect();
+          if (!b.height) return;
+          var hit = marks.filter(function (r) { return r.left < b.right + gap1 && b.left < r.right + gap1 && r.top < b.bottom + gap1 && b.top < r.bottom + gap1; });
+          if (!hit.length) return;
+          var low = Math.max.apply(null, hit.map(function (r) { return r.bottom; }));
+          st.style.marginTop = (parseFloat(st.style.marginTop) || 0) + (low + gap1 - b.top) / k1 + 'px';
+        }
+      });
+    }
     // (the music's words below the corner, wherever its words now end)
     if (key === 'music') layoutMusic();
+  }
+  // what a slide shows, as boxes on the screen: its words (each text's own box) and its small pictures -- glyphs, rings --
+  // never its backdrop (a picture a third of the screen or more)
+  function slideMarks(layer) {
+    var out = [], W = window.innerWidth || 1280, H = window.innerHeight || 800;
+    (function walk(n) {
+      if (n.nodeType === 3) {
+        if (!n.textContent.trim()) return;
+        var rg = document.createRange(); rg.selectNodeContents(n);
+        var r = rg.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) out.push(r);
+        return;
+      }
+      if (n.nodeType !== 1 || n.tagName === 'STYLE' || n.tagName === 'SCRIPT') return;
+      var cs = getComputedStyle(n);
+      // (the slide's own layer may be fading in: only what is hidden inside it doesn't count)
+      if (cs.display === 'none' || cs.visibility === 'hidden' || (n !== layer && +cs.opacity === 0)) return;
+      if (/^(svg|img|canvas)$/i.test(n.tagName)) {
+        var q = n.getBoundingClientRect();
+        if (q.width > 0 && q.width < W / 3 && q.height < H / 3) out.push(q);
+        return;
+      }
+      if (n.shadowRoot) walk(n.shadowRoot);
+      for (var c = n.firstChild; c; c = c.nextSibling) walk(c);
+    })(layer);
+    return out;
   }
   // the room the corner has: the screen less the Side Pane (as a layout's)
   function layoutRoomOf() {
@@ -2989,7 +3047,7 @@
   }
   function leaveCorner() {
     if (!scn) return;
-    clearTimeout(scn.minT);
+    clearTimeout(scn.minT); clearTimeout(scn.againT);
     Object.keys(scn.p).forEach(function (k) { try { scn.p[k].destroy(); } catch (e) { /* gone */ } });
     if (scn.el.parentNode) scn.el.remove();
     scn = null;
@@ -3537,8 +3595,15 @@
         tw.appendChild(document.createElement('img'));
         tw.firstChild.alt = '';
       }
+      // (shown again after a photo with no cut-out: from nothing, so it fades in -- out of display:none it would jump)
+      if (tw.style.display === 'none') { tw.style.transition = 'none'; tw.classList.remove('top'); tw.style.display = ''; void tw.offsetWidth; }
       // (after the face, before the pieces)
-      if (tw.previousSibling !== ly.big.el && ly.big.el.parentNode === ly.layer) ly.layer.insertBefore(tw, ly.big.el.nextSibling);
+      // (moved only when out of place: two twins each put right after the face swapped places at every draw, and an
+      // element moved in the page drops its running fade -- the twins jumped to the end of every crossfade)
+      if (ly.big.el.parentNode === ly.layer) {
+        var after = tw.parentNode === ly.layer && (ly.big.el.compareDocumentPosition(tw) & 4), firstPc = ly.layer.querySelector(':scope > .hksw');
+        if (!after || (firstPc && !(tw.compareDocumentPosition(firstPc) & 4))) ly.layer.insertBefore(tw, ly.big.el.nextSibling);
+      }
       var im = tw.firstChild, m = 'url("' + d.mask + '")';
       if (im.getAttribute('src') !== ph.url) {
         im.style.setProperty('-webkit-mask-image', m); im.style.setProperty('mask-image', m);
@@ -3552,24 +3617,35 @@
       var R = layoutRoomOf(), pb = ly.plan.big, pos = String(L0.style.getPropertyValue('--pos') || '50% 50%').split(/\s+/).map(function (v) { var n = parseFloat(v); return isFinite(n) ? n / 100 : 0.5; });
       var fit = L0.__fit || 'cover', g = [pb.x - R.room.x, pb.y - R.room.y, pb.w, pb.h];
       var key = [d.mask, Math.round(R.room.w), Math.round(R.room.h), fit, pos.join(' '), g.map(Math.round).join(',')].join('|');
-      if (tw.__key === key && tw.__share !== undefined) { tw.style.display = behindAt(tw.__share) ? '' : 'none'; return; }
-      tw.__key = key; tw.style.display = 'none';
+      // (whether the subject comes in front -- known once its cut-out is weighed -- fades its picture in or out, never
+      // a display that pops: the owner, 2026-11-03, "It just pops up when the transition starts")
+      // (...and only once its own copy of the photo is in: a picture arriving halfway through the fade would pop too)
+      var show = function () { im.style.opacity = tw.__share !== undefined && behindAt(tw.__share) && im.complete && im.naturalWidth ? '' : '0'; };
+      if (!im.__shows) { im.__shows = true; im.addEventListener('load', function () { if (tw.__show) tw.__show(); }); }
+      tw.__show = show;
+      if (tw.__key === key && tw.__share !== undefined) { show(); return; }
+      tw.__key = key; tw.__share = undefined;
+      im.style.transition = 'none'; im.style.opacity = '0'; void im.offsetWidth; im.style.transition = '';
       tbShare(d.mask, drawnRect(ph.w, ph.h, R.room.w, R.room.h, fit, pos[0], pos[1] == null ? 0.5 : pos[1]), g, key, function (share) {
         if (tw.__key !== key) return;
         tw.__share = share;
-        tw.style.display = behindAt(share) ? '' : 'none';
+        show();
       });
     });
   }
-  // a twin follows its photo's layer: shown with it, fading as it fades (the same transition), zooming as it zooms
+  // a twin follows its photo's layer: shown with it, fading as it fades (the same transition), zooming as it zooms.
+  // THE CROSSFADE (2026-11-03, the owner's recordings: the outgoing people stayed solid over the time while the rest
+  // of the screen changed, then vanished): the incoming photo fades in over the outgoing one, which stays opaque under
+  // it -- but the twins are both over the face, so the outgoing one fades out as the incoming one fades in, at its pace
   function cutFollow(L0, tw) {
     if (!tw) return;
-    tw.style.transition = L0.style.transition;
+    var cur = displayLayer && displayLayer.classList && displayLayer.classList.contains('ph') ? displayLayer : null;
+    tw.style.transition = (cur || L0).style.transition;
     // (no z-index of its photo's: its place in the layer -- after the face, before the pieces -- is its height)
     if (L0.classList.contains('zoom') !== tw.classList.contains('zoom')) {
       if (L0.classList.contains('zoom')) { void tw.offsetWidth; tw.classList.add('zoom'); } else tw.classList.remove('zoom');
     }
-    tw.classList.toggle('top', L0.classList.contains('top'));
+    tw.classList.toggle('top', cur ? L0 === cur : L0.classList.contains('top'));
   }
   function cutsFollow() {
     if (!ly || !ly.cuts || !root) return;
