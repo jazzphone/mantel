@@ -58,9 +58,11 @@ async def lan_get(app: web.Application, host: str, path: str = "/lineup.json", *
         name, p = host.split(":")
         port = int(p)
     infos = await asyncio.get_running_loop().getaddrinfo(name, port, type=socket.SOCK_STREAM)
-    addrs = list(dict.fromkeys(str(i[4][0]) for i in infos))
-    if not addrs or not all(check(a) for a in addrs):
-        raise ValueError("not an address on the home network")
+    # the request goes to an address that passed, never to the name: an mDNS name's link-local address beside its
+    # home one, say, is passed over, and nothing it resolves to later is connected to
+    addrs = [a for a in dict.fromkeys(str(i[4][0]) for i in infos) if check(a)]
+    if not addrs:
+        raise ValueError(f"{host} isn't an address on the home network")
     ip = addrs[0]
     target = f"[{ip}]" if ":" in ip else ip
     session = app.get("http")
@@ -98,8 +100,10 @@ class LiveTv:
         try:
             if cfg["tuner"]:
                 url = cfg["tuner"] if cfg["tuner"].startswith(("http://", "https://")) else f"http://{cfg['tuner']}/lineup.json"
-                home = N.lan_host(cfg["tuner"]) if url.startswith("http://") else None
-                # a tuner on the home network (every one Mantel saved itself): its address checked, no redirects
+                # a tuner Mantel saved itself (features/auto.py turned Live TV on): its address checked, no redirects.
+                # One a person typed is read as they typed it.
+                mark = ((self.host.settings.get("auto") or {}).get("decided") or {}).get("live_tv") or {}
+                home = N.lan_host(cfg["tuner"]) if url.startswith("http://") and mark.get("by") == "auto" else None
                 raw = await lan_get(self.host.app, home, timeout=20.0) \
                     if home and self.host.hooks.fetch is None else await fetch(url)
                 data = json.loads(raw)

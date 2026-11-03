@@ -386,6 +386,10 @@ class AutoFeatures:
 
     async def _mark_owner(self, pieces: set[str]) -> None:
         """The backstop's find, written as the ``owner`` marker so the history is read once per piece."""
+        async with self.host.features_lock:
+            await self._mark_owner_now(pieces)
+
+    async def _mark_owner_now(self, pieces: set[str]) -> None:
         h = self.host
         doc = h.store.get("house", FEATURES_DOC)
         try:
@@ -416,7 +420,12 @@ class AutoFeatures:
 
     async def turn_on(self, piece: str, need: N.Need) -> bool:
         """Turn ``piece`` on, the way a person would: checked, the audit row first, a new version of the feature
-        settings in the store (refused if a person's save came first), the screens told, the Owner told."""
+        settings in the store (refused if a person's save came first), the screens told, the Owner told. One change
+        of the feature settings at a time (``features_lock``, which the saves hold too)."""
+        async with self.host.features_lock:
+            return await self._turn_on(piece, need)
+
+    async def _turn_on(self, piece: str, need: N.Need) -> bool:
         h = self.host
         doc = h.store.get("house", FEATURES_DOC)
         try:

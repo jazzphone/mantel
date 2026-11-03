@@ -341,6 +341,19 @@ class FeaturePages:
 
     # -- the saves -----------------------------------------------------------------------------------
     async def save(self, identity: Any, msg: dict[str, Any]) -> dict[str, Any]:
+        """One save at a time over the feature settings (``FeatureHost.features_lock``, which Mantel's own turn-on
+        holds too): each reads, writes and reloads before the next reads, so none is made from an overtaken copy."""
+        from .settings_store import SettingsError
+        async with self.host.features_lock:
+            try:
+                return await self._save(identity, msg)
+            except SettingsError as exc:
+                if exc.code != "conflict":
+                    raise
+                await self.host.reload()
+                raise PageError("conflict", "The feature settings changed a moment ago. Try again.") from None
+
+    async def _save(self, identity: Any, msg: dict[str, Any]) -> dict[str, Any]:
         t = msg.get("type")
         piece, required, optional = SAVES[t]
         missing, extra = required - set(msg), set(msg) - {"type", "id"} - required - optional

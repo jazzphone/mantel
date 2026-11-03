@@ -111,6 +111,7 @@ class FeatureHost:
         self._in_use_timers: dict[str, asyncio.TimerHandle] = {}
         self._tasks: set[asyncio.Task] = set()
         self._reload_lock = asyncio.Lock()
+        self.features_lock = asyncio.Lock()          # one change of house/mantel_features at a time (saves, auto.py)
         self._feed_unsub: Callable[[], None] | None = None
         self.started = False
         # what the screens are told (the settings feed's `added` and `energy`): the Energy page's plan as
@@ -1279,21 +1280,30 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
     @guard("owner", no_audit="a new version of house/mantel_features in the settings store, whose history names who saved it")
     async def api_settings_put(request: web.Request) -> web.Response:
         ident = guarded(request)
-        try:
-            body = await request.json()
-            # what Mantel decided is kept unless the body says otherwise: a body with no `auto` (a document from
-            # before it, or one written by hand) leaves the switch and the markers as they are
-            if isinstance(body, dict):
-                cur = host.settings["auto"]
-                mine = body.get("auto")
-                if mine is None or isinstance(mine, dict):
-                    body = {**body, "auto": {**cur, **(mine or {})}}
-            settings = check_settings(body)
-        except ValueError as exc:
-            return web.json_response({"error": {"code": "invalid", "message": str(exc)}}, status=400)
-        settings = check_settings(host.owner_decided(host.settings, settings))
-        host.write_doc(FEATURES_DOC, settings, ident, "feature settings")
-        await host.reload()
+        from ..settings_store import SettingsError
+        async with host.features_lock:
+            try:
+                body = await request.json()
+                # what Mantel decided is kept unless the body says otherwise: a body with no `auto` (a document from
+                # before it, or one written by hand) leaves the switch and the markers as they are
+                if isinstance(body, dict):
+                    cur = host.settings["auto"]
+                    mine = body.get("auto")
+                    if mine is None or isinstance(mine, dict):
+                        body = {**body, "auto": {**cur, **(mine or {})}}
+                settings = check_settings(body)
+            except ValueError as exc:
+                return web.json_response({"error": {"code": "invalid", "message": str(exc)}}, status=400)
+            settings = check_settings(host.owner_decided(host.settings, settings))
+            try:
+                host.write_doc(FEATURES_DOC, settings, ident, "feature settings", expect_version=host.settings_version)
+            except SettingsError as exc:
+                if exc.code != "conflict":
+                    raise
+                await host.reload()
+                return web.json_response({"error": {"code": "conflict", "message": "The feature settings changed a "
+                                                    "moment ago. Read them again and save."}}, status=409)
+            await host.reload()
         if host.on("live_tv") and host.started:
             host.spawn(host.tv.refresh())
         return web.json_response({"settings": host.settings})

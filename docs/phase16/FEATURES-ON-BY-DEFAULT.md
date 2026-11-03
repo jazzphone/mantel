@@ -437,6 +437,12 @@ All of it is in this repository (read for this plan):
   `tv_fetch.lan_get`: the name resolved, every address checked with `home_ip`, the request to that address, no
   redirects, 2 MB); IPv6 zones (refused) and `[IPv6]` tuners (now pass `check_settings`); a short first read of the
   lineup (now read to the end under the cap).
+- **The review of 16.3-16.4 (Sonnet)** found: `lan_get` refused a name that also resolved to a link-local or
+  public address, and Live TV's refresh used it for a tuner a person typed (it now connects to the first home address
+  the name has, and the refresh uses it only for a tuner Mantel saved itself); two saves in quick succession could
+  refuse each other (the feature settings' saves and Mantel's turn-on now take one lock, `features_lock`, and a
+  conflict says to try again); `PUT /api/features/settings` now carries its version (409 `conflict`); the alert's
+  name in the guide.
 - **`hk-client.js` WRITES is unchanged:** the `<id>/feature/set` saves aren't in it either (they leave as settings
   saves through `mantel-client.js`), so the new save sits with them.
 - **The private-data scan** of the HA build refuses dotted private addresses in shipped code, so `needs.py` writes

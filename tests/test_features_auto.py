@@ -568,3 +568,49 @@ def test_the_alerts_link_opens_advanced_features():
     js = (Path(__file__).resolve().parents[1] / "web/shim/mantel-settings.js").read_text()
     assert "if (/^mantel\\/features$/.test(path)) return 'advanced/features';" in js, \
         "Mantel Settings forwards #/mantel/features to HK's Advanced -> Features"
+
+
+async def test_lan_get_passes_over_an_address_that_fails_and_uses_one_that_passes(lan_server):
+    from aiohttp import web
+    from mantel_server.features.tv_fetch import lan_get
+    srv, seen = lan_server
+    # "localhost" has ::1 and 127.0.0.1: only the IPv4 one "passes" here, and that one is connected to
+    got = await lan_get(web.Application(), f"localhost:{srv.port}", check=lambda a: a == "127.0.0.1")
+    assert json.loads(got) == json.loads(LINEUP)
+
+
+async def test_a_typed_tuner_is_read_as_typed_and_a_found_one_through_lan_get(tmp_path, monkeypatch):
+    from mantel_server.features import tv_fetch
+    r = await rig(tmp_path, monkeypatch, serves="mantel", settings={"live_tv": {"enabled": True, "tuner": TUNER}})
+    r.host.hooks.fetch = None
+    used = []
+
+    async def fake_lan_get(app, host, *a, **k):
+        used.append(("lan_get", host))
+        return LINEUP
+
+    async def fake_http(app, url, *a, **k):
+        used.append(("http", url))
+        return LINEUP
+    monkeypatch.setattr(tv_fetch, "lan_get", fake_lan_get)
+    from mantel_server.features import host as FH
+    monkeypatch.setattr(FH, "http_fetch", fake_http)
+    await r.host.tv.refresh()
+    assert used == [("http", f"http://{TUNER}/lineup.json")], "a person's tuner, as before"
+    body = {**r.host.settings, "auto": {"enabled": True, "decided": {"live_tv": {"by": "auto", "at": "x", "why": "y"}}}}
+    write(r, body)
+    await r.host.reload()
+    await r.host.tv.refresh()
+    assert used[-1] == ("lan_get", TUNER) and r.host.tv.lineup
+
+
+async def test_saves_and_mantels_turn_on_take_turns(tmp_path, monkeypatch):
+    r = await rig(tmp_path, monkeypatch)
+    await r.auto.look()
+    r.clock.t += A.TWO_LOOKS_S
+    async with r.host.features_lock:
+        task = asyncio.ensure_future(r.auto.look())
+        await asyncio.sleep(0.05)
+        assert not r.host.on("music"), "waits for the save in progress"
+    await task
+    assert r.host.on("music")

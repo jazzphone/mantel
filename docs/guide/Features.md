@@ -42,7 +42,7 @@ of the House never turn on by themselves. They guard the house or act on it, or 
 
 - **Advanced → Features**: under a feature Mantel turned on, it says when and why, for example "Turned on by Mantel on
   Nov 4: Music Assistant is connected." Under a feature that's off but close, it says what's still missing.
-- **An alert**, **Mantel Turned On Music** (or Clean Areas, Energy or Live TV), to the channels you chose in
+- **An alert**, **Mantel Turned On a Feature** ("Mantel turned on Music", say), to the channels you chose in
   [Alerts](Alerts.md), with a link to Advanced → Features.
 - **The history**: the settings history shows the change by "Mantel (mantel-auto)", and the Audit Log has a
   `features.auto_on` row.
