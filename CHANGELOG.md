@@ -5,11 +5,14 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 ## Unreleased
 
 **Added**
+- Screensaver: the **Today** face's weather can be turned off (**Weather**, beside **What's Playing**, under Face in the editor). A Weather or Music piece is hidden as "shown by the Today face" only while the face shows it.
 - Mantel Settings → Advanced → **Features**: every feature with an on/off switch, what it needs and where its settings are. Each feature's own page keeps its Add and Remove (Music's page has Remove too now).
 - Docker and the LXC: **Live TV falls back to the CPU when the GPU can't transcode.** The first channel played after Mantel starts is checked on the GPU (about 3 seconds); if the GPU fails and the CPU plays the channel, Live TV uses the CPU until Mantel restarts, and Live TV's status says why (`gpu_failed`). Before, the player retried forever with no picture.
 - Proxmox LXC: the install uses the GPU for Live TV only when it's Intel (QuickSync, the only GPU the image has a driver for); an AMD or NVIDIA GPU leaves Live TV on the CPU, with a note saying so.
 
 **Fixed**
+- Screensaver: the time stays where Position and Align put it. Measured once as its face first drew, it could sit off center (and push a top corner's piece to the bottom) once the face showed another song or other figures; it's put back on its place by what it shows at every draw.
+- Screensaver editor: nothing on the screen overlaps. A piece another one shows stacks past what is already in its place instead of over it, a band shown by the face draws no second box over the corners, and a dotted place's words stay inside it. A dragged piece lands on the place it covers, not only the one under the pointer.
 - Docker and the LXC: **Live TV plays.** A channel broadcast in 5.1 surround (most of them) stopped the transcoder at once, because go2rtc's Opus audio for browsers can't carry 5.1; the player retried every two seconds with no picture. The sound is mixed down to stereo now (`packaging/compose/go2rtc/go2rtc.yaml`).
 - Sign in with Home Assistant: when Home Assistant refuses (a user that can only sign in from the local network, or an inactive one), the page says Home Assistant's own reason instead of only that it couldn't confirm who you are.
 - Docker and the LXC: Mantel's address (`/`) opens the screens, not the developer's page (`/dev`), which the image no longer carries. The Home Assistant App never had it.

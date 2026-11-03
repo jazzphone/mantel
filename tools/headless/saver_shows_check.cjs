@@ -108,15 +108,30 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         });
         say(started && !!tb && tb.tb && !!tb.time && tb.cut, screen + ' ' + W + 'x' + H + ': Photos with the time on them: the layout\'s face, the subject\'s twin over it', tb);
         const wx = tb && tb.weather, ink = wx && wx.ink, g = tb && tb.figures;
-        say(!!wx && wx.h > 0 && !!ink && /\d°/.test(ink.text), screen + ' ' + W + 'x' + H + ': the weather is there, with its temperature', wx);
+        if (!/today/.test(screen)) say(!!wx && wx.h > 0 && !!ink && /\d°/.test(ink.text), screen + ' ' + W + 'x' + H + ': the weather is there, with its temperature', wx);
         // (in a corner: the upper left beside a time that leaves it room, else the plan's other end of its side -- phase 13)
-        say(!!ink && ink.l <= 0.15 * W && (ink.t <= 70 || ink.b >= H - 0.2 * H), screen + ' ' + W + 'x' + H + ': ...in a corner at the left', ink);
-        say(!!ink && !!g && (ink.b <= g[1] + 1 || ink.r <= g[0] + 1 || ink.t >= g[1] + g[3] - 1), screen + ' ' + W + 'x' + H + ': ...clear of the time\'s figures', [ink, g]);
+        if (!/today/.test(screen)) say(!!ink && ink.l <= 0.15 * W && (ink.t <= 70 || ink.b >= H - 0.2 * H), screen + ' ' + W + 'x' + H + ': ...in a corner at the left', ink);
+        if (!/today/.test(screen)) say(!!ink && !!g && (ink.b <= g[1] + 1 || ink.r <= g[0] + 1 || ink.t >= g[1] + g[3] - 1), screen + ' ' + W + 'x' + H + ': ...clear of the time\'s figures', [ink, g]);
         // (2026-11-02, the owner: "sometimes the clock is off center when set to behind faces" -- 0.1.113 drew the time in
         // the photo's layer, which zooms toward the photo's faces; the layout's face holds still where it is set, and
         // only the subject's twin zooms)
-        const tPlan = tb && tb.time && g ? Math.abs((tb.time.l + tb.time.r) / 2 - (g[0] + g[2] / 2)) : null;
-        say(tPlan !== null && tPlan <= 2, screen + ' ' + W + 'x' + H + ': the time centered where it is set', [tb && tb.time, g]);
+        const figs = await page.evaluate(() => { const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
+          const t = host && host.shadowRoot.querySelector('.lay .lybig .tm'); if (!t) return null; const q = []; const walk = (n) => { if (n.nodeType === 3) { if (n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); const r = rg.getBoundingClientRect(); if (r.width > 0) q.push(r); } return; } if (n.nodeType === 1) n.childNodes.forEach(walk); }; walk(t);
+          return q.length ? { l: Math.min(...q.map((r) => r.left)), r: Math.max(...q.map((r) => r.right)), text: t.textContent.trim(), W: innerWidth } : null; });
+        // (by the figures' letters: a face's box holds its other lines too)
+        const tPlan = figs && g ? Math.abs((figs.l + figs.r) / 2 - (g[0] + g[2] / 2)) : null;
+        say(tPlan !== null && tPlan <= 2, screen + ' ' + W + 'x' + H + ': the time centered where it is set', [figs, g]);
+        if (/today/.test(screen)) {
+          // (what the face shows changes after it was measured: wider figures, a much longer song -- put back on its Align)
+          await page.evaluate(() => { const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
+            const f = host.shadowRoot.querySelector('.lay .lybig .face'), t = f && f.querySelector('.tm'), s = f && f.querySelector('.np .t');
+            if (t) t.textContent = '12:58'; if (s) s.textContent = 'You Shook Me All Night Long (Live at the Fictional Hall, the Long Version)';
+            window.hkSaver._.layoutNow(); return true; });
+          await page.waitForTimeout(800);
+          const f2 = await page.evaluate(() => { const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
+            const r = host.shadowRoot.querySelector('.lay .lybig .tm').getBoundingClientRect(); return { l: r.left, r: r.right }; });
+          say(!!g && Math.abs((f2.l + f2.r) / 2 - (g[0] + g[2] / 2)) <= 2, screen + ' ' + W + 'x' + H + ': ...still centered once the face shows other figures and a longer song', [f2, g]);
+        }
         await page.waitForTimeout(4000);
         const t2 = await page.evaluate(() => { const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
           const t = host && host.shadowRoot.querySelector('.lay .lybig'), r = t && t.getBoundingClientRect(); return r ? { l: r.left, t: r.top, w: r.width } : null; });

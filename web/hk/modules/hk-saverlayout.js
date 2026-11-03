@@ -347,6 +347,8 @@
   function claims(O, cfg) {
     var out = {}, seen = {}, zs = O.zones, b = O.big || {};
     var faceHas = b.kind === 'time' ? FACE_FACTS[(cfg || {}).clock_style] || [] : [];
+    // (only what the face is set to show: Today's Weather and What's Playing can be turned off)
+    if ((cfg || {}).clock_style === 'today') faceHas = faceHas.filter(function (f) { return !(f === 'weather' && cfg.clock_today_weather === false) && !(f === 'music' && cfg.clock_today_music === false); });
     var faceName = { today: 'the Today face' }[(cfg || {}).clock_style];
     // (Glance, Month and the Day face drawing their own words -- no big element of the layout's: what they show)
     var SHOW_FACTS = { glance: ['time', 'weather', 'music', 'date'], month: ['time', 'date'], day: ['date'] };

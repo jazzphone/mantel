@@ -139,5 +139,11 @@ var footInk = [I.corners.bl[0].y + I.corners.bl[0].h - 16, I.corners.br[0].y + I
 ok('the time\'s ink, the top left\'s and the top right\'s on one line: the margin', topInk, [I.m, I.m, I.m].map(Math.round));
 ok('...the bottom corners\' ink on one line: the bottom margin', footInk, [800 - I.m, 800 - I.m].map(Math.round));
 
+// A FACT SHOWN ONCE, by what the Today face is set to show (2026-11-02, the owner: Weather a toggle like What's Playing)
+var todayO = { big: { kind: 'time' }, zones: { line: [], row: [], tl: [{ piece: 'weather', shape: 'inline' }], tr: [], bl: [{ piece: 'music', shape: 'card' }], br: [], bottom: [] } };
+ok('the Today face hides the Weather and Music pieces it shows', Object.keys(L.claims(todayO, { clock_style: 'today' })).sort(), ['bl:0', 'tl:0']);
+ok('...not the Weather with its weather off', Object.keys(L.claims(todayO, { clock_style: 'today', clock_today_weather: false })), ['bl:0']);
+ok('...not the Music with What\u2019s Playing off', Object.keys(L.claims(todayO, { clock_style: 'today', clock_today_music: false })), ['tl:0']);
+
 print(fail ? 'FAIL ' + fail + ' SAVER ZONES TESTS' : 'ALL ' + pass + ' SAVER ZONES TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

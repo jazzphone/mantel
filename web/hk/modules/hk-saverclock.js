@@ -320,7 +320,7 @@
       f.style.setProperty('--cktw', d.getHours() >= 7 && d.getHours() < 20 ? '600' : '400');
       // THE WEATHER: the screen's weather service (Weather), else the first
       var states = (client && client.states) || {}, wid = x.weather && states[x.weather] ? x.weather : Object.keys(states).filter(function (k) { return k.indexOf('weather.') === 0; })[0];
-      var w = wid && states[wid], key = w ? w.state + '|' + (w.attributes || {}).temperature : '';
+      var w = x.todayWeather !== false && wid && states[wid], key = w ? w.state + '|' + (w.attributes || {}).temperature : '';
       if (key !== wxKey) {
         wxKey = key;
         if (!w) { wx.innerHTML = ''; }
@@ -1183,7 +1183,7 @@
     layer.appendChild(root);
     var client = opts.client || null;
     var ctx = {
-      h24: !!opts.h24, glass: null, vars: color[2], weather: opts.weather || null, ground: grounded, music: opts.music !== false,
+      h24: !!opts.h24, glass: null, vars: color[2], weather: opts.weather || null, ground: grounded, music: opts.music !== false, todayWeather: opts.todayWeather !== false,
       // the box it fills (the layer: a block's, or the screen beside a pane -- never the window's own)
       box: function () { return { w: layer.clientWidth || window.innerWidth || 1180, h: layer.clientHeight || window.innerHeight || 820 }; },
       client: function () { return client; },

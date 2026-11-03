@@ -1095,9 +1095,13 @@
           return K.select({ label: 'Color', value: (o.clock_colors || {})[o.clock_style] || colors[0][0], options: colors,
             onChange: function (v) { self.change(function (x) { x.clock_colors = Object.assign({}, x.clock_colors || {}); x.clock_colors[x.clock_style] = v; }); } });
         } },
-        // (Today's line of what's playing, under its weather)
+        // (Today's weather and its line of what's playing, under the time; the owner, 2026-11-02: the weather "should be a
+        // toggle like What's Playing")
         { applies: function (s) { return s.kind === 'time' && s.face === 'today'; }, make: function () {
-          return K.toggle({ label: 'What’s Playing', sub: 'Today also shows the weather and the song', on: o.clock_today_music !== false, onChange: put('clock_today_music') });
+          return K.toggle({ label: 'Weather', sub: 'Today shows the weather under the time', on: o.clock_today_weather !== false, onChange: put('clock_today_weather') });
+        } },
+        { applies: function (s) { return s.kind === 'time' && s.face === 'today'; }, make: function () {
+          return K.toggle({ label: 'What’s Playing', sub: 'Today shows the song under the weather', on: o.clock_today_music !== false, onChange: put('clock_today_music') });
         } },
         { applies: function (s) { return s.kind === 'time'; }, make: function () {
           return K.toggle({ label: '24-Hour Time', on: !!o.clock_24, onChange: put('clock_24') });

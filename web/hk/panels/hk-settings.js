@@ -3806,8 +3806,10 @@
         })));
       // Today's line of what's playing, under its weather (2026-11-01, the owner: "I don't see a place to turn this off")
       if ((cur.clock_style || 'classic') === 'today') {
-        c.appendChild(K.group({ footer: 'Today shows the song playing in the house under its weather, while something plays.' },
-          [K.toggle({ label: 'What’s Playing', sk: 'saver:clock_today_music', on: cur.clock_today_music !== false,
+        c.appendChild(K.group({ footer: 'Today shows the weather under the time, and the song playing in the house under it, while something plays.' },
+          [K.toggle({ label: 'Weather', sk: 'saver:clock_today_weather', on: cur.clock_today_weather !== false,
+                     onChange: function (on) { put('clock_today_weather', on); } }),
+           K.toggle({ label: 'What’s Playing', sk: 'saver:clock_today_music', on: cur.clock_today_music !== false,
                       onChange: function (on) { put('clock_today_music', on); } })]));
       }
     }

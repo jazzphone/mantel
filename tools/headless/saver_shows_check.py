@@ -67,6 +67,9 @@ SHOWS = {
     'saver-forecast': ({'show': 'forecast'}, None),
     # Photos with Time Behind (2026-10-31): the weather in the upper-left corner, as on Clock, clear of the time
     'saver-timebehind': ({'show': 'photos', 'time_behind': True, 'photo_titles': True, 'zoom': True, 'portrait_zoom': 150, 'landscape_zoom': 150}, 'tb'),
+    # (the owner on 0.1.118: "sometimes the clock is off center when set to behind faces" -- the Today face, its song and
+    # weather under the time)
+    'saver-timebehind-today': ({'show': 'photos', 'time_behind': True, 'clock_style': 'today', 'clock_today_music': True}, 'tb'),
     # 26 (2026-10-30): the photo options where they apply -- Clock on sharp photos offers Time Behind and draws it;
     # on Soft photos neither (left on from Photos, it couldn't be turned off from Clock)
     'saver-clockphotos': ({'show': 'clock', 'clock_bg': 'photos', 'time_behind': True}, 'clock-tb'),
@@ -222,7 +225,7 @@ async def main():
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td), real_model=True)
         async with TestServer(app) as server:
-            await photos_for(server, cookie, ('saver-timebehind', 'saver-clockphotos', 'saver-clocksoft', 'saver-lay-slides', 'saver-lay-tb')
+            await photos_for(server, cookie, ('saver-timebehind', 'saver-timebehind-today', 'saver-clockphotos', 'saver-clocksoft', 'saver-lay-slides', 'saver-lay-tb')
                              + tuple(k for k in SHOWS if k.startswith('saver-look-photo')))
             if args.shots:
                 args.shots.mkdir(parents=True, exist_ok=True)
