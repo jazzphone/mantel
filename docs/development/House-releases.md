@@ -347,3 +347,12 @@ Every Mantel release here is tagged `vX.Y.Z` on its release commit once the hous
 - The house (the Proxmox LXC): `update` over SSH, 0.1.119 -> 0.1.120, build `0c27b5713597835c`; all three services healthy, `/healthz?strict=1` 200, no "Traceback" or "ERROR"; Mantel Link reconnected; the five wall tablets reporting; go2rtc.yaml carries the `-ss 1.2` templates. The stopped HA App staged to 0.1.120 too.
 - HK Frontend 1.40.0 copied (diff clean), Home Assistant restarted; published to jazzphone/hk-frontend, tagged v1.40.0 with its GitHub Release (the Wiki had no changes). Still linked to the stopped App until the owner relinks it.
 - Mantel Link unchanged at 0.1.12.
+
+## Mantel 0.1.121 and HK Frontend 1.41.0 (2026-11-03)
+
+- What ships (every commit since v0.1.120 read: phase 16 and the plans for phases 15 to 19): features turned on by themselves once the house has what they need (Music, Clean Areas, Energy, Live TV; two looks 2 minutes apart, a person's choice final, no command sent; hk_core/needs.py, features/auto.py; e5d1e614, 89d593c7), Advanced -> Features' Turn Features On Automatically and the rows' notes, the `feature.enabled` Info alert (5a48fec8, 6dc64e54), a home-network tuner's lineup read at the address checked with no redirects, and the reviews' fixes (233a4a47); docs/guide/Features.md.
+- `tools/ci.py full` on the release tree (d10c2d3a): 51 of 51, nothing skipped (Docker running, the Caddy image test included). Release commit 1a4a4973, `ci.py versions` 5 of 5.
+- Tagged v0.1.121 and published: release workflow run 41732488607, then the GitHub Release v0.1.121. Done by hand (Releasing.md): phase 15's new flow waits on main for this record.
+- The house (the Proxmox LXC): `update` over SSH, 0.1.120 -> 0.1.121, build `a18d7a553db6323a`; the three services healthy, `/healthz?strict=1` 200, no "Traceback" or "ERROR"; Mantel Link reconnected. Two looks after the start, Mantel turned **Music** on by itself ("Music Assistant is connected."; `auto.decided.music` by `auto`); Clean Areas, Energy and Live TV were already on, and Live TV's `go2rtc_once` stands.
+- HK Frontend 1.41.0 copied (diff clean), Home Assistant restarted (no errors; the old link to the stopped App still warns, as before); published to jazzphone/hk-frontend, tagged v1.41.0 with its GitHub Release (the Wiki had no changes).
+- Mantel Link unchanged at 0.1.12.
