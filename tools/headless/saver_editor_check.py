@@ -43,6 +43,13 @@ LAYOUT = {'v': 2, 'big': {'kind': 'time', 'size': 26, 'pos': 'upper', 'align': '
                                                           pc('status.circular')],
                     'tl': [], 'tr': [], 'bl': [pc('music.card')], 'br': [], 'bottom': []}}
 
+# (2026-11-02, the owner's All Screens: "lots of overlapping elements on screen" -- Photo Frame with the Today face behind,
+# its weather and music shown by the face, Timers over Home Status at the bottom right, nothing in the line or the row)
+CROWD = 'saver-editor-crowd'
+CROWD_LAYOUT = {'v': 2, 'big': {'kind': 'time', 'size': 35, 'pos': 'top', 'align': 'center', 'depth': 'behind'}, 'row_at': 'under', 'upright': None,
+                'zones': {'line': [], 'row': [], 'tl': [pc('date.inline')], 'tr': [], 'bl': [pc('music.card', back='none'), pc('weather.inline')],
+                          'br': [pc('timers.inline'), pc('status.card', back='none')], 'bottom': [pc('weather.band')]}}
+
 
 async def main():
     from aiohttp.test_utils import TestServer
@@ -52,6 +59,9 @@ async def main():
                                                 'doors': [], 'windows': [], 'garage': []}
     gallery.SETTINGS['boards'][SCREEN] = {'title': 'Living Room Tablet', 'pages': [], 'headers': {'home': True}, 'menu_custom': True, 'menu': 'tabbar',
                                           'screensaver': True, 'screensaver_options': {'show': 'forecast', 'clock_style': 'classic', 'layout': LAYOUT}}
+    gallery.SETTINGS['boards'][CROWD] = {'title': 'Crowded Tablet', 'pages': [], 'headers': {'home': True}, 'menu_custom': True, 'menu': 'tabbar',
+                                         'screensaver': True, 'screensaver_options': {'show': 'photos', 'clock_style': 'today', 'clock_today_music': True,
+                                                                                      'layout': CROWD_LAYOUT}}
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td), real_model=True)
         async with TestServer(app) as server:
@@ -59,7 +69,7 @@ async def main():
                 args.shots.mkdir(parents=True, exist_ok=True)
             proc = await asyncio.create_subprocess_exec(args.node, str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE,
                                                         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=os.environ)
-            out, err = await proc.communicate(json.dumps({'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'screen': SCREEN,
+            out, err = await proc.communicate(json.dumps({'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'screen': SCREEN, 'crowd': CROWD,
                                                           'size': [w, h], 'shots': str(args.shots) if args.shots else None}).encode())
             print(out.decode())
             if err.strip():

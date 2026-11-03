@@ -243,7 +243,7 @@
     '.ov .z.want{outline:3px dashed #30d158!important;background:rgba(48,209,88,.18)!important}',
     // (dragged: what it is, at the pointer; the green place under it, brighter)
     '.ov .z.want.hover{background:rgba(48,209,88,.45)!important;outline-style:solid!important}',
-    '.dragchip{position:fixed;z-index:20;pointer-events:none;transform:translate(-50%,-130%);padding:8px 14px;border-radius:12px;background:var(--hk-accent,#0a84ff);color:#fff;font-weight:600;font-size:14px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.3)}',
+    '.dragchip{position:fixed;z-index:20;pointer-events:none;transform:translate(-50%,-50%);padding:8px 14px;border-radius:12px;background:var(--hk-accent,#0a84ff);color:#fff;font-weight:600;font-size:14px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.3)}',
     '.pitem,.ov .w{-webkit-user-select:none;user-select:none}',
     // (the + after what a zone has: round, its sign drawn -- a glyph sits on the font's own math axis, off the middle of its line)
     ':host(:not([previewing])) .ov .z.plus{border-radius:50%}',
@@ -253,10 +253,10 @@
     ':host([previewing]) .ov .z{display:none}',
     // (a piece with nothing to show now -- no music, no timer -- still has its place: drawn dotted, with its name and when it shows)
     ':host(:not([previewing])) .ov .w.empty{outline:2px dotted rgba(255,255,255,.8);outline-offset:3px;background:rgba(0,0,0,.18)}',
-    ':host(:not([previewing])) .ov .w.empty span,:host(:not([previewing])) .ov .w.claimed span{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:calc(var(--zf,22px) * .8);font-weight:600;text-align:center;line-height:1.15;text-shadow:0 1px 4px rgba(0,0,0,.7);pointer-events:none;padding:0 6px}',
+    ':host(:not([previewing])) .ov .w.empty span,:host(:not([previewing])) .ov .w.claimed span{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:calc(var(--zf,22px) * .8);font-weight:600;text-align:center;line-height:1.15;text-shadow:0 1px 4px rgba(0,0,0,.7);pointer-events:none;padding:0 6px;overflow:hidden}',
     // (a piece another shows the fact of -- the face, the big time -- drawn faded, with who shows it)
     ':host(:not([previewing])) .ov .w.claimed{outline:2px dashed rgba(255,214,10,.85);outline-offset:3px;background:rgba(0,0,0,.34);opacity:.62}',
-    ':host(:not([previewing])) .ov .w small{font-size:.78em;font-weight:500;opacity:.9}',
+    ':host(:not([previewing])) .ov .w small{font-size:.78em;font-weight:500;opacity:.9;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     ':host([previewing]) .ov .w.claimed{display:none}',
     '.ov .moved{position:absolute;pointer-events:none;font-size:calc(var(--zf,22px) * .8);font-weight:600;color:#000;background:#ffd60a;border-radius:8px;padding:4px 10px;white-space:nowrap}',
     ':host([previewing]) .ov{pointer-events:none}:host([previewing]) .ov .moved{display:none}',
@@ -524,7 +524,10 @@
       this.live = info;
       var P = info.plan, zs = info.zones, rs = info.row_size || this.rowSize(), lack = lacks(this.opts, this.T());
       this.ov.style.setProperty('--zf', Math.max(11, Math.min(info.W, info.H) * 0.026).toFixed(1) + 'px');
-      var place = function (el, b) { el.style.left = b.x + 'px'; el.style.top = b.y + 'px'; el.style.width = b.w + 'px'; el.style.height = b.h + 'px'; return el; };
+      // (every box drawn, so what is drawn after stands clear of it: the owner, 2026-11-02, "lots of overlapping elements")
+      var taken = [];
+      var place = function (el, b) { el.style.left = b.x + 'px'; el.style.top = b.y + 'px'; el.style.width = b.w + 'px'; el.style.height = b.h + 'px'; taken.push(b); return el; };
+      var hits = function (b, pad) { return taken.some(function (t) { return b.x < t.x + t.w + pad && t.x < b.x + b.w + pad && b.y < t.y + t.h + pad && t.y < b.y + b.h + pad; }); };
       // (plus: the place after what a zone has, while it has room -- a + to tap, or Add Here with a piece picked)
       var zone = function (z, b, plus) {
         var want = self.pick && !!self.shapeFor(self.pick, z, zs);
@@ -542,14 +545,15 @@
         var key = z + ':' + i, none = !!(info.emptyAt && info.emptyAt[key]);
         var kids = none ? [h('span', {}, [document.createTextNode(self.pname(w)), h('small', { text: self.whenWords(w) })])] : [];
         self.ov.appendChild(place(h('button', { type: 'button', class: 'w' + (none ? ' empty' : ''), 'aria-pressed': self.sel === key ? 'true' : 'false',
-          'aria-label': self.pname(w) + ', ' + self.zoneName(z) + (none ? ', nothing to show now' : ''), onclick: (ev) => { ev.stopPropagation(); self.select(key); },
+          'aria-label': self.pname(w) + ', ' + self.zoneName(z) + (none ? ', nothing to show now' : ''), title: none ? self.pname(w) + ': ' + self.whenWords(w) : null, onclick: (ev) => { ev.stopPropagation(); self.select(key); },
           onpointerdown: (ev) => self.dragStart(ev, { piece: w.piece, from: { z: z, i: i } }) }, kids), b));
       };
       // the big element, and every place a piece can go: a place with nothing in it is drawn as an outline
       if (P.big) this.ov.appendChild(place(h('button', { type: 'button', class: 'big', 'aria-pressed': this.sel === 'look' ? 'true' : 'false',
         'aria-label': 'The big element, and the Look', onclick: (ev) => { ev.stopPropagation(); this.select('look'); } }), P.big));
       var big = this.T().big.kind !== 'none';
-      if (zs.line.length) item('line', 0, P.line); else if (big && open('line')) zone('line', P.line);
+      var claimed = function (z, i) { return !!(info.claims && info.claims[z + ':' + i]); };
+      if (zs.line.length && !claimed('line', 0)) item('line', 0, P.line); else if (!zs.line.length && big && open('line')) zone('line', P.line);
       if (zs.row.length) {
         P.row.items.forEach(function (it) { item('row', it.i, it); });
         // ONE MORE, ALWAYS SHOWN while there is room: a + as big as a piece after the last, on its line -- or under the row, a line full
@@ -573,7 +577,7 @@
         }
       });
       // (the band's empty place only while a band is being added: drawn always, it lay over the bottom corners)
-      if (zs.bottom.length) item('bottom', 0, P.bottom); else if (this.pick && this.shapeFor(this.pick, 'bottom', zs)) zone('bottom', P.bottom);
+      if (zs.bottom.length) { if (!claimed('bottom', 0)) item('bottom', 0, P.bottom); } else if (this.pick && this.shapeFor(this.pick, 'bottom', zs)) zone('bottom', P.bottom);
       P.moved.forEach(function (mv) {
         var b = (P.corners[mv.zone] || []).find(function (c) { return c.i === mv.i; });
         var t = h('div', { class: 'moved', text: mv.to ? 'Moved out of the big element’s way' : 'Left out: no room beside the big element' });
@@ -600,6 +604,11 @@
           y = top ? base + k * (ch + P.gap) : base - k * (ch + P.gap);
           x = left ? info.room.x + P.m : info.room.x + info.room.w - P.m - cw;
         } else { x = ref.x + (ref.w - cw) / 2; y = ref.y + ref.h + P.gap + k * (ch + P.gap); if (z === 'bottom') y = ref.y - ch - P.gap - k * (ch + P.gap); }
+        // (past whatever is drawn there already -- the place's outline, its + , another piece shown elsewhere -- in the
+        // direction its stack grows, kept on the screen)
+        var dy = (top || z === 'line' || z === 'row' ? 1 : -1) * (ch + P.gap);
+        for (var g = 0; g < 12 && hits({ x: x, y: y, w: cw, h: ch }, 6); g++) y += dy;
+        y = Math.max(info.room.y + 4, Math.min(info.room.y + info.room.h - ch - 4, y));
         self.ov.appendChild(place(h('button', { type: 'button', class: 'w claimed', 'aria-pressed': self.sel === key ? 'true' : 'false',
           'aria-label': self.pname(w) + ' is shown by ' + info.claims[key], onclick: (ev) => { ev.stopPropagation(); self.select(key); } },
           [h('span', {}, [document.createTextNode(self.pname(w)), h('small', { text: 'Shown by ' + info.claims[key] })])]), { x: x, y: y, w: cw, h: ch }));
@@ -710,7 +719,7 @@
           self.shadowRoot.appendChild(chip);
         }
         chip.style.left = ev.clientX + 'px'; chip.style.top = ev.clientY + 'px';
-        var el = self.shadowRoot.elementFromPoint(ev.clientX, ev.clientY), z = el && el.closest ? el.closest('.z.want') : null;
+        var z = self.dropAt(chip, ev.clientX, ev.clientY);
         if (over && over !== z) over.classList.remove('hover');
         over = z;
         if (z) z.classList.add('hover');
@@ -728,6 +737,28 @@
         if (src.from) self.moveTo(src.from, zone); else self.tapZone(zone);
       };
       window.addEventListener('pointermove', move, true); window.addEventListener('pointerup', up, true); window.addEventListener('pointercancel', up, true);
+    }
+    // WHERE A DRAG LANDS (2026-11-02, the owner: "the cursor has to be on the box ... not the actual item you are
+    // dragging"): the green place the dragged piece covers most -- it is drawn centered on the pointer -- else the
+    // one under the pointer, else the nearest within a finger's width of it
+    dropAt(chip, x, y) {
+      var zs = [].slice.call(this.ov.querySelectorAll('.z.want'));
+      if (!zs.length) return null;
+      var c = chip.getBoundingClientRect(), best = null, most = 0;
+      zs.forEach(function (z) {
+        var r = z.getBoundingClientRect();
+        var a = Math.max(0, Math.min(c.right, r.right) - Math.max(c.left, r.left)) * Math.max(0, Math.min(c.bottom, r.bottom) - Math.max(c.top, r.top));
+        if (a > most) { most = a; best = z; }
+      });
+      if (best) return best;
+      var el = this.shadowRoot.elementFromPoint(x, y), under = el && el.closest ? el.closest('.z.want') : null;
+      if (under) return under;
+      var near = null, d0 = 44;
+      zs.forEach(function (z) {
+        var r = z.getBoundingClientRect(), d = Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
+        if (d < d0) { d0 = d; near = z; }
+      });
+      return near;
     }
     // a piece on the screen to another place, last in it (its shape changes to one that place takes, where it must)
     moveTo(from, z) {

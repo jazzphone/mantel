@@ -332,6 +332,52 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     await shot('13-phone-sideways');
     await E((ed) => { ed.device = 0; ed.devices(); ed.fit(); ed.redraw(); ed.overlaySoon(); return true; });
     await page.waitForTimeout(1500);
+
+    // ---- A CROWDED SCREEN (2026-11-02, the owner: "lots of overlapping elements on screen... hard for the user to
+    // determine where to put something"): nothing drawn over the screen meets another -- the empty places, the pieces,
+    // the ones another shows, the dotted ones with nothing to show -- with nothing picked, the band picked, and a piece
+    // picked (its green places)
+    await page.goto(input.origin + '/settings#/screens/' + input.crowd + '/screensaver/editor');
+    await until((ed, sr, $, $$) => $$('.lk').length > 0 && $('.ov') && ed.looksHost, null, 40000);
+    await until((ed) => { const s = ed.saver(); return s && s.layoutInfo && s.layoutInfo() && ed.live; }, null, 40000);
+    await page.waitForTimeout(4000);
+    const clashes = () => E((ed, sr, $, $$) => {
+      const bs = $$('.ov .z, .ov .w').filter((e) => e.getBoundingClientRect().width > 0).map((e) => { const r = e.getBoundingClientRect(); return { n: (e.getAttribute('aria-label') || '').slice(0, 40), l: r.left, t: r.top, r: r.right, b: r.bottom }; });
+      const out = [];
+      for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) { const a = bs[i], b = bs[j]; if (a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1) out.push([a.n, b.n]); }
+      return { n: bs.length, out, claimed: $$('.ov .w.claimed').length };
+    });
+    const c0 = await clashes();
+    say(c0.claimed >= 2 && !c0.out.length, 'a crowded screen: nothing on the screen meets anything else (' + c0.n + ' boxes, ' + c0.claimed + ' shown by the face)', c0);
+    await shot('15-crowded');
+    await E((ed) => { ed.select('bottom:0'); return true; });
+    await page.waitForTimeout(800);
+    const c1 = await clashes();
+    say(!c1.out.length, '...with the band shown by the face picked', c1);
+    await shot('16-crowded-band');
+    await E((ed) => { ed.select(null); ed.pick = 'wind'; ed.redraw(); return true; });
+    await page.waitForTimeout(800);
+    const c2 = await clashes();
+    say(!c2.out.length, '...with a piece picked, its green places', c2);
+    await shot('17-crowded-pick');
+    await E((ed) => { ed.pick = null; ed.redraw(); return true; });
+    await page.waitForTimeout(500);
+    // ---- A DROP GOES WHERE THE DRAGGED PIECE IS (the owner: "the cursor has to be on the box ... not the actual item
+    // you are dragging"): let go with the pointer just outside a green place, the piece over it
+    const nC = await E((ed) => ed.placed().length);
+    await E((ed) => { ed.palette.scrollTop = 0; ed.q = 'Wind'; ed.search.value = 'Wind'; ed.pieces(); return true; });
+    const f2 = await box('.pitem[data-piece=wind]');
+    await page.mouse.move(f2.x, f2.y); await page.mouse.down(); await page.mouse.move(f2.x + 40, f2.y + 10, { steps: 4 });
+    await page.waitForTimeout(300);
+    const tgt = await E((ed, sr, $, $$) => { const z = $$('.ov .z.want').map((e) => [e, e.getBoundingClientRect()]).sort((a, b) => b[1].width * b[1].height - a[1].width * a[1].height)[0];
+      if (!z) return null; const r = z[1]; return { zone: z[0].getAttribute('data-zone'), x: r.left - 12, y: r.top + r.height / 2 }; });
+    if (tgt) { await page.mouse.move(tgt.x, tgt.y, { steps: 8 }); await page.waitForTimeout(150); }
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    const d2 = await E((ed) => ed.placed().filter((p) => p.w.piece === 'wind').map((p) => p.z));
+    say(!!tgt && d2.length === 1 && d2[0] === tgt.zone && (await E((ed) => ed.placed().length)) === nC + 1,
+        'a drop lands where the dragged piece is, the pointer just outside the place (' + (tgt && tgt.zone) + ')', [tgt, d2]);
+    await E((ed) => { ed.undo(); ed.q = ''; ed.search.value = ''; ed.pieces(); return true; });
     say(!errors.length, 'no page errors', errors.slice(0, 4));
     await ctx.close();
   } finally { await browser.close(); }
