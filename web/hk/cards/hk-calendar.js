@@ -826,6 +826,10 @@
       this._root.addEventListener('click', function (e) { self._click(e); });
       this._root.addEventListener('pointerdown', function (e) { self._swipeStart(e); });
       this._root.addEventListener('pointerup', function (e) { self._swipeEnd(e); });
+      // ...and a swipe something else took is not ours: the page swipe's (hk-pageswipe.js says so with a
+      // pointercancel as it starts) or the browser's scroll. Unheard, a swipe on the Calendar turned the page and its
+      // month both (2026-11-02, the owner, swiping on through the Calendar: November, October, September...)
+      this._root.addEventListener('pointercancel', function () { self._sx = null; });
     }
     setConfig(config) {
       var c = Object.assign({}, config || {});
@@ -998,7 +1002,7 @@
       this._sx = e.clientX; this._sy = e.clientY; this._st = Date.now();
     }
     // A SWIPE across the month or the week turns it (a sideways flick, not
-    // a scroll of the hours)
+    // a scroll of the hours) -- where Swipe Between Pages doesn't take it
     _swipeEnd(e) {
       if (this._sx == null || e.pointerType === 'mouse') return;
       var dx = e.clientX - this._sx, dy = e.clientY - this._sy, dt = Date.now() - this._st;
