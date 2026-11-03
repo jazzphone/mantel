@@ -1,6 +1,6 @@
 # Phase 18: code health (plan, 2026-11-03)
 
-**Status: plan; nothing built. Every decision answered by the owner on 2026-11-03 (all recommendations accepted): ready to build.**
+**Status: Part A built (A0-A8) and C0; Parts B and C in progress. Every decision answered by the owner on 2026-11-03 (all recommendations accepted).**
 
 ## The ask (the owner, 2026-11-03)
 
@@ -573,5 +573,62 @@ extra fetch on first load on a real tablet; that the HA App and Docker images ac
 
 ## Build log
 
-(Empty until built. Entries: what was done, the numbers measured, every unforeseen choice and why, every behavior
-change the table found.)
+### Part A (2026-11-03)
+
+**Built:** A0-A8. `guards.py` gained `reads`, `why`, `stream`, `preview` and `sample` on `@guard`, and
+`@open_route(kind, why=...)` for the routes not called with a session; `route_table.py` builds one row per route and
+applies R1-R13; `build_app` ends with `route_table.install(app)` and raises `RouteTableError` (A7);
+`tools/route_table.py` generates `docs/development/Routes.md` and `tests/fixtures/route_table.lock.json`;
+`tools/route_probe.py` is the probe; `socket_reads.py` declares the socket's reads and Mantel Link's messages (A8);
+`mcp_parity.py` holds the parity rules.
+
+**Measured:**
+- Routes under every option combination: **302** (279 with no options; Ingress adds 9, Connect 5, go2rtc 9 -- Live
+  TV, direct cameras and UniFi Protect, which the plan's count missed: it built only `ingress=True, connect=True`,
+  293). With the socket's 51 reads and Mantel Link's 6 message types the table has 359 rows.
+- Own-check routes (A2, by an agent): app_dpop 19, static 18, sign_in 15, oauth 8, one_time_code 6, public 3, proxy 2,
+  mcp_bearer 1, link_credential 1 (73).
+- The probe: 299 route-methods x 9 principals x 2 doors = 5,382 requests, 5-25 s; two runs byte-identical.
+  `--diff HEAD` on the migration printed only `GET /api/stats` (the fix below).
+- Building the table costs about 30 ms at start.
+
+**Behavior changes the table found (decision 3, each its own commit, each test failing first):**
+1. `GET /api/stats` gave any session, a Child or a wall tablet included, the 15 busiest entity ids and every
+   connected screen's counters. No page calls it: Owners and Admins only (`test_the_busiest_entities_...`).
+2. `GET /api/areas` listed every area and its entity count to any session. Owners and Admins (not at a tablet) see
+   all as before; anyone else sees the areas holding something they may view, counted by what they may view
+   (`test_a_child_reads_nothing_it_may_not_view_from_any_view_read`).
+3. (The security review's.) `GET /api/sessions?user_id=`, `DELETE /api/sessions/{id}`, `GET /api/app/devices?all=1` and
+   the app revoke took a wall tablet's session (the person's own Me page) and so let a manager's forgotten sign-in at a
+   tablet list and end everyone's. Another person's are now refused at a tablet
+   (`test_a_manager_signed_in_at_a_wall_tablet_manages_only_their_own_sessions_and_apps`).
+4. MCP parity (decision 4): `alerts_test` parallels `POST /api/alerts/channels/{id}/test` (Owner, a fresh factor away
+   from home); an assistant has no fresh factor, so the tool works from the LAN door only
+   (`test_an_assistant_tests_an_alert_channel_only_from_home`). The other 21 write tools are as strict as what they
+   parallel: 6 screen tools name `/api/screens` routes (manager), 15 are a page's socket frame (`no_route=`).
+
+**Choices not in the plan (the safest consistent with the decisions):**
+- `reads` for an own-check kind that never carries house data (`sign_in`, `oauth`, `static`, `public`) defaults to
+  `none` with the kind's reason; every other kind states it. R4 applies to GETs (and `*`); a POST that answers with
+  house data (`/api/app/command`) is not required to state `reads` -- whether a change "returns data" can't be told
+  from outside the handler.
+- `preview` takes `"<parameter>=<regex>"` as well as True, for `GET /api/photos/{photo}/{size}`: a preview gets a
+  photo's screen sizes, never its original or mask, as the old pattern said. `auth.preview_allows` now reads the
+  route's declaration and `fullmatch`es the parameter. Two edges move: `/proxy-check/{name}`'s assets, which the old
+  dashboard pattern let a preview fetch by accident (a hyphen in "proxy-check"), are closed to previews; nothing a
+  screen draws is affected.
+- The stream scan (R5) also looks for `file_response(` and `proxy_image(` (helpers that stream), after the review found
+  six picture routes that said `none` and stream through `camera_still.proxy_image`; they say `bounded:` with the cap.
+- R8 also refuses an address the session middleware lets through signed out that isn't on `route_table.SIGNED_OUT`
+  (the review: a new `@open_route("static")` that adds itself to `public_paths` would otherwise pass every rule).
+- R1 also refuses a `@guard` spec copied onto another function by `functools.wraps` (`__guard_of__`).
+- A8 keeps `readproxy.READ_ALLOWED` as the relay's key filter (what keys each read may carry): the policy columns it
+  doesn't have moved to `socket_reads.READS_BY_TYPE`, which replaced `server.PREVIEW_READS` and `PREVIEW_READS_NEVER`.
+  Socket reads declared `view` are not in the HTTP conformance test (their filters are tested in
+  `test_readproxy_filters.py` and the features' tests). The 8 command types stay the gateway's (not rows).
+- The security review (Opus, as the plan says) also noted, left as they are and stated here: `/api/admin/overview` is
+  `self` though it carries the Set Up summary for managers; `/api/fixtures` is `none` though a development checkout's
+  captured feeds are house data (an install has none); `looser()` doesn't compare a tool with an own-check route;
+  structural proofs are text scans (a comment can satisfy them); R11 tries one sample path per route.
+
+**Waiting on nothing.**

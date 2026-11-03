@@ -539,6 +539,25 @@
   "stream": "none",
   "who": "owner"
  },
+ "DELETE /api/protect": {
+  "audit": [
+   "connection.protect.disconnected"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "away",
+  "handler": "api_disconnect",
+  "mcp": [],
+  "module": "mantel_server.protect_connector",
+  "no_audit": null,
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "owner"
+ },
  "DELETE /api/push/targets/{id}": {
   "audit": [
    "push.remove"
@@ -1345,6 +1364,23 @@
   "stream": "none",
   "who": "signed_in"
  },
+ "GET /api/cameras/direct": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "register.<locals>.api_status",
+  "mcp": [],
+  "module": "mantel_server.cameras_direct",
+  "no_audit": null,
+  "preview": false,
+  "reads": "admin",
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
+ },
  "GET /api/cameras/rtsp": {
   "audit": [],
   "csrf": "-",
@@ -2093,6 +2129,40 @@
   "stream": "none",
   "who": "manager"
  },
+ "GET /api/protect/cameras": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "api_cameras",
+  "mcp": [],
+  "module": "mantel_server.protect_connector",
+  "no_audit": null,
+  "preview": false,
+  "reads": "admin",
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
+ },
+ "GET /api/protect/cameras/{pid}/still": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "api_camera_still",
+  "mcp": [],
+  "module": "mantel_server.protect_connector",
+  "no_audit": null,
+  "preview": false,
+  "reads": "admin",
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
+ },
  "GET /api/proxy-check/basics": {
   "csrf": "-",
   "handler": "basics",
@@ -2831,6 +2901,72 @@
   "reads_why": "a page shell; the data behind it is read through guarded routes and the socket",
   "stream": "bounded:the page shell file",
   "who": "signed_in"
+ },
+ "LINKED call_service": {
+  "csrf": "-",
+  "handler": "/linked/ws message",
+  "kind": "link_credential",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": null,
+  "stream": "none",
+  "why": "the linked HK Frontend's Service credential (linked.py) and the gateway: RBAC as the person HA names, the audit row first, the kill switch"
+ },
+ "LINKED entity_command": {
+  "csrf": "-",
+  "handler": "/linked/ws message",
+  "kind": "link_credential",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": null,
+  "stream": "none",
+  "why": "the same, for one entity's command (linked.COMMANDS)"
+ },
+ "LINKED page": {
+  "csrf": "-",
+  "handler": "/linked/ws message",
+  "kind": "link_credential",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": null,
+  "stream": "none",
+  "why": "the credential; a linked dashboard's page reads, as the person linked to its HA user (linked_reads.py)"
+ },
+ "LINKED ping": {
+  "csrf": "-",
+  "handler": "/linked/ws message",
+  "kind": "link_credential",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": null,
+  "stream": "none",
+  "why": "the credential only; changes nothing"
+ },
+ "LINKED report": {
+  "csrf": "-",
+  "handler": "/linked/ws message",
+  "kind": "link_credential",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": null,
+  "stream": "none",
+  "why": "the credential; what HK Frontend reports of itself (linked._REPORT_KEYS)"
+ },
+ "LINKED settings_write": {
+  "csrf": "-",
+  "handler": "/linked/ws message",
+  "kind": "link_credential",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": null,
+  "stream": "none",
+  "why": "the credential's settings scope; SettingsService.save's own checks"
  },
  "PATCH /api/devices/{id}": {
   "audit": [
@@ -3728,6 +3864,80 @@
   "reads_why": null,
   "stream": "none",
   "who": "manager"
+ },
+ "POST /api/protect": {
+  "audit": [
+   "connection.protect.saved"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "away",
+  "handler": "api_save",
+  "mcp": [],
+  "module": "mantel_server.protect_connector",
+  "no_audit": null,
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "owner"
+ },
+ "POST /api/protect/cameras/{pid}/turn-on": {
+  "audit": [
+   "protect.camera.smart_types_on"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "api_turn_on",
+  "mcp": [],
+  "module": "mantel_server.protect_connector",
+  "no_audit": null,
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
+ },
+ "POST /api/protect/test": {
+  "audit": [],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "away",
+  "handler": "api_test",
+  "mcp": [],
+  "module": "mantel_server.protect_connector",
+  "no_audit": "tests an address and an API key; saves nothing",
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "owner"
+ },
+ "POST /api/protect/trust": {
+  "audit": [
+   "connection.protect.certificate_trusted"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "away",
+  "handler": "api_trust",
+  "mcp": [],
+  "module": "mantel_server.protect_connector",
+  "no_audit": null,
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "owner"
  },
  "POST /api/push/test": {
   "audit": [],
@@ -4629,6 +4839,25 @@
   "stream": "none",
   "who": "manager"
  },
+ "PUT /api/protect/cameras/{pid}": {
+  "audit": [
+   "protect.camera.set"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "api_camera_set",
+  "mcp": [],
+  "module": "mantel_server.protect_connector",
+  "no_audit": null,
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
+ },
  "PUT /api/rbac/roles/{role}": {
   "audit": [
    "rbac.role.set"
@@ -4785,5 +5014,566 @@
   "reads_why": null,
   "stream": "none",
   "who": "manager"
+ },
+ "READ camera/webrtc/candidate": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ camera/webrtc/get_client_config": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ camera/webrtc/offer": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ config/entity_registry/get": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ energy/get_prefs": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "feature:energy",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ energy/info": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "feature:energy",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ frontend/get_themes": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "none",
+  "stream": "none",
+  "why": "the theme list"
+ },
+ "READ frontend/get_user_data": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "self",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ frontend/subscribe_user_data": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "self",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ get_config": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "the house's settings; its location only with feature:locations"
+ },
+ "READ history/history_during_period": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ hk_alarm_pin/settings/get": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read"
+ },
+ "READ hk_clean_areas/settings/get": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read"
+ },
+ "READ hk_clean_areas/subscribe": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ hk_energy/settings/get": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read"
+ },
+ "READ hk_energy/sources": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read"
+ },
+ "READ hk_frontend/events/subscribe": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ hk_frontend/grid/starter": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "an Owner's or Admin's Settings document or editor (configure on settings)"
+ },
+ "READ hk_frontend/hidden/get": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "an Owner's or Admin's Settings document or editor (configure on settings)"
+ },
+ "READ hk_frontend/page_headers/subscribe": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ hk_frontend/panel/get": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read"
+ },
+ "READ hk_frontend/settings/subscribe": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "the settings feed, cut per person (SRV-4)"
+ },
+ "READ hk_frontend/setup/check": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "an Owner's or Admin's Settings document or editor (configure on settings)"
+ },
+ "READ hk_frontend/snooze/subscribe": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ hk_frontend/todo/items": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ hk_music/queue": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ hk_music/settings/get": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read"
+ },
+ "READ hk_music/settings/library": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "feature:music",
+  "stream": "none",
+  "why": "Music's settings page: the library to pick from"
+ },
+ "READ hk_music/subscribe": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "feature:music",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ hk_notify/settings/get": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read"
+ },
+ "READ hk_notify/snap/sign": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ hk_tv/channels": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ hk_tv/settings/get": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read"
+ },
+ "READ logbook/get_events": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ mantel/clean_areas/coverage": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ mantel/energy/plan": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "feature:energy",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ mantel/energy/sources": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read"
+ },
+ "READ mantel/live_tv/guide": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "feature:live_tv",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ mantel/page_headers/get": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read"
+ },
+ "READ mantel/settings/get": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "an Owner's or Admin's Settings document or editor (configure on settings)"
+ },
+ "READ mantel/settings/history": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "admin",
+  "stream": "none",
+  "why": "an Owner's or Admin's Settings document or editor (configure on settings)"
+ },
+ "READ media_player/browse_media": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ media_player/search_media": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ media_source/browse_media": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "feature:media",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ media_source/resolve_media": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "feature:media",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ music_assistant/get_library": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "feature:music",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ music_assistant/get_queue": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "feature:music",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ music_assistant/search": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "feature:music",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ persistent_notification/subscribe": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "feature:notifications",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ recorder/statistics_during_period": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ weather/subscribe_forecast": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
  }
 }

@@ -25,6 +25,7 @@ R9   a write tool (mcp/tools/) that names no ``like=`` route (or ``no_route=`` w
 R10  a tool whose scope is easier to get than its route's rule (``mcp_parity``)
 R11  a route shadowed by an earlier pattern: its sample path must resolve to itself
 R12  two rows with the same method and path
+R13  a socket read or Mantel Link message with no declaration in socket_reads.py, or one declared that isn't
 
 ``docs/development/Routes.md`` and ``tests/fixtures/route_table.lock.json`` are generated from the table
 (``tools/route_table.py --write``); a test fails when they are stale.
@@ -309,10 +310,11 @@ def install(app: web.Application, strict: bool = True,
             report: Callable[[list[str]], None] | None = None) -> list[Row]:
     """Build the table into ``app["route_table"]`` and apply every rule: a broken one raises
     :class:`RouteTableError` (``strict``) or is logged."""
+    from . import socket_reads
     tools = all_tools()
     rows = build(app, tools)
     app[APP_KEY] = rows
-    found = problems(app, rows, tools, public_paths(app))
+    found = problems(app, rows, tools, public_paths(app)) + socket_reads.problems(app)
     if found:
         if report is not None:
             report(found)

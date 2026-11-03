@@ -33,7 +33,8 @@ COMBOS: dict[str, dict] = {
     "cf_access": {"cf_access_team": "example-team", "cf_access_aud": ("a" * 64,)},
     "commands": {"commands_enabled": True},
     "music_assistant": {"ma_url": "http://ma.example.test:8095"},
-    "everything": {"ingress": True, "ingress_peers": (), "connect": True, "connect_port": 0,
+    "go2rtc": {"go2rtc_url": "http://go2rtc.example.test:1984"},       # Live TV, direct cameras and UniFi Protect
+    "everything": {"go2rtc_url": "http://go2rtc.example.test:1984", "ingress": True, "ingress_peers": (), "connect": True, "connect_port": 0,
                    "connect_listen": "127.0.0.1", "direct_tls": "acme", "direct_port": 0,
                    "direct_hosts": ("mantel.example.test",), "cf_access_team": "example-team",
                    "cf_access_aud": ("a" * 64,), "commands_enabled": True,
@@ -42,15 +43,19 @@ COMBOS: dict[str, dict] = {
 
 
 def build(options: dict, tmp: Path, strict: bool = False):
-    """The app under one combination, its table installed (not strict: the caller reports)."""
+    """The app under one combination, its table installed without refusing (the caller reports what it breaks)."""
+    from mantel_server import route_table
     from mantel_server.config import Config
     from mantel_server.server import build_app
     from mantel_server.store import Store
     cfg = Config(data_dir=tmp / "data", secrets_dir=tmp / "secrets", port=0, **options)
     store = Store(cfg.data_dir / "mantel.db")
+    install = route_table.install
+    route_table.install = lambda app, strict=True, report=None: install(app, strict=strict and False, report=report)
     try:
         app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False, clock=lambda: 1_000_000.0)
     finally:
+        route_table.install = install
         store.db.close()
     return app
 
@@ -60,15 +65,21 @@ def tables(strict: bool = False) -> tuple[dict, dict[str, list[str]]]:
     import logging
     from mantel_server import route_table
     logging.getLogger("mantel.route_table").setLevel(logging.ERROR)
+    from mantel_server import socket_reads
     joined: dict = {}
     found: dict[str, list[str]] = {}
+    never: set[str] | None = None
     for name, options in COMBOS.items():
         with tempfile.TemporaryDirectory() as tmp:
             app = build(options, Path(tmp))
         rows = app[route_table.APP_KEY]
-        found[name] = route_table.problems(app, rows, route_table.all_tools(), route_table.public_paths(app))
-        for key, cols in route_table.lock(rows).items():
+        found[name] = route_table.problems(app, rows, route_table.all_tools(), route_table.public_paths(app)) \
+            + socket_reads.problems(app)
+        never = set(socket_reads.stale(app)) if never is None else never & set(socket_reads.stale(app))
+        for key, cols in {**route_table.lock(rows), **socket_reads.lock_rows(app)}.items():
             joined.setdefault(key, cols)
+    for t in sorted(never or ()):
+        found["everything"].append(f"R13 READ {t}: declared in socket_reads.py, and no combination registers it")
     return dict(sorted(joined.items(), key=lambda kv: (kv[0].split(" ", 1)[1], kv[0]))), found
 
 

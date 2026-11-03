@@ -939,7 +939,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None, cam_hooks: Direc
         OFFER: Route(subscribe=offer),
     })
 
-    @guard("manager")
+    @guard("manager", reads="admin")
     async def api_status(request: web.Request) -> web.Response:
         return web.json_response(cams.status())
 
