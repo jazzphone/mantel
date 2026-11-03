@@ -59,6 +59,8 @@ READS_BY_TYPE: dict[str, Read] = {
     "music_assistant/search": Read("feature:music", True),
     "persistent_notification/subscribe": Read("feature:notifications", True),
     "weather/subscribe_forecast": Read("view", True),
+    # the socket's other read message, read_api: only GET calendars/<entity> (readproxy.parse_read_api)
+    "read_api": Read("view", True, "read_api: a calendar's events (GET calendars/<entity>), view the calendar"),
     # what a preview never asks: Settings' own documents and history, the editors', the imports'
     "hk_alarm_pin/settings/get": Read("admin", False, SERVER_ONLY),
     "hk_clean_areas/settings/get": Read("admin", False, SERVER_ONLY),
@@ -81,6 +83,8 @@ LINKED_TYPES: dict[str, str] = {
     "settings_write": "the credential's settings scope; SettingsService.save's own checks",
     "report": "the credential; what HK Frontend reports of itself (linked._REPORT_KEYS)",
     "page": "the credential; a linked dashboard's page reads, as the person linked to its HA user (linked_reads.py)",
+    "phone_action": "the credential (protocol 2); a phone notification's action, as the person HA names, through the "
+                    "gateway",
 }
 
 
@@ -94,12 +98,12 @@ def registered(app: Any) -> set[str]:
     """Every read type this app answers or relays."""
     from . import readproxy
     from .connectors import read_routes
-    return set(read_routes(app)) | set(readproxy.READ_ALLOWED) | set(readproxy.MANTEL_READS)
+    return set(read_routes(app)) | set(readproxy.READ_ALLOWED) | set(readproxy.MANTEL_READS) | {"read_api"}
 
 
 def linked_registered() -> set[str]:
     from . import linked
-    return set(linked.CLIENT_TYPES) | set(linked.SETTINGS_TYPES) | set(linked.READS_TYPES)
+    return set(linked.CLIENT_TYPES) | set(linked.CLIENT_TYPES_2) | set(linked.SETTINGS_TYPES) | set(linked.READS_TYPES)
 
 
 def problems(app: Any) -> list[str]:

@@ -164,6 +164,9 @@ async def test_a_manager_signed_in_at_a_wall_tablet_manages_only_their_own_sessi
     r = await mantel.client.delete(f"/api/sessions/{sid}", headers=mantel.headers())
     assert r.status == 403
     assert mantel.app["sessions"].get(sid)["revoked"] is None
+    # another person's app, revoked from the tablet: as no such app (the route's own answer for one not theirs)
+    r = await mantel.client.delete(f"/api/app/devices/{sid}", headers=mantel.headers())
+    assert r.status == 404
 
 
 

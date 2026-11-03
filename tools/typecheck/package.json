@@ -1,7 +1,7 @@
 {
   "name": "mantel-typecheck",
   "private": true,
-  "description": "Type checking only (phase 18, Part C): TypeScript checks the web app's JavaScript (tsc --checkJs per file, // @ts-check) and its compiler API parses files for tools/split_js.py. Nothing here is served or shipped, and the Docker image's esbuild stage never reads it.",
+  "description": "Type checking only (phase 18, Part C): TypeScript checks the web app's JavaScript (tsc --checkJs per file, // @ts-check); tools/split_js.py uses its compiler API to parse files. Nothing here is served or shipped, and the Docker image's esbuild stage never reads it.",
   "license": "UNLICENSED",
   "devDependencies": {
     "typescript": "5.9.3"

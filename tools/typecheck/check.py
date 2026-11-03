@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -29,6 +30,8 @@ TSC = HERE / "node_modules/typescript/bin/tsc"
 BASELINE = HERE / "baseline.json"
 GLOBALS = HERE / "types/globals.d.ts"
 SOURCES = ("web", "hosts/ha/frontend")
+# // @ts-check counts only in the comments that open a file (as tsc reads it)
+LEADING_TS_CHECK = re.compile(r"^(?:\ufeff)?(?:\s*(?://[^\n]*\n|/\*.*?\*/))*?\s*//\s*@ts-check\b", re.S)
 ERROR = re.compile(r"^(?P<file>[^(\s][^(]*)\((?P<line>\d+),(?P<col>\d+)\): error (?P<code>TS\d+): (?P<text>.*)$")
 
 
@@ -39,15 +42,35 @@ def node() -> str:
     return found
 
 
+def stale() -> str | None:
+    """Why tools/typecheck/node_modules isn't what package.json pins (None: it is)."""
+    want = json.loads((HERE / "package.json").read_text())["devDependencies"]["typescript"]
+    got = HERE / "node_modules/typescript/package.json"
+    if not got.is_file() or not TSC.is_file():
+        return "TypeScript is not installed"
+    have = json.loads(got.read_text()).get("version")
+    return None if have == want else f"TypeScript {have} installed, {want} pinned"
+
+
 def install() -> int:
+    """npm ci when what is installed isn't the pin. As tools/build_tools.py does on the SMB share: the old folder is
+    renamed aside first (the share can't always delete it in place), and npm ci installs into an empty place."""
+    if stale() is None:
+        return 0
+    modules = HERE / "node_modules"
+    if modules.exists():
+        aside = ROOT / ".ci/old-typecheck-node_modules" / str(int(time.time() * 1000))
+        aside.parent.mkdir(parents=True, exist_ok=True)
+        modules.rename(aside)
+        shutil.rmtree(aside, ignore_errors=True)
     return subprocess.run(["npm", "ci", "--prefix", str(HERE), "--ignore-scripts", "--no-audit", "--no-fund",
                            "--loglevel=error"]).returncode
 
 
 def tsc(project: Path) -> list[dict]:
     """tsc's errors for ``project``, each {file (from the repository), line, code, text}."""
-    if not TSC.is_file() and install() != 0:
-        raise SystemExit("npm ci in tools/typecheck failed")
+    if install() != 0 or stale() is not None:
+        raise SystemExit(f"npm ci in tools/typecheck failed: {stale()}")
     run = subprocess.run([node(), str(TSC), "-p", str(project), "--pretty", "false"], capture_output=True,
                          text=True, cwd=HERE)
     out = []
@@ -69,8 +92,7 @@ def checked_files() -> list[str]:
         for path in sorted((ROOT / base).rglob("*.js")):
             if "node_modules" in path.parts:
                 continue
-            head = path.read_text(errors="replace")[:400]
-            if re.search(r"^\s*//\s*@ts-check\b", head, re.M):
+            if LEADING_TS_CHECK.match(path.read_text(errors="replace")[:2000]):
                 out.append(str(path.relative_to(ROOT)))
     return out
 

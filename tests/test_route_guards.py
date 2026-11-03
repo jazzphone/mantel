@@ -1,7 +1,7 @@
 """Rules.md rule 7: a guard's spec refuses a contradiction (guards.py).
 
 Every other check of the routes moved to the route table (phase 18, A7): tests/test_route_table.py builds the app
-under every combination of options and applies route_table.py's rules R1-R12, and build_app refuses to start when
+under every combination of options and applies route_table.py's rules R1-R13, and build_app refuses to start when
 one breaks.
 """
 from __future__ import annotations

@@ -193,6 +193,12 @@ class ClientSession:
                 err["id"] = msg["id"]
             await self.send(err, count=False)
             return
+        if self.read_only and isinstance(msg, dict) and msg.get("type") == "read_api" and \
+                not socket_reads.preview_allows("read_api"):
+            await self.send({"type": "read_result", "id": msg.get("id"),
+                             "error": {"code": "read_only", "message": "a preview reads what its screen shows only"}},
+                            count=False)
+            return
         if self.read_only and kind in ("read", "read_subscribe") and isinstance(msg, dict) and \
                 not (isinstance(msg.get("msg"), dict) and socket_reads.preview_allows(msg["msg"].get("type"))):
             # a screen preview reads what a screen draws from, not the rest of the house's management

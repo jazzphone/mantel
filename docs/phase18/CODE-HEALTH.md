@@ -585,7 +585,7 @@ applies R1-R13; `build_app` ends with `route_table.install(app)` and raises `Rou
 **Measured:**
 - Routes under every option combination: **302** (279 with no options; Ingress adds 9, Connect 5, go2rtc 9 -- Live
   TV, direct cameras and UniFi Protect, which the plan's count missed: it built only `ingress=True, connect=True`,
-  293). With the socket's 51 reads and Mantel Link's 6 message types the table has 359 rows.
+  293). With the socket's 52 reads and Mantel Link's 7 message types the table has 361 rows.
 - Own-check routes (A2, by an agent): app_dpop 19, static 18, sign_in 15, oauth 8, one_time_code 6, public 3, proxy 2,
   mcp_bearer 1, link_credential 1 (73).
 - The probe: 299 route-methods x 9 principals x 2 doors = 5,382 requests, 5-25 s; two runs byte-identical.
@@ -622,6 +622,8 @@ applies R1-R13; `build_app` ends with `route_table.install(app)` and raises `Rou
 - R8 also refuses an address the session middleware lets through signed out that isn't on `route_table.SIGNED_OUT`
   (the review: a new `@open_route("static")` that adds itself to `public_paths` would otherwise pass every rule).
 - R1 also refuses a `@guard` spec copied onto another function by `functools.wraps` (`__guard_of__`).
+- A8 also declares `read_api` (a calendar's events, the socket's other read message) and Mantel Link's
+  `phone_action` (protocol 2), which the review found outside the first cut: 52 reads and 7 messages.
 - A8 keeps `readproxy.READ_ALLOWED` as the relay's key filter (what keys each read may carry): the policy columns it
   doesn't have moved to `socket_reads.READS_BY_TYPE`, which replaced `server.PREVIEW_READS` and `PREVIEW_READS_NEVER`.
   Socket reads declared `view` are not in the HTTP conformance test (their filters are tested in
@@ -630,5 +632,19 @@ applies R1-R13; `build_app` ends with `route_table.install(app)` and raises `Rou
   `self` though it carries the Set Up summary for managers; `/api/fixtures` is `none` though a development checkout's
   captured feeds are house data (an install has none); `looser()` doesn't compare a tool with an own-check route;
   structural proofs are text scans (a comment can satisfy them); R11 tries one sample path per route.
+
+### C0 (2026-11-03)
+
+TypeScript 5.9.3, pinned in `tools/typecheck/` (decision 7). `tools/typecheck/check.py` installs it on first use
+(`npm ci`, the old folder renamed aside first as `tools/build_tools.py` does on the SMB share), runs `tsc` on the files
+that open with `// @ts-check`, and `--measure`s every file. **The real count: 1,059 errors in 89 of 146 files** (57 have
+none); `hk-settings.js` 170, `hk-saver.js` 31, `hk-grid-cards.js` 22, `hk-media.js` 2, against the plan's estimate of
+100-250 for the four and about 1,000 for everything. 763 are TS2339 (a property tsc can't see on an `Element` or an
+inferred object). Per file in `tools/typecheck/baseline.json`; the `types-js` step is in `ci.py quick` (8 s).
+
+Choices: the globals file is `tools/typecheck/types/globals.d.ts`, not `web/types/` (anything under `web/` ships in
+the image); it declares the 103 `window.hk*`/`window.mantel*` names found today (the plan counted 117 by a looser
+pattern) plus an index signature, so a misspelled `window.hk...` can't fail yet. The installer is check.py itself,
+not `tools/build_tools.py`, so the Docker image's esbuild install stays untouched.
 
 **Waiting on nothing.**

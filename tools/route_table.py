@@ -51,7 +51,7 @@ def build(options: dict, tmp: Path, strict: bool = False):
     cfg = Config(data_dir=tmp / "data", secrets_dir=tmp / "secrets", port=0, **options)
     store = Store(cfg.data_dir / "mantel.db")
     install = route_table.install
-    route_table.install = lambda app, strict=True, report=None: install(app, strict=strict and False, report=report)
+    route_table.install = lambda app, strict=True, report=None: install(app, strict=False, report=report)
     try:
         app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False, clock=lambda: 1_000_000.0)
     finally:

@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": []
   },
-  "include": ["../../web/**/*.js", "../../hosts/ha/frontend/*.js", "types/*.d.ts"]
+  "include": ["../../web/**/*.js", "../../hosts/ha/frontend/**/*.js", "types/*.d.ts"]
 }
