@@ -133,6 +133,13 @@ if [ ! -f "$COMPOSE_DIR/.env" ]; then
               [ -n "$PROXY_IP" ] || warn "set MANTEL_TRUSTED_PROXY in .env to your proxy's address before the first start"
               msg_ok "HTTPS: your own proxy; Mantel publishes http://${lan_ip}:8765 for it (compose.byo-proxy.yaml)" ;;
   esac
+  # Intel QuickSync only (the transcode image carries Intel's driver): another vendor's render node stays unused.
+  # Unreadable here (no sysfs for it) means unknown: Mantel tries the GPU and falls back to the CPU if it fails.
+  gpu_vendor="$(cat /sys/class/drm/renderD128/device/vendor 2>/dev/null || true)"
+  if [ "$GPU" = "yes" ] && [ -n "$gpu_vendor" ] && [ "$gpu_vendor" != "0x8086" ]; then
+    warn "the GPU is not Intel (PCI vendor ${gpu_vendor}); Live TV transcodes on Intel QuickSync only, so it uses the CPU"
+    GPU=no
+  fi
   if [ "$GPU" = "yes" ] && [ -c /dev/dri/renderD128 ]; then
     rgid="$(getent group render | cut -d: -f3)"
     add_compose_file compose.gpu.yaml

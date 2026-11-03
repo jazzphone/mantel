@@ -59,7 +59,7 @@ It reads Home Assistant's token from `~/.config/mantel/ha_token` if that file ex
 | `--screen` | the first screen | The first start's value for **House Default Screen** (Mantel Settings → General): the screen `/home` opens (a board key, e.g. `dashboard-home`). The stored setting wins after that. |
 | `--default-interval`, `--override GLOB=SECONDS` | 0 | Coalescing of fast sensors (for example `'sensor.*_distance=1'`). |
 | `--go2rtc-url URL` | none | Live TV served by Mantel through its own go2rtc's API (`http://go2rtc:1984` in the stack). Without it, HA's Live TV stays the interim (section 7a). |
-| `--live-tv-hardware` | `none` | `vaapi`: Live TV's transcode on QuickSync (go2rtc needs `/dev/dri`: `compose.gpu.yaml`). |
+| `--live-tv-hardware` | `none` | `vaapi`: Live TV's transcode on QuickSync (go2rtc needs `/dev/dri`: `compose.gpu.yaml`). Checked on the first channel played: if the GPU fails and the CPU plays it, Live TV uses the CPU until Mantel restarts (`gpu_failed` in `/api/live_tv/status`). Intel only (the image carries Intel's iHD driver). |
 
 ### In the container stacks (Docker, LXC)
 

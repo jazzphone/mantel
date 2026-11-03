@@ -445,8 +445,11 @@ def results(**secs):
 
 def test_a_step_much_slower_than_its_last_runs_is_named_but_not_a_busy_machine():
     history = {n: [100.0] * 5 for n in "abcdef"}
+    assert ci.timing_warnings(results(a=100, b=105, c=98, d=110, e=102, f=230), history) == [], \
+        "once is a busy moment (another session's tests: the main suite 2-3x, 2026-11-02)"
+    history["f"].append(240.0)                                  # ...but it was slow the run before too
     said = ci.timing_warnings(results(a=100, b=105, c=98, d=110, e=102, f=230), history)
-    assert len(said) == 1 and said[0].startswith("f: 230 s, 2.2x its usual 100 s")
+    assert len(said) == 1 and said[0].startswith("f: 230 s, 2.2x its usual 100 s two runs in a row")
     assert ci.timing_warnings(results(a=200, b=210, c=190, d=205, e=200, f=200), history) == [], \
         "every step twice as slow is the machine, not the checks"
     said = ci.timing_warnings(results(a=200, b=210, c=190, d=205, e=200, f=460), history)

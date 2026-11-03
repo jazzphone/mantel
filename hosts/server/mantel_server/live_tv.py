@@ -24,6 +24,12 @@ it reads the same things it reads from Home Assistant's Live TV feature, answere
   offer, answer and candidates are relayed over go2rtc's own WebSocket (``/api/ws?src=``). The page
   never learns the tuner's or go2rtc's API address, nor any credential: only the SDP answer (whose
   candidates name go2rtc's published WebRTC port, as HA's go2rtc's do today).
+* **The GPU falls back to the CPU**: with ``--live-tv-hardware vaapi`` the first channel played after a start
+  is probed first (go2rtc opens it: about 3 s on QuickSync, checked on the house's LXC 2026-11-02). If the GPU
+  pipeline fails (a 500 with ffmpeg's reason: another vendor's GPU, an Intel too old for the iHD driver, a
+  render node the container may not open) and the CPU pipeline opens the same channel, Live TV uses the CPU
+  until the next start and the status says why (``gpu_failed``). If the CPU fails too, it was not the GPU (a
+  busy tuner, a channel off the air): the GPU stays, and the next play checks again.
 * **Stop when nobody watches**: go2rtc stops ffmpeg (and frees the tuner) when a stream's last
   WebRTC consumer leaves; Mantel removes the stream itself STOP_GRACE_S after its last session ends,
   and the tick removes any ``mantel_tv_*`` stream nobody is using (a restart, a crash).
@@ -87,6 +93,7 @@ MAX_SESSIONS_PER_SOCKET = 4
 MAX_SDP = 65536
 QUALITIES = ("720", "1080")
 HARDWARE = ("", "vaapi")
+HARDWARE_PROBE_S = 15.0                     # the GPU check's probe (QuickSync answered in ~3 s, a failure as fast)
 # what a page is told to use for ICE: Home Assistant's own default STUN servers (camera/webrtc's
 # get_client_config answers the same), so a screen away from home behaves as it does with HA's cameras
 ICE_SERVERS = [{"urls": ["stun:stun.home-assistant.io:3478", "stun:stun.home-assistant.io:80"]}]
@@ -141,6 +148,17 @@ def go2rtc_source(url: str, quality: str = "720", hardware: str = "") -> str:
     q = quality if quality in QUALITIES else "720"
     hw = "_vaapi" if hardware == "vaapi" else ""
     return f"ffmpeg:{url}#input=mantel_tv_in{hw}#video=mantel_tv_{q}{hw}#audio=opus"
+
+
+def gpu_reason(detail: str) -> str:
+    """ffmpeg's words for a failed GPU pipeline, as go2rtc's probe gave them ("streams: exec/rtsp[mpeg2video @ 0x5a..]
+    Invalid frame dimensions 0x0. ..."), for the status: no address (a URL, an IP), no pointer, one short line."""
+    text = re.sub(r"^streams:\s*(exec/rtsp)?", "", detail or "").strip()
+    text = re.sub(r"\S+://\S+", "<url>", text)
+    text = re.sub(r"\b\d{1,3}(\.\d{1,3}){3}(:\d+)?\b", "<address>", text)
+    text = re.sub(r"\s*@ 0x[0-9a-f]+", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:200] or "the GPU pipeline did not start"
 
 
 # ------------------------------------------------------------------------------------- go2rtc
@@ -419,6 +437,9 @@ class MantelLiveTv:
         url = go2rtc_api_url(cfg)
         self.go2rtc: Go2rtc | None = Go2rtc(url, lambda: app.get("http")) if url else None
         self.hardware = getattr(cfg, "live_tv_hardware", "") or ""
+        self.hardware_checked = self.hardware != "vaapi"     # the GPU is probed once, on the first play
+        self.gpu_failed: str | None = None                    # why Live TV left the GPU for the CPU
+        self._hardware_lock = asyncio.Lock()
         self.viewers = Viewers()
         self._playing_on: set[str] = set()      # the tablets last told they play Live TV (tablets_changed)
         self.local = LocalEntities(hub, lambda: app["clock"]() if "clock" in app else time.time())
@@ -758,10 +779,9 @@ class MantelLiveTv:
                      on_event: Callable[[dict], None]):
         assert self.go2rtc is not None
         name = stream_name(ch["number"])
-        src = go2rtc_source(ch["url"], self.settings().get("quality") or "720", self.hardware)
         self._cancel_stop(name)
         try:
-            await self.go2rtc.put_stream(name, src)
+            await self._put_checked(name, ch)
             self.streams[name] = ch["number"]
             self._proxy_gate(name, True, ch["camera"])
             ws = await self.go2rtc.connect(name)
@@ -796,6 +816,36 @@ class MantelLiveTv:
                 return False
         unsubscribe.recheck = recheck              # type: ignore[attr-defined]
         return unsubscribe
+
+    async def _put_checked(self, name: str, ch: dict[str, Any]) -> None:
+        """The channel's stream in go2rtc, on the GPU or the CPU (see "The GPU falls back to the CPU" above)."""
+        assert self.go2rtc is not None
+        quality = self.settings().get("quality") or "720"
+        if self.hardware_checked:
+            await self.go2rtc.put_stream(name, go2rtc_source(ch["url"], quality, self.hardware))
+            return
+        async with self._hardware_lock:
+            hw = self.hardware if self.hardware_checked else "vaapi"
+            await self.go2rtc.put_stream(name, go2rtc_source(ch["url"], quality, hw))
+            if self.hardware_checked:
+                return
+            try:
+                await self.go2rtc.probe(name, timeout=HARDWARE_PROBE_S)
+            except asyncio.TimeoutError:
+                return                                        # no answer either way: the next play asks again
+            except Go2rtcError as exc:
+                gpu = gpu_reason(exc.detail)
+                await self.go2rtc.put_stream(name, go2rtc_source(ch["url"], quality, ""))
+                try:
+                    await self.go2rtc.probe(name, timeout=HARDWARE_PROBE_S)
+                except (Go2rtcError, asyncio.TimeoutError):
+                    # the CPU could not open it either: not the GPU's fault, so the GPU stays
+                    await self.go2rtc.put_stream(name, go2rtc_source(ch["url"], quality, "vaapi"))
+                    return
+                self.hardware, self.gpu_failed = "", gpu
+                log.warning("Live TV: the GPU (VAAPI) transcode failed, so Live TV uses the CPU until Mantel "
+                            "restarts: %s", self.gpu_failed)
+            self.hardware_checked = True
 
     async def _relay(self, sess: TvSession, on_event: Callable[[dict], None]) -> None:
         await relay_go2rtc(sess, on_event)
@@ -966,6 +1016,7 @@ class MantelLiveTv:
         """For GET /api/live_tv/status (Owner/Admin): never the tuner's or go2rtc's address."""
         now = self.monotonic()
         return {"mode": self.mode(), "go2rtc": self.go2rtc is not None, "hardware": self.hardware or "cpu",
+                "gpu_failed": self.gpu_failed,
                 "channels": [{"number": c["number"], "name": c["name"], "camera": c["camera"]} for c in self.channels()],
                 "viewers": self.viewers.snapshot(now), "heartbeats": self.heartbeats,
                 "sessions": [{"channel": s.channel, "session": s.id[:8], "candidates": s.candidates}
