@@ -54,7 +54,7 @@ CI_JOBS=22 ~/.venvs/mantel/bin/python tools/ci.py full --all  # ~220 s, not ~320
   parts, the count kept in `.git/mantel-ci/timing.json`). The count holds still while the longest part stays
   between half and one and a half times that, since it is part of each part's name and key, and a run of only some
   parts (`--only`) never changes it. Under the table, **Slower than it should be** names each step past 240 s
-  (`STEP_BUDGET`) and each step more than twice as slow as its own last ten passes; also a check in parts whose parts add up
+  (`STEP_BUDGET`) and each step more than twice as slow as its own last ten passes two runs in a row (once is a busy machine); also a check in parts whose parts add up
   to much more than usual, and a whole full run whose steps do (more parts keep each part short, but the run waits
   on their sum, `CI_JOBS` at a time). Every step is measured against the run's
   own pace, so a busy machine slowing everything flags nothing. Each line says what to do: run the check in parts,

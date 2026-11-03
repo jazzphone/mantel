@@ -858,11 +858,13 @@ def timing_warnings(results: list[Result], history: dict[str, list[float]], fami
                 how = f"its parts are uneven: {fam} deals its runs out in turn; give it a fairer split"
             out.append(f"{r.name}: {r.seconds:.0f} s, past the {budget:.0f} s one step may take"
                        + (f" (the machine ran at {pace:.1f}x its usual pace)" if pace > 1.05 else "") + f": {how}")
-        # (twice its usual: the main suite and HK Frontend's suites slow more than the waiting browser checks on a
-        # busy machine, 2026-11-02 -- 2x at a 1.1x pace; the Shows' check that grew unseen was 3.4x)
-        elif r.name in ratios and ratios[r.name] > 2 * pace and r.seconds - usual[r.name] * pace > 30:
-            out.append(f"{r.name}: {r.seconds:.0f} s, {ratios[r.name] / pace:.1f}x its usual {usual[r.name]:.0f} s"
-                       f" (the other steps at {pace:.1f}x): what did this change add to it?")
+        # (twice its usual, two runs in a row: the main suite and HK Frontend's suites slow more than the waiting
+        # browser checks on a busy machine -- 2026-11-02, the main suite 2-3x while another session ran its tests, at a
+        # 1.0-1.2x pace; a busy machine passes, a check that grew stays grown. The Shows' that grew unseen was 3.4x)
+        elif len(past := history.get(r.name, [])[-HISTORY:]) >= 4 and (base := _median(past[:-1])) > 0 \
+                and r.seconds > 2 * pace * base and past[-1] > 1.5 * base and r.seconds - base * pace > 30:
+            out.append(f"{r.name}: {r.seconds:.0f} s, {r.seconds / base / pace:.1f}x its usual {base:.0f} s two runs in a"
+                       f" row (the other steps at {pace:.1f}x): what did the change add to it?")
     return out
 
 
