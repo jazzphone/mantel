@@ -161,7 +161,7 @@
     // Labels only: no saved value or key ever carries it.
     productName: function () { return 'HK Frontend'; },
     // THE SETTINGS' NAME where HK's screens send someone to them ("Add some
-    // in HK Settings → Features → Live TV"): HK Settings in Home Assistant,
+    // in HK Settings → Pages → Live TV"): HK Settings in Home Assistant,
     // the host's own settings elsewhere (Mantel Settings, which holds HK's
     // pages under the same names). settingsPlace(path) says a place in them.
     settingsName: function () { return 'HK Settings'; },

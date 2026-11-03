@@ -1905,7 +1905,7 @@
       // THE CATEGORY IDS browse_media gives Music Assistant's first page
       // (settings.py BROWSE_CATEGORIES, CATEGORY_ICON above), in MA's order
       { name: 'hide', label: 'Hide Categories',
-        helper: 'Left off the first page. Not set here: the ones hidden in HK Settings → Features → Music.',
+        helper: 'Left off the first page. Not set here: the ones hidden in HK Settings → Pages → Music.',
         selector: { select: { multiple: true, mode: 'list', options: [
           { value: 'artists', label: 'Artists' }, { value: 'albums', label: 'Albums' },
           { value: 'tracks', label: 'Tracks' }, { value: 'playlists', label: 'Playlists' },
@@ -1914,7 +1914,7 @@
       // Rows are QUERIES (title, media_type, order_by or favorite), not names
       // from a list, so they stay YAML
       { name: 'discover', label: 'Discover Rows',
-        helper: 'The first page\'s rows, as a YAML list of title, media type and order. Not set here: the ones picked in HK Settings → Features → Music.',
+        helper: 'The first page\'s rows, as a YAML list of title, media type and order. Not set here: the ones picked in HK Settings → Pages → Music.',
         selector: { object: {} } }
     ],
     function () { return { music: true }; });

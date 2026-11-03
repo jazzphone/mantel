@@ -3490,7 +3490,7 @@
         var e = document.createElement('div');
         e.className = 'tv-empty';
         e.textContent = this._configured
-          ? 'No channels yet. Add some in ' + window.hkShell.settingsPlace('Features → Live TV') + '.'
+          ? 'No channels yet. Add some in ' + window.hkShell.settingsPlace('Pages → Live TV') + '.'
           : 'Add Live TV (' + window.hkShell.haPlace('HK Frontend → Add feature') + ') to show channels here.';
         this._root.append(e);
         return;
@@ -3693,7 +3693,7 @@
   register('hk-tv-guide-card', HkTvGuideCard, 'HK Live TV Guide',
     'The Live TV channels with what is on now, and a tap that plays one full screen.',
     [{ name: 'title', label: 'Title', selector: { text: {} },
-       helper: 'Optional heading. The channels themselves are added in HK Settings → Features → Live TV.' }],
+       helper: 'Optional heading. The channels themselves are added in HK Settings → Pages → Live TV.' }],
     function () { return {}; });
 
   // (tvPlayer: the Home Grid's Live TV block opens its channels in this

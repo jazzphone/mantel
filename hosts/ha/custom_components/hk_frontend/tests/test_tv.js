@@ -18,7 +18,7 @@ ok('registered and in the picker', !!customElements.get('hk-tv-guide-card') &&
 ok('asks hk_tv/channels (the integration), not its own config', /callWS\(\{ type: 'hk_tv\/channels' \}\)/.test(card) && !/_config\.channels/.test(card));
 ok('says what to do when Live TV is missing or empty',
    /(Set up|Add) [^'"]*Live TV \(' \+ window\.hkShell\.haPlace\('HK Frontend → Add feature'\) \+ '\) to show channels/.test(card) &&
-   /Add some in ' \+ window\.hkShell\.settingsPlace\('Features → Live TV'\)/.test(card));
+   /Add some in ' \+ window\.hkShell\.settingsPlace\('Pages → Live TV'\)/.test(card));
 ok('wakes on every now-playing sensor', /c\.now && h\.states\[c\.now\]/.test(card) && /st\.last_updated/.test(card));
 ok('artwork and logos go through _artImage (HA fetches them; a tablet may have no internet)',
    /this\._artImage\(a\.image, pic,/.test(card) && /this\._artImage\(a\.logo, lg,/.test(card));

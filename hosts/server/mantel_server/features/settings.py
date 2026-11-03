@@ -28,7 +28,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     # All Tablets' alerts and scheduled restart (feature_watch.TabletWatch), with the house settings' own
     # `tablets` choices (alert_offline, alert_charging, alert_restart, restart, restart_times)
     "tablets": {"enabled": False},
-    # Music and the Alarm PIN, added on Mantel itself (HK Settings -> Features -> Add, feature_pages "feature/set"):
+    # Music and the Alarm PIN, added on Mantel itself (Mantel Settings, the feature's page: Add, feature_pages "feature/set"):
     # their settings and engines are elsewhere (music.py's house/music, alarm_pin.py's table); this only says
     # they are added, as the import's ``ha.added`` does for a feature Home Assistant had
     "music": {"enabled": False},

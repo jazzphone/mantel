@@ -1777,7 +1777,7 @@
           '<div class="row"><span class="k">Show there</span><input class="tg enh" type="checkbox" role="switch" aria-label="Show on the Energy page"' +
           (enIn ? ' checked' : '') + '></div>' +
           '<a class="row enl" href="/hk-settings#/features/energy/devices/' + encodeURIComponent(enRec.key) + '"><span class="k">More energy settings</span>' + CHEV + '</a>' +
-          '</div><div class="note">Its power sensor and its switch are on ' + window.hkShell.settingsPlace('Features → Energy') + '.</div></div>';
+          '</div><div class="note">Its power sensor and its switch are on ' + window.hkShell.settingsPlace('Pages → Energy') + '.</div></div>';
       }
       // AS A FAVORITE: its name and glyph on the favorites row,
       // on every dashboard where it is a favorite, and the lights it controls

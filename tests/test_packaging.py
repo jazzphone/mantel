@@ -1053,3 +1053,10 @@ def test_caddy_serves_an_address_with_no_name_sent():
     text = (ROOT / "packaging/compose/caddy/Caddyfile").read_text()
     globals_block = text[text.index("\n{\n"):text.index("\n}\n", text.index("\n{\n"))]
     assert "default_sni {$MANTEL_HOSTNAME}" in globals_block
+
+
+def test_the_images_leave_out_the_developer_pages_the_ha_app_leaves_out():
+    """/dev's state hub and the scenery review are a checkout's (tools/stage_ha_app.py drops them from the App): the
+    Docker build context leaves them out too, so Docker and the LXC never serve them (the owner, 2026-11-02)."""
+    ignored = {ln.strip() for ln in (ROOT / ".dockerignore").read_text().splitlines()}
+    assert {"hosts/server/mantel_server/static/dev.html", "web/hk/pages/seasonal-scenery-review.html"} <= ignored

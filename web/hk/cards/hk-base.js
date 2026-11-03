@@ -3047,7 +3047,7 @@
     browse_url: 'Opened by the Browse button.',
     players: 'The first one playing is shown. List speaker groups before their members.',
     start_script: 'Optional. Receives the selected area ids. Empty: HK Clean Areas sends each vacuum the areas on its room map.',
-    floors: 'Empty: the rooms Clean Areas offers (HK Settings → Features → Clean Areas), by floor, kept up to date. Or a YAML list: name, areas: [{id, name}] (id is the Home Assistant area id).',
+    floors: 'Empty: the rooms Clean Areas offers (HK Settings → Pages → Vacuums), by floor, kept up to date. Or a YAML list: name, areas: [{id, name}] (id is the Home Assistant area id).',
     order: 'Optional, for automatic rooms: the order to show them in on each floor. Empty: this screen\'s Room order when it is used on pages, else A to Z.',
     create_script: 'Optional. Receives the duration and name. Empty: script.quick_timer_create (the shipped quick-timer helpers).', name_chips: 'Names offered as one-tap choices.',
     timers: 'YAML list: entity, label, glyph, label_entity.',

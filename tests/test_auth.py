@@ -298,3 +298,12 @@ def test_user_oauth_calls_do_not_use_haclient():
     from mantel_server import ha_oauth, ha_client
     assert "HaClient" not in inspect.getsource(ha_oauth)
     assert "auth/current_user" not in inspect.getsource(ha_client)
+
+
+async def test_a_signed_in_person_opening_mantel_s_address_lands_on_the_screens(env):
+    """The owner's LXC (2026-11-02): `/` went to the developer's page (/dev) wherever static/dev.html existed, and the
+    Docker image had it. It goes to the screens everywhere; /dev opens only by its own address, in a checkout."""
+    env.store.link("u-avery", "owner")
+    await complete(env)
+    r = await env.client.get("/", allow_redirects=False)
+    assert r.status == 302 and r.headers["Location"] == "/home"

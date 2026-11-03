@@ -3327,10 +3327,10 @@
   // Listed in the card picker, with an editor, so it can be placed without
   // hand-written YAML.
   register('hk-speaker-picker-card', HkSpeakerPickerCard, 'HK Speaker Picker',
-    'Choose one or more speakers, then tap a playlist to play it on them. The speakers, presets and playlists are set up in HK Settings → Features → Music.',
+    'Choose one or more speakers, then tap a playlist to play it on them. The speakers, presets and playlists are set up in HK Settings → Pages → Music.',
     C && [
       { name: 'browse_url', label: 'Browse page',
-        helper: 'Where the Browse Music pill goes, e.g. ./music-browse on ' + window.hkShell.productName() + '\'s own screens. Empty: no pill. Speakers, presets and playlists are set up in HK Settings → Features → Music.',
+        helper: 'Where the Browse Music pill goes, e.g. ./music-browse on ' + window.hkShell.productName() + '\'s own screens. Empty: no pill. Speakers, presets and playlists are set up in HK Settings → Pages → Music.',
         selector: { text: {} } }
     ],
     // NO browse_url IN THE STUB: ./music-browse is a page only HK Frontend's
@@ -3795,7 +3795,7 @@
       var sub2 = last && !(lab === 'Playlists' && last.artist === 'Playlist') ? last.artist : '';
       var words = last ? '<b class="t1">' + esc(last.name) + '</b>' + (sub2 ? '<small class="t2">' + esc(sub2) + '</small>' : '') : '';
       var body;
-      if (items && !items.length) body = '<span class="lab">' + lab + '</span><div class="none">' + (tiles ? 'No playlists yet. Add some in ' + window.hkShell.settingsPlace('Features → Music') + '.' : 'Music played here shows up here.') + '</div>';
+      if (items && !items.length) body = '<span class="lab">' + lab + '</span><div class="none">' + (tiles ? 'No playlists yet. Add some in ' + window.hkShell.settingsPlace('Pages → Music') + '.' : 'Music played here shows up here.') + '</div>';
       else if (s === 'S') body = '<span class="bg">' + this._cover(last) + '</span><span class="sh"></span>' +
         (last ? '<button type="button" class="go" data-i="0" aria-label="Play ' + esc(last.name) + '"><hk-icon icon="mdi:play"></hk-icon></button>' : '') +
         '<div class="ft">' + words + '</div>';
@@ -3894,7 +3894,7 @@
     var Mu = window.hkMusic, tiles = playlistTiles(Mu && Mu.playlists ? Mu.playlists() : [], null), self = this, D = window.hkDetail;
     var el = this._root.querySelector('hk-plate') || this;
     if (!tiles.length) {
-      window.hkShell.toast({ message: 'No playlists yet. Add some in ' + window.hkShell.settingsPlace('Features → Music') + '.' }, this);
+      window.hkShell.toast({ message: 'No playlists yet. Add some in ' + window.hkShell.settingsPlace('Pages → Music') + '.' }, this);
       return;
     }
     var sp = this._config && this._config.speaker;
@@ -4109,7 +4109,7 @@
       if (!list.length) {
         this._root.innerHTML = '<hk-plate class="tv" data-hk-role="card"><div class="none"></div></hk-plate>';
         this._root.querySelector('.none').textContent = !this._channels ? '' : this._configured
-          ? 'No channels yet. Add some in ' + window.hkShell.settingsPlace('Features → Live TV') + '.' : 'Add Live TV to show its channels here.';
+          ? 'No channels yet. Add some in ' + window.hkShell.settingsPlace('Pages → Live TV') + '.' : 'Add Live TV to show its channels here.';
         return;
       }
       var plate = document.createElement('hk-plate');

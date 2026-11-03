@@ -338,14 +338,16 @@ async def ws_handler(request: web.Request) -> web.StreamResponse:
 
 
 def _dev_html():
-    """static/dev.html, the developer's landing page: in a checkout and the pip package, not in the HA App (the
-    stager leaves it out: tools/stage_ha_app.py)."""
+    """static/dev.html, the developer's landing page (/dev): in a checkout only. The HA App's stager and the Docker
+    image (.dockerignore) leave it out."""
     return files("mantel_server").joinpath("static/dev.html")
 
 
 @guards.guard("signed_in")
 async def root(request: web.Request) -> web.Response:
-    raise web.HTTPFound("/home" if direct.is_direct(request) or not _dev_html().is_file() else "/dev")
+    # always the screens: in a checkout /dev is opened by its address. It was the landing page wherever dev.html
+    # existed, so Docker and the LXC (whose image had it) sent people to the developer's page (the owner, 2026-11-02)
+    raise web.HTTPFound("/home")
 
 
 @guards.guard("signed_in")
