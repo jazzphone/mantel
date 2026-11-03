@@ -267,6 +267,14 @@ start() {
     echo "Note: /dev/dri/renderD128 is not on this host; continuing WITHOUT the GPU (Live TV will use the CPU)."
     var_gpu="no"
   fi
+  # Live TV's GPU transcode is Intel QuickSync (the image carries Intel's driver only): another vendor's render node
+  # (AMD 0x1002, NVIDIA 0x10de) is not shared in. Mantel also falls back to the CPU by itself if the GPU fails.
+  local vendor
+  vendor="$(cat /sys/class/drm/renderD128/device/vendor 2>/dev/null || true)"
+  if [ "$var_gpu" = "yes" ] && [ -n "$vendor" ] && [ "$vendor" != "0x8086" ]; then
+    echo "Note: this host's GPU is not Intel (PCI vendor ${vendor}); Live TV transcodes on Intel QuickSync only, so it will use the CPU."
+    var_gpu="no"
+  fi
 }
 
 choose() {  # choose VAR "question" option... : numbered menu; Enter takes the first

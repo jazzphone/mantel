@@ -73,7 +73,7 @@ You need:
 | **Space** | 4 cores, 6 GB of memory and a 32 GB disk by default. |
 | **A name for Mantel** | What browsers will type, for example `mantel.example.com`, and a way to get HTTPS (see [Install with Docker → HTTPS](Install-Docker.md#3-choose-how-browsers-get-https)). The script asks which. |
 | **A Home Assistant user for Mantel** | A dedicated administrator user, for example `mantel-server`. You sign in as it once, on Mantel's Connections page. |
-| **Optional: an Intel iGPU** | Live TV's transcode uses QuickSync when `/dev/dri/renderD128` exists on the host. Without it, the CPU transcodes. |
+| **Optional: an Intel iGPU** | Live TV's transcode uses QuickSync when `/dev/dri/renderD128` exists on the host and is Intel's (5th-generation Core, Broadwell, or newer). Without it, or with an AMD or NVIDIA GPU, the CPU transcodes. If the GPU fails when a channel first plays, Mantel switches Live TV to the CPU by itself until it restarts. |
 
 ### What the script does
 

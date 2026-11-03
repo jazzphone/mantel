@@ -6,6 +6,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 **Added**
 - Mantel Settings → Advanced → **Features**: every feature with an on/off switch, what it needs and where its settings are. Each feature's own page keeps its Add and Remove (Music's page has Remove too now).
+- Docker and the LXC: **Live TV falls back to the CPU when the GPU can't transcode.** The first channel played after Mantel starts is checked on the GPU (about 3 seconds); if the GPU fails and the CPU plays the channel, Live TV uses the CPU until Mantel restarts, and Live TV's status says why (`gpu_failed`). Before, the player retried forever with no picture.
+- Proxmox LXC: the install uses the GPU for Live TV only when it's Intel (QuickSync, the only GPU the image has a driver for); an AMD or NVIDIA GPU leaves Live TV on the CPU, with a note saying so.
 
 **Fixed**
 - Docker and the LXC: **Live TV plays.** A channel broadcast in 5.1 surround (most of them) stopped the transcoder at once, because go2rtc's Opus audio for browsers can't carry 5.1; the player retried every two seconds with no picture. The sound is mixed down to stereo now (`packaging/compose/go2rtc/go2rtc.yaml`).
