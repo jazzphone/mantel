@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- Docker and the LXC: **Live TV's sound and picture start in sync.** A channel's sound starts up to a second before its picture, and that head start played late: the sound trailed the picture by about a second at first and caught up over 10 to 15 seconds, still a little behind. Both now start together (the first 1.2 seconds are dropped, adding about 0.05 seconds before the picture shows).
+
 ## 0.1.119 - 2026-11-02
 
 **Added**

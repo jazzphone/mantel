@@ -24,14 +24,19 @@ webrtc:
 ffmpeg:
   # The HDHomeRun sends MPEG-2 video (broadcast HD is 1080i) and AC-3 audio, which no browser plays.
   # Fast start, as HA's own Live TV transcode does: probe a second, not five; a key frame every second.
+  # SOUND AND PICTURE START TOGETHER (2026-11-03): a channel's sound starts 0.4 to 0.9 s before its picture (the
+  # owner's tuner, 15 channels measured), and the browser played that head start late, catching up over 10 to 15 s
+  # ("really bad when it starts"; a flash and beep test broadcast through go2rtc to Chromium: audio 0.8 to 1 s late at
+  # 4 s, 0.33 s at 9 s, up to 0.17 s at 24 s). `-ss 1.2` at the head of each video template below (an output
+  # option) drops the first 1.2 s of both, so both start at once: 0.12 s at 4 s, within 0.05 s by 9 s, about 0.01 s after; the first picture came 0.05 s later.
   mantel_tv_in: "-probesize 1500000 -analyzeduration 1000000 -fflags +genpts+discardcorrupt -i {input}"
-  mantel_tv_720: "-vf yadif=0:-1:0,scale=-2:720 -c:v libx264 -preset veryfast -tune zerolatency -profile:v high -level:v 4.1 -pix_fmt yuv420p -b:v 3000k -maxrate 3500k -bufsize 3000k -g 30 -keyint_min 30 -bf 0"
-  mantel_tv_1080: "-vf yadif=0:-1:0 -c:v libx264 -preset veryfast -tune zerolatency -profile:v high -level:v 4.1 -pix_fmt yuv420p -b:v 6000k -maxrate 7000k -bufsize 6000k -g 30 -keyint_min 30 -bf 0"
+  mantel_tv_720: "-ss 1.2 -vf yadif=0:-1:0,scale=-2:720 -c:v libx264 -preset veryfast -tune zerolatency -profile:v high -level:v 4.1 -pix_fmt yuv420p -b:v 3000k -maxrate 3500k -bufsize 3000k -g 30 -keyint_min 30 -bf 0"
+  mantel_tv_1080: "-ss 1.2 -vf yadif=0:-1:0 -c:v libx264 -preset veryfast -tune zerolatency -profile:v high -level:v 4.1 -pix_fmt yuv420p -b:v 6000k -maxrate 7000k -bufsize 6000k -g 30 -keyint_min 30 -bf 0"
   # QuickSync (VAAPI), the pipeline Proof 4 measured at 0.14 of a core: decode, deinterlace, scale and
   # encode all on the iGPU. Needs /dev/dri (compose.gpu.yaml).
   mantel_tv_in_vaapi: "-vaapi_device /dev/dri/renderD128 -hwaccel vaapi -hwaccel_output_format vaapi -probesize 1500000 -analyzeduration 1000000 -fflags +genpts+discardcorrupt -i {input}"
-  mantel_tv_720_vaapi: "-vf deinterlace_vaapi,scale_vaapi=w=1280:h=720 -c:v h264_vaapi -profile:v high -level:v 4.1 -b:v 3000k -maxrate 3500k -bufsize 3000k -g 30 -keyint_min 30 -bf 0"
-  mantel_tv_1080_vaapi: "-vf deinterlace_vaapi -c:v h264_vaapi -profile:v high -level:v 4.1 -b:v 6000k -maxrate 7000k -bufsize 6000k -g 30 -keyint_min 30 -bf 0"
+  mantel_tv_720_vaapi: "-ss 1.2 -vf deinterlace_vaapi,scale_vaapi=w=1280:h=720 -c:v h264_vaapi -profile:v high -level:v 4.1 -b:v 3000k -maxrate 3500k -bufsize 3000k -g 30 -keyint_min 30 -bf 0"
+  mantel_tv_1080_vaapi: "-ss 1.2 -vf deinterlace_vaapi -c:v h264_vaapi -profile:v high -level:v 4.1 -b:v 6000k -maxrate 7000k -bufsize 6000k -g 30 -keyint_min 30 -bf 0"
   # OPUS IN STEREO (2026-11-02): go2rtc's own `opus` (#audio=opus) keeps the source's channels, and libopus can't
   # encode 5.1 that way ("Invalid channel layout 5.1(side) for specified mapping family -1"). Broadcast TV is often
   # 5.1 AC-3, so on the owner's LXC every channel's ffmpeg stopped at once and the player retried every two seconds
