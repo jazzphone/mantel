@@ -66,7 +66,7 @@ SHOWS = {
     'saver-bigweather': ({'show': 'forecast', 'forecast_layout': 'big'}, 'big'),
     'saver-forecast': ({'show': 'forecast'}, None),
     # Photos with Time Behind (2026-10-31): the weather in the upper-left corner, as on Clock, clear of the time
-    'saver-timebehind': ({'show': 'photos', 'time_behind': True, 'photo_titles': True, 'zoom': True}, 'tb'),
+    'saver-timebehind': ({'show': 'photos', 'time_behind': True, 'photo_titles': True, 'zoom': True, 'portrait_zoom': 150, 'landscape_zoom': 150}, 'tb'),
     # 26 (2026-10-30): the photo options where they apply -- Clock on sharp photos offers Time Behind and draws it;
     # on Soft photos neither (left on from Photos, it couldn't be turned off from Clock)
     'saver-clockphotos': ({'show': 'clock', 'clock_bg': 'photos', 'time_behind': True}, 'clock-tb'),
