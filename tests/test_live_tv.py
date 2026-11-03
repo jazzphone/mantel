@@ -173,6 +173,20 @@ def test_live_tv_s_sound_is_mixed_to_stereo_for_the_browser():
     assert L.go2rtc_source("http://tuner.example/auto/v4.1").endswith("#audio=opus")
 
 
+def test_live_tv_s_sound_and_picture_start_together():
+    """The owner's LXC (2026-11-03): a channel's sound starts 0.4 to 0.9 s before its picture, and that head start
+    played late, catching up over 10 to 15 s. Every Live TV video template drops the output's first 1.2 s (more than
+    any channel measured), so sound and picture start at once."""
+    import re
+    yaml = (Path(__file__).resolve().parent.parent / "packaging/compose/go2rtc/go2rtc.yaml").read_text()
+    for name in ("mantel_tv_720", "mantel_tv_1080", "mantel_tv_720_vaapi", "mantel_tv_1080_vaapi"):
+        m = re.search(rf'^  {name}: "([^"]+)"$', yaml, re.M)
+        assert m and m.group(1).startswith("-ss 1.2 "), name
+    for name in ("mantel_tv_in", "mantel_tv_in_vaapi"):
+        m = re.search(rf'^  {name}: "([^"]+)"$', yaml, re.M)
+        assert m and "-ss" not in m.group(1).split("-i {input}")[0], f"{name}: an input -ss would seek the tuner"
+
+
 def test_viewers_expire_like_has():
     v = L.Viewers()
     assert v.set("device:k", {"name": "Kitchen", "person": None, "screen": "Kitchen"}, "4.1", 0.0)

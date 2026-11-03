@@ -4,6 +4,14 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- Screensaver: with the time behind the photo's people, the people over the time fade with their photo. The outgoing ones stayed solid while the rest of the screen changed, then vanished; the incoming ones popped in at the start.
+- Screensaver: a whole portrait photo zoomed in (Portrait Photos → Zoom) stays in the middle of the screen. It grew from its faces, so one with them to a side sat off center; it still zooms toward them where it runs past the screen, never showing its edge.
+- Screensaver: the slide corner stays clear of each slide's own words: it drops below Big Weather's top lines, the Weather slide's and Home Energy's.
+- Docker and the LXC: **Live TV's sound and picture start in sync.** A channel's sound starts up to a second before its picture, and that head start played late: the sound trailed the picture by about a second at first and caught up over 10 to 15 seconds, still a little behind. Both now start together (the first 1.2 seconds are dropped, adding about 0.05 seconds before the picture shows).
+
+## 0.1.119 - 2026-11-02
+
 **Added**
 - Screensaver: **the slides' own settings**, in the editor's Slides section. **The Slide Corner**: its time's size (100 to 250 %) and whether it adds the time, the date, the weather and House Status. **Music Full Screen**: whether it shows the room, the album, the progress, the buttons, the volume and Up Next. A change shows at once on the slide **See It** shows.
 - Screensaver: the **Today** face's weather can be turned off (**Weather**, beside **What's Playing**, under Face in the editor). A Weather or Music piece is hidden as "shown by the Today face" only while the face shows it.
@@ -13,9 +21,6 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - Proxmox LXC: the install uses the GPU for Live TV only when it's Intel (QuickSync, the only GPU the image has a driver for); an AMD or NVIDIA GPU leaves Live TV on the CPU, with a note saying so.
 
 **Fixed**
-- Screensaver: with the time behind the photo's people, the people over the time fade with their photo. The outgoing ones stayed solid while the rest of the screen changed, then vanished; the incoming ones popped in at the start.
-- Screensaver: a whole portrait photo zoomed in (Portrait Photos → Zoom) stays in the middle of the screen. It grew from its faces, so one with them to a side sat off center; it still zooms toward them where it runs past the screen, never showing its edge.
-- Screensaver: the slide corner stays clear of each slide's own words: it drops below Big Weather's top lines, the Weather slide's and Home Energy's.
 - Screensaver: the time stays where Position and Align put it. Measured once as its face first drew, it could sit off center (and push a top corner's piece to the bottom) once the face showed another song or other figures; it's put back on its place by what it shows at every draw.
 - Screensaver editor: nothing on the screen overlaps. A piece another one shows stacks past what is already in its place instead of over it, a band shown by the face draws no second box over the corners, and a dotted place's words stay inside it. A dragged piece lands on the place it covers, not only the one under the pointer.
 - Docker and the LXC: **Live TV plays.** A channel broadcast in 5.1 surround (most of them) stopped the transcoder at once, because go2rtc's Opus audio for browsers can't carry 5.1; the player retried every two seconds with no picture. The sound is mixed down to stereo now (`packaging/compose/go2rtc/go2rtc.yaml`).
