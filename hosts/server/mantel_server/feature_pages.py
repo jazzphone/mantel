@@ -379,8 +379,9 @@ class FeaturePages:
     async def feature_set(self, identity: Any, t: str, piece: str, enabled: Any) -> dict[str, Any]:
         """Add or Remove a feature on Mantel itself: its piece's switch in Mantel's feature settings, audited as
         every save there. Removing also takes it out of what the import read from Home Assistant (``ha.added``), so
-        a feature HA had added is gone from Mantel's screens too; a new import brings it back. Live TV's once-only
-        turn-on for Mantel's own go2rtc (host._live_tv_once) is spent either way: the choice stands."""
+        a feature HA had added is gone from Mantel's screens too; a new import brings it back. A person's choice is
+        final: Music, Clean Areas, Energy and Live TV get the ``owner`` marker in the same write (features/auto.py), so
+        Mantel never turns one on by itself after it (Live TV's older ``go2rtc_once`` is spent too)."""
         if not isinstance(enabled, bool):
             raise PageError("invalid_format", fields={"enabled": "true or false"})
         from .features import FEATURES_DOC, check_settings
@@ -390,6 +391,7 @@ class FeaturePages:
             settings["live_tv"]["go2rtc_once"] = True
         if not enabled:
             settings["ha"]["added"] = [k for k in settings["ha"]["added"] if k != piece]
+        settings = self.host.owner_decided(self.host.settings, settings, piece=piece)
         body = check_settings(settings)
         if body != self.host.settings:
             self.host.write_doc(FEATURES_DOC, body, identity, t)

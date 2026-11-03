@@ -996,3 +996,21 @@ async def test_a_new_energy_plan_is_sent_without_reloading_every_feature(make_en
     await host.refresh_energy(force=True)
     await asyncio.sleep(0.3)
     assert reloads == []
+
+
+async def test_the_owners_rest_save_marks_each_piece_whose_switch_changed(make_env):
+    """PUT /api/features/settings: a piece that may turn on by itself and whose `enabled` the Owner changed gets the
+    `owner` marker (features/auto.py), in the same version."""
+    env = await make_env()
+    await env.login("owner1", "owner")
+    r = await env.m.client.put("/api/features/settings", json={"clean_areas": {"enabled": True}, "sleep": {"enabled": True}},
+                               headers=env.m.headers())
+    assert r.status == 200
+    assert set(env.host.settings["auto"]["decided"]) == {"clean_areas"}
+    assert env.host.settings["auto"]["decided"]["clean_areas"]["by"] == "owner"
+    r = await env.m.client.put("/api/features/settings", json={"auto": {"enabled": False}}, headers=env.m.headers())
+    assert r.status == 200 and env.host.settings["auto"]["enabled"] is False
+    assert env.host.settings["auto"]["decided"]["clean_areas"]["why"] == "Removed by a person"
+    r = await env.m.client.put("/api/features/settings", json={"auto": {"decided": {"sleep": {"by": "auto"}}}},
+                               headers=env.m.headers())
+    assert r.status == 400, "only the four pieces may be decided"

@@ -275,3 +275,22 @@ async def test_an_owner_adds_and_removes_a_feature_on_mantel_itself(make_env):
     assert (await save(ws, 5, {"type": "hk_energy/feature/set", "enabled": True}))["error"]["code"] == "forbidden"
     await ws.close()
     assert "energy" not in host.client_added()
+
+
+async def test_a_persons_add_or_remove_is_final_for_mantels_own_turn_on(make_env):
+    """Features on by default (features/auto.py): Add or Remove writes the `owner` marker in the same version, so
+    Mantel never turns that feature on by itself afterwards; the Alarm PIN and Notifications never get one."""
+    env = await make_env()
+    host, st = env.app["features"], env.app["settings"].store
+    ws = await owner_socket(env)
+    await save(ws, 1, {"type": "hk_energy/feature/set", "enabled": True})
+    top = st.history("house", F.FEATURES_DOC, bodies=True)[0]
+    assert top["body"]["energy"]["enabled"] is True
+    assert top["body"]["auto"]["decided"]["energy"]["by"] == "owner", "in the same version as the choice"
+    await save(ws, 2, {"type": "hk_energy/feature/set", "enabled": False})
+    assert host.settings["auto"]["decided"]["energy"]["why"] == "Removed by a person"
+    await save(ws, 3, {"type": "hk_music/feature/set", "enabled": False})       # off already: still a choice
+    assert host.settings["auto"]["decided"]["music"]["by"] == "owner"
+    await save(ws, 4, {"type": "hk_notify/feature/set", "enabled": True})
+    assert set(host.settings["auto"]["decided"]) == {"energy", "music"}
+    await ws.close()

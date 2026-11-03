@@ -204,7 +204,9 @@ async def test_panel_get_lists_the_features_in_has_shape(make_env):
     feats = (await GF.recv(ws))["result"]["features"]
     assert list(feats) == ["hk_music", "hk_alarm_pin", "hk_clean_areas", "hk_tv", "hk_energy", "hk_notify"]
     assert feats["hk_tv"] == {"name": "Live TV", "kind": "live_tv", "installed": True, "own": True,
-                              "entries": [{"entry_id": ITEM["live_tv"], "title": "Live TV", "state": "loaded"}]}
+                              "entries": [{"entry_id": ITEM["live_tv"], "title": "Live TV", "state": "loaded"}],
+                              "auto": None, "note": None}
+    assert "auto" not in feats["hk_alarm_pin"] and "auto" not in feats["hk_notify"], "they never turn on by themselves"
     assert feats["hk_clean_areas"]["entries"] == [{"entry_id": "mantel_clean_areas", "title": "Clean Areas",
                                                     "state": "loaded"}]
     assert feats["hk_notify"]["entries"] == []

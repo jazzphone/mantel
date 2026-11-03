@@ -62,7 +62,7 @@ Wiring for the orchestrator (``server.py`` is not edited here), after ``linked.r
 from __future__ import annotations
 
 from .settings import (
-    COMPANIONS, DEFAULTS, ENERGY_REFRESH_S, FEATURES_DOC, FEATURE_ACTOR, FEATURE_ACTOR_NAME, FEATURE_READS,
+    AUTO_PIECES, COMPANIONS, DEFAULTS, ENERGY_REFRESH_S, FEATURES_DOC, FEATURE_ACTOR, FEATURE_ACTOR_NAME, FEATURE_READS,
     HA_KINDS, HA_RUN, IMPORTED, KIOSK_DOMAINS, LIVE_TV_REFRESH_S, LOG_KEEP, MAX_FETCH, MUTES_DOC, PIECES,
     ROUTE_RULES, TABLET_ENTITIES, bad_item, check_settings, ha_items, import_features, import_piece, _AREA,
     _CHANNEL, _ENTITY, _ENTRY, _HOST, _LIGHT, _TID, _URL, _strs,
