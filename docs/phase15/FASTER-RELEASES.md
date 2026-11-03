@@ -1,6 +1,6 @@
 # Phase 15: faster releases (plan, 2026-11-03)
 
-**Status: plan; nothing built.**
+**Status: plan; nothing built. Every decision answered by the owner on 2026-11-03 (all recommendations accepted): ready to build.**
 
 ## The ask (the owner, 2026-11-03)
 
@@ -410,6 +410,8 @@ Before is measured (run `41643065587` for the workflow; the rest from `Releasing
   pushed tree, and the Build log and Waiting on the owner are filled in.
 
 ## Decisions for the owner
+
+**Decided 2026-11-03:** the owner accepted every recommendation below, the release decision included. The building session takes each recommendation as the answer and does not ask again.
 
 | # | Question | Recommendation |
 |---|---|---|

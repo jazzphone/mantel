@@ -1,6 +1,6 @@
 # Phase 18: code health (plan, 2026-11-03)
 
-**Status: plan; nothing built.**
+**Status: plan; nothing built. Every decision answered by the owner on 2026-11-03 (all recommendations accepted): ready to build.**
 
 ## The ask (the owner, 2026-11-03)
 
@@ -530,6 +530,8 @@ At the end: `ci.py full --all`, once, on the merged tree.
 - Nothing released unless decision 11 says so.
 
 ## Decisions for the owner
+
+**Decided 2026-11-03:** the owner accepted every recommendation below, the release decision included. The building session takes each recommendation as the answer and does not ask again.
 
 | # | Question | Recommendation |
 |---|---|---|

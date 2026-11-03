@@ -1,6 +1,6 @@
 # Phase 16: features on by default (plan, 2026-11-03)
 
-**Status: plan; nothing built.**
+**Status: plan; nothing built. Every decision answered by the owner on 2026-11-03 (all recommendations accepted): ready to build.**
 
 ## The ask (the owner, earlier; approved, not built)
 
@@ -357,6 +357,8 @@ The first push can be 16.0 and 16.1 (three features); 16.2 adds Live TV without 
 - The release is done only if decision 16 is yes; otherwise it's the first item under "Waiting on the owner".
 
 ## Decisions for the owner
+
+**Decided 2026-11-03:** the owner accepted every recommendation below, the release decision included. The building session takes each recommendation as the answer and does not ask again.
 
 | # | Question | Recommendation |
 |---|---|---|

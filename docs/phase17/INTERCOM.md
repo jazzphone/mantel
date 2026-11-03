@@ -1,6 +1,6 @@
 # Phase 17: a one-way intercom to the HomePods (plan, 2026-11-03)
 
-**Status: plan; nothing built.**
+**Status: plan; nothing built. Every decision answered by the owner on 2026-11-03 (all recommendations accepted): ready to build.**
 
 ## The ask (the owner, 2026-11-03)
 
@@ -556,6 +556,8 @@ the proof has passed and the owner has listened.
   unless decision 17 says so.
 
 ## Decisions for the owner
+
+**Decided 2026-11-03:** the owner accepted every recommendation below, the release decision included. The building session takes each recommendation as the answer and does not ask again. Decision 19: the Kitchen HomePod only; no second HomePod was named, so the two-room run (P7) is skipped and the synced multi-room check stays on the fake MA.
 
 | # | Question | Recommendation |
 |---|---|---|
