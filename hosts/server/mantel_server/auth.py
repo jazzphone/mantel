@@ -252,8 +252,12 @@ async def callback(request: web.Request) -> web.StreamResponse:
                 log.warning("could not revoke the user's refresh token: %s", exc)
     except (OAuthError, Exception) as exc:
         log.warning("sign-in failed: %s", exc)
-        return done(page("Sign-in failed", "<p>Home Assistant could not confirm who you are. "
-                         "<a href='/login'>Try again</a>.</p>", 502))
+        # Home Assistant's own reason when it gave one ("User cannot authenticate remotely", "User is not active"):
+        # without it the page said only that HA could not confirm who you are (the owner's LXC, 2026-11-02)
+        why = getattr(exc, "why", "")
+        said = f" Home Assistant says: <b>{html.escape(why)}</b>." if why else ""
+        return done(page("Sign-in failed", "<p>Home Assistant could not confirm who you are." + said +
+                         " <a href='/login'>Try again</a>.</p>", 502))
     link = store.get_link(user["id"])
     if link is None:
         log.info("sign-in refused: HA user %s is not linked", user["id"])

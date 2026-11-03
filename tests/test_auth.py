@@ -38,6 +38,10 @@ class FakeHa:
         if form.get("action") == "revoke":
             self.revoked.append(form["token"])
             return web.Response(status=200)
+        if form.get("grant_type") == "authorization_code" and form.get("code") == "remote-user-code":
+            # HA's answer for a user marked "Can only log in from the local network" (auth async_user_not_allowed_do_auth)
+            return web.json_response({"error": "access_denied", "error_description": "User cannot authenticate remotely"},
+                                     status=403)
         if form.get("grant_type") == "authorization_code" and form.get("code") == "good-code":
             return web.json_response({"access_token": "user-access", "refresh_token": "user-refresh",
                                       "token_type": "Bearer", "expires_in": 1800})
@@ -307,3 +311,12 @@ async def test_a_signed_in_person_opening_mantel_s_address_lands_on_the_screens(
     await complete(env)
     r = await env.client.get("/", allow_redirects=False)
     assert r.status == 302 and r.headers["Location"] == "/home"
+
+
+async def test_home_assistant_s_reason_for_refusing_a_sign_in_is_shown(env):
+    """The owner's LXC (2026-11-02): Home Assistant refused the code exchange (403 access_denied) and the page said
+    only that it couldn't confirm who you are. Home Assistant's own reason is shown now, and logged."""
+    env.store.link("u-avery", "owner")
+    r = await complete(env, code="remote-user-code")
+    text = await r.text()
+    assert r.status == 502 and "Home Assistant says: <b>User cannot authenticate remotely</b>" in text

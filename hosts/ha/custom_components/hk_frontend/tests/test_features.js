@@ -25,6 +25,14 @@ ok('Add is HK Frontend’s own Add feature (every feature is one of its entries)
    F.addHref('hk_tv') === '/config/integrations/integration/hk_frontend' &&
    F.integrationHref('hk_tv') === '/config/integrations/integration/hk_frontend');
 
+// ------------------------------------------------------------ advanced -> features
+// (the page lists what the house has: Music always, the others installed;
+// "N of M On" counts the added ones)
+ok('Advanced -> Features counts the added ones among those it lists',
+   eq(F.featuresOn(feats), { on: 1, of: 2 }) && eq(F.featuresOn({}), { on: 0, of: 0 }));
+ok('each feature says what it needs and where its settings are',
+   F.LIST.every(function (x) { return typeof F.NEEDS[x[1]] === 'string' && /^#\//.test(F.SETTINGS_AT[x[1]]); }));
+
 // ------------------------------------------------------------ live tv
 var tv = { channels: [{ number: '4.1', name: 'NBC' }, { number: '13.1', name: 'ABC' }, { number: '9.9', name: 'Gone' }],
            lineup: [{ number: '4.1', station: 'WXXX-DT', network: 'NBC' }, { number: '4.3', station: 'WXXXCBS', network: 'CBS' },

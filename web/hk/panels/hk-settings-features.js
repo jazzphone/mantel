@@ -571,6 +571,7 @@
       K.toggle({ label: 'Keep Playlists Ready', sub: 'Their songs fetched ahead, so they open and start at once', on: !!d.keep_ready,
                  sk: 'f:hk_music:keep_ready', fk: 'music:keep_ready',
                  onChange: function (on) { P.featSet('hk_music', { keep_ready: on }); } })]));
+    removeRow(P, c, 'Music', 'hk_music');
   }
   function keepReadyNote(d) {
     var what = 'Your playlists and the ones played this week, refreshed every 2½ hours: one at a time, ' +
@@ -1990,9 +1991,48 @@
     hk_notify: 'Notifications isn’t added yet. It shows a banner at the top of your screens when an accessory does something — a door opens, someone arrives, a camera sees a person — with a camera’s snapshot.'
   };
 
+  // ADVANCED -> FEATURES: every feature on one page, a switch each, what it
+  // needs, and the page that holds its settings. The same switch as the
+  // feature page's Add and Remove (`<id>/feature/set`). A host whose
+  // features are Home Assistant's (HK Frontend) lists them with the way to
+  // add one there instead.
+  var NEEDS = {
+    hk_music: 'Needs Music Assistant', hk_tv: 'Needs an HDHomeRun tuner', hk_alarm_pin: 'Needs an alarm panel',
+    hk_clean_areas: 'Needs a vacuum with room maps', hk_energy: 'Needs Home Assistant’s Energy settings, or devices that report power',
+    hk_notify: 'Needs nothing more: you choose what it tells'
+  };
+  var SETTINGS_AT = { hk_music: '#/page/music', hk_tv: '#/page/live_tv', hk_alarm_pin: '#/page/security',
+                      hk_clean_areas: '#/page/vacuums', hk_energy: '#/page/energy', hk_notify: '#/features/notify' };
+  function featureList(P, c) {
+    var feats = P.data.features || {};
+    var rows = LIST.filter(function (x) { return stateOf(feats, x[1]) !== 'missing'; });
+    if (!rows.length) { c.appendChild(K.group({ footer: 'No features are reported yet. They show once Home Assistant is connected.' }, [])); return; }
+    var mine = rows.some(function (x) { return own(P, x[1]); });
+    c.appendChild(K.group({ footer: mine
+        ? 'On: the feature’s page and its settings come to every screen. Off: it leaves every screen, and its settings are kept for turning it on again. Each feature’s own page has the same switch.'
+        : 'Each feature is added in ' + haPlace('Devices & Services → HK Frontend → Add feature') + '.' },
+      rows.map(function (x) {
+        var d = x[1], on = stateOf(feats, d) === 'added', name = (feats[d] || {}).name || x[2];
+        if (!own(P, d)) {
+          return K.nav({ label: name, sub: NEEDS[d], value: on ? 'Added' : 'Not Added', icon: x[3], href: on ? SETTINGS_AT[d] : addHref(d), fk: 'features:' + d });
+        }
+        return K.toggle({ label: name, sub: NEEDS[d], icon: x[3], on: on, fk: 'features:switch:' + d,
+                          onChange: function (v) { setFeature(P, d, v); } });
+      })));
+    var on = rows.filter(function (x) { return stateOf(feats, x[1]) === 'added'; });
+    if (on.length) c.appendChild(K.group({ header: 'Settings' }, on.map(function (x) {
+      return K.nav({ label: (feats[x[1]] || {}).name || x[2], icon: x[3], href: SETTINGS_AT[x[1]], fk: 'features:open:' + x[1] });
+    })));
+  }
+  function featuresOn(features) {
+    var rows = listed(features).filter(function (x) { return stateOf(features, x[1]) !== 'missing'; });
+    return { on: rows.filter(function (x) { return stateOf(features, x[1]) === 'added'; }).length, of: rows.length };
+  }
+
   root.hkSettingsFeatures = {
     LIST: LIST, listed: listed, stateOf: stateOf, page: page, use: use, addHref: addHref, search: search, musicTop: musicTop,
     integrationHref: integrationHref, SCOPE: SCOPE, WHAT: WHAT, dndRows: dndRows, dndSummary: dndSummary,
+    featureList: featureList, featuresOn: featuresOn, NEEDS: NEEDS, SETTINGS_AT: SETTINGS_AT,
     _: { tvLists: tvLists, tvCount: tvCount, speakerLists: speakerLists, speakerName: speakerName, pairNote: pairNote, pairChoices: pairChoices, pairsAfter: pairsAfter, playlistSub: playlistSub, vacuumSub: vacuumSub, vacuumsAfter: vacuumsAfter,
          roomLists: roomLists, roomCount: roomCount, energyFound: energyFound, sectionsAfter: sectionsAfter,
          batteriesStored: batteriesStored, stayLabel: stayLabel, notifySummary: notifySummary, whenControl: whenControl,
