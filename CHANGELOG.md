@@ -7,6 +7,19 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 **Fixed**
 - Screensaver: with the time behind the photo's people, the people stay over the time when the minute changes (they dropped behind it and faded back).
 
+## 0.1.121 - 2026-11-03
+
+**Added**
+- **Features turn on by themselves when your house has what they need**, once: Music when Mantel is connected to Music Assistant, Clean Areas when a vacuum has a room map, Energy when Home Assistant's Energy settings have a grid meter or devices, and Live TV when an HDHomeRun on your home network answers and Mantel can play it. Mantel has to see the need on two looks 2 minutes apart, and it never turns on a feature a person turned off, including one turned off before this version (it reads the settings history). It sends nothing to the house. You're told under the feature in Mantel Settings → Advanced → Features ("Turned on by Mantel on Nov 4: …"), by the new Info alert **Mantel Turned On a Feature**, and in the settings history and the Audit Log. **Turn Features On Automatically**, at the top of Advanced → Features, stops it. See [Features](docs/guide/Features.md).
+- Advanced → Features says what a feature that's off still needs, for example a tuner Home Assistant knows without an address.
+
+**Changed**
+- Live TV's first start with Mantel's own go2rtc and a saved tuner turns it on by the same rule: the tuner has to answer, on two looks.
+- Live TV reads a tuner Mantel found itself at the home-network address it checked, and doesn't follow redirects. A tuner address you typed is read as before.
+
+**Note**
+- Going back to an earlier version after this one turns every feature off until you update again: the earlier version doesn't know the feature settings' new `auto` part.
+
 ## 0.1.120 - 2026-11-03
 
 **Added**

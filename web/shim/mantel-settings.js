@@ -139,6 +139,8 @@ export const host = {
     if (PAGES.some(([s]) => s === path)) return ROUTE + '/' + path;
     const old = /^(?:mantel\/)?(devices|connect)$/.exec(path);
     if (old) return OLD_PAGES[old[1]];
+    // an alert's link to Advanced -> Features (feature.enabled, features/auto.py): HK's own page
+    if (/^mantel\/features$/.test(path)) return 'advanced/features';
     // Add Screen is Mantel's own: where the new screen is drawn comes first (screens.py)
     if (path === 'add-screen' && manages()) return ROUTE + '/add-screen';
     // Photos had its own row until it moved into Your Files: #/photos (/admin's) and #/mantel/photos[/<album>]
