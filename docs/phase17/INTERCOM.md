@@ -419,7 +419,7 @@ at most the approved level.
 | P4 | 45 s Live | past the 30 s render timeout; the call returns within 10 s of the end; no early restore |
 | P5 | after P1 and P4 | the player is idle again; volume and power are as before; the next normal play works |
 | P6 | a 10 s Message (finite WAV) | the same call and link, the Message path, for comparison |
-| P7 | two idle speakers (only if the owner approves a second room) | still one `GET`; both `playing` within 1.5 s of each other |
+| P7 | two idle speakers: the Kitchen and the Guest Room HomePods (approved 2026-11-03) | still one `GET`; both `playing` within 1.5 s of each other |
 
 The trap is **not** tested live.
 
@@ -557,7 +557,7 @@ the proof has passed and the owner has listened.
 
 ## Decisions for the owner
 
-**Decided 2026-11-03:** the owner accepted every recommendation below, the release decision included. The building session takes each recommendation as the answer and does not ask again. Decision 19: the Kitchen HomePod only; no second HomePod was named, so the two-room run (P7) is skipped and the synced multi-room check stays on the fake MA.
+**Decided 2026-11-03:** the owner accepted every recommendation below, the release decision included. The building session takes each recommendation as the answer and does not ask again. Decision 19: the Kitchen HomePod, and the Guest Room HomePod as the second speaker for the two-room run (P7), under the same hours, volume and limits.
 
 | # | Question | Recommendation |
 |---|---|---|
