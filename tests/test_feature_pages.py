@@ -294,3 +294,24 @@ async def test_a_persons_add_or_remove_is_final_for_mantels_own_turn_on(make_env
     await save(ws, 4, {"type": "hk_notify/feature/set", "enabled": True})
     assert set(host.settings["auto"]["decided"]) == {"energy", "music"}
     await ws.close()
+
+
+async def test_turn_features_on_automatically_is_a_save_of_its_own(make_env):
+    """Advanced -> Features' switch (`mantel/features/auto/set`): Owner and Admin (configure on settings), saved in
+    the settings history, shown in panel/get only where Mantel holds the features; it changes no marker."""
+    env = await make_env()
+    host, st = env.app["features"], env.app["settings"].store
+    ws = await owner_socket(env)
+    got = await read(ws, 1, {"type": "hk_frontend/panel/get"})
+    assert got["result"]["features_auto"] == {"enabled": True}
+    got = await save(ws, 2, {"type": "mantel/features/auto/set", "enabled": False})
+    assert got["result"] == {"enabled": False} and host.settings["auto"]["enabled"] is False
+    assert host.settings["auto"]["decided"] == {}
+    assert st.history("house", F.FEATURES_DOC)[0]["message"] == "mantel/features/auto/set"
+    assert (await save(ws, 3, {"type": "mantel/features/auto/set", "enabled": "no"}))["error"]["code"] == "invalid_format"
+    assert (await save(ws, 4, {"type": "mantel/features/auto/set"}))["error"]["code"] == "invalid_format"
+    await ws.close()
+    ws = await owner_socket(env, ("adult1", "adult"))
+    assert (await save(ws, 5, {"type": "mantel/features/auto/set", "enabled": True}))["error"]["code"] == "forbidden"
+    await ws.close()
+    assert host.settings["auto"]["enabled"] is False

@@ -181,10 +181,17 @@ def test_lan_host_takes_the_home_network(value, host):
     "example.com", "tuner.example.com", "2001:db8::1", "::ffff:127.0.0.1", "192.168.40.20/lineup.json",
     "192.168.40.20/admin", "http://192.168.40.20/admin", "http://192.168.40.20/?x=1", "http://user@192.168.40.20/",
     "ftp://192.168.40.20/", "192.168.40.20:99999", "192.168.40.20:http", "tuner .local", "-bad-.local", "3232235777",
-    "10.1", "100.64.0.1",
+    "10.1", "100.64.0.1", "0x7f000001", "http://0x7f000001/", "0xa9fea9fe", "0x0:8123", "http://0X7F000001:5004/",
+    "0x7f.1", "0177.0.0.1", "127.1", "2130706433", "[fd12:3456::20%eth0]", "http://[fd00::1%25lo]/", "fe80::1%eth0",
+    "64:ff9b::a9fe:a9fe", "2002:7f00:1::1",
 ])
 def test_lan_host_refuses_everything_else(value):
     assert N.lan_host(value) is None
+
+
+def test_home_ip():
+    assert N.home_ip("192.168.40.20") and N.home_ip("fd12::1") and N.home_ip("::ffff:10.0.0.5")
+    assert not any(N.home_ip(a) for a in ("127.0.0.1", "169.254.169.254", "8.8.8.8", "::1", "fe80::1%eth0", "nope"))
 
 
 def test_lineup_url():

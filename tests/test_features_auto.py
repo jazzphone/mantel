@@ -4,6 +4,7 @@ apart; a person's choice is final; nothing is sent to the house. A FICTIONAL hou
 and a fake tuner fetch; no network."""
 import asyncio
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -330,7 +331,9 @@ async def test_live_tv_an_address_from_the_registry_is_checked_once_and_saved(tm
     await two_looks(r)
     tv = r.host.settings["live_tv"]
     assert r.host.on("live_tv") and tv["tuner"] == TUNER and tv["channels"] == [], "the whole lineup"
-    assert r.fetch.urls == [f"http://{TUNER}/lineup.json"], "one read within 10 minutes"
+    assert r.fetch.urls == [f"http://{TUNER}/lineup.json"] * 2, "one read for each of the two looks"
+    await two_looks(r)
+    assert len(r.fetch.urls) == 2, "on: never asked again by this"
     assert r.host.settings["auto"]["decided"]["live_tv"]["why"] == f"The tuner at {TUNER} answers."
 
 
@@ -359,7 +362,7 @@ async def test_live_tv_without_a_way_to_serve_it_or_with_hk_frontend_running_it(
 async def test_live_tv_a_tuner_that_doesnt_answer_has_its_note(tmp_path, monkeypatch):
     r = await rig(tmp_path, monkeypatch, serves="mantel", devices=[HDHR], fetch=Fetch(OSError("refused")))
     await two_looks(r)
-    assert not r.host.on("live_tv")
+    assert not r.host.on("live_tv") and len(r.fetch.urls) == 1, "a no stands for 10 minutes"
     assert r.auto.row("live_tv") == {"auto": None, "note": f"The tuner at {TUNER} didn't answer with its channels."}
 
 
@@ -453,11 +456,39 @@ async def test_start_schedules_a_look_and_a_seen_need_its_second(tmp_path, monke
     assert r.auto._again is None
 
 
-async def test_a_look_that_finds_one_running_does_nothing(tmp_path, monkeypatch):
+async def test_a_look_that_finds_one_running_is_one_more_look_after_it(tmp_path, monkeypatch):
     r = await rig(tmp_path, monkeypatch)
     async with r.auto._lock:
         await r.auto.look()
-    assert r.auto.looks == 0
+    assert r.auto.looks == 0 and r.auto._asked
+    await r.auto.look()
+    assert r.auto.looks == 1 and r.auto._pending is not None and not r.auto._asked
+    r.auto.stop()
+
+
+async def test_an_unreadable_history_decides_nothing(tmp_path, monkeypatch):
+    r = await rig(tmp_path, monkeypatch)
+
+    def broken(*a, **k):
+        raise RuntimeError("database is locked")
+    monkeypatch.setattr(r.store, "history", broken)
+    before = r.store.body("house", F.FEATURES_DOC)
+    await two_looks(r)
+    assert r.store.body("house", F.FEATURES_DOC) == before and not r.host.on("music")
+    assert r.host.settings["auto"]["decided"] == {}, "no one turned anything off"
+
+
+async def test_a_failing_look_starts_the_2_minutes_over(tmp_path, monkeypatch):
+    r = await rig(tmp_path, monkeypatch)
+    await r.auto.look()
+    assert r.auto.first
+
+    async def broken(wanted):
+        raise RuntimeError("boom")
+    monkeypatch.setattr(r.auto, "facts", broken)
+    r.clock.t += A.TWO_LOOKS_S
+    await r.auto.look()
+    assert r.auto.first == {} and r.auto._again is None
 
 
 async def test_status_says_why(tmp_path, monkeypatch):
@@ -468,3 +499,72 @@ async def test_status_says_why(tmp_path, monkeypatch):
     assert s["needs"]["music"]["met"] is True
     assert s["why_not"]["live_tv"] == "doesn't have what it needs"
     assert s["why_not"]["music"].startswith("seen once")
+
+
+# -- the request itself (tv_fetch.lan_get: what the probe and a home-network tuner's lineup use) ------------------
+@pytest.fixture
+async def lan_server():
+    from aiohttp import web
+    from aiohttp.test_utils import TestServer
+    seen = []
+
+    async def lineup(request):
+        seen.append(request.headers.get("Host"))
+        return web.Response(body=LINEUP, content_type="application/json")
+
+    async def moved(request):
+        raise web.HTTPFound("http://169.254.169.254/latest/meta-data/")
+
+    async def big(request):
+        return web.Response(body=b"[" + b" " * 3_000_000 + b"]", content_type="application/json")
+    app = web.Application()
+    app.router.add_get("/lineup.json", lineup)
+    app.router.add_get("/moved", moved)
+    app.router.add_get("/big", big)
+    srv = TestServer(app, host="127.0.0.1")
+    await srv.start_server()
+    yield srv, seen
+    await srv.close()
+
+
+async def test_lan_get_connects_to_the_checked_address_without_redirects_and_with_a_cap(lan_server):
+    from aiohttp import web
+    from mantel_server.features.tv_fetch import lan_get
+    srv, seen = lan_server
+    app = web.Application()
+    host = f"127.0.0.1:{srv.port}"
+    anything = lambda a: True                                      # noqa: E731 -- the test server is on loopback
+    assert json.loads(await lan_get(app, host, check=anything)) == json.loads(LINEUP)
+    assert seen == [host], "the name goes as the Host; the connection is to the address checked"
+    with pytest.raises(ValueError, match="HTTP 302"):
+        await lan_get(app, host, "/moved", check=anything)
+    with pytest.raises(ValueError, match="too large"):
+        await lan_get(app, host, "/big", check=anything)
+    with pytest.raises(ValueError, match="home network"):
+        await lan_get(app, host)                                   # loopback is never a home address
+    assert seen == [host]
+
+
+async def test_a_save_made_from_an_overtaken_copy_is_refused_not_written_over_mantels(tmp_path, monkeypatch):
+    """A page's save reads the settings, waits (an Energy read), then writes: Mantel turning Music on meanwhile is
+    not undone by it (the save carries the version it read)."""
+    from mantel_server.settings_store import SettingsError
+    r = await rig(tmp_path, monkeypatch)
+    stale, version = json.loads(json.dumps(r.host.settings)), r.host.settings_version
+    await two_looks(r)
+    assert r.host.on("music")
+    stale["sleep"]["enabled"] = True
+    with pytest.raises(SettingsError) as err:
+        r.host.write_doc(F.FEATURES_DOC, F.check_settings(stale), None, "a page's save", expect_version=version)
+    assert err.value.code == "conflict"
+    await r.host.reload()
+    assert r.host.on("music") and r.host.settings["auto"]["decided"]["music"]["by"] == "auto"
+
+
+def test_the_alerts_link_opens_advanced_features():
+    from mantel_server.alerts import Alerts
+    me = SimpleNamespace(app={"cfg": SimpleNamespace(public_url="https://home.example.com/")})
+    assert Alerts.link(me, "features") == "https://home.example.com/settings#/mantel/features"
+    js = (Path(__file__).resolve().parents[1] / "web/shim/mantel-settings.js").read_text()
+    assert "if (/^mantel\\/features$/.test(path)) return 'advanced/features';" in js, \
+        "Mantel Settings forwards #/mantel/features to HK's Advanced -> Features"

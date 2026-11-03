@@ -9,6 +9,7 @@ from typing import Any, TYPE_CHECKING
 
 from aiohttp import web
 from hk_core import live_tv_guide as TV
+from hk_core import needs as N
 
 from .settings import MAX_FETCH
 
@@ -38,6 +39,49 @@ async def http_fetch(app: web.Application, url: str, timeout: float = 60.0) -> b
             await session.close()
 
 
+LINEUP_MAX = 2_000_000                   # a tuner's lineup.json is a few kilobytes
+
+
+async def lan_get(app: web.Application, host: str, path: str = "/lineup.json", *, timeout: float = 8.0,
+                  cap: int = LINEUP_MAX, check: Any = N.home_ip) -> bytes:
+    """GET ``http://<host><path>`` on the home network only (features on by default, docs/phase16): ``host`` is one
+    ``hk_core.needs.lan_host`` passed; a name is resolved here and EVERY address it has must be a home address
+    (``check``), and the request goes to that address (the name as its Host), so the address checked is the one
+    connected to. No redirects; at most ``cap`` bytes. ValueError for anything refused."""
+    import socket
+    import aiohttp
+    name, port = host, 80
+    if host.startswith("["):
+        name, _, rest = host[1:].partition("]")
+        port = int(rest[1:]) if rest.startswith(":") else 80
+    elif host.count(":") == 1:
+        name, p = host.split(":")
+        port = int(p)
+    infos = await asyncio.get_running_loop().getaddrinfo(name, port, type=socket.SOCK_STREAM)
+    addrs = list(dict.fromkeys(str(i[4][0]) for i in infos))
+    if not addrs or not all(check(a) for a in addrs):
+        raise ValueError("not an address on the home network")
+    ip = addrs[0]
+    target = f"[{ip}]" if ":" in ip else ip
+    session = app.get("http")
+    own = session is None
+    session = session or aiohttp.ClientSession()
+    try:
+        async with session.get(f"http://{target}:{port}{path}", headers={"Host": host}, allow_redirects=False,
+                               timeout=aiohttp.ClientTimeout(total=timeout)) as r:
+            if r.status != 200:
+                raise ValueError(f"HTTP {r.status}")
+            data = bytearray()
+            async for chunk in r.content.iter_chunked(65536):
+                data += chunk
+                if len(data) > cap:
+                    raise ValueError("too large")
+            return bytes(data)
+    finally:
+        if own:
+            await session.close()
+
+
 class LiveTv:
     """The Live TV guide on Mantel: the tuner's lineup and the XMLTV guide, refreshed every 30 min."""
 
@@ -54,7 +98,11 @@ class LiveTv:
         try:
             if cfg["tuner"]:
                 url = cfg["tuner"] if cfg["tuner"].startswith(("http://", "https://")) else f"http://{cfg['tuner']}/lineup.json"
-                data = json.loads(await fetch(url))
+                home = N.lan_host(cfg["tuner"]) if url.startswith("http://") else None
+                # a tuner on the home network (every one Mantel saved itself): its address checked, no redirects
+                raw = await lan_get(self.host.app, home, timeout=20.0) \
+                    if home and self.host.hooks.fetch is None else await fetch(url)
+                data = json.loads(raw)
                 self.lineup = [{"number": c.get("GuideNumber"), "name": c.get("GuideName") or "", "hd": bool(c.get("HD")),
                                 "url": c.get("URL") if isinstance(c.get("URL"), str) else None}
                                for c in data if isinstance(c, dict) and c.get("GuideNumber")]

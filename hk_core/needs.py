@@ -29,6 +29,7 @@ TV_SERVES = ("mantel", "link", "ha", "none")
 HOME_SUFFIXES = (".local", ".lan", ".home", ".internal", ".home.arpa")
 _LABEL = re.compile(r"^(?!-)[A-Za-z0-9-]{1,63}(?<!-)$")
 _PORT = re.compile(r"^\d{1,5}$")
+_NUMBER = re.compile(r"^(0x[0-9a-f]*|[0-9]+)$")
 # RFC 1918's three home ranges, written as numbers: the build's private-data scan refuses dotted private addresses in
 # shipped code (tools/build_ha.py), and Python's is_private also takes documentation and benchmark ranges
 _RFC1918 = tuple(ipaddress.IPv4Network((base, bits)) for base, bits in
@@ -106,6 +107,8 @@ def lan_host(value: Any) -> str | None:
 
 
 def _home(host: str) -> bool:
+    if "%" in host:                                     # an IPv6 zone: never needed for a tuner
+        return False
     try:
         ip = ipaddress.ip_address(host)
     except ValueError:
@@ -113,9 +116,21 @@ def _home(host: str) -> bool:
         labels = name.split(".")
         if not name or not all(_LABEL.match(x) for x in labels) or name == "localhost" or name.endswith(".localhost"):
             return False
-        if all(x.isdigit() for x in labels):            # 10.1 or 3232235777: not a name, not an address
+        # 10.1, 3232235777, 0x7f000001, 0x7f.1: what the resolver reads as an IPv4 address (inet_aton's forms)
+        if all(_NUMBER.match(x) for x in labels):
             return False
         return len(labels) == 1 or name.endswith(HOME_SUFFIXES)
+    return home_ip(ip)
+
+
+def home_ip(ip: "ipaddress.IPv4Address | ipaddress.IPv6Address | str") -> bool:
+    """An address on the home network: RFC 1918 or IPv6's unique local range, never loopback, link-local and so on.
+    The host checks every address a name resolves to with this before it connects."""
+    if isinstance(ip, str):
+        try:
+            ip = ipaddress.ip_address(ip.split("%", 1)[0])
+        except ValueError:
+            return False
     if ip.version == 6 and ip.ipv4_mapped is not None:
         ip = ip.ipv4_mapped
     if ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_unspecified or ip.is_reserved:

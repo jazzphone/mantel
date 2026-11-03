@@ -44,6 +44,7 @@ TWO_LOOKS_S = 120.0                    # a need must hold this long, seen on two
 COALESCE_S = 30.0                      # registry changes and connections: one look for a burst
 EVERY_S = 300.0                        # and every 5 minutes (HA says nothing when Energy settings are saved)
 PROBE_EVERY_S = 600.0                  # the tuner's lineup.json, at most this often per address
+PROBE_YES_S = 60.0                     # a "yes" is asked again after this (each of the two looks has its own)
 PROBE_TIMEOUT_S = 8.0
 PROBE_MAX = 1_000_000                  # a lineup is a few kilobytes
 MA_WAIT_S = 30.0                       # a new connection: how long to wait for Music Assistant to say it's connected
@@ -72,6 +73,7 @@ class AutoFeatures:
         self._again: asyncio.TimerHandle | None = None      # the second look
         self._last_tick = float("-inf")
         self._was_on: bool | None = None
+        self._asked = False                                 # a look was asked for while one ran
 
     # -- the settings ------------------------------------------------------------------------------------
     def switch(self, settings: Mapping[str, Any] | None = None) -> bool:
@@ -97,14 +99,15 @@ class AutoFeatures:
             return "decided already (go2rtc_once)"
         return None
 
-    def person_turned_off(self) -> set[str]:
+    def person_turned_off(self) -> set[str] | None:
         """THE HISTORY BACKSTOP: the pieces a person turned off in a ``set`` of ``house/mantel_features`` (a house
-        upgraded from before the marker, or a restore that dropped it)."""
+        upgraded from before the marker, or a restore that dropped it). None when the history can't be read: then
+        nothing is decided either way (no marker is written, nothing turns on)."""
         try:
             rows = self.host.store.history("house", FEATURES_DOC, limit=200)
-        except Exception:  # noqa: BLE001 -- no history: nothing found, and nothing acts on a "no" either
+        except Exception:  # noqa: BLE001 -- can't tell: this look decides nothing
             log.exception("features: the settings history could not be read")
-            return set(N.PIECES)
+            return None
         out: set[str] = set()
         for r in rows:
             if r.get("action") != "set" or r.get("actor") == ACTOR:
@@ -268,10 +271,11 @@ class AutoFeatures:
         """One ``GET http://<host>/lineup.json``, kept for 10 minutes: True when it lists channels."""
         now = self.host.monotonic()
         got = self._probes.get(host)
-        if got is not None and now - got[0] < PROBE_EVERY_S:
+        # a "no" stands for 10 minutes; a "yes" only for a minute, so the second look asks again (two answers)
+        if got is not None and now - got[0] < (PROBE_EVERY_S if not got[1] else PROBE_YES_S):
             return got[1]
         try:
-            raw = await asyncio.wait_for(self._fetch(N.lineup_url(host)), PROBE_TIMEOUT_S)
+            raw = await asyncio.wait_for(self._fetch(host), PROBE_TIMEOUT_S)
             data = json.loads(raw)
             ok = isinstance(data, list) and any(isinstance(c, Mapping) and c.get("GuideNumber") for c in data)
         except asyncio.CancelledError:
@@ -282,26 +286,11 @@ class AutoFeatures:
         self._probes[host] = (now, ok)
         return ok
 
-    async def _fetch(self, url: str) -> bytes:
+    async def _fetch(self, host: str) -> bytes:
         if self.host.hooks.fetch is not None:
-            return await self.host.hooks.fetch(url)
-        import aiohttp
-        session = self.host.app.get("http")
-        own = session is None
-        session = session or aiohttp.ClientSession()
-        try:
-            # no redirects: the address was checked, not where it might send us
-            async with session.get(url, allow_redirects=False,
-                                   timeout=aiohttp.ClientTimeout(total=PROBE_TIMEOUT_S)) as r:
-                if r.status != 200:
-                    raise ValueError(f"HTTP {r.status}")
-                data = await r.content.read(PROBE_MAX + 1)
-                if len(data) > PROBE_MAX:
-                    raise ValueError("too large")
-                return data
-        finally:
-            if own:
-                await session.close()
+            return await self.host.hooks.fetch(N.lineup_url(host))
+        from .tv_fetch import lan_get
+        return await lan_get(self.host.app, host, timeout=PROBE_TIMEOUT_S, cap=PROBE_MAX)
 
     async def facts(self, wanted: set[str]) -> N.Facts:
         """What the house has, for the pieces that may still turn on (nothing is read for the others)."""
@@ -331,16 +320,22 @@ class AutoFeatures:
 
     # -- a look -------------------------------------------------------------------------------------------
     async def look(self) -> None:
-        """Gather the facts, ask hk_core, and turn on what has held for two looks. Single flight."""
+        """Gather the facts, ask hk_core, and turn on what has held for two looks. Single flight: a look asked for
+        while one runs is one more look, soon after."""
         if self._lock.locked():
+            self._asked = True
             return
         async with self._lock:
             try:
                 await self._look()
-            except Exception:  # noqa: BLE001 -- the next look tries again
+            except Exception:  # noqa: BLE001 -- the next look tries again, and the 2 minutes start over
+                self.first.clear()
                 log.exception("features: the look for features to turn on failed")
             finally:
                 self._second_look()
+                if self._asked:
+                    self._asked = False
+                    self.schedule(1.0)
 
     async def _look(self) -> None:
         h = self.host
@@ -353,6 +348,10 @@ class AutoFeatures:
             return
         turned_off = self.person_turned_off() if any(
             not settings.get(p, {}).get("enabled") and p not in self.decided(settings) for p in N.PIECES) else set()
+        if turned_off is None:
+            self.first.clear()
+            self.why_not = {p: "can't tell: the settings history couldn't be read" for p in N.PIECES}
+            return
         if turned_off:
             await self._mark_owner(turned_off)
             settings = h.settings

@@ -1014,3 +1014,17 @@ async def test_the_owners_rest_save_marks_each_piece_whose_switch_changed(make_e
     r = await env.m.client.put("/api/features/settings", json={"auto": {"decided": {"sleep": {"by": "auto"}}}},
                                headers=env.m.headers())
     assert r.status == 400, "only the four pieces may be decided"
+
+
+async def test_a_rest_save_without_auto_keeps_the_switch_and_the_markers(make_env):
+    env = await make_env()
+    await env.login("owner1", "owner")
+    r = await env.m.client.put("/api/features/settings", json={"energy": {"enabled": True}, "auto": {"enabled": False}},
+                               headers=env.m.headers())
+    assert r.status == 200
+    r = await env.m.client.put("/api/features/settings", json={"energy": {"enabled": True}}, headers=env.m.headers())
+    assert r.status == 200
+    auto = env.host.settings["auto"]
+    assert auto["enabled"] is False and auto["decided"]["energy"]["by"] == "owner"
+    r = await env.m.client.put("/api/features/settings", json={"auto": "on"}, headers=env.m.headers())
+    assert r.status == 400
