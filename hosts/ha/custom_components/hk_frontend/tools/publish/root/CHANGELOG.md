@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.39.0 - 2026-11-02
+
 - **Screensaver, the slides' own settings:** the slide corner's time size (100 to 250 %) and what it adds; what Music Full Screen shows (room, album, progress, buttons, volume, Up Next). In the editor's Slides section.
 - **Screensaver:** the Today face's **Weather** can be turned off, beside **What's Playing**; a Weather or Music piece is hidden only while the face shows it. The time stays where Position and Align put it, whatever the face shows since it was measured. The editor draws nothing over anything else, and a dragged piece lands on the place it covers.
 - Advanced → **Features** lists every feature: on a host whose features are its own, with a switch each; in Home Assistant, with the way to add one.

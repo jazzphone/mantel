@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.119 - 2026-11-02
+
 **Added**
 - Screensaver: **the slides' own settings**, in the editor's Slides section. **The Slide Corner**: its time's size (100 to 250 %) and whether it adds the time, the date, the weather and House Status. **Music Full Screen**: whether it shows the room, the album, the progress, the buttons, the volume and Up Next. A change shows at once on the slide **See It** shows.
 - Screensaver: the **Today** face's weather can be turned off (**Weather**, beside **What's Playing**, under Face in the editor). A Weather or Music piece is hidden as "shown by the Today face" only while the face shows it.
