@@ -636,7 +636,9 @@ async def list_devices(request: web.Request) -> web.Response:
     ident = guarded(request)
     st = state_of(request)
     everyone = request.query.get("all") == "1"
-    if everyone and ident.user.role not in MANAGERS:
+    # everyone's apps are People's (an Owner's or Admin's), never from a wall tablet, even a manager signed in at one
+    # (the route table's review, 2026-11-03: a forgotten sign-in on the kitchen tablet lists the house's phones)
+    if everyone and (ident.user.role not in MANAGERS or ident.device is not None):
         return error(403, "forbidden")
     now = st.clock()
     sql = ("SELECT c.*, s.expires, u.name AS user_name FROM app_credentials c JOIN sessions s ON s.id = c.id "
@@ -658,6 +660,8 @@ async def revoke_device(request: web.Request) -> web.Response:
     if cred is None:
         return error(404, "not_found")
     if cred["user_id"] != ident.user.id:
+        if ident.device is not None:            # another person's app: People's, never from a wall tablet
+            return error(404, "not_found")
         owner = st.db.execute("SELECT role FROM users WHERE id = ?", (cred["user_id"],)).fetchone()
         role = owner["role"] if owner else None
         if not (ident.user.role == "owner" or (ident.user.role == "admin" and role != "owner")):

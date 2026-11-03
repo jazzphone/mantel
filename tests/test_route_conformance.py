@@ -147,3 +147,21 @@ def test_every_live_route_has_a_revocation_test():
     for module, name in LIVE_TESTS.values():
         assert callable(getattr(importlib.import_module(module), name, None)), f"{module}.{name}"
 
+
+async def test_a_manager_signed_in_at_a_wall_tablet_manages_only_their_own_sessions_and_apps(mantel):
+    """``GET /api/sessions``, ``DELETE /api/sessions/{id}``, ``GET /api/app/devices?all=1`` and its revoke take a wall
+    tablet's session (a person's own Me page there): another person's were People's, and a manager's forgotten sign-in
+    on the kitchen tablet listed and ended everyone's (the route table's review, 2026-11-03)."""
+    from test_route_guard_gaps import at_a_tablet
+    other = await mantel.user("jordan", "adult")
+    sid = mantel.app["sessions"].create(other, "lan", "password", now=mantel.now[0]).session_id
+    await at_a_tablet(mantel, "owner")
+    r = await mantel.get(f"/api/sessions?user_id={other}")
+    assert r.status == 403, await r.text()
+    assert (await mantel.get("/api/sessions")).status == 200          # their own, as before
+    assert (await mantel.get("/api/app/devices?all=1")).status == 403
+    assert (await mantel.get("/api/app/devices")).status == 200
+    r = await mantel.client.delete(f"/api/sessions/{sid}", headers=mantel.headers())
+    assert r.status == 403
+    assert mantel.app["sessions"].get(sid)["revoked"] is None
+
