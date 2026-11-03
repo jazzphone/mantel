@@ -37,7 +37,7 @@ def test_music_met_when_music_assistant_is_connected():
 
 def test_music_set_up_but_not_connected_is_a_no_with_a_note():
     n = N.look(facts(ma_connected=False))["music"]
-    assert n.met is False and "isn't connected" in n.note
+    assert n.met is False and "isn’t connected" in n.note
 
 
 def test_music_does_not_wait_for_home_assistant():
@@ -132,7 +132,7 @@ def test_live_tv_no_way_to_serve_it():
 
 def test_live_tv_a_tuner_that_doesnt_answer():
     n = tv(tuner_answers=False)
-    assert n.met is False and "didn't answer" in n.note
+    assert n.met is False and "didn’t answer" in n.note
 
 
 def test_live_tv_not_asked_yet_cant_tell():

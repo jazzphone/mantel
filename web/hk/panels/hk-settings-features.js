@@ -2036,8 +2036,11 @@
   };
   var SETTINGS_AT = { hk_music: '#/page/music', hk_tv: '#/page/live_tv', hk_alarm_pin: '#/page/security',
                       hk_clean_areas: '#/page/vacuums', hk_energy: '#/page/energy', hk_notify: '#/features/notify' };
-  // FEATURES ON BY DEFAULT (Mantel's own features, features/auto.py): under a feature Mantel turned on by itself,
+  // FEATURES ON BY DEFAULT (a host whose features are its own): under a feature the host turned on by itself,
   // when and why, in place of what it needs; under one that's off but near, what's still missing
+  function hostName() {
+    try { return PN() || 'the host'; } catch (e) { return 'the host'; }
+  }
   function shortDate(at) {
     var d = new Date(at);
     return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -2045,19 +2048,19 @@
   function featureSub(f, d) {
     if (f && f.auto && f.auto.why) {
       var when = shortDate(f.auto.at);
-      return 'Turned on by Mantel' + (when ? ' on ' + when : '') + ': ' + f.auto.why;
+      return 'Turned on by ' + hostName() + (when ? ' on ' + when : '') + ': ' + f.auto.why;
     }
     if (f && f.note) return f.note;
     return NEEDS[d];
   }
-  // the switch, only where the host holds the features itself (panel/get's `features_auto`, Mantel's)
+  // the switch, only where the host holds the features itself (panel/get's `features_auto`, with its save type)
   function autoGroup(P, c) {
     var a = P.data.features_auto;
-    if (!a || typeof a.enabled !== 'boolean') return;
-    c.appendChild(K.group({ footer: 'When the house has what a feature needs — Music Assistant connected, a vacuum with room maps, Home Assistant’s Energy settings, a tuner that answers — Mantel turns it on once and tells you. A feature you turn off stays off.' }, [
+    if (!a || typeof a.enabled !== 'boolean' || typeof a.save !== 'string') return;
+    c.appendChild(K.group({ footer: 'When the house has what a feature needs — Music Assistant connected, a vacuum with room maps, Home Assistant’s Energy settings, a tuner that answers — ' + hostName() + ' turns it on once and tells you. A feature you turn off stays off.' }, [
       K.toggle({ label: 'Turn Features On Automatically', icon: 'mdi:auto-fix', on: a.enabled, fk: 'features:auto',
                  onChange: function (v) {
-                   return P.ws({ type: 'mantel/features/auto/set', enabled: v }).then(function (ok) {
+                   return P.ws({ type: a.save, enabled: v }).then(function (ok) {
                      if (!ok) return;
                      return P.reload().then(function () { P.render(true); });
                    });

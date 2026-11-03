@@ -427,7 +427,8 @@ class SettingsService:
                 features = self.features.panel_features()
                 # Turn Features On Automatically (features/auto.py): Advanced -> Features' switch, Mantel's own
                 auto = getattr(self.features, "auto", None)
-                features_auto = {"enabled": auto.switch()} if auto is not None else None
+                features_auto = {"enabled": auto.switch(), "save": "mantel/features/auto/set"} \
+                    if auto is not None else None
             except Exception:  # noqa: BLE001 -- HK Settings still opens
                 log.exception("panel/get's features failed")
         # the kiosk apps' devices in HA (a tablet's Setup -> Device), as HK Frontend lists them; it was always

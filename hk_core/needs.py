@@ -141,7 +141,7 @@ def home_ip(ip: "ipaddress.IPv4Address | ipaddress.IPv6Address | str") -> bool:
 
 
 def lineup_url(host: str) -> str:
-    """The tuner's lineup, for a host ``lan_host`` passed."""
+    """The tuner’s lineup, for a host ``lan_host`` passed."""
     return f"http://{host}/lineup.json"
 
 
@@ -155,7 +155,7 @@ def _music(f: Facts) -> Need:
     if f.ma_connected is True:
         return Need("music", True, "Music Assistant is connected.")
     if f.ma_connected is False:
-        return Need("music", False, note="Music Assistant is set up in Connections but isn't connected.")
+        return Need("music", False, note="Music Assistant is set up in Connections but isn’t connected.")
     return Need("music", False)
 
 
@@ -164,9 +164,9 @@ def _clean(f: Facts) -> Need:
         return Need("clean_areas", None)
     rows = [v for v in f.vacuums if isinstance(v, Mapping)]
     if any(v.get("how") == "map" and v.get("areas") for v in rows):
-        return Need("clean_areas", True, "A vacuum has a map of the house's rooms.")
+        return Need("clean_areas", True, "A vacuum has a map of the house’s rooms.")
     if any(v.get("how") == "map" for v in rows):
-        return Need("clean_areas", False, note="A vacuum has a room map, but none of its rooms is one of the house's areas.")
+        return Need("clean_areas", False, note="A vacuum has a room map, but none of its rooms is one of the house’s areas.")
     if any(v.get("how") == "no_map" for v in rows):
         return Need("clean_areas", False,
                     note="A vacuum can clean by room, but Home Assistant has no room map for it.")
@@ -178,10 +178,10 @@ def _energy(f: Facts) -> Need:
         return Need("energy", None)
     prefs = f.energy_prefs if isinstance(f.energy_prefs, Mapping) else {}
     if EP.grid_of(prefs):
-        return Need("energy", True, "Home Assistant's Energy settings have a grid meter.")
+        return Need("energy", True, "Home Assistant’s Energy settings have a grid meter.")
     devices = prefs.get("device_consumption")
     if isinstance(devices, list) and any(isinstance(d, Mapping) and d.get("stat_consumption") for d in devices):
-        return Need("energy", True, "Home Assistant's Energy settings have devices.")
+        return Need("energy", True, "Home Assistant’s Energy settings have devices.")
     return Need("energy", False)
 
 
@@ -190,22 +190,22 @@ def _tv(f: Facts) -> Need:
         return Need("live_tv", None)
     if not f.tuner:
         if f.tuner_seen:
-            return Need("live_tv", False, note="Home Assistant has an HDHomeRun, but Mantel doesn't know its address: "
-                                               "add it on Live TV's page.")
+            return Need("live_tv", False, note="Home Assistant has an HDHomeRun, but Mantel doesn’t know its address: "
+                                               "add it on Live TV’s page.")
         return Need("live_tv", False)
     host = lan_host(f.tuner)
     if host is None:
-        return Need("live_tv", False, note="The tuner's address isn't one on the home network.")
+        return Need("live_tv", False, note="The tuner’s address isn’t one on the home network.")
     if f.tv_serves == "ha":
         return Need("live_tv", False, note="HK Frontend in Home Assistant runs Live TV.")
     if f.tv_serves == "link" and f.read_only:
-        return Need("live_tv", False, note="Mantel was started read-only, so Mantel Link can't show the channels.")
+        return Need("live_tv", False, note="Mantel was started read-only, so Mantel Link can’t show the channels.")
     if f.tv_serves not in ("mantel", "link"):
         return Need("live_tv", False, note="A tuner is set, but Mantel has no way to play Live TV here: it needs its "
                                            "own go2rtc, or Mantel Link with Live TV once Mantel runs the house.")
     if f.tuner_answers is None:
         return Need("live_tv", None)
     if f.tuner_answers is False:
-        return Need("live_tv", False, note=f"The tuner at {host} didn't answer with its channels.")
+        return Need("live_tv", False, note=f"The tuner at {host} didn’t answer with its channels.")
     write = {"tuner": host} if f.tuner_from != "saved" else {}
     return Need("live_tv", True, f"The tuner at {host} answers.", write)

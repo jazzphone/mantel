@@ -303,7 +303,7 @@ async def test_turn_features_on_automatically_is_a_save_of_its_own(make_env):
     host, st = env.app["features"], env.app["settings"].store
     ws = await owner_socket(env)
     got = await read(ws, 1, {"type": "hk_frontend/panel/get"})
-    assert got["result"]["features_auto"] == {"enabled": True}
+    assert got["result"]["features_auto"] == {"enabled": True, "save": "mantel/features/auto/set"}
     got = await save(ws, 2, {"type": "mantel/features/auto/set", "enabled": False})
     assert got["result"] == {"enabled": False} and host.settings["auto"]["enabled"] is False
     assert host.settings["auto"]["decided"] == {}

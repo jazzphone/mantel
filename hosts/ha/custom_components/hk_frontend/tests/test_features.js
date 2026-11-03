@@ -32,7 +32,10 @@ ok('Advanced -> Features counts the added ones among those it lists',
    eq(F.featuresOn(feats), { on: 1, of: 2 }) && eq(F.featuresOn({}), { on: 0, of: 0 }));
 ok('each feature says what it needs and where its settings are',
    F.LIST.every(function (x) { return typeof F.NEEDS[x[1]] === 'string' && /^#\//.test(F.SETTINGS_AT[x[1]]); }));
-// features on by default (Mantel's own features, features/auto.py): the row's words
+// features on by default (Mantel's own features, features/auto.py): the row's words, in the host's name
+var shellWas = root0().hkShell;
+function root0() { return typeof window !== 'undefined' ? window : globalThis; }
+root0().hkShell = Object.assign({}, shellWas || {}, { productName: function () { return 'Mantel'; } });
 ok('a feature Mantel turned on says when and why, in place of what it needs',
    F.featureSub({ own: true, auto: { at: '2026-11-04T15:00:00+00:00', why: 'Music Assistant is connected.' } }, 'hk_music') ===
    'Turned on by Mantel on Nov 4: Music Assistant is connected.', F.featureSub({ auto: { at: '2026-11-04T15:00:00+00:00', why: 'x' } }, 'hk_music'));
@@ -45,6 +48,7 @@ ok('one that is off but near says what is missing',
 ok('Home Assistant’s shape (no auto, no note) is as it was: what it needs',
    F.featureSub({ installed: true, entries: [] }, 'hk_energy') === F.NEEDS.hk_energy &&
    F.featureSub({ auto: null, note: null }, 'hk_tv') === F.NEEDS.hk_tv && F.featureSub(undefined, 'hk_notify') === F.NEEDS.hk_notify);
+root0().hkShell = shellWas;
 
 // ------------------------------------------------------------ live tv
 var tv = { channels: [{ number: '4.1', name: 'NBC' }, { number: '13.1', name: 'ABC' }, { number: '9.9', name: 'Gone' }],

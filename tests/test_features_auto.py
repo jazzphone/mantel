@@ -157,8 +157,8 @@ async def test_on_once_with_the_marker_the_history_and_the_audit(tmp_path, monke
     assert d["music"]["why"] == "Music Assistant is connected."
     hist = [h for h in r.store.history("house", F.FEATURES_DOC) if h["actor"] == A.ACTOR]
     assert {h["message"] for h in hist} == {"Music on: Music Assistant is connected.",
-                                            "Clean Areas on: A vacuum has a map of the house's rooms.",
-                                            "Energy on: Home Assistant's Energy settings have a grid meter."}
+                                            "Clean Areas on: A vacuum has a map of the house’s rooms.",
+                                            "Energy on: Home Assistant’s Energy settings have a grid meter."}
     rows = r.app["audit"].rows(action="features.auto_on")
     assert len(rows) == 3 and all(x["actor"] is None for x in rows)
     before = versions(r)
@@ -202,7 +202,7 @@ async def test_the_alert_is_raised_once_per_piece(tmp_path, monkeypatch):
     assert sorted(k for k, *_ in r.alerts.raised) == ["feature.enabled"] * 3
     assert {key for _, key, _ in r.alerts.raised} == {"music", "clean_areas", "energy"}
     facts = {key: f for _, key, f in r.alerts.raised}
-    assert facts["energy"] == {"name": "Energy", "why": "Home Assistant's Energy settings have a grid meter."}
+    assert facts["energy"] == {"name": "Energy", "why": "Home Assistant’s Energy settings have a grid meter."}
 
 
 def test_the_alert_kind():
@@ -363,7 +363,7 @@ async def test_live_tv_a_tuner_that_doesnt_answer_has_its_note(tmp_path, monkeyp
     r = await rig(tmp_path, monkeypatch, serves="mantel", devices=[HDHR], fetch=Fetch(OSError("refused")))
     await two_looks(r)
     assert not r.host.on("live_tv") and len(r.fetch.urls) == 1, "a no stands for 10 minutes"
-    assert r.auto.row("live_tv") == {"auto": None, "note": f"The tuner at {TUNER} didn't answer with its channels."}
+    assert r.auto.row("live_tv") == {"auto": None, "note": f"The tuner at {TUNER} didn’t answer with its channels."}
 
 
 async def test_live_tv_a_registry_address_off_the_home_network_is_never_asked(tmp_path, monkeypatch):
