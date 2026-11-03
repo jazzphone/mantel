@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.41.0 - 2026-11-03
+
 - Advanced → **Features**, on a host whose features are its own (Mantel): **Turn Features On Automatically**, and under a feature the host turned on by itself, when and why ("Turned on by Mantel on Nov 4: …"), or what one that's off still needs. In Home Assistant the page is as it was.
 
 ## 1.40.0 - 2026-11-03
