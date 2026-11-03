@@ -117,6 +117,13 @@ ok('...or on a flick over 0.5 px/ms, that way, past 30 px', X.lands(-40, 1180, -
 ok('no travel, no landing', !X.lands(0, 1180, 5));
 ok('the flick is the last 100 ms, not the whole drag', Math.abs(X.speed([[0, 500], [400, 490], [450, 460], [500, 420]]) - (-0.7)) < 1e-9 &&
    X.speed([[0, 1]]) === 0);
+// (2026-11-02, the owner: quick short flicks turned the page only sometimes)
+ok('...the lift is no sample: a quick flick lifted where its last move was keeps its speed',
+   Math.abs(X.speed([[0, 500], [16, 460], [32, 420], [48, 380], [64, 340]], 80) - (-2.5)) < 1e-9);
+ok('...moves far apart (a busy tablet): measured from the move before the window, not nothing',
+   Math.abs(X.speed([[0, 500], [180, 340]], 190) - (-160 / 180)) < 1e-9);
+ok('...a finger that rested 60 ms before it lifted flicked nothing', X.speed([[0, 500], [16, 460], [32, 420]], 120) === 0 &&
+   N.REST === 60);
 
 // ------------------------------------------------------------ the gesture
 print('=== the gesture, on a stand-in page ===');
@@ -206,6 +213,13 @@ ok('on a room page: no page swipe', !starts(600, 400));
 location.pathname = '/dashboard-hall/lights';
 location.hash = '#alarm';
 ok('with a pop-up open: off', !starts(600, 400));
+// (2026-11-02, the owner: the Now Playing bar up on the Calendar, and every swipe refused)
+window.hkPopup = { docked: function (h) { return h === '#media'; } };
+ok('...a pop-up that covers the page, with a docked bar about: off', !starts(600, 400));
+location.hash = '#media';
+ok('...but the docked bar (Now Playing, the timers) covers nothing: on', starts(600, 400));
+window.hkPopup = null;
+ok('...a hash no pop-up says is docked: off', !starts(600, 400));
 location.hash = '';
 window.hkEdit = { active: function () { return {}; } };
 ok('in Edit mode: off', !starts(600, 400));

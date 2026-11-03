@@ -16,6 +16,11 @@ Chromium's tablet the wall tablets' (Android WebView in Fully Kiosk, 1280 x 800,
 - **menu**: no tab bar, Swipe Between Pages On, Swipe from Left Edge on: a swipe from the left 24 px opens the side
   menu and turns no page; one from the middle goes to the menu's next page.
 - **off**: Swipe Between Pages Off: a swipe turns nothing.
+- **kitchen** (tablets held sideways): the Kitchen tablet's screen -- a Home Grid with the Side Pane on Home, the
+  Pages screen, the Calendar, the Now Playing Bar on every page, the music playing. Swiped Home, Pages, Calendar:
+  the bar comes up on the Calendar and the swipes go on under it; a swipe on the Calendar turns the page, not its
+  month, even with the finger's own element drawn away mid-swipe; back on the Calendar the bar is up again; a quick
+  short flick turns the page.
 
 Chromium's finger is CDP's (Input.dispatchTouchEvent: the browser's own touch-action and scrolling); WebKit's is
 pointer events with pointerType touch at the element under the point (Playwright has no touch drag in WebKit), and a
@@ -74,6 +79,14 @@ def house(gallery) -> None:
     grid['items'] = list(grid['items']) + [{'id': 'v2', 'card': 'action', 'size': 'S', 'at': [0, 0], 'view': 1,
                                             'opts': {'action': 'lights_off'}}]
     b['ps-grid'] = {**wall, **base, 'menu': 'tabbar', 'menu_phone': 'tabbar', 'home_grid': grid}
+    # the Kitchen's shape (2026-11-02, the owner's video): a Home Grid with the Side Pane on Home only (its Now
+    # Playing), the Pages screen, the Calendar, and the Now Playing Bar on every page -- the music playing
+    gallery.HOUSE['calendar.family'] = (None, ('off', {'friendly_name': 'Family'}))
+    b['ps-kitchen'] = {**gallery.wall_display(), **base, 'menu': 'tabbar', 'menu_phone': 'tabbar',
+                       'pages': ['calendar', 'music'], 'pages_screen': {'show': 'on'},
+                       'now_playing': True, 'bar_all_pages': True,
+                       'side_pane': {'side': 'right', 'dashboard': {'show': 'home', 'sections': [
+                           {'kind': 'clock'}, {'kind': 'calendar'}, {'kind': 'now_playing'}]}}}
 
 
 async def main(argv=None) -> int:

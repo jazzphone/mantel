@@ -8,6 +8,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 - Advanced → **Features** lists every feature: on a host whose features are its own, with a switch each; in Home Assistant, with the way to add one.
 - Music: **Group Leaders** (HK Settings → Music). Which room leads when rooms play together: the rooms that lead (best first), and the **Announcement Rooms** Home Assistant speaks to, which lead only when no other room can (Music Assistant plays an announcement to a group's leader in every room of the group). A room already playing keeps leading; before, the first room in the list led. A library item on several rooms plays on that room first.
 - The screens' hints point to where a feature's settings are: its page under Pages (Live TV, Energy, Music; Vacuums for Clean Areas), not a Features section HK Settings no longer has.
+- **Swipe Between Pages:** the docked Now Playing bar no longer stops the swipes (every swipe after it came up was refused, and on the Calendar each turned the month instead); a swipe on the Calendar turns the page, not its month too; the bar comes up the same way each time a swipe lands on a page that shows it; short quick flicks turn the page every time; a swipe whose starting point a card draws again mid-swipe still turns it; and swiping between Home and the Pages screen beside the Side Pane no longer restyles the whole screen each frame.
 
 ## 1.38.0 - 2026-11-02
 

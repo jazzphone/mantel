@@ -766,6 +766,13 @@
   // counts every sheet, and `hkPopupCover` counts only the ones that
   // actually cover the page. Cards that pause to avoid repaint cost should
   // read hkPopupCover.
+  // THE DOCKED BARS OPEN NOW, by hash (a docked sheet that covers nothing:
+  // the Now Playing and Timer Bar, #media): hkPopup.docked(h). The page
+  // swipe (hk-pageswipe.js) goes on under one -- a pop-up that covers the
+  // page holds it off (2026-11-02, the owner: the bar rose on the Calendar
+  // and every swipe after it was refused)
+  var DOCKED = {};
+  function dockedOpen(h) { return (DOCKED[norm(h)] || 0) > 0; }
   function openCount(delta, covers) {
     window.hkPopupOpen = Math.max(0, (window.hkPopupOpen || 0) + delta);
     if (covers) {
@@ -809,6 +816,16 @@
   }
 
   function norm(h) { h = String(h || ''); return h && h.charAt(0) !== '#' ? '#' + h : h; }
+  // A PAGE BROUGHT IN BESIDE THE ONE SHOWN (a swipe between pages, hk-pageswipe.js: `hk-swipe-peek` on it while the
+  // finger moves): its pop-ups wait for it to land (`hk-swipe-landed`). They joined the page mid-swipe, the address
+  // still the page being left, and the Now Playing bar decided there -- then nothing asked it again: the bar rose on
+  // a page the first time and never after (2026-11-02, the owner: "the music pop-up shows up only sometimes")
+  function peeking(el) {
+    for (var n = el, i = 0; n && i < 200; n = n.parentNode || n.host, i++) {
+      if (n.hasAttribute && n.hasAttribute('hk-swipe-peek')) return true;
+    }
+    return false;
+  }
   // IS THIS HASH ANOTHER SHEET'S? Two things own hashes: a YAML hk-popup-card
   // (HASHES) and the home's pop-up items, which hk-detail.js's router opens
   // (#doorbell, #alarm). Asking only the first, the now-playing bar on a
@@ -964,6 +981,16 @@
             if (self.client) self._evalTrigger();
           });
         }
+        if (!this._onLanded) {
+          this._onLanded = function () {
+            if (!self._peeked || peeking(self)) return;
+            self._peeked = false;
+            self._trigSig = null;
+            self._sync();
+            if (self.client) self._evalTrigger();
+          };
+          window.addEventListener('hk-swipe-landed', this._onLanded);
+        }
         this._sync();
         // ...and re-evaluate NOW rather than on the next state push. Coming back
         // from the Play Music page, the hash is empty, so _sync has nothing to
@@ -982,6 +1009,8 @@
           window.removeEventListener(ev, self._onLoc);
         });
         if (this._onFlags) { window.removeEventListener('hk-popup-flags', this._onFlags); this._onFlags = null; }
+        if (this._onLanded) { window.removeEventListener('hk-swipe-landed', this._onLanded); this._onLanded = null; }
+        this._peeked = false;
         this._stashShow(false);
         if (this._musicOff) { this._musicOff(); this._musicOff = null; }
         clearTimeout(this._graceTimer);
@@ -1002,6 +1031,7 @@
       // Match the sheet to the URL.
       _sync() {
         if (!this.isConnected || !this._config) return;
+        if (peeking(this)) { this._peeked = true; return; }
         var want = location.hash === this._hash;
         if (this._config.detail) { this._syncDetail(want); return; }
         if (want && !this._open) this._show();
@@ -1105,6 +1135,7 @@
       _evalTrigger() {
         var cfg = this._config, self = this;
         if (!cfg || !cfg.trigger || !this.client || !this.isConnected) return;
+        if (peeking(this)) { this._peeked = true; return; }
         var ctx = { now: Date.now(), next: Infinity };
         var now = met([].concat(cfg.trigger), this.client.states, ctx);
         var first = this._prevTrigger === undefined;
@@ -1220,6 +1251,7 @@
         // a dismissal.
         this._openPath = location.pathname;
         openCount(1, this._config.modal !== false);
+        if (this._config.dock && this._config.modal === false) DOCKED[this._hash] = (DOCKED[this._hash] || 0) + 1;
         // Keep a non-modal sheet clear of the sidebar, and keep it clear when
         // the window is resized or the drawer is expanded. One measurement per
         // open plus one listener while open; nothing at all for a modal.
@@ -1538,6 +1570,7 @@
         if (!this._open) return;
         this._open = false;
         openCount(-1, this._config.modal !== false);
+        if (this._config.dock && this._config.modal === false) DOCKED[this._hash] = Math.max(0, (DOCKED[this._hash] || 0) - 1);
         var leaving = !!(this._leaving && this._carried);
         if (this._carried) {
           var cr = CARRY[this._hash];
@@ -1702,7 +1735,7 @@
     // Backs to close it. hashes(): the pop-ups on the page NOW (see MOUNTED).
     window.hkPopup = { version: '1.2.0',
       open: function (h) { h = norm(h); if (h && location.hash !== h) setHash(h); },
-      hashes: mounted, met: met, _GRACE: GRACE, HkPopupCard: HkPopupCard };
+      hashes: mounted, docked: dockedOpen, met: met, _GRACE: GRACE, HkPopupCard: HkPopupCard };
     return true;
   }
 

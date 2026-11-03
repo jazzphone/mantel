@@ -16,6 +16,12 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - Docker and the LXC: Mantel's address (`/`) opens the screens, not the developer's page (`/dev`), which the image no longer carries. The Home Assistant App never had it.
 - Music: **a pick of rooms is no longer led by whichever room came first.** The rooms arrive in A to Z or tap order, so on 2026-11-02 all eleven HomePods were led by a bedroom's HomePod, the first A to Z, and the announcements Home Assistant sends that HomePod played in every room. A room already playing keeps leading; otherwise the Group Leaders setting decides. A group an announcement room leads is regrouped under another room at the next play.
 - Mantel's screens point to where a feature's settings are: its page under Pages (Live TV, Energy, Music; Vacuums for Clean Areas), not a Features section the settings no longer have.
+- **Swipe Between Pages, on the wall tablets:** with music playing, the Now Playing bar coming up on a page (the Calendar, say) no longer stops the swipes: they go on under it, as they do under the tab bar. Before, every swipe after it was refused, and on the Calendar each one turned the month instead.
+- A swipe on the Calendar turns the page, not the Calendar's month too (its own month swipe still works where Swipe Between Pages is off).
+- The Now Playing bar comes up the same way each time you swipe onto a page that shows it, not only the first time.
+- Short, quick flicks turn the page every time: the flick's speed was measured low (the lift counted as a stop, and moves a busy tablet handed over far apart counted as none), so a short flick sometimes sprang back.
+- A swipe whose starting point a card draws again mid-swipe (the Calendar, as the Now Playing bar makes room) still turns the page; it was lost, mostly in Safari.
+- Smoother swipes between Home and the Pages screen on a screen with the Side Pane: the tab bar's place no longer restyles the whole screen on every frame, and the bar's tabs are measured once a swipe, not each frame.
 
 ## 0.1.118 - 2026-11-02
 
