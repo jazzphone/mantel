@@ -357,7 +357,7 @@
   function hold(t) {
     if (held === t) return;
     if (held) ['pointermove', 'pointerup', 'pointercancel'].forEach(function (k) { held.removeEventListener(k, onLost); });
-    held = t || null;
+    held = t && typeof t.addEventListener === 'function' ? t : null;
     if (held) ['pointermove', 'pointerup', 'pointercancel'].forEach(function (k) { held.addEventListener(k, onLost); });
   }
 
