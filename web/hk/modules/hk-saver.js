@@ -3422,16 +3422,27 @@
         else { ly.big.el.style.left = P.big.x + 'px'; ly.big.el.style.top = P.big.y + 'px'; }
         // WHERE IT IS SET, BY WHAT SHOWS (2026-11-02, the owner on 0.1.118: the time right of center over some photos,
         // the Today face with a song under it): the face is measured once, as it first drew; what it shows since --
-        // another song, the weather or not, other figures -- is put back on its Align by its visible ink
+        // another song, the weather or not, other figures -- is put back on its Align by its ink (as it was measured:
+        // what flickers, Neon's letters, counted while it is out)
         if (ly.big.scale && host && host.getBoundingClientRect) {
-          // (by its figures where the face has them: the lines under them needn't be even about them)
-          var fig0 = ly.big.el.querySelector('.tm'), vi = inkOf(fig0 || ly.big.el), hr0 = host.getBoundingClientRect(), k0 = host.offsetWidth ? hr0.width / host.offsetWidth : 1;
+          // (by its figures -- the lines under them needn't be even about them -- a range over all of .tm, its own text and
+          // what is inside it, as inkOf looks only inside a node; a face without them, by all it draws)
+          var all0 = inkOf(ly.big.el, true), fig0 = ly.big.el.querySelector('.tm'), fi0 = null;
+          if (fig0 && document.createRange && /\d\D+\d/.test(fig0.textContent)) {
+            var rg0 = document.createRange(); rg0.selectNodeContents(fig0);
+            var fr0 = rg0.getBoundingClientRect && rg0.getBoundingClientRect();
+            if (fr0 && fr0.width > 0) fi0 = { x0: fr0.left, x1: fr0.right };
+          }
+          var vi = fi0 || all0, hr0 = host.getBoundingClientRect(), k0 = host.offsetWidth ? hr0.width / host.offsetWidth : 1;
           if (vi && k0 > 0) {
+            // (where its ink is inside its own box -- the box and the ink measured together, so a box still on its way
+            // from where it was doesn't count -- then the box put so that point is on the place)
             var al = O.big.align, at = al === 'left' ? P.big.x : al === 'right' ? P.big.x + P.big.w : P.big.x + P.big.w / 2;
-            var is = ((al === 'left' ? vi.x0 : al === 'right' ? vi.x1 : (vi.x0 + vi.x1) / 2) - hr0.left) / k0;
-            if (Math.abs(at - is) > 0.5) ly.big.el.style.left = (parseFloat(ly.big.el.style.left) + at - is) + 'px';
+            var er0 = ly.big.el.getBoundingClientRect(), inside = ((al === 'left' ? vi.x0 : al === 'right' ? vi.x1 : (vi.x0 + vi.x1) / 2) - er0.left) / k0;
+            var want0 = at - inside;
+            if (Math.abs(want0 - parseFloat(ly.big.el.style.left)) > 0.5) ly.big.el.style.left = want0 + 'px';
             // (and its width for the next plan: a long song measured once kept the corners away from a short one)
-            var wi = fig0 ? inkOf(ly.big.el) : vi, vw = wi ? (wi.x1 - wi.x0) / k0 : ly.big.size.w;
+            var vw = all0 ? (all0.x1 - all0.x0) / k0 : ly.big.size.w;
             if (ly.big.size && Math.abs(vw - ly.big.size.w) > 2) { ly.big.size.w = vw; layoutSoon(); }
           }
         }
