@@ -7,8 +7,9 @@ import copy
 import re
 from typing import Any
 
+from ... import mcp_parity
 from ..dispatch import ToolError, change, in_batch, read, save
-from . import Tool, check_args
+from . import NO_ROUTE_BATCH, NO_ROUTE_SAVE, Tool, check_args
 from .house import name_of, visible
 
 EXPORT_VERSION = 1
@@ -31,6 +32,7 @@ async def settings_apply(caller, args: dict) -> dict:
         tool = tools[name]
         if not caller.has(tool.needs):
             raise ToolError("forbidden", f"steps[{n}]: {name} needs the {tool.needs!r} scope")
+        mcp_parity.check(tool, caller)            # each step as strict as that tool alone (route_table R10)
         sargs = dict(s.get("arguments") or {})
         if "dry_run" in sargs or "plan" in sargs:
             raise ToolError("invalid_arguments", f"steps[{n}]: the batch is planned and applied as one: no dry_run "
@@ -274,7 +276,8 @@ TOOLS = [
                     "items": {"type": "object", "properties": {"tool": {"type": "string", "maxLength": 40},
                                                                "arguments": {"type": "object"}},
                               "required": ["tool"], "additionalProperties": False}}},
-         settings_apply, needs="settings", required=("steps",), write=True),
+         settings_apply, needs="settings", required=("steps",), write=True,
+         no_route=NO_ROUTE_BATCH),
     Tool("screen_export", "Export a screen",
          "One screen as a file: its settings, Home Grid, its own accessory names, and every entity it names (with "
          "their names and rooms, for matching in another house). screen_import makes a screen from it.",
@@ -285,7 +288,8 @@ TOOLS = [
          "first: the plan answer lists what matched, what didn't and settings left out.",
          {"export": {"type": "object"}, "title": {"type": "string", "maxLength": 60},
           "mapping": {"type": "object"}, "allow_unmatched": {"type": "boolean", "default": False}},
-         screen_import, needs="screens", required=("export",), write=True),
+         screen_import, needs="screens", required=("export",), write=True,
+         like="POST /api/screens"),
     Tool("screen_templates", "Screen templates",
          "The template library: kitchen, hallway, family, nightstand, guest room, living room. Each is a Home Grid "
          "recipe filled from this house when used (screen_from_template).", {}, screen_templates, needs="screens"),
@@ -294,12 +298,14 @@ TOOLS = [
          "for a tablet in `room`. Planned first: the answer shows the layout.",
          {"template": {"type": "string", "maxLength": 40}, "title": {"type": "string", "maxLength": 60},
           "room": {"type": "string", "maxLength": 120}},
-         screen_from_template, needs="screens", required=("template",), write=True),
+         screen_from_template, needs="screens", required=("template",), write=True,
+         like="POST /api/screens"),
     Tool("tablet_setup", "Set up a wall tablet",
          "A wall tablet's screen (planned first, when `screen` is given), and the link a person opens ON the tablet "
          "to enrol it (an assistant never enrols a device).",
          {"tablet": {"type": "string", "maxLength": 80}, "screen": SCREEN}, tablet_setup, needs="settings",
-         required=("tablet",), write=True),
+         required=("tablet",), write=True,
+         no_route=NO_ROUTE_SAVE),
     Tool("screen_preview", "Preview a screen",
          "A one-time link (five minutes) that opens the screen as this person sees it, read-only, in a browser: "
          "open it in your own browser at `width` x `height` to look at what you built. It changes nothing.",

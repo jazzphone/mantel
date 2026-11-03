@@ -523,12 +523,12 @@ def refused(exc: SetupError) -> web.Response:
 
 
 # ------------------------------------------------------------------------------------- the routes
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_page(request: web.Request) -> web.Response:
     return ok(page_state(request, guarded(request)))
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_sensors(request: web.Request) -> web.Response:
     """The sensors a camera can be linked to, as this person may see them, and the suggestions for `name`."""
     cams = _cams(request)

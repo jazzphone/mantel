@@ -1019,7 +1019,8 @@ def _bad(param: str) -> web.Response:
                              headers={"Cache-Control": "no-store"})
 
 
-@guard("signed_in")        # the roles decide (below): at a wall tablet, the tablet's share; a tablet alone, none
+@guard("signed_in",
+       reads="feature:audit")        # the roles decide (below): at a wall tablet, the tablet's share; a tablet alone, none
 async def audit_list(request: web.Request) -> web.Response:
     """``GET /api/audit?actor=&device=&decision=&kind=&since=&until=&before=&limit=``: newest first;
     ``next`` is the ``before`` of the next page. Reading the audit is ``configure`` on feature ``audit``

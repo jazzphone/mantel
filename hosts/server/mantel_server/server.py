@@ -37,7 +37,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_reads, linked_settings, people_ha, screens,
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
-from . import camera_setup, default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
+from . import camera_setup, default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, route_table, security_headers, tablet_links, user_data
 from . import alerts, app_shell, cf_access, guards, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
@@ -317,7 +317,7 @@ async def loopback_only(request: web.Request, handler):
     return await handler(request)
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="view", stream="live:hub", preview=True)
 async def ws_handler(request: web.Request) -> web.StreamResponse:
     hub: Hub = request.app["hub"]
     ws = web.WebSocketResponse(heartbeat=30, max_msg_size=1 << 20)
@@ -343,14 +343,16 @@ def _dev_html():
     return files("mantel_server").joinpath("static/dev.html")
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="none",
+              why="a page shell; the data behind it is read through guarded routes and the socket", preview=True)
 async def root(request: web.Request) -> web.Response:
     # always the screens: in a checkout /dev is opened by its address. It was the landing page wherever dev.html
     # existed, so Docker and the LXC (whose image had it) sent people to the developer's page (the owner, 2026-11-02)
     raise web.HTTPFound("/home")
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="none",
+              why="a page shell; the data behind it is read through guarded routes and the socket")
 async def dev_page(request: web.Request) -> web.Response:
     if not _dev_html().is_file():
         raise web.HTTPNotFound()
@@ -364,7 +366,7 @@ def request_gate(request: web.Request):
     return authz.principal(request).gate if authz is not None else None
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="view")
 async def api_entities(request: web.Request) -> web.Response:
     hub: Hub = request.app["hub"]
     reg = hub.registry
@@ -379,14 +381,14 @@ async def api_entities(request: web.Request) -> web.Response:
     return web.json_response(out)
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="view")
 async def api_areas(request: web.Request) -> web.Response:
     reg = request.app["hub"].registry
     return web.json_response([{"id": a, "name": n, "entities": len(reg.by_area.get(a, ()))}
                               for a, n in sorted(reg.areas.items(), key=lambda kv: kv[1])])
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="view")      # filters nothing: the route table found it (fixed next)
 async def api_stats(request: web.Request) -> web.Response:
     hub: Hub = request.app["hub"]
     ha = hub.ha
@@ -478,6 +480,8 @@ def cache_headers(request: web.Request, path) -> dict:
         return IMMUTABLE
 
 
+@guards.open_route("static", why=guards.WHY_STATIC, preview=True,
+                    stream="bounded:one file under HK's frontend or Your Files")
 async def hk_file(request: web.Request) -> web.StreamResponse:
     """/hk/<path>: "Your files" first, HK's bundled frontend otherwise (backend/files.py's rule)."""
     # (ingress.file_response: a plain FileResponse, except through HA's Ingress, where HK's code is
@@ -488,6 +492,7 @@ async def hk_file(request: web.Request) -> web.StreamResponse:
     return ingress.file_response(request, path, cache_headers(request, path))
 
 
+@guards.open_route("static", why=guards.WHY_STATIC, preview=True, stream="bounded:one file under web/")
 async def web_file(request: web.Request) -> web.StreamResponse:
     path = safe_file(request.app["cfg"].web, request.match_info["path"])
     if not path:
@@ -495,6 +500,7 @@ async def web_file(request: web.Request) -> web.StreamResponse:
     return ingress.file_response(request, path, cache_headers(request, path))
 
 
+@guards.open_route("static", why=guards.WHY_STATIC, preview=True, stream="bounded:one icon file under web/mdi/")
 async def mdi_file(request: web.Request) -> web.StreamResponse:
     path = safe_file(request.app["cfg"].web / "mdi", request.match_info["name"])
     if not path:
@@ -523,7 +529,7 @@ def to_enroll(request: web.Request, ident) -> None:
         raise web.HTTPFound(ENROLL_PAGE)
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="none", why="a redirect to the person's screen", preview=True)
 async def home_redirect(request: web.Request) -> web.StreamResponse:
     """/home: the screen this person or tablet opens on (default_screens.start_for: the tablet's at a wall
     tablet, else the person's own), else the house's (``default_screens.house``)."""
@@ -538,7 +544,9 @@ async def home_redirect(request: web.Request) -> web.StreamResponse:
     raise web.HTTPFound(f"/{screen}/home" + (f"?{request.query_string}" if request.query_string else ""))
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="none",
+              why="a page shell; the data behind it is read through guarded routes and the socket", preview=True,
+              stream="bounded:the page shell file")
 async def home_page(request: web.Request) -> web.StreamResponse:
     seg = request.path.split("/")[1] if request.path.count("/") >= 1 else ""
     # a screen split in two (screens.py): its old address is Home Assistant's now; Mantel's is the new one
@@ -554,7 +562,9 @@ async def home_page(request: web.Request) -> web.StreamResponse:
     return ingress.file_response(request, request.app["cfg"].web / "home.html", NO_CACHE, page=True)
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="none",
+              why="a page shell; the data behind it is read through guarded routes and the socket",
+              stream="bounded:the page shell file")
 async def settings_page(request: web.Request) -> web.StreamResponse:
     """/settings: Mantel Settings, HK Settings' page (<hk-settings-panel>) with Mantel's own pages beside HK's
     (web/shim/mantel-settings.js), for every signed-in person: Me for everyone, the house's pages (HK's
@@ -569,14 +579,14 @@ async def settings_page(request: web.Request) -> web.StreamResponse:
     return ingress.file_response(request, request.app["cfg"].web / "settings.html", NO_CACHE, page=True)
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="none", why="a redirect to /settings")
 async def hk_settings_redirect(request: web.Request) -> web.StreamResponse:
     """/hk-settings, the old address of HK Settings in Mantel: now Mantel Settings. The browser keeps the
     fragment (#/screens/...), so every link into HK's pages still lands where it pointed."""
     raise web.HTTPFound("/settings" + (f"?{request.query_string}" if request.query_string else ""))
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="view", preview=True)
 async def api_registry(request: web.Request) -> web.Response:
     """The registries a page may see. About 2 MB of JSON on a large house, read by every page as it loads -- the
     settings page and each preview frame of the Home Grid editor too -- so it is compressed for a browser that takes
@@ -597,7 +607,9 @@ async def api_registry(request: web.Request) -> web.Response:
     return web.Response(body=got["raw"], content_type="application/json", headers=headers)
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="none",
+              why="a development checkout's captured HK feeds (spikes/, git-ignored); an install has none",
+              preview=True)
 async def api_fixtures(request: web.Request) -> web.Response:
     base = request.app["cfg"].fixtures
     out = {}
@@ -608,7 +620,7 @@ async def api_fixtures(request: web.Request) -> web.Response:
     return web.json_response(out)
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="none", why="the list of HK's card files", preview=True)
 async def api_hk_cards(request: web.Request) -> web.Response:
     # the card files loaded at the start and the ones that wait to be used (hk_cards.py)
     app = request.app
@@ -763,6 +775,8 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
             log.debug("closing the database failed", exc_info=True)
 
     app.on_cleanup.append(close_database)
+    # last: one table from every route's declaration; a route that is missing or breaks its rules stops the start
+    route_table.install(app, strict=False)
     return app
 
 

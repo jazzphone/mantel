@@ -339,7 +339,7 @@ async def steps(app: web.Application, me: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------------------------- REST
-@guard("manager")
+@guard("manager", reads="admin")
 async def get_setup(request: web.Request) -> web.Response:
     ident = guarded(request)
     row = request.app["accounts"].get_user(ident.user.id)

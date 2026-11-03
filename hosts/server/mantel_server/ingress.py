@@ -61,7 +61,7 @@ import aiohttp
 from aiohttp import web
 
 from . import audit, live, sessions
-from .guards import guard
+from .guards import guard, open_route
 from .guards import ident as guarded
 from .sessions import INGRESS_METHOD, Identity, User
 
@@ -459,6 +459,7 @@ async def unlinked_page(request: web.Request, person: dict | None) -> web.Respon
     return _page("Not linked yet", body, 403)
 
 
+@open_route("sign_in", why="the HA App's Ingress: first Owner or link by Home Assistant's own sign-in (loopback only, origin-checked, nonce); no Mantel session yet")
 async def bootstrap_get(request: web.Request) -> web.Response:
     if not is_ingress(request):
         raise web.HTTPNotFound()
@@ -469,6 +470,7 @@ async def bootstrap_get(request: web.Request) -> web.Response:
     return await unlinked_page(request, person)
 
 
+@open_route("sign_in", why="the HA App's Ingress: first Owner or link by Home Assistant's own sign-in (loopback only, origin-checked, nonce); no Mantel session yet")
 async def bootstrap_post(request: web.Request) -> web.Response:
     """The explicit confirm: becomes the first Owner (only while none exists, only an HA administrator)."""
     if not is_ingress(request):
@@ -654,7 +656,7 @@ def unlink_tablet(app: web.Application, ha_user_id: str, actor: User, *, request
 
 
 # REST: an Owner's own session (a person, not a device) on the LAN or a home-rules sidebar links tablets
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_tablets_get(request: web.Request) -> web.Response:
     db = request.app["store"].db
     return sessions.ok({"tablets": tablet_links(db), "rooms": rooms(request.app),
@@ -709,7 +711,7 @@ def tablet_start(app: web.Application, device: sessions.Device) -> str | None:
 
 
 # -- the people page: Owners and Admins link HA users to roles (never at a wall tablet) ---------------------------
-@guard("manager")
+@guard("manager", reads="admin")
 async def people_get(request: web.Request) -> web.Response:
     if not is_ingress(request):
         raise web.HTTPNotFound()

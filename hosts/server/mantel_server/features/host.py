@@ -1249,11 +1249,11 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
     host.pages = feature_pages.register(app, host)
 
     # REST: the status (Owner/Admin) and the settings (read Owner/Admin, write Owner); never at a wall tablet
-    @guard("manager")
+    @guard("manager", reads="admin")
     async def api_status(request: web.Request) -> web.Response:
         return web.json_response(host.status(), dumps=lambda o: json.dumps(o, default=str))
 
-    @guard("manager")
+    @guard("manager", reads="admin")
     async def api_settings(request: web.Request) -> web.Response:
         return web.json_response({"settings": host.settings, "error": host.settings_error})
 

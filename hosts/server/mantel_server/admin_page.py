@@ -32,7 +32,7 @@ from aiohttp import web
 from . import frame_origins, ingress, rbac, security_headers, setup_guide
 from .accounts import MANAGERS
 from .devices import DEVICE_ROLES
-from .guards import guard
+from .guards import WHY_STATIC, guard, open_route
 from .guards import ident as guarded
 from .login_page import login_url
 from .service_accounts import SCOPES as SERVICE_SCOPES
@@ -107,6 +107,7 @@ def sections_for(request: web.Request, ident: Identity) -> list[str]:
     return sorted(out, key=SECTIONS.index)
 
 
+@open_route("static", why="the admin page shell: signed out it sends the browser to /login, a person goes on to Settings; the data behind it is guarded")
 async def page(request: web.Request) -> web.StreamResponse:
     ident = identity(request)
     if ident.user is None and ident.device is None:
@@ -125,6 +126,7 @@ async def page(request: web.Request) -> web.StreamResponse:
                         content_type="text/html", headers=_headers(request))
 
 
+@open_route("static", why=WHY_STATIC)
 async def asset(request: web.Request) -> web.StreamResponse:
     name = request.match_info["name"]
     if name not in ASSETS:
@@ -132,7 +134,7 @@ async def asset(request: web.Request) -> web.StreamResponse:
     return web.Response(text=_static(name), content_type=ASSETS[name], charset="utf-8", headers=HEADERS)
 
 
-@guard("person", device_ok=True)      # a person, at a wall tablet too: sections_for gives them Me only
+@guard("person", device_ok=True, reads="self")      # a person, at a wall tablet too: sections_for gives them Me only
 async def overview(request: web.Request) -> web.Response:
     ident = guarded(request)
     accounts = request.app["accounts"]

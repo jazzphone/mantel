@@ -51,6 +51,8 @@ from typing import Any, Mapping
 
 from aiohttp import WSCloseCode, WSMsgType, web
 
+from .guards import WHY_LINKED, open_route
+
 log = logging.getLogger("mantel.linked")
 
 PROTOCOL = 1                   # what a client that does not say (HK Frontend before 9.10) is answered
@@ -700,6 +702,9 @@ def _parse(text: str, protocol: int = 1, features: frozenset[str] = frozenset())
     return msg, None
 
 
+# reads="feature:linked": the Service credential's ``linked`` scope (service_accounts.py) stands where a person's feature
+# grant would: the entities Mantel publishes into Home Assistant, not a person's view of the house
+@open_route("link_credential", why=WHY_LINKED, reads="feature:linked", stream="live:linked")
 async def ws_endpoint(request: web.Request) -> web.StreamResponse:
     from .sessions import client_ip, door_of
     linked: Linked = request.app["linked"]

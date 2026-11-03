@@ -1049,6 +1049,33 @@ async def test_a_preview_reaches_only_what_a_screen_draws_from(mantel):
     assert (await mantel.client.post("/api/photos/screens/dashboard-kitchen", json={}, headers=mantel.headers())).status == 403
 
 
+async def test_every_get_route_is_open_to_a_preview_exactly_as_its_declaration_says(mantel):
+    """SRV-2, by rule (phase 18, A5): the HTTP walk. Every GET in the route table is tried by a preview: a route that
+    doesn't declare ``preview`` is refused (read_only) and one that does is not. The hand list above is a spot check."""
+    from mantel_server.route_table import public_paths
+    await _open_preview(mantel)
+    refused, let = [], []
+    public = public_paths(mantel.app)            # signed-out addresses: no session is asked for, a preview's neither
+    for row in mantel.app["route_table"]:
+        if row.method != "GET" or row.path in ("/ws", "/ws/talk", "/mcp/preview/{code}"):
+            continue
+        path = row.sample()
+        if path is None or path in public:
+            continue
+        r = await mantel.client.get(path, allow_redirects=False)
+        body = (await r.read()).decode("utf-8", "replace")
+        was_refused = r.status == 403 and "read_only" in body
+        if row.policy.preview and was_refused:
+            refused.append(path)
+        if not row.policy.preview and not was_refused and r.status not in (404,):
+            let.append(f"{path} {r.status}")
+    assert not refused, f"declared preview, refused: {refused}"
+    assert not let, f"not declared preview, let through: {let}"
+    # a photo's screen sizes, never its original (preview="size=screen|mid|thumb")
+    r = await mantel.client.get(f"/api/photos/{'0' * 32}/original", allow_redirects=False)
+    assert r.status == 403 and "read_only" in await r.text()
+
+
 async def test_a_previews_socket_reads_only_what_its_screen_draws_from(mantel):
     """SRV-2: the socket took `read` of any route: `mantel/settings/history` with bodies, Settings' documents."""
     await _open_preview(mantel)

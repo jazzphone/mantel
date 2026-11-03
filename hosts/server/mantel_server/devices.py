@@ -299,7 +299,7 @@ async def enroll(request: web.Request) -> web.Response:
     return resp
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def list_devices(request: web.Request) -> web.Response:
     app = request.app
     app["devices"].forget_revoked(FORGET_REVOKED_AFTER)
@@ -307,7 +307,7 @@ async def list_devices(request: web.Request) -> web.Response:
     return ok({"devices": devices, "tablets": hk_tablets(app)})
 
 
-@guard("person", device_ok=True)
+@guard("person", device_ok=True, reads="admin")
 async def rooms(request: web.Request) -> web.Response:
     """``GET /api/devices/rooms``: what "Make This Browser a Wall Tablet" offers, for whoever may enrol (an Owner, an
     Admin, a Wall Tablet account): HK's wall tablets (Mantel's copy of the settings the feed's ``tablet_items`` come

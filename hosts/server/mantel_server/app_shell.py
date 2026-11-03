@@ -22,6 +22,7 @@ from __future__ import annotations
 from aiohttp import web
 
 from . import app_api, app_auth, app_music, push
+from .guards import WHY_STATIC, open_route
 
 APP_DIR = "app"                       # under cfg.web
 ICONS = ("apple-touch-icon.png", "mantel-192.png", "mantel-512.png", "mantel-maskable-512.png", "badge-96.png")
@@ -36,17 +37,20 @@ def _file(request: web.Request, *parts: str):
     return request.app["cfg"].web.joinpath(APP_DIR, *parts)
 
 
+@open_route("static", why=WHY_STATIC, preview=True)
 async def manifest(request: web.Request) -> web.StreamResponse:
     body = _file(request, "manifest.webmanifest").read_bytes()
     return web.Response(body=body, content_type="application/manifest+json", headers=SHORT_CACHE)
 
 
+@open_route("static", why=WHY_STATIC, preview=True)
 async def worker(request: web.Request) -> web.StreamResponse:
     body = _file(request, "sw.js").read_bytes()
     return web.Response(body=body, content_type="text/javascript",
                         headers={**SHORT_CACHE, "Service-Worker-Allowed": "/"})
 
 
+@open_route("static", why=WHY_STATIC, preview=True, stream="bounded:one icon file under web/app/art")
 async def icon(request: web.Request) -> web.StreamResponse:
     name = request.match_info.get("name") or "apple-touch-icon.png"
     if name not in ICONS:

@@ -13,7 +13,7 @@ from typing import Any
 
 from ... import screens as SCREENS
 from ..dispatch import ToolError, change, read, save, step
-from . import Tool
+from . import NO_ROUTE_SAVE, Tool
 
 ITEM_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,19}\Z")
 
@@ -196,17 +196,21 @@ TOOLS = [
          "keys, settings_schema board) and a `home_grid` made at once. Its address comes from the title. Planned first.",
          {"title": TITLE, "copy_from": SCREEN, "where": {"type": "string", "enum": ["mantel"]},
           "settings": {"type": "object"}, "home_grid": GRID},
-         screen_create, needs="screens", required=("title",), write=True),
+         screen_create, needs="screens", required=("title",), write=True,
+         like="POST /api/screens"),
     Tool("screen_rename", "Rename a screen", "A screen's title (its address stays). Planned first.",
-         {"screen": SCREEN, "title": TITLE}, screen_rename, needs="screens", required=("screen", "title"), write=True),
+         {"screen": SCREEN, "title": TITLE}, screen_rename, needs="screens", required=("screen", "title"), write=True,
+         like="PUT /api/screens/{key}"),
     Tool("screen_move", "Who draws a screen",
          "mantel: Mantel draws it; ha: HK Frontend's dashboard of the same address in Home Assistant does (refused "
          "while wall tablets open it in Mantel). Planned first.",
          {"screen": SCREEN, "where": {"type": "string", "enum": ["mantel", "ha"]}}, screen_move, needs="screens",
-         required=("screen", "where"), write=True),
+         required=("screen", "where"), write=True,
+         like="PUT /api/screens/{key}"),
     Tool("screen_remove", "Remove a screen",
          "Remove a screen no wall tablet opens (its history stays: settings_restore brings it back). Planned first.",
-         {"screen": SCREEN}, screen_remove, needs="screens", required=("screen",), write=True, destructive=True),
+         {"screen": SCREEN}, screen_remove, needs="screens", required=("screen",), write=True, destructive=True,
+         like="DELETE /api/screens/{key}"),
     Tool("grid_cards", "Home Grid catalogue",
          "The Home Grid's cards: each card's sizes (S, W, T, L, XL, XXL, F as columns x rows), its options and the "
          "pages it can swipe through; the grid's columns and rows; the starters.", {}, grid_cards, idempotent=True),
@@ -224,11 +228,14 @@ TOOLS = [
          "first: the plan answer shows the layout as checked.",
          {"screen": SCREEN, "home_grid": GRID, "use_grid": {"type": "boolean", "default": True},
           "expect_version": {"type": "integer", "minimum": 0}},
-         grid_set, needs="screens", required=("screen", "home_grid"), write=True),
+         grid_set, needs="screens", required=("screen", "home_grid"), write=True,
+         no_route=NO_ROUTE_SAVE),
     Tool("grid_place", "Place a Home Grid block",
          "Add one block to a screen's Home Grid, or move/resize the block with that id. Planned first.",
-         {"screen": SCREEN, "block": BLOCK}, grid_place, needs="screens", required=("screen", "block"), write=True),
+         {"screen": SCREEN, "block": BLOCK}, grid_place, needs="screens", required=("screen", "block"), write=True,
+         no_route=NO_ROUTE_SAVE),
     Tool("grid_remove", "Remove a Home Grid block", "Take one block (by id) off a screen's Home Grid. Planned first.",
          {"screen": SCREEN, "block_id": {"type": "string", "maxLength": 20}}, grid_remove, needs="screens",
-         required=("screen", "block_id"), write=True, destructive=True),
+         required=("screen", "block_id"), write=True, destructive=True,
+         no_route=NO_ROUTE_SAVE),
 ]

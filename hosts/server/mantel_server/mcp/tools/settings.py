@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..dispatch import ToolError, change, read, save
-from . import Tool
+from . import NO_ROUTE_RESTORE, NO_ROUTE_SAVE, Tool
 
 SCOPE_KINDS = ("house", "board", "tablet", "user", "music")
 CHANGES = {"type": "object", "description": "key -> new value (settings_schema lists the keys)"}
@@ -201,7 +201,8 @@ TOOLS = [
          "read; changed meanwhile is a conflict.",
          {**DOC, "scope": {"type": "string", "enum": ["house", "board", "tablet"]}, "changes": CHANGES,
           "expect_version": {"type": "integer", "minimum": 0}},
-         settings_change, needs="settings", required=("scope", "changes"), write=True),
+         settings_change, needs="settings", required=("scope", "changes"), write=True,
+         no_route=NO_ROUTE_SAVE),
     Tool("settings_history", "Settings history",
          "A document's versions, newest first: who (and through which assistant), when, the save, and the diff.",
          {**DOC, "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20}},
@@ -210,7 +211,8 @@ TOOLS = [
          "Make a new version of a document from an older one (the undo of any change: each applied change answers "
          "the version it replaced). Planned first.",
          {**DOC, "version": {"type": "integer", "minimum": 1}}, settings_restore, needs="restore",
-         required=("scope", "version"), write=True, destructive=True),
+         required=("scope", "version"), write=True, destructive=True,
+         no_route=NO_ROUTE_RESTORE),
     Tool("accessory_set", "Change an accessory",
          "One accessory's settings: `fields` (name, icon, show_as, size, room, color, status, home...; `screen` makes "
          "the name that screen's only), hide it everywhere (`hidden`), or add it to or take it off a screen's "
@@ -220,5 +222,6 @@ TOOLS = [
           "favorite": {"type": "object", "properties": {"screen": {"type": "string", "maxLength": 80},
                                                         "on": {"type": "boolean"}},
                        "required": ["screen", "on"], "additionalProperties": False}},
-         accessory_set, needs="settings", required=("entity_id",), write=True),
+         accessory_set, needs="settings", required=("entity_id",), write=True,
+         no_route=NO_ROUTE_SAVE),
 ]

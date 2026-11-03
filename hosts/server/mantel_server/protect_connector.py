@@ -887,7 +887,7 @@ def _local_user(body: Mapping[str, Any]) -> tuple[str | None, str | None]:
     return user, pw[:1024]
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_status(request: web.Request) -> web.Response:
     ident = guarded(request)
     rule = C.edit_rule(request, ident)

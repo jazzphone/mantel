@@ -56,7 +56,7 @@ from aiohttp import web
 from . import app_crypto, qr
 from . import audit
 from .accounts import MANAGERS, read_json
-from .guards import guard
+from .guards import WHY_APP, guard, open_route
 from .guards import ident as guarded
 from .login_page import login_url, safe_next
 from .sessions import (Identity, door_of, error, ok, set_session_cookies, token_hash, user_from_row)
@@ -356,6 +356,8 @@ def app_route(handler):
             return denied(exc.code)
         return await handler(request)
     wrapped.__name__ = getattr(handler, "__name__", "app_route")
+    wrapped.__app_route__ = True          # the route table's structural proof for kind app_dpop (route_table.py R7)
+    wrapped.__app_route_handler__ = handler
     return wrapped
 
 
@@ -398,6 +400,7 @@ def _back_to_app(state: str | None, **query: str) -> web.StreamResponse:
                          headers={"Cache-Control": "no-store"})
 
 
+@open_route("sign_in", why="the app's sign-in page: the person signs in there (app_auth.py)")
 async def authorize_page(request: web.Request) -> web.StreamResponse:
     from .sessions import identity
     p = _params(request.query)
@@ -418,6 +421,7 @@ async def authorize_page(request: web.Request) -> web.StreamResponse:
     return _page("Sign In to Mantel", body)
 
 
+@open_route("sign_in", why="the app's sign-in page: the person signs in there (app_auth.py)")
 async def authorize_post(request: web.Request) -> web.StreamResponse:
     from .sessions import identity
     form = await request.post()
@@ -438,6 +442,8 @@ async def authorize_post(request: web.Request) -> web.StreamResponse:
 
 
 # -- /api/app/token -------------------------------------------------------------------------------
+@open_route("sign_in", why="the app's sign-in: a one-time code with its PKCE verifier and a DPoP proof, or a refresh "
+                          "token with the device's own key (no session yet)")
 async def token(request: web.Request) -> web.Response:
     st = state_of(request)
     try:
@@ -512,6 +518,8 @@ async def _refresh(request: web.Request, st: AppAuth, body: dict) -> web.Respons
 
 
 # -- the house ------------------------------------------------------------------------------------
+@open_route("sign_in", why="the app asks who this house is before it has a credential: the house's name, public key "
+                          "and addresses, and a signed nonce (no session yet)")
 async def hello(request: web.Request) -> web.Response:
     nonce = request.query.get("nonce")
     if nonce is not None and not re.match(r"^[A-Za-z0-9_-]{16,128}$", nonce):
@@ -519,7 +527,8 @@ async def hello(request: web.Request) -> web.Response:
     return web.json_response(state_of(request).hello(request, nonce), headers={"Cache-Control": "no-store"})
 
 
-@guard("person", device_ok=True)
+@guard("person", device_ok=True, reads="none",
+       why="the house's addresses, name and key fingerprint, for pairing the app: no house state")
 async def get_addresses(request: web.Request) -> web.Response:
     st = state_of(request)
     return ok({"addresses": st.addresses(request), "name": st.house_name(), "fingerprint": st.fingerprint(),
@@ -575,6 +584,8 @@ async def pairing(request: web.Request) -> web.Response:
 
 
 # -- the web view's session -----------------------------------------------------------------------
+@open_route("app_dpop", why=WHY_APP)
+@app_route
 async def web_session_code(request: web.Request) -> web.Response:
     ident = request["app_identity"]
     try:
@@ -586,6 +597,9 @@ async def web_session_code(request: web.Request) -> web.Response:
     return ok({"url": WEB_SESSION + "?code=" + quote(code), "expires_in": int(WEB_CODE_TTL)})
 
 
+@open_route("one_time_code", reads="none",
+            why="the app's web view: a single-use code from its DPoP-bound /api/app/web-session; it starts a "
+                "session and redirects, and answers no house data")
 async def web_session(request: web.Request) -> web.StreamResponse:
     st = state_of(request)
     got = st.codes.take(request.query.get("code"))
@@ -617,7 +631,7 @@ def _cred_json(row, now: float) -> dict:
             "last_door": row["last_door"], "expires": row["expires"]}
 
 
-@guard("person", device_ok=True)
+@guard("person", device_ok=True, reads="self")
 async def list_devices(request: web.Request) -> web.Response:
     ident = guarded(request)
     st = state_of(request)
@@ -653,6 +667,7 @@ async def revoke_device(request: web.Request) -> web.Response:
     return ok()
 
 
+@open_route("app_dpop", why=WHY_APP)
 @app_route
 async def sign_out(request: web.Request) -> web.Response:
     ident = request["app_identity"]
@@ -660,6 +675,7 @@ async def sign_out(request: web.Request) -> web.Response:
     return ok()
 
 
+@open_route("app_dpop", reads="self", why=WHY_APP)    # the caller's own user record and credential
 @app_route
 async def me(request: web.Request) -> web.Response:
     ident = request["app_identity"]
@@ -684,7 +700,7 @@ def register(app: web.Application, hub=None) -> AppAuth:
     app.router.add_post("/api/app/pairing", pairing)
     app.router.add_get("/api/app/devices", list_devices)
     app.router.add_delete("/api/app/devices/{id}", revoke_device)
-    app.router.add_post("/api/app/web-session", app_route(web_session_code))
+    app.router.add_post("/api/app/web-session", web_session_code)
     app.router.add_post("/api/app/sign-out", sign_out)
     app.router.add_get("/api/app/me", me)
     # the apps' own routes resolve their DPoP-bound token themselves (app_route); /app/authorize decides for itself

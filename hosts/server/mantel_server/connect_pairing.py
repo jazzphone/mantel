@@ -612,7 +612,7 @@ async def middleware(request: web.Request, handler):
 # -- Owner REST: the same rule as service accounts (an Owner's own session on the LAN door, or HA's sidebar with the
 # home rules, authz.home_door). It was the LAN door alone; the code gave no reason to refuse the trusted sidebar that
 # Service credentials, linked mode's ownership and wall tablets all accept, and the section said "the same rule".
-@guard("owner", door="home")
+@guard("owner", door="home", reads="admin")
 async def api_list(request: web.Request) -> web.Response:
     mgr: Connect = request.app["connect"]
     cfg = request.app["cfg"]

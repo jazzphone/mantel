@@ -581,7 +581,7 @@ def device_json(d: Device | None) -> dict | None:
     return out
 
 
-@guard("signed_in")
+@guard("signed_in", reads="self", preview=True)
 async def get_session(request: web.Request) -> web.Response:
     ident = guarded(request)
     resp = ok({"user": user_json(ident.user), "device": device_json(ident.device), "door": ident.door,
@@ -626,7 +626,7 @@ def _may_manage(actor: User, target_role: str) -> bool:
     return actor.role == "owner" or (actor.role == "admin" and target_role != "owner")
 
 
-@guard("person", device_ok=True)
+@guard("person", device_ok=True, reads="self")
 async def list_sessions(request: web.Request) -> web.Response:
     ident = guarded(request)
     target = request.query.get("user_id") or ident.user.id
