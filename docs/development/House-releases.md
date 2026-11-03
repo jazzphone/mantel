@@ -4,6 +4,8 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 
 Every Mantel release here is tagged `vX.Y.Z` on its release commit once the house runs it healthy, by the tool or by hand ([Releasing.md](Releasing.md#house-releases)): the Proxmox LXC's `update` follows the newest tag. Tagged from 0.1.109 on. From 0.1.111 on each is published as well: the release workflow from the tag (the Docker images, the App images, the `ha-apps` branch) and the GitHub Release.
 
+Records from 0.1.121 on are written by the tool, house first: the LXC is updated to the release commit, with the images already pushed, before the tag exists; the tag follows once the house is healthy and the Linux suite passed, and then `latest`, the `ha-apps` branch and the GitHub Release. Each record carries the time of every step.
+
 ## Mantel 0.1.77 (2026-10-26)
 
 - Phases 0-2, 4 and 10 of the improvement plan, plus the hk-detail.js split. Release commit `b4af1b0`; staged from `18e30fb` (the release tool's commit fix), build `8e5775c55ad90794`.
