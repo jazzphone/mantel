@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.40.0 - 2026-11-03
+
 - **Screensaver, Align:** a piece's words Auto (by its side: a card on the right ends every line on the right margin), Left, Center or Right; Home Status' card without its Title.
 - **Screensaver, fixed:** the people over the time fade with their photo; a zoomed whole portrait stays centered; the slide corner stays clear of each slide's own words.
 

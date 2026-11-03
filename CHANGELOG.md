@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.120 - 2026-11-03
+
 **Added**
 - Screensaver: a piece's words can be aligned (**Align** on its page: Auto, Left, Center, Right). Auto lines them up with the piece's side of the screen, so a card on the right ends every line on the right margin, and Now Playing puts its art at that edge. Home Status' card can leave out its **Title** (HOME).
 
