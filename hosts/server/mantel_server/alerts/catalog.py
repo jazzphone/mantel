@@ -112,6 +112,9 @@ KINDS: dict[str, Kind] = {k.id: k for k in (
     Kind("push.failing", "mantel", "warning", "Notifications to the Mantel apps are failing",
          "The push service refused the last {count} notifications.", "Notifications to the Mantel apps work again",
          page="connections"),
+    # features on by default (features/auto.py): at most four times in a house's life, and the screens change
+    Kind("feature.enabled", "mantel", "info", "Mantel turned on {name}",
+         "{why} Turn it off in Mantel Settings → Advanced → Features.", page="features", once=True),
     Kind("channel.failing", "mantel", "warning", "Alerts to {name} are failing",
          "Mantel gave up sending to this channel {count} times in a row. Last error: {error}",
          "Alerts to {name} work again", page="alerts"),

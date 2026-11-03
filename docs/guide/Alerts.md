@@ -38,6 +38,7 @@ A new channel starts with the events marked **Yes** turned on. You choose the ev
 | Mantel | **Low Disk Space**: under 5% or 1 GB free in Mantel's data or backup folder | Warning | 10 minutes | Yes |
 | Mantel | **App Notifications Failing**: the push service refused five in a row | Warning | Right away | Yes |
 | Mantel | **Another Channel Failing**: Mantel gave up sending to another channel three times in a row | Warning | Right away | Yes |
+| Mantel | **Mantel Turned On a Feature**: Music, Clean Areas, Energy or Live TV, once your house had what it needs ([Features](Features.md)) | Info | Right away | Yes |
 | Updates | **Mantel Update**, **Mantel Link Update**, **HK Frontend Update**: a new release ([below](#the-update-alert)) | Info | Right away | Yes |
 | Security | **Failed Sign-Ins**: 10 failed sign-ins in 10 minutes | Warning | Right away | No |
 | Security | **Setup Changed**: a connection, a role or the Owner changed | Info | Right away | No |

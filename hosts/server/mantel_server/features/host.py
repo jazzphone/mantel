@@ -29,12 +29,13 @@ from ..feature_watch import CalendarLook, TabletWatch
 from ..guards import guard
 from ..guards import ident as guarded
 from ..house import HouseCommandRefused, HouseCommandsDisabled, MantelHouse
+from .auto import COALESCE_S, AutoFeatures, decided_marker
 from .actor import FeatureCaller, Feed, OverlayHouse, ScreenState, _slug
 from .energy_plan import energy_context, energy_house
 from .linked_handler import FeatureLinked
 from .notify import Notifier
 from .settings import (
-    COMPANIONS, DEFAULTS, ENERGY_REFRESH_S, FEATURES_DOC,
+    AUTO_PIECES, COMPANIONS, DEFAULTS, ENERGY_REFRESH_S, FEATURES_DOC,
     FEATURE_ACTOR, HA_KINDS, HA_RUN, KIOSK_DOMAINS,
     LIVE_TV_REFRESH_S, PIECES, TABLET_ENTITIES, bad_item,
     check_settings, import_features, _ENTRY,
@@ -86,6 +87,7 @@ class FeatureHost:
         self.feed = Feed()
         self.screens: dict[str, ScreenState] = {}
         self.settings: dict[str, dict[str, Any]] = copy.deepcopy(DEFAULTS)
+        self.settings_version = 0                    # house/mantel_features' version ``settings`` was read from
         self.settings_error: str | None = None
         self.tablets: dict[str, dict[str, Any]] = {}
         self.boards: dict[str, dict[str, Any]] = {}
@@ -93,6 +95,8 @@ class FeatureHost:
         self.notifier = Notifier(self)
         self.linked = FeatureLinked(self)
         self.tv = LiveTv(self)
+        self._tv_task: asyncio.Task | None = None
+        self.auto = AutoFeatures(self)           # features on by default (auto.py)
         cfg = app.get("cfg")
         folder = (Path(cfg.data_dir).expanduser() / notify_snaps.FOLDER) if getattr(cfg, "data_dir", None) else None
         self.snaps = notify_snaps.SnapStore(folder, clock=self.epoch)
@@ -107,6 +111,7 @@ class FeatureHost:
         self._in_use_timers: dict[str, asyncio.TimerHandle] = {}
         self._tasks: set[asyncio.Task] = set()
         self._reload_lock = asyncio.Lock()
+        self.features_lock = asyncio.Lock()          # one change of house/mantel_features at a time (saves, auto.py)
         self._feed_unsub: Callable[[], None] | None = None
         self.started = False
         # what the screens are told (the settings feed's `added` and `energy`): the Energy page's plan as
@@ -167,10 +172,16 @@ class FeatureHost:
     def doc(self, key: str) -> dict:
         return self.store.body("house", key)
 
-    def write_doc(self, key: str, body: dict, identity: Any = None, message: str = "features") -> None:
+    def write_doc(self, key: str, body: dict, identity: Any = None, message: str = "features",
+                  expect_version: int | None = None) -> None:
+        """A new version of ``house/<key>``. ``expect_version``: the version the change was made from (the feature
+        settings' saves pass ``settings_version`` as it was when they read ``settings``), so a save made from a copy
+        that another change overtook (Mantel turning a feature on, say) is refused with ``conflict``, never written
+        over it."""
         from ..settings_store import Actor, actor_of
         actor = actor_of(identity) if identity is not None else Actor(label="mantel-features")
-        self.store.write([("house", key, body)], actor=actor, message=message)
+        self.store.write([("house", key, body)], actor=actor, message=message,
+                         expect=None if expect_version is None else {("house", key): expect_version})
 
     def to_phones(self, payload: dict[str, Any]) -> None:
         """The same notification to the phones of the people it is for (phones.py; Mantel Link and the
@@ -269,8 +280,10 @@ class FeatureHost:
     async def reload(self) -> None:
         """Read the feature settings and the tablets again, and bring every piece in line."""
         async with self._reload_lock:
+            got = self.store.get("house", FEATURES_DOC)
+            self.settings_version = got.version if got is not None else 0
             try:
-                self.settings, self.settings_error = check_settings(self._usable(self.doc(FEATURES_DOC))), None
+                self.settings, self.settings_error = check_settings(self._usable(got.body if got is not None else {})), None
             except ValueError as exc:
                 self.settings, self.settings_error = copy.deepcopy(DEFAULTS), str(exc)
                 log.error("Mantel's feature settings are unreadable (%s); every feature is off", exc)
@@ -293,6 +306,10 @@ class FeatureHost:
             self._sync_client()
             self.spawn(self.refresh_energy())
             self.spawn(self.push_areas())
+            # Live TV turned on while Mantel runs (a person's Add, or Mantel's own turn-on) keeps its guide fresh too
+            if self.started and self.on("live_tv") and (self._tv_task is None or self._tv_task.done()):
+                self._tv_task = self.spawn(self._tv_loop())
+            self.auto.settings_changed()
 
     @staticmethod
     def _usable(doc: Any) -> Any:
@@ -368,6 +385,7 @@ class FeatureHost:
 
     def on_registry(self) -> None:
         self.spawn(self.reload())
+        self.auto.schedule(COALESCE_S)          # a vacuum's room map, a tuner: one look for a burst of changes
 
     def spawn(self, coro: Awaitable[Any]) -> asyncio.Task | None:
         try:
@@ -566,7 +584,6 @@ class FeatureHost:
     # -- running -------------------------------------------------------------------------------------
     async def start(self) -> None:
         await self.reload()
-        await self._live_tv_once()
         svc = self.app.get("settings")
         if svc is not None:
             first = [True]
@@ -581,30 +598,16 @@ class FeatureHost:
             self._feed_unsub = svc.subscribe_feed(None, changed)
         self.spawn(self._ticker())
         if self.on("live_tv"):
-            self.spawn(self._tv_loop())
+            self._tv_task = self.spawn(self._tv_loop())
         self.started = True
-
-    async def _live_tv_once(self) -> None:
-        """Mantel with its own go2rtc (Docker, the LXC) serves Live TV, and the feature import turns it on there. A
-        backup restored from the HA App, where HK Frontend ran it, brings it in off, and nothing on the page turns it
-        on (the owner's LXC, 2026-11-02: the Live TV page said to add it in Home Assistant). So the first start with
-        its own go2rtc and a tuner turns it on, once (``go2rtc_once``): turned off after that, it stays off."""
-        tv = self.settings["live_tv"]
-        if tv.get("go2rtc_once") or not tv.get("tuner") or not getattr(self.app.get("cfg"), "go2rtc_url", ""):
-            return
-        body = copy.deepcopy(self.settings)
-        body["live_tv"].update(enabled=True, go2rtc_once=True)
-        try:
-            self.write_doc(FEATURES_DOC, check_settings(body), message="Live TV on: Mantel runs its own go2rtc")
-        except Exception:  # noqa: BLE001 -- Live TV stays as it was; the next start tries again
-            log.exception("could not turn Live TV on for Mantel's own go2rtc")
-            return
-        log.info("Live TV: on, served by Mantel's own go2rtc (once, the first start with it)")
-        await self.reload()
+        # the features that may turn on by themselves: a first look now (Home Assistant may not be loaded yet:
+        # then nothing is decided, and its registries' load looks again)
+        self.auto.schedule(0)
 
     async def stop(self) -> None:
         if self._feed_unsub:
             self._feed_unsub()
+        self.auto.stop()
         for eng in self.engines.values():
             eng.unload()
         for h in self._in_use_timers.values():
@@ -626,6 +629,7 @@ class FeatureHost:
                 # and then (as HA's own is, at most every CACHE_S, when asked)
                 if self.on("energy") and self.monotonic() - self._energy_at >= ENERGY_REFRESH_S:
                     self.spawn(self.refresh_energy())
+                self.auto.tick()                    # features on by default: a look every 5 minutes
                 self.minute()
             except Exception:  # noqa: BLE001
                 log.exception("features: tick failed")
@@ -834,7 +838,22 @@ class FeatureHost:
             out[fid] = {"name": name, "kind": kind, "installed": True, "own": True,
                         "entries": [{"entry_id": i["entry_id"], "title": i.get("title") or name, "state": "loaded"}
                                     for i in got]}
+            # features on by default: Mantel turned it on ({at, why}), or what it still needs (Advanced → Features)
+            if kind in AUTO_PIECES:
+                out[fid].update(self.auto.row(kind))
         return out
+
+    def owner_decided(self, before: Mapping[str, Any], after: dict[str, Any], piece: str | None = None) -> dict[str, Any]:
+        """A person's choice is final (auto.py): each piece that may turn on by itself whose ``enabled`` a person
+        changed gets the ``owner`` marker, in the same write as the choice; ``piece`` (Add or Remove on its page)
+        gets it either way."""
+        at = self.now().isoformat()
+        for p in AUTO_PIECES:
+            was, now = bool(before.get(p, {}).get("enabled")), bool(after.get(p, {}).get("enabled"))
+            if was != now or p == piece:
+                after["auto"]["decided"][p] = decided_marker("owner", at, "Added by a person" if now
+                                                             else "Removed by a person")
+        return after
 
     def _sync_client(self) -> None:
         """Tell every screen when what it is told about the features changed (a new settings feed)."""
@@ -960,6 +979,7 @@ class FeatureHost:
             "live_tv": {"lineup": len(self.tv.lineup), "channels": len(self.tv.guide), "fetched_at": self.tv.fetched_at,
                         "error": self.tv.error},
             "snapshots": self.snaps.status(),
+            "auto": self.auto.status(),
             "calendars": self.calendars.status(),
             "tablets": self.tablet_watch.status(),
             "screens_told": {"added": self.client_added(), "energy_plan": self.energy_cache is not None,
@@ -1260,13 +1280,30 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
     @guard("owner", no_audit="a new version of house/mantel_features in the settings store, whose history names who saved it")
     async def api_settings_put(request: web.Request) -> web.Response:
         ident = guarded(request)
-        try:
-            body = await request.json()
-            settings = check_settings(body)
-        except ValueError as exc:
-            return web.json_response({"error": {"code": "invalid", "message": str(exc)}}, status=400)
-        host.write_doc(FEATURES_DOC, settings, ident, "feature settings")
-        await host.reload()
+        from ..settings_store import SettingsError
+        async with host.features_lock:
+            try:
+                body = await request.json()
+                # what Mantel decided is kept unless the body says otherwise: a body with no `auto` (a document from
+                # before it, or one written by hand) leaves the switch and the markers as they are
+                if isinstance(body, dict):
+                    cur = host.settings["auto"]
+                    mine = body.get("auto")
+                    if mine is None or isinstance(mine, dict):
+                        body = {**body, "auto": {**cur, **(mine or {})}}
+                settings = check_settings(body)
+            except ValueError as exc:
+                return web.json_response({"error": {"code": "invalid", "message": str(exc)}}, status=400)
+            settings = check_settings(host.owner_decided(host.settings, settings))
+            try:
+                host.write_doc(FEATURES_DOC, settings, ident, "feature settings", expect_version=host.settings_version)
+            except SettingsError as exc:
+                if exc.code != "conflict":
+                    raise
+                await host.reload()
+                return web.json_response({"error": {"code": "conflict", "message": "The feature settings changed a "
+                                                    "moment ago. Read them again and save."}}, status=409)
+            await host.reload()
         if host.on("live_tv") and host.started:
             host.spawn(host.tv.refresh())
         return web.json_response({"settings": host.settings})

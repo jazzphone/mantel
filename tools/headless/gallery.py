@@ -189,11 +189,30 @@ class FictionalFeatures:
     def house_part(self):
         return self.client_part(None)
 
+    # Advanced -> Features as a Mantel-held house tells it (panel/get's `features` and `features_auto`): Mantel
+    # turned Music and Clean Areas on by itself, Live TV is off with a note on what it still needs
+    ADDED = ("hk_music", "hk_clean_areas")
+    AUTO = {"hk_music": {"at": "2026-11-04T15:00:00+00:00", "why": "Music Assistant is connected."},
+            "hk_clean_areas": {"at": "2026-11-04T15:00:00+00:00", "why": "A vacuum has a map of the house’s rooms."}}
+    NOTE = {"hk_tv": "Home Assistant has an HDHomeRun, but Mantel doesn’t know its address: add it on Live TV’s page."}
+
+    class _Auto:
+        def switch(self):
+            return True
+    auto = _Auto()
+
     def panel_features(self):
         from mantel_server.features.settings import COMPANIONS
-        return {fid: {"name": name, "kind": kind, "installed": True,
-                      "entries": [{"entry_id": "gallery_energy", "title": name, "state": "loaded"}] if kind == "energy" else []}
-                for fid, kind, name in COMPANIONS}
+        out = {}
+        for fid, kind, name in COMPANIONS:
+            added = fid in self.ADDED
+            out[fid] = {"name": name, "kind": kind, "installed": True, "own": True,
+                        "entries": [{"entry_id": f"gallery_{kind}", "title": name, "state": "loaded"}] if added else []}
+            if fid in self.AUTO:
+                out[fid]["auto"] = self.AUTO[fid]
+            elif fid in self.NOTE:
+                out[fid]["note"] = self.NOTE[fid]
+        return out
 
 
 SETTINGS = {
@@ -352,6 +371,7 @@ SHOTS = {
     "settings-alerts-email": ("/settings#/mantel/alerts/channel/{email}", DESKTOP, True, SCROLL_TO_QUIET),
     "settings-me-system-alerts": ("/settings#/mantel/me", DESKTOP, True, SCROLL_TO_SYSTEM_ALERTS),
     "settings-alerts-history": ("/settings#/mantel/alerts/history", DESKTOP, True, None),
+    "features": ("/settings#/advanced/features", DESKTOP, True, None),
     "settings-about-updates": ("/settings#/mantel/about", DESKTOP, True, None),
     "login": ("/login", DESKTOP, False, None),
     "login-phone": ("/login", PHONE, False, None),
