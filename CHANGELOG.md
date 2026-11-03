@@ -5,6 +5,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 ## Unreleased
 
 **Added**
+- Screensaver: **the slides' own settings**, in the editor's Slides section. **The Slide Corner**: its time's size (100 to 250 %) and whether it adds the time, the date, the weather and House Status. **Music Full Screen**: whether it shows the room, the album, the progress, the buttons, the volume and Up Next. A change shows at once on the slide **See It** shows.
 - Screensaver: the **Today** face's weather can be turned off (**Weather**, beside **What's Playing**, under Face in the editor). A Weather or Music piece is hidden as "shown by the Today face" only while the face shows it.
 - Mantel Settings → Advanced → **Features**: every feature with an on/off switch, what it needs and where its settings are. Each feature's own page keeps its Add and Remove (Music's page has Remove too now).
 - Docker and the LXC: **Live TV falls back to the CPU when the GPU can't transcode.** The first channel played after Mantel starts is checked on the GPU (about 3 seconds); if the GPU fails and the CPU plays the channel, Live TV uses the CPU until Mantel restarts, and Live TV's status says why (`gpu_failed`). Before, the player retried forever with no picture.

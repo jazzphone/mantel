@@ -2909,6 +2909,8 @@
       energy_slide: o.energy_slide === true, extra_music: o.extra_music === true, extra_forecast: o.extra_forecast === true,
       extra_every: o.extra_every, extra_for: o.extra_for, energy_hide: Array.isArray(o.energy_hide) ? o.energy_hide.slice() : [],
       weather_slide: o.weather_slide === true, weather_hide: Array.isArray(o.weather_hide) ? o.weather_hide.slice() : [],
+      corner_time_size: o.corner_time_size || 100, corner_hide: Array.isArray(o.corner_hide) ? o.corner_hide.slice() : [],
+      music_hide: Array.isArray(o.music_hide) ? o.music_hide.slice() : [],
       forecast_every: o.forecast_every || 5,
       band: o.band !== false, band_photos: o.band_photos === true,
       calendar: o.calendar === true, calendar_days: o.calendar_days || 2,

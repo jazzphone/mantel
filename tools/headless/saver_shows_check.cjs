@@ -318,7 +318,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           // A SLIDE: the layout steps aside; the slide corner adds what the slide lacks, nothing it has
           if (!shown) { say(true, t2 + ': (not shown here: ' + sl + ' has nothing to show in this house)', shown); continue; }
           const key = want === 'look-fb' ? 'forecast_big' : sl;
-          const want4 = ['time', 'date', 'weather', 'status'].filter((k) => SHOWS_OF[key].indexOf(k) < 0);
+          const own = /-own$/.test(screen), want4 = ['time', 'date', 'weather', 'status'].filter((k) => SHOWS_OF[key].indexOf(k) < 0 && !(own && k === 'weather'));
           say(m.scorner && !m.layShown, t2 + ': the layout steps aside, the slide corner is up', [m.scorner, m.layShown]);
           say(['time', 'date', 'weather', 'status'].every((k) => !!m.corner[k] === (want4.indexOf(k) >= 0)), t2 + ': ...its corner adds ' + want4.join(', ') + ' and nothing else',
               Object.keys(m.corner).filter((k) => m.corner[k]));
@@ -327,6 +327,17 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           say(!m.oldClock, t2 + ': ...and no old corner clock beside it', m.oldClock);
           if (want === 'look-fb') say(m.bigWx, t2 + ': ...Big Weather is drawn', m.bigWx);
           if (want === 'look-fb') say(!want4.some((k) => m.fcWords.some((w) => meet(m.corner[k], w))), t2 + ': ...none of the corner on its words', [m.corner, m.fcWords.filter((w) => want4.some((k) => meet(m.corner[k], w)))]);
+          if (own && m.corner.time) {
+            // (the corner's time at 200 %: its letters twice the date's height and more)
+            const th = m.corner.time.b - m.corner.time.t, dh = m.corner.date ? m.corner.date.b - m.corner.date.t : 0;
+            say(dh > 0 && th > 3.5 * dh, t2 + ': ...its time at its own size, 200 %', [th, dh]);
+          }
+          if (own && sl === 'music') {
+            const mp = await page.evaluate(() => { const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
+              const sr = deep(document).find((e) => e.tagName === 'HK-SCREENSAVER').shadowRoot, shown = (s) => { const e = sr.querySelector('.mu ' + s); return !!e && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().height > 0; };
+              return { album: shown('.malbum'), vol: shown('.mvol'), next: shown('.mnext'), title: shown('.mtitle'), prog: shown('.mprog'), btn: shown('.mpp') }; });
+            say(!mp.album && !mp.vol && !mp.next && mp.title && mp.prog && mp.btn, t2 + ': ...Music Full Screen without its album, volume and Up Next', mp);
+          }
           if (sl === 'music') say(!want4.some((k) => m.words.some((w) => meet(m.corner[k], w))), t2 + ': ...none of it on the song\u2019s words', [m.corner, m.words]);
           if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '-' + (want === 'look-fb' ? 'forecast-big' : sl) + '.png' });
         }

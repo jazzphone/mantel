@@ -219,6 +219,12 @@ var W4 = { show: 'both', music_slide: true, weather_slide: true, energy_slide: t
 ok('Weather: off by default; checked', d.weather_slide === false && d.weather_hide.length === 0 &&
    U.readCfg({ weather_slide: true }).weather_slide === true && U.readCfg({ weather_slide: 1 }).weather_slide === false &&
    JSON.stringify(U.readCfg({ weather_hide: ['wind', 7] }).weather_hide) === '["wind"]');
+// THE SLIDES' OWN SETTINGS (2026-11-02): the corner's time size, what it and Music Full Screen leave out
+ok('the slides\' own settings: the corner\'s time 100 % by default, 100 to 250; the parts left out kept as words',
+   d.corner_time_size === 100 && d.corner_hide.length === 0 && d.music_hide.length === 0 &&
+   U.readCfg({ corner_time_size: 200 }).corner_time_size === 200 && U.readCfg({ corner_time_size: 400 }).corner_time_size === 100 &&
+   JSON.stringify(U.readCfg({ corner_hide: ['weather', 3], music_hide: ['album'] }).corner_hide) === '["weather"]' &&
+   JSON.stringify(U.readCfg({ music_hide: ['album'] }).music_hide) === '["album"]');
 ok('...the music, the forecast, the weather and Home Energy take turns, in that order',
    U.slideOf(W4, true, '', true, true) === 'music' && U.slideOf(W4, true, 'music', true, true) === 'forecast' &&
    U.slideOf(W4, true, 'forecast', true, true) === 'weather' && U.slideOf(W4, true, 'weather', true, true) === 'energy' &&

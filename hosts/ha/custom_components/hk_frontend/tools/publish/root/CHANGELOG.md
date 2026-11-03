@@ -5,6 +5,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+- **Screensaver, the slides' own settings:** the slide corner's time size (100 to 250 %) and what it adds; what Music Full Screen shows (room, album, progress, buttons, volume, Up Next). In the editor's Slides section.
 - **Screensaver:** the Today face's **Weather** can be turned off, beside **What's Playing**; a Weather or Music piece is hidden only while the face shows it. The time stays where Position and Align put it, whatever the face shows since it was measured. The editor draws nothing over anything else, and a dragged piece lands on the place it covers.
 - Advanced → **Features** lists every feature: on a host whose features are its own, with a switch each; in Home Assistant, with the way to add one.
 - Music: **Group Leaders** (HK Settings → Music). Which room leads when rooms play together: the rooms that lead (best first), and the **Announcement Rooms** Home Assistant speaks to, which lead only when no other room can (Music Assistant plays an announcement to a group's leader in every room of the group). A room already playing keeps leading; before, the first room in the list led. A library item on several rooms plays on that room first.

@@ -2123,7 +2123,7 @@
                      clock_photo_soft: false, clock_photo_dim: 35, clock_text_shadow: 40, clock_text_outline: 0,
                      // Home Energy and the additional screens (settings.py, 2026-10-14)
                      energy_slide: false, extra_music: false, extra_forecast: false, extra_every: 5, extra_for: 30, energy_hide: [],
-                     weather_slide: false, weather_hide: [] };
+                     weather_slide: false, weather_hide: [], corner_time_size: 100, corner_hide: [], music_hide: [] };
   function saverOptions(o) {
     var out = {};
     Object.keys(SAVER_DEFAULTS).forEach(function (k) {

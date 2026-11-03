@@ -453,7 +453,7 @@
     }
     slideKey(kind) { return kind === 'forecast' && this.opts.forecast_layout === 'big' ? 'forecast_big' : kind; }
     cornerWords(kind) {
-      var add = LM.cornerFor(this.slideKey(kind)).map(function (k) { return CORNER_NAMES[k]; });
+      var hide = this.opts.corner_hide || [], add = LM.cornerFor(this.slideKey(kind)).filter(function (k) { return hide.indexOf(k) < 0; }).map(function (k) { return CORNER_NAMES[k]; });
       return add.length ? 'Its corner adds ' + listAnd(add) + '.' : 'Its corner adds nothing: the slide shows them.';
     }
     // THE LINE UNDER THE SCREEN: what the screen is, or -- on a slide -- what the slide shows and its corner adds
@@ -1258,6 +1258,27 @@
       ];
       out.push(K.group({ footer: 'A slide fades in over the screen now and then; Music Full Screen while something plays. The screen here leaves them out so what you placed stays in view: See It shows one, with its corner.' },
         this.rowsOf(st, fc).concat(this.rowsOf(st, oft))));
+      // THE SLIDES' OWN SETTINGS (2026-11-02, the owner: "some configuration to the slide pages... I wouldn't mind the
+      // clock being bigger"): the corner over every slide, and what Music Full Screen shows
+      var hideOf = function (key) { return Array.isArray(o[key]) ? o[key] : []; };
+      var part = function (key, k, label, sub) {
+        return K.toggle({ label: label, sub: sub || null, on: hideOf(key).indexOf(k) < 0, onChange: function (on) {
+          self.change(function (x) { var h = (Array.isArray(x[key]) ? x[key] : []).filter(function (y) { return y !== k; }); if (!on) h.push(k); x[key] = h; });
+        } });
+      };
+      if (any) {
+        var ch = hideOf('corner_hide');
+        out.push(K.group({ header: 'The Slide Corner', footer: 'Over every slide, the corner adds what the slide doesn’t show itself. Its time is in the Look’s face and color.' }, [
+          K.slider({ label: 'Time Size', value: Number(o.corner_time_size) || 100, min: 100, max: 250, step: 10, unit: '%', onChange: function (v) { self.change(function (x) { x.corner_time_size = v; }); } }),
+          part('corner_hide', 'time', 'Time'), part('corner_hide', 'date', 'Date'), part('corner_hide', 'weather', 'Weather'), part('corner_hide', 'status', 'House Status')
+        ].filter(function (r, i) { return i !== 0 || ch.indexOf('time') < 0; })));
+      }
+      if (o.music_first || o.music_slide) {
+        out.push(K.group({ header: 'Music Full Screen', footer: 'What the music slide shows beside the album art. The side pane’s music is its own.' }, [
+          part('music_hide', 'room', 'Room', 'Where it plays'), part('music_hide', 'album', 'Album'), part('music_hide', 'progress', 'Progress', 'How far in, and how long'),
+          part('music_hide', 'buttons', 'Buttons', 'Previous, play or pause, next, speakers and browse'), part('music_hide', 'volume', 'Volume'), part('music_hide', 'next', 'Up Next')
+        ]));
+      }
       return out;
     }
 
