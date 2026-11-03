@@ -145,5 +145,10 @@ ok('the Today face hides the Weather and Music pieces it shows', Object.keys(L.c
 ok('...not the Weather with its weather off', Object.keys(L.claims(todayO, { clock_style: 'today', clock_today_weather: false })), ['bl:0']);
 ok('...not the Music with What\u2019s Playing off', Object.keys(L.claims(todayO, { clock_style: 'today', clock_today_music: false })), ['tl:0']);
 
+// A PIECE'S WORDS (2026-11-03): its Align kept, Auto never stored; a card's title stored only when off
+var alO = L.clean({ v: 2, big: { kind: 'time' }, zones: { br: [{ piece: 'status', shape: 'card', align: 'right', title: false }], tl: [{ piece: 'weather', shape: 'card', align: 'auto', title: true }] } });
+ok('a piece\'s Align and a card without its title kept; Auto and a title on not stored',
+   [alO.zones.br[0].align, alO.zones.br[0].title, 'align' in alO.zones.tl[0], 'title' in alO.zones.tl[0]], ['right', false, false, false]);
+
 print(fail ? 'FAIL ' + fail + ' SAVER ZONES TESTS' : 'ALL ' + pass + ' SAVER ZONES TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

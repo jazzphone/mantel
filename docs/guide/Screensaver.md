@@ -39,7 +39,7 @@ The pieces are listed by group: **Time and Calendar**, **Weather and Sky**, **Ho
 Tap a piece on the screen to open its page:
 
 - **Shape:** its shapes, each drawn. A shape its place can't take moves it to the nearest place that can, and the editor says so.
-- **Size and Style:** **Size** (60 to 200 %; in the row, **Its Own Size** off follows the row's size), **Backdrop** (**None**, **Glass** or **Tinted**) and **Color** (**Auto**, in the screen's ink, or **Accent**).
+- **Size and Style:** **Size** (60 to 200 %; in the row, **Its Own Size** off follows the row's size), **Backdrop** (**None**, **Glass** or **Tinted**) and **Color** (**Auto**, in the screen's ink, or **Accent**). A card or a rectangle has **Align**: **Auto** lines its words up with its side of the screen (a card on the right ends every line on the right margin, a song's art at that edge), or **Left**, **Center** or **Right**. Home Status' card can leave out its **Title** (HOME).
 - **Options:** what it shows, such as which city's time or which sensor. A piece that reads an entity suggests one ("Use the Suggestion").
 - **Show:** **Always**, or **When…** an entity **is**, **is not**, **is above** or **is below** a value: a mailbox piece that shows only when the mail has come, or the house battery only while it charges. Until then the others close up as if it weren't there.
 - **Place:** **Where**, the Move buttons, and **Remove**. Delete does the same from a keyboard.

@@ -3398,13 +3398,15 @@
       zs[z].forEach(function (w, i) {
         // (its own size, else the row's one size: its unit, times its size)
         var k = (w.size || (z === 'row' ? O.row_size : 100) || 100) / 100, wu = u * k;
-        var key = [z, i, w.piece, w.shape, w.back, w.color, JSON.stringify(w.opts || {}), wu.toFixed(2)].join(':');
+        // (its words by its own Align, else by its side: the right corners' to the screen's right edge)
+        var al = w.align || (z === 'tr' || z === 'br' ? 'right' : 'left');
+        var key = [z, i, w.piece, w.shape, w.back, w.color, al, w.title === false ? 'nt' : '', JSON.stringify(w.opts || {}), wu.toFixed(2)].join(':');
         want[key] = 1;
         // (a glance piece whose group's file hasn't come yet: asked for, drawn once it lands)
         if (WG && !WG.has(w.piece, w.shape)) { var gf = LM.PIECES[w.piece] && LM.PIECES[w.piece][4]; if (gf) pieceFile(gf); return; }
         if (!ly.widgets[key] && WG) {
           try {
-            ly.widgets[key] = WG.create(w.piece, w.shape, { u: wu, back: w.back, color: w.color, h24: cfg.clock_24, weather: weatherEntity(), opts: w.opts || {} });
+            ly.widgets[key] = WG.create(w.piece, w.shape, { u: wu, back: w.back, color: w.color, align: al, title: w.title, h24: cfg.clock_24, weather: weatherEntity(), opts: w.opts || {} });
             if (ly.widgets[key]) ly.layer.appendChild(ly.widgets[key].el);
           } catch (e) { console.warn('[hk-saver] piece', w.piece, w.shape, e && e.message); }
         }

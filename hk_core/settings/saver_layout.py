@@ -125,6 +125,10 @@ BIG_DEFAULT = {"kind": "time", "size": 24, "pos": "top", "align": "center", "dep
 BACKS = ("none", "glass", "tint")
 # a piece's color: the screen's ink, or the house's accent (v1's "white" is the ink now: one ink for the screen)
 COLORS = ("auto", "accent")
+# A PIECE'S WORDS (2026-11-03, the owner: "if the user wants to put one on the right, the text can be aligned to the
+# right to match the edge of the screen"): left, center or right; none stored is Auto -- by its side of the screen.
+# `title: false`: a card without its heading (Home Status' HOME)
+ALIGNS = ("left", "center", "right")
 # a piece's own size, % of its usual (2026-11-01, the owner: "Lots of options for users on size and scale"; 2026-11-02:
 # "we probably should allow up to a 200% size increase"); stored only when it isn't 100 -- in the row, only when set
 # on purpose: the row's pieces otherwise take ROW_SIZE's one size ("It would look weird if all them varied in sizes")
@@ -221,8 +225,10 @@ def _widget(v: Any, strict: bool, zone: str) -> dict[str, Any] | None:
     for k, val in v.items():
         if k in ("piece", "shape"):
             continue
-        if (k == "back" and val in BACKS) or (k == "color" and val in COLORS):
+        if (k == "back" and val in BACKS) or (k == "color" and val in COLORS) or (k == "align" and val in ALIGNS):
             out[k] = val
+        elif k == "title" and val is False:
+            out[k] = False
         elif k == "size" and _int(val) and ITEM_SIZE[0] <= val <= ITEM_SIZE[1]:
             if val != 100 or zone == "row":
                 out[k] = val

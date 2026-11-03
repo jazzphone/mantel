@@ -66,6 +66,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
       : /^lay-/.test(want) || want === 'look-slides' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844], [screen, want, 844, 390]]
       : want === 'look-fb' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]]
       : want === 'tb-fade' ? [[screen, want, 1180, 820]]
+      : want === 'lay-align' ? [[screen, want, 1180, 820], [screen, want, 390, 844]]
       : want === 'big-corners' || want === 'planted' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]] : [[screen, want, 1180, 820]])
       // (--shard K/N: every N-th run from the K-th; tools/ci.py runs the N parts side by side)
       .filter((_, i) => !input.shard || i % input.shard[1] === input.shard[0] - 1);
@@ -92,6 +93,27 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
         return host ? { face: host.getAttribute('ckface'), big: host.hasAttribute('fcbig'), lay: host.hasAttribute('lay') } : null;
       });
+      if (want === 'lay-align') {
+        const tag = screen + ' ' + W + 'x' + H;
+        await page.waitForTimeout(3000);
+        const al = await page.evaluate(() => { const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
+          const sr = host.shadowRoot, lines = (el) => [...el.querySelectorAll('.cd > div, .cd .mt > div')].filter((d) => d.textContent.trim() && d.getBoundingClientRect().height > 0).map((d) => {
+            const q = []; (function walk(n) { if (n.nodeType === 3) { if (n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); const r = rg.getBoundingClientRect(); if (r.width) q.push(r); } } else if (n.nodeType === 1) n.childNodes.forEach(walk); })(d);
+            return q.length ? { l: Math.min(...q.map((r) => r.left)), r: Math.max(...q.map((r) => r.right)), t: d.textContent.trim().slice(0, 16) } : null; }).filter(Boolean);
+          const st = sr.querySelector('.lay .hksw.p-status'), mu = sr.querySelector('.lay .hksw.p-music'), wx = sr.querySelector('.lay .hksw.p-weather');
+          const art = mu && mu.querySelector('.art'), mt = mu && mu.querySelector('.mt');
+          return { box: st && [st.getBoundingClientRect().right, st.querySelector('.cd').getBoundingClientRect().right, getComputedStyle(st).paddingRight, st.className], wxbox: wx && [wx.getBoundingClientRect().left, getComputedStyle(wx).paddingLeft], st: st ? lines(st) : null, wx: wx ? lines(wx) : null, art: art && art.getBoundingClientRect().right, text: mt && mt.getBoundingClientRect().right, W: innerWidth };
+        });
+        const rightEdge = al.st && Math.max(...al.st.map((x) => x.r)), leftEdge = al.wx && Math.min(...al.wx.map((x) => x.l));
+        say(!!al.st && al.st.length >= 2 && al.st.every((x) => Math.abs(x.r - rightEdge) <= 1.5), tag + ': Home Status on the right: every line ends on one edge', al.st);
+        // (by the margin itself: the weather's big number hangs a little past it on purpose)
+        say(!!al.st && !!al.wxbox && Math.abs((al.W - rightEdge) - al.wxbox[0]) <= 1.5, tag + ': ...on the screen\u2019s margin, the one the weather\u2019s card starts on at the left', [al.W - rightEdge, al.wxbox, al.box]);
+        say(!!al.art && al.art > al.text, tag + ': ...and the music\u2019s art at its right edge, its words beside it', [al.art, al.text]);
+        if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '.png' });
+        say(!errors.length, tag + ': no page errors', errors.slice(0, 3));
+        await ctx.close();
+        continue;
+      }
       if (want === 'tb-fade') {
         const tag = screen + ' ' + W + 'x' + H;
         await page.waitForTimeout(3000);

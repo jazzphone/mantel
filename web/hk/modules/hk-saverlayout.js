@@ -157,6 +157,9 @@
   };
   var BIG_DEFAULT = { kind: 'time', size: 24, pos: 'top', align: 'center', depth: 'front' };
   var BACKS = ['none', 'glass', 'tint'], COLORS = ['auto', 'accent'];
+  // a piece's words: left, center or right; none stored is Auto, by its side of the screen (settings saver_layout.py
+  // ALIGNS); title: false, a card without its heading
+  var ALIGNS = ['left', 'center', 'right'];
   // a piece's own size, % of its usual (60-200: 2026-11-02, the owner: "we probably should allow up to a 200% size
   // increase"); the row's one size (ROW_SIZE: "It would look weird if all them varied in sizes"); where the row goes
   var ITEM_SIZE = [60, 200], ROW_AT = ['under', 'bottom'], ROW_LINE = 4;
@@ -245,7 +248,8 @@
     Object.keys(v).forEach(function (k) {
       if (k === 'piece' || k === 'shape') return;
       var val = v[k];
-      if ((k === 'back' && BACKS.indexOf(val) >= 0) || (k === 'color' && COLORS.indexOf(val) >= 0)) out[k] = val;
+      if ((k === 'back' && BACKS.indexOf(val) >= 0) || (k === 'color' && COLORS.indexOf(val) >= 0) || (k === 'align' && ALIGNS.indexOf(val) >= 0)) out[k] = val;
+      else if (k === 'title' && val === false) out.title = false;
       else if (k === 'size' && isInt(val) && val >= ITEM_SIZE[0] && val <= ITEM_SIZE[1]) { if (val !== 100 || zone === 'row') out.size = val; }
       else if (k === 'show' && showOk(val)) out.show = { entity: val.entity, op: val.op, value: val.value };
       else if (k === 'opts' && obj(val)) {
@@ -584,7 +588,7 @@
 
   window.hkSaverLayout = {
     VERSION: VERSION, PIECES: PIECES, SHAPES: SHAPES, SHAPE_NAMES: SHAPE_NAMES, V1: V1, CATALOG: CATALOG, ZONES: ZONES, ZONE_NAMES: ZONE_NAMES,
-    UNITS: UNITS, BIG: BIG, BIG_DEFAULT: BIG_DEFAULT, BACKS: BACKS, COLORS: COLORS, ITEM_SIZE: ITEM_SIZE, ROW_AT: ROW_AT, ROW_LINE: ROW_LINE,
+    UNITS: UNITS, BIG: BIG, BIG_DEFAULT: BIG_DEFAULT, BACKS: BACKS, COLORS: COLORS, ALIGNS: ALIGNS, ITEM_SIZE: ITEM_SIZE, ROW_AT: ROW_AT, ROW_LINE: ROW_LINE,
     INKS: INKS, clean: clean, check: check, fits: fits, layoutFrom: layoutFrom, oriented: oriented, plan: plan, claims: claims,
     SLIDES: SLIDES, cornerFor: cornerFor,
     idOf: idOf, item: item, unitsOf: unitsOf, SHOW_OPS: SHOW_OPS, met: met, filesOf: filesOf, CITIES: CITIES,

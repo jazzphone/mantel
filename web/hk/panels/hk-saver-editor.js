@@ -1323,6 +1323,18 @@
         } },
         { make: function () {
           return K.seg({ label: 'Color', sub: 'Auto takes the screen’s ink', value: w.color, options: [['auto', 'Auto'], ['accent', 'Accent']], onChange: function (v) { edit(function (it) { it.color = v; }); } });
+        } },
+        // ITS WORDS ALIGNED (2026-11-03, the owner: on the right, "aligned to the right to match the edge of the screen"):
+        // a card's or a rectangle's lines; Auto follows its side
+        { applies: function () { return w.shape === 'card' || w.shape === 'rectangular'; }, make: function () {
+          var side = z === 'tr' || z === 'br' ? 'right' : 'left';
+          return K.seg({ label: 'Align', sub: 'Auto lines its words up with its side of the screen (' + side + ' here)', value: w.align || 'auto', stack: true,
+            options: [['auto', 'Auto'], ['left', 'Left'], ['center', 'Center'], ['right', 'Right']],
+            onChange: function (v) { edit(function (it) { if (v === 'auto') delete it.align; else it.align = v; }); } });
+        } },
+        // (a card with a heading -- Home Status' HOME -- without it)
+        { applies: function () { return w.shape === 'card' && w.piece === 'status'; }, make: function () {
+          return K.toggle({ label: 'Title', sub: 'The card’s heading over its words', on: w.title !== false, onChange: function (on) { edit(function (it) { if (on) delete it.title; else it.title = false; }); } });
         } }
       ];
       add(K.group({ header: 'Size and Style' }, this.rowsOf({}, sizeRows)));

@@ -262,3 +262,15 @@ def test_every_piece_is_in_the_webkit_check():
     seen = set(re.findall(r"'([a-z]+)\.(?:inline|circular|rectangular|card|band)", src))
     seen |= {p for v1, (p, _, _) in SL.V1.items() if re.search(r"'%s'" % v1, check)}
     assert not set(SL.PIECES) - seen, sorted(set(SL.PIECES) - seen)
+
+
+def test_a_pieces_words_align_and_a_card_can_leave_out_its_title():
+    """The owner, 2026-11-03: a piece on the right "aligned to the right to match the edge of the screen", and why Home
+    Status' card has HOME at the top. None stored is Auto (by its side); only a title turned off is stored."""
+    L = {"v": 2, "big": {"kind": "time"}, "zones": {"br": [{"piece": "status", "shape": "card", "align": "right", "title": False}],
+                                                     "tl": [{"piece": "weather", "shape": "card", "align": "center", "title": True}]}}
+    got = SL.layout(L)
+    assert got["zones"]["br"][0]["align"] == "right" and got["zones"]["br"][0]["title"] is False
+    assert got["zones"]["tl"][0]["align"] == "center" and "title" not in got["zones"]["tl"][0]
+    with pytest.raises(SL.LayoutInvalid):
+        SL.check({"v": 2, "big": {"kind": "time"}, "zones": {"br": [{"piece": "status", "shape": "card", "align": "auto"}]}})

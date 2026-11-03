@@ -167,6 +167,8 @@
     '.hksw .cd{box-sizing:border-box;min-width:0;width:100%}',
     // (a card with a title has 2.4 u around it, not 2)
     '.hksw .cd.ti{padding:calc(var(--u) * .4)}',
+    // (...not with no backdrop: its words on the margin, as every other card's -- Home Status on the right ended 0.4 u in)
+    '.hksw.b-none .cd.ti{padding:0}',
     '.hksw .cd.ti .ct + div{margin-top:calc(var(--u) * .6)}',
     '.hksw .cd > div{overflow:hidden;text-overflow:ellipsis}',
     // (a big number never needs an ellipsis: its row draws the round figures' overshoot below the baseline, which a
@@ -183,6 +185,12 @@
     '.hksw .cd .cw{display:flex;align-items:center;justify-content:space-between}',
     '.hksw .cd .cw svg{width:calc(var(--u) * 7);height:calc(var(--u) * 7)}',
     '.hksw .cd.mc{display:flex;align-items:center;gap:calc(var(--u) * 1.6)}',
+    // A PIECE'S WORDS ALIGNED (2026-11-03, the owner: a piece on the right "aligned to the right to match the edge of the
+    // screen"): its lines to its right edge -- a song's art at that edge too -- or centered; and a card without its title
+    '.hksw.al-right .cd,.hksw.al-right .rt{text-align:right}.hksw.al-right .cd > div,.hksw.al-right .rt > div{justify-content:flex-end}',
+    '.hksw.al-right .cd.mc{flex-direction:row-reverse}',
+    '.hksw.al-center .cd,.hksw.al-center .rt{text-align:center}.hksw.al-center .cd > div,.hksw.al-center .rt > div{justify-content:center}',
+    '.hksw.no-ti .cd .ct{display:none}.hksw.no-ti .cd.ti{padding:0}.hksw.no-ti .cd.ti .ct + div{margin-top:0}',
     '.hksw .cd.mc .art{flex:none;width:calc(var(--u) * 12);height:calc(var(--u) * 12);border-radius:calc(var(--u) * 1.2);object-fit:cover;background:rgba(127,127,127,.28)}',
     '.hksw .cd.mc span.art{display:flex;align-items:center;justify-content:center}',
     '.hksw .cd.mc span.art svg{width:55%;height:55%}',
@@ -1044,7 +1052,8 @@
     var back = BACKS.indexOf(o.back) >= 0 ? o.back : 'none', color = COLORS.indexOf(o.color) >= 0 ? o.color : 'auto';
     var u = num(o.u) > 0 ? num(o.u) : 8, h24 = !!o.h24, po = optsOf(decl, o.opts);
     var el = document.createElement('div');
-    el.className = 'hksw k-' + shape + ' p-' + piece + ' w-' + (v1id || piece) + ' b-' + back + ' c-' + color;
+    el.className = 'hksw k-' + shape + ' p-' + piece + ' w-' + (v1id || piece) + ' b-' + back + ' c-' + color +
+                   (o.align === 'right' || o.align === 'center' ? ' al-' + o.align : '') + (o.title === false ? ' no-ti' : '');
     el.style.setProperty('--u', u + 'px');
     ensureCss();
 

@@ -101,6 +101,10 @@ SHOWS = {
     'saver-lay-planted': ({'show': 'forecast', 'clock_style': 'classic', 'layout': _layout(
                         {'kind': 'time', 'size': 40, 'pos': 'ground', 'align': 'left', 'depth': 'planted'},
                         tl=['weather_line'], tr=['status_card'], bl=['music_card'], bottom=['readings'])}, 'lay-planted'),
+    # (2026-11-03, the owner: a piece on the right "aligned to the right to match the edge of the screen") -- Home Status'
+    # card and the music's on the right, Auto; the weather's on the left
+    'saver-lay-align': ({'show': 'clock', 'clock_bg': 'aurora', 'clock_style': 'classic', 'layout': _pieces(
+                        {'kind': 'time', 'size': 26, 'pos': 'center'}, tl=['weather.card'], tr=['status.card'], br=['music.card'])}, 'lay-align'),
     'saver-lay-clock': ({'show': 'clock', 'clock_bg': 'aurora', 'clock_style': 'neon', 'layout': _layout(
                         {'kind': 'time', 'size': 30, 'pos': 'center'}, line=['date'], tl=['weather_card'], tr=['status_card'],
                         bl=['music_card'])}, 'lay-clock'),
