@@ -1048,6 +1048,9 @@ async def apply_connection(app: web.Application, hub: Hub, connect_ha: bool, kin
     music_host = app.get("music")
     if music_host is not None:
         music_host.connection_changed()
+    features = app.get("features")
+    if features is not None:                       # Music may now turn on by itself (features/auto.py)
+        features.spawn(features.auto.connection_changed())
 
 
 def restart_house_tz(app: web.Application, hub: Hub) -> None:

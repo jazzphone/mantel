@@ -1,6 +1,6 @@
 # Phase 16: features on by default (plan, 2026-11-03)
 
-**Status: plan; nothing built. Every decision answered by the owner on 2026-11-03 (all recommendations accepted): ready to build.**
+**Status: built and released 2026-11-03: Mantel 0.1.121 with HK Frontend 1.41.0, on the house (Music turned on by itself there). Every decision answered by the owner on 2026-11-03 (all recommendations accepted).**
 
 ## The ask (the owner, earlier; approved, not built)
 
@@ -399,7 +399,67 @@ All of it is in this repository (read for this plan):
 
 ## Build log
 
-(Filled in while building: what was built, each choice made under the unforeseen rule, and anything unverified.)
+**Built (2026-11-03, one session):**
+- **16.0** `hk_core/needs.py` (`Facts`, `Need`, `look`, `lan_host`, `home_ip`, `lineup_url`) and
+  `tests/test_hk_core_needs.py` (the boundary check is in the test: the module imports only itself and the standard
+  library). Commit e5d1e614.
+- **16.1-16.2** `features/auto.py` (`AutoFeatures`), the `auto` key in `settings.py` (`AUTO_PIECES`), the markers
+  (`FeatureHost.owner_decided` from `feature_set` and `api_settings_put`; the history backstop), the triggers (start,
+  registry loads coalesced 30 s, `server.apply_connection`, the 5-minute tick), audit first (`features.auto_on`,
+  `features.auto_decided`), `feature.enabled` in the catalog; Live TV's facts, `tv_serves`, the Link and read-only
+  rules, `_live_tv_once` folded in. `tests/test_features_auto.py`. Commit 89d593c7.
+- **16.3** Advanced → Features: the switch (`mantel/features/auto/set`, `FeaturePages.auto_set`), the row's words
+  (`featureSub`: `features[d].auto` / `note`), panel/get's `features_auto`; `#/mantel/features` forwards to
+  `advanced/features`; `host.status()["auto"]`. Commit 5a48fec8.
+- **16.4** `docs/guide/Features.md` (new, linked from Home and the sidebar), a row in `Alerts.md`, the changelog.
+
+**Choices made while building (the unforeseen rule):**
+- **16.1 and 16.2 are one commit.** The runner's Live TV facts were the same code as its other facts; 16.2's own
+  work (the Opus review of the request, below) came after.
+- **Facts gained `tuner_from` and `read_only`,** so `look` itself decides whether to write the tuner and the
+  read-only `link` rule (decision 10) stays a pure decision.
+- **Music doesn't wait for Home Assistant** (`ready`): it needs only Mantel's own Music Assistant connection.
+- **Reads only for what may still turn on.** A piece that's on or decided costs no Energy read and no tuner probe.
+- **The backstop's find is written** as the `owner` marker, with its own audit row (`features.auto_decided`), since it
+  is a settings change too.
+- **`feature_set` marks the piece either way,** even when `enabled` doesn't change (Remove on a piece only Home
+  Assistant had added is still a person's choice).
+- **The review of 16.0-16.1 (Sonnet)** found: an unreadable history marked every piece as turned off by a person (now
+  it decides nothing); a page's save made from a copy Mantel's turn-on overtook could undo it (the feature settings'
+  saves now carry `settings_version` and are refused with `conflict`); a REST save with no `auto` reset the markers
+  (now kept); a cached "yes" from the tuner served both looks (a "yes" now lasts a minute, a "no" ten); a failing look
+  retried every second (it now starts the two minutes over); a look asked for during one was dropped (now one more
+  look after it). Not changed: a saved tuner with a public-looking name (`tuner.example.net`) no longer turns Live TV
+  on at the first start, as `_live_tv_once` did; the row's note says why and the Owner turns it on.
+- **The review of 16.2 (Opus,** because Mantel makes an HTTP request to an address from Home Assistant's registry)
+  found: `0x7f000001` and other numeric forms the resolver reads as IPv4 passed `lan_host` (now refused); the saved
+  tuner was later read with redirects followed and a 60 MB cap (a home-network tuner's lineup now goes through
+  `tv_fetch.lan_get`: the name resolved, every address checked with `home_ip`, the request to that address, no
+  redirects, 2 MB); IPv6 zones (refused) and `[IPv6]` tuners (now pass `check_settings`); a short first read of the
+  lineup (now read to the end under the cap).
+- **The review of 16.3-16.4 (Sonnet)** found: `lan_get` refused a name that also resolved to a link-local or
+  public address, and Live TV's refresh used it for a tuner a person typed (it now connects to the first home address
+  the name has, and the refresh uses it only for a tuner Mantel saved itself); two saves in quick succession could
+  refuse each other (the feature settings' saves and Mantel's turn-on now take one lock, `features_lock`, and a
+  conflict says to try again); `PUT /api/features/settings` now carries its version (409 `conflict`); the alert's
+  name in the guide.
+- **`hk-client.js` WRITES is unchanged:** the `<id>/feature/set` saves aren't in it either (they leave as settings
+  saves through `mantel-client.js`), so the new save sits with them.
+- **The private-data scan** of the HA build refuses dotted private addresses in shipped code, so `needs.py` writes
+  RFC 1918's ranges as numbers.
+- **Going back to an earlier version** turns every feature off (its `check_settings` refuses the `auto` key); said in
+  the changelog.
+
+**Verified:** the main suite, HK Frontend's JS suite (`test_features.js`), `tools/ci.py quick` after each slice. The
+scratch Home Assistant run in "Verification" wasn't done: it is HK Frontend's (the `demo` integration, no vacuum
+room map, no Energy settings, no tuner), and Docker was off. The full-app tests in `tests/test_features_auto.py` stand
+for it (a real Mantel app, a fake clock, fake Energy reads and tuner, the commander fake recording zero calls).
+
+- **16.5, the release** (decision 16): every commit since v0.1.120 read; `tools/ci.py full` 51 of 51 on d10c2d3a; release
+  commit 1a4a4973 (`versions` 5 of 5); tagged v0.1.121, workflow run 41732488607, the GitHub Release; `update` on the
+  LXC (healthy, strict health 200); HK Frontend 1.41.0 copied, Home Assistant restarted, published and tagged v1.41.0.
+  By hand: phase 15's flow wasn't on main (it waits for this record). On the house Mantel turned **Music** on by itself
+  two looks after the start; the other three were on already.
 
 **Expected to stay unverified until the owner's house:**
 - The exact fields Home Assistant's HDHomeRun integration puts in its device registry row (`configuration_url`,
@@ -407,9 +467,11 @@ All of it is in this repository (read for this plan):
   Assistant's device registry list; if the real row has no address, the Live TV row shows its note and the Owner types
   the address once.
 - A real Music Assistant connect, a real vacuum with a room map and a real Energy dashboard, only against fakes.
-- Whether adding Live TV at run time (not at start) needs `FeatureHost._tv_loop` started: `feature_set` doesn't start it
-  today and `live_tv.py` refreshes the guide on demand; the slice checks it.
+- ~~Whether adding Live TV at run time needs `FeatureHost._tv_loop` started~~: checked. Nothing started it, so the
+  guide wasn't kept fresh after an Add at run time; `reload()` now starts it whenever Live TV is on and it isn't
+  running (`test_turning_live_tv_on_at_run_time_starts_its_guide`).
 
 **Waiting on the owner:**
-1. The release, if decision 16 isn't yes (Mantel with HK Frontend; the tag).
-2. A look at the house after the release: which features turned on, and whether the HDHomeRun's address was found.
+1. A look at the house: Music turned on by itself (Advanced -> Features says when and why, and the alert went to the
+   channels that take it). Clean Areas, Energy and Live TV were already on, so whether the HDHomeRun's registry row
+   carries an address stays unseen until a house without a saved tuner.

@@ -2036,11 +2036,42 @@
   };
   var SETTINGS_AT = { hk_music: '#/page/music', hk_tv: '#/page/live_tv', hk_alarm_pin: '#/page/security',
                       hk_clean_areas: '#/page/vacuums', hk_energy: '#/page/energy', hk_notify: '#/features/notify' };
+  // FEATURES ON BY DEFAULT (a host whose features are its own): under a feature the host turned on by itself,
+  // when and why, in place of what it needs; under one that's off but near, what's still missing
+  function hostName() {
+    try { return PN() || 'the host'; } catch (e) { return 'the host'; }
+  }
+  function shortDate(at) {
+    var d = new Date(at);
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  function featureSub(f, d) {
+    if (f && f.auto && f.auto.why) {
+      var when = shortDate(f.auto.at);
+      return 'Turned on by ' + hostName() + (when ? ' on ' + when : '') + ': ' + f.auto.why;
+    }
+    if (f && f.note) return f.note;
+    return NEEDS[d];
+  }
+  // the switch, only where the host holds the features itself (panel/get's `features_auto`, with its save type)
+  function autoGroup(P, c) {
+    var a = P.data.features_auto;
+    if (!a || typeof a.enabled !== 'boolean' || typeof a.save !== 'string') return;
+    c.appendChild(K.group({ footer: 'When the house has what a feature needs — Music Assistant connected, a vacuum with room maps, Home Assistant’s Energy settings, a tuner that answers — ' + hostName() + ' turns it on once and tells you. A feature you turn off stays off.' }, [
+      K.toggle({ label: 'Turn Features On Automatically', icon: 'mdi:auto-fix', on: a.enabled, fk: 'features:auto',
+                 onChange: function (v) {
+                   return P.ws({ type: a.save, enabled: v }).then(function (ok) {
+                     if (!ok) return;
+                     return P.reload().then(function () { P.render(true); });
+                   });
+                 } })]));
+  }
   function featureList(P, c) {
     var feats = P.data.features || {};
     var rows = LIST.filter(function (x) { return stateOf(feats, x[1]) !== 'missing'; });
     if (!rows.length) { c.appendChild(K.group({ footer: 'No features are reported yet. They show once Home Assistant is connected.' }, [])); return; }
     var mine = rows.some(function (x) { return own(P, x[1]); });
+    if (mine) autoGroup(P, c);
     c.appendChild(K.group({ footer: mine
         ? 'On: the feature’s page and its settings come to every screen. Off: it leaves every screen, and its settings are kept for turning it on again. Each feature’s own page has the same switch.'
         : 'Each feature is added in ' + haPlace('Devices & Services → HK Frontend → Add feature') + '.' },
@@ -2049,7 +2080,7 @@
         if (!own(P, d)) {
           return K.nav({ label: name, sub: NEEDS[d], value: on ? 'Added' : 'Not Added', icon: x[3], href: on ? SETTINGS_AT[d] : addHref(d), fk: 'features:' + d });
         }
-        return K.toggle({ label: name, sub: NEEDS[d], icon: x[3], on: on, fk: 'features:switch:' + d,
+        return K.toggle({ label: name, sub: featureSub(feats[d], d), icon: x[3], on: on, fk: 'features:switch:' + d,
                           onChange: function (v) { setFeature(P, d, v); } });
       })));
     var on = rows.filter(function (x) { return stateOf(feats, x[1]) === 'added'; });
@@ -2065,7 +2096,7 @@
   root.hkSettingsFeatures = {
     LIST: LIST, listed: listed, stateOf: stateOf, page: page, use: use, addHref: addHref, search: search, musicTop: musicTop,
     integrationHref: integrationHref, SCOPE: SCOPE, WHAT: WHAT, dndRows: dndRows, dndSummary: dndSummary,
-    featureList: featureList, featuresOn: featuresOn, NEEDS: NEEDS, SETTINGS_AT: SETTINGS_AT,
+    featureList: featureList, featuresOn: featuresOn, featureSub: featureSub, NEEDS: NEEDS, SETTINGS_AT: SETTINGS_AT,
     _: { tvLists: tvLists, tvCount: tvCount, speakerLists: speakerLists, speakerName: speakerName, pairNote: pairNote, pairChoices: pairChoices, pairsAfter: pairsAfter, playlistSub: playlistSub, vacuumSub: vacuumSub, vacuumsAfter: vacuumsAfter,
          roomLists: roomLists, roomCount: roomCount, energyFound: energyFound, sectionsAfter: sectionsAfter,
          batteriesStored: batteriesStored, stayLabel: stayLabel, notifySummary: notifySummary, whenControl: whenControl,
