@@ -696,7 +696,7 @@ grid card is defined one round trip later than before; Lovelace rebuilds the car
 
 ### B3 (2026-11-04)
 
-`hk-saver.js` 6,478 lines -> a **4,515-line shell** and seven parts in `web/hk/saver/` (2,235 lines: helpers 673, CSS
+`hk-saver.js` 6,478 lines -> a **4,517-line shell** and seven parts in `web/hk/saver/` (2,235 lines: helpers 673, CSS
 595, photos 236, draw 175, music 384, pane 84, black 88; 175 members). **Short of the 3,500 target, measured:** the
 saver has 238 top-level names, 143 of them reassigned; all but six small clusters form one connected group (268
 statements, 4,203 lines) around `cfg`, `on`, `host`, `root`, `deck` and the timers, with the `window.hkSaver` literal,
@@ -748,7 +748,7 @@ Decision 8's strict config (`tools/typecheck/tsconfig.strict.json`, `noImplicitA
 Split last, after phase 17 landed (it didn't touch `hk-media.js`: the intercom is its own `hk-intercom.js`).
 `hk-media.js` 4,185 lines -> a 266-line shell (the loader, the `register()` calls, `window.hkMedia`, the no-music
 helpers) and five parts in `web/hk/media/`: now playing 1,667, speakers 1,445, screensaver line and browse 397, recent
-music and playlists 346, TV channels 216 (28 members by name). The shell and every part check clean (one cast,
+music and playlists 346, TV channels 216 (30 members by name). The shell and every part check clean (one cast,
 comments only). Proved: `split_js --all --check`; the jsc suites identical; the gallery's 41 shots pixel-identical; the
 main suite (6,249) and the music and media browser checks on the SMB checkout. First load of a Home Grid screen with
 Now Playing 121 -> 126 requests; time to ready within the noise (local disk, under 50 ms). Only the jsc suites read
@@ -761,11 +761,11 @@ Now Playing 121 -> 126 requests; time to ready within the noise (local disk, und
   generated and fresh. Done.
 - The probe's diff was empty for the migration but for `/api/stats`; the four fixes are above, each with its test. Done.
 - `ALLOW`, `PREVIEW_PATHS/PREFIXES/PATTERNS`, `PREVIEW_READS` and `PREVIEW_READS_NEVER` are gone. Done.
-- The four files split: no file above about 2,000 lines but the saver's shell (4,515, short of 3,500: the remainder is
+- The four files split: no file above about 2,000 lines but the saver's shell (4,517, short of 3,500: the remainder is
   measured above, decision 13); the gallery, the jsc suites and the browser checks identical; the Settings sweep
   identical. `sheet_review.py` was not re-run for B2 (no sheet code moved; the sheets' shell `hk-detail.js` untouched).
-- `tsc` runs in `ci.py`; every file of the four splits and every file with zero errors opens with `// @ts-check`
-  (99 files); the ratchet; the real counts in `baseline.json` (814 errors in 81 of 181 files now). Both host adapters
+- `tsc` runs in `ci.py`; every file of the four splits and every file with zero errors has `// @ts-check` in its opening comments
+  (100 files); the ratchet; the real counts in `baseline.json` (814 errors in 81 of 181 files now). Both host adapters
   typed against the contract. Done; the strict config is measured, not clean (C1).
 - `mypy` on `hk_core` at its baseline (136), `ruff` at its baseline (519). Done.
 - Rules.md rule 7, Architecture, Building-and-Testing, CONTRIBUTING and this page say what is now true; the third

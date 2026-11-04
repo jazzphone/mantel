@@ -33,6 +33,7 @@
 // Lights page keeps motion alive but touches nothing, and this should still
 // eventually tidy up after them -- scrolling or tapping resets it, which is
 // the signal that actually means "I am still using this".
+// @ts-check
 (function () {
   'use strict';
 

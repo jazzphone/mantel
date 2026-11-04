@@ -126,7 +126,7 @@ connection (LINK-2), subscriptions lost on reconnect (LINK-4), a credential reti
 (LINK-1), a module fetch that never retried (WEB-11), `update` leaving `.env` changed (DEP-10).
 
 Remaining technical debt: ~~very large single files remain (`hk-settings.js`, `hk-saver.js`, `hk-grid-cards.js`,
-`hk-media.js`)~~ split in phase 18 (2026-11-04; the saver's shell keeps its shared state, 4,515 lines); the settings
+`hk-media.js`)~~ split in phase 18 (2026-11-04; the saver's shell keeps its shared state, 4,517 lines); the settings
 feed's free-form board keys are sent unfiltered (SRV-4's remainder); HK Frontend inside
 Home Assistant fetches remote art through HA's own session without the address pin (SRV-10's remainder).
 
