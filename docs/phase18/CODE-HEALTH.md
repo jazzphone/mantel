@@ -1,6 +1,6 @@
 # Phase 18: code health (plan, 2026-11-03)
 
-**Status: built (2026-11-04): A0-A8, B0-B4, C0-C4 and D, on main. A, B0, B1, B3, B4 and C are on the house in the bundled Mantel 0.1.123 (released by phase 15, the owner's choice); B2 (`hk-media.js`) waits on main for the next release. Every decision answered by the owner on 2026-11-03 (all recommendations accepted).**
+**Status: built (2026-11-04): A0-A8, B0-B4, C0-C4 and D, on main. A, B0, B1, B3, B4 and C went to the house in the bundled Mantel 0.1.123, and B2 in Mantel 0.1.124 with HK Frontend 1.44.0 (both released by phase 15, the owner's choice). Every decision answered by the owner on 2026-11-03 (all recommendations accepted).**
 
 ## The ask (the owner, 2026-11-03)
 
@@ -772,7 +772,7 @@ Now Playing 121 -> 126 requests; time to ready within the noise (local disk, und
   audit's debt line on the big files is marked done.
 - Released: not by this session. The owner bundled one release for phases 15, 17 and 18, which replaced decision
   11's: Mantel 0.1.123 (tag `v0.1.123`, 2026-11-04, made by phase 15) carries everything of this phase up to C1;
-  B2 and the corrections after it wait on main for the next release.
+  B2 and the corrections after it went in 0.1.124 (with HK Frontend 1.44.0).
 
 **Follow-ups, for the owner:** the black screen a wall tablet may lose for ~0.1 s on a reload (B3); `defined()` on
 Mantel's shell (C2); the three `@ts-expect-error` calls (C1); typing `hk-settings-model.js` for the strict config;
