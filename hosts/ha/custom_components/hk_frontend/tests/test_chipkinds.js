@@ -363,11 +363,11 @@ ok('off (the default): nothing drawn', icChips({}).length === 0 && icChips({ int
 ok('scene: not in the row', icChips({ intercom_button: 'scene' }).length === 0);
 var icp = K.rowPlan({}, { chips: ['lights'], intercom_button: 'chip' }, withIc), icc = icp.cards.filter(function (c) { return c.kind === 'intercom'; });
 ok('Top Row: one chip, last in the row, its second line the last rooms',
-   icc.length === 1 && icp.cards[icp.cards.length - 1] === icc[0] && icc[0].label === 'Living Room, Kitchen', JSON.stringify(icc));
+   icc.length === 1 && icp.cards[icp.cards.length - 1] === icc[0] && icc[0].label === 'Living Room +1', JSON.stringify(icc));
 var ik = K.config('intercom', withIc);
 ok('the chip: microphone, "Intercom", opens the Intercom (no page)', ik && ik.name === 'Intercom' && ik.icon === 'hk:microphone' && ik.tap_action.action === 'intercom');
 ICS.mem = { rooms: ['media_player.living', 'media_player.kitchen', 'media_player.office'] };
-ok('three rooms: "3 Rooms"', icChips({ intercom_button: 'chip' })[0].label === '3 Rooms');
+ok('three rooms: the first and "+2"', icChips({ intercom_button: 'chip' })[0].label === 'Living Room +2');
 ICS.mem = { rooms: ['media_player.living', 'media_player.gone'] };
 ok('a room the person may no longer reach is left out', icChips({ intercom_button: 'chip' })[0].label === 'Living Room');
 ICS.mem = null;
