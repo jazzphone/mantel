@@ -274,3 +274,14 @@ def test_a_pieces_words_align_and_a_card_can_leave_out_its_title():
     assert got["zones"]["tl"][0]["align"] == "center" and "title" not in got["zones"]["tl"][0]
     with pytest.raises(SL.LayoutInvalid):
         SL.check({"v": 2, "big": {"kind": "time"}, "zones": {"br": [{"piece": "status", "shape": "card", "align": "auto"}]}})
+
+
+def test_the_date_takes_its_lines_format_weight_and_capitals():
+    """The owner, 2026-11-04: the Date in two lines, its format, weight and capitals, and Align when it is two lines."""
+    opts = {"lines": "two", "weekday": "short", "month": "number", "year": "on", "weight": "bold", "case": "upper"}
+    lay = {"v": 2, "zones": {"tr": [{"piece": "date", "shape": "inline", "opts": opts, "align": "center"}]}}
+    got = C._saver_options({"layout": lay})["layout"]["zones"]["tr"][0]
+    assert got["opts"] == opts and got["align"] == "center"
+    for bad in ({"lines": "three"}, {"month": "roman"}, {"weight": 700}, {"case": "lower"}):
+        with pytest.raises(C.Invalid):
+            C._saver_options({"layout": {"v": 2, "zones": {"tl": [{"piece": "date", "shape": "inline", "opts": bad}]}}})

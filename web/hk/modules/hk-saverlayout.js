@@ -34,7 +34,7 @@
   var PIECES = {
     weather: [['inline', 'circular', 'rectangular', 'card', 'band'], {}, 'Weather', ['weather']],
     readings: [['circular', 'rectangular', 'band'], { reading: ['humidity', 'aqi', 'inside', 'sunset', 'wind'] }, 'Readings', ['readings']],
-    date: [['inline'], {}, 'Date', ['date']],
+    date: [['inline'], { lines: ['one', 'two'], weekday: ['long', 'short', 'none'], month: ['long', 'short', 'number'], year: ['off', 'on'], weight: ['standard', 'light', 'bold'], case: ['normal', 'upper'] }, 'Date', ['date']],
     time: [['inline', 'card'], {}, 'Time', ['time']],
     status: [['inline', 'circular', 'rectangular', 'card'], {}, 'House Status', ['status']],
     music: [['inline', 'card'], {}, 'Music', ['music']],

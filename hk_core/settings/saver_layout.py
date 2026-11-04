@@ -39,7 +39,8 @@ CITIES: tuple[str, ...] = (
 PIECES: dict[str, tuple[tuple[str, ...], dict[str, tuple[str, ...]]]] = {
     "weather": (("inline", "circular", "rectangular", "card", "band"), {}),
     "readings": (("circular", "rectangular", "band"), {"reading": ("humidity", "aqi", "inside", "sunset", "wind")}),
-    "date": (("inline",), {}),
+    "date": (("inline",), {"lines": ("one", "two"), "weekday": ("long", "short", "none"), "month": ("long", "short", "number"),
+                           "year": ("off", "on"), "weight": ("standard", "light", "bold"), "case": ("normal", "upper")}),
     "time": (("inline", "card"), {}),
     "status": (("inline", "circular", "rectangular", "card"), {}),
     "music": (("inline", "card"), {}),
