@@ -41,7 +41,7 @@
   var PAGE_LABELS = {
     weather: 'Weather', calendar: 'Calendar', cameras: 'Cameras', live_tv: 'Live TV', security: 'Security',
     doors_windows: 'Doors & Windows', climate: 'Climate', lights: 'Lights', timers: 'Timers',
-    vacuums: 'Vacuums', music: 'Music', browse: 'Browse Music', water: 'Water', energy: 'Energy', power: 'Power', rooms: 'Room Pages'
+    vacuums: 'Vacuums', music: 'Music', browse: 'Browse Music', water: 'Water', energy: 'Energy', power: 'Power', timeline: 'Timeline', rooms: 'Room Pages'
   };
   // Each kind: key, name, the detail page’s description, and the list page’s
   // sub-line -- what the kind feeds, in the chips’ and pages’ own words.

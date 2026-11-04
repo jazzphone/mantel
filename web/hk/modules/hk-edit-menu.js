@@ -58,9 +58,11 @@
   // hk-strategy.js's page kinds (settings/model.py PAGE_KINDS) and their view paths
   var KIND_PATH = { weather: 'weather', calendar: 'calendar', cameras: 'cameras', live_tv: 'live-tv', security: 'security',
                     doors_windows: 'doors-windows', climate: 'climate', lights: 'lights', timers: 'timers',
-                    vacuums: 'vacuums', music: 'playmusic', water: 'water', energy: 'energy', power: 'power' };
+                    vacuums: 'vacuums', music: 'playmusic', water: 'water', energy: 'energy', power: 'power',
+                    timeline: 'timeline' };
+  // (the generated order, hk-strategy.js: Timeline, a host's own page, before the rooms)
   var PAGE_KINDS = ['weather', 'calendar', 'cameras', 'live_tv', 'security', 'doors_windows', 'climate', 'lights', 'timers',
-                    'vacuums', 'music', 'water', 'energy', 'power', 'rooms'];
+                    'vacuums', 'music', 'water', 'energy', 'power', 'timeline', 'rooms'];
 
   function cards() { return global.hkCards || null; }
   function menuState() { var C = cards(); return (C && C.menu) || null; }

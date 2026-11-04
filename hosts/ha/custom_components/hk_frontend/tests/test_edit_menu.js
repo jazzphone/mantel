@@ -101,7 +101,7 @@ function () {
   eq('Browse Music is never a page of its own', X.keyOf('music-browse', b()), null);
   eq('no order chosen: every kind in the generated order, the custom pages before the rooms',
      X.fullPages(b()), ['weather', 'calendar', 'cameras', 'live_tv', 'security', 'doors_windows', 'climate', 'lights', 'timers',
-                        'vacuums', 'music', 'water', 'energy', 'power', 'garden', 'rooms']);
+                        'vacuums', 'music', 'water', 'energy', 'power', 'timeline', 'garden', 'rooms']);
   eq('an order chosen: as it is (an older `browse` dropped), a custom page it lacks before the rooms',
      X.fullPages(b({ pages: ['lights', 'browse', 'weather', 'rooms'] })), ['lights', 'weather', 'garden', 'rooms']);
   eq('fillSlots: the pages moved take the slots they held, the rest stay put',
