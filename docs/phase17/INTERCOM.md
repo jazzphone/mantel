@@ -1,8 +1,9 @@
 # Phase 17: a one-way intercom to the HomePods (plan, 2026-11-03)
 
-**Status: built 2026-11-03 (17.1-17.7). Message ships first with Live off (decision 17). The slice 0 proof ran: Live
-works but starts about 7.5 s behind the talker, over the 4 s target, so it is offered with its real number and stays
-off until the owner has listened (decision 14). See the Build log.**
+**Status: built 2026-11-03 (17.1-17.7); released to the house in Mantel 0.1.123 (2026-11-04, phase 15's bundle) with
+Live off (decision 17), and tested there on two HomePods: single rooms work, two at once can leave one silent (the
+house's AirPlay timing). The slice 0 proof: Live works but starts about 7.5 s behind the talker, over the 4 s target, so
+it is offered with its real number and stays off until the owner has listened (decision 14). See the Build log.**
 
 ## The ask (the owner, 2026-11-03)
 
@@ -713,6 +714,30 @@ other sessions run their checks, the flakiness phases 15 and 18 also recorded. T
 and fixed: every page loaded the Intercom's ~100 KB and subscribed its feed (now lazy: only where the block, the sheet
 or a listener tablet needs it), and `client_smoke` didn't know the feed's subscribe was a read.
 
+**On the house, 2026-11-04 11:29-11:33 local** (Mantel 0.1.123, released in phase 15's bundle; Music Assistant
+2.10.9). Set up through Settings → Intercom's own REST as an Owner: the address `http://<the LXC>:8767`, only the Kitchen
+and Guest Room HomePods on, at volume 20. Five sounds, each a 3 s soft beep (or Send Test's chime):
+
+| Test | Result |
+|---|---|
+| Check Reach | "Music Assistant fetched it": the fetch came from Music Assistant's own address through Docker's published port, so the peer check holds on the LXC (the plan's open question) |
+| The feed | both rooms `ok`, live-capable, not grouped; `lag_ms` 7450 |
+| Message → Kitchen (the whole path: gateway ticket, `/ws/intercom`, 75 frames of 40 ms, Send) | `rooms` → `sending` → `sent` 1 room, none failed, 12.5 s after Send (chime, clip, restore); 0 frames dropped |
+| Message → Kitchen + Guest Room | `sent` 2 rooms, none failed; but Music Assistant logged "Guest Bedroom HomePod has not answered the server's PTP clock ... will not play any audio" |
+| Message → Guest Room alone | `sent`, and no warning: it played |
+| Send Test → Kitchen | played (`intercom.play` ok) |
+
+Every step was audited in order (`intercom.settings.saved`, `intercom.room.saved`, then `intercom.open` → `intercom.play`
+with its result per send, `intercom.test`); the log names only the fetcher's address, never a link; Mantel stayed at
+`/healthz?strict=1` 200 and about 2% CPU. Afterward the house was put back as it was (the Intercom off, no room on),
+keeping the checked address, so the owner turns it on in one step. Not tested on the house: a Message ducked over
+music (it would mean playing music, outside the tone-only rule) and Live (off until the owner listens).
+
+What it means: single rooms work. **Two HomePods at once can leave one silent**, and Mantel can't see it (Music
+Assistant answers the call as played). That is the house's AirPlay timing (PTP over UDP 319/320 between Music
+Assistant and the speakers), the warning in Music Assistant's log since 2026-11-01, not the Intercom's; it affects
+music groups the same way.
+
 Review notes not changed (follow-ups):
 
 - `music/item_by_uri` is a read any page with the music feature can send with any `uri`; if Music Assistant's builtin
@@ -726,9 +751,10 @@ Review notes not changed (follow-ups):
 
 - **A listen to Live.** Turn on Live Allowed (Settings → Intercom) after trying it; it is about 7.5 s behind. A
   second release then makes Live the sheet's option for everyone (decision 17).
-- **The two-room run's audio**: Music Assistant's log says the HomePods didn't answer its PTP clock during the
-  two-room runs (UDP 319/320 between Music Assistant and the speakers); a Message to two rooms may be silent until
-  that is fixed. Single rooms played.
+- **Two HomePods at once**: confirmed on the house on 2026-11-04 (a Message to the Kitchen and Guest Room: the Guest
+  Room didn't answer Music Assistant's PTP clock; alone, it played). The fix is the network between Music Assistant
+  and the speakers (UDP 319/320), or pinning a streaming mode in the player's advanced settings in Music Assistant.
+- **Turning the Intercom on** (Settings → Intercom): the address is set and checked; switch it on and pick the rooms.
 - **A TestFlight build** for the iPhone and iPad microphone: `python3 tools/testflight.py --team <TEAMID>`.
 - **Fully Kiosk's Autoplay audio** on a listener tablet, and a real phone's microphone through the app: not
   verifiable here.
