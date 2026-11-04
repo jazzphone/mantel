@@ -185,6 +185,7 @@ def _manifest_version(product):
 def test_a_github_release_needs_the_versions_notes_and_a_free_tag(monkeypatch, product):
     _ls_remote(monkeypatch, "")
     rh.check_github_release(product, _manifest_version(product))               # the notes are in the changelog
+    monkeypatch.setattr(rh, "unreleased", lambda changelog: "")                 # (whatever Unreleased says today)
     with pytest.raises(rh.Refused, match="no GitHub release: CHANGELOG.md has no section '## 99.0.0'"):
         rh.check_github_release(product, "99.0.0")
     version = _manifest_version(product)
