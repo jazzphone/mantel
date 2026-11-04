@@ -138,4 +138,27 @@ feedCb({ enabled: true, play: { id: 'b2', url: 'https://elsewhere.example/x.wav'
 feedCb({ enabled: true, play: null }, null);
 feedCb(null, { code: 'intercom_off' });
 out.prefixed = heardPlay;
+
+// ---- a wall tablet's ear (home.js, at a device session): one subscription for the page; the Intercom's code is loaded and told
+// to listen only when a snapshot says `listener`, and the page's own subscription is let go after
+{
+  const asked = [], told = [];
+  let cb = null, gone = 0, subscribed = 0;
+  const hubA = { intercomSubscribe(f) { subscribed++; cb = f; return () => { gone++; }; } };
+  globalThis.hkNeed = { file(name) { asked.push(name); globalThis.hkIntercom = { listen() { told.push('listen'); return true; } }; return Promise.resolve(); } };
+  const ear = { none: hkMantelClient.listenAtDevice({}), noFeed: hkMantelClient.listenAtDevice({ nothing: 1 }) };
+  out.ear = { ...ear };
+  out.earStarted = hkMantelClient.listenAtDevice(hubA);
+  out.earTwice = hkMantelClient.listenAtDevice(hubA);
+  cb({ enabled: true, listener: false }, null);
+  cb(null, { code: 'intercom_off' });
+  cb({ enabled: false, listener: false }, null);
+  await tick(10);
+  out.earQuiet = { asked: asked.slice(), told: told.slice(), gone, subscribed };
+  cb({ enabled: true, listener: true }, null);
+  cb({ enabled: true, listener: true }, null);                       // (a second snapshot while the file is on its way)
+  await tick(10);
+  out.earListens = { asked: asked.slice(), told: told.slice(), gone, subscribed };
+  delete globalThis.hkNeed; delete globalThis.hkIntercom;
+}
 process.stdout.write(JSON.stringify(out) + '\n', () => process.exit(0));

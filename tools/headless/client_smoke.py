@@ -294,8 +294,9 @@ async def smoke(shot=None, shots=None):
                           // settings_write: HK's own settings save, answered by Mantel's settings store (P3.5);
                           // never a house command, and never one wrapping a service call
                           if (!['subscribe','unsubscribe','ping','watch_stats','read','read_subscribe','read_unsubscribe',
-                                'settings_write','user_data_set','page_health',
-                                'intercom/subscribe','intercom/unsubscribe'].includes(msg.type) ||
+                                'settings_write','user_data_set','page_health'].includes(msg.type) ||
+                              // (the Intercom's feed, `intercom/subscribe`, is not here: a page that does not draw the
+                              // Intercom never asks for it, and this proves it)
                               ['call_service','execute_script'].includes(msg.msg && msg.msg.type)) {
                             window.__blockedWrites++; throw new Error('write blocked');
                           }

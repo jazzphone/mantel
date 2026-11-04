@@ -93,6 +93,7 @@ SCENARIOS = [
     "listener_a_tablet_that_is_itself_talking_plays_nothing",
     "listener_busy_follows_the_open_sheets_state",
     "listener_a_clip_that_cannot_be_fetched_is_skipped_and_the_next_one_plays",
+    "mic_a_press_while_the_microphone_module_is_on_its_way_says_connecting_not_no_microphone",
     "feed_keeps_the_listener_flag_and_the_play_snapshot",
 ]
 
@@ -174,6 +175,15 @@ def test_a_clips_address_is_given_the_pages_own_prefix_by_the_shim_and_nothing_e
     assert got[2]["play"] is None and got[3] is None
 
 
+def test_a_wall_tablet_asks_the_feed_once_and_wakes_the_intercom_only_when_it_listens(shim):
+    """Only a device session asks (home.js); a page that is no listener loads nothing; one that is loads the lazy
+    file, tells it to listen and lets its own subscription go (the file subscribes itself)."""
+    assert shim["ear"] == {"none": False, "noFeed": False}, "a hub without the feed is no ear"
+    assert shim["earStarted"] is True and shim["earTwice"] is False
+    assert shim["earQuiet"] == {"asked": [], "told": [], "gone": 0, "subscribed": 1}
+    assert shim["earListens"] == {"asked": ["hk-intercom.js"], "told": ["listen"], "gone": 1, "subscribed": 1}
+
+
 # ---------------------------------------------------------------- where things are
 def test_the_block_is_in_both_catalogs_and_opens_no_other_way():
     assert HG.CATALOG["intercom"] == {"sizes": ("S", "W"), "sources": (), "opts": {}}
@@ -183,11 +193,32 @@ def test_the_block_is_in_both_catalogs_and_opens_no_other_way():
     assert "intercom: 'Intercom'" in ed and "'intercom']" in ed and "intercom: 'mdi:microphone'" in ed
 
 
-def test_the_card_files_are_found_and_the_microphone_module_is_loaded_with_the_others():
+def test_the_intercom_costs_a_page_nothing_it_does_not_use():
+    """The card file is a lazy one (no page loads it until its block is drawn, `#intercom` is on the address or a
+    listening tablet asks), the microphone module is no bootstrap module, and no page starts the listener by loading."""
     from mantel_server import hk_cards
     got = hk_cards.card_list(ROOT / "web/hk/cards")
-    assert "hk-intercom.js" in got["core"] + list(got["lazy"])
-    assert "'hk-mic.js'" in (ROOT / "web/hk/modules/hk-loader.js").read_text()
+    assert "hk-intercom.js" in got["lazy"] and "hk-intercom.js" not in got["core"]
+    assert got["lazy"]["hk-intercom.js"] == ["hk-intercom-card", "hk-intercom-sheet-card"]
+    loader = (ROOT / "web/hk/modules/hk-loader.js").read_text()
+    assert "'hk-mic.js'" not in loader, "hk-mic.js is imported by the sheet, not by every page"
+    assert "location.hash === '#intercom'" in loader and "needFile('hk-intercom.js')" in loader
+    card = (ROOT / "web/hk/cards/hk-intercom.js").read_text()
+    assert "/hk/modules/hk-mic.js" in card and "needMic().then" in card
+    assert "C.onClient(startListener)" not in card and "window.hkIntercom.listen = " in card
+    home = (ROOT / "web/home.js").read_text()
+    assert "if (user.at_tablet === true) window.hkMantelClient.listenAtDevice(hub)" in home
+
+
+def test_a_card_given_no_microphone_module_asks_for_it_by_the_builds_address_and_says_so_while_it_comes(tmp_path):
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    out = subprocess.run(["node", str(ROOT / "tests/intercom_harness.mjs"), str(ROOT / "web/hk/modules/hk-mic.js"),
+                          str(ROOT / "web/hk/cards/hk-intercom.js"), "--lazy-mic"], capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    got = json.loads(out.stdout.strip().splitlines()[-1])
+    assert got == {"before": [False, False], "asked": ["/hk/modules/hk-mic.js?v=9"], "during": [True, True, "mic"],
+                   "after": [False, True], "again": 1, "failed": [False, False], "retried": 2}
 
 
 def test_the_new_files_name_no_host_object_and_leave_the_doorbell_alone():

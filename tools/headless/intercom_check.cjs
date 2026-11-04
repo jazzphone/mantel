@@ -98,6 +98,30 @@ const MEASURE = () => {
         await page.waitForTimeout(500);
       };
       try {
+        // ---- a page without the block costs the Intercom nothing: no file, no module, no feed -- until `#intercom` is on the address
+        {
+          const asked = [], frames = [];
+          const onReq = (r) => asked.push(new URL(r.url()).pathname);
+          const onSocket = (ws) => ws.on('framesent', (f) => { if (typeof f.payload === 'string' && /intercom/.test(f.payload)) frames.push(f.payload); });
+          page.on('request', onReq); page.on('websocket', onSocket);
+          await page.goto(`${input.origin}/${input.plain}/home`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+          await page.waitForFunction(() => window.__mantelReady === true && !!window.hkDetail, null, { timeout: 40000 });
+          await page.waitForTimeout(1500);
+          const quiet = await page.evaluate(() => ({ card: !!window.hkIntercom, mic: !!window.hkMic }));
+          const early = asked.filter((u) => /hk-intercom\.js|hk-mic\.js/.test(u));
+          if (quiet.card || quiet.mic || early.length) fail(name, 'a page without the block loads no Intercom code', { quiet, early });
+          if (frames.length) fail(name, 'a page without the block never asks the Intercom feed', frames);
+          // ...and the address brings it in, on this page, the way the app's menu button does
+          await page.evaluate(() => { location.hash = '#intercom'; });
+          await page.waitForFunction(() => !!window.hkIntercom, null, { timeout: 15000 }).catch(() => {});
+          await page.evaluate(DEEP);
+          await page.waitForFunction(() => deep(document, 'hk-intercom-sheet-card').length > 0 && !!window.hkMic, null, { timeout: 15000 })
+            .catch(async () => fail(name, '#intercom opens the sheet on any page, with its microphone module', await page.evaluate(() => ({ card: !!window.hkIntercom, mic: !!window.hkMic, hash: location.hash }))));
+          const late = asked.filter((u) => /hk-intercom\.js|hk-mic\.js/.test(u)).map((u) => u.split('/').pop());
+          if (late.join() !== 'hk-intercom.js,hk-mic.js') fail(name, 'the address loads the card file, then the microphone module', late);
+          page.off('request', onReq); page.off('websocket', onSocket);
+          out(`ok ${name} costs nothing where it is not used`);
+        }
         await page.goto(`${input.origin}/${input.screen}/home`, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await page.waitForFunction(() => window.__mantelReady === true && !!window.hkIntercom && !!window.hkDetail, null, { timeout: 40000 });
         await page.evaluate(DEEP);
@@ -273,6 +297,7 @@ const MEASURE = () => {
             get state() { return this.open ? super.state : 'suspended'; }
             resume() { if (window.__touched) { this.open = true; return super.resume(); } return new Promise(() => {}); }
           }
+          hkIntercom.listen();                       // (what the shim does at a wall tablet whose feed says `listener`)
           hkIntercom._.listener().d.AudioContext = Gated;
           ['pointerdown', 'touchend', 'click'].forEach((ev) => document.addEventListener(ev, () => { window.__touched = true; }, true));
           __intercomFake.install({ listener: true, firstUse: false });

@@ -12,6 +12,8 @@ At an iPad's two ways up, a phone's two ways up and a wall tablet's size (interc
   message  tap to record (Connecting, Recording, the level and the time left), tap to stop, then Play, Re-record, Cancel
            and Send -- Send says Sending and then Sent to 2 rooms; a pointercancel on the microphone starts nothing
   words    Needs HTTPS on a plain page; Live drawn only when the feed allows it (a hold records, a release ends it)
+  costs    a page without the block loads neither hk-intercom.js nor hk-mic.js and never asks the feed; `#intercom` on its
+           address then brings both in and opens the sheet (the app's menu button); a wall tablet that listens: hkIntercom.listen()
 No page errors and no console errors. With --shots a screenshot of each state (SIZE-STATE.png) goes to the directory;
 the default is the build session's scratchpad. Skips (exit 0, saying why) without PLAYWRIGHT_PATH or NODE.
 """
@@ -75,7 +77,8 @@ async def main(args) -> int:
                 os.environ['NODE'], str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE)
             out, _ = await proc.communicate(json.dumps({
-                'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'screen': SCREEN, 'shots': str(shots),
+                'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'screen': SCREEN, 'plain': gallery.SCREEN,
+                'shots': str(shots),
                 'fakes': (Path(__file__).parent / 'intercom_fakes.js').read_text(),
                 'sizes': {n: SIZES[n] for n in names}}).encode())
     failed = []

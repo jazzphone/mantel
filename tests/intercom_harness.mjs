@@ -3,7 +3,10 @@
 // Controller), both loaded as the page loads them, with fakes for everything outside them: the action port, the
 // feed, the microphone session, the clock, and a WebSocket. No DOM, no sound, no network.
 //
-//   node intercom_harness.mjs <hk-mic.js> <hk-intercom.js>
+//   node intercom_harness.mjs <hk-mic.js> <hk-intercom.js> [--lazy-mic]
+//
+// With --lazy-mic it runs the one scenario of a page that has not got hk-mic.js yet (the card imports it) and prints its
+// observations as one JSON object.
 //
 // Prints one JSON line: [{name, ok, error?}, ...], one per scenario below (the pytest file names them).
 import { readFileSync } from 'node:fs';
@@ -14,7 +17,7 @@ const [micPath, cardPath] = process.argv.slice(2, 4);
 const micSrc = readFileSync(micPath, 'utf8'), cardSrc = readFileSync(cardPath, 'utf8');
 
 // ---------------------------------------------------------------- the page, as little of it as the files touch
-function page() {
+function page(o = {}) {
   const store = new Map();
   const win = {
     localStorage: { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) },
@@ -24,8 +27,17 @@ function page() {
   };
   win.window = win; win.globalThis = win; win.hkShell = { productName: () => 'Mantel' }; win.location = { hash: '', pathname: '/', search: '' }; win.history = { state: null, replaceState() {} };
   const ctx = vm.createContext(win);
-  vm.runInContext(micSrc, ctx);
-  vm.runInContext(cardSrc, ctx);
+  if (o.lazyMic) {
+    // the microphone module not yet there: the card imports it (import() is the page's; here a stand-in that runs the module)
+    win.__imported = [];
+    win.__import = (u) => { win.__imported.push(u); if (o.failMic) return Promise.reject(new Error('offline')); vm.runInContext(micSrc, ctx); return Promise.resolve({}); };
+    if (o.stamp) win.hkV = (u) => u + '?v=9';
+    win.console = { ...console, error() {} };
+    vm.runInContext(cardSrc.replace(/\bimport\(/g, 'window.__import('), ctx);
+  } else {
+    vm.runInContext(micSrc, ctx);
+    vm.runInContext(cardSrc, ctx);
+  }
   return { win, store };
 }
 
@@ -117,7 +129,7 @@ function sheet(o = {}) {
   };
   let paints = 0;
   const deps = {
-    actions: () => actions, feed: () => fed, mic: () => mic, clock: clk,
+    actions: () => actions, feed: () => fed, mic: () => (o.noMic ? null : mic), loading: () => !!o.loading, clock: clk,
     store: { load: () => o.mem || null, save: (v) => saves.push(JSON.parse(JSON.stringify(v))) },
     secure: () => o.secure !== false, supported: () => o.supported !== false, hasPort: () => o.hasPort !== false,
     oneWay: { seen: () => oneWay.seen, mark: () => { oneWay.seen = true; oneWay.marks++; } },
@@ -1439,12 +1451,48 @@ test('listener_a_clip_that_cannot_be_fetched_is_skipped_and_the_next_one_plays',
   assert.equal(t.ctx().started.length, 1);
 });
 
+test('mic_a_press_while_the_microphone_module_is_on_its_way_says_connecting_not_no_microphone', async () => {
+  const s = sheet({ mem: { rooms: [K] }, noMic: true, loading: true });
+  tap(s.ctl);
+  await flush();
+  assert.equal(lines(s), 'Connecting…');
+  assert.equal(s.ctl.state, 'idle', 'nothing started');
+  const t = sheet({ mem: { rooms: [K] }, noMic: true, loading: false });       // it never came: the old words
+  tap(t.ctl);
+  await flush();
+  assert.equal(lines(t), 'No microphone');
+});
+
 test('feed_keeps_the_listener_flag_and_the_play_snapshot', () => {
   const { win } = page();
   const f = win.hkIntercom._.normalize({ enabled: true, listener: true, play: { id: 'x', url: '/api/intercom/clip/x.wav', volume: null }, rooms: [] });
   assert.equal(f.listener, true);
   eq(f.play, { id: 'x', url: '/api/intercom/clip/x.wav', volume: null });
 });
+
+// ================================================================== the microphone module on demand (--lazy-mic)
+if (process.argv.includes('--lazy-mic')) {
+  const seen = {};
+  const { win } = page({ lazyMic: true, stamp: true });
+  const H = win.hkIntercom._, d = H.depsFor({ intercom: {} }, () => {});
+  seen.before = [d.supported(), d.loading()];
+  const p = H.needMic();
+  seen.during = [d.supported(), d.loading(), d.mic() === null ? 'mic' : 'x'];     // "no microphone" is not said while it is on its way
+  await p;
+  seen.asked = win.__imported.slice();
+  seen.after = [d.loading(), !!win.hkMic];
+  await H.needMic();
+  seen.again = win.__imported.length;
+  const bad = page({ lazyMic: true, failMic: true });
+  const e = bad.win.hkIntercom._, dd = e.depsFor({ intercom: {} }, () => {});
+  const q = e.needMic();
+  await q;
+  seen.failed = [dd.loading(), !!bad.win.hkMic];
+  await e.needMic();
+  seen.retried = bad.win.__imported.length;
+  process.stdout.write(JSON.stringify(seen) + '\n');
+  process.exit(0);
+}
 
 // ================================================================== run
 const out = [];

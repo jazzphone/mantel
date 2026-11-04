@@ -473,6 +473,33 @@
       });
     }
   }
+  // A WALL TABLET'S EAR (docs/phase17/INTERCOM.md 17.4). A tablet the Owner lists under a room plays that room's announcements
+  // itself, and only a device session (home.js: GET /api/me `at_tablet`) can be one. So that is the only page that asks the
+  // Intercom's feed on its own: once, for the page's life, to learn whether the snapshot says `listener: true`. Everywhere
+  // else the feed is asked for by a block or the sheet that is drawn (cards/hk-intercom.js), and a page with neither never
+  // loads that file (it is a lazy card file) or subscribes. When the snapshot says it, this loads the file, tells it to
+  // listen (it subscribes the feed itself) and lets its own subscription go. A snapshot that says no is waited out: the Owner
+  // can add the tablet to a room at any time, and the feed changes when they do.
+  var ear = { on: false, off: null, loading: false };
+  function listenAtDevice(hub) {
+    if (ear.on || !hub || typeof hub.intercomSubscribe !== 'function') return false;
+    ear.on = true;
+    ear.off = hub.intercomSubscribe(function (ev, err) {
+      if (err || !ev || ev.listener !== true || ear.loading || !ear.off) return;
+      ear.loading = true;
+      var N = global.hkNeed, loaded = N && typeof N.file === 'function' ? N.file('hk-intercom.js') : Promise.resolve();
+      Promise.resolve(loaded).then(function () {
+        var I = global.hkIntercom;
+        ear.loading = false;
+        if (!I || typeof I.listen !== 'function') return;        // the file did not come: the next snapshot tries again
+        I.listen();
+        var off = ear.off;
+        ear.off = null;
+        if (off) off();
+      });
+    });
+    return true;
+  }
   var latest = null;
   function setCurrent(snapshot) {
     var next = from(snapshot);
@@ -481,7 +508,7 @@
     try { global.dispatchEvent(new CustomEvent('hk-client-update')); } catch (e) { /* shell tests */ }
   }
   global.hkMantelClient = { from: from, current: function () { return latest; }, setCurrent: setCurrent, bridge: bridge, entry: entry,
-                            useCommands: useCommands, useScreens: useScreens, kind: 'mantel', SETTINGS_SAVES: SETTINGS_SAVES.slice(),
+                            useCommands: useCommands, useScreens: useScreens, listenAtDevice: listenAtDevice, kind: 'mantel', SETTINGS_SAVES: SETTINGS_SAVES.slice(),
                             FEATURE_SAVES: FEATURE_SAVES.slice() };
   global.hkHostClient = global.hkMantelClient;
   try { global.dispatchEvent(new CustomEvent('hk-host-client-ready')); } catch (e) { /* shell tests */ }

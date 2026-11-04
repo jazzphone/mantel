@@ -19,6 +19,13 @@
 //
 // THE PAGE KEEPS ITS OWN COPY of what it recorded (hk-mic.js) for Play, Send Again and the rescue when the socket drops.
 //
+// COSTS NOTHING WHERE IT IS NOT USED (2026-11-04). On Mantel this file is a lazy card file (mantel_server/hk_cards.py): a
+// page that draws neither the block nor the sheet never loads it. What reaches for it: the block (a Home Grid page),
+// `#intercom` on the address (a small stub in hk-loader.js imports it, on any page), and a wall tablet that listens (the
+// shim, web/shim/mantel-client.js: it asks the feed once, and calls hkIntercom.listen() when the snapshot says `listener`).
+// The microphone module (hk-mic.js) is imported by the sheet when it opens, not by every page. In Home Assistant every
+// card file is a resource, so this one is loaded as before; nothing subscribes there (no feed).
+//
 // WHERE THINGS LIVE. Everything the sheet decides is the Controller (below the header, no DOM): it is given its
 // surroundings (the action port, the feed, the microphone session, the clock) and is tested on its own in node
 // (tests/test_intercom_card.py). The elements only draw what it says (`view()`) and tell it what was touched.
@@ -173,6 +180,7 @@
   // ------------------------------------------------------------------ the Controller (no DOM)
   // deps: { actions() -> the action port | null, feed() -> the normalized snapshot | null, mic() -> a hk-mic session,
   //   store: {load() -> {mode, rooms}|null, save(v)}, secure() -> bool, supported() -> bool, hasPort() -> bool,
+  //   loading() -> bool (optional: the microphone module is on its way, so "supported" is not yet known),
   //   oneWay: {seen() -> bool, mark()}, clock: {now, setTimeout, clearTimeout, setInterval, clearInterval},
   //   changed() -> called after every change the sheet should draw }
   var controllers = [];              // the sheets open (a tablet that is itself talking plays no announcement)
@@ -389,7 +397,11 @@
     // Live speaks to the rooms picked, named before the first frame: with none picked there is no one to hear it
     if (mode === 'live' && !this.chosen().length) { this._say(WORDS.pickRoom, 'info'); return; }
     var self = this, mic = this.mic || (this.mic = this.d.mic());
-    if (!mic || !mic.unlock()) { this._say(WORDS.noMic, 'warn'); return; }
+    if (!mic || !mic.unlock()) {
+      if (!mic && this.d.loading && this.d.loading()) this._say(WORDS.connecting, 'info');       // the microphone module is still on its way
+      else this._say(WORDS.noMic, 'warn');
+      return;
+    }
     this.d.oneWay.mark();
     this._reset();
     var tok = ++this.tok;
@@ -770,6 +782,25 @@
   }
 
   var overrides = {};                   // hkIntercom.use(): a test's stand-ins for the surroundings
+
+  // THE MICROPHONE MODULE, on demand. hk-mic.js is not one of the page's bootstrap modules (hk-loader.js MODULES): the sheet
+  // imports it as it opens, so it is here long before a press (a press must make the AudioContext inside the gesture).
+  // It takes the address the other modules have (the build's ?v= on Mantel, window.hkV) and says nothing when it is there.
+  var micLoad = null, micIs = false;
+  function micLoading() { return micIs && !window.hkMic; }
+  function needMic() {
+    if (window.hkMic || overrides.mic) return Promise.resolve();
+    if (!micLoad) {
+      var url = '/hk/modules/hk-mic.js';
+      try { if (window.hkV) url = window.hkV(url); } catch (e) { /* the plain address */ }
+      micIs = true;
+      micLoad = Promise.resolve().then(function () { return import(url); }).then(function () { micIs = false; }, function (err) {
+        micIs = false; micLoad = null;                // the next sheet tries again; this one says "No microphone"
+        console.error('[hk-intercom] could not load the microphone module', err);
+      });
+    }
+    return micLoad;
+  }
   function depsFor(client, changed) {
     return {
       actions: function () { return (overrides.actions ? overrides.actions() : client && client.actions) || null; },
@@ -784,7 +815,9 @@
         }
       },
       secure: function () { return overrides.secure ? overrides.secure() : window.isSecureContext !== false; },
-      supported: function () { return overrides.supported ? overrides.supported() : !!(window.hkMic && window.hkMic.supported()); },
+      // (while hk-mic.js is on its way the answer is yes: "No microphone" would flash on every first open)
+      supported: function () { return overrides.supported ? overrides.supported() : window.hkMic ? !!window.hkMic.supported() : micLoading(); },
+      loading: function () { return micLoading(); },
       hasPort: function () { return overrides.hasPort ? overrides.hasPort() : !!(client && client.intercom); },
       oneWay: { seen: function () { return overrides.oneWaySeen !== undefined ? !!overrides.oneWaySeen : localGet(ONE_WAY) === '1'; }, mark: function () { localSet(ONE_WAY, '1'); } },
       changed: changed
@@ -795,7 +828,7 @@
   // A tablet the Owner listed under a room (the feed says `listener: true`) plays that room's announcements itself:
   // when a broadcast is sent to its room the feed carries, once, `play: {id, url, volume}`; the page fetches the clip
   // (it is a signed-in page, the cookie goes with it), decodes it and plays it through WebAudio at `volume` (null is
-  // full). One of these runs on every Mantel page (startListener, below), not only where the block is.
+  // full). One of these runs on a wall tablet that listens (hkIntercom.listen, below), not on every page.
   //
   // AUTOPLAY. A browser that will not start audio without a touch leaves the context suspended: one small pill, "Tap to
   // hear announcements", is drawn once, and the first touch anywhere resumes the context and plays a clip that waited
@@ -894,12 +927,14 @@
     setTimeout(route, 0);
   }
 
+  var wantListen = false;               // listen() was called before the base was ready
   window.hkIntercom = {
     version: '1.0.0', KEY: KEY, WORDS: WORDS, open: open,
+    listen: function () { wantListen = true; return false; },     // (replaced by the real one once the base is ready, below)
     // a test's stand-ins for the card's surroundings: {actions, feed, mic, secure, supported, hasPort, oneWaySeen}
     use: function (o) { overrides = o || {}; },
     _: { normalize: normalize, pillsOf: pillsOf, chipsOf: chipsOf, Controller: Controller, depsFor: depsFor, shared: shared, feedIs: feedIs, route: route,
-         plain: plain, Listener: Listener, talking: talking, CLIP_FRESH_MS: CLIP_FRESH_MS, HOLD_MS: HOLD_MS, MIN_S: MIN_S, SAID_MS: SAID_MS, SAVE_MS: SAVE_MS }
+         plain: plain, Listener: Listener, needMic: needMic, talking: talking, CLIP_FRESH_MS: CLIP_FRESH_MS, HOLD_MS: HOLD_MS, MIN_S: MIN_S, SAID_MS: SAID_MS, SAVE_MS: SAVE_MS }
   };
   if (typeof window.addEventListener === 'function' && typeof location !== 'undefined') wireRoute();
 
@@ -925,7 +960,7 @@
 
   whenBase(function (C) {
     if (window.hkIntercom.Card) return;
-    // ---------------------------------------------------------------- the listener, on every page with the feed
+    // ---------------------------------------------------------------- the listener, on a tablet that listens
     var pillEl = null;
     function pill(show) {
       if (!show) { if (pillEl && pillEl.parentNode) pillEl.parentNode.removeChild(pillEl); pillEl = null; return; }
@@ -950,9 +985,13 @@
       };
       evs.forEach(function (ev) { document.addEventListener(ev, run, true); });
     }
+    // The listener is started by `hkIntercom.listen()`, never by this file's being loaded: the file is loaded by a block or the
+    // `#intercom` sheet on any page, and only a wall tablet that listens (the shim asks, once the feed says `listener`) plays
+    // announcements. Called before the base is ready, the request waits here.
     var listener = null;
     function startListener(client) {
-      if (listener || !client || !client.intercom) return;
+      client = client || (C.client ? C.client() : null);
+      if (listener || !client || !client.intercom) return false;
       listener = new Listener({
         AudioContext: window.AudioContext || window.webkitAudioContext,
         fetch: function (url) { return fetch(url, { credentials: 'include' }).then(function (r) { if (!r.ok) throw new Error('clip ' + r.status); return r.arrayBuffer(); }); },
@@ -962,10 +1001,11 @@
       sharedAttach(client);
       sharedUse(function () { listener.feed(shared.feed); });
       listener.feed(shared.feed);
+      return true;
     }
     window.hkIntercom._.listener = function () { return listener; };
-    if (C.onClient) C.onClient(startListener);
-    startListener(C.client ? C.client() : null);
+    window.hkIntercom.listen = function () { wantListen = true; if (!startListener(null) && !listener && C.onClient) C.onClient(function (c) { if (wantListen) startListener(c); }); return !!listener; };
+    if (wantListen) window.hkIntercom.listen();
     var HkBase = C.HkBase, v = C.v, esc = C.esc, TILE = C.TILE;
 
     // ---------------------------------------------------------------- the block
@@ -1152,6 +1192,8 @@
         if (!this._ctl) {
           this._ctl = new Controller(depsFor(this.client, function () { self._paint(); }));
           this._clientRef = this.client;
+          // the microphone module (hk-mic.js) comes with the sheet; drawn again when it is here
+          needMic().then(function () { self._paint(); });
         }
         this._clientRef = this.client;
         this._paint();

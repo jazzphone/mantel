@@ -349,6 +349,13 @@ that room (Settings → Intercom → the room → Tablets). The tablet's page th
 - **Autoplay:** a kiosk tablet plays only if its browser allows audio without a tap. Fully Kiosk's "Autoplay audio" does;
   otherwise the card shows "Tap to hear announcements" and the first tap unlocks it. The broadcast row says which
   listeners played.
+- **What a page pays for it (page-load cost).** Nothing, unless it uses the Intercom. `hk-intercom.js` is a lazy card
+  file (`hk_cards.LAZY`): a Home Grid page with the block loads it, `#intercom` on the address loads it on any page (a
+  few lines in `hk-loader.js`), and `hk-mic.js` is imported by the sheet as it opens (it is no bootstrap module). The
+  feed (`intercom/subscribe`) is asked for only by a drawn block or sheet, and by a wall tablet: `home.js` calls
+  `hkMantelClient.listenAtDevice(hub)` at a device session (`/api/me` `at_tablet`), which subscribes once and, when a
+  snapshot says `listener: true`, loads the file and calls `hkIntercom.listen()`. Phones and desktops never subscribe
+  otherwise.
 
 ### Permissions, audit, API and storage
 

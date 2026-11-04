@@ -87,17 +87,20 @@ const customElements = {
   define(t, c) { defined.set(t, c); if (waits.has(t)) waits.get(t).r(); },
 };
 const FILES = { 'hk-energy.js': ['hk-energy-day-card', 'hk-power-flow-card'], 'hk-weather.js': ['hk-detail-weather', 'hk-clock-card'],
-                'hk-music.js': ['hk-music-card'] };
-const window = { customElements, location: { search: '' } };
+                'hk-music.js': ['hk-music-card'], 'hk-intercom.js': ['hk-intercom-card', 'hk-intercom-sheet-card'] };
+const handlers = {};
+const location = { search: '', hash: '' };
+const window = { customElements, location, addEventListener: (n, fn) => { (handlers[n] = handlers[n] || []).push(fn); } };
 window.__import = (u) => {
   imported.push(u);
   const name = u.split('/').pop().split('?')[0];
   if (fail.has(name)) { fail.delete(name); return Promise.reject(new Error('offline')); }
   (FILES[name] || []).forEach((t) => customElements.define(t, function () {}));
+  if (name === 'hk-intercom.js') window.hkIntercom = {};
   return Promise.resolve({});
 };
 const src = fs.readFileSync(process.argv[2], 'utf8').replace(/\bimport\(/g, 'window.__import(');
-vm.runInNewContext(src, { window, customElements, location: window.location, console: { error() {} }, document: {}, Promise, setTimeout });
+vm.runInNewContext(src, { window, customElements, location, console: { error() {} }, document: {}, Promise, setTimeout });
 const N = window.hkNeed, out = {};
 const cards = () => imported.filter((u) => u.indexOf('/hk/cards/') === 0);
 (async () => {
@@ -125,6 +128,18 @@ const cards = () => imported.filter((u) => u.indexOf('/hk/cards/') === 0);
   out.failedHas = N.has('hk-music-card');
   await N('hk-music-card');
   out.retried = cards().filter((u) => u.indexOf('hk-music') >= 0).length;
+  // `#intercom` on any page: nothing for the Intercom until the address says so, then its file once
+  const intercom = () => imported.filter((u) => u.indexOf('hk-intercom.js') >= 0).length;
+  out.intercomQuiet = intercom();
+  location.hash = '#other';
+  (handlers.hashchange || []).forEach((f) => f());
+  out.intercomOther = intercom();
+  location.hash = '#intercom';
+  (handlers.hashchange || []).forEach((f) => f());
+  (handlers.popstate || []).forEach((f) => f());
+  await N.file('hk-intercom.js');
+  out.intercomHash = intercom();
+  out.intercomListens = Object.keys(handlers).sort();
   console.log(JSON.stringify(out));
 })().catch((e) => { console.error(e); process.exit(1); });
 """
@@ -160,3 +175,11 @@ def test_a_config_asks_for_every_card_it_names_and_a_file_by_name(need):
 
 def test_a_failed_import_is_tried_again(need):
     assert need["failedHas"] is True and need["retried"] == 2
+
+
+def test_the_intercoms_address_loads_its_file_on_any_page_and_nothing_else_does(need):
+    """`#intercom` (the iOS app's menu sets it on whatever page is open) imports the lazy hk-intercom.js; a page
+    that never gets that address, and a page at another hash, never load it."""
+    assert need["intercomQuiet"] == 0 and need["intercomOther"] == 0
+    assert need["intercomHash"] == 1, "the hash asked for it, once (hashchange and popstate both fired)"
+    assert need["intercomListens"] == ["hashchange", "popstate"]

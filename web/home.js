@@ -144,6 +144,9 @@ for (const m of ['modules/hk-settings.js', 'iconset/hk-icons.js', 'modules/tesla
 // ONLY THE CARDS A SCREEN USES (2026-10-29): the other card files are hk-loader.js's to import, the first time
 // one of their cards is asked for
 if (window.hkNeed) window.hkNeed.arm(cardList.lazy || {});
+// A WALL TABLET THAT LISTENS (the Intercom, 17.4): only a device session asks the Intercom's feed on its own, and loads the
+// Intercom's code only if the snapshot says this tablet listens. No other page does either (shim/mantel-client.js).
+if (user.at_tablet === true) window.hkMantelClient.listenAtDevice(hub);
 // THE SCREENSAVER ALONE (?hk_preview=saver, Settings' preview of a screen's screensaver, 2026-10-31): the base of the
 // cards only -- the screensaver's corner cards are lazy ones, asked for as it makes them -- no strategy run, no
 // view drawn. The screensaver reads this screen's settings itself (hk-saver.js fromSettings) and is shown as soon
