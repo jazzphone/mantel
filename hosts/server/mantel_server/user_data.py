@@ -4,7 +4,7 @@ In Home Assistant HK keeps a few preferences with ``frontend/set_user_data`` and
 ``frontend/subscribe_user_data`` (HA's per-user storage). Mantel reaches HA as the App's own account, so HA's
 copy would be the wrong user's, and ``set_user_data`` would be a house command (refused with commands off).
 Mantel answers both itself, for an allowlist of keys HK uses (KEYS; today ``hk_music_focus``, the speaker a
-person picked on the Music page):
+person picked on the Music page, ``favorites``, and ``intercom``, the Intercom sheet's mode and rooms):
 
 * ``user_data_set`` {key, value} (a Mantel message, like ``music_used``) stores the value for the caller's own
   subject: ``u:<user id>`` for a signed-in person, ``d:<device id>`` for a wall tablet alone. Not a command:
@@ -51,12 +51,44 @@ def _favorites(value: Any) -> bool:
             and all(isinstance(v, str) and len(v) <= 128 and ENTITY.match(v) is not None for v in value))
 
 
+INTERCOM = "intercom"
+INTERCOM_ROOMS_MAX = 64
+INTERCOM_MODES = ("message", "live")
+
+
+def _intercom(value: Any) -> bool:
+    """The Intercom sheet's memory for a person (docs/phase17/INTERCOM.md): {mode: "message"|"live", rooms: [speaker
+    entity ids]}, the mode last used and the rooms last picked (at most INTERCOM_ROOMS_MAX, no repeats). Either may be
+    left out."""
+    if not isinstance(value, dict) or set(value) - {"mode", "rooms"}:
+        return False
+    if "mode" in value and value["mode"] not in INTERCOM_MODES:
+        return False
+    rooms = value.get("rooms", [])
+    return (isinstance(rooms, list) and len(rooms) <= INTERCOM_ROOMS_MAX
+            and all(isinstance(v, str) and len(v) <= 128 and ENTITY.match(v) is not None for v in rooms)
+            and len(set(rooms)) == len(rooms))
+
+
+def _switch(value: Any) -> bool:
+    return isinstance(value, bool)
+
+
+# the House Timeline's own switches in Me (docs/phase19/HOUSE-TIMELINE.md "Who sees what", "The morning digest"):
+# Keep My Arrivals Private (an adult's; a child's is ignored: the Owner decides) and Morning Summary (the apps)
+TIMELINE_PRIVATE = "timeline_private"
+TIMELINE_SUMMARY = "timeline_summary"
+
+
 # key -> (largest JSON text in bytes, shape check). Add a key here only when HK's code uses it, and to
 # USER_DATA_KEYS in web/shim/mantel-client.js (a test pins the two lists together).
 KEYS: dict[str, tuple[int, Callable[[Any], bool]]] = {
     "hk_music_focus": (512, _music_focus),
     FAVORITES: (FAVORITES_MAX * 132, _favorites),
+    INTERCOM: (INTERCOM_ROOMS_MAX * 132 + 64, _intercom),
 }
+# (the two timeline switches are NOT socket keys: they change only through PUT /api/timeline/me, which refuses a
+# tablet's session, writes the audit row first and deletes past arrivals -- Opus review 3)
 
 
 class Refused(Exception):

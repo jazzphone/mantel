@@ -14,6 +14,7 @@
 //
 // HK's confirm dialog is hk-base.js's confirmSheet (and chooseSheet), HK's own since before Phase 1;
 // it mounts in the same dialog root.
+// @ts-check
 (function (global) {
   'use strict';
   if (global.hkOverlays) return;

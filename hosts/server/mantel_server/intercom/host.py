@@ -1,0 +1,570 @@
+"""THE INTERCOM ON MANTEL (docs/phase17/INTERCOM.md), ``app["intercom"]``: its settings, its stream listener, the
+audio socket's relay, and the broadcast itself. The decisions are hk_core.intercom's; this file is the host's steps.
+
+It needs house commands on (it makes sound in the house), Music Assistant configured in Mantel, the music settings in
+Mantel's store (its rooms are the music rooms), and the Intercom turned on in Settings -> Intercom with the address
+Music Assistant fetches from. The stream listener (listener.py) runs only while all of that holds and
+``--stream-port`` is set.
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from typing import Any, Callable
+from urllib.parse import urlsplit
+
+from hk_core.house import area_of
+from hk_core.intercom import config as C, rooms as R
+
+from . import driver as D
+from .links import Links
+from .listener import StreamListener
+from .relay import IntercomRelay
+from .spool import Spool
+
+log = logging.getLogger("mantel.intercom")
+
+DOC = "intercom"                    # house/<this>
+OVERRIDE_ROLES = frozenset({"owner", "admin", "adult"})       # may press Send Anyway (decision 10)
+REMOTE_DOORS = frozenset({"tunnel"})
+MA_CACHE = 4.0
+
+
+class IntercomHost:
+    def __init__(self, app: Any, hub: Any, clock: Callable[[], float] = time.time) -> None:
+        self.app, self.hub = app, hub
+        cfg = app.get("cfg")
+        self.stream_port = int(getattr(cfg, "stream_port", 0) or 0)
+        self.bind = getattr(cfg, "host", "0.0.0.0") or "0.0.0.0"
+        self.links = Links(cfg, expected_peer=self.ma_peer)
+        self.listener: StreamListener | None = None
+        self.relay = IntercomRelay(self, clock)
+        self.listeners_feed: Any = None              # routes.py: tells listener tablets (17.4)
+        self._apply_lock = asyncio.Lock()
+        self.check_lock = asyncio.Lock()             # one Check Reach at a time (routes.api_check)
+        self.last_broadcast: dict[str, Any] | None = None
+        self.last_test = -1e9
+        self.testing: str | None = None          # Send Test holds the floor while its chime plays
+        self._ma_cache: tuple[float, Any] | None = None
+
+    # -- settings --------------------------------------------------------------------------------------------
+    @property
+    def store(self) -> Any:
+        return getattr(self.app.get("settings"), "store", None)
+
+    def doc(self) -> dict:
+        store = self.store
+        if store is None:
+            return C.defaults()
+        try:
+            return C.check(store.body("house", DOC) or None)
+        except ValueError:
+            log.exception("intercom: house/intercom is not readable; the Intercom stays off")
+            return C.defaults()
+
+    def save(self, doc: dict, actor: Any, action: str = "set") -> dict:
+        checked = C.check(doc)
+        self.store.write([("house", DOC, checked)], actor=actor, action=action)
+        return checked
+
+    def limit_s(self, doc: dict, mode: str) -> int:
+        return C.limit_s(doc, mode)
+
+    def max_picks(self) -> int:
+        return R.MAX_ROOMS
+
+    def new_spool(self, rate: int, limit: float) -> Spool:
+        return Spool(rate, limit)
+
+    # -- what it runs on -------------------------------------------------------------------------------------
+    @property
+    def music(self) -> Any:
+        return self.app.get("music")
+
+    @property
+    def ma(self) -> Any:
+        return self.app.get("ma")
+
+    def ma_peer(self) -> str | None:
+        """The address Music Assistant's fetch must come from, when Mantel reaches it by an IP address."""
+        client = self.ma
+        url = getattr(client, "ws_url", None) if client is not None else None
+        if not url:
+            return None
+        host = urlsplit(url).hostname or ""
+        import ipaddress
+        try:
+            return str(ipaddress.ip_address(host))
+        except ValueError:
+            return None
+
+    def setup(self) -> tuple[Any, Any, dict[str, str]]:
+        """(the house, the music configuration, {media_player entity: Music Assistant id})."""
+        from ..music import ma_players
+        m = self.music
+        return m.house, m.config(), ma_players(self.hub.registry)
+
+    async def ma_raw(self, cached: bool = False) -> Any:
+        """Music Assistant's players/all, read now (a read: no gate, no audit); None when it can't be read. A
+        broadcast always reads it fresh; the sheet's feed may use one read up to MA_CACHE seconds old."""
+        if cached and self._ma_cache is not None and time.monotonic() - self._ma_cache[0] < MA_CACHE:
+            return self._ma_cache[1]
+        client = self.ma
+        if client is None or not client.connected.is_set():
+            return None
+        try:
+            got = await client.players()
+        except Exception as err:  # noqa: BLE001 -- unreadable: the group check skips every room
+            log.info("intercom: Music Assistant's players could not be read (%s)", type(err).__name__)
+            return None
+        self._ma_cache = (time.monotonic(), got)
+        return got
+
+    def changed(self) -> None:
+        if self.listeners_feed is not None:
+            self.listeners_feed.changed()
+
+    def unavailable(self, principal: Any, mode: str, rate: int) -> str | None:
+        """Why the Intercom can't be opened now (the gateway asks before its row; the relay again)."""
+        doc = self.doc()
+        if not doc["enabled"]:
+            return "intercom_off"
+        if mode == "live" and not C.live_offered(doc):
+            return "live_off"
+        if mode == "live" and principal is not None and principal.identity.door in REMOTE_DOORS:
+            return "live_not_away"        # decision 8: away from home, a Message only
+        if self.music is None or not self.music.active:
+            return "music_assistant_off"
+        if not doc["stream_base"]:
+            return "intercom_no_address"
+        if self.listener is None or not self.listener.running:
+            return "intercom_not_listening"
+        return None
+
+    # -- the listener ----------------------------------------------------------------------------------------
+    async def apply(self) -> None:
+        """Start or stop the stream listener to match the settings (on save, at start)."""
+        async with self._apply_lock:
+            want = bool(self.stream_port) and self.doc()["enabled"] and self.app.get("gateway") is not None
+            if want and (self.listener is None or not self.listener.running):
+                self.listener = StreamListener(self.links, self.bind, self.stream_port)
+                try:
+                    await self.listener.start()
+                    log.info("intercom: the stream listener is on port %s", self.stream_port)
+                except OSError as err:
+                    log.error("intercom: could not listen on port %s: %s", self.stream_port, err)
+                    self.listener = None
+            elif not want and self.listener is not None:
+                self.links.kill_all()
+                await self.listener.stop()
+                self.listener = None
+                log.info("intercom: the stream listener is off")
+
+    async def start_listener_for_check(self) -> None:
+        """Check Reach before the Intercom is on: the listener for the check's own link only (apply() stops it).
+        Never while house commands are off: the port stays closed then, as apply() keeps it."""
+        async with self._apply_lock:
+            if self.app.get("gateway") is None:
+                return
+            if self.stream_port and (self.listener is None or not self.listener.running):
+                self.listener = StreamListener(self.links, self.bind, self.stream_port)
+                try:
+                    await self.listener.start()
+                except OSError as err:
+                    log.error("intercom: could not listen on port %s: %s", self.stream_port, err)
+                    self.listener = None
+
+    async def close(self) -> None:
+        await self.relay.close()
+        self.links.kill_all()
+        if self.listener is not None:
+            await self.listener.stop()
+            self.listener = None
+
+    # -- who is asking ---------------------------------------------------------------------------------------
+    def here(self, principal: Any, house: Any = None, music: Any = None) -> list[str]:
+        """The sender's own rooms: its tablet's enrolled room's speakers, and any room listing the tablet as a
+        listener. A phone (no tablet) has none."""
+        device = getattr(getattr(principal, "identity", None), "device", None)
+        if device is None:
+            return []
+        doc = self.doc()
+        out = list(C.rooms_of_tablet(doc, device.id))
+        if device.room and house is not None and music is not None:
+            out += [r for r in music.room_ids if area_of(house, house.entity(r)) == device.room]
+        return list(dict.fromkeys(out))
+
+    def allowed(self, principal: Any) -> Callable[[str], bool]:
+        authz = self.app["authz"]
+        subject, ctx = principal.subject, authz.context()
+        return lambda r: authz.decide_intercom(subject, "control", r, ctx=ctx).allowed
+
+    def may_override(self, principal: Any) -> bool:
+        user = getattr(getattr(principal, "identity", None), "user", None)
+        return user is not None and user.role in OVERRIDE_ROLES
+
+    async def plan(self, principal: Any, picks: list[str], mode: str, override: bool) -> Any:
+        house, music, pids = self.setup()
+        doc = self.doc()
+        rooms = R.expand(music, picks)
+        return R.decide(house, music, doc, rooms, mode=mode, here=self.here(principal, house, music),
+                        override=override and self.may_override(principal), allowed=self.allowed(principal),
+                        ma_raw=await self.ma_raw(), pids=pids), pids, music
+
+    # -- a Message ---------------------------------------------------------------------------------------------
+    async def send_message(self, s: Any, picks: list[str], override: bool) -> str:
+        """Send's steps: decide, floor, rate, the intercom.play row, the link, the calls. Returns the socket's audit
+        result, or ``refused:<why>`` when nothing was sent and the draft stays (the page may try again)."""
+        relay = self.relay
+        authz = self.app["authz"]
+        if not authz.refresh(s.principal):
+            await s.ws.send_json({"type": "error", "code": "unauthenticated"})
+            return "error:unauthenticated"
+        why = self.unavailable(s.principal, "message", s.rate)
+        if why:
+            await s.ws.send_json({"type": "error", "code": why})
+            return f"error:{why}"
+        plan, pids, music = await self.plan(s.principal, picks, "message", override)
+        await s.ws.send_json({"type": "rooms", "rooms": _public(plan.rooms),
+                              "can_override": self.may_override(s.principal)})
+        if not plan.calls:
+            await s.ws.send_json({"type": "error", "code": "no_rooms", "message": plan.nothing_reason()})
+            return "refused:no_rooms"
+        busy = relay.busy_name(s)
+        if busy:
+            await s.ws.send_json({"type": "busy", "name": busy})
+            return "refused:busy"
+        if not relay.rate_ok(s):
+            await s.ws.send_json({"type": "error", "code": "rate",
+                                  "message": "That's a lot of announcements; wait a few minutes"})
+            return "refused:rate"
+        relay.floor = s
+        try:
+            return await self._broadcast(s, plan, pids, music, override)
+        finally:
+            if relay.floor is s:
+                relay.floor = None
+
+    async def _broadcast(self, s: Any, plan: Any, pids: dict, music: Any, override: bool) -> str:
+        doc = self.doc()
+        audit = self.app["audit"]
+        spool = s.spool
+        spool.finish()
+        targets = [r["room"] for r in plan.playing]
+        try:
+            aid = audit.record(principal=s.principal, kind="ma", action="intercom.play", targets=targets,
+                               decision="allowed", reason=D.reason_of(plan, override=override and self.may_override(s.principal),
+                                                  mode="message"))
+        except Exception:  # noqa: BLE001 -- no row, no sound
+            log.exception("intercom: the intercom.play row could not be written; nothing played")
+            await s.ws.send_json({"type": "error", "code": "audit_unavailable"})
+            return "error:audit_unavailable"
+        s.broadcast = plan
+        token, link = self.links.mint(spool, mode="message", finite=True, limit_s=C.limit_s(doc, "message"))
+        url = f"{doc['stream_base']}/s/{token}.wav"
+        run = D.IntercomRun(s.principal, aid, {pids[c.player] for c in plan.calls}, [url])
+        outcome = D.Outcome()
+        result = "error:not_sent"
+        try:
+            await self._say(s, {"type": "sending", "rooms": len({c.room for c in plan.calls})})
+            self._tell_listeners(doc, plan, spool, s)
+            outcome.results = await D.announce(
+                self.ma, run, plan.calls, pids, url, chime=doc["chime"]["message"],
+                timeout=C.limit_s(doc, "message") + D.CALL_GRACE, names=music.name_of)
+            result = D.result_of(outcome, len(plan.skipped))
+            await self._say(s, {"type": "sent", "rooms": outcome.rooms_ok, "failed": outcome.failed})
+            return result
+        finally:
+            run.close()
+            self.links.kill(link)
+            self._finish(aid, result)
+            s.broadcast = None
+            self.last_broadcast = None
+
+    @staticmethod
+    async def _say(s: Any, msg: dict) -> None:
+        """A word to the page once the sound has been decided: best effort. A page that closed its sheet (its socket
+        gone) must not stop what was already sent from playing."""
+        try:
+            if not s.ws.closed:
+                await s.ws.send_json(msg)
+        except (ConnectionError, RuntimeError):
+            pass
+
+    def _finish(self, aid: int, result: str) -> None:
+        try:
+            self.app["audit"].finish(aid, result)
+        except Exception:  # noqa: BLE001
+            log.exception("could not write the result of intercom audit row %d", aid)
+
+    def _tell_listeners(self, doc: dict, plan: Any, spool: Any, s: Any) -> None:
+        """17.4: listener tablets of a room in this broadcast play it themselves (routes.py's feed)."""
+        feed = self.listeners_feed
+        if feed is None:
+            return
+        rooms = [r["room"] for r in plan.playing]
+        tablets = C.listeners_of(doc, rooms)
+        me = getattr(getattr(s.principal.identity, "device", None), "id", None)
+        tablets.discard(me)                    # echo: a tablet that is speaking is not a listener of its own
+        if tablets:
+            try:
+                feed.play(spool, tablets, rooms, doc)
+            except Exception:  # noqa: BLE001 -- the HomePods play either way
+                log.exception("intercom: could not tell the listener tablets")
+
+    # -- Live (17.5) -------------------------------------------------------------------------------------------
+    async def live_frame(self, s: Any, msg: dict) -> str | None:
+        """``start`` (decide, floor, row, the live link, the calls to the rooms that can be live) or ``end`` (the
+        talker finished: wait for the live rooms, then the fallback). None keeps the socket going."""
+        kind = msg.get("type")
+        if kind == "end" and set(msg) == {"type"}:
+            if s.broadcast is None:
+                s.close_code = 1008
+                return "refused:bad_message"
+            return await self.live_end(s, "end")
+        rooms = msg.get("rooms")
+        if (kind != "start" or set(msg) != {"type", "rooms"} or s.broadcast is not None or not isinstance(rooms, list)
+                or not all(isinstance(r, str) for r in rooms) or len(rooms) > self.max_picks()):
+            s.close_code = 1008
+            return "refused:bad_message"
+        authz = self.app["authz"]
+        if not authz.refresh(s.principal):
+            await s.ws.send_json({"type": "error", "code": "unauthenticated"})
+            return "error:unauthenticated"
+        why = self.unavailable(s.principal, "live", s.rate)
+        if why:
+            await s.ws.send_json({"type": "error", "code": why})
+            return f"refused:{why}"
+        plan, pids, music = await self.plan(s.principal, rooms, "live", False)
+        await s.ws.send_json({"type": "rooms", "rooms": _public(plan.rooms), "can_override": False})
+        if not plan.calls:
+            await s.ws.send_json({"type": "error", "code": "no_rooms", "message": plan.nothing_reason()})
+            return None
+        busy = self.relay.busy_name(s)
+        if busy:
+            await s.ws.send_json({"type": "busy", "name": busy})
+            return None
+        if not self.relay.rate_ok(s):
+            await s.ws.send_json({"type": "error", "code": "rate",
+                                  "message": "That's a lot of announcements; wait a few minutes"})
+            return None
+        doc = self.doc()
+        try:
+            aid = self.app["audit"].record(principal=s.principal, kind="ma", action="intercom.play",
+                                           targets=[r["room"] for r in plan.playing], decision="allowed",
+                                           reason=D.reason_of(plan, override=False, mode="live"))
+        except Exception:  # noqa: BLE001 -- no row, no sound
+            log.exception("intercom: the intercom.play row could not be written; nothing played")
+            await s.ws.send_json({"type": "error", "code": "audit_unavailable"})
+            return "error:audit_unavailable"
+        self.relay.floor = s
+        limit = C.limit_s(doc, "live")
+        s.spool = self.new_spool(s.rate, limit)
+        token, link = self.links.mint(s.spool, mode="live", finite=False, limit_s=limit)
+        url = f"{doc['stream_base']}/s/{token}.wav"
+        run = D.IntercomRun(s.principal, aid, {pids[c.player] for c in plan.calls}, [url])
+        s.broadcast = LiveBroadcast(plan, pids, music, doc, aid, run, link, url, asyncio.get_running_loop().time())
+        s.broadcast.task = asyncio.get_running_loop().create_task(self._live_calls(s, s.broadcast))
+        live_now = [c for c in plan.calls if c.live]
+        after = plan.names("after")
+        await self._say(s, {"type": "sending", "rooms": len({c.room for c in plan.calls}),
+                              "live": len({c.room for c in live_now}), "after": after,
+                              "lag_ms": doc.get("lag_ms")})
+        return None
+
+    async def _live_calls(self, s: Any, b: "LiveBroadcast") -> None:
+        """The live rooms' calls, each watched for the five failure signals (docs/phase17/INTERCOM.md)."""
+        live_calls = [c for c in b.plan.calls if c.live]
+        if not live_calls:
+            return
+        loop = asyncio.get_running_loop()
+        t_call = loop.time()
+
+        async def one(call: Any) -> D.RoomResult:
+            res = D.RoomResult(call.room, b.music.name_of(call.room), call.player, live=True)
+            args: dict[str, Any] = {"player_id": b.pids[call.player], "url": b.url,
+                                    "pre_announce": bool(b.doc["chime"]["live"])}
+            if call.volume is not None:
+                args["volume_level"] = int(call.volume)
+            task = loop.create_task(self.ma.command(b.run, D.ANNOUNCE,
+                                                    timeout=C.limit_s(b.doc, "live") + D.CALL_GRACE, **args))
+            while True:
+                done, _ = await asyncio.wait({task}, timeout=0.5)
+                if done:
+                    break
+                if call.player in b.failed and s.spool is not None and s.spool.finished:
+                    # failed live and the talker is done: fall back now, not when Music Assistant gives up
+                    task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
+                    res.error = b.why.get(call.player, "failed")
+                    return res
+            try:
+                task.result()
+                res.ok = True
+                if not s.spool.finished and not s.spool.dropped:
+                    res.ok, res.error = False, "returned_early"           # signal 5
+            except asyncio.CancelledError:
+                res.error = "cancelled"
+            except Exception as exc:  # noqa: BLE001
+                res.error = D.error_code(exc)                            # signal 2
+            return res
+
+        async def watch(call: Any) -> None:
+            try:
+                await asyncio.wait_for(b.link.fetch_started.wait(), D.CLAIM_WAIT)
+            except asyncio.TimeoutError:
+                b.failed.add(call.player)                                 # signal 1
+                b.why.setdefault(call.player, "not_fetched")
+                return
+            deadline = t_call + D.PLAYING_WAIT
+            while loop.time() < deadline:
+                if self._playing(call.player):
+                    b.lags.append(loop.time() - b.t0)
+                    return
+                await asyncio.sleep(0.2)
+            b.failed.add(call.player)                                     # signal 3
+            b.why.setdefault(call.player, "not_playing")
+
+        watchers = [loop.create_task(watch(c)) for c in live_calls]
+        try:
+            results = await asyncio.gather(*(one(c) for c in live_calls))
+            await asyncio.gather(*watchers, return_exceptions=True)     # each ends by its own wait (<= 10 s)
+        finally:
+            for w in watchers:                                           # only left running when aborted
+                w.cancel()
+            await asyncio.gather(*watchers, return_exceptions=True)
+        for r in results:
+            if b.link.ended_early:
+                r.ok, r.error = False, r.error or "fetch_ended_early"    # signal 4
+            if r.player in b.failed:
+                r.ok, r.error = False, r.error or b.why.get(r.player, "failed")
+        b.results = list(results)
+
+    def _playing(self, player: str) -> bool:
+        m = self.music
+        try:
+            from hk_core.music import engine as E
+            return E.state_of(m.house, player) == "playing"
+        except Exception:  # noqa: BLE001
+            return False
+
+    async def live_end(self, s: Any, why: str) -> str:
+        """The talker finished (``end``, LIVE_IDLE without audio, or the limit): the live rooms play out, then every
+        room that failed live and every ``after`` room hears the WHOLE spool as a Message on a new link."""
+        b: LiveBroadcast = s.broadcast
+        s.spool.finish()
+        result = "error:not_sent"
+        try:
+            if b.task is not None:
+                await b.task
+            failed = [r for r in b.results if not r.ok]
+            retry = [c for c in b.plan.calls if not c.live or any(r.player == c.player for r in failed)]
+            if retry:
+                # THE GROUP CHECK AGAIN, NOW: the talk may have lasted a minute, and a room grouped meanwhile under a
+                # leader (or made to lead) would carry the message further. Only calls a fresh plan still makes go out.
+                rooms = list(dict.fromkeys(c.room for c in retry))
+                fresh, _pids, _music = await self.plan(s.principal, rooms, "message", False)
+                again = {(c.player, tuple(c.covers)) for c in fresh.calls}
+                dropped = sorted({c.room for c in retry if (c.player, tuple(c.covers)) not in again})
+                retry = [c for c in retry if (c.player, tuple(c.covers)) in again]
+                if dropped:
+                    log.info("intercom: %d room(s) changed during the talk and were left out of the message",
+                             len(dropped))
+            fallback_names = sorted({r.name for r in failed})
+            if fallback_names:
+                await self._say(s, {"type": "fallback", "rooms": fallback_names})
+            outcome = D.Outcome([r for r in b.results if r.ok])
+            if retry:
+                token, link = self.links.mint(s.spool, mode="message", finite=True,
+                                              limit_s=C.limit_s(b.doc, "live"))
+                url = f"{b.doc['stream_base']}/s/{token}.wav"
+                b.run.add_url(url)
+                try:
+                    outcome.results += await D.announce(
+                        self.ma, b.run, retry, b.pids, url, chime=b.doc["chime"]["message"],
+                        timeout=C.limit_s(b.doc, "live") + D.CALL_GRACE, names=b.music.name_of)
+                finally:
+                    self.links.kill(link)
+            self._tell_listeners(b.doc, b.plan, s.spool, s)      # listener tablets: the whole talk, at its end
+            if b.lags:
+                lag = int(sorted(b.lags)[len(b.lags) // 2] * 1000)
+                await self._say(s, {"type": "lag_ms", "value": lag})
+            self._live_health(b)
+            base = D.result_of(outcome, len(b.plan.skipped), fallback=bool(fallback_names))
+            result = ("ok:max_length" if why == "max_length" and base == "ok" else base)
+            await self._say(s, {"type": "sent", "rooms": outcome.rooms_ok, "failed": outcome.failed,
+                                "fallback": fallback_names})
+            return result
+        finally:
+            b.run.close()
+            self.links.kill(b.link)
+            self._finish(b.aid, result)
+            if self.relay.floor is s:
+                self.relay.floor = None
+
+    async def live_abort(self, s: Any, result: str = "error:client_gone") -> None:
+        """The page's socket dropped mid-talk (or sent Cancel, or the socket ended any other way while Live was on):
+        the live stream stops and its run closes; the page sends its own copy as a Message."""
+        b: LiveBroadcast = s.broadcast
+        b.link.dead = True
+        self.links.kill(b.link)
+        if s.spool is not None:                # Cancel has already dropped it
+            s.spool.finish()
+        if b.task is not None:
+            b.task.cancel()
+            await asyncio.gather(b.task, return_exceptions=True)
+        if not b.run.open:                     # live_end or an earlier abort already wrote the row's result
+            return
+        b.run.close()
+        self._finish(b.aid, result)
+        if self.relay.floor is s:
+            self.relay.floor = None
+
+    def _live_health(self, b: "LiveBroadcast") -> None:
+        """Each live room's result (never about content); three failures in a row make it Message-only."""
+        rooms: dict[str, bool] = {}
+        for r in b.results:
+            if r.error in ("fetch_ended_early", "cancelled"):
+                continue               # the talker's page stalled or the talk was stopped: not the room's failure
+            rooms[r.room] = rooms.get(r.room, True) and r.ok
+        if not rooms:
+            return
+        try:
+            doc = self.doc()
+            before = {r for r in rooms if C.room(doc, r).get("demoted")}
+            for room, ok in rooms.items():
+                doc = C.live_result(doc, room, ok)
+            demoted = sorted(r for r in rooms if C.room(doc, r).get("demoted") and r not in before)
+            if demoted:
+                from .. import audit
+                audit.config(None, None, "intercom.live.demoted", {"rooms": demoted}, app=self.app,
+                             reason="three_live_failures")
+            from ..settings_store.docs import Actor
+            self.save(doc, Actor(label="intercom"))      # the history's actions are set, restore, import
+            self.changed()
+        except Exception:  # noqa: BLE001 -- the broadcast is over either way
+            log.exception("intercom: Live health could not be saved")
+
+
+class LiveBroadcast:
+    """One Live broadcast's state while it runs."""
+
+    def __init__(self, plan: Any, pids: dict, music: Any, doc: dict, aid: int, run: Any, link: Any, url: str,
+                 t0: float) -> None:
+        self.plan, self.pids, self.music, self.doc, self.aid = plan, pids, music, doc, aid
+        self.run, self.link, self.url, self.t0 = run, link, url, t0
+        self.task: asyncio.Task | None = None
+        self.results: list[D.RoomResult] = []
+        self.failed: set[str] = set()
+        self.why: dict[str, str] = {}
+        self.lags: list[float] = []
+
+    # the relay treats ``broadcast`` as the plan (``rooms``, ``calls``) while Message's send is running
+    @property
+    def rooms(self) -> list:
+        return self.plan.rooms
+
+
+def _public(rows: list[dict]) -> list[dict]:
+    return [{k: r.get(k) for k in ("room", "name", "state", "why", "reason", "live")} for r in rows]

@@ -32,6 +32,7 @@ from aiohttp import web
 from . import apns, app_crypto
 from . import user_data as UD
 from .app_auth import app_route
+from .guards import WHY_APP, open_route
 from .sessions import error, ok
 
 ENTITY = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
@@ -101,6 +102,7 @@ def _art(eid: str, attrs: dict) -> str | None:
     return None
 
 
+@open_route("app_dpop", reads="view", why=WHY_APP, stream="bounded:one picture, 20 MB at most (camera_still.MAX_BYTES)")
 @app_route
 async def art(request: web.Request) -> web.StreamResponse:
     """A player's artwork for the Live Activity and widgets: ``view`` on the player decides (media_art.py)."""
@@ -118,6 +120,7 @@ async def art(request: web.Request) -> web.StreamResponse:
                                           not_found="no_artwork")
 
 
+@open_route("app_dpop", reads="view", why=WHY_APP)
 @app_route
 async def summary(request: web.Request) -> web.Response:
     data: UD.UserData = request.app["user_data"]
@@ -134,11 +137,13 @@ async def summary(request: web.Request) -> web.Response:
                "commands": request.app.get("gateway") is not None, "at": request.app["clock"]()})
 
 
+@open_route("app_dpop", reads="self", why=WHY_APP)
 @app_route
 async def get_favorites(request: web.Request) -> web.Response:
     return ok({"favorites": request.app["user_data"].get(_subject(request), FAVORITES_KEY) or []})
 
 
+@open_route("app_dpop", why=WHY_APP)
 @app_route
 async def put_favorites(request: web.Request) -> web.Response:
     try:
@@ -155,6 +160,7 @@ async def put_favorites(request: web.Request) -> web.Response:
     return ok({"favorites": favs})
 
 
+@open_route("app_dpop", reads="view", why=WHY_APP)
 @app_route
 async def entities(request: web.Request) -> web.Response:
     hub = request.app["hub"]
@@ -173,6 +179,7 @@ async def entities(request: web.Request) -> web.Response:
     return ok({"entities": out})
 
 
+@open_route("app_dpop", why=WHY_APP)
 @app_route
 async def command(request: web.Request) -> web.Response:
     gw = request.app.get("gateway")
@@ -208,6 +215,7 @@ async def command(request: web.Request) -> web.Response:
     return ok({"result": got.get("result"), "audit_id": got.get("audit_id")})
 
 
+@open_route("app_dpop", reads="view", why=WHY_APP)
 @app_route
 async def snapshot(request: web.Request) -> web.Response:
     """A notification's snapshot for the Notification Service Extension: notify_snaps.py's rule (a camera the
@@ -231,6 +239,7 @@ APNS_TOKEN = re.compile(r"^[0-9a-f]{64,200}$")
 RELAY_HANDLE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 
 
+@open_route("app_dpop", why=WHY_APP)
 @app_route
 async def push_register(request: web.Request) -> web.Response:
     """The app's APNs device token and its notification key (x963, base64url): a push target bound to this app's
@@ -240,6 +249,9 @@ async def push_register(request: web.Request) -> web.Response:
     except ValueError:
         return error(400, "invalid_json")
     token, handle, key, env = body.get("token"), body.get("handle"), body.get("key"), body.get("env", "production")
+    platform = body.get("platform", "ios")
+    if platform not in ("ios", "mac"):
+        return error(400, "invalid", message="platform: ios or mac")
     if isinstance(handle, str) and token is None:
         # through the push relay (apns.Relay): the handle the phone got from the relay for this house
         if not RELAY_HANDLE.match(handle):
@@ -267,7 +279,7 @@ async def push_register(request: web.Request) -> web.Response:
                                               "Turn them on again in the app.")
     cred = st.credential(ident.session_id)
     tid = request.app["pusher"].targets.add(ident.user.id, "apns", token, key, None, name=cred["name"],
-                                            app_id=ident.session_id, env=env)
+                                            app_id=ident.session_id, env=env, platform=platform)
     return ok({"id": tid}, status=201)
 
 

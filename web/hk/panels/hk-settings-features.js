@@ -210,6 +210,7 @@
     hk_music: [['Speakers', 'features/music/speakers', 'music rooms hk music speaker order'],
                ['Speaker Pairs', 'features/music/speakers', 'music pair two homepods stereo left right one room'],
                ['Home Rooms', 'features/music/homes', 'music tablet user room home'],
+               ['Group Leaders', 'features/music/leaders', 'music leader sync group lead announcement room announce tts bedtime'],
                ['House Volume', 'page/music', 'music playlist volume'],
                ['Presets', 'features/music/presets', 'music sync group everywhere downstairs'],
                ['Playlists', 'features/music/playlists', 'music pills playlist chooser decades'],
@@ -272,11 +273,38 @@
     }
     c.appendChild(K.group({}, [K.info({ label: 'Loading…' })]));
   }
+  // A host whose features are its own (panel/get's `own`): Add and Remove here, saved in that host's feature
+  // settings (`<id>/feature/set`), the page's data read again after. In Home Assistant, the integration's Add feature.
+  function own(P, domain) {
+    var f = P && P.data && (P.data.features || {})[domain];
+    return !!(f && f.own);
+  }
+  function setFeature(P, domain, on) {
+    return P.ws({ type: domain + '/feature/set', enabled: on }).then(function (ok) {
+      if (!ok) return;
+      if (P.feats) delete P.feats[domain];
+      return P.reload().then(function () { P.render(true); });
+    });
+  }
   // not added yet: what it does and the way to add it
-  function notAdded(c, name, what, domain) {
+  function notAdded(c, name, what, domain, P) {
+    if (own(P, domain)) {
+      c.appendChild(K.group({ footer: what }, [
+        K.button({ label: 'Add ' + name, fk: 'feat:add:' + domain, onClick: function () { setFeature(P, domain, true); } })]));
+      return;
+    }
     c.appendChild(K.group({ footer: what }, [
       K.nav({ label: 'Add ' + name, sub: haPlace('Devices & Services → HK Frontend → Add feature'), href: addHref(domain),
               icon: 'mdi:plus-circle-outline', fk: 'feat:add:' + domain })]));
+  }
+  // added, on such a host: Remove, at the foot of the feature's own page (its settings are kept for Add again)
+  function removeRow(P, c, name, domain) {
+    if (!own(P, domain)) return;
+    c.appendChild(K.group({ footer: 'Takes ' + name + ' off every screen. Its settings are kept, for when you add it again.' }, [
+      K.button({ label: 'Remove ' + name, destructive: true, fk: 'feat:remove:' + domain, onClick: function () {
+        K.confirm(P.shadowRoot, { title: 'Remove ' + name + '?', message: 'It comes off every screen. Its settings are kept.',
+                                  destructive: true, ok: 'Remove' }).then(function (yes) { if (yes) setFeature(P, domain, false); });
+      } })]));
   }
   function openIn(c, name, domain, sub) {
     c.appendChild(K.group({}, [K.nav({ label: name, sub: sub || 'In ' + haPlace('Devices & Services'), href: integrationHref(domain),
@@ -517,18 +545,21 @@
   function musicTop(P, c) {
     var feats = P.data.features || {}, state = stateOf(feats, 'hk_music');
     if (state === 'missing') return;
-    if (state === 'not_added') { notAdded(c, (feats.hk_music || {}).name || 'Music', WHAT.hk_music, 'hk_music'); return; }
+    if (state === 'not_added') { notAdded(c, (feats.hk_music || {}).name || 'Music', WHAT.hk_music, 'hk_music', P); return; }
     var st = P.feat('hk_music');
     if (!st.data) { waiting(c, st, 'Music', 'hk_music'); return; }
     var d = st.data;
-    if (d.configured === false) { notAdded(c, 'Music', WHAT.hk_music, 'hk_music'); return; }
+    if (d.configured === false) { notAdded(c, 'Music', WHAT.hk_music, 'hk_music', P); return; }
     var homes = Object.keys(d.homes || {}).filter(function (u) { return (d.users || []).some(function (x) { return x.id === u; }); }).length;
     c.appendChild(K.group({ header: 'Speakers', footer: 'The rooms music plays in. A wall tablet’s signed-in user starts in its own home room.' }, [
       K.nav({ label: 'Speakers', value: String((d.speakers || []).length), href: '#/features/music/speakers', fk: 'music:speakers' }),
-      K.nav({ label: 'Home Rooms', value: homes ? homes + ' of ' + (d.users || []).length : 'None', href: '#/features/music/homes', fk: 'music:homes' }),
+      K.nav({ label: 'Home Rooms', value: homes ? homes + ' of ' + (d.users || []).length : 'None', href: '#/features/music/homes', fk: 'music:homes' })
+    ].concat(d.leaders ? [
+      K.nav({ label: 'Group Leaders', value: d.leaders.length ? speakerName(d, d.leaders[0]) + (d.leaders.length > 1 ? ' +' + (d.leaders.length - 1) : '') : 'Automatic',
+              href: '#/features/music/leaders', fk: 'music:leaders' })] : []).concat([
       K.slider({ label: 'House Volume', sub: 'Where a playlist starts, in every room it plays in.', sk: 'f:hk_music:volume',
                  value: Math.round((d.volume || 0) * 100), min: 0, max: 100, step: 5, unit: '%', fk: 'music:volume',
-                 onChange: function (v) { P.featSet('hk_music', { volume: v / 100 }); } })]));
+                 onChange: function (v) { P.featSet('hk_music', { volume: v / 100 }); } })])));
     c.appendChild(K.group({ header: 'Now Playing', footer: P.err('f:hk_music:ignore_announcements') ||
       'Applies to every screen. Recognized announcements stay out of Now Playing and the screensaver music view.' }, [
       K.toggle({ label: 'Ignore Announcements', sub: 'Keep spoken reminders out of the music displays',
@@ -544,6 +575,7 @@
       K.toggle({ label: 'Keep Playlists Ready', sub: 'Their songs fetched ahead, so they open and start at once', on: !!d.keep_ready,
                  sk: 'f:hk_music:keep_ready', fk: 'music:keep_ready',
                  onChange: function (on) { P.featSet('hk_music', { keep_ready: on }); } })]));
+    removeRow(P, c, 'Music', 'hk_music');
   }
   function keepReadyNote(d) {
     var what = 'Your playlists and the ones played this week, refreshed every 2½ hours: one at a time, ' +
@@ -609,6 +641,34 @@
             .then(function (ok) { if (ok) { delete st.forms['pair:' + room]; P.back('#/features/music/speakers'); } });
         });
     } })]));
+  }
+  // GROUP LEADERS (2026-11-02, hk_core MusicConfig.leader_of): rooms that
+  // play together play in step with one of them. Music Assistant plays an
+  // announcement to that room on the whole group, so the house says which
+  // rooms lead, and which rooms Home Assistant speaks to.
+  function musicLeaders(P, c, d) {
+    var lead = d.leaders || [], ann = d.announce_rooms || [], err = P.err('f:hk_music:leaders');
+    var row = function (x) { return { value: x.entity, label: x.name, sub: x.floor || null }; };
+    c.appendChild(K.listEditor({ fk: 'lead', minRows: 0, announce: P.announce.bind(P), shownHeader: 'Lead First',
+      moreHeader: 'Other Speakers', emptyText: 'None: the first room picked that isn’t an announcement room leads.',
+      shownFooter: (err ? err + ' ' : '') + 'When rooms play together, the first of these among them leads, and the others play in step with it. ' +
+                   'A room already playing music keeps leading when rooms join it.',
+      rows: lead.map(function (e) { return (d.speakers || []).filter(function (x) { return x.entity === e; })[0]; })
+        .filter(Boolean).map(row),
+      more: (d.speakers || []).filter(function (x) { return lead.indexOf(x.entity) < 0; }).map(row),
+      onChange: function (v) { P.featSet('hk_music', { leaders: v }, ['leaders']); } }));
+    var aerr = P.err('f:hk_music:announce_rooms');
+    c.appendChild(K.group({ header: 'Announcement Rooms', footer: (aerr ? aerr + ' ' : '') +
+        'Rooms Home Assistant speaks to, such as a bedtime reminder. Music Assistant plays an announcement to a group’s leader ' +
+        'in every room of the group, so these lead only when no other room can, and hand their music to the room that leads ' +
+        'when rooms join them.' },
+      (d.speakers || []).map(function (x) {
+        var on = ann.indexOf(x.entity) >= 0;
+        return K.check({ label: x.name, sub: x.floor || null, multi: true, on: on, fk: 'music:announce:' + x.entity, onClick: function () {
+          var v = on ? ann.filter(function (e) { return e !== x.entity; }) : ann.concat(x.entity);
+          P.featSet('hk_music', { announce_rooms: v }, ['announce_rooms']);
+        } });
+      })));
   }
   function musicHomes(P, c, d) {
     var opts = [['', 'No Home Room']].concat((d.speakers || []).map(function (x) { return [x.entity, x.name]; }));
@@ -1434,7 +1494,7 @@
       return mk('Battery', withData(function (c, d) { energyBattery(P, c, d, bk); }), ['Batteries', '#/features/energy/batteries']);
     }
     if (sub[0] === 'batteries') return mk('Batteries', withData(function (c, d) { energyBatteries(P, c, d); }), back);
-    return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { energyMain(P, c, d); }) };
+    return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { energyMain(P, c, d); removeRow(P, c, name, domain); }) };
   }
 
   // ---- NOTIFICATIONS (features/notifications): the list, each one, the
@@ -1848,7 +1908,7 @@
   function page(P, parts) {
     var t = byRoute(parts[0]);
     if (!t) return null;
-    if (t[0] === 'music' && ['speakers', 'pairs', 'homes', 'presets', 'playlists'].indexOf(parts[1]) < 0) return null;
+    if (t[0] === 'music' && ['speakers', 'pairs', 'homes', 'leaders', 'presets', 'playlists'].indexOf(parts[1]) < 0) return null;
     var route = t[0], domain = t[1], name = t[2], sub = parts.slice(1);
     var base = '#/features/' + route;
     var feats = P.data.features || {};
@@ -1858,13 +1918,13 @@
       return function (c) {
         var st = P.feat(domain);
         if (!st.data) { waiting(c, st, (feats[domain] || {}).name || name, domain); return; }
-        if (st.data.configured === false) { notAdded(c, (feats[domain] || {}).name || name, WHAT[domain], domain); return; }
+        if (st.data.configured === false) { notAdded(c, (feats[domain] || {}).name || name, WHAT[domain], domain, P); return; }
         fn(c, st.data);
       };
     };
     if (state !== 'added') {
       return { title: name, top: true, scope: SCOPE[domain], body: function (c) {
-        notAdded(c, (feats[domain] || {}).name || name, WHAT[domain], domain);
+        notAdded(c, (feats[domain] || {}).name || name, WHAT[domain], domain, P);
       } };
     }
     if (route === 'tv') {
@@ -1874,7 +1934,7 @@
         return mk(ch ? ch.name : num, withData(function (c, d) { tvChannel(P, c, d, num); }), ['Channels', base + '/channels']);
       }
       if (sub[0] === 'channels') return mk('Channels', withData(function (c, d) { tvChannels(P, c, d); }));
-      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { tvMain(P, c, d); }) };
+      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { tvMain(P, c, d); removeRow(P, c, name, domain); }) };
     }
     if (route === 'music') {
       var back = ['Music', base];
@@ -1886,6 +1946,7 @@
                   ['Speakers', base + '/speakers']);
       }
       if (sub[0] === 'homes') return mk('Home Rooms', withData(function (c, d) { musicHomes(P, c, d); }), back);
+      if (sub[0] === 'leaders') return mk('Group Leaders', withData(function (c, d) { musicLeaders(P, c, d); }), back);
       if (sub[0] === 'presets' && sub[1]) {
         var pid = decodeURIComponent(sub[1]);
         var pp = ((P.feat(domain).data || {}).presets || []).filter(function (x) { return x.id === pid; })[0];
@@ -1909,7 +1970,7 @@
       if (sub[0] === 'add') return mk('Add PIN', withData(function (c, d) { alarmAdd(P, c, d); }));
       if (sub[0] && sub[1] === 'pin') return mk('Change PIN', withData(function (c, d) { alarmPin(P, c, d, sub[0]); }));
       if (sub[0] && sub[1] === 'alarm') return mk('Protects', withData(function (c, d) { alarmPick(P, c, d, sub[0]); }));
-      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { alarmMain(P, c, d); }) };
+      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { alarmMain(P, c, d); removeRow(P, c, name, domain); }) };
     }
     if (route === 'energy') return energyPage(P, sub, mk, withData, name, domain);
     if (route === 'notify') {
@@ -1938,11 +1999,11 @@
         var nit = notifyItemOf(P.feat(domain).data, nid);
         return mk(nit ? notifyTitle(nit) : 'Notification', withData(function (c, d) { notifyItem(P, c, d, nid); }), nback);
       }
-      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { notifyMain(P, c, d); }) };
+      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { notifyMain(P, c, d); removeRow(P, c, name, domain); }) };
     }
     if (route === 'clean') {
       if (sub[0] === 'rooms') return mk('Rooms', withData(function (c, d) { cleanRooms(P, c, d); }));
-      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { cleanMain(P, c, d); }) };
+      return { title: name, top: true, scope: SCOPE[domain], body: withData(function (c, d) { cleanMain(P, c, d); removeRow(P, c, name, domain); }) };
     }
     return null;
   }
@@ -1963,9 +2024,79 @@
     hk_notify: 'Notifications isn’t added yet. It shows a banner at the top of your screens when an accessory does something — a door opens, someone arrives, a camera sees a person — with a camera’s snapshot.'
   };
 
+  // ADVANCED -> FEATURES: every feature on one page, a switch each, what it
+  // needs, and the page that holds its settings. The same switch as the
+  // feature page's Add and Remove (`<id>/feature/set`). A host whose
+  // features are Home Assistant's (HK Frontend) lists them with the way to
+  // add one there instead.
+  var NEEDS = {
+    hk_music: 'Needs Music Assistant', hk_tv: 'Needs an HDHomeRun tuner', hk_alarm_pin: 'Needs an alarm panel',
+    hk_clean_areas: 'Needs a vacuum with room maps', hk_energy: 'Needs Home Assistant’s Energy settings, or devices that report power',
+    hk_notify: 'Needs nothing more: you choose what it tells'
+  };
+  var SETTINGS_AT = { hk_music: '#/page/music', hk_tv: '#/page/live_tv', hk_alarm_pin: '#/page/security',
+                      hk_clean_areas: '#/page/vacuums', hk_energy: '#/page/energy', hk_notify: '#/features/notify' };
+  // FEATURES ON BY DEFAULT (a host whose features are its own): under a feature the host turned on by itself,
+  // when and why, in place of what it needs; under one that's off but near, what's still missing
+  function hostName() {
+    try { return PN() || 'the host'; } catch (e) { return 'the host'; }
+  }
+  function shortDate(at) {
+    var d = new Date(at);
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  function featureSub(f, d) {
+    if (f && f.auto && f.auto.why) {
+      var when = shortDate(f.auto.at);
+      return 'Turned on by ' + hostName() + (when ? ' on ' + when : '') + ': ' + f.auto.why;
+    }
+    if (f && f.note) return f.note;
+    return NEEDS[d];
+  }
+  // the switch, only where the host holds the features itself (panel/get's `features_auto`, with its save type)
+  function autoGroup(P, c) {
+    var a = P.data.features_auto;
+    if (!a || typeof a.enabled !== 'boolean' || typeof a.save !== 'string') return;
+    c.appendChild(K.group({ footer: 'When the house has what a feature needs — Music Assistant connected, a vacuum with room maps, Home Assistant’s Energy settings, a tuner that answers — ' + hostName() + ' turns it on once and tells you. A feature you turn off stays off.' }, [
+      K.toggle({ label: 'Turn Features On Automatically', icon: 'mdi:auto-fix', on: a.enabled, fk: 'features:auto',
+                 onChange: function (v) {
+                   return P.ws({ type: a.save, enabled: v }).then(function (ok) {
+                     if (!ok) return;
+                     return P.reload().then(function () { P.render(true); });
+                   });
+                 } })]));
+  }
+  function featureList(P, c) {
+    var feats = P.data.features || {};
+    var rows = LIST.filter(function (x) { return stateOf(feats, x[1]) !== 'missing'; });
+    if (!rows.length) { c.appendChild(K.group({ footer: 'No features are reported yet. They show once Home Assistant is connected.' }, [])); return; }
+    var mine = rows.some(function (x) { return own(P, x[1]); });
+    if (mine) autoGroup(P, c);
+    c.appendChild(K.group({ footer: mine
+        ? 'On: the feature’s page and its settings come to every screen. Off: it leaves every screen, and its settings are kept for turning it on again. Each feature’s own page has the same switch.'
+        : 'Each feature is added in ' + haPlace('Devices & Services → HK Frontend → Add feature') + '.' },
+      rows.map(function (x) {
+        var d = x[1], on = stateOf(feats, d) === 'added', name = (feats[d] || {}).name || x[2];
+        if (!own(P, d)) {
+          return K.nav({ label: name, sub: NEEDS[d], value: on ? 'Added' : 'Not Added', icon: x[3], href: on ? SETTINGS_AT[d] : addHref(d), fk: 'features:' + d });
+        }
+        return K.toggle({ label: name, sub: featureSub(feats[d], d), icon: x[3], on: on, fk: 'features:switch:' + d,
+                          onChange: function (v) { setFeature(P, d, v); } });
+      })));
+    var on = rows.filter(function (x) { return stateOf(feats, x[1]) === 'added'; });
+    if (on.length) c.appendChild(K.group({ header: 'Settings' }, on.map(function (x) {
+      return K.nav({ label: (feats[x[1]] || {}).name || x[2], icon: x[3], href: SETTINGS_AT[x[1]], fk: 'features:open:' + x[1] });
+    })));
+  }
+  function featuresOn(features) {
+    var rows = listed(features).filter(function (x) { return stateOf(features, x[1]) !== 'missing'; });
+    return { on: rows.filter(function (x) { return stateOf(features, x[1]) === 'added'; }).length, of: rows.length };
+  }
+
   root.hkSettingsFeatures = {
     LIST: LIST, listed: listed, stateOf: stateOf, page: page, use: use, addHref: addHref, search: search, musicTop: musicTop,
     integrationHref: integrationHref, SCOPE: SCOPE, WHAT: WHAT, dndRows: dndRows, dndSummary: dndSummary,
+    featureList: featureList, featuresOn: featuresOn, featureSub: featureSub, NEEDS: NEEDS, SETTINGS_AT: SETTINGS_AT,
     _: { tvLists: tvLists, tvCount: tvCount, speakerLists: speakerLists, speakerName: speakerName, pairNote: pairNote, pairChoices: pairChoices, pairsAfter: pairsAfter, playlistSub: playlistSub, vacuumSub: vacuumSub, vacuumsAfter: vacuumsAfter,
          roomLists: roomLists, roomCount: roomCount, energyFound: energyFound, sectionsAfter: sectionsAfter,
          batteriesStored: batteriesStored, stayLabel: stayLabel, notifySummary: notifySummary, whenControl: whenControl,

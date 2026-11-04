@@ -25,6 +25,7 @@
 //   hk-header.js      the header builders, painted first.
 //
 // Before adding a module here, check it has nothing to do before first render.
+// @ts-check
 (function () {
   'use strict';
 
@@ -98,6 +99,8 @@
                  // sideways swipe on the page; reads the tab bar's list
                  // and the drag classifier when one comes
                  'hk-pageswipe.js'];
+  // (The Intercom's microphone and socket Worker, hk-mic.js, is not here: the
+  // Intercom sheet imports it as it opens, so no other page pays for it.)
 
   // NO GRID-LAYOUT PATCH MODULE. An inline box containing block content makes
   // every section creep 6px per tap in Safari; hk-grid-card and hk-grid-view
@@ -193,6 +196,13 @@
     })(cfg, 0);
     return Promise.all(asked);
   };
+  // THE INTERCOM'S ADDRESS. `#intercom` opens the Intercom sheet on any page (the apps' menu button sets it, whatever page is
+  // open), but the Intercom's code (cards/hk-intercom.js) is a lazy file that a page without the block does not have. This
+  // is the whole of the Intercom a page carries: when the hash says so, import the file; it opens the sheet itself (its
+  // own hash route runs as it loads) and, once it is here, this does nothing.
+  function intercomHash() {
+    try { if (location.hash === '#intercom' && !window.hkIntercom) needFile('hk-intercom.js'); } catch (e) { /* never in the way */ }
+  }
   hkNeed.arm = function (lazy) {
     if (LAZY || !CE || !CE.whenDefined) return;
     LAZY = {};
@@ -200,6 +210,10 @@
       FILES[file] = true;
       (lazy[file] || []).forEach(function (tag) { LAZY[tag] = file; });
     });
+    if (FILES['hk-intercom.js']) {
+      ['hashchange', 'popstate'].forEach(function (ev) { window.addEventListener(ev, intercomHash); });
+      intercomHash();
+    }
     var original = CE.whenDefined;
     whenDefined = function (tag) { return original.call(CE, tag); };
     CE.whenDefined = function (tag) {

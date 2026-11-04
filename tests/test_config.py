@@ -99,3 +99,27 @@ async def test_host_middleware_follows_the_configured_names():
         assert (await c.get("/", headers={"Host": "evil.example"})).status == 403
         assert (await c.get("/", headers={"Host": "mantel.example.com", "Origin": "https://evil.example"})).status == 403
         assert (await c.get("/", headers={"Host": "mantel.example.com", "Origin": "https://mantel.example.com"})).status == 200
+
+
+def test_stream_port_is_off_by_default_and_a_plain_port_when_given():
+    """The Intercom's listener for Music Assistant (phase 17): 0 = never started; the packaging passes 8767 (HA App 8101)."""
+    assert config.Config().stream_port == 0
+    assert config.parse_args([]).stream_port == 0
+    assert config.parse_args(["--stream-port", "8767"]).stream_port == 8767
+    assert config.parse_args(["--stream-port", "65535"]).stream_port == 65535
+
+
+def test_stream_port_must_be_a_real_port_that_nothing_else_uses():
+    app = ["--ingress", "--listen", "0.0.0.0", "--public-url", "https://mantel.example.com/", "--allow-host", "*"]
+    for bad in (["--stream-port", "-1"], ["--stream-port", "65536"], ["--stream-port", "x"],
+                ["--stream-port", "8765"],                                              # the default --port
+                ["--port", "9000", "--stream-port", "9000"],
+                app + ["--direct-port", "8100", "--stream-port", "8100"],
+                ["--connect", "--stream-port", "8766"],                                 # Mantel Connect's listener
+                ["--connect", "--connect-port", "9100", "--stream-port", "9100"]):
+        with pytest.raises(SystemExit):
+            config.parse_args(bad)
+    # a port that is not in use (Connect off, so 8766 is free) is fine, alongside direct access and Connect
+    assert config.parse_args(["--stream-port", "8766"]).stream_port == 8766
+    assert config.parse_args(app + ["--direct-port", "8100", "--stream-port", "8101"]).stream_port == 8101
+    assert config.parse_args(["--connect", "--stream-port", "8767"]).stream_port == 8767

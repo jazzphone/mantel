@@ -13,6 +13,15 @@ see, and how to turn each one off.
 | [Web browser](#in-a-web-browser) | Your Mantel → the browser's push service → the browser | Only the browser |
 | [Companion app](#home-assistants-companion-app) | Your Mantel → Mantel Link → Home Assistant → the Companion app's push service | As with any Home Assistant notification |
 
+Mantel's own **system alerts** (Home Assistant disconnected, a backup failed,
+a new version) are a separate thing, set up in **Mantel Settings → Alerts**.
+They can also come to the Mantel app and to browsers, for Owners and Admins who
+turn on **System Alerts** in **Me**: see [Alerts](Alerts.md).
+
+The [Timeline](Timeline.md)'s **Morning Summary** (a summary of the night,
+built for what you may see) also comes to the Mantel app and to browsers, for
+people who turn it on in **Me**. It's off by default.
+
 **Who gets a notification**, whichever way: the people it is for (everyone,
 or only those it names), and only if they may see the accessory it is about.
 Their role is checked with Mantel's away rules, since a phone may be
@@ -204,4 +213,6 @@ without the Mantel app, through [Mantel Link](Mantel-Link.md).
 Mantel sends the title and the message; **Dismiss** on the phone takes the
 banner down on every screen. These notifications use Home Assistant's own
 notification service and the Companion app's push service, as any Home
-Assistant notification does. Mantel does not seal them.
+Assistant notification does. Mantel does not seal them. System alerts reach these phones too, but not
+**Home Assistant Disconnected** or **Mantel Link Not Answering**, which would
+have to go through the thing that is down ([Alerts](Alerts.md#the-mantel-apps)).

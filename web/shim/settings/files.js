@@ -1,4 +1,5 @@
 // settings/files.js -- Mantel Settings, Your Files: the font and icon set, and Photos (mantel-photos.js) with the toolkit it draws with.
+// @ts-check
 import { mantelUrl } from '../base.js';
 import * as photos from '../mantel-photos.js';
 import { act, api, ask, can, csrfNow, forget, hh, K, kb, load, panel, redraw, refreshMe, ROUTE, ui } from './core.js';

@@ -22,6 +22,7 @@ The stack publishes these ports on the host:
 |---|---|
 | `443` | Browsers and tablets, through Caddy (change it with `MANTEL_HTTPS_PORT`) |
 | `8555` TCP and UDP | Live TV's video (WebRTC) to your screens |
+| `8767` | The Intercom's listener for Music Assistant (plain HTTP, one-time links only, closed until the Intercom is on; keep it on your home network, or bind it with `MANTEL_STREAM_BIND`) |
 | `8765` | Only with your own reverse proxy, for the proxy to reach Mantel |
 | `8766` | Only with [Mantel Connect](Mantel-Connect.md) |
 
@@ -221,9 +222,12 @@ location / {
     proxy_set_header X-Ingress-Path "";
     proxy_read_timeout 1h;
     proxy_buffering off;
-    client_max_body_size 12m;
+    proxy_request_buffering off;
+    client_max_body_size 4g;
 }
 ```
+
+`client_max_body_size 4g` lets a backup with your photos through when you restore it (**Mantel Settings** → **Backups**, or **First start** on a new Mantel); Mantel limits every other upload itself. With a smaller limit a large backup never reaches Mantel, and the page says so.
 
 Then give the proxy host an **Access List** that allows only your home's networks, or run a proxy the internet can't reach. Don't add a Content-Security-Policy in the proxy: Mantel sets its own.
 

@@ -4,11 +4,11 @@ Everything Mantel knows lives in its data folder: people, roles and grants, wall
 
 ## The two keys
 
-Mantel seals some values in its database with the **at-rest key** (`at_rest.key`): authenticator app secrets, device keys and the saved connections. With Docker or the LXC, the backups are encrypted with a separate **backup key** (`backup.key`). The two are kept apart on purpose, so a stolen backup can't be opened with what sits on the server alone, and the other way round.
+Mantel seals some values in its database with the **at-rest key** (`at_rest.key`): authenticator app secrets, device keys, the saved connections and the secrets of your [alert channels](Alerts.md). With Docker or the LXC, the backups are encrypted with a separate **backup key** (`backup.key`). The two are kept apart on purpose, so a stolen backup can't be opened with what sits on the server alone, and the other way round.
 
 | Key | Without it |
 |---|---|
-| `at_rest.key` | A restored database loses every authenticator app and the saved connections: people set up their authenticator again, and you connect Home Assistant again. |
+| `at_rest.key` | A restored database loses every authenticator app and the saved connections: people set up their authenticator again, you connect Home Assistant again, and you enter each alert channel's secret again. |
 | `backup.key` | A backup can't be opened at all. |
 
 **Keep a copy of both somewhere that is not the Mantel machine**, for example in your password manager. **Mantel Settings** → **Backups** → **Save Keys…** saves both as one small file, `mantel-keys.json` (the Owner only, after **Confirm It Is You**; the audit log records it). With Docker or the LXC they are also in `/etc/hk/secrets`. A backup can be restored only with the `backup.key` it was made with.
@@ -21,7 +21,9 @@ Mantel seals some values in its database with the **at-rest key** (`at_rest.key`
 - **Saved Backups** lists them, newest first, each with **Download** and **Delete**. A downloaded backup is still encrypted: it needs the backup key to open.
 - **Save Keys…** saves the backup key and the at-rest key as `mantel-keys.json`. Keep it apart from the backups.
 - **Restore From a Backup…** uploads a `.mbk` file and checks it first: it is opened, its database checked and brought up to this version of Mantel, without changing anything. You see when it was made and what it holds. **Restore and Restart…** then puts it in place: Mantel restarts, puts the backup in place before it opens its database, and starts again. Screens and wall tablets reconnect by themselves. What was there before is moved aside in the data folder (`*.before-restore-<time>`), never deleted, and the result is in the audit log and at the top of the page.
-- **Restore From Another Mantel…** does the same with a backup made elsewhere: choose that Mantel's keys file first, then the backup. Its at-rest key replaces this Mantel's (the old one is kept aside), so the restored authenticator codes and connections keep working. With Docker or the LXC, Mantel can't change its own keys (they are read-only in `/etc/hk/secrets`), so it refuses here: restore another Mantel's backup on the machine instead, with `restore.sh` ([below](#restore-with-docker-or-the-lxc)).
+- **Restore From Another Mantel…** does the same with a backup made elsewhere: choose that Mantel's keys file first, then the backup. Its at-rest key replaces this Mantel's (the old one is kept aside), so the restored authenticator codes and connections keep working. With Docker or the LXC, where Mantel can't change its own keys (they are read-only in `/etc/hk/secrets`), it keeps them, and seals the backup's secrets again with its own key instead: the authenticator apps, alarm codes, alert channels and saved connections all keep working there too.
+
+**On a new Mantel**, you don't have to create an Owner first: the sign-in page's **First start** has **Restore From a Backup**. Enter the setup code from Mantel's log, choose the backup and, for another Mantel's backup (the Home Assistant App's, say), its keys file, then **Restore and Restart**. Mantel checks the backup before anything changes, restarts with it, and its people sign in as before.
 
 With no backup folder set (the Home Assistant App, or Docker before you give it one), **Back Up Now** writes to a `backups` folder in Mantel's data and nothing runs at night. The App leaves that folder out of Home Assistant's backups, which already hold everything in it.
 
@@ -61,6 +63,8 @@ If there is no backup from the last 25 hours, Mantel makes one a minute after it
 
 The folder **must exist**: if your NAS isn't mounted, the backup fails with `target_missing` instead of quietly filling the local disk.
 
+**Hear about it when a backup fails.** Mantel can send an alert when a backup fails, when there is no good one in 48 hours, or when the backup folder is missing or read-only, to Discord, Telegram, email and more: see [Alerts](Alerts.md). **Backup Finished** is there too, off until you turn it on for a channel.
+
 ### What a backup holds
 
 One file per backup, named `mantel-YYYYmmdd-HHMMSS.mbk` (the time in UTC), encrypted with `backup.key`:
@@ -70,8 +74,10 @@ One file per backup, named `mantel-YYYYmmdd-HHMMSS.mbk` (the time in UTC), encry
 | The database | A consistent snapshot, safe to make while Mantel runs, checked before it is packed. It holds Mantel Settings' **General** too, but a restore never turns **Allow Control of the House** on by itself: if it was on in the backup, it is off after the restore (Mantel says so), until an Owner turns it on in General |
 | Your files and Mantel Photos | Apple's font and glyphs you uploaded, and the screensavers' photos |
 | The saved connections | Home Assistant's and Music Assistant's, still sealed with `at_rest.key` |
+| The alert channels | **Mantel Settings** → **Alerts**: each channel with its events and quiet hours, its secret still sealed with `at_rest.key` ([Alerts](Alerts.md)) |
 | [Mantel Connect](Mantel-Connect.md)'s certificates | Its own certificate authority and keys, so a paired Connect App keeps working after a restore |
 | The keys Mantel makes | The push key and the apps' identity key (`keys/`), so browsers keep their notifications and the iPhone and Mac apps their pairing after a restore |
+| The [Timeline](Timeline.md)'s pictures | Only with **Include Timeline Pictures** on (Settings → Backups; off by default). The Timeline's rows are in the database, so they are always in a backup; a restored row whose picture wasn't backed up says "Picture not kept" |
 
 Not inside: the secret files in `/etc/hk/secrets` (keep your own copy of the two keys), `.env`, and Caddy's certificates (Caddy gets new ones).
 
@@ -110,6 +116,8 @@ It checks the key, every part of the file, and that this version of Mantel can o
 ### Restore with Docker or the LXC
 
 Mantel restores into its data volume only after it has decrypted and checked the whole backup. If any check fails, nothing changes.
+
+**In the browser.** **Restore From a Backup** in Mantel Settings, or at First start on a new Mantel ([above](#in-mantel-settings)), works here too, another Mantel's backup included.
 
 **With `restore.sh`.** As root, in `packaging/compose`:
 

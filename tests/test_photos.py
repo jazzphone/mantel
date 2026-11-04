@@ -579,6 +579,19 @@ async def worst_gap_during(coro) -> float:
     return worst[0]
 
 
+async def least_gap(make, tries: int = 3, under: float = 0.02) -> float:
+    """The smallest of up to `tries` worst gaps (worst_gap_during) while ``make()`` ran, stopping at the first under
+    `under`. A busy machine (tools/ci.py's browser checks beside the suite, 2026-11-02: 26 ms) stalls the loop now and
+    then, never the same way three times; work that holds the GIL (the 0.3-0.75 s encodes these guard against)
+    stalls it every time."""
+    gaps = []
+    for _ in range(tries):
+        gaps.append(await worst_gap_during(make()))
+        if gaps[-1] < under:
+            break
+    return min(gaps)
+
+
 async def test_a_large_photo_upload_does_not_freeze_every_other_client(mantel):
     """MED-1 (audit, second pass): ``process`` ran in a worker thread, yet the event loop (every client's state
     stream) stood still 0.3 s for a 24 MP picture and 0.75 s for 48 MP: Pillow's JPEG encode with ``optimize=True``
@@ -591,7 +604,7 @@ async def test_a_large_photo_upload_does_not_freeze_every_other_client(mantel):
     aid = lib.create_album("Big")["id"]
     await lib.add(aid, picture(size=(64, 64)), "warm.jpg")   # the worker's start (and ONNX Runtime's) is not measured
     data = noisy_jpeg(30)
-    gap = await worst_gap_during(lib.add(aid, data, "big.jpg"))
+    gap = await least_gap(lambda: lib.add(aid, data, "big.jpg"))
     assert imaging.state()["mode"] == "process"
     big = next(p for p in lib.photos(aid) if p["name"] == "big.jpg")
     with Image.open(lib.path(big["id"], "original")) as im:
@@ -726,7 +739,7 @@ async def test_cancelling_an_add_while_its_files_are_written_leaves_none_behind(
 
     monkeypatch.setattr(lib, "_write_files", slow_write)
     task = asyncio.get_running_loop().create_task(lib.add(aid, picture(), "x.jpg"))
-    assert await asyncio.to_thread(first.wait, 5)
+    assert await asyncio.to_thread(first.wait, 15)        # a busy machine starts the thread late
     task.cancel()
     await asyncio.sleep(0.05)
     assert not task.done()                                   # it waits for the thread; it does not clean up under it

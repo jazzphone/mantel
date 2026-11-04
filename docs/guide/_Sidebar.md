@@ -18,15 +18,19 @@
 * [Home Grid](Home-Grid.md)
 * [Screensaver](Screensaver.md)
 * [Music and Cameras](Music-and-Cameras.md)
+* [Intercom](Intercom.md)
 * [Photos](Photos.md)
 * [iPhone, iPad and Mac Apps](iPhone-and-Mac-Apps.md)
 * [Push Notifications](Push-Notifications.md)
+* [Timeline](Timeline.md)
 * [The screens (HK Frontend's wiki)](https://github.com/jazzphone/hk-frontend/wiki)
 
 **Settings**
 * [People and Roles](People-and-Roles.md)
 * [Signing In](Signing-In.md)
 * [Commands and Audit](Commands-and-Audit.md)
+* [Features](Features.md)
+* [Alerts](Alerts.md)
 * [Assistants (MCP)](Assistants.md)
 * [HK Settings (HK Frontend's wiki)](https://github.com/jazzphone/hk-frontend/wiki/HK-Settings)
 

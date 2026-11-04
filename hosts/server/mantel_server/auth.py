@@ -21,7 +21,7 @@ from urllib.parse import quote, unquote, urlparse
 from aiohttp import web
 
 from . import sessions
-from .guards import guard
+from .guards import WHY_SIGN_IN, guard, open_route
 from .ha_oauth import HaOAuth, OAuthError
 from .login_page import DEFAULT_NEXT, HA_START, login_url, safe_next
 from .store import Store
@@ -33,28 +33,25 @@ STATE_COOKIE = "mantel_oauth_state"
 NEXT_COOKIE = "mantel_login_next"        # where to land after HA sign-in; cleaned again at the callback
 STATE_TTL = 600
 PUBLIC_PATHS = {HA_START, "/auth/callback", "/logout"}
-# What a read-only screen preview (mcp/preview.py) may fetch: an ALLOW-list of what a screen's page draws itself from
-# (its page, Mantel's and HK's files, the registry and fixtures it loads, the pictures and stills a card shows) and
-# nothing else. It was a list of what a preview never opens, and every route added since (Sessions, People, Faces,
-# Alarm PINs, Set Up, Push targets, passkeys, phones...) was open to it: a preview made by a key with only `screens`
-# read what the Owner's own session reads (third audit pass, SRV-2). A new route is closed to previews until it is
-# listed here, and tests/test_mcp.py's route walk fails until it is.
-PREVIEW_PATHS = frozenset({
-    "/", "/home", "/ws", "/api/session", "/api/me", "/api/registry", "/api/fixtures", "/api/hk-cards", "/api/services",
-    "/api/photos/screens", "/api/media/art", "/sw.js", "/manifest.webmanifest", "/apple-touch-icon.png"})
-PREVIEW_PREFIXES = ("/hk/", "/web/", "/static/mdi/", "/app/art/", "/api/camera/", "/api/media/", "/api/person/",
-                    "/api/image/serve/", "/api/notify/snap/")
-PREVIEW_PATTERNS = (
-    re.compile(r"^/api/photo/[^/]+$"),                                          # a photo a card shows
-    re.compile(r"^/api/photos/albums/[0-9a-f]{16}/show$"),                       # a screen's album
-    re.compile(r"^/api/photos/[0-9a-f]{32}/(?:screen|mid|thumb)$"),              # its pictures (never the original)
-    re.compile(r"^/[^/]+/home$"),                                               # the page itself, and its other views
-    re.compile(r"^/[A-Za-z0-9_]+-[A-Za-z0-9_-]*/[A-Za-z0-9_-]+$"))
+# What a read-only screen preview (mcp/preview.py) may fetch: what a screen's page draws itself from (its page, Mantel's
+# and HK's files, the registry and fixtures it loads, the pictures and stills a card shows) and nothing else. It was a
+# list of what a preview never opens, and every route added since was open to it (third audit pass, SRV-2); then an
+# allow-list of paths here. Since phase 18 it is the route's own declaration, `preview=` on its @guard or @open_route
+# (route_table.py): a route is closed to previews unless it says otherwise, and docs/development/Routes.md lists them.
 
 
-def preview_allows(path: str) -> bool:
-    """Whether a read-only screen preview may GET ``path`` (``PREVIEW_PATHS`` and its kin)."""
-    return path in PREVIEW_PATHS or path.startswith(PREVIEW_PREFIXES) or any(p.match(path) for p in PREVIEW_PATTERNS)
+def preview_allows(request: web.Request) -> bool:
+    """Whether a read-only screen preview may GET what ``request`` asks for: its route declares ``preview``, and a
+    ``"<parameter>=<regex>"`` declaration takes only the values that regex matches whole."""
+    from .guards import policy_of
+    route = getattr(request.match_info, "route", None)
+    policy = policy_of(getattr(route, "handler", None)) if route is not None else None
+    if policy is None or not policy.preview:
+        return False
+    if isinstance(policy.preview, str):
+        name, regex = policy.preview.split("=", 1)
+        return re.fullmatch(regex, request.match_info.get(name, "")) is not None
+    return True
 
 
 # Signed out, these pages (and any GET that asks for a document) are sent to /login, with ?next= to
@@ -141,9 +138,9 @@ async def require_session(request: web.Request, handler):
         if request.method == "GET" and (request.path in PAGE_PATHS or _wants_document(request)):
             raise web.HTTPFound(login_url(request.path_qs if request.path != "/" else None))
         raise web.HTTPUnauthorized(text="sign in at /login")
-    if request.path in ("/ws", "/ws/talk") and request.headers.get("Origin") is None:
+    if request.path in ("/ws", "/ws/talk", "/ws/intercom") and request.headers.get("Origin") is None:
         raise web.HTTPForbidden(text="Origin required")  # browsers always send it; the loopback middleware checks its value
-    if ident.read_only and (request.method not in sessions.SAFE_METHODS or not preview_allows(request.path)):
+    if ident.read_only and (request.method not in sessions.SAFE_METHODS or not preview_allows(request)):
         # a screen preview an assistant opened (mcp/preview.py): it looks at screens, and nothing else
         raise web.HTTPForbidden(text='{"error":"read_only"}', content_type="application/json")
     if request.method not in sessions.SAFE_METHODS and request.path.startswith("/api/"):
@@ -165,6 +162,7 @@ def _wants_document(request: web.Request) -> bool:
 
 
 # -- handlers ---------------------------------------------------------------------------------------
+@open_route("sign_in", why=WHY_SIGN_IN)
 async def login_ha(request: web.Request) -> web.StreamResponse:
     """Start Sign in with Home Assistant (OAuth): HA's authorize page, with a signed state cookie."""
     oauth: HaOAuth = request.app["oauth"]
@@ -213,6 +211,7 @@ def _ha_via(request: web.Request) -> str:
     return via if via and via in allowed and via.startswith(("https://", "http://")) else ""
 
 
+@open_route("sign_in", why=WHY_SIGN_IN)
 async def callback(request: web.Request) -> web.StreamResponse:
     app = request.app
     oauth: HaOAuth = app["oauth"]
@@ -252,8 +251,12 @@ async def callback(request: web.Request) -> web.StreamResponse:
                 log.warning("could not revoke the user's refresh token: %s", exc)
     except (OAuthError, Exception) as exc:
         log.warning("sign-in failed: %s", exc)
-        return done(page("Sign-in failed", "<p>Home Assistant could not confirm who you are. "
-                         "<a href='/login'>Try again</a>.</p>", 502))
+        # Home Assistant's own reason when it gave one ("User cannot authenticate remotely", "User is not active"):
+        # without it the page said only that HA could not confirm who you are (the owner's LXC, 2026-11-02)
+        why = getattr(exc, "why", "")
+        said = f" Home Assistant says: <b>{html.escape(why)}</b>." if why else ""
+        return done(page("Sign-in failed", "<p>Home Assistant could not confirm who you are." + said +
+                         " <a href='/login'>Try again</a>.</p>", 502))
     link = store.get_link(user["id"])
     if link is None:
         log.info("sign-in refused: HA user %s is not linked", user["id"])
@@ -276,6 +279,7 @@ async def callback(request: web.Request) -> web.StreamResponse:
     return done(resp)
 
 
+@open_route("sign_in", why=WHY_SIGN_IN)
 async def logout(request: web.Request) -> web.StreamResponse:
     if request.method != "POST":
         raise web.HTTPMethodNotAllowed(request.method, ["POST"])
@@ -284,7 +288,7 @@ async def logout(request: web.Request) -> web.StreamResponse:
     return resp
 
 
-@guard("signed_in")
+@guard("signed_in", reads="self", preview=True)
 async def me(request: web.Request) -> web.Response:
     from .frame_origins import ha_address
     u = request["user"]

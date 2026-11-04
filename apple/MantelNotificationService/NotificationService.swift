@@ -19,8 +19,12 @@ final class NotificationService: UNNotificationServiceExtension {
         }
         best.title = opened.title
         best.body = opened.body ?? ""
-        if let tag = opened.tag { best.threadIdentifier = tag }
-        best.interruptionLevel = opened.important == true ? .timeSensitive : .active
+        if let thread = opened.thread { best.threadIdentifier = thread }
+        switch opened.interruption {    // a system alert by its level (docs/phase14/SYSTEM-ALERTS.md)
+        case .passive: best.interruptionLevel = .passive
+        case .active: best.interruptionLevel = .active
+        case .timeSensitive: best.interruptionLevel = .timeSensitive
+        }
         best.userInfo["mantel_opened"] = true
         if let url = opened.url { best.userInfo["mantel_url"] = url }
         if let entity = opened.entity { best.userInfo["mantel_entity"] = entity }

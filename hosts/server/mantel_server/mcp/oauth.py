@@ -45,6 +45,7 @@ from aiohttp import web
 
 from .. import audit, sessions
 from ..accounts import STEP_UP_WINDOW, is_fresh_to_add_factor
+from ..guards import WHY_MCP_OAUTH, open_route
 from ..login_page import login_url
 from .grants import DEFAULT_SCOPES, MANAGERS, SCOPES, GrantError, clean_scopes
 
@@ -89,6 +90,7 @@ def _off(request: web.Request) -> bool:
 
 
 # -- metadata -----------------------------------------------------------------------------------------------------
+@open_route("oauth", why=WHY_MCP_OAUTH)
 async def protected_resource(request: web.Request) -> web.Response:
     from .protocol import resource_url
     return _json({"resource": resource_url(request), "authorization_servers": [issuer(request)],
@@ -96,6 +98,7 @@ async def protected_resource(request: web.Request) -> web.Response:
                   "resource_name": "Mantel"})
 
 
+@open_route("oauth", why=WHY_MCP_OAUTH)
 async def authorization_server(request: web.Request) -> web.Response:
     base = issuer(request)
     return _json({"issuer": base, "authorization_endpoint": base + AUTHORIZE, "token_endpoint": base + TOKEN,
@@ -138,6 +141,7 @@ class Registrations:
         return True
 
 
+@open_route("oauth", why=WHY_MCP_OAUTH)
 async def register_client(request: web.Request) -> web.Response:
     app = request.app
     if _off(request):
@@ -259,6 +263,7 @@ def _sign_in_again(ident, p: dict, why: str) -> web.Response:
     return _page("Sign In Again", body, 403)
 
 
+@open_route("oauth", why=WHY_MCP_OAUTH)
 async def authorize_page(request: web.Request) -> web.StreamResponse:
     p, answer = _params(request, request.query)
     if answer is not None:
@@ -309,6 +314,7 @@ async def authorize_page(request: web.Request) -> web.StreamResponse:
     return resp
 
 
+@open_route("oauth", why=WHY_MCP_OAUTH)
 async def authorize_post(request: web.Request) -> web.StreamResponse:
     form = await request.post()
     p, answer = _params(request, form)
@@ -374,6 +380,7 @@ def _tokens(issued: sessions.Issued, grant, now: float) -> dict:
             "scope": " ".join(sorted(grant.scopes, key=SCOPES.index))}
 
 
+@open_route("oauth", why=WHY_MCP_OAUTH)
 async def token(request: web.Request) -> web.Response:
     app = request.app
     if _off(request):
@@ -439,6 +446,7 @@ async def token(request: web.Request) -> web.Response:
     return _oauth_error("unsupported_grant_type", "authorization_code or refresh_token")
 
 
+@open_route("oauth", why=WHY_MCP_OAUTH)
 async def revoke(request: web.Request) -> web.Response:
     """RFC 7009: always 200, whatever the token was."""
     app = request.app

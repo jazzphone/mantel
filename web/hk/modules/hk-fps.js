@@ -28,6 +28,7 @@
 // the ladder uses a number only while the screen's settings still read as
 // its sig; the next sample, up to an hour later, says what the change did.
 // Numbers and names only.
+// @ts-check
 (function () {
   'use strict';
   if (window.hkFps) return;           // hk-loader may import this more than once

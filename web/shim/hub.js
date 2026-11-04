@@ -39,6 +39,7 @@ export class Hub {
     this.ws = null;
     this.nextId = 1;
     this.pending = new Map();      // id -> {resolve, reject, cb, command}
+    this.intercoms = new Map();    // id -> cb(event, error): the Intercom feed (intercomSubscribe), asked for again by _resume
     this.capabilities = null;      // the server's {commands, door}, when it sends one
     this.wanted = null;            // the last subscribe frame, sent again on each new socket
     this.retry = RETRY_MIN;
@@ -66,6 +67,7 @@ export class Hub {
         this.connected = true;
         this.retry = RETRY_MIN;
         if (again) { this.reconnects++; this._resume(); }
+        else for (const id of this.intercoms.keys()) this._send({ type: 'intercom/subscribe', id });     // (asked for before the socket was open)
         resolve();
       };
       ws.onerror = () => reject(new Error('hub connection failed'));
@@ -121,13 +123,23 @@ export class Hub {
         } else if (m.type === 'command_result' || m.type === 'step_up_required') {
           const p = this.pending.get(m.id);
           if (p && p.command) { this.pending.delete(m.id); p.resolve(m); }
+        } else if (m.type === 'intercom_result' || m.type === 'intercom_event') {
+          // the Intercom feed (intercom/subscribe): the answer (null, or {error}), then the whole snapshot on every change
+          const cb = this.intercoms.get(m.id);
+          if (!cb) return;
+          try {
+            if (m.type === 'intercom_event') cb(m.event, null);
+            else if (m.error) cb(null, m.error);
+          } catch (e) { console.error('[hub]', e); }
         } else if (m.type === 'pong') {
           const waiting = this.pings || [];
           this.pings = [];
           for (const done of waiting) done();
         } else if (m.type === 'error') {
+          const feed = m.id != null ? this.intercoms.get(m.id) : null;
           const p = m.id != null ? this.pending.get(m.id) : null;
-          if (p && p.command) { this.pending.delete(m.id); p.resolve({ type: 'command_result', error: { code: m.code, message: m.message } }); }
+          if (feed) { try { feed(null, { code: m.code, message: m.message }); } catch (e) { console.error('[hub]', e); } }
+          else if (p && p.command) { this.pending.delete(m.id); p.resolve({ type: 'command_result', error: { code: m.code, message: m.message } }); }
           else console.warn('[hub]', m.code, m.message || '');
         }
       };
@@ -158,6 +170,7 @@ export class Hub {
     for (const [id, p] of this.pending) {
       if (p.cb && p.msg) this._send({ type: 'read_subscribe', id, msg: p.msg });
     }
+    for (const id of this.intercoms.keys()) this._send({ type: 'intercom/subscribe', id });
   }
 
   _open() { return !!this.ws && this.ws.readyState === 1; }
@@ -274,6 +287,20 @@ export class Hub {
   // live talk's own socket (talk_relay.py), at the page's prefix like /ws; the card's Worker opens it
   // with a one-time ticket from a gateway `talk_live` command (mantel-client.js liveSocket)
   talkUrl() { return wsUrl('/ws/talk'); }
+
+  // the Intercom's audio socket (intercom/relay.py), at the page's prefix like /ws; hk-mic.js's Worker opens it with a
+  // one-time ticket from a gateway `intercom` command (mantel-client.js actions.intercom)
+  intercomUrl() { return wsUrl('/ws/intercom'); }
+
+  // THE INTERCOM FEED (docs/phase17/INTERCOM.md): the rooms this person may reach and how each would play, whole on
+  // every change -- `cb(snapshot, null)`; a server that refuses or lacks the feed answers `cb(null, {code})`. Kept
+  // until the returned function lets go, and asked for again on each new socket (_resume).
+  intercomSubscribe(cb) {
+    const id = this.nextId++;
+    this.intercoms.set(id, cb);
+    this._send({ type: 'intercom/subscribe', id });
+    return () => { if (this.intercoms.delete(id)) this._send({ type: 'intercom/unsubscribe', id }); };
+  }
 
   // true only after this socket's server said so (capabilities); never assumed
   commandsEnabled() { return !!(this.capabilities && this.capabilities.commands === true); }

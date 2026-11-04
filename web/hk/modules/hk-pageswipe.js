@@ -22,7 +22,8 @@
 // swipe_pages, else All Screens' menu.swipe_pages) -- Automatic is on where a
 // tab bar shows, or where the screen has its Pages screen (`pages_screen`);
 // On, everywhere; Off. Never in Edit mode (HK's or Home Assistant's), with a
-// detail sheet, a pop-up (an address #hash), the menu or the bar's More open,
+// detail sheet, a pop-up that covers the page (an address #hash; not the
+// docked bar, hkPopup.docked), the menu or the bar's More open,
 // or while the screensaver or the black screen shows; never off the page
 // itself (HK Settings, the editor's preview, the bar, a sheet).
 //
@@ -38,8 +39,9 @@
 // THE NUMBERS are the grid's views': it starts past START px sideways at
 // RATIO times the vertical (hkDrag.classify), from there, so the page doesn't
 // jump by what the finger went first; it lands past TURN of the width, or on a
-// flick over FLICK px/ms that way (a flick back goes back, however far it had
-// gone); past the first and the last page it gives GIVE of the travel.
+// flick over FLICK px/ms that way (the last 100 ms of its moves, none if it
+// rested before it lifted: hkDrag.speed; a flick back goes back, however far it
+// had gone); past the first and the last page it gives GIVE of the travel.
 // Reduce Motion (or Flat's motion off): nothing follows the finger, the two
 // pages cross-fade (`fade`, .2 s) and the highlight jumps.
 //
@@ -62,9 +64,12 @@
 // page it left is already its neighbor. Only for a page not ready yet (the
 // first moment after a load, a host with no view host) does ghost() stand in:
 // its title, on the page's ground, replaced in place when the real one is.
+// Beside the page a neighbor wears `hk-swipe-peek` (its pop-ups wait for it to
+// land, hk-popup.js), and `hk-swipe-landed` says when it has.
 //
 // FOLLOWED BY POINTER EVENTS, captured only for a mouse (a touch is the
-// target's own until it ends: WebKit kept a captured touch, hk-menu.js); the
+// target's own until it ends: WebKit kept a captured touch, hk-menu.js -- and
+// heard on that element too, should a card draw it away mid-swipe); the
 // page says touch-action pan-y while the swipe is on here, so a sideways drag
 // comes here and an up-and-down one stays the browser's scroll.
 (function () {
@@ -72,7 +77,7 @@
   if (window.hkPageSwipe) return;
 
   var EDGE = 24, START = 10, RATIO = 1.4, TURN = 0.2, FLICK = 0.5, FLICK_MIN = 30, GIVE = 1 / 3;
-  var EAT_MS = 350, LAND_WAIT = 5000, SLOW_FPS = 45;
+  var EAT_MS = 350, LAND_WAIT = 5000, SLOW_FPS = 45, REST = 60;
   // a settle ended by its timer, if the browser says nothing, this long after
   var SETTLE_SPARE = 250;
   // a finger that comes down on a page more than ADVANCE of the way home: the landing is done with, it holds the new page
@@ -126,7 +131,7 @@
   // does it land, how fast did it go, and where does it go from there: the one set of rules (hk-drag.js)
   function D() { return window.hkDrag; }
   function lands(dx, width, v) { return D().lands(dx, width, v, { turn: TURN, flick: FLICK, min: FLICK_MIN }); }
-  function speed(pts) { return D().speed(pts); }
+  function speed(pts, up) { return D().speed(pts, up); }
   // the view's address on its dashboard: '/dashboard-hall/lights' -> 'lights'
   function viewSeg(path) { return String(path || '').split(/[?#]/)[0].split('/')[2] || ''; }
 
@@ -187,7 +192,10 @@
     var M = menu(), p = null;
     try { p = M && M.panel ? M.panel() : null; } catch (e) { p = null; }
     if (p && p.lovelace && p.lovelace.editMode) return 'edit';
-    if (location.hash && location.hash.length > 1) return 'popup';
+    // (a pop-up that covers the page; the docked bar -- Now Playing, the timers -- covers nothing, and the page swipes
+    // on under it: 2026-11-02, the owner, the bar up on the Calendar and every swipe refused, turning its months)
+    var PU = window.hkPopup;
+    if (location.hash && location.hash.length > 1 && !(PU && typeof PU.docked === 'function' && PU.docked(location.hash))) return 'popup';
     var D = window.hkDetail, ds = null;
     try { ds = D && D._ && D._.state ? D._.state() : null; } catch (e) { ds = null; }
     if (ds && ds.el && !ds.closing) return 'sheet';
@@ -354,6 +362,8 @@
     }
     var N = { item: item, dir: dir, real: !!p, el: p ? p.el : ghost(item), ground: null };
     N.saved = save(N.el);
+    // (beside the page, not it: its pop-ups wait for it to land -- hk-popup.js peeking)
+    N.el.setAttribute('hk-swipe-peek', '');
     if (N.real) {
       var H = host();
       if (H && H.hold) H.hold(N.el, true);
@@ -367,6 +377,7 @@
   }
   function drop(N) {
     if (!N) return;
+    N.el.removeAttribute('hk-swipe-peek');
     unground(N.ground);
     N.ground = null;
     if (N.real) {
@@ -527,6 +538,22 @@
     if (H && H.busy) H.busy(false);
   }
 
+  // THE FINGER'S OWN ELEMENT, DRAWN AWAY: a card that draws itself again under a finger (the Calendar, as the Now
+  // Playing bar rose and the page made room) takes the touch's target out of the page -- and a finger's events go on
+  // to that element, out of the document, never reaching ours: the swipe was lost (2026-11-02, the first swipe on the
+  // Calendar, in WebKit). So they are heard on it too, and taken from there once it is gone
+  var heldTarget = null;
+  function onLost(e) {
+    if (!G || e.pointerId !== G.id || (e.target && e.target.isConnected !== false)) return;
+    if (e.type === 'pointermove') onMove(e); else onUp(e);
+  }
+  function holdTarget(t) {
+    if (heldTarget === t) return;
+    if (heldTarget) ['pointermove', 'pointerup', 'pointercancel'].forEach(function (k) { heldTarget.removeEventListener(k, onLost); });
+    heldTarget = t && typeof t.addEventListener === 'function' ? t : null;
+    if (heldTarget) ['pointermove', 'pointerup', 'pointercancel'].forEach(function (k) { heldTarget.addEventListener(k, onLost); });
+  }
+
   function onDown(e) {
     if (G && G.live) { if (e.pointerId !== G.id) settle(null, G.stage.x, 0); return; }      // a second finger: let it go
     if (A) {
@@ -536,6 +563,7 @@
     }
     if (G && G.stage && G.stage.hot) cool(G.stage);
     G = null;
+    holdTarget(null);
     why = L ? 'landing' : (e.pointerType === 'mouse' && e.button !== 0) || e.isPrimary === false ? 'button' : blocked();
     if (why) return;
     var view = pageNow();
@@ -561,6 +589,7 @@
     st.at = nb.at;
     G = { id: e.pointerId, type: e.pointerType, x0: e.clientX, y0: e.clientY, stage: st, target: path[0] || null,
           grid: grid, live: false, calm: reduced(), pts: [[t, e.clientX]], dx: 0 };
+    if (e.pointerType !== 'mouse') holdTarget(path[0]);
     measure(st);
   }
 
@@ -576,13 +605,17 @@
       if (k === 'scroll') { letGo(); return; }
       begin(e, dx);
     }
-    G.pts.push([e.timeStamp || Date.now(), e.clientX]);
-    if (G.pts.length > 30) G.pts.splice(0, G.pts.length - 30);
+    // (each move the tablet coalesced into this one: the flick's speed from all of them)
+    var all = null;
+    try { all = e.getCoalescedEvents ? e.getCoalescedEvents() : null; } catch (x) { all = null; }
+    (all && all.length ? all : [e]).forEach(function (m) { G.pts.push([m.timeStamp || e.timeStamp || Date.now(), m.clientX]); });
+    if (G.pts.length > 40) G.pts.splice(0, G.pts.length - 40);
     follow(e.clientX);
   }
   function letGo() {
     if (G && G.stage && G.stage.hot) cool(G.stage);
     G = null;
+    holdTarget(null);
   }
 
   // THE PAGE SWIPE BEGINS: the finger is START px away by now, and the page starts from here rather than jumping that
@@ -655,8 +688,10 @@
   function onUp(e) {
     if (!G || e.pointerId !== G.id || G.cancelling) return;
     if (!G.live) { letGo(); return; }
-    G.pts.push([e.timeStamp || Date.now(), e.clientX]);
-    var st = G.stage, dx = e.clientX - G.x0 + (G.from || 0), v = speed(G.pts);
+    // (the lift a sample only where it moved past the last move)
+    var t = e.timeStamp || Date.now(), lastPt = G.pts[G.pts.length - 1];
+    if (!lastPt || e.clientX !== lastPt[1]) G.pts.push([t, e.clientX]);
+    var st = G.stage, dx = e.clientX - G.x0 + (G.from || 0), v = speed(G.pts, t);
     var raw = G.calm ? dx : st.x;
     // A FINGER THAT CAUGHT A SETTLE AND LET GO WITHOUT GOING ANYWHERE, or the browser took it: on to where it was going
     if (G.caught && (e.type !== 'pointerup' || Math.abs(e.clientX - G.x0) < 3)) {
@@ -673,6 +708,7 @@
   function settle(to, x, v) {
     var g = G, st = g ? g.stage : ST;
     G = null;
+    holdTarget(null);
     if (!st) return;
     var H = host();
     if (H && H.busy) H.busy(false);
@@ -830,8 +866,10 @@
     // (kept in the slot until the host has shown it: it stays where it is, and its cards go on)
     if (H && H.hold) { H.hold(old, true); H.hold(N.el, false, true); }
     offAttrs(old);
+    old.setAttribute('hk-swipe-peek', '');
     old.style.removeProperty('opacity');
     onAttrs(N.el);
+    N.el.removeAttribute('hk-swipe-peek');
     restore(N.el, N.saved);
     var next = ST = { view: N.el, nb: {}, x: left || 0, rect: st.rect, top: st.top, base: '', origin: '', saved: null,
                       items: st.items, at: st.at + dir, spare: (st.spare || []).concat(other ? [other] : []), here: null };
@@ -850,7 +888,12 @@
     } else {
       back.el.style.removeProperty('will-change');
     }
+    landed(N.el);
     planSoon(0);
+  }
+  // (the page it landed on is the page now: what waited for that -- hk-popup.js -- looks again)
+  function landed(el) {
+    try { window.dispatchEvent(new CustomEvent('hk-swipe-landed', { detail: { el: el || null } })); } catch (e) { /* none */ }
   }
 
   // A PAGE NOT READY: the host builds it now, the stand-in on the screen until it is in
@@ -880,6 +923,7 @@
         if (faded) fadeIn(el);
       }
       setTimeout(arm, 0);
+      landed(el);
       planSoon();
     };
     if (H && H.onView) {
@@ -916,6 +960,7 @@
       delete st.nb[k];
       unground(N.ground);
       onAttrs(el);
+      el.removeAttribute('hk-swipe-peek');
       restore(el, N.saved);
       var H = host();
       if (H && H.hold) H.hold(el, false);
@@ -928,6 +973,7 @@
     ST = null;
     planGen++;
     setTimeout(arm, 0);
+    landed(el);
     planSoon();
   }
   var heard = null;
@@ -1004,7 +1050,7 @@
     _: { enabled: enabled, order: order, neighbors: neighbors, atEdge: atEdge, travel: travel, lands: lands, speed: speed,
          viewSeg: viewSeg, ghost: ghost, slow: slow,
          NUMBERS: { EDGE: EDGE, START: START, RATIO: RATIO, TURN: TURN, FLICK: FLICK, FLICK_MIN: FLICK_MIN, GIVE: GIVE,
-                    STANDARD_MS: STANDARD_MS, FADE_MS: FADE_MS, SLOW_FPS: SLOW_FPS },
+                    STANDARD_MS: STANDARD_MS, FADE_MS: FADE_MS, SLOW_FPS: SLOW_FPS, REST: REST },
          state: function () { return { G: G, L: L, A: A, ST: ST, why: why }; } }
   };
   if (typeof document !== 'undefined' && document.addEventListener) start();

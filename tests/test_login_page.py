@@ -517,3 +517,46 @@ def test_js_knows_a_frame_of_another_site():
     assert out == [False, False, True, True, "ha-main-window", "https://mantel.example", "https://ha.example:8123",
                    "", "", "", "", "login/ha?next=/x&via=https%3A%2F%2Fha.example%3A8123",
                    "login/ha?via=https%3A%2F%2Fh.example"]
+
+
+@pytest.mark.skipif(NODE is None, reason="node is not installed")
+def test_js_first_start_restore_sends_the_setup_code_first():
+    """First start's Restore From a Backup posts one multipart form, the setup code first (the server checks it
+    before it reads the upload), and shows what the server says when the backup doesn't check out."""
+    out = node_module("""
+      const sent = [];
+      const answers = [[200, { ok: true, restarting: true, created: '2026-11-02' }],
+                       [400, { ok: false, error: 'wrong_at_rest_key', message: 'Fictional reason.' }],
+                       [400, { ok: false, error: 'wrong_key' }]];
+      const fetchImpl = async (url, init) => {
+        sent.push([url, init.method, [...init.body.keys()], init.headers['Content-Type'] || null]);
+        const [status, data] = answers.shift();
+        return { status, json: async () => data };
+      };
+      const flow = m.signIn({ fetchImpl });
+      const file = new Blob(['x']), keys = new Blob(['{}']);
+      out.push((await flow.restore('CODE', file, keys)).kind);
+      out.push((await flow.restore('CODE', file, null)).message);
+      out.push((await flow.restore('CODE', file, null)).message);
+      out.push((await flow.restore('', file, null)).code, (await flow.restore('CODE', null, null)).code);
+      out.push(sent);
+    """)
+    assert out[0] == "done" and out[1] == "Fictional reason." and "keys file" in out[2]
+    assert out[3:5] == ["bootstrap_token_invalid", "no_file"]
+    assert [s[:3] for s in out[5]] == [["/api/bootstrap/restore", "POST", ["token", "file", "keys"]],
+                                       ["/api/bootstrap/restore", "POST", ["token", "file"]],
+                                       ["/api/bootstrap/restore", "POST", ["token", "file"]]]
+    assert all(s[3] is None for s in out[5]), "the browser sets the multipart boundary itself"
+
+
+@pytest.mark.skipif(NODE is None, reason="node is not installed")
+def test_js_first_start_restore_says_where_a_refused_upload_stopped():
+    """The owner's 280 MB backup never reached Mantel through Nginx Proxy Manager: the page says to raise the proxy's
+    upload limit (or restore at the address), and counts what a restored backup holds."""
+    out = node_module("""
+      out.push(m.messageFor(413, null, 'restore'), m.messageFor(0, null, 'restore'));
+      out.push(m.holdsText({ people: 8, screens: 10, tablets: 1, photos: 241 }));
+    """)
+    assert "too large" in out[0] and "client_max_body_size 4g;" in out[0]
+    assert "didn\u2019t reach Mantel" in out[1] and "too large" not in out[1]
+    assert out[2] == "8 people, 10 screens, 1 wall tablet, 241 photos"

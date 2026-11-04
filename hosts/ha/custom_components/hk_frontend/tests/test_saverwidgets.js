@@ -8,6 +8,8 @@ load(HK_ROOT + '/frontend/modules/hk-header.js');
 load(HK_ROOT + '/frontend/cards/hk-weather.js');
 load(HK_ROOT + '/frontend/modules/hk-saverlayout.js');
 load(HK_ROOT + '/frontend/modules/hk-saverwidgets.js');
+// (the glance groups' files: every piece the catalog lists is drawn by the renderer or one of them, phase 1b)
+window.hkSaverLayout.FILES.forEach(function (f) { load(HK_ROOT + '/frontend/modules/hk-saverpieces-' + f + '.js'); });
 var pass = 0, fail = 0;
 function ok(name, got, want) {
   var g = JSON.stringify(got), w = JSON.stringify(want);
@@ -68,10 +70,14 @@ function words(h) { return h.replace(/<[^>]*>/g, '|').split('|').filter(function
 
 print('=== what this file draws ===');
 var CATALOG = WL.CATALOG;
-var mine = Object.keys(CATALOG).filter(function (id) { return ['circular', 'rectangular', 'inline'].indexOf(CATALOG[id][0]) >= 0 || id === 'readings'; });
-ok('every circular, rectangular and inline widget of the layout\'s catalog, and the readings, and no card', SW.IDS.slice().sort(), mine.slice().sort());
-ok('...each of the kind the catalog says', SW.IDS.filter(function (id) { return SW.kind(id) !== CATALOG[id][0]; }), []);
-ok('...the cards and the forecast band are someone else\'s', [SW.has('clock_card'), SW.has('forecast_band'), SW.create('music_card', { u: 8 })], [false, false, null]);
+// (v2, phase 13: the catalog is pieces in shapes, `piece.shape`; the renderer draws every one, cards and bands too)
+var drawn = [];
+Object.keys(SW.PIECES).forEach(function (p) { Object.keys(SW.PIECES[p].shapes).forEach(function (sh) { drawn.push(p + '.' + sh); }); });
+ok('every piece in every shape of the layout\'s catalog is one the renderer draws, and no other', drawn.slice().sort(), Object.keys(CATALOG).sort());
+ok('...each in the shape the catalog says', Object.keys(CATALOG).filter(function (id) { return id.split('.')[1] !== CATALOG[id][0]; }), []);
+ok('...and the first layouts\' widgets still draw (v1 ids)', SW.IDS.filter(function (id) { var c = SW.create(id, { u: 8 }); if (c) c.destroy(); return !c; }), []);
+// (phase 13: the cards and the forecast band are pieces too, in their Card and Band shapes -- the renderer's, never HK's cards)
+ok('...the cards and the forecast band are pieces now, drawn here', [SW.has('time', 'card'), SW.has('weather', 'band'), (function () { var c = SW.create('music_card', { u: 8 }); if (c) c.destroy(); return !!c && c.piece === 'music' && c.shape === 'card'; })()], [true, true, true]);
 
 print('=== every widget draws, in a full house and an empty one ===');
 var full = client(), empty = { states: {}, config: {} };
@@ -141,7 +147,8 @@ ok('...one under way is now, until; tomorrow\'s says so; nothing is a dash', [
    words(html('next_event', client(), NOW, { u: 8 }, { events: [Object.assign({}, EVENT, { start: new Date(2026, 10, 2, 9, 15), end: new Date(2026, 10, 2, 10, 0) })] })),
    words(html('next_event', client(), NOW, { u: 8 }, { events: [] }))],
    ['Now · until 4:30 PM Piano Lesson Family', 'Up Next · Tomorrow, 9:15 AM Piano Lesson Family', 'Up Next —']);
-ok('...an all-day event waits for a timed one', words(html('next_event', client(), NOW, { u: 8 }, { events: [{ title: 'Trash Day', cal: 'calendar.family', allDay: true, start: new Date(2026, 10, 1), end: new Date(2026, 10, 2) }, EVENT] })), 'Up Next · 3:30 PM Piano Lesson Family');
+// (the rectangle shows the next two now: an all-day event still waits for a timed one, second)
+ok('...an all-day event waits for a timed one', words(html('next_event', client(), NOW, { u: 8 }, { events: [{ title: 'Trash Day', cal: 'calendar.family', allDay: true, start: new Date(2026, 10, 1), end: new Date(2026, 10, 2) }, EVENT] })), 'Piano Lesson 3:30 PM · Family Trash Day All Day · Family');
 ok('Home Status: the alarm, and what is wrong', words(html('home_status')), 'Home Disarmed 1 Lock Unlocked');
 SETTINGS['security.alarm'] = 'alarm_control_panel.house';
 var armed = client({ 'alarm_control_panel.house': { state: 'armed_away', attributes: {} }, 'lock.garage_entry': { state: 'locked', attributes: {} } });
@@ -313,14 +320,15 @@ ok('a bad u is the default; the box reaches the element as --u', [m('aqi', 0).w,
 
 print('=== backdrops and colors ===');
 var cls = function (o) { return SW.create('aqi', Object.assign({ u: 8 }, o)).el.className; };
-ok('the default: none, the caller\'s tint', cls({}), 'hksw k-circular w-aqi b-none c-auto');
+ok('the default: none, the screen\'s ink', cls({}), 'hksw k-circular p-readings w-aqi b-none c-auto');
+// (white is the screen's one ink now: v1's white reads as auto, 2026-11-02)
 ok('glass and white; tint and accent', [cls({ back: 'glass', color: 'white' }), cls({ back: 'tint', color: 'accent' })],
-   ['hksw k-circular w-aqi b-glass c-white', 'hksw k-circular w-aqi b-tint c-accent']);
-ok('...something else is the default', cls({ back: 'frosted', color: 'pink' }), 'hksw k-circular w-aqi b-none c-auto');
+   ['hksw k-circular p-readings w-aqi b-glass c-auto', 'hksw k-circular p-readings w-aqi b-tint c-accent']);
+ok('...something else is the default', cls({ back: 'frosted', color: 'pink' }), 'hksw k-circular p-readings w-aqi b-none c-auto');
 var CSS = SW.CSS;
 ok('the stylesheet: no backdrop-filter on a wall tablet; glass a static fill and a hairline', [/backdrop-filter/.test(CSS), /\.b-glass\{background:rgba\(255,255,255,\.16\);box-shadow:inset 0 0 0 1px/.test(CSS)], [false, true]);
 ok('...the tint mixes the color into a dark fill, with a plain one beneath for a browser without color-mix', /\.b-tint\{background:rgba\(0,0,0,\.38\);background:color-mix\(in srgb,var\(--sw-ink\) 20%,rgba\(0,0,0,\.38\)\)\}/.test(CSS), true);
-ok('...auto is the caller\'s --tint, white white, accent --hk-accent', [/\.c-auto\{--sw-ink:var\(--tint,#fff\)\}/.test(CSS), /\.c-white\{--sw-ink:#fff\}/.test(CSS), /\.c-accent\{--sw-ink:var\(--hk-accent,#ffb38a\)\}/.test(CSS)], [true, true, true]);
+ok('...auto is the screen\'s one ink (else the caller\'s --tint), accent --hk-accent', [/\.c-auto\{--sw-ink:var\(--lay-ink,var\(--tint,#fff\)\)\}/.test(CSS), /\.c-accent\{--sw-ink:var\(--hk-accent,#ffb38a\)\}/.test(CSS)], [true, true]);
 ok('...everything is sized in --u: 13 u for a circle, 29 by 13 for a rectangle, 3.6 u for a line, 10 u for the band',
    [/k-circular\{width:calc\(var\(--u\) \* 13\);height:calc\(var\(--u\) \* 13\)/, /k-rectangular\{width:calc\(var\(--u\) \* 29\);height:calc\(var\(--u\) \* 13\)/,
     /k-inline\{[^}]*height:calc\(var\(--u\) \* 3\.6\)/, /k-band\{width:100%;height:calc\(var\(--u\) \* 10\)/].map(function (re) { return re.test(CSS); }), [true, true, true, true]);

@@ -39,6 +39,12 @@ its re-authentication / Repairs issue), and the retries slow down: 30 s, doublin
 to 10 minutes, until one connection gets through. The credential is never
 logged.
 
+MANTEL'S OWN CERTIFICATE, PINNED (2026-11-02): with `ca` (Mantel's CA certificate, handed over by pairing protocol
+v3, Mantel Link's pairing.py), the link reaches Mantel by its address on the network, at Mantel Connect's listener
+(https://<address>:8766), and accepts only a certificate Mantel's CA issued, for that listener's fixed name
+(LINK_SERVER_NAME). No public certificate, name, DNS or proxy is involved. Without `ca`, as before: a public
+certificate for the address's name (or plain ws:// inside this machine).
+
 No Home Assistant import here (aiohttp only), so it is tested on its own.
 """
 from __future__ import annotations
@@ -50,6 +56,7 @@ import json
 import logging
 import re
 import socket
+import ssl
 from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
@@ -65,6 +72,7 @@ HELLO_TIMEOUT = 10.0      # the first frame after connecting
 BACKOFF = (1.0, 30.0)
 AUTH_BACKOFF = (30.0, 600.0)   # between tries while the credential is refused (a revoked one is not coming back)
 MAX_MSG = 4 << 20
+LINK_SERVER_NAME = "mantel-connect"   # the name in Mantel Connect's listener certificate (connect_pairing.Pki)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -177,6 +185,18 @@ async def plain_target(address: str, resolver: Resolver | None = None) -> tuple[
     return None, list(addrs)
 
 
+def pinned_context(ca_pem: str) -> ssl.SSLContext:
+    """TLS that trusts Mantel's own CA and nothing else (the CA pairing handed over), checking the listener's name."""
+    ctx = ssl.create_default_context(cadata=ca_pem)      # cadata only: the system's authorities are not loaded
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    return ctx
+
+
+def pinned_tls(ca_pem: str | None) -> dict[str, Any]:
+    """aiohttp's keyword arguments for a pinned connection (none without a CA)."""
+    return {"ssl": pinned_context(ca_pem), "server_hostname": LINK_SERVER_NAME} if ca_pem else {}
+
+
 class ProtocolMismatch(LinkError):
     """Mantel answered with another protocol (it is older than this integration)."""
 
@@ -201,8 +221,12 @@ class MantelLink:
                  domain: str = DOMAIN, protocol: int = PROTOCOL, features: tuple[str, ...] = (),
                  frames: dict[str, Callable[[dict[str, Any]], Any]] | None = None,
                  on_auth_failed: Callable[[int], Any] | None = None,
-                 auth_backoff: tuple[float, float] | None = None) -> None:
+                 auth_backoff: tuple[float, float] | None = None, ca: str | None = None) -> None:
         self._session, self.url, self._token = session, ws_url(url), token
+        # Mantel's CA, pinned (pairing v3): wss:// only, and only a certificate it issued
+        if ca and urlsplit(self.url).scheme != "wss":
+            raise ValueError("a pinned CA needs an https:// address")
+        self._tls = pinned_tls(ca)
         # who is calling and how it speaks; `frames`: the server frame types
         # beyond protocol 1's this integration handles (each gets the frame)
         self.domain, self.protocol, self.features = domain, int(protocol), tuple(features)
@@ -306,8 +330,8 @@ class MantelLink:
             url = urlunsplit(("ws", f"{host}:{parts.port}" if parts.port else host, parts.path, "", ""))
             headers["Host"] = parts.netloc
         try:
-            async with self._session.ws_connect(url, headers=headers,
-                                                heartbeat=30, max_msg_size=MAX_MSG) as ws:
+            async with self._session.ws_connect(url, headers=headers, heartbeat=30, max_msg_size=MAX_MSG,
+                                                **self._tls) as ws:
                 opened.append(ws)
                 return await self._serve(ws)
         finally:

@@ -37,6 +37,7 @@ const deepJs = 'const deep=(r,s)=>[...r.querySelectorAll("*")].flatMap(e=>[...(e
         await page.setViewportSize({ width: w, height: hh });
         await page.goto(input.origin + '/' + input.screen + '/home');
         await page.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 });
+        await require('./grid_ready.cjs')(page);
         await page.waitForTimeout(2200);
         const wears = await page.evaluate(() => document.documentElement.getAttribute('data-hk-glass'));
         if (w === 1180) say(wears === input.glass[id], id + ': Home wears its look (' + input.glass[id] + ')', wears);
@@ -68,6 +69,7 @@ const deepJs = 'const deep=(r,s)=>[...r.querySelectorAll("*")].flatMap(e=>[...(e
         'home_grid' in saved.look_undo.was, 'Save writes the layout, the settings and an Undo that keeps the layout before', saved && { cell: saved.home_grid && saved.home_grid.cell, glass: saved.glass, undo: saved.look_undo && Object.keys(saved.look_undo.was) });
     await page.goto(input.origin + '/' + input.screen + '/home');
     await page.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 });
+    await require('./grid_ready.cjs')(page);
     await page.waitForTimeout(2500);
     if (input.shots) await page.screenshot({ path: input.shots + '/layout-look-homeview.png' });
     say(!errors.length, 'no page errors', errors.slice(0, 3));

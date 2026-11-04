@@ -134,7 +134,9 @@ def register(app: web.Application, token: Callable[[], str] | str | None = None)
         photos.stats["resolved"] += 1
         return {"url": photo_path(photos.add(path)), "mime_type": mime}
 
-    @guard("signed_in")          # any session; feature:media decides (may_feature)
+    # any session; feature:media decides (may_feature)
+    @guard("signed_in", reads="feature:media", preview=True,
+           stream="bounded:one picture, 20 MB at most (camera_still.MAX_BYTES)")
     async def serve(request: web.Request) -> web.StreamResponse:
         pid = request.match_info["photo_id"]
         nothing = camera_still._error(404, "not_found")

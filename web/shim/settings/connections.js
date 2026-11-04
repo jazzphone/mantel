@@ -1,4 +1,5 @@
 // settings/connections.js -- Mantel Settings, Connections: Home Assistant, Music Assistant, the push relay, HK's settings import.
+// @ts-check
 import { act, api, ask, can, fmt, forget, hh, K, load, me, redraw, ROUTE, shown, ui } from './core.js';
 import { button, clearDraft, draft, failed, field, group, info, nav, pending, result } from './kit.js';
 import { pConnect } from './connect.js';
@@ -6,6 +7,7 @@ import { reloadPanel } from './tablets.js';
 import { linkState, pHkFrontend, pLinkAdvanced, pMantelLink, pMoving } from './link.js';
 import { pProxy } from './proxy.js';
 import { drawHaAccess } from './general.js';
+import { pProtect, protectRow } from './protect.js';
 
 // ============================================================================================ Connections
 const SOURCE_LABEL = { app: 'Provided by Home Assistant (App)', mantel: 'Saved in Mantel', install: 'Set by the Installation' };
@@ -27,6 +29,7 @@ export function pConnections(sub) {
   if (sub[0] === 'ma-page') return pConnection('ma');                                           // its old address
   if (sub[0] === 'ha' || sub[0] === 'ma') return pConnection(sub[0]);
   if (sub[0] === 'proxy') return pProxy();
+  if (sub[0] === 'protect') return pProtect(sub.slice(1));
   if (sub[0] === 'push') return pPushRelay();
   return { title: 'Connections', top: true, scope: 'How Mantel reaches Home Assistant and Music Assistant, and how browsers and the app reach Mantel. Each connection is tested before it is saved. Tokens are kept sealed in Mantel’s data, never shown again and never leave the server; a change applies at once.', body(c) {
     result(c, 'connections');
@@ -42,7 +45,7 @@ export function pConnections(sub) {
       return nav(x.label, 'connections/' + kind, { value, sub: kind === 'ha' ? 'Its connection, and Mantel Link and HK Frontend in it' : 'Its connection, and the Browse Music page’s sign-in',
                                                    icon: kind === 'ha' ? 'mdi:home-assistant' : 'mdi:music' });
     };
-    c.appendChild(group({ footer: !can ? 'Only an Owner can change connections.' : got.data.needs_fresh ? 'From outside the home network you will be asked to confirm it is you first.' : null }, [row('ha'), row('ma')]));
+    c.appendChild(group({ footer: !can ? 'Only an Owner can change connections.' : got.data.needs_fresh ? 'From outside the home network you will be asked to confirm it is you first.' : null }, [row('ha'), row('ma'), protectRow()]));
     if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'How browsers reach Mantel, and how Mantel’s notifications reach the Mantel app on iPhone and iPad.' }, [
       nav('HTTPS and Your Proxy', 'connections/proxy', { icon: 'mdi:lock', sub: 'Mantel’s Caddy, your own proxy, the Home Assistant App or a Cloudflare tunnel' }),
       nav('Notifications to the App', 'connections/push', { icon: 'mdi:bell', sub: 'The push relay, your own, or none' })]));

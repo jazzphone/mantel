@@ -14,8 +14,8 @@ from .checks import playlist_errors, preset_errors, speakers_errors
 from .config import MusicConfig, virtual_pairs
 from .groups import kind, problem_text
 from .const import (
-    CONF_CHOOSER, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS, CONF_KEEP_READY,
-    CONF_MEMBERS, CONF_NAME, CONF_ORDER, CONF_PAIRS, CONF_PLAYERS, CONF_SPEAKERS, CONF_VOLUME,
+    CONF_ANNOUNCE_ROOMS, CONF_CHOOSER, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS, CONF_KEEP_READY,
+    CONF_LEADERS, CONF_MEMBERS, CONF_NAME, CONF_ORDER, CONF_PAIRS, CONF_PLAYERS, CONF_SPEAKERS, CONF_VOLUME,
 )
 
 MSG = {
@@ -28,6 +28,7 @@ MSG = {
     "not_in_library": "That playlist isn’t in the Music Assistant library.",
     "volume": "Choose 0 to 100 %.",
     "homes": "A home room must be one of the speakers.",
+    "rooms": "Every room must be one of the speakers.",
     "on_off": "Choose on or off.",
     "not_a_player": "That isn’t a Music Assistant player.",
     "list": "That list couldn’t be read.",
@@ -41,7 +42,9 @@ MSG = {
     "no_pairs": "Speaker pairs are set up in Mantel Settings.",
 }
 TEXT_MAX = 60
-SETTINGS = (CONF_SPEAKERS, CONF_VOLUME, CONF_HOMES, CONF_KEEP_READY, CONF_IGNORE_ANNOUNCEMENTS, CONF_PAIRS)
+SETTINGS = (CONF_SPEAKERS, CONF_VOLUME, CONF_HOMES, CONF_KEEP_READY, CONF_IGNORE_ANNOUNCEMENTS, CONF_PAIRS,
+            CONF_LEADERS, CONF_ANNOUNCE_ROOMS)
+ROOM_LISTS = (CONF_LEADERS, CONF_ANNOUNCE_ROOMS)     # lists of speakers, in order (MusicConfig.leader_of)
 DEFAULT_ICON = "mdi:playlist-music"
 
 
@@ -57,7 +60,8 @@ def text(v: Any) -> str:
 def apply(options: Mapping[str, Any], changes: Mapping[str, Any], players: set[str],
           pairs: bool = False, ma_groups: Iterable[str] = ()) -> tuple[dict[str, Any], dict[str, str]]:
     """The options after `changes` (speakers in order, volume 0..1, homes {user: room or None},
-    keep_ready and ignore_announcements on/off, the virtual pairs), and the refusals by field.
+    keep_ready and ignore_announcements on/off, the virtual pairs, the group leaders and announcement
+    rooms: speakers, in order), and the refusals by field.
     `players`: the music server's players and whatever is chosen;
     `pairs`: whether this host plays virtual pairs (Mantel's engine does); `ma_groups`: the players
     that are Music Assistant groups (never half of a pair: a group cannot join another player)."""
@@ -92,6 +96,19 @@ def apply(options: Mapping[str, Any], changes: Mapping[str, Any], players: set[s
                 errors[CONF_PAIRS] = MSG[why]
             else:
                 opts.update(pair_speakers(opts, got))
+    for k in ROOM_LISTS:
+        if k in changes:
+            v, rooms = changes[k], opts.get(CONF_SPEAKERS) or []
+            if not isinstance(v, list) or not all(isinstance(x, str) for x in v):
+                errors[k] = MSG["list"]
+            elif any(x not in rooms for x in v):
+                errors[k] = MSG["rooms"]
+            else:
+                opts[k] = list(dict.fromkeys(v))
+    # a room that is no longer a speaker leads nothing and is announced to as no room
+    for k in ROOM_LISTS:
+        if k in opts:
+            opts[k] = [r for r in opts[k] or [] if r in (opts.get(CONF_SPEAKERS) or [])]
     if CONF_VOLUME in changes:
         v = changes[CONF_VOLUME]
         if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v <= 1:

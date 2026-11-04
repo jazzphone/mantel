@@ -184,7 +184,7 @@ async def test_every_piece_is_off_until_the_settings_turn_it_on(make_env):
 
 def test_the_settings_are_checked():
     assert F.check_settings(None) == F.DEFAULTS
-    for bad in ({"music": {}}, {"sleep": {"enabled": "yes"}}, {"linked": {"entry_id": "a b"}},
+    for bad in ({"radio": {}}, {"music": {"enabled": "yes"}}, {"sleep": {"enabled": "yes"}}, {"linked": {"entry_id": "a b"}},
                 {"linked": {"backlights": {"hall": "switch.x"}}}, {"live_tv": {"guide_url": "file:///etc/passwd"}},
                 {"notifications": {"items": [{"entity": DOOR}]}}, {"energy": {"options": []}}, {"sleep": {"x": 1}}):
         with pytest.raises(ValueError):
@@ -295,6 +295,31 @@ async def test_a_frame_for_some_people_reaches_only_them():
 
 
 # ------------------------------------------------------------------------------------------ linked
+async def test_a_touch_on_the_screensavers_own_controls_is_not_the_screen_in_use(make_env):
+    """2026-11-02, the owner: "when touching the buttons on the Music Slide... skip, browse, speaker... it kills the
+    screensaver and goes back to the dashboard". A touch on the screensaver's own controls (saver: true) keeps the sleep
+    away and nothing more, as Home Assistant's integration has it: never the screen in use, which takes the screensaver
+    down."""
+    env = await make_env(settings={"linked": {"enabled": True, "entry_id": ENTRY}})
+    lk, _ = await linked_ws(env)
+    await env.login("owner1", "owner")
+    ws = await env.socket(expect_caps=False)
+    await ws.send_json({"type": "screen_report", "id": 1, "tablet": "hall", "touch": True, "saver": True})
+    assert (await GF.recv(ws))["result"] == {"changed": False}
+    with pytest.raises(asyncio.TimeoutError):
+        while True:
+            f = await lk.ws.receive_json(timeout=1.5)
+            assert f.get("unique_id") != UID["screen_in_use"], f
+    # ...a touch of the screen itself is
+    await ws.send_json({"type": "screen_report", "id": 2, "tablet": "hall", "touch": True})
+    assert (await GF.recv(ws))["result"] == {"changed": False}
+    while True:
+        f = await lk.ws.receive_json(timeout=3)
+        if f.get("unique_id") == UID["screen_in_use"]:
+            assert f["state"] == "on"
+            break
+
+
 async def test_linked_publishes_the_tablets_entities_and_keeps_the_handshake(make_env):
     env = await make_env(settings={"linked": {"enabled": True, "entry_id": ENTRY}}, popups=("doorbell",))
     lk, hello = await linked_ws(env)
@@ -971,3 +996,74 @@ async def test_a_new_energy_plan_is_sent_without_reloading_every_feature(make_en
     await host.refresh_energy(force=True)
     await asyncio.sleep(0.3)
     assert reloads == []
+
+
+async def test_the_owners_rest_save_marks_each_piece_whose_switch_changed(make_env):
+    """PUT /api/features/settings: a piece that may turn on by itself and whose `enabled` the Owner changed gets the
+    `owner` marker (features/auto.py), in the same version."""
+    env = await make_env()
+    await env.login("owner1", "owner")
+    r = await env.m.client.put("/api/features/settings", json={"clean_areas": {"enabled": True}, "sleep": {"enabled": True}},
+                               headers=env.m.headers())
+    assert r.status == 200
+    assert set(env.host.settings["auto"]["decided"]) == {"clean_areas"}
+    assert env.host.settings["auto"]["decided"]["clean_areas"]["by"] == "owner"
+    r = await env.m.client.put("/api/features/settings", json={"auto": {"enabled": False}}, headers=env.m.headers())
+    assert r.status == 200 and env.host.settings["auto"]["enabled"] is False
+    assert env.host.settings["auto"]["decided"]["clean_areas"]["why"] == "Removed by a person"
+    r = await env.m.client.put("/api/features/settings", json={"auto": {"decided": {"sleep": {"by": "auto"}}}},
+                               headers=env.m.headers())
+    assert r.status == 400, "only the four pieces may be decided"
+
+
+async def test_a_rest_save_without_auto_keeps_the_switch_and_the_markers(make_env):
+    env = await make_env()
+    await env.login("owner1", "owner")
+    r = await env.m.client.put("/api/features/settings", json={"energy": {"enabled": True}, "auto": {"enabled": False}},
+                               headers=env.m.headers())
+    assert r.status == 200
+    r = await env.m.client.put("/api/features/settings", json={"energy": {"enabled": True}}, headers=env.m.headers())
+    assert r.status == 200
+    auto = env.host.settings["auto"]
+    assert auto["enabled"] is False and auto["decided"]["energy"]["by"] == "owner"
+    r = await env.m.client.put("/api/features/settings", json={"auto": "on"}, headers=env.m.headers())
+    assert r.status == 400
+
+
+async def test_a_burst_of_first_states_works_the_categories_out_a_few_times_not_once_per_entity(monkeypatch):
+    """0.1.123 on the house (2026-11-04): Home Assistant restarting, Mantel reconnected while it had no states yet;
+    the ~4500 that followed came one by one, each worked the categories out over every entity, and the event loop spun
+    at 100 % for minutes. A burst now reworks them once at its start and once after it."""
+    from mantel_server.features import notify as N
+    states: dict = {}
+    clock = [100.0]
+    tasks: list = []
+
+    class Host:
+        house = None
+        hub = type("Hub", (), {"store": type("Store", (), {"states": states})()})()
+
+        def on(self, feature):
+            return True
+
+        def monotonic(self):
+            return clock[0]
+
+        def spawn(self, coro):
+            task = asyncio.get_running_loop().create_task(coro)
+            tasks.append(task)
+            return task
+
+    notifier = N.Notifier(Host())
+    reworks = []
+    monkeypatch.setattr(notifier, "refresh", lambda: reworks.append(clock[0]))
+    monkeypatch.setattr(N, "REWORK_EVERY_S", 0.05)
+    for i in range(4500):
+        eid = f"sensor.s{i}"
+        states[eid] = {"s": "on"}
+        notifier.on_change({eid})
+        clock[0] += 0.001                                       # 4.5 s of house time, all inside the loop's turn
+    assert len(reworks) <= 100, f"{len(reworks)} reworks for one burst"
+    clock[0] += 1.0
+    await asyncio.gather(*tasks)
+    assert reworks[-1] == clock[0], "the burst's last first states are worked out after it"

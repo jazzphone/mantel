@@ -85,6 +85,13 @@ SAVES: dict[str, tuple[str, frozenset, frozenset]] = {
     "hk_music/playlist/save": ("music", frozenset({"name", "items"}), frozenset({"item", "icon", "chooser", "order"})),
     "hk_music/playlists/order": ("music", frozenset({"ids"}), frozenset()),
     "hk_music/item/remove": ("music", frozenset({"item"}), frozenset()),
+    # Add and Remove on Mantel itself (2026-11-02, the owner: "I would hate for a user to set up Mantel and not have
+    # access to enable the features it has"): the piece's switch in Mantel's feature settings
+    **{f"{fid}/feature/set": (piece, frozenset({"enabled"}), frozenset()) for fid, piece in (
+        ("hk_notify", "notifications"), ("hk_clean_areas", "clean_areas"), ("hk_energy", "energy"),
+        ("hk_tv", "live_tv"), ("hk_music", "music"), ("hk_alarm_pin", "alarm_pin"))},
+    # Turn Features On Automatically (Advanced -> Features; features/auto.py): configure on settings
+    "mantel/features/auto/set": ("auto", frozenset({"enabled"}), frozenset()),
     # the Alarm PIN: Mantel's keypad table (alarm_pin.py "HK Settings' Alarm PIN page")
     "hk_alarm_pin/settings/set": ("alarm_pin", frozenset({"entry_id", "changes"}), frozenset()),
     "hk_alarm_pin/add": ("alarm_pin", frozenset({"alarm"}), frozenset({"pin", "pin_again", "arm_required"})),
@@ -93,7 +100,7 @@ SAVES: dict[str, tuple[str, frozenset, frozenset]] = {
 # RBAC features (rbac.FEATURE_DOMAINS) a page also needs `configure` on, besides `settings`
 RBAC_FEATURE = {"notifications": "notifications", "energy": "energy", "music": "music"}
 TITLES = {"notifications": "Notifications", "clean_areas": "Clean Areas", "energy": "Energy", "live_tv": "Live TV",
-          "music": "Music", "alarm_pin": "Alarm PIN"}
+          "music": "Music", "alarm_pin": "Alarm PIN", "auto": "Turn Features On Automatically"}
 
 ENTITY = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 CHANNEL = re.compile(r"^\d{1,4}(\.\d{1,4})?$")
@@ -334,6 +341,19 @@ class FeaturePages:
 
     # -- the saves -----------------------------------------------------------------------------------
     async def save(self, identity: Any, msg: dict[str, Any]) -> dict[str, Any]:
+        """One save at a time over the feature settings (``FeatureHost.features_lock``, which Mantel's own turn-on
+        holds too): each reads, writes and reloads before the next reads, so none is made from an overtaken copy."""
+        from .settings_store import SettingsError
+        async with self.host.features_lock:
+            try:
+                return await self._save(identity, msg)
+            except SettingsError as exc:
+                if exc.code != "conflict":
+                    raise
+                await self.host.reload()
+                raise PageError("conflict", "The feature settings changed a moment ago. Try again.") from None
+
+    async def _save(self, identity: Any, msg: dict[str, Any]) -> dict[str, Any]:
         t = msg.get("type")
         piece, required, optional = SAVES[t]
         missing, extra = required - set(msg), set(msg) - {"type", "id"} - required - optional
@@ -341,6 +361,10 @@ class FeaturePages:
             raise PageError("invalid_format", fields={**{k: "required" for k in sorted(missing)},
                                                       **{k: "unexpected" for k in sorted(extra)}})
         self.need(identity, piece)
+        if t == "mantel/features/auto/set":
+            return await self.auto_set(identity, msg["enabled"])
+        if t.endswith("/feature/set"):
+            return await self.feature_set(identity, t, piece, msg["enabled"])
         if piece in ("notifications", "clean_areas", "energy") and not self.host.on(piece):
             raise PageError("not_set_up", f"{TITLES[piece]} is off in Mantel's feature settings")
         if t == "hk_notify/test":
@@ -350,7 +374,7 @@ class FeaturePages:
         if piece == "alarm_pin":
             from . import alarm_pin
             return await alarm_pin.settings_save(self.host.app, identity, msg)
-        settings = copy.deepcopy(self.host.settings)
+        settings, version = copy.deepcopy(self.host.settings), self.host.settings_version
         if not isinstance(msg.get("changes", {}), Mapping):
             raise PageError("invalid_format", fields={"changes": "invalid"})
         extra_answer: dict[str, Any] = {}
@@ -365,9 +389,46 @@ class FeaturePages:
         from .features import FEATURES_DOC, check_settings
         body = check_settings(settings)
         if body != self.host.settings:
-            self.host.write_doc(FEATURES_DOC, body, identity, t)
+            self.host.write_doc(FEATURES_DOC, body, identity, t, expect_version=version)
             await self.host.reload()
         return {**await self.page(piece), **extra_answer}
+
+    async def feature_set(self, identity: Any, t: str, piece: str, enabled: Any) -> dict[str, Any]:
+        """Add or Remove a feature on Mantel itself: its piece's switch in Mantel's feature settings, audited as
+        every save there. Removing also takes it out of what the import read from Home Assistant (``ha.added``), so
+        a feature HA had added is gone from Mantel's screens too; a new import brings it back. A person's choice is
+        final: Music, Clean Areas, Energy and Live TV get the ``owner`` marker in the same write (features/auto.py), so
+        Mantel never turns one on by itself after it (Live TV's older ``go2rtc_once`` is spent too)."""
+        if not isinstance(enabled, bool):
+            raise PageError("invalid_format", fields={"enabled": "true or false"})
+        from .features import FEATURES_DOC, check_settings
+        settings, version = copy.deepcopy(self.host.settings), self.host.settings_version
+        settings[piece]["enabled"] = enabled
+        if piece == "live_tv":
+            settings["live_tv"]["go2rtc_once"] = True
+        if not enabled:
+            settings["ha"]["added"] = [k for k in settings["ha"]["added"] if k != piece]
+        settings = self.host.owner_decided(self.host.settings, settings, piece=piece)
+        body = check_settings(settings)
+        if body != self.host.settings:
+            self.host.write_doc(FEATURES_DOC, body, identity, t, expect_version=version)
+            await self.host.reload()
+        return {"feature": piece, "added": piece in self.host.client_added()}
+
+    async def auto_set(self, identity: Any, enabled: Any) -> dict[str, Any]:
+        """Turn Features On Automatically (features/auto.py): the switch in Mantel's feature settings, saved as every
+        save there (a new version naming who). Off stops every look; on looks at once. It changes no marker: a
+        feature a person turned off stays off either way."""
+        if not isinstance(enabled, bool):
+            raise PageError("invalid_format", fields={"enabled": "true or false"})
+        from .features import FEATURES_DOC, check_settings
+        settings, version = copy.deepcopy(self.host.settings), self.host.settings_version
+        settings["auto"]["enabled"] = enabled
+        body = check_settings(settings)
+        if body != self.host.settings:
+            self.host.write_doc(FEATURES_DOC, body, identity, "mantel/features/auto/set", expect_version=version)
+            await self.host.reload()
+        return {"enabled": self.host.auto.switch()}
 
     async def music_save(self, identity: Any, t: str, msg: dict[str, Any]) -> dict[str, Any]:
         """HK Settings' music saves on Mantel's ``house/music`` (music.py), refused by field as HA's were."""

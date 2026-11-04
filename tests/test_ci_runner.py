@@ -1,9 +1,11 @@
 """tools/ci.py, the local checks: which steps each tier runs, a skip is never a pass, a failure keeps its log, the
-record names the commit, and the hooks it installs. The real steps are not run here (that is the runner's job)."""
+record names the commit, the hooks it installs, and a step whose inputs are unchanged since it passed is not run again.
+The real steps are not run here (that is the runner's job)."""
 from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -26,14 +28,14 @@ def test_quick_is_part_of_full_and_full_adds_the_rest():
     steps = ci.steps()
     quick = [s.name for s in ci.select(steps, "quick")]
     full = [s.name for s in ci.select(steps, "full")]
-    assert quick == ["build-tools", "main-suite", "check-links", "check-version", "package-check", "private-words"]
+    assert quick == ["build-tools", "main-suite", "types-js", "check-links", "check-version", "package-check", "private-words"]
     assert full[:len(quick)] == quick
     assert {"ha-build", "hk-frontend-py", "hk-frontend-js", "caddy-image"} <= set(full)
     assert [n for n in full if n.startswith("headless-")] == [f"headless-{n}" for n in ci.HEADLESS]
     assert full.index("ha-build") < full.index("hk-frontend-py") < full.index("hk-frontend-js")
     assert {"edit-mode-check-chromium-1280x800", "edit-mode-check-webkit-1180x820"} <= set(full)
     assert "side-strip-check" in full and "side-strip-check" not in quick
-    assert {"page-swipe-check-chromium", "page-swipe-check-webkit"} <= set(full)
+    assert {"page-swipe-check-chromium-1280x800", "page-swipe-check-webkit-1180x820"} <= set(full)
     assert {"swipe-motion-check-chromium", "swipe-motion-check-webkit"} <= set(full)
     assert not any(n.startswith(("edit-mode", "page-swipe")) for n in quick)
     # `versions`, a release's re-check, never in quick or full itself; it knows bump_version's files
@@ -61,7 +63,7 @@ def test_edit_mode_check_skips_saying_why_without_playwright(monkeypatch, tmp_pa
 
 def test_only_narrows_and_brings_the_build_hk_frontend_needs():
     steps = ci.steps()
-    assert [s.name for s in ci.select(steps, "full", ["js"])] == ["ha-build", "hk-frontend-js"]
+    assert [s.name for s in ci.select(steps, "full", ["js"])] == ["ha-build", "types-js", "hk-frontend-js"]
     assert [s.name for s in ci.select(steps, "quick", ["check"])] == ["check-links", "check-version",
                                                                      "package-check"]
     assert ci.select(steps, "quick", ["headless"]) == []      # a full step is not in quick
@@ -251,3 +253,251 @@ def test_each_steps_time_outlasts_a_smaller_run(tmp_path):
     ci.run([fake("long"), fake("short")], "full", record_dir=tmp_path, echo=lambda s: None)
     ci.run([fake("short")], "quick", record_dir=tmp_path, echo=lambda s: None)
     assert set(ci.step_times(tmp_path)) == {"long", "short"}
+
+
+# ---- what each step reads, by content (2026-11-02)
+
+def test_each_browser_check_and_hk_frontend_suite_names_what_it_reads():
+    full = ci.select(ci.steps(), "full")
+    keyed = {s.name for s in full if s.inputs}
+    browser = {s.name for s in full if s.tier == "full"} - {"ha-build", "hk-frontend-py", "hk-frontend-js", "caddy-image",
+                                                             "types-py"}
+    assert browser and browser | {"hk-frontend-py", "hk-frontend-js", "types-py"} == keyed
+    # (what runs in seconds, builds what the others need, or reads everything: always)
+    assert not keyed & {"build-tools", "main-suite", "private-words", "ha-build", "caddy-image", "check-links"}
+    shows = next(s for s in full if s.name == "saver-shows-check-1of8")
+    got = shows.inputs()
+    assert {"web/", "hk_core/", "hosts/server/mantel_server/", "tools/headless/saver_shows_check.py",
+            "tools/headless/saver_shows_check.cjs", "tools/headless/gallery.py", "tools/app_dev_server.py"} <= set(got)
+    assert "tests/mantel_house_fakes.py" in got and not any(g.startswith("tests/test_") for g in got)
+    assert set(ci.VERSION_FILES) <= set(got) and not set(ci.CHANGELOGS) & set(got)
+    assert shows.needs == ("py", "playwright", "mac")
+    assert "chrome" in next(s for s in full if s.name == "edit-mode-check-chromium-1280x800").needs
+    assert "chrome" in next(s for s in full if s.name == "headless-client_smoke").needs
+    assert "hosts/ha/" in next(s for s in full if s.name == "hk-frontend-js").inputs
+
+
+def test_page_swipes_steps_are_the_checks_own_sizes():
+    import ast
+    tree = ast.parse((ROOT / "tools/headless/page_swipe_check.py").read_text())
+    sizes = next(ast.literal_eval(n.value) for n in ast.walk(tree) if isinstance(n, ast.Assign)
+                 and any(getattr(t, "id", "") == "ENGINE_SIZES" for t in n.targets))
+    assert sizes == ci.PAGE_SWIPE
+
+
+def test_imported_follows_a_checks_imports_and_its_other_half(tmp_path):
+    files = {"tools/headless/a_check.py": "import json, b_help as b\nfrom c_fakes import X\n  import d  # lazy\n",
+             "tools/headless/a_check.cjs": "// the browser half\n", "tools/headless/b_help.py": "import e_tool\n",
+             "tools/e_tool.py": "", "tests/c_fakes.py": "", "tests/d.py": "", "tests/test_x.py": "",
+             "tools/headless/other_check.py": "import b_help\n"}
+    for name, text in files.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text(text)
+    assert ci.imported(["tools/headless/a_check.py"], tmp_path) == [
+        "tests/c_fakes.py", "tests/d.py", "tools/e_tool.py", "tools/headless/a_check.cjs", "tools/headless/a_check.py",
+        "tools/headless/b_help.py"]
+
+
+def test_matches_a_folder_a_glob_and_a_file():
+    assert ci.matches("web/hk/x.js", "web/") and not ci.matches("webx/a", "web/")
+    assert ci.matches("tests/a_fakes.py", "tests/*_fakes.py") and not ci.matches("tests/a.py", "tests/*_fakes.py")
+    assert ci.matches("tools/ci.py", "tools/ci.py") and not ci.matches("tools/ci.pyc", "tools/ci.py")
+    # (git's folder of new or ignored files: what it could hold)
+    assert ci.matches("web/new/", "web/") and ci.matches("web/", "web/hk/") and ci.matches("tools/", "tools/ci.py")
+    assert not ci.matches("docs/", "web/")
+
+
+def keyed_repo(tmp_path):
+    root = repo(tmp_path)
+    (root / "web").mkdir()
+    (root / "web/page.js").write_text("draw()\n")
+    commit(root, "web")
+    return root
+
+
+def test_a_steps_key_is_what_it_reads_without_version_lines(tmp_path):
+    root = keyed_repo(tmp_path)
+    step = ci.Step("look", ["true"], inputs=("web/", "pyproject.toml"))
+    key = lambda cmd=("true",): ci.step_key(step, ci.tree_blobs("HEAD", root), ci.uncommitted(root), list(cmd), root)  # noqa: E731
+    k0 = key()
+    assert k0 and key() == k0
+    edit(root, "app.py", "1", "2")
+    commit(root, "not an input")
+    assert key() == k0
+    edit(root, "pyproject.toml", '"0.1.1"', '"0.1.2"')
+    edit(root, "CHANGELOG.md", "## Unreleased\n", "## Unreleased\n\n## 0.1.2\n")
+    commit(root, "Release 0.1.2")
+    assert key() == k0, "a release's version line is no change"
+    assert key(["true", "--other"]) != k0, "nor is another command the same step"
+    edit(root, "pyproject.toml", 'name = "x"', 'name = "y"')
+    commit(root, "more than a version")
+    k1 = key()
+    assert k1 != k0
+    (root / "web/page.js").write_text("draw(2)\n")
+    assert key() is None, "an uncommitted input: no key, it runs"
+    git(root, "checkout", "-q", "--", "web/page.js")
+    (root / "web/new.js").write_text("")
+    assert key() is None, "...a new file in an input too"
+    (root / "web/new.js").unlink()
+    (root / "web/__pycache__").mkdir()
+    (root / "web/__pycache__/x.pyc").write_text("")
+    (root / ".gitignore").write_text("__pycache__/\n*.ttf\n")
+    commit(root, "ignore")
+    assert key() == k1, "caches are not inputs"
+    (root / "web/font.ttf").write_text("")
+    assert key() is None, "...but an ignored file in an input is"
+    (root / "web/font.ttf").unlink()
+    assert ci.step_key(ci.Step("all", ["true"]), {}, [], ["true"], root) is None, "no inputs: no key, it always runs"
+
+
+def test_a_step_unchanged_since_it_passed_is_not_run_again_and_counts_as_a_pass(tmp_path):
+    root, rec, steps_store = keyed_repo(tmp_path), tmp_path / "rec", tmp_path / "steps.json"
+    marks = tmp_path / "marks"
+    code = tmp_path / "code"
+    code.write_text("0")
+    step = ci.Step("look", [sys.executable, "-c", f"import sys; open({str(marks)!r}, 'a').write('x'); "
+                                                  f"sys.exit(int(open({str(code)!r}).read()))"],
+                   inputs=("web/",), tier="full", timeout=30)
+    always = ci.Step("always", [sys.executable, "-c", "pass"], tier="full")
+    go = lambda **kw: ci.run([step, always], "full", record_dir=rec, echo=lambda _: None, step_store=steps_store,  # noqa: E731
+                             root=root, **kw)
+    first = go()
+    assert first["ok"] and marks.read_text() == "x"
+    second = go()
+    by = {s["name"]: s for s in second["steps"]}
+    assert marks.read_text() == "x", "not run again"
+    assert by["look"]["status"] == "unchanged" and first["commit"][:9] in by["look"]["reason"]
+    assert by["always"]["status"] == "passed" and second["ok"] is True
+    assert "1 unchanged" in ci.table(second)
+    assert ci.step_times(rec)["look"] == round(first["steps"][0]["seconds"], 1), "an unchanged step keeps its time"
+    assert go(reuse=False)["ok"] and marks.read_text() == "xx", "--all runs it"
+    edit(root, "app.py", "1", "2")
+    commit(root, "not its input")
+    assert go()["steps"][0]["status"] == "unchanged"
+    (root / "web/page.js").write_text("draw(2)\n")
+    commit(root, "its input")
+    code.write_text("1")
+    assert go()["steps"][0]["status"] == "failed" and marks.read_text() == "xxx"
+    code.write_text("0")
+    git(root, "reset", "-q", "--hard", "HEAD~1")
+    # (back on the tree it passed on, but that key failed since: it is forgotten only for the failing key)
+    assert go()["steps"][0]["status"] == "unchanged"
+    git(root, "reset", "-q", "--hard", "HEAD@{1}")
+    assert go()["steps"][0]["status"] == "passed" and marks.read_text() == "xxxx", "a failed key is not carried"
+
+
+def test_a_run_that_moved_keeps_no_step_passes(tmp_path):
+    store = tmp_path / "steps.json"
+    rec = {"steady": False, "commit": "c", "finished": "f", "steps": [{"name": "look", "status": "passed"}]}
+    assert not ci.remember_steps(rec, {"look": "k"}, store) and ci.step_passes(store) == {}
+    assert ci.remember_steps({**rec, "steady": True}, {"look": "k"}, store)
+    assert ci.carried_passes({"look": "k"}, store)["look"]["commit"] == "c"
+    assert ci.carried_passes({"look": "other"}, store) == {}
+    ci.remember_steps({**rec, "steady": True, "steps": [{"name": "look", "status": "failed"}]}, {"look": "k"}, store)
+    assert ci.carried_passes({"look": "k"}, store) == {}
+
+
+def test_a_mantel_step_runs_this_checkouts_code_first(monkeypatch):
+    # (2026-11-02) the venv's editable install is the main checkout's: in a worktree the checks imported its hk_core
+    monkeypatch.setenv("PYTHONPATH", "/elsewhere")
+    env = ci.step_env(True)["PYTHONPATH"].split(os.pathsep)
+    assert env == [str(ci.ROOT), str(ci.ROOT / "hosts/server"), "/elsewhere"]
+    assert ci.step_env()["PYTHONPATH"] == "/elsewhere", "HK Frontend's harness keeps its own (the build's vendored hk_core)"
+
+
+def test_a_step_never_timed_starts_among_the_longest(tmp_path):
+    (tmp_path / "step-times.json").write_text(json.dumps({"short": 1, "long": 500}))
+    seen = []
+    steps = [ci.Step(n, [sys.executable, "-c", "pass"]) for n in ("short", "new", "long")]
+    os.environ["CI_JOBS"] = "1"
+    try:
+        ci.run(steps, "full", record_dir=tmp_path, echo=lambda s: s.endswith(" ...") and seen.append(s.split()[0]))
+    finally:
+        del os.environ["CI_JOBS"]
+    assert seen == ["new", "long", "short"] or seen == ["long", "new", "short"]
+
+
+def test_a_fresh_worktree_orders_its_steps_by_every_worktrees_times(tmp_path):
+    shared = tmp_path / "common/step-times.json"
+    ci.run([fake("a")], "full", record_dir=tmp_path / "one", echo=lambda s: None, shared_times=shared)
+    ci.run([fake("b")], "full", record_dir=tmp_path / "two", echo=lambda s: None, shared_times=shared)
+    assert set(ci.read_times(shared)) == {"a", "b"}, "the second worktree knows the first one's step"
+
+
+# ---- how long the steps take (2026-11-02: the Shows' check grew ~13x in one commit and no run said so)
+
+def test_a_check_in_parts_is_cut_again_as_it_grows_but_holds_still_near_its_target():
+    assert ci.next_parts([290, 280, 289, 285, 244, 246, 225, 254]) == ci.MAX_PARTS      # 2113 s: 15 wanted, 12 at most
+    assert ci.next_parts([140, 150, 160, 155]) == 4, "near the target: the count (in each part's name and key) holds"
+    assert ci.next_parts([200, 210]) == 2 and ci.next_parts([240, 250]) == 4
+    assert ci.next_parts([60] * 8) == 4, "much faster: fewer parts, fewer servers and browsers"
+    assert ci.next_parts([30, 30]) == ci.MIN_PARTS
+
+
+def test_the_steps_take_the_count_of_parts_their_timing_gives():
+    names = lambda parts: [s.name for s in ci.steps(parts=parts) if s.family == "saver-shows-check"]  # noqa: E731
+    assert names(None) == [f"saver-shows-check-{i}of{ci.SAVER_SHARDS}" for i in range(1, ci.SAVER_SHARDS + 1)]
+    twelve = [s for s in ci.steps(parts={"saver-shows-check": 12}) if s.family]
+    assert [s.name for s in twelve][-1] == "saver-shows-check-12of12" and twelve[2].cmd[-2:] == ["--shard", "3/12"]
+
+
+def results(**secs):
+    return [ci.Result(n, "passed", float(t)) for n, t in secs.items()]
+
+
+def test_a_step_much_slower_than_its_last_runs_is_named_but_not_a_busy_machine():
+    history = {n: [100.0] * 5 for n in "abcdef"}
+    assert ci.timing_warnings(results(a=100, b=105, c=98, d=110, e=102, f=230), history) == [], \
+        "once is a busy moment (another session's tests: the main suite 2-3x, 2026-11-02)"
+    history["f"].append(240.0)                                  # ...but it was slow the run before too
+    said = ci.timing_warnings(results(a=100, b=105, c=98, d=110, e=102, f=230), history)
+    assert len(said) == 1 and said[0].startswith("f: 230 s, 2.2x its usual 100 s two runs in a row")
+    assert ci.timing_warnings(results(a=200, b=210, c=190, d=205, e=200, f=200), history) == [], \
+        "every step twice as slow is the machine, not the checks"
+    said = ci.timing_warnings(results(a=200, b=210, c=190, d=205, e=200, f=460), history)
+    assert len(said) == 1 and said[0].startswith("f: 460 s") and "(the other steps at 2.0x)" in said[0]
+    assert ci.timing_warnings(results(a=100, b=100, c=100, d=100, e=100, f=125), history) == [], "noise"
+    assert ci.timing_warnings(results(new=100), history) == [], "no history yet: nothing to compare with"
+
+
+def test_a_step_past_the_budget_says_what_to_do():
+    said = ci.timing_warnings(results(long=300), {})
+    assert said == [f"long: 300 s, past the {ci.STEP_BUDGET} s one step may take: run it in parts (--shard K/N, as "
+                    "saver_shows_check.py does) or cut its fixed waits"]
+    fam = {f"s-{i}of2": "s" for i in (1, 2)}
+    assert "runs in 4 parts next time, not 2" in ci.timing_warnings(results(**{"s-1of2": 300, "s-2of2": 290}), {}, fam,
+                                                                     {"s": 4})[0]
+    full = {f"s-{i}of{ci.MAX_PARTS}": "s" for i in range(1, ci.MAX_PARTS + 1)}
+    said = ci.timing_warnings(results(**{n: 300 for n in full}), {}, full, {"s": ci.MAX_PARTS})
+    assert len(said) == ci.MAX_PARTS and "the most: cut its fixed waits or its runs" in said[0]
+
+
+def test_a_run_keeps_each_steps_times_and_a_checks_next_count_of_parts(tmp_path):
+    timing = tmp_path / "common/timing.json"
+    parts = [ci.Step(f"p-{i}of2", [sys.executable, "-c", "import time; time.sleep(0.2)"], family="p") for i in (1, 2)]
+    for _ in range(3):
+        rec = ci.run([fake("a"), *parts], "full", record_dir=tmp_path / "rec", echo=lambda s: None, timing=timing)
+        assert rec["warnings"] == []
+    got = ci.read_timing(timing)
+    assert len(got["history"]["a"]) == 3 and len(got["history"]["p-1of2"]) == 3
+    assert got["parts"] == {"p": ci.MIN_PARTS}, "two quick parts: as few as may be"
+    ci.run([fake("a"), parts[0]], "full", record_dir=tmp_path / "rec", echo=lambda s: None, timing=timing)
+    assert ci.read_timing(timing)["parts"] == {"p": ci.MIN_PARTS}, "a part alone (--only) says nothing of the whole"
+    timing.write_text("{not json")
+    assert ci.read_timing(timing) == {"history": {}, "parts": {}}
+
+
+def test_a_check_whose_parts_multiplied_or_a_whole_run_that_grew_is_named(tmp_path):
+    # (its parts stay short as they multiply; the run waits on the sum, CI_JOBS at a time)
+    history = {"shows": [1500.0] * 4, ci.WHOLE: [3800.0] * 4}
+    said = ci.total_warnings({"shows": 2600, ci.WHOLE: 4000}, history, 1.0)
+    assert said == ["shows: 2600 s in all, 1.7x its usual 1500 s: what did this change add to it?"]
+    assert ci.total_warnings({"shows": 2600}, history, 1.8) == [], "a busy machine"
+    assert ci.total_warnings({"new": 9000}, history, 1.0) == [], "no history yet"
+    timing = tmp_path / "timing.json"
+    parts = [ci.Step(f"p-{i}of2", [sys.executable, "-c", "pass"], family="p") for i in (1, 2)]
+    ci.run([fake("a"), *parts], "full", record_dir=tmp_path / "rec", echo=lambda s: None, timing=timing)
+    hist = ci.read_timing(timing)["history"]
+    assert {"p", ci.WHOLE} <= set(hist)
+    ci.run([fake("a")], "full", record_dir=tmp_path / "rec", echo=lambda s: None, timing=timing, only=["a"])
+    assert len(ci.read_timing(timing)["history"][ci.WHOLE]) == 1, "an --only run is not the whole"

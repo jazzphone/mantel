@@ -4,11 +4,153 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
-**Changed**
-- Doorbell: talking is push-to-talk done properly. The doorbell's talk session opens with the sheet, so a press is live at once and the first word isn't lost; the visitor stays heard, lowered, while you talk; the button says Connecting, Talking, who else is talking, Can't Reach the Doorbell or Needs HTTPS (it used to vanish on plain http); and only one person talks at a time, everyone else's button saying who. Needs Mantel Link 0.1.11 for the session to stay open between holds.
+## 0.1.124 - 2026-11-04
 
 **Added**
+- **The screensaver's Date, your way.** In the screensaver editor, the Date piece takes two lines (the weekday over the date, lined up with its corner, or centered), a short or numbered month, the year or not, a short weekday or none, a light or bold weight, and all capitals. As it comes it reads as before. See [Screensaver](docs/guide/Screensaver.md).
+
+**Fixed**
+- After Home Assistant restarted, Mantel could stop answering for minutes (every screen and Mantel Settings frozen) when it reconnected while Home Assistant was still starting: each of the thousands of first states made it work out the notification categories again over every device. It now does that a few times for the whole burst.
+
+## 0.1.123 - 2026-11-04
+
+**Added**
+- **The Intercom: talk into rooms.** Speak a message into one room, several or the whole house through the speakers Music Assistant plays on, from the Home Grid block **Intercom** or its sheet, on a wall tablet, a phone's or iPad's browser (over https://) and, from the next TestFlight build, the iPhone and iPad app. It's one-way, a message at a time; Live (talking as you speak) stays off for now. A wall tablet in a room with no speaker can play it itself. Mantel Settings → **Intercom** turns it on (off by default) and each room (every room off until you turn it on); it also needs Allow Control of the House. See [Intercom](docs/guide/Intercom.md).
+- The Intercom's stream port, for Music Assistant to fetch the message: 8767 on Docker and the Proxmox LXC (compose.yaml publishes it; the LXC's `update` picks it up, no `.env` change), 8101 in the Home Assistant App (its Network section). The server takes `--stream-port`.
+- Proxmox LXC: `update` accepts `MANTEL_UPDATE_REF=<commit or tag>` for one update to that target, without pinning the container to it (`MANTEL_UPDATE_REF=v0.1.121 update`). Without it, `update` follows the newest release (or `mantel.ref`) as before.
+
+**Changed**
+- Who may see what, tightened: the server's statistics (`GET /api/stats`) are for Owners and Admins only; a person who doesn't manage the house sees only the areas with something they may view; another person's sessions and apps can't be managed from a wall tablet; an assistant can test an alert channel only from the home network.
+- Mantel won't start if one of its routes isn't declared in its route table (a programming error, caught by the tests; you won't see it in a release).
+- Docker and the LXC: the arm64 images are built natively on arm64 runners, not under emulation, so a release reaches you sooner. The images are the same; nothing changes for you.
+
+## 0.1.122 - 2026-11-04
+
+**Added**
+- **The House Timeline: what happened at the house.** One scrolling, searchable record of doors and locks, arrivals and departures, the alarm, the garage, the doorbell, what the cameras saw (person, vehicle, animal, package, with two pictures from that moment), leaks and smoke, and Mantel's own alerts. It says who did what and from where ("Back Door unlocked · Emma · Hallway tablet"), or "By hand or an automation". Noise is rolled up (a detection is one row, motion one row per 10 minutes, a sensor that keeps changing one row), and what changed while Mantel was off is written at its real time. Open **Timeline** from the Home menu. It starts empty today: there's no fill-in from Home Assistant's history. See [Timeline](docs/guide/Timeline.md).
+- **Who sees what** follows the roles you already have: Owners, Admins and Adults open it (an Owner can give it to a Child); each row needs that door, lock, person or camera to be the viewer's; names only for signed-in Owners, Admins and Adults; Mantel's alerts and refused commands for Owners and Admins only. A wall tablet with nobody signed in shows the last 12 hours of doors, locks, the garage, the alarm, the doorbell and detections, with no names, no pictures and no search.
+- **Keep My Arrivals Private** in Me: your arrivals and departures aren't recorded at all, and the ones already recorded are deleted (Mantel asks first). Children don't have the switch. A removed person's rows lose their name.
+- **The morning summary** at 7:00 (from 9 PM; both settings): the house version to the alert channels that turn on **Morning Summary** in the new **House** group (no names, no arrivals, no pictures; off for a new channel), and a personal version to the Mantel apps for people who turn on **Morning Summary** in Me. A quiet night is one line.
+- A Home Grid block, **Recent** (Wide, Large, Extra Large): the last rows, and the night's summary from 5 to 11 AM. A camera's sheet shows its own **Recent** strip under the picture.
+- **Mantel Settings → Timeline** (Owners and Admins; the Owner changes it): what's recorded (windows are off for a new house), a sensor added by hand, retention (7, 30, 90 days or a year; 30 by default), the pictures' budget (500 MB) and how many per detection, the wall tablets' view, the summary's time and Send Test, and Clear Timeline.
+- **Include Timeline Pictures** in Settings → Backups (off by default; the rows are always in a backup). About → Performance shows the Timeline's numbers. Two assistant tools, `timeline_find` and `timeline_digest`, read it as you, never its pictures.
+
+**Changed**
+- A wall tablet's session can no longer manage another person's sessions and apps, and an assistant tests an alert channel from home only.
+- `GET /api/areas` lists only the areas with something you may see, and `GET /api/stats` is for Owners and Admins.
+
+**Fixed**
+- Screensaver: with the time behind the photo's people, the people stay over the time when the minute changes (they dropped behind it and faded back).
+
+**Note**
+- Pictures are snapshots: UniFi Protect's public API has no clip export.
+
+## 0.1.121 - 2026-11-03
+
+**Added**
+- **Features turn on by themselves when your house has what they need**, once: Music when Mantel is connected to Music Assistant, Clean Areas when a vacuum has a room map, Energy when Home Assistant's Energy settings have a grid meter or devices, and Live TV when an HDHomeRun on your home network answers and Mantel can play it. Mantel has to see the need on two looks 2 minutes apart, and it never turns on a feature a person turned off, including one turned off before this version (it reads the settings history). It sends nothing to the house. You're told under the feature in Mantel Settings → Advanced → Features ("Turned on by Mantel on Nov 4: …"), by the new Info alert **Mantel Turned On a Feature**, and in the settings history and the Audit Log. **Turn Features On Automatically**, at the top of Advanced → Features, stops it. See [Features](docs/guide/Features.md).
+- Advanced → Features says what a feature that's off still needs, for example a tuner Home Assistant knows without an address.
+
+**Changed**
+- Live TV's first start with Mantel's own go2rtc and a saved tuner turns it on by the same rule: the tuner has to answer, on two looks.
+- Live TV reads a tuner Mantel found itself at the home-network address it checked, and doesn't follow redirects. A tuner address you typed is read as before.
+
+**Note**
+- Going back to an earlier version after this one turns every feature off until you update again: the earlier version doesn't know the feature settings' new `auto` part.
+
+## 0.1.120 - 2026-11-03
+
+**Added**
+- Screensaver: a piece's words can be aligned (**Align** on its page: Auto, Left, Center, Right). Auto lines them up with the piece's side of the screen, so a card on the right ends every line on the right margin, and Now Playing puts its art at that edge. Home Status' card can leave out its **Title** (HOME).
+
+**Fixed**
+- Screensaver: Home Status' card with no backdrop puts its words on the margin, as every other card does (they sat a little inside it).
+- Screensaver: with the time behind the photo's people, the people over the time fade with their photo. The outgoing ones stayed solid while the rest of the screen changed, then vanished; the incoming ones popped in at the start.
+- Screensaver: a whole portrait photo zoomed in (Portrait Photos → Zoom) stays in the middle of the screen. It grew from its faces, so one with them to a side sat off center; it still zooms toward them where it runs past the screen, never showing its edge.
+- Screensaver: the slide corner stays clear of each slide's own words: it drops below Big Weather's top lines, the Weather slide's and Home Energy's.
+- Docker and the LXC: **Live TV's sound and picture start in sync.** A channel's sound starts up to a second before its picture, and that head start played late: the sound trailed the picture by about a second at first and caught up over 10 to 15 seconds, still a little behind. Both now start together (the first 1.2 seconds are dropped, adding about 0.05 seconds before the picture shows).
+
+## 0.1.119 - 2026-11-02
+
+**Added**
+- Screensaver: **the slides' own settings**, in the editor's Slides section. **The Slide Corner**: its time's size (100 to 250 %) and whether it adds the time, the date, the weather and House Status. **Music Full Screen**: whether it shows the room, the album, the progress, the buttons, the volume and Up Next. A change shows at once on the slide **See It** shows.
+- Screensaver: the **Today** face's weather can be turned off (**Weather**, beside **What's Playing**, under Face in the editor). A Weather or Music piece is hidden as "shown by the Today face" only while the face shows it.
+- Mantel Settings → Advanced → **Features**: every feature with an on/off switch, what it needs and where its settings are. Each feature's own page keeps its Add and Remove (Music's page has Remove too now).
+- Docker and the LXC: **Live TV falls back to the CPU when the GPU can't transcode.** The first channel played after Mantel starts is checked on the GPU (about 3 seconds); if the GPU fails and the CPU plays the channel, Live TV uses the CPU until Mantel restarts, and Live TV's status says why (`gpu_failed`). Before, the player retried forever with no picture.
+- Music: **Group Leaders** (Mantel Settings → Pages → Music). When rooms play together, one of them leads and the others play in step with it. Choose the rooms that lead (best first) and the **Announcement Rooms** Home Assistant speaks to. Music Assistant plays an announcement to a group's leader in every room of the group, so an announcement room leads only when no other room picked can.
+- Proxmox LXC: the install uses the GPU for Live TV only when it's Intel (QuickSync, the only GPU the image has a driver for); an AMD or NVIDIA GPU leaves Live TV on the CPU, with a note saying so.
+
+**Fixed**
+- Screensaver: the time stays where Position and Align put it. Measured once as its face first drew, it could sit off center (and push a top corner's piece to the bottom) once the face showed another song or other figures; it's put back on its place by what it shows at every draw.
+- Screensaver editor: nothing on the screen overlaps. A piece another one shows stacks past what is already in its place instead of over it, a band shown by the face draws no second box over the corners, and a dotted place's words stay inside it. A dragged piece lands on the place it covers, not only the one under the pointer.
+- Docker and the LXC: **Live TV plays.** A channel broadcast in 5.1 surround (most of them) stopped the transcoder at once, because go2rtc's Opus audio for browsers can't carry 5.1; the player retried every two seconds with no picture. The sound is mixed down to stereo now (`packaging/compose/go2rtc/go2rtc.yaml`).
+- Sign in with Home Assistant: when Home Assistant refuses (a user that can only sign in from the local network, or an inactive one), the page says Home Assistant's own reason instead of only that it couldn't confirm who you are.
+- Docker and the LXC: Mantel's address (`/`) opens the screens, not the developer's page (`/dev`), which the image no longer carries. The Home Assistant App never had it.
+- Music: **a pick of rooms is no longer led by whichever room came first.** The rooms arrive in A to Z or tap order, so on 2026-11-02 all eleven HomePods were led by a bedroom's HomePod, the first A to Z, and the announcements Home Assistant sends that HomePod played in every room. A room already playing keeps leading; otherwise the Group Leaders setting decides. A group an announcement room leads is regrouped under another room at the next play.
+- Mantel's screens point to where a feature's settings are: its page under Pages (Live TV, Energy, Music; Vacuums for Clean Areas), not a Features section the settings no longer have.
+- **Swipe Between Pages, on the wall tablets:** with music playing, the Now Playing bar coming up on a page (the Calendar, say) no longer stops the swipes: they go on under it, as they do under the tab bar. Before, every swipe after it was refused, and on the Calendar each one turned the month instead.
+- A swipe on the Calendar turns the page, not the Calendar's month too (its own month swipe still works where Swipe Between Pages is off).
+- The Now Playing bar comes up the same way each time you swipe onto a page that shows it, not only the first time.
+- Short, quick flicks turn the page every time: the flick's speed was measured low (the lift counted as a stop, and moves a busy tablet handed over far apart counted as none), so a short flick sometimes sprang back.
+- A swipe whose starting point a card draws again mid-swipe (the Calendar, as the Now Playing bar makes room) still turns the page; it was lost, mostly in Safari.
+- Smoother swipes between Home and the Pages screen on a screen with the Side Pane: the tab bar's place no longer restyles the whole screen on every frame, and the bar's tabs are measured once a swipe, not each frame.
+
+## 0.1.118 - 2026-11-02
+
+**Fixed**
+- Mantel's screens and Mantel Settings no longer send you to "HK Settings": an empty Live TV or Music card, an accessory's sheet, the radar map, the room order in Edit mode, an empty Energy page and a refused alarm command now say **Mantel Settings** (where those pages are, under the same names). The YAML Reference's note about Existing Dashboards, which Mantel's Add Screen doesn't have, is left out.
+
+## 0.1.117 - 2026-11-02
+
+**Added**
+- **Mantel Link by Mantel's address**, with no name, DNS or proxy in between: `https://<Mantel's address>:8766`, Mantel Connect's own port, with Mantel's own certificate. Pairing (protocol v3) hands Mantel Link Mantel's certificate authority inside Mantel's proof, and the credential sealed under the pairing code, so a look-alike can neither swap the authority nor read the credential; Mantel Link then trusts that authority alone. Mantel's name with a public certificate works as before. Mantel Settings → Connections → Mantel in Home Assistant shows the address with a pairing code. Needs Mantel Connect's port (`compose.connect.yaml`, the LXC install's question) and Mantel Link 0.1.12; HK Frontend linked to the same address uses Mantel Link's.
+- Proxmox LXC: **Home Assistant finds Mantel by itself** (Mantel Link's **Discovered: Mantel**): the install turns the network announcer on (`compose.announce.yaml`), and `update` does once for a container installed before it (`MANTEL_ANNOUNCER=off` in `.env` keeps it off). The announcement carries the link address when Mantel Connect's port is on, and a discovered Mantel is linked there, still confirmed with a pairing code.
+- **Features on and off on Mantel itself:** each feature's page in Mantel Settings (Pages → Live TV, Energy or Music; Security for the Alarm PIN; Vacuums for Clean Areas; Notifications) has **Add** (and, once added, **Remove** at the foot of its page), saved in Mantel's own settings. They pointed to Home Assistant's HK Frontend before, so a Mantel on Docker or the LXC couldn't turn on Energy, Clean Areas or Notifications at all. Removing one keeps its settings, for adding it again.
+
+**Changed**
+- Restoring a backup shows its progress: the upload's percentage, then **Checking the Backup…**, then what it holds (people, screens, wall tablets, photos, files), before you restore it and once it is restored; on First start too. A backup that never reaches Mantel (a proxy's upload limit) says so and where to raise it.
+- Docker and the LXC: Caddy takes a backup of up to 4 GB on the two restore paths (12 MB elsewhere, as before), so a backup with photos restores at `https://<address>`; the guide's Nginx Proxy Manager settings now allow it too (`client_max_body_size 4g`).
+
+**Fixed**
+- Docker and the LXC: **Live TV** after moving from the Home Assistant App. The App's backup brought it in off (HK Frontend ran it there) and nothing turned it on, so the page said to add it in Home Assistant. Mantel's first start with its own go2rtc and a tuner now turns it on, once.
+
+## 0.1.116 - 2026-11-02
+
+**Added**
+- First start: **Restore From a Backup** on the sign-in page of a new Mantel, beside creating the Owner. The setup code, the backup and (from another Mantel, such as the Home Assistant App) its keys file: Mantel checks the backup, restarts with it, and its people sign in as before. No account to make first, and no script on the host.
+
+**Changed**
+- Docker and the LXC: **Restore From Another Mantel** works there now. Their keys are read-only, so it used to refuse and point to `restore.sh`; now it keeps this Mantel's keys and seals the backup's secrets again with them (authenticator apps, alarm codes, alert channels, saved connections).
+
+## 0.1.115 - 2026-11-02
+
+**Fixed**
+- Proxmox LXC: Mantel follows a change of the container's address (a new DHCP lease, a static address set after the install). It was published only on the address the install saw, so it stopped (with your own proxy) or answered on the old address. The new address now replaces the old one at each start of the container (`mantel-address.service`), on `update` and on `mantel-setup`. The install log no longer says Mantel isn't running when the Proxmox install starts it.
+
+## 0.1.114 - 2026-11-02
+
+**Changed**
+- Screensaver: **one screensaver** (phase 13). The editor's starters are **Looks** (Photo Frame, Lock Screen, Forecast, Big Weather, Planted, Clock, Glance, Month, Day, Nightstand): tapping one changes the background and the time and keeps everything you placed; **Start Over from This Look** replaces it all. The right side is always **Look**, **Info**, **Slides** and **Timing**, with no rows that do nothing. Widgets and cards are **pieces**, one per fact, each in a few shapes (Inline, Circular, Rectangular, Card, Band), drawn the same way with the same Size (60 to 200%), Backdrop and Color. The row has one size. One **Ink** for the whole screen (Auto picks black or white from the background, never some of each) and **Color Accents**. Any piece can **Show When** an entity is, is not, is above or is below a value (the mailbox has mail). A fact is drawn once: a face or a slide that shows it hides the piece, and the editor says so.
+- Screensaver: **a slide corner** over every slide, adding only the time (in the Look's face and color), the date, the weather and Home Status the slide lacks; the Weather and Home Energy slides no longer draw their own. Slides work over every background. The music slide on a phone or an upright iPad is laid out as an iPhone's Now Playing.
+- Screensaver: **the time behind** the photo's subject works with any face and any face option; behind the Landscape's land too, with the time in front where the land would hide most of it. **Planted** is a face on the Landscape. Darken is the photos'. Night Mode, the Day's Art and Soft Photos work with a laid-out screensaver.
+- Screensaver: a screen with no saved layout draws the same way, its corners as pieces (Big Weather and Month keep their own faces). Music Full Screen is one choice in the editor and in Settings. The Clock Style pages open the editor.
+- Doorbell: talking is push-to-talk done properly. The doorbell's talk session opens with the sheet, so a press is live at once and the first word isn't lost; the visitor stays heard, lowered, while you talk; the button says Connecting, Talking, who else is talking, Can't Reach the Doorbell or Needs HTTPS (it used to vanish on plain http); and only one person talks at a time, everyone else's button saying who. A UniFi Protect doorbell loses the start of every new audio stream, so a pop-up keeps one going between holds and each hold is heard from its first word (0.42-0.45 s press to sound, measured at the door). Needs Mantel Link 0.1.11 for the session to stay open between holds.
+
+**Added**
+- **System alerts** (Mantel Settings → Alerts): Mantel tells you when Home Assistant, Music Assistant, UniFi Protect or Mantel Link stops answering, a backup fails or is overdue, a wall tablet goes dark or stops charging, the disk runs low, or a new release is out. Send them to Discord, Telegram, Notifiarr, email, about a hundred services through Apprise, and the Mantel apps. Each channel picks its events and its own quiet hours; holds, one message per cause, batching and retries keep it from nagging; a heartbeat address lets a service outside the house tell you when Mantel itself is down. See [Alerts](docs/guide/Alerts.md).
+- Mantel Settings → About → **Updates**: Mantel checks GitHub for new releases of Mantel, Mantel Link and HK Frontend and says how to update this install (the App, the LXC, Docker). **Check for Updates** turns it off. Mantel Link 0.1.11 or newer tells Mantel its own and HK Frontend's versions.
+- Mac app: the house's notifications and system alerts in the Mac menu bar app (the push relay needs its Mac update first).
+- Proxmox LXC: the one-command install **always starts Mantel**, at `https://<the container's address>` with Mantel's own certificate ("Try it now"), and ends with the address and the setup code. A name on your network, your own domain's certificate or your own proxy can be chosen at the install or any time later with **`mantel-setup`** in the container, which asks, changes the settings and starts Mantel again; a missing token keeps Mantel where it is and says what's missing. Set Up Mantel gains an **Address and HTTPS** step on Docker and the LXC. `update` adds `mantel-setup` to a container installed before it.
+- Docker and the LXC: Mantel's own cameras (UniFi Protect, RTSP) play their **low-quality stream on tiles** (the camera strip, the mosaic, the Cameras page, rooms) and their **high-quality stream in pop-ups** and full screen; a Protect camera's medium stream is used when it lacks one of those. An RTSP camera takes a **Low-Quality Stream** and a **Snapshot Address** beside its high-quality one: the stills come from the snapshot address, else the low-quality stream, else the high-quality one.
+- Screensaver: **35 more pieces**, a glance catalog like an iPhone's lock screen: Countdown, World Clock, the rest of today's events, Rain Soon, Weather Alert, UV, Wind and Gusts, Pressure, Feels Like, Moon, Sun, Security, Doors and Windows, Garage, Climate, Lights On, Vacuum, Notifications, Package, Who's Home, Grid, EV, Up Next, Playing In, On This Day, Camera, Last Ring, Phone Alarm, Trash Day, Pollen, Appliances, Leak and Smoke, Travel Time, Price and Any Sensor. Pieces that show people or cameras are off until you place them.
+- Photos: the day a photo was taken is kept (for On This Day), read from the picture at upload, or from a camera-style file name for the photos already there.
+- Docker and the LXC: **UniFi Protect** under Mantel Settings → Connections. Mantel talks to the console itself with an API key (a local user and password as an Advanced option, used by nothing yet), checks the address, the key and the Protect version on Connect, pins the console's certificate and stops on a changed one until an Owner trusts it. Pick the console's cameras by their stills; a camera Home Assistant has too shows once, as Home Assistant's, with **Video From** Direct or Home Assistant. Each camera's own detections (the ring, person, vehicle, animal, package, or motion) become the same notifications, doorbell pop-up and snapshots as Home Assistant's sensors give, never twice; **Notify For** picks them, and **Turn On in Protect** switches on a detection that is off. Mantel talks to the doorbell's speaker itself. Under the Home Assistant App nothing changes: cameras come from Home Assistant's UniFi Protect integration.
+- Mantel Settings → **Cameras** (Docker and the LXC): **Add Camera** plays an RTSP camera without Home Assistant in the middle. Type its name, area, RTSP address (and an optional sub-stream) and its user name and password, press **Test** to see a picture from it (or why not: it can't be reached, the login was refused, the video isn't H.264), then add it. The login is sealed and never shown again; leave a box blank to keep it. **Notify For** links the camera's Motion, Person and Doorbell to any Home Assistant binary sensor or event (Frigate's, say), so a notification on one carries the camera's picture and a Doorbell link shows the doorbell pop-up. Owner or Admin only, with a fresh sign-in away from home. Under the Home Assistant App the page says cameras come from Home Assistant and links to its Generic Camera integration.
 - Mantel Settings → About → **Secure Connection**: whether this screen is a secure page (the microphone, and so talking at the door, needs HTTPS), how Mantel is reached (built-in HTTPS, behind your own proxy, Home Assistant's sidebar or plain HTTP), and the address in use against the public one. An Owner or Admin also sees each wall tablet whose page isn't secure, with the fix (open Mantel by its `https://` name in Fully Kiosk's Start URL). Wall tablets' pages now tell Mantel their `isSecureContext` and address with their health reports. The camera pop-ups in HK Settings note that talking at the door needs HTTPS while a screen isn't secure. On Docker and the LXC before Mantel has a name, the page points to `mantel-setup` and Set Up Mantel's Address and HTTPS step instead of explaining it again.
+
+**Fixed**
+- Docker and the LXC: `https://<an IP address>` no longer fails the TLS handshake (a browser sends no name to an address; Caddy now falls back to Mantel's own).
+- Screensaver: the music slide's buttons (skip, browse, speakers) no longer close the screensaver.
 
 ## 0.1.113 - 2026-11-02
 

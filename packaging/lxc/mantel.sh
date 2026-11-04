@@ -186,6 +186,25 @@ update_script() {
   [ -d "$INSTALL_DIR/packaging/compose" ] || msg_error "no Mantel installation found in $INSTALL_DIR"
   msg_info "Updating Mantel (the previous images stay tagged for automatic rollback)"
   cd "$INSTALL_DIR/packaging/compose"
+  grep -q '^MANTEL_INSTALL=' .env 2>/dev/null || printf '%s\n' "MANTEL_INSTALL=lxc" >> .env   # an LXC from before About knew
+  # the announcer (0.1.117) for a container installed before it, once: MANTEL_ANNOUNCER=off keeps it out
+  if ! grep -q '^MANTEL_ANNOUNCER=' .env 2>/dev/null; then
+    if grep -q '^COMPOSE_FILE=' .env; then
+      grep -q '^COMPOSE_FILE=.*compose\.announce\.yaml' .env \
+        || { sed -i.bak 's|^COMPOSE_FILE=\(.*\)$|COMPOSE_FILE=\1:compose.announce.yaml|' .env && rm -f .env.bak; }
+    else
+      printf '%s\n' "COMPOSE_FILE=compose.yaml:compose.announce.yaml" >> .env
+    fi
+    printf '%s\n' "MANTEL_ANNOUNCER=on" >> .env
+  elif grep -q '^MANTEL_ANNOUNCER=off' .env; then
+    sed -i.bak '/^COMPOSE_FILE=/s|:compose\.announce\.yaml||' .env && rm -f .env.bak
+  fi
+  # an address changed since the install is followed first (this update starts Mantel), and from 0.1.115 at each boot
+  if [ -f "$INSTALL_DIR/packaging/lxc/mantel-setup.sh" ]; then
+    bash "$INSTALL_DIR/packaging/lxc/mantel-setup.sh" --address --install
+    [ -f "${MANTEL_SYSTEMD_DIR:-/etc/systemd/system}/mantel-address.service" ] \
+      || bash "$INSTALL_DIR/packaging/lxc/mantel-address.sh" install
+  fi
   if [ "$(grep -c '^MANTEL_SERVER_IMAGE=ghcr' .env 2>/dev/null || true)" -gt 0 ]; then
     # follow_source_version rewrites the image pins before the images are pulled; any way out but success (a pull
     # that fails because the release is not published yet, a version that won't start, Ctrl-C) puts them back, so
@@ -246,6 +265,14 @@ start() {
   done
   if [ "$var_gpu" = "yes" ] && [ ! -c /dev/dri/renderD128 ]; then
     echo "Note: /dev/dri/renderD128 is not on this host; continuing WITHOUT the GPU (Live TV will use the CPU)."
+    var_gpu="no"
+  fi
+  # Live TV's GPU transcode is Intel QuickSync (the image carries Intel's driver only): another vendor's render node
+  # (AMD 0x1002, NVIDIA 0x10de) is not shared in. Mantel also falls back to the CPU by itself if the GPU fails.
+  local vendor
+  vendor="$(cat /sys/class/drm/renderD128/device/vendor 2>/dev/null || true)"
+  if [ "$var_gpu" = "yes" ] && [ -n "$vendor" ] && [ "$vendor" != "0x8086" ]; then
+    echo "Note: this host's GPU is not Intel (PCI vendor ${vendor}); Live TV transcodes on Intel QuickSync only, so it will use the CPU."
     var_gpu="no"
   fi
 }

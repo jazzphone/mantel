@@ -50,6 +50,7 @@
 // which would do nothing here. paint() also recomputes from the deadline
 // rather than an accumulated count, so a throttled or missed hour costs
 // nothing but a stale frame.
+// @ts-check
 (function () {
   'use strict';
 

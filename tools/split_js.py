@@ -1,0 +1,1133 @@
+#!/usr/bin/env python3
+"""Cut a big web JavaScript file into parts, by name, and prove nothing but the place changed (phase 18, Part B;
+docs/phase18/CODE-HEALTH.md "Part B: split the four files").
+
+    tools/split_js.py grid-cards              # split web/hk/cards/hk-grid-cards.js as tools/split_manifests/grid-cards.json says
+    tools/split_js.py grid-cards --check      # unsplit: the whole proof, nothing written; split: the files still agree with it
+    tools/split_js.py --find roomParts        # which part (or shell) holds a member, for a session porting an edit
+    tools/split_js.py --all --check           # every manifest
+
+THE METHOD IS THE ONE hk-detail.js'S SPLIT USED (commit 5573f9db): real files in a folder beside the shell, each registering
+one function; the shell fetches them in parallel, runs them in order with a kit K of what they use of it, takes back what it
+uses of them, and only then does the rest of what it did. What is new is that a tool does the moving. Other sessions edit
+these files all the time, so a split made by hand would be out of date before it landed; made by a tool from a list of
+NAMES, a collision with another session is a re-run on the new tree.
+
+THE MANIFEST (tools/split_manifests/<name>.json) names the shell, the parts folder and, per part, the members it takes:
+top-level functions, variables and whole classes of the shell's IIFE (or of the function it runs, `run_in`). Whole
+classes, so `super` and `static` stay inside them. Everything the manifest does not name stays in the shell.
+
+HOW THE KIT IS WORKED OUT. The TypeScript compiler API (tools/split_js.cjs, the copy pinned in tools/typecheck) parses the
+shell and resolves every identifier to its declaration, so a string, a regular expression or a template never fools it.
+A reference from a member in one part to a member in the shell, in the shell's function parameter (the card base `C`) or
+in an earlier part is a kit name: the part takes it from K at the top (`var a = K.a`); a reference the other way is
+handed back (`K.x = x` at the bottom) and the shell takes it from K once every part has run. That is the plan. It is
+then CHECKED the way the plan says: each part is written first without its takes and `tsc` is asked which names it cannot
+find (TS2304); that list must equal the takes exactly. After writing, no part and not the shell may have a name `tsc`
+cannot find that the original did not.
+
+WHAT IT REFUSES TO MOVE (and says so, naming the member):
+  * a member that assigns a variable of the shell, or of another part (a copy through K would go stale);
+  * a variable that is assigned anywhere and read from outside the part it would move to;
+  * a part that uses a later part (the manifest's order is the order they run), or a shell variable that is declared
+    after the parts run;
+  * a statement that shares a line with other code, a name declared twice, a name that is not a top-level member.
+
+THE PROOF. Every moved member's text, with only its indentation normalized (lines inside a template literal or a string
+continued over a line are kept exactly), is compared before and after, in the part it moved to. Every statement that
+stayed is found in the new shell, text for text, in the place the plan put it (the statements that waited for the parts
+run in the function handed to loadParts, in their order). Nothing else is in the new shell but the generated block.
+`--check` on a split tree re-runs the structural half (the members are where the manifest says, the loader is the
+template, the kit's takes and hand-backs agree, `tsc` finds no missing name) and, while the original blob recorded in the
+manifest is still in the repository, says which moved members have been edited since (their code: comments and the parentheses
+of a JSDoc cast do not count, so a part may be annotated for the type checker).
+
+The loader every split shell has is generated from ONE template (loader_block below); tests/test_web_sources.py pins that.
+CLASS-METHOD MODE (a panel like hk-settings.js: one class of 399 members, no `super` outside the constructor, no `static`,
+no #private). The manifest names the class (`"class": "HkSettingsPanel"`) and a part lists `"methods": [...]` beside its
+`"members"`. A part writes its methods in a class expression (`var Methods = class extends /** @type {any} */ (Object) { ...the
+methods, text for text... }`: the `extends` only lets the type checker give `this` the shell class's properties) and hands it to the shell's `install`, which adds each to the class's prototype with Object.defineProperty, NOT enumerable (as a
+class body defines them: writable, configurable; a getter or setter keeps its accessor). So `Object.getOwnPropertyNames` and
+for-in over the prototype see the same set of names as before (their order is the order the parts ran in), and
+tests/test_settings_prototype.py proves it. The things this needs of the manifest:
+  * "kit_name": the parts' parameter (`K` is the default; the settings panel has a module of that name already);
+  * "early_methods": methods that run before the parts are in (the constructor, connectedCallback, ...): they may not use a
+    moved top-level member, nor `this.<a moved method>`;
+  * "early": top-level statements that stay where they are and run at once (customElements.define, entry(...));
+  * "live": shell variables that are set once, later (the panel's M, K, h, F, set when it boots). A part that uses one has
+    its own `var` and a binder; the shell calls `bindLate()` after assigning (the manifest's shell_edits put the call in);
+  * the shell waits: `partsReady` is a promise the shell's own code (boot) awaits, put in by a shell_edit.
+Moved methods may not use `super`, and may not assign a shell variable (as for any member).
+
+Node: $NODE, else node on the PATH.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from dataclasses import dataclass, field
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+HELPER = ROOT / "tools/split_js.cjs"
+MANIFESTS = ROOT / "tools/split_manifests"
+# every declaration file the type checker reads (globals.d.ts, the host contract, the hand-written ones): a JSDoc type in a
+# part resolves in them as it does in tools/typecheck/check.py
+TYPES_D_TS = sorted(str(p) for p in (ROOT / "tools/typecheck/types").glob("*.d.ts"))
+TS_FIXTURE = ROOT / "tests/fixtures/ts_check.json"
+TS_BASELINE = ROOT / "tools/typecheck/baseline.json"
+WIDTH = 118
+
+LOADER_BEGIN = "// ------------------------------------------------------------ the parts (generated by tools/split_js.py)"
+LOADER_END = "// ------------------------------------------------------------ end of the parts loader"
+CALL = "loadParts"           # the loader's entry; the statements that wait for the parts are the function it is given
+
+# THE LOADER: the same in every split shell (tests/test_web_sources.py pins it). {parts} is the PARTS list, formatted by
+# parts_list(); label, glob and url are the shell's own.
+LOADER = """\
+{i}{begin}
+{i}// THIS FILE IS THE SHELL. Its members are cut into the files of web/hk/{folder}/ (the PARTS below, in the order they
+{i}// run) by tools/split_js.py from tools/split_manifests/{name}.json; `split_js.py --find <name>` says which file holds
+{i}// one. Each file registers one function in window.{glob}; they run here, in this order (a later one may use
+{i}// an earlier one), each given the kit K: what the parts use of the shell, in one object. What the shell uses of them,
+{i}// they hand back on K, and it is taken from there. The files are fetched in parallel; a host that has already loaded
+{i}// them (the suites) starts at once, in the same turn.
+{i}var PARTS = {parts};
+{i}var PARTS_TRIES = 6;
+{i}function partKey(file) {{ return file.replace(/\\.js$/, ''); }}
+{i}// ONE FILE THAT DIDN'T COME (a tablet's Wi-Fi waking, the server restarting) used to leave the cards dead until a reload
+{i}// (the third audit pass, WEB-11): the ones still missing are asked for again, a little later each time, at an address
+{i}// of their own -- a browser keeps a failed module's answer for its address
+{i}function loadParts(then, n) {{
+{i}  // (the first call has no n; the retries and the finish pass it) a shell evaluated twice before its parts arrive
+{i}  // must not run them twice: the flag is set at once, not when the parts have run
+{i}  if (n === undefined) {{
+{i}    var started = window.__hkSplitStarted = window.__hkSplitStarted || {{}};
+{i}    if (started['{label}']) return;
+{i}    started['{label}'] = true;
+{i}  }}
+{i}  n = n || 0;
+{i}  var have = window.{glob} || {{}};
+{i}  var missing = PARTS.filter(function (file) {{ return !have[partKey(file)]; }});
+{i}  if (!missing.length) {{
+{i}    try {{ then(); }} catch (err) {{ console.error('[{label}] the parts did not start', err); }}
+{i}    // (the checks that drive a page wait for every shell that started to say it is done)
+{i}    (window.__hkSplitDone = window.__hkSplitDone || {{}})['{label}'] = true;
+{i}    return;
+{i}  }}
+{i}  // (window.hkV: the build's ?v= on an address put together here, web/shim/base.js)
+{i}  Promise.all(missing.map(function (file) {{
+{i}    var u = '/hk/{folder}/' + file, href = window.hkV ? window.hkV(u) : u;
+{i}    var got = n ? import(href + (href.indexOf('?') < 0 ? '?' : '&') + 'retry=' + n) : import(href);
+{i}    return got.catch(function (err) {{ return err; }});
+{i}  }})).then(function (got) {{
+{i}    var err = got.filter(function (r) {{ return r instanceof Error; }})[0];
+{i}    var left = PARTS.filter(function (file) {{ return !(window.{glob} || {{}})[partKey(file)]; }});
+{i}    if (!left.length) {{ loadParts(then, n); return; }}
+{i}    err = err || new Error(left[0] + ' ran without registering');
+{i}    if (n + 1 >= PARTS_TRIES) {{ console.error('[{label}] the parts did not start', err); return; }}
+{i}    console.warn('[{label}] a part did not load (' + err.message + '); again shortly');
+{i}    setTimeout(function () {{ loadParts(then, n + 1); }}, Math.min(1000 * Math.pow(2, n), 15000));
+{i}  }});
+{i}}}
+{i}{end}
+"""
+
+PART_HEADER = """\
+// {file} - {title}.
+//
+// PART OF {what} ({shell}). Not a card and not run on its own: it registers one
+// function, which {shell} calls with the shared kit {kit} once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
+// from {kit} at the top; what the shell or a later file uses of it, it hands back at the bottom.
+{check}"""
+
+
+class Refusal(Exception):
+    pass
+
+
+# ------------------------------------------------------------------------------------------------ node helper
+def node() -> str:
+    found = os.environ.get("NODE") or shutil.which("node")
+    if not found:
+        raise SystemExit("no node: set NODE or put node on the PATH")
+    return found
+
+
+def ask(req: dict) -> dict:
+    run = subprocess.run([node(), str(HELPER)], input=json.dumps(req), capture_output=True, text=True, cwd=ROOT)
+    if run.returncode != 0:
+        raise SystemExit(f"split_js.cjs failed:\n{run.stderr[-3000:]}")
+    return json.loads(run.stdout)
+
+
+def analyze(path: Path, mode: str, run_in: str | None, cont: bool = False, man: dict | None = None) -> dict:
+    """`man` (the manifest) turns on class-method mode when it names a class, and gives the kit's name."""
+    cls = (man or {}).get("class")
+    return ask({"cmd": "analyze", "file": str(path), "mode": mode, "run_in": run_in, "globals": TYPES_D_TS,
+                "cont_call": CALL if cont else None, "class_name": cls if mode == "shell" else None,
+                "class_expr": bool(cls) and mode == "part", "kit_name": kit_of(man)})
+
+
+def codes(texts: list[str]) -> list[str]:
+    """Each class member's text as its code: no comments, no JSDoc cast parentheses (what split_js.cjs codeOf prints)."""
+    return ask({"cmd": "code", "texts": texts})["codes"]
+
+
+def kit_of(man: dict | None) -> str:
+    return (man or {}).get("kit_name", "K")
+
+
+def diagnostics(paths: list[Path]) -> dict[str, dict]:
+    got = ask({"cmd": "diagnostics", "files": [str(p) for p in paths], "globals": TYPES_D_TS})
+    return {str(Path(k).resolve()): v for k, v in got.items()}
+
+
+# ------------------------------------------------------------------------------------------------ small text helpers
+def pack(pieces: list[str], first: str, cont: str, width: int = WIDTH) -> list[str]:
+    """The pieces joined by spaces and wrapped at `width`: the first line starts with `first`, the others with `cont`."""
+    lines, cur, started = [], first, False
+    for piece in pieces:
+        if started and len(cur) + 1 + len(piece) > width:
+            lines.append(cur)
+            cur = cont + piece
+        else:
+            cur = cur + (" " if started else "") + piece
+        started = True
+    lines.append(cur)
+    return lines
+
+
+def commas(items: list[str], last: str = ";") -> list[str]:
+    return [it + ("," if k < len(items) - 1 else last) for k, it in enumerate(items)]
+
+
+def by_name(names) -> list[str]:
+    return sorted(set(names), key=lambda s: (s.lower(), s))
+
+
+def parts_list(parts: list[str], indent: str) -> str:
+    """The PARTS array: on one line when it fits, else wrapped under its first element."""
+    pieces = commas([f"'{p}.js'" for p in parts], last="]")
+    return "\n".join(pack(pieces, indent + "var PARTS = [", indent + " " * 13)).split("var PARTS = ", 1)[1]
+
+
+def loader_block(man: dict, indent: str = "  ") -> str:
+    """The generated loader of a shell: the template, filled in from the manifest."""
+    folder = Path(man["folder"]).name
+    return LOADER.format(i=indent, begin=LOADER_BEGIN, end=LOADER_END, folder=folder, name=man["name"], glob=man["global"],
+                         label=man["label"], parts=parts_list([p["name"] for p in man["parts"]], indent))
+
+
+def lstrip_lines(text: str) -> str:
+    return "\n".join(ln.lstrip(" \t") for ln in text.split("\n"))
+
+
+def reindent(lines: list[str], protected: set[int], first_no: int, member_indent: int, target: int) -> list[str]:
+    """The member's lines at `target` spaces instead of `member_indent`; lines that begin inside a template literal or a
+    continued string (`protected`, 1-based numbers) are kept exactly."""
+    out = []
+    for k, raw in enumerate(lines):
+        no = first_no + k
+        raw = raw.rstrip("\r")
+        if no in protected:
+            out.append(raw)
+        elif not raw.strip():
+            out.append("")
+        else:
+            lead = len(raw) - len(raw.lstrip(" "))
+            if "\t" in raw[:lead + 1] and raw[:lead].strip(" ") == "":
+                raise Refusal(f"a tab indents line {no}")
+            shift = target - member_indent
+            out.append(" " * (lead + shift) + raw[lead:] if lead + shift >= 0 else raw.lstrip(" "))
+    return out
+
+
+# ------------------------------------------------------------------------------------------------ the plan
+@dataclass
+class Member:
+    scope: int
+    index: int
+    d: dict
+    part: int = -1                 # the part it moves to; -1: stays in the shell
+    late: bool = False             # stays, but waits for the parts (runs in the function handed to loadParts)
+
+    @property
+    def key(self) -> tuple[int, int]:
+        return (self.scope, self.index)
+
+    @property
+    def label(self) -> str:
+        return (self.d["names"][0] if self.d["names"] else self.d.get("method") or self.d["head"][:50])
+
+
+@dataclass
+class Plan:
+    man: dict
+    lines: list[str]
+    an: dict
+    run_in: str | None
+    members: dict[tuple[int, int], Member] = field(default_factory=dict)
+    takes: dict[int, set[str]] = field(default_factory=dict)         # part -> names it takes from K
+    gives: dict[int, set[str]] = field(default_factory=dict)         # part -> names it hands back on K
+    shell_takes: dict[int, set[str]] = field(default_factory=dict)   # scope -> names the shell takes back
+    shell_kit: set[str] = field(default_factory=set)                 # names the shell puts on K
+    refusals: list[str] = field(default_factory=list)
+    unresolved_before: set[str] = field(default_factory=set)
+    cs: int | None = None                                            # the scope of the class's members (class-method mode)
+    live: dict[int, set] = field(default_factory=dict)               # part -> shell variables it binds late
+
+
+def make_plan(man: dict, text: str, work: Path) -> Plan:
+    """The analysis of the unsplit shell and every decision the split rests on (nothing is written)."""
+    work.mkdir(parents=True, exist_ok=True)
+    src = work / "original.js"
+    src.write_text(text)
+    run_in = man.get("run_in")
+    an = analyze(src, "shell", run_in, man=man)
+    plan = Plan(man=man, lines=text.split("\n"), an=an, run_in=run_in)
+    plan.unresolved_before = {u["name"] for u in diagnostics([src])[str(src.resolve())]["unresolved"]}
+    plan.cs = class_scope(an)
+    if man.get("class") and plan.cs is None:
+        plan.refusals.append(f"the manifest names the class `{man['class']}`, which the shell does not declare at its top level")
+    for sc in an["scopes"]:
+        for st in sc["stmts"]:
+            plan.members[(st["scope"], st["index"])] = Member(st["scope"], st["index"], st)
+    for dup in an["duplicates"]:
+        plan.refusals.append(f"`{dup['name']}` is declared in two scopes: the inner one hides the outer for the code inside it")
+
+    # who moves where
+    by, bym = {}, {}
+    for m in plan.members.values():
+        for n in m.d["names"]:
+            by.setdefault(n, []).append(m)
+        if m.scope == plan.cs and m.d.get("method"):
+            bym.setdefault(m.d["method"], []).append(m)
+    for pi, part in enumerate(man["parts"]):
+        for name in part["members"]:
+            hits = by.get(name, [])
+            if not hits:
+                plan.refusals.append(f"{part['name']}: `{name}` is not a top-level function, class or variable of the shell")
+                continue
+            if len(hits) > 1:
+                plan.refusals.append(f"{part['name']}: `{name}` is declared more than once")
+                continue
+            m = hits[0]
+            if m.part not in (-1, pi):
+                plan.refusals.append(f"`{name}` is named by {man['parts'][m.part]['name']} and {part['name']}")
+            if name == man.get("class"):
+                plan.refusals.append(f"{part['name']}: `{name}` is the class itself: its methods move, not the class")
+            m.part = pi
+        for name in part.get("methods", []):
+            hits = bym.get(name, [])
+            if not hits:
+                plan.refusals.append(f"{part['name']}: `{name}` is not a method of {man.get('class', 'a class')} (the manifest has no \"class\" or the name is wrong)")
+                continue
+            if len(hits) > 1 and sorted(h.d["msub"] for h in hits) != ["get", "set"]:
+                plan.refusals.append(f"{part['name']}: `{name}` is declared more than once")
+                continue
+            for m in hits:
+                if m.part not in (-1, pi):
+                    plan.refusals.append(f"method `{name}` is named by {man['parts'][m.part]['name']} and {part['name']}")
+                m.part = pi
+    for m in plan.members.values():
+        if m.part >= 0 and m.d["shared"]:
+            plan.refusals.append(f"`{m.label}` (line {m.d['first']}) has {m.d['shared']}: cannot be cut by lines")
+        if m.part >= 0 and m.scope == plan.cs:
+            for what, bad in (("is the constructor", m.d["msub"] == "constructor"), ("is static", m.d["isStatic"]),
+                              ("has a #private or computed name", m.d["priv"] or m.d["computed"]),
+                              ("uses `super`, which would mean another prototype in a class expression", m.d["usesSuper"]),
+                              ("is not a method or accessor", m.d["msub"] == "other")):
+                if bad:
+                    plan.refusals.append(f"method `{m.label}` (line {m.d['first']}) {what}: it cannot be moved")
+        elif m.part >= 0 and m.d["kind"] not in ("function", "class", "var"):
+            plan.refusals.append(f"`{m.label}` is a {m.d['kind']}, not a member")
+    if man.get("class"):
+        clash = {n for m in plan.members.values() for n in m.d["names"]} & GENERATED_CLASS_MODE
+        if clash:
+            plan.refusals.append(f"the shell already declares {sorted(clash)}, which class-method mode generates")
+    # the ones that stay but wait: after the first move in their scope, and not a function declaration (hoisted anyway)
+    cut = {}
+    for m in plan.members.values():
+        if m.part >= 0:
+            cut[m.scope] = min(cut.get(m.scope, 10 ** 9), m.index)
+    host_lines = {(sc["host"]["first"], sc["host"]["last"]) for sc in an["scopes"] if sc["host"]}
+    early = man.get("early", [])
+    live = set(man.get("live", []))
+    is_early = lambda m: bool(set(m.d["names"]) & set(early)) or m.d["head"].startswith(tuple(early))  # noqa: E731
+    for m in sorted(plan.members.values(), key=lambda x: (x.scope, x.index)):
+        if m.part >= 0 or m.scope not in cut or m.index < cut[m.scope] or m.scope == plan.cs:
+            continue
+        if early and is_early(m):                          # named in the manifest: stays where it is and runs at once
+            continue
+        if m.d["kind"] in ("function", "directive"):
+            continue
+        if (m.d["first"], m.d["last"]) in host_lines:      # the call that holds the next scope stays where it is
+            continue
+        if m.d["kind"] == "var" and not any(not w.get("hoisted") for w in m.d["writes"]) and not any(
+                (t := plan.members.get((r["scope"], r["index"]))) is not None and r.get("now") and (t.part >= 0 or t.late)
+                for r in m.d["refs"] if "index" in r):
+            continue            # a variable whose initializer touches nothing that moved or waits stays where it is, early
+        m.late = True
+
+    # references
+    writers: dict[tuple, list[Member]] = {}
+    for m in plan.members.values():
+        for w in m.d["writes"]:
+            writers.setdefault(target_key(w), []).append(m)
+    for pi in range(len(man["parts"])):
+        plan.takes[pi], plan.gives[pi], plan.live[pi] = set(), set(), set()
+    for sc in range(len(an["scopes"])):
+        plan.shell_takes[sc] = set()
+    early_methods = set(man.get("early_methods", []))
+    moved_methods = {m.d["method"] for m in plan.members.values() if m.scope == plan.cs and m.part >= 0}
+    for m in plan.members.values():
+        if m.scope == plan.cs and m.part < 0 and m.d.get("method") in early_methods:
+            hit = sorted(set(m.d["thisProps"]) & moved_methods)
+            if hit:
+                plan.refusals.append(f"`{m.label}` runs before the parts are in, and uses `this.{hit[0]}`, which moves"
+                                     f"{' (and ' + str(len(hit) - 1) + ' more)' if len(hit) > 1 else ''}")
+        for r in m.d["refs"]:
+            tk = target_key(r)
+            tgt = plan.members.get((r["scope"], r["index"])) if "index" in r else None
+            tpart = tgt.part if tgt else -1                      # a parameter of a scope's function is the shell's
+            name = r.get("name") or r.get("param")
+            if r.get("hoisted"):
+                plan.refusals.append(f"`{name}` (used by `{m.label}`) is declared inside another statement and hoisted: not movable")
+                continue
+            if m.part >= 0 and tpart < 0 and name in live and tgt is not None:
+                plan.live[m.part].add(name)                      # a shell variable set once, later: bound by bindLate()
+                continue
+            if tpart >= 0 and m.part < 0 and ((m.scope == plan.cs and m.d.get("method") in early_methods) or
+                                              (m.scope != plan.cs and early and is_early(m) and r.get("now"))):
+                plan.refusals.append(f"`{m.label}` runs before the parts are in, and uses `{name}`, which moves to "
+                                     f"{man['parts'][tpart]['name']}")
+                continue
+            if m.part < 0 and not m.late and tgt is not None and tgt.late and tgt.d["kind"] != "function":
+                plan.refusals.append(f"the shell's `{m.label}` (line {m.d['first']}) uses `{name}`, which waits for the parts "
+                                     f"(line {tgt.d['first']}) and is declared where `{m.label}` cannot see it: move `{name}`'s "
+                                     f"cause into a part, or keep it in the shell")
+                continue
+            if m.part == tpart:
+                continue
+            mutable = bool(writers.get(tk))
+            if m.part >= 0 and tpart < 0:
+                if tgt is not None and tgt.late:
+                    plan.refusals.append(f"{man['parts'][m.part]['name']}: `{m.label}` uses `{name}`, which stays in the shell but is "
+                                         f"defined after the parts run (line {tgt.d['first']}): move it into a part or earlier")
+                if mutable:
+                    plan.refusals.append(f"`{m.label}` uses `{name}`, which the shell assigns to again "
+                                         f"({', '.join(sorted({w.label for w in writers[tk]}))}); a copy through K would go stale")
+                plan.takes[m.part].add(name)
+                plan.shell_kit.add(name)
+            elif m.part >= 0 and tpart >= 0:
+                if tpart > m.part:
+                    plan.refusals.append(f"{man['parts'][m.part]['name']} (`{m.label}`) uses `{name}` of the later part "
+                                         f"{man['parts'][tpart]['name']}: reorder the parts, or move one of them")
+                    continue
+                if mutable:
+                    plan.refusals.append(f"`{m.label}` uses `{name}` of {man['parts'][tpart]['name']}, which is assigned to again "
+                                         f"({', '.join(sorted({w.label for w in writers[tk]}))}); a copy through K would go stale")
+                plan.takes[m.part].add(name)
+                plan.gives[tpart].add(name)
+            elif m.part < 0 and tpart >= 0:
+                if mutable:
+                    plan.refusals.append(f"the shell's `{m.label}` uses `{name}` of {man['parts'][tpart]['name']}, which is assigned to "
+                                         f"again; a copy through K would go stale")
+                if m.index < cut.get(m.scope, 10 ** 9) and m.d["kind"] != "function" and r.get("now") and not m.late:
+                    plan.refusals.append(f"the shell's `{m.label}` (line {m.d['first']}) uses `{name}` of {man['parts'][tpart]['name']} "
+                                         f"while it is evaluated, before the parts have run")
+                plan.shell_takes[tgt.scope].add(name)
+                plan.gives[tpart].add(name)
+    # a moved member that assigns a name of the shell or another part
+    for tk, ws in writers.items():
+        for w in ws:
+            t = plan.members.get((tk[1], tk[2])) if tk[0] == "m" else None
+            tpart = t.part if t else -1
+            if w.part >= 0 and w.part != tpart:
+                plan.refusals.append(f"`{w.label}` assigns `{tk[3] if tk[0] == 'm' else tk[1]}`, which is "
+                                     f"{'the shell' if tpart < 0 else man['parts'][tpart]['name']}'s: it cannot move")
+            if w.part < 0 and tpart >= 0:
+                plan.refusals.append(f"the shell's `{w.label}` assigns `{tk[3]}`, which moved to {man['parts'][tpart]['name']}")
+    plan.refusals = list(dict.fromkeys(plan.refusals))
+    return plan
+
+
+# names the class-method shell generates (the loader's own are PARTS, PARTS_TRIES, partKey, loadParts, kit, runParts)
+GENERATED_CLASS_MODE = {"install", "bindLate", "lates", "partsReady"}
+
+
+def class_scope(an: dict) -> int | None:
+    for i, sc in enumerate(an["scopes"]):
+        if sc["name"] == "class":
+            return i
+    return None
+
+
+def code_scopes(an: dict) -> list[dict]:
+    """The scopes that hold statements the parts run in (the class's members are not one)."""
+    return [sc for sc in an["scopes"] if sc["name"] != "class"]
+
+
+def target_key(r: dict) -> tuple:
+    if "index" in r:
+        return ("m", r["scope"], r["index"], r["name"])
+    return ("p", r["scope"], r["param"])
+
+
+# ------------------------------------------------------------------------------------------------ writing the parts
+def hand_back_lines(names: list[str], kit: str = "K") -> list[str]:
+    """`K.a = a; K.b = b;` wrapped, statement by statement."""
+    return pack([f"{kit}.{n} = {n};" for n in names], "    ", "    ")
+
+
+def take_lines(names: list[str], kit: str = "K") -> list[str]:
+    """`var a = K.a, b = K.b;` wrapped."""
+    return pack(commas([f"{n} = {kit}.{n}" for n in names]), "    var ", "        ")
+
+
+def part_text(plan: Plan, pi: int, takes: set[str] | None = None, check: bool = False) -> tuple[str, list[Member]]:
+    man = plan.man
+    part = man["parts"][pi]
+    mine = sorted((m for m in plan.members.values() if m.part == pi), key=lambda m: m.d["first"])
+    out = PART_HEADER.format(file=part["name"] + ".js", title=part["title"], what=man["what"],
+                             shell=Path(man["shell"]).name, kit=kit_of(man), check="// @ts-check\n" if check else "").rstrip("\n").split("\n")
+    kit = kit_of(man)
+    out += ["(function () {", "  'use strict';",
+            f"  (window.{man['global']} = window.{man['global']} || {{}})['{part['name']}'] = function ({kit}) {{"]
+    takes = plan.takes[pi] if takes is None else takes
+    if takes:
+        out += take_lines(by_name(takes), kit)
+        out.append("")
+    late = by_name(plan.live.get(pi, ()))
+    if late:
+        out += pack(commas(late), "    var ", "        ")
+        out += ["    // (set when the page starts, not now: the shell calls bindLate() once it has assigned them)",
+                f"    {kit}.late.push(function (s) {{"] + pack([f"{n} = s.{n};" for n in late], "      ", "      ") + ["    });", ""]
+    tops = [m for m in mine if m.scope != plan.cs]
+    meths = [m for m in mine if m.scope == plan.cs]
+    for k, m in enumerate(tops):
+        d = m.d
+        body = reindent(plan.lines[d["first"] - 1:d["last"]], set(d["protected"]), d["first"], d["indent"], 4)
+        if k and plan.lines[d["first"] - 2].strip() == "":
+            out.append("")
+        out += body
+    if meths:
+        if tops:
+            out.append("")
+        out += [f"    // THE METHODS this part adds to {man['class']}.prototype ({kit}.install: not enumerable, as a class body",
+                "    // defines them). They are written here exactly as they were in the class. (`extends` an `any`: only so the type",
+                "    // checker lets `this` have the properties the shell's class gives it; nothing makes an instance of this.)",
+                "    var Methods = class extends /** @type {any} */ (Object) {"]
+        for k, m in enumerate(meths):
+            d = m.d
+            body = reindent(plan.lines[d["first"] - 1:d["last"]], set(d["protected"]), d["first"], d["indent"], 6)
+            if k and plan.lines[d["first"] - 2].strip() == "":
+                out.append("")
+            out += body
+        out += ["    };", f"    {kit}.install(Methods);"]
+    if plan.gives[pi]:
+        out.append("")
+        out.append("    // what the shell and the later parts use of this one")
+        out += hand_back_lines(by_name(plan.gives[pi]), kit)
+    out += ["  };", "})();", ""]
+    return "\n".join(out), mine
+
+
+# ------------------------------------------------------------------------------------------------ writing the shell
+def shell_text(plan: Plan, extra_takes: dict[int, set[str]] | None = None) -> str:
+    """The shell: the moved members and the waiting statements cut out, the loader put where the first member was, and the
+    kit, the run and the call that holds the waiting statements put in the scope the parts run in."""
+    man, an, L = plan.man, plan.an, plan.lines
+    scopes = code_scopes(an)
+    top, home = scopes[0], scopes[-1]       # home: the scope the parts run in (the function run_in names, else the IIFE)
+    hs = len(scopes) - 1
+    kitn = kit_of(man)
+    cls_mode = bool(man.get("class"))
+    takes = {sc: set(v) for sc, v in plan.shell_takes.items()}
+    for sc, extra in (extra_takes or {}).items():
+        takes.setdefault(sc, set()).update(extra)
+    moved = [m for m in plan.members.values() if m.part >= 0]
+    late = sorted((m for m in plan.members.values() if m.late), key=lambda m: (m.scope, m.index))
+    remove = [(m.d["first"], m.d["last"]) for m in moved + late]
+    insert: dict[int, list[str]] = {}
+
+    # the loader (IIFE level), where the IIFE's first moved member was; else before the call that holds the scope
+    top_ind = " " * (top["stmts"][0]["indent"] if top["stmts"] else 2)
+    block = loader_block(man, top_ind).rstrip("\n").split("\n")
+    if takes.get(0):
+        block += pack(commas(by_name(takes[0])), top_ind + "var ", top_ind + "    ")
+    first_top = min((m.d["first"] for m in moved if m.scope == 0), default=None)
+    if first_top is not None:
+        insert.setdefault(first_top, []).extend(block + [""])
+    elif home["host"]:
+        insert.setdefault(home["host"]["first"], []).extend(block + [""])
+    else:
+        insert.setdefault(home["close"], []).extend([""] + block)
+
+    # the kit, the run and the call, in the scope the parts run in
+    ind = " " * (home["stmts"][0]["indent"] if home["stmts"] else 4)
+    ind2 = ind + "  "
+    kit = [f"{ind}function kit() {{", f"{ind2}return {{"]
+    entries = [f"{n}: {n}" for n in by_name(plan.shell_kit)]
+    if cls_mode:
+        entries += ["install: install", "late: lates"]
+    kit += pack(commas(entries, last=""), ind2 + "  ", ind2 + "  ")
+    kit += [f"{ind2}}};", f"{ind}}}"]
+    back_all = by_name(set().union(*takes.values()) if takes else set())
+    run = [f"{ind}function runParts() {{", f"{ind2}var {kitn} = kit();",
+           f"{ind2}PARTS.forEach(function (file) {{ window.{man['global']}[partKey(file)]({kitn}); }});"]
+    run += pack([f"{n} = {kitn}.{n};" for n in back_all], ind2, ind2) if back_all else []
+    if cls_mode:
+        run.append(f"{ind2}bindLate();")
+    run.append(f"{ind}}}")
+    decl = pack(commas(by_name(takes[hs])), ind + "var ", ind + "    ") if hs != 0 and takes.get(hs) else []
+    cls_defs = []
+    if cls_mode:
+        names = by_name(man.get("live", []))
+        cls = man["class"]
+        cls_defs = [
+            f"{ind}// THE CLASS'S METHODS that parts add: as a class body defines them (writable, configurable, NOT enumerable; a",
+            f"{ind}// getter or setter stays an accessor), so for-in and Object.getOwnPropertyNames over the prototype see the same names",
+            f"{ind}function install(from) {{",
+            f"{ind2}Object.getOwnPropertyNames(from.prototype).forEach(function (name) {{",
+            f"{ind2}  if (name === 'constructor') return;",
+            f"{ind2}  if (Object.prototype.hasOwnProperty.call({cls}.prototype, name)) throw new Error('[{man['label']}] ' + name + ' is defined twice');",
+            f"{ind2}  var d = Object.getOwnPropertyDescriptor(from.prototype, name);",
+            f"{ind2}  Object.defineProperty({cls}.prototype, name, d.get || d.set",
+            f"{ind2}    ? {{ get: d.get, set: d.set, enumerable: false, configurable: true }}",
+            f"{ind2}    : {{ value: d.value, writable: true, enumerable: false, configurable: true }});",
+            f"{ind2}}});",
+            f"{ind}}}",
+            f"{ind}// THE SHELL'S VARIABLES SET ONCE, LATER ({', '.join(names)}): each part that uses one has its own copy, handed over here",
+            f"{ind}// whenever the shell has assigned them (the parts run, and the page's start)",
+            f"{ind}var lates = [];",
+            f"{ind}function bindLate() {{",
+            f"{ind2}var s = {{ " + ", ".join(f"{n}: {n}" for n in names) + " };",
+            f"{ind2}lates.forEach(function (bind) {{ bind(s); }});",
+            f"{ind}}}",
+        ]
+    prelude = decl + cls_defs + kit + run
+    first_run = min((m.d["first"] for m in moved if m.scope == hs), default=None)
+    if first_run is not None and hs != 0:
+        insert.setdefault(first_run, []).extend(prelude + [""])
+    else:
+        insert.setdefault(home["close"], []).extend([""] + prelude)
+    # the call, with the statements that wait for the parts (in their order, as they were)
+    cont = ind + "  "
+    if cls_mode:
+        # the element is defined at once (the host makes one the moment the module is in); the page waits for its methods:
+        # boot() awaits partsReady (a shell_edit). Nothing waits in the shell itself.
+        if late:
+            raise Refusal("class-method mode: " + ", ".join(m.label for m in late) + " would wait for the parts; name them under "
+                          "\"early\" in the manifest (they run at once) or move them")
+        call = [f"{ind}var partsReady = new Promise(function (resolve, reject) {{",
+                f"{cont}var ran = false;",
+                f"{cont}{CALL}(function () {{",
+                f"{cont}  runParts();",
+                f"{cont}  ran = true;",
+                f"{cont}  resolve();",
+                f"{cont}}});",
+                f"{cont}// (the loader gives up after its last try with a note in the console; the page says so too)",
+                f"{cont}if (!ran) setTimeout(function () {{ reject(new Error('its files did not load')); }}, 75000);",
+                f"{ind}}});",
+                f"{ind}partsReady.catch(function () {{ /* boot() reports it */ }});"]
+    else:
+        call = [f"{ind}{CALL}(function () {{", f"{cont}runParts();"]
+        for m in late:
+            body = reindent(L[m.d["first"] - 1:m.d["last"]], set(m.d["protected"]), m.d["first"], m.d["indent"], len(cont))
+            call += ([""] if m is late[0] or L[m.d["first"] - 2].strip() == "" else []) + body
+        call.append(f"{ind}}});")
+    insert.setdefault(home["close"], []).extend([""] + call)
+    return splice(L, remove, insert)
+
+
+def splice(L: list[str], remove: list[tuple[int, int]], insert: dict[int, list[str]]) -> str:
+    gone = set()
+    for a, b in remove:
+        gone.update(range(a, b + 1))
+    out: list[str] = []
+    gap = False                     # just after a removed statement
+    for no, line in enumerate(L, 1):
+        if no in insert:
+            if out and out[-1].strip() == "" and insert[no] and insert[no][0] == "":
+                insert[no] = insert[no][1:]
+            out += insert[no]
+            gap = False
+        if no in gone:
+            gap = True
+            continue
+        if gap and line.strip() == "":
+            if out and out[-1].strip() == "":
+                continue
+        else:
+            gap = False
+        out.append(line)
+    return "\n".join(out)
+
+
+def apply_edits(text: str, edits: list[dict]) -> str:
+    for e in edits:
+        if text.count(e["find"]) != 1:
+            raise Refusal(f"shell_edits: `{e['find'][:60]}` is found {text.count(e['find'])} times, not once")
+        text = text.replace(e["find"], e["replace"])
+    return text
+
+
+# ------------------------------------------------------------------------------------------------ the whole thing
+def load_manifest(arg: str) -> tuple[dict, Path]:
+    p = Path(arg)
+    if not p.suffix:
+        p = MANIFESTS / f"{arg}.json"
+    if not p.is_file():
+        raise SystemExit(f"no manifest {p}")
+    man = json.loads(p.read_text())
+    man["name"] = p.stem
+    return man, p
+
+
+def is_split(text: str) -> bool:
+    return LOADER_BEGIN in text
+
+
+def git(*args: str, input: str | None = None) -> str:
+    return subprocess.run(["git", *args], capture_output=True, text=True, cwd=ROOT, input=input).stdout.strip()
+
+
+def build(man: dict, text: str, work: Path) -> tuple[Plan, dict[str, str], str]:
+    """Plan the split of `text` and make every file's text (nothing is written): (plan, {part file: text}, shell)."""
+    plan = make_plan(man, text, work)
+    if plan.refusals:
+        raise Refusal("\n".join("  - " + r for r in plan.refusals))
+    parts, drafts = {}, {}
+    # the kit, checked the way the plan says: each part without its takes; tsc names what it cannot find
+    for pi, part in enumerate(man["parts"]):
+        draft = work / "draft" / (part["name"] + ".js")
+        draft.parent.mkdir(exist_ok=True)
+        t, _ = part_text(plan, pi, takes=set())
+        draft.write_text(t)
+        drafts[pi] = draft
+    got = diagnostics(list(drafts.values()))
+    declared = {n for m in plan.members.values() for n in m.d["names"]} | {r["param"] for m in plan.members.values()
+                                                                             for r in m.d["refs"] if "param" in r}
+    params = {p for sc in plan.an["scopes"] for p in sc["params"]}
+    problems = []
+    for pi, draft in drafts.items():
+        d = got[str(draft.resolve())]
+        if d["syntax"]:
+            problems.append(f"{man['parts'][pi]['name']}: does not parse: {d['syntax'][0]}")
+        missing = {u["name"] for u in d["unresolved"]}
+        kit_by_tsc = (missing & (declared | params)) - {n for n in missing if n in plan.unresolved_before and n not in declared}
+        stray = missing - declared - params - plan.unresolved_before
+        if stray:
+            problems.append(f"{man['parts'][pi]['name']}: tsc cannot find {sorted(stray)}, and the original shell cannot either")
+        if kit_by_tsc != plan.takes[pi]:
+            problems.append(f"{man['parts'][pi]['name']}: the references say the kit is {sorted(plan.takes[pi])}, "
+                            f"tsc says {sorted(kit_by_tsc)}: differs by {sorted(kit_by_tsc ^ plan.takes[pi])}")
+    if problems:
+        raise Refusal("\n".join("  - " + p for p in problems))
+    extra: dict[int, set[str]] = {}
+    shell = None
+    for attempt in range(3):
+        shell = apply_edits(shell_text(plan, extra), man.get("shell_edits", []))
+        probe = work / "shell-probe.js"
+        probe.write_text(shell)
+        miss = {u["name"] for u in diagnostics([probe])[str(probe.resolve())]["unresolved"]} - plan.unresolved_before
+        moved_names = {n: m for m in plan.members.values() if m.part >= 0 for n in m.d["names"]}
+        add = {n for n in miss if n in moved_names}
+        if not add:
+            if miss:
+                raise Refusal(f"the new shell uses names tsc cannot find, and the original did not: {sorted(miss)}")
+            break
+        for n in add:
+            m = moved_names[n]
+            extra.setdefault(m.scope, set()).add(n)
+            plan.gives[m.part].add(n)
+    for pi, part in enumerate(man["parts"]):
+        parts[part["name"] + ".js"], _ = part_text(plan, pi)
+    return plan, parts, shell
+
+
+def verify(plan: Plan, parts: dict[str, str], shell: str, work: Path) -> list[str]:
+    """The proof: returns what disagrees (empty: proven)."""
+    man = plan.man
+    bad: list[str] = []
+    out = work / "out"
+    out.mkdir(exist_ok=True)
+    # 1. moved members, text for text, in the part they went to
+    for pi, part in enumerate(man["parts"]):
+        f = out / (part["name"] + ".js")
+        f.write_text(parts[part["name"] + ".js"])
+        an = analyze(f, "part", None, man=man)
+        have = {}
+        for sc in an["scopes"]:
+            for st in sc["stmts"]:
+                if sc["name"] == "class":
+                    have.setdefault("#" + str(st.get("method")), []).append(st["text"])
+                    continue
+                for n in st["names"] or [st["head"]]:
+                    have.setdefault(n, []).append(st["text"])
+        for m in (m for m in plan.members.values() if m.part == pi):
+            for n in (["#" + str(m.d.get("method"))] if m.scope == plan.cs else m.d["names"]):
+                got = have.get(n, [])
+                if got.count(m.d["text"]) != 1:
+                    bad.append(f"{part['name']}: `{n.lstrip('#')}` is not the same text after the move")
+    # 2. the statements that stayed, in the new shell (including the function handed to loadParts)
+    f = out / "shell.js"
+    f.write_text(shell)
+    an = analyze(f, "shell", plan.run_in, cont=True, man=man)
+    fresh = [st for sc in an["scopes"] for st in sc["stmts"]]
+    fresh_all = list(fresh)
+    hosts = {(sc["host"]["first"], sc["host"]["last"]) for sc in plan.an["scopes"] if sc["host"]}
+    if plan.cs is not None:        # the class: its members came out, so it is compared by its first line, member by member
+        hosts |= {(m.d["first"], m.d["last"]) for m in plan.members.values()
+                  if m.scope != plan.cs and m.d["kind"] == "class" and m.d["names"] == [man["class"]]}
+    edits = plan.man.get("shell_edits", [])
+    for m in plan.members.values():
+        if m.part >= 0:
+            continue
+        cands = {m.d["text"]}
+        every = m.d["text"]
+        for e in edits:
+            ef, er = lstrip_lines(e["find"]), lstrip_lines(e["replace"])
+            if ef in m.d["text"]:
+                cands.add(m.d["text"].replace(ef, er))
+            if ef in every:
+                every = every.replace(ef, er)
+        cands.add(every)
+        if (m.d["first"], m.d["last"]) in hosts:      # a scope's host: its inside changed, its first line did not
+            hit = next((st for st in fresh if st["head"] == m.d["head"] and st["kind"] == m.d["kind"]), None)
+        else:
+            hit = next((st for st in fresh if st["text"] in cands), None)
+        if hit is None:
+            bad.append(f"the shell: `{m.label}` (line {m.d['first']}) is not found after the split")
+        else:
+            fresh.remove(hit)
+    # 3. nothing else is in the new shell but the generated statements
+    generated = {"PARTS", "PARTS_TRIES", "partKey", "loadParts", "kit", "runParts"} | (GENERATED_CLASS_MODE if man.get("class") else set())
+    for st in fresh:
+        names = set(st["names"])
+        if not (names & generated or st["head"].startswith((CALL + "(", "runParts(", "partsReady.")) or
+                (st["kind"] == "var" and names and names <= sum_takes(plan))):
+            bad.append(f"the shell has a statement the plan did not put there: {st['head'][:70]}")
+    # the shell's variables that parts bind late must call bindLate() wherever the shell assigns them
+    if man.get("class"):
+        live = set(man.get("live", []))
+        writers = [m for m in plan.members.values() if any(w.get("name") in live for w in m.d["writes"])]
+        for m in writers:
+            texts = [st["text"] for st in fresh_all if st["kind"] == "method" and st.get("method") == m.d.get("method")] if m.scope == plan.cs else []
+            if not texts or not all("bindLate()" in t for t in texts):
+                bad.append(f"`{m.label}` assigns {sorted(live & {w.get('name') for w in m.d['writes']})}, so it must call bindLate() "
+                           f"(a shell_edit in the manifest puts it in)")
+    # 4. tsc: nothing missing that the original had
+    diag = diagnostics([out / (p["name"] + ".js") for p in man["parts"]] + [f])
+    for p in man["parts"]:
+        d = diag[str((out / (p["name"] + ".js")).resolve())]
+        if d["syntax"]:
+            bad.append(f"{p['name']}: syntax: {d['syntax'][0]}")
+        if d["unresolved"]:
+            bad.append(f"{p['name']}: tsc cannot find {sorted({u['name'] for u in d['unresolved']})}")
+    d = diag[str(f.resolve())]
+    if d["syntax"]:
+        bad.append(f"the shell: syntax: {d['syntax'][0]}")
+    new = {u["name"] for u in d["unresolved"]} - plan.unresolved_before
+    if new:
+        bad.append(f"the shell: tsc cannot find {sorted(new)}")
+    # 5. every part's takes are provided, in order
+    have: set[str] = set(plan.shell_kit)
+    for pi, part in enumerate(man["parts"]):
+        lost = plan.takes[pi] - have
+        if lost:
+            bad.append(f"{part['name']}: takes {sorted(lost)} that nothing provides yet")
+        have |= plan.gives[pi]
+    for sc, names in plan.shell_takes.items():
+        lost = names - have
+        if lost:
+            bad.append(f"the shell takes back {sorted(lost)} that no part hands back")
+    return bad
+
+
+def sum_takes(plan: Plan) -> set[str]:
+    return set().union(*plan.shell_takes.values()) if plan.shell_takes else set()
+
+
+def ts_counts(parts: dict[str, str], shell: str, work: Path) -> dict:
+    """Which parts have no tsc error at all (they opt in with // @ts-check), and the fixtures to bring along."""
+    out = work / "ts"
+    out.mkdir(exist_ok=True)
+    files = []
+    for name, t in parts.items():
+        f = out / name
+        f.write_text(t)
+        files.append(f)
+    sf = out / "shell.js"
+    sf.write_text(shell)
+    diag = diagnostics(files + [sf])
+    counts = {name: diag[str((out / name).resolve())]["total"] for name in parts}
+    counts["__shell__"] = diag[str(sf.resolve())]["total"]
+    return counts
+
+
+def insert_near(items: list[str], new: str) -> list[str]:
+    """`new` among the paths of its own tree, where Path order puts it (the others stay where they are)."""
+    items = [x for x in items if x != new]
+    key = lambda p: Path(p).parts  # noqa: E731
+    same = [i for i, e in enumerate(items) if e.split("/")[0] == new.split("/")[0]]
+    pos = next((i for i in same if key(items[i]) > key(new)), (same[-1] + 1) if same else len(items))
+    return items[:pos] + [new] + items[pos:]
+
+
+def update_fixtures(man: dict, counts: dict[str, int], opted: set[str]) -> None:
+    """tests/fixtures/ts_check.json and tools/typecheck/baseline.json follow the new files (nothing else in them moves)."""
+    folder = man["folder"].rstrip("/")
+    new = {f"{folder}/{n}": c for n, c in counts.items() if n != "__shell__"}
+    fx = json.loads(TS_FIXTURE.read_text())
+    for p in new:
+        fx["checked"] = [x for x in fx["checked"] if x != p]
+        fx["unchecked_allowed"] = [x for x in fx["unchecked_allowed"] if x != p]
+        which = "checked" if p.rsplit("/", 1)[1] in opted else "unchecked_allowed"
+        fx[which] = insert_near(fx[which], p)
+    TS_FIXTURE.write_text(json.dumps(fx, indent=1) + "\n")
+    base = json.loads(TS_BASELINE.read_text())
+    files = base["files"]
+    files[man["shell"]] = counts["__shell__"]
+    for p, c in new.items():
+        if p in files:
+            files[p] = c
+        else:
+            order = insert_near(list(files), p)
+            files[p] = c
+            files = {k: files[k] for k in order}
+    base["files"] = files
+    base["total"] = sum(files.values())
+    TS_BASELINE.write_text(json.dumps(base, indent=1) + "\n")
+
+
+def do_split(man: dict, p: Path, check_only: bool) -> int:
+    shell_path = ROOT / man["shell"]
+    text = shell_path.read_text()
+    if is_split(text):
+        return check_split(man, check_only=True)
+    work = Path(tempfile.mkdtemp(prefix="split_js-"))
+    try:
+        plan, parts, shell = build(man, text, work)
+        bad = verify(plan, parts, shell, work)
+        if bad:
+            print(f"{man['name']}: the proof failed:")
+            print("\n".join("  - " + b for b in bad))
+            return 1
+        moved = sum(1 for m in plan.members.values() if m.part >= 0)
+        late = sum(1 for m in plan.members.values() if m.late)
+        counts = ts_counts(parts, shell, work)
+        opted = {n for n, c in counts.items() if n != "__shell__" and c == 0}
+        for n in opted:
+            pi = [k for k, q in enumerate(man["parts"]) if q["name"] + ".js" == n][0]
+            parts[n], _ = part_text(plan, pi, check=True)
+        sizes = {n: t.count("\n") for n, t in parts.items()}
+        print(f"{man['name']}: {moved} members moved into {len(parts)} parts, {late} statements wait for them in the shell; "
+              f"proven (each moved member's text is the same, nothing else is new, tsc finds no missing name)")
+        for n, c in sizes.items():
+            print(f"  {man['folder']}/{n:32s} {c:5d} lines   tsc errors {counts[n]}{'  (// @ts-check)' if n in opted else ''}")
+        print(f"  {man['shell']:46s} {shell.count(chr(10)) + 1:5d} lines   (was {text.count(chr(10))})   tsc errors {counts['__shell__']}")
+        if check_only:
+            print("  --check: nothing written")
+            return 0
+        folder = ROOT / man["folder"]
+        folder.mkdir(parents=True, exist_ok=True)
+        for n, t in parts.items():
+            (folder / n).write_text(t)
+        shell_path.write_text(shell)
+        blob = git("hash-object", "-w", "--stdin", input=text)
+        man["source"] = {"blob": blob, "lines": text.count("\n")}
+        saved = {k: v for k, v in man.items() if k != "name"}
+        p.write_text(json.dumps(saved, indent=2, ensure_ascii=False) + "\n")
+        update_fixtures(man, counts, opted)
+        return 0
+    except Refusal as err:
+        print(f"{man['name']}: refused:\n{err}")
+        return 1
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def check_split(man: dict, check_only: bool = True) -> int:
+    """A split tree: the files still agree with the manifest."""
+    shell_path = ROOT / man["shell"]
+    text = shell_path.read_text()
+    folder = ROOT / man["folder"]
+    bad: list[str] = []
+    listed = re.search(r"var PARTS = \[([^\]]*)\]", text)
+    names = re.findall(r"'([^']+)\.js'", listed.group(1)) if listed else []
+    if names != [p["name"] for p in man["parts"]]:
+        bad.append(f"PARTS is {names}, the manifest says {[p['name'] for p in man['parts']]}")
+    on_disk = sorted(f.stem for f in folder.glob("*.js"))
+    if on_disk != sorted(names):
+        bad.append(f"{man['folder']} holds {on_disk}, PARTS lists {sorted(names)}")
+    block = text[text.find("  " + LOADER_BEGIN):text.find(LOADER_END) + len(LOADER_END) + 1] if LOADER_BEGIN in text else ""
+    if not block.strip():
+        bad.append("the shell has no loader block")
+    else:
+        want = loader_block(man, re.match(r" *", block).group(0))
+        if block != want:
+            bad.append("the shell's loader is not the template (tools/split_js.py loader_block)")
+    work = Path(tempfile.mkdtemp(prefix="split_js-"))
+    try:
+        files = [folder / f"{n}.js" for n in names if (folder / f"{n}.js").is_file()]
+        diag = diagnostics(files + [shell_path])
+        # the kit: what each part takes must be put on K by the shell or an earlier part
+        an = analyze(shell_path, "shell", man.get("run_in"), cont=True, man=man)
+        kitn = kit_of(man)
+        kit_keys = set(re.findall(r"^\s+(?:[\w$]+: [\w$]+,? ?)+$", text, re.M) and re.findall(r"([\w$]+): \1\b", text[text.find("function kit()"):text.find("function runParts")]))
+        have = set(kit_keys)
+        taken_back = set(re.findall(r"([\w$]+) = " + re.escape(kitn) + r"\.\1;", text[text.find("function runParts"):text.find(CALL + "(function")]))
+        gives_all: set[str] = set()
+        for n in names:
+            f = folder / f"{n}.js"
+            if not f.is_file():
+                bad.append(f"{n}.js is missing")
+                continue
+            t = f.read_text()
+            if not t.startswith("// " + n + ".js - "):
+                bad.append(f"{n}.js does not begin with the part header")
+            kq = re.escape(kitn)
+            takes = set(re.findall(r"([\w$]+) = " + kq + r"\.\1\b", "".join(re.findall(r"^    var [^;]*;", t, re.M))))
+            gives = set(re.findall(r"^\s*" + kq + r"\.([\w$]+) = \1;", t, re.M)) | set(re.findall(r" " + kq + r"\.([\w$]+) = \1;", t))
+            lost = takes - have
+            if lost:
+                bad.append(f"{n}: takes {sorted(lost)} that neither the shell's kit nor an earlier part puts on K")
+            have |= gives
+            gives_all |= gives
+            d = diag[str(f.resolve())]
+            if d["syntax"]:
+                bad.append(f"{n}: syntax: {d['syntax'][0]}")
+            if d["unresolved"]:
+                bad.append(f"{n}: tsc cannot find {sorted({u['name'] for u in d['unresolved']})}: add them to the part's takes "
+                           f"(and the shell's kit)")
+        if taken_back - gives_all:
+            bad.append(f"the shell takes back {sorted(taken_back - gives_all)} that no part hands back")
+        if (text.count("\n") and diag[str(shell_path.resolve())]["syntax"]):
+            bad.append(f"the shell: syntax: {diag[str(shell_path.resolve())]['syntax'][0]}")
+        # members are where the manifest says
+        for part in man["parts"]:
+            f = folder / (part["name"] + ".js")
+            if not f.is_file():
+                continue
+            pan = analyze(f, "part", None, man=man)["scopes"]
+            have_names = {n for st in pan[0]["stmts"] for n in st["names"]}
+            lost = [m for m in part["members"] if m not in have_names]
+            if lost:
+                bad.append(f"{part['name']}: the manifest lists {lost}, which the file does not declare at its top level")
+            have_methods = {st["method"] for sc in pan[1:] if sc["name"] == "class" for st in sc["stmts"]}
+            lost = [m for m in part.get("methods", []) if m not in have_methods]
+            if lost:
+                bad.append(f"{part['name']}: the manifest lists the methods {lost}, which the file's class does not have")
+        shell_names = {n for sc in an["scopes"] for st in sc["stmts"] for n in st["names"]
+                       if st["kind"] in ("function", "class") or (st["kind"] == "var" and st["init"])}
+        back = [m for part in man["parts"] for m in part["members"] if m in shell_names and m not in ("kit",)]
+        if back:
+            bad.append(f"members the manifest moved are in the shell again: {back}")
+        shell_methods = {st["method"] for sc in an["scopes"] if sc["name"] == "class" for st in sc["stmts"]}
+        back = [m for part in man["parts"] for m in part.get("methods", []) if m in shell_methods]
+        if back:
+            bad.append(f"methods the manifest moved are in the shell's class again: {back}")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    note = ""
+    if not bad:
+        edited = edited_since(man)
+        if edited is not None:
+            note = (f"; {len(edited)} moved members were edited since the split ({', '.join(edited[:6])}{', ...' if len(edited) > 6 else ''})"
+                    if edited else "; every moved member is still the text it was")
+    if bad:
+        print(f"{man['name']}: out of step with its manifest:")
+        print("\n".join("  - " + b for b in bad))
+        return 1
+    print(f"{man['name']}: split into {len(names)} parts; the manifest, PARTS, the folder, the loader template and the kit agree; "
+          f"tsc finds no missing name{note}")
+    return 0
+
+
+def edited_since(man: dict) -> list[str] | None:
+    """The moved members whose code is no longer the original's (None: the original blob recorded in the manifest is gone).
+    Comments, and the parentheses of a JSDoc cast, are not code: a part may be annotated for the type checker (phase 18, C1)
+    and stay "the text it was"."""
+    blob = (man.get("source") or {}).get("blob")
+    if not blob or git("cat-file", "-t", blob) != "blob":
+        return None
+    work = Path(tempfile.mkdtemp(prefix="split_js-"))
+    try:
+        orig = work / "original.js"
+        orig.write_text(subprocess.run(["git", "cat-file", "blob", blob], capture_output=True, text=True, cwd=ROOT).stdout)
+        def named(an):
+            out = {}
+            for sc in an["scopes"]:
+                for st in sc["stmts"]:
+                    for n in (["#" + str(st.get("method"))] if sc["name"] == "class" else st["names"]):
+                        out.setdefault(n, []).append(st["code"])
+            return out
+        was = named(analyze(orig, "shell", man.get("run_in"), man=man))
+        edited = []
+        for part in man["parts"]:
+            f = ROOT / man["folder"] / (part["name"] + ".js")
+            now = named(analyze(f, "part", None, man=man))
+            edited += [n for n in part["members"] + ["#" + x for x in part.get("methods", [])]
+                       if n in was and n in now and was[n] != now[n]]
+        edited = [n.lstrip("#") for n in edited]
+        return edited
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def find(name: str) -> int:
+    hits = 0
+    for p in sorted(MANIFESTS.glob("*.json")):
+        man = json.loads(p.read_text())
+        man["name"] = p.stem
+        shell = ROOT / man["shell"]
+        if not is_split(shell.read_text()):
+            files = [(shell, "shell", man.get("run_in"))]
+        else:
+            files = [(ROOT / man["folder"] / (q["name"] + ".js"), "part", None) for q in man["parts"]]
+            files.append((shell, "shell", man.get("run_in")))
+        for f, mode, run_in in files:
+            an = analyze(f, mode, run_in, cont=(mode == "shell" and is_split(shell.read_text())), man=man)
+            for sc in an["scopes"]:
+                for st in sc["stmts"]:
+                    if (name in st["names"] and not (st.get("takes") or st.get("bare"))) or (sc["name"] == "class" and st.get("method") == name):
+                        what = "method" if sc["name"] == "class" else st["kind"]
+                        print(f"{f.relative_to(ROOT)}:{st['first']}  {what} {name}   ({man['name']})")
+                        hits += 1
+    if not hits:
+        print(f"{name}: not a top-level member or a method of any manifest's shell or parts")
+        return 1
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("manifest", nargs="*", help="a manifest's name (tools/split_manifests/<name>.json) or path")
+    ap.add_argument("--all", action="store_true", help="every manifest")
+    ap.add_argument("--check", action="store_true", help="prove without writing; on a split tree, check the files still agree")
+    ap.add_argument("--find", metavar="NAME", help="which part (or the shell) holds a top-level member")
+    args = ap.parse_args(argv)
+    if args.find:
+        return find(args.find)
+    names = [p.stem for p in sorted(MANIFESTS.glob("*.json"))] if args.all else args.manifest
+    if not names:
+        ap.error("name a manifest, or --all")
+    rc = 0
+    for n in names:
+        man, p = load_manifest(n)
+        rc |= do_split(man, p, args.check)
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main())

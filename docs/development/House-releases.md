@@ -4,6 +4,8 @@ What `tools/release_house.py` put on the house, newest last, with the checks it 
 
 Every Mantel release here is tagged `vX.Y.Z` on its release commit once the house runs it healthy, by the tool or by hand ([Releasing.md](Releasing.md#house-releases)): the Proxmox LXC's `update` follows the newest tag. Tagged from 0.1.109 on. From 0.1.111 on each is published as well: the release workflow from the tag (the Docker images, the App images, the `ha-apps` branch) and the GitHub Release.
 
+Records of releases made with `release_house.py mantel` (phase 15) are written by the tool, house first: the LXC is updated to the release commit, with the images already pushed, before the tag exists; the tag follows once the house is healthy and the Linux suite passed, and then `latest`, the `ha-apps` branch and the GitHub Release. Each record carries the time of every step.
+
 ## Mantel 0.1.77 (2026-10-26)
 
 - Phases 0-2, 4 and 10 of the improvement plan, plus the hk-detail.js split. Release commit `b4af1b0`; staged from `18e30fb` (the release tool's commit fix), build `8e5775c55ad90794`.
@@ -293,3 +295,113 @@ Every Mantel release here is tagged `vX.Y.Z` on its release commit once the hous
 - Release commit 3bdd9cd6: `tools/ci.py full` 36 of 36 on it. Released by hand through the Home Assistant connection (no admin token for release_house.py): App build da36d2c6fff8f629, /healthz?strict=1 ok with Home Assistant connected, no "Traceback" or "ERROR". HK Frontend 1.35.0 and Mantel Link 0.1.10 (its publish.py build) copied with rsync --inplace, diff -rq clean; Home Assistant restarted; both linked again within a minute, nothing logged by either.
 - Tagged v0.1.113 and published: release workflow run 41428332847 passed every job (the suite, the three Docker images, the App and Connect App images for amd64 and aarch64, the ha-apps branch at 0.1.113), then the GitHub Release v0.1.113. All of them pull anonymously.
 - HK Frontend published to jazzphone/hk-frontend, tagged v1.35.0 with its GitHub Release (the Wiki had no changes). Mantel Link published to jazzphone/mantel-link, tagged v0.1.10 with its GitHub Release; the repository was made public at the owner's request (its three commits scanned clean first), with a description and HACS topics, and its Validate workflow (HACS and hassfest) passed: HACS adds it as a custom repository, category Integration.
+
+## Mantel 0.1.114, HK Frontend 1.36.0 and Mantel Link 0.1.11 (2026-11-02)
+
+- What ships: phase 13's one screensaver (all six phases, the owner's OK on the phase 4 before/after), phase 13's cameras (UniFi Protect and RTSP on Docker and the LXC, direct talk with PyAV, low/high streams, the HTTPS check), phase 14's system alerts, update check and Mac notifications (Apprise 2.1.0), and the LXC install that always starts Mantel (`mantel-setup`, Caddy's `default_sni`, Set Up Mantel's Address and HTTPS step). Held until those three sessions finished, at the owner's request. Every commit since v0.1.113 is this work's. Migrations 0030_photo_taken_on, 0031_alerts and 0032_push_platform applied on the house.
+- `tools/ci.py full` 37 of 37 on b60a32ec from a clean worktree; release commit 84c2e63d (versions and changelogs only), `ci.py versions` 5 of 5. A build-only run of the release workflow from main (41491147045) passed every job first, since PyAV and Apprise change the images.
+- Released by hand through the Home Assistant connection (no admin token for release_house.py): App build e14732d35d314adb, /healthz?strict=1 ok with Home Assistant connected, no "Traceback"; the only "ERROR"-matching lines were Home Assistant's own restart. HK Frontend 1.36.0 and Mantel Link 0.1.11 (its publish.py build) copied with rsync --inplace, diff -rq clean apart from the house-only leftovers; Home Assistant restarted; both linked again within seconds, and all five tablets kept reporting.
+- Tagged v0.1.114 and published: release workflow run 41495145438, then the GitHub Release v0.1.114. HK Frontend published to jazzphone/hk-frontend, tagged v1.36.0 with its GitHub Release (the Wiki had no changes). Mantel Link published to jazzphone/mantel-link (7161281), tagged v0.1.11 with its GitHub Release.
+- For the owner, only for Mac notifications: on the push relay's D1 database `ALTER TABLE handles ADD COLUMN platform TEXT NOT NULL DEFAULT 'ios';`, then deploy the worker (wrangler.toml has `APNS_TOPIC_MAC`).
+
+## Mantel 0.1.115 (2026-11-02)
+
+- What ships: the Proxmox LXC follows a changed container address (4de92db0): `mantel-setup` on every run, `mantel-address.service` at each boot and `update`; the Proxmox install log no longer says Mantel isn't running. Found on the owner's first 0.1.114 LXC install, whose address changed after the install. The only commit since v0.1.114 besides its release record.
+- `tools/ci.py full` 36 of 37 on 4de92db0: the main suite's event-loop timing test (`test_a_large_your_files_photo_upload_does_not_freeze_the_event_loop`) measured 26 ms against 20 ms under the full run's load; it passed three times alone and the main suite passed whole on a rerun. Release commit a5d9e06f, `ci.py versions` 5 of 5. The images didn't change, so no build-only run first.
+- Released by hand through the Home Assistant connection: the App's build is 0.1.114's (e14732d35d314adb; the fix is in the LXC scripts). The App had been stopped since 13:09 (from Home Assistant, not by this release), and the update left it stopped; started at 13:40, /healthz?strict=1 ok with Home Assistant connected. No tablet or proxy request reached it after the start; why it was stopped is not yet known (asked the owner).
+- Tagged v0.1.115 and published: release workflow run 41502809802, then the GitHub Release v0.1.115.
+
+## Mantel 0.1.116 (2026-11-02)
+
+- What ships: First start's **Restore From a Backup** and another Mantel's backup restored on Docker and the LXC by sealing its secrets again with this Mantel's own key (15ef52b2). Asked for by the owner on the first fresh LXC install. The only change since v0.1.115 besides that release's records.
+- `tools/ci.py full` 36 of 37 on 15ef52b2: `side-pane-check-1180x820` failed once on a WebKit page error (`icons.json` "due to access control checks") and passed on its rerun. Release commit 64c81f89, `ci.py versions` 5 of 5. The images didn't change, so no build-only run first.
+- The house: the owner stopped the Mantel App on purpose (moving to the LXC). It was updated to 0.1.116 and left stopped, so this release was not run on the house; the checks and the published images stand for it.
+- Tagged v0.1.116 and published: release workflow run 41513780587, then the GitHub Release v0.1.116.
+
+## Mantel 0.1.117, HK Frontend 1.37.0 and Mantel Link 0.1.12 (2026-11-02)
+
+- What ships: Mantel Link by Mantel's address with its own certificate pinned (pairing protocol v3, 1f7d3fb5); discovery carrying the link address, and the LXC turning the announcer on (221aa260); features added and removed on Mantel itself (60bdb7fa); Live TV turned on once for Mantel's own go2rtc (a backup from the HA App brought it in off); a restore's progress and contents, and 4 GB for backups through Caddy (ea5a6419); ci.py's faster full runs (the release-speed session's commits); the Side Pane check no longer failing on WebKit's word for a load it cancelled.
+- `tools/ci.py full` on 60bdb7fa: 49 of 51 at first. `hk-frontend-py`'s loop-resolution timing test passed on its rerun; `side-pane-check-1180x820` failed twice on WebKit's "icons.json due to access control checks" (a load the page catches, cancelled as the check moved on) and passed once the check ignored that (the commit before the release). Release commit f6c000b6, `ci.py versions` 5 of 5.
+- The house: Mantel runs on the Proxmox LXC now (the owner moved it today, the HA App stopped on purpose). The App was updated to 0.1.117 and left stopped. HK Frontend 1.37.0 and Mantel Link 0.1.12 copied with rsync --inplace, diff clean, Home Assistant restarted: Mantel Link loaded with no errors. HK Frontend was still linked to the stopped App (`ws://local-mantel:8099`), from before this release. The LXC itself takes 0.1.117 with `update` in its console.
+- Tagged v0.1.117 and published: release workflow run 41541839289, then the GitHub Release v0.1.117. HK Frontend published to jazzphone/hk-frontend, tagged v1.37.0 with its GitHub Release (the Wiki had no changes). Mantel Link published to jazzphone/mantel-link, tagged v0.1.12 with its GitHub Release.
+
+## Mantel 0.1.118 and HK Frontend 1.38.0 (2026-11-02)
+
+- What ships: Mantel's screens and Mantel Settings say Mantel Settings, not HK Settings (the host shell's settingsName()/settingsPlace(), a guard test for hard-coded names; 68021a8d, 2b9cbb7c, a8972698). Home Assistant's texts are unchanged. The only other commit since v0.1.117 is its release record.
+- `tools/ci.py full` on 6c4ca54d: 8 passed and 43 unchanged since they passed. Release commit 13116cc0, `ci.py versions` 5 of 5. Images unchanged; no build-only run.
+- The house: Mantel runs on the Proxmox LXC; the owner takes 0.1.118 there with `update`. The stopped HA App was updated to 0.1.118 (the first update call dropped its connection and left it on 0.1.117; the second went through). HK Frontend 1.38.0 copied (diff clean), Home Assistant restarted. HK Frontend is still linked to the stopped App until the owner relinks it.
+- Tagged v0.1.118 and published: release workflow run 41544690626, then the GitHub Release v0.1.118. HK Frontend published to jazzphone/hk-frontend, tagged v1.38.0 with its GitHub Release (the Wiki had no changes).
+
+## Mantel 0.1.119 and HK Frontend 1.39.0 (2026-11-02)
+
+- What ships (every commit since v0.1.118 read): Swipe Between Pages on the wall tablets (the docked Now Playing bar no longer refuses swipes, the Calendar's month gives way, the bar the same each landing, flicks measured right; 3aa567a2, 79aaa5bc); music group leaders (28940730, 2d66f7bc); the screensaver's slide settings, the time kept on its Position and Align, and the editor's stacking and drops (680540ea, df86e7c0, ce5a596b, b2f305c5); Live TV's sound mixed to stereo (28ad4341) and its fall back from the GPU to the CPU, with the LXC install using Intel GPUs only (5e94ab6b); Advanced -> Features and Home Assistant's reason for a refused sign-in (14e35c0e); `/` opens the screens, not /dev (5675c547); and check-only commits (the faster saver Shows check, ci.py's growth note, f407215b untracking the tools/node_modules symlink 5e94ab6b had committed).
+- `tools/ci.py full` on the release tree (680540ea + the version bump): 51 of 51, nothing skipped (a first run without PLAYWRIGHT_PATH skipped the 34 browser checks; run again with it). Release commit fdce5624, `ci.py versions` 5 of 5.
+- Tagged v0.1.119 and published: release workflow run 41570757405, then the GitHub Release v0.1.119.
+- The house (the Proxmox LXC): the hand-applied go2rtc.yaml (the stereo fix, now in the release) reverted, then `update` over SSH: 0.1.118 -> 0.1.119, build `1fc59e0e910989d6`; all three services healthy, `/healthz?strict=1` 200, no "Traceback" or "ERROR"; Mantel Link reconnected within seconds; the five wall tablets reporting. The stopped HA App staged to 0.1.119 too.
+- HK Frontend 1.39.0 copied (diff clean), Home Assistant restarted; published to jazzphone/hk-frontend, tagged v1.39.0 with its GitHub Release, the Wiki pushed (Music.md). HK Frontend is still linked to the stopped App (`ws://local-mantel:8099`) until the owner relinks it to the LXC.
+- Mantel Link unchanged at 0.1.12.
+
+## Mantel 0.1.120 and HK Frontend 1.40.0 (2026-11-03)
+
+- What ships (every commit since v0.1.119 read): Live TV's sound and picture starting together (the first 1.2 s dropped on every video template; measured with a flash-and-beep test broadcast through the house's go2rtc: audio 0.8 to 1 s late at the start before, 0.12 s and within 0.05 s by 9 s after; 5d9427d1); the screensaver's people over the time fading with their photo, a zoomed whole portrait staying centered, the slide corner below each slide's own words (74d89d84); Align (Auto, Left, Center, Right) for a piece's words, Home Status without its Title, a titled card with no backdrop on the margin (9fa14c39); and 0.1.119's release record.
+- `tools/ci.py full` on the release tree (9fa14c39 + the version bump): 50 passed, the Caddy image test skipped (Docker not running here; nothing in it touches the image). The first `versions` run failed on a tools/node_modules symlink to the main checkout (its @esbuild unreadable over the share); the release tree got its own `npm ci`. Release commit d81a674d, `ci.py versions` 5 of 5.
+- Tagged v0.1.120 and published: release workflow run 41643065587, then the GitHub Release v0.1.120.
+- The house (the Proxmox LXC): `update` over SSH, 0.1.119 -> 0.1.120, build `0c27b5713597835c`; all three services healthy, `/healthz?strict=1` 200, no "Traceback" or "ERROR"; Mantel Link reconnected; the five wall tablets reporting; go2rtc.yaml carries the `-ss 1.2` templates. The stopped HA App staged to 0.1.120 too.
+- HK Frontend 1.40.0 copied (diff clean), Home Assistant restarted; published to jazzphone/hk-frontend, tagged v1.40.0 with its GitHub Release (the Wiki had no changes). Still linked to the stopped App until the owner relinks it.
+- Mantel Link unchanged at 0.1.12.
+
+## Mantel 0.1.121 and HK Frontend 1.41.0 (2026-11-03)
+
+- What ships (every commit since v0.1.120 read: phase 16 and the plans for phases 15 to 19): features turned on by themselves once the house has what they need (Music, Clean Areas, Energy, Live TV; two looks 2 minutes apart, a person's choice final, no command sent; hk_core/needs.py, features/auto.py; e5d1e614, 89d593c7), Advanced -> Features' Turn Features On Automatically and the rows' notes, the `feature.enabled` Info alert (5a48fec8, 6dc64e54), a home-network tuner's lineup read at the address checked with no redirects, and the reviews' fixes (233a4a47); docs/guide/Features.md.
+- `tools/ci.py full` on the release tree (d10c2d3a): 51 of 51, nothing skipped (Docker running, the Caddy image test included). Release commit 1a4a4973, `ci.py versions` 5 of 5.
+- Tagged v0.1.121 and published: release workflow run 41732488607, then the GitHub Release v0.1.121. Done by hand (Releasing.md): phase 15's new flow waits on main for this record.
+- The house (the Proxmox LXC): `update` over SSH, 0.1.120 -> 0.1.121, build `a18d7a553db6323a`; the three services healthy, `/healthz?strict=1` 200, no "Traceback" or "ERROR"; Mantel Link reconnected. Two looks after the start, Mantel turned **Music** on by itself ("Music Assistant is connected."; `auto.decided.music` by `auto`); Clean Areas, Energy and Live TV were already on, and Live TV's `go2rtc_once` stands.
+- HK Frontend 1.41.0 copied (diff clean), Home Assistant restarted (no errors; the old link to the stopped App still warns, as before); published to jazzphone/hk-frontend, tagged v1.41.0 with its GitHub Release (the Wiki had no changes).
+- Mantel Link unchanged at 0.1.12.
+
+## Mantel 0.1.122 and HK Frontend 1.42.0 (2026-11-04)
+
+- What ships (every commit since v0.1.121 read): phase 19, the House Timeline (the page, the Home Grid block Recent, the camera sheet's strip, Settings → Timeline and Me's switches, the morning digest and the House alert group, two MCP tools, Include Timeline Pictures, migration 0033); phase 18's route table (Mantel refuses to start with an undeclared route; the socket's reads in the table), its review's fixes (`GET /api/stats` managers only, `GET /api/areas` filtered, a wall tablet never manages another person's sessions, an assistant tests an alert channel from home only), the type-checking ratchets and hk-grid-cards.js split into six parts; the screensaver's people staying over the time when the minute changes (127dd39c).
+- `tools/ci.py full --all` on 72cba2e4 (the release tree but its version lines): 53 of 53, at `CI_JOBS=4`, from a worktree on this Mac's own disk (the same run from the SMB share timed out browser checks under the other sessions' load; main's tree from local disk passed the same way). Release commit 17e14082, `ci.py versions` 5 of 5.
+- Tagged v0.1.122 and published: release workflow run 41814709990 (the `ha-apps` job failed on GitHub's incident that morning and passed when re-run), then the GitHub Release v0.1.122.
+- The house (the Proxmox LXC): the first `update` waited for the published images (`.env` pins them) and kept 0.1.121; after the run, `update` over SSH, 0.1.121 -> 0.1.122, build `b71b80d83b2cec26`; the three services healthy, `/healthz?strict=1` 200, no "Traceback" or "ERROR"; migration 0033 applied; the Timeline records 111 entities (alarm 4, arrival 3, detection 58, door 11, doorbell 2, garage 1, lock 9, safety 23); Mantel Link reconnected.
+- Found on the house: at the start the digest ran before Home Assistant gave the house's time zone (UTC until then) and stored an empty one for today (to no channel: House is off for every channel, and no person has Morning Summary on). Fixed on main after the release (the digest waits for the house's zone, and for a whole night watched); it ships with the next release.
+- HK Frontend 1.42.0 built and copied with rsync --inplace (diff -rq clean), Home Assistant restarted through its MCP (no admin token here) and serves the new files, no new errors (the old link to the stopped App still warns, as before); published to jazzphone/hk-frontend `b091042`, tagged v1.42.0 with its GitHub Release.
+- Mantel Link unchanged at 0.1.12.
+
+## Mantel 0.1.123 (2026-11-04)
+
+- Mantel 0.1.123, release commit `6fedd10`, tagged `v0.1.123`; the LXC 0.1.122 -> 0.1.123 (build `cefd0eca4e596530`).
+- Images run 41855055196 (stage=images), promote run 41856265200, GitHub Release `v0.1.123`.
+- Strict health 200, all services healthy, mantel-server built from `6fedd10`, Home Assistant connected for 62 s; no "Traceback" or "ERROR" in Mantel's log.
+- Linux suite passed.
+- Times: preflight 5 s, release commit (retry) 0 s, images run started 4 s, images built and pushed 262 s, the LXC updated and healthy 151 s, Linux suite passed 3 s, tagged 2 s, promoted (latest, ha-apps) 83 s, GitHub Release 1 s; 8.5 minutes in all.
+- The bundled release (the owner, 2026-11-04): phase 15 (faster releases: this tool), phase 17 (the Intercom, Message only) and phase 18 (the route table, type checks, three web splits; its B2 waits). Every commit since v0.1.122 read. `tools/ci.py full` on c66425b9, one group at a time (`CI_JOBS=4`): 53 of 53; edit-mode 1280x800 failed three times under the other sessions' load and passed in the final run.
+- The first attempt (1f30a958) stopped after the release commit: GitHub answered 404 for the images run a second after the dispatch. Fixed (6fedd104: `run_view` asks again), `ci.py full` again, then `--retry`: the record above. Its 8.5 minutes are the whole release, house first.
+- After HK Frontend 1.43.0's Home Assistant restart (below), Mantel reconnected at 15:27:39 UTC and stopped answering a second later at 100 % CPU; `docker compose restart mantel-server` at 15:30:18, healthy since (strict health 200, Home Assistant connected). Cause not found yet (see FASTER-RELEASES.md's Build log); the tool now checks Mantel after a component's restart.
+
+## HK Frontend 1.43.0 (2026-11-04)
+
+- hk-frontend 1.43.0, commit `4487afc`, tagged `hk-frontend/v1.43.0`, copied with rsync --inplace; diff -rq shows no difference.
+- Home Assistant restarted and serves `/hk/panels/hk-settings.js` (41 s from the restart).
+- Published to jazzphone/hk-frontend main as `2e12009`, tagged `v1.43.0` and released on GitHub.
+- The Wiki pushed (publish.py had committed changes to it).
+
+## Mantel 0.1.124 (2026-11-04)
+
+- Mantel 0.1.124, release commit `f82ab39`, tagged `v0.1.124`; the LXC 0.1.123 -> 0.1.124 (build `95229e964d3f213e`).
+- Images run 41909970817 (stage=images), promote run 41910956666, GitHub Release `v0.1.124`.
+- Strict health 200, all services healthy, mantel-server built from `f82ab39`, Home Assistant connected for 62 s; no "Traceback" or "ERROR" in Mantel's log.
+- Linux suite passed.
+- Times: preflight 9 s, release commit on main 315 s, images run started 15 s, images built and pushed 211 s, the LXC updated and healthy 151 s, Linux suite passed 3 s, tagged 2 s, promoted (latest, ha-apps) 75 s, GitHub Release 3 s; 13.0 minutes in all.
+
+- What ships: the fix for 0.1.123's hang after a Home Assistant restart (below), phase 18's B2 (hk-media.js in parts) and the screensaver's Date options. `tools/ci.py full` on 5cd6a283, one group at a time: 53 of 53 (some browser checks failed under the other sessions' load on a first try and passed on the next).
+- The hang, found (the owner allowed Home Assistant restarts): with py-spy on the LXC host and a CPU watcher, the second restart reproduced it. Mantel reconnected while Home Assistant had no states yet, and each of the ~4500 first states that followed ran the notifications' `refresh()` over every entity (`Notifier.on_change` -> `accessories.members`). Now at most once every 2 s and once after the burst (f6e3a368, with a test that failed with 4500 reworks). On 0.1.124 two more restarts reconnected with 16 states: about 30 s near 100 % CPU while it caught up, then healthy, strict health 200. Before, it stayed there until restarted (3 and 2 minutes down on 2026-11-04).
+
+## HK Frontend 1.44.0 (2026-11-04)
+
+- hk-frontend 1.44.0, commit `892bfe5`, tagged `hk-frontend/v1.44.0`, copied with rsync --inplace; diff -rq shows no difference.
+- Home Assistant restarted and serves `/hk/panels/hk-settings.js` (90 s from the restart).
+- Mantel on the LXC reconnected to Home Assistant and was still healthy a minute later (73 s).
+- Published to jazzphone/hk-frontend main as `1ae1ccb`, tagged `v1.44.0` and released on GitHub.
+- The Wiki had no changes.

@@ -80,7 +80,7 @@ async def check(shots: Path | None = None, port: int = 9351) -> list[dict]:
                     body: JSON.stringify({{username: 'owner', password: {json.dumps(PASSWORD)}}})}}).then((r) => r.ok)""")
                 assert ok, "sign-in failed"
                 await b.send("Page.navigate", url=base + "/settings#/")
-                ready = await b.wait("!!window.__mantelReady && !!document.getElementById('mantel-settings').shadowRoot.querySelector('.side')", 30)
+                ready = await b.wait("!!window.__mantelReady && !!document.getElementById('mantel-settings').shadowRoot.querySelector('.side')", 60)   # cold, under the suite's load
                 got = await b.eval(PROBE) if ready else None
                 if got is not None:
                     await b.eval("location.hash = '#/mantel/me'")

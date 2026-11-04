@@ -30,6 +30,7 @@ from urllib.parse import quote, urlsplit
 from aiohttp import web
 
 from . import frame_origins, security_headers
+from .guards import WHY_STATIC, open_route
 from .sessions import door_of, identity
 
 PAGE = "/login"
@@ -105,6 +106,7 @@ def render(request: web.Request, next_path: str) -> str:
             .replace("__HA_HREF__", html.escape(ha_href, quote=True)))
 
 
+@open_route("sign_in", why="the sign-in page: signed out, a person signs in here")
 async def page(request: web.Request) -> web.StreamResponse:
     next_path = safe_next(request.query.get("next"))
     ident = identity(request)
@@ -116,6 +118,7 @@ async def page(request: web.Request) -> web.StreamResponse:
                         headers={**HEADERS, "Content-Security-Policy": csp})
 
 
+@open_route("static", why=WHY_STATIC)
 async def asset(request: web.Request) -> web.StreamResponse:
     entry = ASSETS.get(request.match_info["name"])
     if entry is None:
@@ -124,6 +127,7 @@ async def asset(request: web.Request) -> web.StreamResponse:
     return web.Response(text=_static(rel), content_type=mime, charset="utf-8", headers=HEADERS)
 
 
+@open_route("static", why=WHY_STATIC)
 async def shared_js(request: web.Request) -> web.StreamResponse:
     return web.Response(text=_static("static/webauthn.js"), content_type="text/javascript", charset="utf-8",
                         headers=HEADERS)

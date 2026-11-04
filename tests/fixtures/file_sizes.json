@@ -1,0 +1,19 @@
+{
+ "js": {
+  "web/hk/cards/hk-base.js": 4802,
+  "web/hk/cards/hk-calendar.js": 2533,
+  "web/hk/cards/hk-cameras.js": 3706,
+  "web/hk/cards/hk-detail.js": 2896,
+  "web/hk/cards/hk-energy.js": 4299,
+  "web/hk/cards/hk-home.js": 2690,
+  "web/hk/cards/hk-layout.js": 2811,
+  "web/hk/cards/hk-strategy.js": 3323,
+  "web/hk/cards/hk-weather.js": 3697,
+  "web/hk/modules/hk-saver.js": 4517,
+  "web/hk/modules/hk-sky.js": 7023,
+  "web/hk/panels/hk-settings-model.js": 2871
+ },
+ "py": {
+  "hk_core/settings/model.py": 3820
+ }
+}

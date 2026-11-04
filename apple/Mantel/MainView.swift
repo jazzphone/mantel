@@ -310,6 +310,15 @@ struct AppMenu: View {
                          + (offline ? " They open once Mantel answers again." : ""))
                 }
                 Section {
+                    Button { dismiss(); HouseWebView.openIntercom() } label: {
+                        Label("Intercom", systemImage: "waveform")
+                    }
+                    .disabled(offline)
+                } footer: {
+                    Text("Talk to the speakers in the rooms of this Mantel."
+                         + (offline ? " It opens once Mantel answers again." : ""))
+                }
+                Section {
                     NavigationLink("Favorites") { FavoritesEditor() }
                 } footer: {
                     Text("Your favorites show in the widgets, Control Center, Siri and on the Mac."

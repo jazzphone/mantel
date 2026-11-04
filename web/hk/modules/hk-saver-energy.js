@@ -40,6 +40,7 @@
   var RINGS = ['energy', 'cost', 'solar', 'water', 'gas'];
 
   var CSS = [
+    '.en[nocorner] .ent,.en[nocorner] .end,.en[nocorner] .enw{visibility:hidden}',
     // ONE LAYER FOR GOOD, hidden by its opacity alone (2026-10-19): with
     // visibility:hidden after each fade out, and a layer only while its
     // opacity animated, every turn made the layer and its photo canvas and
@@ -285,6 +286,9 @@
     var el = document.createElement('div');
     el.className = 'en';
     el.setAttribute('aria-hidden', 'true');
+    // (corner: false -- the screensaver's slide corner tells the time, the date and the weather: this one's own words keep
+    // their room, unseen, so what is under them stays where it was drawn; its freshness line still shows. Phase 13)
+    if (opts.corner === false) el.setAttribute('nocorner', '');
     el.innerHTML = '<style>' + CSS + '</style><canvas class="enbg"></canvas><div class="enwash"></div>' +
       '<div class="encorner"><div class="ent"></div><div class="end"></div><div class="enw"></div><div class="enfresh"></div></div>' +
       '<div class="enbody"><div class="enrw"><div class="enrs"></div><div class="ennote">The white dots: a usual day by now</div></div>' +

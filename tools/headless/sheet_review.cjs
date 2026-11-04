@@ -83,6 +83,7 @@ function openSheet(id) {
       const errors = []; page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(input.origin + '/' + input.screen + '/home');
       await page.waitForFunction(() => window.__mantelReady === true && !!window.hkDetail, null, { timeout: 30000 });
+      await require('./grid_ready.cjs')(page);
       await page.waitForTimeout(1500);
       // headless WebKit draws no backdrop blur: the frost Safari gives the sheet stood in for, so the
       // page behind does not show through the shots

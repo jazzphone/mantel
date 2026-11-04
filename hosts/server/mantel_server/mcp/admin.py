@@ -28,7 +28,7 @@ def _endpoint(request: web.Request) -> str:
     return resource_url(request)
 
 
-@guard("manager", door="home")
+@guard("manager", door="home", reads="admin")
 async def api_get(request: web.Request) -> web.Response:
     ident = guarded(request)
     app = request.app

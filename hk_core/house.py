@@ -96,6 +96,15 @@ class House(Protocol):
     def device_entities(self, device_id: str) -> list[Entity]:
         """A device's registry entries, disabled ones too (`disabled` says)."""
 
+    def camera_links(self) -> Mapping[str, tuple[str, str]]:
+        """Sensors the house was TOLD belong to a camera, for a camera that has no device of its own to say so
+        (a Mantel direct camera, ``camera.mantel_*``: an RTSP camera has no Home Assistant device, so nothing ties
+        it to its motion or person sensor, which may be Frigate's or any other integration's): {sensor entity id:
+        (camera entity id, "motion" | "person" | "doorbell")}. The notifications read it where they would read the
+        camera on a sensor's device (accessories.camera_for, trigger_for), and a linked sensor counts as that
+        kind whatever its device class says (accessories.kind). A host with no such cameras answers {}; the
+        notification code reads this with ``getattr``, so a House that leaves it out is the same as {}."""
+
     def area_ids(self) -> set[str]:
         """The ids of the house's areas."""
 

@@ -2299,7 +2299,8 @@
     function nameOf(h, id) {
       var lab = labelOf(id), raw = lab && h.states[lab] ? String(h.states[lab].state || '').trim() : '';
       if (raw && raw !== 'unknown' && raw !== 'unavailable') return raw;
-      var own = ownName(id);
+      // (this part of the file has no ownName of its own: the timers' sheet stopped with a ReferenceError)
+      var C0 = window.hkCards, own = (C0 && C0.accName && C0.accName(id)) || null;
       if (own) return own;
       var s = h.states[id], f = (s && s.attributes.friendly_name) || id;
       return String(f).replace(/\s*[-–]?\s*timer\s*$/i, '') || f;

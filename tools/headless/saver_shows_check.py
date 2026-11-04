@@ -46,6 +46,18 @@ def _layout(big, **zones):
     return {'v': 1, 'big': big, 'zones': {z: [{'id': w} for w in ids] for z, ids in zones.items()}}
 
 
+def _pieces(big, **zones):
+    """A v2 layout (phase 13): per zone, its pieces as 'piece.shape' (with any options after a '?': 'readings.circular?reading=aqi')."""
+    def one(w):
+        ps, _, q = w.partition('?')
+        piece, shape = ps.split('.')
+        out = {'piece': piece, 'shape': shape}
+        if q:
+            out['opts'] = dict(kv.split('=') for kv in q.split('&'))
+        return out
+    return {'v': 2, 'big': big, 'zones': {z: [one(w) for w in ws] for z, ws in zones.items()}}
+
+
 # screen -> (its Screensaver Options, the face it must draw: ckface's value, 'big', or None for the classic forecast)
 SHOWS = {
     'saver-glance': ({'show': 'glance'}, 'glance'),
@@ -54,7 +66,13 @@ SHOWS = {
     'saver-bigweather': ({'show': 'forecast', 'forecast_layout': 'big'}, 'big'),
     'saver-forecast': ({'show': 'forecast'}, None),
     # Photos with Time Behind (2026-10-31): the weather in the upper-left corner, as on Clock, clear of the time
-    'saver-timebehind': ({'show': 'photos', 'time_behind': True, 'photo_titles': True}, 'tb'),
+    'saver-timebehind': ({'show': 'photos', 'time_behind': True, 'photo_titles': True, 'zoom': True, 'portrait_zoom': 150, 'landscape_zoom': 150}, 'tb'),
+    # (the owner on 0.1.118: "sometimes the clock is off center when set to behind faces" -- the Today face, its song and
+    # weather under the time)
+    'saver-timebehind-today': ({'show': 'photos', 'time_behind': True, 'clock_style': 'today', 'clock_today_music': True}, 'tb'),
+    # (2026-11-03, the owner's recordings: the people over the time stayed solid while the rest crossfaded, and a zoomed
+    # whole portrait sat off center) -- two photos with people, one a portrait with them at its left, Portrait Zoom 140 %
+    'saver-tb-fade': ({'show': 'photos', 'time_behind': True, 'portrait_fill': False, 'portrait_zoom': 140, 'each_photo': 60}, 'tb-fade'),
     # 26 (2026-10-30): the photo options where they apply -- Clock on sharp photos offers Time Behind and draws it;
     # on Soft photos neither (left on from Photos, it couldn't be turned off from Clock)
     'saver-clockphotos': ({'show': 'clock', 'clock_bg': 'photos', 'time_behind': True}, 'clock-tb'),
@@ -83,6 +101,20 @@ SHOWS = {
     'saver-lay-planted': ({'show': 'forecast', 'clock_style': 'classic', 'layout': _layout(
                         {'kind': 'time', 'size': 40, 'pos': 'ground', 'align': 'left', 'depth': 'planted'},
                         tl=['weather_line'], tr=['status_card'], bl=['music_card'], bottom=['readings'])}, 'lay-planted'),
+    # (2026-11-03, the owner: a piece on the right "aligned to the right to match the edge of the screen") -- Home Status'
+    # card and the music's on the right, Auto; the weather's on the left
+    'saver-lay-align': ({'show': 'clock', 'clock_bg': 'aurora', 'clock_style': 'classic', 'layout': _pieces(
+                        {'kind': 'time', 'size': 26, 'pos': 'center'}, tl=['weather.card'], tr=['status.card'], br=['music.card'])}, 'lay-align'),
+    # THE DATE'S OPTIONS (2026-11-04, the owner: "an option to make it 2 line"): in every corner -- one line as it always
+    # was, two lines by its side (Auto: the right corners' to the right), short and bold in capitals, centered
+    'saver-lay-date': ({'show': 'clock', 'clock_bg': 'aurora', 'clock_style': 'classic', 'layout': {'v': 2,
+                        'big': {'kind': 'time', 'size': 26, 'pos': 'center'}, 'zones': {
+                        'tl': [{'piece': 'date', 'shape': 'inline'}],
+                        'tr': [{'piece': 'date', 'shape': 'inline', 'opts': {'lines': 'two'}}],
+                        'bl': [{'piece': 'date', 'shape': 'inline', 'opts': {'lines': 'two', 'weekday': 'short', 'month': 'short',
+                                                                               'weight': 'bold', 'case': 'upper'}}],
+                        'br': [{'piece': 'date', 'shape': 'inline', 'back': 'glass', 'align': 'center',
+                                'opts': {'lines': 'two', 'month': 'number', 'year': 'on'}}]}}}, 'lay-date'),
     'saver-lay-clock': ({'show': 'clock', 'clock_bg': 'aurora', 'clock_style': 'neon', 'layout': _layout(
                         {'kind': 'time', 'size': 30, 'pos': 'center'}, line=['date'], tl=['weather_card'], tr=['status_card'],
                         bl=['music_card'])}, 'lay-clock'),
@@ -101,7 +133,79 @@ SHOWS = {
     'saver-lay-slides': ({'show': 'both', 'music_slide': True, 'music_first': True, 'forecast_layout': 'big',
                           'layout': _layout({'kind': 'time', 'size': 35, 'pos': 'top', 'depth': 'behind'}, tl=['date'],
                                             bl=['weather_card', 'music_card'], br=['status_card', 'timers_card'])}, 'lay-slides'),
+    # BEHIND WITH ANY FACE (phase 13, phase 3): Photos, a layout's Neon time behind the drawn person -- the face itself, the
+    # subject's twin over it, never Time Behind's own figures
+    'saver-lay-tb': ({'show': 'photos', 'clock_style': 'neon', 'layout': _pieces({'kind': 'time', 'size': 30, 'pos': 'top', 'depth': 'behind'},
+                      tl=['date.inline'], tr=['status.inline'])}, 'lay-tb'),
+    # THE GLANCE CATALOG (phase 13, phase 1b; the plan's rule 7: every piece in this check at least once, at every size):
+    # wave A -- the sky's four gauges and two more on two lines, Countdown above the time, the alert and the rest of today's
+    # events in the top corners, another city's time and the sun at the bottom
+    'saver-lay-glance-a': ({'show': 'forecast', 'layout': _pieces({'kind': 'time', 'size': 20, 'pos': 'top'},
+                            line=['countdown.inline'], row=['uv.circular', 'wind.circular', 'pressure.circular', 'feels.circular',
+                                                            'rain.rectangular', 'moon.circular', 'sun.circular'],
+                            tl=['alert.card'], tr=['events.card'], bl=['world.inline'],
+                            br=['sun.inline'])}, 'lay-pieces'),
+    'saver-lay-glance-a2': ({'show': 'clock', 'clock_bg': 'aurora', 'layout': _pieces({'kind': 'time', 'size': 24, 'pos': 'upper'},
+                             row=['world.rectangular', 'rain.circular', 'moon.circular', 'sun.rectangular', 'world.circular?city=America/New_York'],
+                             tl=['moon.inline'], tr=['rain.inline'], bl=['alert.inline'], br=['events.rectangular'])}, 'lay-pieces'),
+    # ...wave B: the house's state, its people, its energy, its music and its cameras
+    'saver-lay-glance-b': ({'show': 'forecast', 'layout': _pieces({'kind': 'time', 'size': 20, 'pos': 'top'},
+                            line=['security.inline'], row=['doors.circular', 'garage.circular', 'climate.circular', 'lights.circular',
+                                                            'climate.rectangular', 'grid.circular', 'ev.circular'],
+                            tl=['notify.inline', 'vacuum.inline'], tr=['who.rectangular'], bl=['upnext.inline', 'playin.inline'],
+                            br=['package.inline', 'thisday.inline'])}, 'lay-pieces'),
+    'saver-lay-glance-b2': ({'show': 'clock', 'clock_bg': 'aurora', 'layout': _pieces({'kind': 'time', 'size': 22, 'pos': 'upper'},
+                             row=['security.circular', 'who.circular', 'doors.rectangular', 'notify.rectangular', 'camera.rectangular'],
+                             tl=['ring.inline', 'garage.inline'], tr=['lights.inline', 'grid.inline'], bl=['camera.card'],
+                             br=['ring.card'], line=['ev.inline'])}, 'lay-pieces'),
+    'saver-lay-glance-b3': ({'show': 'photos', 'layout': _pieces({'kind': 'time', 'size': 22, 'pos': 'top'},
+                             row=['vacuum.circular', 'package.circular', 'notify.circular', 'climate.circular', 'upnext.rectangular'],
+                             tl=['climate.inline', 'doors.inline'], bl=['playin.inline'], bottom=[],
+                             line=['who.inline'])}, 'lay-pieces'),
+    # ...wave C: one entity picked (the suggested default, none being picked here), Any Sensor on a picked entity, the photo's title
+    'saver-lay-glance-c': ({'show': 'photos', 'photo_titles': True, 'layout': _pieces({'kind': 'time', 'size': 22, 'pos': 'top'},
+                            line=['title.inline'], row=['alarm.circular', 'trash.circular', 'pollen.circular', 'travel.circular',
+                                                        'appliance.rectangular', 'sensor.circular?entity=lock.back_door'],
+                            tl=['price.inline', 'travel.inline'], tr=['leak.inline', 'sensor.inline?entity=lock.front_door'],
+                            bl=['appliance.inline', 'alarm.inline'], br=['leak.card'])}, 'lay-pieces'),
 }
+
+
+# EVERY LOOK, EVERY SLIDE, AT EVERY SIZE (phase 13, phase 6; the plan's "Done": saver_shows_check over every Look x slide x
+# three sizes, phones not skipped): the editor's own Looks (hk-saver-editor.js LOOKS, applyLook + lookLayout -- so what is
+# checked is what the owner picks), each with every slide on. One screen a Look steps through its slides with the editor's
+# See a Slide (hkSaver.previewSlide); a second has the Forecast's Big layout, for the Forecast, Big slide
+def look_shows():
+    import subprocess
+    jsc = Path('/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc')
+    if not jsc.exists():
+        return {}
+    pre = ("var window = this; var HTMLElement = function () {}; var customElements = { get: function () { return null; }, define: function () {} };\n"
+           f"load({json.dumps(str(ROOT / 'web/hk/modules/hk-saverlayout.js'))});\n"
+           f"load({json.dumps(str(ROOT / 'web/hk/panels/hk-saver-editor.js'))});\n"
+           "var E = window.hkSaverEditor;\n"
+           "print(JSON.stringify(E.LOOKS.map(function (look) { var o = { show: 'photos', layout: E.lookLayout(look) }; E.applyLook(o, look, false); return [look.id, o]; })));\n")
+    with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False) as f:
+        f.write(pre)
+    try:
+        looks = json.loads(subprocess.run([str(jsc), f.name], capture_output=True, text=True, check=True, timeout=30).stdout)
+    finally:
+        os.unlink(f.name)
+    out = {}
+    for lid, o in looks:
+        slides = dict(o, extra_music=True, weather_slide=True, energy_slide=True, extra_forecast=True)
+        out[f'saver-look-{lid}'] = (slides, 'look-slides')
+        out[f'saver-look-{lid}-fb'] = (dict(slides, forecast_layout='big'), 'look-fb')
+    # (the Slides section's own settings, 2026-11-02: the corner's time at 200 % and no weather; Music Full Screen
+    # without its album, volume and Up Next)
+    for lid, o in looks:
+        if lid == 'photo':
+            out['saver-look-photo-own'] = (dict(o, extra_music=True, weather_slide=True, energy_slide=True, extra_forecast=True, corner_time_size=200,
+                                                corner_hide=['weather'], music_hide=['album', 'volume', 'next']), 'look-slides')
+    return out
+
+
+SHOWS.update(look_shows())
 
 
 async def photos_for(server, cookie, screens):
@@ -130,6 +234,22 @@ async def photos_for(server, cookie, screens):
         for screen in screens:
             async with http.put(base + f'/api/photos/screens/{screen}', json={'album': aid}, headers=h) as r:
                 assert r.status == 200, await r.text()
+        # (the fade's album: that photo again, and a portrait with its person at the left)
+        async with http.post(base + '/api/photos/albums', json={'name': 'Two Ways'}, headers=h) as r:
+            aid2 = (await r.json())['album']['id']
+        im2 = Image.new('RGB', (900, 1200))
+        d2 = ImageDraw.Draw(im2)
+        for y in range(1200):
+            d2.line([(0, y), (900, y)], fill=(int(120 + 80 * y / 1200), int(170 - 60 * y / 1200), int(210 - 110 * y / 1200)))
+        d2.ellipse([150, 260, 370, 540], fill=(214, 168, 140))
+        d2.rounded_rectangle([40, 600, 480, 1260], radius=110, fill=(110, 40, 60))
+        buf2 = io.BytesIO(); im2.save(buf2, 'JPEG', quality=88)
+        for name, data in (('person.jpg', buf.getvalue()), ('portrait.jpg', buf2.getvalue())):
+            fd = FormData(); fd.add_field('file', data, filename=name, content_type='image/jpeg')
+            async with http.post(base + f'/api/photos/albums/{aid2}/upload', data=fd, headers=h) as r:
+                assert r.status == 201, await r.text()
+        async with http.put(base + '/api/photos/screens/saver-tb-fade', json={'album': aid2}, headers=h) as r:
+            assert r.status == 200, await r.text()
 
 
 async def main():
@@ -144,7 +264,8 @@ async def main():
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td), real_model=True)
         async with TestServer(app) as server:
-            await photos_for(server, cookie, ('saver-timebehind', 'saver-clockphotos', 'saver-clocksoft', 'saver-lay-slides'))
+            await photos_for(server, cookie, ('saver-timebehind', 'saver-timebehind-today', 'saver-clockphotos', 'saver-clocksoft', 'saver-lay-slides', 'saver-lay-tb')
+                             + tuple(k for k in SHOWS if k.startswith('saver-look-photo')))
             if args.shots:
                 args.shots.mkdir(parents=True, exist_ok=True)
             proc = await asyncio.create_subprocess_exec(args.node, str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE,

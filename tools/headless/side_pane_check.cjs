@@ -29,13 +29,19 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
     const page = await context.newPage();
     const errors = [];
     let cur = '';
-    // (the browser's benign "ResizeObserver loop" note is no error, as the other checks have it)
-    page.on('pageerror', (e) => { if (!/ResizeObserver loop/.test(e.message)) errors.push(cur + ': ' + e.message); });
+    // (the browser's benign "ResizeObserver loop" note is no error, as the other checks have it; nor is WebKit's
+    // word for one of this page's own loads it cancelled when the check moved on, "<same-origin URL> due to access
+    // control checks": the page catches that fetch (ha-elements.js), and it failed this check about every other run)
+    const cancelled = (m) => /due to access control checks\.?$/.test(m) && m.indexOf(new URL(input.origin).host + '/') >= 0;
+    page.on('pageerror', (e) => {
+      if (!/ResizeObserver loop/.test(e.message) && !cancelled(e.message)) errors.push(cur + ': ' + e.message);
+    });
     page.setDefaultTimeout(20000);
     const open = async (scr, view) => {
       cur = scr + '/' + (view || 'home');
       await page.goto(input.origin + '/' + scr + '/' + (view || 'home'));
       await page.waitForFunction(() => window.__mantelReady === true);
+      await require('./grid_ready.cjs')(page);
       await page.waitForTimeout(2500);
     };
     const tag = W + 'x' + H, phone = W < 640, upright = H > W;
@@ -57,6 +63,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         cur = 'pane-home-right?hkglass=' + g;
         await page.goto(input.origin + '/pane-home-right/home?hkglass=' + g);
         await page.waitForFunction(() => window.__mantelReady === true);
+        await require('./grid_ready.cjs')(page);
         await page.waitForTimeout(2000);
         const m = await page.evaluate(() => {
           const p = document.querySelector('hk-side-pane[mode="dash"]'), pane = p && p.shadowRoot.querySelector('.pane');
@@ -76,6 +83,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       cur = 'pane-home-right slide';
       await page.goto(input.origin + '/pane-home-right/home');
       await page.waitForFunction(() => window.__mantelReady === true);
+      await require('./grid_ready.cjs')(page);
       await page.waitForTimeout(2500);
       const midway = await page.evaluate(async () => {
         const p = document.querySelector('hk-side-pane[mode="dash"]');
@@ -109,11 +117,13 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       cur = 'pane-swipe';
       await page.goto(input.origin + '/pane-swipe/home');
       await page.waitForFunction(() => window.__mantelReady === true);
+      await require('./grid_ready.cjs')(page);
       await page.waitForTimeout(2500);
       const sw = () => page.evaluate(() => {
         const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
         const p = document.querySelector('hk-side-pane[mode="dash"]'), tb = deep(document, '#hk-tabbar'), row = tb && tb.shadowRoot.querySelector('.row'), rr = row && row.getBoundingClientRect();
-        return { path: location.pathname, op: p ? +getComputedStyle(p).opacity : null, shown: p ? getComputedStyle(p).display !== 'none' : false, mid: rr ? Math.round(rr.left + rr.width / 2) : null };
+        return { path: location.pathname, op: p ? +getComputedStyle(p).opacity : null, shown: p ? getComputedStyle(p).display !== 'none' : false, mid: rr ? Math.round(rr.left + rr.width / 2) : null,
+                 rootShift: document.documentElement.style.getPropertyValue('--hk-pane-shift'), barShift: tb ? tb.style.getPropertyValue('--hk-pane-shift') : '' };
       });
       const s0 = await sw(), sy = 300;
       await page.mouse.move(700, sy); await page.mouse.down();
@@ -126,6 +136,9 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       const s2 = await sw();
       want('swiping off Home, halfway: the pane fading with the finger, the bar part way to its new middle', [s0, s1],
            s1.shown && s1.op > 0.2 && s1.op < 0.9 && s1.mid > s0.mid);
+      // (the bar's offset on the bar, never on <html>: there every frame of a swipe restyled the whole document --
+      // 2026-11-02, the owner's Kitchen tablet, "stutter" swiping between Home and the Pages screen)
+      want('...the bar\'s offset set on the bar alone, not on <html>', s1, !s1.rootShift && !!s1.barShift);
       want('...let go: the pane gone, the bar at its new middle without a step back (always forward)', [s2, mids],
            s2.path !== s0.path && !s2.shown && s2.mid > s1.mid && mids.every((m, j) => j === 0 || m >= mids[j - 1] - 1));
       // BACK FROM THE PAGES SCREEN (2026-11-01, the owner: "the HomeView Grid kind of snaps into place behind the side
@@ -164,6 +177,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       // the Music page's volume, drawn by hand and touch-action none, moves; the page stays
       await page.goto(input.origin + '/pane-swipe/playmusic');
       await page.waitForFunction(() => window.__mantelReady === true);
+      await require('./grid_ready.cjs')(page);
       await page.waitForTimeout(2000);
       const volAt = () => page.evaluate(() => {
         const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
@@ -184,6 +198,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       // ...and the thermostat's dial on Home (the owner: "Thermostats may need to be looked at too?")
       await page.goto(input.origin + '/pane-swipe/home');
       await page.waitForFunction(() => window.__mantelReady === true);
+      await require('./grid_ready.cjs')(page);
       await page.waitForTimeout(2000);
       const dial = await page.evaluate(() => {
         const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
@@ -204,6 +219,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       // the screen swipes; let go, the page's background is the next one's under a copy that fades; a tap cuts
       await page.goto(input.origin + '/pane-swipe/security');
       await page.waitForFunction(() => window.__mantelReady === true);
+      await require('./grid_ready.cjs')(page);
       await page.waitForTimeout(2000);
       await page.evaluate(() => { const v = window.hkShell.view(window.hkShell.viewSlot(null));
         ['height', 'min-height', 'max-height'].forEach((k) => v.style.setProperty(k, '300px', 'important')); });
@@ -233,6 +249,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       // the settings, the page opens the new one (hk-idle.js followScreen)
       await page.goto(input.origin + '/dashboard-home/home?hk_tablet=kitchen');
       await page.waitForFunction(() => window.__mantelReady === true);
+      await require('./grid_ready.cjs')(page);
       await page.waitForTimeout(2000);
       const tabletSet = (screen) => page.evaluate(async (sc) => {
         const c = window.hkHostClient.current(), a = (c && c.actions) || c;
@@ -245,7 +262,13 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       want('the Kitchen tablet\'s Screen changed: its page opens the new screen, still the Kitchen tablet', [before, setOk, moved],
            before.t === 'dashboard-home' && setOk === true && moved === '/pane-home-right/0?hk_tablet=kitchen');
       await page.waitForFunction(() => window.__mantelReady === true);
+      await require('./grid_ready.cjs')(page);
       await tabletSet('dashboard-home');
+      // (the page follows its tablet back too, when the change reaches it: once there, so that follow can't land in the
+      // middle of the next page.goto -- 2026-11-02, 22 steps at once: "interrupted by another navigation")
+      await page.waitForURL(/\/dashboard-home/, { timeout: 8000 }).catch(() => {});
+      await page.waitForFunction(() => window.__mantelReady === true);
+      await require('./grid_ready.cjs')(page);
       // A FINGER, NOT A MOUSE (2026-11-01, the owner's Pixel Tablet: "I can sort of swipe to the Apps page, but I cant
       // go anywhere else"): a touch swipe off the Pages screen lands on the next page -- its one screen of icons said
       // nothing about the sideways pan, so the browser took it for the strip and cancelled the swipe. Chromium only
@@ -257,6 +280,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         const tp = await tctx.newPage(), cdp = await tctx.newCDPSession(tp);
         await tp.goto(input.origin + '/pane-swipe/pages');
         await tp.waitForFunction(() => window.__mantelReady === true);
+        await require('./grid_ready.cjs')(tp);
         await tp.waitForTimeout(2000);
         const at = (x) => [{ x, y: Math.round(H * 0.5), id: 1, radiusX: 4, radiusY: 4, force: 1 }];
         await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(Math.round(W * 0.75)) });
@@ -280,6 +304,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       cur = 'pane-home-dim?hkglass=bright';
       await page.goto(input.origin + '/pane-home-dim/home?hkglass=bright');
       await page.waitForFunction(() => window.__mantelReady === true);
+      await require('./grid_ready.cjs')(page);
       await page.waitForTimeout(2000);
       const dimmed = await shade();
       want('Dim High shades the pane', dimmed, /rgba\(0, 0, 0, 0\.45\)/.test(String(dimmed)));
@@ -298,6 +323,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         cur = 'pane-home-' + side + '?hkglass=' + g;
         await page.goto(input.origin + '/pane-home-' + side + '/home?hkglass=' + g);
         await page.waitForFunction(() => window.__mantelReady === true);
+        await require('./grid_ready.cjs')(page);
         await page.waitForTimeout(3500);
         const a = await page.evaluate(async () => {
           const p = document.querySelector('hk-side-pane[mode="dash"]'), sr = p && p.shadowRoot;
@@ -544,6 +570,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
     await shot(page, tag + '-eight');
     for (const side of ['right', 'left']) {
       await open('pane-saver-' + side);
+      await require('./grid_ready.cjs').saver(page);
       await page.evaluate(() => window.hkSaver.preview(true));
       await page.waitForTimeout(3500);
       const s = await page.evaluate(() => {

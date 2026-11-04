@@ -154,7 +154,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
     from ..guards import guard
     from ..guards import ident as guarded
 
-    @guard("manager")                                   # an Owner or Admin, never at a wall tablet
+    @guard("manager", reads="admin")                                   # an Owner or Admin, never at a wall tablet
     async def import_status(request: web.Request) -> web.Response:
         return web.json_response({"import": store.import_record(), "empty": store.empty()})
 

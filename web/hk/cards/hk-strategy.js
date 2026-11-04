@@ -2056,19 +2056,18 @@
 
     // ENERGY: the Energy feature's page, from its plan (the settings feed's
     // `energy`, features/energy/plan.py) -- while the feature is added
-    if (opts.pages !== false && want('energy')) {
-      var ev = guarded('the Energy page', function () {
-        return energyView(client, view, { climate: !!pages.climate });
-      });
-      if (ev) pages.energy = ev;
-    }
-    // POWER: the Energy feature's second page, while its plan has one -- as
-    // a kind (`power`), and in place of a custom page at its address
+    var ev = opts.pages !== false && want('energy') && guarded('the Energy page', function () { return energyView(client, view, { climate: !!pages.climate }); });
+    if (ev) pages.energy = ev;
+    // POWER: the Energy feature's second page, while its plan has one -- as a kind (`power`), and in place of a custom page at its address
     var pw0 = added('energy') && setting('energy') && setting('energy').power;
     if (opts.pages !== false && pw0 && (want('power') || listOf(b, 'custom_pages').indexOf(pw0.path) >= 0)) {
       var pwv = guarded('the Power page', function () { return powerView(client, view); });
       if (pwv) pages.power = pwv;
     }
+    // TIMELINE (phase 19): a page only a host with its own record has (hkShell.hostPage; Home Assistant: false)
+    if (opts.pages !== false && want('timeline') && window.hkShell && window.hkShell.hostPage('timeline')) pages.timeline = view({ title: 'Timeline',
+      path: 'timeline', subview: true, icon: 'mdi:history',
+      cards: [titleBar('Timeline'), column([{ type: 'custom:hk-timeline-card' }])] });
 
     if (music) {
       // MUSIC (2026-10-11): Play Music and Browse Music on one page
@@ -2097,9 +2096,9 @@
     out = out.filter(function (v) { return play.indexOf(v) < 0 && browse.indexOf(v) < 0; });
     var KEY = { weather: 'weather', calendar: 'calendar', cameras: 'cameras', live_tv: 'live_tv', security: 'security',
                 doors_windows: 'doors-windows', climate: 'climate', lights: 'lights', timers: 'timers',
-                vacuums: 'vacuums', water: 'water', energy: 'energy', power: 'power' };
+                vacuums: 'vacuums', water: 'water', energy: 'energy', power: 'power', timeline: 'timeline' };
     var order = picked.length ? picked : ['weather', 'calendar', 'cameras', 'live_tv', 'security', 'doors_windows', 'climate',
-                                          'lights', 'timers', 'vacuums', 'music', 'water', 'energy', 'power', 'rooms'];
+                                          'lights', 'timers', 'vacuums', 'music', 'water', 'energy', 'power', 'timeline', 'rooms'];
     var browsePlaced = order.indexOf('browse') >= 0;
     var mine = listOf(b, 'custom_pages');
     order.forEach(function (k) {
@@ -2665,7 +2664,7 @@
     }
     if (!body.length) {
       body.push({ type: 'markdown', content: 'Nothing to show yet: add devices in Home Assistant’s Energy settings, ' +
-        'or on HK Settings → Features → Energy.' });
+        'or on ' + window.hkShell.settingsPlace('Pages → Energy') + '.' });
     }
     var title = P.title || 'Energy';
     var bar = titleBar(title);
@@ -2897,7 +2896,7 @@
       day_look: o.day_look, forecast_big: o.forecast_big, forecast_planted: o.forecast_planted !== false, layout: o.layout || null, tb_size: o.tb_size, tb_top: o.tb_top, tb_dim: o.tb_dim,
       // the clocks (hk-saverclock.js; hk-saver.js readCfg checks them)
       clock: o.clock !== false, clock_over: o.clock_over, clock_style: o.clock_style, clock_bg: o.clock_bg,
-      clock_motion: o.clock_motion, clock_24: o.clock_24 === true, clock_today_music: o.clock_today_music !== false, clock_colors: o.clock_colors, clock_speed: o.clock_speed, clock_depth: o.clock_depth,
+      clock_motion: o.clock_motion, clock_24: o.clock_24 === true, clock_today_music: o.clock_today_music !== false, clock_today_weather: o.clock_today_weather !== false, clock_colors: o.clock_colors, clock_speed: o.clock_speed, clock_depth: o.clock_depth,
       clock_night: o.clock_night, clock_night_from: o.clock_night_from, clock_night_to: o.clock_night_to,
       // a Wallpaper behind the clock (2026-10-31; hk-saverclock.js draws it, hkWallpapers checks both)
       clock_wallpaper: o.clock_wallpaper, clock_wallpaper_color: o.clock_wallpaper_color,
@@ -2909,6 +2908,8 @@
       energy_slide: o.energy_slide === true, extra_music: o.extra_music === true, extra_forecast: o.extra_forecast === true,
       extra_every: o.extra_every, extra_for: o.extra_for, energy_hide: Array.isArray(o.energy_hide) ? o.energy_hide.slice() : [],
       weather_slide: o.weather_slide === true, weather_hide: Array.isArray(o.weather_hide) ? o.weather_hide.slice() : [],
+      corner_time_size: o.corner_time_size || 100, corner_hide: Array.isArray(o.corner_hide) ? o.corner_hide.slice() : [],
+      music_hide: Array.isArray(o.music_hide) ? o.music_hide.slice() : [],
       forecast_every: o.forecast_every || 5,
       band: o.band !== false, band_photos: o.band_photos === true,
       calendar: o.calendar === true, calendar_days: o.calendar_days || 2,

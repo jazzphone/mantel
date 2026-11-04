@@ -41,7 +41,7 @@
   var PAGE_LABELS = {
     weather: 'Weather', calendar: 'Calendar', cameras: 'Cameras', live_tv: 'Live TV', security: 'Security',
     doors_windows: 'Doors & Windows', climate: 'Climate', lights: 'Lights', timers: 'Timers',
-    vacuums: 'Vacuums', music: 'Music', browse: 'Browse Music', water: 'Water', energy: 'Energy', power: 'Power', rooms: 'Room Pages'
+    vacuums: 'Vacuums', music: 'Music', browse: 'Browse Music', water: 'Water', energy: 'Energy', power: 'Power', timeline: 'Timeline', rooms: 'Room Pages'
   };
   // Each kind: key, name, the detail page’s description, and the list page’s
   // sub-line -- what the kind feeds, in the chips’ and pages’ own words.
@@ -2118,17 +2118,19 @@
                          portrait_fill: false, portrait_blur: 50, portrait_dim: 20, portrait_zoom: 100, portrait_x: 'center', portrait_y: 'center',
                          landscape_blur: 50, landscape_dim: 20, landscape_zoom: 100, landscape_x: 'center', landscape_y: 'center',
                          // the clocks (settings.py)
-                         clock_over: 'corner', clock_style: 'classic', clock_bg: 'gradient', clock_motion: 'slow', clock_wallpaper: 'aurora', clock_wallpaper_color: 'blue', clock_24: false, clock_today_music: true, clock_colors: {}, clock_speed: 35, clock_depth: 50, clock_night: 'off', clock_night_from: '22:00', clock_night_to: '07:00',
+                         clock_over: 'corner', clock_style: 'classic', clock_bg: 'gradient', clock_motion: 'slow', clock_wallpaper: 'aurora', clock_wallpaper_color: 'blue', clock_24: false, clock_today_music: true, clock_today_weather: true, clock_colors: {}, clock_speed: 35, clock_depth: 50, clock_night: 'off', clock_night_from: '22:00', clock_night_to: '07:00',
                      photo_layout: 'single', mosaic_count: 3, mosaic_gap: 'thin', mosaic_change: 'one', mosaic_line: 0, mosaic_color: 'black', mosaic_random: false, mosaic_every: 10,
                      clock_photo_soft: false, clock_photo_dim: 35, clock_text_shadow: 40, clock_text_outline: 0,
                      // Home Energy and the additional screens (settings.py, 2026-10-14)
                      energy_slide: false, extra_music: false, extra_forecast: false, extra_every: 5, extra_for: 30, energy_hide: [],
-                     weather_slide: false, weather_hide: [] };
+                     weather_slide: false, weather_hide: [], corner_time_size: 100, corner_hide: [], music_hide: [] };
   function saverOptions(o) {
     var out = {};
     Object.keys(SAVER_DEFAULTS).forEach(function (k) {
       out[k] = o && Object.prototype.hasOwnProperty.call(o, k) ? o[k] : SAVER_DEFAULTS[k];
     });
+    // (one key for Music Full Screen, settings.py's: music_slide is music_first now -- phase 13)
+    if (out.music_slide === true) { out.music_first = true; out.music_slide = false; }
     return out;
   }
   // THE HOMEVIEW-STYLE FACES (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I; settings.py's block of the same
@@ -2154,7 +2156,9 @@
   Object.assign(SAVER_DEFAULTS, { layout: null });
   CLOCK_STYLES.push(['liquid', 'Liquid', 'Soft, glossy numerals that drift slowly over a pastel gradient'],
                     ['giant', 'Giant Numerals', 'An analog clock with 12, 3, 6 and 9 drawn huge on a strong color'],
-                    ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft color']);
+                    ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft color'],
+                    // (phase 13, decision 1: Planted is a face, offered on the Landscape)
+                    ['planted', 'Planted', 'Ivory numerals standing in the Landscape\u2019s meadow']);
   CLOCK_COLORS.liquid = [['pastel', 'Pastel'], ['sunset', 'Sunset'], ['ocean', 'Ocean'], ['mint', 'Mint']];
   CLOCK_COLORS.giant = [['green', 'Green'], ['blue', 'Blue'], ['orange', 'Orange'], ['pink', 'Pink'], ['black', 'Black']];
   CLOCK_COLORS.scattered = [['rose', 'Rose'], ['sage', 'Sage'], ['sky', 'Sky'], ['sand', 'Sand'], ['night', 'Night']];

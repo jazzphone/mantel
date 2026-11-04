@@ -1,6 +1,8 @@
 # Phase 13: one screensaver (plan, 2026-11-02)
 
-**Status: decisions answered by the owner on 2026-11-02; the mock-up is waiting on the owner's OK before building.** The
+**Status: built (2026-11-02), every phase on main; the owner OK'd the phase 4 before / after ("Looks good",
+2026-11-02). Not released: 0.1.114 waits for the other sessions.** The mock-up was approved on 2026-11-02 ("Ok this all looks
+good"), with decisions 9 to 11. The
 mock-up is a private claude.ai artifact: https://claude.ai/artifact/WGMhLYgvrFpBEYsLB17hEN (interactive). It follows the Screensaver editor
 (`docs/phase12/SCREENSAVER-EDITOR.md`), which is on the house in 0.1.113 / 1.35.0.
 
@@ -283,6 +285,9 @@ photos, or the land and trees on the Landscape.
   for the Temperature, Date and Month too. The 5 to 35% coverage check uses the face's ink box from `inkOf`.
   Behind the Land already works this way. When a photo has no usable cut-out, the time stays in front for that
   photo, as it does today.
+- **The land's coverage too** (found on a phone on its side, 844 x 390, 2026-11-02): Behind the Land on a short, wide
+  screen hid nearly all of the time under the trees. The same 5 to 35% rule decides it: past it, the time stands in
+  front.
 - **Planted becomes a face**, offered on the Landscape: the ivory numerals standing in the meadow. A face is
   something you pick, while a depth is where something stands, so the Face list stays honest (decision 1).
 - **Every face option applies at both depths:** Face, Color, 24-hour, Size, Position, Align, Shadow and Outline.
@@ -357,6 +362,9 @@ Also fixed in this phase:
 | 6 | Big Weather's slide corner: Date and House Status only, since it already shows a time or temperature? | **Yes** |
 | 7 | Pieces that show people (Who's Home) or cameras (Camera, Last Ring) stay off until placed, since anyone walking by sees a screensaver? | **Yes** |
 | 8 | Any pieces to add to or drop from the glance catalog before building? | **Build it as listed** (all three waves) |
+| 9 | (the owner, on the mock-up) Circular widgets in sync? | **One size for the row**, every piece in it the same; one piece made bigger only on purpose (its own Size) |
+| 10 | (the owner) Color, and black or white? | **Accents** (a little meaningful color: rings, glyphs, dots), on by default; **Ink**: Auto, White or Black for the whole screen. Auto picks black or white from the background's luminance, once for every piece, card and band on the screen, never some white and some black |
+| 11 | (the owner) Up to 200%? | **Yes**: a piece's Size is 60 to 200%; a bigger one takes more of the row, which reflows |
 
 One detail the mock-up settled: a placed piece a new Look has no place for (the Month has no row) **waits in Info**,
 listed as waiting, and comes back with a Look that has the place, instead of being dropped. A piece whose zone can't
@@ -382,3 +390,75 @@ take its new shape still moves to the nearest zone that can.
 - 2026-11-02, phase 0: the mock-up (Looks that keep the Info, Look/Info/Slides/Timing, a piece in each shape, the
   grouped library with the glance catalog, the slide corner on all five slides at three sizes); the owner answered the
   eight decisions with the recommendations.
+- 2026-11-02: the owner approved the mock-up, adding decisions 9 to 11 (one row size, accents and one ink for the
+  screen, sizes to 200%). The pieces' contract: `docs/phase13/PIECES-SPEC.md`.
+- 2026-11-02, phase 1: the pieces. Layout v2 in both mirrors (a piece in a shape; the row's one size; the screen's one
+  ink, Auto from the background's luminance; the accents; sizes to 200%; **Show When...**, a condition on one entity,
+  on any piece, the owner's "Mail Box... only shows when the Mail Has Arrived"); v1 read and written as v2; one
+  renderer for every shape, the Card shapes replacing HK's corner cards (Sonnet 5.5 agent, from `PIECES-SPEC.md`);
+  claiming; "shows when" pieces collapse on the tablet. WebKit found: the forecast's own band drawn over a layout (now
+  off with a layout), cards a fixed 30 u wide (now as wide as their words, 24 to 44 u), Home Status's alarm twice, the
+  lock's circle without its ring, a card's art hanging under the margin (pictures taller than its words now count for
+  its foot). The layout checks now run a phone on its side too (844 x 390, the owner: "What about landscape phone").
+  Also fixed: Mantel's server took a touch on the music slide's buttons for the screen in use, which took the
+  screensaver down (the owner: "it kills the screensaver and goes back to the dashboard").
+- 2026-11-02, phase 1b, wave A: Countdown, World Clock, Next Event's Card (Time and Calendar), Rain Soon, Weather Alert,
+  UV, Wind and Gusts, Pressure, Feels Like, Moon and Sun (Weather and Sky), two Sonnet 5.5 agents in parallel from
+  `GLANCE-SPEC.md`, each group in a file of its own the screensaver loads where a layout uses it. Reviewed against the
+  rules and on a sheet of every piece in every shape (white ink over a photo, with Glass, black ink on a light ground):
+  fixed the Weather band's days running into each other on a narrow screen (its columns now wrap out of sight, the
+  days first), Next Event's two rows touching, a group's styles missing from the screensaver's shadow root (one sheet,
+  kept up to date), options that are words dropped by the renderer.
+- 2026-11-02, phase 2: the slide corner. Each slide declares what it shows (`hkSaverLayout.SLIDES`); one corner, drawn
+  by the pieces' renderer, adds the time (in the Look's face's font and color), the date, the weather and House Status
+  only where the slide lacks them; the old corner cards step aside under every slide; the Weather and Home Energy
+  slides keep their own time and date unseen; slides over every background but the photos; the music slide on upright
+  screens (an iPhone's Now Playing: the art, then the song and its buttons on its edges) and at its own scale (a phone
+  on its side). A layout keeps none of HK's corner cards. WebKit found a loop to fix first: a failed load of the
+  pieces' files asked again on its own failure and spun the page.
+- 2026-11-02, phase 1b, wave B: Security, Doors and Windows, Garage, Climate, Lights On, Vacuum, Notifications and
+  Package (Home); Who's Home (People); Grid and EV (Energy); Up Next, Playing In and On This Day (Media); Camera and Last
+  Ring (Cameras), four Sonnet 5.5 agents in parallel. People and camera pieces are declared off until placed
+  (decision 7). On This Day needed the day a photo was taken: the server keeps it now (`taken_on`, migration 0030),
+  read from the EXIF at upload; existing photos can't be filled from their stored copies (the upload re-encodes them
+  without EXIF), so the day comes from a camera-style file name, or from sending the photo again. Notifications counts
+  from the moment the screensaver comes up; Up Next shares the music slide's read.
+- 2026-11-02, phase 3: the time. Behind with any face on photos (the layout's own face, the subject's twin over it,
+  fading and zooming with its photo, weighed on the face's own box; on a Mosaic or a photo with no cut-out the time
+  stands in front); Behind the Land with the same coverage rule (a phone on its side: the land would hide 78% of the
+  time, so it stands in front); Planted a face (decision 1), Classic where there is no meadow, Big Weather's planted
+  numerals following it; Darken the photos' own with a layout; Night Mode with a layout; the Day's Art under a layout;
+  Soft Photos blurred (the editor never wrote `clock_photo_soft`); Legibility over the Landscape too.
+- 2026-11-02, phase 1b, wave C: Phone Alarm, Trash Day, Pollen, Appliances, Leak and Smoke, Travel Time and Price (each
+  with a suggested default, `hkSaverWidgets._.picked.suggest`, the editor's too), and Any Sensor (its own state words,
+  ring ends from its options, its device class or the entity), two Sonnet 5.5 agents. The glance catalog is complete:
+  35 new pieces and Next Event's Card, each in its own group's file.
+- 2026-11-02, phase 4: one renderer. A screen with no saved layout draws through the layout its options make
+  (`layoutFrom()` at read time, made to look as the screen did: its one-line weather and Home Status, its large corner
+  clock, its photo's title at the bottom right; Glance and the Day face keep their own words, the layout leaving its big
+  element to them and claiming what they show). Big Weather (the owner's favorite) and Month (its own time where the
+  corner's Home Status would stand) keep their own faces: they draw as they always have. The old corner cards are gone
+  with a layout; their CSS stays only for those two and for the moment before `hk-saverlayout.js` has loaded. The
+  before/after WebKit shots for the owner: https://claude.ai/artifact/N5Kxj6Es2nACSnTvK5WPmz. Also: Music Full Screen
+  one key (`music_slide` reads as `music_first`); the editor's See a Slide and Day / Night (`hkSaver.previewSlide`,
+  `previewNight`).
+- 2026-11-02, the owner on the phase 4 shots ("Alignment is pretty crucial here"), fixed: a card with no backdrop had
+  its padding, so the music sat 2 u inside the margin the weather under it was on (now on the margin; a backdrop's edge
+  is on the margin); a Settings preview kept the place of a piece with nothing to show, which held Home Status off the
+  bottom corners' one line (only the editor keeps places now); the Day face's name stood a line above its numeral and
+  met the corners (now on its numeral, the corner clock its usual size); Glance's weather took the music's cell when
+  nothing played and stood a third of the way across (each in its own cell, the weather on the clock's left edge, the
+  page's margin the pieces' 6 %).
+- 2026-11-02, phase 5: the editor (`EDITOR-SPEC.md`, a Sonnet 5.5 agent): Looks that keep the Info (a piece the Look has
+  no place for waits, and Start Over from This Look), the four sections (Look, Info, Slides, Timing) with `applies()`,
+  the grouped library with search, a piece's page (its shapes drawn, Its Own Size, its options with the suggested
+  entity, Show When), See a Slide and Day / Night, the phone on its side, one Reset; the Clock Style pages open the
+  editor; Settings' Music is Music Full Screen (`music_first`). Glance, Month and Day's Looks leave the big element to
+  their faces' own words. A WebKit check of the editor (`saver_editor_check`) in `ci.py full`.
+- 2026-11-02, phase 6: the checks and the guide. `saver_shows_check` runs every Look under every slide (and the Big
+  forecast) at the wall tablet, the iPad upright, the phone and the phone on its side, every piece at least once
+  (`test_every_piece_is_in_the_webkit_check`); the guide's Screensaver page and its three shots are the new editor.
+  Fixed on the way: the Big forecast as a slide drew the Classic one (Big Weather was mounted only for the forecast
+  as the background, and never over a laid-out clock); its corner now stands under Big Weather's own top line; the
+  old corner clock came back beside the slide corner under the forecast over a clock; a card's big number lost its
+  round figures' overshoot (the owner: "the temp is being clipped"). No sheet changed, so no `sheet_review.py` run.

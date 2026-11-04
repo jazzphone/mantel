@@ -23,6 +23,14 @@ trades the code once, over https, for a fresh credential.
   (the code is not spent: the right address still pairs), and puts the address in its own proof, which Mantel
   Link checks against the address it used. v1 (no address) still pairs, for an older Mantel Link; Mantel Link
   v2 never falls back to v1 (an older Mantel answers ``malformed``: "Update Mantel first").
+* **Protocol v3 pins Mantel's own certificate** (2026-11-02, the owner: "would it be more reliable with just an IP
+  connection?"): Mantel Link may reach Mantel by its address on the network (``https://<LAN address>:8766``), on
+  Mantel Connect's own HTTPS listener, whose certificate is from Mantel's private CA, not a public one. Mantel Link
+  can't check that certificate before it pairs, so v3 asks the exchange to carry what it needs: Mantel answers with
+  its CA certificate, covered by its proof (a look-alike can't swap in its own without the code), and the credential
+  sealed with a key derived from the code (a look-alike in the middle can't read it). Mantel Link keeps the CA and
+  from then on accepts only certificates it issued. v3 is answered only on that listener (``pin_elsewhere``
+  elsewhere, naming the address that does), and the address is bound as in v2.
 * **What it makes:** a Service account named by Mantel Link ("Home Assistant - Mantel Link"), scope ``linked``
   only. It is revoked like any other (Mantel Settings -> Service Accounts), which closes the link.
 * **Rate limits** as Mantel Connect's: wrong or malformed attempts per address and from anywhere.
@@ -32,6 +40,7 @@ trades the code once, over https, for a fresh credential.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import logging
@@ -43,18 +52,20 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from aiohttp import web
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from mantel_connect import protocol as CP
 
 from . import audit
 from .connect_pairing import ALL_FAILS, ALL_WINDOW, IP_FAILS, IP_WINDOW, MAX_WRONG, Window
-from .guards import guard
+from .guards import guard, open_route
 from .guards import ident as guarded
 
 log = logging.getLogger("mantel.linked_pairing")
 
-VERSION = 2                     # the newest; VERSIONS are all this Mantel accepts
-VERSIONS = (1, 2)
+VERSION = 2                     # the newest over a public certificate; VERSIONS are all this Mantel accepts
+PINNED = 3                      # Mantel's own certificate, pinned: only on Mantel Connect's listener
+VERSIONS = (1, 2, 3)
 PATH = "/linked/pair"
 TTL = CP.CODE_TTL
 _NONCE = re.compile(r"^[0-9a-f]{32}$")
@@ -104,7 +115,7 @@ def _host_of(text: Any) -> str | None:
 def own_addresses(cfg: Any, host: str | None, *, app_url: str | None = None,
                   announce_url: str | None = None) -> set[str]:
     """Every normalised address this Mantel is: its ``public_url``, the zeroconf announcement, the App's hostname
-    (the Supervisor discovery), the direct listener's ``name:port``, and the Host header the request came in on
+    (the Supervisor discovery), the direct listener's ``name:port``, Mantel Connect's ``connect_address``, and the Host header the request came in on
     (either scheme) when its name is one Mantel has: loopback, ``allowed_hosts`` except "*", ``direct_hosts``, or
     the name of one of the addresses above. A look-alike's name is none of them."""
     out: set[str] = set()
@@ -116,6 +127,10 @@ def own_addresses(cfg: Any, host: str | None, *, app_url: str | None = None,
             names.add(_host_of(a) or "")
     for extra in getattr(cfg, "allowed_hosts", ()) or ():
         names.add(_host_of(extra) or "")
+    link = getattr(cfg, "connect_address", "") or ""
+    if link and normalize_address(f"https://{link}"):          # Mantel Connect's listener, where v3 pins
+        out.add(normalize_address(f"https://{link}"))
+        names.add(_host_of(link) or "")
     for direct in getattr(cfg, "direct_hosts", ()) or ():
         names.add(_host_of(direct) or "")
         if normalize_address(f"https://{direct}") and urlsplit(f"https://{direct}").port:   # the direct listener
@@ -138,19 +153,34 @@ def _mac(key: bytes, *parts: str) -> str:
     return hmac.new(key, "|".join(parts).encode(), hashlib.sha256).hexdigest()
 
 
-def client_proof(key: bytes, code_id: str, nonce: str, name: str, address: str | None = None) -> str:
-    """v1 without an address; v2 (its own label) over the address too."""
+def client_proof(key: bytes, code_id: str, nonce: str, name: str, address: str | None = None, v: int = 2) -> str:
+    """v1 without an address; v2 and v3 (each its own label) over the address too."""
     if address is None:
         return _mac(key, "mantel-link-pair-v1", "client", code_id, nonce, name)
-    return _mac(key, "mantel-link-pair-v2", "client", code_id, nonce, name, address)
+    return _mac(key, f"mantel-link-pair-v{3 if v == PINNED else 2}", "client", code_id, nonce, name, address)
 
 
-def server_proof(key: bytes, code_id: str, nonce: str, instance: str, token: str, address: str | None = None) -> str:
-    """v1 without an address; v2 (its own label) names the address Mantel accepted."""
+def server_proof(key: bytes, code_id: str, nonce: str, instance: str, token: str, address: str | None = None,
+                 ca: str | None = None) -> str:
+    """v1 without an address; v2 (its own label) names the address Mantel accepted; v3 the CA certificate too."""
     digest = hashlib.sha256(token.encode()).hexdigest()
     if address is None:
         return _mac(key, "mantel-link-pair-v1", "server", code_id, nonce, instance, digest)
+    if ca is not None:
+        return _mac(key, "mantel-link-pair-v3", "server", code_id, nonce, address, instance, digest,
+                    hashlib.sha256(ca.encode()).hexdigest())
     return _mac(key, "mantel-link-pair-v2", "server", code_id, nonce, address, instance, digest)
+
+
+def token_key(key: bytes, nonce: str) -> bytes:
+    """v3: the key the credential travels under, from the code's key and this exchange's nonce."""
+    return hmac.new(key, f"mantel-link-pair-v3|token|{nonce}".encode(), hashlib.sha256).digest()
+
+
+def seal_token(key: bytes, nonce: str, address: str, token: str) -> str:
+    """v3: the credential, AES-GCM under token_key (the address as associated data), base64url(iv + sealed)."""
+    iv = secrets.token_bytes(12)
+    return base64.urlsafe_b64encode(iv + AESGCM(token_key(key, nonce)).encrypt(iv, token.encode(), address.encode())).decode()
 
 
 class PairError(Exception):
@@ -225,17 +255,20 @@ class LinkPairing:
         return None if c is None else {"created": c["created"], "expires": c["expires"], "attempts": c["attempts"]}
 
     # -- Mantel Link's side ------------------------------------------------------------------------------------
-    def pair(self, body: Any, ip: str | None, addresses: set[str] | frozenset[str] = frozenset()) -> dict[str, Any]:
-        """`addresses`: this Mantel's own (``own_addresses``); v2's address must be one of them."""
+    def pair(self, body: Any, ip: str | None, addresses: set[str] | frozenset[str] = frozenset(),
+             pinned_ca: str | None = None, link_address: str | None = None) -> dict[str, Any]:
+        """`addresses`: this Mantel's own (``own_addresses``); v2's and v3's address must be one of them.
+        `pinned_ca`: Mantel Connect's CA certificate, when the request came in on its listener (v3 is answered only
+        there); `link_address`: that listener's address, named when v3 arrives elsewhere."""
         now = self.clock()
         peer = ip or "?"
         wait = self.ip_fails.blocked(peer, now) or self.all_fails.blocked("*", now)
         if wait:
             raise PairError(429, "rate_limited", "Too many tries. Wait a little and try again.", wait)
         v = body.get("v") if isinstance(body, dict) else None
-        address = body.get("address") if v == 2 else None
+        address = body.get("address") if v in (2, PINNED) else None
         if (not isinstance(body, dict) or type(v) is not int or v not in VERSIONS
-                or (v == 2 and (not isinstance(address, str) or normalize_address(address) != address))
+                or (v in (2, PINNED) and (not isinstance(address, str) or normalize_address(address) != address))
                 or not isinstance(body.get("code_id"), str)
                 or len(body["code_id"]) != CP.GROUP_LEN or not isinstance(body.get("nonce"), str)
                 or not _NONCE.match(body["nonce"]) or not isinstance(body.get("proof"), str)
@@ -243,9 +276,15 @@ class LinkPairing:
                 or not _NAME.match(body["name"])):
             self._count(peer)
             raise PairError(400, "malformed", "Not a Mantel Link pairing request.")
+        if v == PINNED and pinned_ca is None:
+            # not a wrong code: Mantel Link reached Mantel somewhere its own certificate isn't served. The code is
+            # not spent, and the answer names the address that pins
+            where = f" ({link_address})" if link_address else ""
+            raise PairError(400, "pin_elsewhere", "Mantel pins its own certificate only on its link address" + where +
+                            ". Use that address, or Mantel's name with its public certificate.")
         c = self.pending() and self._code
         key = c["key"] if c and c["id"] == body["code_id"] else b"\0" * 32        # the same work either way
-        expected = client_proof(key, body["code_id"], body["nonce"], body["name"], address)
+        expected = client_proof(key, body["code_id"], body["nonce"], body["name"], address, v)
         if not c or c["id"] != body["code_id"] or not hmac.compare_digest(expected, body["proof"]):
             self._count(peer)
             if c and c["id"] == body["code_id"]:
@@ -256,7 +295,7 @@ class LinkPairing:
                 self._audit(c["by"], "owner", "linked.pair_failed", {"ip": ip, "wrong": c["attempts"], "burned": burned})
             raise PairError(403, "invalid_code", "That pairing code was not accepted. Make a new one in Mantel "
                             "Settings, Connections, Home Assistant, Mantel Link.")
-        if v == 2 and address not in addresses:
+        if v in (2, PINNED) and address not in addresses:
             # Mantel Link reached something at an address that isn't this Mantel's (a look-alike passing the exchange
             # on, or a name Mantel doesn't know): refused, the code not spent, so the right address still pairs
             self._count(peer)
@@ -271,7 +310,7 @@ class LinkPairing:
         account, token = self.accounts.create(body["name"], ["linked"], by=f"pairing:{c['by']}", before=lambda sid, name, scopes:
                                               self._audit_first(c["by"], "owner", "linked.pair_ok",
                                                                 {"ip": ip, "account": sid, "name": body["name"], "v": v,
-                                                                 **({"address": address} if v == 2 else {}),
+                                                                 **({"address": address} if address else {}),
                                                                  **({"revoked": old} if old else {})}))
         if old and old != getattr(account, "id", None):
             self.accounts.revoke(old, reason="re-paired")         # (named in the row above)
@@ -280,6 +319,11 @@ class LinkPairing:
         self.paired.append({"at": now, "account": aid, "name": body["name"]})
         log.warning("linked: Mantel Link paired as %r from %s (Service account %s, protocol v%s)",
                     body["name"], peer, aid, v)
+        if v == PINNED:
+            # the CA in the proof, the credential sealed under the code: nothing a look-alike in the middle can use
+            proof = server_proof(c["key"], body["code_id"], body["nonce"], instance, token, address, pinned_ca)
+            return {"v": v, "instance": instance, "address": address, "ca": pinned_ca,
+                    "token_sealed": seal_token(c["key"], body["nonce"], address, token), "proof": proof}
         proof = server_proof(c["key"], body["code_id"], body["nonce"], instance, token, address)
         return {"v": v, "token": token, "instance": instance, **({"address": address} if v == 2 else {}),
                 "proof": proof}
@@ -300,6 +344,7 @@ class LinkPairing:
 
 
 # -- the routes -------------------------------------------------------------------------------------------
+@open_route("one_time_code", why="linked pairing: the one-time code an Owner started (linked_pairing.py)")
 async def pair_route(request: web.Request) -> web.Response:
     from .sessions import client_ip, door_of
     pairing: LinkPairing = request.app["linked_pairing"]
@@ -311,8 +356,10 @@ async def pair_route(request: web.Request) -> web.Response:
         body = await request.json() if request.content_length and request.content_length <= 4096 else None
     except ValueError:
         body = None
+    connect = request.app.get("connect")
+    pinned_ca = connect.pki.ca_pem if request.get("link_direct") and connect is not None else None
     try:
-        out = pairing.pair(body, client_ip(request), request_addresses(request))
+        out = pairing.pair(body, client_ip(request), request_addresses(request), pinned_ca, link_address(request.app))
     except PairError as exc:
         headers = {"Retry-After": str(int(exc.retry_after) + 1)} if exc.retry_after else None
         return web.json_response({"error": {"code": exc.code, "message": exc.message}}, status=exc.status,
@@ -342,10 +389,20 @@ def request_addresses(request: web.Request) -> set[str]:
 
 # the Owner's REST: Owners and Admins see it; an Owner makes or withdraws a code on the LAN door or a home-rules
 # sidebar (linked_owners' rule), audited first
-@guard("manager")
+def link_address(app: web.Application) -> str | None:
+    """Where Mantel Link reaches Mantel by its address, pinning Mantel's own certificate (v3): Mantel Connect's
+    listener, when it runs and its address is known; else None."""
+    cfg = app.get("cfg")
+    if not getattr(cfg, "connect", False) or not getattr(cfg, "connect_address", ""):
+        return None
+    return normalize_address(f"https://{cfg.connect_address}")
+
+
+@guard("manager", reads="admin")
 async def api_get(request: web.Request) -> web.Response:
     p: LinkPairing = request.app["linked_pairing"]
-    return web.json_response({"pending": p.pending(), "ttl": TTL, "paired": p.paired[-5:]})
+    return web.json_response({"pending": p.pending(), "ttl": TTL, "paired": p.paired[-5:],
+                              "link_address": link_address(request.app)})
 
 
 @guard("owner", door="home", audit="linked.pair_start")
@@ -353,7 +410,7 @@ async def api_start(request: web.Request) -> web.Response:
     ident = guarded(request)
     out = request.app["linked_pairing"].start(
         ident.user.id, ident.user.role, before=lambda d: audit.config(request, ident, "linked.pair_start", d))
-    return web.json_response(out, headers={"Cache-Control": "no-store"})
+    return web.json_response({**out, "link_address": link_address(request.app)}, headers={"Cache-Control": "no-store"})
 
 
 @guard("owner", door="home", audit="linked.pair_cancel")

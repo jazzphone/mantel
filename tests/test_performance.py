@@ -136,7 +136,7 @@ async def test_a_manager_reads_the_performance_page(mantel):
     r = await m.get("/api/performance")
     assert r.status == 200 and r.headers["Cache-Control"] == "no-store"
     got = await r.json()
-    assert set(got) == {"now", "screens", "server"}
+    assert set(got) == {"now", "screens", "server", "timeline"}
     [row] = got["screens"]
     assert set(row) >= {"name", "kind", "page", "up_since", "memory_mb", "reconnects", "registry_refreshes",
                         "slowest_start_ms", "last_seen", "first_draw_ms", "download_bytes", "download_files", "fps",

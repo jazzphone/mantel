@@ -1641,6 +1641,9 @@ SAVER_DEFAULTS: dict[str, Any] = {
     # the Today face's line of what's playing under its weather (2026-11-01, the owner: "I don't see a place to
     # actually turn this off"): on as it always was
     "clock_today_music": True,
+    # ...and its weather under the time (2026-11-02, the owner: "There also isn't a way to remove the weather from the
+    # Today Clock. It should be a toggle like What's Playing"): on as it always was
+    "clock_today_weather": True,
     # A WALLPAPER BEHIND THE CLOCK (2026-10-31, the owner: "offer the current backgrounds and the new backgrounds
     # from the HomeView screen in the Clock Screensaver Background selection"): clock_bg "wallpaper" -- one of
     # WALLPAPERS, the twelve drawn ones or a motion theme in its colour (WALLPAPER_COLORS or "#rrggbb"); its
@@ -1689,6 +1692,10 @@ SAVER_DEFAULTS: dict[str, Any] = {
     # the photos, or an additional screen over the clock (over the forecast
     # it is the weather already); and what it leaves out (SAVER_WEATHER_PARTS)
     "weather_slide": False, "weather_hide": [],
+    # THE SLIDES' OWN SETTINGS (2026-11-02, the owner: "some configuration to the slide pages... I wouldn't mind the
+    # clock being bigger"): the slide corner's time size (100 to 250 % of its usual) and what it leaves out
+    # (SAVER_CORNER_PARTS, over every slide); what Music Full Screen leaves out (SAVER_MUSIC_PARTS)
+    "corner_time_size": 100, "corner_hide": [], "music_hide": [],
 }
 MOSAIC_COLORS = ("black", "white", "gray", "charcoal", "cream", "navy")
 SAVER_CLOCK_STYLES = ("today", "classic", "serif", "neon", "lcd", "flip", "analog", "numbers", "words", "arc", "nixie", "poster",
@@ -1702,6 +1709,8 @@ SAVER_CHOICES = {"clock_over": ("corner", "large"), "clock_style": SAVER_CLOCK_S
                  "mosaic_color": MOSAIC_COLORS}
 SAVER_MOSAIC = (2, 5)
 SAVER_WEATHER_PARTS = ("rain", "wind", "hours", "days")
+SAVER_CORNER_PARTS = ("time", "date", "weather", "status")
+SAVER_MUSIC_PARTS = ("room", "album", "progress", "buttons", "volume", "next")
 SAVER_ENERGY_PARTS = ("cost", "water", "solar", "gas", "power", "battery", "yday", "month", "pace")
 SAVER_RANGES = {"blur": (0, 100), "dim": (0, 80), "zoom": (100, 200)}
 SAVER_FOCUS = {"x": ("left", "center", "right"), "y": ("top", "center", "bottom")}
@@ -1716,6 +1725,8 @@ SAVER_SHOWS = ("photos", "both", "forecast", "clock")
 # how the screensaver drew before, so a screen saved earlier draws exactly as it did.
 SAVER_SHOWS += ("glance", "month", "day")
 SAVER_CLOCK_STYLES += ("liquid", "giant", "scattered")
+# Planted (2026-11-02, phase 13, decision 1): a face, offered on the Landscape -- the ivory numerals in its meadow
+SAVER_CLOCK_STYLES += ("planted",)
 SAVER_FORECAST_LAYOUTS = ("classic", "big")
 SAVER_DAY_LOOKS = ("auto", "light", "dark")
 SAVER_DEFAULTS.update({"forecast_layout": "classic", "photo_titles": False, "time_behind": False, "day_look": "auto"})
@@ -1756,7 +1767,8 @@ SAVER_INTS = {"starts_after": SAVER_STARTS, "each_photo": SAVER_EACH, "forecast_
               "calendar_days": SAVER_CAL_DAYS, "fade_back": SAVER_FADE_BACK, "mosaic_count": SAVER_MOSAIC,
               "clock_speed": (0, 100), "clock_depth": (0, 100), "mosaic_line": (0, 24), "mosaic_every": (1, 120),
               "clock_photo_dim": (0, 80), "clock_text_shadow": (0, 100), "clock_text_outline": (0, 100),
-              "extra_every": (1, 60), "extra_for": (10, 300), "tb_size": (12, 40), "tb_top": (0, 50), "tb_dim": (0, 80)}
+              "extra_every": (1, 60), "extra_for": (10, 300), "tb_size": (12, 40), "tb_top": (0, 50), "tb_dim": (0, 80),
+              "corner_time_size": (100, 250)}
 
 
 def saver_options(v: Any, legacy: Any = None) -> dict[str, Any] | None:
@@ -1813,8 +1825,9 @@ def saver_options(v: Any, legacy: Any = None) -> dict[str, Any] | None:
             out[k] = wallpaper_color(val)
         elif k == "layout":
             out[k] = SLAY.layout(val) if val is not None else None
-        elif k in ("energy_hide", "weather_hide"):
-            parts = SAVER_ENERGY_PARTS if k == "energy_hide" else SAVER_WEATHER_PARTS
+        elif k in ("energy_hide", "weather_hide", "corner_hide", "music_hide"):
+            parts = {"energy_hide": SAVER_ENERGY_PARTS, "weather_hide": SAVER_WEATHER_PARTS, "corner_hide": SAVER_CORNER_PARTS,
+                     "music_hide": SAVER_MUSIC_PARTS}[k]
             if not isinstance(val, list) or any(x not in parts for x in val):
                 return None
             out[k] = [x for x in parts if x in val]
@@ -1835,6 +1848,10 @@ def saver_options(v: Any, legacy: Any = None) -> dict[str, Any] | None:
             if not isinstance(val, bool):
                 return None
             out[k] = val
+    # ONE KEY FOR MUSIC FULL SCREEN (2026-11-02, phase 13: "One home per option"): the editor's Music Full Screen
+    # (music_first) and Settings' Music slide (music_slide) are one choice -- what plays takes the screen while it plays
+    if out["music_slide"]:
+        out["music_first"], out["music_slide"] = True, False
     # an old Wallpaper behind the clock ("petals_violet", 2026-10-31): its art in its own preset (item 45)
     if out["clock_wallpaper"] in WALLPAPER_LEGACY:
         out["clock_wallpaper"], out["clock_wallpaper_color"] = WALLPAPER_LEGACY[out["clock_wallpaper"]]
@@ -2284,7 +2301,7 @@ CHIPS_QUIET = ["weather_alert", "doors_windows", "blinds", "water"]
 # THE PAGES a generated dashboard can have (hk-strategy.js), in menu order.
 # Energy: the Energy feature's page (features/energy), while it is added.
 PAGE_KINDS = ("weather", "calendar", "cameras", "live_tv", "security", "doors_windows", "climate", "lights",
-              "timers", "vacuums", "music", "water", "energy", "power", "rooms")
+              "timers", "vacuums", "music", "water", "energy", "power", "timeline", "rooms")
 # A DASHBOARD'S PAGE ORDER: the kinds above, plus Browse Music as a place of
 # its own (it comes with Play Music -- never on its own -- and follows it
 # unless placed), plus the house's custom pages by address, so every page in

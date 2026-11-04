@@ -1,3 +1,4 @@
+// @ts-check
 // Mantel's client port for compatibility snapshots made by mantel-host.js.
 // It never imports the HA adapter or gives a host object to a state icon.
 (function (global) {
@@ -34,7 +35,10 @@
                        'hk_energy/device/section', 'hk_tv/settings/set',
                        'hk_music/settings/set', 'hk_music/item/remove', 'hk_music/playlist/save',
                        'hk_music/playlists/order', 'hk_music/preset/save',
-                       'hk_alarm_pin/settings/set', 'hk_alarm_pin/add', 'hk_alarm_pin/remove'];
+                       'hk_alarm_pin/settings/set', 'hk_alarm_pin/add', 'hk_alarm_pin/remove',
+                       'hk_notify/feature/set', 'hk_clean_areas/feature/set', 'hk_energy/feature/set',
+                       'hk_tv/feature/set', 'hk_music/feature/set', 'hk_alarm_pin/feature/set',
+                       'mantel/features/auto/set'];
   function isSave(msg) {
     return !!(msg && typeof msg.type === 'string' && (SETTINGS_SAVES.indexOf(msg.type) >= 0 || FEATURE_SAVES.indexOf(msg.type) >= 0));
   }
@@ -161,6 +165,23 @@
           }
           return { url: hub.talkUrl(), token: function () { return ticket; } };
         });
+      },
+      // THE INTERCOM (docs/phase17/INTERCOM.md): intercom(mode, rate) is ONE gateway `intercom` command (decided and
+      // audited on the server) and resolves {url, token} for hk-mic.js's Worker -- Mantel's /ws/intercom and the
+      // one-time ticket. Refused, it rejects with the gateway's own code (commands_disabled, forbidden, unavailable,
+      // intercom_off) for the sheet to say; nothing is opened.
+      intercom: function (mode, rate) {
+        if ((mode !== 'message' && mode !== 'live') || !(rate >= 8000 && rate <= 96000) || typeof hub.intercomUrl !== 'function') {
+          return Promise.reject(fail('invalid', 'the Intercom needs a mode and a sample rate'));
+        }
+        return hub.command({ kind: 'intercom', mode: mode, rate: Math.round(rate) }).then(function (reply) {
+          var r = reply && reply.result, ticket = r && typeof r.ticket === 'string' ? r.ticket : '';
+          if (!ticket) {
+            var e = reply && reply.error;
+            throw fail((e && e.code) || 'unavailable', (e && e.message) || 'the Intercom is not available', { reason: e && e.reason });
+          }
+          return { url: hub.intercomUrl(), token: ticket };
+        });
       }
     };
   }
@@ -208,7 +229,7 @@
   // own per person (or per tablet), not Home Assistant's: sent as `user_data_set`, on every server, commands on
   // or off, never a command and never forwarded. Exactly user_data.KEYS (a test pins the two lists together);
   // any other key goes the way it did (the gateway, or refused when commands are off).
-  var USER_DATA_KEYS = ['hk_music_focus', 'favorites'];
+  var USER_DATA_KEYS = ['hk_music_focus', 'favorites', 'intercom'];
   var screens = null;             // the host adapter's {owns(entityId), set(entityId, on), reported(tablet, black)}
   function useScreens(host) { screens = host || null; }
   var TABLET_ID = /^[a-z0-9_]{1,40}$/;
@@ -354,6 +375,7 @@
     // a client already (a shared caller passing on what it was given): as is
     if (global.hkClient && global.hkClient.is(snapshot)) return snapshot;
     if (clients.has(snapshot)) return clients.get(snapshot);
+    /** @type {HkClientPort} */
     var port = {};
     ['states', 'entities', 'devices', 'areas', 'floors', 'services', 'config', 'locale', 'language', 'user', 'themes', 'connected'].forEach(function (key) {
       Object.defineProperty(port, key, { get: function () { return snapshot[key]; } });
@@ -363,6 +385,11 @@
     });
     Object.defineProperty(port, 'subscriptions', { get: function () { return global.hkClient.subscriptions(snapshot.connection); } });
     port.bindStateIcon = function (element, state) { element.stateObj = state; };
+    // WHICH STREAM A CAMERA PLAYS (2026-11-02, the owner: low for tiles, high for pop-ups): Mantel's own cameras
+    // play the stream the card asks for (connectors.split_quality, which also takes it off before Home Assistant)
+    port.cameraOffer = function (msg, quality) {
+      return Object.assign({}, msg, { mantel_quality: quality === 'low' || quality === 'medium' ? quality : 'high' });
+    };
     // ACTIONS ONLY WHEN THE SERVER SAYS SO. On a server whose operator turned the command gateway on,
     // the socket's `capabilities` frame says `commands: true`, and this port then gets `actions`
     // that send gateway `command` messages over the hub socket (nothing else: the snapshot's own
@@ -374,7 +401,20 @@
     port.refused = function (detail) {
       try { global.dispatchEvent(new CustomEvent('hk-command-refused', { detail: detail })); } catch (e) { /* shell tests */ }
     };
+    // THE INTERCOM'S FEED is a read (the rooms this person may reach), offered on every server that has it, commands on or off:
+    // the sheet draws either way, and only the press that opens the microphone is a command (actions.intercom)
+    if (gateway && typeof gateway.intercomSubscribe === 'function') {
+      // (a clip's address on this page's own prefix -- HA App mode serves Mantel under Ingress -- so the shared card needs none)
+      port.intercom = { subscribe: function (cb) {
+        return gateway.intercomSubscribe(function (ev, err) {
+          var p = ev && ev.play;
+          if (p && typeof p.url === 'string' && p.url.charAt(0) === '/') ev = Object.assign({}, ev, { play: Object.assign({}, p, { url: (global.__mantelBase || '') + p.url }) });
+          cb(ev, err);
+        });
+      } };
+    }
     withFeatures(port, gateway);
+    /** @type {HKClient} */
     var client = global.hkClient.create(port);
     clients.set(snapshot, client);
     hosts.set(client, snapshot);
@@ -436,6 +476,33 @@
       });
     }
   }
+  // A WALL TABLET'S EAR (docs/phase17/INTERCOM.md 17.4). A tablet the Owner lists under a room plays that room's announcements
+  // itself, and only a device session (home.js: GET /api/me `at_tablet`) can be one. So that is the only page that asks the
+  // Intercom's feed on its own: once, for the page's life, to learn whether the snapshot says `listener: true`. Everywhere
+  // else the feed is asked for by a block or the sheet that is drawn (cards/hk-intercom.js), and a page with neither never
+  // loads that file (it is a lazy card file) or subscribes. When the snapshot says it, this loads the file, tells it to
+  // listen (it subscribes the feed itself) and lets its own subscription go. A snapshot that says no is waited out: the Owner
+  // can add the tablet to a room at any time, and the feed changes when they do.
+  var ear = { on: false, off: null, loading: false };
+  function listenAtDevice(hub) {
+    if (ear.on || !hub || typeof hub.intercomSubscribe !== 'function') return false;
+    ear.on = true;
+    ear.off = hub.intercomSubscribe(function (ev, err) {
+      if (err || !ev || ev.listener !== true || ear.loading || !ear.off) return;
+      ear.loading = true;
+      var N = global.hkNeed, loaded = N && typeof N.file === 'function' ? N.file('hk-intercom.js') : Promise.resolve();
+      Promise.resolve(loaded).then(function () {
+        var I = global.hkIntercom;
+        ear.loading = false;
+        if (!I || typeof I.listen !== 'function') return;        // the file did not come: the next snapshot tries again
+        I.listen();
+        var off = ear.off;
+        ear.off = null;
+        if (off) off();
+      });
+    });
+    return true;
+  }
   var latest = null;
   function setCurrent(snapshot) {
     var next = from(snapshot);
@@ -443,8 +510,9 @@
     latest = next;
     try { global.dispatchEvent(new CustomEvent('hk-client-update')); } catch (e) { /* shell tests */ }
   }
+  /** @type {HkMantelClient} */
   global.hkMantelClient = { from: from, current: function () { return latest; }, setCurrent: setCurrent, bridge: bridge, entry: entry,
-                            useCommands: useCommands, useScreens: useScreens, kind: 'mantel', SETTINGS_SAVES: SETTINGS_SAVES.slice(),
+                            useCommands: useCommands, useScreens: useScreens, listenAtDevice: listenAtDevice, kind: 'mantel', SETTINGS_SAVES: SETTINGS_SAVES.slice(),
                             FEATURE_SAVES: FEATURE_SAVES.slice() };
   global.hkHostClient = global.hkMantelClient;
   try { global.dispatchEvent(new CustomEvent('hk-host-client-ready')); } catch (e) { /* shell tests */ }

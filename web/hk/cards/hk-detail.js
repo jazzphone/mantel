@@ -765,7 +765,7 @@
       // the strip's live tile or the sky moves under it
       '.hkd .sheet.bare{padding:0;gap:0;border-radius:30px;height:auto;background:#0b0d12;',
       '  -webkit-backdrop-filter:none;backdrop-filter:none;',
-      '  width:min(var(--hkd-w,1200px), calc((var(--hk-vh, 100dvh) - 32px) * var(--hkd-ar, 1.7778)))}',
+      '  width:min(var(--hkd-w,1200px), calc((var(--hk-vh, 100dvh) - 32px - var(--hkd-strip, 0px)) * var(--hkd-ar, 1.7778)))}',
       '.hkd .sheet.bare .hd{position:absolute;top:18px;right:18px;z-index:3;height:auto}',
       '.hkd .sheet.bare .well,.hkd .sheet.bare .tx{display:none}',
       // (white on it in every look: Flat's ink glyph vanished on the dark
@@ -1742,7 +1742,7 @@
           '<div class="cap">Spinning</div><div class="grp"><div class="seg spin" role="group" aria-label="Spinning"></div></div>' +
           // under its group, as every other note in the pane (Arrange, Energy)
           '<div class="note">Whether its tile’s glyph turns while it is on. It turns only while Animations are on ' +
-          '(HK Settings → Sky / Background, for All Screens or each screen).' +
+          '(' + window.hkShell.settingsPlace('Sky / Background') + ', for All Screens or each screen).' +
           (animOff ? ' They’re off on this screen, so it stays still.' : '') + '</div></div>';
       }
       // WHERE IT SHOWS (Hidden Accessories, hiding.py): Show in HK Frontend,
@@ -1754,7 +1754,7 @@
         (board ? '<div class="row"><span class="k">Favorite on this dashboard</span><input class="tg fav" type="checkbox" role="switch" aria-label="Favorite on this dashboard"></div>' : '') +
         '</div><div class="note">' + (opts.panel
           ? 'Anything off here is listed in <a href="#/accessories/hidden">Hidden Accessories</a>, with where.'
-          : 'Anything off here is listed in HK Settings → Accessories → Hidden Accessories.') + '</div></div>' +
+          : 'Anything off here is listed in ' + window.hkShell.settingsPlace('Accessories → Hidden Accessories') + '.') + '</div></div>' +
         // ALSO COUNT AS (Status & Chips' Also count, moved here 2026-10-12):
         // the kinds it isn't found in by itself but could be counted in
         '<div class="sec also" hidden><div class="cap">Also count as</div><div class="grp"></div>' +
@@ -1777,7 +1777,7 @@
           '<div class="row"><span class="k">Show there</span><input class="tg enh" type="checkbox" role="switch" aria-label="Show on the Energy page"' +
           (enIn ? ' checked' : '') + '></div>' +
           '<a class="row enl" href="/hk-settings#/features/energy/devices/' + encodeURIComponent(enRec.key) + '"><span class="k">More energy settings</span>' + CHEV + '</a>' +
-          '</div><div class="note">Its power sensor and its switch are on HK Settings → Features → Energy.</div></div>';
+          '</div><div class="note">Its power sensor and its switch are on ' + window.hkShell.settingsPlace('Pages → Energy') + '.</div></div>';
       }
       // AS A FAVORITE: its name and glyph on the favorites row,
       // on every dashboard where it is a favorite, and the lights it controls

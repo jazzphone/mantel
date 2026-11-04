@@ -43,7 +43,7 @@ from cryptography.exceptions import InvalidTag
 
 from . import audit, live
 from .atrest import KEY_FILE, SecretBox
-from .guards import guard
+from .guards import WHY_SIGN_IN, guard, open_route
 from .guards import ident as guarded
 from .sessions import (Identity, Issued, SessionManager, client_ip, door_of, error, identity, ok,
                        set_session_cookies, sign_in_args, token_hash)
@@ -177,6 +177,7 @@ class Accounts:
         self.box = box
         self.clock = clock
         self.hasher = hasher or PasswordHasher()  # Argon2id, t=3, m=64 MiB, p=4 (RFC 9106 second choice)
+        self.on_failure: list = []          # each failed sign-in, told nothing about it (the alerts' signin.failures)
         self.rp_id = rp_id
         self.rp_name = rp_name
         self.by_ip = AttemptLimiter(IP_FAILURES, FAILURE_WINDOW, clock)
@@ -261,6 +262,11 @@ class Accounts:
         return max(waits)
 
     def record_failure(self, ip: str | None, account: str | None, user_id: str | None = None) -> None:
+        for cb in self.on_failure:
+            try:
+                cb()
+            except Exception:  # noqa: BLE001
+                log.exception("sign-in failure listener failed")
         self.by_ip.fail(f"ip:{ip}")
         if account:
             self.by_account.fail(f"acct:{account.lower()}")
@@ -565,6 +571,25 @@ class Accounts:
         return self.db.execute("SELECT 1 FROM bootstrap_tokens WHERE expires > ? LIMIT 1",
                                (self.clock(),)).fetchone() is not None
 
+    def bootstrap_token_valid(self, token: object) -> bool:
+        """The setup code is the one waiting, unexpired, and no Owner exists (First start's restore checks it
+        before it reads the upload, and spends it with spend_bootstrap_token once the backup checked out)."""
+        if not isinstance(token, str) or not token or self.owner_exists():
+            return False
+        return self.db.execute("SELECT 1 FROM bootstrap_tokens WHERE hash = ? AND expires > ?",
+                               (token_hash(token), self.clock())).fetchone() is not None
+
+    def spend_bootstrap_token(self, token: str) -> None:
+        """Spend the setup code for a restore at First start: exactly once, and only while no Owner exists."""
+        with self.db:
+            cur = self.db.execute("DELETE FROM bootstrap_tokens WHERE hash = ? AND expires > ?",
+                                  (token_hash(token), self.clock()))
+            if cur.rowcount != 1:
+                raise PolicyError("bootstrap_token_invalid", "the setup token is wrong, used or expired")
+            if self.owner_exists():
+                raise PolicyError("bootstrap_closed", "an Owner already exists")
+            self.db.execute("DELETE FROM bootstrap_tokens")
+
     async def redeem_bootstrap(self, token: object, username: object, name: object, password: object) -> str:
         if self.owner_exists():
             raise PolicyError("bootstrap_closed", "an Owner already exists")
@@ -705,6 +730,7 @@ def who(row) -> dict:
 
 
 # -- sign-in --------------------------------------------------------------------------------------
+@open_route("sign_in", why=WHY_SIGN_IN)
 async def password_sign_in(request: web.Request) -> web.Response:
     require_origin(request)
     body = await read_json(request)
@@ -737,6 +763,7 @@ def totp_unreadable() -> web.Response:
                  "in another way.")
 
 
+@open_route("sign_in", why=WHY_SIGN_IN)
 async def totp_verify(request: web.Request) -> web.Response:
     """Second step of a password sign-in."""
     require_origin(request)
@@ -770,6 +797,7 @@ async def totp_verify(request: web.Request) -> web.Response:
     return signed_in(request, user, "password+totp")
 
 
+@open_route("sign_in", why=WHY_SIGN_IN)
 async def passkey_options(request: web.Request) -> web.Response:
     require_origin(request)
     body = await read_json(request)
@@ -788,6 +816,7 @@ async def passkey_options(request: web.Request) -> web.Response:
     return ok({"challenge_id": cid, "options": options})
 
 
+@open_route("sign_in", why=WHY_SIGN_IN)
 async def passkey_verify(request: web.Request) -> web.Response:
     """Sign in with a passkey, or (already signed in as the same user) step up the session."""
     acc = accounts_of(request)
@@ -936,7 +965,7 @@ async def passkey_register_verify(request: web.Request) -> web.Response:
     return ok({"id": cred_id}, status=201)
 
 
-@guard("person", device_ok=True)
+@guard("person", device_ok=True, reads="self")
 async def passkey_list(request: web.Request) -> web.Response:
     ident = guarded(request)
     rows = accounts_of(request).db.execute(
@@ -994,10 +1023,12 @@ async def change_password(request: web.Request) -> web.Response:
 
 
 # -- bootstrap ------------------------------------------------------------------------------------
+@open_route("sign_in", why="tells the sign-in page whether first-Owner setup is still open: one yes or no, no house data")
 async def bootstrap_status(request: web.Request) -> web.Response:
     return ok({"open": not accounts_of(request).owner_exists()})
 
 
+@open_route("one_time_code", why="setting up the first Owner: the one-time setup code, only while no Owner exists (rate limited, origin-checked)")
 async def bootstrap(request: web.Request) -> web.Response:
     require_origin(request)
     body = await read_json(request)
@@ -1018,7 +1049,7 @@ async def bootstrap(request: web.Request) -> web.Response:
 
 
 # -- user management (Owner / Admin until P3.2's grants) ------------------------------------------
-@guard("manager")
+@guard("manager", reads="admin")
 async def users_list(request: web.Request) -> web.Response:
     return ok({"users": accounts_of(request).list_users()})
 

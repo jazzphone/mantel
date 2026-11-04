@@ -77,7 +77,10 @@ def test_compose_secrets_are_files_and_cloudflared_is_isolated():
     assert doc["networks"]["tunnel"]["internal"] is True and doc["networks"]["backend"]["internal"] is True
     members = {s for s, v in svc.items() if "tunnel" in v.get("networks", {})}
     assert members == {"caddy", "cloudflared"}
-    assert all("ports" not in svc[s] for s in ("mantel-server", "cloudflared"))
+    assert "ports" not in svc["cloudflared"]
+    # mantel-server publishes only the Intercom's listener (phase 17), the same in Caddy and own-proxy modes: not 8765
+    assert svc["mantel-server"]["ports"] == ['${MANTEL_STREAM_BIND:-0.0.0.0}:${MANTEL_STREAM_PORT:-8767}:8767']
+    assert svc["mantel-server"]["environment"]["MANTEL_STREAM_INTERNAL_PORT"] == "8767"
     assert "devices" not in svc["go2rtc"]  # /dev/dri is only in compose.gpu.yaml
     gpu = pc.parse_yaml((ROOT / "packaging/compose/compose.gpu.yaml").read_text())
     assert gpu["services"]["go2rtc"]["devices"] == ["/dev/dri:/dev/dri"]
@@ -574,6 +577,45 @@ def test_entrypoint_container_mode_builds_the_listen_arguments(tmp_path):
     assert cfg.host_allowed("mantel.example.com") and cfg.host_allowed("192.0.2.10") and not cfg.host_allowed("evil.example")
 
 
+def test_entrypoint_passes_the_intercoms_stream_port_only_when_the_stack_sets_it(tmp_path):
+    from mantel_server.config import parse_args
+    env = {"MANTEL_PUBLIC_URL": "https://mantel.example.com/"}
+    args, _ = entrypoint.plan([], env, options_path=tmp_path / "none")
+    assert "--stream-port" not in args and parse_args(args).stream_port == 0
+    args, _ = entrypoint.plan([], {**env, "MANTEL_STREAM_INTERNAL_PORT": "8767"}, options_path=tmp_path / "none")
+    assert args[args.index("--stream-port") + 1] == "8767" and parse_args(args).stream_port == 8767
+    # the real compose file sets it, and the same value is the container side of the published port
+    doc = pc.parse_yaml((ROOT / "packaging/compose/compose.yaml").read_text())
+    assert doc["services"]["mantel-server"]["environment"]["MANTEL_STREAM_INTERNAL_PORT"] == "8767"
+
+
+def test_entrypoint_ha_app_always_passes_the_intercoms_port_8101(tmp_path):
+    from mantel_server.config import parse_args
+    options = tmp_path / "options.json"
+    options.write_text(json.dumps({}))
+    env = {"SUPERVISOR_TOKEN": "fictional-supervisor-credential", "PATH": "/bin"}
+    args, _ = entrypoint.plan([], env, options_path=options, token_file=tmp_path / "ha_token")
+    assert args[args.index("--stream-port") + 1] == "8101" and parse_args(args).stream_port == 8101
+    args, _ = entrypoint.plan([], {**env, "MANTEL_STREAM_PORT": "9101"}, options_path=options, token_file=tmp_path / "ha_token")
+    assert parse_args(args).stream_port == 9101
+
+
+def test_the_package_check_lets_mantel_server_publish_only_the_intercoms_listener(tmp_path):
+    src = ROOT / "packaging/compose/compose.yaml"
+    good = src.read_text()
+    assert pc.check_compose(src) == []
+    port = '      - "${MANTEL_STREAM_BIND:-0.0.0.0}:${MANTEL_STREAM_PORT:-8767}:8767"\n'
+    assert port in good
+    for edit, expect in [
+        (lambda t: t.replace(port, port + '      - "8765:8765"\n'), "Intercom's listener"),
+        (lambda t: t.replace(port, '      - "${MANTEL_HTTP_PORT:-8765}:8765"\n'), "Intercom's listener"),
+    ]:
+        p = tmp_path / "compose.yaml"
+        p.write_text(edit(good))
+        assert edit(good) != good, expect
+        assert any(expect in m for m in pc.check_compose(p)), (expect, pc.check_compose(p))
+
+
 def test_entrypoint_passes_caddys_address_as_the_trusted_proxy(tmp_path, capsys):
     env = {"MANTEL_HA_URL": "http://ha.local:8123", "MANTEL_PUBLIC_URL": "https://mantel.example.com/",
            "MANTEL_TRUSTED_PROXY": "172.31.251.2"}
@@ -1053,3 +1095,10 @@ def test_caddy_serves_an_address_with_no_name_sent():
     text = (ROOT / "packaging/compose/caddy/Caddyfile").read_text()
     globals_block = text[text.index("\n{\n"):text.index("\n}\n", text.index("\n{\n"))]
     assert "default_sni {$MANTEL_HOSTNAME}" in globals_block
+
+
+def test_the_images_leave_out_the_developer_pages_the_ha_app_leaves_out():
+    """/dev's state hub and the scenery review are a checkout's (tools/stage_ha_app.py drops them from the App): the
+    Docker build context leaves them out too, so Docker and the LXC never serve them (the owner, 2026-11-02)."""
+    ignored = {ln.strip() for ln in (ROOT / ".dockerignore").read_text().splitlines()}
+    assert {"hosts/server/mantel_server/static/dev.html", "web/hk/pages/seasonal-scenery-review.html"} <= ignored

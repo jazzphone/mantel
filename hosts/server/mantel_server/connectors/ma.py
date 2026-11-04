@@ -384,7 +384,8 @@ class MaClient:
                 except Exception as exc:  # noqa: BLE001 -- one listener never breaks the others
                     log.warning("MA event listener failed: %s", exc)
 
-    async def _call(self, command: str, args: dict, ticket: _Ticket | None = None, server: bool = False) -> Any:
+    async def _call(self, command: str, args: dict, ticket: _Ticket | None = None, server: bool = False,
+                    timeout: float | None = None) -> Any:
         frame = {"message_id": "", "command": command, "args": args}
         check_outgoing(frame, ticket, server=server)  # before waiting on anything: a refusal sends nothing
         try:
@@ -400,7 +401,7 @@ class MaClient:
         self.sent.append(command)
         try:
             await ws.send_str(json.dumps(frame))
-            return await asyncio.wait_for(fut, self.request_timeout)
+            return await asyncio.wait_for(fut, timeout or self.request_timeout)
         finally:
             self._pending.pop(mid, None)
             self._partial.pop(mid, None)
@@ -460,14 +461,16 @@ class MaClient:
         return lambda: self._listeners.pop(lid, None) and None
 
     # ----------------------------------------------------------------- the gated command path
-    async def command(self, identity: Any, command: str, **args: Any) -> Any:
-        """Send an MA command, ONLY if the gate allows `identity` this command. Refused -> nothing sent."""
+    async def command(self, identity: Any, command: str, *, timeout: float | None = None, **args: Any) -> Any:
+        """Send an MA command, ONLY if the gate allows `identity` this command. Refused -> nothing sent. ``timeout``:
+        this call's own wait for the answer (the Intercom's ``play_announcement`` answers only once the clip has
+        played, so it waits the mode's limit and more; every other call waits ``request_timeout``)."""
         if command not in MA_COMMANDS:
             raise MaBlocked(f"{command!r} is not in the Music Assistant command catalog")
         gate = self.gate if self.gate is not None else REFUSE_ALL
         if await resolve(gate.allow(identity, command, dict(args))) is not True:
             raise CommandRefused(f"{command!r} refused by the gate")
-        return await self._call(command, args, _Ticket(command))
+        return await self._call(command, args, _Ticket(command), timeout=timeout)
 
 
 def register(app, hub, hooks) -> MaClient | None:

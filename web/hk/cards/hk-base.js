@@ -3047,7 +3047,7 @@
     browse_url: 'Opened by the Browse button.',
     players: 'The first one playing is shown. List speaker groups before their members.',
     start_script: 'Optional. Receives the selected area ids. Empty: HK Clean Areas sends each vacuum the areas on its room map.',
-    floors: 'Empty: the rooms Clean Areas offers (HK Settings → Features → Clean Areas), by floor, kept up to date. Or a YAML list: name, areas: [{id, name}] (id is the Home Assistant area id).',
+    floors: 'Empty: the rooms Clean Areas offers (HK Settings → Pages → Vacuums), by floor, kept up to date. Or a YAML list: name, areas: [{id, name}] (id is the Home Assistant area id).',
     order: 'Optional, for automatic rooms: the order to show them in on each floor. Empty: this screen\'s Room order when it is used on pages, else A to Z.',
     create_script: 'Optional. Receives the duration and name. Empty: script.quick_timer_create (the shipped quick-timer helpers).', name_chips: 'Names offered as one-tap choices.',
     timers: 'YAML list: entity, label, glyph, label_entity.',
@@ -3550,7 +3550,7 @@
     'hk-library-card', 'hk-speaker-picker-card', 'hk-browse-card', 'hk-timers-page-card',
     'hk-camera-mosaic-card', 'hk-tv-guide-card', 'hk-area-select-card', 'hk-page-status-card',
     'hk-room-status-card', 'hk-climate-status-card', 'hk-popup-card', 'hk-popup-group-card',
-    'hk-screensaver-status-card', 'hk-screensaver-now-card']);
+    'hk-screensaver-status-card', 'hk-screensaver-now-card', 'hk-timeline-card']);
   // everything else (the controls, keypads, players, graphs, New Timer...)
   var GRID_REST = gridOf(12, 6);
   function gridFor(tag) { return GRID[tag] || GRID_REST; }
@@ -3749,6 +3749,15 @@
     function rooms() { return MUSIC.speakers.filter(function (s) { return !s.members; }); }
     function presets() { return MUSIC.speakers.filter(function (s) { return !!s.members; }); }
     function nameOf(e) { return (byEntity[e] && byEntity[e].name) || e; }
+    // WHO LEADS A PICK of rooms nothing plays on yet (hk_core MusicConfig.leader_of): the first of the house's
+    // preferred leaders among them, else the first that is not an announcement room, else the first. A library
+    // item plays there, then the others join it (2026-11-02: an announcement to the leader plays on its whole group)
+    function leader(list) {
+      list = list || [];
+      var ann = MUSIC.announce_rooms || [];
+      var best = (MUSIC.leaders || []).filter(function (r) { return list.indexOf(r) >= 0; })[0];
+      return best || list.filter(function (r) { return ann.indexOf(r) < 0; })[0] || list[0] || null;
+    }
     // THIS USER'S room -- each wall tablet signs in as its own user, and the
     // integration's options map users to rooms.
     function home() { return known(MUSIC.home) ? MUSIC.home : null; }
@@ -3972,6 +3981,8 @@
         home: (cfg && cfg.home) || null,
         ignore_announcements: !!(cfg && cfg.ignore_announcements),
         announcements: (cfg && cfg.announcements) || [],
+        leaders: (cfg && cfg.leaders) || [],
+        announce_rooms: (cfg && cfg.announce_rooms) || [],
         resumable: (cfg && cfg.resumable) || [],
         volume: cfg && cfg.volume,
         library: (cfg && cfg.library_entry) || null
@@ -4051,7 +4062,7 @@
     return {
       speakers: function () { return MUSIC.speakers.slice(); },
       rooms: rooms, presets: presets, known: known, isGroup: isGroup, fold: fold,
-      nameOf: nameOf, home: home, ignored: ignored, active: active, contexts: contexts, streams: streams, resolve: resolve,
+      nameOf: nameOf, leader: leader, home: home, ignored: ignored, active: active, contexts: contexts, streams: streams, resolve: resolve,
       player: function (client) { return resolve(client).player; },
       label: label, setFocus: setFocus, release: release, attach: attach,
       onChange: onChange, focus: function () { return focus.key; },

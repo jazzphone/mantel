@@ -18,9 +18,11 @@ must never import the server (aiohttp, the store, the routes). photos.py and use
 from __future__ import annotations
 
 import contextlib
+import datetime
 import io
 import logging
 import os
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -257,6 +259,7 @@ class Processed:
     # or it failed)
     cutout: dict | None = None
     taken: int | None = None         # the year it was taken (its EXIF's, read before the EXIF is dropped)
+    taken_on: str | None = None      # ...and the day, "YYYY-MM-DD" (On This Day); nothing else of the EXIF is kept
 
     @property
     def mask(self) -> bytes | None:
@@ -267,16 +270,56 @@ class Processed:
         return len(self.original) + len(self.screen) + len(self.thumb) + len(self.mask or b"")
 
 
-def taken_year(img) -> int | None:
-    """The year a picture was taken, from its EXIF (DateTimeOriginal, else DateTime), or None. Only the year is
-    kept (Photo Titles: an album's name and the year); everything else in the EXIF is dropped with it."""
+def _taken_raw(img) -> str:
+    """The EXIF's date text for when a picture was taken (DateTimeOriginal, else DateTime), or "" (no EXIF, or a damaged
+    one). Raises nothing."""
     try:
         exif = img.getexif()
         raw = exif.get_ifd(0x8769).get(36867) or exif.get(306)
-        year = int(str(raw)[:4])
+        return raw.decode("ascii", "ignore") if isinstance(raw, bytes) else str(raw or "")
     except Exception:  # noqa: BLE001 -- no EXIF, or a damaged one: not known
+        return ""
+
+
+def taken_year(img) -> int | None:
+    """The year a picture was taken, from its EXIF (DateTimeOriginal, else DateTime), or None. Only the year and the
+    day (``taken_date``) are kept (Photo Titles: an album's name and the year; On This Day: the day); everything else
+    in the EXIF is dropped with it."""
+    try:
+        year = int(_taken_raw(img)[:4])
+    except ValueError:                                          # (no EXIF, or a damaged one: not known)
         return None
     return year if 1900 <= year <= 2100 else None
+
+
+def taken_date(img) -> str | None:
+    """The day a picture was taken, "YYYY-MM-DD" (On This Day), from the same EXIF date as ``taken_year`` -- or None
+    when there is none or it is not a real day ("0000:00:00 00:00:00", "2023:13:40", garbage). Only the day: the time
+    of day, and the rest of the EXIF, are not kept."""
+    m = re.match(r"\s*(\d{4})[:\-/](\d{2})[:\-/](\d{2})(?!\d)", _taken_raw(img))
+    if m is None or not 1900 <= int(m[1]) <= 2100:
+        return None
+    try:
+        return datetime.date(int(m[1]), int(m[2]), int(m[3])).isoformat()
+    except ValueError:
+        return None
+
+
+def taken_of(data: bytes) -> tuple[int | None, str | None]:
+    """(the year, the day) a picture's bytes were taken -- read from the EXIF's header alone, no pixels decoded -- for
+    a picture sent again that the library kept no day for. (None, None) when it can't be read."""
+    kind = sniff(data)
+    if kind is None:
+        return None, None
+    try:
+        from PIL import Image
+        if kind == "heic":
+            import pillow_heif
+            pillow_heif.register_heif_opener()
+        with Image.open(io.BytesIO(data)) as img:
+            return taken_year(img), taken_date(img)
+    except Exception:  # noqa: BLE001 -- unreadable: not known
+        return None, None
 
 
 def sniff(data: bytes) -> str | None:
@@ -319,7 +362,7 @@ def _process(data: bytes) -> Processed:
         img.seek(0)
         img.load()
         icc = img.info.get("icc_profile")
-        taken = taken_year(img)                                  # the year alone, for Photo Titles
+        taken, taken_on = taken_year(img), taken_date(img)       # the year (Photo Titles) and the day (On This Day) alone
         ImageOps.exif_transpose(img, in_place=True)              # upright, then the EXIF is never written again
         # no copy of what is already the right mode: at tens of megapixels each copy is hundreds of MB
         if img.mode in ("RGBA", "LA", "PA") or (img.mode == "P" and "transparency" in img.info):
@@ -353,7 +396,7 @@ def _process(data: bytes) -> Processed:
         thumb.thumbnail((THUMB_EDGE, THUMB_EDGE), Image.LANCZOS)
         buf = io.BytesIO()
         thumb.save(buf, "WEBP", quality=78, method=4)
-        return Processed(original, screen_bytes, buf.getvalue(), width, height, found, cut, taken)
+        return Processed(original, screen_bytes, buf.getvalue(), width, height, found, cut, taken, taken_on)
     except PhotoError:
         raise
     except Image.DecompressionBombError as exc:
@@ -380,6 +423,25 @@ def make_variant(src: str | Path, edge: int = MID_EDGE) -> bytes:
             img.save(buf, "JPEG", quality=85, **_jpeg_options())
             return buf.getvalue()
     except Exception as exc:  # noqa: BLE001 -- an unreadable source is "no copy", and the screen size is served
+        raise PhotoError("photo_invalid", "That picture couldn’t be read.", 415) from exc
+
+
+def shrink(data: bytes, edge: int = 640, quality: int = 70) -> bytes:
+    """A camera's picture made small for the House Timeline (docs/phase19/HOUSE-TIMELINE.md "Pictures"): JPEG,
+    ``edge`` px on its long side, ``quality``. Run through ``imaging.run`` (the image worker decodes, not the loop).
+    PhotoError when it can't be read."""
+    from PIL import Image
+    try:
+        with Image.open(io.BytesIO(data)) as im:
+            if im.format == "JPEG":
+                im.draft("RGB", (edge, edge))
+            im.load()
+            img = im.convert("RGB") if im.mode != "RGB" else im
+            img.thumbnail((edge, edge), Image.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, "JPEG", quality=int(quality), **_jpeg_options())
+            return buf.getvalue()
+    except Exception as exc:  # noqa: BLE001
         raise PhotoError("photo_invalid", "That picture couldn’t be read.", 415) from exc
 
 

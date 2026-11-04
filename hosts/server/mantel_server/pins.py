@@ -187,7 +187,7 @@ def pins_of(request: web.Request) -> Pins:
     return request.app["pins"]
 
 
-@guard("person", device_ok=True)
+@guard("person", device_ok=True, reads="self")
 async def get_pin(request: web.Request) -> web.Response:
     ident = guarded(request)
     return ok(pins_of(request).status(ident.user.id))

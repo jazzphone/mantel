@@ -140,6 +140,22 @@ Everything else is stored only as a one-way hash: passwords and PINs (the Alarm 
 
 **What Mantel's own code contacts outside your network**, when you use the feature: the weather radar and map tiles (from the browser), music artwork (from the browser), Let's Encrypt and your DNS host's API (Cloudflare or Duck DNS) for certificates in the Mantel App's direct access, the DNS host you choose for Caddy's certificates with Docker or the LXC, and Apple's push service, directly or through the apps' push relay, for [Push Notifications](Push-Notifications.md) to the iPhone and Mac apps.
 
+## The Intercom's stream port
+
+The [Intercom](Intercom.md) is the one place Mantel serves something outside its sign-in. Music Assistant has to
+fetch what you say from Mantel, so Mantel opens a second, tiny listener (8767; 8101 in the Home Assistant App) while
+the Intercom is on. It serves only one-time links:
+
+- each link is a random 256-bit token; Mantel keeps only its hash, in memory, and never logs it;
+- it lasts seconds: 20 s to be fetched (30 s for a message), and it ends with its broadcast;
+- it's fetched once, from a private address (and from Music Assistant's own address when Mantel reaches Music
+  Assistant by one), with one retry from the same address;
+- only Mantel mints a link: for a broadcast after the gateway's checks and the audit row, and for Settings' Check
+  Reach (silent) and Send Test (after its audit row). A page never sees one;
+- everything else on that port, and every wrong, used or expired link, gets the same empty "not found".
+
+The audio itself is held in memory only and dropped when the broadcast ends. Never forward the port to the internet.
+
 ## Where the protection ends
 
 Be aware of these:

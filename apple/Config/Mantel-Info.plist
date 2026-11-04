@@ -24,6 +24,8 @@
 	<string>Mantel looks for your home's Mantel on this network, and talks to it directly when you are home.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Scan the pairing code Mantel Settings shows.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Mantel uses the microphone when you talk on the Intercom or at the door.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID opens Mantel.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

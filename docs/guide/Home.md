@@ -35,6 +35,8 @@ Using HK Frontend inside Home Assistant? Mantel can run beside it or take over f
 - [Photos](Photos.md)
 - [iPhone, iPad and Mac Apps](iPhone-and-Mac-Apps.md)
 - [Push Notifications](Push-Notifications.md)
+- [Alerts](Alerts.md): Mantel’s own news about itself, sent where you choose
+- [Features](Features.md): Music, Clean Areas, Energy and Live TV, and how Mantel turns them on when your house has what they need
 - The screens themselves are HK Frontend’s: see its [wiki](https://github.com/jazzphone/hk-frontend/wiki) for pages, rooms, the sky, the screensaver, the Energy and Power pages, and HK Settings.
 
 ## Home Assistant
@@ -46,7 +48,8 @@ Using HK Frontend inside Home Assistant? Mantel can run beside it or take over f
 
 ## Looking after it
 
-- [Updating](Updating.md)
+- [Alerts](Alerts.md): hear about a dropped connection, a failed backup or a new version, on Discord, Telegram, Notifiarr, email, Apprise and the Mantel apps
+- [Updating](Updating.md), with the update check
 - [Backups](Backups.md)
 - [Troubleshooting](Troubleshooting.md)
 

@@ -158,6 +158,26 @@ def link_of(entry: ConfigEntry | None) -> dict[str, str] | None:
     return {"url": url.strip(), "token": token.strip()}
 
 
+def pinned_ca(hass: HomeAssistant | None, url: str) -> str | None:
+    """Mantel's own CA as Mantel Link pinned it (its pairing v3: Mantel by its address on the network), when HK
+    Frontend is linked to the same address; else None (a public certificate, or plain ws:// inside this machine)."""
+    if hass is None:
+        return None
+    try:
+        want = ws_url(url)
+    except ValueError:
+        return None
+    for e in hass.config_entries.async_entries("mantel"):
+        ca, other = e.data.get("ca"), e.data.get("url")
+        if isinstance(ca, str) and ca and isinstance(other, str):
+            try:
+                if ws_url(other) == want:
+                    return ca
+            except ValueError:
+                continue
+    return None
+
+
 def configured(entry: ConfigEntry | None) -> bool:
     return link_of(entry) is not None
 
@@ -428,6 +448,7 @@ class Linked:
                                features=("bridge", "settings", "actions", "reads"),
                                on_auth_failed=self.on_auth_failed,
                                frames={"settings": self.on_settings, "page_frame": self.on_page_frame},
+                               ca=pinned_ca(hass, link["url"]),
                                **({"timeout": timeout} if timeout is not None else {}))
         self._store: Store = mirror_store(hass)
         self._last: dict[str, Any] | None = None        # the mirror as the Store keeps it

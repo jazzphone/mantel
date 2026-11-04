@@ -4,7 +4,9 @@ checks"). One runner, one table, one record:
 
     tools/ci.py quick            # the main suite and the release checks: what the pre-push hook runs (~1 min)
     tools/ci.py full             # also the HA build, HK Frontend's suites, the headless checks, Edit mode's
-                                 # browser check (PLAYWRIGHT_PATH and NODE), the Caddy image
+                                 # browser check (PLAYWRIGHT_PATH and NODE), the Caddy image -- each browser check
+                                 # and HK Frontend suite only when what it reads changed since it passed
+    tools/ci.py full --all       # every step, whatever passed before
     tools/ci.py versions         # what reads the version files and changelogs (seconds): a release's re-check
     tools/ci.py full --only js   # only the steps whose name contains "js"
     tools/ci.py quick --skip-passed  # (the pre-push hook) a tree that already passed: only the commit messages
@@ -18,13 +20,23 @@ The result goes to .ci/last-run.json (git ignores .ci/) with the commit it ran o
 A whole quick or full run that passed on a clean tree (nothing uncommitted but LOCAL_ONLY, HEAD the same from start
 to end) is also kept in the passed runs (PASSED: in git's own folder, so every worktree of the repository shares
 them), by the tree it checked. A tree's whole run that fails takes its passes away again.
+
+A full step that names its inputs (the browser checks, HK Frontend's suites) is "unchanged" when what it reads is as it
+was in a run where it passed: the same files in HEAD's tree, the same command, the same venv, Playwright, Node, Chrome
+and macOS. An unchanged step is not run again; it counts as a pass, and the table says from which commit. Its inputs
+uncommitted, --all or --only: it runs. (The passed steps, by key: steps.json beside the passed runs.)
 """
 from __future__ import annotations
 
 import argparse
 import datetime
+import fcntl
+import fnmatch
+import hashlib
 import json
 import os
+import platform
+import plistlib
 import re
 import shutil
 import subprocess
@@ -47,9 +59,21 @@ MAC_CHROME = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 HEADLESS = ("client_smoke", "gateway_page_check", "admin_page_check", "settings_viewports", "ingress_smoke",
             "grid_blocks_check", "grid_music_turn_check")
 CADDY_IMAGE = "mantel-caddy:ci"
-# the screensaver's Shows in this many parts side by side, each its own server and WebKit (2026-11-01: one part took
-# ~7 minutes of a full run's ~7 alone; the others end within ~4)
-SAVER_SHARDS = 4
+# the screensaver's Shows in parts side by side, each its own server and WebKit (2026-11-01: one part took ~7 minutes
+# of a full run's ~7 alone; the others end within ~4. 2026-11-02: every Look under every slide made each of four parts
+# ~510 s, the full run's last five minutes alone). This many until a run has timed them; then next_parts' count.
+SAVER_SHARDS = 8
+# HOW LONG A STEP MAY TAKE (2026-11-02: the Shows' check grew from ~150 s to ~2000 s in one commit and nothing said so).
+# A check in parts is cut again so its longest part stays near PART_TARGET (next_parts), between MIN_PARTS and
+# MAX_PARTS; any step past STEP_BUDGET, or much slower than its own last runs, is named under the table (timing_warnings).
+PART_TARGET = 150
+MIN_PARTS, MAX_PARTS = 2, 12
+STEP_BUDGET = 240
+HISTORY = 10                                   # each step's last passed times kept (timing.json)
+# Swipe Between Pages: each engine's sizes (page_swipe_check.py ENGINE_SIZES), each a step of its own (2026-11-02: an
+# engine's four were ~140 s together)
+PAGE_SWIPE = {"chromium": ("1280x800", "800x1280", "390x844", "844x390"),
+              "webkit": ("1180x820", "820x1180", "390x844", "844x390")}
 # Edit mode's sections that depend on the engine, the input or the size (edit_mode_check.py SECTIONS has the rest)
 EDIT_GESTURES = ("bar", "room", "pages", "menu", "still", "frost")
 LOCAL_ONLY = ("apple/Mantel.xcodeproj/project.pbxproj",)    # the signing team: changed here, never committed
@@ -62,6 +86,20 @@ CHANGELOGS = ("CHANGELOG.md", "docs/development/House-releases.md",
               "hosts/ha/custom_components/hk_frontend/tools/publish/root/CHANGELOG.md",
               "hosts/ha/custom_components/mantel/tools/publish/root/CHANGELOG.md")
 VERSION_LINE = re.compile(r'^\s*"?version"?\s*[:=]\s*"?[0-9A-Za-z.+-]*"?\s*,?\s*(#.*)?$')
+# WHAT A FULL STEP READS (2026-11-02; "unchanged" above). A folder ends in "/"; a version file counts without its version
+# lines. A browser check: the page and the server it runs against (the gallery's fictional house over Mantel's own
+# server, which also serves the guide), and its script's files (check_inputs). HK Frontend's suites: what its build
+# takes (publish.py plan: the component, web/hk, the shared assets, hk_core) and the esbuild it minifies with.
+PAGE_INPUTS = ("web/", "tools/split_manifests/", "hk_core/", "hosts/server/mantel_server/", "tests/fixtures/",
+               "hosts/ha/custom_components/hk_frontend/docs/", "packaging/ha-app/DOCS.md", *VERSION_FILES)
+HK_INPUTS = ("hosts/ha/", "web/", "hk_core/", "tools/build_ha.py", "tools/build_tools.py", "tools/package.json",
+             "tools/package-lock.json", *VERSION_FILES)
+# what types-py reads: the Python it checks and its own config and baselines
+PY_INPUTS = ("hk_core/", "hosts/server/", "tools/", "tests/", "pyproject.toml")
+# where a check's script finds the modules it imports (each puts these on sys.path)
+SCAN_DIRS = ("tools/headless", "tools", "tests")
+PLAYWRIGHT = ("py", "playwright", "mac")       # what a Playwright check runs with (env_print), Chromium's also "chrome"
+KEY_VERSION = "1"                              # a new one when what goes into a key changes
 
 
 def python() -> str:
@@ -89,12 +127,18 @@ class Step:
     lane: str = ""
     # in `versions` too: it reads the version files or the changelogs (a release's re-check)
     versions: bool = False
+    # what it reads (PAGE_INPUTS): with them, a step that passed is "unchanged" while they are; without, it always runs
+    inputs: tuple[str, ...] | Callable[[], tuple[str, ...]] = ()
+    # what it runs with besides the tree (env_print's kinds): part of its key
+    needs: tuple[str, ...] = ()
+    # one part of a check run in parts (`--shard K/N`): the check's name, its parts counted by next_parts
+    family: str = ""
 
 
 @dataclass
 class Result:
     name: str
-    status: str                              # passed | failed | skipped
+    status: str                              # passed | failed | skipped | unchanged (a pass, carried)
     seconds: float = 0.0
     reason: str = ""
 
@@ -173,8 +217,16 @@ class Build:
             shutil.rmtree(self.dir, ignore_errors=True)
 
 
-def steps(build: Build | None = None) -> list[Step]:
+def check_inputs(script: str, engine: str = "webkit") -> dict:
+    """A browser check's `inputs` and `needs`: the page and its server, and the script's files (imported())."""
+    return {"inputs": lambda: (*PAGE_INPUTS, *imported([script])),
+            "needs": ("py", "chrome", "mac") if engine == "cdp" else PLAYWRIGHT + (("chrome",) * (engine == "chromium"))}
+
+
+def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> list[Step]:
+    """Every step; a check in parts in `parts`' count of them (timing.json's), else its default."""
     build = build or Build()
+    shows = (parts or {}).get("saver-shows-check", SAVER_SHARDS)
     py = python()
     out = [
         # esbuild, pinned (tools/package.json): the image and HK Frontend builds minify with it, and the suite
@@ -184,6 +236,10 @@ def steps(build: Build | None = None) -> list[Step]:
              timeout=300, first=True),
         # (on 8 workers where pytest-xdist is installed: about a minute, not four)
         Step("main-suite", lambda: [py, "-m", "pytest", "-q", "-p", "no:cacheprovider", *xdist_args(py)], env=private_env()),
+        # TypeScript on every web file that opts in with // @ts-check (phase 18, Part C; its own pinned folder)
+        Step("types-js", [py, "tools/typecheck/check.py"], timeout=300,
+             skip=lambda: None if shutil.which("npm") and (os.environ.get("NODE") or shutil.which("node"))
+             else "no npm or node (Node.js)"),
         Step("check-links", [py, "tools/check_links.py"], timeout=300, versions=True),
         Step("check-version", [py, "tools/check_version.py"], timeout=300, versions=True),
         Step("package-check", [py, "tools/package_check.py", "--release"], timeout=600, versions=True),
@@ -194,15 +250,21 @@ def steps(build: Build | None = None) -> list[Step]:
         # (`versions` only: the main suite's files that read a version file or a changelog; quick and full run them all)
         Step("version-tests", lambda: [py, "-m", "pytest", "-q", "-p", "no:cacheprovider", *xdist_args(py), *version_readers()],
              tier="versions", versions=True, env=private_env()),
+        # mypy on hk_core (the route table's modules strict) and ruff's pyflakes rules: per-file counts that only fall
+        Step("types-py", [py, "tools/typecheck/py_check.py"], tier="full", timeout=600, inputs=PY_INPUTS,
+             skip=lambda: None if subprocess.run([py, "-c", "import mypy, ruff"], capture_output=True).returncode == 0
+             else "no mypy or ruff in the venv (pip install -e '.[dev]')"),
         Step("ha-build", lambda: [py, "tools/build_ha.py", str(build.ha)], tier="full", timeout=600, first=True),
         Step("hk-frontend-py", [str(HA_PY), "-m", "pytest", "-q", "-p", "no:cacheprovider"], tier="full",
              skip=lambda: build.missing() or (None if HA_PY.exists() else f"no harness venv at {HA_PY.parent.parent}"),
-             cwd=lambda: build.ha / "tests/py"),
+             cwd=lambda: build.ha / "tests/py", inputs=HK_INPUTS, needs=("ha",)),
         Step("hk-frontend-js", lambda: ["sh", str(build.ha / "tests/run")], tier="full",
-             skip=lambda: build.missing() or (None if JSC.exists() else "no JavaScriptCore (macOS only)")),
+             skip=lambda: build.missing() or (None if JSC.exists() else "no JavaScriptCore (macOS only)"),
+             inputs=HK_INPUTS, needs=("jsc",)),
     ]
     out += [Step(f"headless-{n}", [py, f"tools/headless/{n}.py"], tier="full", timeout=600,
-                 skip=lambda: None if chrome() else "no Chrome or Chromium (set CHROME)", lane="devtools")
+                 skip=lambda: None if chrome() else "no Chrome or Chromium (set CHROME)", lane="devtools",
+                 **check_inputs(f"tools/headless/{n}.py", "cdp"))
             for n in HEADLESS]     # one at a time: each uses a fixed DevTools port
     # Edit mode in Chromium (a finger) and WebKit (a mouse), at a tablet's and a phone's size (Playwright's own
     # browsers, no fixed port); Chromium's tablet the wall tablets' 1280 x 800, WebKit's an 11" iPad's 1180 x 820
@@ -212,37 +274,45 @@ def steps(build: Build | None = None) -> list[Step]:
     out += [Step(f"edit-mode-check-{e}-{z}", [py, "tools/headless/edit_mode_check.py", "--engine", e, "--size", z,
                                               *([] if (e, z) == ("webkit", "1180x820") else
                                                 [a for s in EDIT_GESTURES for a in ("--only", s)])], tier="full",
-                 timeout=1200, skip=playwright_missing)
+                 timeout=1200, skip=playwright_missing, **check_inputs("tools/headless/edit_mode_check.py", e))
             for e, z in (("chromium", "1280x800"), ("chromium", "390x844"), ("webkit", "1180x820"), ("webkit", "390x844"))]
     # Edit mode on a Home Grid in WebKit, a finger and a mouse, at a tablet either way and a phone (2026-10-31)
     # (each size a step of its own)
     out += [Step(f"grid-edit-check-{z}", [py, "tools/headless/grid_edit_check.py", "--size", z], tier="full",
-                 timeout=900, skip=playwright_missing) for z in ("1180x820", "820x1180", "390x844")]
+                 timeout=900, skip=playwright_missing, **check_inputs("tools/headless/grid_edit_check.py"))
+            for z in ("1180x820", "820x1180", "390x844")]
     # the page beside the iPhone Duo's side strip, in WebKit (its insets stood in; 2026-10-30)
     out.append(Step("side-strip-check", [py, "tools/headless/side_strip_check.py"], tier="full", timeout=600,
-                    skip=playwright_missing))
+                    skip=playwright_missing, **check_inputs("tools/headless/side_strip_check.py")))
     # Swipe Between Pages in Chromium and WebKit, with a finger, at two tablet and two phone sizes (2026-10-30)
-    # (each engine a step of its own)
-    out += [Step(f"page-swipe-check-{e}", [py, "tools/headless/page_swipe_check.py", "--engine", e], tier="full", timeout=1800,
-                 skip=playwright_missing) for e in ("chromium", "webkit")]
+    # (each engine at each size a step of its own)
+    out += [Step(f"page-swipe-check-{e}-{z}", [py, "tools/headless/page_swipe_check.py", "--engine", e, "--size", z],
+                 tier="full", timeout=900, skip=playwright_missing, **check_inputs("tools/headless/page_swipe_check.py", e))
+            for e, sizes in PAGE_SWIPE.items() for z in sizes]
     # ...and how it moves, frame by frame: the finger, the release, what comes in, a new finger mid-settle (2026-11-04)
     out += [Step(f"swipe-motion-check-{e}", [py, "tools/headless/swipe_motion_check.py", "--engine", e], tier="full", timeout=900,
-                 skip=playwright_missing) for e in ("chromium", "webkit")]
+                 skip=playwright_missing, **check_inputs("tools/headless/swipe_motion_check.py", e))
+            for e in ("chromium", "webkit")]
     # the screensaver's HomeView-style faces and Time Behind in WebKit, a tablet either way and a phone (2026-10-30)
     out.append(Step("saver-faces-check", [py, "tools/headless/saver_faces_check.py"], tier="full", timeout=600,
-                    skip=playwright_missing))
+                    skip=playwright_missing, **check_inputs("tools/headless/saver_faces_check.py")))
+    # the Screensaver editor in WebKit (phase 13): Looks that keep the Info, the four sections, a piece's page, the library
+    out.append(Step("saver-editor-check", [py, "tools/headless/saver_editor_check.py"], tier="full", timeout=900,
+                    skip=playwright_missing, **check_inputs("tools/headless/saver_editor_check.py")))
     # the Side Pane in WebKit: beside Home on each side, Every Page, the screensaver, each section alone (2026-10-30)
     # (each size a step of its own, 2026-11-01: together they were the full run's longest step, ~4 minutes)
     out += [Step(f"side-pane-check-{z}", [py, "tools/headless/side_pane_check.py", "--size", z], tier="full", timeout=900,
-                 skip=playwright_missing) for z in ("1180x820", "820x1180", "390x844")]
+                 skip=playwright_missing, **check_inputs("tools/headless/side_pane_check.py"))
+            for z in ("1180x820", "820x1180", "390x844")]
     # the Looks in WebKit: each applied from its page, Home at three sizes, Undo; Layout + Look in the editor (2026-10-30)
     out.append(Step("looks-check", [py, "tools/headless/looks_check.py"], tier="full", timeout=900,
-                    skip=playwright_missing))
+                    skip=playwright_missing, **check_inputs("tools/headless/looks_check.py")))
     # the screensaver's Shows the way a house starts them: a screen's settings -> the strategy -> the screensaver
-    # (in SAVER_SHARDS parts side by side, each every SAVER_SHARDS-th of its runs)
-    out += [Step(f"saver-shows-check-{i}of{SAVER_SHARDS}", [py, "tools/headless/saver_shows_check.py", "--shard",
-                                                           f"{i}/{SAVER_SHARDS}"], tier="full", timeout=900,
-                 skip=playwright_missing) for i in range(1, SAVER_SHARDS + 1)]
+    # (in `shows` parts side by side, each every `shows`-th of its runs)
+    out += [Step(f"saver-shows-check-{i}of{shows}", [py, "tools/headless/saver_shows_check.py", "--shard",
+                                                    f"{i}/{shows}"], tier="full", timeout=900, family="saver-shows-check",
+                 skip=playwright_missing, **check_inputs("tools/headless/saver_shows_check.py"))
+            for i in range(1, shows + 1)]
     out.append(Step("caddy-image", ["sh", "-c",
                     f"docker build -q -f packaging/docker/caddy.Dockerfile -t {CADDY_IMAGE} packaging/docker && "
                     f'"{py}" -m pytest -q -p no:cacheprovider tests/test_packaging.py -k caddy_image'],
@@ -281,7 +351,7 @@ def run_step(step: Step, log_dir: Path) -> Result:
     cwd = step.cwd() if callable(step.cwd) else step.cwd
     start = time.monotonic()
     try:
-        r = subprocess.run(cmd, cwd=cwd, env={**step_env(), **step.env}, stdin=subprocess.DEVNULL,
+        r = subprocess.run(cmd, cwd=cwd, env={**step_env(cmd[:1] == [python()]), **step.env}, stdin=subprocess.DEVNULL,
                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=step.timeout)
         output, code = r.stdout.decode(errors="replace"), r.returncode
     except subprocess.TimeoutExpired as e:
@@ -316,15 +386,29 @@ def say(text: str):
 
 def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Callable[[str], None] = say,
         after: Callable[[Step, Result], None] | None = None, only: list[str] | None = None,
-        store: Path | None = None) -> dict:
-    """Run the steps and write the record; with `store`, a whole run (no `only`) is also remembered there."""
+        store: Path | None = None, step_store: Path | None = None, reuse: bool = True, build: Build | None = None,
+        root: Path = ROOT, shared_times: Path | None = None, timing: Path | None = None) -> dict:
+    """Run the steps and write the record; with `store`, a whole run (no `only`) is also remembered there. With
+    `step_store`, each step with a key (step_keys, at the start) that passed is remembered there by it, and one that
+    failed forgets it; and with `reuse`, a step whose key passed before is not run: it is unchanged."""
     record_dir.mkdir(exist_ok=True)
     started = datetime.datetime.now(datetime.timezone.utc)
-    before = git_state()
+    before = git_state(root)
+    keys = step_keys(chosen, build, root) if step_store else {}
+    carried = carried_passes(keys, step_store) if step_store and reuse else {}
+    if carried:
+        echo(f"  ({len(carried)} of {len(chosen)} steps unchanged since they passed: not run again; --all runs them)")
     got: dict[str, Result] = {}
     lock = threading.Lock()
 
     def one(step: Step):
+        if step.name in carried:
+            was = carried[step.name]
+            res = Result(step.name, "unchanged", reason=f"its inputs as on {was['commit'][:9]}, passed {was['finished']}")
+            with lock:
+                got[step.name] = res
+                echo(f"  {step.name} unchanged (passed on {was['commit'][:9]})")
+            return
         with lock:
             echo(f"  {step.name} ...")
         res = run_step(step, record_dir)
@@ -351,16 +435,21 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
     # (the longest first, by each step's last time, so a long one doesn't end the run alone: kept in step-times.json,
     # not last-run.json, which a quick, versions or --only run replaces -- 2026-11-01, a full run after them waited
     # 90 s on a long step started last)
-    was = step_times(record_dir)
-    jobs.sort(key=lambda job: -sum(was.get(s.name, 60) for s in job))
+    # (a step never timed yet counts as the longest: 2026-11-02, eight new saver parts would have started last; and
+    # `shared_times`, every worktree's, first: a release's fresh worktree had none, and started the longest steps last)
+    was = {**step_times(record_dir), **(read_times(shared_times) if shared_times else {})}
+    new = max(was.values(), default=60)
+    jobs.sort(key=lambda job: -sum(0 if s.name in carried else was.get(s.name, new) for s in job))
     # (13 at once on this 18-core Mac: the browser checks mostly wait, so the cores were two-thirds idle at 9 and
     # the run waited on width, not CPU -- 2026-11-01, 238 s at 9, 191 s at 14, every check steady and no slower)
+    # (2026-11-02, CI_JOBS=22 here: `full --all` in 218-224 s, not ~320 s at 14, ~4 of 18 cores busy -- but two of
+    # three runs failed on load flakes (a WebKit page error, the main suite's timing), each a whole rerun. 14 stays)
     width = max(1, int(os.environ.get("CI_JOBS") or min(14, max(2, (os.cpu_count() or 4) * 3 // 4))))
     with concurrent.futures.ThreadPoolExecutor(max_workers=width) as pool:
         for f in [pool.submit(lambda job=job: [one(s) for s in job]) for job in jobs]:
             f.result()
     results = [got[s.name] for s in chosen]
-    head, tree, dirty = git_state()
+    head, tree, dirty = git_state(root)
     record = {
         "tier": tier,
         "only": only or None,                # a part of the tier: never a whole run
@@ -372,12 +461,22 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
         "finished": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
         "ok": not any(r.status == "failed" for r in results),
         "steps": [vars(r) for r in results],
+        # (what took longer than it should: timing_warnings, with `timing` the history it compares with)
+        "warnings": keep_timing(chosen, results, timing, whole=tier == "full" and not only and bool(results)
+                                and all(r.status == "passed" for r in results)) if timing else [],
     }
     (record_dir / "last-run.json").write_text(json.dumps(record, indent=2) + "\n")
-    times = {**was, **{r.name: round(r.seconds, 1) for r in results if r.status != "skipped"}}
+    times = {**was, **{r.name: round(r.seconds, 1) for r in results if r.status in ("passed", "failed")}}
     (record_dir / "step-times.json").write_text(json.dumps(times, indent=1, sort_keys=True) + "\n")
+    if shared_times:
+        shared_times.parent.mkdir(parents=True, exist_ok=True)
+        tmp = shared_times.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_text(json.dumps({**read_times(shared_times), **times}, indent=1, sort_keys=True) + "\n")
+        tmp.replace(shared_times)
     if store:
         remember(record, store)
+    if step_store and keys:
+        remember_steps(record, keys, step_store)
     return record
 
 
@@ -474,6 +573,237 @@ def full_run_for(head: str, store: Path, root: Path = ROOT, look: int = 20) -> t
     return None, f"the last passed full run was on {fulls[0]['commit'][:9]}, not HEAD {head[:9]}, and {newest}"
 
 
+# ---------------------------------------------------------------- what each step reads, by content (2026-11-02)
+# A house release took 25-30 minutes, most of it `full` running again, in browsers, checks of what no commit since had
+# touched. A full step with `inputs` has a key: the contents of those files in HEAD's tree (git's blob ids; a version
+# file without its version lines, so a release's bump changes no key), its command, and what it runs with (env_print).
+# A key that passed in a steady run is not run again (unchanged); a failure with it forgets it.
+
+IMPORT = re.compile(r"^\s*(?:from\s+([A-Za-z_]\w*)|import\s+([A-Za-z_][\w., ]*))", re.M)
+
+
+def imported(scripts: list[str], root: Path = ROOT) -> list[str]:
+    """The scripts, the files beside each of the same name (a check's .cjs half), and each module of SCAN_DIRS they
+    import, and those import, and so on (the working copy's: a changed one is uncommitted, so its step runs anyway)."""
+    seen: list[str] = []
+    todo = list(scripts)
+    while todo:
+        rel = todo.pop()
+        path = root / rel
+        if rel in seen or not path.is_file():
+            continue
+        seen.append(rel)
+        todo += [str(q.relative_to(root)) for q in path.parent.glob(path.stem + ".*")
+                 if q.suffix in (".py", ".cjs", ".mjs", ".js")]
+        if path.suffix == ".cjs":              # a Playwright half's own helpers (require('./grid_ready.cjs'))
+            todo += [str((path.parent / m).relative_to(root)) for m in re.findall(r"require\('\./([\w.-]+\.cjs)'\)", path.read_text(errors="replace"))]
+        if path.suffix != ".py":
+            continue
+        for frm, imp in IMPORT.findall(path.read_text(errors="replace")):
+            for name in [frm] if frm else [n.strip().split(".")[0].split(" ")[0] for n in imp.split(",")]:
+                todo += [f"{d}/{name}.py" for d in SCAN_DIRS if (root / d / f"{name}.py").is_file()]
+    return sorted(seen)
+
+
+def matches(path: str, spec: str) -> bool:
+    """A path in an input: a folder (ending in "/"), a glob, or the file itself. A path ending in "/" (git's untracked
+    or ignored folder) matches what it could hold."""
+    if path.endswith("/"):
+        return spec.startswith(path) or path.startswith(spec) if spec.endswith("/") else spec.startswith(path)
+    if spec.endswith("/"):
+        return path.startswith(spec)
+    return fnmatch.fnmatchcase(path, spec) if any(c in spec for c in "*?[") else path == spec
+
+
+def tree_blobs(rev: str = "HEAD", root: Path = ROOT) -> dict[str, str]:
+    """Each file of the commit's tree: its mode and blob id."""
+    out = subprocess.run(["git", "ls-tree", "-r", "-z", "--full-tree", rev], cwd=root, capture_output=True, text=True,
+                         check=True).stdout
+    blobs = {}
+    for entry in filter(None, out.split("\0")):
+        meta, path = entry.split("\t", 1)
+        mode, _, blob = meta.split()
+        blobs[path] = f"{mode} {blob}"
+    return blobs
+
+
+def uncommitted(root: Path = ROOT) -> list[str]:
+    """What the working copy has that HEAD hasn't: changed, staged, new (each file) and git-ignored files (but the
+    caches and the folders of other tools), LOCAL_ONLY aside."""
+    out = subprocess.run(["git", "status", "--porcelain", "-z", "--untracked-files=all", "--ignored"], cwd=root,
+                         capture_output=True, text=True).stdout
+    paths, skip_next = [], False
+    for entry in out.split("\0"):
+        if skip_next or not entry:
+            skip_next = False
+            continue
+        code, path = entry[:2], entry[3:]
+        skip_next = code[0] in "RC"                      # a rename: its old name follows
+        if code == "!!" and (re.search(r"(^|/)(__pycache__|node_modules|\.ci|\.claude|\.venv|\.pytest_cache)(/|$)", path)
+                             or path.endswith((".pyc", ".DS_Store")) or "/.smbdelete" in "/" + path):
+            continue
+        if path not in LOCAL_ONLY:
+            paths.append(path)
+    return paths
+
+
+def versionless(path: str, root: Path = ROOT) -> str:
+    try:
+        text = (root / path).read_text()
+    except OSError:
+        return "missing"
+    return hashlib.sha256("".join(ln for ln in text.splitlines(True) if not VERSION_LINE.match(ln.rstrip("\n")))
+                          .encode()).hexdigest()
+
+
+_PRINTS: dict[str, str] = {}
+PACKAGES = ("import sys, importlib.metadata as m; print(sys.version); "
+            "print(sorted({(d.metadata['Name'] or '').lower() + '==' + d.version for d in m.distributions()}))")
+
+
+def _text(*cmd: str) -> str:
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        return f"{r.returncode} {r.stdout.strip()}"
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return f"error {e}"
+
+
+def _stat(path: str | Path) -> str:
+    try:
+        st = Path(path).resolve().stat()
+        return f"{Path(path).resolve()} {st.st_size} {st.st_mtime_ns}"
+    except OSError:
+        return f"{path} missing"
+
+
+def _app(binary: str) -> str:
+    """A macOS app's version (its Info.plist), else the binary itself."""
+    for parent in Path(binary).resolve().parents:
+        if parent.name == "Contents" and (parent / "Info.plist").exists():
+            try:
+                info = plistlib.loads((parent / "Info.plist").read_bytes())
+                return f"{binary} {info.get('CFBundleIdentifier')} {info.get('CFBundleVersion')}"
+            except (OSError, ValueError, plistlib.InvalidFileException):
+                break
+    return _stat(binary)
+
+
+def env_print(kind: str) -> str:
+    """What a step runs with besides the tree, as text (asked once a run): the venv's packages ("py", "ha"), Playwright,
+    its browsers and Node ("playwright"), Chrome ("chrome"), JavaScriptCore ("jsc"), the Mac ("mac": its fonts)."""
+    if kind not in _PRINTS:
+        if kind == "py":
+            got = _text(python(), "-c", PACKAGES)
+        elif kind == "ha":
+            got = _text(str(HA_PY), "-c", PACKAGES) if HA_PY.exists() else "none"
+        elif kind == "mac":
+            got = f"{platform.platform()} {platform.mac_ver()[0]}"
+        elif kind == "jsc":
+            got = f"{_stat(JSC)} {platform.mac_ver()[0]}"
+        elif kind == "chrome":
+            got = _app(c) if (c := chrome()) else "none"
+        elif kind == "playwright":
+            pw, node = os.environ.get("PLAYWRIGHT_PATH"), os.environ.get("NODE")
+            try:
+                version = json.loads((Path(pw) / "package.json").read_text()).get("version") if pw else None
+            except (OSError, ValueError):
+                version = None
+            cache = Path(os.environ.get("PLAYWRIGHT_BROWSERS_PATH") or HOME / "Library/Caches/ms-playwright")
+            got = json.dumps([pw, version, node and _text(node, "--version"), _stat(node) if node else None,
+                              sorted(p.name for p in cache.glob("*")) if cache.is_dir() else None])
+        else:
+            raise ValueError(f"no such need: {kind}")
+        _PRINTS[kind] = got
+    return _PRINTS[kind]
+
+
+def step_key(step: Step, blobs: dict[str, str], dirty: list[str], cmd: list[str], root: Path = ROOT) -> str | None:
+    """The step's key (see above), or None: it names no inputs, or one of them is uncommitted."""
+    specs = step.inputs() if callable(step.inputs) else step.inputs
+    if not specs or any(matches(p, sp) for p in dirty for sp in specs):
+        return None
+    folders = tuple(sp for sp in specs if sp.endswith("/"))
+    files = {sp for sp in specs if not sp.endswith("/") and not any(c in sp for c in "*?[")}
+    globs = [sp for sp in specs if any(c in sp for c in "*?[")]
+    h = hashlib.sha256()
+    for part in (KEY_VERSION, step.name, json.dumps(cmd), json.dumps(sorted(step.env.items())),
+                 *(env_print(k) for k in step.needs)):
+        h.update(part.encode() + b"\0")
+    for path in sorted(blobs):
+        if path in files or path.startswith(folders) or any(fnmatch.fnmatchcase(path, g) for g in globs):
+            h.update(f"{path}\0{versionless(path, root) if path in VERSION_FILES else blobs[path]}\0".encode())
+    # (a file named but in no tree is part of the key too: when it appears, the key changes)
+    for path in sorted(files - set(blobs)):
+        h.update(f"{path}\0none\0".encode())
+    return h.hexdigest()
+
+
+def step_keys(chosen: list[Step], build: Build | None = None, root: Path = ROOT) -> dict[str, str]:
+    """Each chosen step's key, for those that have one (HEAD's tree; the HA build's folder out of the commands)."""
+    wanted = [s for s in chosen if s.inputs]
+    if not wanted:
+        return {}
+    blobs, dirty = tree_blobs("HEAD", root), uncommitted(root)
+    out = {}
+    for s in wanted:
+        cmd = s.cmd() if callable(s.cmd) else s.cmd
+        if build and build.dir:
+            cmd = [c.replace(str(build.dir), "$BUILD") for c in cmd]
+        if key := step_key(s, blobs, dirty, cmd, root):
+            out[s.name] = key
+    return out
+
+
+def step_store_path() -> Path:
+    return store_path().with_name("steps.json")
+
+
+def step_passes(store: Path) -> dict[str, list[dict]]:
+    try:
+        got = json.loads(store.read_text())["steps"]
+        return {k: [e for e in v if isinstance(e, dict) and e.get("key")] for k, v in got.items() if isinstance(v, list)}
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return {}
+
+
+def carried_passes(keys: dict[str, str], store: Path) -> dict[str, dict]:
+    """The steps whose key passed before: their newest pass with it, by name."""
+    passes = step_passes(store)
+    return {name: e for name, key in keys.items()
+            for e in [next((e for e in reversed(passes.get(name, [])) if e["key"] == key), None)] if e}
+
+
+def remember_steps(record: dict, keys: dict[str, str], store: Path, keep: int = 40) -> bool:
+    """A steady run's steps (its HEAD and working copy the same at the end): each that passed is kept by its key, each
+    that failed forgets its key. (Each worktree's runs share the file: one at a time, under a lock.)"""
+    if not record.get("steady"):
+        return False
+    store.parent.mkdir(parents=True, exist_ok=True)
+    with open(store.with_suffix(".lock"), "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        passes = step_passes(store)
+        for s in record["steps"]:
+            key = keys.get(s["name"])
+            if not key or s["status"] not in ("passed", "failed"):
+                continue
+            kept = [e for e in passes.get(s["name"], []) if e["key"] != key]
+            if s["status"] == "passed":
+                kept.append({"key": key, "commit": record["commit"], "finished": record["finished"]})
+            passes[s["name"]] = kept[-keep:]
+        tmp = store.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_text(json.dumps({"steps": passes}, indent=1, sort_keys=True) + "\n")
+        tmp.replace(store)
+    return True
+
+
+def read_times(path: Path) -> dict[str, float]:
+    try:
+        return {str(k): float(v) for k, v in json.loads(path.read_text()).items()}
+    except (OSError, ValueError, TypeError, AttributeError):
+        return {}
+
+
 def step_times(record_dir: Path) -> dict[str, float]:
     """Each step's seconds the last time it ran (or, before step-times.json, the last run's)."""
     for name, read in (("step-times.json", lambda d: d), ("last-run.json", lambda d: {x["name"]: x["seconds"] for x in d["steps"]})):
@@ -484,14 +814,141 @@ def step_times(record_dir: Path) -> dict[str, float]:
     return {}
 
 
+# ---------------------------------------------------------------- how long the steps take (2026-11-02)
+# THE CHECKS GREW UNSEEN. One commit made the screensaver Shows' check every Look under every slide at four sizes (~150
+# runs, each with seconds of fixed waits): four parts of ~510 s, the full run ten minutes, and no run said why. Now a
+# check in parts is cut into more of them as it grows (next_parts), and a step that got much slower than its own last
+# runs, or that is past STEP_BUDGET, is named under the table. Each kept in timing.json beside the passed runs.
+
+def read_timing(path: Path | None) -> dict:
+    """{"history": {step: [its last passed seconds]}, "parts": {check: how many parts}}, empty where unknown."""
+    try:
+        got = json.loads(path.read_text()) if path else {}
+    except (OSError, ValueError):
+        got = {}
+    hist = got.get("history") if isinstance(got, dict) else None
+    parts = got.get("parts") if isinstance(got, dict) else None
+    return {"history": {k: [float(x) for x in v if isinstance(x, (int, float))] for k, v in hist.items()
+                        if isinstance(v, list)} if isinstance(hist, dict) else {},
+            "parts": {k: int(v) for k, v in parts.items() if isinstance(v, int) and MIN_PARTS <= v <= MAX_PARTS}
+            if isinstance(parts, dict) else {}}
+
+
+def next_parts(seconds: list[float], target: float = PART_TARGET, lo: int = MIN_PARTS, hi: int = MAX_PARTS) -> int:
+    """How many parts a check should run in next, from its parts' seconds this run: the same while its longest part is
+    within half and one and a half times `target` (so the count, part of each part's name and key, holds still), else
+    enough for parts of about `target`."""
+    n, longest = len(seconds), max(seconds)
+    if longest > target * 1.5 or (longest < target / 2 and n > lo):
+        return max(lo, min(hi, -(-int(sum(seconds)) // int(target))))
+    return n
+
+
+def _median(xs: list[float]) -> float:
+    xs = sorted(xs)
+    return (xs[(len(xs) - 1) // 2] + xs[len(xs) // 2]) / 2
+
+
+def timing_warnings(results: list[Result], history: dict[str, list[float]], families: dict[str, str] | None = None,
+                    nxt: dict[str, int] | None = None, budget: float = STEP_BUDGET) -> list[str]:
+    """The steps that took longer than they should, each said with what to do. A whole run on a busy machine is slower
+    in every step: each step is measured against the run's own pace (the median of its steps' times over their usual).
+    `families`: each part's check; `nxt`: each check's count of parts for the next run."""
+    families, nxt = families or {}, nxt or {}
+    now = {f: sum(v == f for v in families.values()) for f in set(families.values())}
+    ran = [r for r in results if r.status == "passed" and r.seconds >= 5]
+    usual = {r.name: _median(history[r.name][-HISTORY:]) for r in ran if len(history.get(r.name, [])) >= 3}
+    ratios = {n: r.seconds / usual[n] for r in ran if (n := r.name) in usual and usual[n] > 0}
+    pace = run_pace(results, history)
+    out = []
+    for r in ran:
+        fam = families.get(r.name, "")
+        if r.seconds > budget * pace:
+            if not fam:
+                how = "run it in parts (--shard K/N, as saver_shows_check.py does) or cut its fixed waits"
+            elif nxt.get(fam, now[fam]) > now[fam]:
+                how = f"{fam} runs in {nxt[fam]} parts next time, not {now[fam]}"
+            elif now[fam] >= MAX_PARTS:
+                how = f"{fam} is in {now[fam]} parts already, the most: cut its fixed waits or its runs"
+            else:
+                how = f"its parts are uneven: {fam} deals its runs out in turn; give it a fairer split"
+            out.append(f"{r.name}: {r.seconds:.0f} s, past the {budget:.0f} s one step may take"
+                       + (f" (the machine ran at {pace:.1f}x its usual pace)" if pace > 1.05 else "") + f": {how}")
+        # (twice its usual, two runs in a row: the main suite and HK Frontend's suites slow more than the waiting
+        # browser checks on a busy machine -- 2026-11-02, the main suite 2-3x while another session ran its tests, at a
+        # 1.0-1.2x pace; a busy machine passes, a check that grew stays grown. The Shows' that grew unseen was 3.4x)
+        elif len(past := history.get(r.name, [])[-HISTORY:]) >= 4 and (base := _median(past[:-1])) > 0 \
+                and r.seconds > 2 * pace * base and past[-1] > 1.5 * base and r.seconds - base * pace > 30:
+            out.append(f"{r.name}: {r.seconds:.0f} s, {r.seconds / base / pace:.1f}x its usual {base:.0f} s two runs in a"
+                       f" row (the other steps at {pace:.1f}x): what did the change add to it?")
+    return out
+
+
+def total_warnings(totals: dict[str, float], history: dict[str, list[float]], pace: float) -> list[str]:
+    """A check in parts, or the whole run, that grew: each part stays short as the parts multiply, but the run waits
+    on how many steps it may run at once (CI_JOBS), so their sum is what it takes. (Each total: all its steps' seconds.)"""
+    out = []
+    for name, secs in totals.items():
+        past = history.get(name, [])[-HISTORY:]
+        if len(past) >= 3 and (usual := _median(past)) > 0 and secs > 1.3 * usual * pace and secs - usual * pace > 60:
+            out.append(f"{name}: {secs:.0f} s in all, {secs / usual / pace:.1f}x its usual {usual:.0f} s"
+                       f"{f' (the machine at {pace:.1f}x)' if pace > 1.05 else ''}: what did this change add to it?")
+    return out
+
+
+def run_pace(results: list[Result], history: dict[str, list[float]]) -> float:
+    """How much slower than usual the machine ran this run: the median of its steps' times over their usual, 1 at least."""
+    ratios = [r.seconds / _median(history[r.name][-HISTORY:]) for r in results if r.status == "passed" and r.seconds >= 5
+              and len(history.get(r.name, [])) >= 3 and _median(history[r.name][-HISTORY:]) > 0]
+    return max(1.0, _median(ratios)) if len(ratios) >= 5 else 1.0
+
+
+WHOLE = "(every full step)"                   # timing.json's history of whole full runs' total seconds
+
+
+def keep_timing(chosen: list[Step], results: list[Result], path: Path, whole: bool = False) -> list[str]:
+    """This run's timing warnings; and each passed step's time added to its history, each check that ran all its parts
+    given its next count (next_parts) and its total kept, and, for a `whole` full run (every step run and passed), the
+    run's total. Every worktree's runs share the file: one at a time, under a lock."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    by = {r.name: r for r in results}
+    families = {s.name: s.family for s in chosen if s.family}
+    with open(path.with_suffix(".lock"), "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        timing = read_timing(path)
+        hist, parts = timing["history"], timing["parts"]
+        totals = {WHOLE: sum(r.seconds for r in results)} if whole else {}
+        for fam in sorted(set(families.values())):
+            got = [by[n] for n, f in families.items() if f == fam and n in by]
+            # (every part, each "KofN": a part run alone, with --only, says nothing of the whole)
+            count = {int(m.group(1)) for n, f in families.items() if f == fam and (m := re.search(r"of(\d+)$", n))}
+            if got and count == {len(got)} and all(r.status in ("passed", "failed") for r in got):
+                parts[fam] = next_parts([r.seconds for r in got])
+                if all(r.status == "passed" for r in got):
+                    totals[fam] = sum(r.seconds for r in got)
+        warnings = timing_warnings(results, hist, families, parts) + total_warnings(totals, hist, run_pace(results, hist))
+        for name, secs in totals.items():
+            hist[name] = (hist.get(name, []) + [round(secs, 1)])[-HISTORY:]
+        for r in results:
+            if r.status == "passed":
+                hist[r.name] = (hist.get(r.name, []) + [round(r.seconds, 1)])[-HISTORY:]
+        tmp = path.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_text(json.dumps({"history": hist, "parts": parts}, indent=1, sort_keys=True) + "\n")
+        tmp.replace(path)
+    return warnings
+
+
 def table(record: dict) -> str:
-    rows = [f"{'step':<34} {'result':<8} {'time':>7}  note"]
+    rows = [f"{'step':<36} {'result':<9} {'time':>7}  note"]
     for s in record["steps"]:
-        rows.append(f"{s['name']:<34} {s['status']:<8} {s['seconds']:>6.0f}s  {s['reason']}")
-    counts = {k: sum(s["status"] == k for s in record["steps"]) for k in ("passed", "failed", "skipped")}
-    rows.append(f"{record['tier']}: {counts['passed']} passed, {counts['failed']} failed, "
-                f"{counts['skipped']} skipped on {record['commit'][:9]}"
+        rows.append(f"{s['name']:<36} {s['status']:<9} {s['seconds']:>6.0f}s  {s['reason']}")
+    counts = {k: sum(s["status"] == k for s in record["steps"]) for k in ("passed", "unchanged", "failed", "skipped")}
+    rows.append(f"{record['tier']}: {counts['passed']} passed, "
+                + (f"{counts['unchanged']} unchanged, " if counts["unchanged"] else "")
+                + f"{counts['failed']} failed, {counts['skipped']} skipped on {record['commit'][:9]}"
                 + (f" ({len(record['dirty'])} uncommitted)" if record["dirty"] else ""))
+    if record.get("warnings"):
+        rows += ["Slower than it should be:", *(f"  {w}" for w in record["warnings"])]
     return "\n".join(rows)
 
 
@@ -516,8 +973,15 @@ GIT_HOOK_VARS = ("GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE", "GIT_PREFIX", "GI
                  "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_QUARANTINE_PATH", "GIT_NAMESPACE")
 
 
-def step_env() -> dict:
-    return {k: v for k, v in os.environ.items() if k not in GIT_HOOK_VARS}
+# THIS CHECKOUT'S CODE, NOT THE VENV'S (2026-11-02). ~/.venvs/mantel installs the main checkout editable: in a worktree,
+# a browser check (which puts tools/, tests/ and hosts/server/ on its path, never the root) imported the main
+# checkout's hk_core, so it checked other code than the worktree's -- and a pass kept by the worktree's key would have
+# vouched for it. A step run with Mantel's venv has this checkout's root and hosts/server first on PYTHONPATH.
+def step_env(mantel: bool = False) -> dict:
+    env = {k: v for k, v in os.environ.items() if k not in GIT_HOOK_VARS}
+    if mantel:
+        env["PYTHONPATH"] = os.pathsep.join([str(ROOT), str(ROOT / "hosts/server"), *filter(None, [env.get("PYTHONPATH")])])
+    return env
 
 
 def install_hooks(hooks: Path | None = None) -> list[Path]:
@@ -534,11 +998,33 @@ def install_hooks(hooks: Path | None = None) -> list[Path]:
     return written
 
 
+def plan(chosen: list[Step], build: Build, store: Path) -> str:
+    """What a run would do with each step (--plan): run it, and why, or carry its pass."""
+    keys = step_keys(chosen, build)
+    carried = carried_passes(keys, store)
+    rows = []
+    for s in chosen:
+        if s.name in carried:
+            why = f"unchanged: passed on {carried[s.name]['commit'][:9]} ({carried[s.name]['finished']})"
+        elif s.name in keys:
+            why = "runs: its inputs are not as in any run it passed"
+        elif s.inputs:
+            why = "runs: one of its inputs is not committed"
+        else:
+            why = "runs: always"
+        rows.append(f"{s.name:<36} {why}")
+    rows.append(f"{len(chosen) - len(carried)} of {len(chosen)} steps would run")
+    return "\n".join(rows)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("tier", nargs="?", choices=("quick", "full", "versions"), default="quick")
-    ap.add_argument("--only", action="append", help="run only the steps whose name contains this (repeatable)")
+    ap.add_argument("--only", action="append", help="run only the steps whose name contains this (repeatable); "
+                                                     "they run even when unchanged")
+    ap.add_argument("--all", action="store_true", help="run every step, even those whose inputs are unchanged")
     ap.add_argument("--list", action="store_true", help="list the steps of each tier")
+    ap.add_argument("--plan", action="store_true", help="say which steps would run and which are unchanged, run none")
     ap.add_argument("--skip-passed", action="store_true",
                     help="quick: when this clean tree already passed quick or full, check only the commit messages")
     ap.add_argument("--install-hooks", action="store_true", help="install the pre-commit and pre-push hooks")
@@ -548,7 +1034,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"installed {path}")
         return 0
     build = Build()
-    all_steps = steps(build)
+    timing = store_path().with_name("timing.json")
+    all_steps = steps(build, read_timing(timing)["parts"])
     if args.list:
         for s in all_steps:
             print(f"{s.tier:<8} {s.name}" + ("  (also in versions)" if s.versions and s.tier != "versions" else ""))
@@ -574,9 +1061,17 @@ def main(argv: list[str] | None = None) -> int:
         if step.name == "ha-build":
             build.ok = res.status == "passed"
 
+    if args.plan:
+        try:
+            print(plan(chosen, build, step_store_path()))
+        finally:
+            build.clean()
+        return 0
     print(f"Mantel checks, {args.tier}: {len(chosen)} steps")
     try:
-        record = run(chosen, args.tier, after=after, only=only, store=store)
+        record = run(chosen, args.tier, after=after, only=only, store=store, step_store=step_store_path(),
+                     reuse=not (args.all or args.only), build=build, shared_times=store.with_name("step-times.json"),
+                     timing=timing)
     finally:
         build.clean()
     print(table(record))

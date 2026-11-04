@@ -2,7 +2,7 @@
 # Runs INSIDE the Mantel container (mantel.sh executes it with pct exec). Debian 13, as root.
 # Installs Docker + Compose, prepares the secret folder and .env, and pulls this version's published images
 # (ghcr.io/jazzphone/mantel-*:<version>), or builds them from the copied source when they are not published.
-# It does NOT start Mantel (printed at the end). Home Assistant is connected afterwards in the browser
+# It does NOT start Mantel (printed at the end; the Proxmox install, MANTEL_STARTS_IT=yes, starts it itself). Home Assistant is connected afterwards in the browser
 # (/admin -> Connections), so no token file has to be handled.
 # Idempotent: running it again keeps your .env and secret files.
 set -euo pipefail
@@ -99,6 +99,8 @@ cat > /usr/local/sbin/mantel-setup <<'EOS'
 exec bash /opt/mantel/packaging/lxc/mantel-setup.sh "$@"
 EOS
 chmod 0750 /usr/local/sbin/mantel-secret /usr/local/sbin/mantel-setup; chmod 0755 /usr/local/bin/mantel-update
+# at each boot, after Docker: a container address changed since the install is followed (mantel-setup --address)
+bash "$INSTALL_DIR/packaging/lxc/mantel-address.sh" install
 
 msg_info "Settings file ${COMPOSE_DIR}/.env (settings only; keeps yours if it exists)"
 if [ ! -f "$COMPOSE_DIR/.env" ]; then
@@ -131,6 +133,13 @@ if [ ! -f "$COMPOSE_DIR/.env" ]; then
               [ -n "$PROXY_IP" ] || warn "set MANTEL_TRUSTED_PROXY in .env to your proxy's address before the first start"
               msg_ok "HTTPS: your own proxy; Mantel publishes http://${lan_ip}:8765 for it (compose.byo-proxy.yaml)" ;;
   esac
+  # Intel QuickSync only (the transcode image carries Intel's driver): another vendor's render node stays unused.
+  # Unreadable here (no sysfs for it) means unknown: Mantel tries the GPU and falls back to the CPU if it fails.
+  gpu_vendor="$(cat /sys/class/drm/renderD128/device/vendor 2>/dev/null || true)"
+  if [ "$GPU" = "yes" ] && [ -n "$gpu_vendor" ] && [ "$gpu_vendor" != "0x8086" ]; then
+    warn "the GPU is not Intel (PCI vendor ${gpu_vendor}); Live TV transcodes on Intel QuickSync only, so it uses the CPU"
+    GPU=no
+  fi
   if [ "$GPU" = "yes" ] && [ -c /dev/dri/renderD128 ]; then
     rgid="$(getent group render | cut -d: -f3)"
     add_compose_file compose.gpu.yaml
@@ -142,6 +151,11 @@ if [ ! -f "$COMPOSE_DIR/.env" ]; then
     printf '%s\n' "MANTEL_CONNECT_ADDRESS=${lan_ip}:8766" >> "$COMPOSE_DIR/.env"
     msg_ok "Mantel Connect: compose.connect.yaml enabled (port 8766); pair it after the first start"
   fi
+  # Home Assistant finds Mantel by itself (Mantel Link's "Discovered: Mantel"): the announcer, on the host's network
+  # (compose.announce.yaml). MANTEL_ANNOUNCER=off in .env takes it out again at the next update.
+  add_compose_file compose.announce.yaml
+  printf '%s\n' "MANTEL_ANNOUNCER=on" >> "$COMPOSE_DIR/.env"
+  msg_ok "Announced on your network for Home Assistant's Mantel Link (compose.announce.yaml)"
   chmod 0640 "$COMPOSE_DIR/.env"
   # the nightly backup's folder (MANTEL_BACKUP_DIR defaults to ./backups): Docker would create it root-owned,
   # and the server runs as uid 10001
@@ -152,6 +166,7 @@ fi
 set_env() {  # set_env KEY VALUE: replace KEY's line in .env, or add it
   if grep -q "^$1=" "$COMPOSE_DIR/.env"; then sed -i "s|^$1=.*|$1=$2|" "$COMPOSE_DIR/.env"; else printf '%s=%s\n' "$1" "$2" >> "$COMPOSE_DIR/.env"; fi
 }
+set_env MANTEL_INSTALL lxc   # About (the update check) tells the LXC from plain Docker by this
 pull_published() {  # this version's three published images; all of them or none
   [ -n "$VERSION" ] || { warn "no version found in packaging/ha-app/config.yaml"; return 1; }
   local image
@@ -176,6 +191,12 @@ fi
 if [ "$MODE" = "build" ]; then
   msg_info "Building the images from the copied source (several minutes)"
   ( cd "$COMPOSE_DIR" && docker compose build ) || warn "the build failed. If it names a sha256:0000 digest, pin the base images (docs/phase3/PACKAGING.md), then run: cd $COMPOSE_DIR && docker compose build"
+fi
+
+# the Proxmox install (packaging/proxmox/install) asks how browsers reach Mantel and starts it itself
+if [ "${MANTEL_STARTS_IT:-no}" = yes ]; then
+  printf '\nInstalled. The Proxmox install asks how browsers reach Mantel (mantel-setup) and starts it next.\n'
+  exit 0
 fi
 
 cat <<EOF

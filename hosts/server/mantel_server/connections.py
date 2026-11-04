@@ -77,7 +77,7 @@ from aiohttp import web
 
 from . import atrest, audit
 from .accounts import STEP_UP_WINDOW, read_json
-from .guards import guard
+from .guards import guard, open_route
 from .guards import ident as guarded
 from .sessions import Identity, error, ok
 
@@ -469,6 +469,12 @@ class Connections:
             return Current(kind, "install", url, token)
         return None
 
+    def expiring(self) -> list[tuple[str, str, float | None]]:
+        """(kind, name, when its credential expires) for each saved connection (the alerts' token.expiring; only MA's
+        sign-in tokens say when today)."""
+        names = {"ha": "Home Assistant", "ma": "Music Assistant"}
+        return [(k, names.get(k, k), rec.expires) for k, rec in self.own.items() if rec is not None]
+
     def ha_token(self) -> str:
         cur = self.current("ha")
         return cur.token if cur is not None else ""
@@ -582,9 +588,11 @@ def status(app: web.Application, kind: str) -> dict:
 
 
 # -- REST ----------------------------------------------------------------------------------------------------
-def edit_rule(request: web.Request, ident: Identity) -> str:
-    """'ok' | 'fresh' (a fresh factor is needed first) | 'owner_only'."""
-    if ident.user is None or ident.device is not None or ident.user.role != "owner":
+def edit_rule(request: web.Request, ident: Identity, *, admins: bool = False) -> str:
+    """'ok' | 'fresh' (a fresh factor is needed first) | 'owner_only'. ``admins``: an Admin changes it too (the
+    cameras' setup, camera_setup.py, 2026-11-02: an Admin adds a camera, but from away from home asks for the same
+    fresh factor an Owner's change to a connection does); the door and freshness rules are the same."""
+    if ident.user is None or ident.device is not None or ident.user.role not in (("owner", "admin") if admins else ("owner",)):
         return "owner_only"
     if ident.door == "lan":
         return "ok"
@@ -666,7 +674,7 @@ class MaSuggester:
         return found
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_status(request: web.Request) -> web.Response:
     ident = guarded(request)
     rule = edit_rule(request, ident)
@@ -817,6 +825,9 @@ def _page(title: str, body: str, status_code: int = 200) -> web.Response:
     return page(title, body, status_code)
 
 
+@open_route("one_time_code", reads="none",
+            why="Connect to Home Assistant's OAuth return: its signed single-use state, made by an Owner's guarded "
+                "/api/connections/ha/oauth/start; it answers a page and saves nothing")
 async def oauth_callback(request: web.Request) -> web.StreamResponse:
     """HA sends the browser back here (public: SameSite=Strict session cookies are not sent on that hop).
     The state names a pending connection an Owner started; nothing is saved here."""
@@ -870,7 +881,7 @@ def _pending_of(request: web.Request, ident: Identity, pid: str) -> Pending | No
     return p
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_pending(request: web.Request) -> web.Response:
     ident = guarded(request)
     p = _pending_of(request, ident, request.match_info["pid"])

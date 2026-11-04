@@ -34,6 +34,7 @@
 //   kind: 'glance' | 'month' | 'day' | 'weather'; look (Day): 'auto' |
 //   'light' | 'dark'; clocks: window.hkSaverClock (Glance's clock); onReadings(n) (Big Weather): how many
 //   readings its bottom row has, whenever that changes
+// @ts-check
 (function () {
   'use strict';
   if (window.hkSaverFaces) return;
@@ -54,7 +55,9 @@
     '.hkf .in{position:absolute;inset:0}',
     // GLANCE: the date top left, the clock top right, what's playing bottom left, the weather bottom right
     '.hkf.glance .ckbg{background:linear-gradient(160deg,#a9bcc6,#8fa5b1)}',
-    '.hkf.glance .in{display:grid;grid-template-columns:1fr auto;grid-template-rows:1fr auto;padding:7.3cqmin 8.5cqmin;box-sizing:border-box;gap:4cqmin}',
+    // (the screen's one margin, 6 % of its shorter side, as the pieces around it have it: the date's left edge on the
+    // corners' left edge, the clock's right edge on Home Status's -- 2026-11-02)
+    '.hkf.glance .in{display:grid;grid-template-columns:1fr auto;grid-template-rows:1fr auto;padding:6cqmin;box-sizing:border-box;gap:4cqmin}',
     '.hkf.glance .dt{align-self:start;line-height:1}',
     '.hkf.glance .dw{font-size:7.8cqmin;font-weight:600}',
     '.hkf.glance .dn{font-size:28cqmin;font-weight:600;letter-spacing:-.035em;margin-left:-.04em}',
@@ -66,7 +69,11 @@
     '.hkf.glance .mu .t{font-size:2.7cqmin;font-weight:700;text-transform:uppercase;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.hkf.glance .mu .a{font-size:2.45cqmin;font-weight:500;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.hkf.glance .mu .st{font-size:2.45cqmin;font-weight:600;background:rgba(255,255,255,.25);padding:1.2cqmin 2.2cqmin;border-radius:999px;width:max-content}',
-    '.hkf.glance .wx{align-self:end;justify-self:end;text-align:left;margin-right:6cqmin;line-height:1}',
+    // (each in its own cell, whatever plays: the music under the date, the weather under the clock, its left edge on the
+    // clock's -- 2026-11-02, the owner: "what is it doing? Why is it right there?" With nothing playing the music's cell
+    // was given to the weather, which then stood at that column's right end, a third of the way across, aligned to nothing)
+    '.hkf.glance .mu{grid-column:1;grid-row:2}',
+    '.hkf.glance .wx{align-self:end;justify-self:start;text-align:left;line-height:1;grid-column:2;grid-row:2}',
     '.hkf.glance .wx .p{font-size:2.9cqmin;font-weight:600}',
     '.hkf.glance .wx .v{font-size:20.7cqmin;font-weight:500;letter-spacing:-.035em}',
     '.hkf.glance .wx .c{font-size:2.9cqmin;font-weight:600;line-height:1.4}',
@@ -87,16 +94,19 @@
     '.hkf.day .art{position:absolute;inset:0;pointer-events:none}',
     '.hkf.day .art img,.hkf.day .art svg{position:absolute;display:block}',
     '.hkf.day .art .frame{inset:0;width:100%;height:100%;object-fit:cover}',
-    '.hkf.day .wd{position:absolute;left:0;right:0;top:7.3cqmin;text-align:center;font:400 10.2cqmin/1 ' + HAND + ';letter-spacing:.07em;margin-right:-.07em;text-transform:uppercase}',
+    // (the day's name sits on its numeral, one group -- 2026-11-02, the owner: "should we lower Monday closer to the
+    // number?" -- 4.8 cqmin over the numeral's figure; the top band is the corners')
+    '.hkf.day .wd{position:absolute;left:0;right:0;top:17.4cqmin;text-align:center;font:400 10.2cqmin/1 ' + HAND + ';letter-spacing:.07em;margin-right:-.07em;text-transform:uppercase}',
     '.hkf.day .dn{position:absolute;left:0;right:0;top:18.3cqmin;text-align:center;font:400 68cqmin/1 ' + HAND + '}',
     '.hkf.day .art .pk{position:absolute;left:19.5%;top:68%;width:22cqmin;height:20cqmin;transform:translate(-50%,-50%)}',
     // (clear of the screensaver's corner where its words would meet them: hk-saver.js dayFit)
     '.hkf.day .wd{translate:0 var(--hk-day-push,0px)}',
+    '.hkf.day.artonly .wd,.hkf.day.artonly .dn{display:none}',
     '.hkf.day .dn{translate:0 var(--hk-day-push-dn,0px);scale:var(--hk-day-scale,1);transform-origin:50% 0}',
     // (a face nearly square -- beside the Side Pane -- has its date wider than the pumpkin's room at its left: the
     // pumpkin in the corner under it, right)
     '@container (0.8 <= aspect-ratio < 1.25){.hkf.day .art .pk{left:86%;top:89%;width:17cqmin;height:15cqmin}}',
-    '@container (aspect-ratio < 0.8){.hkf.day .dn{top:30cqh}.hkf.day .art .pk{left:26%;top:84%}}',
+    '@container (aspect-ratio < 0.8){.hkf.day .dn{top:30cqh}.hkf.day .wd{top:calc(30cqh - 0.9cqmin)}.hkf.day .art .pk{left:26%;top:84%}}',
     // THE DAY'S ART, MOVING (2026-10-31, the owner: "bats flying, leaves falling"): each picture's own translate,
     // rotate and scale (they add to its placing transform), so the compositor runs them -- leaves, petals and snow
     // fall from above the face to below it through their places, swaying and turning; bats fly across it with their
@@ -727,7 +737,10 @@
       }
     };
     // (groundOnly: the face's ground and nothing on it -- the Screensaver editor's layout puts its own things there)
-    var tick = opts.groundOnly ? function () {} : BUILD[kind](root, inn, x);
+    // (...the Day face's art is its ground too: drawn under a layout, its words left out -- phase 13, the Day's Art was
+    // blank under a layout)
+    var tick = opts.groundOnly && kind !== 'day' ? function () {} : BUILD[kind](root, inn, x);
+    if (opts.groundOnly && kind === 'day') root.classList.add('artonly');
     var paint = function () { if (!dead) { try { tick(new Date()); } catch (e) { console.warn('[hk-saverfaces]', kind, e && e.message); } } };
     x.paint = paint;
     paint();

@@ -1832,7 +1832,7 @@
     if (l || r || b) de.setAttribute('hk-pane', l ? 'left' : r ? 'right' : 'band'); else de.removeAttribute('hk-pane');
     // (a swipe that carried the tab bar there already: its edges move now with no glide, and the offset the finger
     // gave it goes in the same frame -- where it is drawn does not move; FOLLOW below)
-    if (FOLLOW.landed) handOver(de);
+    if (FOLLOW.landed) handOver();
     try { window.dispatchEvent(new Event('hk-pane')); } catch (e) { /* no listeners */ }
   }
   // WITH THE FINGER (2026-11-01, the owner: "if I swipe half way, the side pane and navbar should also move in motion
@@ -1862,14 +1862,18 @@
     var k = paneChange(toPath), w = k && dash ? parseFloat(dash.style.width) || dash.getBoundingClientRect().width || 0 : 0;
     return w ? { side: dash.getAttribute('side'), grow: k * w } : null;
   }
+  // THE BAR'S OWN (hk-tabbar.js reads --hk-pane-shift and --hk-pane-glide, and nothing else does): set on <html>, a
+  // custom property every element inherits, each frame of a swipe restyled the whole document -- every card's shadow
+  // tree -- and the swipes between Home and the Pages screen dropped frames (2026-11-02, the owner: "stutter")
+  function barHost() { return document.getElementById('hk-tabbar'); }
   function followDraw(p) {
-    var de = document.documentElement, k = FOLLOW.going, side = dash && dash.getAttribute('side');
+    var bar = barHost(), k = FOLLOW.going, side = dash && dash.getAttribute('side');
     if (!k || !dash) return;
     var out = k > 0 ? p : 1 - p, sign = side === 'left' ? -1 : 1;
     dash.style.opacity = String(1 - out);
     dash.style.transform = 'translateX(' + (sign * out * DRIFT).toFixed(1) + 'px)';
     // (the bar's middle: half the pane's width toward the pane's side as it goes, back as it comes)
-    de.style.setProperty('--hk-pane-shift', (k * p * FOLLOW.shift).toFixed(1) + 'px');
+    if (bar) bar.style.setProperty('--hk-pane-shift', (k * p * FOLLOW.shift).toFixed(1) + 'px');
   }
   function follow(p, toPath) {
     if (stillMotion()) return;
@@ -1901,19 +1905,20 @@
     FOLLOW.tween = requestAnimationFrame(step);
     // (a page that never lands -- a slow host -- leaves nothing behind)
     clearTimeout(FOLLOW.giveUp);
-    FOLLOW.giveUp = setTimeout(function () { if (FOLLOW.landed) handOver(document.documentElement); }, 3000);
+    FOLLOW.giveUp = setTimeout(function () { if (FOLLOW.landed) handOver(); }, 3000);
   }
-  function handOver(de) {
+  function handOver() {
     FOLLOW.landed = false;
     clearTimeout(FOLLOW.giveUp);
     cancelAnimationFrame(FOLLOW.tween);
-    de.style.setProperty('--hk-pane-glide', '0s');
+    var bar = barHost();
+    if (bar) bar.style.setProperty('--hk-pane-glide', '0s');
     unfollow();
-    requestAnimationFrame(function () { requestAnimationFrame(function () { de.style.removeProperty('--hk-pane-glide'); }); });
+    requestAnimationFrame(function () { requestAnimationFrame(function () { if (bar) bar.style.removeProperty('--hk-pane-glide'); }); });
   }
   function unfollow() {
-    var de = document.documentElement;
-    de.style.removeProperty('--hk-pane-shift');
+    var bar = barHost();
+    if (bar) bar.style.removeProperty('--hk-pane-shift');
     if (dash) { dash.style.opacity = ''; dash.style.transform = ''; dash.removeAttribute('peek'); }
     FOLLOW.to = null; FOLLOW.going = 0; FOLLOW.p = 0;
   }

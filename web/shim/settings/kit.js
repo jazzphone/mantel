@@ -1,4 +1,5 @@
 // settings/kit.js -- what every page draws with: HK Settings' kit for Mantel, fields and drafts, styles, the Confirm It Is You dialog.
+// @ts-check
 import { mantelUrl, base as BASE } from '../base.js';
 import * as photos from '../mantel-photos.js';
 import { act, api, ApiError, drafts, hh, K, me, panel, redraw, ROUTE, ui } from './core.js';
@@ -66,8 +67,18 @@ const STYLE = [
   '.mxfile{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}',
   // a backup's row (backups.js): Download and Delete at its end
   '.mxbk{display:flex;gap:18px;margin-left:auto;flex:none}',
+  // a backup's upload (backups.js drawUpload): the bar under its row
+  '.cell.mxbar{display:block;padding:4px 16px 14px}.cell.mxbar progress{width:100%;height:6px;accent-color:var(--hk-tint)}',
+  // a long address in a text row (intercom.js): on a phone the label takes its own line and the box the whole width under it
+  '@media (max-width:640px){.cell.textrow.mxaddr{flex-wrap:wrap}.cell.textrow.mxaddr .lbl{flex:1 1 100%}',
+  '  .cell.textrow.mxaddr input.tx{flex:1 1 100%;text-align:left;padding-top:2px}}',
   '.mxlink{border:0;background:none;padding:6px 0;font:inherit;font-size:17px;color:var(--hk-tint);cursor:pointer}',
   '.mxlink.red{color:var(--hk-red)}',
+  // a channel's status dot (alerts.js): green sent, red failing, gray off or never sent
+  '.mxdot{flex:none;width:22px;height:22px;display:flex;align-items:center;justify-content:center}',
+  ".mxdot::before{content:'';width:10px;height:10px;border-radius:50%;background:var(--hk-gray)}",
+  '.mxdot.ok::before{background:var(--hk-green)}',
+  '.mxdot.bad::before{background:var(--hk-red)}',
   '.mxdlg .mxin{display:block;box-sizing:border-box;width:calc(100% - 32px);height:36px;margin:0 16px 16px;padding:0 10px;border:0;',
   '  border-radius:8px;background:var(--hk-fill);color:var(--hk-label);font:inherit;font-size:17px;text-align:center;letter-spacing:.2em;outline:none}',
   '.mxdlg .mxin:focus{box-shadow:0 0 0 2px var(--hk-tint)}',

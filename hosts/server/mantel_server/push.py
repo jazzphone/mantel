@@ -86,29 +86,32 @@ def _origin(url: str) -> str:
 
 # -- storage --------------------------------------------------------------------------------------
 class Targets:
-    COLS = "id, user_id, kind, endpoint, p256dh, auth, app_id, env, name, created, last_ok, failures"
+    COLS = "id, user_id, kind, endpoint, p256dh, auth, app_id, env, name, created, last_ok, failures, platform"
 
     def __init__(self, db: sqlite3.Connection, clock: Callable[[], float] = time.time) -> None:
         self.db = db
         self.clock = clock
 
     def add(self, user_id: str, kind: str, endpoint: str, p256dh: str, auth: str | None = None, *,
-            name: str | None = None, app_id: str | None = None, env: str | None = None) -> str:
+            name: str | None = None, app_id: str | None = None, env: str | None = None,
+            platform: str | None = None) -> str:
         """Add (or move to this person, refreshing the keys) one target; returns its id."""
         now = self.clock()
         with self.db:
             row = self.db.execute("SELECT id FROM push_targets WHERE endpoint = ?", (endpoint,)).fetchone()
             if row is not None:
                 self.db.execute("UPDATE push_targets SET user_id=?, kind=?, p256dh=?, auth=?, app_id=?, env=?, name=?, "
-                                "failures=0 WHERE id=?", (user_id, kind, p256dh, auth, app_id, env, name, row["id"]))
+                                "platform=?, failures=0 WHERE id=?",
+                                (user_id, kind, p256dh, auth, app_id, env, name, platform, row["id"]))
                 return row["id"]
             count = self.db.execute("SELECT COUNT(*) FROM push_targets WHERE user_id = ?", (user_id,)).fetchone()[0]
             if count >= TARGETS_PER_USER:       # the oldest goes: a person does not have 20 live browsers
                 self.db.execute("DELETE FROM push_targets WHERE id = (SELECT id FROM push_targets WHERE user_id = ? "
                                 "ORDER BY COALESCE(last_ok, created) LIMIT 1)", (user_id,))
             tid = secrets.token_hex(12)
-            self.db.execute("INSERT INTO push_targets (id, user_id, kind, endpoint, p256dh, auth, app_id, env, name, created) "
-                            "VALUES (?,?,?,?,?,?,?,?,?,?)", (tid, user_id, kind, endpoint, p256dh, auth, app_id, env, name, now))
+            self.db.execute("INSERT INTO push_targets (id, user_id, kind, endpoint, p256dh, auth, app_id, env, name, created, "
+                            "platform) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                            (tid, user_id, kind, endpoint, p256dh, auth, app_id, env, name, now, platform))
             return tid
 
     def remove(self, target_id: str, user_id: str | None = None) -> bool:
@@ -182,9 +185,12 @@ class Message:
     snap: str | None = None
     camera: str | None = None
     id: str | None = None
+    category: str | None = None        # "system": a system alert (docs/phase14/SYSTEM-ALERTS.md), its own thread
+    level: str | None = None           # a system alert's: info (passive), warning, critical (time-sensitive)
 
     def web_payload(self) -> bytes:
-        out = {"title": self.title, "body": self.body, "tag": self.tag, "url": self.url, "important": self.important}
+        out = {"title": self.title, "body": self.body, "tag": self.tag, "url": self.url, "important": self.important,
+               "category": self.category}
         return json.dumps({k: v for k, v in out.items() if v is not None}, separators=(",", ":")).encode()
 
     @classmethod
@@ -216,6 +222,7 @@ class Pusher:
         self.tasks: set[asyncio.Task] = set()
         self.log: list[dict] = []          # the last few deliveries
         self.http = None                   # the HTTP session to send with (default: the app's)
+        self.listeners: list[Callable[[dict[str, int]], None]] = []    # each delivery's counts (push.failing)
 
     # -- the VAPID key (app_crypto.made_key_path) ------------------------------------------------------------
     def vapid(self):
@@ -299,6 +306,11 @@ class Pusher:
             # "unreachable" (an outage) and "skipped" leave the target as it was
             counts[result] = counts.get(result, 0) + 1
         self.log = (self.log + [{"at": time.time(), "title": msg.title, **counts}])[-20:]
+        for cb in self.listeners:
+            try:
+                cb(counts)
+            except Exception:  # noqa: BLE001
+                log.exception("push listener failed")
         return counts
 
     def forget_app(self, app_id: str) -> None:
@@ -374,7 +386,7 @@ def pusher_of(request: web.Request) -> Pusher:
 
 # a person's own notification targets (Me → Notifications), a person at a wall tablet too; each change audited
 # first, naming the push service by its host only (the endpoint is a credential of sorts, never logged)
-@guard("person", device_ok=True)
+@guard("person", device_ok=True, reads="none", why="the server's public Web Push key")
 async def web_key(request: web.Request) -> web.Response:
     return ok({"key": pusher_of(request).vapid_public()})
 
@@ -420,7 +432,7 @@ async def web_unsubscribe(request: web.Request) -> web.Response:
     return ok()
 
 
-@guard("person", device_ok=True)
+@guard("person", device_ok=True, reads="self")
 async def list_targets(request: web.Request) -> web.Response:
     ident = guarded(request)
     return ok({"targets": [public_json(t) for t in pusher_of(request).targets.of_user(ident.user.id)]})

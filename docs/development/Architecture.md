@@ -212,9 +212,28 @@ door and the source address. If it cannot be written the route answers 503 `audi
 nothing. Where a change is worked out inside a model (a passkey verified, a photo processed, a Service credential
 named), the model takes a `before` callback that writes the row between the checks and the write.
 
-`tests/test_route_guards.py` builds the whole app and walks its router: each route has a guard or is on a short
-list with its reason (sign-in, the app's DPoP routes, `/linked/*`, the media proxy, static files, health). Each
-guard on POST, PUT, PATCH or DELETE names its audit or says why it has none.
+### One route table (phase 18)
+
+Every audit found the same bug: a new door to an old thing, checked less than the old door. So the guard says more
+than who may call a route, and the app builds one table from every declaration (`route_table.py`, generated into
+[Routes](Routes.md) and `tests/fixtures/route_table.lock.json` by `tools/route_table.py --write`):
+
+- `reads`, required on every GET: `view` (each entity, camera, speaker or photo in the answer passes `authz` for this
+  person), `feature:<name>` (the feature grant), `self` (only the caller's own records), `admin` (an Owner's or
+  Admin's settings; never for any session), `none` (no house data; `why=` says so).
+- `stream`: `none`, `bounded:<cap>`, or `live:<kind>`, a kind in `live.KINDS` whose entries a revocation closes.
+- `preview`: whether a read-only screen preview (`mcp/preview.py`) may fetch it; `auth.preview_allows` reads it.
+- A route not called with a session declares `@open_route(kind, why=...)`: `sign_in`, `app_dpop` (proved: wrapped by
+  `app_auth.app_route`), `link_credential`, `one_time_code`, `proxy` (proved: calls `MediaProxy.authorize`),
+  `mcp_bearer`, `oauth`, `static`, `public` (only the three health routes).
+- An assistant's write tool names the route it parallels (`like=`) or why there is none (`no_route=`), and its own
+  `who` and `door`, enforced on every call (`mcp_parity.check`); `route_table` refuses a tool looser than its route.
+
+`build_app` ends with `route_table.install(app)`: a route that is undeclared, a GET with no `reads`, a handler that
+opens a stream and says `stream="none"`, a write tool with no `like=`, a public address not on `SIGNED_OUT`, a route
+another pattern shadows, and the rest of R1-R12 raise `RouteTableError`, and Mantel exits before it listens.
+`tools/route_probe.py --diff <rev>` sends every route a request as nine principals on two doors and prints what
+answers differently from `<rev>`: a change that should change no answer prints nothing.
 
 ## Page health and the Performance page
 

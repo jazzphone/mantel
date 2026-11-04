@@ -56,8 +56,10 @@ load(HK_ROOT + '/frontend/cards/hk-energy.js');
 load(HK_ROOT + '/frontend/cards/hk-home.js');
 load(HK_ROOT + '/frontend/cards/hk-media.js');
 load(HK_ROOT + '/frontend/cards/hk-cameras.js');
+load(HK_ROOT + '/frontend/cards/hk-intercom.js');
 load(HK_ROOT + '/frontend/modules/hk-sidepane.js');
 load(HK_ROOT + '/frontend/cards/hk-calendar.js');
+load(HK_ROOT + '/frontend/cards/hk-layout.js');      // hk-key-card: the stand-in of a block this host doesn't have (Recent)
 load(HK_ROOT + '/frontend/cards/hk-grid-catalog.js');
 load(HK_ROOT + '/frontend/cards/hk-grid-cards.js');
 
@@ -199,6 +201,7 @@ function block(key, size, cellName, extra) {
 // controls and has no plate of its own between them, or its plate IS a control whose tap does the block's work.
 // (The WebKit click-through, tools/headless/block_taps_check.py, holds the same list and taps the real thing.)
 var NO_TAP = {
+  timeline: 'Recent is the House Timeline\'s, which this host doesn\'t keep: a stand-in that opens nothing (hk-timeline-block.js on a host with the page)',
   accessory: 'the whole block is the accessory\'s control: a tap toggles it, a hold opens its sheet',
   accessories: 'the block is its tiles, each a control: a tap toggles it, a hold opens its sheet',
   scene: 'the whole block is the scene\'s control: a tap runs it',
@@ -209,7 +212,8 @@ var NO_TAP = {
   'vacuum XL': 'the block is the vacuum card itself at its larger sizes: its own listener opens the vacuum\'s sheet (hk-home.js)',
   camera: 'the picture is the control: a tap opens the camera, live (hk-cameras.js)',
   cameras: 'the block is its camera tiles, each a control: a tap opens that camera, live (hk-cameras.js)',
-  'energy_rings S': 'Small is its own switch: a tap changes the period (the owner\'s mock-up)'
+  'energy_rings S': 'Small is its own switch: a tap changes the period (the owner\'s mock-up)',
+  intercom: 'inside Home Assistant the Intercom has no server to talk to: the block only says it needs one (hk-intercom.js)'
 };
 function noTap(key, size) { return NO_TAP[key + ' ' + size] || NO_TAP[key] || null; }
 

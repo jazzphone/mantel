@@ -47,6 +47,7 @@ FEATURE_DOMAINS: dict[str, frozenset[str]] = {
     "locations": frozenset({"person", "device_tracker"}),
     "garage": frozenset(),         # covers whose device_class is garage/gate (see GARAGE_CLASSES)
     "music": frozenset(),
+    "intercom": frozenset(),       # speaking into rooms through their speakers (docs/phase17/INTERCOM.md)
     "energy": frozenset(),
     "notifications": frozenset(),
     "live_tv": frozenset(),        # the Live TV page and its streams (live_tv.py); each channel also needs its camera
@@ -58,6 +59,7 @@ FEATURE_DOMAINS: dict[str, frozenset[str]] = {
     "owners": frozenset(),         # managing Owner accounts
     "credentials": frozenset(),    # HA / MA credentials, secrets
     "audit": frozenset(),
+    "timeline": frozenset(),       # the House Timeline's page (phase 19); each row still needs its own entity's view
 }
 FEATURES = tuple(FEATURE_DOMAINS)
 GARAGE_CLASSES = frozenset({"garage", "gate"})
@@ -489,6 +491,7 @@ DEFAULT_ROLES: dict[str, Role] = {r.name: r for r in (
     Role("wall_tablet", (
         _g("allow", ("view", "control", "control.sensitive", "history"), "area", SUBJECT_AREAS,
            note="what its room's dashboard shows; more by entity grants"),
+        _g("allow", "view", "feature", "timeline", note="the Timeline's limited view: no names, no search"),
     ), label="Wall Tablet"),
     Role("service", (), label="Service"),
 )}

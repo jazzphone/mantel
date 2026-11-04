@@ -13,6 +13,7 @@
 // Every lookup is made fresh on each call (the host's page changes under it),
 // and every global (window, document, history, CustomEvent) is read at call
 // time, never captured.
+// @ts-check
 (function (global) {
   'use strict';
   if (global.hkShell) return;
@@ -84,6 +85,11 @@
     // the host's own pages to list in HK's menu, as [{ title, icon, href }] (a full page load to `href`):
     // the host's settings page for those who may use it. Empty for a host with none (Home Assistant has its own).
     hostMenu: function () { return []; },
+    // A PAGE ONLY THE HOST HAS: hostPage('timeline') is true when this host serves it and this person may open
+    // it (Mantel's House Timeline: its own record of what happened, which Home Assistant has no copy of). The
+    // generated screens list such a page only then. It decides what is listed; what a person may read stays
+    // the host's. Home Assistant: false.
+    hostPage: function () { return false; },
     // THE HOST'S OWN SETTINGS beside HK's in the settings panel, or null for a
     // host with none (Home Assistant: HK Settings shows HK's own only). See
     // web/hk/panels/hk-settings.js "THE HOST'S SETTINGS" for its shape.
@@ -160,6 +166,12 @@
     // HK Frontend in Home Assistant, the host's own name elsewhere (Mantel).
     // Labels only: no saved value or key ever carries it.
     productName: function () { return 'HK Frontend'; },
+    // THE SETTINGS' NAME where HK's screens send someone to them ("Add some
+    // in HK Settings → Pages → Live TV"): HK Settings in Home Assistant,
+    // the host's own settings elsewhere (Mantel Settings, which holds HK's
+    // pages under the same names). settingsPlace(path) says a place in them.
+    settingsName: function () { return 'HK Settings'; },
+    settingsPlace: function (path) { return this.settingsName() + ' \u2192 ' + path; },
     // A PLACE IN HOME ASSISTANT'S OWN SETTINGS, as HK's texts give it (HK
     // Frontend's integration: 'Devices & Services → HK Frontend → Add
     // feature'): Home Assistant says it as it is; a host outside it says the
@@ -188,9 +200,9 @@
   KINDS.forEach(function (k) { NONE.tags[k] = null; });
 
   // the capabilities a throwing host answers no to (not null)
-  var FALSE = { hostDetail: 1, openHostDetail: 1, hostToast: 1, openHaMenu: 1 };
+  var FALSE = { hostDetail: 1, openHostDetail: 1, hostToast: 1, openHaMenu: 1, hostPage: 1 };
   // and the words a throwing host leaves as HK's own (the defaults')
-  var WORDS = { productName: 1, haPlace: 1, haName: 1 };
+  var WORDS = { productName: 1, settingsName: 1, settingsPlace: 1, haPlace: 1, haName: 1 };
   var impl = NONE, tags = Object.assign({}, NONE.tags), events = Object.assign({}, NONE.events);
   function get(name) { return impl[name] !== undefined ? impl[name] : NONE[name]; }
 
@@ -222,8 +234,8 @@
 
   ['root', 'overlayRoot', 'main', 'mainRoot', 'drawer', 'sidebar', 'resolver', 'panel', 'dashboard',
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
-   'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'haNav', 'haNavigate', 'openHaMenu', 'hostMenu', 'settingsHost', 'holdWrites', 'menuButton',
-   'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'photoSource', 'listPhotos', 'artSized', 'productName', 'haPlace',
+   'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'haNav', 'haNavigate', 'openHaMenu', 'hostMenu', 'hostPage', 'settingsHost', 'holdWrites', 'menuButton',
+   'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'photoSource', 'listPhotos', 'artSized', 'productName', 'settingsName', 'settingsPlace', 'haPlace',
    'haName', 'docsUrl', 'notHouseCameraPlatforms', 'tabletRoom', 'atTablet'].forEach(function (name) {
     shell[name] = function () {
       try { return get(name).apply(shell, arguments); } catch (e) {

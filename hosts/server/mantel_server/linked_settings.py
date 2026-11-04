@@ -194,7 +194,7 @@ class LinkedSettings:
 
 
 # -- setup: REST ------------------------------------------------------------------------------------
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_get(request: web.Request) -> web.Response:
     ls: LinkedSettings = request.app["linked_settings"]
     try:

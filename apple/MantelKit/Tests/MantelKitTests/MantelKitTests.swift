@@ -42,6 +42,19 @@ enum AnyCodableValue: Decodable {
     #expect(throws: (any Error).self) { try f.sealed.open(with: P256.KeyAgreement.PrivateKey()) }
 }
 
+@Test func aSystemAlertHasItsOwnThreadAndItsLevelsInterruption() throws {
+    let lost = SealedNotification.Content(title: "Home Assistant disconnected", tag: "system:ha.lost:",
+                                          category: "system", level: "critical")
+    #expect(lost.isSystem && lost.thread == "mantel.system" && lost.interruption == .timeSensitive)
+    let update = SealedNotification.Content(title: "Mantel 0.1.115 is available", category: "system", level: "info")
+    #expect(update.interruption == .passive)
+    let door = SealedNotification.Content(title: "Front Door", tag: "door", important: true)
+    #expect(!door.isSystem && door.thread == "door" && door.interruption == .timeSensitive)
+    let json = Data(#"{"title":"Backup failed","category":"system","level":"warning"}"#.utf8)
+    let decoded = try JSONDecoder().decode(SealedNotification.Content.self, from: json)
+    #expect(decoded.isSystem && decoded.interruption == .active)
+}
+
 @Test func helloProvesThePinnedHouse() throws {
     let f = try Fixture.load()
     _ = try f.hello.verify(fingerprint: f.hello.fingerprint, nonce: f.hello.nonce!)
@@ -99,4 +112,40 @@ enum AnyCodableValue: Decodable {
     #else
     #expect(PairingLink.httpsURL("http://192.168.2.100:8766") == nil)
     #endif
+}
+
+// THE MICROPHONE (docs/phase17/INTERCOM.md, "The apps"): the app's web view records for the paired house's https page only
+@Test func theMicrophoneIsForTheHousesHttpsOriginOnly() {
+    let local = URL(string: "https://mantel.example.com")
+    let remote = URL(string: "https://away.example.com:8443")
+    let http = URL(string: "http://10.0.0.5:8765")
+    let house = [local, remote, http]
+    // the house's own https origins, with WebKit's 0 or nil for a default port
+    #expect(MediaPermission.allowsMicrophone(scheme: "https", host: "mantel.example.com", port: 0, house: house))
+    #expect(MediaPermission.allowsMicrophone(scheme: "https", host: "mantel.example.com", port: nil, house: house))
+    #expect(MediaPermission.allowsMicrophone(scheme: "https", host: "mantel.example.com", port: 443, house: house))
+    #expect(MediaPermission.allowsMicrophone(scheme: "HTTPS", host: "Away.Example.com", port: 8443, house: house))
+    // another port, another host, a lookalike, a parent domain
+    #expect(!MediaPermission.allowsMicrophone(scheme: "https", host: "mantel.example.com", port: 8443, house: house))
+    #expect(!MediaPermission.allowsMicrophone(scheme: "https", host: "away.example.com", port: 443, house: house))
+    #expect(!MediaPermission.allowsMicrophone(scheme: "https", host: "example.com", port: 0, house: house))
+    #expect(!MediaPermission.allowsMicrophone(scheme: "https", host: "mantel.example.com.evil.test", port: 0, house: house))
+    // never plain http, not even the house's own address, and not a scheme the house is not on
+    #expect(!MediaPermission.allowsMicrophone(scheme: "http", host: "10.0.0.5", port: 8765, house: house))
+    #expect(!MediaPermission.allowsMicrophone(scheme: "http", host: "mantel.example.com", port: 80, house: house))
+    #expect(!MediaPermission.allowsMicrophone(scheme: "https", host: "10.0.0.5", port: 8765, house: house))
+    // nothing paired, nothing asked
+    #expect(!MediaPermission.allowsMicrophone(scheme: "https", host: "mantel.example.com", port: 0, house: [nil, nil]))
+    #expect(!MediaPermission.allowsMicrophone(scheme: "https", host: "", port: 0, house: house))
+}
+
+@Test func theAppSaysWhyItUsesTheMicrophone() throws {
+    // apple/MantelKit/Tests/MantelKitTests/MantelKitTests.swift -> apple/Config/Mantel-Info.plist
+    let file = URL(fileURLWithPath: #filePath)
+    let plist = file.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().appendingPathComponent("Config/Mantel-Info.plist")
+    let info = try #require(try PropertyListSerialization.propertyList(from: Data(contentsOf: plist), format: nil) as? [String: Any])
+    let why = try #require(info["NSMicrophoneUsageDescription"] as? String)
+    #expect(!why.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    #expect(info["NSCameraUsageDescription"] is String)      // (the pairing scan; unchanged)
 }

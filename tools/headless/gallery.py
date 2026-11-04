@@ -189,11 +189,30 @@ class FictionalFeatures:
     def house_part(self):
         return self.client_part(None)
 
+    # Advanced -> Features as a Mantel-held house tells it (panel/get's `features` and `features_auto`): Mantel
+    # turned Music and Clean Areas on by itself, Live TV is off with a note on what it still needs
+    ADDED = ("hk_music", "hk_clean_areas")
+    AUTO = {"hk_music": {"at": "2026-11-04T15:00:00+00:00", "why": "Music Assistant is connected."},
+            "hk_clean_areas": {"at": "2026-11-04T15:00:00+00:00", "why": "A vacuum has a map of the house’s rooms."}}
+    NOTE = {"hk_tv": "Home Assistant has an HDHomeRun, but Mantel doesn’t know its address: add it on Live TV’s page."}
+
+    class _Auto:
+        def switch(self):
+            return True
+    auto = _Auto()
+
     def panel_features(self):
         from mantel_server.features.settings import COMPANIONS
-        return {fid: {"name": name, "kind": kind, "installed": True,
-                      "entries": [{"entry_id": "gallery_energy", "title": name, "state": "loaded"}] if kind == "energy" else []}
-                for fid, kind, name in COMPANIONS}
+        out = {}
+        for fid, kind, name in COMPANIONS:
+            added = fid in self.ADDED
+            out[fid] = {"name": name, "kind": kind, "installed": True, "own": True,
+                        "entries": [{"entry_id": f"gallery_{kind}", "title": name, "state": "loaded"}] if added else []}
+            if fid in self.AUTO:
+                out[fid]["auto"] = self.AUTO[fid]
+            elif fid in self.NOTE:
+                out[fid]["note"] = self.NOTE[fid]
+        return out
 
 
 SETTINGS = {
@@ -220,6 +239,34 @@ def wall_display() -> dict:
 
 
 
+INTERCOM_SCREEN = "dashboard-intercom"   # the third screen: the Intercom's blocks beside a few others (showcase only)
+
+
+def intercom_display() -> dict:
+    """A Home Grid screen with the Intercom block, Small and Wide, beside a lamp, an action, a scene and a room."""
+    grid = {"v": 1, "cols": 6, "rows": 4, "frame": [1280, 800], "band": True, "items": [
+        {"id": "ic-s", "card": "intercom", "size": "S", "at": [0, 0]},
+        {"id": "ic-w", "card": "intercom", "size": "W", "at": [1, 0]},
+        {"id": "lamp", "card": "accessory", "size": "S", "at": [3, 0], "opts": {"entity": "light.living_room_lamps"}},
+        {"id": "lock", "card": "action", "size": "S", "at": [4, 0], "opts": {"action": "lock_up"}},
+        {"id": "scene", "card": "scene", "size": "W", "at": [0, 1], "opts": {"scene": "scene.movie_night"}},
+        {"id": "room", "card": "room", "size": "W", "at": [2, 1], "opts": {"area": "living_room"}}]}
+    return {"title": "Intercom", "pages": [], "headers": {"home": True}, "menu_custom": True, "menu": "tabbar",
+            "home_style": "grid", "home_grid": grid}
+
+
+# the Intercom's made-up feed and microphone (the browser checks' too), then the sheet in a state: the fakes in, the
+# sheet opened, and the microphone pressed as a finger does (intercom_fakes.js)
+INTERCOM_FAKES = (Path(__file__).parent / "intercom_fakes.js").read_text()
+INTERCOM_OPEN = INTERCOM_FAKES + """await until(() => window.hkIntercom && window.hkDetail && deep(document, 'hk-intercom-card').length);
+__intercomFake.install({});
+await pause(800);
+hkIntercom.open();
+const sheet = await until(() => { const c = deep(document, 'hk-intercom-sheet-card')[0]; return c && c.shadowRoot.querySelectorAll('.rooms .pill').length && c; });
+const tap = (sel, n = 0) => __intercomFake.press([...sheet.shadowRoot.querySelectorAll(sel)].filter((e) => !e.closest('[hidden]'))[n]);
+await pause(1000);"""
+INTERCOM_RECORD = """await tap('.mb'); await pause(1500); __intercomFake.mic().speak(7); await tap('.mb'); await pause(600);"""
+
 DESKTOP, TABLET, PHONE = (1440, 900), (1180, 820), (390, 844)
 EDITOR = (1600, 1000)                     # the Home Grid editor wants room for its preview
 GRID_DESKTOP = (1280, 800)                # the grid's own frame
@@ -228,6 +275,17 @@ SCROLL_TO_SETUP = """(() => { const find = (root) => { for (const el of root.que
   if (el.shadowRoot) { const got = find(el.shadowRoot); if (got) return got; }
   if (el.tagName === 'H2' && el.textContent.trim().toUpperCase() === 'SETUP') return el; } return null; };
   const h = find(document); if (h) h.scrollIntoView({ block: 'start' }); })()"""
+
+# a channel's page around Quiet Hours (the minimum level above it, its setup below)
+SCROLL_TO_QUIET = """(() => { const find = (root) => { for (const el of root.querySelectorAll('*')) {
+  if (el.shadowRoot) { const got = find(el.shadowRoot); if (got) return got; }
+  if (el.tagName === 'H2' && el.textContent.trim().toUpperCase() === 'QUIET HOURS') return el; } return null; };
+  const h = find(document); if (h) h.scrollIntoView({ block: 'center' }); })()"""
+# Me, from System Alerts down
+SCROLL_TO_SYSTEM_ALERTS = """(() => { const find = (root) => { for (const el of root.querySelectorAll('*')) {
+  if (el.shadowRoot) { const got = find(el.shadowRoot); if (got) return got; }
+  if (el.tagName === 'H2' && el.textContent.trim().toUpperCase() === 'SYSTEM ALERTS') return el; } return null; };
+  const h = find(document); if (h) h.scrollIntoView({ block: 'center' }); })()"""
 
 # a script for a shot: async JS that may wait for the page (until) and look inside shadow roots (deep)
 JS_HELPERS = """const deep = (r, s) => [...r.querySelectorAll('*')].flatMap(e => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
@@ -281,16 +339,20 @@ const opacity = ed.sidebar.querySelector('input[type=range]'); opacity.value = '
 opacity.dispatchEvent(new Event('input')); opacity.dispatchEvent(new Event('change'));
 await pause(800);"""
 
-# the Screensaver editor (Settings -> a screen -> Screensaver Options -> Edit Screensaver): the Lock Screen starter laid
-# out, once the screensaver inside it has drawn its sky and its widgets
-SAVER_EDITOR = """const ed = await until(() => deep(document, 'hk-saver-editor').find((e) => e.shadowRoot && e.shadowRoot.querySelector('.starter-row') && e.shadowRoot.querySelector('.ov')));
-await until(() => [...ed.shadowRoot.querySelectorAll('.starter-row')].length >= 9);
-[...ed.shadowRoot.querySelectorAll('.starter-row')].find((r) => r.textContent.includes('Lock Screen')).click();
+# the Screensaver editor (Settings -> a screen -> Screensaver Options -> Edit Screensaver): the Lock Screen Look tapped, once the
+# screensaver inside it has drawn its sky and its pieces
+SAVER_EDITOR = """const ed = await until(() => deep(document, 'hk-saver-editor').find((e) => e.shadowRoot && e.shadowRoot.querySelector('.lk') && e.shadowRoot.querySelector('.ov')));
+await until(() => [...ed.shadowRoot.querySelectorAll('.lk')].length >= 10);
+[...ed.shadowRoot.querySelectorAll('.lk')].find((r) => r.textContent.includes('Lock Screen')).click();
 await until(() => ed.shadowRoot.querySelector('.ov').children.length > 0, 60000);
 await pause(12000);"""
-# ...and the big element tapped, so the right-hand side shows its Face, Color, Size, Position and Depth
+# ...and the big element tapped, so the right-hand side shows the Look's Face, Color, Size, Position and Depth
 SAVER_EDITOR_TIME = SAVER_EDITOR + """
 ed.shadowRoot.querySelector('.ov .big').click();
+await pause(2500);"""
+# ...and a piece tapped (phase 13): its page, its shapes drawn, its Size, Backdrop, Color and Show
+SAVER_EDITOR_PIECE = SAVER_EDITOR + """
+[...ed.shadowRoot.querySelectorAll('.ov .w')].find((w) => /weather|Weather/.test(w.getAttribute('aria-label') || '')).click();
 await pause(2500);"""
 
 # name -> (path, viewport, signed in, script to run before the shot)
@@ -309,6 +371,10 @@ SHOTS = {
     "music-phone": (f"/{SCREEN}/playmusic", PHONE, True, None),
     "edit-mode-desktop": (f"/{SCREEN}/room-living-room", DESKTOP, True, script(EDIT_MODE)),
     "home-grid": (f"/{GRID_SCREEN}/home", GRID_DESKTOP, True, None),
+    "intercom-block": (f"/{INTERCOM_SCREEN}/home", GRID_DESKTOP, True, None),
+    "intercom-picker": (f"/{INTERCOM_SCREEN}/home", GRID_DESKTOP, True, script(INTERCOM_OPEN)),
+    "intercom-sheet-message": (f"/{INTERCOM_SCREEN}/home", GRID_DESKTOP, True, script(INTERCOM_OPEN + """await tap('.mb'); await pause(1800);""")),
+    "intercom-sheet-review": (f"/{INTERCOM_SCREEN}/home", GRID_DESKTOP, True, script(INTERCOM_OPEN + INTERCOM_RECORD)),
     "home-grid-speakers": (f"/{GRID_SCREEN}/home", GRID_DESKTOP, True, script(TURN_OVER % ("spk", "spk"))),
     "home-grid-browse": (f"/{GRID_SCREEN}/home", GRID_DESKTOP, True, script(TURN_OVER % ("brw", "brw"))),
     "home-grid-editor": (f"/settings#/screens/{GRID_SCREEN}/home-grid", EDITOR, True, script(GRID_EDITOR + GRID_PREVIEW)),
@@ -319,6 +385,7 @@ SHOTS = {
                              script(GRID_EDITOR + GRID_PREVIEW + GRID_BACKGROUND)),
     "screensaver-editor": (f"/settings#/screens/{SCREEN}/screensaver/editor", DESKTOP, True, script(SAVER_EDITOR)),
     "screensaver-editor-time": (f"/settings#/screens/{SCREEN}/screensaver/editor", DESKTOP, True, script(SAVER_EDITOR_TIME)),
+    "screensaver-editor-piece": (f"/settings#/screens/{SCREEN}/screensaver/editor", DESKTOP, True, script(SAVER_EDITOR_PIECE)),
     "settings-me": ("/settings#/mantel/me", DESKTOP, True, None),
     "settings-people": ("/settings#/mantel/people", DESKTOP, True, None),
     "settings-wall-tablet": ("/settings#/house/tablets/kitchen", DESKTOP, True, SCROLL_TO_SETUP),
@@ -331,6 +398,13 @@ SHOTS = {
     "settings-connections-ma": ("/settings#/mantel/connections/ma", DESKTOP, True, None),
     "settings-connections-ha": ("/settings#/mantel/connections/ha", DESKTOP, True, None),
     "settings-phone": ("/settings", PHONE, True, None),
+    "settings-alerts": ("/settings#/mantel/alerts", DESKTOP, True, None),
+    "settings-alerts-channel": ("/settings#/mantel/alerts/channel/{discord}", DESKTOP, True, None),
+    "settings-alerts-email": ("/settings#/mantel/alerts/channel/{email}", DESKTOP, True, SCROLL_TO_QUIET),
+    "settings-me-system-alerts": ("/settings#/mantel/me", DESKTOP, True, SCROLL_TO_SYSTEM_ALERTS),
+    "settings-alerts-history": ("/settings#/mantel/alerts/history", DESKTOP, True, None),
+    "features": ("/settings#/advanced/features", DESKTOP, True, None),
+    "settings-about-updates": ("/settings#/mantel/about", DESKTOP, True, None),
     "login": ("/login", DESKTOP, False, None),
     "login-phone": ("/login", PHONE, False, None),
 }
@@ -484,6 +558,7 @@ async def build(base: Path, showcase: bool = False, real_model: bool = False):
         data = json.loads(json.dumps(SETTINGS))
         if showcase:
             data["boards"][GRID_SCREEN] = wall_display()         # beside Home: a screen that uses the Home Grid layout
+            data["boards"][INTERCOM_SCREEN] = intercom_display()
         return data
     await settings_store.import_settings(settings.store, fictional_ha, actor=settings_store.Actor(label="gallery"))
     hub.readproxy = (GalleryReads if showcase else OfflineReads)(app, owner)
@@ -497,7 +572,56 @@ async def build(base: Path, showcase: bool = False, real_model: bool = False):
                                  for eid, (_, (s, a)) in HOUSE.items()}})
     stand_in_music(app)
     await seed_people(app, owner.user.id)
+    if showcase:
+        seed_alerts(app)
     return app, cookie
+
+
+def seed_alerts(app) -> None:
+    """Mantel Settings -> Alerts, as a house that set it up: two channels (a Discord channel that has sent, an email
+    that is quiet at night), a week of what was sent, and an update waiting. Written through the alerts' own stores;
+    the secrets are made up and sealed like any other (nothing is sent: the center's loop is not running here)."""
+    from mantel_server import about, alerts
+    from mantel_server.alerts.updates import newer
+    import os
+    os.environ.setdefault("MANTEL_INSTALL", "lxc")      # About says how to update this install: one line, not both
+    a = app["alerts"]
+    app["gallery_alert_ids"] = {}
+    discord = a.channels.add("discord", "Family Discord", events=alerts.catalog.defaults(), min_level="info", quiet={},
+                             config={}, secret={"url": "https://discord.com/api/webhooks/123456789012345678/"
+                                                       "fictional-token-AbCdEfGhIjKlMnOpQrStUv", "main": "https://discord.com/api/webhooks/123456789012345678/"
+                                                       "fictional-token-AbCdEfGhIjKlMnOpQrStUv"})
+    mail_events = [e for e in alerts.catalog.defaults() if not e.startswith(("tablet.", "update."))] + ["backup.ok"]
+    email = a.channels.add("email", "Email", events=mail_events, min_level="warning",
+                           quiet={"on": True, "from": "22:00", "to": "07:00", "critical": True},
+                           config={"host": "smtp.example.com", "port": 587, "security": "starttls", "user": "maple@example.com",
+                                   "from": "mantel@example.com", "to": ["maple@example.com"]},
+                           # as email.clean keeps it: the server and user it was typed for, and no hint ("main")
+                           secret={"password": "fictional-app-password", "host": "smtp.example.com",
+                                   "user": "maple@example.com"})
+    a.channels.sent(discord)
+    a.channels.sent(email)
+    app["gallery_alert_ids"].update(discord=discord, email=email)
+    log = a.log
+    now = NOW
+    rows = [(25 * 3600, "backup.ok", "", "info", True, "Backup finished", "mantel-20261101-031500.mbk (48.2 MB).", [email]),
+            (18 * 3600, "tablet.offline", "kitchen", "warning", True, "Kitchen tablet is offline",
+             "Its kiosk app hasn't been heard from for 10 minutes. It may be off the Wi-Fi, or behind the lock screen after a restart.", [discord, "app"]),
+            (17.8 * 3600, "tablet.offline", "kitchen", "warning", False, "Kitchen tablet is back", "", [discord, "app"]),
+            (9 * 3600, "ma.lost", "", "warning", True, "Music Assistant disconnected",
+             "Mantel can't reach Music Assistant. Music on the screens won't play or show what's on.", [discord, email, "app"]),
+            (8.9 * 3600, "ma.lost", "", "warning", False, "Music Assistant is back", "Mantel is connected to Music Assistant again.", [discord, email, "app"]),
+            (3 * 3600, "backup.failed", "", "critical", True, "Backup failed", "The backup folder is full.", [discord, email, "app"]),
+            (2.2 * 3600, "backup.failed", "", "critical", False, "Backups work again", "The next backup finished: mantel-20261102-063000.mbk.", [discord, email, "app"]),
+            (30 * 60, "update.mantel", "", "info", True, "Mantel 0.1.114 is available", "In Home Assistant: Settings → Add-ons → Mantel → Update.", [discord, "app"])]
+    for ago, kind, key, level, up, title, body, to in rows:
+        log.add(now - ago, kind, key, level, up, title, body, to)
+    have = about.release().get("version") or "0.1.113"
+    parts = have.split(".")
+    want = ".".join(parts[:-1] + [str(int(parts[-1]) + 1)]) if parts[-1].isdigit() else have
+    assert newer(want, have)
+    a.settings.set("updates_state", {"latest": {"mantel": {"version": want, "date": now - 3600, "url": "https://github.com/jazzphone/mantel/releases"}},
+                                     "checked_at": now - 1800, "error": None})
 
 
 def stand_in_music(app) -> None:
@@ -587,6 +711,7 @@ async def shoot(out: Path, only: list[str] | None, system_font: bool = False) ->
             for name, (path, (w, h), signed_in, script) in SHOTS.items():
                 if only and name not in only:
                     continue
+                path = path.format(**app.get("gallery_alert_ids", {})) if "{" in path else path
                 async with Browser(width=w, height=h, port=9381) as b:
                     await b.restrict_origin(origin)
                     await b.send("Emulation.setFocusEmulationEnabled", enabled=True)    # a window in front: cameras play, the sky moves

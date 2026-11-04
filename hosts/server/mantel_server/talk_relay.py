@@ -156,6 +156,7 @@ class Stream:
     name: str = "Someone"
     last_audio: float = 0.0             # loop time of its last frame sent on (the floor)
     told_busy: bool = False
+    link: Any = None                    # the doorbell's side (its stream is cut when another stream takes the floor)
 
 
 class TalkRelay:
@@ -171,6 +172,7 @@ class TalkRelay:
         self.ticket_ttl = TICKET_TTL
         self.max_session = MAX_SESSION
         self.holders: dict[str, Stream] = {}        # speaker -> the stream holding its floor
+        self.streamers: dict[str, Stream] = {}      # speaker -> whose stream is open at the door (outlives a hold)
         self.floor_quiet = FLOOR_QUIET
 
     @property
@@ -318,6 +320,12 @@ class TalkRelay:
         stream.last_audio = now
         if holder is not stream:
             self.holders[stream.speaker] = stream
+            # the doorbell's one port: a stream kept open between someone else's holds is cut first
+            # (hk_core/talk/core.py: ONE STREAM PER SESSION; Home Assistant's own Floor does it on Link's side)
+            before = self.streamers.get(stream.speaker)
+            if before is not None and before is not stream and callable(getattr(before.link, "cut", None)):
+                before.link.cut()
+            self.streamers[stream.speaker] = stream
             stream.told_busy = False
             self._tell_others(stream, {"talker": stream.name})
             self._check_floor(stream)
@@ -424,7 +432,7 @@ class TalkRelay:
             if link is not None:
                 await link.close()
             return await refuse("not_allowed", str(exc)[:200], "refused:blocked")
-        stream = Stream(ws, principal, ticket.speaker, issued=ticket.issued, name=_name(principal))
+        stream = Stream(ws, principal, ticket.speaker, issued=ticket.issued, name=_name(principal), link=link)
         for k in keys:
             self.active[k] = stream
         self.streams.add(stream)
@@ -447,6 +455,8 @@ class TalkRelay:
             return result, stream.close_code
         finally:
             self.release(stream)
+            if self.streamers.get(stream.speaker) is stream:
+                del self.streamers[stream.speaker]
             self.streams.discard(stream)
             if entry is not None:
                 entry.forget()
@@ -555,7 +565,8 @@ async def _text(ws: web.WebSocketResponse, timeout: float) -> Any:
         return None
 
 
-@guard("signed_in")     # any session; each talk needs a gateway ticket, which the roles decide (relay.serve)
+@guard("signed_in", reads="view",
+       stream="live:talk")     # any session; each talk needs a gateway ticket, which the roles decide (relay.serve)
 async def socket_handler(request: web.Request) -> web.StreamResponse:
     """``GET /ws/talk``: behind the sign-in (auth.require_session: a session and an Origin header,
     whose value server.loopback_only checks, as for /ws). Refused before the upgrade while commands

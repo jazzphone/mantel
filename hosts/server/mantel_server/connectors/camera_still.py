@@ -245,7 +245,8 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
     app["camera_stills"] = {"served": 0, "refused": 0}
     app["camera_still_share"] = shared = SharedStills()
 
-    @guard("signed_in")          # any session; the roles decide each camera (authz.may_still)
+    @guard("signed_in", reads="view",
+           preview=True)          # any session; the roles decide each camera (authz.may_still)
     async def still(request: web.Request) -> web.StreamResponse:
         stats = request.app["camera_stills"]
         entity_id = request.match_info["entity_id"]
@@ -268,7 +269,8 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
         if width is not None and height is not None:      # HA ignores one without the other
             params = {"width": str(width), "height": str(height)}
         direct = request.app.get("cameras_direct")
-        if direct is not None and direct.owns(entity_id):
+        if direct is not None and direct.serves(entity_id) is not None:
+            # (also Home Assistant's camera whose Video From is Direct, phase 4: the same policy decided above)
             # A DIRECT CAMERA (cameras_direct.py, 2026-11-02): decided above by the same policy; its picture comes
             # from its own source (a still provider, its still URL, or go2rtc's frame), shared the same way
             try:

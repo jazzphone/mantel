@@ -148,6 +148,47 @@ async def test_size_limit(off):
     await ws.close()
 
 
+ROOMS = ["media_player.kitchen", "media_player.office"]
+
+
+async def test_the_intercom_sheet_remembers_its_mode_and_rooms_per_person(off):
+    """docs/phase17/INTERCOM.md: key `intercom` = {mode: "message"|"live", rooms: [entity ids, at most 64]}, kept
+    like the Music page's speaker: per person, with commands off, followed live by the same person's other screens."""
+    await off.login("jamie", "adult")
+    a, b = await off.socket(expect_caps=False), await off.socket(expect_caps=False)
+    msg = {"type": "frontend/subscribe_user_data", "key": "intercom"}
+    _, first = await sub(a, msg=msg)
+    assert first == {"value": None}
+    mine = {"mode": "message", "rooms": ROOMS}
+    assert (await rpc(b, save(mine, key="intercom")))["result"] is None
+    assert await event(a) == {"value": mine}
+    assert (await rpc(b, save({"mode": "live"}, rid=6, key="intercom")))["result"] is None      # either may be left out
+    assert (await rpc(b, save({"rooms": []}, rid=7, key="intercom")))["result"] is None
+    await off.login("kim", "adult")
+    kim = await off.socket(expect_caps=False)
+    _, first = await sub(kim, msg=msg)
+    assert first == {"value": None}, "kim must not see jamie's rooms"
+    assert off.audit() == [], "an own preference is not a house command"
+    await a.close()
+    await b.close()
+    await kim.close()
+
+
+async def test_the_intercom_value_is_checked(off):
+    await off.login("jamie", "adult")
+    ws = await off.socket(expect_caps=False)
+    many = [f"media_player.room_{i}" for i in range(UD.INTERCOM_ROOMS_MAX)]
+    assert (await rpc(ws, save({"mode": "message", "rooms": many}, key="intercom")))["result"] is None
+    bad = [{"mode": "walkie"}, {"mode": "live", "rooms": "media_player.kitchen"}, {"rooms": many + ["media_player.x"]},
+           {"rooms": ["media_player.kitchen", "media_player.kitchen"]}, {"rooms": ["kitchen"]}, {"rooms": [5]},
+           {"rooms": ["media_player.Kitchen"]}, {"mode": "live", "extra": 1}, ["media_player.kitchen"], "message"]
+    for i, value in enumerate(bad):
+        assert (await rpc(ws, save(value, rid=10 + i, key="intercom")))["error"]["code"] == "invalid", value
+    again = await rpc(ws, save({"rooms": many}, rid=40, key="intercom"))
+    assert again["result"] is None, "a refused value left the stored one alone"
+    await ws.close()
+
+
 def test_the_subject_is_the_person_or_the_tablet_alone():
     assert UD.subject_of(None) is None
     assert UD.subject_of(SimpleNamespace(valid=False, user=SimpleNamespace(id="a"), device=None)) is None

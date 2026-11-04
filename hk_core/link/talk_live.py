@@ -47,12 +47,13 @@ A WARM SESSION (2026-11-02, docs/phase13/CAMERAS-DIRECT.md "Proper"
 push-to-talk). The card opens its subscription when the doorbell sheet
 opens, not at the press, so a press no longer waits on the chain (the
 socket, the auth, Protect's session, the encoder) and the first word is not
-clipped. Nothing reaches the doorbell until audio does: each hold is a
-TALKSPURT, with its own encoder and RTP stream opened at its first
-PREBUFFER_MS and closed once the pacer has been dry for SPURT_END_MS (the
-button let go and the cushion played out). Between holds nothing is sent,
-not even silence, so several open sheets never put streams side by side on
-the doorbell's one port. The first event says `warm: true`; a card that sees
+clipped. Nothing reaches the doorbell until audio does. The session's
+stream then opens with a short silent lead-in and stays open between holds,
+sending silence, because a Protect doorbell loses the start of every NEW
+stream (measured 2026-11-02: see hk_core/talk/core.py); it is cut the moment
+another session takes the floor, so several open sheets never put streams
+side by side on the doorbell's one port. A TALKSPURT (from the first word
+until the pacer has been dry SPURT_END_MS) is what holds the floor. The first event says `warm: true`; a card that sees
 it keeps the subscription across holds, an older one unsubscribes at each
 release as before (and an older server, without `warm`, gets that too).
 
@@ -77,7 +78,8 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
 from ..talk.core import (CODECS, FADE_MS, FRAME_MS, MAX_BUFFER_MS, MAX_SESSION_S,  # noqa: F401 -- re-exported
-                         PREBUFFER_MS, RATES, SPURT_END_MS, Floor, LiveTalk, Pacer, Target)
+                         LEAD_MS, PREBUFFER_MS, RATES, SPURT_END_MS, STREAM_IDLE_S, Floor, LiveTalk,
+                         Pacer, Target)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -93,6 +95,7 @@ class _Member:
     name: str
     tell: object
     told_busy: bool = False
+    cut: object = None             # close its stream at the door (another session took the floor)
 
 
 async def async_cached_target(hass: HomeAssistant, entity_id: str) -> Target:
@@ -156,7 +159,7 @@ def async_register(hass: HomeAssistant, domain: str) -> None:
             if connection.subscriptions.get(msg["id"]) is done:
                 connection.send_event(msg["id"], event)
 
-        member = _Member(getattr(user, "name", None) or "Someone", tell)
+        member = _Member(getattr(user, "name", None) or "Someone", tell, cut=talk.cut)
 
         @callback
         def on_audio(_hass, _conn, payload: bytes) -> None:

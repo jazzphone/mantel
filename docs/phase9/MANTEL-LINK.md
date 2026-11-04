@@ -654,3 +654,25 @@ wire with its test, and the house's steps: [NO-HK-FRONTEND.md](NO-HK-FRONTEND.md
   "Tonight" list (which Mantel's screens never had); Mantel asks it first.
 - **Checks:** the full validation; the scratch HA's `--phase house` 45/45 with HK Frontend removed; alone 27/27,
   handover 22/22, actions 11/11, HK's linked e2e 23/23.
+
+### Protocol v3: Mantel by its address, its own certificate pinned (2026-11-02)
+
+The owner, after a DNS view sent Home Assistant to the wrong side of the proxy: "would it be more reliable with just an
+IP connection?" Mantel Link may now link to `https://<Mantel's address>:8766`, Mantel Connect's listener, whose
+certificate is from Mantel's private CA (connect_pairing.Pki). Its `/linked/pair` and `/linked/ws` are answered there
+without a client certificate (connect_pairing.LINK_PATHS), on the LAN door when the socket peer is a home address
+(authz.resolve_door), and refuse an Origin as everywhere.
+
+- **Pairing v3** (linked_pairing.py, Mantel Link's pairing.py): over TLS that checks nothing (there is nothing to check
+  yet), the v2 exchange with its own label, the address bound, plus: Mantel's answer carries `ca` (its CA certificate),
+  covered by the server proof, and `token_sealed` (the credential, AES-GCM under HMAC(code key, "v3|token|" + nonce), the
+  address as associated data) instead of the plain token. A relay in the middle can't swap the CA (no code, no proof) or
+  read the credential. v3 is answered only on Connect's listener; elsewhere `pin_elsewhere` names the link address.
+- **The link** (hk_core/link/mantel_link.py `pinned_tls`): the entry keeps `ca`; the WebSocket trusts that CA alone,
+  for the listener's fixed name (`mantel-connect`), Python's strict X.509 checks on. HK Frontend linked to the same
+  address uses Mantel Link's CA (linked_mode.pinned_ca).
+- **When:** an https address that is an IP, or on port 8766, pairs v3 at once (no publicly-checked handshake bound to
+  fail first); any other falls back to v3 on a certificate error. A public name works as before (v2).
+- **Checks:** tests/test_linked_pairing.py (v3's proof, sealed credential, pin_elsewhere, the door, a real handshake with
+  Pki's certificate), Mantel Link's test_pairing.py (pairing and linking pinned through a TLS stand-in, a swapped CA
+  refused), HK Frontend's test_linked_mode.py.

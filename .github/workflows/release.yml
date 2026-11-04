@@ -1,37 +1,54 @@
-# Mantel's release (docs/development/Releasing.md). Run by hand from a tag vX.Y.Z with `publish` on, it publishes,
-# in this order:
+# Mantel's release (docs/development/Releasing.md). Run by hand, in one of three stages:
 #
-#   1. the Home Assistant App images, one per architecture as the Supervisor expects them
-#      (ghcr.io/jazzphone/mantel-app-amd64:X.Y.Z, mantel-app-aarch64, and mantel-connect-app-* likewise);
-#   2. the Docker images, multi-arch (amd64 + arm64): ghcr.io/jazzphone/mantel-server, mantel-transcode and
-#      mantel-caddy, tagged X.Y.Z and latest (what packaging/compose/.env.example names);
-#   3. only when every image is pushed: the add-on repository, force-pushed as one commit to the `ha-apps`
-#      branch (tools/publish_ha_apps.py). Home Assistant users add https://github.com/jazzphone/mantel#ha-apps
-#      and are offered Update when that branch's config.yaml version goes up. Never main.
+#   stage=all (the default; today's whole release, from a tag vX.Y.Z with `publish` on) publishes, in this order:
+#     1. the Home Assistant App images, one per architecture as the Supervisor expects them
+#        (ghcr.io/jazzphone/mantel-app-amd64:X.Y.Z, mantel-app-aarch64, and mantel-connect-app-* likewise);
+#     2. the Docker images, multi-arch (amd64 + arm64, each built natively on its own runner and merged into one
+#        manifest): ghcr.io/jazzphone/mantel-server, mantel-transcode and mantel-caddy, tagged X.Y.Z;
+#     3. once the Linux suite (run beside the builds) and every image passed: `latest` moved to X.Y.Z;
+#     4. last: the add-on repository, force-pushed as one commit to the `ha-apps` branch (tools/publish_ha_apps.py).
+#        Home Assistant users add https://github.com/jazzphone/mantel#ha-apps and are offered Update when that
+#        branch's config.yaml version goes up. Never main.
 #
-# Run with `publish` off (Actions -> Release -> Run workflow), it is a dry run: the same checks, the same
-# staging and private-content scans, every image built for both architectures, the add-on repository written
-# and kept as a workflow artifact; nothing is pushed anywhere. `publish` on does the real thing, and only from
-# a tag ("Use workflow from" -> the tag), so a branch can never publish a version.
+#   stage=images (the first half of tools/release_house.py's release, from a branch whose commit is on main): the
+#     guards, the checks, the Linux suite and steps 1 and 2 only. No `latest`, no ha-apps.
+#   stage=promote (the second half, from the tag, with `images_run` = the images run's id): checks that run built
+#     exactly this commit and every image is there for both platforms, then steps 3 and 4 only. Builds nothing.
 #
-# The version is Mantel's one version (packaging/ha-app/config.yaml; tools/check_version.py), and a tag must
-# be exactly v<that version> with its CHANGELOG.md section. No secret is needed but GITHUB_TOKEN (ghcr.io and the
-# branch push) and, as in tests.yml, HK_PRIVATE for the private-word scans.
+# THE ONE RULE ABOUT WHAT IS PUBLISHED BEFORE A TAG: an images run may push X.Y.Z image tags from a commit that is
+# already on main while its tag vX.Y.Z doesn't exist; nothing else is published before the tag (`latest` and
+# ha-apps need the tag: stage=all or stage=promote, both from the tag).
+#
+# Run with `publish` off it is a dry run: the same checks, the same staging and private-content scans, every image
+# built for both architectures, the add-on repository written and kept as a workflow artifact (stage=all); nothing
+# is pushed anywhere. No secret is needed but GITHUB_TOKEN (ghcr.io, the ha-apps push, and reading this
+# repository's runs) and, as in tests.yml, HK_PRIVATE for the private-word scans.
 name: Release
+run-name: "Release (${{ inputs.stage }}${{ inputs.publish && ', publish' || '' }}) from ${{ github.ref_name }}"
 
-# by hand only: pushing a tag no longer starts it (the checks run locally, tools/ci.py)
+# by hand only: pushing a tag starts nothing (the checks run locally, tools/ci.py)
 on:
   workflow_dispatch:
     inputs:
       publish:
-        description: "Publish: push the images and the ha-apps branch (needs a tag under 'Use workflow from'). Off: a build-only dry run."
+        description: "Publish: push the images (and, from a tag, latest and the ha-apps branch). Off: a build-only dry run."
         type: boolean
         default: false
+      stage:
+        description: "all: the whole release from a tag. images: the images only, before the tag (tools/release_house.py). promote: latest and ha-apps from the tag, after an images run."
+        type: choice
+        options: [all, images, promote]
+        default: all
+      images_run:
+        description: "promote: the id of the images run that built this commit"
+        type: string
+        default: ""
 
 # what the jobs below may use at most; each job asks for only what it needs
 permissions:
   contents: write
   packages: write
+  actions: read
 
 # one release at a time per ref; never cancel one halfway through its pushes
 concurrency:
@@ -41,16 +58,18 @@ concurrency:
 env:
   REGISTRY: ghcr.io/jazzphone
   SOURCE_URL: https://github.com/jazzphone/mantel
+  DOCKER_IMAGES: mantel-server mantel-transcode mantel-caddy
 
 jobs:
   version:
-    name: Version, checks and the main suite
+    name: Version, guards and checks
     runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
       publish: ${{ steps.version.outputs.publish }}
+      stage: ${{ steps.version.outputs.stage }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -60,31 +79,92 @@ jobs:
       - id: version
         env:
           PUBLISH_INPUT: ${{ inputs.publish }}
+          STAGE_INPUT: ${{ inputs.stage }}
+          IMAGES_RUN: ${{ inputs.images_run }}
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "$REF_TYPE" = tag ]; then
-            version="$(python tools/check_version.py --tag "$REF_NAME" --print)"
-          else
-            version="$(python tools/check_version.py --print)"
-          fi
+          stage="${STAGE_INPUT:-all}"
           publish=false
-          if [ "$PUBLISH_INPUT" = true ]; then
-            if [ "$REF_TYPE" != tag ]; then
-              echo "::error::publishing needs a release tag: run the workflow from the tag v$version, or leave publish off"
+          [ "$PUBLISH_INPUT" = true ] && publish=true
+          case "$stage" in
+            all)
+              if [ "$REF_TYPE" = tag ]; then
+                version="$(python tools/check_version.py --tag "$REF_NAME" --print)"
+              else
+                version="$(python tools/check_version.py --print)"
+              fi
+              if [ "$publish" = true ] && [ "$REF_TYPE" != tag ]; then
+                echo "::error::publishing everything needs a release tag: run the workflow from the tag v$version, or leave publish off"
+                exit 1
+              fi
+              ;;
+            images)
+              if [ "$publish" != true ]; then
+                version="$(python tools/check_version.py --print)"
+              else
+                if [ "$REF_TYPE" = tag ]; then
+                  echo "::error::stage=images runs from a branch (release/X.Y.Z), before the tag exists"
+                  exit 1
+                fi
+                # 1. the three files agree and CHANGELOG.md has the version's own section
+                version="$(python tools/check_version.py --staged --print)"
+                # 2. the version is not tagged yet: a tagged version is never staged again
+                if [ -n "$(git ls-remote --tags origin "refs/tags/v$version")" ]; then
+                  echo "::error::v$version is tagged already: a tagged version's images are never pushed again"
+                  exit 1
+                fi
+                # 3. the commit is on main: a commit nobody pushed to main publishes nothing
+                main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+                status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$main_sha...$GITHUB_SHA" --jq .status)"
+                if [ "$status" != identical ] && [ "$status" != behind ]; then
+                  echo "::error::$GITHUB_SHA is not on main ($status): push it to main first"
+                  exit 1
+                fi
+              fi
+              ;;
+            promote)
+              if [ "$publish" != true ] || [ "$REF_TYPE" != tag ] || [ -z "$IMAGES_RUN" ]; then
+                echo "::error::stage=promote runs from the tag vX.Y.Z with publish on and images_run set"
+                exit 1
+              fi
+              case "$IMAGES_RUN" in *[!0-9]*) echo "::error::images_run is a run id (digits)"; exit 1 ;; esac
+              version="$(python tools/check_version.py --tag "$REF_NAME" --print)"
+              ;;
+            *)
+              echo "::error::unknown stage"
               exit 1
-            fi
-            publish=true
-          fi
+              ;;
+          esac
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "publish=$publish" >> "$GITHUB_OUTPUT"
-          echo "Mantel $version (publish: $publish)" >> "$GITHUB_STEP_SUMMARY"
-      - run: python tools/check_links.py
-      - run: python tools/package_check.py --release
-      - run: python tools/check_private.py
+          echo "stage=$stage" >> "$GITHUB_OUTPUT"
+          echo "Mantel $version (stage: $stage, publish: $publish)" >> "$GITHUB_STEP_SUMMARY"
+      - if: steps.version.outputs.stage != 'promote'
+        run: python tools/check_links.py
+      - if: steps.version.outputs.stage != 'promote'
+        run: python tools/package_check.py --release
+      - if: steps.version.outputs.stage != 'promote'
+        run: python tools/check_private.py
         env:
           HK_PRIVATE: ${{ secrets.HK_PRIVATE }}
-      # the main suite, so a tag on a commit that does not pass never publishes (tests.yml runs the rest)
+
+  suite:
+    # The main suite on Linux, beside the image builds (not in front of them): `latest`, ha-apps and the tag wait
+    # for it. 4 workers. A flake (an event-loop timing test) gets one rerun of the failed job, never more
+    # (tools/release_house.py does it: `gh run rerun --failed`); a second failure stops the release.
+    name: The main suite (Linux)
+    needs: version
+    if: needs.version.outputs.stage != 'promote'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -94,7 +174,7 @@ jobs:
       # editable install, so the same versions go in as a constraints file (pins only, the hashes left out)
       - run: sed -e 's/ *\\$//' -e '/^ *--hash=/d' -e '/^ *#/d' packaging/docker/requirements.lock > "$RUNNER_TEMP/constraints.txt"
       - run: pip install -e '.[dev]' -c "$RUNNER_TEMP/constraints.txt"
-      - run: python -m pytest -q -p no:cacheprovider
+      - run: python -m pytest -q -p no:cacheprovider -n 4
 
   app-images:
     # Home Assistant's convention: config.yaml says `image: ghcr.io/jazzphone/mantel-app-{arch}` and the
@@ -102,6 +182,7 @@ jobs:
     # the folder the stager writes (the same Dockerfile and app/ a local build-from-source App gets).
     name: App image ${{ matrix.app.image }}-${{ matrix.arch.ha }}
     needs: version
+    if: needs.version.outputs.stage != 'promote'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -129,6 +210,17 @@ jobs:
       - run: python "${{ matrix.app.stager }}" "$RUNNER_TEMP/app"
         env:
           HK_PRIVATE: ${{ secrets.HK_PRIVATE }}
+      # stage=images: the version must still be untagged right before a push ("Re-run failed jobs" on an old images
+      # run reuses the version job's outputs and would skip its guards)
+      - if: needs.version.outputs.stage == 'images' && needs.version.outputs.publish == 'true'
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          if [ -n "$(git ls-remote --tags "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/v$VERSION")" ]; then
+            echo "::error::v$VERSION is tagged: an images run never pushes over a tagged version"
+            exit 1
+          fi
+      # (the aarch64 pair under emulation: they are small, under 1.1 minutes)
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - if: needs.version.outputs.publish == 'true'
@@ -162,24 +254,27 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.app.image }}-${{ matrix.arch.ha }}
 
   docker-images:
-    # The compose stack's images (packaging/compose/compose.yaml builds the same targets from source), one
-    # multi-arch manifest each, tagged with the version and latest.
-    name: Docker image ${{ matrix.image }}
+    # The compose stack's images (packaging/compose/compose.yaml builds the same targets from source), one build per
+    # platform on a runner of that platform (no emulation), pushed by digest; docker-merge joins them.
+    name: Docker image ${{ matrix.image.name }} (${{ matrix.platform.arch }})
     needs: version
-    runs-on: ubuntu-latest
+    if: needs.version.outputs.stage != 'promote'
+    runs-on: ${{ matrix.platform.runner }}
     permissions:
       contents: read
       packages: write
     strategy:
       fail-fast: true
       matrix:
-        include:
-          - { image: mantel-server, context: ., file: packaging/docker/Dockerfile, target: server, title: "Mantel Server" }
-          - { image: mantel-transcode, context: ., file: packaging/docker/Dockerfile, target: transcode, title: "Mantel Live TV transcode (go2rtc and ffmpeg)" }
-          - { image: mantel-caddy, context: packaging/docker, file: packaging/docker/caddy.Dockerfile, target: "", title: "Caddy with the Cloudflare DNS module, for Mantel" }
+        image:
+          - { name: mantel-server, context: ., file: packaging/docker/Dockerfile, target: server, title: "Mantel Server" }
+          - { name: mantel-transcode, context: ., file: packaging/docker/Dockerfile, target: transcode, title: "Mantel Live TV transcode (go2rtc and ffmpeg)" }
+          - { name: mantel-caddy, context: packaging/docker, file: packaging/docker/caddy.Dockerfile, target: "", title: "Caddy with the Cloudflare DNS module, for Mantel" }
+        platform:
+          - { arch: amd64, platform: linux/amd64, runner: ubuntu-latest }
+          - { arch: arm64, platform: linux/arm64, runner: ubuntu-24.04-arm }
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - if: needs.version.outputs.publish == 'true'
         uses: docker/login-action@v3
@@ -187,32 +282,162 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      - id: build
+        uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.file }}
-          target: ${{ matrix.target }}
-          platforms: linux/amd64,linux/arm64
-          push: ${{ needs.version.outputs.publish == 'true' }}
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.file }}
+          target: ${{ matrix.image.target }}
+          platforms: ${{ matrix.platform.platform }}
           build-args: |
             VCS_REF=${{ github.sha }}
             MANTEL_VERSION=${{ needs.version.outputs.version }}
-          tags: |
-            ${{ env.REGISTRY }}/${{ matrix.image }}:${{ needs.version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ matrix.image }}:latest
           labels: |
-            org.opencontainers.image.title=${{ matrix.title }}
+            org.opencontainers.image.title=${{ matrix.image.title }}
             org.opencontainers.image.source=${{ env.SOURCE_URL }}
             org.opencontainers.image.version=${{ needs.version.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=MIT
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ matrix.image.name }},push-by-digest=true,name-canonical=true,push=${{ needs.version.outputs.publish == 'true' }}
+          cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}-${{ matrix.platform.arch }}
+      - if: needs.version.outputs.publish == 'true'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+      - if: needs.version.outputs.publish == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.image.name }}-${{ matrix.platform.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  docker-merge:
+    # One multi-arch manifest per image from the two digests, tagged X.Y.Z only (`latest` moves in its own job).
+    name: Docker manifest ${{ matrix.image }}
+    needs: [version, docker-images]
+    if: needs.version.outputs.publish == 'true' && needs.version.outputs.stage != 'promote'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        image: [mantel-server, mantel-transcode, mantel-caddy]
+    steps:
+      # stage=images: the version must still be untagged right before a push ("Re-run failed jobs" on an old images
+      # run reuses the version job's outputs and would skip its guards)
+      - if: needs.version.outputs.stage == 'images' && needs.version.outputs.publish == 'true'
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          if [ -n "$(git ls-remote --tags "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/v$VERSION")" ]; then
+            echo "::error::v$VERSION is tagged: an images run never pushes over a tagged version"
+            exit 1
+          fi
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-${{ matrix.image }}-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - working-directory: ${{ runner.temp }}/digests
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ matrix.image }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          [ "$(ls | wc -l)" -eq 2 ] || { echo "::error::expected two digests (amd64, arm64)"; ls; exit 1; }
+          docker buildx imagetools create -t "$IMAGE:$VERSION" $(printf "$IMAGE@sha256:%s " *)
+          docker buildx imagetools inspect "$IMAGE:$VERSION"
+
+  verify-images:
+    # stage=promote: the images run built exactly this commit, succeeded, and every Docker image is there for both
+    # platforms with this commit as its revision. A dry run, a run of another commit, or an older attempt at the
+    # same version can't pass.
+    name: Verify the images run
+    needs: version
+    if: needs.version.outputs.stage == 'promote'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      packages: read
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - env:
+          IMAGES_RUN: ${{ inputs.images_run }}
+          VERSION: ${{ needs.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$IMAGES_RUN")"
+          [ "$(jq -r .path <<<"$run")" = .github/workflows/release.yml ] || { echo "::error::run $IMAGES_RUN is not release.yml"; exit 1; }
+          [ "$(jq -r .head_sha <<<"$run")" = "$GITHUB_SHA" ] || { echo "::error::run $IMAGES_RUN built another commit"; exit 1; }
+          [ "$(jq -r .conclusion <<<"$run")" = success ] || { echo "::error::run $IMAGES_RUN did not succeed"; exit 1; }
+          jobs="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$IMAGES_RUN/jobs?per_page=100" --jq '.jobs[] | "\(.conclusion)\t\(.name)"')"
+          if grep -v -E '^(success|skipped)'$'\t' <<<"$jobs"; then echo "::error::a job of run $IMAGES_RUN did not succeed"; exit 1; fi
+          grep -qx "success"$'\t'"The main suite (Linux)" <<<"$jobs" || { echo "::error::run $IMAGES_RUN's Linux suite did not pass"; exit 1; }
+          for image in mantel-app-amd64 mantel-app-aarch64 mantel-connect-app-amd64 mantel-connect-app-aarch64; do
+            rev="$(docker buildx imagetools inspect "$REGISTRY/$image:$VERSION" --format '{{json .Image}}' |
+                   jq -r '.config.Labels["org.opencontainers.image.revision"] // ""')"
+            [ "$rev" = "$GITHUB_SHA" ] || { echo "::error::$image:$VERSION is revision '$rev', not $GITHUB_SHA"; exit 1; }
+          done
+          for image in $DOCKER_IMAGES; do
+            grep -qx "success"$'\t'"Docker manifest $image" <<<"$jobs" || { echo "::error::run $IMAGES_RUN pushed no $image manifest"; exit 1; }
+            info="$(docker buildx imagetools inspect "$REGISTRY/$image:$VERSION" --format '{{json .Image}}')"
+            for platform in linux/amd64 linux/arm64; do
+              rev="$(jq -r --arg p "$platform" '.[$p].config.Labels["org.opencontainers.image.revision"] // ""' <<<"$info")"
+              [ "$rev" = "$GITHUB_SHA" ] || { echo "::error::$image:$VERSION $platform is revision '$rev', not $GITHUB_SHA"; exit 1; }
+            done
+          done
+          echo "Run $IMAGES_RUN built $GITHUB_SHA and its suite passed; the App images and $DOCKER_IMAGES $VERSION (amd64, arm64) are this commit" >> "$GITHUB_STEP_SUMMARY"
+
+  latest:
+    # `latest` follows the release only from a tag: stage=all once the suite and every image passed, stage=promote
+    # once the images run is verified. A retag of the X.Y.Z manifest, no rebuild.
+    name: Move latest
+    needs: [version, suite, app-images, docker-merge, verify-images]
+    if: >-
+      !cancelled() && needs.version.result == 'success' && needs.version.outputs.publish == 'true' &&
+      ((needs.version.outputs.stage == 'all' && needs.suite.result == 'success' &&
+        needs.app-images.result == 'success' && needs.docker-merge.result == 'success') ||
+       (needs.version.outputs.stage == 'promote' && needs.verify-images.result == 'success'))
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          for image in $DOCKER_IMAGES; do
+            docker buildx imagetools create -t "$REGISTRY/$image:latest" "$REGISTRY/$image:$VERSION"
+          done
+          echo "latest: $DOCKER_IMAGES $VERSION" >> "$GITHUB_STEP_SUMMARY"
 
   ha-apps:
-    # Last, so Home Assistant is never offered a version whose images are not there yet.
+    # Last, so Home Assistant is never offered a version whose images are not there yet. Not in stage=images.
     name: Add-on repository (ha-apps branch)
-    needs: [version, app-images, docker-images]
+    needs: [version, suite, app-images, docker-images, latest]
+    if: >-
+      !cancelled() && needs.version.result == 'success' && needs.version.outputs.stage != 'images' &&
+      (needs.version.outputs.publish != 'true' || needs.latest.result == 'success') &&
+      (needs.version.outputs.stage == 'promote' ||
+       (needs.suite.result == 'success' && needs.app-images.result == 'success' &&
+        needs.docker-images.result == 'success'))
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -129,18 +129,14 @@ var c = U.readCfg({ user: 'T', entity: SW, starts_after: 0, each_photo: 20, orde
 ok('0 means only the switch starts it', c.starts_after === 0);
 ok('options read as given', c.each_photo === 20 && c.order === 'sorted' && c.fill === false && c.zoom === true);
 ok('only HK cards are drawn over the photos', c.cards.length === 1 && c.cards[0].type === 'custom:hk-clock-card', c.cards);
-// A LAYOUT'S CARDS (2026-11-01): the ones it places, and the corner clock and weather always -- hidden until a slide
-// covers the layout, when the screensaver's own corners tell the time (the owner's wall tablet: under the music it was gone)
+// A LAYOUT'S CARDS (2026-11-01; phase 13, 2026-11-02): the corner cards a layout places are the pieces' Card shape
+// (hk-saverwidgets.js), and under a slide the slide corner tells the time, the date, the weather and House Status: a
+// layout keeps none of HK's corner cards (the music's own extras aside)
 var lc = U.readCfg({ cards: [{ type: 'custom:hk-clock-card', time_size: '150px' }, { type: 'custom:hk-weather-strip-card' },
                              { type: 'custom:hk-screensaver-status-card' }],
                      layout: { v: 1, big: { kind: 'time', size: 35, pos: 'top', depth: 'behind' },
                                zones: { tl: [{ id: 'date' }], bl: [{ id: 'weather_card' }, { id: 'music_card' }], br: [{ id: 'status_card' }] } } });
-ok('a layout keeps the corner clock and weather, in their order', lc.cards.map(function (x) { return x.type.replace('custom:hk-', ''); }).join() ===
-   'clock-card,weather-strip-card,screensaver-now-card,screensaver-status-card', lc.cards);
-ok('...the clock it doesn\'t place spare, as the screen had it; the weather it places, not', lc.cards[0].ly_spare === true &&
-   lc.cards[0].time_size === '150px' && !lc.cards[1].ly_spare && !lc.cards[3].ly_spare, lc.cards);
-ok('...a corner clock the screen didn\'t have: a corner\'s own sizes', U.readCfg({ cards: [], layout: { v: 1, big: { kind: 'none' }, zones: {} } })
-   .cards[0].time_size === '150px');
+ok('a layout keeps none of the corner cards: its own are pieces, the slides have their corner', lc.cards.length === 0, lc.cards);
 var d = U.readCfg({});
 ok('defaults: 180 s, 30 s, random, filled, no zoom, the house photos',
    d.starts_after === 180 && d.each_photo === 30 && d.order === 'random' && d.fill && !d.zoom &&
@@ -159,7 +155,8 @@ ok('nonsense timing falls back', U.readCfg({ starts_after: -5, each_photo: 'x' }
 ok('no block, no screensaver', U.readCfg(null) === null && U.readCfg('x') === null);
 // THE MUSIC: a slide, and the pane's
 ok('the music: off by default, on only when asked', d.music_slide === false && d.music_pane === false &&
-   U.readCfg({ music_slide: true, music_pane: true }).music_slide === true && U.readCfg({ music_pane: 'yes' }).music_pane === false);
+   // (one key for Music Full Screen, phase 13: an older music_slide reads as music_first)
+   U.readCfg({ music_slide: true, music_pane: true }).music_first === true && U.readCfg({ music_pane: 'yes' }).music_pane === false);
 ok('the pane is up for the calendar, the music, or both', !U.paneOf(d) && U.paneOf({ calendar: true }) && U.paneOf({ music_pane: true }) &&
    U.paneOf({ calendar: true, music_pane: true }) && !U.paneOf(null));
 // THE SIDE PANE'S SCREENSAVER GROUP (2026-10-30, hk-sidepane.js): the pane
@@ -222,14 +219,23 @@ var W4 = { show: 'both', music_slide: true, weather_slide: true, energy_slide: t
 ok('Weather: off by default; checked', d.weather_slide === false && d.weather_hide.length === 0 &&
    U.readCfg({ weather_slide: true }).weather_slide === true && U.readCfg({ weather_slide: 1 }).weather_slide === false &&
    JSON.stringify(U.readCfg({ weather_hide: ['wind', 7] }).weather_hide) === '["wind"]');
+// THE SLIDES' OWN SETTINGS (2026-11-02): the corner's time size, what it and Music Full Screen leave out
+ok('the slides\' own settings: the corner\'s time 100 % by default, 100 to 250; the parts left out kept as words',
+   d.corner_time_size === 100 && d.corner_hide.length === 0 && d.music_hide.length === 0 &&
+   U.readCfg({ corner_time_size: 200 }).corner_time_size === 200 && U.readCfg({ corner_time_size: 400 }).corner_time_size === 100 &&
+   JSON.stringify(U.readCfg({ corner_hide: ['weather', 3], music_hide: ['album'] }).corner_hide) === '["weather"]' &&
+   JSON.stringify(U.readCfg({ music_hide: ['album'] }).music_hide) === '["album"]');
 ok('...the music, the forecast, the weather and Home Energy take turns, in that order',
    U.slideOf(W4, true, '', true, true) === 'music' && U.slideOf(W4, true, 'music', true, true) === 'forecast' &&
    U.slideOf(W4, true, 'forecast', true, true) === 'weather' && U.slideOf(W4, true, 'weather', true, true) === 'energy' &&
    U.slideOf(W4, true, 'energy', true, true) === 'music');
 ok('...the weather without a reading yet: skipped', U.slideOf(W4, false, 'forecast', true, false) === 'energy');
-ok('...an additional screen over the clock, not over the forecast',
+// (phase 13, 2026-11-02: slides are overlays -- the Weather over the forecast's Landscape too, and over Glance, Month and
+// the Day face, where it was offered and never came)
+ok('...an additional screen over every background but the photos',
    JSON.stringify(U.extrasOf({ show: 'clock', clock_bg: 'gradient', extra_forecast: true, weather_slide: true, energy_slide: true })) === '["forecast","weather","energy"]' &&
-   JSON.stringify(U.extrasOf({ show: 'forecast', weather_slide: true, energy_slide: true })) === '["energy"]');
+   JSON.stringify(U.extrasOf({ show: 'forecast', weather_slide: true, energy_slide: true })) === '["weather","energy"]' &&
+   ['glance', 'month', 'day'].every(function (sh) { return JSON.stringify(U.extrasOf({ show: sh, weather_slide: true, energy_slide: true })) === '["weather","energy"]'; }));
 ok('...they take turns, round and round', U.turnOf(['forecast', 'music', 'energy'], ['forecast', 'energy'], '') === 'forecast' &&
    U.turnOf(['forecast', 'music', 'energy'], ['forecast', 'energy'], 'forecast') === 'energy' &&
    U.turnOf(['forecast', 'music', 'energy'], ['forecast', 'energy'], 'energy') === 'forecast' &&

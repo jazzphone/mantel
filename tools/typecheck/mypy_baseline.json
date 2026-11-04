@@ -1,0 +1,27 @@
+{
+ "total": 136,
+ "files": {
+  "hk_core/art/fetch.py": 1,
+  "hk_core/art/resize.py": 1,
+  "hk_core/energy/plan.py": 2,
+  "hk_core/energy/power.py": 2,
+  "hk_core/energy/settings.py": 2,
+  "hk_core/live_tv_guide.py": 3,
+  "hk_core/music/config.py": 1,
+  "hk_core/music/engine.py": 6,
+  "hk_core/music/settings.py": 1,
+  "hk_core/music/warm.py": 2,
+  "hk_core/notifications/banner.py": 1,
+  "hk_core/notifications/calendars.py": 2,
+  "hk_core/notifications/dnd.py": 1,
+  "hk_core/notifications/settings.py": 6,
+  "hk_core/settings/changes.py": 12,
+  "hk_core/settings/home_grid.py": 13,
+  "hk_core/settings/model.py": 26,
+  "hk_core/settings/saver_layout.py": 16,
+  "hk_core/sleep/engine.py": 28,
+  "hk_core/sleep/rules.py": 5,
+  "hk_core/tablets/kiosk.py": 1,
+  "hk_core/talk/core.py": 4
+ }
+}

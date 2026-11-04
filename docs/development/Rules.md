@@ -64,15 +64,24 @@ to build when they find private network addresses, keys or tokens.
 
 ## 7. Every route declares its guard
 
-Every route Mantel Server serves says who may call it with `@guard(...)` (`guards.py`): who (a session, a person, an
-Owner or Admin, an Owner), whether a wall tablet's session may, from which door, and how fresh the sign-in must be.
-A route with its own check (sign-in, the app's DPoP routes, `/linked/*`, an assistant's `/mcp` and its OAuth sign-in, the media proxy,
-static files, health) is
-on the test's short list instead, with its reason. Every route that changes something names the audit action it
-writes, or says why it writes none. The row goes through `audit.config`, before the change: no row, no change
-(503 `audit_unavailable`).
+Every route Mantel Server serves declares, on its handler, who may call it and what it may show, in one table
+(`route_table.py`; read it in [Routes](Routes.md)). A route called with a session says so with `@guard(...)`
+(`guards.py`): who (a session, a person, an Owner or Admin, an Owner), whether a wall tablet's session may, from which
+door, how fresh the sign-in must be, what a read may show (`reads`: `view`, `feature:<name>`, `self`, `admin`, `none`
+with why), whether its answer stays open (`stream`: `none`, `bounded:<cap>`, `live:<kind>` in the live registry) and
+whether a screen preview may fetch it (`preview`). A route with its own check (sign-in, the app's DPoP routes, Mantel
+Link, an assistant's `/mcp` and its OAuth sign-in, the media proxy, static files, health) says so with
+`@open_route(kind, why=...)`. Every route that changes something names the audit action it writes, or says why it
+writes none. The row goes through `audit.config`, before the change: no row, no change (503 `audit_unavailable`). An
+assistant's write tool names the REST route it parallels (`like=`) and is never easier to use than it
+(`mcp_parity.py`).
 
-**Checked by** `tests/test_route_guards.py`, which builds the whole app and walks its router.
+**Checked at start:** `build_app` builds the table and refuses to start (`RouteTableError`) when a route is
+undeclared or breaks a rule (R1-R12 in `route_table.py`). **Checked by** `tests/test_route_table.py`, which builds the
+app under every combination of the options that add routes; `tests/test_route_conformance.py`, which reads every
+`view` route as a Child and a wall tablet; and the stream witness in the tests' app. After adding or changing a
+route, run `tools/route_table.py --write` and commit the regenerated `Routes.md` and lock: the reviewer reads each
+door's rule in the diff.
 
-Write a new route's guard first, as strict as the route allows; a check only the handler can make (an Admin never
-manages an Owner, say) stays in the handler as well. See [Architecture](Architecture.md#route-guards-and-the-audit-of-changes).
+Write a new route's declaration first, as strict as the route allows; a check only the handler can make (an Admin
+never manages an Owner, say) stays in the handler as well. See [Architecture](Architecture.md#route-guards-and-the-audit-of-changes).

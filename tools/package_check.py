@@ -293,8 +293,16 @@ def check_compose(path: Path, release: bool = False) -> list[str]:
         image = str(svc.get("image", ""))
         if release and ZERO_DIGEST in image:
             problems.append(f"{where}: image still has the placeholder digest")
-        if sname != "caddy" and "ports" in svc and sname not in ("go2rtc",):
-            problems.append(f"{where}: publishes ports; only caddy (443) and go2rtc (WebRTC) may")
+        if sname == "mantel-server" and "ports" in svc:
+            # the Intercom's listener (phase 17): ONE published port, to the container's 8767, never Mantel's own 8765
+            # (compose.byo-proxy.yaml adds that one, compose.connect.yaml 8766; each is checked as its own file)
+            published = [str(p) for p in _as_list(svc.get("ports"))]
+            if len(published) != 1 or not published[0].endswith(":8767") or published[0].count(":") < 2:
+                problems.append(f"{where}: publishes ports; it may publish only the Intercom's listener, one port to the "
+                                "container's 8767")
+        elif sname != "caddy" and "ports" in svc and sname not in ("go2rtc",):
+            problems.append(f"{where}: publishes ports; only caddy (443), go2rtc (WebRTC) and mantel-server's Intercom "
+                            "listener (8767) may")
         if "healthcheck" not in svc and sname != "cloudflared":
             problems.append(f"{where}: no healthcheck")
         for ref in _as_list(svc.get("secrets")):
@@ -482,13 +490,17 @@ def check_ha_app(path: Path) -> list[str]:
     # (checked with HA itself) can become the first Owner. Stated, not left to the default.
     if doc.get("panel_admin") is not False:
         problems.append("ha-app: panel_admin must be false (wall tablets and household members open the panel)")
-    # Direct access (decision 26): exactly one opt-in port, 8100/tcp, unpublished (null) until the Owner maps it,
-    # and the access option defaulting to the sidebar only
+    # Direct access (decision 26): an opt-in port, 8100/tcp, and the Intercom's listener (phase 17), 8101/tcp: both
+    # unpublished (null) until the Owner maps them, and the access option defaulting to the sidebar only
     ports = doc.get("ports")
-    if ports is not None and ports not in ({"8100/tcp": None}, {"8100/tcp": "null"}):
-        problems.append("ha-app: the only port is 8100/tcp (direct access), unpublished by default (null)")
+    unpublished = {None, "null"}
+    if ports is not None and (set(ports) - {"8100/tcp", "8101/tcp"} or any(v not in unpublished for v in ports.values())):
+        problems.append("ha-app: the only ports are 8100/tcp (direct access) and 8101/tcp (the Intercom's listener), "
+                        "unpublished by default (null)")
+    if ports is not None and "8101/tcp" not in ports:
+        problems.append("ha-app: the Intercom's listener port 8101/tcp must be declared (null: not published)")
     if ports is not None and set(doc.get("ports_description") or {}) != set(ports):
-        problems.append("ha-app: describe the direct-access port in ports_description")
+        problems.append("ha-app: describe each port (direct access, the Intercom's listener) in ports_description")
     if (doc.get("options") or {}).get("access", "ingress") != "ingress":
         problems.append("ha-app: options.access must default to ingress (the sidebar only)")
     for token in ("cloudflare_token", "duckdns_token", "ma_token"):

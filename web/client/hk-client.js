@@ -1,6 +1,7 @@
 // HKClient's first shared surface: state display, formatting and read requests, plus one
 // action port for everything that changes the house.
 // A host owns its transport. Shared cards never receive the host's raw object.
+// @ts-check
 (function (global) {
   'use strict';
   if (global.hkClient) return;
@@ -10,8 +11,11 @@
   // host's socket is down (undefined when the host cannot say).
   var DATA = ['states', 'entities', 'devices', 'areas', 'floors', 'services',
               'config', 'locale', 'language', 'user', 'themes', 'connected', 'subscriptions'];
+  // cameraOffer(msg, quality): a host that serves cameras of its own in more than one quality adds to a camera's
+  // WebRTC offer which one the card draws ('low' a tile, 'high' a pop-up; 2026-11-02). A host without it (Home
+  // Assistant, whose schema refuses an unknown key) has none, and the offer goes as it is.
   var METHODS = ['formatEntityState', 'formatEntityAttributeValue', 'formatEntityAttributeName',
-                 'callWS', 'bindStateIcon'];
+                 'callWS', 'bindStateIcon', 'cameraOffer'];
   // WRITES AND READS ARE TOLD APART AT THE PORT. Every WebSocket message the shared frontend
   // sends that changes something (the house, HK's settings, a registry, a user's data) is one
   // of these, and goes through `client.actions.callWS`. `client.callWS` is the read path and
@@ -63,6 +67,7 @@
     'hk_music/subscribe',
     'persistent_notification/subscribe',
     'subscribe_events',
+    'timeline/subscribe',
     'weather/subscribe_forecast'
   ];
   var SUBSCRIBE_EVENTS = ['repairs_issue_registry_updated'];
@@ -124,6 +129,14 @@
         }
         return act.liveSocket.apply(act, arguments);
       },
+      // THE INTERCOM (docs/phase17/INTERCOM.md): intercom(mode, rate) resolves {url, token} for the sheet's Worker --
+      // Mantel's /ws/intercom and a one-time ticket. A host without it (Home Assistant) refuses like any other action.
+      intercom: function () {
+        if (!act || typeof act.intercom !== 'function') {
+          return refuse({ kind: 'socket', what: 'intercom' });
+        }
+        return act.intercom.apply(act, arguments);
+      },
       // how long that socket may take to start listening, where the host's path to the doorbell is
       // longer than HA's own (ms; undefined: the card's own wait)
       get liveWaitMs() { return act && typeof act.liveWaitMs === 'number' ? act.liveWaitMs : undefined; }
@@ -164,6 +177,11 @@
       };
     } });
     Object.defineProperty(client, 'actions', { enumerable: true, value: actionPort(port) });
+    // THE INTERCOM'S FEED (a read, so not on `actions`): the rooms this person may reach and how each would play, whole on
+    // every change; subscribe(cb) -> unsubscribe. null on a host without it (Home Assistant): the block says "Intercom needs Mantel".
+    var feed = port.intercom;
+    Object.defineProperty(client, 'intercom', { enumerable: true, value: feed && typeof feed.subscribe === 'function'
+      ? Object.freeze({ subscribe: function (cb) { return feed.subscribe(cb); } }) : null });
     Object.freeze(client);
     made.add(client);
     current = client;
@@ -213,7 +231,7 @@
                       subscribable: subscribable,
                       DATA: DATA.slice(), METHODS: METHODS.slice(), WRITES: WRITES.slice(),
                       SUBSCRIPTIONS: SUBSCRIPTIONS.slice(), SUBSCRIBE_EVENTS: SUBSCRIBE_EVENTS.slice(),
-                      ACTIONS: ['callService', 'callWS', 'request', 'liveSocket'] };
+                      ACTIONS: ['callService', 'callWS', 'request', 'liveSocket', 'intercom'] };
 
   // THE HOUSE'S LOCALE, for every screen that writes a time, a date or a number. One place reads the client's
   // `locale` (HA's user locale: language, number_format, time_format, time_zone) and `config` (language,

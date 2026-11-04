@@ -202,7 +202,7 @@ def _used_by(app) -> dict[str, str]:
 
 # -- REST: an Owner's own session, on the LAN door or HA's sidebar with the home rules (the HA App has no LAN door;
 # HA-APP.md). Every change audited first.
-@guard("owner", door="home")
+@guard("owner", door="home", reads="admin")
 async def api_list(request):
     from aiohttp import web
     accounts = request.app["service_accounts"]

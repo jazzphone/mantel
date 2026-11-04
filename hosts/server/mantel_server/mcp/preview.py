@@ -19,6 +19,7 @@ from urllib.parse import quote
 from aiohttp import web
 
 from .. import sessions
+from ..guards import open_route
 
 PATH = "/mcp/preview/{code}"
 CODE_TTL = 300.0
@@ -54,6 +55,9 @@ def _page(title: str, text: str, status: int) -> web.Response:
     return page(title, f"<p>{text}</p>", status)
 
 
+@open_route("one_time_code", reads="none",
+            why="a screen preview: its one-time code (mcp/preview.py) starts a read-only session; it redirects "
+                "to the screen and answers no house data itself")
 async def open_preview(request: web.Request) -> web.StreamResponse:
     app = request.app
     now = app["clock"]()

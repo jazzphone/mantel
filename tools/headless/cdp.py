@@ -10,6 +10,7 @@ import asyncio
 import base64
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -19,6 +20,35 @@ from urllib.parse import urlsplit
 import aiohttp
 
 MAC_CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def split_card_tags() -> list[str]:
+    """The elements defined by the card files tools/split_js.py cut into parts (tools/split_manifests/): their shell
+    registers them once its parts have loaded, a beat after the page says it is ready (Part B, phase 18)."""
+    tags: set[str] = set()
+    folder = os.path.join(ROOT, "tools", "split_manifests")
+    for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
+        if not name.endswith(".json"):
+            continue
+        shell = json.load(open(os.path.join(folder, name))).get("shell", "")
+        if shell.startswith("web/hk/cards/"):
+            text = open(os.path.join(ROOT, shell), encoding="utf-8").read()
+            tags.update(re.findall(r"(?:\bregister|customElements\.define)\(\s*['\"](hk-[a-z0-9-]+)['\"]", text))
+    return sorted(tags)
+
+
+# true once every split shell that started (its loader sets window.__hkSplitStarted[label], and __hkSplitDone[label] when its
+# parts have run) is done: the screensaver's window.hkSaver, among them, is set only then
+SPLITS_DONE = ("(() => { const s = window.__hkSplitStarted || {}, d = window.__hkSplitDone || {};"
+               " return Object.keys(s).every((k) => d[k]); })()")
+
+# true once no element of a split card file is on the page (shadow roots too) waiting to be defined; a check that reads a
+# card right after __mantelReady waits for this as well (Browser.wait adds it)
+CARDS_UPGRADED = ("((tags) => { const walk = (root) => { for (const e of root.querySelectorAll('*')) {"
+                  " if (tags.includes(e.localName) && !customElements.get(e.localName)) return false;"
+                  " if (e.shadowRoot && !walk(e.shadowRoot)) return false; } return true; };"
+                  " return walk(document); })(%s)")
 
 
 def find_chrome() -> str:
@@ -159,7 +189,14 @@ class Browser:
         return r["result"].get("value")
 
     async def wait(self, expr, timeout=60):
+        """True once `expr` is truthy, within `timeout` seconds. An expression that waits for __mantelReady also waits for the
+        cards of the split card files that are on the page to be defined (their parts load after the page is ready)."""
         end = time.time() + timeout
+        if "__mantelReady" in expr:
+            expr = f"({expr}) && " + SPLITS_DONE
+            tags = split_card_tags()
+            if tags:
+                expr = f"({expr}) && " + CARDS_UPGRADED % json.dumps(tags)
         while time.time() < end:
             try:
                 if await self.eval(expr):

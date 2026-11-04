@@ -93,3 +93,66 @@ async def test_an_older_mantel_says_update_mantel_first_and_there_is_no_downgrad
     sent = [m for m in mantel.received if m["type"] == "pair"]
     assert [m["v"] for m in sent] == [2], "never retried as v1"
     assert mantel.code == CODE and not hass.config_entries.async_entries("mantel")
+
+
+# ---- Mantel by its address: its own CA, pinned (pairing v3, 2026-11-02) --------------------------------------
+async def test_mantel_by_address_pairs_pinned_and_the_link_trusts_only_its_ca(hass, socket_enabled):
+    """The owner: "would it be more reliable with just an IP connection?" An https address whose certificate is
+    Mantel's own (Mantel Connect's listener) pairs by v3: Mantel's CA comes in its proof, the credential sealed under
+    the code; the entry keeps the CA, and the link pins it."""
+    from mantel_fake import FakeMantel
+    fake = await FakeMantel().start(pinned=True)
+    try:
+        fake.code = CODE
+        r = await _flow(hass, url=fake.url, code=CODE)
+        assert r["type"] is FlowResultType.CREATE_ENTRY, r
+        assert r["data"] == {"url": fake.url, "token": TOKEN, "ca": fake.ca_pem}
+        assert [m["v"] for m in fake.received if m["type"] == "pair"] == [3], "v2 never got through: not a public certificate"
+        e = hass.config_entries.async_entries("mantel")[0]
+        await until(hass, lambda: e.runtime_data.connected)
+    finally:
+        await fake.close()
+
+
+async def test_a_look_alike_can_t_hand_over_its_own_ca(hass, socket_enabled):
+    from mantel_fake import FakeMantel, own_ca
+    fake = await FakeMantel().start(pinned=True)
+    try:
+        fake.code = CODE
+        fake.swap_ca = own_ca()[0]
+        r = await _flow(hass, url=fake.url, code=CODE)
+        assert r["errors"] == {"base": "not_mantel"} and not hass.config_entries.async_entries("mantel")
+    finally:
+        await fake.close()
+
+
+async def test_a_mantel_that_pins_elsewhere_says_where(hass, socket_enabled):
+    """Mantel's own certificate, but not on its link port (Caddy's own CA on 443, say): v3 is refused there."""
+    from mantel_fake import FakeMantel
+    fake = await FakeMantel().start(pinned=True)
+    try:
+        fake.code = CODE
+        fake.ca_pem = None                     # answers v3 with pin_elsewhere
+        r = await _flow(hass, url=fake.url, code=CODE)
+        assert r["errors"] == {"base": "pin_elsewhere"} and fake.code == CODE, "not spent"
+    finally:
+        await fake.close()
+
+
+def test_the_pinned_link_trusts_only_mantel_s_ca_for_the_listener_s_name():
+    import ssl
+    from mantel_fake import own_ca
+    from custom_components.mantel.mantel_link import MantelLink, pinned_tls
+    ca = own_ca()[0]
+    tls = pinned_tls(ca)
+    assert tls["server_hostname"] == "mantel-connect"
+    ctx = tls["ssl"]
+    assert ctx.verify_mode == ssl.CERT_REQUIRED and ctx.check_hostname
+    assert [c["subject"] for c in ctx.get_ca_certs()] == [((("commonName", "Fictional Mantel CA"),),)], "nothing else"
+    assert pinned_tls(None) == {}
+    try:
+        MantelLink(None, "http://127.0.0.1:1", "t", None, ca=ca)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("a pinned CA over plain http")

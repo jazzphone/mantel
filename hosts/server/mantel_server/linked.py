@@ -51,6 +51,8 @@ from typing import Any, Mapping
 
 from aiohttp import WSCloseCode, WSMsgType, web
 
+from .guards import WHY_LINKED, open_route
+
 log = logging.getLogger("mantel.linked")
 
 PROTOCOL = 1                   # what a client that does not say (HK Frontend before 9.10) is answered
@@ -96,7 +98,8 @@ _KEYS = {"call_service": {"id", "type", "service", "data", "targets"},
          "settings_write": {"id", "type", "ha_user", "msg"},
          "page": {"id", "type", "ha_user", "frame"}}
 # a report's parts (protocol 2), each checked by its own key
-_REPORT_KEYS = frozenset({"hk_frontend", "phones", "hk_dashboards"})
+_REPORT_KEYS = frozenset({"hk_frontend", "phones", "hk_dashboards", "versions"})
+_VERSION = re.compile(r"^[0-9][0-9A-Za-z.+-]{0,31}$")
 _BOARD = re.compile(r"^[a-z0-9_-]{1,80}$")
 _PHONE = re.compile(r"^mobile_app_[a-z0-9_]{1,80}$")
 _POPUP_KEYS = frozenset({"popup", "dashboards", "users"})
@@ -532,6 +535,15 @@ class Linked:
                     for p in phones)):
                 raise LinkedError("invalid", "report.phones: [{service: mobile_app_..., name}]")
             client.report["phones"] = [{"service": p["service"], "name": p["name"]} for p in phones]
+        versions = report.get("versions")
+        if versions is not None:
+            # the integrations' installed versions (Mantel Link's own, HK Frontend's): the update check compares them
+            # with their latest releases (alerts/updates.py). Sent as a report of its own, so an older Mantel that
+            # refuses the key loses nothing else
+            if (not isinstance(versions, Mapping) or set(versions) - {"mantel", "hk_frontend"} or not all(
+                    isinstance(v, str) and _VERSION.match(v) for v in versions.values())):
+                raise LinkedError("invalid", "report.versions: {mantel?, hk_frontend?} version strings")
+            client.report["versions"] = {k: str(v) for k, v in versions.items()}
         boards = report.get("hk_dashboards")
         if boards is not None:
             # HK Frontend's dashboards in Home Assistant (linked_settings.py: where each screen is drawn)
@@ -690,6 +702,9 @@ def _parse(text: str, protocol: int = 1, features: frozenset[str] = frozenset())
     return msg, None
 
 
+# reads="feature:linked": the Service credential's ``linked`` scope (service_accounts.py) stands where a person's feature
+# grant would: the entities Mantel publishes into Home Assistant, not a person's view of the house
+@open_route("link_credential", why=WHY_LINKED, reads="feature:linked", stream="live:linked")
 async def ws_endpoint(request: web.Request) -> web.StreamResponse:
     from .sessions import client_ip, door_of
     linked: Linked = request.app["linked"]

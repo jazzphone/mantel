@@ -53,7 +53,7 @@ import aiohttp
 from aiohttp import WSMsgType, web
 
 from . import proxy_trust, sessions
-from .guards import guard
+from .guards import WHY_PROXY, guard, open_route
 from .connectors.kiosk import read_body     # the whole body, every piece (one read() is only the first)
 
 log = logging.getLogger("mantel.media_proxy")
@@ -443,6 +443,11 @@ class MediaProxy:
             await self.http.close()
 
     def handler(self, up: Upstream):
+        # what the service's grant decides: Music Assistant is the music feature's, go2rtc's streams are each camera's
+        # (Go2rtcStreams.may: the same ``view`` as the camera's own routes)
+        reads = "feature:music" if up.name == MusicAssistant.name else "view"
+
+        @open_route("proxy", why=WHY_PROXY, reads=reads, stream="live:media_proxy")
         async def handle(request: web.Request) -> web.StreamResponse:
             stats = self.stats[up.name]
             if not up.base:
@@ -808,7 +813,7 @@ def register(app: web.Application, hub: Any = None) -> MediaProxy | None:
     proxy = MediaProxy(app, ups)
     app["media_proxy"] = proxy
 
-    @guard("signed_in")          # any session: the services its grants open (services_for)
+    @guard("signed_in", reads="self", preview=True)          # any session: the services its grants open (services_for)
     async def services(request: web.Request) -> web.Response:
         authz = request.app.get("authz")
         principal = authz.principal(request) if authz is not None else None
@@ -818,6 +823,8 @@ def register(app: web.Application, hub: Any = None) -> MediaProxy | None:
 
     app.router.add_get(SERVICES_PATH, services)
     for up in ups:
+        @open_route("static", why="the proxy's bare address: a redirect to its tail route (MediaProxy.handler), which "
+                                  "authorizes; it answers no house data")
         async def bare(request: web.Request, _p=up.prefix) -> web.StreamResponse:
             raise web.HTTPFound(_p + "/" + (f"?{request.query_string}" if request.query_string else ""))
         app.router.add_route("*", up.prefix, bare)

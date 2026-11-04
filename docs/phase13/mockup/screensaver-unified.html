@@ -1,0 +1,1064 @@
+<title>One Screensaver</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: the editor's frame -- a top bar; Looks and the grouped library left; the screen center; Look, Info, Slides
+   and Timing right -- then three studies under the screen: one piece in every shape, the slide corner on all five
+   slides, and the decisions. One dark look, as the editor it mocks. */
+:root{
+  color-scheme:dark;
+  --bg:#0c0d10; --panel:#1b1c20; --panel2:#2a2b30; --line:#35363c; --fg:#f4f4f6; --mut:#9b9ca5;
+  --blue:#3d8bff; --sel:#6fd3ff; --ok:#34d27a; --warn:#ffcf3d; --red:#ff5a4e; --accent:#ffb38a;
+  --ui:-apple-system,"SF Pro Text",system-ui,"Segoe UI",Roboto,sans-serif;
+  --disp:"SF Pro Display",-apple-system,system-ui,Roboto,sans-serif;
+  --round:"SF Pro Rounded",ui-rounded,-apple-system,system-ui,Roboto,sans-serif;
+  --serif:"New York","Iowan Old Style",Georgia,serif;
+  --mono:"SF Mono",ui-monospace,Menlo,"Roboto Mono",monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 var(--ui);-webkit-font-smoothing:antialiased}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,[tabindex]:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;gap:10px;background:#131418;border-bottom:1px solid #24252a;
+  padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:#131418}
+.top h1{font-size:17px;margin:0;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top h1 small{color:var(--mut);font-weight:400;margin-left:8px}
+.btn{border:0;border-radius:9px;padding:7px 13px;background:var(--panel2)}
+.btn.primary{background:var(--blue);color:#fff;font-weight:600}
+.btn.sm{padding:4px 10px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:default}
+.wrap{display:grid;grid-template-columns:300px minmax(0,1fr) 350px;gap:18px;align-items:start;
+  padding-block:16px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+@media (max-width:1180px){.wrap{grid-template-columns:minmax(0,1fr)}.center{order:-2}.insp{order:-1}}
+.lib,.insp,.center{min-width:0}
+.hint{color:var(--mut);font-size:13px;margin:0 0 10px}
+h3{font-size:12px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin:18px 0 8px 4px}
+h3:first-child{margin-top:0}
+.card{background:var(--panel);border-radius:12px;overflow:hidden}
+.row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid var(--line);min-height:44px;flex-wrap:wrap}
+.card>.row:first-child{border-top:0}
+.row .lab{flex:1;min-width:110px}
+.row .lab small{display:block;color:var(--mut);font-size:12px}
+.row .val{color:var(--mut);font-size:13px}
+.row.link{cursor:pointer}.row.link::after{content:"›";color:var(--mut);font-size:20px;line-height:1}
+.row.why{color:var(--mut);font-size:13px}
+.seg{display:inline-flex;background:#3a3b41;border-radius:8px;padding:2px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:none;border-radius:6px;padding:4px 9px;font-size:13px}
+.seg button[aria-pressed="true"]{background:#65666e}
+.seg button:disabled{opacity:.4;cursor:default}
+.sw{width:46px;height:28px;border-radius:14px;border:0;background:#3a3b41;position:relative;flex:none}
+.sw::after{content:"";position:absolute;left:2px;top:2px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .15s}
+.sw[aria-checked="true"]{background:var(--ok)}.sw[aria-checked="true"]::after{left:20px}
+input[type=range]{width:140px;accent-color:var(--blue)}
+select{background:#3a3b41;border:0;border-radius:8px;padding:6px 8px;max-width:100%}
+.sec{display:flex;align-items:baseline;gap:8px;margin:20px 0 8px 4px}
+.sec:first-child{margin-top:0}
+.sec h2{font-size:20px;margin:0;font-weight:700}
+.sec span{color:var(--mut);font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;background:var(--panel2);padding:2px 8px;font-size:11px;color:#d6d7de;white-space:nowrap}
+.chip.add{background:#183a26;color:#8ff0b5}
+.chip.claim{background:#3a3014;color:#ffe08a}
+.chip.wave{background:#1d2c45;color:#a9c8ff}
+.chip.off{background:#3d1e22;color:#ffb0aa}
+
+/* the Looks gallery */
+.looks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px}
+.look{border:1.5px solid var(--line);background:var(--panel);border-radius:10px;padding:6px;text-align:left;min-width:0}
+.look[aria-pressed="true"]{border-color:var(--sel)}
+.look .th{width:100%;aspect-ratio:16/10;border-radius:6px;overflow:hidden;position:relative;margin-bottom:5px;background:#000}
+.look .th .stage{transform-origin:0 0;pointer-events:none}
+.look b{font-size:13px;font-weight:600;display:block}
+.startover{padding:0 10px 10px;display:flex;flex-direction:column;gap:6px}
+.startover .btn{width:100%;text-align:left}
+.startover .btn.danger{background:#3d1e22;color:#ffb0aa}
+
+/* the library */
+.search{width:100%;background:var(--panel2);border:0;border-radius:9px;padding:8px 11px;margin-bottom:6px}
+.grp{margin-top:12px}
+.grp>b{display:block;font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px 4px;font-weight:600}
+.pieces{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.pitem{border:1.5px solid transparent;background:var(--panel);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:4px;text-align:left;min-width:0}
+.pitem[aria-pressed="true"]{border-color:var(--sel);background:#183244}
+.pitem .pv{height:46px;display:flex;align-items:center;color:#f2efe8;overflow:hidden;font-size:12px}
+.pitem b{font-size:13px;font-weight:600}
+.pitem .shp{display:flex;gap:3px;flex-wrap:wrap}
+.pitem .shp i{font-style:normal;font-size:10px;color:var(--mut);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+.pitem small{font-size:11px;color:var(--mut);line-height:1.3}
+
+/* the screen */
+.cbar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:12px}
+.cbar label{color:var(--mut);font-size:12px;margin-right:-6px}
+.frame{position:relative;margin:0 auto;border-radius:18px;overflow:hidden;background:#000;box-shadow:0 0 0 8px #1b1c20,0 0 0 9px #333}
+.frame>.stage{transform-origin:0 0}
+.note{margin:14px auto 0;color:var(--mut);font-size:13px;max-width:900px;min-height:1.4em}
+.note b{color:var(--warn);font-weight:600}
+
+/* the studies under the screen */
+.study{margin-top:34px}
+.study h2{font-size:18px;margin:0 0 4px;text-wrap:balance}
+.study>p{color:var(--mut);margin:0 0 12px;max-width:72ch}
+.shapes{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch}
+.shape{background:var(--panel);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.shape .sw2{border-radius:8px;background:url(img/photo.webp) center/cover;display:flex;align-items:center;justify-content:center;padding:14px;color:#f3f6ff;min-height:120px;position:relative;overflow:hidden}
+.shape .sw2::before{content:"";position:absolute;inset:0;background:rgba(0,0,0,.25)}
+.shape .sw2>*{position:relative}
+.shape b{font-size:13px}.shape small{color:var(--mut);font-size:12px}
+.slides5{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.sl{background:var(--panel);border-radius:12px;padding:8px;min-width:0}
+.sl .th{position:relative;overflow:hidden;border-radius:7px;background:#000;margin-bottom:8px}
+.sl .th .stage{transform-origin:0 0}
+.sl b{font-size:13px;display:block}
+.sl small{display:block;color:var(--mut);font-size:12px;margin-top:2px}
+.tblw{overflow-x:auto;border-radius:12px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:620px}
+th,td{text-align:left;padding:9px 12px;border-top:1px solid var(--line);vertical-align:top}
+th{color:var(--mut);font-weight:500;border-top:0}
+td:first-child{color:var(--mut);font-variant-numeric:tabular-nums;width:28px}
+td b{color:var(--ok);font-weight:600}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#2c2d33;border-radius:10px;padding:10px 16px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:40;max-width:calc(100% - 32px);box-shadow:0 6px 24px rgba(0,0,0,.5)}
+.toast.on{opacity:1}
+
+/* ---- on a stage: everything in the screen's own px, sized in u (1% of its shorter side) */
+.stage{position:absolute;left:0;top:0;overflow:hidden;font-family:var(--disp);color:var(--tint)}
+.stage .bg{position:absolute;inset:0}
+.stage .layer{position:absolute;inset:0;pointer-events:none}
+.pc{display:flex;align-items:center;color:var(--tint);line-height:1.15;position:relative}
+.pc.b-glass{background:rgba(255,255,255,.17)}             /* a static scrim: no backdrop-filter on the tablets */
+.pc.b-tint{background:color-mix(in srgb,var(--tint) 16%,rgba(0,0,0,.42))}
+.pc.hide{display:none}
+.edit .pc{cursor:pointer}
+.edit .pc.when{outline:1.5px dotted rgba(255,255,255,.7);outline-offset:3px}
+.edit .pc.claimed{opacity:.35;outline:1.5px dashed var(--warn);outline-offset:3px}
+.edit .pc.sel{outline:2px solid var(--sel);outline-offset:4px}
+.stack{position:absolute;display:flex;flex-direction:column;gap:var(--g)}
+.zn{position:absolute;border-radius:12px;display:none;align-items:center;justify-content:center;font:500 13px var(--ui);color:rgba(255,255,255,.85);text-shadow:0 1px 3px rgba(0,0,0,.6);text-align:center}
+.edit .zn{display:flex;outline:1.5px dashed rgba(255,255,255,.5);outline-offset:2px;cursor:pointer}
+.edit .zn.want{outline:2px dashed var(--ok);background:rgba(52,210,122,.16)}
+.edit .zn.full{display:none}
+.big{position:absolute;white-space:nowrap;line-height:1;color:var(--tint)}
+.edit .big{cursor:pointer}
+.edit .big.sel{outline:2px solid var(--sel);outline-offset:6px;border-radius:10px}
+.tag{position:absolute;font:600 12px var(--ui);color:#111;background:var(--warn);border-radius:6px;padding:3px 7px;white-space:nowrap;z-index:9;display:none}
+.edit .tag{display:block}
+.cap{position:absolute;font:500 11px var(--ui);color:#fff;background:rgba(0,0,0,.6);border-radius:5px;padding:2px 6px;white-space:nowrap;display:none;z-index:9}
+.edit .cap{display:block}
+@media (prefers-reduced-motion:reduce){.sw::after,.toast{transition:none}}
+</style>
+
+<div class="top">
+  <button class="btn" type="button" id="cancel">Cancel</button>
+  <h1>Living Room Tablet · Screensaver<small>mock-up, phase 13</small></h1>
+  <button class="btn" type="button" id="undo" disabled>Undo</button>
+  <button class="btn" type="button" id="mode">Preview</button>
+  <button class="btn primary" type="button" id="save">Save</button>
+</div>
+
+<div class="wrap">
+  <aside class="lib">
+    <h3>Looks</h3>
+    <p class="hint">A Look is the background and the time. Tapping one keeps everything you placed.</p>
+    <div class="card"><div class="looks" id="looks"></div><div class="startover" id="startover"></div></div>
+    <h3>Pieces</h3>
+    <p class="hint">One piece per fact, each in a few shapes. Tap one, then tap a green place on the screen.</p>
+    <input class="search" id="q" type="search" placeholder="Search pieces" aria-label="Search pieces">
+    <div id="library"></div>
+  </aside>
+
+  <section class="center">
+    <div class="cbar">
+      <div class="seg" id="device" role="group" aria-label="Screen"></div>
+      <label for="slide">See a Slide</label>
+      <select id="slide"></select>
+      <div class="seg" id="tod" role="group" aria-label="Day or night"></div>
+    </div>
+    <div class="frame" id="frame"></div>
+    <p class="note" id="note"></p>
+
+    <section class="study">
+      <h2>One piece, every shape</h2>
+      <p>The same renderer and the same units draw every shape. Size, Backdrop and Color work the same on each.</p>
+      <div class="seg" id="shapePick" role="group" aria-label="Piece" style="margin-bottom:12px"></div>
+      <div class="shapes" id="shapes"></div>
+    </section>
+
+    <section class="study">
+      <h2>The slide corner</h2>
+      <p>Each slide says what it already shows. The corner adds only the Time, Date, Weather and House Status it lacks, drawn by the pieces' renderer, with the time in the Look's face and color. These use the screen and the Look picked above.</p>
+      <div class="slides5" id="slides5"></div>
+    </section>
+
+    <section class="study">
+      <h2>Decisions for you</h2>
+      <p>These are asked in the chat as well. The answers go into the plan before building starts.</p>
+      <div class="tblw"><table id="decisions"></table></div>
+    </section>
+  </section>
+
+  <aside class="insp" id="insp"></aside>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function () {
+  'use strict';
+  // ================================================================== icons (24-unit paths)
+  var IC = {
+    cloud: 'M7 18a5 5 0 0 1-.6-9.96A6 6 0 0 1 17.7 9.1 4.5 4.5 0 0 1 17.5 18z',
+    lock: 'M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 0 1 6 0v3z',
+    note: 'M9 3v10.6A3.5 3.5 0 1 0 11 17V7h6V3z',
+    sun: 'M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM11 1h2v3h-2zM11 20h2v3h-2zM1 11h3v2H1zM20 11h3v2h-3z',
+    moon: 'M14 2a10 10 0 1 0 8 15A8 8 0 0 1 14 2z',
+    drop: 'M12 2s7 8 7 13a7 7 0 0 1-14 0c0-5 7-13 7-13z',
+    bolt: 'M13 2 4 14h7l-1 8 9-12h-7z',
+    bell: 'M12 2a6 6 0 0 0-6 6v5l-2 3v1h16v-1l-2-3V8a6 6 0 0 0-6-6zm-2 18a2 2 0 0 0 4 0z',
+    cam: 'M4 6h11a2 2 0 0 1 2 2v2l4-3v10l-4-3v2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z',
+    cal: 'M7 2h2v2h6V2h2v2h3a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3zM5 9v10h14V9z',
+    box: 'M3 7l9-4 9 4v10l-9 4-9-4zm9 2 6.5-2.8L12 3.5 5.5 6.2z',
+    person: 'M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm-9 10a9 9 0 0 1 18 0z',
+    car: 'M5 11l2-5h10l2 5h1a1 1 0 0 1 1 1v5h-2v2h-3v-2H8v2H5v-2H3v-5a1 1 0 0 1 1-1zm2.3 0h9.4L15.6 8H8.4z',
+    alert: 'M12 2 1 21h22zm-1 7h2v6h-2zm0 8h2v2h-2z',
+    trash: 'M9 3h6l1 2h4v2H4V5h4zM5 8h14l-1 13H6z',
+    leaf: 'M20 3C9 3 4 8 4 15c0 2 .5 4 1.5 5.5L7 19c3-6 6-8 10-9-4 2-7 5-9 10 1 .5 2.5 1 4 1 7 0 9-7 8-18z',
+    wind: 'M3 8h11a3 3 0 1 0-3-3h2a1 1 0 1 1 1 1H3zm0 4h16a3 3 0 1 1-3 3h2a1 1 0 1 0 1-1H3zm0 4h8v2H3z',
+    clock: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 5v5l4 2-1 2-5-3V7z',
+    list: 'M4 5h2v2H4zm4 0h12v2H8zM4 11h2v2H4zm4 0h12v2H8zm-4 6h2v2H4zm4 0h12v2H8z',
+    thermo: 'M10 3a2 2 0 0 1 4 0v10.3a4 4 0 1 1-4 0z',
+    garage: 'M2 9 12 3l10 6v12h-3v-9H5v9H2zm5 5h10v2H7zm0 3h10v2H7z',
+    shield: 'M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5z',
+    bulb: 'M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2zM9 19h6v2H9z',
+    fan: 'M12 11a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm0-9c3 0 4 3 2 6l-1 2c3-1 6-1 7 2s-3 4-6 2l-2-1c1 3 1 6-2 7s-4-3-2-6l1-2c-3 1-6 1-7-2s3-4 6-2l2 1c-1-3-1-6 2-7z',
+    plug: 'M8 2h2v5h4V2h2v5h2v4a6 6 0 0 1-5 5.9V22h-2v-5.1A6 6 0 0 1 6 11V7h2z',
+    photo: 'M3 5h18v14H3zm2 12h14l-4.5-6-3.5 4.5-2.5-3z',
+    gauge: 'M12 4a10 10 0 0 0-10 10h3a7 7 0 0 1 14 0h3A10 10 0 0 0 12 4zm-1 10 5-6-3 7a1.5 1.5 0 1 1-2-1z',
+    timer: 'M9 1h6v2H9zm3 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm1 4v6h-2V8z'
+  };
+  function ico(n, s) { return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" aria-hidden="true" style="flex:none"><path fill="currentColor" d="' + IC[n] + '"/></svg>'; }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function el(tag, cls, parent, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; if (parent) parent.appendChild(e); return e; }
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+  // ================================================================== the catalog: one piece per fact, a few shapes each
+  // w: 'now' (today's ten, reshaped) or the glance catalog's wave A, B or C. s: each shape's sample reading.
+  // facts: what the piece shows, for claiming. when: a "shows when..." piece. off: decision 7. pick: wave C's one entity.
+  var SHAPES = { inline: 'Inline', circ: 'Circular', rect: 'Rectangular', card: 'Card', band: 'Band' };
+  var SHAPE_ORDER = ['inline', 'circ', 'rect', 'card', 'band'];
+  var GROUPS = [['time', 'Time and Calendar'], ['weather', 'Weather and Sky'], ['home', 'Home'], ['people', 'People and Travel'], ['energy', 'Energy'], ['media', 'Media and Photos'], ['cameras', 'Cameras'], ['any', 'Any Sensor']];
+  var P = {};
+  [
+    // Time and Calendar
+    { id: 'date', n: 'Date', g: 'time', w: 'now', ic: 'cal', facts: ['date'], s: { inline: 'Monday, November 2' } },
+    { id: 'time', n: 'Time', g: 'time', w: 'now', ic: 'clock', facts: ['time'], note: 'For when the big element is not the time', s: { inline: { k: 'time' }, card: { k: 'clock' } } },
+    { id: 'next', n: 'Next Event', g: 'time', w: 'now', ic: 'cal', facts: ['calendar'], newShape: 'card', s: { inline: 'Piano Lesson · 3:30 PM', rect: ['UP NEXT', 'Piano Lesson · 3:30', 'Dinner at Mom’s · 6:00'], card: ['Today', '3:30  Piano Lesson', '6:00  Dinner at Mom’s', '8:15  Book Club call'] } },
+    { id: 'timers', n: 'Timers', g: 'time', w: 'now', ic: 'timer', facts: ['timers'], when: 'while a timer runs', s: { circ: [0.3, '4:12', 'PASTA'], card: ['Timers', 'Pasta  4:12', 'Bread  22:40'] } },
+    { id: 'countdown', n: 'Countdown', g: 'time', w: 'A', ic: 'cal', s: { inline: 'Beach trip in 12 days', circ: [0.6, '12', 'DAYS'] } },
+    { id: 'world', n: 'World Clock', g: 'time', w: 'A', ic: 'clock', s: { inline: 'London 3:57 PM', circ: { k: 'dial', t: 'LDN' }, rect: ['WORLD', 'London  3:57 PM', 'Tokyo  12:57 AM'] } },
+    { id: 'todo', n: 'To-Do', g: 'time', w: 'B', ic: 'list', when: 'when the list has items', s: { inline: '3 to do', circ: [0.5, '3', 'TO DO'], rect: ['TO DO', 'Call the plumber', 'Buy air filters'], card: ['Groceries', 'Milk', 'Eggs', 'Coffee beans'] } },
+    { id: 'alarm', n: 'Phone Alarm', g: 'time', w: 'C', ic: 'bell', when: 'while an alarm is set', pick: 'a phone’s next-alarm sensor', s: { inline: 'Alarm 6:30 AM', circ: [0.27, '6:30', 'ALARM'] } },
+    { id: 'trash', n: 'Trash Day', g: 'time', w: 'C', ic: 'trash', when: 'the day before and the day of', pick: 'the trash calendar', s: { inline: 'Trash tomorrow', circ: { k: 'icon', ic: 'trash', t: 'TUE' } } },
+    // Weather and Sky
+    { id: 'weather', n: 'Weather', g: 'weather', w: 'now', ic: 'cloud', facts: ['weather'], s: { inline: { ic: 'cloud', t: '64° Cloudy' }, circ: [0.62, '64°', '55   72', 1], rect: { k: 'hours' }, card: { k: 'wx' }, band: { k: 'forecast' } } },
+    { id: 'readings', n: 'Readings', g: 'weather', w: 'now', ic: 'drop', facts: ['readings'], note: 'Humidity, wind, AQI, sunset or inside', s: { circ: [0.52, '52%', 'HUM', 1], rect: ['OUTSIDE', '52% humidity', 'AQI 33 · Good'], band: { k: 'readings' } } },
+    { id: 'rain', n: 'Rain Soon', g: 'weather', w: 'A', ic: 'drop', when: 'when rain is coming', s: { inline: { ic: 'drop', t: 'Rain at 3 PM' }, circ: [0.7, '70%', 'RAIN', 1], rect: { k: 'rainbars' } } },
+    { id: 'alert', n: 'Weather Alert', g: 'weather', w: 'A', ic: 'alert', when: 'while one is active', s: { inline: { ic: 'alert', t: 'Wind Advisory until 6' }, card: ['Wind Advisory', 'Until 6 PM', 'Gusts to 45 mph'] } },
+    { id: 'uv', n: 'UV', g: 'weather', w: 'A', ic: 'sun', s: { circ: [0.27, '3', 'UV', 1] } },
+    { id: 'wind', n: 'Wind and Gusts', g: 'weather', w: 'A', ic: 'wind', s: { circ: [0.3, '6', 'G 14', 1] } },
+    { id: 'pressure', n: 'Pressure', g: 'weather', w: 'A', ic: 'gauge', s: { circ: [0.55, '30.1', 'inHg', 1] } },
+    { id: 'feels', n: 'Feels Like', g: 'weather', w: 'A', ic: 'thermo', s: { circ: [0.58, '61°', 'FEELS', 1] } },
+    { id: 'moon', n: 'Moon', g: 'weather', w: 'A', ic: 'moon', s: { inline: 'Waxing Gibbous', circ: { k: 'moon' } } },
+    { id: 'sun', n: 'Sun', g: 'weather', w: 'A', ic: 'sun', s: { inline: { ic: 'sun', t: 'Sunset 5:12 PM' }, circ: { k: 'sunarc' }, rect: ['DAYLIGHT', '10 h 21 min', 'Up 6:51 · Down 5:12'] } },
+    { id: 'pollen', n: 'Pollen', g: 'weather', w: 'C', ic: 'leaf', pick: 'a pollen sensor', s: { inline: { ic: 'leaf', t: 'Pollen High' }, circ: [0.8, 'High', 'POLLEN', 1] } },
+    // Home
+    { id: 'status', n: 'House Status', g: 'home', w: 'now', ic: 'lock', facts: ['status'], s: { inline: { ic: 'lock', t: 'Disarmed · 1 unlocked' }, circ: { k: 'icon', ic: 'lock', t: 'LOCKED' }, rect: ['HOME', 'Disarmed', 'Front Door unlocked'], card: ['Home', 'Disarmed', 'Front Door unlocked', '2 windows open'] } },
+    { id: 'security', n: 'Security', g: 'home', w: 'B', ic: 'shield', s: { inline: { ic: 'shield', t: 'Armed Away' }, circ: { k: 'icon', ic: 'shield', t: 'AWAY' } } },
+    { id: 'doors', n: 'Doors and Windows', g: 'home', w: 'B', ic: 'garage', when: 'always, or when something is open', s: { inline: '2 open', circ: [0.2, '2', 'OPEN'], rect: ['OPEN', 'Back Door', 'Kitchen Window'] } },
+    { id: 'garage', n: 'Garage', g: 'home', w: 'B', ic: 'garage', when: 'always, or when open', s: { inline: { ic: 'garage', t: 'Garage open' }, circ: { k: 'icon', ic: 'garage', t: 'OPEN' } } },
+    { id: 'climate', n: 'Climate', g: 'home', w: 'B', ic: 'thermo', s: { inline: { ic: 'thermo', t: 'Heating to 70°' }, circ: [0.7, '68°', '→ 70°', 1], rect: ['CLIMATE', 'Downstairs 68° → 70°', 'Upstairs 71° → 68°'] } },
+    { id: 'lights', n: 'Lights On', g: 'home', w: 'B', ic: 'bulb', s: { inline: { ic: 'bulb', t: '6 lights on' }, circ: [0.3, '6', 'LIGHTS'] } },
+    { id: 'vacuum', n: 'Vacuum', g: 'home', w: 'B', ic: 'fan', when: 'while running or stuck', s: { inline: 'Vacuuming the Kitchen', circ: [0.62, '62%', 'VACUUM'] } },
+    { id: 'notify', n: 'Notifications', g: 'home', w: 'B', ic: 'bell', when: 'when there are unread', s: { inline: { ic: 'bell', t: 'Garage left open 20 min' }, circ: [0.3, '3', 'NEW'], rect: ['NOTIFICATIONS', 'Garage left open', 'Package delivered'] } },
+    { id: 'package', n: 'Package', g: 'home', w: 'B', ic: 'box', when: 'after a doorbell sees a package', s: { inline: { ic: 'box', t: 'Package at the door' }, circ: { k: 'icon', ic: 'box', t: 'PACKAGE' } } },
+    { id: 'appliance', n: 'Appliances', g: 'home', w: 'C', ic: 'plug', when: 'while running, and an hour after', pick: 'the washer, dryer or dishwasher', s: { inline: 'Dryer done', circ: [0.4, '0:24', 'WASHER'], rect: ['LAUNDRY', 'Washer · 24 min left', 'Dryer done'] } },
+    { id: 'leak', n: 'Leak and Smoke', g: 'home', w: 'C', ic: 'alert', when: 'while one is tripped', pick: 'leak and smoke sensors', s: { inline: { ic: 'drop', t: 'Water at the Laundry' }, card: ['Water Leak', 'Laundry sensor', 'A minute ago'] } },
+    // People and Travel
+    { id: 'who', n: 'Who’s Home', g: 'people', w: 'B', ic: 'person', off: 1, s: { inline: 'Everyone’s home', circ: { k: 'person', t: 'E' }, rect: ['HOME', 'Emma, Mark', 'Anna away'] } },
+    { id: 'travel', n: 'Travel Time', g: 'people', w: 'C', ic: 'car', pick: 'a travel-time sensor', s: { inline: { ic: 'car', t: 'Work 24 min' }, circ: [0.4, '24', 'MIN'], rect: ['TRAVEL', 'Work · 24 min', 'School · 11 min'] } },
+    // Energy
+    { id: 'energy', n: 'Energy', g: 'energy', w: 'now', ic: 'bolt', facts: ['energy'], s: { circ: [0.84, '84%', 'BATTERY'], rect: ['ENERGY TODAY', '12.4 kWh used', '9.8 kWh made'] } },
+    { id: 'grid', n: 'Grid', g: 'energy', w: 'B', ic: 'bolt', s: { inline: { ic: 'bolt', t: 'Exporting 2.1 kW' }, circ: [0.4, '2.1', 'EXPORT'] } },
+    { id: 'ev', n: 'EV', g: 'energy', w: 'B', ic: 'car', s: { inline: { ic: 'car', t: 'Car 80%' }, circ: [0.8, '80%', 'CAR'] } },
+    { id: 'price', n: 'Price', g: 'energy', w: 'C', ic: 'bolt', pick: 'a price sensor', s: { inline: { ic: 'bolt', t: 'Peak until 7 PM' } } },
+    // Media and Photos
+    { id: 'music', n: 'Music', g: 'media', w: 'now', ic: 'note', facts: ['music'], when: 'while music plays', s: { inline: { ic: 'note', t: 'Night Harbor · The Fictional Trio' }, card: { k: 'music' } } },
+    { id: 'upnext', n: 'Up Next', g: 'media', w: 'B', ic: 'note', when: 'while music plays', s: { inline: 'Next: Paper Lanterns', rect: ['UP NEXT', 'Paper Lanterns', 'Low Tide'] } },
+    { id: 'playin', n: 'Playing In', g: 'media', w: 'B', ic: 'note', when: 'while music plays', s: { inline: { ic: 'note', t: 'Kitchen, Living Room' } } },
+    { id: 'thisday', n: 'On This Day', g: 'media', w: 'B', ic: 'photo', when: 'over a photo from this day', s: { inline: { ic: 'photo', t: '3 years ago today' } } },
+    { id: 'title', n: 'Photo Title', g: 'media', w: 'now', ic: 'photo', s: { inline: 'Lake Weekend · 2024' } },
+    // Cameras
+    { id: 'camera', n: 'Camera', g: 'cameras', w: 'B', ic: 'cam', off: 1, s: { rect: { k: 'still', t: 'Driveway' }, card: { k: 'still', t: 'Front Door' } } },
+    { id: 'ring', n: 'Last Ring', g: 'cameras', w: 'B', ic: 'bell', off: 1, when: 'for 30 minutes after a ring', s: { inline: { ic: 'bell', t: 'Doorbell 4:02 PM' }, card: { k: 'ring' } } },
+    // Any Sensor
+    { id: 'sensor', n: 'Any Sensor', g: 'any', w: 'C', ic: 'gauge', pick: 'any entity this screen may read', s: { inline: { ic: 'thermo', t: 'Pool 78°' }, circ: [0.6, '78°', 'POOL', 1], rect: ['SENSORS', 'Pool  78°', 'Freezer  2°'] } }
+  ].forEach(function (p) { P[p.id] = p; });
+  function shapesOf(p) { return SHAPE_ORDER.filter(function (k) { return p.s[k]; }); }
+
+  // ================================================================== zones, backgrounds, faces, Looks, slides
+  var ZONES = {
+    line: { takes: ['inline'], cap: 1 }, row: { takes: ['circ', 'rect'], cap: 8 },
+    tl: { takes: ['inline', 'card'], cap: 2 }, tr: { takes: ['inline', 'card'], cap: 2 },
+    bl: { takes: ['inline', 'card'], cap: 2 }, br: { takes: ['inline', 'card'], cap: 2 },
+    bottom: { takes: ['band'], cap: 1 }
+  };
+  var ZONE_KEYS = ['line', 'row', 'tl', 'tr', 'bl', 'br', 'bottom'];
+  function zoneName(z, S) {
+    var what = S && S.big !== 'time' ? (S.big === 'none' ? 'Middle' : 'Big Element') : 'Time';
+    return { line: 'Above the ' + what, row: 'Under the ' + what, tl: 'Top Left', tr: 'Top Right', bl: 'Bottom Left', br: 'Bottom Right', bottom: 'Along the Bottom' }[z];
+  }
+  var BGS = {
+    photos: ['Photos', '#f3f6ff'], soft: ['Soft Photos', '#ffffff'], landscape: ['Landscape', '#fbf3e3'], sky: ['Sky Only', '#ffffff'],
+    pattern: ['Moving Color', '#ffeadf'], wallpaper: ['Wallpaper', '#eef4ff'], dayart: ['The Day’s Art', '#3a2a1e'],
+    calm: ['Calm Color', '#ffffff'], paper: ['Paper', '#2a2620'], black: ['Black', '#ffffff']
+  };
+  var BUSY = { photos: 1, soft: 1, landscape: 1 }, BEHIND = { photos: 1, landscape: 1 };
+  var FACES = [['classic', 'Classic'], ['bigweather', 'Big Weather'], ['today', 'Today'], ['serif', 'Big Serif'], ['neon', 'Neon'], ['flip', 'Flip'], ['analog', 'Analog'], ['planted', 'Planted']];
+  var FACE_CLAIMS = { today: ['weather', 'music'] };
+  var LOOKS = {
+    photo: { n: 'Photo Frame', bg: 'photos', big: 'time', t: { face: 'classic', size: 28, pos: 'top', align: 'center', depth: 'behind' },
+      info: [['date', 'inline', 'line'], ['weather', 'circ', 'row'], ['sun', 'circ', 'row'], ['next', 'rect', 'row'], ['status', 'inline', 'tr'], ['music', 'card', 'bl']] },
+    lock: { n: 'Lock Screen', bg: 'landscape', big: 'time', t: { face: 'bigweather', size: 26, pos: 'upper', align: 'center', depth: 'behind' },
+      info: [['date', 'inline', 'line'], ['weather', 'circ', 'row'], ['readings', 'circ', 'row'], ['timers', 'circ', 'row'], ['status', 'circ', 'row'], ['music', 'card', 'bl']] },
+    forecast: { n: 'Forecast', bg: 'landscape', big: 'time', t: { face: 'classic', size: 17, pos: 'top', align: 'left', depth: 'front' },
+      info: [['date', 'inline', 'line'], ['status', 'inline', 'tr'], ['music', 'card', 'br'], ['weather', 'band', 'bottom']] },
+    bigweather: { n: 'Big Weather', bg: 'landscape', big: 'time', t: { face: 'bigweather', size: 34, pos: 'ground', align: 'left', depth: 'behind' },
+      info: [['weather', 'inline', 'tl'], ['status', 'inline', 'tr'], ['readings', 'band', 'bottom']] },
+    planted: { n: 'Planted', bg: 'landscape', big: 'time', t: { face: 'planted', size: 38, pos: 'ground', align: 'center', depth: 'front' },
+      info: [['date', 'inline', 'tl'], ['weather', 'inline', 'tl'], ['status', 'inline', 'tr']] },
+    clock: { n: 'Clock', bg: 'pattern', big: 'time', t: { face: 'classic', size: 30, pos: 'center', align: 'center', depth: 'front' },
+      info: [['date', 'inline', 'line'], ['weather', 'card', 'tl'], ['status', 'card', 'tr'], ['music', 'card', 'bl']] },
+    glance: { n: 'Glance', bg: 'calm', big: 'date', t: { size: 30, pos: 'top', align: 'left', depth: 'front' },
+      info: [['time', 'card', 'tr'], ['music', 'card', 'bl'], ['weather', 'card', 'br']] },
+    month: { n: 'Month', bg: 'paper', big: 'month', no: ['line', 'row'], t: { size: 32, pos: 'center', align: 'center', depth: 'front' },
+      info: [['time', 'card', 'tr']] },
+    day: { n: 'Day', bg: 'dayart', big: 'date', t: { size: 34, pos: 'center', align: 'center', depth: 'front' },
+      info: [['time', 'card', 'tr'], ['weather', 'card', 'br']] },
+    night: { n: 'Nightstand', bg: 'black', big: 'time', t: { face: 'classic', size: 30, pos: 'center', align: 'center', depth: 'front', color: 'white' },
+      info: [['weather', 'inline', 'line'], ['timers', 'card', 'br']] }
+  };
+  // each slide declares what it shows; the corner adds the rest of Time, Date, Weather and House Status
+  var SLIDES = {
+    music: { n: 'Music', shows: ['music'] },
+    fc: { n: 'Forecast, Classic', shows: ['weather'] },
+    fb: { n: 'Forecast, Big', shows: ['weather', 'time'] },
+    weather: { n: 'Weather', shows: ['weather', 'readings'] },
+    energy: { n: 'Home Energy', shows: ['energy'] }
+  };
+  var CORNER = [['time', 'Time'], ['date', 'Date'], ['weather', 'Weather'], ['status', 'House Status']];
+  function cornerFor(key) { var sh = SLIDES[key].shows; return CORNER.filter(function (c) { return sh.indexOf(c[0]) < 0; }).map(function (c) { return c[0]; }); }
+  var DEVICES = [[1280, 800, 'Wall Tablet'], [820, 1180, 'iPad Upright'], [390, 844, 'Phone']];
+
+  function item(a) { return { piece: a[0], shape: a[1], zone: a[2], size: 100, back: a[1] === 'card' ? 'glass' : 'none', color: 'auto' }; }
+  function newState(lookKey) {
+    var L = LOOKS[lookKey];
+    var S = { look: lookKey, bg: { kind: L.bg, dim: 15, pattern: 'aurora' }, big: L.big,
+      time: Object.assign({ face: 'classic', color: 'auto', h24: false, size: 26, pos: 'top', align: 'center', depth: 'front', shadow: 35, outline: 0 }, clone(L.t)),
+      info: L.info.map(item),
+      slides: { music: true, forecast: true, fstyle: 'classic', weather: true, energy: true, every: 5 } };
+    return S;
+  }
+  // a Look changes the background and the time only; Info keeps its own state
+  function applyLook(S, key) {
+    var L = LOOKS[key], keep = S.time;
+    S.look = key; S.bg = Object.assign({}, S.bg, { kind: L.bg }); S.big = L.big;
+    S.time = Object.assign({ face: 'classic', color: 'auto', depth: 'front' }, { h24: keep.h24, shadow: keep.shadow, outline: keep.outline }, clone(L.t));
+    return S;
+  }
+  // where a placed piece can't go with this Look, it waits in Info until a Look that has the place
+  function waiting(S, it) {
+    var L = LOOKS[S.look];
+    if (L.no && L.no.indexOf(it.zone) >= 0) return LOOKS[S.look].n + ' has no place ' + zoneName(it.zone, S).toLowerCase().replace('under the', 'under the').replace(/^above/, 'above');
+    if (S.big === 'none' && (it.zone === 'line' || it.zone === 'row')) return 'nothing is big on the screen';
+    return null;
+  }
+  function claimedBy(S, it, slide) {
+    var p = P[it.piece], f = p.facts || [];
+    var cl = (S.big === 'time' && FACE_CLAIMS[S.time.face]) || [];
+    for (var i = 0; i < f.length; i++) if (cl.indexOf(f[i]) >= 0) return 'The ' + faceName(S.time.face) + ' face shows the ' + (f[i] === 'music' ? 'song' : f[i]);
+    if (S.big === 'time' && it.piece === 'time') return 'The big element is the time';
+    return null;
+  }
+  function faceName(f) { for (var i = 0; i < FACES.length; i++) if (FACES[i][0] === f) return FACES[i][1]; return f; }
+
+  // ================================================================== drawing: one renderer for every piece and shape
+  function ring(d, frac, val, sub, gauge) {
+    var sw = d * 0.075, r = d / 2 - sw, c = 2 * Math.PI * r, arc = gauge ? 0.75 : 1, rot = gauge ? 135 : -90, h = d / 2;
+    function C(op, len) { return '<circle cx="' + h + '" cy="' + h + '" r="' + r + '" fill="none" stroke="currentColor"' + (op ? ' stroke-opacity="' + op + '"' : '') + ' stroke-width="' + sw + '" stroke-linecap="round" stroke-dasharray="' + len + ' ' + c + '" transform="rotate(' + rot + ' ' + h + ' ' + h + ')"/>'; }
+    function T(y, size, wt, s, op) { return '<text x="50%" y="' + y + '%" text-anchor="middle" fill="currentColor"' + (op ? ' opacity="' + op + '"' : '') + ' font-family="-apple-system,system-ui,Roboto,sans-serif" font-weight="' + wt + '" font-size="' + size + '">' + esc(s) + '</text>'; }
+    var big = String(val).length > 3 ? d * 0.22 : d * 0.29;
+    return '<svg width="' + d + '" height="' + d + '" viewBox="0 0 ' + d + ' ' + d + '" aria-hidden="true">' + C('.28', c * arc) + C(null, c * arc * frac) +
+      T(sub ? 52 : 59, big, 700, val) + (sub ? T(74, d * 0.12, 600, sub, '.85') : '') + '</svg>';
+  }
+  function circHtml(s, d) {
+    if (Array.isArray(s)) return ring(d, s[0], s[1], s[2], s[3]);
+    var h = d / 2;
+    var wrap = function (inner) { return '<div style="width:' + d + 'px;height:' + d + 'px;border-radius:50%;box-shadow:inset 0 0 0 ' + d * 0.04 + 'px color-mix(in srgb,currentColor 30%,transparent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:' + d * 0.04 + 'px;font:700 ' + d * 0.12 + 'px var(--ui)">' + inner + '</div>'; };
+    if (s.k === 'icon') return wrap(ico(s.ic, d * 0.34) + '<span>' + s.t + '</span>');
+    if (s.k === 'person') return wrap('<div style="width:' + d * 0.5 + 'px;height:' + d * 0.5 + 'px;border-radius:50%;background:color-mix(in srgb,currentColor 25%,transparent);display:flex;align-items:center;justify-content:center;font-size:' + d * 0.26 + 'px">' + s.t + '</div><span>HOME</span>');
+    if (s.k === 'moon') return '<svg width="' + d + '" height="' + d + '" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="44" r="27" fill="currentColor" fill-opacity=".22"/><path d="M50 17a27 27 0 0 1 0 54a17 27 0 0 0 0-54z" fill="currentColor"/><text x="50" y="92" text-anchor="middle" fill="currentColor" font-family="-apple-system,system-ui,sans-serif" font-weight="700" font-size="12">78%</text></svg>';
+    if (s.k === 'sunarc') return '<svg width="' + d + '" height="' + d + '" viewBox="0 0 100 100" aria-hidden="true"><path d="M14 64a36 36 0 0 1 72 0" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="7" stroke-linecap="round"/><path d="M14 64a36 36 0 0 1 64-22" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><circle cx="78" cy="42" r="6" fill="currentColor"/><text x="50" y="62" text-anchor="middle" fill="currentColor" font-family="-apple-system,system-ui,sans-serif" font-weight="700" font-size="22">5:12</text><text x="50" y="84" text-anchor="middle" fill="currentColor" opacity=".85" font-family="-apple-system,system-ui,sans-serif" font-weight="600" font-size="12">SUNSET</text></svg>';
+    if (s.k === 'dial') {
+      var hand = function (a, len, w) { var r = (a - 90) * Math.PI / 180; return '<line x1="50" y1="46" x2="' + (50 + Math.cos(r) * len) + '" y2="' + (46 + Math.sin(r) * len) + '" stroke="currentColor" stroke-width="' + w + '" stroke-linecap="round"/>'; };
+      return '<svg width="' + d + '" height="' + d + '" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="46" r="34" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="5"/>' + hand(3 * 30 + 28, 18, 6) + hand(57 * 6, 26, 4) + '<text x="50" y="96" text-anchor="middle" fill="currentColor" font-family="-apple-system,system-ui,sans-serif" font-weight="700" font-size="12">' + s.t + '</text></svg>';
+    }
+    return '';
+  }
+  function lines3(s, q) {
+    return '<div style="display:flex;flex-direction:column;gap:' + q * 0.3 + 'px;font:600 ' + q * 1.9 + 'px var(--ui);line-height:1.2;min-width:0"><div style="opacity:.75;letter-spacing:.04em;font-size:' + q * 1.5 + 'px">' + esc(s[0]) + '</div>' +
+      '<div style="font-weight:700;font-size:' + q * 2.3 + 'px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(s[1]) + '</div><div style="opacity:.88;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(s[2]) + '</div></div>';
+  }
+  function rectHtml(s, w, h, q) {
+    if (Array.isArray(s)) return lines3(s, q);
+    if (s.k === 'hours') return '<div style="display:flex;justify-content:space-between;width:100%;font:600 ' + q * 1.8 + 'px var(--ui);text-align:center">' +
+      ['Now', '4PM', '5PM', '6PM'].map(function (t, i) { return '<div><div style="opacity:.8">' + t + '</div><div style="margin:' + q * 0.5 + 'px 0">' + ico(i > 1 ? 'moon' : 'cloud', q * 3) + '</div><div>' + (64 - i * 2) + '°</div></div>'; }).join('') + '</div>';
+    if (s.k === 'rainbars') {
+      var v = [5, 10, 35, 70, 60, 30, 10, 5];
+      return '<div style="width:100%;font:600 ' + q * 1.5 + 'px var(--ui)"><div style="opacity:.8;margin-bottom:' + q * 0.6 + 'px">RAIN AT 3 PM</div><div style="display:flex;align-items:flex-end;gap:' + q * 0.6 + 'px;height:' + q * 5.5 + 'px">' +
+        v.map(function (x) { return '<div style="flex:1;background:currentColor;opacity:' + (0.35 + x / 140) + ';height:' + Math.max(8, x) + '%;border-radius:' + q * 0.3 + 'px"></div>'; }).join('') + '</div><div style="display:flex;justify-content:space-between;opacity:.75;margin-top:' + q * 0.4 + 'px"><span>1 PM</span><span>5 PM</span></div></div>';
+    }
+    if (s.k === 'still') return still(w, h, q, s.t);
+    return '';
+  }
+  function still(w, h, q, t) {
+    return '<div style="width:' + w + 'px;height:' + h + 'px;border-radius:' + q * 1.4 + 'px;background:linear-gradient(170deg,#7d8d9c,#3e4a52 55%,#2a2f33);position:relative;overflow:hidden;color:#fff">' +
+      '<div style="position:absolute;left:12%;bottom:0;width:38%;height:46%;background:#59646c;border-radius:' + q + 'px ' + q + 'px 0 0"></div><div style="position:absolute;right:10%;bottom:0;width:20%;height:70%;background:#4c565d"></div>' +
+      '<div style="position:absolute;left:' + q + 'px;bottom:' + q * 0.8 + 'px;font:600 ' + q * 1.6 + 'px var(--ui);display:flex;gap:' + q * 0.5 + 'px;align-items:center">' + ico('cam', q * 1.8) + esc(t) + '</div></div>';
+  }
+  function cardHtml(s, q, S) {
+    var title = function (t) { return '<div style="font:700 ' + q * 1.6 + 'px var(--ui);opacity:.8;letter-spacing:.03em;text-transform:uppercase;margin-bottom:' + q * 0.6 + 'px">' + esc(t) + '</div>'; };
+    if (Array.isArray(s)) return '<div style="font:600 ' + q * 2 + 'px var(--ui);line-height:1.35;min-width:0">' + title(s[0]) + s.slice(1).map(function (l) { return '<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(l).replace(/  /g, '&ensp;') + '</div>'; }).join('') + '</div>';
+    if (s.k === 'clock') return '<div style="' + faceFont(S, q * 5.5) + '">' + timeText(S) + '</div>';
+    if (s.k === 'wx') return '<div style="display:flex;align-items:center;gap:' + q * 1.4 + 'px">' + ico('cloud', q * 5) + '<div><div style="font:600 ' + q * 4.4 + 'px var(--disp);letter-spacing:-.03em;line-height:1">64°</div><div style="font:600 ' + q * 1.7 + 'px var(--ui);opacity:.88">Cloudy · H 72 L 55</div></div></div>';
+    if (s.k === 'music') return '<div style="display:flex;align-items:center;gap:' + q * 1.4 + 'px"><div style="width:' + q * 7 + 'px;height:' + q * 7 + 'px;border-radius:' + q + 'px;background:linear-gradient(135deg,#d9a66b,#6b3a1d);display:flex;align-items:center;justify-content:center;flex:none;color:#fff">' + ico('note', q * 3.4) + '</div>' +
+      '<div style="font:700 ' + q * 2.1 + 'px var(--ui);line-height:1.2;white-space:nowrap">Night Harbor<div style="font-weight:500;opacity:.85;font-size:' + q * 1.7 + 'px">The Fictional Trio</div></div></div>';
+    if (s.k === 'still') return still(q * 27, q * 16, q, s.t);
+    if (s.k === 'ring') return '<div style="display:flex;flex-direction:column;gap:' + q * 0.8 + 'px">' + still(q * 26, q * 13, q, 'Front Door') + '<div style="font:600 ' + q * 1.9 + 'px var(--ui);display:flex;gap:' + q * 0.6 + 'px;align-items:center">' + ico('bell', q * 2.2) + 'Doorbell rang at 4:02 PM</div></div>';
+    return '';
+  }
+  function bandHtml(s, q) {
+    if (s.k === 'readings') return '<div style="display:flex;justify-content:space-around;width:100%;font:600 ' + q * 2.3 + 'px var(--ui);text-align:center">' +
+      [['5:12 PM', 'Sunset'], ['6 mph', 'Wind'], ['52%', 'Humidity'], ['33', 'AQI'], ['71°', 'Inside']].map(function (r) { return '<div>' + r[0] + '<div style="font-weight:500;opacity:.8;font-size:' + q * 1.6 + 'px">' + r[1] + '</div></div>'; }).join('') + '</div>';
+    var hours = ['Now', '4PM', '5PM', '6PM', '7PM', '8PM'].map(function (t, i) { return '<div style="text-align:center">' + t + '<div>' + ico(i > 1 ? 'moon' : 'cloud', q * 2.6) + '</div>' + (64 - i) + '°</div>'; }).join('');
+    var days = ['Tue', 'Wed', 'Thu', 'Fri'].map(function (t, i) { return '<div style="display:flex;gap:' + q + 'px;justify-content:space-between">' + t + '<span style="opacity:.8">' + (58 + i) + '° / ' + (70 + i) + '°</span></div>'; }).join('');
+    return '<div style="display:flex;gap:' + q * 3 + 'px;align-items:center;width:100%;font:600 ' + q * 1.7 + 'px var(--ui)"><div style="font-size:' + q * 5.6 + 'px;font-weight:300;line-height:1">64°<div style="font-size:' + q * 1.7 + 'px;font-weight:600;margin-top:' + q * 0.4 + 'px">Cloudy</div></div>' +
+      '<div style="display:flex;gap:' + q * 2.2 + 'px;flex:1;justify-content:center;min-width:0;overflow:hidden">' + hours + '</div><div style="display:grid;gap:' + q * 0.4 + 'px;min-width:' + q * 16 + 'px">' + days + '</div></div>';
+  }
+  // a piece, drawn: {html, w, h} (w or h null where the shape takes its size from its words or its zone)
+  function pieceHtml(S, it, u) {
+    var p = P[it.piece], s = p.s[it.shape], q = u * (it.size || 100) / 100;
+    if (it.shape === 'inline') {
+      if (s.k === 'time') return { h: 3.6 * q, html: '<span style="' + faceFont(S, q * 3) + '">' + timeText(S) + '</span>' };
+      var t = typeof s === 'string' ? s : s.t, ic = typeof s === 'string' ? null : s.ic;
+      return { h: 3.6 * q, html: '<span style="display:inline-flex;align-items:center;gap:.4em;font:600 ' + q * 2.5 + 'px var(--ui);white-space:nowrap">' + (ic ? ico(ic, q * 2.6) : '') + esc(t) + '</span>' };
+    }
+    if (it.shape === 'circ') { var d = 13 * q; return { w: d, h: d, html: circHtml(s, d) }; }
+    if (it.shape === 'rect') { var w = 27 * q, h = 13 * q; return { w: w, h: h, html: rectHtml(s, w, h, q) }; }
+    if (it.shape === 'card') return { html: cardHtml(s, q, S) };
+    return { h: (s.k === 'forecast' ? 15 : 9) * q, html: bandHtml(s, q) };
+  }
+  function pieceEl(S, it, u, parent, o, idx) {
+    var d = pieceHtml(S, it, u), q = u * (it.size || 100) / 100;
+    var e = el('div', 'pc b-' + it.back + ' s-' + it.shape, parent);
+    e.innerHTML = d.html;
+    var tint = tintOf(S, it.color, o);
+    e.style.setProperty('--tint', tint); e.style.color = tint;
+    if (d.w) e.style.width = d.w + 'px';
+    if (d.h) e.style.height = d.h + 'px';
+    if (it.shape === 'circ') e.style.borderRadius = '50%';
+    else e.style.borderRadius = it.shape === 'inline' ? '999px' : 2.2 * q + 'px';
+    // breathing room (the owner: the Piano Lesson pill "needs more spacing / buffer around the text"): a pill 4.8 u
+    // tall, 2.4 u at each end (1.8 u on its glyph's side); a card 2.4 u all round; a rectangle 2 u at its sides
+    if (it.back !== 'none' && it.shape !== 'circ') {
+      var ps = P[it.piece].s.inline, hasIc = it.shape === 'inline' && ps && typeof ps !== 'string' && ps.ic;
+      if (it.shape === 'inline') { e.style.height = 4.8 * q + 'px'; e.style.padding = '0 ' + 2.4 * q + 'px 0 ' + (hasIc ? 1.8 : 2.4) * q + 'px'; }
+      else e.style.padding = it.shape === 'rect' ? '0 ' + 2 * q + 'px' : 2.4 * q + 'px';
+    }
+    if (it.back === 'none' && it.shape !== 'circ' && BUSY[S.bg.kind]) e.style.textShadow = '0 1px ' + q * 0.6 + 'px rgba(0,0,0,.45)';
+    var p = P[it.piece];
+    if (o.edit) {
+      if (p.when) { e.classList.add('when'); e.title = p.n + ' shows ' + p.when; }
+      if (o.sel === idx) e.classList.add('sel');
+      e.tabIndex = 0; e.setAttribute('role', 'button'); e.setAttribute('aria-label', p.n + ', ' + SHAPES[it.shape]);
+      e.onclick = function (ev) { ev.stopPropagation(); select(idx); };
+    }
+    var cl = claimedBy(S, it);
+    if (cl) { if (o.edit) { e.classList.add('claimed'); e.title = cl; o.notes.push('<b>' + p.n + '</b> is not drawn: ' + cl.charAt(0).toLowerCase() + cl.slice(1) + '.'); } else e.classList.add('hide'); }
+    return e;
+  }
+
+  // ---- the big element and the time's faces
+  function timeText(S) { return S.time.h24 ? '22:57' : '10:57'; }
+  function faceFont(S, px) {
+    var f = S.time.face, a = 'font-size:' + px + 'px;line-height:1;white-space:nowrap;';
+    if (f === 'today') return a + 'font-family:var(--round);font-weight:700';
+    if (f === 'serif') return a + 'font-family:var(--serif);font-style:italic;font-weight:500';
+    if (f === 'neon') return a + 'font-family:var(--round);font-weight:300;color:#ffe6f7;text-shadow:0 0 .05em #fff,0 0 .15em #ff4fd8,0 0 .4em #c21bff';
+    if (f === 'planted') return a + 'font-family:var(--disp);font-weight:700;letter-spacing:-.03em';
+    return a + 'font-family:var(--disp);font-weight:600;letter-spacing:-.04em';     // Classic, Big Weather; Flip and Analog have no text form
+  }
+  function bigHtml(S, fs) {
+    var t = timeText(S);
+    if (S.big === 'temp') return '<div style="font:600 ' + fs + 'px var(--disp);letter-spacing:-.05em">64°</div>';
+    if (S.big === 'date') return '<div style="font:600 ' + fs * 0.3 + 'px var(--disp)">Monday</div><div style="font:600 ' + fs * 1.1 + 'px var(--disp);letter-spacing:-.04em;line-height:.92">2</div>';
+    if (S.big === 'month') {
+      var cells = '';
+      for (var n = 1; n <= 35; n++) cells += '<div style="width:' + fs * 0.24 + 'px;height:' + fs * 0.2 + 'px;display:flex;align-items:center;justify-content:center;border-radius:50%;' + (n === 2 ? 'background:#e0302a;color:#fff;' : '') + '">' + (n <= 30 ? n : '') + '</div>';
+      return '<div style="font:700 ' + fs * 0.16 + 'px var(--disp);margin-bottom:' + fs * 0.05 + 'px;text-align:center">November 2026</div><div style="display:grid;grid-template-columns:repeat(7,auto);font:600 ' + fs * 0.09 + 'px var(--ui)">' + cells + '</div>';
+    }
+    var f = S.time.face;
+    if (f === 'today') return '<div style="' + faceFont(S, fs) + '">' + t + '</div><div style="font:600 ' + fs * 0.12 + 'px var(--ui);opacity:.92;text-align:center;margin-top:' + fs * 0.04 + 'px">64° Cloudy · Night Harbor</div>';
+    if (f === 'flip') return '<div style="display:flex;gap:.06em;font:700 ' + fs + 'px var(--disp)">' + t.replace(':', '').split('').map(function (ch) { return '<span style="background:#1c1c1e;color:#f2f2f2;border-radius:.08em;padding:0 .08em;box-shadow:inset 0 -.5em 0 rgba(0,0,0,.25)">' + ch + '</span>'; }).join('') + '</div>';
+    if (f === 'analog') {
+      var Sz = fs * 1.4, h = Sz / 2, hand = function (a, len, w) { var r = (a - 90) * Math.PI / 180; return '<line x1="' + h + '" y1="' + h + '" x2="' + (h + Math.cos(r) * len) + '" y2="' + (h + Math.sin(r) * len) + '" stroke="currentColor" stroke-width="' + w + '" stroke-linecap="round"/>'; };
+      var ticks = ''; for (var i = 0; i < 12; i++) { var a = i * 30 * Math.PI / 180; ticks += '<line x1="' + (h + Math.cos(a) * h * 0.86) + '" y1="' + (h + Math.sin(a) * h * 0.86) + '" x2="' + (h + Math.cos(a) * h * 0.95) + '" y2="' + (h + Math.sin(a) * h * 0.95) + '" stroke="currentColor" stroke-width="' + Sz * 0.014 + '"/>'; }
+      return '<svg width="' + Sz + '" height="' + Sz + '" viewBox="0 0 ' + Sz + ' ' + Sz + '" aria-hidden="true">' + ticks + hand(10 * 30 + 28, h * 0.5, Sz * 0.032) + hand(57 * 6, h * 0.76, Sz * 0.02) + '<circle cx="' + h + '" cy="' + h + '" r="' + Sz * 0.02 + '" fill="currentColor"/></svg>';
+    }
+    return '<div style="' + faceFont(S, fs) + '">' + t + '</div>';
+  }
+  function tintOf(S, color, o) {
+    if (color === 'white') return '#ffffff';
+    if (color === 'accent') return '#ffb38a';
+    if (o && o.tod === 'night' && S.bg.kind !== 'paper' && S.bg.kind !== 'dayart') return '#dfe3ee';
+    return BGS[S.bg.kind][1];
+  }
+  function bgCss(S, kind, night) {
+    switch (kind) {
+      case 'photos': return 'url(img/photo.webp) center/cover';
+      case 'soft': return 'url(img/photo.webp) center/cover';
+      case 'landscape': return 'url(img/land.webp) center bottom/cover no-repeat,' + (night ? 'linear-gradient(#050914,#0c1630 55%,#1b2340 70%)' : 'linear-gradient(#2a5fa6,#4b86c8 45%,#9fc1e3 62%,#d9e3ea 70%)');
+      case 'sky': return night ? 'linear-gradient(#050914,#0c1630 60%,#1b2340)' : 'linear-gradient(#2a5fa6,#5d95cf 55%,#cfe0ee)';
+      case 'pattern': return 'radial-gradient(90% 60% at 30% 20%,rgba(80,255,190,.5),transparent 60%),radial-gradient(80% 70% at 75% 35%,rgba(120,90,255,.6),transparent 65%),linear-gradient(#071226,#14183a)';
+      case 'wallpaper': return 'radial-gradient(circle at 70% 40%,#4f8bf9 0 22%,transparent 23%),radial-gradient(circle at 30% 70%,#4f8bf999 0 30%,transparent 31%),#0b3d91';
+      case 'dayart': return 'radial-gradient(circle at 85% 18%,#e7a33c 0 5%,transparent 5.5%),radial-gradient(circle at 12% 78%,#c2410c 0 3%,transparent 3.5%),radial-gradient(circle at 80% 82%,#b45309 0 4%,transparent 4.5%),#f6eadb';
+      case 'calm': return 'linear-gradient(160deg,#a9bcc6,#8fa5b1)';
+      case 'paper': return '#f4efe4';
+      default: return '#000';
+    }
+  }
+
+  // ---- one screen: the background, then the slide or the Look's time and Info
+  // o: { edit, tod, slide, sel, notes }  (notes collects what the editor says under the screen)
+  function render(host, W, H, S, o) {
+    o.notes = o.notes || [];
+    var stg = el('div', 'stage' + (o.edit ? ' edit' : ''), host);
+    stg.style.width = W + 'px'; stg.style.height = H + 'px';
+    var u = Math.min(W, H) / 100, m = 5 * u, gap = 2 * u, night = o.tod === 'night';
+    var kind = o.slide === 'fc' || o.slide === 'fb' ? 'landscape' : S.bg.kind;
+    var bg = el('div', 'bg', stg); bg.style.background = bgCss(S, kind, night);
+    var dim = (kind === 'photos' || kind === 'soft') ? (1 - S.bg.dim / 100) : 1;
+    bg.style.filter = (kind === 'soft' ? 'blur(' + u * 1.6 + 'px) ' : '') + 'brightness(' + dim * (night ? 0.5 : 1) + ')';
+    if (kind === 'soft') bg.style.inset = -3 * u + 'px';
+    stg.style.setProperty('--tint', tintOf(S, S.time.color, o));
+    if (o.slide) { drawSlide(stg, W, H, u, S, o); return o; }
+    var L = LOOKS[S.look];
+    if (o.edit) stg.onclick = function () { select(null); };
+
+    // which pieces show where
+    var by = {}; ZONE_KEYS.forEach(function (z) { by[z] = []; });
+    S.info.forEach(function (it, i) { if (!waiting(S, it)) by[it.zone].push(i); });
+    var bandIdx = by.bottom[0], bandH = 0;
+    if (bandIdx != null) {
+      var bit = S.info[bandIdx], bd = pieceHtml(S, bit, u);
+      bandH = bd.h;
+      var bw = el('div', 'stack', stg); bw.style.cssText += ';left:' + m + 'px;right:' + m + 'px;bottom:' + m + 'px;z-index:4';
+      var be = pieceEl(S, bit, u, bw, o, bandIdx); be.style.width = '100%';
+    }
+    var foot = bandH ? bandH + gap * 1.5 : 0;
+    // corners: stacks from the screen's edges, laid out by the browser and then measured
+    var stacks = {};
+    ['tl', 'tr', 'bl', 'br'].forEach(function (z) {
+      var s = el('div', 'stack', stg); s.style.setProperty('--g', gap * 0.8 + 'px');
+      s.style.cssText += ';z-index:4;' + (z[1] === 'l' ? 'left:' + m + 'px;align-items:flex-start' : 'right:' + m + 'px;align-items:flex-end') + ';' + (z[0] === 't' ? 'top:' + m + 'px' : 'bottom:' + (m + foot) + 'px;flex-direction:column-reverse');
+      by[z].forEach(function (i) { pieceEl(S, S.info[i], u, s, o, i); });
+      stacks[z] = s;
+    });
+    function box(e) { return { l: e.offsetLeft, t: e.offsetTop, r: e.offsetLeft + e.offsetWidth, b: e.offsetTop + e.offsetHeight, w: e.offsetWidth, h: e.offsetHeight }; }
+
+    // the column: a line above the big element, the big element, a row under it
+    var hasBig = S.big !== 'none', fs = S.time.size * u;
+    var lineOn = by.line.length > 0, rowOn = by.row.length > 0;
+    var bigEl = null, bw0 = 0, bh0 = 0;
+    if (hasBig) {
+      bigEl = el('div', 'big', stg); bigEl.innerHTML = bigHtml(S, fs);
+      bw0 = bigEl.offsetWidth; bh0 = bigEl.offsetHeight;
+    }
+    var cell = 13 * u, cg = 2.6 * u, units = 0;
+    by.row.forEach(function (i) { units += S.info[i].shape === 'rect' ? 2 : 1; });
+    var rowLines = Math.max(1, Math.ceil(units / 4)), rowH = rowOn ? rowLines * cell + (rowLines - 1) * cg : 0, rowW = 4 * cell + 3 * cg;
+    var lineH = lineOn ? 3.6 * u : 0;
+    var colH = (lineOn ? lineH + gap : 0) + bh0 + (rowOn ? gap * 1.4 + rowH : 0), colW = Math.max(bw0, rowOn ? rowW : 0, lineOn ? 30 * u : 0);
+    if (!hasBig) { colH = rowH + (lineOn ? lineH + gap : 0); colW = rowW; }
+    var p = S.time.pos, top;
+    if (p === 'top') top = m;
+    else if (p === 'upper') top = H * 0.3 - colH / 2;
+    else if (p === 'lower') top = H * 0.66 - colH / 2;
+    else if (p === 'ground') top = H * (kind === 'landscape' ? 0.78 : 0.8) - colH;
+    else top = H * 0.48 - colH / 2;
+    var cx = S.time.align === 'left' ? m + colW / 2 : S.time.align === 'right' ? W - m - colW / 2 : W / 2;
+    var cl = cx - colW / 2, cr = cx + colW / 2;
+    // zones know about each other: the column clears the top corners it reaches; a bottom corner it reaches waits
+    var tb = 0, over = false;
+    ['tl', 'tr'].forEach(function (z) { if (!by[z].length) return; var b = box(stacks[z]); if (b.l < cr + gap && b.r > cl - gap) { tb = Math.max(tb, b.b); over = true; } });
+    if (over && top < tb + gap * 1.5) { top = tb + gap * 1.5; o.notes.push('The time moved down to clear the top corners.'); }
+    top = Math.max(m, Math.min(H - m - foot - colH, top));
+    ['bl', 'br'].forEach(function (z) {
+      if (!by[z].length) return; var b = box(stacks[z]);
+      if (b.l < cr && b.r > cl && b.t < top + colH + gap) {
+        stacks[z].style.visibility = o.edit ? 'visible' : 'hidden';
+        if (o.edit) { stacks[z].style.opacity = '.3'; o.notes.push('<b>' + zoneName(z, S) + '</b> is left out on this screen: the time is in its way.'); }
+      }
+    });
+    var y = top;
+    // the line
+    var lineBox = { l: cx - 18 * u, t: y, w: 36 * u, h: lineOn ? lineH : 3.6 * u };
+    if (lineOn) {
+      var ln = el('div', 'stack', stg); ln.style.cssText += ';left:0;right:0;top:' + y + 'px;align-items:center;z-index:4';
+      if (S.time.align !== 'center') { ln.style.left = cl + 'px'; ln.style.right = 'auto'; ln.style.width = colW + 'px'; ln.style.alignItems = S.time.align === 'left' ? 'flex-start' : 'flex-end'; }
+      else { ln.style.left = cl + 'px'; ln.style.right = 'auto'; ln.style.width = colW + 'px'; }
+      pieceEl(S, S.info[by.line[0]], u, ln, o, by.line[0]);
+      y += lineH + gap;
+    } else lineBox.t = y - 3.6 * u - gap;
+    // the big element
+    if (bigEl) {
+      var bl = S.time.align === 'left' ? cl : S.time.align === 'right' ? cr - bw0 : cx - bw0 / 2;
+      bigEl.style.left = bl + 'px'; bigEl.style.top = y + 'px';
+      bigEl.style.color = tintOf(S, S.time.color, o);
+      var behind = S.big !== 'none' && S.time.depth === 'behind' && BEHIND[kind];
+      bigEl.style.zIndex = behind ? 1 : 3;
+      if (S.time.face === 'planted') {
+        bigEl.style.color = night ? '#a9adb8' : '#efe6d6';
+        bigEl.style.filter = 'drop-shadow(' + (-0.014 * fs) + 'px ' + (0.012 * fs) + 'px 0 #a59c8a) drop-shadow(0 ' + 0.03 * fs + 'px ' + 0.03 * fs + 'px rgba(40,30,10,.35))';
+      } else if (BUSY[kind] && S.time.shadow) bigEl.style.filter = 'drop-shadow(0 1px ' + (2 + S.time.shadow / 100 * 22) + 'px rgba(0,0,0,' + (0.15 + S.time.shadow / 100 * 0.5) + '))';
+      if (BUSY[kind] && S.time.outline) bigEl.style.webkitTextStroke = (S.time.outline / 40) + 'px rgba(0,0,0,.6)';
+      if (behind && kind === 'landscape') {   // the land drawn again over the time: the sky shows through
+        var front = el('div', 'layer', stg); front.style.cssText += ';z-index:2;background:url(img/land.webp) center bottom/cover no-repeat' + (night ? ';filter:brightness(.45)' : '');
+      }
+      if (behind && kind === 'photos' && o.edit) o.notes.push('Behind: on the tablet, the photo’s subject stands in front of the time (this mock-up has no subject masks).');
+      if (o.edit) {
+        bigEl.tabIndex = 0; bigEl.setAttribute('role', 'button'); bigEl.setAttribute('aria-label', 'The time and its Look');
+        if (o.sel === 'big') bigEl.classList.add('sel');
+        bigEl.onclick = function (ev) { ev.stopPropagation(); select('big'); };
+      }
+      y += bh0 + (rowOn ? gap * 1.4 : 0);
+    }
+    // the row: four units a line, two lines at most
+    if (rowOn) {
+      var x0 = function (lineUnits) { return S.time.align === 'left' ? cl : S.time.align === 'right' ? cr - (lineUnits * cell + (lineUnits - 1) * cg) : cx - (lineUnits * cell + (lineUnits - 1) * cg) / 2; };
+      var lines = [[]], lu = 0;
+      by.row.forEach(function (i) { var k = S.info[i].shape === 'rect' ? 2 : 1; if (lu + k > 4) { lines.push([]); lu = 0; } lines[lines.length - 1].push(i); lu += k; });
+      lines.forEach(function (ln2, li) {
+        var n = ln2.reduce(function (a, i) { return a + (S.info[i].shape === 'rect' ? 2 : 1); }, 0), x = x0(n);
+        ln2.forEach(function (i) {
+          var it = S.info[i], k = it.shape === 'rect' ? 2 : 1, w = k * cell + (k - 1) * cg;
+          var hold = el('div', 'stack', stg); hold.style.cssText += ';left:' + x + 'px;top:' + (y + li * (cell + cg)) + 'px;width:' + w + 'px;height:' + cell + 'px;align-items:center;justify-content:center;z-index:4';
+          var pe = pieceEl(S, it, u, hold, o, i); if (it.shape === 'rect') { pe.style.width = w + 'px'; }
+          x += w + cg;
+        });
+      });
+    }
+    // where a picked piece can go: green places
+    if (o.edit) {
+      var pick = ui.pick && P[ui.pick];
+      var zbox = {
+        line: lineOn ? null : { l: cx - 18 * u, t: lineBox.t, w: 36 * u, h: 3.6 * u },
+        row: { l: cx - rowW / 2, t: rowOn ? y + rowH + gap : y + (hasBig ? 0 : 0), w: rowW, h: cell * 0.7 },
+        bottom: bandH ? null : { l: m, t: H - m - 9 * u, w: W - 2 * m, h: 9 * u }
+      };
+      ['tl', 'tr', 'bl', 'br'].forEach(function (z) {
+        var b = box(stacks[z]), w = 24 * u, h = 6 * u;
+        var l = z[1] === 'l' ? m : W - m - w, t = by[z].length ? (z[0] === 't' ? b.b + gap * 0.8 : b.t - gap * 0.8 - h) : (z[0] === 't' ? m : H - m - foot - h);
+        zbox[z] = { l: l, t: t, w: w, h: h };
+      });
+      ZONE_KEYS.forEach(function (z) {
+        var b = zbox[z]; if (!b) return;
+        if (L.no && L.no.indexOf(z) >= 0) return;
+        if ((z === 'line' || z === 'row') && !hasBig && z === 'line') return;
+        var room = roomIn(S, z), fit = pick && shapeFor(pick, z) && room > 0;
+        var zn = el('div', 'zn' + (fit ? ' want' : '') + (room <= 0 || (!pick && by[z].length) ? ' full' : ''), stg, fit ? '+ ' + zoneName(z, S) : zoneName(z, S));
+        zn.style.cssText += ';left:' + b.l + 'px;top:' + b.t + 'px;width:' + b.w + 'px;height:' + b.h + 'px;z-index:6;font-size:' + Math.max(11, 1.6 * u) + 'px';
+        zn.onclick = function (ev) { ev.stopPropagation(); place(z); };
+      });
+    }
+    return o;
+  }
+  function roomIn(S, z) {
+    var used = 0; S.info.forEach(function (it) { if (it.zone === z && !waiting(S, it)) used += it.shape === 'rect' ? 2 : 1; });
+    return ZONES[z].cap - used;
+  }
+  function shapeFor(p, z) {
+    var pref = { line: ['inline'], row: ['circ', 'rect'], tl: ['inline', 'card'], tr: ['inline', 'card'], bl: ['card', 'inline'], br: ['card', 'inline'], bottom: ['band'] }[z];
+    for (var i = 0; i < pref.length; i++) if (p.s[pref[i]]) return pref[i];
+    return null;
+  }
+
+  // ---- the slides, each with the shared slide corner
+  function drawSlide(stg, W, H, u, S, o) {
+    var key = o.slide, m = 5 * u, phone = W < H * 0.62, gap = 2 * u, night = o.tod === 'night';
+    var layer = el('div', 'layer', stg), add = cornerFor(key);
+    var white = '#ffffff';
+    if (key === 'music') {
+      layer.style.background = 'radial-gradient(circle at 30% 40%,#7c4a2a,#1b1210)';
+      var topSpace = m + 19 * u, bottom = H - m;
+      var c = el('div', null, layer);
+      if (phone) {
+        var a = Math.min(W - 2 * m, (bottom - topSpace) * 0.62);
+        c.style.cssText = 'position:absolute;left:' + m + 'px;right:' + m + 'px;top:' + topSpace + 'px;display:flex;flex-direction:column;align-items:center;gap:' + 4 * u + 'px;color:#fff;text-align:center';
+        c.innerHTML = '<div style="width:' + a + 'px;height:' + a + 'px;border-radius:' + 3 * u + 'px;background:linear-gradient(135deg,#d9a66b,#6b3a1d);display:flex;align-items:center;justify-content:center">' + ico('note', a * 0.3) + '</div><div style="font:700 ' + 6 * u + 'px var(--disp)">Night Harbor<div style="font-weight:500;font-size:' + 4 * u + 'px;opacity:.8">The Fictional Trio · Living Room</div></div>';
+      } else {
+        var a2 = Math.min(bottom - topSpace, W * 0.42);
+        c.style.cssText = 'position:absolute;left:' + (m + 4 * u) + 'px;right:' + m + 'px;top:' + topSpace + 'px;bottom:' + m + 'px;display:flex;align-items:center;gap:' + 5 * u + 'px;color:#fff';
+        c.innerHTML = '<div style="width:' + a2 + 'px;height:' + a2 + 'px;border-radius:' + 3 * u + 'px;background:linear-gradient(135deg,#d9a66b,#6b3a1d);display:flex;align-items:center;justify-content:center;flex:none">' + ico('note', a2 * 0.3) + '</div><div style="font:700 ' + 6 * u + 'px var(--disp);min-width:0">Night Harbor<div style="font-weight:500;font-size:' + 3.4 * u + 'px;opacity:.8">The Fictional Trio · Living Room</div></div>';
+      }
+    } else if (key === 'fc') {
+      var band = el('div', null, layer); band.style.cssText = 'position:absolute;left:' + m + 'px;right:' + m + 'px;bottom:' + m + 'px;color:' + (night ? '#dfe3ee' : '#fbf3e3') + ';text-shadow:0 1px 6px rgba(0,0,0,.35)';
+      band.innerHTML = bandHtml({ k: 'forecast' }, u * (phone ? 0.8 : 1.15));
+    } else if (key === 'fb') {
+      var fb = el('div', null, layer); fb.style.cssText = 'position:absolute;left:' + m + 'px;bottom:' + (m + 13 * u) + 'px;color:#fbf3e3;text-shadow:0 2px 12px rgba(0,0,0,.35)';
+      fb.innerHTML = '<div style="font:600 ' + 34 * u + 'px var(--disp);letter-spacing:-.05em;line-height:.9">64°</div><div style="font:600 ' + 4 * u + 'px var(--ui)">Cloudy · H 72 L 55 · <span style="opacity:.85">10:57</span></div>';
+      var rd = el('div', null, layer); rd.style.cssText = 'position:absolute;left:' + m + 'px;right:' + m + 'px;bottom:' + m + 'px;color:#fbf3e3';
+      rd.innerHTML = bandHtml({ k: 'readings' }, u);
+    } else if (key === 'weather') {
+      layer.style.background = night ? 'linear-gradient(#0b1430,#1c2a52)' : 'linear-gradient(#3f7fc7,#86b6e4)';
+      var wx = el('div', null, layer);
+      wx.style.cssText = 'position:absolute;left:' + m + 'px;right:' + m + 'px;top:' + (m + 19 * u) + 'px;bottom:' + m + 'px;display:flex;' + (phone ? 'flex-direction:column;' : '') + 'align-items:center;justify-content:space-around;gap:' + 4 * u + 'px;color:#fff';
+      var tiles = [['Humidity', '52%'], ['Wind', '6 mph'], ['AQI', '33'], ['UV', '3'], ['Sunset', '5:12'], ['Feels Like', '61°']].map(function (r) { return '<div style="background:rgba(255,255,255,.16);border-radius:' + 2 * u + 'px;padding:' + 1.6 * u + 'px ' + 2 * u + 'px;font:600 ' + 2.2 * u + 'px var(--ui)"><div style="opacity:.8;font-size:' + 1.7 * u + 'px">' + r[0] + '</div><div style="font-size:' + 3.6 * u + 'px">' + r[1] + '</div></div>'; }).join('');
+      wx.innerHTML = '<div style="display:flex;align-items:center;gap:' + 3 * u + 'px">' + ico('cloud', 18 * u) + '<div><div style="font:300 ' + 24 * u + 'px var(--disp);line-height:.9">64°</div><div style="font:600 ' + 4 * u + 'px var(--ui)">Cloudy · H 72 L 55</div></div></div><div style="display:grid;grid-template-columns:repeat(' + (phone ? 3 : 2) + ',auto);gap:' + 1.6 * u + 'px">' + tiles + '</div>';
+    } else if (key === 'energy') {
+      layer.style.background = 'linear-gradient(#0d1117,#141b24)';
+      var en = el('div', null, layer);
+      en.style.cssText = 'position:absolute;left:' + m + 'px;right:' + m + 'px;top:' + (m + 22 * u) + 'px;bottom:' + m + 'px;display:flex;' + (phone ? 'flex-direction:column;' : '') + 'align-items:center;justify-content:center;gap:' + 6 * u + 'px;color:#fff;font:600 ' + 2.4 * u + 'px var(--ui);text-align:center';
+      var R = function (col, f, v, l) { return '<div style="color:' + col + '">' + ring(24 * u, f, v, l) + '</div>'; };
+      en.innerHTML = R('#ffd34d', 0.48, '2.4 kW', 'SOLAR') + R('#7fd1ff', 0.3, '1.1 kW', 'HOME') + R('#5be08a', 0.84, '84%', 'BATTERY');
+    }
+    // the slide corner: what the slide lacks, by the pieces' renderer; the time in the Look's face and color
+    var tint = key === 'weather' || key === 'music' || key === 'energy' ? white : (night ? '#dfe3ee' : '#fbf3e3');
+    var faceColor = S.time.color === 'accent' ? '#ffb38a' : tint;
+    var tl = el('div', 'stack', stg); tl.style.cssText += ';left:' + m + 'px;top:' + m + 'px;z-index:5;align-items:flex-start;--g:' + 0.6 * u + 'px;text-shadow:0 1px 6px rgba(0,0,0,.3)';
+    var tr = el('div', 'stack', stg); tr.style.cssText += ';right:' + m + 'px;top:' + m + 'px;z-index:5;align-items:flex-end;text-shadow:0 1px 6px rgba(0,0,0,.3)';
+    var faceS = S.big === 'time' ? S : Object.assign({}, S, { time: Object.assign({}, S.time, { face: 'classic' }) });
+    if (add.indexOf('time') >= 0) { var t = el('div', null, tl); t.style.cssText = faceFont(faceS, 8.5 * u); t.style.color = faceColor; t.textContent = timeText(S); }
+    var ci = function (piece, parent) { var e = pieceEl(S, { piece: piece, shape: 'inline', size: 100, back: 'none', color: 'auto', zone: 'tl' }, u, parent, { edit: false, notes: [] }, -1); e.style.color = tint; e.style.setProperty('--tint', tint); return e; };
+    if (add.indexOf('date') >= 0) ci('date', tl);
+    if (add.indexOf('weather') >= 0) ci('weather', tl);
+    if (add.indexOf('status') >= 0) ci('status', tr);
+  }
+
+  // ================================================================== state, undo, selection
+  var S = newState('photo'), past = [];
+  var ui = { device: 0, edit: true, sel: null, pick: null, tod: 'day', slide: '', shapePiece: 'weather', confirmStart: false, confirmReset: false };
+  function change(fn, msg) { past.push(clone(S)); fn(); if (past.length > 50) past.shift(); draw(); if (msg) say(msg); }
+  function say(t) { var e = document.getElementById('toast'); e.innerHTML = t; e.classList.add('on'); clearTimeout(say.t); say.t = setTimeout(function () { e.classList.remove('on'); }, 3200); }
+  function select(s) { if (!ui.edit) return; ui.sel = s; ui.pick = null; draw(); }
+  function place(z) {
+    if (!ui.pick) { return; }
+    var p = P[ui.pick], sh = shapeFor(p, z);
+    if (!sh) { say(zoneName(z, S) + ' takes ' + ZONES[z].takes.map(function (k) { return SHAPES[k].toLowerCase(); }).join(' or ') + ' pieces, and ' + p.n + ' has none of those shapes'); return; }
+    var need = sh === 'rect' ? 2 : 1;
+    if (roomIn(S, z) < need) { say(zoneName(z, S) + ' is full'); return; }
+    var id = ui.pick; ui.pick = null;
+    change(function () { S.info.push(item([id, sh, z])); ui.sel = S.info.length - 1; }, 'Added ' + p.n + ' (' + SHAPES[sh] + ') ' + (z === 'line' || z === 'row' || z === 'bottom' ? zoneName(z, S).toLowerCase() : 'at the ' + zoneName(z, S).toLowerCase()) + (p.off ? '. It shows only because you placed it.' : ''));
+  }
+
+  // ================================================================== the panes
+  var frame = document.getElementById('frame');
+  function drawScreen() {
+    var D = DEVICES[ui.device], Wd = D[0], Ht = D[1];
+    var avail = frame.parentElement.clientWidth - 18, maxH = Math.max(380, innerHeight - 220);
+    var s = Math.min(avail / Wd, maxH / Ht, 1);
+    frame.style.width = Wd * s + 'px'; frame.style.height = Ht * s + 'px';
+    frame.innerHTML = '';
+    var o = render(frame, Wd, Ht, S, { edit: ui.edit && !ui.slide, tod: ui.tod, slide: ui.slide, sel: ui.sel });
+    frame.firstChild.style.transform = 'scale(' + s + ')';
+    var notes = o.notes.filter(function (n, i, a) { return a.indexOf(n) === i; });
+    S.info.forEach(function (it) { var w = waiting(S, it); if (w) notes.push('<b>' + P[it.piece].n + '</b> waits in Info: ' + w + '.'); });
+    if (ui.slide) notes = ['The ' + SLIDES[ui.slide].n + ' slide shows ' + SLIDES[ui.slide].shows.join(' and ') + '. Its corner adds ' + listAnd(cornerFor(ui.slide).map(cornerName)) + '.'];
+    document.getElementById('note').innerHTML = notes.join(' ');
+  }
+  function cornerName(k) { for (var i = 0; i < CORNER.length; i++) if (CORNER[i][0] === k) return CORNER[i][1]; return k; }
+  function listAnd(a) { return a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
+
+  function drawLooks() {
+    var g = document.getElementById('looks'); g.innerHTML = '';
+    Object.keys(LOOKS).forEach(function (k) {
+      var b = el('button', 'look', g); b.type = 'button'; b.setAttribute('aria-pressed', String(S.look === k));
+      var th = el('div', 'th', b);
+      var T = applyLook(clone(S), k);
+      var o = render(th, 1280, 800, T, { edit: false, tod: ui.tod });
+      requestAnimationFrame(function () { th.firstChild.style.transform = 'scale(' + th.clientWidth / 1280 + ')'; });
+      el('b', null, b, LOOKS[k].n);
+      b.onclick = function () {
+        if (S.look === k) return;
+        var before = S.info.filter(function (it) { return !waiting(S, it); }).length;
+        change(function () { applyLook(S, k); ui.confirmStart = false; });
+        var wait = S.info.filter(function (it) { return waiting(S, it); });
+        say('Now ' + LOOKS[k].n + '. Your ' + S.info.length + ' pieces stayed' + (wait.length ? '; ' + listAnd(wait.map(function (it) { return P[it.piece].n; })) + ' wait' + (wait.length === 1 ? 's' : '') + ' in Info: ' + waiting(S, wait[0]) : '') + '.');
+      };
+    });
+    var so = document.getElementById('startover'); so.innerHTML = '';
+    var btn = el('button', 'btn sm' + (ui.confirmStart ? ' danger' : ''), so, ui.confirmStart ? 'Replace Everything You Placed? Tap Again' : 'Start Over from ' + LOOKS[S.look].n + '…');
+    btn.type = 'button';
+    btn.onclick = function () {
+      if (!ui.confirmStart) { ui.confirmStart = true; drawLooks(); return; }
+      ui.confirmStart = false;
+      change(function () { var keep = S.slides; S = newState(S.look); S.slides = keep; ui.sel = null; }, 'Started over from ' + LOOKS[S.look].n + ': its own pieces are back. Undo puts yours back.');
+    };
+  }
+
+  function drawLibrary() {
+    var q = document.getElementById('q').value.trim().toLowerCase();
+    var host = document.getElementById('library'); host.innerHTML = '';
+    GROUPS.forEach(function (g) {
+      var list = Object.keys(P).map(function (k) { return P[k]; }).filter(function (p) { return p.g === g[0] && (!q || (p.n + ' ' + (p.note || '') + ' ' + g[1]).toLowerCase().indexOf(q) >= 0); });
+      if (!list.length) return;
+      var gr = el('div', 'grp', host); el('b', null, gr, g[1]);
+      var grid = el('div', 'pieces', gr);
+      list.forEach(function (p) {
+        var b = el('button', 'pitem', grid); b.type = 'button'; b.setAttribute('aria-pressed', String(ui.pick === p.id));
+        var pv = el('div', 'pv', b);
+        var sh = p.s.circ ? 'circ' : p.s.inline ? 'inline' : shapesOf(p)[0];
+        var u0 = sh === 'circ' ? 3.4 : sh === 'inline' ? 4.6 : 1.6;
+        var demo = pieceHtml(S, { piece: p.id, shape: sh, size: 100 }, u0);
+        pv.innerHTML = sh === 'band' || sh === 'card' || sh === 'rect' ? '<div style="transform:scale(.9);transform-origin:left center">' + demo.html + '</div>' : demo.html;
+        if (sh === 'inline') pv.firstChild.style.fontSize = '12px';
+        var nm = el('b', null, b, p.n);
+        var shp = el('div', 'shp', b); shapesOf(p).forEach(function (k) { var i = el('i', null, shp, SHAPES[k]); if (p.newShape === k) i.style.color = '#8ff0b5'; });
+        var meta = el('div', null, b); meta.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap';
+        if (p.w !== 'now') el('span', 'chip wave', meta, 'Wave ' + p.w);
+        if (p.off) el('span', 'chip off', meta, 'Off until placed');
+        if (p.when) el('small', null, b, 'Shows ' + p.when);
+        if (p.pick) el('small', null, b, 'Pick ' + p.pick);
+        b.onclick = function () { ui.pick = ui.pick === p.id ? null : p.id; ui.sel = null; ui.slide = ''; draw(); if (ui.pick) say('Tap a green place for ' + p.n); };
+      });
+    });
+    if (!host.firstChild) el('p', 'hint', host, 'No piece matches “' + q + '”.');
+  }
+
+  // ---- the inspector
+  function row(card, lab, sub) { var r = el('div', 'row', card); var l = el('div', 'lab', r, lab); if (sub) el('small', null, l, sub); return r; }
+  function seg(parent, opts, cur, fn, dis) {
+    var s = el('div', 'seg', parent);
+    opts.forEach(function (o) { var b = el('button', null, s, o[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(cur === o[0])); if (dis && dis(o[0])) b.disabled = true; b.onclick = function () { if (cur !== o[0]) fn(o[0]); }; });
+    return s;
+  }
+  function sw(parent, on, fn, label) { var b = el('button', 'sw', parent); b.type = 'button'; b.setAttribute('role', 'switch'); b.setAttribute('aria-checked', String(on)); b.setAttribute('aria-label', label); b.onclick = function () { fn(!on); }; return b; }
+  function range(parent, min, max, v, fn, label, fmt) {
+    var w = el('div', null, parent); w.style.cssText = 'display:flex;align-items:center;gap:8px';
+    var r = el('input', null, w); r.type = 'range'; r.min = min; r.max = max; r.value = v; r.setAttribute('aria-label', label);
+    var out = el('span', 'val', w, fmt(v));
+    r.oninput = function () { out.textContent = fmt(+r.value); };
+    r.onchange = function () { var x = +r.value; change(function () { fn(x); }); };
+  }
+  function secHead(host, t, sub) { var h = el('div', 'sec', host); el('h2', null, h, t); if (sub) el('span', null, h, sub); }
+
+  function lookSection(host) {
+    secHead(host, 'Look', LOOKS[S.look].n);
+    var c = el('div', 'card', host), k = S.bg.kind;
+    var r = row(c, 'Background');
+    var sel = el('select', null, r); sel.id = 'bgsel'; sel.setAttribute('aria-label', 'Background');
+    Object.keys(BGS).forEach(function (b) { var o = el('option', null, sel, BGS[b][0]); o.value = b; if (b === k) o.selected = true; });
+    sel.onchange = function () { var v = sel.value; change(function () { S.bg.kind = v; if (!BEHIND[v] && S.time.depth === 'behind') S.time.depth = 'front'; if (v !== 'landscape' && S.time.face === 'planted') S.time.face = 'bigweather'; }); };
+    if (k === 'photos' || k === 'soft') { r = row(c, 'Darken', 'Works at every depth'); range(r, 0, 60, S.bg.dim, function (v) { S.bg.dim = v; }, 'Darken photos', function (v) { return v + '%'; }); }
+    if (k === 'pattern') { r = row(c, 'Motion', 'Moving Color’s drift (was “Depth”)'); seg(r, [['still', 'Still'], ['slow', 'Slow']], 'slow', function () { }); }
+    r = row(c, 'Big');
+    seg(r, [['time', 'Time'], ['temp', 'Temp'], ['date', 'Date'], ['month', 'Month'], ['none', 'None']], S.big, function (v) { change(function () { S.big = v; }); });
+    if (S.big === 'time') {
+      r = row(c, 'Face', S.time.face === 'today' ? 'Today also shows the weather and the song' : S.time.face === 'planted' ? 'Ivory numerals standing in the meadow' : null);
+      var fsel = el('select', null, r); fsel.id = 'facesel'; fsel.setAttribute('aria-label', 'Face');
+      FACES.forEach(function (f) { if (f[0] === 'planted' && k !== 'landscape') return; var o = el('option', null, fsel, f[1]); o.value = f[0]; if (f[0] === S.time.face) o.selected = true; });
+      fsel.onchange = function () { var v = fsel.value; change(function () { S.time.face = v; if (v === 'planted') { S.time.pos = 'ground'; } }); };
+      r = row(c, '24-Hour Time'); sw(r, S.time.h24, function (v) { change(function () { S.time.h24 = v; }); }, '24-hour time');
+    }
+    if (S.big !== 'none') {
+      if (S.time.face !== 'planted' || S.big !== 'time') { r = row(c, 'Color'); seg(r, [['auto', 'Auto'], ['white', 'White'], ['accent', 'Accent']], S.time.color, function (v) { change(function () { S.time.color = v; }); }); }
+      r = row(c, 'Size'); range(r, 12, 44, S.time.size, function (v) { S.time.size = v; }, 'Size', function (v) { return v + '%'; });
+      r = row(c, 'Position');
+      seg(r, [['top', 'Top'], ['upper', 'Upper'], ['center', 'Center'], ['lower', 'Lower'], ['ground', 'Ground']].filter(function (o) { return o[0] !== 'ground' || k === 'landscape'; }), S.time.pos, function (v) { change(function () { S.time.pos = v; }); });
+      r = row(c, 'Align'); seg(r, [['left', 'Left'], ['center', 'Center'], ['right', 'Right']], S.time.align, function (v) { change(function () { S.time.align = v; }); });
+      if (BEHIND[k] && S.time.face !== 'planted') {
+        r = row(c, 'Depth', k === 'photos' ? 'Behind: the photo’s subject in front' : 'Behind: the land and trees in front');
+        seg(r, [['front', 'In Front'], ['behind', 'Behind']], S.time.depth, function (v) { change(function () { S.time.depth = v; }); });
+      } else if (S.time.face !== 'planted') {
+        r = el('div', 'row why', c, 'Depth: in front. Behind needs Photos or the Landscape, where something can stand in front of the time.');
+      }
+      if (BUSY[k]) {
+        r = row(c, 'Shadow', 'Legibility over a busy background'); range(r, 0, 100, S.time.shadow, function (v) { S.time.shadow = v; }, 'Shadow', function (v) { return v + '%'; });
+        r = row(c, 'Outline'); range(r, 0, 100, S.time.outline, function (v) { S.time.outline = v; }, 'Outline', function (v) { return v + '%'; });
+      }
+    }
+  }
+  function infoSection(host) {
+    secHead(host, 'Info', S.info.length + ' placed');
+    var c = el('div', 'card', host);
+    if (!S.info.length) el('div', 'row why', c, 'Nothing placed. Tap a piece on the left, then a green place.');
+    S.info.forEach(function (it, i) {
+      var p = P[it.piece], w = waiting(S, it), cl = claimedBy(S, it);
+      var r = row(c, p.n, SHAPES[it.shape] + ' · ' + zoneName(it.zone, S));
+      r.classList.add('link'); r.style.cursor = 'pointer'; r.tabIndex = 0;
+      r.onclick = function () { select(i); };
+      var chips = el('div', null, r.firstChild); chips.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;margin-top:3px';
+      if (w) el('span', 'chip claim', chips, 'Waits: ' + w);
+      if (cl) el('span', 'chip claim', chips, cl);
+      if (p.when) el('span', 'chip', chips, 'Shows ' + p.when);
+      var up = el('button', 'btn sm', r, '↑'); up.type = 'button'; up.setAttribute('aria-label', 'Move ' + p.n + ' up'); up.disabled = i === 0;
+      up.onclick = function (ev) { ev.stopPropagation(); change(function () { var t = S.info[i - 1]; S.info[i - 1] = S.info[i]; S.info[i] = t; }); };
+    });
+  }
+  function slidesSection(host) {
+    secHead(host, 'Slides', 'Between the photos');
+    var c = el('div', 'card', host);
+    [['forecast', S.slides.fstyle === 'big' ? 'fb' : 'fc', 'Forecast'], ['music', 'music', 'Music'], ['weather', 'weather', 'Weather'], ['energy', 'energy', 'Home Energy']].forEach(function (d) {
+      var r = row(c, d[2], 'Its corner adds ' + listAnd(cornerFor(d[1]).map(cornerName)));
+      sw(r, S.slides[d[0]], function (v) { change(function () { S.slides[d[0]] = v; }); }, d[2]);
+      var see = el('button', 'btn sm', r, 'See It'); see.type = 'button';
+      see.onclick = function () { ui.slide = d[1]; ui.pick = null; draw(); };
+      if (d[0] === 'forecast') { var r2 = row(c, 'The Forecast', 'Moved here from Settings'); seg(r2, [['classic', 'Classic'], ['big', 'Big']], S.slides.fstyle, function (v) { change(function () { S.slides.fstyle = v; if (ui.slide === 'fc' || ui.slide === 'fb') ui.slide = v === 'big' ? 'fb' : 'fc'; }); }); }
+    });
+    var r3 = row(c, 'How Often');
+    var sel = el('select', null, r3); sel.id = 'every'; sel.setAttribute('aria-label', 'How often');
+    [3, 5, 10].forEach(function (n) { var o = el('option', null, sel, 'Every ' + n + ' photos'); o.value = n; if (n === S.slides.every) o.selected = true; });
+    el('div', 'row why', c, 'Slides work on every background. The corner’s time takes the Look’s face and color.');
+  }
+  function timingSection(host) {
+    secHead(host, 'Timing');
+    var c = el('div', 'card', host);
+    var r = row(c, 'Starts After, Night Mode and More', 'After 5 minutes · Night 10 PM to 6 AM'); r.classList.add('link'); r.tabIndex = 0;
+    r.onclick = function () { say('Opens the Screensaver page’s timing: Starts After, Back to Home, Night Mode, This Tablet'); };
+    var c2 = el('div', 'card', host); c2.style.marginTop = '16px';
+    var rr = el('div', 'row', c2); var b = el('button', 'btn sm' + (ui.confirmReset ? ' danger' : ''), rr, ui.confirmReset ? 'Reset to this screen’s Look before the editor? Tap again' : 'Reset…');
+    b.type = 'button'; b.style.color = '#ff8a80';
+    b.onclick = function () { if (!ui.confirmReset) { ui.confirmReset = true; drawInsp(); return; } ui.confirmReset = false; change(function () { S = newState('photo'); }, 'Reset. Undo brings your screensaver back.'); };
+    el('small', null, rr, 'Replaces “Back to Today’s Look” and “Remove the Layout”').style.color = 'var(--mut)';
+  }
+  function pieceInspector(host, i) {
+    var it = S.info[i], p = P[it.piece];
+    var back = el('button', 'btn sm', host, '‹ Screensaver'); back.type = 'button'; back.onclick = function () { select(null); };
+    secHead(host, p.n, { now: 'Today’s piece', A: 'Glance, wave A', B: 'Glance, wave B', C: 'Glance, wave C' }[p.w]);
+    var cl = claimedBy(S, it); if (cl) { var n = el('p', 'hint', host, cl + ', so this piece is not drawn twice.'); n.style.color = 'var(--warn)'; }
+    var c = el('div', 'card', host);
+    var r = row(c, 'Shape');
+    var grid = el('div', null, c); grid.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;padding:0 12px 12px';
+    shapesOf(p).forEach(function (k) {
+      var b = el('button', 'look', grid); b.type = 'button'; b.setAttribute('aria-pressed', String(it.shape === k)); b.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;max-width:100%';
+      var sw2 = el('div', null, b); sw2.style.cssText = 'background:url(img/photo.webp) center/cover;border-radius:6px;padding:8px;color:#f3f6ff;display:flex;align-items:center;justify-content:center;min-height:62px;max-width:290px;overflow:hidden';
+      var uu = k === 'circ' ? 3.8 : k === 'inline' ? 4.2 : k === 'band' ? 1.3 : 2.1;
+      var d = pieceHtml(S, { piece: p.id, shape: k, size: 100 }, uu); sw2.innerHTML = d.html;
+      el('b', null, b, SHAPES[k]);
+      b.onclick = function () {
+        if (it.shape === k) return;
+        change(function () {
+          it.shape = k;
+          if (ZONES[it.zone].takes.indexOf(k) < 0 || roomIn(S, it.zone) < 0) {
+            var z = ZONE_KEYS.filter(function (z) { return ZONES[z].takes.indexOf(k) >= 0 && roomIn(S, z) >= (k === 'rect' ? 2 : 1); })[0];
+            if (z) { it.zone = z; say(p.n + ' moved ' + zoneName(z, S).toLowerCase() + ': that is where ' + SHAPES[k].toLowerCase() + ' pieces go'); }
+          }
+          if (k === 'card' && it.back === 'none') it.back = 'glass';
+        });
+      };
+    });
+    r = row(c, 'Size'); range(r, 60, 160, it.size, function (v) { it.size = v; }, 'Size', function (v) { return v + '%'; });
+    r = row(c, 'Backdrop'); seg(r, [['none', 'None'], ['glass', 'Glass'], ['tint', 'Tinted']], it.back, function (v) { change(function () { it.back = v; }); });
+    r = row(c, 'Color'); seg(r, [['auto', 'Auto'], ['white', 'White'], ['accent', 'Accent']], it.color, function (v) { change(function () { it.color = v; }); });
+    r = row(c, 'Where');
+    var ws = el('select', null, r); ws.id = 'where'; ws.setAttribute('aria-label', 'Where');
+    ZONE_KEYS.forEach(function (z) { if (ZONES[z].takes.indexOf(it.shape) < 0) return; var o = el('option', null, ws, zoneName(z, S)); o.value = z; if (z === it.zone) o.selected = true; });
+    ws.onchange = function () { var v = ws.value; change(function () { it.zone = v; }); };
+    var c2 = el('div', 'card', host); c2.style.marginTop = '12px';
+    el('div', 'row why', c2, 'Shows ' + (p.when || 'always') + (p.off ? '. Off on every screen until someone places it, since anyone walking by sees a screensaver.' : '.'));
+    if (p.pick) el('div', 'row why', c2, 'Reads ' + p.pick + ', picked once, with a suggested default.');
+    if (p.note) el('div', 'row why', c2, p.note + '.');
+    var rm = el('div', 'row', c2); var b2 = el('button', 'btn sm', rm, 'Remove'); b2.type = 'button'; b2.style.background = '#3d1e22'; b2.style.color = '#ffb0aa';
+    b2.onclick = function () { change(function () { S.info.splice(i, 1); ui.sel = null; }, 'Removed ' + p.n); };
+  }
+  function drawInsp() {
+    var host = document.getElementById('insp'); host.innerHTML = '';
+    if (typeof ui.sel === 'number' && S.info[ui.sel]) { pieceInspector(host, ui.sel); return; }
+    if (ui.sel === 'big') { var b = el('button', 'btn sm', host, '‹ Screensaver'); b.type = 'button'; b.onclick = function () { select(null); }; b.style.marginBottom = '10px'; lookSection(host); return; }
+    lookSection(host); infoSection(host); slidesSection(host); timingSection(host);
+  }
+
+  // ---- the studies
+  function drawShapes() {
+    var pk = document.getElementById('shapePick'); pk.innerHTML = '';
+    ['weather', 'status', 'next', 'climate', 'sun', 'music'].forEach(function (id) {
+      var b = el('button', null, pk, P[id].n); b.type = 'button'; b.setAttribute('aria-pressed', String(ui.shapePiece === id));
+      b.onclick = function () { ui.shapePiece = id; drawShapes(); };
+    });
+    var host = document.getElementById('shapes'); host.innerHTML = '';
+    var p = P[ui.shapePiece];
+    shapesOf(p).forEach(function (k) {
+      var c = el('div', 'shape', host);
+      if (k === 'band') c.style.flexBasis = '100%';
+      var swt = el('div', 'sw2', c);
+      var uu = k === 'circ' ? 6 : k === 'inline' ? 6 : k === 'band' ? 4.4 : 4.4;
+      var wrap = el('div', null, swt);
+      var d = pieceHtml(S, { piece: p.id, shape: k, size: 100, back: k === 'card' ? 'glass' : 'none' }, uu);
+      wrap.className = 'pc b-' + (k === 'card' ? 'glass' : 'none'); wrap.innerHTML = d.html; wrap.style.color = '#f3f6ff';
+      if (k === 'card') { wrap.style.padding = uu * 2.4 + 'px'; wrap.style.borderRadius = uu * 2.2 + 'px'; }
+      if (k === 'rect') { wrap.style.width = 27 * uu + 'px'; wrap.style.height = 13 * uu + 'px'; }
+      if (k === 'band') wrap.style.width = '100%';
+      el('b', null, c, SHAPES[k]);
+      el('small', null, c, { inline: 'A line of words: above the time or in a corner', circ: 'One unit of the row', rect: 'Two units of the row', card: 'A corner, with a backdrop', band: 'Along the bottom' }[k]);
+    });
+  }
+  function drawSlides5() {
+    var host = document.getElementById('slides5'); host.innerHTML = '';
+    var D = DEVICES[ui.device];
+    Object.keys(SLIDES).forEach(function (k) {
+      var c = el('div', 'sl', host), th = el('div', 'th', c);
+      th.style.aspectRatio = D[0] + '/' + D[1];
+      if (D[1] > D[0]) { th.style.maxWidth = (D[0] / D[1] * 330) + 'px'; th.style.margin = '0 auto 8px'; }
+      render(th, D[0], D[1], S, { edit: false, tod: ui.tod, slide: k });
+      requestAnimationFrame(function () { th.firstChild.style.transform = 'scale(' + th.clientWidth / D[0] + ')'; });
+      el('b', null, c, SLIDES[k].n);
+      el('small', null, c, 'Shows ' + SLIDES[k].shows.join(' and ') + '. The corner adds ' + listAnd(cornerFor(k).map(cornerName)) + '.');
+    });
+  }
+  function drawDecisions() {
+    var t = document.getElementById('decisions');
+    var D = [
+      ['Planted becomes a face on the Landscape instead of a depth?', 'Yes'],
+      ['Tapping a Look keeps the Info; replacing everything becomes a separate “Start Over from This Look”?', 'Yes'],
+      ['The classic HK cards (Now Playing, Timers, weather, status) on the screensaver replaced by the pieces’ Card shape, without their controls?', 'Yes'],
+      ['The slide corner’s time follows the Look’s face and color, or one fixed corner style?', 'Follow the Look'],
+      ['Every screen through one renderer, so screens with no saved layout may shift slightly?', 'Yes, after you see the before and after shots'],
+      ['Big Weather’s slide corner: Date and House Status only, since it already shows a time?', 'Yes'],
+      ['Who’s Home, Camera and Last Ring stay off until placed, since anyone walking by sees a screensaver?', 'Yes'],
+      ['Any pieces to add to or drop from the glance catalog before building?', 'Your list']
+    ];
+    t.innerHTML = '<thead><tr><th>#</th><th>Question</th><th>Recommendation</th></tr></thead><tbody>' + D.map(function (d, i) { return '<tr><td>' + (i + 1) + '</td><td>' + esc(d[0]) + '</td><td><b>' + esc(d[1]) + '</b></td></tr>'; }).join('') + '</tbody>';
+  }
+
+  // ---- the top bar and the controls over the screen
+  function drawBars() {
+    var dv = document.getElementById('device'); dv.innerHTML = '';
+    DEVICES.forEach(function (d, i) { var b = el('button', null, dv, d[2]); b.type = 'button'; b.setAttribute('aria-pressed', String(ui.device === i)); b.onclick = function () { ui.device = i; draw(); }; });
+    var td = document.getElementById('tod'); td.innerHTML = '';
+    [['day', 'Day'], ['night', 'Night']].forEach(function (d) { var b = el('button', null, td, d[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(ui.tod === d[0])); b.onclick = function () { ui.tod = d[0]; draw(); }; });
+    var sl = document.getElementById('slide'); sl.innerHTML = '';
+    [['', 'None'], ['music', 'Music'], ['fc', 'Forecast, Classic'], ['fb', 'Forecast, Big'], ['weather', 'Weather'], ['energy', 'Home Energy']].forEach(function (d) { var o = el('option', null, sl, d[1]); o.value = d[0]; if (ui.slide === d[0]) o.selected = true; });
+    document.getElementById('undo').disabled = !past.length;
+    document.getElementById('mode').textContent = ui.edit ? 'Preview' : 'Edit';
+  }
+  document.getElementById('slide').onchange = function () { ui.slide = this.value; ui.pick = null; draw(); };
+  document.getElementById('undo').onclick = function () { if (!past.length) return; S = past.pop(); ui.sel = null; draw(); say('Undone'); };
+  document.getElementById('mode').onclick = function () { ui.edit = !ui.edit; ui.sel = null; ui.pick = null; draw(); };
+  document.getElementById('save').onclick = function () { say('This is a mock-up: nothing is saved.'); };
+  document.getElementById('cancel').onclick = function () { say('This is a mock-up: Cancel would ask before throwing a draft away.'); };
+  document.getElementById('q').oninput = drawLibrary;
+  addEventListener('keydown', function (e) { if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); document.getElementById('undo').click(); } });
+
+  function draw() { drawBars(); drawScreen(); drawLooks(); drawLibrary(); drawInsp(); drawShapes(); drawSlides5(); }
+  var rt; addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { drawScreen(); drawLooks(); drawSlides5(); }, 120); });
+  drawDecisions();
+  draw();
+})();
+</script>

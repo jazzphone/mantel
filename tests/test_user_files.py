@@ -744,7 +744,7 @@ async def test_a_large_your_files_photo_upload_does_not_freeze_the_event_loop(tm
     test_photos.py). It runs in the image worker process now (imaging.py), progressive again, and the loop never
     waits on it."""
     from mantel_server import imaging
-    from test_photos import noisy_jpeg, worst_gap_during
+    from test_photos import least_gap, noisy_jpeg
     store = uf.UserFiles(tmp_path / "files")
     await imaging.run(uf.reencode_photo, noisy_jpeg(0.1))          # the worker's start is not what is measured
     data = noisy_jpeg(40)
@@ -752,8 +752,8 @@ async def test_a_large_your_files_photo_upload_does_not_freeze_the_event_loop(tm
 
     async def upload():
         got.append(await uf.stage_photo(store, data))
-    gap = await worst_gap_during(upload())
-    write, result = got[0]
+    gap = await least_gap(upload)
+    write, result = got[-1]
     write()
     with Image.open(store.photo_path(result["id"])) as im:
         assert im.info.get("progressive") == 1

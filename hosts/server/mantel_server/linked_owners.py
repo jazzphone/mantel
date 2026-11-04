@@ -318,7 +318,7 @@ def _state(app: web.Application) -> dict[str, Any]:
 
 # -- REST: Owners and Admins read; an Owner changes ownership on the LAN door, or HA's sidebar with the home rules
 # (the HA App has no LAN door; HA-APP.md). A person's own session, never at a wall tablet.
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_get(request: web.Request) -> web.Response:
     return web.json_response(_state(request.app))
 

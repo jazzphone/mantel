@@ -11,6 +11,7 @@ from typing import Any, Callable, Iterable, Mapping
 
 from hk_core.settings import home_grid as HG
 from hk_core.settings import model as SM
+from hk_core.settings import pages as SP
 
 from .. import accessories as ACC
 from ..connectors import Forbidden
@@ -421,9 +422,14 @@ class SettingsService:
                  for p in self._items("custom_pages")]
         catalog = self.store.body("house", "catalog")
         features: dict = {}
+        features_auto = None
         if self.features is not None:
             try:
                 features = self.features.panel_features()
+                # Turn Features On Automatically (features/auto.py): Advanced -> Features' switch, Mantel's own
+                auto = getattr(self.features, "auto", None)
+                features_auto = {"enabled": auto.switch(), "save": "mantel/features/auto/set"} \
+                    if auto is not None else None
             except Exception:  # noqa: BLE001 -- HK Settings still opens
                 log.exception("panel/get's features failed")
         # the kiosk apps' devices in HA (a tablet's Setup -> Device), as HK Frontend lists them; it was always
@@ -449,10 +455,14 @@ class SettingsService:
             "accessories": self.store.body("house", "accessories") or {"entities": {}},
             "kinds": {}, "hidden": {},
             "presets": catalog.get("presets", []), "chip_kinds": catalog.get("chip_kinds", list(CHIP_KINDS)),
-            "page_kinds": catalog.get("page_kinds", []), "scene_pages": catalog.get("scene_pages", []),
+            # the imported catalog's kinds, with those Mantel's model knows and it lacks (the Timeline, a page kind
+            # newer than the import): a screen whose Pages or Scenes are its own can add them
+            "page_kinds": SP.page_kinds_with(catalog.get("page_kinds", [])),
+            "scene_pages": [k for k in SP.page_kinds_with(catalog.get("scene_pages", [])) if k in SM.SCENE_PAGES],
             "shelves": catalog.get("shelves", {}),
             "setup_done": bool(self.store.body("house", "setup").get("setup_done")),
             "suggest": {}, "counts": {}, "users": [], "integration": {}, "thirdparty": {}, "features": features,
+            "features_auto": features_auto,
             "choices": catalog.get("choices", {}),
             "versions": self.versions(),
         }

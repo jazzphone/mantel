@@ -189,6 +189,22 @@ class Ctx:
             await self.end(key)
 
 
+# WHICH STREAM A PAGE WANTS (2026-11-02, the owner: "Low quality for Tiles/Mosaic/Camera Page, High Quality for Pop
+# ups"). Home Assistant's camera/webrtc/offer names the camera only, so a page served by Mantel adds this key: "low" for
+# a small tile, "medium" for a large one, "high" for a pop-up or full screen. Only Mantel's own cameras (cameras_direct)
+# use it; every layer drops it before anything reaches Home Assistant, whose schema refuses an unknown key.
+QUALITY_KEY = "mantel_quality"
+QUALITY_HINTS = ("low", "medium", "high")
+
+
+def split_quality(msg: dict) -> tuple[dict, str | None]:
+    """The offer without the page's quality hint, and the hint (None when absent or not one of QUALITY_HINTS)."""
+    if not isinstance(msg, dict) or QUALITY_KEY not in msg:
+        return msg, None
+    hint = msg.get(QUALITY_KEY)
+    return {k: v for k, v in msg.items() if k != QUALITY_KEY}, hint if hint in QUALITY_HINTS else None
+
+
 def ws_handlers(app) -> dict[str, Callable[[Ctx, dict], Awaitable[None]]]:
     if "ws_handlers" not in app:
         app["ws_handlers"] = {}

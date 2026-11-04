@@ -60,7 +60,14 @@
 	@internal path /healthz
 	respond @internal 404
 
-	request_body {
+	# A backup being restored is hundreds of MB (photos): its two upload paths take up to 4 GB, everything else 12 MB.
+	# Mantel checks the setup code or the Owner's sign-in before it reads the backup itself.
+	@backup_upload path /api/bootstrap/restore /api/backup/restore/upload
+	request_body @backup_upload {
+		max_size 4GB
+	}
+	@not_backup_upload not path /api/bootstrap/restore /api/backup/restore/upload
+	request_body @not_backup_upload {
 		max_size 12MB
 	}
 }

@@ -46,6 +46,7 @@ It reads Home Assistant's token from `~/.config/mantel/ha_token` if that file ex
 | `--proxy-kind caddy\|own` | none | Which proxy owns TLS; tunes `/proxy-check`'s advice. |
 | `--connect` | off | Mantel Connect: a second TLS listener for the Connect App (client certificates only) and pairing. Implies Ingress identity from a **paired** App, trusting no socket address. Section 4a. |
 | `--connect-port`, `--connect-listen`, `--connect-address` | `8766`, `0.0.0.0`, none | The listener's port and address; the address `/admin` shows the Owner to type into the App. |
+| `--stream-port` | `0` (off) | The Intercom's listener for Music Assistant (phase 17): plain HTTP on this port, serving only one-time links to a message's audio, started only while the Intercom is on in Mantel Settings. Must differ from `--port`, `--direct-port` and (with `--connect`) `--connect-port`. The Docker/LXC stack passes `8767` (published as `${MANTEL_STREAM_BIND}:${MANTEL_STREAM_PORT}:8767`), the HA App `8101` (unpublished until you map `8101/tcp`). Keep it on the home network. |
 | `--data-dir` | `~/.local/share/mantel` | Where `mantel.db` lives. |
 | `--secrets-dir` | `~/.config/mantel/secrets` | Folder of secret files (the at-rest key). |
 | `--ma-url`, `--ma-token-file` | none, `/run/secrets/ma_token` | Optional: Music Assistant from the installation. Normally set up on the Connections page. |
@@ -59,7 +60,7 @@ It reads Home Assistant's token from `~/.config/mantel/ha_token` if that file ex
 | `--screen` | the first screen | The first start's value for **House Default Screen** (Mantel Settings → General): the screen `/home` opens (a board key, e.g. `dashboard-home`). The stored setting wins after that. |
 | `--default-interval`, `--override GLOB=SECONDS` | 0 | Coalescing of fast sensors (for example `'sensor.*_distance=1'`). |
 | `--go2rtc-url URL` | none | Live TV served by Mantel through its own go2rtc's API (`http://go2rtc:1984` in the stack). Without it, HA's Live TV stays the interim (section 7a). |
-| `--live-tv-hardware` | `none` | `vaapi`: Live TV's transcode on QuickSync (go2rtc needs `/dev/dri`: `compose.gpu.yaml`). |
+| `--live-tv-hardware` | `none` | `vaapi`: Live TV's transcode on QuickSync (go2rtc needs `/dev/dri`: `compose.gpu.yaml`). Checked on the first channel played: if the GPU fails and the CPU plays it, Live TV uses the CPU until Mantel restarts (`gpu_failed` in `/api/live_tv/status`). Intel only (the image carries Intel's iHD driver). |
 
 ### In the container stacks (Docker, LXC)
 
@@ -135,7 +136,8 @@ location / {
     proxy_set_header X-Ingress-Path "";
     proxy_read_timeout 1h;
     proxy_buffering off;
-    client_max_body_size 12m;
+    proxy_request_buffering off;
+    client_max_body_size 4g;      # a backup with photos, restored in Mantel Settings
 }
 ```
 
@@ -183,6 +185,8 @@ The HA App's sidebar always works. To also reach the App at Mantel's own address
 
 Either way, "Sign in with Home Assistant" works there by itself: Mantel uses **Sign-In Address** (Mantel Settings → Connections → Home Assistant), and when that is empty Home Assistant's own URL (HA → Settings → System → Network: external, else internal); Mantel's password, passkeys and enrolled wall tablets (§5) work as in the containers; HA's identity headers are never believed on 8100; the sidebar, HA's automatic connection and Music Assistant by App hostname are unchanged.
 
+The HA App's other optional port is **8101** (`8101/tcp`, unpublished by default): the Intercom's listener for Music Assistant (phase 17), plain HTTP, serving only one-time links, listening only while the Intercom is on in Mantel Settings, whatever `access` is set to. Map it under Network only to use the Intercom, and keep it on the home network; Mantel Settings, Intercom, takes `http://<HA machine>:8101` as the address for Music Assistant.
+
 ### Music Assistant and go2rtc through Mantel
 
 An https page cannot frame Music Assistant's `http://…:8095` or open `ws://` to go2rtc, so Mantel serves both under its own address: Music Assistant's web app at `/ma/` (`MANTEL_MA_WEB_URL`, default the host of `MANTEL_MA_URL`) and go2rtc's viewing paths at `/go2rtc/` (`MANTEL_GO2RTC_URL`). Both need a Mantel sign-in: Music Assistant needs `control` on the `music` feature (wall tablets have it through the house music grant), a go2rtc camera stream that camera's live view, a Live TV stream the `live_tv` feature and its channel camera's live view (Live TV registers each stream while it is set up and removes it when dropped). Where Mantel serves Live TV (Docker/LXC) its streams are reachable only this way: go2rtc publishes no HTTP port, and a channel camera asked for by name is refused. Only the paths HK needs are passed (never MA's JSON-RPC API, never go2rtc's stream management, config, restart or web pages); MA's and go2rtc's addresses, cookies and headers never reach the page. HK's "Browse Music" frame (`hk-browse-card`) uses `/ma/` on Mantel automatically; in Home Assistant it keeps MA's own port. Music Assistant's own sign-in appears inside the frame, unless you give Mantel a **token for the Music Assistant page** (below).
@@ -219,6 +223,22 @@ Setup now: **start the container, create the first Owner (section 3), open Mante
 **Where a connection comes from, in order (the one rule for HA and MA):** (1) in the Mantel App, Home Assistant is always the App's own credential (not editable); (2) **a connection saved on this page** (Mantel's sealed copy) wins over (3) the installation's: the files `ha_token` / `ma_token` with `MANTEL_HA_URL` / `MANTEL_MA_URL` (or `--token-file`/`--ha-url`, `--ma-token-file`/`--ma-url`), and in the Mantel App the old `ma_url` / `ma_token` options, which are copied once into Mantel's own Music Assistant connection when Mantel updates (the stored connection wins after that); (4) otherwise not set up. An empty file or option counts as none. Disconnecting Mantel's copy goes back to (3) at once.
 
 Only an Owner changes connections; on the tunnel door that needs a fresh factor; Admins see the status. Each change is audited (`config`, `connection.ha.saved`, never the token). **Replace** saves a new one; **Disconnect** removes Mantel's saved copy (and falls back to the installation's file if there is one). Disconnecting does not revoke the token in HA: delete `Mantel Server (<date>)` from that user's profile too if you want it gone. **Suggested address in the Mantel App:** when Music Assistant is not set up and Mantel runs as the HA App, an Owner or Admin opening the Connections page has the address box prefilled (still editable) with Music Assistant's App, found by name: Mantel tries `http://d5369777-music-assistant:8095`, then `-beta`, then `-nightly` (d5369777 is the official Music Assistant App repository's id; Supervisor's DNS resolves App hostnames), resolving the name and reading Music Assistant's unauthenticated `/info` (2 seconds each, no credentials), and suggests the first that answers like Music Assistant. The answer is remembered for 5 minutes. The hint reads "Found Music Assistant’s App — press Test"; nothing is tested or saved until you press Test and Save. It is a name, never an IP address (App addresses can change). Outside the App nothing is probed and the box shows only the example. In the Mantel App (HA App mode) Home Assistant shows "Provided by Home Assistant (App)" and is not editable; Music Assistant is. Details: [phase3/ADMIN-PAGE.md](phase3/ADMIN-PAGE.md) "Connections".
+
+### 2b. UniFi Protect (Docker and the LXC)
+
+Mantel Settings → Connections → UniFi Protect connects Mantel to the console's public API with one API key (docs/guide/Music-and-Cameras.md "UniFi Protect"; docs/phase13/CAMERAS-DIRECT.md). Only where Mantel has its own go2rtc (`MANTEL_GO2RTC_URL`); the HA App shows that cameras come from Home Assistant.
+
+- **The key, the pin and the optional local user** are one sealed file, `<data-dir>/connections/protect.connection` (folder 0700, file 0600, AES-GCM with `at_rest.key`, inside every encrypted backup). The certificate's SHA-256 fingerprint is pinned there on the first Connect and checked in every TLS handshake (requests and the events socket). A changed certificate stops the connection until an Owner trusts the new fingerprint on the page (audited `connection.protect.certificate_trusted`). Each picked camera's stream address (Protect's token) is sealed beside it in `camera-<slug>.connection`; Video From and Notify For are the settings document `house/protect`.
+- **The events socket** (`wss://<console>/proxy/protect/integration/v1/subscribe/events`) redials by itself (1, 2, 5, 10, then every 30 s). Its state, its last message and its last error are on the page and in `GET /api/protect` (Owner/Admin). A refused key or a changed certificate stops it until fixed on the page. While it is down, a camera Home Assistant has too notifies from Home Assistant's own sensors.
+- **The console's rate limit** is 10 requests a second per key. Mantel paces itself under it, shares a still between screens for 2 seconds, reads the camera list every 5 minutes and asks for a stream's token again at most once a minute when go2rtc can't play it. A second program using the same key can still push it over; give each its own key.
+- **Revoking:** delete the key in UniFi OS (Settings → Control Plane → Integrations) and press Disconnect, which forgets the key and removes the picked cameras. Disconnect alone doesn't revoke the key.
+
+### 2c. RTSP cameras and talking at the door directly (Docker and the LXC)
+
+- **RTSP cameras** (Mantel Settings → Cameras → Add Camera; docs/guide/Music-and-Cameras.md "RTSP cameras") play through the stack's own go2rtc like a UniFi Protect camera. The address, user name and password are sealed together in `<data-dir>/connections/camera-<slug>.connection` (inside every encrypted backup) and never shown again; the settings document `house/cameras_direct` holds the name, area and linked Home Assistant sensors only. **Test** registers a stream in go2rtc for a moment and reads go2rtc's own probe (`/api/streams?src=…`), because go2rtc 1.9's `frame.jpeg` answers an empty 200 whatever went wrong. Its answer is never passed on whole: it contains the address with the login.
+- **Which stream plays.** On Mantel the page adds `mantel_quality` (`low` for a tile, `high` for a pop-up) to a camera's WebRTC offer, through Mantel's client (`client.cameraOffer`); Mantel's own cameras play that stream as `mantel_cam_<slug>_<quality>` in go2rtc, or the nearest one they have (a Protect camera has high, medium and low; an RTSP camera high and its optional low). Every layer takes the key off before anything reaches Home Assistant. Stills come from a camera's snapshot (Protect's own, or an RTSP camera's snapshot address), else a frame of its low stream, else its high one.
+- **Talking at a UniFi Protect doorbell** goes from Mantel itself on Docker and the LXC (`talk_direct.py`): Mantel asks the console for the doorbell's talkback session, keeps it 5 minutes, and encodes the tablet's audio to Opus over RTP to the doorbell's UDP 7004 from the `mantel-server` container (the `egress` network). The encoder is PyAV, about 92 MB of the server image. The HA App keeps Mantel Link's path.
+- **One stream per talk session.** A Protect doorbell loses the start of every new audio stream (measured 2026-11-02, docs/phase13/CAMERAS-DIRECT.md "Timings"), so a talk session's stream starts with 400 ms of silence and stays open, sending silence between holds, until the pop-up closes, 30 s pass in silence, or someone else starts talking (their words close it first). Expect a steady ~50 packets a second toward the doorbell while a pop-up that has been talked from is open.
 
 ### The data folder
 
@@ -613,4 +633,7 @@ What is still not done, as of 0.1.75 (the second audit pass, [development/Audit-
 | **Wall Tablet accounts are not bound to one room** | One tablet per account; which room it may enrol in is a product decision (first pass, T6). |
 | **Two people editing one screen's Home Grid at once** | The later Save replaces the earlier one (second pass, SET-7). |
 | **New-device sign-in notifications, shared rate limits** | Not built. |
+| **The recorded message on a Mantel-owned doorbell speaker** | On Docker and the LXC, a doorbell that Home Assistant doesn't have (`media_player.mantel_<slug>_speaker`) takes live talk only: the card's fallback clip goes to Home Assistant's talk view, which doesn't know that speaker. |
+| **Ring to sheet on the LXC** | The direct path's event timing equals Home Assistant's (2.0 s); the rest of ring-to-sheet waits on the house's move to the LXC to be measured. |
+| **Does an API key die with its UniFi user?** | Unconfirmed (the house's key was made under the owner's own account). Revoke Mantel by deleting its key. |
 | **Apple apps** | See [iPhone and Mac Apps](guide/iPhone-and-Mac-Apps.md) for what is not built yet. |

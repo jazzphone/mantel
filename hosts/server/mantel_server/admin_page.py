@@ -32,7 +32,7 @@ from aiohttp import web
 from . import frame_origins, ingress, rbac, security_headers, setup_guide
 from .accounts import MANAGERS
 from .devices import DEVICE_ROLES
-from .guards import guard
+from .guards import WHY_STATIC, guard, open_route
 from .guards import ident as guarded
 from .login_page import login_url
 from .service_accounts import SCOPES as SERVICE_SCOPES
@@ -45,7 +45,7 @@ ASSET = PAGE + "/{name}"
 OVERVIEW = "/api/admin/overview"
 ASSETS = {"admin.js": "text/javascript", "admin.css": "text/css"}
 # admin.js imports ../webauthn.js (the passkey helpers shared with /login), served by login_page.py
-SECTIONS = ("me", "connections", "general", "people", "devices", "files", "photos", "backups", "roles", "service", "connect",
+SECTIONS = ("me", "connections", "cameras", "intercom", "general", "people", "devices", "files", "photos", "backups", "alerts", "timeline", "roles", "service", "connect",
             "assistants", "audit", "about", "performance")
 
 CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
@@ -79,7 +79,11 @@ def sections_for(request: web.Request, ident: Identity) -> list[str]:
     if role in MANAGERS:                   # accounts.require_manager guards /api/users and /api/devices
         out += ["people", "devices", "files", "photos"]   # files, photos: their REST is also require_manager
         out.append("backups")              # backup.py: Owner/Admin read; only an Owner backs up, saves keys, restores
+        out.append("alerts")               # alerts/api.py: Owner/Admin read; only an Owner changes a channel
+        out.append("timeline")             # timeline/api.py: Owner/Admin read; only an Owner changes it (a fresh sign-in away)
         out.append("connections")          # connections.py: Owner/Admin read; only an Owner changes
+        out.append("cameras")              # camera_setup.py: Owner/Admin read and change (an Admin from away asks a fresh sign-in)
+        out.append("intercom")             # intercom/routes.py: Owner/Admin (a fresh sign-in away from home)
         out.append("general")              # server_settings.py: the same rule
         out.append("performance")          # performance.py: GET /api/performance, managers; shown in About
     authz = request.app.get("authz")
@@ -105,6 +109,7 @@ def sections_for(request: web.Request, ident: Identity) -> list[str]:
     return sorted(out, key=SECTIONS.index)
 
 
+@open_route("static", why="the admin page shell: signed out it sends the browser to /login, a person goes on to Settings; the data behind it is guarded")
 async def page(request: web.Request) -> web.StreamResponse:
     ident = identity(request)
     if ident.user is None and ident.device is None:
@@ -123,6 +128,7 @@ async def page(request: web.Request) -> web.StreamResponse:
                         content_type="text/html", headers=_headers(request))
 
 
+@open_route("static", why=WHY_STATIC)
 async def asset(request: web.Request) -> web.StreamResponse:
     name = request.match_info["name"]
     if name not in ASSETS:
@@ -130,7 +136,7 @@ async def asset(request: web.Request) -> web.StreamResponse:
     return web.Response(text=_static(name), content_type=ASSETS[name], charset="utf-8", headers=HEADERS)
 
 
-@guard("person", device_ok=True)      # a person, at a wall tablet too: sections_for gives them Me only
+@guard("person", device_ok=True, reads="self")      # a person, at a wall tablet too: sections_for gives them Me only
 async def overview(request: web.Request) -> web.Response:
     ident = guarded(request)
     accounts = request.app["accounts"]

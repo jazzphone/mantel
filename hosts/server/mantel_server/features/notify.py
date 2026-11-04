@@ -1,7 +1,19 @@
 """Notifications on Mantel: ``Notifier`` follows the hub's changes, asks ``banner.goes_off`` what each sets off and
-sends the payload to the screens' feed (Mute 1 Hour, snapshots, the Wake the Screen call)."""
+sends the payload to the screens' feed (Mute 1 Hour, snapshots, the Wake the Screen call).
+
+DIRECT CAMERA EVENTS (2026-11-02, docs/phase13/CAMERAS-DIRECT.md phase 4, protect_connector.py): ``direct`` is the
+UniFi Protect connector where Mantel reaches the console itself. Its events reach this one engine two ways, so the
+rules (Goes Off When, the Doorbells pop-up, Not Again For, Mute 1 Hour) are the ones Home Assistant's entities have:
+
+* a camera Home Assistant does not have: Mantel's own detection sensors (``binary_sensor.mantel_<slug>_*``,
+  ``event.mantel_<slug>_doorbell``) change in the hub like any entity, and come in through ``on_change``;
+* a camera Home Assistant has too: ``inject`` sets off what Home Assistant's own entity of that kind would, keyed to
+  HA's entity id, and ``direct.takes(eid)`` holds back HA's own change of it while the direct source is preferred
+  (Video From Direct and the events socket up), so one ring is one notification, never two. ``takes`` also holds
+  back a kind the camera's Notify For leaves out, whichever source it came from."""
 from __future__ import annotations
 
+import asyncio
 from collections import deque
 import time
 from typing import Any, Mapping, TYPE_CHECKING
@@ -16,6 +28,13 @@ if TYPE_CHECKING:
 
 
 # ------------------------------------------------------------------------------- notifications
+# A first state works the categories out again (on_change), at most once this often; the rest of a burst waits for one
+# rework after it. (0.1.123, 2026-11-04: Home Assistant restarting, Mantel reconnected while it had no states yet;
+# the ~4500 that followed came in one by one, each ran refresh() over every entity, and the event loop spun at 100 %
+# for minutes: no page, no health answer. py-spy: Notifier.on_change -> refresh -> accessories.members.)
+REWORK_EVERY_S = 2.0
+
+
 class Notifier:
     """Notifications on Mantel: the hub's changes -> ``banner.goes_off`` -> the screens' feed."""
 
@@ -29,6 +48,9 @@ class Notifier:
         self.mutes: dict[str, float] = {}
         self.sent: deque = deque(maxlen=LOG_KEEP)
         self.known: set[str] = set()
+        self.direct: Any = None             # protect_connector.ProtectConnector: takes(eid) -> bool
+        self._reworked = float("-inf")       # when on_change last worked the categories out (REWORK_EVERY_S)
+        self._rework_due = False             # first states came since, inside the window: one rework follows
 
     def configure(self, cfg: Mapping[str, Any]) -> None:
         self.opts = NB.options({**dict(cfg.get("options") or {}), "items": list(cfg.get("items") or [])})
@@ -51,23 +73,53 @@ class Notifier:
             return
         h = self.host.house
         states = self.host.hub.store.states
-        if any(eid in states and eid not in self.known for eid in changed):
+        fresh = {eid for eid in changed if eid in states and eid not in self.known}
+        if fresh:
             # A category's members depend on states (a door sensor is a door by its device_class), and Mantel
             # reads the registries before the first states: worked out then, Doors, Leaks and Smoke stayed
             # empty after every restart. A state just seen is a first state, not a change: nothing fires; one
             # already watched keeps its old state, so its change in the same batch still does.
-            before = self.cache
-            self.refresh()
-            for eid, st in before.items():
-                if eid in self.cache:
-                    self.cache[eid] = st
+            self.known |= fresh
+            if self.host.monotonic() - self._reworked >= REWORK_EVERY_S:
+                self._rework()
+            elif not self._rework_due:
+                self._rework_due = True
+                if self.host.spawn(self._rework_later()) is None:
+                    self._rework()                                      # (no loop to wait in)
         for eid in sorted(changed & set(self.cache)):
             old, new = self.cache.get(eid), h.state(eid)
             self.cache[eid] = new
+            if self.direct is not None and self.direct.takes(eid):
+                continue                    # the direct source speaks for it (inject), or Notify For leaves it out
             fired = NB.goes_off(h, self.items, self.watched, eid, old, new, last=self.last, mute=self.mutes,
                                 now=self.host.monotonic(), epoch=self.host.epoch())
             for item in fired:
                 self.deliver(item, new, eid)
+
+    def _rework(self) -> None:
+        """The categories worked out again; what was already watched keeps the state it had (on_change)."""
+        self._rework_due = False
+        self._reworked = self.host.monotonic()
+        before = self.cache
+        self.refresh()
+        for eid, st in before.items():
+            if eid in self.cache:
+                self.cache[eid] = st
+
+    async def _rework_later(self) -> None:
+        await asyncio.sleep(REWORK_EVERY_S)
+        if self._rework_due:
+            self._rework()
+
+    def inject(self, eid: str, old: State | None, new: State | None) -> list[dict[str, Any]]:
+        """A direct camera's event as the change of Home Assistant's entity ``eid`` it stands for (the module
+        docstring): the same rules decide; the hub's own copy of ``eid`` is not touched."""
+        if not self.host.on("notifications") or eid not in self.cache:
+            return []
+        h = self.host.house
+        fired = NB.goes_off(h, self.items, self.watched, eid, old, new, last=self.last, mute=self.mutes,
+                            now=self.host.monotonic(), epoch=self.host.epoch())
+        return [self.deliver(item, new, eid) for item in fired]
 
     def deliver(self, item: dict[str, Any], new: State | None, eid: str) -> dict[str, Any]:
         payload = NB.build(self.host.house, self.opts, item, new, eid=eid)

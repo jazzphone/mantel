@@ -56,6 +56,34 @@ async def test_a_person_lands_on_their_own_screen_else_the_houses(mantel):
     assert await home(m) == "/dashboard-kitchen/home"
 
 
+async def test_a_page_of_the_default_screen_opens_by_its_name(mantel):
+    """/home/timeline (the morning summary's push link) is the Timeline page of the screen /home opens on: the person's
+    own, the tablet's, else the house's, with the query a tablet needs; a name that is no page name is not a route."""
+    m = mantel
+    boards(m, "dashboard-kitchen", "dashboard-loft")
+    await m.user("ann", "adult")
+    await m.sign_in("ann")
+
+    async def open_(path):
+        r = await m.client.get(path, allow_redirects=False)
+        return r.status, r.headers.get("Location")
+    assert await open_("/home/timeline") == (302, "/dashboard-kitchen/timeline")          # the house's
+    assert (await put(m, "/api/default-screen", "dashboard-loft")).status == 200
+    assert await open_("/home/timeline") == (302, "/dashboard-loft/timeline")             # then her own
+    assert await open_("/home") == (302, "/dashboard-loft/home")                           # /home itself is as it was
+    assert (await open_("/home/room-living_room"))[1] == "/dashboard-loft/room-living_room"
+    assert (await open_("/home/a.b"))[0] == 404 and (await open_("/home/" + "x" * 41))[0] == 404
+    assert (await open_("/home/..%2Fsettings"))[0] in (404, 400)
+    from mantel_server import server
+    assert server._view_of("/dashboard-loft/home?hk_tablet=t1", "timeline") == "/dashboard-loft/timeline?hk_tablet=t1"
+    assert server._view_of("/dashboard-loft/home", None) == "/dashboard-loft/home"
+    assert server._view_of("/settings", "timeline") == "/settings"                         # nothing to swap: as it was
+    # signed out: sent to sign in, and back to the same address after
+    m.forget_cookies()
+    r = await m.client.get("/home/timeline", allow_redirects=False, headers={"Accept": "text/html"})
+    assert r.status == 302 and "/login" in r.headers["Location"] and "next=" in r.headers["Location"]
+
+
 async def test_only_mantels_screens_and_a_gone_one_is_passed_over(mantel):
     m = mantel
     boards(m, "dashboard-kitchen", "dashboard-loft")

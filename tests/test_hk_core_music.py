@@ -13,7 +13,8 @@ from hk_core.house import Device, Entity, Floor, State
 from hk_core.music import announcements as A, checks, engine as E, groups as G, queue, settings as S
 from hk_core.music.config import Item, MusicConfig
 from hk_core.music.const import (
-    CONF_HOMES, CONF_KEEP_READY, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME, SUB_PLAYLIST, SUB_PRESET,
+    CONF_ANNOUNCE_ROOMS, CONF_HOMES, CONF_KEEP_READY, CONF_LEADERS, CONF_ORDER, CONF_SPEAKERS, CONF_VOLUME,
+    SUB_PLAYLIST, SUB_PRESET,
     WARM_EVERY, WARM_GAP, WARM_QUIET, WARM_RETRY, WARM_SLOW_PAGE,
 )
 from hk_core.music.warm import Warmer
@@ -226,6 +227,98 @@ def test_who_leads_is_the_live_group_whatever_the_tap_order(house, cfg):
     assert not E.needs_join([LOFT, OFF], None, found)
     target, found, way = E.play_target(house, cfg, [EXTRA, K], None, [EXTRA, K])
     assert target == EXTRA and found is None and E.needs_join([EXTRA, K], None, found)
+
+
+def _leading(house, leaders=(), announce=()):
+    opts = {CONF_SPEAKERS: list(ROOMS), CONF_VOLUME: 0.35, CONF_LEADERS: list(leaders),
+            CONF_ANNOUNCE_ROOMS: list(announce)}
+    return MusicConfig.build(house, opts, ITEMS)
+
+
+def test_who_leads_a_new_pick_is_the_houses_choice_not_the_first_room_sent(house):
+    """2026-11-02: eleven HomePods were joined under a bedroom's HomePod, first alphabetically, and Home Assistant's
+    announcements to it (a bedtime reminder, a door reminder) played in every room: Music Assistant plays an
+    announcement to a sync leader on its whole group."""
+    # nothing set: the first room sent, as before
+    assert E.play_target(house, _leading(house), [LOFT, K, OFF], None, [LOFT, K, OFF])[0] == LOFT
+    # an announcement room leads only when no other room picked can
+    cfg = _leading(house, announce=[LOFT])
+    assert cfg.leader_of([LOFT, K, OFF]) == K
+    assert E.play_target(house, cfg, [LOFT, K, OFF], None, [LOFT, K, OFF])[0] == K
+    assert E.play_target(house, cfg, [LOFT], None, [LOFT])[0] == LOFT, "alone it plays where it is"
+    cfg = _leading(house, announce=[LOFT, K])
+    assert cfg.leader_of([LOFT, K]) == LOFT, "every room picked an announcement room: the first"
+    # the house's leaders, best first, whatever the order the rooms came in (a preset's, tap order, A to Z)
+    cfg = _leading(house, leaders=[LR, K], announce=[LOFT])
+    assert E.play_target(house, cfg, [LOFT, OFF, K, LR], None, [LOFT, OFF, K, LR])[0] == LR
+    assert E.play_target(house, cfg, [LOFT, OFF, K], None, [LOFT, OFF, K])[0] == K
+    assert E.play_target(house, cfg, [LOFT, OFF], None, [LOFT, OFF])[0] == OFF
+    # the screens' rule is the same one (hkMusic.leader)
+    assert cfg.as_client(None)["leaders"] == [LR, K] and cfg.as_client(None)["announce_rooms"] == [LOFT]
+    # a speaker that is no room leads nothing
+    assert _leading(house, leaders=["media_player.gone", K]).leaders == [K]
+
+
+def test_a_room_already_playing_keeps_leading_unless_it_is_announced_to(house):
+    cfg = _leading(house, leaders=[LR], announce=[LOFT])
+    house.set(OFF, "playing")
+    assert E.play_target(house, cfg, [K, LR, OFF], None, [K, LR, OFF])[0] == OFF, "playing: the others join it"
+    house.set(OFF, "paused")
+    assert E.lead(house, cfg, [K, LR, OFF]) == OFF, "paused is still its music"
+    house.set(OFF, "idle")
+    # leading a group that also holds a room not picked: that group keeps its music there (split); no reason to lead
+    house.group(OFF, [EXTRA])
+    house.set(OFF, "playing")
+    assert E.lead(house, cfg, [K, LR, OFF]) == LR
+    # leading only rooms of the pick: it leads them all
+    assert E.lead(house, cfg, [K, LR, OFF, EXTRA]) == OFF
+    house.group(OFF, [OFF])
+    house.set(EXTRA, "idle", group_members=[])
+    house.set(OFF, "idle")
+    # an announcement room playing does not lead others
+    house.set(LOFT, "playing")
+    assert E.lead(house, cfg, [LOFT, K, LR]) == LR
+
+
+def test_a_live_group_an_announcement_room_leads_is_joined_again_under_another(house):
+    cfg = _leading(house, leaders=[K], announce=[LOFT])
+    house.group(LOFT, [K, LR])                          # what was left standing on 2026-11-02
+    target, found, way = E.play_target(house, cfg, [K, LR, LOFT], None, [K, LR, LOFT])
+    assert target == K and found is None and sorted(way) == sorted([K, LR, LOFT])
+    assert E.needs_join([K, LR, LOFT], None, found)
+    # a live group led by any other room is kept as it is
+    house.group(LR, [K, LOFT])
+    target, found, way = E.play_target(house, cfg, [K, LR, LOFT], None, [K, LR, LOFT])
+    assert (target, found, way) == (LR, [LR, K, LOFT], [])
+
+
+def test_a_move_leads_from_the_houses_choice_and_an_announcement_room_hands_its_music_on(house):
+    cfg = _leading(house, leaders=[LR], announce=[LOFT])
+    house.set(OFF, "playing", media_content_id="q1")
+    assert E.move_plan(house, [K, LOFT, LR], OFF, None, cfg) == (LR, [K, LOFT], False), "the queue moves to a leader"
+    assert E.move_plan(house, [K, LOFT, OFF], OFF, None, cfg) == (OFF, [K, LOFT], True), "playing: the others join it"
+    house.set(OFF, "idle")
+    # music on an announcement room alone, rooms added: its queue moves to the room that leads, and it joins there
+    house.set(LOFT, "playing", media_content_id="q2")
+    assert E.move_plan(house, [LOFT, K, LR], LOFT, None, cfg) == (LR, [LOFT, K], False)
+    assert E.move_plan(house, [LOFT, K], LOFT, None, cfg) == (K, [LOFT], False)
+    assert E.stale(house, cfg, [LOFT, K], K, LOFT) == []
+    assert E.move_plan(house, [LOFT], LOFT, None, cfg)[0] == LOFT
+    # ...but a group it already leads (formed before) is not pulled apart by adding a room
+    house.group(LOFT, [K])
+    assert E.move_plan(house, [LOFT, K, LR], LOFT, None, cfg) == (LOFT, [K, LR], True)
+
+
+def test_the_leader_settings_are_speakers_in_order(house):
+    players = set(ROOMS)
+    opts = {CONF_SPEAKERS: [K, LR, OFF], CONF_VOLUME: 0.35, CONF_HOMES: {}}
+    new, errors = S.apply(opts, {CONF_LEADERS: [LR, K, LR], CONF_ANNOUNCE_ROOMS: [OFF]}, players)
+    assert errors == {} and new[CONF_LEADERS] == [LR, K] and new[CONF_ANNOUNCE_ROOMS] == [OFF]
+    _, errors = S.apply(opts, {CONF_LEADERS: [LOFT], CONF_ANNOUNCE_ROOMS: "x"}, players)
+    assert errors == {CONF_LEADERS: S.MSG["rooms"], CONF_ANNOUNCE_ROOMS: S.MSG["list"]}
+    # a room that is no longer a speaker leads nothing and is no announcement room
+    gone, errors = S.apply(new, {CONF_SPEAKERS: [K, LR]}, players)
+    assert errors == {} and gone[CONF_LEADERS] == [LR, K] and gone[CONF_ANNOUNCE_ROOMS] == []
 
 
 # ------------------------------------------------------------- moving music

@@ -142,6 +142,11 @@ class DirectTalkLink:
         self.bytes += len(pcm)
         return True
 
+    def cut(self) -> None:
+        """Another tablet took the floor: this session's stream at the door closes now (talk_relay.claim)."""
+        if self._talk is not None:
+            self._talk.cut()
+
     async def stop(self) -> None:
         """Let go: what is buffered plays out, then the session ends."""
         if self._talk is not None:

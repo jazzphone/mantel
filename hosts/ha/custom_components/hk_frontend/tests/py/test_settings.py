@@ -1340,10 +1340,11 @@ def test_screensaver_clocks():
     assert S.saver_options({"show": "clock", "clock_bg": "landscapes"})["clock_bg"] == "landscapes"
     for bad in ({"clock_style": "sundial"}, {"clock_bg": "lava"}, {"clock_over": "huge"}, {"clock_motion": "fast"}, {"clock_24": "yes"}, {"show": "slides"}):
         assert S.saver_options(bad) is None, bad
-    # the styles are hk-saverclock.js's, in order
+    # the styles are hk-saverclock.js's, in order -- and Planted (phase 13): a face the Landscape plants in its meadow
+    # (hk-saverfaces.js plant()), not the clock's own
     src = (Path(S.__file__).parent / "frontend" / "modules" / "hk-saverclock.js").read_text()
     block = src[src.index("var STYLES = ["):src.index("];", src.index("var STYLES = ["))]
-    assert tuple(_re.findall(r"\['([a-z]+)', '", block)) == S.SAVER_CLOCK_STYLES
+    assert tuple(_re.findall(r"\['([a-z]+)', '", block)) + ("planted",) == S.SAVER_CLOCK_STYLES
 
 
 def test_screensaver_mosaic():

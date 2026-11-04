@@ -27,24 +27,47 @@ Optional tools that some checks use:
 
 ## Local checks
 
-The checks run on the developer's Mac, not on GitHub (its workflows run only by hand). One command runs them and
-prints one table:
+The checks run on the developer's Mac, not on GitHub (its workflows run only by hand). The release workflow
+([Releasing](Releasing.md)) runs the main suite once more on Linux, on 4 workers (`pytest -n 4`) beside the image
+builds, and a release is tagged only when it passed; `tools/ci.py` is unchanged by that. One command runs the local
+checks and prints one table:
 
 ```bash
 ~/.venvs/mantel/bin/python tools/ci.py quick     # about a minute: the main suite (8 workers, pytest-xdist) and the release checks
-~/.venvs/mantel/bin/python tools/ci.py full      # about 3½: also the HA build, HK Frontend's suites, the browser checks
+~/.venvs/mantel/bin/python tools/ci.py full      # also the HA build, HK Frontend's suites, the browser checks: those whose inputs changed
+~/.venvs/mantel/bin/python tools/ci.py full --all    # every step, whatever passed before
+~/.venvs/mantel/bin/python tools/ci.py full --plan   # which steps would run and which are unchanged; runs none
 ~/.venvs/mantel/bin/python tools/ci.py versions  # seconds: what reads the version files and changelogs (a release's re-check)
 CI_JOBS=4 ~/.venvs/mantel/bin/python tools/ci.py full    # fewer at once (three quarters of the cores, at most 14, unless set)
+CI_JOBS=22 ~/.venvs/mantel/bin/python tools/ci.py full --all  # ~220 s, not ~320 (2026-11-02), but load flakes in 2 of 3 runs
 ~/.venvs/mantel/bin/python tools/ci.py full --only js    # only the steps whose name contains "js"
 ~/.venvs/mantel/bin/python tools/ci.py --list            # every step and its tier
 ```
 
 - **Side by side** (2026-10-30; one at a time, full took 24 minutes; 2026-11-01, 13 at once here): the build tools and HK Frontend's build run
   first; every other step then runs at once with the others, `CI_JOBS` of them (three quarters of the cores, at most 14, unless set), the longest first by
-  the last run's times; the CDP checks (`headless-*`) share one fixed DevTools port and run one after another. Edit
-  mode and Swipe Between Pages are a step per engine (and per size for Edit mode), so they run side by side too,
-  as do the Side Pane's check (a step per size) and the screensaver Shows' (`saver-shows-check-KofN`, every N-th of
-  its runs each, `--shard K/N`): each was once the full run's last few minutes alone.
+  the last run's times (kept in `.git/mantel-ci/step-times.json` too, so a fresh worktree has them; a step never
+  timed counts as the longest); the CDP checks (`headless-*`) share one fixed DevTools port and run one after
+  another. Edit mode and Swipe Between Pages are a step per engine and size, so they run side by side too, as do
+  the Side Pane's check (a step per size) and the screensaver Shows' (`saver-shows-check-KofN`, every N-th of its
+  runs each, `--shard K/N`): each was once the full run's last few minutes alone.
+- **How long a step may take** (2026-11-02: one commit made the Shows' check ~13 times longer, and no run said so).
+  A check run in parts is cut into as many as keep its longest part near 150 s (`ci.py` `PART_TARGET`; 2 to 12
+  parts, the count kept in `.git/mantel-ci/timing.json`). The count holds still while the longest part stays
+  between half and one and a half times that, since it is part of each part's name and key, and a run of only some
+  parts (`--only`) never changes it. Under the table, **Slower than it should be** names each step past 240 s
+  (`STEP_BUDGET`) and each step more than twice as slow as its own last ten passes two runs in a row (once is a busy machine); also a check in parts whose parts add up
+  to much more than usual, and a whole full run whose steps do (more parts keep each part short, but the run waits
+  on their sum, `CI_JOBS` at a time). Every step is measured against the run's
+  own pace, so a busy machine slowing everything flags nothing. Each line says what to do: run the check in parts,
+  cut its fixed waits, or look at what the change added. A warning never fails the run; read it before you push the
+  change that caused it.
+- **Waiting on the page, not the clock** (2026-11-02). The screensaver Shows' check (`saver_shows_check.cjs`
+  `settle`) waits until the screensaver is still (nothing on the network, no fade running, its pictures and fonts in,
+  what it draws unchanged a moment), never longer than the fixed wait it replaced: 1,822 s in all, not 2,163 s, the
+  same 1,502 checks passing. Most of what is left is the screensaver's own fades (4 s in, 3 s between slides), which a
+  check of what they end on must wait out. `SAVER_SETTLE=probe` keeps the old waits and says, for each, when the page
+  was still and anything that changed after it; `SAVER_SETTLE=fixed` is the old check.
   The main suite runs on 8 workers (`CI_PYTEST_WORKERS`) where `pytest-xdist` is installed (`pip install -e
   '.[dev]'`); a parametrized test's ids must not depend on random data, or the workers collect different tests.
 - **quick** is the main suite, `check_links`, `check_version`, `package_check --release`, and the private words
@@ -54,11 +77,29 @@ CI_JOBS=4 ~/.venvs/mantel/bin/python tools/ci.py full    # fewer at once (three 
   (`page-swipe-check`), all when `PLAYWRIGHT_PATH`
   and `NODE` are set, and the Caddy image
   test (it builds `mantel-caddy:ci`) when Docker is running.
-- Each step ends **passed**, **failed** or **skipped**, and a skip says why (no Docker, no Chrome, no private
-  words, no `~/.venvs/hk-ha-test`, no `PLAYWRIGHT_PATH` or `NODE`). A skip is never counted as a pass.
+- Each step ends **passed**, **failed**, **skipped** or **unchanged**, and a skip says why (no Docker, no Chrome, no
+  private words, no `~/.venvs/hk-ha-test`, no `PLAYWRIGHT_PATH` or `NODE`). A skip is never counted as a pass.
+- **Unchanged since it passed** (2026-11-02). Each browser check and HK Frontend's two suites name what they read
+  (`ci.py` `PAGE_INPUTS`, `HK_INPUTS`): a browser check the page and the server it runs against (`web/`, `hk_core/`,
+  `hosts/server/mantel_server/`, the guide the server serves, `tests/fixtures/`) and its script's own files (the
+  check, its `.cjs` half, and every module of `tools/headless`, `tools` and `tests` it imports, followed through
+  their imports); HK Frontend's suites what its build takes (`hosts/ha/`, `web/`, `hk_core/`, the build tools). A
+  step's **key** is those files' contents in HEAD's tree (a version file without its version lines, so a release's
+  bump changes no key), its command, and what it runs with: the venv's packages, Playwright and its browsers, Node,
+  Chrome, macOS. A key that passed in a run that held still is kept in `.git/mantel-ci/steps.json` (every worktree
+  shares it); a step whose key is there is not run again, ends **unchanged**, which counts as its pass, and its note
+  names the commit it passed on. A failure with a key forgets it. A step runs whenever one of its inputs changed, is
+  uncommitted (changed, new, or a git-ignored file in an input folder), or `--all` or `--only` is given. The main
+  suite, the release checks, the HA build and the Caddy image always run. So a few commits to Python, shell or docs
+  outside those folders check in the main suite's time; a change to `web/` or the server runs the browser checks
+  it touches, which is all of them for `web/` and the server.
+- **Worktrees check their own code.** `~/.venvs/mantel` installs the main checkout editable, so a check run in a
+  worktree once imported the main checkout's `hk_core`. Each step run with Mantel's venv gets the checkout's root
+  and `hosts/server` first on `PYTHONPATH`; HK Frontend's harness keeps its own path (the build's vendored
+  `hk_core`).
 - **versions** is what reads the version files and the changelogs: `check_links`, `check_version`,
   `package_check --release`, the private words, and the main suite's files that name a version file or a changelog
-  (`version-tests`). It is what a release runs instead of a second full run (Releasing.md, "House releases").
+  (`version-tests`). It is what a release runs instead of a second full run (Releasing.md, "Make a release").
 - The result is written to `.ci/last-run.json` with the commit and tree it ran on, any uncommitted files, and
   `only` for a partial run; a failed step's output goes to `.ci/<step>.log`. The exit status is 0 only when no step
   failed.
@@ -78,6 +119,21 @@ check deliberately with `git push --no-verify`.
 
 The installer tests (`tests/test_lxc_installer.py`) need bash 4 or later; macOS has 3.2, so install a newer one
 (`brew install bash`) or they are skipped.
+
+## The route table and the types
+
+```sh
+~/.venvs/mantel/bin/python tools/route_table.py           # the rules each route breaks, under every option combination
+~/.venvs/mantel/bin/python tools/route_table.py --write   # regenerate docs/development/Routes.md and the lock
+~/.venvs/mantel/bin/python tools/route_probe.py --diff origin/main   # every route x 9 principals x 2 doors: what changed
+~/.venvs/mantel/bin/python tools/typecheck/check.py        # tsc on the files that start with // @ts-check (ci.py types-js)
+~/.venvs/mantel/bin/python tools/typecheck/check.py --measure   # every file checked: the errors per file
+```
+
+Mantel refuses to start when a route is undeclared or breaks a rule ([Rules](Rules.md) rule 7), so a new route is
+declared and the lock regenerated in the same commit. In a worktree set `PYTHONPATH` to the worktree for both tools.
+TypeScript is pinned in its own `tools/typecheck/` (installed on first use, `npm ci`); a new web file starts with
+`// @ts-check` (`tests/test_types.py`).
 
 ## The main suite
 
@@ -229,7 +285,8 @@ swipe on a tile turns the page and back, the tab bar's highlight on the page's t
 rail); one on the scenes row, a slider or a block that swipes its pages does not; a Home Grid turns its views first
 and lands on its last view coming back; from the left 24 px the side menu opens; Off turns nothing; an up-and-down
 swipe still scrolls. `--engine`, `--size` and `--shots DIR` narrow it and keep the screenshots. `tools/ci.py full`
-runs it as `page-swipe-check-chromium` and `-webkit`, skipped without `PLAYWRIGHT_PATH` or `NODE`.
+runs it as `page-swipe-check-<engine>-<size>`, eight steps (`ci.py` `PAGE_SWIPE`, the check's own `ENGINE_SIZES`),
+skipped without `PLAYWRIGHT_PATH` or `NODE`.
 
 ### The screensaver's faces in WebKit
 

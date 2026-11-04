@@ -1,4 +1,5 @@
 // Shared card state/update lifecycle. No DOM, transport, or host object lookup.
+// @ts-check
 (function (global) {
   'use strict';
   if (global.hkCardState) return;

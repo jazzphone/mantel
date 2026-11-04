@@ -1,6 +1,6 @@
 # Phase 13: cameras without Home Assistant in the middle (plan, 2026-11-02)
 
-**Status: building (decisions answered 2026-11-02; see the build log).**
+**Status: built (phases 0-7, 2026-11-02; `tools/ci.py full` 36/36). Not released: it goes to the house with 0.1.114 and Mantel Link 0.1.11. What only the house can still show is under "Still to try on the house".**
 
 ## The ask (the owner, 2026-11-02)
 
@@ -97,9 +97,12 @@ already the shortest path, so it stays.
   file per camera, beside the Connections page's credentials (`connections/camera-<slug>.connection`).
 - **An id HA gains later** is HA's: the direct camera is set aside and its status says `conflict`, naming HA's
   entity, until one is renamed.
-- **The same camera twice.** HA's unifiprotect device identifiers carry the Protect camera's id and MAC. When a
-  direct Protect camera matches an HA camera, Mantel shows one camera, with **Video From: Direct / Home Assistant**,
-  defaulting to Direct. Areas and names come from HA when it has the camera; otherwise they are set in Mantel.
+- **The same camera twice.** HA's unifiprotect camera devices carry the camera's MAC as a `connections` pair
+  (`[["mac", "f4:e2:..."]]`, the house's registry, 2026-11-02; their `identifiers` are empty, only the NVR has one), so
+  Mantel matches by MAC (and by the Protect id, should a device ever carry it). When a direct Protect camera matches
+  an HA camera, Mantel shows one camera, with **Video From: Direct / Home Assistant**, defaulting to Direct. Areas
+  and names come from HA when it has the camera; otherwise they are set in Mantel. (As built, phase 4: Direct makes
+  HA's entity id an alias of the direct source for its signaling and stills; RBAC is still HA's entity's.)
 - **Stills:** direct cameras use Protect's `snapshot` (`highQuality` for full screen), or go2rtc's `frame.jpeg` for
   RTSP. They share fetches as today.
 - **Video:** go2rtc streams are registered through the runtime API and offered over the same WebRTC signaling
@@ -113,7 +116,8 @@ already the shortest path, so it stays.
 2. **Trust.** The console's self-signed certificate is pinned on first connect. The page shows its fingerprint, and
    a changed certificate stops the connection and says so.
 3. **Cameras.**
-   - Mantel lists the console's cameras with their stills and picks the ones to use.
+   - Mantel lists the console's cameras with their stills and picks the ones to use. Disconnect removes the picked cameras with
+     the key (as built, phase 4).
    - It requests their RTSPS streams (`POST /v1/cameras/{id}/rtsps-stream`) and registers each in go2rtc as
      `rtspx://host:7441/<token>`, with no SRTP.
    - High quality is for full screen and the low channel for tiles.
@@ -122,6 +126,12 @@ already the shortest path, so it stays.
      current status line pattern.
    - Ring, motion and smart detections become Mantel's own event kinds, feeding `rules.py` beside the HA kinds.
      Doorbells, notifications and Live Camera Follows then work without an HA automation.
+   - As built (phase 4): a camera HA doesn't have gets Mantel's own detection sensors on its device
+     (`binary_sensor.mantel_<slug>_person_detected`, `..._motion`, `event.mantel_<slug>_doorbell`, ...), named so
+     `rules.kind_of` reads them, so every existing rule applies with no new kind. A camera HA has too has its events
+     stand in for HA's own entities of that kind (`Notifier.inject`), and HA's own change of them is held back while
+     the direct source is preferred (Video From Direct and the socket up), so one event is one notification.
+     Notify For applies to both sources.
 5. **What each camera reports: the camera's own detection, nothing of Mantel's.**
    - A camera whose model supports smart detection (its feature flags list the types) gives Person, Vehicle and
      Animal, plus Package on a doorbell. Mantel uses whichever types are on in Protect.
@@ -235,12 +245,29 @@ user plus an API key):
 ### RTSP cameras (Mantel Settings → Cameras → Add Camera)
 
 - **Name, area and RTSP URL.** The user name and password are separate fields kept as a secret, never in the shown
-  URL or in logs.
+  URL or in logs. (Built in phase 6, `camera_setup.py`.) An address with a login in it is refused, so the two fields
+  are the only way in; the login goes into the URL only inside the sealed file phase 3 keeps, percent-encoded. A saved
+  camera is shown by `scheme://host[:port]` (never the path, which can carry a token on some cameras), and its login
+  boxes say Saved: a blank box on a change keeps what is saved. An optional sub-stream is the stills' `low`, with the
+  same login.
 - **Test** draws a still from go2rtc before saving, and states plainly what it couldn't play (codec, auth,
-  unreachable).
+  unreachable). go2rtc 1.9.9 answers `frame.jpeg` with **200 and an empty body** whatever went wrong and keeps the
+  reason in its log, so the reason comes from the probe, `GET /api/streams?src=&video=all&audio=all`, which answers
+  500 with it as plain text ("streams: wrong user/pass", "dial tcp ...: connection refused") and, on success, the
+  producers' medias (which is where H.265-only video is caught: not H.264 means `codec`). The probe's JSON also holds
+  the stream's URL with the login in it, so only the medias are read. Mantel's words are fixed text: go2rtc's are
+  classified and dropped.
 - **Motion, Person, Doorbell:** pick any HA `binary_sensor` or `event` entity, with today's picker
   (`accessories.py`'s suggestion pattern; Frigate's sensors work here too). Without HA there is no motion source,
-  and the page says so.
+  and the page says so. **How they reach the notification rules:** the rules ask a camera's HA device for its sensors
+  (`camera_for`, `trigger_for`); a direct camera has none, so the House port gained `camera_links()` (`{sensor:
+  (camera, role)}`, from `DirectCameras.sensor_links()`), and `accessories.py` reads it in those same places and in
+  `kind()`: a linked sensor is that kind (a Doorbell link is `doorbell`, whatever its device class says), so the
+  Doorbells category (with `pop: doorbell`), the Cameras category's trigger and the snapshot all follow without a
+  second mapping. The links are stored on the source (`sensors`, with `detections` mirroring the roles).
+- **Who and when.** Owner or Admin. Changes, and the Test (which makes Mantel dial an address), need the fresh
+  sign-in `connections.edit_rule` asks away from home, with Admins let in (`edit_rule(admins=True)`, the guard's
+  `fresh="away"` for a manager).
 
 ### Where it runs
 
@@ -292,13 +319,22 @@ one (`ask-before-playing-sound` memory).
 
 ## Timings
 
-| | Today (HA App, through Mantel Link) | Direct (Docker / LXC) |
-|---|---|---|
-| Press to sound at the door | not yet measured: needs a press at the door (the owner's OK each time) | phase 5 |
-| Ring to the sheet on a wall tablet | not yet measured: needs a ring | phase 5 |
+Measured at the house on 2026-11-02 with the owner's OK. **Press to sound** is a 1 s 1 kHz tone sent as a tablet's
+held button would send it, timed until the tone is heard in the doorbell's own microphone stream (decoded on this
+Mac). That stream's own delay is in every number alike, so the numbers compare paths; they aren't absolute. **Ring
+to sheet** was taken from screenshots of the Master Bathroom tablet every half second (±0.5 s).
 
-Mantel's log already says how long a press waited for the doorbell to listen ("live talk on ... listening N ms
-after the ticket"); the log since the 0.1.113 restart has no talk in it yet.
+| | Today (HA App, through Mantel Link 0.1.10) | Direct (Mantel's own, `hk_core/talk/core.py`) |
+|---|---|---|
+| Press to sound, first press after a talk session is handed out | 1.30 s, half the tone lost | first version: nothing heard; now (lead-in): **0.92 s**, 0.86 of 1 s heard |
+| Press to sound, the session already streaming | 0.43-0.64 s, all heard | first version (a new stream per hold): 0.77-1.5 s, 0.06-0.7 of 1 s heard; now (one stream per session): **0.42-0.45 s, all heard** |
+| Ring to Mantel (the console's own delay) | 2.03 s (Home Assistant's event) | 2.02 s (the public events socket) |
+| Ring to sheet on a wall tablet | **~3.9 s** to the sheet, ~4.5 s to live video (out of the screensaver) | the same event timing; the sheet's own part (~1.9 s here) is measured again on the LXC |
+
+What it changed: a Protect doorbell loses the start of every NEW audio stream, so live talk now keeps one stream per
+session, silence between holds, cut the moment another session takes the floor (core.py's docstring). Today's path
+gets the same through Mantel Link 0.1.11. The direct path's ring-to-sheet is the same as today's on the event side;
+its gain is the video's one hop fewer, which waits on the house's move to the LXC to be measured.
 
 ## Build log
 
@@ -353,4 +389,53 @@ after the ticket"); the log since the 0.1.113 restart has no talk in it yet.
   last viewer. Stills: go2rtc's `frame.jpeg` of the low stream, with a hook for Protect's snapshot (phase 4).
   RBAC is unchanged and tested on direct cameras: area grants, an entity deny, Child and Guest, the tunnel's
   camera switch, other connections' sessions and the caps. Nothing visible yet.
+- 2026-11-02: phase 4 built (`protect_connector.py`, Mantel Settings → Connections → UniFi Protect, Docker and LXC
+  only) with phase 5's wiring: Connect's four checks with protect_api's errors, the pin shown and held to, a changed
+  certificate trusted only by an Owner and only as the console presents it (audited), the optional local user sealed
+  and unused, health on the page; discovery with stills through Mantel, picks into cameras_direct, the list followed
+  every 5 minutes (renames, removals, new stream tokens, read only) and a token asked again when go2rtc can't play;
+  Protect's snapshot as the stills (`highQuality` above 960 px wide, shared 2 s). Matching is by MAC (HA's camera
+  devices have no identifiers); a matched camera shows once and Video From Direct aliases HA's entity id to the
+  direct source, its RBAC unchanged (tested: area grant, deny, Child, Guest, the tunnel's switch). Events: Mantel's
+  own detection sensors for an unmatched camera, injection under HA's entity ids for a matched one, never both
+  (tested). Notify For and Turn On in Protect; `app["direct_talk"]` with HA's speaker of a matched doorbell or
+  `media_player.mantel_<slug>_speaker`. Not tried against the house's console from this session: the console's
+  address isn't recorded where the session could read it.
+- 2026-11-02: phase 6 built (`hosts/server/mantel_server/camera_setup.py`, `web/shim/settings/cameras.js`): Mantel
+  Settings → Cameras on Docker and the LXC, and under the HA App a page that says cameras come from HA's Generic
+  Camera, with a link and no add button. Routes under `/api/cameras/rtsp` (page, sensors, test, add, change, remove),
+  Owner/Admin, `fresh="away"`, audited as `camera.rtsp.add|edit|remove` (the host and which parts changed, never a
+  login or path). Checked against a real go2rtc 1.9.9 (`mantel-transcode:spike`) with a test RTSP server: failures show
+  only in the probe (see the RTSP section), so the fake go2rtc answers as it does. Linked sensors reach `rules.py`
+  through `House.camera_links()` and `accessories.py`'s device lookups. Open: the page's picker is a plain pop-up
+  list (no search) and Test tries the main stream and the sub-stream with the same login.
+- 2026-11-02: phase 4 checked against the house's real data (read-only): the connector's MAC match finds 9 of the 14
+  cameras in Home Assistant, the doorbell with its speaker (`media_player.front_door_camera_speaker`). The other 5
+  (Loft, Office, Living Room, Crawl Space, Kitchen) have their camera entities turned off in Home Assistant but their
+  detection sensors on; picked in Mantel they are Mantel's own cameras, and Home Assistant's sensors of them are now
+  held back while Mantel's events socket is up, so a person is one notification, not two (`camera_less_detections`).
+- 2026-11-02: both doorbell timings measured (see Timings). The beeps showed that a Protect doorbell loses the
+  start of every new audio stream, so phase 2's "a new stream per hold, nothing between" was wrong. The core now
+  keeps one stream per session with a 400 ms silent lead-in, silence between holds, cut the moment another session
+  takes the floor (Home Assistant's Floor and Mantel's relay both cut) and closed after 30 s of quiet; confirmed at
+  the door: 0.42-0.45 s press to sound, the whole tone heard.
 
+- 2026-11-02, the owner's follow-up: tiles play a camera's low-quality stream, pop-ups and full screen its
+  high-quality one. A page served by Mantel says which (`mantel_quality` on the offer, through Mantel's client's
+  `cameraOffer`, so nothing in HK Frontend's build names Mantel), every server layer takes the key off before Home
+  Assistant, and Mantel's own cameras play that stream or the nearest one (Protect: high, medium, low; RTSP: high and
+  an optional low). RTSP cameras gained a **Snapshot Address** (the camera's own picture URL, with its login as HTTP
+  Basic): stills come from it, else the low stream, else the high one. Protect's stills were already its snapshots.
+
+## Still to try on the house
+
+- After 0.1.114 and Mantel Link 0.1.11: the doorbell sheet's push-to-talk on a wall tablet and on the iPad (the warm
+  session, the button's states, two tablets at once). The card was driven in tests only.
+- On the LXC (or Docker with the console on the LAN): Connect UniFi Protect and compare the fingerprint with UniFi OS;
+  pick Front Door (it matches Home Assistant's `camera.front_door_camera_high_resolution_channel`; picking makes one
+  POST, `rtsps-stream`, to the console); one ring makes one pop-up; Video From both ways; Turn On in Protect (a PATCH:
+  the owner's OK first); talking at the door through Mantel (sound at the door: the owner's OK first); ring to sheet
+  on a wall tablet.
+- Whether a UniFi API key dies with its user, once a local Mantel user exists.
+- Tiles on the low stream and pop-ups on the high one, on a wall tablet (the house's Front Door: high 1600x1200;
+  Protect makes the medium and low streams on picking).

@@ -15,22 +15,33 @@ FEATURE_ACTOR = "mantel:features"
 FEATURE_ACTOR_NAME = "Mantel features"
 FEATURES_DOC = "mantel_features"        # house/<this>: the pieces and their settings
 MUTES_DOC = "notify_mutes"              # house/<this>: Mute 1 Hour, {"mutes": {key: until (epoch s)}}
-PIECES = ("notifications", "linked", "sleep", "clean_areas", "energy", "live_tv", "tablets")
+PIECES = ("notifications", "linked", "sleep", "clean_areas", "energy", "live_tv", "tablets", "music", "alarm_pin")
 DEFAULTS: dict[str, dict[str, Any]] = {
     "notifications": {"enabled": False, "options": {}, "items": []},
     "linked": {"enabled": False, "entry_id": None, "backlight": False, "backlights": {}},
     "sleep": {"enabled": False},
     "clean_areas": {"enabled": False, "options": {}},
     "energy": {"enabled": False, "options": {}},
-    "live_tv": {"enabled": False, "tuner": "", "guide_url": "", "channels": [], "names": {}, "quality": "720"},
+    # `go2rtc_once`: Mantel has started with its own go2rtc and turned Live TV on for it, once (host._live_tv_once)
+    "live_tv": {"enabled": False, "tuner": "", "guide_url": "", "channels": [], "names": {}, "quality": "720",
+                "go2rtc_once": False},
     # All Tablets' alerts and scheduled restart (feature_watch.TabletWatch), with the house settings' own
     # `tablets` choices (alert_offline, alert_charging, alert_restart, restart, restart_times)
     "tablets": {"enabled": False},
+    # Music and the Alarm PIN, added on Mantel itself (Mantel Settings, the feature's page: Add, feature_pages "feature/set"):
+    # their settings and engines are elsewhere (music.py's house/music, alarm_pin.py's table); this only says
+    # they are added, as the import's ``ha.added`` does for a feature Home Assistant had
+    "music": {"enabled": False},
+    "alarm_pin": {"enabled": False},
     # NOT A PIECE: what the feature import read from Home Assistant (import_features): the HK features HA
     # had added (``added``, HA's kinds), their items ({kind: [{entry_id, title}]}) and where from. Music,
     # Alarm PIN and Live TV's channel cameras still run in HA: the screens are told they are added from this.
     "ha": {"added": [], "items": {}, "source": None},
+    # NOT A PIECE: Turn Features On Automatically (auto.py, docs/phase16/FEATURES-ON-BY-DEFAULT.md): the switch, and
+    # the pieces already decided, {piece: {by: "auto" | "owner", at: ISO time, why: words}}: never turned on again
+    "auto": {"enabled": True, "decided": {}},
 }
+AUTO_PIECES = ("music", "clean_areas", "energy", "live_tv")     # hk_core.needs.PIECES: may turn on by themselves
 # HK Frontend's feature kinds as Home Assistant has them (hk_frontend/features KINDS, in its order), and
 # HK Settings' ids for them (setup_check.COMPANIONS, in its order): the shapes the screens read
 HA_KINDS = ("music", "live_tv", "clean_areas", "alarm_pin", "energy", "notifications")
@@ -65,7 +76,7 @@ KIOSK_DOMAINS = frozenset({"light", "switch", "select", "button"})
 _ENTRY = re.compile(r"^[A-Za-z0-9_]{1,64}$")
 _LIGHT = re.compile(r"^light\.[a-z0-9_]+$")
 _URL = re.compile(r"^https?://[^\s/?#]+[^\s]*$")
-_HOST = re.compile(r"^[A-Za-z0-9.\-]{1,253}(:\d{1,5})?$")
+_HOST = re.compile(r"^([A-Za-z0-9.\-]{1,253}|\[[0-9A-Fa-f:.]{2,45}\])(:\d{1,5})?$")    # a name, IPv4 or [IPv6]
 _CHANNEL = re.compile(r"^\d{1,4}(\.\d{1,4})?$")
 _TID = re.compile(r"^[a-z0-9_-]{1,80}$")
 LOG_KEEP = 100
@@ -147,6 +158,12 @@ def check_settings(body: Any) -> dict[str, dict[str, Any]]:
         raise ValueError("live_tv.names: {channel number: its name (up to 40 characters)}")
     if tv["quality"] not in ("720", "1080"):
         raise ValueError("live_tv.quality: \"720\" or \"1080\" (the transcode's picture, where Mantel runs Live TV)")
+    au = out["auto"]
+    if not isinstance(au["decided"], Mapping) or not all(
+            k in AUTO_PIECES and isinstance(m, Mapping) and set(m) <= {"by", "at", "why"} and m.get("by") in ("auto", "owner")
+            and all(isinstance(m.get(f, ""), str) and len(m.get(f, "")) <= 200 for f in ("at", "why"))
+            for k, m in au["decided"].items()):
+        raise ValueError(f"auto.decided: {{piece: {{by: auto|owner, at, why}}}} for {list(AUTO_PIECES)}")
     ha = out["ha"]
     if not isinstance(ha["added"], list) or not all(k in HA_KINDS for k in ha["added"]):
         raise ValueError(f"ha.added: HA's feature kinds ({list(HA_KINDS)})")

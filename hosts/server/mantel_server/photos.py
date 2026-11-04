@@ -41,12 +41,17 @@ keeps its own library beside that, so a home can put its photos in Mantel and ch
   manager's); the Photos page says why one doesn't. A mask (``masks/<id>.png``) is kept for every photo the loosest
   preset takes, counted in the quota, and goes into backups with the rest; ``api_show`` hands a screensaver the mask
   and where the time goes, and an album can be set to show only the photos that qualify. Without the model, nothing
-  changes. And for Photo Titles, the year a photo was taken (its EXIF's, read before the EXIF is dropped) is kept.
+  changes. And for Photo Titles, the year a photo was taken (its EXIF's, read before the EXIF is dropped) is kept -- and,
+  for On This Day (migration 0030), the day: ``taken_on``, "YYYY-MM-DD", the date alone and never the time or any
+  other EXIF. A photo stored before has only its year; the stored files carry no EXIF, so ``fill_days`` fills the
+  day at startup from a camera-style file name (``IMG_20230415_123456.jpg``) whose year is the EXIF's, and sending a
+  photo again fills it from the new copy's EXIF.
 """
 from __future__ import annotations
 
 import asyncio
 import contextlib
+import datetime
 import hashlib
 import json
 import math
@@ -69,7 +74,7 @@ from . import cutout as cutter
 from . import faces as face_finder
 # the picture work itself (image_work.py) runs in imaging.py's worker process; these names stay photos.py's
 from .image_work import (MID_EDGE, ORIGINAL_EDGE, PIXELS_MAX, SCREEN_EDGE, THUMB_EDGE, PhotoError, Processed,  # noqa: F401
-                         make_variant, process, sniff)
+                         make_variant, process, sniff, taken_of)
 from .imaging import IMAGE_JOBS, image_slot, run as run_image_job  # noqa: F401
 from .guards import guard
 from .guards import ident as guarded
@@ -130,6 +135,25 @@ def file_label(raw: object) -> str:
         return ""
     name = unicodedata.normalize("NFKC", raw).replace("\\", "/").rsplit("/", 1)[-1]
     return "".join(ch for ch in name if ch.isprintable()).strip()[:FILE_NAME_MAX]
+
+
+DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# a camera's or phone's own file name: the day, a separator, the time (IMG_20230415_123456.jpg, PXL_20230415_123456789.jpg,
+# 2023-04-15 12.34.56.jpg). The time is required: a bare date in a name is anyone's title, not the camera's stamp
+CAMERA_NAME = re.compile(r"(?<!\d)(\d{4})[-_.]?(\d{2})[-_.]?(\d{2})[ _T.\-]\d{2}[-_.:]?\d{2}[-_.:]?\d{2}")
+DAYS_BATCH = 200                   # photos looked at in one go by ``fill_days``
+
+
+def day_from_name(name: object, year: int | None) -> str | None:
+    """The day a camera-style file name says ("IMG_20230415_123456.jpg" -> "2023-04-15"), when it is a real day and
+    its year is ``year`` (the EXIF's, kept at upload): a name that disagrees with the EXIF is not trusted. Else None."""
+    m = CAMERA_NAME.search(name) if isinstance(name, str) and year else None
+    if m is None or int(m[1]) != year:
+        return None
+    try:
+        return datetime.date(int(m[1]), int(m[2]), int(m[3])).isoformat()
+    except ValueError:
+        return None
 
 
 def album_of(source: object) -> str | None:
@@ -438,6 +462,7 @@ class PhotoLibrary:
         sha = hashlib.sha256(data).hexdigest()
         same = self.find(album["id"], sha)
         if same is not None:
+            await self._learn_day(same["id"], data)
             return same, True
         if self.db.execute("SELECT COUNT(*) FROM photos WHERE album_id=?", (album["id"],)).fetchone()[0] >= ALBUM_PHOTOS_MAX:
             raise PhotoError("album_full", f"An album holds at most {ALBUM_PHOTOS_MAX:,} photos.", 409)
@@ -474,15 +499,15 @@ class PhotoLibrary:
                 with self.db:
                     self.db.execute("INSERT INTO photos (id, album_id, sha256, name, width, height, bytes, source, "
                                     "created, created_by, faces, faces_at, faces_by, cutout_at, cutout_by, cutout_ok, "
-                                    "cutout_conf, cutout_cover, depth_box, taken) "
-                                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                                    "cutout_conf, cutout_cover, depth_box, taken, taken_on) "
+                                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                                     (pid, album["id"], sha, row["name"], got.width, got.height, got.size, source,
                                      row["created"], user, json.dumps(got.faces) if checked else None,
                                      self.clock() if checked else None, face_finder.NAME if checked else None,
                                      self.clock() if cut else None, cut.get("by") if cut else None,
                                      int(ok) if cut else None, cut.get("conf") if cut else None,
                                      cut.get("cover") if cut else None,
-                                     json.dumps(cut["box"]) if ok and cut.get("box") else None, got.taken))
+                                     json.dumps(cut["box"]) if ok and cut.get("box") else None, got.taken, got.taken_on))
             except BaseException:
                 # A thread can't be cancelled: when this add is (an Owner stopped an import, Mantel is stopping), the
                 # writer is still putting files down. Take them away only once it has finished, or what it writes
@@ -545,6 +570,34 @@ class PhotoLibrary:
         with self.db:
             self.db.execute("UPDATE photos SET faces=?, faces_at=?, faces_by=? WHERE id=?",
                             (json.dumps(found), self.clock(), face_finder.NAME, photo_id))
+
+    # -- On This Day: the day a photo was taken --------------------------------------------------------------
+    async def _learn_day(self, photo_id: str, data: bytes) -> None:
+        """A picture sent again may tell what the stored copy never kept: the day it was taken (the stored files have no
+        EXIF; only an upload's own bytes do). Filled in when the row has no day yet -- the EXIF's header is read, no
+        pixels -- and never changed once known."""
+        row = self.db.execute("SELECT taken, taken_on FROM photos WHERE id=?", (photo_id,)).fetchone()
+        if row is None or row["taken_on"]:
+            return
+        year, day = await asyncio.to_thread(taken_of, data)
+        if day is None:
+            return
+        with self.db:
+            self.db.execute("UPDATE photos SET taken_on=?, taken=COALESCE(taken, ?) "
+                            "WHERE id=? AND (taken_on IS NULL OR taken_on='')", (day, year, photo_id))
+
+    def fill_days(self, limit: int = DAYS_BATCH) -> int:
+        """Look for the day of up to ``limit`` photos stored before migration 0030 (newest first): a year and no day looked
+        for yet. The day is read from a camera-style file name whose year is the EXIF's (``day_from_name``); a photo whose
+        name has none is marked looked-for (''), so it isn't looked at again. Names only -- no file is opened. How many
+        photos were looked at: ``limit`` means there may be more."""
+        rows = self.db.execute("SELECT id, name, taken FROM photos WHERE taken IS NOT NULL AND taken_on IS NULL "
+                               "ORDER BY created DESC LIMIT ?", (int(limit),)).fetchall()
+        with self.db:
+            for r in rows:
+                self.db.execute("UPDATE photos SET taken_on=? WHERE id=? AND taken_on IS NULL",
+                                (day_from_name(r["name"], r["taken"]) or "", r["id"]))
+        return len(rows)
 
     def face_counts(self) -> dict:
         """``{photos, checked, with_faces, left, last}`` from the rows (``last``: when the latest was checked)."""
@@ -1145,7 +1198,7 @@ def backup_info(app: web.Application) -> dict:
 
 
 # Mantel Photos is managed by an Owner or Admin, never at a wall tablet; an Owner sets its limits and imports.
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_overview(request: web.Request) -> web.Response:
     ident = guarded(request)
     lib = _lib(request)
@@ -1201,7 +1254,7 @@ async def api_album_options(request: web.Request) -> web.Response:
     return _json(200, ok=True, album=got)
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_album_photos(request: web.Request) -> web.Response:
     try:
         lib = _lib(request)
@@ -1300,19 +1353,19 @@ async def api_import_start(request: web.Request) -> web.Response:
     return _json(202, ok=True, importing=job.as_dict())
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_import_status(request: web.Request) -> web.Response:
     job = request.app["photos_import"].job
     return _json(200, ok=True, importing=job.as_dict() if job is not None else None)
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_faces(request: web.Request) -> web.Response:
     """Keep in View's look through the library: how far it has got (Mantel Settings → Photos polls it)."""
     return _json(200, ok=True, faces=request.app["photos_faces"].status())
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_cutouts(request: web.Request) -> web.Response:
     """Time Behind's cut-outs through the library: how far they have got, and why there are none when the model
     can't run here (Mantel Settings → Photos)."""
@@ -1350,7 +1403,7 @@ def _nothing() -> web.Response:
 
 
 # what the screensavers read: any session that may use feature:media (the roles decide, may_view)
-@guard("signed_in")
+@guard("signed_in", reads="feature:media", preview=True)
 async def api_screens(request: web.Request) -> web.Response:
     """Which screens show an album (the page's host asks once and after a change)."""
     if not may_view(request):
@@ -1358,7 +1411,7 @@ async def api_screens(request: web.Request) -> web.Response:
     return web.json_response({"screens": _lib(request).screens()}, headers={"Cache-Control": "no-cache"})
 
 
-@guard("signed_in")
+@guard("signed_in", reads="feature:media", preview=True)
 async def api_show(request: web.Request) -> web.Response:
     """An album as a screensaver shows it: its screen-sized photos' addresses (without the page's prefix)."""
     if not may_view(request):
@@ -1371,7 +1424,7 @@ async def api_show(request: web.Request) -> web.Response:
     only = bool(lib.db.execute("SELECT depth_only FROM photo_albums WHERE id=?", (album["id"],)).fetchone()[0])
     tb, values = lib.qualifies()                                    # by the library's preset
     rows = lib.db.execute(f"SELECT id, name, width, height, faces, focus_x, focus_y, cutout_at, {tb} AS tb, depth_box, "
-                          "taken FROM photos WHERE album_id=?" + (f" AND {tb}" if only else "") +
+                          "taken, taken_on FROM photos WHERE album_id=?" + (f" AND {tb}" if only else "") +
                           " ORDER BY created, id", [*values, album["id"], *(values if only else [])])
     out = []
     for r in rows:
@@ -1391,11 +1444,14 @@ async def api_show(request: web.Request) -> web.Response:
                 item["depth"]["box"] = box
         if isinstance(r["taken"], int):
             item["year"] = r["taken"]                               # Photo Titles: the year it was taken
+        if isinstance(r["taken_on"], str) and DAY.match(r["taken_on"]):
+            item["date"] = r["taken_on"]                            # On This Day: the day alone, nothing else of the EXIF
         out.append(item)
     return web.json_response({"album": album, "photos": out}, headers={"Cache-Control": "no-cache"})
 
 
-@guard("signed_in")          # an original for a manager only; the screen sizes for whoever may view (below)
+@guard("signed_in", reads="feature:media", stream="bounded:one photo file",
+       preview="size=screen|mid|thumb")          # an original for a manager only; the screen sizes for whoever may view (below)
 async def serve(request: web.Request) -> web.StreamResponse:
     size, pid = request.match_info["size"], request.match_info["photo"]
     if size == "original":
@@ -1450,9 +1506,18 @@ def register(app: web.Application, hub=None) -> None:
     app["photos_faces"] = FaceBackfill(app)
     app["photos_cutouts"] = CutoutBackfill(app)
 
+    async def days() -> None:
+        # On This Day for photos stored before: a few at a time, names only, yielding between (the rows carry on a restart)
+        try:
+            while lib.fill_days() >= DAYS_BATCH:
+                await asyncio.sleep(0.05)
+        except Exception as exc:  # noqa: BLE001 -- a nicety: never in the way of the server
+            log.warning("could not fill in the days photos were taken: %s: %s", type(exc).__name__, exc)
+
     async def begin(_app: web.Application) -> None:
         # what a killed write left (before anything can be writing): a file the size of a photo each
         await asyncio.to_thread(lib.sweep_temp)
+        _app["photos_days"] = asyncio.get_running_loop().create_task(days())
         _app["photos_faces"].start()
         _app["photos_cutouts"].start()
 
@@ -1460,6 +1525,9 @@ def register(app: web.Application, hub=None) -> None:
         _app["photos_import"].cancel()
         _app["photos_faces"].cancel()
         _app["photos_cutouts"].cancel()
+        task = _app.get("photos_days")
+        if task is not None and not task.done():
+            task.cancel()
 
     app.on_startup.append(begin)
     app.on_cleanup.append(stop)

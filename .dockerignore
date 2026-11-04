@@ -42,3 +42,8 @@ hosts/server/tools
 hk_core/link
 # the build tools tools/package.json installs on a Mac (the image installs its own: the Dockerfile's esbuild stage)
 tools/node_modules
+
+# a developer's pages, left out of the images as the HA App's stager leaves them out (tools/stage_ha_app.py):
+# /dev's state hub, and the seasonal scenery review
+hosts/server/mantel_server/static/dev.html
+web/hk/pages/seasonal-scenery-review.html

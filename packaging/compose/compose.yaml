@@ -14,7 +14,9 @@
 #
 # Hardening on every service: cap_drop ALL (Caddy adds back NET_BIND_SERVICE only), no-new-privileges,
 # read-only root filesystem with a small tmpfs /tmp, memory/CPU/pids limits, a healthcheck, secrets as
-# files. No service mounts the Docker socket. Only Caddy (443) and go2rtc (WebRTC 8555) publish ports.
+# files. No service mounts the Docker socket. Only Caddy (443), go2rtc (WebRTC 8555) and mantel-server's Intercom
+# listener (8767: plain HTTP, one-time links for Music Assistant only, closed until the Intercom is on) publish ports;
+# compose.byo-proxy.yaml adds mantel-server's 8765, compose.connect.yaml its 8766.
 #
 # Networks:
 #   backend  internal, 172.31.251.0/28, no route out : caddy (fixed .2: Mantel's one trusted proxy) <-> mantel-server <-> go2rtc
@@ -99,11 +101,17 @@ services:
       MANTEL_HA_TOKEN_FILE: /run/secrets/ha_token
       MANTEL_DATA_DIR: /data
       MANTEL_PORT: "8765"
+      # The Intercom's listener for Music Assistant (phase 17, docs/phase17/INTERCOM.md): the container port below.
+      # Plain HTTP, serves only one-time links, and listens only while the Intercom is on in Mantel Settings; it is
+      # not behind Caddy or your proxy. Published on the host as MANTEL_STREAM_BIND:MANTEL_STREAM_PORT.
+      MANTEL_STREAM_INTERNAL_PORT: "8767"
       # Caddy's fixed address on the backend network: the only peer whose X-Mantel-Door: lan (and
       # X-Forwarded-For) Mantel believes. Caddy reaches Mantel by the backend-only alias below, so its
       # connections always come from this address. Without it every request counts as the tunnel door.
       MANTEL_TRUSTED_PROXY: 172.31.251.2
       MANTEL_BACKUP_TARGET: ${MANTEL_BACKUP_TARGET:-}
+      # how this stack was installed (the LXC's installer sets lxc): Mantel Settings -> About says how to update it
+      MANTEL_INSTALL: ${MANTEL_INSTALL:-}
       # first start only: seeds for Mantel Settings -> General (House Default Screen, Sign-Ins from Away Last);
       # once Settings holds a value these are ignored. Empty = the built-in default.
       MANTEL_DEFAULT_SCREEN: ${MANTEL_DEFAULT_SCREEN:-}
@@ -133,6 +141,10 @@ services:
       - ${MANTEL_BACKUP_DIR:-./backups}:/backups
     tmpfs:
       - /tmp:size=64m
+    # Mantel's own page (8765) is published only by compose.byo-proxy.yaml; this is the Intercom's listener, which
+    # Music Assistant fetches from. Keep it on the home network (MANTEL_STREAM_BIND, or the firewall).
+    ports:
+      - "${MANTEL_STREAM_BIND:-0.0.0.0}:${MANTEL_STREAM_PORT:-8767}:8767"
     secrets:
       - ha_token
       - ma_token

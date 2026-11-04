@@ -75,6 +75,27 @@ async def test_direct_sending_sends_the_hash_not_the_tag(tmp_path):
     assert "apns-collapse-id" not in sent[1][0]
 
 
+async def test_the_mac_apps_token_goes_to_its_own_topic(tmp_path):
+    sent = []
+
+    async def transport(url, headers, body):
+        sent.append(headers)
+        return 200, {}
+    apple = ec.generate_private_key(ec.SECP256R1())
+    (tmp_path / apns.KEY_FILE).write_bytes(apple.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                                                               serialization.NoEncryption()))
+    conf = {"key_id": "KEY123", "team_id": "TEAM123", "topic": "com.example.mantel.ios"}
+    (tmp_path / apns.CONF_FILE).write_text(json.dumps(conf))
+    sender = apns.Apns(tmp_path, transport=transport)
+    _, raw = phone_key()
+    mac = {"endpoint": "cd" * 32, "p256dh": app_crypto.b64u(raw), "env": "sandbox", "platform": "mac"}
+    assert await sender.send(mac, msg()) == "skipped" and sent == []      # no mac_topic: kept, not sent to the iPhone's
+    (tmp_path / apns.CONF_FILE).write_text(json.dumps({**conf, "mac_topic": "com.example.mantel.mac"}))
+    assert await sender.send(mac, msg()) == "ok" and sent[-1]["apns-topic"] == "com.example.mantel.mac"
+    assert await sender.send({**mac, "platform": None}, msg()) == "ok"
+    assert sent[-1]["apns-topic"] == "com.example.mantel.ios"
+
+
 async def test_through_the_relay_the_request_names_no_tag(mantel):
     from test_app_auth import sign_in_app
     m = mantel

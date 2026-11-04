@@ -84,13 +84,34 @@ function signedOut() {
   if (BASE) ui.flash = { key: '*', text: 'Home Assistant has signed you out. Reload this page, or reopen Mantel from the sidebar.', err: true };
   else location.assign('/login?next=' + encodeURIComponent('/settings' + location.hash));
 }
+// an upload whose progress the page shows (a backup is hundreds of MB): XMLHttpRequest, whose upload reports the
+// bytes sent; onProgress(sent, total), then onProgress(null, null) once it is all sent and the server is working on it
+function sendWithProgress(url, init, onProgress) {
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open(init.method, url);
+    x.withCredentials = true;
+    for (const [k, v] of Object.entries(init.headers)) x.setRequestHeader(k, v);
+    x.upload.addEventListener('progress', (e) => { if (e.lengthComputable) onProgress(e.loaded, e.total); });
+    x.upload.addEventListener('load', () => onProgress(null, null));
+    x.addEventListener('load', () => resolve({ status: x.status, ok: x.status >= 200 && x.status < 300,
+                                               json: async () => JSON.parse(x.responseText) }));
+    x.addEventListener('error', () => reject(new TypeError('network')));
+    x.addEventListener('abort', () => reject(new TypeError('aborted')));
+    x.send(init.body);
+  });
+}
+
 export async function api(method, path, body, opts = {}) {
   const init = { method, credentials: 'same-origin', headers: { Accept: 'application/json' } };
   if (method !== 'GET') init.headers['X-CSRF-Token'] = opts.csrf || csrfNow();
   if (body instanceof FormData) init.body = body;
   else if (body !== undefined) { init.headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(body); }
   let res;
-  try { res = await fetch(mantelUrl(path), init); } catch (e) { throw new ApiError(0, null); }
+  try {
+    res = opts.onProgress && body instanceof FormData ? await sendWithProgress(mantelUrl(path), init, opts.onProgress)
+      : await fetch(mantelUrl(path), init);
+  } catch (e) { throw new ApiError(0, null); }
   let data = null;
   try { data = await res.json(); } catch (e) { data = null; }
   if (res.status === 401 && data === null) { signedOut(); throw new ApiError(401, null); }

@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+import web_sources
+
 ROOT = Path(__file__).resolve().parent.parent
 HALL_BLACK, HALL_PHOTOS = "switch.mantel_hall_black_screen", "switch.mantel_hall_photo_screensaver"
 
@@ -258,9 +260,8 @@ def test_the_frames_are_what_the_servers_handlers_accept():
 
 def test_the_shared_frontend_is_untouched_by_this():
     # the routing lives in the adapter only; HK's saver and notifications keep sending the HA messages
-    saver = (ROOT / "web/hk/modules/hk-saver.js").read_text()
+    saver = web_sources.read("web/hk/modules/hk-saver.js")
     assert "screen_report" not in saver and "notify_mute" not in saver
     assert "hk_frontend/screensaver/touch" in saver and "hk_frontend/screensaver/black" in saver
-    detail = (ROOT / "web/hk/cards/hk-detail.js").read_text() + "".join(
-        p.read_text() for p in sorted((ROOT / "web/hk/sheets").glob("*.js")))
+    detail = web_sources.read("web/hk/cards/hk-detail.js")
     assert "notify_mute" not in detail and "screen_report" not in detail

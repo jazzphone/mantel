@@ -38,6 +38,7 @@ async function sky(page, wait) {
       const go = async (path) => {
         await page.goto(input.origin + path);
         await page.waitForFunction(() => window.__mantelReady === true && !!window.hkWallpapers, null, { timeout: 30000 });
+        await require('./grid_ready.cjs')(page);
         await page.waitForTimeout(2500);
       };
       for (const s of input.screens) {
@@ -95,6 +96,7 @@ async function sky(page, wait) {
       // THE CLOCK SCREENSAVER over a theme, and over a drawn one
       for (const sv of input.saver) {
         await go('/' + sv + '/home');
+        await require('./grid_ready.cjs').saver(page);
         const started = await page.evaluate(() => !!(window.hkSaver && window.hkSaver.preview && (window.hkSaver.preview(true), true)));
         await page.waitForTimeout(3000);
         const ck = await page.evaluate(() => {

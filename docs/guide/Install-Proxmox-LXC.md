@@ -25,6 +25,8 @@ Whatever you choose, **Mantel starts**, and the last screen shows its address an
 
 **Changing it later:** in the container's console (`pct enter <id>`, or the console in Proxmox), run `mantel-setup`. It asks the same question, shows what you have now as the default, writes the settings and the token's secret file, and starts Mantel again on the new address. Mantel Settings → **Set Up Mantel** → **Address and HTTPS** says the same while Mantel is on its address.
 
+**If the container's address changes** (a new DHCP lease, or a static address you set after the install), Mantel follows it: at each start of the container, and on `update` or `mantel-setup`, the new address replaces the old one in its settings and Mantel starts again there. Your proxy or your DNS still points at the old address until you change it there, so give the container a fixed address (a DHCP reservation in your router, or a static address in Proxmox) before you point anything at it.
+
 Every question can be answered ahead of time, so it runs unattended too:
 
 ```bash
@@ -71,7 +73,7 @@ You need:
 | **Space** | 4 cores, 6 GB of memory and a 32 GB disk by default. |
 | **A name for Mantel** | What browsers will type, for example `mantel.example.com`, and a way to get HTTPS (see [Install with Docker → HTTPS](Install-Docker.md#3-choose-how-browsers-get-https)). The script asks which. |
 | **A Home Assistant user for Mantel** | A dedicated administrator user, for example `mantel-server`. You sign in as it once, on Mantel's Connections page. |
-| **Optional: an Intel iGPU** | Live TV's transcode uses QuickSync when `/dev/dri/renderD128` exists on the host. Without it, the CPU transcodes. |
+| **Optional: an Intel iGPU** | Live TV's transcode uses QuickSync when `/dev/dri/renderD128` exists on the host and is Intel's (5th-generation Core, Broadwell, or newer). Without it, or with an AMD or NVIDIA GPU, the CPU transcodes. If the GPU fails when a channel first plays, Mantel switches Live TV to the CPU by itself until it restarts. |
 
 ### What the script does
 
@@ -192,7 +194,9 @@ Everything on [Install with Docker](Install-Docker.md) applies inside the contai
 
 ## Moving from the Home Assistant App
 
-One command makes the container and brings the App's Mantel into it: its people, screens, settings, audit log, files and photos, and its keys, so authenticator apps and the Music Assistant connection keep working.
+**The simplest way:** install with [one command](#one-command), then open Mantel's address and, under **First start**, choose **Restore From a Backup**: the setup code the install showed, the App's backup and its keys file (the App's **Mantel Settings** → **Backups**: **Back Up Now**, **Download**, **Save Keys…**). Mantel restarts with the App's people, screens and settings, and you sign in as before. The new Mantel must be the App's version or newer. Then connect Home Assistant in **Mantel Settings** → **Connections** (the App reached it through the Supervisor, so there is no saved connection to bring): rooms, devices, cameras and your screens' contents come from it. Restore at the container's own address, or behind your own proxy raise its upload limit first ([Nginx Proxy Manager](Install-Docker.md#your-own-reverse-proxy): `client_max_body_size 4g;`): a backup with photos is hundreds of MB.
+
+From a checkout, one command makes the container and brings the App's Mantel into it: its people, screens, settings, audit log, files and photos, and its keys, so authenticator apps and the Music Assistant connection keep working.
 
 1. In the App, **Mantel Settings** → **Backups**: **Back Up Now**, then **Download** it, and **Save Keys…** (`mantel-keys.json`). Copy both to the Proxmox host.
 2. Run the script with them. The new Mantel must be the App's version or newer. If the App sits behind your own proxy, keep its name, so passkeys, notifications and the tablets' address keep working:

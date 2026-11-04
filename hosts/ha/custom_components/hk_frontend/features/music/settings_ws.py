@@ -105,6 +105,8 @@ async def page(hass: HomeAssistant) -> dict[str, Any]:
         **S.groups_page(cfg, _players(hass, entry)),
         "library_ready": cfg.library_entry is not None,
         "ignore_announcements": entry.options.get(CONF_IGNORE_ANNOUNCEMENTS, True),
+        # WHO LEADS A PICK (MusicConfig.leader_of): the rooms that lead, best first; the rooms announced to
+        "leaders": list(cfg.leaders), "announce_rooms": list(cfg.announce_rooms),
         "keep_ready": bool(entry.options.get(CONF_KEEP_READY)),
         # the last round, or None: {at, ready, wanted, note}
         "keep_ready_last": _warmer_status(entry),

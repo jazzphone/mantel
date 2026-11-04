@@ -41,6 +41,7 @@
 // sheets, so it outlives every page change. Stacking: the bar at 6 (the
 // menu's edge tab), under the pop-ups (7), the detail sheets (8) and the
 // open menu (9); its own sheets open at 6 too, over the page.
+// @ts-check
 (function () {
   'use strict';
   if (window.hkTabBar) return;
@@ -1643,7 +1644,8 @@
       if (!S.on || S.mode !== 'full' || S.tight || calm()) return false;
       // (a settle caught on its way to another tab: the finger has it again, from the page it is on)
       if (S.landing) { S.landing = null; markHere(); }
-      // (the two boxes once a swipe: a finger's every move reads nothing, and a bar drawn again starts over)
+      // (the two tabs' boxes measured once a swipe, not each frame: read after the frame's writes, each one laid the
+      // document out again -- 2026-11-02 -- and a bar drawn again starts over)
       var f = followed;
       if (!f || f.path !== path || !f.here.isConnected || !f.here.classList.contains('here')) {
         var a = S.pill.querySelector('.tab.here'), b = tabOf(path);

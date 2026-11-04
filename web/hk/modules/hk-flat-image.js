@@ -1,5 +1,6 @@
 // Flat's still photo treatment. Pure resolution and a 256-entry color table;
 // pixels are processed only when an image or its effective treatment changes.
+// @ts-check
 (function () {
   'use strict';
   var DEFAULTS = { mode: 'legacy', color: 'accent', strength: 80, depth: 40, brightness: 0, fade: 35 };

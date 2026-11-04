@@ -2832,7 +2832,12 @@
                 console.error('[hk-doorbell] camera refused WebRTC:', m.code, m.message);
                 self._again();
               }
-            }, { type: 'camera/webrtc/offer', entity_id: entity, offer: offer.sdp })
+            }, (function () {
+              // WHICH STREAM (2026-11-02): a pop-up plays a camera's high-quality stream, where the host's own
+              // cameras have more than one (client.cameraOffer; a host without it gets the offer as it is)
+              var m = { type: 'camera/webrtc/offer', entity_id: entity, offer: offer.sdp };
+              return cl && typeof cl.cameraOffer === 'function' ? cl.cameraOffer(m, c.quality || 'high') : m;
+            })())
               .then(function (unsub) {
                 if (alive()) { self._unsub = unsub; return; }
                 var r = unsub();
@@ -3485,7 +3490,7 @@
         var e = document.createElement('div');
         e.className = 'tv-empty';
         e.textContent = this._configured
-          ? 'No channels yet. Add some in HK Settings → Features → Live TV.'
+          ? 'No channels yet. Add some in ' + window.hkShell.settingsPlace('Pages → Live TV') + '.'
           : 'Add Live TV (' + window.hkShell.haPlace('HK Frontend → Add feature') + ') to show channels here.';
         this._root.append(e);
         return;
@@ -3688,7 +3693,7 @@
   register('hk-tv-guide-card', HkTvGuideCard, 'HK Live TV Guide',
     'The Live TV channels with what is on now, and a tap that plays one full screen.',
     [{ name: 'title', label: 'Title', selector: { text: {} },
-       helper: 'Optional heading. The channels themselves are added in HK Settings → Features → Live TV.' }],
+       helper: 'Optional heading. The channels themselves are added in HK Settings → Pages → Live TV.' }],
     function () { return {}; });
 
   // (tvPlayer: the Home Grid's Live TV block opens its channels in this

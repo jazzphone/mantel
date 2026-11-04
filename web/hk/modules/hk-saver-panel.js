@@ -88,11 +88,12 @@
     return { update: ticks.length && !same(ticks, members) ? ticks.slice() : null, added: added, dropped: dropped,
              moves: ticks.length > 0 && dropped.length === members.length };
   }
-  // A PICK ON THESE ROOMS: the first room first, and the rest brought in
-  // after -- a preset's too: its id is no player (hk-music.js has the same
-  // rule for its own picks)
+  // A PICK ON THESE ROOMS: the room that leads first (hkMusic.leader: the
+  // house's group leaders), and the rest brought in after -- a preset's too:
+  // its id is no player (hk-music.js has the same rule for its own picks)
   function playTarget(rooms) {
-    return { player: rooms[0] || null, then: rooms.length > 1 ? rooms.slice() : null };
+    var Mu = window.hkMusic;
+    return { player: (Mu && Mu.leader ? Mu.leader(rooms) : rooms[0]) || null, then: rooms.length > 1 ? rooms.slice() : null };
   }
   // THE GROUP'S VOLUME (the room card's rule, hk-control.js; moved here from hk-music.js 2026-10-31, so the
   // Music page's slider and a Small Now Playing block's Speakers sheet are one rule): one room, the room;

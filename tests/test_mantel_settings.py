@@ -200,6 +200,11 @@ def test_the_ha_build_ships_nothing_of_mantel_settings():
     assert "settingsHost" not in shell
 
 
+# The one thing HK Frontend says of Mantel: the Intercom block on a host that has no Intercom (docs/phase17/INTERCOM.md,
+# "Intercom needs Mantel"). Every other word for the host comes from hkShell.productName().
+SAYS_MANTEL = ("Intercom needs Mantel", "'Needs Mantel'")
+
+
 def test_nothing_the_ha_build_ships_says_mantel_outside_a_comment():
     # the menu's and the tab bar's host section is named by the host (hkShell.hostMenu()[0].section): in HA there
     # is no host page, so no section and no word; a developer's comment may still name Mantel
@@ -212,7 +217,8 @@ def test_nothing_the_ha_build_ships_says_mantel_outside_a_comment():
             continue
         for n, line in enumerate(Path(src).read_text(encoding="utf-8", errors="replace").splitlines(), 1):
             code = line.strip()
-            if re.search(r"mantel", code, re.I) and not code.startswith(("//", "*", "/*", "#")):
+            if re.search(r"mantel", code, re.I) and not code.startswith(("//", "*", "/*", "#")) \
+                    and not any(w in code for w in SAYS_MANTEL):
                 said.append(f"{dest}:{n}: {code[:100]}")
     assert said == []
     shell = (WEB / "shim/mantel-shell.js").read_text(encoding="utf-8")

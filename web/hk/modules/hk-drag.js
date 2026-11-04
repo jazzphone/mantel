@@ -42,8 +42,8 @@
 //   LET GO, THE SAME PHYSICS (2026-11-04, measured: a finger let go at 0.5 px/ms
 //   and the page went off at 9, on one fixed curve, whatever the finger had
 //   been doing; docs/development/Motion.md):
-//   speed(pts)           px/ms over the last 100 ms of [t, x] samples, since the
-//                        finger last turned
+//   speed(pts, up)       px/ms over the last 100 ms of [t, x] moves, since the
+//                        finger last turned; none if it rested before lifting at `up`
 //   lands(dx, width, v, o)  past o.turn of the width (a fifth), or flicked that
 //                        way over o.flick px/ms (.5) past o.min px (30) -- and
 //                        flicked back, it goes back, however far it had gone
@@ -57,6 +57,7 @@
 //                        returns its stop()
 //
 // Every timer is read at call time (the tests drive their own).
+// @ts-check
 (function (global) {
   'use strict';
   if (global.hkDrag) return;
@@ -67,17 +68,22 @@
 
   // ------------------------------------------------------------ let go
   // THE SPRING: per ms, critically damped; the fastest it takes up from a finger, px/ms
-  var OMEGA = 0.019, V_MAX = 8, FLICK_WINDOW = 100;
-  function speed(pts) {
+  var OMEGA = 0.019, V_MAX = 8, FLICK_WINDOW = 100, REST = 60;
+  // (the last FLICK_WINDOW ms of the finger's [t, x] moves, from the move at or just past the window's start: a busy
+  // tablet hands moves over far apart, and one alone in the window measured nothing. The lift -- `up`, its time -- is no
+  // sample: it comes where the last move was, and counted, it slowed every quick flick under FLICK; a finger that
+  // rested REST ms before it lifted flicked nothing. Only since it last turned: a flick back isn't averaged with the way
+  // it came.)
+  function speed(pts, up) {
     if (!pts || pts.length < 2) return 0;
     var last = pts[pts.length - 1], first = last, way = 0;
-    for (var i = pts.length - 1; i >= 0; i--) {
-      if (last[0] - pts[i][0] > FLICK_WINDOW) break;
-      // (only since it last turned: a flick back isn't averaged with the way it came)
+    if (up != null && up - last[0] > REST) return 0;
+    for (var i = pts.length - 2; i >= 0; i--) {
       var step = first[1] - pts[i][1];
       if (way && step && (step < 0) !== (way < 0)) break;
       if (step) way = step;
       first = pts[i];
+      if (last[0] - first[0] >= FLICK_WINDOW) break;
     }
     var dt = last[0] - first[0];
     return dt > 0 ? (last[1] - first[1]) / dt : 0;

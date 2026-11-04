@@ -32,13 +32,13 @@ import aiohttp
 from aiohttp import WSCloseCode, WSMsgType, web
 
 from . import about, frame_origins, music
-from . import accounts, alarm_pin, auth, cameras_direct, connect_pairing, devices, gateway, health, ingress, live_tv, pins, rbac_store, readproxy, sessions, settings_store
+from . import accounts, alarm_pin, auth, cameras_direct, protect_connector, connect_pairing, devices, gateway, health, ingress, live_tv, pins, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
                linked_reads, linked_settings, people_ha, screens,
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
-from . import default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, security_headers, tablet_links, user_data
-from . import app_shell, cf_access, guards, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
+from . import camera_setup, default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, route_table, security_headers, socket_reads, tablet_links, user_data
+from . import alerts, app_shell, timeline, cf_access, guards, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -63,27 +63,7 @@ log = logging.getLogger("mantel.server")
 COMMAND_TYPES = frozenset({"call_service", "command", "cmd", "service", "fire_event", "execute", "turn_on", "turn_off"})
 # what a read-only socket (a screen preview, mcp/preview.py) may send besides subscribe/unsubscribe/ping: reads only
 PREVIEW_TYPES = frozenset({"read", "read_subscribe", "read_unsubscribe", "read_api"})
-# ... and which reads: a screen's own, an ALLOW-list (third audit pass, SRV-2: a preview, minted by a key with only
-# `screens`, could ask `mantel/settings/history` and every other read route, as the Owner it draws for). What the
-# screen pages ask (HK Frontend's cards, the shim): the settings feed, the page headers and snoozes, the house's
-# music, the clean areas, energy and Live TV guide, the camera signaling, history and logbook, calendars.
-PREVIEW_READS = frozenset({
-    "camera/webrtc/candidate", "camera/webrtc/get_client_config", "camera/webrtc/offer", "config/entity_registry/get",
-    "energy/get_prefs", "energy/info", "frontend/get_themes", "frontend/get_user_data", "frontend/subscribe_user_data",
-    "get_config", "history/history_during_period", "hk_clean_areas/subscribe", "hk_frontend/events/subscribe",
-    "hk_frontend/page_headers/subscribe", "hk_frontend/settings/subscribe", "hk_frontend/snooze/subscribe",
-    "hk_frontend/todo/items", "hk_music/queue", "hk_music/subscribe", "hk_notify/snap/sign", "hk_tv/channels",
-    "logbook/get_events", "mantel/clean_areas/coverage", "mantel/energy/plan", "mantel/live_tv/guide",
-    "media_player/browse_media", "media_player/search_media", "media_source/browse_media",
-    "media_source/resolve_media", "music_assistant/get_library", "music_assistant/get_queue", "music_assistant/search",
-    "persistent_notification/subscribe", "recorder/statistics_during_period", "weather/subscribe_forecast"})
-# Reads a preview never makes, listed so that every read route is placed on one list or the other (tests/test_mcp.py
-# fails for a new read that is on neither): Settings' own documents and history, the editors', the imports'.
-PREVIEW_READS_NEVER = frozenset({
-    "hk_alarm_pin/settings/get", "hk_clean_areas/settings/get", "hk_energy/settings/get", "hk_energy/sources",
-    "hk_frontend/grid/starter", "hk_frontend/hidden/get", "hk_frontend/panel/get", "hk_frontend/setup/check",
-    "hk_music/settings/get", "hk_music/settings/library", "hk_notify/settings/get", "hk_tv/settings/get",
-    "mantel/energy/sources", "mantel/page_headers/get", "mantel/settings/get", "mantel/settings/history"})
+# ... and which reads: each read type's own declaration (socket_reads.py: preview=)
 COMMANDS_DISABLED = {
     "type": "error",
     "code": "commands_disabled",
@@ -115,12 +95,20 @@ class Hub:
         self.registry_feed = RegistryFeed(self)       # the `registry` frames (registry_feed.py)
         self.registry_push_delay = PUSH_DELAY
         self.registry_bodies = RegistryBodies()       # /api/registry's bodies, by filtered digest
+        # what else hears every batch, after the sessions (the House Timeline's tap): each must be cheap and never
+        # wait for the disk; one that raises is logged and the others still run
+        self.taps: list = []
 
     def on_change(self, changed: set[str]) -> None:
         performance.STATS.events(len(changed))
         for s in self.sessions:
             if s.view.on_change(changed):
                 s.wake.set()
+        for tap in self.taps:
+            try:
+                tap(changed)
+            except Exception:  # noqa: BLE001 -- a tap never breaks the hub
+                log.exception("a hub tap failed (%d changes)", len(changed))
 
     def on_registry(self) -> None:
         for s in self.sessions:
@@ -213,8 +201,14 @@ class ClientSession:
                 err["id"] = msg["id"]
             await self.send(err, count=False)
             return
+        if self.read_only and isinstance(msg, dict) and msg.get("type") == "read_api" and \
+                not socket_reads.preview_allows("read_api"):
+            await self.send({"type": "read_result", "id": msg.get("id"),
+                             "error": {"code": "read_only", "message": "a preview reads what its screen shows only"}},
+                            count=False)
+            return
         if self.read_only and kind in ("read", "read_subscribe") and isinstance(msg, dict) and \
-                not (isinstance(msg.get("msg"), dict) and msg["msg"].get("type") in PREVIEW_READS):
+                not (isinstance(msg.get("msg"), dict) and socket_reads.preview_allows(msg["msg"].get("type"))):
             # a screen preview reads what a screen draws from, not the rest of the house's management
             await self.send({"type": "read_result", "id": msg.get("id"),
                              "error": {"code": "read_only", "message": "a preview reads what its screen shows only"}},
@@ -306,6 +300,8 @@ async def loopback_only(request: web.Request, handler):
     # a paired Connect App reaches Mantel by whatever address it was given (mutual TLS is the defence
     # against rebinding there); the browser's own host rides in X-Forwarded-Host (ingress.origin_ok)
     allowed = allowed or request.get("connect_peer") is not None
+    # Mantel Link by address on that listener: a machine with its own proof, never a browser (it refuses an Origin)
+    allowed = allowed or bool(request.get("link_direct"))
     if not allowed:  # container mode adds the public name (--public-url / --allow-host); loopback otherwise
         raise web.HTTPForbidden(text="bad Host")
     origin = request.headers.get("Origin")
@@ -315,7 +311,7 @@ async def loopback_only(request: web.Request, handler):
     return await handler(request)
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="view", stream="live:hub", preview=True)
 async def ws_handler(request: web.Request) -> web.StreamResponse:
     hub: Hub = request.app["hub"]
     ws = web.WebSocketResponse(heartbeat=30, max_msg_size=1 << 20)
@@ -336,17 +332,21 @@ async def ws_handler(request: web.Request) -> web.StreamResponse:
 
 
 def _dev_html():
-    """static/dev.html, the developer's landing page: in a checkout and the pip package, not in the HA App (the
-    stager leaves it out: tools/stage_ha_app.py)."""
+    """static/dev.html, the developer's landing page (/dev): in a checkout only. The HA App's stager and the Docker
+    image (.dockerignore) leave it out."""
     return files("mantel_server").joinpath("static/dev.html")
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="none",
+              why="a page shell; the data behind it is read through guarded routes and the socket", preview=True)
 async def root(request: web.Request) -> web.Response:
-    raise web.HTTPFound("/home" if direct.is_direct(request) or not _dev_html().is_file() else "/dev")
+    # always the screens: in a checkout /dev is opened by its address. It was the landing page wherever dev.html
+    # existed, so Docker and the LXC (whose image had it) sent people to the developer's page (the owner, 2026-11-02)
+    raise web.HTTPFound("/home")
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="none",
+              why="a page shell; the data behind it is read through guarded routes and the socket")
 async def dev_page(request: web.Request) -> web.Response:
     if not _dev_html().is_file():
         raise web.HTTPNotFound()
@@ -360,7 +360,7 @@ def request_gate(request: web.Request):
     return authz.principal(request).gate if authz is not None else None
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="view")
 async def api_entities(request: web.Request) -> web.Response:
     hub: Hub = request.app["hub"]
     reg = hub.registry
@@ -375,14 +375,27 @@ async def api_entities(request: web.Request) -> web.Response:
     return web.json_response(out)
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="view")
 async def api_areas(request: web.Request) -> web.Response:
+    """The areas with what this person may view in each (the route table, 2026-11-03: it listed every area and its
+    count to any session, a Child's too). An Owner or Admin sees every area, as before."""
+    from .accounts import MANAGERS
     reg = request.app["hub"].registry
-    return web.json_response([{"id": a, "name": n, "entities": len(reg.by_area.get(a, ()))}
-                              for a, n in sorted(reg.areas.items(), key=lambda kv: kv[1])])
+    ident = guards.ident(request)
+    manager = ident.device is None and ident.user is not None and ident.user.role in MANAGERS
+    gate = None if manager else request_gate(request)
+    out = []
+    for a, n in sorted(reg.areas.items(), key=lambda kv: kv[1]):
+        ids = reg.by_area.get(a, ())
+        if gate is not None:
+            ids = [e for e in ids if gate.visible(e)]
+            if not ids:
+                continue
+        out.append({"id": a, "name": n, "entities": len(ids)})
+    return web.json_response(out)
 
 
-@guards.guard("signed_in")
+@guards.guard("manager", reads="admin")     # the busiest entities and every screen: no page reads it (decision 3)
 async def api_stats(request: web.Request) -> web.Response:
     hub: Hub = request.app["hub"]
     ha = hub.ha
@@ -474,6 +487,8 @@ def cache_headers(request: web.Request, path) -> dict:
         return IMMUTABLE
 
 
+@guards.open_route("static", why=guards.WHY_STATIC, preview=True,
+                    stream="bounded:one file under HK's frontend or Your Files")
 async def hk_file(request: web.Request) -> web.StreamResponse:
     """/hk/<path>: "Your files" first, HK's bundled frontend otherwise (backend/files.py's rule)."""
     # (ingress.file_response: a plain FileResponse, except through HA's Ingress, where HK's code is
@@ -484,6 +499,7 @@ async def hk_file(request: web.Request) -> web.StreamResponse:
     return ingress.file_response(request, path, cache_headers(request, path))
 
 
+@guards.open_route("static", why=guards.WHY_STATIC, preview=True, stream="bounded:one file under web/")
 async def web_file(request: web.Request) -> web.StreamResponse:
     path = safe_file(request.app["cfg"].web, request.match_info["path"])
     if not path:
@@ -491,6 +507,7 @@ async def web_file(request: web.Request) -> web.StreamResponse:
     return ingress.file_response(request, path, cache_headers(request, path))
 
 
+@guards.open_route("static", why=guards.WHY_STATIC, preview=True, stream="bounded:one icon file under web/mdi/")
 async def mdi_file(request: web.Request) -> web.StreamResponse:
     path = safe_file(request.app["cfg"].web / "mdi", request.match_info["name"])
     if not path:
@@ -519,22 +536,35 @@ def to_enroll(request: web.Request, ident) -> None:
         raise web.HTTPFound(ENROLL_PAGE)
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="none", why="a redirect to the person's screen", preview=True)
 async def home_redirect(request: web.Request) -> web.StreamResponse:
     """/home: the screen this person or tablet opens on (default_screens.start_for: the tablet's at a wall
     tablet, else the person's own), else the house's (``default_screens.house``)."""
     ident = sessions.identity(request)
     to_enroll(request, ident)
+    view = request.match_info.get("view")                # /home/timeline: that page of the same screen (a push's link)
     start = default_screens.start_for(request.app, ident) if ident.authenticated else None
     if start is not None:
-        raise web.HTTPFound(start)
+        raise web.HTTPFound(_view_of(start, view))
     screen = default_screens.house(request.app)
     if screen is None:                                   # no screen yet: Mantel Settings, where screens are added
         raise web.HTTPFound("/settings")
-    raise web.HTTPFound(f"/{screen}/home" + (f"?{request.query_string}" if request.query_string else ""))
+    raise web.HTTPFound(_view_of(f"/{screen}/home" + (f"?{request.query_string}" if request.query_string else ""), view))
 
 
-@guards.guard("signed_in")
+def _view_of(start: str, view: str | None) -> str:
+    """``/<screen>/home?...`` with ``home`` swapped for ``view`` (a page of that screen: ``/home/timeline``); as it is
+    when no view is named. The query stays (a tablet's ``hk_tablet``)."""
+    if not view:
+        return start
+    path, sep, query = start.partition("?")
+    head, _, last = path.rpartition("/")
+    return f"{head}/{view}" + (sep + query if sep else "") if last == "home" else start
+
+
+@guards.guard("signed_in", reads="none",
+              why="a page shell; the data behind it is read through guarded routes and the socket", preview=True,
+              stream="bounded:the page shell file")
 async def home_page(request: web.Request) -> web.StreamResponse:
     seg = request.path.split("/")[1] if request.path.count("/") >= 1 else ""
     # a screen split in two (screens.py): its old address is Home Assistant's now; Mantel's is the new one
@@ -550,7 +580,9 @@ async def home_page(request: web.Request) -> web.StreamResponse:
     return ingress.file_response(request, request.app["cfg"].web / "home.html", NO_CACHE, page=True)
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="none",
+              why="a page shell; the data behind it is read through guarded routes and the socket",
+              stream="bounded:the page shell file")
 async def settings_page(request: web.Request) -> web.StreamResponse:
     """/settings: Mantel Settings, HK Settings' page (<hk-settings-panel>) with Mantel's own pages beside HK's
     (web/shim/mantel-settings.js), for every signed-in person: Me for everyone, the house's pages (HK's
@@ -565,14 +597,14 @@ async def settings_page(request: web.Request) -> web.StreamResponse:
     return ingress.file_response(request, request.app["cfg"].web / "settings.html", NO_CACHE, page=True)
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="none", why="a redirect to /settings")
 async def hk_settings_redirect(request: web.Request) -> web.StreamResponse:
     """/hk-settings, the old address of HK Settings in Mantel: now Mantel Settings. The browser keeps the
     fragment (#/screens/...), so every link into HK's pages still lands where it pointed."""
     raise web.HTTPFound("/settings" + (f"?{request.query_string}" if request.query_string else ""))
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="view", preview=True)
 async def api_registry(request: web.Request) -> web.Response:
     """The registries a page may see. About 2 MB of JSON on a large house, read by every page as it loads -- the
     settings page and each preview frame of the Home Grid editor too -- so it is compressed for a browser that takes
@@ -593,7 +625,9 @@ async def api_registry(request: web.Request) -> web.Response:
     return web.Response(body=got["raw"], content_type="application/json", headers=headers)
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="none",
+              why="a development checkout's captured HK feeds (spikes/, git-ignored); an install has none",
+              preview=True)
 async def api_fixtures(request: web.Request) -> web.Response:
     base = request.app["cfg"].fixtures
     out = {}
@@ -604,7 +638,7 @@ async def api_fixtures(request: web.Request) -> web.Response:
     return web.json_response(out)
 
 
-@guards.guard("signed_in")
+@guards.guard("signed_in", reads="none", why="the list of HK's card files", preview=True)
 async def api_hk_cards(request: web.Request) -> web.Response:
     # the card files loaded at the start and the ones that wait to be used (hk_cards.py)
     app = request.app
@@ -675,6 +709,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app.router.add_get("/", root)
     app.router.add_get("/dev", dev_page)
     app.router.add_get("/home", home_redirect)
+    app.router.add_get(r"/home/{view:[A-Za-z0-9_-]{1,40}}", home_redirect)     # a push opens a page of the default screen
     app.router.add_get("/settings", settings_page)          # Mantel Settings: HK's and Mantel's, one page
     app.router.add_get("/hk-settings", hk_settings_redirect)  # its old address
     docs_pages.add_routes(app, docs_pages.Docs(cfg.docs_hk, cfg.docs_mantel))   # /docs: Mantel's docs and HK's
@@ -759,6 +794,9 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
             log.debug("closing the database failed", exc_info=True)
 
     app.on_cleanup.append(close_database)
+    # last: one table from every route's declaration; a route that is missing or breaks its rules stops the start
+    # (route_table.RouteTableError: a programming error, the same on every start of one build; decision 2)
+    route_table.install(app)
     return app
 
 
@@ -869,8 +907,11 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
         async def write_announcement(_app):
             from . import announce
             try:
-                body = announce.write(cfg.announce_file, _app["linked_owners"].instance_id(), cfg.public_url)
-                log.info("announce: wrote %s for the zeroconf announcer (%s)", cfg.announce_file, body["url"])
+                from .linked_pairing import link_address
+                body = announce.write(cfg.announce_file, _app["linked_owners"].instance_id(), cfg.public_url,
+                                      link=link_address(_app) or "")
+                log.info("announce: wrote %s for the zeroconf announcer (%s%s)", cfg.announce_file, body["url"],
+                         f", link {body['link']}" if body.get("link") else "")
             except (OSError, ValueError) as err:
                 log.warning("announce: not announcing Mantel by zeroconf: %s", err)
         app.on_startup.append(write_announcement)
@@ -882,6 +923,10 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # in front of the interim bridge once MA and the music settings are in Mantel; its actions run only
     # through the gateway (commands off: refused, nothing reaches MA)
     music.register(app, hub, hooks)
+    # Phase 17: the Intercom (docs/phase17/INTERCOM.md): /ws/intercom, its settings and its stream listener for Music
+    # Assistant; it speaks only through the gateway's intercom command and Music Assistant's play_announcement
+    from .intercom import wiring as intercom_wiring
+    intercom_wiring.register(app, hub, hooks)
     # linked mode's notify and the rest of the entry (Seasonal decorations, Alarm PIN through the
     # gateway as the person whose PIN it is, Live TV), published only while Mantel owns `house`
     linked_house.register(app, hub)
@@ -890,6 +935,13 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # direct camera sources (docs/phase13/CAMERAS-DIRECT.md phase 3): camera.mantel_* through Mantel's own go2rtc;
     # after Live TV, so its signaling wraps Live TV's wrapper. Without --go2rtc-url (the HA App) nothing is installed
     cameras_direct.register(app, hub, hooks)
+    # the UniFi Protect connector (docs/phase13/CAMERAS-DIRECT.md phase 4): Connections -> UniFi Protect, its cameras
+    # into cameras_direct, their events into the notifications, the doorbell's talk (app["direct_talk"]); only where
+    # cameras_direct runs (GET /api/protect says so under the HA App)
+    protect_connector.register(app, hub)
+    # ...and Mantel Settings' Cameras page for them (Add Camera, Test, linked sensors). On every Mantel: under the HA
+    # App it says the cameras are Home Assistant's
+    camera_setup.register(app)
     # the home's own files (fonts, glyphs, photos; Owner/Admin upload) and the nightly encrypted
     # backup (off unless --backup-target is set)
     user_files.register(app, hub)
@@ -901,6 +953,10 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     media_proxy.register(app, hub)
     proxy_check.register(app, hub)
     app_shell.register(app, hub)     # phase 10: the web app on a Home Screen, push, and the iPhone/iPad/Mac apps
+    # phase 14: system alerts (Mantel Settings -> Alerts; after the backups, the features and the pusher it hears)
+    alerts.register(app, hub)
+    # phase 19: the House Timeline (after the alerts, the Protect connector, the backups and the audit it hears)
+    timeline.register(app, hub)
     # Mantel Settings' General and Home Assistant settings that were start-up options (and their one-time moves)
     server_settings.register(app)
     mcp.register(app)                # assistants (docs/phase12/MCP-SERVER.md): /mcp, its sign-in, Settings' page
@@ -950,6 +1006,12 @@ async def apply_commands(app: web.Application, hub: Hub, on: bool) -> None:
     client = app.get("ma")
     if client is not None:
         client.gate = app["ma_gate"]
+    intercom = app.get("intercom")
+    if intercom is not None:        # the stream listener follows (its links die with it); open sockets end below
+        try:
+            await intercom.apply()
+        except Exception:  # noqa: BLE001
+            log.exception("the Intercom could not follow the commands switch")
     registry: live.Live = app["live"]
     if not on:      # what needed commands (a live talk, a Music Assistant page signed in past the gateway) ends
         await registry.commands_off()
@@ -1022,6 +1084,9 @@ async def apply_connection(app: web.Application, hub: Hub, connect_ha: bool, kin
     music_host = app.get("music")
     if music_host is not None:
         music_host.connection_changed()
+    features = app.get("features")
+    if features is not None:                       # Music may now turn on by itself (features/auto.py)
+        features.spawn(features.auto.connection_changed())
 
 
 def restart_house_tz(app: web.Application, hub: Hub) -> None:
@@ -1066,6 +1131,12 @@ async def tick_once(app: web.Application, hub: Hub) -> None:
             talk.sweep()
         except Exception:  # noqa: BLE001
             log.exception("live talk tick failed")
+    intercom = app.get("intercom")
+    if intercom is not None:      # unused Intercom tickets get their result; idle drafts are dropped
+        try:
+            await intercom.relay.tick()
+        except Exception:  # noqa: BLE001
+            log.exception("intercom tick failed")
     # every page socket, relayed context, talk, proxied socket, link and subscription (live.py): its principal read
     # again (a session or device gone ends it), then its own check (a feature, a speaker, a camera no longer allowed)
     await app["live"].check(why="policy_tick")
@@ -1089,6 +1160,8 @@ async def house_tz(app: web.Application, hub: Hub, attempts: int | None = None) 
             if isinstance(got, dict):
                 # latitude and country set the defaults a house has not chosen (hemisphere, US-only themes)
                 settings_model.set_house_place(got.get("latitude"), got.get("country"))
+            if isinstance(got, dict) and isinstance(got.get("location_name"), str):
+                _set(app, "house_name", got["location_name"][:64])     # the house's name in system alerts
             tz = got.get("time_zone") if isinstance(got, dict) else None
             if isinstance(tz, str) and tz:
                 if authz.set_tz(tz, "home_assistant"):

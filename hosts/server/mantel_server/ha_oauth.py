@@ -18,7 +18,11 @@ TIMEOUT = aiohttp.ClientTimeout(total=15)
 
 
 class OAuthError(Exception):
-    pass
+    """`why`: Home Assistant's own explanation (its error_description), shown to the person when it says one."""
+
+    def __init__(self, message: str, why: str = "") -> None:
+        super().__init__(message)
+        self.why = why
 
 
 def check_redirect(client_id: str, redirect_uri: str) -> None:
@@ -62,7 +66,9 @@ class HaOAuth:
         async with http.post(f"{self.ha_url}/auth/token", data=data, timeout=TIMEOUT) as r:
             body = await r.json(content_type=None)
             if r.status != 200 or "access_token" not in body or "refresh_token" not in body:
-                raise OAuthError(f"token exchange failed ({r.status}: {body.get('error', '?') if isinstance(body, dict) else '?'})")
+                d = body if isinstance(body, dict) else {}
+                why = str(d.get("error_description") or "")[:200]
+                raise OAuthError(f"token exchange failed ({r.status}: {d.get('error', '?')}{': ' + why if why else ''})", why)
             return body
 
     async def current_user(self, http: aiohttp.ClientSession, access_token: str) -> dict:

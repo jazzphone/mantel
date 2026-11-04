@@ -6,6 +6,7 @@
 // address this screen used against the public one, and, for the people who manage the house, each wall tablet whose
 // page said it is not secure (GET /api/about/secure) with the fix. Anyone signed in may read it; the tablets' names
 // and addresses are the managers'.
+// @ts-check
 import { ago, api, can, load, ROUTE } from './core.js';
 import { failed, group, info, nav, pending } from './kit.js';
 

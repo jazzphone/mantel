@@ -117,9 +117,10 @@ def test_connect_compose_override_adds_one_port_and_nothing_else(tmp_path):
         assert needle in good, needle
         p.write_text(good.replace(needle, replacement, 1))
         assert any(expect in m for m in pc.check_connect_compose(p)), (needle, pc.check_connect_compose(p))
-    # the base stack still publishes no port of mantel-server: the override is the only way
+    # the base stack publishes no port of mantel-server but the Intercom's listener (8767): Connect's 8766 and the
+    # proxy's 8765 come only from their overrides
     base = pc.parse_yaml((ROOT / "packaging/compose/compose.yaml").read_text())
-    assert "ports" not in base["services"]["mantel-server"]
+    assert [str(x).rsplit(":", 1)[1] for x in base["services"]["mantel-server"]["ports"]] == ["8767"]
 
 
 def test_package_check_as_a_whole_is_clean():

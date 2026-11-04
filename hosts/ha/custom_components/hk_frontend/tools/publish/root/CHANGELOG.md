@@ -5,6 +5,55 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.44.0 - 2026-11-04
+
+**Added**
+- **The screensaver's Date, your way:** two lines (the weekday over the date, lined up with its corner, or centered), a short or numbered month, the year, a short weekday or none, a light or bold weight, and all capitals. As it comes it reads as before.
+
+## 1.43.0 - 2026-11-04
+
+- On a host with the Intercom (Mantel): the Home Grid block **Intercom** and its sheet. In Home Assistant the block says "Intercom needs Mantel".
+
+## 1.42.0 - 2026-11-04
+
+- On a host that keeps a House Timeline (Mantel): the Timeline page, the Home Grid block **Recent** and a camera sheet's **Recent** strip. In Home Assistant nothing changes: the page isn't listed, and a layout with a Recent block shows a stand-in.
+- Fixed: the timers' sheet could stop drawing (an accessory's own name looked up where it wasn't known).
+- **Screensaver, fixed:** the people over the time stay over it when the minute changes.
+
+## 1.41.0 - 2026-11-03
+
+- Advanced → **Features**, on a host whose features are its own (Mantel): **Turn Features On Automatically**, and under a feature the host turned on by itself, when and why ("Turned on by Mantel on Nov 4: …"), or what one that's off still needs. In Home Assistant the page is as it was.
+
+## 1.40.0 - 2026-11-03
+
+- **Screensaver, Align:** a piece's words Auto (by its side: a card on the right ends every line on the right margin), Left, Center or Right; Home Status' card without its Title.
+- **Screensaver, fixed:** the people over the time fade with their photo; a zoomed whole portrait stays centered; the slide corner stays clear of each slide's own words.
+
+## 1.39.0 - 2026-11-02
+
+- **Screensaver, the slides' own settings:** the slide corner's time size (100 to 250 %) and what it adds; what Music Full Screen shows (room, album, progress, buttons, volume, Up Next). In the editor's Slides section.
+- **Screensaver:** the Today face's **Weather** can be turned off, beside **What's Playing**; a Weather or Music piece is hidden only while the face shows it. The time stays where Position and Align put it, whatever the face shows since it was measured. The editor draws nothing over anything else, and a dragged piece lands on the place it covers.
+- Advanced → **Features** lists every feature: on a host whose features are its own, with a switch each; in Home Assistant, with the way to add one.
+- Music: **Group Leaders** (HK Settings → Music). Which room leads when rooms play together: the rooms that lead (best first), and the **Announcement Rooms** Home Assistant speaks to, which lead only when no other room can (Music Assistant plays an announcement to a group's leader in every room of the group). A room already playing keeps leading; before, the first room in the list led. A library item on several rooms plays on that room first.
+- The screens' hints point to where a feature's settings are: its page under Pages (Live TV, Energy, Music; Vacuums for Clean Areas), not a Features section HK Settings no longer has.
+- **Swipe Between Pages:** the docked Now Playing bar no longer stops the swipes (every swipe after it came up was refused, and on the Calendar each turned the month instead); a swipe on the Calendar turns the page, not its month too; the bar comes up the same way each time a swipe lands on a page that shows it; short quick flicks turn the page every time; a swipe whose starting point a card draws again mid-swipe still turns it; and swiping between Home and the Pages screen beside the Side Pane no longer restyles the whole screen each frame.
+
+## 1.38.0 - 2026-11-02
+
+- **Host words:** the shared screens name their settings through the host (`hkShell.settingsName()`, `settingsPlace()`), so Mantel says Mantel Settings where they send someone to them. In Home Assistant every text reads as before: HK Settings.
+
+## 1.37.0 - 2026-11-02
+
+- **HK Settings → Features on Mantel:** Add and Remove each feature there, in Mantel's own settings (in Home Assistant, Add feature stays HK Frontend's).
+- **Linked mode by Mantel's address:** linked to the address Mantel Link pinned (Mantel's own link port), HK Frontend uses the same certificate authority Mantel Link pinned, so its link needs no name, DNS or proxy either.
+
+## 1.36.0 - 2026-11-02
+
+- **Screensaver, one screensaver:** the editor's starters are **Looks** that keep what you placed (**Start Over from This Look** replaces it all); the right side is always **Look**, **Info**, **Slides** and **Timing**. Widgets and cards are **pieces** in a few shapes (Inline, Circular, Rectangular, Card, Band), Size 60 to 200%, one size for the row, one **Ink** for the screen (Auto: black or white from the background) and **Color Accents**; any piece can **Show When** an entity is, is not, is above or is below a value. A fact is drawn once.
+- **Screensaver, 35 more pieces:** Countdown, World Clock, Rain Soon, Weather Alert, UV, Wind, Pressure, Feels Like, Moon, Sun, Security, Doors and Windows, Garage, Climate, Lights On, Vacuum, Notifications, Package, Who's Home, Grid, EV, Up Next, Playing In, On This Day, Camera, Last Ring, Phone Alarm, Trash Day, Pollen, Appliances, Leak and Smoke, Travel Time, Price and Any Sensor (people and cameras off until placed).
+- **Screensaver, slides:** one slide corner adds only the time, date, weather and Home Status a slide lacks; slides over every background; the music slide laid out for a phone and an upright iPad.
+- **Screensaver, the time:** behind the photo's subject with any face, behind the land where it leaves the time readable; **Planted** a face; Night Mode, the Day's Art and Soft Photos with a layout; a screen with no saved layout draws through the same path (Big Weather and Month keep their own faces).
+- **Screensaver:** the Day face's name sits on its numeral; Glance's weather stands under its clock, on its edge.
 - **Doorbell, talking:** the talk session opens with the sheet, so a press is live at once; the visitor stays heard, lowered, while you talk; the button says Connecting, Talking, who else is talking, Can't Reach the Doorbell or Needs HTTPS (on plain http it used to vanish); one person talks at a time, and everyone else's button says who.
 - **HK Settings, camera pop-ups:** a note, "Talking at the door needs HTTPS", while this screen (or, in Mantel, any wall tablet) isn't a secure page, since a browser gives the microphone only to one. The host can say where to look (`notes.secure`).
 

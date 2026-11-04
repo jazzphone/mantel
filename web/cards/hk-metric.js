@@ -1,5 +1,6 @@
 // The existing HK metric card, using HKClient for its data and host icon binding.
 // CSS, editor metadata, action handling and its base remain in the existing card family.
+// @ts-check
 (function (global) {
   'use strict';
   if (global.hkCreateMetricCard) return;

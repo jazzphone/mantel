@@ -25,6 +25,7 @@ from homeassistant.core import HomeAssistant, callback
 
 from . import accessories, hiding, kinds, lovelace_boards, settings_api
 from . import settings as S
+from .hk_core.settings import pages as SP
 from . import sleep_rules as SR
 from .const import CONF_FILES_FOLDER, DEFAULT_FILES_FOLDER, DOMAIN
 
@@ -58,10 +59,11 @@ async def async_register(hass: HomeAssistant, sidebar: bool = True) -> None:
     without a restart's cache."""
     from homeassistant.components import frontend
     # the newest of the page's files (hk-settings.js loads its model and kit
-    # with this same stamp)
+    # with this same stamp), the parts that add its methods (../settings/) among them
     try:
         stamp = await hass.async_add_executor_job(
-            lambda: int(max(p.stat().st_mtime for p in MODULE.parent.glob("hk-*.js"))))
+            lambda: int(max(p.stat().st_mtime for p in
+                            [*MODULE.parent.glob("hk-*.js"), *(MODULE.parent.parent / "settings").glob("hk-*.js")])))
     except (OSError, ValueError):
         stamp = 0
     frontend.async_register_built_in_panel(
@@ -247,8 +249,9 @@ async def ws_panel_get(hass: HomeAssistant, connection: websocket_api.ActiveConn
         # Hidden Accessories (hiding.py): what can hide what, and what is hidden
         "hidden": hiding.snapshot(hass, hiding.settings_of(hass, entry)),
         "presets": list(S.SCREEN_PRESETS),
-        "chip_kinds": list(S.CHIP_KINDS), "page_kinds": list(S.PAGE_ORDER),
-        "scene_pages": list(S.SCENE_PAGES), "shelves": {k: v["title"] for k, v in S.SHELVES.items()},
+        "chip_kinds": list(S.CHIP_KINDS),
+        # (not the pages only a host like Mantel serves: Home Assistant has none of them)
+        "page_kinds": SP.ha_kinds()[0], "scene_pages": SP.ha_kinds()[1], "shelves": {k: v["title"] for k, v in S.SHELVES.items()},
         "setup_done": bool(entry.options.get("setup_done")),
         # a house that never chose an alarm: the one it probably has (General
         # offers it)

@@ -1,7 +1,8 @@
 // settings/me.js -- Mantel Settings, Me: sign-in, passkeys, authenticator, PIN, password, notifications, apps, sessions.
+// @ts-check
 import { mantelUrl, base as BASE } from '../base.js';
 import {
-  act, ago, api, ask, ERRORS, fmt, forget, hh, K, load, me, panel, redraw, refreshMe, roleLabel, ROUTE, shortUA,
+  act, ago, api, ask, can, ERRORS, fmt, forget, hh, K, load, me, panel, redraw, refreshMe, roleLabel, ROUTE, shortUA,
   shown, ui
 } from './core.js';
 import {
@@ -10,6 +11,7 @@ import {
 } from './kit.js';
 import { usersRead } from './people.js';
 import { pEnroll } from './devices.js';
+import { arrivalsWord } from './timeline.js';
 
 // ============================================================================================ Me
 export function pMe(sub) {
@@ -48,6 +50,8 @@ export function pMe(sub) {
         : info('Make This Browser a Wall Tablet', null, 'Home Network Only')]));
     }
     drawNotifications(c);
+    drawSystemAlerts(c);
+    drawTimeline(c);
     drawApps(c);
     drawPasskeys(c);
     drawTotp(c);
@@ -168,6 +172,46 @@ function drawNotifications(c) {
   }
   c.appendChild(group({ header: 'Notifications', footer: 'The house’s notifications on your phone or computer, as well as on the screens. Only what you may see.' }, rows));
   if (acts.length) c.appendChild(group({}, acts));
+}
+// SYSTEM ALERTS (alerts/api.py, docs/phase14/SYSTEM-ALERTS.md): Mantel's own alerts on this person's Mantel apps and
+// browsers. Owners and Admins only (the Alerts section); an Owner has it on until it is turned off.
+function drawSystemAlerts(c) {
+  if (!can('alerts') || !['owner', 'admin'].includes(me.user.role)) return;
+  const got = load('myalerts', () => api('GET', '/api/alerts/me'));
+  if (!got) { pending(c); return; }
+  if (got.err) { failed(c, got.err); return; }
+  c.appendChild(group({ header: 'System Alerts', footer: 'Mantel’s own alerts (Home Assistant disconnected, a backup failed, an update) on your Mantel apps and browsers. Where else they go is in Alerts.' }, [
+    K().toggle({ label: 'System Alerts', on: got.data.system_alerts, fk: 'mx:system-alerts',
+      onChange: (on) => act('me', () => api('PUT', '/api/alerts/me', { system_alerts: on }), on ? 'System alerts turned on.' : 'System alerts turned off.', 'myalerts', 'alerts') }),
+    nav('Alerts', 'alerts', { icon: 'mdi:bell-ring' })]));
+}
+// TIMELINE (timeline/api.py, docs/phase19/HOUSE-TIMELINE.md "Who sees what"): this person's own switches. Keep My Arrivals
+// Private (not for a Child: the Owner decides) stops recording their arrivals and departures and deletes the past
+// ones, so it asks first; Morning Summary is the night's summary on their Mantel apps; Clear My Arrivals asks first.
+// For the people who have the Timeline by default (an Owner, an Admin, an Adult).
+const putTimeline = (body, ok) => act('me', () => api('PUT', '/api/timeline/me', body), ok, 'mytimeline');
+function drawTimeline(c) {
+  if (!['owner', 'admin', 'adult'].includes(me.user.role)) return;
+  const got = load('mytimeline', () => api('GET', '/api/timeline/me'));
+  if (!got) { pending(c); return; }
+  if (got.err) { failed(c, got.err); return; }
+  const t = got.data, n = t.arrivals || 0;
+  const rows = [];
+  if (t.may_private) {
+    rows.push(K().toggle({ label: 'Keep My Arrivals Private', on: t.private, fk: 'mx:timeline-private', onChange: async (on) => {
+      if (on && n > 0 && !(await ask({ title: 'Keep Your Arrivals Private?', message: 'Turn on and delete your ' + arrivalsWord(n) + '?', ok: 'Turn On and Delete', destructive: true }))) { redraw(); return; }
+      putTimeline({ private: on }, on ? 'Your arrivals and departures aren’t recorded now.' : 'Your arrivals and departures are recorded again.');
+    } }));
+  }
+  rows.push(K().toggle({ label: 'Morning Summary', sub: 'A summary of the night on your Mantel apps at 7:00 AM', on: t.summary, fk: 'mx:timeline-summary',
+    onChange: (on) => putTimeline({ summary: on }, on ? 'You’ll get the Morning Summary.' : 'No more Morning Summary for you.') }));
+  rows.push(info('Recorded Arrivals and Departures', null, t.private ? 'None Kept' : String(n)));
+  rows.push(button('Clear My Arrivals…', async () => {
+    if (!(await ask({ title: 'Clear Your Arrivals?', message: 'Delete your ' + arrivalsWord(n) + '? Nothing else in the Timeline changes.', ok: 'Clear', destructive: true }))) return;
+    await act('me', async () => { const r = await api('DELETE', '/api/timeline/mine/presence'); ui.flash = { key: 'me', text: r && r.deleted ? 'Cleared ' + arrivalsWord(r.deleted) + '.' : 'Nothing to clear.' }; }, null, 'mytimeline');
+  }, { destructive: true, disabled: n === 0, fk: 'mx:timeline-clear-mine' }));
+  c.appendChild(group({ header: 'Timeline', footer: (t.may_private ? (t.private ? 'Your arrivals and departures aren’t recorded. ' : 'Turn on Keep My Arrivals Private and your arrivals and departures aren’t recorded. ')
+    + 'Doors, locks and cameras are about the house and are still recorded.' : 'Your Owner decides whether your arrivals and departures are recorded.') }, rows));
 }
 // APPS (app_auth.py; docs/phase10/APPLE-APPS.md §2): Mantel for iPhone, iPad and Mac signed in as this person, and
 // the pairing QR code (a one-time code, ten minutes, home network only) that signs a new one in without typing.

@@ -325,7 +325,7 @@ def _public(data: dict, app: web.Application | None = None) -> dict:
 
 
 # -- REST ----------------------------------------------------------------------------------------------
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_list(request: web.Request) -> web.Response:
     app = request.app
     base = direct_base(app["cfg"])

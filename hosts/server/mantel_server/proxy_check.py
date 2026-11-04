@@ -27,7 +27,7 @@ from aiohttp import WSMsgType, web
 from . import audit
 from . import authz as authz_mod
 from . import door_key, frame_origins, proxy_trust, sessions
-from .guards import guard
+from .guards import WHY_PUBLIC, WHY_STATIC, guard, open_route
 from .guards import ident as guarded
 
 PAGE = "/proxy-check"
@@ -87,7 +87,8 @@ def npm_advanced(upstream: str = UPSTREAM, door: str = "lan", key: str = door_ke
         '    proxy_set_header X-Ingress-Path "";',
         "    proxy_read_timeout 1h;",
         "    proxy_buffering off;",
-        "    client_max_body_size 12m;",
+        "    proxy_request_buffering off;",
+        "    client_max_body_size 4g;      # a backup with photos, restored in Mantel Settings",
         "}",
     ])
 
@@ -274,6 +275,7 @@ TRAEFIK = """http:
 """
 
 
+@open_route("public", why=WHY_PUBLIC)
 async def basics(request: web.Request) -> web.Response:
     """Public (no sign-in): only what this very request looked like, so a page whose session is not
     good on the door it arrived by (the usual symptom of a proxy that sends no door header) can say
@@ -335,7 +337,7 @@ def mode_of(cfg, request: web.Request | None = None) -> str:
     return "own" if getattr(cfg, "trusted_proxies", ()) else "direct"
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def summary(request: web.Request) -> web.Response:
     """What the Connections page's HTTPS panel draws: the mode, the trusted proxy settings and whether a door
     key is set (and since when). NEVER the key itself: it is shown only by the Test my proxy report and
@@ -363,12 +365,12 @@ async def summary(request: web.Request) -> web.Response:
 
 
 # the report and its page: an Owner's own session (never at a wall tablet); the report shows the door key
-@guard("owner")
+@guard("owner", reads="admin")
 async def api(request: web.Request) -> web.Response:
     return web.json_response(report(request), headers={"Cache-Control": "no-store"})
 
 
-@guard("owner")
+@guard("owner", reads="admin", stream="bounded:5 s")
 async def ws(request: web.Request) -> web.StreamResponse:
     if request.headers.get("Origin") is None:
         raise web.HTTPForbidden(text="Origin required")
@@ -393,7 +395,7 @@ async def ws(request: web.Request) -> web.StreamResponse:
     return sock
 
 
-@guard("owner")              # (signed out: the session middleware sends the browser to /login first)
+@guard("owner", reads="admin")              # (signed out: the session middleware sends the browser to /login first)
 async def page(request: web.Request) -> web.StreamResponse:
     base = html.escape(request.get("mantel_base", ""))
     host = proxy_trust.public_host(request)
@@ -413,6 +415,7 @@ async def page(request: web.Request) -> web.StreamResponse:
                                  "Referrer-Policy": "same-origin"})
 
 
+@open_route("static", why=WHY_STATIC, sample="/proxy-check/check.js")      # (a name with a dot: no preview)
 async def asset(request: web.Request) -> web.StreamResponse:
     name = request.match_info["name"]
     if name not in ASSETS:

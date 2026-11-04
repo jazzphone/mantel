@@ -101,6 +101,7 @@ async function open(browser, screen) {
   await page.waitForFunction(() => window.__mantelReady === true && window.hkPageSwipe && window.hkDrag && window.hkTabBar &&
                                    window.hkTabBar.pages && window.hkShell.view(window.hkShell.viewSlot(window.hkCards.menu.panel())),
                              null, { timeout: 30000 });
+  await require('./grid_ready.cjs')(page);
   await page.evaluate(HELP);
   await page.waitForTimeout(2500);           // the cards, the fonts and the tab bar settle
   return { ctx, page, errors, cdp: null };
@@ -115,14 +116,14 @@ async function touch(t, type, x, y) {
 }
 // a swipe from a to b; at `mid` (0..1 of the way) the finger rests while mid(t) looks
 async function swipe(t, a, b, o = {}) {
-  const steps = o.steps || 14, p = t.page;
+  const steps = o.steps || 14, p = t.page, ms = o.ms || 16;
   const at = i => ({ x: a.x + (b.x - a.x) * i / steps, y: a.y + (b.y - a.y) * i / steps });
   if (FINGER) await touch(t, 'touchStart', a.x, a.y); else await p.evaluate(([x, y]) => __finger.down(x, y), [a.x, a.y]);
   for (let i = 1; i <= steps; i++) {
     const q = at(i);
     if (FINGER) await touch(t, 'touchMove', q.x, q.y); else await p.evaluate(([x, y]) => __finger.move(x, y), [q.x, q.y]);
-    await p.waitForTimeout(16);
-    if (o.mid && i === Math.round(steps * (o.midAt || 0.4))) { await p.waitForTimeout(120); await o.mid(); }
+    await p.waitForTimeout(ms);
+    if (o.mid && i === Math.round(steps * (o.midAt || 0.4))) { if (!o.quick) await p.waitForTimeout(120); await o.mid(); }
   }
   if (FINGER) await touch(t, 'touchEnd'); else await p.evaluate(([x, y]) => __finger.up(x, y), [b.x, b.y]);
   await p.waitForTimeout(o.settle || 900);
@@ -287,6 +288,48 @@ async function off(browser) {
   await close(t, 'off');
 }
 
+// THE KITCHEN TABLET (2026-11-02, the owner's video: "swiping between pages should be really smooth and really fun"):
+// on the Calendar the Now Playing bar came up and every swipe after it was refused -- the Calendar's months turned
+// instead -- and the bar came up there only the first time
+async function kitchen(browser) {
+  const t = await open(browser, 'ps-kitchen'), order = await ps(t, 'order'), paths = order.map(o => o.path);
+  const at = (p) => paths.findIndex(x => /\/(pages|calendar)$/.test(x) && x.endsWith('/' + p));
+  assert(at('pages') === 1 && at('calendar') === 2 && paths.length >= 4, 'kitchen: Home, Pages, Calendar and on ' + JSON.stringify(paths));
+  // (the bar up: its address, and its docked sheet open on the screen)
+  const bar = () => t.page.evaluate(() => ({ hash: location.hash, open: __ps.deep(document, '.hkp.dock.open').length }));
+  const barUp = () => t.page.waitForFunction(() => location.hash === '#media' && __ps.deep(document, '.hkp.dock.open').length > 0, null, { timeout: 8000 })
+    .then(() => true, () => false);
+  const month = () => t.page.evaluate(() => { const c = __ps.deep(document, 'hk-calendar-card').find(e => e.isConnected && e._day); return c ? c._day.getFullYear() * 12 + c._day.getMonth() : null; });
+  const go = async (dir, want, name, o) => {
+    const s = await ps(t, 'spot', 0.3);
+    assert(s, 'kitchen: a spot to swipe on (' + name + ')');
+    const sw = dir < 0 ? left(s) : right(s);
+    await swipe(t, sw.a, sw.b, o);
+    assert.equal(await landed(t, want), want, 'kitchen: ' + name + ' ' + JSON.stringify([await ps(t, 'diag'), await bar()]));
+  };
+  await go(-1, paths[1], 'Home to the Pages screen');
+  await go(-1, paths[2], 'the Pages screen to the Calendar');
+  assert(await barUp(), 'kitchen: the Now Playing bar comes up on the Calendar ' + JSON.stringify(await bar()));
+  await shot(t, 'kitchen-calendar-bar');
+  const m0 = await month();
+  assert(m0 !== null, 'kitchen: the Calendar\'s month');
+  // the finger's own element drawn away mid-swipe (the Calendar draws itself again as the bar makes room): still a swipe
+  await t.page.evaluate(() => { window.__victim = null; });
+  const s3 = await ps(t, 'spot', 0.3), sw3 = left(s3);
+  await t.page.evaluate(([x, y]) => { window.__victim = __ps.deepAt(x, y); }, [s3.x, s3.y]);
+  await swipe(t, sw3.a, sw3.b, { mid: () => t.page.evaluate(() => { if (window.__victim) window.__victim.remove(); }) });
+  assert.equal(await landed(t, paths[3]), paths[3], 'kitchen: a swipe on the Calendar, under the bar, its element drawn away, turns the page ' +
+               JSON.stringify([await ps(t, 'diag'), await bar()]));
+  await go(1, paths[2], 'back to the Calendar');
+  assert.equal(await month(), m0, 'kitchen: the swipes turned pages, not the Calendar\'s month');
+  assert(await barUp(), 'kitchen: back on the Calendar, the bar is up again ' + JSON.stringify(await bar()));
+  // a quick short flick: 13% of the width in five quick moves (short of a fifth: its speed turns it)
+  const s5 = await ps(t, 'spot', 0.3);
+  await swipe(t, s5, { x: s5.x + W * 0.13, y: s5.y + 2 }, { steps: 5, ms: 8 });
+  assert.equal(await landed(t, paths[1]), paths[1], 'kitchen: a quick short flick turns the page ' + JSON.stringify(await ps(t, 'diag')));
+  await close(t, 'kitchen');
+}
+
 (async () => {
   const browser = await pw[input.engine].launch({ headless: true, ...(input.engine === 'chromium' ? { executablePath: input.chrome } : {}) });
   let failed = 0;
@@ -298,6 +341,7 @@ async function off(browser) {
     await run('bar', bar);
     await run('grid', grid);
     if (TABLET && W > H) await run('rail', rail);
+    if (TABLET && W > H) await run('kitchen', kitchen);
     await run('menu', menu);
     await run('off', off);
   } finally { await browser.close(); }
