@@ -1,5 +1,10 @@
 {
- "checked": [],
+ "checked": [
+  "hosts/ha/frontend/hk-ha-client.js",
+  "hosts/ha/frontend/hk-ha-shell.js",
+  "web/shim/mantel-client.js",
+  "web/shim/mantel-shell.js"
+ ],
  "unchecked_allowed": [
   "web/app/push.js",
   "web/app/sw.js",
@@ -109,12 +114,10 @@
   "web/shim/ha-elements.js",
   "web/shim/ha-frame.js",
   "web/shim/hub.js",
-  "web/shim/mantel-client.js",
   "web/shim/mantel-host.js",
   "web/shim/mantel-native.js",
   "web/shim/mantel-photos.js",
   "web/shim/mantel-settings.js",
-  "web/shim/mantel-shell.js",
   "web/shim/page-health.js",
   "web/shim/registry-sync.js",
   "web/shim/settings/about.js",
@@ -143,9 +146,7 @@
   "web/shim/settings/setup.js",
   "web/shim/settings/tablets.js",
   "web/shim/settings-page.js",
-  "hosts/ha/frontend/hk-ha-client.js",
   "hosts/ha/frontend/hk-ha-elements.js",
-  "hosts/ha/frontend/hk-ha-panel.js",
-  "hosts/ha/frontend/hk-ha-shell.js"
+  "hosts/ha/frontend/hk-ha-panel.js"
  ]
 }
