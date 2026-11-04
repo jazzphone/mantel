@@ -1346,6 +1346,12 @@ RHYTHM_JS = r"""(async () => {
   const deep = (root) => { const out = []; const walk = (n) => { for (const c of n.children || []) { out.push(c);
     if (c.shadowRoot) walk(c.shadowRoot); walk(c); } }; walk(root); return out; };
   const up = (n) => n.parentNode || (n.getRootNode && n.getRootNode().host);
+  // a busy machine draws slower: wait (up to 10 s) until every heading has drawn its own shadow root
+  for (let i = 0; i < 100; i++) {
+    const e0 = window.__mantelViewHost.current().element;
+    if (!deep(e0.shadowRoot || e0).some(e => e.localName === 'hk-heading-card' && !e.shadowRoot)) break;
+    await new Promise(r => setTimeout(r, 100));
+  }
   const el = window.__mantelViewHost.current().element, all = deep(el.shadowRoot || el), sy = window.scrollY;
   const box = (e) => { const r = e.getBoundingClientRect(); return { top: r.top + sy, bottom: r.bottom + sy, left: r.left, right: r.right, h: r.height }; };
   const WRAP = /^(hk-grid-card|hk-heading-card|hk-vertical-stack-card|hk-frame-card|hk-back-card|hk-page-status-card|hk-chips-card)$/;

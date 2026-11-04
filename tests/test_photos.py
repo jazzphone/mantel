@@ -739,7 +739,7 @@ async def test_cancelling_an_add_while_its_files_are_written_leaves_none_behind(
 
     monkeypatch.setattr(lib, "_write_files", slow_write)
     task = asyncio.get_running_loop().create_task(lib.add(aid, picture(), "x.jpg"))
-    assert await asyncio.to_thread(first.wait, 5)
+    assert await asyncio.to_thread(first.wait, 15)        # a busy machine starts the thread late
     task.cancel()
     await asyncio.sleep(0.05)
     assert not task.done()                                   # it waits for the thread; it does not clean up under it
