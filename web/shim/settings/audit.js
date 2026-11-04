@@ -1,4 +1,5 @@
 // settings/audit.js -- Mantel Settings, Audit Log.
+// @ts-check
 import { api, fmtFull, forget, K, load, nowS, redraw, roleLabel } from './core.js';
 import { button, failed, group, info, pending, result } from './kit.js';
 import { titleCase } from './devices.js';

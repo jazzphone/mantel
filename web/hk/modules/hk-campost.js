@@ -42,6 +42,7 @@
 // does nothing -- HA's own poster is still set and the page is no worse than
 // without it. That is the failure mode this is designed for; it never replaces
 // anything of HA's except a poster it is about to lose the race on anyway.
+// @ts-check
 (function () {
   if (window.hkCamPost) return;                   // double-load guard
   window.hkCamPost = { version: '1.0.0' };

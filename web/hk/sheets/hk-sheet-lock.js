@@ -4,6 +4,7 @@
 // function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
 // order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
+// @ts-check
 (function () {
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-lock'] = function (K) {

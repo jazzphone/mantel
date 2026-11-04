@@ -14,6 +14,7 @@
 //
 // This file is the host (the panel's answer: which pages, where, who sees them) and the table that builds each page;
 // the pages are one file each in settings/ (core.js: state, api, reads; kit.js: what every page draws with).
+// @ts-check
 import { mantelUrl, base as BASE } from './base.js';
 import * as photos from './mantel-photos.js';
 import { api, C, cache, can, drafts, forgetFailed, manages, me, panel, refreshMe, roleLabel, ROUTE, setMe, setPanel, shown, ui }

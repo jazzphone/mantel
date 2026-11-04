@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noImplicitAny": true
+  },
+  "files": ["../../web/hk/panels/hk-settings-model.js"],
+  "include": ["types/*.d.ts"]
+}

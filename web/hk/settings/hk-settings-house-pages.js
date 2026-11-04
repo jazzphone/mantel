@@ -4,6 +4,7 @@
 // function, which hk-settings.js calls with the shared kit KIT once every part has loaded (the
 // order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from KIT at the top; what the shell or a later file uses of it, it hands back at the bottom.
+// @ts-check
 (function () {
   'use strict';
   (window.hkSettingsParts = window.hkSettingsParts || {})['hk-settings-house-pages'] = function (KIT) {
@@ -65,6 +66,7 @@
         var mk = function (tt, body, back) { return { title: tt, back: back || [title, base], body: body }; };
         var s0 = sub[0];
         if (s0 === 'status' && ((this.data.choices || {}).status_rows || {})[key]) {
+          // @ts-expect-error h_statusRow(c, page) takes two arguments (the third, true, is not read)
           return mk('Status Row', function (c) { self.h_statusRow(c, key, true); });
         }
         if (s0 === 'background') {
@@ -459,7 +461,7 @@
             return /adaptive_lighting/.test(id) && a.color_temp_kelvin != null;
           });
           c.appendChild(K.group({ header: 'Background', footer: al.length
-              ? 'The page’s amber takes the color of the light outside, warm at dusk and cooler at midday — from Adaptive Lighting. Automatic reads ' + (self.name(al.slice().sort(function (a, b) { return /default/.test(b) - /default/.test(a) || (a < b ? -1 : 1); })[0]) || 'the first one') + '.'
+              ? 'The page’s amber takes the color of the light outside, warm at dusk and cooler at midday — from Adaptive Lighting. Automatic reads ' + (self.name(al.slice().sort(function (a, b) { return /** @type {any} */ (/default/.test(b)) - /** @type {any} */ (/default/.test(a)) || (a < b ? -1 : 1); })[0]) || 'the first one') + '.'
               : 'The page’s amber takes the color of the light outside, warm at dusk and cooler at midday — worked out from the sun. With Adaptive Lighting installed it follows that instead.' },
             [K.toggle({ label: 'Follow the Sun', on: cur.sky_follow !== false, sk: 'headers.lights', fk: 'hd:sky_follow', onChange: function (on) { save('sky_follow', on); } })]
               .concat(al.length && cur.sky_follow !== false ? listRow('sky_source', 'Adaptive Lighting', null, ents(['switch'], function (id) { return al.indexOf(id) >= 0; }), 'Adaptive Lighting', 'Automatic') : [])));

@@ -4,6 +4,7 @@
 // function, which hk-settings.js calls with the shared kit KIT once every part has loaded (the
 // order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from KIT at the top; what the shell or a later file uses of it, it hands back at the bottom.
+// @ts-check
 (function () {
   'use strict';
   (window.hkSettingsParts = window.hkSettingsParts || {})['hk-settings-screen-pages'] = function (KIT) {

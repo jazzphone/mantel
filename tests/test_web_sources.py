@@ -101,7 +101,8 @@ def test_the_register_calls_stay_in_the_shell(path):
         # the module is in), with the class and its entry; the parts only add methods to the prototype
         text = shell.read_text()
         assert re.search(r"^  customElements\.define\('hk-settings-panel', %s\);$" % man["class"], text, re.M)
-        assert re.search(r"^  class %s extends HTMLElement \{$" % man["class"], text, re.M)
+        # (the base may carry a JSDoc cast for the type checker: `extends /** @type {...} */ (HTMLElement)`)
+        assert re.search(r"^  class %s extends (?:/\*\* @type \{\w+\} \*/ \()?HTMLElement\)? \{$" % man["class"], text, re.M)
         assert text.index("customElements.define(") < text.index("var partsReady = ")
     else:
         assert hk_cards.tags_of(shell)

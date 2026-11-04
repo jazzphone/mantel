@@ -10,6 +10,7 @@
 // Opt-in is by marker: a template declares `--hk-tap: 1` on its hk-plate and we
 // read it back off the computed style. Nothing else is inspected, so this can
 // never touch a card that did not ask for it.
+// @ts-check
 (function () {
   'use strict';
 

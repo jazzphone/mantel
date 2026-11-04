@@ -40,6 +40,7 @@
 //
 // CONTENT, NOT DESIGN (DESIGN.md rule 4): the shapes and palettes stay here,
 // as the sky's do. Nothing at load but the global.
+// @ts-check
 (function () {
   'use strict';
   if (window.hkWallpapers) return;

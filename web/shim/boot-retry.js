@@ -6,6 +6,7 @@
 // session that ended meanwhile is sent to sign in by the reload.
 
 // the start failed: wait, then reload. `shown(ms)`, when given, tells the person how long. Never resolves.
+// @ts-check
 export async function startAgain(key, e, shown) {
   let n = 0;
   try { n = Number(sessionStorage.getItem(key) || 0); sessionStorage.setItem(key, String(n + 1)); } catch (_) { /* no storage */ }

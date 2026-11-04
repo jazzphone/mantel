@@ -32,6 +32,7 @@
 // every card behind the photos hold still (hk-sky `hidden`, hk-base
 // `hk-asleep`), which on a wall tablet's WebView is what lets the page stop
 // drawing frames between photos.
+// @ts-check
 (function () {
   'use strict';
   if (window.hkSaver) return;              // hk-loader may import this twice
@@ -646,6 +647,7 @@
     if (bigCtl) bigCtl.setClient(h);
     if (enCtl && enShowing) enCtl.setClient(h);
     if (wxCtl && wxShowing) wxCtl.setClient(h);
+    // @ts-expect-error layoutClient() takes no argument (h is passed and not used)
     layoutClient(h);
     cornerClient();
   }
@@ -2540,7 +2542,7 @@
   // screen drawn small, as a photo's blurred copy is, its foot at the foot (hk-sky.js .land: cover, center bottom).
   // Its image is the one the sky shows, from the browser's cache; until it has loaded (or under Flat, which draws no
   // copies), the darkened sky as before.
-  var landIm = null;
+  /** @type {any} */ var landIm = null;
   function landImg() {
     if (isFlat() || !root) return null;
     var i = root.querySelector('.fc .land>i.on'), m = i && /url\(["']?([^"')]+)["']?\)/.exec(getComputedStyle(i).backgroundImage || '');
@@ -3085,7 +3087,7 @@
     if (me.doneT) clearTimeout(me.doneT);
     // (a field focused on a tablet: its keyboard goes with it)
     try { var a = me.p.el.getRootNode && me.p.el.getRootNode().activeElement; if (a && a.blur) a.blur(); } catch (e) { /* ignore */ }
-    try { document.activeElement && document.activeElement.blur && document.activeElement.blur(); } catch (e) { /* ignore */ }
+    try { document.activeElement && /** @type {HTMLElement} */ (document.activeElement).blur && /** @type {HTMLElement} */ (document.activeElement).blur(); } catch (e) { /* ignore */ }
     panelButtons();
     var finish = function () {
       me.p.destroy();
@@ -3435,7 +3437,7 @@
     var make = function () {
       if (!host || !paneSc || paneCard || !cfg || !cfg.calendar) return;
       try {
-        var el = document.createElement(tag);
+        var el = /** @type {any} */ (document.createElement(tag));
         el.setConfig({ type: 'custom:' + tag, days: cfg.calendar_days });
         feedCard(el, clientNow());
         paneSc.appendChild(el);
@@ -3552,7 +3554,7 @@
       var wid = h && HS && HS.weatherId ? HS.weatherId(h.states) : null;
       if (!wid) return;
       try {
-        var el = document.createElement(tag);
+        var el = /** @type {any} */ (document.createElement(tag));
         // beside the calendar pane: today beside the hours and days, as on
         // the other screens, its column slimmer and fewer hours
         el.setConfig({ type: 'custom:' + tag, entity: wid, hours: paneUp ? 8 : 12, days: 6, plain: true,
@@ -4146,7 +4148,7 @@
       window.addEventListener(t, function () { if (press && press.up === null) press.up = clock.now(); if (mus.drag) volEnd(); }, { passive: true, capture: true });
     });
     if (!customElements.get('hk-music-pane-card')) {
-      var MusicPane = class extends HTMLElement {
+      var MusicPane = class extends /** @type {HkLooseElementConstructor} */ (HTMLElement) {
         constructor() {
           super();
           this._root = this.attachShadow({ mode: 'open' });
@@ -4271,7 +4273,7 @@
         _swipe() {
           var self = this, d = null;
           var sheetOf = function () {
-            var n = self.parentNode;
+            var n = /** @type {any} */ (self.parentNode);
             while (n && !(n.classList && n.classList.contains('sheet'))) n = n.parentNode;
             return n;
           };

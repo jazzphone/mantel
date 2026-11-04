@@ -4,10 +4,11 @@
 // function, which hk-grid-cards.js calls with the shared kit K once every part has loaded (the
 // order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
+// @ts-check
 (function () {
   'use strict';
   (window.hkGridCardsParts = window.hkGridCardsParts || {})['hk-grid-panel'] = function (K) {
-    var attr = K.attr, C = K.C, dom = K.dom, esc = K.esc, FULL_CSS = K.FULL_CSS, HkGridFull = K.HkGridFull,
+    var attr = K.attr, C = K.C, dom = K.dom, esc = K.esc, FULL_CSS = K.FULL_CSS, HkGridFull = /** @type {HkLooseElementConstructor} */ (K.HkGridFull),
         plural = K.plural, setting = K.setting, sizeOf = K.sizeOf, type = K.type, v = K.v;
 
     // THE PAGES' OWN PANELS AS BLOCKS (2026-10-24, the owner: "let's do them
@@ -267,7 +268,7 @@
       // the figure and the rows in it keep their own sheets (data-more) -- or, on a screen without that page, the
       // reading's own sheet
       _tapTarget() {
-        var c = this._config || {}, kind = c.panel, parts = this._parts(), p0 = (parts && parts[0]) || {};
+        var c = this._config || {}, kind = c.panel, parts = this._parts(), p0 = (parts && parts[0]) || /** @type {any} */ ({});
         if (kind === 'power') return [{ page: 'power' }, { page: 'energy' }, p0.home && { sheet: p0.home }];
         if (kind === 'water') return [{ page: 'water' }, p0.meter && { sheet: p0.meter }];
         if (kind === 'doors') return [{ page: 'doors-windows' }];

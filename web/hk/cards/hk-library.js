@@ -43,6 +43,7 @@
 // (`children`, `title`, `media_content_id`, `media_content_type`,
 // `can_play`, `can_expand`, `thumbnail`, `media_class`). Those are the keys
 // to check after an upgrade that leaves this page blank.
+// @ts-check
 (function () {
   'use strict';
 

@@ -32,6 +32,7 @@
 // EVERY COMMAND GOES THROUGH THE CARD'S ACTION PORT (HkBase._call / _act): in
 // Home Assistant the frontend's own call, in Mantel the command gateway, which
 // classifies, checks and audits it before anything is sent.
+// @ts-check
 (function () {
   'use strict';
 

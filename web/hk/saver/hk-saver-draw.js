@@ -4,6 +4,7 @@
 // function, which hk-saver.js calls with the shared kit K once every part has loaded (the
 // order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
+// @ts-check
 (function () {
   'use strict';
   (window.hkSaverParts = window.hkSaverParts || {})['hk-saver-draw'] = function (K) {
@@ -47,7 +48,7 @@
           if (n.shadowRoot) walk(n.shadowRoot);
           var tag = n.tagName.toLowerCase();
           if (tag === 'style' || tag === 'script' || (n.closest && n.closest('svg') && tag !== 'svg')) return;
-          var cs = null, seen = function () {
+          /** @type {any} */ var cs = null, seen = function () {
             if (!cs) cs = getComputedStyle(n);
             return cs.display !== 'none' && (hidden || (cs.visibility !== 'hidden' && +cs.opacity !== 0));
           };

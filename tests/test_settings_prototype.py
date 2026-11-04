@@ -5,15 +5,18 @@ the other 329 methods are written in class expressions in web/hk/settings/ and a
 shell's ``install`` with Object.defineProperty (not enumerable, writable, configurable: what a class body defines; an accessor
 stays an accessor). Anything that iterates the class must see what it saw before, so this loads the file as it was before the
 split (the blob the manifest records) and as it is now, each in node with the few globals the module touches, and compares the
-prototype: the set of property names, each one's kind and flags, its arity and name, and its source text (indentation aside).
+prototype: the set of property names, each one's kind and flags, its arity and name, and its source text (indentation aside; and, since a part may be annotated for the type checker, comments
+and the parentheses of a JSDoc cast do not count: the code is compared).
 The ORDER of the names differs by construction (the parts' methods are added after the shell's): the test says so by
 comparing sorted lists, and a for-in over a prototype instance (every method is non-enumerable) lists nothing in both.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -64,6 +67,14 @@ const out = vm.runInContext(`(function () {
 })()`, ctx);
 console.log(JSON.stringify(out));
 """
+
+
+def _tool():
+    spec = importlib.util.spec_from_file_location("split_js", ROOT / "tools/split_js.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["split_js"] = mod
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def _load(tmp_path: Path, name: str, shell: Path, parts: list[Path]) -> dict:
@@ -128,6 +139,13 @@ def test_every_method_is_the_same_function(both):
                     f["text"] = f["text"].replace(find, repl)
         if a != b:
             differ.append(n)
+    # A part may be annotated for the type checker (phase 18, C1): JSDoc comments and `/** @type {T} */ (x)` casts. They are
+    # not code: the methods that differ are compared again as tools/split_js.py prints them, with neither.
+    texts = [(f or {}).get("text", "") for n in differ for f in before["rows"][n]["fns"] + after["rows"][n]["fns"]]
+    plain = dict(zip(texts, _tool().codes(texts))) if texts else {}
+    differ = [n for n in differ
+              if [None if f is None else {**f, "text": plain[f["text"]]} for f in before["rows"][n]["fns"]]
+              != [None if f is None else {**f, "text": plain[f["text"]]} for f in after["rows"][n]["fns"]]]
     assert not differ, differ[:10]
 
 

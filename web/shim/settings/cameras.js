@@ -10,6 +10,7 @@
 // The user name and password are typed here and sent once; the server never sends them back. A saved camera is shown by its host,
 // and its login boxes say Saved: leave one blank to keep it. The routes decide who may do what (Owner or Admin; a fresh sign-in
 // away from home, which api() asks for through Confirm It Is You).
+// @ts-check
 import { act, api, ask, cache, forget, hh, K, load, redraw, ROUTE, shown, ui } from './core.js';
 import { button, clearDraft, draft, failed, field, group, info, nav, pending, result } from './kit.js';
 

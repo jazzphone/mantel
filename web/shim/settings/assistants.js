@@ -1,6 +1,7 @@
 // settings/assistants.js -- Mantel Settings, Advanced → Assistants (MCP): an assistant (Claude Code, Claude Desktop, any MCP
 // client) that reads the house and changes settings and screens for a person (mcp/, docs/phase12/MCP-SERVER.md).
 // The house's switches (an Owner's), how to connect, personal keys (shown once), and every assistant with its Revoke.
+// @ts-check
 import { act, ago, api, ask, fmt, K, load, me, panel, redraw, ROUTE, shown } from './core.js';
 import { button, clearDraft, copyButton, draft, failed, field, group, info, nav, pending, result, secretCell, ticks } from './kit.js';
 

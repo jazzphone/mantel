@@ -1,5 +1,6 @@
 // settings/performance.js -- Mantel Settings, About, Performance (performance.py): how the house's screens are doing, and
 // the server's numbers. For Owners and Admins; one row per tablet (and per person's browser), drawn like About.
+// @ts-check
 import { api, forget, load, redraw, ROUTE } from './core.js';
 import { button, failed, group, info, pending } from './kit.js';
 

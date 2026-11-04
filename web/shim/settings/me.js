@@ -1,4 +1,5 @@
 // settings/me.js -- Mantel Settings, Me: sign-in, passkeys, authenticator, PIN, password, notifications, apps, sessions.
+// @ts-check
 import { mantelUrl, base as BASE } from '../base.js';
 import {
   act, ago, api, ask, can, ERRORS, fmt, forget, hh, K, load, me, panel, redraw, refreshMe, roleLabel, ROUTE, shortUA,

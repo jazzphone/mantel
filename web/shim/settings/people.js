@@ -1,4 +1,5 @@
 // settings/people.js -- Mantel Settings, People: accounts, Home Assistant users, phones, merging, someone's PIN.
+// @ts-check
 import { act, api, ask, K, load, me, panel, redraw, roleLabel, ROUTE, ui } from './core.js';
 import {
   button, choose, clearDraft, draft, failed, field, group, houseTitle, info, nav, pending, result, screenPicker

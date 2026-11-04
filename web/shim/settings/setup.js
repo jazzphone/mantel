@@ -1,4 +1,5 @@
 // settings/setup.js -- Mantel Settings, Set Up Mantel: the first run's checklist.
+// @ts-check
 import { mantelUrl } from '../base.js';
 import { act, api, C, K, load, me, redraw, refreshMe, ROUTE } from './core.js';
 import { button, failed, group, info, pending, result, secretCell } from './kit.js';

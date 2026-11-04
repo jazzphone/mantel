@@ -1,6 +1,7 @@
 // settings/backups.js -- Mantel Settings, Backups (backup.py, 2026-10-28): when the last one was made, Back Up Now,
 // the backups to download, the two keys as one file, and Restore -- an upload checked first, put in place when
 // Mantel starts again. Owners and Admins see it; only the Owner acts.
+// @ts-check
 import { mantelUrl } from '../base.js';
 import { act, api, ApiError, ask, forget, hh, K, kb, load, me, redraw, ROUTE, ui } from './core.js';
 import { button, failed, group, info, pending, result } from './kit.js';

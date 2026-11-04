@@ -1,4 +1,5 @@
 // settings/connect.js -- Mantel Settings, Mantel Connect: the pairing code that puts Mantel in Home Assistant's sidebar.
+// @ts-check
 import { act, ago, api, ask, fmt, forget, load, me, nowS, panel, redraw, shown, ui } from './core.js';
 import { button, copyButton, draft, failed, field, group, info, pending, result, secretCell } from './kit.js';
 import { HA_PAGE } from './link.js';

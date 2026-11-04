@@ -4,6 +4,7 @@
 // function, which hk-settings.js calls with the shared kit KIT once every part has loaded (the
 // order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from KIT at the top; what the shell or a later file uses of it, it hands back at the bottom.
+// @ts-check
 (function () {
   'use strict';
   (window.hkSettingsParts = window.hkSettingsParts || {})['hk-settings-accessories'] = function (KIT) {
@@ -213,7 +214,7 @@
       byRoomGroups(c, ids, row, footer) {
         var self = this, by = {}, rooms = [];
         ids.forEach(function (id) { var r = self.areaName(self.areaOf(id)) || 'No Room'; if (!by[r]) { by[r] = []; rooms.push(r); } by[r].push(id); });
-        rooms.sort(function (a, b) { return (a === 'No Room') - (b === 'No Room') || a.localeCompare(b); });
+        rooms.sort(function (a, b) { return /** @type {any} */ (a === 'No Room') - /** @type {any} */ (b === 'No Room') || a.localeCompare(b); });
         rooms.forEach(function (r, i) {
           c.appendChild(K.group({ header: r, footer: i === rooms.length - 1 ? footer : null },
             by[r].sort(function (a, b) { return self.name(a).localeCompare(self.name(b)); }).map(row)));

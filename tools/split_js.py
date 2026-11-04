@@ -39,7 +39,8 @@ stayed is found in the new shell, text for text, in the place the plan put it (t
 run in the function handed to loadParts, in their order). Nothing else is in the new shell but the generated block.
 `--check` on a split tree re-runs the structural half (the members are where the manifest says, the loader is the
 template, the kit's takes and hand-backs agree, `tsc` finds no missing name) and, while the original blob recorded in the
-manifest is still in the repository, says which moved members have been edited since.
+manifest is still in the repository, says which moved members have been edited since (their code: comments and the parentheses
+of a JSDoc cast do not count, so a part may be annotated for the type checker).
 
 The loader every split shell has is generated from ONE template (loader_block below); tests/test_web_sources.py pins that.
 CLASS-METHOD MODE (a panel like hk-settings.js: one class of 399 members, no `super` outside the constructor, no `static`,
@@ -76,7 +77,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 HELPER = ROOT / "tools/split_js.cjs"
 MANIFESTS = ROOT / "tools/split_manifests"
-GLOBALS_D_TS = ROOT / "tools/typecheck/types/globals.d.ts"
+# every declaration file the type checker reads (globals.d.ts, the host contract, the hand-written ones): a JSDoc type in a
+# part resolves in them as it does in tools/typecheck/check.py
+TYPES_D_TS = sorted(str(p) for p in (ROOT / "tools/typecheck/types").glob("*.d.ts"))
 TS_FIXTURE = ROOT / "tests/fixtures/ts_check.json"
 TS_BASELINE = ROOT / "tools/typecheck/baseline.json"
 WIDTH = 118
@@ -168,9 +171,14 @@ def ask(req: dict) -> dict:
 def analyze(path: Path, mode: str, run_in: str | None, cont: bool = False, man: dict | None = None) -> dict:
     """`man` (the manifest) turns on class-method mode when it names a class, and gives the kit's name."""
     cls = (man or {}).get("class")
-    return ask({"cmd": "analyze", "file": str(path), "mode": mode, "run_in": run_in, "globals": [str(GLOBALS_D_TS)],
+    return ask({"cmd": "analyze", "file": str(path), "mode": mode, "run_in": run_in, "globals": TYPES_D_TS,
                 "cont_call": CALL if cont else None, "class_name": cls if mode == "shell" else None,
                 "class_expr": bool(cls) and mode == "part", "kit_name": kit_of(man)})
+
+
+def codes(texts: list[str]) -> list[str]:
+    """Each class member's text as its code: no comments, no JSDoc cast parentheses (what split_js.cjs codeOf prints)."""
+    return ask({"cmd": "code", "texts": texts})["codes"]
 
 
 def kit_of(man: dict | None) -> str:
@@ -178,7 +186,7 @@ def kit_of(man: dict | None) -> str:
 
 
 def diagnostics(paths: list[Path]) -> dict[str, dict]:
-    got = ask({"cmd": "diagnostics", "files": [str(p) for p in paths], "globals": [str(GLOBALS_D_TS)]})
+    got = ask({"cmd": "diagnostics", "files": [str(p) for p in paths], "globals": TYPES_D_TS})
     return {str(Path(k).resolve()): v for k, v in got.items()}
 
 
@@ -1047,7 +1055,9 @@ def check_split(man: dict, check_only: bool = True) -> int:
 
 
 def edited_since(man: dict) -> list[str] | None:
-    """The moved members whose text is no longer the original's (None: the original blob recorded in the manifest is gone)."""
+    """The moved members whose code is no longer the original's (None: the original blob recorded in the manifest is gone).
+    Comments, and the parentheses of a JSDoc cast, are not code: a part may be annotated for the type checker (phase 18, C1)
+    and stay "the text it was"."""
     blob = (man.get("source") or {}).get("blob")
     if not blob or git("cat-file", "-t", blob) != "blob":
         return None
@@ -1060,7 +1070,7 @@ def edited_since(man: dict) -> list[str] | None:
             for sc in an["scopes"]:
                 for st in sc["stmts"]:
                     for n in (["#" + str(st.get("method"))] if sc["name"] == "class" else st["names"]):
-                        out.setdefault(n, []).append(st["text"])
+                        out.setdefault(n, []).append(st["code"])
             return out
         was = named(analyze(orig, "shell", man.get("run_in"), man=man))
         edited = []

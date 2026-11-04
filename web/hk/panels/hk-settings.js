@@ -73,6 +73,7 @@
 //                 leave them to HA's button.press }
 // Home Assistant has none, so nothing of another host's is drawn, read or
 // said there.
+// @ts-check
 (function () {
   'use strict';
   if (customElements.get('hk-settings-panel')) return;
@@ -224,7 +225,7 @@
   // ------------------------------------------------------------ end of the parts loader
   var BACK, C, CSS, HOUSE, LIBRARY, PENCIL, SYSTEM, TICK;
 
-  class HkSettingsPanel extends HTMLElement {
+  class HkSettingsPanel extends /** @type {HkLooseElementConstructor} */ (HTMLElement) {
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
@@ -442,6 +443,7 @@
       }
       return this._host;
     }
+    // @ts-expect-error title() shadows HTMLElement's title (a string); the element has always had the method
     title() { var x = this.host(); return (x && x.title) || window.hkShell.settingsName(); }
     hostScreenBase() { var x = this.host(); return (x && typeof x.screenBase === 'string') ? x.screenBase : ''; }
     hostNote(key) { var x = this.host(); return (x && x.notes && x.notes[key]) || null; }
@@ -685,7 +687,7 @@
 
     // ---------------------------------------------------------- drawing
     typing() {
-      var a = this.shadowRoot.activeElement;
+      var a = /** @type {HTMLInputElement | null} */ (this.shadowRoot.activeElement);
       return !!(a && (a.tagName === 'INPUT' && a.type !== 'range' || a.tagName === 'TEXTAREA' ||
                       a.closest && a.closest('.accwrap')));
     }
@@ -721,7 +723,7 @@
       var t = null;
       if (fk) {
         var sel = '[data-fk="' + String(fk).replace(/(["\\])/g, '\\$1') + '"]';
-        t = (inSide ? this.sideEl : this.shadowRoot).querySelector(sel);
+        t = /** @type {HTMLElement | null} */ ((inSide ? this.sideEl : this.shadowRoot).querySelector(sel));
         if (t && t.focus) t.focus({ preventScroll: true });
       }
       if (!t && navigated && !inSide) {
@@ -774,7 +776,7 @@
         pen.innerHTML = PENCIL;
         pen.addEventListener('click', function () {
           self._renaming = x.path; self._renameErr = null; self.render();
-          var inp = self.shadowRoot.querySelector('.renform input');
+          var inp = /** @type {HTMLInputElement | null} */ (self.shadowRoot.querySelector('.renform input'));
           if (inp) { inp.focus(); inp.select(); }
         });
         return h('div', { class: 'tline' }, [h('h1', { class: 'lt', tabindex: '-1', text: pg.title || '' }), pen]);
@@ -898,7 +900,7 @@
     // All Screens' pane, not its own (p_sidePane's paneHouse); its window's
     // hkSidePane, once it has one
     panePreview(on) {
-      var self = this, fr = this.pageEl.querySelector('.pvcol .pvbox iframe'), n = 0;
+      var self = this, fr = /** @type {HTMLIFrameElement | null} */ (this.pageEl.querySelector('.pvcol .pvbox iframe')), n = 0;
       clearInterval(this._paneWait);
       if (!fr) return;
       var go = function () {
@@ -914,7 +916,7 @@
     // the top of the page, or not; remembered in this browser. A pin and a
     // word, Pin or Pinned: an eye alone did not say what it does.
     previewButton(show, pinned) {
-      var b = this.bar.querySelector('.pvtoggle'), self = this;
+      var b = /** @type {HTMLElement | null} */ (this.bar.querySelector('.pvtoggle')), self = this;
       if (!show) { if (b) b.remove(); return; }
       if (!b) {
         b = h('button', { class: 'pvtoggle', type: 'button', 'data-fk': 'bar:preview' });
@@ -998,7 +1000,7 @@
       return this.hostScreenBase() + '/' + pv.path + '/' + (pv.view || '0') + '?hk_kiosk=on&kiosk&wp_enabled=false' + q;
     }
     frameSrc() {
-      var col = this.pageEl.querySelector('.pvcol'), fr = col && col.querySelector('.pvbox iframe');
+      var col = this.pageEl.querySelector('.pvcol'), fr = col && /** @type {HTMLIFrameElement | null} */ (col.querySelector('.pvbox iframe'));
       if (!fr) return;
       var want = this.previewSrc(this._frameMode), says = col.querySelector('.pvsays');
       if (says) says.textContent = /hk_preview=saver/.test(want) ? PV_SAYS.saver : /hk_preview=look/.test(want) ? PV_SAYS.look : PV_SAYS.screen;
@@ -1080,7 +1082,7 @@
       var here = parts.join('/');
       var at = function (p) { return here === p || here.indexOf(p + '/') === 0; };
       var side = this.sideEl;
-      var searchHad = side.querySelector('.search input');
+      var searchHad = /** @type {HTMLInputElement | null} */ (side.querySelector('.search input'));
       var focused = searchHad && this.shadowRoot.activeElement === searchHad;
       var selStart = focused ? searchHad.selectionStart : null;
       side.innerHTML = '';
@@ -1386,7 +1388,7 @@
         } else {
           var by = {}, rooms = [];
           got.forEach(function (it) { var r = it.room || 'No Room'; if (!by[r]) { by[r] = []; rooms.push(r); } by[r].push(it); });
-          rooms.sort(function (a, b) { return (a === 'No Room') - (b === 'No Room') || a.localeCompare(b); });
+          rooms.sort(function (a, b) { return /** @type {any} */ (a === 'No Room') - /** @type {any} */ (b === 'No Room') || a.localeCompare(b); });
           rooms.forEach(function (r) {
             if (shown >= CAP) return;
             var list = by[r].sort(az).slice(0, CAP - shown);
@@ -1453,6 +1455,7 @@
     return String(t || '').toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
   }
   window.hkHostClient.entry(HkSettingsPanel);
+  // @ts-expect-error (the same title() as above makes the class not a CustomElementConstructor to the checker)
   customElements.define('hk-settings-panel', HkSettingsPanel);
   window.hkSettingsPanel = { version: '2.0.0' };
 

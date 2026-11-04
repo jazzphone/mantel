@@ -15,6 +15,7 @@
 // NOT HERE, deliberately: the weather and usage tiles. They are SHELLS around
 // charts drawn by hk-charts.js, which is a different job from formatting a
 // state (see hk-weather.js and hk-energy.js).
+// @ts-check
 (function () {
   'use strict';
 

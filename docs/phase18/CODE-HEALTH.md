@@ -725,6 +725,24 @@ The B1 review's follow-ups: the shared loader sets `window.__hkSplitStarted[<she
 evaluation never runs the parts twice; the test views fail loudly for a known shell without its parts list; the
 tool keeps a `var` whose initializer touches nothing in place (it was pulled into the waiting block).
 
+### C1 (2026-11-04)
+
+90 web files now open with `// @ts-check` and check clean: the 57 with no errors, the four adapters (C2), and every
+file of the three splits so far, whose 125 errors were silenced with JSDoc and casts only (`tools/typecheck/types/
+hk-loose.d.ts` for the card family's base and absolute imports). Comments only, proved: Mantel's build id
+`5e94e243654b5c55` the same before and after, HK Frontend's 131 minified files byte-identical, the jsc suites
+identical. `split_js.py` judges "a moved member changed" by its code, comments and a cast's parentheses not counting
+(`tests/test_split_js_annotations.py`), so typed parts still prove the move. The baseline: 816 errors in 82 of 173
+files.
+
+Three calls the checker refuses are kept with `@ts-expect-error` (each a small code change for later, none a bug):
+`hk-saver.js` passes `layoutClient` an argument it doesn't take; `hk-settings-house-pages.js` passes `h_statusRow` a
+third argument it never reads; `hk-settings.js`'s `title()` method shadows `HTMLElement.title`.
+
+Decision 8's strict config (`tools/typecheck/tsconfig.strict.json`, `noImplicitAny`, `hk-settings-model.js` only):
+**637 errors** (484 parameters with no type), too many to type by comments in this phase; it is measured
+(`check.py --strict`) and not in the default run.
+
 **The browser checks under load (2026-11-03/04):** with other sessions' runs on the same Mac, `ci.py full` failed a
 different set of browser checks on each run (page loads past 30 s, the screensaver not up in time), on this branch and
 on `origin/main` alike; every one passed run alone, and four alternating runs of a failing shard on main and on this

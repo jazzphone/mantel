@@ -15,6 +15,9 @@
 //   {"cmd": "diagnostics", "files": ["..."], "globals": ["...d.ts"]}
 //       tsc's view of each file with checkJs on: its syntax errors, the names it cannot find (TS2304 and TS2552: for
 //       a part, exactly the kit it needs), and the number of errors in all.
+//   {"cmd": "code", "texts": ["..."]}
+//       Each text, a class member as Function.prototype.toString gives it, as codeOf() prints it (no comments, no cast
+//       parentheses): the text itself when it will not parse as a member. For tests/test_settings_prototype.py.
 //
 // TypeScript is the pinned copy in tools/typecheck/node_modules (decision 7), found beside this file.
 
@@ -190,6 +193,19 @@ function lineOf(sf, pos) {
   return sf.getLineAndCharacterOfPosition(pos).line + 1;
 }
 
+// A member's code without its comments: the statement printed with no comments, and without the parentheses a JSDoc cast
+// (`/** @type {T} */ (x)`) puts round an expression (phase 18, C1). Two members that differ only in comments and casts
+// print the same, so a part's annotations are not an edit; any other change to a token is.
+const printer = ts.createPrinter({ removeComments: true });
+function codeOf(sf, node) {
+  const unwrap = (ctx) => (root) => {
+    const visit = (n) => (ts.isParenthesizedExpression(n) ? ts.visitNode(n.expression, visit) : ts.visitEachChild(n, visit, ctx));
+    return ts.visitNode(root, visit);
+  };
+  const out = ts.transform(node, [unwrap]);
+  try { return printer.printNode(ts.EmitHint.Unspecified, out.transformed[0], sf); } finally { out.dispose(); }
+}
+
 function analyze(req) {
   const file = path.resolve(req.file);
   const prog = program([file], req.globals, false);
@@ -290,7 +306,7 @@ function analyze(req) {
         scope: si, index: idx, kind: kindOf(s), names: declaredNames(s), first: firstLine, last: lastLine, shared,
         protected: [...prot].filter((l) => l >= firstLine && l <= lastLine),
         indent: firstText.length - firstText.trimStart().length,
-        text: norm.join('\n'), head: lines[lineOf(sf, start) - 1].trim().slice(0, 120),
+        text: norm.join('\n'), code: codeOf(sf, s), head: lines[lineOf(sf, start) - 1].trim().slice(0, 120),
         refs: [], writes: [], ...varFacts(s, req.kit_name || 'K'), ...memberFacts(s, sf),
       });
     }
@@ -381,12 +397,22 @@ function diagnostics(req) {
   return res;
 }
 
+function codes(req) {
+  return req.texts.map((text) => {
+    const sf = ts.createSourceFile('member.js', 'class X {\n' + text + '\n}', ts.ScriptTarget.ES2022, true, ts.ScriptKind.JS);
+    const cls = sf.statements[0];
+    if (sf.parseDiagnostics.length || !cls || !ts.isClassDeclaration(cls) || cls.members.length !== 1) return text;
+    return codeOf(sf, cls.members[0]);
+  });
+}
+
 let input = '';
 process.stdin.on('data', (c) => { input += c; });
 process.stdin.on('end', () => {
   try {
     const req = JSON.parse(input);
-    const out = req.cmd === 'analyze' ? analyze(req) : req.cmd === 'diagnostics' ? diagnostics(req) : null;
+    const out = req.cmd === 'analyze' ? analyze(req) : req.cmd === 'diagnostics' ? diagnostics(req)
+      : req.cmd === 'code' ? { codes: codes(req) } : null;
     if (!out) throw new Error('unknown command ' + req.cmd);
     process.stdout.write(JSON.stringify(out));
   } catch (err) {

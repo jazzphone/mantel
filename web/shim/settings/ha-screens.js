@@ -1,4 +1,5 @@
 // settings/ha-screens.js -- Mantel Settings, screens in Home Assistant's sidebar, and where each screen is drawn.
+// @ts-check
 import { act, api, ask, cache, forget, K, load, me, panel, redraw, shown, ui } from './core.js';
 import { button, clearDraft, draft, failed, field, group, info, result } from './kit.js';
 

@@ -19,6 +19,7 @@
 //
 // THE RULES: nothing animates and nothing blurs; one read (the states the screensaver already has), no timer, nothing that wakes
 // anything; data that is not there is a dash.
+// @ts-check
 (function () {
   'use strict';
   var W = window.hkSaverWidgets;
