@@ -1,3 +1,4 @@
+// @ts-check
 // hk-mic.js -- the microphone for the Intercom (docs/phase17/INTERCOM.md, "The microphone code").
 //
 // WHAT IT IS. The audio half of the Intercom sheet (cards/hk-intercom.js): a worklet that turns the microphone into

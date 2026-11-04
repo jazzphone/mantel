@@ -1,3 +1,4 @@
+// @ts-check
 // settings/intercom.js -- Mantel Settings, Intercom (docs/phase17/INTERCOM.md "Rooms", "The address MA uses"): talk to the rooms of
 // the house from a tablet or a phone. This page turns it on, tells Music Assistant (MA) where to fetch the audio from, says which
 // rooms may be spoken to, and sets each room's volume, quiet hours, listening tablets and Live.

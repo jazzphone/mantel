@@ -1,3 +1,4 @@
+// @ts-check
 // hk-intercom.js -- the Intercom: speak into the HomePods from a tablet, a phone or an iPad
 // (docs/phase17/INTERCOM.md; the wire and the feed: the phase's build spec).
 //
@@ -183,10 +184,19 @@
   //   loading() -> bool (optional: the microphone module is on its way, so "supported" is not yet known),
   //   oneWay: {seen() -> bool, mark()}, clock: {now, setTimeout, clearTimeout, setInterval, clearInterval},
   //   changed() -> called after every change the sheet should draw }
+  /**
+   * What the Controller holds (the methods are the CP.* below; the ones not listed here read as any, as the fields set along the way do).
+   * @typedef {{ [member: string]: any, d: any, clock: any, mode: any, sel: string[], state: string, said: any, secs: number, level: number,
+   *   sentTo: number, failed: string[], quiet: string[], lag: any, fallback: string[], decision: any, socket: string, draftSent: boolean,
+   *   playing: boolean, latched: boolean, mic: any, tok: number, timer: any, limit: number, pressAt: number, sendTok: number,
+   *   saveT: any, sayT: any, disposed: boolean }} Ctl
+   */
+  /** @type {Ctl[]} */
   var controllers = [];              // the sheets open (a tablet that is itself talking plays no announcement)
   function talking() {
     return controllers.some(function (c) { return c.state === 'connecting' || c.state === 'recording' || c.state === 'sending'; });
   }
+  /** @this {Ctl} @param {any} deps */
   function Controller(deps) {
     this.d = deps;
     controllers.push(this);
@@ -210,9 +220,10 @@
     var mem = deps.store && deps.store.load ? deps.store.load() : null;
     this._remember(mem);
   }
-  var CP = Controller.prototype;
-  CP._changed = function () { if (!this.disposed && this.d.changed) this.d.changed(); };
-  CP._remember = function (mem) {
+  /** @type {Ctl} */
+  var CP = /** @type {any} */ (Controller.prototype);
+  /** @this {Ctl} */ CP._changed = function () { if (!this.disposed && this.d.changed) this.d.changed(); };
+  /** @this {Ctl} */ CP._remember = function (mem) {
     if (!mem || typeof mem !== 'object') return;
     if (this.state === 'idle' && !this.touchedMode && MODES.indexOf(mem.mode) >= 0) this.mode = mem.mode;
     if (!this.touchedRooms && Array.isArray(mem.rooms)) {
@@ -220,39 +231,39 @@
     }
   };
   // the person's remembered mode and rooms arrived (or changed on another screen): taken until this screen has chosen
-  CP.remembered = function (mem) { this._remember(mem); this._changed(); };
-  CP.feed = function () { return this.d.feed(); };
-  CP.liveAvailable = function () { var f = this.feed(); return !!(f && f.enabled && f.live_allowed); };
-  CP.modeNow = function () {
+  /** @this {Ctl} */ CP.remembered = function (mem) { this._remember(mem); this._changed(); };
+  /** @this {Ctl} */ CP.feed = function () { return this.d.feed(); };
+  /** @this {Ctl} */ CP.liveAvailable = function () { var f = this.feed(); return !!(f && f.enabled && f.live_allowed); };
+  /** @this {Ctl} */ CP.modeNow = function () {
     var f = this.feed(), m = this.mode || (f && f.default_mode) || 'message';
     return m === 'live' && this.liveAvailable() ? 'live' : 'message';
   };
-  CP.maxSecs = function () {
+  /** @this {Ctl} */ CP.maxSecs = function () {
     var f = this.feed(), m = this.modeNow();
     return this.limit || (f ? (m === 'live' ? f.max_live_s : f.max_message_s) : 30);
   };
-  CP.pills = function () { return pillsOf(this.feed(), this.modeNow()); };
-  CP.chips = function () { return chipsOf(this.pills(), this.feed(), this.sel); };
+  /** @this {Ctl} */ CP.pills = function () { return pillsOf(this.feed(), this.modeNow()); };
+  /** @this {Ctl} */ CP.chips = function () { return chipsOf(this.pills(), this.feed(), this.sel); };
   // the rooms a send would go to: the picked ones a tap can pick (in the feed's order)
-  CP.chosen = function () {
+  /** @this {Ctl} */ CP.chosen = function () {
     var sel = this.sel;
     return this.pills().filter(function (p) { return p.pickable && sel.indexOf(p.id) >= 0; }).map(function (p) { return p.id; });
   };
-  CP._nameOf = function (id) {
+  /** @this {Ctl} */ CP._nameOf = function (id) {
     var f = this.feed(), r = f && f.rooms.filter(function (x) { return x.room === id; })[0];
     return r ? r.name : id;
   };
-  CP.chosenNames = function () { var self = this; return this.chosen().map(function (id) { return self._nameOf(id); }); };
+  /** @this {Ctl} */ CP.chosenNames = function () { var self = this; return this.chosen().map(function (id) { return self._nameOf(id); }); };
 
   // ---- what is said
-  CP._say = function (text, kind, ms) {
+  /** @this {Ctl} */ CP._say = function (text, kind, ms) {
     var self = this;
     this.said = text ? { text: text, kind: kind || 'info' } : null;
     this.clock.clearTimeout(this.sayT);
     if (text && ms !== 0) this.sayT = this.clock.setTimeout(function () { self.said = null; self._changed(); }, ms || SAID_MS);
     this._changed();
   };
-  CP.status = function () {
+  /** @this {Ctl} */ CP.status = function () {
     var f = this.feed(), s = this.said;
     if (!this.d.hasPort()) return { text: WORDS.needsHost, kind: 'warn' };
     if (!this.d.secure()) return { text: WORDS.https, kind: 'warn' };
@@ -286,13 +297,13 @@
     return { text: names.length > 2 ? plural(names.length, 'room', 'rooms') + ' picked' : names.join(', '), kind: 'info' };
   };
   // why the rooms picked cannot be reached ("Kitchen leads Office"), for "Nothing to send to: ..."
-  CP._unreachablePicked = function () {
+  /** @this {Ctl} */ CP._unreachablePicked = function () {
     var sel = this.sel, why = this.pills().filter(function (p) { return !p.pickable && sel.indexOf(p.id) >= 0 && p.line; }).map(function (p) { return p.line; });
     return why.length ? why.join('; ') : '';
   };
   // Live: the rooms that did not connect live heard it as a Message instead
-  CP._fallbackLine = function () { return names(this.fallback, 2) + ' didn’t connect live. Sent as a message.'; };
-  CP._sentLine = function () {
+  /** @this {Ctl} */ CP._fallbackLine = function () { return names(this.fallback, 2) + ' didn’t connect live. Sent as a message.'; };
+  /** @this {Ctl} */ CP._sentLine = function () {
     var base = this.sentTo ? 'Sent to ' + plural(this.sentTo, 'room', 'rooms') : 'Nothing was sent', extra = [];
     if (this.failed.length) extra.push(names(this.failed, 2) + (this.failed.length === 1 ? ' didn’t play' : ' didn’t play'));
     if (this.fallback.length) extra.push(this._fallbackLine());
@@ -302,17 +313,17 @@
   };
 
   // ---- rooms
-  CP._persist = function () {
+  /** @this {Ctl} */ CP._persist = function () {
     var self = this;
     this.clock.clearTimeout(this.saveT);
     this.saveT = this.clock.setTimeout(function () { self.saveT = null; self.save(); }, SAVE_MS);
   };
-  CP.save = function () {
+  /** @this {Ctl} */ CP.save = function () {
     this.clock.clearTimeout(this.saveT);
     this.saveT = null;
     if (this.d.store && this.d.store.save) this.d.store.save({ mode: this.modeNow(), rooms: this.sel.slice(0, ROOMS_MAX) });
   };
-  CP.setMode = function (m) {
+  /** @this {Ctl} */ CP.setMode = function (m) {
     if (MODES.indexOf(m) < 0 || this.state !== 'idle' && this.state !== 'sent' && this.state !== 'error') return;
     if (m === 'live' && !this.liveAvailable()) return;
     this.mode = m; this.touchedMode = true;
@@ -321,7 +332,7 @@
     this.save();
     this._changed();
   };
-  CP.toggleRoom = function (id) {
+  /** @this {Ctl} */ CP.toggleRoom = function (id) {
     var p = this.pills().filter(function (x) { return x.id === id; })[0];
     if (!p) return;
     if (!p.pickable) { this._say(p.line, 'info'); return; }
@@ -332,7 +343,7 @@
     if (p.note || (p.quiet && i < 0)) this._say(p.line, 'info');
     this._afterPick();
   };
-  CP.chip = function (kind, id) {
+  /** @this {Ctl} */ CP.chip = function (kind, id) {
     var c = this.chips().filter(function (x) { return x.kind === kind && x.id === id; })[0];
     if (!c) return;
     this.touchedRooms = true;
@@ -344,13 +355,13 @@
     this.said = null;
     this._afterPick();
   };
-  CP._afterPick = function () { this._persist(); this._changed(); };
+  /** @this {Ctl} */ CP._afterPick = function () { this._persist(); this._changed(); };
   // the feed changed: a state with rooms no longer there is simply read again (chosen() keeps to what can be picked)
-  CP.fed = function () { this._changed(); };
+  /** @this {Ctl} */ CP.fed = function () { this._changed(); };
 
   // ---- the microphone
   // Message: one tap starts, the next stops. Live: down starts; up ends it if it was held, else it stays on until the next tap.
-  CP.micDown = function () {
+  /** @this {Ctl} */ CP.micDown = function () {
     var m = this.modeNow();
     this.pressAt = this.clock.now();
     this.pressState = this.state;
@@ -360,7 +371,7 @@
       if (this.state === 'idle' || this.state === 'sent' || this.state === 'error') this._start('live');
     }
   };
-  CP.micUp = function () {
+  /** @this {Ctl} */ CP.micUp = function () {
     this.unlock();             // again: on an iPad a touch's pointerdown is no user activation, its pointerup (and click) is
     var m = this.modeNow(), held = this.clock.now() - this.pressAt;
     if (m === 'live') {
@@ -374,16 +385,16 @@
     else if (this.state === 'idle' || this.state === 'sent' || this.state === 'error') this._start('message');
   };
   // the press was taken away (pointercancel: a system gesture, a call): a held Live talk ends; a Message tap does nothing
-  CP.micCancel = function () {
+  /** @this {Ctl} */ CP.micCancel = function () {
     this.stopFromPress = false;
     if (this.modeNow() === 'live' && this.state === 'recording' && !this.latched) this._stop();
   };
-  CP.unlock = function () { return this.d.supported() && this.d.secure() ? this._unlock() : 0; };
-  CP._unlock = function () {
+  /** @this {Ctl} */ CP.unlock = function () { return this.d.supported() && this.d.secure() ? this._unlock() : 0; };
+  /** @this {Ctl} */ CP._unlock = function () {
     var mic = this.mic || (this.mic = this.d.mic());
     return mic ? mic.unlock() : 0;
   };
-  CP._refusal = function () {
+  /** @this {Ctl} */ CP._refusal = function () {
     var f = this.feed();
     if (!this.d.hasPort()) return WORDS.needsHost;
     if (!this.d.secure()) return WORDS.https;
@@ -391,7 +402,7 @@
     if (!this.d.supported()) return WORDS.noMic;
     return null;
   };
-  CP._start = function (mode) {
+  /** @this {Ctl} */ CP._start = function (mode) {
     var why = this._refusal();
     if (why) { this._say(why, 'warn'); return; }
     // Live speaks to the rooms picked, named before the first frame: with none picked there is no one to hear it
@@ -431,11 +442,11 @@
     this._changed();
   };
   // the microphone's sample rate is one the Intercom has no ticket for
-  CP._badRate = function (rate) {
+  /** @this {Ctl} */ CP._badRate = function (rate) {
     this._refused('bad_rate', { message: 'This device’s microphone runs at ' + (rate / 1000) + ' kHz, which the Intercom can’t use' });
   };
   // a ticket for a socket (mode, rate), and the socket opened with it; `upload`: the page's copy to send once signed in
-  CP._ticket = function (mode, tok, upload) {
+  /** @this {Ctl} */ CP._ticket = function (mode, tok, upload) {
     var self = this, mic = this.mic, act = this.d.actions(), rate = mic.rate;
     if (!act || !act.intercom) { this._refused('commands_disabled'); return Promise.resolve(); }
     if (RATES.indexOf(rate) < 0) { this._badRate(rate); return Promise.resolve(); }
@@ -448,7 +459,7 @@
     });
   };
   // the gateway refused the ticket: said; what cannot be mended by trying again ends the recording
-  CP._refused = function (code, err) {
+  /** @this {Ctl} */ CP._refused = function (code, err) {
     var SH = window.hkShell, host = SH && SH.productName ? SH.productName() : 'the server';
     var reason = reasonOf(code, err);                // a reason the server gave: said in its own words, and trying again would not help
     var text = reason ? REASONS[reason] : code === 'unavailable' ? WORDS.unreachable + host : (err && err.message) || 'Couldn’t start the Intercom';
@@ -462,7 +473,7 @@
     this._abandon();
     this._say(text, 'warn', 8000);
   };
-  CP._wire = function (mic, tok) {
+  /** @this {Ctl} */ CP._wire = function (mic, tok) {
     var self = this;
     mic.on = {
       ready: function (r) { if (self.tok !== tok && self.sendTok !== tok) return; self.socket = 'open'; if (r && r.max_s) self.limit = Math.min(self.limit || r.max_s, r.max_s); self._ready(); },
@@ -473,8 +484,8 @@
       chunk: function () { /* the meter reads mic.level on the tick */ }
     };
   };
-  CP._ready = function () { this._changed(); };
-  CP._tick = function () {
+  /** @this {Ctl} */ CP._ready = function () { this._changed(); };
+  /** @this {Ctl} */ CP._tick = function () {
     var mic = this.mic;
     if (!mic || this.state !== 'recording') return;
     this.secs = mic.seconds(); this.level = mic.level;
@@ -484,7 +495,7 @@
     if (this.secs >= this.maxSecs()) this._stop();
     else this._changed();
   };
-  CP._stop = function () {
+  /** @this {Ctl} */ CP._stop = function () {
     var mic = this.mic;
     if (!mic) return;
     if (this.state === 'connecting') { this._abandon(); return; }     // let go before the microphone was open: nothing was kept
@@ -507,33 +518,33 @@
     this._changed();
   };
   // nothing was kept: the sheet is as before the press
-  CP._abandon = function () {
+  /** @this {Ctl} */ CP._abandon = function () {
     this.tok++;
     this.clock.clearInterval(this.timer); this.timer = null;
     if (this.mic) { this.mic.rec(false); this.mic.closeSocket(); this.mic.clear(); }
     this.state = 'idle'; this.socket = 'none'; this.secs = 0; this.level = 0; this.liveStarted = false; this.latched = false;
     this._changed();
   };
-  CP._reset = function () {
+  /** @this {Ctl} */ CP._reset = function () {
     if (this.mic) { this.mic.stopPlay(); this.mic.clear(); }
     this.playing = false; this.sentTo = 0; this.failed = []; this.quiet = []; this.fallback = []; this.decision = null; this.draftSent = false;
     this.secs = 0; this.level = 0; this.lag = null; this.liveStarted = false;
   };
-  CP._discard = function () {
+  /** @this {Ctl} */ CP._discard = function () {
     if (this.mic) { this.mic.text({ type: 'cancel' }); this.mic.closeSocket(); this.mic.stopPlay(); this.mic.clear(); }
     this.tok++; this.sendTok++;
     this.state = 'idle'; this.socket = 'none'; this.secs = 0; this.playing = false; this.decision = null; this.sentTo = 0; this.failed = []; this.quiet = []; this.fallback = []; this.draftSent = false;
   };
 
   // ---- the review
-  CP.play = function () {
+  /** @this {Ctl} */ CP.play = function () {
     var self = this, mic = this.mic;
     if (!mic || !mic.bytes) return;
     if (this.playing) { mic.stopPlay(); this.playing = false; this._changed(); return; }
     this.playing = !!mic.play(function () { self.playing = false; self._changed(); });
     this._changed();
   };
-  CP.rerecord = function () {
+  /** @this {Ctl} */ CP.rerecord = function () {
     if (this.state !== 'review' && this.state !== 'error' && this.state !== 'sent') return;
     var reuse = this.socket === 'open' && !this.draftSent, mic = this.mic;
     if (!reuse) { this._start('message'); return; }
@@ -546,7 +557,7 @@
     this.timer = this.clock.setInterval(this._tick.bind(this), 100);
     this._changed();
   };
-  CP.cancel = function () {
+  /** @this {Ctl} */ CP.cancel = function () {
     this._discard();
     this.said = null;
     this._changed();
@@ -556,18 +567,18 @@
   // ---- send
   // Send finishes the draft the socket holds; when the socket did not keep up (never opened, dropped, lost frames),
   // or the draft has gone (Send Again, Send Anyway), a new socket gets the page's copy first.
-  CP.canSend = function () {
+  /** @this {Ctl} */ CP.canSend = function () {
     return (this.state === 'review' || this.state === 'sent' || this.state === 'error') && this.chosen().length > 0 && !!this.mic && this.mic.bytes > 0;
   };
-  CP.send = function () {
+  /** @this {Ctl} */ CP.send = function () {
     if (!this.canSend()) { if (this.state === 'review' && !this.chosen().length) this._say(WORDS.chooseRooms, 'info'); return; }
     this._send(this.chosen(), false);
   };
-  CP.sendAnyway = function () {
+  /** @this {Ctl} */ CP.sendAnyway = function () {
     if (!this.quiet.length || !this.mic || !this.mic.bytes) return;
     this._send(this.quiet.slice(), true);
   };
-  CP._send = function (rooms, override) {
+  /** @this {Ctl} */ CP._send = function (rooms, override) {
     var self = this, mic = this.mic, tok = ++this.sendTok, wasDraft = !this.draftSent;
     this.said = null; this.state = 'sending'; this.decision = null; this.sentTo = 0; this.failed = []; this.quiet = []; this.fallback = [];
     mic.stopPlay(); this.playing = false;
@@ -586,12 +597,12 @@
       self._ticket('message', tok, mic.uploadable());
     });
   };
-  CP._uploaded = function () {
+  /** @this {Ctl} */ CP._uploaded = function () {
     if (this.state !== 'sending' || !this.mic) return;
     this.mic.text({ type: 'send', rooms: this._rooms, override: this._override });
   };
   // the server's events (the build spec's /ws/intercom)
-  CP._event = function (e) {
+  /** @this {Ctl} */ CP._event = function (e) {
     if (!e || typeof e !== 'object') return;
     var f = this.feed();
     switch (e.type) {
@@ -629,7 +640,7 @@
       default: break;
     }
   };
-  CP._serverError = function (e) {
+  /** @this {Ctl} */ CP._serverError = function (e) {
     var code = e.code, text;
     if (code === 'no_rooms') {
       var why = (this.decision || []).filter(function (r) { return r.state === 'skipped'; }).map(function (r) { return plain(r.reason); }).filter(Boolean);
@@ -650,12 +661,12 @@
     this._say(text, 'warn', 0);
   };
   // the recording's timer and microphone button off (the talk ended without the person's tap)
-  CP._stopTalk = function () {
+  /** @this {Ctl} */ CP._stopTalk = function () {
     this.clock.clearInterval(this.timer); this.timer = null;
     if (this.mic && this.mic.recording !== false) this.mic.rec(false);
     this.level = 0; this.latched = false; this.liveStarted = false;
   };
-  CP._closed = function () {
+  /** @this {Ctl} */ CP._closed = function () {
     this.socket = 'none';
     if (this.state === 'sending') { this.state = 'error'; this._say(WORDS.lost, 'failed', 0); }
     else if (this.state === 'recording' && this.liveStarted) this._rescue();
@@ -663,7 +674,7 @@
     this._changed();
   };
   // THE SOCKET DROPPED MID-TALK (Live): what was said is the page's own copy, and it goes as a Message on a new ticket
-  CP._rescue = function () {
+  /** @this {Ctl} */ CP._rescue = function () {
     var mic = this.mic;
     this.secs = mic.seconds();
     this._stopTalk();
@@ -671,7 +682,7 @@
     if (this.secs < MIN_S || !this.chosen().length) { this._abandon(); this._say(WORDS.lost, 'warn'); return; }
     this._send(this.chosen(), false);
   };
-  CP._socketError = function (e) {
+  /** @this {Ctl} */ CP._socketError = function (e) {
     this.socket = 'none';
     var code = e && e.code;
     if (code === 'auth') {
@@ -682,7 +693,7 @@
   };
 
   // ---- the sheet's view, whole
-  CP.view = function () {
+  /** @this {Ctl} */ CP.view = function () {
     var f = this.feed(), mode = this.modeNow(), st = this.status(), s = this.state;
     var refusal = this._refusal();
     var disabledMic = !!refusal && s === 'idle';
@@ -713,7 +724,7 @@
              stamp: window.hkMic ? window.hkMic.stamp(this.secs) : String(Math.ceil(this.secs)),
              enabled: !f || f.enabled };
   };
-  CP.do = function (id) {
+  /** @this {Ctl} */ CP.do = function (id) {
     if (id === 'send') this.send();
     else if (id === 'play') this.play();
     else if (id === 'rerecord') this.rerecord();
@@ -721,7 +732,7 @@
     else if (id === 'done') this.done();
     else if (id === 'anyway') this.sendAnyway();
   };
-  CP.dispose = function () {
+  /** @this {Ctl} */ CP.dispose = function () {
     this.disposed = true;
     var at = controllers.indexOf(this);
     if (at >= 0) controllers.splice(at, 1);
@@ -738,6 +749,7 @@
 
   // The feed and the person's memory are shared by every card that wants them (the block, the sheet): one subscription
   // each, asked for by the first card that has a client and let go when none is left.
+  /** @type {{ feed: any, mem: any, users: number, offFeed: any, offMem: any, fns: Function[], err?: any }} */
   var shared = { feed: null, mem: null, users: 0, offFeed: null, offMem: null, fns: [] };
   try { shared.mem = JSON.parse(localGet(LAST) || 'null'); } catch (e) { shared.mem = null; }
   function sharedNote() { shared.fns.slice().forEach(function (fn) { try { fn(); } catch (e) { console.error('[hk-intercom]', e); } }); }
@@ -836,18 +848,23 @@
   // A tablet that is itself talking plays nothing (the server leaves it out of its own broadcast; this is the second lock).
   //   d: {AudioContext, fetch(url) -> Promise<ArrayBuffer>, clock: {now, setTimeout}, gesture(fn), pill(show), busy()}
   var CLIP_FRESH_MS = 60000;
+  /**
+   * @typedef {{ [member: string]: any, d: any, ctx: any, lastId: any, pending: any, pillDone: boolean, played: number, last: any }} Lst
+   */
+  /** @this {Lst} @param {any} d */
   function Listener(d) {
     this.d = d; this.ctx = null; this.lastId = null; this.pending = null; this.pillDone = false; this.played = 0; this.last = null;
   }
-  var LP = Listener.prototype;
-  LP.feed = function (f) {
+  /** @type {Lst} */
+  var LP = /** @type {any} */ (Listener.prototype);
+  /** @this {Lst} */ LP.feed = function (f) {
     if (!f) return;
     if (f.listener) this._ready();
     var p = f.play;
     if (p && typeof p.id === 'string' && typeof p.url === 'string' && p.id !== this.lastId) { this.lastId = p.id; this._play(p); }
   };
   // the audio made ready: a context, the first touch watched for, and the pill if the context will not run unasked
-  LP._ready = function () {
+  /** @this {Lst} */ LP._ready = function () {
     if (this.ctx || this.failed) return;
     var self = this, AC = this.d.AudioContext;
     try { this.ctx = AC ? new AC() : null; } catch (e) { this.ctx = null; }
@@ -857,11 +874,11 @@
     if (ctx.state !== 'running') { try { Promise.resolve(ctx.resume()).catch(function () { /* wants a touch */ }); } catch (e) { /* old engine */ } }
     this.d.clock.setTimeout(function () { if (ctx.state !== 'running') self._pill(true); }, 300);
   };
-  LP._pill = function (show) {
+  /** @this {Lst} */ LP._pill = function (show) {
     if (show) { if (this.pillDone) return; this.pillDone = true; }
     this.d.pill(!!show);
   };
-  LP._play = function (p) {
+  /** @this {Lst} */ LP._play = function (p) {
     var self = this, at = this.d.clock.now();
     this._ready();
     if (!this.ctx || this.d.busy()) return;
@@ -879,7 +896,7 @@
       else { self.pending = clip; self._pill(true); }
     }).catch(function (e) { console.warn('[hk-intercom] an announcement could not be played:', e && (e.message || e)); });
   };
-  LP._start = function (clip) {
+  /** @this {Lst} */ LP._start = function (clip) {
     var ctx = this.ctx, src = ctx.createBufferSource(), gain = ctx.createGain();
     src.buffer = clip.buffer;
     gain.gain.value = clip.volume;
@@ -890,7 +907,7 @@
     this.last = { id: clip.id, volume: clip.volume };
   };
   // the first touch: the context runs, the pill goes, and a clip that waited plays if it is still news
-  LP._gesture = function () {
+  /** @this {Lst} */ LP._gesture = function () {
     var self = this, ctx = this.ctx;
     if (!ctx) return;
     Promise.resolve(ctx.resume()).then(function () {
@@ -992,12 +1009,12 @@
     function startListener(client) {
       client = client || (C.client ? C.client() : null);
       if (listener || !client || !client.intercom) return false;
-      listener = new Listener({
+      listener = /** @type {any} */ (new Listener({
         AudioContext: window.AudioContext || window.webkitAudioContext,
         fetch: function (url) { return fetch(url, { credentials: 'include' }).then(function (r) { if (!r.ok) throw new Error('clip ' + r.status); return r.arrayBuffer(); }); },
         clock: { now: function () { return Date.now(); }, setTimeout: function (fn, ms) { return setTimeout(fn, ms); } },
         gesture: gesture, pill: pill, busy: talking
-      });
+      }));
       sharedAttach(client);
       sharedUse(function () { listener.feed(shared.feed); });
       listener.feed(shared.feed);
@@ -1190,7 +1207,7 @@
         var self = this;
         if (!this._off) this._off = sharedUse(function () { self._fed(); });
         if (!this._ctl) {
-          this._ctl = new Controller(depsFor(this.client, function () { self._paint(); }));
+          this._ctl = /** @type {any} */ (new Controller(depsFor(this.client, function () { self._paint(); })));
           this._clientRef = this.client;
           // the microphone module (hk-mic.js) comes with the sheet; drawn again when it is here
           needMic().then(function () { self._paint(); });
