@@ -1,0 +1,74 @@
+{
+  "shell": "web/hk/cards/hk-media.js",
+  "folder": "web/hk/media",
+  "global": "hkMediaParts",
+  "label": "hk-media",
+  "what": "THE MUSIC AND MEDIA CARDS",
+  "run_in": "whenBase",
+  "parts": [
+    {
+      "name": "hk-media-now",
+      "title": "the player (Now Playing) and its stacked geometry, speaker panel CSS and music-page address",
+      "members": [
+        "tall",
+        "SPK_CSS",
+        "NP_PAD",
+        "NP_W",
+        "NP_H",
+        "LIB",
+        "onMusicPage",
+        "HkNowPlayingCard"
+      ]
+    },
+    {
+      "name": "hk-media-speakers",
+      "title": "the speaker picker and the notification ids it shows",
+      "members": [
+        "MUSIC_NOTES",
+        "HkSpeakerPickerCard"
+      ]
+    },
+    {
+      "name": "hk-media-saver",
+      "title": "the screensaver's now-playing line and the Browse Music frame",
+      "members": [
+        "HkScreensaverNowCard",
+        "HkBrowseCard"
+      ]
+    },
+    {
+      "name": "hk-media-recent",
+      "title": "the Home Grid's Music block: recently played and the playlists' sheet",
+      "members": [
+        "TINTS",
+        "hashOf",
+        "tintOf",
+        "RECENT_AGE",
+        "RECENT_RETRY",
+        "RECENT",
+        "recentCovers",
+        "playlistTiles",
+        "MU_CSS",
+        "HkRecentMusicCard",
+        "PL_CSS",
+        "HkMusicPlaylistsCard"
+      ]
+    },
+    {
+      "name": "hk-media-tv",
+      "title": "the Home Grid's Live TV channels block",
+      "members": [
+        "TV_SLOTS",
+        "TV_BACKOFF",
+        "tvShare",
+        "tvGrid",
+        "TV_CSS",
+        "HkTvChannelsCard"
+      ]
+    }
+  ],
+  "source": {
+    "blob": "de386e2f3f54a59f95514f0d7b4e0ffa1ef64529",
+    "lines": 4185
+  }
+}

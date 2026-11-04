@@ -1,6 +1,6 @@
 # Phase 18: code health (plan, 2026-11-03)
 
-**Status: Part A built (A0-A8) and C0; Parts B and C in progress. Every decision answered by the owner on 2026-11-03 (all recommendations accepted).**
+**Status: built (2026-11-04): A0-A8, B0-B4, C0-C4 and D, on main. Not released by this session: Part A, B1, B3, B4 and C went to the house in the bundled 0.1.123 (the owner's choice); B2 waits on main for the next release. Every decision answered by the owner on 2026-11-03 (all recommendations accepted).**
 
 ## The ask (the owner, 2026-11-03)
 
@@ -742,6 +742,40 @@ third argument it never reads; `hk-settings.js`'s `title()` method shadows `HTML
 Decision 8's strict config (`tools/typecheck/tsconfig.strict.json`, `noImplicitAny`, `hk-settings-model.js` only):
 **637 errors** (484 parameters with no type), too many to type by comments in this phase; it is measured
 (`check.py --strict`) and not in the default run.
+
+### B2 (2026-11-04)
+
+Split last, after phase 17 landed (it didn't touch `hk-media.js`: the intercom is its own `hk-intercom.js`).
+`hk-media.js` 4,185 lines -> a 266-line shell (the loader, the `register()` calls, `window.hkMedia`, the no-music
+helpers) and five parts in `web/hk/media/`: now playing 1,667, speakers 1,445, screensaver line and browse 397, recent
+music and playlists 346, TV channels 216 (28 members by name). The shell and every part check clean (one cast,
+comments only). Proved: `split_js --all --check`; the jsc suites identical; the gallery's 41 shots pixel-identical; the
+main suite (6,249) and the music and media browser checks on the SMB checkout. First load of a Home Grid screen with
+Now Playing 121 -> 126 requests; time to ready within the noise (local disk, under 50 ms). Only the jsc suites read
+`window.hkMedia`; every reader of the media cards waits for the element to be defined.
+
+### D and the Definition of done (2026-11-04)
+
+- A0-A8 on main; `build_app` refuses an undeclared route, a GET with no `reads`, a streaming route that says
+  `stream="none"` and a write tool with no `like=`, each proved by `tests/test_route_table.py`; `Routes.md` and the lock
+  generated and fresh. Done.
+- The probe's diff was empty for the migration but for `/api/stats`; the four fixes are above, each with its test. Done.
+- `ALLOW`, `PREVIEW_PATHS/PREFIXES/PATTERNS`, `PREVIEW_READS` and `PREVIEW_READS_NEVER` are gone. Done.
+- The four files split: no file above about 2,000 lines but the saver's shell (4,515, short of 3,500: the remainder is
+  measured above, decision 13); the gallery, the jsc suites and the browser checks identical; the Settings sweep
+  identical. `sheet_review.py` was not re-run for B2 (no sheet code moved; the sheets' shell `hk-detail.js` untouched).
+- `tsc` runs in `ci.py`; every file of the four splits and every file with zero errors opens with `// @ts-check`
+  (99 files); the ratchet; the real counts in `baseline.json` (814 errors in 81 of 181 files now). Both host adapters
+  typed against the contract. Done; the strict config is measured, not clean (C1).
+- `mypy` on `hk_core` at its baseline (136), `ruff` at its baseline (519). Done.
+- Rules.md rule 7, Architecture, Building-and-Testing, CONTRIBUTING and this page say what is now true; the third
+  audit's debt line on the big files is marked done.
+- Released: not by this session. The owner bundled one release (0.1.123, made by phase 15) for phases 15, 17 and
+  18; decision 11's own release was replaced by that.
+
+**Follow-ups, for the owner:** the black screen a wall tablet may lose for ~0.1 s on a reload (B3); `defined()` on
+Mantel's shell (C2); the three `@ts-expect-error` calls (C1); typing `hk-settings-model.js` for the strict config;
+the saver's shared state (getters and setters on the kit) and the other big files (decision 12).
 
 **The browser checks under load (2026-11-03/04):** with other sessions' runs on the same Mac, `ci.py full` failed a
 different set of browser checks on each run (page loads past 30 s, the screensaver not up in time), on this branch and
