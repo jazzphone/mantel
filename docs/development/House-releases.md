@@ -386,3 +386,22 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Home Assistant restarted and serves `/hk/panels/hk-settings.js` (41 s from the restart).
 - Published to jazzphone/hk-frontend main as `2e12009`, tagged `v1.43.0` and released on GitHub.
 - The Wiki pushed (publish.py had committed changes to it).
+
+## Mantel 0.1.124 (2026-11-04)
+
+- Mantel 0.1.124, release commit `f82ab39`, tagged `v0.1.124`; the LXC 0.1.123 -> 0.1.124 (build `95229e964d3f213e`).
+- Images run 41909970817 (stage=images), promote run 41910956666, GitHub Release `v0.1.124`.
+- Strict health 200, all services healthy, mantel-server built from `f82ab39`, Home Assistant connected for 62 s; no "Traceback" or "ERROR" in Mantel's log.
+- Linux suite passed.
+- Times: preflight 9 s, release commit on main 315 s, images run started 15 s, images built and pushed 211 s, the LXC updated and healthy 151 s, Linux suite passed 3 s, tagged 2 s, promoted (latest, ha-apps) 75 s, GitHub Release 3 s; 13.0 minutes in all.
+
+- What ships: the fix for 0.1.123's hang after a Home Assistant restart (below), phase 18's B2 (hk-media.js in parts) and the screensaver's Date options. `tools/ci.py full` on 5cd6a283, one group at a time: 53 of 53 (some browser checks failed under the other sessions' load on a first try and passed on the next).
+- The hang, found (the owner allowed Home Assistant restarts): with py-spy on the LXC host and a CPU watcher, the second restart reproduced it. Mantel reconnected while Home Assistant had no states yet, and each of the ~4500 first states that followed ran the notifications' `refresh()` over every entity (`Notifier.on_change` -> `accessories.members`). Now at most once every 2 s and once after the burst (f6e3a368, with a test that failed with 4500 reworks). On 0.1.124 two more restarts reconnected with 16 states: about 30 s near 100 % CPU while it caught up, then healthy, strict health 200. Before, it stayed there until restarted (3 and 2 minutes down on 2026-11-04).
+
+## HK Frontend 1.44.0 (2026-11-04)
+
+- hk-frontend 1.44.0, commit `892bfe5`, tagged `hk-frontend/v1.44.0`, copied with rsync --inplace; diff -rq shows no difference.
+- Home Assistant restarted and serves `/hk/panels/hk-settings.js` (90 s from the restart).
+- Mantel on the LXC reconnected to Home Assistant and was still healthy a minute later (73 s).
+- Published to jazzphone/hk-frontend main as `1ae1ccb`, tagged `v1.44.0` and released on GitHub.
+- The Wiki had no changes.

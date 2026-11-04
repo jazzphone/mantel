@@ -1028,3 +1028,42 @@ async def test_a_rest_save_without_auto_keeps_the_switch_and_the_markers(make_en
     assert auto["enabled"] is False and auto["decided"]["energy"]["by"] == "owner"
     r = await env.m.client.put("/api/features/settings", json={"auto": "on"}, headers=env.m.headers())
     assert r.status == 400
+
+
+async def test_a_burst_of_first_states_works_the_categories_out_a_few_times_not_once_per_entity(monkeypatch):
+    """0.1.123 on the house (2026-11-04): Home Assistant restarting, Mantel reconnected while it had no states yet;
+    the ~4500 that followed came one by one, each worked the categories out over every entity, and the event loop spun
+    at 100 % for minutes. A burst now reworks them once at its start and once after it."""
+    from mantel_server.features import notify as N
+    states: dict = {}
+    clock = [100.0]
+    tasks: list = []
+
+    class Host:
+        house = None
+        hub = type("Hub", (), {"store": type("Store", (), {"states": states})()})()
+
+        def on(self, feature):
+            return True
+
+        def monotonic(self):
+            return clock[0]
+
+        def spawn(self, coro):
+            task = asyncio.get_running_loop().create_task(coro)
+            tasks.append(task)
+            return task
+
+    notifier = N.Notifier(Host())
+    reworks = []
+    monkeypatch.setattr(notifier, "refresh", lambda: reworks.append(clock[0]))
+    monkeypatch.setattr(N, "REWORK_EVERY_S", 0.05)
+    for i in range(4500):
+        eid = f"sensor.s{i}"
+        states[eid] = {"s": "on"}
+        notifier.on_change({eid})
+        clock[0] += 0.001                                       # 4.5 s of house time, all inside the loop's turn
+    assert len(reworks) <= 100, f"{len(reworks)} reworks for one burst"
+    clock[0] += 1.0
+    await asyncio.gather(*tasks)
+    assert reworks[-1] == clock[0], "the burst's last first states are worked out after it"

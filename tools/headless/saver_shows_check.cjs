@@ -67,6 +67,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
       : want === 'look-fb' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]]
       : want === 'tb-fade' ? [[screen, want, 1180, 820]]
       : want === 'lay-align' ? [[screen, want, 1180, 820], [screen, want, 390, 844]]
+      : want === 'lay-date' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]]
       : want === 'big-corners' || want === 'planted' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]] : [[screen, want, 1180, 820]])
       // (--shard K/N: every N-th run from the K-th; tools/ci.py runs the N parts side by side)
       .filter((_, i) => !input.shard || i % input.shard[1] === input.shard[0] - 1);
@@ -95,6 +96,28 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
         return host ? { face: host.getAttribute('ckface'), big: host.hasAttribute('fcbig'), lay: host.hasAttribute('lay') } : null;
       });
+      if (want === 'lay-date') {
+        // THE DATE'S OPTIONS (2026-11-04): one line as before; two lines lined up on one edge by their ink -- Auto by
+        // the corner's side, Center when asked -- inside the screen; bold capitals where asked
+        const tag = screen + ' ' + W + 'x' + H;
+        await page.waitForTimeout(3000);
+        const d = await page.evaluate(() => { const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
+          const sr = host.shadowRoot, ink = (el) => { const rg = document.createRange(); rg.selectNodeContents(el); return rg.getBoundingClientRect(); };
+          return [...sr.querySelectorAll('.lay .hksw.p-date')].map((w) => { const b = w.getBoundingClientRect(), il = w.querySelector('.il');
+            return { two: !!w.querySelector('.dl'), box: [b.left, b.top, b.right, b.bottom], lines: [...il.children].map((s) => { const r = ink(s); return [r.left, r.right, r.top, r.bottom]; }),
+                     text: il.textContent, up: getComputedStyle(il).textTransform, wt: getComputedStyle(il).fontWeight, al: w.className.match(/al-(\w+)/) }; }); });
+        const at = (fn) => d.find(fn), one = at((x) => !x.two), right = at((x) => x.two && x.box[0] > W / 2 && x.box[1] < H / 2),
+              caps = at((x) => x.up === 'uppercase'), mid = at((x) => x.two && x.box[0] > W / 2 && x.box[1] > H / 2);
+        say(d.length === 4 && !!one && one.lines.length === 1 && /, /.test(one.text), tag + ': the Date as before, one line', one);
+        say(!!right && right.lines.length === 2 && Math.abs(right.lines[0][1] - right.lines[1][1]) <= 1.5 && right.lines[0][3] <= right.lines[1][2] + 1, tag + ': two lines on the right corner end on one edge, the weekday over the date', right);
+        say(!!caps && caps.lines.length === 2 && Math.abs(caps.lines[0][0] - caps.lines[1][0]) <= 1.5 && +caps.wt >= 700, tag + ': short, bold capitals on the left start on one edge', caps);
+        say(!!mid && Math.abs((mid.lines[0][0] + mid.lines[0][1]) - (mid.lines[1][0] + mid.lines[1][1])) <= 3 && /\/\d{4}/.test(mid.text), tag + ': centered when asked, the date as numbers with its year', mid);
+        say(d.every((x) => x.box[0] >= 0 && x.box[2] <= W + 0.5 && x.box[1] >= 0 && x.box[3] <= H + 0.5 && x.lines.every((l) => l[3] <= x.box[3] + 1)), tag + ': every Date inside the screen and its own box', d.map((x) => x.box));
+        if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '.png' });
+        say(!errors.length, tag + ': no page errors', errors.slice(0, 3));
+        await ctx.close();
+        continue;
+      }
       if (want === 'lay-align') {
         const tag = screen + ' ' + W + 'x' + H;
         await page.waitForTimeout(3000);

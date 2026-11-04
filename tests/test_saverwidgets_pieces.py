@@ -399,3 +399,27 @@ def test_the_file_is_valid_javascript():
     if node.returncode == 127 or "No such file" in node.stderr:
         pytest.skip("node is not installed")
     assert node.returncode == 0, node.stderr
+
+
+def test_the_date_takes_its_options_and_draws_as_before_by_default(tmp_path):
+    """The owner, 2026-11-04: the Date in two lines (the weekday over the date) and its format, weight and capitals; its
+    defaults draw "Monday, November 2" as before, one line, 3.6 u tall (8 u as a two-line pill, 6.8 u without one)."""
+    out = run(tmp_path, r"""
+var r = {}, cases = {
+  plain: {}, two: { lines: 'two' }, short: { weekday: 'short', month: 'short' }, num: { month: 'number', year: 'on' },
+  noday: { weekday: 'none', year: 'on' }, twonoday: { lines: 'two', weekday: 'none' }, caps: { case: 'upper', weight: 'bold' }
+};
+Object.keys(cases).forEach(function (k) {
+  var d = W.create('date', 'inline', { u: 10, opts: cases[k] }); d.update(HOUSE, NOW, CTX);
+  r[k] = { html: d.el.innerHTML, h: d.measure().h };
+});
+var p = W.create('date', 'inline', { u: 10, back: 'glass', opts: { lines: 'two' } }); p.update(HOUSE, NOW, CTX); r.pill2 = p.measure().h;
+r.sample = W.sample('date', 'inline', { opts: { lines: 'two' } }).innerHTML;
+print(JSON.stringify(r));
+""", before=SMALL_HOUSE + CTX)
+    assert out["plain"]["html"] == '<span class="il"><span>Monday, November 2</span></span>' and out["plain"]["h"] == 36
+    assert out["two"]["html"] == '<span class="il dl"><span>Monday</span><span>November 2</span></span>' and out["two"]["h"] == 68
+    assert ">Mon, Nov 2<" in out["short"]["html"] and ">Monday, 11/2/2026<" in out["num"]["html"]
+    assert ">November 2, 2026<" in out["noday"]["html"] and out["twonoday"]["h"] == 36 and "dl" not in out["twonoday"]["html"]
+    assert 'class="il dw-bold dc-upper"' in out["caps"]["html"] and out["pill2"] == 80
+    assert "<span>Monday</span><span>November 2</span>" in out["sample"]

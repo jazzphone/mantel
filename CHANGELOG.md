@@ -4,6 +4,14 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.124 - 2026-11-04
+
+**Added**
+- **The screensaver's Date, your way.** In the screensaver editor, the Date piece takes two lines (the weekday over the date, lined up with its corner, or centered), a short or numbered month, the year or not, a short weekday or none, a light or bold weight, and all capitals. As it comes it reads as before. See [Screensaver](docs/guide/Screensaver.md).
+
+**Fixed**
+- After Home Assistant restarted, Mantel could stop answering for minutes (every screen and Mantel Settings frozen) when it reconnected while Home Assistant was still starting: each of the thousands of first states made it work out the notification categories again over every device. It now does that a few times for the whole burst.
+
 ## 0.1.123 - 2026-11-04
 
 **Added**

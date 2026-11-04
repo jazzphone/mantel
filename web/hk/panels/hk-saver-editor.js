@@ -191,13 +191,14 @@
     entity: 'Sensor', entity2: 'Second Sensor', name: 'Name', min: 'Ring Minimum', max: 'Ring Maximum',
     'alarm.entity': 'Alarm Sensor', 'trash.entity': 'Trash Calendar or Sensor', 'pollen.entity': 'Pollen Sensor', 'appliance.entity': 'Appliance',
     'appliance.entity2': 'Second Appliance', 'travel.entity': 'Place', 'travel.entity2': 'Second Place', 'price.entity': 'Price Sensor',
-    'sensor.entity': 'Entity', 'sensor.entity2': 'Second Entity'
+    'sensor.entity': 'Entity', 'sensor.entity2': 'Second Entity',
+    lines: 'Lines', weekday: 'Weekday', month: 'Month', year: 'Year', weight: 'Weight', case: 'Letters'
   };
   var OPT_SUBS = {
     match: 'The next event with these words in its title; empty, the next all-day event.', name: 'Empty: the entity’s own name.',
     min: 'The number where the ring is empty.', max: 'The number where the ring is full.'
   };
-  var CHOICE_WORDS = { aqi: 'AQI', open: 'Only When Open', always: 'Always' };
+  var CHOICE_WORDS = { aqi: 'AQI', open: 'Only When Open', always: 'Always', normal: 'As Written', upper: 'All Capitals' };
   function titleCase(s) { return String(s).replace(/_/g, ' ').replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }); }
   function choiceName(key, v) {
     if (CHOICE_WORDS[v]) return CHOICE_WORDS[v];
@@ -1326,7 +1327,7 @@
         } },
         // ITS WORDS ALIGNED (2026-11-03, the owner: on the right, "aligned to the right to match the edge of the screen"):
         // a card's or a rectangle's lines; Auto follows its side
-        { applies: function () { return w.shape === 'card' || w.shape === 'rectangular'; }, make: function () {
+        { applies: function () { return w.shape === 'card' || w.shape === 'rectangular' || (w.piece === 'date' && w.opts && w.opts.lines === 'two'); }, make: function () {
           var side = z === 'tr' || z === 'br' ? 'right' : 'left';
           return K.seg({ label: 'Align', sub: 'Auto lines its words up with its side of the screen (' + side + ' here)', value: w.align || 'auto', stack: true,
             options: [['auto', 'Auto'], ['left', 'Left'], ['center', 'Center'], ['right', 'Right']],
