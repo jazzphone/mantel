@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.123 - 2026-11-04
+
 **Added**
 - **The Intercom: talk into rooms.** Speak a message into one room, several or the whole house through the speakers Music Assistant plays on, from the Home Grid block **Intercom** or its sheet, on a wall tablet, a phone's or iPad's browser (over https://) and, from the next TestFlight build, the iPhone and iPad app. It's one-way, a message at a time; Live (talking as you speak) stays off for now. A wall tablet in a room with no speaker can play it itself. Mantel Settings → **Intercom** turns it on (off by default) and each room (every room off until you turn it on); it also needs Allow Control of the House. See [Intercom](docs/guide/Intercom.md).
 - The Intercom's stream port, for Music Assistant to fetch the message: 8767 on Docker and the Proxmox LXC (compose.yaml publishes it; the LXC's `update` picks it up, no `.env` change), 8101 in the Home Assistant App (its Network section). The server takes `--stream-port`.
