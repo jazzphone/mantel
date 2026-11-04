@@ -71,7 +71,12 @@
     install: function (o) {
       o = o || {};
       var H = window.hkIntercom;
+      // the fake feed as an override: the page's own subscription (the test server's Intercom is off) may answer after
+      // this, now that the card file loads lazily, and must not replace it
+      H._.feedIs(feed(o));
+      var fake = H._.shared.feed;
       H.use({
+        feed: () => fake,
         actions: () => ({
           intercom: () => Promise.resolve({ url: 'wss://mantel.example/ws/intercom', token: 'fictional' }),
           callWS: () => Promise.resolve(null)

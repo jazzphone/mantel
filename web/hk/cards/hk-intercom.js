@@ -794,6 +794,8 @@
   }
 
   var overrides = {};                   // hkIntercom.use(): a test's stand-ins for the surroundings
+  /** the feed as the cards see it: a test's stand-in (hkIntercom.use) wins over the page's own */
+  function feedNow() { return overrides.feed ? overrides.feed() : shared.feed; }
 
   // THE MICROPHONE MODULE, on demand. hk-mic.js is not one of the page's bootstrap modules (hk-loader.js MODULES): the sheet
   // imports it as it opens, so it is here long before a press (a press must make the AudioContext inside the gesture).
@@ -1055,7 +1057,7 @@
       getCardSize() { return 2; }
       _size() { var s = (this.getAttribute && this.getAttribute('size')) || (this._config || {}).size; return s === 'W' ? 'W' : 'S'; }
       _sigOf() {
-        var f = shared.feed, m = shared.mem || {};
+        var f = feedNow(), m = shared.mem || {};
         return JSON.stringify([this._size(), !!(this.client && this.client.intercom), f ? [f.enabled, f.rooms.map(function (r) { return r.room + r.name; })] : null, m.rooms || null]);
       }
       _receiveClient() {
@@ -1075,7 +1077,7 @@
         if (super.disconnectedCallback) super.disconnectedCallback();
       }
       _lines() {
-        var f = shared.feed, port = !!(this.client && this.client.intercom);
+        var f = feedNow(), port = !!(this.client && this.client.intercom);
         if (!port) return { state: 'Needs Mantel', label: WORDS.needsHost, off: true };
         if (!f) return { state: shared.err ? 'Unavailable' : '', label: 'Intercom', off: !!shared.err };
         if (!f.enabled) return { state: 'Off', label: WORDS.off, off: true };
