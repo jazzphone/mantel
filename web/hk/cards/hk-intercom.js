@@ -438,7 +438,7 @@
   // the gateway refused the ticket: said; what cannot be mended by trying again ends the recording
   CP._refused = function (code, err) {
     var SH = window.hkShell, host = SH && SH.productName ? SH.productName() : 'the server';
-    var reason = reasonOf(code, err);                // a reason Mantel gave: said in its own words, and trying again would not help
+    var reason = reasonOf(code, err);                // a reason the server gave: said in its own words, and trying again would not help
     var text = reason ? REASONS[reason] : code === 'unavailable' ? WORDS.unreachable + host : (err && err.message) || 'Couldn’t start the Intercom';
     this.socket = 'none';
     if (this.mic) this.mic.noSocket();
