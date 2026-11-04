@@ -71,6 +71,7 @@
   var SHAPES = ['inline', 'circular', 'rectangular', 'card', 'band'];
   // each shape's usual size in units: [width, height]; an inline piece's width is its text's, a card's height what it draws
   var SIZE = { circular: [13, 13], rectangular: [29, 13], inline: [0, 3.6], card: [30, 0], band: [0, 10] };
+  var LINE2 = 3.2;           // an inline piece's second line: its words (2.8 u) at a line height of 1.15
   var CAL_TTL = 300000;                     // the calendar is read at most this often (shared by every piece)
   var ENERGY_TTL = 30000;
 
@@ -136,6 +137,11 @@
     '.hksw.k-inline:not(.b-none) .il > svg:first-child, .hksw.k-inline:not(.b-none) .il > .dot:first-child{margin-left:calc(var(--u) * -.6)}',
     // (a glyph is centered on the line: SF's cap height sits at the middle of its line box, so the row's center is the caps')
     '.hksw .il{display:inline-flex;align-items:center;gap:.4em}',
+    // the Date in two lines: the weekday over the date, both on one left (or right, or center) edge
+    '.hksw.k-inline.l2{height:calc(var(--u) * 6.8)}.hksw.k-inline.l2:not(.b-none){height:calc(var(--u) * 8);border-radius:calc(var(--u) * 2.4)}',
+    '.hksw .il.dl{flex-direction:column;align-items:flex-start;justify-content:center;gap:0;line-height:1.15}',
+    '.hksw.al-right .il.dl{align-items:flex-end;text-align:right}.hksw.al-center .il.dl{align-items:center;text-align:center}',
+    '.hksw .dw-light{font-weight:300}.hksw .dw-bold{font-weight:700}.hksw .dc-upper{text-transform:uppercase;letter-spacing:.04em}',
     '.hksw .il svg{width:1.15em;height:1.15em}',
     '.hksw .il .dot{margin-right:0}',
     // band: equal columns, each centered, so a row's figures sit on one baseline
@@ -765,14 +771,33 @@
   });
 
   // ---- DATE
+  // (2026-11-04, the owner: "an option to make it 2 line and any other styling options that would make sense"): one line
+  // or two (the weekday over the date, lined up by Align, its side of the screen by default); the weekday and the month
+  // long, short or none/a number; the year; the weight and capitals. The defaults draw it as it always was.
+  function dateLines(d, po) {
+    po = po || {};
+    var m = d.getMonth(), day = d.getDate(), yr = po.year === 'on';
+    var date = po.month === 'number' ? (m + 1) + '/' + day + (yr ? '/' + d.getFullYear() : '')
+             : (po.month === 'short' ? MONTHS[m].slice(0, 3) : MONTHS[m]) + ' ' + day + (yr ? ', ' + d.getFullYear() : '');
+    var wk = po.weekday === 'none' ? '' : po.weekday === 'short' ? DAYS[d.getDay()].slice(0, 3) : DAYS[d.getDay()];
+    return !wk ? [date] : po.lines === 'two' ? [wk, date] : [wk + ', ' + date];
+  }
+  function dateDraw(s) {
+    var cls = (s.weight && s.weight !== 'standard' ? ' dw-' + s.weight : '') + (s.upper ? ' dc-upper' : '');
+    if (s.lines.length < 2) return '<span class="il' + cls + '"><span>' + esc(s.lines[0]) + '</span></span>';
+    return '<span class="il dl' + cls + '">' + s.lines.map(function (l) { return '<span>' + esc(l) + '</span>'; }).join('') + '</span>';
+  }
+  function dateOf(d, po) { return { lines: dateLines(d, po), weight: po && po.weight, upper: !!(po && po.case === 'upper') }; }
   define('date', {
-    name: 'Date', group: 'Time and Calendar', wave: 'now', facts: ['date'], source: 'clock', when: null, wakes: ['minute'], pick: null, off: false, opts: {}, accent: null,
+    name: 'Date', group: 'Time and Calendar', wave: 'now', facts: ['date'], source: 'clock', when: null, wakes: ['minute'], pick: null, off: false,
+    opts: { lines: ['one', 'two'], weekday: ['long', 'short', 'none'], month: ['long', 'short', 'number'], year: ['off', 'on'], weight: ['standard', 'light', 'bold'], case: ['normal', 'upper'] }, accent: null,
     shapes: {
       inline: {
-        read: function (X) { return { text: DAYS[X.now.getDay()] + ', ' + MONTHS[X.now.getMonth()] + ' ' + X.now.getDate() }; },
-        draw: function (s) { return inl('', s.text); },
-        text: function (s) { return s.text; },
-        sample: { text: 'Monday, November 2' }
+        read: function (X) { return dateOf(X.now, X.opts); },
+        draw: dateDraw,
+        text: function (s) { return s.lines.join(' '); },
+        lines: function (s) { return s ? s.lines.length : 1; },
+        sample: function (po) { return dateOf(new Date(2026, 10, 2), po); }
       }
     }
   });
@@ -1181,7 +1206,8 @@
     // estimated from the number of letters (the tests' shim has no layout); a card's height is what it drew
     api.measure = function () {
       // (an inline piece with a backdrop is a pill: 4.8 u tall, 2.4 u at each end, 1.8 u on its glyph's side)
-      var k = SIZE[shape], pill = shape === 'inline' && back !== 'none', gl = !!(spec && (spec.gl || spec.cond)), pad = pill ? (gl ? 4.2 : 4.8) * u : 0, ih = (pill ? 4.8 : k[1]) * u;
+      var k = SIZE[shape], pill = shape === 'inline' && back !== 'none', gl = !!(spec && (spec.gl || spec.cond)), pad = pill ? (gl ? 4.2 : 4.8) * u : 0,
+          ih = ((pill ? 4.8 : k[1]) + (def.lines && def.lines(spec) > 1 ? LINE2 : 0)) * u;
       var hOf = function () { return (def.h ? def.h(spec) : k[1]) * u; };
       if (shape === 'inline') {
         var inner = el.firstElementChild || null, mw = inner && inner.offsetWidth > 0 ? inner.offsetWidth : 0;
@@ -1213,6 +1239,8 @@
   // a spec onto an element: its markup (nothing, while a "shows when" piece has nothing and draws no placeholder) and its accent
   function paint(el, decl, def, spec, po) {
     el.innerHTML = spec.off && !def.idle ? '' : def.draw(spec, po);
+    // (an inline piece in two lines -- the Date's -- is taller by one line of its words)
+    if (def.lines && el.classList) el.classList.toggle('l2', def.lines(spec) > 1);
     var acc = accOf(decl, spec, po);
     if (acc) {
       el.style.setProperty('--sw-acc', acc[0]);

@@ -105,6 +105,16 @@ SHOWS = {
     # card and the music's on the right, Auto; the weather's on the left
     'saver-lay-align': ({'show': 'clock', 'clock_bg': 'aurora', 'clock_style': 'classic', 'layout': _pieces(
                         {'kind': 'time', 'size': 26, 'pos': 'center'}, tl=['weather.card'], tr=['status.card'], br=['music.card'])}, 'lay-align'),
+    # THE DATE'S OPTIONS (2026-11-04, the owner: "an option to make it 2 line"): in every corner -- one line as it always
+    # was, two lines by its side (Auto: the right corners' to the right), short and bold in capitals, centered
+    'saver-lay-date': ({'show': 'clock', 'clock_bg': 'aurora', 'clock_style': 'classic', 'layout': {'v': 2,
+                        'big': {'kind': 'time', 'size': 26, 'pos': 'center'}, 'zones': {
+                        'tl': [{'piece': 'date', 'shape': 'inline'}],
+                        'tr': [{'piece': 'date', 'shape': 'inline', 'opts': {'lines': 'two'}}],
+                        'bl': [{'piece': 'date', 'shape': 'inline', 'opts': {'lines': 'two', 'weekday': 'short', 'month': 'short',
+                                                                               'weight': 'bold', 'case': 'upper'}}],
+                        'br': [{'piece': 'date', 'shape': 'inline', 'back': 'glass', 'align': 'center',
+                                'opts': {'lines': 'two', 'month': 'number', 'year': 'on'}}]}}}, 'lay-date'),
     'saver-lay-clock': ({'show': 'clock', 'clock_bg': 'aurora', 'clock_style': 'neon', 'layout': _layout(
                         {'kind': 'time', 'size': 30, 'pos': 'center'}, line=['date'], tl=['weather_card'], tr=['status_card'],
                         bl=['music_card'])}, 'lay-clock'),
