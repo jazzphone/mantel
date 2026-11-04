@@ -192,6 +192,19 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           const t = host && host.shadowRoot.querySelector('.lay .lybig'), r = t && t.getBoundingClientRect(); return r ? { l: r.left, t: r.top, w: r.width } : null; });
         say(!!t2 && !!tb.time && Math.abs(t2.l - tb.time.l) <= 1 && Math.abs(t2.t - tb.time.t) <= 1 && Math.abs(t2.w - tb.time.w) <= 1,
             screen + ' ' + W + 'x' + H + ': ...and it holds still while the photo zooms', [tb.time, t2]);
+        // THE TURN OF A MINUTE (2026-11-03, the owner: "when the time changes... it pops out in front of the face and then
+        // the faces fades back over it"): wider figures, drawn again -- the person over them never drops out meanwhile
+        const cutA = () => page.evaluate(() => { const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
+          return [...host.shadowRoot.querySelectorAll('.lay .lycut')].filter((t) => getComputedStyle(t).display !== 'none').map((t) => Number(getComputedStyle(t).opacity) * Number(getComputedStyle(t.querySelector('img')).opacity)); });
+        const a0 = Math.max(0, ...(await cutA()));
+        if (a0 > 0.95) {
+          await page.evaluate(() => { const host = [...document.querySelectorAll('*')].find((e) => e.shadowRoot && e.shadowRoot.querySelector('.ph,.info'));
+            const t = host.shadowRoot.querySelector('.lay .lybig .tm'); if (t) { const n = [...t.querySelectorAll('*')].concat([t]).find((e) => e.childNodes.length === 1 && e.firstChild.nodeType === 3 && /\d/.test(e.textContent)) || t; n.textContent = '12:58'; }
+            window.hkSaver._.layoutNow(); return true; });
+          let low = 1;
+          for (let k = 0; k < 8; k++) { await page.waitForTimeout(100); low = Math.min(low, Math.max(0, ...(await cutA()))); }
+          say(low > 0.9, screen + ' ' + W + 'x' + H + ': ...at the turn of a minute the person stays over the time', low);
+        }
         say(!errors.length, screen + ' ' + W + 'x' + H + ': no page errors', errors.slice(0, 3));
         if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '.png' });
         // ...and in its Settings preview (the screen's Screensaver page)

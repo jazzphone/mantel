@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- Screensaver: with the time behind the photo's people, the people stay over the time when the minute changes (they dropped behind it and faded back).
+
 ## 0.1.121 - 2026-11-03
 
 **Added**
