@@ -392,7 +392,7 @@ async def _text(ws: web.WebSocketResponse, timeout: float) -> Any:
         return None
 
 
-@guard("signed_in")     # any session; each socket needs a gateway ticket, which the roles decide (relay.serve)
+@guard("signed_in", reads="view", stream="live:intercom")     # any session; each socket needs a gateway ticket, which the roles decide (relay.serve)
 async def socket_handler(request: web.Request) -> web.StreamResponse:
     """``GET /ws/intercom``: behind the sign-in (auth.require_session: a session and an Origin header). Refused before
     the upgrade while commands are off or the Intercom is: nothing is opened."""

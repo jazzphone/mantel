@@ -1704,6 +1704,40 @@
   "stream": "none",
   "who": "manager"
  },
+ "GET /api/intercom/clip/{id}": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": true,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "api_clip",
+  "mcp": [],
+  "module": "mantel_server.intercom.routes",
+  "no_audit": null,
+  "preview": false,
+  "reads": "feature:intercom",
+  "reads_why": null,
+  "stream": "bounded:one broadcast's clip, 60 s of audio at most (about 6 MB)",
+  "who": "signed_in"
+ },
+ "GET /api/intercom/settings": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "api_settings",
+  "mcp": [],
+  "module": "mantel_server.intercom.routes",
+  "no_audit": null,
+  "preview": false,
+  "reads": "admin",
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
+ },
  "GET /api/linked/ha-saves": {
   "audit": [],
   "csrf": "-",
@@ -2851,6 +2885,23 @@
   "stream": "live:hub",
   "who": "signed_in"
  },
+ "GET /ws/intercom": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": true,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "socket_handler",
+  "mcp": [],
+  "module": "mantel_server.intercom.relay",
+  "no_audit": null,
+  "preview": false,
+  "reads": "view",
+  "reads_why": null,
+  "stream": "live:intercom",
+  "who": "signed_in"
+ },
  "GET /ws/talk": {
   "audit": [],
   "csrf": "-",
@@ -3736,6 +3787,42 @@
   "handler": "api_tablets_post",
   "mcp": [],
   "module": "mantel_server.ingress",
+  "no_audit": null,
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "owner"
+ },
+ "POST /api/intercom/check": {
+  "audit": [],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "away",
+  "handler": "api_check",
+  "mcp": [],
+  "module": "mantel_server.intercom.routes",
+  "no_audit": "asks Music Assistant to read a silent link; nothing plays, nothing changes",
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
+ },
+ "POST /api/intercom/test": {
+  "audit": [
+   "intercom.test"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "away",
+  "handler": "api_test",
+  "mcp": [],
+  "module": "mantel_server.intercom.routes",
   "no_audit": null,
   "preview": false,
   "reads": null,
@@ -4677,6 +4764,45 @@
   "reads_why": null,
   "stream": "none",
   "who": "owner"
+ },
+ "PUT /api/intercom/rooms/{entity}": {
+  "audit": [
+   "intercom.room.saved",
+   "intercom.live.reset"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "away",
+  "handler": "api_room",
+  "mcp": [],
+  "module": "mantel_server.intercom.routes",
+  "no_audit": null,
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
+ },
+ "PUT /api/intercom/settings": {
+  "audit": [
+   "intercom.settings.saved"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "away",
+  "handler": "api_save",
+  "mcp": [],
+  "module": "mantel_server.intercom.routes",
+  "no_audit": null,
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
  },
  "PUT /api/linked/ha-saves": {
   "audit": [

@@ -44,7 +44,7 @@ log = logging.getLogger("mantel.live")
 
 # the kinds a route may declare as ``stream="live:<kind>"`` (route_table.py, R5): what each long-lived answer adds
 # here under (an entry's kind is this, or this followed by ``:`` and what it holds)
-KINDS = frozenset({"hub", "talk", "linked", "linked_reads", "media_proxy"})
+KINDS = frozenset({"hub", "talk", "intercom", "linked", "linked_reads", "media_proxy"})
 
 SHUTDOWN = "server_shutting_down"
 REVOKED = "revoked"

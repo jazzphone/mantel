@@ -22,6 +22,8 @@ interface HkActionPort {
   callWS(message: any): Promise<any>;
   request(path: string, init?: RequestInit): Promise<any>;
   liveSocket(speaker?: string): Promise<{ url: string; token: () => string }>;
+  /** The Intercom (docs/phase17/INTERCOM.md): a one-time ticket for /ws/intercom. Mantel's adapter only. */
+  intercom?(mode: string, rate: number): Promise<{ url: string; token: string }>;
   /** ms the doorbell card waits for the live socket; undefined: the card's own wait. */
   readonly liveWaitMs: number | undefined;
 }
@@ -59,6 +61,8 @@ interface HKClient {
 
 /** What a host adapter passes to hkClient.create(port): the data it reads from its own object, and its action port. */
 interface HkClientPort {
+  /** The Intercom's feed (a read): subscribe(cb) -> unsubscribe. Mantel's adapter only. */
+  intercom?: { subscribe(cb: (event: any, error: any) => void): () => void };
   states?: Record<string, any>;
   entities?: Record<string, any>;
   devices?: Record<string, any>;

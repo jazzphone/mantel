@@ -87,7 +87,7 @@ def page_json(request: web.Request) -> dict:
             "ma": bool(m is not None and m.active)}
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_settings(request: web.Request) -> web.Response:
     return ok(page_json(request))
 
@@ -235,7 +235,8 @@ async def api_test(request: web.Request) -> web.Response:
     return ok({"ok": False, "message": f"{music.name_of(room)} didn't play it ({result.split(':', 1)[-1]})."})
 
 
-@guard("signed_in", device_ok=True)
+@guard("signed_in", device_ok=True, reads="feature:intercom",
+       stream="bounded:one broadcast's clip, 60 s of audio at most (about 6 MB)")
 async def api_clip(request: web.Request) -> web.StreamResponse:
     """A listener tablet's copy of a broadcast (17.4): only a tablet the broadcast named, only while it lasts."""
     host = host_of(request)
