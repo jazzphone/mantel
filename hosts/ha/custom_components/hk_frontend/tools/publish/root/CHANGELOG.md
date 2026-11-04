@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.44.0 - 2026-11-04
+
 **Added**
 - **The screensaver's Date, your way:** two lines (the weekday over the date, lined up with its corner, or centered), a short or numbered month, the year, a short weekday or none, a light or bold weight, and all capitals. As it comes it reads as before.
 
