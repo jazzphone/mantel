@@ -704,6 +704,15 @@ Unforeseen, and what was chosen:
 - **Tablets as listeners** use the Intercom feed's `play` event (the plan's `intercom_play` hub message): one
   subscription per page instead of a second channel.
 
+Checks (2026-11-04, the pushed tree): the Intercom's own suites pass (rooms 72, spool/links/listener 81, relay 84,
+API 127, fallback 29, security 10, card 93, settings 21), and the headless Intercom check passes at five sizes with a
+finger. `tools/ci.py full` at `CI_JOBS=2`: 48 of 53 pass in the whole run; the five that failed there
+(`headless-client_smoke`'s rhythm section, three saver Shows parts, and the main suite's `test_settings_viewports`
+browser test) each pass when run alone on the same tree. They fail with page-load timeouts or half-drawn pages while
+other sessions run their checks, the flakiness phases 15 and 18 also recorded. Two causes on this branch were real
+and fixed: every page loaded the Intercom's ~100 KB and subscribed its feed (now lazy: only where the block, the sheet
+or a listener tablet needs it), and `client_smoke` didn't know the feed's subscribe was a read.
+
 Review notes not changed (follow-ups):
 
 - `music/item_by_uri` is a read any page with the music feature can send with any `uri`; if Music Assistant's builtin
