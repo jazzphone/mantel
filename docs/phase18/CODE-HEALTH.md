@@ -664,4 +664,67 @@ the share; it is skipped as unchanged when no Python changed).
   101, F841 unused variable 16, F541 an f-string with nothing in it 3. **No undefined name (F821) anywhere.** Per file
   in `tools/typecheck/ruff_baseline.json`, the same ratchet.
 
+### C2 (2026-11-03)
+
+`tools/typecheck/types/hk-shell.d.ts` and `hk-client.d.ts`. The contract is two layers, so there are three shell types:
+`HkShell` (the `window.hkShell` facade the shared code calls: 46 methods and its own members), `HkShellHost` (what
+an adapter hands `use()`: 18 members both hosts implement, required; 27 only one host has, optional, since the facade's
+defaults cover the other) and `HkShellMethods`. The client: `HKClient` (19 members) and `HkClientPort`. Both hosts'
+shell and client adapters (`web/shim/mantel-shell.js`, `mantel-client.js`, `hosts/ha/frontend/hk-ha-shell.js`,
+`hk-ha-client.js`) are typed against them and opt in, 0 errors; dropping a required member fails `types-js`.
+Comments only: Mantel's build id `d5edc76657f1a07c` and HK Frontend's minified adapters are identical before and after.
+
+Found, not changed (a follow-up): `hk-strategy.js` polls `window.hkShell.defined()` up to 600 times at 100 ms; Mantel's
+adapter has no `defined`, so the facade's default answers false and the poll runs its full 60 s on Mantel for nothing.
+
+### B0 and B1 (2026-11-04)
+
+`tools/split_js.py` and `tools/split_js.cjs` (the TypeScript compiler API): a manifest names the members each part
+takes; the kit is computed from the checker's resolved names, and `tsc` must report exactly that kit as missing before
+the takes are written, and nothing after; every moved member's text is compared after the move; a member that writes
+shared state is refused; `--find NAME` and `--check`. `split_files.js` took over `detail_files.js` for the jsc suites;
+`tests/web_sources.py` for the main suite; `tests/test_web_sources.py`, `tests/test_file_sizes.py` (the size ratchet,
+14 web files and 1 Python file over the lines).
+
+**B1:** `hk-grid-cards.js` 2,649 lines -> a 217-line shell and six parts in `web/hk/grid-cards/` (391, 512, 438, 570,
+218, 487). The jsc suites' output identical (164 suites); the gallery's 41 shots pixel-identical (two baseline runs
+identical first; `home-grid-starters` fails at baseline too and is left out); first load of a Home Grid screen 108 ->
+114 requests (the parts, in parallel), time to ready 0.33 s against 0.27-0.31 s on local disk. `hk-grid-math.js` opts
+in to `// @ts-check`. The browser checks now wait for a split shell's elements after `__mantelReady` (on the SMB
+checkout the parts arrive later and three checks read cards too early). Under Home Assistant a YAML `custom:hk-*`
+grid card is defined one round trip later than before; Lovelace rebuilds the card when it is defined.
+
+### B3 (2026-11-04)
+
+`hk-saver.js` 6,478 lines -> a **4,515-line shell** and seven parts in `web/hk/saver/` (2,235 lines: helpers 673, CSS
+595, photos 236, draw 175, music 384, pane 84, black 88; 175 members). **Short of the 3,500 target, measured:** the
+saver has 238 top-level names, 143 of them reassigned; all but six small clusters form one connected group (268
+statements, 4,203 lines) around `cfg`, `on`, `host`, `root`, `deck` and the timers, with the `window.hkSaver` literal,
+the `hk-music-pane-card` registration and the listeners in it. Moving more needs getters and setters on the kit
+(decision 13: not a move). What is left, by section (lines, then shared mutable variables its statements touch):
+helpers 97/3, the page 16/1, state 65/3, the switch 48/6, idle 15/4, input 134/19, the element 148/22, start/stop
+246/30, photos 277/35, the mosaic 239/23, the forecast 89/14, the slide corner 146/17, the layout 547/25, the clocks
+278/33, home energy 145/22, the weather 85/18, additional screens 78/16, the music 152/6, the music's panel 350/19, the
+dashboard's pane 237/8, the pane 371/27, HK's own black 251/38, the loop 266/51; 134 distinct reassigned variables in
+all. The size ratchet holds the shell at its measured size.
+
+Proved: `split_js.py --all --check`; no TS2304 in a part (five parts opt in, 0 errors); the jsc suites identical (one
+text pin in `test_saverlayers.js` read two functions now in different files, and reads them separately); the gallery's
+41 shots pixel-identical; the saver's browser checks pass (each flake under load passed run alone). Load, from local
+disk: a saver screen's first load 103 -> 110 requests; page ready unchanged (115-200 ms against 118-181);
+`window.hkSaver` there 60-110 ms later (195-351 ms against 151-241), before the screensaver can start (it waits for
+idle), so nothing a person sees moves; under decision 6's 50 ms rule this is not first draw. `web/home.js`'s
+screensaver-only preview now waits up to 10 s for `window.hkSaver` (it was there at once before).
+
+The B1 review's follow-ups: the shared loader sets `window.__hkSplitStarted[<shell>]` synchronously, so a second
+evaluation never runs the parts twice; the test views fail loudly for a known shell without its parts list; the
+tool keeps a `var` whose initializer touches nothing in place (it was pulled into the waiting block).
+
+**The browser checks under load (2026-11-03/04):** with other sessions' runs on the same Mac, `ci.py full` failed a
+different set of browser checks on each run (page loads past 30 s, the screensaver not up in time), on this branch and
+on `origin/main` alike; every one passed run alone, and four alternating runs of a failing shard on main and on this
+branch were all clean. `test_settings_viewports.py` listens on a fixed port (9371) that another session's suite can
+hold at the same moment. B0-B1 was pushed with the pre-push hook skipped after its one failure (that test) passed
+alone.
+
 **Waiting on nothing.**

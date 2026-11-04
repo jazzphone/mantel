@@ -57,11 +57,20 @@
   // (the third audit pass, WEB-11): the ones still missing are asked for again, a little later each time, at an address
   // of their own -- a browser keeps a failed module's answer for its address
   function loadParts(then, n) {
+    // (the first call has no n; the retries and the finish pass it) a shell evaluated twice before its parts arrive
+    // must not run them twice: the flag is set at once, not when the parts have run
+    if (n === undefined) {
+      var started = window.__hkSplitStarted = window.__hkSplitStarted || {};
+      if (started['hk-grid-cards']) return;
+      started['hk-grid-cards'] = true;
+    }
     n = n || 0;
     var have = window.hkGridCardsParts || {};
     var missing = PARTS.filter(function (file) { return !have[partKey(file)]; });
     if (!missing.length) {
       try { then(); } catch (err) { console.error('[hk-grid-cards] the parts did not start', err); }
+      // (the checks that drive a page wait for every shell that started to say it is done)
+      (window.__hkSplitDone = window.__hkSplitDone || {})['hk-grid-cards'] = true;
       return;
     }
     // (window.hkV: Mantel's build's ?v= on an address put together here, web/shim/base.js)

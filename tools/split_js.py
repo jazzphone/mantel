@@ -86,11 +86,20 @@ LOADER = """\
 {i}// (the third audit pass, WEB-11): the ones still missing are asked for again, a little later each time, at an address
 {i}// of their own -- a browser keeps a failed module's answer for its address
 {i}function loadParts(then, n) {{
+{i}  // (the first call has no n; the retries and the finish pass it) a shell evaluated twice before its parts arrive
+{i}  // must not run them twice: the flag is set at once, not when the parts have run
+{i}  if (n === undefined) {{
+{i}    var started = window.__hkSplitStarted = window.__hkSplitStarted || {{}};
+{i}    if (started['{label}']) return;
+{i}    started['{label}'] = true;
+{i}  }}
 {i}  n = n || 0;
 {i}  var have = window.{glob} || {{}};
 {i}  var missing = PARTS.filter(function (file) {{ return !have[partKey(file)]; }});
 {i}  if (!missing.length) {{
 {i}    try {{ then(); }} catch (err) {{ console.error('[{label}] the parts did not start', err); }}
+{i}    // (the checks that drive a page wait for every shell that started to say it is done)
+{i}    (window.__hkSplitDone = window.__hkSplitDone || {{}})['{label}'] = true;
 {i}    return;
 {i}  }}
 {i}  // (window.hkV: Mantel's build's ?v= on an address put together here, web/shim/base.js)
@@ -287,13 +296,17 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
         if m.part >= 0:
             cut[m.scope] = min(cut.get(m.scope, 10 ** 9), m.index)
     host_lines = {(sc["host"]["first"], sc["host"]["last"]) for sc in an["scopes"] if sc["host"]}
-    for m in plan.members.values():
+    for m in sorted(plan.members.values(), key=lambda x: (x.scope, x.index)):
         if m.part >= 0 or m.scope not in cut or m.index < cut[m.scope]:
             continue
         if m.d["kind"] in ("function", "directive"):
             continue
         if (m.d["first"], m.d["last"]) in host_lines:      # the call that holds the next scope stays where it is
             continue
+        if m.d["kind"] == "var" and not any(not w.get("hoisted") for w in m.d["writes"]) and not any(
+                (t := plan.members.get((r["scope"], r["index"]))) is not None and r.get("now") and (t.part >= 0 or t.late)
+                for r in m.d["refs"] if "index" in r):
+            continue            # a variable whose initializer touches nothing that moved or waits stays where it is, early
         m.late = True
 
     # references
@@ -313,6 +326,11 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
             name = r.get("name") or r.get("param")
             if r.get("hoisted"):
                 plan.refusals.append(f"`{name}` (used by `{m.label}`) is declared inside another statement and hoisted: not movable")
+                continue
+            if m.part < 0 and not m.late and tgt is not None and tgt.late and tgt.d["kind"] != "function":
+                plan.refusals.append(f"the shell's `{m.label}` (line {m.d['first']}) uses `{name}`, which waits for the parts "
+                                     f"(line {tgt.d['first']}) and is declared where `{m.label}` cannot see it: move `{name}`'s "
+                                     f"cause into a part, or keep it in the shell")
                 continue
             if m.part == tpart:
                 continue

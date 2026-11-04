@@ -570,6 +570,7 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
     await shot(page, tag + '-eight');
     for (const side of ['right', 'left']) {
       await open('pane-saver-' + side);
+      await require('./grid_ready.cjs').saver(page);
       await page.evaluate(() => window.hkSaver.preview(true));
       await page.waitForTimeout(3500);
       const s = await page.evaluate(() => {

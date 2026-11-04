@@ -85,6 +85,7 @@ function measure() {
         for (const s of ['/hk/modules/hk-saverclock.js', '/hk/modules/hk-saverfaces.js', '/hk/cards/hk-weather.js'].concat(how === 'photo' ? ['/client/hk-client.js', '/client/hk-host-shell.js', '/hk/modules/hk-saver.js'] : [])) {
           await page.addScriptTag({ url: input.origin + s });
         }
+        if (how === 'photo') await require('./grid_ready.cjs').saver(page);      // (hk-saver.js sets hkSaver once its parts have run)
         try {
           await draw(page, name, how, input.made);
           await page.waitForTimeout(how === 'photo' ? 1200 : 500);

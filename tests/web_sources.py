@@ -9,6 +9,7 @@ and the folder from the loader's address (``'/hk/<folder>/' + file``).
 """
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -23,12 +24,37 @@ def _path(rel: str | Path) -> Path:
     return p if p.is_absolute() else ROOT / p
 
 
+DETAIL = "web/hk/cards/hk-detail.js"            # cut by hand (5573f9db): its list is SHEETS, and it has no manifest
+
+
+def known_shells() -> set[str]:
+    """The paths (from the repository root) that must be shells: every manifest's shell, and hk-detail.js. A file here with
+    no parts list is an error, never "a file that is not cut into parts": a damaged list would otherwise hide the parts from
+    every test that reads the file."""
+    global _known
+    if _known is None:
+        _known = {DETAIL}
+        for manifest in sorted((ROOT / "tools" / "split_manifests").glob("*.json")):
+            _known.add(json.loads(manifest.read_text(encoding="utf-8"))["shell"])
+    return _known
+
+
+_known: set[str] | None = None
+
+
 def parts(rel: str | Path) -> list[Path]:
     """The part files of a shell, in the order they run ([] for a file that is not cut into parts)."""
     shell = _path(rel)
     text = shell.read_text(encoding="utf-8")
     listed, folder = LIST.search(text), FOLDER.search(text)
     if not (listed and folder):
+        try:
+            here = shell.resolve().relative_to(ROOT.resolve()).as_posix()
+        except ValueError:
+            return []
+        if here in known_shells():
+            raise ValueError(f"{here} is a shell (a manifest names it, or it is hk-detail.js) but has no parts list: "
+                             f"`var PARTS = [...]` (or SHEETS) and the loader's '/hk/<folder>/' + file")
         return []
     return [WEB / "hk" / folder.group(1) / name for name in re.findall(r"'([^']+)'", listed.group(1))]
 

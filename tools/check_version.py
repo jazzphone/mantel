@@ -3,6 +3,7 @@
 
     python tools/check_version.py                    # the three files agree (prints the version)
     python tools/check_version.py --tag v0.1.36      # ... and the tag is v<that version>, with release notes
+    python tools/check_version.py --staged           # ... and CHANGELOG.md has the version's section (no tag yet)
     python tools/check_version.py --print            # print the version only (for the release workflow)
 
 The Home Assistant App's config.yaml (packaging/ha-app/config.yaml) is the source of truth: it is the number
@@ -15,6 +16,10 @@ With --tag (the release workflow passes the pushed tag) the tag must be exactly 
 must have that version's section (``## 0.1.36`` or ``## [0.1.36]``, a date after it is fine): the App's
 CHANGELOG.md in the add-on repository is that section (tools/publish_ha_apps.py), so a release without one
 has nothing to show in Home Assistant's update dialog.
+
+With --staged (release.yml's stage=images, before the tag exists) CHANGELOG.md must have the version's own section
+too: the images are pushed before the tag, and the release they belong to needs its notes. "Unreleased" alone is
+refused.
 
 Stdlib only, like the other tools.
 """
@@ -70,7 +75,7 @@ def changelog_section(version: str, root: Path = ROOT) -> str | None:
     return "\n".join(out).strip() + "\n" if inside else None
 
 
-def problems(tag: str | None = None, root: Path = ROOT) -> list[str]:
+def problems(tag: str | None = None, root: Path = ROOT, staged: bool = False) -> list[str]:
     found = versions(root)
     source = found[SOURCE]
     out = []
@@ -81,9 +86,9 @@ def problems(tag: str | None = None, root: Path = ROOT) -> list[str]:
     for name, value in found.items():
         if value != source:
             out.append(f"{name}: version {value!r}, but {SOURCE} says {source!r} (python tools/bump_version.py {source})")
-    if tag is not None:
-        if tag != f"v{source}":
-            out.append(f"tag {tag!r} does not match the version: expected v{source}")
+    if tag is not None and tag != f"v{source}":
+        out.append(f"tag {tag!r} does not match the version: expected v{source}")
+    if tag is not None or staged:
         if changelog_section(source, root) is None:
             out.append(f"CHANGELOG.md: no section for {source} (a '## {source}' heading); rename 'Unreleased' to it")
     return out
@@ -92,17 +97,20 @@ def problems(tag: str | None = None, root: Path = ROOT) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--tag", help="the release tag (vX.Y.Z) that must match, with its CHANGELOG section")
+    p.add_argument("--staged", action="store_true",
+                   help="the version's CHANGELOG section must be there (a release before its tag)")
     p.add_argument("--print", action="store_true", help="print the version only, after the checks pass")
     p.add_argument("--root", type=Path, default=ROOT, help=argparse.SUPPRESS)
     a = p.parse_args(argv)
-    found = problems(a.tag, a.root)
+    found = problems(a.tag, a.root, a.staged)
     for line in found:
         print(line, file=sys.stderr)
     if found:
         print(f"check_version: {len(found)} problem(s)", file=sys.stderr)
         return 1
     version = versions(a.root)[SOURCE]
-    print(version if a.print else f"check_version: {version} everywhere" + (f", tag {a.tag}" if a.tag else ""))
+    print(version if a.print else f"check_version: {version} everywhere" + (f", tag {a.tag}" if a.tag else "")
+          + (", with its notes" if a.staged and not a.tag else ""))
     return 0
 
 
