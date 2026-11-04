@@ -811,7 +811,6 @@ async def test_actor_finds_only_rows_whose_names_the_viewer_may_see(tmp_path):
         def may_history(self, entity):
             return entity != "lock.back_door"
 
-    import sqlite3
     from mantel_server.store import Store
     store = Store(tmp_path / "m.db")
     from mantel_server.timeline.core import Timeline
