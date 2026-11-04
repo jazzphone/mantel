@@ -41,7 +41,8 @@ SCENARIOS = [
     "supported_needs_a_microphone_a_worker_and_a_worklet",
     "picker_glyphs_and_what_a_tap_can_pick",
     "picker_live_glyphs_waveform_clock_person",
-    "picker_a_group_leader_is_marked_with_the_slash_but_can_be_picked_and_says_why_on_a_tap",
+    "picker_a_group_leader_says_who_it_plays_with_but_can_be_picked_and_says_why_on_a_tap",
+    "picker_a_floor_or_preset_that_is_another_target_is_left_out",
     "picker_floors_presets_and_whole_house",
     "picker_a_skipped_pill_says_why_and_is_not_picked",
     "picker_nothing_to_send_to_names_why",
@@ -241,3 +242,22 @@ def test_the_microphone_press_is_a_pointer_event_with_pointercancel_and_no_touch
         assert f"addEventListener('{ev}'" in card
     assert "touch-action:none" in card and ":hover" not in card
     assert "height:44px" in card, "44 pt targets"
+
+
+def test_the_block_wears_the_other_blocks_tile_language_standard_and_homeview():
+    """Not a look of its own (the owner, 2026-11-04): the key's well, name and state lines of KEY_CSS, the centred tile's numbers
+    in the HomeView look (hkCards.centredTile, the glyph's ink), and Wide drawn as the Scenes block draws it."""
+    card = (ROOT / "web/hk/cards/hk-intercom.js").read_text()
+    for needle in ("C.centredTile({ host: ':host([tile=centred])'", "TILE.centred.square.box", "C.blockPad('14px')", "TILE.lineH",
+                   "TILE.rowGap", "e.icon.setAttribute('ink'", "observedAttributes"):
+        assert needle in card, needle
+    assert "max-width:110px" not in card, "no chip cut in two by a width of its own: whole rooms, then +N"
+
+
+def test_the_sheet_is_as_tall_as_its_cards_and_every_pill_is_one_size_on_one_grid():
+    card = (ROOT / "web/hk/cards/hk-intercom.js").read_text()
+    assert "width: 'wide', height: 'auto'" in card
+    assert "grid-template-columns:repeat(auto-fill,minmax(var(--mn),1fr))" in card and "grid-auto-rows:44px" in card
+    group = (ROOT / "web/hk/sheets/hk-sheet-group.js").read_text()
+    assert "hkAutoHeight() { return (this._config || {}).height === 'auto'; }" in group
+    assert "height: opts.cards.height" in (ROOT / "web/hk/cards/hk-detail.js").read_text()

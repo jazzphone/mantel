@@ -665,7 +665,7 @@ async def test_the_feed_gives_the_owner_the_whole_picture(ic):
         (KITCHEN, "Kitchen", "ok", None, "Main Floor"), (DEN, "Den", "ok", None, "Main Floor"),
         (CODY, "Cody's Room", "ok", None, "Upstairs")]
     assert {f["name"]: f["rooms"] for f in ev["floors"]} == {"Main Floor": [KITCHEN, DEN], "Upstairs": [CODY]}
-    assert [(p["id"], p["name"], p["rooms"]) for p in ev["presets"]] == [("preset:pre1", "Downstairs", [KITCHEN, DEN])]
+    assert ev["presets"] == [], "the Downstairs preset is Main Floor's rooms: one chip, not two"
 
 
 async def test_the_feed_is_forbidden_without_the_feature(ic):
@@ -692,7 +692,8 @@ async def test_the_feed_is_cut_down_by_rbac(ic):
     hub = await cody.hub()
     _, ev = await subscribe(hub)
     assert [r["room"] for r in ev["rooms"]] == [KITCHEN]
-    assert [f["rooms"] for f in ev["floors"]] == [[KITCHEN]] and [p["rooms"] for p in ev["presets"]] == [[KITCHEN]]
+    # (one room is the whole house: a floor and a preset of it are the same target, so neither is a chip)
+    assert ev["floors"] == [] and ev["presets"] == []
     assert ev["can_override"] is False                                               # a Child may not Send Anyway
     jordan = await ic.actor("jordan", "adult")
     ic.app["rbac"].add_grant(Grant(effect="deny", actions=("control",), resource_kind="entity", resource=DEN,
@@ -823,3 +824,19 @@ async def test_a_clip_id_dies_with_its_time_to_live(ic, monkeypatch):
     ic.host.listeners_feed.clips = {k: (v[0], v[1], 0.0, v[3]) for k, v in ic.host.listeners_feed.clips.items()}
     assert (await clip(tablet, play["url"]))[0] == 404
     await recv_until(ws, "sent")
+
+
+def test_a_floor_or_preset_that_is_another_target_under_a_new_name_is_left_out_of_the_feed():
+    from mantel_server.intercom.routes import distinct_targets
+    house = [KITCHEN, DEN, CODY]
+    floors = [{"id": "floor:main", "name": "Main Floor", "rooms": [KITCHEN, DEN]},
+              {"id": "floor:up", "name": "Upstairs", "rooms": [CODY]},
+              {"id": "floor:all", "name": "Everything", "rooms": [CODY, DEN, KITCHEN]}]
+    presets = [{"id": "preset:a", "name": "Everywhere", "rooms": [KITCHEN, DEN, CODY]},        # Whole House
+               {"id": "preset:b", "name": "Downstairs", "rooms": [DEN, KITCHEN]},             # a floor, in another order
+               {"id": "preset:c", "name": "Kitchen and Cody", "rooms": [KITCHEN, CODY]},
+               {"id": "preset:d", "name": "Kitchen and Cody again", "rooms": [CODY, KITCHEN]},  # an earlier preset
+               {"id": "preset:e", "name": "Nobody", "rooms": []}]
+    got_floors, got_presets = distinct_targets(house, floors, presets)
+    assert [f["name"] for f in got_floors] == ["Main Floor", "Upstairs"]
+    assert [p["name"] for p in got_presets] == ["Kitchen and Cody"]

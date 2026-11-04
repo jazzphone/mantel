@@ -64,7 +64,7 @@ Add the **Intercom** block to a page in [Home Grid](Home-Grid.md), or open
    do:
    - **clock**: it plays after you finish;
    - **moon**: quiet hours, so it's skipped;
-   - **slash**: it leads other rooms' music, so it's skipped (see below);
+   - a second line, **Plays with Office**: the room leads other rooms' music, so it plays only together with them (see below);
    - **person**: you're there, so it's left out in Live.
 
    Tap a skipped room to see why.

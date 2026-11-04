@@ -37,8 +37,15 @@ const MEASURE = () => {
     line: text('.line'), mic: root.querySelector('.mic') && root.querySelector('.mic').getAttribute('data-kind'), micHidden: root.querySelector('.mic').hidden,
     micLabel: root.querySelector('.mb').getAttribute('aria-label'), time: text('.mt'),
     buttons: q('.rv button').map((b) => b.textContent), seg: q('.seg button').map((b) => b.textContent + (b.classList.contains('sel') ? '*' : '')),
-    chips: q('.chips .pill').map((p) => p.textContent.trim() + (p.getAttribute('aria-pressed') === 'true' ? '*' : '') + (p.classList.contains('preset') ? '~' : '')),
-    pills: q('.rooms .pill').map((p) => p.textContent.trim() + (p.getAttribute('aria-pressed') === 'true' ? '*' : '') + (p.querySelector('.pi') ? '+' : '')),
+    chips: q('.chips .pill').map((p) => p.querySelector('.l b').textContent.trim() + (p.getAttribute('aria-pressed') === 'true' ? '*' : '') + (p.classList.contains('preset') ? '~' : '')),
+    // name, * picked, + a glyph, [the muted second line]
+    pills: q('.rooms .pill').map((p) => p.querySelector('.l b').textContent.trim() + (p.getAttribute('aria-pressed') === 'true' ? '*' : '') + (p.querySelector('.pi') ? '+' : '') + (p.querySelector('.l i') ? '[' + p.querySelector('.l i').textContent + ']' : '')),
+    // a row of pills that stops short of the section's edge is an orphan gap; so is a big empty area under the foot
+    // every pill, groups and rooms, one width and one height (the speaker picker's grid: the last row simply ends short)
+    sizes: [...new Set(q('.grid .pill').map((p) => { const r = p.getBoundingClientRect(); return Math.round(r.width) + 'x' + Math.round(r.height); }))],
+    cols: new Set(q('.grid .pill').map((p) => Math.round(p.getBoundingClientRect().left))).size,
+    // a big empty area under the foot
+    slack: sh ? Math.round(sh.getBoundingClientRect().bottom - root.querySelector('.foot').getBoundingClientRect().bottom) : null,
     dashed: q('.chips .pill.preset').map((p) => getComputedStyle(p).borderStyle),
     touchAction: getComputedStyle(root.querySelector('.mb')).touchAction,
     scrollX: hkd ? hkd.querySelector('.body').scrollWidth - hkd.querySelector('.body').clientWidth : 0,
@@ -61,7 +68,7 @@ const MEASURE = () => {
       const errors = [];
       page.on('pageerror', (e) => errors.push('page error: ' + e.message));
       page.on('console', (m) => { if (m.type() === 'error' && !/glyphs\.js|hk-glyphs|SF-Pro|Failed to load resource|intercom/i.test(m.text() + ((m.location() || {}).url || ''))) errors.push('console: ' + m.text()); });
-      const shot = (what) => page.screenshot({ path: `${input.shots}/${name}-${what}.png` });
+      const shot = (what) => page.screenshot({ path: `${input.shots}/${input.tag || ''}${name}-${what}.png` });
       const tapAt = async (selector, nth = 0) => {
         const box = await page.evaluate(([sel, n]) => {
           const el = deep(document, sel)[n];
@@ -140,7 +147,7 @@ const MEASURE = () => {
         const S = blocks.find((b) => b.size === 'S'), W = blocks.find((b) => b.size === 'W');
         if (!S || !W) fail(name, 'both blocks drawn', blocks);
         else {
-          if (S.state !== 'Living Room, Kitchen') fail(name, 'the Small block names the rooms last picked', S);
+          if (!/^Living Room(, Kitchen| \+1)$/.test(S.state)) fail(name, 'the Small block names the rooms last picked: whole names, then +N', S);
           if (W.chips.join() !== 'Living Room,Kitchen') fail(name, 'the Wide block shows them as chips', W);
         }
         await shot('block');
@@ -157,9 +164,11 @@ const MEASURE = () => {
         if (m.over.length) fail(name, 'nothing runs past the sheet\'s edge', m.over);
         if (m.scrollX > 1) fail(name, 'no sideways scroll', m.scrollX);
         if (m.seg.length) fail(name, 'Live is hidden unless the feed allows it', m.seg);
-        if (m.chips.join('|') !== 'Whole House|Main Floor|Upstairs|Dinner~|Bedtime~') fail(name, 'the chips: Whole House, floors, presets', m.chips);
+        if (m.chips.join('|') !== 'Whole House|Main Floor|Upstairs|Dinner~|Quiet Rooms~') fail(name, 'the chips: Whole House, floors, presets (one equal to the whole house, one to a floor, left out)', m.chips);
+        if (m.sizes.length !== 1) fail(name, 'every pill is the same width and height', m.sizes);
+        if (m.slack > 80) fail(name, 'the sheet is as tall as its content: no big empty area', m.slack);
         if (m.dashed.some((d) => d !== 'dashed')) fail(name, 'presets have a dashed border', m.dashed);
-        if (m.pills.join('|') !== 'Living Room*|Kitchen*|Dining Room+|Office+|Bedroom+|Guest Room') fail(name, 'the room pills, picked ones marked, skipped ones and a group leader with a glyph', m.pills);
+        if (m.pills.join('|') !== 'Living Room*|Kitchen*|Dining Room[Plays with Office]|Office[Plays with Dining Room]|Bedroom+[Quiet hours]|Guest Room|Nursery|Craft Room|Primary Suite|Laundry Room') fail(name, 'the room pills, picked ones marked; a group leader says who it plays with; no bare slash', m.pills);
         if (m.touchAction !== 'none') fail(name, 'touch-action:none on the microphone', m.touchAction);
         if (m.line !== 'Living Room, Kitchen') fail(name, 'the status line names the rooms', m.line);
         await shot('picker');
@@ -168,13 +177,13 @@ const MEASURE = () => {
         // ---- the picker with a finger
         await sheetTap('.chips .pill', 0);                                  // Whole House
         m = await page.evaluate(MEASURE);
-        if (m.pills.filter((p) => p.includes('*')).length !== 4) fail(name, 'Whole House picks the four rooms that can be', m.pills);
+        if (m.pills.filter((p) => p.includes('*')).length !== 8) fail(name, 'Whole House picks the eight rooms that can be', m.pills);
         await sheetTap('.chips .pill', 0);
         m = await page.evaluate(MEASURE);
         if (m.pills.some((p) => p.includes('*'))) fail(name, 'Whole House again puts them back', m.pills);
         await sheetTap('.chips .pill', 3);                                  // Dinner
         m = await page.evaluate(MEASURE);
-        if (m.pills.filter((p) => p.includes('*')).map((p) => p.replace(/[*+]/g, '')).join() !== 'Kitchen,Dining Room') fail(name, 'a preset picks its rooms', m.pills);
+        if (m.pills.filter((p) => p.includes('*')).map((p) => p.replace(/[*+]|\[.*\]/g, '')).join() !== 'Kitchen,Dining Room') fail(name, 'a preset picks its rooms', m.pills);
         await sheetTap('.rooms .pill', 3);                                  // Office: leads
         m = await page.evaluate(MEASURE);
         if (m.line !== 'Dining Room leads Office' || m.pills[3].includes('*')) fail(name, 'a skipped pill says why and is not picked', [m.line, m.pills[3]]);
@@ -324,6 +333,33 @@ const MEASURE = () => {
         await page.waitForTimeout(400);
         if ((await page.evaluate(() => window.__fetched.length)) !== 1) fail(name, 'the same broadcast is not played twice');
         out(`ok ${name} listener (audio ${L0.state})`);
+
+        // ---- Edit mode: both blocks drawn with their editor's covers on, the dashed splits filled (a shot of it)
+        await page.goto(`${input.origin}/${input.screen}/home`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.waitForFunction(() => window.__mantelReady === true && window.hkEdit && window.hkEditGrid && window.hkTabBar && !!window.hkIntercom, null, { timeout: 40000 });
+        await require('./grid_ready.cjs')(page);
+        await page.evaluate(DEEP);
+        await page.evaluate(() => __intercomFake.install({ mem: { mode: 'message', rooms: ['media_player.living_room', 'media_player.kitchen'] }, firstUse: false }));
+        await page.waitForFunction(() => !!window.hkGridEditor, null, { timeout: 20000 });
+        await page.waitForTimeout(1500);
+        const at = (js) => page.evaluate(js);
+        const mid = (sel) => at(`(() => { const sr = document.getElementById('hk-tabbar').shadowRoot, e = sr.querySelector(${JSON.stringify(sel)}); if (!e) return null; e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+        let p = await mid('.tab[data-t="more"]');
+        if (!p) fail(name, 'a More tab to start Edit from');
+        else {
+          await page.mouse.click(p.x, p.y); await page.waitForTimeout(500);
+          p = await mid('.sheet.open .it[data-k="e"]');
+          if (!p) fail(name, 'Edit offered in More');
+          else {
+            await page.mouse.click(p.x, p.y);
+            await page.waitForFunction(() => !!hkEdit.active() && !!hkEditGrid.active() && hkEditGrid.active().ready, null, { timeout: 10000 });
+            await page.waitForTimeout(1200);
+            const ed = await page.evaluate(() => deep(document, 'hk-intercom-card').map((c) => { const r = c.getBoundingClientRect(), k = c.shadowRoot.querySelector('.k').getBoundingClientRect(), ch = c.shadowRoot.querySelector('.chips').getBoundingClientRect(); return { w: c.getAttribute('size'), box: [r.width | 0, r.height | 0], k: [k.width | 0, k.height | 0], chips: [ch.width | 0, ch.height | 0] }; }));
+            if (ed.length !== 2 || ed.some((b) => b.k[0] < 40)) fail(name, 'both blocks drawn in Edit mode', ed);
+            await shot('edit');
+            out(`ok ${name} edit mode`);
+          }
+        }
       } catch (e) {
         fail(name, 'stopped', String(e && e.message || e).split('\n')[0]);
         await page.screenshot({ path: `${input.shots}/${name}-stopped.png` }).catch(() => {});

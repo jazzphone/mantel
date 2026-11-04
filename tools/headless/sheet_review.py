@@ -84,12 +84,13 @@ SHEETS = [
     ('water-heater', 'water_heater.tank'), ('valve', 'valve.sprinkler'), ('valve-position', 'valve.main_water'),
     ('number', 'input_number.speaker_volume'), ('select', 'input_select.house_mode'), ('button', 'button.restart_router'),
     ('alarm', 'alarm_control_panel.home'), ('camera', 'camera.front_door'), ('person', 'person.sam'), ('weather', 'weather.home'),
-    ('automation', 'automation.porch_lights'), ('timer', 'timer.laundry'), ('event', 'event'),
+    ('automation', 'automation.porch_lights'), ('timer', 'timer.laundry'), ('event', 'event'), ('intercom', 'intercom'),
 ]
 
 
 # sheets that scroll by design: the weather's hours and days run on, as Apple's Weather does
-SCROLLS = {'weather'}
+# (and the Intercom's rooms run on under its foot, which stays put: ten rooms are more than a phone's height)
+SCROLLS = {'weather', 'intercom'}
 
 
 def faults(size, m, name=''):
@@ -149,7 +150,7 @@ async def main():
                 stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
             out, _ = await proc.communicate(json.dumps({
                 'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'screen': gallery.SCREEN,
-                'sheets': sheets, 'sizes': sizes, 'shots': str(args.shots) if args.shots else None, 'look': args.look}).encode())
+                'sheets': sheets, 'sizes': sizes, 'fakes': (Path(__file__).parent / 'intercom_fakes.js').read_text(), 'shots': str(args.shots) if args.shots else None, 'look': args.look}).encode())
     bad, seen = [], 0
     for line in out.decode().splitlines():
         if not line.startswith('{'):

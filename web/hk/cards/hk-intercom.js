@@ -13,10 +13,10 @@
 //
 // ROOMS come from the feed (client.intercom: the rooms this person may reach, and how each would play right now),
 // never from the Music page: the selection is the card's own Set and it never touches the music focus. A pill carries
-// a glyph for what will happen to it: a waveform (live now), a clock (after you finish), a moon (quiet hours), a slash
-// (it leads other rooms' music, or it is unavailable: skipped), a person (you are here: left out of Live). Tapping a
-// skipped pill says why, in one line. Floor chips, preset chips (dashed, as the speaker picker's) and Whole House fill
-// the Set. The mode and the rooms are kept per person (user_data key `intercom`).
+// a glyph for what will happen to it: a waveform (live now), a clock (after you finish), a moon (quiet hours), a person
+// (you are here: left out of Live); a room that leads others says so in a muted second line ("Plays with Office"), and one
+// that is unavailable says so. Tapping a skipped pill says why, in one line. The groups (Whole House, a chip for each floor,
+// each preset dashed as the speaker picker's -- none that is another group's rooms under a new name) fill the Set. The mode and the rooms are kept per person (user_data key `intercom`).
 //
 // THE PAGE KEEPS ITS OWN COPY of what it recorded (hk-mic.js) for Play, Send Again and the rescue when the socket drops.
 //
@@ -59,8 +59,15 @@
     off: 'Intercom is off',
     oneWay: 'One-way: the rooms can’t answer',
     chooseRooms: 'Choose rooms to send to',
-    noMic: 'No microphone',
-    micDenied: 'The microphone is not allowed',
+    // THE MICROPHONE, by what is really wrong (the owner, 2026-11-04: "No microphone" on Safari on a Mac over https, said for
+    // every cause): refused by the person or the browser, none on this device, the module that records not loaded, or the
+    // browser unable to start the audio
+    noMic: 'No microphone on this device',
+    micDenied: 'Microphone blocked — allow it for this site in your browser’s settings',
+    micDeniedSafari: 'Microphone blocked — allow it for this site in Safari Settings → Websites → Microphone',
+    micBusy: 'Another app is using the microphone',
+    micLoad: 'Couldn’t load the microphone — reload the page',
+    micStart: 'This browser couldn’t start recording',
     tooShort: 'Too short. Tap, speak, tap again',
     lost: 'The connection dropped. Send Again',
     commandsOff: 'Turn on Allow Control of the House to use the Intercom',
@@ -121,26 +128,36 @@
   }
 
   // ONE PILL PER ROOM: what it shows and whether a tap can pick it.
-  //   glyph    waveform | clock | moon | slash | person | null
+  //   glyph    waveform | clock | moon | person | null: what will happen to it (live now, after you finish, quiet hours, you are here)
+  //   cap      a short muted second line under the name, for what a glyph can't say: "Plays with Office" (a room that leads
+  //            others plays only together with them), "Quiet hours", "Unavailable"
   //   pickable a tap toggles it; otherwise a tap says why (`line`). A room on quiet hours is pickable for someone who
   //            may Send Anyway: the server skips it at Send, and Send Anyway asks again for it.
   function pillsOf(feed, mode) {
     if (!feed) return [];
     var here = {};
     feed.here.forEach(function (id) { here[id] = 1; });
+    // "Dining Room plays only together with Office" / "Dining Room leads Office; skipped" -> "Plays with Office" / "Plays with Dining Room"
+    var withWho = function (r) {
+      var t = plain(r.reason), m = /together with (.+)$/i.exec(t);
+      if (m) return 'Plays with ' + m[1];
+      m = /^(.+?) leads /i.exec(t);
+      return m ? 'Plays with ' + m[1] : 'Plays with others';
+    };
     return feed.rooms.map(function (r) {
-      var o = { id: r.room, name: r.name, floor: r.floor, glyph: null, pickable: true, quiet: false, note: false, line: '', aria: r.name };
+      var o = { id: r.room, name: r.name, floor: r.floor, glyph: null, cap: '', pickable: true, quiet: false, note: false, line: '', aria: r.name };
       if (r.state !== 'skipped' && r.why === 'leads') {
-        // A GROUP LEADER: it plays only together with the rooms it leads ("Kitchen plays only together with Office"). The slash
-        // says so, but it can be picked: the server decides at Send, and a tap says why.
-        o.glyph = 'slash'; o.note = true;
+        // A GROUP LEADER: it plays only together with the rooms it leads ("Kitchen plays only together with Office"). The pill
+        // says so in its second line; it can be picked, the server decides at Send, and a tap says why.
+        o.note = true; o.cap = withWho(r);
         var lead = plain(r.reason) || 'it plays only together with other rooms';
         o.line = lead.toLowerCase().indexOf(r.name.toLowerCase()) >= 0 ? lead : r.name + ': ' + lead;
-        if (mode === 'live' && here[r.room]) { o.glyph = 'person'; o.note = false; o.pickable = false; o.line = r.name + ': you’re here, so it’s left out of Live'; }
+        if (mode === 'live' && here[r.room]) { o.glyph = 'person'; o.cap = ''; o.note = false; o.pickable = false; o.line = r.name + ': you’re here, so it’s left out of Live'; }
       } else if (r.state === 'skipped') {
-        o.glyph = r.why === 'quiet' ? 'moon' : 'slash';
         var why = plain(r.reason) || (r.why === 'quiet' ? 'quiet hours' : r.why === 'leads' ? 'it leads other rooms’ music' : 'it is unavailable');
         o.line = why.toLowerCase().indexOf(r.name.toLowerCase()) >= 0 ? why : r.name + ': ' + why;
+        if (r.why === 'quiet') { o.glyph = 'moon'; o.cap = 'Quiet hours'; }
+        else o.cap = r.why === 'leads' ? withWho(r) : 'Unavailable';
         if (r.why === 'quiet' && feed.can_override) { o.quiet = true; o.line += '. Send Anyway to include it'; }
         else o.pickable = false;
       } else if (mode === 'live') {
@@ -149,14 +166,16 @@
           o.line = r.name + ': you’re here, so it’s left out of Live';
         } else o.glyph = r.live ? 'waveform' : 'clock';
       }
-      o.aria = r.name + (o.glyph === 'moon' ? ', quiet hours' : o.glyph === 'slash' ? (o.note ? ', plays only together with other rooms' : ', skipped') : o.glyph === 'person' ? ', you are here'
-        : o.glyph === 'waveform' ? ', live' : o.glyph === 'clock' ? ', after you finish' : '');
+      o.aria = r.name + (o.glyph === 'moon' ? ', quiet hours' : o.note ? ', plays only together with other rooms' : o.glyph === 'person' ? ', you are here'
+        : !o.pickable ? ', skipped' : o.glyph === 'waveform' ? ', live' : o.glyph === 'clock' ? ', after you finish' : '');
       return o;
     });
   }
 
-  // THE CHIPS: Whole House, a chip for each floor, a dashed one for each preset -- each over the rooms a tap can pick.
-  // A chip is on when it is what is chosen: Whole House and a floor when all of their rooms are, a preset when exactly its rooms are.
+  // THE CHIPS: Whole House, a chip for each floor, then each preset -- each over the rooms a tap can pick. A chip is on when
+  // it is what is chosen: Whole House and a floor when all of their rooms are, a preset when exactly its rooms are.
+  // ONE CHIP PER SET OF ROOMS: a floor or a preset with exactly the rooms of Whole House or of an earlier chip is the same
+  // target under another name and is left out (the server leaves them out of the feed too; this keeps an older one honest).
   function chipsOf(pills, feed, sel) {
     if (!feed) return [];
     var ok = {}, chosen = {};
@@ -164,16 +183,25 @@
     sel.forEach(function (id) { if (ok[id]) chosen[id] = 1; });
     var nChosen = Object.keys(chosen).length;
     var pick = function (ids) { var seen = {}; return ids.filter(function (id) { if (!ok[id] || seen[id]) return false; seen[id] = 1; return true; }); };
+    var setOf = function (ids) { return ids.slice().sort().join('|'); };
     var all = pick(pills.map(function (p) { return p.id; }));
+    var taken = {};
+    taken[setOf(feed.rooms.map(function (r) { return r.room; }))] = 1;
     var out = [];
     if (all.length > 1) out.push({ kind: 'house', id: 'house', name: 'Whole House', ids: all, on: all.length === nChosen });
+    var fresh = function (rooms) {
+      var key = setOf(rooms);
+      if (!rooms.length || taken[key]) return false;
+      taken[key] = 1;
+      return true;
+    };
     feed.floors.forEach(function (f) {
       var ids = pick(f.rooms);
-      if (ids.length) out.push({ kind: 'floor', id: f.id, name: f.name, ids: ids, on: ids.every(function (id) { return chosen[id]; }) });
+      if (ids.length && fresh(f.rooms)) out.push({ kind: 'floor', id: f.id, name: f.name, ids: ids, on: ids.every(function (id) { return chosen[id]; }) });
     });
     feed.presets.forEach(function (p) {
       var ids = pick(p.rooms);
-      if (ids.length) out.push({ kind: 'preset', id: p.id, name: p.name, ids: ids, on: ids.length === nChosen && ids.every(function (id) { return chosen[id]; }) });
+      if (ids.length && fresh(p.rooms)) out.push({ kind: 'preset', id: p.id, name: p.name, ids: ids, on: ids.length === nChosen && ids.every(function (id) { return chosen[id]; }) });
     });
     return out;
   }
@@ -284,7 +312,7 @@
       case 'error': return { text: WORDS.lost, kind: 'failed' };
     }
     if (!f) return { text: WORDS.connecting, kind: 'pending' };
-    if (!this.d.supported()) return { text: WORDS.noMic, kind: 'warn' };
+    if (!this.d.supported()) return { text: this._noRecording(), kind: 'warn' };
     if (!this.d.oneWay.seen()) return { text: WORDS.oneWay, kind: 'info' };
     if (m === 'live') {
       var later = this.pills().filter(function (p) { return p.pickable && p.glyph === 'clock' && this.sel.indexOf(p.id) >= 0; }, this).map(function (p) { return p.name; });
@@ -399,8 +427,21 @@
     if (!this.d.hasPort()) return WORDS.needsHost;
     if (!this.d.secure()) return WORDS.https;
     if (f && !f.enabled) return WORDS.off;
-    if (!this.d.supported()) return WORDS.noMic;
+    if (!this.d.supported()) return this._noRecording();
     return null;
+  };
+  // why this page can't record at all: the module that records never came, or the browser lacks what it needs (a microphone
+  // API, an AudioContext, the audio worklet, a Worker)
+  /** @this {Ctl} */ CP._noRecording = function () { return this.d.loadFailed && this.d.loadFailed() ? WORDS.micLoad : WORDS.micStart; };
+  // a microphone that would not start, by the error's name (getUserMedia's, or the audio's); anything else is logged
+  /** @this {Ctl} */ CP._startWords = function (err) {
+    var name = err && err.name;
+    if (name === 'NotAllowedError' || name === 'SecurityError' || name === 'PermissionDeniedError') return this.d.safari && this.d.safari() ? WORDS.micDeniedSafari : WORDS.micDenied;
+    if (name === 'NotFoundError' || name === 'OverconstrainedError' || name === 'DevicesNotFoundError') return WORDS.noMic;
+    if (name === 'NotReadableError' || name === 'TrackStartError') return WORDS.micBusy;
+    if (name === 'Suspended') return WORDS.tapAgain;
+    try { console.warn('[hk-intercom] the microphone could not start:', name || '(no name)', err && err.message); } catch (e) { /* no console */ }
+    return WORDS.micStart;
   };
   /** @this {Ctl} */ CP._start = function (mode) {
     var why = this._refusal();
@@ -410,7 +451,7 @@
     var self = this, mic = this.mic || (this.mic = this.d.mic());
     if (!mic || !mic.unlock()) {
       if (!mic && this.d.loading && this.d.loading()) this._say(WORDS.connecting, 'info');       // the microphone module is still on its way
-      else this._say(WORDS.noMic, 'warn');
+      else this._say(mic ? WORDS.micStart : this._noRecording(), 'warn');
       return;
     }
     this.d.oneWay.mark();
@@ -436,8 +477,7 @@
     }, function (err) {
       if (self.tok !== tok) return;
       self._abandon();
-      var name = err && err.name;
-      self._say(name === 'NotAllowedError' ? WORDS.micDenied : name === 'Suspended' ? WORDS.tapAgain : WORDS.noMic, 'warn', 8000);
+      self._say(self._startWords(err), 'warn', 8000);
     });
     this._changed();
   };
@@ -800,16 +840,21 @@
   // THE MICROPHONE MODULE, on demand. hk-mic.js is not one of the page's bootstrap modules (hk-loader.js MODULES): the sheet
   // imports it as it opens, so it is here long before a press (a press must make the AudioContext inside the gesture).
   // It takes the address the other modules have (the build's ?v= on Mantel, window.hkV) and says nothing when it is there.
-  var micLoad = null, micIs = false;
+  var micLoad = null, micIs = false, micFailed = false;
+  // Safari (a Mac's, an iPad's -- which says "Macintosh" -- or an iPhone's), not Chrome, Firefox or Edge in any of their guises
+  function isSafari() {
+    var ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+    return /Safari\//.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Firefox|Edg|OPR|Android/.test(ua);
+  }
   function micLoading() { return micIs && !window.hkMic; }
   function needMic() {
     if (window.hkMic || overrides.mic) return Promise.resolve();
     if (!micLoad) {
       var url = '/hk/modules/hk-mic.js';
       try { if (window.hkV) url = window.hkV(url); } catch (e) { /* the plain address */ }
-      micIs = true;
+      micIs = true; micFailed = false;
       micLoad = Promise.resolve().then(function () { return import(url); }).then(function () { micIs = false; }, function (err) {
-        micIs = false; micLoad = null;                // the next sheet tries again; this one says "No microphone"
+        micIs = false; micLoad = null; micFailed = true;   // the next sheet tries again; this one says it couldn't load
         console.error('[hk-intercom] could not load the microphone module', err);
       });
     }
@@ -832,6 +877,8 @@
       // (while hk-mic.js is on its way the answer is yes: "No microphone" would flash on every first open)
       supported: function () { return overrides.supported ? overrides.supported() : window.hkMic ? !!window.hkMic.supported() : micLoading(); },
       loading: function () { return micLoading(); },
+      loadFailed: function () { return micFailed; },
+      safari: function () { return isSafari(); },
       hasPort: function () { return overrides.hasPort ? overrides.hasPort() : !!(client && client.intercom); },
       oneWay: { seen: function () { return overrides.oneWaySeen !== undefined ? !!overrides.oneWaySeen : localGet(ONE_WAY) === '1'; }, mark: function () { localSet(ONE_WAY, '1'); } },
       changed: changed
@@ -928,7 +975,7 @@
     o = o || {};
     var done = function () { opened = false; if (o.onClose) o.onClose(); };
     var ok = D.open(null, { name: 'Intercom', icon: 'mdi:microphone', icon_color: 'rgba(255,255,255,0.92)' },
-      Object.assign({ cards: { cards: [{ type: 'custom:hk-intercom-sheet-card' }], width: 'wide' }, onClose: done }, o.hashed ? { hashed: true } : {}));
+      Object.assign({ cards: { cards: [{ type: 'custom:hk-intercom-sheet-card' }], width: 'wide', height: 'auto' }, onClose: done }, o.hashed ? { hashed: true } : {}));
     opened = !!ok;
     return !!ok;
   }
@@ -1028,37 +1075,64 @@
     var HkBase = C.HkBase, v = C.v, esc = C.esc, TILE = C.TILE;
 
     // ---------------------------------------------------------------- the block
+    // THE TILE LANGUAGE OF THE OTHER BLOCKS (2026-11-04, the owner: "it doesn't follow any design of any other card"): the same
+    // key as the Lock Up and Lamps blocks (hk-grid-security.js KEY_CSS: the glyph in its well at the top, the name and one line
+    // under it at the foot, 15 / 600 on 16.5 px lines), and in the HomeView look (Tile Style Centred, square cells) the centred
+    // tile's own numbers (hkCards.centredTile). Wide is that same key on the left, and the rooms last picked as whole chips on
+    // the right: the rooms that fit, then "+N", never a name cut in two.
     var BLOCK_CSS = [
       ':host{display:block;height:100%}',
-      'hk-plate.k{box-sizing:border-box;height:100%;display:flex;flex-direction:column;justify-content:space-between;',
+      'hk-plate.k{box-sizing:border-box;height:100%;display:flex;flex-direction:row;align-items:stretch;gap:12px;',
       '  padding:calc(12.8px + var(--hk-in-t,0px)) calc(12.8px + var(--hk-in-r,0px)) calc(12.8px + var(--hk-in-b,0px)) calc(' + TILE.padL + 'px + var(--hk-in-l,0px));',
       '  cursor:pointer;overflow:hidden;' + C.plate('tile') + ';-webkit-tap-highlight-color:transparent;--ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0;',
       '  transition:transform ' + C.DUR.press + ' ease,filter ' + C.DUR.press + ' ease}',
       'hk-plate.k:active{transform:scale(0.97);filter:brightness(0.93)}',
       'hk-plate.k:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
       'hk-plate.k[aria-disabled="true"]{cursor:default}',
-      'hk-plate.k[size=W]{flex-direction:row;align-items:center;gap:14px;justify-content:flex-start}',
+      '.lft{display:flex;flex-direction:column;justify-content:space-between;min-width:0;flex:1 1 auto}',
       '.well{width:42px;height:42px;border-radius:50%;background:' + v('key') + ';display:flex;align-items:center;justify-content:center;flex:none}',
-      '.well svg{width:' + TILE.glyph + 'px;height:' + TILE.glyph + 'px;fill:' + v('glyph') + ';display:block}',
-      '.tx{display:flex;flex-direction:column;gap:' + TILE.rowGap + 'px;min-width:0;flex:1 1 auto}',
+      '.icon{width:' + TILE.glyph + 'px;height:' + TILE.glyph + 'px;--mdc-icon-size:100%;display:flex;color:' + v('glyph') + ';transition:color ' + C.DUR.fade + ' ease}',
+      '.tx{display:flex;flex-direction:column;gap:' + TILE.rowGap + 'px;min-width:0}',
       '.name,.state{font-size:15px;line-height:' + TILE.lineH + 'px;letter-spacing:-0.23px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.name{font-weight:600;color:' + v('ink') + '}',
       '.state{font-weight:500;color:' + v('ink-2') + '}',
-      '.chips{display:flex;gap:6px;flex:0 1 auto;min-width:0;overflow:hidden}',
-      '.chip{height:30px;padding:0 12px;border-radius:15px;background:' + v('key') + ';color:' + v('ink') + ';display:inline-flex;align-items:center;',
-      '  font-size:13px;font-weight:600;letter-spacing:-0.1px;white-space:nowrap;min-width:0;max-width:110px;overflow:hidden;text-overflow:ellipsis}',
-      '.chips:empty{display:none}',
+      '.chips{display:none}',
+      // WIDE, the standard tile: the key on the left, the rooms on the right, standing on the same foot as the state line
+      ':host([size=W]) .lft{flex:0 1 auto;min-width:96px}',
+      ':host([size=W]) .chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;align-content:flex-end;align-self:flex-end;flex:1 1 0;min-width:0;max-height:66px;overflow:hidden}',
+      '.chip{height:30px;padding:0 12px;border-radius:15px;background:' + v('key') + ';color:' + v('ink') + ';display:inline-flex;align-items:center;flex:none;max-width:100%;',
+      '  font-size:13px;font-weight:600;letter-spacing:-0.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.chip.more{color:' + v('ink-2') + '}',
+      '.chip.hint{background:none;border:1px solid ' + v('line-strong') + ';color:' + v('ink-2') + '}',
       '@media (prefers-reduced-motion:reduce){hk-plate.k,hk-plate.k:active{transition:none;transform:none}}',
-      'hk-plate.k{border-radius:var(--hk-block-radius, ' + C.M.radius + ')}'
+      'hk-plate.k{border-radius:var(--hk-block-radius, ' + C.M.radius + ')}',
+      // CENTRED (the HomeView look; hk-base.js TILE.centred): the glyph bare over the name and what it says, all centred
+      ':host([tile=centred]) hk-plate.k{display:block}',
+      ':host([tile=centred]) .lft{display:contents}',
+      C.centredTile({ host: ':host([tile=centred])', plate: 'hk-plate.k', lit: 'hk-plate.k.lit', well: '.well', icon: '.icon', name: '.tx .name', sub: ['.tx .state'] }),
+      // ...and Wide, as the Scenes block is at Wide: the glyph at the square tile's size on the block's inset, the name and its
+      // line beside it, the rooms on the right
+      ':host([tile=centred][size=W]) hk-plate.k{display:flex !important;flex-direction:row;align-items:center;gap:18px;padding:' + C.blockPad('14px') + '}',
+      ':host([tile=centred][size=W]) .lft{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:16px;flex:0 1 auto;min-width:0}',
+      ':host([tile=centred][size=W]) .well{position:relative !important;left:auto !important;top:auto !important;transform:none !important;flex:none;' +
+        'width:' + TILE.centred.square.box + 'px !important;height:' + TILE.centred.square.box + 'px !important}',
+      ':host([tile=centred][size=W]) .icon{width:' + TILE.centred.square.glyph + 'px !important;height:' + TILE.centred.square.glyph + 'px !important}',
+      ':host([tile=centred][size=W]) .tx .name,:host([tile=centred][size=W]) .tx .state{position:static !important;left:auto !important;right:auto !important;top:auto !important;text-align:left !important}',
+      ':host([tile=centred][size=W]) .tx .name{font-size:' + TILE.centred.square.name + 'px !important;line-height:26px !important}',
+      ':host([tile=centred][size=W]) .tx .state{font-size:17px !important;line-height:22px !important}',
+      ':host([tile=centred][size=W]) .chips{align-self:center;max-height:72px;gap:8px}',
+      ':host([tile=centred][size=W]) .chip{height:32px;border-radius:16px;font-size:14px}'
     ].join('');
 
     class HkIntercomCard extends HkBase {
       static get CSS() { return BLOCK_CSS; }
+      static get observedAttributes() { return ['size', 'tile']; }
+      attributeChangedCallback() { if (this._config) { this._hkSig = null; this.redraw(); } }
       getCardSize() { return 2; }
       _size() { var s = (this.getAttribute && this.getAttribute('size')) || (this._config || {}).size; return s === 'W' ? 'W' : 'S'; }
       _sigOf() {
         var f = feedNow(), m = shared.mem || {};
-        return JSON.stringify([this._size(), !!(this.client && this.client.intercom), f ? [f.enabled, f.rooms.map(function (r) { return r.room + r.name; })] : null, m.rooms || null]);
+        return JSON.stringify([this._size(), this.getAttribute('tile') || '', !!(this.client && this.client.intercom), f ? [f.enabled, f.rooms.map(function (r) { return r.room + r.name; })] : null, m.rooms || null]);
       }
       _receiveClient() {
         super._receiveClient();
@@ -1074,6 +1148,7 @@
       }
       disconnectedCallback() {
         if (this._off) { this._off(); this._off = null; }
+        if (this._ro) { this._ro.disconnect(); this._ro = null; }
         if (super.disconnectedCallback) super.disconnectedCallback();
       }
       _lines() {
@@ -1084,33 +1159,68 @@
         var want = ((shared.mem || {}).rooms || []), ids = {};
         f.rooms.forEach(function (r) { ids[r.room] = r.name; });
         var picked = want.filter(function (id) { return ids[id]; }).map(function (id) { return ids[id]; });
-        return { state: picked.length ? names(picked, 2) : 'Talk to the house', label: 'Intercom', picked: picked, off: false };
+        return { state: 'Talk to the house', label: 'Intercom', picked: picked, off: false };
       }
       _render() {
         if (!this._config) return;
         if (!this._built) {
           this._root.innerHTML = '<hk-plate class="k" data-hk-role="card" role="button" tabindex="0">' +
-            '<div class="well">' + svg('mic') + '</div><div class="tx"><div class="name">Intercom</div><div class="state"></div></div><div class="chips"></div></hk-plate>';
+            '<div class="lft"><div class="well"><hk-icon class="icon"></hk-icon></div><div class="tx"><div class="name">Intercom</div><div class="state"></div></div></div>' +
+            '<div class="chips"></div></hk-plate>';
           var self = this, k = this._root.querySelector('.k');
           k.addEventListener('click', function (ev) { ev.stopPropagation(); self._tap(); });
           k.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); self._tap(); } });
-          this._e = { k: k, state: k.querySelector('.state'), chips: k.querySelector('.chips') };
+          this._e = { k: k, icon: k.querySelector('.icon'), state: k.querySelector('.state'), chips: k.querySelector('.chips') };
+          this._e.icon.icon = 'mdi:microphone';
           this._built = true;
+          // what fits depends on the box: drawn again when it changes (and once the fonts are in)
+          if (window.ResizeObserver) {
+            var last = '';
+            this._ro = new window.ResizeObserver(function () {
+              var r = k.getBoundingClientRect(), key = Math.round(r.width) + 'x' + Math.round(r.height);
+              if (key !== last) { last = key; self._fit(); }
+            });
+            this._ro.observe(k);
+          }
+          if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { self._fit(); });
         }
-        var e = this._e, l = this._lines(), size = this._size();
+        var e = this._e, l = this._l = this._lines(), size = this._size();
         e.k.setAttribute('size', size);
-        e.k.setAttribute('aria-label', l.label + (l.state && !l.off ? ', ' + l.state : ''));
+        e.k.setAttribute('aria-label', l.label + (l.picked && l.picked.length ? ', ' + names(l.picked, 3) : l.state && !l.off ? ', ' + l.state : l.off && l.state ? ', ' + l.state : ''));
         e.k.setAttribute('aria-disabled', l.off ? 'true' : 'false');
-        if (e.state.textContent !== l.state) e.state.textContent = l.state;
-        // Wide: the last rooms as chips beside the name
-        var chips = size === 'W' && l.picked ? l.picked.slice(0, 3) : [];
-        var key = chips.join('|');
-        if (key !== this._chipKey) {
-          this._chipKey = key;
-          e.chips.innerHTML = chips.map(function (n) { return '<span class="chip">' + esc(n) + '</span>'; }).join('');
-          if (size === 'W') e.state.style.display = chips.length ? 'none' : '';
+        // (Centred: the glyph by what is drawn, as the other tiles' -- TILE.centred.ink)
+        if (this.getAttribute('tile') === 'centred') e.icon.setAttribute('ink', String(C.TILE.centred.ink)); else e.icon.removeAttribute('ink');
+        this._fit();
+      }
+      // THE WORDS THAT FIT: Small names the rooms last picked on one line, Wide counts them and draws each as a chip. Whole
+      // names only: as many as the line (or the chips' two rows) holds, then "+N"; if not even one name fits, the count.
+      _fit() {
+        var e = this._e, l = this._l;
+        if (!e || !l) return;
+        var size = this._size(), picked = l.picked || [], more;
+        var line = size === 'W' ? (picked.length ? plural(picked.length, 'room', 'rooms') : l.state) : picked.length ? names(picked, picked.length) : l.state;
+        if (e.state.textContent !== line) e.state.textContent = line;
+        if (size === 'S' && picked.length > 1 && e.state.clientWidth) {
+          var n = picked.length;
+          while (n > 1 && e.state.scrollWidth > e.state.clientWidth + 1) { n--; e.state.textContent = names(picked, n); }
+          if (e.state.scrollWidth > e.state.clientWidth + 1) e.state.textContent = plural(picked.length, 'room', 'rooms');
         }
-        if (size !== 'W') e.state.style.display = '';
+        var html = '';
+        if (size === 'W' && !l.off) {
+          if (!picked.length) html = '<span class="chip hint">Choose Rooms</span>';
+          else {
+            var chip = function (n, cls) { return '<span class="chip' + (cls ? ' ' + cls : '') + '">' + esc(n) + '</span>'; };
+            var draw = function (n) {
+              more = picked.length - n;
+              e.chips.innerHTML = picked.slice(0, n).map(function (x) { return chip(x); }).join('') + (more > 0 ? chip('+' + more, 'more') : '');
+            };
+            draw(picked.length);
+            var shown = picked.length;
+            if (e.chips.clientWidth) while (shown > 1 && e.chips.scrollHeight > e.chips.clientHeight + 1) { shown--; draw(shown); }
+            html = e.chips.innerHTML;
+          }
+        }
+        if (e.chips.innerHTML !== html) e.chips.innerHTML = html;
       }
       _tap() {
         var l = this._lines();
@@ -1123,26 +1233,39 @@
     window.hkIntercom.Card = HkIntercomCard;
 
     // ---------------------------------------------------------------- the sheet
-    var GAP = TILE.gridGap;
+    var GAP = TILE.gridGap, SPC = C.SP;
     var SHEET_CSS = [
       ':host{display:block}',
-      '.sh{display:flex;flex-direction:column;gap:16px;padding:2px 0 0}',
+      '.sh{display:flex;flex-direction:column;gap:' + SPC.piece + 'px;padding:2px 0 0}',
+      '@media (max-width:' + C.BP.phone + 'px){.sh{gap:' + SPC.piecePhone + 'px}}',
       C.segCss('.seg', { on: '.sel', fill: true }),
       '.seg button{min-height:36px}',
       '.seg[hidden]{display:none}',
       '.seg button[aria-disabled="true"]{opacity:.45}',
-      '.pick{display:flex;flex-direction:column;gap:' + GAP + 'px}',
-      '.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));grid-auto-rows:44px;gap:' + GAP + 'px}',
+      // TWO SECTIONS, each a label over its pills (the label is the one label: 13 / 600 uppercase, secondary ink): the groups
+      // (Whole House, the floors, the presets), then the rooms. ONE COLUMN GRID for both, so every pill is the same width and
+      // height: the speaker picker's rule (auto-fill tracks, filled left to right, the last row simply ends short), at the
+      // picker's own column count -- 196 px tracks on a tablet (three across a wide sheet), 148 on a phone (two across)
+      '.pick{display:flex;flex-direction:column;gap:' + SPC.piece + 'px;--mn:196px}',
+      '@media (max-width:' + C.BP.phone + 'px){.pick{--mn:148px}}',
+      '.sec{display:flex;flex-direction:column;gap:' + SPC.block + 'px}',
+      '.sec[hidden]{display:none}',
+      '.lab{' + C.labelCss('label') + ';padding:0 4px}',
+      '.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--mn),1fr));grid-auto-rows:44px;gap:' + GAP + 'px}',
       '.grid:empty{display:none}',
       // (scroll-margin: a pill scrolled into view stops above the foot, never under it)
-      '.pill{height:44px;border-radius:22px;position:relative;touch-action:manipulation;scroll-margin-bottom:var(--fh,120px)}',
-      '.pill > span.l{padding:0 22px}',
+      '.pill{min-width:0;height:44px;border-radius:22px;position:relative;touch-action:manipulation;scroll-margin-bottom:var(--fh,120px)}',
+      '.pill > span.l{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 14px;min-width:0;line-height:16px}',
+      '.pill.hg > span.l{padding:0 30px}',
+      '.l b{font-weight:inherit;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.l i{font-style:normal;font-size:11px;font-weight:500;letter-spacing:0;line-height:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + v('ink-3') + '}',
+      '.pill[aria-pressed="true"] .l i{color:rgba(0,0,0,0.55)}',
       '.pill .pi{position:absolute;right:12px;top:0;bottom:0;display:flex;align-items:center;pointer-events:none;color:' + v('glyph') + '}',
       '.pill .pi svg{width:16px;height:16px;display:block;fill:currentColor}',
       '.pill[aria-pressed="true"] .pi{color:rgba(0,0,0,0.68)}',
       '.pill.skip{opacity:0.5}',
       '.pill.skip[aria-pressed="true"]{opacity:1}',
-      // A preset is a shortcut, not another room: the dashed border says "this fills the boxes below"
+      // A preset is a shortcut, not another room: the dashed border says "this fills the boxes below" (the speaker picker's)
       '.pill.preset{border:var(--hk-look-dash, ' + C.M.border + ');border-style:dashed}',
       '.pill.preset[aria-pressed="true"]{border-style:solid}',
       '.pill:focus-visible,button:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
@@ -1238,12 +1361,13 @@
         this._built = true;
         this._root.innerHTML =
           '<div class="sh"><div class="seg" role="tablist" aria-label="Mode" hidden></div>' +
-          '<div class="pick"><div class="grid chips"></div><div class="grid rooms"></div><div class="none" hidden></div></div>' +
+          '<div class="pick"><div class="sec gsec" hidden><div class="lab">Groups</div><div class="grid chips"></div></div>' +
+          '<div class="sec rsec"><div class="lab">Rooms</div><div class="grid rooms"></div></div><div class="none" hidden></div></div>' +
           '<div class="foot"><div class="mid"><div class="line" role="status" aria-live="polite"></div></div>' +
           '<div class="mic" data-kind="idle"><button class="mb" type="button" aria-label="Record">' + svg('mic') + '</button><div class="mt"></div></div>' +
           '<div class="rv" hidden></div></div></div>';
         var self = this, q = this._root.querySelector.bind(this._root);
-        this._e = { seg: q('.seg'), chips: q('.chips'), rooms: q('.rooms'), none: q('.none'), line: q('.line'), mic: q('.mic'), mb: q('.mb'), mt: q('.mt'), rv: q('.rv'), foot: q('.foot') };
+        this._e = { seg: q('.seg'), pick: q('.pick'), gsec: q('.gsec'), rsec: q('.rsec'), chips: q('.chips'), rooms: q('.rooms'), none: q('.none'), line: q('.line'), mic: q('.mic'), mb: q('.mb'), mt: q('.mt'), rv: q('.rv'), foot: q('.foot') };
         var mb = this._e.mb, down = false;
         // POINTER EVENTS, with pointercancel. The press makes and resumes the AudioContext (hk-mic.js unlock) and Message
         // acts on the release, so a finger that slides off or is taken by the system starts nothing.
@@ -1295,11 +1419,12 @@
         });
       }
       _pill(p, chip) {
-        var on = chip ? p.on : p.on;
-        var cls = 'pill' + (chip && p.kind === 'preset' ? ' preset' : '') + (!chip && !p.pickable ? ' skip' : '') + (!chip && p.quiet ? ' skip' : '');
+        var on = p.on;
+        var cls = 'pill' + (chip && p.kind === 'preset' ? ' preset' : '') + (!chip && (!p.pickable || p.quiet) ? ' skip' : '') + (!chip && p.glyph ? ' hg' : '');
         var attrs = chip ? 'data-chip="' + esc(p.id) + '" data-kind="' + p.kind + '"' : 'data-room="' + esc(p.id) + '"';
         return '<div class="' + cls + '" role="button" tabindex="0" aria-pressed="' + (on ? 'true' : 'false') + '" ' + attrs + ' aria-label="' + esc(chip ? p.name : p.aria) + '">' +
-          '<span class="l">' + esc(p.name) + '</span>' + (!chip && p.glyph ? '<span class="pi">' + svg(p.glyph) + '</span>' : '') + '</div>';
+          '<span class="l"><b>' + esc(p.name) + '</b>' + (!chip && p.cap ? '<i>' + esc(p.cap) + '</i>' : '') + '</span>' +
+          (!chip && p.glyph ? '<span class="pi">' + svg(p.glyph) + '</span>' : '') + '</div>';
       }
       _paint() {
         if (!this._built || !this._ctl) return;
@@ -1315,9 +1440,11 @@
         // the chips and pills, drawn again only when they differ
         var cKey = JSON.stringify(view.chips.map(function (c) { return [c.kind, c.id, c.name, c.on]; }));
         if (cKey !== this._cKey) { this._cKey = cKey; e.chips.innerHTML = view.chips.map(function (c) { return self._pill(c, true); }).join(''); }
-        var rKey = JSON.stringify(view.pills.map(function (p) { return [p.id, p.name, p.glyph, p.on, p.pickable, p.quiet]; }));
+        var rKey = JSON.stringify(view.pills.map(function (p) { return [p.id, p.name, p.glyph, p.cap, p.on, p.pickable, p.quiet]; }));
         if (rKey !== this._rKey) { this._rKey = rKey; e.rooms.innerHTML = view.pills.map(function (p) { return self._pill(p, false); }).join(''); }
         var empty = !view.pills.length;
+        e.gsec.hidden = !view.chips.length;
+        e.rsec.hidden = empty;
         e.none.hidden = !empty;
         if (empty) e.none.textContent = !this._ctl.d.hasPort() ? WORDS.needsHost : !view.enabled ? WORDS.off : this._ctl.feed() ? 'No rooms to talk to yet.' : WORDS.connecting;
         // the foot: the status, the microphone or the review's buttons

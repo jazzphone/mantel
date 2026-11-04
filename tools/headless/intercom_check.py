@@ -46,6 +46,13 @@ GRID = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items
     {'id': 'lock', 'card': 'action', 'size': 'S', 'at': [4, 0], 'opts': {'action': 'lock_up'}},
     {'id': 'scene', 'card': 'scene', 'size': 'W', 'at': [0, 1], 'opts': {'scene': 'scene.movie_night'}},
     {'id': 'room', 'card': 'room', 'size': 'W', 'at': [2, 1], 'opts': {'area': 'living_room'}}]}
+# the HomeView look: square cells and the centred Tile Style (a block's own `tile`, the screen's default on a HomeView screen)
+HV = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'cell': 'square', 'items': [
+    {'id': 'ic-s', 'card': 'intercom', 'size': 'S', 'at': [0, 0], 'tile': 'centred'},
+    {'id': 'ic-w', 'card': 'intercom', 'size': 'W', 'at': [1, 0], 'tile': 'centred'},
+    {'id': 'lamp', 'card': 'accessory', 'size': 'S', 'at': [3, 0], 'opts': {'entity': 'light.living_room_lamps'}, 'tile': 'centred'},
+    {'id': 'lock', 'card': 'action', 'size': 'S', 'at': [4, 0], 'opts': {'action': 'lock_up'}, 'tile': 'centred'},
+    {'id': 'scene', 'card': 'scene', 'size': 'W', 'at': [0, 1], 'opts': {'scene': 'scene.movie_night'}, 'tile': 'centred'}]}
 DEFAULT_SHOTS = Path('/private/tmp/claude-501/-Volumes-data-mantel--claude-worktrees-sweet-khayyam-01407a/'
                      '239b49fb-67ff-483f-ad43-d6b6cd8bdfac/scratchpad/shots')
 
@@ -65,7 +72,7 @@ async def main(args) -> int:
     import gallery
     from aiohttp.test_utils import TestServer
     gallery.SETTINGS['boards'][SCREEN] = {'title': 'Intercom', 'pages': [], 'headers': {'home': True}, 'menu_custom': True, 'menu': 'tabbar',
-                                          'home_style': 'grid', 'home_grid': GRID}
+                                          'home_style': 'grid', 'home_grid': HV if args.homeview else GRID}
     gallery.HOUSE['media_player.living_room'] = ('living_room', ('idle', dict(gallery.HOUSE['media_player.living_room'][1][1])))
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td))
@@ -78,7 +85,7 @@ async def main(args) -> int:
                 stdout=asyncio.subprocess.PIPE)
             out, _ = await proc.communicate(json.dumps({
                 'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'screen': SCREEN, 'plain': gallery.SCREEN,
-                'shots': str(shots),
+                'shots': str(shots), 'tag': 'hv-' if args.homeview else '',
                 'fakes': (Path(__file__).parent / 'intercom_fakes.js').read_text(),
                 'sizes': {n: SIZES[n] for n in names}}).encode())
     failed = []
@@ -96,5 +103,6 @@ async def main(args) -> int:
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--shots', type=Path)
+    ap.add_argument('--homeview', action='store_true', help='the HomeView look: square cells, the centred Tile Style')
     ap.add_argument('--size', action='append', choices=list(SIZES))
     raise SystemExit(asyncio.run(main(ap.parse_args())))
