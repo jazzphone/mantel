@@ -86,6 +86,7 @@ const CASES = [
       page.on('pageerror', e => { if (!/ResizeObserver loop/.test(e.message)) errors.push(e.message); });
       await page.goto(input.origin + '/' + c.screen + '/home');
       await page.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 });
+      await require('./grid_ready.cjs')(page);
       await page.waitForFunction(() => {
         const h = document.getElementById('hk-tabbar');
         return !!(h && h.shadowRoot && h.shadowRoot.querySelector('.root.on') && document.getElementById('hk-sky'));

@@ -15,6 +15,7 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
   for (const screen of input.screens){
     await page.goto(input.origin+'/'+screen+'/home');
     await page.waitForFunction(()=>window.__mantelReady===true);
+    await require('./grid_ready.cjs')(page);
     await page.waitForTimeout(1500);
     const report=await page.evaluate(()=>{
       const all=(root,sel)=>[...root.querySelectorAll('*')].flatMap(e=>[...(e.matches(sel)?[e]:[]),...(e.shadowRoot?all(e.shadowRoot,sel):[])]);
@@ -294,6 +295,7 @@ async function homeview(input){
         page.setDefaultTimeout(20000);
         await page.goto(input.origin+'/'+screen+'/home');
         await page.waitForFunction(()=>window.__mantelReady===true);
+        await require('./grid_ready.cjs')(page);
         await page.waitForTimeout(2500);
         const report=await page.evaluate((homeTiles)=>{
           const all=(root,sel)=>[...root.querySelectorAll('*')].flatMap(e=>[...(e.matches(sel)?[e]:[]),...(e.shadowRoot?all(e.shadowRoot,sel):[])]);

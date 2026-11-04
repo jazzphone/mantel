@@ -53,7 +53,7 @@ const GRID = { '1180x820': [6, 3], '820x1180': [4, 5], '390x844': [4, 6] };
       // (the browser's own "ResizeObserver loop" note is no page error, as the other checks have it)
       page.on('pageerror', e => { if (!/ResizeObserver loop/.test(e.message)) errors.push(phase + ': ' + e.message); });
       await page.goto(input.origin + '/' + c.screen + '/pages');
-      try { await page.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 }); }
+      try { await page.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 }); await require('./grid_ready.cjs')(page); }
       catch (e) { throw new Error(c.name + ': the page never got ready (' + page.url() + '; errors ' + JSON.stringify(errors) + ')'); }
       await page.waitForFunction(() => {
         const deep = (r, s) => [...r.querySelectorAll('*')].flatMap(e => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);

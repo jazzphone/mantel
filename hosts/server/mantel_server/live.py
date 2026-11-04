@@ -115,7 +115,7 @@ class Live:
     def __init__(self, authz: Callable[[], Any] | None = None) -> None:
         self._authz = authz or (lambda: None)
         self._entries: dict[Entry, None] = {}            # insertion order: a socket before what it opened
-        self._tasks: set[asyncio.Task] = set()
+        self._tasks: set[asyncio.Task[Any]] = set()
 
     # -- the registry -------------------------------------------------------------------------------------------
     def add(self, kind: str, principal: Any, close: Callable[[str], Awaitable[None] | None], *,

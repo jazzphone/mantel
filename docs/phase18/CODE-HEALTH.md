@@ -647,4 +647,21 @@ the image); it declares the 103 `window.hk*`/`window.mantel*` names found today 
 pattern) plus an index signature, so a misspelled `window.hk...` can't fail yet. The installer is check.py itself,
 not `tools/build_tools.py`, so the Docker image's esbuild install stays untouched.
 
+### C3 and C4 (2026-11-03)
+
+`mypy` 2.4 and `ruff` 0.17 in the `dev` extra; `[tool.mypy]` and `[tool.ruff]` in `pyproject.toml`;
+`tools/typecheck/py_check.py` and the `types-py` step in `ci.py full` (15 s warm, about two minutes with a cold cache on
+the share; it is skipped as unchanged when no Python changed).
+
+- **mypy on `hk_core`: 136 errors in 22 of its files**, recorded per file in `tools/typecheck/mypy_baseline.json`;
+  a file whose count rises, or a new file with any, fails. The plan's Python estimate was unmeasured.
+- **The route table's modules strict from the start** (`route_table.py`, `guards.py`, `live.py`, `socket_reads.py`,
+  `mcp_parity.py`): 14 errors under `mypy --strict` fixed (annotations only), now none, and the step keeps it so.
+  The rest of `mantel_server` comes in later by adding modules to that list (the ratchet the plan names); nothing
+  else of it is checked yet.
+- **ruff, the pyflakes rules only: 519 findings in 85 files** (`hk_core`, `hosts/server`, `tools`, `tests`): F811
+  redefinition 399 (mostly pytest fixtures imported into a test module and taken as parameters), F401 unused import
+  101, F841 unused variable 16, F541 an f-string with nothing in it 3. **No undefined name (F821) anywhere.** Per file
+  in `tools/typecheck/ruff_baseline.json`, the same ratchet.
+
 **Waiting on nothing.**

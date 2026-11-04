@@ -116,7 +116,7 @@ class Row:
             return self.policy.sample
         return sample_path(self.path, self.pattern)
 
-    def columns(self) -> dict:
+    def columns(self) -> dict[str, Any]:
         """What the lock and Routes.md show: every column, the defaults filled in."""
         p = self.policy
         out: dict[str, Any] = {"module": self.module, "handler": self.handler}
@@ -337,7 +337,7 @@ def witness(app: web.Application) -> list[str]:
         info = request.match_info
         route = getattr(info, "route", None)
         policy = policy_of(getattr(route, "handler", None)) if route is not None else None
-        if policy is not None and policy.stream == "none":
+        if route is not None and policy is not None and policy.stream == "none":
             path, _ = _path_of(route.resource)
             seen.append(f"{route.method} {path}: answered with a {type(response).__name__} and says stream='none'")
 
@@ -345,12 +345,12 @@ def witness(app: web.Application) -> list[str]:
     return seen
 
 
-def lock(rows: Iterable[Row]) -> dict:
+def lock(rows: Iterable[Row]) -> dict[str, Any]:
     """The table as data, sorted (tests/fixtures/route_table.lock.json)."""
     return {r.key: r.columns() for r in sorted(rows, key=lambda r: (r.path, r.method))}
 
 
-def _rule(c: dict) -> str:
+def _rule(c: dict[str, Any]) -> str:
     if "kind" in c:
         return f"own: {c['kind']}"
     if "who" not in c:
@@ -365,9 +365,9 @@ def _rule(c: dict) -> str:
     return ", ".join(bits)
 
 
-def markdown(table: dict) -> str:
+def markdown(table: dict[str, Any]) -> str:
     """docs/development/Routes.md: one section per module, one line per route."""
-    by_module: dict[str, list[tuple[str, dict]]] = {}
+    by_module: dict[str, list[tuple[str, dict[str, Any]]]] = {}
     for key, c in table.items():
         by_module.setdefault(c["module"], []).append((key, c))
     lines = ["# Routes", "",

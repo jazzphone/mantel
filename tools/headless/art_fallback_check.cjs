@@ -57,6 +57,7 @@ const VISIBLE_IMGS = () => {
       bad = input.art === 'bad';
       await page.goto(input.origin + '/' + view.screen + '/' + view.view);
       await page.waitForFunction(() => window.__mantelReady === true);
+      await require('./grid_ready.cjs')(page);
       await page.waitForTimeout(3500);
       const imgs = await page.evaluate(`(${VISIBLE_IMGS.toString()})()`);
       const broken = imgs.filter((i) => !i.ok);

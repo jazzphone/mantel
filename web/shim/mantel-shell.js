@@ -1,3 +1,4 @@
+// @ts-check
 // Mantel's host shell (the contract is web/client/hk-host-shell.js). Mantel's dashboard page is its
 // own shell: no HA elements, so HK's overlays (menu, tab bar, pop-ups) mount in #hk-shell-root, and
 // the sky and the tab bar find the view in <hk-view-container id="view">, which HK's view host
@@ -131,6 +132,7 @@
   function hostMenu() {
     const frame = global.__mantelHaFrame;
     // (Mantel Link takes it there: nothing in a Webpage dashboard's sandbox may move Home Assistant's window)
+    /** @type {HkHostMenuRow[]} */
     const out = frame && frame.kind === 'dashboard'
       ? [{ title: 'Home Assistant', icon: 'mdi:home-assistant', run: () => frame.back(), section: 'Mantel' }] : [];
     // the iPhone and iPad app's own settings (favorites, Face ID, notifications, Clear Cache, Sign Out): a native
@@ -206,6 +208,7 @@
     return TIMELINE_ROLES.indexOf(role) >= 0 || (deviceSession && PEOPLE.indexOf(role) < 0);
   }
 
+  /** @type {HkShellHost} */
   const MANTEL = {
     kind: 'mantel',
     hostMenu,

@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+from web_sources import owner
+
 ROOT = Path(__file__).resolve().parents[1]
 
 SCRIPT = r"""
@@ -177,7 +179,7 @@ def _named(tops, names):
 
 
 def _ha_only(rel, piece, text):
-    return piece in HA_ONLY.get(rel, ()) and (text == piece if NAMES.fullmatch(piece) else piece in text)
+    return piece in HA_ONLY.get(owner(rel), ()) and (text == piece if NAMES.fullmatch(piece) else piece in text)
 
 
 def _hard_coded():
@@ -194,13 +196,13 @@ def test_the_scanner_finds_strings_not_comments_or_regular_expressions():
 
 def test_no_shared_string_writes_hk_frontend_or_hk_settings_itself():
     bad = [f"{rel}:{line}: {text[:120]}" for rel, line, text in _hard_coded()
-           if not any(_ha_only(rel, a, text) for a in HA_ONLY.get(rel, ()))]
+           if not any(_ha_only(rel, a, text) for a in HA_ONLY.get(owner(rel), ()))]
     assert not bad, ("say the product through hkShell.productName(), the settings through hkShell.settingsName() or "
                      "settingsPlace('Features → …'), and Home Assistant's own through haName/haPlace; a string only "
                      "Home Assistant shows goes in HA_ONLY:\n" + "\n".join(bad))
 
 
 def test_every_ha_only_string_is_still_there():
-    seen = {(rel, a) for rel, _, text in _hard_coded() for a in HA_ONLY.get(rel, ()) if _ha_only(rel, a, text)}
+    seen = {(owner(rel), a) for rel, _, text in _hard_coded() for a in HA_ONLY.get(owner(rel), ()) if _ha_only(rel, a, text)}
     gone = [f"{rel}: {a}" for rel, pieces in HA_ONLY.items() for a in pieces if (rel, a) not in seen]
     assert not gone, "no longer in the shared pages; take it out of HA_ONLY:\n" + "\n".join(gone)

@@ -1,7 +1,12 @@
 {
  "checked": [
+  "hosts/ha/frontend/hk-ha-client.js",
+  "hosts/ha/frontend/hk-ha-shell.js",
   "web/hk/cards/hk-timeline-block.js",
   "web/hk/cards/hk-timeline.js",
+  "web/hk/grid-cards/hk-grid-math.js",
+  "web/shim/mantel-client.js",
+  "web/shim/mantel-shell.js",
   "web/shim/settings/timeline.js"
  ],
  "unchecked_allowed": [
@@ -37,6 +42,11 @@
   "web/hk/cards/hk-tile.js",
   "web/hk/cards/hk-weather.js",
   "web/hk/elements/hk-elements.js",
+  "web/hk/grid-cards/hk-grid-faces.js",
+  "web/hk/grid-cards/hk-grid-panel.js",
+  "web/hk/grid-cards/hk-grid-room.js",
+  "web/hk/grid-cards/hk-grid-security.js",
+  "web/hk/grid-cards/hk-grid-widgets.js",
   "web/hk/iconset/hk-icons.js",
   "web/hk/modules/hk-campost.js",
   "web/hk/modules/hk-charts.js",
@@ -113,12 +123,10 @@
   "web/shim/ha-elements.js",
   "web/shim/ha-frame.js",
   "web/shim/hub.js",
-  "web/shim/mantel-client.js",
   "web/shim/mantel-host.js",
   "web/shim/mantel-native.js",
   "web/shim/mantel-photos.js",
   "web/shim/mantel-settings.js",
-  "web/shim/mantel-shell.js",
   "web/shim/page-health.js",
   "web/shim/registry-sync.js",
   "web/shim/settings/about.js",
@@ -147,9 +155,7 @@
   "web/shim/settings/setup.js",
   "web/shim/settings/tablets.js",
   "web/shim/settings-page.js",
-  "hosts/ha/frontend/hk-ha-client.js",
   "hosts/ha/frontend/hk-ha-elements.js",
-  "hosts/ha/frontend/hk-ha-panel.js",
-  "hosts/ha/frontend/hk-ha-shell.js"
+  "hosts/ha/frontend/hk-ha-panel.js"
  ]
 }

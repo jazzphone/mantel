@@ -126,8 +126,8 @@ def stale(app: Any) -> list[str]:
     return sorted(set(READS_BY_TYPE) - registered(app))
 
 
-def lock_rows(app: Any) -> dict[str, dict]:
-    out: dict[str, dict] = {}
+def lock_rows(app: Any) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
     for t in sorted(registered(app) & set(READS_BY_TYPE)):
         r = READS_BY_TYPE[t]
         out[f"READ {t}"] = {"module": "mantel_server.socket_reads", "handler": "/ws read", "kind": "socket_read",

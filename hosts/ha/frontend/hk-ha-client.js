@@ -1,3 +1,4 @@
+// @ts-check
 // Only this host adapter passes Home Assistant's raw object to its icon element.
 (function (global) {
   'use strict';
@@ -23,12 +24,14 @@
     guarded.add(conn);
     var gen = conn._genCmdId, sendP = conn.sendMessagePromise;
     var last = conn.commandId, socket = conn.socket, floor = 0;   // floor: the last id before this socket
+    /** @this {any} */
     conn._genCmdId = function () {
       if (this.socket !== socket) { socket = this.socket; floor = last; }
       if (this.commandId < last) this.commandId = last;
       last = gen.call(this);
       return last;
     };
+    /** @this {any} */
     conn.sendMessagePromise = function (msg) {
       // (a socket no id was given on yet: every id so far is from before it)
       if (msg && msg.type === 'unsubscribe_events' && typeof msg.subscription === 'number' &&
@@ -43,6 +46,7 @@
     if (global.hkClient && global.hkClient.is(hass)) return hass;
     if (clients.has(hass)) return clients.get(hass);
     if (!global.hkClient) throw new Error('HKClient has not loaded');
+    /** @type {HkClientPort} */
     var port = {};
     ['states', 'entities', 'devices', 'areas', 'floors', 'services', 'config', 'locale', 'language', 'user', 'themes', 'connected'].forEach(function (key) {
       Object.defineProperty(port, key, { get: function () { return hass[key]; } });
@@ -77,6 +81,7 @@
       return Promise.resolve(auth.expired && auth.refreshAccessToken ? auth.refreshAccessToken() : null)
         .then(function () { return { url: url, token: function () { return auth.accessToken; } }; });
     };
+    /** @type {HKClient} */
     var client = global.hkClient.create(port);
     clients.set(hass, client);
     hosts.set(client, hass);
@@ -121,9 +126,11 @@
     }
   }
   function current() {
+    /** @type {any} */
     var root = global.document && typeof document.querySelector === 'function' && document.querySelector('home-assistant');
     return from(root && root.hass);
   }
+  /** @type {HkHostClient} */
   global.hkHAClient = { from: from, current: current, bridge: bridge, entry: entry };
   global.hkHostClient = global.hkHAClient;
   try { global.dispatchEvent(new CustomEvent('hk-host-client-ready')); } catch (e) { /* shell tests */ }

@@ -812,11 +812,6 @@
     var HS = window.hkSettings;
     return HS ? HS.get(path, null) : null;
   }
-  // A PAGE ONLY THE HOST HAS (hkShell.hostPage): asked, never assumed
-  function hostPage(name) {
-    var SH = window.hkShell;
-    try { return !!(SH && SH.hostPage && SH.hostPage(name)); } catch (e) { return false; }
-  }
   // THE THEME a generated view wears: HK Kiosk when it is loaded, else the
   // house's default
   function kioskTheme(themes) {
@@ -2061,27 +2056,18 @@
 
     // ENERGY: the Energy feature's page, from its plan (the settings feed's
     // `energy`, features/energy/plan.py) -- while the feature is added
-    if (opts.pages !== false && want('energy')) {
-      var ev = guarded('the Energy page', function () {
-        return energyView(client, view, { climate: !!pages.climate });
-      });
-      if (ev) pages.energy = ev;
-    }
-    // POWER: the Energy feature's second page, while its plan has one -- as
-    // a kind (`power`), and in place of a custom page at its address
+    var ev = opts.pages !== false && want('energy') && guarded('the Energy page', function () { return energyView(client, view, { climate: !!pages.climate }); });
+    if (ev) pages.energy = ev;
+    // POWER: the Energy feature's second page, while its plan has one -- as a kind (`power`), and in place of a custom page at its address
     var pw0 = added('energy') && setting('energy') && setting('energy').power;
     if (opts.pages !== false && pw0 && (want('power') || listOf(b, 'custom_pages').indexOf(pw0.path) >= 0)) {
       var pwv = guarded('the Power page', function () { return powerView(client, view); });
       if (pwv) pages.power = pwv;
     }
-
-    // TIMELINE (docs/phase19/HOUSE-TIMELINE.md): what happened at the house, a page only a host with its own record
-    // has (hkShell.hostPage: Mantel's, for the people whose role has it); never in Home Assistant
-    if (opts.pages !== false && want('timeline') && hostPage('timeline')) {
-      pages.timeline = view({ title: 'Timeline', path: 'timeline', subview: true, sky_variant: 'cameras',
-        icon: 'mdi:history', background: '#080a0e',
-        cards: [titleBar('Timeline'), column([{ type: 'custom:hk-timeline-card' }])] });
-    }
+    // TIMELINE (phase 19): a page only a host with its own record has (hkShell.hostPage; Home Assistant: false)
+    if (opts.pages !== false && want('timeline') && window.hkShell && window.hkShell.hostPage('timeline')) pages.timeline = view({ title: 'Timeline',
+      path: 'timeline', subview: true, sky_variant: 'cameras', icon: 'mdi:history', background: '#080a0e',
+      cards: [titleBar('Timeline'), column([{ type: 'custom:hk-timeline-card' }])] });
 
     if (music) {
       // MUSIC (2026-10-11): Play Music and Browse Music on one page

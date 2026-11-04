@@ -259,8 +259,9 @@ def test_each_steps_time_outlasts_a_smaller_run(tmp_path):
 def test_each_browser_check_and_hk_frontend_suite_names_what_it_reads():
     full = ci.select(ci.steps(), "full")
     keyed = {s.name for s in full if s.inputs}
-    browser = {s.name for s in full if s.tier == "full"} - {"ha-build", "hk-frontend-py", "hk-frontend-js", "caddy-image"}
-    assert browser and browser | {"hk-frontend-py", "hk-frontend-js"} == keyed
+    browser = {s.name for s in full if s.tier == "full"} - {"ha-build", "hk-frontend-py", "hk-frontend-js", "caddy-image",
+                                                             "types-py"}
+    assert browser and browser | {"hk-frontend-py", "hk-frontend-js", "types-py"} == keyed
     # (what runs in seconds, builds what the others need, or reads everything: always)
     assert not keyed & {"build-tools", "main-suite", "private-words", "ha-build", "caddy-image", "check-links"}
     shows = next(s for s in full if s.name == "saver-shows-check-1of8")

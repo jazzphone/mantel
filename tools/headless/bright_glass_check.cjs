@@ -60,6 +60,7 @@ function sheetContrast() {
       const go = async (path) => {
         await page.goto(input.origin + path);
         await page.waitForFunction(() => window.__mantelReady === true && !!window.hkDetail && !!window.hkWallpapers, null, { timeout: 30000 });
+        await require('./grid_ready.cjs')(page);
         await page.waitForTimeout(2500);
       };
       const shot = (view) => page.screenshot({ path: input.shots + '/' + KEY + '-' + size + '-' + view + '.png' });

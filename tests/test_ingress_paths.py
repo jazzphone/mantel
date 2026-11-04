@@ -15,10 +15,18 @@ import re
 from pathlib import Path
 
 from mantel_server import ingress
+from web_sources import owner as _owner
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
 PREFIX = "/api/hassio_ingress/Fict1onalToken"
+
+
+def owner(rel):
+    """A part of a split web file counts as its shell for NOT_MANTEL_URLS (rel is from web/)."""
+    return _owner("web/" + rel)[4:]
+
+
 ASSET_LEFT = re.compile(r"""(["'`(])/(hk|web|static/mdi)/""")
 URL_ROOT = re.compile(r"""(["'`(])(?!""" + re.escape(PREFIX) + r""")/(api|hk|web|static|ws|auth|login|logout|dev|"""
                       r"""local|hacsfiles|frontend|hk-settings|dashboard)\b""")
@@ -75,7 +83,7 @@ def test_other_absolute_urls_are_mantels_own_through_base_js_or_listed():
             for m in URL_ROOT.finditer(line):
                 if line.strip().startswith(("//", "*", "/*")):
                     continue                                     # a comment line
-                listed = [i for i, (f, frag, _) in enumerate(NOT_MANTEL_URLS) if f == rel and frag in line]
+                listed = [i for i, (f, frag, _) in enumerate(NOT_MANTEL_URLS) if f == owner(rel) and frag in line]
                 if listed:
                     used.update(listed)
                     continue
