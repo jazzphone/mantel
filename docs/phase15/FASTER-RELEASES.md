@@ -527,8 +527,14 @@ Before is measured (run `41643065587` for the workflow; the rest from `Releasing
 - **2026-11-04, the admin token.** The owner's `~/.config/mantel/ha_token` is an administrator's (checked with
   `auth/current_user`); `~/.config/mantel/ha_admin_token` links to it, so the tool finds it.
 
+- **2026-11-04, the hang found and fixed: Mantel 0.1.124 and HK Frontend 1.44.0.** With the owner's leave to restart
+  Home Assistant: py-spy on the LXC host (the container is read-only) and a CPU watcher that dumps after 6 s at
+  100 %. The second restart reproduced it: Mantel reconnected with no states, and every first state after ran the
+  notifications' `refresh()` over every entity. Throttled (f6e3a368). Released with the tool in 13.0 minutes (the
+  release commit's `versions` check 5 min of it) and HK Frontend 1.44.0, whose restart the new check passed (Mantel
+  reconnected and healthy a minute later). Two more restarts reconnected with 16 states: ~30 s busy, then healthy.
+
 ## Waiting on the owner
 
-Nothing. The first live release happened (0.1.123), and the admin token is in place. Still open, not for phase 15
-alone: why Mantel 0.1.123 stopped answering after Home Assistant's restart (above); a py-spy dump at the next one
-would settle it.
+Nothing. The first live release happened (0.1.123), and the admin token is in place. The hang after Home
+Assistant's restart is found and fixed in 0.1.124 (the Build log).
