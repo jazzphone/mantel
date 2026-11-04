@@ -259,6 +259,16 @@ What it offers depends on where the screen is open, so that every row does somet
 
 This only decides which rows are shown. What anyone may do stays Mantel's and Home Assistant's to decide.
 
+## Intercom (optional)
+
+The Intercom plays a spoken message from one screen on speakers in other rooms, through Music Assistant. Music
+Assistant has to fetch the audio from Mantel, so Mantel opens a **second, plain-HTTP port** for it, `8101/tcp`
+(not through Ingress, and nothing like the direct access port). It serves nothing but one-time links that last a
+few seconds, only to an address on your home network, and it listens only while the Intercom is turned on in
+Mantel Settings. To use it, give `8101/tcp` a host port under **Network** (for example `8101`), then in Mantel
+Settings, Intercom, set **Address for Music Assistant** to `http://<this Home Assistant machine's LAN address>:8101`.
+Leave the port empty if you do not use the Intercom; never forward it from your router.
+
 ## Mantel Link (Home Assistant's side of Mantel)
 
 Mantel Link, from HACS, puts Mantel's wall tablets, actions and notifications in Home Assistant (it replaces HK

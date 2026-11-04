@@ -97,7 +97,11 @@
                  // Swipe Between Pages (hk-pageswipe.js): listens for a
                  // sideways swipe on the page; reads the tab bar's list
                  // and the drag classifier when one comes
-                 'hk-pageswipe.js'];
+                 'hk-pageswipe.js',
+                 // The Intercom's microphone and socket Worker (hk-mic.js,
+                 // 2026-11-03): only assigns window.hkMic; the Intercom
+                 // sheet (cards/hk-intercom.js) makes a session on a press.
+                 'hk-mic.js'];
 
   // NO GRID-LAYOUT PATCH MODULE. An inline box containing block content makes
   // every section creep 6px per tap in Safari; hk-grid-card and hk-grid-view

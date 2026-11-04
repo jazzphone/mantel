@@ -18,6 +18,7 @@
 * [Home Grid](Home-Grid.md)
 * [Screensaver](Screensaver.md)
 * [Music and Cameras](Music-and-Cameras.md)
+* [Intercom](Intercom.md)
 * [Photos](Photos.md)
 * [iPhone, iPad and Mac Apps](iPhone-and-Mac-Apps.md)
 * [Push Notifications](Push-Notifications.md)

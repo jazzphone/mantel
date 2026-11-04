@@ -159,7 +159,12 @@
     todo: { sizes: ['S', 'T', 'L', 'XL'], sources: [], opts: { entity: 'todo', tap: 'tap_target' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-todo-card' }, o.entity ? { entity: o.entity } : {}); } },
     energy_rings: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { period: 'period', tap: 'tap_target' }, card: function (s, o) {
-      return { type: 'custom:hk-energy-rings-card', period: o.period || 'day' }; } }
+      return { type: 'custom:hk-energy-rings-card', period: o.period || 'day' }; } },
+    // THE INTERCOM (2026-11-03, docs/phase17/INTERCOM.md; hk-intercom.js): a button that opens its sheet -- speak a message
+    // into the HomePods of the rooms you pick. Wide also shows the last rooms picked. Always the sheet: no When Tapped.
+    // Without Mantel (HK Frontend in Home Assistant) the card says "Intercom needs Mantel".
+    intercom: { sizes: ['S', 'W'], sources: [], opts: {}, card: function (s) {
+      return { type: 'custom:hk-intercom-card', size: s }; } }
   };
   var SOURCES = ['list', 'rooms', 'cameras', 'thermostats', 'speakers', 'scenes', 'accessories'];
 

@@ -182,7 +182,9 @@ def test_the_app_config_publishes_one_opt_in_port_and_defaults_to_the_sidebar():
     import package_check as pc
     path = ROOT / "packaging/ha-app/config.yaml"
     doc = pc.parse_yaml(path.read_text())
-    assert doc["ports"] == {"8100/tcp": "null"} and set(doc["ports_description"]) == {"8100/tcp"}
+    # direct access (8100) and the Intercom's listener for Music Assistant (8101): both unpublished until the Owner maps them
+    assert doc["ports"] == {"8100/tcp": "null", "8101/tcp": "null"}
+    assert set(doc["ports_description"]) == {"8100/tcp", "8101/tcp"}
     assert doc["options"]["access"] == "ingress" and doc["schema"]["access"] == "list(ingress|proxy|https)"
     assert doc["schema"]["cloudflare_token"] == "password?" and doc["options"]["cloudflare_token"] == ""
     # every option has a default, except the ones moved to Mantel Settings (kept in the schema for one release so a
@@ -192,8 +194,10 @@ def test_the_app_config_publishes_one_opt_in_port_and_defaults_to_the_sidebar():
     assert doc["ingress"] is True and doc["ingress_port"] == 8099 and set(doc["options"]) == set(doc["schema"]) - moved
     assert all(doc["schema"][k].endswith("?") for k in moved)
     assert pc.check_ha_app(path) == []
-    translations = pc.parse_yaml((ROOT / "packaging/ha-app/translations/en.yaml").read_text())["configuration"]
+    all_translations = pc.parse_yaml((ROOT / "packaging/ha-app/translations/en.yaml").read_text())
+    translations = all_translations["configuration"]
     assert set(translations) == set(doc["schema"])
+    assert set(all_translations["network"]) == {"8100/tcp", "8101/tcp"}
 
 
 def test_the_package_check_refuses_a_published_or_second_port(tmp_path):
@@ -202,7 +206,9 @@ def test_the_package_check_refuses_a_published_or_second_port(tmp_path):
     good = (ROOT / "packaging/ha-app/config.yaml").read_text()
     p = tmp_path / "config.yaml"
     for bad, words in ((good.replace("8100/tcp: null", "8100/tcp: 8100", 1), "unpublished"),
-                       (good.replace("  8100/tcp: null", "  8100/tcp: null\n  8443/tcp: null"), "only port"),
+                       (good.replace("8101/tcp: null", "8101/tcp: 8101", 1), "unpublished"),
+                       (good.replace("  8100/tcp: null", "  8100/tcp: null\n  8443/tcp: null"), "only ports"),
+                       (good.replace("  8101/tcp: null\n", "", 1), "8101/tcp must be declared"),
                        (good.replace("access: ingress", "access: proxy"), "default to ingress"),
                        (good.replace('cloudflare_token: "password?"', 'cloudflare_token: "str?"'), "password")):
         p.write_text(bad)

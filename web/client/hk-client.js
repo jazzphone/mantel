@@ -127,6 +127,14 @@
         }
         return act.liveSocket.apply(act, arguments);
       },
+      // THE INTERCOM (docs/phase17/INTERCOM.md): intercom(mode, rate) resolves {url, token} for the sheet's Worker --
+      // Mantel's /ws/intercom and a one-time ticket. A host without it (Home Assistant) refuses like any other action.
+      intercom: function () {
+        if (!act || typeof act.intercom !== 'function') {
+          return refuse({ kind: 'socket', what: 'intercom' });
+        }
+        return act.intercom.apply(act, arguments);
+      },
       // how long that socket may take to start listening, where the host's path to the doorbell is
       // longer than HA's own (ms; undefined: the card's own wait)
       get liveWaitMs() { return act && typeof act.liveWaitMs === 'number' ? act.liveWaitMs : undefined; }
@@ -167,6 +175,11 @@
       };
     } });
     Object.defineProperty(client, 'actions', { enumerable: true, value: actionPort(port) });
+    // THE INTERCOM'S FEED (a read, so not on `actions`): the rooms this person may reach and how each would play, whole on
+    // every change; subscribe(cb) -> unsubscribe. null on a host without it (Home Assistant): the block says "Intercom needs Mantel".
+    var feed = port.intercom;
+    Object.defineProperty(client, 'intercom', { enumerable: true, value: feed && typeof feed.subscribe === 'function'
+      ? Object.freeze({ subscribe: function (cb) { return feed.subscribe(cb); } }) : null });
     Object.freeze(client);
     made.add(client);
     current = client;
@@ -216,7 +229,7 @@
                       subscribable: subscribable,
                       DATA: DATA.slice(), METHODS: METHODS.slice(), WRITES: WRITES.slice(),
                       SUBSCRIPTIONS: SUBSCRIPTIONS.slice(), SUBSCRIBE_EVENTS: SUBSCRIBE_EVENTS.slice(),
-                      ACTIONS: ['callService', 'callWS', 'request', 'liveSocket'] };
+                      ACTIONS: ['callService', 'callWS', 'request', 'liveSocket', 'intercom'] };
 
   // THE HOUSE'S LOCALE, for every screen that writes a time, a date or a number. One place reads the client's
   // `locale` (HA's user locale: language, number_format, time_format, time_zone) and `config` (language,

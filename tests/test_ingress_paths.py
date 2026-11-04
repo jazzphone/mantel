@@ -26,7 +26,7 @@ MANTEL_OWN = {"home.js", "shim/settings-page.js", "shim/mantel-settings.js", "sh
               "shim/settings/people.js", "shim/settings/devices.js", "shim/settings/roles.js", "shim/settings/files.js", "shim/settings/backups.js",
               "shim/settings/alerts.js", "shim/settings/service.js", "shim/settings/assistants.js", "shim/settings/connect.js", "shim/settings/connections.js", "shim/settings/tablets.js",
               "shim/settings/ha-screens.js", "shim/settings/link.js", "shim/settings/proxy.js", "shim/settings/audit.js",
-              "shim/settings/setup.js", "shim/settings/general.js", "shim/settings/about.js", "shim/settings/performance.js", "shim/settings/secure.js", "shim/settings/cameras.js", "shim/settings/protect.js", "shim/base.js", "shim/hub.js", "shim/mantel-client.js", "shim/mantel-host.js",
+              "shim/settings/setup.js", "shim/settings/general.js", "shim/settings/about.js", "shim/settings/performance.js", "shim/settings/secure.js", "shim/settings/cameras.js", "shim/settings/intercom.js", "shim/settings/protect.js", "shim/base.js", "shim/hub.js", "shim/mantel-client.js", "shim/mantel-host.js",
               "shim/mantel-shell.js", "shim/ha-elements.js", "shim/mantel-photos.js", "shim/boot-retry.js", "shim/page-health.js",
               "shim/early-cards.js",
               "app/push.js"}   # Web Push (slice 10.0): its calls go through the settings page's api(); never under Ingress

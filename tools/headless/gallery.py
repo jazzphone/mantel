@@ -220,6 +220,34 @@ def wall_display() -> dict:
 
 
 
+INTERCOM_SCREEN = "dashboard-intercom"   # the third screen: the Intercom's blocks beside a few others (showcase only)
+
+
+def intercom_display() -> dict:
+    """A Home Grid screen with the Intercom block, Small and Wide, beside a lamp, an action, a scene and a room."""
+    grid = {"v": 1, "cols": 6, "rows": 4, "frame": [1280, 800], "band": True, "items": [
+        {"id": "ic-s", "card": "intercom", "size": "S", "at": [0, 0]},
+        {"id": "ic-w", "card": "intercom", "size": "W", "at": [1, 0]},
+        {"id": "lamp", "card": "accessory", "size": "S", "at": [3, 0], "opts": {"entity": "light.living_room_lamps"}},
+        {"id": "lock", "card": "action", "size": "S", "at": [4, 0], "opts": {"action": "lock_up"}},
+        {"id": "scene", "card": "scene", "size": "W", "at": [0, 1], "opts": {"scene": "scene.movie_night"}},
+        {"id": "room", "card": "room", "size": "W", "at": [2, 1], "opts": {"area": "living_room"}}]}
+    return {"title": "Intercom", "pages": [], "headers": {"home": True}, "menu_custom": True, "menu": "tabbar",
+            "home_style": "grid", "home_grid": grid}
+
+
+# the Intercom's made-up feed and microphone (the browser checks' too), then the sheet in a state: the fakes in, the
+# sheet opened, and the microphone pressed as a finger does (intercom_fakes.js)
+INTERCOM_FAKES = (Path(__file__).parent / "intercom_fakes.js").read_text()
+INTERCOM_OPEN = INTERCOM_FAKES + """await until(() => window.hkIntercom && window.hkDetail && deep(document, 'hk-intercom-card').length);
+__intercomFake.install({});
+await pause(800);
+hkIntercom.open();
+const sheet = await until(() => { const c = deep(document, 'hk-intercom-sheet-card')[0]; return c && c.shadowRoot.querySelectorAll('.rooms .pill').length && c; });
+const tap = (sel, n = 0) => __intercomFake.press([...sheet.shadowRoot.querySelectorAll(sel)].filter((e) => !e.closest('[hidden]'))[n]);
+await pause(1000);"""
+INTERCOM_RECORD = """await tap('.mb'); await pause(1500); __intercomFake.mic().speak(7); await tap('.mb'); await pause(600);"""
+
 DESKTOP, TABLET, PHONE = (1440, 900), (1180, 820), (390, 844)
 EDITOR = (1600, 1000)                     # the Home Grid editor wants room for its preview
 GRID_DESKTOP = (1280, 800)                # the grid's own frame
@@ -324,6 +352,10 @@ SHOTS = {
     "music-phone": (f"/{SCREEN}/playmusic", PHONE, True, None),
     "edit-mode-desktop": (f"/{SCREEN}/room-living-room", DESKTOP, True, script(EDIT_MODE)),
     "home-grid": (f"/{GRID_SCREEN}/home", GRID_DESKTOP, True, None),
+    "intercom-block": (f"/{INTERCOM_SCREEN}/home", GRID_DESKTOP, True, None),
+    "intercom-picker": (f"/{INTERCOM_SCREEN}/home", GRID_DESKTOP, True, script(INTERCOM_OPEN)),
+    "intercom-sheet-message": (f"/{INTERCOM_SCREEN}/home", GRID_DESKTOP, True, script(INTERCOM_OPEN + """await tap('.mb'); await pause(1800);""")),
+    "intercom-sheet-review": (f"/{INTERCOM_SCREEN}/home", GRID_DESKTOP, True, script(INTERCOM_OPEN + INTERCOM_RECORD)),
     "home-grid-speakers": (f"/{GRID_SCREEN}/home", GRID_DESKTOP, True, script(TURN_OVER % ("spk", "spk"))),
     "home-grid-browse": (f"/{GRID_SCREEN}/home", GRID_DESKTOP, True, script(TURN_OVER % ("brw", "brw"))),
     "home-grid-editor": (f"/settings#/screens/{GRID_SCREEN}/home-grid", EDITOR, True, script(GRID_EDITOR + GRID_PREVIEW)),
@@ -506,6 +538,7 @@ async def build(base: Path, showcase: bool = False, real_model: bool = False):
         data = json.loads(json.dumps(SETTINGS))
         if showcase:
             data["boards"][GRID_SCREEN] = wall_display()         # beside Home: a screen that uses the Home Grid layout
+            data["boards"][INTERCOM_SCREEN] = intercom_display()
         return data
     await settings_store.import_settings(settings.store, fictional_ha, actor=settings_store.Actor(label="gallery"))
     hub.readproxy = (GalleryReads if showcase else OfflineReads)(app, owner)

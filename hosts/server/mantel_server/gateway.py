@@ -74,7 +74,7 @@ from .ha_client import (REGISTRY_KEYS, TALK_ENTITY, TALK_LIVE_TYPE, CommandBlock
 
 log = logging.getLogger("mantel.gateway")
 
-KINDS = ("service", "ws", "http", "ma", "talk_live", "tablet")
+KINDS = ("service", "ws", "http", "ma", "talk_live", "tablet", "intercom")
 KEYS = {
     "service": frozenset({"type", "id", "kind", "domain", "service", "data", "target", "return_response"}),
     "ws": frozenset({"type", "id", "kind", "msg"}),
@@ -82,9 +82,10 @@ KEYS = {
     "ma": frozenset({"type", "id", "kind", "command", "args"}),
     "talk_live": frozenset({"type", "id", "kind", "speaker"}),
     "tablet": frozenset({"type", "id", "kind", "tablet", "verb"}),
+    "intercom": frozenset({"type", "id", "kind", "mode", "rate"}),
 }
 # the audit's kind for each client kind (live talk is a Home Assistant WebSocket subscription)
-AUDIT_KIND = {"talk_live": "ws"}
+AUDIT_KIND = {"talk_live": "ws", "intercom": "ma"}       # the Intercom speaks through Music Assistant
 TARGET_KEYS = frozenset({"entity_id", "area_id", "device_id", "floor_id", "label_id"})
 NON_ENTITY_TARGETS = TARGET_KEYS - {"entity_id"}
 _NAME = re.compile(r"^[a-z0-9_]+$")
@@ -157,6 +158,7 @@ class Command:
     alarm: tuple[str, str] | None = None    # an alarm keypad command: (service, the panel it names)
     tablet: tuple[str, str] | None = None   # a wall tablet's kiosk app: (HK's tablet id, one of TABLET_VERBS)
     code: str | None = field(default=None, repr=False)  # the keypad's code: checked by Mantel, never sent
+    intercom: tuple[str, int] | None = None  # the Intercom: (mode, rate) a /ws/intercom ticket is issued for
 
 
 def _entity_list(value: Any) -> list[str]:
@@ -355,6 +357,24 @@ def tablet_command(msg: dict) -> Command:
                    targets=[f"tablet:{tid}"])
 
 
+# THE INTERCOM (docs/phase17/INTERCOM.md "The audio socket"): like live talk, what the gateway forwards is a one-time
+# ticket for ONE socket (/ws/intercom, intercom/relay.py), after `control` on the intercom feature and the audit row
+# (kind ma, intercom.open). Which rooms it reaches is decided per room by the relay when the person sends (the
+# intercom.play row), with authz.decide_intercom.
+INTERCOM_MODES = ("message", "live")
+INTERCOM_RATES = (16000, 22050, 24000, 32000, 44100, 48000)
+
+
+def intercom_command(msg: dict) -> Command:
+    mode, rate = msg.get("mode"), msg.get("rate")
+    if mode not in INTERCOM_MODES:
+        raise Refused("invalid_command", f"mode is one of {INTERCOM_MODES}")
+    if not isinstance(rate, int) or isinstance(rate, bool) or rate not in INTERCOM_RATES:
+        raise Refused("invalid_command", f"rate is one of {INTERCOM_RATES}")
+    return Command("ma", "intercom.open", [Check("control", feature="intercom")], intercom=(mode, rate),
+                   targets=["feature:intercom"])
+
+
 def classify(msg: dict, writes: frozenset[str]) -> Command:
     """A client `command` message -> Command, or Refused. Pure: no I/O."""
     kind = msg.get("kind")
@@ -366,6 +386,8 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
         return talk_live_command(msg)
     if kind == "tablet":
         return tablet_command(msg)
+    if kind == "intercom":
+        return intercom_command(msg)
     from . import music      # HK's music actions and writes (hk_frontend.music_*, hk_music/*): music.py's checks
     if kind == "service":
         got = music.classify_service(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"),
@@ -651,6 +673,11 @@ class Gateway:
     # with the one-shot ticket this gateway minted for exactly that principal, command and args.
     def allow(self, identity: Any, command: str, args: dict) -> bool:
         from .music import MusicRun
+        from .intercom.driver import IntercomRun
+        if isinstance(identity, IntercomRun):
+            # one broadcast's announcements (intercom/driver.py): minted after the intercom.play audit row, open while
+            # it plays, for play_announcement only, on its approved players, with its own one-time link only
+            return identity.allow(command, args) is True
         if isinstance(identity, MusicRun):
             # one music request's steps (music.py): minted in _forward below after RBAC and the audit
             # row, open only while that request runs, for its own commands on the house's speakers only
@@ -694,7 +721,7 @@ class Gateway:
             return await reply(fail("read_only", "a preview changes nothing"))
         try:
             cmd = classify(msg, self.writes)
-            if cmd.kind == "ma":
+            if cmd.kind == "ma" and cmd.intercom is None:
                 from .music import ma_players
                 cmd = ma_player_checks(cmd, {pid: eid for eid, pid in ma_players(self.app["hub"].registry).items()})
         except Refused as exc:
@@ -739,7 +766,7 @@ class Gateway:
                                     reason=d.reason, target=c.target))
 
         ident = principal.identity
-        unavailable = self._unavailable(cmd)
+        unavailable = self._unavailable(cmd, principal)
         if unavailable:
             aid = self.audit.record(principal=principal, kind=cmd.kind, action=cmd.action, targets=cmd.targets,
                                     decision="denied", reason=unavailable, sensitive=sensitive, result="not_sent")
@@ -754,8 +781,8 @@ class Gateway:
             self._finish(aid, f"error:{code}")
             log.warning("%s for %s failed: %s", cmd.action, _who(principal), code)
             return await reply(fail(code, str(exc)[:300], aid))
-        if cmd.live is None:
-            self._finish(aid, "ok")        # live talk: the relay writes the result when the stream ends
+        if cmd.live is None and cmd.intercom is None:
+            self._finish(aid, "ok")        # live talk and the Intercom: the relay writes the result when it ends
         log.info("%s on %s by %s (audit %d)", cmd.action, ",".join(cmd.targets), _who(principal), aid)
         await reply({"type": "command_result", "result": result, "audit_id": aid})
         authz = self.app.get("authz")
@@ -882,7 +909,12 @@ class Gateway:
             cmd.targets = targets
             await self.notify_owners(principal, cmd, aid)
 
-    def _unavailable(self, cmd: Command) -> str | None:
+    def _unavailable(self, cmd: Command, principal: Principal | None = None) -> str | None:
+        if cmd.intercom is not None:
+            host = self.app.get("intercom")
+            if host is None:
+                return "intercom_off"
+            return host.unavailable(principal, *cmd.intercom)
         if cmd.tablet is not None:
             links = self.app.get("tablet_links")
             if links is None or links.get(cmd.tablet[0]) is None:
@@ -908,6 +940,8 @@ class Gateway:
             return await tablet_links.send(self.app, *cmd.tablet)
         if cmd.live is not None:
             return self.app["talk"].issue(principal, cmd.live, aid)
+        if cmd.intercom is not None:
+            return self.app["intercom"].relay.issue(principal, *cmd.intercom, aid)
         engine = self._music_engine(cmd)
         if engine is not None:
             return await engine.run(principal, cmd.music, aid)
@@ -974,6 +1008,8 @@ def _action(msg: dict) -> str | None:
         return msg["command"][:200]
     if k == "talk_live":
         return TALK_LIVE_TYPE
+    if k == "intercom":
+        return "intercom.open"
     if k == "tablet" and isinstance(msg.get("verb"), str):
         return f"tablet.{msg['verb']}"[:200]
     return None

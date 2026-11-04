@@ -62,3 +62,6 @@ configuration:
   ha_frame_origins:
     name: Home Assistant addresses that may show Mantel (moved)
     description: Moved to Mantel Settings, Connections, HTTPS and Your Proxy, Home Assistant's Frame. Values here were copied there once; changing them here does nothing.
+network:
+  8100/tcp: Direct access (only with Access set to proxy or https; Ingress keeps working either way)
+  8101/tcp: Intercom (only when the Intercom is on in Mantel Settings; Music Assistant fetches announcements here, keep it on your home network)

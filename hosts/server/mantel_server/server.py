@@ -889,6 +889,10 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # in front of the interim bridge once MA and the music settings are in Mantel; its actions run only
     # through the gateway (commands off: refused, nothing reaches MA)
     music.register(app, hub, hooks)
+    # Phase 17: the Intercom (docs/phase17/INTERCOM.md): /ws/intercom, its settings and its stream listener for Music
+    # Assistant; it speaks only through the gateway's intercom command and Music Assistant's play_announcement
+    from .intercom import wiring as intercom_wiring
+    intercom_wiring.register(app, hub, hooks)
     # linked mode's notify and the rest of the entry (Seasonal decorations, Alarm PIN through the
     # gateway as the person whose PIN it is, Live TV), published only while Mantel owns `house`
     linked_house.register(app, hub)
@@ -966,6 +970,12 @@ async def apply_commands(app: web.Application, hub: Hub, on: bool) -> None:
     client = app.get("ma")
     if client is not None:
         client.gate = app["ma_gate"]
+    intercom = app.get("intercom")
+    if intercom is not None:        # the stream listener follows (its links die with it); open sockets end below
+        try:
+            await intercom.apply()
+        except Exception:  # noqa: BLE001
+            log.exception("the Intercom could not follow the commands switch")
     registry: live.Live = app["live"]
     if not on:      # what needed commands (a live talk, a Music Assistant page signed in past the gateway) ends
         await registry.commands_off()
@@ -1082,6 +1092,12 @@ async def tick_once(app: web.Application, hub: Hub) -> None:
             talk.sweep()
         except Exception:  # noqa: BLE001
             log.exception("live talk tick failed")
+    intercom = app.get("intercom")
+    if intercom is not None:      # unused Intercom tickets get their result; idle drafts are dropped
+        try:
+            await intercom.relay.tick()
+        except Exception:  # noqa: BLE001
+            log.exception("intercom tick failed")
     # every page socket, relayed context, talk, proxied socket, link and subscription (live.py): its principal read
     # again (a session or device gone ends it), then its own check (a feature, a speaker, a camera no longer allowed)
     await app["live"].check(why="policy_tick")

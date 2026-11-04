@@ -161,6 +161,12 @@ struct HouseWebView: UIViewRepresentable {
     /// The Music page's two-column width, in points (hk-music.js COLS2).
     static let twoPlayerColumns = 760
 
+    /// The app's menu: the Intercom sheet, on the page that is open (`#intercom` on its address; web/hk/cards/hk-intercom.js
+    /// opens the sheet when the address changes to it, and clears it again when the sheet closes).
+    @MainActor static func openIntercom() {
+        live?.evaluateJavaScript("if (location.hash !== '#intercom') location.hash = '#intercom';")
+    }
+
     /// ⌘R: the page again, where it is (its web session stays; a spent handover gets a new one through `/login`).
     @MainActor static func reloadLive() { live?.reload() }
 
@@ -242,6 +248,17 @@ struct HouseWebView: UIViewRepresentable {
                 return .cancel
             }
             return .allow
+        }
+
+        // THE MICROPHONE: the paired house's own https page may record (the Intercom, the door's talk button); every
+        // other page, frame or origin, and the camera, are refused without asking (MediaPermission has the rule).
+        func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+                     initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType,
+                     decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+            let mine = type == .microphone && MediaPermission.allowsMicrophone(
+                scheme: origin.protocol, host: origin.host, port: origin.port,
+                house: [parent.house.local, parent.house.remote])
+            decisionHandler(mine ? .grant : .deny)
         }
 
         func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,

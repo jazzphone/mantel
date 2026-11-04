@@ -46,6 +46,7 @@ It reads Home Assistant's token from `~/.config/mantel/ha_token` if that file ex
 | `--proxy-kind caddy\|own` | none | Which proxy owns TLS; tunes `/proxy-check`'s advice. |
 | `--connect` | off | Mantel Connect: a second TLS listener for the Connect App (client certificates only) and pairing. Implies Ingress identity from a **paired** App, trusting no socket address. Section 4a. |
 | `--connect-port`, `--connect-listen`, `--connect-address` | `8766`, `0.0.0.0`, none | The listener's port and address; the address `/admin` shows the Owner to type into the App. |
+| `--stream-port` | `0` (off) | The Intercom's listener for Music Assistant (phase 17): plain HTTP on this port, serving only one-time links to a message's audio, started only while the Intercom is on in Mantel Settings. Must differ from `--port`, `--direct-port` and (with `--connect`) `--connect-port`. The Docker/LXC stack passes `8767` (published as `${MANTEL_STREAM_BIND}:${MANTEL_STREAM_PORT}:8767`), the HA App `8101` (unpublished until you map `8101/tcp`). Keep it on the home network. |
 | `--data-dir` | `~/.local/share/mantel` | Where `mantel.db` lives. |
 | `--secrets-dir` | `~/.config/mantel/secrets` | Folder of secret files (the at-rest key). |
 | `--ma-url`, `--ma-token-file` | none, `/run/secrets/ma_token` | Optional: Music Assistant from the installation. Normally set up on the Connections page. |
@@ -183,6 +184,8 @@ The HA App's sidebar always works. To also reach the App at Mantel's own address
 * **`https`** — Mantel serves HTTPS on 8100 itself with a Let's Encrypt certificate, DNS-01 through Cloudflare or Duck DNS (`dns_provider`; for Cloudflare `cloudflare_token`: Zone / Zone / Read and Zone / DNS / Edit on that one zone; a masked option moved into a 0600 file), renewed by itself; `acme_staging` for trials. An address in the option `lan_networks` (default the private ranges) is the LAN door, any other the tunnel door; HA's hassio network and Docker's bridge never count, so a client relayed by Docker or hairpin NAT is the tunnel door, and tablets need a direct LAN path. Until the certificate is in, the port answers only "certificate pending" (no sign-in over the placeholder). Never forward this port from the internet.
 
 Either way, "Sign in with Home Assistant" works there by itself: Mantel uses **Sign-In Address** (Mantel Settings → Connections → Home Assistant), and when that is empty Home Assistant's own URL (HA → Settings → System → Network: external, else internal); Mantel's password, passkeys and enrolled wall tablets (§5) work as in the containers; HA's identity headers are never believed on 8100; the sidebar, HA's automatic connection and Music Assistant by App hostname are unchanged.
+
+The HA App's other optional port is **8101** (`8101/tcp`, unpublished by default): the Intercom's listener for Music Assistant (phase 17), plain HTTP, serving only one-time links, listening only while the Intercom is on in Mantel Settings, whatever `access` is set to. Map it under Network only to use the Intercom, and keep it on the home network; Mantel Settings, Intercom, takes `http://<HA machine>:8101` as the address for Music Assistant.
 
 ### Music Assistant and go2rtc through Mantel
 

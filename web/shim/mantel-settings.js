@@ -2,7 +2,7 @@
 //
 // The panel (web/hk/panels/hk-settings.js) asks its host for pages of its own (hkShell.settingsHost(),
 // "THE HOST'S SETTINGS" there); this is Mantel's answer: Me, People, Roles & Grants, Audit Log, Connections (Home
-// Assistant with Mantel Link, HK Frontend and Mantel Connect; Music Assistant), Cameras (RTSP cameras Mantel plays itself), Alerts (where Mantel sends what goes wrong), Your Files (with Photos,
+// Assistant with Mantel Link, HK Frontend and Mantel Connect; Music Assistant), Cameras (RTSP cameras Mantel plays itself), Intercom (talk to the rooms; docs/phase17/INTERCOM.md), Alerts (where Mantel sends what goes wrong), Your Files (with Photos,
 // mantel-photos.js), Service Accounts and Assistants (MCP), and Mantel's groups on HK's own wall tablet pages; every one drawn with HK Settings' own kit
 // (hk-settings-kit.js: iOS Settings, docs/DESIGN.md "HK Settings stays iOS Settings"). Only Mantel loads
 // this file; Home Assistant's build never ships web/shim, so none of it exists in HK Frontend inside HA.
@@ -31,6 +31,7 @@ import { pAssistants } from './settings/assistants.js';
 import { pConnect } from './settings/connect.js';
 import { pConnections } from './settings/connections.js';
 import { pCameras } from './settings/cameras.js';
+import { pIntercom } from './settings/intercom.js';
 import { drawDirect, pressTablets } from './settings/tablets.js';
 import { drawHaDashboard, drawWhere, pAddScreen } from './settings/ha-screens.js';
 import { pAudit } from './settings/audit.js';
@@ -48,6 +49,7 @@ const PAGES = [
   ['general', 'General', 'mdi:cog', C.gray, 'end', 'Mantel'],
   ['connections', 'Connections', 'mdi:lan', C.green, 'end', 'Mantel'],
   ['cameras', 'Cameras', 'mdi:cctv', C.teal, 'end', 'Mantel'],
+  ['intercom', 'Intercom', 'mdi:microphone', C.orange, 'end', 'Mantel'],
   ['files', 'Your Files', 'mdi:folder', C.purple, 'end', 'Mantel'],
   ['backups', 'Backups', 'mdi:safe', C.blue, 'end', 'Mantel'],
   ['alerts', 'Alerts', 'mdi:bell-ring', C.red, 'end', 'Mantel'],
@@ -75,7 +77,7 @@ let lastPage = null;
 let commandsOn = () => false;
 export function useCommands(fn) { commandsOn = typeof fn === 'function' ? fn : () => false; }
 const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, backups: pBackups, alerts: pAlerts, service: pService, assistants: pAssistants, about: pAbout, general: pGeneral,
-                connect: pConnect, connections: pConnections, cameras: pCameras, audit: pAudit, setup: pSetup };
+                connect: pConnect, connections: pConnections, cameras: pCameras, intercom: pIntercom, audit: pAudit, setup: pSetup };
 
 export const host = {
   title: 'Mantel Settings',
@@ -172,6 +174,7 @@ export const host = {
   search() {
     if (!me) return [];
     const out = PAGES.filter(([s]) => can(s)).map(([s, title]) => ({ label: title, route: ROUTE + '/' + s, where: 'Mantel', words: s === 'cameras' ? 'cameras rtsp ip camera add camera frigate motion doorbell'
+      : s === 'intercom' ? 'intercom announce announcement broadcast talk speak microphone rooms homepod live message chime music assistant'
       : s === 'alerts' ? 'alerts notifications discord telegram notifiarr email apprise heartbeat system alerts' : s }));
     if (can('photos')) out.push({ label: 'Photos', route: ROUTE + '/' + photos.SECTION, where: 'Mantel → Your Files', words: 'photos albums upload screensaver pictures' });
     return out;

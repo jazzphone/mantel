@@ -13,7 +13,7 @@ spec.loader.exec_module(gallery)
 
 
 def test_every_shot_is_one_of_mantel_s_own_pages():
-    screens = {"/" + gallery.SCREEN + "/", "/" + gallery.GRID_SCREEN + "/"}       # Home, and the Home Grid screen
+    screens = {"/" + gallery.SCREEN + "/", "/" + gallery.GRID_SCREEN + "/", "/" + gallery.INTERCOM_SCREEN + "/"}   # Home, the Home Grid screen, the Intercom's
     for name, (path, (w, h), signed_in, script) in gallery.SHOTS.items():
         assert path.startswith(tuple(screens) + ("/settings", "/login")), name
         assert w > 0 and h > 0 and isinstance(signed_in, bool) and (script is None or isinstance(script, str)), name

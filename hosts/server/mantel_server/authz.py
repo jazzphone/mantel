@@ -49,6 +49,10 @@ HOUSE_GRANTS: tuple[Grant, ...] = (
           roles={"wall_tablet"}, note="HK's Music page on every wall tablet; its speakers are still its room's"),
     Grant(effect="allow", actions=("view",), resource_kind="feature", resource="live_tv",
           roles={"wall_tablet"}, note="Live TV on every wall tablet, as in HA (each channel's camera: the grant above)"),
+    # Phase 17 (docs/phase17/INTERCOM.md decision 8): the Intercom on every wall tablet. Which rooms it reaches is
+    # decided per speaker with intercom_policy (INTERCOM_GRANTS below); an Owner adjusts it with a deny grant.
+    Grant(effect="allow", actions=("view", "control"), resource_kind="feature", resource="intercom",
+          roles={"wall_tablet"}, note="the Intercom on every wall tablet; its rooms are the Intercom's enabled ones"),
 )
 
 # THE DOORBELL ON EVERY WALL TABLET, live: watching any camera (`camera.live`) and talking at the door
@@ -88,6 +92,19 @@ def talk_speakers(popups: Iterable[Any]) -> frozenset[str]:
 def talk_grants(speakers: Iterable[str]) -> tuple[Grant, ...]:
     return tuple(Grant(effect="allow", actions=("control",), resource_kind="entity", resource=s, roles=TALK_ROLES,
                        note=TALK_NOTE) for s in sorted(speakers))
+
+
+# THE INTERCOM'S ROOMS for wall tablets (docs/phase17/INTERCOM.md "Permissions"): every wall tablet may `control`
+# exactly the speakers an Owner turned on in Settings -> Intercom, and ONLY for the Intercom's checks (decide_intercom;
+# music on those speakers is still decided by the tablet's room). A person with an area-limited role (Child, Guest) is
+# decided by their ordinary grants; an explicit deny on a speaker still wins.
+INTERCOM_ROLES = frozenset({"wall_tablet"})
+INTERCOM_NOTE = "the Intercom's enabled rooms, from Settings -> Intercom (Intercom only)"
+
+
+def intercom_grants(speakers: Iterable[str]) -> tuple[Grant, ...]:
+    return tuple(Grant(effect="allow", actions=("control",), resource_kind="entity", resource=s,
+                       roles=INTERCOM_ROLES, note=INTERCOM_NOTE) for s in sorted(speakers))
 
 
 def _is_loopback(peer: str | None) -> bool:
@@ -292,6 +309,39 @@ class Authz:
     def decide_talk(self, subject: Subject, action: str, entity_id: str | None, *, feature: str | None = None,
                     ctx: Context | None = None) -> Decision:
         return self.talk_policy(subject).decide(subject, action, entity_id, ctx or self.context(), feature=feature)
+
+    # -- the Intercom (its enabled rooms for wall tablets; see INTERCOM_ROLES) ----------------------
+    def intercom_speakers(self) -> frozenset[str]:
+        """The rooms turned on in Settings -> Intercom (Mantel's settings store, ``house/intercom``)."""
+        svc = self.app.get("settings")
+        store = getattr(svc, "store", None)
+        if store is None:
+            return frozenset()
+        try:
+            rooms = (store.body("house", "intercom") or {}).get("rooms") or {}
+            return frozenset(e for e, r in rooms.items() if isinstance(r, dict) and r.get("enabled") is True
+                             and _SPEAKER.match(e))
+        except Exception:  # noqa: BLE001 -- unreadable settings grant nothing
+            log.exception("could not read the Intercom's rooms")
+            return frozenset()
+
+    def intercom_policy(self, subject: Subject) -> Policy:
+        """The house policy plus the Intercom's room grants. Used ONLY for the Intercom's checks."""
+        base = self.policy_for(subject)
+        speakers = self.intercom_speakers()
+        if not speakers:
+            return base
+        key = (id(base), speakers)
+        cached = getattr(self, "_intercom_cache", None)
+        if cached is not None and cached[0] == key and cached[1] is base:
+            return cached[2]
+        got = replace(base, grants=tuple(base.grants) + intercom_grants(speakers))
+        self._intercom_cache = (key, base, got)
+        return got
+
+    def decide_intercom(self, subject: Subject, action: str, entity_id: str | None, *, feature: str | None = None,
+                        ctx: Context | None = None) -> Decision:
+        return self.intercom_policy(subject).decide(subject, action, entity_id, ctx or self.context(), feature=feature)
 
     # -- identity -> subject ----------------------------------------------------------------------
     def rules_door(self, door: str) -> str:

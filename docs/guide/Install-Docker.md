@@ -22,6 +22,7 @@ The stack publishes these ports on the host:
 |---|---|
 | `443` | Browsers and tablets, through Caddy (change it with `MANTEL_HTTPS_PORT`) |
 | `8555` TCP and UDP | Live TV's video (WebRTC) to your screens |
+| `8767` | The Intercom's listener for Music Assistant (plain HTTP, one-time links only, closed until the Intercom is on; keep it on your home network, or bind it with `MANTEL_STREAM_BIND`) |
 | `8765` | Only with your own reverse proxy, for the proxy to reach Mantel |
 | `8766` | Only with [Mantel Connect](Mantel-Connect.md) |
 

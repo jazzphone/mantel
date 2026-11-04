@@ -117,6 +117,9 @@ class Config:
     # `direct_tls` "": plain HTTP for the home's own proxy (trusted_proxies + the door key); "acme": Mantel
     # serves HTTPS there itself with a Let's Encrypt certificate (DNS-01 through Cloudflare or Duck DNS, direct_tls.py).
     direct_port: int = 0
+    # The Intercom's stream listener (phase 17, intercom/listener.py): a second plain-HTTP port that serves only one-time
+    # links (/s/<token>.wav) to Music Assistant, started only while the Intercom is on in Mantel Settings. 0 = never.
+    stream_port: int = 0
     direct_tls: str = ""
     direct_hosts: tuple[str, ...] = ()
     # built-in HTTPS: the home's networks (CIDRs), whose peers get the LAN door there (direct.https_door). Empty:
@@ -288,6 +291,10 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument("--direct-port", type=int, default=0, metavar="PORT",
                    help="HA App mode: also listen on this port for Mantel's own address (direct access; requests "
                         "there are never Ingress and pass --ingress-only). 0 = off")
+    p.add_argument("--stream-port", type=int, default=0, metavar="PORT",
+                   help="the Intercom's listener for Music Assistant: plain HTTP on this port, serving only one-time "
+                        "links to a message's audio, and started only while the Intercom is on in Mantel Settings. "
+                        "Keep it on the home network. 0 = off")
     p.add_argument("--direct-tls", choices=("none", "acme"), default="none",
                    help="direct access: none = plain HTTP behind your own proxy; acme = Mantel serves HTTPS itself "
                         "with a Let's Encrypt certificate (DNS-01 through Cloudflare or Duck DNS)")
@@ -329,6 +336,15 @@ def parse_args(argv: list[str] | None = None) -> Config:
                 "be combined with --connect (the Connect listener is the only other way in)")
     if (a.ingress_peer or a.ingress_only or a.ha_core_peer) and not a.ingress:
         p.error("--ingress-peer / --ingress-only / --ha-core-peer only apply together with --ingress")
+    if a.stream_port:
+        taken = {"--port": a.port, "--direct-port": a.direct_port, "--connect-port": a.connect_port if a.connect else 0}
+        if not 1 <= a.stream_port <= 65535:
+            p.error("--stream-port must be a TCP port (1-65535), or 0 for off")
+        for flag, port in taken.items():
+            if port and a.stream_port == port:
+                p.error(f"--stream-port must differ from {flag} (both are {port})")
+    elif a.stream_port < 0:
+        p.error("--stream-port must be a TCP port (1-65535), or 0 for off")
     if a.direct_port:
         if not a.ingress or a.connect:
             p.error("--direct-port is the HA App's direct access: it needs --ingress (and not --connect)")
@@ -447,7 +463,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                  announce_file=Path(a.announce_file) if a.announce_file else None,
                  log_level=a.log_level, go2rtc_url=a.go2rtc_url.rstrip("/"),
                  live_tv_hardware="" if a.live_tv_hardware == "none" else a.live_tv_hardware,
-                 direct_port=a.direct_port, direct_tls="" if a.direct_tls == "none" else a.direct_tls,
+                 direct_port=a.direct_port, stream_port=a.stream_port, direct_tls="" if a.direct_tls == "none" else a.direct_tls,
                  direct_hosts=_direct_hosts(a) if a.direct_port else (), lan_networks=tuple(lan_networks),
                  acme_directory=a.acme_directory, acme_email=a.acme_email.strip(),
                  acme_dns_token_file=Path(a.acme_dns_token_file) if a.acme_dns_token_file else None,

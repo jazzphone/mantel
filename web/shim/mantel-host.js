@@ -73,7 +73,7 @@ export const CAMERA_SUBSCRIPTIONS = new Set(['camera/webrtc/offer']);
 // hk_music/queue_play and every other hk_music/* write still meet WRITE_WORDS here.
 export const NAMED_READS = new Set(['hk_music/queue']);
 // HK's per-person user data that Mantel keeps itself (user_data.KEYS; mantel-client.js USER_DATA_KEYS)
-export const USER_DATA_KEYS = new Set(['hk_music_focus', 'favorites']);
+export const USER_DATA_KEYS = new Set(['hk_music_focus', 'favorites', 'intercom']);
 // NOTIFICATION SNAPSHOTS (hk-notify.js): HK asks hk_notify/snap/sign {snaps: [id]} for paths an <img> can
 // load. A read (its name carries "sign"): the server answers with Mantel's own route for each picture of
 // a camera the person may see (/api/notify/snap/<id>, no HA token), and the page's prefix goes in front

@@ -1,0 +1,212 @@
+"""The Intercom on the page (docs/phase17/INTERCOM.md, slice 17.3): the sheet's decisions, the microphone module and
+the Worker that owns the audio socket, and the action port and feed on Mantel's shim, all run in node
+(tests/intercom_harness.mjs, tests/intercom_shim_harness.mjs) with fakes for the microphone, the socket, the clock and
+the gateway -- no sound, no DOM, no network. The headless WebKit check (tools/headless/intercom_check.py) draws it.
+
+The scenarios are named in the harness; each is one test here, so a failure names itself."""
+from __future__ import annotations
+
+import json
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from hk_core.settings import home_grid as HG
+
+ROOT = Path(__file__).resolve().parent.parent
+
+SCENARIOS = [
+    "mic_level_and_stamp",
+    "worker_holds_frames_until_signed_in_then_sends_them_in_order",
+    "worker_sends_nothing_while_not_recording_and_the_copy_matches",
+    "worker_sync_waits_for_the_socket_and_says_closed_when_there_is_none",
+    "worker_a_cancel_starts_the_count_again_and_server_events_reach_the_page",
+    "worker_auth_invalid_is_an_error_and_a_close",
+    "worker_uploads_a_whole_recording_as_forty_millisecond_frames_then_says_so",
+    "worker_paces_an_upload_to_the_servers_bucket_a_burst_under_a_second_then_a_little_over_real_time",
+    "worker_paces_the_frames_held_before_sign_in_and_those_behind_a_live_start_in_order",
+    "worker_a_close_is_a_normal_closure_and_stops_a_paced_upload",
+    "worker_a_held_queue_that_overflows_says_it_dropped",
+    "worker_ignores_an_old_sockets_open_and_close_lets_go",
+    "session_makes_the_context_at_24000_inside_the_press_and_says_the_rate_it_got",
+    "session_start_says_no_unless_the_context_runs_and_a_later_touch_makes_it_run_without_a_second_microphone",
+    "session_reports_the_rate_of_the_context_actually_built",
+    "session_a_browser_that_will_not_join_the_rates_gets_the_context_at_its_own",
+    "session_keeps_a_copy_plays_it_and_close_lets_everything_go",
+    "session_ends_a_worker_that_never_says_bye_after_a_moment",
+    "session_ignores_an_old_sockets_words",
+    "supported_needs_a_microphone_a_worker_and_a_worklet",
+    "picker_glyphs_and_what_a_tap_can_pick",
+    "picker_live_glyphs_waveform_clock_person",
+    "picker_a_group_leader_is_marked_with_the_slash_but_can_be_picked_and_says_why_on_a_tap",
+    "picker_floors_presets_and_whole_house",
+    "picker_a_skipped_pill_says_why_and_is_not_picked",
+    "picker_nothing_to_send_to_names_why",
+    "picker_a_room_the_feed_no_longer_has_is_not_chosen",
+    "mode_the_switch_is_hidden_unless_live_is_allowed",
+    "mode_is_remembered_per_person_with_the_rooms",
+    "mode_another_screens_change_is_followed_until_this_one_chooses",
+    "mode_a_switch_while_a_message_waits_is_not_allowed",
+    "message_record_stop_review_send_sent",
+    "message_too_short_is_dropped_with_a_word",
+    "message_play_plays_the_pages_copy_and_stops",
+    "message_re_record_cancels_the_draft_and_reuses_the_open_socket",
+    "message_cancel_drops_the_draft_and_the_socket",
+    "message_send_with_nothing_picked_asks_for_rooms",
+    "message_a_socket_that_did_not_keep_up_is_replaced_by_an_upload_of_the_copy",
+    "message_dropped_frames_are_made_up_by_the_upload_too",
+    "message_send_again_is_a_new_ticket_and_the_copy",
+    "message_a_failed_room_is_named",
+    "message_send_anyway_asks_again_for_the_quiet_rooms_with_override",
+    "message_no_send_anyway_for_someone_who_may_not",
+    "message_the_floor_is_held_by_someone_else",
+    "message_server_errors_are_said_in_words",
+    "message_the_socket_dropping_while_sending_keeps_the_copy_for_send_again",
+    "message_the_limit_ends_the_recording_by_the_clock_and_by_the_servers_word",
+    "words_https_and_needs_mantel_and_off_and_one_way",
+    "words_idle_lines",
+    "refusals_are_said_and_end_the_recording_unless_trying_again_would_do",
+    "refusals_the_gateways_reasons_are_said_in_plain_words",
+    "refusals_the_microphone_not_allowed_or_missing",
+    "ticket_the_rate_is_the_one_of_the_context_built_and_only_a_rate_the_server_accepts",
+    "words_a_suspended_context_or_a_recording_with_nothing_in_it_says_to_tap_again",
+    "pointer_the_release_and_the_click_unlock_the_audio_again_for_a_touch",
+    "live_with_no_room_picked_opens_no_microphone_and_says_so",
+    "live_after_busy_the_socket_is_closed_so_send_again_opens_a_new_one",
+    "a_stale_ticket_after_cancel_opens_nothing",
+    "pointer_a_message_tap_acts_on_release_and_a_cancel_does_nothing",
+    "dispose_closes_the_microphone_and_saves_what_was_picked",
+    "live_hold_to_talk_starts_at_the_press_and_ends_at_the_release",
+    "live_a_short_tap_stays_on_until_the_next_tap",
+    "live_a_taken_press_ends_a_held_talk",
+    "live_the_status_uses_the_feeds_lag_then_the_servers_and_the_servers_sending_frame_changes_nothing_else",
+    "live_rooms_that_did_not_connect_live_are_named_and_the_talk_ends_on_the_servers_word",
+    "live_a_socket_that_drops_mid_talk_sends_the_copy_as_a_message_on_a_new_ticket",
+    "live_someone_else_has_the_floor_and_the_press_goes_no_further",
+    "listener_a_tablet_that_is_no_listener_makes_no_audio_and_no_pill",
+    "listener_plays_a_clip_once_at_its_volume_and_never_the_same_id_twice",
+    "listener_a_context_that_wont_start_shows_one_pill_and_the_first_touch_plays_the_clip",
+    "listener_a_clip_that_waited_over_a_minute_for_a_touch_is_dropped",
+    "listener_a_tablet_that_is_itself_talking_plays_nothing",
+    "listener_busy_follows_the_open_sheets_state",
+    "listener_a_clip_that_cannot_be_fetched_is_skipped_and_the_next_one_plays",
+    "feed_keeps_the_listener_flag_and_the_play_snapshot",
+]
+
+
+@pytest.fixture(scope="module")
+def results():
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    out = subprocess.run(["node", str(ROOT / "tests/intercom_harness.mjs"), str(ROOT / "web/hk/modules/hk-mic.js"),
+                          str(ROOT / "web/hk/cards/hk-intercom.js")], capture_output=True, text=True, timeout=120)
+    assert out.returncode == 0, out.stderr
+    return {r["name"]: r for r in json.loads(out.stdout.strip().splitlines()[-1])}
+
+
+@pytest.mark.parametrize("name", SCENARIOS)
+def test_scenario(results, name):
+    r = results[name]
+    assert r["ok"], r.get("error")
+
+
+def test_every_scenario_in_the_harness_is_named_here(results):
+    assert sorted(results) == sorted(SCENARIOS)
+
+
+# ---------------------------------------------------------------- the shim: the action port and the feed
+@pytest.fixture(scope="module")
+def shim(tmp_path_factory):
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    d = tmp_path_factory.mktemp("intercom-shim")
+    (d / "base.mjs").write_text((ROOT / "web/shim/base.js").read_text())
+    (d / "hub.mjs").write_text((ROOT / "web/shim/hub.js").read_text().replace("from './base.js'", "from './base.mjs'"))
+    out = subprocess.run(["node", str(ROOT / "tests/intercom_shim_harness.mjs"), str(ROOT / "web/client/hk-client.js"),
+                          str(ROOT / "web/shim/mantel-client.js"), str(d)], capture_output=True, text=True, timeout=60)
+    assert out.returncode == 0, out.stderr
+    return json.loads(out.stdout.strip().splitlines()[-1])
+
+
+def test_the_press_is_one_gateway_intercom_command_and_gets_the_socket_and_a_ticket(shim):
+    assert shim["okSent"] == [{"kind": "intercom", "mode": "message", "rate": 24000}]
+    assert shim["ok"] == {"url": "wss://mantel.test/ws/intercom", "token": "fictional-ticket-9"}
+    assert shim["liveSent"] == [{"kind": "intercom", "mode": "live", "rate": 48000}]
+    assert shim["actions"][-1] == "intercom"
+
+
+def test_the_gateways_refusals_reach_the_sheet_by_their_own_codes(shim):
+    assert [r["error"] for r in shim["refusals"]] == ["commands_disabled", "forbidden", "unavailable", "intercom_off"]
+    assert shim["noTicket"]["error"] == "unavailable", "an answer with no ticket is not a socket"
+
+
+def test_nothing_is_sent_for_a_mode_or_rate_the_server_would_refuse(shim):
+    assert [b["error"] for b in shim["bad"]] == ["invalid"] * 5 and shim["badSent"] == 0
+
+
+def test_with_commands_off_the_feed_still_draws_and_the_press_is_refused_before_anything_is_sent(shim):
+    assert shim["offFeed"] == "function"
+    assert shim["off"] == {"error": "commands_disabled"} and shim["offSent"] == 0
+
+
+def test_a_host_without_the_intercom_has_no_feed_and_no_action(shim):
+    assert shim["oldFeed"] is None and shim["oldAction"]["error"] == "invalid"
+
+
+def test_the_feed_is_asked_for_kept_answered_resumed_and_let_go(shim):
+    assert shim["earlySent"] == [{"type": "intercom/subscribe", "id": 1}], "asked for before the socket opened: sent when it did"
+    assert shim["early"] == [[{"enabled": True, "rooms": []}, None]]
+    assert shim["got"][0][0]["rooms"][0]["room"] == "media_player.kitchen"
+    assert shim["got"][1] == [None, {"code": "intercom_off"}] and shim["got"][2][1]["code"] == "unknown_type"
+    assert shim["resumed"] == shim["ids"], "a new socket asks again under the same ids"
+    assert shim["unsub"] == shim["ids"]
+    assert shim["url"] == "wss://mantel.test/ws/intercom"
+    assert shim["fed"] == {"enabled": True}
+
+
+def test_a_clips_address_is_given_the_pages_own_prefix_by_the_shim_and_nothing_else_is_touched(shim):
+    got = shim["prefixed"]
+    assert got[0]["play"] == {"id": "b1", "url": "/api/hassio_ingress/abc/api/intercom/clip/b1.wav", "volume": 0.5}
+    assert got[1]["play"]["url"] == "https://elsewhere.example/x.wav", "only an address on this server is moved"
+    assert got[2]["play"] is None and got[3] is None
+
+
+# ---------------------------------------------------------------- where things are
+def test_the_block_is_in_both_catalogs_and_opens_no_other_way():
+    assert HG.CATALOG["intercom"] == {"sizes": ("S", "W"), "sources": (), "opts": {}}
+    cat = (ROOT / "web/hk/cards/hk-grid-catalog.js").read_text()
+    assert "type: 'custom:hk-intercom-card', size: s" in cat
+    ed = (ROOT / "web/hk/panels/hk-grid-editor.js").read_text()
+    assert "intercom: 'Intercom'" in ed and "'intercom']" in ed and "intercom: 'mdi:microphone'" in ed
+
+
+def test_the_card_files_are_found_and_the_microphone_module_is_loaded_with_the_others():
+    from mantel_server import hk_cards
+    got = hk_cards.card_list(ROOT / "web/hk/cards")
+    assert "hk-intercom.js" in got["core"] + list(got["lazy"])
+    assert "'hk-mic.js'" in (ROOT / "web/hk/modules/hk-loader.js").read_text()
+
+
+def test_the_new_files_name_no_host_object_and_leave_the_doorbell_alone():
+    for rel in ("web/hk/cards/hk-intercom.js", "web/hk/modules/hk-mic.js"):
+        assert not re.search(r"\bhass\b", (ROOT / rel).read_text()), rel
+    cams = (ROOT / "web/hk/cards/hk-cameras.js").read_text()
+    assert "hk-mic" not in cams and "hk-intercom" not in cams
+
+
+def test_the_sheet_is_opened_by_the_block_the_address_and_the_open_call():
+    card = (ROOT / "web/hk/cards/hk-intercom.js").read_text()
+    assert "location.hash !== '#intercom'" in card
+    assert "custom:hk-intercom-sheet-card" in card and "D.open(null" in card
+    assert "self._tap()" in card and "window.hkIntercom.open()" in card
+
+
+def test_the_microphone_press_is_a_pointer_event_with_pointercancel_and_no_touch_scroll():
+    card = (ROOT / "web/hk/cards/hk-intercom.js").read_text()
+    for ev in ("pointerdown", "pointerup", "pointercancel"):
+        assert f"addEventListener('{ev}'" in card
+    assert "touch-action:none" in card and ":hover" not in card
+    assert "height:44px" in card, "44 pt targets"

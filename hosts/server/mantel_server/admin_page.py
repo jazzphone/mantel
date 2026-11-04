@@ -45,7 +45,7 @@ ASSET = PAGE + "/{name}"
 OVERVIEW = "/api/admin/overview"
 ASSETS = {"admin.js": "text/javascript", "admin.css": "text/css"}
 # admin.js imports ../webauthn.js (the passkey helpers shared with /login), served by login_page.py
-SECTIONS = ("me", "connections", "cameras", "general", "people", "devices", "files", "photos", "backups", "alerts", "roles", "service", "connect",
+SECTIONS = ("me", "connections", "cameras", "intercom", "general", "people", "devices", "files", "photos", "backups", "alerts", "roles", "service", "connect",
             "assistants", "audit", "about", "performance")
 
 CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; "
@@ -82,6 +82,7 @@ def sections_for(request: web.Request, ident: Identity) -> list[str]:
         out.append("alerts")               # alerts/api.py: Owner/Admin read; only an Owner changes a channel
         out.append("connections")          # connections.py: Owner/Admin read; only an Owner changes
         out.append("cameras")              # camera_setup.py: Owner/Admin read and change (an Admin from away asks a fresh sign-in)
+        out.append("intercom")             # intercom/routes.py: Owner/Admin (a fresh sign-in away from home)
         out.append("general")              # server_settings.py: the same rule
         out.append("performance")          # performance.py: GET /api/performance, managers; shown in About
     authz = request.app.get("authz")

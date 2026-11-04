@@ -128,6 +128,11 @@ Music Assistant. With them on, each play, move, stop and volume change is
 checked against the rooms it names and written to the
 [Audit Log](Commands-and-Audit.md) before it is sent.
 
+### The Intercom
+
+The same speakers can carry your voice: the [Intercom](Intercom.md) records a message, or talks live, into the
+rooms you pick, through Music Assistant's announcements.
+
 ### The Music Assistant page
 
 HK's **Browse Music** page shows Music Assistant's own web app. On Mantel it

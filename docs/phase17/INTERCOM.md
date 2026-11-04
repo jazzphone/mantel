@@ -1,6 +1,8 @@
 # Phase 17: a one-way intercom to the HomePods (plan, 2026-11-03)
 
-**Status: plan; nothing built. Every decision answered by the owner on 2026-11-03 (all recommendations accepted): ready to build.**
+**Status: built 2026-11-03 (17.1-17.7). Message ships first with Live off (decision 17). The slice 0 proof ran: Live
+works but starts about 7.5 s behind the talker, over the 4 s target, so it is offered with its real number and stays
+off until the owner has listened (decision 14). See the Build log.**
 
 ## The ask (the owner, 2026-11-03)
 
@@ -290,9 +292,10 @@ config, so it is tested once and the host only acts):
    press **Send Anyway** (the page asks again with `override: true`; the audit row records it).
 5. **The sender's own room** in Live: `skipped:here` (the tablet's enrolled room, or a room that lists the tablet as a
    listener; a phone has none). In Message it stays in.
-6. **The group trap.** For each remaining room `R`, `gm = engine.grouped(house, cfg, R)` (leader first). If
-   `len(gm) > 1` and `gm[0] == R` and the group holds any player that isn't part of this broadcast, then announcing to
-   `R` would play on those rooms too: `skipped:leads <names>`. A room that is a **member** of a group, not its
+6. **The group trap.** For each remaining room, everything a call to its players can play on (its **reach**: the
+   player, whatever it leads in Home Assistant or Music Assistant, a group player's members, and what those lead) must
+   belong to rooms in this broadcast; otherwise `skipped:leads <names>` (as built: `rooms.py` `reach` and `owners`,
+   after the Opus review, which replaced the first `gm[0] == R` rule). A room that is a **member** of a group, not its
    leader, is fine: MA announces to it alone. If a room leads a group whose members are **all** in the broadcast,
    it's fine and plays in step with them. Mantel then asks MA (`players/all`, a read the connector already has) and
    applies the same rule to MA's own `group_members` and `synced_to`, so a stale Home Assistant state can't let a
@@ -624,7 +627,92 @@ All at tag 2.10.9 of <https://github.com/music-assistant/server>:
 
 ## Build log
 
-(Empty: nothing built.)
+**2026-11-03, the building session (Opus 5.5, Medium; agents Sonnet 5.5, High; two Opus reviews).**
 
-**Waiting on the owner** (filled in while building): the HomePod and hours for slice 0 (decision 19), a TestFlight
-build, a listen to the Live result, and the release unless decision 17 allows it.
+What was built:
+
+- **17.1 the core** (`hosts/server/mantel_server/intercom/`): `spool.py`, `links.py`, `listener.py` (agent), `relay.py`,
+  `driver.py`, `host.py`, `routes.py`, `wiring.py`; the gateway's `intercom` kind (`intercom.open`, kind `ma`) and
+  `IntercomRun` in `Gateway.allow`; `MaClient.command(..., timeout=)`; `--stream-port` (`config.py`,
+  `packaging/docker/entrypoint.py`); compose publishes 8767, the HA App declares 8101; `tools/package_check.py` knows
+  both.
+- **17.2 rooms and rules** (`hk_core/intercom/{config,rooms}.py`): `house/intercom` checked, quiet hours, echo, the
+  group check, Live per room; RBAC feature `intercom`, `HOUSE_GRANTS` for wall tablets, `authz.intercom_policy` /
+  `decide_intercom`; the `intercom/subscribe` feed; Settings → Intercom (`web/shim/settings/intercom.js`) and its REST.
+- **17.3 the card and sheet** (`web/hk/cards/hk-intercom.js`, `web/hk/modules/hk-mic.js`): the `intercom` block (S, W) in
+  both catalogs, the picker, record / review / send, `user_data` key `intercom`, `client.actions.intercom` and
+  `client.intercom` (Mantel's shim only).
+- **17.4 tablets as listeners**: the feed's `play` event and `GET /api/intercom/clip/{id}` (a 128-bit id, 120 s, only the
+  tablets the broadcast named).
+- **17.0 the proof** (`tools/intercom_proof.py`), below.
+- **17.5 Live**: `start`/`end` on the socket, the live link, the five failure signals, the whole spool as a Message to
+  the rooms that failed and the `after` rooms, Live health (three in a row → Message-only).
+- **17.6 the apps**: `NSMicrophoneUsageDescription`, `MediaPermission.allowsMicrophone` (the paired house's https origin
+  only; camera denied), the app menu's Intercom row (`#intercom`). Simulator build and MantelKit tests pass.
+- **17.7 the guide**: `docs/guide/Intercom.md`, lines in Music-and-Cameras, Security-Model ("The Intercom's stream
+  port") and `_Sidebar.md`; gallery shots `intercom-block`, `-picker`, `-sheet-message`, `-sheet-review`.
+
+**The proof (slice 0), 2026-11-03 17:25–18:20 local.** Music Assistant **2.10.9** (read from `/info` first: the
+version the research was done on). Run from the LXC (Music Assistant's subnet) in a throwaway container of the
+0.1.120 image with this branch's code mounted; the Music Assistant token and the files were removed afterward. The
+Kitchen HomePod for P1–P6, and the Kitchen and Guest Room HomePods for P7; volume 20; a soft 440 Hz beep pattern;
+25 sounds, each 60 s or less. The excluded bedroom HomePod's player id was written to
+`~/.config/mantel/intercom-never` before the first run, and the script checks it.
+
+| | Result | Pass? |
+|---|---|---|
+| P1 link claimed | 14–26 ms in all 20 runs; always one `GET`, one peer (Music Assistant's address) | yes |
+| P2 start lag (first byte → `playing`, + 2 s AirPlay, stated) | 20 s Live: median **7.45 s**, worst 7.61 s; 45 s Live: median 7.41 s, worst 7.49 s | **no** (target ≤ 4.0 / 6.0 s) |
+| P3 continuity | 0 stalls (writes waiting > 400 ms) in every run; no AirPlay or ffmpeg warning for the single-room 20 s runs | yes |
+| P4 45 s Live | the call returned 8.6–8.8 s after the end in every run; no volume change during it; but Music Assistant logged "Timeout waiting for announcement … to be rendered" (its 30 s render limit) once per run | partly |
+| P5 after | idle, volume and power as before, in every run; the next run (and P6) played normally | yes |
+| P6 10 s Message | claimed in ≤ 23 ms; `playing` 3.8–4.2 s after the call (6.1 s with the stated 2 s) | yes (for comparison) |
+| P7 two rooms | one `GET` per run; both `playing` within 0.20–0.40 s of each other; but Music Assistant logged "has not answered the server's PTP clock … will not play any audio" for the speakers during these runs | **unverified** (may have been silent) |
+
+What it means: Music Assistant's idle path plays a growing announcement smoothly, but an idle HomePod takes about
+5.5 s to start, so Live is about 7.5 s behind the talker. Decision 14's second part applies (the rest passes for a
+single room): **Live is offered with its real number** ("about 7 s behind you"); `PROOF_LAG_MS = 7450` in
+`hk_core/intercom/config.py` is the stored default (`lag_ms`), so Settings draws **Live Allowed**, which stays **off**
+until the owner has listened. The two-room PTP warning is the house's AirPlay setup (it is in Music Assistant's log
+for every HomePod since 2026-11-01, before this phase), not the Intercom's.
+
+Unforeseen, and what was chosen:
+
+- **The group check was widened** (Opus review): a room that is a Music Assistant group player whose members are
+  other rooms, a stereo pair's part leading an ad-hoc group, a room whose player Music Assistant doesn't list, two
+  entities on one Music Assistant id, and a stale leader state in Home Assistant could each have played on a room left
+  out. Each is now skipped (fail closed), with a test. Alternative: keep the plan's narrower rule; refused, since a
+  miss plays house-wide.
+- **A leader whose whole group is in the broadcast gets one call** and its members none (they would hear it twice).
+- **`lag_ms` is a constant from the proof**, not a value written into the house's settings by hand; the settings PUT
+  refuses `lag_ms`. A newer Music Assistant is re-proven with `tools/intercom_proof.py` and the constant changed.
+- **The socket's events carry `type`** (`{"type":"rooms",...}`) rather than the plan's bare keys; `send` also takes
+  `override` (Send Anyway).
+- **The address check doesn't require the listener's own port**: behind Docker or the HA App the host port may differ.
+  Check Reach is the real test.
+- **Security review hardening** (Opus): a malformed request now gets the same bare 404 and logs no request line (it
+  could have logged a token); a 10 s idle timeout and 64/8 connection caps on the listener; expired links swept at the
+  tick; Cancel or any error mid-Live ends the broadcast cleanly; Check Reach refused while commands are off and one at a
+  time; Send Test's rate limit taken before any await and only for one room.
+- **Tablets as listeners** use the Intercom feed's `play` event (the plan's `intercom_play` hub message): one
+  subscription per page instead of a second channel.
+
+Review notes not changed (follow-ups):
+
+- `music/item_by_uri` is a read any page with the music feature can send with any `uri`; if Music Assistant's builtin
+  provider probes plain URLs, that is a small SSRF from Music Assistant's host. It predates this phase.
+- With Music Assistant reached by a host name (not an IP), the listener can't pin the fetcher's address; any home
+  address holding a leaked token within 20 s could fetch once. The house reaches it by IP.
+- Under the HA App, a Music Assistant add-on fetches from the hassio network, which is never a home address, so the
+  Intercom can't reach it there (safe, not working). The house runs the LXC.
+
+**Waiting on the owner:**
+
+- **A listen to Live.** Turn on Live Allowed (Settings → Intercom) after trying it; it is about 7.5 s behind. A
+  second release then makes Live the sheet's option for everyone (decision 17).
+- **The two-room run's audio**: Music Assistant's log says the HomePods didn't answer its PTP clock during the
+  two-room runs (UDP 319/320 between Music Assistant and the speakers); a Message to two rooms may be silent until
+  that is fixed. Single rooms played.
+- **A TestFlight build** for the iPhone and iPad microphone: `python3 tools/testflight.py --team <TEAMID>`.
+- **Fully Kiosk's Autoplay audio** on a listener tablet, and a real phone's microphone through the app: not
+  verifiable here.

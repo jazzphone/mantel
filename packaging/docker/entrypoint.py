@@ -26,6 +26,10 @@ Docker / Proxmox LXC (compose)   settings from MANTEL_* environment variables (n
                                       pairing (`mantel connect pair`; /admin -> Connect), and the 'ha' door's rules
                                       (MANTEL_HA_DOOR_RULES, default trusted). MANTEL_CONNECT_ADDRESS is only
                                       what /admin shows the Owner to type into the App. docs/phase3/CONNECT.md.
+    MANTEL_STREAM_INTERNAL_PORT  compose  8767 (compose.yaml sets it): the Intercom's listener for Music Assistant, passed as
+                                      --stream-port. Plain HTTP, one-time links only, started only while the Intercom is
+                                      on in Mantel Settings. Published as ${MANTEL_STREAM_BIND}:${MANTEL_STREAM_PORT}:8767;
+                                      empty = no listener. docs/phase17/INTERCOM.md.
     MANTEL_ANNOUNCE        optional   default on: write <data>/announce.json (no secret) for compose's `announce`
                                       service, which advertises Mantel by zeroconf (_mantel._tcp) so Home
                                       Assistant's Mantel Link offers "Discovered: Mantel"; 0/no turns it off.
@@ -65,7 +69,7 @@ Home Assistant App (add-on)      recognised by SUPERVISOR_TOKEN in the environme
     Test-only overrides (never set by the Supervisor; for running App mode against a scratch HA):
     MANTEL_APP_OPTIONS, MANTEL_APP_TOKEN_FILE, MANTEL_SUPERVISOR_CORE_URL, MANTEL_SUPERVISOR_WS_URL,
     MANTEL_INGRESS_PEER, MANTEL_HA_CORE_PEER, MANTEL_LISTEN, MANTEL_PORT, MANTEL_DATA_DIR,
-    MANTEL_DIRECT_PORT, MANTEL_HA_OAUTH_URL, MANTEL_APP_CF_TOKEN_FILE, MANTEL_SUPERVISOR_URL
+    MANTEL_DIRECT_PORT, MANTEL_STREAM_PORT, MANTEL_HA_OAUTH_URL, MANTEL_APP_CF_TOKEN_FILE, MANTEL_SUPERVISOR_URL
 
 Admin commands pass straight through and default to the /data volume (and, for import-settings, backup
 and restore, to the container's HA address, token and secrets; import-settings uses the Home Assistant
@@ -124,6 +128,7 @@ SUPERVISOR_CORE_URL = "http://supervisor/core"
 SUPERVISOR_WS_URL = "ws://supervisor/core/websocket"
 APP_PORT = "8099"
 DIRECT_PORT = "8100"                # direct access (config.yaml `ports`: 8100/tcp, mapped to a host port by the Owner)
+STREAM_PORT = "8101"                # the Intercom's listener for Music Assistant (config.yaml `ports`: 8101/tcp, same way)
 HA_OAUTH_URL = "http://homeassistant:8123"   # HA Core on the hassio network: "Sign in with HA"'s code exchange
 ACCESS_MODES = ("ingress", "proxy", "https")
 # HA's hassio network and Docker's default bridge (mantel_server/direct.py NEVER_LAN): relays, not a home's proxy
@@ -210,6 +215,8 @@ def container_args(env: dict[str, str]) -> list[str]:
     if env.get("MANTEL_READ_ONLY", "").strip().lower() in ("1", "yes", "true", "on"):
         args.append("--read-only")                     # the kill switch
     args += connect_args(env)
+    if env.get("MANTEL_STREAM_INTERNAL_PORT", "").strip():       # the Intercom's listener (compose.yaml publishes it)
+        args += ["--stream-port", env["MANTEL_STREAM_INTERNAL_PORT"].strip()]
     args += cf_access_args(env.get("MANTEL_CF_ACCESS_TEAM", ""), env.get("MANTEL_CF_ACCESS_AUD", ""),
                            "MANTEL_CF_ACCESS_TEAM", "MANTEL_CF_ACCESS_AUD")
     if env.get("MANTEL_ANNOUNCE", "1").strip().lower() not in ("0", "no", "false", "off"):
@@ -304,6 +311,9 @@ def app_args(options: dict, token_file: Path, env: dict[str, str] | None = None)
              "--supervisor-url", env.get("MANTEL_SUPERVISOR_URL", "http://supervisor")]
     if access != "ingress":
         args += direct_args(access, public, options, env)   # HA is the App's credential (connections.py)
+    # The Intercom's listener for Music Assistant (phase 17): always passed; it listens only while the Intercom is on
+    # in Mantel Settings, and its port reaches the home only when the Owner sets a host port for 8101/tcp
+    args += ["--stream-port", env.get("MANTEL_STREAM_PORT", STREAM_PORT)]
     for peer in filter(None, (p.strip() for p in env.get("MANTEL_INGRESS_PEER", "").split(","))):
         args += ["--ingress-peer", peer]
     # HA Core (host network) as the App sees it: linked mode's client (hk_frontend "Linked to Mantel Server",

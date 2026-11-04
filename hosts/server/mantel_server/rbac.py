@@ -47,6 +47,7 @@ FEATURE_DOMAINS: dict[str, frozenset[str]] = {
     "locations": frozenset({"person", "device_tracker"}),
     "garage": frozenset(),         # covers whose device_class is garage/gate (see GARAGE_CLASSES)
     "music": frozenset(),
+    "intercom": frozenset(),       # speaking into rooms through their speakers (docs/phase17/INTERCOM.md)
     "energy": frozenset(),
     "notifications": frozenset(),
     "live_tv": frozenset(),        # the Live TV page and its streams (live_tv.py); each channel also needs its camera

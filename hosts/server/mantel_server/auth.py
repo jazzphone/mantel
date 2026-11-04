@@ -141,7 +141,7 @@ async def require_session(request: web.Request, handler):
         if request.method == "GET" and (request.path in PAGE_PATHS or _wants_document(request)):
             raise web.HTTPFound(login_url(request.path_qs if request.path != "/" else None))
         raise web.HTTPUnauthorized(text="sign in at /login")
-    if request.path in ("/ws", "/ws/talk") and request.headers.get("Origin") is None:
+    if request.path in ("/ws", "/ws/talk", "/ws/intercom") and request.headers.get("Origin") is None:
         raise web.HTTPForbidden(text="Origin required")  # browsers always send it; the loopback middleware checks its value
     if ident.read_only and (request.method not in sessions.SAFE_METHODS or not preview_allows(request.path)):
         # a screen preview an assistant opened (mcp/preview.py): it looks at screens, and nothing else
