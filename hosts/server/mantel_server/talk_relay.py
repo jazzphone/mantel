@@ -565,7 +565,8 @@ async def _text(ws: web.WebSocketResponse, timeout: float) -> Any:
         return None
 
 
-@guard("signed_in")     # any session; each talk needs a gateway ticket, which the roles decide (relay.serve)
+@guard("signed_in", reads="view",
+       stream="live:talk")     # any session; each talk needs a gateway ticket, which the roles decide (relay.serve)
 async def socket_handler(request: web.Request) -> web.StreamResponse:
     """``GET /ws/talk``: behind the sign-in (auth.require_session: a session and an Origin header,
     whose value server.loopback_only checks, as for /ws). Refused before the upgrade while commands

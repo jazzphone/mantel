@@ -277,7 +277,7 @@ def _payload(request: web.Request, ident) -> dict:
             "door": ident.door}
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_get(request: web.Request) -> web.Response:
     ident = guarded(request)
     return web.json_response(_payload(request, ident), headers={"Cache-Control": "no-store"})

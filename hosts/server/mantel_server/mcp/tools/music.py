@@ -8,7 +8,7 @@ import unicodedata
 from typing import Any
 
 from ..dispatch import ToolError, change, read, save
-from . import Tool
+from . import NO_ROUTE_SAVE, Tool
 
 LIBRARY_PLAYLIST = "library://playlist/"
 
@@ -170,24 +170,30 @@ TOOLS = [
           "items": {"type": "array", "items": {"type": "string", "maxLength": 500}, "maxItems": 50},
           "icon": {"type": "string", "maxLength": 80}, "chooser": {"type": "string", "maxLength": 80},
           "order": {"type": "number"}},
-         music_playlist_save, needs="settings", required=("name", "items"), write=True),
+         music_playlist_save, needs="settings", required=("name", "items"), write=True,
+         no_route=NO_ROUTE_SAVE),
     Tool("music_preset_save", "Save a speaker preset",
          "Add a preset (no `item`) or change one: its name and member rooms. Planned first.",
          {"item": PILL, "name": {"type": "string", "maxLength": 80},
           "members": {"type": "array", "items": {"type": "string", "maxLength": 255}, "maxItems": 50}},
-         music_preset_save, needs="settings", required=("name", "members"), write=True),
+         music_preset_save, needs="settings", required=("name", "members"), write=True,
+         no_route=NO_ROUTE_SAVE),
     Tool("music_item_remove", "Remove a pill or preset", "Remove a playlist pill or a preset. Planned first.",
-         {"item": PILL}, music_item_remove, needs="settings", required=("item",), write=True, destructive=True),
+         {"item": PILL}, music_item_remove, needs="settings", required=("item",), write=True, destructive=True,
+         no_route=NO_ROUTE_SAVE),
     Tool("music_pills_order", "Order the playlist pills", "The playlist pills in this order (their ids). Planned first.",
          {"ids": {"type": "array", "items": PILL, "maxItems": 200}}, music_pills_order, needs="settings",
-         required=("ids",), write=True, idempotent=True),
+         required=("ids",), write=True, idempotent=True,
+         no_route=NO_ROUTE_SAVE),
     Tool("music_settings_set", "Change Music's options",
          "The Music page's options (speakers, volume, homes...), as its own save checks them. Planned first.",
-         {"changes": {"type": "object"}}, music_settings_set, needs="settings", required=("changes",), write=True),
+         {"changes": {"type": "object"}}, music_settings_set, needs="settings", required=("changes",), write=True,
+         no_route=NO_ROUTE_SAVE),
     Tool("music_relink", "Relink playlist pills",
          "Pills whose library:// links are no longer in Music Assistant's library (it moved, a playlist was "
          "re-added): each matched again to the library playlist of the pill's name, or by `mapping` {old: new}. "
          "Planned first: the plan answer lists every fix and every link with no match.",
          {"mapping": {"type": "object", "description": "old library:// link -> new one"}},
-         music_relink, needs="settings", write=True),
+         music_relink, needs="settings", write=True,
+         no_route=NO_ROUTE_SAVE),
 ]

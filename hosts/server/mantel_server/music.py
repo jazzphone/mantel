@@ -2106,7 +2106,7 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
 
     from .guards import guard
 
-    @guard("manager")
+    @guard("manager", reads="admin")
     async def api_status(request) -> Any:
         from aiohttp import web
         return web.json_response(host.status())

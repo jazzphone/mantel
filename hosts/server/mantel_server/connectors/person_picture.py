@@ -50,7 +50,9 @@ def shape(entity_id: str, state: dict, base: str = "", ha_url: str = "") -> dict
 def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str] | str) -> None:
     get_token = token if callable(token) else lambda: token
 
-    @guard("signed_in")          # any session; the roles decide each person (authz.may_see)
+    # any session; the roles decide each person (authz.may_see)
+    @guard("signed_in", reads="view", preview=True,
+           stream="bounded:one picture, 20 MB at most (camera_still.MAX_BYTES)")
     async def picture(request: web.Request) -> web.StreamResponse:
         entity_id = request.match_info["entity_id"]
         if not PERSON_ID.fullmatch(entity_id):

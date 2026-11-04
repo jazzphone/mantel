@@ -148,7 +148,7 @@ class Stats:
 STATS = Stats()
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_performance(request: web.Request) -> web.Response:
     hub = request.app.get("hub")
     now = time.time()
@@ -211,7 +211,7 @@ def tablets(app: web.Application) -> list[dict]:
     return out
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_tablets(request: web.Request) -> web.Response:
     return web.json_response({"tablets": tablets(request.app)}, headers={"Cache-Control": "no-store"})
 

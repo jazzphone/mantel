@@ -345,7 +345,7 @@ def _viewer(request: web.Request) -> Viewer:
     return Viewer(request.app, principal)
 
 
-@guard("signed_in", device_ok=True)
+@guard("signed_in", device_ok=True, reads="view")   # the feature, then each row by its own rules (Viewer)
 async def api_find(request: web.Request) -> web.Response:
     viewer = _viewer(request)
     if not viewer.feature():
@@ -396,7 +396,7 @@ def _hhmm(v: Any, default: tuple[int, int]) -> tuple[int, int]:
     return default
 
 
-@guard("signed_in", device_ok=True)
+@guard("signed_in", device_ok=True, reads="view")
 async def api_summary(request: web.Request) -> web.Response:
     viewer = _viewer(request)
     if not viewer.feature():
@@ -409,7 +409,7 @@ async def api_summary(request: web.Request) -> web.Response:
     return web.json_response(digest.summary(request.app, viewer, window, now), headers={"Cache-Control": "no-store"})
 
 
-@guard("signed_in", device_ok=True)          # any session; the row's own rules decide (one 404 for everything)
+@guard("signed_in", device_ok=True, reads="view", sample="/api/timeline/pic/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")   # any session; the row's own rules decide (one 404 for everything)
 async def api_pic(request: web.Request) -> web.Response:
     nothing = web.json_response(NOT_FOUND, status=404, headers={"Cache-Control": "no-store"})
     pid = request.match_info["pic_id"]
@@ -484,7 +484,7 @@ def settings_json(app: Any, request: web.Request | None = None) -> dict:
             "tablets": devices, "can_edit": rule != "owner_only", "needs_fresh": rule == "fresh"}
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_settings(request: web.Request) -> web.Response:
     return ok(settings_json(request.app, request))
 
@@ -675,7 +675,7 @@ def me_json(app: Any, user: Any) -> dict:
             "tz": getattr(authz, "tz", None)}
 
 
-@guard("person")
+@guard("person", reads="self")
 async def api_me(request: web.Request) -> web.Response:
     return ok(me_json(request.app, guarded(request).user))
 

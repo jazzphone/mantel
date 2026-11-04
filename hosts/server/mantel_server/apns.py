@@ -323,7 +323,7 @@ def _setting_json(request) -> dict:
             "can_edit": rule != "owner_only", "needs_fresh": rule == "fresh"}
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_get_relay(request):
     from .sessions import ok
     return ok(_setting_json(request))

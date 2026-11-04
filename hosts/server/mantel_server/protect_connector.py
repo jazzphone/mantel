@@ -910,7 +910,7 @@ def _local_user(body: Mapping[str, Any]) -> tuple[str | None, str | None]:
     return user, pw[:1024]
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_status(request: web.Request) -> web.Response:
     ident = guarded(request)
     rule = C.edit_rule(request, ident)
@@ -1020,7 +1020,7 @@ async def api_disconnect(request: web.Request) -> web.Response:
     return ok({"protect": conn.status()})
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_cameras(request: web.Request) -> web.Response:
     conn = _conn(request)
     if conn.client is not None and not conn.cameras:
@@ -1038,7 +1038,7 @@ def _pid(request: web.Request) -> str:
     return pid
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_camera_still(request: web.Request) -> web.StreamResponse:
     conn = _conn(request)
     pid = _pid(request)

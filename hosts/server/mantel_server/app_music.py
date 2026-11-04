@@ -36,6 +36,7 @@ from aiohttp import web
 from . import user_data as UD
 from .app_auth import app_route
 from .connectors import allowed_ids, may_feature
+from .guards import WHY_APP, open_route
 from .sessions import error, ok
 
 MEDIA_PLAYER = re.compile(r"^media_player\.[a-z0-9_]+$")
@@ -144,6 +145,7 @@ def _player(request: web.Request, eid: str, name: str) -> dict[str, Any] | None:
 
 
 # ---------------------------------------------------------------------------------------- the routes
+@open_route("app_dpop", reads="view", why=WHY_APP)
 @app_route
 async def music(request: web.Request) -> web.Response:
     host = _host(request)
@@ -199,6 +201,7 @@ async def _body(request: web.Request) -> dict | None:
     return body if isinstance(body, dict) else None
 
 
+@open_route("app_dpop", why=WHY_APP)
 @app_route
 async def command(request: web.Request) -> web.Response:
     """The Music page's own requests: hk_frontend.music_<service> with its fields in ``data`` and the answer."""
@@ -210,6 +213,7 @@ async def command(request: web.Request) -> web.Response:
                                     "data": body.get("data") or {}, "return_response": True})
 
 
+@open_route("app_dpop", why=WHY_APP)
 @app_route
 async def volume(request: web.Request) -> web.Response:
     body = await _body(request)
@@ -225,6 +229,7 @@ async def volume(request: web.Request) -> web.Response:
                                     "data": {"volume_level": round(float(level), 3)}})
 
 
+@open_route("app_dpop", why=WHY_APP)
 @app_route
 async def put_focus(request: web.Request) -> web.Response:
     """This person's speaker, as the Music page's setFocus writes it ({key, at}); views on it decide."""
@@ -244,6 +249,7 @@ async def put_focus(request: web.Request) -> web.Response:
     return ok({"focus": key})
 
 
+@open_route("app_dpop", reads="view", why=WHY_APP)
 @app_route
 async def queue(request: web.Request) -> web.Response:
     from .music import QUEUE_MAX
@@ -265,6 +271,7 @@ async def queue(request: web.Request) -> web.Response:
     return ok(got)
 
 
+@open_route("app_dpop", why=WHY_APP)
 @app_route
 async def queue_play(request: web.Request) -> web.Response:
     body = await _body(request)
@@ -275,6 +282,7 @@ async def queue_play(request: web.Request) -> web.Response:
                                                            "item_id": body.get("item_id")}})
 
 
+@open_route("app_dpop", reads="feature:music", why=WHY_APP)
 @app_route
 async def library(request: web.Request) -> web.Response:
     from .music import check_get_library
@@ -313,6 +321,8 @@ async def library(request: web.Request) -> web.Response:
     return ok({"items": [fix(i) for i in got.get("items") or []]})
 
 
+@open_route("app_dpop", reads="feature:music", why=WHY_APP,
+            stream="bounded:one picture, 20 MB at most (camera_still.MAX_BYTES)")
 @app_route
 async def image(request: web.Request) -> web.StreamResponse:
     """A library picture: Music Assistant's image proxy, for ``feature:music``."""

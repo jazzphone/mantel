@@ -77,7 +77,7 @@ from aiohttp import web
 
 from . import atrest, audit
 from .accounts import STEP_UP_WINDOW, read_json
-from .guards import guard
+from .guards import guard, open_route
 from .guards import ident as guarded
 from .sessions import Identity, error, ok
 
@@ -674,7 +674,7 @@ class MaSuggester:
         return found
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_status(request: web.Request) -> web.Response:
     ident = guarded(request)
     rule = edit_rule(request, ident)
@@ -825,6 +825,9 @@ def _page(title: str, body: str, status_code: int = 200) -> web.Response:
     return page(title, body, status_code)
 
 
+@open_route("one_time_code", reads="none",
+            why="Connect to Home Assistant's OAuth return: its signed single-use state, made by an Owner's guarded "
+                "/api/connections/ha/oauth/start; it answers a page and saves nothing")
 async def oauth_callback(request: web.Request) -> web.StreamResponse:
     """HA sends the browser back here (public: SameSite=Strict session cookies are not sent on that hop).
     The state names a pending connection an Owner started; nothing is saved here."""
@@ -878,7 +881,7 @@ def _pending_of(request: web.Request, ident: Identity, pid: str) -> Pending | No
     return p
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_pending(request: web.Request) -> web.Response:
     ident = guarded(request)
     p = _pending_of(request, ident, request.match_info["pid"])

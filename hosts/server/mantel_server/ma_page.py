@@ -67,7 +67,7 @@ def of(app: Any) -> MaPage | None:
     return app.get("ma_page")
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_get(request: web.Request) -> web.Response:
     page = of(request.app)
     return ok({"page": page.public() if page is not None else {"set": False}})

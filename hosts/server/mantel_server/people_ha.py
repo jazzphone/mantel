@@ -119,7 +119,7 @@ def merge(app: web.Application, src: str, into: str) -> dict:
     return {"into": into, "moved": sorted(set(moved))}
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_get(request: web.Request) -> web.Response:
     app = request.app
     from .ingress import household, is_ha_admin, linked_user, tablet_link

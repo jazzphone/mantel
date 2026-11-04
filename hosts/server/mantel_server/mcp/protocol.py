@@ -23,6 +23,8 @@ from urllib.parse import urlparse
 
 from aiohttp import web
 
+from .. import mcp_parity
+from ..guards import WHY_MCP, open_route
 from .auth import Caller, Limits, Refused, authenticate
 from .dispatch import ToolError
 
@@ -181,6 +183,7 @@ async def call_tool(caller: Caller, params: dict) -> dict:
     try:
         if not caller.has(tool.needs):
             raise ToolError("forbidden", f"{name} needs the {tool.needs!r} scope, which this assistant was not given")
+        mcp_parity.check(tool, caller)        # never easier than the REST route it parallels (route_table R10)
         args = check_args(tool, params.get("arguments"))
         if tool.write and not tool.takes_plan:
             limits = caller.app["mcp_limits"]
@@ -274,6 +277,9 @@ async def _read_body(request: web.Request) -> Any:
         raise Reply(400, _error(None, -32700, "Parse error")) from None
 
 
+# reads="admin": every assistant acts for an Owner or Admin (mcp/auth.py, each request), and its settings, audit and
+# alerts tools answer what Mantel Settings shows them; its house tools name entities through authz.may_read(view)
+@open_route("mcp_bearer", why=WHY_MCP, reads="admin")
 async def handle(request: web.Request) -> web.StreamResponse:
     try:
         check_origin(request)

@@ -576,7 +576,7 @@ async def stage_photo(store: UserFiles, data: bytes) -> tuple[Callable[[], None]
 
 
 # Your Files: an Owner or Admin (never at a wall tablet); every change audited before it is written
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_list(request: web.Request) -> web.Response:
     return _json(200, ok=True, **await _in_thread(_store(request).listing),
                  limits={"font": FONT_MAX, "glyphs": GLYPHS_MAX, "photo": PHOTO_MAX})
@@ -659,7 +659,9 @@ def _send(path: Path) -> web.FileResponse:
     return resp
 
 
-@guard("signed_in")                 # a screen's background or screensaver photo: any session's page shows it
+@guard("signed_in", reads="none",
+       why="an uploaded picture a screen draws (a background), by an unguessable id: no house state",
+       preview=True, stream="bounded:one uploaded picture")   # a screen's background or screensaver photo: any session's page shows it
 async def image_serve(request: web.Request) -> web.StreamResponse:
     path = _store(request).photo_path(request.match_info["id"])
     if path is None:

@@ -89,7 +89,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from . import atrest, db as dbmod
-from .guards import guard
+from .guards import guard, open_route
 
 log = logging.getLogger("mantel.backup")
 
@@ -1014,7 +1014,7 @@ class Backups:
 
 
 # -- REST + wiring ----------------------------------------------------------------------------------
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_status(request: web.Request) -> web.Response:
     from .sessions import ok
     b: Backups = request.app["backups"]
@@ -1044,7 +1044,7 @@ def _named(b: "Backups", name: str) -> Path | None:
     return p if p.is_file() and not p.is_symlink() else None
 
 
-@guard("owner")
+@guard("owner", reads="admin", stream="bounded:one backup file")
 async def api_download(request: web.Request) -> web.StreamResponse:
     """A backup file, to keep somewhere else. It is sealed with backup.key, which it never holds."""
     from .sessions import error
@@ -1068,7 +1068,7 @@ async def api_delete(request: web.Request) -> web.Response:
     return ok()
 
 
-@guard("owner", fresh="always", audit="backup.keys")
+@guard("owner", fresh="always", audit="backup.keys", reads="admin")
 async def api_keys(request: web.Request) -> web.Response:
     """Both keys, as one small file to keep apart from the backups (a password manager): backup.key opens a
     backup, at_rest.key the values sealed inside it. Confirm It Is You first; the audit log says who asked."""
@@ -1203,6 +1203,8 @@ async def api_upload(request: web.Request) -> web.Response:
     return ok(check)
 
 
+@open_route("one_time_code", why="First start's Restore From a Backup: the one-time setup code, checked before the upload "
+            "is read, and only while no Owner exists (backup.api_first_start_restore)")
 async def api_first_start_restore(request: web.Request) -> web.Response:
     """First start, Restore From a Backup: while Mantel has no Owner, the setup code (first in the form, checked
     before anything is read past it) and a backup (and its keys file, from another Mantel) restore it in one step:

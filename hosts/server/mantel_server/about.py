@@ -127,12 +127,13 @@ def insecure_tablets(app: web.Application, now: float | None = None) -> list[dic
     return sorted(out, key=lambda t: t["name"].lower())
 
 
-@guard("signed_in")
+@guard("signed_in", reads="none",
+       why="the version, uptime and connections of Mantel: no entity, camera, speaker or photo")
 async def api_about(request: web.Request) -> web.Response:
     return web.json_response(about(request.app), headers={"Cache-Control": "no-store"})
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_about_secure(request: web.Request) -> web.Response:
     now = time.time()
     return web.json_response({"now": now, "tablets": insecure_tablets(request.app, now)}, headers={"Cache-Control": "no-store"})

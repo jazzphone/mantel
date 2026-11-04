@@ -28,7 +28,7 @@ def test_quick_is_part_of_full_and_full_adds_the_rest():
     steps = ci.steps()
     quick = [s.name for s in ci.select(steps, "quick")]
     full = [s.name for s in ci.select(steps, "full")]
-    assert quick == ["build-tools", "main-suite", "check-links", "check-version", "package-check", "private-words"]
+    assert quick == ["build-tools", "main-suite", "types-js", "check-links", "check-version", "package-check", "private-words"]
     assert full[:len(quick)] == quick
     assert {"ha-build", "hk-frontend-py", "hk-frontend-js", "caddy-image"} <= set(full)
     assert [n for n in full if n.startswith("headless-")] == [f"headless-{n}" for n in ci.HEADLESS]
@@ -62,7 +62,7 @@ def test_edit_mode_check_skips_saying_why_without_playwright(monkeypatch, tmp_pa
 
 def test_only_narrows_and_brings_the_build_hk_frontend_needs():
     steps = ci.steps()
-    assert [s.name for s in ci.select(steps, "full", ["js"])] == ["ha-build", "hk-frontend-js"]
+    assert [s.name for s in ci.select(steps, "full", ["js"])] == ["ha-build", "types-js", "hk-frontend-js"]
     assert [s.name for s in ci.select(steps, "quick", ["check"])] == ["check-links", "check-version",
                                                                      "package-check"]
     assert ci.select(steps, "quick", ["headless"]) == []      # a full step is not in quick

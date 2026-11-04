@@ -183,7 +183,7 @@ class Phones:
 
 
 # -- REST (Mantel Settings -> People) -----------------------------------------------------------------------------------
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_get(request: web.Request) -> web.Response:
     p: Phones = request.app["phones"]
     return web.json_response({"available": p.available(), "people": p.all(), "linked": bool(p.links())})
