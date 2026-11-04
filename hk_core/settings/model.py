@@ -2331,6 +2331,9 @@ BOARD_BUTTON_PHONE = ("chip", "chip_scroll", "tab", "none")
 # what a phone shows at the top of Home: the clock and weather header, or the
 # one-line weather strip (a generated screen; a YAML one draws its own)
 BOARD_PHONE = ("header", "strip")
+# A screen's Intercom Button on its generated Home page (hk-chip.js icEntry): nothing, a status chip among the
+# header's, or a pill at the end of the scenes row. Drawn only where the page has the Intercom and this person may use it.
+INTERCOM_BUTTONS = ("off", "chip", "scene")
 # the menu's edge tab: its size on a tablet or wider (tab_size), and on a phone
 # (tab_size_phone, under 640 px), each the screen's own -- hk-menu.js. A phone
 # starts with the standard one, which already lies over the first column.
@@ -2487,6 +2490,7 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # Same as All Screens, settings cameras.live)
     "camera_strip": True, "cameras": [], "camera_live": "", "camera_live_video": None,
     "scenes_row": True, "scenes": [], "scenes_pages": [],
+    "intercom_button": "off",
     "favorites": [],
     # Pages (generated dashboards): empty = every page the house has.
     "pages": [],
@@ -2686,6 +2690,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["home_rooms"] = pick("home_rooms", BOARD_HOME_ROOMS)
     out["page_rooms"] = pick("page_rooms", BOARD_PAGE_ROOMS)
     out["phone_header"] = pick("phone_header", BOARD_PHONE)
+    out["intercom_button"] = pick("intercom_button", INTERCOM_BUTTONS)
     try:
         out["dock_min"] = int(min(max(float(d.get("dock_min") or 1000), DOCK_MIN[0]), DOCK_MIN[1]))
     except (TypeError, ValueError):

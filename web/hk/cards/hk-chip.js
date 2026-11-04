@@ -640,11 +640,88 @@
   }
   function nav(path) { return path ? { action: 'navigate', navigation_path: path } : { action: 'none' }; }
 
+  // THE INTERCOM'S ENTRY (a screen's Intercom Button, `intercom_button`: off | chip | scene). A status chip among the
+  // header's, or a pill at the end of the scenes row, that opens the Intercom sheet (tap_action `intercom`, hk-base.js:
+  // the `#intercom` address; the sheet's code, cards/hk-intercom.js, is loaded by that address and not before). This is
+  // all of the Intercom a page carries until the tap: the feed and the person's remembered rooms are asked for here,
+  // only by a row whose screen has the button on (icWatch), and let go of when none is left. Drawn only where the page
+  // has the Intercom (client.intercom: Mantel; none in Home Assistant), the feed says it is on, and this person may
+  // use it (a refused feed is an error, not a snapshot).
+  var IC = { feed: null, bad: false, mem: null, users: 0, offFeed: null, offMem: null, fns: [] };
+  function icNote() { IC.fns.slice().forEach(function (fn) { try { fn(); } catch (e) { console.error('[hk-chip]', e); } }); }
+  function icLocal() {
+    try { return JSON.parse((window.localStorage && window.localStorage.getItem('hk-intercom')) || 'null'); } catch (e) { return null; }
+  }
+  function icAttach(client) {
+    if (!IC.offFeed && client.intercom) {
+      IC.offFeed = client.intercom.subscribe(function (ev, err) {
+        IC.bad = !!err || !ev || typeof ev !== 'object';
+        IC.feed = IC.bad ? null : ev;
+        icNote();
+      });
+    }
+    // (the person's last rooms, user_data `intercom`: the line under the chip's name. The first paint uses the copy the
+    // sheet keeps in this browser; without a subscription for it the chip just says "Tap to Talk".)
+    if (!IC.offMem) {
+      IC.mem = IC.mem || icLocal();
+      var sub = client.subscriptions;
+      if (sub && sub.subscribeMessage) {
+        var HS = window.hkSettings, msg = { type: 'frontend/subscribe_user_data', key: 'intercom' };
+        var on = function (ev) {
+          var v = ev && ev.value;
+          if (v && typeof v === 'object') { IC.mem = v; icNote(); }
+        };
+        var off = HS && HS.subscribe ? HS.subscribe(sub, msg, on, 'hkIntercomEntry') : (sub.subscribeMessage(on, msg).catch(function () { /* the local copy stands */ }), function () {});
+        IC.offMem = off || function () {};
+      }
+    }
+  }
+  function icUse(client, fn) {
+    IC.fns.push(fn);
+    IC.users++;
+    icAttach(client);
+    return function () {
+      var i = IC.fns.indexOf(fn);
+      if (i >= 0) IC.fns.splice(i, 1);
+      if (--IC.users <= 0) {
+        IC.users = 0;
+        if (IC.offFeed) { try { IC.offFeed(); } catch (e) { /* gone */ } IC.offFeed = null; }
+        if (IC.offMem) { try { IC.offMem(); } catch (e) { /* gone */ } IC.offMem = null; }
+        IC.feed = null; IC.bad = false;
+      }
+    };
+  }
+  // A row asks for the feed only while its screen's button is this kind (`mode`: chip | scene) and the page has one
+  function icWatch(card, board, mode) {
+    var want = !!(card.client && card.client.intercom && board && board.intercom_button === mode);
+    if (want && !card._icOff) card._icOff = icUse(card.client, function () { card._plan(); });
+    else if (!want && card._icOff) { card._icOff(); card._icOff = null; }
+  }
+  // "Living Room, Kitchen" for one or two rooms that fit; else "3 Rooms"; none picked: "Tap to Talk"
+  function icLine() {
+    var f = IC.feed, want = (IC.mem && Array.isArray(IC.mem.rooms)) ? IC.mem.rooms : [], ids = {};
+    ((f && f.rooms) || []).forEach(function (r) { if (r && typeof r.room === 'string') ids[r.room] = String(r.name || r.room); });
+    var names = want.filter(function (id, i, a) { return ids[id] && a.indexOf(id) === i; }).map(function (id) { return ids[id]; });
+    if (!names.length) return 'Tap to Talk';
+    var joined = names.join(', ');
+    return names.length <= 2 && joined.length <= 24 ? joined : names.length + ' Rooms';
+  }
+  // null: draw nothing
+  function icEntry(board, client, mode) {
+    if (!board || board.intercom_button !== mode || !client || !client.intercom) return null;
+    if (IC.bad || !IC.feed || IC.feed.enabled === false) return null;
+    return { label: icLine() };
+  }
+  var ICON_INTERCOM = 'hk:microphone';
+
   // One kind's chip, or null when the house has none of it.
   function kindConfig(kind, client) {
     var tap = nav(kindPage(kind));
     var n = function (k) { return found(k, client); };
     switch (kind) {
+      // (not one of the kinds a screen picks, so not in KIND_ORDER: the row adds it, icEntry)
+      case 'intercom':
+        return { name: 'Intercom', icon: ICON_INTERCOM, label: 'Tap to Talk', icon_color: 'white', tap_action: { action: 'intercom' } };
       case 'smoke': {
         // SMOKE & CO: nothing to say until an alarm goes off, then what it
         // is -- "Smoke Detected", "CO Detected", both -- in red. Opens nothing:
@@ -1103,6 +1180,9 @@
       keys.splice(at, 0, null);
       cards.splice(at, 0, x.card);
     });
+    // THE INTERCOM BUTTON, as a chip: last in the row, where the screen's Intercom Button is Top Row
+    var icChip = icEntry(b, client, 'chip');
+    if (icChip) cards.push({ type: 'custom:hk-status-chip-card', kind: 'intercom', label: icChip.label });
     if (found('smoke', client).length) cards.unshift({ type: 'custom:hk-status-chip-card', kind: 'smoke', quiet: true });
     var row = { type: 'custom:hk-row-card', card_width: 'fit-content', gap: 10, pad_top: 14,
                 pad_bottom: 30, pad_left: 22, pad_right: 22, margin: '-15px -22px -32px -22px',
@@ -1138,6 +1218,7 @@
     disconnectedCallback() {
       if (super.disconnectedCallback) super.disconnectedCallback();
       window.removeEventListener('hk-module-ready', this._wake);
+      if (this._icOff) { this._icOff(); this._icOff = null; }
     }
     // A settings change arrives as `hk-module-ready` (the wake above). The
     // State pushes only matter before the integration's kinds are in, when
@@ -1158,6 +1239,7 @@
     _plan() {
       var cfg = this._cfgIn;
       if (!cfg) return;
+      icWatch(this, this._board(), 'chip');
       var row = rowPlan(cfg, this._board(), this.client, this.hasAttribute('data-hk-foreign'));
       var key = JSON.stringify(row);
       if (key === this._key) return;
@@ -1313,6 +1395,11 @@
       var pp = pagePill(k);
       if (pp) pills.push(pp);
     });
+    // THE INTERCOM BUTTON, as a pill: the scenes row's last, where the screen's Intercom Button is Scenes Row (not on a
+    // room's row or a Home Grid block)
+    var icPill = !cfg.room && !cfg.hk_cell && show ? icEntry(b, client, 'scene') : null;
+    if (icPill) pills.push({ type: 'custom:hk-scene-card', elevated: true, name: 'Intercom', icon: ICON_INTERCOM, icon_color: 'white',
+                             tap_action: { action: 'intercom' } });
     if (!show || !pills.length) return { auto: auto, config: null };
     // ON A HOME GRID (docs/phase11/HOME-GRID.md): the block holds as many
     // scenes as it has cells -- W two, L four, XL six -- each a scene tile the
@@ -1373,6 +1460,7 @@
     disconnectedCallback() {
       if (super.disconnectedCallback) super.disconnectedCallback();
       window.removeEventListener('hk-module-ready', this._wake);
+      if (this._icOff) { this._icOff(); this._icOff = null; }
       if (window.__hkGlassCards && window.__hkGlassCards.delete(this) && window.hkGlass) window.hkGlass.changed(this, false);
     }
     _glass() {
@@ -1397,8 +1485,10 @@
       if (!this._cfgIn) return;
       var M = C0().menu;
       var size = this.getAttribute('size');
+      var board = (M && M.board ? M.board() : null) || {};
+      if (!size && !this._cfgIn.room) icWatch(this, board, 'scene');
       var p = scenesPlan(size ? Object.assign({}, this._cfgIn, { hk_cell: size }) : this._cfgIn,
-                         (M && M.board ? M.board() : null) || {}, this.client, this.hasAttribute('data-hk-foreign'));
+                         board, this.client, this.hasAttribute('data-hk-foreign'));
       this._auto = p.auto;
       var key = JSON.stringify(p.config);
       if (key === this._key) return;
@@ -1626,7 +1716,8 @@
   window.hkChip.scenes = { plan: scenesPlan, pill: scenePill, page: pagePill, blockPill: blockPill };
   window.hkChip.kinds = { ORDER: KIND_ORDER, NAMES: KIND_NAMES, QUIET: QUIET_DEFAULT, PAGES: KIND_PAGES,
                           config: kindConfig, auto: autoKinds, found: found, rowPlan: rowPlan,
-                          entityChip: entityChip };
+                          entityChip: entityChip, scenesPlan: scenesPlan,
+                          intercom: { state: IC, entry: icEntry, line: icLine, use: icUse } };
   window.hkChip.HkToggleCard = HkToggleCard;
   });
 })();

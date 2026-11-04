@@ -1195,6 +1195,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "cameras": _entities("camera"),
     "camera_live": lambda v: _entity("input_select", "select")(v) or "",
     "scenes_row": _bool,
+    "intercom_button": _choice(S.INTERCOM_BUTTONS),
     "scenes": _scenes,
     "scenes_pages": _ordered(S.SCENE_PAGES),
     "favorites": _entities(),

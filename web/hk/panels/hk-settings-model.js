@@ -1855,6 +1855,7 @@
     ['Live Camera Follows', 'screen/cameras/live', 'camera_live', 'live camera follows motion person detection dropdown input select automation', true],
     ['Live First Camera', 'screen/cameras', 'camera_live_video', 'camera strip live video snapshot first tile performance', true],
     ['Scenes', 'screen/scenes', 'scenes', 'scene pills row', true],
+    ['Intercom Button', 'screen', 'intercom_button', 'intercom talk microphone chip scene pill home top row scenes row', true],
     ['Favorites', 'screen/favorites', 'favorites', 'favourites', true],
     ['Rooms', 'screen/rooms', 'rooms_custom', 'room order home rooms on pages same as all screens', true],
     ['Pages on This Screen', 'screen/pages', 'pages', 'category pages custom pages which pages', true],
@@ -2197,7 +2198,7 @@
                       'tab_bar_scroll', 'tab_bar_rooms', 'tab_bar_glass', 'tab_bar_more', 'tab_bar_more_phone', 'tab_bar_pos', 'tab_bar_fold', 'tab_bar_start', 'tab_bar_adjust', 'tab_bar_scroll_phone', 'tab_bar_tabs',
                       'tab_bar_tabs_rail', 'tab_bar_tabs_phone', 'tab_bar_size', 'tab_bar_labels', 'tab_bar_strip', 'menu_phone', 'button_phone', 'tab_bar_rooms_phone',
                       'swipe_pages'], true],
-    ['home', 'Home Page', ['chips_row', 'chips', 'chips_quiet', 'chips_extra', 'chips_custom', 'chips_custom_show'], true],
+    ['home', 'Home Page', ['chips_row', 'chips', 'chips_quiet', 'chips_extra', 'chips_custom', 'chips_custom_show', 'intercom_button'], true],
     // a screen's rooms: All Screens' or its own (rooms_custom)
     ['rooms', 'Rooms', ['rooms_custom', 'room_order', 'home_rooms', 'menu_rooms', 'page_rooms'], true],
     // a screen's cameras: All Screens' or its own (cameras_custom)

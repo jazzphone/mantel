@@ -59,6 +59,13 @@ Each room has its own settings:
 Add the **Intercom** block to a page in [Home Grid](Home-Grid.md), or open
 `#intercom` on any page. The block opens the sheet.
 
+On a screen's generated Home page there is no block to add. Open **Settings,
+Screens**, pick the screen, and under **Home Page** set **Intercom Button** to
+**Top Row** (a chip beside Security, Climate and the rest, with the rooms you
+last picked under its name) or **Scenes Row** (a pill at the end of the scenes).
+**Off** is the default. The button shows only when you may use the Intercom and
+it is on, and each screen has its own setting.
+
 1. **Pick rooms.** Tap floors, presets, **Whole House**, or single rooms, as on
    the Music page's speaker picker. A small mark on each room says what it will
    do:

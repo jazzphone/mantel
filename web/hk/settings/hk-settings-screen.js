@@ -400,6 +400,14 @@
         if (gen) home.push(K.nav({ label: 'Favorites', value: b.favorites.length ? b.favorites.length + (b.favorites.length === 1 ? ' Favorite' : ' Favorites') : 'None',
                                    href: base + '/favorites', sk: 'b:favorites' }));
         home.push(K.nav({ label: 'Rooms', value: roomsVal, href: base + '/rooms', sk: 'b:rooms_custom' }));
+        // THE INTERCOM BUTTON (hk-chip.js icEntry): a chip among this screen's, or a pill at the end of its scenes row. Only
+        // where the page has the Intercom (client.intercom), and on a generated Home
+        if (gen && !only && this.client && this.client.intercom && b.intercom_button !== undefined) {
+          home.push(K.select({ label: 'Intercom Button', sk: 'b:intercom_button', value: b.intercom_button || 'off',
+            sub: 'Opens the Intercom from Home. Shown only if you can use it.',
+            options: [['off', 'Off'], ['chip', 'Top Row'], ['scene', 'Scenes Row']],
+            onChange: function (v) { set({ intercom_button: v }); } }));
+        }
         if (gen && !only) {
           home.unshift(K.select({ label: 'Home Style', value: b.home_style || 'generated',
             options: [['generated', 'Generated'], ['grid', 'Home Grid']],

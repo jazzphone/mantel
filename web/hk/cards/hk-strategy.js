@@ -3067,7 +3067,7 @@
   // amounts, the car viewport's width and the idle return are applied by
   // their modules, so they do not rebuild -- a rebuild reconnects every
   // camera. Car Browser itself rebuilds: with Car Home it is another Home.)
-  var LIVE_KEYS = { chips: 1, chips_quiet: 1, chips_extra: 1, scenes: 1, scenes_pages: 1, scenes_row: 1,
+  var LIVE_KEYS = { chips: 1, chips_quiet: 1, chips_extra: 1, scenes: 1, scenes_pages: 1, scenes_row: 1, intercom_button: 1,
                     categories: 1, menu: 1, menu_rooms: 1, dock_min: 1, time_weather: 1, ha_row: 1,
                     tab_position: 1, home_rooms: 1, flat: 1, flat_theme: 1, glass: 1, frost: 1, frost_tint: 1, blur: 1, tint: 1, well: 1, black_screen: 1, camera_live: 1, camera_live_video: 1,
                     car_width: 1, idle_return: 1, narrow: 1, menu_top: 1, chips_custom: 1, chips_custom_show: 1,

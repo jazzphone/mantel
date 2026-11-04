@@ -2449,6 +2449,16 @@
         this._call('homeassistant', 'toggle', { entity_id: cfg.entity });
         return;
       }
+      // THE INTERCOM (Home's Intercom Button, a chip or a scene pill): the `#intercom` address, which loads the sheet's
+      // code (hk-loader.js) and opens it; no page carries that code until this tap. Where it is already loaded and the
+      // address is still on from before, open the sheet itself.
+      if (action === 'intercom') {
+        try {
+          if (location.hash === '#intercom' && window.hkIntercom && window.hkIntercom.open) window.hkIntercom.open({ hashed: true });
+          else location.hash = '#intercom';
+        } catch (e) { /* no address to set */ }
+        return;
+      }
       if (action === 'navigate' && spec.navigation_path) {
         var p = spec.navigation_path;
         var seg = String(location.pathname).split('/')[1];
@@ -4190,7 +4200,7 @@
                 // null = the chip row's own default (hk-chip.js QUIET_DEFAULT).
                 chips_row: true, chips: [], chips_quiet: null, chips_extra: [], camera_strip: true, cameras: [],
                 camera_live: '', camera_live_video: null,
-                scenes_row: true, scenes: [], scenes_pages: [], favorites: [], pages: [],
+                scenes_row: true, scenes: [], scenes_pages: [], favorites: [], pages: [], intercom_button: 'off',
                 glass: 'house', frost: null, blur: null, sky: true, idle_return: false, idle_room: '', car: false, kiosk: false,
                 popups: true, notify: true, notify_saver: null, notify_dnd: null, now_playing: false,
                 np_style: null, np_side: null, np_bar: null, np_bar_phone: null, screensaver: false, tablet_user: '', custom_pages: [],
