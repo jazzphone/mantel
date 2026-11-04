@@ -644,6 +644,13 @@ INFO. Timeline URLs are now logged without their query and with the picture id r
 - `hk-headers.js`: the timers' sheet called an `ownName` its part of the file doesn't have (a ReferenceError that
   stopped `sheet_review.py`); fixed in passing.
 
+**A regression found by the full checks, and its fix.** With the Timeline in every generated screen, the screensaver
+checks (`saver_shows_check.py`) failed under a parallel run (4 to 6 of 12 parts; main passed the same parts at the same
+load). Narrowed by A/B runs of all 12 parts at `CI_JOBS=4`: the Timeline page off the screens, 12 of 12 passed; the page
+with a stand-in card, still failing; the page with its own card but without `sky_variant: 'cameras'` and its background,
+12 of 12. So the page wears the screen's own sky (one sky fewer to keep for a page nobody is on), and its card reads and
+follows nothing until it is on the screen (a page built ahead stays still).
+
 **19.8 (attribution from Home Assistant's context): deferred.** It is optional for the first release, and decision 21
 says to try it on the scratch Home Assistant first; that run didn't fit this session. Until it is tried, a change with
 no Mantel command behind it says "By hand or an automation", as decided. What to try: the compressed state's `c`

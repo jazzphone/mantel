@@ -750,7 +750,8 @@
       if (this._state === 'loading') {
         var sk = '';
         for (var i = 0; i < 7; i++) sk += '<div class="sk"><i class="a"></i><div class="b"><i></i><i></i></div></div>';
-        C.morph(list, '<div class="plate sks" aria-busy="true" aria-label="Loading">' + sk + '</div>');
+        // (it pulses only once the page is on the screen and reading: a page built ahead stays still)
+        C.morph(list, '<div class="plate' + (this._started ? ' sks' : '') + '" aria-busy="true" aria-label="Loading">' + sk + '</div>');
         C.morph(foot, '');
         return;
       }

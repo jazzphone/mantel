@@ -2066,7 +2066,7 @@
     }
     // TIMELINE (phase 19): a page only a host with its own record has (hkShell.hostPage; Home Assistant: false)
     if (opts.pages !== false && want('timeline') && window.hkShell && window.hkShell.hostPage('timeline')) pages.timeline = view({ title: 'Timeline',
-      path: 'timeline', subview: true, sky_variant: 'cameras', icon: 'mdi:history', background: '#080a0e',
+      path: 'timeline', subview: true, icon: 'mdi:history',
       cards: [titleBar('Timeline'), column([{ type: 'custom:hk-timeline-card' }])] });
 
     if (music) {
