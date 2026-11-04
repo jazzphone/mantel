@@ -4,6 +4,16 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **The Intercom on the Home page.** Add an **Intercom** chip (it shows the first room you picked, "Living Room +1") in All Screens → **Status Chips**, or an **Intercom** pill in a screen's **Scenes**, each under **More**. A tap opens the Intercom; a page that shows neither loads none of its code.
+
+**Changed**
+- **The Intercom's block and sheet, redesigned** to match the other blocks and sheets. Small and Wide look like their neighbors in both the standard and HomeView looks and use their whole space. The sheet groups its targets (Whole House, floors, presets) above the rooms, every button one width, no duplicates (a preset with the same rooms as the whole house or a floor isn't listed twice), and says in words why a room is left out ("Plays with Office", "Quiet hours").
+- The Intercom says why it can't record: the microphone is blocked (and where to allow it), there's no microphone, another app is using it, or the browser couldn't start.
+
+**Fixed**
+- A screen with Automatic off can add the **Timeline** page to its menu (Pages on This Screen) and as a pill in its Scenes row, under **More**.
+
 ## 0.1.124 - 2026-11-04
 
 **Added**
