@@ -2,7 +2,7 @@
 //
 // The panel (web/hk/panels/hk-settings.js) asks its host for pages of its own (hkShell.settingsHost(),
 // "THE HOST'S SETTINGS" there); this is Mantel's answer: Me, People, Roles & Grants, Audit Log, Connections (Home
-// Assistant with Mantel Link, HK Frontend and Mantel Connect; Music Assistant), Cameras (RTSP cameras Mantel plays itself), Alerts (where Mantel sends what goes wrong), Your Files (with Photos,
+// Assistant with Mantel Link, HK Frontend and Mantel Connect; Music Assistant), Cameras (RTSP cameras Mantel plays itself), Alerts (where Mantel sends what goes wrong), Timeline (what the House Timeline records), Your Files (with Photos,
 // mantel-photos.js), Service Accounts and Assistants (MCP), and Mantel's groups on HK's own wall tablet pages; every one drawn with HK Settings' own kit
 // (hk-settings-kit.js: iOS Settings, docs/DESIGN.md "HK Settings stays iOS Settings"). Only Mantel loads
 // this file; Home Assistant's build never ships web/shim, so none of it exists in HK Frontend inside HA.
@@ -26,6 +26,7 @@ import { pRoles } from './settings/roles.js';
 import { pFiles, photoTools } from './settings/files.js';
 import { pBackups } from './settings/backups.js';
 import { pAlerts } from './settings/alerts.js';
+import { pTimeline } from './settings/timeline.js';
 import { pService } from './settings/service.js';
 import { pAssistants } from './settings/assistants.js';
 import { pConnect } from './settings/connect.js';
@@ -51,6 +52,7 @@ const PAGES = [
   ['files', 'Your Files', 'mdi:folder', C.purple, 'end', 'Mantel'],
   ['backups', 'Backups', 'mdi:safe', C.blue, 'end', 'Mantel'],
   ['alerts', 'Alerts', 'mdi:bell-ring', C.red, 'end', 'Mantel'],
+  ['timeline', 'Timeline', 'mdi:timeline', C.orange, 'end', 'Mantel'],
   ['setup', 'Set Up Mantel', 'mdi:clipboard-check', C.green, 'end', 'Mantel'],
   ['about', 'About', 'mdi:information-outline', C.gray, 'end', 'Mantel'],
   ['service', 'Service Accounts', 'mdi:key-variant', C.brown, 'end', 'Advanced'],
@@ -74,7 +76,7 @@ let lastPage = null;
 // whether the server has house commands on (the hub's capabilities): set by the page that owns the socket
 let commandsOn = () => false;
 export function useCommands(fn) { commandsOn = typeof fn === 'function' ? fn : () => false; }
-const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, backups: pBackups, alerts: pAlerts, service: pService, assistants: pAssistants, about: pAbout, general: pGeneral,
+const BUILD = { me: pMe, people: pPeople, devices: pDevices, roles: pRoles, files: pFiles, backups: pBackups, alerts: pAlerts, timeline: pTimeline, service: pService, assistants: pAssistants, about: pAbout, general: pGeneral,
                 connect: pConnect, connections: pConnections, cameras: pCameras, audit: pAudit, setup: pSetup };
 
 export const host = {
@@ -174,7 +176,8 @@ export const host = {
   search() {
     if (!me) return [];
     const out = PAGES.filter(([s]) => can(s)).map(([s, title]) => ({ label: title, route: ROUTE + '/' + s, where: 'Mantel', words: s === 'cameras' ? 'cameras rtsp ip camera add camera frigate motion doorbell'
-      : s === 'alerts' ? 'alerts notifications discord telegram notifiarr email apprise heartbeat system alerts' : s }));
+      : s === 'alerts' ? 'alerts notifications discord telegram notifiarr email apprise heartbeat system alerts'
+      : s === 'timeline' ? 'timeline history recorded doors locks garage alarm arrivals doorbell detections retention pictures morning summary digest clear' : s }));
     if (can('photos')) out.push({ label: 'Photos', route: ROUTE + '/' + photos.SECTION, where: 'Mantel → Your Files', words: 'photos albums upload screensaver pictures' });
     return out;
   },

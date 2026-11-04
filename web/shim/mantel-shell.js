@@ -199,10 +199,20 @@
   let settings = null;
   function setSettings(host) { settings = host || null; }
 
+  // PAGES ONLY MANTEL HAS (hkShell.hostPage): the House Timeline, for the people whose default roles have it (an
+  // Owner can grant it to a Child by address) and a wall tablet's limited view. The server decides what is read
+  // (a refusal is the page's own words); this decides only whether the menu lists it.
+  const TIMELINE_ROLES = ['owner', 'admin', 'adult'];
+  function hostPage(name) {
+    if (name !== 'timeline') return false;
+    return TIMELINE_ROLES.indexOf(role) >= 0 || (deviceSession && PEOPLE.indexOf(role) < 0);
+  }
+
   /** @type {HkShellHost} */
   const MANTEL = {
     kind: 'mantel',
     hostMenu,
+    hostPage,
     settingsHost: () => settings,
     // Mantel sends no writes at all (commands_disabled): nothing to hold back
     holdWrites: function () { return true; },
@@ -293,6 +303,6 @@
   // home.js hands over the signed-in person's Mantel role (GET /api/me)
   function setRole(r) { role = typeof r === 'string' ? r : ''; }
 
-  global.hkMantelShell = { attach, install, saverOnly, setServices, setRole, setRoom, setAtTablet, setSettings, setHaAddress, hostMenu, haNav,
+  global.hkMantelShell = { attach, install, saverOnly, setServices, setRole, setRoom, setAtTablet, setSettings, setHaAddress, hostMenu, hostPage, haNav,
                            serviceUrl, tabletRoom, atTablet, kind: 'mantel' };
 })(globalThis);

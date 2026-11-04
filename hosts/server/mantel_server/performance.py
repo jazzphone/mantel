@@ -64,8 +64,12 @@ class Stats:
         self._ev: deque[list[float]] = deque(maxlen=int(EVENT_WINDOW) + 8)     # [second, changes]
         self._tick: deque[tuple[float, float]] = deque(maxlen=TICK_MAX)
         self._history: tuple[float, dict] | None = None
+        self._tl_tap: deque[tuple[float, float]] = deque(maxlen=FANOUT_MAX)
+        self._tl_write: deque[tuple[float, float]] = deque(maxlen=FANOUT_MAX)
 
     def reset(self) -> None:
+        self._tl_tap.clear()
+        self._tl_write.clear()
         self._fan.clear()
         self._ev.clear()
         self._tick.clear()
@@ -80,6 +84,26 @@ class Stats:
         if not ms:
             return {"samples": 0, "p50_ms": None, "p95_ms": None}
         return {"samples": len(ms), "p50_ms": round(_percentile(ms, 50), 2), "p95_ms": round(_percentile(ms, 95), 2)}
+
+    # -- the House Timeline (docs/phase19/HOUSE-TIMELINE.md "Performance") -------------------------------------------
+    def timeline_tap(self, ms: float, now: float | None = None) -> None:
+        """The timeline's tap on one hub batch took ``ms`` (the hot path)."""
+        self._tl_tap.append((self.clock() if now is None else now, float(ms)))
+
+    def timeline_write(self, ms: float, now: float | None = None) -> None:
+        """One flush of the timeline's queue took ``ms``."""
+        self._tl_write.append((self.clock() if now is None else now, float(ms)))
+
+    def timeline(self, extra: dict | None = None, now: float | None = None) -> dict[str, Any]:
+        now = self.clock() if now is None else now
+
+        def summary(samples) -> dict[str, Any]:
+            ms = sorted(v for t, v in samples if t >= now - FANOUT_KEEP)
+            if not ms:
+                return {"samples": 0, "p50_ms": None, "p95_ms": None}
+            return {"samples": len(ms), "p50_ms": round(_percentile(ms, 50), 3),
+                    "p95_ms": round(_percentile(ms, 95), 3)}
+        return {"tap": summary(self._tl_tap), "write": summary(self._tl_write), **(extra or {})}
 
     def tick(self, ms: float, now: float | None = None) -> None:
         """The minute policy tick (server.policy_tick) took ``ms``."""
@@ -134,7 +158,22 @@ async def api_performance(request: web.Request) -> web.Response:
         "screens": page_health.RING.summary(now),
         "server": {"fan_out": STATS.fan_out(now), "ha_events_per_min": STATS.event_rate(now), "connected_screens": screens,
                    "tick": STATS.tick_times(now), "settings_history": STATS.history_size(getattr(request.app.get("store"), "db", None), now)},
+        "timeline": STATS.timeline(_timeline_extra(request.app), now),
     }, headers={"Cache-Control": "no-store"})
+
+
+def _timeline_extra(app) -> dict[str, Any]:
+    tl = app.get("timeline")
+    if tl is None:
+        return {"on": False}
+    try:
+        st = tl.status()
+    except Exception:  # noqa: BLE001
+        return {"on": True}
+    pics = app.get("timeline_pictures")
+    if pics is not None:
+        st["pictures"] = pics.status()
+    return {"on": True, **st}
 
 
 def log_summary(app) -> None:

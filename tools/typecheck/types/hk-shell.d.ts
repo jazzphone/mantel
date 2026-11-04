@@ -58,6 +58,8 @@ interface HkShellMethods {
   haNavigate(path: string): any;
   openHaMenu(): boolean;
   hostMenu(): HkHostMenuRow[];
+  /** a page only this host serves, for this person (Mantel's House Timeline: hostPage('timeline')) */
+  hostPage(name: string): boolean;
   /** the host's own settings pages (web/shim/mantel-settings.js), null for a host with none */
   settingsHost(): any;
   /** hold back writes on the host's own connection: true once in place (or when it sends none) */
@@ -116,7 +118,7 @@ type HkShellHaOnly =
   'toolbar' | 'defined' | 'keepAwake' | 'dialogRoot';
 // Mantel only (Home Assistant is the product these answers are about, or needs none).
 type HkShellMantelOnly =
-  'haNav' | 'haNavigate' | 'openHaMenu' | 'hostMenu' | 'settingsHost' | 'serviceUrl' | 'photoSource' | 'listPhotos' |
+  'haNav' | 'haNavigate' | 'openHaMenu' | 'hostMenu' | 'hostPage' | 'settingsHost' | 'serviceUrl' | 'photoSource' | 'listPhotos' |
   'artSized' | 'productName' | 'settingsName' | 'haPlace' | 'haName' | 'docsUrl' | 'notHouseCameraPlatforms';
 // Neither: only the facade's default (settingsName() → path) answers.
 type HkShellNeither = 'settingsPlace';
@@ -164,6 +166,7 @@ interface HkMantelShell {
   setSettings(host: any): void;
   setHaAddress(address: string): void;
   hostMenu: HkShellMethods['hostMenu'];
+  hostPage: HkShellMethods['hostPage'];
   haNav: HkShellMethods['haNav'];
   serviceUrl: HkShellMethods['serviceUrl'];
   tabletRoom: HkShellMethods['tabletRoom'];

@@ -27,8 +27,10 @@ Optional tools that some checks use:
 
 ## Local checks
 
-The checks run on the developer's Mac, not on GitHub (its workflows run only by hand). One command runs them and
-prints one table:
+The checks run on the developer's Mac, not on GitHub (its workflows run only by hand). The release workflow
+([Releasing](Releasing.md)) runs the main suite once more on Linux, on 4 workers (`pytest -n 4`) beside the image
+builds, and a release is tagged only when it passed; `tools/ci.py` is unchanged by that. One command runs the local
+checks and prints one table:
 
 ```bash
 ~/.venvs/mantel/bin/python tools/ci.py quick     # about a minute: the main suite (8 workers, pytest-xdist) and the release checks
@@ -97,7 +99,7 @@ CI_JOBS=22 ~/.venvs/mantel/bin/python tools/ci.py full --all  # ~220 s, not ~320
   `hk_core`).
 - **versions** is what reads the version files and the changelogs: `check_links`, `check_version`,
   `package_check --release`, the private words, and the main suite's files that name a version file or a changelog
-  (`version-tests`). It is what a release runs instead of a second full run (Releasing.md, "House releases").
+  (`version-tests`). It is what a release runs instead of a second full run (Releasing.md, "Make a release").
 - The result is written to `.ci/last-run.json` with the commit and tree it ran on, any uncommitted files, and
   `only` for a partial run; a failed step's output goes to `.ci/<step>.log`. The exit status is 0 only when no step
   failed.

@@ -13,5 +13,5 @@ mantel-setup  # inside the container: how browsers reach Mantel (its address, a 
 ```
 
 The install clones the repository into `/opt/mantel` and runs the same in-container installer as
-`packaging/lxc/mantel.sh` (`packaging/lxc/mantel-install.sh`); `update` runs that script's `update`. The guide,
+`packaging/lxc/mantel.sh` (`packaging/lxc/mantel-install.sh`); `update` runs that script's `update`. `MANTEL_UPDATE_REF=<commit or tag> update` updates once to that target and leaves no `mantel.ref` pin behind. The guide,
 with every `var_mantel_*` setting: [Install on Proxmox](../../docs/guide/Install-Proxmox-LXC.md#one-command).

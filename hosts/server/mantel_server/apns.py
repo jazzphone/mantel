@@ -86,7 +86,8 @@ def build_payload(msg: Any, device_key: bytes) -> dict:
     sealed = app_crypto.seal_for_device(json.dumps({k: v for k, v in inner.items() if v is not None},
                                                    separators=(",", ":")).encode(), device_key)
     level = "time-sensitive" if msg.important else "active"
-    if category == "system":           # a system alert: Critical breaks through Focus, Info waits in the summary
+    if category in ("system", "timeline"):    # a system alert (or the morning digest): Critical breaks through Focus,
+        # Info waits in the summary
         level = {"critical": "time-sensitive", "info": "passive"}.get(getattr(msg, "level", None) or "", "active")
     aps: dict[str, Any] = {"alert": {"title": "Mantel", "body": "New notification"}, "mutable-content": 1,
                            "sound": "default", "interruption-level": level}

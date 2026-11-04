@@ -249,7 +249,8 @@
   // page addresses) as view paths. Empty: none set, the chips rule.
   var PAGE_PATHS = { weather: 'weather', calendar: 'calendar', cameras: 'cameras', live_tv: 'live-tv', security: 'security',
                      doors_windows: 'doors-windows', climate: 'climate', lights: 'lights', timers: 'timers',
-                     vacuums: 'vacuums', music: 'playmusic', browse: 'music-browse', water: 'water', energy: 'energy', power: 'power' };
+                     vacuums: 'vacuums', music: 'playmusic', browse: 'music-browse', water: 'water', energy: 'energy', power: 'power',
+                     timeline: 'timeline' };
   function pagePaths(pages, custom) {
     if (!Array.isArray(pages) || !pages.length) return [];
     var out = [];

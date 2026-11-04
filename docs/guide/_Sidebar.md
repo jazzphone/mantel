@@ -21,6 +21,7 @@
 * [Photos](Photos.md)
 * [iPhone, iPad and Mac Apps](iPhone-and-Mac-Apps.md)
 * [Push Notifications](Push-Notifications.md)
+* [Timeline](Timeline.md)
 * [The screens (HK Frontend's wiki)](https://github.com/jazzphone/hk-frontend/wiki)
 
 **Settings**

@@ -159,8 +159,20 @@
     todo: { sizes: ['S', 'T', 'L', 'XL'], sources: [], opts: { entity: 'todo', tap: 'tap_target' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-todo-card' }, o.entity ? { entity: o.entity } : {}); } },
     energy_rings: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { period: 'period', tap: 'tap_target' }, card: function (s, o) {
-      return { type: 'custom:hk-energy-rings-card', period: o.period || 'day' }; } }
+      return { type: 'custom:hk-energy-rings-card', period: o.period || 'day' }; } },
+    // RECENT (2026-11-03, docs/phase19/HOUSE-TIMELINE.md "The views", hk-timeline-block.js): the House Timeline's last rows
+    // -- or, in the morning, its summary of the night. Mantel's own record: a host that has no Timeline (Home
+    // Assistant's HK Frontend, a person whose role has none) draws a stand-in, and the editors never offer it there
+    // (hkShell.hostPage, asked here as the Timeline page's own entry is). show: auto (default), latest, digest
+    timeline: { sizes: ['W', 'L', 'XL'], sources: [], opts: { show: 'timeline_show', tap: 'tap_target' }, card: function (s, o) {
+      if (!hostHas('timeline')) return stand('Recent', 'mdi:history');
+      return { type: 'custom:hk-timeline-block-card', size: s, show: o.show === 'latest' || o.show === 'digest' ? o.show : 'auto' }; } }
   };
+  // A BLOCK ONLY SOME HOSTS HAVE: asked of the host (hkShell.hostPage), never assumed -- no shell, no host page
+  function hostHas(name) {
+    var SH = window.hkShell;
+    try { return !!(SH && typeof SH.hostPage === 'function' && SH.hostPage(name)); } catch (e) { return false; }
+  }
   var SOURCES = ['list', 'rooms', 'cameras', 'thermostats', 'speakers', 'scenes', 'accessories'];
 
   // A BLOCK'S CARD: the item's card at its size, with its options -- or, for
@@ -332,6 +344,6 @@
 
   window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, span: span, CELLS: CELLS, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
                            PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES, TAP_TARGETS: TAP_TARGETS, MUSIC_TAPS: MUSIC_TAPS,
-                           CONDITIONS: CONDITIONS, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
+                           CONDITIONS: CONDITIONS, hostHas: hostHas, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
 })();

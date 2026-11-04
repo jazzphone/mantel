@@ -66,6 +66,7 @@
     'hk_music/subscribe',
     'persistent_notification/subscribe',
     'subscribe_events',
+    'timeline/subscribe',
     'weather/subscribe_forecast'
   ];
   var SUBSCRIBE_EVENTS = ['repairs_issue_registry_updated'];
