@@ -1025,9 +1025,13 @@ def test_landscapes_background_and_reset_to_defaults():
     assert set(S.SKY_RESET) <= set(S.merged({})["sky"]) and set(S.SKY_RESET_BOARD) <= set(S.board(None))
     # a screen's reset (HK Settings, hk-settings.js skyResetGroup) clears the
     # same keys the house's does, Same as All Screens -- and never its pages
-    src = (Path(S.__file__).parent / "frontend/panels/hk-settings.js").read_text()
-    block = src[src.index("skyResetGroup(c, x, b) {"):]
-    block = block[:block.index("\n    }\n")]
+    # (the panel is a shell and the parts that add its methods, frontend/settings/: the method is in one of them)
+    frontend = Path(S.__file__).parent / "frontend"
+    src = (frontend / "panels/hk-settings.js").read_text() + "".join(p.read_text() for p in sorted((frontend / "settings").glob("*.js")))
+    at = src.index("skyResetGroup(c, x, b) {")
+    indent = src[src.rindex("\n", 0, at) + 1:at]
+    block = src[at:]
+    block = block[:block.index("\n" + indent + "}\n")]
     cleared = set(re.findall(r"'(sky_[a-z_]+)'", block)) | set(re.findall(r"(sky_[a-z_]+):", block))
     assert set(S.SKY_RESET_BOARD) <= cleared, set(S.SKY_RESET_BOARD) - cleared
     assert not {"sky_pages", "sky_page_photos", "sky_page_looks"} & cleared

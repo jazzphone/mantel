@@ -1,8 +1,11 @@
 'use strict';
-// Waits until the cards of the files tools/split_js.py cut into parts are defined (phase 18, Part B): a split card file's shell
-// registers its elements once its parts have loaded, a beat after window.__mantelReady, so a check that reads a card right
-// after ready waits for this too. Playwright checks:  await require('./grid_ready.cjs')(page);  after their ready wait.
-// (tools/headless/cdp.py's Browser.wait does the same for the Python checks.)
+// Waits until the files tools/split_js.py cut into parts have finished starting (phase 18, Part B): a split shell runs its parts
+// a beat after the file itself (and, for a card file, after window.__mantelReady), and only then defines its elements or sets
+// its global (window.hkSaver), so a check that reads either right after ready waits for this too. Playwright checks:
+//   await require('./grid_ready.cjs')(page);  after their ready wait; and, for a page that has the screensaver,
+//   await require('./grid_ready.cjs').saver(page);  (tools/headless/cdp.py's Browser.wait does the same for the Python checks.)
+// Two things are waited for: every shell that STARTED (the loader sets window.__hkSplitStarted[label] when it begins and
+// window.__hkSplitDone[label] when its parts have run) is done, and every element of the card files cut into parts is defined.
 const fs = require('fs');
 const path = require('path');
 
@@ -22,6 +25,10 @@ function tags() {
 }
 
 module.exports = async function gridCardsUpgraded(page, timeout = 30000) {
+  await page.waitForFunction(() => {
+    const started = window.__hkSplitStarted || {}, done = window.__hkSplitDone || {};
+    return Object.keys(started).every((k) => done[k]);
+  }, null, { timeout });
   const list = tags();
   if (!list.length) return;
   await page.waitForFunction((names) => {
@@ -36,3 +43,8 @@ module.exports = async function gridCardsUpgraded(page, timeout = 30000) {
   }, list, { timeout });
 };
 module.exports.tags = tags;
+// a page that has the screensaver (a screen with one, or a harness that loaded hk-saver.js): window.hkSaver is set once its parts have run
+module.exports.saver = async function saverReady(page, timeout = 30000) {
+  await page.waitForFunction(() => !!(window.hkSaver && window.hkSaver.preview), null, { timeout });
+  await module.exports(page, timeout);
+};

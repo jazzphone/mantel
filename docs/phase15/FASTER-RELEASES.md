@@ -444,8 +444,67 @@ Before is measured (run `41643065587` for the workflow; the rest from `Releasing
 
 ## Build log
 
-(Empty until the session starts. Each entry: the date, the slice, what was unforeseen, the choice made and why, in a
-sentence or two. The build-only runs' times go here too.)
+- **2026-11-03, 15.1 to 15.3, one change.** All three reshape `release.yml`, so they were built and proved together
+  rather than in three pushes: the suite as its own job on 4 workers, the native ARM matrix with the digest merge, and
+  the stages. `stage=all` keeps today's order where it matters (`latest` and `ha-apps` wait for the suite and every
+  image); one difference: in `stage=all` the App images and the `X.Y.Z` Docker manifests are pushed while the suite
+  runs, as `stage=images` does, which the workflow's header rule allows (nothing but `X.Y.Z` before the tag's checks).
+  `latest` moved out of the build into its own job (`latest`), shared by `all` and `promote`.
+- **2026-11-03, 15.2, the ARM label works here.** The first build-only run (`stage=all`, `publish=false`, run
+  41724515055, from the temporary branch `plans-phase15-workflow`) took **5.5 minutes** wall time with every cache cold
+  (new per-platform scopes): version and guards 40 s; the suite **3.2 min** on 4 workers (6.2 min serial before);
+  mantel-server amd64 2.6 min and **arm64 2.3 min natively** (4.4 min for both under QEMU before, after the suite);
+  mantel-caddy amd64 3.75 min (the longest job: its `xcaddy` build, cache cold); App images 1 to 1.8 min; `ha-apps`
+  1 min after the rest. Before: 11.4 minutes (run 41643065587).
+- **2026-11-03, 15.2, warm caches.** A build-only `stage=images` run (41725868433) right after: every image built
+  **3.1 minutes** after the run started (the Docker images in 1.8 min: mantel-server 35 to 41 s per platform, from
+  the `type=gha` caches; the App images 0.6 to 2.6 min), the Linux suite **4.4 min** beside them (3.2 min the run
+  before: the runners vary), the run 5 minutes. So the house can start its update about 3 minutes in, and the suite
+  finishes while it updates.
+- **2026-11-03, 15.3, the guards.** Proved without publishing anything: `stage=promote` from a branch refused in the
+  version job (run 41724543024); `stage=images` with `publish` on for the tagged 0.1.120 refused on guard 2
+  (run 41725610067). Guard 3 (the commit on `main`) wasn't run with `publish` on from a branch, since a bug there would
+  publish images; its compare call was checked by hand instead (`ahead` for the branch's commit, `behind` for `main~1`,
+  `identical` for `main`). The promote refusal "a wrong `images_run`" needs a tag with the new workflow, so the proof
+  release's promote is its first real test. Two runs dispatched together on one ref cancel the older pending one
+  (the `concurrency` group): the tool dispatches one at a time.
+- **2026-11-03, 15.3, the imagetools template.** `docker buildx imagetools inspect <image>:<version> --format
+  '{{json .Image}}'` returns a map by platform (`linux/amd64`, `linux/arm64`), each with `config.Labels`; read on the
+  published 0.1.120, whose revision label is its release commit on both.
+- **2026-11-03, 15.4, the LXC's `update` passes the environment.** Read on the house (read-only): `/usr/bin/update`
+  exports its settings and runs community-scripts' `misc/update.sh` with `bash -c`, which fetches `ct/mantel.sh` from
+  this repository's `main` and runs it, so `MANTEL_UPDATE_REF` reaches `update_script`. The fallback (pin, update,
+  restore the pin) is kept for a stale fetch: raw.githubusercontent.com may serve the old `ct/mantel.sh` for a few
+  minutes after a push. The house: clean, `mantel.ref` = `latest`, 4 cores; services `announce`, `go2rtc`,
+  `mantel-server` (no Caddy: the house uses its own proxy), so `healthy()` reads whatever services compose lists.
+- **2026-11-03, 15.5, the HA App path kept whole.** The old `release_mantel` is `release_mantel_ha_app` behind
+  `--ha-app`, unchanged (stage it, the Supervisor, tag, `stage=all` from the tag); `--no-publish` only with it.
+- **2026-11-03, the security review (Opus, as planned) of 15.3 and 15.5.** Seven findings, all fixed: (1) "Re-run
+  failed jobs" on an old images run reuses the version job's outputs and skips its guards, so it could push an App image
+  or merge a Docker manifest over a version released since: `app-images` and `docker-merge` now ask origin for the tag
+  themselves right before pushing in `stage=images`; (2) `verify-images` checked only the Docker images: it now checks
+  the four App images' revision labels and that the run's Linux suite passed by name; (3) a failed read of `mantel.ref`
+  could be written back as the pin: `Lxc.pin()` refuses anything that isn't one; (4) the plan's "the house rolled back
+  by update.sh" holds only when update.sh saw it unhealthy: when the tool's own health or log check fails after that,
+  it says the LXC stays on the untagged commit and how to go back, and doesn't roll back itself (the database may
+  have moved forward: the safer choice is a person); (5) hand changes are saved with `git diff --binary`; (6) the
+  repair of a left-over pin touches only a pin the tool set (remembered in `mantel.releasepin`), never the owner's;
+  (7) the "on main" guard compares against `main`'s SHA (`git/ref/heads/main`), not a name a tag could shadow. Clean:
+  injection (event values only through `env:`, `images_run` digits-checked), the dry run, the order (the tag only after
+  health, the log, the suite and the run's success), and no address or key in the record.
+- **2026-11-03, the review agent (Sonnet) of the whole diff.** The workflow traced clean for every stage. Fixed in
+  the tool: once the tag stands, `release/X.Y.Z` is deleted whatever follows (a failed promote or Release left it,
+  and it blocks the next release); the suite's one rerun waits for the run to end first (GitHub refuses a rerun of a
+  running run) and reacts only to a failed job, not to a `gh` error; a half-applied bump is put back; a queued release
+  run counts as one in progress. In `Releasing.md`: step 3 (nothing to build for Mantel), the dry run's App staging
+  (`--ha-app` only), the house's failure row (update.sh's rollback, or the LXC staying on the untagged commit), and
+  the by-hand fallback's order (the house after the run, unless `stage=images` comes first).
+- **2026-11-03, 15.6, `all` without the admin token.** A component release restarts Home Assistant through its
+  websocket, which needs the admin token (decision 13); it isn't in the Keychain here. `all` refuses before anything
+  when a component changed and there is no token, and says to release Mantel alone, rather than releasing Mantel and
+  leaving the components half done.
+- **2026-11-03, 15.6, backfill.** `backfill-tags --dry-run` finds `hk-frontend/v1.40.0` on d81a674d and
+  `mantel-link/v0.1.12` on f6c000b6 from the public repositories' newest commits.
 
 ## Waiting on the owner
 

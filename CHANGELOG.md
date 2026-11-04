@@ -4,6 +4,12 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- Proxmox LXC: `update` accepts `MANTEL_UPDATE_REF=<commit or tag>` for one update to that target, without pinning the container to it (`MANTEL_UPDATE_REF=v0.1.121 update`). Without it, `update` follows the newest release (or `mantel.ref`) as before.
+
+**Changed**
+- Docker and the LXC: the arm64 images are built natively on arm64 runners, not under emulation, so a release reaches you sooner. The images are the same; nothing changes for you.
+
 ## 0.1.122 - 2026-11-04
 
 **Added**

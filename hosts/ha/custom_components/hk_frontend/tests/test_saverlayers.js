@@ -192,11 +192,13 @@ print('\n=== hk-saver.js: the dashboard hidden under the screensaver, wherever i
 // left the whole dashboard -- sky, cards, the shared blur -- composited under
 // the photos (~7 screens of layers, headless), and Return to Home made a new
 // page's ~120 under it mid-turn. coverDashboard itself, run: its own text.
-var cm = /  function within\(root, el\) \{[\s\S]*?\n  function coverDashboard\(covered\) \{[\s\S]*?\n  \}\n/.exec(src);
-ok('coverDashboard is there', !!cm);
-if (cm) {
+// (`within` is in a part of the file now (hk-saver-helpers.js: one more indent), coverDashboard in the shell: read apart)
+var wm = /\n( *)function within\(root, el\) \{[\s\S]*?\n\1\}\n/.exec(src);
+var cm = /\n( *)function coverDashboard\(covered\) \{[\s\S]*?\n\1\}\n/.exec(src);
+ok('coverDashboard is there', !!cm && !!wm);
+if (cm && wm) {
   var cover = new Function('window', 'var coverT = null, coveredPage = null, pageVisibility = null, coveredView = [];' +
-                           cm[0] + '; return coverDashboard;');
+                           wm[0] + cm[0] + '; return coverDashboard;');
   function styled(tag) {
     var e = new El(tag);
     // (dom.js's Style methods are read-only: these are the element's own, with a priority kept beside)

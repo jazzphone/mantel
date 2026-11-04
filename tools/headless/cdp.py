@@ -38,6 +38,11 @@ def split_card_tags() -> list[str]:
     return sorted(tags)
 
 
+# true once every split shell that started (its loader sets window.__hkSplitStarted[label], and __hkSplitDone[label] when its
+# parts have run) is done: the screensaver's window.hkSaver, among them, is set only then
+SPLITS_DONE = ("(() => { const s = window.__hkSplitStarted || {}, d = window.__hkSplitDone || {};"
+               " return Object.keys(s).every((k) => d[k]); })()")
+
 # true once no element of a split card file is on the page (shadow roots too) waiting to be defined; a check that reads a
 # card right after __mantelReady waits for this as well (Browser.wait adds it)
 CARDS_UPGRADED = ("((tags) => { const walk = (root) => { for (const e of root.querySelectorAll('*')) {"
@@ -188,6 +193,7 @@ class Browser:
         cards of the split card files that are on the page to be defined (their parts load after the page is ready)."""
         end = time.time() + timeout
         if "__mantelReady" in expr:
+            expr = f"({expr}) && " + SPLITS_DONE
             tags = split_card_tags()
             if tags:
                 expr = f"({expr}) && " + CARDS_UPGRADED % json.dumps(tags)

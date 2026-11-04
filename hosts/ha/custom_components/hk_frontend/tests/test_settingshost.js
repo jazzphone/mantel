@@ -16,7 +16,7 @@ load(HK_ROOT + '/frontend/panels/hk-settings-model.js');
 load(HK_ROOT + '/frontend/panels/hk-settings-kit.js');
 load(HK_ROOT + '/frontend/panels/hk-settings-features.js');
 var SRC = read(HK_ROOT + '/frontend/panels/hk-settings.js');
-(0, eval)(SRC.replace('  var M = null, K = null, h = null, F = null;',
+(0, eval)(readRunnable(HK_ROOT + '/frontend/panels/hk-settings.js').replace('  var M = null, K = null, h = null, F = null;',
   '  var M = window.hkSettingsModel, K = window.hkSettingsKit, h = K.h, F = window.hkSettingsFeatures; F.use(K);'));
 
 var pass = 0, fail = 0;

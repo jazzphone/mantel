@@ -10,10 +10,9 @@
   "web/hk/cards/hk-media.js": 4185,
   "web/hk/cards/hk-strategy.js": 3323,
   "web/hk/cards/hk-weather.js": 3697,
-  "web/hk/modules/hk-saver.js": 6478,
+  "web/hk/modules/hk-saver.js": 4515,
   "web/hk/modules/hk-sky.js": 7023,
-  "web/hk/panels/hk-settings-model.js": 2871,
-  "web/hk/panels/hk-settings.js": 10230
+  "web/hk/panels/hk-settings-model.js": 2871
  },
  "py": {
   "hk_core/settings/model.py": 3820

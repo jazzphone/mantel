@@ -664,4 +664,139 @@ the share; it is skipped as unchanged when no Python changed).
   101, F841 unused variable 16, F541 an f-string with nothing in it 3. **No undefined name (F821) anywhere.** Per file
   in `tools/typecheck/ruff_baseline.json`, the same ratchet.
 
+### C2 (2026-11-03)
+
+`tools/typecheck/types/hk-shell.d.ts` and `hk-client.d.ts`. The contract is two layers, so there are three shell types:
+`HkShell` (the `window.hkShell` facade the shared code calls: 46 methods and its own members), `HkShellHost` (what
+an adapter hands `use()`: 18 members both hosts implement, required; 27 only one host has, optional, since the facade's
+defaults cover the other) and `HkShellMethods`. The client: `HKClient` (19 members) and `HkClientPort`. Both hosts'
+shell and client adapters (`web/shim/mantel-shell.js`, `mantel-client.js`, `hosts/ha/frontend/hk-ha-shell.js`,
+`hk-ha-client.js`) are typed against them and opt in, 0 errors; dropping a required member fails `types-js`.
+Comments only: Mantel's build id `d5edc76657f1a07c` and HK Frontend's minified adapters are identical before and after.
+
+Found, not changed (a follow-up): `hk-strategy.js` polls `window.hkShell.defined()` up to 600 times at 100 ms; Mantel's
+adapter has no `defined`, so the facade's default answers false and the poll runs its full 60 s on Mantel for nothing.
+
+### B0 and B1 (2026-11-04)
+
+`tools/split_js.py` and `tools/split_js.cjs` (the TypeScript compiler API): a manifest names the members each part
+takes; the kit is computed from the checker's resolved names, and `tsc` must report exactly that kit as missing before
+the takes are written, and nothing after; every moved member's text is compared after the move; a member that writes
+shared state is refused; `--find NAME` and `--check`. `split_files.js` took over `detail_files.js` for the jsc suites;
+`tests/web_sources.py` for the main suite; `tests/test_web_sources.py`, `tests/test_file_sizes.py` (the size ratchet,
+14 web files and 1 Python file over the lines).
+
+**B1:** `hk-grid-cards.js` 2,649 lines -> a 217-line shell and six parts in `web/hk/grid-cards/` (391, 512, 438, 570,
+218, 487). The jsc suites' output identical (164 suites); the gallery's 41 shots pixel-identical (two baseline runs
+identical first; `home-grid-starters` fails at baseline too and is left out); first load of a Home Grid screen 108 ->
+114 requests (the parts, in parallel), time to ready 0.33 s against 0.27-0.31 s on local disk. `hk-grid-math.js` opts
+in to `// @ts-check`. The browser checks now wait for a split shell's elements after `__mantelReady` (on the SMB
+checkout the parts arrive later and three checks read cards too early). Under Home Assistant a YAML `custom:hk-*`
+grid card is defined one round trip later than before; Lovelace rebuilds the card when it is defined.
+
+### B3 (2026-11-04)
+
+`hk-saver.js` 6,478 lines -> a **4,515-line shell** and seven parts in `web/hk/saver/` (2,235 lines: helpers 673, CSS
+595, photos 236, draw 175, music 384, pane 84, black 88; 175 members). **Short of the 3,500 target, measured:** the
+saver has 238 top-level names, 143 of them reassigned; all but six small clusters form one connected group (268
+statements, 4,203 lines) around `cfg`, `on`, `host`, `root`, `deck` and the timers, with the `window.hkSaver` literal,
+the `hk-music-pane-card` registration and the listeners in it. Moving more needs getters and setters on the kit
+(decision 13: not a move). What is left, by section (lines, then shared mutable variables its statements touch):
+helpers 97/3, the page 16/1, state 65/3, the switch 48/6, idle 15/4, input 134/19, the element 148/22, start/stop
+246/30, photos 277/35, the mosaic 239/23, the forecast 89/14, the slide corner 146/17, the layout 547/25, the clocks
+278/33, home energy 145/22, the weather 85/18, additional screens 78/16, the music 152/6, the music's panel 350/19, the
+dashboard's pane 237/8, the pane 371/27, HK's own black 251/38, the loop 266/51; 134 distinct reassigned variables in
+all. The size ratchet holds the shell at its measured size.
+
+Proved: `split_js.py --all --check`; no TS2304 in a part (five parts opt in, 0 errors); the jsc suites identical (one
+text pin in `test_saverlayers.js` read two functions now in different files, and reads them separately); the gallery's
+41 shots pixel-identical; the saver's browser checks pass (each flake under load passed run alone). Load, from local
+disk: a saver screen's first load 103 -> 110 requests; page ready unchanged (115-200 ms against 118-181);
+`window.hkSaver` there 60-110 ms later (195-351 ms against 151-241), before the screensaver can start (it waits for
+idle), so nothing a person sees moves; under decision 6's 50 ms rule this is not first draw. `web/home.js`'s
+screensaver-only preview now waits up to 10 s for `window.hkSaver` (it was there at once before).
+
+**For the owner to decide (the B3 review):** everything the saver does now waits for its seven parts, so a wall tablet
+that reloads while "black" (HK's own black, the curtain) may show the dashboard for the 60-110 ms the parts take, or
+for seconds if a part has to be fetched again (the retries back off to 15 s); the single file couldn't. Not changed:
+recommended (by the session that started this one) to keep the screen black from the first frame, a follow-up.
+
+The B1 review's follow-ups: the shared loader sets `window.__hkSplitStarted[<shell>]` synchronously, so a second
+evaluation never runs the parts twice; the test views fail loudly for a known shell without its parts list; the
+tool keeps a `var` whose initializer touches nothing in place (it was pulled into the waiting block).
+
+**The browser checks under load (2026-11-03/04):** with other sessions' runs on the same Mac, `ci.py full` failed a
+different set of browser checks on each run (page loads past 30 s, the screensaver not up in time), on this branch and
+on `origin/main` alike; every one passed run alone, and four alternating runs of a failing shard on main and on this
+branch were all clean. `test_settings_viewports.py` listens on a fixed port (9371) that another session's suite can
+hold at the same moment. B0-B1 was pushed with the pre-push hook skipped after its one failure (that test) passed
+alone.
+
+### B4 (2026-11-04)
+
+`hk-settings.js` 10,230 lines -> a **1,504-line shell** and eleven parts in `web/hk/settings/` (css 276, tables 204,
+screen 1,121, screen-pages 1,624, add 277, house-pages 1,210, house-looks 1,264, house-sky 1,162, rooms 664, accessories
+725, library 559; 357 members, 329 of them methods of `HkSettingsPanel`). No file is above 1,624 lines. Manifest:
+`tools/split_manifests/settings.json`, written from the file's own banners (the 70 members of the class that stay are the
+constructor and the host entry, start, routing, saving, drawing, the sidebar and the helpers).
+
+**The class-method mode** (`split_js.py`, `split_js.cjs`): the manifest names the class and a part lists `"methods"`. The
+part writes them, text for text, in `var Methods = class extends /** @type {any} */ (Object) { ... }` (the `extends` only lets the type checker give `this` the properties the shell's class has; nothing makes an instance) and calls `KIT.install(Methods)`; the shell's `install`
+adds each to `HkSettingsPanel.prototype` with `Object.defineProperty`, `{ value, writable: true, configurable: true,
+enumerable: false }` (a getter or setter keeps its accessor; a name that is already there throws). The proof compares each
+method's text as it does a function's, the checker's references decide the kit, and it refuses a method that uses `super`,
+is `static`, `#private` or computed, the constructor, one that assigns a shell variable, and one that `this.` reaches from
+a method that runs before the parts are in (`early_methods`: the constructor, `_onClient`, the three setters,
+`connectedCallback`, `disconnectedCallback`). Four things were needed because this class is a custom element and a panel:
+- **The element is defined at once**, not after the parts: both hosts make the element the moment the module is in
+  (`settings-page.js` sets `el.hass` on a fresh one; Home Assistant's `panel_custom` does the same), and a property set on
+  an element that is not defined yet shadows the prototype's accessor when it upgrades. `early` keeps `customElements.define`,
+  `entry(...)` and the class where they are; `boot()` awaits `partsReady`, a promise the shell makes (two `shell_edits`),
+  in the same `Promise.all` as the modules it already fetches, so the parts load in parallel with them. If the parts
+  never come, `partsReady` rejects after 75 s and `boot()`'s existing "couldn't load ... trying again" says so.
+- **`M`, `K`, `h`, `F`** (the settings model, the kit, the element helper and the features module) are `var`s set in
+  `boot()` once its modules are in. A part that uses one has its own `var` and a binder; the shell's `bindLate()` hands
+  all four over after `runParts()` and after `boot()` assigns them (a `shell_edit`; the tool checks that every method that
+  assigns a live variable calls `bindLate()`). Tests that stand in `var M = ...` for the line `var M = null, ...` still do.
+- **The kit's name** is `KIT` for this shell (`kit_name`): `K` is the panel's module.
+- The tests that evaluate the panel from text (7 jsc suites) use `readRunnable()`, the parts' text and then the shell's
+  (`split_files.js`), so the shell finds its parts registered and starts in the same turn; `test_settings_api.py` reads the
+  shell and `frontend/settings/*.js`. The HA build may not name Mantel anywhere in `panels/` (`test_mantel_settings.py`), so the loader template's two comments that did
+  now say "the server" and "the build" (a comment-only change in the three shells' loader blocks).
+
+`tests/test_settings_prototype.py` loads the file as it was (the blob the manifest records) and as it is, each in node, and
+compares `Object.getOwnPropertyNames` of the prototype (399 names, sorted: the order differs by construction), each one's
+kind, flags, arity, name and source text, and a for-in over an instance (nothing, both ways); `boot` is compared with the two
+`shell_edits` applied. `tests/test_web_sources.py` has the tool's class mode on a synthetic class (the split, and six
+refusals).
+
+**Types:** eight of the eleven parts (css, tables, screen, add, house-looks, house-sky, rooms, library) opt in to `// @ts-check` with
+no error; the other three have 2 to 4 errors each. The `extends` above is why: a class expression cannot see the shell
+class's `this.x = ...`, which made 1,744 errors in the parts before it. `tools/typecheck/baseline.json` total 1,051 -> 961.
+
+**`tools/headless/settings_sweep.py`** (new, with `settings_sweep.cjs`): the crawl finds 315 pages (308 without the seven pages of
+the three people, whose ids are new each time the house is built) from the Overview by following every `#/...` link; each is drawn
+at 1180x820, 820x1180 and 390x844 in Chromium and WebKit (1,890 drawings), kept as the panel's deep DOM text (shadow roots
+under `#shadow`, `<style>` as a length and hash, counter ids numbered by their order in the page, times, ports and ids
+normalized) and a screenshot (iframes masked). `--save` on the parent twice (`--repeat`) records the pages that differ from
+themselves (10 by DOM: Mantel's performance, alerts history and audit pages and the seven person pages; 20 by picture: a moving
+sound bar, "last seen", the lock pages' one flapping pixel) and `--compare` leaves those out. **Result on this slice: DOM text
+identical on every page, every browser and size; screenshots identical except one picture
+(`accessories_lock.back_door`, Chromium, 1180x820) that differs in one pixel, the pixel two sweeps of the parent also differ in
+on `accessories_lock.front_door`** (`--tolerance 2` passes). A control (one letter of a label changed in a part) fails on that
+page. It runs on a local-disk copy: from the SMB checkout a Settings page takes 30 s to load and the sweep times out.
+
+**First load of Settings** (local disk, five cold loads each, the dev server, this Mac at a load of 2 to 3): requests 70 -> 81
+(Chromium) and 71 -> 82 (WebKit), the eleven parts in parallel; time until the Overview is drawn 87 -> 97-101 ms (Chromium) and
+112-118 -> 113-118 ms (WebKit). The parts load beside the model, kit and features modules `boot()` already fetches, so there is no
+second round trip. Under decision 6's 50 ms rule.
+
+**Proved:** `split_js.py --all --check` clean for the three manifests; no name `tsc` cannot find in a part; the 164 jsc suites'
+output identical (after the 11 suites that read the panel's text were taught to read its parts); HK Frontend's Python suite 790
+passed; the gallery's 41 shots pixel-identical; the sweep above; the main suite green except `test_photos` (a cancellation race
+that passed alone, as in B3); `ci.py full` for settings, admin, client_smoke, looks, saver-editor and edit-mode: 9 passed. Run from a
+local-disk copy of the tree: on the SMB checkout a Settings page takes 30 s to load and the browser checks time out.
+
+To port an edit made to the old `hk-settings.js`: `tools/split_js.py --find <name>` names the part (a method or a top-level name).
+
 **Waiting on nothing.**

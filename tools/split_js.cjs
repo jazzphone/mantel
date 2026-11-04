@@ -3,10 +3,15 @@
 // expression or a template can never fool a brace match, and it answers in JSON on stdout. Called by split_js.py with a
 // JSON request on stdin; not meant to be run by hand.
 //
-//   {"cmd": "analyze", "file": "...", "mode": "shell" | "part", "run_in": "whenBase" | null, "globals": ["...d.ts"]}
+//   {"cmd": "analyze", "file": "...", "mode": "shell" | "part", "run_in": "whenBase" | null, "globals": ["...d.ts"],
+//    "class_name": "HkSettingsPanel" | null, "class_expr": true | false, "kit_name": "K"}
 //       The statements of each scope (the IIFE's body, the body of the function that runs in it, or a part's function),
 //       each with its lines, the names it declares, what it refers to in the other statements of its scope or the
 //       scope's parameters, and what it assigns to. Names are resolved by the checker (symbols), never by text.
+//       CLASS-METHOD MODE: `class_name` (a shell) names a class declaration of the IIFE, `class_expr` (a part) says its
+//       methods are in a `var X = class { ... }`; either adds a scope called "class" whose statements are the class's
+//       members (kind "method"; `method` the name, `msub` method/get/set/constructor), each with the same facts, plus
+//       `usesSuper`, `isStatic`, `computed`, `priv` and `thisProps` (the names read off `this`).
 //   {"cmd": "diagnostics", "files": ["..."], "globals": ["...d.ts"]}
 //       tsc's view of each file with checkJs on: its syntax errors, the names it cannot find (TS2304 and TS2552: for
 //       a part, exactly the kit it needs), and the number of errors in all.
@@ -93,18 +98,43 @@ function declaredNames(s) {
 }
 
 // for a var statement: has it any initializer; is it only `x = K.x` (a part's takes); is it only names (a shell's take-backs)
-function varFacts(s) {
+function varFacts(s, kit) {
   if (!ts.isVariableStatement(s)) return { init: false, bare: false, takes: false };
   const ds = s.declarationList.declarations;
   return {
     init: ds.some((d) => d.initializer),
     bare: ds.every((d) => !d.initializer),
     takes: ds.every((d) => d.initializer && ts.isPropertyAccessExpression(d.initializer) &&
-                           ts.isIdentifier(d.initializer.expression) && d.initializer.expression.text === 'K'),
+                           ts.isIdentifier(d.initializer.expression) && d.initializer.expression.text === kit),
   };
 }
 
+// what a class member is: its name, whether it is a getter or setter, and the things that stop a move (`super`,
+// `static`, a #private or computed name) and the names it reads off `this`
+function memberFacts(s, sf) {
+  const isMember = ts.isMethodDeclaration(s) || ts.isGetAccessor(s) || ts.isSetAccessor(s) || ts.isConstructorDeclaration(s) ||
+                   ts.isPropertyDeclaration(s) || ts.isClassStaticBlockDeclaration(s);
+  if (!isMember) return {};
+  const nm = s.name;
+  const computed = !!nm && ts.isComputedPropertyName(nm);
+  const priv = !!nm && ts.isPrivateIdentifier(nm);
+  const method = ts.isConstructorDeclaration(s) ? 'constructor' : nm && (ts.isIdentifier(nm) || ts.isStringLiteral(nm)) ? nm.text : null;
+  const msub = ts.isConstructorDeclaration(s) ? 'constructor' : ts.isGetAccessor(s) ? 'get' : ts.isSetAccessor(s) ? 'set' :
+               ts.isMethodDeclaration(s) ? 'method' : 'other';
+  let usesSuper = false;
+  const thisProps = new Set();
+  const walk = (n) => {
+    if (n.kind === ts.SyntaxKind.SuperKeyword) usesSuper = true;
+    if (ts.isPropertyAccessExpression(n) && n.expression.kind === ts.SyntaxKind.ThisKeyword) thisProps.add(n.name.text);
+    ts.forEachChild(n, walk);
+  };
+  walk(s);
+  const isStatic = !!(s.modifiers && s.modifiers.some((m) => m.kind === ts.SyntaxKind.StaticKeyword));
+  return { method, msub, usesSuper, isStatic, computed, priv, thisProps: [...thisProps] };
+}
+
 function kindOf(s) {
+  if (ts.isMethodDeclaration(s) || ts.isGetAccessor(s) || ts.isSetAccessor(s) || ts.isConstructorDeclaration(s)) return 'method';
   if (ts.isFunctionDeclaration(s)) return 'function';
   if (ts.isClassDeclaration(s)) return 'class';
   if (ts.isVariableStatement(s)) return 'var';
@@ -170,17 +200,29 @@ function analyze(req) {
   const iife = iifeOf(sf);
   if (!iife) throw new Error('no IIFE at the top of ' + req.file);
 
-  const scopes = [];   // {name, fn, body, stmts, params, host}
+  const scopes = [];   // {name, fn, body, list, host}: `list` the nodes that are the scope's members
+  const classMembers = new Set();
+  const pushClass = (cls) => {
+    scopes.push({ name: 'class', fn: null, body: cls, list: cls.members });
+    cls.members.forEach((m) => classMembers.add(m));
+  };
   if (req.mode === 'part') {
     const fn = partFn(iife);
     if (!fn) throw new Error('no part function in ' + req.file);
-    scopes.push({ name: 'part', fn, body: fn.body });
+    scopes.push({ name: 'part', fn, body: fn.body, list: fn.body.statements });
+    if (req.class_expr) {
+      for (const s of fn.body.statements) {
+        if (!ts.isVariableStatement(s)) continue;
+        const d = s.declarationList.declarations[0];
+        if (d && d.initializer && ts.isClassExpression(stripParens(d.initializer))) { pushClass(stripParens(d.initializer)); break; }
+      }
+    }
   } else {
-    scopes.push({ name: 'iife', fn: iife, body: iife.body });
+    scopes.push({ name: 'iife', fn: iife, body: iife.body, list: iife.body.statements });
     if (req.run_in) {
       const run = runFn(iife, req.run_in);
       if (!run) throw new Error('no ' + req.run_in + '(function ...) call in the IIFE of ' + req.file);
-      scopes.push({ name: 'run', fn: run.fn, body: run.fn.body, host: run.stmt });
+      scopes.push({ name: 'run', fn: run.fn, body: run.fn.body, list: run.fn.body.statements, host: run.stmt });
     }
     // the function the shell hands to its loader: loadParts(function () { ... }); the statements that wait for the parts
     if (req.cont_call) {
@@ -189,9 +231,14 @@ function analyze(req) {
         if (ts.isExpressionStatement(s) && ts.isCallExpression(s.expression) && ts.isIdentifier(s.expression.expression) &&
             s.expression.expression.text === req.cont_call) {
           const fn = s.expression.arguments.find(isFn);
-          if (fn) { scopes.push({ name: 'cont', fn, body: fn.body, host: s }); break; }
+          if (fn) { scopes.push({ name: 'cont', fn, body: fn.body, list: fn.body.statements, host: s }); break; }
         }
       }
+    }
+    if (req.class_name) {
+      const cls = scopes.filter((x) => x.name === 'iife' || x.name === 'run').pop().list.find((s) => ts.isClassDeclaration(s) && s.name && s.name.text === req.class_name);
+      if (!cls) throw new Error('no class ' + req.class_name + ' in ' + req.file);
+      pushClass(cls);
     }
   }
 
@@ -202,7 +249,7 @@ function analyze(req) {
     while (n && n.parent) {
       if (bodyOf.has(n.parent)) {
         const si = bodyOf.get(n.parent);
-        return { scope: si, index: scopes[si].body.statements.indexOf(n), direct: n };
+        return { scope: si, index: scopes[si].list.indexOf(n), direct: n };
       }
       n = n.parent;
     }
@@ -210,7 +257,7 @@ function analyze(req) {
   };
   // a parameter of a scope's function is that scope's own name (the C of whenBase(function (C) {...}))
   const paramScope = (decl) => {
-    for (let i = 0; i < scopes.length; i++) if (decl.parent === scopes[i].fn) return i;
+    for (let i = 0; i < scopes.length; i++) if (scopes[i].fn && decl.parent === scopes[i].fn) return i;
     return -1;
   };
 
@@ -218,8 +265,8 @@ function analyze(req) {
   for (let si = 0; si < scopes.length; si++) {
     const sc = scopes[si];
     const stmts = [];
-    for (let idx = 0; idx < sc.body.statements.length; idx++) {
-      const s = sc.body.statements[idx];
+    for (let idx = 0; idx < sc.list.length; idx++) {
+      const s = sc.list[idx];
       const start = s.getStart(sf);
       const comments = ts.getLeadingCommentRanges(text, s.pos) || [];
       const first = comments.length ? comments[0].pos : start;
@@ -244,12 +291,12 @@ function analyze(req) {
         protected: [...prot].filter((l) => l >= firstLine && l <= lastLine),
         indent: firstText.length - firstText.trimStart().length,
         text: norm.join('\n'), head: lines[lineOf(sf, start) - 1].trim().slice(0, 120),
-        refs: [], writes: [], ...varFacts(s),
+        refs: [], writes: [], ...varFacts(s, req.kit_name || 'K'), ...memberFacts(s, sf),
       });
     }
     out.scopes.push({
       name: sc.name, open: lineOf(sf, sc.body.getStart(sf)), close: lineOf(sf, sc.body.end),
-      params: sc.fn.parameters.map((p) => p.name.getText(sf)), stmts,
+      params: sc.fn ? sc.fn.parameters.map((p) => p.name.getText(sf)) : [], stmts,
       host: sc.host ? { first: lineOf(sf, sc.host.getStart(sf)), last: lineOf(sf, sc.host.end) } : null,
     });
   }
@@ -283,7 +330,7 @@ function analyze(req) {
           }
           if (target && !(target.index === from.index && target.scope === from.scope)) {
             const key = JSON.stringify(['r', from.scope, from.index, target]);
-            const now = !deferred(node, scopes[from.scope].body.statements[from.index]);
+            const now = !deferred(node, scopes[from.scope].list[from.index]);
             if (!seen.has(key)) { seen.add(key); target.now = now; from.refs.push(target); }
             else if (now) from.refs.find((r) => JSON.stringify([r.name, r.param, r.scope, r.index, r.hoisted]) ===
               JSON.stringify([target.name, target.param, target.scope, target.index, target.hoisted])).now = true;
@@ -301,11 +348,11 @@ function analyze(req) {
       }
     }
     // the function a host statement hands on is another scope: its statements are visited as members of their own
-    ts.forEachChild(node, (c) => { if (!innerFns.has(c)) visit(c, from); });
+    ts.forEachChild(node, (c) => { if (!innerFns.has(c) && !classMembers.has(c)) visit(c, from); });
   };
   const innerFns = new Set(scopes.filter((x) => x.host).map((x) => x.fn));
   for (let si = 0; si < scopes.length; si++) {
-    scopes[si].body.statements.forEach((s, idx) => visit(s, out.scopes[si].stmts[idx]));
+    scopes[si].list.forEach((s, idx) => visit(s, out.scopes[si].stmts[idx]));
   }
   // a name declared in two scopes (the inner one hides the outer for the code inside it)
   const byName = {};

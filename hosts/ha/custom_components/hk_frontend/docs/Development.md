@@ -48,6 +48,7 @@ custom_components/hk_frontend/     the integration HACS installs
 │  │                    is the generated dashboard and the room page
 │  ├─ modules/          page modules: settings, header, kiosk, sky, idle, screensaver, menu, glass…
 │  ├─ panels/           the HK Settings page (hk-settings.js, -model, -kit, -features)
+│  ├─ settings/         the HK Settings page's parts: hk-settings.js loads them and adds their methods to its element
 │  ├─ iconset/          hk-icons.js, the hk: iconset loader (the glyphs are the user's)
 │  ├─ fonts/            sf-pro.css (the font is the user's)
 │  ├─ sky/              the live sky's textures and decoration art
