@@ -4,7 +4,6 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
-<<<<<<< HEAD
 **Added**
 - **The House Timeline: what happened at the house.** One scrolling, searchable record of doors and locks, arrivals and departures, the alarm, the garage, the doorbell, what the cameras saw (person, vehicle, animal, package, with two pictures from that moment), leaks and smoke, and Mantel's own alerts. It says who did what and from where ("Back Door unlocked · Emma · Hallway tablet"), or "By hand or an automation". Noise is rolled up (a detection is one row, motion one row per 10 minutes, a sensor that keeps changing one row), and what changed while Mantel was off is written at its real time. Open **Timeline** from the Home menu. It starts empty today: there's no fill-in from Home Assistant's history. See [Timeline](docs/guide/Timeline.md).
 - **Who sees what** follows the roles you already have: Owners, Admins and Adults open it (an Owner can give it to a Child); each row needs that door, lock, person or camera to be the viewer's; names only for signed-in Owners, Admins and Adults; Mantel's alerts and refused commands for Owners and Admins only. A wall tablet with nobody signed in shows the last 12 hours of doors, locks, the garage, the alarm, the doorbell and detections, with no names, no pictures and no search.
@@ -14,12 +13,11 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **Mantel Settings → Timeline** (Owners and Admins; the Owner changes it): what's recorded (windows are off for a new house), a sensor added by hand, retention (7, 30, 90 days or a year; 30 by default), the pictures' budget (500 MB) and how many per detection, the wall tablets' view, the summary's time and Send Test, and Clear Timeline.
 - **Include Timeline Pictures** in Settings → Backups (off by default; the rows are always in a backup). About → Performance shows the Timeline's numbers. Two assistant tools, `timeline_find` and `timeline_digest`, read it as you, never its pictures.
 
-**Note**
-- Pictures are snapshots: UniFi Protect's public API has no clip export.
-=======
 **Fixed**
 - Screensaver: with the time behind the photo's people, the people stay over the time when the minute changes (they dropped behind it and faded back).
->>>>>>> origin/main
+
+**Note**
+- Pictures are snapshots: UniFi Protect's public API has no clip export.
 
 ## 0.1.121 - 2026-11-03
 
