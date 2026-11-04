@@ -145,18 +145,19 @@
           K.toggle({ label: 'Show Status Chips', sk: 'b:chips_row', on: b.chips_row, onChange: function (on) { set({ chips_row: on }); } })]));
         if (!b.chips_row) return;
         var lib = this.data.custom_chips || [];
-        var mdl = M.chipsModel(b, kinds, lib);
-        var lab = function (r) { return r.custom ? r.name : r.own ? self.name(r.value) : M.CHIP_LABELS[r.value] || r.value; };
+        // (the Intercom is More's, where the page has one -- never in Hosts without it, Home Assistant)
+        var mdl = M.chipsModel(b, kinds, lib, !!(this.client && this.client.intercom));
+        var lab = function (r) { return r.custom ? r.name : r.value === 'intercom' ? M.CHIP_LABELS.intercom : r.own ? self.name(r.value) : M.CHIP_LABELS[r.value] || r.value; };
         c.appendChild(K.listEditor({
           fk: 'chips', auto: mdl.auto, announce: this.announce.bind(this), minRows: 1,
           autoFooter: 'Automatic shows a chip for everything the house has, in the usual order. A kind the house has nothing of never shows.',
           rows: mdl.rows.map(function (r) {
             return { value: r.value, label: lab(r), removable: r.own || r.custom,
-                     sub: r.custom ? 'Custom chip' + (self.customShow(b, r.key) === 'active' ? ' · Only When Active' : '') : r.own ? 'Accessory chip' : r.quiet ? 'Only When Active' : null,
-                     href: r.custom ? '#/chips/' + encodeURIComponent(r.key)
+                     sub: r.custom ? 'Custom chip' + (self.customShow(b, r.key) === 'active' ? ' · Only When Active' : '') : r.value === 'intercom' ? 'Opens the Intercom' : r.own ? 'Accessory chip' : r.quiet ? 'Only When Active' : null,
+                     href: r.custom ? '#/chips/' + encodeURIComponent(r.key) : r.value === 'intercom' ? null
                                     : r.own ? '#/accessories/' + encodeURIComponent(r.value) : base + '/chips/' + r.value };
           }),
-          more: mdl.more.map(function (r) { return { value: r.value, label: lab(r), sub: r.custom ? 'Custom chip' : null }; }),
+          more: mdl.more.map(function (r) { return { value: r.value, label: lab(r), sub: r.custom ? 'Custom chip' : r.value === 'intercom' ? 'Opens the Intercom' : null }; }),
           onAdd: function (v) {
             if (v.indexOf(M.CHIP_TOKEN) === 0) { set(M.chipsAddCustom(b, v.slice(M.CHIP_TOKEN.length))); return; }
             set(M.chipsSave(mdl.rows.map(function (r) { return r.value; }).concat(v), kinds, lib));
@@ -368,7 +369,10 @@
         void ents;
         // the Energy page's pill only while the Energy feature gives it a page
         var energyOn = this.energyOn(), powerOn = this.powerOn();
-        var scenePages = (this.data.scene_pages || []).filter(function (k) { return (k !== 'energy' || energyOn) && (k !== 'power' || powerOn); });
+        // (the Intercom's pill is More's where the page has the Intercom; the house's list, from Home Assistant, may name it)
+        var icOn = !!(this.client && this.client.intercom);
+        var scenePages = (this.data.scene_pages || []).filter(function (k) { return k !== 'intercom' && (k !== 'energy' || energyOn) && (k !== 'power' || powerOn); })
+          .concat(icOn ? ['intercom'] : []);
         var mdl = M.scenesModel(b, autoScenes, scenePages);
         var pills = this.hs('look.page_pills') || {};
         var lab = function (r) { return r.page ? (pills[r.page] || {}).name || M.PAGE_LABELS[r.page] || r.page : self.name(r.value); };
@@ -377,11 +381,11 @@
             'Automatic shows the scenes this screen’s YAML lists, then any page pills. Choosing scenes here replaces the YAML’s list.',
           emptyText: x.generated ? 'No scenes' : 'The scenes in this screen’s YAML',
           rows: mdl.rows.map(function (r) {
-            return { value: r.value, label: lab(r), sub: r.page ? 'Opens the page' : null, removable: !!r.page,
-                     href: r.page ? '#/page/' + r.page + '/pill'
+            return { value: r.value, label: lab(r), sub: r.page ? (r.page === 'intercom' ? 'Opens the Intercom' : 'Opens the page') : null, removable: !!r.page,
+                     href: r.page ? (r.page === 'intercom' ? null : '#/page/' + r.page + '/pill')
                                   : '#/accessories/' + encodeURIComponent(r.value) };
           }),
-          more: mdl.more.map(function (r) { return { value: r.value, label: lab(r), sub: 'A pill that opens the page' }; }),
+          more: mdl.more.map(function (r) { return { value: r.value, label: lab(r), sub: r.page === 'intercom' ? 'A pill that opens the Intercom' : 'A pill that opens the page' }; }),
           onAuto: function (on) {
             if (!on) { set(M.scenesSave(mdl.rows.map(function (r) { return r.value; }))); return; }
             self.confirmSwitch({ title: 'Use Automatic Scenes?', message: 'This screen’s scene order and choices will be replaced.', ok: 'Use Automatic' },

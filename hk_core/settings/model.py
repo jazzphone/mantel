@@ -2330,7 +2330,6 @@ BOARD_PHONE_MENUS = ("off", "button", "tabbar")
 BOARD_BUTTON_PHONE = ("chip", "chip_scroll", "tab", "none")
 # what a phone shows at the top of Home: the clock and weather header, or the one-line weather strip (generated screens)
 BOARD_PHONE = ("header", "strip")
-INTERCOM_BUTTONS = ("off", "chip", "scene")  # a screen's Intercom Button on Home (hk-chip.js): none, a chip, a pill
 # the menu's edge tab: its size on a tablet or wider (tab_size), and on a phone (tab_size_phone, under 640 px), each
 # the screen's own -- hk-menu.js. A phone starts with the standard one, which already lies over the first column.
 BOARD_TAB_SIZES = ("standard", "large", "xl")
@@ -2485,7 +2484,7 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # camera_live_video: whether that first tile plays live at all (None:
     # Same as All Screens, settings cameras.live)
     "camera_strip": True, "cameras": [], "camera_live": "", "camera_live_video": None,
-    "scenes_row": True, "scenes": [], "scenes_pages": [], "intercom_button": "off",
+    "scenes_row": True, "scenes": [], "scenes_pages": [],
     "favorites": [],
     # Pages (generated dashboards): empty = every page the house has.
     "pages": [],
@@ -2624,8 +2623,9 @@ def car_width(v: Any) -> int | None:
     return n if CAR_WIDTH_MIN <= n <= CAR_WIDTH_MAX else None
 
 
-# The pages a scene pill can open (Home -> Scenes -> Pills that open a page).
-SCENE_PAGES = tuple(k for k in PAGE_KINDS if k != "rooms")
+# The pages a scene pill can open (Home -> Scenes -> Pills that open a page), and the Intercom (a pill, and a chip in
+# chips_extra, that a screen adds from More where the page has the Intercom).
+SCENE_PAGES = tuple(k for k in PAGE_KINDS if k != "rooms") + ("intercom",)
 SCENE_PAGE = "page:"                   # such a pill's place in the scenes order
 ENTITY_ID = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 
@@ -2685,7 +2685,6 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["home_rooms"] = pick("home_rooms", BOARD_HOME_ROOMS)
     out["page_rooms"] = pick("page_rooms", BOARD_PAGE_ROOMS)
     out["phone_header"] = pick("phone_header", BOARD_PHONE)
-    out["intercom_button"] = pick("intercom_button", INTERCOM_BUTTONS)
     try:
         out["dock_min"] = int(min(max(float(d.get("dock_min") or 1000), DOCK_MIN[0]), DOCK_MIN[1]))
     except (TypeError, ValueError):
@@ -2725,7 +2724,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
         out[k] = strs(d.get(k)) or []
     # chips: the kinds AND the dashboard's own chips (entities), in one order;
     # which entities are chips at all is chips_extra's to say
-    out["chips"] = [k for k in (strs(d.get("chips")) or []) if k in CHIP_KINDS or ENTITY_ID.match(k)
+    out["chips"] = [k for k in (strs(d.get("chips")) or []) if k in CHIP_KINDS or k == "intercom" or ENTITY_ID.match(k)
                     or (k.startswith(CHIP_TOKEN) and CHIP_KEY.match(k[len(CHIP_TOKEN):]))]
     out["chips_custom"] = [k for k in (strs(d.get("chips_custom")) or []) if CHIP_KEY.match(k)]
     out["chips_custom_show"] = chips_custom_show(d.get("chips_custom_show")) or {}
@@ -2738,7 +2737,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     # say
     out["scenes"] = [k for k in out["scenes"] if ENTITY_ID.match(k) or
                      (k.startswith(SCENE_PAGE) and k[len(SCENE_PAGE):] in SCENE_PAGES)]
-    out["scenes_pages"] = [k for k in (strs(d.get("scenes_pages")) or []) if k in PAGE_KINDS and k != "rooms"]
+    out["scenes_pages"] = [k for k in (strs(d.get("scenes_pages")) or []) if k in SCENE_PAGES]
     out["custom_pages"] = [k for k in (strs(d.get("custom_pages")) or []) if PAGE_PATH.match(k)]
     out["car_layout"] = d.get("car_layout") if d.get("car_layout") in CAR_LAYOUTS else BOARD_DEFAULTS["car_layout"]
     out["car_width"] = car_width(d.get("car_width"))

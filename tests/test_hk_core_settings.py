@@ -197,6 +197,14 @@ def test_a_screens_and_a_tablets_changes():
     b, err = C.apply_board({}, {"menu": "open"})
     assert err == {} and b == M.board({"menu": "open"})
     assert C.apply_board({"menu": "open"}, {"bogus": 1}) == (M.board({"menu": "open"}), {"bogus": "unknown"})
+    # THE INTERCOM: a chip (chips_extra, placed by chips) and a scenes pill (scenes_pages, placed by scenes), added from More
+    b, err = C.apply_board({}, {"chips_extra": ["sensor.mail", "intercom"], "chips": ["intercom", "lights"],
+                                "scenes_pages": ["intercom"], "scenes": ["page:intercom", "scene.movie"]})
+    assert err == {} and b["chips_extra"] == ["sensor.mail", "intercom"] and b["chips"] == ["intercom", "lights"]
+    assert b["scenes_pages"] == ["intercom"] and b["scenes"] == ["page:intercom", "scene.movie"]
+    assert "intercom" not in M.CHIP_KINDS and "intercom" in M.SCENE_PAGES        # never in Automatic
+    assert C.apply_board({}, {"chips_extra": ["intercom.x", "bogus"]})[1] == {"chips_extra": "entity"}
+    assert "intercom_button" not in M.board({}) and C.apply_board({}, {"intercom_button": "chip"})[1] == {"intercom_button": "unknown"}
     t, err = C.apply_tablet({}, {"sleep": {"decided_by": "hk", "linger": 120}}, "hall")
     assert err == {} and t["sleep"]["decided_by"] == "hk" and t["sleep"]["linger"] == 120
     assert C.apply_tablet({}, {"sleep": {"decided_by": "nobody"}}, "hall")[1] == {"sleep": "sleep"}

@@ -55,6 +55,23 @@ ok('...and several at once (a picker\'s Select), each once',
       { chips_extra: ['sensor.a', 'sensor.b'], chips: ['lights', 'sensor.a', 'sensor.b'] }));
 ok('chips: an own chip removed leaves both lists',
    eq(M.chipsRemoveOwn({ chips: ['lights', 'sensor.mail'], chips_extra: ['sensor.mail'] }, 'sensor.mail'), { chips_extra: [], chips: ['lights'] }));
+// THE INTERCOM, a chip added from More where the page has one (chips_extra: ['intercom'])
+m = M.chipsModel({ chips: [], chips_extra: [] }, KINDS, [], true);
+ok('intercom: under More while automatic, never among the Shown kinds', m.auto && m.more.length === 1 && m.more[0].value === 'intercom' && m.more[0].own &&
+   m.rows.every(function (r) { return r.value !== 'intercom'; }));
+ok('...no page Intercom (Home Assistant): not offered', M.chipsModel({ chips: [], chips_extra: [] }, KINDS, [], false).more.length === 0 &&
+   M.chipsModel({ chips: [], chips_extra: [] }, KINDS).more.length === 0);
+ok('...added while automatic: stays automatic, listed last, removable', eq(M.chipsAddOwn({ chips: [], chips_extra: [] }, 'intercom'), { chips_extra: ['intercom'], chips: [] }));
+m = M.chipsModel({ chips: [], chips_extra: ['intercom'] }, KINDS, [], true);
+ok('...then shown after the kinds, own, not quiet; More has nothing', m.auto && m.rows[m.rows.length - 1].value === 'intercom' && m.rows[m.rows.length - 1].own &&
+   !m.rows[m.rows.length - 1].quiet && m.more.length === 0);
+ok('...moved: saved as an order that places it, still named in chips_extra', eq(M.chipsSave(['intercom'].concat(KINDS), KINDS, []),
+   { chips_extra: ['intercom'], chips_custom: [], chips: ['intercom'].concat(KINDS) }));
+ok('...kept automatic when last', M.chipsSave(KINDS.concat('intercom'), KINDS, []).chips.length === 0);
+ok('...removed: leaves both lists', eq(M.chipsRemoveOwn({ chips: ['lights', 'intercom'], chips_extra: ['intercom'] }, 'intercom'), { chips_extra: [], chips: ['lights'] }));
+m = M.chipsModel({ chips: ['lights', 'intercom'], chips_extra: [] }, KINDS, [], true);
+ok('...a chip order naming it without chips_extra drops it, and More offers it again', eq(m.rows.map(function (r) { return r.value; }), ['lights']) &&
+   m.more.some(function (r) { return r.value === 'intercom'; }));
 ok('chips: quiet on and off', eq(M.chipQuiet({ chips_quiet: ['water'] }, 'lights', true), { chips_quiet: ['water', 'lights'] }) &&
    eq(M.chipQuiet({ chips_quiet: ['water', 'lights'] }, 'water', false), { chips_quiet: ['lights'] }));
 
@@ -63,6 +80,10 @@ var SP = ['weather', 'cameras', 'live_tv', 'music'];
 m = M.scenesModel({ scenes: [], scenes_pages: ['live_tv'] }, ['scene.a', 'scene.b'], SP);
 ok('scenes: automatic is every scene, then the page pills', m.auto && eq(m.rows.map(function (r) { return r.value; }), ['scene.a', 'scene.b', 'page:live_tv']));
 ok('...More offers the other pages as pills', eq(m.more.map(function (r) { return r.page; }), ['weather', 'cameras', 'music']));
+m = M.scenesModel({ scenes: [], scenes_pages: [] }, ['scene.a'], SP.concat('intercom'));
+ok('scenes: the Intercom is a page pill under More like the rest', m.more.some(function (r) { return r.page === 'intercom' && r.value === 'page:intercom'; }) &&
+   M.PAGE_LABELS.intercom === 'Intercom');
+ok('...added while automatic: only scenes_pages changes', eq(M.scenesPagePill({ scenes: [], scenes_pages: ['music'] }, 'intercom', true), { scenes_pages: ['music', 'intercom'] }));
 m = M.scenesModel({ scenes: ['page:music', 'scene.b', 'page:weather'], scenes_pages: ['music', 'live_tv'] }, [], SP);
 ok('scenes: a placed pill whose page is not a pill any more is dropped; an unplaced pill joins the end',
    eq(m.rows.map(function (r) { return r.value; }), ['page:music', 'scene.b', 'page:live_tv']));
