@@ -1198,7 +1198,7 @@ def backup_info(app: web.Application) -> dict:
 
 
 # Mantel Photos is managed by an Owner or Admin, never at a wall tablet; an Owner sets its limits and imports.
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_overview(request: web.Request) -> web.Response:
     ident = guarded(request)
     lib = _lib(request)
@@ -1254,7 +1254,7 @@ async def api_album_options(request: web.Request) -> web.Response:
     return _json(200, ok=True, album=got)
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_album_photos(request: web.Request) -> web.Response:
     try:
         lib = _lib(request)
@@ -1353,19 +1353,19 @@ async def api_import_start(request: web.Request) -> web.Response:
     return _json(202, ok=True, importing=job.as_dict())
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_import_status(request: web.Request) -> web.Response:
     job = request.app["photos_import"].job
     return _json(200, ok=True, importing=job.as_dict() if job is not None else None)
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_faces(request: web.Request) -> web.Response:
     """Keep in View's look through the library: how far it has got (Mantel Settings → Photos polls it)."""
     return _json(200, ok=True, faces=request.app["photos_faces"].status())
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_cutouts(request: web.Request) -> web.Response:
     """Time Behind's cut-outs through the library: how far they have got, and why there are none when the model
     can't run here (Mantel Settings → Photos)."""
@@ -1403,7 +1403,7 @@ def _nothing() -> web.Response:
 
 
 # what the screensavers read: any session that may use feature:media (the roles decide, may_view)
-@guard("signed_in")
+@guard("signed_in", reads="feature:media", preview=True)
 async def api_screens(request: web.Request) -> web.Response:
     """Which screens show an album (the page's host asks once and after a change)."""
     if not may_view(request):
@@ -1411,7 +1411,7 @@ async def api_screens(request: web.Request) -> web.Response:
     return web.json_response({"screens": _lib(request).screens()}, headers={"Cache-Control": "no-cache"})
 
 
-@guard("signed_in")
+@guard("signed_in", reads="feature:media", preview=True)
 async def api_show(request: web.Request) -> web.Response:
     """An album as a screensaver shows it: its screen-sized photos' addresses (without the page's prefix)."""
     if not may_view(request):
@@ -1450,7 +1450,8 @@ async def api_show(request: web.Request) -> web.Response:
     return web.json_response({"album": album, "photos": out}, headers={"Cache-Control": "no-cache"})
 
 
-@guard("signed_in")          # an original for a manager only; the screen sizes for whoever may view (below)
+@guard("signed_in", reads="feature:media", stream="bounded:one photo file",
+       preview="size=screen|mid|thumb")          # an original for a manager only; the screen sizes for whoever may view (below)
 async def serve(request: web.Request) -> web.StreamResponse:
     size, pid = request.match_info["size"], request.match_info["photo"]
     if size == "original":

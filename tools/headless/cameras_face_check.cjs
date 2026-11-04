@@ -50,6 +50,7 @@ const FACES = () => {
     p.setDefaultTimeout(20000);
     await p.goto(input.origin + '/' + input.screen + '/home');
     await p.waitForFunction(() => window.__mantelReady === true);
+    await require('./grid_ready.cjs')(p);
     // every face drawn, every tile with its picture
     await p.waitForFunction(new Function('const f = (' + FACES.toString() + ')(); return f.length > 0 && f.every(x => x.n > 0 && x.pictures === x.n);'));
     await p.waitForTimeout(600);

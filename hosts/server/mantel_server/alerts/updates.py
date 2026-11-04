@@ -259,7 +259,7 @@ def _page(request: web.Request) -> dict:
     return {**updates_of(request).public(), "can_edit": rule != "owner_only", "needs_fresh": rule == "fresh"}
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_get(request: web.Request) -> web.Response:
     return ok(_page(request))
 

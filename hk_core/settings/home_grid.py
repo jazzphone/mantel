@@ -113,6 +113,10 @@ CATALOG: dict[str, dict[str, Any]] = {
     "on_now": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     "todo": {"sizes": ("S", "T", "L", "XL"), "sources": (), "opts": {"entity": "todo", "tap": "tap_target"}},
     "energy_rings": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"period": "period", "tap": "tap_target"}},
+    # RECENT (2026-11-03, docs/phase19/HOUSE-TIMELINE.md "The views"): the House Timeline's last rows. Mantel's own: a
+    # host with no Timeline (Home Assistant) never offers it and draws a stand-in for a layout that has one. show:
+    # Automatic (the morning summary from 5 to 11 AM, the rows after), Latest Events, or Morning Summary
+    "timeline": {"sizes": ("W", "L", "XL"), "sources": (), "opts": {"show": "timeline_show", "tap": "tap_target"}},
 }
 SOURCES = ("list", "rooms", "cameras", "thermostats", "speakers", "scenes", "accessories")
 # the sources that can open on the tablet's own room (or its speaker)
@@ -329,6 +333,15 @@ def _music_show(v: Any) -> str:
     return v
 
 
+TIMELINE_SHOWS = ("auto", "latest", "digest")
+
+
+def _timeline_show(v: Any) -> str:
+    if v not in TIMELINE_SHOWS:
+        raise GridInvalid("grid_option")
+    return v
+
+
 def _music_playlist(v: Any) -> str:
     # a playlist is named as Music's settings name it; whether the house still has it is the card's to say
     if not isinstance(v, str) or not 0 < len(v.strip()) <= 60 or v != v.strip():
@@ -382,6 +395,7 @@ OPTION_KINDS = {
     "music_tap": _music_tap,
     "tv_channel": _tv_channel,
     "music_show": _music_show,
+    "timeline_show": _timeline_show,
     "music_playlist": _music_playlist,
     # where a music block's tap plays (2026-10-31, the owner): a speaker or a speaker group, else this screen's music
     "music_speaker": _music_speaker,

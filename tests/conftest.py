@@ -70,11 +70,14 @@ async def mantel(tmp_path, monkeypatch):
     now = [1_000_000.0]
     app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False, clock=lambda: now[0])
     app["accounts"].hasher = PasswordHasher(time_cost=1, memory_cost=8, parallelism=1)
+    from mantel_server.route_table import witness
+    streamed = witness(app)               # a route that streams must say so (route_table.py R5)
     async with TestClient(TestServer(app)) as client:
         origin = str(client.make_url("")).rstrip("/")
         client.session.headers["Origin"] = origin
         yield Mantel(app, client, store, now, origin)
     store.db.close()
+    assert not streamed, "routes that stream and say stream='none':\n" + "\n".join(sorted(set(streamed)))
 
 
 @pytest.fixture

@@ -238,7 +238,8 @@ def register(app: web.Application, store: SnapStore) -> None:
     from .connectors import Ctx, Route, read_routes
     from .readproxy import ReadBlocked
 
-    @guard("signed_in")          # any session; the roles decide the snapshot's camera (_may_still)
+    @guard("signed_in", reads="view",
+           preview=True)          # any session; the roles decide the snapshot's camera (_may_still)
     async def serve(request: web.Request) -> web.Response:
         sid = request.match_info["snap_id"]
         snap = store.meta(sid)

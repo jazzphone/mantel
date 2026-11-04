@@ -26,6 +26,7 @@ import urllib.request
 from aiohttp import web
 
 from .config import REPO
+from .guards import WHY_PUBLIC, open_route
 
 PUBLIC_PATHS = ("/healthz", "/api/version")
 _STARTED = time.monotonic()
@@ -55,11 +56,13 @@ def status(hub, now: float | None = None) -> dict:
 
 
 def register(app: web.Application, hub) -> None:
+    @open_route("public", why=WHY_PUBLIC)
     async def healthz(request: web.Request) -> web.Response:
         body = status(hub)
         code = 503 if request.query.get("strict") == "1" and body["status"] != "ok" else 200
         return web.json_response(body, status=code, headers={"Cache-Control": "no-store"})
 
+    @open_route("public", why=WHY_PUBLIC)
     async def version(request: web.Request) -> web.Response:
         return web.json_response({"build": build_id()}, headers={"Cache-Control": "no-store"})
 

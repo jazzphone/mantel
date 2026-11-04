@@ -99,12 +99,12 @@ def page_json(request: web.Request) -> dict:
             "can_edit": rule != "owner_only", "needs_fresh": rule == "fresh"}
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_page(request: web.Request) -> web.Response:
     return ok(page_json(request))
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_channels(request: web.Request) -> web.Response:
     a = alerts_of(request)
     return ok({"channels": [a.channels.public(c) for c in a.channels.all()]})
@@ -214,7 +214,7 @@ async def api_telegram_chats(request: web.Request) -> web.Response:
     return ok({"chats": chats})
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_log(request: web.Request) -> web.Response:
     a = alerts_of(request)
     group = request.query.get("group")
@@ -256,7 +256,7 @@ async def api_settings(request: web.Request) -> web.Response:
     return ok(page_json(request))
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_me(request: web.Request) -> web.Response:
     ident = guarded(request)
     a = alerts_of(request)

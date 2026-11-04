@@ -581,7 +581,7 @@ def device_json(d: Device | None) -> dict | None:
     return out
 
 
-@guard("signed_in")
+@guard("signed_in", reads="self", preview=True)
 async def get_session(request: web.Request) -> web.Response:
     ident = guarded(request)
     resp = ok({"user": user_json(ident.user), "device": device_json(ident.device), "door": ident.door,
@@ -626,13 +626,15 @@ def _may_manage(actor: User, target_role: str) -> bool:
     return actor.role == "owner" or (actor.role == "admin" and target_role != "owner")
 
 
-@guard("person", device_ok=True)
+@guard("person", device_ok=True, reads="self")
 async def list_sessions(request: web.Request) -> web.Response:
     ident = guarded(request)
     target = request.query.get("user_id") or ident.user.id
     if target != ident.user.id:
+        # another person's sessions are People's (an Owner's or Admin's), never from a wall tablet, even a manager
+        # signed in at one (the route table's review, 2026-11-03)
         row = request.app["store"].db.execute("SELECT role FROM users WHERE id = ?", (target,)).fetchone()
-        if row is None or not _may_manage(ident.user, row["role"]):
+        if row is None or ident.device is not None or not _may_manage(ident.user, row["role"]):
             return error(403, "forbidden")
     rows = request.app["sessions"].list(target, request.app["clock"]())
     for r in rows:
@@ -651,7 +653,7 @@ async def revoke_session(request: web.Request) -> web.Response:
     row = mgr.get(request.match_info["id"])
     if row is None:
         return error(404, "not_found")
-    if row["user_id"] != ident.user.id and not _may_manage(ident.user, row["user_role"]):
+    if row["user_id"] != ident.user.id and (ident.device is not None or not _may_manage(ident.user, row["user_role"])):
         return error(403, "forbidden")
     audit.config(request, ident, "session.revoke", {"session": row["id"], "user": row["user_id"],
                                                     "own": row["user_id"] == ident.user.id})

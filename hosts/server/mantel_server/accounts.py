@@ -43,7 +43,7 @@ from cryptography.exceptions import InvalidTag
 
 from . import audit, live
 from .atrest import KEY_FILE, SecretBox
-from .guards import guard
+from .guards import WHY_SIGN_IN, guard, open_route
 from .guards import ident as guarded
 from .sessions import (Identity, Issued, SessionManager, client_ip, door_of, error, identity, ok,
                        set_session_cookies, sign_in_args, token_hash)
@@ -730,6 +730,7 @@ def who(row) -> dict:
 
 
 # -- sign-in --------------------------------------------------------------------------------------
+@open_route("sign_in", why=WHY_SIGN_IN)
 async def password_sign_in(request: web.Request) -> web.Response:
     require_origin(request)
     body = await read_json(request)
@@ -762,6 +763,7 @@ def totp_unreadable() -> web.Response:
                  "in another way.")
 
 
+@open_route("sign_in", why=WHY_SIGN_IN)
 async def totp_verify(request: web.Request) -> web.Response:
     """Second step of a password sign-in."""
     require_origin(request)
@@ -795,6 +797,7 @@ async def totp_verify(request: web.Request) -> web.Response:
     return signed_in(request, user, "password+totp")
 
 
+@open_route("sign_in", why=WHY_SIGN_IN)
 async def passkey_options(request: web.Request) -> web.Response:
     require_origin(request)
     body = await read_json(request)
@@ -813,6 +816,7 @@ async def passkey_options(request: web.Request) -> web.Response:
     return ok({"challenge_id": cid, "options": options})
 
 
+@open_route("sign_in", why=WHY_SIGN_IN)
 async def passkey_verify(request: web.Request) -> web.Response:
     """Sign in with a passkey, or (already signed in as the same user) step up the session."""
     acc = accounts_of(request)
@@ -961,7 +965,7 @@ async def passkey_register_verify(request: web.Request) -> web.Response:
     return ok({"id": cred_id}, status=201)
 
 
-@guard("person", device_ok=True)
+@guard("person", device_ok=True, reads="self")
 async def passkey_list(request: web.Request) -> web.Response:
     ident = guarded(request)
     rows = accounts_of(request).db.execute(
@@ -1019,10 +1023,12 @@ async def change_password(request: web.Request) -> web.Response:
 
 
 # -- bootstrap ------------------------------------------------------------------------------------
+@open_route("sign_in", why="tells the sign-in page whether first-Owner setup is still open: one yes or no, no house data")
 async def bootstrap_status(request: web.Request) -> web.Response:
     return ok({"open": not accounts_of(request).owner_exists()})
 
 
+@open_route("one_time_code", why="setting up the first Owner: the one-time setup code, only while no Owner exists (rate limited, origin-checked)")
 async def bootstrap(request: web.Request) -> web.Response:
     require_origin(request)
     body = await read_json(request)
@@ -1043,7 +1049,7 @@ async def bootstrap(request: web.Request) -> web.Response:
 
 
 # -- user management (Owner / Admin until P3.2's grants) ------------------------------------------
-@guard("manager")
+@guard("manager", reads="admin")
 async def users_list(request: web.Request) -> web.Response:
     return ok({"users": accounts_of(request).list_users()})
 

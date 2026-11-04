@@ -494,6 +494,7 @@ class Audit:
         self.db = conn
         self.clock = clock
         self.listeners: list[Callable[[dict], None]] = []    # each config row written (the alerts' config.changed)
+        self.commands: list[Callable[[dict], None]] = []     # each command row written (the House Timeline's who-did-it)
 
     def record(self, *, principal: Principal | None, kind: str, action: str | None, targets: Iterable[str],
                decision: str, reason: str, sensitive: str | None = None, step_up: str | None = None,
@@ -502,6 +503,7 @@ class Audit:
         ident = principal.identity if principal is not None else None
         u = ident.user if ident is not None else None
         d = ident.device if ident is not None else None
+        targets = list(targets)
         with self.db:
             cur = self.db.execute(
                 "INSERT INTO action_audit (timestamp, actor, actor_name, role, device, device_role, kind, action, target, "
@@ -514,7 +516,20 @@ class Audit:
                  principal.source_ip if principal is not None else None,
                  result, self.clock() if result is not None else None,
                  (getattr(ident, "via", None) or None) if ident is not None else None))
-        return int(cur.lastrowid)
+        aid = int(cur.lastrowid)
+        if self.commands:
+            row = {"id": aid, "timestamp": self.clock(), "actor": actor or (u.id if u else None),
+                   "actor_name": actor_name or (u.name if u else None), "role": u.role if u else None,
+                   "device": d.id if d else None, "kind": kind, "action": action, "targets": list(targets),
+                   "decision": decision, "reason": reason, "result": result,
+                   "door": ident.door if ident is not None else None,
+                   "via": (getattr(ident, "via", None) or None) if ident is not None else None}
+            for cb in self.commands:
+                try:
+                    cb(row)
+                except Exception:  # noqa: BLE001 -- the row is written; a listener never undoes it
+                    log.exception("audit command listener failed")
+        return aid
 
     def finish(self, audit_id: int, result: str) -> None:
         with self.db:
@@ -1019,7 +1034,8 @@ def _bad(param: str) -> web.Response:
                              headers={"Cache-Control": "no-store"})
 
 
-@guard("signed_in")        # the roles decide (below): at a wall tablet, the tablet's share; a tablet alone, none
+@guard("signed_in",
+       reads="feature:audit")        # the roles decide (below): at a wall tablet, the tablet's share; a tablet alone, none
 async def audit_list(request: web.Request) -> web.Response:
     """``GET /api/audit?actor=&device=&decision=&kind=&since=&until=&before=&limit=``: newest first;
     ``next`` is the ``before`` of the next page. Reading the audit is ``configure`` on feature ``audit``

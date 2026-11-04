@@ -89,7 +89,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from . import atrest, db as dbmod
-from .guards import guard
+from .guards import guard, open_route
 
 log = logging.getLogger("mantel.backup")
 
@@ -108,6 +108,8 @@ CONNECTIONS_DIR = "connections"     # connections.py: <data_dir>/connections, se
 PHOTOS_DIR = "photos"               # photos.py: <data_dir>/photos (the rows are in the database)
 CONNECT_DIR = "connect"             # connect_pairing.py: <data_dir>/connect, the Connect CA (private keys)
 KEYS_DIR = "keys"                   # app_crypto.KEYS_DIR: the push key and the apps' identity key
+TIMELINE_DIR = "timeline"           # the House Timeline's pictures (timeline/pictures.py); only with Include Timeline
+                                    # Pictures (off: up to 500 MB that is 30 days old and replaceable). Rows are in the db
 DEFAULT_TIME = "03:15"
 # MANTEL SETTINGS -> BACKUPS (2026-10-28): Back Up Now, the list to download, the keys, and Restore, on every
 # install. With no folder set (the Home Assistant App, whose own backups already hold /data; Docker before one is
@@ -353,7 +355,7 @@ class _NullSink:
 
 def create_backup(data_dir: Path, target: Path, key: bytes, *, now: datetime | None = None,
                   include_files: bool = True, keep_daily: int = 7, keep_weekly: int = 4,
-                  rotate_after: bool = True) -> Path:
+                  rotate_after: bool = True, include_timeline: bool = False) -> Path:
     """Write one encrypted backup of ``data_dir`` into ``target`` and thin the old ones. Returns its path.
     ``target`` must already exist (a missing NAS mount must not turn into a folder on the local disk)."""
     data_dir, target = Path(data_dir).expanduser(), Path(target).expanduser()
@@ -384,6 +386,9 @@ def create_backup(data_dir: Path, target: Path, key: bytes, *, now: datetime | N
             photos_root = data_dir / PHOTOS_DIR
             if include_files and photos_root.is_dir():
                 manifest["photos"] = _add_tree(tar, photos_root, PHOTOS_DIR)
+            timeline_root = data_dir / TIMELINE_DIR
+            if include_timeline and timeline_root.is_dir():
+                manifest["timeline"] = _add_tree(tar, timeline_root, TIMELINE_DIR)
             conn_root = data_dir / CONNECTIONS_DIR
             if conn_root.is_dir():
                 manifest["connections"] = _add_tree(tar, conn_root, CONNECTIONS_DIR)
@@ -541,7 +546,7 @@ def _unpack(payload: Path, out: Path) -> tuple[dict, int]:
         try:
             for m in tar:
                 name = _safe_member(m.name)
-                trees = (FILES_DIR, CONNECTIONS_DIR, PHOTOS_DIR, CONNECT_DIR, KEYS_DIR)
+                trees = (FILES_DIR, CONNECTIONS_DIR, PHOTOS_DIR, CONNECT_DIR, KEYS_DIR, TIMELINE_DIR)
                 if name is None or not (name in (DB_NAME, "manifest.json") or name in trees
                                         or any(name.startswith(tree + "/") for tree in trees)):
                     raise BackupError("corrupt", f"the backup contains an unexpected entry {m.name!r}")
@@ -803,6 +808,9 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
             # (it may still be the one the paired Apps know), as connections/ does
             connect_tree = stage / "unpacked" / CONNECT_DIR
             keys_tree = stage / "unpacked" / KEYS_DIR
+            # the timeline's pictures only when the backup holds them; otherwise the live ones stay (a restored row
+            # whose file isn't there says "Picture not kept")
+            timeline_tree = stage / "unpacked" / TIMELINE_DIR
             # a backup made without the files (--backup-no-files) holds no photos or Your Files: the live
             # ones stay, rather than leaving the restored rows pointing at files moved aside
             with_files = manifest.get("files") is True or files_tree.is_dir() or photos_tree.is_dir()
@@ -810,7 +818,8 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
                     ([data_dir / FILES_DIR, data_dir / PHOTOS_DIR] if with_files else []) + \
                     ([data_dir / CONNECTIONS_DIR] if conn_tree.is_dir() else []) + \
                     ([data_dir / CONNECT_DIR] if connect_tree.is_dir() else []) + \
-                    ([data_dir / KEYS_DIR] if keys_tree.is_dir() else []):
+                    ([data_dir / KEYS_DIR] if keys_tree.is_dir() else []) + \
+                    ([data_dir / TIMELINE_DIR] if timeline_tree.is_dir() else []):
                 if p.exists() or p.is_symlink():
                     aside = p.with_name(p.name + suffix)
                     n = 1
@@ -826,6 +835,12 @@ def restore(backup: Path, key: bytes, data_dir: Path, *, replace: bool = False, 
             if photos_tree.is_dir():
                 os.replace(photos_tree, data_dir / PHOTOS_DIR)
                 for base, dirs, names in os.walk(data_dir / PHOTOS_DIR):
+                    os.chmod(base, 0o700)
+                    for n in names:
+                        os.chmod(Path(base) / n, 0o600)
+            if timeline_tree.is_dir():
+                os.replace(timeline_tree, data_dir / TIMELINE_DIR)
+                for base, dirs, names in os.walk(data_dir / TIMELINE_DIR):
                     os.chmod(base, 0o700)
                     for n in names:
                         os.chmod(Path(base) / n, 0o600)
@@ -901,6 +916,8 @@ class Backups:
         self.tz = tz or (lambda: cfg.house_tz)
         self.status: dict = {"last_ok": None, "last_error": None, "last_file": None, "last_attempt": None}
         self.listeners: list = []          # each run's result (the alert center: backup.ok, backup.failed)
+        # Settings → Backups → Include Timeline Pictures: asked on the loop before each run (timeline/__init__.py)
+        self.timeline_pictures = lambda: False
         self._lock: asyncio.Lock | None = None
         self.task: asyncio.Task | None = None
 
@@ -926,7 +943,7 @@ class Backups:
     def list(self) -> list[BackupInfo]:
         return list_backups(self.folder)
 
-    def run_blocking(self) -> Path:
+    def run_blocking(self, include_timeline: bool = False) -> Path:
         key, created = load_key(self.key_file, create=True)
         if created:
             log.warning("created a new backup key at %s: copy it somewhere that is not this machine; "
@@ -936,7 +953,13 @@ class Backups:
             folder.mkdir(mode=0o700, parents=True, exist_ok=True)
         return create_backup(Path(self.cfg.data_dir), folder, key, now=self.now(),
                              include_files=self.cfg.backup_include_files, keep_daily=self.cfg.backup_keep_daily,
-                             keep_weekly=self.cfg.backup_keep_weekly)
+                             keep_weekly=self.cfg.backup_keep_weekly, include_timeline=include_timeline)
+
+    def include_timeline(self) -> bool:
+        try:
+            return self.timeline_pictures() is True
+        except Exception:  # noqa: BLE001
+            return False
 
     async def run_once(self) -> dict:
         if self._lock is None:
@@ -944,7 +967,8 @@ class Backups:
         async with self._lock:
             self.status["last_attempt"] = self.clock()
             try:
-                path = await asyncio.get_running_loop().run_in_executor(None, self.run_blocking)
+                path = await asyncio.get_running_loop().run_in_executor(None, self.run_blocking,
+                                                                        self.include_timeline())
             except (BackupError, OSError, sqlite3.Error) as exc:
                 self.status.update(last_error=str(exc), last_error_code=getattr(exc, "code", "error"))
                 log.error("backup failed: %s", exc)
@@ -990,7 +1014,7 @@ class Backups:
 
 
 # -- REST + wiring ----------------------------------------------------------------------------------
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_status(request: web.Request) -> web.Response:
     from .sessions import ok
     b: Backups = request.app["backups"]
@@ -999,7 +1023,8 @@ async def api_status(request: web.Request) -> web.Response:
                "target": str(b.folder), "time": b.cfg.backup_time,
                "keep_daily": b.cfg.backup_keep_daily, "keep_weekly": b.cfg.backup_keep_weekly,
                "key_present": b.key_file.exists(), "status": b.status, "backups": [x.as_dict() for x in b.list()],
-               "pending": pending_report(Path(b.cfg.data_dir)), "restored": request.app.get("backup_restored")})
+               "pending": pending_report(Path(b.cfg.data_dir)), "restored": request.app.get("backup_restored"),
+               "timeline_pictures": b.include_timeline(), "timeline": request.app.get("timeline") is not None})
 
 
 @guard("owner", no_audit="makes a backup file, changing no setting; the run writes its result row "
@@ -1019,7 +1044,7 @@ def _named(b: "Backups", name: str) -> Path | None:
     return p if p.is_file() and not p.is_symlink() else None
 
 
-@guard("owner")
+@guard("owner", reads="admin", stream="bounded:one backup file")
 async def api_download(request: web.Request) -> web.StreamResponse:
     """A backup file, to keep somewhere else. It is sealed with backup.key, which it never holds."""
     from .sessions import error
@@ -1043,7 +1068,7 @@ async def api_delete(request: web.Request) -> web.Response:
     return ok()
 
 
-@guard("owner", fresh="always", audit="backup.keys")
+@guard("owner", fresh="always", audit="backup.keys", reads="admin")
 async def api_keys(request: web.Request) -> web.Response:
     """Both keys, as one small file to keep apart from the backups (a password manager): backup.key opens a
     backup, at_rest.key the values sealed inside it. Confirm It Is You first; the audit log says who asked."""
@@ -1178,6 +1203,8 @@ async def api_upload(request: web.Request) -> web.Response:
     return ok(check)
 
 
+@open_route("one_time_code", why="First start's Restore From a Backup: the one-time setup code, checked before the upload "
+            "is read, and only while no Owner exists (backup.api_first_start_restore)")
 async def api_first_start_restore(request: web.Request) -> web.Response:
     """First start, Restore From a Backup: while Mantel has no Owner, the setup code (first in the form, checked
     before anything is read past it) and a backup (and its keys file, from another Mantel) restore it in one step:

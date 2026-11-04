@@ -1,3 +1,4 @@
+// @ts-check
 // Home Assistant's host shell (see web/client/hk-host-shell.js): the only
 // frontend file that knows HA's own element names, its shadow-root path to the
 // dashboard and its frontend events. Every lookup is made on each call, by the
@@ -15,6 +16,7 @@
   function doc() { return global.document; }
   function sr(el) { return (el && el.shadowRoot) || null; }
 
+  /** @type {HkHaShellBuilding} */
   var HA = {
     kind: 'ha',
     events: { navigate: 'location-changed', moreInfo: 'hass-more-info', toast: 'hass-notification' },
@@ -154,6 +156,7 @@
   HA.menuButton = function (el, opts) {
     var o = opts || {}, ce = global.customElements;
     if (!el && !(ce && ce.get('ha-menu-button'))) return null;
+    /** @type {HkEl} */
     var b = el || doc().createElement('ha-menu-button');
     if (o.client && global.hkHAClient) global.hkHAClient.bridge(b, o.client);
     if (Object.prototype.hasOwnProperty.call(o, 'narrow')) b.narrow = o.narrow;

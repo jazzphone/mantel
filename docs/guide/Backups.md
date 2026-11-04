@@ -77,6 +77,7 @@ One file per backup, named `mantel-YYYYmmdd-HHMMSS.mbk` (the time in UTC), encry
 | The alert channels | **Mantel Settings** → **Alerts**: each channel with its events and quiet hours, its secret still sealed with `at_rest.key` ([Alerts](Alerts.md)) |
 | [Mantel Connect](Mantel-Connect.md)'s certificates | Its own certificate authority and keys, so a paired Connect App keeps working after a restore |
 | The keys Mantel makes | The push key and the apps' identity key (`keys/`), so browsers keep their notifications and the iPhone and Mac apps their pairing after a restore |
+| The [Timeline](Timeline.md)'s pictures | Only with **Include Timeline Pictures** on (Settings → Backups; off by default). The Timeline's rows are in the database, so they are always in a backup; a restored row whose picture wasn't backed up says "Picture not kept" |
 
 Not inside: the secret files in `/etc/hk/secrets` (keep your own copy of the two keys), `.env`, and Caddy's certificates (Caddy gets new ones).
 

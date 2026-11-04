@@ -79,6 +79,10 @@ def merge(app: web.Application, src: str, into: str) -> dict:
                     moved.append("default_screen")
                 db.execute("DELETE FROM default_screens WHERE subject = ?", (f"u:{src}",))
             else:
+                # Keep My Arrivals Private stays on when either of the two had it on (the House Timeline)
+                db.execute("UPDATE user_data SET value = 'true' WHERE subject = ? AND key = 'timeline_private' AND "
+                           "EXISTS (SELECT 1 FROM user_data WHERE subject = ? AND key = 'timeline_private' AND "
+                           "value = 'true')", (f"u:{into}", f"u:{src}"))
                 n = db.execute("UPDATE OR IGNORE user_data SET subject = ? WHERE subject = ?",
                                (f"u:{into}", f"u:{src}")).rowcount
                 db.execute("DELETE FROM user_data WHERE subject = ?", (f"u:{src}",))
@@ -115,7 +119,7 @@ def merge(app: web.Application, src: str, into: str) -> dict:
     return {"into": into, "moved": sorted(set(moved))}
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_get(request: web.Request) -> web.Response:
     app = request.app
     from .ingress import household, is_ha_admin, linked_user, tablet_link

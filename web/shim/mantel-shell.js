@@ -1,3 +1,4 @@
+// @ts-check
 // Mantel's host shell (the contract is web/client/hk-host-shell.js). Mantel's dashboard page is its
 // own shell: no HA elements, so HK's overlays (menu, tab bar, pop-ups) mount in #hk-shell-root, and
 // the sky and the tab bar find the view in <hk-view-container id="view">, which HK's view host
@@ -131,6 +132,7 @@
   function hostMenu() {
     const frame = global.__mantelHaFrame;
     // (Mantel Link takes it there: nothing in a Webpage dashboard's sandbox may move Home Assistant's window)
+    /** @type {HkHostMenuRow[]} */
     const out = frame && frame.kind === 'dashboard'
       ? [{ title: 'Home Assistant', icon: 'mdi:home-assistant', run: () => frame.back(), section: 'Mantel' }] : [];
     // the iPhone and iPad app's own settings (favorites, Face ID, notifications, Clear Cache, Sign Out): a native
@@ -197,9 +199,20 @@
   let settings = null;
   function setSettings(host) { settings = host || null; }
 
+  // PAGES ONLY MANTEL HAS (hkShell.hostPage): the House Timeline, for the people whose default roles have it (an
+  // Owner can grant it to a Child by address) and a wall tablet's limited view. The server decides what is read
+  // (a refusal is the page's own words); this decides only whether the menu lists it.
+  const TIMELINE_ROLES = ['owner', 'admin', 'adult'];
+  function hostPage(name) {
+    if (name !== 'timeline') return false;
+    return TIMELINE_ROLES.indexOf(role) >= 0 || (deviceSession && PEOPLE.indexOf(role) < 0);
+  }
+
+  /** @type {HkShellHost} */
   const MANTEL = {
     kind: 'mantel',
     hostMenu,
+    hostPage,
     settingsHost: () => settings,
     // Mantel sends no writes at all (commands_disabled): nothing to hold back
     holdWrites: function () { return true; },
@@ -290,6 +303,6 @@
   // home.js hands over the signed-in person's Mantel role (GET /api/me)
   function setRole(r) { role = typeof r === 'string' ? r : ''; }
 
-  global.hkMantelShell = { attach, install, saverOnly, setServices, setRole, setRoom, setAtTablet, setSettings, setHaAddress, hostMenu, haNav,
+  global.hkMantelShell = { attach, install, saverOnly, setServices, setRole, setRoom, setAtTablet, setSettings, setHaAddress, hostMenu, hostPage, haNav,
                            serviceUrl, tabletRoom, atTablet, kind: 'mantel' };
 })(globalThis);

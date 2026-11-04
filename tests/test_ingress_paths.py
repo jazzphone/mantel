@@ -15,16 +15,24 @@ import re
 from pathlib import Path
 
 from mantel_server import ingress
+from web_sources import owner as _owner
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
 PREFIX = "/api/hassio_ingress/Fict1onalToken"
+
+
+def owner(rel):
+    """A part of a split web file counts as its shell for NOT_MANTEL_URLS (rel is from web/)."""
+    return _owner("web/" + rel)[4:]
+
+
 ASSET_LEFT = re.compile(r"""(["'`(])/(hk|web|static/mdi)/""")
 URL_ROOT = re.compile(r"""(["'`(])(?!""" + re.escape(PREFIX) + r""")/(api|hk|web|static|ws|auth|login|logout|dev|"""
                       r"""local|hacsfiles|frontend|hk-settings|dashboard)\b""")
 MANTEL_OWN = {"home.js", "shim/settings-page.js", "shim/mantel-settings.js", "shim/settings/core.js", "shim/settings/kit.js", "shim/settings/me.js",
               "shim/settings/people.js", "shim/settings/devices.js", "shim/settings/roles.js", "shim/settings/files.js", "shim/settings/backups.js",
-              "shim/settings/alerts.js", "shim/settings/service.js", "shim/settings/assistants.js", "shim/settings/connect.js", "shim/settings/connections.js", "shim/settings/tablets.js",
+              "shim/settings/alerts.js", "shim/settings/timeline.js", "shim/settings/service.js", "shim/settings/assistants.js", "shim/settings/connect.js", "shim/settings/connections.js", "shim/settings/tablets.js",
               "shim/settings/ha-screens.js", "shim/settings/link.js", "shim/settings/proxy.js", "shim/settings/audit.js",
               "shim/settings/setup.js", "shim/settings/general.js", "shim/settings/about.js", "shim/settings/performance.js", "shim/settings/secure.js", "shim/settings/cameras.js", "shim/settings/protect.js", "shim/base.js", "shim/hub.js", "shim/mantel-client.js", "shim/mantel-host.js",
               "shim/mantel-shell.js", "shim/ha-elements.js", "shim/mantel-photos.js", "shim/boot-retry.js", "shim/page-health.js",
@@ -42,6 +50,7 @@ NOT_MANTEL_URLS = [
     ("shim/settings/kit.js", "if (BASE) location.reload(); else location.assign('/login')", "only without a prefix (BASE: '')"),
     ("shim/settings/core.js", "location.assign('/login?next='", "only without a prefix (signedOut: under Ingress Home Assistant signs people in)"),
     ("shim/mantel-client.js", "indexOf('/api/') === 0", "HA API paths for the action port (hub.command), never fetched"),
+    ("shim/mantel-host.js", "return m ? '/api/' + m[1]", "the Timeline's read path, which _timeline fetches with window.__mantelBase in front"),
 ]
 WRAPPED = re.compile(r"(mantelUrl|api|post|wsUrl)\(\s*$|\bapi\('[A-Z]+',\s*$")
 
@@ -74,7 +83,7 @@ def test_other_absolute_urls_are_mantels_own_through_base_js_or_listed():
             for m in URL_ROOT.finditer(line):
                 if line.strip().startswith(("//", "*", "/*")):
                     continue                                     # a comment line
-                listed = [i for i, (f, frag, _) in enumerate(NOT_MANTEL_URLS) if f == rel and frag in line]
+                listed = [i for i, (f, frag, _) in enumerate(NOT_MANTEL_URLS) if f == owner(rel) and frag in line]
                 if listed:
                     used.update(listed)
                     continue

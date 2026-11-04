@@ -19,6 +19,15 @@ Handler = Callable[[Any, dict], Awaitable[Any]]
 DRY_RUN = {"type": "boolean", "default": True,
            "description": "true (the default): check the change and answer what it would do, and a `plan`. "
                           "false: apply it; needs that `plan`."}
+# why a write tool parallels no REST route (mcp_parity.py): it is a page's socket frame, given to the very function
+# that frame calls (mcp/dispatch.py), so it is checked as the page's own frame is, for a person who is an Owner or Admin
+NO_ROUTE_SAVE = ("a page's settings_write save over the socket (dispatch.save: SettingsService.save, hk_core's checks "
+                 "and RBAC's configure, as the Settings page's own frame)")
+NO_ROUTE_RESTORE = ("a page's mantel/settings/restore frame over the socket (dispatch.save: the settings history's "
+                    "restore, RBAC's configure on what it restores)")
+NO_ROUTE_BATCH = "a batch of the tools above (dispatch.in_batch): each step is checked as that tool alone"
+NO_ROUTE_COMMAND = ("a page's command frame over the socket, through the gateway (dispatch.command: RBAC, the audit "
+                    "row first, the kill switch); never from a personal key")
 PLAN = {"type": "string", "maxLength": 2000, "description": "the `plan` this call's dry run answered"}
 
 
@@ -37,6 +46,17 @@ class Tool:
     idempotent: bool = False
     output: dict | None = None
     extra: dict = field(default_factory=dict)
+    # parity with the REST route it parallels (mcp_parity.py, route_table.py R9/R10): ``like`` names it ("POST
+    # /api/screens"), or ``no_route`` says why there is none; ``who`` and ``door`` are enforced on every call
+    like: str | tuple[str, ...] | None = None
+    no_route: str | None = None
+    who: str = "manager"
+    door: str = "any"
+
+    def __post_init__(self) -> None:
+        from ...mcp_parity import TOOL_DOORS, TOOL_WHO
+        if self.who not in TOOL_WHO or self.door not in TOOL_DOORS:
+            raise ValueError(f"tool {self.name}: who in {TOOL_WHO}, door in {TOOL_DOORS}")
 
     def input_schema(self) -> dict:
         props = dict(self.properties)
@@ -131,9 +151,9 @@ def check_args(tool: Tool, args: Any) -> dict:
 
 def all_tools() -> list[Tool]:
     """Every tool, in the order tools/list gives them (deterministic, for the clients' caches)."""
-    from . import alerts, audit, commands, deploy, house, music, screens, settings
+    from . import alerts, audit, commands, deploy, house, music, screens, settings, timeline
     out: list[Tool] = []
-    for m in (house, settings, screens, music, deploy, audit, alerts, commands):
+    for m in (house, settings, screens, music, deploy, audit, alerts, timeline, commands):
         out.extend(m.TOOLS)
     names = [t.name for t in out]
     assert len(names) == len(set(names)), "tool names are unique"

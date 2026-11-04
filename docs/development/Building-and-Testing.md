@@ -120,6 +120,21 @@ check deliberately with `git push --no-verify`.
 The installer tests (`tests/test_lxc_installer.py`) need bash 4 or later; macOS has 3.2, so install a newer one
 (`brew install bash`) or they are skipped.
 
+## The route table and the types
+
+```sh
+~/.venvs/mantel/bin/python tools/route_table.py           # the rules each route breaks, under every option combination
+~/.venvs/mantel/bin/python tools/route_table.py --write   # regenerate docs/development/Routes.md and the lock
+~/.venvs/mantel/bin/python tools/route_probe.py --diff origin/main   # every route x 9 principals x 2 doors: what changed
+~/.venvs/mantel/bin/python tools/typecheck/check.py        # tsc on the files that start with // @ts-check (ci.py types-js)
+~/.venvs/mantel/bin/python tools/typecheck/check.py --measure   # every file checked: the errors per file
+```
+
+Mantel refuses to start when a route is undeclared or breaks a rule ([Rules](Rules.md) rule 7), so a new route is
+declared and the lock regenerated in the same commit. In a worktree set `PYTHONPATH` to the worktree for both tools.
+TypeScript is pinned in its own `tools/typecheck/` (installed on first use, `npm ci`); a new web file starts with
+`// @ts-check` (`tests/test_types.py`).
+
 ## The main suite
 
 ```bash

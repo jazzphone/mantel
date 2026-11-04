@@ -1087,7 +1087,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None, tv_hooks: LiveTv
 
     ws_handlers(app)["tv_watching"] = tv_watching
 
-    @guard("manager")
+    @guard("manager", reads="admin")
     async def api_status(request: web.Request) -> web.Response:
         return web.json_response(tv.status())
 

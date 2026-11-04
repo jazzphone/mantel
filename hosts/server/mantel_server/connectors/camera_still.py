@@ -245,7 +245,8 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
     app["camera_stills"] = {"served": 0, "refused": 0}
     app["camera_still_share"] = shared = SharedStills()
 
-    @guard("signed_in")          # any session; the roles decide each camera (authz.may_still)
+    @guard("signed_in", reads="view",
+           preview=True)          # any session; the roles decide each camera (authz.may_still)
     async def still(request: web.Request) -> web.StreamResponse:
         stats = request.app["camera_stills"]
         entity_id = request.match_info["entity_id"]

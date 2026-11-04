@@ -1,0 +1,165 @@
+{
+  "shell": "web/hk/cards/hk-grid-cards.js",
+  "folder": "web/hk/grid-cards",
+  "global": "hkGridCardsParts",
+  "label": "hk-grid-cards",
+  "what": "THE HOME GRID'S CARDS",
+  "run_in": "whenBase",
+  "shell_edits": [
+    {
+      "find": "if (window.hkGridCards.Room) return;",
+      "replace": "if (window.hkGridCards && window.hkGridCards.Room) return;"
+    }
+  ],
+  "parts": [
+    {
+      "name": "hk-grid-math",
+      "title": "the helpers and the room math",
+      "members": [
+        "TABLET_ROOM",
+        "OFF",
+        "dom",
+        "attr",
+        "setting",
+        "plural",
+        "roomOf",
+        "areaOf",
+        "isGroup",
+        "partsMemo",
+        "roomParts",
+        "roomLine",
+        "pill",
+        "speakerOf",
+        "PILL_H",
+        "COLS",
+        "HEAD",
+        "fit",
+        "layout",
+        "percent",
+        "dims",
+        "HOLD_MS",
+        "dragged",
+        "dimCall",
+        "DEFAULT_WINDOWS",
+        "minutes",
+        "holds",
+        "houseMinutes",
+        "friendly",
+        "sceneFor",
+        "artOf",
+        "suggestion",
+        "clockText",
+        "SAYS",
+        "sceneSays",
+        "kind",
+        "own",
+        "DOORS",
+        "NAMES",
+        "plan",
+        "menuCounts",
+        "CAM_MAX",
+        "camGrid",
+        "camRing"
+      ]
+    },
+    {
+      "name": "hk-grid-room",
+      "title": "the room card, the entity card and the accessories card",
+      "members": [
+        "ROOM_CSS",
+        "HkGridRoomCard",
+        "HkGridEntityCard",
+        "HkGridAccessoriesCard"
+      ]
+    },
+    {
+      "name": "hk-grid-security",
+      "title": "the small key, the security card and its keypad, the vacuum",
+      "members": [
+        "APP_CORNER",
+        "KEY_CSS",
+        "HkGridKey",
+        "SEC_ROW",
+        "SEC_CSS",
+        "SEC_WORDS",
+        "alarmLook",
+        "secRows",
+        "secSays",
+        "HkGridSecurityCard",
+        "FULL_CSS",
+        "HkGridFull",
+        "HkGridKeypadCard",
+        "HkGridVacuumFull"
+      ]
+    },
+    {
+      "name": "hk-grid-panel",
+      "title": "the pages' own panels as blocks",
+      "members": [
+        "PANEL_EMPTY",
+        "hidesOf",
+        "firstOfDomain",
+        "panelParts",
+        "PANEL_CSS",
+        "ACC",
+        "WG_CSS",
+        "gly",
+        "SQ_BLOCK",
+        "inner",
+        "fitRows",
+        "wbars",
+        "shortH",
+        "wattsOf",
+        "numTag",
+        "amount",
+        "WATER_SRC",
+        "waterIds",
+        "waterDay",
+        "opened",
+        "WAY_GLYPH",
+        "HkGridPanelCard"
+      ]
+    },
+    {
+      "name": "hk-grid-faces",
+      "title": "the clock block and the Cameras face",
+      "members": [
+        "clockModule",
+        "CLOCK_CSS",
+        "HkGridClockCard",
+        "RING_MS",
+        "camLive",
+        "CAMS_CSS",
+        "HkGridCamerasCard"
+      ]
+    },
+    {
+      "name": "hk-grid-widgets",
+      "title": "the action, everything, suggested scene and On Now blocks",
+      "members": [
+        "YELLOW",
+        "actionHex",
+        "HkActionCard",
+        "ACTION_OPTIONS",
+        "menuItems",
+        "onNow",
+        "onNowText",
+        "EV_GRID",
+        "EV_CSS",
+        "HkEverythingCard",
+        "ART",
+        "SCENE_CSS",
+        "HkSuggestedSceneCard",
+        "ON_KINDS",
+        "cap",
+        "whatsOn",
+        "ON_CSS",
+        "HkOnNowCard"
+      ]
+    }
+  ],
+  "source": {
+    "blob": "b0b89ea4dedb841fcafe1716f79d2ccb5f2f950c",
+    "lines": 2649
+  }
+}

@@ -372,6 +372,8 @@ def register(app: web.Application, hub: Any, *, identity: Callable[[web.Request]
     def g(audit_action: str | None = None):
         if guard is None:
             return lambda handler: handler
+        if audit_action is None:                      # a read: the roles and grants, an Owner's settings
+            return guard("owner", reads="admin")
         return guard("owner", audit=audit_action)
 
     app.router.add_get(f"{prefix}/grants", g()(list_grants))

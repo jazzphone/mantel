@@ -2,7 +2,7 @@
 // the backups to download, the two keys as one file, and Restore -- an upload checked first, put in place when
 // Mantel starts again. Owners and Admins see it; only the Owner acts.
 import { mantelUrl } from '../base.js';
-import { act, api, ApiError, ask, forget, hh, kb, load, me, redraw, ROUTE, ui } from './core.js';
+import { act, api, ApiError, ask, forget, hh, K, kb, load, me, redraw, ROUTE, ui } from './core.js';
 import { button, failed, group, info, pending, result } from './kit.js';
 
 const when = (iso) => (iso ? new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Never');
@@ -76,6 +76,14 @@ export function pBackups() {
         cell.appendChild(acts);
         return cell;
       })));
+    }
+    // ---- the Timeline's pictures (docs/phase19/HOUSE-TIMELINE.md "Backup and restore"): off by default
+    if (b.timeline) {
+      c.appendChild(group({ footer: 'The Timeline’s rows are always in a backup. Its pictures (up to the budget set in Timeline, 30 days old and replaceable) are added only with this on.' },
+        [K().toggle({ label: 'Include Timeline Pictures', on: !!b.timeline_pictures, fk: 'mx:backup-timeline',
+          disabled: !owner,
+          onChange: (on) => act('backups', () => api('PUT', '/api/timeline/settings', { backup_pictures: on }),
+            on ? 'Timeline pictures will be in the next backup.' : 'Timeline pictures are left out of backups.', 'backups') })]));
     }
     if (!owner) {
       c.appendChild(group({ footer: 'Only the Owner makes, downloads and restores backups.' }, []));

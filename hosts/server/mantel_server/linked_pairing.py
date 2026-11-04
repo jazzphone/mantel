@@ -58,7 +58,7 @@ from mantel_connect import protocol as CP
 
 from . import audit
 from .connect_pairing import ALL_FAILS, ALL_WINDOW, IP_FAILS, IP_WINDOW, MAX_WRONG, Window
-from .guards import guard
+from .guards import guard, open_route
 from .guards import ident as guarded
 
 log = logging.getLogger("mantel.linked_pairing")
@@ -344,6 +344,7 @@ class LinkPairing:
 
 
 # -- the routes -------------------------------------------------------------------------------------------
+@open_route("one_time_code", why="linked pairing: the one-time code an Owner started (linked_pairing.py)")
 async def pair_route(request: web.Request) -> web.Response:
     from .sessions import client_ip, door_of
     pairing: LinkPairing = request.app["linked_pairing"]
@@ -397,7 +398,7 @@ def link_address(app: web.Application) -> str | None:
     return normalize_address(f"https://{cfg.connect_address}")
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_get(request: web.Request) -> web.Response:
     p: LinkPairing = request.app["linked_pairing"]
     return web.json_response({"pending": p.pending(), "ttl": TTL, "paired": p.paired[-5:],

@@ -386,7 +386,7 @@ def pusher_of(request: web.Request) -> Pusher:
 
 # a person's own notification targets (Me → Notifications), a person at a wall tablet too; each change audited
 # first, naming the push service by its host only (the endpoint is a credential of sorts, never logged)
-@guard("person", device_ok=True)
+@guard("person", device_ok=True, reads="none", why="the server's public Web Push key")
 async def web_key(request: web.Request) -> web.Response:
     return ok({"key": pusher_of(request).vapid_public()})
 
@@ -432,7 +432,7 @@ async def web_unsubscribe(request: web.Request) -> web.Response:
     return ok()
 
 
-@guard("person", device_ok=True)
+@guard("person", device_ok=True, reads="self")
 async def list_targets(request: web.Request) -> web.Response:
     ident = guarded(request)
     return ok({"targets": [public_json(t) for t in pusher_of(request).targets.of_user(ident.user.id)]})

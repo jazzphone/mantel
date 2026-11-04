@@ -169,7 +169,7 @@ async def approve(request: web.Request, ident: Any, raw: object, why: str) -> tu
     return origin, None
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_list(request: web.Request) -> web.Response:
     fo = of(request.app)
     return web.json_response({"origins": fo.described() if fo else [], "off": "'none'" in ancestors(request.app)},

@@ -235,7 +235,9 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
         raw = request.query.get("s")
         return None if raw is None else art_resize.snap(raw)
 
-    @guard("signed_in")          # any session; the roles decide each player (authz.may_see)
+    # any session; the roles decide each player (authz.may_see)
+    @guard("signed_in", reads="view", preview=True,
+           stream="bounded:one picture, 20 MB at most (camera_still.MAX_BYTES)")
     async def art(request: web.Request) -> web.StreamResponse:
         stats = request.app["media_art"]
         entity_id = request.match_info["entity_id"]
@@ -307,7 +309,8 @@ def register(app: web.Application, hub: Any, authz: Any, token: Callable[[], str
         stats["scaled"] += 1
         return _scaled(*got)
 
-    @guard("signed_in")          # any session; feature:media decides, as for the screensaver's photos
+    @guard("signed_in", reads="feature:media",
+           preview=True)          # any session; feature:media decides, as for the screensaver's photos
     async def remote(request: web.Request) -> web.StreamResponse:
         stats = request.app["media_art"]
         if set(request.query) - {"e", "s", "v", "_hk"}:

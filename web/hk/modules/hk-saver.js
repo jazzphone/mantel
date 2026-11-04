@@ -3626,8 +3626,12 @@
       if (!im.__shows) { im.__shows = true; im.addEventListener('load', function () { if (tw.__show) tw.__show(); }); }
       tw.__show = show;
       if (tw.__key === key && tw.__share !== undefined) { show(); return; }
-      tw.__key = key; tw.__share = undefined;
-      im.style.transition = 'none'; im.style.opacity = '0'; void im.offsetWidth; im.style.transition = '';
+      // (a new photo starts unseen; the same photo weighed again -- the time's box changed with its figures at the turn
+      // of a minute -- stays as it is until it is known: the owner, 2026-11-03, "when the time changes... it pops out in
+      // front of the face and then the faces fades back over it")
+      var samePhoto = tw.__mask === d.mask && tw.__share !== undefined;
+      tw.__key = key; tw.__mask = d.mask;
+      if (!samePhoto) { tw.__share = undefined; im.style.transition = 'none'; im.style.opacity = '0'; void im.offsetWidth; im.style.transition = ''; }
       tbShare(d.mask, drawnRect(ph.w, ph.h, R.room.w, R.room.h, fit, pos[0], pos[1] == null ? 0.5 : pos[1]), g, key, function (share) {
         if (tw.__key !== key) return;
         tw.__share = share;
