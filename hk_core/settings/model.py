@@ -2328,15 +2328,11 @@ BOARD_NARROW = ("chip", "chip_scroll", "tab", "none", "tabbar")
 # the chip, the chip then the tab, the tab, or no button (the swipe alone).
 BOARD_PHONE_MENUS = ("off", "button", "tabbar")
 BOARD_BUTTON_PHONE = ("chip", "chip_scroll", "tab", "none")
-# what a phone shows at the top of Home: the clock and weather header, or the
-# one-line weather strip (a generated screen; a YAML one draws its own)
+# what a phone shows at the top of Home: the clock and weather header, or the one-line weather strip (generated screens)
 BOARD_PHONE = ("header", "strip")
-# A screen's Intercom Button on its generated Home page (hk-chip.js icEntry): nothing, a status chip among the
-# header's, or a pill at the end of the scenes row. Drawn only where the page has the Intercom and this person may use it.
-INTERCOM_BUTTONS = ("off", "chip", "scene")
-# the menu's edge tab: its size on a tablet or wider (tab_size), and on a phone
-# (tab_size_phone, under 640 px), each the screen's own -- hk-menu.js. A phone
-# starts with the standard one, which already lies over the first column.
+INTERCOM_BUTTONS = ("off", "chip", "scene")  # a screen's Intercom Button on Home (hk-chip.js): none, a chip, a pill
+# the menu's edge tab: its size on a tablet or wider (tab_size), and on a phone (tab_size_phone, under 640 px), each
+# the screen's own -- hk-menu.js. A phone starts with the standard one, which already lies over the first column.
 BOARD_TAB_SIZES = ("standard", "large", "xl")
 # THE TAB BAR (hk-tabbar.js, docs/Tab-Bar.md): iOS's floating tab bar, the
 # menu's other form. A screen's `menu` "tabbar" is the bar at every width
@@ -2489,8 +2485,7 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # camera_live_video: whether that first tile plays live at all (None:
     # Same as All Screens, settings cameras.live)
     "camera_strip": True, "cameras": [], "camera_live": "", "camera_live_video": None,
-    "scenes_row": True, "scenes": [], "scenes_pages": [],
-    "intercom_button": "off",
+    "scenes_row": True, "scenes": [], "scenes_pages": [], "intercom_button": "off",
     "favorites": [],
     # Pages (generated dashboards): empty = every page the house has.
     "pages": [],
