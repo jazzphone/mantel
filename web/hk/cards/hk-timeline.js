@@ -499,7 +499,36 @@
       if (super.connectedCallback) super.connectedCallback();
       if (this._started && Date.now() - this._loadedAt > FRESH_MS) this._reload(true);
       if (this._started) { this._subscribe(); this._loadSummary(); }
+      else this._maybeStart();
       this._watchScroll();
+    }
+    // A PAGE BUILT AHEAD is not a page shown (Swipe Between Pages and the menu build pages before anyone opens them):
+    // nothing is read and nothing followed until the page is on the screen. (Reading every generated screen's
+    // Timeline at once, on each page load, kept the server and the socket busy: the screensaver checks timed out.)
+    _shown() {
+      if (!this.isConnected) return false;
+      try {
+        if (document.hidden) return false;
+        // laid out is not enough: a page built ahead sits beside the one shown (Swipe Between Pages)
+        var r = this.getBoundingClientRect(), w = window.innerWidth || 0, h = window.innerHeight || 0;
+        return r.width > 0 && r.height > 0 && r.right > 0 && r.bottom > 0 && r.left < w && r.top < h;
+      } catch (e) { return true; }
+    }
+    _maybeStart() {
+      if (this._started || !this.client || !this._config) return;
+      if (this._shown()) {
+        this._started = true;
+        if (this._seen) { this._seen.disconnect(); this._seen = null; }
+        this._reload(false); this._loadSummary(); this._subscribe();
+        return;
+      }
+      if (!this._seen && typeof IntersectionObserver === 'function') {
+        var self = this;
+        this._seen = new IntersectionObserver(function (es) {
+          if (es.some(function (e) { return e.isIntersecting; })) self._maybeStart();
+        });
+        this._seen.observe(this);
+      }
     }
     disconnectedCallback() {
       if (super.disconnectedCallback) super.disconnectedCallback();
@@ -507,11 +536,12 @@
       this._unsubscribe();
       clearTimeout(this._searchT);
       if (this._io) { this._io.disconnect(); this._io = null; }
+      if (this._seen) { this._seen.disconnect(); this._seen = null; }
       this._closeSheet();
     }
     _receiveClient() {
       super._receiveClient();
-      if (!this._started && this.client && this._config) { this._started = true; this._reload(false); this._loadSummary(); this._subscribe(); }
+      this._maybeStart();
     }
 
     // ------------------------------------------------------------ data
