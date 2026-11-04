@@ -1624,3 +1624,43 @@ def test_run_view_asks_again_when_github_does_not_know_the_new_run_yet(monkeypat
     with pytest.raises(rh.Refused, match="down"):
         rh.run_view("123", tries=3)
     assert len(calls) == 3
+
+
+# ---- a component's Home Assistant restart: Mantel has to come through it (HK Frontend 1.43.0's restart left Mantel
+#      0.1.123 stuck at 100 % CPU a second after it reconnected)
+
+def _health(connected_for_s):
+    return {**HEALTH, "upstream": {"home_assistant": {"connected": True, "connected_for_s": connected_for_s}}}
+
+
+def test_mantel_has_to_reconnect_after_the_restart_and_stay_healthy(clock):
+    fake = FakeLxc(health=_health(12.0))
+    assert lxc_with(fake, every=10).follows_ha_restart(40) >= 60, "it waits the minute"
+    asks = [c for c in fake.commands if "docker exec mantel-server" in c]
+    assert len(asks) == 2, "reconnected since the restart, then healthy again a minute later"
+
+
+def test_a_connection_from_before_the_restart_is_not_a_reconnect(clock):
+    fake = FakeLxc(health=_health(5000.0))
+    with pytest.raises(rh.Refused, match="did not reconnect to Home Assistant within 300 s"):
+        lxc_with(fake, every=10).follows_ha_restart(40)
+
+
+def test_mantel_that_stops_answering_after_it_reconnected_is_refused(clock):
+    class Hangs(FakeLxc):
+        asked = 0
+
+        def __call__(self, command, timeout):
+            if "docker exec mantel-server" in command:
+                Hangs.asked += 1
+                if Hangs.asked > 1:
+                    return 124, "no answer in 30 s"
+            return super().__call__(command, timeout)
+
+    with pytest.raises(rh.Refused, match="reconnected to Home Assistant, then stopped being healthy.*restart it"):
+        lxc_with(Hangs(health=_health(3.0)), every=10).follows_ha_restart(40)
+
+
+def test_without_an_lxc_in_the_settings_nothing_is_checked(monkeypatch):
+    monkeypatch.setattr(rh, "house_settings", lambda: {"ha_url": "https://ha.example.test"})
+    assert rh.mantel_lxc() is None

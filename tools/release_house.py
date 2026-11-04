@@ -656,6 +656,30 @@ class Lxc:
             bad.append("Home Assistant is not connected")
         return bad, health
 
+    def follows_ha_restart(self, since_restart: float, timeout: float = 300, hold: float = 60) -> float:
+        """After a component's Home Assistant restart: Mantel connected to Home Assistant again since the restart
+        (its `connected_for_s` is shorter than the time since), and still answering strict health `hold` seconds
+        later. (HK Frontend 1.43.0, 2026-11-04: Mantel 0.1.123 reconnected, then stopped answering at 100 % CPU until
+        it was restarted; the release had already called the house healthy.) Returns the seconds it took."""
+        start = time.monotonic()
+        head = self.head()
+        while True:
+            bad, health = self.health_problems(head)
+            ha = health.get("upstream", {}).get("home_assistant", {})
+            age = since_restart + time.monotonic() - start
+            if not bad and isinstance(ha.get("connected_for_s"), (int, float)) and ha["connected_for_s"] < age:
+                break
+            if time.monotonic() - start >= timeout:
+                raise Refused(f"Mantel on the LXC did not reconnect to Home Assistant within {timeout:.0f} s of its "
+                              "restart: " + ("; ".join(bad) or "still connected from before it"))
+            sleep(self.every)
+        sleep(hold)
+        bad, _ = self.health_problems(head)
+        if bad:
+            raise Refused(f"Mantel on the LXC reconnected to Home Assistant, then stopped being healthy within "
+                          f"{hold:.0f} s: " + "; ".join(bad) + " (restart it: docker compose restart mantel-server)")
+        return time.monotonic() - start
+
     def healthy(self, commit: str, timeout: float = 180) -> dict:
         """Every service healthy, mantel-server built from `commit`, and strict health 200 with Home Assistant
         connected, within `timeout` seconds. Returns the health."""
@@ -1114,6 +1138,14 @@ def _load_path(name: str, path: Path):
     return module
 
 
+def mantel_lxc() -> "Lxc | None":
+    """The LXC Mantel runs on, when house.json names one (else nothing to check after a Home Assistant restart)."""
+    try:
+        return Lxc.from_settings()
+    except Refused:
+        return None
+
+
 def release_component(product: str, version: str, dry: bool, github_release: bool = False,
                       from_origin: bool = False) -> list[str]:
     today = datetime.date.today()
@@ -1170,11 +1202,16 @@ def release_component(product: str, version: str, dry: bool, github_release: boo
         restart = time.monotonic()
         asyncio.run(go())
         restart = time.monotonic() - restart
+        mantel = mantel_lxc()                    # Mantel follows Home Assistant: it has to come through the restart
+        followed = mantel.follows_ha_restart(restart) if mantel else None
         tag = tag_product(product, version, commit)               # on the house and served: the product's own tag
         lines = [f"{product} {version}, commit `{commit[:7]}`, tagged `{tag}`, copied with rsync --inplace; diff -rq "
                  "shows no difference.",
                  f"Home Assistant restarted and serves `{spec['served'].format(version=version)}` "
                  f"({restart:.0f} s from the restart)."]
+        if followed is not None:
+            lines.append(f"Mantel on the LXC reconnected to Home Assistant and was still healthy a minute later "
+                         f"({followed:.0f} s).")
         if publishes:
             name = NAMES[product]
             clone = Path(tmp) / "public"
