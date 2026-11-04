@@ -180,7 +180,7 @@ def _refuse(code: str) -> web.HTTPForbidden:
                              headers={"Cache-Control": "no-store"})
 
 
-def check(request: web.Request, spec: Guard):
+def check(request: web.Request, spec: Guard) -> Any:
     """Run ``spec``'s checks for ``request``; the identity, or a 401/403 raised."""
     from . import sessions
     from .accounts import MANAGERS, require_fresh, require_fresh_to_add_factor, require_user
@@ -244,14 +244,14 @@ def guard(who: str, *, door: str = "any", fresh: str = "never", device_ok: bool 
             request[_KEY] = check(request, spec)
             return await handler(request)
 
-        guarded.__guard__ = spec
-        guarded.__guard_of__ = guarded        # functools.wraps copies __guard__ onto another function; never this
+        guarded.__guard__ = spec  # type: ignore[attr-defined]
+        guarded.__guard_of__ = guarded  # type: ignore[attr-defined]  # wraps copies __guard__; never this
         return guarded
 
     return wrap
 
 
-def ident(request: web.Request):
+def ident(request: web.Request) -> Any:
     """The identity the route's guard checked. A handler reached without its guard fails closed."""
     got = request.get(_KEY)
     if got is None:

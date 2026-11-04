@@ -94,6 +94,8 @@ PAGE_INPUTS = ("web/", "hk_core/", "hosts/server/mantel_server/", "tests/fixture
                "hosts/ha/custom_components/hk_frontend/docs/", "packaging/ha-app/DOCS.md", *VERSION_FILES)
 HK_INPUTS = ("hosts/ha/", "web/", "hk_core/", "tools/build_ha.py", "tools/build_tools.py", "tools/package.json",
              "tools/package-lock.json", *VERSION_FILES)
+# what types-py reads: the Python it checks and its own config and baselines
+PY_INPUTS = ("hk_core/", "hosts/server/", "tools/", "tests/", "pyproject.toml")
 # where a check's script finds the modules it imports (each puts these on sys.path)
 SCAN_DIRS = ("tools/headless", "tools", "tests")
 PLAYWRIGHT = ("py", "playwright", "mac")       # what a Playwright check runs with (env_print), Chromium's also "chrome"
@@ -248,6 +250,10 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
         # (`versions` only: the main suite's files that read a version file or a changelog; quick and full run them all)
         Step("version-tests", lambda: [py, "-m", "pytest", "-q", "-p", "no:cacheprovider", *xdist_args(py), *version_readers()],
              tier="versions", versions=True, env=private_env()),
+        # mypy on hk_core (the route table's modules strict) and ruff's pyflakes rules: per-file counts that only fall
+        Step("types-py", [py, "tools/typecheck/py_check.py"], tier="full", timeout=600, inputs=PY_INPUTS,
+             skip=lambda: None if subprocess.run([py, "-c", "import mypy, ruff"], capture_output=True).returncode == 0
+             else "no mypy or ruff in the venv (pip install -e '.[dev]')"),
         Step("ha-build", lambda: [py, "tools/build_ha.py", str(build.ha)], tier="full", timeout=600, first=True),
         Step("hk-frontend-py", [str(HA_PY), "-m", "pytest", "-q", "-p", "no:cacheprovider"], tier="full",
              skip=lambda: build.missing() or (None if HA_PY.exists() else f"no harness venv at {HA_PY.parent.parent}"),
