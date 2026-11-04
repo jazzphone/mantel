@@ -304,7 +304,8 @@ class Env:
             "lock.front_door": {"s": "locked", "a": {}, "lc": START - 7200},
             "lock.back_door": {"s": "locked", "a": {}, "lc": START - 7200},
             "cover.garage": {"s": "closed", "a": {}, "lc": START - 7200}}})
-        app["authz"].tz = "America/Los_Angeles"
+        app["authz"].set_tz("America/Los_Angeles", "home_assistant")    # as Home Assistant's config tells it
+        self.tl.settings.set("since", START - 86400)                     # watching since the night before
 
     def add_row(self, family, kind, title, entity, at, *, person=None, detail=None, level="info", **kw):
         self.tl.rows.write([("row", Row(src=f"t:{entity}:{kind}:{at}", at=at, family=family, kind=kind, title=title,
@@ -446,6 +447,27 @@ async def test_a_restart_sends_it_after_the_time_if_it_wasnt_sent_but_not_after_
     assert await d.tick() is True
     env.now[0] = ep(5, 12, 1)                                         # a restart at 12:01 PM: too late
     assert await d.tick() is False and TD.stored(env.app, "2026-11-05") is None
+
+
+async def test_no_digest_before_the_houses_own_time_zone_is_known(env):
+    """At a start, until Home Assistant says the house's zone, the zone is UTC: 10:50 UTC is 7:00 at no house that
+    hasn't said so (the first release on the house sent its digest at 5:50 AM)."""
+    d = env.app["timeline_digests"]
+    env.app["authz"].tz, env.app["authz"].tz_source = "UTC", "config"
+    env.now[0] = ep(4, 8, 0)
+    assert await d.tick() is False and TD.stored(env.app, "2026-11-04") is None
+    env.app["authz"].set_tz("America/Los_Angeles", "home_assistant")
+    assert await d.tick() is True
+
+
+async def test_no_digest_for_a_night_the_timeline_didnt_watch_from_its_start(env):
+    """The day it's installed the timeline saw nothing of the night before: no "quiet night" it can't vouch for."""
+    d = env.app["timeline_digests"]
+    env.now[0] = ep(4, 7, 30)
+    env.tl.settings.set("since", ep(4, 5, 50))
+    assert await d.tick() is False and TD.stored(env.app, "2026-11-04") is None
+    env.now[0] = ep(5, 7, 30)                                         # the next morning: a whole night watched
+    assert await d.tick() is True
 
 
 async def test_the_digest_time_and_window_are_the_settings(env):
