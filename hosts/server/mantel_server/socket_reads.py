@@ -60,6 +60,7 @@ READS_BY_TYPE: dict[str, Read] = {
     "persistent_notification/subscribe": Read("feature:notifications", True),
     "weather/subscribe_forecast": Read("view", True),
     # the socket's other read message, read_api: only GET calendars/<entity> (readproxy.parse_read_api)
+    "timeline/subscribe": Read("view", False, "the House Timeline's live rows, each cut for the viewer (timeline/api.py)"),
     "read_api": Read("view", True, "read_api: a calendar's events (GET calendars/<entity>), view the calendar"),
     # what a preview never asks: Settings' own documents and history, the editors', the imports'
     "hk_alarm_pin/settings/get": Read("admin", False, SERVER_ONLY),

@@ -1,6 +1,6 @@
 # Phase 19: the House Timeline (plan, 2026-11-03)
 
-**Status: plan; nothing built. Every decision answered by the owner on 2026-11-03 (all recommendations accepted): ready to build.**
+**Status: built 2026-11-03 (19.0 to 19.7 and 19.9; 19.8 deferred, see the Build log). Every decision answered by the owner on 2026-11-03 (all recommendations accepted).**
 
 ## The ask (the owner, 2026-11-03)
 
@@ -559,4 +559,108 @@ To save on usage:
 
 ## Build log
 
-(empty until built)
+Built 2026-11-03 by one session (Opus 5.5, Medium), with Sonnet 5.5 agents (High) for the classifier and words, the
+digest, the page, the block and camera strip, Settings and Me, and the tests; an Opus agent for the privacy and RBAC
+review (the plan's one Opus case).
+
+**What was built, by slice**
+
+- **19.0** Migration `0033_timeline.sql` (the four tables, the indexes, and a `timeline_forget_person` trigger on
+  `users` for decision 18); `hk_core/timeline/classify.py` and `words.py`; `timeline/core.py` (the tap in `Hub.taps`,
+  the queue and its writer, rollups, catching up, who did it, System and Refused rows, retention) and `store.py`;
+  `performance.STATS.timeline_tap/_write`.
+- **19.1** `ProtectConnector.listeners` and `speaks_for`; `timeline/protect.py`; `timeline/pictures.py` (the
+  filmstrip, the budget, `disk.low`); `image_work.shrink`.
+- **19.2** The `timeline` RBAC feature (and the Wall Tablet role's `view` of it); `timeline/api.py` (the filtered
+  find, summary, pictures, settings, overrides, digest test, clear, Me, the live `timeline/subscribe`);
+  `Audit.commands`. The Opus review (below), and its fixes.
+- **19.3** `web/hk/cards/hk-timeline.js` (the page at `/<screen>/timeline`, Home menu and a page pill; Mantel only
+  through a new `hkShell.hostPage`); reads through `client.callApi`, answered by `mantel-host.js`.
+- **19.4** `web/hk/cards/hk-timeline-block.js`: the Home Grid block **Recent** (Wide, Large, Extra Large; Show:
+  Automatic, Latest Events, Morning Summary), mirrored in `home_grid.py`; the camera sheet's **Recent** strip.
+- **19.5** `web/shim/settings/timeline.js` (`#/mantel/timeline`, Owners and Admins, the Owner changes), Me's Timeline
+  group (Keep My Arrivals Private, Morning Summary, Clear My Arrivals), the `admin_page` section.
+- **19.6** `hk_core/timeline/digest.py` (fixed templates), `timeline/digest.py` (the House alert group and
+  `house.digest`; the personal version to the apps; once a day, the restart rule).
+- **19.7** `mcp/tools/timeline.py` (`timeline_find`, `timeline_digest`); Include Timeline Pictures in Backups (a
+  `timeline/` tree in a backup, off by default); About → Performance's Timeline group; `docs/guide/Timeline.md`, lines
+  in Backups.md and Push-Notifications.md, two images.
+- **19.9** `tests/test_timeline_perf.py` (the numbers are in Performance-baseline.md, "After the Timeline").
+
+**The Opus privacy and RBAC review (after 19.2): 13 findings, 12 fixed, 1 accepted.**
+
+1. Arrivals ignored the tunnel's locations switch (a leak): an arrival now needs `history` of the person as well as
+   `view`.
+2. An Owner or Admin signed in at a wall tablet saw System and Refused rows and audit ids: those are now for a manager
+   at their own screen only, and a manager-only row about an entity also needs its `view`.
+3. Keep My Arrivals Private could be flipped over the socket (`user_data_set`) from a tablet, unaudited: the two
+   switches are no longer socket keys; only `PUT /api/timeline/me` (no tablet, audited first) changes them.
+4. The person of an arrival was matched only at a refresh: it is now looked up at each arrival; Me says when no
+   Home Assistant person is theirs (`matched`).
+5. A Wall Tablet *account* (a user with that role) got the full view: it now gets the limited one.
+6. A screen preview or an assistant could load pictures: an assistant's or a preview's view never has pictures.
+7. An Owner's override could re-file a camera's detection as a door, or a tracker as an arrival, escaping the camera
+   rules or the privacy switch: an override can only switch recording off, or file a plain binary sensor as a door or
+   a window. Settings → Timeline offers only those.
+8. Row ids and `next_before` can hint that hidden rows exist between two visible ones. **Accepted**: the ids are a
+   counter of the house's rows, the hint carries no content, and the wall view is already limited to 12 hours of its
+   own families.
+9. Forgetting a person missed rows still in the queue, commands still remembered, and a merge's dropped privacy
+   switch: the hourly pruner sweeps rows of people who no longer exist, and a merge keeps Keep My Arrivals Private on
+   when either person had it.
+10. A person signed in at a tablet saw pictures the tablet's own switch had off: the tablet's switch now applies to
+    whoever is at it (the more private reading of "person ∩ tablet").
+11. Pictures were cached a day: `no-store` at a tablet, an hour elsewhere.
+12. Turning the switch on could miss an arrival still queued: the queue is written first.
+13. Device names could be searched in Refused and System rows: those rows are searched by their words without the
+    device's or the alert's facts.
+
+**The second Opus review (before the push): 1 hole and 3 hardening items, all fixed.** `actor=` returned the rows a
+person did even where the viewer may not read that entity's `history` (now each row also needs its names to be the
+viewer's); an override could file a presence or occupancy sensor as a door (now only a binary sensor with no class);
+forgetting a person now clears the device and its name too; and "By hand or an automation" is shown only to a viewer
+who may see names (its absence would otherwise say that someone used Mantel). Every fix of the first review was
+checked and holds.
+
+A test found one more (the test agent): the web server's access log printed `?q=` search words and picture ids at
+INFO. Timeline URLs are now logged without their query and with the picture id replaced (`QuietAccess`).
+
+**Choices the plan didn't settle (the safest, written here)**
+
+- Forgetting a person is a database trigger on `users`, so every way a person disappears (People, a merge, an
+  unlinked Home Assistant user, a tablet account removed) is covered. A merge therefore anonymizes the merged-away
+  account's rows instead of moving them (more private, and reversible by nothing: accepted).
+- The tap records an entity's first state as nothing (no row): only changes are rows. What each member last was is
+  saved hourly and at a stop (`timeline_settings` key `seen`), so catching up works for entities that had no row yet.
+- A camera's row is keyed to the camera entity (its RBAC is `may_still`), with the sensor in `detail.sensor`.
+- Rows are paged by id, newest written first; a row caught up after downtime therefore appears at the top, marked
+  "while Mantel was off".
+- Package deliveries in the digest count rows (each row is already 30 minutes of one camera's packages), not
+  `detail.count`.
+- The house digest is built for nobody (no person, no manager, no names): doors, windows, locks, garage, alarm,
+  doorbell, detections and safety only.
+- The page's strings that name the product use `hkShell.productName()` ("While Mantel was off" on Mantel), since HK
+  Frontend's build ships the file (and never lists the page).
+- `hk-headers.js`: the timers' sheet called an `ownName` its part of the file doesn't have (a ReferenceError that
+  stopped `sheet_review.py`); fixed in passing.
+
+**A regression found by the full checks, and its fix.** With the Timeline in every generated screen, the screensaver
+checks (`saver_shows_check.py`) failed under a parallel run (4 to 6 of 12 parts; main passed the same parts at the same
+load). Narrowed by A/B runs of all 12 parts at `CI_JOBS=4`: the Timeline page off the screens, 12 of 12 passed; the page
+with a stand-in card, still failing; the page with its own card but without `sky_variant: 'cameras'` and its background,
+12 of 12. So the page wears the screen's own sky (one sky fewer to keep for a page nobody is on), and its card reads and
+follows nothing until it is on the screen (a page built ahead stays still).
+
+**19.8 (attribution from Home Assistant's context): deferred.** It is optional for the first release, and decision 21
+says to try it on the scratch Home Assistant first; that run didn't fit this session. Until it is tried, a change with
+no Mantel command behind it says "By hand or an automation", as decided. What to try: the compressed state's `c`
+(today dropped by `state.normalize`) is a context id, or `{id, parent_id, user_id}` when it has either; a `user_id`
+with no `parent_id` would be a person in Home Assistant's own app, a `parent_id` an automation.
+
+**Not covered by a test here**
+
+- The migration on a copy of the house's schema (only fictional databases are used here; it runs on the house at the
+  release and the house's health is checked after).
+- Home Assistant's `camera_proxy` picture path with a real camera (the direct path and the shrink are tested).
+- A full three-size run of `tools/headless/timeline_check.py` after the page's last style change passed at two sizes
+  separately; the check retries a slow first load once.

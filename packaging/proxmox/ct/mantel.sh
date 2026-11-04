@@ -102,7 +102,9 @@ function update_script() {
   fi
   cd "${MANTEL_DIR}"
   local ref old target from to missing rc
-  ref="$(git config --get mantel.ref || echo latest)"
+  # MANTEL_UPDATE_REF names a target for this one update and leaves no pin behind (tools/release_house.py puts the
+  # house on a release's commit before its tag exists); else the install's pin; else the newest release tag
+  ref="${MANTEL_UPDATE_REF:-$(git config --get mantel.ref || echo latest)}"
   msg_info "Checking for a new version (${ref})"
   $STD git fetch --tags --force --prune origin
   target="$(mantel_target "$ref")" || {

@@ -59,7 +59,7 @@ def engine(tmp_path):
 
 
 def call(engine: Path, what: str, cwd: Path | None = None, **extra: str) -> subprocess.CompletedProcess:
-    env = {**{k: v for k, v in os.environ.items() if not k.startswith(("var_", "COMMUNITY_SCRIPTS", "MANTEL_DIR"))},
+    env = {**{k: v for k, v in os.environ.items() if not k.startswith(("var_", "COMMUNITY_SCRIPTS", "MANTEL_DIR", "MANTEL_UPDATE_REF"))},
            "COMMUNITY_SCRIPTS_CORE_DIR": str(engine), "TEST_CALL": what, **extra}
     return subprocess.run([BASH, str(CT)], capture_output=True, text=True, env=env, cwd=cwd)
 
@@ -254,6 +254,27 @@ def test_a_tag_whose_images_are_not_published_is_skipped_and_nothing_is_changed(
     r = update(install)
     assert r.returncode == 0 and "Updated Mantel to 0.2.0" in r.stdout, r.stdout + r.stderr
     assert git(mantel, "rev-parse", "HEAD") == git(mantel, "rev-parse", "v0.2.0^{commit}")
+
+
+def test_mantel_update_ref_names_this_updates_target_over_the_pin_and_leaves_none(install):
+    """Phase 15: tools/release_house.py updates the house to a release's commit before its tag exists, with
+    MANTEL_UPDATE_REF=<commit>: it wins over `git config mantel.ref`, and nothing is pinned afterward."""
+    mantel, upstream = install["mantel"], install["upstream"]
+    (upstream / "packaging/ha-app/config.yaml").write_text('name: Mantel\nversion: "0.2.1"\n')
+    git(upstream, "add", "-A")
+    git(upstream, "commit", "-q", "-m", "release 0.2.1, not tagged yet")
+    commit = git(upstream, "rev-parse", "HEAD")
+    git(mantel, "config", "mantel.ref", "v0.1.9")                  # a pin the variable must win over
+    r = update(install, MANTEL_UPDATE_REF=commit)
+    assert r.returncode == 0 and "Updated Mantel to 0.2.1" in r.stdout, r.stdout + r.stderr
+    assert git(mantel, "rev-parse", "HEAD") == commit
+    assert git(mantel, "config", "--get", "mantel.ref") == "v0.1.9"  # untouched: nothing new pinned
+    # without the variable the pin decides (here: v0.1.9 is behind HEAD, so nothing to update), and without
+    # either, `latest`: the newest tag (0.2.0, behind the untagged commit, so nothing either)
+    assert "nothing to update" in update(install).stdout
+    git(mantel, "config", "--unset", "mantel.ref")
+    r = update(install)
+    assert "ahead of the newest release (0.2.0)" in r.stdout, r.stdout
 
 
 def test_a_build_from_source_needs_no_published_image(install):

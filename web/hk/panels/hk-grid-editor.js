@@ -21,7 +21,7 @@
     calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', clock: 'Clock',
     room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything', cameras: 'Cameras',
     power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water',
-    on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings' };
+    on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent' };
   var SIZE_NAMES = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width', F: 'Full View' };
   // a size on a chip or a segment, short enough for four in a row
   var SIZE_SHORT = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'X-Large', XXL: 'Full', F: 'Full View' };
@@ -33,7 +33,7 @@
     ['Rooms & Lights', ['room', 'accessory', 'accessories', 'action', 'on_now']], ['Scenes', ['scene', 'scenes', 'scene_suggested']],
     ['Climate', ['thermostat', 'weather']], ['Music', ['now_playing', 'music', 'live_tv']],
     ['Security & Cameras', ['security', 'doors', 'camera', 'cameras']],
-    ['Info', ['clock', 'timers', 'calendar', 'todo', 'battery', 'power', 'energy_rings', 'water', 'people', 'vacuum', 'everything']]
+    ['Info', ['clock', 'timers', 'calendar', 'todo', 'battery', 'power', 'energy_rings', 'water', 'people', 'vacuum', 'timeline', 'everything']]
   ];
   var DESCRIPTIONS = { room: 'Your room’s lights, fans and speaker', accessory: 'One light, switch or other accessory', accessories: 'Accessories you choose, in swipe pages',
     action: 'One tap for a household job', scene: 'Set a favorite scene', scenes: 'Your scenes together',
@@ -44,13 +44,14 @@
     everything: 'Open the screen’s full menu', power: 'Solar, the house, the battery and the grid right now',
     music: 'Choose speakers, then a playlist', doors: 'Locks, doors, windows and the garage', live_tv: 'Your channels; tap one to watch',
     water: 'Today’s water; Extra Large adds the main supply',
-    on_now: 'What’s on in the house, and a way to turn it off', todo: 'A to-do list; tick items off', energy_rings: 'The Energy page’s rings: today, this week or this month' };
+    on_now: 'What’s on in the house, and a way to turn it off', todo: 'A to-do list; tick items off', energy_rings: 'The Energy page’s rings: today, this week or this month',
+    timeline: 'What just happened at the house; in the morning, how the night went' };
   var GLYPHS = { room: 'mdi:sofa', accessory: 'mdi:lightbulb', accessories: 'mdi:view-grid', action: 'mdi:gesture-tap', scene: 'mdi:palette',
     scenes: 'mdi:palette', scene_suggested: 'mdi:weather-sunset', thermostat: 'mdi:thermostat', weather: 'mdi:weather-partly-cloudy',
     now_playing: 'mdi:music', security: 'mdi:shield-home', camera: 'mdi:camera', cameras: 'mdi:cctv', clock: 'mdi:clock', timers: 'mdi:timer-outline',
     calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', everything: 'mdi:dots-horizontal',
     power: 'mdi:lightning-bolt', music: 'mdi:speaker-multiple', doors: 'mdi:door-closed-lock', live_tv: 'mdi:television-classic', water: 'mdi:water',
-    on_now: 'mdi:lightbulb-on', todo: 'mdi:clipboard-check', energy_rings: 'mdi:lightning-bolt' };
+    on_now: 'mdi:lightbulb-on', todo: 'mdi:clipboard-check', energy_rings: 'mdi:lightning-bolt', timeline: 'mdi:history' };
   // AN OPTION'S NAME in the panel: by its kind (hk-grid-catalog.js opts), else by its own name
   var KIND_LABELS = { entity: 'Accessory', climate: 'Thermostat', camera: 'Camera', weather: 'Weather', vacuum: 'Vacuum',
     speaker: 'Speaker', scene: 'Scene', scenes: 'Scenes', calendars: 'Calendars', area: 'Room', action: 'Does', windows: 'Time Windows', alarm: 'Alarm',
@@ -76,6 +77,11 @@
   // a block's color on the map: its palette group's
   var GROUP_TINT = { 'Rooms & Lights': 'var(--hk-orange)', Scenes: 'var(--hk-tint)', Climate: 'var(--hk-green)', Music: 'var(--hk-red)',
     'Security & Cameras': 'var(--hk-gray)', Info: 'var(--hk-label3)' };
+  // A BLOCK ONLY SOME HOSTS HAVE: Recent is the House Timeline's, a record only some hosts keep (hkShell.hostPage). It is in the
+  // catalog and in GROUPS, as every block is, and offered only where the host has the page: never in Home Assistant's
+  // HK Frontend, and not to a person whose role has no Timeline.
+  var HOST_ONLY = { timeline: 'timeline' };
+  function offered(card) { return !HOST_ONLY[card] || G.hostHas(HOST_ONLY[card]); }
   function groupOf(card) { var g = GROUPS.find(function (x) { return x[1].indexOf(card) >= 0; }); return g ? g[0] : 'Info'; }
   function copy(x) { return JSON.parse(JSON.stringify(x)); }
   // a screen's version as the page last read it (panel/get's versions["board/<path>"]); undefined from a host
@@ -1274,7 +1280,7 @@
         list.replaceChildren();
         var query = (search.value || '').trim().toLowerCase(), count = 0;
         GROUPS.forEach(function (g) {
-          var keys = g[1].filter((k) => self.sizesOf(k).length && (NAMES[k] + ' ' + DESCRIPTIONS[k] + ' ' + g[0]).toLowerCase().includes(query));
+          var keys = g[1].filter((k) => offered(k) && self.sizesOf(k).length && (NAMES[k] + ' ' + DESCRIPTIONS[k] + ' ' + g[0]).toLowerCase().includes(query));
           if (!keys.length) return;
           count += keys.length;
           var cells = [];
@@ -1680,7 +1686,7 @@
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'timeline_show'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
@@ -1716,10 +1722,23 @@
       states['timer.grid_preview'] = { state: 'active', last_updated: stamp, attributes: { friendly_name: 'Tea', duration: '00:05:00', finishes_at: finish } };
       states['sensor.running_quick_timers'] = { state: '1', last_updated: stamp, attributes: { running: [{ entity_id: 'timer.grid_preview', name: 'Tea', finishes_at: finish }] } };
       var subs = Object.assign({}, client.subscriptions, { subscribeMessage: (callback, msg) => {
+        if (msg.type === 'timeline/subscribe') return Promise.resolve(() => {});          // (no live feed in a sample)
         if (msg.type === 'weather/subscribe_forecast') { var timer = setTimeout(() => callback({ forecast: forecast(msg.forecast_type) }), 0); return Promise.resolve(() => clearTimeout(timer)); }
         return client.subscriptions.subscribeMessage(callback, msg);
       } });
-      var read = (method, path) => method.toUpperCase() === 'GET' && path.startsWith('calendars/')
+      // Recent's sample rows, invented: the inert preview reads no real house
+      var ago = (m) => Math.floor((now - m * 60e3) / 1000);
+      var sample = { names: true, limited: false, search: true, families: ['door', 'lock', 'garage', 'doorbell', 'detection'], next_before: null, events: [
+        { id: 5, at: ago(4), family: 'lock', kind: 'locked', level: 'info', title: 'Back Door locked', area_name: 'Kitchen', who: { name: 'Sample', device: 'Kitchen tablet', how: 'tablet' }, pics: [] },
+        { id: 4, at: ago(19), family: 'detection', kind: 'package', level: 'info', title: 'Package at Front Door', area_name: 'Porch', pics: [] },
+        { id: 3, at: ago(26), family: 'doorbell', kind: 'ring', level: 'info', title: 'Someone rang Front Door', area_name: 'Porch', pics: [] },
+        { id: 2, at: ago(61), family: 'garage', kind: 'closed', level: 'info', title: 'Garage closed', area_name: 'Garage', pics: [] },
+        { id: 1, at: ago(64), family: 'garage', kind: 'opened', level: 'info', title: 'Garage opened', area_name: 'Garage', pics: [] }] };
+      var summary = { window: 'overnight', label: 'Overnight', title: 'Overnight at the house (9 PM to 7 AM)', quiet: false, counts: { lock: 2, garage: 2 },
+        lines: ['Front door and back door locked all night.', 'Garage opened 6:12 AM, closed 6:20 AM.', 'Right now: all locks locked, garage closed.'], events: [] };
+      var read = (method, path) => method.toUpperCase() === 'GET' && /^timeline\/summary/.test(path) ? Promise.resolve(summary)
+        : method.toUpperCase() === 'GET' && /^timeline(\?|$)/.test(path) ? Promise.resolve(sample)
+        : method.toUpperCase() === 'GET' && path.startsWith('calendars/')
         ? Promise.resolve([{ summary: 'Family Dinner', start: { dateTime: new Date(now + 3600e3).toISOString() }, end: { dateTime: new Date(now + 7200e3).toISOString() } },
           { summary: 'Weekend Plans', start: { dateTime: new Date(now + 86400e3).toISOString() }, end: { dateTime: new Date(now + 90000e3).toISOString() } }])
         : client.callApi(method, path);
@@ -1914,6 +1933,13 @@
         if (kind === 'music_show') {
           rows.push(K.select({ label: 'Shows', value: opts[key] || 'recent', options: [['recent', 'Recently Played'], ['presets', 'Playlists'], ['playlist', 'One Playlist']],
             onChange: (v) => set(key, v === 'recent' ? null : v) }));
+          return;
+        }
+        // RECENT'S SHOW (2026-11-03): Automatic is the morning summary from 5 to 11 AM and the latest events after
+        if (kind === 'timeline_show') {
+          rows.push(K.select({ label: 'Shows', value: opts[key] || 'auto', options: [['auto', 'Automatic'], ['latest', 'Latest Events'], ['digest', 'Morning Summary']],
+            onChange: (v) => set(key, v === 'auto' ? null : v) }));
+          rows.push(K.info({ label: 'Automatic shows how the night went from 5 to 11 AM, then the latest events.' }));
           return;
         }
         if (kind === 'music_playlist') {
@@ -2173,6 +2199,6 @@
                           SCREEN_TYPES: SCREEN_TYPES, SQUARE_STARTERS: SQUARE_STARTERS, screenTypeOf: screenTypeOf, scaleAt: scaleAt, squareStarter: squareStarter,
                           // (the dashboard's Edit mode names and sizes blocks as this editor does: hk-edit-grid.js)
                           cannotResize: cannotResize, NAMES: NAMES, SIZE_NAMES: SIZE_NAMES, SIZE_SHORT: SIZE_SHORT, GLYPHS: GLYPHS,
-                          GROUPS: GROUPS, DESCRIPTIONS: DESCRIPTIONS };
+                          GROUPS: GROUPS, DESCRIPTIONS: DESCRIPTIONS, offered: offered };
   customElements.define('hk-grid-editor', GridEditor);
 })();

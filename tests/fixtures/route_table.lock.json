@@ -693,6 +693,44 @@
   "stream": "none",
   "who": "person"
  },
+ "DELETE /api/timeline": {
+  "audit": [
+   "timeline.cleared"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "always",
+  "handler": "api_clear",
+  "mcp": [],
+  "module": "mantel_server.timeline.api",
+  "no_audit": null,
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "owner"
+ },
+ "DELETE /api/timeline/mine/presence": {
+  "audit": [
+   "timeline.presence.cleared"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "api_clear_mine",
+  "mcp": [],
+  "module": "mantel_server.timeline.api",
+  "no_audit": null,
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "person"
+ },
  "DELETE /api/user-files/{kind}/{name}": {
   "audit": [
    "user_files.delete.font",
@@ -2395,6 +2433,91 @@
   "stream": "none",
   "who": "manager"
  },
+ "GET /api/timeline": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": true,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "api_find",
+  "mcp": [],
+  "module": "mantel_server.timeline.api",
+  "no_audit": null,
+  "preview": false,
+  "reads": "view",
+  "reads_why": null,
+  "stream": "none",
+  "who": "signed_in"
+ },
+ "GET /api/timeline/me": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "api_me",
+  "mcp": [],
+  "module": "mantel_server.timeline.api",
+  "no_audit": null,
+  "preview": false,
+  "reads": "self",
+  "reads_why": null,
+  "stream": "none",
+  "who": "person"
+ },
+ "GET /api/timeline/pic/{pic_id}": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": true,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "api_pic",
+  "mcp": [],
+  "module": "mantel_server.timeline.api",
+  "no_audit": null,
+  "preview": false,
+  "reads": "view",
+  "reads_why": null,
+  "stream": "none",
+  "who": "signed_in"
+ },
+ "GET /api/timeline/settings": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "api_settings",
+  "mcp": [],
+  "module": "mantel_server.timeline.api",
+  "no_audit": null,
+  "preview": false,
+  "reads": "admin",
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
+ },
+ "GET /api/timeline/summary": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": true,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "api_summary",
+  "mcp": [],
+  "module": "mantel_server.timeline.api",
+  "no_audit": null,
+  "preview": false,
+  "reads": "view",
+  "reads_why": null,
+  "stream": "none",
+  "who": "signed_in"
+ },
  "GET /api/updates": {
   "audit": [],
   "csrf": "-",
@@ -2624,6 +2747,23 @@
   "why": "a static file or page shell any session (or the sign-in page) loads; the data behind it is guarded"
  },
  "GET /home": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": true,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "home_redirect",
+  "mcp": [],
+  "module": "mantel_server.server",
+  "no_audit": null,
+  "preview": true,
+  "reads": "none",
+  "reads_why": "a redirect to the person's screen",
+  "stream": "none",
+  "who": "signed_in"
+ },
+ "GET /home/{view}": {
   "audit": [],
   "csrf": "-",
   "device_ok": true,
@@ -4155,6 +4295,25 @@
   "stream": "none",
   "who": "owner"
  },
+ "POST /api/timeline/digest/test": {
+  "audit": [
+   "timeline.digest.test"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "away",
+  "handler": "api_digest_test",
+  "mcp": [],
+  "module": "mantel_server.timeline.api",
+  "no_audit": null,
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "owner"
+ },
  "POST /api/updates/check": {
   "audit": [],
   "csrf": "session",
@@ -4969,6 +5128,63 @@
   "stream": "none",
   "who": "owner"
  },
+ "PUT /api/timeline/me": {
+  "audit": [
+   "timeline.me.saved"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "api_me_put",
+  "mcp": [],
+  "module": "mantel_server.timeline.api",
+  "no_audit": null,
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "person"
+ },
+ "PUT /api/timeline/overrides": {
+  "audit": [
+   "timeline.overrides.saved"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "away",
+  "handler": "api_overrides_put",
+  "mcp": [],
+  "module": "mantel_server.timeline.api",
+  "no_audit": null,
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "owner"
+ },
+ "PUT /api/timeline/settings": {
+  "audit": [
+   "timeline.settings.saved"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "away",
+  "handler": "api_settings_put",
+  "mcp": [],
+  "module": "mantel_server.timeline.api",
+  "no_audit": null,
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "owner"
+ },
  "PUT /api/updates": {
   "audit": [
    "updates.settings.saved"
@@ -5586,6 +5802,17 @@
   "reads": "view",
   "stream": "none",
   "why": "a page's read over its signed-in socket (/ws)"
+ },
+ "READ timeline/subscribe": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": false,
+  "reads": "view",
+  "stream": "none",
+  "why": "the House Timeline's live rows, each cut for the viewer (timeline/api.py)"
  },
  "READ weather/subscribe_forecast": {
   "csrf": "-",

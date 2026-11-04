@@ -2,6 +2,8 @@
  "checked": [
   "hosts/ha/frontend/hk-ha-client.js",
   "hosts/ha/frontend/hk-ha-shell.js",
+  "web/hk/cards/hk-timeline-block.js",
+  "web/hk/cards/hk-timeline.js",
   "web/hk/grid-cards/hk-grid-math.js",
   "web/hk/saver/hk-saver-black.js",
   "web/hk/saver/hk-saver-css.js",
@@ -9,7 +11,8 @@
   "web/hk/saver/hk-saver-pane.js",
   "web/hk/saver/hk-saver-photos.js",
   "web/shim/mantel-client.js",
-  "web/shim/mantel-shell.js"
+  "web/shim/mantel-shell.js",
+  "web/shim/settings/timeline.js"
  ],
  "unchecked_allowed": [
   "web/app/push.js",
