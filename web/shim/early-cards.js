@@ -11,6 +11,7 @@
 //
 // ONLY THE CARDS A SCREEN USES (2026-10-29): the answer is {core, lazy} (mantel_server/hk_cards.py). Only the
 // core files are preloaded; the lazy ones wait until a card of theirs is asked for (hk-loader.js hkNeed).
+// @ts-check
 import { mantelUrl, hkV } from './base.js';
 
 const list = fetch(mantelUrl('/api/hk-cards')).then((r) => {

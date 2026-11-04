@@ -28,6 +28,7 @@
 //   - a failed or refused read is "no next song" until the song changes (not retried in a loop).
 // A read that lands calls the renderer's calendar watchers (the same shared list the Countdown piece wakes its pieces with:
 // `wakes` says 'calendar' for that reason), a moment later and once however many answers land: never inside a read.
+// @ts-check
 (function () {
   'use strict';
   var W = window.hkSaverWidgets;

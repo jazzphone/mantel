@@ -21,6 +21,7 @@
 //      (config-refresh: a settings change) or the registries change (shouldRegenerate).
 //
 // Leaving the panel (another HA page) puts the shell back in its Lovelace mode.
+// @ts-check
 (function (global) {
   'use strict';
   var TAG = 'hk-ha-panel';

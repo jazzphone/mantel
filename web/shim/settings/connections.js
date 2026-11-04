@@ -1,4 +1,5 @@
 // settings/connections.js -- Mantel Settings, Connections: Home Assistant, Music Assistant, the push relay, HK's settings import.
+// @ts-check
 import { act, api, ask, can, fmt, forget, hh, K, load, me, redraw, ROUTE, shown, ui } from './core.js';
 import { button, clearDraft, draft, failed, field, group, info, nav, pending, result } from './kit.js';
 import { pConnect } from './connect.js';

@@ -34,6 +34,7 @@
 //   kind: 'glance' | 'month' | 'day' | 'weather'; look (Day): 'auto' |
 //   'light' | 'dark'; clocks: window.hkSaverClock (Glance's clock); onReadings(n) (Big Weather): how many
 //   readings its bottom row has, whenever that changes
+// @ts-check
 (function () {
   'use strict';
   if (window.hkSaverFaces) return;

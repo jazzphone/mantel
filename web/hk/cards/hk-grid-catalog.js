@@ -14,6 +14,7 @@
 // (hk-layout.js, G4) holding one of its card per page: pages() below says which.
 //
 // Plain data and pure functions, loaded at parse time: no hk-base.js needed.
+// @ts-check
 (function () {
   'use strict';
   if (window.hkGridCatalog) return;            // double-load guard

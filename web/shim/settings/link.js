@@ -1,4 +1,5 @@
 // settings/link.js -- Mantel Settings, Mantel Link and HK Frontend in Home Assistant, and moving from one to the other.
+// @ts-check
 import { act, api, ask, can, fmt, forget, K, load, me, nowS, redraw, ROUTE, shown, ui } from './core.js';
 import { button, copyButton, failed, group, info, nav, pending, result, secretCell } from './kit.js';
 import { drawImport } from './connections.js';

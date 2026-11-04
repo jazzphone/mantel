@@ -295,8 +295,6 @@ async def smoke(shot=None, shots=None):
                           // never a house command, and never one wrapping a service call
                           if (!['subscribe','unsubscribe','ping','watch_stats','read','read_subscribe','read_unsubscribe',
                                 'settings_write','user_data_set','page_health'].includes(msg.type) ||
-                              // (the Intercom's feed, `intercom/subscribe`, is not here: a page that does not draw the
-                              // Intercom never asks for it, and this proves it)
                               ['call_service','execute_script'].includes(msg.msg && msg.msg.type)) {
                             window.__blockedWrites++; throw new Error('write blocked');
                           }
@@ -489,6 +487,9 @@ async def smoke(shot=None, shots=None):
                     settings_panel = await browser.eval("""(async () => {
                       for (const f of ['hk-settings-model', 'hk-settings-kit', 'hk-settings-features', 'hk-settings'])
                         await import('/web/hk/panels/' + f + '.js');
+                      // (the panel's methods arrive in its parts a beat after the shell: tools/split_js.py, class-method mode)
+                      await new Promise((done) => { const t = setInterval(() => {
+                        if ((window.__hkSplitDone || {})['hk-settings']) { clearInterval(t); done(); } }, 20); });
                       const P = customElements.get('hk-settings-panel').prototype;
                       const pg = Object.create(P);
                       Object.defineProperty(pg, 'client', { value: window.__mantel.client });
@@ -1347,12 +1348,13 @@ RHYTHM_JS = r"""(async () => {
   const deep = (root) => { const out = []; const walk = (n) => { for (const c of n.children || []) { out.push(c);
     if (c.shadowRoot) walk(c.shadowRoot); walk(c); } }; walk(root); return out; };
   const up = (n) => n.parentNode || (n.getRootNode && n.getRootNode().host);
-  // a busy machine draws slower: wait (up to 10 s) until every heading has drawn its own shadow root
-  for (let i = 0; i < 100; i++) {
-    const e0 = window.__mantelViewHost.current().element;
-    if (!deep(e0.shadowRoot || e0).some(e => e.localName === 'hk-heading-card' && !e.shadowRoot)) break;
-    await new Promise(r => setTimeout(r, 100));
-  }
+  // (on a slow disk -- the SMB checkout -- the cards of the page, and the parts of the files cut into parts, arrive after the
+  // page says it is ready: wait until every shell that started is done and every heading has drawn)
+  const drawn = () => { const s = window.__hkSplitStarted || {}, d = window.__hkSplitDone || {};
+    if (!Object.keys(s).every((k) => d[k])) return false;
+    const view = window.__mantelViewHost.current().element;
+    return deep(view.shadowRoot || view).filter(e => e.localName === 'hk-heading-card').every(e => e.shadowRoot && e.shadowRoot.children.length); };
+  for (let i = 0; i < 400 && !drawn(); i++) await new Promise(r => setTimeout(r, 50));
   const el = window.__mantelViewHost.current().element, all = deep(el.shadowRoot || el), sy = window.scrollY;
   const box = (e) => { const r = e.getBoundingClientRect(); return { top: r.top + sy, bottom: r.bottom + sy, left: r.left, right: r.right, h: r.height }; };
   const WRAP = /^(hk-grid-card|hk-heading-card|hk-vertical-stack-card|hk-frame-card|hk-back-card|hk-page-status-card|hk-chips-card)$/;

@@ -1,4 +1,5 @@
 // settings/roles.js -- Mantel Settings, Roles & Grants: what each role may do, and each person's rooms.
+// @ts-check
 import { mantelUrl } from '../base.js';
 import { act, api, ask, fmt, K, load, me, panel, redraw, roleLabel, ROUTE, ui } from './core.js';
 import { button, choose, clearDraft, draft, failed, field, group, info, nav, pending, result, ticks } from './kit.js';

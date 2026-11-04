@@ -4,10 +4,11 @@
 // function, which hk-grid-cards.js calls with the shared kit K once every part has loaded (the
 // order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
+// @ts-check
 (function () {
   'use strict';
   (window.hkGridCardsParts = window.hkGridCardsParts || {})['hk-grid-security'] = function (K) {
-    var attr = K.attr, C = K.C, dom = K.dom, DOORS = K.DOORS, friendly = K.friendly, HkBase = K.HkBase, kind = K.kind,
+    var attr = K.attr, C = K.C, dom = K.dom, DOORS = K.DOORS, friendly = K.friendly, HkBase = /** @type {HkLooseElementConstructor} */ (K.HkBase), kind = K.kind,
         OFF = K.OFF, own = K.own, setting = K.setting, sizeOf = K.sizeOf, TILE = K.TILE, type = K.type, v = K.v;
 
     // ===================================================== the small tiles

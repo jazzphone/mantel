@@ -1,4 +1,5 @@
 // settings/proxy.js -- Mantel Settings, HTTPS and Your Proxy, and Home Assistant's frame.
+// @ts-check
 import { mantelUrl, base as BASE } from '../base.js';
 import { act, api, ask, fmt, K, load, me, redraw, ROUTE, shown } from './core.js';
 import { button, copyButton, draft, failed, group, info, pending, result, secretCell } from './kit.js';

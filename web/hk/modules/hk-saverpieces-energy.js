@@ -24,6 +24,7 @@
 //
 // No plan, no `power` section, no sensor, no car: a dash (data that is not there is not "nothing wrong").
 // THE RULES: nothing animates and nothing blurs; one read of the plan per piece, no timer, nothing that wakes anything.
+// @ts-check
 (function () {
   'use strict';
   var W = window.hkSaverWidgets;

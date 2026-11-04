@@ -7,6 +7,7 @@
 // the server never sends it back, only the last four characters (`hint`). A saved channel's boxes say so, and a box
 // left blank keeps what is saved. The routes decide who may do what (a fresh sign-in away from home, which api() asks
 // for through Confirm It Is You).
+// @ts-check
 import { act, ago, api, ask, fmt, forget, hh, K, load, redraw, ROUTE, shown, ui } from './core.js';
 import { button, choose, clearDraft, draft, failed, field, group, info, nav, pending, result } from './kit.js';
 

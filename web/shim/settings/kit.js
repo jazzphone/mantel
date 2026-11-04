@@ -1,4 +1,5 @@
 // settings/kit.js -- what every page draws with: HK Settings' kit for Mantel, fields and drafts, styles, the Confirm It Is You dialog.
+// @ts-check
 import { mantelUrl, base as BASE } from '../base.js';
 import * as photos from '../mantel-photos.js';
 import { act, api, ApiError, drafts, hh, K, me, panel, redraw, ROUTE, ui } from './core.js';

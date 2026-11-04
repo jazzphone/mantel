@@ -41,6 +41,7 @@
 // sheets, so it outlives every page change. Stacking: the bar at 6 (the
 // menu's edge tab), under the pop-ups (7), the detail sheets (8) and the
 // open menu (9); its own sheets open at 6 too, over the page.
+// @ts-check
 (function () {
   'use strict';
   if (window.hkTabBar) return;

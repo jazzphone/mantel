@@ -4,11 +4,12 @@
 // function, which hk-grid-cards.js calls with the shared kit K once every part has loaded (the
 // order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
+// @ts-check
 (function () {
   'use strict';
   (window.hkGridCardsParts = window.hkGridCardsParts || {})['hk-grid-widgets'] = function (K) {
     var ACC = K.ACC, APP_CORNER = K.APP_CORNER, areaOf = K.areaOf, attr = K.attr, C = K.C, clockText = K.clockText,
-        dom = K.dom, esc = K.esc, gly = K.gly, hidesOf = K.hidesOf, HkBase = K.HkBase, HkGridKey = K.HkGridKey,
+        dom = K.dom, esc = K.esc, gly = K.gly, hidesOf = K.hidesOf, HkBase = /** @type {HkLooseElementConstructor} */ (K.HkBase), HkGridKey = /** @type {HkLooseElementConstructor} */ (K.HkGridKey),
         houseMinutes = K.houseMinutes, inner = K.inner, isGroup = K.isGroup, KEY_CSS = K.KEY_CSS, own = K.own,
         plan = K.plan, plural = K.plural, roomOf = K.roomOf, setting = K.setting, sizeOf = K.sizeOf,
         suggestion = K.suggestion, TILE = K.TILE, type = K.type, v = K.v, WG_CSS = K.WG_CSS;
@@ -339,7 +340,7 @@
     // -> [{kind, ids}] of the kinds with something on, and [{id, kind, name, room}] each thing
     function whatsOn(client) {
       var st = (client && client.states) || {}, ents = (client && client.entities) || {}, areas = (client && client.areas) || {};
-      var inv = null, G = hidesOf();
+      /** @type {any} */ var inv = null, G = hidesOf();
       try { inv = window.hkStrategy && window.hkStrategy.inventory ? window.hkStrategy.inventory(client, G) : null; } catch (e) { inv = null; }
       inv = inv || {};
       var has = function (list, id) { return Array.isArray(list) && list.indexOf(id) >= 0; };

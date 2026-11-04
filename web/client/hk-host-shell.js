@@ -13,6 +13,7 @@
 // Every lookup is made fresh on each call (the host's page changes under it),
 // and every global (window, document, history, CustomEvent) is read at call
 // time, never captured.
+// @ts-check
 (function (global) {
   'use strict';
   if (global.hkShell) return;

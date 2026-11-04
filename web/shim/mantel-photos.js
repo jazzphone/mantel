@@ -8,6 +8,7 @@
 //
 // mantel-settings.js hands each call its toolkit `T` (the kit, the REST helper, the page's cache and
 // flash), so this module keeps only the photos' own state: the selection, the uploads, the import's poll.
+// @ts-check
 
 const ALBUM_ID = /^[0-9a-f]{16}$/;
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,.jpg,.jpeg,.png,.webp';

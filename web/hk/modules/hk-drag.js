@@ -41,6 +41,7 @@
 //                        (the page swipe) nor the views' (Home Grid)
 //
 // Every timer is read at call time (the tests drive their own).
+// @ts-check
 (function (global) {
   'use strict';
   if (global.hkDrag) return;

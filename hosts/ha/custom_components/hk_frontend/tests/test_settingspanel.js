@@ -20,7 +20,7 @@ load(HK_ROOT + '/frontend/panels/hk-settings-features.js');
 // the page as it is, with its modules already in hand (it imports them before
 // it draws) and a photo taken as it is (shrinking one needs a canvas)
 var SRC = read(HK_ROOT + '/frontend/panels/hk-settings.js');
-(0, eval)(SRC.replace('  var M = null, K = null, h = null, F = null;',
+(0, eval)(readRunnable(HK_ROOT + '/frontend/panels/hk-settings.js').replace('  var M = null, K = null, h = null, F = null;',
   '  var M = window.hkSettingsModel, K = window.hkSettingsKit, h = K.h, F = window.hkSettingsFeatures; F.use(K);')
   .replace('var blob = await shrinkPhoto(file, 2560);', 'var blob = file;'));
 if (typeof FormData === 'undefined') {

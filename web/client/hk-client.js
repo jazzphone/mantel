@@ -1,6 +1,7 @@
 // HKClient's first shared surface: state display, formatting and read requests, plus one
 // action port for everything that changes the house.
 // A host owns its transport. Shared cards never receive the host's raw object.
+// @ts-check
 (function (global) {
   'use strict';
   if (global.hkClient) return;

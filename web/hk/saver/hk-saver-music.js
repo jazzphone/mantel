@@ -4,6 +4,7 @@
 // function, which hk-saver.js calls with the shared kit K once every part has loaded (the
 // order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
+// @ts-check
 (function () {
   'use strict';
   (window.hkSaverParts = window.hkSaverParts || {})['hk-saver-music'] = function (K) {
@@ -107,7 +108,7 @@
       if (!window.hkSaverPanel) el.setAttribute('nomx', '');
       var q = function (s) { return el.querySelector(s); };
       var v = { kind: kind, el: el, flat: isFlat(), flip: 0, pic: null, d: null, ready: Promise.resolve(),
-                bgf: el.querySelectorAll('.mbgf'), bg: el.querySelectorAll('canvas.mbg'), fr: el.querySelectorAll('.mfr'),
+                bgf: el.querySelectorAll('.mbgf'), bg: /** @type {NodeListOf<HTMLCanvasElement>} */ (el.querySelectorAll('canvas.mbg')), fr: el.querySelectorAll('.mfr'),
                 room: q('.mroom'), title: q('.mtitle'), artist: q('.martist'), album: q('.malbum'),
                 bar: q('.mbar i'), t0: q('.mtimes span:first-child'), t1: q('.mtimes span:last-child'),
                 pp: q('.mpp path'), nextImg: q('.mnext img'), nextT: q('.mnt'), vt: q('.mvt') };
@@ -229,7 +230,7 @@
       setText(v.title, idle ? 'Not Playing' : d.title);
       setText(v.artist, idle ? '' : d.artist);
       setText(v.album, idle ? '' : [d.album, mus.year].filter(Boolean).join(' · '));
-      var want = idle ? ICON.play : d.playing ? ICON.pause : ICON.play;
+      /** @type {any} */ var want = idle ? ICON.play : d.playing ? ICON.pause : ICON.play;
       if (v.pp.getAttribute('d') !== want) v.pp.setAttribute('d', want);
       var pic = idle ? '' : d.pic;
       if (pic !== v.pic) { v.pic = pic; showArt(v, pic); }

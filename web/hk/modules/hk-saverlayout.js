@@ -20,6 +20,7 @@
 //   hkSaverLayout.clean(v) -> layout | null      hkSaverLayout.check(v) -> null | 'saver_layout'
 //   hkSaverLayout.layoutFrom(options) -> layout   hkSaverLayout.oriented(layout, W, H) -> { big, zones }
 //   hkSaverLayout.plan(room, oriented, measure, screen) -> boxes
+// @ts-check
 (function () {
   'use strict';
   if (window.hkSaverLayout) return;

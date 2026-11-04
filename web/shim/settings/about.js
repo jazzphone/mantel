@@ -1,4 +1,5 @@
 // settings/about.js -- Mantel Settings, About: which Mantel this is and what it talks to.
+// @ts-check
 import { mantelUrl } from '../base.js';
 import { act, api, can, fmt, K, load } from './core.js';
 import { button, failed, group, info, nav, pending, result } from './kit.js';

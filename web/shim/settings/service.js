@@ -1,4 +1,5 @@
 // settings/service.js -- Mantel Settings, Service Accounts: machine credentials for scripts and other machines.
+// @ts-check
 import { act, ago, api, ask, fmt, load, me, panel, redraw, ROUTE, shown } from './core.js';
 import {
   button, clearDraft, copyButton, draft, failed, field, group, info, nav, pending, result, secretCell, ticks

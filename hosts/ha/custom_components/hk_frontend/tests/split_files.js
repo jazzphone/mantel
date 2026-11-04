@@ -10,6 +10,9 @@
 //   load('.../frontend/<dir>/<shell>.js')         loads the part files first (each registers a function the shell runs as
 //                                                 it loads, as a browser's import() would leave it), then the shell
 //   read/readFile('.../frontend/<dir>/<shell>.js')   answers the shell's text followed by every part file's
+//   readRunnable('.../frontend/<dir>/<shell>.js')    the text to EVAL when a suite edits the shell before running it (a
+//                                                    stand-in for a variable, say): every part's text first, then the
+//                                                    shell's, so the shell finds its parts registered and starts at once
 //
 // Any other path is untouched. A shell is found by its text (the list and the loader's address), so a file split later
 // needs no change in this one. A file that IS a shell but whose list or loader address is gone is an error here, never "a file
@@ -49,6 +52,10 @@
       return shell + '\n' + files.map(function (f) { return reader(f); }).join('\n');
     };
   }
+  globalThis.readRunnable = function (p) {
+    var files = parts(p);
+    return (files ? files.map(function (f) { return realRead(f); }).join('\n') + '\n' : '') + realRead(p);
+  };
   globalThis.readFile = text(realRead);
   globalThis.read = text(realReadShort);
 })();

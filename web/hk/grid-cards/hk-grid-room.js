@@ -4,11 +4,12 @@
 // function, which hk-grid-cards.js calls with the shared kit K once every part has loaded (the
 // order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
+// @ts-check
 (function () {
   'use strict';
   (window.hkGridCardsParts = window.hkGridCardsParts || {})['hk-grid-room'] = function (K) {
     var areaOf = K.areaOf, C = K.C, COLS = K.COLS, dimCall = K.dimCall, dims = K.dims, dom = K.dom,
-        dragged = K.dragged, fit = K.fit, friendly = K.friendly, GAP = K.GAP, HkBase = K.HkBase, HOLD_MS = K.HOLD_MS,
+        dragged = K.dragged, fit = K.fit, friendly = K.friendly, GAP = K.GAP, HkBase = /** @type {HkLooseElementConstructor} */ (K.HkBase), HOLD_MS = K.HOLD_MS,
         layout = K.layout, percent = K.percent, pill = K.pill, PILL_H = K.PILL_H, roomLine = K.roomLine,
         roomOf = K.roomOf, roomParts = K.roomParts, sceneSays = K.sceneSays, sizeOf = K.sizeOf, SLOP = K.SLOP,
         speakerOf = K.speakerOf, TABLET_ROOM = K.TABLET_ROOM, type = K.type, v = K.v;
@@ -103,12 +104,13 @@
       // the pager, to turn -- null when it pages nothing
       _paging() {
         if (!this.hasAttribute('data-grid-pager')) return null;
-        var page = this.parentNode, root = this.getRootNode ? this.getRootNode() : null, pager = root && root.host;
+        var page = /** @type {Element | null} */ (this.parentNode), root = this.getRootNode ? /** @type {any} */ (this.getRootNode()) : null, pager = root && root.host;
         var m = page && page.getAttribute && /^(\d+) of (\d+)$/.exec(page.getAttribute('aria-label') || '');
         if (!m || !pager || typeof pager.goTo !== 'function') return null;
         return { at: +m[1] - 1, of: +m[2], pager: pager };
       }
       // what it draws, in one go: the room, its pills, its line
+      /** @returns {any} */
       _plan() {
         var h = this.client, size = this._size(), area = this._area();
         if (!h || !h.states || !area) return { area: area, size: size, tiles: [], status: '', name: '' };

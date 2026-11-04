@@ -4,8 +4,12 @@
     tools/typecheck/check.py              # tsc on every file that starts with // @ts-check (the ci.py step types-js)
     tools/typecheck/check.py --measure    # every file checked, the errors counted per file (nothing changes)
     tools/typecheck/check.py --baseline   # the same, written to tools/typecheck/baseline.json
+    tools/typecheck/check.py --strict     # tsconfig.strict.json (noImplicitAny; the pure logic files), every listed file checked, counted
     tools/typecheck/check.py --globals    # regenerate types/globals.d.ts from the window.hk*/mantel* names
     tools/typecheck/check.py --install    # npm ci in tools/typecheck (TypeScript, pinned)
+
+tsconfig.strict.json (decision 8) lists the pure logic files that also take noImplicitAny; it is not part of the default
+run until a file in it is clean (hk-settings-model.js, the first, is not yet: see --strict for the count).
 
 tsconfig.json reads every file under web/ and hosts/ha/frontend/ so names resolve, with checkJs off: only a file
 that opts in with ``// @ts-check`` is checked. TypeScript lives in its own folder (decision 7): the Docker image's
@@ -30,7 +34,7 @@ TSC = HERE / "node_modules/typescript/bin/tsc"
 BASELINE = HERE / "baseline.json"
 GLOBALS = HERE / "types/globals.d.ts"
 SOURCES = ("web", "hosts/ha/frontend")
-# // @ts-check counts only in the comments that open a file (as tsc reads it)
+# // @ts-check counts only in the comments that open a file (as tsc reads it, however long the banner)
 LEADING_TS_CHECK = re.compile(r"^(?:\ufeff)?(?:\s*(?://[^\n]*\n|/\*.*?\*/))*?\s*//\s*@ts-check\b", re.S)
 ERROR = re.compile(r"^(?P<file>[^(\s][^(]*)\((?P<line>\d+),(?P<col>\d+)\): error (?P<code>TS\d+): (?P<text>.*)$")
 
@@ -92,7 +96,7 @@ def checked_files() -> list[str]:
         for path in sorted((ROOT / base).rglob("*.js")):
             if "node_modules" in path.parts:
                 continue
-            if LEADING_TS_CHECK.match(path.read_text(errors="replace")[:2000]):
+            if LEADING_TS_CHECK.match(path.read_text(errors="replace")):
                 out.append(str(path.relative_to(ROOT)))
     return out
 
@@ -116,6 +120,21 @@ def measure() -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def measure_strict() -> dict[str, int]:
+    """tsconfig.strict.json's files, checked whether or not they opt in (a scratch config with checkJs on): errors per file."""
+    strict = HERE / "tsconfig.strict.json"
+    files = json.loads(strict.read_text())["files"]
+    with tempfile.TemporaryDirectory() as tmp:
+        cfg = Path(tmp) / "tsconfig.json"
+        cfg.write_text(json.dumps({"extends": str(strict), "compilerOptions": {"checkJs": True}}))
+        errors = tsc(cfg)
+    counts = {str((HERE / f).resolve().relative_to(ROOT)): 0 for f in files}
+    for e in errors:
+        if e["file"] in counts:
+            counts[e["file"]] += 1
+    return counts
+
+
 def globals_text() -> str:
     names: set[str] = set()
     for f in all_files():
@@ -132,6 +151,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--measure", action="store_true")
     ap.add_argument("--baseline", action="store_true")
+    ap.add_argument("--strict", action="store_true")
     ap.add_argument("--globals", action="store_true")
     ap.add_argument("--install", action="store_true")
     args = ap.parse_args(argv)
@@ -140,6 +160,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.globals:
         GLOBALS.write_text(globals_text())
         print(f"wrote {GLOBALS.relative_to(ROOT)}")
+        return 0
+    if args.strict:
+        counts = measure_strict()
+        for f, c in counts.items():
+            print(f"{c:5d}  {f}")
         return 0
     if args.measure or args.baseline:
         counts = measure()

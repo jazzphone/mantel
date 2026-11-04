@@ -4,11 +4,12 @@
 // function, which hk-grid-cards.js calls with the shared kit K once every part has loaded (the
 // order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
+// @ts-check
 (function () {
   'use strict';
   (window.hkGridCardsParts = window.hkGridCardsParts || {})['hk-grid-faces'] = function (K) {
     var C = K.C, CAM_MAX = K.CAM_MAX, camGrid = K.camGrid, camRing = K.camRing, FULL_CSS = K.FULL_CSS,
-        HkGridFull = K.HkGridFull, setting = K.setting, sizeOf = K.sizeOf;
+        HkGridFull = /** @type {HkLooseElementConstructor} */ (K.HkGridFull), setting = K.setting, sizeOf = K.sizeOf;
 
     // THE CLOCK BLOCK (2026-10-24, the owner: "many clocks", for a phone on
     // a nightstand): HK's own clock (hk-clock-card, the header's type), or
@@ -18,11 +19,11 @@
     // faces that read at a block's size; the rest need a screen of their own.
     function clockModule() {
       if (window.hkSaverClock) return Promise.resolve(window.hkSaverClock);
-      if (!clockModule.p) {
-        clockModule.p = import('/hk/modules/hk-saverclock.js').then(function () { return window.hkSaverClock; })
-          .catch(function (e) { clockModule.p = null; console.warn('[hk-grid] clock', e && e.message); return null; });
+      if (!/** @type {any} */ (clockModule).p) {
+        /** @type {any} */ (clockModule).p = import('/hk/modules/hk-saverclock.js').then(function () { return window.hkSaverClock; })
+          .catch(function (e) { /** @type {any} */ (clockModule).p = null; console.warn('[hk-grid] clock', e && e.message); return null; });
       }
-      return clockModule.p;
+      return /** @type {any} */ (clockModule).p;
     }
     // (the block clips the face, not the face itself: scaled down, its own box is smaller than its drawing)
     var CLOCK_CSS = '.body{height:100%}.ck .ckroot{overflow:visible}.ck{position:relative;height:100%;box-sizing:border-box;overflow:hidden;border-radius:var(--hk-block-radius, ' + C.R.plate + 'px)}' +

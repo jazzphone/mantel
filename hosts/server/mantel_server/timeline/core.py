@@ -658,6 +658,8 @@ class Timeline:
         loop = asyncio.get_running_loop()
         if not self._loaded:
             self.load()
+        if not isinstance(self.settings.get("since"), (int, float)):
+            self.settings.set("since", self.clock())       # when it began watching (the first digest waits a night)
         self.prune()
         self.tasks.append(loop.create_task(self.writer()))
 

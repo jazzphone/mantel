@@ -199,6 +199,10 @@ class Digests:
         """(start, end, day) when a digest is owed at ``now``: the digest time has passed today, it isn't after the
         cutoff (noon, or two hours after a digest time that is later than that), and today's isn't sent yet."""
         from .api import _hhmm
+        authz = self.app.get("authz")
+        if authz is not None and getattr(authz, "tz_source", "config") == "config" \
+                and (getattr(self.app.get("cfg"), "house_tz", "UTC") or "UTC") == "UTC":
+            return None                  # the house's own time zone isn't known yet (Home Assistant tells it): wait
         local = local_time(self.app)(now)
         at = _hhmm((self.tl.settings.get("digest") or {}).get("at"), (7, 0))
         today_at = local.replace(hour=at[0], minute=at[1], second=0, microsecond=0)
@@ -207,6 +211,9 @@ class Digests:
             return None
         start, end, _ = window_of(self.app, "overnight", now)
         day = day_of(self.app, end)
+        since = self.tl.settings.get("since")
+        if isinstance(since, (int, float)) and since > start:
+            return None                  # the timeline didn't watch the whole night: no "quiet night" it can't vouch for
         if self.tl.db.execute("SELECT 1 FROM timeline_digests WHERE day = ?", (day,)).fetchone() is not None \
                 or self.failed == day:
             return None

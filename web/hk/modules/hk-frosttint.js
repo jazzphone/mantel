@@ -23,6 +23,7 @@
 //
 // LEFT GRAY: cards outside a dashboard view (pop-up sheets, the screensaver),
 // a page whose background is album art (Play Music), a page with no sky.
+// @ts-check
 (function () {
   'use strict';
   if (window.hkFrostTint) return;

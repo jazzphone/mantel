@@ -1,4 +1,5 @@
 // settings/tablets.js -- Mantel Settings, a wall tablet's Direct Connection, and its Reload and Clear Cache.
+// @ts-check
 import { act, api, ask, can, fmt, forget, hh, K, load, panel, redraw, shown, ui } from './core.js';
 import { button, clearDraft, draft, failed, field, group, info, pending, result } from './kit.js';
 

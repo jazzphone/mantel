@@ -2,6 +2,7 @@
 // certificate, its cameras (picked, matched with Home Assistant's, Video From), each camera's Notify For and Turn On in
 // Protect (docs/phase13/CAMERAS-DIRECT.md phase 4; protect_connector.py). Docker and the LXC only: under the Home
 // Assistant App the page says cameras come from Home Assistant's UniFi Protect integration.
+// @ts-check
 import { mantelUrl } from '../base.js';
 import { act, ago, api, ask, fmt, forget, hh, K, load, redraw, ROUTE, shown, ui } from './core.js';
 import { button, clearDraft, draft, failed, field, group, info, nav, pending, result } from './kit.js';

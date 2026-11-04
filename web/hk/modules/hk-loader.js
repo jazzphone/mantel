@@ -25,6 +25,7 @@
 //   hk-header.js      the header builders, painted first.
 //
 // Before adding a module here, check it has nothing to do before first render.
+// @ts-check
 (function () {
   'use strict';
 

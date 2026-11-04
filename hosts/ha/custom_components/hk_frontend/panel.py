@@ -58,10 +58,11 @@ async def async_register(hass: HomeAssistant, sidebar: bool = True) -> None:
     without a restart's cache."""
     from homeassistant.components import frontend
     # the newest of the page's files (hk-settings.js loads its model and kit
-    # with this same stamp)
+    # with this same stamp), the parts that add its methods (../settings/) among them
     try:
         stamp = await hass.async_add_executor_job(
-            lambda: int(max(p.stat().st_mtime for p in MODULE.parent.glob("hk-*.js"))))
+            lambda: int(max(p.stat().st_mtime for p in
+                            [*MODULE.parent.glob("hk-*.js"), *(MODULE.parent.parent / "settings").glob("hk-*.js")])))
     except (OSError, ValueError):
         stamp = 0
     frontend.async_register_built_in_panel(
