@@ -253,6 +253,8 @@ const viewHost = window.hkViewHost.create({
   client: host.client,
   base: '/' + seg,
   willShow: (view, firstVisit) => (firstVisit ? widen() : null),
+  // (a page made ready beside this one, for a swipe, was widened for: narrowed again with its states in)
+  warmed: (view) => narrowSoon(view),
 });
 window.__mantelViewHost = viewHost;
 // A PAGE NOT SEEN YET, ONCE THE PAGE HAS NARROWED: the house's states first, then the address. The view host

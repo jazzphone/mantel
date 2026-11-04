@@ -39,6 +39,22 @@
 //                        (an event's composedPath, up to `stop`) is one -- a
 //                        swipe that starts there is its, never the page's
 //                        (the page swipe) nor the views' (Home Grid)
+//   LET GO, THE SAME PHYSICS (2026-11-04, measured: a finger let go at 0.5 px/ms
+//   and the page went off at 9, on one fixed curve, whatever the finger had
+//   been doing; docs/development/Motion.md):
+//   speed(pts)           px/ms over the last 100 ms of [t, x] samples, since the
+//                        finger last turned
+//   lands(dx, width, v, o)  past o.turn of the width (a fifth), or flicked that
+//                        way over o.flick px/ms (.5) past o.min px (30) -- and
+//                        flicked back, it goes back, however far it had gone
+//   spring(x, x1, v)     from x at v px/ms to x1: { ms, at(t), speed(t), w, ... }
+//   easing(s, full)      that spring as a CSS curve: linear() (full), or a
+//                        cubic-bezier that leaves at the same speed
+//   curve(x, x1, v)      { spring, ms, ease } for a transition from x to x1, on
+//                        what this browser has
+//   glide(x, x1, v, draw, done)  the same spring by requestAnimationFrame, for
+//                        what a transition can't move (a scroller's scrollLeft);
+//                        returns its stop()
 //
 // Every timer is read at call time (the tests drive their own).
 (function (global) {
@@ -48,6 +64,83 @@
   var HOLD_MS = 350;               // a finger held this long on a thing picks it up
   var SLOP_TOUCH = 8, SLOP_MOUSE = 5;
   var AXIS = 1.2;                  // "along the axis": more than 1.2 times the other way
+
+  // ------------------------------------------------------------ let go
+  // THE SPRING: per ms, critically damped; the fastest it takes up from a finger, px/ms
+  var OMEGA = 0.019, V_MAX = 8, FLICK_WINDOW = 100;
+  function speed(pts) {
+    if (!pts || pts.length < 2) return 0;
+    var last = pts[pts.length - 1], first = last, way = 0;
+    for (var i = pts.length - 1; i >= 0; i--) {
+      if (last[0] - pts[i][0] > FLICK_WINDOW) break;
+      // (only since it last turned: a flick back isn't averaged with the way it came)
+      var step = first[1] - pts[i][1];
+      if (way && step && (step < 0) !== (way < 0)) break;
+      if (step) way = step;
+      first = pts[i];
+    }
+    var dt = last[0] - first[0];
+    return dt > 0 ? (last[1] - first[1]) / dt : 0;
+  }
+  function lands(dx, width, v, o) {
+    o = o || {};
+    if (!dx) return false;
+    var flick = o.flick || 0.5, min = o.min === undefined ? 30 : o.min, turn = o.turn || 0.2;
+    if (Math.abs(v || 0) > flick) {
+      if ((v < 0) !== (dx < 0)) return false;
+      if (Math.abs(dx) > min) return true;
+    }
+    return Math.abs(dx) > width * turn;
+  }
+  // Its speed at 0 is v, whatever that is. It never passes x1: a flick that would is taken up by a stiffer spring (faster,
+  // not further).
+  function spring(x, x1, v) {
+    var a = x - x1, w = OMEGA;
+    v = Math.max(-V_MAX, Math.min(V_MAX, v || 0));
+    if (a && v * a < 0) w = Math.max(w, Math.abs(v / a));
+    var b = v + w * a;
+    var at = function (t) { return x1 + (a + b * t) * Math.exp(-w * t); };
+    var sp = function (t) { return (b - w * (a + b * t)) * Math.exp(-w * t); };
+    var ms = 0;
+    while (ms < 1200 && (Math.abs(at(ms) - x1) > 0.3 || Math.abs(sp(ms)) > 0.02)) ms += 8;
+    return { x: x, x1: x1, v: v, w: w, ms: ms, at: at, speed: sp };
+  }
+  function easing(s, full) {
+    var d = s.x1 - s.x;
+    if (!d || !s.ms) return 'linear';
+    if (full) {
+      var n = Math.max(8, Math.min(40, Math.ceil(s.ms / 14))), pts = [];
+      for (var i = 0; i <= n; i++) pts.push(i === n ? 1 : +((s.at(s.ms * i / n) - s.x) / d).toFixed(4));
+      return 'linear(' + pts.join(',') + ')';
+    }
+    var slope = s.v * s.ms / d, x1 = 0.22;
+    return 'cubic-bezier(' + x1 + ',' + Math.max(0, Math.min(1.4, slope * x1)).toFixed(3) + ',.18,1)';
+  }
+  // (linear(): Safari 17.2, Chrome 113)
+  var LINEAR = null;
+  function linearOk() {
+    if (LINEAR === null) {
+      try { LINEAR = !!(global.CSS && global.CSS.supports && global.CSS.supports('transition-timing-function', 'linear(0, 1)')); } catch (e) { LINEAR = false; }
+    }
+    return LINEAR;
+  }
+  function curve(x, x1, v) {
+    var s = spring(x, x1, v), full = linearOk();
+    return { spring: s, ms: full || !s.ms ? s.ms : Math.max(s.ms, 280), ease: easing(s, full) };
+  }
+  function glide(x, x1, v, draw, done) {
+    var s = spring(x, x1, v), t0 = 0, raf = 0, stopped = false;
+    var step = function (t) {
+      if (stopped) return;
+      if (!t0) t0 = t;
+      var e = t - t0;
+      if (e >= s.ms) { draw(x1); if (done) done(); return; }
+      draw(s.at(e));
+      raf = global.requestAnimationFrame(step);
+    };
+    raf = global.requestAnimationFrame(step);
+    return function () { stopped = true; if (global.cancelAnimationFrame) global.cancelAnimationFrame(raf); };
+  }
 
   function classify(dx, dy, o) {
     o = o || {};
@@ -159,5 +252,6 @@
 
   global.hkDrag = { HOLD_MS: HOLD_MS, SLOP_TOUCH: SLOP_TOUCH, SLOP_MOUSE: SLOP_MOUSE,
                     press: press, holdStill: holdStill, ghost: ghost, classify: classify,
-                    sideways: sideways, SIDEWAYS: SIDEWAYS };
+                    sideways: sideways, SIDEWAYS: SIDEWAYS,
+                    speed: speed, lands: lands, spring: spring, easing: easing, curve: curve, glide: glide };
 })(typeof window !== 'undefined' ? window : globalThis);
