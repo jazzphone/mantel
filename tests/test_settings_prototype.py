@@ -7,6 +7,10 @@ stays an accessor). Anything that iterates the class must see what it saw before
 split (the blob the manifest records) and as it is now, each in node with the few globals the module touches, and compares the
 prototype: the set of property names, each one's kind and flags, its arity and name, and its source text (indentation aside; and, since a part may be annotated for the type checker, comments
 and the parentheses of a JSDoc cast do not count: the code is compared).
+The comparison of names, kinds and code is the split's own proof: it is made with the files as the split commit left
+them (SPLIT_COMMIT, d12fa1c9), so a later edit to a method -- a new Settings row, a method added -- is an ordinary edit and
+doesn't fail it. What must stay true as the file changes is checked on the files as they are now: every property is
+defined as a class body defines it, nothing on the prototype is enumerable, and the class is still the class.
 The ORDER of the names differs by construction (the parts' methods are added after the shell's): the test says so by
 comparing sorted lists, and a for-in over a prototype instance (every method is non-enumerable) lists nothing in both.
 """
@@ -86,6 +90,23 @@ def _load(tmp_path: Path, name: str, shell: Path, parts: list[Path]) -> dict:
     return json.loads(run.stdout.strip().splitlines()[-1])
 
 
+SPLIT_COMMIT = "d12fa1c9"          # Phase 18 B4: the split, before any edit since
+
+
+def _at(rev: str, path: str, out: Path) -> Path:
+    out.write_bytes(subprocess.run(["git", "show", f"{rev}:{path}"], capture_output=True, cwd=ROOT, check=True).stdout)
+    return out
+
+
+@pytest.fixture(scope="module")
+def now(tmp_path_factory):
+    """The prototype as the files are now (whatever was edited since the split)."""
+    tmp_path = tmp_path_factory.mktemp("proto_now")
+    man = json.loads(MANIFEST.read_text())
+    parts = [ROOT / man["folder"] / (p["name"] + ".js") for p in man["parts"]]
+    return _load(tmp_path, "now", ROOT / man["shell"], parts)
+
+
 @pytest.fixture(scope="module")
 def both(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("proto")
@@ -94,10 +115,15 @@ def both(tmp_path_factory):
     have = subprocess.run(["git", "cat-file", "-t", blob], capture_output=True, text=True, cwd=ROOT).stdout.strip() if blob else ""
     if have != "blob":
         pytest.skip("the file as it was before the split is not in this clone's history")
+    if subprocess.run(["git", "cat-file", "-t", SPLIT_COMMIT], capture_output=True, text=True, cwd=ROOT).stdout.strip() != "commit":
+        pytest.skip("the split commit is not in this clone's history")
     before = tmp_path / "before.js"
     before.write_bytes(subprocess.run(["git", "cat-file", "blob", blob], capture_output=True, cwd=ROOT).stdout)
-    parts = [ROOT / man["folder"] / (p["name"] + ".js") for p in man["parts"]]
-    return man, _load(tmp_path, "before", before, []), _load(tmp_path, "after", ROOT / man["shell"], parts)
+    # (the shell and its parts as the split left them)
+    shell = _at(SPLIT_COMMIT, man["shell"], tmp_path / "shell.js")
+    (tmp_path / "parts").mkdir()
+    parts = [_at(SPLIT_COMMIT, f"{man['folder']}/{p['name']}.js", tmp_path / "parts" / (p["name"] + ".js")) for p in man["parts"]]
+    return man, _load(tmp_path, "before", before, []), _load(tmp_path, "after", shell, parts)
 
 
 def test_the_prototype_has_the_same_properties_of_the_same_kinds(both):
@@ -110,13 +136,13 @@ def test_the_prototype_has_the_same_properties_of_the_same_kinds(both):
     assert sum(1 for k, _ in kinds.values() if k == "accessor") == 3          # narrow, panel, route: the shell keeps them
 
 
-def test_every_property_is_defined_as_a_class_body_defines_it(both):
-    _, before, after = both
-    for n, r in after["rows"].items():
-        b = before["rows"][n]
-        assert (r["enumerable"], r["configurable"], r.get("writable")) == (b["enumerable"], b["configurable"], b.get("writable")), n
-        assert r["enumerable"] is False
-    assert after["forin"] == before["forin"] == []                              # nothing on it is enumerable, before or after
+def test_every_property_is_defined_as_a_class_body_defines_it(now):
+    """As the files are now: a method is writable, configurable and not enumerable (what a class body defines), an
+    accessor configurable and not enumerable; a for-in over an instance lists nothing."""
+    for n, r in now["rows"].items():
+        assert r["enumerable"] is False and r["configurable"] is True, n
+        assert r.get("writable") is (True if r["kind"] != "accessor" else None), n
+    assert now["forin"] == [] and now["symbols"] == 0
 
 
 def test_every_method_is_the_same_function(both):
@@ -149,12 +175,12 @@ def test_every_method_is_the_same_function(both):
     assert not differ, differ[:10]
 
 
-def test_the_class_is_still_the_class(both):
-    _, before, after = both
+def test_the_class_is_still_the_class(both, now):
+    _, before, _ = both
     for key in ("entered", "enteredIsClass", "extendsElement", "ctorLength", "staticNames"):
-        assert after[key] == before[key], key
-    assert after["entered"] == 1 and after["enteredIsClass"] and after["extendsElement"]
-    assert after["own"] == before["own"] == []
+        assert now[key] == before[key], key
+    assert now["entered"] == 1 and now["enteredIsClass"] and now["extendsElement"]
+    assert now["own"] == before["own"] == []
 
 
 def test_a_method_added_twice_is_an_error_not_a_silent_replacement(tmp_path):
