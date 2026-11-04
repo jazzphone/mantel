@@ -11,6 +11,7 @@ from typing import Any, Callable, Iterable, Mapping
 
 from hk_core.settings import home_grid as HG
 from hk_core.settings import model as SM
+from hk_core.settings import pages as SP
 
 from .. import accessories as ACC
 from ..connectors import Forbidden
@@ -454,7 +455,10 @@ class SettingsService:
             "accessories": self.store.body("house", "accessories") or {"entities": {}},
             "kinds": {}, "hidden": {},
             "presets": catalog.get("presets", []), "chip_kinds": catalog.get("chip_kinds", list(CHIP_KINDS)),
-            "page_kinds": catalog.get("page_kinds", []), "scene_pages": catalog.get("scene_pages", []),
+            # the imported catalog's kinds, with those Mantel's model knows and it lacks (the Timeline, a page kind
+            # newer than the import): a screen whose Pages or Scenes are its own can add them
+            "page_kinds": SP.page_kinds_with(catalog.get("page_kinds", [])),
+            "scene_pages": [k for k in SP.page_kinds_with(catalog.get("scene_pages", [])) if k in SM.SCENE_PAGES],
             "shelves": catalog.get("shelves", {}),
             "setup_done": bool(self.store.body("house", "setup").get("setup_done")),
             "suggest": {}, "counts": {}, "users": [], "integration": {}, "thirdparty": {}, "features": features,

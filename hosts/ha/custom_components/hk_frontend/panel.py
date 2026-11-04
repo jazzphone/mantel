@@ -25,6 +25,7 @@ from homeassistant.core import HomeAssistant, callback
 
 from . import accessories, hiding, kinds, lovelace_boards, settings_api
 from . import settings as S
+from .hk_core.settings import pages as SP
 from . import sleep_rules as SR
 from .const import CONF_FILES_FOLDER, DEFAULT_FILES_FOLDER, DOMAIN
 
@@ -248,8 +249,9 @@ async def ws_panel_get(hass: HomeAssistant, connection: websocket_api.ActiveConn
         # Hidden Accessories (hiding.py): what can hide what, and what is hidden
         "hidden": hiding.snapshot(hass, hiding.settings_of(hass, entry)),
         "presets": list(S.SCREEN_PRESETS),
-        "chip_kinds": list(S.CHIP_KINDS), "page_kinds": list(S.PAGE_ORDER),
-        "scene_pages": list(S.SCENE_PAGES), "shelves": {k: v["title"] for k, v in S.SHELVES.items()},
+        "chip_kinds": list(S.CHIP_KINDS),
+        # (not the pages only a host like Mantel serves: Home Assistant has none of them)
+        "page_kinds": SP.ha_kinds()[0], "scene_pages": SP.ha_kinds()[1], "shelves": {k: v["title"] for k, v in S.SHELVES.items()},
         "setup_done": bool(entry.options.get("setup_done")),
         # a house that never chose an alarm: the one it probably has (General
         # offers it)
