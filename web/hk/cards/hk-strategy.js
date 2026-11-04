@@ -2079,7 +2079,7 @@
     // has (hkShell.hostPage: Mantel's, for the people whose role has it); never in Home Assistant
     if (opts.pages !== false && want('timeline') && hostPage('timeline')) {
       pages.timeline = view({ title: 'Timeline', path: 'timeline', subview: true, sky_variant: 'cameras',
-        icon: 'mdi:timeline-clock-outline', background: '#080a0e',
+        icon: 'mdi:history', background: '#080a0e',
         cards: [titleBar('Timeline'), column([{ type: 'custom:hk-timeline-card' }])] });
     }
 

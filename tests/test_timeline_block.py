@@ -237,7 +237,7 @@ def test_the_catalog_draws_the_block_where_the_host_has_a_timeline_and_a_stand_i
     assert table == {"sizes": ["W", "L", "XL"], "sources": [], "opts": {"show": "timeline_show", "tap": "tap_target"}} and has is True
     for host in ("ha", "broken", "noShell"):             # Home Assistant's HK Frontend, a host that throws, no shell at all
         cfg = catalog[host]
-        assert all(c == {"type": "custom:hk-key-card", "name": "Recent", "icon": "mdi:timeline-clock-outline"} for c in cfg[:5]), host
+        assert all(c == {"type": "custom:hk-key-card", "name": "Recent", "icon": "mdi:history"} for c in cfg[:5]), host
         assert cfg[6] is False, host
 
 

@@ -515,8 +515,8 @@
     }
   }
 
-  register('hk-timeline-block-card', HkTimelineBlockCard, 'HK Recent', 'The last events at the house, or in the morning how the night went. Made for a Home Grid; Mantel only.');
-  register('hk-timeline-strip-card', HkTimelineStripCard, 'HK Recent Strip', 'The last events of one camera, under its live view. Made for the camera sheet; Mantel only.');
+  register('hk-timeline-block-card', HkTimelineBlockCard, 'HK Recent', 'The last events at the house, or in the morning how the night went. Made for a Home Grid, where the host keeps a timeline.');
+  register('hk-timeline-strip-card', HkTimelineStripCard, 'HK Recent Strip', 'The last events of one camera, under its live view. Made for the camera sheet, where the host keeps a timeline.');
   // blocks and strips, never cards to add by hand
   if (C.unlisted) { C.unlisted('hk-timeline-block-card'); C.unlisted('hk-timeline-strip-card'); }
   window.hkTimelineBlock.card = HkTimelineBlockCard;

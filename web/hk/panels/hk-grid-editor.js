@@ -51,7 +51,7 @@
     now_playing: 'mdi:music', security: 'mdi:shield-home', camera: 'mdi:camera', cameras: 'mdi:cctv', clock: 'mdi:clock', timers: 'mdi:timer-outline',
     calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', everything: 'mdi:dots-horizontal',
     power: 'mdi:lightning-bolt', music: 'mdi:speaker-multiple', doors: 'mdi:door-closed-lock', live_tv: 'mdi:television-classic', water: 'mdi:water',
-    on_now: 'mdi:lightbulb-on', todo: 'mdi:clipboard-check', energy_rings: 'mdi:lightning-bolt', timeline: 'mdi:timeline-clock-outline' };
+    on_now: 'mdi:lightbulb-on', todo: 'mdi:clipboard-check', energy_rings: 'mdi:lightning-bolt', timeline: 'mdi:history' };
   // AN OPTION'S NAME in the panel: by its kind (hk-grid-catalog.js opts), else by its own name
   var KIND_LABELS = { entity: 'Accessory', climate: 'Thermostat', camera: 'Camera', weather: 'Weather', vacuum: 'Vacuum',
     speaker: 'Speaker', scene: 'Scene', scenes: 'Scenes', calendars: 'Calendars', area: 'Room', action: 'Does', windows: 'Time Windows', alarm: 'Alarm',
@@ -77,7 +77,7 @@
   // a block's color on the map: its palette group's
   var GROUP_TINT = { 'Rooms & Lights': 'var(--hk-orange)', Scenes: 'var(--hk-tint)', Climate: 'var(--hk-green)', Music: 'var(--hk-red)',
     'Security & Cameras': 'var(--hk-gray)', Info: 'var(--hk-label3)' };
-  // A BLOCK ONLY SOME HOSTS HAVE: Recent is the House Timeline's, Mantel's own record (hkShell.hostPage). It is in the
+  // A BLOCK ONLY SOME HOSTS HAVE: Recent is the House Timeline's, a record only some hosts keep (hkShell.hostPage). It is in the
   // catalog and in GROUPS, as every block is, and offered only where the host has the page: never in Home Assistant's
   // HK Frontend, and not to a person whose role has no Timeline.
   var HOST_ONLY = { timeline: 'timeline' };

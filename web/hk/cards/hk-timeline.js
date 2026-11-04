@@ -50,6 +50,9 @@
   }
 
   // ---- the icon and the color of a row: HK's own glyphs (the notification look, hk_core/notifications/rules.py)
+  function productName() {
+    try { return (window.hkShell && window.hkShell.productName && window.hkShell.productName()) || 'the server'; } catch (e) { return 'the server'; }
+  }
   function lookOf(ev) {
     var f = ev.family, k = ev.kind;
     if (k === 'flapping') return { icon: 'hk:alert-circle', color: 'orange' };
@@ -64,7 +67,7 @@
       if (k === 'triggered') return { icon: 'hk:shield-alert', color: 'red' };
       return k === 'disarmed' ? { icon: 'hk:shield-off', color: 'gray' } : { icon: 'hk:shield-home', color: 'red' };
     }
-    if (f === 'arrival') return k === 'left' ? { icon: 'mdi:logout', color: 'teal' } : { icon: 'hk:location-enter', color: 'green' };
+    if (f === 'arrival') return k === 'left' ? { icon: 'mdi:export', color: 'teal' } : { icon: 'hk:location-enter', color: 'green' };
     if (f === 'doorbell') return { icon: 'hk:doorbell-video', color: 'orange' };
     if (f === 'detection') {
       return { person: { icon: 'hk:walk', color: 'blue' }, vehicle: { icon: 'hk:car', color: 'blue' },
@@ -73,9 +76,9 @@
     }
     if (f === 'motion') return { icon: 'hk:motion-sensor', color: 'blue' };
     if (f === 'safety') {
-      if (k === 'clear') return { icon: 'mdi:check-circle-outline', color: 'green' };
+      if (k === 'clear') return { icon: 'mdi:check-circle', color: 'green' };
       return { leak: { icon: 'hk:water-alert', color: 'red' }, smoke: { icon: 'hk:smoke-detector', color: 'red' },
-               co: { icon: 'hk:molecule-co', color: 'red' }, gas: { icon: 'mdi:gas-cylinder', color: 'red' } }[k] ||
+               co: { icon: 'hk:molecule-co', color: 'red' }, gas: { icon: 'mdi:smoke', color: 'red' } }[k] ||
              { icon: 'hk:alert-circle', color: 'red' };
     }
     if (f === 'refused') return { icon: 'mdi:cancel', color: 'gray' };
@@ -311,7 +314,7 @@
     if (ev.zone) rows.push(['Place', ev.zone]);
     if (w) rows.push([ev.who && ev.who.how === 'tablet' ? 'From' : 'How', w]);
     if (c) rows.push(['Happened', c]);
-    if (ev.late) rows.push(['Note', 'Recorded when Mantel started again: it was off at the time.']);
+    if (ev.late) rows.push(['Note', 'Recorded when ' + productName() + ' started again: it was off at the time.']);
     if (ev.audit_id !== undefined && ev.audit_id !== null) rows.push(['Audit Log', '#' + ev.audit_id]);
     return rows;
   }
@@ -688,7 +691,7 @@
       // (morph keeps the search field's node, so a keyboard stays up while the list changes under it)
       var html = '<div class="sr">' +
         (m.search ? '<div class="sf">' + icon('mdi:magnify', 20) + '<input type="search" enterkeyhint="search" placeholder="Search" aria-label="Search the Timeline" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(f.q) + '">' +
-                    '<button class="cl" data-act="clear-q" aria-label="Clear search"' + (f.q ? '' : ' hidden') + '>' + icon('mdi:close-circle', 20) + '</button></div>' : '<div class="sf" style="visibility:hidden"></div>') +
+                    '<button class="cl" data-act="clear-q" aria-label="Clear search"' + (f.q ? '' : ' hidden') + '>' + icon('mdi:close', 20) + '</button></div>' : '<div class="sf" style="visibility:hidden"></div>') +
         '<label class="btn day' + (f.day ? ' on wide' : '') + '" aria-label="Jump to a day">' + icon('mdi:calendar-month', 20) + '<span class="tx2">' + (f.day ? esc(shortDay(f.day, ctx)) : 'Day') + '</span>' +
           '<input type="date" data-act="day" value="' + esc(f.day) + '" max="' + esc(dayKey(Date.now(), ctx)) + '"></label>' +
         (f.day ? '<button class="btn wide" data-act="clear-day" aria-label="Show the latest again">' + icon('mdi:close', 18) + '<span class="tx2">Latest</span></button>' : '') +
@@ -757,7 +760,7 @@
         '<div class="tx"><div class="t1"><div class="ti">' + esc(ev.title) + '</div><div class="tm">' + esc(timeText(ms, ctx)) + '</div></div>';
       if (meta.length) html += '<div class="sb">' + meta.join(' · ') + '</div>';
       if (who) html += '<div class="sb">' + esc(who) + '</div>';
-      if (ev.late) html += '<div class="sb dim"><span class="w">While Mantel was off</span></div>';
+      if (ev.late) html += '<div class="sb dim"><span class="w">While ' + productName() + ' was off</span></div>';
       var pics = ev.pics || [];
       if (pics.length) {
         html += '<div class="th">' + pics.slice(0, 3).map(function (p) { return '<img src="' + esc(p.url) + '" alt="" loading="lazy" decoding="async" draggable="false">'; }).join('') +
@@ -855,7 +858,7 @@
         }).join('') + '</div>' + (pics.length > 1 ? '<button class="nv pv" data-nav="-1" aria-label="Previous picture" hidden>' + icon('mdi:chevron-left', 24) + '</button><button class="nv nx" data-nav="1" aria-label="Next picture">' + icon('mdi:chevron-right', 24) + '</button><div class="dots">' +
           pics.map(function (p, i) { return '<i' + (i ? '' : ' class="on"') + '></i>'; }).join('') + '</div>' : '') +
           '<div class="pt"></div></div>'
-          : ev.pic_missing ? '<div class="nopic">' + icon('mdi:image-off-outline', 22) + '<span>Picture not kept</span></div>' : '') +
+          : ev.pic_missing ? '<div class="nopic">' + icon('mdi:eye-off-outline', 22) + '<span>Picture not kept</span></div>' : '') +
         '<div class="rows">' + rows + '</div>' +
         (all ? '<button class="go" data-go>' + esc(showAllLabel(ev, name)) + '</button>' : '') +
         '</div></div>';

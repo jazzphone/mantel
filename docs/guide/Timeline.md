@@ -17,6 +17,10 @@ Open **Timeline** from the Home menu, or tap a **Recent** block on a Home Grid. 
 - **A day**: jump to a date.
 - **Tap a row** for its pictures (swipe between them), the exact time, where it was done from, and **Show All** for that camera or door.
 
+A **Recent** block on a Home Grid shows the last few rows, and from 5 to 11 AM the summary of the night (its **Show** option: Automatic, Latest Events or Morning Summary). A camera's sheet shows its own **Recent** strip under the live picture.
+
+![Two Recent blocks on a Home Grid: the latest rows and the night's summary](../images/timeline-block.webp)
+
 The Timeline starts empty on the day you install this version. It doesn't fill in the past from Home Assistant.
 
 ## What it records

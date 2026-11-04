@@ -165,7 +165,7 @@
     // Assistant's HK Frontend, a person whose role has none) draws a stand-in, and the editors never offer it there
     // (hkShell.hostPage, asked here as the Timeline page's own entry is). show: auto (default), latest, digest
     timeline: { sizes: ['W', 'L', 'XL'], sources: [], opts: { show: 'timeline_show', tap: 'tap_target' }, card: function (s, o) {
-      if (!hostHas('timeline')) return stand('Recent', 'mdi:timeline-clock-outline');
+      if (!hostHas('timeline')) return stand('Recent', 'mdi:history');
       return { type: 'custom:hk-timeline-block-card', size: s, show: o.show === 'latest' || o.show === 'digest' ? o.show : 'auto' }; } }
   };
   // A BLOCK ONLY SOME HOSTS HAVE: asked of the host (hkShell.hostPage), never assumed -- no shell, no host page

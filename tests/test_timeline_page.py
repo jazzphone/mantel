@@ -246,7 +246,7 @@ def test_the_summary_is_overnight_from_five_to_eleven_and_says_what_it_can(page)
 def test_the_sheet_says_when_where_who_and_how(page):
     assert page["rows"] == [
         ["Time", "Tuesday, November 3, 2026 at 2:04:12 AM"], ["Where", "Kitchen"], ["Lock", "Back Door"], ["From", "Emma · Hallway tablet"],
-        ["Note", "Recorded when Mantel started again: it was off at the time."], ["Audit Log", "#411"]]
+        ["Note", "Recorded when the server started again: it was off at the time."], ["Audit Log", "#411"]]
     assert page["rows2"] == [["Time", "Tuesday, November 3, 2026 at 2:10:00 AM"], ["Place", "Work"]]
 
 

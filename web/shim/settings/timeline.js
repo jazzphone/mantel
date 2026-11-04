@@ -117,9 +117,9 @@ const readOnly = (page) => (!page.can_edit ? 'Only an Owner can change the Timel
   ? 'From outside the home network you will be asked to confirm it is you first.' : null);
 
 // one change: the request, then the page as the server now holds it
-const save = (page, path, body, key = 'timeline') => act(key, async () => { const r = await api('PUT', path, body); Object.assign(page, r); return r; });
-const putSettings = (page, body) => save(page, '/api/timeline/settings', body);
-const putOverrides = (page, map) => save(page, '/api/timeline/overrides', { overrides: map });
+const save = (page, send, key = 'timeline') => act(key, async () => { const r = await send(); Object.assign(page, r); return r; });
+const putSettings = (page, body) => save(page, () => api('PUT', '/api/timeline/settings', body));
+const putOverrides = (page, map) => save(page, () => api('PUT', '/api/timeline/overrides', { overrides: map }));
 
 // ============================================================================================ Timeline
 export function pTimeline(sub = []) {

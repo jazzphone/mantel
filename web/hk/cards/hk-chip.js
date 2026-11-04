@@ -1247,7 +1247,7 @@
     // feature added, the page on its Pages)
     energy: ['Energy', 'mdi:lightning-bolt', 'white', ['energy']],
     // the House Timeline (a host that has one lists the page: hkShell.hostPage)
-    timeline: ['Timeline', 'mdi:timeline-clock-outline', 'white', ['timeline']]
+    timeline: ['Timeline', 'mdi:history', 'white', ['timeline']]
   };
   function pagePill(key) {
     var p = PAGE_PILLS[key];
