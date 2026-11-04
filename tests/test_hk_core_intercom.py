@@ -2,7 +2,7 @@
 room rules, THE GROUP CHECK above all (docs/phase17/INTERCOM.md "Rooms"). Nothing here sends anything; the group
 trap is only ever tested here, on fakes, never on real speakers (it would play house-wide).
 """
-from datetime import datetime, timezone
+from datetime import datetime
 
 import pytest
 

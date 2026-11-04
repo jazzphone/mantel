@@ -175,7 +175,7 @@ def decide(house: House, music: MusicConfig, doc: Mapping[str, Any], picked: Ite
             continue                                    # 1. not an Intercom room
         if not allowed(r):
             continue                                    # 2. not this sender's
-        row = {"room": r, "name": music.name_of(r), "state": OK, "why": None, "reason": "", "live": False}
+        row: dict[str, Any] = {"room": r, "name": music.name_of(r), "state": OK, "why": None, "reason": "", "live": False}
         plan.rooms.append(row)
         if ma is None:
             row.update(state=SKIPPED, why=WHY_UNAVAILABLE,
@@ -194,7 +194,7 @@ def decide(house: House, music: MusicConfig, doc: Mapping[str, Any], picked: Ite
 
     # 6. THE GROUP CHECK, to a fixpoint: a room skipped leaves its players out of every other room's reach
     own = owners(music, ma or {}, pids)
-    by_pid = {}
+    by_pid: dict[str, str] = {}
     for e, pid in pids.items():
         by_pid.setdefault(pid, e)
     while True:

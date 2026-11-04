@@ -351,7 +351,7 @@ async def test_get_settings_gives_the_page_everything_it_draws(ic):
 
 async def test_get_settings_lists_only_wall_tablets_that_are_not_revoked(ic):
     avery = await ic.actor("avery", "owner")
-    keep, gone = await ic.tablet("Hall tablet", "den"), await ic.tablet("Old tablet", "kitchen")
+    _kept, gone = await ic.tablet("Hall tablet", "den"), await ic.tablet("Old tablet", "kitchen")
     ic.app["devices"].revoke(gone.device_id, "test")
     got = (await avery.get(SETTINGS))[1]
     assert [t["name"] for t in got["tablets"]] == ["Hall tablet"]

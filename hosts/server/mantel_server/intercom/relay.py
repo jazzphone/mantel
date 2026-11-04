@@ -38,7 +38,6 @@ from ..authz import Principal
 from ..guards import guard
 from ..ha_client import talk_frame_max
 from ..talk_relay import Bucket, _keys, _name, _who
-from . import driver as D
 
 log = logging.getLogger("mantel.intercom")
 
