@@ -63,6 +63,7 @@ const PLATE_POINTS = (n) => {
     const open = async () => {
       await p.goto(input.origin + '/' + input.screen + '/home');
       await p.waitForFunction(() => window.__mantelReady === true);
+      await require('./grid_ready.cjs')(p);
       await p.waitForFunction(() => {
         const d = (r) => { for (const e of r.querySelectorAll('*')) { if (e.localName === 'hk-home-grid-view') return e; if (e.shadowRoot) { const f = d(e.shadowRoot); if (f) return f; } } return null; };
         const v = d(document); return v && v.shadowRoot.querySelectorAll('.cell').length > 0;

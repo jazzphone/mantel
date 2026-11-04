@@ -329,7 +329,7 @@ def entry(app: web.Application, tid: str, t: Mapping[str, Any] | None) -> dict[s
             "unreadable": tid in links.unreadable}
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_list(request: web.Request) -> web.Response:
     ident = guarded(request)
     app = request.app
@@ -352,7 +352,7 @@ async def _none() -> None:
     return None
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def api_live(request: web.Request) -> web.Response:
     tid = _tid(request)
     rec = _links(request).get(tid)

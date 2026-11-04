@@ -23,6 +23,8 @@ from pathlib import Path
 
 from aiohttp import web
 
+from .guards import WHY_STATIC, open_route
+
 MANTEL_PAGE = "Mantel"
 PAGE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,80}$")
 IMAGE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.(?:png|jpe?g|webp|gif|svg)$", re.I)
@@ -349,9 +351,11 @@ def _html(title: str, body: str, sidebar: str, footer: str, back: str) -> str:
 
 
 def add_routes(app: web.Application, docs: Docs) -> None:
+    @open_route("static", why=WHY_STATIC)
     async def index_redirect(request: web.Request) -> web.StreamResponse:
         raise web.HTTPFound("/docs/")
 
+    @open_route("static", why=WHY_STATIC)
     async def page(request: web.Request) -> web.StreamResponse:
         name = request.match_info.get("page") or MANTEL_PAGE
         # ../settings from /docs/ and /docs/<Page> alike
@@ -366,6 +370,7 @@ def add_routes(app: web.Application, docs: Docs) -> None:
         return web.Response(text=_html(title, body, docs.sidebar(), docs.footer(), back),
                             content_type="text/html", headers=HEADERS)
 
+    @open_route("static", why=WHY_STATIC, stream="bounded:one picture file under docs/")
     async def image(request: web.Request) -> web.StreamResponse:
         p = docs.image(request.match_info["name"])
         if p is None:

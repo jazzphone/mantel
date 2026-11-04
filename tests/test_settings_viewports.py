@@ -14,8 +14,10 @@ from pathlib import Path
 
 import pytest
 
+import web_sources
+
 ROOT = Path(__file__).resolve().parents[1]
-PANEL = (ROOT / "web/hk/panels/hk-settings.js").read_text()
+PANEL = web_sources.read("web/hk/panels/hk-settings.js")
 
 
 def test_two_columns_from_700_px_when_there_is_height():

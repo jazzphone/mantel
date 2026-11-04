@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+import web_sources
+
 ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
 
@@ -24,9 +26,7 @@ def text(rel: str) -> str:
 
 def detail_text() -> str:
     """hk-detail.js (the sheet shell) followed by every sheet file it loads (web/hk/sheets/)."""
-    shell = text("web/hk/cards/hk-detail.js")
-    names = re.findall(r"'(hk-sheet-[\w-]+\.js)'", re.search(r"var SHEETS = \[([^\]]*)\]", shell).group(1))
-    return shell + "\n" + "\n".join(text("web/hk/sheets/" + n) for n in names)
+    return web_sources.read("web/hk/cards/hk-detail.js")
 
 
 @pytest.fixture(scope="module")
@@ -130,7 +130,7 @@ def test_the_grid_clock_block_draws_its_face_again_when_its_view_comes_back():
     """WEB-6 (fixed): hk-grid-cards.js:1188-1193: the clock block drops its face (and its _built) when its view is taken out of
     the page, but nothing draws it again when the view comes back: HkBase.connectedCallback (hk-base.js:2475)
     redraws only a card whose hk-stats subscription was lost"""
-    body = class_body(text("web/hk/cards/hk-grid-cards.js"), "HkGridClockCard")
+    body = class_body(web_sources.read("web/hk/cards/hk-grid-cards.js"), "HkGridClockCard")
     m = re.search(r"\n {6}connectedCallback\(\) \{(.*?)\n {6}\}", body, re.S)
     assert m and re.search(r"_render\(|redraw\(|requestUpdate\(", m.group(1))
 
@@ -224,10 +224,19 @@ def test_a_sheet_file_that_did_not_come_is_asked_for_again():
     load = load[:load.index("\n    }\n")]
     assert "'retry=' + n" in load and "setTimeout(function () { loadSheets(n + 1); }" in load and "SHEET_TRIES" in load
     assert "import(window.hkV ? window.hkV(u) : u)" in load      # the first try at the build's own address
+    # the files tools/split_js.py cut up (tests/test_web_sources.py runs the loader itself): the same loop, from one template
+    for shell in web_sources.shells():
+        src = shell.read_text()
+        if "var PARTS = [" not in src:
+            continue
+        loader = src[src.index("function loadParts(then, n)"):]
+        loader = loader[:loader.index("\n  }\n")]
+        assert "'retry=' + n" in loader and "setTimeout(function () { loadParts(then, n + 1); }" in loader, shell.name
+        assert "PARTS_TRIES" in loader and "import(href)" in loader, shell.name
     home = text("web/home.js")
     imp = home[home.index("const imp = async (u) =>"):]
     assert "'retry=' + n" in imp[:600] and "setTimeout" in imp[:600]
-    settings = text("web/hk/panels/hk-settings.js")
+    settings = web_sources.read("web/hk/panels/hk-settings.js")
     boot = settings[settings.index("    async boot() {"):]
     boot = boot[:boot.index("M = window.hkSettingsModel")]
     assert "'&retry=' + this._bootTry" in boot and "self.boot()" in boot

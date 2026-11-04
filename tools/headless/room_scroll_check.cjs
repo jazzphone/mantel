@@ -11,6 +11,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
    const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.goto(input.origin+'/room-scroll/home');
    await page.waitForFunction(()=>window.__mantelReady);
+   await require('./grid_ready.cjs')(page);
    await page.evaluate(()=>{
     window.deep=(r,s)=>[...r.querySelectorAll('*')].flatMap(e=>[...(e.matches(s)?[e]:[]),...(e.shadowRoot?deep(e.shadowRoot,s):[])]);
     window.p=deep(document,'hk-pager-card')[0];

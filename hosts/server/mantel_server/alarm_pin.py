@@ -705,7 +705,7 @@ def alarm_pins_of(request: web.Request) -> AlarmPins:
     return request.app["alarm_pin"]
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def list_pins(request: web.Request) -> web.Response:
     return ok({"alarms": [e.to_dict() for e in alarm_pins_of(request).entries()]})
 

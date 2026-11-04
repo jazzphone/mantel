@@ -1,3 +1,4 @@
+// @ts-check
 // Mantel's client port for compatibility snapshots made by mantel-host.js.
 // It never imports the HA adapter or gives a host object to a state icon.
 (function (global) {
@@ -374,6 +375,7 @@
     // a client already (a shared caller passing on what it was given): as is
     if (global.hkClient && global.hkClient.is(snapshot)) return snapshot;
     if (clients.has(snapshot)) return clients.get(snapshot);
+    /** @type {HkClientPort} */
     var port = {};
     ['states', 'entities', 'devices', 'areas', 'floors', 'services', 'config', 'locale', 'language', 'user', 'themes', 'connected'].forEach(function (key) {
       Object.defineProperty(port, key, { get: function () { return snapshot[key]; } });
@@ -412,6 +414,7 @@
       } };
     }
     withFeatures(port, gateway);
+    /** @type {HKClient} */
     var client = global.hkClient.create(port);
     clients.set(snapshot, client);
     hosts.set(client, snapshot);
@@ -507,6 +510,7 @@
     latest = next;
     try { global.dispatchEvent(new CustomEvent('hk-client-update')); } catch (e) { /* shell tests */ }
   }
+  /** @type {HkMantelClient} */
   global.hkMantelClient = { from: from, current: function () { return latest; }, setCurrent: setCurrent, bridge: bridge, entry: entry,
                             useCommands: useCommands, useScreens: useScreens, listenAtDevice: listenAtDevice, kind: 'mantel', SETTINGS_SAVES: SETTINGS_SAVES.slice(),
                             FEATURE_SAVES: FEATURE_SAVES.slice() };

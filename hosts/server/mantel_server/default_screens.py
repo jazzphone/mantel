@@ -126,7 +126,7 @@ def _screen_of(app: web.Application, body: Any) -> str | None:
     return screen
 
 
-@guard("person", device_ok=True)
+@guard("person", device_ok=True, reads="self")
 async def mine_get(request: web.Request) -> web.Response:
     ident = guarded(request)
     app = request.app
@@ -146,7 +146,7 @@ async def mine_put(request: web.Request) -> web.Response:
     return ok({"screen": screen})
 
 
-@guard("manager")
+@guard("manager", reads="admin")
 async def all_get(request: web.Request) -> web.Response:
     app = request.app
     return ok({"users": all_of(app, "u"), "devices": all_of(app, "d"), "screens": screens(app),

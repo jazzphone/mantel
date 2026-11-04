@@ -52,6 +52,7 @@ async function go(t, path) {
   await t.page.goto(input.origin + path);
   await t.page.waitForFunction(() => window.__mantelReady && window.hkEdit && window.hkMenu && window.hkEditMenu && window.hkEditPages
     && window.hkEdit.surfaces().includes('menu') && window.hkEdit.surfaces().includes('scenes-row'), null, { timeout: 20000 });
+  await require('./grid_ready.cjs')(t.page);
   await t.page.evaluate(HELP);
   await t.page.waitForTimeout(700);
 }
@@ -411,6 +412,7 @@ async function conflict() {
   const other = await t.ctx.newPage();                // another window of the same Owner
   await other.goto(input.origin + '/' + S + '/home');
   await other.waitForFunction(() => window.__mantelReady && window.hkCards && hkCards.client());
+  await require('./grid_ready.cjs')(other);
   const o0 = await p.evaluate(() => order('light.kitchen_pendants'));
   await enterFromMenu(t);
   await carryBefore(t, o0[o0.length - 1], o0[0]);

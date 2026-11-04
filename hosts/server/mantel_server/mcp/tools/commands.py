@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 
 from ..dispatch import ToolError, command
-from . import Tool
+from . import NO_ROUTE_COMMAND, Tool
 
 DOMAIN = re.compile(r"^[a-z0-9_]{1,64}\Z")
 NEVER = frozenset({"alarm_control_panel", "homeassistant", "hassio", "recorder", "system_log", "logger",
@@ -41,5 +41,6 @@ TOOLS = [
           "entity_ids": {"type": "array", "items": {"type": "string", "maxLength": 255}, "maxItems": 20},
           "data": {"type": "object"}},
          house_command, needs="commands", required=("domain", "service", "entity_ids"), write=True,
-         planned=False, destructive=True),
+         planned=False, destructive=True,
+         no_route=NO_ROUTE_COMMAND),
 ]

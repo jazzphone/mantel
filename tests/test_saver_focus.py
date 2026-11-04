@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+import web_sources
+
 ROOT = Path(__file__).resolve().parents[1]
 SAVER = ROOT / "web/hk/modules/hk-saver.js"
 
@@ -169,7 +171,7 @@ def test_without_a_focus_everything_is_as_before():
 
 
 def test_the_photo_layer_takes_its_zoom_origin_from_the_focus_with_the_old_one_as_fallback():
-    src = SAVER.read_text()
+    src = web_sources.read(SAVER)
     assert "transform-origin:var(--org,var(--pos,50% 50%))" in src
     # the host's list passes a sound focus through, and only that
     assert "fc = cleanFocus(p)" in src

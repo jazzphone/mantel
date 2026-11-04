@@ -42,6 +42,10 @@ from typing import Any, Awaitable, Callable, Iterable
 
 log = logging.getLogger("mantel.live")
 
+# the kinds a route may declare as ``stream="live:<kind>"`` (route_table.py, R5): what each long-lived answer adds
+# here under (an entry's kind is this, or this followed by ``:`` and what it holds)
+KINDS = frozenset({"hub", "talk", "linked", "linked_reads", "media_proxy"})
+
 SHUTDOWN = "server_shutting_down"
 REVOKED = "revoked"
 NOT_ALLOWED = "no_longer_allowed"
@@ -111,7 +115,7 @@ class Live:
     def __init__(self, authz: Callable[[], Any] | None = None) -> None:
         self._authz = authz or (lambda: None)
         self._entries: dict[Entry, None] = {}            # insertion order: a socket before what it opened
-        self._tasks: set[asyncio.Task] = set()
+        self._tasks: set[asyncio.Task[Any]] = set()
 
     # -- the registry -------------------------------------------------------------------------------------------
     def add(self, kind: str, principal: Any, close: Callable[[str], Awaitable[None] | None], *,

@@ -90,10 +90,12 @@ VERSION_LINE = re.compile(r'^\s*"?version"?\s*[:=]\s*"?[0-9A-Za-z.+-]*"?\s*,?\s*
 # lines. A browser check: the page and the server it runs against (the gallery's fictional house over Mantel's own
 # server, which also serves the guide), and its script's files (check_inputs). HK Frontend's suites: what its build
 # takes (publish.py plan: the component, web/hk, the shared assets, hk_core) and the esbuild it minifies with.
-PAGE_INPUTS = ("web/", "hk_core/", "hosts/server/mantel_server/", "tests/fixtures/",
+PAGE_INPUTS = ("web/", "tools/split_manifests/", "hk_core/", "hosts/server/mantel_server/", "tests/fixtures/",
                "hosts/ha/custom_components/hk_frontend/docs/", "packaging/ha-app/DOCS.md", *VERSION_FILES)
 HK_INPUTS = ("hosts/ha/", "web/", "hk_core/", "tools/build_ha.py", "tools/build_tools.py", "tools/package.json",
              "tools/package-lock.json", *VERSION_FILES)
+# what types-py reads: the Python it checks and its own config and baselines
+PY_INPUTS = ("hk_core/", "hosts/server/", "tools/", "tests/", "pyproject.toml")
 # where a check's script finds the modules it imports (each puts these on sys.path)
 SCAN_DIRS = ("tools/headless", "tools", "tests")
 PLAYWRIGHT = ("py", "playwright", "mac")       # what a Playwright check runs with (env_print), Chromium's also "chrome"
@@ -234,6 +236,10 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
              timeout=300, first=True),
         # (on 8 workers where pytest-xdist is installed: about a minute, not four)
         Step("main-suite", lambda: [py, "-m", "pytest", "-q", "-p", "no:cacheprovider", *xdist_args(py)], env=private_env()),
+        # TypeScript on every web file that opts in with // @ts-check (phase 18, Part C; its own pinned folder)
+        Step("types-js", [py, "tools/typecheck/check.py"], timeout=300,
+             skip=lambda: None if shutil.which("npm") and (os.environ.get("NODE") or shutil.which("node"))
+             else "no npm or node (Node.js)"),
         Step("check-links", [py, "tools/check_links.py"], timeout=300, versions=True),
         Step("check-version", [py, "tools/check_version.py"], timeout=300, versions=True),
         Step("package-check", [py, "tools/package_check.py", "--release"], timeout=600, versions=True),
@@ -244,6 +250,10 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
         # (`versions` only: the main suite's files that read a version file or a changelog; quick and full run them all)
         Step("version-tests", lambda: [py, "-m", "pytest", "-q", "-p", "no:cacheprovider", *xdist_args(py), *version_readers()],
              tier="versions", versions=True, env=private_env()),
+        # mypy on hk_core (the route table's modules strict) and ruff's pyflakes rules: per-file counts that only fall
+        Step("types-py", [py, "tools/typecheck/py_check.py"], tier="full", timeout=600, inputs=PY_INPUTS,
+             skip=lambda: None if subprocess.run([py, "-c", "import mypy, ruff"], capture_output=True).returncode == 0
+             else "no mypy or ruff in the venv (pip install -e '.[dev]')"),
         Step("ha-build", lambda: [py, "tools/build_ha.py", str(build.ha)], tier="full", timeout=600, first=True),
         Step("hk-frontend-py", [str(HA_PY), "-m", "pytest", "-q", "-p", "no:cacheprovider"], tier="full",
              skip=lambda: build.missing() or (None if HA_PY.exists() else f"no harness venv at {HA_PY.parent.parent}"),
@@ -581,6 +591,8 @@ def imported(scripts: list[str], root: Path = ROOT) -> list[str]:
         seen.append(rel)
         todo += [str(q.relative_to(root)) for q in path.parent.glob(path.stem + ".*")
                  if q.suffix in (".py", ".cjs", ".mjs", ".js")]
+        if path.suffix == ".cjs":              # a Playwright half's own helpers (require('./grid_ready.cjs'))
+            todo += [str((path.parent / m).relative_to(root)) for m in re.findall(r"require\('\./([\w.-]+\.cjs)'\)", path.read_text(errors="replace"))]
         if path.suffix != ".py":
             continue
         for frm, imp in IMPORT.findall(path.read_text(errors="replace")):
