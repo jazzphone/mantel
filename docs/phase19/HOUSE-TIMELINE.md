@@ -1,6 +1,6 @@
 # Phase 19: the House Timeline (plan, 2026-11-03)
 
-**Status: built 2026-11-03 (19.0 to 19.7 and 19.9; 19.8 deferred, see the Build log). Every decision answered by the owner on 2026-11-03 (all recommendations accepted).**
+**Status: built and on the house (Mantel 0.1.122, HK Frontend 1.42.0, 2026-11-04): 19.0 to 19.7 and 19.9; 19.8 deferred (see the Build log). Every decision answered by the owner on 2026-11-03 (all recommendations accepted).**
 
 ## The ask (the owner, 2026-11-03)
 
@@ -664,3 +664,23 @@ with no `parent_id` would be a person in Home Assistant's own app, a `parent_id`
 - Home Assistant's `camera_proxy` picture path with a real camera (the direct path and the shrink are tested).
 - A full three-size run of `tools/headless/timeline_check.py` after the page's last style change passed at two sizes
   separately; the check retries a slow first load once.
+
+**The release (decision 20), 2026-11-04.** `tools/ci.py full --all` passed 53 of 53 (from a worktree on this Mac's own
+disk: from the SMB share, browser checks timed out under the other sessions' load, and main's own tree passed only
+from local disk too); both Opus reviews have nothing open; every commit since v0.1.121 read. Mantel 0.1.122 tagged,
+published and on the house (healthy, migration 0033, 111 entities recorded, Mantel Link back); HK Frontend 1.42.0 in
+Home Assistant and published. Record: House-releases.md.
+
+**What the first hour on the house showed.**
+
+- The morning digest ran at the start before Home Assistant gave the house's time zone (UTC until then: 10:50 UTC
+  read as after 7:00) and stored an empty digest for today, to no channel. Fixed on main after the release: no digest
+  until the house's zone is known, and none for a night the timeline didn't watch from its start (it can't vouch for
+  a quiet night it didn't see). It ships with the next release; the empty row for 2026-11-04 is harmless.
+- The main water supply valve wrote "opened" and "closed" rows as Home Assistant restarted (its integration reports
+  a state as it comes back). Real states, but worth watching after a few restarts: a later rule could skip a change
+  that comes within seconds of the entity's return from `unavailable`.
+
+**Waiting on the owner:** nothing. (Optional: turn on **Morning Summary** in the House group of an alert channel, or in
+Me, to receive the digest; both are off by default, as decided.)
+
