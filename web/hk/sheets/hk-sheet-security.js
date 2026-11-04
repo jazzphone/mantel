@@ -194,7 +194,8 @@
           ':host{display:block;border-radius:30px}',
           // never taller than the screen less 16 a side: the sheet is the
           // picture and nothing else
-          ':host{--hk-db-max:calc(var(--hk-vh, 100dvh) - 32px)}',
+          // (less the Recent strip's room, --hkd-strip: set on the sheet while the strip is showing)
+          ':host{--hk-db-max:calc(var(--hk-vh, 100dvh) - 32px - var(--hkd-strip, 0px))}',
           '.cam{border-radius:inherit}',
           '.na{aspect-ratio:16/9;border-radius:inherit;background:rgba(255,255,255,0.06);display:flex;flex-direction:column;',
           '  align-items:center;justify-content:center;gap:14px;color:rgba(235,235,245,0.62);font-size:17px;font-weight:600}'
@@ -217,7 +218,30 @@
       // signed picture, its own state), not only the ones that rebuild this
       _receiveClient() {
         if (this._card && this._card.hkSetClient) this._card.hkSetClient(this.client);
+        if (this._strip && this._strip.hkSetClient) this._strip.hkSetClient(this.client);
         super._receiveClient();
+      }
+      // RECENT UNDER THE PICTURE (2026-11-03, docs/phase19/HOUSE-TIMELINE.md "The views"): the last ten events of this
+      // camera, each with its first picture (hk-timeline-block.js hk-timeline-strip-card). Mantel's own House
+      // Timeline: only where the host has the page for this person (hkShell.hostPage), and not on a short screen (a phone
+      // on its side, the car's), where the picture needs every pixel. The strip tells the sheet what it takes
+      // (--hkd-strip, which the picture's width is worked out from); a refusal or nothing read takes none.
+      _recent(h) {
+        if (this._strip || this._noStrip) return;
+        var SH = window.hkShell, short = false;
+        try { short = !!(window.matchMedia && window.matchMedia('(max-height: 520px)').matches); } catch (e) { short = false; }
+        var has = false;
+        try { has = !!(SH && SH.hostPage && SH.hostPage('timeline')); } catch (e) { has = false; }
+        if (!has || short) { this._noStrip = true; return; }
+        var self = this;
+        this._strip = C.create({ type: 'custom:hk-timeline-strip-card', camera: this._id });
+        if (!this._strip) { this._noStrip = true; return; }
+        this._strip.addEventListener('hk-strip-room', function (e) {
+          var sh = self.hkSheet && self.hkSheet.sheet;
+          if (sh) sh.style.setProperty('--hkd-strip', ((e.detail && e.detail.height) || 0) + 'px');
+        });
+        this._root.appendChild(this._strip);
+        if (this._strip.hkSetClient) this._strip.hkSetClient(h);
       }
       // THE SHEET TAKES THE CAMERA'S SHAPE: the pop-ups' sizes, a picture
       // about 750 tall at most 1200 wide -- the doorbell (4:3) 1000 x 750, a
@@ -288,6 +312,7 @@
         }
         // the stream card gets what goes with this client (the host adapter decides)
         if (this._card && this._card.hkSetClient) this._card.hkSetClient(h);
+        this._recent(h);
       }
     }
 

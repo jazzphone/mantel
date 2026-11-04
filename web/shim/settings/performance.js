@@ -33,6 +33,19 @@ export function screenSub(r, now) {
   return bits.join(' · ');
 }
 
+// the House Timeline's numbers (performance.py STATS.timeline: tap and write p95, rows, queued, dropped, pictures)
+export function timelineRows(tl) {
+  const tap = tl.tap || {}, w = tl.write || {}, p = tl.pictures || {};
+  const pair = (x) => (x.samples ? 'p50 ' + secs(x.p50_ms) + ' · p95 ' + secs(x.p95_ms) : '—');
+  return [
+    info('Tap', tap.samples ? tap.samples.toLocaleString('en-US') + ' batches in the last hour' : 'No changes in the last hour', pair(tap)),
+    info('Writing', w.samples ? w.samples.toLocaleString('en-US') + ' saves in the last hour' : 'Nothing written in the last hour', pair(w)),
+    info('Rows', (tl.members == null ? null : tl.members + ' entities recorded') , tl.rows == null ? '—' : tl.rows.toLocaleString('en-US')),
+    info('Queue', tl.dropped ? tl.dropped + ' dropped since Mantel started' : 'None dropped', String(tl.queued == null ? '—' : tl.queued)),
+    info('Pictures', p.kept == null ? null : p.kept.toLocaleString('en-US') + ' kept · ' + (p.failed || 0) + ' failed', p.bytes == null ? '—' : size(p.bytes)),
+  ];
+}
+
 export function pPerformance() {
   return { title: 'Performance', back: ['About', '#/' + ROUTE + '/about'],
            scope: 'How each screen’s page is doing over the last 24 hours, and how fast Mantel passes the house’s changes on. Numbers only; a screen’s are kept for a day, and each tablet’s latest summary until its next.', body(c) {
@@ -48,6 +61,8 @@ export function pPerformance() {
       info('Settings History', h.rows == null ? null : 'Every saved version of the settings', h.rows == null ? '—' : h.rows.toLocaleString('en-US') + (h.rows === 1 ? ' version · ' : ' versions · ') + size(h.bytes)),
       info('Connected Screens', null, String(s.connected_screens == null ? '—' : s.connected_screens)),
     ]));
+    const tl = d.timeline || {};
+    if (tl.on) c.appendChild(group({ header: 'Timeline', footer: 'The tap is the Timeline’s look at each batch of the house’s changes; writing is one save of what it queued (every 2 seconds). Over the last hour.' }, timelineRows(tl)));
     const row = (r) => info(r.name, screenSub(r, d.now), r.up_since ? 'Up ' + span(d.now, r.up_since) : '—');
     const tablets = (d.screens || []).filter((r) => r.kind === 'tablet'), people = (d.screens || []).filter((r) => r.kind !== 'tablet');
     c.appendChild(group({ header: 'Wall Tablets', footer: tablets.length ? 'Up is how long the page has been open; a tablet that reloads often shows a short time here.' : 'No wall tablet has reported in the last 24 hours.' }, tablets.map(row)));

@@ -28,7 +28,7 @@ from pathlib import Path
 
 LAZY = frozenset({
     "hk-calendar.js", "hk-cameras.js", "hk-energy.js", "hk-grid-cards.js", "hk-headers.js", "hk-home.js",
-    "hk-library.js", "hk-media.js", "hk-music.js", "hk-stat.js", "hk-weather.js",
+    "hk-library.js", "hk-media.js", "hk-music.js", "hk-stat.js", "hk-timeline-block.js", "hk-timeline.js", "hk-weather.js",
     # the Intercom (Phase 17): its block on a Home Grid page, the sheet `#intercom` opens (hk-loader.js imports the file
     # when that address comes) and a wall tablet that listens (the shim asks). Nothing on any other page.
     "hk-intercom.js",

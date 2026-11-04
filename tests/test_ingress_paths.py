@@ -32,7 +32,7 @@ URL_ROOT = re.compile(r"""(["'`(])(?!""" + re.escape(PREFIX) + r""")/(api|hk|web
                       r"""local|hacsfiles|frontend|hk-settings|dashboard)\b""")
 MANTEL_OWN = {"home.js", "shim/settings-page.js", "shim/mantel-settings.js", "shim/settings/core.js", "shim/settings/kit.js", "shim/settings/me.js",
               "shim/settings/people.js", "shim/settings/devices.js", "shim/settings/roles.js", "shim/settings/files.js", "shim/settings/backups.js",
-              "shim/settings/alerts.js", "shim/settings/service.js", "shim/settings/assistants.js", "shim/settings/connect.js", "shim/settings/connections.js", "shim/settings/tablets.js",
+              "shim/settings/alerts.js", "shim/settings/timeline.js", "shim/settings/service.js", "shim/settings/assistants.js", "shim/settings/connect.js", "shim/settings/connections.js", "shim/settings/tablets.js",
               "shim/settings/ha-screens.js", "shim/settings/link.js", "shim/settings/proxy.js", "shim/settings/audit.js",
               "shim/settings/setup.js", "shim/settings/general.js", "shim/settings/about.js", "shim/settings/performance.js", "shim/settings/secure.js", "shim/settings/cameras.js", "shim/settings/intercom.js", "shim/settings/protect.js", "shim/base.js", "shim/hub.js", "shim/mantel-client.js", "shim/mantel-host.js",
               "shim/mantel-shell.js", "shim/ha-elements.js", "shim/mantel-photos.js", "shim/boot-retry.js", "shim/page-health.js",
@@ -50,6 +50,7 @@ NOT_MANTEL_URLS = [
     ("shim/settings/kit.js", "if (BASE) location.reload(); else location.assign('/login')", "only without a prefix (BASE: '')"),
     ("shim/settings/core.js", "location.assign('/login?next='", "only without a prefix (signedOut: under Ingress Home Assistant signs people in)"),
     ("shim/mantel-client.js", "indexOf('/api/') === 0", "HA API paths for the action port (hub.command), never fetched"),
+    ("shim/mantel-host.js", "return m ? '/api/' + m[1]", "the Timeline's read path, which _timeline fetches with window.__mantelBase in front"),
 ]
 WRAPPED = re.compile(r"(mantelUrl|api|post|wsUrl)\(\s*$|\bapi\('[A-Z]+',\s*$")
 

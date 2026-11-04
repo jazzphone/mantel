@@ -3,11 +3,14 @@
   "hosts/ha/frontend/hk-ha-client.js",
   "hosts/ha/frontend/hk-ha-shell.js",
   "web/hk/cards/hk-intercom.js",
+  "web/hk/cards/hk-timeline-block.js",
+  "web/hk/cards/hk-timeline.js",
   "web/hk/grid-cards/hk-grid-math.js",
   "web/hk/modules/hk-mic.js",
   "web/shim/mantel-client.js",
   "web/shim/mantel-shell.js",
-  "web/shim/settings/intercom.js"
+  "web/shim/settings/intercom.js",
+  "web/shim/settings/timeline.js"
  ],
  "unchecked_allowed": [
   "web/app/push.js",

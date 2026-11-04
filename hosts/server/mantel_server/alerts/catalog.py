@@ -11,9 +11,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 LEVELS = ("info", "warning", "critical")
-GROUPS = ("connections", "backups", "tablets", "mantel", "updates", "security")
+GROUPS = ("connections", "backups", "tablets", "mantel", "updates", "security", "house")
 GROUP_NAMES = {"connections": "Connections", "backups": "Backups", "tablets": "Tablets", "mantel": "Mantel",
-               "updates": "Updates", "security": "Security"}
+               "updates": "Updates", "security": "Security", "house": "House"}
 MIN = 60.0
 
 
@@ -130,6 +130,8 @@ KINDS: dict[str, Kind] = {k.id: k for k in (
          "Someone is trying passwords or codes at Mantel's sign-in page.", default=False, page="audit", once=True),
     Kind("config.changed", "security", "info", "Mantel's setup changed: {what}", "By {who}.", default=False,
          page="audit", once=True),
+    # -- House (the House Timeline's morning digest: house facts only, no person's name; docs/phase19) -----------
+    Kind("house.digest", "house", "info", "{title}", "{body}", default=False, once=True, page="timeline"),
 )}
 
 # what a "test" message says (Send Test)

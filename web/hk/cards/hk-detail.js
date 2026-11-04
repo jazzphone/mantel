@@ -765,7 +765,7 @@
       // the strip's live tile or the sky moves under it
       '.hkd .sheet.bare{padding:0;gap:0;border-radius:30px;height:auto;background:#0b0d12;',
       '  -webkit-backdrop-filter:none;backdrop-filter:none;',
-      '  width:min(var(--hkd-w,1200px), calc((var(--hk-vh, 100dvh) - 32px) * var(--hkd-ar, 1.7778)))}',
+      '  width:min(var(--hkd-w,1200px), calc((var(--hk-vh, 100dvh) - 32px - var(--hkd-strip, 0px)) * var(--hkd-ar, 1.7778)))}',
       '.hkd .sheet.bare .hd{position:absolute;top:18px;right:18px;z-index:3;height:auto}',
       '.hkd .sheet.bare .well,.hkd .sheet.bare .tx{display:none}',
       // (white on it in every look: Flat's ink glyph vanished on the dark

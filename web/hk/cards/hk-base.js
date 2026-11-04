@@ -3550,7 +3550,7 @@
     'hk-library-card', 'hk-speaker-picker-card', 'hk-browse-card', 'hk-timers-page-card',
     'hk-camera-mosaic-card', 'hk-tv-guide-card', 'hk-area-select-card', 'hk-page-status-card',
     'hk-room-status-card', 'hk-climate-status-card', 'hk-popup-card', 'hk-popup-group-card',
-    'hk-screensaver-status-card', 'hk-screensaver-now-card']);
+    'hk-screensaver-status-card', 'hk-screensaver-now-card', 'hk-timeline-card']);
   // everything else (the controls, keypads, players, graphs, New Timer...)
   var GRID_REST = gridOf(12, 6);
   function gridFor(tag) { return GRID[tag] || GRID_REST; }

@@ -38,7 +38,7 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import camera_setup, default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, route_table, security_headers, socket_reads, tablet_links, user_data
-from . import alerts, app_shell, cf_access, guards, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
+from . import alerts, app_shell, timeline, cf_access, guards, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -95,12 +95,20 @@ class Hub:
         self.registry_feed = RegistryFeed(self)       # the `registry` frames (registry_feed.py)
         self.registry_push_delay = PUSH_DELAY
         self.registry_bodies = RegistryBodies()       # /api/registry's bodies, by filtered digest
+        # what else hears every batch, after the sessions (the House Timeline's tap): each must be cheap and never
+        # wait for the disk; one that raises is logged and the others still run
+        self.taps: list = []
 
     def on_change(self, changed: set[str]) -> None:
         performance.STATS.events(len(changed))
         for s in self.sessions:
             if s.view.on_change(changed):
                 s.wake.set()
+        for tap in self.taps:
+            try:
+                tap(changed)
+            except Exception:  # noqa: BLE001 -- a tap never breaks the hub
+                log.exception("a hub tap failed (%d changes)", len(changed))
 
     def on_registry(self) -> None:
         for s in self.sessions:
@@ -534,13 +542,24 @@ async def home_redirect(request: web.Request) -> web.StreamResponse:
     tablet, else the person's own), else the house's (``default_screens.house``)."""
     ident = sessions.identity(request)
     to_enroll(request, ident)
+    view = request.match_info.get("view")                # /home/timeline: that page of the same screen (a push's link)
     start = default_screens.start_for(request.app, ident) if ident.authenticated else None
     if start is not None:
-        raise web.HTTPFound(start)
+        raise web.HTTPFound(_view_of(start, view))
     screen = default_screens.house(request.app)
     if screen is None:                                   # no screen yet: Mantel Settings, where screens are added
         raise web.HTTPFound("/settings")
-    raise web.HTTPFound(f"/{screen}/home" + (f"?{request.query_string}" if request.query_string else ""))
+    raise web.HTTPFound(_view_of(f"/{screen}/home" + (f"?{request.query_string}" if request.query_string else ""), view))
+
+
+def _view_of(start: str, view: str | None) -> str:
+    """``/<screen>/home?...`` with ``home`` swapped for ``view`` (a page of that screen: ``/home/timeline``); as it is
+    when no view is named. The query stays (a tablet's ``hk_tablet``)."""
+    if not view:
+        return start
+    path, sep, query = start.partition("?")
+    head, _, last = path.rpartition("/")
+    return f"{head}/{view}" + (sep + query if sep else "") if last == "home" else start
 
 
 @guards.guard("signed_in", reads="none",
@@ -690,6 +709,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app.router.add_get("/", root)
     app.router.add_get("/dev", dev_page)
     app.router.add_get("/home", home_redirect)
+    app.router.add_get(r"/home/{view:[A-Za-z0-9_-]{1,40}}", home_redirect)     # a push opens a page of the default screen
     app.router.add_get("/settings", settings_page)          # Mantel Settings: HK's and Mantel's, one page
     app.router.add_get("/hk-settings", hk_settings_redirect)  # its old address
     docs_pages.add_routes(app, docs_pages.Docs(cfg.docs_hk, cfg.docs_mantel))   # /docs: Mantel's docs and HK's
@@ -935,6 +955,8 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     app_shell.register(app, hub)     # phase 10: the web app on a Home Screen, push, and the iPhone/iPad/Mac apps
     # phase 14: system alerts (Mantel Settings -> Alerts; after the backups, the features and the pusher it hears)
     alerts.register(app, hub)
+    # phase 19: the House Timeline (after the alerts, the Protect connector, the backups and the audit it hears)
+    timeline.register(app, hub)
     # Mantel Settings' General and Home Assistant settings that were start-up options (and their one-time moves)
     server_settings.register(app)
     mcp.register(app)                # assistants (docs/phase12/MCP-SERVER.md): /mcp, its sign-in, Settings' page

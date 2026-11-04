@@ -18,6 +18,10 @@ a new version) are a separate thing, set up in **Mantel Settings → Alerts**.
 They can also come to the Mantel app and to browsers, for Owners and Admins who
 turn on **System Alerts** in **Me**: see [Alerts](Alerts.md).
 
+The [Timeline](Timeline.md)'s **Morning Summary** (a summary of the night,
+built for what you may see) also comes to the Mantel app and to browsers, for
+people who turn it on in **Me**. It's off by default.
+
 **Who gets a notification**, whichever way: the people it is for (everyone,
 or only those it names), and only if they may see the accessory it is about.
 Their role is checked with Mantel's away rules, since a phone may be

@@ -135,6 +135,31 @@ export function calendarPath(method, path) {
   return path.replace(/^\/?(?:api\/)?/, '');
 }
 
+// THE HOUSE TIMELINE (hk-timeline.js, docs/phase19/HOUSE-TIMELINE.md): the page reads Mantel's own REST, GET /api/timeline
+// (the rows) and /api/timeline/summary, through callApi like the calendar's. Both are answered by the server per
+// viewer (the Timeline feature, each row's own rules), with the session's cookie: a plain same-origin read, no Home
+// Assistant in it. Only these two paths and only the query words the server takes; anything else stays refused.
+const TIMELINE_PATH = /^\/?(?:api\/)?(timeline(?:\/summary)?)(\?[A-Za-z0-9_=&%.,:+~*-]{0,600})?$/;
+export function timelinePath(method, path) {
+  if (String(method || '').toUpperCase() !== 'GET' || typeof path !== 'string') return null;
+  const m = TIMELINE_PATH.exec(path);
+  return m ? '/api/' + m[1] + (m[2] || '') : null;
+}
+// a picture's address is Mantel's own route (timeline/api.py PIC_PATH); the page's prefix goes in front of it here, as
+// it does for every address Mantel gives a page (HA App mode serves Mantel under Ingress). Anything else in a row's
+// pictures is dropped.
+const TIMELINE_PIC = /^\/api\/timeline\/pic\/[0-9a-f]{32}$/;
+export function withTimelineBase(p, base = (typeof window !== 'undefined' && window.__mantelBase) || '') {
+  if (!p || typeof p !== 'object') return p;
+  const fix = (e) => {
+    if (!e || typeof e !== 'object' || !Array.isArray(e.pics)) return e;
+    return Object.assign({}, e, { pics: e.pics.filter((x) => x && typeof x.url === 'string' && TIMELINE_PIC.test(x.url))
+      .map((x) => Object.assign({}, x, { url: (base || '') + x.url })) });
+  };
+  if (Array.isArray(p.events)) return Object.assign({}, p, { events: p.events.map(fix) });
+  return p;
+}
+
 // HISTORY: a detail sheet's Hour and Day charts (hk-stats.js history()) read HA's REST history,
 // GET history/period/<start>?filter_entity_id=<ids>[&end_time=][&minimal_response][&no_attributes]. Mantel
 // has no REST history: it is asked as the WebSocket read history/history_during_period (readproxy.py, RBAC
@@ -471,10 +496,24 @@ export class Host {
       this._count('history/history_during_period');
       return this.hub.read(hist).then((res) => historyAsRest(hist.entity_ids, res));
     }
+    const tl = timelinePath(method, path);
+    if (tl) return this._timeline(tl);
     const rel = calendarPath(method, path);
     if (rel === null) return this._refuse(`api ${method} ${path}`);
     this._count('read_api calendars');
     return this.hub.readApi('GET', rel);
+  }
+
+  // the Timeline's two reads: the server's answer as JSON, its refusal as an error carrying the server's code
+  // ({error: 'forbidden'}) and status, so the page can say why
+  _timeline(path) {
+    this._count('timeline');
+    const base = (typeof window !== 'undefined' && window.__mantelBase) || '';
+    return fetch(base + path, { credentials: 'same-origin', cache: 'no-store', headers: { accept: 'application/json' } })
+      .then((r) => r.json().catch(() => ({})).then((body) => {
+        if (!r.ok) throw Object.assign(new Error('timeline ' + r.status), { status: r.status, code: (body && body.error) || 'failed' });
+        return withTimelineBase(body, base);
+      }));
   }
 
   _call(msg) {
@@ -520,6 +559,8 @@ export class Host {
     // the settings feed names no HA switch for a tablet on Mantel: the screens' own are named here
     if (msg.type === 'hk_frontend/settings/subscribe') { const raw = cb; cb = (p) => raw(withArtBase(this._withScreens(p))); }
     if (msg.type === 'hk_music/subscribe') { const raw = cb; cb = (p) => raw(withMusicBase(p)); }
+    // the Timeline's live rows: their pictures under the page's prefix, as the reads' are
+    if (msg.type === 'timeline/subscribe') { const raw = cb; cb = (p) => raw(withTimelineBase(p)); }
     // HK's per-person user data (the Music page's speaker) is Mantel's own, per person or tablet (user_data.py):
     // the value first, then every change. Any other key, or a server without it, stays the stand-in (no value).
     if (msg.type === 'frontend/subscribe_user_data') {

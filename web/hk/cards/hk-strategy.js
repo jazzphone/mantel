@@ -2056,19 +2056,18 @@
 
     // ENERGY: the Energy feature's page, from its plan (the settings feed's
     // `energy`, features/energy/plan.py) -- while the feature is added
-    if (opts.pages !== false && want('energy')) {
-      var ev = guarded('the Energy page', function () {
-        return energyView(client, view, { climate: !!pages.climate });
-      });
-      if (ev) pages.energy = ev;
-    }
-    // POWER: the Energy feature's second page, while its plan has one -- as
-    // a kind (`power`), and in place of a custom page at its address
+    var ev = opts.pages !== false && want('energy') && guarded('the Energy page', function () { return energyView(client, view, { climate: !!pages.climate }); });
+    if (ev) pages.energy = ev;
+    // POWER: the Energy feature's second page, while its plan has one -- as a kind (`power`), and in place of a custom page at its address
     var pw0 = added('energy') && setting('energy') && setting('energy').power;
     if (opts.pages !== false && pw0 && (want('power') || listOf(b, 'custom_pages').indexOf(pw0.path) >= 0)) {
       var pwv = guarded('the Power page', function () { return powerView(client, view); });
       if (pwv) pages.power = pwv;
     }
+    // TIMELINE (phase 19): a page only a host with its own record has (hkShell.hostPage; Home Assistant: false)
+    if (opts.pages !== false && want('timeline') && window.hkShell && window.hkShell.hostPage('timeline')) pages.timeline = view({ title: 'Timeline',
+      path: 'timeline', subview: true, icon: 'mdi:history',
+      cards: [titleBar('Timeline'), column([{ type: 'custom:hk-timeline-card' }])] });
 
     if (music) {
       // MUSIC (2026-10-11): Play Music and Browse Music on one page
@@ -2097,9 +2096,9 @@
     out = out.filter(function (v) { return play.indexOf(v) < 0 && browse.indexOf(v) < 0; });
     var KEY = { weather: 'weather', calendar: 'calendar', cameras: 'cameras', live_tv: 'live_tv', security: 'security',
                 doors_windows: 'doors-windows', climate: 'climate', lights: 'lights', timers: 'timers',
-                vacuums: 'vacuums', water: 'water', energy: 'energy', power: 'power' };
+                vacuums: 'vacuums', water: 'water', energy: 'energy', power: 'power', timeline: 'timeline' };
     var order = picked.length ? picked : ['weather', 'calendar', 'cameras', 'live_tv', 'security', 'doors_windows', 'climate',
-                                          'lights', 'timers', 'vacuums', 'music', 'water', 'energy', 'power', 'rooms'];
+                                          'lights', 'timers', 'vacuums', 'music', 'water', 'energy', 'power', 'timeline', 'rooms'];
     var browsePlaced = order.indexOf('browse') >= 0;
     var mine = listOf(b, 'custom_pages');
     order.forEach(function (k) {

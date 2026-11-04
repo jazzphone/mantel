@@ -70,3 +70,21 @@ history 133 versions, 1.1 MB.
 **Decisions (Phase 7):** the minute tick is well under the 50 ms the plan set, so it was not rewritten; the settings
 history is 1.1 MB, so it is not trimmed (Restore and Layout History keep every version). Look again if the tick's
 usual time passes 50 ms or the history passes about 50 MB.
+
+## After the Timeline (phase 19, 2026-11-03)
+
+The House Timeline listens to every hub batch (`Hub.taps`) and writes in the background. Measured on the synthetic
+5,000-entity house (`tests/test_timeline_perf.py -s`: 300 recorded entities, 500 changes a second for 60 seconds, a
+batch every 50 ms, a flush every 2 seconds or at 50 rows), on this Mac:
+
+| What | p50 | p95 | Max | Budget |
+|---|---|---|---|---|
+| The tap, per hub batch | 0.006 ms | 0.019 ms | 0.087 ms | p95 under 0.2 ms |
+| A flush (one transaction) | | 0.76 ms | 1.59 ms | p95 under 15 ms |
+
+The queue never held more than 49 rows and dropped none; 1,111 rows were written. The hub's fan-out is unchanged (the
+tap runs after the sessions' own work and costs a set intersection). About → Performance shows the same numbers live
+(the `timeline` block: tap and write p95, rows, queued, dropped, pictures). The house's own run is added here after the
+first day on it.
+
+**Decision:** within budget; nothing to change. Look again if the tap's p95 passes 1 ms or a flush's passes 50 ms.

@@ -1245,7 +1245,9 @@
     water: ['Water', 'hk:water', 'white', ['water']],
     // the Energy feature's page: drawn only where the screen has it (the
     // feature added, the page on its Pages)
-    energy: ['Energy', 'mdi:lightning-bolt', 'white', ['energy']]
+    energy: ['Energy', 'mdi:lightning-bolt', 'white', ['energy']],
+    // the House Timeline (a host that has one lists the page: hkShell.hostPage)
+    timeline: ['Timeline', 'mdi:history', 'white', ['timeline']]
   };
   function pagePill(key) {
     var p = PAGE_PILLS[key];

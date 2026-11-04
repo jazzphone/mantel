@@ -2301,7 +2301,7 @@ CHIPS_QUIET = ["weather_alert", "doors_windows", "blinds", "water"]
 # THE PAGES a generated dashboard can have (hk-strategy.js), in menu order.
 # Energy: the Energy feature's page (features/energy), while it is added.
 PAGE_KINDS = ("weather", "calendar", "cameras", "live_tv", "security", "doors_windows", "climate", "lights",
-              "timers", "vacuums", "music", "water", "energy", "power", "rooms")
+              "timers", "vacuums", "music", "water", "energy", "power", "timeline", "rooms")
 # A DASHBOARD'S PAGE ORDER: the kinds above, plus Browse Music as a place of
 # its own (it comes with Play Music -- never on its own -- and follows it
 # unless placed), plus the house's custom pages by address, so every page in

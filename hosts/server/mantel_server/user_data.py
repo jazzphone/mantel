@@ -70,6 +70,16 @@ def _intercom(value: Any) -> bool:
             and len(set(rooms)) == len(rooms))
 
 
+def _switch(value: Any) -> bool:
+    return isinstance(value, bool)
+
+
+# the House Timeline's own switches in Me (docs/phase19/HOUSE-TIMELINE.md "Who sees what", "The morning digest"):
+# Keep My Arrivals Private (an adult's; a child's is ignored: the Owner decides) and Morning Summary (the apps)
+TIMELINE_PRIVATE = "timeline_private"
+TIMELINE_SUMMARY = "timeline_summary"
+
+
 # key -> (largest JSON text in bytes, shape check). Add a key here only when HK's code uses it, and to
 # USER_DATA_KEYS in web/shim/mantel-client.js (a test pins the two lists together).
 KEYS: dict[str, tuple[int, Callable[[Any], bool]]] = {
@@ -77,6 +87,8 @@ KEYS: dict[str, tuple[int, Callable[[Any], bool]]] = {
     FAVORITES: (FAVORITES_MAX * 132, _favorites),
     INTERCOM: (INTERCOM_ROOMS_MAX * 132 + 64, _intercom),
 }
+# (the two timeline switches are NOT socket keys: they change only through PUT /api/timeline/me, which refuses a
+# tablet's session, writes the audit row first and deletes past arrivals -- Opus review 3)
 
 
 class Refused(Exception):
