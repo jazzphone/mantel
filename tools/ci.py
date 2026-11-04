@@ -90,7 +90,7 @@ VERSION_LINE = re.compile(r'^\s*"?version"?\s*[:=]\s*"?[0-9A-Za-z.+-]*"?\s*,?\s*
 # lines. A browser check: the page and the server it runs against (the gallery's fictional house over Mantel's own
 # server, which also serves the guide), and its script's files (check_inputs). HK Frontend's suites: what its build
 # takes (publish.py plan: the component, web/hk, the shared assets, hk_core) and the esbuild it minifies with.
-PAGE_INPUTS = ("web/", "hk_core/", "hosts/server/mantel_server/", "tests/fixtures/",
+PAGE_INPUTS = ("web/", "tools/split_manifests/", "hk_core/", "hosts/server/mantel_server/", "tests/fixtures/",
                "hosts/ha/custom_components/hk_frontend/docs/", "packaging/ha-app/DOCS.md", *VERSION_FILES)
 HK_INPUTS = ("hosts/ha/", "web/", "hk_core/", "tools/build_ha.py", "tools/build_tools.py", "tools/package.json",
              "tools/package-lock.json", *VERSION_FILES)
@@ -591,6 +591,8 @@ def imported(scripts: list[str], root: Path = ROOT) -> list[str]:
         seen.append(rel)
         todo += [str(q.relative_to(root)) for q in path.parent.glob(path.stem + ".*")
                  if q.suffix in (".py", ".cjs", ".mjs", ".js")]
+        if path.suffix == ".cjs":              # a Playwright half's own helpers (require('./grid_ready.cjs'))
+            todo += [str((path.parent / m).relative_to(root)) for m in re.findall(r"require\('\./([\w.-]+\.cjs)'\)", path.read_text(errors="replace"))]
         if path.suffix != ".py":
             continue
         for frm, imp in IMPORT.findall(path.read_text(errors="replace")):

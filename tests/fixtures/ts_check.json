@@ -2,6 +2,7 @@
  "checked": [
   "hosts/ha/frontend/hk-ha-client.js",
   "hosts/ha/frontend/hk-ha-shell.js",
+  "web/hk/grid-cards/hk-grid-math.js",
   "web/shim/mantel-client.js",
   "web/shim/mantel-shell.js"
  ],
@@ -38,6 +39,11 @@
   "web/hk/cards/hk-tile.js",
   "web/hk/cards/hk-weather.js",
   "web/hk/elements/hk-elements.js",
+  "web/hk/grid-cards/hk-grid-faces.js",
+  "web/hk/grid-cards/hk-grid-panel.js",
+  "web/hk/grid-cards/hk-grid-room.js",
+  "web/hk/grid-cards/hk-grid-security.js",
+  "web/hk/grid-cards/hk-grid-widgets.js",
   "web/hk/iconset/hk-icons.js",
   "web/hk/modules/hk-campost.js",
   "web/hk/modules/hk-charts.js",

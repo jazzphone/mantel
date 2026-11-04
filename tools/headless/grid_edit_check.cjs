@@ -97,6 +97,7 @@ async function go(t, path) {
   await t.page.goto(input.origin + path);
   await t.page.waitForFunction(() => window.__mantelReady === true && window.hkEdit && window.hkEditGrid && window.hkTabBar &&
     hkEdit.surfaces().includes('home-grid') && window.hkShell.view(window.hkShell.viewSlot(window.hkCards.menu.panel())), null, { timeout: 30000 });
+  await require('./grid_ready.cjs')(t.page);
   await t.page.evaluate(HELP);
   // the grid editor's rules come while the page is up (offered Edit): Edit begins at once
   await t.page.waitForFunction(() => !!window.hkGridEditor, null, { timeout: 20000 });

@@ -1,5 +1,5 @@
 {
- "total": 1059,
+ "total": 1058,
  "files": {
   "hosts/ha/frontend/hk-ha-client.js": 4,
   "hosts/ha/frontend/hk-ha-elements.js": 6,
@@ -18,7 +18,7 @@
   "web/hk/cards/hk-control.js": 45,
   "web/hk/cards/hk-detail.js": 91,
   "web/hk/cards/hk-energy.js": 20,
-  "web/hk/cards/hk-grid-cards.js": 22,
+  "web/hk/cards/hk-grid-cards.js": 0,
   "web/hk/cards/hk-grid-catalog.js": 0,
   "web/hk/cards/hk-headers.js": 28,
   "web/hk/cards/hk-home.js": 11,
@@ -37,6 +37,12 @@
   "web/hk/cards/hk-tile.js": 5,
   "web/hk/cards/hk-weather.js": 23,
   "web/hk/elements/hk-elements.js": 3,
+  "web/hk/grid-cards/hk-grid-faces.js": 7,
+  "web/hk/grid-cards/hk-grid-math.js": 0,
+  "web/hk/grid-cards/hk-grid-panel.js": 4,
+  "web/hk/grid-cards/hk-grid-room.js": 2,
+  "web/hk/grid-cards/hk-grid-security.js": 4,
+  "web/hk/grid-cards/hk-grid-widgets.js": 4,
   "web/hk/iconset/hk-icons.js": 1,
   "web/hk/modules/hk-campost.js": 0,
   "web/hk/modules/hk-charts.js": 1,

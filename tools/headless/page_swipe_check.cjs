@@ -101,6 +101,7 @@ async function open(browser, screen) {
   await page.waitForFunction(() => window.__mantelReady === true && window.hkPageSwipe && window.hkDrag && window.hkTabBar &&
                                    window.hkTabBar.pages && window.hkShell.view(window.hkShell.viewSlot(window.hkCards.menu.panel())),
                              null, { timeout: 30000 });
+  await require('./grid_ready.cjs')(page);
   await page.evaluate(HELP);
   await page.waitForTimeout(2500);           // the cards, the fonts and the tab bar settle
   return { ctx, page, errors, cdp: null };
