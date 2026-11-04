@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.42.0 - 2026-11-04
+
 - On a host that keeps a House Timeline (Mantel): the Timeline page, the Home Grid block **Recent** and a camera sheet's **Recent** strip. In Home Assistant nothing changes: the page isn't listed, and a layout with a Recent block shows a stand-in.
 - Fixed: the timers' sheet could stop drawing (an accessory's own name looked up where it wasn't known).
 - **Screensaver, fixed:** the people over the time stay over it when the minute changes.
