@@ -376,6 +376,9 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Strict health 200, all services healthy, mantel-server built from `6fedd10`, Home Assistant connected for 62 s; no "Traceback" or "ERROR" in Mantel's log.
 - Linux suite passed.
 - Times: preflight 5 s, release commit (retry) 0 s, images run started 4 s, images built and pushed 262 s, the LXC updated and healthy 151 s, Linux suite passed 3 s, tagged 2 s, promoted (latest, ha-apps) 83 s, GitHub Release 1 s; 8.5 minutes in all.
+- The bundled release (the owner, 2026-11-04): phase 15 (faster releases: this tool), phase 17 (the Intercom, Message only) and phase 18 (the route table, type checks, three web splits; its B2 waits). Every commit since v0.1.122 read. `tools/ci.py full` on c66425b9, one group at a time (`CI_JOBS=4`): 53 of 53; edit-mode 1280x800 failed three times under the other sessions' load and passed in the final run.
+- The first attempt (1f30a958) stopped after the release commit: GitHub answered 404 for the images run a second after the dispatch. Fixed (6fedd104: `run_view` asks again), `ci.py full` again, then `--retry`: the record above. Its 8.5 minutes are the whole release, house first.
+- After HK Frontend 1.43.0's Home Assistant restart (below), Mantel reconnected at 15:27:39 UTC and stopped answering a second later at 100 % CPU; `docker compose restart mantel-server` at 15:30:18, healthy since (strict health 200, Home Assistant connected). Cause not found yet (see FASTER-RELEASES.md's Build log); the tool now checks Mantel after a component's restart.
 
 ## HK Frontend 1.43.0 (2026-11-04)
 

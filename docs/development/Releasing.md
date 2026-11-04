@@ -340,8 +340,8 @@ The release workflow, measured on 2026-11-03 (build-only runs from a branch, pub
 | The App images | not measured | 1 to 1.8 min |
 | `ha-apps` after the images | 0.2 min | 1 min |
 | **The workflow, wall time** | **11.4 min** (run 41643065587) | **5.5 min**, cold caches (build-only `stage=all`, run 41724515055; version job 40 s) |
-| **The whole house-first release**, `release_house.py mantel` after `ci.py full` | ~25 to 30 minutes by an assistant's hand work | TBD (the proof release) |
-| **The house update** (`update`, health, log check) | ~3 minutes by hand | TBD (the proof release) |
+| **The whole house-first release**, `release_house.py mantel` after `ci.py full` | ~25 to 30 minutes by an assistant's hand work | **8.5 min** (0.1.123, 2026-11-04: images 4.4 min, the house 2.5 min, promote 1.4 min); HK Frontend after it 3.6 min |
+| **The house update** (`update`, health, log check) | ~3 minutes by hand | **2.5 min** (0.1.122 -> 0.1.123, the Intercom's new port included) |
 
 The 2026-11-01 release of all three products took about 30 minutes, half of it checks run again: two full runs
 (~7 minutes each that day), `quick` on each of three pushes, and HK Frontend's publisher twice (a flaky test, since

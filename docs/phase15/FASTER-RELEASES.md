@@ -1,6 +1,6 @@
 # Phase 15: faster releases (plan, 2026-11-03)
 
-**Status: plan; nothing built. Every decision answered by the owner on 2026-11-03 (all recommendations accepted): ready to build.**
+**Status: built and in use (2026-11-04). Slices 15.1-15.8 on main; 15.9 designed, not built. The first release with it, the bundled Mantel 0.1.123 (phases 15, 17 and 18) and HK Frontend 1.43.0, took 8.5 and 3.6 minutes (before: ~25 to 30 minutes by hand, the workflow alone 11.4).**
 
 ## The ask (the owner, 2026-11-03)
 
@@ -506,8 +506,29 @@ Before is measured (run `41643065587` for the workflow; the rest from `Releasing
 - **2026-11-03, 15.6, backfill.** `backfill-tags --dry-run` finds `hk-frontend/v1.40.0` on d81a674d and
   `mantel-link/v0.1.12` on f6c000b6 from the public repositories' newest commits.
 
+- **2026-11-04, the proof release: Mantel 0.1.123 and HK Frontend 1.43.0, bundled** (phase 15; phase 17's
+  Intercom; phase 18's route table, type checks and the hk-grid-cards, hk-saver and hk-settings splits; phase 18's B2
+  waits for a later release). The checks first: `ci.py full` one group at a time at `CI_JOBS=4` (the Mac shared with
+  other sessions; edit-mode at 1280x800 failed three times under the others' load and passed in the final run). The
+  first attempt stopped after the release commit: GitHub answered 404 for the images run's jobs a second after the
+  dispatch. `run_view` now asks again for about a minute (6fedd104); `--retry` from that commit then took **8.5
+  minutes**: preflight 5 s, images built and pushed 262 s, the LXC updated and healthy 151 s, the suite (already
+  passed) 3 s, the tag 2 s, promote 83 s, the GitHub Release 1 s. Both architectures of all three images, `latest`
+  and `ha-apps` at 0.1.123. HK Frontend 1.43.0 then took **3.6 minutes** (the copy, Home Assistant's restart, the
+  publish, its tag, Release and Wiki), with the admin token the owner provided.
+- **2026-11-04, Mantel stuck after Home Assistant's restart.** HK Frontend's restart left Mantel 0.1.123 at 100 % CPU,
+  not answering, one second after it reconnected (Home Assistant was still starting: 703 states, not ~4500); the tool
+  had called the house healthy before that restart. Restarted by hand 3 minutes later, healthy since. No stack (no
+  py-spy on the LXC); phase 19 ruled the Timeline out by replay; phase 17's Intercom, new in 0.1.123, is being looked
+  at. The tool now checks, after a component's Home Assistant restart, that Mantel reconnected since and is still
+  healthy a minute later (`Lxc.follows_ha_restart`).
+- **2026-11-04, backfill.** `hk-frontend/v1.42.0` (17e14082) and `mantel-link/v0.1.12` (f6c000b6), after phase 19's
+  1.42.0.
+- **2026-11-04, the admin token.** The owner's `~/.config/mantel/ha_token` is an administrator's (checked with
+  `auth/current_user`); `~/.config/mantel/ha_admin_token` links to it, so the tool finds it.
+
 ## Waiting on the owner
 
-(Filled in by the session. Expected, only if the matching decision is yes: nothing before slice 15.8. After it, at most:
-the first live release if main had nothing to release; the Home Assistant admin token for component releases; and, if
-the LXC's update ever fails with `schema_too_new`, restoring the backup `update.sh` names.)
+Nothing. The first live release happened (0.1.123), and the admin token is in place. Still open, not for phase 15
+alone: why Mantel 0.1.123 stopped answering after Home Assistant's restart (above); a py-spy dump at the next one
+would settle it.
