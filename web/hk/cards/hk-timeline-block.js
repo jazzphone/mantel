@@ -468,7 +468,7 @@
     _onConnect() { this._tellRoom(true); }
     // the sheet reserves what the strip takes, so the picture is never pushed off the screen
     _tellRoom(force) {
-      var h = this.hidden ? 0 : (this._events.length ? STRIP_H : STRIP_EMPTY_H);
+      var h = this.hidden ? 0 : ((this._events && this._events.length) ? STRIP_H : STRIP_EMPTY_H);
       if (!force && h === this._room) return;
       this._room = h;
       try { this.dispatchEvent(new CustomEvent('hk-strip-room', { detail: { height: h }, bubbles: false })); } catch (e) { /* no events here */ }

@@ -65,5 +65,6 @@ CREATE TRIGGER timeline_forget_person AFTER DELETE ON users
 BEGIN
     DELETE FROM timeline_events WHERE person = OLD.id AND family = 'arrival';
     UPDATE timeline_events SET person = NULL WHERE person = OLD.id;
-    UPDATE timeline_events SET actor = NULL, actor_name = 'A former member' WHERE actor = OLD.id;
+    UPDATE timeline_events SET actor = NULL, actor_name = 'A former member', device = NULL, device_name = NULL
+        WHERE actor = OLD.id;
 END;

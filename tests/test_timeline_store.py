@@ -129,7 +129,7 @@ def test_src_is_unique_and_the_trigger_forgets_a_removed_person(env):
     rows = {r["src"]: dict(r) for r in env.db.execute("SELECT * FROM timeline_events")}
     assert set(rows) == {"a", "arr2", "lock1"}                           # Emma's arrival went
     assert rows["lock1"]["actor"] is None and rows["lock1"]["actor_name"] == "A former member"
-    assert rows["lock1"]["device_name"] == "Hallway tablet" and rows["lock1"]["audit_id"] == 4   # the rest stays
+    assert rows["lock1"]["device_name"] is None and rows["lock1"]["audit_id"] == 4   # the device goes too (it can carry a name)
     assert rows["arr2"]["person"] == "u2"
 
 

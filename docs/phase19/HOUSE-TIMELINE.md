@@ -615,6 +615,13 @@ review (the plan's one Opus case).
 13. Device names could be searched in Refused and System rows: those rows are searched by their words without the
     device's or the alert's facts.
 
+**The second Opus review (before the push): 1 hole and 3 hardening items, all fixed.** `actor=` returned the rows a
+person did even where the viewer may not read that entity's `history` (now each row also needs its names to be the
+viewer's); an override could file a presence or occupancy sensor as a door (now only a binary sensor with no class);
+forgetting a person now clears the device and its name too; and "By hand or an automation" is shown only to a viewer
+who may see names (its absence would otherwise say that someone used Mantel). Every fix of the first review was
+checked and holds.
+
 A test found one more (the test agent): the web server's access log printed `?q=` search words and picture ids at
 INFO. Timeline URLs are now logged without their query and with the picture id replaced (`QuietAccess`).
 

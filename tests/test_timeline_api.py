@@ -788,3 +788,47 @@ async def test_the_live_feed_of_a_tablet_closes_when_the_tablet_is_revoked(w):
     w.app["devices"].revoke(w.tablet_id, "test")
     assert await ends(ws)
     assert w.tl.listeners == []
+
+
+async def test_actor_finds_only_rows_whose_names_the_viewer_may_see(tmp_path):
+    """Asking by who did it is seeing who did it (the second Opus review): without `history` of an entity, `actor=`
+    never returns its rows, and the "by hand" line isn't shown either."""
+    from types import SimpleNamespace as NS
+    from mantel_server.timeline.api import Viewer, find
+    from mantel_server.timeline.store import Row
+
+    class Fake(Viewer):
+        def __init__(self, app):                              # an Adult with view but no history of the lock
+            self.app, self.principal, self.authz, self.ctx = app, NS(valid=True), None, None
+            self.user, self.device, self.role = NS(id="u-mark"), None, "adult"
+            self.limited = self.manager = self.assistant = False
+            self._view, self._still, self._history = {}, {}, {}
+            self.wall_families, self.pictures = frozenset(), False
+
+        def may_view(self, entity):
+            return True
+
+        def may_history(self, entity):
+            return entity != "lock.back_door"
+
+    import sqlite3
+    from mantel_server.store import Store
+    store = Store(tmp_path / "m.db")
+    from mantel_server.timeline.core import Timeline
+    hub = NS(store=NS(states={}), registry=NS(areas={}, entries={}, entity_area={}))
+    tl = Timeline({"cfg": None}, hub, store.db, clock=lambda: 1_800_000_000.0)
+    app = {"timeline": tl, "hub": hub}
+    tl.push(Row(src="a", at=1_799_999_000.0, family="lock", kind="unlocked", title="Back Door unlocked",
+                entity="lock.back_door", actor="u-emma", actor_name="Emma", how="home"))
+    tl.push(Row(src="b", at=1_799_999_100.0, family="lock", kind="locked", title="Side Door locked",
+                entity="lock.side_door", actor="u-emma", actor_name="Emma", how="home"))
+    tl.push(Row(src="c", at=1_799_999_200.0, family="lock", kind="locked", title="Back Door locked",
+                entity="lock.back_door", how="hand_or_automation"))
+    tl.flush()
+    v = Fake(app)
+    got = find(app, v, {"actor": "u-emma"}, 1_800_000_000.0)
+    assert [e["title"] for e in got["events"]] == ["Side Door locked"]
+    every = find(app, v, {}, 1_800_000_000.0)
+    hand = next(e for e in every["events"] if e["title"] == "Back Door locked")
+    assert "who" not in hand
+    store.db.close()

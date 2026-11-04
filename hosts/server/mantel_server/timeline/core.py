@@ -610,8 +610,9 @@ class Timeline:
                             "AND person NOT IN (SELECT id FROM users)")
             self.db.execute("UPDATE timeline_events SET person = NULL WHERE person IS NOT NULL "
                             "AND person NOT IN (SELECT id FROM users)")
-            self.db.execute("UPDATE timeline_events SET actor = NULL, actor_name = 'A former member' "
-                            "WHERE actor IS NOT NULL AND length(actor) = 32 AND actor NOT IN (SELECT id FROM users)")
+            self.db.execute("UPDATE timeline_events SET actor = NULL, actor_name = 'A former member', device = NULL, "
+                            "device_name = NULL WHERE actor IS NOT NULL AND length(actor) = 32 "
+                            "AND actor NOT IN (SELECT id FROM users)")
 
     def pic_path(self, pid: str, at: float) -> Path | None:
         if self.folder is None:

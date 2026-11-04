@@ -216,7 +216,7 @@ class Viewer:
                           "mine": bool(self.user is not None and row.get("actor") == self.user.id)}
             if d.get("keypad"):
                 out["who"]["keypad"] = d["keypad"]
-        elif row.get("how") == "hand_or_automation" and not self.limited:
+        elif row.get("how") == "hand_or_automation" and self.names_for(row.get("entity")):
             out["who"] = {"name": None, "device": None, "how": "hand_or_automation", "mine": False}
         if self.manager and row.get("audit_id") is not None:
             out["audit_id"] = row["audit_id"]
@@ -285,6 +285,7 @@ def find(app: Any, viewer: Viewer, q: dict, now: float) -> dict:
         if not viewer.may_names:
             raise BadQuery("forbidden", 403)
         actor = str(actor)[:64]
+    by_actor = bool(actor) and q.get("mine") not in ("1", "true", True)
     words = q.get("q")
     if words and not viewer.may_search:
         raise BadQuery("search_unavailable", 403)
@@ -322,7 +323,8 @@ def find(app: Any, viewer: Viewer, q: dict, now: float) -> dict:
         for r in chunk:
             scanned += 1
             cursor = r["id"]
-            if viewer.visible(r, now):
+            # asking by who did it is seeing who did it: only rows whose names this viewer may see (2nd review 1)
+            if viewer.visible(r, now) and (not by_actor or viewer.names_for(r.get("entity"))):
                 got.append(r)
                 if len(got) >= limit:
                     break
@@ -559,18 +561,18 @@ async def api_settings_put(request: web.Request) -> web.Response:
 PLAIN_FAMILIES = ("door", "window")        # what an Owner may file a plain sensor under by hand
 
 
-def natural_family(app: Any, eid: str) -> str | None:
-    """The family an entity has by itself (its domain and class), before any override."""
+def natural_family(app: Any, eid: str) -> tuple[str | None, str | None]:
+    """The family an entity has by itself (its domain and class), before any override, and its device class."""
     hub = app["hub"]
     e = (getattr(hub.registry, "entries", {}) or {}).get(eid) or {}
     st = hub.store.states.get(eid) or {}
     dc = e.get("device_class") or e.get("original_device_class") or (st.get("a") or {}).get("device_class")
     domain, _, oid = eid.partition(".")
     got = C.family_of(domain, oid, dc, motion_only=True)
-    return got[0] if got else None
+    return (got[0] if got else None), (str(dc) if dc else None)
 
 
-def clean_overrides(body: Any, natural: Callable[[str], str | None]) -> dict:
+def clean_overrides(body: Any, natural: Callable[[str], tuple[str | None, str | None]]) -> dict:
     """The Owner's overrides. Recording can be switched off for anything; ON only for an entity that has a family
     by itself, or a plain binary sensor (filed as a door or a window). A family can never be changed for an entity
     that has one: a camera's detection re-filed as a door would escape the camera rules, a tracker filed as an
@@ -590,11 +592,14 @@ def clean_overrides(body: Any, natural: Callable[[str], str | None]) -> dict:
             raise BadQuery("invalid_overrides")
         o: dict[str, Any] = {"record": v["record"]}
         fam = v.get("family")
-        own = natural(eid)
-        if v["record"] and own is None and not eid.startswith("binary_sensor."):
+        own, dc = natural(eid)
+        # ON for an entity with no family of its own: only a binary sensor with NO class (what "Not Recorded" lists);
+        # a presence or occupancy sensor filed as a door would get around the locations rule (2nd review 2)
+        if v["record"] and own is None and (not eid.startswith("binary_sensor.") or dc):
             raise BadQuery("invalid_overrides")
         if fam is not None:
-            if fam not in PLAIN_FAMILIES or not eid.startswith("binary_sensor.") or own not in (None, *PLAIN_FAMILIES):
+            if fam not in PLAIN_FAMILIES or not eid.startswith("binary_sensor.") or own not in (None, *PLAIN_FAMILIES) \
+                    or (own is None and dc):
                 raise BadQuery("invalid_overrides")
             o["family"] = fam
         label = v.get("label")
