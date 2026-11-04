@@ -812,6 +812,11 @@
     var HS = window.hkSettings;
     return HS ? HS.get(path, null) : null;
   }
+  // A PAGE ONLY THE HOST HAS (hkShell.hostPage): asked, never assumed
+  function hostPage(name) {
+    var SH = window.hkShell;
+    try { return !!(SH && SH.hostPage && SH.hostPage(name)); } catch (e) { return false; }
+  }
   // THE THEME a generated view wears: HK Kiosk when it is loaded, else the
   // house's default
   function kioskTheme(themes) {
@@ -2070,6 +2075,14 @@
       if (pwv) pages.power = pwv;
     }
 
+    // TIMELINE (docs/phase19/HOUSE-TIMELINE.md): what happened at the house, a page only a host with its own record
+    // has (hkShell.hostPage: Mantel's, for the people whose role has it); never in Home Assistant
+    if (opts.pages !== false && want('timeline') && hostPage('timeline')) {
+      pages.timeline = view({ title: 'Timeline', path: 'timeline', subview: true, sky_variant: 'cameras',
+        icon: 'mdi:timeline-clock-outline', background: '#080a0e',
+        cards: [titleBar('Timeline'), column([{ type: 'custom:hk-timeline-card' }])] });
+    }
+
     if (music) {
       // MUSIC (2026-10-11): Play Music and Browse Music on one page
       // (hk-music.js) -- what plays and where on the left, Browse beside it.
@@ -2097,9 +2110,9 @@
     out = out.filter(function (v) { return play.indexOf(v) < 0 && browse.indexOf(v) < 0; });
     var KEY = { weather: 'weather', calendar: 'calendar', cameras: 'cameras', live_tv: 'live_tv', security: 'security',
                 doors_windows: 'doors-windows', climate: 'climate', lights: 'lights', timers: 'timers',
-                vacuums: 'vacuums', water: 'water', energy: 'energy', power: 'power' };
+                vacuums: 'vacuums', water: 'water', energy: 'energy', power: 'power', timeline: 'timeline' };
     var order = picked.length ? picked : ['weather', 'calendar', 'cameras', 'live_tv', 'security', 'doors_windows', 'climate',
-                                          'lights', 'timers', 'vacuums', 'music', 'water', 'energy', 'power', 'rooms'];
+                                          'lights', 'timers', 'vacuums', 'music', 'water', 'energy', 'power', 'timeline', 'rooms'];
     var browsePlaced = order.indexOf('browse') >= 0;
     var mine = listOf(b, 'custom_pages');
     order.forEach(function (k) {

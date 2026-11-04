@@ -538,13 +538,24 @@ async def home_redirect(request: web.Request) -> web.StreamResponse:
     tablet, else the person's own), else the house's (``default_screens.house``)."""
     ident = sessions.identity(request)
     to_enroll(request, ident)
+    view = request.match_info.get("view")                # /home/timeline: that page of the same screen (a push's link)
     start = default_screens.start_for(request.app, ident) if ident.authenticated else None
     if start is not None:
-        raise web.HTTPFound(start)
+        raise web.HTTPFound(_view_of(start, view))
     screen = default_screens.house(request.app)
     if screen is None:                                   # no screen yet: Mantel Settings, where screens are added
         raise web.HTTPFound("/settings")
-    raise web.HTTPFound(f"/{screen}/home" + (f"?{request.query_string}" if request.query_string else ""))
+    raise web.HTTPFound(_view_of(f"/{screen}/home" + (f"?{request.query_string}" if request.query_string else ""), view))
+
+
+def _view_of(start: str, view: str | None) -> str:
+    """``/<screen>/home?...`` with ``home`` swapped for ``view`` (a page of that screen: ``/home/timeline``); as it is
+    when no view is named. The query stays (a tablet's ``hk_tablet``)."""
+    if not view:
+        return start
+    path, sep, query = start.partition("?")
+    head, _, last = path.rpartition("/")
+    return f"{head}/{view}" + (sep + query if sep else "") if last == "home" else start
 
 
 @guards.guard("signed_in")
@@ -688,6 +699,7 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     app.router.add_get("/", root)
     app.router.add_get("/dev", dev_page)
     app.router.add_get("/home", home_redirect)
+    app.router.add_get(r"/home/{view:[A-Za-z0-9_-]{1,40}}", home_redirect)     # a push opens a page of the default screen
     app.router.add_get("/settings", settings_page)          # Mantel Settings: HK's and Mantel's, one page
     app.router.add_get("/hk-settings", hk_settings_redirect)  # its old address
     docs_pages.add_routes(app, docs_pages.Docs(cfg.docs_hk, cfg.docs_mantel))   # /docs: Mantel's docs and HK's

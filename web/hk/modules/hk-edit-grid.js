@@ -835,7 +835,7 @@
       return self.openSheet('Add a Block', false, function (body, K) {
         var cat = G().table(), view = (self.view.cellBox && self.view.cellBox() || {}).view || 0;
         Xe.GROUPS.forEach(function (g) {
-          var rows = g[1].filter(function (key) { return cat[key] && NEEDS_A_CHOICE.indexOf(key) < 0; }).map(function (key) {
+          var rows = g[1].filter(function (key) { return cat[key] && NEEDS_A_CHOICE.indexOf(key) < 0 && (!Xe.offered || Xe.offered(key)); }).map(function (key) {
             var chips = K.h('span', { class: 'chips' });
             cat[key].sizes.forEach(function (s) {
               var z = G().span(s, self.grid.cols, self.grid.rows);

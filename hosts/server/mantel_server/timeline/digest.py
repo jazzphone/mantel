@@ -37,7 +37,7 @@ log = logging.getLogger("mantel.timeline")
 
 KIND = "house.digest"
 SUMMARY_KEY = "timeline_summary"            # user_data: Morning Summary (Me), the same key as user_data.TIMELINE_SUMMARY
-PAGE_URL = "/home#timeline"                 # where a push opens (the Timeline page's own address is slice 19.3's)
+PAGE_URL = "/home/timeline"                 # where a push opens: the Timeline page of the person's own screen (server.home_redirect)
 HOUSE_FAMILIES = ("door", "window", "lock", "garage", "alarm", "doorbell", "detection", "safety")
 STATE_FAMILIES = ("lock", "garage", "door", "window")
 DOMAIN_OF = {"lock": "lock.", "garage": "cover.", "door": "binary_sensor.", "window": "binary_sensor."}
