@@ -36,7 +36,8 @@
                        'hk_music/playlists/order', 'hk_music/preset/save',
                        'hk_alarm_pin/settings/set', 'hk_alarm_pin/add', 'hk_alarm_pin/remove',
                        'hk_notify/feature/set', 'hk_clean_areas/feature/set', 'hk_energy/feature/set',
-                       'hk_tv/feature/set', 'hk_music/feature/set', 'hk_alarm_pin/feature/set'];
+                       'hk_tv/feature/set', 'hk_music/feature/set', 'hk_alarm_pin/feature/set',
+                       'mantel/features/auto/set'];
   function isSave(msg) {
     return !!(msg && typeof msg.type === 'string' && (SETTINGS_SAVES.indexOf(msg.type) >= 0 || FEATURE_SAVES.indexOf(msg.type) >= 0));
   }

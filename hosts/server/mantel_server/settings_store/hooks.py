@@ -152,6 +152,8 @@ FEATURE_SAVES = frozenset({
     # Add and Remove each feature on Mantel itself (feature_pages.feature_set)
     "hk_notify/feature/set", "hk_clean_areas/feature/set", "hk_energy/feature/set", "hk_tv/feature/set",
     "hk_music/feature/set", "hk_alarm_pin/feature/set",
+    # Turn Features On Automatically (Advanced -> Features; feature_pages.auto_set): Mantel's own
+    "mantel/features/auto/set",
 })
 NOT_YET = frozenset({
     # Mute 1 Hour: the page sends it as Mantel's own notify_mute (mantel-client.js), never as a save
