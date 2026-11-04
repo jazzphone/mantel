@@ -84,6 +84,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
       await page.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 });
       await require('./grid_ready.cjs')(page);
       await settle(2000, { quiet: 600 });          // (still at ~0.9 s; never a change after, 150 of 150 runs)
+      await require('./grid_ready.cjs').saver(page);      // (the saver's parts arrive after its file: hkSaver is set once they have run)
       const started = await page.evaluate(() => !!(window.hkSaver && window.hkSaver.preview && (window.hkSaver.preview(true), true)));
       // (a fixed wait: the screensaver fades in over 4 s, and ~3.3 s in it takes 5 elements away after a second of
       // stillness -- probed 2026-11-02, 42 of 150 runs; nothing quieter tells when that is done)

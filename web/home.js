@@ -180,6 +180,8 @@ if (!(window.hkCards && window.hkCards.TILE)) {
 
 if (SAVER_ONLY) {
   window.hkMantelShell.saverOnly();
+  // (hk-saver.js sets hkSaver once its parts, web/hk/saver/, have run: a beat after the file itself)
+  for (let i = 0; i < 100 && !(window.hkSaver && window.hkSaver.preview); i++) await new Promise((res) => setTimeout(res, 100));
   if (window.hkSaver && window.hkSaver.preview) window.hkSaver.preview(true);
   window.__mantelReady = true;
   await new Promise(() => {});                    // nothing more: no view on this page

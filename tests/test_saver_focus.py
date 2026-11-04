@@ -37,6 +37,8 @@ globalThis.HTMLElement = class {};
 globalThis.hkHostClient = { entry: noop };
 globalThis.hkShell = new Proxy({}, { get: () => () => null });
 globalThis.customElements = { get: () => null, define: noop, whenDefined: () => Promise.resolve() };
+// (the shell registers its parts' work once they have run: they are evaluated first, as the browser's import() would)
+for (const part of JSON.parse(process.argv[2])) (0, eval)(readFileSync(part, 'utf8'));
 (0, eval)(readFileSync(process.argv[1], 'utf8'));
 const U = window.hkSaver._;
 const out = {};
@@ -45,7 +47,7 @@ const out = {};
 
 def run(body: str) -> dict:
     got = subprocess.run(["node", "-e", LOADER + body + "\nconsole.log(JSON.stringify(out)); process.exit(0);",
-                          str(SAVER)], capture_output=True, text=True, timeout=60)
+                          str(SAVER), json.dumps([str(p) for p in web_sources.parts(SAVER)])], capture_output=True, text=True, timeout=60)
     assert got.returncode == 0, got.stderr
     return json.loads(got.stdout.strip().splitlines()[-1])
 
