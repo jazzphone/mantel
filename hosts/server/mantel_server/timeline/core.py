@@ -200,7 +200,9 @@ class Timeline:
             cam = NA.camera_for(house, eid)
             add(eid, e, dc, motion_only=bool(cam) and cam not in smart)
         self.members = members
-        self.known = set(states)
+        # (what was seen stays seen: an id gone from the states, reported once as changed, never works the members out
+        # again on every batch after)
+        self.known |= set(states)
         self.person_user = self._people({eid for eid, m in members.items() if m.family == "arrival"})
         log.info("timeline: %d entities recorded (%s)", len(members),
                  ", ".join(f"{f} {n}" for f, n in sorted(_counts(m.family for m in members.values()).items())))
