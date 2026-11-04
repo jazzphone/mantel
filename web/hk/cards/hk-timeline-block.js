@@ -1,3 +1,4 @@
+// @ts-check
 // hk-timeline-block.js -- the House Timeline in two small places (docs/phase19/HOUSE-TIMELINE.md, "The views").
 //
 // hk-timeline-block-card   the Home Grid block "Recent" (`timeline` in hk-grid-catalog.js; Wide, Large, Extra Large): the
@@ -238,7 +239,8 @@
         self._paint();
       });
     }
-    _took() {}
+    // eslint-disable-next-line no-unused-vars
+    _took(_res) {}
     _subscribe() {
       this._unsubscribe();
       var c = this.client, conn = c && c.subscriptions, self = this, token = this._subToken = (this._subToken || 0) + 1;

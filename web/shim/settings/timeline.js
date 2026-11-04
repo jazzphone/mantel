@@ -1,3 +1,4 @@
+// @ts-check
 // settings/timeline.js -- Mantel Settings, Timeline (timeline/api.py; docs/phase19/HOUSE-TIMELINE.md "Mantel Settings → Timeline"):
 // what the House Timeline records (a switch per family, and one by one: the entities it records, the ones it
 // doesn't), how long rows are kept, the pictures (budget, frames, what is used), what a wall tablet shows, the Morning

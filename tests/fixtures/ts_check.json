@@ -1,5 +1,9 @@
 {
- "checked": [],
+ "checked": [
+  "web/hk/cards/hk-timeline-block.js",
+  "web/hk/cards/hk-timeline.js",
+  "web/shim/settings/timeline.js"
+ ],
  "unchecked_allowed": [
   "web/app/push.js",
   "web/app/sw.js",

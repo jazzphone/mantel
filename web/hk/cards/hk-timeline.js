@@ -1,3 +1,4 @@
+// @ts-check
 // hk-timeline.js -- the Timeline page: what happened at the house (docs/phase19/HOUSE-TIMELINE.md, "The views").
 //
 // hk-timeline-card: the whole page under its title bar. Mantel's own page: the server keeps a small table of what
@@ -24,6 +25,7 @@
 
   // ======================================================================== pure: kinds and chips
   // The chips, in order: [id (the API's group), label, the raw families it holds]
+  /** @type {Array<[string, string, string[]]>} */
   var GROUPS = [
     ['doors', 'Doors', ['door', 'window']], ['locks', 'Locks', ['lock']], ['garage', 'Garage', ['garage']],
     ['alarm', 'Alarm', ['alarm']], ['people', 'People', ['arrival']], ['doorbell', 'Doorbell', ['doorbell']],
@@ -527,7 +529,7 @@
         this._seen = new IntersectionObserver(function (es) {
           if (es.some(function (e) { return e.isIntersecting; })) self._maybeStart();
         });
-        this._seen.observe(this);
+        this._seen.observe(/** @type {Element} */ (/** @type {unknown} */ (this)));
       }
     }
     disconnectedCallback() {
@@ -895,11 +897,11 @@
       this._sheet = root;
       var sh = window.hkShell, mount = (sh && sh.dialogRoot ? sh.dialogRoot() : null) || document.body;
       mount.appendChild(root);
-      var sheet = root.querySelector('.sheet'), strip = root.querySelector('.pics');
+      var sheet = /** @type {HTMLElement} */ (root.querySelector('.sheet')), strip = /** @type {HTMLElement} */ (root.querySelector('.pics'));
       this._sheetKey = function (e) { if (e.key === 'Escape') { e.stopPropagation(); self._closeSheet(); } };
       document.addEventListener('keydown', this._sheetKey, true);
       root.addEventListener('click', function (e) {
-        var t = e.target.closest ? e.target.closest('[data-close],[data-go],[data-nav]') : null;
+        var tg = /** @type {Element} */ (e.target), t = tg && tg.closest ? tg.closest('[data-close],[data-go],[data-nav]') : null;
         if (!t) return;
         if (t.hasAttribute('data-close')) self._closeSheet();
         else if (t.hasAttribute('data-go')) {
@@ -916,7 +918,7 @@
         var stamp = function () {
           var w = Math.max(1, strip.clientWidth), i = Math.max(0, Math.min(pics.length - 1, Math.round(strip.scrollLeft / w)));
           root.querySelectorAll('.dots i').forEach(function (d, k) { d.className = k === i ? 'on' : ''; });
-          var pv = root.querySelector('.pv'), nx = root.querySelector('.nx'), pt = root.querySelector('.pt');
+          var pv = /** @type {HTMLElement} */ (root.querySelector('.pv')), nx = /** @type {HTMLElement} */ (root.querySelector('.nx')), pt = root.querySelector('.pt');
           if (pv) pv.hidden = i === 0;
           if (nx) nx.hidden = i === pics.length - 1;
           if (pt) pt.textContent = pics.length > 1 ? timeText(pics[i].at * 1000, ctx) + ' · ' + (i + 1) + ' of ' + pics.length : timeText(pics[i].at * 1000, ctx);
