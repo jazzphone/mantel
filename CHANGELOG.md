@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.125 - 2026-11-04
+
 **Added**
 - **The Intercom on the Home page.** Add an **Intercom** chip (it shows the first room you picked, "Living Room +1") in All Screens → **Status Chips**, or an **Intercom** pill in a screen's **Scenes**, each under **More**. A tap opens the Intercom; a page that shows neither loads none of its code.
 
