@@ -24,7 +24,7 @@ var KIT_SRC = read(HK_ROOT + '/frontend/panels/hk-settings-kit.js');
 // which elements the page asks the registry for while it draws
 var asked = [], _get = customElements.get;
 customElements.get = function (n) { asked.push(n); return _get.call(customElements, n); };
-(0, eval)(SRC.replace('  var M = null, K = null, h = null, F = null;',
+(0, eval)(readRunnable(HK_ROOT + '/frontend/panels/hk-settings.js').replace('  var M = null, K = null, h = null, F = null;',
   '  var M = window.hkSettingsModel, K = window.hkSettingsKit, h = K.h, F = window.hkSettingsFeatures; F.use(K);'));
 
 // (the stub DOM, enough for a YAML page: a group's cells replaced by the box)

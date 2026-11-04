@@ -103,7 +103,7 @@
                'hk-saver-music.js', 'hk-saver-pane.js', 'hk-saver-black.js'];
   var PARTS_TRIES = 6;
   function partKey(file) { return file.replace(/\.js$/, ''); }
-  // ONE FILE THAT DIDN'T COME (a tablet's Wi-Fi waking, Mantel restarting) used to leave the cards dead until a reload
+  // ONE FILE THAT DIDN'T COME (a tablet's Wi-Fi waking, the server restarting) used to leave the cards dead until a reload
   // (the third audit pass, WEB-11): the ones still missing are asked for again, a little later each time, at an address
   // of their own -- a browser keeps a failed module's answer for its address
   function loadParts(then, n) {
@@ -123,7 +123,7 @@
       (window.__hkSplitDone = window.__hkSplitDone || {})['hk-saver'] = true;
       return;
     }
-    // (window.hkV: Mantel's build's ?v= on an address put together here, web/shim/base.js)
+    // (window.hkV: the build's ?v= on an address put together here, web/shim/base.js)
     Promise.all(missing.map(function (file) {
       var u = '/hk/saver/' + file, href = window.hkV ? window.hkV(u) : u;
       var got = n ? import(href + (href.indexOf('?') < 0 ? '?' : '&') + 'retry=' + n) : import(href);

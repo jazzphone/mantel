@@ -96,7 +96,15 @@ def test_the_register_calls_stay_in_the_shell(path):
     shell = ROOT / man["shell"]
     if man["shell"] in TAGS:
         assert hk_cards.tags_of(shell) == TAGS[man["shell"]]
-    assert hk_cards.tags_of(shell)
+    if man.get("class"):
+        # a panel (HK Settings), not a card file: its element is defined by the shell, at once (the host makes one the moment
+        # the module is in), with the class and its entry; the parts only add methods to the prototype
+        text = shell.read_text()
+        assert re.search(r"^  customElements\.define\('hk-settings-panel', %s\);$" % man["class"], text, re.M)
+        assert re.search(r"^  class %s extends HTMLElement \{$" % man["class"], text, re.M)
+        assert text.index("customElements.define(") < text.index("var partsReady = ")
+    else:
+        assert hk_cards.tags_of(shell)
     for f in sorted((ROOT / man["folder"]).glob("*.js")):
         assert hk_cards.tags_of(f) == (), f.name
         assert "customElements.define" not in f.read_text() and ".register(" not in f.read_text(), f.name
@@ -110,15 +118,16 @@ def test_every_part_has_the_header_and_registers_under_its_own_name(path):
         assert text.startswith(f"// {part['name']}.js - "), part["name"]
         head = re.sub(r"\n// ?", " ", text[:text.index("(function () {")])
         assert f"PART OF {man['what']} ({shell}). Not a card and not run on its own" in head
-        assert "takes from K at the top" in head and "it hands back at the bottom" in head
+        kit = man.get("kit_name", "K")
+        assert f"takes from {kit} at the top" in head and "it hands back at the bottom" in head
         assert "(function () {\n  'use strict';\n" in text
-        assert f"(window.{man['global']} = window.{man['global']} || {{}})['{part['name']}'] = function (K) {{" in text
+        assert f"(window.{man['global']} = window.{man['global']} || {{}})['{part['name']}'] = function ({kit}) {{" in text
         assert text.endswith("  };\n})();\n")
 
 
 # what the split is for (CODE-HEALTH.md "Part B"): no web file above about 2,000 lines, except the saver's shell, which keeps
-# the one cluster of state its shared variables make (71 reassigned variables and the 268 statements that touch them: B3 in
-# the Build log) -- decision 13 accepts that; the plan's 3,500 is not reachable without rewriting those references.
+# the one connected group of shared state (268 statements around 134 reassigned variables: B3 in the
+# Build log) -- decision 13 accepts that; the plan's 3,500 is not reachable without rewriting those references.
 # tests/test_file_sizes.py holds it from growing
 SHELL_LINES = {"saver": 4600}
 
@@ -275,3 +284,81 @@ def test_a_variable_that_touches_nothing_that_moved_stays_where_it_is_and_one_th
     # the function that stays reads `doubled`, which waits: it cannot see it there
     with pytest.raises(tool.Refusal, match="waits for the parts"):
         tool.build(man, SYNTHETIC.replace("LIMIT + NAMES.length", "doubled + NAMES.length"), tmp_path / "late")
+
+
+CLASS_SOURCE = """(function () {
+  'use strict';
+  var LABEL = 'a';
+  var M = null;
+  function twice(n) { return n * 2; }
+  var TABLE = { a: 1 };
+  class Panel extends HTMLElement {
+    constructor() { super(); this.n = LABEL; this.h = this.helper.bind(this); }
+    boot() { M = window.model; return TABLE.a; }
+    go(x) { return twice(x) + M.k + this.helper(); }
+    helper() { return 1; }
+    get size() { return 2; }
+    set size(v) { this._s = v; }
+  }
+  customElements.define('x-panel', Panel);
+})();
+"""
+
+CLASS_MANIFEST = {"shell": "x.js", "folder": "web/hk/x", "global": "hkXParts", "label": "hk-x", "what": "X", "name": "x",
+                  "class": "Panel", "kit_name": "KIT", "early": ["Panel", "customElements.define"], "early_methods": ["constructor"],
+                  "live": ["M"], "shell_edits": [{"find": "M = window.model;", "replace": "M = window.model; bindLate();"}],
+                  "parts": [{"name": "hk-x-tables", "title": "tables", "members": ["TABLE", "twice"], "methods": []},
+                            {"name": "hk-x-go", "title": "go", "members": [], "methods": ["go", "size"]}]}
+
+
+def _node_ready():
+    return shutil.which("node") is not None and (ROOT / "tools/typecheck/node_modules/typescript/package.json").is_file()
+
+
+def test_class_method_mode_moves_methods_into_a_class_expression_and_proves_it(path, tmp_path):
+    """tools/split_js.py with a class named in the manifest: a part writes the methods it takes in `var Methods = class {...}` and
+    hands them to the shell's install(); a variable the shell sets later (live) is bound by bindLate(); the constructor and what
+    the shell needs before its parts are in stay."""
+    if not _node_ready() or path.stem != "settings":                # (the same whichever manifest it is run for: once)
+        pytest.skip("node or TypeScript (tools/typecheck) not installed, or run once, for the class's manifest")
+    tool = _tool()
+    man = json.loads(json.dumps(CLASS_MANIFEST))
+    plan, parts, shell = tool.build(man, CLASS_SOURCE, tmp_path / "ok")
+    assert tool.verify(plan, parts, shell, tmp_path / "ok") == []
+    go = parts["hk-x-go.js"]
+    assert "var Methods = class extends /** @type {any} */ (Object) {" in go and "KIT.install(Methods);" in go
+    assert "    var M;" in go and "KIT.late.push(function (s) {" in go           # its own copy of the live variable
+    assert "go(x) { return twice(x) + M.k + this.helper(); }" in go and "get size() { return 2; }" in go
+    assert "helper() { return 1; }" in shell and "go(x)" not in shell             # helper stayed (not named): the constructor binds it
+    assert "customElements.define('x-panel', Panel);" in shell.split("var partsReady")[0]          # defined at once
+    assert "M = window.model; bindLate();" in shell and "var partsReady = new Promise(" in shell
+    assert "function install(from) {" in shell and "enumerable: false" in shell
+
+
+def test_class_method_mode_refuses_what_a_move_would_change(path, tmp_path):
+    if not _node_ready() or path.stem != "settings":
+        pytest.skip("node or TypeScript (tools/typecheck) not installed, or run once, for the class's manifest")
+    tool = _tool()
+
+    def refused(source, edit, why):
+        man = json.loads(json.dumps(CLASS_MANIFEST))
+        edit(man)
+        with pytest.raises(tool.Refusal, match=why):
+            tool.build(man, source, tmp_path / why[:12].replace(" ", "_"))
+
+    # a method the constructor reaches through `this` cannot move (it runs before the parts are in)
+    refused(CLASS_SOURCE, lambda m: m["parts"][1]["methods"].append("helper"), "runs before the parts are in")
+    # `super` would mean another prototype in a class expression
+    refused(CLASS_SOURCE.replace("go(x) { return", "go(x) { super.go(); return"), lambda m: None, "uses `super`")
+    # a moved method that sets a variable of the shell (a copy through the kit would go stale)
+    refused(CLASS_SOURCE.replace("var LABEL = 'a';", "var LABEL = 'a', COUNT = 0;").replace("go(x) { return", "go(x) { COUNT++; return"),
+            lambda m: None, "assigns `COUNT`")
+    # a name the manifest gives that the class does not have
+    refused(CLASS_SOURCE, lambda m: m["parts"][1]["methods"].append("nope"), "is not a method")
+    # the constructor
+    refused(CLASS_SOURCE, lambda m: m["parts"][1]["methods"].append("constructor"), "is the constructor")
+    # a variable set later by the shell must say so: without bindLate() after the assignment the parts keep a stale copy
+    man = json.loads(json.dumps(CLASS_MANIFEST))
+    man["shell_edits"] = []
+    plan, parts, shell = tool.build(man, CLASS_SOURCE, tmp_path / "late")
+    assert any("bindLate()" in b for b in tool.verify(plan, parts, shell, tmp_path / "late"))
