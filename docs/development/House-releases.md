@@ -368,3 +368,11 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Found on the house: at the start the digest ran before Home Assistant gave the house's time zone (UTC until then) and stored an empty one for today (to no channel: House is off for every channel, and no person has Morning Summary on). Fixed on main after the release (the digest waits for the house's zone, and for a whole night watched); it ships with the next release.
 - HK Frontend 1.42.0 built and copied with rsync --inplace (diff -rq clean), Home Assistant restarted through its MCP (no admin token here) and serves the new files, no new errors (the old link to the stopped App still warns, as before); published to jazzphone/hk-frontend `b091042`, tagged v1.42.0 with its GitHub Release.
 - Mantel Link unchanged at 0.1.12.
+
+## Mantel 0.1.123 (2026-11-04)
+
+- Mantel 0.1.123, release commit `6fedd10`, tagged `v0.1.123`; the LXC 0.1.122 -> 0.1.123 (build `cefd0eca4e596530`).
+- Images run 41855055196 (stage=images), promote run 41856265200, GitHub Release `v0.1.123`.
+- Strict health 200, all services healthy, mantel-server built from `6fedd10`, Home Assistant connected for 62 s; no "Traceback" or "ERROR" in Mantel's log.
+- Linux suite passed.
+- Times: preflight 5 s, release commit (retry) 0 s, images run started 4 s, images built and pushed 262 s, the LXC updated and healthy 151 s, Linux suite passed 3 s, tagged 2 s, promoted (latest, ha-apps) 83 s, GitHub Release 1 s; 8.5 minutes in all.

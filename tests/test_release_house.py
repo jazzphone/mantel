@@ -185,6 +185,7 @@ def _manifest_version(product):
 def test_a_github_release_needs_the_versions_notes_and_a_free_tag(monkeypatch, product):
     _ls_remote(monkeypatch, "")
     rh.check_github_release(product, _manifest_version(product))               # the notes are in the changelog
+    monkeypatch.setattr(rh, "unreleased", lambda changelog: "")                 # (whatever Unreleased says today)
     with pytest.raises(rh.Refused, match="no GitHub release: CHANGELOG.md has no section '## 99.0.0'"):
         rh.check_github_release(product, "99.0.0")
     version = _manifest_version(product)
@@ -1605,3 +1606,21 @@ def test_plan_and_backfill_need_no_version(monkeypatch, capsys):
     asked = []
     monkeypatch.setattr(rh, "backfill_tags", lambda dry: asked.append(dry) or [])
     assert rh.main(["backfill-tags", "--dry-run"]) == 0 and asked == [True]
+
+
+def test_run_view_asks_again_when_github_does_not_know_the_new_run_yet(monkeypatch):
+    calls = []
+
+    def gh_json(*a):
+        calls.append(a)
+        if len(calls) < 3:
+            raise rh.Refused("gh run view failed: HTTP 404: Not Found")
+        return {"status": "queued", "jobs": []}
+    monkeypatch.setattr(rh, "gh_json", gh_json)
+    monkeypatch.setattr(rh, "sleep", lambda s: None)
+    assert rh.run_view("123") == {"status": "queued", "jobs": []} and len(calls) == 3
+    calls.clear()
+    monkeypatch.setattr(rh, "gh_json", lambda *a: (calls.append(a), (_ for _ in ()).throw(rh.Refused("down")))[1])
+    with pytest.raises(rh.Refused, match="down"):
+        rh.run_view("123", tries=3)
+    assert len(calls) == 3

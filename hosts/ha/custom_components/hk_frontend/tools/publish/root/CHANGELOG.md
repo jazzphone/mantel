@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+- On a host with the Intercom (Mantel): the Home Grid block **Intercom** and its sheet. In Home Assistant the block says "Intercom needs Mantel".
+
 ## 1.42.0 - 2026-11-04
 
 - On a host that keeps a House Timeline (Mantel): the Timeline page, the Home Grid block **Recent** and a camera sheet's **Recent** strip. In Home Assistant nothing changes: the page isn't listed, and a layout with a Recent block shows a stand-in.

@@ -711,8 +711,17 @@ def dispatch(ref: str, *fields: str, wait_s: float = 120) -> str:
     raise Refused(f"the release workflow from {ref} did not start")
 
 
-def run_view(run_id: str) -> dict:
-    return gh_json("run", "view", run_id, "--json", "status,conclusion,headSha,jobs,url") or {}
+def run_view(run_id: str, tries: int = 7, every: float = 10) -> dict:
+    """The run's status and jobs. GitHub can answer 404 for a run it created a second ago (0.1.123's release,
+    2026-11-04: its jobs right after the dispatch), and any one call can fail: asked again for about a minute."""
+    for attempt in range(tries):
+        try:
+            return gh_json("run", "view", run_id, "--json", "status,conclusion,headSha,jobs,url") or {}
+        except Refused:
+            if attempt == tries - 1:
+                raise
+            sleep(every)
+    return {}
 
 
 def wait_jobs(run_id: str, wanted: dict[str, int], what: str, minutes: float = WORKFLOW_MINUTES,
