@@ -215,8 +215,6 @@ async def _pixels(gallery, engine: str, size: str, frames: int, shots: Path | No
 
 
 async def browser(gallery, engine: str, size: str, shots: Path | None, light: bool = False) -> bool:
-    from aiohttp.test_utils import TestServer
-    from mantel_server.settings_store import load_model
     look = gallery.SETTINGS['settings']['look']
     gallery.SETTINGS['settings']['look'] = {'flat': True, 'flat_theme': 'light'} if light else look
     try:
