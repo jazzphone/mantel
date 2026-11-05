@@ -944,7 +944,7 @@
       connectedCallback() {
         if (super.connectedCallback) super.connectedCallback();
         var self = this;
-        if (this._hash && !this._mountedAs) {
+        if (this._hash && !this._mountedAs && !peeking(this)) {
           this._mountedAs = this._hash;
           MOUNTED[this._hash] = (MOUNTED[this._hash] || 0) + 1;
         }
@@ -985,11 +985,31 @@
           this._onLanded = function () {
             if (!self._peeked || peeking(self)) return;
             self._peeked = false;
+            if (self._hash && !self._mountedAs) {
+              self._mountedAs = self._hash;
+              MOUNTED[self._hash] = (MOUNTED[self._hash] || 0) + 1;
+            }
+            self._settled = false;
             self._trigSig = null;
             self._sync();
             if (self.client) self._evalTrigger();
           };
           window.addEventListener('hk-swipe-landed', this._onLanded);
+          // THE PAGE IT IS ON WAS LEFT, AND WAITS BESIDE THE ONE SHOWN (hk-pageswipe.js): as if it had gone from the
+          // document. Down quietly, its hash no longer the page's; it looks again when the page lands (_onLanded)
+          this._onLeft = function () {
+            if (!peeking(self)) return;
+            self._peeked = true;
+            if (self._mountedAs) {
+              MOUNTED[self._mountedAs] = Math.max(0, (MOUNTED[self._mountedAs] || 0) - 1);
+              self._mountedAs = null;
+            }
+            if (!self._open) return;
+            self._leaving = (self._config && self._config.carry && pageHas(self._hash)) || false;
+            self._close(false);
+            self._leaving = false;
+          };
+          window.addEventListener('hk-swipe-left', this._onLeft);
         }
         this._sync();
         // ...and re-evaluate NOW rather than on the next state push. Coming back
@@ -1010,6 +1030,7 @@
         });
         if (this._onFlags) { window.removeEventListener('hk-popup-flags', this._onFlags); this._onFlags = null; }
         if (this._onLanded) { window.removeEventListener('hk-swipe-landed', this._onLanded); this._onLanded = null; }
+        if (this._onLeft) { window.removeEventListener('hk-swipe-left', this._onLeft); this._onLeft = null; }
         this._peeked = false;
         this._stashShow(false);
         if (this._musicOff) { this._musicOff(); this._musicOff = null; }

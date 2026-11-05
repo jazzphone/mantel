@@ -150,6 +150,104 @@
     return function () { stopped = true; if (global.cancelAnimationFrame) global.cancelAnimationFrame(raf); };
   }
 
+  // A HOME GRID'S VIEWS, FOLLOWING A FINGER (hk-layout.js _swipeViews; here since 2026-11-04, that file may not grow).
+  // `grid`: the hk-home-grid-view. Its own rules are in its comment; returned, one handler per event.
+  // (--drag, each view's own cell: on the grid itself it reaches everything inside every block, and each move would restyle
+  // them all; null: taken away, they go to their places)
+  function dragTo(grid, off) {
+    var cells = grid._root ? grid._root.querySelectorAll('.cell[data-view]') : [];
+    for (var i = 0; i < cells.length; i++) {
+      if (off === null) cells[i].style.removeProperty('--drag');
+      else cells[i].style.setProperty('--drag', off.toFixed(1) + 'px');
+    }
+  }
+  function viewW(grid) {
+    var w = 0;
+    try { w = parseFloat(getComputedStyle(grid._root).getPropertyValue('--g-w')); } catch (e) { w = 0; }
+    return w || grid._root.offsetWidth || 1;
+  }
+  // where the first view's cell is drawn now, against where it rests (a slide under way)
+  function drawnOff(grid) {
+    var c = grid._root.querySelector('.cell[data-view]');
+    if (!c) return 0;
+    try {
+      var m = new DOMMatrixReadOnly(getComputedStyle(c).transform);
+      return m.m41 - ((parseFloat(c.style.getPropertyValue('--v')) || 0) - (grid._view || 0)) * viewW(grid);
+    } catch (e) { return 0; }
+  }
+  function viewSwipe(grid) {
+    var d = null;
+    return {
+      pointerdown: function (e) {
+        if (grid._views() < 2 || (e.button !== undefined && e.button !== 0) || sideways(e.composedPath ? e.composedPath() : [], grid)) return;
+        d = { x: e.clientX, y: e.clientY, id: e.pointerId, on: false, pts: [[e.timeStamp || Date.now(), e.clientX]], from: 0 };
+      },
+      pointermove: function (e) {
+        if (!d || e.pointerId !== d.id) return;
+        var dx = e.clientX - d.x, dy = e.clientY - d.y;
+        if (!d.on) {
+          if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.4) { if (Math.abs(dy) > 14) d = null; return; }
+          // PAST THE END, ON TO THE NEXT PAGE: the page swipe takes it from here
+          var end = dx < 0 ? (grid._view || 0) >= grid._views() - 1 : (grid._view || 0) <= 0;
+          var PS = global.hkPageSwipe;
+          if (end && PS && PS.takes && PS.takes(dx < 0 ? 1 : -1, grid)) {
+            d = null;
+            grid.dispatchEvent(new CustomEvent('hk-swipe-past', { bubbles: true, composed: true,
+              detail: { dir: dx < 0 ? 1 : -1, dx: dx, dy: dy, x: e.clientX, y: e.clientY, pointerId: e.pointerId,
+                        pointerType: e.pointerType, target: e.composedPath ? e.composedPath()[0] : e.target } }));
+            return;
+          }
+          d.on = true;
+          // (from here, not with a jump by the 10 px it waited; and a view still sliding is caught where it is)
+          d.x += dx < 0 ? -10 : 10;
+          d.from = grid._sliding ? drawnOff(grid) : 0;
+          try { grid.setPointerCapture(e.pointerId); } catch (x) { /* a test page */ }
+          grid._root.classList.add('dragging');
+          grid._root.style.removeProperty('--view-ms');
+          grid._root.style.removeProperty('--view-ease');
+          dx = e.clientX - d.x;
+        }
+        d.pts.push([e.timeStamp || Date.now(), e.clientX]);
+        if (d.pts.length > 30) d.pts.splice(0, d.pts.length - 30);
+        var k = grid._gridScale || 1, n = grid._views(), at = grid._view || 0;
+        var off = d.from + dx / k;
+        // (past the first or the last: a third of the finger's travel)
+        if ((at === 0 && off > 0) || (at === n - 1 && off < 0)) off /= 3;
+        d.off = off;
+        dragTo(grid, off);
+      },
+      pointerup: function (e) { end(e); },
+      pointercancel: function (e) { end(e); },
+      // the tap a swipe ends with is no tap on the block under it
+      click: function (e) {
+        if (grid._eatClick && Date.now() - grid._eatClick < 350) { e.stopPropagation(); e.preventDefault(); }
+        grid._eatClick = 0;
+      }
+    };
+    function end(e) {
+      if (!d || e.pointerId !== d.id) return;
+      var was = d;
+      d = null;
+      if (!was.on) return;
+      var root = grid._root, k = grid._gridScale || 1, w = root.offsetWidth || 1;
+      if (was.pts[was.pts.length - 1][1] !== e.clientX) was.pts.push([e.timeStamp || Date.now(), e.clientX]);
+      var v = speed(was.pts, e.timeStamp || Date.now()) / k, off = was.off || 0, n = grid._views(), at = grid._view || 0;
+      var dir = off < 0 ? 1 : -1, there = at + dir >= 0 && at + dir < n;
+      var goes = e.type === 'pointerup' && there && lands(off * k, w * k, v * k);
+      // LET GO: from where it is, at the speed it was going, to the view it lands on or back
+      var c = curve(off, goes ? -dir * viewW(grid) : 0, there ? v : v / 3);
+      root.style.setProperty('--view-ms', c.ms + 'ms');
+      root.style.setProperty('--view-ease', c.ease);
+      root.classList.remove('dragging');
+      dragTo(grid, null);
+      grid._slideMs = c.ms;
+      if (goes) grid._showView(at + dir);
+      else if (Math.abs(off) > 0.5) grid._slideFor(c.ms);
+      grid._slideMs = 0;
+      grid._eatClick = Date.now();
+    }
+  }
+
   function classify(dx, dy, o) {
     o = o || {};
     if (Math.hypot(dx, dy) < (o.slop || SLOP_TOUCH)) return 'press';
@@ -261,5 +359,5 @@
   global.hkDrag = { HOLD_MS: HOLD_MS, SLOP_TOUCH: SLOP_TOUCH, SLOP_MOUSE: SLOP_MOUSE,
                     press: press, holdStill: holdStill, ghost: ghost, classify: classify,
                     sideways: sideways, SIDEWAYS: SIDEWAYS,
-                    speed: speed, lands: lands, spring: spring, easing: easing, curve: curve, glide: glide };
+                    speed: speed, lands: lands, spring: spring, easing: easing, curve: curve, glide: glide, viewSwipe: viewSwipe };
 })(typeof window !== 'undefined' ? window : globalThis);

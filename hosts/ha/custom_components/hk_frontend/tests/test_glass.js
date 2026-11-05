@@ -355,7 +355,7 @@ print('\n=== a page is shown as soon as it is built (2026-10-11) ===');
 ok('nothing holds a view back: no hidden view, no faint, no backstop',
    !/visibility = 'hidden'/.test(gsrc) && !/function hold\(/.test(gsrc) && !/faintAgain/.test(gsrc) && !/HOLD_MS/.test(gsrc));
 ok('...a view put on the page, or a card joining it, is the page on screen for the picture (viewShown)',
-   /if \(v\.__hkShown\) \{\s*viewShown\(\);/.test(gsrc) && /VIEWS\.indexOf\(n\.tagName\) >= 0\) onPage\(n\)/.test(gsrc) &&
+   /if \(v\.__hkShown\) \{\s*viewShown\(\);/.test(gsrc) && /VIEWS\.indexOf\(n\.tagName\) < 0\) return;[\s\S]{0,160}onPage\(n\)/.test(gsrc) &&
    /if \(on\) \{ var v = viewOf\(card\); if \(v\) onPage\(v\); \}/.test(gsrc));
 ok('...and a view Home Assistant kept is laid with its glass before its first frame: one pass, a microtask, for all its cards (2026-10-13)',
    /keptPass = true;/.test(gsrc) && /queueMicrotask\(run\)/.test(gsrc) && /var run = function \(\) \{ keptPass = false; if \(active\) update\(\); \}/.test(gsrc));

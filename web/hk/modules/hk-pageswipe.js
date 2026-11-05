@@ -438,6 +438,7 @@
     [[1, nb.next], [-1, nb.prev]].forEach(function (pair) {
       var dir = pair[0], item = pair[1], N = st.nb[dir];
       if (N && (!item || N.item.path !== item.path)) { drop(N); delete st.nb[dir]; N = null; }
+      if (N && N.real) groundKnown(N.el, true);
       if (!item || N) return;
       // (one let go a moment ago, wanted again: it never left its place)
       var o = (st.spare || []).filter(function (q) { return q.item.path === item.path; })[0];
@@ -446,7 +447,7 @@
     });
     (st.spare || []).forEach(drop);
     st.spare = [];
-    groundKnown(st.view);
+    groundKnown(st.view, true);
   }
   function makeReady(st, dir, item) {
     var H = host(), key = item.path;
@@ -477,7 +478,8 @@
     });
   }
   // the page's own glass while it moves: nothing to make ready here but the walk (groundOf) for the first frame not to
-  function groundKnown(el) { if (el && el.__hkGroundOf === undefined) el.__hkGroundOf = groundOf(el); }
+  // (at a quiet moment, again: its card may not have been drawn the last time)
+  function groundKnown(el, again) { if (el && (again || el.__hkGroundOf === undefined)) el.__hkGroundOf = groundOf(el); }
 
   // ------------------------------------------------------------ a page's ground
   // A PAGE WITH A GROUND OF ITS OWN (the Pages screen's blurred sky, hk-pages-screen.js swipeGround) draws it fixed to
@@ -901,9 +903,13 @@
     landed(N.el);
     planSoon(0);
   }
-  // (the page it landed on is the page now: what waited for that -- hk-popup.js -- looks again)
+  // (the page it left is not the page now, and the page it landed on is: what waited for that -- hk-popup.js -- looks
+  // again, in that order, as when a page left goes out of the document before the next comes in)
   function landed(el) {
-    try { window.dispatchEvent(new CustomEvent('hk-swipe-landed', { detail: { el: el || null } })); } catch (e) { /* none */ }
+    try {
+      window.dispatchEvent(new CustomEvent('hk-swipe-left'));
+      window.dispatchEvent(new CustomEvent('hk-swipe-landed', { detail: { el: el || null } }));
+    } catch (e) { /* none */ }
   }
 
   // A PAGE NOT READY: the host builds it now, the stand-in on the screen until it is in
