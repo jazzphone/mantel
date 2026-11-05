@@ -110,6 +110,16 @@ async function flicker(browser) {
 // ---- BACKGROUND: the album by default; Card is the plate and inks of the Music block beside it
 async function background(browser) {
   const { p, ctx, errors } = await home(browser);
+  // every element read below, drawn first: the Music block's card comes in on its own, after the players (under a full
+  // run's load it was not there yet, 2026-11-05)
+  await p.waitForFunction(() => {
+    try {
+      const sh = (id) => __mc.np(id).shadowRoot;
+      return !!(__mc.deep(__mc.cell('music'), 'hk-plate.mu')[0] && sh('album').querySelector('hk-plate.np .bg') && sh('plain').querySelector('hk-plate.np .bg') &&
+                sh('plain').querySelector('.shade') && sh('plain').querySelector('.title') && sh('plain').querySelector('.play hk-icon') &&
+                sh('plain').querySelector('.art img'));
+    } catch (e) { return false; }
+  }, null, { timeout: 20000 });
   const got = await p.evaluate(() => {
     const plate = (id) => __mc.np(id).shadowRoot.querySelector('hk-plate.np');
     const mu = __mc.deep(__mc.cell('music'), 'hk-plate.mu')[0], ink = __mc.deep(__mc.cell('music'), '.t1, .it .nm')[0];
