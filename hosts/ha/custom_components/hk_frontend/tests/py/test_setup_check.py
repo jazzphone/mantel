@@ -23,7 +23,8 @@ def test_the_version_floor():
 
 
 async def test_the_theme_issue_appears_and_clears_itself_on_a_themes_reload(hass, frontend):
-    from homeassistant.components.frontend import DATA_THEMES, EVENT_THEMES_UPDATED
+    from custom_components.hk_frontend.themes import _frontend, themes_updated
+    DATA_THEMES, EVENT_THEMES_UPDATED = _frontend("DATA_THEMES"), themes_updated()
     reg = ir.async_get(hass)
     hass.data.pop("hk_frontend_themes")     # themes.py could not read its file
     hass.data[DATA_THEMES] = {}

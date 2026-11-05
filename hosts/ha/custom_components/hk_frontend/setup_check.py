@@ -72,8 +72,8 @@ def version_ok(version: str = HA_VERSION) -> bool:
 
 
 def theme_loaded(hass: HomeAssistant) -> bool:
-    from homeassistant.components.frontend import DATA_THEMES
-    themes = hass.data.get(DATA_THEMES) or {}
+    from .themes import _frontend
+    themes = hass.data.get(_frontend("DATA_THEMES", "frontend_themes")) or {}
     return THEME in themes
 
 

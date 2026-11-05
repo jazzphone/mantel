@@ -572,7 +572,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # SETUP CHECK Repairs (setup_check.py): Home Assistant too old, or the
     # HK Kiosk theme not loaded -- checked once started, and the theme
     # again on every themes reload, so the issue clears itself once fixed.
-    from homeassistant.components.frontend import EVENT_THEMES_UPDATED
+    from .themes import themes_updated
 
     async def _check(_hass: HomeAssistant) -> None:
         setup_check.raise_issues(hass)
@@ -582,7 +582,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         setup_check.raise_issues(hass)
 
     entry.async_on_unload(async_at_started(hass, _check))
-    entry.async_on_unload(hass.bus.async_listen(EVENT_THEMES_UPDATED, _themes))
+    entry.async_on_unload(hass.bus.async_listen(themes_updated(), _themes))
     # THE FEATURES, before the platforms: each platform adds the running
     # features' entities as it is set up (features/async_setup_platform)
     await F.async_start(hass, entry)
