@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **An Intercom message to several rooms played in one room only.** A Music Assistant sync group of the speakers (such as "HomePods") made Mantel think its first speaker led all the others, so the message went to that speaker alone and the sheet said "Plays with … +N" for a room playing nothing. Every room picked now plays it.
+
 ## 0.1.126 - 2026-11-04
 
 **Fixed**
