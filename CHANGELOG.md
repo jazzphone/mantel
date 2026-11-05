@@ -4,6 +4,14 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Changed**
+- **The Intercom has a volume of its own.** A room on Automatic plays at the Intercom's **Volume** (Settings → Intercom, 40% to start), whatever its speaker was left at; a room can still have its own. Before, Automatic followed the speaker, so a HomePod left at 2% played your message in a whisper after a loud chime. Each speaker goes back to its own volume afterward.
+- **A Message sends as soon as you stop recording**: tap, talk, tap. Play and Send Again are there afterward. With no room picked, it waits for you to pick one.
+- **Live is push to talk**: hold the microphone while you talk and let go when you're done. A tap too short to say anything says "Hold the button while you talk".
+
+**Fixed**
+- Live lost its first two seconds: what you said while Mantel asked Music Assistant about the rooms came in a burst that was dropped.
+
 ## 0.1.127 - 2026-11-05
 
 **Fixed**

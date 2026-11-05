@@ -280,7 +280,8 @@ async def test_a_message_reaches_the_fake_music_assistant_exactly_and_is_audited
     assert calls["ma-kitchen"]["url"] == calls["ma-den"]["url"]
     assert calls["ma-kitchen"] == {"player_id": "ma-kitchen", "url": calls["ma-kitchen"]["url"], "pre_announce": True,
                                    "volume_level": 40}
-    assert calls["ma-den"] == {"player_id": "ma-den", "url": calls["ma-den"]["url"], "pre_announce": True}
+    assert calls["ma-den"] == {"player_id": "ma-den", "url": calls["ma-den"]["url"], "pre_announce": True,
+                               "volume_level": 40}, "Automatic: the house's Volume, never Music Assistant's own"
     url = calls["ma-den"]["url"]
     assert url.startswith(ic.base + "/s/") and url.endswith(".wav") and "?" not in url
     assert len(url) == len(ic.base) + len("/s/") + 43 + len(".wav")

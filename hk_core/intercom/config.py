@@ -1,7 +1,7 @@
 """THE INTERCOM'S SETTINGS: the settings document ``house/intercom``, checked, with its defaults.
 
     { enabled, live_allowed, default_mode, max_live_s, max_message_s, chime: {message, live},
-      stream_base, lag_ms, max_volume, quiet_default: {schedule, from, to, while},
+      stream_base, lag_ms, volume, max_volume, quiet_default: {schedule, from, to, while},
       rooms: { <speaker entity>: { enabled, live, volume, quiet, listeners, live_fails, demoted } } }
 
 ``check`` takes whatever is stored (or nothing) and returns the whole document, every field filled: an unknown key is
@@ -25,6 +25,7 @@ MESSAGE_RANGE = (10, 60)
 LIVE_FAILS_DEMOTE = 3           # decision 21: three Live failures in a row and a room is Message-only
 MAX_LISTENERS = 16
 DEFAULT_MAX_VOLUME = 70
+DEFAULT_VOLUME = 40       # a room on Automatic (2026-11-05: Music Assistant's own level followed the speakers, at 2% a whisper)
 PRIVATE_SUFFIXES = (".local", ".lan", ".home.arpa")
 # a home network: RFC 1918 and IPv6 unique-local (never loopback, link-local, documentation or carrier ranges)
 # (made from numbers: the packaging's scan refuses an address written out)
@@ -51,6 +52,7 @@ DEFAULTS: dict[str, Any] = {
     "stream_base": "",
     "lag_ms": PROOF_LAG_MS,
     "max_volume": DEFAULT_MAX_VOLUME,
+    "volume": DEFAULT_VOLUME,
     "quiet_default": QUIET_DEFAULT,
     "rooms": {},
 }
@@ -174,6 +176,8 @@ def check(body: Any) -> dict[str, Any]:
             out[k] = None if v is None else _int(v, "lag_ms", 0, 60000)
         elif k == "max_volume":
             out[k] = _int(v, "the highest volume", 1, 100)
+        elif k == "volume":
+            out[k] = _int(v, "the volume", 1, 100)
         elif k == "quiet_default":
             out[k] = _quiet(v, "quiet hours")
     rooms = body.get("rooms")
@@ -233,9 +237,12 @@ def live_offered(doc: Mapping[str, Any]) -> bool:
 
 
 def volume_of(doc: Mapping[str, Any], entity: str) -> int | None:
-    """A room's announcement volume (0-100), capped by the house's highest; None = Music Assistant's own level."""
+    """A room's announcement volume (0-100): its own, else the house's (Automatic), capped by the house's highest. Never
+    Music Assistant's own level: that follows the speaker's volume, and a speaker left at 2% announced in a whisper."""
     v = room(doc, entity).get("volume")
-    return None if v is None else min(int(v), int(doc.get("max_volume") or DEFAULT_MAX_VOLUME))
+    if v is None:
+        v = doc.get("volume") or DEFAULT_VOLUME
+    return min(int(v), int(doc.get("max_volume") or DEFAULT_MAX_VOLUME))
 
 
 def quiet_of(doc: Mapping[str, Any], entity: str) -> dict[str, Any]:

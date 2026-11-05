@@ -387,7 +387,9 @@ def test_message_mode_is_never_after(house, music):
 def test_volume_per_room_capped(house, music):
     d = C.merge(doc(kitchen={"volume": 40}, office={"volume": 95}), {"max_volume": 50})
     p = decide(house, music, d, [K, OFF, GR])
-    assert {c.player: c.volume for c in p.calls} == {K: 40, OFF: 50, GR: None}
+    assert {c.player: c.volume for c in p.calls} == {K: 40, OFF: 50, GR: 40}, "Automatic: the house's volume"
+    d = C.merge(d, {"volume": 60})
+    assert {c.player: c.volume for c in decide(house, music, d, [GR]).calls} == {GR: 50}, "capped too"
 
 
 # ---------------------------------------------------------------- the feed and the page's picks

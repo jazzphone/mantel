@@ -713,7 +713,7 @@ test('mode_another_screens_change_is_followed_until_this_one_chooses', () => {
 });
 
 test('mode_a_switch_while_a_message_waits_is_not_allowed', async () => {
-  const s = sheet({ feed: feed({ live_allowed: true }), mem: { rooms: [L] } });
+  const s = sheet({ feed: feed({ live_allowed: true }) });     // no room picked: the message waits for one
   await record(s);
   tap(s.ctl);
   assert.equal(s.ctl.state, 'review');
@@ -721,8 +721,8 @@ test('mode_a_switch_while_a_message_waits_is_not_allowed', async () => {
   assert.equal(s.ctl.modeNow(), 'message');
 });
 
-// ================================================================== Message: record, review, send
-test('message_record_stop_review_send_sent', async () => {
+// ================================================================== Message: record, stop (it sends), sent
+test('message_record_stop_sends_sent', async () => {
   const s = sheet({ mem: { rooms: [K, L] } });
   assert.equal(s.ctl.view().mic.label, 'Tap to record');
   tap(s.ctl);
@@ -736,17 +736,12 @@ test('message_record_stop_review_send_sent', async () => {
   assert.equal(lines(s), 'Recording');
   s.mic.ready(); s.mic.speak(4); s.clk.advance(100);
   const v = s.ctl.view();
-  assert.equal(v.mic.label, 'Tap to stop');
+  assert.equal(v.mic.label, 'Tap to send');
   assert.equal(v.mic.time, '0:26 left', 'the countdown to the limit');
   assert.ok(v.mic.level > 0);
-  tap(s.ctl);
-  assert.equal(s.ctl.state, 'review');
+  tap(s.ctl);                                                // stopping sends it: no review step
+  assert.equal(s.ctl.state, 'sending');
   eq(s.mic.calls.filter((c) => c[0] === 'rec').map((c) => c[1]), [true, false]);
-  assert.equal(lines(s), 'Ready to send to Kitchen, Living Room');
-  eq(s.ctl.view().actions.map((a) => a.id), ['send', 'play', 'rerecord', 'cancel']);
-  assert.equal(s.ctl.view().stamp, '0:04');
-  assert.equal(s.ctl.view().mic.hidden, true);
-  s.ctl.do('send');
   await flush();
   eq(s.mic.texts().at(-1), { type: 'send', rooms: [K, L], override: false });
   assert.equal(lines(s), 'Sending…');
@@ -780,7 +775,7 @@ test('message_play_plays_the_pages_copy_and_stops', async () => {
 });
 
 test('message_re_record_cancels_the_draft_and_reuses_the_open_socket', async () => {
-  const s = sheet({ mem: { rooms: [K] } });
+  const s = sheet();                                         // no room picked: it waits in the review
   await record(s); tap(s.ctl);
   assert.equal(s.ctl.state, 'review');
   const begins = s.mic.names().filter((n) => n === 'begin').length;
@@ -819,9 +814,9 @@ test('message_send_with_nothing_picked_asks_for_rooms', async () => {
 
 test('message_a_socket_that_did_not_keep_up_is_replaced_by_an_upload_of_the_copy', async () => {
   const s = sheet({ mem: { rooms: [K] } });
-  await record(s); tap(s.ctl);
+  await record(s);
   s.mic.sync_ = { open: false, dropped: false };               // it never opened / it dropped
-  s.ctl.send();
+  tap(s.ctl);
   await flush(); await flush();
   assert.equal(s.tickets.length, 2, 'a new ticket');
   const open = s.mic.calls.filter((c) => c[0] === 'open').at(-1);
@@ -835,9 +830,9 @@ test('message_a_socket_that_did_not_keep_up_is_replaced_by_an_upload_of_the_copy
 
 test('message_dropped_frames_are_made_up_by_the_upload_too', async () => {
   const s = sheet({ mem: { rooms: [K] } });
-  await record(s); tap(s.ctl);
+  await record(s);
   s.mic.sync_ = { open: true, dropped: true };
-  s.ctl.send(); await flush(); await flush();
+  tap(s.ctl); await flush(); await flush();
   assert.equal(s.tickets.length, 2);
 });
 
@@ -928,15 +923,15 @@ test('message_the_limit_ends_the_recording_by_the_clock_and_by_the_servers_word'
   a.mic.speak(29.95); a.clk.advance(100);
   assert.equal(a.ctl.state, 'recording');
   a.mic.speak(0.1); a.clk.advance(100);
-  assert.equal(a.ctl.state, 'review', 'the countdown reached 0');
+  assert.equal(a.ctl.state, 'sending', 'the countdown reached 0: it stops and sends');
   const b = sheet({ mem: { rooms: [K] } });
   await record(b, 12);
   b.mic.server({ type: 'full' });
-  assert.equal(b.ctl.state, 'review', 'the draft hit the limit: later frames are dropped');
+  assert.equal(b.ctl.state, 'sending', 'the draft hit the limit: it stops and sends');
   const c = sheet({ mem: { rooms: [K] } });
   tap(c.ctl); await flush(); c.mic.ready(10);                 // the server's limit is shorter than the feed's
   c.mic.speak(10); c.clk.advance(100);
-  assert.equal(c.ctl.state, 'review');
+  assert.equal(c.ctl.state, 'sending');
 });
 
 // ================================================================== the words
@@ -991,8 +986,8 @@ test('refusals_are_said_and_end_the_recording_unless_trying_again_would_do', asy
   const s = sheet({ refuse: 'unavailable', mem: { rooms: [K] } });
   tap(s.ctl); await flush(); await flush();
   assert.equal(s.ctl.state, 'recording', 'no link to Mantel for a moment: the page keeps recording');
-  s.mic.speak(3); s.clk.advance(100); tap(s.ctl);
-  assert.equal(s.ctl.state, 'review');
+  s.mic.speak(3); s.clk.advance(100); tap(s.ctl); await flush(); await flush();
+  assert.ok(s.ctl.state !== 'idle' && s.mic.bytes > 0, 'the copy is kept: Send tries again');
   assert.equal(lines(s), 'Can’t reach Mantel');
   assert.ok(s.mic.names().includes('noSocket'));
 });
@@ -1123,7 +1118,7 @@ test('refusals_the_gateways_reasons_are_said_in_plain_words', async () => {
     assert.equal(s.ctl.state, 'idle', reason + ': trying again would not help, so the recording ends');
     assert.ok(s.mic.names().includes('closeSocket'));
     const live = sheet({ feed: liveFeed(), refuse: 'unavailable', refuseMessage: reason, mem: { mode: 'live', rooms: [L] } });
-    live.ctl.micDown(); live.ctl.micUp(); await flush(); await flush();
+    live.ctl.micDown(); await flush(); await flush();         // (held: Live is push to talk)
     assert.equal(lines(live), text, 'Live: ' + reason);
     assert.notEqual(live.ctl.state, 'recording');
   }
@@ -1131,14 +1126,14 @@ test('refusals_the_gateways_reasons_are_said_in_plain_words', async () => {
   const odd = sheet({ refuse: 'unavailable', refuseMessage: 'something_else', mem: { rooms: [K] } });
   tap(odd.ctl); await flush(); await flush();
   assert.equal(odd.ctl.state, 'recording');
-  odd.mic.speak(3); odd.clk.advance(100); tap(odd.ctl);
+  odd.mic.speak(3); odd.clk.advance(100); tap(odd.ctl); await flush(); await flush();
   assert.equal(lines(odd), 'Can’t reach Mantel');
-  // refused at Send Again: the copy stays and the line says why
+  // refused when it sends (the socket dropped, a new ticket refused): the copy stays and the line says why
   const again = sheet({ mem: { rooms: [K] } });
-  await record(again); tap(again.ctl);
+  await record(again);
   again.mic.sync_ = { open: false, dropped: false };
   again.ctl.d.actions = () => ({ intercom: () => Promise.reject(Object.assign(new Error('music_assistant_off'), { code: 'unavailable' })) });
-  again.ctl.send(); await flush(); await flush();
+  tap(again.ctl); await flush(); await flush();
   assert.equal(again.ctl.state, 'error');
   assert.equal(lines(again), 'Music Assistant isn’t connected');
   assert.ok(again.mic.bytes > 0);
@@ -1265,15 +1260,18 @@ test('live_hold_to_talk_starts_at_the_press_and_ends_at_the_release', async () =
 });
 const HOLD = () => 450;
 
-test('live_a_short_tap_stays_on_until_the_next_tap', async () => {
+test('live_is_push_to_talk_and_a_short_tap_says_hold', async () => {
   const s = sheet({ feed: liveFeed(), mem: { mode: 'live', rooms: [L] } });
   s.ctl.micDown(); await flush(); s.mic.ready(60); s.mic.speak(1);
   s.clk.advance(100);
+  assert.equal(s.ctl.view().mic.label, 'Release to stop');
   s.ctl.micUp();
-  assert.equal(s.ctl.state, 'recording', 'let go at once: it stays on');
-  assert.equal(s.ctl.view().mic.label, 'Tap to stop');
-  s.ctl.micDown(); s.ctl.micUp();
-  eq(s.mic.texts().at(-1), { type: 'end' });
+  assert.equal(s.ctl.state, 'idle', 'let go at once: nothing was said, so nothing is sent');
+  assert.equal(lines(s), 'Hold the button while you talk');
+  const h = sheet({ feed: liveFeed(), mem: { mode: 'live', rooms: [L] } });
+  h.ctl.micDown(); await flush(); h.mic.ready(60); h.mic.speak(2); h.clk.advance(HOLD() + 50);
+  h.ctl.micUp();                                              // held, then let go: the talk ends
+  eq(h.mic.texts().at(-1), { type: 'end' });
 });
 
 test('live_a_taken_press_ends_a_held_talk', async () => {
@@ -1281,10 +1279,6 @@ test('live_a_taken_press_ends_a_held_talk', async () => {
   s.ctl.micDown(); await flush(); s.mic.ready(60); s.mic.speak(1); s.clk.advance(HOLD() + 50);
   s.ctl.micCancel();                                          // pointercancel: a call, a system gesture
   eq(s.mic.texts().at(-1), { type: 'end' });
-  const t = sheet({ feed: liveFeed(), mem: { mode: 'live', rooms: [L] } });
-  t.ctl.micDown(); await flush(); t.mic.ready(60); t.mic.speak(1); t.clk.advance(100); t.ctl.micUp();   // latched
-  t.ctl.micCancel();
-  assert.equal(t.ctl.state, 'recording', 'a latched talk is not ended by a cancelled press');
 });
 
 test('live_the_status_uses_the_feeds_lag_then_the_servers_and_the_servers_sending_frame_changes_nothing_else', async () => {
@@ -1321,7 +1315,7 @@ test('live_rooms_that_did_not_connect_live_are_named_and_the_talk_ends_on_the_se
   const two = sheet({ feed: liveFeed(), mem: { mode: 'live', rooms: [L] } });
   two.ctl.micDown(); await flush(); two.mic.ready(60); two.mic.speak(3); two.clk.advance(100);
   two.mic.server({ type: 'fallback', rooms: ['Kitchen', 'Office'] });
-  two.ctl.micUp(); two.ctl.micDown(); two.ctl.micUp();       // tap on, tap off
+  two.clk.advance(HOLD()); two.ctl.micUp();                   // let go
   eq(two.mic.texts().at(-1), { type: 'end' });
   assert.equal(lines(two), 'Kitchen, Office didn\u2019t connect live. Sent as a message.', 'while the server finishes');
 });
