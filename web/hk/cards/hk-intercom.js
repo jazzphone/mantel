@@ -45,6 +45,7 @@
   var NO_AUDIO_MS = 3000;                    // Recording with nothing captured for this long: the audio is not running (a suspended context)
   var RATES = [16000, 22050, 24000, 32000, 44100, 48000];    // the sample rates the gateway accepts a ticket for (gateway.INTERCOM_RATES)
   var SAID_MS = 4500;                        // how long an explanation stays in the status line
+  var SENT_MS = 8000;                        // "Sent to 9 rooms" and its Play / Send Again, then Tap to Talk alone (2026-11-05)
   var SAVE_MS = 600;                         // the rooms are saved this long after the last change
   var LAST = 'hk-intercom';                  // localStorage: the last mode and rooms, for the first paint
   var ONE_WAY = 'hk-intercom-oneway';        // localStorage: the one-way note has been shown
@@ -306,7 +307,7 @@
           var lag = this.lag != null ? this.lag : f && f.lag_ms != null ? f.lag_ms : null;
           return { text: lag != null ? 'Live, about ' + Math.max(1, Math.round(lag / 1000)) + ' s behind you' : 'Live', kind: 'live' };
         }
-        return { text: WORDS.recording, kind: 'live' };
+        return { text: '', kind: 'live' };              // the button says it: its word is the time, its hint the time left
       case 'sending': return this.fallback.length ? { text: this._fallbackLine(), kind: 'info' } : { text: WORDS.sending, kind: 'pending' };
       case 'sent': return this._sentLine();
       case 'review': return names.length ? { text: 'Ready to send to ' + names.join(', '), kind: 'info' } : { text: WORDS.chooseRooms, kind: 'info' };
@@ -385,6 +386,17 @@
     this._afterPick();
   };
   /** @this {Ctl} */ CP._afterPick = function () { this._persist(); this._changed(); };
+  // CLEAR ALL (2026-11-05, the owner): no room picked
+  /** @this {Ctl} */ CP.clearRooms = function () {
+    if (!this.sel.length || !(this.state === 'idle' || this.state === 'sent' || this.state === 'error' || this.state === 'review')) return;
+    this.sel = []; this.touchedRooms = true;
+    this._afterPick();
+  };
+  // how many of the rooms that can be picked are: "2 of 9"
+  /** @this {Ctl} */ CP.count = function () {
+    var sel = this.sel, can = this.pills().filter(function (p) { return p.pickable || p.quiet; });
+    return { on: can.filter(function (p) { return sel.indexOf(p.id) >= 0; }).length, of: can.length };
+  };
   // the feed changed: a state with rooms no longer there is simply read again (chosen() keeps to what can be picked)
   /** @this {Ctl} */ CP.fed = function () { this._changed(); };
 
@@ -676,11 +688,26 @@
         if (this.mic) this.mic.closeSocket();
         this.socket = 'none';
         this.save();
+        this._afterSent();
         this._changed();
         break;
       case 'error': this._serverError(e); break;
       default: break;
     }
+  };
+  // BACK TO TAP TO TALK (2026-11-05, the owner: "when you finish sending a message ... should it just return to the
+  // microphone?"): the microphone is there at once; "Sent to 9 rooms" with Play and Send Again stays SENT_MS, then goes.
+  // A warning (a room that didn't play, quiet hours, a fallback) stays until the next press: it needs reading.
+  /** @this {Ctl} */ CP._afterSent = function () {
+    var self = this;
+    this.clock.clearTimeout(this.sentT);
+    if (this._sentLine().kind !== 'sent') return;
+    this.sentT = this.clock.setTimeout(function again() {
+      if (self.disposed || self.state !== 'sent') return;
+      if (self.playing) { self.sentT = self.clock.setTimeout(again, SENT_MS); return; }
+      self._discard();
+      self._changed();
+    }, SENT_MS);
   };
   /** @this {Ctl} */ CP._serverError = function (e) {
     var code = e.code, text;
@@ -740,30 +767,39 @@
     var refusal = this._refusal();
     var disabledMic = !!refusal && s === 'idle';
     var live = mode === 'live';
-    var mic = { kind: disabledMic ? 'off' : s === 'connecting' ? 'wait' : s === 'recording' ? 'rec' : s === 'sending' ? 'busy' : 'idle',
-                label: '', time: '', level: this.level, hidden: s === 'review' || s === 'sending' && !live || s === 'sent' || s === 'error' };
+    // the microphone is always there but in a review (recorded with no room picked: Send waits for one)
+    var mic = { kind: disabledMic ? 'off' : s === 'connecting' ? 'wait' : s === 'recording' ? (live ? 'live' : 'rec') : s === 'sending' ? 'busy' : 'idle',
+                label: '', time: '', level: this.level, hidden: s === 'review', word: '', ring: 0 };
     if (disabledMic) mic.label = refusal === WORDS.https ? 'Needs HTTPS' : refusal === WORDS.needsHost ? 'Needs Mantel' : refusal === WORDS.off ? 'Intercom is off' : 'No microphone';
     else if (s === 'connecting') mic.label = WORDS.connecting;
     else if (s === 'recording') {
       mic.label = live ? 'Release to stop' : 'Tap to send';
       var left = Math.max(0, this.maxSecs() - this.secs);
-      mic.time = window.hkMic ? window.hkMic.stamp(left) + ' left' : Math.ceil(left) + ' s left';
+      mic.time = live ? 'Let go to finish · ' + mmss(left) + ' left' : 'Tap to send · ' + mmss(left) + ' left';
+      mic.word = live ? 'Live' : mmss(this.secs);
+      mic.ring = Math.min(1, this.secs / Math.max(1, this.maxSecs()));
     } else if (s === 'sending') mic.label = WORDS.sending;
     else mic.label = live ? 'Hold to talk' : 'Tap to record';
+    if (!mic.word) mic.word = disabledMic ? mic.label : s === 'connecting' ? 'Starting…' : s === 'sending' ? WORDS.sending : live ? 'Hold to Talk' : 'Tap to Talk';
     var actions = [], has = this.mic && this.mic.bytes > 0, busy = s === 'sending';
-    if (s === 'review' || s === 'sent' || s === 'error' || (s === 'sending' && !live)) {
-      var done = s === 'sent';
-      actions.push({ id: 'send', label: done || s === 'error' ? 'Send Again' : 'Send', primary: true, disabled: busy || !this.canSend() });
-      actions.push({ id: 'play', label: this.playing ? 'Stop' : 'Play', disabled: !has || busy });
-      if (done && this.quiet.length && f && f.can_override) actions.push({ id: 'anyway', label: 'Send Anyway', disabled: false });
-      else if (!done) actions.push({ id: 'rerecord', label: 'Re-record', disabled: busy });
-      actions.push({ id: done ? 'done' : 'cancel', label: done ? 'Done' : 'Cancel', disabled: false });
+    if (s === 'review') {
+      actions.push({ id: 'send', label: 'Send', primary: true, disabled: !this.canSend() });
+      actions.push({ id: 'play', label: this.playing ? 'Stop' : 'Play', disabled: !has });
+      actions.push({ id: 'rerecord', label: 'Re-record', disabled: false });
+      actions.push({ id: 'cancel', label: 'Cancel', disabled: false });
+    } else if ((s === 'sent' || s === 'error') && has) {
+      // under the microphone, small: the next press is a new message
+      actions.push({ id: 'play', label: this.playing ? 'Stop' : 'Play', disabled: busy });
+      actions.push({ id: 'send', label: 'Send Again', disabled: !this.canSend() });
+      if (s === 'sent' && this.quiet.length && f && f.can_override) actions.push({ id: 'anyway', label: 'Send Anyway', disabled: false });
     }
     var free = s === 'idle' || s === 'sent' || s === 'error';
     var modes = f && f.enabled && f.live_allowed ? MODES.map(function (m) { return { id: m, label: m === 'live' ? 'Live' : 'Message', on: m === mode, disabled: !free }; }) : [];
-    return { mode: mode, modes: modes, status: st, mic: mic, actions: actions, secs: this.secs, state: s,
+    var n = this.count();
+    return { mode: mode, modes: modes, status: st, mic: mic, actions: actions, secs: this.secs, state: s, count: n,
+             canClear: n.on > 0 && free,
              pills: this.pills().map(function (p) { p.on = this.sel.indexOf(p.id) >= 0 && p.pickable; return p; }, this), chips: this.chips(),
-             stamp: window.hkMic ? window.hkMic.stamp(this.secs) : String(Math.ceil(this.secs)),
+             stamp: mmss(this.secs),
              enabled: !f || f.enabled };
   };
   /** @this {Ctl} */ CP.do = function (id) {
@@ -792,7 +828,7 @@
     this.disposed = true;
     var at = controllers.indexOf(this);
     if (at >= 0) controllers.splice(at, 1);
-    this.clock.clearInterval(this.timer); this.clock.clearTimeout(this.sayT);
+    this.clock.clearInterval(this.timer); this.clock.clearTimeout(this.sayT); this.clock.clearTimeout(this.sentT);
     if (this.saveT) this.save();
     this.tok++; this.sendTok++;
     if (this.mic) { this.mic.on = {}; try { this.mic.close(); } catch (e) { /* closed */ } }
@@ -1021,7 +1057,7 @@
     // a test's stand-ins for the card's surroundings: {actions, feed, mic, secure, supported, hasPort, oneWaySeen}
     use: function (o) { overrides = o || {}; },
     _: { normalize: normalize, pillsOf: pillsOf, chipsOf: chipsOf, Controller: Controller, depsFor: depsFor, shared: shared, feedIs: feedIs, route: route,
-         plain: plain, Listener: Listener, needMic: needMic, talking: talking, CLIP_FRESH_MS: CLIP_FRESH_MS, HOLD_MS: HOLD_MS, MIN_S: MIN_S, SAID_MS: SAID_MS, SAVE_MS: SAVE_MS }
+         plain: plain, Listener: Listener, needMic: needMic, talking: talking, SENT_MS: SENT_MS, CLIP_FRESH_MS: CLIP_FRESH_MS, HOLD_MS: HOLD_MS, MIN_S: MIN_S, SAID_MS: SAID_MS, SAVE_MS: SAVE_MS }
   };
   if (typeof window.addEventListener === 'function' && typeof location !== 'undefined') wireRoute();
 
@@ -1036,12 +1072,15 @@
   var GLYPHS = {
     mic: 'M12 2A3 3 0 0 1 15 5V11A3 3 0 0 1 12 14A3 3 0 0 1 9 11V5A3 3 0 0 1 12 2M19 11C19 14.53 16.39 17.44 13 17.93V21H11V17.93C7.61 17.44 5 14.53 5 11H7A5 5 0 0 0 12 16A5 5 0 0 0 17 11H19Z',
     stop: 'M6 6H18V18H6Z',
+    tick: 'M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6L20.1 8.4 18.7 7z',
     waveform: 'M3 10H5V14H3ZM7 6H9V18H7ZM11 3H13V21H11ZM15 7H17V17H15ZM19 10H21V14H19Z',
     clock: 'M12 2A10 10 0 0 0 2 12A10 10 0 0 0 12 22A10 10 0 0 0 22 12A10 10 0 0 0 12 2M16.2 16.2L11 13V7H12.5V12.2L17 14.9L16.2 16.2Z',
     moon: 'M2 12A10 10 0 0 0 15 21.54A10 10 0 0 1 15 2.46A10 10 0 0 0 2 12Z',
     slash: 'M12 2A10 10 0 0 0 2 12A10 10 0 0 0 12 22A10 10 0 0 0 22 12A10 10 0 0 0 12 2M12 4A8 8 0 0 1 18.3 17L7 5.7A8 8 0 0 1 12 4M5.7 7L17 18.3A8 8 0 0 1 5.7 7Z',
     person: 'M12 4A4 4 0 0 1 16 8A4 4 0 0 1 12 12A4 4 0 0 1 8 8A4 4 0 0 1 12 4M12 14C16.42 14 20 15.79 20 18V20H4V18C4 15.79 7.58 14 12 14Z'
   };
+  // 0:04, 1:30: the time on the talk button (its own, not the microphone module's, which may not be here yet)
+  function mmss(x) { var t = Math.max(0, Math.round(x)); return Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2); }
   function svg(name) { return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + GLYPHS[name] + '"></path></svg>'; }
   window.hkIntercom._.GLYPHS = GLYPHS;
 
@@ -1255,91 +1294,131 @@
 
     // ---------------------------------------------------------------- the sheet
     var GAP = TILE.gridGap, SPC = C.SP;
+    // THE SHEET (2026-11-05, the owner's mockup, docs/phase17/mockups/intercom-sheet.html): the talk button is the Lock
+    // sheet's (a 264 ring around a 192 core; 228 / 166 narrow), its big word under it, then one status line; the rooms in
+    // their own panel ("To", how many, Clear All, the groups, the rooms) beside it where the sheet is wide (a container
+    // query: the sheet's own width, whatever the screen), under it where it isn't.
+    var TALK = { idle: '#0a84ff', rec: '#ff453a', live: '#30d158', wait: '#ff9f0a' };   // the Lock sheet's literals, as there
     var SHEET_CSS = [
       ':host{display:block}',
-      '.sh{display:flex;flex-direction:column;gap:' + SPC.piece + 'px;padding:2px 0 0}',
-      '@media (max-width:' + C.BP.phone + 'px){.sh{gap:' + SPC.piecePhone + 'px}}',
+      '.sh{container-type:inline-size;display:block;padding:2px 0 0}',
+      '.cols{display:flex;flex-direction:column;gap:' + SPC.piece + 'px}',
+      '@container (min-width:680px){.cols{display:grid;grid-template-columns:minmax(300px,340px) minmax(0,1fr);align-items:start}}',
+      // the talk side stays in view while a long list of rooms scrolls -- only where it fits: taller than the sheet, its
+      // own buttons would never come into view (a phone on its side, 2026-11-05)
+      '@media (min-height:760px){@container (min-width:680px){.talk{position:sticky;top:0}}}',
+      '@media (max-width:' + C.BP.phone + 'px){.cols{gap:' + SPC.piecePhone + 'px}}',
       C.segCss('.seg', { on: '.sel', fill: true }),
+      '.seg{align-self:stretch}',
       '.seg button{min-height:36px}',
       '.seg[hidden]{display:none}',
       '.seg button[aria-disabled="true"]{opacity:.45}',
-      // TWO SECTIONS, each a label over its pills (the label is the one label: 13 / 600 uppercase, secondary ink): the groups
-      // (Whole House, the floors, the presets), then the rooms. ONE COLUMN GRID for both, so every pill is the same width and
-      // height: the speaker picker's rule (auto-fill tracks, filled left to right, the last row simply ends short), at the
-      // picker's own column count -- 196 px tracks on a tablet (three across a wide sheet), 148 on a phone (two across)
-      '.pick{display:flex;flex-direction:column;gap:' + SPC.piece + 'px;--mn:196px}',
-      '@media (max-width:' + C.BP.phone + 'px){.pick{--mn:148px}}',
-      '.sec{display:flex;flex-direction:column;gap:' + SPC.block + 'px}',
-      '.sec[hidden]{display:none}',
-      '.lab{' + C.labelCss('label') + ';padding:0 4px}',
-      '.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--mn),1fr));grid-auto-rows:44px;gap:' + GAP + 'px}',
-      '.grid:empty{display:none}',
-      // (scroll-margin: a pill scrolled into view stops above the foot, never under it)
-      '.pill{min-width:0;height:44px;border-radius:22px;position:relative;touch-action:manipulation;scroll-margin-bottom:var(--fh,120px)}',
-      '.pill > span.l{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 14px;min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden;line-height:16px}',
-      '.pill.hg > span.l{padding:0 30px}',
-      '.l b{font-weight:inherit;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
-      '.l i{font-style:normal;font-size:11px;font-weight:500;letter-spacing:0;line-height:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + v('ink-3') + '}',
-      '.pill[aria-pressed="true"] .l i{color:rgba(0,0,0,0.55)}',
-      '.pill .pi{position:absolute;right:12px;top:0;bottom:0;display:flex;align-items:center;pointer-events:none;color:' + v('glyph') + '}',
-      '.pill .pi svg{width:16px;height:16px;display:block;fill:currentColor}',
-      '.pill[aria-pressed="true"] .pi{color:rgba(0,0,0,0.68)}',
-      '.pill.skip{opacity:0.5}',
-      '.pill.skip[aria-pressed="true"]{opacity:1}',
-      // A preset is a shortcut, not another room: the dashed border says "this fills the boxes below" (the speaker picker's)
-      '.pill.preset{border:var(--hk-look-dash, ' + C.M.border + ');border-style:dashed}',
-      '.pill.preset[aria-pressed="true"]{border-style:solid}',
-      '.pill:focus-visible,button:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
-      '.none{color:' + v('ink-2') + ';font-size:15px;text-align:center;padding:36px 12px}',
 
-      // THE FOOT stays at the bottom of the sheet while the rooms scroll under it
-      '.foot{position:sticky;bottom:0;z-index:2;display:flex;flex-direction:column;align-items:center;gap:12px;padding:14px 16px 16px;',
-      '  border-radius:' + C.SP.cardR + 'px;border:' + C.M.border + ';background:var(--hk-sheet-foot,rgba(36,36,40,0.95));',
-      '  -webkit-backdrop-filter:blur(20px) saturate(1.5);backdrop-filter:blur(20px) saturate(1.5);box-shadow:0 -6px 22px rgba(0,0,0,0.22)}',
-      '.line{min-height:20px;max-width:100%;font-size:14px;font-weight:600;letter-spacing:-0.15px;line-height:20px;text-align:center;color:' + v('ink-2') + ';',
+      // THE TALK SIDE
+      '.talk{display:flex;flex-direction:column;align-items:center;gap:' + SPC.piece + 'px;min-width:0}',
+      '.mic{display:flex;flex-direction:column;align-items:center;gap:14px}',
+      '.mic[hidden]{display:none}',
+      '.mb{all:unset;box-sizing:border-box;position:relative;width:264px;height:264px;border-radius:50%;display:grid;place-items:center;',
+      '  cursor:pointer;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;',
+      '  --c:' + TALK.idle + ';background:color-mix(in srgb,var(--c) 16%,transparent);transition:background-color .2s ease}',
+      '.mb svg.ring{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}',
+      '.mb .trk{fill:none;stroke:rgba(255,255,255,0.12);stroke-width:8}',
+      '.mb .prg{fill:none;stroke:var(--c);stroke-width:8;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:calc(1 - var(--ring,0));',
+      '  transition:stroke-dashoffset .1s linear}',
+      '.mb .core{width:192px;height:192px;border-radius:50%;background:var(--c);color:#fff;display:grid;place-items:center;',
+      '  box-shadow:0 0 0 calc(var(--lv,0) * 22px) color-mix(in srgb,var(--c) 26%,transparent);transition:transform .12s ease,box-shadow .1s linear,background-color .2s ease}',
+      '.mb:active .core{transform:scale(.97)}',
+      '.mb .core svg{width:76px;height:76px;fill:currentColor;display:block}',
+      '.mic[data-kind="rec"] .mb{--c:' + TALK.rec + '}',
+      '.mic[data-kind="live"] .mb{--c:' + TALK.live + '}',
+      '.mic[data-kind="wait"] .mb{--c:' + TALK.wait + '}',
+      '.mic[data-kind="busy"] .core{animation:hki-pulse 1.1s ease-in-out infinite}',
+      '@keyframes hki-pulse{50%{opacity:.6}}',
+      '.mic[data-kind="off"] .mb{--c:rgba(255,255,255,0.22);cursor:default}',
+      '.wd{font-size:38px;font-weight:600;letter-spacing:-1px;line-height:44px;text-align:center;font-variant-numeric:tabular-nums;color:' + v('ink') + '}',
+      '.mt{font-size:15px;font-weight:500;color:' + v('ink-2') + ';min-height:20px;line-height:20px;text-align:center;font-variant-numeric:tabular-nums}',
+      '.mt:empty{display:none}',
+      '.line{min-height:20px;max-width:100%;font-size:15px;font-weight:600;letter-spacing:-0.15px;line-height:20px;text-align:center;color:' + v('ink-2') + ';',
       '  overflow-wrap:anywhere;transition:color .18s ease}',
       '.line[data-kind="pending"]{color:' + v('ink-3') + '}',
-      '.line[data-kind="live"]{color:' + v('ink') + '}',
-      '.line[data-kind="sent"]{color:' + v('ink') + '}',
+      '.line[data-kind="live"],.line[data-kind="sent"]{color:' + v('ink') + '}',
       '.line[data-kind="warn"]{color:' + v('warn') + '}',
       '.line[data-kind="failed"]{color:' + v('fail') + '}',
-
-      // THE MICROPHONE: 84 px, a halo that follows the level, the time left under it
-      '.mic{display:flex;flex-direction:column;align-items:center;gap:16px;margin-top:8px}',
-      '.mic[hidden]{display:none}',
-      '.mb{all:unset;box-sizing:border-box;position:relative;width:84px;height:84px;border-radius:50%;display:flex;align-items:center;justify-content:center;',
-      '  cursor:pointer;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;',
-      '  background:#fff;color:#1c1c1e;box-shadow:0 6px 18px rgba(0,0,0,0.25);transition:background-color .2s ease,color .2s ease,transform .12s ease}',
-      '.mb:active{transform:scale(0.96)}',
-      '.mb svg{width:36px;height:36px;fill:currentColor;display:block;position:relative}',
-      '.mb::before{content:"";position:absolute;inset:0;border-radius:50%;background:#ff453a;opacity:0;transform:scale(1);pointer-events:none;',
-      '  transition:transform .1s linear,opacity .1s linear}',
-      '.mic[data-kind="rec"] .mb{background:#ff453a;color:#fff}',
-      '.mic[data-kind="rec"] .mb::before{opacity:.32;transform:scale(calc(1 + var(--lv,0) * .42))}',
-      '.mic[data-kind="wait"] .mb{background:#ff9f0a;color:#fff}',
-      '.mic[data-kind="busy"] .mb{opacity:.6}',
-      '.mic[data-kind="off"] .mb{opacity:.45;cursor:default}',
-      '.mt{font-size:13px;font-weight:600;letter-spacing:-0.1px;color:' + v('ink-2') + ';min-height:17px;font-variant-numeric:tabular-nums}',
-
-      // THE REVIEW: Send large, the others under it
-      '.rv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;max-width:420px}',
+      // after a send, small and under the line: Play, Send Again (and Send Anyway); in a review, Send large and the rest
+      '.rv{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;width:100%;max-width:420px}',
       '.rv[hidden]{display:none}',
-      '.rv button{all:unset;box-sizing:border-box;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;padding:0 8px;cursor:pointer;',
+      '.rv button{all:unset;box-sizing:border-box;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;padding:0 18px;cursor:pointer;',
       '  font-size:15px;font-weight:600;letter-spacing:-0.2px;white-space:nowrap;color:' + v('ink') + ';background:' + v('key') + ';touch-action:manipulation;',
       '  -webkit-tap-highlight-color:transparent;transition:background-color .2s ease,transform .12s ease,opacity .2s ease}',
       '.rv button:active{transform:scale(0.96)}',
+      '.rv.review{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}',
+      '.rv.review[hidden]{display:none}',
       '.rv button.go{grid-column:1 / -1;height:48px;border-radius:24px;background:' + C.SELECTED_BG + ';color:' + C.SELECTED_TEXT + ';font-size:17px}',
       '.rv button[aria-disabled="true"]{opacity:.4;cursor:default}',
       '.rv .tm{grid-column:1 / -1;text-align:center;font-size:13px;font-weight:600;color:' + v('ink-2') + ';font-variant-numeric:tabular-nums;height:17px;line-height:17px}',
 
-      // A SHORT SCREEN (a phone on its side): the foot is one row -- the microphone and what it says side by side
-      '@media (max-height:520px){',
-      '  .foot{flex-direction:row;align-items:center;justify-content:center;gap:18px;padding:10px 14px}',
-      '  .mb{width:64px;height:64px}.mb svg{width:28px;height:28px}',
-      '  .mid{display:flex;flex-direction:column;gap:6px;align-items:flex-start;min-width:0}.line{text-align:left}',
-      '  .rv{max-width:340px}',
-      '}',
-      '@media (prefers-reduced-motion:reduce){.mb,.mb::before,.rv button,.line{transition:none}.mb:active,.rv button:active{transform:none}}'
+      // THE ROOMS: one panel (a card in a sheet: SP's radius and inset)
+      '.pick{display:flex;flex-direction:column;gap:' + SPC.block + 'px;min-width:0;padding:' + C.SP.cardPad + ';border-radius:' + C.SP.cardR + 'px;',
+      '  background:' + v('key') + '}',
+      '.ph{display:flex;align-items:center;gap:12px;min-height:44px;margin:-6px 0 -4px}',
+      '.ph .lab{flex:1}',
+      '.lab{' + C.labelCss('label') + '}',
+      '.cnt{font-size:13px;font-weight:500;color:' + v('ink-3') + ';font-variant-numeric:tabular-nums}',
+      '.clr{all:unset;box-sizing:border-box;min-height:44px;padding:0 4px;display:flex;align-items:center;cursor:pointer;font-size:15px;font-weight:600;',
+      '  color:#0a84ff;touch-action:manipulation;-webkit-tap-highlight-color:transparent}',
+      '.clr[aria-disabled="true"]{color:' + v('ink-3') + ';cursor:default}',
+      '.sec{display:flex;flex-direction:column;gap:' + SPC.block + 'px}',
+      '.sec[hidden]{display:none}',
+      '.chips{display:flex;flex-wrap:wrap;gap:8px}',
+      '.chips:empty{display:none}',
+      '.rooms{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:' + GAP + 'px}',
+      '.rooms:empty{display:none}',
+      '@container (max-width:479px){.rooms{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}',
+      '.pill{min-width:0;position:relative;touch-action:manipulation;-webkit-tap-highlight-color:transparent}',
+      // a group: a capsule as wide as its name
+      '.chips .pill{height:44px;border-radius:22px;padding:0 18px;display:flex;align-items:center}',
+      '.chips .pill .l b{font-weight:inherit;white-space:nowrap}',
+      // A preset is a shortcut, not another room: the dashed border says "this fills the boxes below" (the speaker picker's)
+      '.pill.preset{border:var(--hk-look-dash, ' + C.M.border + ');border-style:dashed}',
+      '.pill.preset[aria-pressed="true"]{border-style:solid}',
+      // a room: a row with its tick, its name and what's true of it (Plays with ..., Quiet hours), its glyph at the end
+      '.rooms .pill{min-height:54px;border-radius:' + C.SP.cardR + 'px;display:flex;align-items:center;gap:10px;padding:8px 14px 8px 10px;text-align:left}',
+      '.tk{width:26px;height:26px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 2px ' + v('line-strong') + ';display:grid;place-items:center}',
+      '.tk svg{width:15px;height:15px;fill:#fff;display:none}',
+      '.pill[aria-pressed="true"] .tk{background:#0a84ff;box-shadow:none}',
+      '.pill[aria-pressed="true"] .tk svg{display:block}',
+      '.rooms .pill > span.l{flex:1;min-width:0;display:flex;flex-direction:column;line-height:18px}',
+      '.rooms .l b{font-weight:600;font-size:15px;overflow-wrap:anywhere}',
+      '.rooms .l i{font-style:normal;font-size:13px;font-weight:500;line-height:16px;color:' + v('ink-3') + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.pill[aria-pressed="true"] .l i{color:rgba(0,0,0,0.55)}',
+      '.pill .pi{flex:none;display:flex;align-items:center;pointer-events:none;color:' + v('glyph') + '}',
+      '.pill .pi svg{width:18px;height:18px;display:block;fill:currentColor}',
+      '.pill[aria-pressed="true"] .pi{color:rgba(0,0,0,0.68)}',
+      '.pill.skip{opacity:0.5}',
+      '.pill.skip[aria-pressed="true"]{opacity:1}',
+      '.pill:focus-visible,button:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
+      '.none{color:' + v('ink-2') + ';font-size:15px;text-align:center;padding:36px 12px}',
+
+      // NARROW (a phone): the Lock sheet's phone button, the rooms two across, a long name on two lines
+      '@container (max-width:479px){.mb{width:228px;height:228px}.mb .core{width:166px;height:166px}.mb .core svg{width:64px;height:64px}',
+      '  .wd{font-size:32px;line-height:38px}.rooms .pill{min-height:48px;padding:7px 10px 7px 8px;gap:8px}.tk{width:22px;height:22px}',
+      '  .pick{padding:14px}}',
+      // A SHORT SCREEN (a phone on its side, 2026-11-05, the owner: "that doesn't look good at all"): a narrow talk side
+      // with a smaller button; the groups one row that scrolls sideways; the rooms scroll in their own panel, so the
+      // button stays beside them; everything fits the sheet's height
+      '@media (max-height:520px){.mb{width:100px;height:100px}.mb .core{width:74px;height:74px}.mb .core svg{width:32px;height:32px}',
+      '  .mb .trk,.mb .prg{stroke-width:10}',
+      '  .wd{font-size:22px;line-height:26px;letter-spacing:-0.4px}.mt{font-size:13px;line-height:17px;min-height:17px}.line{font-size:13px;line-height:17px;min-height:0}',
+      '  .line:empty{display:none}.talk{gap:8px}.mic{gap:4px}.rv{gap:6px}.rv button{padding:0 14px}',
+      // (after a send the button and "Sent to 2 rooms" say it: the word steps aside for Play and Send Again)
+      '  .talk:has(.rv:not([hidden])) .wd{display:none}',
+      '  .pick{padding:12px 14px;gap:10px;max-height:calc(100dvh - 128px);overflow-y:auto;overscroll-behavior:contain}',
+      '  .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px;overscroll-behavior-x:contain}',
+      '  .chips::-webkit-scrollbar{display:none}.chips .pill{flex:none}',
+      '  .rooms{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.rooms .pill{min-height:48px;padding:6px 10px 6px 8px;gap:8px}.tk{width:22px;height:22px}}',
+      '@media (max-height:520px){@container (min-width:600px){.cols{display:grid;grid-template-columns:200px minmax(0,1fr);align-items:start;gap:16px}}}',
+      '@media (prefers-reduced-motion:reduce){.mb,.mb .core,.mb .prg,.rv button,.line{transition:none}.mb:active .core,.rv button:active{transform:none}',
+      '  .mic[data-kind="busy"] .core{animation:none}}'
     ].join('');
 
     class HkIntercomSheet extends HkBase {
@@ -1381,14 +1460,20 @@
         if (this._built) return;
         this._built = true;
         this._root.innerHTML =
-          '<div class="sh"><div class="seg" role="tablist" aria-label="Mode" hidden></div>' +
-          '<div class="pick"><div class="sec gsec" hidden><div class="lab">Groups</div><div class="grid chips"></div></div>' +
-          '<div class="sec rsec"><div class="lab">Rooms</div><div class="grid rooms"></div></div><div class="none" hidden></div></div>' +
-          '<div class="foot"><div class="mid"><div class="line" role="status" aria-live="polite"></div></div>' +
-          '<div class="mic" data-kind="idle"><button class="mb" type="button" aria-label="Record">' + svg('mic') + '</button><div class="mt"></div></div>' +
-          '<div class="rv" hidden></div></div></div>';
+          '<div class="sh"><div class="cols"><div class="talk foot"><div class="seg" role="tablist" aria-label="Mode" hidden></div>' +
+          '<div class="mic" data-kind="idle"><button class="mb" type="button" aria-label="Record">' +
+          '<svg class="ring" viewBox="0 0 236 236" aria-hidden="true"><circle class="trk" cx="118" cy="118" r="112"/>' +
+          '<circle class="prg" cx="118" cy="118" r="112" pathLength="1" transform="rotate(-90 118 118)"/></svg>' +
+          '<span class="core">' + svg('mic') + '</span></button><div class="wd"></div><div class="mt"></div></div>' +
+          '<div class="line" role="status" aria-live="polite"></div><div class="rv" hidden></div></div>' +
+          '<div class="pick"><div class="ph"><span class="lab">To</span><span class="cnt"></span>' +
+          '<button class="clr" type="button">Clear All</button></div>' +
+          '<div class="sec gsec" hidden><div class="grid chips"></div></div>' +
+          '<div class="sec rsec"><div class="grid rooms"></div></div><div class="none" hidden></div></div></div></div>';
         var self = this, q = this._root.querySelector.bind(this._root);
-        this._e = { seg: q('.seg'), pick: q('.pick'), gsec: q('.gsec'), rsec: q('.rsec'), chips: q('.chips'), rooms: q('.rooms'), none: q('.none'), line: q('.line'), mic: q('.mic'), mb: q('.mb'), mt: q('.mt'), rv: q('.rv'), foot: q('.foot') };
+        this._e = { seg: q('.seg'), pick: q('.pick'), gsec: q('.gsec'), rsec: q('.rsec'), chips: q('.chips'), rooms: q('.rooms'), none: q('.none'), line: q('.line'), mic: q('.mic'), mb: q('.mb'), mt: q('.mt'), rv: q('.rv'), foot: q('.foot'),
+          core: q('.core'), wd: q('.wd'), cnt: q('.cnt'), clr: q('.clr') };
+        this._e.clr.addEventListener('click', function (e) { e.stopPropagation(); if (self._ctl && self._e.clr.getAttribute('aria-disabled') !== 'true') self._ctl.clearRooms(); });
         var mb = this._e.mb, down = false;
         // POINTER EVENTS, with pointercancel. The press makes and resumes the AudioContext (hk-mic.js unlock) and Message
         // acts on the release, so a finger that slides off or is taken by the system starts nothing.
@@ -1444,6 +1529,7 @@
         var cls = 'pill' + (chip && p.kind === 'preset' ? ' preset' : '') + (!chip && (!p.pickable || p.quiet) ? ' skip' : '') + (!chip && p.glyph ? ' hg' : '');
         var attrs = chip ? 'data-chip="' + esc(p.id) + '" data-kind="' + p.kind + '"' : 'data-room="' + esc(p.id) + '"';
         return '<div class="' + cls + '" role="button" tabindex="0" aria-pressed="' + (on ? 'true' : 'false') + '" ' + attrs + ' aria-label="' + esc(chip ? p.name : p.aria) + '">' +
+          (chip ? '' : '<span class="tk">' + svg('tick') + '</span>') +
           '<span class="l"><b>' + esc(p.name) + '</b>' + (!chip && p.cap ? '<i>' + esc(p.cap) + '</i>' : '') + '</span>' +
           (!chip && p.glyph ? '<span class="pi">' + svg(p.glyph) + '</span>' : '') + '</div>';
       }
@@ -1468,26 +1554,30 @@
         e.rsec.hidden = empty;
         e.none.hidden = !empty;
         if (empty) e.none.textContent = !this._ctl.d.hasPort() ? WORDS.needsHost : !view.enabled ? WORDS.off : this._ctl.feed() ? 'No rooms to talk to yet.' : WORDS.connecting;
-        // the foot: the status, the microphone or the review's buttons
-        var fh = e.foot.offsetHeight;
-        if (fh && fh !== this._fh) { this._fh = fh; this.style.setProperty('--fh', (fh + 12) + 'px'); }
+        // the rooms panel's head: how many, Clear All
+        var cnt = view.count.of ? view.count.on + ' of ' + view.count.of : '';
+        if (e.cnt.textContent !== cnt) e.cnt.textContent = cnt;
+        e.clr.setAttribute('aria-disabled', view.canClear ? 'false' : 'true');
+        // the talk side: the button, its word, the status, the buttons after a send
         if (e.line.textContent !== view.status.text) e.line.textContent = view.status.text;
         e.line.setAttribute('data-kind', view.status.kind);
         var m = view.mic;
         e.mic.hidden = m.hidden;
         e.mic.setAttribute('data-kind', m.kind);
         e.mic.style.setProperty('--lv', String(Math.round(m.level * 100) / 100));
+        e.mic.style.setProperty('--ring', String(Math.round(m.ring * 1000) / 1000));
         e.mb.setAttribute('aria-label', m.label);
-        var glyph = m.kind === 'rec' ? 'stop' : 'mic';
-        if (glyph !== this._glyph) { this._glyph = glyph; e.mb.innerHTML = svg(glyph); }
-        var mt = m.time || (m.kind === 'idle' || m.kind === 'wait' || m.kind === 'off' || m.kind === 'busy' ? m.label : '');
-        if (e.mt.textContent !== mt) e.mt.textContent = mt;
+        var glyph = m.kind === 'rec' ? 'stop' : m.kind === 'live' ? 'waveform' : 'mic';
+        if (glyph !== this._glyph) { this._glyph = glyph; e.core.innerHTML = svg(glyph); }
+        if (e.wd.textContent !== m.word) e.wd.textContent = m.word;
+        if (e.mt.textContent !== m.time) e.mt.textContent = m.time;
         var aKey = JSON.stringify([view.actions, view.stamp, view.state]);
         e.rv.hidden = !view.actions.length;
+        e.rv.classList.toggle('review', view.state === 'review');
         if (aKey !== this._aKey) {
           this._aKey = aKey;
           e.rv.innerHTML = view.actions.length
-            ? '<div class="tm">' + esc(view.stamp) + '</div>' + view.actions.map(function (a) {
+            ? (view.state === 'review' ? '<div class="tm">' + esc(view.stamp) + '</div>' : '') + view.actions.map(function (a) {
                 return '<button type="button" data-act="' + a.id + '" class="' + (a.primary ? 'go' : '') + '" aria-disabled="' + (a.disabled ? 'true' : 'false') + '">' + esc(a.label) + '</button>';
               }).join('') : '';
         }

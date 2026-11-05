@@ -99,6 +99,9 @@ SCENARIOS = [
     "feed_keeps_the_listener_flag_and_the_play_snapshot",
     "session_warm_opens_the_microphone_before_the_press_and_the_press_uses_it",
     "sheet_makes_the_microphone_ready_only_where_it_is_already_allowed",
+    "message_a_warning_after_a_send_stays_until_the_next_press",
+    "message_playing_the_copy_keeps_the_note_until_it_ends",
+    "rooms_clear_all_and_the_count",
 ]
 
 
@@ -257,10 +260,16 @@ def test_the_block_wears_the_other_blocks_tile_language_standard_and_homeview():
     assert "max-width:110px" not in card, "no chip cut in two by a width of its own: whole rooms, then +N"
 
 
-def test_the_sheet_is_as_tall_as_its_cards_and_every_pill_is_one_size_on_one_grid():
+def test_the_sheet_is_as_tall_as_its_cards_the_rooms_one_grid_and_the_layout_follows_the_sheets_width():
+    """2026-11-05, the owner's mockup: the Lock sheet's talk button, the rooms beside it where the sheet is wide (its own
+    width: a container query), under it where it isn't; every room one row on one grid."""
     card = (ROOT / "web/hk/cards/hk-intercom.js").read_text()
     assert "width: 'wide', height: 'auto'" in card
-    assert "grid-template-columns:repeat(auto-fill,minmax(var(--mn),1fr))" in card and "grid-auto-rows:44px" in card
+    assert ".rooms{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))" in card
+    assert "container-type:inline-size" in card and "@container (min-width:680px)" in card
+    assert "width:264px;height:264px" in card and "width:192px;height:192px" in card, "the Lock sheet's ring and core"
+    assert ".mb{width:228px;height:228px}" in card and ".mb .core{width:166px;height:166px}" in card, "and its phone sizes"
+    assert "Clear All" in card
     group = (ROOT / "web/hk/sheets/hk-sheet-group.js").read_text()
     assert "hkAutoHeight() { return (this._config || {}).height === 'auto'; }" in group
     assert "height: opts.cards.height" in (ROOT / "web/hk/cards/hk-detail.js").read_text()

@@ -768,11 +768,13 @@ test('message_record_stop_sends_sent', async () => {
   eq(s.tickets, [['message', 24000]]);
   eq(s.mic.calls.find((c) => c[0] === 'open'), ['open', 'wss://mantel.example/ws/intercom', 'T1', false]);
   assert.equal(s.ctl.state, 'recording');
-  assert.equal(lines(s), 'Recording');
+  assert.equal(lines(s), '', 'the button says it: the line is quiet while a Message records');
   s.mic.ready(); s.mic.speak(4); s.clk.advance(100);
   const v = s.ctl.view();
   assert.equal(v.mic.label, 'Tap to send');
-  assert.equal(v.mic.time, '0:26 left', 'the countdown to the limit');
+  assert.equal(v.mic.time, 'Tap to send · 0:26 left', 'the countdown to the limit');
+  assert.equal(v.mic.word, '0:04', 'the big word is the time recorded');
+  assert.ok(Math.abs(v.mic.ring - 4 / 30) < 0.01, 'the ring fills toward the limit');
   assert.ok(v.mic.level > 0);
   tap(s.ctl);                                                // stopping sends it: no review step
   assert.equal(s.ctl.state, 'sending');
@@ -785,8 +787,51 @@ test('message_record_stop_sends_sent', async () => {
   s.mic.server({ type: 'sent', rooms: 2, failed: [] });
   assert.equal(s.ctl.state, 'sent');
   assert.equal(lines(s), 'Sent to 2 rooms');
-  eq(s.ctl.view().actions.map((a) => a.label), ['Send Again', 'Play', 'Done']);
+  const after = s.ctl.view();
+  assert.equal(after.mic.hidden, false, 'the microphone is back at once');
+  assert.equal(after.mic.word, 'Tap to Talk');
+  eq(after.actions.map((a) => a.label), ['Play', 'Send Again']);
   eq(s.saves.at(-1), { mode: 'message', rooms: [K, L] });
+  s.clk.advance(s.H.SENT_MS + 50);                         // then the note goes: Tap to Talk alone
+  assert.equal(s.ctl.state, 'idle');
+  eq(s.ctl.view().actions, []);
+  assert.equal(lines(s), 'Kitchen, Living Room');
+});
+
+test('message_a_warning_after_a_send_stays_until_the_next_press', async () => {
+  const s = sheet({ mem: { rooms: [K, L] } });
+  await record(s); tap(s.ctl); await flush();
+  s.mic.server({ type: 'sent', rooms: 1, failed: ['Living Room'] });
+  s.clk.advance(s.H.SENT_MS * 3);
+  assert.equal(s.ctl.state, 'sent');
+  assert.match(lines(s), /Living Room didn’t play/);
+  eq(s.ctl.view().actions.map((a) => a.label), ['Play', 'Send Again']);
+  tap(s.ctl);                                              // the next press is a new message
+  assert.equal(s.ctl.state, 'connecting');
+});
+
+test('message_playing_the_copy_keeps_the_note_until_it_ends', async () => {
+  const s = sheet({ mem: { rooms: [K] } });
+  await record(s); tap(s.ctl); await flush();
+  s.mic.server({ type: 'sent', rooms: 1, failed: [] });
+  s.ctl.do('play');
+  s.clk.advance(s.H.SENT_MS + 50);
+  assert.equal(s.ctl.state, 'sent', 'still playing: the note stays');
+  s.mic.playing();
+  s.clk.advance(s.H.SENT_MS + 50);
+  assert.equal(s.ctl.state, 'idle');
+});
+
+test('rooms_clear_all_and_the_count', () => {
+  const s = sheet({ mem: { rooms: [K, L] } });
+  const v = s.ctl.view();
+  assert.equal(v.count.on, 2);
+  assert.ok(v.count.of >= 2 && v.canClear);
+  s.ctl.clearRooms();
+  eq(s.ctl.chosen(), []);
+  assert.equal(s.ctl.view().canClear, false);
+  s.clk.advance(5000);
+  eq(s.saves.at(-1).rooms, [], 'remembered as none');
 });
 
 test('message_too_short_is_dropped_with_a_word', async () => {
@@ -801,7 +846,8 @@ test('message_too_short_is_dropped_with_a_word', async () => {
 
 test('message_play_plays_the_pages_copy_and_stops', async () => {
   const s = sheet({ mem: { rooms: [K] } });
-  await record(s); tap(s.ctl);
+  await record(s); tap(s.ctl); await flush();
+  s.mic.server({ type: 'sent', rooms: 1, failed: [] });     // Play sits under the microphone after a send
   s.ctl.do('play');
   eq(s.mic.names().filter((n) => n === 'play'), ['play']);
   assert.equal(s.ctl.view().actions.find((a) => a.id === 'play').label, 'Stop');
@@ -898,7 +944,7 @@ test('message_send_anyway_asks_again_for_the_quiet_rooms_with_override', async (
   s.mic.server({ type: 'rooms', rooms: [{ room: K, name: 'Kitchen', state: 'ok' }, { room: D, name: 'Den', state: 'skipped', why: 'quiet', reason: 'Quiet hours' }] });
   s.mic.server({ type: 'sent', rooms: 1, failed: [] });
   assert.equal(lines(s), 'Sent to 1 room. Den is on quiet hours');
-  eq(s.ctl.view().actions.map((a) => a.label), ['Send Again', 'Play', 'Send Anyway', 'Done']);
+  eq(s.ctl.view().actions.map((a) => a.label), ['Play', 'Send Again', 'Send Anyway']);
   s.ctl.do('anyway');
   await flush(); await flush();
   s.mic.on.uploaded();
@@ -919,7 +965,7 @@ test('message_the_floor_is_held_by_someone_else', async () => {
   s.mic.server({ type: 'busy', name: 'Kitchen tablet' });
   assert.equal(s.ctl.state, 'error');
   assert.equal(lines(s), 'Kitchen tablet is announcing');
-  assert.equal(s.ctl.view().actions[0].label, 'Send Again');
+  assert.equal(s.ctl.view().actions.find((a) => a.id === 'send').label, 'Send Again');
   assert.ok(s.mic.bytes > 0, 'the copy is kept');
 });
 
@@ -939,7 +985,7 @@ test('message_server_errors_are_said_in_words', async () => {
     s.mic.server(ev);
     assert.equal(s.ctl.state, 'error', ev.code);
     assert.ok(want instanceof RegExp ? want.test(lines(s)) : lines(s) === want, ev.code + ': ' + lines(s));
-    assert.equal(s.ctl.view().actions[0].label, 'Send Again');
+    assert.equal(s.ctl.view().actions.find((a) => a.id === 'send').label, 'Send Again');
   }
 });
 

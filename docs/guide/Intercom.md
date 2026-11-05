@@ -66,19 +66,26 @@ screen's **Scenes** (a pill at the end of the scenes), under **More**. The
 button shows only when you may use the Intercom and it is on, and each screen
 has its own.
 
+The sheet has a big round talk button, like the Lock's, and beside it (under
+it on a phone, or wherever the sheet is narrow) the rooms it talks to: **To**,
+how many are picked, **Clear All**, your groups, then each room with a check.
+
 1. **Pick rooms.** Tap floors, presets, **Whole House**, or single rooms, as on
-   the Music page's speaker picker. A small mark on each room says what it will
-   do:
+   the Music page's speaker picker; **Clear All** starts again. A small mark on
+   each room says what it will do:
    - **clock**: it plays after you finish;
    - **moon**: quiet hours, so it's skipped;
    - a second line, **Plays with Office**: the room leads other rooms' music that is playing, so it plays only together with them (see below);
    - **person**: you're there, so it's left out in Live.
 
    Tap a skipped room to see why.
-2. **Record.** Tap the microphone, talk (up to 30 seconds), and tap it again.
-   The message is sent as soon as you stop. Afterward you can **Play** it back
-   or **Send Again**. (With no room picked, it waits for you to pick one and
-   press **Send**.)
+2. **Record.** Tap the button (**Tap to Talk**), talk (up to 30 seconds), and
+   tap it again. It turns red while it records, with the time under it, and the
+   ring around it fills toward the limit. The message is sent as soon as you
+   stop, and the button is back at once for the next one. **Sent to 2 rooms**
+   stays under it for a few seconds with **Play** and **Send Again**. A
+   warning, such as a room that didn't play, stays until your next tap. (With no
+   room picked, it waits for you to pick one and press **Send**.)
 
 Every room hears the message at the same moment. Mantel briefly groups the idle
 rooms you picked, plays the message once on the group's one clock, and puts every
