@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.130 - 2026-11-05
+
 **Changed**
 - **The music players ignore the Intercom.** While a room plays a message, the Music card, Side Pane, slide-up player, screensaver and iOS app no longer show it as playing "Announcement" or flash the last song. A room playing music keeps its song and cover on screen while the message plays over it. This doesn't depend on **Ignore Announcements**: a message is never music.
 
