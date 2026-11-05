@@ -178,5 +178,14 @@ AirPlay session on one clock. **Not proven: what the ear hears**; the owner's te
 wasn't exercised on the house (it needs an Owner's session); the socket's paths ran on the fakes
 (`tests/test_intercom_live_sync.py`), and a dead speaker can't be arranged from here.
 
+**2026-11-05, Live to a group left from music.** The owner's first Live on 0.1.132 played nothing, twice: whole-house music had
+just stopped, leaving 11 speakers grouped under the Master Bedroom. The plan made them all "after", and the second group
+check at the end was given only the rooms that had calls, the leader's, so its members looked like outsiders, and it left the
+room out (`error:nothing_played`). This was there before 0.1.132; Live with a grouped room had never been run on the house.
+Now the check also gets the rooms a call covers. And an idle ad-hoc group whose speakers can all be live **is** live, through
+its leader, without joining or parting: to Music Assistant that's the state a temporary group is in once joined, which part
+C's proof covered. A group with a group player in it stays "after": it's another path, never tried live. **Not proven on the
+house before release:** the speakers were in use by the owner, and the whole-house group includes a room sessions never touch.
+
 Known limit: if Mantel itself stops in the seconds a group is formed, the speakers stay grouped until Music Assistant
 restarts or someone ungroups them (the sheet then says the leader "leads" the other).

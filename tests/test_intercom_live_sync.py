@@ -91,6 +91,55 @@ async def test_a_room_at_another_volume_keeps_its_own_live_call(lv, avery):
     assert of_type(events, "fallback") == []
 
 
+# ------------------------------------------------------------------------------------- a group left from music
+def left_grouped(env) -> None:
+    """All of it idle, as music leaves it (2026-11-05: the whole house under the Master Bedroom)."""
+    env.ma.model[K]["group_members"] = [K, DN]
+    env.ma.model[DN]["synced_to"] = K
+
+
+async def test_an_idle_group_left_from_music_plays_live_through_its_leader_and_stays_grouped(lv, avery):
+    left_grouped(lv)
+    ws, started, url = await begin(lv, avery, [KITCHEN, DEN])
+    assert started[-1]["live"] == 2 and started[-1]["after"] == []
+    pcm = await send_audio(ws, chunks(6))
+    await called(lv)
+    assert await until(lambda: lv.host._playing(KITCHEN) and lv.host._playing(DEN))
+    events = await finish(lv, ws)
+    assert steps(lv) == ["say"] and live_announced(lv, url) == [K], "no join, no part: it's the house's group"
+    assert lv.ma.fetches[0]["body"] == streaming_wav_header(RATE) + pcm
+    assert of_type(events, "fallback") == [] and events[-1]["failed"] == []
+    assert lv.ma.model[K]["group_members"] == [K, DN] and lv.ma.model[DN]["synced_to"] == K
+    await play_result(lv, "ok")
+
+
+async def test_a_group_that_plays_after_you_finish_isnt_lost_to_the_second_group_check(lv, avery):
+    """On the house, 2026-11-05: the check at the end was given only the leader's room, so its members looked like
+    outsiders, the room was left out, and Live ended in nothing played."""
+    left_grouped(lv)
+    doc = lv.doc()
+    doc["rooms"][DEN]["live"] = False
+    lv.app["settings"].store.write([("house", "intercom", doc)], actor=IF.SettingsActor(label="test"))
+    ws, started, url = await begin(lv, avery, [KITCHEN, DEN])
+    assert started[-1]["live"] == 0
+    pcm = await send_audio(ws, chunks(6))
+    events = await finish(lv, ws)
+    assert [a["player_id"] for a in message_announced(lv, url)] == [K]
+    assert message_bodies(lv, url) == [whole(pcm)] and events[-1]["failed"] == []
+    await play_result(lv, "ok")
+
+
+async def test_a_leader_that_fails_live_gets_the_message_with_its_whole_group(lv, avery):
+    left_grouped(lv)
+    ws, _, url = await begin(lv, avery, [KITCHEN, DEN], {KITCHEN: "noplay"})
+    pcm = await send_audio(ws, chunks(6))
+    await called(lv)
+    await finish(lv, ws)
+    assert [a["player_id"] for a in message_announced(lv, url)] == [K]
+    assert message_bodies(lv, url) == [whole(pcm)]
+    await play_result(lv, "ok:fallback")
+
+
 # ------------------------------------------------------------------------------------------------- the fallbacks
 @pytest.mark.parametrize("script", ["never", "error"])
 async def test_a_group_that_is_not_the_plans_means_one_live_call_per_room_on_the_same_link(lv, avery, monkeypatch, script):

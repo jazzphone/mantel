@@ -14,7 +14,8 @@ The checks, in order, for each room picked:
 4. quiet hours (the room's own, else the house default), else ``skipped: quiet`` unless ``override`` (Send Anyway);
 5. Live only: the sender's own room (``here``), ``skipped: here`` (echo); a Message keeps it;
 6. THE GROUP CHECK, below;
-7. Live only: ``live`` when idle now, its Live flag is on and Live health hasn't demoted it; else ``after``.
+7. Live only: ``live`` when idle now, its Live flag is on and Live health hasn't demoted it; else ``after``. A group
+   left from music is live only if all of it can be.
 
 THE GROUP CHECK (2026-11-02: a bedtime announcement to a sync group's leader played in every room). Music Assistant
 (2.10.9) plays an announcement sent to an ad-hoc sync group's LEADER on its whole group, and one sent to a GROUP PLAYER
@@ -299,13 +300,19 @@ def decide(house: House, music: MusicConfig, doc: Mapping[str, Any], picked: Ite
             continue
         calling[p] = sorted(q for q in players if q != p and pids[q] in reaches[p])
         heard |= reaches[p]
-    grouped = {q for p, cov in calling.items() if cov for q in [p, *cov]}
+
+    def capable(row: dict[str, Any]) -> bool:
+        rs = C.room(doc, row["room"])
+        return E.state_of(house, row["room"]) not in IDLE_NOT and rs.get("live", True) and not rs.get("demoted")
+
+    # a group left from music, idle: its leader's call plays on it as a temporary group's does, so it can be live. Not one
+    # with a group player in it (a sync group): that's another path in Music Assistant, never tried live.
+    grouped = {q for p, cov in calling.items() if cov for q in [p, *cov]
+               if any((ma or {}).get(pids[x], {}).get("group") for x in [p, *cov])
+               or not all(capable(players[x]) for x in [p, *cov])}
     for row in kept:
         r = row["room"]
-        idle = E.state_of(house, r) not in IDLE_NOT
-        rs = C.room(doc, r)
-        can_live = live_mode and idle and rs.get("live", True) and not rs.get("demoted") and not any(
-            p in grouped for p in music.players_of([r]))
+        can_live = live_mode and capable(row) and not any(p in grouped for p in music.players_of([r]))
         row["live"] = bool(can_live)
         if live_mode and not can_live:
             row["state"] = AFTER

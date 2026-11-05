@@ -422,10 +422,9 @@ class IntercomHost:
         self._hide(aid, [c for c in plan.calls if c.live])
         s.broadcast = LiveBroadcast(plan, pids, music, doc, aid, run, link, url, asyncio.get_running_loop().time())
         s.broadcast.task = asyncio.get_running_loop().create_task(self._live_calls(s, s.broadcast))
-        live_now = [c for c in plan.calls if c.live]
         after = plan.names("after")
         await self._say(s, {"type": "sending", "rooms": len({c.room for c in plan.calls}),
-                              "live": len({c.room for c in live_now}), "after": after,
+                              "live": sum(1 for r in plan.rooms if r["live"]), "after": after,
                               "lag_ms": doc.get("lag_ms")})
         return None
 
@@ -562,7 +561,11 @@ class IntercomHost:
             if retry:
                 # THE GROUP CHECK AGAIN, NOW: the talk may have lasted a minute, and a room grouped meanwhile under a
                 # leader (or made to lead) would carry the message further. Only calls a fresh plan still makes go out.
-                rooms = list(dict.fromkeys(c.room for c in retry))
+                # (with the rooms a leader's call covers: without them, its own members look like outsiders)
+                covered = {p for c in retry for p in c.covers}
+                rooms = list(dict.fromkeys([*(c.room for c in retry),
+                                            *(r["room"] for r in b.plan.playing
+                                              if covered.intersection(b.music.players_of([r["room"]])))]))
                 fresh, _pids, _music = await self.plan(s.principal, rooms, "message", False)
                 again = {(c.player, tuple(c.covers)) for c in fresh.calls}
                 dropped = sorted({c.room for c in retry if (c.player, tuple(c.covers)) not in again})
