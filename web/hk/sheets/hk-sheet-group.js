@@ -235,6 +235,8 @@
       }
       hkWidthKind() { return (this._config || {}).width === 'wide' ? 'cards_wide' : 'cards'; }
       hkFill() { return true; }
+      // `height: 'auto'` (the Intercom): a sheet as tall as its cards, not the one height every control sheet shares
+      hkAutoHeight() { return (this._config || {}).height === 'auto'; }
       _sigOf() { return null; }
       _render() {
         var c = this.client, cfg = this._config || {}, self = this;

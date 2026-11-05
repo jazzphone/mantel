@@ -59,12 +59,19 @@ Each room has its own settings:
 Add the **Intercom** block to a page in [Home Grid](Home-Grid.md), or open
 `#intercom` on any page. The block opens the sheet.
 
+On a screen's generated Home page there is no block to add. Add it in
+**Settings, All Screens, Status Chips** (a chip beside Security, Climate and the
+rest, with the first room you last picked under its name, and +N for more), or a
+screen's **Scenes** (a pill at the end of the scenes), under **More**. The
+button shows only when you may use the Intercom and it is on, and each screen
+has its own.
+
 1. **Pick rooms.** Tap floors, presets, **Whole House**, or single rooms, as on
    the Music page's speaker picker. A small mark on each room says what it will
    do:
    - **clock**: it plays after you finish;
    - **moon**: quiet hours, so it's skipped;
-   - **slash**: it leads other rooms' music, so it's skipped (see below);
+   - a second line, **Plays with Office**: the room leads other rooms' music, so it plays only together with them (see below);
    - **person**: you're there, so it's left out in Live.
 
    Tap a skipped room to see why.

@@ -259,6 +259,8 @@
   function keyOf(pill, pages) {
     var c = pill || {}, nav = c.tap_action && c.tap_action.action === 'navigate' ? c.tap_action.navigation_path : null;
     if (c.entity && !nav) return c.entity;
+    // the Intercom's pill (a page pill with no page: it opens the sheet)
+    if (c.tap_action && c.tap_action.action === 'intercom' && pages.indexOf('intercom') >= 0) return PAGE_TOKEN + 'intercom';
     if (nav) {
       var CH = global.hkChip && global.hkChip.scenes;
       for (var i = 0; i < pages.length; i++) {

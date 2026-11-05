@@ -13,14 +13,20 @@
     return {
       enabled: o.enabled !== false, live_allowed: !!o.live, default_mode: 'message', max_live_s: 60, max_message_s: 30, lag_ms: 4000,
       can_override: !!o.canOverride, away: false, here: ['media_player.kitchen'],
-      rooms: [R('living_room', 'Living Room', 'Main Floor'), R('kitchen', 'Kitchen', 'Main Floor'), R('dining_room', 'Dining Room', 'Main Floor', { why: 'leads', reason: 'Dining Room plays only together with Office' }),   // a group leader: slash, but pickable
+      rooms: [R('living_room', 'Living Room', 'Main Floor'), R('kitchen', 'Kitchen', 'Main Floor'), R('dining_room', 'Dining Room', 'Main Floor', { why: 'leads', reason: 'Dining Room plays only together with Office' }),   // a group leader: says who it plays with, and is pickable
               R('office', 'Office', 'Main Floor', { state: 'skipped', why: 'leads', reason: 'Dining Room leads Office; skipped' }),
               R('bedroom', 'Bedroom', 'Upstairs', { state: 'skipped', why: 'quiet', reason: 'Quiet hours' }),
-              R('guest_room', 'Guest Room', 'Upstairs', { state: 'after', live: false })],
-      floors: [{ id: 'main', name: 'Main Floor', rooms: ['media_player.living_room', 'media_player.kitchen', 'media_player.dining_room', 'media_player.office'] },
-               { id: 'upstairs', name: 'Upstairs', rooms: ['media_player.bedroom', 'media_player.guest_room'] }],
-      presets: [{ id: 'dinner', name: 'Dinner', rooms: ['media_player.kitchen', 'media_player.dining_room'] },
-                { id: 'bedtime', name: 'Bedtime', rooms: ['media_player.bedroom', 'media_player.guest_room'] }],
+              R('guest_room', 'Guest Room', 'Upstairs', { state: 'after', live: false }),
+              R('nursery', 'Nursery', 'Upstairs'), R('craft_room', 'Craft Room', 'Upstairs'), R('primary_suite', 'Primary Suite', 'Upstairs'),
+              R('laundry_room', 'Laundry Room', 'Main Floor')],
+      floors: [{ id: 'main', name: 'Main Floor', rooms: ['media_player.living_room', 'media_player.kitchen', 'media_player.dining_room', 'media_player.office', 'media_player.laundry_room'] },
+               { id: 'upstairs', name: 'Upstairs', rooms: ['media_player.bedroom', 'media_player.guest_room', 'media_player.nursery', 'media_player.craft_room', 'media_player.primary_suite'] }],
+      // (the server leaves out a preset that is Whole House or a floor under another name, and so does the page: Everywhere and
+      // Bedtime are here to prove it)
+      presets: [{ id: 'everywhere', name: 'Everywhere', rooms: ['media_player.living_room', 'media_player.kitchen', 'media_player.dining_room', 'media_player.office', 'media_player.bedroom', 'media_player.guest_room', 'media_player.nursery', 'media_player.craft_room', 'media_player.primary_suite', 'media_player.laundry_room'] },
+                { id: 'dinner', name: 'Dinner', rooms: ['media_player.kitchen', 'media_player.dining_room'] },
+                { id: 'bedtime', name: 'Bedtime', rooms: ['media_player.primary_suite', 'media_player.bedroom', 'media_player.guest_room', 'media_player.craft_room', 'media_player.nursery'] },
+                { id: 'quiet', name: 'Quiet Rooms', rooms: ['media_player.guest_room', 'media_player.nursery'] }],
       listener: !!o.listener, play: o.play || null
     };
   }

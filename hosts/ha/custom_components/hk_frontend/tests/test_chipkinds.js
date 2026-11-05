@@ -353,6 +353,74 @@ var car = K.entityChip('sensor.car', false);
 ok('an attribute in place of the state, without the state\'s unit', car.attribute === 'range' && car.unit === false);
 HC.setting = realSet;
 
+print('\n=== the Intercom: a chip (chips_extra) or a scenes-row pill (scenes_pages), both added from More ===');
+var IC = K.intercom, ICS = IC.state, feedOn = { enabled: true, rooms: [{ room: 'media_player.living', name: 'Living Room' }, { room: 'media_player.kitchen', name: 'Kitchen' },
+                                                                           { room: 'media_player.office', name: 'Office' }] };
+var withIc = { states: {}, intercom: { subscribe: function () { return function () {}; } } };
+function icChips(board, client) { return K.rowPlan({}, Object.assign({ chips: ['lights'] }, board), client || withIc).cards.filter(function (c) { return c.kind === 'intercom'; }); }
+var ON = { chips_extra: ['intercom'] };
+ICS.feed = feedOn; ICS.bad = false; ICS.mem = { mode: 'message', rooms: ['media_player.living', 'media_player.kitchen'] };
+ok('not added (the default): nothing drawn', icChips({}).length === 0 && icChips({ chips_extra: [] }).length === 0);
+ok('never part of Automatic', K.rowPlan({}, {}, withIc).cards.filter(function (c) { return c.kind === 'intercom'; }).length === 0 && K.auto(withIc).indexOf('intercom') < 0 &&
+   K.ORDER.indexOf('intercom') < 0);
+ok('a scenes pill alone is not a chip', icChips({ scenes_pages: ['intercom'] }).length === 0);
+var icp = K.rowPlan({}, { chips: ['lights'], chips_extra: ['intercom'] }, withIc), icc = icp.cards.filter(function (c) { return c.kind === 'intercom'; });
+ok('added: one chip, last in the row, its second line the first room and +N',
+   icc.length === 1 && icp.cards[icp.cards.length - 1] === icc[0] && icc[0].label === 'Living Room +1', JSON.stringify(icc));
+var auto = K.rowPlan({}, { chips_extra: ['intercom'] }, { states: {}, intercom: withIc.intercom }), autoIc = auto.cards.filter(function (c) { return c.kind === 'intercom'; });
+ok('Automatic plus the Intercom: the kinds the house has, then the Intercom', autoIc.length === 1 && auto.cards[auto.cards.length - 1] === autoIc[0]);
+var placed = K.rowPlan({}, { chips: ['intercom', 'lights'], chips_extra: ['intercom'] }, withIc);
+ok('placed first by the chip order', placed.cards[0].kind === 'intercom' && placed.cards[1].kind === 'lights');
+ok('a chip order naming it without chips_extra: not drawn', icChips({ chips: ['intercom', 'lights'], chips_extra: [] }).length === 0);
+var ik = K.config('intercom', withIc);
+ok('the chip: microphone, "Intercom", opens the Intercom (no page)', ik && ik.name === 'Intercom' && ik.icon === 'hk:microphone' && ik.tap_action.action === 'intercom');
+ICS.mem = { rooms: ['media_player.living', 'media_player.kitchen', 'media_player.office'] };
+ok('three rooms: the first and "+2"', icChips(ON)[0].label === 'Living Room +2');
+ICS.mem = { rooms: ['media_player.living', 'media_player.gone'] };
+ok('a room the person may no longer reach is left out', icChips(ON)[0].label === 'Living Room');
+ICS.mem = null;
+ok('nothing remembered: "Tap to Talk"', icChips(ON)[0].label === 'Tap to Talk');
+ICS.mem = { rooms: ['media_player.living'] };
+ok('no Intercom on the page (Home Assistant): never drawn', icChips(ON, { states: {}, intercom: null }).length === 0 && icChips(ON, { states: {} }).length === 0);
+ICS.feed = Object.assign({}, feedOn, { enabled: false });
+ok('the Intercom off: not drawn', icChips(ON).length === 0);
+ICS.feed = null;
+ok('the feed not arrived yet: not drawn', icChips(ON).length === 0);
+ICS.feed = feedOn; ICS.bad = true;
+ok('this person may not use it (the feed refused): not drawn', icChips(ON).length === 0);
+ICS.bad = false;
+ok('chips_row false: no row, so no chip', K.rowPlan({}, { chips_row: false, chips_extra: ['intercom'] }, withIc) === null);
+// the pill
+function icPills(cfg, board, client) {
+  var p = K.scenesPlan(cfg, Object.assign({ scenes_row: true }, board), client || withIc, false);
+  if (!p.config) return null;
+  return p.config.cards[1].cards[0].cards;
+}
+var scn = { states: { 'scene.movie': { state: 'scening', attributes: { friendly_name: 'Movie' } } }, entities: {}, intercom: withIc.intercom };
+var pills = icPills({}, { scenes_pages: ['intercom'] }, scn);
+ok('added: a pill after the scenes, the scene pills\' card, "Intercom" with the microphone',
+   pills.length === 2 && pills[1].type === 'custom:hk-scene-card' && pills[1].elevated === true && pills[1].name === 'Intercom' && pills[1].icon === 'hk:microphone' &&
+   pills[1].icon_color === 'white' && pills[1].tap_action.action === 'intercom' && pills[0].entity === 'scene.movie', JSON.stringify(pills));
+ok('the pill follows the scene pills\' keys', Object.keys(pills[0]).filter(function (k) { return k !== 'entity'; }).every(function (k) { return k in pills[1]; }));
+var placedP = icPills({}, { scenes: ['page:intercom', 'scene.movie'], scenes_pages: ['intercom'] }, scn);
+ok('placed first by the scenes order', placedP.length === 2 && placedP[0].tap_action.action === 'intercom' && placedP[1].entity === 'scene.movie');
+ok('the scenes order naming it without scenes_pages: no pill', icPills({}, { scenes: ['page:intercom', 'scene.movie'] }, scn).length === 1);
+ok('Scenes row with only the Intercom still makes a row', icPills({}, { scenes_pages: ['intercom'] }, { states: {}, entities: {}, intercom: withIc.intercom }).length === 1);
+ok('not added / only a chip: no pill', icPills({}, {}, scn).length === 1 && icPills({}, { chips_extra: ['intercom'] }, scn).length === 1);
+ok('a room\'s scenes row never has it', K.scenesPlan({ room: true, scenes: ['scene.movie'] }, { scenes_pages: ['intercom'] }, scn, false).config.cards[1].cards[0].cards.length === 1);
+ok('the Scenes row off: no pill, no row', K.scenesPlan({}, { scenes_row: false, scenes_pages: ['intercom'] }, scn, false).config === null);
+ok('a Home Grid block has it as one of its pills', K.scenesPlan({ hk_cell: 'W' }, { scenes_row: true, scenes_pages: ['intercom'] }, scn, false).config.pills.length === 2);
+ok('no Intercom on the page (Home Assistant): no pill', icPills({}, { scenes_pages: ['intercom'] }, { states: {}, entities: {} }) === null);
+ICS.feed = Object.assign({}, feedOn, { enabled: false });
+ok('the Intercom off: no pill', icPills({}, { scenes_pages: ['intercom'] }, scn).length === 1);
+ICS.feed = null;
+// the entry asks for the feed only while a row uses it, and lets go of it
+var subs = 0, gone = 0, usedClient = { states: {}, intercom: { subscribe: function (cb) { subs++; return function () { gone++; }; } } };
+var r1 = IC.use(usedClient, function () {}), r2 = IC.use(usedClient, function () {});
+ok('two rows, one feed subscription', subs === 1 && gone === 0);
+r1(); ok('one row left: the feed stays', gone === 0);
+r2(); ok('none left: the feed is let go of', gone === 1 && ICS.feed === null);
+
 // THE MENU'S COPY of the kind tables (hk-menu.js loads before the card files
 // and keeps its own): the same order and the same pages, always.
 load(HK_ROOT + '/frontend/modules/hk-menu.js');

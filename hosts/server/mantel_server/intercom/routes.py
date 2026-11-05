@@ -249,6 +249,21 @@ async def api_clip(request: web.Request) -> web.StreamResponse:
     return web.Response(body=got, content_type="audio/wav", headers={"Cache-Control": "no-store"})
 
 
+def distinct_targets(everything: Any, floors: list[dict], presets: list[dict]) -> tuple[list[dict], list[dict]]:
+    """ONE CHIP PER DISTINCT SET OF ROOMS (the owner, 2026-11-04: "Upstairs" twice, "Whole House" beside "Everywhere"): a
+    floor or a preset that reaches exactly the rooms Whole House does, or an earlier floor or preset does, is the same
+    target under another name and is left out, for every page. Floors come first, then presets; one with no rooms goes."""
+    taken = {frozenset(everything)}
+    out: list[list[dict]] = [[], []]
+    for kept, group in zip(out, (floors, presets)):
+        for t in group:
+            key = frozenset(t["rooms"])
+            if key and key not in taken:
+                taken.add(key)
+                kept.append(t)
+    return out[0], out[1]
+
+
 class Feed:
     """``intercom/subscribe`` on the hub socket, and the listener tablets' plays (17.4)."""
 
@@ -288,9 +303,8 @@ class Feed:
                 fid = R._floor_id(room.floor)
                 floors.setdefault(fid, {"id": f"floor:{fid}", "name": room.floor, "rooms": []})["rooms"].append(
                     room.entity)
-        out["floors"] = list(floors.values())
-        out["presets"] = [{"id": p.id, "name": p.name, "rooms": [r for r in p.members if r in have]}
-                          for p in music.presets if any(r in have for r in p.members)]
+        out["floors"], out["presets"] = distinct_targets(have, list(floors.values()), [
+            {"id": p.id, "name": p.name, "rooms": [r for r in p.members if r in have]} for p in music.presets])
         return out
 
     async def subscribe(self, ctx: Ctx, msg: dict) -> None:

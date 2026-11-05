@@ -2449,13 +2449,13 @@
         this._call('homeassistant', 'toggle', { entity_id: cfg.entity });
         return;
       }
+      // the Intercom Button: `#intercom` loads the sheet's code and opens it (hk-loader.js); already there, open it again
+      if (action === 'intercom') { var I = window.hkIntercom; if (location.hash === '#intercom' && I && I.open) I.open({ hashed: true }); else location.hash = '#intercom'; return; }
       if (action === 'navigate' && spec.navigation_path) {
         var p = spec.navigation_path;
         var seg = String(location.pathname).split('/')[1];
-        // navigation_path_map: a dashboard where "./x" is the wrong answer
-        // -- say, an energy dashboard whose battery page is a separate
-        // dashboard of its own. Keyed on the url_path segment, so
-        // the exception is data rather than a branch in every call site.
+        // navigation_path_map: a dashboard where "./x" is the wrong answer -- say, an energy dashboard whose battery
+        // page is a separate dashboard of its own. Keyed on the url_path segment: data, not a branch in every call site.
         var map = spec.navigation_path_map;
         if (map && Object.prototype.hasOwnProperty.call(map, seg)) {
           p = map[seg];

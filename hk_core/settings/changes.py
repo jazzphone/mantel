@@ -1062,8 +1062,14 @@ def _views(v: Any) -> list[str]:
     return list(dict.fromkeys(v))
 
 
+def _chips_extra(v: Any) -> list[str]:
+    """A screen's own chips: entities, and the Intercom chip it adds from More."""
+    got = _entities()([x for x in v if x != "intercom"] if isinstance(v, list) else v)
+    return got + ["intercom"] if isinstance(v, list) and "intercom" in v else got
+
+
 def _chips(v: Any) -> list[str]:
-    if not isinstance(v, list) or any(not (x in S.CHIP_KINDS or (isinstance(x, str) and ENTITY.match(x))
+    if not isinstance(v, list) or any(not (x in S.CHIP_KINDS or x == "intercom" or (isinstance(x, str) and ENTITY.match(x))
                                            or (isinstance(x, str) and x.startswith(S.CHIP_TOKEN)
                                                and S.CHIP_KEY.match(x[len(S.CHIP_TOKEN):])))
                                       for x in v):
@@ -1190,7 +1196,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "chips_row": _bool,
     "chips": _chips,
     "chips_quiet": _subset(S.CHIP_KINDS),
-    "chips_extra": _entities(),
+    "chips_extra": _chips_extra,
     "camera_strip": _bool,
     "cameras": _entities("camera"),
     "camera_live": lambda v: _entity("input_select", "select")(v) or "",

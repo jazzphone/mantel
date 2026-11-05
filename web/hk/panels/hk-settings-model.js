@@ -25,7 +25,7 @@
   var CHIP_LABELS = {
     weather_alert: 'Weather Alerts', security: 'Security', doors_windows: 'Doors & Windows', climate: 'Climate',
     lights: 'Lights', blinds: 'Blinds', timers: 'Timers', vacuums: 'Vacuums', speakers: 'Speakers',
-    water: 'Water', energy: 'Energy'
+    water: 'Water', energy: 'Energy', intercom: 'Intercom'
   };
   // What each chip counts, and where that is set: Status & Chips kinds, or a
   // single setting (General, Weather).
@@ -41,7 +41,7 @@
   var PAGE_LABELS = {
     weather: 'Weather', calendar: 'Calendar', cameras: 'Cameras', live_tv: 'Live TV', security: 'Security',
     doors_windows: 'Doors & Windows', climate: 'Climate', lights: 'Lights', timers: 'Timers',
-    vacuums: 'Vacuums', music: 'Music', browse: 'Browse Music', water: 'Water', energy: 'Energy', power: 'Power', timeline: 'Timeline', rooms: 'Room Pages'
+    vacuums: 'Vacuums', music: 'Music', browse: 'Browse Music', water: 'Water', energy: 'Energy', power: 'Power', timeline: 'Timeline', rooms: 'Room Pages', intercom: 'Intercom'
   };
   // Each kind: key, name, the detail page’s description, and the list page’s
   // sub-line -- what the kind feeds, in the chips’ and pages’ own words.
@@ -1220,24 +1220,24 @@
     });
     return order;
   }
-  function chipsModel(b, kinds, custom) {
+  function isOwn(k) { return k.indexOf('.') >= 0 || k === 'intercom'; }  // an entity, or the Intercom (chips_extra; from More only)
+  // `intercom`: the page has the Intercom, so More offers it
+  function chipsModel(b, kinds, custom, intercom) {
     var lib = libOf(custom);
     var extra = (b.chips_extra || []).slice();
     var mineC = (b.chips_custom || []).filter(function (k) { return lib[k]; });
     var chips = (b.chips || []).filter(function (k) {
-      if (isCustomTok(k)) return mineC.indexOf(k.slice(CHIP_TOKEN.length)) >= 0;
-      return k.indexOf('.') < 0 || extra.indexOf(k) >= 0;
+      return isCustomTok(k) ? mineC.indexOf(k.slice(CHIP_TOKEN.length)) >= 0 : !isOwn(k) || extra.indexOf(k) >= 0;
     });
     var auto = !chips.length;
     var order = chipOrder(auto ? kinds : chips, extra, mineC, lib);
     var quiet = b.chips_quiet || [];
     var rows = order.map(function (k) {
       if (isCustomTok(k)) { var key = k.slice(CHIP_TOKEN.length); return { value: k, custom: true, key: key, name: lib[key].name }; }
-      var own = k.indexOf('.') >= 0;
-      return { value: k, own: own, quiet: !own && quiet.indexOf(k) >= 0 };
+      return { value: k, own: isOwn(k), quiet: !isOwn(k) && quiet.indexOf(k) >= 0 };
     });
     var more = (auto ? [] : kinds.filter(function (k) { return order.indexOf(k) < 0; })
-      .map(function (k) { return { value: k, own: false }; }))
+      .map(function (k) { return { value: k, own: false }; })).concat(intercom && order.indexOf('intercom') < 0 ? [{ value: 'intercom', own: true }] : [])
       .concat((custom || []).filter(function (c) { return mineC.indexOf(c.key) < 0; })
         .map(function (c) { return { value: CHIP_TOKEN + c.key, custom: true, key: c.key, name: c.name }; }));
     return { auto: auto, rows: rows, more: more };
@@ -1247,7 +1247,7 @@
   // stays automatic, so a kind the house gains later still shows.
   function chipsSave(values, kinds, custom) {
     var lib = libOf(custom);
-    var mine = values.filter(function (k) { return !isCustomTok(k) && k.indexOf('.') > 0; });
+    var mine = values.filter(function (k) { return !isCustomTok(k) && isOwn(k); });
     var mineC = values.filter(isCustomTok).map(function (k) { return k.slice(CHIP_TOKEN.length); });
     var asAuto = chipOrder(kinds, mine, mineC, lib).join() === values.join();
     return { chips_extra: mine, chips_custom: mineC, chips: asAuto ? [] : values };
@@ -1849,12 +1849,12 @@
     ['Home Page', 'screen/pages', 'home_page', 'only these pages standalone energy panel security cameras climate no home', true],
     ['Home', 'screen/pages', 'home_view', 'home page custom first page car generated', true],
     ['Rooms in Menu', 'screen/rooms', 'menu_rooms', 'a to z order', true],
-    ['Status Chips', 'screen/chips', 'chips', 'chip row only when active quiet', true],
+    ['Status Chips', 'screen/chips', 'chips', 'chip row only when active quiet intercom talk microphone', true],
     ['Status Chips (All Screens)', 'house/chips', 'chips:all', 'chips chip row every screen always when active quiet conditional'],
     ['Cameras', 'screen/cameras', 'cameras', 'camera strip live camera same as all screens order', true],
     ['Live Camera Follows', 'screen/cameras/live', 'camera_live', 'live camera follows motion person detection dropdown input select automation', true],
     ['Live First Camera', 'screen/cameras', 'camera_live_video', 'camera strip live video snapshot first tile performance', true],
-    ['Scenes', 'screen/scenes', 'scenes', 'scene pills row', true],
+    ['Scenes', 'screen/scenes', 'scenes', 'scene pills row intercom talk microphone', true],
     ['Favorites', 'screen/favorites', 'favorites', 'favourites', true],
     ['Rooms', 'screen/rooms', 'rooms_custom', 'room order home rooms on pages same as all screens', true],
     ['Pages on This Screen', 'screen/pages', 'pages', 'category pages custom pages which pages', true],

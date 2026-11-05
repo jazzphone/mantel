@@ -131,6 +131,7 @@ function sheet(o = {}) {
   const deps = {
     actions: () => actions, feed: () => fed, mic: () => (o.noMic ? null : mic), loading: () => !!o.loading, clock: clk,
     store: { load: () => o.mem || null, save: (v) => saves.push(JSON.parse(JSON.stringify(v))) },
+    loadFailed: () => !!o.loadFailed, safari: () => !!o.safari,
     secure: () => o.secure !== false, supported: () => o.supported !== false, hasPort: () => o.hasPort !== false,
     oneWay: { seen: () => oneWay.seen, mark: () => { oneWay.seen = true; oneWay.marks++; } },
     changed: () => { paints++; },
@@ -578,7 +579,8 @@ test('picker_glyphs_and_what_a_tap_can_pick', () => {
   const s = sheet();
   const pills = Object.fromEntries(s.ctl.pills().map((p) => [p.id, p]));
   assert.equal(pills[K].glyph, null, 'Message: a room that will play shows nothing');
-  assert.equal(pills[O].glyph, 'slash');
+  assert.equal(pills[O].glyph, null, 'no bare slash: the second line says why');
+  assert.equal(pills[O].cap, 'Plays with Kitchen');
   assert.equal(pills[O].pickable, false);
   assert.equal(pills[O].line, 'Kitchen leads Office');
   assert.equal(pills[D].glyph, 'moon');
@@ -599,7 +601,7 @@ test('picker_live_glyphs_waveform_clock_person', () => {
   eq(g[L], ['waveform', true]);
   eq(g[B], ['clock', true], 'after you finish');
   eq(g[P], ['waveform', true]);
-  eq(g[O], ['slash', false]);
+  eq(g[O], [null, false]);
   s.ctl.toggleRoom(K);
   assert.match(lines(s), /Kitchen: you.re here/);
   eq(s.ctl.sel, []);
@@ -627,6 +629,18 @@ test('picker_floors_presets_and_whole_house', () => {
   eq(s.ctl.sel, []);
   s.ctl.toggleRoom(L); s.ctl.toggleRoom(K);
   assert.equal(s.ctl.chips().filter((c) => c.on).map((c) => c.name).join(), 'Downstairs,Party', 'picked one by one, the preset lights');
+});
+
+test('picker_a_floor_or_preset_that_is_another_target_is_left_out', () => {
+  // Everywhere is Whole House, Down is Downstairs' rooms in another order, Same repeats Kids; Mixed is its own
+  const every = [K, L, O, D, B, P];
+  const s = sheet({ feed: feed({ presets: [
+    { id: 'every', name: 'Everywhere', rooms: every.slice().reverse() }, { id: 'down', name: 'Down', rooms: [O, L, K] },
+    { id: 'kids', name: 'Kids', rooms: [B, P] }, { id: 'same', name: 'Same', rooms: [P, B] }, { id: 'mixed', name: 'Mixed', rooms: [K, P] },
+    { id: 'none', name: 'None', rooms: [] }] }) });
+  eq(s.ctl.chips().map((c) => c.name), ['Whole House', 'Downstairs', 'Upstairs', 'Kids', 'Mixed']);
+  const one = sheet({ feed: feed({ floors: [{ id: 'all', name: 'Everything', rooms: every }, { id: 'down', name: 'Downstairs', rooms: [K, L, O] }, { id: 'down2', name: 'Ground', rooms: [O, K, L] }], presets: [] }) });
+  eq(one.ctl.chips().map((c) => c.name), ['Whole House', 'Downstairs'], 'a floor that is the whole house, or another floor, is no second chip');
 });
 
 test('picker_a_skipped_pill_says_why_and_is_not_picked', () => {
@@ -936,7 +950,9 @@ test('words_https_and_needs_mantel_and_off_and_one_way', async () => {
   assert.equal(lines(off), 'Intercom is off');
   assert.equal(off.ctl.view().mic.kind, 'off');
   const nomic = sheet({ supported: false });
-  assert.equal(lines(nomic), 'No microphone');
+  assert.equal(lines(nomic), 'This browser couldn’t start recording', 'a browser without what recording needs');
+  const unloaded = sheet({ supported: false, loadFailed: true });
+  assert.equal(lines(unloaded), 'Couldn’t load the microphone — reload the page', 'the module that records never came');
   const first = sheet({ oneWay: false, mem: { rooms: [K] } });
   assert.equal(lines(first), 'One-way: the rooms can’t answer');
   tap(first.ctl); await flush();
@@ -982,11 +998,34 @@ test('refusals_the_microphone_not_allowed_or_missing', async () => {
   a.mic.startError = Object.assign(new Error('denied'), { name: 'NotAllowedError' });
   tap(a.ctl); await flush();
   assert.equal(a.ctl.state, 'idle');
-  assert.equal(lines(a), 'The microphone is not allowed');
-  const b = sheet({ mem: { rooms: [K] } });
-  b.mic.startError = Object.assign(new Error('none'), { name: 'NotFoundError' });
-  tap(b.ctl); await flush();
-  assert.equal(lines(b), 'No microphone');
+  assert.equal(lines(a), 'Microphone blocked — allow it for this site in your browser’s settings', 'generic words for another browser');
+  const safari = sheet({ mem: { rooms: [K] }, safari: true });
+  safari.mic.startError = Object.assign(new Error('denied'), { name: 'NotAllowedError' });
+  tap(safari.ctl); await flush();
+  assert.equal(lines(safari), 'Microphone blocked — allow it for this site in Safari Settings → Websites → Microphone');
+  for (const name of ['NotFoundError', 'OverconstrainedError']) {
+    const b = sheet({ mem: { rooms: [K] } });
+    b.mic.startError = Object.assign(new Error('none'), { name });
+    tap(b.ctl); await flush();
+    assert.equal(lines(b), 'No microphone on this device', name);
+  }
+  const busy = sheet({ mem: { rooms: [K] } });
+  busy.mic.startError = Object.assign(new Error('busy'), { name: 'NotReadableError' });
+  tap(busy.ctl); await flush();
+  assert.equal(lines(busy), 'Another app is using the microphone');
+  // the audio or the worklet failing: said as the browser's, and logged with its name and message
+  const logged = [], was = console.warn;
+  console.warn = (...a) => logged.push(a.join(' '));
+  for (const name of ['AbortError', 'InvalidStateError', 'NoMic']) {
+    const w = sheet({ mem: { rooms: [K] } });
+    w.mic.startError = Object.assign(new Error('the worklet failed: ' + name), { name });
+    tap(w.ctl); await flush();
+    assert.equal(lines(w), 'This browser couldn’t start recording', name);
+    assert.equal(w.ctl.state, 'idle');
+  }
+  console.warn = was;
+  assert.equal(logged.length, 3);
+  assert.match(logged[0], /AbortError the worklet failed: AbortError/);
 });
 
 test('a_stale_ticket_after_cancel_opens_nothing', async () => {
@@ -1023,12 +1062,13 @@ test('dispose_closes_the_microphone_and_saves_what_was_picked', async () => {
   eq(s.saves.at(-1).rooms, [K, L]);
 });
 
-test('picker_a_group_leader_is_marked_with_the_slash_but_can_be_picked_and_says_why_on_a_tap', () => {
+test('picker_a_group_leader_says_who_it_plays_with_but_can_be_picked_and_says_why_on_a_tap', () => {
   const lead = ROOM('living_room', 'Living Room', 'Downstairs', { why: 'leads', reason: 'Living Room plays only together with Den' });
   const rooms = feed().rooms.map((r) => (r.room === L ? lead : r));
   const s = sheet({ feed: feed({ rooms }) });
   const p = s.ctl.pills().find((x) => x.id === L);
-  eq([p.glyph, p.pickable, p.note], ['slash', true, true]);
+  eq([p.glyph, p.pickable, p.note], [null, true, true]);
+  assert.equal(p.cap, 'Plays with Den', 'a muted second line on the pill, not a glyph');
   assert.equal(p.line, 'Living Room plays only together with Den');
   assert.match(p.aria, /plays only together/);
   s.ctl.toggleRoom(L);
@@ -1049,7 +1089,7 @@ test('picker_a_group_leader_is_marked_with_the_slash_but_can_be_picked_and_says_
   // Live shows the same slash (the leader is not where the person is)
   const live = sheet({ feed: feed({ rooms, live_allowed: true }), mem: { mode: 'live', rooms: [L] } });
   const lp = live.ctl.pills().find((x) => x.id === L);
-  eq([lp.glyph, lp.pickable], ['slash', true]);
+  eq([lp.glyph, lp.pickable, lp.cap], [null, true, 'Plays with Den']);
   eq(live.ctl.chosen(), [L]);
   // a leader that is skipped (the older wording) is still not pickable
   assert.equal(sheet().ctl.pills().find((x) => x.id === O).pickable, false);
@@ -1457,10 +1497,10 @@ test('mic_a_press_while_the_microphone_module_is_on_its_way_says_connecting_not_
   await flush();
   assert.equal(lines(s), 'Connecting…');
   assert.equal(s.ctl.state, 'idle', 'nothing started');
-  const t = sheet({ mem: { rooms: [K] }, noMic: true, loading: false });       // it never came: the old words
+  const t = sheet({ mem: { rooms: [K] }, noMic: true, loading: false, loadFailed: true });       // it never came: the words say so
   tap(t.ctl);
   await flush();
-  assert.equal(lines(t), 'No microphone');
+  assert.equal(lines(t), 'Couldn’t load the microphone — reload the page');
 });
 
 test('feed_keeps_the_listener_flag_and_the_play_snapshot', () => {

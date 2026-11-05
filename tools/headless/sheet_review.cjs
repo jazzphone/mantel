@@ -66,6 +66,7 @@ function measure() {
 }
 
 function openSheet(id) {
+  if (id === 'intercom') { window.hkIntercom.open(); return; }
   if (id !== 'event') { window.hkDetail.open(id); return; }
   const s = new Date(); s.setHours(19, 0, 0, 0);
   window.hkDetail.open('calendar.family', null, { event: { cal: 'calendar.family', uid: 'u1', title: 'Dinner with the Riveras',
@@ -96,6 +97,16 @@ function openSheet(id) {
           ? '.hkd .sheet{background:linear-gradient(rgba(255,255,255,.22),rgba(255,255,255,.22)),linear-gradient(' + mid + ',' + low + ')!important}'
           : '.hkd .sheet{background:rgba(44,44,50,.96)!important}');
         document.adoptedStyleSheets = [...document.adoptedStyleSheets, css]; }, input.look || null);
+      // the Intercom's sheet (a lazy card file, on a fictional feed and a microphone that records nothing: intercom_fakes.js)
+      if (input.sheets.some((s) => s[1] === 'intercom')) {
+        await page.evaluate(input.fakes);
+        await page.evaluate(() => { location.hash = '#intercom'; });
+        await page.waitForFunction(() => !!window.hkIntercom && !!window.hkIntercom.open, null, { timeout: 20000 });
+        await page.evaluate(() => __intercomFake.install({ mem: { mode: 'message', rooms: ['media_player.living_room', 'media_player.kitchen'] }, firstUse: false }));
+        await page.waitForTimeout(1500);
+        await page.evaluate(() => window.hkDetail.close && window.hkDetail.close());
+        await page.waitForTimeout(1000);
+      }
       for (const [name, id] of input.sheets) {
         let m = null;
         for (let t = 0; t < 2 && !m; t++) {           // a sheet still closing refuses the next: once more
