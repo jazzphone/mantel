@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.136 - 2026-11-05
+
 **Fixed**
 - **Two speakers of one room played a message one after the other.** The Office's two HomePods, still grouped from music, each got the message in turn, 12 seconds apart. Picking any room in a group left from music now borrows that group, so the room's speakers play together.
 - **Rooms borrowed from a group left from music played on their own.** A speaker in a group says it can't group with anything, so the borrowed Kitchen and Guest Bedroom each played alone. Borrowed rooms at the same volume now play as one.
