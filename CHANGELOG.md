@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.126 - 2026-11-04
+
 **Fixed**
 - **The Intercom said "Microphone blocked" with the microphone allowed** (Safari on a Mac, the wall tablets, the app). Its audio processor was loaded in a way Mantel's page security refuses; it is now a file Mantel serves.
 - **The doorbell's live talk** loads its audio processor the same way, so on Mantel it can talk live again instead of falling back to a recorded clip.
