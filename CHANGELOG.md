@@ -4,10 +4,16 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **Now Playing can have the card background.** A Now Playing block has a new **Background** option: **Blurred Album** (the default, as before) or **Card**, which gives it the same background as every other block in the screen's look, with dark text on a light look.
+- **Every card in a block with rules has its settings.** Choose a block that switches cards, such as Music with Now Playing while music plays, and the Home Grid editor opens on the card that's showing. **Settings For** picks which of the block's cards you're setting: its own or any rule's. Each one gets all the Content and Appearance options it has as a block of its own, and the preview shows the card you pick. Each rule also has a button that opens its card's settings (**Edit Now Playing Settings**, say). Before, the editor showed only the block's own card, with a rule's options tucked inside the rule and no Appearance options for it.
+
 **Changed**
 - **A group left from music no longer limits the Intercom.** After music stops, its speakers stay grouped. Pick one of those rooms alone and only that room hears the message: Mantel briefly takes the other speakers out of the group and puts them back, in their order, when the message is over. Pick rooms both inside and outside the group, and they all play in step on one clock. This happens only when every speaker in the group is idle; a group that's playing or paused still plays only together.
 
 **Fixed**
+- **Now Playing no longer flickers in Safari.** Rectangles of the blurred album behind the player flashed lighter and darker every second as the time and progress bar moved, and when the pointer crossed the controls. The blur now sits on a layer of its own and is drawn once. The docked music bar gets the same fix in Safari only, so a wall tablet's scrolling stays as smooth as it was.
+- On Home Grid's Now Playing blocks, the Speakers glyph sat up to 2 px low in its circle (Small, Wide and Tall). It's centered now.
 - **"Sent to" counts the rooms that heard it.** A message to nine rooms through a group said "Sent to 2 rooms".
 - **The music players showed "Now Playing" during a Live talk's replay.** When Live didn't work in a room, the room reappeared on the music players before its message played.
 - **Part of a recording could be dropped** when Wi-Fi delivered a few seconds of audio at once. Mantel now accepts up to 4 seconds arriving together.

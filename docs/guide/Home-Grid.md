@@ -49,6 +49,8 @@ The card controls inside the preview are disabled, so arranging a block can't to
 
 **Now Playing** blocks have **Speakers** and **Browse** buttons either side of play and pause; on a Tall block they're in its top corners. Either one flips the card over, and its back grows out of the block into the screensaver's music panel: **Speakers** (tick the rooms it plays in, then **Update**), **Volume** for each room, the **Queue**, and **Browse** (playlists, search and the library). What's playing stays at its foot. Tap outside it, press its X or Escape to flip it back; it also flips back on its own shortly after something you picked starts playing. With nothing playing, **Speakers** is dimmed and **Browse** still works.
 
+**Background** sets what's behind a Now Playing block: **Blurred Album**, the cover blurred behind the player (the default), or **Card**, the same background as every other block in the screen's look.
+
 <p align="center">
 <img src="../images/home-grid-speakers.webp" width="49%" alt="A Now Playing block turned over to Speakers: the rooms it plays in, with Update">
 <img src="../images/home-grid-browse.webp" width="49%" alt="A Now Playing block turned over to Browse: playlists, search and the library">
@@ -90,6 +92,8 @@ Weather comes in Wide (conditions), Large (also readings, six hours and three da
 ![Background controls for a group](../images/home-grid-background.webp)
 
 **Show When** switches a block's card in place. A block shows its own card by default; **Add Rule** adds up to four rules, each with up to three conditions (all must hold) and the card to show while they do. The first rule that holds wins, so **Move Rule Up** sets priority. Conditions: music playing, a timer running, the alarm armed or disarmed, someone at the door, after sunset, a time of day (a window from one time to another, which can run past midnight), or an accessory's state. For example: the calendar by default; Now Playing while music plays; the alarm keypad from 6:00 to 9:00 while the alarm is armed. Every card fills exactly the same space. **Preview** shows Live, the default or any rule's card without changing what is saved. Doorbell events hold their card for one minute. Blocks saved with the earlier **Otherwise Show** keep working and open as one rule.
+
+A block with rules is several cards in one place, and each has its own settings. Select the block and its settings open on the card it's showing. **Settings For**, under **Size**, picks the card you're setting: the block's own card or any rule's. **Content** and **Appearance** are then that card's, with every option it has as a block of its own, and the preview shows it. **Change Card…** changes that card too. Each rule also has a button that opens its card's settings. **Hide Box** and **Tile Style** belong to the block, so they're the same whichever card is showing.
 
 ## Screen types
 
