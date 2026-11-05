@@ -139,16 +139,20 @@ async def test_a_mantel_that_pins_elsewhere_says_where(hass, socket_enabled):
         await fake.close()
 
 
-def test_the_pinned_link_trusts_only_mantel_s_ca_for_the_listener_s_name():
+async def test_the_pinned_link_trusts_only_mantel_s_ca_for_the_listener_s_name():
     import ssl
     from mantel_fake import own_ca
     from custom_components.mantel.mantel_link import MantelLink, pinned_tls
     ca = own_ca()[0]
-    tls = pinned_tls(ca)
-    assert tls["server_hostname"] == "mantel-connect"
-    ctx = tls["ssl"]
-    assert ctx.verify_mode == ssl.CERT_REQUIRED and ctx.check_hostname
-    assert [c["subject"] for c in ctx.get_ca_certs()] == [((("commonName", "Fictional Mantel CA"),),)], "nothing else"
+    # the link builds it on its first connection, in the executor (no CA loaded in the event loop)
+    link = MantelLink(None, "https://127.0.0.1:1", "t", None, ca=ca)
+    for tls in (pinned_tls(ca), await link.tls()):
+        assert tls["server_hostname"] == "mantel-connect"
+        ctx = tls["ssl"]
+        assert ctx.verify_mode == ssl.CERT_REQUIRED and ctx.check_hostname
+        assert ctx.minimum_version == ssl.TLSVersion.TLSv1_2
+        assert [c["subject"] for c in ctx.get_ca_certs()] == [((("commonName", "Fictional Mantel CA"),),)], "nothing else"
+    assert await link.tls() is tls, "built once"
     assert pinned_tls(None) == {}
     try:
         MantelLink(None, "http://127.0.0.1:1", "t", None, ca=ca)

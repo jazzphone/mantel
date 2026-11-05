@@ -7,6 +7,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 **Fixed**
 - **The screensaver's volume works on a group.** With music playing on more than one room, its slider moved only the first speaker and sprang back. It now shows the rooms' average and sets every one, as the Side Pane's does.
+- Home Assistant 2026.11 no longer warns at every start about a blocking call (`load_verify_locations`) from HK Frontend. Linked to a Mantel paired by its address, HK Frontend now loads Mantel's certificate authority off Home Assistant's event loop, on the link's first connection. It trusts that authority alone, as before.
 
 ## 1.46.0 - 2026-11-05
 
