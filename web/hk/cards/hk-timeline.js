@@ -162,6 +162,26 @@
     return fmt(ctx, same ? { weekday: 'long', month: 'long', day: 'numeric' }
                          : { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(ms);
   }
+  // THE DAY JUMP'S MONTH (2026-11-05, the owner: the system's date picker "doesn't match anything in Mantel Design"):
+  // the Calendar page's little month (hk-calendar.js _mini), drawn here. `ym` "2026-11", `ws` the week's first day
+  // (0 Sunday), `today` today's key at the house. Whole weeks; a day past today can't be picked (nothing happened yet);
+  // no month after today's. Days are keys, worked out in UTC, so no zone or time change moves one.
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  function monthDays(ym, ws, today) {
+    var m = /^(\d{4})-(\d{2})$/.exec(String(ym || '')) || /^(\d{4})-(\d{2})/.exec(String(today || ''));
+    if (!m) return null;
+    var y = +m[1], mo = +m[2], first = Date.UTC(y, mo - 1, 1), last = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+    ws = (+ws || 0) % 7;
+    var lead = (new Date(first).getUTCDay() - ws + 7) % 7, n = Math.ceil((lead + last) / 7) * 7, days = [];
+    for (var i = 0; i < n; i++) {
+      var t = new Date(first + (i - lead) * 86400000), k = keyOf(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
+      days.push({ key: k, d: t.getUTCDate(), out: t.getUTCMonth() + 1 !== mo, today: k === today, future: !!today && k > today });
+    }
+    var letters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'], here = String(today || '').slice(0, 7);
+    var prev = mo === 1 ? (y - 1) + '-12' : y + '-' + pad2(mo - 1), next = mo === 12 ? (y + 1) + '-01' : y + '-' + pad2(mo + 1);
+    return { ym: y + '-' + pad2(mo), title: MONTHS[mo - 1] + ' ' + y, letters: letters.slice(ws).concat(letters.slice(0, ws)),
+             days: days, prev: prev, next: here && next > here ? null : next };
+  }
   // a short date for the day jump's button: "Nov 1"
   function shortDay(key, ctx) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(key || ''));
@@ -331,7 +351,7 @@
   var LIB = {
     GROUPS: GROUPS, PAGE: PAGE, visibleGroups: visibleGroups, familiesOf: familiesOf, lookOf: lookOf, whoLine: whoLine,
     parts: parts, dayKey: dayKey, shiftKey: shiftKey, dayEnd: dayEnd, timeText: timeText, hourText: hourText,
-    timeRange: timeRange, dayLabel: dayLabel, shortDay: shortDay, countLine: countLine, exactTime: exactTime,
+    timeRange: timeRange, dayLabel: dayLabel, shortDay: shortDay, monthDays: monthDays, countLine: countLine, exactTime: exactTime,
     byTime: byTime, mergeEvents: mergeEvents, groupEvents: groupEvents, emptyFilters: emptyFilters, filtersOn: filtersOn,
     queryPath: queryPath, subscribeMessage: subscribeMessage, matches: matches, showAllFilter: showAllFilter,
     showAllLabel: showAllLabel, labelOf: labelOf, kindWord: kindWord, summaryWindow: summaryWindow, countChips: countChips,
@@ -404,8 +424,28 @@
     '  display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;white-space:nowrap;position:relative;flex:none;-webkit-tap-highlight-color:transparent}',
     '.btn:active{background:' + v('key-strong') + '}',
     '.btn.on{background:var(--hk-seg-on,' + C.SELECTED_BG + ');color:' + C.SELECTED_TEXT + '}',
-    // the day jump: a real date input laid over the button, so a tap opens the system's own picker (iPad included)
-    '.day input{position:absolute;inset:0;width:100%;height:100%;opacity:0;border:0;padding:0;margin:0;font-size:16px;cursor:pointer;-webkit-appearance:none;appearance:none;min-width:0}',
+    // THE DAY JUMP: the Calendar page's little month (hk-calendar.js .mini) on a floating plate under its button, in place
+    // of the system's own picker (2026-11-05)
+    // (under its button, kept inside the row: placed once drawn, _placeDayPicker -- a phone's button is a 48 px circle
+    // with the row's others beside it)
+    '.sr{position:relative}',
+    '.dpw{flex:none;display:flex}',
+    '.dp{position:absolute;top:56px;right:0;z-index:20;width:min(320px,calc(100vw - 32px));box-sizing:border-box;padding:14px 14px 10px;',
+    '  border-radius:' + M.radius + ';background:' + v('overlay-solid') + ';-webkit-backdrop-filter:var(--hk-float-backdrop,' + C.BLUR.medium + ');',
+    '  backdrop-filter:var(--hk-float-backdrop,' + C.BLUR.medium + ');border:1px solid ' + v('line') + ';box-shadow:0 14px 34px rgba(0,0,0,.35);color:' + v('ink') + '}',
+    '.dp .mh{display:flex;align-items:center;padding:0 0 0 6px}',
+    '.dp .mh b{font-size:17px;font-weight:700;flex:1;letter-spacing:-.2px}',
+    '.dp .mh button{width:36px;height:36px;border:0;border-radius:18px;background:transparent;color:' + v('ink') + ';padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer}',
+    '.dp .mh button:disabled{opacity:.3;cursor:default}',
+    '.dp .mgr{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));margin-top:6px;row-gap:2px}',
+    '.dp .w{text-align:center;font-size:11px;font-weight:600;color:' + v('ink-2') + ';height:22px;line-height:22px}',
+    '.dp .md{height:38px;border:0;background:transparent;color:' + v('ink') + ';padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+    '.dp .md b{height:30px;min-width:30px;line-height:30px;font-size:15px;font-weight:600;border-radius:15px;text-align:center;font-variant-numeric:tabular-nums}',
+    '.dp .md.out b{opacity:.4}',
+    '.dp .md:disabled{cursor:default}.dp .md:disabled b{opacity:.25}',
+    '.dp .md.today b{background:#fff;color:#1c1c1e;font-weight:700}',
+    '.dp .md.sel:not(.today) b{background:var(--hk-seg-on,' + C.SELECTED_BG + ');color:' + C.SELECTED_TEXT + '}',
+    '@media (hover:hover){.dp .md:not(:disabled):not(.today):not(.sel):hover b{background:' + v('key') + '}}',
     '.chips{display:flex;flex-wrap:wrap;gap:8px}',
     '.chip{height:44px;box-sizing:border-box;border:0;border-radius:22px;padding:0 18px;background:' + v('key') + ';color:' + v('ink') + ';font-size:15px;font-weight:600;cursor:pointer;',
     '  display:inline-flex;align-items:center;gap:8px;-webkit-tap-highlight-color:transparent;white-space:nowrap}',
@@ -534,6 +574,7 @@
     }
     disconnectedCallback() {
       if (super.disconnectedCallback) super.disconnectedCallback();
+      if (this._dp) this._openDayPicker(false);
       if (this._onScroll) { window.removeEventListener('scroll', this._onScroll); this._onScroll = null; }
       this._unsubscribe();
       clearTimeout(this._searchT);
@@ -688,7 +729,6 @@
         this._root.addEventListener('click', this._onClick.bind(this));
         this._root.addEventListener('keydown', this._onKey.bind(this));
         this._root.addEventListener('input', this._onInput.bind(this));
-        this._root.addEventListener('change', this._onChange.bind(this));
       }
       this._paint();
     }
@@ -724,8 +764,8 @@
       var html = '<div class="sr">' +
         (m.search ? '<div class="sf">' + icon('mdi:magnify', 20) + '<input type="search" enterkeyhint="search" placeholder="Search" aria-label="Search the Timeline" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(f.q) + '">' +
                     '<button class="cl" data-act="clear-q" aria-label="Clear search"' + (f.q ? '' : ' hidden') + '>' + icon('mdi:close', 20) + '</button></div>' : '<div class="sf" style="visibility:hidden"></div>') +
-        '<label class="btn day' + (f.day ? ' on wide' : '') + '" aria-label="Jump to a day">' + icon('mdi:calendar-month', 20) + '<span class="tx2">' + (f.day ? esc(shortDay(f.day, ctx)) : 'Day') + '</span>' +
-          '<input type="date" data-act="day" value="' + esc(f.day) + '" max="' + esc(dayKey(Date.now(), ctx)) + '"></label>' +
+        '<span class="dpw"><button class="btn day' + (f.day ? ' on wide' : '') + '" data-act="pick-day" aria-label="Jump to a day" aria-haspopup="dialog" aria-expanded="' + (this._dp ? 'true' : 'false') + '">' +
+          icon('mdi:calendar-month', 20) + '<span class="tx2">' + (f.day ? esc(shortDay(f.day, ctx)) : 'Day') + '</span></button>' + this._dayPicker(ctx) + '</span>' +
         (f.day ? '<button class="btn wide" data-act="clear-day" aria-label="Show the latest again">' + icon('mdi:close', 18) + '<span class="tx2">Latest</span></button>' : '') +
         (m.names ? '<button class="btn' + (f.mine ? ' on' : '') + ' wide" data-act="mine" aria-pressed="' + (f.mine ? 'true' : 'false') + '">' + icon('mdi:account', 20) + '<span class="tx2">Only Mine</span></button>' : '') +
         '</div>' +
@@ -735,11 +775,60 @@
           (f.entity ? '<button class="chip pin" data-act="clear-entity" aria-label="Show all again">' + esc(f.name || 'One') + icon('mdi:close', 18) + '</button>' : '') +
         '</div>';
       C.morph(bar, html);
-      var inp = bar.querySelector('input[type=search]'), dayIn = bar.querySelector('input[type=date]');
+      var inp = bar.querySelector('input[type=search]');
       if (inp && f.q === '' && this.shadowRoot.activeElement !== inp) inp.value = '';
-      if (dayIn && dayIn.value !== f.day) dayIn.value = f.day;
+      this._placeDayPicker(bar);
       var clr = bar.querySelector('[data-act="clear-q"]');
       if (clr) clr.hidden = !(inp && inp.value);
+    }
+
+    // the day jump's month, open under its button (this._dp: the month shown, "2026-11")
+    _dayPicker(ctx) {
+      if (!this._dp) return '';
+      var today = dayKey(Date.now(), ctx), ws = 0, f = this._f;
+      try { if (window.hkStats && window.hkStats.weekStart) ws = window.hkStats.weekStart(C.client ? C.client() : null); } catch (e) { ws = 0; }
+      var M2 = monthDays(this._dp, ws, today);
+      if (!M2) return '';
+      var cells = M2.letters.map(function (x) { return '<div class="w" aria-hidden="true">' + x + '</div>'; }).join('');
+      M2.days.forEach(function (d) {
+        cells += '<button class="md' + (d.out ? ' out' : '') + (d.today ? ' today' : '') + (d.key === f.day ? ' sel' : '') + '" data-act="day-pick" data-v="' + d.key + '"' +
+          (d.future ? ' disabled' : '') + (d.key === f.day ? ' aria-current="date"' : '') + ' aria-label="' + esc(shortDay(d.key, ctx)) + '"><b>' + d.d + '</b></button>';
+      });
+      var chev = function (dir) {
+        return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="' +
+          (dir < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7') + '"/></svg>';
+      };
+      return '<div class="dp" role="dialog" aria-label="Jump to a day"><div class="mh"><b>' + esc(M2.title) + '</b>' +
+        '<button data-act="day-month" data-v="' + M2.prev + '" aria-label="Previous month">' + chev(-1) + '</button>' +
+        '<button data-act="day-month" data-v="' + (M2.next || '') + '" aria-label="Next month"' + (M2.next ? '' : ' disabled') + '>' + chev(1) + '</button></div>' +
+        '<div class="mgr">' + cells + '</div></div>';
+    }
+    _placeDayPicker(bar) {
+      var dp = bar.querySelector('.dp'), btn = bar.querySelector('[data-act="pick-day"]'), row = bar.querySelector('.sr');
+      if (!dp || !btn || !row) return;
+      var b = btn.getBoundingClientRect(), r = row.getBoundingClientRect(), w = dp.offsetWidth;
+      var left = Math.max(0, Math.min(r.width - w, b.right - r.left - w));
+      dp.style.left = Math.round(left) + 'px';
+      dp.style.right = 'auto';
+    }
+    _openDayPicker(on) {
+      var self = this;
+      this._dp = on ? String(this._f.day || dayKey(Date.now(), ctxNow())).slice(0, 7) : null;
+      if (on && !this._dpAway) {
+        // (a tap anywhere else, or Escape, puts it away)
+        this._dpAway = function (e) {
+          if (e.type === 'keydown') { if (e.key === 'Escape') self._openDayPicker(false); return; }
+          var path = e.composedPath ? e.composedPath() : [];
+          if (!path.some(function (n) { return n && n.classList && (n.classList.contains('dpw')); })) self._openDayPicker(false);
+        };
+        document.addEventListener('pointerdown', this._dpAway, true);
+        document.addEventListener('keydown', this._dpAway, true);
+      } else if (!on && this._dpAway) {
+        document.removeEventListener('pointerdown', this._dpAway, true);
+        document.removeEventListener('keydown', this._dpAway, true);
+        this._dpAway = null;
+      }
+      this._paintBar();
     }
 
     _paintList() {
@@ -829,12 +918,6 @@
       clearTimeout(this._searchT);
       this._searchT = setTimeout(function () { if (self._f.q !== val) self._setFilters({ q: val }, 'q'); }, DEBOUNCE);
     }
-    _onChange(e) {
-      var t = e.target;
-      if (!t || t.getAttribute('data-act') !== 'day') return;
-      var key = String(t.value || ''), until = key ? dayEnd(key, ctxNow()) : null;
-      this._setFilters({ day: key && until ? key : '', until: key && until ? until : null });
-    }
     _act(act, el) {
       var f = this._f;
       if (act === 'open') { var ev = this._evOf(el.getAttribute('data-id')); if (ev) this._openSheet(ev); }
@@ -843,6 +926,13 @@
       else if (act === 'mine') this._setFilters({ mine: !f.mine });
       else if (act === 'clear-q') { var inp = this._root.querySelector('input[type=search]'); if (inp) { inp.value = ''; inp.focus(); } clearTimeout(this._searchT); this._setFilters({ q: '' }, 'q'); }
       else if (act === 'clear-day') this._setFilters({ day: '', until: null });
+      else if (act === 'pick-day') this._openDayPicker(!this._dp);
+      else if (act === 'day-month') { if (el.getAttribute('data-v')) { this._dp = el.getAttribute('data-v'); this._paintBar(); } }
+      else if (act === 'day-pick') {
+        var key = el.getAttribute('data-v') || '', until = key ? dayEnd(key, ctxNow()) : null;
+        this._openDayPicker(false);
+        if (key && until) this._setFilters({ day: key, until: until });
+      }
       else if (act === 'clear-entity') this._setFilters({ entity: '', camera: false, name: '' });
       else if (act === 'more') { this._moreErr = false; this._loadMore(); }
       else if (act === 'retry') this._reload(false);

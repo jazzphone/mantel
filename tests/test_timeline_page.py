@@ -115,6 +115,12 @@ out.rows2 = L.detailRows({ id: 2, at: t0, family: 'arrival', kind: 'arrived', zo
 out.err = [L.errorText({ code: 'forbidden', status: 403 }), L.errorText({ status: 503 }), L.errorText(null)];
 out.look = [L.lookOf({ family: 'detection', kind: 'package' }), L.lookOf({ family: 'lock', kind: 'locked' }), L.lookOf({ family: 'lock', kind: 'unlocked' }),
             L.lookOf({ family: 'safety', kind: 'leak' }), L.lookOf({ family: 'system', kind: 'alert', level: 'warning' }), L.lookOf({ family: 'nothing', kind: 'x' })];
+// the day jump's little month: November 2026 on a Sunday week, then a Monday one; December (after today's month)
+const nov = L.monthDays('2026-11', 0, '2026-11-05'), novMon = L.monthDays('2026-11', 1, '2026-11-05'), jan = L.monthDays('2026-01', 0, '2026-11-05');
+out.month = { title: nov.title, letters: nov.letters.join(''), n: nov.days.length, first: nov.days[0], last: nov.days[nov.days.length - 1],
+  today: nov.days.filter(d => d.today).map(d => d.key), future: nov.days.filter(d => d.future).length, prev: nov.prev, next: nov.next,
+  monLetters: novMon.letters.join(''), monFirst: novMon.days[0].key, monN: novMon.days.length, janPrev: jan.prev, janNext: jan.next,
+  bad: L.monthDays('x', 0, ''), fallback: L.monthDays('', 0, '2026-02-10').title };
 console.log(JSON.stringify(out));
 """
 
@@ -285,3 +291,18 @@ def test_the_page_is_wired_in_the_way_the_other_pages_are():
     assert "custom:hk-timeline-card" in strategy and "hostPage('timeline')" in strategy
     shell = (ROOT / "web/client/hk-host-shell.js").read_text()
     assert "hostPage: function () { return false; }" in shell            # no Timeline in a host that has none
+
+
+def test_the_day_jump_is_the_calendars_little_month(page):
+    m = page["month"]
+    assert m["title"] == "November 2026" and m["letters"] == "SMTWTFS"
+    # November 1, 2026 is a Sunday: no lead; 30 days end on a Monday, so five whole weeks with six days of December
+    assert m["n"] == 35 and m["first"] == {"key": "2026-11-01", "d": 1, "out": False, "today": False, "future": False}
+    assert m["last"]["key"] == "2026-12-05" and m["last"]["out"] is True and m["last"]["future"] is True
+    assert m["today"] == ["2026-11-05"]
+    assert m["future"] == 35 - 5                       # nothing after today can be picked
+    assert m["prev"] == "2026-10" and m["next"] is None   # no month after today's
+    # a Monday week: Sunday the 1st sits last in a week that began October 26
+    assert m["monLetters"] == "MTWTFSS" and m["monFirst"] == "2026-10-26" and m["monN"] == 42
+    assert m["janPrev"] == "2025-12" and m["janNext"] == "2026-02"
+    assert m["bad"] is None and m["fallback"] == "February 2026"

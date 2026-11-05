@@ -303,7 +303,9 @@ row is filtered for that viewer before it's sent. A row's later `end` or picture
   day ("Today", "Yesterday", a date) and by hour inside a busy day. Each row: an icon by family, the title, the time,
   the area, "Emma · hallway tablet" when shown, and a thumbnail strip. Tap a row for a sheet with the full pictures
   (swipe between frames), the exact time, the door it was done from, and "Show all for this camera/door". A filter bar
-  (Doors, Locks, Garage, Alarm, People, Doorbell, Cameras, System), a search field, a day jump, and "Only mine" for
+  (Doors, Locks, Garage, Alarm, People, Doorbell, Cameras, System), a search field, a day jump (since 2026-11-05 the
+  Calendar page's little month on a floating plate, `monthDays`, in place of the system's date picker; no day after
+  today), and "Only mine" for
   what a person did. Touch first: 44 px rows, no hover-only controls (the owner's main device is an iPad on Safari,
   which reports itself as a Mac). It works inside the iPhone, iPad and Mac apps as a Mantel page, with no native work.
   How the page is registered follows the Music page (`feature_pages.py`, `hk-pages-screen.js`); the building session
@@ -650,6 +652,11 @@ load). Narrowed by A/B runs of all 12 parts at `CI_JOBS=4`: the Timeline page of
 with a stand-in card, still failing; the page with its own card but without `sky_variant: 'cameras'` and its background,
 12 of 12. So the page wears the screen's own sky (one sky fewer to keep for a page nobody is on), and its card reads and
 follows nothing until it is on the screen (a page built ahead stays still).
+
+**Its own background (2026-11-05, the owner: "should get a gradient color of some sort, like the other pages, not the
+Live Sky").** `sky_variant: 'timeline'` (hk-sky.js STATIC: a copper beside the Timers' ember, mean 62, horizon 118) and
+`sky_page: 'timeline'`, so a screen can set the page's own background. A static gradient, not the cameras' sky the page
+had before the fix above; the screensaver checks are re-run with it.
 
 **19.8 (attribution from Home Assistant's context): deferred.** It is optional for the first release, and decision 21
 says to try it on the scratch Home Assistant first; that run didn't fit this session. Until it is tried, a change with

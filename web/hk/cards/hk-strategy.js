@@ -2066,7 +2066,7 @@
     }
     // TIMELINE (phase 19): a page only a host with its own record has (hkShell.hostPage; Home Assistant: false)
     if (opts.pages !== false && want('timeline') && window.hkShell && window.hkShell.hostPage('timeline')) pages.timeline = view({ title: 'Timeline',
-      path: 'timeline', subview: true, icon: 'mdi:history',
+      path: 'timeline', subview: true, icon: 'mdi:history', sky_variant: 'timeline', background: '#1a120c',
       cards: [titleBar('Timeline'), column([{ type: 'custom:hk-timeline-card' }])] });
 
     if (music) {
@@ -2426,7 +2426,7 @@
   var SKY_PAGE = { weather: 'weather', calendar: 'calendar', cameras: 'cameras', 'live-tv': 'live_tv',
                    security: 'security', 'doors-windows': 'doors_windows', climate: 'climate', lights: 'lights',
                    timers: 'timers', vacuums: 'vacuums', playmusic: 'music', 'music-browse': 'music', water: 'water',
-                   energy: 'energy', power: 'power' };
+                   energy: 'energy', power: 'power', timeline: 'timeline' };
   function skyPages(list) {
     var custom = {};
     (setting('custom_pages') || []).forEach(function (p) { if (p && p.path) custom[p.path] = true; });

@@ -720,5 +720,21 @@ function () {
   eq('...editing: busy', window.hkStrategy._busy(), true);
   E.leave();
   Date.now = now;
+},
+function () {
+  H.section('a hold on empty space starts Edit (2026-11-05)');
+  var view = document.createElement('hk-home-grid-view'), slot = document.createElement('div');
+  slot.appendChild(view);
+  var gap = document.createElement('div'), tile = document.createElement('hk-tile-card'), plate = document.createElement('div');
+  var frame = document.createElement('hk-frame-card'), btn = document.createElement('button'), role = document.createElement('div');
+  role.setAttribute('role', 'slider');
+  var stop = [view, slot];
+  ok('between the tiles (the view itself under the finger): empty', E._.emptyAt([gap, view, slot], stop));
+  ok('under a page shorter than the screen (the slot): empty', E._.emptyAt([slot], stop));
+  ok('in a layout card around the tiles: empty', E._.emptyAt([gap, frame, view], stop));
+  ok('on a tile: not empty (a hold on one does what a tap does)', !E._.emptyAt([plate, tile, gap, view], stop));
+  ok('on a button, or a slider by its role: not empty', !E._.emptyAt([btn, gap, view], stop) && !E._.emptyAt([role, view], stop));
+  ok('off the page altogether: not empty', !E._.emptyAt([gap, document.body], stop));
+  ok('...after a still half second, longer than a tap and than a pill\'s pick-up', E._.HOLD_EMPTY_MS >= 500 && E._.HOLD_EMPTY_MS > E._.HOLD_MS);
 }
 ]);

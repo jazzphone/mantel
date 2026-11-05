@@ -709,7 +709,8 @@
     a.motion = a.blur = a.liveSky = a.autoplay = !a.flat;
     return a;
   }
-  function glass() {
+  // `path`: another page of this screen (a swipe's neighbor, lookAt), else the page shown
+  function glass(path) {
     if (rendering().flat) return 'flat';
     if (glassPreview) return glassPreview;
     var b = boardHere(), bg = b && (RETIRED[b.glass] || b.glass), g;
@@ -720,7 +721,7 @@
     // the blur appearance just looks nicer"): the screen's Bright Glass On --
     // Home Only (the default) or Every Page; elsewhere its Blur in the same
     // mode (Shared Layer, Pre-rendered, Each Plate)
-    if (isBrightLook(g) && brightPages(b) === 'home' && !onHome()) g = { bright: 'blur', bright_pre: 'blur_pre', bright_each: 'blur_each' }[g];
+    if (isBrightLook(g) && brightPages(b) === 'home' && !onHome(path)) g = { bright: 'blur', bright_pre: 'blur_pre', bright_each: 'blur_each' }[g];
     return g;
   }
   function isBrightLook(g) { return g === 'bright' || g === 'bright_pre' || g === 'bright_each'; }
@@ -731,9 +732,9 @@
   }
   // this screen's Home: its first page (the address's page segment empty, '0'
   // or the first view's path)
-  function onHome() {
+  function onHome(path) {
     var here = '';
-    try { here = decodeURIComponent((String(location.pathname).split('/')[2] || '').split('?')[0]); } catch (e) { return true; }
+    try { here = decodeURIComponent((String(path || location.pathname).split('/')[2] || '').split('?')[0]); } catch (e) { return true; }
     if (!here || here === '0' || here === 'home') return true;
     var M = window.hkCards && window.hkCards.menu, cfg = M && M.config ? M.config() : null, vs = (cfg && cfg.views) || [];
     if (vs[0] && vs[0].path === here) return true;
@@ -1154,6 +1155,18 @@
     var custom = b && b.sky_custom ? b.sky_custom : get('sky.gradient_custom', null);
     return backdropStops(id, custom);
   }
+  // ANOTHER PAGE'S OWN LOOK, worn by that page while it waits beside this one (hk-pageswipe.js): the Calendar coming in
+  // from the Pages screen is Blur where the Pages screen is Bright Glass (Home Only), and it wore the page's look until it
+  // landed, then changed (2026-11-05, the owner: it "pops/switches appearance themes when it lands"). Null when it wears
+  // the same as the page shown; else every look variable, `initial` where its look has none (none has a default in a
+  // stylesheet: the root's own, taken off, is the same as unset)
+  function lookAt(path) {
+    var g = glass(path);
+    if (!path || g === glass()) return null;
+    var look = LOOKS[g](), vars = {};
+    LOOK_VARS.forEach(function (k) { vars[k] = look[k] || 'initial'; });
+    return { glass: g, vars: vars };
+  }
   function applyLook() {
     var root = document.documentElement;
     if (!root || !root.style) return;
@@ -1175,6 +1188,8 @@
       else if (root.removeAttribute) root.removeAttribute('data-hk-flat');
     }
     if (root.toggleAttribute) root.toggleAttribute('data-hk-frost-tint', frostTint());
+    // (what waits beside the page wears its own again: hk-pageswipe.js)
+    try { window.dispatchEvent(new CustomEvent('hk-look')); } catch (e) { /* a test harness */ }
   }
   // BRIGHT GLASS FOLLOWS THE SKY'S COLORS: its plate mixes the light stop in
   // and its cap is worked out over it, so a change the sky says (a
@@ -1785,6 +1800,7 @@
     },
     appearance: appearance, rendering: rendering, refreshLook: applyLook,
     glass: glass,
+    lookAt: lookAt,
     frostTint: frostTint,
     tileStyle: tileStyle,
     // the Frosted plate with `wash` ([r, g, b]) in place of its gray, at this

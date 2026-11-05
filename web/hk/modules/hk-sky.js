@@ -5538,7 +5538,8 @@
     playmusic: ['#150e1f', '#2e1b42', '#5c2f76', '#9a6bb0'],  // music purple
     // CALENDAR (2026-10-16): Sage Mist, the calm green the user picked from
     // four previews (settings.py SKY_BACKDROPS sage, its day set)
-    calendar:  ['#0e1a18', '#18302b', '#284a42', '#4f7a6c']
+    calendar:  ['#0e1a18', '#18302b', '#284a42', '#4f7a6c'],
+    timeline:  ['#1a120c', '#36241a', '#684330', '#9c6e52']  // its tile's orange, softer than Timers' (2026-11-05)
   };
 
   // THE LIGHTS PAGE FOLLOWS THE SUN (2026-10-16; Pages -> Lights ->
@@ -6466,8 +6467,9 @@
     // HK Settings' preview of a theme (see PREVIEW above)
     preview: preview,
     get previewing() { return PREVIEW; },
-    // a swipe between pages letting go toward `path` (hk-pageswipe.js): its background fades in (above)
-    swipeTo: function (path, ms, ease) { try { return swipeTo(path, ms, ease); } catch (e) { console.error('[hk-sky]', e); return false; } },
+    // a swipe between pages heading for `path` (hk-pageswipe.js): its background under a still copy of this one (above)
+    swipeCover: function (path) { try { return swipeCover(path); } catch (e) { console.error('[hk-sky]', e); return null; } },
+    swipeBack: function () { SWIPE = null; snapNext = true; try { selfRender(); } catch (e) { console.error('[hk-sky]', e); } },
     _read: read,                // tests: what the sky reads, pins included
     _planned: function (n, d) { return plannedFor(n, d); },
     // hkSky._surpriseForce('birthday') then hkSkyAt(14) shows a theme on any
@@ -6561,7 +6563,7 @@
   function currentView(cfg, path) {
     if (!cfg || !cfg.views) return null;
     // /<dashboard>/<view>  -- the view segment is either a path or an index
-    // (`path`: another page's address, a swipe's -- swipeTo)
+    // (`path`: another page's address, a swipe's -- swipeCover)
     var seg = decodeURIComponent((String(path || location.pathname).split('/')[2] || '').split(/[?#]/)[0]);
     // NO SEGMENT MEANS VIEW 0, which is what Home Assistant itself does with a
     // bare dashboard URL. Without it a dashboard whose first view has
@@ -6790,9 +6792,9 @@
   }
 
   // A SWIPE BETWEEN PAGES (2026-11-01, the owner: "make the backgrounds fade between page swipes but ONLY for
-  // swipes ... If the page is tapped, the background should appear instantly"): as the finger lets go toward a page
-  // (hk-pageswipe.js settle), that page's background is painted at once under a still copy of this one, and the copy
-  // fades while the page slides in -- one fade whatever the background is (a palette, a photo, a wallpaper), where
+  // swipes ... If the page is tapped, the background should appear instantly"): as the finger heads for a page
+  // (hk-pageswipe.js skyHold), that page's background is painted at once under a still copy of this one, and the copy
+  // fades as the page comes in -- one fade whatever the background is (a palette, a photo, a wallpaper), where
   // the sky's own layers would each melt at their own pace. Until the page is up, every repaint is the page the
   // swipe goes to (swiping), and its own repaint, when it is, paints the same. A tap still cuts.
   var SWIPE = null;
@@ -6821,23 +6823,19 @@
     }
     return c;
   }
-  function swipeTo(path, ms, ease) {
-    if (!mounted || !mounted.isConnected || !mounted.parentNode || offPanel()) return false;
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+  // (the copy, or null; false for the same background: nothing to fade -- hk-pageswipe.js skyFade fades it, as the
+  // finger moves and on its way in, and swipeBack paints this page's own again under it when it goes back)
+  function swipeCover(path) {
+    if (!mounted || !mounted.isConnected || !mounted.parentNode || offPanel()) return null;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
     var want = resolve(path), client = clientNow(), host = viewContainerEl();
-    if (!want || !client || !host) return false;
+    if (!want || !client || !host) return null;
+    try { if (JSON.stringify(want) === JSON.stringify(resolve(swiping()))) return false; } catch (e) { /* fade */ }
     var cover = skyCover(mounted);
     SWIPE = { path: path, seg: String(path).split(/[?#]/)[0].split('/')[2] || '', until: Date.now() + 6000 };
     snapNext = true;
     window.hkSky.render(client, host, want);
-    var gone = function () { if (cover.parentNode) cover.parentNode.removeChild(cover); };
-    try {
-      var an = cover.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms || 340, easing: ease || 'ease', fill: 'forwards' });
-      an.onfinish = gone;
-      an.oncancel = gone;
-    } catch (e) { gone(); }
-    setTimeout(gone, (ms || 340) + 500);
-    return true;
+    return cover;
   }
 
   function selfRender() {

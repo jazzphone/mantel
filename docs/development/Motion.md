@@ -39,10 +39,15 @@ Reduce Motion: nothing follows the finger, and two pages cross-fade.
 
 **At rest.** A moment after each landing (`plan()`, at an idle callback, one page at a time), the host builds the page on
 each side of this one, with its code and its states in as a page shown has (`willShow`, `warmed`). It is put in the slot
-position fixed, a width away, `inert`, `aria-hidden`, and off stage (`data-hk-offstage`): it says nothing as it attaches, so the
-sky, the tab bar and the Side Pane don't take it for the page shown. The host feeds what it holds at a quiet moment, at
-most every 1.5 s, and never with a finger down. At most two pages more are in the document; they count against nothing
-the host already kept. Nothing waits in Edit mode, or where the swipe is off.
+position fixed, laid out at the width it will have, `inert`, `aria-hidden`, and off stage (`data-hk-offstage`): it says
+nothing as it attaches, so the sky, the tab bar and the Side Pane don't take it for the page shown. At rest it waits past
+the window's edge (`park`), not a page's width away: beside a page narrower than the window (the Side Pane next to it)
+a width away was on the screen (2026-11-05); a finger's first move brings it to the page's edge. A ResizeObserver on the
+page lays it out again when the page's box changes (the Side Pane going as the Pages screen comes up), so it never
+waits at a stale width. It wears its own look where the screen's differs by page (`hkSettings.lookAt`: Bright Glass on
+Home Only), so it lands looking as it will stay. The host feeds what it holds at a quiet moment, at most every 1.5 s, and
+never with a finger down. At most two pages more are in the document; they count against nothing the host already
+kept. Nothing waits in Edit mode, or where the swipe is off.
 
 **A finger.** A press reads the page's box and its place in the order. Moving 3 px sideways gives the page and its neighbors a
 layer each (at the press itself that held every tap up by 50-90 ms in WebKit). Past 10 px at 1.4 times the vertical, the swipe begins.
@@ -121,7 +126,7 @@ Before and after, each scenario on the same fictional house and the same machine
 | Full-page swipe | fixed, verified | everything above |
 | Tab bar highlight | fixed, verified | follows by the page's own position; reads its boxes once a swipe; a caught settle takes it back |
 | Side Pane with a swipe | inspected | follows with its own short tween; unchanged |
-| Page background (sky) in a swipe | fixed | `swipeTo` waits until the settle is under way, so its paint can't hold up the first frame; back again if the finger brings the page back |
+| Page background (sky) in a swipe | fixed | follows the finger since 2026-11-05 (`skyFade`, painted two frames after the swipe heads for a page, so its paint can't hold up the first frame); the rest of the way on the settle's own curve; back again if the finger brings the page back |
 | Home Grid views | fixed, verified | the spring, a view caught mid-slide, `--drag` no longer restyles what is inside the cells (300 to 47-79 ms of style work over a drag at 4x CPU) |
 | Home Grid hand-off to pages | fixed, verified | no jump |
 | Pager blocks | fixed, verified | one measure a drag; `hkDrag.glide` from the finger's speed; flicked back goes back; a finger stops a glide |

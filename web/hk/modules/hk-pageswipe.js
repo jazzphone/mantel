@@ -7,8 +7,8 @@
 // tab bar's highlight slides along with it (hk-tabbar.js follow / land), so
 // it is always under the page you are about to land on. The sky or the ground
 // stays still behind: only the views move, by transform.
-// Let go, the background the page lands on (Calendar's, Live TV's) fades in
-// as it slides home (hk-sky.js swipeTo); a tap on a tab still cuts to it. A
+// The background of the page it heads for (Calendar's, Live TV's) fades in as
+// it comes in, with the finger (skyFade); a tap on a tab still cuts to it. A
 // press on the empty screen under a page shorter than it is the page's too.
 //
 // THE ORDER (the owner's decision 8): the tab bar's tabs, left to right as it
@@ -85,6 +85,8 @@
   // px a finger goes sideways before what may move gets its layer
   var HEAT = 3;
   var STANDARD = 'cubic-bezier(.32,.72,0,1)', STANDARD_MS = 340, FADE_MS = 200;
+  // px past the window's edge (and a tenth of its width more) a page waiting beside this one sits at rest (park)
+  var PARK_GAP = 48;
   // the props a swipe sets on a view, given back as they were
   var PROPS = ['transform', 'transition', 'transform-origin', 'position', 'left', 'top', 'width', 'height', 'max-height',
                'overflow', 'will-change', 'pointer-events', 'opacity', '--hk-ground-hide'];
@@ -289,7 +291,19 @@
     if (ST && ST.view === view) return ST;
     if (ST) retire(ST);
     ST = { view: view, nb: {}, x: 0, rect: null, top: 0, base: '', origin: '', saved: null, spare: [], here: null };
+    watchSize(view);
     return ST;
+  }
+  // THE PAGE'S BOX CHANGING AT REST (the Side Pane going as the Pages screen comes up, the window): what waits beside it
+  // is laid out at its new place now, not under the next finger. Measured once on a tap to the Pages screen, before the
+  // pane had gone, the Calendar waited at Home's narrower width, and drew itself again for its own only after it had
+  // landed: a jump half a second in (2026-11-05, the owner's video)
+  var sizeRo = null;
+  function watchSize(view) {
+    if (typeof ResizeObserver !== 'function') return;
+    if (!sizeRo) sizeRo = new ResizeObserver(function () { if (ST && ST.rect && !G && !A && !L) measure(ST); });
+    sizeRo.disconnect();
+    if (view) sizeRo.observe(view);
   }
   // its box as laid out (a full rail scales the page aside: hk-tabbar.js aside): read at a press, when nothing is waiting
   // to be laid out, so the first frame of a swipe measures nothing
@@ -334,6 +348,8 @@
     var left = r.left, width = r.width;
     if (room) { width += room.grow; if (room.side === 'left') left -= room.grow; }
     N.off = N.dir > 0 ? r.left + r.width - left : r.left - left - width;
+    N.left = left;
+    N.width = width;
     s.setProperty('position', 'fixed');
     s.setProperty('left', left + 'px');
     s.setProperty('top', st.top + 'px');
@@ -343,9 +359,38 @@
     s.setProperty('pointer-events', 'none');
     s.setProperty('transition', 'none');
     if (st.origin) s.setProperty('transform-origin', st.origin);
-    setX(N.el, N.off + (G && G.stage === st ? xOfNeighbor(st, N) : 0), st.base);
+    if (G && G.stage === st) setX(N.el, N.off + xOfNeighbor(st, N), st.base);
+    else rest(st, N);
   }
   function xOfNeighbor(st, N) { return N.dir === (st.x < 0 ? 1 : -1) ? st.x : 0; }
+  // AT REST, PAST THE WINDOW'S EDGE (2026-11-05, the owner: the Pages screen showed through Home's Side Pane, and the
+  // Calendar sat over the right of the Pages screen): a page's width away from a page narrower than the window (the Side
+  // Pane beside it) is still on the screen. While nothing moves, what waits beside the page waits out of sight; a
+  // finger's first move brings it to the page's edge (follow), as a settle takes it back there (run)
+  function park(N) {
+    var W = window.innerWidth || 0, gap = PARK_GAP + W / 10, l = (N.left || 0) + (N.off || 0);
+    return N.dir > 0 ? Math.max(0, W + gap - l) : Math.min(0, -gap - (l + (N.width || 0)));
+  }
+  function rest(st, N) { setX(N.el, (N.off || 0) + park(N), st.base); }
+
+  // ITS OWN LOOK beside the page (hkSettings.lookAt): the Calendar waiting beside the Pages screen wears Blur where the
+  // Pages screen is Bright Glass (Home Only), so it lands looking as it will stay. Every page in the slot wears its
+  // own, the page shown none (the root's is its own): again as each lands and as the look changes (hk-look)
+  function wearLook(el, path) {
+    if (!el || !el.style) return;
+    var S = window.hkSettings, l = null;
+    try { l = path && S && S.lookAt ? S.lookAt(path) : null; } catch (e) { l = null; }
+    var had = el.__hkLook || [], keys = l ? Object.keys(l.vars) : [];
+    had.forEach(function (k) { if (keys.indexOf(k) < 0) el.style.removeProperty(k); });
+    keys.forEach(function (k) { if (el.style.getPropertyValue(k) !== l.vars[k]) el.style.setProperty(k, l.vars[k]); });
+    el.__hkLook = keys;
+  }
+  function relook(st) {
+    if (!st) return;
+    var here = st.items && st.items[st.at];
+    wearLook(st.view, here ? here.path : null);
+    Object.keys(st.nb).forEach(function (k) { var N = st.nb[k]; if (N && N.real) wearLook(N.el, N.item.path); });
+  }
   // a real page, made ready (the host's own element) or a stand-in, into the slot
   function adopt(st, dir, item, p) {
     var parent = st.view.parentNode;
@@ -359,6 +404,7 @@
       st.nb[dir] = kept;
       if (kept.el.swipeEnter) { try { kept.el.swipeEnter(dir); } catch (e) { /* its own */ } }
       place(st, kept);
+      if (kept.real) wearLook(kept.el, item.path);
       return kept;
     }
     var N = { item: item, dir: dir, real: !!p, el: p ? p.el : ghost(item), ground: null };
@@ -373,6 +419,7 @@
     }
     st.nb[dir] = N;
     place(st, N);
+    if (N.real) wearLook(N.el, item.path);
     if (N.el.parentNode !== parent) parent.appendChild(N.el);
     return N;
   }
@@ -383,6 +430,7 @@
     N.ground = null;
     if (N.real) {
       onAttrs(N.el);
+      wearLook(N.el, null);
       restore(N.el, N.saved);
       var H = host();
       if (!(H && H.hold && H.hold(N.el, false)) && N.el.parentNode) N.el.parentNode.removeChild(N.el);
@@ -434,7 +482,7 @@
     st.items = items;
     st.at = nb.at;
     if (nb.at < 0) { retire(st); return; }
-    if (!st.rect) measure(st);
+    measure(st);
     [[1, nb.next], [-1, nb.prev]].forEach(function (pair) {
       var dir = pair[0], item = pair[1], N = st.nb[dir];
       if (N && (!item || N.item.path !== item.path)) { drop(N); delete st.nb[dir]; N = null; }
@@ -448,6 +496,7 @@
     (st.spare || []).forEach(drop);
     st.spare = [];
     groundKnown(st.view, true);
+    relook(st);
   }
   function makeReady(st, dir, item) {
     var H = host(), key = item.path;
@@ -689,11 +738,87 @@
     shade(st.here, 1 - f);
     if (N) shade(N.ground, f);
     if (O) shade(O.ground, 0);
+    skyHold(g, to, f);
     if (T && T.follow) {
       try { T.follow(f, at); } catch (e) { /* not drawn */ }
     }
     // (the Side Pane and the bar's place with the finger too, where the pane shows on one page and not the other)
     if (P && P.follow) P.follow(f, at);
+  }
+
+  // THE BACKGROUND WITH THE FINGER (skyFade; 2026-11-05, the owner: swiping to the Calendar, its background
+  // switched as it landed -- the fade began only as the finger let go, and a page let go nearly in had little of its
+  // settle left to fade in): the page it heads for has its own painted under a still copy of this one, a couple of
+  // frames after it starts that way (the paint doesn't hold up the frame that starts the swipe), and the copy is as faint
+  // as that page is far in. Turning to the other page: this one's comes back first. Let go: run takes it the rest of the way
+  function skyHold(g, to, f) {
+    var K = window.hkSky, want = to ? to.path : null;
+    if (g.sky && !g.sky.alive()) { g.sky = null; g.skyAsk = null; }
+    if (g.sky && g.sky.path !== want) { dropSky(g); g.skyAsk = null; }
+    if (g.sky) { g.sky.set(f); return; }
+    if (!want || !K || !K.swipeCover || g.skyAsk === want) return;
+    g.skyAsk = want;
+    later(function () {
+      later(function () {
+        if (G !== g || g.skyAsk !== want || g.sky) return;
+        var st = g.stage, now = st.items[st.at + (st.x < 0 ? 1 : -1)];
+        if (!now || now.path !== want) { g.skyAsk = null; return; }
+        g.sky = skyFade(want);
+        if (g.sky) g.sky.set(Math.min(1, Math.abs(st.x) / st.rect.width));
+      });
+    });
+  }
+  // A BACKGROUND ON ITS WAY (hk-sky.js swipeCover): that page's painted under a still copy of this one, and the copy as
+  // faint as set(k) says (0..1, how far that page is in). done(land, ms, ease): it fades out on that curve (landing), or
+  // back in, this page's own painted again under it (swipeBack), and goes. A finger catching it: set() holds it where
+  // it is. Null where there is nothing to fade (no sky, Reduce Motion); one that does nothing for the same background.
+  function skyFade(path) {
+    var K = window.hkSky, cover = null;
+    try { cover = K && K.swipeCover ? K.swipeCover(path) : null; } catch (e) { cover = null; }
+    var live = true, an = null, timer = 0, gen = 0;
+    var h = { path: path, alive: function () { return live; }, set: function () {}, done: function () { live = false; } };
+    if (cover === false) return h;
+    if (!cover) return null;
+    cover.style.setProperty('will-change', 'opacity');
+    var drawn = function () { var o = parseFloat(getComputedStyle(cover).opacity); return isFinite(o) ? o : 1; };
+    var stop = function () {
+      gen++;
+      clearTimeout(timer);
+      if (!an) return;
+      var o = drawn();
+      try { an.cancel(); } catch (e) { /* done */ }
+      an = null;
+      cover.style.opacity = String(o);
+    };
+    var end = function (land) {
+      live = false;
+      if (!land && K.swipeBack) { try { K.swipeBack(); } catch (e) { /* no sky */ } }
+      if (cover.parentNode) cover.parentNode.removeChild(cover);
+    };
+    h.set = function (k) {
+      if (!live) return;
+      stop();
+      cover.style.opacity = String(+(1 - Math.max(0, Math.min(1, +k || 0))).toFixed(3));
+    };
+    h.done = function (land, ms, ease) {
+      if (!live) return;
+      stop();
+      var from = drawn(), to = land ? 0 : 1, my = gen;
+      var once = function () { if (gen === my && live) end(land); };
+      if (!ms || Math.abs(from - to) < 0.01) { cover.style.opacity = String(to); end(land); return; }
+      var frames = [{ opacity: from }, { opacity: to }];
+      try { an = cover.animate(frames, { duration: ms, easing: ease || STANDARD, fill: 'forwards' }); }
+      catch (e) { try { an = cover.animate(frames, { duration: ms, easing: STANDARD, fill: 'forwards' }); } catch (x) { end(land); return; } }
+      an.onfinish = once;
+      timer = setTimeout(once, ms + 500);
+    };
+    return h;
+  }
+  function dropSky(g) {
+    if (!g || !g.sky) return;
+    var s = g.sky;
+    g.sky = null;
+    try { s.done(false, 0); } catch (e) { /* no sky */ }
   }
 
   function onUp(e) {
@@ -717,10 +842,11 @@
 
   // LET GO: to the page `to`, or back. From where it is, at the speed it was going (v, px/ms).
   function settle(to, x, v) {
-    var g = G, st = g ? g.stage : ST;
+    var g = G, st = g ? g.stage : ST, sky = g ? g.sky : null;
+    if (g) g.sky = null;
     G = null;
     holdTarget(null);
-    if (!st) return;
+    if (!st) { if (sky) sky.done(false, 0); return; }
     var H = host();
     if (H && H.busy) H.busy(false);
     eatUntil = Date.now() + EAT_MS;
@@ -730,15 +856,17 @@
     try { if (T && T.land) T.land(to ? to.path : null); } catch (e) { /* not drawn */ }
     if (P && P.land) P.land(to ? to.path : null);
     if (g && g.calm) {
+      if (sky) sky.done(false, 0);
       if (to) crossfade(st, to, dir, N);
       else { backHome(st); }
       return;
     }
     if (to && !N) N = needNeighbor(st, dir, to);
-    run(st, to, dir, N, x, v);
+    run(st, to, dir, N, x, v, sky);
   }
-  // the transitions of a settle: the page and what is beside it, the same curve; what it wore comes back when it ends
-  function run(st, to, dir, N, x, v) {
+  // the transitions of a settle: the page and what is beside it, the same curve; what it wore comes back when it ends.
+  // `sky`: the background the finger was bringing in (skyHold), the rest of the way with the page, on its curve
+  function run(st, to, dir, N, x, v, sky) {
     var target = to ? -dir * st.rect.width : 0;
     var c = D().curve(x, target, v), s = c.spring, ms = c.ms;
     var tr = 'transform ' + ms + 'ms ' + c.ease;
@@ -760,7 +888,14 @@
       setX(M.el, M === N ? 0 : M.off, st.base);
       shade(M.ground, M === N ? 1 : 0, ms);
     });
-    var a = A = { st: st, to: to, dir: dir, N: N, spring: s, ms: ms, t0: now(), timer: 0, off: null };
+    var a = A = { st: st, to: to, dir: dir, N: N, spring: s, ms: ms, t0: now(), timer: 0, off: null, sky: null };
+    if (sky && !sky.alive()) sky = null;
+    var there = !!sky && !!to && to.path === sky.path;
+    if (sky) {
+      a.sky = sky;
+      sky.done(there, ms, c.ease);
+      st.skyAt = there ? to.path : null;
+    }
     var end = function (ev) {
       if (ev && (ev.target !== st.view || ev.propertyName !== 'transform')) return;
       finish(a);
@@ -769,19 +904,19 @@
     a.off = function () { st.view.removeEventListener('transitionend', end); clearTimeout(a.timer); };
     a.timer = setTimeout(function () { finish(a); }, ms + SETTLE_SPARE);
     if (!ms || Math.abs(x - target) < 0.5) { finish(a); return; }
-    // (the page's background fades to the one it lands on, with it: hk-sky.js swipeTo -- a tap still cuts -- after the
-    // settle is under way, so what the sky paints doesn't hold up its first frame; and back again if it went there)
-    skyTo(a, st, to);
+    // (no finger brought it -- a catch, a settle back: the page's background fades to the one it lands on, with it, once
+    // the settle is under way, so what the sky paints doesn't hold up its first frame; and back again if it went there)
+    if (!there) skyTo(a, st, to);
   }
   function skyTo(a, st, to) {
     var want = to ? to.path : st.skyAt ? location.pathname : null;
     if (!want || want === st.skyAt) return;
     later(function () {
       later(function () {
-        var K = window.hkSky;
-        if (A !== a || !K || !K.swipeTo) return;
+        if (A !== a) return;
         st.skyAt = to ? to.path : null;
-        try { K.swipeTo(want, Math.min(a.ms, STANDARD_MS), STANDARD); } catch (e) { /* no sky */ }
+        var f = skyFade(want);
+        if (f) f.done(true, Math.min(a.ms, STANDARD_MS), STANDARD);
       });
     });
   }
@@ -803,7 +938,7 @@
       // (a stand-in was only for this swipe; the real pages go on waiting)
       if (!N.real) { drop(N); delete st.nb[k]; return; }
       N.el.style.setProperty('transition', 'none');
-      setX(N.el, N.off, st.base);
+      rest(st, N);
     });
     cool(st);
     st.skyAt = null;
@@ -824,7 +959,10 @@
     });
     parts.forEach(function (p) { p[0].style.setProperty('transition', 'none'); setX(p[0], p[1], st.base); });
     st.x = x;
-    var to = a.to;
+    var to = a.to, sky = a.sky && a.sky.alive() ? a.sky : null;
+    // (its background, on its way with the page: where the page is going on, the rest of the way at once; else the
+    // finger's again, where it is now)
+    if (sky && to && Math.abs(x) >= st.rect.width * ADVANCE) { sky.done(true, FADE_MS, STANDARD); sky = null; }
     // ...to a page not ready yet (its stand-in): it lands, and is built; the finger waits for it. Caught each time, a quick
     // run of flicks never landed it at all, and stood on its title (2026-11-04, WebKit)
     if (to && !(a.N && a.N.real) && Math.abs(x) >= st.rect.width * ADVANCE) {
@@ -842,7 +980,8 @@
     }
     G = { id: e.pointerId, type: e.pointerType, x0: e.clientX, y0: e.clientY, stage: st, target: null, grid: null, live: true,
           calm: false, pts: [[e.timeStamp || Date.now(), e.clientX]], dx: 0, caught: { to: to },
-          from: st.items[st.at + (x < 0 ? 1 : -1)] ? x : x / GIVE };
+          from: st.items[st.at + (x < 0 ? 1 : -1)] ? x : x / GIVE, sky: sky || null, skyAsk: sky ? sky.path : null };
+    if (sky) sky.set(Math.min(1, Math.abs(x) / st.rect.width));
     why = '';
     if (e.pointerType !== 'touch') { try { st.view.setPointerCapture(e.pointerId); } catch (x2) { /* gone */ } }
     var H = host();
@@ -895,10 +1034,13 @@
     // (the page it left out of the flow first, so that this one's box is its own)
     place(next, back);
     measure(next);
+    watchSize(next.view);
+    next.spare.forEach(function (o) { o.el.style.setProperty('transition', 'none'); rest(next, o); });
     arm();
     if (S && S.navigate) S.navigate(to.path);
     // (the room it lands in first: the Side Pane says where it is now, so the page takes its place as it is put back)
     if (P && P.sync) { try { P.sync(); } catch (e) { /* not drawn */ } }
+    relook(next);
     if (left) {
       heat(next);
       setX(next.view, left, next.base);
@@ -975,7 +1117,7 @@
   function onShown(el) {
     if (!ST || ST.view === el) return;
     var st = ST;
-    if (G && G.stage === st) { G = null; }
+    if (G && G.stage === st) { dropSky(G); G = null; }
     if (A && A.st === st) { var a = A; A = null; a.off(); }
     Object.keys(st.nb).forEach(function (k) {
       var N = st.nb[k];
@@ -984,6 +1126,7 @@
       unground(N.ground);
       onAttrs(el);
       el.removeAttribute('hk-swipe-peek');
+      wearLook(el, null);
       restore(el, N.saved);
       var H = host();
       if (H && H.hold) H.hold(el, false);
@@ -1048,6 +1191,7 @@
     window.addEventListener('resize', function () { abandon(); arm(); if (ST) ST.rect = null; planSoon(); });
     window.addEventListener('hk-swipe-past', onPast);
     window.addEventListener('hk-asleep', function () { planSoon(); });
+    window.addEventListener('hk-look', function () { relook(ST); });
     // (Edit mode going on: what waits beside the page goes)
     if (typeof MutationObserver === 'function' && d.documentElement) {
       new MutationObserver(function () { planSoon(0); }).observe(d.documentElement, { attributes: true, attributeFilter: ['data-hk-editing'] });
@@ -1077,7 +1221,7 @@
     arm: arm,
     plan: plan,
     _: { enabled: enabled, order: order, neighbors: neighbors, atEdge: atEdge, travel: travel, lands: lands, speed: speed,
-         viewSeg: viewSeg, ghost: ghost, slow: slow,
+         viewSeg: viewSeg, ghost: ghost, slow: slow, park: park,
          NUMBERS: { EDGE: EDGE, START: START, RATIO: RATIO, TURN: TURN, FLICK: FLICK, FLICK_MIN: FLICK_MIN, GIVE: GIVE,
                     STANDARD_MS: STANDARD_MS, FADE_MS: FADE_MS, SLOW_FPS: SLOW_FPS, REST: REST },
          state: function () { return { G: G, L: L, A: A, ST: ST, why: why }; } }

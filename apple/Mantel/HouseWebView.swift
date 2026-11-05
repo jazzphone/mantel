@@ -1,3 +1,4 @@
+import CryptoKit
 import MantelKit
 import SafariServices
 import SwiftUI
@@ -6,8 +7,12 @@ import WebKit
 
 /// HK's own pages in a web view: the screens and Mantel Settings, exactly as on the wall tablets (§1).
 ///
-/// * Its own, non-persistent website data per house: the page's Mantel session (handed over by a one-time code,
-///   `/app/web-session`) lives only as long as the app; the page never sees the app's tokens.
+/// * Its own website data per house, KEPT ON THE DEVICE for its files only (2026-11-05): the page's scripts, styles and
+///   fonts stay in its HTTP cache from one open to the next, where a non-persistent store fetched all of them again
+///   (about 100 files, 1.4-2.2 MB) every time iOS had closed the app. Everything else -- the cookie that is the page's
+///   Mantel session (handed over by a one-time code, `/app/web-session`), its storage -- is wiped as the app starts,
+///   before the first page loads, so the session still lives only as long as the app; the page never sees the app's
+///   tokens. Clear Cache, Sign Out and Forget wipe all of it.
 /// * The `ios` host: `window.mantelNative` (platform, haptics, share, the app's menu, its own music player, the status
 ///   bar's ink) over a `WKScriptMessageHandler`; web/shim/mantel-native.js is the page's side.
 /// * Native, not a website (docs/phase10/NATIVE-FEEL.md): no long-press callouts, text selection, link previews or
@@ -55,9 +60,24 @@ struct HouseWebView: UIViewRepresentable {
 
     private static var stores: [String: WKWebsiteDataStore] = [:]
 
-    /// Clear Cache: the next web view for this house starts with empty website data (and a new web session).
+    /// The house's own store on the device: one per house (its fingerprint), the same from one launch to the next.
+    static func store(for house: House) -> WKWebsiteDataStore {
+        WKWebsiteDataStore(forIdentifier: storeID(house.id))
+    }
+    static func storeID(_ houseID: String) -> UUID {
+        var b = Array(SHA256.hash(data: Data(("mantel.web." + houseID).utf8)).prefix(16))
+        b[6] = (b[6] & 0x0F) | 0x50                 // a name-based UUID's version and variant bits
+        b[8] = (b[8] & 0x3F) | 0x80
+        return UUID(uuid: (b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15]))
+    }
+    /// What is kept between launches: the HTTP caches. Every other kind is the page's session or its storage.
+    static let keptTypes: Set<String> = [WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache, WKWebsiteDataTypeFetchCache]
+    static var sessionTypes: Set<String> { WKWebsiteDataStore.allWebsiteDataTypes().subtracting(keptTypes) }
+
+    /// Clear Cache, Sign Out, Forget: the next web view for this house starts with empty website data (and a new web
+    /// session), files and all.
     static func forgetData(for house: House) {
-        stores[house.id]?.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {}
+        (stores[house.id] ?? store(for: house)).removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {}
         stores[house.id] = nil
         forgetStill()
     }
@@ -80,7 +100,9 @@ struct HouseWebView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
-        let store = HouseWebView.stores[house.id] ?? WKWebsiteDataStore.nonPersistent()
+        // (the first web view for this house since the app started: last launch's session goes before anything loads)
+        let fresh = HouseWebView.stores[house.id] == nil
+        let store = HouseWebView.stores[house.id] ?? HouseWebView.store(for: house)
         HouseWebView.stores[house.id] = store
         config.websiteDataStore = store
         config.allowsInlineMediaPlayback = true
@@ -137,7 +159,12 @@ struct HouseWebView: UIViewRepresentable {
         #if DEBUG
         view.isInspectable = true
         #endif
-        view.load(URLRequest(url: start))
+        let first = URLRequest(url: start)
+        if fresh {
+            store.removeData(ofTypes: HouseWebView.sessionTypes, modifiedSince: .distantPast) { [weak view] in view?.load(first) }
+        } else {
+            view.load(first)
+        }
         HouseWebView.live = view
         return view
     }

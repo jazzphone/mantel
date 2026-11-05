@@ -27,6 +27,8 @@
     if (d.kind === 'service' && !READ.test(String(d.what || ''))) N.haptic('light');
   });
   global.addEventListener('hk-command-denied', () => N.haptic('warning'));
+  // HK's own moments that a finger should feel (hk-edit.js: a hold that starts Edit mode)
+  global.addEventListener('hk-haptic', (e) => N.haptic(String((e && e.detail && e.detail.kind) || 'light')));
 
   let ink = null;
   function tone() {

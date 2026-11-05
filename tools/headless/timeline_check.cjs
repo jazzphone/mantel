@@ -161,7 +161,21 @@ function sheetState() {
       await page.waitForTimeout(700);
       // a day
       await page.evaluate(() => window.scrollTo(0, 0));
-      await page.locator(CARD + ' input[type=date]').fill('2026-11-02');
+      // (the Calendar's little month under the button, not the system's picker: 2026-11-05)
+      await page.locator(CARD + ' [data-act=pick-day]').tap();
+      await page.waitForTimeout(300);
+      const dp = await page.evaluate((sel) => {
+        const deep = (r) => { const h = r.querySelector(sel); if (h) return h; for (const e of r.querySelectorAll('*')) if (e.shadowRoot) { const f = deep(e.shadowRoot); if (f) return f; } return null; };
+        const card = deep(document);
+        const root = card && card.shadowRoot, box = root && root.querySelector('.dp'), r = box && box.getBoundingClientRect();
+        const days = root ? [...root.querySelectorAll('.dp [data-act=day-pick]')] : [];
+        return { open: !!box, inView: !!r && r.left >= 0 && r.right <= innerWidth + 0.5 && r.height > 200, title: box && box.querySelector('.mh b').textContent,
+                 future: days.filter(d => d.disabled).map(d => d.getAttribute('data-v')).slice(0, 1), date: root ? root.querySelectorAll('input[type=date]').length : -1 };
+      }, CARD);
+      check(key + ' the day jump opens the little month, in sight, no date input', () => { assert(dp.open && dp.inView && dp.date === 0, JSON.stringify(dp)); assert.equal(dp.title, 'November 2026'); });
+      check(key + ' a day after today cannot be picked', () => assert.deepEqual(dp.future, ['2026-11-04'], JSON.stringify(dp.future)));
+      await shot(page, key + '-5-day-picker');
+      await page.locator(CARD + ' .dp [data-act=day-pick][data-v="2026-11-02"]').tap();
       await page.waitForTimeout(800);
       m = await page.evaluate(measure);
       const midnight = Math.floor(new Date('2026-11-03T06:00:00Z').getTime() / 1000);        // midnight, Nov 3, at the house

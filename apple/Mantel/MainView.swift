@@ -332,13 +332,19 @@ struct AppMenu: View {
                     Button(cleared ? "Cache Cleared" : "Clear Cache") { clearCache() }.disabled(cleared)
                 } footer: { Text("Reloads the pages and album art from the house. You stay signed in.") }
                 Section {
-                    Button("Sign Out", role: .destructive) { HouseWebView.forgetStill(); dismiss(); Task { await model.signOut() } }
-                    Button("Forget This Mantel", role: .destructive) { HouseWebView.forgetStill(); dismiss(); Task { await model.forgetHouse() } }
+                    Button("Sign Out", role: .destructive) { forgetWeb(); dismiss(); Task { await model.signOut() } }
+                    Button("Forget This Mantel", role: .destructive) { forgetWeb(); dismiss(); Task { await model.forgetHouse() } }
                 }
             }
             .navigationTitle("Mantel App")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
+    }
+
+    /// Signing out or forgetting the house: its web view's data goes with it, files and all (they are kept on the device
+    /// between launches, HouseWebView), and the still of its last page.
+    private func forgetWeb() {
+        if let house = model.house { HouseWebView.forgetData(for: house) } else { HouseWebView.forgetStill() }
     }
 
     /// The web view's data (its next page gets a new web session), saved covers, URL caches; then fresh widgets.

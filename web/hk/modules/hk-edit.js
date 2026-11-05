@@ -1171,6 +1171,80 @@
     }
   });
 
+  // ------------------------------------------------------------- a hold on the page itself
+  // PRESS AND HOLD ON EMPTY SPACE (2026-11-05, the owner: "tap to hold to move the icons around ... may work better"
+  // than Edit Page in the menu): as on the iPhone's Home Screen, a finger held still where nothing is under it --
+  // between the tiles, beside the title, under a page shorter than the screen -- starts Edit mode wherever Edit Page
+  // would (offer: Owners and Admins, never at a wall tablet). Never on a tile: a hold on one does what a tap does (no
+  // card has a hold, hk-base.js) and a room's light pills dim on theirs. A finger that moves, a second one, a page
+  // swipe or a scroll lets it go; the tap its lift makes is no tap.
+  var HOLD_EMPTY_MS = 550, HOLD_SLOP = 8;
+  var CONTAINERS = /^(HK-FRAME-CARD|HK-SPACER-CARD|HK-GRID-CARD|HUI-VERTICAL-STACK-CARD|HUI-HORIZONTAL-STACK-CARD|HUI-GRID-CARD)$/;
+  var CONTROLS = /^(A|BUTTON|INPUT|SELECT|TEXTAREA|LABEL|VIDEO|AUDIO|IFRAME|IMG|CANVAS|SUMMARY|DETAILS)$/;
+  // nothing to press between the finger and the page (`stop`: the view, or the slot under a short page)
+  function emptyAt(path, stop) {
+    for (var i = 0; i < path.length; i++) {
+      var n = path[i];
+      if (stop.indexOf(n) >= 0) return true;
+      var t = n ? String(n.tagName || n.localName || '').toUpperCase() : '';
+      if (!t) continue;                     // a shadow root, the document
+      if (CONTROLS.test(t) || (/-CARD$/.test(t) && !CONTAINERS.test(t))) return false;
+      var has = function (a) { return typeof n.hasAttribute === 'function' && n.hasAttribute(a); };
+      if (has('tabindex') || has('role') || has('data-hk-control') || n.isContentEditable) return false;
+    }
+    return false;
+  }
+  var holding = null;
+  function holdOff() {
+    if (!holding) return;
+    clearTimeout(holding.timer);
+    holding = null;
+  }
+  function onHoldDown(e) {
+    holdOff();
+    if (session || e.isPrimary === false || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    var C = cards(), SH = shell(), h = C && C.client ? C.client() : null;
+    if (!h || !offer(h)) return;
+    var view = SH && SH.view ? SH.view() : null;
+    if (!view) return;
+    var path = e.composedPath ? e.composedPath() : [], stop = [view, view.parentNode];
+    if (path.indexOf(view) < 0 && path[0] !== view.parentNode) return;
+    if (!emptyAt(path, stop)) return;
+    var x0 = e.clientX, y0 = e.clientY, id = e.pointerId;
+    holding = { id: id, x0: x0, y0: y0, timer: setTimeout(function () {
+      var H = holding;
+      holdOff();
+      if (!H || session || !offer(h)) return;
+      var PS = global.hkPageSwipe;
+      if (PS && PS.moving && PS.moving()) return;
+      // (a host with a body to tap says so: the app's shim, hk-haptic)
+      try { global.dispatchEvent(new CustomEvent('hk-haptic', { detail: { kind: 'heavy' } })); } catch (x) { /* no events */ }
+      eatClick();
+      enter(h);
+    }, HOLD_EMPTY_MS) };
+  }
+  function onHoldMove(e) {
+    if (holding && e.pointerId === holding.id && Math.hypot(e.clientX - holding.x0, e.clientY - holding.y0) > HOLD_SLOP) holdOff();
+  }
+  // the click the lift makes lands on what is under it: not this time
+  function eatClick() {
+    var d = doc(), until = Date.now() + 800;
+    var eat = function (e) { d.removeEventListener('click', eat, true); if (Date.now() < until) { e.stopPropagation(); e.preventDefault(); } };
+    d.addEventListener('click', eat, true);
+    setTimeout(function () { d.removeEventListener('click', eat, true); }, 800);
+  }
+  (function listenHold() {
+    var d = doc();
+    if (!d || !d.addEventListener) return;
+    var o = { capture: true, passive: true };
+    d.addEventListener('pointerdown', onHoldDown, o);
+    d.addEventListener('pointermove', onHoldMove, o);
+    ['pointerup', 'pointercancel', 'visibilitychange'].forEach(function (t) { d.addEventListener(t, holdOff, o); });
+    if (global.addEventListener) global.addEventListener('scroll', holdOff, o);
+    // (a finger held where it is starts no long-press menu of the browser's)
+    d.addEventListener('contextmenu', function (e) { if (holding) e.preventDefault(); }, true);
+  })();
+
   global.hkEdit = {
     version: '1.0.0',
     canEditPage: canEditPage,
@@ -1181,7 +1255,7 @@
     // the Reduce Motion frame round a pill (the scenes row's too: hk-edit-pages.js)
     addFrame: addFrame, dropFrame: dropFrame,
     _: {
-      HOLD_MS: HOLD_MS, EDGE: EDGE, fillSlots: fillSlots, merged: merged, roomOrders: roomOrders, claimsIn: claimsIn,
+      HOLD_MS: HOLD_MS, HOLD_EMPTY_MS: HOLD_EMPTY_MS, emptyAt: emptyAt, EDGE: EDGE, fillSlots: fillSlots, merged: merged, roomOrders: roomOrders, claimsIn: claimsIn,
       findGrids: findGrids, unregister: unregister, unbutton: unbutton, badgeText: badgeText,
       bar: function () { return session && session.bar ? session.bar.host : null; },
       barButtons: function () { var B = session && session.bar; return B ? { cancel: B.cancel, done: B.done, extra: B.extra } : null; },

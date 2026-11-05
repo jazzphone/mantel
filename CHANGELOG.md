@@ -4,7 +4,17 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **Touch and hold empty space to edit a page.** Hold an empty part of a page (between the tiles, or below them) for half a second and it goes into Edit mode, the way the iPhone's Home Screen does. It works wherever **Edit Page** is offered (Owners and Admins, never on a wall tablet). Holding a tile still does what a tap does.
+- The **Timeline** page has a background of its own, a copper gradient beside the Timers page's orange, instead of the Live Sky.
+
+**Changed**
+- The **Timeline**'s **Day** button opens a little month like the Calendar page's, in place of the browser's own date picker. Days after today can't be picked.
+- The iPhone and iPad app keeps Mantel's scripts, styles and fonts on the device between opens, so opening it after iOS has closed it no longer downloads them all again. You still sign in to the page each time the app starts, as before; **Clear Cache**, **Sign Out** and **Forget This Mantel** remove them. Needs the next TestFlight build.
+
 **Fixed**
+- The page beside the one you are on no longer shows: on Home with the Side Pane, the Pages screen showed through the pane, and the Calendar could sit over the right side of the Pages screen. Pages waiting beside this one now wait out of sight, and are laid out again when the page's size changes, so the Calendar no longer jumps half a second after it lands.
+- Swiping to a page with another look no longer switches looks as it lands: coming from the Pages screen (Bright Glass, Home Only), the Calendar wears its own Blur glass all the way in. Its background fades in with your finger too, rather than only after you let go.
 - Swiping between pages shows the page you are going to, every time: a page not visited yet came in as its title on the sky and every page did on a tablet flagged as slow. The page on either side is made ready at a quiet moment and waits beside this one.
 - A new swipe while a page was still settling no longer strands it off screen. It was blank for five seconds with touches ignored, and rapid flicks could leave it there until you changed page. A finger on a moving page now simply catches it.
 - Letting go of a page carries on at the speed your finger was going, from where it was, instead of leaping away on one fixed curve; a flick back goes back, however far the page had gone. Home Grid views, blocks that swipe their pages and the side menu let go the same way.

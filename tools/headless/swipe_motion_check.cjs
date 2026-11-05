@@ -144,7 +144,7 @@ async function swipe(t, segs, o = {}) {
   const liftedAt = await play(t, pathOf(s, segs), o.cancel);
   await sleep(o.after === undefined ? 1000 : o.after);
   const frames = await t.page.evaluate(() => __m.stop());
-  return { s, id, frames, liftedAt };
+  return { s, id, frames, liftedAt, W };
 }
 const seriesOf = (w, id) => w.frames.map(f => { const k = f.pages.find(p => p.id === id); return k ? { t: f.t, now: f.now, x: k.x, st: f.st, finger: f.finger, o: k.o } : null; }).filter(Boolean);
 // WHILE THE FINGER IS DOWN: the page against the finger. A constant offset is the swipe's start; what moves is an error.
@@ -157,7 +157,10 @@ function tracksFinger(w, name) {
 }
 // AFTER THE LIFT: one way, never back; no frame-to-frame leap past the fastest a finger is taken up at
 function settlesSmoothly(w, target, name) {
-  const after = seriesOf(w, w.id).filter(p => p.now >= w.liftedAt - 1);
+  let after = seriesOf(w, w.id).filter(p => p.now >= w.liftedAt - 1);
+  // (as far as it can be seen: a page that has left the screen goes on to wait past its edge, park)
+  const gone = after.findIndex(p => Math.abs(p.x) >= w.W - 0.5);
+  if (gone >= 0) after = after.slice(0, gone + 1);
   assert(after.length >= 3, name + ': frames after the lift');
   const sign = Math.sign(target - after[0].x);
   let peak = 0, pi = 0, home = false;
@@ -176,7 +179,9 @@ function settlesSmoothly(w, target, name) {
   for (let i = 1; i < after.length; i++) { const dt = after[i].t - after[0].t; if (dt >= 12) { firstFrame = dt <= 40 ? Math.abs(after[i].x - after[0].x) / dt : null; break; } }
   const was = before.length > 1 ? Math.abs(before[before.length - 1].x - before[0].x) / Math.max(1, before[before.length - 1].t - before[0].t) : 0;
   if (firstFrame !== null) assert(firstFrame <= was + 3.2, name + ': it leaves at about the finger\'s speed: ' + was.toFixed(2) + ' then ' + firstFrame.toFixed(2) + ' px/ms');
-  assert(Math.abs(after[after.length - 1].x - target) <= 1.5 || (seriesOf(w, w.id).slice(-1)[0] || {}).x === undefined, name + ': it ends at ' + target + ', not ' + after[after.length - 1].x);
+  const end = after[after.length - 1].x;
+  if (gone >= 0) assert(Math.abs(end) >= w.W - 0.5, name + ': it goes all the way off the screen, not to ' + end);
+  else assert(Math.abs(end - target) <= 1.5 || (seriesOf(w, w.id).slice(-1)[0] || {}).x === undefined, name + ': it ends at ' + target + ', not ' + end);
 }
 function isClean(r, name) {
   assert.equal(r.left, 0, name + ': the page is on the screen ' + JSON.stringify(r));
@@ -395,8 +400,10 @@ const SECTIONS = {
     // the neighbors sit at the new width after a resize
     await t.page.setViewportSize({ width: W - 60, height: H });
     await sleep(900);
-    const rw = await t.page.evaluate(() => __m.pagesOf().filter(k => k !== __m.view()).map(k => Math.abs(k.getBoundingClientRect().left)));
-    assert(rw.every(x => Math.abs(x - (W - 60)) <= 40), 'the neighbors a width away at the new width ' + JSON.stringify(rw));
+    // (at rest past the window's edge, laid out at the page's new width: 2026-11-05, a width away was on the screen beside
+    // the Side Pane, and one laid out at a stale width drew itself again after it landed)
+    const rw = await t.page.evaluate(() => { const v = __m.view().getBoundingClientRect().width; return __m.pagesOf().filter(k => k !== __m.view()).map(k => { const r = k.getBoundingClientRect(); return { out: r.right <= 0 || r.left >= innerWidth, w: Math.round(r.width), v: Math.round(v) }; }); });
+    assert(rw.length && rw.every(k => k.out && Math.abs(k.w - k.v) <= 2), 'the neighbors out of sight, at the new width ' + JSON.stringify(rw));
     await t.page.setViewportSize({ width: W, height: H }); await sleep(500);
     const w = await swipe(t, [{ ms: 300, dx: W * -0.4 }]);
     assert.equal(await where(t), order[2], 'and the next swipe still works');

@@ -4,7 +4,7 @@
 
 ![A room page in Edit mode: the Edit bar with Cancel, Rooms and Done, and a Regular | Tall badge on each tile](../images/edit-mode-desktop.webp)
 
-1. Open the menu (or the tab bar’s **More**) and choose **Edit Page**. On a screen with its menu turned off, open any tile’s sheet, tap the gear, and choose **Edit This Page**.
+1. Touch and hold an empty part of the page (between the tiles, or below them) for half a second. Or open the menu (or the tab bar’s **More**) and choose **Edit Page**. On a screen with its menu turned off, open any tile’s sheet, tap the gear, and choose **Edit This Page**. Holding a tile still does what a tap does, and wall tablets never go into Edit mode.
 2. The tiles wiggle and stop working as controls. Touch and hold a tile for a moment, then drag it to a new place in its group; a mouse just drags. Moving without the hold scrolls the page, and the page scrolls by itself near the top and bottom edges.
 3. Tap a tile’s **Regular | Tall** badge to change its height.
 4. Press **Done** to save, or **Cancel** (or Escape) to put everything back.

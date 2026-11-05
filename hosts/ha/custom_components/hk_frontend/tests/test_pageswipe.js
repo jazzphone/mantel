@@ -313,11 +313,24 @@ location.pathname = '/dashboard-hall/lights';
 navTo = []; calls = [];
 function path(v) { return { composedPath: function () { return [tile, v, slot]; } }; }
 function drainPromises() { if (typeof drainMicrotasks === 'function') drainMicrotasks(); }
+// each page's own look (hkSettings.lookAt): the Climate page Blur, the rest Bright Glass
+var LOOKS = { climate: 'blur' }, segOf = function (p) { return String(p).split('/')[2] || ''; };
+window.hkSettings.lookAt = function (p) {
+  var mine = LOOKS[segOf(p)] || 'bright', shown = LOOKS[segOf(location.pathname)] || 'bright';
+  return p && mine !== shown ? { glass: mine, vars: { '--hk-glass-plate': mine } } : null;
+};
+var txOf = function (el) { var m = /translateX\((-?[\d.]+)px\)/.exec(el.style.transform || ''); return m ? +m[1] : NaN; };
 P.plan();
 drainPromises();
 ok('it asks the host for the pages on either side, without a finger', warmAsked.join() === 'climate,0', warmAsked);
-ok('...and each waits in the slot, inert, a width away', made.climate.parentNode === slot && made.home.parentNode === slot && made.climate.hasAttribute('inert') &&
-   made.climate.style.transform === 'translateX(1180.0px)' && made.home.style.transform === 'translateX(-1180.0px)' && made.climate.style.position === 'fixed', made.climate.style.transform);
+// (at rest past the window's edge, not a width away: beside a page narrower than the window -- the Side Pane -- a width
+// away was on the screen, 2026-11-05)
+ok('...and each waits in the slot, inert, out of sight past the window\'s edge', made.climate.parentNode === slot && made.home.parentNode === slot && made.climate.hasAttribute('inert') &&
+   txOf(made.climate) >= 1180 + 48 && txOf(made.home) <= -(1180 + 48) && made.climate.style.position === 'fixed', made.climate.style.transform);
+ok('...each wearing its own look where it differs from the page shown', made.climate.style.getPropertyValue('--hk-glass-plate') === 'blur' &&
+   !made.home.style.getPropertyValue('--hk-glass-plate'));
+ok('beside a page narrower than the window, still past its edge', P._.park({ dir: 1, left: 0, off: 820, width: 1180 }) + 820 >= 1180 + 48 &&
+   P._.park({ dir: -1, left: 0, off: -1180, width: 1180 }) <= 0 && P._.park({ dir: 1, left: 0, off: 2000, width: 1180 }) === 0);
 ok('...held by the host', heldNow.indexOf(made.climate) >= 0 && heldNow.indexOf(made.home) >= 0);
 fire('pointerdown', ev(600, 400, path(made.lights)));
 ok('a press alone costs nothing: no layers (a tap is most presses)', !made.lights.style.getPropertyValue('will-change') && !made.climate.style.getPropertyValue('will-change'));
@@ -349,13 +362,16 @@ run();
 drainPromises();
 ok('it lands: the host is told once, on the page beside it', navTo.join() === '/dashboard-hall/climate', navTo);
 ok('...which stays where it is in the slot, its own again', made.climate.parentNode === slot && !made.climate.hasAttribute('inert') && !made.climate.style.transform && !made.climate.style.position);
-ok('...and the page it left is its neighbor now, not gone', made.lights.parentNode === slot && made.lights.hasAttribute('inert') && made.lights.style.transform === 'translateX(-1180.0px)' &&
+ok('...and the page it left is its neighbor now, not gone', made.lights.parentNode === slot && made.lights.hasAttribute('inert') && txOf(made.lights) <= -(1180 + 48) &&
    heldNow.indexOf(made.lights) >= 0, made.lights.style.transform);
+ok('...the page it landed on wears the root\'s look, the one it left its own', !made.climate.style.getPropertyValue('--hk-glass-plate') &&
+   made.lights.style.getPropertyValue('--hk-glass-plate') === 'bright', [made.climate.style.getPropertyValue('--hk-glass-plate'), made.lights.style.getPropertyValue('--hk-glass-plate')]);
 ok('...the swipe is over', !P._.state().A && !P._.state().G && !P._.state().L);
 run();
 drainPromises();
 P.plan();
 drainPromises();
+delete window.hkSettings.lookAt;
 ok('...the page two away is let go, the next made ready', made.home.parentNode !== slot && heldNow.indexOf(made.home) < 0 && made.security.parentNode === slot, [made.home.parentNode === slot, warmAsked.join()]);
 // a tab tap to the page beside it
 navTo = [];
