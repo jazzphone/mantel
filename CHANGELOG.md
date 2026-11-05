@@ -9,6 +9,13 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **The music panel's Browse shows each playlist's cover.** The flipped-over music panel (Speakers, Volume, Queue, Browse) now shows each playlist with its cover, as the Music block does, and a playlist without one gets its glyph on a tile the same size. Names run to two lines instead of being cut off ("Your Essentials", not "Your Essent…").
 - **The music panel's background is blurred.** It was the cover shrunk to 32 pixels and stretched, so large shapes and lettering on the cover still showed through. It's now blurred properly, on the screensaver's music pane too. Bright Glass had nothing to do with it.
 
+## 0.1.136 - 2026-11-05
+
+**Fixed**
+- **Two speakers of one room played a message one after the other.** The Office's two HomePods, still grouped from music, each got the message in turn, 12 seconds apart. Picking any room in a group left from music now borrows that group, so the room's speakers play together.
+- **Rooms borrowed from a group left from music played on their own.** A speaker in a group says it can't group with anything, so the borrowed Kitchen and Guest Bedroom each played alone. Borrowed rooms at the same volume now play as one.
+- **Tap to Record missed your first words.** The page started the microphone only when you tapped, and it took about a second to start. Where the browser already allows the microphone, it's now ready as the Intercom opens, so recording starts the moment you tap. Nothing is recorded or sent until you tap, and the microphone turns off when you close the Intercom. On an iPad, its microphone light shows while the Intercom is open.
+
 ## 0.1.135 - 2026-11-05
 
 **Fixed**

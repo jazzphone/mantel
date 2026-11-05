@@ -92,6 +92,21 @@ async def test_a_member_that_started_playing_meanwhile_isnt_pulled_back(ic):
     assert [s[0] for s in steps(ic)] == ["part", "say"]
 
 
+async def test_a_room_inside_it_picked_without_its_leader_borrows_it_and_its_leader_hears_nothing(ic):
+    """2026-11-05: the Office's two HomePods, members of a group left from music, played one after the other."""
+    await left_grouped(ic, members=(DEN, CODY))
+    ic.ma.model[CY]["volume_level"] = 40
+    doc = ic.doc()
+    doc["rooms"][CODY]["volume"] = 40
+    ic.app["settings"].store.write([("house", "intercom", doc)], actor=IF.SettingsActor(label="test"))
+    events = await send(ic, [DEN, CODY])
+    assert await until(lambda: steps(ic) and steps(ic)[-1][0] == "join" and steps(ic)[-1][1] == K)
+    kinds = [s[0] for s in steps(ic)]
+    assert kinds[0] == "part" and kinds.count("say") == 1, "one announcement, to a temporary group of the two"
+    assert K not in [s[1] for s in steps(ic) if s[0] == "say"], "the leader's room wasn't picked"
+    assert steps(ic)[-1] == ("join", K, [DN, CY]) and events[-1]["rooms"] == 2
+
+
 async def test_sent_to_counts_every_room_a_leaders_call_reached(ic):
     await left_grouped(ic)
     events = await send(ic, [KITCHEN, DEN])                    # the whole group: one call, through its leader

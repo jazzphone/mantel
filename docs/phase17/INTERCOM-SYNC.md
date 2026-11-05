@@ -229,5 +229,15 @@ miss. The house's own list, read after: the Master Bedroom's reach was 10 speake
 1 with the fix. The tests' fake now lists `group_childs` as Music Assistant does, which makes five of the borrow tests fail on
 0.1.134. Lesson: the fake must carry every field the code reads.
 
+**2026-11-05, 0.1.136.** Two more from the owner's tries on 0.1.135: the Office's two HomePods, members of the leftover group,
+played 12 s apart (Music Assistant announces to each member alone by taking it out, playing and putting it back, one at a
+time), because only a picked LEADER borrowed a group; now any picked room of it does. And the borrowed Kitchen and Guest
+Bedroom (both at 20) each played alone: a member reports `can_group_with` empty, so the plan's `sync_sets` saw nobody to
+group with. `rooms.apart` gives a borrowed speaker its group's list. Silent on the house, 16:13: right after `borrow`, the
+Office's two HomePods list each other and are groupable; given back in order, sync groups unchanged.
+**The microphone** (hk-mic.js `warm`, hk-intercom.js `Controller.warm`): opened only at the press, it ran about a second later
+and the first words went. Where the browser already allows it (`navigator.permissions`), it's opened as the sheet opens;
+the AudioContext still waits for the press, nothing is recorded or sent before it, and it goes off with the sheet.
+
 Known limit: if Mantel itself stops in the seconds a group is formed, the speakers stay grouped until Music Assistant
 restarts or someone ungroups them (the sheet then says the leader "leads" the other).
