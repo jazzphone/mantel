@@ -34,6 +34,9 @@ const HELP = () => {
       return { same: w.img === img && np(id) === w.card, touched: w.touched, renders: w.renders };
     },
     title: (id) => np(id).shadowRoot.querySelector('.title').textContent,
+    // the Side Pane's volume slider; the music panel turned from a block
+    slider: () => { const p = document.querySelector('hk-side-pane[mode="dash"]'); return p && p.shadowRoot && p.shadowRoot.querySelector('input[data-act="vol"]'); },
+    panel: () => [...document.body.children].map(h => h.shadowRoot && h.shadowRoot.querySelector('.mpanel')).filter(Boolean)[0],
     // each round well's glyph: its ink's middle from the well's (the well is centered in its button), in px
     wells: () => deep(document, 'hk-now-playing-card').flatMap(c => ['.spk', '.brw'].map(k => {
       const e = c.shadowRoot.querySelector('.np ' + k);
@@ -147,6 +150,62 @@ async function background(browser) {
   await ctx.close();
 }
 
+// ---- THE PANE: a group's volume from the Side Pane, and the music panel's Browse and background
+async function pane(browser) {
+  const t = await page(browser, '/media-pane/home'), p = t.p;
+  await p.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 });
+  await p.evaluate(HELP);
+  await p.waitForFunction(() => !!__mc.slider(), null, { timeout: 20000 });
+  const vols = () => p.evaluate(() => ['media_player.living_room', 'media_player.kitchen'].map(k => hkCards.client().states[k].attributes.volume_level));
+  // the pane shows the group's level: the rooms' average (30% and 60%)
+  assert.equal(await p.evaluate(() => __mc.slider().value), '45', 'the group\'s level on the slider');
+  const r = await p.evaluate(() => { const q = __mc.slider().getBoundingClientRect(); return { x: q.x, y: q.y + q.height / 2, w: q.width }; });
+  const from = r.x + r.w * 0.45, to = r.x + r.w * 0.8;
+  await p.mouse.move(from, r.y); await p.mouse.down();
+  for (let k = 1; k <= 12; k++) { await p.mouse.move(from + (to - from) * k / 12, r.y); await p.waitForTimeout(40); }
+  await p.mouse.up();
+  await p.waitForFunction(() => ['media_player.living_room', 'media_player.kitchen'].every(k => Math.abs(hkCards.client().states[k].attributes.volume_level - 0.8) < 0.04), null, { timeout: 10000 })
+    .catch(async () => assert.fail('the Side Pane\'s volume sets every room of the group: ' + JSON.stringify(await vols())));
+  say('the Side Pane\'s volume on a group sets both rooms: ' + JSON.stringify(await vols()));
+  // THE MUSIC PANEL, turned from the block's Browse, with playlists that have covers (stood in) and one that hasn't
+  await p.evaluate(() => {
+    const pic = (h) => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = 'hsl(' + h + ',70%,50%)'; x.fillRect(0, 0, 64, 64); return c.toDataURL(); };
+    hkMusic.playlists = () => [{ name: 'Favorites Mix', icon: 'hk:star-fill', key: 'a', image: pic(10) }, { name: 'Country', icon: 'hk:guitar-acoustic', key: 'b', image: null },
+                               { name: 'Your Essentials', icon: 'mdi:playlist-music', key: 'c', image: pic(270) }];
+  });
+  const brw = await p.evaluate(() => __mc.rect(__mc.np('album').shadowRoot.querySelector('.brw')));
+  await p.mouse.click(brw.x + brw.w / 2, brw.y + brw.h / 2);
+  await p.waitForFunction(() => { const m = __mc.panel(); return !!m && m.querySelectorAll('.mppill').length === 3; }, null, { timeout: 15000 });
+  await p.waitForTimeout(600);
+  const got = await p.evaluate(() => {
+    const m = __mc.panel(), pills = [...m.querySelectorAll('.mppill')], cv = m.querySelector('.mpbg'), cx = cv.getContext('2d');
+    // the biggest step between neighbors: the panel's picture, and the same cover drawn as small without the blur
+    const step = (c) => { let e = 0; const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, w = c.width;
+      for (let i = 0; i < d.length - 4; i += 4) if ((i / 4) % w < w - 1) e = Math.max(e, Math.abs(d[i] - d[i + 4]) + Math.abs(d[i + 1] - d[i + 5]) + Math.abs(d[i + 2] - d[i + 6]));
+      return e; };
+    let edge = -1, raw = -1;
+    try {
+      edge = step(cv);
+      const plain = document.createElement('canvas'); plain.width = cv.width; plain.height = cv.height;
+      plain.getContext('2d').drawImage(__mc.np('album').shadowRoot.querySelector('.art img'), 0, 0, cv.width, cv.height);
+      raw = step(plain);
+    } catch (e) { /* a cover from elsewhere: the CSS blur (soft) */ }
+    return { pills: pills.map(x => ({ cover: !!(x.querySelector('.th') && x.querySelector('.th').style.backgroundImage), tile: !!x.querySelector('.th.gl hk-icon'),
+                                      whole: x.querySelector('span').scrollHeight <= x.querySelector('span').clientHeight + 1,
+                                      left: Math.round(x.querySelector('span').getBoundingClientRect().left - x.getBoundingClientRect().left) })),
+             soft: cv.classList.contains('soft'), edge, raw };
+  });
+  assert.deepEqual(got.pills.map(x => [x.cover, x.tile]), [[true, false], [false, true], [true, false]], 'covers, and a glyph on a tile where there is none');
+  got.pills.forEach((x, i) => assert.ok(x.whole, 'pill ' + i + ': its whole name'));
+  assert.ok(new Set(got.pills.map(x => x.left)).size === 1, 'every name starts on one line: ' + got.pills.map(x => x.left));
+  // blurred: neighbors in the 32 px picture differ little (the cover stand-in is bands of flat color, hard-edged)
+  assert.ok(got.soft || (got.edge >= 0 && got.raw > 0 && got.edge < got.raw / 2), 'the background is blurred: biggest step between neighbors ' + got.edge + ', unblurred ' + got.raw);
+  assert.deepEqual(t.errors, [], 'page errors');
+  say('the music panel: covers and whole names in Browse, its background blurred (biggest step ' + got.edge + ', unblurred ' + got.raw + ')');
+  if (input.shots) { fs.mkdirSync(input.shots, { recursive: true }); await p.screenshot({ path: input.shots + '/media-card-pane-' + input.engine + '-' + input.size + '.png' }); }
+  await t.ctx.close();
+}
+
 // ---- THE EDITOR: every card of a block with rules can be set
 const RULE = { all: [{ kind: 'after_sunset' }] };
 async function editor(browser) {
@@ -245,6 +304,7 @@ async function hold(browser) {
   try {
     if (input.mode === 'hold') { await hold(browser); return; }
     if (input.mode === 'light') { await background(browser); return; }
+    if (input.mode === 'pane') { await pane(browser); return; }
     await flicker(browser);
     await background(browser);
     // (the Home Grid editor is desktop-first: a window this narrow gets its note instead)
