@@ -4,6 +4,12 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **The Intercom said "Microphone blocked" with the microphone allowed** (Safari on a Mac, the wall tablets, the app). Its audio processor was loaded in a way Mantel's page security refuses; it is now a file Mantel serves.
+- **The doorbell's live talk** loads its audio processor the same way, so on Mantel it can talk live again instead of falling back to a recorded clip.
+- **The Intercom sheet's room buttons:** a room that leads a playing group says one room and a count ("Plays with Guest Bedroom +4") inside its button, instead of a long list that ran over its neighbors and let the sheet slide sideways on a wall tablet.
+- **The iPhone and iPad app** allows the microphone on the house address it opened (from the next TestFlight build).
+
 ## 0.1.125 - 2026-11-04
 
 **Added**

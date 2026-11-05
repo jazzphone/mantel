@@ -182,6 +182,7 @@
   "web/shim/settings/setup.js": 0,
   "web/shim/settings/tablets.js": 0,
   "web/shim/settings/timeline.js": 0,
-  "web/hk/modules/hk-mic-tap.js": 0
+  "web/hk/modules/hk-mic-tap.js": 0,
+  "web/hk/modules/hk-pcm-tap.js": 0
  }
 }

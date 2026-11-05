@@ -3175,8 +3175,8 @@
         this._micNodes = null;
       }
       if (!this._actxMod) {
-        var url = URL.createObjectURL(new Blob([PCM_TAP], { type: 'application/javascript' }));
-        this._actxMod = this._actx.audioWorklet.addModule(url);
+        var ac = this._actx, url = URL.createObjectURL(new Blob([PCM_TAP], { type: 'application/javascript' })), f = '/hk/modules/hk-pcm-tap.js';
+        this._actxMod = ac.audioWorklet.addModule(url).catch(function () { return ac.audioWorklet.addModule(window.hkV ? window.hkV(f) : f); });   // a blob: worklet refused (a page policy): the file
         this._actxMod.catch(function () { /* the press says so */ });
       }
       return this._actx;

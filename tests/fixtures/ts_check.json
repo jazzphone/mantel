@@ -35,6 +35,7 @@
   "web/hk/modules/hk-loader.js",
   "web/hk/modules/hk-mic-tap.js",
   "web/hk/modules/hk-mic.js",
+  "web/hk/modules/hk-pcm-tap.js",
   "web/hk/modules/hk-saver.js",
   "web/hk/modules/hk-saverfaces.js",
   "web/hk/modules/hk-saverlayout.js",

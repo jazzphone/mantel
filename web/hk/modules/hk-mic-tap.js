@@ -4,7 +4,7 @@
 // not a blob: Mantel's page policy is `script-src 'self'`, and a worklet module is a script (a blob: one was refused,
 // which Safari reports as NotAllowedError: "Microphone blocked" with the microphone in fact allowed).
 /* global AudioWorkletProcessor, registerProcessor */
-class P extends AudioWorkletProcessor {
+class MicTap extends AudioWorkletProcessor {
   constructor(o) { super(); this.c = (o.processorOptions || {}).chunk || 960;
     this.b = new Int16Array(this.c); this.n = 0; this.out = null; var me = this;
     this.port.onmessage = function (e) { if (e.data && e.data.port) me.out = e.data.port; }; }
@@ -22,4 +22,4 @@ class P extends AudioWorkletProcessor {
     return true;
   }
 }
-registerProcessor('hk-mic-tap', P);
+registerProcessor('hk-mic-tap', MicTap);
