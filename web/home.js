@@ -231,7 +231,9 @@ async function narrowSoon(view) {
   const run = ++narrowRun;
   if (window.hkNeed && view) await window.hkNeed.config(view).catch(() => {});
   if (run !== narrowRun) return;
-  narrowTimer = setTimeout(() => requestAnimationFrame(() => {
+  const pass = () => requestAnimationFrame(() => {
+    // (every card on the page drawn again is no job for under a finger, or for a page on its way home)
+    if (window.hkPageSwipe && window.hkPageSwipe.moving && window.hkPageSwipe.moving()) { narrowTimer = setTimeout(pass, 400); return; }
     host.reads.clear();
     host.recording = true;
     viewHost.refresh();                          // one more pass over every card on the page, recorded:
@@ -249,7 +251,8 @@ async function narrowSoon(view) {
       hub.subscribe([...needed], [], false);     // snapshot arrives again, then only these entities' diffs
       mark('narrowed');
     }, 1500);
-  }), 1500);
+  });
+  narrowTimer = setTimeout(pass, 1500);
 }
 
 const viewHost = window.hkViewHost.create({

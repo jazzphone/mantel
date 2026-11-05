@@ -67,8 +67,8 @@
   var AXIS = 1.2;                  // "along the axis": more than 1.2 times the other way
 
   // ------------------------------------------------------------ let go
-  // THE SPRING: per ms, critically damped; the fastest it takes up from a finger, px/ms
-  var OMEGA = 0.019, V_MAX = 8, FLICK_WINDOW = 100, REST = 60;
+  // THE SPRING: per ms; the fastest it takes up from a finger, px/ms
+  var OMEGA = 0.028, V_MAX = 8, FLICK_WINDOW = 100, REST = 60;
   // (the last FLICK_WINDOW ms of the finger's [t, x] moves, from the move at or just past the window's start: a busy
   // tablet hands moves over far apart, and one alone in the window measured nothing. The lift -- `up`, its time -- is no
   // sample: it comes where the last move was, and counted, it slowed every quick flick under FLICK; a finger that
@@ -98,17 +98,19 @@
     }
     return Math.abs(dx) > width * turn;
   }
-  // Its speed at 0 is v, whatever that is. It never passes x1: a flick that would is taken up by a stiffer spring (faster,
-  // not further).
+  // Critically damped, third order: at 0 its speed is v, whatever that is, and it isn't yet being pulled, so there is no
+  // kick in the frame after the lift (a second-order spring went from a finger's 0.5 px/ms to 5 in that frame, measured,
+  // 2026-11-04). A page's width settles to the eye in about .33 s, as DUR.standard did. It never passes x1: a flick that
+  // would is taken up by a stiffer spring (faster, not further).
   function spring(x, x1, v) {
     var a = x - x1, w = OMEGA;
     v = Math.max(-V_MAX, Math.min(V_MAX, v || 0));
-    if (a && v * a < 0) w = Math.max(w, Math.abs(v / a));
-    var b = v + w * a;
-    var at = function (t) { return x1 + (a + b * t) * Math.exp(-w * t); };
-    var sp = function (t) { return (b - w * (a + b * t)) * Math.exp(-w * t); };
+    if (a && v * a < 0) w = Math.max(w, 2 * Math.abs(v / a));
+    var b = v + w * a, c = w * b - w * w * a / 2;
+    var at = function (t) { return x1 + (a + (b + c * t) * t) * Math.exp(-w * t); };
+    var sp = function (t) { return (b + 2 * c * t - w * (a + (b + c * t) * t)) * Math.exp(-w * t); };
     var ms = 0;
-    while (ms < 1200 && (Math.abs(at(ms) - x1) > 0.3 || Math.abs(sp(ms)) > 0.02)) ms += 8;
+    while (ms < 1200 && (Math.abs(at(ms) - x1) > 0.4 || Math.abs(sp(ms)) > 0.02)) ms += 8;
     return { x: x, x1: x1, v: v, w: w, ms: ms, at: at, speed: sp };
   }
   function easing(s, full) {

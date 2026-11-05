@@ -211,8 +211,9 @@
   // THE SLOW-TABLET LADDER HAS FLAGGED THIS TABLET: its last frame rate,
   // for the screen and the look it shows now, under SLOW_FPS. (It once got a
   // title on the sky for every page, which is what a slow tablet's owner saw of
-  // every swipe; it gets the real pages now, and its glass stays off them while
-  // they move: stillGlass.)
+  // every swipe, 2026-11-04. It gets the real pages, as every tablet does: a
+  // rest sample says nothing of what a swipe can draw. Kept for the checks and
+  // for what a flagged tablet may want to leave out next.)
   function slow() {
     var F = window.hkFps, s = null;
     try { s = F && F.latest ? F.latest() : null; } catch (e) { s = null; }
@@ -427,18 +428,24 @@
     if (G || A || L || wait) { planSoon(wait ? 1000 : 250); return; }
     var view = currentView();
     if (!view || !H || !H.warm) return;
+    // (a host whose navigation takes a moment: not there yet)
+    if (ST && ST.view !== view && ST.arrived && now() - ST.arrived < 1000) { planSoon(200); return; }
     var st = stageFor(view), items = list(), nb = neighbors(items, location.pathname, isHere);
     st.items = items;
     st.at = nb.at;
     if (nb.at < 0) { retire(st); return; }
     if (!st.rect) measure(st);
-    (st.spare || []).forEach(drop);
-    st.spare = [];
     [[1, nb.next], [-1, nb.prev]].forEach(function (pair) {
       var dir = pair[0], item = pair[1], N = st.nb[dir];
       if (N && (!item || N.item.path !== item.path)) { drop(N); delete st.nb[dir]; N = null; }
-      if (item && !N) makeReady(st, dir, item);
+      if (!item || N) return;
+      // (one let go a moment ago, wanted again: it never left its place)
+      var o = (st.spare || []).filter(function (q) { return q.item.path === item.path; })[0];
+      if (o) { adopt(st, dir, item, { el: o.el }); return; }
+      makeReady(st, dir, item);
     });
+    (st.spare || []).forEach(drop);
+    st.spare = [];
     groundKnown(st.view);
   }
   function makeReady(st, dir, item) {
@@ -448,6 +455,8 @@
     var gen = planGen;
     H.warm(viewSeg(item.path)).then(function (p) {
       delete making[key];
+      // (made for a page since left: the page now may want it, or the one on its way)
+      if (p && (gen !== planGen || ST !== st)) { planSoon(); return; }
       if (gen !== planGen || ST !== st || !p || !st.view.isConnected) return;
       var N = st.nb[dir];
       if (N && (N.real || N.item.path !== item.path)) return;
@@ -872,10 +881,11 @@
     N.el.removeAttribute('hk-swipe-peek');
     restore(N.el, N.saved);
     var next = ST = { view: N.el, nb: {}, x: left || 0, rect: st.rect, top: st.top, base: '', origin: '', saved: null,
-                      items: st.items, at: st.at + dir, spare: (st.spare || []).concat(other ? [other] : []), here: null };
+                      items: st.items, at: st.at + dir, spare: (st.spare || []).concat(other ? [other] : []), here: null, arrived: now() };
     next.nb[-dir] = back;
-    measure(next);
+    // (the page it left out of the flow first, so that this one's box is its own)
     place(next, back);
+    measure(next);
     arm();
     if (S && S.navigate) S.navigate(to.path);
     // (the room it lands in first: the Side Pane says where it is now, so the page takes its place as it is put back)
@@ -1025,6 +1035,10 @@
     window.addEventListener('resize', function () { abandon(); arm(); if (ST) ST.rect = null; planSoon(); });
     window.addEventListener('hk-swipe-past', onPast);
     window.addEventListener('hk-asleep', function () { planSoon(); });
+    // (Edit mode going on: what waits beside the page goes)
+    if (typeof MutationObserver === 'function' && d.documentElement) {
+      new MutationObserver(function () { planSoon(0); }).observe(d.documentElement, { attributes: true, attributeFilter: ['data-hk-editing'] });
+    }
     window.addEventListener('hk-view-ready', function () { listenHost(); arm(); planSoon(); });
     var S = SH();
     if (S && S.onNavigate) S.onNavigate(function () { setTimeout(arm, 0); });
@@ -1044,6 +1058,8 @@
     extend: extend,
     on: on,
     blocked: blocked,
+    // a finger has the page, or it is settling: what can wait, waits (web/home.js narrowing)
+    moving: function () { return !!(G && G.live) || !!A; },
     takes: takes,
     arm: arm,
     plan: plan,

@@ -288,6 +288,20 @@ swipe still scrolls. `--engine`, `--size` and `--shots DIR` narrow it and keep t
 runs it as `page-swipe-check-<engine>-<size>`, eight steps (`ci.py` `PAGE_SWIPE`, the check's own `ENGINE_SIZES`),
 skipped without `PLAYWRIGHT_PATH` or `NODE`.
 
+### How a swipe moves, frame by frame
+
+`tools/headless/swipe_motion_check.py` (with its `.cjs`) watches a full-page swipe on its way rather than where it ends, at
+a tablet and a phone in each engine: at every animation frame the page against the finger, what the page coming in shows
+(its elements in sight and the edges in a screenshot of it: a title on the sky fails), how it goes on after the lift,
+and the state left behind. It covers a page never visited, one flagged by the slow-tablet ladder, slow drags, flicks,
+reversals, a flick back from past a fifth, a cancel, the first page's edge, a new finger at four moments of a settle, a
+tap on a settling page, rapid flicks through every page and back, repeated swipes, a resize, a turn, a hidden window and
+the back button under a swipe, a tab to the page waiting beside this one, a new config, Reduce Motion's cross-fade, a Home
+Grid's hand-off, and a pager's glide. Times are not asserted; positions, order and state are. Chromium's finger is CDP's,
+WebKit's is synthetic pointer events, which say nothing of a real iPad: [Motion](Motion.md#what-a-browser-here-cannot-say).
+Without `PLAYWRIGHT_PATH` or `NODE` it says so and exits 2. `tools/ci.py full` runs it as `swipe-motion-check-chromium` and
+`-webkit`, skipped there (and counted as a skip) without them.
+
 ### The screensaver's faces in WebKit
 
 `tools/headless/saver_faces_check.py` (with its `.cjs`) draws the screensaver's HomeView-style faces

@@ -69,6 +69,7 @@ const PROBE = () => {
       return { path: location.pathname, left: Math.round(v.getBoundingClientRect().left), stray: /(^|;\s*)(transform|position|will-change|opacity|overflow|max-height|pointer-events|transition)\s*:/.test(st),
                inert: v.hasAttribute('inert'), offstage: v.hasAttribute('data-hk-offstage'), busy: !!(s.G || s.A || s.L), pages: kids.length, ghosts: kids.filter(k => k.classList.contains('hk-swipe-ghost')).length,
                others: kids.filter(k => k !== v).every(k => k.hasAttribute('inert') && Math.abs(k.getBoundingClientRect().left) >= innerWidth - 2),
+               level: kids.filter(k => k !== v).every(k => Math.abs(k.getBoundingClientRect().top - (v.getBoundingClientRect().top + (document.scrollingElement.scrollTop || 0))) <= 2),
                grounds: deep(document, '.hk-swipe-ground').length, hit: !!e && chain(e).indexOf(v) >= 0 };
     },
     // WebKit's finger: on what is under the point, each touch the target's own until it ends
@@ -169,6 +170,12 @@ function settlesSmoothly(w, target, name) {
     if (dt >= 12) { peak = Math.max(peak, Math.abs(after[i].x - after[pi].x) / dt); pi = i; }
   }
   assert(peak <= 8.5, name + ': no leap: the fastest it goes is ' + peak.toFixed(1) + ' px/ms');
+  // ...and it goes on at the finger's speed, not off from it: over the first frames, not much past what it was doing
+  const before = seriesOf(w, w.id).filter(p => p.st === 'G' && p.now >= w.liftedAt - 80);
+  let firstFrame = null;
+  for (let i = 1; i < after.length; i++) { const dt = after[i].t - after[0].t; if (dt >= 12) { firstFrame = dt <= 40 ? Math.abs(after[i].x - after[0].x) / dt : null; break; } }
+  const was = before.length > 1 ? Math.abs(before[before.length - 1].x - before[0].x) / Math.max(1, before[before.length - 1].t - before[0].t) : 0;
+  if (firstFrame !== null) assert(firstFrame <= was + 3.2, name + ': it leaves at about the finger\'s speed: ' + was.toFixed(2) + ' then ' + firstFrame.toFixed(2) + ' px/ms');
   assert(Math.abs(after[after.length - 1].x - target) <= 1.5 || (seriesOf(w, w.id).slice(-1)[0] || {}).x === undefined, name + ': it ends at ' + target + ', not ' + after[after.length - 1].x);
 }
 function isClean(r, name) {
@@ -177,6 +184,7 @@ function isClean(r, name) {
   assert(!r.busy && !r.ghosts && !r.grounds, name + ': nothing left going ' + JSON.stringify(r));
   assert(r.hit, name + ': the page takes the next touch ' + JSON.stringify(r));
   assert(r.others, name + ': what waits beside it is out of sight and inert ' + JSON.stringify(r));
+  assert(r.level, name + ': what waits beside it is level with it ' + JSON.stringify(r));
   assert(r.pages <= 3, name + ': the page and at most its two neighbors in the slot ' + JSON.stringify(r));
 }
 // HOW MUCH THE PIXELS SHOW in a part of a screenshot: edges, not colors (the sky alone is smooth; a title on it is a few)
@@ -302,6 +310,17 @@ const SECTIONS = {
       assert(here >= 1 && here <= 2, name + ': it lands one or two pages on ' + await where(t));
       isClean(await rest(t), name);
       assert(!frames.some(f => f.st.indexOf('L') >= 0), name + ': never left waiting on a page');
+      // ...and a catch that landed a page leaves what comes next level with it, finger still down
+      await play(t, pathOf(a, [{ ms: 100, dx: W * -0.3 }]));
+      await sleep(Math.min(delay, 200));
+      const b1 = pathOf(a, [{ ms: 60, dx: W * -0.2 }]);
+      await down(t, b1[0][1], b1[0][2]);
+      for (const q of b1.slice(1)) { await move(t, q[1], q[2]); await sleep(5); }
+      await sleep(50);
+      const lv = await t.page.evaluate(() => { const v = __m.view(), s = hkPageSwipe._.state().ST; const k = [...__m.pagesOf()].filter(e => e !== (s ? s.view : v)); const y = (s ? s.view : v).getBoundingClientRect().top; return k.map(e => Math.round(e.getBoundingClientRect().top - y)); });
+      await up(t, b1[b1.length - 1][1], b1[b1.length - 1][2]);
+      await sleep(900);
+      assert(lv.every(d => Math.abs(d) <= 2), name + ': the pages level with each other in a caught swipe ' + JSON.stringify(lv));
       // no leap as it is caught: the moved page's steps stay within the finger's and the spring's
       const se = frames.map(f => { const k = f.pages.find(p => p.id === id); return k ? { x: k.x, now: f.now, t: f.t } : null; }).filter(Boolean).filter(p => p.now >= pressedAt - 34 && p.now <= pressedAt + 34);
       for (let i = 1; i < se.length; i++) assert(Math.abs(se[i].x - se[i - 1].x) <= Math.max(140, (se[i].t - se[i - 1].t) * 8.5), name + ': no leap at the press ' + JSON.stringify(se.map(p => Math.round(p.x))));

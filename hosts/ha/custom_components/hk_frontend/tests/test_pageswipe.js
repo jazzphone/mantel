@@ -120,15 +120,19 @@ print('=== the spring ===');
 var D = window.hkDrag;
 var sp = D.spring(-500, -1180, -1.2);
 ok('it starts where the page is, at the speed the page was going', Math.abs(sp.at(0) + 500) < 1e-9 && Math.abs(sp.speed(0) + 1.2) < 1e-9);
-ok('it ends where it was going, and not moving', Math.abs(sp.at(sp.ms) + 1180) <= 0.31 && Math.abs(sp.speed(sp.ms)) <= 0.021);
+ok('it ends where it was going, and not moving', Math.abs(sp.at(sp.ms) + 1180) <= 0.41 && Math.abs(sp.speed(sp.ms)) <= 0.021);
 ok('from rest too: no kick', Math.abs(D.spring(-500, -1180, 0).speed(0)) < 1e-9);
+ok('...nor in the frame after the lift: a slow finger\'s page is still near its speed 16 ms on', Math.abs(D.spring(-500, -1180, -0.3).speed(16)) < 1.6);
+ok('...and it gets there about when DUR.standard did', Math.abs(D.spring(-500, -1180, 0).at(340) + 1180) < 6);
 function passes(s) { var d = s.x1 - s.x; for (var t = 0; t <= s.ms; t += 2) if ((s.at(t) - s.x1) * d > 0.01) return true; return false; }
 ok('it never passes where it is going', !passes(sp) && !passes(D.spring(-1100, -1180, -6)) && !passes(D.spring(30, 0, -3)) && !passes(D.spring(-20, 0, 4)));
-ok('a flick that would pass it goes faster instead, at the same speed', Math.abs(D.spring(-1100, -1180, -6).speed(0) + 6) < 1e-9 && D.spring(-1100, -1180, -6).w > 0.019);
+ok('a flick that would pass it goes faster instead, at the same speed', Math.abs(D.spring(-1100, -1180, -6).speed(0) + 6) < 1e-9 && D.spring(-1100, -1180, -6).w > 0.028);
 ok('a finger going the other way carries it a little that way first', D.spring(30, 0, 0.5).at(20) > 30);
 ok('as a curve: the spring itself where linear() is known', /^linear\(0,/.test(D.easing(sp, true)) && /,1\)$/.test(D.easing(sp, true)));
 var bez = /cubic-bezier\(([\d.]+),([\d.]+),/.exec(D.easing(sp, false));
 ok('...else a curve that leaves at the same speed', bez && Math.abs(+bez[2] / +bez[1] - (-1.2 * sp.ms / -680)) < 0.01);
+ok('a flick back is measured from where it turned, not averaged with the way it came',
+   X.speed([[0, 500], [40, 460], [60, 440], [80, 480], [100, 520]], 100) === 2);
 ok('the flick is the last 100 ms, not the whole drag', Math.abs(X.speed([[0, 500], [400, 490], [450, 460], [500, 420]]) - (-0.7)) < 1e-9 &&
    X.speed([[0, 1]]) === 0);
 // (2026-11-02, the owner: quick short flicks turned the page only sometimes)
