@@ -37,7 +37,7 @@ plays on one clock, so ``sync_sets`` finds the calls that can be played the same
 speakers, idle, on their own and able to group, announced to once through its leader. Everything else keeps its own
 call: a room playing music is already in step with the others playing music (Music Assistant mixes it in and arms one
 shared instant), and a room holding paused music is left alone. Music Assistant gives a group one announcement volume,
-so rooms at different volumes make separate groups. ``decide`` works them out for a Message only.
+so rooms at different volumes make separate groups. In Live the groups are made from the rooms that are live now.
 """
 from __future__ import annotations
 
@@ -84,7 +84,7 @@ class SyncSet:
 class Plan:
     rooms: list[dict[str, Any]] = field(default_factory=list)
     calls: list[Call] = field(default_factory=list)
-    sync: list[SyncSet] = field(default_factory=list)      # a Message's rooms in step (sync_sets)
+    sync: list[SyncSet] = field(default_factory=list)      # rooms in step (sync_sets)
 
     @property
     def solo(self) -> list[Call]:
@@ -201,7 +201,7 @@ def groupable(p: Any) -> bool:
 
 def sync_sets(house: House, music: MusicConfig, calls: list[Call], ma_raw: Any, pids: Mapping[str, str],
               held: Iterable[str] = ()) -> list[SyncSet]:
-    """The temporary groups a Message's ``calls`` can play as (the module's notes). ``held``: rooms holding paused music.
+    """The temporary groups a broadcast's ``calls`` can play as (the module's notes). ``held``: rooms holding paused music.
     A group's leader is the one the music engine would pick (the house's preferred leaders, then not a room Home
     Assistant announces to: an announcement to a leader plays on its whole group), and every member is one it can
     group with."""
@@ -233,7 +233,7 @@ def decide(house: House, music: MusicConfig, doc: Mapping[str, Any], picked: Ite
            held: Iterable[str] = ()) -> Plan:
     """The plan for a broadcast to ``picked`` (room entities; a preset or floor is the page's to expand). ``pids``:
     {media_player entity: Music Assistant player id}; ``ma_raw``: Music Assistant's ``players/all`` (None:
-    unreadable); ``held``: rooms holding paused music, which a Message leaves out of its temporary groups."""
+    unreadable); ``held``: rooms holding paused music, which stay out of the temporary groups."""
     live_mode = mode == "live"
     here = set(here)
     pids = dict(pids or {})
@@ -314,8 +314,7 @@ def decide(house: House, music: MusicConfig, doc: Mapping[str, Any], picked: Ite
                 plan.calls.append(Call(p, r, C.volume_of(doc, r), live=bool(can_live), covers=calling[p]))
     order = {r: i for i, r in enumerate(picked)}
     plan.rooms.sort(key=lambda x: order.get(x["room"], 0))
-    if not live_mode:
-        plan.sync = sync_sets(house, music, plan.calls, ma_raw, pids, held)
+    plan.sync = sync_sets(house, music, [c for c in plan.calls if c.live or not live_mode], ma_raw, pids, held)
     return plan
 
 

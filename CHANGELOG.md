@@ -4,6 +4,12 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Changed**
+- **Rooms hear Live in step.** Idle rooms at the same volume now play Live as one group on one clock, as a Message does, and starting one adds nothing to Live's delay. The rooms that hear the message when you finish play in step too. If a group doesn't come together, each room plays on its own as before. If its leader fails, every room in the group gets the whole message when you finish, so nothing you said is lost.
+
+**Fixed**
+- After a temporary group fails, a speaker still leading another speaker is no longer called on its own, because the message would have reached that other speaker too.
+
 ## 0.1.131 - 2026-11-05
 
 **Changed**

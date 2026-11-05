@@ -70,7 +70,8 @@ Never hidden: the Intercom sheet itself, and the room's state for the engine's o
    the group step. Say nothing on the sheet unless rooms failed.
 5. **Restore**: put every speaker back exactly as it was (its group, volume, power). A speaker that was in a music
    group before can't be in the sync set (the group check already keeps such leaders out; check followers too).
-6. **Live**: leave it per room for now. A group would add its own start-up delay to the 7 s.
+6. **Live**: leave it per room for now. A group would add its own start-up delay to the 7 s. (Measured, it doesn't, and the
+   owner wants Live in step: part C.)
 7. **The group check stays**: the temporary group is Mantel's own, made from rooms all in the broadcast, so no room
    outside it can hear the message.
 8. **Sound rules for a session's own tests.** The owner picks rooms; a session's own tests use the Kitchen and Guest Room
@@ -84,6 +85,26 @@ leader, on a failed announcement; restore after each); the gate refusing any oth
 **Proof on the house:** quiet first (volume 2, then read MA's `logging/get` for "PTP clock" warnings; the
 2026-11-04 script `ptp_run.py` is in the shared session notes), then the owner listens at two rooms at once, then three. Record what was heard in the
 Build log below.
+
+## C. Live in step (added 2026-11-05)
+
+**What the owner wants:** Live in step too ("It should be"). The rooms that are live now play as one temporary group, called
+once through its leader, with the same rules as part B. What differs from a Message:
+
+1. **The stream is still growing, and it can stop any time.** The group parts only when the talk is over. Music Assistant
+   holds a part until the announcement has finished, about 8 s after its stream ends, so a stopped talk waits for that
+   answer in the background (`driver.settle`). The socket isn't held up. The next broadcast, such as the page's own copy
+   after a dropped socket, is decided only once the speakers are back (`host._parted`).
+2. **The gate:** a closed run still lets its own group part (`IntercomRun.formed`), and nothing else.
+3. **A group that doesn't come together** means one live call per room on the same link, since nothing has read it. The
+   watches for the failure signals start when a room's call really starts, not when the group step began.
+4. **A leader that fails takes its members with it:** every room gets the whole spool as a Message at the end, and only the
+   leader's Live health counts it (`group_failed`). A member that never plays gets the Message alone.
+5. **The Message at the end plays in step too:** the rooms that hear it (playing music aside) make their own groups, through
+   the same `D.broadcast`, from a fresh plan.
+6. **A speaker that can't be confirmed on its own after a failed group isn't called** (Message and Live,
+   `driver.on_their_own`): one that still leads somebody would carry the message to them. A Message reports its room failed;
+   in Live the group check decides it again at the end. This closed a gap part B had.
 
 ## Docs and release
 
@@ -135,6 +156,27 @@ A group starts as fast as one room, so the plan's reason to leave Live per room 
 **Not proven: what the ear hears.** "Playing" is when each speaker reports it, not when sound leaves it. The owner's
 listening test at two rooms at once is still to do. The fallback's failures (a dead leader, a stream that never starts)
 were tested on the fake only: a real dead speaker can't be arranged from here.
+
+**2026-11-05, part C (Live in step).** Quiet proof with **digital silence** at Music Assistant's floor of 15, Kitchen and
+Guest Room, 12:17-12:42, on an open-ended WAV filling in real time from a temporary server on the LXC (removed afterward):
+
+| Run | Reads "playing" (s after the call), Kitchen / Guest | Log | Back as it was, sync groups' lists unchanged |
+|---|---|---|---|
+| Group, the real `host._live_calls` x4 (8-10 s) | 5.18 / 5.18, 5.30 / 5.52, 5.17 / 5.17, 5.12 / 5.33 | One `UGL-RC` group each, no clock warning | Yes |
+| Group, driver steps x3 (8-12 s) | 4.89 / 4.89, 5.07 / 5.28, 4.96 / 5.18 | Same | Yes |
+| Group, 45 s (past Music Assistant's 30 s render wait, which it logs and survives, as in slice 0) | 5.39 / 5.39 | Same | Yes |
+| Group, stopped at 2, 9 and 10 s | About 5 / 5 where it had started | Same | Yes, about 8 s after the stream ended |
+| One call per room x4 (8-12 s) | 5.21 / 3.22, 5.20 / 5.09, 5.20 / 5.10, 5.21 / 5.11 | Two sessions | Yes |
+
+Removing a speaker that never joined (`set_members` on the house, silent) leaves the sync groups' lists alone, unlike
+`ungroup_many`. Mantel sends no part unless it sent a join.
+
+A group starts when one room does, about 5 s after the call, one fetch of the link, and the talk ends about 8 s after the
+stream either way, so grouping adds nothing to Live's delay. **These numbers don't show the gain by themselves:** "playing" is
+what each speaker reports, and per-room runs often read only 0.1 s apart (once 2 s). What changed is that a group is one
+AirPlay session on one clock. **Not proven: what the ear hears**; the owner's test is the proof. A real socket's whole run
+wasn't exercised on the house (it needs an Owner's session); the socket's paths ran on the fakes
+(`tests/test_intercom_live_sync.py`), and a dead speaker can't be arranged from here.
 
 Known limit: if Mantel itself stops in the seconds a group is formed, the speakers stay grouped until Music Assistant
 restarts or someone ungroups them (the sheet then says the leader "leads" the other).

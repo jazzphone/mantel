@@ -57,6 +57,8 @@ class LiveMa(IF.IntercomMa):
         self.sounding: set[str] = set()               # rooms this fake set to ``playing`` (quiet_down)
         self.replied: list[str] = []                  # player ids whose live call has been answered
         self._live_fetch: dict[str, asyncio.Task] = {}
+        self.part_held: asyncio.Event | None = None   # Music Assistant holds a part until the announcement is over
+        self.silent: set[str] = set()                 # members of a temporary group that never start playing
 
     # one fetch of the live link for every room, as Music Assistant makes it
     def live_fetch(self, url: str) -> None:
@@ -89,6 +91,14 @@ class LiveMa(IF.IntercomMa):
 
     async def answer(self, ws, mid, cmd, args) -> None:
         url = args.get("url")
+        if cmd == IF.PART and self.part_held is not None:
+            async def later() -> None:
+                await self.part_held.wait()
+                await super(LiveMa, self).answer(ws, mid, cmd, args)
+            task = asyncio.get_running_loop().create_task(later())
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
+            return
         if cmd != IF.ANNOUNCE or url is None or url != self.live_url():
             return await super().answer(ws, mid, cmd, args)
         pid = args["player_id"]
@@ -106,7 +116,6 @@ class LiveMa(IF.IntercomMa):
             self.replied.append(pid)
 
         async def work() -> None:
-            entity = MF.ENT[pid]
             if how == "error":
                 return await reply(self.fail.get(pid, "player unreachable"))
             if how == "nofetch":
@@ -115,8 +124,10 @@ class LiveMa(IF.IntercomMa):
             self.live_fetch(url)
             await self.started[url].wait()
             if how != "noplay":
-                await self.set(entity, "playing")
-                self.sounding.add(entity)
+                for one in dict.fromkeys([pid, *(self.model.get(pid, {}).get("group_members") or [])]):
+                    if one not in self.silent:           # a temporary group's whole list plays through its leader
+                        await self.set(MF.ENT[one], "playing")
+                        self.sounding.add(MF.ENT[one])
             if how == "early":
                 return await reply()                                 # the call returns, the talker is still going
             await self.finished[url].wait()

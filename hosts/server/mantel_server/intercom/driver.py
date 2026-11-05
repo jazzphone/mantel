@@ -5,17 +5,20 @@ has pressed Send (or started talking in Live) and the rooms are decided.
    If it can't be written, nothing plays (``audit_unavailable``).
 2. One one-time link is minted for the broadcast's spool (links.py), on the house's stream base.
 3. ``IntercomRun`` -- the Music Assistant client's gate for this broadcast alone -- is minted, open while it plays:
-   it allows only ``players/cmd/play_announcement``, only on the plan's players, only with ``player_id``, ``url``,
-   ``pre_announce`` and ``volume_level``, and only that link's URL.
+   it allows ``players/cmd/play_announcement``, only on the plan's players, only with ``player_id``, ``url``,
+   ``pre_announce`` and ``volume_level``, and only that link's URL; and joining and parting the plan's own temporary
+   groups. A closed run still lets a group it formed part.
 4. One ``asyncio.gather`` of the calls, one per player, all with the same URL (Music Assistant renders and fetches it
    once for every room), each with its own volume and a per-call timeout of the mode's limit + 90 s (the call
    returns only once the clip has played).
-   A Message's rooms in step (``in_step``; docs/phase17/INTERCOM-SYNC.md part B): each of the plan's temporary groups is
-   joined, checked (Music Assistant must report exactly those members, so no room outside it can hear), announced to
-   once through its leader, and parted. A group that doesn't come together, a dead leader or a failed start means one
-   call per room, on a new link: a message is never lost to the group step.
+   Rooms in step (``in_step``; docs/phase17/INTERCOM-SYNC.md part B): each of the plan's temporary groups is joined,
+   checked (Music Assistant must report exactly those members, so no room outside it can hear), announced to once
+   through its leader, and parted. A group that doesn't come together, a dead leader or a failed start means one call
+   per room, on a new link: a message is never lost to the group step.
 5. Live (17.5): each room is watched for the five failure signals; when the talker finishes, the rooms that failed
-   get the WHOLE spool as a Message on a new link.
+   get the WHOLE spool as a Message on a new link. Live's groups are the host's (``_live_calls``, with this file's
+   join and ``settle``): a group that doesn't come together means one live call per room on the same link, since
+   nothing has read it yet.
 
 Nothing of the audio is logged; the row says who, which rooms and how long, never what.
 """
@@ -43,6 +46,8 @@ GROUP_WAIT = 4.0                # a temporary group must come together (or part)
 GROUP_POLL = 0.1
 START_WAIT = 14.0               # its leader must be playing within this (Music Assistant waits 10 s itself)
 START_POLL = 0.25
+STILL_GROUPED = "still_grouped"  # a speaker that couldn't be confirmed on its own after a group failed: not called
+SETTLE_WAIT = 20.0              # a stopped announcement must answer within this (about 8 s after its stream ends)
 
 
 class IntercomRun:
@@ -55,12 +60,17 @@ class IntercomRun:
         self.players = frozenset(players)
         self.urls = set(urls)
         self.groups = {leader: frozenset(members) for leader, members in (groups or {}).items()}  # the plan's sync sets
+        self.formed: set[str] = set()     # leaders of groups not parted yet: their part goes through even after close
         self.open = audit_id > 0
         self.sent: list[str] = []
 
     def add_url(self, url: str) -> None:
         """The fallback's second link (Live: the whole spool, as a Message, to the rooms that failed)."""
         self.urls.add(url)
+
+    def add_groups(self, groups: Mapping[str, Iterable[str]]) -> None:
+        """The fallback's temporary groups (Live: the rooms that hear the Message at the end)."""
+        self.groups.update({leader: frozenset(members) for leader, members in groups.items()})
 
     def allow(self, command: str, args: Mapping[str, Any]) -> bool:
         if self.open and command == JOIN:
@@ -69,7 +79,7 @@ class IntercomRun:
             return (set(args) == {"target_player", "child_player_ids"} and isinstance(kids, list)
                     and all(isinstance(k, str) for k in kids) and isinstance(args["target_player"], str)
                     and self.groups.get(args["target_player"]) == frozenset(kids) and bool(kids))
-        if self.open and command == PART:
+        if command == PART and (self.open or args.get("target_player") in self.formed):
             # the members of one of those groups leaving its leader, and no other speaker
             kids = args.get("player_ids_to_remove")
             return (set(args) == {"target_player", "player_ids_to_remove"} and isinstance(kids, list) and bool(kids)
@@ -207,22 +217,50 @@ async def _join(ma: Any, run: IntercomRun, leader: str, members: list[str]) -> s
         view = _view(await ma.players())
         if not all(R.groupable(view.get(p)) for p in (leader, *members)):
             return "changed"                      # a room started playing, or left the network, since the plan
+        run.formed.add(leader)
         await ma.command(run, JOIN, timeout=GROUP_WAIT, target_player=leader, child_player_ids=members)
         return None if await _until(ma, lambda raw: _together(raw, leader, members), GROUP_WAIT) else "not_together"
     except Exception as exc:  # noqa: BLE001 -- any failure here only means one call per room
         return error_code(exc)
 
 
-async def _part(ma: Any, run: IntercomRun, leader: str, members: list[str]) -> None:
-    """Every speaker back on its own, confirmed; twice before it's worth a warning. Never raises."""
+async def _part(ma: Any, run: IntercomRun, leader: str, members: list[str]) -> bool:
+    """Every speaker back on its own, confirmed (False: not); twice before it's worth a warning. Never raises. No join
+    was sent, nothing to undo."""
+    if leader not in run.formed:
+        return True
     for _ in range(2):
         try:
             await ma.command(run, PART, timeout=GROUP_WAIT, target_player=leader, player_ids_to_remove=members)
             if await _until(ma, lambda raw: _apart(raw, leader, members), GROUP_WAIT):
-                return
+                run.formed.discard(leader)
+                return True
         except Exception as exc:  # noqa: BLE001
             log.warning("intercom: a temporary group did not part (%s)", error_code(exc))
     log.warning("intercom: a temporary group could not be parted; its speakers may still be grouped")
+    return False
+
+
+async def on_their_own(ma: Any, calls: list[Any], pids: Mapping[str, str]) -> tuple[list[Any], list[Any]]:
+    """After a group that failed: (the calls that are safe to make, those whose speaker is still in a group). An announcement
+    to a speaker that still leads somebody plays on them too, so it isn't sent; unreadable counts as not safe."""
+    try:
+        raw = await ma.players()
+    except Exception:  # noqa: BLE001
+        return [], list(calls)
+    safe = [c for c in calls if _apart(raw, pids[c.player], ())]
+    return safe, [c for c in calls if c not in safe]
+
+
+async def settle(ma: Any, run: IntercomRun, leader: str, members: list[str], call: asyncio.Task | None = None) -> bool:
+    """A group whose Live announcement has ended or been stopped goes back. Music Assistant holds a part until the
+    announcement is over, about 8 s after its stream ends (2026-11-05), so its answer comes first. Never raises."""
+    if call is not None:
+        if not call.done():
+            await asyncio.wait({call}, timeout=SETTLE_WAIT)
+            call.cancel()
+        await asyncio.gather(call, return_exceptions=True)
+    return await _part(ma, run, leader, members)
 
 
 async def _say_once(ma: Any, run: IntercomRun, leader: str, url: str, chime: bool, volume: int | None,
@@ -296,7 +334,12 @@ async def in_step(ma: Any, run: IntercomRun, sync: Any, pids: Mapping[str, str],
                 done(c, False)
         return results
     log.info("intercom: a group of %d fell back to one call per room (%s)", len(sync.calls), why)
-    results = await announce(ma, run, sync.calls, pids, new_url(), chime=chime, timeout=timeout, names=names, done=done)
+    safe, grouped = await on_their_own(ma, sync.calls, pids)
+    results = await announce(ma, run, safe, pids, new_url(), chime=chime, timeout=timeout, names=names, done=done)
+    for c in grouped:
+        results.append(RoomResult(c.room, names(c.room), c.player, error=STILL_GROUPED))
+        if done is not None:
+            done(c, False)
     try:
         if not _apart(await ma.players(), leader, members):       # the part above waited behind a stuck announcement
             await _part(ma, run, leader, members)

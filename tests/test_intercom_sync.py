@@ -114,7 +114,17 @@ async def test_one_room_makes_no_group(ic):
 
 
 # ------------------------------------------------------------------------------------------------- the fallback
-@pytest.mark.parametrize("script", ["never", "error", "extra"])
+async def test_a_leader_somebody_else_follows_is_not_called_after_a_group_fails(ic, monkeypatch):
+    monkeypatch.setattr(D, "GROUP_WAIT", 0.1)
+    grouping(ic, delay=0)
+    ic.ma.join_script = "extra"                 # a speaker outside the broadcast follows the leader
+    _, events = await send(ic, [KITCHEN, DEN])
+    join = next(f["args"] for f in ic.ma.frames if f.get("command") == JOIN)
+    assert said_to(ic) == join["child_player_ids"], "nothing reaches the speaker outside it"
+    assert events[-1]["rooms"] == 1 and len(events[-1]["failed"]) == 1
+
+
+@pytest.mark.parametrize("script", ["never", "error"])
 async def test_a_group_that_is_not_the_plans_is_never_announced_to(ic, monkeypatch, script):
     monkeypatch.setattr(D, "GROUP_WAIT", 0.2)
     grouping(ic, delay=0)
@@ -137,7 +147,8 @@ async def test_a_room_that_started_playing_since_the_plan_makes_no_group(ic, mon
         return plan
     monkeypatch.setattr(R, "decide", then_it_plays)
     _, events = await send(ic, [KITCHEN, DEN])
-    assert "join" not in steps(ic) and sorted(said_to(ic)) == sorted([K, DN]) and events[-1]["failed"] == []
+    assert steps(ic) == ["say", "say"], "no join was sent, so no part either"
+    assert sorted(said_to(ic)) == sorted([K, DN]) and events[-1]["failed"] == []
 
 
 async def test_a_dead_leader_falls_back_and_only_the_dead_room_fails(ic):

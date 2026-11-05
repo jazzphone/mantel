@@ -103,7 +103,7 @@ Anyway**. The audit log records it.
 when an Owner allows it in Settings. It plays a few seconds behind you, because
 AirPlay buffers and an idle HomePod has to wake up first; the sheet shows the
 measured delay. The rooms keep playing for those few seconds after you let go: that's the end
-of what you said, not a second message. Each room plays Live on its own, so rooms can be a moment apart. Live is live only in rooms that are idle when you start. A room
+of what you said, not a second message. Idle rooms at the same volume play Live as one group, in step, the way a Message does; rooms at different volumes make separate groups, and if a group doesn't come together, each room plays on its own, a moment apart. Live is live only in rooms that are idle when you start. A room
 playing music, or set to Message-only, hears the whole thing as a message when
 you finish. If a room drops out of Live partway through, it gets the whole
 message when you finish, so nothing you said is lost.

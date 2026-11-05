@@ -100,7 +100,8 @@ What this means:
   rooms), stereo pairs. It is the safe mode. Idle rooms play as one temporary group, in step: see
   [INTERCOM-SYNC.md](INTERCOM-SYNC.md).
 - **Live** is live only in rooms that are **idle** when you start. A room playing music, or marked Message-only,
-  plays the broadcast **after you finish**, as a Message, ducked. The sheet shows this per room before you talk.
+  plays the broadcast **after you finish**, as a Message, ducked. The sheet shows this per room before you talk. The rooms
+  that are live play as one temporary group, in step: see [INTERCOM-SYNC.md](INTERCOM-SYNC.md) part C.
 - Mantel serves a **finite WAV** for a Message (real sizes) and an **open-ended WAV** for Live.
 
 ## The design

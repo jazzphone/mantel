@@ -533,9 +533,16 @@ def test_two_idle_rooms_make_one_group(house, music):
     assert plan.solo == [] and len(plan.calls) == 2
 
 
-def test_one_room_or_live_makes_none(house, music):
+def test_one_room_makes_none(house, music):
     assert decide(house, music, doc(), [K], ma=groupable_list()).sync == []
-    assert decide(house, music, doc(), [K, OFF], mode="live", ma=groupable_list()).sync == []
+    assert decide(house, music, doc(), [K], mode="live", ma=groupable_list()).sync == []
+
+
+def test_live_groups_only_the_rooms_that_are_live_now(house, music):
+    plan = decide(house, music, doc(), [K, OFF], mode="live", ma=groupable_list())
+    assert len(plan.sync) == 1 and all(c.live for c in plan.sync[0].calls) and plan.solo == []
+    plan = decide(house, music, doc(office={"live": False}), [K, OFF], mode="live", ma=groupable_list())
+    assert plan.sync == [] and {c.room: c.live for c in plan.calls} == {K: True, OFF: False}
 
 
 def test_a_room_playing_keeps_its_own_call(house, music):
