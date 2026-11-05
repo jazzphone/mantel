@@ -5,6 +5,18 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Added**
+- **Touch and hold empty space to edit a page.** Hold an empty part of a page (between the tiles, or below them) for half a second and it goes into Edit mode. It works wherever **Edit Page** is offered (admins, never on a wall tablet). Holding a tile still does what a tap does.
+
+**Changed**
+- **Swiping between pages, rebuilt.** The page follows your finger, keeps your finger's speed when you let go, and a flick back goes back. A finger on a page still settling catches it. Home Grid views, blocks that swipe their pages and the side menu let go the same way. With Reduce Motion the two pages cross-fade.
+- A page's background fades in with your finger as you swipe to it, and a page with another look (Bright Glass on Home only) wears its own all the way in.
+- On a host with the Intercom (Mantel): a chip and a Scenes pill for it on the Home page, and its block and sheet redesigned. On a host with the Timeline (Mantel): the page has a gradient of its own, its **Day** button opens a little month, and a screen with its own pages can add it. In Home Assistant nothing changes.
+
+**Fixed**
+- A new swipe while a page was still settling no longer strands it off screen, with touches ignored.
+- Swiping is steadier on slower tablets: a Home Grid's views no longer restyle everything inside them on each move.
+
 ## 1.44.0 - 2026-11-04
 
 **Added**
