@@ -109,7 +109,7 @@ Before and after, each scenario on the same fictional house and the same machine
 | ...on a tablet the ladder flagged | 94 of 154 | 0 of 158 | 45 of 90 | 0 of 89 |
 | A new finger during a settle, page blank and touches refused for | 5.7 s, at every moment tried | never | 5.7 s or until the next page | never |
 | 12 rapid flicks: pages reached of 7 | 2 | 7 | 4 | 7 |
-| A slow release: finger, then next frames, then peak, px/ms | 0.35, 5.4, 9.2 | 0.27, 2.4, 5.7 | 0.30, 5.8, 7.9 | 0.30, 4.4, 5.3 |
+| A slow release: finger, then next frames, then peak, px/ms | 0.35, 5.4, 9.2 | 0.17, 1.1, 5.7 | 0.30, 5.8, 7.9 | 0.30, 4.0, 5.6 |
 | Page against finger, spread over a drag | 0.1 px | 0.1 px | 0.1 px | 0.1 px |
 | Flicked back from past a fifth | goes forward | goes back | goes forward | goes back |
 | First move at 6x CPU: largest frame gap, long tasks | 38-45 ms, one each way back | 30 ms, none | not measurable | not measurable |
@@ -122,7 +122,7 @@ Before and after, each scenario on the same fictional house and the same machine
 | Tab bar highlight | fixed, verified | follows by the page's own position; reads its boxes once a swipe; a caught settle takes it back |
 | Side Pane with a swipe | inspected | follows with its own short tween; unchanged |
 | Page background (sky) in a swipe | fixed | `swipeTo` waits until the settle is under way, so its paint can't hold up the first frame; back again if the finger brings the page back |
-| Home Grid views | fixed, verified | the spring, a view caught mid-slide, `--drag` no longer restyles what is inside the cells (300 to 47 ms of style work over a drag at 4x CPU) |
+| Home Grid views | fixed, verified | the spring, a view caught mid-slide, `--drag` no longer restyles what is inside the cells (300 to 47-79 ms of style work over a drag at 4x CPU) |
 | Home Grid hand-off to pages | fixed, verified | no jump |
 | Pager blocks | fixed, verified | one measure a drag; `hkDrag.glide` from the finger's speed; flicked back goes back; a finger stops a glide |
 | Side menu's edge swipe | fixed, verified in Chromium | the spring for that one move; WebKit's edge is a mouse in the checks |
@@ -132,7 +132,7 @@ Before and after, each scenario on the same fictional house and the same machine
 | Media sheet's swipe to dismiss | inspected | its fling out is DESIGN.md's, kept; not given the spring |
 | Notifications' swipe | inspected | not measured |
 | Drag and drop (Edit mode, grid editor) | inspected | `hkDrag.press`; no reads per move; its own checks pass |
-| Sky and wallpaper animation | inspected | CSS on the compositor; off under Reduce Motion, asleep and hidden. Idle cost with a page waiting beside Home: 78 against 77 ms of main thread over 12 s |
+| Sky and wallpaper animation | inspected | CSS on the compositor; off under Reduce Motion, asleep and hidden. At rest with a page waiting beside Home: 77-91 ms of main thread over 12 s, against 77 (its cards' own timers) |
 | `hk-fps.js` | inspected | still samples only at rest, as it should; it no longer decides whether a tablet sees its pages |
 
 ## What a browser here cannot say
@@ -148,7 +148,9 @@ them is an iPad.
 - **WebKit's touch.** Its finger in these checks is synthetic: no touch-action, no browser pan, no real hit testing or
   coalescing. Chromium's is real. What Safari does with `touch-action: pan-y` at the start of a real swipe is only known on an iPad.
 - **Memory.** The tile memory two more pages take in a swipe, and two more in the document at rest, isn't measured here. The
-  pages have no layer of their own at rest.
+  pages have no layer of their own at rest. With the finger held mid-drag, Chromium at 4x spends 0.8 ms of style and 0.9 ms
+  of layerizing a frame, against 0.4 and 0.6 before: the page on each side is drawn and moved, not one. The largest task
+  was 8.8 ms, against 15.2.
 - **How it feels.** `OMEGA` is a number chosen to match DESIGN.md's .34 s, and to keep a slow release from a kick. Its feel
   is for a person to judge.
 
