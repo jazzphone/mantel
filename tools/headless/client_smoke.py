@@ -300,6 +300,7 @@ async def smoke(shot=None, shots=None):
                           }
                           if (msg.type === 'settings_write') window.__settingsWrites++;
                           window.__sentFrames++;
+                          if (!/^read/.test(msg.type)) window.__sentChanges = (window.__sentChanges || 0) + 1;
                           return super.send(raw);
                         }
                       };
@@ -638,7 +639,7 @@ async def smoke(shot=None, shots=None):
                     # Phase 2 P2.3: HK's view host draws every page of the generated dashboard. Home was drawn by
                     # it; HK's own navigation moves to Lights in the same container (the sky stays), the back
                     # button returns to the cached Home, a hash (a pop-up) is not a page change, and each page's
-                    # cards follow the client. Commands stay blocked; not one frame leaves the page meanwhile.
+                    # cards follow the client. Commands stay blocked; no subscription changes meanwhile.
                     await browser.eval("""(() => {
                       window.__drew = (cards) => ({
                         cards: cards.length,
@@ -647,7 +648,7 @@ async def smoke(shot=None, shots=None):
                         hidden: cards.filter(c => c.hidden).length,
                         placeholders: cards.filter(c => c.localName === 'hk-card-placeholder').length,
                         fed: cards.every(c => c.client === window.__mantel.client) });
-                      window.__vhFrames = window.__sentFrames;
+                      window.__vhFrames = window.__sentChanges || 0;
                       window.__vhSky = document.querySelector('hk-view-container#view > #hk-sky');
                       window.__vhHome = window.__mantelViewHost.current();
                     })()""")
@@ -709,7 +710,9 @@ async def smoke(shot=None, shots=None):
                       return same && window.__mantelViewHost.current().element === el;
                     })()""")
                     assert hashed, "a hash change swapped the view"
-                    view_frames = await browser.eval("window.__sentFrames - window.__vhFrames")
+                    # (no subscription changed and nothing written; a page made ready beside the one shown, for a swipe, may read
+                    # its own data as its cards attach -- the Music page its library -- and those reads are allowed here)
+                    view_frames = await browser.eval("(window.__sentChanges || 0) - window.__vhFrames")
                     assert view_frames == 0, view_frames
                     assert await browser.eval("window.__blockedWrites") == 0
                     exceptions = [line for line in browser.console if line.startswith("EXCEPTION:")]
@@ -839,10 +842,13 @@ async def smoke(shot=None, shots=None):
                         and direct["placeholders"] == 0, direct
                     assert await browser.wait("window.__mantelNarrow !== undefined", 15), "Lights did not narrow"
                     narrowed_at = await browser.eval("window.__mantelMarks.narrowed")
+                    # (Home, beside Lights for a swipe, may have been made ready before Lights narrowed: then that one
+                    # narrowing took both pages' reads, and showing it changes nothing -- hk-pageswipe.js, web/home.js)
+                    home_ready = await browser.eval("window.__mantelViewHost.seen().indexOf('home') >= 0")
                     await browser.eval("window.hkShell.navigate('/dashboard-proof/home')")
                     assert await browser.wait("window.__mantelViewHost.current().path === 'home' && "
                                               "window.__mantelViewHost.current().element.isConnected", 10), "Home after Lights"
-                    assert await browser.wait(f"window.__mantelMarks.narrowed > {narrowed_at}", 15), "Home did not narrow"
+                    assert home_ready or await browser.wait(f"window.__mantelMarks.narrowed > {narrowed_at}", 15), "Home did not narrow"
                     narrow = await browser.eval("""(() => ({
                       ids: window.__mantelNarrow, states: Object.keys(window.__mantel._states).sort(),
                       fed: window.__mantelViewHost.current().cards.every(c => c.client === window.__mantel.client) }))()""")
