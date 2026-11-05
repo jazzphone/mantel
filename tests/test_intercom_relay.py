@@ -264,12 +264,25 @@ async def test_audio_is_rate_capped_and_never_closes_the_socket(ic):
     avery = await ic.actor("avery", "owner")
     ws = await avery.talk(rate=16000)
     frame = b"\x01" + bytes(frame_bytes(16000, 100))          # 100 ms each, a full frame
-    for _ in range(30):                                        # 3 s of audio at once
+    for _ in range(70):                                        # 7 s of audio at once
         await ws.send_bytes(frame)
     await asyncio.sleep(0.3)
     s = session_of(ic)
-    assert 32000 <= s.spool.nbytes <= 32000 + 10 * 3200, s.spool.nbytes   # ~1 s burst plus a sliver of refill
-    assert s.dropped >= 15 and not ws.closed
+    assert RL.BURST_S * 32000 <= s.spool.nbytes <= RL.BURST_S * 32000 + 10 * 3200, s.spool.nbytes   # the burst, a sliver more
+    assert s.dropped >= 20 and s.first_drop is not None and not ws.closed
+    await ws.close()
+
+
+async def test_a_few_seconds_held_back_by_the_network_arrive_together_and_are_kept(ic):
+    """2026-11-05: about 2 s of a Message were dropped when Wi-Fi delivered them at once."""
+    avery = await ic.actor("avery", "owner")
+    ws = await avery.talk(rate=16000)
+    frame = b"\x01" + bytes(frame_bytes(16000, 100))
+    for _ in range(35):                                        # 3.5 s, all at once
+        await ws.send_bytes(frame)
+    await asyncio.sleep(0.3)
+    s = session_of(ic)
+    assert s.spool.nbytes == 35 * 3200 and s.dropped == 0
     await ws.close()
 
 
@@ -628,9 +641,10 @@ async def test_nothing_picked_is_no_rooms(ic):
 
 async def test_the_group_trap_a_leader_is_skipped_unless_its_whole_group_is_in(ic):
     """2026-11-02: a bedtime message to a sync group's leader played in every room. On the FAKE Music Assistant only:
-    the Kitchen leads the Den; announcing to the Kitchen alone would play in the Den too, so it is skipped and Music
-    Assistant is told nothing; with both picked there is ONE call, to the leader, and the Den gets none of its own."""
-    await ic.ma.set(KITCHEN, group_members=[KITCHEN, DEN])
+    the Kitchen leads the Den, playing music; announcing to the Kitchen alone would play in the Den too, so it is skipped
+    and Music Assistant is told nothing; with both picked there is ONE call, to the leader, and the Den gets none of its
+    own. (An idle group left from music is borrowed instead: tests/test_intercom_borrow.py.)"""
+    await ic.ma.set(KITCHEN, "playing", group_members=[KITCHEN, DEN])
     await IF.wait_for(lambda: DEN in (ic.hub.store.states[KITCHEN]["a"].get("group_members") or []))
     avery = await ic.actor("avery", "owner")
     ws = await avery.talk()
@@ -649,7 +663,8 @@ async def test_the_group_trap_a_leader_is_skipped_unless_its_whole_group_is_in(i
 
 
 async def test_a_member_of_a_group_is_announced_to_alone(ic):
-    await ic.ma.set(KITCHEN, group_members=[KITCHEN, DEN])
+    """A group playing music: an idle one left from music is borrowed instead (tests/test_intercom_borrow.py)."""
+    await ic.ma.set(KITCHEN, "playing", group_members=[KITCHEN, DEN])
     await IF.wait_for(lambda: DEN in (ic.hub.store.states[KITCHEN]["a"].get("group_members") or []))
     avery = await ic.actor("avery", "owner")
     ws = await avery.talk()

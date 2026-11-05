@@ -305,6 +305,14 @@
           '.np .bg img{position:absolute;inset:-40px;width:calc(100% + 80px);',
           '  height:calc(100% + 80px);object-fit:cover;filter:blur(34px);',
           '  transform:scale(1.06);opacity:.62}',
+          // ITS OWN LAYER, FOR THE ONE THING IT IS FOR (2026-11-05, the owner's screen recordings): sharing a layer with the
+          // player, the blur is painted again with every repaint over it -- the time, the progress, a hover -- and only inside
+          // that repaint's rectangle, where Safari's blur comes out a shade off the one around it. On screen, rectangles of the
+          // background flashing lighter and darker a few times a second, on a Mac at every tick. On a layer of its own the
+          // cover is blurred once and nothing over it touches it. The docked bar keeps Chrome's raster (a page scrolls under
+          // it, below: that would blur again every scroll frame on a wall tablet) and gets the layer only in Safari.
+          '.np:not(.bar) .bg img{will-change:transform}',
+          '@supports (font:-apple-system-body){.np.bar .bg img{will-change:transform}}',
           '.np .bg .flat{position:absolute;inset:0;',
           '  background:linear-gradient(125deg,#2a2524,#14161c)}',
           // A darkening wash. Without it the text sits on whatever the album
@@ -714,7 +722,8 @@
         // keep today's white. The tall layout has no plate and takes the light
         // look (tall() above).
         ':host([data-hk-light]) hk-plate.np.bar{' + window.hkCards.LIGHT_OFF + '}',
-        '@media (min-width:' + (window.hkCards.BP.phone + 1) + 'px){:host([data-hk-light]) hk-plate.np:not(.tall){' + window.hkCards.LIGHT_OFF + '}}',
+        // (not Background: Card: that is the screen's own plate, so it takes the light look as the blocks round it do)
+        '@media (min-width:' + (window.hkCards.BP.phone + 1) + 'px){:host([data-hk-light]) hk-plate.np:not(.tall):not(.plain){' + window.hkCards.LIGHT_OFF + '}}',
           '@media (prefers-reduced-motion:reduce){',
           '  .np .tb,.np .tb:active{transition:none;transform:none}}',
           // ======================================== ON A HOME GRID (G2)
@@ -779,7 +788,10 @@
           ':host([size]) .np .brw{grid-area:brw}',
           ':host([size]) .np .spk::before,:host([size]) .np .brw::before{content:"";position:absolute;left:50%;top:50%;width:var(--np-well,34px);height:var(--np-well,34px);',
           '  border-radius:50%;background:rgba(255,255,255,.16);transform:translate(-50%,-50%)}',
+          // (display:flex: an inline hk-icon draws its glyph on a line of text, below the middle by as much as the
+          // size's font sets -- 1 to 2 px low in the well on Small, Wide and Tall, 2026-11-05, the owner)
           ':host([size]) .np .spk hk-icon,:host([size]) .np .brw svg{position:relative}',
+          ':host([size]) .np .spk hk-icon{display:flex;align-items:center;justify-content:center}',
           ':host([size]) .np .spk hk-icon{width:20px;height:20px;--mdc-icon-size:20px;color:#fff}',
           ':host([size]) .np .brw svg{width:19px;height:19px}',
           // (nothing plays: no rooms to move -- Browse still starts something)
@@ -853,7 +865,19 @@
           ':host([size=W][data-grid-pager]) hk-plate.np{--np-art:calc(100cqh - 64px);',
           '  --hk-np-areas:"art title title title title title" "art spk prev play next brw";--hk-np-rows:minmax(0,1fr) 46px}',
           ':host([size=W][data-grid-pager]) .np .artist{display:none}',
-          ':host([size=T][data-grid-pager]) hk-plate.np{--np-art:min(100cqw - 76px,100cqh - 174px)}'
+          ':host([size=T][data-grid-pager]) hk-plate.np{--np-art:min(100cqw - 76px,100cqh - 174px)}',
+          // BACKGROUND: CARD (2026-11-05, the owner): the plate every other block has, in the screen's look, and its inks --
+          // on a light look the player's white would be gone. No cover behind it, no wash; the wells and glyphs lose the
+          // shadows that lifted them off a picture. (.plain.np and the size: past the rules above, whichever the block)
+          'hk-plate.np.plain,:host([size]) hk-plate.np.plain{' + window.hkCards.plate('card') + '}',
+          '.np.plain .bg,.np.plain .shade{display:none}',
+          '.np.plain .title{color:' + window.hkCards.v('ink') + '}',
+          '.np.plain .artist,.np.plain .player,:host([size]) .np.plain .lab,:host([size]) .np.plain .vg{color:' + window.hkCards.v('ink-2') + '}',
+          '.np.plain .art .none{background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink-2') + '}',
+          '.np.plain .tb hk-icon,.np.plain .tb:active hk-icon,:host([size]) .np.plain .spk hk-icon{color:' + window.hkCards.v('ink') + ';filter:none}',
+          '.np.plain .brw,:host([size]) .np.plain .spk,:host([size]) .np.plain .brw{color:' + window.hkCards.v('ink') + '}',
+          '.np.plain .brw svg{filter:none}',
+          ':host([size]) .np.plain .spk::before,:host([size]) .np.plain .brw::before{background:' + window.hkCards.v('key') + '}'
         ].join('');
       }
 
@@ -1453,7 +1477,7 @@
             ' data-hk-role="close"><hk-icon icon="mdi:close"></hk-icon></div>' +
             '</div></hk-plate>';
           var q = this._root.querySelector.bind(this._root);
-          this._e = { bg: q('.bg'), art: q('.art'), title: q('.title'),
+          this._e = { plate: q('hk-plate.np'), bg: q('.bg'), art: q('.art'), title: q('.title'),
                       artist: q('.artist'), player: q('.player'), meta: q('.meta'),
                       sub: q('.sub'), play: q('.play'), spk: q('.spk'), lab: q('.lab') };
           var self = this;
@@ -1568,7 +1592,8 @@
           }
           this._built = true;
         }
-        var e = this._e, p = this._player(), pic = this._art(p);
+        var e = this._e, p = this._player(), pic = this._art(p), plain = cfg.background === 'card';
+        if (e.plate) e.plate.classList.toggle('plain', plain);
         if (cfg.bar) this._closeGlyph();
         // HIDE_IDLE (the docked #media bar): nothing playing or paused, no
         // player at all -- the bar opened for the timers alone is just their
@@ -1617,7 +1642,8 @@
         // (ITEM 46: through hkCards.artImg, so a cover that will not load is the
         // note and a flat backdrop, never the broken-image "?"; the guard is the card's)
         var AI = window.hkCards.artImg;
-        var bg = pic ? AI(pic, { ph: 'bg', attrs: 'decoding="sync"' }) : '<div class="flat"></div>';
+        // (Background: Card has none, so nothing decodes the cover twice for it)
+        var bg = plain ? '' : pic ? AI(pic, { ph: 'bg', attrs: 'decoding="sync"' }) : '<div class="flat"></div>';
         window.hkCards.morph(e.bg, bg);
         var art = pic ? AI(pic, { ph: 'note', attrs: 'decoding="sync"' })
                       : '<div class="none">&#9835;</div>';

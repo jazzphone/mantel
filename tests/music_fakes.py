@@ -201,6 +201,7 @@ class HouseMa(FakeMa):
             p["volume_level"] = p["group_volume"] = round(attrs.pop("volume_level") * 100)
         if "group_members" in attrs:
             p["group_members"] = [PID[e] for e in attrs.pop("group_members")]
+            p["group_childs"] = list(p["group_members"])           # Music Assistant lists a group here too
         if "shuffle" in attrs:
             q["shuffle_enabled"] = attrs.pop("shuffle")
         media = dict(p.get("current_media") or {})

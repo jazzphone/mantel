@@ -71,7 +71,7 @@ has its own.
    do:
    - **clock**: it plays after you finish;
    - **moon**: quiet hours, so it's skipped;
-   - a second line, **Plays with Office**: the room leads other rooms' music, so it plays only together with them (see below);
+   - a second line, **Plays with Office**: the room leads other rooms' music that is playing, so it plays only together with them (see below);
    - **person**: you're there, so it's left out in Live.
 
    Tap a skipped room to see why.
@@ -80,9 +80,15 @@ has its own.
    or **Send Again**. (With no room picked, it waits for you to pick one and
    press **Send**.)
 
-Every room hears the message at the same moment. Music already playing in a room
-is turned down under it and comes back afterward. A soft chime plays first; you
-can turn the chime off in Settings.
+Every room hears the message at the same moment. Mantel briefly groups the idle
+rooms you picked, plays the message once on the group's one clock, and puts every
+speaker back on its own. If a group doesn't come together, each room plays the
+message on its own, a moment apart, so a message is never lost. Music already
+playing in a room is turned down under it and comes back afterward. Rooms playing
+music are in step with each other, but can be a moment apart from the idle rooms.
+Rooms set to different volumes can't share a group, so give them the same volume
+if you want them exactly together. A soft chime plays first; you can turn the
+chime off in Settings.
 
 The music players ignore the Intercom. While a message plays, the Music page, the
 Side Pane, the player and the screensaver don't show it as music: a room that was
@@ -97,7 +103,7 @@ Anyway**. The audit log records it.
 when an Owner allows it in Settings. It plays a few seconds behind you, because
 AirPlay buffers and an idle HomePod has to wake up first; the sheet shows the
 measured delay. The rooms keep playing for those few seconds after you let go: that's the end
-of what you said, not a second message. Live is live only in rooms that are idle when you start. A room
+of what you said, not a second message. Idle rooms at the same volume play Live as one group, in step, the way a Message does; rooms at different volumes make separate groups, and if a group doesn't come together, each room plays on its own, a moment apart. Live is live only in rooms that are idle when you start. A room
 playing music, or set to Message-only, hears the whole thing as a message when
 you finish. If a room drops out of Live partway through, it gets the whole
 message when you finish, so nothing you said is lost.
@@ -123,10 +129,19 @@ on a speaker always wins. See [People and Roles](People-and-Roles.md).
 
 Music Assistant plays an announcement sent to the speaker that **leads** a
 group on the **whole group**. If the Kitchen leads the Office's music, a
-message to the Kitchen alone would play in the Office too. So the Intercom
-skips a room that leads other rooms, unless every room it leads is in the
-broadcast. In that case they all hear it once, in step. A room that **follows**
-another is fine: Music Assistant announces to it alone.
+message to the Kitchen alone would play in the Office too. So while that music
+is playing or paused, the Intercom skips a room that leads other rooms, unless
+every room it leads is in the broadcast. In that case they all hear it once,
+in step. A room that **follows** another is fine: Music Assistant announces to
+it alone.
+
+**After the music stops**, the speakers stay grouped, so the next Play is still
+whole-house. That leftover group doesn't limit the Intercom: pick the Master
+Bedroom alone and only the Master Bedroom hears it, and a room inside the
+group, such as a pair, plays as one. Mantel takes the other
+speakers out of the group for the message and puts them back, in their order,
+as soon as it's over. It does this only when every speaker in the group is
+idle and you may use all of its rooms.
 
 Mantel checks this against both Home Assistant and Music Assistant. If either
 says the room leads, it's skipped. If Music Assistant's list of speakers can't

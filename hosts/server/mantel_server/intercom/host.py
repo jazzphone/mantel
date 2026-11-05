@@ -29,6 +29,7 @@ DOC = "intercom"                    # house/<this>
 OVERRIDE_ROLES = frozenset({"owner", "admin", "adult"})       # may press Send Anyway (decision 10)
 REMOTE_DOORS = frozenset({"tunnel"})
 MA_CACHE = 4.0
+GROUP_FAILED = "group_failed"       # a Live room whose temporary group's leader failed: not the room's own failure
 MARK_GRACE = 2.0                    # a room that played stays out of the music players this much longer (its last updates)
 
 
@@ -48,6 +49,7 @@ class IntercomHost:
         self.last_test = -1e9
         self.testing: str | None = None          # Send Test holds the floor while its chime plays
         self._ma_cache: tuple[float, Any] | None = None
+        self._parting: set[asyncio.Task] = set()     # temporary groups of a stopped Live talk, going back
 
     # -- settings --------------------------------------------------------------------------------------------
     @property
@@ -178,6 +180,7 @@ class IntercomHost:
 
     async def close(self) -> None:
         await self.relay.close()
+        await self._parted()
         self.links.kill_all()
         if self.listener is not None:
             await self.listener.stop()
@@ -205,13 +208,61 @@ class IntercomHost:
         user = getattr(getattr(principal, "identity", None), "user", None)
         return user is not None and user.role in OVERRIDE_ROLES
 
-    async def plan(self, principal: Any, picks: list[str], mode: str, override: bool) -> Any:
+    async def _parted(self) -> None:
+        """Any stopped talk's speakers are back on their own (the page's own copy, sent the moment its socket drops, is
+        decided after this, and plays as a broadcast of its own)."""
+        if self._parting:
+            await asyncio.wait(set(self._parting), timeout=D.SETTLE_WAIT + 2 * D.GROUP_WAIT + 2)
+
+    def held(self) -> Any:
+        """The speakers holding paused music (the music engine's resumes): left alone."""
+        resumes = getattr(self.music, "resumes", None)
+        return resumes.players(time.monotonic()) if resumes is not None else ()
+
+    async def plan(self, principal: Any, picks: list[str], mode: str, override: bool, borrow: bool = True) -> Any:
+        await self._parted()
         house, music, pids = self.setup()
         doc = self.doc()
         rooms = R.expand(music, picks)
         return R.decide(house, music, doc, rooms, mode=mode, here=self.here(principal, house, music),
                         override=override and self.may_override(principal), allowed=self.allowed(principal),
-                        ma_raw=await self.ma_raw(), pids=pids), pids, music
+                        ma_raw=await self.ma_raw(), pids=pids, held=self.held(), borrow=borrow), pids, music
+
+    def _later(self, coro: Any) -> asyncio.Task:
+        """Speakers going back after a stopped talk: the socket doesn't wait for it, the next broadcast does (_parted)."""
+        task = asyncio.get_running_loop().create_task(coro)
+        self._parting.add(task)
+        task.add_done_callback(self._parting.discard)
+        return task
+
+    async def _borrow(self, aid: int, run: Any, plan: Any, pids: dict) -> tuple[Any, list[Any]]:
+        """The plan's groups left from music taken apart (rooms.leftovers), the music players leaving their speakers as
+        they were. Returns the plan without the calls that can't be made now (a leader whose group didn't come apart
+        would play on all of it) and those calls."""
+        if not plan.loose:
+            return plan, []
+        tracker = getattr(self.music, "announcements", None)
+        entity = {v: k for k, v in pids.items()}
+        if tracker is not None:
+            for g in plan.loose:
+                tracker.mark(f"intercom:{aid}:lent:{g.leader}", [entity.get(m, m) for m in g.members])
+        stuck = await D.borrow(self.ma, run, plan.loose)
+        if not stuck:
+            return plan, []
+        log.info("intercom: %d group(s) left from music didn't come apart; their leaders' rooms are left out", len(stuck))
+        out = [c for c in plan.calls if pids.get(c.player) in stuck]
+        keep = [c for c in plan.calls if pids.get(c.player) not in stuck]
+        sync = [g for g in plan.sync if not any(pids.get(c.player) in stuck for c in g.calls)]
+        return R.Plan(rooms=plan.rooms, calls=keep, sync=sync, loose=plan.loose), out
+
+    async def _give_back(self, aid: int, run: Any, loose: list[Any]) -> None:
+        if not loose:
+            return
+        await D.give_back(self.ma, run, loose)
+        tracker = getattr(self.music, "announcements", None)
+        if tracker is not None:
+            for g in loose:
+                tracker.unmark(f"intercom:{aid}:lent:{g.leader}", grace=MARK_GRACE)
 
     # -- a Message ---------------------------------------------------------------------------------------------
     async def send_message(self, s: Any, picks: list[str], override: bool) -> str:
@@ -264,30 +315,48 @@ class IntercomHost:
         s.broadcast = plan
         token, link = self.links.mint(spool, mode="message", finite=True, limit_s=C.limit_s(doc, "message"))
         url = f"{doc['stream_base']}/s/{token}.wav"
-        run = D.IntercomRun(s.principal, aid, {pids[c.player] for c in plan.calls}, [url])
+        run = D.IntercomRun(s.principal, aid, {pids[c.player] for c in plan.calls}, [url],
+                            groups={pids[g.leader.player]: [pids[c.player] for c in g.members] for g in plan.sync},
+                            lent={g.leader: g.members for g in plan.loose})
+        links = [link]
+        loose, every = list(plan.loose), list(plan.calls)
+
+        def new_url() -> str:
+            """The fall back's link (a temporary group that didn't start: Music Assistant may have read the first)."""
+            again, more = self.links.mint(spool, mode="message", finite=True, limit_s=C.limit_s(doc, "message"))
+            links.append(more)
+            address = f"{doc['stream_base']}/s/{again}.wav"
+            run.add_url(address)
+            return address
+
         outcome = D.Outcome()
         result = "error:not_sent"
         try:
             await self._say(s, {"type": "sending", "rooms": len({c.room for c in plan.calls})})
             self._tell_listeners(doc, plan, spool, s)
             self._hide(aid, plan.calls)
-            outcome.results = await D.announce(
-                self.ma, run, plan.calls, pids, url, chime=doc["chime"]["message"],
+            plan, out = await self._borrow(aid, run, plan, pids)
+            outcome.results = await D.broadcast(
+                self.ma, run, plan, pids, url, new_url=new_url, chime=doc["chime"]["message"],
                 timeout=C.limit_s(doc, "message") + D.CALL_GRACE, names=music.name_of,
                 done=lambda call, ok: self._show(aid, call, ok))
+            outcome.results += [D.RoomResult(c.room, music.name_of(c.room), c.player, error=D.STILL_GROUPED) for c in out]
             result = D.result_of(outcome, len(plan.skipped))
-            await self._say(s, {"type": "sent", "rooms": outcome.rooms_ok, "failed": outcome.failed})
+            await self._say(s, {"type": "sent", "rooms": _reached(every, outcome, music), "failed": outcome.failed})
             return result
         finally:
-            self._show_all(aid, plan.calls)
+            if loose:
+                await asyncio.shield(self._give_back(aid, run, loose))
+            self._show_all(aid, every)
             run.close()
-            self.links.kill(link)
+            for one in links:
+                self.links.kill(one)
             self._finish(aid, result)
             s.broadcast = None
             self.last_broadcast = None
 
     # -- the music players leave it out (docs/phase17/INTERCOM-SYNC.md part A) ---------------------------------------
-    def _hide(self, aid: int, calls: list[Any]) -> None:
+    def _hide(self, aid: int, calls: list[Any], again: bool = False) -> None:
         """Before the first command: the Music card, Side Pane, player, screensaver and iOS app leave these rooms as
         they were. Not a room playing music: Music Assistant mixes the message into it, its song and cover don't change,
         and a marked room would leave Now Playing while its music goes on."""
@@ -295,7 +364,8 @@ class IntercomHost:
         if tracker is None:
             return
         for call in calls:
-            if not self._playing(call.room):
+            if again or not self._playing(call.room):
+                # (``again``: Live's rooms heard the talk as a Message after; "playing" then is Live's own sound)
                 tracker.mark(_mark_key(aid, call), [call.player, *call.covers])
 
     def _show(self, aid: int, call: Any, ok: bool) -> None:
@@ -393,26 +463,34 @@ class IntercomHost:
         s.spool = self.new_spool(s.rate, limit)
         token, link = self.links.mint(s.spool, mode="live", finite=False, limit_s=limit)
         url = f"{doc['stream_base']}/s/{token}.wav"
-        run = D.IntercomRun(s.principal, aid, {pids[c.player] for c in plan.calls}, [url])
+        run = D.IntercomRun(s.principal, aid, {pids[c.player] for c in plan.calls}, [url],
+                            groups={pids[g.leader.player]: [pids[c.player] for c in g.members] for g in plan.sync},
+                            lent={g.leader: g.members for g in plan.loose})
         self._hide(aid, [c for c in plan.calls if c.live])
+        plan, out = await self._borrow(aid, run, plan, pids)
+        for c in out:                          # its group didn't come apart: the Message at the end decides it again
+            c.live = False
+            plan.calls.append(c)
         s.broadcast = LiveBroadcast(plan, pids, music, doc, aid, run, link, url, asyncio.get_running_loop().time())
         s.broadcast.task = asyncio.get_running_loop().create_task(self._live_calls(s, s.broadcast))
-        live_now = [c for c in plan.calls if c.live]
         after = plan.names("after")
         await self._say(s, {"type": "sending", "rooms": len({c.room for c in plan.calls}),
-                              "live": len({c.room for c in live_now}), "after": after,
+                              "live": sum(1 for r in plan.rooms if r["live"]), "after": after,
                               "lag_ms": doc.get("lag_ms")})
         return None
 
     async def _live_calls(self, s: Any, b: "LiveBroadcast") -> None:
-        """The live rooms' calls, each watched for the five failure signals (docs/phase17/INTERCOM.md)."""
+        """The live rooms' calls, each watched for the five failure signals (docs/phase17/INTERCOM.md). Rooms that can
+        play in step make one temporary group, called through its leader and watched room by room; a group that doesn't
+        come together makes one call per room, on the same link (nothing has read it yet)."""
         live_calls = [c for c in b.plan.calls if c.live]
         if not live_calls:
             return
         loop = asyncio.get_running_loop()
-        t_call = loop.time()
+        calling: dict[str, asyncio.Task] = {}
+        called: dict[str, asyncio.Event] = {c.player: asyncio.Event() for c in live_calls}    # watching starts here
 
-        async def one(call: Any) -> D.RoomResult:
+        async def one(call: Any, *, leads: bool = False) -> D.RoomResult:
             res = D.RoomResult(call.room, b.music.name_of(call.room), call.player, live=True)
             args: dict[str, Any] = {"player_id": b.pids[call.player], "url": b.url,
                                     "pre_announce": bool(b.doc["chime"]["live"])}
@@ -420,14 +498,17 @@ class IntercomHost:
                 args["volume_level"] = int(call.volume)
             task = loop.create_task(self.ma.command(b.run, D.ANNOUNCE,
                                                     timeout=C.limit_s(b.doc, "live") + D.CALL_GRACE, **args))
+            calling[call.player] = task
+            called[call.player].set()
             while True:
                 done, _ = await asyncio.wait({task}, timeout=0.5)
                 if done:
                     break
                 if call.player in b.failed and s.spool is not None and s.spool.finished:
                     # failed live and the talker is done: fall back now, not when Music Assistant gives up
-                    task.cancel()
-                    await asyncio.gather(task, return_exceptions=True)
+                    if not leads:                     # (a leader's call: settle waits for it, then the group parts)
+                        task.cancel()
+                        await asyncio.gather(task, return_exceptions=True)
                     res.error = b.why.get(call.player, "failed")
                     return res
             try:
@@ -441,7 +522,33 @@ class IntercomHost:
                 res.error = D.error_code(exc)                            # signal 2
             return res
 
+        async def together(sync: Any) -> list[D.RoomResult]:
+            leader, members = b.pids[sync.leader.player], [b.pids[c.player] for c in sync.members]
+            try:
+                why = await D._join(self.ma, b.run, leader, members)
+                if why is not None:
+                    log.info("intercom: a Live group of %d fell back to one call per room (%s)", len(sync.calls), why)
+                    await D.settle(self.ma, b.run, leader, members)
+                    safe, grouped = await D.on_their_own(self.ma, sync.calls, b.pids)
+                    for c in grouped:             # the Message at the end decides them again, group check and all
+                        watchers[c.player].cancel()
+                    return [*await asyncio.gather(*map(one, safe)),
+                            *(D.RoomResult(c.room, b.music.name_of(c.room), c.player, live=True, error=D.STILL_GROUPED)
+                              for c in grouped)]
+                for c in sync.members:
+                    called[c.player].set()
+                said = await one(sync.leader, leads=True)
+            except BaseException:
+                # stopped: the socket's end must not wait for the speakers, but the next broadcast does (_parted)
+                self._later(D.settle(self.ma, b.run, leader, members, calling.get(sync.leader.player)))
+                raise
+            await D.settle(self.ma, b.run, leader, members, calling.get(sync.leader.player))
+            return [said, *(D.RoomResult(c.room, b.music.name_of(c.room), c.player, ok=said.ok, live=True,
+                                         error=None if said.ok else GROUP_FAILED) for c in sync.members)]
+
         async def watch(call: Any) -> None:
+            await called[call.player].wait()
+            t_call = loop.time()
             try:
                 await asyncio.wait_for(b.link.fetch_started.wait(), D.CLAIM_WAIT)
             except asyncio.TimeoutError:
@@ -457,19 +564,31 @@ class IntercomHost:
             b.failed.add(call.player)                                     # signal 3
             b.why.setdefault(call.player, "not_playing")
 
-        watchers = [loop.create_task(watch(c)) for c in live_calls]
+        watchers = {c.player: loop.create_task(watch(c)) for c in live_calls}
         try:
-            results = await asyncio.gather(*(one(c) for c in live_calls))
-            await asyncio.gather(*watchers, return_exceptions=True)     # each ends by its own wait (<= 10 s)
+            grouped = {id(c) for g in b.plan.sync for c in g.calls}
+            alone = [one(c) for c in live_calls if id(c) not in grouped]
+            results = [r for part in await asyncio.gather(asyncio.gather(*alone), *map(together, b.plan.sync))
+                       for r in part]
+            await asyncio.gather(*watchers.values(), return_exceptions=True)     # each ends by its own wait (<= 10 s)
         finally:
-            for w in watchers:                                           # only left running when aborted
+            for w in watchers.values():                                  # only left running when aborted
                 w.cancel()
-            await asyncio.gather(*watchers, return_exceptions=True)
+            await asyncio.gather(*watchers.values(), return_exceptions=True)
         for r in results:
             if b.link.ended_early:
                 r.ok, r.error = False, r.error or "fetch_ended_early"    # signal 4
             if r.player in b.failed:
                 r.ok, r.error = False, r.error or b.why.get(r.player, "failed")
+        by_player = {r.player: r for r in results}
+        for g in b.plan.sync:                                            # a leader that failed took its members with it
+            if not by_player[g.leader.player].ok and by_player[g.leader.player].error != D.STILL_GROUPED:
+                for c in g.members:
+                    if by_player[c.player].error != D.STILL_GROUPED:
+                        by_player[c.player].ok, by_player[c.player].error = False, GROUP_FAILED
+        for r in results:
+            if not r.ok:                    # which of the five signals, never what was said
+                log.info("intercom: %s didn't play live (%s)", r.name, r.error)
         b.results = list(results)
 
     def _playing(self, player: str) -> bool:
@@ -494,11 +613,18 @@ class IntercomHost:
             if retry:
                 # THE GROUP CHECK AGAIN, NOW: the talk may have lasted a minute, and a room grouped meanwhile under a
                 # leader (or made to lead) would carry the message further. Only calls a fresh plan still makes go out.
-                rooms = list(dict.fromkeys(c.room for c in retry))
-                fresh, _pids, _music = await self.plan(s.principal, rooms, "message", False)
+                # (with the rooms a leader's call covers: without them, its own members look like outsiders)
+                covered = {p for c in retry for p in c.covers}
+                rooms = list(dict.fromkeys([*(c.room for c in retry),
+                                            *(r["room"] for r in b.plan.playing
+                                              if covered.intersection(b.music.players_of([r["room"]])))]))
+                fresh, _pids, _music = await self.plan(s.principal, rooms, "message", False, borrow=False)
                 again = {(c.player, tuple(c.covers)) for c in fresh.calls}
                 dropped = sorted({c.room for c in retry if (c.player, tuple(c.covers)) not in again})
-                retry = [c for c in retry if (c.player, tuple(c.covers)) in again]
+                wanted = {(c.player, tuple(c.covers)) for c in retry}
+                retry = [c for c in fresh.calls if (c.player, tuple(c.covers)) in wanted]
+                sets = [g for g in fresh.sync if all((c.player, tuple(c.covers)) in wanted for c in g.calls)]
+                b.run.add_groups({b.pids[g.leader.player]: [b.pids[c.player] for c in g.members] for g in sets})
                 if dropped:
                     log.info("intercom: %d room(s) changed during the talk and were left out of the message",
                              len(dropped))
@@ -506,23 +632,32 @@ class IntercomHost:
             if fallback_names:
                 await self._say(s, {"type": "fallback", "rooms": fallback_names})
             outcome = D.Outcome([r for r in b.results if r.ok])
+            again = {c.player for c in retry}
             for call in b.plan.calls:
                 for r in b.results:
-                    if r.player == call.player:
-                        self._show(b.aid, call, r.ok)
-            self._hide(b.aid, retry)
+                    if r.player == call.player and call.player not in again:
+                        self._show(b.aid, call, r.ok)       # (a room the Message is for stays out until it has played)
+            self._hide(b.aid, retry, again=True)
             if retry:
-                token, link = self.links.mint(s.spool, mode="message", finite=True,
-                                              limit_s=C.limit_s(b.doc, "live"))
-                url = f"{b.doc['stream_base']}/s/{token}.wav"
-                b.run.add_url(url)
+                links = []
+
+                def new_url() -> str:
+                    token, link = self.links.mint(s.spool, mode="message", finite=True,
+                                                  limit_s=C.limit_s(b.doc, "live"))
+                    links.append(link)
+                    address = f"{b.doc['stream_base']}/s/{token}.wav"
+                    b.run.add_url(address)
+                    return address
+
+                url = new_url()
                 try:
-                    outcome.results += await D.announce(
-                        self.ma, b.run, retry, b.pids, url, chime=b.doc["chime"]["message"],
-                        timeout=C.limit_s(b.doc, "live") + D.CALL_GRACE, names=b.music.name_of,
-                        done=lambda call, ok: self._show(b.aid, call, ok))
+                    outcome.results += await D.broadcast(
+                        self.ma, b.run, R.Plan(calls=retry, sync=sets), b.pids, url, new_url=new_url,
+                        chime=b.doc["chime"]["message"], timeout=C.limit_s(b.doc, "live") + D.CALL_GRACE,
+                        names=b.music.name_of, done=lambda call, ok: self._show(b.aid, call, ok))
                 finally:
-                    self.links.kill(link)
+                    for link in links:
+                        self.links.kill(link)
             self._tell_listeners(b.doc, b.plan, s.spool, s)      # listener tablets: the whole talk, at its end
             if b.lags:
                 lag = int(sorted(b.lags)[len(b.lags) // 2] * 1000)
@@ -530,10 +665,12 @@ class IntercomHost:
             self._live_health(b)
             base = D.result_of(outcome, len(b.plan.skipped), fallback=bool(fallback_names))
             result = ("ok:max_length" if why == "max_length" and base == "ok" else base)
-            await self._say(s, {"type": "sent", "rooms": outcome.rooms_ok, "failed": outcome.failed,
+            await self._say(s, {"type": "sent", "rooms": _reached(b.plan.calls, outcome, b.music), "failed": outcome.failed,
                                 "fallback": fallback_names})
             return result
         finally:
+            if b.plan.loose:
+                await asyncio.shield(self._give_back(b.aid, b.run, b.plan.loose))
             self._show_all(b.aid, b.plan.calls)
             b.run.close()
             self.links.kill(b.link)
@@ -552,6 +689,14 @@ class IntercomHost:
         if b.task is not None:
             b.task.cancel()
             await asyncio.gather(b.task, return_exceptions=True)
+        if b.plan.loose and b.run.open:
+            before = set(self._parting)        # its temporary groups go back first (together's settle)
+
+            async def back() -> None:
+                if before:
+                    await asyncio.wait(before)
+                await self._give_back(b.aid, b.run, b.plan.loose)
+            self._later(back())
         self._show_all(b.aid, b.plan.calls)
         if not b.run.open:                     # live_end or an earlier abort already wrote the row's result
             return
@@ -564,8 +709,8 @@ class IntercomHost:
         """Each live room's result (never about content); three failures in a row make it Message-only."""
         rooms: dict[str, bool] = {}
         for r in b.results:
-            if r.error in ("fetch_ended_early", "cancelled"):
-                continue               # the talker's page stalled or the talk was stopped: not the room's failure
+            if r.error in ("fetch_ended_early", "cancelled", GROUP_FAILED):
+                continue               # the talker's page stalled, the talk was stopped, its group's leader failed
             rooms[r.room] = rooms.get(r.room, True) and r.ok
         if not rooms:
             return
@@ -603,6 +748,16 @@ class LiveBroadcast:
     @property
     def rooms(self) -> list:
         return self.plan.rooms
+
+
+def _reached(calls: list[Any], outcome: Any, music: Any) -> int:
+    """The rooms that heard it: each call that played, and the rooms its group played it on (a leader's call covers its
+    members' rooms: 2026-11-05, nine rooms heard a message the sheet called "Sent to 2 rooms")."""
+    played = {r.player for r in outcome.results if r.ok}
+    rooms = {r.room for r in outcome.results if r.ok}
+    covered = {p for c in calls if c.player in played for p in c.covers}
+    rooms |= {r for r in music.room_ids if covered.intersection(music.players_of([r]))}
+    return len(rooms)
 
 
 def _mark_key(aid: int, call: Any) -> str:

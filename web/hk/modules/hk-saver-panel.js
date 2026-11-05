@@ -51,6 +51,25 @@
   var VOL_HOLD = 4000;          // ...and its own value stands this long after
   var DONE_MS = 1200;           // a request done: the answer read, then closed
   var BLUR = 32;                // the blurred art, drawn this small
+  // a box blur of RGBA pixels, `passes` times each way (three passes of a box are near enough a gaussian); the edges
+  // repeat their own pixels, so no dark rim comes in from outside the picture
+  function boxBlur(px, w, h, r, passes) {
+    var tmp = new Float32Array(px.length), n = 2 * r + 1, c, k, i, sum;
+    function pass(src, dst, len, lines, step, line) {
+      for (var l = 0; l < lines; l++) for (c = 0; c < 4; c++) {
+        sum = 0;
+        for (k = -r; k <= r; k++) sum += src[l * line + Math.max(0, Math.min(len - 1, k)) * step + c];
+        for (i = 0; i < len; i++) {
+          dst[l * line + i * step + c] = sum / n;
+          sum += src[l * line + Math.min(len - 1, i + r + 1) * step + c] - src[l * line + Math.max(0, i - r) * step + c];
+        }
+      }
+    }
+    for (var p = 0; p < passes; p++) {
+      pass(px, tmp, w, h, 4, w * 4);          // across each row
+      pass(tmp, px, h, w, w * 4, 4);          // down each column
+    }
+  }
 
   var ICON = {
     close: 'M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z',
@@ -135,6 +154,7 @@
     // the slide's: a card where the art was; the pane's: the whole pane
     '.mpanel.card{border-radius:18px;box-shadow:0 26px 70px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.12)}',
     '.mpbg{position:absolute;left:-8%;top:-8%;width:116%;height:116%;display:block}',
+    '.mpbg.soft{filter:blur(18px);will-change:transform}',
     '.mpshade{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(6,10,18,.56),rgba(6,10,18,.66))}',
     '.mpin{position:absolute;left:0;top:0;display:flex;flex-direction:column;text-shadow:0 1px 10px rgba(0,0,0,.18)}',
     '.mphd{flex:none;padding:20px 22px 10px}',
@@ -249,7 +269,13 @@
     '.mppill{display:flex;align-items:center;gap:10px;height:50px;padding:0 12px;border-radius:13px;background:rgba(255,255,255,.10);',
     '  font-size:15px;font-weight:600;cursor:pointer;min-width:0;box-sizing:border-box}',
     '.mppill hk-icon{--mdc-icon-size:20px;width:20px;height:20px;flex:none;color:#fff}',
-    '.mppill span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    // (a cover in the pill's corner; the name on two lines before it is cut, so Your Essentials reads whole)
+    '.mppill .th{flex:none;width:34px;height:34px;margin-left:-4px;border-radius:8px;background:rgba(255,255,255,.12) center/cover no-repeat;',
+    '  box-shadow:0 1px 4px rgba(0,0,0,.25)}',
+    '.mppill .th.gl{display:flex;align-items:center;justify-content:center;box-shadow:none}',
+    '.mppill.on .th.gl{background:rgba(0,0,0,.08)}',
+    '.mppill .th.gl hk-icon{display:flex;align-items:center;justify-content:center}',
+    '.mppill span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:18px;overflow-wrap:anywhere}',
     '.mppill.on{background:rgba(255,255,255,.9);color:#111;text-shadow:none}',
     '.mppill.on hk-icon{color:#111}',
     '.mppill.busy{opacity:.6}',
@@ -400,7 +426,14 @@
       if (!a || a === S.art) return;
       var cx = E.bg.getContext && E.bg.getContext('2d');
       if (!cx) return;
-      try { cx.clearRect(0, 0, BLUR, BLUR); cx.drawImage(a, 0, 0, BLUR, BLUR); S.art = a; } catch (e) { /* not ready */ }
+      try { cx.clearRect(0, 0, BLUR, BLUR); cx.drawImage(a, 0, 0, BLUR, BLUR); S.art = a; } catch (e) { return; /* not ready */ }
+      // BLURRED, NOT ONLY SMALL (2026-11-05, the owner: "the blur in the background isn't correct"): a 32 px copy stretched
+      // over the panel kept the cover's shapes -- its title in letters a panel high. Blurred here, once a song, where the
+      // cover can be read back (the house's own proxy, Music Assistant's under /ma); one that can't, from somewhere else,
+      // gets the page's blur instead, on a layer of its own so nothing drawn over it blurs it again (hk-media-now.js .bg)
+      var soft = false;
+      try { var d = cx.getImageData(0, 0, BLUR, BLUR); boxBlur(d.data, BLUR, BLUR, 3, 2); cx.putImageData(d, 0, 0); } catch (e) { soft = true; }
+      E.bg.classList.toggle('soft', soft);
     }
     function sub(icon, text) {
       var want = text ? svg(icon) + '<span>' + esc(text) + '</span>' : '';
@@ -698,7 +731,10 @@
       var html = pls.map(function (p, i) {
         var on = S.open === i;
         return '<div class="mppill' + (on ? ' on' : '') + (S.busy === 'pl' + i ? ' busy' : '') + '" data-pl="' + i + '">' +
-               (p.icon ? '<hk-icon icon="' + esc(p.icon) + '"></hk-icon>' : '') + '<span>' + esc(p.name) + '</span></div>' +
+               // (its cover, as the Music block's tiles have it -- 2026-11-05, the owner -- else its glyph)
+               // (one without a cover: its glyph on a tile the cover's size, so every name starts on one line)
+               (p.image ? '<i class="th" style="background-image:url(&quot;' + esc(p.image) + '&quot;)"></i>'
+                        : '<i class="th gl">' + (p.icon ? '<hk-icon icon="' + esc(p.icon) + '"></hk-icon>' : '') + '</i>') + '<span>' + esc(p.name) + '</span></div>' +
                (on && p.options ? '<div class="mpopts">' + p.options.map(function (x, j) {
                  return '<div class="mpchip" data-opt="' + i + ':' + j + '">' + esc(x.name) + '</div>';
                }).join('') + '</div>' : '');

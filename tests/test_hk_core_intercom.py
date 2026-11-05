@@ -373,8 +373,19 @@ def test_live_is_live_only_on_idle_live_capable_rooms(house, music):
     assert {c.player: c.live for c in p.calls} == {K: True, OFF: False, GR: False, DEN: False, PLAY: False}
 
 
-def test_a_group_in_live_plays_after_you_finish(house, music):
+def test_an_idle_group_left_from_music_is_live_through_its_leader(house, music):
     house.group(K, [LR])
+    p = decide(house, music, doc(), [K, LR], mode="live")
+    assert all(r["state"] == "ok" and r["live"] for r in p.rooms)
+    assert [(c.player, c.live, c.covers) for c in p.calls] == [(K, True, [LR])] and p.sync == []
+
+
+def test_a_group_with_a_member_that_cant_be_live_plays_after_you_finish(house, music):
+    house.group(K, [LR])
+    for d in (doc(**{LR.split(".")[1]: {"live": False}}), doc(**{LR.split(".")[1]: {"demoted": True}})):
+        p = decide(house, music, d, [K, LR], mode="live")
+        assert all(r["state"] == "after" for r in p.rooms) and not any(c.live for c in p.calls)
+    house.set(LR, "playing")
     p = decide(house, music, doc(), [K, LR], mode="live")
     assert all(r["state"] == "after" for r in p.rooms) and not any(c.live for c in p.calls)
 
@@ -509,3 +520,155 @@ def test_the_two_sources_naming_different_leaders_send_one_call(house, music):
     ma = ma_list(ap_lr=(["ap_lr", "ap_k"], None), ap_k=([], "ap_lr"))
     p = decide(house, music, doc(), [K, LR], ma=ma)
     assert len(p.calls) == 1 and states(p) == {K: ("ok", None), LR: ("ok", None)}
+
+
+# ------------------------------------------------------------------------------- rooms in step (INTERCOM-SYNC.md B)
+def groupable_list(**over):
+    """Every plain speaker in ma_list(), able to group with every other, plus what ``over`` changes (by player id)."""
+    out = []
+    plain = [p["player_id"] for p in ma_list() if p.get("type") != "group"]
+    for p in ma_list():
+        p = dict(p, available=True, powered=True, playback_state="idle", supported_features=["set_members"],
+                 can_group_with=[x for x in plain if x != p["player_id"]], active_group=None)
+        out.append(dict(p, **over.get(p["player_id"], {})))
+    return out
+
+
+def sync_of(plan):
+    return [(s.leader.room, [c.room for c in s.members]) for s in plan.sync]
+
+
+def test_two_idle_rooms_make_one_group(house, music):
+    plan = decide(house, music, doc(), [K, OFF], ma=groupable_list())
+    assert len(plan.sync) == 1 and {plan.sync[0].leader.room, *(c.room for c in plan.sync[0].members)} == {K, OFF}
+    assert plan.solo == [] and len(plan.calls) == 2
+
+
+def test_one_room_makes_none(house, music):
+    assert decide(house, music, doc(), [K], ma=groupable_list()).sync == []
+    assert decide(house, music, doc(), [K], mode="live", ma=groupable_list()).sync == []
+
+
+def test_live_groups_only_the_rooms_that_are_live_now(house, music):
+    plan = decide(house, music, doc(), [K, OFF], mode="live", ma=groupable_list())
+    assert len(plan.sync) == 1 and all(c.live for c in plan.sync[0].calls) and plan.solo == []
+    plan = decide(house, music, doc(office={"live": False}), [K, OFF], mode="live", ma=groupable_list())
+    assert plan.sync == [] and {c.room: c.live for c in plan.calls} == {K: True, OFF: False}
+
+
+def test_a_room_playing_keeps_its_own_call(house, music):
+    house.set(K, "playing")
+    plan = decide(house, music, doc(), [K, OFF, GR], ma=groupable_list())
+    assert sync_of(plan) and K not in {r for lead, rest in sync_of(plan) for r in [lead, *rest]}
+    assert [c.room for c in plan.solo] == [K]
+
+
+@pytest.mark.parametrize("change", [
+    {"type": "stereo_pair"}, {"available": False}, {"powered": False}, {"playback_state": "playing"},
+    {"playback_state": "paused"}, {"supported_features": []}, {"synced_to": "ap_lr"}, {"active_group": "sg_x"},
+    {"group_members": ["ap_off", "ap_lr"]},
+])
+def test_a_speaker_that_cannot_join_and_go_back_stays_out(house, music, change):
+    assert not R.groupable(dict(groupable_list()[0], **change))
+    raw = groupable_list(ap_off=change)
+    # (only the sync sets are in question: the group check has its own tests)
+    calls = [R.Call(K, K, 40), R.Call(OFF, OFF, 40), R.Call(GR, GR, 40)]
+    got = R.sync_sets(house, music, calls, raw, PIDS)
+    assert len(got) == 1 and OFF not in [c.player for c in got[0].calls]
+
+
+def test_a_group_player_a_leader_and_a_held_room_stay_out(house, music):
+    calls = [R.Call(K, K, 40), R.Call(OFF, OFF, 40)]
+    assert R.sync_sets(house, music, calls, groupable_list(), PIDS, held=[K]) == []
+    assert R.sync_sets(house, music, [R.Call(K, K, 40, covers=[GR]), calls[1]], groupable_list(), PIDS) == []
+    assert R.sync_sets(house, music, [R.Call(STEREO, STEREO, 40), *calls[:1]], groupable_list(), PIDS) == []
+
+
+def test_rooms_at_different_volumes_make_different_groups(house, music):
+    calls = [R.Call(K, K, 40), R.Call(OFF, OFF, 40), R.Call(GR, GR, 60), R.Call(LR, LR, 60), R.Call(DEN, DEN, 70)]
+    got = R.sync_sets(house, music, calls, groupable_list(), PIDS)
+    assert sorted(sorted(c.player for c in s.calls) for s in got) == [sorted([GR, LR]), sorted([K, OFF])]
+
+
+def test_only_speakers_the_leader_can_group_with_join_it(house, music):
+    raw = groupable_list(ap_k={"can_group_with": ["ap_off"]}, ap_off={"can_group_with": ["ap_k"]},
+                         ap_gr={"can_group_with": []})
+    calls = [R.Call(K, K, 40), R.Call(OFF, OFF, 40), R.Call(GR, GR, 40)]
+    got = R.sync_sets(house, music, calls, raw, PIDS)
+    assert [sorted(c.player for c in s.calls) for s in got] == [sorted([K, OFF])]
+
+
+def test_the_house_s_leader_rules_pick_the_leader(house, music):
+    calls = [R.Call(K, K, 40), R.Call(OFF, OFF, 40)]
+    music.announce_rooms = [K]
+    assert R.sync_sets(house, music, calls, groupable_list(), PIDS)[0].leader.room == OFF
+    music.announce_rooms, music.leaders = [], [OFF]
+    assert R.sync_sets(house, music, calls, groupable_list(), PIDS)[0].leader.room == OFF
+
+
+def test_an_unreadable_list_makes_no_group(house, music):
+    assert R.sync_sets(house, music, [R.Call(K, K, 40), R.Call(OFF, OFF, 40)], None, PIDS) == []
+
+
+# ------------------------------------------------------------------- a group left from music is borrowed (rooms.leftovers)
+def left_from_music(house, **over):
+    """The Kitchen leads the Office and the Guest Room, all idle, as music leaves them."""
+    house.group(K, [OFF, GR])
+    every = ["ap_k", "ap_off", "ap_gr", "ap_lr", "ap_den", "ap_play", "ap_sl", "ap_sr", "ap_st1", "ap_st2"]
+    base = {"ap_k": {"group_members": ["ap_k", "ap_off", "ap_gr"], "group_childs": ["ap_k", "ap_off", "ap_gr"],
+                     "can_group_with": [x for x in every if x != "ap_k"]},
+            "ap_off": {"synced_to": "ap_k", "can_group_with": []},       # a member lists nobody, as Music Assistant does
+            "ap_gr": {"synced_to": "ap_k", "can_group_with": []}}
+    for pid, more in over.items():
+        base[pid] = {**base.get(pid, {}), **more}
+    return groupable_list(**base)
+
+
+def test_borrowing_reaches_every_room_of_it_through_its_own_call(house, music):
+    """2026-11-05, 0.1.134 on the house: Music Assistant lists a group in group_childs too; only group_members was cleared,
+    so the leader's call still covered the speakers it had let go, and only two rooms of nine were called."""
+    p = decide(house, music, doc(), [K, OFF, GR, DEN], ma=left_from_music(house))
+    assert all(c.covers == [] for c in p.calls) and {c.player for c in p.calls} == {K, OFF, GR, DEN}
+    assert len(p.sync) == 1 and len(p.sync[0].calls) == 4
+
+
+def test_a_leader_picked_alone_borrows_its_idle_group_and_plays_alone(house, music):
+    p = decide(house, music, doc(), [K], ma=left_from_music(house))
+    assert [(g.leader, g.members) for g in p.loose] == [("ap_k", ["ap_off", "ap_gr"])]
+    assert states(p)[K] == ("ok", None) and [(c.player, c.covers) for c in p.calls] == [(K, [])]
+    rows = R.feed_rooms(house, music, doc(), allowed=lambda r: True, ma_raw=left_from_music(house), pids=PIDS, now=house.now)
+    assert {r["room"]: r["state"] for r in rows}[K] == "ok" and "together" not in {r["room"]: r["reason"] for r in rows}[K]
+
+
+def test_the_whole_group_and_nothing_else_plays_through_it_as_it_is(house, music):
+    p = decide(house, music, doc(), [K, OFF, GR], ma=left_from_music(house))
+    assert p.loose == [] and [(c.player, sorted(c.covers)) for c in p.calls] == [(K, sorted([OFF, GR]))]
+
+
+def test_with_other_rooms_picked_it_is_borrowed_so_they_all_play_in_step(house, music):
+    p = decide(house, music, doc(), [K, OFF, GR, DEN], ma=left_from_music(house))
+    assert len(p.loose) == 1 and len(p.sync) == 1 and len(p.sync[0].calls) == 4 and p.solo == []
+
+
+@pytest.mark.parametrize("why", ["playing", "paused", "held", "not_allowed", "unavailable", "nested"])
+def test_a_group_that_isnt_idle_and_the_senders_is_never_borrowed(house, music, why):
+    over = {"playing": {"ap_off": {"synced_to": "ap_k", "playback_state": "playing"}},
+            "paused": {"ap_gr": {"synced_to": "ap_k", "playback_state": "paused"}},
+            "unavailable": {"ap_gr": {"synced_to": "ap_k", "available": False}},
+            "nested": {"ap_den": {"synced_to": "ap_off"}}}.get(why, {})
+    kw = {"held": [GR]} if why == "held" else {"allowed": lambda r: r != GR} if why == "not_allowed" else {}
+    p = decide(house, music, doc(), [K], ma=left_from_music(house, **over), **kw)
+    assert p.loose == [] and states(p)[K] == ("skipped", "leads")
+
+
+def test_rooms_inside_it_picked_without_its_leader_borrow_it_and_play_as_one(house, music):
+    """2026-11-05: the Office's two HomePods, members of a group left from music, played 12 s apart."""
+    p = decide(house, music, doc(), [OFF, GR], ma=left_from_music(house))
+    assert [(g.leader, g.members) for g in p.loose] == [("ap_k", ["ap_off", "ap_gr"])]
+    assert len(p.sync) == 1 and sorted(c.room for c in p.sync[0].calls) == sorted([OFF, GR]), "they can group, borrowed"
+    assert all(c.room != K for c in p.calls), "the leader's room isn't picked: it hears nothing"
+
+
+def test_borrow_false_decides_the_group_as_it_stands(house, music):
+    p = decide(house, music, doc(), [K], ma=left_from_music(house), borrow=False)
+    assert p.loose == [] and states(p)[K] == ("skipped", "leads")

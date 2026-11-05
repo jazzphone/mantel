@@ -57,6 +57,7 @@
   var KIND_LABELS = { entity: 'Accessory', climate: 'Thermostat', camera: 'Camera', weather: 'Weather', vacuum: 'Vacuum',
     speaker: 'Speaker', scene: 'Scene', scenes: 'Scenes', calendars: 'Calendars', area: 'Room', action: 'Does', windows: 'Time Windows', alarm: 'Alarm',
     cameras: 'Cameras', refresh: 'Refresh', todo: 'List' };
+  var RULE_MARK = '#rule:';                 // (a block's id has no # in it: hk_core ITEM_ID)
   var NAME_LABELS = { sky: 'Sky Background', title: 'Group Name', clock_style: 'Style', bare: 'Hide Box', big: 'Big Temperature', month: 'Month View', color: 'Color' };
   // ONE THING OR PAGES THAT SWIPE, in each card's words: [one, its automatic source]
   var SHOW = { room: ['One Room', 'Swipe Between Rooms'], camera: ['One Camera', 'Swipe All Cameras'],
@@ -748,7 +749,7 @@
       });
     }
     select(id) {
-      this.selected = id; this.conditionPreview = null; this.pickerTarget = null;
+      this.selected = id; this.conditionPreview = null; this.editing = null; this.pickerTarget = null;
       this.overlay.querySelectorAll('.block').forEach((b) => b.setAttribute('aria-pressed', b.dataset.id === id ? 'true' : 'false'));
       this.side();
       if (id === null) this.preview();
@@ -1481,18 +1482,46 @@
 
     // ------------------------------------------------------------ a block's settings
     inspect(item) {
-      var h = this.h, K = this.K, add = (n) => this.sidebar.appendChild(n);
-      add(h('div', { class: 'insp-head' }, [h('hk-icon', { icon: GLYPHS[item.card] }), h('div', {}, [h('h2', { text: NAMES[item.card] }),
+      var h = this.h, K = this.K, add = (n) => this.sidebar.appendChild(n), rules = item.rules || [], at = this.editingOf(item), card = this.variantOf(item, at);
+      add(h('div', { class: 'insp-head' }, [h('hk-icon', { icon: GLYPHS[card.card] }), h('div', {}, [h('h2', { text: NAMES[card.card] }),
         h('p', { text: SIZE_NAMES[item.size] + ' · column ' + (item.at[0] + 1) + ', row ' + (item.at[1] + 1) })]),
         h('button', { class: 'done', type: 'button', text: 'Done', onclick: () => this.select(null) })]));
       var sizes = G.table()[item.card].sizes.filter((sz) => SIZES[sz][0] <= this.grid.cols && SIZES[sz][1] <= this.grid.rows);
       var rows = [];
       if (sizes.length > 1) rows.push(K.seg({ label: 'Size', value: item.size, options: sizes.map((sz) => [sz, SIZE_SHORT[sz]]), onChange: (sz) => this.resize(item, sz) }));
-      rows.push(K.button({ label: 'Change Card…', onClick: () => this.pickFor('primary') }));
-      add(K.group({}, rows));
-      this.content(item);
+      if (rules.length) rows.push(K.select({ label: 'Settings For', value: String(at),
+        options: [['-1', NAMES[item.card] + ' (Default)']].concat(rules.map((r, i) => [String(i), NAMES[r.card] + ' (Rule ' + (i + 1) + ')'])),
+        onChange: (v) => this.editCard(Number(v)) }));
+      rows.push(K.button({ label: 'Change Card…', onClick: () => this.pickFor(at < 0 ? 'primary' : 'rule:' + at) }));
+      add(K.group({ footer: rules.length ? 'Each of this block’s cards has its own settings. The one you choose shows in the preview.' : '' }, rows));
+      this.content(card);
+      this.appearance(item, card);
       this.conditions(item);
       add(K.group({}, [K.button({ label: 'Remove Block', destructive: true, onClick: () => this.remove(item.id) })]));
+    }
+    // A BLOCK WITH RULES IS SEVERAL CARDS IN ONE PLACE (2026-11-05, the owner, of Music with Now Playing while it plays:
+    // the panel opened on Music, whatever was on screen, with the other card's options down inside its rule, and the
+    // Appearance of none). So the panel sets ONE of them at a time, with every option a block's own card has: the card on
+    // screen when the block is chosen, then whichever Settings For says. -1 the block's own card, else a rule.
+    editingOf(item) {
+      var n = (item.rules || []).length;
+      if (!n) return -1;
+      if (this.editing == null) this.editing = this.onScreen(item);
+      if (this.editing >= n) this.editing = -1;
+      return this.editing;
+    }
+    // what the preview shows in the block now (hk-layout.js hk-grid-conditional-card)
+    onScreen(item) {
+      if (typeof this.conditionPreview === 'number') return this.conditionPreview;
+      var card = this.previewView && (this.previewView.cards || []).find((c) => c.localName === 'hk-grid-conditional-card' && c._config && c._config.item && c._config.item.id === item.id);
+      try { return card ? card._shown() : -1; } catch (e) { return -1; }
+    }
+    editCard(at) { this.editing = at; this.conditionPreview = at; this.preview(); this.side(); }
+    // the card being set, as a block: what `content` reads. A rule's id says where update() writes.
+    variantOf(item, at) {
+      if (at < 0) return item;
+      var r = item.rules[at];
+      return { id: item.id + RULE_MARK + at, card: r.card, size: item.size, at: item.at, opts: r.opts, pages: r.pages };
     }
     resize(item, sz) {
       var no = cannotResize(item, sz);
@@ -1528,18 +1557,23 @@
       else if (src) footer = 'Swipe sideways on the block to change pages. It goes back to its first page when the screen goes idle.';
       add(K.group({ header: 'Content', footer: footer }, rows));
       if (src === 'list') this.pages(item);
+    }
+    // APPEARANCE: the block's box and its tile style are the place's, whichever card shows there; a group's own
+    // background is the card's. `card` is the card being set (a block's own, or a rule's: variantOf).
+    appearance(item, card) {
+      var K = this.K, cat = G.table()[card.card], add = (n) => this.sidebar.appendChild(n);
       // HIDE BOX (2026-10-24): any block's card without its box; the screen's Show Boxes off hides every one
       // (a clock saved with its own Hide Box option moves to the block's)
       var noBoxes = this.grid.boxes === false, ownBare = item.card === 'clock' && (item.opts || {}).bare;
       var look = [K.toggle({ label: 'Hide Box', on: noBoxes || !!item.bare || !!ownBare, disabled: noBoxes,
         sub: noBoxes ? 'The screen hides every block’s box (Screen → Show Boxes).' : 'The card straight on the background, without its box.',
         onChange: (on) => { var patch = { bare: on || null }; if (ownBare) { var o = copy(item.opts); delete o.bare; patch.opts = o; } this.update(item.id, patch); } })];
-      if (cat.opts && cat.opts.surface) this.surfaceFields((item.opts || {}).surface, (value) => { var o = copy(item.opts || {}); if (value) o.surface = value; else delete o.surface; this.update(item.id, { opts: o }); }, look);
+      if (cat.opts && cat.opts.surface) this.surfaceFields((card.opts || {}).surface, (value) => { var o = copy(card.opts || {}); if (value) o.surface = value; else delete o.surface; this.update(card.id, { opts: o }); }, look);
       // TILE STYLE (2026-10-30): a tile block's own, else the screen's (HK Settings → the screen → Appearance)
-      if (TILE_CARDS.indexOf(item.card) >= 0) look.push(K.seg({ label: 'Tile Style', value: item.tile || '', options: [['', 'Same as Screen'], ['home', 'Home'], ['centred', 'Centered']],
+      if (TILE_CARDS.indexOf(card.card) >= 0) look.push(K.seg({ label: 'Tile Style', value: item.tile || '', options: [['', 'Same as Screen'], ['home', 'Home'], ['centred', 'Centered']],
         onChange: (v) => this.update(item.id, { tile: v || null }) }));
       add(K.group({ header: 'Appearance', footer: cat.opts && cat.opts.surface ? 'A custom background changes only the group’s own; its tiles keep the screen’s look.'
-        : TILE_CARDS.indexOf(item.card) >= 0 ? 'Centered puts the icon above the name and room, as on a HomeView.' : '' }, look));
+        : TILE_CARDS.indexOf(card.card) >= 0 ? 'Centered puts the icon above the name and room, as on a HomeView.' : '' }, look));
     }
     setShow(item, s) {
       if (item.card === 'accessories') {
@@ -1627,7 +1661,7 @@
       var head = [];
       if (rules.length) head.push(K.seg({ label: 'Preview', value: this.conditionPreview == null ? 'live' : String(this.conditionPreview),
         options: [['live', 'Live'], ['-1', 'Default']].concat(rules.map((r, i) => [String(i), 'Rule ' + (i + 1)])),
-        onChange: (v) => { this.conditionPreview = v === 'live' ? null : Number(v); this.preview(); this.side(); } }));
+        onChange: (v) => { this.conditionPreview = v === 'live' ? null : Number(v); if (v !== 'live') this.editing = Number(v); this.preview(); this.side(); } }));
       add(K.group({ header: 'Show When', footer: rules.length
         ? 'Shows ' + NAMES[item.card] + ' unless a rule holds; the first rule that holds wins. Each card fills exactly this space, so nothing moves.'
         : 'Add a rule to show another card here while something is true: music playing, a time of day, the alarm still armed.' }, head));
@@ -1644,14 +1678,10 @@
           options: [['', 'Add a Condition…']].concat(G.CONDITIONS.map((k) => [k, CONDITION_NAMES[k]])),
           onChange: (k) => { if (k) putRule((x) => x.when.all.push(this.newCondition(k))); } }));
         rows.push(K.button({ label: 'Then Show: ' + NAMES[r.card] + '…', onClick: () => this.pickFor('rule:' + i) }));
-        var rcat = G.table()[r.card];
-        if (rcat.sources.length) rows.push(K.select({ label: 'Show', value: r.pages && r.pages.source || '',
-          options: [['', (SHOW[r.card] || [])[0] || 'One Page']].concat(rcat.sources.map((src) => [src, (SHOW[r.card] || [])[1] || 'Swipe All'])),
-          onChange: (src) => putRule((x) => { if (src) x.pages = { source: src }; else delete x.pages; }) }));
-        rows = rows.concat(this.fields(r.card, r.opts || {}, (opts) => putRule((x) => { if (Object.keys(opts).length) x.opts = opts; else delete x.opts; }),
-          { size: item.size, hide: { surface: 1, follow: 1, follow_select: 1 } }));
-        rows.push(K.button({ label: 'Move Rule Up', disabled: i === 0, onClick: () => { var next = copy(rules); next.splice(i - 1, 0, next.splice(i, 1)[0]); put(next); } }));
-        rows.push(K.button({ label: 'Remove Rule', destructive: true, onClick: () => { var next = copy(rules); next.splice(i, 1); put(next); } }));
+        rows.push(K.button({ label: 'Edit ' + NAMES[r.card] + ' Settings', disabled: this.editing === i, onClick: () => this.editCard(i) }));
+        // (the card being set stays the same card when its rule moves or another goes)
+        rows.push(K.button({ label: 'Move Rule Up', disabled: i === 0, onClick: () => { var next = copy(rules); next.splice(i - 1, 0, next.splice(i, 1)[0]); if (this.editing === i) this.editing = i - 1; else if (this.editing === i - 1) this.editing = i; put(next); } }));
+        rows.push(K.button({ label: 'Remove Rule', destructive: true, onClick: () => { var next = copy(rules); next.splice(i, 1); if (this.editing === i) this.editing = -1; else if (this.editing > i) this.editing--; put(next); } }));
         add(K.group({ header: 'Rule ' + (i + 1) + ' · ' + NAMES[r.card] }, rows));
       });
       if (rules.length < 4) add(K.group({}, [K.button({ label: 'Add Rule', onClick: () => {
@@ -1687,7 +1717,7 @@
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'timeline_show'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'timeline_show', 'np_background'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
@@ -1860,7 +1890,11 @@
       } catch (e) { this.say('Couldn’t reload. ' + (e.message || e)); }
     }
     update(id, patch) {
-      var next = copy(this.grid), it = next.items.find((x) => x.id === id);
+      var next = copy(this.grid), at = String(id).split(RULE_MARK), it = next.items.find((x) => x.id === at[0]);
+      if (at.length > 1) {                     // a rule's card (variantOf): its opts and pages, in the rule (none left, no key)
+        it = it.rules[+at[1]];
+        if (patch.opts && !Object.keys(patch.opts).length) patch = Object.assign({}, patch, { opts: null });
+      }
       Object.keys(patch).forEach((key) => { if (patch[key] === null) delete it[key]; else it[key] = patch[key]; }); this.change(next);
     }
     // A CARD'S OPTIONS AS ROWS. o: { page (a Choose Each Page page: an
@@ -1927,6 +1961,11 @@
         // ...a Music block's, with Choose a Playlist (2026-11-01, the owner): five, so a list rather than a segment
         if (kind === 'music_tap') {
           rows.push(K.select({ label: 'When Tapped', value: opts[key] || 'auto', options: G.MUSIC_TAPS, onChange: (v) => set(key, v === 'auto' ? null : v) }));
+          return;
+        }
+        // NOW PLAYING'S BACKGROUND (2026-11-05, the owner): the blurred album, or the plate every other block has
+        if (kind === 'np_background') {
+          rows.push(K.seg({ label: 'Background', value: opts[key] || 'album', options: [['album', 'Blurred Album'], ['card', 'Card']], onChange: (v) => set(key, v === 'album' ? null : v) }));
           return;
         }
         // A MUSIC BLOCK'S SHOW (2026-10-31, the owner): Recently Played, the Music page's playlists, or one of them, chosen from

@@ -283,6 +283,12 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
     out += [Step(f"grid-edit-check-{z}", [py, "tools/headless/grid_edit_check.py", "--size", z], tier="full",
                  timeout=900, skip=playwright_missing, **check_inputs("tools/headless/grid_edit_check.py"))
             for z in ("1180x820", "820x1180", "390x844")]
+    # the Now Playing block while its speaker plays, in both engines, three sizes each (2026-11-05): the bar and time move and
+    # the blurred cover is never touched, Background: Card, every card of a block with rules set in the Home Grid editor
+    # (its --pixels, real frames of a window, is by hand: it opens one)
+    out += [Step(f"media-card-check-{e}", [py, "tools/headless/media_card_check.py", "--engine", e], tier="full",
+                 timeout=900, skip=playwright_missing, **check_inputs("tools/headless/media_card_check.py", e))
+            for e in ("webkit", "chromium")]
     # the page beside the iPhone Duo's side strip, in WebKit (its insets stood in; 2026-10-30)
     out.append(Step("side-strip-check", [py, "tools/headless/side_strip_check.py"], tier="full", timeout=600,
                     skip=playwright_missing, **check_inputs("tools/headless/side_strip_check.py")))

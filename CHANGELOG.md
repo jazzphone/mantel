@@ -4,6 +4,57 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **The Side Pane's volume works on a group.** With music playing on more than one room (a preset such as Everywhere, or rooms grouped), the slider moved only the room leading the group, then sprang back. It now sets every room, as the player and the music panel do, and shows their average level.
+- **The music panel's Browse shows each playlist's cover.** The flipped-over music panel (Speakers, Volume, Queue, Browse) now shows each playlist with its cover, as the Music block does, and a playlist without one gets its glyph on a tile the same size. Names run to two lines instead of being cut off ("Your Essentials", not "Your Essent…").
+- **The music panel's background is blurred.** It was the cover shrunk to 32 pixels and stretched, so large shapes and lettering on the cover still showed through. It's now blurred properly, on the screensaver's music pane too. Bright Glass had nothing to do with it.
+
+## 0.1.136 - 2026-11-05
+
+**Fixed**
+- **Two speakers of one room played a message one after the other.** The Office's two HomePods, still grouped from music, each got the message in turn, 12 seconds apart. Picking any room in a group left from music now borrows that group, so the room's speakers play together.
+- **Rooms borrowed from a group left from music played on their own.** A speaker in a group says it can't group with anything, so the borrowed Kitchen and Guest Bedroom each played alone. Borrowed rooms at the same volume now play as one.
+- **Tap to Record missed your first words.** The page started the microphone only when you tapped, and it took about a second to start. Where the browser already allows the microphone, it's now ready as the Intercom opens, so recording starts the moment you tap. Nothing is recorded or sent until you tap, and the microphone turns off when you close the Intercom. On an iPad, its microphone light shows while the Intercom is open.
+
+## 0.1.135 - 2026-11-05
+
+**Fixed**
+- **The Intercom reached only two rooms of a group left from music.** In 0.1.134, borrowing a leftover group still counted it as one group, so a message to its rooms played only in its leader's room (and any room outside it), while the sheet said "Sent to 9 rooms" and still showed "Plays with …". Every picked room now gets the message.
+
+## 0.1.134 - 2026-11-05
+
+**Added**
+- **Now Playing can have the card background.** A Now Playing block has a new **Background** option: **Blurred Album** (the default, as before) or **Card**, which gives it the same background as every other block in the screen's look, with dark text on a light look.
+- **Every card in a block with rules has its settings.** Choose a block that switches cards, such as Music with Now Playing while music plays, and the Home Grid editor opens on the card that's showing. **Settings For** picks which of the block's cards you're setting: its own or any rule's. Each one gets all the Content and Appearance options it has as a block of its own, and the preview shows the card you pick. Each rule also has a button that opens its card's settings (**Edit Now Playing Settings**, say). Before, the editor showed only the block's own card, with a rule's options tucked inside the rule and no Appearance options for it.
+
+**Changed**
+- **A group left from music no longer limits the Intercom.** After music stops, its speakers stay grouped. Pick one of those rooms alone and only that room hears the message: Mantel briefly takes the other speakers out of the group and puts them back, in their order, when the message is over. Pick rooms both inside and outside the group, and they all play in step on one clock. This happens only when every speaker in the group is idle; a group that's playing or paused still plays only together.
+
+**Fixed**
+- **Now Playing no longer flickers in Safari.** Rectangles of the blurred album behind the player flashed lighter and darker every second as the time and progress bar moved, and when the pointer crossed the controls. The blur now sits on a layer of its own and is drawn once. The docked music bar gets the same fix in Safari only, so a wall tablet's scrolling stays as smooth as it was.
+- On Home Grid's Now Playing blocks, the Speakers glyph sat up to 2 px low in its circle (Small, Wide and Tall). It's centered now.
+- **"Sent to" counts the rooms that heard it.** A message to nine rooms through a group said "Sent to 2 rooms".
+- **The music players showed "Now Playing" during a Live talk's replay.** When Live didn't work in a room, the room reappeared on the music players before its message played.
+- **Part of a recording could be dropped** when Wi-Fi delivered a few seconds of audio at once. Mantel now accepts up to 4 seconds arriving together.
+
+## 0.1.133 - 2026-11-05
+
+**Fixed**
+- **Live to speakers still grouped from music played nothing.** After music stops, its speakers stay grouped. Live now plays straight away on a group like that when it's idle and every speaker in it is picked. If it has to wait until you finish, the message now plays then; before, the last check dropped it and nothing played.
+
+## 0.1.132 - 2026-11-05
+
+**Changed**
+- **Rooms hear Live in step.** Idle rooms at the same volume now play Live as one group on one clock, as a Message does, and starting one adds nothing to Live's delay. The rooms that hear the message when you finish play in step too. If a group doesn't come together, each room plays on its own as before. If its leader fails, every room in the group gets the whole message when you finish, so nothing you said is lost.
+
+**Fixed**
+- After a temporary group fails, a speaker still leading another speaker is no longer called on its own, because the message would have reached that other speaker too.
+
+## 0.1.131 - 2026-11-05
+
+**Changed**
+- **Rooms hear a Message in step.** Idle rooms used to start a fraction of a second to a second apart, each on its own AirPlay session. Now Mantel groups them for the message, plays it once on the group's one clock, and puts every speaker back. If the group doesn't come together, or its leader doesn't answer, each room plays on its own as before, so a message is never lost. Live still plays per room.
+
 ## 0.1.130 - 2026-11-05
 
 **Changed**

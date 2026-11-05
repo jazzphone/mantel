@@ -89,6 +89,7 @@ class FakeMic {
   play(done) { this.calls.push(['play']); this.playing = done; return { stop() {} }; }
   stopPlay() { this.playing = null; }
   close() { this.closed = true; }
+  warm() { this.calls.push(['warm']); }
   // the test's hand
   speak(secs) { this.bytes += Math.round(secs * this.rate) * 2; this.level = 0.5; }
   ready(max) { this.on.ready({ mode: 'message', rate: this.rate, max_s: max || 30 }); }
@@ -130,6 +131,7 @@ function sheet(o = {}) {
   let paints = 0;
   const deps = {
     actions: () => actions, feed: () => fed, mic: () => (o.noMic ? null : mic), loading: () => !!o.loading, clock: clk,
+    micAllowed: () => (o.micAllowed === 'throws' ? Promise.reject(new Error('no')) : !!o.micAllowed),
     store: { load: () => o.mem || null, save: (v) => saves.push(JSON.parse(JSON.stringify(v))) },
     loadFailed: () => !!o.loadFailed, safari: () => !!o.safari,
     secure: () => o.secure !== false, supported: () => o.supported !== false, hasPort: () => o.hasPort !== false,
@@ -454,6 +456,39 @@ test('session_makes_the_context_at_24000_inside_the_press_and_says_the_rate_it_g
   assert.equal(x.workers.length, 1);
   assert.ok(x.workers[0].msgs.some((m) => m.cmd === 'port'), 'the microphone\'s port went to the Worker');
   assert.match(x.workers[0].url, /function put/);
+});
+
+test('session_warm_opens_the_microphone_before_the_press_and_the_press_uses_it', async () => {
+  const { win } = page();
+  const x = env();
+  const s = win.hkMic.create(x.e);
+  s.warm();
+  await flush();
+  assert.equal(x.posted.filter((p) => p[0] === 'gum').length, 1, 'opened as the sheet opened');
+  assert.equal(s.recording, false, 'nothing recorded');
+  s.warm();
+  assert.equal(s.unlock(), 24000);
+  await s.start();
+  assert.equal(x.posted.filter((p) => p[0] === 'gum').length, 1, 'the press used it: not opened twice');
+  s.close();
+  assert.equal(x.tracks[0].stopped, true, 'off with the sheet');
+});
+
+test('sheet_makes_the_microphone_ready_only_where_it_is_already_allowed', async () => {
+  const yes = sheet({ micAllowed: true });
+  assert.equal(await yes.ctl.warm(), true);
+  eq(yes.mic.names(), ['warm']);
+  for (const o of [{ micAllowed: false }, { micAllowed: 'throws' }, { micAllowed: true, noMic: true }]) {
+    const no = sheet(o);
+    assert.equal(await no.ctl.warm(), false, JSON.stringify(o));
+    assert.ok(!no.mic.names().includes('warm'));
+  }
+  const busy = sheet({ micAllowed: true });
+  await record(busy);
+  assert.equal(await busy.ctl.warm(), false, 'not while recording');
+  const gone = sheet({ micAllowed: true });
+  gone.ctl.dispose();
+  assert.equal(await gone.ctl.warm(), false);
 });
 
 test('session_a_browser_that_will_not_join_the_rates_gets_the_context_at_its_own', async () => {

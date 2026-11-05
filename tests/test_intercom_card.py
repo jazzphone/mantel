@@ -97,6 +97,8 @@ SCENARIOS = [
     "listener_a_clip_that_cannot_be_fetched_is_skipped_and_the_next_one_plays",
     "mic_a_press_while_the_microphone_module_is_on_its_way_says_connecting_not_no_microphone",
     "feed_keeps_the_listener_flag_and_the_play_snapshot",
+    "session_warm_opens_the_microphone_before_the_press_and_the_press_uses_it",
+    "sheet_makes_the_microphone_ready_only_where_it_is_already_allowed",
 ]
 
 

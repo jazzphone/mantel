@@ -275,6 +275,14 @@
       else if (d.error) this._say('error', { error: d.error, code: d.code });
     }
 
+    // THE SHEET OPENED where the microphone is already allowed: it is opened now, so a press records at once (opened at the
+    // press, it ran about a second later and the first words went, 2026-11-05). The AudioContext still waits for the press.
+    // Nothing is recorded or sent before it; the microphone goes off with the sheet (close).
+    warm() {
+      if (this._closed || this._starting || !MicSession.supported(this.env)) return;
+      this._open().catch(function () { /* the press opens it again, and says why if it can't */ });
+    }
+
     // THE MICROPHONE, once per sheet: the stream, the worklet and the port to the Worker. Resolves with the rate, once the
     // context is running; if it is not (a touch that was no user activation, a call that took the audio), rejects with
     // name 'Suspended': the person taps again, and the microphone that is already open is used (not opened twice).

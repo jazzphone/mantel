@@ -774,6 +774,20 @@
     else if (id === 'done') this.done();
     else if (id === 'anyway') this.sendAnyway();
   };
+  // THE MICROPHONE READY AS THE SHEET OPENS (hk-mic.js warm), only where the browser already allows it: opening a sheet
+  // never asks for the microphone. Resolves whether it did.
+  /** @this {Ctl} */ CP.warm = function () {
+    var self = this, ask = this.d.micAllowed, asked;
+    if (this.disposed || !ask) return Promise.resolve(false);
+    try { asked = ask(); } catch (e) { return Promise.resolve(false); }
+    return Promise.resolve(asked).then(function (yes) {
+      if (yes !== true || self.disposed || self.state !== 'idle') return false;
+      var mic = self.mic || (self.mic = self.d.mic());
+      if (!mic || !mic.warm) return false;
+      mic.warm();
+      return true;
+    }, function () { return false; });
+  };
   /** @this {Ctl} */ CP.dispose = function () {
     this.disposed = true;
     var at = controllers.indexOf(this);
@@ -867,6 +881,11 @@
       actions: function () { return (overrides.actions ? overrides.actions() : client && client.actions) || null; },
       feed: function () { return overrides.feed ? overrides.feed() : shared.feed; },
       mic: function () { return overrides.mic ? overrides.mic() : window.hkMic ? window.hkMic.create() : null; },
+      micAllowed: function () {
+        var p = window.navigator && window.navigator.permissions;
+        if (!p || !p.query) return false;
+        return p.query({ name: 'microphone' }).then(function (s) { return s.state === 'granted'; }, function () { return false; });
+      },
       store: {
         load: function () { return shared.mem; },
         save: function (v) {
@@ -1337,7 +1356,7 @@
           this._ctl = /** @type {any} */ (new Controller(depsFor(this.client, function () { self._paint(); })));
           this._clientRef = this.client;
           // the microphone module (hk-mic.js) comes with the sheet; drawn again when it is here
-          needMic().then(function () { self._paint(); });
+          needMic().then(function () { self._paint(); if (self._ctl) self._ctl.warm(); });
         }
         this._clientRef = this.client;
         this._paint();
