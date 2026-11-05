@@ -582,3 +582,21 @@ def test_a_layout_is_cut_to_the_entities_a_person_may_view():
     assert by["pg"]["pages"]["list"] == [{"opts": {}}, {"opts": {"entity": "camera.garden"}}]
     assert HG.only_viewable(g, HG.entity_ids(g)) == g and "camera.porch" in json.dumps(g), "the layout itself is untouched"
     assert HG.layout(cut)["items"] == cut["items"]
+
+
+def test_now_playings_background_is_the_album_or_the_card():
+    """Now Playing's Background (2026-11-05): Blurred Album (`album`, also what no key means) or Card, on a block of
+    its own and on a rule's card; nothing else."""
+    for value in ("album", "card"):
+        b, errors = write(grid(block("a1", "now_playing", "L", [0, 0], opts={"background": value})))
+        assert errors == {} and b["home_grid"]["items"][0]["opts"]["background"] == value
+    rule = {"when": {"all": [{"kind": "music_playing"}]}, "card": "now_playing", "opts": {"background": "card"}}
+    b, errors = write(grid(block("a1", "music", "L", [0, 0], rules=[rule])))
+    assert errors == {} and b["home_grid"]["items"][0]["rules"][0]["opts"] == {"background": "card"}
+    for bad in ("blur", "", True, None, ["card"]):
+        _, errors = write(grid(block("a1", "now_playing", "L", [0, 0], opts={"background": bad})))
+        assert errors, bad
+    # ...and only Now Playing has it
+    _, errors = write(grid(block("a1", "music", "L", [0, 0], opts={"background": "card"})))
+    assert errors
+    assert HG.CATALOG["now_playing"]["opts"]["background"] == "np_background"
