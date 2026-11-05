@@ -449,7 +449,7 @@
   // screen (viewShown) -- one kept by Home Assistant coming back at once, a
   // new one once it has been drawn. Only a VIEW being inserted counts; a card
   // appearing never inserts one.
-  var viewMo = null, viewBox = null;
+  var viewMo = null, viewBox = null, heardReady = false;
   function watchViews() {
     if (typeof MutationObserver === 'undefined') return;
     var box = viewContainer();
@@ -460,11 +460,21 @@
       if (!active) return;
       recs.forEach(function (r) {
         Array.prototype.forEach.call(r.addedNodes || [], function (n) {
-          if (n.nodeType === 1 && VIEWS.indexOf(n.tagName) >= 0) onPage(n);
+          // (a page a swipe keeps beside this one isn't the page on screen until it is shown: hk-view-ready, below)
+          if (n.nodeType !== 1 || VIEWS.indexOf(n.tagName) < 0) return;
+          if (n.hasAttribute && n.hasAttribute('data-hk-offstage')) n.__hkWaited = true;
+          else onPage(n);
         });
       });
     });
     viewMo.observe(box, { childList: true });
+    if (!heardReady) {
+      heardReady = true;
+      window.addEventListener('hk-view-ready', function (e) {
+        var v = e && e.detail && e.detail.view;
+        if (active && v && v.__hkWaited) { v.__hkWaited = false; onPage(v); }
+      });
+    }
   }
   function viewContainer() { return SH.viewContainer() || SH.viewSlot(); }
 

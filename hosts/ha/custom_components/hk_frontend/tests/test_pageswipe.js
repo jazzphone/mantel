@@ -35,12 +35,12 @@ print('=== the order ===');
 function it(p, title) { return { path: '/dashboard-hall/' + p, paths: [p], title: title || p, kind: p === '0' ? 'home' : 'page' }; }
 function here(item, path) { return item.paths.indexOf(String(path).split('/')[2] || '0') >= 0; }
 var BAR = [it('0', 'Home'), it('lights', 'Lights'), it('climate', 'Climate'), it('security', 'Security')];
-var nb = X.neighbours(BAR, '/dashboard-hall/lights', here);
+var nb = X.neighbors(BAR, '/dashboard-hall/lights', here);
 ok('the tab bar\'s tabs, left to right: Lights between Home and Climate', nb.at === 1 && nb.prev === BAR[0] && nb.next === BAR[2]);
-ok('Home is first: nothing before it', X.neighbours(BAR, '/dashboard-hall/0', here).prev === null);
-ok('the last tab: nothing after it (the swipe gives and comes back)', X.neighbours(BAR, '/dashboard-hall/security', here).next === null);
+ok('Home is first: nothing before it', X.neighbors(BAR, '/dashboard-hall/0', here).prev === null);
+ok('the last tab: nothing after it (the swipe gives and comes back)', X.neighbors(BAR, '/dashboard-hall/security', here).next === null);
 ok('a page not in the bar -- a room, a page under More -- has no page swipe',
-   X.neighbours(BAR, '/dashboard-hall/room-kitchen', here).at === -1 && X.neighbours(BAR, '/dashboard-hall/weather', here).at === -1);
+   X.neighbors(BAR, '/dashboard-hall/room-kitchen', here).at === -1 && X.neighbors(BAR, '/dashboard-hall/weather', here).at === -1);
 ok('the order as given, untouched by default', X.order({ items: BAR }).map(function (x) { return x.title; }).join() === 'Home,Lights,Climate,Security');
 var PAGES = it('pages', 'Pages');
 var off = P.extend(function (items, ctx) {
@@ -115,6 +115,24 @@ ok('lands past a fifth of the width', X.lands(-237, 1180, 0) && !X.lands(-230, 1
 ok('...or on a flick over 0.5 px/ms, that way, past 30 px', X.lands(-40, 1180, -0.8) && !X.lands(-40, 1180, 0.8) &&
    !X.lands(-20, 1180, -2) && !X.lands(-40, 1180, -0.4));
 ok('no travel, no landing', !X.lands(0, 1180, 5));
+ok('...and past a fifth but flicked back, it goes back', !X.lands(-500, 1180, 1.2) && X.lands(-500, 1180, 0.2) && X.lands(-500, 1180, -1.2));
+print('=== the spring ===');
+var D = window.hkDrag;
+var sp = D.spring(-500, -1180, -1.2);
+ok('it starts where the page is, at the speed the page was going', Math.abs(sp.at(0) + 500) < 1e-9 && Math.abs(sp.speed(0) + 1.2) < 1e-9);
+ok('it ends where it was going, and not moving', Math.abs(sp.at(sp.ms) + 1180) <= 0.41 && Math.abs(sp.speed(sp.ms)) <= 0.021);
+ok('from rest too: no kick', Math.abs(D.spring(-500, -1180, 0).speed(0)) < 1e-9);
+ok('...nor in the frame after the lift: a slow finger\'s page is still near its speed 16 ms on', Math.abs(D.spring(-500, -1180, -0.3).speed(16)) < 1.6);
+ok('...and it gets there about when DUR.standard did', Math.abs(D.spring(-500, -1180, 0).at(340) + 1180) < 6);
+function passes(s) { var d = s.x1 - s.x; for (var t = 0; t <= s.ms; t += 2) if ((s.at(t) - s.x1) * d > 0.01) return true; return false; }
+ok('it never passes where it is going', !passes(sp) && !passes(D.spring(-1100, -1180, -6)) && !passes(D.spring(30, 0, -3)) && !passes(D.spring(-20, 0, 4)));
+ok('a flick that would pass it goes faster instead, at the same speed', Math.abs(D.spring(-1100, -1180, -6).speed(0) + 6) < 1e-9 && D.spring(-1100, -1180, -6).w > 0.028);
+ok('a finger going the other way carries it a little that way first', D.spring(30, 0, 0.5).at(20) > 30);
+ok('as a curve: the spring itself where linear() is known', /^linear\(0,/.test(D.easing(sp, true)) && /,1\)$/.test(D.easing(sp, true)));
+var bez = /cubic-bezier\(([\d.]+),([\d.]+),/.exec(D.easing(sp, false));
+ok('...else a curve that leaves at the same speed', bez && Math.abs(+bez[2] / +bez[1] - (-1.2 * sp.ms / -680)) < 0.01);
+ok('a flick back is measured from where it turned, not averaged with the way it came',
+   X.speed([[0, 500], [40, 460], [60, 440], [80, 480], [100, 520]], 100) === 2);
 ok('the flick is the last 100 ms, not the whole drag', Math.abs(X.speed([[0, 500], [400, 490], [450, 460], [500, 420]]) - (-0.7)) < 1e-9 &&
    X.speed([[0, 1]]) === 0);
 // (2026-11-02, the owner: quick short flicks turned the page only sometimes)
@@ -149,6 +167,10 @@ function ev(x, y, o) {
 function fire(t, e) { e.type = t; document.dispatchEvent(e); }
 // each timer once (the shim's keep theirs until cleared)
 function run() { __runTimers(); __resetTimers(); }
+// (what goes with the page -- the highlight, the Side Pane -- is once a frame)
+var frames = [];
+window.requestAnimationFrame = globalThis.requestAnimationFrame = function (fn) { frames.push(fn); return frames.length; };
+function frame() { var f = frames; frames = []; f.forEach(function (fn) { fn(performance.now ? performance.now() : Date.now()); }); }
 P.arm();
 ok('the page says touch-action pan-y while the swipe is on here', page.style.getPropertyValue('touch-action') === 'pan-y pinch-zoom');
 
@@ -158,17 +180,19 @@ fire('pointermove', ev(594, 398));
 ok('6 px: nothing moves yet', !page.style.transform && !P._.state().G.live);
 fire('pointermove', ev(560, 395));
 var G = P._.state().G;
-ok('40 px sideways: the swipe begins, the page follows the finger', G && G.live && page.style.transform === 'translateX(-40.0px)', page.style.transform);
+ok('40 px sideways: the swipe begins, the page follows the finger from where it began (no jump by the 10 px it waited)',
+   G && G.live && page.style.transform === 'translateX(-30.0px)', page.style.transform);
 ok('...the next page comes in beside it (its title, as it is not held)', slot.children.length === 2 &&
-   slot.children[1].className === 'hk-swipe-ghost' && slot.children[1].style.transform === 'translateX(1140.0px)',
+   slot.children[1].className === 'hk-swipe-ghost' && slot.children[1].style.transform === 'translateX(1150.0px)',
    slot.children[1] && slot.children[1].style.transform);
+frame();
 ok('...the tab bar\'s highlight follows by the fraction, towards Climate',
-   JSON.stringify(calls[calls.length - 1]) === JSON.stringify(['follow', +(40 / 1180).toFixed(3), '/dashboard-hall/climate']), calls);
+   JSON.stringify(calls[calls.length - 1]) === JSON.stringify(['follow', +(30 / 1180).toFixed(3), '/dashboard-hall/climate']), calls);
 fire('pointermove', ev(300, 410));
 fire('pointerup', ev(300, 410));
 ok('let go past a fifth: the highlight lands on Climate', JSON.stringify(calls[calls.length - 1]) === '["land","/dashboard-hall/climate"]');
-ok('...and the page slides the rest of the way on the standard curve', /translateX\(-1180\.0px\)/.test(page.style.transform) &&
-   /transform 340ms cubic-bezier\(\.32,\.72,0,1\)/.test(page.style.transition), page.style.transition);
+ok('...and the page goes the rest of the way, from where it is, as a transition', /translateX\(-1180\.0px\)/.test(page.style.transform) &&
+   /^transform \d+ms /.test(page.style.transition), page.style.transition);
 run();
 ok('then the page it lands on is asked for', navTo.join() === '/dashboard-hall/climate', navTo);
 var shown = document.createElement('hk-grid-view');
@@ -189,7 +213,7 @@ ok('...nothing asked for, the page given back', !navTo.length && !page.style.tra
 location.pathname = '/dashboard-hall/0';
 fire('pointerdown', ev(600, 400));
 fire('pointermove', ev(690, 400));
-ok('Home, swiping back: nothing before it -- a third of the travel', page.style.transform === 'translateX(30.0px)', page.style.transform);
+ok('Home, swiping back: nothing before it -- a third of the travel', page.style.transform === 'translateX(26.7px)', page.style.transform);
 fire('pointerup', ev(900, 400));
 run();
 ok('...and it springs back, nothing asked for', !navTo.length && !page.style.transform);
@@ -250,7 +274,7 @@ ok('on a grid with views the page waits: the grid turns them', !P._.state().G.li
 ok('...past its last view it may hand over (there is a page that way)', P.takes(1, grid) && !P.takes(1, {}));
 dispatchEvent(new CustomEvent('hk-swipe-past', { detail: { dir: 1, dx: -60, pointerId: 3, pointerType: 'touch' } }));
 fire('pointermove', ev(520, 400, { composedPath: function () { return gpath; } }));
-ok('...handed over (hk-swipe-past): the page swipe goes on from there', P._.state().G.live && page.style.transform === 'translateX(-80.0px)',
+ok('...handed over (hk-swipe-past): the page swipe goes on from there', P._.state().G.live && page.style.transform === 'translateX(-70.0px)',
    page.style.transform);
 fire('pointercancel', ev(520, 400));
 run();
@@ -258,6 +282,111 @@ location.pathname = '/dashboard-hall/0';
 fire('pointerdown', ev(600, 400, { composedPath: function () { return gpath; } }));
 ok('...back past the first view of Home there is no page: it keeps its own give', !P.takes(-1, grid));
 fire('pointercancel', ev(600, 400));
+
+// ------------------------------------------------------------ the pages made ready
+print('=== the pages either side are real, and ready before the finger comes ===');
+function viewEl(name) {
+  var v = document.createElement('hk-grid-view');
+  v.__name = name;
+  v.isConnected = true;
+  v.getBoundingClientRect = function () { return { left: 0, top: 0, width: 1180, height: 820 }; };
+  v.setPointerCapture = function () {};
+  return v;
+}
+var made = { lights: viewEl('lights'), climate: viewEl('climate'), '0': viewEl('home'), security: viewEl('security') };
+made.home = made['0'];
+var warmAsked = [], heldNow = [], shownCb = [], showN = 0;
+var stub = {
+  peek: function (seg) { return null; },
+  warm: function (seg) { warmAsked.push(seg); return Promise.resolve(made[seg] ? { el: made[seg], path: seg } : null); },
+  hold: function (el, on, stay) { var at = heldNow.indexOf(el); if (on && at < 0) heldNow.push(el); if (!on && at >= 0) heldNow.splice(at, 1); if (!on && !stay && el.parentNode) el.parentNode.removeChild(el); return true; },
+  busy: function () {},
+  onView: function (fn) { shownCb.push(fn); return function () { shownCb.splice(shownCb.indexOf(fn), 1); }; }
+};
+var onScreen = made.lights;
+while (slot.firstChild) slot.removeChild(slot.firstChild);
+slot.appendChild(onScreen);
+window.hkShell.view = function () { return onScreen; };
+window.hkShell.navigate = function (p) { navTo.push(p); location.pathname = p; onScreen = made[p.split('/')[2]] || onScreen; showN++; shownCb.slice().forEach(function (f) { f(onScreen, {}, {}, { path: p.split('/')[2] }); }); };
+window.hkViewHost = { live: function () { return stub; } };
+location.pathname = '/dashboard-hall/lights';
+navTo = []; calls = [];
+function path(v) { return { composedPath: function () { return [tile, v, slot]; } }; }
+function drainPromises() { if (typeof drainMicrotasks === 'function') drainMicrotasks(); }
+P.plan();
+drainPromises();
+ok('it asks the host for the pages on either side, without a finger', warmAsked.join() === 'climate,0', warmAsked);
+ok('...and each waits in the slot, inert, a width away', made.climate.parentNode === slot && made.home.parentNode === slot && made.climate.hasAttribute('inert') &&
+   made.climate.style.transform === 'translateX(1180.0px)' && made.home.style.transform === 'translateX(-1180.0px)' && made.climate.style.position === 'fixed', made.climate.style.transform);
+ok('...held by the host', heldNow.indexOf(made.climate) >= 0 && heldNow.indexOf(made.home) >= 0);
+fire('pointerdown', ev(600, 400, path(made.lights)));
+ok('a press alone costs nothing: no layers (a tap is most presses)', !made.lights.style.getPropertyValue('will-change') && !made.climate.style.getPropertyValue('will-change'));
+fire('pointermove', ev(595, 400, path(made.lights)));
+ok('a finger starting sideways gives what may move a layer of its own, and moves nothing', made.lights.style.getPropertyValue('will-change') === 'transform' && made.climate.style.getPropertyValue('will-change') === 'transform' && !made.lights.style.transform);
+fire('pointerup', ev(595, 400, path(made.lights)));
+ok('...a press that stops there gives it back', !made.lights.style.getPropertyValue('will-change') && !made.climate.style.getPropertyValue('will-change') && !P._.state().G);
+fire('pointerdown', ev(600, 400, path(made.lights)));
+fire('pointermove', ev(500, 400, path(made.lights)));
+ok('a swipe moves the real page, no stand-in', made.climate.style.transform === 'translateX(1090.0px)' && slot.children.every(function (c) { return c.className !== 'hk-swipe-ghost'; }), made.climate.style.transform);
+fire('pointermove', ev(250, 400, path(made.lights)));
+fire('pointerup', ev(250, 400, path(made.lights)));
+var aNow = P._.state().A;
+ok('let go: a settle is under way, and it alone moves the page', aNow && !P._.state().G && /^transform \d+ms/.test(made.lights.style.transition));
+ok('...the page beside it on the same curve', made.climate.style.transition === made.lights.style.transition && made.climate.style.transform === 'translateX(0.0px)');
+// a finger on the moving page
+window.__drawn = null;
+fire('pointerdown', ev(700, 400, path(made.lights)));
+var cg = P._.state().G;
+ok('a finger on it mid-settle catches it: the settle is over, the finger has it', !P._.state().A && cg && cg.live && cg.caught);
+ok('...nothing is left running', made.lights.style.transition === 'none' && made.climate.style.transition === 'none');
+var before = navTo.length;
+run();
+ok('...and what that settle had queued does nothing now', navTo.length === before && !P._.state().L && P._.state().G === cg);
+fire('pointerup', ev(700, 400, path(made.lights)));
+ok('let go where it was caught: on to where it was going', P._.state().A && P._.state().A.to.path === '/dashboard-hall/climate');
+var a2 = P._.state().A;
+run();
+drainPromises();
+ok('it lands: the host is told once, on the page beside it', navTo.join() === '/dashboard-hall/climate', navTo);
+ok('...which stays where it is in the slot, its own again', made.climate.parentNode === slot && !made.climate.hasAttribute('inert') && !made.climate.style.transform && !made.climate.style.position);
+ok('...and the page it left is its neighbor now, not gone', made.lights.parentNode === slot && made.lights.hasAttribute('inert') && made.lights.style.transform === 'translateX(-1180.0px)' &&
+   heldNow.indexOf(made.lights) >= 0, made.lights.style.transform);
+ok('...the swipe is over', !P._.state().A && !P._.state().G && !P._.state().L);
+run();
+drainPromises();
+P.plan();
+drainPromises();
+ok('...the page two away is let go, the next made ready', made.home.parentNode !== slot && heldNow.indexOf(made.home) < 0 && made.security.parentNode === slot, [made.home.parentNode === slot, warmAsked.join()]);
+// a tab tap to the page beside it
+navTo = [];
+window.hkShell.navigate('/dashboard-hall/security');
+ok('shown some other way, a page waiting beside it is simply the page', !made.security.hasAttribute('inert') && !made.security.style.transform && !made.security.style.position);
+ok('...the others go', made.lights.parentNode !== slot || !made.lights.style.position);
+// a page not ready (the host still making it): a finger on the settle heading there, well on its way, lets it land
+stub.warm = function () { return new Promise(function () {}); };
+var homeEl = made['0'];
+window.hkShell.navigate('/dashboard-hall/0');
+onScreen = homeEl;
+if (homeEl.parentNode !== slot) slot.appendChild(homeEl);
+run(); drainPromises();
+P.plan(); drainPromises();
+navTo = [];
+window.hkShell.navigate = function (p) { navTo.push(p); location.pathname = p; };
+fire('pointerdown', ev(700, 400, path(homeEl)));
+fire('pointermove', ev(600, 400, path(homeEl)));
+fire('pointermove', ev(90, 400, path(homeEl)));
+fire('pointerup', ev(80, 400, path(homeEl)));
+var toGhost = P._.state().A;
+ok('a swipe to a page not made ready yet goes to its stand-in', toGhost && toGhost.N && !toGhost.N.real, toGhost && toGhost.N);
+// (it is already more than half the way)
+fire('pointerdown', ev(700, 400, path(homeEl)));
+ok('...a finger then, well on its way: it lands, and is built, rather than starting over', !P._.state().A && P._.state().L && navTo.join() === '/dashboard-hall/lights' && P._.state().why === 'landing',
+   [navTo, P._.state().why]);
+fire('pointerup', ev(700, 400, path(homeEl)));
+window.hkViewHost = null;
+window.hkShell.navigate = function (p) { navTo.push(p); location.pathname = p; };
+window.hkShell.view = function () { return page; };
+run();
 
 print('\n' + (fail ? fail + ' FAILED, ' + pass + ' passed' : 'ALL ' + pass + ' PAGE SWIPE TESTS PASS'));
 if (fail) throw new Error(fail + ' failed');

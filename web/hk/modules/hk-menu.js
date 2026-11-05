@@ -1917,6 +1917,15 @@
       if (g.captured) { try { g.el.releasePointerCapture(g.id); } catch (x) { /* already released */ } }
       if (!g.live) return;
       S.pulled = Date.now();
+      // (from where the finger left it, at the speed it was going, for this one move: hk-drag.js)
+      var H = window.hkDrag, c = H && H.curve ? H.curve(g.dx - g.w, opens ? 0 : -g.w, flickSpeed(g)) : null;
+      if (c && c.ms) {
+        var tr = c.ms + 'ms ' + c.ease;
+        S.panel.style.transition = 'transform ' + tr + ',box-shadow ' + tr;
+        S.scrim.style.transition = 'opacity ' + tr;
+        clearTimeout(S.pulledT);
+        S.pulledT = setTimeout(function () { S.panel.style.transition = ''; S.scrim.style.transition = ''; }, c.ms + 60);
+      }
       if (opens) open(); else sync();
       S.panel.style.transform = '';
       S.scrim.style.opacity = '';

@@ -207,7 +207,7 @@ mark('strategy');
 // read -- it counts as seen: `needed` keeps every state any page read, and a miss adds it). The strategy needed the whole house to decide what to draw, the cards do not. A page
 // not seen yet widens the subscription again first, so it is drawn with the whole house.
 const narrowing = new URLSearchParams(location.search).get('narrow') !== '0';
-let narrowTimer = 0;
+let narrowTimer = 0, narrowPending = false;
 // SELF-HEALING: every entity id the house has (from each whole-house snapshot). A card that reads one
 // after the page narrowed -- a timer, a later render, a path the recorded pass missed -- adds it, and the
 // hub is asked again (batched), so the card never stays "unknown" (seen on the Vacuums page, 2026-10-18).
@@ -215,6 +215,7 @@ host.onMiss = (id) => { if (narrowed) keep(id); };
 async function widen() {
   if (!narrowed) return;
   narrowed = false;
+  narrowPending = false;
   clearTimeout(narrowTimer);
   host.recording = false;
   const got = nextSnapshot();
@@ -228,10 +229,13 @@ let narrowRun = 0;
 async function narrowSoon(view) {
   if (!narrowing) return;
   clearTimeout(narrowTimer);
+  narrowPending = true;
   const run = ++narrowRun;
   if (window.hkNeed && view) await window.hkNeed.config(view).catch(() => {});
   if (run !== narrowRun) return;
-  narrowTimer = setTimeout(() => requestAnimationFrame(() => {
+  const pass = () => requestAnimationFrame(() => {
+    // (every card on the page drawn again is no job for under a finger, or for a page on its way home)
+    if (window.hkPageSwipe && window.hkPageSwipe.moving && window.hkPageSwipe.moving()) { narrowTimer = setTimeout(pass, 400); return; }
     host.reads.clear();
     host.recording = true;
     viewHost.refresh();                          // one more pass over every card on the page, recorded:
@@ -246,10 +250,12 @@ async function narrowSoon(view) {
       for (const k of host.seen) if (host._states[k]) needed.add(k);
       window.__mantelNarrow = needed.size;
       narrowed = true;
+      narrowPending = false;
       hub.subscribe([...needed], [], false);     // snapshot arrives again, then only these entities' diffs
       mark('narrowed');
     }, 1500);
-  }), 1500);
+  });
+  narrowTimer = setTimeout(pass, 1500);
 }
 
 const viewHost = window.hkViewHost.create({
@@ -258,6 +264,9 @@ const viewHost = window.hkViewHost.create({
   client: host.client,
   base: '/' + seg,
   willShow: (view, firstVisit) => (firstVisit ? widen() : null),
+  // (a page made ready beside this one, for a swipe, was widened for: narrowed again with its states in. A narrowing already
+  // on its way takes them too, and isn't put off: the pass reads what every card on the screen has read so far)
+  warmed: (view) => { if (!narrowPending) narrowSoon(view); },
 });
 window.__mantelViewHost = viewHost;
 // A PAGE NOT SEEN YET, ONCE THE PAGE HAS NARROWED: the house's states first, then the address. The view host

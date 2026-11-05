@@ -72,6 +72,8 @@ STEP_BUDGET = 240
 HISTORY = 10                                   # each step's last passed times kept (timing.json)
 # Swipe Between Pages: each engine's sizes (page_swipe_check.py ENGINE_SIZES), each a step of its own (2026-11-02: an
 # engine's four were ~140 s together)
+# how a swipe moves (swipe_motion_check.py): a tablet and a phone per engine, each a step (one engine was 264 s)
+SWIPE_MOTION = {"chromium": ("1280x800", "390x844"), "webkit": ("1180x820", "390x844")}
 PAGE_SWIPE = {"chromium": ("1280x800", "800x1280", "390x844", "844x390"),
               "webkit": ("1180x820", "820x1180", "390x844", "844x390")}
 # Edit mode's sections that depend on the engine, the input or the size (edit_mode_check.py SECTIONS has the rest)
@@ -289,6 +291,10 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
     out += [Step(f"page-swipe-check-{e}-{z}", [py, "tools/headless/page_swipe_check.py", "--engine", e, "--size", z],
                  tier="full", timeout=900, skip=playwright_missing, **check_inputs("tools/headless/page_swipe_check.py", e))
             for e, sizes in PAGE_SWIPE.items() for z in sizes]
+    # ...and how it moves, frame by frame: the finger, the release, what comes in, a new finger mid-settle (2026-11-04)
+    out += [Step(f"swipe-motion-check-{e}-{z}", [py, "tools/headless/swipe_motion_check.py", "--engine", e, "--size", z], tier="full",
+                 timeout=900, skip=playwright_missing, **check_inputs("tools/headless/swipe_motion_check.py", e))
+            for e, sizes in SWIPE_MOTION.items() for z in sizes]
     # the screensaver's HomeView-style faces and Time Behind in WebKit, a tablet either way and a phone (2026-10-30)
     out.append(Step("saver-faces-check", [py, "tools/headless/saver_faces_check.py"], tier="full", timeout=600,
                     skip=playwright_missing, **check_inputs("tools/headless/saver_faces_check.py")))

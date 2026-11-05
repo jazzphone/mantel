@@ -1201,6 +1201,12 @@
                              inherits: false, initialValue: '0' });
     }
   } catch (e) { /* already registered by an earlier load */ }
+  // A Home Grid view's finger offset (hk-layout.js _dragTo): each move restyles the view's cell, not all that is in it
+  try {
+    if (window.CSS && CSS.registerProperty) {
+      CSS.registerProperty({ name: '--drag', syntax: '<length>', inherits: false, initialValue: '0px' });
+    }
+  } catch (e) { /* already registered by an earlier load */ }
   var waiting = [];              // whenLive() callers
   var state = { version: 0, live: false, configured: null };
 

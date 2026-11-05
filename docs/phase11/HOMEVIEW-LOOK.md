@@ -122,7 +122,8 @@ under the page you are about to land on. The wallpaper or sky stays still behind
 - `web/hk/shell/hk-view-host.js`: the gesture and the slide. The host already keeps Home, the last four pages and
   the current one (`cache`, `KEEP_RECENT = 4`, `letGo()`); the neighbour's cached view slides in beside the
   current one. A neighbour not in the cache shows its page's ground and title while it is built, and builds as the
-  swipe commits (never during the drag).
+  swipe commits (never during the drag). *(Replaced 2026-11-04: a neighbour not in the cache is built before the finger comes; the title is
+  only for the moment after a load.)*
 - `web/hk/modules/hk-tabbar.js`: a `follow(fraction)` that places the highlight between two tabs while the finger
   moves (the `::before` of `.tab.here`, set through `--hx`), then lands it with the existing `slide()` on the
   spring (`cubic-bezier(.34,1.24,.42,1)`, .46 s).
@@ -135,7 +136,8 @@ under the page you are about to land on. The wallpaper or sky stays still behind
 **Performance.** Only `transform` moves, on the two pages' roots. With Blur's Shared Layer, two backdrop layers live
 for the length of a swipe (the current page's and the neighbour's), then one. The sky is fixed and does not move.
 On a tablet the slow-tablet ladder has flagged, the neighbour slides in as a plain plate (its ground colour, no
-blur) and gets its glass when it lands.
+blur) and gets its glass when it lands. *(Replaced 2026-11-04: the pages either side are made ready at a quiet moment and
+every tablet gets the real page. The plate was what a slow tablet's owner saw of every swipe: [Motion](../development/Motion.md).)*
 
 **Checks.**
 

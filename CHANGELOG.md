@@ -9,6 +9,11 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **The doorbell's live talk** loads its audio processor the same way, so on Mantel it can talk live again instead of falling back to a recorded clip.
 - **The Intercom sheet's room buttons:** a room that leads a playing group says one room and a count ("Plays with Guest Bedroom +4") inside its button, instead of a long list that ran over its neighbors and let the sheet slide sideways on a wall tablet.
 - **The iPhone and iPad app** allows the microphone on the house address it opened (from the next TestFlight build).
+- Swiping between pages shows the page you are going to, every time: a page not visited yet came in as its title on the sky and every page did on a tablet flagged as slow. The page on either side is made ready at a quiet moment and waits beside this one.
+- A new swipe while a page was still settling no longer strands it off screen. It was blank for five seconds with touches ignored, and rapid flicks could leave it there until you changed page. A finger on a moving page now simply catches it.
+- Letting go of a page carries on at the speed your finger was going, from where it was, instead of leaping away on one fixed curve; a flick back goes back, however far the page had gone. Home Grid views, blocks that swipe their pages and the side menu let go the same way.
+- Reduce Motion: the two pages cross-fade, instead of the old one fading to the sky and the new one fading up after it.
+- Swiping is steadier on slower tablets: nothing is put on the page or measured under the finger any more, and a Home Grid's views no longer restyle everything inside them on each move.
 
 ## 0.1.125 - 2026-11-04
 

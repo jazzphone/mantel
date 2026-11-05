@@ -1208,6 +1208,9 @@
   // so the host's "first visit" (Mantel widens its state subscription for a page it has not seen) means the first
   // time ever, not "not cached".
   var KEEP_RECENT = 4;
+  // a view kept in the slot beside the one shown (hold())
+  var OFFSTAGE = 'data-hk-offstage';
+  var HELD_FEED_MS = 1500;
 
   // opts:
   //   container  the element that holds the view (the sky mounts in it)
@@ -1217,8 +1220,10 @@
   //   base       the dashboard's address, '/<dashboard>' (default: the
   //              address's first segment)
   //   follow     false: the caller hands each client with setClient()
-  //   willShow(view, first)  awaited before a view is shown (Mantel widens its
-  //              state subscription for a page it has not seen)
+  //   willShow(view, first)  awaited before a view is shown or made ready
+  //              (Mantel widens its state subscription for a page it has not seen)
+  //   warmed(view)  a page not seen yet was made ready without being shown
+  //              (Mantel narrows the subscription again, with its states)
   //   leave(path)  an address outside this dashboard (default: load it)
   function create(opts) {
     opts = opts || {};
@@ -1236,6 +1241,9 @@
     var stale = null;              // the view shown before reconfigure(): replaced in place by the next show()
     var turn = 0;                  // the newest show() wins
     var target = -1;               // the view it asked for
+    var building = {};             // view index -> the build on its way (a show() and a warm() share it)
+    var gen = 0;                   // reconfigure(): what was on its way for the old config is dropped
+    var held = [];                 // the entries kept in the slot beside the view shown (hold(), a page swipe's neighbors)
     var listeners = [];
     var offs = [];
 
@@ -1289,11 +1297,41 @@
       });
     }
 
+    // A VIEW KEPT OFF STAGE says nothing as it attaches (hk-grid-view's hk-view-ready: the sky, the tab bar and the Side
+    // Pane would take it for the page shown); it says it when it is shown
+    function offStage(el) {
+      try {
+        el.setAttribute(OFFSTAGE, '');
+        el._announced = false;
+        if (el._stageChanged) el._stageChanged();
+      } catch (e) { /* a test's stand-in */ }
+    }
+    function onStage(el, quiet) {
+      try {
+        if (!el.hasAttribute || !el.hasAttribute(OFFSTAGE)) return;
+        el.removeAttribute(OFFSTAGE);
+        if (el._stageChanged) el._stageChanged();
+        if (!quiet && el._announce) el._announce();
+      } catch (e) { try { console.error('[hk-view-host] view announce', e); } catch (x) { /* no console */ } }
+    }
+
     function tell(entry, first) {
       listeners.slice().forEach(function (fn) {
         try { fn(entry.el, entry.view, config, { first: first, path: entry.path }); }
         catch (e) { try { console.error('[hk-view-host] view listener threw', e); } catch (x) { /* no console */ } }
       });
+    }
+
+    // the view's entry, held or built (one build at a time for a view)
+    function entryOf(i) {
+      if (cache[i]) return Promise.resolve(cache[i]);
+      if (building[i]) return building[i];
+      var mine = gen;
+      var b = building[i] = build(i).then(function (entry) {
+        if (mine === gen) { delete building[i]; cache[i] = cache[i] || entry; seen[i] = true; return cache[i]; }
+        return entry;
+      }, function (e) { if (mine === gen) delete building[i]; throw e; });
+      return b;
     }
 
     // Show the view at `path` (a path, an index, or '' for the first).
@@ -1308,7 +1346,7 @@
                                : Promise.resolve();
       return wait.then(function () {
         if (my !== turn) return null;
-        return cache[i] ? cache[i] : build(i).then(function (entry) { cache[i] = cache[i] || entry; seen[i] = true; return cache[i]; });
+        return entryOf(i);
       }).then(function (entry) {
         if (!entry || my !== turn) return null;
         if (entry.fed !== client) feedEntry(entry, client);
@@ -1320,11 +1358,12 @@
         // it is up (hk-view-ready) as it attaches, and the tab bar and the sky
         // ask the shell for it then
         tell(entry, first);
-        if (old && old.el.parentNode === slot) slot.removeChild(old.el);
-        // (a view a page swipe already put in the slot, beside the one shown
-        // -- peek() -- stays where it is: moved, its cards would stop and
-        // start again)
+        // (a view a page swipe keeps beside the one shown -- hold() -- stays
+        // where it is, as does the one coming in: moved, its cards would stop
+        // and start again)
+        if (old && old.el.parentNode === slot && held.indexOf(old) < 0) slot.removeChild(old.el);
         if (entry.el.parentNode !== slot) slot.appendChild(entry.el);
+        onStage(entry.el);
         if (old && !again && typeof win().scrollTo === 'function') { try { win().scrollTo(0, 0); } catch (e) { /* */ } }
         letGo(entry.index);
         return entry.el;
@@ -1343,7 +1382,7 @@
       }
       Object.keys(cache).forEach(function (k) {
         var i = Number(k), entry = cache[k];
-        if (i === 0 || recent.indexOf(i) >= 0 || entry === cur) return;
+        if (i === 0 || recent.indexOf(i) >= 0 || entry === cur || held.indexOf(entry) >= 0) return;
         delete cache[k];
         if (entry.el && entry.el.parentNode) entry.el.parentNode.removeChild(entry.el);      // (it never is: left views are out)
         entry.cards.length = 0;
@@ -1360,10 +1399,16 @@
       config = cfg || { views: [] };
       if (cur) stale = cur;
       cur = null;
+      // (the views kept beside it were made from the old config: out, unless it is the one replaced in place)
+      held.forEach(function (entry) { if (entry !== stale && entry.el.parentNode) entry.el.parentNode.removeChild(entry.el); });
+      held = [];
+      heldT = 0;
       cache = {};
       seen = {};
       recent = [];
       target = -1;
+      building = {};
+      gen++;
       return show(viewPathOf(global.location.pathname).view);
     }
 
@@ -1373,17 +1418,81 @@
       if (!c || (c === client && !force)) return;
       client = c;
       if (cur) feedEntry(cur, c);
+      feedHeldSoon();
     }
     function refresh() { setClient(client, true); }
 
-    // A PAGE SWIPE'S NEIGHBOUR (hk-pageswipe.js, 2026-10-30): the view at
-    // `path`, if it is held (cache) -- fed the newest client -- or null. Never
-    // built here: a page not held is built as the swipe lands, by show().
-    function peek(path) {
-      var i = find(path), entry = i >= 0 ? cache[i] : null;
+    // THE VIEWS KEPT BESIDE IT CATCH UP WITH THE HOUSE, at a quiet moment and now and then: a swipe finds them nearly
+    // current without feeding them under the finger, and show() gives them the very newest as they land.
+    var heldT = 0, heldBusy = false;
+    function feedHeld() {
+      heldT = 0;
+      if (!held.length) return;
+      if (heldBusy) { feedHeldSoon(); return; }
+      held.forEach(function (entry) { if (entry !== cur && entry.fed !== client) feedEntry(entry, client); });
+    }
+    function feedHeldSoon() {
+      if (heldT || !held.length) return;
+      heldT = later(function () {
+        if (typeof global.requestIdleCallback === 'function') global.requestIdleCallback(feedHeld, { timeout: 1000 });
+        else feedHeld();
+      }, HELD_FEED_MS);
+    }
+
+    // A PAGE SWIPE'S NEIGHBOR (hk-pageswipe.js, 2026-10-30): the view at
+    // `path`, if it is held (cache), or null. Never built here, and not fed: a
+    // finger may be down (`fresh`: fed the newest client first).
+    function exact(path) {
+      var vs = views(), p = path == null ? '' : String(path);
+      if (!vs.length) return -1;
+      if (!p) return 0;
+      for (var i = 0; i < vs.length; i++) if (vs[i] && pathOf(vs[i], i) === p) return i;
+      return /^\d+$/.test(p) && Number(p) < vs.length ? Number(p) : -1;
+    }
+    function handle(entry) { return { el: entry.el, path: entry.path, index: entry.index, view: entry.view }; }
+    function peek(path, fresh) {
+      var i = exact(path), entry = i >= 0 ? cache[i] : null;
       if (!entry || entry === cur) return null;
-      if (entry.fed !== client) feedEntry(entry, client);
-      return { el: entry.el, path: entry.path, index: entry.index, view: entry.view };
+      if (fresh && entry.fed !== client) feedEntry(entry, client);
+      return handle(entry);
+    }
+    // ...MADE READY AHEAD (2026-11-04, the owner: full-page swipes "fail to display content"): the view at `path` built
+    // at a quiet moment, its code and its states in (willShow, as a page shown has), the page it would be when shown.
+    // Resolves as peek(), or null for an address that is no view of this dashboard or what was made for an old config.
+    function warm(path) {
+      var i = exact(path);
+      if (i < 0) return Promise.resolve(null);
+      if (cache[i]) { if (cache[i] === cur) return Promise.resolve(null); return Promise.resolve(peek(path, true)); }
+      var mine = gen, first = !seen[i], view = views()[i];
+      var wait = opts.willShow ? Promise.resolve().then(function () { return opts.willShow(view, first); })
+                                     .catch(function (e) { try { console.error('[hk-view-host] willShow', e); } catch (x) { /* */ } })
+                               : Promise.resolve();
+      return wait.then(function () { return mine === gen ? entryOf(i) : null; }).then(function (entry) {
+        if (!entry || mine !== gen) return null;
+        if (first && opts.warmed) { try { opts.warmed(view); } catch (e) { /* the host's */ } }
+        if (entry === cur) return null;
+        if (entry.fed !== client) feedEntry(entry, client);
+        return handle(entry);
+      });
+    }
+    // HELD IN THE SLOT beside the view shown (on), or let go (off): kept through a show() and letGo(), off the page's
+    // business while it waits (OFFSTAGE: says nothing to the sky, the bar or the Side Pane), told it is on stage as it
+    // is shown. A view let go that isn't the one shown leaves the slot (`stay`: it is about to be shown).
+    function hold(el, on, stay) {
+      var entry = null;
+      Object.keys(cache).forEach(function (k) { if (cache[k].el === el) entry = cache[k]; });
+      if (!entry && stale && stale.el === el) entry = stale;
+      if (!entry) return false;
+      var at = held.indexOf(entry);
+      if (on) {
+        if (at < 0) held.push(entry);
+        offStage(el);
+        feedHeldSoon();
+        return true;
+      }
+      if (at >= 0) held.splice(at, 1);
+      if (!stay && entry !== cur && el.parentNode === slot) { slot.removeChild(el); onStage(el, true); }
+      return true;
     }
 
     // THE ROUTER: HK's navigation and the back button. A hash change (a
@@ -1469,6 +1578,10 @@
       slot: slot,
       show: show,
       peek: peek,
+      warm: warm,
+      hold: hold,
+      // while a finger is on it: what is kept beside the page waits
+      busy: function (on) { heldBusy = !!on; },
       start: start,
       stop: stop,
       route: route,

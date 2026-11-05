@@ -36,6 +36,7 @@ def test_quick_is_part_of_full_and_full_adds_the_rest():
     assert {"edit-mode-check-chromium-1280x800", "edit-mode-check-webkit-1180x820"} <= set(full)
     assert "side-strip-check" in full and "side-strip-check" not in quick
     assert {"page-swipe-check-chromium-1280x800", "page-swipe-check-webkit-1180x820"} <= set(full)
+    assert {"swipe-motion-check-chromium-1280x800", "swipe-motion-check-webkit-1180x820"} <= set(full)
     assert not any(n.startswith(("edit-mode", "page-swipe")) for n in quick)
     # `versions`, a release's re-check, never in quick or full itself; it knows bump_version's files
     assert [s.name for s in ci.select(steps, "versions")][-1] == "version-tests" and "version-tests" not in full

@@ -1365,7 +1365,11 @@
       var v = viewEl(), hv = SH.view(v);
       var how = S.on && pos && !S.strip ? room(pos, scrollOf(b), b.tab_bar_adjust, isGrid(hv)) : 'none';
       var on = how === 'scale' || how === 'shift';
-      if (S.asideEl && S.asideEl !== hv) { S.asideEl.style.transform = ''; S.asideEl.style.transformOrigin = ''; S.asideEl = null; }
+      // (a page a swipe keeps beside this one is the swipe's to place: hk-pageswipe.js gives it back as it wore it)
+      if (S.asideEl && S.asideEl !== hv) {
+        if (!S.asideEl.hasAttribute('data-hk-offstage')) { S.asideEl.style.transform = ''; S.asideEl.style.transformOrigin = ''; }
+        S.asideEl = null;
+      }
       if (!hv || !on) {
         if (hv && S.asideEl === hv) { hv.style.transform = ''; S.asideEl = null; }
         S.asideScale = 1; S.shift = 0;
@@ -1635,16 +1639,20 @@
     // `path`, drawn on the tab you are on and held there (slide-from), so
     // the landing starts from where it is (S.hereBox). Not folded, nor too
     // tight for a capsule, nor with Reduce Motion (it jumps as it lands).
-    // (the two tabs' boxes measured once a swipe, not each frame: read after the frame's writes, each one laid the
-    // document out again -- 2026-11-02)
-    var followBoxes = null;
+    var followed = null;
     function follow(k, path) {
       if (!S.on || S.mode !== 'full' || S.tight || calm()) return false;
-      var here = S.pill.querySelector('.tab.here'), to = tabOf(path);
-      if (!here || !to) return false;
-      var fb = followBoxes;
-      if (!fb || fb.here !== here || fb.to !== to) fb = followBoxes = { here: here, to: to, a: boxOf(here), b: boxOf(to) };
-      var home = fb.a, box = between(home, fb.b, k), o = offsetsOf(box, home);
+      // (a settle caught on its way to another tab: the finger has it again, from the page it is on)
+      if (S.landing) { S.landing = null; markHere(); }
+      // (the two tabs' boxes measured once a swipe, not each frame: read after the frame's writes, each one laid the
+      // document out again -- 2026-11-02 -- and a bar drawn again starts over)
+      var f = followed;
+      if (!f || f.path !== path || !f.here.isConnected || !f.here.classList.contains('here')) {
+        var a = S.pill.querySelector('.tab.here'), b = tabOf(path);
+        if (!a || !b) return false;
+        f = followed = { path: path, here: a, home: boxOf(a), to: boxOf(b) };
+      }
+      var here = f.here, home = f.home, box = between(home, f.to, k), o = offsetsOf(box, home);
       here.classList.add('slide-from');
       here.style.setProperty('--hx', o.hx + 'px');
       here.style.setProperty('--hy', o.hy + 'px');
@@ -1657,8 +1665,8 @@
     // where it was, the swipe let go short)
     var landT = 0;
     function land(path) {
-      followBoxes = null;
       if (!S.root) return;
+      followed = null;
       S.landing = path || null;
       S.pill.querySelectorAll('.tab').forEach(function (el) {
         el.classList.remove('slide-from');

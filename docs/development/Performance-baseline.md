@@ -88,3 +88,8 @@ tap runs after the sessions' own work and costs a set intersection). About → P
 first day on it.
 
 **Decision:** within budget; nothing to change. Look again if the tap's p95 passes 1 ms or a flush's passes 50 ms.
+
+## Motion
+
+The numbers here are a screen's at rest, and an average: they cannot say whether a swipe is smooth. What a swipe does frame
+by frame is in [Motion](Motion.md), measured with the finger down.

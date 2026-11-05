@@ -1448,7 +1448,8 @@
       this._announced = false;
     }
     _announce() {
-      if (this._announced || !this.isConnected || !this._config) return;
+      // (kept beside the page shown, for a swipe: it says so when it is shown -- hk-view-host.js hold)
+      if (this._announced || !this.isConnected || !this._config || this.hasAttribute('data-hk-offstage')) return;
       var wantCards = (this._config.cards || []).length;
       if (wantCards && !(this._cards || []).length) return;
       this._announced = true;
@@ -1843,7 +1844,7 @@
         // a canvas's width aside from the one showing (--cur) -- the root
         // clips them -- and slide in as one, following a finger (--drag)
         '.cell[data-view]{transform:translateX(calc((var(--v) - var(--cur, 0)) * var(--g-w) + var(--drag, 0px)));' +
-        'transition:transform .45s cubic-bezier(.32,.72,0,1)}' +
+        'transition:transform var(--view-ms, .45s) var(--view-ease, cubic-bezier(.32,.72,0,1))}' +
         '#root.dragging .cell[data-view]{transition:none}' +
         // (and not drawn while they rest out of sight: Safari lets a scaled grid's scrollers and
         // videos past its clip, so a camera or a room's pages showed through in the next view)
@@ -1880,58 +1881,26 @@
     // hk-swipe-past with the travel so far, and goes on to the next page.
     // What moves sideways itself is one list, hkDrag.sideways (hk-drag.js).
     _swipeViews() {
-      var self = this, d = null;
-      var mine = function (e) {
-        var D = window.hkDrag;
-        // (without the shared list, nothing here is known to be the grid's)
-        return !!(D && D.sideways) && !D.sideways(e.composedPath ? e.composedPath() : [], self);
-      };
-      this.addEventListener('pointerdown', function (e) {
-        if (self._views() < 2 || (e.button !== undefined && e.button !== 0) || !mine(e)) return;
-        d = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId, on: false };
+      var self = this, g = null;
+      ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'click'].forEach(function (t) {
+        self.addEventListener(t, function (e) {
+          var D = window.hkDrag;     // (without it, nothing here is known to be the grid's)
+          if (!g && D && D.viewSwipe) g = D.viewSwipe(self);
+          if (g) g[t](e);
+        }, t === 'click');
       });
-      this.addEventListener('pointermove', function (e) {
-        if (!d || e.pointerId !== d.id) return;
-        var dx = e.clientX - d.x, dy = e.clientY - d.y;
-        if (!d.on) {
-          if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.4) { if (Math.abs(dy) > 14) d = null; return; }
-          // PAST THE END, ON TO THE NEXT PAGE: the page swipe takes it from here
-          var end = dx < 0 ? (self._view || 0) >= self._views() - 1 : (self._view || 0) <= 0;
-          var PS = window.hkPageSwipe;
-          if (end && PS && PS.takes && PS.takes(dx < 0 ? 1 : -1, self)) {
-            d = null;
-            self.dispatchEvent(new CustomEvent('hk-swipe-past', { bubbles: true, composed: true,
-              detail: { dir: dx < 0 ? 1 : -1, dx: dx, dy: dy, x: e.clientX, y: e.clientY, pointerId: e.pointerId,
-                        pointerType: e.pointerType, target: e.composedPath ? e.composedPath()[0] : e.target } }));
-            return;
-          }
-          d.on = true;
-          try { self.setPointerCapture(e.pointerId); } catch (x) { /* a test page */ }
-          self._root.classList.add('dragging');
-        }
-        var k = self._gridScale || 1, n = self._views(), at = self._view || 0;
-        // (past the first or the last: a third of the finger's travel)
-        if ((at === 0 && dx > 0) || (at === n - 1 && dx < 0)) dx /= 3;
-        self._root.style.setProperty('--drag', (dx / k).toFixed(1) + 'px');
-      });
-      var end = function (e) {
-        if (!d || (e && e.pointerId !== d.id)) return;
-        var was = d; d = null;
-        if (!was.on) return;
-        self._root.classList.remove('dragging');
-        var dx = (e ? e.clientX : was.x) - was.x, w = (self._root.offsetWidth || 1) * (self._gridScale || 1);
-        var fast = Math.abs(dx) / Math.max(1, Date.now() - was.t) > 0.5;
-        self._root.style.removeProperty('--drag');
-        if (e && e.type === 'pointerup' && (Math.abs(dx) > w / 5 || (fast && Math.abs(dx) > 30))) self._showView((self._view || 0) + (dx < 0 ? 1 : -1));
-        // the tap a swipe ends with is no tap on the block under it
-        self._eatClick = Date.now();
-      };
-      this.addEventListener('pointerup', end);
-      this.addEventListener('pointercancel', end);
-      this.addEventListener('click', function (e) {
-        if (self._eatClick && Date.now() - self._eatClick < 350) { e.stopPropagation(); e.preventDefault(); }
-        self._eatClick = 0;
-      }, true);
+    }
+    // both views drawn while one slides out and the other in, for that long; the curve it used goes with it
+    _slideFor(ms) {
+      var root = this._root, self = this;
+      root.classList.add('sliding');
+      clearTimeout(this._sliding);
+      this._sliding = setTimeout(function () {
+        self._sliding = 0;
+        root.classList.remove('sliding');
+        root.style.removeProperty('--view-ms');
+        root.style.removeProperty('--view-ease');
+      }, ms + 60);
     }
     _views() { return this._config ? this._grid().views : 1; }
     // ARRIVING BY A PAGE SWIPE (hk-pageswipe.js): forward, its first view;
@@ -1952,9 +1921,7 @@
       // (both views drawn while one slides out and the other in)
       if (this._root && this._view !== undefined && this._view !== i) {
         var root = this._root;
-        root.classList.add('sliding');
-        clearTimeout(this._sliding);
-        this._sliding = setTimeout(function () { root.classList.remove('sliding'); }, 500);
+        this._slideFor(this._slideMs || 450);
       }
       this._view = i;
       if (this._root) this._root.style.setProperty('--cur', String(i));
@@ -2165,11 +2132,12 @@
     // 30 s; Home only: another page, or this view gone, lets it go.
     _nightCheck() {
       var n = this._config && this._grid().night;
-      gridNight(!!n && this.isConnected && gridNightNow(n, new Date()));
+      gridNight(!!n && this.isConnected && !this.hasAttribute('data-hk-offstage') && gridNightNow(n, new Date()));
     }
+    _stageChanged() { this._nightCheck(); }
     // hk-view-ready, as hk-grid-view says it (the sky repaints with the page)
     _announce() {
-      if (this._announced || !this.isConnected || !this._config) return;
+      if (this._announced || !this.isConnected || !this._config || this.hasAttribute('data-hk-offstage')) return;
       if ((this._config.cards || []).length && !(this._cards || []).length) return;
       this._announced = true;
       try {
@@ -2570,6 +2538,8 @@
         var path = e.composedPath ? e.composedPath() : [e.target];
         if (!pagerClaims(path, e.clientX, pager)) return;
         if (path.some(function (el) { return el !== pager && el.matches && el.matches('input,select,textarea,[contenteditable=true]'); })) return;
+        // (a page still gliding home stops under the finger)
+        if (self._glide) { self._glide(); self._glide = null; }
         self._drag = { id: e.pointerId, x: e.clientX, y: e.clientY, left: track.scrollLeft, from: self._index,
                        moved: false, target: path[0], pts: [[e.timeStamp, e.clientX]] };
       }, true);
@@ -2594,8 +2564,9 @@
           } catch (x) { /* no PointerEvent: a test page */ }
           try { pager.setPointerCapture(e.pointerId); } catch (x) { /* already released */ }
         }
-        var scale = track.getBoundingClientRect().width / track.clientWidth || 1;
-        track.scrollLeft = d.left - dx / scale;
+        // (measured once a drag: a read here is a layout under the finger)
+        if (!d.scale) d.scale = track.getBoundingClientRect().width / track.clientWidth || 1;
+        track.scrollLeft = d.left - dx / d.scale;
         self._moving();
         d.pts.push([e.timeStamp, e.clientX]);
         if (d.pts.length > 6) d.pts.shift();
@@ -2613,16 +2584,13 @@
         try { if (pager.hasPointerCapture(e.pointerId)) pager.releasePointerCapture(e.pointerId); } catch (x) { /* gone */ }
         if (!d.moved) return;
         self._eatClick = true;
-        var w = track.clientWidth || 1, to = Math.round(track.scrollLeft / w);
-        if (e.type === 'pointerup' && to === d.from) {
-          var scale = track.getBoundingClientRect().width / w || 1, went = (e.clientX - d.x) / scale;
-          var p0 = d.pts[0], p1 = d.pts[d.pts.length - 1], dt = p1[0] - p0[0];
-          var speed = dt > 0 && e.timeStamp - p1[0] < 100 ? (p1[1] - p0[1]) / scale / dt : 0;
-          if (went < -w * PAGER_TURN || speed < -PAGER_FLICK) to = d.from + 1;
-          else if (went > w * PAGER_TURN || speed > PAGER_FLICK) to = d.from - 1;
-        }
-        if (e.type !== 'pointerup') to = d.from;           // the browser took it: back where it was
-        self.goTo(to, true);
+        var w = track.clientWidth || 1, to = d.from, scale = d.scale || 1;
+        var p0 = d.pts[0], p1 = d.pts[d.pts.length - 1], dt = p1[0] - p0[0];
+        var speed = dt > 0 && e.timeStamp - p1[0] < 100 ? (p1[1] - p0[1]) / scale / dt : 0;
+        var went = (e.clientX - d.x) / scale;
+        // past a fifth, or flicked that way; flicked back, it goes back; the browser took it: back where it was
+        if (e.type === 'pointerup' && window.hkDrag.lands(went, w, speed, { turn: PAGER_TURN, flick: PAGER_FLICK, min: PAGER_SLOP })) to = d.from + (went < 0 ? 1 : -1);
+        self._glideTo(to, -speed);
       };
       pager.addEventListener('pointerup', finish, true);
       pager.addEventListener('pointercancel', finish, true);
@@ -2675,8 +2643,22 @@
       this._show(Math.round((t.scrollLeft || 0) / w));
     }
 
+    // LET GO OF A DRAG: to page i, from where the track is, at the speed it was going (hk-drag.js; v: scrollLeft px/ms)
+    _glideTo(i, v) {
+      var n = (this._pages || []).length, t = this._track, self = this, H = window.hkDrag;
+      if (!n || !t) return;
+      i = Math.max(0, Math.min(n - 1, i | 0));
+      if (pagerCalm() || !H || !H.glide) { this.goTo(i, false); return; }
+      this._want = i;
+      var at = this._pageLeft(i);
+      if (this._glide) this._glide();
+      this._glide = H.glide(t.scrollLeft, at, v, function (x) { t.scrollLeft = x; self._moving(); }, function () { self._glide = null; });
+      this._show(i);
+    }
+
     // TURN TO PAGE i: smooth for a tap, at once otherwise
     goTo(i, smooth) {
+      if (this._glide) { this._glide(); this._glide = null; }
       var n = (this._pages || []).length;
       if (!n) return;
       i = Math.max(0, Math.min(n - 1, i | 0));
