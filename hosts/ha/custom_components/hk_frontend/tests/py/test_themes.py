@@ -16,9 +16,10 @@ OURS = ("HK Kiosk", "HK Kiosk Camera")
 async def _start(hass, yaml_themes=None):
     """The frontend's themes as configuration.yaml gives them, then the
     integration added the way a user adds it."""
+    from custom_components.hk_frontend.themes import themes_updated
     await fe._async_setup_themes(hass, yaml_themes or {})
     fired = []
-    hass.bus.async_listen(fe.EVENT_THEMES_UPDATED, fired.append)
+    hass.bus.async_listen(themes_updated(), fired.append)
     r = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
     await hass.config_entries.flow.async_configure(r["flow_id"], {})
     await hass.async_block_till_done()
@@ -26,7 +27,10 @@ async def _start(hass, yaml_themes=None):
 
 
 async def _reload(hass, yaml_themes):
-    with patch("homeassistant.components.frontend.async_hass_config_yaml",
+    # 2026.11 reads configuration.yaml for a reload in frontend/services.py
+    where = ("homeassistant.components.frontend.services" if hasattr(fe, "services")
+             else "homeassistant.components.frontend")
+    with patch(f"{where}.async_hass_config_yaml",
                return_value={"frontend": {"themes": yaml_themes}}):
         await hass.services.async_call("frontend", "reload_themes", blocking=True)
     await hass.async_block_till_done()

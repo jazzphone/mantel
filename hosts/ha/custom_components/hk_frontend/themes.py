@@ -44,11 +44,35 @@ KEY = "hk_frontend_themes"                 # hass.data: the themes, as read
 _DEFAULTS = ("frontend_default_theme", "frontend_default_dark_theme")
 
 
-def _read() -> dict[str, Any]:
+def _frontend(name: str, default: Any = None) -> Any:
+    """One of the frontend's theme names, wherever this Home Assistant keeps it:
+    2026.11 moved them into frontend/helpers.py (the package re-exports most,
+    not THEME_SCHEMA); before that they were in frontend/__init__.py."""
     from homeassistant.components import frontend
+
+    try:
+        from homeassistant.components.frontend import helpers
+    except ImportError:
+        helpers = None
+    for module in (helpers, frontend):
+        if module is not None and hasattr(module, name):
+            return getattr(module, name)
+    return default
+
+
+def themes_updated() -> str:
+    """The event that tells every browser to ask for the themes again. 2026.11
+    moved EVENT_THEMES_UPDATED to homeassistant.const; it is "themes_updated"
+    in both places."""
+    import homeassistant.const as const
+
+    return getattr(const, "EVENT_THEMES_UPDATED", None) or _frontend("EVENT_THEMES_UPDATED", "themes_updated")
+
+
+def _read() -> dict[str, Any]:
     from homeassistant.util.yaml import load_yaml_dict
 
-    schema = getattr(frontend, "THEME_SCHEMA", None)
+    schema = _frontend("THEME_SCHEMA")
     themes = {}
     for name, theme in load_yaml_dict(str(FILE)).items():
         themes[str(name)] = dict(schema(theme)) if schema else dict(theme)
@@ -57,8 +81,6 @@ def _read() -> dict[str, Any]:
 
 async def async_setup(hass: HomeAssistant) -> None:
     """Read the themes, add them, and add them back after every reload."""
-    from homeassistant.components.frontend import EVENT_THEMES_UPDATED
-
     try:
         hass.data[KEY] = await hass.async_add_executor_job(_read)
     except (HomeAssistantError, OSError, ValueError) as err:
@@ -69,14 +91,12 @@ async def async_setup(hass: HomeAssistant) -> None:
     def _updated(_event: Event) -> None:
         hass.async_create_task(_async_add(hass), eager_start=True)
 
-    hass.bus.async_listen(EVENT_THEMES_UPDATED, _updated)
+    hass.bus.async_listen(themes_updated(), _updated)
     await _async_add(hass)
 
 
 async def _async_add(hass: HomeAssistant) -> None:
-    from homeassistant.components import frontend
-
-    themes = hass.data.get(frontend.DATA_THEMES)
+    themes = hass.data.get(_frontend("DATA_THEMES", "frontend_themes"))
     ours = hass.data.get(KEY) or {}
     if not isinstance(themes, dict):
         return
@@ -87,15 +107,13 @@ async def _async_add(hass: HomeAssistant) -> None:
         themes[name] = ours[name]          # finds nothing missing
     await _restore_defaults(hass, added)
     _LOGGER.debug("hk_frontend: themes added: %s", ", ".join(sorted(added)))
-    hass.bus.async_fire(frontend.EVENT_THEMES_UPDATED)
+    hass.bus.async_fire(themes_updated())
 
 
 async def _restore_defaults(hass: HomeAssistant, added: set[str]) -> None:
     """The server default (and dark default) the frontend reset because the
     theme was not there yet: its store still has the choice."""
-    from homeassistant.components import frontend
-
-    store = hass.data.get(getattr(frontend, "DATA_THEMES_STORE", "frontend_themes_store"))
+    store = hass.data.get(_frontend("DATA_THEMES_STORE", "frontend_themes_store"))
     if store is None:
         return
     try:
