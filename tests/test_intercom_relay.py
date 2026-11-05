@@ -663,7 +663,8 @@ async def test_the_group_trap_a_leader_is_skipped_unless_its_whole_group_is_in(i
 
 
 async def test_a_member_of_a_group_is_announced_to_alone(ic):
-    await ic.ma.set(KITCHEN, group_members=[KITCHEN, DEN])
+    """A group playing music: an idle one left from music is borrowed instead (tests/test_intercom_borrow.py)."""
+    await ic.ma.set(KITCHEN, "playing", group_members=[KITCHEN, DEN])
     await IF.wait_for(lambda: DEN in (ic.hub.store.states[KITCHEN]["a"].get("group_members") or []))
     avery = await ic.actor("avery", "owner")
     ws = await avery.talk()

@@ -614,9 +614,11 @@ def test_an_unreadable_list_makes_no_group(house, music):
 def left_from_music(house, **over):
     """The Kitchen leads the Office and the Guest Room, all idle, as music leaves them."""
     house.group(K, [OFF, GR])
-    base = {"ap_k": {"group_members": ["ap_k", "ap_off", "ap_gr"], "group_childs": ["ap_k", "ap_off", "ap_gr"]},
-            "ap_off": {"synced_to": "ap_k"},
-            "ap_gr": {"synced_to": "ap_k"}}
+    every = ["ap_k", "ap_off", "ap_gr", "ap_lr", "ap_den", "ap_play", "ap_sl", "ap_sr", "ap_st1", "ap_st2"]
+    base = {"ap_k": {"group_members": ["ap_k", "ap_off", "ap_gr"], "group_childs": ["ap_k", "ap_off", "ap_gr"],
+                     "can_group_with": [x for x in every if x != "ap_k"]},
+            "ap_off": {"synced_to": "ap_k", "can_group_with": []},       # a member lists nobody, as Music Assistant does
+            "ap_gr": {"synced_to": "ap_k", "can_group_with": []}}
     for pid, more in over.items():
         base[pid] = {**base.get(pid, {}), **more}
     return groupable_list(**base)
@@ -657,6 +659,14 @@ def test_a_group_that_isnt_idle_and_the_senders_is_never_borrowed(house, music, 
     kw = {"held": [GR]} if why == "held" else {"allowed": lambda r: r != GR} if why == "not_allowed" else {}
     p = decide(house, music, doc(), [K], ma=left_from_music(house, **over), **kw)
     assert p.loose == [] and states(p)[K] == ("skipped", "leads")
+
+
+def test_rooms_inside_it_picked_without_its_leader_borrow_it_and_play_as_one(house, music):
+    """2026-11-05: the Office's two HomePods, members of a group left from music, played 12 s apart."""
+    p = decide(house, music, doc(), [OFF, GR], ma=left_from_music(house))
+    assert [(g.leader, g.members) for g in p.loose] == [("ap_k", ["ap_off", "ap_gr"])]
+    assert len(p.sync) == 1 and sorted(c.room for c in p.sync[0].calls) == sorted([OFF, GR]), "they can group, borrowed"
+    assert all(c.room != K for c in p.calls), "the leader's room isn't picked: it hears nothing"
 
 
 def test_borrow_false_decides_the_group_as_it_stands(house, music):

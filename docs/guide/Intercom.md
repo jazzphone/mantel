@@ -137,7 +137,8 @@ it alone.
 
 **After the music stops**, the speakers stay grouped, so the next Play is still
 whole-house. That leftover group doesn't limit the Intercom: pick the Master
-Bedroom alone and only the Master Bedroom hears it. Mantel takes the other
+Bedroom alone and only the Master Bedroom hears it, and a room inside the
+group, such as a pair, plays as one. Mantel takes the other
 speakers out of the group for the message and puts them back, in their order,
 as soon as it's over. It does this only when every speaker in the group is
 idle and you may use all of its rooms.

@@ -43,7 +43,7 @@ so rooms at different volumes make separate groups. In Live the groups are made 
 A GROUP LEFT FROM MUSIC (2026-11-05: whole-house music stopped and left every HomePod grouped under the Master Bedroom, so
 the Master Bedroom alone could only "play together with" eight other rooms). Music Assistant keeps a group after its music
 stops, so the next Play is still whole-house. When a picked room leads such a group, all of it idle, and not every one of its
-rooms is picked (or other rooms are, which then play in step with it), the broadcast BORROWS the group (``leftovers``, ``Plan.loose``): the host takes its members out first,
+rooms is picked (or other rooms are, which then play in step with it), or a room inside it is, the broadcast BORROWS the group (``leftovers``, ``Plan.loose``): the host takes its members out first,
 checked, and puts them back afterward, in their order. Everything here is then decided as if they were apart. Not a group
 with a group player in it, a speaker playing, paused or holding paused music, or a room the sender may not reach.
 """
@@ -250,8 +250,8 @@ def sync_sets(house: House, music: MusicConfig, calls: list[Call], ma_raw: Any, 
 
 def leftovers(music: MusicConfig, ma_raw: Any, pids: Mapping[str, str], rooms: Iterable[str], *,
               allowed: Callable[[str], bool] = lambda r: True, held: Iterable[str] = ()) -> list[Loose]:
-    """The groups left from music a broadcast to ``rooms`` borrows (the module's notes): an ad-hoc group whose leader is
-    one of ``rooms``'s speakers, some of whose rooms aren't in ``rooms``, every speaker of it a plain player that is
+    """The groups left from music a broadcast to ``rooms`` borrows (the module's notes): an ad-hoc group with one of
+    ``rooms`` in it, not exactly ``rooms``, every speaker of it a plain player that is
     available, on and idle, every one of its rooms the sender's and none holding paused music."""
     players = {p["player_id"]: p for p in ma_raw if isinstance(p, Mapping) and isinstance(p.get("player_id"), str)
                } if isinstance(ma_raw, (list, tuple)) else {}
@@ -264,10 +264,14 @@ def leftovers(music: MusicConfig, ma_raw: Any, pids: Mapping[str, str], rooms: I
     for lead, p in players.items():
         members = [m for m in dict.fromkeys(x for k in MEMBER_KEYS for x in (p.get(k) or ()))
                    if isinstance(m, str) and m != lead]
-        if not members or p.get("synced_to") or not own.get(lead, set()) & rooms:
+        if not members or p.get("synced_to"):
             continue
         group = [lead, *members]
         theirs = set().union(*(own.get(x, set()) for x in group))
+        if not theirs & rooms:
+            continue                        # none of it is picked
+        # (a member picked counts too, 2026-11-05: the Office's two HomePods, both members, were each announced to alone,
+        # which Music Assistant does by taking one out of the group, playing, putting it back, then the next: 12 s apart)
         if theirs == rooms:
             continue                        # all of it, and nothing else: the leader's call plays on it, as it is
         if not all(_lendable(players.get(x), x, lead) and own.get(x) and not own[x] & held
@@ -294,10 +298,20 @@ def apart(ma_raw: Any, loose: Iterable[Loose]) -> Any:
     gone = {x for g in loose for x in [g.leader, *g.members]}
     if not gone or not isinstance(ma_raw, (list, tuple)):
         return ma_raw
+    # who each can group with once it's on its own: a member of a group lists nobody (2026-11-05: the borrowed Kitchen and
+    # Guest Bedroom, at one volume, each played alone), so a borrowed speaker gets its group's list, itself left out
+    can: dict[str, set[str]] = {}
+    for g in loose:
+        group = {g.leader, *g.members}
+        reach = set(group).union(*(set(p.get("can_group_with") or ()) for p in ma_raw
+                                   if isinstance(p, Mapping) and p.get("player_id") in group))
+        for x in group:
+            can[x] = reach - {x}
     # every field a group is listed in (ma_view reads all three): 0.1.134 cleared group_members only, Music Assistant also
     # lists group_childs, so the leader still "covered" the speakers it had just let go and only it was called
-    return [{**p, **{k: [] for k in MEMBER_KEYS}, "synced_to": None} if isinstance(p, Mapping) and p.get("player_id") in gone
-            else p for p in ma_raw]
+    return [{**p, **{k: [] for k in MEMBER_KEYS}, "synced_to": None,
+             "can_group_with": sorted(can[p["player_id"]] | set(p.get("can_group_with") or ()))}
+            if isinstance(p, Mapping) and p.get("player_id") in gone else p for p in ma_raw]
 
 
 def decide(house: House, music: MusicConfig, doc: Mapping[str, Any], picked: Iterable[str], *, mode: str,
