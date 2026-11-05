@@ -74,11 +74,17 @@
       // absolute address on its own port (hk-media.js, the now-playing card)
       var pic = a.entity_picture_local || a.entity_picture || '';
       if (pic && pic.charAt(0) === '/') pic = location.origin + pic;
-      return { idle: false, key: ctx.key, room: M.label ? M.label(ctx) : ctx.key, playing: st.state === 'playing',
+      // A GROUP'S VOLUME IS ITS ROOMS' (2026-11-05, the owner: the screensaver's slider moved one speaker of a group, as the
+      // Side Pane's did): the slider shows their average and sets every one, as the player's and the music panel's do
+      var members = Array.isArray(ctx.members) && ctx.members.length > 1 ? ctx.members.slice() : [ctx.key];
+      var vols = members.map(function (k) { var x = ((h.states[k] || {}).attributes || {}).volume_level; return typeof x === 'number' ? x : null; })
+        .filter(function (x) { return x !== null; });
+      var vol = members.length > 1 ? (vols.length ? vols.reduce(function (n, x) { return n + x; }, 0) / vols.length : null)
+        : typeof a.volume_level === 'number' ? a.volume_level : null;
+      return { idle: false, key: ctx.key, members: members, room: M.label ? M.label(ctx) : ctx.key, playing: st.state === 'playing',
                title: ctx.title || a.media_title || '', artist: ctx.artist || a.media_artist || '', album: a.media_album_name || '',
                pic: pic, dur: Number(a.media_duration) || 0, pos: Number(a.media_position) || 0,
-               posAt: Date.parse(a.media_position_updated_at) || 0,
-               vol: typeof a.volume_level === 'number' ? a.volume_level : null };
+               posAt: Date.parse(a.media_position_updated_at) || 0, vol: vol };
     }
     function elapsed(d) {
       var t = d.pos + (d.playing && d.posAt ? (Date.now() - d.posAt) / 1000 : 0);
@@ -339,7 +345,8 @@
       var val = Math.round(Math.max(0, Math.min(1, (x - r.left) / r.width)) * 100) / 100;
       var d = dr.view.d;
       if (!d || d.idle) return;
-      mus.vol = { key: d.key, val: val, until: clock.now() + 4000, sent: mus.vol && mus.vol.key === d.key ? mus.vol.sent : null };
+      mus.vol = { key: d.key, members: d.members || [d.key], val: val, until: clock.now() + 4000,
+                  sent: mus.vol && mus.vol.key === d.key ? mus.vol.sent : null };
       mus.views.forEach(function (v) { if (v.d && v.d.key === d.key) { v.d.vol = val; drawMusic(v, v.d); } });
       var now = clock.now();
       if (now - dr.sent >= VOL_EVERY) volSend(); else if (!dr.t) dr.t = setTimeout(volSend, VOL_EVERY - (now - dr.sent));
@@ -351,7 +358,8 @@
       if (dr) dr.sent = clock.now();
       if (mus.vol.sent === mus.vol.val) return;
       mus.vol.sent = mus.vol.val;
-      try { act.callService('media_player', 'volume_set', { entity_id: mus.vol.key, volume_level: mus.vol.val }); } catch (e) { /* offline */ }
+      var to = mus.vol.members && mus.vol.members.length > 1 ? mus.vol.members.slice() : mus.vol.key;   // a group: every room, one call
+      try { act.callService('media_player', 'volume_set', { entity_id: to, volume_level: mus.vol.val }); } catch (e) { /* offline */ }
     }
     function volEnd() {
       var dr = mus.drag;
