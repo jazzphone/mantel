@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.137 - 2026-11-05
+
 **Changed**
 - **The Intercom has a new look.** A big round talk button, like the Lock's, with the rooms it talks to beside it (under it on a phone): how many are picked, **Clear All**, your groups, then each room with a check. The button turns red while you record, shows the time and fills its ring toward the limit; in Live it turns green. After a message is sent, the button is back at once: "Sent to 2 rooms" with **Play** and **Send Again** stays under it for a few seconds.
 
