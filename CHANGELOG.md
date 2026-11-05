@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.133 - 2026-11-05
+
 **Fixed**
 - **Live to speakers still grouped from music played nothing.** After music stops, its speakers stay grouped. Live now plays straight away on a group like that when it's idle and every speaker in it is picked. If it has to wait until you finish, the message now plays then; before, the last check dropped it and nothing played.
 
