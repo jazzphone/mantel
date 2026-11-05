@@ -33,6 +33,7 @@
   "web/hk/modules/hk-frosttint.js",
   "web/hk/modules/hk-idle.js",
   "web/hk/modules/hk-loader.js",
+  "web/hk/modules/hk-mic-tap.js",
   "web/hk/modules/hk-mic.js",
   "web/hk/modules/hk-saver.js",
   "web/hk/modules/hk-saverfaces.js",

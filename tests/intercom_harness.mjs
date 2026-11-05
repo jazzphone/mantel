@@ -168,8 +168,11 @@ test('mic_level_and_stamp', () => {
   assert.equal(M.stamp(7.2), '0:08');
   assert.equal(M.stamp(30), '0:30');
   assert.equal(M.stamp(61), '1:01');
-  assert.match(M.PCM_TAP, /registerProcessor\('hk-mic-tap'/);
-  assert.match(M.PCM_TAP, /Int16Array\(this\.c\)/);
+  // the worklet is a file of its own (a blob: module is refused by the page policy, script-src 'self')
+  const tap = readFileSync(new URL('../web/hk/modules/hk-mic-tap.js', import.meta.url), 'utf8');
+  assert.match(tap, /registerProcessor\('hk-mic-tap'/);
+  assert.match(tap, /Int16Array\(this\.c\)/);
+  assert.equal(M.TAP_PATH, '/hk/modules/hk-mic-tap.js');
 });
 
 class FakeSocket {
@@ -492,10 +495,11 @@ test('session_keeps_a_copy_plays_it_and_close_lets_everything_go', async () => {
   x.workers[0].onmessage({ data: { bye: true } });
   assert.equal(x.workers[0].terminated, true);
   assert.equal(s.bytes, 0);
-  // blob URLs made with createObjectURL are let go: the worklet's once it loaded, the Worker's with the Worker
+  // the Worker's blob URL is let go with the Worker; the worklet is a file (hk-mic-tap.js), never a blob
   await flush();
-  assert.equal(x.revoked.length, 2);
-  assert.ok(x.revoked.every((u) => x.made.includes(u)) && new Set(x.revoked).size === 2);
+  assert.equal(x.revoked.length, 1);
+  assert.ok(x.revoked.every((u) => x.made.includes(u)));
+  assert.ok(x.made.every((u) => !/registerProcessor/.test(u)), 'no worklet blob');
 });
 
 test('session_ends_a_worker_that_never_says_bye_after_a_moment', async () => {

@@ -47,27 +47,8 @@
 
   // The AudioWorklet: CHUNK samples (40 ms) of the microphone as Int16, posted to the Worker's port. A worklet, not a
   // ScriptProcessor: it runs off the main thread, so a busy page cannot starve it into gaps.
-  var PCM_TAP = [
-    "class P extends AudioWorkletProcessor {",
-    "  constructor(o) { super(); this.c = (o.processorOptions || {}).chunk || 960;",
-    "    this.b = new Int16Array(this.c); this.n = 0; this.out = null; var me = this;",
-    "    this.port.onmessage = function (e) { if (e.data && e.data.port) me.out = e.data.port; }; }",
-    "  process(inputs) {",
-    "    var ch = inputs[0] && inputs[0][0];",
-    "    if (!ch) return true;",
-    "    for (var i = 0; i < ch.length; i++) {",
-    "      var v = ch[i] < -1 ? -1 : ch[i] > 1 ? 1 : ch[i];",
-    "      this.b[this.n++] = v < 0 ? v * 0x8000 : v * 0x7fff;",
-    "      if (this.n === this.c) {",
-    "        if (this.out) this.out.postMessage(this.b.buffer, [this.b.buffer]);",
-    "        this.b = new Int16Array(this.c); this.n = 0;",
-    "      }",
-    "    }",
-    "    return true;",
-    "  }",
-    "}",
-    "registerProcessor('hk-mic-tap', P);"
-  ].join('\n');
+  // the worklet module is a file of its own (hk-mic-tap.js): the page policy allows scripts from 'self', never blob:
+  var TAP_PATH = '/hk/modules/hk-mic-tap.js';
 
   // The Worker. To the page: {id, ready: {mode, rate, max_s}} once signed in, {id, event} for each of the server's JSON
   // events, {id, chunk} (a copy of each frame it was given while recording), {id, synced: {open, bytes, dropped}} when
@@ -260,10 +241,9 @@
     _module() {
       var ctx = this._ctx;
       if (!this._mod) {
-        var URLs = this.env.URL || global.URL, B = this.env.Blob || global.Blob;
-        var url = URLs.createObjectURL(new B([PCM_TAP], { type: 'application/javascript' }));
-        var done = function () { revoke(URLs, url); };       // the module is read once it has loaded
-        this._mod = ctx.audioWorklet.addModule(url).then(done, function (err) { done(); throw err; });
+        var url = this.env.tapUrl || TAP_PATH;
+        try { if (!this.env.tapUrl && global.hkV) url = global.hkV(TAP_PATH); } catch (e) { /* the plain address */ }
+        this._mod = ctx.audioWorklet.addModule(url);
       }
       return this._mod;
     }
@@ -459,7 +439,7 @@
     version: '1.0.0', RATE: RATE, CHUNK_MS: CHUNK_MS, FRAME: FRAME,
     create: create, supported: MicSession.supported, secure: MicSession.secure,
     levelOf: levelOf, stamp: stamp,
-    PCM_TAP: PCM_TAP, WORKER_SOURCE: WORKER_SOURCE
+    TAP_PATH: TAP_PATH, WORKER_SOURCE: WORKER_SOURCE
   };
   try { global.dispatchEvent(new CustomEvent('hk-module-ready', { detail: 'hkMic' })); } catch (e) { /* no window events (a test) */ }
 })(typeof window !== 'undefined' ? window : globalThis);
