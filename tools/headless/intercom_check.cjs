@@ -35,17 +35,21 @@ const MEASURE = () => {
     inside: !!r && r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
     small: [...new Set(small)], over: [...new Set(over)],
     line: text('.line'), mic: root.querySelector('.mic') && root.querySelector('.mic').getAttribute('data-kind'), micHidden: root.querySelector('.mic').hidden,
-    micLabel: root.querySelector('.mb').getAttribute('aria-label'), time: text('.mt'),
+    micLabel: root.querySelector('.mb').getAttribute('aria-label'), time: text('.mt'), word: text('.wd'), count: text('.cnt'),
+    clear: root.querySelector('.clr') && root.querySelector('.clr').getAttribute('aria-disabled'),
     buttons: q('.rv button').map((b) => b.textContent), seg: q('.seg button').map((b) => b.textContent + (b.classList.contains('sel') ? '*' : '')),
     chips: q('.chips .pill').map((p) => p.querySelector('.l b').textContent.trim() + (p.getAttribute('aria-pressed') === 'true' ? '*' : '') + (p.classList.contains('preset') ? '~' : '')),
     // name, * picked, + a glyph, [the muted second line]
     pills: q('.rooms .pill').map((p) => p.querySelector('.l b').textContent.trim() + (p.getAttribute('aria-pressed') === 'true' ? '*' : '') + (p.querySelector('.pi') ? '+' : '') + (p.querySelector('.l i') ? '[' + p.querySelector('.l i').textContent + ']' : '')),
     // a row of pills that stops short of the section's edge is an orphan gap; so is a big empty area under the foot
-    // every pill, groups and rooms, one width and one height (the speaker picker's grid: the last row simply ends short)
-    sizes: [...new Set(q('.grid .pill').map((p) => { const r = p.getBoundingClientRect(); return Math.round(r.width) + 'x' + Math.round(r.height); }))],
-    cols: new Set(q('.grid .pill').map((p) => Math.round(p.getBoundingClientRect().left))).size,
-    // a big empty area under the foot
-    slack: sh ? Math.round(sh.getBoundingClientRect().bottom - root.querySelector('.foot').getBoundingClientRect().bottom) : null,
+    // every room one width and one height (one grid: the last row simply ends short); the groups one height
+    sizes: [...new Set(q('.rooms .pill').map((p) => { const r = p.getBoundingClientRect(); return Math.round(r.width) + 'x' + Math.round(r.height); }))],
+    chipHeights: [...new Set(q('.chips .pill').map((p) => Math.round(p.getBoundingClientRect().height)))],
+    cols: new Set(q('.rooms .pill').map((p) => Math.round(p.getBoundingClientRect().left))).size,
+    // a big empty area under the content (the lower of the talk side and the rooms)
+    slack: sh ? Math.round(sh.getBoundingClientRect().bottom - Math.max(root.querySelector('.talk').getBoundingClientRect().bottom, root.querySelector('.pick').getBoundingClientRect().bottom)) : null,
+    // the talk side and the rooms: beside each other, or one over the other
+    side: (() => { const a = root.querySelector('.talk').getBoundingClientRect(), b = root.querySelector('.pick').getBoundingClientRect(); return b.left >= a.right - 1 ? 'beside' : 'below'; })(),
     dashed: q('.chips .pill.preset').map((p) => getComputedStyle(p).borderStyle),
     touchAction: getComputedStyle(root.querySelector('.mb')).touchAction,
     scrollX: hkd ? hkd.querySelector('.body').scrollWidth - hkd.querySelector('.body').clientWidth : 0,
@@ -165,7 +169,11 @@ const MEASURE = () => {
         if (m.scrollX > 1) fail(name, 'no sideways scroll', m.scrollX);
         if (m.seg.length) fail(name, 'Live is hidden unless the feed allows it', m.seg);
         if (m.chips.join('|') !== 'Whole House|Main Floor|Upstairs|Dinner~|Quiet Rooms~') fail(name, 'the chips: Whole House, floors, presets (one equal to the whole house, one to a floor, left out)', m.chips);
-        if (m.sizes.length !== 1) fail(name, 'every pill is the same width and height', m.sizes);
+        if (m.sizes.length !== 1) fail(name, 'every room is the same width and height', m.sizes);
+        if (m.chipHeights.length !== 1) fail(name, 'every group is the same height', m.chipHeights);
+        if (m.count !== '2 of 8' || m.clear !== 'false') fail(name, 'the count and Clear All', [m.count, m.clear]);
+        if (m.word !== 'Tap to Talk') fail(name, 'the talk button says Tap to Talk', m.word);
+        out(`ok ${name} the rooms are ${m.side} the talk button`);
         if (m.slack > 80) fail(name, 'the sheet is as tall as its content: no big empty area', m.slack);
         if (m.dashed.some((d) => d !== 'dashed')) fail(name, 'presets have a dashed border', m.dashed);
         if (m.pills.join('|') !== 'Living Room*|Kitchen*|Dining Room[Plays with Office]|Office[Plays with Dining Room]|Bedroom+[Quiet hours]|Guest Room|Nursery|Craft Room|Primary Suite|Laundry Room') fail(name, 'the room pills, picked ones marked; a group leader says who it plays with; no bare slash', m.pills);
@@ -195,31 +203,46 @@ const MEASURE = () => {
         await sheetTap('.rooms .pill', 1);                                  // Living Room, Kitchen
         out(`ok ${name} picker with a finger`);
 
-        // ---- Message: record, stop, review, play, re-record, cancel, send
+        // ---- Message: record, stop (it sends: rooms are picked), back to Tap to Talk, play, send again
+        const micIs = (kind) => page.waitForFunction((k) => deep(document, 'hk-intercom-sheet-card')[0].shadowRoot.querySelector('.mic').getAttribute('data-kind') === k, kind, { timeout: 8000 });
         await page.evaluate(() => { window.__log = []; });
         await sheetTap('.mb');
-        await lineIs(/Connecting|Recording/);
-        await lineIs(/^Recording$/);
+        await micIs('rec');
         await page.waitForTimeout(900);
         m = await page.evaluate(MEASURE);
-        if (m.mic !== 'rec') fail(name, 'the microphone shows it is recording', m.mic);
-        if (!/left$/.test(m.time || '')) fail(name, 'the time left is counted', m.time);
+        if (!/^Tap to send · 0:\d\d left$/.test(m.time || '')) fail(name, 'the time left is counted', m.time);
+        if (!/^0:\d\d$/.test(m.word || '')) fail(name, 'the big word is the time recorded', m.word);
         await shot('sheet-message');
         await page.evaluate(() => __intercomFake.mic().speak(7));
         await sheetTap('.mb');
-        await page.waitForFunction(() => { const c = deep(document, 'hk-intercom-sheet-card')[0]; return !!c && c.shadowRoot.querySelectorAll('.rv button').length > 0; }, null, { timeout: 5000 });
-        await page.waitForTimeout(300);
+        await lineIs(/^Sent to 2 rooms$/);
         m = await page.evaluate(MEASURE);
-        if (m.buttons.join() !== 'Send,Play,Re-record,Cancel') fail(name, 'Send, Play, Re-record, Cancel', m.buttons);
-        if (m.line !== 'Ready to send to Living Room, Kitchen') fail(name, 'ready to send, to whom', m.line);
-        if (m.small.length) fail(name, 'every review button is at least 44', m.small);
+        if (m.micHidden || m.word !== 'Tap to Talk') fail(name, 'after a send: straight back to Tap to Talk', [m.micHidden, m.word]);
+        if (m.buttons.join() !== 'Play,Send Again') fail(name, 'after a send: Play and Send Again under it', m.buttons);
+        if (m.small.length) fail(name, 'every button at least 44', m.small);
+        await shot('sheet-sent');
+        await sheetTap('.rv button', 0);                                    // Play
+        m = await page.evaluate(MEASURE);
+        if (m.buttons[0] !== 'Stop') fail(name, 'Play becomes Stop', m.buttons);
+        await sheetTap('.rv button', 0);
+        await sheetTap('.rv button', 1);                                    // Send Again
+        await lineIs(/^Sent to 2 rooms$/);
+        out(`ok ${name} message: record, send, back to Tap to Talk, play, send again`);
+
+        // ---- Clear All, then a recording with no room: the review (Send waits for a room), re-record, cancel
+        await sheetTap('.clr');
+        m = await page.evaluate(MEASURE);
+        if (m.count !== '0 of 8' || m.clear !== 'true' || m.pills.some((x) => x.includes('*'))) fail(name, 'Clear All picks nothing', [m.count, m.clear, m.pills]);
+        await sheetTap('.mb');
+        await micIs('rec');
+        await page.evaluate(() => __intercomFake.mic().speak(5));
+        await sheetTap('.mb');
+        await page.waitForFunction(() => deep(document, 'hk-intercom-sheet-card')[0].shadowRoot.querySelectorAll('.rv button').length > 0, null, { timeout: 5000 });
+        m = await page.evaluate(MEASURE);
+        if (m.buttons.join() !== 'Send,Play,Re-record,Cancel' || !m.micHidden) fail(name, 'with no room picked: the review', [m.buttons, m.micHidden]);
         await shot('sheet-review');
-        await sheetTap('.rv button', 1);                                    // Play
-        m = await page.evaluate(MEASURE);
-        if (m.buttons[1] !== 'Stop') fail(name, 'Play becomes Stop', m.buttons);
-        await sheetTap('.rv button', 1);
         await sheetTap('.rv button', 2);                                    // Re-record
-        await lineIs(/^Recording$/);
+        await micIs('rec');
         await page.evaluate(() => __intercomFake.mic().speak(5));
         await sheetTap('.mb');
         await page.waitForFunction(() => deep(document, 'hk-intercom-sheet-card')[0].shadowRoot.querySelectorAll('.rv button').length > 0, null, { timeout: 5000 });
@@ -236,19 +259,7 @@ const MEASURE = () => {
         await page.waitForTimeout(500);
         m = await page.evaluate(MEASURE);
         if (m.mic !== 'idle') fail(name, 'a pointercancel starts nothing', m.mic);
-        await sheetTap('.mb');
-        await lineIs(/^Recording$/);
-        await page.evaluate(() => __intercomFake.mic().speak(7));
-        await sheetTap('.mb');
-        await page.waitForFunction(() => deep(document, 'hk-intercom-sheet-card')[0].shadowRoot.querySelectorAll('.rv button').length > 0, null, { timeout: 5000 });
-        await sheetTap('.rv button', 0);                                    // Send
-        await lineIs(/^Sending/);
-        await shot('sheet-sending');
-        await lineIs(/^Sent to 2 rooms$/);
-        m = await page.evaluate(MEASURE);
-        if (m.buttons.join() !== 'Send Again,Play,Done') fail(name, 'after Sent: Send Again, Play, Done', m.buttons);
-        await shot('sheet-sent');
-        out(`ok ${name} message: record, review, play, re-record, cancel, pointercancel, send`);
+        out(`ok ${name} Clear All, the review, re-record, cancel, pointercancel`);
         await closeSheet();
 
         // ---- Needs HTTPS (a plain page has no microphone)
