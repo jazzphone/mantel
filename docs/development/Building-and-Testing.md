@@ -299,8 +299,8 @@ tap on a settling page, rapid flicks through every page and back, repeated swipe
 the back button under a swipe, a tab to the page waiting beside this one, a new config, Reduce Motion's cross-fade, a Home
 Grid's hand-off, and a pager's glide. Times are not asserted; positions, order and state are. Chromium's finger is CDP's,
 WebKit's is synthetic pointer events, which say nothing of a real iPad: [Motion](Motion.md#what-a-browser-here-cannot-say).
-Without `PLAYWRIGHT_PATH` or `NODE` it says so and exits 2. `tools/ci.py full` runs it as `swipe-motion-check-chromium` and
-`-webkit`, skipped there (and counted as a skip) without them.
+Without `PLAYWRIGHT_PATH` or `NODE` it says so and exits 2. `tools/ci.py full` runs it as `swipe-motion-check-<engine>-<size>`, four steps, skipped there (and counted as a skip)
+without them.
 
 ### The screensaver's faces in WebKit
 
