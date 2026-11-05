@@ -126,7 +126,8 @@ print(JSON.stringify({ P: P, again: again, listeners: (LISTEN['hk-house-event'] 
         assert P[k]["group"] == "Cameras" and P[k]["wave"] == "B" and P[k]["name"] and P[k]["source"] and P[k]["wakes"]
         assert P[k]["off"] is True and P[k]["pick"] is None, k                        # off until placed (decision 7)
         assert P[k]["facts"] == [k]
-    assert P["camera"]["opts"] == {"camera": "entity:camera"} and P["camera"]["when"] is None and P["camera"]["accent"] is None
+    assert P["camera"]["opts"] == {"camera": "entity:camera", "label": ["show", "custom", "hide"], "name": "text"}
+    assert P["camera"]["when"] is None and P["camera"]["accent"] is None
     assert P["ring"]["opts"] == {} and P["ring"]["when"] and P["ring"]["accent"] == ["#ffb340", "#b36b00"]       # Last Ring is amber
     # loaded twice: nothing is wrapped or listened for again
     assert out["again"] is True and out["listeners"] == 1 and out["core"] and out["v1"] is None
@@ -324,6 +325,25 @@ print(JSON.stringify(got));
     assert ">Only In Settings<" in out["none_in_house"] and 'data-k=""' in out["none_in_house"]
     assert ">Camera<" in out["none_html"]
 
+
+
+def test_its_name_is_shown_custom_or_hidden(tmp_path):
+    out = run(tmp_path, r"""
+var st = houseStates(), got = {};
+function html(opts) { var w = mk('camera', 'card', Object.assign({ camera: 'camera.front_door' }, opts)); w.update(client(st), T0); var h = w.el.innerHTML; w.destroy(); return h; }
+got.show = html({});
+got.custom = html({ label: 'custom', name: 'Porch' });
+got.custom_empty = html({ label: 'custom' });                      // Custom with no words yet: its own name
+got.hide = html({ label: 'hide', name: 'Porch' });
+got.bad = html({ label: 'loud' });                                 // (not a choice: Show)
+print(JSON.stringify(got));
+""", before=FAKES)
+    own = ">" + "Front Door" + "<"
+    assert own in out["show"] and 'class="cam-n"' in out["show"]
+    assert ">Porch<" in out["custom"] and own not in out["custom"]
+    assert own in out["custom_empty"]
+    assert 'class="cam-n"' not in out["hide"] and 'class="cam-g"' not in out["hide"] and "Porch" not in out["hide"]
+    assert own in out["bad"]
 
 def test_one_timer_is_shared_started_once_and_stopped_after_the_last_is_destroyed(tmp_path):
     out = run(tmp_path, r"""

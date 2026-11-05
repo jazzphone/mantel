@@ -283,6 +283,8 @@
       '  -webkit-mask-image:linear-gradient(to bottom,#000 0,#000 calc(100% - 90px),transparent 100%);',
       '  mask-image:linear-gradient(to bottom,#000 0,#000 calc(100% - 90px),transparent 100%)}',
       '.pane .sc::-webkit-scrollbar{display:none}',
+      // (nothing above it -- Home Status not in the pane: no rule to part them, paneStack)
+      ':host([pbare]) .pane .sc{border-top:0}',
       // THE MUSIC (music_slide: .mu, a slide like the forecast's layer;
       // music_pane: .pm, in the pane). Sizes are a 1280 x 800 tablet's,
       // scaled with the screen (--z). Nothing here takes pointer events: the

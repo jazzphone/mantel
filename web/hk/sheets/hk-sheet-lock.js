@@ -47,7 +47,35 @@
           '.hint{font-size:16px}',
           '@media (max-width:' + C.BP.phone + 'px){.lk{width:228px;height:228px;border-radius:114px}',
           '  .lk .core{width:166px;height:166px;border-radius:83px}.big.lkt{font-size:32px}}',
-          '@media (prefers-reduced-motion:reduce){.lk.busy .core{animation:none}}'
+          // THE ART (2026-11-05): the lock's shackle and the garage's door
+          // drawn in parts, so they move as the device does -- the shackle
+          // lifts as the hold fills and springs up when it fires, drops with
+          // a clunk on a lock; the door rises over a door's run and settles
+          '.core svg.art{width:100px;height:100px;display:block;overflow:visible}',
+          '.art .shk{transform:translateY(0);transition:transform .38s cubic-bezier(.5,0,.75,0)}',
+          '.core[data-pose=open] .art .shk{transform:translateY(-10px);transition:transform .5s cubic-bezier(.34,1.56,.64,1)}',
+          '.lk.holding .core[data-pose=shut] .art .shk{transform:translateY(-4px);transition:transform ' + HOLD_MS + 'ms linear}',
+          '.art .gd{transform:translateY(0);transition:transform .7s cubic-bezier(.2,.8,.3,1)}',
+          '.core[data-pose=open] .art .gd{transform:translateY(-22.5px)}',
+          '.core[data-pose=opening] .art .gd{transform:translateY(-22.5px);transition:transform 14s cubic-bezier(.3,.1,.4,1)}',
+          '.core[data-pose=closing] .art .gd{transform:translateY(0);transition:transform 14s cubic-bezier(.3,.1,.4,1)}',
+          '.lk.holding .core[data-pose=shut] .art .gd{transform:translateY(-4px);transition:transform ' + HOLD_MS + 'ms linear}',
+          // FEEDBACK: a press that sends gives (.kick), a device that gets
+          // there pops and the ring flashes round (.done), a call that did
+          // not go shakes its head (.nope)
+          '.lk .fl{fill:none;stroke:#fff;stroke-width:8;opacity:0}',
+          '.lk.kick .core{animation:hkd-kick .38s ease-out}',
+          '.lk.done .core{animation:hkd-pop .5s cubic-bezier(.34,1.56,.64,1)}',
+          '.lk.done .fl{animation:hkd-flash .9s ease-out}',
+          '.lk.nope .core{animation:hkd-nope .45s ease-in-out}',
+          '@keyframes hkd-kick{0%{transform:scale(1)}35%{transform:scale(.93)}75%{transform:scale(1.03)}100%{transform:scale(1)}}',
+          '@keyframes hkd-pop{0%{transform:scale(1)}40%{transform:scale(1.06)}100%{transform:scale(1)}}',
+          '@keyframes hkd-flash{0%{opacity:.85;stroke-width:8}100%{opacity:0;stroke-width:16}}',
+          '@keyframes hkd-nope{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(9px)}',
+          '  60%{transform:translateX(-6px)}80%{transform:translateX(3px)}}',
+          '@media (prefers-reduced-motion:reduce){.lk.busy .core{animation:none}',
+          '  .art .shk,.art .gd,.core[data-pose] .art .shk,.core[data-pose] .art .gd{transition-duration:.2s!important}',
+          '  .lk.kick .core,.lk.done .core,.lk.nope .core{animation:none}}'
         ].join('');
       }
       // spec(st) -> { word, glyph, hint, label, open, busy, bad,
@@ -59,7 +87,8 @@
           this._built = true;
           this._root.innerHTML = '<div class="pn"><button class="lk">' +
             '<svg class="ring" viewBox="0 0 236 236" aria-hidden="true"><circle class="trk" cx="118" cy="118" r="112"/>' +
-            '<circle class="prg" cx="118" cy="118" r="112" transform="rotate(-90 118 118)"/></svg>' +
+            '<circle class="prg" cx="118" cy="118" r="112" transform="rotate(-90 118 118)"/>' +
+            '<circle class="fl" cx="118" cy="118" r="112"/></svg>' +
             '<div class="core"></div></button><div class="big lkt"></div><div class="muted hint"></div></div>';
           var b = this._lk = this._root.querySelector('.lk');
           this._core = this._root.querySelector('.core');
@@ -100,6 +129,7 @@
             var p = press = { sp: sp, timer: null, fired: false };
             if (!sp.hold) return;
             b.classList.add('holding');
+            buzz('selection');
             p.timer = setTimeout(function () {
               p.timer = null;
               p.fired = true;
@@ -127,29 +157,133 @@
           });
         }
         var sp = this.spec(s);
+        this._arrived(s);
+        if (this._failUntil && Date.now() < this._failUntil) sp = Object.assign({}, sp, { hint: 'Didn\u2019t go through. Try again.' });
         this._lk.classList.toggle('open', !!sp.open);
         this._lk.classList.toggle('busy', !!sp.busy);
         this._lk.classList.toggle('bad', !!sp.bad);
         this._lk.classList.toggle('water', sp.tone === 'water');
         this._lk.classList.toggle('shut', !!sp.shut);
-        if (this._glyph !== sp.glyph) { this._glyph = sp.glyph; this._core.innerHTML = glyph(sp.glyph, 80); }
+        if (sp.art) {
+          if (this._glyph !== 'art:' + sp.art) { this._glyph = 'art:' + sp.art; this._core.innerHTML = ART[sp.art]; }
+          if (this._core.getAttribute('data-pose') !== sp.pose) this._core.setAttribute('data-pose', sp.pose || 'shut');
+        } else {
+          this._core.removeAttribute('data-pose');
+          if (this._glyph !== sp.glyph) { this._glyph = sp.glyph; this._core.innerHTML = glyph(sp.glyph, 80); }
+        }
         this._big.textContent = sp.word;
         this._hint.textContent = sp.hint || '';
         this._lk.setAttribute('aria-label', sp.label || sp.word);
       }
       _who(st, fallback) { return (this._src && this._src.name) || at(st, 'friendly_name') || fallback; }
+
+      // SENT: the press gives at once (.kick); a call that did not go shakes
+      // its head and says so under the ring for FAIL_MS; and the state it
+      // asked for is watched for (_arrived), so the device getting there is
+      // felt too. A sheet whose device moves slowly (_pendTo: the state a
+      // service is going to) shows it moving at once:
+      //
+      // MOVING AS SOON AS IT IS SENT. Many openers never report opening or
+      // closing: the state goes from closed straight to open once the door is
+      // all the way up, 15 seconds later; a lock goes from locked straight to
+      // unlocked. So a sent open or close shows "Opening…" / "Closing…" (the
+      // ring pulsing) at once, as the garage header does, until Home
+      // Assistant reports anything new, the call fails, or PEND_MS pass (then
+      // the real state again).
+      sent(a, p) {
+        var self = this, now = this._stateObj && this._stateObj.state;
+        var to = this._pendTo ? this._pendTo(a) : null;
+        this._play('kick');
+        this._failUntil = 0;
+        this._unpend();
+        this._want = to && now !== to ? { to: to, until: Date.now() + WANT_MS } : null;
+        Promise.resolve(p).then(function (ok) {
+          if (ok !== false) return;
+          self._want = null;
+          if (self._pend) self._unpend();
+          self._failUntil = Date.now() + FAIL_MS;
+          self._play('nope');
+          buzz('warning');
+          clearTimeout(self._failT);
+          self._failT = setTimeout(function () { self._render(); }, FAIL_MS + 50);
+          self._render();
+        });
+        if (!to || now === to) { this._render(); return; }          // a stop: the real state again
+        var pend = this._pend = { to: to, from: now, timer: null };
+        pend.timer = setTimeout(function () {
+          if (self._pend !== pend) return;
+          self._pend = null;
+          self._render();
+        }, PEND_MS);
+        this._render();
+      }
+      _unpend() {
+        if (this._pend) clearTimeout(this._pend.timer);
+        this._pend = null;
+      }
+      // the wait, for spec(): anything new from Home Assistant ends it (it knows now)
+      _pendNow(s) {
+        if (this._pend && s.state !== this._pend.from) this._unpend();
+        return this._pend;
+      }
+      // THE DEVICE GOT THERE: what was asked for is what Home Assistant says
+      // now -- the ring flashes round and the phone gives a success tap. A
+      // lock that jams instead shakes its head.
+      _arrived(s) {
+        var w = this._want, st = s.state;
+        if (!w || st === this._lastSt) { this._lastSt = st; return; }
+        this._lastSt = st;
+        if (Date.now() > w.until) { this._want = null; return; }
+        if (st === w.to) { this._want = null; this._play('done'); buzz('success'); }
+        else if (st === 'jammed' || st === 'unavailable') { this._want = null; this._play('nope'); buzz('warning'); }
+      }
+      // one feedback animation at a time, restarted if it is already playing
+      _play(cls) {
+        var b = this._lk;
+        if (!b) return;
+        b.classList.remove('kick', 'done', 'nope');
+        void b.offsetWidth;
+        b.classList.add(cls);
+      }
+      disconnectedCallback() {
+        this._unpend();
+        clearTimeout(this._failT);
+        if (super.disconnectedCallback) super.disconnectedCallback();
+      }
     }
+    var PEND_MS = 60000, WANT_MS = 90000, FAIL_MS = 4000;
+    // a moment the finger should feel (the iPhone app's haptics: shim/mantel-native.js; nothing else listens)
+    function buzz(kind) {
+      try { window.dispatchEvent(new CustomEvent('hk-haptic', { detail: { kind: kind } })); } catch (e) { /* no events */ }
+    }
+    // the art, white on the ring's core: the shackle (.shk) over the body,
+    // its right leg long enough to stay in the body when it lifts; the
+    // garage's frame and its door (.gd) in a window of its own that clips it
+    var ART = {
+      lock: '<svg class="art" viewBox="0 0 80 80" aria-hidden="true">' +
+        '<path class="shk" d="M28 37V27a12 12 0 0 1 24 0v20" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>' +
+        '<rect x="17" y="36" width="46" height="33" rx="8" fill="currentColor"/></svg>',
+      garage: '<svg class="art" viewBox="0 0 80 80" aria-hidden="true">' +
+        '<path d="M12 68V33L40 14l28 19v35" fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>' +
+        '<svg x="22" y="39" width="36" height="29" overflow="hidden"><g class="gd" fill="currentColor">' +
+        '<rect x="0" y="0" width="36" height="6" rx="1.5"/><rect x="0" y="7.5" width="36" height="6" rx="1.5"/>' +
+        '<rect x="0" y="15" width="36" height="6" rx="1.5"/><rect x="0" y="22.5" width="36" height="6" rx="1.5"/></g></svg></svg>'
+    };
 
     class LockPanel extends RingPanel {
       hkWidthKind() { return 'lock'; }
+      _pendTo(a) { return a[1] === 'unlock' ? 'unlocked' : a[1] === 'lock' ? 'locked' : null; }
       spec(s) {
-        var st = s.state;
+        var pend = this._pendNow(s);
+        var st = pend ? (pend.to === 'unlocked' ? 'unlocking' : 'locking') : s.state;
         var locked = st === 'locked', open = st === 'unlocked' || st === 'open';
         var jammed = st === 'jammed', bad = jammed || gone(s), unsure = st === 'unknown';
         return {
           word: bad ? (jammed ? 'Jammed' : 'Unavailable') : unsure ? 'Unknown' :
             ({ locked: 'Locked', unlocked: 'Unlocked', locking: 'Locking…', unlocking: 'Unlocking…', open: 'Open', opening: 'Opening…' })[st] || st,
           glyph: open || st === 'unlocking' ? 'hk:lock-open-variant' : 'hk:lock',
+          // (the shackle drops the moment a lock is sent: the press is what it answers)
+          art: 'lock', pose: open || st === 'unlocking' ? 'open' : 'shut',
           open: open || st === 'unlocking', busy: st === 'locking' || st === 'unlocking' || st === 'opening', bad: bad,
           hold: locked ? ['lock', 'unlock'] : null,
           // JAMMED: try locking again, the safe direction -- HA's dialog is
@@ -165,41 +299,13 @@
 
     // A DOOR COVER -- a garage, a gate, a car's frunk or charge port -- is a
     // door too: hold to open, tap to close, and while it moves a tap stops it
-    // (when the opener can stop).
-    //
-    // MOVING AS SOON AS IT IS SENT. Many openers never report opening or
-    // closing: the state goes from closed straight to open once the door is
-    // all the way up, 15 seconds later. So a sent open or close shows
-    // "Opening…" / "Closing…" (the ring pulsing) at once, as the garage
-    // header does, until Home Assistant reports anything new, the call
-    // fails, or PEND_MS pass (then the real state again).
-    var PEND_MS = 60000;
+    // (when the opener can stop). It shows itself moving as soon as it is
+    // sent (RingPanel's sent).
     class GaragePanel extends RingPanel {
       hkWidthKind() { return 'lock'; }
-      sent(a, p) {
-        var self = this, now = this._stateObj && this._stateObj.state;
-        var to = a[1] === 'open_cover' ? 'open' : a[1] === 'close_cover' ? 'closed' : null;
-        this._unpend();
-        if (!to || now === to) { this._render(); return; }          // a stop: the real state again
-        var pend = this._pend = { to: to, from: now, timer: null };
-        pend.timer = setTimeout(function () {
-          if (self._pend !== pend) return;
-          self._pend = null;
-          self._render();
-        }, PEND_MS);
-        Promise.resolve(p).then(function (ok) {
-          if (ok === false && self._pend === pend) { self._unpend(); self._render(); }
-        });
-        this._render();
-      }
-      _unpend() {
-        if (this._pend) clearTimeout(this._pend.timer);
-        this._pend = null;
-      }
+      _pendTo(a) { return a[1] === 'open_cover' ? 'open' : a[1] === 'close_cover' ? 'closed' : null; }
       spec(s) {
-        // anything new from Home Assistant ends the wait: it knows now
-        if (this._pend && s.state !== this._pend.from) this._unpend();
-        var pend = this._pend;
+        var pend = this._pendNow(s);
         var st = pend ? (pend.to === 'open' ? 'opening' : 'closing') : s.state, f = num(at(s, 'supported_features')) || 0;
         var moving = st === 'opening' || st === 'closing';
         // only a move Home Assistant reports can be stopped: on a relay opener a stop is another pulse, which would
@@ -210,6 +316,8 @@
         return {
           word: bad ? 'Unavailable' : unsure ? 'Unknown' : ({ open: 'Open', closed: 'Closed', opening: 'Opening…', closing: 'Closing…' })[st] || st,
           glyph: door ? (shut ? 'hk:door-closed' : 'hk:door-open') : shut ? 'hk:garage-variant' : 'hk:garage-open-variant',
+          // (a door keeps its glyph: the art is a garage's)
+          art: door ? null : 'garage', pose: st === 'open' ? 'open' : st === 'opening' ? 'opening' : st === 'closing' ? 'closing' : 'shut',
           open: st === 'open' || st === 'opening', busy: moving, bad: bad,
           // (not knowing: a tap closes, the safe way -- a ring with a hold
           // takes no tap, so not both)

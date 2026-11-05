@@ -3399,7 +3399,7 @@
     mus.paneNext = null;
     if (!paneOf(cfg)) {
       dropSide();
-      host.removeAttribute('panecfg'); host.removeAttribute('pcal'); host.removeAttribute('pm'); host.removeAttribute('pside');
+      host.removeAttribute('panecfg'); host.removeAttribute('pcal'); host.removeAttribute('pm'); host.removeAttribute('pside'); host.removeAttribute('pbare');
       mus.paneIn = false;
       setPane(false);
       if (host.style.removeProperty) PANE_VARS.forEach(function (v) { host.style.removeProperty(v); });
@@ -3525,15 +3525,15 @@
       return r.height > 1 ? r : null;
     };
     var st = hOf('hk-screensaver-status-card', '.sscorner');
-    var np = hOf('hk-screensaver-now-card', '.sscorner');
-    var tm = hOf('hk-timer-strip-card', 'div[style*="position:fixed"]');
-    var tH = tm ? Math.round(tm.height) : 0, nH = np ? Math.round(np.height) : 0;
-    var set = function (k, v) { if (host.style.getPropertyValue(k) !== v) host.style.setProperty(k, v); };
-    set('--hk-pane-top', Math.max(Math.round(PANE_TOP * z), st ? Math.round(st.bottom + 16 * z) : 0) + 'px');
-    set('--hk-ss-timers-bottom', pad + 'px');
-    set('--hk-ss-now-bottom', (pad + (tH ? tH + gap : 0)) + 'px');
-    var stack = nH + tH + (nH && tH ? gap : 0);
-    set('--hk-pane-bottom', (stack ? stack + pad + Math.round(18 * z) : 0) + 'px');
+    var np = hOf('hk-screensaver-now-card', '.sscorner'), tm = hOf('hk-timer-strip-card', 'div[style*="position:fixed"]');
+    var tH = tm ? Math.round(tm.height) : 0, nH = np ? Math.round(np.height) : 0, set = function (k, v) { if (host.style.getPropertyValue(k) !== v) host.style.setProperty(k, v); };
+    // ROOM ABOVE ONLY FOR A HOME STATUS IN THE PANE (2026-11-05: on the photo it left an empty band; one not drawn yet keeps it)
+    var pr = paneEl ? paneEl.getBoundingClientRect() : null, mid = st ? (st.left + st.right) / 2 : 0, bare = !cards.some(function (c) { return c.localName === 'hk-screensaver-status-card'; });
+    if (st && pr && pr.width > 1 && (mid < pr.left || mid > pr.right)) { st = null; bare = true; }
+    setAttr(host, 'pbare', bare);   // (pbare: no rule over the list)
+    set('--hk-pane-top', (bare ? (sidePane ? 0 : Math.round(26 * z)) : Math.max(Math.round(PANE_TOP * z), st ? Math.round(st.bottom + 16 * z) : 0)) + 'px');
+    set('--hk-ss-timers-bottom', pad + 'px'); set('--hk-ss-now-bottom', (pad + (tH ? tH + gap : 0)) + 'px');
+    var stack = nH + tH + (nH && tH ? gap : 0); set('--hk-pane-bottom', (stack ? stack + pad + Math.round(18 * z) : 0) + 'px');
     // THE MUSIC IN THE PANE: over the timers (the now-playing row steps
     // aside for it); under the calendar, as tall as it is, the list above it
     var pm = musicPaneView();

@@ -69,7 +69,7 @@
     upnext: [['inline', 'rectangular'], {}, 'Up Next', ['upnext'], 'media'],
     playin: [['inline'], {}, 'Playing In', ['playin'], 'media'],
     thisday: [['inline'], {}, 'On This Day', ['thisday'], 'media'],
-    camera: [['rectangular', 'card'], {camera: 'entity:camera'}, 'Camera', ['camera'], 'cameras'],
+    camera: [['rectangular', 'card'], {camera: 'entity:camera', label: ['show', 'custom', 'hide'], name: 'text'}, 'Camera', ['camera'], 'cameras'],
     ring: [['inline', 'card'], {}, 'Last Ring', ['ring'], 'cameras'],
     // wave C: one entity picked, with a suggested default
     alarm: [['inline', 'circular'], {entity: 'entity:sensor'}, 'Phone Alarm', ['alarm'], 'picked'],

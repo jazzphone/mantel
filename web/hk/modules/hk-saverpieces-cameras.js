@@ -6,7 +6,8 @@
 //
 //   camera  rectangular, card   opts.camera (a camera entity; the default is the first in Settings' cameras.order that the house
 //                               has, else the first camera.* alphabetically): its still as an <img> (object-fit: cover), its
-//                               name in a small label on a soft dark gradient at the bottom left, 1.2 u in. A camera with no
+//                               name in a small label on a soft dark gradient at the bottom left, 1.2 u in (opts.label: show it,
+//                               custom -- opts.name's words -- or hide it, label and gradient both). A camera with no
 //                               still (restored, stale, unavailable, none yet) is a dark placeholder with a camera glyph and the
 //                               name. NEVER a live stream: a still, every ten seconds, while it is shown.
 //   ring    inline, card        for 30 minutes after a doorbell event (window event hk-house-event, kind doorbell). Inline
@@ -243,12 +244,16 @@
     var id = pickCamera(X), st = id && X.st ? X.st[id] : null, un = !picOf(st), s = id ? STILLS[id] : null;
     // (a camera that cannot give a picture shows none: an old frame is not now)
     if (un && s) s.url = '';
-    return note({ cam: id, name: nameOf(id, st), k: id && !un ? 'cam:' + id : '', un: un ? 1 : 0 });
+    // ITS NAME (2026-11-05): the camera's own (Show), the words given (Custom; none given, its own), or none (Hide): an
+    // entity's name is often a device's ("G4 Doorbell Pro Package Camera"), not what a screen in the hall should say
+    var o = X.opts || {}, label = o.label === 'hide' ? '' : o.label === 'custom' && typeof o.name === 'string' && o.name.trim() ? o.name.trim().slice(0, 40) : nameOf(id, st);
+    return note({ cam: id, name: label, k: id && !un ? 'cam:' + id : '', un: un ? 1 : 0 });
   }
   function camDraw(s) { return pic(s.k, s.name); }
   W.define('camera', {
     name: 'Camera', group: GROUP, wave: 'B', facts: ['camera'], source: 'camera.entity_picture', when: null,
-    wakes: ['minute', 'house'], pick: null, off: true, opts: { camera: 'entity:camera' }, defaults: { camera: '' }, accent: null,
+    wakes: ['minute', 'house'], pick: null, off: true, opts: { camera: 'entity:camera', label: ['show', 'custom', 'hide'], name: 'text' },
+    defaults: { camera: '', label: 'show', name: '' }, accent: null,
     shapes: {
       rectangular: { read: camRead, draw: camDraw, sample: { cam: '', name: 'Front Door', k: '', un: 1 } },
       card: { read: camRead, draw: camDraw, h: function () { return 16.8; }, sample: { cam: '', name: 'Front Door', k: '', un: 1 } }

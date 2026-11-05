@@ -191,7 +191,7 @@
     entity: 'Sensor', entity2: 'Second Sensor', name: 'Name', min: 'Ring Minimum', max: 'Ring Maximum',
     'alarm.entity': 'Alarm Sensor', 'trash.entity': 'Trash Calendar or Sensor', 'pollen.entity': 'Pollen Sensor', 'appliance.entity': 'Appliance',
     'appliance.entity2': 'Second Appliance', 'travel.entity': 'Place', 'travel.entity2': 'Second Place', 'price.entity': 'Price Sensor',
-    'sensor.entity': 'Entity', 'sensor.entity2': 'Second Entity',
+    'sensor.entity': 'Entity', 'sensor.entity2': 'Second Entity', 'camera.label': 'Name', 'camera.name': 'Custom Name',
     lines: 'Lines', weekday: 'Weekday', month: 'Month', year: 'Year', weight: 'Weight', case: 'Letters'
   };
   var OPT_SUBS = {
@@ -1343,6 +1343,8 @@
       var opts = Object.keys(P[1]).filter(function (k) {
         if (/^(entity2|city2)$/.test(k)) return w.shape === 'rectangular';
         if (/^(min|max)$/.test(k)) return w.shape === 'circular';
+        // (the camera's own words only once Custom is chosen)
+        if (w.piece === 'camera' && k === 'name') return !!(w.opts && w.opts.label === 'custom');
         return true;
       });
       if (opts.length) {
