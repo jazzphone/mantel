@@ -101,11 +101,17 @@ volume slider can move while the message plays (Music Assistant raises the volum
 paused or held leaves Now Playing for the length of the message and comes back, as it does for Home Assistant's
 announcements.
 
-**2026-11-05, part B.** `rooms.sync_sets`, `driver.in_step`, the gate. What the real Music Assistant 2.10.9 changed:
+**2026-11-05, part B, Mantel 0.1.131 (on the house).** `rooms.sync_sets`, `driver.in_step`, the gate. What the real Music Assistant 2.10.9 changed:
 
 - **`players/cmd/ungroup_many` doesn't part a group reliably.** It goes by each member's `synced_to`, a derived field. On
   the house it left 7 of 9 speakers grouped. Part uses `players/cmd/set_members` with `player_ids_to_remove` on the leader,
   a new catalog entry whose list the gateway's RBAC checks: 9 speakers in 10 ms, all three times.
+  **A test of `ungroup_many` also damaged the house, and was repaired the same morning.** For a speaker whose `synced_to`
+  is still empty, Music Assistant's `cmd_ungroup` falls through to "remove it from the first group listing it", and that
+  was the house's sync groups: HomePods' live list went from 11 to 2, Downstairs' from 6 to 5 (08:33-08:36). Their saved
+  settings weren't touched. Restored at 09:27 with `set_members`, in the original order, checked; nothing plays when an
+  idle sync group's list changes. The release never used `ungroup_many`. Afterward, three silent joins and parts of 9
+  speakers through the real driver left all three lists exactly as they were.
 - **`synced_to` lags.** It's refreshed on a 2 s debounce, one member at a time (the fourth member's after 8 s). The leader's
   `group_members` is right at once and is the list AirPlay plays from, so "together" reads that list. Joining 9 speakers
   takes 10 ms, not the plan's "few seconds".
