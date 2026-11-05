@@ -373,8 +373,19 @@ def test_live_is_live_only_on_idle_live_capable_rooms(house, music):
     assert {c.player: c.live for c in p.calls} == {K: True, OFF: False, GR: False, DEN: False, PLAY: False}
 
 
-def test_a_group_in_live_plays_after_you_finish(house, music):
+def test_an_idle_group_left_from_music_is_live_through_its_leader(house, music):
     house.group(K, [LR])
+    p = decide(house, music, doc(), [K, LR], mode="live")
+    assert all(r["state"] == "ok" and r["live"] for r in p.rooms)
+    assert [(c.player, c.live, c.covers) for c in p.calls] == [(K, True, [LR])] and p.sync == []
+
+
+def test_a_group_with_a_member_that_cant_be_live_plays_after_you_finish(house, music):
+    house.group(K, [LR])
+    for d in (doc(**{LR.split(".")[1]: {"live": False}}), doc(**{LR.split(".")[1]: {"demoted": True}})):
+        p = decide(house, music, d, [K, LR], mode="live")
+        assert all(r["state"] == "after" for r in p.rooms) and not any(c.live for c in p.calls)
+    house.set(LR, "playing")
     p = decide(house, music, doc(), [K, LR], mode="live")
     assert all(r["state"] == "after" for r in p.rooms) and not any(c.live for c in p.calls)
 

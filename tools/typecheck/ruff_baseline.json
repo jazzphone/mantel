@@ -1,5 +1,5 @@
 {
- "total": 519,
+ "total": 518,
  "files": {
   "hk_core/energy/plan.py": 1,
   "hk_core/sleep/engine.py": 1,
@@ -82,7 +82,6 @@
   "tools/headless/grid_editor_smoke.py": 1,
   "tools/headless/home_numbers.py": 1,
   "tools/headless/saver_faces_check.py": 1,
-  "tools/release_house.py": 1,
   "tools/testha/app_mode_check.py": 1,
   "tools/testha/check.py": 3,
   "tools/testha/grid_editor_check.py": 3

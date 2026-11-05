@@ -12,6 +12,11 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **Now Playing no longer flickers in Safari.** Rectangles of the blurred album behind the player flashed lighter and darker every second as the time and progress bar moved, and when the pointer crossed the controls. The blur now sits on a layer of its own and is drawn once. The docked music bar gets the same fix in Safari only, so a wall tablet's scrolling stays as smooth as it was.
 - On Home Grid's Now Playing blocks, the Speakers glyph sat up to 2 px low in its circle (Small, Wide and Tall). It's centered now.
 
+## 0.1.133 - 2026-11-05
+
+**Fixed**
+- **Live to speakers still grouped from music played nothing.** After music stops, its speakers stay grouped. Live now plays straight away on a group like that when it's idle and every speaker in it is picked. If it has to wait until you finish, the message now plays then; before, the last check dropped it and nothing played.
+
 ## 0.1.132 - 2026-11-05
 
 **Changed**
