@@ -462,7 +462,7 @@
         Array.prototype.forEach.call(r.addedNodes || [], function (n) {
           // (a page a swipe keeps beside this one isn't the page on screen until it is shown: hk-view-ready, below)
           if (n.nodeType !== 1 || VIEWS.indexOf(n.tagName) < 0) return;
-          if (n.hasAttribute('data-hk-offstage')) n.__hkWaited = true;
+          if (n.hasAttribute && n.hasAttribute('data-hk-offstage')) n.__hkWaited = true;
           else onPage(n);
         });
       });

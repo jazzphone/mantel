@@ -682,7 +682,7 @@ async def smoke(shot=None, shots=None):
                       const cur = window.__mantelViewHost.current(), home = window.__vhHome.element;
                       return { path: location.pathname, type: cur.element.localName,
                                attached: cur.element.parentNode === document.getElementById('view'),
-                               home_detached: home.parentNode === null, shell: window.hkShell.view() === cur.element,
+                               home_detached: home.parentNode === null || (home.hasAttribute('inert') && home.hasAttribute('data-hk-offstage')), shell: window.hkShell.view() === cur.element,
                                tag: window.hkShell.tags.view,
                                sky: window.__vhSky !== null && window.__vhSky === document.querySelector('hk-view-container#view > #hk-sky'),
                                cards: window.__drew(cur.cards) };

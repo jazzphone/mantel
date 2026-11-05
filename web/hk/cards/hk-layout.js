@@ -1881,103 +1881,14 @@
     // hk-swipe-past with the travel so far, and goes on to the next page.
     // What moves sideways itself is one list, hkDrag.sideways (hk-drag.js).
     _swipeViews() {
-      var self = this, d = null;
-      var mine = function (e) {
-        var D = window.hkDrag;
-        // (without the shared list, nothing here is known to be the grid's)
-        return !!(D && D.sideways) && !D.sideways(e.composedPath ? e.composedPath() : [], self);
-      };
-      this.addEventListener('pointerdown', function (e) {
-        if (self._views() < 2 || (e.button !== undefined && e.button !== 0) || !mine(e)) return;
-        d = { x: e.clientX, y: e.clientY, id: e.pointerId, on: false, pts: [[e.timeStamp || Date.now(), e.clientX]], from: 0 };
+      var self = this, g = null;
+      ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'click'].forEach(function (t) {
+        self.addEventListener(t, function (e) {
+          var D = window.hkDrag;     // (without it, nothing here is known to be the grid's)
+          if (!g && D && D.viewSwipe) g = D.viewSwipe(self);
+          if (g) g[t](e);
+        }, t === 'click');
       });
-      this.addEventListener('pointermove', function (e) {
-        if (!d || e.pointerId !== d.id) return;
-        var dx = e.clientX - d.x, dy = e.clientY - d.y;
-        if (!d.on) {
-          if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.4) { if (Math.abs(dy) > 14) d = null; return; }
-          // PAST THE END, ON TO THE NEXT PAGE: the page swipe takes it from here
-          var end = dx < 0 ? (self._view || 0) >= self._views() - 1 : (self._view || 0) <= 0;
-          var PS = window.hkPageSwipe;
-          if (end && PS && PS.takes && PS.takes(dx < 0 ? 1 : -1, self)) {
-            d = null;
-            self.dispatchEvent(new CustomEvent('hk-swipe-past', { bubbles: true, composed: true,
-              detail: { dir: dx < 0 ? 1 : -1, dx: dx, dy: dy, x: e.clientX, y: e.clientY, pointerId: e.pointerId,
-                        pointerType: e.pointerType, target: e.composedPath ? e.composedPath()[0] : e.target } }));
-            return;
-          }
-          d.on = true;
-          // (from here, not with a jump by the 10 px it waited; and a view still sliding is caught where it is)
-          d.x += dx < 0 ? -10 : 10;
-          d.from = self._sliding ? self._drawnOff() : 0;
-          try { self.setPointerCapture(e.pointerId); } catch (x) { /* a test page */ }
-          self._root.classList.add('dragging');
-          self._root.style.removeProperty('--view-ms');
-          self._root.style.removeProperty('--view-ease');
-          dx = e.clientX - d.x;
-        }
-        d.pts.push([e.timeStamp || Date.now(), e.clientX]);
-        if (d.pts.length > 30) d.pts.splice(0, d.pts.length - 30);
-        var k = self._gridScale || 1, n = self._views(), at = self._view || 0;
-        var off = d.from + dx / k;
-        // (past the first or the last: a third of the finger's travel)
-        if ((at === 0 && off > 0) || (at === n - 1 && off < 0)) off /= 3;
-        d.off = off;
-        self._dragTo(off);
-      });
-      var end = function (e) {
-        if (!d || (e && e.pointerId !== d.id)) return;
-        var was = d; d = null;
-        if (!was.on) return;
-        var root = self._root, k = self._gridScale || 1, w = root.offsetWidth || 1;
-        if (e) was.pts.push([e.timeStamp || Date.now(), e.clientX]);
-        var H = window.hkDrag, v = H.speed(was.pts) / k, off = was.off || 0, n = self._views(), at = self._view || 0;
-        var dir = off < 0 ? 1 : -1, there = at + dir >= 0 && at + dir < n;
-        var goes = !!e && e.type === 'pointerup' && there && H.lands(off * k, w * k, v * k);
-        // LET GO: from where it is, at the speed it was going (hk-drag.js), to the view it lands on or back
-        var target = goes ? -dir * self._viewW() : 0;
-        var c = H.curve(off, target, there ? v : v / 3);
-        root.style.setProperty('--view-ms', c.ms + 'ms');
-        root.style.setProperty('--view-ease', c.ease);
-        root.classList.remove('dragging');
-        self._dragTo(null);
-        self._slideMs = c.ms;
-        if (goes) self._showView(at + dir);
-        else if (Math.abs(off) > 0.5) self._slideFor(c.ms);
-        self._slideMs = 0;
-        // the tap a swipe ends with is no tap on the block under it
-        self._eatClick = Date.now();
-      };
-      this.addEventListener('pointerup', end);
-      this.addEventListener('pointercancel', end);
-      this.addEventListener('click', function (e) {
-        if (self._eatClick && Date.now() - self._eatClick < 350) { e.stopPropagation(); e.preventDefault(); }
-        self._eatClick = 0;
-      }, true);
-    }
-    // the views' finger offset, px on the grid (--drag). Each view's own cell takes it: on the grid itself it reaches
-    // everything inside every block, and each move would restyle them all (off: taken away, they go to their places)
-    _dragTo(off) {
-      var cells = this._root ? this._root.querySelectorAll('.cell[data-view]') : [];
-      for (var i = 0; i < cells.length; i++) {
-        if (off === null) cells[i].style.removeProperty('--drag');
-        else cells[i].style.setProperty('--drag', off.toFixed(1) + 'px');
-      }
-    }
-    _viewW() {
-      var w = 0, cs = null;
-      try { cs = getComputedStyle(this._root); w = parseFloat(cs.getPropertyValue('--g-w')); } catch (e) { w = 0; }
-      return w || this._root.offsetWidth || 1;
-    }
-    // where the current view is drawn now, against where it rests (a slide under way)
-    _drawnOff() {
-      var c = this._root.querySelector('.cell[data-view]');
-      if (!c) return 0;
-      try {
-        var m = new DOMMatrixReadOnly(getComputedStyle(c).transform);
-        var v = parseFloat(c.style.getPropertyValue('--v') || getComputedStyle(c).getPropertyValue('--v')) || 0;
-        return m.m41 - (v - (this._view || 0)) * this._viewW();
-      } catch (e) { return 0; }
     }
     // both views drawn while one slides out and the other in, for that long; the curve it used goes with it
     _slideFor(ms) {
