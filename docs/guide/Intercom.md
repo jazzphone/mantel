@@ -71,7 +71,7 @@ has its own.
    do:
    - **clock**: it plays after you finish;
    - **moon**: quiet hours, so it's skipped;
-   - a second line, **Plays with Office**: the room leads other rooms' music, so it plays only together with them (see below);
+   - a second line, **Plays with Office**: the room leads other rooms' music that is playing, so it plays only together with them (see below);
    - **person**: you're there, so it's left out in Live.
 
    Tap a skipped room to see why.
@@ -129,10 +129,18 @@ on a speaker always wins. See [People and Roles](People-and-Roles.md).
 
 Music Assistant plays an announcement sent to the speaker that **leads** a
 group on the **whole group**. If the Kitchen leads the Office's music, a
-message to the Kitchen alone would play in the Office too. So the Intercom
-skips a room that leads other rooms, unless every room it leads is in the
-broadcast. In that case they all hear it once, in step. A room that **follows**
-another is fine: Music Assistant announces to it alone.
+message to the Kitchen alone would play in the Office too. So while that music
+is playing or paused, the Intercom skips a room that leads other rooms, unless
+every room it leads is in the broadcast. In that case they all hear it once,
+in step. A room that **follows** another is fine: Music Assistant announces to
+it alone.
+
+**After the music stops**, the speakers stay grouped, so the next Play is still
+whole-house. That leftover group doesn't limit the Intercom: pick the Master
+Bedroom alone and only the Master Bedroom hears it. Mantel takes the other
+speakers out of the group for the message and puts them back, in their order,
+as soon as it's over. It does this only when every speaker in the group is
+idle and you may use all of its rooms.
 
 Mantel checks this against both Home Assistant and Music Assistant. If either
 says the room leads, it's skipped. If Music Assistant's list of speakers can't

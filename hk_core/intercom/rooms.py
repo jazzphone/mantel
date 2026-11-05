@@ -39,6 +39,13 @@ speakers, idle, on their own and able to group, announced to once through its le
 call: a room playing music is already in step with the others playing music (Music Assistant mixes it in and arms one
 shared instant), and a room holding paused music is left alone. Music Assistant gives a group one announcement volume,
 so rooms at different volumes make separate groups. In Live the groups are made from the rooms that are live now.
+
+A GROUP LEFT FROM MUSIC (2026-11-05: whole-house music stopped and left every HomePod grouped under the Master Bedroom, so
+the Master Bedroom alone could only "play together with" eight other rooms). Music Assistant keeps a group after its music
+stops, so the next Play is still whole-house. When a picked room leads such a group, all of it idle, and not every one of its
+rooms is picked (or other rooms are, which then play in step with it), the broadcast BORROWS the group (``leftovers``, ``Plan.loose``): the host takes its members out first,
+checked, and puts them back afterward, in their order. Everything here is then decided as if they were apart. Not a group
+with a group player in it, a speaker playing, paused or holding paused music, or a room the sender may not reach.
 """
 from __future__ import annotations
 
@@ -82,10 +89,18 @@ class SyncSet:
 
 
 @dataclass
+class Loose:
+    """A group left from music that a broadcast borrows: Music Assistant ids, ``members`` in the group's own order."""
+    leader: str
+    members: list[str]
+
+
+@dataclass
 class Plan:
     rooms: list[dict[str, Any]] = field(default_factory=list)
     calls: list[Call] = field(default_factory=list)
     sync: list[SyncSet] = field(default_factory=list)      # rooms in step (sync_sets)
+    loose: list[Loose] = field(default_factory=list)       # groups left from music, apart while it plays (leftovers)
 
     @property
     def solo(self) -> list[Call]:
@@ -134,12 +149,15 @@ def _quiet_now(house: House, doc: Mapping[str, Any], room: str, now: datetime | 
     return dnd_on(house, C.quiet_of(doc, room), now)
 
 
-def reach(house: House, ma: Mapping[str, dict[str, Any]], pids: Mapping[str, str], player: str) -> set[str]:
+def reach(house: House, ma: Mapping[str, dict[str, Any]], pids: Mapping[str, str], player: str,
+          apart: Iterable[str] = ()) -> set[str]:
     """Every player (Music Assistant ids; a Home Assistant entity with no id stays an entity) an announcement to
     ``player`` can play on, from both sources, the wider winning: itself, what it leads, a group player's members, and
     whatever they lead in turn. A player that only FOLLOWS a leader, or is listed by a group player, adds nothing:
     Music Assistant announces to it alone (``_live_members``: "A synced member announced individually is just
-    itself"). Music Assistant's ``group_members`` puts the player itself first, but any order counts here."""
+    itself"). Music Assistant's ``group_members`` puts the player itself first, but any order counts here. ``apart``:
+    speakers of a borrowed group (``leftovers``), whose Home Assistant lists don't count."""
+    apart = set(apart)
     # Home Assistant's groups, by their leader. Not a group player's: its list is its parts, which it doesn't lead, and
     # its first part leads nothing (2026-11-05: the house's sync group "HomePods" made its first part "lead" every
     # HomePod, so a whole-house message went to that one room only). A leader's or member's list names itself; a
@@ -150,7 +168,8 @@ def reach(house: House, ma: Mapping[str, dict[str, Any]], pids: Mapping[str, str
         if (isinstance(gm, (list, tuple)) and len(gm) > 1 and st.entity_id in gm
                 and not (ma.get(pids.get(st.entity_id, "")) or {}).get("group")
                 and not (ma.get(pids.get(gm[0], "")) or {}).get("group")):
-            ha_groups.append([pids.get(m, m) for m in gm if isinstance(m, str)])
+            if not apart.intersection(pids.get(m, m) for m in gm if isinstance(m, str)):
+                ha_groups.append([pids.get(m, m) for m in gm if isinstance(m, str)])
     me = pids[player]
     out, todo = {me}, [me]
     while todo:
@@ -228,13 +247,63 @@ def sync_sets(house: House, music: MusicConfig, calls: list[Call], ma_raw: Any, 
     return out
 
 
+def leftovers(music: MusicConfig, ma_raw: Any, pids: Mapping[str, str], rooms: Iterable[str], *,
+              allowed: Callable[[str], bool] = lambda r: True, held: Iterable[str] = ()) -> list[Loose]:
+    """The groups left from music a broadcast to ``rooms`` borrows (the module's notes): an ad-hoc group whose leader is
+    one of ``rooms``'s speakers, some of whose rooms aren't in ``rooms``, every speaker of it a plain player that is
+    available, on and idle, every one of its rooms the sender's and none holding paused music."""
+    players = {p["player_id"]: p for p in ma_raw if isinstance(p, Mapping) and isinstance(p.get("player_id"), str)
+               } if isinstance(ma_raw, (list, tuple)) else {}
+    rooms, held = set(rooms), set(held)
+    own = owners(music, ma_view(ma_raw) or {}, pids)
+    by_pid: dict[str, set[str]] = {}
+    for e, pid in pids.items():
+        by_pid.setdefault(pid, set()).add(e)
+    out: list[Loose] = []
+    for lead, p in players.items():
+        members = [m for m in dict.fromkeys(p.get("group_members") or ()) if isinstance(m, str) and m != lead]
+        if not members or p.get("synced_to") or not own.get(lead, set()) & rooms:
+            continue
+        group = [lead, *members]
+        theirs = set().union(*(own.get(x, set()) for x in group))
+        if theirs == rooms:
+            continue                        # all of it, and nothing else: the leader's call plays on it, as it is
+        if not all(_lendable(players.get(x), x, lead) and own.get(x) and not own[x] & held
+                   and not by_pid.get(x, set()) & held for x in group):
+            continue
+        if not all(allowed(r) for r in theirs) or any(
+                w.get("synced_to") in members or (o not in group and w.get("synced_to") == lead)
+                for o, w in players.items()):
+            continue                        # someone the sender can't reach, or a group inside the group
+        out.append(Loose(lead, members))
+    return out
+
+
+def _lendable(p: Any, pid: str, lead: str) -> bool:
+    if not isinstance(p, Mapping):
+        return False
+    return (p.get("type") == "player" and p.get("available") is True and p.get("powered") is not False
+            and (p.get("playback_state") or p.get("state")) not in IDLE_NOT and not p.get("active_group")
+            and (pid == lead or (p.get("synced_to") in (None, lead) and len(p.get("group_members") or ()) <= 1)))
+
+
+def apart(ma_raw: Any, loose: Iterable[Loose]) -> Any:
+    """Music Assistant's list as it reads once ``loose`` is borrowed: every one of them on its own."""
+    gone = {x for g in loose for x in [g.leader, *g.members]}
+    if not gone or not isinstance(ma_raw, (list, tuple)):
+        return ma_raw
+    return [{**p, "group_members": [], "synced_to": None} if isinstance(p, Mapping) and p.get("player_id") in gone
+            else p for p in ma_raw]
+
+
 def decide(house: House, music: MusicConfig, doc: Mapping[str, Any], picked: Iterable[str], *, mode: str,
            here: Iterable[str] = (), override: bool = False, allowed: Callable[[str], bool] = lambda r: True,
            ma_raw: Any = None, pids: Mapping[str, str] | None = None, now: datetime | None = None,
-           held: Iterable[str] = ()) -> Plan:
+           held: Iterable[str] = (), borrow: bool = True) -> Plan:
     """The plan for a broadcast to ``picked`` (room entities; a preset or floor is the page's to expand). ``pids``:
     {media_player entity: Music Assistant player id}; ``ma_raw``: Music Assistant's ``players/all`` (None:
-    unreadable); ``held``: rooms holding paused music, which stay out of the temporary groups."""
+    unreadable); ``held``: rooms holding paused music, which stay out of the temporary groups; ``borrow``: False decides
+    every group as it stands (the host can't take one apart at that point)."""
     live_mode = mode == "live"
     here = set(here)
     pids = dict(pids or {})
@@ -265,6 +334,14 @@ def decide(house: House, music: MusicConfig, doc: Mapping[str, Any], picked: Ite
             continue                                    # 5.
         kept.append(row)
 
+    # 5b. groups left from music that this broadcast borrows: decided from here on as if apart
+    if borrow:
+        plan.loose = leftovers(music, ma_raw, pids, {row["room"] for row in kept}, allowed=allowed, held=held)
+    if plan.loose:
+        ma_raw = apart(ma_raw, plan.loose)
+        ma = ma_view(ma_raw)
+    lent = {x for g in plan.loose for x in [g.leader, *g.members]}
+
     # 6. THE GROUP CHECK, to a fixpoint: a room skipped leaves its players out of every other room's reach
     own = owners(music, ma or {}, pids)
     by_pid: dict[str, str] = {}
@@ -273,7 +350,7 @@ def decide(house: House, music: MusicConfig, doc: Mapping[str, Any], picked: Ite
     while True:
         in_rooms = {row["room"] for row in kept}
         players = {p: row for row in kept for p in music.players_of([row["room"]])}
-        reaches = {p: reach(house, ma or {}, pids, p) for p in players}
+        reaches = {p: reach(house, ma or {}, pids, p, lent) for p in players}
         bad: list[tuple[dict[str, Any], set[str], set[str]]] = []
         for p, row in players.items():
             outside = {x for x in reaches[p] if not own.get(x) or not own[x] <= in_rooms}
@@ -327,7 +404,7 @@ def decide(house: House, music: MusicConfig, doc: Mapping[str, Any], picked: Ite
 
 def feed_rooms(house: House, music: MusicConfig, doc: Mapping[str, Any], *, allowed: Callable[[str], bool],
                here: Iterable[str] = (), ma_raw: Any = None, pids: Mapping[str, str] | None = None,
-               now: datetime | None = None) -> list[dict[str, Any]]:
+               now: datetime | None = None, held: Iterable[str] = ()) -> list[dict[str, Any]]:
     """Every Intercom room the sender may reach, as the sheet shows it before anything is sent: each room decided ALONE
     (would it play, live or after, or why not). The group check of a real pick may still skip a room whose group
     isn't all in it; the sheet shows ``leads`` when it would lead others even alone."""
@@ -336,7 +413,8 @@ def feed_rooms(house: House, music: MusicConfig, doc: Mapping[str, Any], *, allo
         r = room.entity
         if not C.room(doc, r).get("enabled") or not allowed(r):
             continue
-        p = decide(house, music, doc, [r], mode="live", here=here, ma_raw=ma_raw, pids=pids, now=now)
+        p = decide(house, music, doc, [r], mode="live", here=here, ma_raw=ma_raw, pids=pids, now=now, allowed=allowed,
+                   held=held)
         row = p.rooms[0] if p.rooms else None
         if row is None:
             continue

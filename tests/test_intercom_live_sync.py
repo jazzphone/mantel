@@ -291,3 +291,20 @@ def test_a_closed_run_lets_through_only_its_own_groups_part():
     assert not run.allow(PART, {"target_player": DN, "player_ids_to_remove": [K]}), "no other leader"
     run.formed.clear()
     assert not run.allow(PART, part), "nothing left to part"
+
+
+async def test_a_group_that_failed_live_stays_out_of_the_music_players_through_its_message(lv, avery):
+    """2026-11-05, the owner's photo: Live's group was shown again before its Message, which then skipped it as playing
+    (Live's own sound), so the card read "Now Playing" during the message."""
+    left_grouped(lv)
+    tracker = lv.host.music.announcements
+    seen = []
+    lv.ma.on_call = lambda args: seen.append(set(tracker.intercom_players()))
+    ws, _, url = await begin(lv, avery, [KITCHEN, DEN], {KITCHEN: "noplay"})
+    await send_audio(ws, chunks(6))
+    await called(lv)
+    await asyncio.sleep(D.PLAYING_WAIT + 0.3)                # past the watch: it failed live
+    await lv.ma.set(KITCHEN, "playing")                      # Live's sound, still going as the talk ends
+    await finish(lv, ws)
+    assert [a["player_id"] for a in message_announced(lv, url)] == [K]
+    assert seen and {KITCHEN, DEN} <= seen[-1]
