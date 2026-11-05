@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.129 - 2026-11-05
+
 **Added**
 - **Touch and hold empty space to edit a page.** Hold an empty part of a page (between the tiles, or below them) for half a second and it goes into Edit mode, the way the iPhone's Home Screen does. It works wherever **Edit Page** is offered (Owners and Admins, never on a wall tablet). Holding a tile still does what a tap does.
 - The **Timeline** page has a background of its own, a copper gradient beside the Timers page's orange, instead of the Live Sky.
