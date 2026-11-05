@@ -29,6 +29,7 @@ DOC = "intercom"                    # house/<this>
 OVERRIDE_ROLES = frozenset({"owner", "admin", "adult"})       # may press Send Anyway (decision 10)
 REMOTE_DOORS = frozenset({"tunnel"})
 MA_CACHE = 4.0
+MARK_GRACE = 2.0                    # a room that played stays out of the music players this much longer (its last updates)
 
 
 class IntercomHost:
@@ -269,18 +270,47 @@ class IntercomHost:
         try:
             await self._say(s, {"type": "sending", "rooms": len({c.room for c in plan.calls})})
             self._tell_listeners(doc, plan, spool, s)
+            self._hide(aid, plan.calls)
             outcome.results = await D.announce(
                 self.ma, run, plan.calls, pids, url, chime=doc["chime"]["message"],
-                timeout=C.limit_s(doc, "message") + D.CALL_GRACE, names=music.name_of)
+                timeout=C.limit_s(doc, "message") + D.CALL_GRACE, names=music.name_of,
+                done=lambda call, ok: self._show(aid, call, ok))
             result = D.result_of(outcome, len(plan.skipped))
             await self._say(s, {"type": "sent", "rooms": outcome.rooms_ok, "failed": outcome.failed})
             return result
         finally:
+            self._show_all(aid, plan.calls)
             run.close()
             self.links.kill(link)
             self._finish(aid, result)
             s.broadcast = None
             self.last_broadcast = None
+
+    # -- the music players leave it out (docs/phase17/INTERCOM-SYNC.md part A) ---------------------------------------
+    def _hide(self, aid: int, calls: list[Any]) -> None:
+        """Before the first command: the Music card, Side Pane, player, screensaver and iOS app leave these rooms as
+        they were. Not a room playing music: Music Assistant mixes the message into it, its song and cover don't change,
+        and a marked room would leave Now Playing while its music goes on."""
+        tracker = getattr(self.music, "announcements", None)
+        if tracker is None:
+            return
+        for call in calls:
+            if not self._playing(call.room):
+                tracker.mark(_mark_key(aid, call), [call.player, *call.covers])
+
+    def _show(self, aid: int, call: Any, ok: bool) -> None:
+        tracker = getattr(self.music, "announcements", None)
+        if tracker is not None:
+            tracker.unmark(_mark_key(aid, call), grace=MARK_GRACE if ok else 0)
+
+    def _show_all(self, aid: int, calls: list[Any]) -> None:
+        """Whatever way the broadcast ended (a room's own result has already said so, with its grace)."""
+        tracker = getattr(self.music, "announcements", None)
+        if tracker is not None:
+            for call in calls:
+                key = _mark_key(aid, call)
+                if not tracker.ending(key):
+                    tracker.unmark(key)
 
     @staticmethod
     async def _say(s: Any, msg: dict) -> None:
@@ -364,6 +394,7 @@ class IntercomHost:
         token, link = self.links.mint(s.spool, mode="live", finite=False, limit_s=limit)
         url = f"{doc['stream_base']}/s/{token}.wav"
         run = D.IntercomRun(s.principal, aid, {pids[c.player] for c in plan.calls}, [url])
+        self._hide(aid, [c for c in plan.calls if c.live])
         s.broadcast = LiveBroadcast(plan, pids, music, doc, aid, run, link, url, asyncio.get_running_loop().time())
         s.broadcast.task = asyncio.get_running_loop().create_task(self._live_calls(s, s.broadcast))
         live_now = [c for c in plan.calls if c.live]
@@ -475,6 +506,11 @@ class IntercomHost:
             if fallback_names:
                 await self._say(s, {"type": "fallback", "rooms": fallback_names})
             outcome = D.Outcome([r for r in b.results if r.ok])
+            for call in b.plan.calls:
+                for r in b.results:
+                    if r.player == call.player:
+                        self._show(b.aid, call, r.ok)
+            self._hide(b.aid, retry)
             if retry:
                 token, link = self.links.mint(s.spool, mode="message", finite=True,
                                               limit_s=C.limit_s(b.doc, "live"))
@@ -483,7 +519,8 @@ class IntercomHost:
                 try:
                     outcome.results += await D.announce(
                         self.ma, b.run, retry, b.pids, url, chime=b.doc["chime"]["message"],
-                        timeout=C.limit_s(b.doc, "live") + D.CALL_GRACE, names=b.music.name_of)
+                        timeout=C.limit_s(b.doc, "live") + D.CALL_GRACE, names=b.music.name_of,
+                        done=lambda call, ok: self._show(b.aid, call, ok))
                 finally:
                     self.links.kill(link)
             self._tell_listeners(b.doc, b.plan, s.spool, s)      # listener tablets: the whole talk, at its end
@@ -497,6 +534,7 @@ class IntercomHost:
                                 "fallback": fallback_names})
             return result
         finally:
+            self._show_all(b.aid, b.plan.calls)
             b.run.close()
             self.links.kill(b.link)
             self._finish(b.aid, result)
@@ -514,6 +552,7 @@ class IntercomHost:
         if b.task is not None:
             b.task.cancel()
             await asyncio.gather(b.task, return_exceptions=True)
+        self._show_all(b.aid, b.plan.calls)
         if not b.run.open:                     # live_end or an earlier abort already wrote the row's result
             return
         b.run.close()
@@ -564,6 +603,10 @@ class LiveBroadcast:
     @property
     def rooms(self) -> list:
         return self.plan.rooms
+
+
+def _mark_key(aid: int, call: Any) -> str:
+    return f"intercom:{aid}:{call.player}"
 
 
 def _public(rows: list[dict]) -> list[dict]:

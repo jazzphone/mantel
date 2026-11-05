@@ -378,6 +378,9 @@ ok('toggle off restores original display behavior', M.contexts(ah).length, 2);
 M._configure(Object.assign({}, HK_HOUSE, { ignore_announcements: true, announcements: [e('office')] }));
 var gh = house(group([e('office'), e('loft')], { title: 'Music' }));
 ok('suppressed group leader is not reintroduced via member', M.contexts(gh)[0].key, e('loft'));
+M._configure(Object.assign({}, HK_HOUSE, { ignore_announcements: false, intercom: [e('office')] }));
+ok('an Intercom message stays out whatever the setting says', M.ignored(ah.states[e('office')]), true);
+ok('an Intercom message leaves the other room on the player', M.contexts(ah).map(function (c) { return c.key; }).join(','), e('loft'));
 M._configure(HK_HOUSE);
 
 print('\n=== music stopped after a pause reads as paused (hk_core/music/resume.py) ===');

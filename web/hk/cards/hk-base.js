@@ -3761,10 +3761,10 @@
     // THIS USER'S room -- each wall tablet signs in as its own user, and the
     // integration's options map users to rooms.
     function home() { return known(MUSIC.home) ? MUSIC.home : null; }
-    // Only explicit announcement evidence. Short tracks, missing metadata and
-    // AirPlay's generic app name are also normal music, so never guess from them.
+    // An Intercom message always; else only explicit announcement evidence (short tracks, no metadata and AirPlay's app name are music too).
     function ignored(st) {
-      if (!MUSIC.ignore_announcements || !st) return false;
+      if (!st || MUSIC.intercom.indexOf(st.entity_id) >= 0) return !!st;
+      if (!MUSIC.ignore_announcements) return false;
       var a = st.attributes || {}, id = String(a.media_content_id || '');
       return MUSIC.announcements.indexOf(st.entity_id) >= 0 || a.announcement === true ||
         a.media_content_type === 'announcement' || id.indexOf('media-source://tts/') === 0 ||
@@ -3980,7 +3980,7 @@
         playlists: (cfg && cfg.playlists) || [],
         home: (cfg && cfg.home) || null,
         ignore_announcements: !!(cfg && cfg.ignore_announcements),
-        announcements: (cfg && cfg.announcements) || [],
+        announcements: (cfg && cfg.announcements) || [], intercom: (cfg && cfg.intercom) || [],
         leaders: (cfg && cfg.leaders) || [],
         announce_rooms: (cfg && cfg.announce_rooms) || [],
         resumable: (cfg && cfg.resumable) || [],

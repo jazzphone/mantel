@@ -76,8 +76,13 @@ def _app_image(img: Any) -> str | None:
 
 # ---------------------------------------------------------------------------------------- what plays (hkMusic)
 def _ignored(st: dict | None, cfg: dict) -> bool:
-    """hkMusic.ignored: only explicit announcement evidence, and only with Ignore Announcements on."""
-    if not cfg.get("ignore_announcements") or not st:
+    """hkMusic.ignored: an Intercom message always; else only explicit announcement evidence, and only with Ignore
+    Announcements on."""
+    if not st:
+        return False
+    if st.get("entity_id") in (cfg.get("intercom") or []):
+        return True
+    if not cfg.get("ignore_announcements"):
         return False
     a = st.get("a") or {}
     cid = str(a.get("media_content_id") or "")

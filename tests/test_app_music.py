@@ -81,6 +81,11 @@ def test_contexts_group_the_house_as_the_screens_do():
     cfg["ignore_announcements"] = True
     states = {C: st("playing", media_content_id="media-source://tts/x")}
     assert app_music.contexts(cfg, states) == []
+    # an Intercom message never is, whatever that setting says (music_announcements.py)
+    cfg["ignore_announcements"] = False
+    assert [c["key"] for c in app_music.contexts(cfg, {C: st("playing", media_title="Song 3")})] == [C]
+    cfg["intercom"] = [C]
+    assert app_music.contexts(cfg, {C: st("playing", media_title="Song 3")}) == []
 
 
 # ------------------------------------------------------------------------------------------- the routes

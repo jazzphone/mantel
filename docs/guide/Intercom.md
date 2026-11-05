@@ -84,6 +84,10 @@ Every room hears the message at the same moment. Music already playing in a room
 is turned down under it and comes back afterward. A soft chime plays first; you
 can turn the chime off in Settings.
 
+The music players ignore the Intercom. While a message plays, the Music page, the
+Side Pane, the player and the screensaver don't show it as music: a room that was
+idle stays idle there, and a room playing music keeps its song and cover.
+
 If a room is in its quiet hours, an Owner, Admin or Adult can press **Send
 Anyway**. The audit log records it.
 

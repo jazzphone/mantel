@@ -1,14 +1,19 @@
-"""Display-only announcement markers from HA's read-only service event feed.
+"""Display-only announcement markers from HA's read-only service event feed, and the Intercom's.
 
 The source player owns completion; native/MA twins match by physical identity,
 never names, durations or application IDs. Event text is neither stored nor sent
 on to screens. No commands or audio changes are made here.
+
+The Intercom's messages don't go through HA, so no service event says they started. Mantel plays them itself and knows
+exactly when each room starts and finishes: intercom/host.py calls ``mark`` before the first command and ``unmark`` when
+the room's call returns. They are kept apart from HA's markers (``intercom_players``, the feed's ``intercom``) because
+they don't follow the Ignore Announcements setting (a message is never music), and HA going away doesn't end them.
 """
 from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from hk_core.music import announcements as A
@@ -16,15 +21,49 @@ from hk_core.music import announcements as A
 START_TIMEOUT = 20
 MAX_SECONDS = 120
 END_GRACE = 2
+INTERCOM_MAX_SECONDS = 300      # a backstop only: the host always unmarks (Live's limit, then its fallback, can reach 240 s)
 
 
 class Announcements:
     def __init__(self, house: Any, registry: Any, config: Callable, notify: Callable) -> None:
         self.house, self.registry, self.config, self.notify = house, registry, config, notify
         self.pending: dict[str, dict] = {}
+        self.intercom: dict[str, dict] = {}
 
     def players(self) -> list[str]:
         return sorted({p for row in self.pending.values() for p in row['players']})
+
+    def intercom_players(self) -> list[str]:
+        return sorted({p for row in self.intercom.values() for p in row['players']})
+
+    def mark(self, key: str, sources: Iterable[str]) -> None:
+        """The Intercom is about to play on ``sources``: the screens leave them as they were, until ``unmark(key)``."""
+        cfg = self.config()
+        players: set[str] = set()
+        for source in sources:
+            players.update(A.hidden(cfg, source, self.aliases(source)) or {source})
+        self.unmark(key, notify=False)
+        loop = asyncio.get_running_loop()
+        self.intercom[key] = {'players': players, 'timers': [loop.call_later(INTERCOM_MAX_SECONDS, self.unmark, key)]}
+        self.notify()
+
+    def unmark(self, key: str, *, grace: float = 0, notify: bool = True) -> None:
+        """That room is done. ``grace``: a moment for the player's own last updates to arrive (one that played); a room
+        that never played is shown again at once."""
+        row = self.intercom.get(key)
+        if row is None:
+            return
+        if grace > 0:
+            for timer in row['timers']:
+                timer.cancel()
+            row['timers'] = [asyncio.get_running_loop().call_later(grace, self.unmark, key)]
+            row['ending'] = True
+            return
+        del self.intercom[key]
+        for timer in row['timers']:
+            timer.cancel()
+        if notify:
+            self.notify()
 
     def aliases(self, source: str) -> set[str]:
         result = {source}
@@ -43,6 +82,10 @@ class Announcements:
             elif ent.get('platform') == 'music_assistant' and (ent.get('unique_id') or '').lower() in {'ap' + m for m in macs}:
                 result.add(eid)
         return result
+
+    def ending(self, key: str) -> bool:
+        """That room has already said it's done, and is only waiting out its grace."""
+        return bool((self.intercom.get(key) or {}).get('ending'))
 
     def service(self, data: dict) -> None:
         domain, service = data.get('domain'), data.get('service', '')

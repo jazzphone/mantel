@@ -1415,6 +1415,7 @@ class MusicHost:
         cfg = self.config()
         raw = cfg.as_client(None, self.covers.images(cfg.playlists))
         raw["announcements"] = self.announcements.players() if cfg.ignore_announcements else []
+        raw["intercom"] = self.announcements.intercom_players()      # whatever that setting says: a message is never music
         raw["resumable"] = self.resumes.players(time.monotonic())
         names = music_players(raw)
         ok = await allowed_ids(self.hooks, identity, "view", sorted(names))

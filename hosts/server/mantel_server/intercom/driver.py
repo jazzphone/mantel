@@ -107,8 +107,10 @@ def error_code(exc: BaseException) -> str:
 
 
 async def announce(ma: Any, run: IntercomRun, calls: list[Any], pids: Mapping[str, str], url: str, *,
-                   chime: bool, timeout: float, names: Callable[[str], str]) -> list[RoomResult]:
-    """Every call at once, all with the same URL; one result per call. Never raises for a room's failure."""
+                   chime: bool, timeout: float, names: Callable[[str], str],
+                   done: Callable[[Any, bool], None] | None = None) -> list[RoomResult]:
+    """Every call at once, all with the same URL; one result per call. Never raises for a room's failure. ``done(call,
+    ok)``: that room has finished (the music players show it again)."""
     async def one(call: Any) -> RoomResult:
         res = RoomResult(call.room, names(call.room), call.player, live=bool(getattr(call, "live", False)))
         args: dict[str, Any] = {"player_id": pids[call.player], "url": url, "pre_announce": bool(chime)}
@@ -120,6 +122,8 @@ async def announce(ma: Any, run: IntercomRun, calls: list[Any], pids: Mapping[st
         except Exception as exc:  # noqa: BLE001 -- each room's own result
             res.error = error_code(exc)
             log.info("intercom: %s did not play (%s)", res.name, res.error)
+        if done is not None:
+            done(call, res.ok)
         return res
     return list(await asyncio.gather(*(one(c) for c in calls)))
 

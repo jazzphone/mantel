@@ -14,15 +14,19 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
+from dataclasses import replace
 
 import aiohttp
 import pytest
 
 import intercom_fakes as IF
+import music_fakes as MF
 from intercom_fakes import (ANNOUNCE, CODY, DEN, KITCHEN, RATE, chunks, closed, frame_bytes, recv, recv_until,
                             send_audio, until)
+from mantel_server import music as MUSIC
 from mantel_server.connectors.ma import CommandRefused
 from mantel_server.intercom import driver as D
+from mantel_server.intercom import host as HOST
 from mantel_server.intercom import relay as RL
 from mantel_server.intercom.spool import wav_header
 from mantel_server.server import apply_commands, tick_once
@@ -52,6 +56,59 @@ async def sent_clip(env, ws, rooms=(KITCHEN,), parts=None):
     pcm = await send_audio(ws, parts)
     await ws.send_json({"type": "send", "rooms": list(rooms)})
     return pcm, await recv_until(ws, "sent")
+
+
+# ----------------------------------------------------------------- the music players leave it out (INTERCOM-SYNC.md A)
+async def test_the_rooms_are_marked_before_music_assistant_hears_and_clear_when_they_finish(ic, monkeypatch):
+    monkeypatch.setattr(HOST, "MARK_GRACE", 0.05)
+    avery = await ic.actor("avery", "owner")
+    tracker = ic.host.music.announcements
+    seen = []
+    ic.ma.on_call = lambda args: seen.append(tracker.intercom_players())
+    ws = await avery.talk()
+    await sent_clip(ic, ws, rooms=[KITCHEN, DEN])
+    assert seen and all(set(s) >= {KITCHEN, DEN} for s in seen)
+    assert tracker.players() == [], "the Intercom's markers aren't Home Assistant's"
+    assert await until(lambda: tracker.intercom_players() == [])
+
+
+async def test_the_marks_reach_the_feed_whatever_ignore_announcements_says(ic, monkeypatch):
+    music = ic.host.music
+    cfg = music.config()
+    assert cfg.ignore_announcements is True
+
+    async def everyone(_hooks, _identity, _action, ids):
+        return set(ids)
+    monkeypatch.setattr(MUSIC, "allowed_ids", everyone)
+    monkeypatch.setattr(music, "config", lambda: replace(cfg, ignore_announcements=False))
+    music.announcements.mark("t", [KITCHEN])
+    got = await music.payload(None)
+    assert got["intercom"] == [KITCHEN] and got["announcements"] == [] and got["ignore_announcements"] is False
+    music.announcements.unmark("t")
+    assert (await music.payload(None))["intercom"] == []
+
+
+async def test_a_room_that_failed_is_shown_again_at_once(ic, monkeypatch):
+    monkeypatch.setattr(HOST, "MARK_GRACE", 30)
+    ic.ma.fail[MF.PID[DEN]] = "no such speaker"
+    avery = await ic.actor("avery", "owner")
+    tracker = ic.host.music.announcements
+    ws = await avery.talk()
+    _, events = await sent_clip(ic, ws, rooms=[DEN])
+    assert events[-1]["failed"] == ["Den"]
+    assert tracker.intercom_players() == []
+
+
+async def test_a_room_playing_music_stays_on_the_music_players(ic):
+    await ic.ma._set(KITCHEN, "playing")
+    assert await until(lambda: ic.host._playing(KITCHEN))
+    avery = await ic.actor("avery", "owner")
+    tracker = ic.host.music.announcements
+    seen = []
+    ic.ma.on_call = lambda args: seen.append(tracker.intercom_players())
+    ws = await avery.talk()
+    await sent_clip(ic, ws, rooms=[KITCHEN, DEN])
+    assert seen and all(KITCHEN not in s and DEN in s for s in seen), seen
 
 
 # ----------------------------------------------------------------------------------------------- the ticket

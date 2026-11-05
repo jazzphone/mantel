@@ -85,3 +85,35 @@ async def test_all_supported_announcement_calls_and_rbac(monkeypatch, domain, se
     out = music_config({'configured': True, 'speakers': [], 'announcements': t.players()}, {'media_player.ma'})
     assert out['announcements'] == ['media_player.ma']
     t.reset()
+
+
+# -- the Intercom's markers (docs/phase17/INTERCOM-SYNC.md part A) --------------------------------------------------
+async def test_intercom_marks_a_room_and_its_twin_whatever_the_setting(monkeypatch):
+    t, states, cfg, changes = fixture(monkeypatch)
+    cfg.ignore_announcements = False
+    t.mark('m1', ['media_player.native'])
+    assert t.intercom_players() == ['media_player.ma', 'media_player.native']
+    assert t.players() == []                         # kept apart from Home Assistant's
+    assert 'media_player.other' not in t.intercom_players()
+    t.unmark('m1')
+    assert t.intercom_players() == [] and changes
+
+
+async def test_intercom_marks_outlive_home_assistant_and_end_by_their_own_clock(monkeypatch):
+    t, states, cfg, changes = fixture(monkeypatch)
+    monkeypatch.setattr(M, 'INTERCOM_MAX_SECONDS', .05)
+    t.mark('m1', ['media_player.ma'])
+    t.reset()                                         # HA going away says nothing about Music Assistant's message
+    t.state({'media_player.ma'})
+    assert t.intercom_players() == ['media_player.ma']
+    await asyncio.sleep(.08)
+    assert t.intercom_players() == []                 # the backstop
+
+
+async def test_a_room_that_played_stays_hidden_for_its_grace(monkeypatch):
+    t, states, cfg, changes = fixture(monkeypatch)
+    t.mark('m1', ['media_player.ma'])
+    t.unmark('m1', grace=.03)
+    assert t.ending('m1') and t.intercom_players() == ['media_player.ma']
+    await asyncio.sleep(.05)
+    assert not t.ending('m1') and t.intercom_players() == []
