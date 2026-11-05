@@ -50,6 +50,9 @@ MAX_MSG = talk_frame_max(MAX_RATE) + 1
 CLOSE_POLICY = 1008
 DRAFT_IDLE = 300.0              # a Message draft with no activity is dropped (decision 5)
 LIVE_IDLE = 10.0                # Live with no audio ends the talk
+BURST_S = 4.0                   # seconds of audio that may arrive at once: the page paces itself, but Wi-Fi can hold a
+                                # few seconds back and deliver them together (2026-11-05: 48 frames, about 2 s of a
+                                # Message, dropped at talk_relay's 1 s). The cap over time is talk_relay's.
 MAX_DRAFTS = 8                  # open drafts in the house (about 25 MB worst case)
 RATE_WINDOW = 600.0             # 10 broadcasts per person (or tablet) per 10 minutes
 RATE_MAX = 10
@@ -79,6 +82,7 @@ class Session:
     error: str | None = None
     close_code: int = 1000
     dropped: int = 0
+    first_drop: float | None = None    # seconds after the socket opened (for the log: a burst, a full spool, Live's start)
     told_full: bool = False
     last_activity: float = field(default_factory=time.monotonic)
     broadcast: Any = None              # the broadcast this session holds the floor for
@@ -254,7 +258,8 @@ class IntercomRelay:
             result = ended = await self._pump(s, limit)
             if s.error and result.startswith("ok") and s.error != result:
                 result = s.error
-            log.info("intercom (%s): %s, %d frames dropped", s.mode, result, s.dropped)
+            log.info("intercom (%s): %s, %d frames dropped%s", s.mode, result, s.dropped,
+                     f" (the first {s.first_drop:.1f} s in)" if s.dropped and s.first_drop is not None else "")
             return result, s.close_code
         finally:
             b = s.broadcast
@@ -279,6 +284,7 @@ class IntercomRelay:
     async def _pump(self, s: Session, limit: float) -> str:
         loop = asyncio.get_running_loop()
         bucket = Bucket(s.rate * 2, loop.time())
+        bucket.cap = bucket.level = s.rate * 2 * BURST_S
         frame_max = talk_frame_max(s.rate)
         started = loop.time()
         while True:
@@ -299,10 +305,12 @@ class IntercomRelay:
                 s.last_activity = time.monotonic()
                 if not bucket.take(n, loop.time()):
                     s.dropped += 1
+                    s.first_drop = s.first_drop if s.first_drop is not None else loop.time() - started
                     continue
                 if s.mode != "message":
                     if s.broadcast is None or s.spool is None:
                         s.dropped += 1             # Live's audio before ``start`` goes nowhere
+                        s.first_drop = s.first_drop if s.first_drop is not None else loop.time() - started
                         continue
                     if not s.spool.append(bytes(data[1:])) and s.spool.full:
                         return await self.host.live_end(s, "max_length")
@@ -316,6 +324,7 @@ class IntercomRelay:
                     s.spool = self.host.new_spool(s.rate, limit)
                 if not s.spool.append(bytes(data[1:])):
                     s.dropped += 1
+                    s.first_drop = s.first_drop if s.first_drop is not None else loop.time() - started
                     if s.spool.full and not s.told_full:
                         s.told_full = True
                         await s.ws.send_json({"type": "full"})

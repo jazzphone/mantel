@@ -55,12 +55,14 @@ class IntercomRun:
     the intercom.play row; open while it plays."""
 
     def __init__(self, principal: Any, audit_id: int, players: Iterable[str], urls: Iterable[str],
-                 groups: Mapping[str, Iterable[str]] | None = None) -> None:
+                 groups: Mapping[str, Iterable[str]] | None = None,
+                 lent: Mapping[str, Iterable[str]] | None = None) -> None:
         self.principal, self.audit_id = principal, audit_id
         self.players = frozenset(players)
         self.urls = set(urls)
         self.groups = {leader: frozenset(members) for leader, members in (groups or {}).items()}  # the plan's sync sets
         self.formed: set[str] = set()     # leaders of groups not parted yet: their part goes through even after close
+        self.lent = {leader: frozenset(members) for leader, members in (lent or {}).items()}   # groups left from music
         self.open = audit_id > 0
         self.sent: list[str] = []
 
@@ -73,18 +75,24 @@ class IntercomRun:
         self.groups.update({leader: frozenset(members) for leader, members in groups.items()})
 
     def allow(self, command: str, args: Mapping[str, Any]) -> bool:
-        if self.open and command == JOIN:
-            # exactly one of the plan's own temporary groups, whole
+        if command == JOIN:
+            # exactly one of the plan's own temporary groups, whole; or a borrowed group's speakers going back to it
+            # (even after close: that's how it ends), never any other
             kids = args.get("child_player_ids")
-            return (set(args) == {"target_player", "child_player_ids"} and isinstance(kids, list)
-                    and all(isinstance(k, str) for k in kids) and isinstance(args["target_player"], str)
-                    and self.groups.get(args["target_player"]) == frozenset(kids) and bool(kids))
+            if not (set(args) == {"target_player", "child_player_ids"} and isinstance(kids, list) and bool(kids)
+                    and all(isinstance(k, str) for k in kids) and isinstance(args["target_player"], str)):
+                return False
+            target = args["target_player"]
+            return ((self.open and self.groups.get(target) == frozenset(kids))
+                    or (target in self.lent and frozenset(kids) <= self.lent[target]))
         if command == PART and (self.open or args.get("target_player") in self.formed):
             # the members of one of those groups leaving its leader, and no other speaker
             kids = args.get("player_ids_to_remove")
-            return (set(args) == {"target_player", "player_ids_to_remove"} and isinstance(kids, list) and bool(kids)
-                    and all(isinstance(k, str) for k in kids) and isinstance(args["target_player"], str)
-                    and args["target_player"] in self.groups and frozenset(kids) <= self.groups[args["target_player"]])
+            if not (set(args) == {"target_player", "player_ids_to_remove"} and isinstance(kids, list) and bool(kids)
+                    and all(isinstance(k, str) for k in kids) and isinstance(args["target_player"], str)):
+                return False
+            target = args["target_player"]
+            return frozenset(kids) <= self.groups.get(target, frozenset()) | self.lent.get(target, frozenset())
         if not self.open or command != ANNOUNCE or set(args) - ANNOUNCE_ARGS:
             return False
         if args.get("player_id") not in self.players or args.get("url") not in self.urls:
@@ -239,6 +247,41 @@ async def _part(ma: Any, run: IntercomRun, leader: str, members: list[str]) -> b
             log.warning("intercom: a temporary group did not part (%s)", error_code(exc))
     log.warning("intercom: a temporary group could not be parted; its speakers may still be grouped")
     return False
+
+
+async def borrow(ma: Any, run: IntercomRun, loose: Iterable[Any]) -> set[str]:
+    """The groups left from music the plan borrows (rooms.leftovers), each taken apart and checked. Returns the leaders
+    whose group is NOT apart now: their own calls must not be made (they'd play on the whole group). Never raises."""
+    async def one(g: Any) -> str | None:
+        try:
+            view = _view(await ma.players())
+            if (set((view.get(g.leader) or {}).get("group_members") or ()) != {g.leader, *g.members}
+                    or not all(R._lendable(view.get(x), x, g.leader) for x in [g.leader, *g.members])):
+                return g.leader                   # it changed since the plan: leave it, and its leader, alone
+        except Exception:  # noqa: BLE001
+            return g.leader
+        run.formed.add(g.leader)
+        return None if await _part(ma, run, g.leader, list(g.members)) else g.leader
+    return {x for x in await asyncio.gather(*map(one, loose)) if x}
+
+
+async def give_back(ma: Any, run: IntercomRun, loose: Iterable[Any]) -> None:
+    """Every borrowed group's speakers back with their leader, in their order: each one still idle and on its own (one
+    that started playing, or joined another group, meanwhile is left where it is). Never raises."""
+    for g in loose:
+        try:
+            view = _view(await ma.players())
+            lead = view.get(g.leader) or {}
+            back = [m for m in g.members if R._lendable(view.get(m), m, m) and _apart(view, m, ())]
+            if back and lead.get("available") is True and not lead.get("synced_to"):
+                await ma.command(run, JOIN, timeout=GROUP_WAIT, target_player=g.leader, child_player_ids=back)
+                if not await _until(ma, lambda raw: set(back) <= set((_view(raw).get(g.leader) or {}).get(
+                        "group_members") or ()), GROUP_WAIT):
+                    log.warning("intercom: a group left from music didn't come back together")
+        except Exception as exc:  # noqa: BLE001
+            log.warning("intercom: a group left from music couldn't be put back (%s)", error_code(exc))
+        finally:
+            run.lent.pop(g.leader, None)
 
 
 async def on_their_own(ma: Any, calls: list[Any], pids: Mapping[str, str]) -> tuple[list[Any], list[Any]]:

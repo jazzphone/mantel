@@ -4,6 +4,14 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Changed**
+- **A group left from music no longer limits the Intercom.** After music stops, its speakers stay grouped. Pick one of those rooms alone and only that room hears the message: Mantel briefly takes the other speakers out of the group and puts them back, in their order, when the message is over. Pick rooms both inside and outside the group, and they all play in step on one clock. This happens only when every speaker in the group is idle; a group that's playing or paused still plays only together.
+
+**Fixed**
+- **"Sent to" counts the rooms that heard it.** A message to nine rooms through a group said "Sent to 2 rooms".
+- **The music players showed "Now Playing" during a Live talk's replay.** When Live didn't work in a room, the room reappeared on the music players before its message played.
+- **Part of a recording could be dropped** when Wi-Fi delivered a few seconds of audio at once. Mantel now accepts up to 4 seconds arriving together.
+
 ## 0.1.133 - 2026-11-05
 
 **Fixed**

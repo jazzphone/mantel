@@ -106,6 +106,34 @@ once through its leader, with the same rules as part B. What differs from a Mess
    `driver.on_their_own`): one that still leads somebody would carry the message to them. A Message reports its room failed;
    in Live the group check decides it again at the end. This closed a gap part B had.
 
+## D. A group left from music (added 2026-11-05)
+
+**What the owner saw:** after whole-house music stopped, every HomePod stayed grouped under the Master Bedroom. The sheet
+showed "Master Bedroom: Plays with <a bedroom> +7" with those rooms unpicked, a Message to all nine said "Sent to 2 rooms",
+and the one room not in that group played on its own, not in step with the rest.
+
+1. **Borrow it** (`rooms.leftovers`, `Plan.loose`): when a picked room leads an ad-hoc group that is all idle (no group player
+   in it, nobody holding paused music, every room the sender's), and either not every one of its rooms is picked or other
+   rooms are too, the plan is decided as if its speakers were apart. The whole group and nothing else still plays through
+   its leader, as it stands. A group playing or paused is never borrowed: the "plays only together" rule stays for it.
+2. **The host takes it apart first and gives it back after** (`driver.borrow`, `give_back`): the leader's list must be what
+   the plan saw, then `set_members` removes the members, checked; a group that changed, or doesn't come apart, keeps its
+   leader's call from being made (it would play on all of it). After the broadcast, every member still idle and alone goes
+   back with `group_many`, in its order (even after the run closes; the gate allows exactly those speakers). A stopped Live
+   talk gives it back in the background, after its own temporary groups have parted.
+3. **The music players leave the borrowed speakers as they were** while they're out of their group.
+4. **"Sent to" counts rooms reached**: a leader's call counts its members' rooms.
+5. **Live's second group check never borrows** (`decide(borrow=False)`): it can't take a group apart at that point.
+
+Two more from the owner's tries the same afternoon:
+
+- **A room whose Live failed was shown again before its Message**, and the Message then skipped hiding it because it read
+  "playing" (Live's own sound): the card said "Now Playing" during the message. It now stays out until the Message has
+  played. Each room that fails Live logs which signal (`didn't play live (<signal>)`), never what was said.
+- **Audio dropped in a burst**: 48 frames (about 2 s) of a Message at 18:05Z. The page paces itself, but Wi-Fi can hold a few
+  seconds back and deliver them at once, and the relay allowed 1 s. It now allows 4 s at once (`relay.BURST_S`), with the
+  same cap over time, and the log says how far in the first drop was.
+
 ## Docs and release
 
 - `docs/guide/Intercom.md`: say rooms hear a Message in step, and that the music players don't show it.
@@ -186,6 +214,12 @@ Now the check also gets the rooms a call covers. And an idle ad-hoc group whose 
 its leader, without joining or parting: to Music Assistant that's the state a temporary group is in once joined, which part
 C's proof covered. A group with a group player in it stays "after": it's another path, never tried live. **Not proven on the
 house before release:** the speakers were in use by the owner, and the whole-house group includes a room sessions never touch.
+
+**2026-11-05, part D.** Silent on the house, 14:48: the real `borrow` and `give_back` on the owner's leftover group (the Master
+Bedroom leading 9 HomePods): apart in 0.01 s, back in 0.01 s in the same order, the three sync groups' lists unchanged.
+Nothing was played; a message through a borrowed group ran on the fakes only (`tests/test_intercom_borrow.py`). **Live on
+the house is not proven:** the owner's 14:41 talk to nine rooms through the leftover group was judged failed at the end and
+replayed as a Message; why isn't known (the signal wasn't logged before this release).
 
 Known limit: if Mantel itself stops in the seconds a group is formed, the speakers stay grouped until Music Assistant
 restarts or someone ungroups them (the sheet then says the leader "leads" the other).

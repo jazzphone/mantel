@@ -608,3 +608,48 @@ def test_the_house_s_leader_rules_pick_the_leader(house, music):
 
 def test_an_unreadable_list_makes_no_group(house, music):
     assert R.sync_sets(house, music, [R.Call(K, K, 40), R.Call(OFF, OFF, 40)], None, PIDS) == []
+
+
+# ------------------------------------------------------------------- a group left from music is borrowed (rooms.leftovers)
+def left_from_music(house, **over):
+    """The Kitchen leads the Office and the Guest Room, all idle, as music leaves them."""
+    house.group(K, [OFF, GR])
+    base = {"ap_k": {"group_members": ["ap_k", "ap_off", "ap_gr"]}, "ap_off": {"synced_to": "ap_k"},
+            "ap_gr": {"synced_to": "ap_k"}}
+    for pid, more in over.items():
+        base[pid] = {**base.get(pid, {}), **more}
+    return groupable_list(**base)
+
+
+def test_a_leader_picked_alone_borrows_its_idle_group_and_plays_alone(house, music):
+    p = decide(house, music, doc(), [K], ma=left_from_music(house))
+    assert [(g.leader, g.members) for g in p.loose] == [("ap_k", ["ap_off", "ap_gr"])]
+    assert states(p)[K] == ("ok", None) and [(c.player, c.covers) for c in p.calls] == [(K, [])]
+    rows = R.feed_rooms(house, music, doc(), allowed=lambda r: True, ma_raw=left_from_music(house), pids=PIDS, now=house.now)
+    assert {r["room"]: r["state"] for r in rows}[K] == "ok" and "together" not in {r["room"]: r["reason"] for r in rows}[K]
+
+
+def test_the_whole_group_and_nothing_else_plays_through_it_as_it_is(house, music):
+    p = decide(house, music, doc(), [K, OFF, GR], ma=left_from_music(house))
+    assert p.loose == [] and [(c.player, sorted(c.covers)) for c in p.calls] == [(K, sorted([OFF, GR]))]
+
+
+def test_with_other_rooms_picked_it_is_borrowed_so_they_all_play_in_step(house, music):
+    p = decide(house, music, doc(), [K, OFF, GR, DEN], ma=left_from_music(house))
+    assert len(p.loose) == 1 and len(p.sync) == 1 and len(p.sync[0].calls) == 4 and p.solo == []
+
+
+@pytest.mark.parametrize("why", ["playing", "paused", "held", "not_allowed", "unavailable", "nested"])
+def test_a_group_that_isnt_idle_and_the_senders_is_never_borrowed(house, music, why):
+    over = {"playing": {"ap_off": {"synced_to": "ap_k", "playback_state": "playing"}},
+            "paused": {"ap_gr": {"synced_to": "ap_k", "playback_state": "paused"}},
+            "unavailable": {"ap_gr": {"synced_to": "ap_k", "available": False}},
+            "nested": {"ap_den": {"synced_to": "ap_off"}}}.get(why, {})
+    kw = {"held": [GR]} if why == "held" else {"allowed": lambda r: r != GR} if why == "not_allowed" else {}
+    p = decide(house, music, doc(), [K], ma=left_from_music(house, **over), **kw)
+    assert p.loose == [] and states(p)[K] == ("skipped", "leads")
+
+
+def test_borrow_false_decides_the_group_as_it_stands(house, music):
+    p = decide(house, music, doc(), [K], ma=left_from_music(house), borrow=False)
+    assert p.loose == [] and states(p)[K] == ("skipped", "leads")
