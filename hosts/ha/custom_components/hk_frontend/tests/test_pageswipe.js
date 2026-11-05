@@ -362,6 +362,27 @@ navTo = [];
 window.hkShell.navigate('/dashboard-hall/security');
 ok('shown some other way, a page waiting beside it is simply the page', !made.security.hasAttribute('inert') && !made.security.style.transform && !made.security.style.position);
 ok('...the others go', made.lights.parentNode !== slot || !made.lights.style.position);
+// a page not ready (the host still making it): a finger on the settle heading there, well on its way, lets it land
+stub.warm = function () { return new Promise(function () {}); };
+var homeEl = made['0'];
+window.hkShell.navigate('/dashboard-hall/0');
+onScreen = homeEl;
+if (homeEl.parentNode !== slot) slot.appendChild(homeEl);
+run(); drainPromises();
+P.plan(); drainPromises();
+navTo = [];
+window.hkShell.navigate = function (p) { navTo.push(p); location.pathname = p; };
+fire('pointerdown', ev(700, 400, path(homeEl)));
+fire('pointermove', ev(600, 400, path(homeEl)));
+fire('pointermove', ev(90, 400, path(homeEl)));
+fire('pointerup', ev(80, 400, path(homeEl)));
+var toGhost = P._.state().A;
+ok('a swipe to a page not made ready yet goes to its stand-in', toGhost && toGhost.N && !toGhost.N.real, toGhost && toGhost.N);
+// (it is already more than half the way)
+fire('pointerdown', ev(700, 400, path(homeEl)));
+ok('...a finger then, well on its way: it lands, and is built, rather than starting over', !P._.state().A && P._.state().L && navTo.join() === '/dashboard-hall/lights' && P._.state().why === 'landing',
+   [navTo, P._.state().why]);
+fire('pointerup', ev(700, 400, path(homeEl)));
 window.hkViewHost = null;
 window.hkShell.navigate = function (p) { navTo.push(p); location.pathname = p; };
 window.hkShell.view = function () { return page; };

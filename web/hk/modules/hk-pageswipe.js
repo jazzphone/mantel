@@ -825,6 +825,13 @@
     parts.forEach(function (p) { p[0].style.setProperty('transition', 'none'); setX(p[0], p[1], st.base); });
     st.x = x;
     var to = a.to;
+    // ...to a page not ready yet (its stand-in): it lands, and is built; the finger waits for it. Caught each time, a quick
+    // run of flicks never landed it at all, and stood on its title (2026-11-04, WebKit)
+    if (to && !(a.N && a.N.real) && Math.abs(x) >= st.rect.width * ADVANCE) {
+      why = 'landing';
+      arrive(st, to, a.dir, a.N, 0);
+      return;
+    }
     if (to && a.N && a.N.real && Math.abs(x) >= st.rect.width * ADVANCE) {
       arrive(st, to, a.dir, a.N, x + a.dir * st.rect.width);
       st = ST;

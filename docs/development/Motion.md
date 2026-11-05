@@ -24,7 +24,9 @@ Things that follow a finger should feel like objects being moved.
    of `transitionend` and its timer says so first, and either is ignored once something newer has it. A finger on a
    settling page catches it where it is; well on its way to a page, it has landed there and the finger holds that one.
 6. **What comes in is the real thing.** The pages either side of this one are made ready at a quiet moment and wait beside
-   it. A stand-in is only for what could not be ready: the first moment after a load, a host with no view host.
+   it. A stand-in is only for what could not be ready: the first moment after a load, a host with no view host, or flicks
+   through pages faster than each can be made (measured in WebKit: 12 of about 220 frames in a run of twelve flicks 170 ms
+   apart). A finger on a settle heading to a stand-in, more than half the way, lets it land rather than starting it over.
 7. **What it leaves is what it found.** A swipe gives back every style it set, and the page takes the next touch.
 
 Not every animation should be a spring. What doesn't follow a finger keeps its own curve (DESIGN.md's `standard`, `spring`,
