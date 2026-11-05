@@ -26,11 +26,21 @@ const MEASURE = () => {
   const text = (sel) => { const e = root.querySelector(sel); return e ? e.textContent : null; };
   const over = [];
   if (sh) root.querySelectorAll('.pill, .mb, .rv button, .line, .seg').forEach((e) => {
+    // (a row that scrolls sideways -- the groups on a short screen -- holds what is past its edge until it is scrolled)
+    const row = e.closest('.chips');
+    if (row && getComputedStyle(row).overflowX === 'auto') return;
     const q = e.getBoundingClientRect(), b = sh.getBoundingClientRect();
     if (q.width && (q.left < b.left + 4 || q.right > b.right - 4)) over.push(e.className);
   });
   const q = (sel) => [...root.querySelectorAll(sel)].filter((e) => !e.closest('[hidden]'));
+  const cut = [];
+  const frame = hkd && hkd.querySelector('.body');
+  if (frame) root.querySelectorAll('.talk .mb, .talk .wd, .talk .mt, .talk .line, .talk .rv button, .talk .seg').forEach((e) => {
+    const q = e.getBoundingClientRect(), b = frame.getBoundingClientRect();
+    if (q.height && !e.closest('[hidden]') && getComputedStyle(e).display !== 'none' && q.bottom > b.bottom + 1) cut.push(e.className || e.tagName);
+  });
   return {
+    cut: [...new Set(cut)],
     sheet: r ? [r.left | 0, r.top | 0, r.width | 0, r.height | 0] : null,
     inside: !!r && r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
     small: [...new Set(small)], over: [...new Set(over)],
@@ -166,6 +176,7 @@ const MEASURE = () => {
         if (!m.inside) fail(name, 'the sheet is on the screen', m.sheet);
         if (m.small.length) fail(name, 'every target is at least 44', m.small);
         if (m.over.length) fail(name, 'nothing runs past the sheet\'s edge', m.over);
+        if (m.cut.length) fail(name, 'the talk side fits the sheet: nothing cut off at the bottom', m.cut);
         if (m.scrollX > 1) fail(name, 'no sideways scroll', m.scrollX);
         if (m.seg.length) fail(name, 'Live is hidden unless the feed allows it', m.seg);
         if (m.chips.join('|') !== 'Whole House|Main Floor|Upstairs|Dinner~|Quiet Rooms~') fail(name, 'the chips: Whole House, floors, presets (one equal to the whole house, one to a floor, left out)', m.chips);
@@ -219,6 +230,7 @@ const MEASURE = () => {
         m = await page.evaluate(MEASURE);
         if (m.micHidden || m.word !== 'Tap to Talk') fail(name, 'after a send: straight back to Tap to Talk', [m.micHidden, m.word]);
         if (m.buttons.join() !== 'Play,Send Again') fail(name, 'after a send: Play and Send Again under it', m.buttons);
+        if (m.cut.length) fail(name, 'after a send: nothing on the talk side cut off', m.cut);
         if (m.small.length) fail(name, 'every button at least 44', m.small);
         await shot('sheet-sent');
         await sheetTap('.rv button', 0);                                    // Play
@@ -280,6 +292,7 @@ const MEASURE = () => {
         if (m.micLabel !== 'Hold to talk') fail(name, 'Live says hold to talk', m.micLabel);
         if (!m.pills.some((p) => p.startsWith('Kitchen') && p.includes('+'))) fail(name, 'you are here: the Kitchen carries a glyph in Live', m.pills);
         if (m.line !== 'Guest Room: after you finish') fail(name, 'rooms that hear it after you finish', m.line);
+        if (m.cut.length) fail(name, 'Live: nothing on the talk side cut off', m.cut);
         await shot('sheet-live');
         await page.evaluate(() => {
           const mb = deep(document, 'hk-intercom-sheet-card')[0].shadowRoot.querySelector('.mb');

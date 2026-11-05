@@ -1310,7 +1310,7 @@
       '@media (max-width:' + C.BP.phone + 'px){.cols{gap:' + SPC.piecePhone + 'px}}',
       C.segCss('.seg', { on: '.sel', fill: true }),
       '.seg{align-self:stretch}',
-      '.seg button{min-height:44px}',
+      '.seg button{min-height:36px}',
       '.seg[hidden]{display:none}',
       '.seg button[aria-disabled="true"]{opacity:.45}',
 
@@ -1403,9 +1403,20 @@
       '@container (max-width:479px){.mb{width:228px;height:228px}.mb .core{width:166px;height:166px}.mb .core svg{width:64px;height:64px}',
       '  .wd{font-size:32px;line-height:38px}.rooms .pill{min-height:48px;padding:7px 10px 7px 8px;gap:8px}.tk{width:22px;height:22px}',
       '  .pick{padding:14px}}',
-      // A SHORT SCREEN (a phone on its side): a smaller button, so the word and the line stay in view
-      '@media (max-height:520px){.mb{width:168px;height:168px}.mb .core{width:124px;height:124px}.mb .core svg{width:48px;height:48px}',
-      '  .wd{font-size:28px;line-height:34px}.talk{gap:12px}.mic{gap:8px}}',
+      // A SHORT SCREEN (a phone on its side, 2026-11-05, the owner: "that doesn't look good at all"): a narrow talk side
+      // with a smaller button; the groups one row that scrolls sideways; the rooms scroll in their own panel, so the
+      // button stays beside them; everything fits the sheet's height
+      '@media (max-height:520px){.mb{width:100px;height:100px}.mb .core{width:74px;height:74px}.mb .core svg{width:32px;height:32px}',
+      '  .mb .trk,.mb .prg{stroke-width:10}',
+      '  .wd{font-size:22px;line-height:26px;letter-spacing:-0.4px}.mt{font-size:13px;line-height:17px;min-height:17px}.line{font-size:13px;line-height:17px;min-height:0}',
+      '  .line:empty{display:none}.talk{gap:8px}.mic{gap:4px}.rv{gap:6px}.rv button{padding:0 14px}',
+      // (after a send the button and "Sent to 2 rooms" say it: the word steps aside for Play and Send Again)
+      '  .talk:has(.rv:not([hidden])) .wd{display:none}',
+      '  .pick{padding:12px 14px;gap:10px;max-height:calc(100dvh - 128px);overflow-y:auto;overscroll-behavior:contain}',
+      '  .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px;overscroll-behavior-x:contain}',
+      '  .chips::-webkit-scrollbar{display:none}.chips .pill{flex:none}',
+      '  .rooms{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.rooms .pill{min-height:48px;padding:6px 10px 6px 8px;gap:8px}.tk{width:22px;height:22px}}',
+      '@media (max-height:520px){@container (min-width:600px){.cols{display:grid;grid-template-columns:200px minmax(0,1fr);align-items:start;gap:16px}}}',
       '@media (prefers-reduced-motion:reduce){.mb,.mb .core,.mb .prg,.rv button,.line{transition:none}.mb:active .core,.rv button:active{transform:none}',
       '  .mic[data-kind="busy"] .core{animation:none}}'
     ].join('');
