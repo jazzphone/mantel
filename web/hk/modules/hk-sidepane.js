@@ -241,13 +241,19 @@
     var ctx = musicNow(c);
     if (!ctx && musicKey && Date.now() - musicAt < graceMs() && states(c)[musicKey]) ctx = { key: musicKey };
     if (!ctx) return null;
-    var st = states(c)[ctx.key] || {}, a = st.attributes || {};
+    var all = states(c), st = all[ctx.key] || {}, a = st.attributes || {};
     var pic = a.entity_picture_local || a.entity_picture || '';
     var dur = num(a.media_duration) || 0, pos = num(a.media_position) || 0, at = Date.parse(a.media_position_updated_at) || 0;
     var playing = st.state === 'playing';
     var t = pos + (playing && at ? (Date.now() - at) / 1000 : 0);
-    return { key: ctx.key, playing: playing, title: ctx.title || a.media_title || '', artist: ctx.artist || a.media_artist || '',
-             pic: pic, at: dur ? Math.max(0, Math.min(1, t / dur)) : 0, left: dur ? Math.max(0, dur - t) : 0, vol: num(a.volume_level) };
+    // A GROUP'S VOLUME IS ITS ROOMS' (2026-11-05, the owner: "the volume slider in the music pane isn't working", music
+    // on Everywhere): the slider shows their average and sets every one, as the player's and the music panel's do;
+    // the leader's alone moved one room of nine and sprang back
+    var members = Array.isArray(ctx.members) && ctx.members.length > 1 ? ctx.members.slice() : [ctx.key];
+    var vols = members.map(function (k) { return num(attr(all[k], 'volume_level')); }).filter(function (x) { return x !== null; });
+    var vol = members.length > 1 ? (vols.length ? vols.reduce(function (n, x) { return n + x; }, 0) / vols.length : null) : num(a.volume_level);
+    return { key: ctx.key, members: members, playing: playing, title: ctx.title || a.media_title || '', artist: ctx.artist || a.media_artist || '',
+             pic: pic, at: dur ? Math.max(0, Math.min(1, t / dur)) : 0, left: dur ? Math.max(0, dur - t) : 0, vol: vol };
   }
   // ...held a grace after it stops (All Screens -> Now Playing -> Hide After a Pause)
   function musicHas(c) {
@@ -1354,7 +1360,8 @@
       this._root.addEventListener('change', function (e) {
         var t = e.target, c = clientNow(), m = c && musicOf(c);
         if (!t || t.getAttribute('data-act') !== 'vol' || !m || !c.actions) return;
-        c.actions.callService('media_player', 'volume_set', { volume_level: Math.max(0, Math.min(1, Number(t.value) / 100)) }, { entity_id: m.key })
+        var level = Math.max(0, Math.min(1, Number(t.value) / 100));
+        c.actions.callService('media_player', 'volume_set', { volume_level: level }, { entity_id: m.members.length > 1 ? m.members : m.key })
           .catch(function () { /* refused: said by the host */ });
       });
       this._root.addEventListener('submit', function (e) { self._submit(e); });

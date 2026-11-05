@@ -10,6 +10,9 @@ new title; between pushes the card moves its own bar and time. In WebKit and Chr
               line of text, up to 1.7 px low)
   background  Blurred Album is the default; Background: Card is the plate and the inks of the Music block beside it, its
               bar and time still moving, no cover decoded behind it -- on the house's look, and again on Flat Light
+  pane        (Living Room leading Kitchen) the Side Pane's volume sets both rooms and shows their level; the music
+              panel's Browse has each playlist's cover and its whole name, and its background is blurred, not a small
+              copy of the cover stretched
   editor      on a block with rules (and every card in the catalog as a rule): Settings For, opening on the card on screen,
               offers the options that card has as a block; what is set goes in the rule, the preview follows, Save is
               accepted by hk_core, and the screen draws it
@@ -61,6 +64,15 @@ GRID = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items
     {'id': 'music', 'size': 'W', 'at': [0, 3], 'card': 'music'},
     {'id': 'cond2', 'size': 'W', 'at': [2, 3], 'card': 'clock',
      'rules': [{'when': {'all': [{'kind': 'after_sunset'}]}, 'card': 'weather'}]}]}
+
+
+# THE PANE RUN: Living Room leading Kitchen (a group, as the house's Everywhere is), the Side Pane's Now Playing beside
+# a Now Playing block
+PANE_SCREEN = 'media-pane'
+PANE_GRID = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items': [
+    {'id': 'album', 'size': 'L', 'at': [0, 0], **NOW_PLAYING}]}
+PANE = {'side': 'right', 'dashboard': {'show': 'home', 'sections': [{'kind': 'weather'}, {'kind': 'now_playing', 'size': 'more'}]}}
+GROUP = ['media_player.living_room', 'media_player.kitchen']
 
 
 def missing() -> str | None:
@@ -214,17 +226,25 @@ async def _pixels(gallery, engine: str, size: str, frames: int, shots: Path | No
     return fails
 
 
-async def browser(gallery, engine: str, size: str, shots: Path | None, light: bool = False) -> bool:
+async def browser(gallery, engine: str, size: str, shots: Path | None, light: bool = False, pane: bool = False) -> bool:
     look = gallery.SETTINGS['settings']['look']
     gallery.SETTINGS['settings']['look'] = {'flat': True, 'flat_theme': 'light'} if light else look
+    house = {k: gallery.HOUSE[k] for k in GROUP}
+    if pane:                     # Kitchen joins Living Room's music
+        for k in GROUP:
+            area, (state, attrs) = gallery.HOUSE[PLAYER if k == PLAYER else k]
+            lead = gallery.HOUSE[PLAYER][1][1]
+            gallery.HOUSE[k] = (area, ('playing', dict(lead, friendly_name=attrs.get('friendly_name'), group_members=list(GROUP),
+                                                        volume_level=0.3 if k == PLAYER else 0.6)))
     try:
         with tempfile.TemporaryDirectory() as td:
-            return await _browser(gallery, engine, size, shots, light, Path(td))
+            return await _browser(gallery, engine, size, shots, light, Path(td), pane)
     finally:
         gallery.SETTINGS['settings']['look'] = look
+        gallery.HOUSE.update(house)
 
 
-async def _browser(gallery, engine: str, size: str, shots: Path | None, light: bool, td: Path) -> bool:
+async def _browser(gallery, engine: str, size: str, shots: Path | None, light: bool, td: Path, pane: bool = False) -> bool:
     from aiohttp.test_utils import TestServer
     from mantel_server.settings_store import load_model
     if True:
@@ -239,7 +259,7 @@ async def _browser(gallery, engine: str, size: str, shots: Path | None, light: b
             async with TestServer(app) as server:
                 proc = await asyncio.create_subprocess_exec(
                     os.environ['NODE'], str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE)
-                await proc.communicate(json.dumps({'mode': 'light' if light else 'check', 'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'engine': engine,
+                await proc.communicate(json.dumps({'mode': 'pane' if pane else 'light' if light else 'check', 'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'engine': engine,
                                                    'size': size, 'screen': SCREEN, 'shots': str(shots or '')}).encode())
                 if proc.returncode:
                     print(f'FAIL {engine} {size}', flush=True)
@@ -249,7 +269,7 @@ async def _browser(gallery, engine: str, size: str, shots: Path | None, light: b
         finally:
             task.cancel()
         rule = items['cond']['rules'][0]
-        if light or int(size.split('x')[0]) < 1180:                    # (no editor at this size: the layout as it was)
+        if light or pane or int(size.split('x')[0]) < 1180:                    # (no editor at this size: the layout as it was)
             return True
         if rule.get('opts', {}).get('background') != 'card' or items['cond'].get('opts', {}).get('background'):
             print(f'FAIL {engine} {size}: saved block {items["cond"]}', flush=True)
@@ -275,6 +295,9 @@ async def main(argv=None) -> int:
         print(f'SKIPPED media_card_check: {why}')
         return 0
     import gallery
+    gallery.SETTINGS['boards'][PANE_SCREEN] = {'title': 'Media Pane', 'pages': [], 'headers': {'home': True}, 'menu_custom': True,
+                                               'menu': 'tabbar', 'home_style': 'grid', 'home_grid': json.loads(json.dumps(PANE_GRID)),
+                                               'side_pane': json.loads(json.dumps(PANE))}
     gallery.SETTINGS['boards'][SCREEN] = {'title': 'Media Card', 'pages': [], 'headers': {'home': True}, 'menu_custom': True, 'menu': 'tabbar',
                                           'home_style': 'grid', 'home_grid': json.loads(json.dumps(GRID))}
     failed = 0
@@ -288,6 +311,9 @@ async def main(argv=None) -> int:
                 failed += 1
         # Background: Card on Flat Light: the plate and the inks of a light look (dark text), at one size
         if not args.pixels and not await browser(gallery, engine, (args.size or SIZES)[0], args.shots, light=True):
+            failed += 1
+        # the Side Pane's volume on a group, and the music panel's Browse and background, at one size
+        if not args.pixels and not await browser(gallery, engine, (args.size or SIZES)[0], args.shots, pane=True):
             failed += 1
     print('media_card_check:', 'FAILED' if failed else 'passed', flush=True)
     return 1 if failed else 0

@@ -4,6 +4,11 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **The Side Pane's volume works on a group.** With music playing on more than one room (a preset such as Everywhere, or rooms grouped), the slider moved only the room leading the group, then sprang back. It now sets every room, as the player and the music panel do, and shows their average level.
+- **The music panel's Browse shows each playlist's cover.** The flipped-over music panel (Speakers, Volume, Queue, Browse) now shows each playlist with its cover, as the Music block does, and a playlist without one gets its glyph on a tile the same size. Names run to two lines instead of being cut off ("Your Essentials", not "Your Essent…").
+- **The music panel's background is blurred.** It was the cover shrunk to 32 pixels and stretched, so large shapes and lettering on the cover still showed through. It's now blurred properly, on the screensaver's music pane too. Bright Glass had nothing to do with it.
+
 ## 0.1.135 - 2026-11-05
 
 **Fixed**
