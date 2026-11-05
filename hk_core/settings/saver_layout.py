@@ -36,7 +36,7 @@ CITIES: tuple[str, ...] = (
 # 40 characters -- or "entity:<domain>,<domain>" -- one entity of those domains}). A shape is where
 # it can go: inline, a line of words; circular, one unit of the row; rectangular, two; card, a corner's; band, along
 # the bottom.
-PIECES: dict[str, tuple[tuple[str, ...], dict[str, tuple[str, ...]]]] = {
+PIECES: dict[str, tuple[tuple[str, ...], dict[str, tuple[str, ...] | str]]] = {
     "weather": (("inline", "circular", "rectangular", "card", "band"), {}),
     "readings": (("circular", "rectangular", "band"), {"reading": ("humidity", "aqi", "inside", "sunset", "wind")}),
     "date": (("inline",), {"lines": ("one", "two"), "weekday": ("long", "short", "none"), "month": ("long", "short", "number"),

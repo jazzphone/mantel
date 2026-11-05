@@ -47,25 +47,26 @@
           '.hint{font-size:16px}',
           '@media (max-width:' + C.BP.phone + 'px){.lk{width:228px;height:228px;border-radius:114px}',
           '  .lk .core{width:166px;height:166px;border-radius:83px}.big.lkt{font-size:32px}}',
-          // THE ART (2026-11-05): the lock's shackle and the garage's door
+          // THE ART (2026-11-05; EASE's curves: exit, spring, build -- a door's run is linear, as a door moves):
+          // the lock's shackle and the garage's door
           // drawn in parts, so they move as the device does -- the shackle
           // lifts as the hold fills and springs up when it fires, drops with
           // a clunk on a lock; the door rises over a door's run and settles
           '.core svg.art{width:100px;height:100px;display:block;overflow:visible}',
-          '.art .shk{transform:translateY(0);transition:transform .38s cubic-bezier(.5,0,.75,0)}',
-          '.core[data-pose=open] .art .shk{transform:translateY(-10px);transition:transform .5s cubic-bezier(.34,1.56,.64,1)}',
+          '.art .shk{transform:translateY(0);transition:transform .38s cubic-bezier(.4,0,.8,.4)}',
+          '.core[data-pose=open] .art .shk{transform:translateY(-10px);transition:transform .5s cubic-bezier(.34,1.24,.42,1)}',
           '.lk.holding .core[data-pose=shut] .art .shk{transform:translateY(-4px);transition:transform ' + HOLD_MS + 'ms linear}',
-          '.art .gd{transform:translateY(0);transition:transform .7s cubic-bezier(.2,.8,.3,1)}',
+          '.art .gd{transform:translateY(0);transition:transform .7s cubic-bezier(.22,.8,.25,1)}',
           '.core[data-pose=open] .art .gd{transform:translateY(-22.5px)}',
-          '.core[data-pose=opening] .art .gd{transform:translateY(-22.5px);transition:transform 14s cubic-bezier(.3,.1,.4,1)}',
-          '.core[data-pose=closing] .art .gd{transform:translateY(0);transition:transform 14s cubic-bezier(.3,.1,.4,1)}',
+          '.core[data-pose=opening] .art .gd{transform:translateY(-22.5px);transition:transform 14s linear}',
+          '.core[data-pose=closing] .art .gd{transform:translateY(0);transition:transform 14s linear}',
           '.lk.holding .core[data-pose=shut] .art .gd{transform:translateY(-4px);transition:transform ' + HOLD_MS + 'ms linear}',
           // FEEDBACK: a press that sends gives (.kick), a device that gets
           // there pops and the ring flashes round (.done), a call that did
           // not go shakes its head (.nope)
           '.lk .fl{fill:none;stroke:#fff;stroke-width:8;opacity:0}',
           '.lk.kick .core{animation:hkd-kick .38s ease-out}',
-          '.lk.done .core{animation:hkd-pop .5s cubic-bezier(.34,1.56,.64,1)}',
+          '.lk.done .core{animation:hkd-pop .5s cubic-bezier(.34,1.24,.42,1)}',
           '.lk.done .fl{animation:hkd-flash .9s ease-out}',
           '.lk.nope .core{animation:hkd-nope .45s ease-in-out}',
           '@keyframes hkd-kick{0%{transform:scale(1)}35%{transform:scale(.93)}75%{transform:scale(1.03)}100%{transform:scale(1)}}',
