@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.45.0 - 2026-11-05
+
 **Added**
 - **Touch and hold empty space to edit a page.** Hold an empty part of a page (between the tiles, or below them) for half a second and it goes into Edit mode. It works wherever **Edit Page** is offered (admins, never on a wall tablet). Holding a tile still does what a tap does.
 
