@@ -138,11 +138,12 @@
     var here = {};
     feed.here.forEach(function (id) { here[id] = 1; });
     // "Dining Room plays only together with Office" / "Dining Room leads Office; skipped" -> "Plays with Office" / "Plays with Dining Room"
+    // (one name, then "+N": a whole house in a group must not run past the pill)
     var withWho = function (r) {
-      var t = plain(r.reason), m = /together with (.+)$/i.exec(t);
-      if (m) return 'Plays with ' + m[1];
-      m = /^(.+?) leads /i.exec(t);
-      return m ? 'Plays with ' + m[1] : 'Plays with others';
+      var t = plain(r.reason), m = /together with (.+)$/i.exec(t) || /^(.+?) leads /i.exec(t);
+      if (!m) return 'Plays with others';
+      var names = m[1].split(/, | and /).filter(Boolean);
+      return 'Plays with ' + names[0] + (names.length > 1 ? ' +' + (names.length - 1) : '');
     };
     return feed.rooms.map(function (r) {
       var o = { id: r.room, name: r.name, floor: r.floor, glyph: null, cap: '', pickable: true, quiet: false, note: false, line: '', aria: r.name };
@@ -1255,7 +1256,7 @@
       '.grid:empty{display:none}',
       // (scroll-margin: a pill scrolled into view stops above the foot, never under it)
       '.pill{min-width:0;height:44px;border-radius:22px;position:relative;touch-action:manipulation;scroll-margin-bottom:var(--fh,120px)}',
-      '.pill > span.l{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 14px;min-width:0;line-height:16px}',
+      '.pill > span.l{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 14px;min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden;line-height:16px}',
       '.pill.hg > span.l{padding:0 30px}',
       '.l b{font-weight:inherit;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
       '.l i{font-style:normal;font-size:11px;font-weight:500;letter-spacing:0;line-height:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + v('ink-3') + '}',

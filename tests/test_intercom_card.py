@@ -41,6 +41,7 @@ SCENARIOS = [
     "supported_needs_a_microphone_a_worker_and_a_worklet",
     "picker_glyphs_and_what_a_tap_can_pick",
     "picker_live_glyphs_waveform_clock_person",
+    "picker_a_leader_of_many_names_one_and_a_count",
     "picker_a_group_leader_says_who_it_plays_with_but_can_be_picked_and_says_why_on_a_tap",
     "picker_a_floor_or_preset_that_is_another_target_is_left_out",
     "picker_floors_presets_and_whole_house",

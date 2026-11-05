@@ -1062,6 +1062,13 @@ test('dispose_closes_the_microphone_and_saves_what_was_picked', async () => {
   eq(s.saves.at(-1).rooms, [K, L]);
 });
 
+test('picker_a_leader_of_many_names_one_and_a_count', () => {
+  const lead = ROOM('living_room', 'Living Room', 'Downstairs', { why: 'leads', reason: 'Living Room plays only together with Den, Guest Room, Office, Loft' });
+  const rooms = feed().rooms.map((r) => (r.room === L ? lead : r));
+  const p = sheet({ feed: feed({ rooms }) }).ctl.pills().find((x) => x.id === L);
+  assert.equal(p.cap, 'Plays with Den +3', 'a whole house in a group must not run past the pill');
+});
+
 test('picker_a_group_leader_says_who_it_plays_with_but_can_be_picked_and_says_why_on_a_tap', () => {
   const lead = ROOM('living_room', 'Living Room', 'Downstairs', { why: 'leads', reason: 'Living Room plays only together with Den' });
   const rooms = feed().rooms.map((r) => (r.room === L ? lead : r));
