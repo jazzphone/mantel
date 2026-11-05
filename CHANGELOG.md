@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **The Intercom reached only two rooms of a group left from music.** In 0.1.134, borrowing a leftover group still counted it as one group, so a message to its rooms played only in its leader's room (and any room outside it), while the sheet said "Sent to 9 rooms" and still showed "Plays with …". Every picked room now gets the message.
+
 ## 0.1.134 - 2026-11-05
 
 **Added**

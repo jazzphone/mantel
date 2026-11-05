@@ -63,6 +63,7 @@ from . import config as C
 OK, AFTER, SKIPPED = "ok", "after", "skipped"
 WHY_UNAVAILABLE, WHY_QUIET, WHY_HERE, WHY_LEADS = "unavailable", "quiet", "here", "leads"
 IDLE_NOT = ("playing", "paused")
+MEMBER_KEYS = ("group_members", "group_childs", "static_group_members")     # where Music Assistant lists a group
 MAX_ROOMS = 64
 
 
@@ -135,7 +136,7 @@ def ma_view(raw: Any) -> dict[str, dict[str, Any]] | None:
     for p in raw:
         if not isinstance(p, Mapping) or not isinstance(p.get("player_id"), str):
             continue
-        members = [m for key in ("group_members", "group_childs", "static_group_members")
+        members = [m for key in MEMBER_KEYS
                    if isinstance(p.get(key), (list, tuple)) for m in p[key] if isinstance(m, str)]
         out[p["player_id"]] = {
             "members": list(dict.fromkeys(members)),
@@ -261,7 +262,8 @@ def leftovers(music: MusicConfig, ma_raw: Any, pids: Mapping[str, str], rooms: I
         by_pid.setdefault(pid, set()).add(e)
     out: list[Loose] = []
     for lead, p in players.items():
-        members = [m for m in dict.fromkeys(p.get("group_members") or ()) if isinstance(m, str) and m != lead]
+        members = [m for m in dict.fromkeys(x for k in MEMBER_KEYS for x in (p.get(k) or ()))
+                   if isinstance(m, str) and m != lead]
         if not members or p.get("synced_to") or not own.get(lead, set()) & rooms:
             continue
         group = [lead, *members]
@@ -292,7 +294,9 @@ def apart(ma_raw: Any, loose: Iterable[Loose]) -> Any:
     gone = {x for g in loose for x in [g.leader, *g.members]}
     if not gone or not isinstance(ma_raw, (list, tuple)):
         return ma_raw
-    return [{**p, "group_members": [], "synced_to": None} if isinstance(p, Mapping) and p.get("player_id") in gone
+    # every field a group is listed in (ma_view reads all three): 0.1.134 cleared group_members only, Music Assistant also
+    # lists group_childs, so the leader still "covered" the speakers it had just let go and only it was called
+    return [{**p, **{k: [] for k in MEMBER_KEYS}, "synced_to": None} if isinstance(p, Mapping) and p.get("player_id") in gone
             else p for p in ma_raw]
 
 

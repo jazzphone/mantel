@@ -614,11 +614,20 @@ def test_an_unreadable_list_makes_no_group(house, music):
 def left_from_music(house, **over):
     """The Kitchen leads the Office and the Guest Room, all idle, as music leaves them."""
     house.group(K, [OFF, GR])
-    base = {"ap_k": {"group_members": ["ap_k", "ap_off", "ap_gr"]}, "ap_off": {"synced_to": "ap_k"},
+    base = {"ap_k": {"group_members": ["ap_k", "ap_off", "ap_gr"], "group_childs": ["ap_k", "ap_off", "ap_gr"]},
+            "ap_off": {"synced_to": "ap_k"},
             "ap_gr": {"synced_to": "ap_k"}}
     for pid, more in over.items():
         base[pid] = {**base.get(pid, {}), **more}
     return groupable_list(**base)
+
+
+def test_borrowing_reaches_every_room_of_it_through_its_own_call(house, music):
+    """2026-11-05, 0.1.134 on the house: Music Assistant lists a group in group_childs too; only group_members was cleared,
+    so the leader's call still covered the speakers it had let go, and only two rooms of nine were called."""
+    p = decide(house, music, doc(), [K, OFF, GR, DEN], ma=left_from_music(house))
+    assert all(c.covers == [] for c in p.calls) and {c.player for c in p.calls} == {K, OFF, GR, DEN}
+    assert len(p.sync) == 1 and len(p.sync[0].calls) == 4
 
 
 def test_a_leader_picked_alone_borrows_its_idle_group_and_plays_alone(house, music):

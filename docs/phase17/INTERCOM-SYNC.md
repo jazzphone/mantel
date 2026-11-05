@@ -221,5 +221,13 @@ Nothing was played; a message through a borrowed group ran on the fakes only (`t
 the house is not proven:** the owner's 14:41 talk to nine rooms through the leftover group was judged failed at the end and
 replayed as a Message; why isn't known (the signal wasn't logged before this release).
 
+**2026-11-05, 0.1.134 broke it on the house.** The owner's Message, Message and Live to nine rooms at 15:41-15:42 played in
+two: the Master Bedroom and the one room outside its group. `rooms.apart` cleared `group_members` only, but Music Assistant
+also lists a group in `group_childs`, which `ma_view` reads, so the plan still had the Master Bedroom's call "cover" the eight
+speakers the host had just taken out of its group, and called none of them. The sheet's "Plays with" came from the same
+miss. The house's own list, read after: the Master Bedroom's reach was 10 speakers before borrowing, still 10 with 0.1.134,
+1 with the fix. The tests' fake now lists `group_childs` as Music Assistant does, which makes five of the borrow tests fail on
+0.1.134. Lesson: the fake must carry every field the code reads.
+
 Known limit: if Mantel itself stops in the seconds a group is formed, the speakers stay grouped until Music Assistant
 restarts or someone ungroups them (the sheet then says the leader "leads" the other).

@@ -115,6 +115,7 @@ class IntercomMa(MF.HouseMa):
                 others = [p for p in self.model if p not in (lead, *kids) and self.model[p].get("type") == "player"]
                 members = [lead, *kids, *(others[:1] if self.join_script == "extra" else [])]
                 self.model[lead]["group_members"] = members      # at once; the members' synced_to lags (driver._together)
+                self.model[lead]["group_childs"] = list(members)    # Music Assistant lists it here too
                 if self.join_script == "extra":
                     self.model[members[-1]]["synced_to"] = lead
             return await reply(None)
@@ -124,8 +125,10 @@ class IntercomMa(MF.HouseMa):
                 for m in args["player_ids_to_remove"]:
                     self.model[m]["synced_to"] = None
                     lead["group_members"] = [x for x in lead["group_members"] if x != m]
+                    lead["group_childs"] = list(lead["group_members"])
                 if len(lead["group_members"]) <= 1:
                     lead["group_members"] = []
+                    lead["group_childs"] = []
             return await reply(None)
         if cmd == ANNOUNCE:
             self.announcements.append(dict(args))
