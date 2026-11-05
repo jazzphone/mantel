@@ -93,4 +93,42 @@ Build log below.
 
 ## Build log
 
-(empty)
+**2026-11-05, part A, Mantel 0.1.130 (on the house).** `Announcements.mark` / `unmark`, a list of their own that reaches
+the feed as `intercom`. The open choice went to the recommendation: the Intercom is hidden whatever Ignore Announcements
+says. One change from the plan: **a room playing music isn't marked.** Music Assistant mixes the message into it, its song
+and cover don't change, and a marked room would leave Now Playing while its music goes on. Known limits: a playing room's
+volume slider can move while the message plays (Music Assistant raises the volume around the clip), and a room that was
+paused or held leaves Now Playing for the length of the message and comes back, as it does for Home Assistant's
+announcements.
+
+**2026-11-05, part B.** `rooms.sync_sets`, `driver.in_step`, the gate. What the real Music Assistant 2.10.9 changed:
+
+- **`players/cmd/ungroup_many` doesn't part a group reliably.** It goes by each member's `synced_to`, a derived field. On
+  the house it left 7 of 9 speakers grouped. Part uses `players/cmd/set_members` with `player_ids_to_remove` on the leader,
+  a new catalog entry whose list the gateway's RBAC checks: 9 speakers in 10 ms, all three times.
+- **`synced_to` lags.** It's refreshed on a 2 s debounce, one member at a time (the fourth member's after 8 s). The leader's
+  `group_members` is right at once and is the list AirPlay plays from, so "together" reads that list. Joining 9 speakers
+  takes 10 ms, not the plan's "few seconds".
+- **No "HomePods" shortcut.** The plan offered the house's sync group player for the whole house, to skip the join. The
+  join costs nothing, so the one path stays.
+- **A group has one announcement volume** (`_prepare_for_announcement` gives every member the same override), so rooms at
+  different volumes make separate groups, which aren't in step with each other.
+- **A speaker that's off stays out** (joining turns it on, and nothing would turn it off). A room holding paused music
+  stays out too. HomePods have no power control and always read on.
+- **Music Assistant announces at 15 or more** (`CONF_ENTRY_ANNOUNCE_VOLUME_MIN`), so a test at "volume 2" is at 15.
+
+**Proof on the house, quiet** (the real driver and gate, from a script; a 3 s tone, Kitchen and Guest Room, 09:00-09:04):
+
+| Run | Log | Reads "playing" (s after the call), Kitchen / Guest | Back as it was |
+|---|---|---|---|
+| Group x5 | One `AirPlay group ...: UGL-RC server ... for Guest Bedroom HomePod, Kitchen HomePod`, no clock warning | 3.69 / 3.69, 3.59 / 3.80, 3.78 / 4.09, 3.78 / 3.99, 3.69 / 4.00 | Yes |
+| Group, chime | Same | 4.10 / 4.30 | Yes |
+| One call per room (before) | Two announcements, two sessions | 3.90 / 3.70 | Yes |
+
+A group starts as fast as one room, so the plan's reason to leave Live per room (a group adding to its 7 s) doesn't hold.
+**Not proven: what the ear hears.** "Playing" is when each speaker reports it, not when sound leaves it. The owner's
+listening test at two rooms at once is still to do. The fallback's failures (a dead leader, a stream that never starts)
+were tested on the fake only: a real dead speaker can't be arranged from here.
+
+Known limit: if Mantel itself stops in the seconds a group is formed, the speakers stay grouped until Music Assistant
+restarts or someone ungroups them (the sheet then says the leader "leads" the other).

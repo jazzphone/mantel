@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Changed**
+- **Rooms hear a Message in step.** Idle rooms used to start a fraction of a second to a second apart, each on its own AirPlay session. Now Mantel groups them for the message, plays it once on the group's one clock, and puts every speaker back. If the group doesn't come together, or its leader doesn't answer, each room plays on its own as before, so a message is never lost. Live still plays per room.
+
 ## 0.1.130 - 2026-11-05
 
 **Changed**

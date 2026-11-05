@@ -482,7 +482,7 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
 # feature alone let a Child drive every speaker. An announcement has Music Assistant fetch any address it is
 # given, so it is a settings-level action (Owner, Admin).
 MA_PLAYER_ARGS = ("player_id", "queue_id", "target_player", "source_queue_id", "target_queue_id")
-MA_PLAYER_LISTS = ("child_player_ids", "player_ids")
+MA_PLAYER_LISTS = ("child_player_ids", "player_ids", "player_ids_to_remove")
 
 
 def ma_player_checks(cmd: Command, players: dict[str, str]) -> Command:

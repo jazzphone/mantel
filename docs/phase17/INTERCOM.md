@@ -97,7 +97,8 @@ Read at tag **2.10.9** (the release the house is pinned to). Links under Sources
 What this means:
 
 - **Message** works everywhere MA announces: idle rooms, rooms playing music (ducked, mixed in, in step across the
-  rooms), stereo pairs. It is the safe mode.
+  rooms), stereo pairs. It is the safe mode. Idle rooms play as one temporary group, in step: see
+  [INTERCOM-SYNC.md](INTERCOM-SYNC.md).
 - **Live** is live only in rooms that are **idle** when you start. A room playing music, or marked Message-only,
   plays the broadcast **after you finish**, as a Message, ducked. The sheet shows this per room before you talk.
 - Mantel serves a **finite WAV** for a Message (real sizes) and an **open-ended WAV** for Live.

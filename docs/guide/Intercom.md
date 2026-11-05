@@ -80,9 +80,15 @@ has its own.
    or **Send Again**. (With no room picked, it waits for you to pick one and
    press **Send**.)
 
-Every room hears the message at the same moment. Music already playing in a room
-is turned down under it and comes back afterward. A soft chime plays first; you
-can turn the chime off in Settings.
+Every room hears the message at the same moment. Mantel briefly groups the idle
+rooms you picked, plays the message once on the group's one clock, and puts every
+speaker back on its own. If a group doesn't come together, each room plays the
+message on its own, a moment apart, so a message is never lost. Music already
+playing in a room is turned down under it and comes back afterward. Rooms playing
+music are in step with each other, but can be a moment apart from the idle rooms.
+Rooms set to different volumes can't share a group, so give them the same volume
+if you want them exactly together. A soft chime plays first; you can turn the
+chime off in Settings.
 
 The music players ignore the Intercom. While a message plays, the Music page, the
 Side Pane, the player and the screensaver don't show it as music: a room that was
@@ -97,7 +103,7 @@ Anyway**. The audit log records it.
 when an Owner allows it in Settings. It plays a few seconds behind you, because
 AirPlay buffers and an idle HomePod has to wake up first; the sheet shows the
 measured delay. The rooms keep playing for those few seconds after you let go: that's the end
-of what you said, not a second message. Live is live only in rooms that are idle when you start. A room
+of what you said, not a second message. Each room plays Live on its own, so rooms can be a moment apart. Live is live only in rooms that are idle when you start. A room
 playing music, or set to Message-only, hears the whole thing as a message when
 you finish. If a room drops out of Live partway through, it gets the whole
 message when you finish, so nothing you said is lost.

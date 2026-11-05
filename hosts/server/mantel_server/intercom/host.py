@@ -209,9 +209,11 @@ class IntercomHost:
         house, music, pids = self.setup()
         doc = self.doc()
         rooms = R.expand(music, picks)
+        resumes = getattr(self.music, "resumes", None)
+        held = resumes.players(time.monotonic()) if resumes is not None else ()
         return R.decide(house, music, doc, rooms, mode=mode, here=self.here(principal, house, music),
                         override=override and self.may_override(principal), allowed=self.allowed(principal),
-                        ma_raw=await self.ma_raw(), pids=pids), pids, music
+                        ma_raw=await self.ma_raw(), pids=pids, held=held), pids, music
 
     # -- a Message ---------------------------------------------------------------------------------------------
     async def send_message(self, s: Any, picks: list[str], override: bool) -> str:
@@ -264,15 +266,26 @@ class IntercomHost:
         s.broadcast = plan
         token, link = self.links.mint(spool, mode="message", finite=True, limit_s=C.limit_s(doc, "message"))
         url = f"{doc['stream_base']}/s/{token}.wav"
-        run = D.IntercomRun(s.principal, aid, {pids[c.player] for c in plan.calls}, [url])
+        run = D.IntercomRun(s.principal, aid, {pids[c.player] for c in plan.calls}, [url],
+                            groups={pids[g.leader.player]: [pids[c.player] for c in g.members] for g in plan.sync})
+        links = [link]
+
+        def new_url() -> str:
+            """The fall back's link (a temporary group that didn't start: Music Assistant may have read the first)."""
+            again, more = self.links.mint(spool, mode="message", finite=True, limit_s=C.limit_s(doc, "message"))
+            links.append(more)
+            address = f"{doc['stream_base']}/s/{again}.wav"
+            run.add_url(address)
+            return address
+
         outcome = D.Outcome()
         result = "error:not_sent"
         try:
             await self._say(s, {"type": "sending", "rooms": len({c.room for c in plan.calls})})
             self._tell_listeners(doc, plan, spool, s)
             self._hide(aid, plan.calls)
-            outcome.results = await D.announce(
-                self.ma, run, plan.calls, pids, url, chime=doc["chime"]["message"],
+            outcome.results = await D.broadcast(
+                self.ma, run, plan, pids, url, new_url=new_url, chime=doc["chime"]["message"],
                 timeout=C.limit_s(doc, "message") + D.CALL_GRACE, names=music.name_of,
                 done=lambda call, ok: self._show(aid, call, ok))
             result = D.result_of(outcome, len(plan.skipped))
@@ -281,7 +294,8 @@ class IntercomHost:
         finally:
             self._show_all(aid, plan.calls)
             run.close()
-            self.links.kill(link)
+            for one in links:
+                self.links.kill(one)
             self._finish(aid, result)
             s.broadcast = None
             self.last_broadcast = None

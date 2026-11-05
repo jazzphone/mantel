@@ -100,6 +100,7 @@ MA_COMMANDS: dict[str, frozenset[str]] = {
     "players/cmd/power": frozenset({"player_id", "powered"}),
     "players/cmd/group_many": frozenset({"target_player", "child_player_ids"}),
     "players/cmd/ungroup_many": frozenset({"player_ids"}),
+    "players/cmd/set_members": frozenset({"target_player", "player_ids_to_remove"}),   # the Intercom's temporary group
     "players/cmd/play_announcement": frozenset({"player_id", "url", "pre_announce", "volume_level"}),
     # Phase 4 (music.py, Mantel's music engine): what HA's music_assistant integration sends for
     # media_player.media_play / media_pause / media_play_pause / media_stop / next / previous / unjoin

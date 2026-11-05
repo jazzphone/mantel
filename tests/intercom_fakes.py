@@ -35,6 +35,8 @@ from mantel_server.settings_store import Actor as SettingsActor
 REAL_BASE_PROBLEM = C.base_problem          # captured before any fixture patches it (a test may ask the real rule)
 KITCHEN, DEN, CODY = "media_player.kitchen_ma", "media_player.den_ma", "media_player.cody_ma"
 ANNOUNCE = "players/cmd/play_announcement"
+JOIN = "players/cmd/group_many"
+PART = "players/cmd/set_members"
 RATE = 24000
 FRAME_MS = 40
 
@@ -56,6 +58,10 @@ class IntercomMa(MF.HouseMa):
         self.delay = 0.0                             # seconds before an announcement answers
         self.fail: dict[str, str] = {}               # Music Assistant player id -> error details
         self.on_call: Callable[[dict], None] | None = None     # called when an announcement frame arrives
+        self.groups = False                          # answer group_many/set_members as a real group (in_step)
+        self.join_script = "ok"                      # ok, never (settles never), error, extra (someone else is in it)
+        self.plays = True                            # (with groups) an announced player reads "playing" while it plays
+        self.part_script = "ok"                      # ok, never
         self._gets: dict[str, asyncio.Future] = {}
         self._session: aiohttp.ClientSession | None = None
         self._tasks: set[asyncio.Task] = set()
@@ -101,6 +107,26 @@ class IntercomMa(MF.HouseMa):
             except Exception:  # noqa: BLE001 -- Mantel hung up (a timeout): nothing to tell
                 pass
 
+        if cmd == JOIN and self.groups:
+            if self.join_script == "error":
+                return await reply(error="can not group")
+            if self.join_script != "never":
+                lead, kids = args["target_player"], list(args["child_player_ids"])
+                others = [p for p in self.model if p not in (lead, *kids) and self.model[p].get("type") == "player"]
+                members = [lead, *kids, *(others[:1] if self.join_script == "extra" else [])]
+                self.model[lead]["group_members"] = members      # at once; the members' synced_to lags (driver._together)
+                if self.join_script == "extra":
+                    self.model[members[-1]]["synced_to"] = lead
+            return await reply(None)
+        if cmd == PART and self.groups:
+            if self.part_script != "never":
+                lead = self.model[args["target_player"]]
+                for m in args["player_ids_to_remove"]:
+                    self.model[m]["synced_to"] = None
+                    lead["group_members"] = [x for x in lead["group_members"] if x != m]
+                if len(lead["group_members"]) <= 1:
+                    lead["group_members"] = []
+            return await reply(None)
         if cmd == ANNOUNCE:
             self.announcements.append(dict(args))
             if self.on_call is not None:
@@ -109,8 +135,13 @@ class IntercomMa(MF.HouseMa):
             async def work() -> None:
                 if self.fetch:
                     await self.get(args["url"])
+                playing = self.groups and self.plays and args.get("player_id") in self.model
+                if playing:
+                    self.model[args["player_id"]]["playback_state"] = "playing"
                 if self.delay:
                     await asyncio.sleep(self.delay)
+                if playing:
+                    self.model[args["player_id"]]["playback_state"] = "idle"
                 err = self.fail.get(args.get("player_id"))
                 await reply(error=err) if err else await reply(None)
             task = asyncio.get_running_loop().create_task(work())

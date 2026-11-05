@@ -30,6 +30,14 @@ announces to it alone, natively, or ungroups it and groups it back. If Music Ass
 doesn't list a room's player, nothing is guessed: the room is skipped (``unavailable``). A stereo pair (one room that
 is a Music Assistant group of two players) is announced to through its group player. A virtual pair is announced to on
 both of its players.
+
+ROOMS IN STEP (docs/phase17/INTERCOM-SYNC.md part B). A Message's calls all start at once, but each idle HomePod opens an
+AirPlay session of its own and starts when it's ready, a fraction of a second to a second from the next. Grouped music
+plays on one clock, so ``sync_sets`` finds the calls that can be played the same way: a temporary group of two or more
+speakers, idle, on their own and able to group, announced to once through its leader. Everything else keeps its own
+call: a room playing music is already in step with the others playing music (Music Assistant mixes it in and arms one
+shared instant), and a room holding paused music is left alone. Music Assistant gives a group one announcement volume,
+so rooms at different volumes make separate groups. ``decide`` works them out for a Message only.
 """
 from __future__ import annotations
 
@@ -62,9 +70,27 @@ class Call:
 
 
 @dataclass
+class SyncSet:
+    """Calls played as one temporary group: ``leader`` is announced to, ``members`` join it first."""
+    leader: Call
+    members: list[Call]
+
+    @property
+    def calls(self) -> list[Call]:
+        return [self.leader, *self.members]
+
+
+@dataclass
 class Plan:
     rooms: list[dict[str, Any]] = field(default_factory=list)
     calls: list[Call] = field(default_factory=list)
+    sync: list[SyncSet] = field(default_factory=list)      # a Message's rooms in step (sync_sets)
+
+    @property
+    def solo(self) -> list[Call]:
+        """The calls that aren't part of a temporary group."""
+        grouped = {id(c) for s in self.sync for c in s.calls}
+        return [c for c in self.calls if id(c) not in grouped]
 
     @property
     def playing(self) -> list[dict[str, Any]]:
@@ -162,12 +188,52 @@ def owners(music: MusicConfig, ma: Mapping[str, dict[str, Any]], pids: Mapping[s
     return out
 
 
+def groupable(p: Any) -> bool:
+    """A speaker in Music Assistant's ``players/all`` that can join a temporary group and be put back as it was: a plain
+    player, on, reachable, idle, in no group of any kind. (A speaker that is off stays out: joining would turn it on.)"""
+    if not isinstance(p, Mapping):
+        return False
+    return (p.get("type") == "player" and p.get("available") is True and p.get("powered") is not False
+            and (p.get("playback_state") or p.get("state")) not in IDLE_NOT
+            and "set_members" in (p.get("supported_features") or ())
+            and not p.get("synced_to") and not p.get("active_group") and len(p.get("group_members") or ()) <= 1)
+
+
+def sync_sets(house: House, music: MusicConfig, calls: list[Call], ma_raw: Any, pids: Mapping[str, str],
+              held: Iterable[str] = ()) -> list[SyncSet]:
+    """The temporary groups a Message's ``calls`` can play as (the module's notes). ``held``: rooms holding paused music.
+    A group's leader is the one the music engine would pick (the house's preferred leaders, then not a room Home
+    Assistant announces to: an announcement to a leader plays on its whole group), and every member is one it can
+    group with."""
+    players = {p["player_id"]: p for p in ma_raw if isinstance(p, Mapping) and "player_id" in p} if isinstance(
+        ma_raw, (list, tuple)) else {}
+    held = set(held)
+    fit = [c for c in calls if not c.covers and c.room not in held and c.player not in held
+           and E.state_of(house, c.room) not in IDLE_NOT and groupable(players.get(pids.get(c.player, "")))]
+    by_volume: dict[int | None, list[Call]] = {}
+    for c in fit:
+        by_volume.setdefault(c.volume, []).append(c)
+    out: list[SyncSet] = []
+    for group in by_volume.values():
+        while len(group) >= 2:
+            room = music.leader_of(list(dict.fromkeys(c.room for c in group)))
+            leader = next((c for c in group if c.room == room), group[0])
+            can = players[pids[leader.player]].get("can_group_with") or ()
+            members = [c for c in group if c is not leader and pids[c.player] in can]
+            if members:
+                out.append(SyncSet(leader, members))
+            taken = {id(leader), *(id(c) for c in members)}
+            group = [c for c in group if id(c) not in taken]
+    return out
+
+
 def decide(house: House, music: MusicConfig, doc: Mapping[str, Any], picked: Iterable[str], *, mode: str,
            here: Iterable[str] = (), override: bool = False, allowed: Callable[[str], bool] = lambda r: True,
-           ma_raw: Any = None, pids: Mapping[str, str] | None = None, now: datetime | None = None) -> Plan:
+           ma_raw: Any = None, pids: Mapping[str, str] | None = None, now: datetime | None = None,
+           held: Iterable[str] = ()) -> Plan:
     """The plan for a broadcast to ``picked`` (room entities; a preset or floor is the page's to expand). ``pids``:
     {media_player entity: Music Assistant player id}; ``ma_raw``: Music Assistant's ``players/all`` (None:
-    unreadable)."""
+    unreadable); ``held``: rooms holding paused music, which a Message leaves out of its temporary groups."""
     live_mode = mode == "live"
     here = set(here)
     pids = dict(pids or {})
@@ -248,6 +314,8 @@ def decide(house: House, music: MusicConfig, doc: Mapping[str, Any], picked: Ite
                 plan.calls.append(Call(p, r, C.volume_of(doc, r), live=bool(can_live), covers=calling[p]))
     order = {r: i for i, r in enumerate(picked)}
     plan.rooms.sort(key=lambda x: order.get(x["room"], 0))
+    if not live_mode:
+        plan.sync = sync_sets(house, music, plan.calls, ma_raw, pids, held)
     return plan
 
 
