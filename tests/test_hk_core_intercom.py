@@ -387,7 +387,9 @@ def test_message_mode_is_never_after(house, music):
 def test_volume_per_room_capped(house, music):
     d = C.merge(doc(kitchen={"volume": 40}, office={"volume": 95}), {"max_volume": 50})
     p = decide(house, music, d, [K, OFF, GR])
-    assert {c.player: c.volume for c in p.calls} == {K: 40, OFF: 50, GR: None}
+    assert {c.player: c.volume for c in p.calls} == {K: 40, OFF: 50, GR: 40}, "Automatic: the house's volume"
+    d = C.merge(d, {"volume": 60})
+    assert {c.player: c.volume for c in decide(house, music, d, [GR]).calls} == {GR: 50}, "capped too"
 
 
 # ---------------------------------------------------------------- the feed and the page's picks
@@ -480,6 +482,16 @@ def test_a_leader_only_its_members_home_assistant_states_name_is_a_leader(house,
     house.set(LR, "idle", group_members=[K, LR])
     p = decide(house, music, doc(), [K])
     assert states(p)[K] == ("skipped", "leads") and not p.calls
+
+
+def test_a_home_assistant_sync_group_players_list_makes_nobody_a_leader(house, music):
+    """2026-11-05 on the house: Home Assistant's state of Music Assistant's sync group "HomePods" lists its parts,
+    the Kitchen first. That list is the group player's, not the Kitchen's: every room picked plays itself."""
+    house.set("media_player.homepods", "idle", group_members=[K, LR, OFF, GR], friendly_name="HomePods")
+    p = decide(house, music, doc(), [K, LR, OFF, GR])
+    assert called(p) == sorted([K, LR, OFF, GR]) and all(s == ("ok", None) for s in states(p).values())
+    p = decide(house, music, doc(), [K])
+    assert states(p)[K] == ("ok", None) and called(p) == [K]
 
 
 def test_two_entities_for_one_music_assistant_player_both_need_to_be_in(house, music):

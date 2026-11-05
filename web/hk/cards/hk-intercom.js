@@ -41,7 +41,7 @@
   var MODES = ['message', 'live'];
   var ROOMS_MAX = 64;                        // user_data.py INTERCOM_ROOMS_MAX
   var MIN_S = 0.6;                           // shorter than this is a tap, not a message
-  var HOLD_MS = 450;                         // Live: held at least this long, release ends it; shorter, it stays on
+  var HOLD_MS = 450;                         // Live: a press shorter than this was a tap, not a talk: "Hold to talk"
   var NO_AUDIO_MS = 3000;                    // Recording with nothing captured for this long: the audio is not running (a suspended context)
   var RATES = [16000, 22050, 24000, 32000, 44100, 48000];    // the sample rates the gateway accepts a ticket for (gateway.INTERCOM_RATES)
   var SAID_MS = 4500;                        // how long an explanation stays in the status line
@@ -69,6 +69,7 @@
     micLoad: 'Couldn’t load the microphone — reload the page',
     micStart: 'This browser couldn’t start recording',
     tooShort: 'Too short. Tap, speak, tap again',
+    holdToTalk: 'Hold the button while you talk',
     lost: 'The connection dropped. Send Again',
     commandsOff: 'Turn on Allow Control of the House to use the Intercom',
     forbidden: 'You can’t use the Intercom',
@@ -138,11 +139,12 @@
     var here = {};
     feed.here.forEach(function (id) { here[id] = 1; });
     // "Dining Room plays only together with Office" / "Dining Room leads Office; skipped" -> "Plays with Office" / "Plays with Dining Room"
+    // (one name, then "+N": a whole house in a group must not run past the pill)
     var withWho = function (r) {
-      var t = plain(r.reason), m = /together with (.+)$/i.exec(t);
-      if (m) return 'Plays with ' + m[1];
-      m = /^(.+?) leads /i.exec(t);
-      return m ? 'Plays with ' + m[1] : 'Plays with others';
+      var t = plain(r.reason), m = /together with (.+)$/i.exec(t) || /^(.+?) leads /i.exec(t);
+      if (!m) return 'Plays with others';
+      var names = m[1].split(/, | and /).filter(Boolean);
+      return 'Plays with ' + names[0] + (names.length > 1 ? ' +' + (names.length - 1) : '');
     };
     return feed.rooms.map(function (r) {
       var o = { id: r.room, name: r.name, floor: r.floor, glyph: null, cap: '', pickable: true, quiet: false, note: false, line: '', aria: r.name };
@@ -216,7 +218,7 @@
    * What the Controller holds (the methods are the CP.* below; the ones not listed here read as any, as the fields set along the way do).
    * @typedef {{ [member: string]: any, d: any, clock: any, mode: any, sel: string[], state: string, said: any, secs: number, level: number,
    *   sentTo: number, failed: string[], quiet: string[], lag: any, fallback: string[], decision: any, socket: string, draftSent: boolean,
-   *   playing: boolean, latched: boolean, mic: any, tok: number, timer: any, limit: number, pressAt: number, sendTok: number,
+   *   playing: boolean, mic: any, tok: number, timer: any, limit: number, pressAt: number, sendTok: number,
    *   saveT: any, sayT: any, disposed: boolean }} Ctl
    */
   /** @type {Ctl[]} */
@@ -242,7 +244,6 @@
     this.socket = 'none';              // none | opening | open
     this.draftSent = false;            // the server finished the draft (it is gone there; the page's copy is all there is)
     this.playing = false;
-    this.latched = false;              // Live: on until the next tap
     this.mic = null; this.tok = 0; this.timer = null; this.limit = 0; this.pressAt = 0; this.sendTok = 0;
     this.saveT = null; this.sayT = null; this.disposed = false;
     var mem = deps.store && deps.store.load ? deps.store.load() : null;
@@ -388,14 +389,14 @@
   /** @this {Ctl} */ CP.fed = function () { this._changed(); };
 
   // ---- the microphone
-  // Message: one tap starts, the next stops. Live: down starts; up ends it if it was held, else it stays on until the next tap.
+  // Message: one tap starts, the next stops and sends. Live is push to talk: down starts, up ends it (2026-11-05, the owner:
+  // "a momentary button, not a toggle"); a tap too short to say anything is let go with "Hold to talk".
   /** @this {Ctl} */ CP.micDown = function () {
     var m = this.modeNow();
     this.pressAt = this.clock.now();
     this.pressState = this.state;
     this.unlock();                                       // inside the press: the AudioContext made and resumed
     if (m === 'live') {
-      if (this.state === 'recording') { this.stopFromPress = true; return; }
       if (this.state === 'idle' || this.state === 'sent' || this.state === 'error') this._start('live');
     }
   };
@@ -403,9 +404,9 @@
     this.unlock();             // again: on an iPad a touch's pointerdown is no user activation, its pointerup (and click) is
     var m = this.modeNow(), held = this.clock.now() - this.pressAt;
     if (m === 'live') {
-      if (this.stopFromPress) { this.stopFromPress = false; this._stop(); return; }
       if (this.state === 'recording' || this.state === 'connecting') {
-        if (held >= HOLD_MS) this._stop(); else this.latched = true;
+        if (held >= HOLD_MS) this._stop();
+        else { this._abandon(); this._say(WORDS.holdToTalk, 'info'); }
       }
       return;
     }
@@ -414,8 +415,7 @@
   };
   // the press was taken away (pointercancel: a system gesture, a call): a held Live talk ends; a Message tap does nothing
   /** @this {Ctl} */ CP.micCancel = function () {
-    this.stopFromPress = false;
-    if (this.modeNow() === 'live' && this.state === 'recording' && !this.latched) this._stop();
+    if (this.modeNow() === 'live' && this.state === 'recording') this._stop();
   };
   /** @this {Ctl} */ CP.unlock = function () { return this.d.supported() && this.d.secure() ? this._unlock() : 0; };
   /** @this {Ctl} */ CP._unlock = function () {
@@ -457,7 +457,7 @@
     this.d.oneWay.mark();
     this._reset();
     var tok = ++this.tok;
-    this.state = 'connecting'; this.said = null; this.mode = mode; this.limit = 0; this.latched = false;
+    this.state = 'connecting'; this.said = null; this.mode = mode; this.limit = 0;
     this.socket = 'opening';
     this._wire(mic, tok);
     mic.begin();
@@ -541,7 +541,7 @@
     if (this.state === 'connecting') { this._abandon(); return; }     // let go before the microphone was open: nothing was kept
     this.clock.clearInterval(this.timer); this.timer = null;
     mic.rec(false);
-    this.secs = mic.seconds(); this.level = 0; this.latched = false;
+    this.secs = mic.seconds(); this.level = 0;
     if (this.liveStarted) {
       mic.text({ type: 'end' });
       this.state = 'sending';                      // the server answers {sent}
@@ -554,6 +554,8 @@
       this._say(WORDS.tooShort, 'info');
       return;
     }
+    // sent as soon as it stops (2026-11-05, the owner: too many steps); with no room picked it waits for one and Send
+    if (this.chosen().length) { this._send(this.chosen(), false); return; }
     this.state = 'review';
     this._changed();
   };
@@ -562,7 +564,7 @@
     this.tok++;
     this.clock.clearInterval(this.timer); this.timer = null;
     if (this.mic) { this.mic.rec(false); this.mic.closeSocket(); this.mic.clear(); }
-    this.state = 'idle'; this.socket = 'none'; this.secs = 0; this.level = 0; this.liveStarted = false; this.latched = false;
+    this.state = 'idle'; this.socket = 'none'; this.secs = 0; this.level = 0; this.liveStarted = false;
     this._changed();
   };
   /** @this {Ctl} */ CP._reset = function () {
@@ -704,7 +706,7 @@
   /** @this {Ctl} */ CP._stopTalk = function () {
     this.clock.clearInterval(this.timer); this.timer = null;
     if (this.mic && this.mic.recording !== false) this.mic.rec(false);
-    this.level = 0; this.latched = false; this.liveStarted = false;
+    this.level = 0; this.liveStarted = false;
   };
   /** @this {Ctl} */ CP._closed = function () {
     this.socket = 'none';
@@ -743,7 +745,7 @@
     if (disabledMic) mic.label = refusal === WORDS.https ? 'Needs HTTPS' : refusal === WORDS.needsHost ? 'Needs Mantel' : refusal === WORDS.off ? 'Intercom is off' : 'No microphone';
     else if (s === 'connecting') mic.label = WORDS.connecting;
     else if (s === 'recording') {
-      mic.label = live ? (this.latched ? 'Tap to stop' : 'Release to stop') : 'Tap to stop';
+      mic.label = live ? 'Release to stop' : 'Tap to send';
       var left = Math.max(0, this.maxSecs() - this.secs);
       mic.time = window.hkMic ? window.hkMic.stamp(left) + ' left' : Math.ceil(left) + ' s left';
     } else if (s === 'sending') mic.label = WORDS.sending;
@@ -1255,7 +1257,7 @@
       '.grid:empty{display:none}',
       // (scroll-margin: a pill scrolled into view stops above the foot, never under it)
       '.pill{min-width:0;height:44px;border-radius:22px;position:relative;touch-action:manipulation;scroll-margin-bottom:var(--fh,120px)}',
-      '.pill > span.l{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 14px;min-width:0;line-height:16px}',
+      '.pill > span.l{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 14px;min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden;line-height:16px}',
       '.pill.hg > span.l{padding:0 30px}',
       '.l b{font-weight:inherit;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
       '.l i{font-style:normal;font-size:11px;font-weight:500;letter-spacing:0;line-height:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + v('ink-3') + '}',

@@ -191,7 +191,9 @@ function drawSound(c, S) {
   c.appendChild(group({ header: 'Sound', footer: 'The chime plays before the voice. It is on for Messages and off for Live, where it would only add to the delay.' }, [
     K().toggle({ label: 'Chime Before a Message', on: !!chime.message, fk: 'mx:intercom:chime-message', onChange: (on) => saveHouse({ chime: { ...chimes(), message: on } }) }),
     K().toggle({ label: 'Chime Before Live', on: !!chime.live, fk: 'mx:intercom:chime-live', onChange: (on) => saveHouse({ chime: { ...chimes(), live: on } }) })]));
-  c.appendChild(group({ footer: 'No room plays louder than this. A room can be set lower, or left on Automatic, in its own page.' }, [
+  c.appendChild(group({ footer: 'Volume is how loud a room on Automatic plays the Intercom, whatever its speaker is set to. No room plays louder than the Highest Volume. A room can have its own, on its page.' }, [
+    K().slider({ label: 'Volume', min: 10, max: 100, step: 5, unit: '%', value: S.volume || 40, fk: 'mx:intercom:volume',
+      onChange: (v) => saveHouse({ volume: v }) }),
     K().slider({ label: 'Highest Volume', min: 10, max: 100, step: 5, unit: '%', value: S.max_volume, fk: 'mx:intercom:max-volume',
       onChange: (v) => saveHouse({ max_volume: v }) })]));
 }
@@ -248,7 +250,7 @@ function drawLive(c, r, S, st, change) {
 function drawVolume(c, S, st, change) {
   const cur = st.volume === null || st.volume === undefined ? '' : String(st.volume);
   const opts = [['', 'Automatic']].concat(VOLUMES.concat(cur && !VOLUMES.includes(Number(cur)) ? [Number(cur)] : []).sort((a, b) => a - b).map((v) => [String(v), v + '%']));
-  c.appendChild(group({ footer: 'Automatic uses Music Assistant’s own announcement level. Never louder than ' + S.max_volume + '%, the highest volume on the Intercom page.' }, [
+  c.appendChild(group({ footer: 'Automatic uses the Intercom page’s Volume, ' + Math.min(S.volume || 40, S.max_volume) + '%. Never louder than ' + S.max_volume + '%, the highest volume on the Intercom page.' }, [
     K().select({ label: 'Volume', options: opts, value: cur, fk: 'mx:intercom-room:volume', onChange: (v) => change({ volume: v === '' ? null : Number(v) }) })]));
 }
 // a room's own hours as they stand, else the house's to start from

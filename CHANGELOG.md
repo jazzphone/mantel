@@ -15,6 +15,29 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 **Fixed**
 - The page beside the one you are on no longer shows: on Home with the Side Pane, the Pages screen showed through the pane, and the Calendar could sit over the right side of the Pages screen. Pages waiting beside this one now wait out of sight, and are laid out again when the page's size changes, so the Calendar no longer jumps half a second after it lands.
 - Swiping to a page with another look no longer switches looks as it lands: coming from the Pages screen (Bright Glass, Home Only), the Calendar wears its own Blur glass all the way in. Its background fades in with your finger too, rather than only after you let go.
+
+## 0.1.128 - 2026-11-05
+
+**Changed**
+- **The Intercom has a volume of its own.** A room on Automatic plays at the Intercom's **Volume** (Settings → Intercom, 40% to start), whatever its speaker was left at; a room can still have its own. Before, Automatic followed the speaker, so a HomePod left at 2% played your message in a whisper after a loud chime. Each speaker goes back to its own volume afterward.
+- **A Message sends as soon as you stop recording**: tap, talk, tap. Play and Send Again are there afterward. With no room picked, it waits for you to pick one.
+- **Live is push to talk**: hold the microphone while you talk and let go when you're done. A tap too short to say anything says "Hold the button while you talk".
+
+**Fixed**
+- Live lost its first two seconds: what you said while Mantel asked Music Assistant about the rooms came in a burst that was dropped.
+
+## 0.1.127 - 2026-11-05
+
+**Fixed**
+- **An Intercom message to several rooms played in one room only.** A Music Assistant sync group of the speakers (such as "HomePods") made Mantel think its first speaker led all the others, so the message went to that speaker alone and the sheet said "Plays with … +N" for a room playing nothing. Every room picked now plays it.
+
+## 0.1.126 - 2026-11-04
+
+**Fixed**
+- **The Intercom said "Microphone blocked" with the microphone allowed** (Safari on a Mac, the wall tablets, the app). Its audio processor was loaded in a way Mantel's page security refuses; it is now a file Mantel serves.
+- **The doorbell's live talk** loads its audio processor the same way, so on Mantel it can talk live again instead of falling back to a recorded clip.
+- **The Intercom sheet's room buttons:** a room that leads a playing group says one room and a count ("Plays with Guest Bedroom +4") inside its button, instead of a long list that ran over its neighbors and let the sheet slide sideways on a wall tablet.
+- **The iPhone and iPad app** allows the microphone on the house address it opened (from the next TestFlight build).
 - Swiping between pages shows the page you are going to, every time: a page not visited yet came in as its title on the sky and every page did on a tablet flagged as slow. The page on either side is made ready at a quiet moment and waits beside this one.
 - A new swipe while a page was still settling no longer strands it off screen. It was blank for five seconds with touches ignored, and rapid flicks could leave it there until you changed page. A finger on a moving page now simply catches it.
 - Letting go of a page carries on at the speed your finger was going, from where it was, instead of leaping away on one fixed curve; a flick back goes back, however far the page had gone. Home Grid views, blocks that swipe their pages and the side menu let go the same way.

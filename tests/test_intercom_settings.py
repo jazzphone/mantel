@@ -150,6 +150,7 @@ await find(main.kids, 'Chime Before Live', 'toggle').onChange(true);
 await find(main.kids, 'Chime Before a Message', 'toggle').onChange(false);
 await find(main.kids, 'Longest Message', 'slider').onChange(45);
 await find(main.kids, 'Longest Live Talk', 'slider').onChange(90);
+await find(main.kids, 'Volume', 'slider').onChange(50);
 await find(main.kids, 'Highest Volume', 'slider').onChange(55);
 await find(main.kids, 'Quiet Hours', 'toggle').onChange(false);
 await settle();
@@ -463,11 +464,12 @@ def test_each_change_is_saved_at_once_with_the_bodies_the_routes_take(run):
         ["/api/intercom/settings", {"chime": {"message": False, "live": True}}],       # (the page's copy follows each answer)
         ["/api/intercom/settings", {"max_message_s": 45}],
         ["/api/intercom/settings", {"max_live_s": 90}],
+        ["/api/intercom/settings", {"volume": 50}],
         ["/api/intercom/settings", {"max_volume": 55}],
         ["/api/intercom/settings", {"quiet_default": {"schedule": False, "from": "21:00", "to": "07:00", "while": []}}]]
     assert run["quietOff"] == 0                        # with quiet hours off there are no From and To to set
     assert run["main"]["sliders"] == [["Longest Message", 10, 60, 5, " s", 30], ["Longest Live Talk", 15, 120, 5, " s", 60],
-                                      ["Highest Volume", 10, 100, 5, "%", 70]]
+                                      ["Volume", 10, 100, 5, "%", 40], ["Highest Volume", 10, 100, 5, "%", 70]]
 
 
 def test_the_address_rule_is_the_servers_private_address_rule(run):

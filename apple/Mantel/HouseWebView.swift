@@ -284,7 +284,7 @@ struct HouseWebView: UIViewRepresentable {
                      decisionHandler: @escaping (WKPermissionDecision) -> Void) {
             let mine = type == .microphone && MediaPermission.allowsMicrophone(
                 scheme: origin.protocol, host: origin.host, port: origin.port,
-                house: [parent.house.local, parent.house.remote])
+                house: [parent.house.local, parent.house.remote, parent.start])   // the same addresses isHouse() trusts
             decisionHandler(mine ? .grant : .deny)
         }
 

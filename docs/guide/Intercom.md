@@ -50,7 +50,7 @@ Each room has its own settings:
 |---|---|
 | **On** | Whether the room can be picked at all. |
 | **Live** | Off makes the room Message-only. |
-| **Volume** | **Automatic** (Music Assistant's own announcement level) or a value. It is always capped by the house's **Highest Volume** (70 unless you change it). |
+| **Volume** | **Automatic** (the Intercom's **Volume** in Settings → Intercom, 40 unless you change it) or a value of its own. It is always capped by the house's **Highest Volume** (70 unless you change it). Each speaker goes back to its own volume when the message ends. |
 | **Quiet hours** | The house default (21:00–07:00) or the room's own. A room in its quiet hours is skipped. |
 | **Tablets** | Wall tablets that play the Intercom themselves for a room with no speaker. See [Tablets as listeners](#tablets-as-listeners). |
 
@@ -76,7 +76,9 @@ has its own.
 
    Tap a skipped room to see why.
 2. **Record.** Tap the microphone, talk (up to 30 seconds), and tap it again.
-3. **Play** to hear it back, **Re-record**, **Cancel**, or **Send**.
+   The message is sent as soon as you stop. Afterward you can **Play** it back
+   or **Send Again**. (With no room picked, it waits for you to pick one and
+   press **Send**.)
 
 Every room hears the message at the same moment. Music already playing in a room
 is turned down under it and comes back afterward. A soft chime plays first; you
@@ -87,10 +89,11 @@ Anyway**. The audit log records it.
 
 ### Live
 
-**Live** sends what you say as you speak. Its switch appears on the sheet only
+**Live** sends what you say as you speak. Hold the microphone while you talk, and let go when you're done, like a walkie-talkie. Its switch appears on the sheet only
 when an Owner allows it in Settings. It plays a few seconds behind you, because
 AirPlay buffers and an idle HomePod has to wake up first; the sheet shows the
-measured delay. Live is live only in rooms that are idle when you start. A room
+measured delay. The rooms keep playing for those few seconds after you let go: that's the end
+of what you said, not a second message. Live is live only in rooms that are idle when you start. A room
 playing music, or set to Message-only, hears the whole thing as a message when
 you finish. If a room drops out of Live partway through, it gets the whole
 message when you finish, so nothing you said is lost.

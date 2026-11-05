@@ -356,7 +356,13 @@ class IntercomRelay:
                         return result
                     continue                    # refused (busy, no rooms): the draft stays, the page may try again
                 if kind in ("start", "end") and s.mode == "live":
+                    t0 = loop.time()
                     result = await self.host.live_frame(s, msg)
+                    if kind == "start":
+                        # the talk went on while the start read Music Assistant: that audio waits in the socket and
+                        # comes at once, so the bucket may hold it too (2026-11-05: 49 frames, the first 2 s, dropped)
+                        bucket.cap += (loop.time() - t0) * bucket.fill
+                        bucket.level = bucket.cap
                     if result is not None:
                         return result
                     continue

@@ -113,10 +113,16 @@ def reach(house: House, ma: Mapping[str, dict[str, Any]], pids: Mapping[str, str
     whatever they lead in turn. A player that only FOLLOWS a leader, or is listed by a group player, adds nothing:
     Music Assistant announces to it alone (``_live_members``: "A synced member announced individually is just
     itself"). Music Assistant's ``group_members`` puts the player itself first, but any order counts here."""
-    ha_groups = []                              # Home Assistant's groups, by their leader (no group players: a sync
-    for st in house.states("media_player"):     # group player's own list is its parts, which it doesn't lead)
+    # Home Assistant's groups, by their leader. Not a group player's: its list is its parts, which it doesn't lead, and
+    # its first part leads nothing (2026-11-05: the house's sync group "HomePods" made its first part "lead" every
+    # HomePod, so a whole-house message went to that one room only). A leader's or member's list names itself; a
+    # group player's doesn't.
+    ha_groups = []
+    for st in house.states("media_player"):
         gm = st.attributes.get("group_members") or []
-        if isinstance(gm, (list, tuple)) and len(gm) > 1 and not (ma.get(pids.get(gm[0], "")) or {}).get("group"):
+        if (isinstance(gm, (list, tuple)) and len(gm) > 1 and st.entity_id in gm
+                and not (ma.get(pids.get(st.entity_id, "")) or {}).get("group")
+                and not (ma.get(pids.get(gm[0], "")) or {}).get("group")):
             ha_groups.append([pids.get(m, m) for m in gm if isinstance(m, str)])
     me = pids[player]
     out, todo = {me}, [me]
