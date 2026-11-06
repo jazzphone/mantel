@@ -2463,6 +2463,9 @@ BOARD_DEFAULTS: dict[str, Any] = {
     # Swipe Between Pages (SWIPE_PAGES, 2026-10-30): this screen's own; None,
     # Same as All Screens (menu.swipe_pages)
     "swipe_pages": None,
+    # SWIPE RIGHT ON HOME (2026-11-06, the owner): the page a swipe right on Home goes to -- one of this screen's pages,
+    # put before Home in the swipe's order (hk-pageswipe.js); None: nothing, Home is the first page
+    "swipe_left": None,
     # PHONES' OWN (BOARD_PHONE_MENUS): the menu, the screen's own as `menu`
     # is (None: as before phones had their own, phone_menu()); the button's
     # style and More's rooms, menu settings (MENU_KEYS)
@@ -2713,6 +2716,8 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["tab_bar_labels"] = pick("tab_bar_labels", TAB_BAR_LABELS)
     out["tab_bar_strip"] = d.get("tab_bar_strip") is not False
     out["swipe_pages"] = d.get("swipe_pages") if d.get("swipe_pages") in SWIPE_PAGES else None
+    sl = d.get("swipe_left")
+    out["swipe_left"] = sl if isinstance(sl, str) and VIEW_PATH.match(sl) else None
     out["tab_bar_tabs_rail"] = tab_count(d.get("tab_bar_tabs_rail"))
     out["tab_bar_tabs_phone"] = tab_count(d.get("tab_bar_tabs_phone"), 3, TAB_BAR_TABS_PHONE)
     out["tab_bar_scroll_phone"] = pick("tab_bar_scroll_phone", TAB_BAR_SCROLLS)

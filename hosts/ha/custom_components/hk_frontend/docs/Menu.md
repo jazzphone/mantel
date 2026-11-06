@@ -231,8 +231,9 @@ set its own:
 - **Gestures → Swipe Between Pages**: a sideways swipe on a page goes to the
   next or the previous page, the tab bar's highlight following it.
   **Automatic** (the default): where a tab bar shows, through its tabs left to
-  right; a room or a page under More has none. **On**: on every screen, with
-  no tab bar through the side menu's Home and Categories. **Off**. A swipe
+  right, then on through the pages under **More**, in More's order; a room's
+  page has none. **On**: on every screen, with no tab bar through the side
+  menu's Home, the top of the menu, then Categories. **Off**. A swipe
   that starts on something that moves sideways itself (the scenes row, a
   camera strip, a slider, a block that swipes its pages) is that thing's,
   and one from either edge is the side menu's or the browser's. A Home Grid
@@ -267,7 +268,10 @@ Screen**, with **Reset to All Screens** under it. One setting of its own
 leaves the rest following All Screens. **Reset All to All Screens** takes
 every one of them back. **Swipe Between Pages** sits on the same page, under
 **Gestures**: **Same as All Screens** until chosen, with its own **Reset to
-All Screens**. Whether the screen has a menu, and which, is its own
+All Screens**. Beside it, **Swipe Right on Home** puts one of the screen's
+pages before Home: a swipe right on Home goes there (Music, say, for the
+player full screen), and a swipe left from it comes back. **Nothing** (the
+default) keeps Home first. Whether the screen has a menu, and which, is its own
 either way, set on the screen’s page.
 
 ![A screen’s Menu Settings: the kinds it uses](images/settings-screen-menu.webp)

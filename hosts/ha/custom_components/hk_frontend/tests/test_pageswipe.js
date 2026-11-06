@@ -39,8 +39,19 @@ var nb = X.neighbors(BAR, '/dashboard-hall/lights', here);
 ok('the tab bar\'s tabs, left to right: Lights between Home and Climate', nb.at === 1 && nb.prev === BAR[0] && nb.next === BAR[2]);
 ok('Home is first: nothing before it', X.neighbors(BAR, '/dashboard-hall/0', here).prev === null);
 ok('the last tab: nothing after it (the swipe gives and comes back)', X.neighbors(BAR, '/dashboard-hall/security', here).next === null);
-ok('a page not in the bar -- a room, a page under More -- has no page swipe',
-   X.neighbors(BAR, '/dashboard-hall/room-kitchen', here).at === -1 && X.neighbors(BAR, '/dashboard-hall/weather', here).at === -1);
+ok('a page not in the list -- a room -- has no page swipe', X.neighbors(BAR, '/dashboard-hall/room-kitchen', here).at === -1);
+// (the list is the tab bar's tabs, then More's pages: hkTabBar.pages, test_tabbar.js -- 2026-11-06)
+var MORE = BAR.concat([it('weather', 'Weather'), it('cameras', 'Cameras')]);
+ok('...a page under More is in it, after the last tab: Security to Weather, Weather to Cameras (2026-11-06)',
+   X.neighbors(MORE, '/dashboard-hall/security', here).next === MORE[4] && X.neighbors(MORE, '/dashboard-hall/weather', here).next === MORE[5]);
+print('=== swipe right on Home (2026-11-06) ===');
+var L = X.leftOfHome(MORE, 'cameras');
+ok('the chosen page goes before Home, out of its own place', L.map(function (x) { return x.title; }).join() === 'Cameras,Home,Lights,Climate,Security,Weather');
+ok('...so a swipe right on Home goes there, and one left from it comes back', X.neighbors(L, '/dashboard-hall/0', here).prev === MORE[5] &&
+   X.neighbors(L, '/dashboard-hall/cameras', here).next === MORE[0]);
+ok('none chosen, or a page not in the list (a room, one gone), or Home itself: the order as it was',
+   X.leftOfHome(MORE, null) === MORE && X.leftOfHome(MORE, 'room-kitchen').map(function (x) { return x.title; }).join() === 'Home,Lights,Climate,Security,Weather,Cameras' &&
+   X.leftOfHome(MORE, '0').map(function (x) { return x.title; }).join() === 'Home,Lights,Climate,Security,Weather,Cameras');
 ok('the order as given, untouched by default', X.order({ items: BAR }).map(function (x) { return x.title; }).join() === 'Home,Lights,Climate,Security');
 var PAGES = it('pages', 'Pages');
 var off = P.extend(function (items, ctx) {

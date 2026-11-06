@@ -330,6 +330,41 @@ async function kitchen(browser) {
   await close(t, 'kitchen');
 }
 
+// MORE'S PAGES AND SWIPE RIGHT ON HOME (2026-11-06, the owner: "swipe left and right to all pages except the room pages";
+// "swipe right on the main dashboard screen to a favorite page"): two tabs and the rest under More, Security before Home
+async function more(browser) {
+  const t = await open(browser, 'ps-more'), order = await ps(t, 'order');
+  const tabs = await t.page.evaluate(() => hkTabBar._.state().tabs.map(i => i.path));
+  const seg = (p) => String(p).split('/')[2] || '';
+  assert.equal(seg(order[0].path), 'security', 'more: Swipe Right on Home puts Security first ' + JSON.stringify(order));
+  assert(order.length > tabs.length + 1, 'more: More\'s pages are in the order too ' + JSON.stringify([order, tabs]));
+  const home = order[1].path;
+  // a swipe right on Home goes to Security, and one left from there comes back
+  let s = await ps(t, 'spot', 0.5);
+  const r1 = right(s);
+  await swipe(t, r1.a, r1.b);
+  assert.equal(await landed(t, order[0].path), order[0].path, 'more: a swipe right on Home goes to Security ' + JSON.stringify(await ps(t, 'diag')));
+  s = await ps(t, 'spot', 0.5);
+  const l1 = left(s);
+  await swipe(t, l1.a, l1.b);
+  assert.equal(await landed(t, home), home, 'more: and a swipe left from it comes back Home');
+  // from the tab furthest along (Security, a tab, moved before Home) a swipe left goes on to More's first page
+  const at = Math.max(...tabs.map(p => order.findIndex(o => o.path === p))), lastTab = order[at].path;
+  assert(at > 0 && order[at + 1], 'more: a page after the last tab ' + JSON.stringify([order, tabs]));
+  await t.page.goto(input.origin + lastTab);
+  await t.page.waitForFunction(() => window.__mantelReady === true && window.hkPageSwipe && window.hkTabBar && window.hkTabBar.pages, null, { timeout: 30000 });
+  await t.page.evaluate(HELP);
+  await t.page.waitForTimeout(2500);
+  s = await ps(t, 'spot', 0.5);
+  const l2 = left(s);
+  await swipe(t, l2.a, l2.b);
+  const want = order[at + 1].path;
+  assert.equal(await landed(t, want), want, 'more: a swipe left on the last tab goes to More\'s first page ' + JSON.stringify(await ps(t, 'diag')));
+  await shot(t, 'more');
+  await close(t, 'more');
+  return order.length + ' pages, ' + tabs.length + ' tabs';
+}
+
 (async () => {
   const browser = await pw[input.engine].launch({ headless: true, ...(input.engine === 'chromium' ? { executablePath: input.chrome } : {}) });
   let failed = 0;
@@ -344,6 +379,7 @@ async function kitchen(browser) {
     if (TABLET && W > H) await run('kitchen', kitchen);
     await run('menu', menu);
     await run('off', off);
+    await run('more', more);
   } finally { await browser.close(); }
   process.exit(failed ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

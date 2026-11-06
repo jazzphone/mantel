@@ -72,6 +72,8 @@ def house(gallery) -> None:
     b['ps-bar'] = {**home, **base, 'menu': 'tabbar', 'menu_phone': 'tabbar'}
     b['ps-rail'] = {**b['ps-bar'], 'tab_bar_pos': 'left'}
     b['ps-off'] = {**b['ps-bar'], 'swipe_pages': 'off'}
+    # two tabs, the rest of the pages under More, and Swipe Right on Home on Security (2026-11-06)
+    b['ps-more'] = {**b['ps-bar'], 'tab_bar_tabs': 2, 'tab_bar_tabs_rail': 2, 'tab_bar_tabs_phone': 2, 'swipe_left': 'security'}
     b['ps-menu'] = {**home, **base, 'menu': 'auto', 'menu_phone': 'button', 'swipe': True, 'swipe_pages': 'on'}
     wall = gallery.wall_display()
     grid = dict(wall['home_grid'])

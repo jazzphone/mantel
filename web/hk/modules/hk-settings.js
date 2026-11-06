@@ -837,6 +837,12 @@
     var h = get('menu.swipe_pages', 'auto');
     return SWIPE_PAGES.indexOf(h) >= 0 ? h : 'auto';
   }
+  // SWIPE RIGHT ON HOME (2026-11-06): the view path of the page this screen puts before Home in the swipe's order, or
+  // null (hk-pageswipe.js)
+  function swipeLeft() {
+    var b = boardHere(), v = b ? b.swipe_left : null;
+    return typeof v === 'string' && /^[A-Za-z0-9_.-]{1,60}$/.test(v) ? v : null;
+  }
   // A PAGE'S BACKGROUND (Sky / Background -> Pages): this screen's choice
   // for the page, else All Screens', else null (Automatic: a page with a
   // color of its own keeps it, the rest show the live sky). `key`: a page
@@ -1814,7 +1820,7 @@
     skyLook: skyLook,
     ladderSignature: ladderSignature,
     pagesScreen: pagesScreen,
-    swipePages: swipePages,
+    swipePages: swipePages, swipeLeft: swipeLeft,
     reducedMotion: reducedMotion,
     pageSky: pageSky,
     flatBackground: flatBackground,

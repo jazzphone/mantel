@@ -210,6 +210,18 @@ def test_a_screens_and_a_tablets_changes():
     assert C.apply_tablet({}, {"sleep": {"decided_by": "nobody"}}, "hall")[1] == {"sleep": "sleep"}
 
 
+def test_swipe_right_on_home_is_a_screens_page_or_nothing():
+    """Swipe Right on Home (2026-11-06, the owner): a screen's swipe_left, one of its pages (a view path) put before Home
+    in the swipe's order, or None."""
+    assert M.board({})["swipe_left"] is None
+    b, err = C.apply_board({}, {"swipe_left": "playmusic"})
+    assert err == {} and M.board(b)["swipe_left"] == "playmusic"
+    assert C.apply_board(b, {"swipe_left": None})[0].get("swipe_left") is None
+    assert C.apply_board({}, {"swipe_left": "../x"})[1] == {"swipe_left": "view"}
+    assert C.apply_board({}, {"swipe_left": 3})[1] == {"swipe_left": "view"}
+    assert M.board({"swipe_left": "bad path"})["swipe_left"] is None
+
+
 def test_swipe_between_pages_all_screens_and_a_screens_own():
     """Swipe Between Pages (docs/phase11/HOMEVIEW-LOOK.md, Phase 0, 2026-10-30): All Screens' menu.swipe_pages,
     Automatic unless chosen; a screen's swipe_pages, None (Same as All Screens) unless chosen. Nothing saved

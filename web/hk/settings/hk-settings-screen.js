@@ -744,7 +744,21 @@
           rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.SWIPE_PAGES, house) + ')', sk: 'b:swipe_pages:reset',
             onClick: function () { self.setB(x.path, { swipe_pages: null }); } }));
         }
-        c.appendChild(K.group({ header: 'Gestures', footer: M.SWIPE_PAGES_SAYS[cur] + ' A row, a slider or a block that swipes keeps its own swipe.' }, rows));
+        // SWIPE RIGHT ON HOME (2026-11-06, the owner): one of this screen's pages, before Home in the swipe's order
+        var pages = b && x ? (x.menu_layout || []).filter(function (it) { return it && it.path; }) : [];
+        var left = b && pages.some(function (it) { return it.path === b.swipe_left; }) ? b.swipe_left : '';
+        if (b && pages.length) {
+          rows.push(K.select({ label: 'Swipe Right on Home', sk: 'b:swipe_left', value: left,
+            options: [['', 'Nothing']].concat(pages.map(function (it) { return [it.path, it.title || it.path]; })),
+            disabled: cur === 'off',
+            onChange: function (v) { return self.setB(x.path, { swipe_left: v || null }); } }));
+        }
+        var says = M.SWIPE_PAGES_SAYS[cur] + ' A row, a slider or a block that swipes keeps its own swipe.';
+        if (b && pages.length && cur !== 'off') {
+          says += left ? ' A swipe right on Home goes to ' + (pages.filter(function (it) { return it.path === left; })[0].title || left) + '.'
+            : ' Swipe Right on Home can put one of this screen’s pages before Home.';
+        }
+        c.appendChild(K.group({ header: 'Gestures', footer: says }, rows));
       }
       // A SCREEN THAT FOLLOWS ALL SCREENS: what it takes from them, in place,
       // then the one way to change them -- the same on every page (Cameras,

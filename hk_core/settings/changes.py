@@ -1062,6 +1062,15 @@ def _views(v: Any) -> list[str]:
     return list(dict.fromkeys(v))
 
 
+def _view_or_none(v: Any) -> str | None:
+    """One view path (a page of the screen), or None."""
+    if v is None or v == "":
+        return None
+    if not isinstance(v, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,60}", v):
+        raise Invalid("view")
+    return v
+
+
 def _chips_extra(v: Any) -> list[str]:
     """A screen's own chips: entities, and the Intercom chip it adds from More."""
     got = _entities()([x for x in v if x != "intercom"] if isinstance(v, list) else v)
@@ -1189,6 +1198,8 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "tab_bar_tabs_phone": lambda v: _tabs(v, S.TAB_BAR_TABS_PHONE),
     # Swipe Between Pages, this screen's own; None: Same as All Screens
     "swipe_pages": _choice(S.SWIPE_PAGES, none=True),
+    # the page a swipe right on Home goes to; None: none
+    "swipe_left": _view_or_none,
     "menu_phone": _choice(S.BOARD_PHONE_MENUS, none=True),
     "button_phone": _choice(S.BOARD_BUTTON_PHONE),
     "tab_bar_rooms_phone": lambda v: _rooms_place(v),

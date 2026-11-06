@@ -505,8 +505,8 @@
   var SKY_MOVING = [['behind', 'Behind the Cards'], ['front', 'In Front of the Cards']];
   // SWIPE BETWEEN PAGES (menu.swipe_pages / a screen's swipe_pages; hk-pageswipe.js)
   var SWIPE_PAGES = [['auto', 'Automatic'], ['on', 'On'], ['off', 'Off']];
-  var SWIPE_PAGES_SAYS = { auto: 'Where a tab bar shows, a sideways swipe goes to the next or the previous tab’s page.',
-                           on: 'A sideways swipe goes to the next or the previous page: the tab bar’s, or the side menu’s Home and Categories.',
+  var SWIPE_PAGES_SAYS = { auto: 'Where a tab bar shows, a sideways swipe goes to the next or the previous page: the tabs’, then More’s. Not on a room’s page.',
+                           on: 'A sideways swipe goes to the next or the previous page: the tab bar’s and More’s, or the side menu’s. Not on a room’s page.',
                            off: 'Pages change only from the menu or the tab bar.' };
   // the daytime sky's brightness (sky.daytime, settings.py DAYTIME_SKIES)
   var DAYTIME_SKIES = [['natural', 'Natural'], ['balanced', 'Balanced'], ['deep', 'Deep']];
@@ -1840,6 +1840,7 @@
     ['Back Button & Title', 'screen', 'page_header', 'page header back title context navigation compact hide', true],
     ['Menu Options', 'screen', 'menu_own', 'menu settings same as all screens own menu this screen side menu edge tab tab bar', true],
     ['Swipe Between Pages', 'screen/menu', 'swipe_pages', 'swipe gesture next previous page sideways tab bar homeview same as all screens', true],
+    ['Swipe Right on Home', 'screen/menu', 'swipe_left', 'swipe right home left page before home favorite music now playing gesture', true],
     ['Menu on Each Screen', 'house/menu', 'menu:screens', 'menu each screen tablets phones which kind button tab bar always open'],
     ['Side Menu', 'house/menu/side', 'menu:side', 'side menu drawer button always open docked used by'],
     ['Edge Tab', 'house/menu/edge-tab', 'menu:edge-tab', 'edge tab position size used by'],

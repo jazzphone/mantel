@@ -372,9 +372,9 @@ var railA = { x: 5, y: 40, w: 62, h: 60, pos: 'left' }, railB = { x: 5, y: 110, 
 var rq = bw(railA, railB, 0.25);
 ok('down a rail (the side strip\'s too): it moves down, not along', rq.x === 5 && rq.y === 57.5 && ofs(rq, railA).hy === 17.5 &&
    ofs(rq, railA).hx === 0);
-ok('the page swipe reads the bar\'s own tabs, in order -- More is not a page -- and the menu\'s Home and Categories with no bar',
-   /function swipePages\(\) \{\s*if \(S\.on\) return \{ bar: true, items: S\.tabs\.slice\(\) \};/.test(tbSrc) &&
-   /\[m\.home\]\.concat\(m\.categories\)/.test(tbSrc) && /window\.hkTabBar\.pages = swipePages/.test(tbSrc));
+ok('the page swipe reads the bar\'s tabs, then More\'s pages (never its rooms: S.rooms), and with no bar the menu\'s Home, Pages, top and Categories (2026-11-06)',
+   /function swipePages\(\) \{\s*if \(S\.on\) return \{ bar: true, items: S\.tabs\.concat\(S\.more \|\| \[\]\) \};/.test(tbSrc) &&
+   /\[m\.home, m\.pages\]\.concat\(m\.top \|\| \[\], m\.categories \|\| \[\]\)/.test(tbSrc) && /window\.hkTabBar\.pages = swipePages/.test(tbSrc));
 ok('follow() is not drawn folded, too tight, or with Reduce Motion (it jumps as it lands)',
    /function follow\(k, path\) \{\s*if \(!S\.on \|\| S\.mode !== 'full' \|\| S\.tight \|\| calm\(\)\) return false;/.test(tbSrc));
 ok('...it holds the highlight where it is, so the landing starts there', /S\.hereBox = box;/.test(tbSrc) && /classList\.add\('slide-from'\)/.test(tbSrc));

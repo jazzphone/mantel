@@ -1617,15 +1617,15 @@
       window.dispatchEvent(new CustomEvent('hk-page-navigation'));
     }
     // ------------------------------------------------ swipe between pages
-    // THE PAGES A SWIPE MOVES THROUGH (hk-pageswipe.js, the owner's decision
-    // 8, 2026-10-30): the bar's tabs, left to right as it shows them (More
-    // is not a page); with no bar, the side menu's order -- Home, then its
-    // Categories
+    // THE PAGES A SWIPE MOVES THROUGH (hk-pageswipe.js): the bar's tabs, left to right as it shows them, then More's
+    // pages in More's order (2026-11-06, the owner: "swipe left and right to all pages except the room pages"; decision
+    // 8 of 2026-10-30 stopped at the last tab). Rooms are never in it. With no bar, the side menu's order -- Home, the
+    // Pages screen, the top of the menu, then its Categories.
     function swipePages() {
-      if (S.on) return { bar: true, items: S.tabs.slice() };
+      if (S.on) return { bar: true, items: S.tabs.concat(S.more || []) };
       if (!M.config()) return { bar: false, items: [] };
       var m = model();
-      return { bar: false, items: [m.home].concat(m.categories).filter(Boolean) };
+      return { bar: false, items: [m.home, m.pages].concat(m.top || [], m.categories || []).filter(Boolean) };
     }
     function tabOf(path) {
       var at = -1;

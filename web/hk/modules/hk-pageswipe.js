@@ -11,12 +11,14 @@
 // it comes in, with the finger (skyFade); a tap on a tab still cuts to it. A
 // press on the empty screen under a page shorter than it is the page's too.
 //
-// THE ORDER (the owner's decision 8): the tab bar's tabs, left to right as it
-// shows them (More is not a page); on a page that isn't in it -- a room, a
-// page under More -- no page swipe. With no tab bar, the side menu's order:
-// Home, then its Categories (hkTabBar.pages()). Others put pages in it with
-// hkPageSwipe.extend(fn): fn(items, ctx) gives the list back, changed (the
-// Pages screen goes right after Home).
+// THE ORDER: the tab bar's tabs, left to right as it shows them, then More's
+// pages in More's order (2026-11-06, the owner; decision 8 had stopped at the
+// last tab); on a room's page, no page swipe. With no tab bar, the side
+// menu's order: Home, the top of the menu, then its Categories
+// (hkTabBar.pages()). A screen's Swipe Right on Home (swipe_left,
+// hkSettings.swipeLeft) puts one of its pages before Home. Others put pages
+// in it with hkPageSwipe.extend(fn): fn(items, ctx) gives the list back,
+// changed (the Pages screen goes right after Home).
 //
 // WHEN: the screen's Swipe Between Pages (hkSettings.swipePages(): its own
 // swipe_pages, else All Screens' menu.swipe_pages) -- Automatic is on where a
@@ -163,8 +165,21 @@
   function list() {
     var T = window.hkTabBar, p = { bar: false, items: [] };
     try { if (T && T.pages) p = T.pages() || p; } catch (e) { /* not drawn yet */ }
-    return order({ items: p.items || [], bar: !!p.bar, board: board(), path: location.pathname,
-                   pagesScreen: pagesScreen() });
+    var S = window.hkSettings, left = null;
+    try { left = S && S.swipeLeft ? S.swipeLeft() : null; } catch (e) { left = null; }
+    return leftOfHome(order({ items: p.items || [], bar: !!p.bar, board: board(), path: location.pathname,
+                              pagesScreen: pagesScreen() }), left);
+  }
+  // SWIPE RIGHT ON HOME (2026-11-06): the screen's chosen page, moved from where it is to before Home (the list's first);
+  // not one of the list's pages (a room, a page gone), nothing changes
+  function leftOfHome(items, seg) {
+    if (!seg || !Array.isArray(items) || items.length < 2) return items;
+    var at = -1;
+    items.forEach(function (it, i) { if (at < 0 && i > 0 && it && viewSeg(it.path) === seg) at = i; });
+    if (at < 0) return items;
+    var out = items.slice(), it = out.splice(at, 1)[0];
+    out.unshift(it);
+    return out;
   }
   function viewSlot() {
     var S = SH(), M = menu();
@@ -1220,7 +1235,7 @@
     takes: takes,
     arm: arm,
     plan: plan,
-    _: { enabled: enabled, order: order, neighbors: neighbors, atEdge: atEdge, travel: travel, lands: lands, speed: speed,
+    _: { enabled: enabled, order: order, leftOfHome: leftOfHome, neighbors: neighbors, atEdge: atEdge, travel: travel, lands: lands, speed: speed,
          viewSeg: viewSeg, ghost: ghost, slow: slow, park: park,
          NUMBERS: { EDGE: EDGE, START: START, RATIO: RATIO, TURN: TURN, FLICK: FLICK, FLICK_MIN: FLICK_MIN, GIVE: GIVE,
                     STANDARD_MS: STANDARD_MS, FADE_MS: FADE_MS, SLOW_FPS: SLOW_FPS, REST: REST },
