@@ -196,7 +196,8 @@
         "PANEL_TURN",
         "SAMPLE_ART",
         "previewMusicData",
-        "musicParts"
+        "musicParts",
+        "layoutMusicView"
       ]
     },
     {

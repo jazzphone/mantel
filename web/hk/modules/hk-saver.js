@@ -146,7 +146,7 @@
       drawnRect, elapsed, energyPage, EX_PREVIEW_MS, EXTRA_ORDER, extrasOf, FACE_SHOWS, faceOrigin, facesModule,
       faceWindow, FC_TICK_MS, feedCard, faceScale, fitOf, FOCUS_F, framed, fromSettings, gate, glyphBox, go, held, hkBoard,
       hkUnheard, hostPhotoList, hostPhotoSource, houseBlock, inkOf, INKS, isFlat, isImage, kiosk, LANDSCAPES,
-      landShares, layoutOf, load, minsOf, mmss, MOSAIC_COLORS, mosaicAssign, mosaicPlan, MOSAICS, MU_BG, MU_GRACE,
+      landShares, layoutOf, layoutMusicView, load, minsOf, mmss, MOSAIC_COLORS, mosaicAssign, mosaicPlan, MOSAICS, MU_BG, MU_GRACE,
       MU_SLOP, muGrace, mus, musicHas, musicNow, musicOf, musicPage, musicPaneView, musicParts, musicPlaying, musicUsed, previewMusicData, previewPaneOf,
       musicView, nextArt, PANE_OWN, PANE_VARS, panel, PANEL_IDLE, PANEL_TURN, paneOf, photoLum, photoOpts, photoUrl,
       pieceFile, piecesStarted, progress, rampBacklight, readCfg, reducedMotion, refreshSoon, rememberedTabletId,
@@ -3205,93 +3205,10 @@
     // over the forecast: back to it
     if (mode === 'forecast' && root && root.querySelector('.fc')) { reveal(root.querySelector('.fc'), false); forecastTick(true); }
   }
-  // The text column below the clock, the weather and the date: what does
-  // not fit goes, Up Next first, then the album
+  // The music module lays out the current view with the shell's live frame.
   function layoutMusic() {
-    var v = slideView();
-    if (!v || !host || !root) return;
-    host.style.setProperty('--hk-mu-z', String(scaleOf()));
-    var col = v.el.querySelector('.mcol'), info = root.querySelector('.info');
-    if (!col || !info || !v.el.getBoundingClientRect().width) return;
-    var body = v.el.querySelector('.mbody'), area = body.getBoundingClientRect();
-    col.style.removeProperty('bottom');
-    var H = area.height, W = area.width, top = area.top;
-    // Use the slide's available area, including the space a left or right pane
-    // takes. A tablet beside a pane often needs the same stack as an upright
-    // screen, with a scale suited to its shorter column.
-    var beside = host.hasAttribute('pane') && !host.hasAttribute('band');
-    var narrow = H > W * (beside ? 0.74 : 1.05);
-    var row = beside && narrow && W >= 620 && H >= 620, up = narrow && !row;
-    var zs = Math.max(0.45, row ? Math.min(1.25, W / 780, H / 820) : up ? Math.min(W / 820, H / 1180) : Math.min(W / 1280, H / 800));
-    host.style.setProperty('--hk-mu-zs', String(Math.round(zs * 100) / 100));
-    setAttr(host, 'muup', up);
-    setAttr(host, 'murow', row);
-    // (under the slide corner, its words: the old corner cards are hidden under every slide now, phase 13)
-    var over = scn && host.hasAttribute('scorner') ? [].slice.call(scn.tl.children).concat([].slice.call(scn.tr.children)) : info.children;
-    Array.prototype.forEach.call(over, function (c) {
-      if (c.tagName === 'STYLE' || c.style.display === 'none') return;
-      var r = c.getBoundingClientRect();
-      if (r.height > 0 && r.top < area.top + H / 2 && r.right > area.left && r.left < area.right) top = Math.max(top, r.bottom);
-    });
-    var room = top + Math.round((row ? 56 : 24) * zs), m = Math.round(row ? 60 * zs : Math.min(W, H) * 0.06);
-    host.style.setProperty('--hk-mu-top', (room - area.top) + 'px');
-    if (row) {
-      var stage = v.el.querySelector('.mstage'), pad = 56 * zs, width = W - 2 * pad;
-      var height = Math.max(0, area.bottom - m - room), a = Math.min(W * 0.38, H * 0.36, width * 0.48);
-      host.style.setProperty('--hk-mu-stage-x', pad + 'px');
-      host.style.setProperty('--hk-mu-stage-w', width + 'px');
-      host.style.setProperty('--hk-mu-stage-h', height + 'px');
-      body.style.setProperty('--a', a + 'px');
-      var rowOverflow = function () {
-        var bottom = stage.getBoundingClientRect().bottom, excess = 0;
-        // Measure the rows themselves: the volume knob intentionally reaches
-        // outside its thin track and must not make otherwise fitting text vanish.
-        ['.mart', '.mmeta', '.mprog', '.mctl', '.mnext'].forEach(function (sel) {
-          var rect = stage.querySelector(sel).getBoundingClientRect();
-          if (rect.height) excess = Math.max(excess, rect.bottom - bottom);
-        });
-        return excess;
-      };
-      for (var r2 = 0; r2 <= 2; r2++) {
-        v.el.setAttribute('tight', String(r2));
-        if (rowOverflow() <= 1) break;
-      }
-      // Very tall corner widgets leave less room. Keep the controls in view
-      // while the cover and its centered text block continue sharing a row.
-      var extra = rowOverflow();
-      if (extra) body.style.setProperty('--a', Math.max(v.el.querySelector('.mmeta').getBoundingClientRect().height, a - extra) + 'px');
-      return;
-    }
-    // UPRIGHT: the art under the corner, the song and its buttons under the art (an iPhone's Now Playing): what does
-    // not fit goes, Up Next first, then the album, then the art smaller
-    if (up) {
-      body.style.removeProperty('--a');
-      for (var u2 = 0; u2 <= 4; u2++) {
-        v.el.setAttribute('tight', String(Math.min(2, u2)));
-        if (u2 > 2) body.style.setProperty('--a', 'min(' + (84 - (u2 - 2) * 12) + 'cqw,' + (36 - (u2 - 2) * 7) + 'cqh)');
-        if (col.getBoundingClientRect().bottom <= area.bottom - m) break;
-      }
-      return;
-    }
-    body.style.removeProperty('--a');
-    for (var t = 0; t <= 2; t++) {
-      v.el.setAttribute('tight', String(t));
-      // The transport shares the cover's bottom edge. Up Next hangs below
-      // that edge without moving the song and controls when it comes or goes.
-      var artBottom = v.el.querySelector('.mart').getBoundingClientRect().bottom;
-      var ctl = col.querySelector('.mctl').getBoundingClientRect();
-      var progress = col.querySelector('.mprog').getBoundingClientRect();
-      var times = col.querySelector('.mtimes').getBoundingClientRect();
-      var end = ctl.height ? ctl.bottom : progress.height ? Math.max(progress.bottom, times.bottom) : col.querySelector('.mmeta').getBoundingClientRect().bottom;
-      Array.prototype.forEach.call(col.querySelectorAll('.mvol svg'), function (el) {
-        var r = el.getBoundingClientRect();
-        if (r.height && getComputedStyle(el).visibility !== 'hidden') end = Math.max(end, r.bottom);
-      });
-      var tail = col.getBoundingClientRect().bottom - end;
-      col.style.bottom = (area.bottom - artBottom - tail) + 'px';
-      var fitted = col.getBoundingClientRect();
-      if (fitted.top >= room && fitted.bottom <= area.bottom - m) break;
-    }
+    if (!host || !root) return;
+    layoutMusicView(slideView(), host, root, scn, scaleOf());
   }
   // OVER THE FORECAST, the house decides: the slide while music plays, the
   // forecast again MU_GRACE after it stops. Every view follows the house.
@@ -4150,7 +4067,7 @@
     glyphBox = K.glyphBox; go = K.go; held = K.held; hkBoard = K.hkBoard; hkUnheard = K.hkUnheard;
     hostPhotoList = K.hostPhotoList; hostPhotoSource = K.hostPhotoSource; houseBlock = K.houseBlock; inkOf = K.inkOf;
     INKS = K.INKS; isFlat = K.isFlat; isImage = K.isImage; kiosk = K.kiosk; LANDSCAPES = K.LANDSCAPES;
-    landShares = K.landShares; layoutOf = K.layoutOf; load = K.load; minsOf = K.minsOf; mmss = K.mmss;
+    landShares = K.landShares; layoutOf = K.layoutOf; layoutMusicView = K.layoutMusicView; load = K.load; minsOf = K.minsOf; mmss = K.mmss;
     MOSAIC_COLORS = K.MOSAIC_COLORS; mosaicAssign = K.mosaicAssign; mosaicPlan = K.mosaicPlan; MOSAICS = K.MOSAICS;
     MU_BG = K.MU_BG; MU_GRACE = K.MU_GRACE; MU_SLOP = K.MU_SLOP; muGrace = K.muGrace; mus = K.mus;
     previewMusicData = K.previewMusicData; previewPaneOf = K.previewPaneOf; musicParts = K.musicParts; musicHas = K.musicHas; musicNow = K.musicNow; musicOf = K.musicOf; musicPage = K.musicPage;
