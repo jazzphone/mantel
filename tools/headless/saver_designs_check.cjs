@@ -6,9 +6,14 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8')), [W,H] = input.size.split('
   const ctx=await browser.newContext({viewport:{width:W,height:H},hasTouch:true});
   await ctx.addCookies([{name:'mantel_session',value:input.cookie,url:input.origin}]);
   await ctx.route('**/*',r=>new URL(r.request().url()).origin===input.origin?r.continue():r.abort());
-  const page=await ctx.newPage(),errors=[],musicCalls=[];page.on('websocket',ws=>ws.on('framesent',e=>{try{const m=JSON.parse(e.payload);if(m.type==='call_service'&&['media_player','music_assistant'].includes(m.domain))musicCalls.push(m);}catch{}}));page.on('pageerror',e=>{if(!/ResizeObserver loop/.test(e.message))errors.push(e.message);});
+  // WebKit reports a canceled fetch from a discarded preview frame as an
+  // access-control page error. Limit that exception to this server's map asset;
+  // the active World preview must still load real coastline data below.
+  const cancelledMap=message=>/due to access control checks\.?$/.test(message)&&message.includes(new URL(input.origin).host+'/hk/data/world-land.json');
+  const page=await ctx.newPage(),errors=[],musicCalls=[];page.on('websocket',ws=>ws.on('framesent',e=>{try{const m=JSON.parse(e.payload);if(m.type==='call_service'&&['media_player','music_assistant'].includes(m.domain))musicCalls.push(m);}catch{}}));page.on('pageerror',e=>{if(!/ResizeObserver loop/.test(e.message)&&!cancelledMap(e.message))errors.push(e.message);});
   const E=(fn,arg)=>page.evaluate(`(()=>{const deep=(r,s)=>[...r.querySelectorAll('*')].flatMap(e=>[...(e.matches(s)?[e]:[]),...(e.shadowRoot?deep(e.shadowRoot,s):[])]);const ed=deep(document,'hk-saver-editor')[0];return ed&&ed.ui?(${fn})(ed,ed.shadowRoot,${JSON.stringify(arg??null)}):null;})()`);
   const until=async(fn,arg,ms=25000)=>{for(let n=0;n<ms;n+=150){let v;try{v=await E(fn,arg);}catch(e){if(!/Execution context was destroyed/.test(e.message))throw e;}if(v)return v;await page.waitForTimeout(150);}throw new Error('Timed out: '+fn+' '+JSON.stringify({errors,context:await E(ed=>({style:ed.opts.clock_style,config:ed.saver()?.config(),status:ed.saver()?.previewStatus()}))}));};
+  const coastlines=()=>until(ed=>{const ready=r=>[...r.querySelectorAll('*')].some(e=>(e.matches('canvas[data-hk-saver-control=globe]')&&e.dataset.coastlines==='ready')||(e.shadowRoot&&ready(e.shadowRoot)));return ready(ed.iframe.contentDocument);});
   const shot=async name=>{if(input.shots)await page.screenshot({path:input.shots+'/'+input.engine+'-'+W+'-'+name+'.png'});};
   const previewCases=async()=>{
     const original=await E(ed=>ed.opts);
@@ -19,11 +24,11 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8')), [W,H] = input.size.split('
     };
     for(const style of ['prism','world']){
       await E((ed,sr,style)=>{const library=ed.opts.designs,active=ed.opts.active_design;ed.change(o=>{Object.assign(o,hkSaverDesigns.preset(o,style));o.designs=library;o.active_design=active;});},style);
-      await visible(style);
+      await visible(style);if(style==='world')await coastlines();
       for(let i=0;i<12;i++){
         await E((ed,sr,[style,i])=>ed.change(o=>{o.clock_options={...o.clock_options,...(style==='world'?{rotation:-180+i*30}:{prism_style:['glass','outline','solid'][i%3]})};}),[style,i]);
         assert(await E((ed,sr,style)=>{const r=ed.iframe.contentDocument.querySelector('hk-screensaver')?.shadowRoot;return !!r?.querySelector('.lybig:not(.measuring) .df.'+style);},style),'option updates retain a visible '+style+' face immediately');
-        await visible(style);await page.waitForTimeout(180);
+        await visible(style);if(style==='world')await coastlines();await page.waitForTimeout(180);
         await checkInk(style);
         if(style==='prism'&&i%3===1)assert(await E(ed=>{const n=ed.iframe.contentDocument.querySelector('hk-screensaver').shadowRoot.querySelector('.df.prism .design-time');return ed.iframe.contentWindow.getComputedStyle(n).webkitTextStrokeColor!=='rgba(0, 0, 0, 0)';}),'Prism outline has a visible stroke');
       }
@@ -142,6 +147,7 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8')), [W,H] = input.size.split('
   for(const style of ['solar','prism','world','hotel','terminal','atelier','meridian','markets','brief','modular']){
     await E((ed,sr,style)=>{ed.change(o=>{const library=o.designs,active=o.active_design;Object.assign(o,hkSaverDesigns.preset(o,style));o.designs=library;o.active_design=active;o.clock_options={...o.clock_options,market_entities:['sensor.test_market'],news_entity:'sensor.test_news'};});ed.select('look');},style);
     await until((ed,sr,style)=>{const deep=r=>[...r.querySelectorAll('*')].some(e=>e.matches('.df.'+style)||(e.shadowRoot&&deep(e.shadowRoot)));return deep(ed.iframe.contentDocument);},style);
+    if(style==='world')await coastlines();
     await page.waitForTimeout(1600);
     const visible=await E(ed=>{const out=[];const deep=r=>[...r.querySelectorAll('*')].forEach(e=>{if(e.matches('.df')&&e.getBoundingClientRect().width>0)out.push(e.className);if(e.shadowRoot)deep(e.shadowRoot);});deep(ed.iframe.contentDocument);return out;});
     assert.equal(visible.length,1,style+': one actual face on screen '+JSON.stringify(visible));
