@@ -549,3 +549,11 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Mantel on the LXC reconnected to Home Assistant and was still healthy a minute later (68 s).
 - Published to jazzphone/hk-frontend main as `bcfb99d`, tagged `v1.47.0` and released on GitHub.
 - The Wiki had no changes.
+
+## Mantel 0.1.140 (2026-11-05)
+
+- Mantel 0.1.140, release commit `c7ccea8`, tagged `v0.1.140`; the LXC 0.1.139 -> 0.1.140 (build `bf004d1d68762c4d`).
+- Images run 42159025085 (stage=images), promote run 42159622561, GitHub Release `v0.1.140`.
+- Strict health 200, all services healthy, mantel-server built from `c7ccea8`, Home Assistant connected for 63 s; no "Traceback" or "ERROR" in Mantel's log.
+- Linux suite passed.
+- Times: preflight 4 s, release commit on main 29 s, images run started 4 s, images built and pushed 226 s, the LXC updated and healthy 145 s, Linux suite passed 2 s, tagged 2 s, promoted (latest, ha-apps) 98 s, GitHub Release 1 s; 8.5 minutes in all.
